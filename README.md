@@ -1,1 +1,1 @@
-Bazel - a scalable build tool that supports hermetic, reproducible builds.
+Bazel - a scalable build tool that aims to support hermetic, reproducible builds.
