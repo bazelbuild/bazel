@@ -10,20 +10,6 @@ Then run:
 
 We are working on bootstrapping bazel with itself.
 
-
-* Workspace setup
-
-You will need to add some infrastructure to your workspace to run bazel:
-
-tools/genrule/genrule-setup.sh
-tools/genrule/BUILD
-tools/test/test-setup.sh
-tools/test/BUILD
-tools/BUILD
-tools/defaults/BUILD
-
-We are still in the process of figuring out how to ship these files.
-
 * Running Bazel
 
 Create a google3 directory.  This is your package root where all of your builds
