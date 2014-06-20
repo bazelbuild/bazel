@@ -1,0 +1,112 @@
+// Copyright 2014 Google Inc. All rights reserved.
+//
+// Licensed under the Apache License, Version 2.0 (the "License");
+// you may not use this file except in compliance with the License.
+// You may obtain a copy of the License at
+//
+//    http://www.apache.org/licenses/LICENSE-2.0
+//
+// Unless required by applicable law or agreed to in writing, software
+// distributed under the License is distributed on an "AS IS" BASIS,
+// WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+// See the License for the specific language governing permissions and
+// limitations under the License.
+
+package com.google.devtools.build.lib.view.test;
+
+import com.google.common.collect.ImmutableList;
+import com.google.devtools.build.lib.actions.Artifact;
+import com.google.devtools.build.lib.concurrent.ThreadSafety.Immutable;
+import com.google.devtools.build.lib.packages.TestTimeout;
+import com.google.devtools.build.lib.view.TransitiveInfoProvider;
+
+import java.util.List;
+
+/**
+ * A {@link TransitiveInfoProvider} for configured targets that implement test rules.
+ */
+@Immutable
+public final class TestProvider implements TransitiveInfoProvider {
+  private final TestParams testParams;
+  private final ImmutableList<String> testTags;
+
+  public TestProvider(TestParams testParams, ImmutableList<String> testTags) {
+    this.testParams = testParams;
+    this.testTags = testTags;
+  }
+
+  /**
+   * Returns the {@link TestParams} object for the test represented by the corresponding configured
+   * target.
+   */
+  public TestParams getTestParams() {
+    return testParams;
+  }
+
+  /**
+   * Temporary hack to allow dependencies on test_suite targets to continue to work for the time
+   * being.
+   */
+  public List<String> getTestTags() {
+    return testTags;
+  }
+
+  /**
+   * A value class describing the properties of a test.
+   */
+  public static class TestParams {
+    private final int runs;
+    private final int shards;
+    private final TestTimeout timeout;
+    private final String testRuleClass;
+    private final ImmutableList<Artifact> testStatusArtifacts;
+
+    /**
+     * Don't call this directly. Instead use {@link TestHelper}.
+     */
+    TestParams(int runs, int shards, TestTimeout timeout, String testRuleClass,
+        ImmutableList<Artifact> testStatusArtifacts) {
+      this.runs = runs;
+      this.shards = shards;
+      this.timeout = timeout;
+      this.testRuleClass = testRuleClass;
+      this.testStatusArtifacts = testStatusArtifacts;
+    }
+
+    /**
+     * Returns the number of times this test should be run.
+     */
+    public int getRuns() {
+      return runs;
+    }
+
+    /**
+     * Returns the number of shards for this test.
+     */
+    public int getShards() {
+      return shards;
+    }
+
+    /**
+     * Returns the timeout of this test.
+     */
+    public TestTimeout getTimeout() {
+      return timeout;
+    }
+
+    /**
+     * Returns the test rule class.
+     */
+    public String getTestRuleClass() {
+      return testRuleClass;
+    }
+
+    /**
+     * Returns a list of test status artifacts that represent serialized test status protobuffers
+     * produced by testing this target.
+     */
+    public ImmutableList<Artifact> getTestStatusArtifacts() {
+      return testStatusArtifacts;
+    }
+  }
+}

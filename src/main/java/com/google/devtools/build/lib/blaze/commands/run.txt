@@ -1,0 +1,12 @@
+
+Usage: blaze %{command} <options> -- <binary target> <flags to binary>
+
+Build the specified target and run it with the given arguments.
+
+'run' accepts any 'build' options, and will inherit any defaults
+provided by .blazerc.
+
+If your script needs stdin or execution not constrained by the Blaze lock,
+use 'blaze run --script_path' to write a script and then execute it.
+
+%{options}

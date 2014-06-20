@@ -1,0 +1,3 @@
+Prints the version information that was embedded when blaze was built.
+
+%{options}

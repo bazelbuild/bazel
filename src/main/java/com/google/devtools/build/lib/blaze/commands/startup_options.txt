@@ -1,0 +1,14 @@
+
+Startup options
+===============
+
+These options affect how Blaze starts up, or more specifically, how
+the virtual machine hosting Blaze starts up, and how the Blaze server
+starts up. These options must be specified to the left of the Blaze
+command (e.g. 'build'), and they must not contain any space between
+option name and value.
+
+Example:
+  % blaze --host_jvm_args=-Xmx1400m --output_base=/tmp/foo build //base
+
+%{options}

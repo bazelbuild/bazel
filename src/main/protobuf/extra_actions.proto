@@ -1,0 +1,85 @@
+// Copyright 2014 Google Inc. All rights reserved.
+//
+// Licensed under the Apache License, Version 2.0 (the "License");
+// you may not use this file except in compliance with the License.
+// You may obtain a copy of the License at
+//
+//    http://www.apache.org/licenses/LICENSE-2.0
+//
+// Unless required by applicable law or agreed to in writing, software
+// distributed under the License is distributed on an "AS IS" BASIS,
+// WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+// See the License for the specific language governing permissions and
+// limitations under the License.
+//
+// proto definitions for the blaze extra_action feature.
+
+syntax = "proto2";
+
+package blaze;
+
+option java_package = "com.google.devtools.build.lib.actions";
+
+enum ActionType {
+  NONE = 0;
+  SPAWN = 4;
+}
+
+// A list of extra actions and metadata for the print_action command.
+message ExtraActionSummary {
+  repeated DetailedExtraActionInfo action = 1;
+}
+
+// An individual action printed by the print_action command.
+message DetailedExtraActionInfo {
+  // If the given action was included in the output due to a request for a
+  // specific file, then this field contains the name of that file so that the
+  // caller can correctly associate the extra action with that file.
+  //
+  // The data in this message is currently not sufficient to run the action on a
+  // production machine, because not all necessary input files are identified,
+  // especially for C++.
+  //
+  // There is no easy way to fix this; we could require that all header files
+  // are declared and then add all of them here (which would be a huge superset
+  // of the files that are actually required), or we could run the include
+  // scanner and add those files here.
+  optional string triggering_file = 1;
+  // The actual action.
+  required ExtraActionInfo action = 2;
+}
+
+// Provides information to an extra_action on the orginal action it is
+// shadowing.
+message ExtraActionInfo {
+  extensions 1000 to max;
+
+  // The label of the ActionOwner of the shadowed action.
+  optional string owner = 1;
+  // An id uniquely describing the shadowed action at the ActionOwner level.
+  optional string id = 2;
+  // Type of the messageSet stored in data. This usually maps to the
+  // mnemomic of the action being shadowed.
+  optional ActionType type = 3;
+  // The mnemonic of the shadowed action. Used to distinguish actions with the
+  // same ActionType.
+  optional string mnemonic = 5;
+}
+
+message EnvironmentVariable {
+  required string name = 1;
+  required string value = 2;
+}
+
+// provides access to data that is specific to spawn actions.
+// Usually provided by actions using the "Spawn" & "Genrule" Mnemomics.
+message SpawnInfo {
+  extend ExtraActionInfo {
+    optional SpawnInfo spawn_info = 1003;
+  }
+  repeated string argument = 1;
+  repeated EnvironmentVariable variable = 2;
+  repeated string input_file = 4;
+  repeated string output_file = 5;
+}
+

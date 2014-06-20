@@ -1,0 +1,119 @@
+// Copyright 2014 Google Inc. All rights reserved.
+//
+// Licensed under the Apache License, Version 2.0 (the "License");
+// you may not use this file except in compliance with the License.
+// You may obtain a copy of the License at
+//
+//    http://www.apache.org/licenses/LICENSE-2.0
+//
+// Unless required by applicable law or agreed to in writing, software
+// distributed under the License is distributed on an "AS IS" BASIS,
+// WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+// See the License for the specific language governing permissions and
+// limitations under the License.
+
+package com.google.devtools.build.lib.packages;
+
+import com.google.common.base.Preconditions;
+import com.google.common.collect.ImmutableMap;
+import com.google.devtools.build.lib.events.ErrorEventListener;
+import com.google.devtools.build.lib.events.Location;
+import com.google.devtools.build.lib.syntax.FuncallExpression;
+import com.google.devtools.build.lib.syntax.Label;
+
+import java.util.Map;
+import java.util.Set;
+
+/**
+ * Given a rule class and a set of attributes, returns a Rule instance. Also
+ * performs a number of checks and associates the rule and the owning package
+ * with each other.
+ *
+ * <p>Note: the code that actually populates the RuleClass map has been moved
+ * to {@link RuleClassProvider}.
+ */
+public class RuleFactory {
+
+  /**
+   * Maps rule class name to the metaclass instance for that rule.
+   */
+  private final ImmutableMap<String, RuleClass> ruleClassMap;
+
+  /**
+   * Constructs a RuleFactory instance.
+   */
+  public RuleFactory(RuleClassProvider provider) {
+    this.ruleClassMap = ImmutableMap.copyOf(provider.getRuleClassMap());
+  }
+
+  /**
+   * Returns the (immutable, unordered) set of names of all the known rule classes.
+   */
+  public Set<String> getRuleClassNames() {
+    return ruleClassMap.keySet();
+  }
+
+  /**
+   * Returns the RuleClass for the specified rule class name.
+   */
+  public RuleClass getRuleClass(String ruleClassName) {
+    return ruleClassMap.get(ruleClassName);
+  }
+
+  /**
+   * Creates and returns a rule instance.
+   *
+   * <p>It is the caller's responsibility to add the rule to the package (the
+   * caller may choose not to do so if, for example, the rule has errors).
+   *
+   * @param pkgBuilder the under-construction package to which the rule belongs
+   * @param ruleClass the class of the rule; this must not be null
+   * @param attributeValues a map of attribute names to attribute values. Each
+   *        attribute must be defined for this class of rule, and have a value
+   *        of the appropriate type. There must be a map entry for each
+   *        non-optional attribute of this class of rule.
+   * @param listener a listener on which errors and warnings are reported during
+   *        rule creation
+   * @param ast the abstract syntax tree of the rule expression (optional)
+   * @param retainAST true iff the rule should retain a reference to "ast"
+   *        after construction.  If true, 'ast' must be non-null.
+   * @param location the location at which this rule was declared
+   * @throws InvalidRuleException if the rule could not be constructed for any
+   *         reason (e.g. no <code>name</code> attribute is defined)
+   */
+  static Rule createRule(Package.AbstractPackageBuilder<?, ?> pkgBuilder,
+                  RuleClass ruleClass,
+                  Map<String, Object> attributeValues,
+                  ErrorEventListener listener,
+                  FuncallExpression ast,
+                  boolean retainAST,
+                  Location location) throws InvalidRuleException {
+    Preconditions.checkNotNull(ruleClass);
+    String ruleClassName = ruleClass.getName();
+    Object nameObject = attributeValues.get("name");
+    if (!(nameObject instanceof String)) {
+      throw new InvalidRuleException(ruleClassName + " rule has no 'name' attribute");
+    }
+    String name = (String) nameObject;
+    Label label;
+    try {
+      // Test that this would form a valid label name -- in particular, this
+      // catches cases where Makefile variables $(foo) appear in "name".
+      label = pkgBuilder.createLabel(name);
+    } catch (Label.SyntaxException e) {
+      throw new InvalidRuleException("illegal rule name: " + name + ": " + e.getMessage());
+    }
+    return ruleClass.createRuleWithLabel(pkgBuilder, label, attributeValues, listener, ast,
+        retainAST, location);
+  }
+
+  /**
+   * InvalidRuleException is thrown by createRule() if the Rule could not be
+   * constructed. It contains an error message.
+   */
+  static class InvalidRuleException extends Exception {
+    private InvalidRuleException(String message) {
+      super(message);
+    }
+  }
+}
