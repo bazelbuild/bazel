@@ -1,0 +1,10 @@
+
+Usage: blaze %{command} [<option> ...]
+
+Removes Blaze-created output, including all object files, and Blaze
+metadata.
+
+If '--expunge' is specified, the entire working tree will be removed
+and the server stopped.
+
+%{options}

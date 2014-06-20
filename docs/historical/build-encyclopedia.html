@@ -227,9 +227,7 @@
   <td></td>
 <tr><th>&nbsp;</th></tr><tr><th colspan="5">Rules that do not apply to a specific programming language</th></tr> <tr>
   <td class="lang">General</td>
-  <td><a href="#Fileset">Fileset</a></td>
   <td><a href="#filegroup">filegroup</a></td>
-  <td><a href="#genquery">genquery</a></td>
   <td><a href="#test_suite">test_suite</a></td>
   <td><a href="#genrule">genrule</a></td>
 </table>
@@ -2172,191 +2170,6 @@ not subject to "Make" variable substitution.</p>
 -->
 <h2 id="misc">Other Stuff</h2>
 
-<h3 id="Fileset">Fileset</h3>
-
-
-<p class="rule-signature">
-Fileset(<a href="#Fileset.name">name</a>,
-<a href="#fileset.out">out</a>,
-<a href="#common.deprecation">deprecation</a>,
-<a href="#common.distribs">distribs</a>,
-<a href="#fileset.entries">entries</a>,
-<a href="#common.licenses">licenses</a>,
-<a href="#common.obsolete">obsolete</a>,
-<a href="#common.tags">tags</a>,
-<a href="#common.testonly">testonly</a>,
-<a href="#common.visibility">visibility</a>)
-</p>
-
-
-  <p>
-  <code>Fileset()</code> builds a directory of data with a user-defined structure,
-  composed from files and directories in the source and generated
-  directories.  A fileset can contain other directories, symlinks to actual
-  files, and reproductions of symlinks in a source tree.
-  </p>
-
-<h4 id="Fileset">Arguments</h4>
-<ul>
-<li id="Fileset.name"><code>name</code>: A unique name for this rule. <i>(<a href="build-ref.html#name">Name</a>; required)</i></li>
-<li id="fileset.out"><code>out</code>:
-         Name of the directory containing the Fileset.
-         This directory will be created in the package's <code>bin</code>
-         directory.
-</li>
-<li id="fileset.entries"><code>entries</code>:
-         A list of objects produced by <code>FilesetEntry</code> (see below).
-         Fileset entries specify a source directory, some set of files in the source
-         directory, and a fileset-relative destination directory in which the source
-         files will be linked.  A Fileset's data is the union of its entries.
-         <p>
-           Note that order does matter here: If there are any conflicts, the first
-           <code>entry</code> wins.
-         </p>
-</li>
-</ul>
-
-
-  <p>
-    FilesetEntry accepts the following arguments:
-  </p>
-
-  <ul>
-    <li id="FilesetEntry.srcdir"><code>srcdir</code>:
-      A source directory; if not specified defaults to the current package.<br/>
-
-      <p><code>srcdir</code> can be a package specification, or the
-      relative or absolute label of another <code>Fileset</code>. If a package is specified and the
-      entry has a <code>files</code> list, then each file is linked to from the <code>out</code>
-      directory of this <code>Fileset</code>.</p>
-
-      <p>Items in the <code>files</code> list
-      can be source files or generated files; however, with package specifications,
-      <code>srcdir + ':' + filename</code> must be a valid build label.
-      If any of the files in the <code>files</code> list is a generated file, the build
-      tool will first build the files and then use the built files in the
-      Fileset. Without a files entry, generated files will not be included.</p>
-    </li>
-
-    <li id="FilesetEntry.strip_prefix"><code>strip_prefix</code>:
-      Which part of the package-relative file name should be stripped.
-    </li>
-
-    <li id="FilesetEntry.files"><code>files</code>:
-      List of source files from the <code>srcdir</code> to use.
-      <i>(List of <a href="build-ref.html#labels">labels</a>; optional)</i><br/>
-      These labels can refer to source files or generated ones. If this attribute is
-      not specified, all of <code>srcdir</code> is used. This attribute cannot be
-      used together with <code>excludes</code>.
-
-      <p>Each value here must be a label referring to a target in
-      <code>srcdir/</code>. Every file built by the target will
-      have a symlink under <code>destdir</code>. Where exactly under
-      <code>destdir</code> depends on the target and the value of
-      <code>strip_prefix</code>. The cases are:</p>
-
-      <ul>
-        <li><code>strip_prefix</code> not specified and target creates one file:
-          the name of the symlink will be the name of the label specified. E.g.
-          <code>//foo:bar/baz</code> will be linked at
-          <code>destdir/bar/baz</code> (even if <code>//foo:bar/baz</code> is
-          a filegroup with one source).
-        </li>
-
-        <li><code>strip_prefix</code> not specified and target creates more than
-          one file: the name of the symlink will be the basename of the file
-          with all subdirectories stripped. E.g. <code>//foo:bar/baz</code>
-          will create files linked at <code>destdir/quux</code> and
-          <code>destdir/bang</code> (not <code>destdir/bar/quux</code>).
-        </li>
-
-        <li><code>strip_prefix</code> is ".": same as above. E.g.
-          <code>//foo:bar/baz</code> will be linked to <code>destdir/baz</code>
-        </li>
-
-        <li><code>strip_prefix</code> is "": the name of the symlink will be the
-          package-relative name of the file. E.g. <code>//foo:bar/baz</code>
-          will be linked at <code>destdir/bar/baz</code>
-        </li>
-
-        <li><code>strip_prefix</code> is specified as a value: the name of the
-          symlink will be the package-relative name of the file with the value
-          of <code>strip_prefix</code> stripped. If the package-relative name of
-          the file does not begin with strip_prefix, an error is raised. E.g.
-          <code>//foo:bar/baz/quux</code> with <code>strip_prefix="bar"</code>
-          will be linked to <code>destdir/baz/quux</code>. With
-          <code>strip_prefix="bang"</code>, an error is raised.
-          <code>strip_prefix</code> is relative to the package of the rule
-          (e.g. <code>//foo</code>) no matter which package the
-          <code>FilesetEntry</code> occurs in.
-        </li>
-      </ul>
-    </li>
-
-    <li id="FilesetEntry.excludes"><code>excludes</code>:
-      List of names in <code>srcdir</code> to exclude. <i>(List of strings; optional)</i>
-      <p>Cannot be used with <code>files</code> parameter. Excludes apply only to top-level
-      files and must match the full basename of the file to be effective. E.g.
-      <code>foo.txt</code> instead of just <code>foo</code>. The name cannot
-      contain directory references; any <code>excludes</code> value with a <code>/</code> will
-      be silently ignored.</p>
-    </li>
-
-    <li id="FilesetEntry.destdir"><code>destdir</code>:
-      A relative path within the <code>Fileset</code>
-      onto which the entry will be mapped.  If not specified, the
-      entry is mapped onto the root of the <code>Fileset</code>.
-    </li>
-
-    <li id="FilesetEntry.symlinks"><code>symlinks</code>:
-      Specifies how symlinks in the source should be handled.
-      <i>(Either "copy" or "dereference"; optional; default is "copy")</i><br/>
-
-      <p>There are two possible values:</p>
-      <ul>
-        <li><code>copy</code>: The symlinks are copied as is.</li>
-        <li><code>dereference</code>: Symlinks are dereferenced, and the output
-          will contain an absolute symlink to the target.</li>
-      </ul>
-    </li>
-  </ul>
-
-  <p id='srcdir_footnote' style='font-style: italic'>
-    Ordinarily, <code>//foo</code> is <em>not</em> considered a build
-    package name: <code>foo</code> is the name of a
-    package; <code>//foo</code> is a syntactic shorthand
-    for <code>//foo:foo</code>, i.e. a target within package foo.
-    <code>srcdir</code>'s usage is unconventional and confusing, but
-    unfortunately hard to fix at this point.  To avoid ambiguity, in
-    new code, we recommend you use the
-    notation <code>//foo:BUILD</code> to signify a complete package.
-  </p>
-
-<h4 id="fileset_notes">Notes</h4>
-
-  <p>
-  Filesets reproduce symlinks in the source tree exactly, even if the
-  link is relative and points somewhere outside of the fileset.
-  </p>
-
-  <p>
-  Thinking of using a <a href="#glob">glob</a> in
-  the <code>files</code> attribute of your <code>FilesetEntry</code>?
-  Please keep in mind that the <code>glob</code> will be expanded
-  relative to the package in which the <code>glob</code> is defined.
-  It will not be relative to the <code>srcdir</code> specified.  This
-  is usually not what you want.
-  </p>
-
-  <p>
-  A caveat about arguments to the Java <code>resources=</code> attribute:
-  In Java build rules, <code>resources=</code> attributes expect a list of
-  files, and they <i>don't</i> want directories. Therefore, avoid using
-  <code>Fileset</code> rules as part of a <code>resources=</code>
-  attribute. (More generally, don't use <code>Fileset</code> as input to
-  any rule that doesn't handle directories gracefully).
-  </p>
-
 <h3 id="filegroup">filegroup</h3>
 
 
@@ -2459,90 +2272,6 @@ cc_library(
 )
 </pre>
 
-<h3 id="genquery">genquery</h3>
-
-
-<p class="rule-signature">
-genquery(<a href="#genquery.name">name</a>,
-<a href="#common.deps">deps</a>,
-<a href="#common.data">data</a>,
-<a href="#common.deprecation">deprecation</a>,
-<a href="#common.distribs">distribs</a>,
-<a href="#genquery.expression">expression</a>,
-<a href="#common.licenses">licenses</a>,
-<a href="#common.obsolete">obsolete</a>,
-<a href="#genquery.opts">opts</a>,
-<a href="#genquery.scope">scope</a>,
-<a href="#genquery.strict">strict</a>,
-<a href="#common.tags">tags</a>,
-<a href="#common.testonly">testonly</a>,
-<a href="#common.visibility">visibility</a>)
-</p>
-
-
-  <p>
-  <code>genquery()</code> runs a query specified in the
-    <a href="bazel-query-v2.html">Bazel query language</a> and dumps the result
-    into a file.
-  </p>
-  <p>
-    In order to keep the build consistent, the query is allowed only to visit
-    the transitive closure of the targets specified in the <code>scope</code>
-    attribute. Queries violating this rule will fail during execution if
-    <code>strict</code> is unspecified or true (if <code>strict</code> is false,
-    the out of scope targets will simply be skipped with a warning). The
-    easiest way to make sure this does not happen is to mention the same labels
-    in the scope as in the query expression. The only difference between the
-    queries allowed here and on the command line is that queries containing
-    wildcard target specifications (e.g. <code>//pkg:*</code> or
-    <code>//pkg:all</code>) are not allowed here.
-  </p>
-  <p>
-    The name of the output file is the name of the rule.
-  </p>
-
-<h4 id="genquery">Arguments</h4>
-<ul>
-<li id="genquery.name"><code>name</code>: A unique name for this rule. <i>(<a href="build-ref.html#name">Name</a>; required)</i></li>
-<li id="genquery.expression"><code>expression</code>:
-        The query to be executed.
-        <i>(String; required)</i>
-</li>
-<li id="genquery.opts"><code>opts</code>:
-        The options that are passed to the query engine.
-        These correspond to the command line options that can be passed to
-        <code>bazel query</code>. The only query option that is not allowed here
-        is <code>--keep_going</code>.
-        <i>(List of strings; optional)</i>
-</li>
-<li id="genquery.scope"><code>scope</code>:
-        The scope of the query. The query is not allowed to
-        touch targets outside the transitive closure of these targets.
-        <i>(List of <a href="build-ref.html#labels">labels</a>; required)</i>
-</li>
-<li id="genquery.strict"><code>strict</code>:
-        If true, targets whose queries escape the transitive closure of their
-        scopes will fail to build. If false, Bazel will print a warning and skip
-        whatever query path led it outside of the scope, while completing the rest
-        of the query.
-        <i>(Boolean; optional; default 1)</i>
-</li>
-</ul>
-
-
-<h4 id="genquery_examples">Examples</h4>
-  <p>
-    This example writes the list of the labels in the transitive closure of the
-    specified target to a file.
-  </p>
-
-<pre class="code">
-genquery(
-    name = "zealand-deps",
-    expression = "deps(//zealand:zealand_lib)",
-    scope = ["//zealand:zealand_lib"],
-)
-</pre>
 
 <h3 id="test_suite">test_suite</h3>
 
@@ -2848,8 +2577,7 @@ android_resources(<a href="#android_resources.name">name</a>,
         The list of resources to be packaged.
         <i>(List of <a href="build-ref.html#labels">labels</a>; optional)</i><br/><br/>
         This is typically a <code>glob</code> of all files under the
-        <code>res</code> directory. If a glob is insufficient, you can use a
-        <code>Fileset</code> instead.<br/><br/>
+        <code>res</code> directory.
         If you depend on resources in other packages, you should reference their
         rules or exported files here. This enables bazel to resolve any conflicts
         with file names or attribute names.<br/>
@@ -2863,8 +2591,6 @@ android_resources(<a href="#android_resources.name">name</a>,
         <code>assets</code> directory. You can also reference other rules or
         exported files in the other packages, as long as all their outputs are
         under the <code>assets_dir</code> directory in the corresponding package.
-        Alternatively you may use a list of a single <code>Fileset</code> to
-        combine various assets.
 </li>
 <li id="android_resources.assets_dir"><code>assets_dir</code>:
         The string giving the path to the files in <code>assets</code>.
@@ -2936,29 +2662,12 @@ android_resources(
     manifest = "AndroidManifest.xml",
 )
 </pre>
-<p>The alternative is to use a <code>Fileset</code>:</p>
 <pre class="code">
 android_resources(
     name = "r",
-    assets = [":fs"],
+    assets = glob(["assets/**"])
     assets_dir = "moreassets",
     manifest = "AndroidManifest.xml",
-)
-
-Fileset(
-    name = "fs",
-    out = "moreassets",
-    entries = ([
-        FilesetEntry(
-            srcdir = "//java/android/o",
-            files = [":assets/other"],
-            strip_prefix = "assets",
-        ),
-        FilesetEntry(
-            files = glob(["assets/*"]),
-            strip_prefix = "assets",
-        ),
-    ]),
 )
 </pre>
 
@@ -3290,25 +2999,16 @@ genrule(<a href="#genrule.name">name</a>,
 <h4 id="genrule_examples">Examples</h4>
 
 <p>The following example shows how to process
-<a href="#Fileset">Fileset</a>s. Note that using <code>$(SRCS)</code> instead of
-explicit <code>$(location)</code> directives would also work; this example uses
-the latter for sake of demonstration.</p>
 
 <pre class="code">
 genrule(
     name = "concat_all_files",
     srcs = [
-        "//some:fileset",
-        "//other:fileset",
+        "//some:file",
+        "//other:file",
     ],
     outs = ["concatenated.txt"],
-    cmd = (
-        "for FILESET in $(location //some:fileset) $(location //other:fileset); do " +
-        "  for FILE in $$(find $$FILESET ! -type d); do " +
-        "    cat $$FILE &gt;&gt; $@ ; " +
-        "  done ; " +
-        "done"
-    ),
+    cmd = "cat $(location //some:file) $(location //other:file) > $@"
 )
 </pre>
 
