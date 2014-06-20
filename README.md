@@ -31,8 +31,8 @@ Create tools/genrule/BUILD and add the following to it:
 Create your own project with a BUILD file, for example:
 
     $ mkdir -p hello
-    $ echo 'genrule(name = "world", outs = ["hi"], cmd = "touch $(@D)/hi"' > hello/BUILD
-)
+    $ echo 'genrule(name = "world", outs = ["hi"], cmd = "touch $(@D)/hi")' > hello/BUILD
+
 
 Now run Bazel using --output_base and --install_base options, e.g.,
 
