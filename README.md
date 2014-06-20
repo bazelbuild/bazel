@@ -4,35 +4,29 @@ Building Bazel
 We currently only support building on Ubuntu, and the binaries only run on
 Ubuntu. You will need packages for the protobuf-compiler, and for libarchive:
 
-apt-get install protobuf-compiler libarchive-dev
+    apt-get install protobuf-compiler libarchive-dev
 
 Then run:
-./compile.sh
+
+    ./compile.sh
 
 We are working on bootstrapping bazel with itself.
 
 Running Bazel
 =============
 
-Create a google3 directory.  This is your package root where all of your builds
-will happen (we're working on removing the google3 naming requirement).  Add the
-following directory structure:
+Bazel has some workspace setup requirements (which we're working on removing).
+All builds need to happen from within a google3 directory (or subdirectory) and
+have certain files exist in certain places. To get your workspace set up
+correctly, copy example-workspace/google3 to wherever you want to do your
+builds.
+
+Create your own project with a BUILD file within this google3 directory, for
+example:
 
     $ cd google3
-    $ mkdir -p tools/genrule my_output my_install
-    $ touch tools/genrule/genrule-setup.sh
-
-Create tools/genrule/BUILD and add the following to it:
-
-    exports_files([
-        "genrule-setup.sh",
-    ])
-
-Create your own project with a BUILD file, for example:
-
     $ mkdir -p hello
     $ echo 'genrule(name = "world", outs = ["hi"], cmd = "touch $(@D)/hi")' > hello/BUILD
-
 
 Now run Bazel using --output_base and --install_base options, e.g.,
 
