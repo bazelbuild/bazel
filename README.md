@@ -1,4 +1,5 @@
-* Building Bazel
+Building Bazel
+==============
 
 We currently only support building on Ubuntu, and the binaries only run on
 Ubuntu. You will need packages for the protobuf-compiler, and for libarchive:
@@ -10,7 +11,8 @@ Then run:
 
 We are working on bootstrapping bazel with itself.
 
-* Running Bazel
+Running Bazel
+=============
 
 Create a google3 directory.  This is your package root where all of your builds
 will happen (we're working on removing the google3 naming requirement).  Add the
