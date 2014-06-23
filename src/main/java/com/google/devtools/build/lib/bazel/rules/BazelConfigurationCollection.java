@@ -12,7 +12,7 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-package com.google.devtools.build.lib.blaze.rules;
+package com.google.devtools.build.lib.bazel.rules;
 
 import com.google.common.cache.Cache;
 import com.google.common.cache.CacheBuilder;
@@ -38,7 +38,6 @@ import com.google.devtools.build.lib.view.config.ConfigurationEnvironment;
 import com.google.devtools.build.lib.view.config.ConfigurationFactory;
 import com.google.devtools.build.lib.view.config.InvalidConfigurationException;
 import com.google.devtools.build.lib.view.config.MachineSpecification;
-import com.google.devtools.build.lib.view.google3.Google3ConfigurationTransitions;
 
 import java.util.Arrays;
 import java.util.Collection;
@@ -48,9 +47,9 @@ import java.util.Map;
 import java.util.Set;
 
 /**
- * Creates a configuration collection for Google3 rules, and sets up the transition table for them.
+ * Configuration collection used by the rules Bazel knows.
  */
-public class Google3ConfigurationCollection implements ConfigurationCollectionFactory {
+public class BazelConfigurationCollection implements ConfigurationCollectionFactory {
   @Override
   public BuildConfiguration createConfigurations(
       ConfigurationFactory configurationFactory,
@@ -192,12 +191,13 @@ public class Google3ConfigurationCollection implements ConfigurationCollectionFa
     }
 
     for (BuildConfiguration config : allConfigurations) {
-      Transitions outgoingTransitions = new Google3ConfigurationTransitions(
+      Transitions outgoingTransitions = new BazelConfigurationTransitions(
           config, parentBuilder.get(config), transitionBuilder.row(config));
       // We allow host configurations to be shared between target configurations. In that case, the
       // transitions may already be set.
-      // TODO(bazel-team): Check that the transitions are identical, or even better, change the code to
-      // set the host configuration transitions before we even create the target configuration.
+      // TODO(bazel-team): Check that the transitions are identical, or even better, change the
+      // code to set the host configuration transitions before we even create the target
+      // configuration.
       if (config.isHostConfiguration() && config.getTransitions() != null) {
         continue;
       }

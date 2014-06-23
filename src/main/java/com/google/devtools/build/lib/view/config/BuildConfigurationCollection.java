@@ -260,6 +260,16 @@ public final class BuildConfigurationCollection {
     }
 
     /**
+     * Artifacts need an owner in Skyframe. By default it's the same configuration as what
+     * the configured target has, but it can be overridden if necessary.
+     *
+     * @return the artifact owner configuration
+     */
+    public BuildConfiguration getArtifactOwnerConfiguration() {
+      return configuration;
+    }
+
+    /**
      * Returns the new configuration after traversing a dependency edge with a
      * given configuration transition.
      *

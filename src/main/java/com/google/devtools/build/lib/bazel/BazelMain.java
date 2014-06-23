@@ -11,7 +11,8 @@
 // WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
 // See the License for the specific language governing permissions and
 // limitations under the License.
-package com.google.devtools.build.lib.blaze.main;
+
+package com.google.devtools.build.lib.bazel;
 
 import com.google.common.collect.ImmutableList;
 import com.google.devtools.build.lib.blaze.BlazeModule;
@@ -22,15 +23,16 @@ import java.util.List;
 /**
  * The main class.
  */
-public final class BlazeMain {
-  private static final List<Class<? extends BlazeModule>> BLAZE_MODULES =
+public final class BazelMain {
+  private static final List<Class<? extends BlazeModule>> BAZEL_MODULES =
       ImmutableList.<Class<? extends BlazeModule>>of(
-          com.google.devtools.build.lib.blaze.rules.Google3RulesModule.class,
+          com.google.devtools.build.lib.bazel.rules.BazelRulesModule.class,
           com.google.devtools.build.lib.standalone.StandaloneModule.class,
           com.google.devtools.build.lib.blaze.BuildSummaryStatsModule.class
       );
 
   public static void main(String[] args) {
-    BlazeRuntime.main(BLAZE_MODULES, args);
+    System.loadLibrary("unix");
+    BlazeRuntime.main(BAZEL_MODULES, args);
   }
 }

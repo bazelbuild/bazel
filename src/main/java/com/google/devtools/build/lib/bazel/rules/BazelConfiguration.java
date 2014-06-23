@@ -12,33 +12,25 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-package com.google.devtools.build.lib.view.google3;
+package com.google.devtools.build.lib.bazel.rules;
 
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
-import com.google.common.collect.ImmutableSet;
-import com.google.common.collect.Multimap;
 import com.google.devtools.build.lib.blaze.BlazeDirectories;
-import com.google.devtools.build.lib.syntax.Label;
 import com.google.devtools.build.lib.vfs.PathFragment;
-import com.google.devtools.build.lib.view.config.BuildConfiguration;
 import com.google.devtools.build.lib.view.config.BuildConfiguration.Fragment;
 import com.google.devtools.build.lib.view.config.BuildOptions;
 import com.google.devtools.build.lib.view.config.ConfigurationEnvironment;
 import com.google.devtools.build.lib.view.config.ConfigurationFragmentFactory;
-import com.google.devtools.build.lib.view.config.FragmentOptions;
 import com.google.devtools.build.lib.view.config.InvalidConfigurationException;
-import com.google.devtools.common.options.Option;
 
 import java.util.List;
 import java.util.Map;
-import java.util.Set;
-import java.util.TreeMap;
 
 /**
- * Google-specific settings for Blaze.
+ * Bazel-specific configuration fragment.
  */
-public class Google3Configuration extends Fragment {
+public class BazelConfiguration extends Fragment {
   /**
    * Loader for Google-specific settings.
    */
@@ -47,12 +39,12 @@ public class Google3Configuration extends Fragment {
     public Fragment create(ConfigurationEnvironment env, BlazeDirectories directories,
         BuildOptions buildOptions, Map<Class<? extends Fragment>, Fragment> requiredFragments)
         throws InvalidConfigurationException {
-      return new Google3Configuration();
+      return new BazelConfiguration();
     }
 
     @Override
     public Class<? extends Fragment> creates() {
-      return Google3Configuration.class;
+      return BazelConfiguration.class;
     }
 
     @Override
@@ -61,12 +53,12 @@ public class Google3Configuration extends Fragment {
     }
   }
 
-  public Google3Configuration() {
+  public BazelConfiguration() {
   }
 
   @Override
   public String getName() {
-    return "Google";
+    return "Bazel";
   }
 
   @Override

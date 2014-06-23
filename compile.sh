@@ -46,7 +46,7 @@ unzip -qn third_party/protobuf/protobuf-2.5.0.jar -d output/classes
 cp src/main/java/com/google/devtools/build/lib/blaze/commands/*.txt output/classes/com/google/devtools/build/lib/blaze/commands/
 
 echo "JAR libblaze.jar"
-echo "Main-Class: com.google.devtools.build.lib.blaze.main.BlazeMain" > output/MANIFEST.MF
+echo "Main-Class: com.google.devtools.build.lib.bazel.BazelMain" > output/MANIFEST.MF
 jar cmf output/MANIFEST.MF output/libblaze.jar -C output/classes com/ -C output/classes javax/ -C output/classes org/
 
 echo "JAVAC src/test/java/**/*.java"

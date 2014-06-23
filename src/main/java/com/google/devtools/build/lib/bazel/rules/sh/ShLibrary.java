@@ -11,7 +11,7 @@
 // WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
 // See the License for the specific language governing permissions and
 // limitations under the License.
-package com.google.devtools.build.lib.view.sh;
+package com.google.devtools.build.lib.bazel.rules.sh;
 
 import com.google.devtools.build.lib.actions.Artifact;
 import com.google.devtools.build.lib.collect.nestedset.NestedSet;
@@ -23,8 +23,8 @@ import com.google.devtools.build.lib.view.RuleConfiguredTarget;
 import com.google.devtools.build.lib.view.RuleConfiguredTarget.Mode;
 import com.google.devtools.build.lib.view.RuleContext;
 import com.google.devtools.build.lib.view.Runfiles;
-import com.google.devtools.build.lib.view.RunfilesProvider;
 import com.google.devtools.build.lib.view.RunfilesCollector;
+import com.google.devtools.build.lib.view.RunfilesProvider;
 
 /**
  * Implementation for the sh_library rule.
@@ -46,7 +46,7 @@ public class ShLibrary implements RuleConfiguredTargetFactory {
         .build();
     return new GenericRuleConfiguredTargetBuilder(ruleContext)
         .setFilesToBuild(filesToBuild)
-        .add(RunfilesProvider.class, new StatelessRunfilesProvider(runfiles))
+        .addProvider(RunfilesProvider.class, new StatelessRunfilesProvider(runfiles))
         .build();
   }
 }

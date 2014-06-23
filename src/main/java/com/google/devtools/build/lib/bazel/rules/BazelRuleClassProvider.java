@@ -12,19 +12,20 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-package com.google.devtools.build.lib.blaze.rules;
+package com.google.devtools.build.lib.bazel.rules;
 
 import com.google.common.annotations.VisibleForTesting;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
+import com.google.devtools.build.lib.bazel.rules.genrule.GenRuleRule;
+import com.google.devtools.build.lib.bazel.rules.sh.ShBinaryRule;
+import com.google.devtools.build.lib.bazel.rules.sh.ShLibraryRule;
+import com.google.devtools.build.lib.bazel.rules.sh.ShRuleClasses;
+import com.google.devtools.build.lib.bazel.rules.sh.ShTestRule;
 import com.google.devtools.build.lib.packages.Attribute;
-import com.google.devtools.build.lib.packages.NonconfigurableAttributeMapper;
-import com.google.devtools.build.lib.packages.OutputFile;
 import com.google.devtools.build.lib.packages.PackageGroup;
 import com.google.devtools.build.lib.packages.Rule;
 import com.google.devtools.build.lib.packages.Target;
-import com.google.devtools.build.lib.packages.TargetUtils;
-import com.google.devtools.build.lib.packages.Type;
 import com.google.devtools.build.lib.rules.SkylarkRuleImplementationFunctions;
 import com.google.devtools.build.lib.syntax.Label;
 import com.google.devtools.build.lib.view.BaseRuleClasses;
@@ -37,24 +38,13 @@ import com.google.devtools.build.lib.view.config.FragmentOptions;
 import com.google.devtools.build.lib.view.extra.ActionListenerRule;
 import com.google.devtools.build.lib.view.extra.ExtraActionRule;
 import com.google.devtools.build.lib.view.filegroup.FilegroupRule;
-import com.google.devtools.build.lib.view.genrule.GenRuleRule;
-import com.google.devtools.build.lib.view.google3.Google3Configuration;
-import com.google.devtools.build.lib.view.sh.ShBinaryRule;
-import com.google.devtools.build.lib.view.sh.ShLibraryRule;
-import com.google.devtools.build.lib.view.sh.ShRuleClasses;
-import com.google.devtools.build.lib.view.sh.ShTestRule;
 import com.google.devtools.build.lib.view.test.TestSuiteRule;
 
 /**
- * Provider for a set of RuleClasses for google3.
- *
- * <p>This class is separate from {@link Google3RulesModule} because some Google software needs to
- * know about the set of rules Blaze supports, but do not want to instantiate {@link
- * Google3RulesModule}. Thus, the knowledge is factored out to a separate class with minimal
- * dependencies.
+ * A rule class provider implementing the rules Bazel knows.
  */
-public final class Google3RuleClassProvider {
-  private static class Google3PrerequisiteValidator implements PrerequisiteValidator {
+public class BazelRuleClassProvider {
+  private static class BazelPrerequisiteValidator implements PrerequisiteValidator {
     @Override
     public void validate(RuleContext.Builder context,
         Prerequisite prerequisite, Attribute attribute) {
@@ -69,8 +59,8 @@ public final class Google3RuleClassProvider {
       // We don't check the visibility of late-bound attributes, because it would break some
       // features.
       if (!context.getRule().getLabel().getPackageName().equals(
-              prerequisite.getTarget().getLabel().getPackageName()) &&
-          !context.isVisible(prerequisite.getTransitiveInfoCollection())) {
+              prerequisite.getTarget().getLabel().getPackageName())
+          && !context.isVisible(prerequisite.getTransitiveInfoCollection())) {
         if (!context.getConfiguration().checkVisibility()) {
           context.ruleWarning(String.format("Target '%s' violates visibility of target "
               + "'%s'. Continuing because --nocheck_visibility is active",
@@ -124,8 +114,8 @@ public final class Google3RuleClassProvider {
 
   public static void setup(ConfiguredRuleClassProvider.Builder builder) {
     builder
-        .setConfigurationCollectionFactory(new Google3ConfigurationCollection())
-        .setPrerequisiteValidator(new Google3PrerequisiteValidator())
+        .setConfigurationCollectionFactory(new BazelConfigurationCollection())
+        .setPrerequisiteValidator(new BazelPrerequisiteValidator())
         .setSkylarkValidationEnvironment(
             SkylarkRuleImplementationFunctions.getValidationEnvironment(skylarkBuiltinJavaObects))
         .setSkylarkAccessibleJavaClasses(skylarkBuiltinJavaObects);
@@ -134,14 +124,12 @@ public final class Google3RuleClassProvider {
       builder.addConfigurationOptions(fragmentOptions);
     }
 
-    builder.addConfigurationFragment(new Google3Configuration.Loader());
-
     builder.addRuleDefinition(BaseRuleClasses.BaseRule.class);
     builder.addRuleDefinition(BaseRuleClasses.RuleBase.class);
-    builder.addRuleDefinition(Google3BaseRuleClasses.BinaryBaseRule.class);
+    builder.addRuleDefinition(BazelBaseRuleClasses.BinaryBaseRule.class);
     builder.addRuleDefinition(BaseRuleClasses.TestBaseRule.class);
-    builder.addRuleDefinition(Google3BaseRuleClasses.BaselineCoverageRule.class);
-    builder.addRuleDefinition(Google3BaseRuleClasses.ErrorRule.class);
+    builder.addRuleDefinition(BazelBaseRuleClasses.BaselineCoverageRule.class);
+    builder.addRuleDefinition(BazelBaseRuleClasses.ErrorRule.class);
     builder.addRuleDefinition(FilegroupRule.class);
     builder.addRuleDefinition(TestSuiteRule.class);
     builder.addRuleDefinition(GenRuleRule.class);
@@ -151,5 +139,7 @@ public final class Google3RuleClassProvider {
     builder.addRuleDefinition(ShTestRule.class);
     builder.addRuleDefinition(ExtraActionRule.class);
     builder.addRuleDefinition(ActionListenerRule.class);
+
+    builder.addConfigurationFragment(new BazelConfiguration.Loader());
   }
 }

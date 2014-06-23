@@ -179,9 +179,13 @@ final class ConfiguredTargetNodeBuilder implements NodeBuilder {
     boolean extendedSanityChecks = configuration != null && configuration.extendedSanityChecks();
 
     StoredErrorEventListener events = new StoredErrorEventListener();
+    BuildConfiguration ownerConfig = (configuration == null)
+        ? null : configuration.getArtifactOwnerConfiguration();
+    boolean allowRegisteringActions = (configuration == null)
+        ? true : configuration.isActionsEnabled();
     CachingAnalysisEnvironment analysisEnvironment = view.createAnalysisEnvironment(
-        new LabelAndConfiguration(target.getLabel(), configuration), false,
-        extendedSanityChecks, events, env);
+        new LabelAndConfiguration(target.getLabel(), ownerConfig), false,
+        extendedSanityChecks, events, env, allowRegisteringActions);
     if (env.depsMissing()) {
       return null;
     }

@@ -1484,4 +1484,11 @@ public final class BuildConfiguration {
     }
     return builder.build();
   }
+
+  /**
+   * See {@code BuildConfigurationCollection.Transitions.getArtifactOwnerConfiguration()}.
+   */
+  public BuildConfiguration getArtifactOwnerConfiguration() {
+    return transitions.getArtifactOwnerConfiguration();
+  }
 }

@@ -13,7 +13,7 @@
 // limitations under the License.
 package com.google.devtools.build.docgen;
 
-import com.google.devtools.build.lib.blaze.rules.Google3RuleClassProvider;
+import com.google.devtools.build.lib.bazel.rules.BazelRuleClassProvider;
 
 /**
  * The main class for the docgen project. The class checks the input arguments
@@ -44,7 +44,7 @@ public class BuildEncyclopediaGenerator {
       // TODO(bazel-team): use flags
       System.out.println("Generating Build Encyclopedia...");
       BuildEncyclopediaProcessor processor = new BuildEncyclopediaProcessor(
-          Google3RuleClassProvider.create());
+          BazelRuleClassProvider.create());
       try {
         processor.generateDocumentation(args[0].split(","), args.length > 1 ? args[1] : null);
       } catch (BuildEncyclopediaDocException e) {

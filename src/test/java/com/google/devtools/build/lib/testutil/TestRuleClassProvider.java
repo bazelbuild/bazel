@@ -20,7 +20,7 @@ import static com.google.devtools.build.lib.packages.Type.LABEL_LIST;
 import static com.google.devtools.build.lib.packages.Type.OUTPUT_LIST;
 import static com.google.devtools.build.lib.packages.Type.STRING_LIST;
 
-import com.google.devtools.build.lib.blaze.rules.Google3RuleClassProvider;
+import com.google.devtools.build.lib.bazel.rules.BazelRuleClassProvider;
 import com.google.devtools.build.lib.packages.RuleClass;
 import com.google.devtools.build.lib.packages.RuleClass.Builder;
 import com.google.devtools.build.lib.view.BaseRuleClasses;
@@ -43,7 +43,7 @@ public class TestRuleClassProvider {
     if (ruleProvider == null) {
       ConfiguredRuleClassProvider.Builder builder =
           new ConfiguredRuleClassProvider.Builder();
-      Google3RuleClassProvider.setup(builder);
+      BazelRuleClassProvider.setup(builder);
       builder.addRuleDefinition(TestingDummyRule.class);
       builder.allowConfigurableAttributes(true);
       ruleProvider = builder.build();

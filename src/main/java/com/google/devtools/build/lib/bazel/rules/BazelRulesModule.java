@@ -12,12 +12,11 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-package com.google.devtools.build.lib.blaze.rules;
+package com.google.devtools.build.lib.bazel.rules;
 
 import com.google.common.base.Supplier;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
-import com.google.common.collect.ImmutableSet;
 import com.google.common.eventbus.Subscribe;
 import com.google.devtools.build.lib.actions.ActionContextConsumer;
 import com.google.devtools.build.lib.actions.ActionExecutionContext;
@@ -29,10 +28,8 @@ import com.google.devtools.build.lib.actions.Executor;
 import com.google.devtools.build.lib.actions.Executor.ActionContext;
 import com.google.devtools.build.lib.actions.ResourceSet;
 import com.google.devtools.build.lib.actions.Root;
-import com.google.devtools.build.lib.blaze.BlazeDirectories;
 import com.google.devtools.build.lib.blaze.BlazeModule;
 import com.google.devtools.build.lib.blaze.BlazeRuntime;
-import com.google.devtools.build.lib.blaze.BlazeVersionInfo;
 import com.google.devtools.build.lib.blaze.Command;
 import com.google.devtools.build.lib.blaze.GotOptionsEvent;
 import com.google.devtools.build.lib.vfs.FileSystemUtils;
@@ -40,8 +37,6 @@ import com.google.devtools.build.lib.vfs.PathFragment;
 import com.google.devtools.build.lib.view.BuildInfoHelper;
 import com.google.devtools.build.lib.view.ConfiguredRuleClassProvider;
 import com.google.devtools.build.lib.view.WorkspaceStatusAction;
-import com.google.devtools.build.lib.util.Clock;
-import com.google.devtools.build.lib.util.ExitCausingException;
 import com.google.devtools.common.options.Option;
 import com.google.devtools.common.options.OptionsBase;
 import com.google.devtools.common.options.OptionsProvider;
@@ -51,9 +46,9 @@ import java.util.Map;
 import java.util.UUID;
 
 /**
- * A module providing the implementation of the google3 rules.
+ * Module implementing the rule set of Bazel.
  */
-public class Google3RulesModule extends BlazeModule {
+public class BazelRulesModule extends BlazeModule {
   private static class BazelWorkspaceStatusAction extends WorkspaceStatusAction {
     private final Artifact stableStatus;
     private final Artifact volatileStatus;
@@ -204,7 +199,7 @@ public class Google3RulesModule extends BlazeModule {
 
   @Override
   public void initializeRuleClasses(ConfiguredRuleClassProvider.Builder builder) {
-    Google3RuleClassProvider.setup(builder);
+    BazelRuleClassProvider.setup(builder);
   }
 
   @Override

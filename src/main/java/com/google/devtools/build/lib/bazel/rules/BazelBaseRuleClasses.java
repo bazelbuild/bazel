@@ -12,7 +12,7 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-package com.google.devtools.build.lib.blaze.rules;
+package com.google.devtools.build.lib.bazel.rules;
 
 import static com.google.devtools.build.lib.packages.Attribute.ConfigurationTransition.HOST;
 import static com.google.devtools.build.lib.packages.Attribute.attr;
@@ -43,7 +43,7 @@ import java.util.List;
  * variation that we declare them explicitly for each rule.  This leads to stricter error checking
  * and prevents users from inadvertently using an attribute that doesn't actually do anything.
  */
-public final class Google3BaseRuleClasses {
+public class BazelBaseRuleClasses {
   private static final Label LCOV_MERGER_LABEL =
       Label.parseAbsoluteUnchecked("//tools:coverage/lcov_merger.par");
 

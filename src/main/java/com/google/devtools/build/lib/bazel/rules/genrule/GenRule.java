@@ -12,7 +12,7 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-package com.google.devtools.build.lib.view.genrule;
+package com.google.devtools.build.lib.bazel.rules.genrule;
 
 import static com.google.devtools.build.lib.view.RunfilesProvider.RunfilesProviderImpl.dataSpecificRunfilesProvider;
 
@@ -82,11 +82,7 @@ public class GenRule implements RuleConfiguredTargetFactory {
 
     ImmutableMap.Builder<Label, Iterable<Artifact>> labelMap = ImmutableMap.builder();
     for (TransitiveInfoCollection dep : ruleContext.getPrerequisites("srcs", Mode.TARGET)) {
-      // This target provides specific types of files for genrules.
-      GenRuleSourcesProvider provider = dep.getProvider(GenRuleSourcesProvider.class);
-      Iterable<Artifact> files = (provider != null)
-          ? provider.getGenruleFiles()
-          : dep.getProvider(FileProvider.class).getFilesToBuild();
+      Iterable<Artifact> files = dep.getProvider(FileProvider.class).getFilesToBuild();
       Iterables.addAll(resolvedSrcs, files);
       labelMap.put(dep.getLabel(), files);
     }
@@ -154,7 +150,7 @@ public class GenRule implements RuleConfiguredTargetFactory {
     return new GenericRuleConfiguredTargetBuilder(ruleContext)
         .setFilesToBuild(filesToBuild)
         .setExecutable(getExecutable(ruleContext, filesToBuild))
-        .add(RunfilesProvider.class, runfilesProvider)
+        .addProvider(RunfilesProvider.class, runfilesProvider)
         .build();
   }
 
@@ -184,8 +180,8 @@ public class GenRule implements RuleConfiguredTargetFactory {
                 if (relativeOutputFile.segmentCount() <= 1) {
                   // This should never happen, since the path should contain at
                   // least a package name and a file name.
-                  throw new IllegalStateException("$(@D) for genrule " + ruleContext.getLabel() +
-                                                  " has less than one segment");
+                  throw new IllegalStateException("$(@D) for genrule " + ruleContext.getLabel()
+                      + " has less than one segment");
                 }
                 return relativeOutputFile.getParentDirectory().getPathString();
               } else {

@@ -292,12 +292,10 @@ public final class SkyframeBuildView {
   @Nullable
   CachingAnalysisEnvironment createAnalysisEnvironment(LabelAndConfiguration owner,
       boolean isSystemEnv, boolean extendedSanityChecks, ErrorEventListener listener,
-      Environment env) {
+      Environment env, boolean allowRegisteringActions) {
     if (skyframeExecutor.skyframeBuild() && !getWorkspaceStatusNodes(env)) {
       return null;
     }
-    boolean allowRegisteringActions =
-        owner.getConfiguration() == null ? true : owner.getConfiguration().isActionsEnabled();
     return new CachingAnalysisEnvironment(
         artifactFactory, null, owner, workspaceStatusArtifacts, isSystemEnv,
         extendedSanityChecks, listener, env, allowRegisteringActions, outputFormatters, binTools);

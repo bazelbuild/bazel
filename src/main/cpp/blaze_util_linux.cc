@@ -13,7 +13,7 @@
 // limitations under the License.
 
 #include <limits.h>
-#include <string.h>
+#include <string.h>  // strerror
 #include <sys/statfs.h>
 #include <unistd.h>
 
