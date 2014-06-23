@@ -20,7 +20,6 @@ import com.google.common.collect.Maps;
 import com.google.devtools.build.lib.actions.Artifact;
 import com.google.devtools.build.lib.collect.nestedset.NestedSet;
 import com.google.devtools.build.lib.packages.OutputFile;
-import com.google.devtools.build.lib.view.RunfilesCollector.State;
 import com.google.devtools.build.lib.view.config.RunUnder;
 
 import java.util.Map;
@@ -92,11 +91,6 @@ public final class GenericRuleConfiguredTarget extends RuleConfiguredTarget {
   public <P extends TransitiveInfoProvider> P getProvider(Class<P> provider) {
     AnalysisUtils.checkProvider(provider);
     return provider.cast(providers.get(provider));
-  }
-
-  @Override
-  public Runfiles getTransitiveRunfiles(State state) {
-    return getProvider(RunfilesProvider.class).getTransitiveRunfiles(state);
   }
 
   @Override

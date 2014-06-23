@@ -6,6 +6,7 @@ mkdir -p output/src
 mkdir -p output/objs
 mkdir -p output/native
 
+PLATFORM=$(uname -s | tr 'A-Z' 'a-z')
 
 # Compile .proto files using protoc
 PROTO_FILES=(
@@ -56,6 +57,7 @@ CC_FILES=(
 src/main/cpp/blaze_startup_options.cc
 src/main/cpp/blaze_startup_options_common.cc
 src/main/cpp/blaze_util.cc
+src/main/cpp/blaze_util_${PLATFORM}.cc
 src/main/cpp/blaze.cc
 src/main/cpp/option_processor.cc
 src/main/cpp/util/port.cc

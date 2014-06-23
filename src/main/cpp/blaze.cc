@@ -41,7 +41,6 @@
 #include <sys/select.h>
 #include <sys/socket.h>
 #include <sys/stat.h>
-#include <sys/statfs.h>
 #include <sys/statvfs.h>
 #include <sys/time.h>
 #include <sys/un.h>
@@ -57,6 +56,7 @@
 #include "blaze_exit_code.h"
 #include "blaze_startup_options.h"
 #include "blaze_util.h"
+#include "blaze_util_platform.h"
 #include "option_processor.h"
 #include "util/file.h"
 #include "util/md5.h"
@@ -414,13 +414,6 @@ static void GoToWorkspace() {
   }
 }
 
-// Wrapper around clock_gettime that return the time as a uint64
-static uint64 ClockGetTime(clockid_t clk_id) {
-  struct timespec ts;
-  clock_gettime(clk_id, &ts);
-  return ts.tv_sec * 1000000000LL + ts.tv_nsec;
-}
-
 // Starts the Blaze server.  Returns a readable fd connected to the server.
 // This is currently used only to detect liveness.
 static int StartServer(int socket) {
@@ -476,7 +469,7 @@ static void StartStandalone() {
   KillRunningServerIfAny();
 
   // Wall clock time since process startup.
-  globals->startup_time = ClockGetTime(CLOCK_PROCESS_CPUTIME_ID) / 1000000LL;
+  globals->startup_time = ProcessClock() / 1000000LL;
 
   if (SPAM) {
     fprintf(stderr, "Starting blaze in batch mode.\n");
@@ -509,38 +502,6 @@ static void StartStandalone() {
   pdie(blaze_exit_code::INTERNAL_ERROR, "execv of '%s' failed", exe.c_str());
 }
 
-// Set cpu and IO scheduling properties. Note that this can take ~50ms, so it
-// should only be called when necessary.
-static void SetScheduling() {
-  // Move ourself into a low priority CPU scheduling group if the
-  // machine is configured appropriately.  Fail silently, because this
-  // isn't available on all kernels.
-  if (FILE *f = fopen("/dev/cgroup/cpu/batch/tasks", "w")) {
-    fprintf(f, "%d", getpid());
-    fclose(f);
-  }
-
-  if (globals->options.batch_cpu_scheduling) {
-    sched_param param;
-    param.sched_priority = 0;
-    if (sched_setscheduler(0, SCHED_BATCH, &param)) {
-      pdie(blaze_exit_code::INTERNAL_ERROR,
-           "sched_setscheduler(SCHED_BATCH) failed");
-    }
-  }
-
-  if (globals->options.io_nice_level >= 0) {
-    if (blaze_util::sys_ioprio_set(
-            IOPRIO_WHO_PROCESS, getpid(),
-            IOPRIO_PRIO_VALUE(IOPRIO_CLASS_BE,
-                              globals->options.io_nice_level)) < 0) {
-      pdie(blaze_exit_code::INTERNAL_ERROR,
-           "ioprio_set() with class %d and level %d failed",
-           IOPRIO_CLASS_BE, globals->options.io_nice_level);
-    }
-  }
-}
-
 // Like connect(2), but uses the AF_UNIX address denoted by socket_file,
 // resolving symbolic links.  (The server may make "socket_file" a
 // symlink, to avoid ENAMETOOLONG, in which case the client must
@@ -549,7 +510,7 @@ static int Connect(int socket, const string &socket_file) {
   struct sockaddr_un addr;
   addr.sun_family = AF_UNIX;
 
-  char *resolved_path = canonicalize_file_name(socket_file.c_str());
+  char *resolved_path = realpath(socket_file.c_str(), NULL);
   if (resolved_path != NULL) {
     strncpy(addr.sun_path, resolved_path, sizeof addr.sun_path);
     addr.sun_path[sizeof addr.sun_path - 1] = '\0';
@@ -611,7 +572,10 @@ static int ConnectToServer(bool start) {
   if (!start) {
     return -1;
   } else {
-    SetScheduling();
+    SetScheduling(
+        globals->options.batch_cpu_scheduling,
+        globals->options.io_nice_level);
+
     int fd = StartServer(s);
     if (fcntl(fd, F_SETFL, O_NONBLOCK | fcntl(fd, F_GETFL))) {
       pdie(blaze_exit_code::LOCAL_ENVIRONMENTAL_ERROR,
@@ -858,14 +822,14 @@ static void ExtractData(const string &self_path) {
   // If the install dir doesn't exist, create it, if it does, we know it's good.
   struct stat buf;
   if (stat(globals->options.install_base.c_str(), &buf) == -1) {
-    uint64 st = ClockGetTime(CLOCK_MONOTONIC);
+    uint64 st = MonotonicClock();
     // Work in a temp dir to avoid races.
     string tmp_install = globals->options.install_base + ".tmp." +
         std::to_string(getpid());
     string tmp_binaries = tmp_install + "/_embedded_binaries";
     ActuallyExtractData(self_path, tmp_binaries);
 
-    uint64 et = ClockGetTime(CLOCK_MONOTONIC);
+    uint64 et = MonotonicClock();
     globals->extract_data_time = (et - st) / 1000000LL;
 
     // Now rename the completed installation to its final name. If this
@@ -1142,7 +1106,7 @@ static void SendServerRequest(void) {
   }
 
   // Wall clock time since process startup.
-  globals->startup_time = ClockGetTime(CLOCK_PROCESS_CPUTIME_ID) / 1000000LL;
+  globals->startup_time = ProcessClock() / 1000000LL;
   const string request = BuildServerRequest();
 
   // Unblock all signals.
@@ -1287,7 +1251,7 @@ static string GetWorkspace(string cwd) {
 
 // Returns the canonical form of a path.
 static string MakeCanonical(const char *path) {
-  char *resolved_path = canonicalize_file_name(path);
+  char *resolved_path = realpath(path, NULL);
   if (resolved_path == NULL) {
     pdie(blaze_exit_code::LOCAL_ENVIRONMENTAL_ERROR,
          "realpath('%s') failed", path);
@@ -1453,7 +1417,7 @@ static void AcquireLock() {
     fflush(stderr);
 
     // Take a clock sample for that start of the waiting time
-    uint64 st = ClockGetTime(CLOCK_MONOTONIC);
+    uint64 st = MonotonicClock();
     // Try to take the lock again (blocking).
     int r;
     do {
@@ -1465,7 +1429,7 @@ static void AcquireLock() {
            "couldn't acquire file lock");
     }
     // Take another clock sample, calculate elapsed
-    uint64 et = ClockGetTime(CLOCK_MONOTONIC);
+    uint64 et = MonotonicClock();
     globals->command_wait_time = (et - st) / 1000000LL;
   }
 
@@ -1494,7 +1458,7 @@ static string GetMountpoint(string dir) {
     } else if (initial_device == -1 && prev_inode == -1) {  // first time
       initial_device = buf.st_dev;
     } else if (initial_device != buf.st_dev) {  // we crossed file systems
-      char *resolved_path = canonicalize_file_name(prev_dir.c_str());
+      char *resolved_path = realpath(prev_dir.c_str(), NULL);
       if (resolved_path == NULL) {
         pdie(blaze_exit_code::LOCAL_ENVIRONMENTAL_ERROR,
              "realpath('%s') failed", prev_dir.c_str());
@@ -1510,22 +1474,8 @@ static string GetMountpoint(string dir) {
     prev_dir = dir;
     dir +=  "/..";
   }
-}
 
-static void WarnFilesystemType() {
-  struct statfs buf;
-  if (statfs(globals->options.output_base.c_str(), &buf) < 0) {
-    fprintf(stderr,
-            "WARNING: couldn't get file system type information for '%s': %s\n",
-            globals->options.output_base.c_str(), strerror(errno));
-    return;
-  }
-
-  if (buf.f_type == 0x00006969) {  // NFS_SUPER_MAGIC
-    fprintf(stderr, "WARNING: Output base '%s' is on NFS. This may lead "
-            "to surprising failures and undetermined behavior.\n",
-            globals->options.output_base.c_str());
-  }
+  return "/";
 }
 
 // Issue a warning if disk has less than 10% free blocks or inodes.
@@ -1609,7 +1559,7 @@ static void CheckBinaryPath(const string& argv0) {
     globals->binary_path = argv0;
   } else {
     string abs_path = globals->cwd + '/' + argv0;
-    char *resolved_path = canonicalize_file_name(abs_path.c_str());
+    char *resolved_path = realpath(abs_path.c_str(), NULL);
     if (resolved_path) {
       globals->binary_path = resolved_path;
       free(resolved_path);
@@ -1678,7 +1628,7 @@ int main(int argc, const char *argv[]) {
   AcquireLock();
 
   WarnIfFullDisk();
-  WarnFilesystemType();
+  WarnFilesystemType(globals->options.output_base);
   EnsureFiniteStackLimit();
 
   ExtractData(self_path);
@@ -1686,7 +1636,8 @@ int main(int argc, const char *argv[]) {
   KillRunningServerIfDifferentStartupOptions();
 
   if (globals->options.batch) {
-    SetScheduling();
+    SetScheduling(globals->options.batch_cpu_scheduling,
+                  globals->options.io_nice_level);
     StartStandalone();
   } else {
     SendServerRequest();

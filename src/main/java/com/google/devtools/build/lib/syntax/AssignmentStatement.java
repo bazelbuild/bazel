@@ -14,6 +14,7 @@
 
 package com.google.devtools.build.lib.syntax;
 
+import com.google.devtools.build.lib.collect.nestedset.NestedSet;
 import com.google.devtools.build.lib.syntax.Environment.NoSuchVariableException;
 
 import java.util.Map;
@@ -79,7 +80,12 @@ public final class AssignmentStatement extends Statement {
               "Cannot assign readonly variable: '" + ident.getName() + "'");
         }
         Class<?> variableType = skylarkEnv.getVariableType(ident.getName());
-        if (variableType != null && !variableType.equals(result.getClass())) {
+        Class<?> resultType = result.getClass();
+        // TODO(bazel-team): A temporary workaround to avoid conflicts with NestedSet refactoring.
+        if (NestedSet.class.isAssignableFrom(resultType)) {
+          resultType = NestedSet.class;
+        }
+        if (variableType != null && !variableType.equals(resultType)) {
           throw new EvalException(getLocation(), String.format("Incompatible variable types, "
               + "trying to assign %s (type of %s) to variable %s which is already %s",
               EvalUtils.prettyPrintValue(result),

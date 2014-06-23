@@ -210,6 +210,15 @@ public final class RuleContext extends TargetContext
   }
 
   /**
+   * Reports a rule error for each string in {@code errors}.
+   */
+  public void reportRuleErrors(Iterable<String> errors) {
+    for (String error : errors) {
+      ruleError(error);
+    }
+  }
+
+  /**
    * Convenience function for subclasses to report non-attribute-specific
    * warnings in the current rule.
    */

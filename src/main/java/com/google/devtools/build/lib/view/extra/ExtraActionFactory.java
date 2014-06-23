@@ -23,11 +23,13 @@ import com.google.devtools.build.lib.view.CommandHelper;
 import com.google.devtools.build.lib.view.ConfigurationMakeVariableContext;
 import com.google.devtools.build.lib.view.FilesToRunProvider;
 import com.google.devtools.build.lib.view.GenericRuleConfiguredTargetBuilder;
+import com.google.devtools.build.lib.view.GenericRuleConfiguredTargetBuilder.StatelessRunfilesProvider;
 import com.google.devtools.build.lib.view.MakeVariableExpander;
 import com.google.devtools.build.lib.view.RuleConfiguredTarget;
 import com.google.devtools.build.lib.view.RuleConfiguredTarget.Mode;
 import com.google.devtools.build.lib.view.RuleContext;
 import com.google.devtools.build.lib.view.Runfiles;
+import com.google.devtools.build.lib.view.RunfilesProvider;
 
 import java.util.List;
 
@@ -84,7 +86,7 @@ public final class ExtraActionFactory implements RuleConfiguredTargetFactory {
 
     return new GenericRuleConfiguredTargetBuilder(context)
         .addProvider(ExtraActionProvider.class, new ExtraActionProvider(spec))
-        .setRunfiles(Runfiles.EMPTY)
+        .add(RunfilesProvider.class, new StatelessRunfilesProvider(Runfiles.EMPTY))
         .build();
   }
 }

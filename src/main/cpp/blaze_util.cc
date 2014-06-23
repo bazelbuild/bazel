@@ -60,20 +60,11 @@ string GetUserName() {
   if (user && user[0] != '\0') return user;
   errno = 0;
   passwd *pwent = getpwuid(getuid());  // NOLINT (single-threaded)
-  if (pwent != NULL && pwent->pw_name != NULL) return pwent->pw_name;
-  pdie(blaze_exit_code::LOCAL_ENVIRONMENTAL_ERROR,
-       "$USER is not set, and unable to look up name of current user");
-}
-
-// Returns the process id of the peer connected to this socket.
-pid_t GetPeerProcessId(int socket) {
-  struct ucred creds;
-  socklen_t len = sizeof creds;
-  if (getsockopt(socket, SOL_SOCKET, SO_PEERCRED, &creds, &len) == -1) {
+  if (pwent == NULL || pwent->pw_name == NULL) {
     pdie(blaze_exit_code::LOCAL_ENVIRONMENTAL_ERROR,
-         "can't get server pid from connection");
+         "$USER is not set, and unable to look up name of current user");
   }
-  return creds.pid;
+  return pwent->pw_name;
 }
 
 // Returns the given path in absolute form.  Does not change paths that are
@@ -179,23 +170,6 @@ int GetTerminalColumns() {
     }
   }
   return 80;  // default if not a terminal.
-}
-
-// Get the absolute path to the binary being executed by reading
-// /proc/self/exe.
-string GetSelfPath() {
-  char buffer[PATH_MAX];
-  ssize_t bytes = readlink("/proc/self/exe", buffer, sizeof(buffer));
-  if (bytes == sizeof(buffer)) {
-    // symlink contents truncated
-    bytes = -1;
-    errno = ENAMETOOLONG;
-  }
-  if (bytes == -1) {
-    pdie(blaze_exit_code::INTERNAL_ERROR, "error reading /proc/self/exe");
-  }
-  buffer[bytes] = '\0';  // readlink does not NUL-terminate
-  return string(buffer);
 }
 
 // Replace the current process with the given program in the given working

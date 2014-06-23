@@ -23,9 +23,11 @@ import com.google.devtools.build.lib.collect.nestedset.Order;
 import com.google.devtools.build.lib.packages.Rule;
 import com.google.devtools.build.lib.rules.RuleConfiguredTargetFactory;
 import com.google.devtools.build.lib.view.GenericRuleConfiguredTargetBuilder;
+import com.google.devtools.build.lib.view.GenericRuleConfiguredTargetBuilder.StatelessRunfilesProvider;
 import com.google.devtools.build.lib.view.RuleConfiguredTarget;
 import com.google.devtools.build.lib.view.RuleContext;
 import com.google.devtools.build.lib.view.Runfiles;
+import com.google.devtools.build.lib.view.RunfilesProvider;
 
 /**
  * A null implementation of ConfiguredTarget for rules we don't know how to build.
@@ -52,7 +54,7 @@ public class UnknownRuleConfiguredTarget implements RuleConfiguredTargetFactory 
         filesToBuild, "cannot build " + rule.getRuleClass() + " rules such as " + rule.getLabel()));
     return new GenericRuleConfiguredTargetBuilder(context)
         .setFilesToBuild(filesToBuild)
-        .setRunfiles(Runfiles.EMPTY)
+        .add(RunfilesProvider.class, new StatelessRunfilesProvider(Runfiles.EMPTY))
         .build();
   }
 }

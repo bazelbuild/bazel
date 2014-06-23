@@ -32,8 +32,7 @@ import javax.annotation.concurrent.Immutable;
  */
 // TODO(bazel-team): Remove ActionOwner from here; use ruleContext.getActionOwner() instead.
 public abstract class RuleConfiguredTarget extends AbstractConfiguredTarget
-    implements ActionOwner,
-               RunfilesProvider, FileProvider {
+    implements ActionOwner {
 
   /**
    * The configuration transition for an attribute through which a prerequisite

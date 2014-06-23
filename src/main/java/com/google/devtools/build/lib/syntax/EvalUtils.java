@@ -99,6 +99,8 @@ public abstract class EvalUtils {
       return "function";
     } else if (c.equals(FilesetEntry.class)) {
       return "FilesetEntry";
+    } else if (NestedSet.class.isAssignableFrom(c)) {
+      return NestedSet.class.getSimpleName();
     } else {
       return c.getSimpleName();
     }

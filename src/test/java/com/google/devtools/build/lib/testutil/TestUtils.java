@@ -43,6 +43,7 @@ public class TestUtils {
       "libblaze.jar",
       "build-runfiles",
       "client_info",
+      "process-wrapper",
       "alarm");
 
   public static final ThreadPoolExecutor POOL =

@@ -81,8 +81,8 @@ public interface Spawn {
    * Returns the list of files that this command may read.
    *
    * <p>This method explicitly does not expand middleman artifacts. Pass the result
-   * to {@link com.google.devtools.build.lib.actions.Artifact#asExpandedArtifacts} to expand the
-   * middlemen.
+   * to an appropriate utility method on {@link com.google.devtools.build.lib.actions.Artifact} to
+   * expand the middlemen.
    *
    * <p>This is for use with remote execution, so we can ship inputs before starting the
    * command. Order stability across multiple calls should be upheld for performance reasons.

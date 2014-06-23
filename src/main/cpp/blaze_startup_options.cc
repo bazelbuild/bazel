@@ -13,8 +13,10 @@
 // limitations under the License.
 #include "blaze_startup_options.h"
 
+#include <errno.h>  // errno, ENOENT
 #include <sys/stat.h>
-#include <unistd.h>
+#include <stdlib.h>  // getenv, exit
+#include <unistd.h>  // access
 
 #include "blaze_exit_code.h"
 #include "blaze_util.h"
@@ -111,6 +113,7 @@ string BlazeStartupOptions::GetDefaultHostJavabase() {
   }
 
   vector<string> pieces = blaze_util::Split(path, ':');
+  string base;
   for (auto piece : pieces) {
     if (piece.empty()) {
       piece = ".";
@@ -122,11 +125,14 @@ string BlazeStartupOptions::GetDefaultHostJavabase() {
         stat(candidate.c_str(), &file_stat) == 0 &&
         S_ISREG(file_stat.st_mode)) {
       // Structure is JAVABASE/bin/java.
-      return blaze_util::Dirname(blaze_util::Dirname(candidate));
+      base = blaze_util::Dirname(blaze_util::Dirname(candidate));
+      break;
     }
   }
-
-  die(blaze_exit_code::LOCAL_ENVIRONMENTAL_ERROR, "Could not find Java");
+  if (base.empty()) {
+    die(blaze_exit_code::LOCAL_ENVIRONMENTAL_ERROR, "Could not find Java");
+  }
+  return base;
 }
 
 string BlazeStartupOptions::GetJvm() {

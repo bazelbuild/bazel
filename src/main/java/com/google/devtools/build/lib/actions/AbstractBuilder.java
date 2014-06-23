@@ -20,7 +20,6 @@ import com.google.common.eventbus.EventBus;
 import com.google.devtools.build.lib.actions.Action.MiddlemanType;
 import com.google.devtools.build.lib.actions.ActionCacheChecker.DepcheckerListener;
 import com.google.devtools.build.lib.actions.ActionCacheChecker.Token;
-import com.google.devtools.build.lib.actions.Artifact.MiddlemanExpander;
 import com.google.devtools.build.lib.actions.cache.MetadataHandler;
 import com.google.devtools.build.lib.concurrent.ThreadSafety.ConditionallyThreadCompatible;
 import com.google.devtools.build.lib.concurrent.ThreadSafety.ConditionallyThreadSafe;
@@ -447,16 +446,10 @@ abstract class AbstractBuilder implements Builder {
     try {
       actionExecutor.prepareScheduleExecuteAndCompleteAction(action, token, fileCache,
           dependencyChecker.getMetadataHandler(),
-          new MiddlemanExpander() {
-            @Override
-            public void expand(Artifact mm, Collection<Artifact> output) {
-              // Skyframe is stricter in that it checks that "mm" is a input of the action, because
-              // it cannot expand arbitrary middlemen without access to a global action graph.
-              // We could check this constraint here too, but it seems unnecessary. This code is
-              // going away anyway.
-              Artifact.expandMiddlemanArtifact(mm, output, executor.getActionGraph());
-            }
-          }, actionStartTime);
+          executor == null
+              ? null
+              : ActionInputHelper.actionGraphMiddlemanExpander(executor.getActionGraph()),
+          actionStartTime);
       workCompleted.addAndGet(progressIncrement);
     } finally {
       if (message != null) {

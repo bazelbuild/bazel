@@ -267,21 +267,6 @@ public final class GenericRuleConfiguredTargetBuilder {
   }
 
   /**
-   * Set the runfiles provider.
-   */
-  public GenericRuleConfiguredTargetBuilder setRunfiles(RunfilesProvider runfilesProvider) {
-    return add(RunfilesProvider.class, runfilesProvider);
-  }
-
-  /**
-   * Set the runfiles of the rule as a state-independent instance. This is a convenience method that
-   * calls through to {@link #add} with {@link RunfilesProvider} by wrapping the given runfiles.
-   */
-  public GenericRuleConfiguredTargetBuilder setRunfiles(final Runfiles runfiles) {
-    return add(RunfilesProvider.class, new StatelessRunfilesProvider(runfiles));
-  }
-
-  /**
    * Set the runfiles support for executable targets.
    */
   public GenericRuleConfiguredTargetBuilder setRunfilesSupport(RunfilesSupport runfilesSupport) {

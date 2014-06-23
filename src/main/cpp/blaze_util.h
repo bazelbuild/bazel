@@ -28,6 +28,7 @@
 #include <string>
 #include <vector>
 
+#include "util/numbers.h"
 #include "util/port.h"
 
 namespace blaze {
@@ -42,9 +43,6 @@ void pdie(const int exit_status, const char *format, ...) ATTRIBUTE_NORETURN
     PRINTF_ATTRIBUTE(2, 3);
 
 string GetUserName();
-
-// Returns the process id of the peer connected to this socket.
-pid_t GetPeerProcessId(int socket);
 
 // Return the path to the JVM launcher.
 string GetJvm();
@@ -75,9 +73,6 @@ bool IsStandardTerminal();
 // Returns the number of columns of the terminal to which stdout is
 // connected, or 80 if there is no such terminal.
 int GetTerminalColumns();
-
-// Get the absolute path to the binary being executed.
-string GetSelfPath();
 
 // blaze's JVM arch is set at build time (--java_cpu), since the blaze java
 // process includes native code.

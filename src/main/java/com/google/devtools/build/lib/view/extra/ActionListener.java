@@ -19,10 +19,12 @@ import com.google.devtools.build.lib.collect.ImmutableSortedKeyListMultimap;
 import com.google.devtools.build.lib.packages.Type;
 import com.google.devtools.build.lib.rules.RuleConfiguredTargetFactory;
 import com.google.devtools.build.lib.view.GenericRuleConfiguredTargetBuilder;
+import com.google.devtools.build.lib.view.GenericRuleConfiguredTargetBuilder.StatelessRunfilesProvider;
 import com.google.devtools.build.lib.view.RuleConfiguredTarget;
 import com.google.devtools.build.lib.view.RuleConfiguredTarget.Mode;
 import com.google.devtools.build.lib.view.RuleContext;
 import com.google.devtools.build.lib.view.Runfiles;
+import com.google.devtools.build.lib.view.RunfilesProvider;
 import com.google.devtools.build.lib.view.TransitiveInfoCollection;
 
 import java.util.ArrayList;
@@ -53,7 +55,7 @@ public final class ActionListener implements RuleConfiguredTargetFactory {
     }
     extraActionMap = extraActionMapBuilder.build();
     return new GenericRuleConfiguredTargetBuilder(ruleContext)
-        .setRunfiles(Runfiles.EMPTY)
+        .add(RunfilesProvider.class, new StatelessRunfilesProvider(Runfiles.EMPTY))
         .add(ExtraActionMapProvider.class, new ExtraActionMapProvider(extraActionMap))
         .build();
   }

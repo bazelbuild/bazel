@@ -223,7 +223,6 @@ public final class BlazeExecutor implements Executor {
 
   @Override
   public ActionGraph getActionGraph() {
-    Preconditions.checkState(this.actionGraph != null);
     return actionGraph;
   }
 

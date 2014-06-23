@@ -16,6 +16,7 @@ package com.google.devtools.build.lib.syntax;
 import com.google.common.base.Preconditions;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.Iterables;
+import com.google.devtools.build.lib.collect.nestedset.NestedSet;
 
 import java.util.HashSet;
 import java.util.Map.Entry;
@@ -170,6 +171,10 @@ public class SkylarkEnvironment extends Environment {
    */
   public Class<?> getVariableType(String varname) {
     Object variable = env.get(varname);
+    // TODO(bazel-team): A temporary workaround to avoid conflicts with NestedSet refactoring.
+    if (variable instanceof NestedSet) {
+      return NestedSet.class;
+    }
     return variable != null ? variable.getClass() : null;
   }
 

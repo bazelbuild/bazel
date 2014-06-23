@@ -66,7 +66,7 @@ public class Filegroup implements RuleConfiguredTargetFactory {
         new Runfiles.Builder().addArtifacts(filesToBuild).addDataDeps(ruleContext).build());
 
     return new GenericRuleConfiguredTargetBuilder(ruleContext)
-        .setRunfiles(runfilesProvider)
+        .add(RunfilesProvider.class, runfilesProvider)
         .setFilesToBuild(filesToBuild)
         .setExecutable(getExecutable(filesToBuild))
         .add(InstrumentedFilesProvider.class, new InstrumentedFilesProviderImpl(

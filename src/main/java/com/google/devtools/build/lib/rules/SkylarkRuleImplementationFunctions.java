@@ -37,11 +37,11 @@ import com.google.devtools.build.lib.syntax.Function;
 import com.google.devtools.build.lib.syntax.Label;
 import com.google.devtools.build.lib.syntax.PositionalFunction;
 import com.google.devtools.build.lib.syntax.SkylarkBuiltin;
-import com.google.devtools.build.lib.syntax.ValidationEnvironment;
 import com.google.devtools.build.lib.syntax.SkylarkBuiltin.Param;
 import com.google.devtools.build.lib.syntax.SkylarkEnvironment;
 import com.google.devtools.build.lib.syntax.SkylarkFunction;
 import com.google.devtools.build.lib.syntax.SkylarkFunction.SimpleSkylarkFunction;
+import com.google.devtools.build.lib.syntax.ValidationEnvironment;
 import com.google.devtools.build.lib.view.CommandHelper;
 import com.google.devtools.build.lib.view.FilesToRunProvider;
 import com.google.devtools.build.lib.view.GenericRuleConfiguredTargetBuilder;
@@ -74,7 +74,7 @@ public class SkylarkRuleImplementationFunctions {
   public static final Map<String, Object> JAVA_OBJECTS_TO_EXPOSE =
       new ImmutableMap.Builder<String, Object>()
           .put("Files", SkylarkFileset.class)
-          .put("ImplicitOutputsFunction", ImplicitOutputsFunction.class)  
+          .put("ImplicitOutputsFunction", ImplicitOutputsFunction.class)
           // TODO(bazel-team): Check the Skylark environment for duplicate symbols,
           // also these symbols should be protected from being overwritten.
           .put("DEFAULT", defaultState)
@@ -208,7 +208,7 @@ public class SkylarkRuleImplementationFunctions {
             SkylarkFileset.class, "files_to_build", loc).getFileset());
       }
       if (arguments.containsKey("runfiles")) {
-        builder.setRunfiles(cast(arguments.get("runfiles"),
+        builder.add(RunfilesProvider.class, cast(arguments.get("runfiles"),
             RunfilesProvider.class, "runfiles", loc));
       }
       if (arguments.containsKey("executable")) {
@@ -441,7 +441,7 @@ public class SkylarkRuleImplementationFunctions {
           return new CommandHelper(ruleContext.getRuleContext(),
               castList(arguments.get("tools"), FilesToRunProvider.class, "tools"),
               // TODO(bazel-team): this cast to Map is unchecked and is not safe.
-              // The best way to fix this probably is to convert CommandHelper to Skylark. 
+              // The best way to fix this probably is to convert CommandHelper to Skylark.
               ImmutableMap.copyOf((Map<Label, Iterable<Artifact>>) arguments.get("label_dict")));
         }
       };

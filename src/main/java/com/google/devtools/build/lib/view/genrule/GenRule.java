@@ -154,7 +154,7 @@ public class GenRule implements RuleConfiguredTargetFactory {
     return new GenericRuleConfiguredTargetBuilder(ruleContext)
         .setFilesToBuild(filesToBuild)
         .setExecutable(getExecutable(ruleContext, filesToBuild))
-        .setRunfiles(runfilesProvider)
+        .add(RunfilesProvider.class, runfilesProvider)
         .build();
   }
 

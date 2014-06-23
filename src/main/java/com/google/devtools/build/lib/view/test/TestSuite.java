@@ -26,6 +26,7 @@ import com.google.devtools.build.lib.view.RuleConfiguredTarget.Mode;
 import com.google.devtools.build.lib.view.RuleContext;
 import com.google.devtools.build.lib.view.Runfiles;
 import com.google.devtools.build.lib.view.RunfilesCollector;
+import com.google.devtools.build.lib.view.RunfilesProvider;
 import com.google.devtools.build.lib.view.TransitiveInfoCollection;
 
 import java.util.ArrayList;
@@ -81,7 +82,7 @@ public class TestSuite implements RuleConfiguredTargetFactory {
         .build();
 
     return new GenericRuleConfiguredTargetBuilder(ruleContext)
-        .setRunfiles(dataSpecificRunfilesProvider(Runfiles.EMPTY, runfiles))
+        .add(RunfilesProvider.class, dataSpecificRunfilesProvider(Runfiles.EMPTY, runfiles))
         .add(TransitiveTestsProvider.class, new TransitiveTestsProviderImpl())
         .build();
   }

@@ -18,10 +18,12 @@ import com.google.devtools.build.lib.collect.nestedset.NestedSet;
 import com.google.devtools.build.lib.collect.nestedset.NestedSetBuilder;
 import com.google.devtools.build.lib.rules.RuleConfiguredTargetFactory;
 import com.google.devtools.build.lib.view.GenericRuleConfiguredTargetBuilder;
+import com.google.devtools.build.lib.view.GenericRuleConfiguredTargetBuilder.StatelessRunfilesProvider;
 import com.google.devtools.build.lib.view.RuleConfiguredTarget;
 import com.google.devtools.build.lib.view.RuleConfiguredTarget.Mode;
 import com.google.devtools.build.lib.view.RuleContext;
 import com.google.devtools.build.lib.view.Runfiles;
+import com.google.devtools.build.lib.view.RunfilesProvider;
 import com.google.devtools.build.lib.view.RunfilesCollector;
 
 /**
@@ -44,7 +46,7 @@ public class ShLibrary implements RuleConfiguredTargetFactory {
         .build();
     return new GenericRuleConfiguredTargetBuilder(ruleContext)
         .setFilesToBuild(filesToBuild)
-        .setRunfiles(runfiles)
+        .add(RunfilesProvider.class, new StatelessRunfilesProvider(runfiles))
         .build();
   }
 }

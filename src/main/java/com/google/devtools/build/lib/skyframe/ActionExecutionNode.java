@@ -17,6 +17,7 @@ import com.google.common.annotations.VisibleForTesting;
 import com.google.common.base.Preconditions;
 import com.google.common.collect.ImmutableMap;
 import com.google.devtools.build.lib.actions.Action;
+import com.google.devtools.build.lib.actions.Action.MiddlemanType;
 import com.google.devtools.build.lib.actions.Artifact;
 import com.google.devtools.build.lib.concurrent.ThreadSafety.Immutable;
 import com.google.devtools.build.lib.concurrent.ThreadSafety.ThreadSafe;
@@ -83,15 +84,25 @@ public class ActionExecutionNode implements Node {
   }
 
   /**
-   * Returns whether the {@code key} corresponds to a ActionExecutionNode of a "real" action.
+   * Returns whether the key corresponds to a ActionExecutionNode worth reporting status about.
    *
-   * <p>We define "real" as meaningful for the user, by virtue of having a progress message.
-   * Actions lacking that, such as middleman actions and build info actions, typically don't
-   * interest the user and they tend to be instantaneous, so counting them in progress reports
-   * leads to more confusion than good.
+   * <p>If an action can do real work, it's probably worth counting and reporting status about.
+   * Actions that don't really do any work (typically middleman actions) should not be counted
+   * towards enqueued and completed actions.
    */
-  public static boolean isRealActionKey(NodeKey key) {
+  public static boolean isReportWorthyAction(NodeKey key) {
     return key.getNodeType() == NodeTypes.ACTION_EXECUTION
-        && ((Action) key.getNodeName()).getProgressMessage() != null;
+        && isReportWorthyAction((Action) key.getNodeName());
+  }
+
+  /**
+   * Returns whether the action is worth reporting status about.
+   *
+   * <p>If an action can do real work, it's probably worth counting and reporting status about.
+   * Actions that don't really do any work (typically middleman actions) should not be counted
+   * towards enqueued and completed actions.
+   */
+  public static boolean isReportWorthyAction(Action action) {
+    return action.getActionType() == MiddlemanType.NORMAL;
   }
 }

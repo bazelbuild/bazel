@@ -38,11 +38,13 @@ import com.google.devtools.build.lib.vfs.Symlinks;
 import com.google.devtools.build.lib.view.AnalysisUtils;
 import com.google.devtools.build.lib.view.FileProvider;
 import com.google.devtools.build.lib.view.GenericRuleConfiguredTargetBuilder;
+import com.google.devtools.build.lib.view.GenericRuleConfiguredTargetBuilder.StatelessRunfilesProvider;
 import com.google.devtools.build.lib.view.RuleConfiguredTarget;
 import com.google.devtools.build.lib.view.RuleConfiguredTarget.ConfiguredFilesetEntry;
 import com.google.devtools.build.lib.view.RuleContext;
 import com.google.devtools.build.lib.view.Runfiles;
 import com.google.devtools.build.lib.view.RunfilesCollector;
+import com.google.devtools.build.lib.view.RunfilesProvider;
 import com.google.devtools.build.lib.view.SymlinkTreeAction;
 import com.google.devtools.build.lib.view.TransitiveInfoCollection;
 import com.google.devtools.build.lib.view.Util;
@@ -133,7 +135,7 @@ public class Fileset implements RuleConfiguredTargetFactory {
 
     return new GenericRuleConfiguredTargetBuilder(ruleContext)
         .setFilesToBuild(filesToBuild)
-        .setRunfiles(runfiles)
+        .add(RunfilesProvider.class, new StatelessRunfilesProvider(runfiles))
         .add(FilesetProvider.class,
             new FilesetProviderImpl(inputManifest, getFilesetLinkDir(ruleContext)))
         .build();

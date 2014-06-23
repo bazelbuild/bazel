@@ -72,7 +72,7 @@ public class Artifact implements FileType.HasFilename, Comparable<Artifact>, Act
      *
      * <p>{@code mm.isMiddlemanArtifact()} must be true. Only aggregating middlemen are expanded.
      */
-    void expand(Artifact mm, Collection<Artifact> output);
+    void expand(Artifact mm, Collection<? super Artifact> output);
   }
 
   public static final ImmutableList<Artifact> NO_ARTIFACTS = ImmutableList.of();
@@ -424,7 +424,7 @@ public class Artifact implements FileType.HasFilename, Comparable<Artifact>, Act
   /**
    * Formatter for non-transformed output (returns the original artifact).
    */
-  private static final Function<Artifact, Artifact> IDENTITY_FORMATTER =
+  static final Function<Artifact, Artifact> IDENTITY_FORMATTER =
       new Function<Artifact, Artifact>() {
         @Override
         public Artifact apply(Artifact input) {
@@ -454,8 +454,8 @@ public class Artifact implements FileType.HasFilename, Comparable<Artifact>, Act
    * outputFormatter and adds them to a given collection. Middleman artifacts
    * are ignored.
    */
-  private static <E> void addNonMiddlemanArtifacts(Iterable<Artifact> artifacts,
-      Collection<E> output, Function<? super Artifact, E> outputFormatter) {
+  static <E> void addNonMiddlemanArtifacts(Iterable<Artifact> artifacts,
+      Collection<? super E> output, Function<? super Artifact, E> outputFormatter) {
     for (Artifact artifact : artifacts) {
       if (MIDDLEMAN_FILTER.apply(artifact)) {
         output.add(outputFormatter.apply(artifact));
@@ -510,8 +510,8 @@ public class Artifact implements FileType.HasFilename, Comparable<Artifact>, Act
    * {@link MiddlemanType#AGGREGATING_MIDDLEMAN} middleman actions expanded once.
    */
   public static void addExpandedArtifacts(Iterable<Artifact> artifacts,
-      Collection<Artifact> output, ActionGraph actionGraph) {
-    addExpandedArtifacts(artifacts, output, IDENTITY_FORMATTER, actionGraph);
+      Collection<? super Artifact> output, MiddlemanExpander middlemanExpander) {
+    addExpandedArtifacts(artifacts, output, IDENTITY_FORMATTER, middlemanExpander);
   }
 
   /**
@@ -520,10 +520,12 @@ public class Artifact implements FileType.HasFilename, Comparable<Artifact>, Act
    * {@link MiddlemanType#AGGREGATING_MIDDLEMAN} middleman actions are expanded
    * once.
    */
+  @VisibleForTesting
   public static void addExpandedExecPathStrings(Iterable<Artifact> artifacts,
-      Collection<String> output, ActionGraph actionGraph) {
+                                                 Collection<String> output,
+                                                 MiddlemanExpander middlemanExpander) {
     addExpandedArtifacts(artifacts, output, ActionInputHelper.EXEC_PATH_STRING_FORMATTER,
-        actionGraph);
+        middlemanExpander);
   }
 
   /**
@@ -533,8 +535,8 @@ public class Artifact implements FileType.HasFilename, Comparable<Artifact>, Act
    * once.
    */
   public static void addExpandedExecPaths(Iterable<Artifact> artifacts,
-      Collection<PathFragment> output, ActionGraph actionGraph) {
-    addExpandedArtifacts(artifacts, output, EXEC_PATH_FORMATTER, actionGraph);
+      Collection<PathFragment> output, MiddlemanExpander middlemanExpander) {
+    addExpandedArtifacts(artifacts, output, EXEC_PATH_FORMATTER, middlemanExpander);
   }
 
   /**
@@ -543,48 +545,28 @@ public class Artifact implements FileType.HasFilename, Comparable<Artifact>, Act
    * are expanded once.
    */
   private static <E> void addExpandedArtifacts(Iterable<Artifact> artifacts,
-      Collection<E> output, Function<? super Artifact, E> outputFormatter,
-      ActionGraph actionGraph) {
+                                               Collection<? super E> output,
+                                               Function<? super Artifact, E> outputFormatter,
+                                               MiddlemanExpander middlemanExpander) {
     for (Artifact artifact : artifacts) {
       if (artifact.isMiddlemanArtifact()) {
-        expandMiddlemanArtifact(artifact, output, outputFormatter, actionGraph);
+        expandMiddlemanArtifact(artifact, output, outputFormatter, middlemanExpander);
       } else {
         output.add(outputFormatter.apply(artifact));
       }
     }
   }
 
-  private static <E> void expandMiddlemanArtifact(Artifact middleman, Collection<E> output,
-      Function<? super Artifact, E> outputFormatter, ActionGraph actionGraph) {
+  private static <E> void expandMiddlemanArtifact(Artifact middleman,
+                                                  Collection<? super E> output,
+                                                  Function<? super Artifact, E> outputFormatter,
+                                                  MiddlemanExpander middlemanExpander) {
     Preconditions.checkArgument(middleman.isMiddlemanArtifact());
-    Action middlemanAction = actionGraph.getGeneratingAction(middleman);
-    Preconditions.checkState(middlemanAction != null, middleman);
-    // TODO(bazel-team): Consider expanding recursively or throwing an exception here. Most likely,
-    // this code will cause silent errors if we ever have a middleman that contains a middleman.
-    if (middlemanAction.getActionType() == MiddlemanType.AGGREGATING_MIDDLEMAN) {
-      addNonMiddlemanArtifacts(middlemanAction.getInputs(), output, outputFormatter);
+    List<Artifact> artifacts = new ArrayList<>();
+    middlemanExpander.expand(middleman, artifacts);
+    for (Artifact artifact : artifacts) {
+      output.add(outputFormatter.apply(artifact));
     }
-  }
-
-  /**
-   * Expand a single middleman artifact.
-   *
-   * {@code middleman.isMiddlemanArtifact()} must be true.
-   */
-  public static <E> void expandMiddlemanArtifact(Artifact middleman, Collection<Artifact> output,
-      ActionGraph actionGraph) {
-    expandMiddlemanArtifact(middleman, output, IDENTITY_FORMATTER, actionGraph);
-  }
-
-  /**
-   * Returns a copy of the given collection of artifacts, with {@link
-   * MiddlemanType#AGGREGATING_MIDDLEMAN} middleman actions expanded once.
-   */
-  public static List<Artifact> asExpandedArtifacts(Iterable<Artifact> artifacts,
-      ActionGraph actionGraph) {
-    List<Artifact> result = new ArrayList<>();
-    addExpandedArtifacts(artifacts, result, actionGraph);
-    return result;
   }
 
   /**
@@ -593,9 +575,9 @@ public class Artifact implements FileType.HasFilename, Comparable<Artifact>, Act
    * returned list is mutable.
    */
   public static List<String> asExpandedExecPathStrings(Iterable<Artifact> artifacts,
-      ActionGraph actionGraph) {
+                                                       MiddlemanExpander middlemanExpander) {
     List<String> result = new ArrayList<>();
-    addExpandedExecPathStrings(artifacts, result, actionGraph);
+    addExpandedExecPathStrings(artifacts, result, middlemanExpander);
     return result;
   }
 
@@ -605,9 +587,9 @@ public class Artifact implements FileType.HasFilename, Comparable<Artifact>, Act
    * returned list is mutable.
    */
   public static List<PathFragment> asExpandedExecPaths(Iterable<Artifact> artifacts,
-      ActionGraph actionGraph) {
+                                                       MiddlemanExpander middlemanExpander) {
     List<PathFragment> result = new ArrayList<>();
-    addExpandedExecPaths(artifacts, result, actionGraph);
+    addExpandedExecPaths(artifacts, result, middlemanExpander);
     return result;
   }
 

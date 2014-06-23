@@ -196,7 +196,7 @@ class SkyframeBuilder implements Builder {
 
     @Override
     public void enqueueing(NodeKey nodeKey) {
-      if (ActionExecutionNode.isRealActionKey(nodeKey)) {
+      if (ActionExecutionNode.isReportWorthyAction(nodeKey)) {
         enqueuedActions.add(nodeKey);
       }
     }
@@ -255,9 +255,11 @@ class SkyframeBuilder implements Builder {
      */
     @Override
     public void actionCompleted(Action a) {
-      completedActions.add(a);
-      synchronized (activityIndicator) {
-        activityIndicator.notifyAll();
+      if (ActionExecutionNode.isReportWorthyAction(a)) {
+        completedActions.add(a);
+        synchronized (activityIndicator) {
+          activityIndicator.notifyAll();
+        }
       }
     }
 

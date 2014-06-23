@@ -14,11 +14,13 @@
 
 package com.google.devtools.build.lib.actions;
 
+import com.google.common.annotations.VisibleForTesting;
 import com.google.common.base.Function;
 import com.google.common.base.Preconditions;
 import com.google.common.collect.Iterables;
 
 import java.util.ArrayList;
+import java.util.Collection;
 import java.util.List;
 
 /**
@@ -26,6 +28,32 @@ import java.util.List;
  */
 public final class ActionInputHelper {
   private ActionInputHelper() {
+  }
+
+  @VisibleForTesting
+  public static Artifact.MiddlemanExpander actionGraphMiddlemanExpander(
+      final ActionGraph actionGraph) {
+    return new Artifact.MiddlemanExpander() {
+      @Override
+      public void expand(Artifact mm, Collection<? super Artifact> output) {
+        // Skyframe is stricter in that it checks that "mm" is a input of the action, because
+        // it cannot expand arbitrary middlemen without access to a global action graph.
+        // We could check this constraint here too, but it seems unnecessary. This code is
+        // going away anyway.
+        Preconditions.checkArgument(mm.isMiddlemanArtifact(),
+            "%s is not a middleman artifact", mm);
+        Action middlemanAction = actionGraph.getGeneratingAction(mm);
+        Preconditions.checkState(middlemanAction != null, mm);
+        // TODO(bazel-team): Consider expanding recursively or throwing an exception here.
+        // Most likely, this code will cause silent errors if we ever have a middleman that
+        // contains a middleman.
+        if (middlemanAction.getActionType() == Action.MiddlemanType.AGGREGATING_MIDDLEMAN) {
+          Artifact.addNonMiddlemanArtifacts(middlemanAction.getInputs(), output,
+              Artifact.IDENTITY_FORMATTER);
+        }
+
+      }
+    };
   }
 
   /**
@@ -95,22 +123,18 @@ public final class ActionInputHelper {
    * <p>Non-middleman artifacts are returned untouched.
    */
   public static List<ActionInput> expandMiddlemen(Iterable<? extends ActionInput> inputs,
-      ActionGraph actionGraph) {
+      Artifact.MiddlemanExpander middlemanExpander) {
+
     List<ActionInput> result = new ArrayList<>();
+    List<Artifact> containedArtifacts = new ArrayList<>();
     for (ActionInput input : inputs) {
       if (!(input instanceof Artifact)) {
         result.add(input);
         continue;
       }
-      Artifact inputArtifact = (Artifact) input;
-      if (inputArtifact.isMiddlemanArtifact()) {
-        List<Artifact> containedArtifacts = new ArrayList<>();
-        Artifact.expandMiddlemanArtifact(inputArtifact, containedArtifacts, actionGraph);
-        result.addAll(containedArtifacts);
-      } else {
-        result.add(input);
-      }
+      containedArtifacts.add((Artifact) input);
     }
+    Artifact.addExpandedArtifacts(containedArtifacts, result, middlemanExpander);
     return result;
   }
 

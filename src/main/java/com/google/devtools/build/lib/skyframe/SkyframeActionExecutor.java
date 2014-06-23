@@ -542,7 +542,7 @@ public final class SkyframeActionExecutor extends AbstractActionExecutor {
             new DelegatingPairFileCache(graphFileCache, perBuildFileCache), metadataHandler,
             new MiddlemanExpander() {
               @Override
-              public void expand(Artifact middlemanArtifact, Collection<Artifact> output) {
+              public void expand(Artifact middlemanArtifact, Collection<? super Artifact> output) {
                 // Legacy code is more permissive regarding "mm" in that it expands any middleman,
                 // not just inputs of this action. Skyframe doesn't have access to a global action
                 // graph, therefore this implementation can't expand any middleman, only the inputs

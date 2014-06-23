@@ -21,11 +21,13 @@ import com.google.devtools.build.lib.packages.AttributeMap;
 import com.google.devtools.build.lib.packages.Type;
 import com.google.devtools.build.lib.rules.RuleConfiguredTargetFactory;
 import com.google.devtools.build.lib.view.GenericRuleConfiguredTargetBuilder;
+import com.google.devtools.build.lib.view.GenericRuleConfiguredTargetBuilder.StatelessRunfilesProvider;
 import com.google.devtools.build.lib.view.RuleConfiguredTarget;
 import com.google.devtools.build.lib.view.RuleConfiguredTarget.Mode;
 import com.google.devtools.build.lib.view.RuleContext;
 import com.google.devtools.build.lib.view.Runfiles;
 import com.google.devtools.build.lib.view.RunfilesCollector;
+import com.google.devtools.build.lib.view.RunfilesProvider;
 import com.google.devtools.build.lib.view.RunfilesSupport;
 import com.google.devtools.build.lib.view.actions.ExecutableSymlinkAction;
 
@@ -72,7 +74,7 @@ public class ShBinary implements RuleConfiguredTargetFactory {
     return new GenericRuleConfiguredTargetBuilder(ruleContext)
         .setFilesToBuild(filesToBuild)
         .setRunfilesSupport(runfilesSupport)
-        .setRunfiles(runfiles)
+        .add(RunfilesProvider.class, new StatelessRunfilesProvider(runfiles))
         .build();
   }
 
