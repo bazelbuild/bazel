@@ -207,9 +207,9 @@ const char* GetUnaryOption(const char *arg, const char *next_arg,
     return value + 1;
   } else if (value[0]) {
     return NULL;  // trailing garbage in key name
-  } else {
-    return next_arg;
   }
+
+  return next_arg;
 }
 
 bool GetNullaryOption(const char *arg, const char *key) {
@@ -221,9 +221,9 @@ bool GetNullaryOption(const char *arg, const char *key) {
         "In argument '%s': option '%s' does not take a value.\n", arg, key);
   } else if (value[0]) {
     return false;  // trailing garbage in key name
-  } else {
-    return true;
   }
+
+  return true;
 }
 
 void CheckValidPortOrDie(const string& str, const string& option) {

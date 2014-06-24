@@ -16,6 +16,7 @@ package com.google.devtools.build.lib.view;
 import com.google.common.base.Preconditions;
 import com.google.common.collect.HashMultimap;
 import com.google.common.collect.ImmutableList;
+import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.Iterables;
 import com.google.common.collect.Lists;
 import com.google.common.collect.Multimap;
@@ -56,6 +57,7 @@ import java.util.Set;
 public final class GenericRuleConfiguredTargetBuilder {
   private final RuleContext ruleContext;
   private final List<TransitiveInfo> infos = Lists.newArrayList();
+  private final ImmutableMap.Builder<String, Object> skylarkProviders = ImmutableMap.builder();
 
   /** These are supported by all configured targets and need to be specially handled. */
   private NestedSet<Artifact> filesToBuild = NestedSetBuilder.emptySet(Order.STABLE_ORDER);
@@ -86,7 +88,7 @@ public final class GenericRuleConfiguredTargetBuilder {
     }
     add(ExtraActionArtifactsProvider.class, initializeExtraActions());
     return new GenericRuleConfiguredTarget(
-        ruleContext, runfilesSupport, executable, mandatoryStampFiles,
+        ruleContext, runfilesSupport, executable, mandatoryStampFiles, skylarkProviders.build(),
         infos.toArray(new TransitiveInfo[0]));
   }
 
@@ -264,6 +266,13 @@ public final class GenericRuleConfiguredTargetBuilder {
       addProvider(provider.getKey(), provider.getValue());
     }
     return this;
+  }
+
+  /**
+   * Add a Skylark transitive info provider. The provider value must be immutable.
+   */
+  public void add(String name, Object value) {
+    skylarkProviders.put(name, value);
   }
 
   /**

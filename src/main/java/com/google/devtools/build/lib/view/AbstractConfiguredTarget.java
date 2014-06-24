@@ -22,6 +22,8 @@ import com.google.devtools.build.lib.collect.nestedset.Order;
 import com.google.devtools.build.lib.packages.PackageSpecification;
 import com.google.devtools.build.lib.packages.Target;
 import com.google.devtools.build.lib.syntax.Label;
+import com.google.devtools.build.lib.syntax.SkylarkBuiltin;
+import com.google.devtools.build.lib.syntax.SkylarkCallable;
 import com.google.devtools.build.lib.util.FileType;
 import com.google.devtools.build.lib.view.config.BuildConfiguration;
 
@@ -33,6 +35,7 @@ import javax.annotation.Nullable;
  * An abstract implementation of ConfiguredTarget in which all properties are
  * assigned trivial default values.
  */
+@SkylarkBuiltin(name = "", doc = "")
 public abstract class AbstractConfiguredTarget
     implements ConfiguredTarget, FileProvider, FilesToRunProvider, VisibilityProvider {
   private final Target target;
@@ -141,5 +144,12 @@ public abstract class AbstractConfiguredTarget
     } else {
       return null;
     }
+  }
+
+  // TODO(bazel-team): This function is not nice here. Figure out a way to get rid of this.
+  @SkylarkCallable(
+      doc = "Returns the value provided by this target associated with the provider_key.")
+  public Object get(String providerKey) {
+    return null;
   }
 }

@@ -17,7 +17,7 @@ package com.google.devtools.build.lib.view;
 import com.google.common.collect.ImmutableMap;
 import com.google.devtools.build.lib.view.RunfilesCollector.State;
 
-import java.util.HashMap;
+import java.util.EnumMap;
 import java.util.Map;
 
 /**
@@ -44,7 +44,7 @@ public interface RunfilesProvider extends TransitiveInfoProvider {
    */
   public static final class Builder {
     
-    private final HashMap<State, Runfiles> runfileMap = new HashMap<>();
+    private final EnumMap<State, Runfiles> runfileMap = new EnumMap<>(State.class);
 
     public Builder add(Runfiles runfiles, State state) {
       runfileMap.put(state, runfiles);

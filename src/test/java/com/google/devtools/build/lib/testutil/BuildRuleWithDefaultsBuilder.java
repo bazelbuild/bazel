@@ -18,10 +18,7 @@ import com.google.common.base.Predicate;
 import com.google.common.base.Predicates;
 import com.google.devtools.build.lib.packages.Attribute;
 import com.google.devtools.build.lib.packages.Attribute.AllowedValueSet;
-import com.google.devtools.build.lib.packages.PredicateWithMessage;
-import com.google.devtools.build.lib.packages.Rule;
 import com.google.devtools.build.lib.packages.RuleClass;
-import com.google.devtools.build.lib.packages.RuleClass.PackageNameConstraint;
 import com.google.devtools.build.lib.packages.Type;
 import com.google.devtools.build.lib.util.FileTypeSet;
 
@@ -230,25 +227,5 @@ public class BuildRuleWithDefaultsBuilder extends BuildRuleBuilder {
   @Override
   public Collection<BuildRuleBuilder> getRulesToGenerate() {
     return generateRules.values();
-  }
-
-  /**
-   * Returns a package path under which this RuleClass (with other generated RuleClasses)
-   * will most likely be able to be built.
-   */
-  public static String determinePackageName(String ruleClassName) {
-    RuleClass ruleClass = getDefaultRuleClassMap().get(ruleClassName);
-    PredicateWithMessage<Rule> predicate = ruleClass.getValidityPredicate();
-    if (predicate instanceof PackageNameConstraint) {
-      PackageNameConstraint constraint = (PackageNameConstraint) predicate;
-      int nth = constraint.getPathSegment();
-      StringBuilder sb = new StringBuilder();
-      for (int i = 1; i < nth; i++) {
-        sb.append("a/");
-      }
-      sb.append(constraint.getValues().iterator().next());
-      return sb.toString();
-    }
-    return "a";
   }
 }

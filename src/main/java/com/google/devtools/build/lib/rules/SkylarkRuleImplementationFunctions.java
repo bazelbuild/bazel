@@ -53,8 +53,6 @@ import com.google.devtools.build.lib.view.TransitiveInfoCollection;
 import com.google.devtools.build.lib.view.TransitiveInfoProvider;
 import com.google.devtools.build.lib.view.actions.SpawnAction;
 
-import java.lang.reflect.Constructor;
-import java.lang.reflect.InvocationTargetException;
 import java.util.List;
 import java.util.Map;
 import java.util.concurrent.ExecutionException;
@@ -88,7 +86,6 @@ public class SkylarkRuleImplementationFunctions {
     this.ruleContext = Preconditions.checkNotNull(ruleContext);
     ImmutableList.Builder<Function> builtInFunctionsBuilder = ImmutableList.<Function>builder()
         .add(preconditionCheckState)
-        .add(createObject)
         .add(getProvider);
     SkylarkFunction.collectSkylarkFunctionsFromFields(this, builtInFunctionsBuilder);
     builtInFunctions = builtInFunctionsBuilder.build();
@@ -210,14 +207,16 @@ public class SkylarkRuleImplementationFunctions {
       if (arguments.containsKey("runfiles")) {
         builder.add(RunfilesProvider.class, cast(arguments.get("runfiles"),
             RunfilesProvider.class, "runfiles", loc));
+      } else {
+        // Every target needs runfiles provider by default.
+        builder.add(RunfilesProvider.class, new StatelessRunfilesProvider(Runfiles.EMPTY));
       }
       if (arguments.containsKey("executable")) {
         builder.setExecutable(cast(arguments.get("executable"), Artifact.class, "executable", loc));
       }
-      for (Map.Entry<String, TransitiveInfoProvider> provider : castMap(arguments.get("providers"),
-          String.class, TransitiveInfoProvider.class, "transitive info providers")) {
-        builder.addProvider(SkylarkRuleContext.classCache.get(provider.getKey())
-            .asSubclass(TransitiveInfoProvider.class), provider.getValue());
+      for (Map.Entry<String, Object> provider : castMap(arguments.get("providers"),
+          String.class, Object.class, "transitive info providers")) {
+        builder.add(provider.getKey(), provider.getValue());
       }
       return builder.build();
     }
@@ -251,61 +250,6 @@ public class SkylarkRuleImplementationFunctions {
         }
       }
       return 0;
-    }
-  };
-
-  /**
-   * A built in Skylark helper function to invoke Java constructors.
-   */
-  @SkylarkBuiltin(name = "create_object",
-      doc = "Creates an arbitrary Java object. The first argument sepcifies the Java class, "
-          + "the rest are the parameters of the constructor.")
-  private final Function createObject =
-      new PositionalFunction("create_object", 1, Integer.MAX_VALUE) {
-
-    @Override
-    public Object call(List<Object> args, FuncallExpression ast) throws EvalException,
-        ConversionException {
-      String classTypeString = cast(args.get(0), String.class, "first argument", ast.getLocation());
-      try {
-        Class<?> classType = SkylarkRuleContext.classCache.get(classTypeString);
-        Constructor<?> matchingConstructor = null;
-        for (Constructor<?> constructor : classType.getConstructors()) {
-          Class<?>[] params = constructor.getParameterTypes();
-          if (params.length == args.size() - 1 && !constructor.isSynthetic()) {
-            int i = 1;
-            boolean matching = true;
-            for (Class<?> param : params) {
-              if (!param.isAssignableFrom(args.get(i).getClass())) {
-                matching = false;
-                break;
-              }
-              i++;
-            }
-            if (matching) {
-              if (matchingConstructor == null) {
-                matchingConstructor = constructor;
-              } else {
-                throw new EvalException(ast.getLocation(),
-                    "Multiple matching constructors for " + classTypeString);
-              }
-            }
-          }
-        }
-        try {
-          if (matchingConstructor != null) {
-            return matchingConstructor.newInstance(args.subList(1, args.size()).toArray());
-          } else {
-            throw new EvalException(ast.getLocation(),
-                "No matching constructor for " + classTypeString);
-          }
-        } catch (InstantiationException | IllegalAccessException | IllegalArgumentException
-            | InvocationTargetException e) {
-          throw new EvalException(ast.getLocation(), e.getMessage());
-        }
-      } catch (ExecutionException e) {
-        throw new EvalException(ast.getLocation(), "Unknown class type " + classTypeString);
-      }
     }
   };
 

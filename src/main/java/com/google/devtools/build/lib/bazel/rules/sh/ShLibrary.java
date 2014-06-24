@@ -23,7 +23,6 @@ import com.google.devtools.build.lib.view.RuleConfiguredTarget;
 import com.google.devtools.build.lib.view.RuleConfiguredTarget.Mode;
 import com.google.devtools.build.lib.view.RuleContext;
 import com.google.devtools.build.lib.view.Runfiles;
-import com.google.devtools.build.lib.view.RunfilesCollector;
 import com.google.devtools.build.lib.view.RunfilesProvider;
 
 /**
@@ -40,9 +39,6 @@ public class ShLibrary implements RuleConfiguredTargetFactory {
         .build();
     Runfiles runfiles = new Runfiles.Builder()
         .addArtifacts(filesToBuild)
-        // When visiting proto_library rules, collect the source files for the benefit of jobs that
-        // parse .proto files at runtime.
-        .addRunfiles(RunfilesCollector.State.INTERPRETED, ruleContext)
         .build();
     return new GenericRuleConfiguredTargetBuilder(ruleContext)
         .setFilesToBuild(filesToBuild)

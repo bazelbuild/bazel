@@ -36,7 +36,6 @@ import com.google.devtools.build.lib.syntax.Label.SyntaxException;
 import com.google.devtools.build.lib.syntax.SkylarkBuiltin;
 import com.google.devtools.build.lib.syntax.SkylarkCallable;
 import com.google.devtools.build.lib.util.Fingerprint;
-import com.google.devtools.build.lib.util.IncludeScanningUtil;
 import com.google.devtools.build.lib.util.RegexFilter;
 import com.google.devtools.build.lib.util.StringUtilities;
 import com.google.devtools.build.lib.vfs.Path;

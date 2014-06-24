@@ -19,7 +19,6 @@ import com.google.common.collect.Maps;
 import com.google.common.eventbus.Subscribe;
 import com.google.devtools.build.lib.actions.Action;
 import com.google.devtools.build.lib.actions.ActionCompletionEvent;
-import com.google.devtools.build.lib.actions.ActionGraph;
 import com.google.devtools.build.lib.actions.ActionMetadata;
 import com.google.devtools.build.lib.actions.ActionStartedEvent;
 import com.google.devtools.build.lib.actions.Artifact;
@@ -37,12 +36,10 @@ import java.util.concurrent.TimeUnit;
 public abstract class CriticalPathComputer<C extends AbstractCriticalPathComponent<C>,
                                            A extends AggregatedCriticalPath<C>> {
 
-  // actionToCriticalPathStats is accessed from multiple event handlers.
-  protected final ConcurrentMap<ActionMetadata, C> actionToCriticalPathStats =
-      Maps.newConcurrentMap();
-  /**
-   * Maximum critical path found
-   */
+  // outputArtifactToStats is accessed from multiple event handlers.
+  protected final ConcurrentMap<Artifact, C> outputArtifactToStats = Maps.newConcurrentMap();
+
+  /** Maximum critical path found. */
   private C maxCriticalPath;
   private final Clock clock;
 
@@ -56,9 +53,11 @@ public abstract class CriticalPathComputer<C extends AbstractCriticalPathCompone
   @Subscribe
   public void logActionStarted(ActionStartedEvent event) {
     Action action = event.getAction();
-    C old = actionToCriticalPathStats.put(action, createComponent(action,
-        TimeUnit.NANOSECONDS.toMillis(event.getNanoTimeStart())));
-    Preconditions.checkState(old == null, "Previous event registered for action %s", action);
+    C component = createComponent(action, TimeUnit.NANOSECONDS.toMillis(event.getNanoTimeStart()));
+    for (Artifact output : action.getOutputs()) {
+      C old = outputArtifactToStats.put(output, component);
+      Preconditions.checkState(old == null, "Previous event registered for action %s", action);
+    }
   }
 
   private long getTime() {
@@ -75,8 +74,10 @@ public abstract class CriticalPathComputer<C extends AbstractCriticalPathCompone
   public void actionCached(CachedActionEvent event) {
     Action action = event.getAction();
     C stat = createComponent(action, TimeUnit.NANOSECONDS.toMillis(event.getNanoTimeStart()));
-    actionToCriticalPathStats.put(action, stat);
-    finalizeActionStat(action, stat, event.getActionGraph());
+    for (Artifact output : action.getOutputs()) {
+      outputArtifactToStats.put(output, stat);
+    }
+    finalizeActionStat(action, stat);
   }
 
   /**
@@ -86,15 +87,15 @@ public abstract class CriticalPathComputer<C extends AbstractCriticalPathCompone
   @Subscribe
   public void actionComplete(ActionCompletionEvent event) {
     ActionMetadata action = event.getActionMetadata();
-    C stats = Preconditions.checkNotNull(actionToCriticalPathStats.get(action));
-    finalizeActionStat(action, stats, event.getActionGraph());
+    C stats = Preconditions.checkNotNull(
+        outputArtifactToStats.get(action.getPrimaryOutput()));
+    finalizeActionStat(action, stats);
   }
 
-  private void finalizeActionStat(ActionMetadata action, C stats,
-      ActionGraph actionGraph) {
+  private void finalizeActionStat(ActionMetadata action, C stats) {
     stats.setFinishTime(getTime());
     for (Artifact input : action.getInputs()) {
-      addArtifactDependency(stats, actionGraph, input);
+      addArtifactDependency(stats, input);
     }
     if (isBiggestCriticalPath(stats)) {
       maxCriticalPath = stats;
@@ -107,16 +108,12 @@ public abstract class CriticalPathComputer<C extends AbstractCriticalPathCompone
   }
 
   /**
-   * For an artifact that is an input of an action, it finds the generating action stats and records
-   * it in the current action stat in order to calculate the critical path.
+   * If "input" is a generated artifact, link its critical path to the one we're building.
    */
-  private void addArtifactDependency(C actionStats, ActionGraph actionGraph, Artifact input) {
-    Action inputAction = actionGraph.getGeneratingAction(input);
-    if (inputAction != null) {
-      C depStats = actionToCriticalPathStats.get(inputAction);
-      if (depStats != null) {
-        actionStats.addDepInfo(depStats);
-      }
+  private void addArtifactDependency(C actionStats, Artifact input) {
+    C depStats = outputArtifactToStats.get(input);
+    if (depStats != null) {
+      actionStats.addDepInfo(depStats);
     }
   }
 

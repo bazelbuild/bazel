@@ -19,6 +19,7 @@ import com.google.devtools.build.lib.actions.Artifact;
 import com.google.devtools.build.lib.collect.nestedset.NestedSet;
 import com.google.devtools.build.lib.collect.nestedset.NestedSetBuilder;
 import com.google.devtools.build.lib.collect.nestedset.Order;
+import com.google.devtools.build.lib.concurrent.ThreadSafety.Immutable;
 import com.google.devtools.build.lib.packages.Type.ConversionException;
 import com.google.devtools.build.lib.syntax.EvalUtils;
 import com.google.devtools.build.lib.syntax.SkylarkBuiltin;
@@ -31,6 +32,7 @@ import java.util.Iterator;
  * A wrapper class for NestedSet of Artifacts in Skylark to ensure type safety.
  */
 @SkylarkBuiltin(name = "Files", doc = "A helper class to extract path from files.")
+@Immutable
 public final class SkylarkFileset implements Iterable<Artifact> {
 
   private final NestedSet<Artifact> fileset;

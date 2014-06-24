@@ -19,7 +19,12 @@ import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.Maps;
 import com.google.devtools.build.lib.actions.Artifact;
 import com.google.devtools.build.lib.collect.nestedset.NestedSet;
+import com.google.devtools.build.lib.concurrent.ThreadSafety.Immutable;
 import com.google.devtools.build.lib.packages.OutputFile;
+import com.google.devtools.build.lib.rules.SkylarkFileset;
+import com.google.devtools.build.lib.syntax.Label;
+import com.google.devtools.build.lib.syntax.SkylarkBuiltin;
+import com.google.devtools.build.lib.syntax.SkylarkCallable;
 import com.google.devtools.build.lib.view.config.RunUnder;
 
 import java.util.Map;
@@ -28,9 +33,10 @@ import java.util.Map;
  * A generic implementation of RuleConfiguredTarget. Do not use directly. Use {@link
  * GenericRuleConfiguredTargetBuilder} instead.
  */
+@SkylarkBuiltin(name = "", doc = "")
 public final class GenericRuleConfiguredTarget extends RuleConfiguredTarget {
 
-  private final Map<Class<? extends TransitiveInfoProvider>, Object> providers;
+  private final ImmutableMap<Class<? extends TransitiveInfoProvider>, Object> providers;
   private final RunfilesSupport runfilesSupport;
   private final Artifact executable;
   private final ImmutableList<Artifact> mandatoryStampFiles;
@@ -38,6 +44,7 @@ public final class GenericRuleConfiguredTarget extends RuleConfiguredTarget {
   GenericRuleConfiguredTarget(RuleContext ruleContext, RunfilesSupport runfilesSupport,
       Artifact executable,
       ImmutableList<Artifact> mandatoryStampFiles,
+      ImmutableMap<String, Object> skylarkProviders,
       TransitiveInfo... infos) {
     super(ruleContext);
     // We don't use ImmutableMap.Builder here to allow augmenting the initial list of 'default'
@@ -53,6 +60,8 @@ public final class GenericRuleConfiguredTarget extends RuleConfiguredTarget {
     }
     Preconditions.checkState(providerBuilder.containsKey(RunfilesProvider.class));
     Preconditions.checkState(providerBuilder.containsKey(FileProvider.class));
+    checkSkylarkProviders(skylarkProviders);
+    providerBuilder.put(SkylarkProviders.class, new SkylarkProviders(skylarkProviders));
 
     this.providers = ImmutableMap.copyOf(providerBuilder);
     // Ensure that that executable is the same as in runfilesSupport if both defined
@@ -82,6 +91,47 @@ public final class GenericRuleConfiguredTarget extends RuleConfiguredTarget {
     }
   }
 
+  /**
+   * This is an extra safety check. All objects passed in the providers have to be
+   * immutable in Skylark.
+   */
+  // TODO(bazel-team): Skylark will support only immutable objects. We will still need this check
+  // here but we don't have to worry about nice error messages to Skylark users. Also this method
+  // is going to be extended as we migrate more and more Transitive Info Providers.
+  private void checkSkylarkProviders(ImmutableMap<String, Object> providers) {
+    for (Map.Entry<String, Object> entry : providers.entrySet()) {
+      Object value = entry.getValue();
+      if (value instanceof ImmutableList) {
+        // TODO(bazel-team): it is not efficient to iterate through the list.
+        // We will have to come up with a way to have generic type information here,
+        // but first we need to enforce type safety in Skylark.
+        for (Object nestedSetValue : ((Iterable<?>) value)) {
+          Preconditions.checkArgument(isSimpleSkylarkObjectImmutable(nestedSetValue),
+              String.format("Transitive Info Provider '%s' contains mutable objects",
+                  entry.getKey()));
+        }
+      } else {
+        Preconditions.checkArgument(
+            // Java transitive Info Providers are still accessible from Skylark, e.g.
+            // RunfilesProvider. Those are safe.
+            value instanceof TransitiveInfoProvider
+            || value instanceof SkylarkFileset,
+            String.format("Transitive Info Provider '%s' is mutable", entry.getKey()));
+      }
+    }
+  }
+
+  public boolean isSimpleSkylarkObjectImmutable(Object object) {
+    if (object instanceof String
+        || object instanceof Integer
+        || object instanceof Label
+        || object instanceof Artifact) {
+      return true;
+    } else {
+      return false;
+    }
+  }
+
   @Override
   public Iterable<Class<? extends TransitiveInfoProvider>> getImplementedProviders() {
     return providers.keySet();
@@ -91,6 +141,16 @@ public final class GenericRuleConfiguredTarget extends RuleConfiguredTarget {
   public <P extends TransitiveInfoProvider> P getProvider(Class<P> provider) {
     AnalysisUtils.checkProvider(provider);
     return provider.cast(providers.get(provider));
+  }
+
+  /**
+   * Returns a value provided by this target. Only meant to use from Skylark.
+   */
+  @SkylarkCallable(
+      doc = "Returns the value provided by this target associated with the provider_key.")
+  @Override
+  public Object get(String providerKey) {
+    return getProvider(SkylarkProviders.class).get(providerKey);
   }
 
   @Override
@@ -126,6 +186,22 @@ public final class GenericRuleConfiguredTarget extends RuleConfiguredTarget {
       Preconditions.checkState(key.isAssignableFrom(value.getClass()));
       this.key = key;
       this.value = value;
+    }
+  }
+
+  /**
+   * A helper class for transitive infos provided by Skylark rule implementations.
+   */
+  @Immutable
+  static final class SkylarkProviders implements TransitiveInfoProvider {
+    private final ImmutableMap<String, Object> skylarkProviders;
+
+    private SkylarkProviders(ImmutableMap<String, Object> skylarkProviders) {
+      this.skylarkProviders = skylarkProviders;
+    }
+
+    Object get(String providerKey) {
+      return skylarkProviders.get(providerKey);
     }
   }
 }

@@ -58,7 +58,6 @@ import javax.annotation.concurrent.Immutable;
  */
 @Immutable
 public final class Runfiles {
-
   private static final Function<Map.Entry<PathFragment, Artifact>, Artifact> TO_ARTIFACT =
       new Function<Map.Entry<PathFragment, Artifact>, Artifact>() {
         @Override
@@ -597,6 +596,25 @@ public final class Runfiles {
     }
 
     /**
+     * Adds the files specified by a mapping from the transitive info collection to the runfiles.
+     *
+     * <p>Dependencies in {@code srcs} and {@code deps} are considered.
+     */
+    public Builder add(RuleContext ruleContext,
+        Function<TransitiveInfoCollection, Iterable<Artifact>> mapping) {
+      Preconditions.checkNotNull(ruleContext);
+      Preconditions.checkNotNull(mapping);
+      for (TransitiveInfoCollection dep : getNonDataDeps(ruleContext)) {
+        Iterable<Artifact> artifacts = mapping.apply(dep);
+        if (artifacts != null) {
+          artifactsBuilder.addAll(artifacts);
+        }
+      }
+
+      return this;
+    }
+
+    /**
      * Collects runfiles from data dependencies of a target.
      */
     public Builder addDataDeps(RuleContext ruleContext) {
@@ -608,10 +626,7 @@ public final class Runfiles {
      * Collects runfiles from "srcs" and "deps" of a target.
      */
     public Builder addNonDataDeps(State state, RuleContext ruleContext) {
-      // TODO(bazel-team): This line shouldn't be here. Removing it requires that no rules have
-      // dependent rules in srcs (except for filegroups and such), but always in deps.
-      addTargets(state, getPrerequisites(ruleContext, "srcs", Mode.TARGET));
-      addTargets(state, getPrerequisites(ruleContext, "deps", Mode.TARGET));
+      addTargets(state, getNonDataDeps(ruleContext));
       return this;
     }
 
@@ -685,6 +700,14 @@ public final class Runfiles {
           || manifestExpander.equals(otherExpander));
       }
       return this;
+    }
+
+    private static Iterable<TransitiveInfoCollection> getNonDataDeps(RuleContext ruleContext) {
+      return Iterables.concat(
+          // TODO(bazel-team): This line shouldn't be here. Removing it requires that no rules have
+          // dependent rules in srcs (except for filegroups and such), but always in deps.
+          getPrerequisites(ruleContext, "srcs", Mode.TARGET),
+          getPrerequisites(ruleContext, "deps", Mode.TARGET));
     }
 
     /**

@@ -238,7 +238,7 @@ public final class FuncallExpression extends Expression {
             } else {
               throw new EvalException(func.getLocation(),
                   "Multiple matching methods for " + formatMethod(methodName, args) +
-                  " in " + objClass.getSimpleName());
+                  " in " + getClassName(objClass));
             }
           }
         }
@@ -253,7 +253,7 @@ public final class FuncallExpression extends Expression {
         return matchingMethod.invoke(obj, args.toArray());
       } else {
         throw new EvalException(func.getLocation(), "No matching method found for "
-            + formatMethod(methodName, args) + " in " + objClass.getSimpleName());
+            + formatMethod(methodName, args) + " in " + getClassName(objClass));
       }
     } catch (IllegalAccessException e) {
       // TODO(bazel-team): Print a nice error message. Maybe the method exists
@@ -270,6 +270,14 @@ public final class FuncallExpression extends Expression {
       }
     } catch (ExecutionException e) {
       throw new EvalException(func.getLocation(), "Method invocation failed: " + e);
+    }
+  }
+
+  private String getClassName(Class<?> classObject) {
+    if (classObject.getSimpleName().isEmpty()) {
+      return classObject.getName();
+    } else {
+      return classObject.getSimpleName();
     }
   }
 

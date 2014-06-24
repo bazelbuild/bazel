@@ -15,6 +15,9 @@
 package com.google.devtools.build.lib.view;
 
 import com.google.devtools.build.lib.syntax.Label;
+import com.google.devtools.build.lib.syntax.SkylarkBuiltin;
+import com.google.devtools.build.lib.syntax.SkylarkCallable;
+import com.google.devtools.build.lib.view.GenericRuleConfiguredTarget.SkylarkProviders;
 
 /**
  * A utility class to construct wrappers for TransitiveInfoProviders.
@@ -23,22 +26,41 @@ import com.google.devtools.build.lib.syntax.Label;
  */
 public class TransitiveInfoProxy {
 
+  @SkylarkBuiltin(name = "", doc = "")
+  private static class TransitiveInfoCollectionProxy implements TransitiveInfoCollection {
+
+    private final EnumerableTransitiveInfoCollection collection;
+
+    public TransitiveInfoCollectionProxy(EnumerableTransitiveInfoCollection collection) {
+      this.collection = collection; 
+    }
+
+    @Override
+    public <P extends TransitiveInfoProvider> P getProvider(Class<P> providerType) {
+      return collection.getProvider(providerType);
+    }
+
+    @Override
+    public Label getLabel() {
+      return collection.getLabel();
+    }
+
+    // TODO(bazel-team): We need this for Skylark to work with Skyframe.
+    // Come up with something better.
+    @SkylarkCallable(
+        doc = "Returns the value provided by this target associated with the provider_key.")
+    public Object get(String providerKey) {
+      SkylarkProviders skylarkProviders = getProvider(SkylarkProviders.class); 
+      return skylarkProviders != null ? skylarkProviders.get(providerKey) : null;
+    }
+  }
+
   /**
    * Returns a proxied TransitiveInfoCollection which is produced by serializing the
    * given {@code infoCollection} and then deserializing the result.
    */
   public static TransitiveInfoCollection createCollectionProxy(
-      final EnumerableTransitiveInfoCollection collection) {
-    return new TransitiveInfoCollection() {
-      @Override
-      public <P extends TransitiveInfoProvider> P getProvider(Class<P> providerType) {
-        return collection.getProvider(providerType);
-      }
-
-      @Override
-      public Label getLabel() {
-        return collection.getLabel();
-      }
-    };
+      EnumerableTransitiveInfoCollection collection) {
+    return new TransitiveInfoCollectionProxy(collection);
   }
 }
