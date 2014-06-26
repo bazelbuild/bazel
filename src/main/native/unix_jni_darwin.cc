@@ -14,6 +14,8 @@
 
 #include "unix_jni.h"
 
+#include <assert.h>
+#include <errno.h>
 #include <string.h>
 #include <sys/stat.h>
 
@@ -50,11 +52,11 @@ int StatSeconds(const struct stat64 &statbuf, StatTimes t) {
 int StatNanoSeconds(const struct stat64 &statbuf, StatTimes t) {
   switch (t) {
     case STAT_ATIME:
-      return statbuf.st_atimensec;
+      return statbuf.st_atimespec.tv_nsec;
     case STAT_CTIME:
-      return statbuf.st_ctimensec;
+      return statbuf.st_ctimespec.tv_nsec;
     case STAT_MTIME:
-      return statbuf.st_mtimensec;
+      return statbuf.st_mtimespec.tv_nsec;
     default:
       CHECK(false);
   }

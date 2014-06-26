@@ -1,4 +1,19 @@
 #!/bin/bash
+
+# Copyright 2014 Google Inc. All rights reserved.
+#
+# Licensed under the Apache License, Version 2.0 (the "License");
+# you may not use this file except in compliance with the License.
+# You may obtain a copy of the License at
+#
+#    http://www.apache.org/licenses/LICENSE-2.0
+#
+# Unless required by applicable law or agreed to in writing, software
+# distributed under the License is distributed on an "AS IS" BASIS,
+# WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+# See the License for the specific language governing permissions and
+# limitations under the License.
+
 set -o errexit
 mkdir -p output/classes
 mkdir -p output/test_classes
@@ -14,11 +29,13 @@ darwin)
   ARCHIVE_CFLAGS="-I/opt/local/include"
   ARCHIVE_LDFLAGS="-L/opt/local/lib"
   DYNAMIC_EXT="dylib"
+  REALTIME_LDFLAGS=""
   ;;
 linux)
   ARCHIVE_CFLAGS=""
   ARCHIVE_LDFLAGS=""
   DYNAMIC_EXT="so"
+  REALTIME_LDFLAGS="-lrt"
   ;;
 esac
 
@@ -34,8 +51,8 @@ src/main/protobuf/testing_api.proto
 # JAVA_HOME must point to a Java 7 installation.
 JAVA_HOME=${JAVA_HOME:-$(readlink -f $(which javac) | sed "s_/bin/javac__")}
 JAVAC="${JAVA_HOME}/bin/javac"
-PROTOC=protoc
-CC=g++
+PROTOC=${PROTOC:-protoc}
+CC=${CC:-g++}
 
 for FILE in "${PROTO_FILES[@]}"; do
   echo "PROTOC ${FILE}"
@@ -88,6 +105,7 @@ for FILE in "${CC_FILES[@]}"; do
     "${CC}" \
         -I src/main/cpp/ \
         -I /usr/include/ \
+        ${ARCHIVE_CFLAGS} \
         -std=c++0x \
         -c \
         -DBLAZE_JAVA_CPU=\"k8\" \
@@ -99,7 +117,7 @@ done
 
 # Link client
 echo "LD client"
-"${CC}" -o output/client output/objs/*.o -larchive -l stdc++ -l rt
+"${CC}" -o output/client output/objs/*.o ${ARCHIVE_LDFLAGS} -larchive -l stdc++ ${REALTIME_LDFLAGS}
 
 # Compile native code .cc files.
 NATIVE_CC_FILES=(
@@ -131,7 +149,7 @@ echo "LD libunix.${DYNAMIC_EXT}"
 "${CC}" -o output/libunix.${DYNAMIC_EXT} -shared output/native/*.o -l stdc++
 
 echo "CC build-runfiles"
-"${CC}" -o output/build-runfiles -std=c++0x -l stdc++ -l rt src/main/tools/build-runfiles.cc
+"${CC}" -o output/build-runfiles -std=c++0x src/main/tools/build-runfiles.cc
 
 echo "CC process-wrapper"
 "${CC}" -o output/process-wrapper src/main/tools/process-wrapper.c

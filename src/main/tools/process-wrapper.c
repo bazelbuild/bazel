@@ -37,6 +37,9 @@
 #include <sys/wait.h>
 #include <unistd.h>
 
+// Not in headers on OSX.
+extern char **environ;
+
 static int global_pid;  // Returned from fork().
 static int global_signal = -1;
 static double global_kill_delay = 0.0;
@@ -97,7 +100,6 @@ static void UnHandle(int sig) {
   CHECK_CALL(sigaction(sig, &sa, NULL));
 }
 
-
 // Enable the given timeout, or no-op if the timeout is non-positive.
 static void EnableAlarm(double timeout) {
   if (timeout <= 0) return;
@@ -132,7 +134,7 @@ static void ClearSignalMask() {
 // Usage: process-wrapper
 //            <timeout_sec> <kill_delay_sec> <stdout file> <stderr file>
 //            [cmdline]
-int main(int argc, char *argv[], char *envp[]) {
+int main(int argc, char *argv[]) {
   if (argc <= 5) {
     DIE("Not enough cmd line arguments to process-wrapper");
   }
@@ -188,7 +190,8 @@ int main(int argc, char *argv[], char *envp[]) {
     // outputs, or create the parent directories for our output files,
     // presumably honoring umask themselves.
     umask(022);
-    execvpe(argv[0], argv, envp);  // Does not return.
+
+    execvp(argv[0], argv);  // Does not return.
     DIE("execvpe %s failed", argv[0]);
   } else {
     // In parent.
@@ -197,8 +200,16 @@ int main(int argc, char *argv[], char *envp[]) {
     InstallSignalHandler(SIGINT);
     EnableAlarm(timeout);
 
-    int status;
-    int err = TEMP_FAILURE_RETRY(wait(&status));
+    int status = 0;
+    int err = 0;
+    while (1) {
+      err = wait(&status);
+      if (err >= 0 || errno != EINTR) {
+        break;
+      }
+      errno = 0;
+    }
+
     if (err == -1) {
       perror("Unexpected error from wait()");
     }
