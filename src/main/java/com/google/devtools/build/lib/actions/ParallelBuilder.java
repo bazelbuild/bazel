@@ -1060,10 +1060,6 @@ public class ParallelBuilder extends AbstractBuilder implements ResourceManager.
     } else {
       Action action = Preconditions.checkNotNull(dependentAction.getAction());
       if (problem != null) {
-        if (dependentAction.isRootAction()
-            && !(action instanceof SuppressNoBuildAttemptError)) {
-          reportNotExecuted(dependentAction);
-        }
         // Suppress error propagation for scheduling middlemen, since they
         // are used only to enforce scheduling and not build dependencies.
         markActionAsDone(action, isSchedulingMiddlemanAction(action) ? null : problem);
@@ -1090,25 +1086,6 @@ public class ParallelBuilder extends AbstractBuilder implements ResourceManager.
 
   private boolean isSchedulingMiddlemanAction(@Nullable Action action) {
     return action != null && action.getActionType().isSchedulingMiddleman();
-  }
-
-  private void reportNotExecuted(DependentAction action) {
-    String reasonString;
-    Action reason = dependencyGraph.getActionGraph()
-        .getGeneratingAction(action.getLastProblemInput());
-    if (reason != null) {
-      if (reason.getOwner() == action.getAction().getOwner()) {
-        // Do not report dependency links within a single target
-        return;
-      }
-      reasonString = String.format(" because %s could not be built",
-          Label.print(reason.getOwner().getLabel()));
-    } else {
-      reasonString = "";
-    }
-
-    reporter.error(null, String.format("Could not build %s%s",
-        Label.print(action.getAction().getOwner().getLabel()), reasonString));
   }
 
   @Override

@@ -33,6 +33,7 @@ import com.google.devtools.build.lib.packages.Package;
 import com.google.devtools.build.lib.packages.Target;
 import com.google.devtools.build.lib.pkgcache.LoadedPackageProvider;
 import com.google.devtools.build.lib.syntax.Label;
+import com.google.devtools.build.lib.syntax.Label.SyntaxException;
 import com.google.devtools.build.lib.util.StringUtilities;
 import com.google.devtools.build.lib.vfs.Path;
 import com.google.devtools.build.lib.view.ConfigurationCollectionFactory;
@@ -302,9 +303,12 @@ public final class ConfigurationFactory {
     public Path getPath(Package pkg, String fileName) {
       Path result = pkg.getPackageDirectory().getRelative(fileName);
       try {
+        // TODO(bazel-team): remove this line and field, after removing old-style configuration
+        // creation from BlazeInfoCommand
         paths.put(result,
             BaseEncoding.base16().lowerCase().encode(result.getMD5Digest()));
-      } catch (IOException e) {
+        loadedPackageProvider.addDependency(pkg, fileName);
+      } catch (IOException | SyntaxException e) {
         return null;
       }
       return result;

@@ -67,9 +67,11 @@ import com.google.protobuf.ByteString;
 import java.io.File;
 import java.io.IOException;
 import java.util.Collection;
+import java.util.HashSet;
 import java.util.Iterator;
 import java.util.List;
 import java.util.Map;
+import java.util.Set;
 import java.util.SortedMap;
 import java.util.concurrent.Callable;
 import java.util.concurrent.ConcurrentHashMap;
@@ -124,6 +126,16 @@ public final class SkyframeActionExecutor extends AbstractActionExecutor {
     this.resourceManager = resourceManager;
     this.eventBus = eventBus;
     this.statusReporterRef = statusReporterRef;
+  }
+
+  /**
+   * Return the map of mostly recently executed bad actions to their corresponding exception.
+   * See {#findAndStoreArtifactConflicts()}.
+   */
+  public ImmutableMap<Action, Exception> badActions() {
+    // TODO(bazel-team): Move badActions() and findAndStoreArtifactConflicts() to SkyframeBuildView
+    // now that it's done in the analysis phase.
+    return badActionMap;
   }
 
   /**
@@ -321,14 +333,13 @@ public final class SkyframeActionExecutor extends AbstractActionExecutor {
     return new Runnable() {
       @Override
       public void run() {
-        Action previousAction = null;
         for (ActionLookupNode node : nodes) {
+          Set<Action> registeredActions = new HashSet<>();
           for (Map.Entry<Artifact, Action> entry : node.getMapForConsistencyCheck().entrySet()) {
             Action action = entry.getValue();
-            if (!action.equals(previousAction)) {
-              // We have an entry for each <action, artifact> pair. Only try to register each action
-              // once.
-              previousAction = action;
+            // We have an entry for each <action, artifact> pair. Only try to register each action
+            // once.
+            if (registeredActions.add(action)) {
               try {
                 actionGraph.registerAction(action);
               } catch (ActionConflictException e) {
@@ -503,8 +514,7 @@ public final class SkyframeActionExecutor extends AbstractActionExecutor {
         if (action.getActionType().isMiddleman()
             && action.getActionType() != MiddlemanType.TARGET_COMPLETION_MIDDLEMAN) {
           postEvent(new ActionStartedEvent(action, actionStartTime));
-          postEvent(new ActionCompletionEvent(
-              action, actionGraph, action.describeStrategy(executorEngine)));
+          postEvent(new ActionCompletionEvent(action, action.describeStrategy(executorEngine)));
           eventPosted = true;
         }
 
@@ -516,7 +526,7 @@ public final class SkyframeActionExecutor extends AbstractActionExecutor {
         // We still need to check the outputs so that output file data is available to the node.
         checkOutputs(action, graphFileCache);
         if (!eventPosted) {
-          postEvent(new CachedActionEvent(action, actionGraph, actionStartTime));
+          postEvent(new CachedActionEvent(action, actionStartTime));
         }
 
         return null;

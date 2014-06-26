@@ -35,7 +35,7 @@ class SkyframeIncrementalBuildMonitor {
 
   public void accrue(Iterable<NodeKey> invalidatedNodes) {
     for (NodeKey nodeKey : invalidatedNodes) {
-      if (nodeKey.getNodeType() == NodeTypes.FILE) {
+      if (nodeKey.getNodeType() == NodeTypes.FILE_STATE) {
         RootedPath file = (RootedPath) nodeKey.getNodeName();
         maybeAddFile(file.getRelativePath());
       }

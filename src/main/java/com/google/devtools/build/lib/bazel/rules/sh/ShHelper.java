@@ -15,11 +15,11 @@ package com.google.devtools.build.lib.bazel.rules.sh;
 
 import com.google.common.collect.ImmutableList;
 import com.google.devtools.build.lib.actions.Artifact;
+import com.google.devtools.build.lib.actions.BaseSpawn;
 import com.google.devtools.build.lib.packages.Type;
 import com.google.devtools.build.lib.view.FilesToRunProvider;
 import com.google.devtools.build.lib.view.RuleConfiguredTarget.Mode;
 import com.google.devtools.build.lib.view.RuleContext;
-import com.google.devtools.build.lib.view.RunfilesCollector;
 import com.google.devtools.build.lib.view.RunfilesProvider;
 import com.google.devtools.build.lib.view.RunfilesSupport;
 import com.google.devtools.build.lib.view.actions.SpawnAction;
@@ -64,22 +64,22 @@ final class ShHelper {
 
     // Generate the creating action.
     new SpawnAction.Builder(ruleContext)
-       .addInputs(getDependencyRunfiles(ruleContext, "deps", Mode.TARGET))
-       .addInputs(getDependencyRunfiles(ruleContext, "data", Mode.DATA))
-       .addInput(packageTool)
-       .setShellCommand(cmd.toString())
+        .addInputs(getDependencyRunfiles(ruleContext, "deps", Mode.TARGET))
+        .addInputs(getDependencyRunfiles(ruleContext, "data", Mode.DATA))
+        .addInput(packageTool)
+        .setShellCommand(cmd.toString())
         // We need this rule's runfiles tree as an input, as it by definition defines
         // the runtime dependencies that need to be packaged. This is not circular because
         // the .sar is not itself part of the runfiles.
-       .addInput(runfiles.getRunfilesMiddleman())
-       .addInput(runfiles.getExecutable())
-       .addInputManifest(
-           runfiles.getRunfilesManifest(), executable.getExecPathString() + ".runfiles/")
-       .addOutput(sarOutput)
-       .setProgressMessage("Packaging script " + executableScript.getFilename()
-           + " as sar archive")
-       .setMnemonic("ShPack")
-       .build();
+        .addInput(runfiles.getRunfilesMiddleman())
+        .addInput(executable)
+        .addInputManifest(
+            runfiles.getRunfilesManifest(), BaseSpawn.runfilesForFragment(executable.getExecPath()))
+        .addOutput(sarOutput)
+        .setProgressMessage("Packaging script " + executableScript.getFilename()
+            + " as sar archive")
+        .setMnemonic("ShPack")
+        .build();
   }
 
   /**
@@ -89,7 +89,7 @@ final class ShHelper {
       RuleContext ruleContext, String attr, Mode mode) {
     ImmutableList.Builder<Artifact> runfiles = ImmutableList.builder();
     for (RunfilesProvider r : ruleContext.getPrerequisites(attr, mode, RunfilesProvider.class)) {
-      runfiles.addAll(r.getTransitiveRunfiles(RunfilesCollector.State.DEFAULT).getAllArtifacts());
+      runfiles.addAll(r.getDefaultRunfiles().getAllArtifacts());
     }
     return runfiles.build();
   }

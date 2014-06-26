@@ -87,6 +87,7 @@ public interface TransitiveInfoCollection {
 
   /**
    * Returns the transitive information provider requested, or null if the provider is not found.
+   * The provider has to be a TransitiveInfoProvider Java class.
    */
   <P extends TransitiveInfoProvider> P getProvider(Class<P> provider);
 
@@ -95,4 +96,12 @@ public interface TransitiveInfoCollection {
    */
   @SkylarkCallable(doc = "")
   Label getLabel();
+
+  /**
+   * Returns the transitive information requested or null, if the information is not found.
+   * The transitive information has to have been added using the Skylark framework.
+   */
+  @SkylarkCallable(
+      doc = "Returns the value provided by this target associated with the provider_key.")
+  Object get(String providerKey);
 }

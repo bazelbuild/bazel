@@ -55,9 +55,11 @@ import javax.annotation.Nullable;
 final class ConfiguredTargetNodeBuilder implements NodeBuilder {
 
   private final BuildViewProvider buildViewProvider;
+  private final boolean skyframeFull;
 
-  ConfiguredTargetNodeBuilder(BuildViewProvider buildViewProvider) {
+  ConfiguredTargetNodeBuilder(BuildViewProvider buildViewProvider, boolean skyframeFull) {
     this.buildViewProvider = buildViewProvider;
+    this.skyframeFull = skyframeFull;
   }
 
   @Override
@@ -219,27 +221,33 @@ final class ConfiguredTargetNodeBuilder implements NodeBuilder {
     // It's a bit awkward that non-ActionOwner configured targets can have actions, but that's
     // how BUILD file analysis works right now.
     Collection<Action> registeredActions = Lists.newArrayListWithCapacity(actions.size());
-    for (Action action : actions) {
-      // TODO(bazel-team): Drop construction of the legacy action graph. [skyframe-execution]
-      try {
-        // Invalidate all pending actions before proceeding. This is needed because we could
-        // have pending invalidated actions that would conflict with this registration. We delay
-        // the unregistration until we try to create a new action to avoid a shared actions issue
-        // (see SkyframeBuildView.pendingInvalidatedActions).
-        view.unregisterPendingActions();
-        view.getActionGraph().registerAction(action);
-      } catch (ActionConflictException e) {
-        e.reportTo(env.getListener());
-        // Unregister all actions registered before to keep the legacy action graph in sync.
-        for (Action a : registeredActions) {
-          view.getActionGraph().unregisterAction(a);
+
+    if (skyframeFull) {
+      registeredActions.addAll(actions);
+    } else {
+      // TODO(bazel-team): Delete this code as part of m2.5 cleanup. [skyframe-execution]
+      for (Action action : actions) {
+        try {
+          // Invalidate all pending actions before proceeding. This is needed because we could
+          // have pending invalidated actions that would conflict with this registration. We delay
+          // the unregistration until we try to create a new action to avoid a shared actions issue
+          // (see SkyframeBuildView.pendingInvalidatedActions).
+          view.unregisterPendingActions();
+          view.getActionGraph().registerAction(action);
+        } catch (ActionConflictException e) {
+          e.reportTo(env.getListener());
+          // Unregister all actions registered before to keep the legacy action graph in sync.
+          for (Action a : registeredActions) {
+            view.getActionGraph().unregisterAction(a);
+          }
+          throw new ConfiguredTargetNodeBuilderException(ConfiguredTargetNode.key(target.getLabel(),
+              configuration), new ConfiguredNodeCreationException(
+              "Analysis of target '" + target.getLabel() + "' failed; build aborted"));
         }
-        throw new ConfiguredTargetNodeBuilderException(ConfiguredTargetNode.key(target.getLabel(),
-            configuration), new ConfiguredNodeCreationException(
-                "Analysis of target '" + target.getLabel() + "' failed; build aborted"));
+        registeredActions.add(action);
       }
-      registeredActions.add(action);
     }
+
     return new ConfiguredTargetNode(configuredTarget, actions);
   }
 

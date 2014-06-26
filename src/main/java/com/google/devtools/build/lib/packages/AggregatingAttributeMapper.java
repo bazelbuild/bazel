@@ -23,16 +23,21 @@ import java.util.Map;
  */
 public class AggregatingAttributeMapper extends AbstractAttributeMapper {
 
+  // TODO(bazel-team): deprecate this in favor of {@link of}.
   public AggregatingAttributeMapper(Rule rule) {
     super(rule.getPackage(), rule.getRuleClassObject(), rule.getLabel(),
         rule.getAttributeContainer());
+  }
+
+  public static AggregatingAttributeMapper of(Rule rule) {
+    return new AggregatingAttributeMapper(rule);
   }
 
   /**
    * Returns a list of all possible values an attribute can take for this rule.
    */
   @Override
-  protected <T> Iterable<T> visitAttribute(String attributeName, Type<T> type) {
+  public <T> Iterable<T> visitAttribute(String attributeName, Type<T> type) {
     Type.Selector<T> selector = getSelector(attributeName, type);
     if (selector != null) {
       ImmutableList.Builder<T> builder = ImmutableList.builder();

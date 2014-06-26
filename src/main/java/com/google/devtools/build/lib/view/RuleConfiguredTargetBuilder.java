@@ -31,10 +31,9 @@ import com.google.devtools.build.lib.packages.TargetUtils;
 import com.google.devtools.build.lib.packages.Type;
 import com.google.devtools.build.lib.syntax.Label;
 import com.google.devtools.build.lib.view.ExtraActionArtifactsProvider.ExtraArtifactSet;
-import com.google.devtools.build.lib.view.GenericRuleConfiguredTarget.TransitiveInfo;
 import com.google.devtools.build.lib.view.LicensesProvider.TargetLicense;
 import com.google.devtools.build.lib.view.RuleConfiguredTarget.Mode;
-import com.google.devtools.build.lib.view.RunfilesCollector.State;
+import com.google.devtools.build.lib.view.RuleConfiguredTarget.TransitiveInfo;
 import com.google.devtools.build.lib.view.config.BuildConfiguration;
 import com.google.devtools.build.lib.view.extra.ExtraActionMapProvider;
 import com.google.devtools.build.lib.view.extra.ExtraActionSpec;
@@ -52,9 +51,9 @@ import java.util.Map.Entry;
 import java.util.Set;
 
 /**
- * Builder class for analyzed rule instances (i.e., instances of {@link RuleConfiguredTarget}).
+ * Builder class for analyzed rule instances (i.e., instances of {@link ConfiguredTarget}).
  */
-public final class GenericRuleConfiguredTargetBuilder {
+public final class RuleConfiguredTargetBuilder {
   private final RuleContext ruleContext;
   private final List<TransitiveInfo> infos = Lists.newArrayList();
   private final ImmutableMap.Builder<String, Object> skylarkProviders = ImmutableMap.builder();
@@ -67,32 +66,36 @@ public final class GenericRuleConfiguredTargetBuilder {
   private ImmutableList<Action> extraActionPseudoActions;
   private ImmutableList<Artifact> extraActionPseudoArtifacts;
 
-  public GenericRuleConfiguredTargetBuilder(RuleContext ruleContext) {
+  public RuleConfiguredTargetBuilder(RuleContext ruleContext) {
     this.ruleContext = ruleContext;
+    add(LicensesProvider.class, initializeLicensesProvider());
   }
 
   /**
    * Constructs the RuleConfiguredTarget instance based on the values set for this Builder.
    */
-  public RuleConfiguredTarget build() {
+  public ConfiguredTarget build() {
     if (ruleContext.hasErrors()) {
       return null;
     }
+    FilesToRunProvider filesToRunProvider = new FilesToRunProvider(ruleContext.getLabel(),
+        RuleContext.getFilesToRun(runfilesSupport, filesToBuild), runfilesSupport, executable);
     add(FileProvider.class, new FileProviderImpl(ruleContext.getLabel(), filesToBuild));
-    add(LicensesProvider.class, initializeLicensesProvider());
+    add(FilesToRunProvider.class, filesToRunProvider);
+
     // Create test action and artifacts if target was successfully initialized
     // and is a test.
     if (TargetUtils.isTestRule(ruleContext.getTarget())) {
       Preconditions.checkState(runfilesSupport != null);
-      add(TestProvider.class, initializeTestProvider());
+      add(TestProvider.class, initializeTestProvider(filesToRunProvider));
     }
     add(ExtraActionArtifactsProvider.class, initializeExtraActions());
-    return new GenericRuleConfiguredTarget(
-        ruleContext, runfilesSupport, executable, mandatoryStampFiles, skylarkProviders.build(),
+    return new RuleConfiguredTarget(
+        ruleContext, mandatoryStampFiles, skylarkProviders.build(),
         infos.toArray(new TransitiveInfo[0]));
   }
 
-  private TestProvider initializeTestProvider() {
+  private TestProvider initializeTestProvider(FilesToRunProvider filesToRunProvider) {
     int explicitShardCount = ruleContext.attributes().get("shard_count", Type.INTEGER);
     if (explicitShardCount < 0
         && ruleContext.getRule().isAttributeValueExplicitlySpecified("shard_count")) {
@@ -104,7 +107,7 @@ public final class GenericRuleConfiguredTargetBuilder {
           + "Please reduce the number of shards.");
     }
     final TestParams testParams = new TestHelper(ruleContext)
-        .setRunfilesSupport(runfilesSupport)
+        .setFilesToRunProvider(filesToRunProvider)
         .setFilesToRun(RuleContext.getFilesToRun(runfilesSupport, filesToBuild))
         .setInstrumentedFiles(findProvider(InstrumentedFilesProvider.class))
         .setExecutionRequirements(findProvider(ExecutionRequirementProvider.class))
@@ -239,7 +242,7 @@ public final class GenericRuleConfiguredTargetBuilder {
   /**
    * Add a specific provider with a given value.
    */
-  public <T extends TransitiveInfoProvider> GenericRuleConfiguredTargetBuilder add(
+  public <T extends TransitiveInfoProvider> RuleConfiguredTargetBuilder add(
       Class<T> key, T value) {
     AnalysisUtils.checkProvider(key);
     infos.add(new TransitiveInfo(key, value));
@@ -249,7 +252,7 @@ public final class GenericRuleConfiguredTargetBuilder {
   /**
    * Add a specific provider with a given value.
    */
-  public GenericRuleConfiguredTargetBuilder addProvider(
+  public RuleConfiguredTargetBuilder addProvider(
       Class<? extends TransitiveInfoProvider> key, TransitiveInfoProvider value) {
     AnalysisUtils.checkProvider(key);
     infos.add(new TransitiveInfo(key, value));
@@ -259,7 +262,7 @@ public final class GenericRuleConfiguredTargetBuilder {
   /**
    * Add multiple providers with given values.
    */
-  public GenericRuleConfiguredTargetBuilder addProviders(
+  public RuleConfiguredTargetBuilder addProviders(
       Map<Class<? extends TransitiveInfoProvider>, TransitiveInfoProvider> providers) {
     for (Entry<Class<? extends TransitiveInfoProvider>, TransitiveInfoProvider> provider :
         providers.entrySet()) {
@@ -269,24 +272,27 @@ public final class GenericRuleConfiguredTargetBuilder {
   }
 
   /**
-   * Add a Skylark transitive info provider. The provider value must be immutable.
+   * Add a Skylark transitive info. The provider value must be immutable.
    */
-  public void add(String name, Object value) {
+  public RuleConfiguredTargetBuilder addSkylarkTransitiveInfo(String name, Object value) {
     skylarkProviders.put(name, value);
+    return this;
   }
 
   /**
    * Set the runfiles support for executable targets.
    */
-  public GenericRuleConfiguredTargetBuilder setRunfilesSupport(RunfilesSupport runfilesSupport) {
+  public RuleConfiguredTargetBuilder setRunfilesSupport(
+      RunfilesSupport runfilesSupport, Artifact executable) {
     this.runfilesSupport = runfilesSupport;
+    this.executable = executable;
     return this;
   }
 
   /**
    * Set the files to build.
    */
-  public GenericRuleConfiguredTargetBuilder setFilesToBuild(NestedSet<Artifact> filesToBuild) {
+  public RuleConfiguredTargetBuilder setFilesToBuild(NestedSet<Artifact> filesToBuild) {
     this.filesToBuild = filesToBuild;
     return this;
   }
@@ -294,24 +300,16 @@ public final class GenericRuleConfiguredTargetBuilder {
   /**
    * Set the baseline coverage Artifacts.
    */
-  public GenericRuleConfiguredTargetBuilder setBaselineCoverageArtifacts(
+  public RuleConfiguredTargetBuilder setBaselineCoverageArtifacts(
       Collection<Artifact> artifacts) {
     return add(BaselineCoverageArtifactsProvider.class,
         new BaselineCoverageArtifactsProvider(ImmutableList.copyOf(artifacts)));
   }
 
   /**
-   * Set the executable.
-   */
-  public GenericRuleConfiguredTargetBuilder setExecutable(Artifact executable) {
-    this.executable = executable;
-    return this;
-  }
-
-  /**
    * Set the mandatory stamp files.
    */
-  public GenericRuleConfiguredTargetBuilder setMandatoryStampFiles(ImmutableList<Artifact> files) {
+  public RuleConfiguredTargetBuilder setMandatoryStampFiles(ImmutableList<Artifact> files) {
     this.mandatoryStampFiles = files;
     return this;
   }
@@ -319,7 +317,7 @@ public final class GenericRuleConfiguredTargetBuilder {
   /**
    * Set the extra action pseudo actions.
    */
-  public GenericRuleConfiguredTargetBuilder setExtraActionPseudoActions(
+  public RuleConfiguredTargetBuilder setExtraActionPseudoActions(
       ImmutableList<Action> actions) {
     this.extraActionPseudoActions = actions;
     return this;
@@ -328,29 +326,16 @@ public final class GenericRuleConfiguredTargetBuilder {
   /**
    * Set the extra action pseudo artifacts.
    */
-  public GenericRuleConfiguredTargetBuilder setExtraActionPseudoArtifacts(
+  public RuleConfiguredTargetBuilder setExtraActionPseudoArtifacts(
       ImmutableList<Artifact> artifacts) {
     this.extraActionPseudoArtifacts = artifacts;
     return this;
   }
 
   /**
-   * A runfile provider returning the same set of runfiles for every state.
+   * An implementation class for FileProvider.
    */
-  public static final class StatelessRunfilesProvider implements RunfilesProvider {
-    private final Runfiles runfiles;
-
-    public StatelessRunfilesProvider(Runfiles runfiles) {
-      this.runfiles = runfiles;
-    }
-
-    @Override
-    public Runfiles getTransitiveRunfiles(State state) {
-      return runfiles;
-    }
-  }
-
-  private static final class FileProviderImpl implements FileProvider {
+  public static final class FileProviderImpl implements FileProvider {
     private final Label label;
     private final NestedSet<Artifact> filesToBuild;
 

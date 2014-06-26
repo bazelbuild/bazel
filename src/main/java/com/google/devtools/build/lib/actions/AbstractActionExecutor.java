@@ -41,7 +41,6 @@ public abstract class AbstractActionExecutor {
   private final Profiler profiler = Profiler.instance();
   protected Executor executorEngine;
   private ActionLogBufferPathGenerator actionLogBufferPathGenerator;
-  protected ActionGraph actionGraph;
 
   public AbstractActionExecutor(Reporter reporter) {
     this.reporter = reporter;
@@ -54,10 +53,6 @@ public abstract class AbstractActionExecutor {
   public void setActionLogBufferPathGenerator(
       ActionLogBufferPathGenerator actionLogBufferPathGenerator) {
     this.actionLogBufferPathGenerator = actionLogBufferPathGenerator;
-  }
-
-  public void setActionGraph(ActionGraph actionGraph) {
-    this.actionGraph = actionGraph;
   }
 
   /**
@@ -101,8 +96,7 @@ public abstract class AbstractActionExecutor {
               fileOutErr, middlemanExpander));
       completeAction(action, token, metadataHandler, fileOutErr);
     } finally {
-      postEvent(new ActionCompletionEvent(action, actionGraph,
-          action.describeStrategy(executorEngine)));
+      postEvent(new ActionCompletionEvent(action, action.describeStrategy(executorEngine)));
     }
   }
 

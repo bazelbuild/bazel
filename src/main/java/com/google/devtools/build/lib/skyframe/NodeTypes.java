@@ -22,8 +22,11 @@ import com.google.devtools.build.skyframe.NodeType;
  */
 public final class NodeTypes {
   public static final NodeType BUILD_VARIABLE = new NodeType("BUILD_VARIABLE", false);
-  public static final NodeType FILE = new NodeType("FILE", false);
+  public static final NodeType FILE_STATE = new NodeType("FILE_STATE", false);
   public static final NodeType DIRECTORY_LISTING = new NodeType("DIRECTORY_LISTING", false);
+  public static final NodeType FILE_SYMLINK_CYCLE_UNIQUENESS_NODE =
+      NodeType.computed("FILE_SYMLINK_CYCLE_UNIQUENESS_NODE");
+  public static final NodeType FILE = NodeType.computed("FILE");
   public static final NodeType PACKAGE_LOOKUP = NodeType.computed("PACKAGE_LOOKUP");
   public static final NodeType CONTAINING_PACKAGE_LOOKUP =
       NodeType.computed("CONTAINING_PACKAGE_LOOKUP");

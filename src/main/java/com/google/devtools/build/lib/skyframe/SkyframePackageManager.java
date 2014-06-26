@@ -181,4 +181,7 @@ class SkyframePackageManager implements PackageManager {
   public TargetPatternEvaluator getTargetPatternEvaluator() {
     return patternEvaluator;
   }
+
+  @Override
+  public void addDependency(Package pkg, String fileName) {}
 }

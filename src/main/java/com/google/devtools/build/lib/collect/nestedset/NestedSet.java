@@ -13,10 +13,11 @@
 // limitations under the License.
 package com.google.devtools.build.lib.collect.nestedset;
 
-import com.google.common.collect.ImmutableList;
+import com.google.common.base.Joiner;
 
 import java.io.Serializable;
 import java.util.Collection;
+import java.util.Iterator;
 import java.util.List;
 import java.util.Set;
 
@@ -27,30 +28,41 @@ import javax.annotation.Nullable;
  *
  * @see NestedSetBuilder
  */
-public interface NestedSet<E> extends Iterable<E>, Serializable {
+public abstract class NestedSet<E> implements Iterable<E>, Serializable {
+
+  NestedSet() {}
 
   /**
    * Returns the ordering of this nested set.
    */
-  Order getOrder();
+  public abstract Order getOrder();
 
   /**
    * Returns a collection of elements added to this specific set in an implementation-specified
    * order.
    *
    * <p>Elements from subsets are not taken into account.
+   *
+   * <p>The reason for using Object[] instead of E[] is that when we build the NestedSet we
+   * would need to have access to the specific class that E represents in order to create an E
+   * array. Since this method is only designed to be used internally it is fine to keep it as
+   * Object[].
+   *
+   * <p>Callers of this method should only consume the objects and not modify the array.
    */
-  ImmutableList<E> directMembers();
+  abstract Object[] directMembers();
 
   /**
    * Returns the collection of sets included as subsets in this set.
+   *
+   * <p>Callers of this method should only consume the objects and not modify the array.
    */
-  ImmutableList<NestedSet<E>> transitiveSets();
+  abstract NestedSet[] transitiveSets();
 
   /**
    * Returns true if the set is empty.
    */
-  boolean isEmpty();
+  public abstract boolean isEmpty();
 
   /**
    * Returns a collection of all unique elements of this set (including subsets)
@@ -59,7 +71,9 @@ public interface NestedSet<E> extends Iterable<E>, Serializable {
    * <p>If you do not need a Collection and an Iterable is enough, use the
    * nested set itself as an Iterable.
    */
-  Collection<E> toCollection();
+  public Collection<E> toCollection() {
+    return toList();
+  }
 
   /**
    * Returns a collection of all unique elements of this set (including subsets)
@@ -67,7 +81,7 @@ public interface NestedSet<E> extends Iterable<E>, Serializable {
    *
    * <p>Use {@link #toCollection} when possible for better efficiency.
    */
-  List<E> toList();
+  public abstract List<E> toList();
 
   /**
    * Returns a collection of all unique elements of this set (including subsets)
@@ -75,7 +89,7 @@ public interface NestedSet<E> extends Iterable<E>, Serializable {
    *
    * <p>Use {@link #toCollection} when possible for better efficiency.
    */
-  Set<E> toSet();
+  public abstract Set<E> toSet();
 
   /**
    * Returns true if this set is equal to {@code other} based on the top-level
@@ -86,7 +100,7 @@ public interface NestedSet<E> extends Iterable<E>, Serializable {
    *
    * @param other the {@code NestedSet} to compare against.
    */
-  boolean shallowEquals(@Nullable NestedSet<? extends E> other);
+  public abstract boolean shallowEquals(@Nullable NestedSet<? extends E> other);
 
   /**
    * Returns a hash code that produces a notion of identity that is consistent with
@@ -97,5 +111,17 @@ public interface NestedSet<E> extends Iterable<E>, Serializable {
    * the standard equals/hashCode is to minimize accidental use, since they are
    * different from both standard Java objects and collection-like objects.
    */
-  int shallowHashCode();
+  public abstract int shallowHashCode();
+
+  @Override
+  public String toString() {
+    String members = Joiner.on(", ").join(directMembers());
+    String nestedSets = Joiner.on(", ").join(transitiveSets());
+    String separator = members.length() > 0 && nestedSets.length() > 0 ? ", " : "";
+    return "{" + members + separator + nestedSets + "}";
+  }
+
+  @Override
+  public Iterator<E> iterator() { return new NestedSetLazyIterator<>(this); }
+
 }

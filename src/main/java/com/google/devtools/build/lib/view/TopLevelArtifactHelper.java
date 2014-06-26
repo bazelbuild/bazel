@@ -81,10 +81,10 @@ public final class TopLevelArtifactHelper {
       }
 
       if (!hasRunfilesSupport) {
-        RunfilesProvider runfilesProvider = target.getProvider(RunfilesProvider.class);
+        RunfilesProvider runfilesProvider =
+            target.getProvider(RunfilesProvider.class);
         if (runfilesProvider != null) {
-          allArtifacts.addTransitive(runfilesProvider
-              .getTransitiveRunfiles(RunfilesCollector.State.DEFAULT).getAllArtifacts());
+          allArtifacts.addTransitive(runfilesProvider.getDefaultRunfiles().getAllArtifacts());
         }
       }
 

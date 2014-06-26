@@ -15,6 +15,8 @@ package com.google.devtools.build.lib.skyframe;
 
 import com.google.common.base.Preconditions;
 import com.google.common.base.Supplier;
+import com.google.devtools.build.lib.actions.Artifact;
+import com.google.devtools.build.lib.actions.Root;
 import com.google.devtools.build.lib.events.Reporter;
 import com.google.devtools.build.lib.packages.NoSuchPackageException;
 import com.google.devtools.build.lib.packages.NoSuchTargetException;
@@ -22,6 +24,8 @@ import com.google.devtools.build.lib.packages.Package;
 import com.google.devtools.build.lib.packages.Target;
 import com.google.devtools.build.lib.pkgcache.LoadedPackageProvider;
 import com.google.devtools.build.lib.syntax.Label;
+import com.google.devtools.build.lib.syntax.Label.SyntaxException;
+import com.google.devtools.build.lib.vfs.Path;
 import com.google.devtools.build.lib.vfs.PathFragment;
 import com.google.devtools.build.lib.view.config.BuildConfiguration;
 import com.google.devtools.build.lib.view.config.BuildConfigurationCollection;
@@ -68,6 +72,11 @@ public class ConfigurationCollectionNodeBuilder implements NodeBuilder {
 
       collection = configurationFactory.get().getConfigurationsInSkyframe(reporter,
           new SkyframePackageLoaderWithNodeEnvironment(env), configurationKey.get());
+      // BuildConfigurationCollection can be created, but dependencies to some files might be
+      // missing. In that case we need to build configurationCollection second time.
+      if (env.depsMissing()) {
+        return null;
+      }
       // For non-incremental builds the configuration collection is not going to be cached.
       for (BuildConfiguration config : collection.getTargetConfigurations()) {
         if (!config.supportsIncrementalBuild()) {
@@ -120,6 +129,19 @@ public class ConfigurationCollectionNodeBuilder implements NodeBuilder {
     @Override
     public boolean isTargetCurrent(Target target) {
       throw new UnsupportedOperationException("This method is supposed not to be called");
+    }
+
+    @Override
+    public void addDependency(Package pkg, String fileName) throws SyntaxException {
+      Label label = Label.create(pkg.getName(), fileName);
+      LabelAndConfiguration lac = new LabelAndConfiguration(label, null);
+      Path pathToArtifact = pkg.getPackageDirectory().getRelative(fileName);
+      Artifact artifact = new Artifact(pathToArtifact,
+          Root.asSourceRoot(pkg.getSourceRoot()),
+          pkg.getNameFragment().getRelative(fileName),
+          lac);
+      
+      env.getDep(FileNode.key(artifact));
     }
   }
 

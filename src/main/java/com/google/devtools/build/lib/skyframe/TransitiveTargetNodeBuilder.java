@@ -58,13 +58,16 @@ public class TransitiveTargetNodeBuilder implements NodeBuilder {
     NoSuchTargetException errorLoadingTarget = null;
     try {
       TargetMarkerNode targetNode = (TargetMarkerNode) env.getDepOrThrow(targetKey,
-          NoSuchThingException.class);      
+          NoSuchThingException.class);
       if (targetNode == null) {
         return null;
       }
-      PackageNode packageNode = (PackageNode) env.getDepOrThrow(packageKey, 
+      PackageNode packageNode = (PackageNode) env.getDepOrThrow(packageKey,
           NoSuchThingException.class);
-      
+      if (packageNode == null) {
+        return null;
+      }
+
       packageLoadedSuccessfully = true;
       target = packageNode.getPackage().getTarget(label.getName());
     } catch (NoSuchTargetException e) {

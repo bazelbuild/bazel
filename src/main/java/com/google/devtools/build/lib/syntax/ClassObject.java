@@ -11,21 +11,25 @@
 // WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
 // See the License for the specific language governing permissions and
 // limitations under the License.
-package com.google.devtools.build.lib.collect.nestedset;
+package com.google.devtools.build.lib.syntax;
 
-import com.google.common.collect.ImmutableList;
+import com.google.common.collect.ImmutableMap;
+
+import java.util.Map;
 
 /**
- * A link-order nested set.
+ * An instance of a Skylark class.
  */
-final class LinkOrderNestedSet<E> extends InMemoryNestedSet<E> {
+// TODO(bazel-team): type checks, immutability
+public class ClassObject {
 
-  LinkOrderNestedSet(ImmutableList<E> items, ImmutableList<NestedSet<E>> transitiveSets) {
-    super(items, transitiveSets);
+  private final ImmutableMap<String, Object> values;
+
+  public ClassObject(Map<String, Object> values) {
+    this.values = ImmutableMap.copyOf(values);
   }
 
-  @Override
-  public Order getOrder() {
-    return Order.LINK_ORDER;
+  public Object getValue(String name) {
+    return values.get(name);
   }
 }

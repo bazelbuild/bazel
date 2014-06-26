@@ -40,7 +40,6 @@ public class TestUtils {
    * since we don't have one in tests.
    */
   public static final ImmutableList<String> EMBEDDED_TOOLS = ImmutableList.of(
-      "libblaze.jar",
       "build-runfiles",
       "client_info",
       "process-wrapper",

@@ -19,12 +19,14 @@ import com.google.common.cache.CacheLoader;
 import com.google.common.cache.LoadingCache;
 import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.Lists;
+import com.google.devtools.build.lib.collect.nestedset.NestedSet;
 import com.google.devtools.build.lib.syntax.EvalException.EvalExceptionWithJavaCause;
 import com.google.devtools.build.lib.util.StringUtilities;
 
 import java.lang.reflect.InvocationTargetException;
 import java.lang.reflect.Method;
 import java.lang.reflect.Modifier;
+import java.lang.reflect.ParameterizedType;
 import java.util.ArrayList;
 import java.util.Collections;
 import java.util.HashMap;
@@ -250,7 +252,17 @@ public final class FuncallExpression extends Expression {
         // This happens when the interface is public but the implementation classes
         // have reduced visibility.
         matchingMethod.setAccessible(true);
-        return matchingMethod.invoke(obj, args.toArray());
+        Object result = matchingMethod.invoke(obj, args.toArray());
+        if (result instanceof NestedSet<?>) {
+          // This is probably the most terrible hack ever written. However this is the last place
+          // where we can infer generic type information, so SkylarkNestedSets can remain safe.
+          // Eventually we should cache these info too like we cache Methods, and probably do
+          // something with Lists and Maps too.
+          ParameterizedType t = (ParameterizedType) matchingMethod.getGenericReturnType();
+          return new SkylarkNestedSet((Class<?>) t.getActualTypeArguments()[0],
+              (NestedSet<?>) result);
+        }
+        return result;
       } else {
         throw new EvalException(func.getLocation(), "No matching method found for "
             + formatMethod(methodName, args) + " in " + getClassName(objClass));
@@ -318,6 +330,15 @@ public final class FuncallExpression extends Expression {
 
     if (obj != null) {
       Object objValue = obj.eval(env);
+      if (env.isSkylarkEnabled() && objValue instanceof ClassObject) {
+        // Accessing Skylark object fields
+        evalArguments(posargs, kwargs, env);
+        if (!kwargs.isEmpty() || !posargs.isEmpty()) {
+          throw new EvalException(func.getLocation(),
+              "Arguments are not allowed when accessing fields");
+        }
+        return ((ClassObject) objValue).getValue(func.getName());
+      }
       // Strings, lists and dictionaries (maps) have functions that we want to use in MethodLibrary.
       // For other classes, we can call the Java methods.
       if (env.isSkylarkEnabled() &&

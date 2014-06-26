@@ -927,7 +927,9 @@ public class Attribute implements Comparable<Attribute> {
    * Returns true if this attribute's value can be influenced by the build configuration.
    */
   public boolean isConfigurable() {
-    return !getPropertyFlag(PropertyFlag.NONCONFIGURABLE);
+    return !(type == Type.OUTPUT      // Excluded because of Rule#populateExplicitOutputFiles.
+        || type == Type.OUTPUT_LIST
+        || getPropertyFlag(PropertyFlag.NONCONFIGURABLE));
   }
 
   /**

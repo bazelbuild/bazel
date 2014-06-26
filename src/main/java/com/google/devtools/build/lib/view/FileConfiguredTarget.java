@@ -14,19 +14,48 @@
 
 package com.google.devtools.build.lib.view;
 
+import com.google.common.collect.ImmutableList;
+import com.google.common.collect.ImmutableMap;
+import com.google.common.collect.ImmutableMap.Builder;
 import com.google.devtools.build.lib.actions.Artifact;
+import com.google.devtools.build.lib.collect.nestedset.NestedSet;
+import com.google.devtools.build.lib.collect.nestedset.NestedSetBuilder;
+import com.google.devtools.build.lib.collect.nestedset.Order;
 import com.google.devtools.build.lib.packages.FileTarget;
 import com.google.devtools.build.lib.util.FileType;
+import com.google.devtools.build.lib.view.RuleConfiguredTargetBuilder.FileProviderImpl;
+import com.google.devtools.build.lib.view.fileset.FilesetProvider;
+import com.google.devtools.build.lib.view.test.InstrumentedFilesProvider;
 
 /**
  * A ConfiguredTarget for a source FileTarget.  (Generated files use a
  * subclass, OutputFileConfiguredTarget.)
  */
 public abstract class FileConfiguredTarget extends AbstractConfiguredTarget
-    implements FileType.HasFilename {
+    implements FileType.HasFilename, LicensesProvider {
 
-  FileConfiguredTarget(TargetContext targetContext) {
+  private final Artifact artifact;
+  private final ImmutableMap<Class<? extends TransitiveInfoProvider>, TransitiveInfoProvider>
+      providers;
+
+  FileConfiguredTarget(TargetContext targetContext, Artifact artifact) {
     super(targetContext);
+    NestedSet<Artifact> filesToBuild = NestedSetBuilder.create(Order.STABLE_ORDER, artifact);
+    this.artifact = artifact;
+    Builder<Class<? extends TransitiveInfoProvider>, TransitiveInfoProvider> builder = ImmutableMap
+        .<Class<? extends TransitiveInfoProvider>, TransitiveInfoProvider>builder()
+        .put(VisibilityProvider.class, this)
+        .put(LicensesProvider.class, this)
+        .put(FileProvider.class, new FileProviderImpl(targetContext.getLabel(), filesToBuild))
+        .put(FilesToRunProvider.class, new FilesToRunProvider(targetContext.getLabel(),
+            ImmutableList.copyOf(filesToBuild), null, artifact));
+    if (this instanceof FilesetProvider) {
+      builder.put(FilesetProvider.class, this);
+    }
+    if (this instanceof InstrumentedFilesProvider) {
+      builder.put(InstrumentedFilesProvider.class, this);
+    }
+    this.providers = builder.build();
   }
 
   @Override
@@ -34,7 +63,9 @@ public abstract class FileConfiguredTarget extends AbstractConfiguredTarget
     return (FileTarget) super.getTarget();
   }
 
-  public abstract Artifact getArtifact();
+  public Artifact getArtifact() {
+    return artifact;
+  }
 
   /**
    *  Returns the file type of this file target.
@@ -45,9 +76,13 @@ public abstract class FileConfiguredTarget extends AbstractConfiguredTarget
   }
 
   @Override
-  public Artifact getExecutable() {
-    // We optimistically return the Artifact here as we have no means of actually knowing for sure
-    // if the Artifact is executable.
-    return getArtifact();
+  public <P extends TransitiveInfoProvider> P getProvider(Class<P> provider) {
+    AnalysisUtils.checkProvider(provider);
+    return provider.cast(providers.get(provider));
+  }
+
+  @Override
+  public Object get(String providerKey) {
+    return null;
   }
 }

@@ -31,6 +31,9 @@ using std::list;
 using std::map;
 using std::vector;
 
+// On OSX, there apparently is no header that defines this.
+extern char **environ;
+
 namespace blaze {
 
 OptionProcessor::RcOption::RcOption(int rcfile_index, const string& option) {

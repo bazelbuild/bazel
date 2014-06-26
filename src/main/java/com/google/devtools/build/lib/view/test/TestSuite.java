@@ -13,19 +13,16 @@
 // limitations under the License.
 package com.google.devtools.build.lib.view.test;
 
-import static com.google.devtools.build.lib.view.RunfilesProvider.RunfilesProviderImpl.dataSpecificRunfilesProvider;
-
 import com.google.common.collect.Iterables;
 import com.google.devtools.build.lib.packages.TestTargetUtils;
 import com.google.devtools.build.lib.packages.Type;
 import com.google.devtools.build.lib.rules.RuleConfiguredTargetFactory;
 import com.google.devtools.build.lib.util.Pair;
-import com.google.devtools.build.lib.view.GenericRuleConfiguredTargetBuilder;
-import com.google.devtools.build.lib.view.RuleConfiguredTarget;
+import com.google.devtools.build.lib.view.ConfiguredTarget;
 import com.google.devtools.build.lib.view.RuleConfiguredTarget.Mode;
+import com.google.devtools.build.lib.view.RuleConfiguredTargetBuilder;
 import com.google.devtools.build.lib.view.RuleContext;
 import com.google.devtools.build.lib.view.Runfiles;
-import com.google.devtools.build.lib.view.RunfilesCollector;
 import com.google.devtools.build.lib.view.RunfilesProvider;
 import com.google.devtools.build.lib.view.TransitiveInfoCollection;
 
@@ -39,7 +36,7 @@ import java.util.List;
 public class TestSuite implements RuleConfiguredTargetFactory {
 
   @Override
-  public RuleConfiguredTarget create(RuleContext ruleContext) {
+  public ConfiguredTarget create(RuleContext ruleContext) {
     checkTestsAndSuites(ruleContext, "tests");
     checkTestsAndSuites(ruleContext, "suites");
     if (ruleContext.hasErrors()) {
@@ -78,11 +75,12 @@ public class TestSuite implements RuleConfiguredTargetFactory {
     }
 
     Runfiles runfiles = new Runfiles.Builder()
-        .addTargets(RunfilesCollector.State.DATA, directTestsAndSuitesBuilder)
+        .addTargets(directTestsAndSuitesBuilder, RunfilesProvider.DATA_RUNFILES)
         .build();
 
-    return new GenericRuleConfiguredTargetBuilder(ruleContext)
-        .add(RunfilesProvider.class, dataSpecificRunfilesProvider(Runfiles.EMPTY, runfiles))
+    return new RuleConfiguredTargetBuilder(ruleContext)
+        .add(RunfilesProvider.class,
+            RunfilesProvider.withData(Runfiles.EMPTY, runfiles))
         .add(TransitiveTestsProvider.class, new TransitiveTestsProviderImpl())
         .build();
   }

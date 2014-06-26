@@ -76,9 +76,9 @@ void BlazeStartupOptions::InitDefaults(const string& argv0) {
 bool BlazeStartupOptions::ProcessArg(const string& argstr,
                                      const string& next_argstr,
                                      const string& rcfile) {
-  // We have to parse a specific option syntax, so neither GNU getopts
-  // nor google3 FLAGS will do.  All options begin with "--" or "-". Values are
-  // given together with the option delimited by '=' or in the next option.
+  // We have to parse a specific option syntax, so GNU getopts won't do.  All
+  // options begin with "--" or "-". Values are given together with the option
+  // delimited by '=' or in the next option.
   const char* arg = argstr.c_str();
   const char* next_arg = next_argstr.empty() ? NULL : next_argstr.c_str();
   const char* value = NULL;
@@ -106,7 +106,7 @@ bool BlazeStartupOptions::ProcessArg(const string& argstr,
     option_sources["host_jvm_profile"] = rcfile;
   } else if ((value = GetUnaryOption(arg, next_arg,
                                      "--host_javabase")) != NULL) {
-    // TODO(martinrb): Consider examining the javabase, and in case of
+    // TODO(bazel-devel): Consider examining the javabase, and in case of
     // architecture mismatch, treating this option like --blaze_cpu
     // and re-execing.
     host_javabase = MakeAbsolute(value);
@@ -198,39 +198,6 @@ bool BlazeStartupOptions::ProcessArg(const string& argstr,
   }
 
   return ((value == next_arg) && (value != NULL));
-}
-
-// testonly: make is_64 an explicit parameter
-void BlazeStartupOptions::AddJVMArchArguments(bool is_64,
-                                              std::vector<string> *result) {
-  // Set this flag so that GC frequency roughly matches in the 32 vs. 64 bit
-  // cases.
-  result->push_back(is_64
-      ? "-XX:CMSInitiatingOccupancyFractionDelta=8"
-      : "-XX:CMSInitiatingOccupancyFractionDelta=25");
-
-  // In the 32-bit case, address space is limited, so in that case we restrict
-  // ourselves to 3GB of memory. Setting the heap to near the limit starves
-  // other sections of the address space and, ironically, causes more
-  // OutOfMemoryError crashes.
-  //
-  // In the 64-bit case, we rely on heap page deallocation to keep RSS at
-  // reasonable levels, so that setting Xmx "real high" is safe.
-  result->push_back(is_64 ? "-Xmx10G" : "-Xmx3000M");
-
-  // Replace System clocks with Cycle-based timer for performance.
-  result->push_back("-XX:+CycleTime");
-
-  // We use explicit deallocation (backed by madvise()) to keep RSS closer to
-  // the used heap size. Note that the only "UseParallelGC" supports heap free
-  // ratio resizing, and only "UseConcMarkSweepGC" supports heap page
-  // deallocation. The latter appears significantly more effective, and, can be
-  // used with very large heaps without wasting system memory. Bonus!
-  result->push_back("-XX:+UseConcMarkSweepGC");
-  result->push_back("-XX:+UseCMSInitiatingOccupancyOnly");
-
-  // Allows for YG resize under more circumstances and keeps heap manageable.
-  result->push_back("-XX:+UseSeparateVSpacesInYoungGen");
 }
 
 }  // namespace blaze

@@ -321,7 +321,7 @@ public class ConfiguredRuleClassProvider implements RuleClassProvider {
    * @return the configured target instance
    * @throws IllegalStateException if the configured class for the specified rule cannot be found
    */
-  public RuleConfiguredTarget createConfiguredTarget(Rule rule, RuleContext ruleContext)
+  public ConfiguredTarget createConfiguredTarget(Rule rule, RuleContext ruleContext)
       throws InterruptedException {
     RuleConfiguredTargetFactory factory = configuredClassMap.get(rule.getRuleClassObject());
     Preconditions.checkArgument(factory != null, rule.getRuleClassObject());

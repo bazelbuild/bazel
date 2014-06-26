@@ -41,13 +41,12 @@ import com.google.devtools.build.lib.syntax.SkylarkBuiltin.Param;
 import com.google.devtools.build.lib.syntax.SkylarkEnvironment;
 import com.google.devtools.build.lib.syntax.SkylarkFunction;
 import com.google.devtools.build.lib.syntax.SkylarkFunction.SimpleSkylarkFunction;
+import com.google.devtools.build.lib.syntax.SkylarkNestedSet;
 import com.google.devtools.build.lib.syntax.ValidationEnvironment;
 import com.google.devtools.build.lib.view.CommandHelper;
 import com.google.devtools.build.lib.view.FilesToRunProvider;
-import com.google.devtools.build.lib.view.GenericRuleConfiguredTargetBuilder;
-import com.google.devtools.build.lib.view.GenericRuleConfiguredTargetBuilder.StatelessRunfilesProvider;
+import com.google.devtools.build.lib.view.RuleConfiguredTargetBuilder;
 import com.google.devtools.build.lib.view.Runfiles;
-import com.google.devtools.build.lib.view.RunfilesCollector;
 import com.google.devtools.build.lib.view.RunfilesProvider;
 import com.google.devtools.build.lib.view.TransitiveInfoCollection;
 import com.google.devtools.build.lib.view.TransitiveInfoProvider;
@@ -64,10 +63,10 @@ import java.util.concurrent.ExecutionException;
 public class SkylarkRuleImplementationFunctions {
 
   @SkylarkBuiltin(name = "DEFAULT", doc = "The default runfiles collection state.")
-  private static final RunfilesCollector.State defaultState = RunfilesCollector.State.DEFAULT;
+  private static final Object defaultState = RunfilesProvider.DEFAULT_RUNFILES;
 
   @SkylarkBuiltin(name = "DATA", doc = "The data runfiles collection state.")
-  private static final RunfilesCollector.State dataState = RunfilesCollector.State.DATA;
+  private static final Object dataState = RunfilesProvider.DATA_RUNFILES;
 
   public static final Map<String, Object> JAVA_OBJECTS_TO_EXPOSE =
       new ImmutableMap.Builder<String, Object>()
@@ -198,25 +197,26 @@ public class SkylarkRuleImplementationFunctions {
     @Override
     public Object call(Map<String, Object> arguments, Location loc)
         throws EvalException, ExecutionException {
-      GenericRuleConfiguredTargetBuilder builder =
-          new GenericRuleConfiguredTargetBuilder(ruleContext.getRuleContext());
+      RuleConfiguredTargetBuilder builder =
+          new RuleConfiguredTargetBuilder(ruleContext.getRuleContext());
       if (arguments.containsKey("files_to_build")) {
         builder.setFilesToBuild(cast(arguments.get("files_to_build"),
-            SkylarkFileset.class, "files_to_build", loc).getFileset());
+            SkylarkNestedSet.class, "files_to_build", loc).getSet(Artifact.class));
       }
       if (arguments.containsKey("runfiles")) {
         builder.add(RunfilesProvider.class, cast(arguments.get("runfiles"),
             RunfilesProvider.class, "runfiles", loc));
       } else {
         // Every target needs runfiles provider by default.
-        builder.add(RunfilesProvider.class, new StatelessRunfilesProvider(Runfiles.EMPTY));
+        builder.add(RunfilesProvider.class, RunfilesProvider.EMPTY);
       }
       if (arguments.containsKey("executable")) {
-        builder.setExecutable(cast(arguments.get("executable"), Artifact.class, "executable", loc));
+        builder.setRunfilesSupport(null,
+            cast(arguments.get("executable"), Artifact.class, "executable", loc));
       }
       for (Map.Entry<String, Object> provider : castMap(arguments.get("providers"),
           String.class, Object.class, "transitive info providers")) {
-        builder.add(provider.getKey(), provider.getValue());
+        builder.addSkylarkTransitiveInfo(provider.getKey(), provider.getValue());
       }
       return builder.build();
     }
@@ -298,18 +298,30 @@ public class SkylarkRuleImplementationFunctions {
         return RunfilesProvider.EMPTY;
       } else if (arguments.containsKey("stateless")) {
         if (arguments.size() == 1) {
-          return new StatelessRunfilesProvider(handleRunfiles("stateless", arguments, loc));
+          return RunfilesProvider.simple(handleRunfiles("stateless", arguments, loc));
         } else {
           throw new EvalException(loc,
               "runfiles('stateless') does not take any extra args");
         }
       } else {
-        RunfilesProvider.Builder builder = new RunfilesProvider.Builder();
+        Runfiles defaultRunfiles = Runfiles.EMPTY;
+        Runfiles dataRunfiles = Runfiles.EMPTY;
         for (String param : arguments.keySet()) {
-          RunfilesCollector.State state = RunfilesCollector.State.valueOf(param.toUpperCase());
-          builder.add(handleRunfiles(param, arguments, loc), state);
+          switch (param.toUpperCase()) {
+            case "DEFAULT":
+              defaultRunfiles = handleRunfiles(param, arguments, loc);
+              break;
+
+            case "DATA":
+              dataRunfiles = handleRunfiles(param, arguments, loc);
+              break;
+
+            default:
+              break;
+          }
         }
-        return builder.build();
+
+        return RunfilesProvider.withData(defaultRunfiles, dataRunfiles);
       }
     }
 
@@ -319,12 +331,16 @@ public class SkylarkRuleImplementationFunctions {
       Runfiles.Builder builder = new Runfiles.Builder();
       for (Object obj : castList(arguments.get(attr), Object.class,
           "runfiles artifacts")) {
-        if (obj instanceof RunfilesCollector.State) {
-          builder.addRunfiles((RunfilesCollector.State) obj, ruleContext.getRuleContext());
+        if (obj == RunfilesProvider.DEFAULT_RUNFILES) {
+          builder.addRunfiles(
+              ruleContext.getRuleContext(), RunfilesProvider.DEFAULT_RUNFILES);
+        } else if (obj == RunfilesProvider.DATA_RUNFILES) {
+          builder.addRunfiles(
+              ruleContext.getRuleContext(), RunfilesProvider.DATA_RUNFILES);
         } else if (obj instanceof Artifact) {
           builder.addArtifact((Artifact) obj);
         } else if (obj instanceof SkylarkFileset) {
-          builder.addTransitiveArtifacts(((SkylarkFileset) obj).getFileset());
+          builder.addTransitiveArtifacts(((SkylarkNestedSet) obj).getSet(Artifact.class));
         } else if (obj instanceof NestedSet) {
           // TODO(bazel-team): This is probably not very safe in general. However it's only possible
           // to create NestedSets of Artifacts in Skylark. Remove this when we have only
@@ -344,14 +360,14 @@ public class SkylarkRuleImplementationFunctions {
     }
   };
 
-  @SkylarkBuiltin(name = "fileset",
-      doc = "Creates a nested fileset from the <i>items</i>. "
-          + "The nesting is applied to other nested filesets among <i>items</i>.",
+  @SkylarkBuiltin(name = "nset",
+      doc = "Creates a nested set from the <i>items</i>. "
+          + "The nesting is applied to other nested sets among <i>items</i>.",
       mandatoryParams = {
-      @Param(name = "order", type = String.class, doc = "ordering of the nested file set")},
+      @Param(name = "order", type = String.class, doc = "ordering of the nested set")},
       optionalParams = {
-      @Param(name = "items", doc = "items of the nested file set")})
-  private final SkylarkFunction createFileset = new SimpleSkylarkFunction("fileset") {
+      @Param(name = "items", doc = "items of the nested set")})
+  private final SkylarkFunction nset = new SimpleSkylarkFunction("nset") {
 
     // TODO(bazel-team): Not safe, see comments at runfiles and createTarget.
     @SuppressWarnings("unchecked")
@@ -359,15 +375,15 @@ public class SkylarkRuleImplementationFunctions {
     protected Object call(Map<String, Object> arguments, Location loc)
         throws EvalException, ConversionException {
       // TODO(bazel-team): Investigate if enums or constants can be used here in the argument.
-      String orderString = cast(arguments.get("order"), String.class, "fileset order", loc);
+      String orderString = cast(arguments.get("order"), String.class, "order", loc);
       Order order;
       try {
         order = Order.valueOf(orderString);
       } catch (IllegalArgumentException e) {
-        throw new EvalException(loc, "Invalid fileset order " + orderString);
+        throw new EvalException(loc, "Invalid order " + orderString);
       }
-      return new SkylarkFileset(
-          order, castList(arguments.get("items"), Object.class, "fileset items"));
+      return new SkylarkNestedSet(
+          order, castList(arguments.get("items"), Object.class, "items"));
     }
   };
 

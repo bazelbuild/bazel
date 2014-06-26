@@ -15,6 +15,7 @@ package com.google.devtools.build.skyframe;
 
 import java.util.Collection;
 import java.util.Comparator;
+import java.util.List;
 import java.util.Set;
 import java.util.TreeSet;
 
@@ -48,10 +49,15 @@ class DeterministicInMemoryGraph extends NotifyingInMemoryGraph {
         return o1.toString().compareTo(o2.toString());
       }
     };
+    @SuppressWarnings("unchecked")
     @Override
     synchronized Iterable<NodeKey> getReverseDeps() {
       TreeSet<NodeKey> result = new TreeSet<NodeKey>(nodeEntryComparator);
-      result.addAll(reverseDeps);
+      if (reverseDeps instanceof List) {
+        result.addAll((Collection<? extends NodeKey>) reverseDeps);
+      } else {
+        result.add((NodeKey) reverseDeps);
+      }
       return result;
     }
 

@@ -20,21 +20,18 @@ package com.google.devtools.build.lib.actions;
 public class CachedActionEvent {
 
   private final Action action;
-  private final ActionGraph actionGraph;
   private final long nanoTimeStart;
 
   /**
    * Create an event for an action that was cached.
    *
    * @param action the cached action
-   * @param actionGraph the action graph associated with the action invocation.
    * @param nanoTimeStart the time when the action was started. This allow us to
    * record more accurately the time spend by the action, since we execute some code before
    * deciding if we execute the action or not.
    */
-  public CachedActionEvent(Action action, ActionGraph actionGraph, long nanoTimeStart) {
+  public CachedActionEvent(Action action, long nanoTimeStart) {
     this.action = action;
-    this.actionGraph = actionGraph;
     this.nanoTimeStart = nanoTimeStart;
   }
 
@@ -44,9 +41,5 @@ public class CachedActionEvent {
 
   public long getNanoTimeStart() {
     return nanoTimeStart;
-  }
-
-  public ActionGraph getActionGraph() {
-    return actionGraph;
   }
 }

@@ -49,7 +49,7 @@ public final class TestTargetExecutionSettings {
   private final Artifact instrumentedFileManifest;
 
   TestTargetExecutionSettings(RuleContext ruleContext, RunfilesSupport runfiles,
-      Artifact instrumentedFileManifest, int shards) {
+      Artifact executable, Artifact instrumentedFileManifest, int shards) {
     Preconditions.checkArgument(TargetUtils.isTestRule(ruleContext.getRule()));
     Preconditions.checkArgument(shards >= 0);
     BuildConfiguration config = ruleContext.getConfiguration();
@@ -70,7 +70,7 @@ public final class TestTargetExecutionSettings {
     runUnderExecutable = getRunUnderExecutable(ruleContext);
 
     this.testFilter = config.getTestFilter();
-    this.executable = runfiles.getExecutable();
+    this.executable = executable;
     this.runfilesManifest = runfiles.getRunfilesManifest();
     this.runfilesInputManifest = runfiles.getRunfilesInputManifest();
     this.instrumentedFileManifest = instrumentedFileManifest;

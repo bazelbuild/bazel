@@ -18,10 +18,9 @@ import com.google.common.collect.Sets;
 import com.google.devtools.build.lib.collect.ImmutableSortedKeyListMultimap;
 import com.google.devtools.build.lib.packages.Type;
 import com.google.devtools.build.lib.rules.RuleConfiguredTargetFactory;
-import com.google.devtools.build.lib.view.GenericRuleConfiguredTargetBuilder;
-import com.google.devtools.build.lib.view.GenericRuleConfiguredTargetBuilder.StatelessRunfilesProvider;
-import com.google.devtools.build.lib.view.RuleConfiguredTarget;
+import com.google.devtools.build.lib.view.ConfiguredTarget;
 import com.google.devtools.build.lib.view.RuleConfiguredTarget.Mode;
+import com.google.devtools.build.lib.view.RuleConfiguredTargetBuilder;
 import com.google.devtools.build.lib.view.RuleContext;
 import com.google.devtools.build.lib.view.Runfiles;
 import com.google.devtools.build.lib.view.RunfilesProvider;
@@ -36,7 +35,7 @@ import java.util.Set;
  */
 public final class ActionListener implements RuleConfiguredTargetFactory {
   @Override
-  public RuleConfiguredTarget create(RuleContext ruleContext) {
+  public ConfiguredTarget create(RuleContext ruleContext) {
     // This rule doesn't produce any output when listed as a build target.
     // Only when used via the --experimental_action_listener flag,
     // this rule instructs the build system to add additional outputs.
@@ -54,8 +53,8 @@ public final class ActionListener implements RuleConfiguredTargetFactory {
       extraActionMapBuilder.putAll(mnemonic, extraActions);
     }
     extraActionMap = extraActionMapBuilder.build();
-    return new GenericRuleConfiguredTargetBuilder(ruleContext)
-        .add(RunfilesProvider.class, new StatelessRunfilesProvider(Runfiles.EMPTY))
+    return new RuleConfiguredTargetBuilder(ruleContext)
+        .add(RunfilesProvider.class, RunfilesProvider.simple(Runfiles.EMPTY))
         .add(ExtraActionMapProvider.class, new ExtraActionMapProvider(extraActionMap))
         .build();
   }

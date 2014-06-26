@@ -21,11 +21,13 @@ import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.Iterables;
 import com.google.common.collect.Sets;
 import com.google.devtools.build.lib.actions.Artifact;
+import com.google.devtools.build.lib.actions.BaseSpawn;
 import com.google.devtools.build.lib.collect.nestedset.NestedSetBuilder;
 import com.google.devtools.build.lib.packages.Type;
 import com.google.devtools.build.lib.syntax.Label;
 import com.google.devtools.build.lib.syntax.SkylarkBuiltin;
 import com.google.devtools.build.lib.syntax.SkylarkCallable;
+import com.google.devtools.build.lib.vfs.PathFragment;
 import com.google.devtools.build.lib.view.actions.FileWriteAction;
 
 import java.util.Collection;
@@ -54,7 +56,7 @@ public final class CommandHelper {
    *  A map of remote path prefixes and corresponding runfiles manifests for tools
    *  used by this rule.
    */
-  private final ImmutableMap<String, Artifact> remoteRunfileManifestMap;
+  private final ImmutableMap<PathFragment, Artifact> remoteRunfileManifestMap;
 
   /**
    * Use labelMap for heuristically expanding labels (does not include "outs")
@@ -87,7 +89,8 @@ public final class CommandHelper {
     this.ruleContext = ruleContext;
 
     ImmutableList.Builder<Artifact> resolvedToolsBuilder = ImmutableList.builder();
-    ImmutableMap.Builder<String, Artifact> remoteRunfileManifestBuilder = ImmutableMap.builder();
+    ImmutableMap.Builder<PathFragment, Artifact> remoteRunfileManifestBuilder =
+        ImmutableMap.builder();
     Map<Label, Collection<Artifact>> tempLabelMap = new HashMap<>();
 
     for (Map.Entry<Label, Iterable<Artifact>> entry : labelMap.entrySet()) {
@@ -106,8 +109,7 @@ public final class CommandHelper {
         Artifact runfilesManifest = tool.getRunfilesManifest();
         if (runfilesManifest != null) {
           remoteRunfileManifestBuilder.put(
-              executableArtifact.getExecPathString() + ".runfiles/",
-              runfilesManifest);
+              BaseSpawn.runfilesForFragment(executableArtifact.getExecPath()), runfilesManifest);
         }
       } else {
         // Map all depArtifacts to the respective label using the multimaps.
@@ -130,7 +132,7 @@ public final class CommandHelper {
     return resolvedTools;
   }
 
-  public ImmutableMap<String, Artifact> getRemoteRunfileManifestMap() {
+  public ImmutableMap<PathFragment, Artifact> getRemoteRunfileManifestMap() {
     return remoteRunfileManifestMap;
   }
 

@@ -26,5 +26,10 @@ final class ErrorConfiguredTarget extends AbstractConfiguredTarget {
   ErrorConfiguredTarget(Target target, BuildConfiguration configuration) {
     super(target, configuration);
   }
+
+  @Override
+  public Object get(String providerKey) {
+    throw new UnsupportedOperationException();
+  }
 }
 

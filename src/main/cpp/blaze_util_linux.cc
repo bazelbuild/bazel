@@ -23,6 +23,8 @@
 
 namespace blaze {
 
+using std::string;
+
 void WarnFilesystemType(const string& output_base) {
   struct statfs buf = {};
   if (statfs(output_base.c_str(), &buf) < 0) {
@@ -103,6 +105,17 @@ void SetScheduling(bool batch_cpu_scheduling, int io_nice_level) {
            IOPRIO_CLASS_BE, io_nice_level);
     }
   }
+}
+
+string GetProcessCWD(int pid) {
+  char server_cwd[PATH_MAX] = {};
+  if (readlink(
+          ("/proc/" + std::to_string(pid) + "/cwd").c_str(),
+          server_cwd, sizeof(server_cwd)) < 0) {
+    return "";
+  }
+
+  return string(server_cwd);
 }
 
 }  // namespace blaze

@@ -8,6 +8,20 @@ mkdir -p output/native
 
 PLATFORM=$(uname -s | tr 'A-Z' 'a-z')
 
+case ${PLATFORM} in
+darwin)
+  # for use with Macports
+  ARCHIVE_CFLAGS="-I/opt/local/include"
+  ARCHIVE_LDFLAGS="-L/opt/local/lib"
+  DYNAMIC_EXT="dylib"
+  ;;
+linux)
+  ARCHIVE_CFLAGS=""
+  ARCHIVE_LDFLAGS=""
+  DYNAMIC_EXT="so"
+  ;;
+esac
+
 # Compile .proto files using protoc
 PROTO_FILES=(
 src/main/protobuf/build.proto
@@ -20,7 +34,7 @@ src/main/protobuf/testing_api.proto
 # JAVA_HOME must point to a Java 7 installation.
 JAVA_HOME=${JAVA_HOME:-$(readlink -f $(which javac) | sed "s_/bin/javac__")}
 JAVAC="${JAVA_HOME}/bin/javac"
-PROTOC=/usr/bin/protoc
+PROTOC=protoc
 CC=g++
 
 for FILE in "${PROTO_FILES[@]}"; do
@@ -85,13 +99,14 @@ done
 
 # Link client
 echo "LD client"
-"${CC}" -o output/client output/objs/*.o /usr/lib/x86_64-linux-gnu/libarchive.so -l stdc++ -l rt
+"${CC}" -o output/client output/objs/*.o -larchive -l stdc++ -l rt
 
 # Compile native code .cc files.
 NATIVE_CC_FILES=(
 src/main/native/localsocket.cc
 src/main/native/process.cc
 src/main/native/unix_jni.cc
+src/main/native/unix_jni_${PLATFORM}.cc
 src/main/cpp/util/md5.cc
 )
 
@@ -102,7 +117,7 @@ for FILE in "${NATIVE_CC_FILES[@]}"; do
       -I src/main/cpp/ \
       -I src/main/native/ \
       -I "${JAVA_HOME}/include/" \
-      -I "${JAVA_HOME}/include/linux/" \
+      -I "${JAVA_HOME}/include/${PLATFORM}" \
       -std=c++0x \
       -fPIC \
       -c \
@@ -112,8 +127,8 @@ for FILE in "${NATIVE_CC_FILES[@]}"; do
       "${FILE}"
 done
 
-echo "LD libunix.so"
-"${CC}" -o output/libunix.so -shared output/native/*.o -l stdc++
+echo "LD libunix.${DYNAMIC_EXT}"
+"${CC}" -o output/libunix.${DYNAMIC_EXT} -shared output/native/*.o -l stdc++
 
 echo "CC build-runfiles"
 "${CC}" -o output/build-runfiles -std=c++0x -l stdc++ -l rt src/main/tools/build-runfiles.cc
@@ -127,7 +142,7 @@ chmod 755 output/alarm
 touch output/client_info
 chmod 755 output/client_info
 
-TO_ZIP="libblaze.jar libunix.so build-runfiles process-wrapper alarm client_info"
+TO_ZIP="libblaze.jar libunix.${DYNAMIC_EXT} build-runfiles process-wrapper alarm client_info"
 (cd output/ ; cat client ${TO_ZIP} | md5sum | awk '{ print $1; }' > install_base_key)
 (cd output/ ; zip package.zip ${TO_ZIP} install_base_key)
 cat output/client output/package.zip > output/bazel

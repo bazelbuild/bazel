@@ -21,12 +21,11 @@ import com.google.devtools.build.lib.rules.RuleConfiguredTargetFactory;
 import com.google.devtools.build.lib.syntax.Label;
 import com.google.devtools.build.lib.view.CommandHelper;
 import com.google.devtools.build.lib.view.ConfigurationMakeVariableContext;
+import com.google.devtools.build.lib.view.ConfiguredTarget;
 import com.google.devtools.build.lib.view.FilesToRunProvider;
-import com.google.devtools.build.lib.view.GenericRuleConfiguredTargetBuilder;
-import com.google.devtools.build.lib.view.GenericRuleConfiguredTargetBuilder.StatelessRunfilesProvider;
 import com.google.devtools.build.lib.view.MakeVariableExpander;
-import com.google.devtools.build.lib.view.RuleConfiguredTarget;
 import com.google.devtools.build.lib.view.RuleConfiguredTarget.Mode;
+import com.google.devtools.build.lib.view.RuleConfiguredTargetBuilder;
 import com.google.devtools.build.lib.view.RuleContext;
 import com.google.devtools.build.lib.view.Runfiles;
 import com.google.devtools.build.lib.view.RunfilesProvider;
@@ -38,7 +37,7 @@ import java.util.List;
  */
 public final class ExtraActionFactory implements RuleConfiguredTargetFactory {
   @Override
-  public RuleConfiguredTarget create(RuleContext context) {
+  public ConfiguredTarget create(RuleContext context) {
     // This rule doesn't produce any output when listed as a build target.
     // Only when used via the --experimental_action_listener flag,
     // this rule instructs the build system to add additional outputs.
@@ -77,16 +76,15 @@ public final class ExtraActionFactory implements RuleConfiguredTargetFactory {
 
     ExtraActionSpec spec = new ExtraActionSpec(
         commandHelper.getResolvedTools(),
-        commandHelper.getRemoteRunfileManifestMap(),
         resolvedData,
         outputTemplates,
         command,
         context.getLabel(),
         requiresActionOutput);
 
-    return new GenericRuleConfiguredTargetBuilder(context)
+    return new RuleConfiguredTargetBuilder(context)
         .addProvider(ExtraActionProvider.class, new ExtraActionProvider(spec))
-        .add(RunfilesProvider.class, new StatelessRunfilesProvider(Runfiles.EMPTY))
+        .add(RunfilesProvider.class, RunfilesProvider.simple(Runfiles.EMPTY))
         .build();
   }
 }

@@ -61,7 +61,7 @@ class BlazeStartupOptions {
                   const string& rcfile);
 
   // Adds any other options needed to result.
-  void AddExtraOptions(std::vector<string> *result);
+  void AddExtraOptions(std::vector<string> *result) const;
 
   // Checks if Blaze needs to be re-executed.  Does not return, if so.
   void CheckForReExecuteOptions(int argc, const char *argv[]);
@@ -73,18 +73,15 @@ class BlazeStartupOptions {
 
   // Return the default path to the JDK used to run Blaze itself
   // (must be an absolute directory).
-  string GetDefaultHostJavabase();
+  string GetDefaultHostJavabase() const;
 
-  Architecture GetBlazeArchitecture();
+  Architecture GetBlazeArchitecture() const;
 
-  string GetJvm();
+  string GetJvm() const;
 
   // Adds JVM tuning flags for Blaze.
-  void AddJVMSpecificArguments(const string &host_javabase,
-                               std::vector<string> *result);
-
-  // Specify architecture for testing.
-  void AddJVMArchArguments(bool is_64, std::vector<string> *result);
+  void AddJVMArguments(const string &host_javabase,
+                       std::vector<string> *result) const;
 
   // Blaze's output base.  Everything is relative to this.  See
   // http://wiki/Main/BlazeOutputDirectoryStructure for details.
@@ -149,6 +146,21 @@ class BlazeStartupOptions {
   std::map<string, string> option_sources;
 
   std::unique_ptr<StartupOptions> extra_options;
+
+  // Given the working directory, returns the nearest enclosing directory with a
+  // WORKSPACE file in it.  If there is no such enclosing directory, returns "".
+  //
+  // E.g., if there was a WORKSPACE file in foo/bar/build_root:
+  // GetWorkspace('foo/bar') --> 'foo/bar'
+  // GetWorkspace('foo/bar/build_root') --> 'foo/bar/build_root'
+  // GetWorkspace('foo/bar/build_root/biz') --> 'foo/bar/build_root'
+  //
+  // The returned path is relative or absolute depending on whether cwd was
+  // relative or absolute.
+  static string GetWorkspace(const string &cwd);
+
+  // Returns if workspace is a valid build workspace.
+  static bool InWorkspace(const string &workspace);
 
  private:
   // Sets default values for members.

@@ -15,7 +15,6 @@ package com.google.devtools.build.lib.view.extra;
 
 import com.google.common.annotations.VisibleForTesting;
 import com.google.common.collect.ImmutableList;
-import com.google.common.collect.ImmutableMap;
 import com.google.devtools.build.lib.actions.Action;
 import com.google.devtools.build.lib.actions.ActionOwner;
 import com.google.devtools.build.lib.actions.Artifact;
@@ -39,7 +38,6 @@ import java.util.Map;
 @Immutable
 public class ExtraActionSpec {
   private final ImmutableList<Artifact> resolvedTools;
-  private final ImmutableMap<String, Artifact> manifests;
   private final ImmutableList<Artifact> resolvedData;
   private final ImmutableList<String> outputTemplates;
   private final String command;
@@ -48,14 +46,12 @@ public class ExtraActionSpec {
 
   ExtraActionSpec(
       Iterable<Artifact> resolvedTools,
-      Map<String, Artifact> manifests,
       Iterable<Artifact> resolvedData,
       Iterable<String> outputTemplates,
       String command,
       Label label,
       boolean requiresActionOutput) {
     this.resolvedTools = ImmutableList.copyOf(resolvedTools);
-    this.manifests = ImmutableMap.copyOf(manifests);
     this.resolvedData = ImmutableList.copyOf(resolvedData);
     this.outputTemplates = ImmutableList.copyOf(outputTemplates);
     this.command = command;

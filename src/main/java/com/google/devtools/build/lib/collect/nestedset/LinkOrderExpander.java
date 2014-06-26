@@ -81,17 +81,24 @@ final class LinkOrderExpander<E> implements NestedSetExpander<E> {
     builder.addAll(result.build().reverse());
   }
 
+  // We suppress unchecked warning so that we can access the internal raw structure of the
+  // NestedSet.
+  @SuppressWarnings("unchecked")
   private void internalEnumerate(NestedSet<E> set, Uniqueifier uniqueifier,
       ImmutableCollection.Builder<E> builder) {
-    for (NestedSet<E> subset : set.transitiveSets().reverse()) {
+    NestedSet[] transitiveSets = set.transitiveSets();
+    for (int i = transitiveSets.length - 1; i >= 0; i--) {
+      NestedSet<E> subset = transitiveSets[i];
       if (!subset.isEmpty() && uniqueifier.isUnique(subset)) {
         internalEnumerate(subset, uniqueifier, builder);
       }
     }
 
-    for (E e : set.directMembers().reverse()) {
+    Object[] directMembers = set.directMembers();
+    for (int i = directMembers.length - 1; i >= 0; i--) {
+      Object e = directMembers[i];
       if (uniqueifier.isUnique(e)) {
-        builder.add(e);
+        builder.add((E) e);
       }
     }
   }

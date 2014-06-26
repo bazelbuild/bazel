@@ -16,7 +16,6 @@ package com.google.devtools.build.lib.collect.nestedset;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableSet;
 
-import java.util.Collection;
 import java.util.Iterator;
 import java.util.List;
 import java.util.Objects;
@@ -27,8 +26,9 @@ import javax.annotation.Nullable;
 /**
  * An empty nested set.
  */
-final class EmptyNestedSet<E> implements NestedSet<E> {
-
+final class EmptyNestedSet<E> extends NestedSet<E> {
+  private static final NestedSet[] EMPTY_NESTED_SET = new NestedSet[0];
+  private static final Object[] EMPTY_ELEMENTS = new Objects[0];
   private final Order order;
 
   EmptyNestedSet(Order type) {
@@ -41,23 +41,18 @@ final class EmptyNestedSet<E> implements NestedSet<E> {
   }
 
   @Override
-  public ImmutableList<E> directMembers() {
-    return ImmutableList.of();
+  Object[] directMembers() {
+    return EMPTY_ELEMENTS;
   }
 
   @Override
-  public ImmutableList<NestedSet<E>> transitiveSets() {
-    return ImmutableList.of();
+  NestedSet[] transitiveSets() {
+    return EMPTY_NESTED_SET;
   }
 
   @Override
   public boolean isEmpty() {
     return true;
-  }
-
-  @Override
-  public Collection<E> toCollection() {
-    return ImmutableList.of();
   }
 
   @Override

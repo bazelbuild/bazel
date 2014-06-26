@@ -34,13 +34,14 @@ import com.google.common.collect.ImmutableCollection;
  */
 final class NaiveLinkOrderExpander<E> implements NestedSetExpander<E> {
 
+  @SuppressWarnings("unchecked")
   @Override
   public void expandInto(NestedSet<E> set, Uniqueifier uniqueifier,
       ImmutableCollection.Builder<E> builder) {
 
-    for (E e : set.directMembers()) {
+    for (Object e : set.directMembers()) {
       if (uniqueifier.isUnique(e)) {
-        builder.add(e);
+        builder.add((E) e);
       }
     }
 

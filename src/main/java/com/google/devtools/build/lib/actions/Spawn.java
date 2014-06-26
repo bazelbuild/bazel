@@ -18,6 +18,7 @@ import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 import com.google.devtools.build.lib.actions.ExtraActions.SpawnInfo;
 import com.google.devtools.build.lib.vfs.Path;
+import com.google.devtools.build.lib.vfs.PathFragment;
 
 import java.util.Collection;
 
@@ -54,7 +55,7 @@ public interface Spawn {
   /**
    * Returns the runfiles data for remote execution. Format is (directory, manifest file).
    */
-  ImmutableMap<String, Artifact> getRunfilesManifests();
+  ImmutableMap<PathFragment, Artifact> getRunfilesManifests();
 
   /**
    * Returns artifacts for filesets, so they can be scheduled on remote execution.

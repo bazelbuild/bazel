@@ -62,4 +62,9 @@ public final class PackageGroupConfiguredTarget extends AbstractConfiguredTarget
   public NestedSet<PackageSpecification> getPackageSpecifications() {
     return packageSpecifications;
   }
+
+  @Override
+  public Object get(String providerKey) {
+    throw new UnsupportedOperationException();
+  }
 }

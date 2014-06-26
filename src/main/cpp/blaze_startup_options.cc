@@ -13,6 +13,7 @@
 // limitations under the License.
 #include "blaze_startup_options.h"
 
+#include <assert.h>
 #include <errno.h>  // errno, ENOENT
 #include <sys/stat.h>
 #include <stdlib.h>  // getenv, exit
@@ -62,7 +63,29 @@ BlazeStartupOptions& BlazeStartupOptions::operator=(
   return *this;
 }
 
-void BlazeStartupOptions::AddExtraOptions(vector<string> *result) {
+void BlazeStartupOptions::AddExtraOptions(vector<string> *result) const {}
+
+static const char kWorkspaceMarker[] = "WORKSPACE";
+
+// static
+bool BlazeStartupOptions::InWorkspace(const string &workspace) {
+  return access(
+      blaze_util::JoinPath(workspace, kWorkspaceMarker).c_str(), F_OK) == 0;
+}
+
+// static
+string BlazeStartupOptions::GetWorkspace(const string &cwd) {
+  assert(!cwd.empty());
+  string workspace = cwd;
+
+  do {
+    if (access(blaze_util::JoinPath(
+            workspace, kWorkspaceMarker).c_str(), F_OK) != -1) {
+      return workspace;
+    }
+    workspace = blaze_util::Dirname(workspace);
+  } while (!workspace.empty() && workspace != "/");
+  return cwd;
 }
 
 bool BlazeStartupOptions::ProcessArgExtra(
@@ -78,7 +101,7 @@ void BlazeStartupOptions::CheckForReExecuteOptions(
 static const char kJvmDir32[] = "/usr/lib/jvm/default-java";
 static const char kJvmDir64[] = "/usr/lib64/jvm/default-java";
 
-string BlazeStartupOptions::GetDefaultHostJavabase() {
+string BlazeStartupOptions::GetDefaultHostJavabase() const {
   // First check for Java in /usr/lib64/jvm.
   bool arch_is_64 = GetBlazeArchitecture() == k64Bit;
   if (arch_is_64 && access(kJvmDir64, X_OK) == 0) {
@@ -135,7 +158,7 @@ string BlazeStartupOptions::GetDefaultHostJavabase() {
   return base;
 }
 
-string BlazeStartupOptions::GetJvm() {
+string BlazeStartupOptions::GetJvm() const {
   string java_program = host_javabase + "/bin/java";
   string rt_jar = host_javabase + "/jre/lib/rt.jar";
   if (access(rt_jar.c_str(), R_OK) == -1 ||
@@ -152,13 +175,15 @@ string BlazeStartupOptions::GetJvm() {
   return java_program;
 }
 
-BlazeStartupOptions::Architecture BlazeStartupOptions::GetBlazeArchitecture() {
+BlazeStartupOptions::Architecture BlazeStartupOptions::GetBlazeArchitecture()
+    const {
   return strcmp(BLAZE_JAVA_CPU, "64") == 0 ? k64Bit : k32Bit;
 }
 
-void BlazeStartupOptions::AddJVMSpecificArguments(const string &host_javabase,
-                                                  vector<string> *result) {
-  AddJVMArchArguments(GetBlazeArchitecture() == k64Bit, result);
+void BlazeStartupOptions::AddJVMArguments(const string &host_javabase,
+                                          vector<string> *result) const {
+  // TODO(bazel-team): see what tuning options make sense in the
+  // open-source world.
 }
 
 }  // namespace blaze

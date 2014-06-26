@@ -13,15 +13,18 @@
 // limitations under the License.
 package com.google.devtools.build.lib.pkgcache;
 
+import com.google.common.base.Preconditions;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableSet;
 import com.google.common.collect.Lists;
 import com.google.common.collect.Sets;
 import com.google.devtools.build.lib.concurrent.ThreadSafety;
 import com.google.devtools.build.lib.events.ErrorEventListener;
+import com.google.devtools.build.lib.packages.AttributeMap;
 import com.google.devtools.build.lib.packages.FileTarget;
 import com.google.devtools.build.lib.packages.NoSuchPackageException;
 import com.google.devtools.build.lib.packages.NoSuchTargetException;
+import com.google.devtools.build.lib.packages.RawAttributeMapper;
 import com.google.devtools.build.lib.packages.Rule;
 import com.google.devtools.build.lib.packages.Target;
 import com.google.devtools.build.lib.packages.Type;
@@ -92,12 +95,14 @@ public final class SrcTargetUtil {
       Set<Rule> visitedRules,
       TargetProvider targetProvider)
       throws NoSuchTargetException, NoSuchPackageException, InterruptedException {
+    Preconditions.checkState(!rule.hasConfigurableAttributes()); // Not currently supported.
     List<Label> srcLabels = Lists.newArrayList();
+    AttributeMap attributeMap = RawAttributeMapper.of(rule);
     for (String attrName : attributes) {
       if (rule.isAttrDefined(attrName, Type.LABEL_LIST)) {
-        srcLabels.addAll(rule.get(attrName, Type.LABEL_LIST));
+        srcLabels.addAll(attributeMap.get(attrName, Type.LABEL_LIST));
       } else if (rule.isAttrDefined(attrName, Type.LABEL)) {
-        Label srcLabel = rule.get(attrName, Type.LABEL);
+        Label srcLabel = attributeMap.get(attrName, Type.LABEL);
         if (srcLabel != null) {
           srcLabels.add(srcLabel);
         }

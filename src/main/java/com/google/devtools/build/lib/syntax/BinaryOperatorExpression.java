@@ -111,7 +111,8 @@ public final class BinaryOperatorExpression extends Expression {
         if (lval instanceof List<?> && rval instanceof List<?>) {
           List<?> llist = (List<?>) lval;
           List<?> rlist = (List<?>) rval;
-          if (EvalUtils.isImmutable(llist) != EvalUtils.isImmutable(rlist)) {
+          if (!env.isSkylarkEnabled()
+              && EvalUtils.isImmutable(llist) != EvalUtils.isImmutable(rlist)) {
             throw new EvalException(getLocation(), "can only concatenate "
                 + EvalUtils.getDatatypeName(rlist) + " (not \""
                 + EvalUtils.getDatatypeName(llist) + "\") to "

@@ -1204,6 +1204,51 @@ public class AutoUpdatingGraphTest {
     assertEquals(new StringNode("top"), tester.evalAndGet("top"));
   }
 
+  /**
+   * Regression test -- if node top requests {depA, depB}, depC, with depA and depC there and depB
+   * absent, and then throws an exception, the stored deps should be depA, depC (in different
+   * groups), not {depA, depC} (same group).
+   */
+  @Test
+  public void nodeInErrorWithGroups() throws Exception {
+    initializeTester();
+    NodeKey topKey = GraphTester.toNodeKey("top");
+    final NodeKey groupDepA = GraphTester.toNodeKey("groupDepA");
+    final NodeKey groupDepB = GraphTester.toNodeKey("groupDepB");
+    NodeKey depC = GraphTester.toNodeKey("depC");
+    tester.set(groupDepA, new StringNode("depC"));
+    tester.set(groupDepB, new StringNode(""));
+    tester.getOrCreate(depC).setHasError(true);
+    tester.getOrCreate(topKey).setBuilder(new NoExtractorNodeBuilder() {
+      @Override
+      public Node build(NodeKey nodeKey, Environment env) throws NodeBuilderException {
+        String nextDep = ((StringNode) env.getDeps(ImmutableList.of(groupDepA, groupDepB))
+            .get(groupDepA)).getValue();
+        try {
+          env.getDepOrThrow(GraphTester.toNodeKey(nextDep), SomeErrorException.class);
+        } catch (SomeErrorException e) {
+          throw new GenericNodeBuilderException(nodeKey, e);
+        }
+        return env.depsMissing() ? null : new StringNode("top");
+      }
+    });
+
+    UpdateResult<StringNode> updateResult = tester.eval(/*keepGoing=*/true, groupDepA, depC);
+    assertTrue(updateResult.hasError());
+    assertEquals("depC", updateResult.get(groupDepA).getValue());
+    ASSERT.that(updateResult.getError(depC).getRootCauses()).iteratesAs(depC);
+    updateResult = tester.eval(/*keepGoing=*/false, topKey);
+    assertTrue(updateResult.hasError());
+    ASSERT.that(updateResult.getError(topKey).getRootCauses()).iteratesAs(topKey);
+
+    tester.set(groupDepA, new StringNode("groupDepB"));
+    tester.getOrCreate(depC, /*markAsModified=*/true);
+    tester.invalidate();
+    updateResult = tester.eval(/*keepGoing=*/false, topKey);
+    assertFalse(updateResult.toString(), updateResult.hasError());
+    assertEquals("top", updateResult.get(topKey).getValue());
+  }
+
   @Test
   public void errorOnlyEmittedOnce() throws Exception {
     initializeTester();

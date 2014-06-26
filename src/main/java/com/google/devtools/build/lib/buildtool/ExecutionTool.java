@@ -100,7 +100,6 @@ import com.google.devtools.build.lib.view.FileProvider;
 import com.google.devtools.build.lib.view.FilesToCompileProvider;
 import com.google.devtools.build.lib.view.InputFileConfiguredTarget;
 import com.google.devtools.build.lib.view.OutputFileConfiguredTarget;
-import com.google.devtools.build.lib.view.RuleConfiguredTarget;
 import com.google.devtools.build.lib.view.TempsProvider;
 import com.google.devtools.build.lib.view.TransitiveInfoCollection;
 import com.google.devtools.build.lib.view.ViewCreationFailedException;
@@ -705,8 +704,8 @@ public class ExecutionTool {
         // Suppress display of source files and filegroups (because we do no
         // work to build them).
         continue;
-      } else if (target instanceof RuleConfiguredTarget) {
-        if (((RuleConfiguredTarget) target).getRule().getRuleClass().equals("filegroup")) {
+      } else if (target.getTarget() instanceof Rule) {
+        if (((Rule) target.getTarget()).getRuleClass().equals("filegroup")) {
           continue;
         }
       }
@@ -849,6 +848,11 @@ public class ExecutionTool {
     BuildRequest.BuildRequestOptions options = request.getBuildOptions();
     boolean verboseExplanations = options.verboseExplanations;
     boolean keepGoing = request.getViewOptions().keepGoing;
+
+    skyframeExecutor.setVersionWindowForDirtyNodeGc(
+        request.getViewOptions().versionWindowForDirtyNodeGc == -1
+            ? Long.MAX_VALUE
+            : request.getViewOptions().versionWindowForDirtyNodeGc);
 
     metadataCache.setInvocationStartTime(new Date().getTime());
 

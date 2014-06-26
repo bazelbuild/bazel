@@ -41,7 +41,6 @@ import com.google.devtools.build.lib.vfs.PathFragment;
 import java.util.ArrayList;
 import java.util.BitSet;
 import java.util.Collection;
-import java.util.EnumSet;
 import java.util.HashMap;
 import java.util.LinkedHashMap;
 import java.util.List;
@@ -89,12 +88,6 @@ import javax.annotation.concurrent.Immutable;
  */
 @Immutable
 public final class RuleClass {
-
-  /**
-   * The set of properties a rule class can have.
-   */
-  public static enum Flag {
-  }
 
   /**
    * The type of configuration that is needed for all dependencies of rules of
@@ -380,7 +373,6 @@ public final class RuleClass {
     private final boolean skylark;
     private boolean documented;
     private boolean binaryOutput = true;
-    private EnumSet<Flag> flags = EnumSet.noneOf(Flag.class);
     private DependentTargetConfiguration dependentTargetConfiguration;
     private ImplicitOutputsFunction implicitOutputsFunction = ImplicitOutputsFunction.NONE;
     private Configurator<?, ?> configurator = NO_CHANGE;
@@ -421,8 +413,6 @@ public final class RuleClass {
           setPreferredDependencyPredicate(parent.preferredDependencyPredicate);
         }
 
-        this.flags.addAll(parent.flags);
-
         for (Attribute attribute : parent.getAttributes()) {
           String attrName = attribute.getName();
           Preconditions.checkArgument(
@@ -456,7 +446,7 @@ public final class RuleClass {
       Preconditions.checkState(skylarkExecutable == (configuredTargetFunction != null));
       Preconditions.checkState(skylarkExecutable == (ruleDefinitionEnvironment != null));
       return new RuleClass(name, skylarkExecutable, documented, binaryOutput,
-          dependentTargetConfiguration, flags, implicitOutputsFunction, configurator,
+          dependentTargetConfiguration, implicitOutputsFunction, configurator,
           validityPredicate, preferredDependencyPredicate,
           configuredTargetFunction, ruleDefinitionEnvironment, allowConfigurableAttributes,
           attributes.values().toArray(new Attribute[0]));
@@ -530,14 +520,6 @@ public final class RuleClass {
 
     public Builder setPreferredDependencyPredicate(Predicate<String> predicate) {
       this.preferredDependencyPredicate = predicate;
-      return this;
-    }
-
-    /**
-     * Adds a flag to the rule class.
-     */
-    public Builder addFlag(Flag flag) {
-      flags.add(flag);
       return this;
     }
 
@@ -677,11 +659,6 @@ public final class RuleClass {
   private final Configurator<?, ?> configurator;
 
   /**
-   * The set of flags that are active for this rule class.
-   */
-  private final EnumSet<Flag> flags;
-
-  /**
    * The configuration dependent targets need to have.
    */
   private final DependentTargetConfiguration dependentTargetConfiguration;
@@ -735,7 +712,7 @@ public final class RuleClass {
    */
   @VisibleForTesting
   RuleClass(String name, boolean skylarkExecutable, boolean documented, boolean binaryOutput,
-      DependentTargetConfiguration dependentTargetConfiguration, Set<Flag> flags,
+      DependentTargetConfiguration dependentTargetConfiguration,
       Function<AttributeMap, Iterable<String>> implicitOutputsFunction,
       Configurator<?, ?> configurator,
       PredicateWithMessage<Rule> validityPredicate, Predicate<String> preferredDependencyPredicate,
@@ -747,8 +724,6 @@ public final class RuleClass {
     this.skylarkExecutable = skylarkExecutable;
     this.documented = documented;
     this.binaryOutput = binaryOutput;
-    this.flags = EnumSet.noneOf(Flag.class);
-    this.flags.addAll(flags);
     this.dependentTargetConfiguration = dependentTargetConfiguration;
     this.implicitOutputsFunction = implicitOutputsFunction;
     this.configurator = Preconditions.checkNotNull(configurator);
@@ -1187,6 +1162,12 @@ public final class RuleClass {
       converted = allowConfigurableAttributes
           ? attr.getType().selectableConvert(attrVal, what, rule.getLabel())
           : attr.getType().convert(attrVal, what, rule.getLabel());
+
+      if ((converted instanceof Type.Selector<?>) && !attr.isConfigurable()) {
+        rule.reportError(rule.getLabel() + ": attribute \"" + attr.getName()
+            + "\" is not configurable", listener);
+        return null;
+      }
 
       if ((converted instanceof List<?>) && !(converted instanceof GlobList<?>)) {
         if (attr.isOrderIndependent()) {

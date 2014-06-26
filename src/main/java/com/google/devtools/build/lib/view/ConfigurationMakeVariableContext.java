@@ -23,7 +23,7 @@ import java.util.Map;
 /**
  * Implements make variable expansion for make variables that depend on the
  * configuration and the target (not on behavior of the
- * {@link RuleConfiguredTarget} implementation)
+ * {@link ConfiguredTarget} implementation)
  */
 public class ConfigurationMakeVariableContext implements MakeVariableExpander.Context {
   private final Package pkg;

@@ -26,6 +26,7 @@ import com.google.devtools.build.lib.actions.MissingInputFileException;
 import com.google.devtools.build.lib.actions.NotifyOnActionCacheHit;
 import com.google.devtools.build.lib.syntax.Label;
 import com.google.devtools.build.lib.util.Pair;
+import com.google.devtools.build.lib.util.io.TimestampGranularityMonitor;
 import com.google.devtools.build.skyframe.Node;
 import com.google.devtools.build.skyframe.NodeBuilder;
 import com.google.devtools.build.skyframe.NodeBuilderException;
@@ -52,9 +53,12 @@ public class ActionExecutionNodeBuilder implements NodeBuilder {
     };
 
   private final SkyframeActionExecutor skyframeActionExecutor;
+  private final TimestampGranularityMonitor tsgm;
 
-  public ActionExecutionNodeBuilder(SkyframeActionExecutor skyframeActionExecutor) {
+  public ActionExecutionNodeBuilder(SkyframeActionExecutor skyframeActionExecutor,
+      TimestampGranularityMonitor tsgm) {
     this.skyframeActionExecutor = skyframeActionExecutor;
+    this.tsgm = tsgm;
   }
 
   @Override
@@ -86,7 +90,7 @@ public class ActionExecutionNodeBuilder implements NodeBuilder {
       return null;
     }
     FileAndMetadataCache cache = new FileAndMetadataCache(inputArtifactData, expandedMiddlemen,
-        skyframeActionExecutor.getExecRoot());
+        skyframeActionExecutor.getExecRoot(), tsgm);
     try {
       skyframeActionExecutor.executeAction(action, cache);
     } catch (ActionExecutionException e) {

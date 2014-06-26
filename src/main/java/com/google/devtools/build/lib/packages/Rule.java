@@ -264,6 +264,26 @@ public final class Rule implements Target, AttributeMap {
   }
 
   /**
+   * Returns true if this rule has any attributes that are configurable.
+   *
+   * <p>Note this is *not* the same as having attribute *types* that are configurable. For example,
+   * "deps" is configurable, in that one can write a rule that sets "deps" to a configuration
+   * dictionary. But if *this* rule's instance of "deps" doesn't do that, its instance
+   * of "deps" is not considered configurable.
+   *
+   * <p>In other words, this method signals which rules might have their attribute values
+   * influenced by the configuration.
+   */
+  public boolean hasConfigurableAttributes() {
+    for (Attribute attribute : getAttributes()) {
+      if (attributeMap.isConfigurable(attribute.getName(), attribute.getType())) {
+        return true;
+      }
+    }
+    return false;
+  }
+
+  /**
    * @deprecated use {@link AbstractAttributeMapper#getAttributeType} instead
    */
   @Override
@@ -487,16 +507,18 @@ public final class Rule implements Target, AttributeMap {
 
   // Explicit output files are user-specified attributes of type OUTPUT.
   private void populateExplicitOutputFiles(ErrorEventListener listener) {
+    NonconfigurableAttributeMapper nonConfigurableAttributes =
+        NonconfigurableAttributeMapper.of(this);
     for (Attribute attribute : ruleClass.getAttributes()) {
       String name = attribute.getName();
       Type<?> type = attribute.getType();
       if (type == Type.OUTPUT) {
-        Label outputLabel = get(name, Type.OUTPUT);
+        Label outputLabel = nonConfigurableAttributes.get(name, Type.OUTPUT);
         if (outputLabel != null) {
           addLabelOutput(attribute, outputLabel, listener);
         }
       } else if (type == Type.OUTPUT_LIST) {
-        for (Label label : get(name, Type.OUTPUT_LIST)) {
+        for (Label label : nonConfigurableAttributes.get(name, Type.OUTPUT_LIST)) {
           addLabelOutput(attribute, label, listener);
         }
       }

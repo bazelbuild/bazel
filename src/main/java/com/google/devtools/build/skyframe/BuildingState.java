@@ -15,17 +15,15 @@ package com.google.devtools.build.skyframe;
 
 import com.google.common.base.Objects;
 import com.google.common.base.Preconditions;
-import com.google.common.collect.ImmutableMap;
+import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableSet;
 import com.google.devtools.build.lib.collect.CompactHashSet;
 import com.google.devtools.build.lib.concurrent.ThreadSafety.ThreadCompatible;
+import com.google.devtools.build.lib.util.GroupedList;
+import com.google.devtools.build.lib.util.GroupedList.GroupedListHelper;
 
-import java.util.ArrayList;
-import java.util.Collection;
 import java.util.Iterator;
-import java.util.LinkedHashMap;
 import java.util.List;
-import java.util.Map;
 import java.util.Set;
 
 /**
@@ -59,25 +57,6 @@ final class BuildingState {
     REBUILDING
   }
 
-  enum ContinueGroup {
-    /** This dep ends a group of deps (it may be the only dep in the group). */
-    FALSE (false),
-    /**
-     * This dep is part of a group of deps, and the group continues after this dep (it is not the
-     * last one in the group).
-     */
-    TRUE (true);
-
-    private final boolean val;
-
-    ContinueGroup(boolean val) {
-      this.val = val;
-    }
-
-    boolean continuesGroup() {
-      return val;
-    }
-  }
   /**
    * During its life, a node can go through states as follows:
    * <ol>
@@ -137,15 +116,10 @@ final class BuildingState {
   /**
    * Direct dependencies discovered during the build. They will be written to the immutable field
    * {@code NodeEntry#directDeps} and the dependency group data to {@code NodeEntry#groupData} once
-   * the node is finished building.
-   *
-   * <p>The value in the map is TRUE if the current dependency group continues, and FALSE if this
-   * dep finishes a dependency group. See {@link NodeBuilder.Environment#getDeps} for further
-   * explanation of dependency groups. If a direct dep is removed from this node entry, the
-   * dependency group markers may have to be modified if, for instance, the dep removed was the last
-   * one in a group. See {@link #removeDirectDeps} for more.
+   * the node is finished building. {@link NodeBuilder}s can request deps in groups, and these
+   * groupings are preserved in this field.
    */
-  private final LinkedHashMap<NodeKey, ContinueGroup> directDeps = new LinkedHashMap<>();
+  private final GroupedList<NodeKey> directDeps = new GroupedList<>();
 
   /**
    * The set of reverse dependencies that are registered before the node has finished building.
@@ -166,35 +140,35 @@ final class BuildingState {
    * it means that this node is being built for the first time. See {@link #directDeps} for more on
    * dependency group storage.
    */
-  private final ImmutableMap<NodeKey, ContinueGroup> lastBuildDirectDeps;
+  private final GroupedList<NodeKey> lastBuildDirectDeps;
   private final Node lastBuildNode;
 
   /**
    * Which child should be re-evaluated next in the process of determining if this entry needs to
    * be re-evaluated. Used by {@link #getNextDirtyDirectDeps} and {@link #signalDep(boolean)}.
    */
-  private Iterator<Map.Entry<NodeKey, ContinueGroup>> dirtyDirectDepIterator = null;
+  private Iterator<Iterable<NodeKey>> dirtyDirectDepIterator = null;
 
   BuildingState() {
     lastBuildDirectDeps = null;
     lastBuildNode = null;
   }
 
-  private BuildingState(boolean isChanged, Map<NodeKey, ContinueGroup> lastBuildDirectDeps,
+  private BuildingState(boolean isChanged, GroupedList<NodeKey> lastBuildDirectDeps,
       Node lastBuildNode) {
-    this.lastBuildDirectDeps = ImmutableMap.copyOf(lastBuildDirectDeps);
+    this.lastBuildDirectDeps = lastBuildDirectDeps;
     this.lastBuildNode = Preconditions.checkNotNull(lastBuildNode);
     Preconditions.checkState(isChanged || !this.lastBuildDirectDeps.isEmpty(),
         "is being marked dirty, not changed, but has no children that could have dirtied it", this);
     dirtyState = isChanged ? DirtyState.REBUILDING : DirtyState.CHECK_DEPENDENCIES;
     if (dirtyState == DirtyState.CHECK_DEPENDENCIES) {
       // We need to iterate through the deps to see if they have changed. Initialize the iterator.
-      dirtyDirectDepIterator = lastBuildDirectDeps.entrySet().iterator();
+      dirtyDirectDepIterator = lastBuildDirectDeps.iterator();
     }
   }
 
   static BuildingState newDirtyState(boolean isChanged,
-      Map<NodeKey, ContinueGroup> lastBuildDirectDeps, Node lastBuildNode) {
+      GroupedList<NodeKey> lastBuildDirectDeps, Node lastBuildNode) {
     return new BuildingState(isChanged, lastBuildDirectDeps, lastBuildNode);
   }
 
@@ -299,9 +273,8 @@ final class BuildingState {
     return lastBuildNode.equals(newValue) && lastBuildDirectDeps.equals(directDeps);
   }
 
-  Collection<NodeKey> getLastBuildDirectDeps() {
-    checkNotProcessing();
-    return Preconditions.checkNotNull(lastBuildDirectDeps.keySet(), this);
+  boolean noDepsLastBuild() {
+    return lastBuildDirectDeps.isEmpty();
   }
 
   Node getLastBuildValue() {
@@ -335,46 +308,36 @@ final class BuildingState {
     Preconditions.checkState(isDirty(), this);
     Preconditions.checkState(dirtyState == DirtyState.CHECK_DEPENDENCIES, this);
     Preconditions.checkState(evaluating, this);
-    List<NodeKey> result = new ArrayList<>();
-    boolean continueGroup = false;
-    do {
-      Map.Entry<NodeKey, ContinueGroup> nextDep = dirtyDirectDepIterator.next();
-      continueGroup = nextDep.getValue().continuesGroup();
-      addDirectDep(nextDep.getKey(), nextDep.getValue());
-      result.add(nextDep.getKey());
-    } while (continueGroup);
+    List<NodeKey> nextDeps = ImmutableList.copyOf(dirtyDirectDepIterator.next());
+    addDirectDeps(GroupedListHelper.create(nextDeps));
     if (!dirtyDirectDepIterator.hasNext()) {
       // Done checking deps. If this last group is clean, the state will become VERIFIED_CLEAN.
       dirtyDirectDepIterator = null;
     }
-    return result;
+    return nextDeps;
+  }
+
+  void addDirectDeps(GroupedListHelper<NodeKey> depsThisRun) {
+    directDeps.append(depsThisRun);
   }
 
   /**
-   * Adds a direct dep to this entry. {@code continueGroup} is TRUE if the group this dep is part of
-   * should be continued after this dep, and FALSE if this dep ends the dependency group it is a
-   * part of.
-   *
-   * @returns true if the dependency was not added before, false otherwise.
-   * @see NodeEntry#addTemporaryDirectDep
-   */
-  boolean addDirectDep(NodeKey newDep, ContinueGroup continueGroup) {
-    Preconditions.checkState(evaluating, "not started building %s %s", newDep, this);
-    if (!directDeps.containsKey(newDep)) {
-      directDeps.put(newDep, continueGroup);
-      return true;
-    }
-    return false;
-  }
-
-  /**
-   * Returns the direct deps (and group data) found on this build. Should only be called when the
-   * node is done, or if the build has failed and the node's children need to be scrubbed of their
-   * reverse dep on this node.
+   * Returns the direct deps found so far on this build. Should only be called before the node has
+   * finished building.
    *
    * @see NodeEntry#getTemporaryDirectDeps()
    */
-  LinkedHashMap<NodeKey, ContinueGroup> getDirectDepsAndGroupData() {
+  Set<NodeKey> getDirectDepsForBuild() {
+    return directDeps.toSet();
+  }
+
+  /**
+   * Returns the direct deps (in groups) found on this build. Should only be called when the node is
+   * done.
+   *
+   * @see NodeEntry#setStateFinishedAndReturnReverseDeps
+   */
+  GroupedList<NodeKey> getFinishedDirectDeps() {
     return directDeps;
   }
 
@@ -411,33 +374,7 @@ final class BuildingState {
    * @see NodeEntry#removeUnfinishedDeps
    */
    void removeDirectDeps(Set<NodeKey> unfinishedDeps) {
-     NodeKey lastContinueDep = null;
-     // Keep track of number of deps removed, as a sanity check.
-     int removedCount = 0;
-     // Make a copy of the map so that we can safely mutate the original during iteration.
-     for (Map.Entry<NodeKey, ContinueGroup> entry : ImmutableMap.copyOf(directDeps).entrySet()) {
-       if (unfinishedDeps.contains(entry.getKey())) {
-         // This is a dep to remove. Normalize the group data if necessary first, then remove.
-         // Only change the previous dep to end the group if (1) the previous dep did not already
-         // end its group, and (2) the current dep ends its group. That is, if the previous dep was
-         // the penultimate member of this group, and this dep is the last member of the group. If
-         // the previous dep did not end a group, but this current dep does not end it either, the
-         // next dep that we are deleting might end this group, so leave lastContinueDep as is.
-         if (lastContinueDep != null && !entry.getValue().continuesGroup()) {
-           Preconditions.checkState(
-               directDeps.put(lastContinueDep, ContinueGroup.FALSE).continuesGroup(),
-               "Previous dep %s should not have ended a group", lastContinueDep);
-           lastContinueDep = null;
-         }
-         directDeps.remove(entry.getKey());
-         removedCount++;
-       } else {
-         // Only non-group-ending deps need to be mutated.
-         lastContinueDep = entry.getValue().continuesGroup() ? entry.getKey() : null;
-       }
-     }
-     Preconditions.checkState(removedCount == unfinishedDeps.size(),
-         "%s %s", unfinishedDeps, directDeps);
+     directDeps.remove(unfinishedDeps);
    }
 
    @Override

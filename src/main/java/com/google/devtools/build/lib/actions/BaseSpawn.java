@@ -21,6 +21,7 @@ import com.google.devtools.build.lib.actions.ExtraActions.SpawnInfo;
 import com.google.devtools.build.lib.util.CommandDescriptionForm;
 import com.google.devtools.build.lib.util.CommandFailureUtils;
 import com.google.devtools.build.lib.vfs.Path;
+import com.google.devtools.build.lib.vfs.PathFragment;
 
 import java.util.Collection;
 import java.util.List;
@@ -37,7 +38,7 @@ public class BaseSpawn implements Spawn {
   private final ImmutableList<String> arguments;
   private final ImmutableMap<String, String> environment;
   private final ImmutableMap<String, String> executionInfo;
-  private final ImmutableMap<String, Artifact> runfilesManifests;
+  private final ImmutableMap<PathFragment, Artifact> runfilesManifests;
   private final ActionMetadata action;
   private final ResourceSet localResources;
 
@@ -48,7 +49,7 @@ public class BaseSpawn implements Spawn {
   public BaseSpawn(List<String> arguments,
       Map<String, String> environment,
       Map<String, String> executionInfo,
-      Map<String, Artifact> runfilesManifests,
+      Map<PathFragment, Artifact> runfilesManifests,
       ActionMetadata action,
       ResourceSet localResources) {
     this.arguments = ImmutableList.copyOf(arguments);
@@ -71,9 +72,14 @@ public class BaseSpawn implements Spawn {
       ResourceSet localResources) {
     this(arguments, environment, executionInfo,
         ((runfilesManifest != null)
-            ? ImmutableMap.<String, Artifact>of(arguments.get(0) + ".runfiles/", runfilesManifest)
-            : ImmutableMap.<String, Artifact>of()),
+            ? ImmutableMap.of(runfilesForFragment(new PathFragment(arguments.get(0))),
+            runfilesManifest)
+            : ImmutableMap.<PathFragment, Artifact>of()),
         action, localResources);
+  }
+
+  public static PathFragment runfilesForFragment(PathFragment pathFragment) {
+    return pathFragment.getParentDirectory().getChild(pathFragment.getBaseName() + ".runfiles");
   }
 
   /**
@@ -85,7 +91,7 @@ public class BaseSpawn implements Spawn {
       ActionMetadata action,
       ResourceSet localResources) {
     this(arguments, environment, executionInfo,
-        ImmutableMap.<String, Artifact>of(), action, localResources);
+        ImmutableMap.<PathFragment, Artifact>of(), action, localResources);
   }
 
   @Override
@@ -104,7 +110,7 @@ public class BaseSpawn implements Spawn {
   }
 
   @Override
-  public ImmutableMap<String, Artifact> getRunfilesManifests() {
+  public ImmutableMap<PathFragment, Artifact> getRunfilesManifests() {
     return runfilesManifests;
   }
 
@@ -148,10 +154,10 @@ public class BaseSpawn implements Spawn {
 
     ImmutableMap.Builder<String, String> env = ImmutableMap.builder();
     env.putAll(environment);
-    for (Map.Entry<String, Artifact> e : getRunfilesManifests().entrySet()) {
+    for (Map.Entry<PathFragment, Artifact> e : getRunfilesManifests().entrySet()) {
       // TODO(bazel-team): Unify these into a single env variable.
-      env.put("JAVA_RUNFILES", e.getKey());
-      env.put("PYTHON_RUNFILES", e.getKey());
+      env.put("JAVA_RUNFILES", e.getKey().getPathString() + "/");
+      env.put("PYTHON_RUNFILES", e.getKey().getPathString() + "/");
     }
     return env.build();
   }

@@ -171,11 +171,12 @@ public class PackageNodeBuilder implements NodeBuilder {
    * <p>We need to mark dependencies implicitly used by the legacy package loading code, but we
    * don't care about any skyframe errors since the package knows whether it's in error or not.
    */
-  private static Map<PathFragment, PackageLookupNode>
+  private static Pair<? extends Map<PathFragment, PackageLookupNode>, Boolean>
   getPackageLookupDepsAndPropagateInconsistentFilesystemExceptions(Iterable<NodeKey> depKeys,
       Environment env, boolean packageWasInError) throws InconsistentFilesystemException {
     Preconditions.checkState(
         Iterables.all(depKeys, NodeTypes.hasNodeType(NodeTypes.PACKAGE_LOOKUP)), depKeys);
+    boolean packageShouldBeInError = packageWasInError;
     ImmutableMap.Builder<PathFragment, PackageLookupNode> builder = ImmutableMap.builder();
     for (Map.Entry<NodeKey, NodeOrException<Exception>> entry :
         env.getDepsOrThrow(depKeys, Exception.class).entrySet()) {
@@ -188,50 +189,64 @@ public class PackageNodeBuilder implements NodeBuilder {
       } catch (BuildFileNotFoundException e) {
         maybeThrowFilesystemInconsistency(e, packageWasInError);
       } catch (InconsistentFilesystemException e) {
+        // TODO(nharmata): symlink cycles
         throw e;
+      } catch (FileSymlinkCycleException e) {
+        // Legacy doesn't detect symlink cycles.
+        packageShouldBeInError = true;
       } catch (Exception e) {
         throw new IllegalStateException("Unexpected Exception type from PackageLookupNode.", e);
       }
     }
-    return builder.build();
+    return Pair.of(builder.build(), packageShouldBeInError);
   }
 
-  private static void markFileDepsAndPropagateInconsistentFilesystemExceptions(
+  private static boolean markFileDepsAndPropagateInconsistentFilesystemExceptions(
       Iterable<NodeKey> depKeys, Environment env, boolean packageWasInError)
           throws InconsistentFilesystemException {
     Preconditions.checkState(
         Iterables.all(depKeys, NodeTypes.hasNodeType(NodeTypes.FILE)), depKeys);
+    boolean packageShouldBeInError = packageWasInError;
     for (Map.Entry<NodeKey, NodeOrException<Exception>> entry :
         env.getDepsOrThrow(depKeys, Exception.class).entrySet()) {
       try {
         entry.getValue().get();
       } catch (IOException e) {
         maybeThrowFilesystemInconsistency(e, packageWasInError);
+      } catch (FileSymlinkCycleException e) {
+        // Legacy doesn't detect symlink cycles.
+        packageShouldBeInError = true;
       } catch (InconsistentFilesystemException e) {
         throw e;
       } catch (Exception e) {
         throw new IllegalStateException("Unexpected Exception type from FileNode.", e);
       }
     }
+    return packageShouldBeInError;
   }
 
-  private static void markGlobDepsAndPropagateInconsistentFilesystemExceptions(
+  private static boolean markGlobDepsAndPropagateInconsistentFilesystemExceptions(
       Iterable<NodeKey> depKeys, Environment env, boolean packageWasInError)
           throws InconsistentFilesystemException {
     Preconditions.checkState(
         Iterables.all(depKeys, NodeTypes.hasNodeType(NodeTypes.GLOB)), depKeys);
+    boolean packageShouldBeInError = packageWasInError;
     for (Map.Entry<NodeKey, NodeOrException<Exception>> entry :
         env.getDepsOrThrow(depKeys, Exception.class).entrySet()) {
       try {
         entry.getValue().get();
       } catch (IOException | BuildFileNotFoundException e) {
         maybeThrowFilesystemInconsistency(e, packageWasInError);
+      } catch (FileSymlinkCycleException e) {
+        // Legacy doesn't detect symlink cycles.
+        packageShouldBeInError = true;
       } catch (InconsistentFilesystemException e) {
         throw e;
       } catch (Exception e) {
         throw new IllegalStateException("Unexpected Exception type from GlobNode.", e);
       }
     }
+    return packageShouldBeInError;
   }
 
   /**
@@ -242,9 +257,10 @@ public class PackageNodeBuilder implements NodeBuilder {
    * already been encountered by legacy package loading (if not, then the filesystem is
    * inconsistent).
    */
-  private static void markDependenciesAndPropagateInconsistentFilesystemExceptions(
+  private static boolean markDependenciesAndPropagateInconsistentFilesystemExceptions(
       LegacyPackage pkg, Environment env, SkyframePackageLocator skyframePackageLocator)
           throws InconsistentFilesystemException {
+    boolean packageShouldBeInError = pkg.containsErrors();
     // Tell the environment about our dependencies on potential subpackages.
     getPackageLookupDepsAndPropagateInconsistentFilesystemExceptions(
         skyframePackageLocator.getAndClearPackageLookupDeps(), env, pkg.containsErrors());
@@ -263,9 +279,12 @@ public class PackageNodeBuilder implements NodeBuilder {
       // Declare a dependency on the package lookup for the package giving access to the label.
       subincludePackageLookupDepKeys.add(PackageLookupNode.key(label.getPackageFragment()));
     }
-    Map<PathFragment, PackageLookupNode> subincludePackageLookupDeps =
+    Pair<? extends Map<PathFragment, PackageLookupNode>, Boolean> subincludePackageLookupResult =
         getPackageLookupDepsAndPropagateInconsistentFilesystemExceptions(
             subincludePackageLookupDepKeys, env, pkg.containsErrors());
+    Map<PathFragment, PackageLookupNode> subincludePackageLookupDeps =
+        subincludePackageLookupResult.getFirst();
+    packageShouldBeInError = subincludePackageLookupResult.getSecond();
     List<NodeKey> subincludeFileDepKeys = Lists.newArrayList();
     for (Entry<Label, Path> subincludeEntry : pkg.getSubincludes().entrySet()) {
       // Ideally, we would have a direct dependency on the target with the given label, but then
@@ -301,8 +320,8 @@ public class PackageNodeBuilder implements NodeBuilder {
         }
       }
     }
-    markFileDepsAndPropagateInconsistentFilesystemExceptions(subincludeFileDepKeys, env,
-        pkg.containsErrors());
+    packageShouldBeInError = markFileDepsAndPropagateInconsistentFilesystemExceptions(
+        subincludeFileDepKeys, env, pkg.containsErrors());
     // Another concern is a subpackage cutting off the subinclude label, but this is already
     // handled by the legacy package loading code which calls into our SkyframePackageLocator.
 
@@ -323,8 +342,9 @@ public class PackageNodeBuilder implements NodeBuilder {
       }
       globDepKeys.add(globNodeKey);
     }
-    markGlobDepsAndPropagateInconsistentFilesystemExceptions(globDepKeys, env,
-        pkg.containsErrors());
+    packageShouldBeInError = markGlobDepsAndPropagateInconsistentFilesystemExceptions(globDepKeys,
+        env, pkg.containsErrors());
+    return packageShouldBeInError;
   }
 
   @Override
@@ -386,10 +406,12 @@ public class PackageNodeBuilder implements NodeBuilder {
 
     LegacyPackage legacyPkg = loadPackage(replacementContents, packageName, buildFilePath,
         env.getListener(), skyframePackageLocator, defaultVisibility);
+    boolean packageShouldBeConsideredInError = legacyPkg.containsErrors();
     InconsistentFilesystemException inconsistentFilesystemException = null;
     try {
-      markDependenciesAndPropagateInconsistentFilesystemExceptions(legacyPkg, env,
-          skyframePackageLocator);
+      packageShouldBeConsideredInError =
+          markDependenciesAndPropagateInconsistentFilesystemExceptions(legacyPkg, env,
+              skyframePackageLocator);
     } catch (InconsistentFilesystemException e) {
       inconsistentFilesystemException = e;
     }
@@ -413,7 +435,7 @@ public class PackageNodeBuilder implements NodeBuilder {
               inconsistentFilesystemException));
     }
 
-    if (pkg.containsErrors()) {
+    if (packageShouldBeConsideredInError) {
       throw new PackageNodeBuilderException(key, new BuildFileContainsErrorsException(pkg,
           "Package '" + packageName + "' contains errors"));
     }

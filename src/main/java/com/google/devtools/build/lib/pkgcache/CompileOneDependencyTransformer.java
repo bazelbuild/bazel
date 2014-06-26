@@ -63,9 +63,19 @@ final class CompileOneDependencyTransformer {
    * Returns a list of rules in the given package sorted by BUILD file order. When
    * multiple rules depend on a target, we choose the first match in this list (after
    * filtering for preferred dependencies - see below).
+   *
+   * <p>Rules with configurable attributes are skipped, as this code doesn't know which
+   * configuration will be applied, so it can't reliably determine what their 'srcs'
+   * will look like.
    */
   private Iterable<Rule> getOrderedRuleList(Package pkg) {
-    List<Rule> orderedList = Lists.newArrayList(pkg.getTargets(Rule.class));
+    List<Rule> orderedList = Lists.newArrayList();
+    for (Rule rule : pkg.getTargets(Rule.class)) {
+      if (!rule.hasConfigurableAttributes()) {
+        orderedList.add(rule);
+      }
+    }
+
     Collections.sort(orderedList, new Comparator<Rule>() {
       @Override
       public int compare(Rule o1, Rule o2) {

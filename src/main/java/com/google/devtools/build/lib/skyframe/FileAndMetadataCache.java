@@ -14,6 +14,7 @@
 package com.google.devtools.build.lib.skyframe;
 
 import com.google.common.base.Preconditions;
+import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableSet;
 import com.google.common.collect.Sets;
 import com.google.common.io.BaseEncoding;
@@ -24,9 +25,11 @@ import com.google.devtools.build.lib.actions.cache.Digest;
 import com.google.devtools.build.lib.actions.cache.DigestUtils;
 import com.google.devtools.build.lib.actions.cache.Metadata;
 import com.google.devtools.build.lib.actions.cache.MetadataHandler;
+import com.google.devtools.build.lib.util.io.TimestampGranularityMonitor;
 import com.google.devtools.build.lib.vfs.FileStatus;
 import com.google.devtools.build.lib.vfs.FileStatusWithDigest;
 import com.google.devtools.build.lib.vfs.FileStatusWithDigestAdapter;
+import com.google.devtools.build.lib.vfs.Path;
 import com.google.devtools.build.lib.vfs.RootedPath;
 import com.google.protobuf.ByteString;
 
@@ -70,12 +73,15 @@ class FileAndMetadataCache implements ActionInputFileCache, MetadataHandler {
   private final ConcurrentMap<Artifact, FileArtifactNode> additionalOutputData =
       new ConcurrentHashMap<>();
   private final Set<Artifact> injectedArtifacts = Sets.newConcurrentHashSet();
+  private final TimestampGranularityMonitor tsgm;
 
   FileAndMetadataCache(Map<Artifact, FileArtifactNode> inputArtifactData,
-      Map<Artifact, Collection<Artifact>> expandedInputMiddlemen, File execRoot) {
+      Map<Artifact, Collection<Artifact>> expandedInputMiddlemen, File execRoot,
+      TimestampGranularityMonitor tsgm) {
     this.inputArtifactData = Preconditions.checkNotNull(inputArtifactData);
     this.expandedInputMiddlemen = Preconditions.checkNotNull(expandedInputMiddlemen);
     this.execRoot = Preconditions.checkNotNull(execRoot);
+    this.tsgm = tsgm;
   }
 
   @Override
@@ -147,7 +153,7 @@ class FileAndMetadataCache implements ActionInputFileCache, MetadataHandler {
     }
     // We do not cache exceptions besides nonexistence here, because it is unlikely that the file
     // will be requested from this cache too many times.
-    fileNode = fileNodeFromArtifact(artifact, null);
+    fileNode = fileNodeFromArtifact(artifact, null, tsgm);
     FileNode oldFileNode = outputArtifactData.putIfAbsent(artifact, fileNode);
     checkInconsistentData(artifact, oldFileNode, node);
     return maybeStoreAdditionalData(artifact, fileNode, null);
@@ -226,7 +232,7 @@ class FileAndMetadataCache implements ActionInputFileCache, MetadataHandler {
         // readily available. We cannot pass the digest in, though, because if it is not available
         // from the filesystem, this FileNode will not compare equal to another one created for the
         // same file, because the other one will be missing its digest.
-        fileNode = fileNodeFromArtifact(artifact, FileStatusWithDigestAdapter.adapt(stat));
+        fileNode = fileNodeFromArtifact(artifact, FileStatusWithDigestAdapter.adapt(stat), tsgm);
         byte[] fileDigest = fileNode.getDigest();
         Preconditions.checkState(fileDigest == null || Arrays.equals(digest, fileDigest),
             "%s %s %s", artifact, digest, fileDigest);
@@ -340,13 +346,33 @@ class FileAndMetadataCache implements ActionInputFileCache, MetadataHandler {
     return reverseMap.containsKey(digest);
   }
 
-  static FileNode fileNodeFromArtifact(Artifact artifact, @Nullable FileStatusWithDigest stat)
-      throws IOException {
+  static FileNode fileNodeFromArtifact(Artifact artifact, @Nullable FileStatusWithDigest stat,
+      TimestampGranularityMonitor tsgm) throws IOException {
+    Path path = artifact.getPath();
+    Path realPath = path;
+    if (path.isSymbolicLink()) {
+      realPath = path.resolveSymbolicLinks();
+      // We need to protect against symlink cycles since FileNode#node assumes it's dealing with a
+      // file that's not in a symlink cycle.
+      if (realPath.equals(path)) {
+        throw new IOException("symlink cycle");
+      }
+    }
     RootedPath rootedPath =
         RootedPath.toRootedPath(artifact.getRoot().getPath(), artifact.getRootRelativePath());
-    // Note that we pass in the rootedPath as the "realPath" here, which is not completely right
-    // in the case of symlinks. However, doing the full symlink resolution is inconsequential for
-    // our purposes here.
-    return FileNode.nodeForRootedPath(rootedPath, rootedPath, null, stat, /* symlinkTarget= */null);
+    RootedPath realRootedPath = RootedPath.toRootedPathMaybeUnderRoot(realPath,
+        ImmutableList.of(artifact.getRoot().getPath()));
+    FileStateNode fileStateNode;
+    FileStateNode realFileStateNode;
+    try {
+      fileStateNode = FileStateNode.create(rootedPath, stat, tsgm);
+      // TODO(bazel-devel): consider avoiding a 'stat' here when the symlink target hasn't changed
+      // and is a source file (since changes to those are checked separately).
+      realFileStateNode = realPath.equals(path) ? fileStateNode
+          : FileStateNode.create(realRootedPath, null, tsgm);
+    } catch (InconsistentFilesystemException e) {
+      throw new IOException(e);
+    }
+    return FileNode.node(rootedPath, fileStateNode, realRootedPath, realFileStateNode);
   }
 }

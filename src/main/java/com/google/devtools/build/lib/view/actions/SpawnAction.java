@@ -17,7 +17,6 @@ package com.google.devtools.build.lib.view.actions;
 import static java.nio.charset.StandardCharsets.ISO_8859_1;
 
 import com.google.common.annotations.VisibleForTesting;
-import com.google.common.base.Joiner;
 import com.google.common.base.Preconditions;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
@@ -63,22 +62,14 @@ import java.util.Map;
  * An Action representing an arbitrary subprocess to be forked and exec'd.
  */
 public class SpawnAction extends ConfigurationAction {
-  /**
-   * Embedded path for the Blaze deploy jar.
-   */
-  static final String BLAZE_DEPLOY_JAR =
-      "google3/java/com/google/devtools/build/lib/blaze/main/BlazeServer_deploy.jar";
-
   private static final String GUID = "ebd6fce3-093e-45ee-adb6-bf513b602f0d";
-
-  private static final Joiner SPACE_JOINER = Joiner.on(" ");
 
   private final CommandLine argv;
 
   private final String progressMessage;
   private final String mnemonic;
   // entries are (directory for remote execution, Artifact)
-  private final Map<String, Artifact> inputManifests;
+  private final Map<PathFragment, Artifact> inputManifests;
 
   private final ResourceSet resourceSet;
   private final ImmutableMap<String, String> environment;
@@ -115,7 +106,7 @@ public class SpawnAction extends ConfigurationAction {
     this(owner, inputs, outputs, configuration,
         resourceSet, argv, ImmutableMap.copyOf(environment),
         ImmutableMap.<String, String>of(), progressMessage,
-        ImmutableMap.<String, Artifact>of(), mnemonic);
+        ImmutableMap.<PathFragment, Artifact>of(), mnemonic);
   }
 
   /**
@@ -150,7 +141,7 @@ public class SpawnAction extends ConfigurationAction {
       ImmutableMap<String, String> environment,
       ImmutableMap<String, String> executionInfo,
       String progressMessage,
-      ImmutableMap<String, Artifact> inputManifests,
+      ImmutableMap<PathFragment, Artifact> inputManifests,
       String mnemonic) {
     super(owner, inputs, outputs, configuration);
     this.resourceSet = resourceSet;
@@ -250,8 +241,8 @@ public class SpawnAction extends ConfigurationAction {
     f.addStrings(argv.arguments());
     f.addString(getMnemonic());
     f.addInt(inputManifests.size());
-    for (Map.Entry<String, Artifact> input : inputManifests.entrySet()) {
-      f.addString(input.getKey());
+    for (Map.Entry<PathFragment, Artifact> input : inputManifests.entrySet()) {
+      f.addString(input.getKey().getPathString() + "/");
       f.addPath(input.getValue().getExecPath());
     }
     f.addStringMap(getEnvironment());
@@ -376,9 +367,7 @@ public class SpawnAction extends ConfigurationAction {
       // included as manifests in getEnvironment().
       List<Artifact> inputs = Lists.newArrayList(getInputs());
       inputs.removeAll(filesets);
-      for (Map.Entry<String, Artifact> input : inputManifests.entrySet()) {
-        inputs.remove(input.getValue());
-      }
+      inputs.removeAll(inputManifests.values());
       return inputs;
       // Also expand middleman artifacts.
     }
@@ -395,7 +384,7 @@ public class SpawnAction extends ConfigurationAction {
     private final NestedSetBuilder<Artifact> inputsBuilder =
         NestedSetBuilder.stableOrder();
     private final List<Artifact> outputs = new ArrayList<>();
-    private final Map<String, Artifact> inputManifests = new LinkedHashMap<>();
+    private final Map<PathFragment, Artifact> inputManifests = new LinkedHashMap<>();
     private ResourceSet resourceSet = AbstractAction.DEFAULT_RESOURCE_SET;
     private ImmutableMap<String, String> environment = ImmutableMap.of();
     private ImmutableMap<String, String> executionInfo = ImmutableMap.of();
@@ -526,7 +515,7 @@ public class SpawnAction extends ConfigurationAction {
       return this;
     }
 
-    public Builder addInputManifest(Artifact artifact, String remote) {
+    public Builder addInputManifest(Artifact artifact, PathFragment remote) {
       inputManifests.put(remote, artifact);
       return this;
     }
@@ -645,19 +634,18 @@ public class SpawnAction extends ConfigurationAction {
     }
 
     /**
-     * Sets the executable to be a java class executed from the blaze deploy
+     * Sets the executable to be a java class executed from the given deploy
      * jar. The deploy jar is automatically added to the action inputs.
      *
      * <p>Calling this method overrides any previous values set via calls to
      * {@link #setExecutable}, {@link #setJavaExecutable}, or
      * {@link #setShellCommand(String)}.
      */
-    public Builder setJavaExecutable(PathFragment javaExecutable, String javaMainClass,
-        List<String> jvmArgs) {
+    public Builder setJavaExecutable(PathFragment javaExecutable,
+        Artifact deployJar, String javaMainClass, List<String> jvmArgs) {
       // Using an absolute path starting with the exec root can never work!
       Preconditions.checkArgument(
           !javaExecutable.startsWith(configuration.getExecRoot().asFragment()));
-      Artifact deployJar = analysisEnvironment.getEmbeddedToolArtifact(BLAZE_DEPLOY_JAR);
       this.executableArgs = Lists.newArrayList();
       executableArgs.add(StringCanonicalizer.intern(javaExecutable.getPathString()));
       executableArgs.add("-Xverify:none");
@@ -707,7 +695,7 @@ public class SpawnAction extends ConfigurationAction {
       addInputs(tool.getFilesToRun());
       if (tool.getRunfilesManifest() != null) {
         addInputManifest(tool.getRunfilesManifest(),
-            tool.getExecutable().getExecPathString() + ".runfiles/");
+            BaseSpawn.runfilesForFragment(tool.getExecutable().getExecPath()));
       }
       return this;
     }

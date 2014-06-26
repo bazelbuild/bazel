@@ -15,6 +15,7 @@ package com.google.devtools.build.skyframe;
 
 import com.google.common.annotations.VisibleForTesting;
 import com.google.common.base.Predicate;
+import com.google.devtools.build.lib.collect.nestedset.NestedSetVisitor;
 import com.google.devtools.build.lib.concurrent.ThreadSafety.ThreadHostile;
 import com.google.devtools.build.lib.concurrent.ThreadSafety.ThreadSafe;
 import com.google.devtools.build.lib.events.ErrorEventListener;
@@ -62,12 +63,30 @@ public interface AutoUpdatingGraph {
   /**
    * Ensures that after the next completed {@link #update} call the current values of any node
    * matching this predicate (and all nodes that transitively depend on them) will be removed from
-   * the node cache. All nodes that were already marked dirty in the graph will also be deleted.
+   * the node cache. All nodes that were already marked dirty in the graph will also be deleted,
+   * regardless of whether or not they match the predicate.
    *
    * <p>If a later call to {@link #update} requests some of the deleted nodes, those nodes will be
    * recomputed and the new values stored in the cache again.
+   *
+   * <p>To delete all dirty nodes, you can specify a predicate that's always false.
    */
   void delete(Predicate<NodeKey> pred);
+
+  /**
+   * Marks dirty nodes for deletion if they have been dirty for at least as many graph versions
+   * as the specified limit.
+   *
+   * <p>This ensures that after the next completed {@link #update} call, all such nodes, along
+   * with all nodes that transitively depend on them, will be removed from the node cache. Nodes
+   * that were marked dirty after the threshold version will not be affected by this call.
+   *
+   * <p>If a later call to {@link #update} requests some of the deleted nodes, those nodes will be
+   * recomputed and the new values stored in the cache again.
+   *
+   * <p>To delete all dirty nodes, you can specify 0 for the limit.
+   */
+  void deleteDirty(final long versionAgeLimit);
 
   /**
    * Injects the given nodes into the graph before the next {@link #update}.

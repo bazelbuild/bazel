@@ -11,108 +11,71 @@
 // WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
 // See the License for the specific language governing permissions and
 // limitations under the License.
-
 package com.google.devtools.build.lib.view;
 
-import com.google.common.collect.ImmutableMap;
-import com.google.devtools.build.lib.view.RunfilesCollector.State;
-
-import java.util.EnumMap;
-import java.util.Map;
+import com.google.common.base.Function;
+import com.google.devtools.build.lib.concurrent.ThreadSafety.Immutable;
 
 /**
- * A rule that provides runfiles.
+ * Runfiles a target contributes to targets that depend on it.
  *
- * <p>Artifacts specified as runfiles are available during execution of the rule's actions.
- *
- * <p>Note that {@link RuleConfiguredTarget} already declares implementation of RunfilesProvider,
- * so if your rule inherits from {@code RuleConfiguredTarget}, you will not need an explicit
- * {@code implements} declaration.
+ * <p>The set of runfiles contributed can be different if the dependency is through a
+ * <code>data</code> attribute (note that this is just a rough approximation of the reality --
+ * rule implementations are free to request the data runfiles at any time)
  */
-public interface RunfilesProvider extends TransitiveInfoProvider {
-  /**
-   * Returns transitive runfiles for this target given a particular runfiles collector state.
-   *
-   * @param state the state of the collector
-   */
-  Runfiles getTransitiveRunfiles(RunfilesCollector.State state);
+@Immutable
+public final class RunfilesProvider implements TransitiveInfoProvider {
+  private final Runfiles defaultRunfiles;
+  private final Runfiles dataRunfiles;
 
-  /**
-   * A builder class for RunfilesProvider. This builder is used to avoid having references
-   * to RuleContext objects after the target is created thus enforcing isolation and
-   * reducing memory consumption.
-   */
-  public static final class Builder {
-    
-    private final EnumMap<State, Runfiles> runfileMap = new EnumMap<>(State.class);
-
-    public Builder add(Runfiles runfiles, State state) {
-      runfileMap.put(state, runfiles);
-      return this;
-    }
-
-    public RunfilesProvider build() {
-      for (State state : State.values()) {
-        if (!runfileMap.containsKey(state)) {
-          runfileMap.put(state, Runfiles.EMPTY);
-        }
-      }
-      return new RunfilesProviderImpl(runfileMap);
-    }
-
-    /**
-     * Builds the RunfilesProvider and fills the unspecified runfiles states
-     * with the remainingRunfiles.
-     */
-    public Builder addRemaining(Runfiles remainingRunfiles) {
-      for (State state : State.values()) {
-        if (!runfileMap.containsKey(state)) {
-          runfileMap.put(state, remainingRunfiles);
-        }
-      }
-      return this;
-    }
+  private RunfilesProvider(Runfiles defaultRunfiles, Runfiles dataRunfiles) {
+    this.defaultRunfiles = defaultRunfiles;
+    this.dataRunfiles = dataRunfiles;
   }
 
-  // TODO(bazel-team): there's another RunfilesProviderImpl in GenericRuleConfiguredTargetBuilder,
-  // merge these two or better remove one. On the long run RunfilesProviderBuilder should be used
-  // everywhere and the RunfilesCollector should be removed.
-  /**
-   * An implementation class for the RunfilesProvider.
-   */
-  public static final class RunfilesProviderImpl implements RunfilesProvider {
-
-    private final ImmutableMap<State, Runfiles> runfileMap;
-
-    public RunfilesProviderImpl(Map<State, Runfiles> runfileMap) {
-      this.runfileMap = ImmutableMap.copyOf(runfileMap);
-    }
-
-    @Override
-    public Runfiles getTransitiveRunfiles(State state) {
-      return runfileMap.get(state);
-    }
-
-    /**
-     * Creates an implementation class for RunfilesProvider.
-     */
-    public static RunfilesProvider dataSpecificRunfilesProvider(
-        Runfiles defaultRunfiles, Runfiles dataRunfiles) {
-      return new RunfilesProvider.Builder()
-          .add(dataRunfiles, RunfilesCollector.State.DATA)
-          .addRemaining(defaultRunfiles)
-          .build();
-    }
+  public Runfiles getDefaultRunfiles() {
+    return defaultRunfiles;
   }
 
-  /**
-   * An empty RunfilesProvider.
-   */
-  public static final RunfilesProvider EMPTY = new RunfilesProvider() {
+  public Runfiles getDataRunfiles() {
+    return dataRunfiles;
+  }
 
-    @Override
-    public Runfiles getTransitiveRunfiles(State state) {
-      return Runfiles.EMPTY;
-    }
-  };
+  public static final Function<TransitiveInfoCollection, Runfiles> DEFAULT_RUNFILES =
+      new Function<TransitiveInfoCollection, Runfiles>() {
+        @Override
+        public Runfiles apply(TransitiveInfoCollection input) {
+          RunfilesProvider provider = input.getProvider(RunfilesProvider.class);
+          if (provider != null) {
+            return provider.getDefaultRunfiles();
+          }
+
+          return Runfiles.EMPTY;
+        }
+      };
+
+  public static final Function<TransitiveInfoCollection, Runfiles> DATA_RUNFILES =
+      new Function<TransitiveInfoCollection, Runfiles>() {
+        @Override
+        public Runfiles apply(TransitiveInfoCollection input) {
+          RunfilesProvider provider = input.getProvider(RunfilesProvider.class);
+          if (provider != null) {
+            return provider.getDataRunfiles();
+          }
+
+          return Runfiles.EMPTY;
+        }
+      };
+
+  public static RunfilesProvider simple(Runfiles defaultRunfiles) {
+    return new RunfilesProvider(defaultRunfiles, defaultRunfiles);
+  }
+
+  public static RunfilesProvider withData(
+      Runfiles defaultRunfiles, Runfiles dataRunfiles) {
+    return new RunfilesProvider(defaultRunfiles, dataRunfiles);
+  }
+
+  public static final RunfilesProvider EMPTY = new RunfilesProvider(
+      Runfiles.EMPTY, Runfiles.EMPTY);
 }

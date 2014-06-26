@@ -30,6 +30,7 @@ import com.google.devtools.build.lib.skyframe.ArtifactNode.OwnedArtifact;
 import com.google.devtools.build.lib.syntax.Label;
 import com.google.devtools.build.lib.util.Pair;
 import com.google.devtools.build.lib.vfs.PathFragment;
+import com.google.devtools.build.lib.vfs.RootedPath;
 import com.google.devtools.build.skyframe.Node;
 import com.google.devtools.build.skyframe.NodeBuilder;
 import com.google.devtools.build.skyframe.NodeBuilderException;
@@ -95,10 +96,11 @@ class ArtifactNodeBuilder implements NodeBuilder {
 
   private ArtifactNode createSourceNode(Artifact artifact, boolean mandatory, Environment env)
       throws MissingInputFileException {
+    NodeKey fileNodeKey = FileNode.key(artifact);
     FileNode fileNode;
     try {
-      fileNode = (FileNode) env.getDepOrThrow(FileNode.key(artifact), Exception.class); 
-    } catch (IOException | InconsistentFilesystemException e) {
+      fileNode = (FileNode) env.getDepOrThrow(fileNodeKey, Exception.class);
+    } catch (IOException | InconsistentFilesystemException | FileSymlinkCycleException e) {
       return missingInputFile(artifact, mandatory, e, env.getListener());
     } catch (Exception e) {
       // Can't get here.
@@ -108,7 +110,7 @@ class ArtifactNodeBuilder implements NodeBuilder {
       return null;
     }
     if (!fileNode.exists()) {
-      if (allowedMissingInputs.apply(fileNode.rootedPath().getRelativePath())) {
+      if (allowedMissingInputs.apply(((RootedPath) fileNodeKey.getNodeName()).getRelativePath())) {
         return ArtifactNode.newEmptyNode();
       } else {
         return missingInputFile(artifact, mandatory, null, env.getListener());

@@ -18,7 +18,7 @@ import com.google.common.collect.ImmutableMap;
 import com.google.devtools.build.lib.syntax.Environment;
 import com.google.devtools.build.lib.syntax.EvalException;
 import com.google.devtools.build.lib.syntax.Function;
-import com.google.devtools.build.lib.view.RuleConfiguredTarget;
+import com.google.devtools.build.lib.view.ConfiguredTarget;
 import com.google.devtools.build.lib.view.RuleContext;
 
 /**
@@ -30,7 +30,7 @@ public final class RuleConfiguredTargetBuilder {
   /**
    * Create a Rule Configured Target from the ruleContext and the ruleImplementation.
    */
-  public static RuleConfiguredTarget buildRule(RuleContext ruleContext,
+  public static ConfiguredTarget buildRule(RuleContext ruleContext,
       ImmutableMap<String, Class<?>> builtInClasses, Function ruleImplementation) {
     SkylarkRuleContext skylarkRuleContext = new SkylarkRuleContext(ruleContext);
     Environment env =
@@ -41,8 +41,8 @@ public final class RuleConfiguredTargetBuilder {
 
       if (ruleContext.hasErrors()) {
         return null;
-      } else if (target instanceof RuleConfiguredTarget) {
-        return (RuleConfiguredTarget) target;
+      } else if (target instanceof ConfiguredTarget) {
+        return (ConfiguredTarget) target;
       } else {
         ruleContext.ruleError("Rule implementation doesn't return a RuleConfiguredTarget");
         return null;

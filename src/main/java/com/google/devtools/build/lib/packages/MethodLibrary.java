@@ -17,6 +17,8 @@ package com.google.devtools.build.lib.packages;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 import com.google.devtools.build.lib.packages.Type.ConversionException;
+import com.google.devtools.build.lib.syntax.AbstractFunction;
+import com.google.devtools.build.lib.syntax.ClassObject;
 import com.google.devtools.build.lib.syntax.Environment;
 import com.google.devtools.build.lib.syntax.EvalException;
 import com.google.devtools.build.lib.syntax.EvalUtils;
@@ -394,6 +396,19 @@ public class MethodLibrary {
     }
   };
 
+  @SkylarkBuiltin(name = "struct", doc = "Creates a struct using the keyword arguments as fields.")
+  private static Function struct = new AbstractFunction("struct") {
+
+    @Override
+    public Object call(List<Object> args, Map<String, Object> kwargs, FuncallExpression ast,
+        Environment env) throws EvalException, InterruptedException {
+      if (args.size() > 0) {
+        throw new EvalException(ast.getLocation(), "struct only supports keyword arguments");
+      }
+      return new ClassObject(kwargs);
+    }
+  };
+
   @SkylarkBuiltin(name = "String", doc = "")
   public static final List<Function> stringFunctions = ImmutableList
       .<Function>builder()
@@ -425,6 +440,12 @@ public class MethodLibrary {
       .add(len)
       .build();
 
+  private static final List<Function> skylarkFunctions = ImmutableList
+      .<Function>builder()
+      .addAll(pureFunctions)
+      .add(struct)
+      .build();
+
   // TODO(bazel-team): listFunctions are not allowed in Skylark extensions (use += instead).
   // It is allowed in BUILD files only for backward-compatibility.
   private static final List<Function> functions = ImmutableList
@@ -437,13 +458,13 @@ public class MethodLibrary {
    * Set up a given environment for supported class methods.
    */
   public static void setupMethodEnvironment(Environment env) {
-    for (Function function : env.isSkylarkEnabled() ? pureFunctions : functions) {
+    for (Function function : env.isSkylarkEnabled() ? skylarkFunctions : functions) {
       env.update(function.getName(), function);
     }
   }
 
   public static void setupValidationEnvironment(ImmutableMap.Builder<String, Class<?>> builder) {
-    for (Function function : pureFunctions) {
+    for (Function function : skylarkFunctions) {
       // TODO(bazel-team): infer types
       builder.put(function.getName(), Object.class);
       builder.put(function.getName() + ".return", Object.class);

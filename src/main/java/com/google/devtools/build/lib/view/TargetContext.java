@@ -27,8 +27,8 @@ import javax.annotation.Nullable;
 
 /**
  * A helper class for building {@link ConfiguredTarget} instances, in particular for non-rule ones.
- * For {@link RuleConfiguredTarget} instances, use {@link RuleContext} instead, which is a subclass
- * of this class.
+ * For {@link RuleConfiguredTarget} instances, use {@link RuleContext} instead,
+ * which is a subclass of this class.
  *
  * <p>The class is intended to be sub-classed by RuleContext, in order to share the code. However,
  * it's not intended for sub-classing beyond that, and the constructor is intentionally package

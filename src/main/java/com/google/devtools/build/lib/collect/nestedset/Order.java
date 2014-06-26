@@ -13,23 +13,23 @@
 // limitations under the License.
 package com.google.devtools.build.lib.collect.nestedset;
 
-import com.google.common.collect.ImmutableList;
-
 /**
  * Type of a nested set (defines order).
  */
 public enum Order {
 
-  STABLE_ORDER(new CompileOrderExpander<Object>()),
-  COMPILE_ORDER(new CompileOrderExpander<Object>()),
-  LINK_ORDER(new LinkOrderExpander<Object>()),
-  NAIVE_LINK_ORDER(new NaiveLinkOrderExpander<Object>());
+  STABLE_ORDER(new CompileOrderExpander<>(), new StableOrderNestedSetFactory()),
+  COMPILE_ORDER(new CompileOrderExpander<>(), new CompileOrderNestedSetFactory()),
+  LINK_ORDER(new LinkOrderExpander<>(), new LinkOrderNestedSetFactory()),
+  NAIVE_LINK_ORDER(new NaiveLinkOrderExpander<>(), new NaiveLinkOrderNestedSetFactory());
 
   private final NestedSetExpander<?> expander;
+  final NestedSetFactory factory;
   private final NestedSet<?> emptySet;
 
-  private Order(NestedSetExpander<?> expander) {
+  private Order(NestedSetExpander<?> expander, NestedSetFactory factory) {
     this.expander = expander;
+    this.factory = factory;
     this.emptySet = new EmptyNestedSet<Object>(this);
   }
 
@@ -49,22 +49,4 @@ public enum Order {
     return (NestedSetExpander<E>) expander;
   }
 
-  /**
-   * Creates a nested set of this ordering.
-   */
-  <E> InMemoryNestedSet<E> createNestedSet(
-      ImmutableList<E> items, ImmutableList<NestedSet<E>> transitiveSets) {
-    switch (this) {
-      case STABLE_ORDER:
-        return new StableOrderNestedSet<>(items, transitiveSets);
-      case COMPILE_ORDER:
-        return new CompileOrderNestedSet<>(items, transitiveSets);
-      case LINK_ORDER:
-        return new LinkOrderNestedSet<>(items, transitiveSets);
-      case NAIVE_LINK_ORDER:
-        return new NaiveLinkOrderNestedSet<>(items, transitiveSets);
-      default:
-        throw new IllegalStateException("not supported: " + this);
-    }
-  }
 }

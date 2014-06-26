@@ -13,22 +13,19 @@
 // limitations under the License.
 package com.google.devtools.build.lib.skyframe;
 
-import com.google.common.base.Preconditions;
+import com.google.common.collect.ImmutableList;
+import com.google.common.collect.Sets;
 import com.google.devtools.build.lib.pkgcache.PathPackageLocator;
-import com.google.devtools.build.lib.util.io.TimestampGranularityMonitor;
-import com.google.devtools.build.lib.vfs.FileStatus;
-import com.google.devtools.build.lib.vfs.FileStatusWithDigestAdapter;
+import com.google.devtools.build.lib.util.Pair;
 import com.google.devtools.build.lib.vfs.Path;
 import com.google.devtools.build.lib.vfs.PathFragment;
 import com.google.devtools.build.lib.vfs.RootedPath;
-import com.google.devtools.build.lib.vfs.Symlinks;
 import com.google.devtools.build.skyframe.Node;
 import com.google.devtools.build.skyframe.NodeBuilder;
 import com.google.devtools.build.skyframe.NodeBuilderException;
 import com.google.devtools.build.skyframe.NodeKey;
 
-import java.io.IOException;
-import java.util.UUID;
+import java.util.LinkedHashSet;
 import java.util.concurrent.atomic.AtomicReference;
 
 import javax.annotation.Nullable;
@@ -42,139 +39,149 @@ import javax.annotation.Nullable;
  */
 public class FileNodeBuilder implements NodeBuilder {
 
-  private final TimestampGranularityMonitor tsgm;
   private final AtomicReference<PathPackageLocator> pkgLocator;
 
-  /**
-   * Construct FileNodeBuilder.
-   *
-   * @param tsgm used to notify the system about timestamp granularity dependencies.
-   * @param pkgLocator the package locator
-   */
-  public FileNodeBuilder(TimestampGranularityMonitor tsgm,
-      AtomicReference<PathPackageLocator> pkgLocator) {
-    this.tsgm = tsgm;
+  public FileNodeBuilder(AtomicReference<PathPackageLocator> pkgLocator) {
     this.pkgLocator = pkgLocator;
   }
 
   @Override
   public Node build(NodeKey nodeKey, Environment env) throws FileNodeBuilderException {
     RootedPath rootedPath = (RootedPath) nodeKey.getNodeName();
-    Path path = rootedPath.asPath();
-    Path root = rootedPath.getRoot();
-    PathFragment relativePath = rootedPath.getRelativePath();
     RootedPath realRootedPath = rootedPath;
-    FileStatus stat = null;
-    PathFragment symlinkTarget = null;
-    FileNode parentNode = null;
+    FileStateNode realFileStateNode = null;
+    PathFragment relativePath = rootedPath.getRelativePath();
 
-    // Declare dependencies on the parent directory, but only if the current file is not the
-    // filesystem root or a package path root. The former has no parent and the latter is treated
-    // opaquely and handled by skyframe's DiffAwareness interface.
+    // Resolve ancestor symlinks, but only if the current file is not the filesystem root or a
+    // package path root. The former has no parent and the latter is treated opaquely and handled
+    // by skyframe's DiffAwareness interface. Note that this is the first thing we do - if an
+    // ancestor is part of a symlink cycle, we want to detect that quickly as it gives a more
+    // informative error message than we'd get doing bogus filesystem operations.
     if (!relativePath.equals(PathFragment.EMPTY_FRAGMENT)) {
-      RootedPath parentRootedPath = RootedPath.toRootedPath(root,
-          relativePath.getParentDirectory());
-      // Unconditional dependency on the parent directory file.
-      parentNode = (FileNode) env.getDep(FileNode.key(parentRootedPath));
-      if (parentNode == null) {
+      Pair<RootedPath, FileStateNode> resolvedState =
+          resolveFromAncestors(rootedPath, env, nodeKey);
+      if (resolvedState == null) {
         return null;
       }
+      realRootedPath = resolvedState.getFirst();
+      realFileStateNode = resolvedState.getSecond();
+    }
 
-      // If any ancestor is a symlink, mark dependency on the corresponding real file.
-      if (!parentNode.realRootedPath().equals(parentNode.rootedPath())) {
-        // Note that we don't take the real path of the file itself, but rather join the real path
-        // of the parent directory and the filename. This is to ensure that if the file is a
-        // symlink, we depend on the symlink itself rather than its target (in case the symlink
-        // changes). For example, say "a/" is a directory, "a/f" is a file, "a/s" is a symlink
-        // to "f" (i.e., "a/f"), and "b" is a symlink to "a". Then FileNode("b/s") needs to
-        // depend on FileNode("a/s") and not just FileNode("a/f"), because if "a/s" changes,
-        // "b/s" needs to be invalidated.
-        PathFragment baseName = new PathFragment(relativePath.getBaseName());
-        RootedPath parentRealRootedPath = parentNode.realRootedPath();
-        RootedPath rootedPathToLookup = RootedPath.toRootedPath(parentRealRootedPath.getRoot(),
-            parentRealRootedPath.getRelativePath().getRelative(baseName));
-        FileNode realFileNode = (FileNode) env.getDep(FileNode.key(rootedPathToLookup));
-        if (realFileNode == null) {
+    FileStateNode fileStateNode = (FileStateNode) env.getDep(FileStateNode.key(rootedPath));
+    if (fileStateNode == null) {
+      return null;
+    }
+    if (realFileStateNode == null) {
+      realFileStateNode = fileStateNode;
+    }
+
+    LinkedHashSet<RootedPath> seenPaths = Sets.newLinkedHashSet();
+    while (realFileStateNode.getType().equals(FileStateNode.Type.SYMLINK)) {
+      if (!seenPaths.add(realRootedPath)) {
+        FileSymlinkCycleException fileSymlinkCycleException =
+            makeFileSymlinkCycleException(realRootedPath, seenPaths);
+        if (env.getDep(FileSymlinkCycleUniquenessNode.key(fileSymlinkCycleException.getCycle()))
+            == null) {
+          // Note that this dependency is merely to ensure that each unique cycle gets reported
+          // exactly once.
           return null;
         }
-        realRootedPath = realFileNode.realRootedPath();
+        throw new FileNodeBuilderException(nodeKey, fileSymlinkCycleException);
       }
+      Pair<RootedPath, FileStateNode> resolvedState = getSymlinkTargetRootedPath(realRootedPath,
+          realFileStateNode.getSymlinkTarget(), env, nodeKey);
+      if (resolvedState == null) {
+        return null;
+      }
+      realRootedPath = resolvedState.getFirst();
+      realFileStateNode = resolvedState.getSecond();
     }
+    return FileNode.node(rootedPath, fileStateNode, realRootedPath, realFileStateNode);
+  }
 
-    // If the file is a symlink, mark dependency on the target of the symlink.
-    try {
-      stat = path.statIfFound(Symlinks.NOFOLLOW);
-    } catch (IOException e) {
-      throw new FileNodeBuilderException(nodeKey, e);
+  /**
+   * Returns the path and file state of {@code rootedPath}, accounting for ancestor symlinks, or
+   * {@code null} if there was a missing dep.
+   */
+  @Nullable
+  private Pair<RootedPath, FileStateNode> resolveFromAncestors(RootedPath rootedPath,
+      Environment env, NodeKey key) throws FileNodeBuilderException {
+    PathFragment relativePath = rootedPath.getRelativePath();
+    RootedPath parentRootedPath = RootedPath.toRootedPath(rootedPath.getRoot(),
+        relativePath.getParentDirectory());
+    FileNode parentFileNode = (FileNode) env.getDep(FileNode.key(parentRootedPath));
+    if (parentFileNode == null) {
+      return null;
     }
-    if (stat != null && stat.isSymbolicLink()) {
-      // TODO(bazel-team): Disallow symlinks here that escape the containing package root or point
-      // to an absolute path [skyframe-loading]
-      try {
-        symlinkTarget = path.readSymbolicLink();
-      } catch (IOException exception) {
-        throw new FileNodeBuilderException(nodeKey, exception);
+    PathFragment baseName = new PathFragment(relativePath.getBaseName());
+    RootedPath parentRealRootedPath = parentFileNode.realRootedPath();
+    RootedPath realRootedPath = RootedPath.toRootedPath(parentRealRootedPath.getRoot(),
+        parentRealRootedPath.getRelativePath().getRelative(baseName));
+    FileStateNode realFileStateNode =
+        (FileStateNode) env.getDep(FileStateNode.key(realRootedPath));
+    if (realFileStateNode == null) {
+      return null;
+    }
+    if (realFileStateNode.getType() != FileStateNode.Type.NONEXISTENT
+        && !parentFileNode.isDirectory()) {
+      String type = realFileStateNode.getType().toString().toLowerCase();
+      String message = type + " " + rootedPath.asPath() + " exists but its parent "
+          + "directory " + parentFileNode.realRootedPath().asPath() + " doesn't exist.";
+      throw new FileNodeBuilderException(key, new InconsistentFilesystemException(message));
+    }
+    return Pair.of(realRootedPath, realFileStateNode);
+  }
+
+  /**
+   * Returns the symlink target and file state of {@code rootedPath}'s symlink to
+   * {@code symlinkTarget}, accounting for ancestor symlinks, or {@code null} if there was a
+   * missing dep.
+   */
+  @Nullable
+  private Pair<RootedPath, FileStateNode> getSymlinkTargetRootedPath(RootedPath rootedPath,
+      PathFragment symlinkTarget, Environment env, NodeKey key) throws FileNodeBuilderException {
+    if (symlinkTarget.isAbsolute()) {
+      Path path = rootedPath.asPath().getFileSystem().getRootDirectory().getRelative(
+          symlinkTarget);
+      return resolveFromAncestors(
+          RootedPath.toRootedPathMaybeUnderRoot(path, pkgLocator.get().getPathEntries()), env,
+          key);
+    }
+    Path path = rootedPath.asPath();
+    Path symlinkTargetPath;
+    if (path.getParentDirectory() != null) {
+      RootedPath parentRootedPath = RootedPath.toRootedPathMaybeUnderRoot(
+          path.getParentDirectory(), pkgLocator.get().getPathEntries());
+      FileNode parentFileNode = (FileNode) env.getDep(FileNode.key(parentRootedPath));
+      if (parentFileNode == null) {
+        return null;
       }
-      Path symlinkPath;
-      if (!relativePath.equals(PathFragment.EMPTY_FRAGMENT)) {
-        Preconditions.checkNotNull(parentNode);
-        symlinkPath = parentNode.realRootedPath().asPath().getRelative(symlinkTarget);
+      symlinkTargetPath = parentFileNode.realRootedPath().asPath().getRelative(symlinkTarget);
+    } else {
+      // This means '/' is a symlink to 'symlinkTarget'.
+      symlinkTargetPath = path.getRelative(symlinkTarget);
+    }
+    RootedPath symlinkTargetRootedPath = RootedPath.toRootedPathMaybeUnderRoot(symlinkTargetPath,
+        pkgLocator.get().getPathEntries());
+    return resolveFromAncestors(symlinkTargetRootedPath, env, key);
+  }
+
+  private FileSymlinkCycleException makeFileSymlinkCycleException(RootedPath startOfCycle,
+      Iterable<RootedPath> symlinkPaths) {
+    boolean inPathToCycle = true;
+    ImmutableList.Builder<RootedPath> pathToCycleBuilder = ImmutableList.builder();
+    ImmutableList.Builder<RootedPath> cycleBuilder = ImmutableList.builder();
+    for (RootedPath path : symlinkPaths) {
+      if (path.equals(startOfCycle)) {
+        inPathToCycle = false;
+      }
+      if (inPathToCycle) {
+        pathToCycleBuilder.add(path);
       } else {
-        try {
-          symlinkPath = path.resolveSymbolicLinks();
-        } catch (IOException exception) {
-          throw new FileNodeBuilderException(nodeKey, exception);
-        }
-      }
-
-      // We need a dependency on the symlink target, which may be under a different package root.
-      RootedPath symlinkRootedPath = toRootedPathMaybeUnderRoot(symlinkPath, pkgLocator.get());
-      NodeKey symlinkNodeKey = FileNode.key(symlinkRootedPath);
-      FileNode symlinkNode = (FileNode) env.getDep(symlinkNodeKey);
-      if (symlinkNode == null) {
-        return null;
-      }
-      realRootedPath = symlinkNode.realRootedPath();
-    }
-
-    FileNode fileNode;
-    try {
-      fileNode = FileNode.nodeForRootedPath(rootedPath, realRootedPath, tsgm,
-          FileStatusWithDigestAdapter.adapt(stat), symlinkTarget);
-    } catch (IOException e) {
-      throw new FileNodeBuilderException(nodeKey, e);
-    }
-
-    if ((fileNode.isFile() || fileNode.isDirectory()) && parentNode != null &&
-        !parentNode.isDirectory()) {
-      String message = (fileNode.isFile() ? "file " : "directory ") + fileNode.rootedPath().asPath()
-          + " exists but its parent directory " + parentNode.rootedPath().asPath()
-          + " doesn't exist.";
-      throw new FileNodeBuilderException(nodeKey, new InconsistentFilesystemException(message));
-    }
-
-    // For files outside the package roots, add a dependency on the build_id. This is sufficient
-    // for correctness; all other files will be handled by diff awareness of their respective
-    // package path, but these files need to be addressed separately.
-    //
-    // Using the build_id here seems to introduce a performance concern because the upward
-    // transitive closure of these external files will get eagerly invalidated on each incremental
-    // build (e.g. if every file had a transitive dependency on the filesystem root, then we'd have
-    // a big performance problem). But this a non-issue by design:
-    // - We don't add a dependency on the parent directory at the package root boundary, so the
-    // only transitive dependencies from files inside the package roots to external files are
-    // through symlinks. So the upwards transitive closure of external files is small.
-    // - The only way external source files get into the skyframe graph in the first place is
-    // through symlinks outside the package roots, which we neither want to encourage nor optimize
-    // for since it is not common. So the set of external files is small.
-    if (!pkgLocator.get().getPathEntries().contains(rootedPath.getRoot())) {
-      UUID buildId = BuildVariableNode.BUILD_ID.get(env);
-      if (buildId == null) {
-        return null;
+        cycleBuilder.add(path);
       }
     }
-
-    return fileNode;
+    return new FileSymlinkCycleException(pathToCycleBuilder.build(), cycleBuilder.build());
   }
 
   @Nullable
@@ -184,29 +191,17 @@ public class FileNodeBuilder implements NodeBuilder {
   }
 
   /**
-   * Returns a rooted path representing {@code path} under one of the package roots, or under the
-   * filesystem root if it's not under any package root.
-   */
-  private static RootedPath toRootedPathMaybeUnderRoot(Path path, PathPackageLocator pkgLocator) {
-    for (Path root : pkgLocator.getPathEntries()) {
-      if (path.startsWith(root)) {
-        return RootedPath.toRootedPath(root, path);
-      }
-    }
-    return RootedPath.toRootedPath(path.getFileSystem().getRootDirectory(), path);
-  }
-
-  /**
    * Used to declare all the exception types that can be wrapped in the exception thrown by
    * {@link FileNodeBuilder#build}.
    */
   private static final class FileNodeBuilderException extends NodeBuilderException {
-    public FileNodeBuilderException(NodeKey key, IOException e) {
-      super(key, e);
-    }
 
     public FileNodeBuilderException(NodeKey key, InconsistentFilesystemException e) {
       super(key, e, /*isTransient=*/true);
+    }
+
+    public FileNodeBuilderException(NodeKey key, FileSymlinkCycleException e) {
+      super(key, e);
     }
   }
 }

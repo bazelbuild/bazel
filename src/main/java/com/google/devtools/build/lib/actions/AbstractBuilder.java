@@ -281,7 +281,6 @@ abstract class AbstractBuilder implements Builder {
     Preconditions.checkState(exclusiveTestArtifacts.isEmpty());
     this.executor = executor;
     actionExecutor.setExecutorEngine(executor);
-    actionExecutor.setActionGraph(forwardGraph.getActionGraph());
     initBuild(artifactSet, forwardGraph, modified, builtArtifacts);  // calls clear()
     buildArtifactsHook(artifactSet, forwardGraph, modified, builtArtifacts);
   }
@@ -386,8 +385,7 @@ abstract class AbstractBuilder implements Builder {
       if (action.getActionType().isMiddleman()
           && action.getActionType() != MiddlemanType.TARGET_COMPLETION_MIDDLEMAN) {
         eventBus.post(new ActionStartedEvent(action, actionStartTime));
-        eventBus.post(new ActionCompletionEvent(action, forwardGraph.getActionGraph(),
-            action.describeStrategy(executor)));
+        eventBus.post(new ActionCompletionEvent(action, action.describeStrategy(executor)));
         eventPosted = true;
       }
       if (LOG_FINEST) {
@@ -401,7 +399,7 @@ abstract class AbstractBuilder implements Builder {
 
       if (!eventPosted) {
         eventBus
-            .post(new CachedActionEvent(action, forwardGraph.getActionGraph(), actionStartTime));
+            .post(new CachedActionEvent(action, actionStartTime));
       }
 
       synchronized (workCompleted) {

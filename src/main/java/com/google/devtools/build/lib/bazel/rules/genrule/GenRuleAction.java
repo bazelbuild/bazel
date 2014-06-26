@@ -21,6 +21,7 @@ import com.google.devtools.build.lib.actions.Artifact;
 import com.google.devtools.build.lib.actions.ExecException;
 import com.google.devtools.build.lib.actions.ResourceSet;
 import com.google.devtools.build.lib.events.ErrorEventListener;
+import com.google.devtools.build.lib.vfs.PathFragment;
 import com.google.devtools.build.lib.view.actions.CommandLine;
 import com.google.devtools.build.lib.view.actions.SpawnAction;
 import com.google.devtools.build.lib.view.config.BuildConfiguration;
@@ -44,7 +45,7 @@ public final class GenRuleAction extends SpawnAction {
       List<String> argv,
       ImmutableMap<String, String> environment,
       ImmutableMap<String, String> executionInfo,
-      ImmutableMap<String, Artifact> runfilesManifests,
+      ImmutableMap<PathFragment, Artifact> runfilesManifests,
       String progressMessage) {
     super(owner, inputs, outputs, configuration, GENRULE_RESOURCES,
         CommandLine.of(argv, false), environment, executionInfo, progressMessage,

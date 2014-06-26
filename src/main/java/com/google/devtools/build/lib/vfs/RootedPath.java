@@ -60,6 +60,19 @@ public class RootedPath implements Serializable {
     return new RootedPath(root, path.relativeTo(root));
   }
 
+  /**
+   * Returns a rooted path representing {@code path} under one of the package roots, or under the
+   * filesystem root if it's not under any package root.
+   */
+  public static RootedPath toRootedPathMaybeUnderRoot(Path path, Iterable<Path> packagePathRoots) {
+    for (Path root : packagePathRoots) {
+      if (path.startsWith(root)) {
+        return toRootedPath(root, path);
+      }
+    }
+    return toRootedPath(path.getFileSystem().getRootDirectory(), path);
+  }
+
   public Path asPath() {
     // Ideally, this helper method would not be needed. But Skyframe's FileNodeBuilder and
     // DirectoryListingNodeBuilder need to do filesystem operations on the absolute path and

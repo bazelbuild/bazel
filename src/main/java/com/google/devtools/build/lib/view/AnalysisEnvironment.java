@@ -28,7 +28,7 @@ import com.google.devtools.build.skyframe.NodeBuilder;
 import java.util.List;
 
 /**
- * The set of services that are provided to {@link RuleConfiguredTarget} objects
+ * The set of services that are provided to {@link ConfiguredTarget} objects
  * during initialization.
  */
 public interface AnalysisEnvironment extends ActionRegistry {

@@ -15,6 +15,7 @@ package com.google.devtools.build.lib.skyframe;
 
 import com.google.common.base.Preconditions;
 import com.google.common.collect.ImmutableList;
+import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.ImmutableSet;
 import com.google.common.collect.Iterables;
 import com.google.common.collect.ListMultimap;
@@ -159,11 +160,17 @@ public final class SkyframeBuildView {
     enableAnalysis(true);
     UpdateResult<ConfiguredTargetNode> result;
     try {
+      skyframeExecutor.deleteOldNodes();
       result = skyframeExecutor.configureTargets(nodes, keepGoing);
     } finally {
       enableAnalysis(false);
     }
-    if (!result.hasError()) {
+    // For Skyframe m1, note that we already reported action conflicts during action registration
+    // in the legacy action graph.
+    ImmutableMap<Action, Exception> badActions = skyframeExecutor.skyframeBuild()
+        ? skyframeExecutor.findArtifactConflicts()
+        : ImmutableMap.<Action, Exception>of();
+    if (!result.hasError() && badActions.isEmpty()) {
       return toConfiguredTargets(result.values());
     }
 
@@ -171,6 +178,21 @@ public final class SkyframeBuildView {
     // TODO(bazel-team): We might want to report the other errors through the event bus but
     // for keeping this code in parity with legacy we just report the first error for now.
     if (!keepGoing) {
+      for (Map.Entry<Action, Exception> bad : badActions.entrySet()) {
+        Exception ex = bad.getValue();
+        if (ex instanceof MutableActionGraph.ActionConflictException) {
+          MutableActionGraph.ActionConflictException ace =
+              (MutableActionGraph.ActionConflictException) ex;
+          ace.reportTo(skyframeExecutor.getReporter());
+          String errorMsg = "Analysis of target '" + bad.getKey().getOwner().getLabel()
+              + "' failed; build aborted";
+          throw new ViewCreationFailedException(errorMsg);
+        } else {
+          skyframeExecutor.getReporter().error(null, ex.getMessage());
+        }
+        throw new ViewCreationFailedException(ex.getMessage());
+      }
+
       Map.Entry<NodeKey, ErrorInfo> error = result.errorMap().entrySet().iterator().next();
       NodeKey topLevel = error.getKey();
       ErrorInfo errorInfo = error.getValue();
@@ -206,13 +228,40 @@ public final class SkyframeBuildView {
           root = maybeGetConfiguredTargetCycleCulprit(errorInfo.getCycleInfo());
         }
         if (warningListener != null) {
-          warningListener.warn(null, "errors encountered while analyzing target '" +
-              label + "': it will not be built");
+          warningListener.warn(null, "errors encountered while analyzing target '"
+              + label + "': it will not be built");
         }
         eventBus.post(new AnalysisFailureEvent(label, root));
       }
     }
-    return toConfiguredTargets(result.values());
+
+    Collection<Exception> reportedExceptions = Sets.newHashSet();
+    for (Map.Entry<Action, Exception> bad : badActions.entrySet()) {
+      Exception ex = bad.getValue();
+      if (ex instanceof MutableActionGraph.ActionConflictException) {
+        MutableActionGraph.ActionConflictException ace =
+            (MutableActionGraph.ActionConflictException) ex;
+        ace.reportTo(skyframeExecutor.getReporter());
+        if (warningListener != null) {
+          warningListener.warn(null, "errors encountered while analyzing target '"
+              + bad.getKey().getOwner().getLabel() + "': it will not be built");
+        }
+      } else {
+        if (reportedExceptions.add(ex)) {
+          skyframeExecutor.getReporter().error(null, ex.getMessage());
+        }
+      }
+    }
+
+    Collection<ConfiguredTargetNode> goodCts = Sets.newHashSet(result.values());
+    for (ConfiguredTargetNode ctNode : result.values()) {
+      for (Action action : ctNode.getActions()) {
+        if (badActions.containsKey(action)) {
+          goodCts.remove(ctNode);
+        }
+      }
+    }
+    return toConfiguredTargets(goodCts);
   }
 
   @Nullable
@@ -421,6 +470,9 @@ public final class SkyframeBuildView {
       // Not used for fetching prerequisites.
       throw new UnsupportedOperationException();
     }
+
+    @Override
+    public void addDependency(Package pkg, String fileName) {}
   }
 
   /**
@@ -434,8 +486,10 @@ public final class SkyframeBuildView {
       if (pendingInvalidatedActions.isEmpty()) {
         return;
       }
-      for (Action action : pendingInvalidatedActions) {
-        actionGraph.unregisterAction(action);
+      if (actionGraph != null) {
+        for (Action action : pendingInvalidatedActions) {
+          actionGraph.unregisterAction(action);
+        }
       }
       pendingInvalidatedActions.clear();
     }
@@ -501,7 +555,7 @@ public final class SkyframeBuildView {
           synchronized (registrationLock) {
             removed = pendingInvalidatedActions.remove(action);
           }
-          if (!removed) {
+          if (!removed && actionGraph != null) {
             actionGraph.registerAction(action);
           }
         }

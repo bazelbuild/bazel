@@ -102,7 +102,6 @@ class SkyframeBuilder implements Builder {
         executionProgressReceiver, statusReporter);
     watchdog.start();
 
-    skyframeExecutor.findArtifactConflicts();
     // TODO(bazel-team): Put this call inside SkyframeExecutor#handleDiffs() when legacy
     // codepath is no longer used. [skyframe-execution]
     skyframeExecutor.informAboutNumberOfModifiedFiles();

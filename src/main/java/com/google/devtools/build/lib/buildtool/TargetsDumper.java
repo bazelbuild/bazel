@@ -187,7 +187,8 @@ class TargetsDumper implements Dumper {
       // There is one more implementation of ActionOwner (SystemActionOwner), which we can safely
       // ignore here.
       if (action.getOwner() instanceof RuleConfiguredTarget) {
-        RuleConfiguredTarget ruleConfiguredTarget = (RuleConfiguredTarget) action.getOwner();
+        RuleConfiguredTarget ruleConfiguredTarget =
+            (RuleConfiguredTarget) action.getOwner();
         if (dumpHostDeps || !ruleConfiguredTarget.getConfiguration().isHostConfiguration()) {
           return true;
         }

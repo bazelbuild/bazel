@@ -33,6 +33,7 @@ import com.google.devtools.build.lib.util.Pair;
 import com.google.devtools.build.lib.util.io.TimestampGranularityMonitor;
 import com.google.devtools.build.lib.vfs.BatchStat;
 import com.google.devtools.build.lib.vfs.FileStatusWithDigest;
+import com.google.devtools.build.lib.vfs.RootedPath;
 import com.google.devtools.build.skyframe.AutoUpdatingGraph;
 import com.google.devtools.build.skyframe.Node;
 import com.google.devtools.build.skyframe.NodeKey;
@@ -62,8 +63,8 @@ class FilesystemNodeChecker {
   private static final int DIRTINESS_CHECK_THREADS = 50;
   private static final Logger LOG = Logger.getLogger(FilesystemNodeChecker.class.getName());
 
-  private static final Predicate<NodeKey> FILE_AND_DIRECTORY_LISTING_FILTER =
-      NodeType.nodeTypeIsIn(ImmutableSet.of(NodeTypes.FILE, NodeTypes.DIRECTORY_LISTING));
+  private static final Predicate<NodeKey> FILE_STATE_AND_DIRECTORY_LISTING_FILTER =
+      NodeType.nodeTypeIsIn(ImmutableSet.of(NodeTypes.FILE_STATE, NodeTypes.DIRECTORY_LISTING));
   private static final Predicate<NodeKey> ACTION_FILTER =
       NodeType.nodeTypeIs(NodeTypes.ACTION_EXECUTION);
 
@@ -87,7 +88,8 @@ class FilesystemNodeChecker {
   }
 
   Iterable<NodeKey> getFilesystemNodeKeys() {
-    return Iterables.filter(graphNodesSupplier.get().keySet(), FILE_AND_DIRECTORY_LISTING_FILTER);
+    return Iterables.filter(graphNodesSupplier.get().keySet(),
+        FILE_STATE_AND_DIRECTORY_LISTING_FILTER);
   }
 
   Collection<NodeKey> getDirtyFilesystemNodeKeys() throws InterruptedException {
@@ -100,10 +102,11 @@ class FilesystemNodeChecker {
    */
   Collection<NodeKey> getDirtyFilesystemNodes(Iterable<NodeKey> nodes)
       throws InterruptedException {
-    return getDirtyNodes(nodes, FILE_AND_DIRECTORY_LISTING_FILTER, new DirtyChecker() {
+    return getDirtyNodes(nodes, FILE_STATE_AND_DIRECTORY_LISTING_FILTER, new DirtyChecker() {
       @Override
       public boolean isDirty(NodeKey key, Node value, TimestampGranularityMonitor tsgm) {
-        return ((key.getNodeType() == NodeTypes.FILE && fileNodeIsDirty((FileNode) value, tsgm))
+        return ((key.getNodeType() == NodeTypes.FILE_STATE
+            && fileStateNodeIsDirty((RootedPath) key.getNodeName(), (FileStateNode) value, tsgm))
             || (key.getNodeType() == NodeTypes.DIRECTORY_LISTING
             && directoryNodeIsDirty((DirectoryListingNode) value)));
       }
@@ -197,7 +200,7 @@ class FilesystemNodeChecker {
           NodeKey key = keyAndValue.getFirst();
           FileNode lastKnownData = actionNode.getAllOutputArtifactData().get(artifact);
           try {
-            FileNode newData = FileAndMetadataCache.fileNodeFromArtifact(artifact, stat);
+            FileNode newData = FileAndMetadataCache.fileNodeFromArtifact(artifact, stat, tsgm);
             if (!newData.equals(lastKnownData)) {
               modifiedOutputFilesCounter.getAndIncrement();
               dirtyKeys.add(key);
@@ -241,7 +244,8 @@ class FilesystemNodeChecker {
       Artifact artifact = entry.getKey();
       FileNode lastKnownData = entry.getValue();
       try {
-        if (!FileAndMetadataCache.fileNodeFromArtifact(artifact, null).equals(lastKnownData)) {
+        if (!FileAndMetadataCache.fileNodeFromArtifact(artifact, null, tsgm).equals(
+            lastKnownData)) {
           modifiedOutputFilesCounter.getAndIncrement();
           isDirty = true;
         }
@@ -288,28 +292,12 @@ class FilesystemNodeChecker {
     return dirtyKeys;
   }
 
-  private static boolean fileNodeIsDirty(FileNode fileNode, TimestampGranularityMonitor tsgm) {
+  private static boolean fileStateNodeIsDirty(RootedPath rootedPath, FileStateNode fileStateNode,
+      TimestampGranularityMonitor tsgm) {
     try {
-      // This part is tricky. Strictly speaking, the realpath of the corresponding file could
-      // have changed, and it appears that we should recalculate it here. However, currently
-      // recalculation requires access to other FileNodes (see FileNodeBuilder), and reading those
-      // is a bit too slow and cumbersome to do here. Luckily, by relying the fact that we only
-      // use the new node for comparison, we can in fact avoid recalculating the real path while
-      // still preserving correct behavior. The argument is as follows:
-      // The realpath of a FileNode can change in two scenarios:
-      // - The FileNode corresponds to a symlink, and the symlink itself has changed (started
-      // pointing at a different file, or turned into an ordinary file/directory). But in that case
-      // the new FileNode will not compare equal to the old FileNode anyway even if we ignore the
-      // real path.
-      // - One of the other path components (ancestor directories) is a symlink, and that symlink
-      // has changed (as above). In that case, the two nodes will indeed compare equal when they
-      // should not. However, every FileNode depends on its parent directory FileNode and therefore
-      // indirectly on all path components. The actually modified symlink FileNode will be
-      // invalidated (by the argument above), which will cause invalidation of this FileNode anyway.
-      FileNode newNode = FileNode.nodeForRootedPath(fileNode.rootedPath(),
-          fileNode.realRootedPath(), tsgm, /*stat=*/null, /*symlinkTarget=*/null);
-      return !newNode.equals(fileNode);
-    } catch (IOException e) {
+      FileStateNode newNode = FileStateNode.create(rootedPath, tsgm);
+      return !newNode.equals(fileStateNode);
+    } catch (InconsistentFilesystemException | IOException e) {
       // TODO(bazel-team): An IOException indicates a failure to get a file digest or a symlink
       // target, not a missing file. Such a failure really shouldn't happen, so failing early
       // may be better here.

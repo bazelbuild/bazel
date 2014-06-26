@@ -18,6 +18,7 @@ import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 import com.google.devtools.build.lib.actions.ExtraActions.SpawnInfo;
 import com.google.devtools.build.lib.vfs.Path;
+import com.google.devtools.build.lib.vfs.PathFragment;
 
 import java.util.Collection;
 
@@ -54,7 +55,7 @@ public class DelegateSpawn implements Spawn {
   }
 
   @Override
-  public ImmutableMap<String, Artifact> getRunfilesManifests() {
+  public ImmutableMap<PathFragment, Artifact> getRunfilesManifests() {
     return spawn.getRunfilesManifests();
   }
 

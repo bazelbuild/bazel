@@ -16,6 +16,7 @@ package com.google.devtools.build.lib.view;
 
 import com.google.common.collect.ImmutableList;
 import com.google.devtools.build.lib.actions.Artifact;
+import com.google.devtools.build.lib.concurrent.ThreadSafety.Immutable;
 import com.google.devtools.build.lib.syntax.Label;
 
 import javax.annotation.Nullable;
@@ -23,35 +24,57 @@ import javax.annotation.Nullable;
 /**
  * Returns information about executables produced by a target and the files needed to run it.
  */
-public interface FilesToRunProvider extends TransitiveInfoProvider {
+@Immutable
+public final class FilesToRunProvider implements TransitiveInfoProvider {
+
+  private final Label label;
+  private final ImmutableList<Artifact> filesToRun;
+  private final RunfilesSupport runfilesSupport;
+  private final Artifact executable;
+
+  public FilesToRunProvider(Label label, ImmutableList<Artifact> filesToRun,
+      RunfilesSupport runfilesSupport, Artifact executable) {
+    this.label = label;
+    this.filesToRun = filesToRun;
+    this.runfilesSupport = runfilesSupport;
+    this.executable  = executable;
+  }
+
   /**
    * Returns the label that is associated with this piece of information.
    *
    * <p>This is usually the label of the target that provides the information.
    */
-  Label getLabel();
-
-  /**
-   * Returns the executable artifact for a target.  May return null.
-   */
-  // TODO(bazel-team): Remove this because these are also present in getRunfilesSupport()
-  @Nullable Artifact getExecutable();
+  public Label getLabel() {
+    return label;
+  }
 
   /**
    * Returns artifacts needed to run the executable for this target.
    */
-  ImmutableList<Artifact> getFilesToRun();
-
-  /**
-   * Returns the runfiles manifest for the corresponding target.
-   *
-   * <p>Returns null if the target does not have {@link RunfilesSupport}.
-   */
-  // TODO(bazel-team): Remove this because these are also present in getRunfilesSupport()
-  @Nullable Artifact getRunfilesManifest();
+  public ImmutableList<Artifact> getFilesToRun() {
+    return filesToRun;
+  }
 
   /**
    * Returns the {@RunfilesSupport} object associated with the target or null if it does not exist.
    */
-  @Nullable RunfilesSupport getRunfilesSupport();
+  @Nullable public RunfilesSupport getRunfilesSupport() {
+    return runfilesSupport;
+  }
+
+  /**
+   * Returns the Executable or null if it does not exist.
+   */
+  @Nullable public Artifact getExecutable() {
+    return executable;
+  }
+
+  /**
+   * Returns the RunfilesManifest or null if it does not exist. It is a shortcut to
+   * getRunfilesSupport().getRunfilesManifest().
+   */
+  @Nullable public Artifact getRunfilesManifest() {
+    return runfilesSupport != null ? runfilesSupport.getRunfilesManifest() : null;
+  }
 }

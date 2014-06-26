@@ -20,16 +20,14 @@
 
 namespace blaze {
 
-using std::string;
-
 // Get the absolute path to the binary being executed.
-string GetSelfPath();
+std::string GetSelfPath();
 
 // Returns the process id of the peer connected to this socket.
 pid_t GetPeerProcessId(int socket);
 
 // Warn about dubious filesystem types, such as NFS, case-insensitive (?).
-void WarnFilesystemType(const string& output_base);
+void WarnFilesystemType(const std::string& output_base);
 
 // Wrapper around clock_gettime(CLOCK_MONOTONIC) that returns the time
 // as a uint64 nanoseconds since epoch.
@@ -42,6 +40,9 @@ uint64 ProcessClock();
 // Set cpu and IO scheduling properties. Note that this can take ~50ms
 // on Linux, so it should only be called when necessary.
 void SetScheduling(bool batch_cpu_scheduling, int io_nice_level);
+
+// Returns the cwd for a process.
+std::string GetProcessCWD(int pid);
 
 }  // namespace blaze
 

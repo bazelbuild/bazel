@@ -64,8 +64,7 @@ public final class PrerequisiteMap {
    * A prerequisite used for analyzing a single configured target. It entails the respective
    * {@link TransitiveInfoCollection} and the dependent {@link Target} object.
    *
-   * <p>Note that the configured target itself (ie. its
-   * {@link RuleConfiguredTarget#initializationHook} should not be passed the dependent
+   * <p>Note that the configured target itself should not be passed the dependent
    * {@link Target} object. It is purely there to be used in {@link RuleContext} to do the
    * dependency filtering.
    *

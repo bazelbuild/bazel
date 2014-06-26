@@ -17,7 +17,6 @@
 #include <dirent.h>
 #include <errno.h>
 #include <fcntl.h>
-#include <linux/limits.h>
 #include <stdlib.h>
 #include <string.h>
 #include <sys/resource.h>
@@ -25,7 +24,6 @@
 #include <sys/syscall.h>
 #include <sys/time.h>
 #include <sys/types.h>
-#include <sys/xattr.h>
 #include <unistd.h>
 #include <utime.h>
 
@@ -118,15 +116,6 @@ static void ReleaseStringLatin1Chars(const char *s) {
 }
 
 ////////////////////////////////////////////////////////////////////////
-
-// See unix_jni.h.
-std::string ErrorMessage(int error_number) {
-  char buf[1024] = "";
-  // TODO(bazel-team): without additional #defines, glibc provides only
-  // this non-standard version of strerror_r, not the SUSv3-conformant
-  // one which returns an error code; see footnote at strerror(1).
-  return std::string(strerror_r(error_number, buf, sizeof buf));
-}
 
 // See unix_jni.h.
 void PostException(JNIEnv *env, int error_number, const std::string& message) {
@@ -318,13 +307,13 @@ static jobject NewFileStatus(JNIEnv *env,
     CHECK(method != NULL);
   }
 
-  return env->NewObject(file_status_class, method,
-                        stat_ref.st_mode, stat_ref.st_atim.tv_sec,
-                        stat_ref.st_atim.tv_nsec, stat_ref.st_mtim.tv_sec,
-                        stat_ref.st_mtim.tv_nsec, stat_ref.st_ctim.tv_sec,
-                        stat_ref.st_ctim.tv_nsec, stat_ref.st_size,
-                        static_cast<int>(stat_ref.st_dev),
-                        static_cast<jlong>(stat_ref.st_ino));
+  return env->NewObject(
+      file_status_class, method, stat_ref.st_mode,
+      StatSeconds(stat_ref, STAT_ATIME), StatNanoSeconds(stat_ref, STAT_ATIME),
+      StatSeconds(stat_ref, STAT_MTIME), StatNanoSeconds(stat_ref, STAT_MTIME),
+      StatSeconds(stat_ref, STAT_CTIME), StatNanoSeconds(stat_ref, STAT_CTIME),
+      stat_ref.st_size,
+      static_cast<int>(stat_ref.st_dev), static_cast<jlong>(stat_ref.st_ino));
 }
 
 static jobject NewErrnoFileStatus(JNIEnv *env,
@@ -353,13 +342,13 @@ static jobject NewErrnoFileStatus(JNIEnv *env,
   if (saved_errno != 0) {
     return env->NewObject(errno_file_status_class, errorno_ctor, errno);
   }
-  return env->NewObject(errno_file_status_class, no_error_ctor,
-                        stat_ref.st_mode, stat_ref.st_atim.tv_sec,
-                        stat_ref.st_atim.tv_nsec, stat_ref.st_mtim.tv_sec,
-                        stat_ref.st_mtim.tv_nsec, stat_ref.st_ctim.tv_sec,
-                        stat_ref.st_ctim.tv_nsec, stat_ref.st_size,
-                        static_cast<int>(stat_ref.st_dev),
-                        static_cast<jlong>(stat_ref.st_ino));
+  return env->NewObject(
+      errno_file_status_class, no_error_ctor, stat_ref.st_mode,
+      StatSeconds(stat_ref, STAT_ATIME), StatNanoSeconds(stat_ref, STAT_ATIME),
+      StatSeconds(stat_ref, STAT_MTIME), StatNanoSeconds(stat_ref, STAT_MTIME),
+      StatSeconds(stat_ref, STAT_CTIME), StatNanoSeconds(stat_ref, STAT_CTIME),
+      stat_ref.st_size, static_cast<int>(stat_ref.st_dev),
+      static_cast<jlong>(stat_ref.st_ino));
 }
 
 static void SetIntField(JNIEnv *env,
@@ -566,7 +555,7 @@ static char GetDirentType(struct dirent *entry,
       FALLTHROUGH_INTENDED;
     case DT_UNKNOWN:
       struct stat statbuf;
-      if (fstatat(dirfd, entry->d_name, &statbuf, 0) == 0) {
+      if (portable_fstatat(dirfd, entry->d_name, &statbuf, 0) == 0) {
         if (S_ISREG(statbuf.st_mode)) return 'f';
         if (S_ISDIR(statbuf.st_mode)) return 'd';
       }
@@ -773,7 +762,7 @@ Java_com_google_devtools_build_lib_unix_FilesystemUtils_getxattr(JNIEnv *env,
                                                      jclass clazz,
                                                      jstring path,
                                                      jstring name) {
-  return ::getxattr_common(env, path, name, ::getxattr);
+  return ::getxattr_common(env, path, name, ::portable_getxattr);
 }
 
 extern "C" JNIEXPORT jbyteArray JNICALL
@@ -781,7 +770,7 @@ Java_com_google_devtools_build_lib_unix_FilesystemUtils_lgetxattr(JNIEnv *env,
                                                       jclass clazz,
                                                       jstring path,
                                                       jstring name) {
-  return ::getxattr_common(env, path, name, ::lgetxattr);
+  return ::getxattr_common(env, path, name, ::portable_lgetxattr);
 }
 
 

@@ -14,7 +14,7 @@
 
 package com.google.devtools.build.lib.bazel.rules.genrule;
 
-import static com.google.devtools.build.lib.view.RunfilesProvider.RunfilesProviderImpl.dataSpecificRunfilesProvider;
+import static com.google.devtools.build.lib.view.RunfilesProvider.withData;
 
 import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.Iterables;
@@ -31,12 +31,12 @@ import com.google.devtools.build.lib.syntax.Label;
 import com.google.devtools.build.lib.vfs.PathFragment;
 import com.google.devtools.build.lib.view.CommandHelper;
 import com.google.devtools.build.lib.view.ConfigurationMakeVariableContext;
+import com.google.devtools.build.lib.view.ConfiguredTarget;
 import com.google.devtools.build.lib.view.FileProvider;
 import com.google.devtools.build.lib.view.FilesToRunProvider;
-import com.google.devtools.build.lib.view.GenericRuleConfiguredTargetBuilder;
 import com.google.devtools.build.lib.view.MakeVariableExpander.ExpansionException;
-import com.google.devtools.build.lib.view.RuleConfiguredTarget;
 import com.google.devtools.build.lib.view.RuleConfiguredTarget.Mode;
+import com.google.devtools.build.lib.view.RuleConfiguredTargetBuilder;
 import com.google.devtools.build.lib.view.RuleContext;
 import com.google.devtools.build.lib.view.Runfiles;
 import com.google.devtools.build.lib.view.RunfilesProvider;
@@ -64,7 +64,7 @@ public class GenRule implements RuleConfiguredTargetFactory {
   }
 
   @Override
-  public RuleConfiguredTarget create(RuleContext ruleContext) {
+  public ConfiguredTarget create(RuleContext ruleContext) {
     final List<Artifact> resolvedSrcs = Lists.newArrayList();
 
     final NestedSet<Artifact> filesToBuild =
@@ -138,7 +138,7 @@ public class GenRule implements RuleConfiguredTargetFactory {
         commandHelper.getRemoteRunfileManifestMap(),
         message + ' ' + ruleContext.getLabel()));
 
-    RunfilesProvider runfilesProvider = dataSpecificRunfilesProvider(
+    RunfilesProvider runfilesProvider = withData(
         // No runfiles provided if not a data dependency.
         Runfiles.EMPTY,
         // We only need to consider the outputs of a genrule
@@ -147,9 +147,9 @@ public class GenRule implements RuleConfiguredTargetFactory {
         // configuration.
         new Runfiles.Builder().addArtifacts(filesToBuild).build());
 
-    return new GenericRuleConfiguredTargetBuilder(ruleContext)
+    return new RuleConfiguredTargetBuilder(ruleContext)
         .setFilesToBuild(filesToBuild)
-        .setExecutable(getExecutable(ruleContext, filesToBuild))
+        .setRunfilesSupport(null, getExecutable(ruleContext, filesToBuild))
         .addProvider(RunfilesProvider.class, runfilesProvider)
         .build();
   }

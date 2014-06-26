@@ -46,4 +46,27 @@ extern void PostFileException(JNIEnv *env, int error_number,
 // Returns the standard error message for a given UNIX error number.
 extern std::string ErrorMessage(int error_number);
 
+// Runs fstatat, if available.
+int portable_fstatat(int dirfd, char *name, struct stat *statbuf, int flags);
+
+enum StatTimes {
+  STAT_ATIME,
+  STAT_MTIME,
+  STAT_CTIME,
+};
+
+// Seconds from a stat buffer.
+int StatSeconds(const struct stat64 &statbuf, StatTimes t);
+
+// NanoSeconds from a stat buffer.
+int StatNanoSeconds(const struct stat64 &statbuf, StatTimes t);
+
+// Runs getxattr, if available.
+ssize_t portable_getxattr(const char *path, const char *name, void *value,
+                          size_t size);
+
+// Run lgetxattr, if available.
+ssize_t portable_lgetxattr(const char *path, const char *name, void *value,
+                           size_t size);
+
 #endif  // JAVA_COM_GOOGLE_DEVTOOLS_BUILD_LIB_UNIX_UNIX_JNI_H__

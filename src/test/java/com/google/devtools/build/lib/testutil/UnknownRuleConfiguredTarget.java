@@ -22,9 +22,8 @@ import com.google.devtools.build.lib.collect.nestedset.NestedSetBuilder;
 import com.google.devtools.build.lib.collect.nestedset.Order;
 import com.google.devtools.build.lib.packages.Rule;
 import com.google.devtools.build.lib.rules.RuleConfiguredTargetFactory;
-import com.google.devtools.build.lib.view.GenericRuleConfiguredTargetBuilder;
-import com.google.devtools.build.lib.view.GenericRuleConfiguredTargetBuilder.StatelessRunfilesProvider;
-import com.google.devtools.build.lib.view.RuleConfiguredTarget;
+import com.google.devtools.build.lib.view.ConfiguredTarget;
+import com.google.devtools.build.lib.view.RuleConfiguredTargetBuilder;
 import com.google.devtools.build.lib.view.RuleContext;
 import com.google.devtools.build.lib.view.Runfiles;
 import com.google.devtools.build.lib.view.RunfilesProvider;
@@ -35,7 +34,7 @@ import com.google.devtools.build.lib.view.RunfilesProvider;
 public class UnknownRuleConfiguredTarget implements RuleConfiguredTargetFactory {
 
   @Override
-  public RuleConfiguredTarget create(RuleContext context)  {
+  public ConfiguredTarget create(RuleContext context)  {
     // TODO(blaze-team): (2009) why isn't this an error?  It would stop the build more promptly...
     context.ruleWarning("cannot build " + context.getRule().getRuleClass() + " rules");
 
@@ -52,9 +51,9 @@ public class UnknownRuleConfiguredTarget implements RuleConfiguredTargetFactory 
     Rule rule = context.getRule();
     context.getAnalysisEnvironment().registerAction(new FailAction(context.getActionOwner(),
         filesToBuild, "cannot build " + rule.getRuleClass() + " rules such as " + rule.getLabel()));
-    return new GenericRuleConfiguredTargetBuilder(context)
+    return new RuleConfiguredTargetBuilder(context)
         .setFilesToBuild(filesToBuild)
-        .add(RunfilesProvider.class, new StatelessRunfilesProvider(Runfiles.EMPTY))
+        .add(RunfilesProvider.class, RunfilesProvider.simple(Runfiles.EMPTY))
         .build();
   }
 }

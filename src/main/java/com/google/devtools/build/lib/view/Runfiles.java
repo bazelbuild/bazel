@@ -32,7 +32,6 @@ import com.google.devtools.build.lib.util.Pair;
 import com.google.devtools.build.lib.vfs.Path;
 import com.google.devtools.build.lib.vfs.PathFragment;
 import com.google.devtools.build.lib.view.RuleConfiguredTarget.Mode;
-import com.google.devtools.build.lib.view.RunfilesCollector.State;
 
 import java.io.BufferedReader;
 import java.io.IOException;
@@ -587,11 +586,12 @@ public final class Runfiles {
      * Adds the runfiles for a particular target and visits the transitive closure of "srcs",
      * "deps" and "data", collecting all of their respective runfiles.
      */
-    public Builder addRunfiles(State state, RuleContext ruleContext) {
-      Preconditions.checkNotNull(state);
+    public Builder addRunfiles(RuleContext ruleContext,
+        Function<TransitiveInfoCollection, Runfiles> mapping) {
+      Preconditions.checkNotNull(mapping);
       Preconditions.checkNotNull(ruleContext);
       addDataDeps(ruleContext);
-      addNonDataDeps(state, ruleContext);
+      addNonDataDeps(ruleContext, mapping);
       return this;
     }
 
@@ -601,13 +601,13 @@ public final class Runfiles {
      * <p>Dependencies in {@code srcs} and {@code deps} are considered.
      */
     public Builder add(RuleContext ruleContext,
-        Function<TransitiveInfoCollection, Iterable<Artifact>> mapping) {
+        Function<TransitiveInfoCollection, Runfiles> mapping) {
       Preconditions.checkNotNull(ruleContext);
       Preconditions.checkNotNull(mapping);
       for (TransitiveInfoCollection dep : getNonDataDeps(ruleContext)) {
-        Iterable<Artifact> artifacts = mapping.apply(dep);
-        if (artifacts != null) {
-          artifactsBuilder.addAll(artifacts);
+        Runfiles runfiles = mapping.apply(dep);
+        if (runfiles != null) {
+          merge(runfiles);
         }
       }
 
@@ -618,40 +618,46 @@ public final class Runfiles {
      * Collects runfiles from data dependencies of a target.
      */
     public Builder addDataDeps(RuleContext ruleContext) {
-      addTargets(State.DATA, getPrerequisites(ruleContext, "data", Mode.DATA));
+      addTargets(getPrerequisites(ruleContext, "data", Mode.DATA),
+          RunfilesProvider.DATA_RUNFILES);
       return this;
     }
 
     /**
      * Collects runfiles from "srcs" and "deps" of a target.
      */
-    public Builder addNonDataDeps(State state, RuleContext ruleContext) {
-      addTargets(state, getNonDataDeps(ruleContext));
+    public Builder addNonDataDeps(RuleContext ruleContext,
+        Function<TransitiveInfoCollection, Runfiles> mapping) {
+      addTargets(getNonDataDeps(ruleContext), mapping);
       return this;
     }
 
-    /**
-     * Adds runfiles of given targets transitively.
-     */
-    public Builder addTargets(State state, Iterable<? extends TransitiveInfoCollection> targets) {
+    public Builder addTargets(Iterable<? extends TransitiveInfoCollection> targets,
+        Function<TransitiveInfoCollection, Runfiles> mapping) {
       for (TransitiveInfoCollection target : targets) {
-        addTarget(state, target);
+        addTarget(target, mapping);
       }
       return this;
     }
 
-    /**
-     * Adds runfiles of given targets transitively.
-     */
-    public Builder addTarget(State state, TransitiveInfoCollection target) {
-      if (target.getProvider(RunfilesProvider.class) != null) {
-        RunfilesProvider runfilesProvider = target.getProvider(RunfilesProvider.class);
-        merge(runfilesProvider.getTransitiveRunfiles(state));
-      } else if (state == State.DATA) {
+    public Builder addTarget(TransitiveInfoCollection target,
+        Function<TransitiveInfoCollection, Runfiles> mapping) {
+      if (target.getProvider(RunfilesProvider.class) == null
+          && mapping == RunfilesProvider.DATA_RUNFILES) {
         // RuleConfiguredTarget implements RunfilesProvider, so this will only be called on
-        // InputFileConfiguredTarget instances.
+        // FileConfiguredTarget instances.
+        // TODO(bazel-team): This is a terrible hack. We should be able to make this go away
+        // by implementing RunfilesProvider on FileConfiguredTarget. We'd need to be mindful
+        // of the memory use, though, since we have a whole lot of FileConfiguredTarget instances.
         addArtifacts(target.getProvider(FileProvider.class).getFilesToBuild());
+        return this;
       }
+
+      Runfiles runfiles = mapping.apply(target);
+      if (runfiles != null) {
+        merge(runfiles);
+      }
+
       return this;
     }
 

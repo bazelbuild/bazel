@@ -52,7 +52,7 @@ final class DirectoryListingNodeBuilder implements NodeBuilder {
               + " is no longer an existing directory. Did you delete it during the build?"));
     }
 
-    if (!dirFile.realRootedPath().equals(dirFile.rootedPath())) {
+    if (!dirFile.realRootedPath().equals(dirRootedPath)) {
       // If the realpath of the directory does not match the actual path, then look up the real
       // directory that it corresponds to and fetch the directory entries from that. This saves
       // a little bit of I/O, and more importantly it keeps listings of "virtual" directories

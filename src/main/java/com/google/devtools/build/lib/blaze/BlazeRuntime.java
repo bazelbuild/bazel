@@ -1588,7 +1588,7 @@ public final class BlazeRuntime {
       ConfigurationFactory tempConfigurationFactory;
       if (configurationFactory == null) {
         tempConfigurationFactory = new ConfigurationFactory(
-            MachineSpecification.getLinuxHostSpecification(),
+            MachineSpecification.getUnixHostSpecification(),
             ruleClassProvider.getConfigurationCollectionFactory(),
             ruleClassProvider.getConfigurationFragments());
       } else {

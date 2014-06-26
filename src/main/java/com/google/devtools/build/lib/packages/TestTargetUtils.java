@@ -329,7 +329,8 @@ public final class TestTargetUtils {
         List<Target> targets = new ArrayList<>();
         // TODO(bazel-team): This serializes package loading in some cases. We might want to make
         // this multi-threaded.
-        for (Label label : testSuite.get(attrName, Type.LABEL_LIST)) {
+        for (Label label :
+            NonconfigurableAttributeMapper.of(testSuite).get(attrName, Type.LABEL_LIST)) {
           targets.add(targetProvider.getTarget(listener, label));
         }
         return targets;

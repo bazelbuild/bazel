@@ -15,9 +15,7 @@
 package com.google.devtools.build.lib.view;
 
 import com.google.devtools.build.lib.syntax.Label;
-import com.google.devtools.build.lib.syntax.SkylarkBuiltin;
-import com.google.devtools.build.lib.syntax.SkylarkCallable;
-import com.google.devtools.build.lib.view.GenericRuleConfiguredTarget.SkylarkProviders;
+import com.google.devtools.build.lib.view.RuleConfiguredTarget.SkylarkProviders;
 
 /**
  * A utility class to construct wrappers for TransitiveInfoProviders.
@@ -26,7 +24,6 @@ import com.google.devtools.build.lib.view.GenericRuleConfiguredTarget.SkylarkPro
  */
 public class TransitiveInfoProxy {
 
-  @SkylarkBuiltin(name = "", doc = "")
   private static class TransitiveInfoCollectionProxy implements TransitiveInfoCollection {
 
     private final EnumerableTransitiveInfoCollection collection;
@@ -45,10 +42,7 @@ public class TransitiveInfoProxy {
       return collection.getLabel();
     }
 
-    // TODO(bazel-team): We need this for Skylark to work with Skyframe.
-    // Come up with something better.
-    @SkylarkCallable(
-        doc = "Returns the value provided by this target associated with the provider_key.")
+    @Override
     public Object get(String providerKey) {
       SkylarkProviders skylarkProviders = getProvider(SkylarkProviders.class); 
       return skylarkProviders != null ? skylarkProviders.get(providerKey) : null;

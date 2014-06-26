@@ -228,8 +228,8 @@ static string EscapeForOptionSource(const string& input) {
 static vector<string> GetArgumentArray() {
   vector<string> result;
 
-  // e.g. A Blaze server process running in ~/src/google3 will appear in
-  // ps(1) as "blaze(src)".
+  // e.g. A Blaze server process running in ~/src/build_root (where there's a
+  // ~/src/build_root/WORKSPACE file) will appear in ps(1) as "blaze(src)".
   string workspace =
       blaze_util::Basename(blaze_util::Dirname(globals->workspace));
   result.push_back("blaze(" + workspace + ")");
@@ -255,8 +255,7 @@ static vector<string> GetArgumentArray() {
 
   // Add JVM arguments particular to building blaze64 and particular JVM
   // versions.
-  globals->options.AddJVMSpecificArguments(globals->options.host_javabase,
-                                           &result);
+  globals->options.AddJVMArguments(globals->options.host_javabase, &result);
 
   // We put all directories on the java.library.path that contain .so files.
   string java_library_path = "-Djava.library.path=";
@@ -481,9 +480,9 @@ static void StartStandalone() {
   if (!command_arguments.empty() && command == "shutdown") {
     fprintf(stderr,
             "WARNING: Running command \"shutdown\" in batch mode.  Batch mode "
-            "is triggered\nwhen running blaze in a non-google3 directory.  "
-            "If you intend to shutdown an\nexisting blaze server, run \"blaze "
-            "shutdown\" from the google3 directory where\nit was started.\n");
+            "is triggered\nwhen not running blaze within a workspace. If you "
+            "intend to shutdown an\nexisting blaze server, run \"blaze "
+            "shutdown\" from the directory where\nit was started.\n");
   }
   vector<string> jvm_args_vector = GetArgumentArray();
   if (command != "") {
@@ -1075,27 +1074,27 @@ static string BuildServerRequest() {
 // shuts down the client (by exit or signal).
 static void SendServerRequest(void) ATTRIBUTE_NORETURN;
 static void SendServerRequest(void) {
- retry:
-  int socket = ConnectToServer(true);
-  globals->server_pid = GetPeerProcessId(socket);
+  int socket = -1;
+  while (true) {
+    socket = ConnectToServer(true);
+    globals->server_pid = GetPeerProcessId(socket);
 
-  // Check for deleted server cwd:
-  {
-    char server_cwd[PATH_MAX + 1] = "";  // NULs the whole array
-    if (readlink(
-            ("/proc/" + std::to_string(globals->server_pid) + "/cwd").c_str(),
-            server_cwd, PATH_MAX) == -1 ||
-        strstr(server_cwd, " (deleted)") != NULL ||  // server cwd deleted?
-        globals->workspace != server_cwd) {  // server cwd renamed?
+    // Check for deleted server cwd:
+    string server_cwd = GetProcessCWD(globals->server_pid);
+    if (server_cwd.empty() ||  // GetProcessCWD failed
+        server_cwd != globals->workspace ||  // changed
+        server_cwd.find(" (deleted)") != string::npos) {  // deleted.
       // There's a distant possibility that the two paths look the same yet are
       // actually different because the two processes have different mount
       // tables.
       if (SPAM) {
-        fprintf(stderr, "Server's cwd moved or deleted (%s).\n", server_cwd);
+        fprintf(stderr, "Server's cwd moved or deleted (%s).\n",
+                server_cwd.c_str());
       }
       close(socket);
       KillRunningServer(globals->server_pid);
-      goto retry;
+    } else {
+      break;
     }
   }
 
@@ -1224,31 +1223,6 @@ static void ParseOptions(int argc, const char *argv[]) {
   globals->options = globals->option_processor.GetParsedStartupOptions();
 }
 
-// Given the working directory, return the nearest enclosing
-// 'google3' directory.  If there is no enclosing 'google3'
-// directory, return cwd.
-//
-// GetWorkspace('foo/bar') --> 'foo/bar'
-// GetWorkspace('foo/bar/google3') --> 'foo/bar/google3'
-// GetWorkspace('foo/bar/google3/biz') --> 'foo/bar/google3'
-static string GetWorkspace(string cwd) {
-  if (blaze_util::ends_with(globals->cwd, "/google3")) {
-    return cwd;
-  }
-
-  string google3_str = "/google3/";
-  int google3_index = cwd.rfind(google3_str);
-
-  // If we're not underneath /google3/, just return cwd.
-  if (google3_index == string::npos) {
-    return cwd;
-  }
-
-  // Strip off whatever comes after 'google3'.
-  string workspace = cwd;
-  return workspace.substr(0, google3_index + google3_str.length() - 1);
-}
-
 // Returns the canonical form of a path.
 static string MakeCanonical(const char *path) {
   char *resolved_path = realpath(path, NULL);
@@ -1269,16 +1243,16 @@ static void ComputeWorkspace() {
     pdie(blaze_exit_code::INTERNAL_ERROR, "getcwd() failed");
   }
   globals->cwd = MakeCanonical(cwdbuf);
-  globals->workspace = GetWorkspace(globals->cwd);
+  globals->workspace = BlazeStartupOptions::GetWorkspace(globals->cwd);
 }
 
 // Figure out the base directories based on embedded data, username, cwd, etc.
 // Sets globals->options.install_base, globals->options.output_base,
 // globals->lock_file, globals->jvm_log_file.
 static void ComputeBaseDirectories(const string self_path) {
-  // No need to start a server when in a directory not underneath 'google3',
-  // because we won't do more than emit a help message.
-  if (!blaze_util::ends_with(globals->workspace, "/google3")) {
+  // Only start a server when in a workspace because otherwise we won't do more
+  // than emit a help message.
+  if (!BlazeStartupOptions::InWorkspace(globals->workspace)) {
     globals->options.batch = true;
   }
 

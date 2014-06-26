@@ -17,8 +17,6 @@ package com.google.devtools.build.lib.view;
 import com.google.common.base.Preconditions;
 import com.google.devtools.build.lib.actions.Artifact;
 import com.google.devtools.build.lib.collect.nestedset.NestedSet;
-import com.google.devtools.build.lib.collect.nestedset.NestedSetBuilder;
-import com.google.devtools.build.lib.collect.nestedset.Order;
 import com.google.devtools.build.lib.packages.OutputFile;
 import com.google.devtools.build.lib.view.test.InstrumentedFilesProvider;
 import com.google.devtools.build.lib.view.test.InstrumentedFilesProviderImpl;
@@ -27,29 +25,21 @@ import com.google.devtools.build.lib.view.test.InstrumentedFilesProviderImpl;
  * A ConfiguredTarget for an OutputFile.
  */
 public class OutputFileConfiguredTarget extends FileConfiguredTarget
-    implements LicensesProvider, InstrumentedFilesProvider {
+    implements InstrumentedFilesProvider {
 
-  private final Artifact artifact;
   private final TransitiveInfoCollection generatingRule;
 
   OutputFileConfiguredTarget(
       TargetContext targetContext, OutputFile outputFile,
       TransitiveInfoCollection generatingRule, Artifact outputArtifact) {
-    super(targetContext);
+    super(targetContext, outputArtifact);
     Preconditions.checkArgument(targetContext.getTarget() == outputFile);
-    this.artifact = outputArtifact;
     this.generatingRule = generatingRule;
-    filesToBuild = NestedSetBuilder.create(Order.STABLE_ORDER, artifact);
   }
 
   @Override
   public OutputFile getTarget() {
     return (OutputFile) super.getTarget();
-  }
-
-  @Override
-  public Artifact getArtifact() {
-    return artifact;
   }
 
   public TransitiveInfoCollection getGeneratingRule() {

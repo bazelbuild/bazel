@@ -53,12 +53,15 @@ public final class CommandBuilder {
 
   private static final List<String> SHELLS = ImmutableList.of("/bin/sh", "/bin/bash");
 
-  public enum OS { LINUX, WINDOWS, UNKNOWN }
+  // The operating system we are running on.
+  // TODO(bazel-team): should Darwin & Linux be merged into unix?
+  public enum OS { DARWIN, LINUX, WINDOWS, UNKNOWN }
 
   private static final OS HOST_SYSTEM =
+      "Mac OS X".equals(System.getProperty("os.name")) ? OS.DARWIN : (
       "Linux".equals(System.getProperty("os.name")) ? OS.LINUX : (
       "Windows XP".equals(System.getProperty("os.name")) ? OS.WINDOWS : (
-      "Windows 7".equals(System.getProperty("os.name")) ? OS.WINDOWS : OS.UNKNOWN));
+      "Windows 7".equals(System.getProperty("os.name")) ? OS.WINDOWS : OS.UNKNOWN)));
 
   // On Windows, there is no standard Python interpreter, so we will need to
   // find one - e.g. the one bundled with g4. Blaze startup script would locate it
@@ -68,6 +71,8 @@ public final class CommandBuilder {
 
   private static final String DEFAULT_LINUX_PYTHON_DIR =
       "/usr/grte/v3/k8-linux/bin/python2.7";
+  private static final String DEFAULT_DARWIN_PYTHON_DIR =
+      "/usr/bin/python2.6";
 
   private static final Splitter ARGV_SPLITTER = Splitter.on(CharMatcher.anyOf(" \t"));
 
@@ -172,6 +177,8 @@ public final class CommandBuilder {
         return windowsPythonExePath;
       case LINUX:
         return DEFAULT_LINUX_PYTHON_DIR;
+      case DARWIN:
+        return DEFAULT_DARWIN_PYTHON_DIR;
       default:
         Preconditions.checkState(false, "Unknown OS %s", HOST_SYSTEM);
         return null; // To keep the compiler happy - won't ever get here.

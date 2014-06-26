@@ -19,13 +19,10 @@ package com.google.devtools.build.lib.actions;
 public final class ActionCompletionEvent {
 
   private final ActionMetadata actionMetadata;
-  private final ActionGraph actionGraph;
   private final String strategyDescription;
 
-  public ActionCompletionEvent(ActionMetadata actionMetadata, ActionGraph actionGraph,
-      String strategyDescription) {
+  public ActionCompletionEvent(ActionMetadata actionMetadata, String strategyDescription) {
     this.actionMetadata = actionMetadata;
-    this.actionGraph = actionGraph;
     this.strategyDescription = strategyDescription;
   }
 
@@ -34,13 +31,6 @@ public final class ActionCompletionEvent {
    */
   public ActionMetadata getActionMetadata() {
     return actionMetadata;
-  }
-
-  /**
-   * Returns the action graph associated with the action invocation.
-   */
-  public ActionGraph getActionGraph() {
-    return actionGraph;
   }
 
   /**

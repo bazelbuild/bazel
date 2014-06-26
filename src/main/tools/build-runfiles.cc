@@ -55,12 +55,15 @@
 #include <map>
 #include <string>
 
+// program_invocation_short_name is not portable.
+static const char *argv0;
+
 const char *input_filename;
 const char *output_base_dir;
 
 #define LOG() { \
   fprintf(stderr, "%s (args %s %s): ", \
-          program_invocation_short_name, input_filename, output_base_dir); \
+          argv0, input_filename, output_base_dir); \
 }
 
 #define DIE(args...) { \
@@ -126,9 +129,9 @@ class RunfilesCreator {
     // read input manifest
     int lineno = 0;
     char buf[3 * PATH_MAX];
-    while (fgets_unlocked(buf, sizeof buf, infile)) {
+    while (fgets(buf, sizeof buf, infile)) {
       // copy line to output manifest
-      if (fputs_unlocked(buf, outfile) == EOF) {
+      if (fputs(buf, outfile) == EOF) {
         PDIE("writing to '%s/%s'", output_base_.c_str(),
              temp_filename_.c_str());
       }
@@ -383,6 +386,8 @@ class RunfilesCreator {
 };
 
 int main(int argc, char **argv) {
+  argv0 = argv[0];
+
   argc--; argv++;
   bool allow_relative = false;
   bool use_metadata = false;
@@ -401,7 +406,7 @@ int main(int argc, char **argv) {
 
   if (argc != 2) {
     fprintf(stderr, "usage: %s [--allow_relative] INPUT RUNFILES\n",
-            program_invocation_short_name);
+            argv0);
     return 1;
   }
 

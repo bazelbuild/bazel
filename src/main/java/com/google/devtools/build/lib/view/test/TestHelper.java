@@ -32,6 +32,7 @@ import com.google.devtools.build.lib.vfs.PathFragment;
 import com.google.devtools.build.lib.view.AnalysisEnvironment;
 import com.google.devtools.build.lib.view.ConfiguredTarget;
 import com.google.devtools.build.lib.view.FileProvider;
+import com.google.devtools.build.lib.view.FilesToRunProvider;
 import com.google.devtools.build.lib.view.RuleConfiguredTarget.Mode;
 import com.google.devtools.build.lib.view.RuleContext;
 import com.google.devtools.build.lib.view.RunfilesSupport;
@@ -60,6 +61,7 @@ public final class TestHelper {
 
   private final RuleContext ruleContext;
   private RunfilesSupport runfilesSupport;
+  private Artifact executable;
   private ExecutionRequirementProvider executionRequirements;
   private InstrumentedFilesProvider instrumentedFiles;
   private ImmutableList<Artifact> filesToRun;
@@ -106,10 +108,11 @@ public final class TestHelper {
   /**
    * Set the runfiles and executable to be run as a test.
    */
-  public TestHelper setRunfilesSupport(RunfilesSupport runfilesSupport) {
-    Preconditions.checkNotNull(runfilesSupport);
-    Preconditions.checkNotNull(runfilesSupport.getExecutable());
-    this.runfilesSupport = runfilesSupport;
+  public TestHelper setFilesToRunProvider(FilesToRunProvider provider) {
+    Preconditions.checkNotNull(provider.getRunfilesSupport());
+    Preconditions.checkNotNull(provider.getExecutable());
+    this.runfilesSupport = provider.getRunfilesSupport();
+    this.executable = provider.getExecutable();
     return this;
   }
 
@@ -222,11 +225,11 @@ public final class TestHelper {
               ImmutableList.copyOf(instrumentedFiles.getInstrumentedFiles()),
               metadataFiles);
       executionSettings = new TestTargetExecutionSettings(ruleContext, runfilesSupport,
-          instrumentedFileManifest, shards);
+          executable, instrumentedFileManifest, shards);
       inputsBuilder.add(instrumentedFileManifest);
     } else {
       executionSettings = new TestTargetExecutionSettings(ruleContext, runfilesSupport,
-          null, shards);
+          executable, null, shards);
     }
 
     if (config.getRunUnder() != null) {

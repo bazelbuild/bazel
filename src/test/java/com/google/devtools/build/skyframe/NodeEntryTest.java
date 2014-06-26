@@ -26,7 +26,7 @@ import com.google.devtools.build.lib.collect.nestedset.NestedSet;
 import com.google.devtools.build.lib.collect.nestedset.NestedSetBuilder;
 import com.google.devtools.build.lib.collect.nestedset.Order;
 import com.google.devtools.build.lib.testutil.MoreAsserts;
-import com.google.devtools.build.skyframe.BuildingState.ContinueGroup;
+import com.google.devtools.build.lib.util.GroupedList.GroupedListHelper;
 import com.google.devtools.build.skyframe.NodeEntry.DependencyState;
 
 import org.junit.Test;
@@ -69,15 +69,15 @@ public class NodeEntryTest {
     NodeEntry entry = new NodeEntry();
     entry.addReverseDepAndCheckIfDone(null); // Start evaluation.
     NodeKey dep1 = key("dep1");
-    entry.addTemporaryDirectDep(dep1, ContinueGroup.FALSE);
+    addTemporaryDirectDep(entry, dep1);
     assertFalse(entry.isReady());
     assertTrue(entry.signalDep());
     assertTrue(entry.isReady());
     MoreAsserts.assertContentsAnyOrder(entry.getTemporaryDirectDeps(), dep1);
     NodeKey dep2 = key("dep2");
     NodeKey dep3 = key("dep3");
-    entry.addTemporaryDirectDep(dep2, ContinueGroup.FALSE);
-    entry.addTemporaryDirectDep(dep3, ContinueGroup.FALSE);
+    addTemporaryDirectDep(entry, dep2);
+    addTemporaryDirectDep(entry, dep3);
     assertFalse(entry.isReady());
     assertFalse(entry.signalDep());
     assertFalse(entry.isReady());
@@ -175,7 +175,7 @@ public class NodeEntryTest {
     NodeEntry entry = new NodeEntry();
     entry.addReverseDepAndCheckIfDone(null); // Start evaluation.
     NodeKey dep = key("dep");
-    entry.addTemporaryDirectDep(dep, ContinueGroup.FALSE);
+    addTemporaryDirectDep(entry, dep);
     entry.signalDep();
     setValue(entry, new Node() {}, /*errorInfo=*/null, /*graphVersion=*/0L);
     assertFalse(entry.isDirty());
@@ -202,7 +202,7 @@ public class NodeEntryTest {
     NodeEntry entry = new NodeEntry();
     entry.addReverseDepAndCheckIfDone(null); // Start evaluation.
     NodeKey dep = key("dep");
-    entry.addTemporaryDirectDep(dep, ContinueGroup.FALSE);
+    addTemporaryDirectDep(entry, dep);
     entry.signalDep();
     setValue(entry, new Node() {}, /*errorInfo=*/null, /*graphVersion=*/0L);
     assertFalse(entry.isDirty());
@@ -226,7 +226,7 @@ public class NodeEntryTest {
   public void markDirtyThenChanged() {
     NodeEntry entry = new NodeEntry();
     entry.addReverseDepAndCheckIfDone(null); // Start evaluation.
-    entry.addTemporaryDirectDep(key("dep"), ContinueGroup.FALSE);
+    addTemporaryDirectDep(entry, key("dep"));
     entry.signalDep();
     setValue(entry, new Node() {}, /*errorInfo=*/null, /*graphVersion=*/0L);
     assertFalse(entry.isDirty());
@@ -248,7 +248,7 @@ public class NodeEntryTest {
   public void markChangedThenDirty() {
     NodeEntry entry = new NodeEntry();
     entry.addReverseDepAndCheckIfDone(null); // Start evaluation.
-    entry.addTemporaryDirectDep(key("dep"), ContinueGroup.FALSE);
+    addTemporaryDirectDep(entry, key("dep"));
     entry.signalDep();
     setValue(entry, new Node() {}, /*errorInfo=*/null, /*graphVersion=*/0L);
     assertFalse(entry.isDirty());
@@ -285,7 +285,7 @@ public class NodeEntryTest {
   public void crashOnTwiceMarkedDirty() {
     NodeEntry entry = new NodeEntry();
     entry.addReverseDepAndCheckIfDone(null); // Start evaluation.
-    entry.addTemporaryDirectDep(key("dep"), ContinueGroup.FALSE);
+    addTemporaryDirectDep(entry, key("dep"));
     entry.signalDep();
     setValue(entry, new Node() {}, /*errorInfo=*/null, /*graphVersion=*/0L);
     entry.markDirty(/*isChanged=*/false);
@@ -361,7 +361,7 @@ public class NodeEntryTest {
     NodeEntry entry = new NodeEntry();
     NodeKey dep = key("dep");
     entry.addReverseDepAndCheckIfDone(null); // Start evaluation.
-    entry.addTemporaryDirectDep(dep, ContinueGroup.FALSE);
+    addTemporaryDirectDep(entry, dep);
     entry.signalDep();
     setValue(entry, new Node() {}, /*errorInfo=*/null, /*graphVersion=*/0L);
     assertFalse(entry.isDirty());
@@ -405,7 +405,7 @@ public class NodeEntryTest {
     NodeEntry entry = new NodeEntry();
     entry.addReverseDepAndCheckIfDone(null); // Start evaluation.
     NodeKey dep = key("dep");
-    entry.addTemporaryDirectDep(dep, ContinueGroup.FALSE);
+    addTemporaryDirectDep(entry, dep);
     entry.signalDep();
     setValue(entry, new IntegerNode(5), /*errorInfo=*/null, /*graphVersion=*/0L);
     entry.markDirty(/*isChanged=*/false);
@@ -427,7 +427,7 @@ public class NodeEntryTest {
     NodeEntry entry = new NodeEntry();
     entry.addReverseDepAndCheckIfDone(null); // Start evaluation.
     NodeKey dep = key("dep");
-    entry.addTemporaryDirectDep(dep, ContinueGroup.FALSE);
+    addTemporaryDirectDep(entry, dep);
     entry.signalDep();
     setValue(entry, new IntegerNode(5), /*errorInfo=*/null, /*graphVersion=*/0L);
     assertFalse(entry.isDirty());
@@ -456,7 +456,7 @@ public class NodeEntryTest {
     NodeEntry entry = new NodeEntry();
     entry.addReverseDepAndCheckIfDone(null); // Start evaluation.
     NodeKey dep = key("dep");
-    entry.addTemporaryDirectDep(dep, ContinueGroup.FALSE);
+    addTemporaryDirectDep(entry, dep);
     entry.signalDep();
     GenericNodeBuilderException exception =
         new GenericNodeBuilderException(key("cause"), new Exception());
@@ -481,9 +481,8 @@ public class NodeEntryTest {
     NodeKey dep = key("dep");
     NodeKey dep2 = key("dep2");
     NodeKey dep3 = key("dep3");
-    entry.addTemporaryDirectDep(dep, ContinueGroup.TRUE);
-    entry.addTemporaryDirectDep(dep2, ContinueGroup.FALSE);
-    entry.addTemporaryDirectDep(dep3, ContinueGroup.FALSE);
+    addTemporaryDirectDeps(entry, dep, dep2);
+    addTemporaryDirectDep(entry, dep3);
     entry.signalDep();
     entry.signalDep();
     entry.signalDep();
@@ -507,11 +506,9 @@ public class NodeEntryTest {
     NodeKey dep3 = key("dep3");
     NodeKey dep4 = key("dep4");
     NodeKey dep5 = key("dep5");
-    entry.addTemporaryDirectDep(dep, ContinueGroup.TRUE);
-    entry.addTemporaryDirectDep(dep2, ContinueGroup.TRUE);
-    entry.addTemporaryDirectDep(dep3, ContinueGroup.FALSE);
-    entry.addTemporaryDirectDep(dep4, ContinueGroup.FALSE);
-    entry.addTemporaryDirectDep(dep5, ContinueGroup.FALSE);
+    addTemporaryDirectDeps(entry, dep, dep2, dep3);
+    addTemporaryDirectDep(entry, dep4);
+    addTemporaryDirectDep(entry, dep5);
     entry.signalDep();
     entry.signalDep();
     // Oops! Evaluation terminated with an error, but we're going to set this entry's value anyway.
@@ -532,7 +529,7 @@ public class NodeEntryTest {
     NodeEntry entry = new NodeEntry();
     entry.addReverseDepAndCheckIfDone(null); // Start evaluation.
     NodeKey dep = key("dep");
-    entry.addTemporaryDirectDep(dep, ContinueGroup.FALSE);
+    addTemporaryDirectDep(entry, dep);
     entry.signalDep();
     setValue(entry, new IntegerNode(5), /*errorInfo=*/null, /*graphVersion=*/0L);
     entry.markDirty(/*isChanged=*/false);
@@ -542,7 +539,7 @@ public class NodeEntryTest {
     assertTrue(entry.signalDep(/*version=*/1L));
     assertEquals(BuildingState.DirtyState.REBUILDING, entry.getDirtyState());
     MoreAsserts.assertContentsAnyOrder(entry.getTemporaryDirectDeps(), dep);
-    entry.addTemporaryDirectDep(key("dep2"), ContinueGroup.FALSE);
+    addTemporaryDirectDep(entry, key("dep2"));
     assertTrue(entry.signalDep(/*version=*/1L));
     setValue(entry, new IntegerNode(5), /*errorInfo=*/null, /*graphVersion=*/1L);
     assertTrue(entry.isDone());
@@ -557,7 +554,7 @@ public class NodeEntryTest {
     for (int ii = 0; ii < 10; ii++) {
       NodeKey dep = key(Integer.toString(ii));
       deps.add(dep);
-      entry.addTemporaryDirectDep(dep, ContinueGroup.FALSE);
+      addTemporaryDirectDep(entry, dep);
       entry.signalDep();
     }
     setValue(entry, new IntegerNode(5), /*errorInfo=*/null, /*graphVersion=*/0L);
@@ -593,5 +590,21 @@ public class NodeEntryTest {
       long graphVersion) {
     return entry.setValue(NodeWithMetadata.normal(value, errorInfo, NO_EVENTS),
         graphVersion);
+  }
+
+  private static void addTemporaryDirectDep(NodeEntry entry, NodeKey key) {
+    GroupedListHelper<NodeKey> helper = new GroupedListHelper<>();
+    helper.add(key);
+    entry.addTemporaryDirectDeps(helper);
+  }
+
+  private static void addTemporaryDirectDeps(NodeEntry entry, NodeKey... keys) {
+    GroupedListHelper<NodeKey> helper = new GroupedListHelper<>();
+    helper.startGroup();
+    for (NodeKey key : keys) {
+      helper.add(key);
+    }
+    helper.endGroup();
+    entry.addTemporaryDirectDeps(helper);
   }
 }

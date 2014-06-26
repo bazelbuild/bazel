@@ -28,17 +28,15 @@ import com.google.devtools.build.lib.packages.License;
  * All InputFiles for the same target are equivalent, so configuration does not
  * play any role here and is always set to <b>null</b>.
  */
-public final class InputFileConfiguredTarget extends FileConfiguredTarget
-    implements LicensesProvider {
+public final class InputFileConfiguredTarget extends FileConfiguredTarget {
   private final Artifact artifact;
   private final NestedSet<TargetLicense> licenses;
 
   InputFileConfiguredTarget(TargetContext targetContext, InputFile inputFile, Artifact artifact) {
-    super(targetContext);
+    super(targetContext, artifact);
     Preconditions.checkArgument(targetContext.getTarget() == inputFile, getLabel());
     Preconditions.checkArgument(getConfiguration() == null, getLabel());
     this.artifact = artifact;
-    filesToBuild = NestedSetBuilder.create(Order.STABLE_ORDER, artifact);
 
     if (inputFile.getLicense() != License.NO_LICENSE) {
       licenses = NestedSetBuilder.create(Order.LINK_ORDER,

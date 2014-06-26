@@ -26,6 +26,9 @@ import com.google.common.collect.ImmutableCollection;
  */
 final class CompileOrderExpander<E> implements NestedSetExpander<E> {
 
+  // We suppress unchecked warning so that we can access the internal raw structure of the
+  // NestedSet.
+  @SuppressWarnings("unchecked")
   @Override
   public void expandInto(NestedSet<E> set, Uniqueifier uniqueifier,
       ImmutableCollection.Builder<E> builder) {
@@ -36,9 +39,9 @@ final class CompileOrderExpander<E> implements NestedSetExpander<E> {
     }
 
     // This switch is here to compress the memo used by the uniqueifier
-    for (E e : set.directMembers()) {
+    for (Object e : set.directMembers()) {
       if (uniqueifier.isUnique(e)) {
-        builder.add(e);
+        builder.add((E) e);
       }
     }
   }

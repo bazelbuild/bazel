@@ -21,15 +21,12 @@ import com.google.common.collect.ImmutableSet;
 import com.google.common.collect.Iterables;
 import com.google.common.collect.Lists;
 import com.google.common.collect.Sets;
-import com.google.devtools.build.lib.util.LightArrayUtil;
+import com.google.devtools.build.lib.util.GroupedList;
+import com.google.devtools.build.lib.util.GroupedList.GroupedListHelper;
 import com.google.devtools.build.lib.util.Pair;
-import com.google.devtools.build.skyframe.BuildingState.ContinueGroup;
 
-import java.util.BitSet;
 import java.util.Collection;
-import java.util.LinkedHashMap;
 import java.util.List;
-import java.util.Map;
 import java.util.Set;
 
 import javax.annotation.Nullable;
@@ -70,9 +67,6 @@ class NodeEntry {
      */
     ADDED_DEP;
   }
-  // Allows us to create (immutable) iterables that contain NodeKeys.
-  private static final LightArrayUtil<NodeKey> NODE_KEY_ARRAY_UTIL =
-      new LightArrayUtil<>(NodeKey.class);
 
   /** Actual data stored in this entry when it is done. */
   private Node value = null;
@@ -84,32 +78,24 @@ class NodeEntry {
    */
   private long version = -1L;
   /**
-   * This object represents an {@link Iterable}<NodeKey> in a memory-efficient way. It stores the
-   * direct dependencies of this node.
+   * This object represents a {@link GroupedList}<NodeKey> in a memory-efficient way. It stores the
+   * direct dependencies of this node, in groups if the node builder requested them that way.
    */
   private Object directDeps = null;
-  /**
-   * Each bit represents whether the corresponding dep continues a dependency group (true), or ends
-   * a dependency group (false). In the latter case, this dep must be checked before any following
-   * deps can be checked, when determining if this dirty node needs to be rebuilt. We use a bitset
-   * to optimize memory. See {@link NodeBuilder.Environment#getDeps} for more on dependency groups.
-   */
-  private BitSet groupData = null;
 
   /**
-   * An 'immutable' version of BitSet that always returns bit not set. This allows us to share the
-   * same object so that we can save memory.
+   * This list stores the reverse dependencies of this node that have been declared so far.
+   *
+   * <p>In case of a single object we store the object unwrapped, without the list, for
+   * memory-efficiency.
    */
-  private static final BitSet ALL_ZEROS_BIT_SET = new BitSet() {
-    @Override
-    public boolean get(int bitIndex) {
-      return false;
-    }
-  };
-
-  /** This list stores the reverse dependencies of this node that have been declared so far. */
   @VisibleForTesting
-  protected List<NodeKey> reverseDeps = ImmutableList.of();
+  protected Object reverseDeps = ImmutableList.of();
+  /**
+   * We take advantage of memory alignment to avoid doing a nasty {@code instanceof} for knowing
+   * if {@code reverseDeps} is a single object or a list.
+   */
+  protected boolean reverseDepIsSingleObject = false;
   /**
    * During the invalidation we keep the reverse deps to be removed in this list instead of directly
    * removing them from {@code reverseDeps}. That is because removals from reverseDeps are O(N).
@@ -173,10 +159,15 @@ class NodeEntry {
   /**
    * Returns an immutable iterable of the direct deps of this node. This method may only be called
    * after the evaluation of this node is complete, i.e., after {@link #setValue} has been called.
+   *
+   * <p>This method is not very efficient, but is only be called in limited circumstances --
+   * when the node is about to be deleted, or when the node is expected to have no direct deps (in
+   * which case the overhead is not so bad). It should not be called repeatedly for the same node,
+   * since each call takes time proportional to the number of direct deps of the node.
    */
   synchronized Iterable<NodeKey> getDirectDeps() {
     Preconditions.checkState(isDone(), "no deps until done. NodeEntry: %s", this);
-    return NODE_KEY_ARRAY_UTIL.iterable(directDeps);
+    return GroupedList.<NodeKey>create(directDeps).toSet();
   }
 
   /**
@@ -194,7 +185,7 @@ class NodeEntry {
     ImmutableSet<NodeKey> reverseDepsToSignal = buildingState.getReverseDepsToSignal();
     consolidateReverseDepsRemovals();
     addReverseDeps(reverseDepsToSignal);
-    setDepsAndGroupData(buildingState.getDirectDepsAndGroupData());
+    this.directDeps = buildingState.getFinishedDirectDeps().compress();
 
     // Set state of entry to done.
     buildingState = null;
@@ -289,9 +280,16 @@ class NodeEntry {
    * is small, so that it does not impact performance.
    */
   private void maybeCheckReverseDepNotPresent(NodeKey reverseDep) {
-    if (reverseDeps.size() < 10){
-      Preconditions.checkState(!reverseDeps.contains(reverseDep), "Reverse dep %s already present"
-          + " in %s", reverseDep, reverseDeps);
+    if (reverseDepIsSingleObject) {
+      Preconditions.checkState(reverseDep.equals(reverseDep), "Reverse dep %s already present",
+          reverseDep);
+      return;
+    }
+    @SuppressWarnings("unchecked")
+    List<NodeKey> asList = (List<NodeKey>) reverseDeps;
+    if (asList.size() < 10) {
+      Preconditions.checkState(!asList.contains(reverseDep), "Reverse dep %s already present"
+          + " in %s", reverseDep, asList);
     }
   }
 
@@ -319,21 +317,35 @@ class NodeEntry {
    */
   // TODO(bazel-team): One potential new candidate for saving memory would be to keep a direct
   // reference for size = 1, instead of wrapping it in a list. But for now I want to keep it simple
+  @SuppressWarnings("unchecked")
   private void addReverseDeps(Collection<NodeKey> newReverseDeps) {
     if (newReverseDeps.isEmpty()) {
       return;
     }
-    int newSize = reverseDeps.size() + newReverseDeps.size();
+    int reverseDepsSize = reverseDepIsSingleObject ? 1 : ((List<NodeKey>) reverseDeps).size();
+    int newSize = reverseDepsSize + newReverseDeps.size();
     if (newSize == 1) {
-      reverseDeps = ImmutableList.of(Iterables.getOnlyElement(newReverseDeps));
-      return;
+      overwriteReverseDepsWithObject(Iterables.getOnlyElement(newReverseDeps));
+    } else if (reverseDepsSize == 0) {
+      overwriteReverseDepsList(Lists.newArrayList(newReverseDeps));
+    } else if (reverseDepsSize == 1) {
+      List<NodeKey> newList = Lists.newArrayListWithExpectedSize(newSize);
+      newList.add((NodeKey) reverseDeps);
+      newList.addAll(newReverseDeps);
+      overwriteReverseDepsList(newList);
+    } else {
+      ((List<NodeKey>) reverseDeps).addAll(newReverseDeps);
     }
-    if (reverseDeps.size() < 2) {
-      List<NodeKey> old = reverseDeps;
-      reverseDeps = Lists.newArrayListWithExpectedSize(newSize);
-      reverseDeps.addAll(old);
-    }
-    reverseDeps.addAll(newReverseDeps);
+  }
+
+  private void overwriteReverseDepsWithObject(NodeKey newObject) {
+    reverseDeps = newObject;
+    reverseDepIsSingleObject = true;
+  }
+
+  private void overwriteReverseDepsList(List<NodeKey> list) {
+    reverseDeps = list;
+    reverseDepIsSingleObject = false;
   }
 
   private void consolidateReverseDepsRemovals() {
@@ -342,20 +354,20 @@ class NodeEntry {
     }
     // Should not happen, as we only create reverseDepsToRemove in case we have at least one
     // reverse dep to remove.
-    Preconditions.checkState(!reverseDeps.isEmpty(),
+    Preconditions.checkState(reverseDepIsSingleObject || (!((List<?>) reverseDeps).isEmpty()),
           "Could not remove %s elements from %s.\nReverse deps to remove: %s",
           reverseDepsToRemove.size(),
           reverseDeps, reverseDepsToRemove);
 
     // It might be the immutable single list if we failed to remove the reverse dep.
-    if (reverseDeps.size() == 1) {
+    if (reverseDepIsSingleObject) {
       Preconditions.checkState(reverseDepsToRemove.size() == 1
-              && reverseDepsToRemove.containsAll(reverseDeps),
+              && reverseDepsToRemove.contains(reverseDeps),
           "Could not remove %s elements from %s.\nReverse deps to remove: %s",
           reverseDepsToRemove.size(),
           reverseDeps, reverseDepsToRemove
       );
-      reverseDeps = ImmutableList.of();
+      overwriteReverseDepsList(ImmutableList.<NodeKey>of());
       return;
     }
 
@@ -363,24 +375,27 @@ class NodeEntry {
     int expectedRemovals = toRemove.size();
     Preconditions.checkState(expectedRemovals == reverseDepsToRemove.size(),
         "A reverse dependency tried to remove itself twice: %s", reverseDepsToRemove);
-    List<NodeKey> newReverseDeps = Lists
-        .newArrayListWithExpectedSize(reverseDeps.size() - expectedRemovals);
 
-    for (NodeKey reverseDep : reverseDeps) {
+    @SuppressWarnings("unchecked")
+    List<NodeKey> reverseDepsAsList = (List<NodeKey>) reverseDeps;
+    List<NodeKey> newReverseDeps = Lists
+        .newArrayListWithExpectedSize(reverseDepsAsList.size() - expectedRemovals);
+
+    for (NodeKey reverseDep : reverseDepsAsList) {
       if (!toRemove.contains(reverseDep)) {
         newReverseDeps.add(reverseDep);
       }
     }
-    Preconditions.checkState(newReverseDeps.size() == reverseDeps.size() - expectedRemovals,
+    Preconditions.checkState(newReverseDeps.size() == reverseDepsAsList.size() - expectedRemovals,
         "Could not remove some elements from %s.\nReverse deps to remove: %s", reverseDeps,
         toRemove);
 
     if (newReverseDeps.isEmpty()) {
-      reverseDeps = ImmutableList.of();
+      overwriteReverseDepsList(ImmutableList.<NodeKey>of());
     } else if (newReverseDeps.size() == 1) {
-      reverseDeps = ImmutableList.of(newReverseDeps.get(0));
+      overwriteReverseDepsWithObject(newReverseDeps.get(0));
     } else {
-      reverseDeps = newReverseDeps;
+      overwriteReverseDepsList(newReverseDeps);
     }
     reverseDepsToRemove = null;
   }
@@ -389,15 +404,17 @@ class NodeEntry {
    * See {@code addReverseDeps} method.
    */
   private void removeReverseDepInternal(NodeKey reverseDep) {
-    if (reverseDeps.isEmpty()) {
-      return;
-    }
-    if (reverseDeps.size() < 2){
+    if (reverseDepIsSingleObject) {
       // This removal is cheap so let's do it and not keep it in reverseDepsToRemove.
       // contains should only return false in case of catastrophe.
-      if (reverseDeps.contains(reverseDep)){
-        reverseDeps = ImmutableList.of();
+      if (reverseDeps.equals(reverseDep)) {
+        overwriteReverseDepsList(ImmutableList.<NodeKey>of());
       }
+      return;
+    }
+    @SuppressWarnings("unchecked")
+    List<NodeKey> reverseDepsAsList = (List<NodeKey>) reverseDeps;
+    if (reverseDepsAsList.isEmpty()) {
       return;
     }
     if (reverseDepsToRemove == null) {
@@ -415,15 +432,18 @@ class NodeEntry {
         "Reverse deps should only be queried before the build has begun " +
         "or after the node is done %s", this);
     consolidateReverseDepsRemovals();
+
     // TODO(bazel-team): Unfortunately, we need to make a copy here right now to be on the safe side
     // wrt. thread-safety. The parents of a node get modified when any of the parents is deleted,
     // and we can't handle that right now.
-    ImmutableSet<NodeKey> set = ImmutableSet.copyOf(reverseDeps);
-
-    Preconditions.checkState(set.size() == reverseDeps.size(),
-        "Duplicate reverse deps present in %s: %s", this, reverseDeps);
-
-    return set;
+    if (reverseDepIsSingleObject) {
+      return ImmutableSet.of((NodeKey) reverseDeps);
+    } else {
+      ImmutableSet<NodeKey> set = ImmutableSet.copyOf((Iterable<NodeKey>) reverseDeps);
+      Preconditions.checkState(set.size() == ((List<?>) reverseDeps).size(),
+          "Duplicate reverse deps present in %s: %s", this, reverseDeps);
+      return set;
+    }
   }
 
   /**
@@ -469,41 +489,6 @@ class NodeEntry {
   }
 
   /**
-   * Transforms the memory-efficient storage of deps with their group data into a more
-   * easily-handled map for the building process.
-   */
-  private static Map<NodeKey, ContinueGroup> makeMapFromBitSet(Object directDeps,
-      BitSet groupData) {
-    // Order is critical!
-    Map<NodeKey, ContinueGroup> depsWithGroups = new LinkedHashMap<>();
-    int index = 0;
-    for (NodeKey dep : NODE_KEY_ARRAY_UTIL.iterable(directDeps)) {
-      depsWithGroups.put(dep, groupData.get(index) ? ContinueGroup.TRUE : ContinueGroup.FALSE);
-      index++;
-    }
-    return depsWithGroups;
-  }
-
-  // We use a LinkedHashMap because it is critical that depsAndGroupData be ordered by insert-order.
-  private void setDepsAndGroupData(LinkedHashMap<NodeKey, ContinueGroup> depsAndGroupData) {
-    this.directDeps = NODE_KEY_ARRAY_UTIL.create(depsAndGroupData.keySet());
-    BitSet groupData = new BitSet(depsAndGroupData.size());
-    int i = 0;
-    boolean anyContinueGroup = false;
-    for (ContinueGroup continueGroup : depsAndGroupData.values()) {
-      groupData.set(i, continueGroup.continuesGroup());
-      anyContinueGroup |= continueGroup.continuesGroup();
-      i++;
-    }
-    if (anyContinueGroup) {
-      this.groupData = groupData;
-    } else {
-      // Use a shared object as this is the most common case and it saves memory.
-      this.groupData = ALL_ZEROS_BIT_SET;
-    }
-  }
-
-  /**
    * Marks this node dirty, or changed if {@code isChanged} is true. The node is put in the
    * just-created state. It will be re-evaluated if necessary during the evaluation phase,
    * but if it has not changed, it will not force a re-evaluation of its parents.
@@ -513,12 +498,12 @@ class NodeEntry {
    * thread is already dealing with it.
    */
   @Nullable
-  synchronized Pair<Iterable<NodeKey>, ? extends Node> markDirty(boolean isChanged) {
+  synchronized Pair<? extends Iterable<NodeKey>, ? extends Node> markDirty(boolean isChanged) {
     if (isDone()) {
-      Map<NodeKey, ContinueGroup> depsWithGroups = makeMapFromBitSet(directDeps, groupData);
-      buildingState = BuildingState.newDirtyState(isChanged, depsWithGroups, value);
-      Pair<Iterable<NodeKey>, ? extends Node> result =
-          Pair.of((Iterable<NodeKey>) depsWithGroups.keySet(), value);
+      GroupedList<NodeKey> lastDirectDeps = GroupedList.create(directDeps);
+      buildingState = BuildingState.newDirtyState(isChanged, lastDirectDeps, value);
+      Pair<? extends Iterable<NodeKey>, ? extends Node> result =
+          Pair.of(lastDirectDeps.toSet(), value);
       value = null;
       directDeps = null;
       return result;
@@ -599,15 +584,11 @@ class NodeEntry {
    */
   synchronized Set<NodeKey> getTemporaryDirectDeps() {
     Preconditions.checkState(!isDone(), "temporary shouldn't be done: %s", this);
-    return ImmutableSet.copyOf(buildingState.getDirectDepsAndGroupData().keySet());
+    return buildingState.getDirectDepsForBuild();
   }
 
-  /**
-   * Returns the set of direct dependencies from the previous time this node was built.
-   */
-  synchronized Collection<NodeKey> getLastBuildDirectDeps() {
-    Preconditions.checkState(!isDone(), "temporary shouldn't be done: %s", this);
-    return buildingState.getLastBuildDirectDeps();
+  synchronized boolean noDepsLastBuild() {
+    return buildingState.noDepsLastBuild();
   }
 
   /**
@@ -619,6 +600,11 @@ class NodeEntry {
    */
   synchronized void removeUnfinishedDeps(Set<NodeKey> unfinishedDeps) {
     buildingState.removeDirectDeps(unfinishedDeps);
+  }
+
+  synchronized void addTemporaryDirectDeps(GroupedListHelper<NodeKey> helper) {
+    Preconditions.checkState(!isDone(), "add temp shouldn't be done: %s %s", helper, this);
+    buildingState.addDirectDeps(helper);
   }
 
   /**
@@ -636,10 +622,6 @@ class NodeEntry {
    * this one depends on the value of this node. Used for change pruning: if continueGroup is false,
    * this dep will be checked to see if it has changed before any later deps are checked.
    */
-  synchronized void addTemporaryDirectDep(NodeKey dep, ContinueGroup continueGroup) {
-    Preconditions.checkState(!isDone(), "add temp shouldn't be done: %s %s", dep, this);
-    Preconditions.checkState(buildingState.addDirectDep(dep, continueGroup), "%s %s", dep, this);
-  }
 
   /**
    * Returns true if the node is ready to be evaluated, i.e., it has been signaled exactly as many
@@ -657,12 +639,8 @@ class NodeEntry {
     return Objects.toStringHelper(this)  // MoreObjects is not in Guava
         .add("value", value)
         .add("version", version)
-        .add("directDeps", directDeps == null
-            ? null
-            : Iterables.toString(NODE_KEY_ARRAY_UTIL.iterable(directDeps)))
-        .add("reverseDeps", reverseDeps == null
-              ? null
-              : Iterables.toString(reverseDeps))
+        .add("directDeps", directDeps == null ? null : GroupedList.create(directDeps))
+        .add("reverseDeps", reverseDeps)
         .add("buildingState", buildingState).toString();
   }
 }

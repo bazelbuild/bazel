@@ -13,6 +13,7 @@
 // limitations under the License.
 package com.google.devtools.build.lib.skyframe;
 
+import com.google.common.annotations.VisibleForTesting;
 import com.google.common.base.Preconditions;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.Iterables;
@@ -31,7 +32,8 @@ import javax.annotation.Nullable;
  */
 @Immutable
 @ThreadSafe
-final class ConfiguredTargetNode extends ActionLookupNode {
+@VisibleForTesting
+public final class ConfiguredTargetNode extends ActionLookupNode {
 
   // These variables are only non-final because they may be clear()ed to save memory. They are null
   // only after they are cleared.
@@ -46,7 +48,8 @@ final class ConfiguredTargetNode extends ActionLookupNode {
     this.actions = actions;
   }
 
-  ConfiguredTarget getConfiguredTarget() {
+  @VisibleForTesting
+  public ConfiguredTarget getConfiguredTarget() {
     Preconditions.checkNotNull(actions, configuredTarget);
     return configuredTarget;
   }
@@ -66,7 +69,8 @@ final class ConfiguredTargetNode extends ActionLookupNode {
     actions = null;
   }
 
-  static NodeKey key(Label label, BuildConfiguration configuration) {
+  @VisibleForTesting
+  public static NodeKey key(Label label, BuildConfiguration configuration) {
     return key(new LabelAndConfiguration(label, configuration));
   }
 

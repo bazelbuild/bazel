@@ -54,7 +54,6 @@ import com.google.devtools.build.lib.vfs.FileSystemUtils;
 import com.google.devtools.build.lib.vfs.PathFragment;
 import com.google.devtools.build.lib.view.ConfiguredRuleClassProvider.PrerequisiteValidator;
 import com.google.devtools.build.lib.view.PrerequisiteMap.Prerequisite;
-import com.google.devtools.build.lib.view.RuleConfiguredTarget.ConfiguredFilesetEntry;
 import com.google.devtools.build.lib.view.RuleConfiguredTarget.Mode;
 import com.google.devtools.build.lib.view.actions.ActionConstructionContext;
 import com.google.devtools.build.lib.view.config.BuildConfiguration;
@@ -70,6 +69,7 @@ import java.util.Map;
 import java.util.Set;
 
 import javax.annotation.Nullable;
+import javax.annotation.concurrent.Immutable;
 
 /**
  * A helper class for rule implementations building and initialization. Objects of this
@@ -78,6 +78,45 @@ import javax.annotation.Nullable;
  */
 public final class RuleContext extends TargetContext
     implements ActionConstructionContext, ActionRegistry, RuleErrorConsumer {
+
+  /**
+   * The configured version of FilesetEntry.
+   */
+  @Immutable
+  public static final class ConfiguredFilesetEntry {
+    private final FilesetEntry entry;
+    private final TransitiveInfoCollection src;
+    private final ImmutableList<TransitiveInfoCollection> files;
+
+    ConfiguredFilesetEntry(FilesetEntry entry, TransitiveInfoCollection src) {
+      this.entry = entry;
+      this.src = src;
+      this.files = null;
+    }
+
+    ConfiguredFilesetEntry(FilesetEntry entry, ImmutableList<TransitiveInfoCollection> files) {
+      this.entry = entry;
+      this.src = null;
+      this.files = files;
+    }
+
+    public FilesetEntry getEntry() {
+      return entry;
+    }
+
+    public TransitiveInfoCollection getSrc() {
+      return src;
+    }
+
+    /**
+     * Targets from FilesetEntry.files, or null if the user omitted it.
+     */
+    @Nullable
+    public List<TransitiveInfoCollection> getFiles() {
+      return files;
+    }
+  }
+
   private final Rule rule;
   private final ListMultimap<String, TransitiveInfoCollection> targetMap;
   private final ListMultimap<String, ConfiguredFilesetEntry> filesetEntryMap;

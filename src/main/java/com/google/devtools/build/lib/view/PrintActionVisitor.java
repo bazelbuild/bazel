@@ -27,7 +27,7 @@ import java.util.List;
  * A bipartite graph visitor which accumulates actions with matching mnemonics for a target.
  */
 public final class PrintActionVisitor extends ActionGraphVisitor {
-  private final RuleConfiguredTarget target;
+  private final ConfiguredTarget target;
   private final List<Action> actions;
   private final Predicate<Action> actionMnemonicMatcher;
   private final String targetConfigurationKey;
@@ -36,13 +36,13 @@ public final class PrintActionVisitor extends ActionGraphVisitor {
    * Creates a new visitor for the actions associated with the given target that have a matching
    * mnemonic.
    */
-  public PrintActionVisitor(ActionGraph actionGraph, RuleConfiguredTarget target,
+  public PrintActionVisitor(ActionGraph actionGraph, ConfiguredTarget target,
       Predicate<Action> actionMnemonicMatcher) {
     super(actionGraph);
     this.target = target;
     this.actionMnemonicMatcher = actionMnemonicMatcher;
     actions = Lists.newArrayList();
-    targetConfigurationKey = target.getConfigurationShortCacheKey();
+    targetConfigurationKey = target.getConfiguration().shortCacheKey();
   }
 
   @Override

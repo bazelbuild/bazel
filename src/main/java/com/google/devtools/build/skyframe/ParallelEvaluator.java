@@ -17,6 +17,7 @@ import com.google.common.annotations.VisibleForTesting;
 import com.google.common.base.Function;
 import com.google.common.base.Preconditions;
 import com.google.common.base.Predicate;
+import com.google.common.base.Predicates;
 import com.google.common.base.Throwables;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
@@ -28,6 +29,7 @@ import com.google.common.collect.Maps;
 import com.google.common.collect.Sets;
 import com.google.devtools.build.lib.collect.nestedset.NestedSet;
 import com.google.devtools.build.lib.collect.nestedset.NestedSetBuilder;
+import com.google.devtools.build.lib.collect.nestedset.NestedSetVisitor;
 import com.google.devtools.build.lib.concurrent.AbstractQueueVisitor;
 import com.google.devtools.build.lib.concurrent.ThreadSafety.ThreadCompatible;
 import com.google.devtools.build.lib.events.DelegatingOnlyErrorsEventListener;
@@ -37,9 +39,9 @@ import com.google.devtools.build.lib.events.Location;
 import com.google.devtools.build.lib.events.StoredErrorEventListener;
 import com.google.devtools.build.lib.profiler.Profiler;
 import com.google.devtools.build.lib.profiler.ProfilerTask;
+import com.google.devtools.build.lib.util.GroupedList.GroupedListHelper;
 import com.google.devtools.build.skyframe.AutoUpdatingGraph.NodeProgressReceiver;
 import com.google.devtools.build.skyframe.AutoUpdatingGraph.NodeProgressReceiver.EvaluationState;
-import com.google.devtools.build.skyframe.BuildingState.ContinueGroup;
 import com.google.devtools.build.skyframe.BuildingState.DirtyState;
 import com.google.devtools.build.skyframe.NodeEntry.DependencyState;
 import com.google.devtools.build.skyframe.Scheduler.SchedulerException;
@@ -51,7 +53,6 @@ import java.util.Deque;
 import java.util.HashMap;
 import java.util.HashSet;
 import java.util.Iterator;
-import java.util.LinkedHashMap;
 import java.util.LinkedHashSet;
 import java.util.List;
 import java.util.Map;
@@ -178,19 +179,12 @@ final class ParallelEvaluator implements Evaluator {
     private final Set<NodeKey> directDeps;
 
     /**
-     * The set of nodes requested during this build as dependencies. The values are whether this dep
-     * continues a dependency group (TRUE) or ends a dependency group (FALSE). On a subsequent
-     * build, if this node is dirty, all deps in the same dependency group can be checked in
-     * parallel for changes. In other words, if value is true for depN, depN+1 will be
-     * checked in parallel with depN. See {@link #getDeps} for more.
+     * The grouped list of nodes requested during this build as dependencies. On a subsequent build,
+     * if this node is dirty, all deps in the same dependency group can be checked in parallel for
+     * changes. In other words, if dep1 and dep2 are in the same group, then dep1 will be checked in
+     * parallel with dep2. See {@link #getDeps} for more.
      */
-    private final Map<NodeKey, ContinueGroup> newlyRequestedDeps = new LinkedHashMap<>();
-
-    /**
-     * Whether we are currently in a dependency group or not. Only TRUE inside {@link #getDeps} and
-     * {@link #getDepsOrThrow} calls.
-     */
-    private ContinueGroup inDepGroup = ContinueGroup.FALSE;
+    private final GroupedListHelper<NodeKey> newlyRequestedDeps = new GroupedListHelper<>();
 
     /**
      * The node visitor managing the thread pool. Used to enqueue parents when this node is
@@ -300,7 +294,8 @@ final class ParallelEvaluator implements Evaluator {
             "%s %s %s", nodeKey, triState, errorInfo);
 
         final NodeEntry state = graph.get(nodeKey);
-        state.addTemporaryDirectDep(ErrorTransienceNode.key(), ContinueGroup.FALSE);
+        state.addTemporaryDirectDeps(
+            GroupedListHelper.create(ImmutableList.of(ErrorTransienceNode.key())));
         state.signalDep();
       }
 
@@ -394,28 +389,14 @@ final class ParallelEvaluator implements Evaluator {
     public <E extends Throwable> Map<NodeKey, NodeOrException<E>> getDepsOrThrow(
         Iterable<NodeKey> depKeys, Class<E> exceptionClass) {
       Map<NodeKey, NodeOrException<E>> result = new HashMap<>();
-      inDepGroup = ContinueGroup.TRUE;
-      NodeKey lastDep = null;
+      newlyRequestedDeps.startGroup();
       for (NodeKey key : depKeys) {
         if (result.containsKey(key)) {
           continue;
         }
-        // We must perform this check to see if we are adding this key *before* we do the getDep
-        // call, because if the key is already in newlyRequestedDeps (meaning it was already
-        // requested during the current evaluation), we don't want to make it the lastDep.
-        if (!newlyRequestedDeps.containsKey(key) && !directDeps.contains(key)) {
-          lastDep = key;
-        }
         result.put(key, getNodeOrException(key, exceptionClass));
       }
-      if (lastDep != null && bubbleErrorInfo == null) {
-        // End this dependency group, but only if we aren't in the process of error bubbling (we
-        // don't record deps requested by nodes being built just for their errors).
-        Preconditions.checkState(
-            newlyRequestedDeps.put(lastDep, ContinueGroup.FALSE).continuesGroup(),
-            "%s %s", lastDep, nodeKey);
-      }
-      inDepGroup = ContinueGroup.FALSE;
+      newlyRequestedDeps.endGroup();
       return ImmutableMap.copyOf(result);
     }
 
@@ -426,10 +407,9 @@ final class ParallelEvaluator implements Evaluator {
     }
 
     private void addDep(NodeKey key) {
-      if (!newlyRequestedDeps.containsKey(key)) {
+      if (!newlyRequestedDeps.contains(key)) {
         // dep may have been requested already this evaluation. If not, add it.
-        Preconditions.checkState(newlyRequestedDeps.put(key, inDepGroup) == null,
-            "%s %s", nodeKey, key);
+        newlyRequestedDeps.add(key);
       }
     }
 
@@ -621,6 +601,9 @@ final class ParallelEvaluator implements Evaluator {
 
     private void enqueueChild(NodeKey nodeKey, NodeEntry entry, NodeKey child) {
       Preconditions.checkState(!entry.isDone(), "%s %s", nodeKey, entry);
+      Preconditions.checkState(!ErrorTransienceNode.key().equals(child),
+          "%s cannot request ErrorTransienceNode as a dep: %s", nodeKey, entry);
+
       NodeEntry depEntry = graph.createIfAbsent(child);
       switch (depEntry.addReverseDepAndCheckIfDone(nodeKey)) {
         case DONE :
@@ -678,6 +661,11 @@ final class ParallelEvaluator implements Evaluator {
         }
       }
 
+      // TODO(bazel-team): Once deps are requested in a deterministic order within a group, or the
+      // framework is resilient to rearranging group order, change this so that
+      // NodeBuilderEnvironment "follows along" as the node builder runs, iterating through the
+      // direct deps that were requested on a previous run. This would allow us to avoid the
+      // conversion of the direct deps into a set.
       Set<NodeKey> directDeps = state.getTemporaryDirectDeps();
       Preconditions.checkState(!directDeps.contains(ErrorTransienceNode.key()),
           "%s cannot have a dep on ErrorTransienceNode during building: %s", nodeKey, state);
@@ -716,7 +704,7 @@ final class ParallelEvaluator implements Evaluator {
         Profiler.instance().completeTask(ProfilerTask.SKYFRAME_NODE_BUILDER);
       }
 
-      Map<NodeKey, ContinueGroup> newDirectDeps = env.newlyRequestedDeps;
+      GroupedListHelper<NodeKey> newDirectDeps = env.newlyRequestedDeps;
 
       if (node != null) {
         Preconditions.checkState(!env.depsMissing,
@@ -727,8 +715,6 @@ final class ParallelEvaluator implements Evaluator {
         return;
       }
 
-      Preconditions.checkState(!env.inDepGroup.continuesGroup(),
-          "A node builder that exited due to missing deps must have finished its group:", nodeKey);
       // TODO(bazel-team): This code is not safe to interrupt, because we would lose the state in
       // newDirectDeps.
 
@@ -736,9 +722,7 @@ final class ParallelEvaluator implements Evaluator {
       // add more dependencies on every run. [skyframe-core]
 
       // Add all new keys to the set of known deps.
-      for (Map.Entry<NodeKey, ContinueGroup> entry : newDirectDeps.entrySet()) {
-        state.addTemporaryDirectDep(entry.getKey(), entry.getValue());
-      }
+      state.addTemporaryDirectDeps(newDirectDeps);
 
       // If there were no newly requested dependencies, at least one of them was in error or there
       // is a bug in the NodeBuilder implementation. The environment has collected its errors, so we
@@ -752,7 +736,7 @@ final class ParallelEvaluator implements Evaluator {
         }
         return;
       }
-      for (NodeKey newDirectDep : newDirectDeps.keySet()) {
+      for (NodeKey newDirectDep : newDirectDeps) {
         enqueueChild(nodeKey, state, newDirectDep);
       }
       // It is critical that there is no code below this point.
@@ -819,26 +803,6 @@ final class ParallelEvaluator implements Evaluator {
   }
 
   /**
-   * If a new dep {@link #isDoneForBuild}, then register it as a dependency and return true.
-   * Otherwise, return false.
-   */
-  private boolean registerDepIfDone(NodeKey nodeKey, NodeEntry entry, NodeKey newDep,
-      ContinueGroup continueGroup) {
-    NodeEntry depEntry = graph.get(newDep);
-    if (!isDoneForBuild(depEntry)) {
-      return false;
-    }
-    entry.addTemporaryDirectDep(newDep, continueGroup);
-    DependencyState triState = depEntry.addReverseDepAndCheckIfDone(nodeKey);
-    Preconditions.checkState(DependencyState.DONE == triState,
-        "new dep %s was not already done for %s. NodeEntry: %s. DepNodeEntry: %s",
-        newDep, nodeKey, entry, depEntry);
-    Preconditions.checkState(entry.signalDep(), "%s %s %s %s", nodeKey, newDep, entry, depEntry);
-    return true;
-  }
-
-
-  /**
    * Add any additional deps that were registered during the run of a builder that finished by
    * creating a node or throwing an error. Builders may throw errors even if all their deps were not
    * provided -- we trust that a NodeBuilder may be know it should throw an error even if not all of
@@ -848,11 +812,20 @@ final class ParallelEvaluator implements Evaluator {
    */
   private void registerNewlyDiscoveredDepsForDoneEntry(NodeKey nodeKey, NodeEntry entry,
       NodeBuilderEnvironment env) {
-    for (Map.Entry<NodeKey, ContinueGroup> newDep : env.newlyRequestedDeps.entrySet()) {
-      Preconditions.checkState(registerDepIfDone(nodeKey, entry, newDep.getKey(), newDep.getValue())
-          || env.depsMissing(),
-              "%s not done for %s (keepGoing=%s), but no deps missing", newDep, nodeKey, keepGoing);
+    Set<NodeKey> unfinishedDeps = new HashSet<>();
+    Iterables.addAll(unfinishedDeps,
+        Iterables.filter(env.newlyRequestedDeps, Predicates.not(nodeEntryIsDone)));
+    env.newlyRequestedDeps.remove(unfinishedDeps);
+    entry.addTemporaryDirectDeps(env.newlyRequestedDeps);
+    for (NodeKey newDep : env.newlyRequestedDeps) {
+      NodeEntry depEntry = graph.get(newDep);
+      DependencyState triState = depEntry.addReverseDepAndCheckIfDone(nodeKey);
+      Preconditions.checkState(DependencyState.DONE == triState,
+          "new dep %s was not already done for %s. NodeEntry: %s. DepNodeEntry: %s",
+          newDep, nodeKey, entry, depEntry);
+      entry.signalDep();
     }
+    Preconditions.checkState(entry.isReady(), "%s %s %s", nodeKey, entry, env.newlyRequestedDeps);
   }
 
   @Override

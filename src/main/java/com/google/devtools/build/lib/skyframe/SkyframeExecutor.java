@@ -177,6 +177,15 @@ public final class SkyframeExecutor {
   /** Union of labels of loaded packages since the last eviction of CT nodes. */
   private Set<PathFragment> allLoadedPackages = ImmutableSet.of();
 
+  /**
+   * Upper limit for how many graph versions should dirty nodes be retained for.
+   *
+   * <p>Specifying a value N means, if the current graph version is V and a node was dirtied (and
+   * has remained so) in version U, and U + N &lt;= V, then the node will be marked for deletion
+   * and purged in version V+1.
+   */
+  private long versionWindowForDirtyNodeGc = Long.MAX_VALUE;
+
   // Use skyframe for execution? Alternative is to use legacy execution codepath.
   // TODO(bazel-team): Remove when legacy codepath is no longer used. [skyframe-execution]
   private final boolean skyframeBuild;
@@ -254,7 +263,10 @@ public final class SkyframeExecutor {
       Predicate<PathFragment> allowedMissingInputs) {
     Map<NodeType, NodeBuilder> map = new HashMap<>();
     map.put(NodeTypes.BUILD_VARIABLE, new BuildVariableNodeBuilder());
-    map.put(NodeTypes.FILE, new FileNodeBuilder(tsgm, pkgLocator));
+    map.put(NodeTypes.FILE_STATE, new FileStateNodeBuilder(tsgm, pkgLocator));
+    map.put(NodeTypes.FILE_SYMLINK_CYCLE_UNIQUENESS_NODE,
+        new FileSymlinkCycleUniquenessNodeBuilder());
+    map.put(NodeTypes.FILE, new FileNodeBuilder(pkgLocator));
     map.put(NodeTypes.DIRECTORY_LISTING, new DirectoryListingNodeBuilder(pkgLocator));
     map.put(NodeTypes.PACKAGE_LOOKUP, new PackageLookupNodeBuilder(pkgLocator, deletedPackages));
     map.put(NodeTypes.CONTAINING_PACKAGE_LOOKUP, new ContainingPackageLookupNodeBuilder());
@@ -266,7 +278,8 @@ public final class SkyframeExecutor {
         eventBus, numPackagesLoaded));
     map.put(NodeTypes.TARGET_MARKER, new TargetMarkerNodeBuilder());
     map.put(NodeTypes.TRANSITIVE_TARGET, new TransitiveTargetNodeBuilder());
-    map.put(NodeTypes.CONFIGURED_TARGET, new ConfiguredTargetNodeBuilder(new BuildViewProvider()));
+    map.put(NodeTypes.CONFIGURED_TARGET,
+        new ConfiguredTargetNodeBuilder(new BuildViewProvider(), skyframeBuild));
     map.put(NodeTypes.CONFIGURATION_COLLECTION, new ConfigurationCollectionNodeBuilder(
         configurationFactory, buildConfigurationKey, reporter));
     if (skyframeBuild) {
@@ -276,7 +289,8 @@ public final class SkyframeExecutor {
       map.put(NodeTypes.BUILD_INFO_COLLECTION, new BuildInfoCollectionNodeBuilder(artifactFactory,
           buildDataDirectory));
       map.put(NodeTypes.BUILD_INFO, new WorkspaceStatusNodeBuilder());
-      map.put(NodeTypes.ACTION_EXECUTION, new ActionExecutionNodeBuilder(skyframeActionExecutor));
+      map.put(NodeTypes.ACTION_EXECUTION,
+          new ActionExecutionNodeBuilder(skyframeActionExecutor, tsgm));
     }
     return ImmutableMap.copyOf(map);
   }
@@ -564,14 +578,14 @@ public final class SkyframeExecutor {
     ImmutableSetMultimap.Builder<Path, NodeKey> multimapBuilder =
         ImmutableSetMultimap.builder();
     for (NodeKey key : filesystemNodeKeys) {
-      Preconditions.checkState(key.getNodeType() == NodeTypes.FILE ||
-          key.getNodeType() == NodeTypes.DIRECTORY_LISTING, key);
+      Preconditions.checkState(key.getNodeType() == NodeTypes.FILE_STATE
+          || key.getNodeType() == NodeTypes.DIRECTORY_LISTING, key);
       Path root = ((RootedPath) key.getNodeName()).getRoot();
       if (pkgRoots.contains(root)) {
         multimapBuilder.put(root, key);
       }
-      // We don't need to worry about FileNodes for external files because they have a dependency
-      // on the build_id and so they get invalidated each build.
+      // We don't need to worry about FileStateNodes for external files because they have a
+      // dependency on the build_id and so they get invalidated each build.
     }
     return multimapBuilder.build();
   }
@@ -579,11 +593,11 @@ public final class SkyframeExecutor {
   private Iterable<NodeKey> getNodeKeysPotentiallyAffected(
       Iterable<PathFragment> modifiedSourceFiles, final Path pathEntry) {
     // TODO(bazel-team): change ModifiedFileSet to work with RootedPaths instead of PathFragments.
-    Iterable<NodeKey> fileNodeKeys = Iterables.transform(modifiedSourceFiles,
+    Iterable<NodeKey> fileStateNodeKeys = Iterables.transform(modifiedSourceFiles,
         new Function<PathFragment, NodeKey>() {
           @Override
           public NodeKey apply(PathFragment pathFragment) {
-            return FileNode.key(RootedPath.toRootedPath(pathEntry, pathFragment));
+            return FileStateNode.key(RootedPath.toRootedPath(pathEntry, pathFragment));
           }
         });
     // TODO(bazel-team): Strictly speaking, we only need to invalidate directory nodes when a file
@@ -601,13 +615,14 @@ public final class SkyframeExecutor {
                 pathFragment.getParentDirectory()));
           }
         });
-    return Iterables.concat(fileNodeKeys, dirNodeKeys);
+    return Iterables.concat(fileStateNodeKeys, dirNodeKeys);
   }
 
   private static int getNumberOfModifiedFiles(Iterable<NodeKey> modifiedNodes) {
     // We are searching only for changed files, DirectoryListingNodes don't depend on
     // child nodes, that's why they are invalidated separately
-    return Iterables.size(Iterables.filter(modifiedNodes, NodeType.nodeTypeIs(NodeTypes.FILE)));
+    return Iterables.size(Iterables.filter(modifiedNodes,
+        NodeType.nodeTypeIs(NodeTypes.FILE_STATE)));
   }
 
   /**
@@ -788,8 +803,8 @@ public final class SkyframeExecutor {
    * invalidated if the package locator changes.
    */
   private static final Set<NodeType> PACKAGE_LOCATOR_DEPENDENT_NODES =
-      ImmutableSet.of(NodeTypes.FILE, NodeTypes.DIRECTORY_LISTING, NodeTypes.PACKAGE_LOOKUP,
-          NodeTypes.TARGET_PATTERN);
+      ImmutableSet.of(NodeTypes.FILE_STATE, NodeTypes.FILE, NodeTypes.DIRECTORY_LISTING,
+          NodeTypes.PACKAGE_LOOKUP, NodeTypes.TARGET_PATTERN);
 
   @SuppressWarnings("unchecked")
   private void setPackageLocator(PathPackageLocator pkgLocator) {
@@ -811,7 +826,6 @@ public final class SkyframeExecutor {
    */
   public void setSkyframeBuildView(SkyframeBuildView skyframeBuildView) {
     this.skyframeBuildView = skyframeBuildView;
-    this.skyframeActionExecutor.setActionGraph(skyframeBuildView.getActionGraph());
     this.artifactFactory.val = skyframeBuildView.getArtifactFactory();
     if (skyframeBuildView.getWarningListener() != null) {
       setErrorEventListener(skyframeBuildView.getWarningListener());
@@ -889,12 +903,13 @@ public final class SkyframeExecutor {
    * {@link SkyframeActionExecutor#findAndStoreArtifactConflicts} to do the work, since any
    * conflicts found will only be reported during execution.
    */
-  public void findArtifactConflicts() throws InterruptedException {
+  ImmutableMap<Action, Exception> findArtifactConflicts() throws InterruptedException {
     Preconditions.checkState(skyframeBuild);
     if (skyframeBuildView.isSomeConfiguredTargetEvaluated()) {
       skyframeActionExecutor.findAndStoreArtifactConflicts(getActionLookupNodes());
       skyframeBuildView.resetEvaluatedConfiguredTargetFlag();
     }
+    return skyframeActionExecutor.badActions();
   }
 
   /**
@@ -1011,6 +1026,8 @@ public final class SkyframeExecutor {
     }
     syscalls.set(new PerBuildSyscallCache());
     autoUpdatingGraph.invalidate(keys);
+    // Blaze invalidates (transient) errors on every build.
+    invalidateErrors();
   }
 
   /**
@@ -1309,7 +1326,7 @@ public final class SkyframeExecutor {
 
   private CyclesReporter createCyclesReporter() {
     return new CyclesReporter(new TransitiveTargetCycleReporter(packageManager),
-        new ConfiguredTargetCycleReporter(packageManager), new FileSymlinkCycleReporter());
+        new ConfiguredTargetCycleReporter(packageManager));
   }
 
   CyclesReporter getCyclesReporter() {
@@ -1375,6 +1392,30 @@ public final class SkyframeExecutor {
     }
     autoUpdatingGraph.inject(nodes);
     needToInjectEmbeddedArtifacts = false;
+  }
+
+  /**
+   * Sets the upper limit for the number of graph versions that dirty nodes may be retained for.
+   *
+   * <p>Specifying a value N means, if the current graph version is V and a node was dirtied (and
+   * has remained so) in version U, and U + N &lt;= V, then the node will be marked for deletion
+   * and purged in version V + 1.
+   *
+   * @param versionWindow a non-negative number indicating the length of the window
+   */
+  public void setVersionWindowForDirtyNodeGc(long versionWindow) {
+    Preconditions.checkArgument(versionWindow >= 0);
+    this.versionWindowForDirtyNodeGc = versionWindow;
+  }
+
+  /**
+   * Mark dirty nodes for deletion if they've been dirty for longer than
+   * {@link #versionWindowForDirtyNodeGc} versions.
+   */
+  void deleteOldNodes() {
+    // TODO(bazel-team): perhaps we should come up with a separate GC class dedicated to maintaining
+    // node garbage. If we ever do so, this logic should be moved there.
+    autoUpdatingGraph.deleteDirty(versionWindowForDirtyNodeGc);
   }
 
   private class SkyframeProgressReceiver implements NodeProgressReceiver {

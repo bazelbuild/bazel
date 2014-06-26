@@ -13,11 +13,12 @@
 // limitations under the License.
 package com.google.devtools.build.lib.collect.nestedset;
 
+import static com.google.common.collect.Iterables.getOnlyElement;
+
 import com.google.common.base.Preconditions;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.Iterables;
 
-import java.util.Collection;
 import java.util.LinkedHashSet;
 
 /**
@@ -30,8 +31,8 @@ import java.util.LinkedHashSet;
 public final class NestedSetBuilder<E> {
 
   private final Order order;
-  private final Collection<E> items = new LinkedHashSet<>();
-  private final Collection<NestedSet<E>> transitiveSets = new LinkedHashSet<>();
+  private final LinkedHashSet<E> items = new LinkedHashSet<>();
+  private final LinkedHashSet<NestedSet<E>> transitiveSets = new LinkedHashSet<>();
 
   public NestedSetBuilder(Order order) {
     this.order = order;
@@ -121,15 +122,52 @@ public final class NestedSetBuilder<E> {
    */
   public NestedSet<E> build() {
     if (isEmpty()) {
-      return order.<E>emptySet();
+      return order.emptySet();
     }
+
     if (items.isEmpty() && (transitiveSets.size() == 1)) {
-      NestedSet<E> candidate = Iterables.getOnlyElement(transitiveSets);
+      NestedSet<E> candidate = getOnlyElement(transitiveSets);
       if (candidate.getOrder().equals(order)) {
         return candidate;
       }
     }
-    return order.createNestedSet(ImmutableList.copyOf(items), ImmutableList.copyOf(transitiveSets));
+    int transitiveSize = transitiveSets.size();
+    int directSize = items.size();
+
+    switch (transitiveSize) {
+      case 0:
+        switch (directSize) {
+          case 0:
+            return order.emptySet();
+          case 1:
+            return new SingleDirectNestedSet<>(getOnlyElement(items));
+          default:
+            return order.factory.onlyDirects(items.toArray());
+        }
+      case 1:
+        switch (directSize) {
+          case 0:
+            return order.factory.onlyOneTransitive(getOnlyElement(transitiveSets));
+          case 1:
+            return order.factory.oneDirectOneTransitive(getOnlyElement(items),
+                getOnlyElement(transitiveSets));
+          default:
+            return order.factory.manyDirectsOneTransitive(items.toArray(),
+                getOnlyElement(transitiveSets));
+        }
+      default:
+        switch (directSize) {
+          case 0:
+            return order.factory.onlyManyTransitives(
+                transitiveSets.toArray(new NestedSet[transitiveSize]));
+          case 1:
+            return order.factory.oneDirectManyTransitive(getOnlyElement(items), transitiveSets
+                .toArray(new NestedSet[transitiveSize]));
+          default:
+            return order.factory.manyDirectManyTransitive(items.toArray(),
+                transitiveSets.toArray(new NestedSet[transitiveSize]));
+        }
+    }
   }
 
   /**
@@ -141,14 +179,18 @@ public final class NestedSetBuilder<E> {
   public static <E> NestedSet<E> wrap(Order order, Iterable<E> wrappedItems) {
     ImmutableList<E> wrappedList = ImmutableList.copyOf(wrappedItems);
     if (wrappedList.isEmpty()) {
-      return order.<E>emptySet();
+      return order.emptySet();
+    } else if (wrappedList.size() == 1) {
+      return new SingleDirectNestedSet<>(wrappedItems.iterator().next());
+    } else {
+      return order.factory.onlyDirects(wrappedList.toArray());
     }
-    return order.createNestedSet(wrappedList, ImmutableList.<NestedSet<E>>of());
   }
 
-  /**
-   * Creates a nested set with the given list of items as its elements.
-   */
+
+    /**
+     * Creates a nested set with the given list of items as its elements.
+     */
   @SuppressWarnings("unchecked")
   public static <E> NestedSet<E> create(Order order, E... elems) {
     return wrap(order, ImmutableList.copyOf(elems));

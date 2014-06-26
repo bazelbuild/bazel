@@ -24,7 +24,6 @@ import com.google.devtools.build.lib.vfs.FileSystemUtils;
 import com.google.devtools.build.lib.vfs.Path;
 import com.google.devtools.build.lib.vfs.PathFragment;
 import com.google.devtools.build.lib.view.RuleConfiguredTarget.Mode;
-import com.google.devtools.build.lib.view.RunfilesCollector.State;
 import com.google.devtools.build.lib.view.SourceManifestAction.ManifestType;
 import com.google.devtools.build.lib.view.actions.ActionConstructionContext;
 import com.google.devtools.build.lib.view.config.BuildConfiguration;
@@ -181,10 +180,6 @@ public class RunfilesSupport {
         context.getConfiguration().getBinDirectory());
   }
 
-  public Artifact getExecutable() {
-    return owningExecutable;
-  }
-
   /**
    * For executable programs, returns the MANIFEST file in the runfiles
    * symlink farm, if blaze is run with --build_runfile_links; returns
@@ -336,7 +331,7 @@ public class RunfilesSupport {
   private static Runfiles getRunfiles(TransitiveInfoCollection target) {
     RunfilesProvider runfilesProvider = target.getProvider(RunfilesProvider.class);
     if (runfilesProvider != null) {
-      return runfilesProvider.getTransitiveRunfiles(State.DEFAULT);
+      return runfilesProvider.getDefaultRunfiles();
     } else {
       return Runfiles.EMPTY;
     }

@@ -105,6 +105,20 @@ public final class InMemoryAutoUpdatingGraph implements AutoUpdatingGraph {
   }
 
   @Override
+  public void deleteDirty(long versionAgeLimit) {
+    Preconditions.checkArgument(versionAgeLimit >= 0);
+    final long threshold = graphVersion - versionAgeLimit;
+
+    nodesToDelete.addAll(
+        Maps.filterEntries(graph.getAllNodes(), new Predicate<Entry<NodeKey, NodeEntry>>() {
+          @Override
+          public boolean apply(Entry<NodeKey, NodeEntry> input) {
+            return input.getValue().isDirty() && input.getValue().getVersion() <= threshold;
+          }
+        }).keySet());
+  }
+
+  @Override
   public <T extends Node> UpdateResult<T> update(Iterable<NodeKey> roots, boolean keepGoing,
           int numThreads, ErrorEventListener listener) throws InterruptedException {
     // NOTE: Performance critical code. See bug "Null build performance parity".
@@ -173,9 +187,8 @@ public final class InMemoryAutoUpdatingGraph implements AutoUpdatingGraph {
         // injected node (which is by definition deps-free) needs a little additional bookkeeping
         // (removing reverse deps from the dependencies), but more importantly it's something that
         // we want to avoid, because it indicates confusion of input nodes and derived nodes.
-        Iterable<NodeKey> directDeps = prevEntry.getLastBuildDirectDeps();
-        Preconditions.checkState(Iterables.isEmpty(directDeps),
-            "existing entry for %s has deps: %s", key, directDeps);
+        Preconditions.checkState(prevEntry.noDepsLastBuild(),
+            "existing entry for %s has deps: %s", key, prevEntry);
       }
       prevEntry.setValue(entry.getValue(), graphVersion);
     }

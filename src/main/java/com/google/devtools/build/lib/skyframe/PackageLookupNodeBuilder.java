@@ -81,6 +81,10 @@ class PackageLookupNodeBuilder implements NodeBuilder {
         throw new PackageLookupNodeBuilderException(nodeKey, new BuildFileNotFoundException(pkgName,
             "IO errors while looking for BUILD file reading " + buildFileRootedPath.asPath()
             + ": " + e.getMessage(), e));
+      } catch (FileSymlinkCycleException e) {
+        throw new PackageLookupNodeBuilderException(nodeKey,
+            new BuildFileNotFoundException(pkgName, "Symlink cycle detected while trying to find "
+                + "BUILD file " + buildFileRootedPath.asPath()));
       } catch (InconsistentFilesystemException e) {
         throw new PackageLookupNodeBuilderException(nodeKey, e);
       } catch (Exception e) {

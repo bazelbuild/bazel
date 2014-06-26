@@ -104,9 +104,9 @@ public class NotifyingInMemoryGraph extends InMemoryGraph {
     }
 
     @Override
-    Pair<Iterable<NodeKey>, ? extends Node> markDirty(boolean isChanged) {
+    Pair<? extends Iterable<NodeKey>, ? extends Node> markDirty(boolean isChanged) {
       graphListener.accept(myKey, EventType.MARK_DIRTY, Order.BEFORE, isChanged);
-      Pair<Iterable<NodeKey>, ? extends Node> result = super.markDirty(isChanged);
+      Pair<? extends Iterable<NodeKey>, ? extends Node> result = super.markDirty(isChanged);
       graphListener.accept(myKey, EventType.MARK_DIRTY, Order.AFTER, isChanged);
       return result;
     }

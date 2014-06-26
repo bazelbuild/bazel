@@ -58,4 +58,9 @@ public final class FileContentsProxy implements Serializable {
   public int hashCode() {
     return Objects.hash(mtime, nodeId);
   }
+
+  @Override
+  public String toString() {
+    return "mtime: " + mtime + " nodeId: " + nodeId;
+  }
 }

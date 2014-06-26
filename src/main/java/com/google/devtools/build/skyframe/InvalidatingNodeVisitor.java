@@ -301,7 +301,8 @@ abstract class InvalidatingNodeVisitor extends AbstractQueueVisitor {
           }
 
           // This entry remains in the graph in this dirty state until it is re-evaluated.
-          Pair<Iterable<NodeKey>, ? extends Node> depsAndValue = entry.markDirty(isChanged);
+          Pair<? extends Iterable<NodeKey>, ? extends Node> depsAndValue =
+              entry.markDirty(isChanged);
           // It is not safe to interrupt the logic from this point until the end of the method.
           // Any exception thrown should be unrecoverable.
           if (depsAndValue == null) {

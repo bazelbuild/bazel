@@ -75,11 +75,12 @@ public final class MachineSpecification {
    * linux system names are {@code i686-unknown-linux-gnu} or {@code
    * x86_64-unknown-linux-gnu}.
    */
-  public static MachineSpecification getLinuxHostSpecification() {
+  public static MachineSpecification getUnixHostSpecification() {
     // TODO(bazel-team): (2009) add JNI syscall binding for uname so we don't need to fork/exec.
     try {
-      String uname = new String(new CommandBuilder().addArgs("/bin/uname", "-m").useTempDir()
-          .build().execute().getStdout()).trim();
+      String uname = new String(new CommandBuilder().addArgs("uname", "-m").useTempDir()
+          .useShell(true).build().execute().getStdout()).trim();
+      // TODO(bazel-team): the 'linux' string is silly for Darwin.
       String primarySystemName = uname + "-unknown-linux-gnu";
       Set<String> runnableSystemNames = Sets.newHashSet(primarySystemName);
       if (uname.equals("x86_64")) {
@@ -87,7 +88,7 @@ public final class MachineSpecification {
       }
       return new MachineSpecification(primarySystemName, runnableSystemNames);
     } catch (CommandException e) {
-      throw new IllegalStateException("'/bin/uname -m' failed: " + e.getMessage(), e);
+      throw new IllegalStateException("'uname -m' failed: " + e.getMessage(), e);
     }
   }
 

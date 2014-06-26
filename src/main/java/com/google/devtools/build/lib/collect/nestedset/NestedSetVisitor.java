@@ -11,12 +11,10 @@
 // WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
 // See the License for the specific language governing permissions and
 // limitations under the License.
-package com.google.devtools.build.skyframe;
+package com.google.devtools.build.lib.collect.nestedset;
 
 import com.google.common.base.Preconditions;
 import com.google.common.collect.Sets;
-import com.google.devtools.build.lib.collect.nestedset.NestedSet;
-import com.google.devtools.build.lib.collect.nestedset.Order;
 
 import java.util.Set;
 
@@ -33,8 +31,13 @@ import java.util.Set;
  * @param <E> the data type
  */
 // @ThreadSafety.ThreadSafe
-final class NestedSetVisitor<E> {
-  interface Receiver<E> {
+public final class NestedSetVisitor<E> {
+
+  /**
+   * For each element of the NestedSet the {@code Reciver} will receive one element during the
+   * visitation.
+   */
+  public interface Receiver<E> {
     void accept(E arg);
   }
 
@@ -51,8 +54,12 @@ final class NestedSetVisitor<E> {
    * Transitively visit a nested set.
    *
    * @param nestedSet the nested set to visit transitively.
+   *
    */
+  @SuppressWarnings("unchecked")
   public void visit(NestedSet<E> nestedSet) {
+    // This method suppresses the unchecked warning so that it can access the internal NestedSet
+    // raw structure.
     Preconditions.checkArgument(nestedSet.getOrder() == Order.STABLE_ORDER);
     if (!visited.add(nestedSet)) {
       return;
@@ -61,14 +68,15 @@ final class NestedSetVisitor<E> {
     for (NestedSet<E> subset : nestedSet.transitiveSets()) {
       visit(subset);
     }
-    for (E member : nestedSet.directMembers()) {
-      if (visited.add(member)) {
-        callback.accept(member);
+    for (Object member : nestedSet.directMembers()) {
+      if (visited.add((E) member)) {
+        callback.accept((E) member);
       }
     }
   }
 
-  static class VisitedState<E> {
+  /** A class that allows us to keep track of the seen nodes and transitive sets. */
+  public static class VisitedState<E> {
     private final Set<NestedSet<E>> seenSets = Sets.newConcurrentHashSet();
     private final Set<E> seenNodes = Sets.newConcurrentHashSet();
 

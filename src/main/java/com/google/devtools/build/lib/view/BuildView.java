@@ -151,9 +151,6 @@ import javax.annotation.Nullable;
  *   <li>checking software licenses.
  * </ul>
  *
- * <p>The {@link RuleConfiguredTarget} class also provides numerous utility
- * functions to make subclasses easier to write.
- *
  * <p>See also {@link ConfiguredTarget} which documents some important
  * invariants.
  */
@@ -210,6 +207,14 @@ public class BuildView {
             category = "experimental",
             help = "Only schedules extra_actions for top level targets.")
     public boolean extraActionTopLevelOnly;
+
+    @Option(name = "version_window_for_dirty_node_gc",
+            defaultValue = "-1",
+            category = "undocumented",
+            help = "Nodes that have been dirty for more than this many versions will be deleted"
+                + " from the graph upon the next update. Values must be non-negative long integers,"
+                + " or -1 indicating the maximum possible window.")
+    public long versionWindowForDirtyNodeGc;
   }
 
   private static Logger LOG = Logger.getLogger(BuildView.class.getName());
@@ -250,7 +255,7 @@ public class BuildView {
   private final Map<PathFragment, Path> cumulativePackageRoots = new HashMap<>();
   private final ForwardGraphCache forwardGraphCache;
 
-  private final MutableActionGraph actionGraph = new MapBasedActionGraph();
+  private final MutableActionGraph legacyActionGraph;
 
   private WorkspaceStatusArtifacts lastWorkspaceStatusArtifacts = null;
 
@@ -306,8 +311,9 @@ public class BuildView {
     this.artifactMTimeCache = skyframeFull ? null : new ArtifactMTimeCache();
     this.forwardGraphCache =  skyframeFull ? null : new ForwardGraphCache();
     this.outputFormatters = outputFormatters;
-    this.skyframeBuildView = new SkyframeBuildView(actionGraph, factory, artifactFactory, null,
-        skyframeExecutor, new Runnable() {
+    this.legacyActionGraph = skyframeFull ? null : new MapBasedActionGraph();
+    this.skyframeBuildView = new SkyframeBuildView(legacyActionGraph, factory, artifactFactory,
+        null, skyframeExecutor, new Runnable() {
       @Override
       public void run() {
         clear();
@@ -326,17 +332,8 @@ public class BuildView {
         }
       };
     } else {
-      return actionGraph;
+      return legacyActionGraph;
     }
-  }
-
-  /**
-   * Returns a reference to the mutable action graph, which may or may not be the same as the
-   * action graph.
-   */
-  @VisibleForTesting
-  public MutableActionGraph getMutableActionGraph() {
-    return actionGraph;
   }
 
   /**
@@ -373,7 +370,7 @@ public class BuildView {
     lastExclusiveSchedulingMiddlemen.clear();
 
     lastWorkspaceStatusArtifacts = null;
-    actionGraph.clear();
+    legacyActionGraph.clear();
   }
 
   /**
@@ -389,7 +386,9 @@ public class BuildView {
     if (artifactMTimeCache != null) {
       artifactMTimeCache.clear();
     }
-    clearActionGraph();
+    if (!skyframeExecutor.skyframeBuild()) {
+      clearActionGraph();
+    }
   }
 
   public ArtifactFactory getArtifactFactory() {
@@ -449,7 +448,7 @@ public class BuildView {
     // First remove the old middlemen from the action graphs
     for (Action oldAction : lastTargetCompletionMiddlemen) {
       removeFromForwardGraphMaybe(oldAction);
-      actionGraph.unregisterAction(oldAction);
+      legacyActionGraph.unregisterAction(oldAction);
     }
 
     lastTargetCompletionMiddlemen.clear();
@@ -537,7 +536,7 @@ public class BuildView {
     if (lastWorkspaceStatusArtifacts != null) {
       Action oldAction = lastWorkspaceStatusArtifacts.getBuildInfoAction();
       removeFromForwardGraphMaybe(oldAction);
-      actionGraph.unregisterAction(oldAction);
+      legacyActionGraph.unregisterAction(oldAction);
       lastWorkspaceStatusArtifacts = null;
     }
 
@@ -610,7 +609,7 @@ public class BuildView {
 
   public Iterable<ConfiguredTarget> getDirectPrerequisites(ConfiguredTarget ct,
       @Nullable final LoadingCache<Label, Target> targetCache) {
-    if (!(ct instanceof RuleConfiguredTarget)) {
+    if (!(ct.getTarget() instanceof Rule)) {
       return ImmutableList.of();
     }
 
@@ -861,7 +860,6 @@ public class BuildView {
     try {
       configuredTargets = skyframeBuildView.configureTargets(
           targetSpecs, eventBus, viewOptions.keepGoing);
-
     } finally {
       // if skyframeCacheWasInvalidated then we have already invalidated everything.
       // In case of an interrupted exception, if we had invalidated some configured targets we
@@ -972,7 +970,7 @@ public class BuildView {
 
     DependentActionGraph dependentActionGraph = null;
     if (!skyframeExecutor.skyframeBuild()) {
-      dependentActionGraph = forwardGraphCache.get(artifactsToBuild, actionGraph,
+      dependentActionGraph = forwardGraphCache.get(artifactsToBuild, legacyActionGraph,
           viewOptions.keepForwardGraph);
     }
 
@@ -981,7 +979,7 @@ public class BuildView {
             ? null
             : "execution phase succeeded, but not all targets were analyzed")
           : "execution phase succeeded, but there were loading phase errors";
-    return new AnalysisResult(configuredTargets, targetsToTest, error, actionGraph,
+    return new AnalysisResult(configuredTargets, targetsToTest, error, getActionGraph(),
         dependentActionGraph, targetCompletionMap, artifactsToBuild, exclusiveTestArtifacts);
   }
 
@@ -1155,7 +1153,7 @@ public class BuildView {
 
     for (Action oldAction : lastExclusiveSchedulingMiddlemen) {
       forwardGraphCache.removeAction(oldAction);
-      actionGraph.unregisterAction(oldAction);
+      legacyActionGraph.unregisterAction(oldAction);
     }
 
     lastExclusiveSchedulingMiddlemen.clear();
@@ -1174,7 +1172,8 @@ public class BuildView {
           // previous blaze invocation used --test_strategy=exclusive and the
           // current one used analysis caching.
           for (Artifact artifact : TestHelper.getTestStatusArtifacts(target)) {
-            TestRunnerAction action = (TestRunnerAction) actionGraph.getGeneratingAction(artifact);
+            TestRunnerAction action = (TestRunnerAction)
+                legacyActionGraph.getGeneratingAction(artifact);
             Pair<Artifact, Action> middlemanAndStamp = action.setSchedulingDependencies(
                 getArtifactFactory(), middlemanFactory, null, forwardGraphCache);
             if (middlemanAndStamp != null) {
@@ -1206,7 +1205,8 @@ public class BuildView {
         // If artifact is already in the artifactsToTest set, then target was
         // already processed as a non-exclusive test and should be skipped.
         if (!artifactsToTest.contains(artifact)) {
-          TestRunnerAction action = (TestRunnerAction) actionGraph.getGeneratingAction(artifact);
+          TestRunnerAction action = (TestRunnerAction)
+              legacyActionGraph.getGeneratingAction(artifact);
           // This is the heart of the exclusive test scheduling.
           // Test action inputs are then modified to include single additional
           // input (see {@link TestRunnerAction#getInputs} and
@@ -1291,7 +1291,7 @@ public class BuildView {
    * Returns a RuleContext which is the same as the original RuleContext of the target parameter.
    */
   @VisibleForTesting
-  public RuleContext getRuleContextForTesting(RuleConfiguredTarget target,
+  public RuleContext getRuleContextForTesting(ConfiguredTarget target,
       ListMultimap<Attribute, Label> labelMap, StoredErrorEventListener listener) {
     BuildConfiguration config = target.getConfiguration();
     CachingAnalysisEnvironment analysisEnvironment =
@@ -1300,7 +1300,7 @@ public class BuildView {
             lastWorkspaceStatusArtifacts, /*isSystemEnv=*/false, config.extendedSanityChecks(),
             listener, /*skyframeEnv=*/null, config.isActionsEnabled(), outputFormatters, binTools);
     RuleContext ruleContext = new RuleContext.Builder(analysisEnvironment, packageManager,
-        target.getRule(), config, ruleClassProvider.getPrerequisiteValidator())
+        (Rule) target.getTarget(), config, ruleClassProvider.getPrerequisiteValidator())
             .setVisibility(NestedSetBuilder.<PackageSpecification>create(
                 Order.STABLE_ORDER, PackageSpecification.EVERYTHING))
             .setPrerequisites(getPrerequisiteMapForTesting(target, true))
@@ -1414,7 +1414,8 @@ public class BuildView {
         }
         if (!artifact.isSourceArtifact()) {
           out.println("  " + BuildView.dumpArtifact(artifact));
-          out.println("    " + BuildView.dumpAction(actionGraph.getGeneratingAction(artifact)));
+          out.println("    "
+              + BuildView.dumpAction(legacyActionGraph.getGeneratingAction(artifact)));
         }
       }
       for (ConfiguredTarget prerequisite : getDirectPrerequisites(target)) {
@@ -1428,7 +1429,8 @@ public class BuildView {
         Artifact artifact = entry.getKey();
         out.println("  " + BuildView.dumpArtifact(artifact));
         if (!artifact.isSourceArtifact()) {
-          out.println("    " + BuildView.dumpAction(actionGraph.getGeneratingAction(artifact)));
+          out.println("    "
+              + BuildView.dumpAction(legacyActionGraph.getGeneratingAction(artifact)));
         }
       }
     }
@@ -1455,7 +1457,7 @@ public class BuildView {
     });
     for (Artifact artifact : artifacts) {
       out.println(dumpArtifact(artifact));
-      Action action = actionGraph.getGeneratingAction(artifact);
+      Action action = legacyActionGraph.getGeneratingAction(artifact);
       if (action != null) {
         out.println("  " + dumpAction(action));
         if (action.getOutputs() == null || action.getOutputs().size() == 0) {
@@ -1507,14 +1509,14 @@ public class BuildView {
       if (!artifactReferenceMap.get(artifact)) {
         out.println("  " + dumpArtifact(artifact));
         if (!artifact.isSourceArtifact()) {
-          out.println("    " + dumpAction(actionGraph.getGeneratingAction(artifact)));
+          out.println("    " + dumpAction(legacyActionGraph.getGeneratingAction(artifact)));
         }
       }
     }
   }
 
   void registerAction(Action action) {
-    actionGraph.registerAction(action);
+    legacyActionGraph.registerAction(action);
   }
 
   /**

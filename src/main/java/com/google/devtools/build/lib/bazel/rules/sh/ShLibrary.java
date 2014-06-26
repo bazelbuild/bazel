@@ -17,10 +17,9 @@ import com.google.devtools.build.lib.actions.Artifact;
 import com.google.devtools.build.lib.collect.nestedset.NestedSet;
 import com.google.devtools.build.lib.collect.nestedset.NestedSetBuilder;
 import com.google.devtools.build.lib.rules.RuleConfiguredTargetFactory;
-import com.google.devtools.build.lib.view.GenericRuleConfiguredTargetBuilder;
-import com.google.devtools.build.lib.view.GenericRuleConfiguredTargetBuilder.StatelessRunfilesProvider;
-import com.google.devtools.build.lib.view.RuleConfiguredTarget;
+import com.google.devtools.build.lib.view.ConfiguredTarget;
 import com.google.devtools.build.lib.view.RuleConfiguredTarget.Mode;
+import com.google.devtools.build.lib.view.RuleConfiguredTargetBuilder;
 import com.google.devtools.build.lib.view.RuleContext;
 import com.google.devtools.build.lib.view.Runfiles;
 import com.google.devtools.build.lib.view.RunfilesProvider;
@@ -31,7 +30,7 @@ import com.google.devtools.build.lib.view.RunfilesProvider;
 public class ShLibrary implements RuleConfiguredTargetFactory {
 
   @Override
-  public RuleConfiguredTarget create(RuleContext ruleContext) {
+  public ConfiguredTarget create(RuleContext ruleContext) {
     NestedSet<Artifact> filesToBuild = NestedSetBuilder.<Artifact>stableOrder()
         .addAll(ruleContext.getPrerequisiteArtifacts("srcs", Mode.TARGET))
         .addAll(ruleContext.getPrerequisiteArtifacts("deps", Mode.TARGET))
@@ -40,9 +39,9 @@ public class ShLibrary implements RuleConfiguredTargetFactory {
     Runfiles runfiles = new Runfiles.Builder()
         .addArtifacts(filesToBuild)
         .build();
-    return new GenericRuleConfiguredTargetBuilder(ruleContext)
+    return new RuleConfiguredTargetBuilder(ruleContext)
         .setFilesToBuild(filesToBuild)
-        .addProvider(RunfilesProvider.class, new StatelessRunfilesProvider(runfiles))
+        .addProvider(RunfilesProvider.class, RunfilesProvider.simple(runfiles))
         .build();
   }
 }

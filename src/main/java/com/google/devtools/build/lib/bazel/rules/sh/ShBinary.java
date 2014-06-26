@@ -19,10 +19,9 @@ import com.google.devtools.build.lib.collect.nestedset.NestedSet;
 import com.google.devtools.build.lib.collect.nestedset.NestedSetBuilder;
 import com.google.devtools.build.lib.packages.Type;
 import com.google.devtools.build.lib.rules.RuleConfiguredTargetFactory;
-import com.google.devtools.build.lib.view.GenericRuleConfiguredTargetBuilder;
-import com.google.devtools.build.lib.view.GenericRuleConfiguredTargetBuilder.StatelessRunfilesProvider;
-import com.google.devtools.build.lib.view.RuleConfiguredTarget;
+import com.google.devtools.build.lib.view.ConfiguredTarget;
 import com.google.devtools.build.lib.view.RuleConfiguredTarget.Mode;
+import com.google.devtools.build.lib.view.RuleConfiguredTargetBuilder;
 import com.google.devtools.build.lib.view.RuleContext;
 import com.google.devtools.build.lib.view.Runfiles;
 import com.google.devtools.build.lib.view.RunfilesProvider;
@@ -37,7 +36,7 @@ import java.util.Collection;
 public class ShBinary implements RuleConfiguredTargetFactory {
 
   @Override
-  public RuleConfiguredTarget create(RuleContext ruleContext) {
+  public ConfiguredTarget create(RuleContext ruleContext) {
     ImmutableList<Artifact> srcs = ruleContext.getPrerequisiteArtifacts("srcs", Mode.TARGET);
     if (srcs.size() != 1) {
       ruleContext.attributeError("srcs", "you must specify exactly one file in 'srcs'");
@@ -66,10 +65,10 @@ public class ShBinary implements RuleConfiguredTargetFactory {
         .build();
     RunfilesSupport runfilesSupport = RunfilesSupport.withExecutable(
         ruleContext, runfiles, symlink);
-    return new GenericRuleConfiguredTargetBuilder(ruleContext)
+    return new RuleConfiguredTargetBuilder(ruleContext)
         .setFilesToBuild(filesToBuild)
-        .setRunfilesSupport(runfilesSupport)
-        .addProvider(RunfilesProvider.class, new StatelessRunfilesProvider(runfiles))
+        .setRunfilesSupport(runfilesSupport, symlink)
+        .addProvider(RunfilesProvider.class, RunfilesProvider.simple(runfiles))
         .build();
   }
 

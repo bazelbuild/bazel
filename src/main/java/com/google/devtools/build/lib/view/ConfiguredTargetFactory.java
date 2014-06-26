@@ -184,7 +184,7 @@ public final class ConfiguredTargetFactory {
    * Factory method: constructs a RuleConfiguredTarget of the appropriate class,
    * based on the rule class.
    */
-  private RuleConfiguredTarget createRule(
+  private ConfiguredTarget createRule(
       AnalysisEnvironment env, LoadedPackageProvider loadedPackageProvider, Rule rule,
       BuildConfiguration configuration, PrerequisiteMap prerequisiteMap,
       ListMultimap<Attribute, Label> labelMap)
