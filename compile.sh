@@ -53,6 +53,11 @@ src/main/protobuf/extra_actions.proto
 src/main/protobuf/testing_api.proto
 )
 
+# To get protoc for darwin:
+# grab and untar https://protobuf.googlecode.com/files/protobuf-2.5.0.tar.bz2
+# ./configure CC=clang CXX=clang++ CXXFLAGS='-std=c++11 -stdlib=libc++ -O3 -g' LDFLAGS='-stdlib=libc++' LIBS="-lc++ -lc++abi"
+# make
+# sudo make install
 PROTOC=${PROTOC:-protoc}
 CC=${CC:-g++}
 
