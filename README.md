@@ -28,8 +28,8 @@ example:
     $ mkdir -p hello
     $ echo 'genrule(name = "world", outs = ["hi"], cmd = "touch $(@D)/hi")' > hello/BUILD
 
-Now run Bazel using --output_base and --install_base options, e.g.,
+Now run Bazel, e.g.,
 
-    $ bazel --output_base=my_output --install_base=my_install build //hello:world
+    $ bazel build //hello:world
 
 You should be able to find the file "hi" in blaze-genfiles/hello/.

@@ -30,12 +30,14 @@ darwin)
   ARCHIVE_LDFLAGS="-L/opt/local/lib"
   DYNAMIC_EXT="dylib"
   REALTIME_LDFLAGS=""
+  MD5SUM="md5"
   ;;
 linux)
   ARCHIVE_CFLAGS=""
   ARCHIVE_LDFLAGS=""
   DYNAMIC_EXT="so"
   REALTIME_LDFLAGS="-lrt"
+  MD5SUM="md5sum"
   ;;
 esac
 
@@ -161,7 +163,7 @@ touch output/client_info
 chmod 755 output/client_info
 
 TO_ZIP="libblaze.jar libunix.${DYNAMIC_EXT} build-runfiles process-wrapper alarm client_info"
-(cd output/ ; cat client ${TO_ZIP} | md5sum | awk '{ print $1; }' > install_base_key)
+(cd output/ ; cat client ${TO_ZIP} | ${MD5SUM} | awk '{ print $1; }' > install_base_key)
 (cd output/ ; zip package.zip ${TO_ZIP} install_base_key)
 cat output/client output/package.zip > output/bazel
 zip -qA output/bazel
