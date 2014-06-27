@@ -53,7 +53,27 @@ public abstract class AbstractAttributeMapper implements AttributeMap {
   @Override
   public <T> T get(String attributeName, Type<T> type) {
     int index = getIndexWithTypeCheck(attributeName, type);
-    return type.cast(attributes.getAttributeValue(index));
+    Object value = attributes.getAttributeValue(index);
+    if (value instanceof Attribute.ComputedDefault) {
+      value = ((Attribute.ComputedDefault) value).getDefault(this);
+    }
+    return type.cast(value);
+  }
+
+  /**
+   * Returns the given attribute if it's a computed default, null otherwise.
+   *
+   * @throws IllegalArgumentException if the given attribute doesn't exist with the specified
+   *         type. This happens whether or not it's a computed default.
+   */
+  protected <T> Attribute.ComputedDefault getComputedDefault(String attributeName, Type<T> type) {
+    int index = getIndexWithTypeCheck(attributeName, type);
+    Object value = attributes.getAttributeValue(index);
+    if (value instanceof Attribute.ComputedDefault) {
+      return (Attribute.ComputedDefault) value;
+    } else {
+      return null;
+    }
   }
 
   @Nullable
@@ -101,6 +121,10 @@ public abstract class AbstractAttributeMapper implements AttributeMap {
         continue;
       }
       for (Object value : visitAttribute(attribute.getName(), type)) {
+        if (value == null) {
+          // This is particularly possible for computed defaults.
+          continue;
+        }
         for (Label label : type.getLabels(value)) {
           observer.acceptLabelAttribute(label, attribute);
         }
@@ -156,5 +180,13 @@ public abstract class AbstractAttributeMapper implements AttributeMap {
           + " is not of type " + type + " in rule " + ruleLabel.getName());
     }
     return index;
+  }
+
+  /**
+   * Helper routine that just checks the given attribute has the given type for this rule and
+   * throws an IllegalException if not.
+   */
+  protected void checkType(String attrName, Type<?> type) {
+    getIndexWithTypeCheck(attrName, type);
   }
 }

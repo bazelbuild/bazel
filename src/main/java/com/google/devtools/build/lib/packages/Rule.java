@@ -32,11 +32,9 @@ import com.google.devtools.build.lib.syntax.SkylarkCallable;
 import com.google.devtools.build.lib.util.BinaryPredicate;
 
 import java.util.Collection;
-import java.util.HashMap;
 import java.util.HashSet;
 import java.util.LinkedHashSet;
 import java.util.List;
-import java.util.Map;
 import java.util.Set;
 
 import javax.annotation.Nullable;
@@ -368,7 +366,12 @@ public final class Rule implements Target, AttributeMap {
    * (and type) is not known statically.</p>
    */
   public Object getAttr(Attribute attribute) {
-    return attributes.getAttr(attribute);
+    // TODO(bazel-team): replace this method with something that handles configurable attributes.
+    Object attr = attributes.getAttr(attribute);
+    if (attr instanceof Attribute.ComputedDefault) {
+      attr = ((Attribute.ComputedDefault) attr).getDefault(RawAttributeMapper.of(this));
+    }
+    return attr;
   }
 
   /**
@@ -377,8 +380,12 @@ public final class Rule implements Target, AttributeMap {
    */
   @SkylarkCallable(doc = "")
   public Object getAttr(String attrName) {
+    // TODO(bazel-team): replace this method with something that handles configurable attributes.
     Object attr = attributes.getAttr(attrName);
     if (attr != null) {
+      if (attr instanceof Attribute.ComputedDefault) {
+        attr = ((Attribute.ComputedDefault) attr).getDefault(RawAttributeMapper.of(this));
+      }
       return attr;
     } else {
       throw new IllegalArgumentException("No such attribute " + attrName
@@ -391,7 +398,10 @@ public final class Rule implements Target, AttributeMap {
    * of any type, but must exist (an exception is thrown otherwise).
    */
   public Object getAttrDefaultValue(String attrName) {
-    return ruleClass.getAttributeByName(attrName).getDefaultValue(this);
+    Object defaultValue = ruleClass.getAttributeByName(attrName).getDefaultValue(this);
+    // Computed defaults not expected here.
+    Preconditions.checkState(!(defaultValue instanceof Attribute.ComputedDefault));
+    return defaultValue;
   }
 
   /**
@@ -585,20 +595,7 @@ public final class Rule implements Target, AttributeMap {
     return getRuleClass() + " rule " + getLabel();
   }
 
-  // expensive: use only for debugging
-  @SuppressWarnings("unused")
-  private Map<String, Object> getAttributeMap() {
-    Map<String, Object> map = new HashMap<>();
-    for (int ii = 0, len = ruleClass.getAttributeCount(); ii < len; ++ii) {
-      Object attr = attributes.getAttributeValue(ii);
-      if (attr != null) {
-        map.put(ruleClass.getAttribute(ii).getName(), attr);
-      }
-    }
-    return map;
-  }
-
-  /**
+ /**
    * Returns the effective visibility of this Rule. Visibility is computed from
    * these sources in this order of preference:
    *   - 'visibility' attribute
@@ -702,7 +699,8 @@ public final class Rule implements Target, AttributeMap {
       if (attribute.isTaggable()) {
         Type<?> attrType = attribute.getType();
         String name = attribute.getName();
-        Object value = getAttr(attribute);
+        // This enforces the expectation that taggable attributes are non-configurable.
+        Object value = NonconfigurableAttributeMapper.of(this).get(name, attrType);
         Set<String> tags = attrType.toTagSet(value, name);
         ruleTags.addAll(tags);
       }

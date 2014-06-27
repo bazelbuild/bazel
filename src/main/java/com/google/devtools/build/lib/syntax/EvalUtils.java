@@ -15,9 +15,11 @@ package com.google.devtools.build.lib.syntax;
 
 import com.google.common.base.Preconditions;
 import com.google.common.collect.ImmutableList;
+import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.Iterables;
 import com.google.common.collect.Lists;
 import com.google.devtools.build.lib.collect.nestedset.NestedSet;
+import com.google.devtools.build.lib.concurrent.ThreadSafety.Immutable;
 
 import java.io.IOException;
 import java.util.ArrayList;
@@ -67,6 +69,37 @@ public abstract class EvalUtils {
     } else {
       return true; // string/int
     }
+  }
+
+  /**
+   * Returns true if the type is immutable in the skylark language.
+   */
+  public static boolean isSkylarkImmutable(Class<?> c) {
+    if (c.isAnnotationPresent(Immutable.class)) {
+      return true;
+    } else if (c.equals(String.class) || c.equals(Integer.class) || c.equals(Boolean.class)
+        || ImmutableList.class.isAssignableFrom(c) || ImmutableMap.class.isAssignableFrom(c)) {
+      return true;
+    }
+    return false;
+  }
+
+  /**
+   * Returns the Skylark equivalent type of the parameter. Note that the Skylark
+   * language doesn't have inheritance. 
+   */
+  public static Class<?> getSkylarkType(Class<?> c) {
+    if (List.class.isAssignableFrom(c)) {
+      return List.class;
+    } else if (ImmutableList.class.isAssignableFrom(c)) {
+      return ImmutableList.class;
+    } else if (Map.class.isAssignableFrom(c)) {
+      return Map.class;
+    } else if (NestedSet.class.isAssignableFrom(c)) {
+      // This could be removed probably
+      return NestedSet.class;
+    }
+    return c;
   }
 
   /**

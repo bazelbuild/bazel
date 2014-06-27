@@ -26,6 +26,7 @@ import com.google.devtools.build.lib.vfs.Path;
 import com.google.devtools.build.lib.vfs.PathFragment;
 import com.google.testing.proto.HierarchicalTestResult;
 import com.google.testing.proto.TestStatus;
+import com.google.testing.proto.TestStrategy;
 import com.google.testing.proto.TestTargetResult;
 import com.google.testing.proto.TestWarning;
 import com.google.testing.proto.TimingBreakdown;
@@ -208,6 +209,7 @@ public class TestResult {
    * @return The test result protobuffer.
    */
   public TestTargetResult getResult() {
+    // TODO(bazel-team): refactor so Bazel does not need to expose this.
     return result;
   }
 
@@ -425,5 +427,17 @@ public class TestResult {
    */
   public int getTotalShards() {
     return testAction.getExecutionSettings().getTotalShards();
+  }
+
+  /**
+   * Returns if this was cached in remote execution.
+   */
+  public boolean isRemotelyCached() {
+    // TODO(bazel-team): see if this can be folded into isCached().
+    return result.getRemoteCacheHit();
+  }
+
+  public TestStrategy getStrategy() {
+    return result.getStrategy();
   }
 }

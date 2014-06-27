@@ -15,13 +15,24 @@ package com.google.devtools.build.lib.view;
 
 import com.google.devtools.build.lib.actions.Artifact;
 import com.google.devtools.build.lib.collect.nestedset.NestedSet;
+import com.google.devtools.build.lib.concurrent.ThreadSafety.Immutable;
 
 /**
  * A provider class that supplies an aggregating middleman to the targets that depend on it.
  */
-public interface MiddlemanProvider extends TransitiveInfoProvider {
+@Immutable
+public final class MiddlemanProvider implements TransitiveInfoProvider {
+
+  private final NestedSet<Artifact> middlemanArtifact;
+
+  public MiddlemanProvider(NestedSet<Artifact> middlemanArtifact) {
+    this.middlemanArtifact = middlemanArtifact;
+  }
+
   /**
    * Returns the middleman for the files produced by the transitive info collection.
    */
-  NestedSet<Artifact> getMiddlemanArtifact();
+  public NestedSet<Artifact> getMiddlemanArtifact() {
+    return middlemanArtifact;
+  }
 }

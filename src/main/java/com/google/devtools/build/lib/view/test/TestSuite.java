@@ -81,7 +81,7 @@ public class TestSuite implements RuleConfiguredTargetFactory {
     return new RuleConfiguredTargetBuilder(ruleContext)
         .add(RunfilesProvider.class,
             RunfilesProvider.withData(Runfiles.EMPTY, runfiles))
-        .add(TransitiveTestsProvider.class, new TransitiveTestsProviderImpl())
+        .add(TransitiveTestsProvider.class, new TransitiveTestsProvider())
         .build();
   }
 
@@ -95,8 +95,5 @@ public class TestSuite implements RuleConfiguredTargetFactory {
             "expecting a test or a test_suite rule but '" + dep.getLabel() + "' is not one");
       }
     }
-  }
-
-  private static final class TransitiveTestsProviderImpl implements TransitiveTestsProvider {
   }
 }

@@ -26,7 +26,6 @@ import com.google.devtools.build.lib.vfs.PathFragment;
 import com.google.devtools.build.lib.view.CompilationHelper;
 import com.google.devtools.build.lib.view.ConfiguredTarget;
 import com.google.devtools.build.lib.view.MiddlemanProvider;
-import com.google.devtools.build.lib.view.MiddlemanProviderImpl;
 import com.google.devtools.build.lib.view.RuleConfiguredTarget.Mode;
 import com.google.devtools.build.lib.view.RuleConfiguredTargetBuilder;
 import com.google.devtools.build.lib.view.RuleContext;
@@ -71,9 +70,9 @@ public class Filegroup implements RuleConfiguredTargetFactory {
         .add(InstrumentedFilesProvider.class, new InstrumentedFilesProviderImpl(
             instrumentedFilesCollector.getInstrumentedFiles(filesToBuild),
             instrumentedFilesCollector.getInstrumentationMetadataFiles(filesToBuild)))
-        .add(MiddlemanProvider.class, new MiddlemanProviderImpl(middleman))
+        .add(MiddlemanProvider.class, new MiddlemanProvider(middleman))
         .add(FilegroupPathProvider.class,
-            new FilegroupPathProviderImpl(getFilegroupPath(ruleContext)))
+            new FilegroupPathProvider(getFilegroupPath(ruleContext)))
         .build();
   }
 

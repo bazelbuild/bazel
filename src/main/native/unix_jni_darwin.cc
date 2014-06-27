@@ -21,8 +21,10 @@
 
 #include <string>
 
+using std::string;
+
 // See unix_jni.h.
-std::string ErrorMessage(int error_number) {
+string ErrorMessage(int error_number) {
   char buf[1024] = "";
   if (strerror_r(error_number, buf, sizeof buf) < 0) {
     snprintf(buf, sizeof buf, "strerror_r(%d): errno %d", error_number, errno);

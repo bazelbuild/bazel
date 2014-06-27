@@ -20,7 +20,7 @@ import java.util.Map;
 /**
  * An instance of a Skylark class.
  */
-// TODO(bazel-team): type checks, immutability
+// TODO(bazel-team): type checks
 public class ClassObject {
 
   private final ImmutableMap<String, Object> values;

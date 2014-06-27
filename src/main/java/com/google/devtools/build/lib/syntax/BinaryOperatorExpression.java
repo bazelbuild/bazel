@@ -14,6 +14,7 @@
 package com.google.devtools.build.lib.syntax;
 
 import com.google.common.collect.Lists;
+import com.google.common.collect.Maps;
 
 import java.util.Collection;
 import java.util.Collections;
@@ -126,6 +127,15 @@ public final class BinaryOperatorExpression extends Expression {
             result.addAll(rlist);
             return EvalUtils.makeSequence(result, EvalUtils.isImmutable(llist));
           }
+        }
+
+        if (env.isSkylarkEnabled() && lval instanceof Map<?, ?> && rval instanceof Map<?, ?>) {
+          Map<?, ?> ldict = (Map<?, ?>) lval;
+          Map<?, ?> rdict = (Map<?, ?>) rval;
+          Map<Object, Object> result = Maps.newHashMapWithExpectedSize(ldict.size() + rdict.size());
+          result.putAll(ldict);
+          result.putAll(rdict);
+          return result;
         }
         break;
       }
@@ -257,6 +267,11 @@ public final class BinaryOperatorExpression extends Expression {
           }
           return ltype;
         }
+
+        if (Map.class.isAssignableFrom(ltype) && Map.class.isAssignableFrom(rtype)) {
+          return Map.class;
+        }
+
         break;
       }
 

@@ -14,10 +14,12 @@
 
 package com.google.devtools.build.lib.view.test;
 
+import com.google.devtools.build.lib.concurrent.ThreadSafety.Immutable;
 import com.google.devtools.build.lib.view.TransitiveInfoProvider;
 
 /**
- * Marker interface for test_suite rules to recognize one another.
+ * Marker transitive info provider for test_suite rules to recognize one another.
  */
-public interface TransitiveTestsProvider extends TransitiveInfoProvider {
+@Immutable
+public final class TransitiveTestsProvider implements TransitiveInfoProvider {
 }

@@ -998,7 +998,9 @@ public final class RuleClass {
     }
 
     // Evaluate and set any computed defaults now that all non-computed
-    // attributes have been set:
+    // TODO(bazel-team): remove this special casing. Thanks to configurable attributes refactoring,
+    // computed defaults don't get bound to their final values at this point, so we no longer
+    // have to wait until regular attributes have been initialized.
     for (Attribute attr : attrsWithComputedDefaults) {
       rule.setAttributeValue(attr, attr.getDefaultValue(rule), /*explicit=*/false);
     }

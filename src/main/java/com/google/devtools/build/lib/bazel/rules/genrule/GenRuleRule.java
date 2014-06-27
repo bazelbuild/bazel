@@ -61,7 +61,7 @@ public final class GenRuleRule implements RuleDefinition {
         .add(attr("stamp", BOOLEAN).value(false))
         .add(attr("heuristic_label_expansion", BOOLEAN).value(true))
         .add(attr("$is_executable", BOOLEAN).nonconfigurable().value(
-            new Attribute.ComputedDefault() {
+            new Attribute.ComputedDefault("outs", "executable") {
               @Override
               public Object getDefault(AttributeMap rule) {
                 return (rule.get("outs", Type.OUTPUT_LIST).size() == 1)

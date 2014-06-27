@@ -14,16 +14,25 @@
 
 package com.google.devtools.build.lib.view.filegroup;
 
+import com.google.devtools.build.lib.concurrent.ThreadSafety.Immutable;
 import com.google.devtools.build.lib.vfs.PathFragment;
 import com.google.devtools.build.lib.view.TransitiveInfoProvider;
 
 /**
- * A provider implemented by {@link FilegroupConfiguredTarget} so that dependent targets can query
- * its {@code path} attribute.
+ * A transitive info provider for dependent targets to query {@code path} attributes.
  */
-public interface FilegroupPathProvider extends TransitiveInfoProvider {
+@Immutable
+public final class FilegroupPathProvider implements TransitiveInfoProvider {
+  private final PathFragment pathFragment;
+
+  public FilegroupPathProvider(PathFragment pathFragment) {
+    this.pathFragment = pathFragment;
+  }
+
   /**
    * Returns the value of the {@code path} attribute or the empty fragment if it is not present.
    */
-  PathFragment getFilegroupPath();
+  public PathFragment getFilegroupPath() {
+    return pathFragment;
+  }
 }

@@ -204,7 +204,7 @@ public class TestResultAnalyzer {
       }
     }
 
-    if (result.isCached() || result.getResult().getRemoteCacheHit()) {
+    if (result.isCached() || result.isRemotelyCached()) {
       numCached++;
     }
     if (result.isCached()) {
@@ -214,7 +214,7 @@ public class TestResultAnalyzer {
     if (!executionOptions.runsPerTestDetectsFlakes) {
       status = status.aggregateStatus(result.getStatus());
     } else {
-      int shardNumber = result.getResult().getShardNumber();
+      int shardNumber = result.getShardNum();
       int runsPerTestForLabel = target.getProvider(TestProvider.class).getTestParams().getRuns();
       List<BlazeTestStatus> singleShardStatuses = summaryBuilder.addShardStatus(
           shardNumber, result.getStatus());
@@ -243,7 +243,7 @@ public class TestResultAnalyzer {
         .addWarnings(result.getWarnings())
         .addFailedTestCases(result.getFailedTestCaseDetails())
         .setRanRemotely(
-            result.getResult().getStrategy() == TestStrategy.REMOTE);
+            result.getStrategy() == TestStrategy.REMOTE);
 
     List<String> warnings = new ArrayList<>();
     if (status == BlazeTestStatus.PASSED) {

@@ -583,7 +583,7 @@ public class Attribute implements Comparable<Attribute> {
     }
 
     /**
-     * Makes the built attribute "nonconfigurable", i.e. its value cannot be influenced by
+     * Makes the built attribute "non-configurable", i.e. its value cannot be influenced by
      * the build configuration. Attributes are "configurable" unless explicitly opted out here.
      */
     public Builder<TYPE> nonconfigurable() {
@@ -611,12 +611,52 @@ public class Attribute implements Comparable<Attribute> {
    * non-computed defaults have been initialized. There is no defined order
    * among computed defaults, so they must not depend on each other.
    *
-   * <p>Intentionally not public; this interface may change.
+   * <p>If a computed default reads the value of another attribute, at least one of
+   * the following must be true:
+   *
+   * <ol>
+   *   <li>The other attribute must be declared in the computed default's constructor</li>
+   *   <li>The other attribute must be non-configurable ({@link Builder#nonconfigurable()}</li>
+   * </ol>
+   *
+   * <p>The reason for enforced declarations is that, since attribute values might be
+   * configurable, a computed default that depends on them may itself take multiple
+   * values. Since we have no access to a target's configuration at the time these values
+   * are computed, we need the ability to probe the default's *complete* dependency space.
+   * Declared dependencies allow us to do so sanely. Non-configurable attributes don't have
+   * this problem because their value is fixed and known even without configuration information.
    *
    * <p>Implementations of this interface must be immutable.
    */
-  public interface ComputedDefault {
-    Object getDefault(AttributeMap rule);
+  public abstract static class ComputedDefault {
+    private final List<String> dependencies;
+    List<String> dependencies() { return dependencies; }
+
+    /**
+     * Create a computed default that can read all non-configurable attribute values and no
+     * configurable attribute values.
+     */
+    public ComputedDefault() {
+      dependencies = ImmutableList.of();
+    }
+
+    /**
+     * Create a computed default that can read all non-configurable attributes values and one
+     * explicitly specified configurable attribute value
+     */
+    public ComputedDefault(String depAttribute) {
+      dependencies = ImmutableList.of(depAttribute);
+    }
+
+    /**
+     * Create a computed default that can read all non-configurable attributes values and two
+     * explicitly specified configurable attribute values.
+     */
+    public ComputedDefault(String depAttribute1, String depAttribute2) {
+      dependencies = ImmutableList.of(depAttribute1, depAttribute2);
+    }
+
+    public abstract Object getDefault(AttributeMap rule);
   }
 
   /**
@@ -981,13 +1021,9 @@ public class Attribute implements Comparable<Attribute> {
    * @param rule the rule to which this attribute belongs; non-null if
    *   {@code hasComputedDefault()}; ignored otherwise.
    */
-  public Object getDefaultValue(AttributeMap rule) {
+  public Object getDefaultValue(Rule rule) {
     if (!getCondition().apply(rule)) {
       return null;
-    }
-    if (defaultValue instanceof ComputedDefault) {
-      Preconditions.checkNotNull(rule);
-      return ((ComputedDefault) defaultValue).getDefault(rule);
     } else if (defaultValue instanceof LateBoundDefault<?>) {
       return ((LateBoundDefault<?>) defaultValue).getDefault();
     } else {
@@ -1016,7 +1052,7 @@ public class Attribute implements Comparable<Attribute> {
   /**
    * Returns true iff this attribute has a computed default or a condition.
    *
-   * @see #getDefaultValue(AttributeMap)
+   * @see #getDefaultValue(Rule)
    */
   boolean hasComputedDefault() {
     return (defaultValue instanceof ComputedDefault) || (condition != null);

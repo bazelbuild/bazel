@@ -113,7 +113,9 @@ public class PackageSerializer {
     for (Attribute attribute : rule.getAttributes()) {
       Object value = attribute.getName().equals("visibility")
           ? rule.getVisibility().getDeclaredLabels()
-          : rule.getAttr(attribute);
+          // TODO(bazel-team): support configurable attributes. AggregatingAttributeMapper
+          // may make more sense here. Computed defaults may add complications.
+          : RawAttributeMapper.of(rule).get(attribute.getName(), attribute.getType());
       if (value != null) {
         PackageSerializer.addAttributeToProto(result, attribute, value,
             rule.getAttributeLocation(attribute.getName()),

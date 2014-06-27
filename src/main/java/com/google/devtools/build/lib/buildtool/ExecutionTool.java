@@ -65,7 +65,6 @@ import com.google.devtools.build.lib.events.Event;
 import com.google.devtools.build.lib.events.EventHandler;
 import com.google.devtools.build.lib.events.EventKind;
 import com.google.devtools.build.lib.events.Reporter;
-import com.google.devtools.build.lib.exec.BuildWorkspaceActionContextImpl;
 import com.google.devtools.build.lib.exec.CheckUpToDateFilter;
 import com.google.devtools.build.lib.exec.ExecutionOptions;
 import com.google.devtools.build.lib.exec.FileWriteStrategy;
@@ -211,7 +210,6 @@ public class ExecutionTool {
 
     strategies.add(new FileWriteStrategy(request));
     strategies.add(new SymlinkTreeStrategy(runtime.getOutputService(), runtime.getBinTools()));
-    strategies.add(new BuildWorkspaceActionContextImpl(runtime.getStartupOptionsProvider()));
 
     StrategyConverter strategyConverter = new StrategyConverter(actionContextProviders);
 

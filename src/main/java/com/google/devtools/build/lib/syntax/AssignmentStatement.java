@@ -14,10 +14,6 @@
 
 package com.google.devtools.build.lib.syntax;
 
-import com.google.devtools.build.lib.collect.nestedset.NestedSet;
-import com.google.devtools.build.lib.syntax.Environment.NoSuchVariableException;
-
-import java.util.Map;
 
 
 /**
@@ -80,83 +76,20 @@ public final class AssignmentStatement extends Statement {
               "Cannot assign readonly variable: '" + ident.getName() + "'");
         }
         Class<?> variableType = skylarkEnv.getVariableType(ident.getName());
-        Class<?> resultType = result.getClass();
-        // TODO(bazel-team): A temporary workaround to avoid conflicts with NestedSet refactoring.
-        if (NestedSet.class.isAssignableFrom(resultType)) {
-          resultType = NestedSet.class;
-        }
+        Class<?> resultType = EvalUtils.getSkylarkType(result.getClass());
         if (variableType != null && !variableType.equals(resultType)) {
           throw new EvalException(getLocation(), String.format("Incompatible variable types, "
               + "trying to assign %s (type of %s) to variable %s which is already %s",
               EvalUtils.prettyPrintValue(result),
               EvalUtils.getDatatypeName(result),
               ident.getName(),
-              skylarkEnv.getVariableTypeName(ident.getName())));
+              EvalUtils.getDataTypeNameFromClass(variableType)));
         }
       }
       env.update(ident.getName(), result);
-    } else if (isIndexFuncallExpression(lvalue)) {
-      assignCollection(env);
     } else {
       throw new EvalException(getLocation(), "'" + lvalue + "' is not a valid lvalue");
     }
-  }
-
-  // TODO(bazel-team): This is not very safe. One can assign e.g. a List<String>  - created via
-  // direct Java calls - to a variable, then add an Integer here (which is fine in Python but
-  // Java doesn't allow it). We should make sure somehow to access only generics created with
-  // java.lang.Object. Alternatively we can create a safe copy of the collection here but that
-  // would be not very efficient.
-  @SuppressWarnings("unchecked")
-  private void assignCollection(Environment env) throws EvalException, InterruptedException {
-    try {
-      FuncallExpression func = (FuncallExpression) lvalue;
-      Expression obj = func.getObject();
-      if (obj instanceof Ident) {
-        // This won't allow us to do things like '{1: 2}[1] = 3', but we don't want that anyway.
-        Object key = getAssignArg(func, env);
-        Object value = expression.eval(env);
-        Object collection = env.lookup(((Ident) obj).getName());
-        try {
-          if (collection instanceof Map<?, ?>) {
-            ((Map<Object, Object>) collection).put(key, value);
-            return;
-          }
-        } catch (UnsupportedOperationException e) {
-          // Both java.lang.collection.UnmodifiableList and Guava immutable collections
-          // throw this exception, it should cover most cases. However it's hard to guarantee
-          // that it works properly for every implementation.
-          throw new EvalException(getLocation(), "collection is unmodifiable");
-        }
-      }
-    } catch (NoSuchVariableException e) {
-      throw new EvalException(getLocation(), e.getMessage());
-    }
-    throw new EvalException(getLocation(), "'" + lvalue + "' is not a valid lvalue");
-  }
-
-  /**
-   * Checks if func has only one argument, evaluates and returns it.
-   */
-  private Object getAssignArg(FuncallExpression func, Environment env)
-      throws EvalException, InterruptedException {
-    if (func.getArguments().size() != 1) {
-      throw new EvalException(getLocation(), "$index has to have exactly 1 argument");
-    }
-    return func.getArguments().get(0).getValue().eval(env);
-  }
-
-  /**
-   * Checks if lvalue is an $index function.
-   */
-  private boolean isIndexFuncallExpression(Object lvalue) {
-    if (lvalue instanceof FuncallExpression) {
-      FuncallExpression expr = (FuncallExpression) lvalue;
-      if (expr.getFunction() instanceof Ident) {
-        return ((Ident) expr.getFunction()).getName().equals("$index");
-      }
-    }
-    return false;
   }
 
   @Override
@@ -171,7 +104,14 @@ public final class AssignmentStatement extends Statement {
       Ident ident = (Ident) lvalue;
       Class<?> resultType = expression.validate(env);
       env.update(ident.getName(), resultType, getLocation());
-    } else if (!isIndexFuncallExpression(lvalue)) {
+    } else {
+      if (lvalue instanceof FuncallExpression) {
+        FuncallExpression func = (FuncallExpression) lvalue;
+        Class<?> resultType = func.getObject().validate(env);
+        if (resultType.equals(ClassObject.class)) {
+          throw new EvalException(getLocation(), "structs are immutable");
+        }
+      }
       throw new EvalException(getLocation(), "'" + lvalue + "' is not a valid lvalue");
     }
   }

@@ -93,8 +93,7 @@ public class SkylarkNestedSet implements Iterable<Object> {
           "nested set item is a collection (type of %s)",
           EvalUtils.getDataTypeNameFromClass(itemType)));
     }
-    if (!itemType.isAnnotationPresent(Immutable.class)
-        && !itemType.equals(String.class) && !itemType.equals(Integer.class)) {
+    if (!EvalUtils.isSkylarkImmutable(itemType)) {
       throw new IllegalArgumentException(String.format(
           "nested set item is not immutable (type of %s)",
           EvalUtils.getDataTypeNameFromClass(itemType)));

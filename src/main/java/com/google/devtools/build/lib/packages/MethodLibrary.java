@@ -464,10 +464,12 @@ public class MethodLibrary {
   }
 
   public static void setupValidationEnvironment(ImmutableMap.Builder<String, Class<?>> builder) {
-    for (Function function : skylarkFunctions) {
+    for (Function function : pureFunctions) {
       // TODO(bazel-team): infer types
       builder.put(function.getName(), Object.class);
       builder.put(function.getName() + ".return", Object.class);
     }
+    builder.put(struct.getName(), Object.class);
+    builder.put(struct.getName() + ".return", ClassObject.class);
   }
 }

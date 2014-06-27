@@ -63,6 +63,10 @@ BlazeStartupOptions& BlazeStartupOptions::operator=(
   return *this;
 }
 
+string BlazeStartupOptions::GetOutputRoot() {
+  return "/var/tmp";
+}
+
 void BlazeStartupOptions::AddExtraOptions(vector<string> *result) const {}
 
 static const char kWorkspaceMarker[] = "WORKSPACE";

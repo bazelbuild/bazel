@@ -27,7 +27,7 @@ void BlazeStartupOptions::Init() {
   if (testing) {
     output_root = MakeAbsolute(getenv("TEST_TMPDIR"));
   } else {
-    output_root = "/usr/local/google";
+    output_root = GetOutputRoot();
   }
 
   output_user_root = output_root + "/_blaze_" + GetUserName();

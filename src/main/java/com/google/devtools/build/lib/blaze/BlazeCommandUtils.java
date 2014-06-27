@@ -38,7 +38,6 @@ public class BlazeCommandUtils {
   private static final List<Class<? extends OptionsBase>> DEFAULT_STARTUP_OPTIONS =
       ImmutableList.<Class<? extends OptionsBase>>of(
           BlazeServerStartupOptions.class,
-          VerifiableOption.class,
           HostJvmStartupOptions.class);
 
   /**

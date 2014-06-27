@@ -16,17 +16,27 @@ package com.google.devtools.build.lib.view;
 
 import com.google.common.collect.ImmutableList;
 import com.google.devtools.build.lib.actions.Artifact;
+import com.google.devtools.build.lib.concurrent.ThreadSafety.Immutable;
 
 /**
  * A {@link TransitiveInfoProvider} that provides files to be built when the {@code --compile_only}
  * command line option is in effect. This is to avoid expensive build steps when the user only
  * wants a quick syntax check.
  */
-public interface FilesToCompileProvider extends TransitiveInfoProvider {
+@Immutable
+public final class FilesToCompileProvider implements TransitiveInfoProvider {
+
+  private final ImmutableList<Artifact> filesToCompile;
+
+  public FilesToCompileProvider(ImmutableList<Artifact> filesToCompile) {
+    this.filesToCompile = filesToCompile;
+  }
 
   /**
    * Returns the list of artifacts to be built when the {@code --compile_only} command line option
    * is in effect.
    */
-  ImmutableList<Artifact> getFilesToCompile();
+  public ImmutableList<Artifact> getFilesToCompile() {
+    return filesToCompile;
+  }
 }
