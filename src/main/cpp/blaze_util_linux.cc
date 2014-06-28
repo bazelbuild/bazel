@@ -119,7 +119,7 @@ string GetProcessCWD(int pid) {
   return string(server_cwd);
 }
 
-bool IsSharedLibrary(string filename) {
+bool IsSharedLibrary(std::string filename) {
     return blaze_util::ends_with(filename, ".so");
 }
 
