@@ -44,6 +44,8 @@ void SetScheduling(bool batch_cpu_scheduling, int io_nice_level);
 // Returns the cwd for a process.
 std::string GetProcessCWD(int pid);
 
+bool IsSharedLibrary(string filename);
+
 }  // namespace blaze
 
 #endif  // DEVTOOLS_BLAZE_MAIN_BLAZE_UTIL_PLATFORM_H_

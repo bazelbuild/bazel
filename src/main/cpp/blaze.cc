@@ -263,7 +263,7 @@ static vector<string> GetArgumentArray() {
                                                  "_embedded_binaries");
   bool first = true;
   for (const auto& it : globals->extracted_binaries) {
-    if (blaze_util::ends_with(it, ".so")) {
+    if (blaze::IsSharedLibrary(it)) {
       if (!first) {
         java_library_path += ":";
       }
