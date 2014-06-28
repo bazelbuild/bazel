@@ -245,12 +245,6 @@ static vector<string> GetArgumentArray() {
   string heap_crash_path = globals->options.output_base;
   result.push_back("-XX:HeapDumpPath=" + heap_crash_path);
 
-  // Override conservative defaults which allow GC thrashing to last for too
-  // long.
-  result.push_back("-XX:GCTimeLimit=85");  // Default is 98%.
-  result.push_back("-XX:GCHeapFreeLimit=10");  // Default is 2%.
-  result.push_back("-XX:+CMSUseGCOverheadLimit");  // Include CMS overhead.
-
   result.push_back("-Xverify:none");
 
   // Add JVM arguments particular to building blaze64 and particular JVM
