@@ -31,6 +31,7 @@ darwin)
   DYNAMIC_EXT="dylib"
   REALTIME_LDFLAGS=""
   MD5SUM="md5"
+  JAVA_HOME="${JAVA_HOME:-$(/usr/libexec/java_home)}"
   ;;
 linux)
   ARCHIVE_CFLAGS=""
@@ -38,8 +39,12 @@ linux)
   DYNAMIC_EXT="so"
   REALTIME_LDFLAGS="-lrt"
   MD5SUM="md5sum"
+  JAVA_HOME="${JAVA_HOME:-$(readlink -f $(which javac) | sed "s_/bin/javac__")}"
   ;;
 esac
+
+# TODO: CC target architecture needs to match JAVA_HOME.
+JAVAC="${JAVA_HOME}/bin/javac"
 
 # Compile .proto files using protoc
 PROTO_FILES=(
@@ -48,11 +53,11 @@ src/main/protobuf/extra_actions.proto
 src/main/protobuf/testing_api.proto
 )
 
-# TODO: CC target architecture needs to match JAVA_HOME.
-
-# JAVA_HOME must point to a Java 7 installation.
-JAVA_HOME=${JAVA_HOME:-$(readlink -f $(which javac) | sed "s_/bin/javac__")}
-JAVAC="${JAVA_HOME}/bin/javac"
+# To get protoc for darwin:
+# grab and untar https://protobuf.googlecode.com/files/protobuf-2.5.0.tar.bz2
+# ./configure CC=clang CXX=clang++ CXXFLAGS='-std=c++11 -stdlib=libc++ -O3 -g' LDFLAGS='-stdlib=libc++' LIBS="-lc++ -lc++abi"
+# make
+# sudo make install
 PROTOC=${PROTOC:-protoc}
 CC=${CC:-g++}
 

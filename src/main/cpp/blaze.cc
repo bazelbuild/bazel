@@ -245,12 +245,6 @@ static vector<string> GetArgumentArray() {
   string heap_crash_path = globals->options.output_base;
   result.push_back("-XX:HeapDumpPath=" + heap_crash_path);
 
-  // Override conservative defaults which allow GC thrashing to last for too
-  // long.
-  result.push_back("-XX:GCTimeLimit=85");  // Default is 98%.
-  result.push_back("-XX:GCHeapFreeLimit=10");  // Default is 2%.
-  result.push_back("-XX:+CMSUseGCOverheadLimit");  // Include CMS overhead.
-
   result.push_back("-Xverify:none");
 
   // Add JVM arguments particular to building blaze64 and particular JVM
@@ -263,7 +257,7 @@ static vector<string> GetArgumentArray() {
                                                  "_embedded_binaries");
   bool first = true;
   for (const auto& it : globals->extracted_binaries) {
-    if (blaze_util::ends_with(it, ".so")) {
+    if (blaze::IsSharedLibrary(it)) {
       if (!first) {
         java_library_path += ":";
       }

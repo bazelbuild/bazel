@@ -20,6 +20,7 @@
 #include "blaze_exit_code.h"
 #include "blaze_util_platform.h"
 #include "blaze_util.h"
+#include "util/strings.h"
 
 namespace blaze {
 
@@ -116,6 +117,10 @@ string GetProcessCWD(int pid) {
   }
 
   return string(server_cwd);
+}
+
+bool IsSharedLibrary(std::string filename) {
+    return blaze_util::ends_with(filename, ".so");
 }
 
 }  // namespace blaze
