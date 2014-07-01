@@ -14,7 +14,7 @@
 package com.google.devtools.build.lib.packages;
 
 import com.google.common.annotations.VisibleForTesting;
-import com.google.common.collect.Lists;
+import com.google.common.collect.ImmutableList;
 import com.google.devtools.build.lib.syntax.SkylarkBuiltin;
 import com.google.devtools.build.lib.syntax.SkylarkCallable;
 import com.google.devtools.build.lib.util.FileType;
@@ -42,10 +42,8 @@ public class SkylarkFileType {
   }
 
   @SkylarkCallable(doc = "")
-  public Object filter(Iterable<HasFilename> files) {
-    // TODO(bazel-team): this is not nice or efficient, but we need to concat this
-    // to an other list in Skylark so it needs to be a list for now.
-    return Lists.newArrayList(FileType.filter(files, fileType));
+  public ImmutableList<HasFilename> filter(Iterable<HasFilename> files) {
+    return ImmutableList.copyOf(FileType.filter(files, fileType));
   }
 
   @SkylarkCallable(doc = "")

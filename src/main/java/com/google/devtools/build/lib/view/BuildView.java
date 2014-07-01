@@ -66,7 +66,6 @@ import com.google.devtools.build.lib.packages.PackageSpecification;
 import com.google.devtools.build.lib.packages.Rule;
 import com.google.devtools.build.lib.packages.Target;
 import com.google.devtools.build.lib.packages.TargetUtils;
-import com.google.devtools.build.lib.pkgcache.LoadedPackageProvider;
 import com.google.devtools.build.lib.pkgcache.LoadingPhaseRunner.LoadingResult;
 import com.google.devtools.build.lib.pkgcache.PackageManager;
 import com.google.devtools.build.lib.query2.output.OutputFormatter;
@@ -358,11 +357,6 @@ public class BuildView {
 
   public BuildConfigurationCollection getConfigurationCollection() {
     return configurations;
-  }
-
-  @ThreadSafe
-  public LoadedPackageProvider getLoadedPackageProvider() {
-    return packageManager;
   }
 
   private void clearActionGraph() {
@@ -1109,7 +1103,7 @@ public class BuildView {
 
       @Override
       protected Target getTarget(Label label) throws NoSuchThingException {
-        return getLoadedPackageProvider().getLoadedTarget(label);
+        return packageManager.getLoadedTarget(label);
       }
     };
     TargetAndConfiguration ctNode =
@@ -1295,7 +1289,7 @@ public class BuildView {
       ListMultimap<Attribute, Label> labelMap, StoredErrorEventListener listener) {
     BuildConfiguration config = target.getConfiguration();
     CachingAnalysisEnvironment analysisEnvironment =
-        new CachingAnalysisEnvironment(artifactFactory, packageManager,
+        new CachingAnalysisEnvironment(artifactFactory,
             new LabelAndConfiguration(target.getLabel(), config),
             lastWorkspaceStatusArtifacts, /*isSystemEnv=*/false, config.extendedSanityChecks(),
             listener, /*skyframeEnv=*/null, config.isActionsEnabled(), outputFormatters, binTools);

@@ -23,13 +23,10 @@ import com.google.common.collect.Sets;
 import com.google.common.escape.Escaper;
 import com.google.common.escape.Escapers;
 import com.google.devtools.build.lib.syntax.Label;
-import com.google.devtools.build.lib.syntax.SkylarkBuiltin;
-import com.google.devtools.build.lib.syntax.SkylarkCallable;
 import com.google.devtools.build.lib.util.StringUtil;
 import com.google.devtools.build.lib.vfs.FileSystemUtils;
 import com.google.devtools.build.lib.vfs.PathFragment;
 
-import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.Collection;
 import java.util.Collections;
@@ -44,8 +41,6 @@ import javax.annotation.Nullable;
  * in a more dynamic way than just simple template-substitution.  For example,
  * the set of implicit outputs may be a function of rule attributes.
  */
-@SkylarkBuiltin(name = "ImplicitOutputsFunction",
-    doc = "A helper class to handle implicit output templates.")
 public abstract class ImplicitOutputsFunction implements Function<AttributeMap, Iterable<String>> {
 
   /**
@@ -256,7 +251,6 @@ public abstract class ImplicitOutputsFunction implements Function<AttributeMap, 
    * @return a format string for {@link String#format}, created from the template string with every
    *     placeholder replaced by %s
    */
-  @SkylarkCallable(doc = "")
   public static String createPlaceholderSubstitutionFormatString(String template,
       Collection<String> placeholders) {
     return createPlaceholderSubstitutionFormatStringRecursive(template, placeholders,
@@ -286,8 +280,7 @@ public abstract class ImplicitOutputsFunction implements Function<AttributeMap, 
    * the values from attributeSource.  If there are multiple placeholders, then
    * the output is the cross product of substitutions.
    */
-  @SkylarkCallable(doc = "")
-  public static List<String> substitutePlaceholderIntoTemplate(String template,
+  public static ImmutableList<String> substitutePlaceholderIntoTemplate(String template,
       AttributeMap rule) {
     return substitutePlaceholderIntoTemplate(template, rule, DEFAULT_RULE_ATTRIBUTE_GETTER, null);
   }
@@ -303,8 +296,9 @@ public abstract class ImplicitOutputsFunction implements Function<AttributeMap, 
    * @return all possible combinations of the attributes referenced by the placeholders,
    *     substituted into the template; empty if any of the placeholders expands to no values
    */
-  public static List<String> substitutePlaceholderIntoTemplate(String template, AttributeMap rule,
-      AttributeValueGetter attributeGetter, @Nullable List<String> placeholdersInTemplate) {
+  public static ImmutableList<String> substitutePlaceholderIntoTemplate(String template,
+      AttributeMap rule, AttributeValueGetter attributeGetter,
+      @Nullable List<String> placeholdersInTemplate) {
     List<String> placeholders = (placeholdersInTemplate == null)
         ? Lists.<String>newArrayList()
         : placeholdersInTemplate;
@@ -321,10 +315,10 @@ public abstract class ImplicitOutputsFunction implements Function<AttributeMap, 
       }
       values.add(attrValues);
     }
-    List<String> out = new ArrayList<>();
+    ImmutableList.Builder<String> out = new ImmutableList.Builder<>();
     for (List<String> combination : Sets.cartesianProduct(values)) {
       out.add(String.format(formatStr, combination.toArray()));
     }
-    return out;
+    return out.build();
   }
 }

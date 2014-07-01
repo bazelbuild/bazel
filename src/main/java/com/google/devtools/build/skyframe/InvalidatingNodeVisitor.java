@@ -23,7 +23,6 @@ import com.google.common.collect.Sets;
 import com.google.devtools.build.lib.concurrent.AbstractQueueVisitor;
 import com.google.devtools.build.lib.concurrent.ThreadSafety.ThreadSafe;
 import com.google.devtools.build.lib.util.Pair;
-import com.google.devtools.build.skyframe.AutoUpdatingGraph.NodeProgressReceiver;
 
 import java.util.Set;
 import java.util.concurrent.TimeUnit;

@@ -29,11 +29,9 @@ import com.google.devtools.build.lib.packages.Target;
 import java.util.Collection;
 import java.util.HashMap;
 import java.util.LinkedHashSet;
-import java.util.LinkedList;
 import java.util.List;
 import java.util.Map;
 import java.util.Objects;
-import java.util.Queue;
 import java.util.Set;
 
 /**
@@ -66,7 +64,7 @@ public final class BuildConfigurationCollection {
     // configurations must all have different cache keys or we will end up with problems.
     HashMap<String, BuildConfiguration> cacheKeyConflictDetector = new HashMap<>();
     for (BuildConfiguration target : targetConfigurations) {
-      for (BuildConfiguration config : getAllReachableConfigurations(target)) {
+      for (BuildConfiguration config : target.getAllReachableConfigurations()) {
         if (config.isHostConfiguration()) {
           continue;
         }
@@ -166,26 +164,7 @@ public final class BuildConfigurationCollection {
   public Collection<BuildConfiguration> getAllConfigurations() {
     Set<BuildConfiguration> result = new LinkedHashSet<>();
     for (BuildConfiguration config : targetConfigurations) {
-      result.addAll(getAllReachableConfigurations(config));
-    }
-    return result;
-  }
-
-  /**
-   * Returns all configurations that can be reached from the given configuration through any kind
-   * of configuration transition.
-   */
-  private Collection<BuildConfiguration> getAllReachableConfigurations(
-      BuildConfiguration startConfig) {
-    Set<BuildConfiguration> result = new LinkedHashSet<>();
-    Queue<BuildConfiguration> queue = new LinkedList<>();
-    queue.add(startConfig);
-    while (!queue.isEmpty()) {
-      BuildConfiguration config = queue.remove();
-      if (!result.add(config)) {
-        continue;
-      }
-      config.getTransitions().addDirectlyReachableConfigurations(queue);
+      result.addAll(config.getAllReachableConfigurations());
     }
     return result;
   }

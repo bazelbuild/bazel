@@ -38,11 +38,11 @@ import com.google.devtools.build.lib.skyframe.SkyframeExecutor;
 import com.google.devtools.build.lib.util.BlazeClock;
 import com.google.devtools.build.lib.util.ExitCausingException;
 import com.google.devtools.build.lib.vfs.ModifiedFileSet;
-import com.google.devtools.build.skyframe.AutoUpdatingGraph.NodeProgressReceiver;
 import com.google.devtools.build.skyframe.CycleInfo;
 import com.google.devtools.build.skyframe.ErrorInfo;
 import com.google.devtools.build.skyframe.Node;
 import com.google.devtools.build.skyframe.NodeKey;
+import com.google.devtools.build.skyframe.NodeProgressReceiver;
 import com.google.devtools.build.skyframe.NodeType;
 import com.google.devtools.build.skyframe.UpdateResult;
 

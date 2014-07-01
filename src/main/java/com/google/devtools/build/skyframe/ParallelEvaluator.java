@@ -40,10 +40,9 @@ import com.google.devtools.build.lib.events.StoredErrorEventListener;
 import com.google.devtools.build.lib.profiler.Profiler;
 import com.google.devtools.build.lib.profiler.ProfilerTask;
 import com.google.devtools.build.lib.util.GroupedList.GroupedListHelper;
-import com.google.devtools.build.skyframe.AutoUpdatingGraph.NodeProgressReceiver;
-import com.google.devtools.build.skyframe.AutoUpdatingGraph.NodeProgressReceiver.EvaluationState;
 import com.google.devtools.build.skyframe.BuildingState.DirtyState;
 import com.google.devtools.build.skyframe.NodeEntry.DependencyState;
+import com.google.devtools.build.skyframe.NodeProgressReceiver.EvaluationState;
 import com.google.devtools.build.skyframe.Scheduler.SchedulerException;
 
 import java.util.ArrayDeque;

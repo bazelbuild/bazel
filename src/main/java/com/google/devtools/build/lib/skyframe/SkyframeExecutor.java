@@ -85,13 +85,13 @@ import com.google.devtools.build.lib.view.config.BuildOptions;
 import com.google.devtools.build.lib.view.config.ConfigurationFactory;
 import com.google.devtools.build.lib.view.config.InvalidConfigurationException;
 import com.google.devtools.build.skyframe.AutoUpdatingGraph;
-import com.google.devtools.build.skyframe.AutoUpdatingGraph.NodeProgressReceiver;
 import com.google.devtools.build.skyframe.CycleInfo;
 import com.google.devtools.build.skyframe.CyclesReporter;
 import com.google.devtools.build.skyframe.InMemoryAutoUpdatingGraph;
 import com.google.devtools.build.skyframe.Node;
 import com.google.devtools.build.skyframe.NodeBuilder;
 import com.google.devtools.build.skyframe.NodeKey;
+import com.google.devtools.build.skyframe.NodeProgressReceiver;
 import com.google.devtools.build.skyframe.NodeType;
 import com.google.devtools.build.skyframe.UpdateResult;
 
@@ -905,9 +905,13 @@ public final class SkyframeExecutor {
    */
   ImmutableMap<Action, Exception> findArtifactConflicts() throws InterruptedException {
     Preconditions.checkState(skyframeBuild);
-    if (skyframeBuildView.isSomeConfiguredTargetEvaluated()) {
+    if (skyframeBuildView.isSomeConfiguredTargetEvaluated()
+        || skyframeBuildView.isSomeConfiguredTargetInvalidated()) {
+      // This operation is somewhat expensive, so we only do it if the graph might have changed in
+      // some way -- either we analyzed a new target or we invalidated an old one.
       skyframeActionExecutor.findAndStoreArtifactConflicts(getActionLookupNodes());
       skyframeBuildView.resetEvaluatedConfiguredTargetFlag();
+      // The invalidated configured targets flag will be reset later in the update call.
     }
     return skyframeActionExecutor.badActions();
   }
@@ -1018,6 +1022,12 @@ public final class SkyframeExecutor {
   @VisibleForTesting
   public void invalidateFilesUnderPathForTesting(ModifiedFileSet modifiedFileSet, Path pathEntry)
       throws InterruptedException {
+    if (lastAnalysisDiscarded) {
+      // Nodes were cleared last build, but they couldn't be deleted because they were needed for
+      // the execution phase. We can delete them now.
+      dropConfiguredTargetsNow();
+      lastAnalysisDiscarded = false;
+    }
     Iterable<NodeKey> keys;
     if (modifiedFileSet.treatEverythingAsModified()) {
       keys = new FilesystemNodeChecker(autoUpdatingGraph, tsgm).getDirtyFilesystemNodeKeys();

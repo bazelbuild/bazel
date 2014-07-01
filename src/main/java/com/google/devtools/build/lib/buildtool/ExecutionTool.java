@@ -531,7 +531,7 @@ public class ExecutionTool {
     }
     if (options.dumpTargets != null) {
       dumpers.add(new TargetsDumper(artifactsToBuild, actionGraph,
-          getView().getLoadedPackageProvider(), options.dumpTargets, options.dumpHostDeps));
+          runtime.getPackageManager(), options.dumpTargets, options.dumpHostDeps));
     }
     for (Dumper dumper : dumpers) {
       try {

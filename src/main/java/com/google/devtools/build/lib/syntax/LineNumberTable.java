@@ -15,6 +15,7 @@
 package com.google.devtools.build.lib.syntax;
 
 import com.google.common.collect.ImmutableList;
+import com.google.devtools.build.lib.concurrent.ThreadSafety.Immutable;
 import com.google.devtools.build.lib.events.Location.LineAndColumn;
 import com.google.devtools.build.lib.util.Pair;
 import com.google.devtools.build.lib.util.StringUtilities;
@@ -60,6 +61,7 @@ abstract class LineNumberTable {
    * Line number table implementation for regular source files.  Records
    * offsets of newlines.
    */
+  @Immutable
   private static class Regular extends LineNumberTable  {
 
     /**
@@ -148,6 +150,7 @@ abstract class LineNumberTable {
    * preprocessed. Ignores newlines and uses only #line directives.
    */
   // TODO(bazel-team): Use binary search instead of linear search.
+  @Immutable
   private static class HashLine extends LineNumberTable {
 
     /**

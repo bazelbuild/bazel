@@ -37,6 +37,17 @@ import java.util.MissingFormatWidthException;
  */
 public abstract class EvalUtils {
 
+  // TODO(bazel-team): Yet an other hack committed in the name of Skylark. The problem is that the
+  // syntax package cannot depend on actions so we have to have this until Actions are immutable.
+  private static final Class<?> actionClass;
+  static {
+    try {
+      actionClass = Class.forName("com.google.devtools.build.lib.actions.Action");
+    } catch (ClassNotFoundException e) {
+      throw new RuntimeException(e);
+    }
+  }
+
   private EvalUtils() {
   }
 
@@ -78,7 +89,10 @@ public abstract class EvalUtils {
     if (c.isAnnotationPresent(Immutable.class)) {
       return true;
     } else if (c.equals(String.class) || c.equals(Integer.class) || c.equals(Boolean.class)
-        || ImmutableList.class.isAssignableFrom(c) || ImmutableMap.class.isAssignableFrom(c)) {
+        || ImmutableList.class.isAssignableFrom(c) || ImmutableMap.class.isAssignableFrom(c)
+        || NestedSet.class.isAssignableFrom(c)
+        // Actions are technically not immutable but we cannot modify them from Skylark
+        || actionClass.isAssignableFrom(c)) {
       return true;
     }
     return false;

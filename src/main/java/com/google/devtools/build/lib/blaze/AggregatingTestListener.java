@@ -32,11 +32,9 @@ import com.google.devtools.build.lib.buildtool.buildevent.BuildCompleteEvent;
 import com.google.devtools.build.lib.buildtool.buildevent.TestFilteringCompleteEvent;
 import com.google.devtools.build.lib.concurrent.ThreadSafety;
 import com.google.devtools.build.lib.events.ExceptionListener;
-import com.google.devtools.build.lib.pkgcache.LoadingFailureEvent;
-import com.google.devtools.build.lib.syntax.Label;
+import com.google.devtools.build.lib.skyframe.LabelAndConfiguration;
 import com.google.devtools.build.lib.view.AnalysisFailureEvent;
 import com.google.devtools.build.lib.view.ConfiguredTarget;
-import com.google.devtools.build.lib.view.TransitiveInfoCollection;
 import com.google.devtools.build.lib.view.test.BlazeTestStatus;
 import com.google.devtools.build.lib.view.test.TestProvider;
 import com.google.devtools.build.lib.view.test.TestResult;
@@ -60,10 +58,8 @@ public class AggregatingTestListener {
 
   // summaryLock guards concurrent access to these two collections, which should be kept
   // synchronized with each other.
-  // TODO(bazel-team): Labels as unique keys are not ideal, because in theory the same target
-  // could be run in multiple different configurations.
-  private final Map<Label, TestSummary.Builder> summaries;
-  private final Multimap<Label, Artifact> remainingRuns;
+  private final Map<LabelAndConfiguration, TestSummary.Builder> summaries;
+  private final Multimap<LabelAndConfiguration, Artifact> remainingRuns;
   private final Object summaryLock = new Object();
 
   public AggregatingTestListener(TestResultAnalyzer analyzer,
@@ -93,17 +89,17 @@ public class AggregatingTestListener {
   public void populateTests(TestFilteringCompleteEvent event) {
     // Add all target runs to the map, assuming 1:1 status artifact <-> result.
     synchronized (summaryLock) {
-      for (TransitiveInfoCollection target : event.getTestTargets()) {
+      for (ConfiguredTarget target : event.getTestTargets()) {
         Iterable<Artifact> statusArtifacts =
             target.getProvider(TestProvider.class).getTestParams().getTestStatusArtifacts();
-        preconditionHelper.checkState(remainingRuns.putAll(target.getLabel(), statusArtifacts));
+        preconditionHelper.checkState(remainingRuns.putAll(asKey(target), statusArtifacts));
 
         // And create an empty summary suitable for incremental analysis.
         // Also has the nice side effect of mapping labels to RuleConfiguredTargets.
         TestSummary.Builder summary = TestSummary.newBuilder()
             .setTarget(target)
             .setStatus(BlazeTestStatus.NO_STATUS);
-        preconditionHelper.checkState(summaries.put(target.getLabel(), summary) == null);
+        preconditionHelper.checkState(summaries.put(asKey(target), summary) == null);
       }
     }
   }
@@ -120,7 +116,8 @@ public class AggregatingTestListener {
         "Duplicate result reported for an individual test shard");
 
     ActionOwner testOwner = result.getTestAction().getOwner();
-    Label targetLabel = testOwner.getLabel();
+    LabelAndConfiguration targetLabel = new LabelAndConfiguration(
+        testOwner.getLabel(), result.getTestAction().getConfiguration());
 
     TestSummary finalTestSummary = null;
     synchronized (summaryLock) {
@@ -144,7 +141,7 @@ public class AggregatingTestListener {
     }
   }
 
-  private void targetFailure(Label label) {
+  private void targetFailure(LabelAndConfiguration label) {
     TestSummary finalSummary;
     synchronized (summaryLock) {
       if (!remainingRuns.containsKey(label)) {
@@ -176,18 +173,13 @@ public class AggregatingTestListener {
 
     for (ConfiguredTarget target: Sets.difference(
         ImmutableSet.copyOf(actualTargets), ImmutableSet.copyOf(successfulTargets))) {
-      targetFailure(target.getLabel());
+      targetFailure(asKey(target));
     }
   }
 
   @Subscribe
   public void buildCompleteEvent(BuildCompleteEvent event) {
     buildComplete(event.getResult().getActualTargets(), event.getResult().getSuccessfulTargets());
-  }
-
-  @Subscribe
-  public void loadingFailure(LoadingFailureEvent event) {
-    targetFailure(event.getFailedTarget());
   }
 
   @Subscribe
@@ -198,9 +190,9 @@ public class AggregatingTestListener {
   /**
    * Returns the known aggregate results for the given target at the current moment.
    */
-  public TestSummary.Builder getCurrentSummary(TransitiveInfoCollection target) {
+  public TestSummary.Builder getCurrentSummary(ConfiguredTarget target) {
     synchronized (summaryLock) {
-      return summaries.get(target.getLabel());
+      return summaries.get(asKey(target));
     }
   }
 
@@ -208,19 +200,18 @@ public class AggregatingTestListener {
    * Returns all test status artifacts associated with a given target
    * whose runs have yet to finish.
    */
-  public Collection<Artifact> getIncompleteRuns(TransitiveInfoCollection target) {
+  public Collection<Artifact> getIncompleteRuns(ConfiguredTarget target) {
     synchronized (summaryLock) {
-      return Collections.unmodifiableCollection(remainingRuns.get(target.getLabel()));
+      return Collections.unmodifiableCollection(remainingRuns.get(asKey(target)));
     }
   }
 
   /**
    * Returns true iff all runs of the target are accounted for.
    */
-  public boolean targetReported(TransitiveInfoCollection target) {
+  public boolean targetReported(ConfiguredTarget target) {
     synchronized (summaryLock) {
-      return summaries.containsKey(target.getLabel())
-          && !remainingRuns.containsKey(target.getLabel());
+      return summaries.containsKey(asKey(target)) && !remainingRuns.containsKey(asKey(target));
     }
   }
 
@@ -229,5 +220,9 @@ public class AggregatingTestListener {
    */
   public TestResultAnalyzer getAnalyzer() {
     return analyzer;
+  }
+
+  private LabelAndConfiguration asKey(ConfiguredTarget target) {
+    return new LabelAndConfiguration(target);
   }
 }

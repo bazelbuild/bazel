@@ -32,7 +32,6 @@ import com.google.devtools.build.lib.events.Reporter;
 import com.google.devtools.build.lib.testutil.MoreAsserts;
 import com.google.devtools.build.lib.testutil.TestUtils;
 import com.google.devtools.build.lib.util.Pair;
-import com.google.devtools.build.skyframe.AutoUpdatingGraph.NodeProgressReceiver;
 import com.google.devtools.build.skyframe.GraphTester.StringNode;
 import com.google.devtools.build.skyframe.InvalidatingNodeVisitor.DirtyingInvalidationState;
 import com.google.devtools.build.skyframe.InvalidatingNodeVisitor.InvalidationState;
@@ -68,7 +67,7 @@ public class EagerInvalidatorTest {
   // The following three methods should be abstract, but junit4 does not allow us to run inner
   // classes in an abstract outer class. Thus, we provide implementations. These methods will never
   // be run because only the inner classes, annotated with @RunWith, will actually be executed.
-  AutoUpdatingGraph.NodeProgressReceiver.InvalidationState expectedState() { 
+  NodeProgressReceiver.InvalidationState expectedState() {
     throw new UnsupportedOperationException();
   }
 

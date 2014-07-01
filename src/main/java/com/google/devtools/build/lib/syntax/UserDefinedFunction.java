@@ -45,7 +45,7 @@ public class UserDefinedFunction extends AbstractFunction {
     this.statements = statements;
   }
 
-  ImmutableList<Ident> getListArgNames() {
+  public ImmutableList<Ident> getListArgNames() {
     return listArgNames;
   }
 

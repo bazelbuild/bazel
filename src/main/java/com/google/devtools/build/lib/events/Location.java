@@ -14,7 +14,9 @@
 
 package com.google.devtools.build.lib.events;
 
+import com.google.devtools.build.lib.concurrent.ThreadSafety.Immutable;
 import com.google.devtools.build.lib.vfs.Path;
+import com.google.devtools.build.lib.vfs.PathFragment;
 
 /**
  * A Location is a range of characters within a file.
@@ -29,8 +31,37 @@ import com.google.devtools.build.lib.vfs.Path;
  */
 public abstract class Location {
 
+  @Immutable
+  private static final class LocationWithPathAndStartColumn extends Location {
+    private final PathFragment path;
+    private final LineAndColumn startLineAndColumn;
+
+    private LocationWithPathAndStartColumn(Path path, int startOffSet, int endOffSet,
+        LineAndColumn startLineAndColumn) {
+      super(startOffSet, endOffSet);
+      this.path = path != null ? path.asFragment() : null;
+      this.startLineAndColumn = startLineAndColumn;
+    }
+
+    @Override
+    public PathFragment getPath() { return path; }
+
+    @Override
+    public LineAndColumn getStartLineAndColumn() {
+      return startLineAndColumn;
+    }
+  }
+
   protected final int startOffset;
   protected final int endOffset;
+
+  /**
+   * Returns a Location with a given Path, start and end offset and start line and column info. 
+   */
+  public static Location fromPathAndStartColumn(Path path,  int startOffSet, int endOffSet,
+      LineAndColumn startLineAndColumn) {
+    return new LocationWithPathAndStartColumn(path, startOffSet, endOffSet, startLineAndColumn);
+  }
 
   /**
    * Returns a Location relating to file 'path', but not to any specific part
@@ -47,10 +78,7 @@ public abstract class Location {
   public static Location fromFileAndOffsets(final Path path,
                                             int startOffset,
                                             int endOffset) {
-    return new Location(startOffset, endOffset) {
-        @Override
-        public Path getPath() { return path; }
-      };
+    return new LocationWithPathAndStartColumn(path, startOffset, endOffset, null);
   }
 
   protected Location(int startOffset, int endOffset) {
@@ -88,7 +116,7 @@ public abstract class Location {
    * convering offsets into line numbers) and this enables them to share the
    * Path value in the same way.
    */
-  public abstract Path getPath();
+  public abstract PathFragment getPath();
 
   /**
    * Returns a (line, column) pair corresponding to the position denoted by
@@ -147,6 +175,7 @@ public abstract class Location {
   /**
    * A value class that describes the line and column of an offset in a file.
    */
+  @Immutable
   public static final class LineAndColumn {
     private final int line;
     private final int column;

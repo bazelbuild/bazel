@@ -15,18 +15,14 @@
 package com.google.devtools.build.lib.actions;
 
 import com.google.common.annotations.VisibleForTesting;
-import com.google.devtools.build.lib.syntax.SkylarkBuiltin;
-import com.google.devtools.build.lib.syntax.SkylarkCallable;
 
 /**
  * An interface for registering actions.
  */
-@SkylarkBuiltin(name = "ActionRegistry", doc = "A helper class to register actions.")
 public interface ActionRegistry {
   /**
    * This method notifies the registry about a new action.
    */
-  @SkylarkCallable(doc = "")
   void registerAction(Action action);
 
   /**

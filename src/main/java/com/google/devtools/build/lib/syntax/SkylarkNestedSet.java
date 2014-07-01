@@ -15,6 +15,7 @@ package com.google.devtools.build.lib.syntax;
 
 import com.google.common.annotations.VisibleForTesting;
 import com.google.common.base.Preconditions;
+import com.google.common.collect.ImmutableList;
 import com.google.devtools.build.lib.collect.nestedset.NestedSet;
 import com.google.devtools.build.lib.collect.nestedset.NestedSetBuilder;
 import com.google.devtools.build.lib.collect.nestedset.Order;
@@ -136,7 +137,7 @@ public class SkylarkNestedSet implements Iterable<Object> {
 
   @SkylarkCallable(doc = "Flattens this nested set of file to a list.")
   public Collection<?> toCollection() {
-    return set.toCollection();
+    return ImmutableList.copyOf(set.toCollection());
   }
 
   @SkylarkCallable(doc = "Returns true if this file set is empty.")

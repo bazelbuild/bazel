@@ -630,7 +630,7 @@ public class BlazeCommandDispatcher {
         continue;
       }
 
-      if (rcFile != lastRcFile) {
+      if (!rcFile.equals(lastRcFile)) {
         if (lastRcFile != null) {
           result.add(Pair.of(lastRcFile, lastMap));
         }

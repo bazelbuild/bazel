@@ -16,7 +16,7 @@ package com.google.devtools.build.lib.buildtool.buildevent;
 
 import com.google.common.base.Preconditions;
 import com.google.common.collect.ImmutableList;
-import com.google.devtools.build.lib.view.TransitiveInfoCollection;
+import com.google.devtools.build.lib.view.ConfiguredTarget;
 import com.google.devtools.build.lib.view.test.TestProvider;
 
 import java.util.Collection;
@@ -31,8 +31,8 @@ import javax.annotation.concurrent.Immutable;
  */
 @Immutable
 public class TestFilteringCompleteEvent {
-  private final Collection<TransitiveInfoCollection> targets;
-  private final Collection<TransitiveInfoCollection> testTargets;
+  private final Collection<ConfiguredTarget> targets;
+  private final Collection<ConfiguredTarget> testTargets;
 
   /**
    * Construct the event.
@@ -40,15 +40,15 @@ public class TestFilteringCompleteEvent {
    * @param testTargets The collection of tests to be run. May be null.
    */
   public TestFilteringCompleteEvent(
-      Collection<? extends TransitiveInfoCollection> targets,
-      Collection<? extends TransitiveInfoCollection> testTargets) {
+      Collection<? extends ConfiguredTarget> targets,
+      Collection<? extends ConfiguredTarget> testTargets) {
     this.targets = ImmutableList.copyOf(targets);
     this.testTargets = testTargets == null ? null : ImmutableList.copyOf(testTargets);
     if (testTargets == null) {
       return;
     }
 
-    for (TransitiveInfoCollection testTarget : testTargets) {
+    for (ConfiguredTarget testTarget : testTargets) {
       Preconditions.checkState(testTarget.getProvider(TestProvider.class) != null);
     }
   }
@@ -57,14 +57,14 @@ public class TestFilteringCompleteEvent {
    * @return The set of active targets remaining. This is a subset of
    *     the targets that passed analysis, after test_suite expansion.
    */
-  public Collection<TransitiveInfoCollection> getTargets() {
+  public Collection<ConfiguredTarget> getTargets() {
     return targets;
   }
 
   /**
    * @return The set of test targets to be run. May be null.
    */
-  public Collection<TransitiveInfoCollection> getTestTargets() {
+  public Collection<ConfiguredTarget> getTestTargets() {
     return testTargets;
   }
 }

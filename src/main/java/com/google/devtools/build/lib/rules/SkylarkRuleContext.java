@@ -18,8 +18,13 @@ import com.google.common.base.Preconditions;
 import com.google.common.cache.CacheBuilder;
 import com.google.common.cache.CacheLoader;
 import com.google.common.cache.LoadingCache;
+import com.google.common.collect.ImmutableList;
+import com.google.common.collect.ImmutableMap;
+import com.google.common.collect.ImmutableSet;
 import com.google.common.collect.Iterables;
+import com.google.devtools.build.lib.actions.Action;
 import com.google.devtools.build.lib.actions.Artifact;
+import com.google.devtools.build.lib.packages.ImplicitOutputsFunction;
 import com.google.devtools.build.lib.packages.OutputFile;
 import com.google.devtools.build.lib.shell.ShellUtils;
 import com.google.devtools.build.lib.shell.ShellUtils.TokenizationException;
@@ -36,8 +41,10 @@ import com.google.devtools.build.lib.view.RuleContext;
 import com.google.devtools.build.lib.view.TransitiveInfoProvider;
 
 import java.util.ArrayList;
+import java.util.LinkedList;
 import java.util.List;
 import java.util.Map;
+import java.util.Set;
 import java.util.concurrent.ExecutionException;
 
 import javax.annotation.Nullable;
@@ -74,7 +81,6 @@ public final class SkylarkRuleContext {
   /**
    * Returns the original ruleContext.
    */
-  @SkylarkCallable(doc = "")
   public RuleContext getRuleContext() {
     return ruleContext;
   }
@@ -197,11 +203,11 @@ public final class SkylarkRuleContext {
   }
 
   /**
-   * Returns the rule's analysis environment.
+   * Registers an action.
    */
   @SkylarkCallable(doc = "")
-  public Object getAnalysisEnvironment() {
-    return ruleContext.getAnalysisEnvironment();
+  public void registerAction(Action action) {
+    ruleContext.getAnalysisEnvironment().registerAction(action);
   }
 
   /**
@@ -213,27 +219,19 @@ public final class SkylarkRuleContext {
   }
 
   /**
-   * Returns the rule.
-   */
-  @SkylarkCallable(doc = "")
-  public Object getRule() {
-    return ruleContext.getRule();
-  }
-
-  /**
    * Signals a rule error with the given message.
    */
   @SkylarkCallable(doc = "")
-  public void error(String message) {
-    ruleContext.ruleError(message);
+  public void error(String message) throws FuncallException {
+    throw new FuncallException(message);
   }
 
   /**
    * Signals an attribute error with the given attribute and message.
    */
   @SkylarkCallable(doc = "")
-  public void error(String attrName, String message) {
-    ruleContext.attributeError(attrName, message);
+  public void error(String attrName, String message) throws FuncallException {
+    throw new FuncallException("attribute " + attrName + ": " + message);
   }
 
   /**
@@ -253,14 +251,6 @@ public final class SkylarkRuleContext {
   }
 
   /**
-   * Returns true if the ruleContext has errors.
-   */
-  @SkylarkCallable(doc = "")
-  public boolean hasErrors() {
-    return ruleContext.hasErrors();
-  }
-
-  /**
    * See {@link RuleContext#createOutputArtifact(OutputFile)}.
    */
   @SkylarkCallable(doc = "")
@@ -276,6 +266,14 @@ public final class SkylarkRuleContext {
     return ruleContext.getOutputArtifacts();
   }
 
+  /**
+   * See {@link RuleContext#createOutputArtifact(OutputFile)}.
+   */
+  @SkylarkCallable(doc = "")
+  public ImmutableList<OutputFile> getOutputFiles() {
+    return ImmutableList.copyOf(ruleContext.getRule().getOutputFiles());
+  }
+
   @Override
   @SkylarkCallable(doc = "")
   public String toString() {
@@ -283,25 +281,47 @@ public final class SkylarkRuleContext {
   }
 
   @SkylarkCallable(doc = "")
-  public List<String> tokenize(String optionString) {
+  public ImmutableMap<String, String> getDefaultShellEnvironment() {
+    return ruleContext.getConfiguration().getDefaultShellEnvironment();
+  }
+
+  @SkylarkCallable(doc = "")
+  public List<String> tokenize(String optionString) throws FuncallException {
     List<String> options = new ArrayList<String>();
     try {
       ShellUtils.tokenize(options, optionString);
     } catch (TokenizationException e) {
-      ruleContext.ruleError(e.getMessage() + " while tokenizing '" + optionString + "'");
+      throw new FuncallException(e.getMessage() + " while tokenizing '" + optionString + "'");
     }
-    return options;
+    return ImmutableList.copyOf(options);
   }
 
   @SkylarkCallable(doc = "")
   public <T extends Iterable<Artifact>> String expand(@Nullable String expression,
-      Map<Label, T> labelMap, Label labelResolver) {
+      Map<Label, T> labelMap, Label labelResolver) throws FuncallException {
     try {
       return LabelExpander.expand(expression, labelMap, labelResolver);
     } catch (NotUniqueExpansionException e) {
-      ruleContext.ruleError(e.getMessage() + " while expanding '" + expression + "'");
-      // Return an empty String to avoid breakages.
-      return "";
+      throw new FuncallException(e.getMessage() + " while expanding '" + expression + "'");
     }
+  }
+
+  @SkylarkCallable(doc = "")
+  public ImmutableList<String> substitutePlaceholders(String template) {
+    return ImplicitOutputsFunction.substitutePlaceholderIntoTemplate(
+        template, ruleContext.getRule());
+  }
+
+  @SkylarkCallable(doc = "")
+  public boolean checkPlaceholders(String template, List<String> allowedPlaceholders) {
+    List<String> actualPlaceHolders = new LinkedList<>();
+    Set<String> allowedPlaceholderSet = ImmutableSet.copyOf(allowedPlaceholders);
+    ImplicitOutputsFunction.createPlaceholderSubstitutionFormatString(template, actualPlaceHolders);
+    for (String placeholder : actualPlaceHolders) {
+      if (!allowedPlaceholderSet.contains(placeholder)) {
+        return false;
+      }
+    }
+    return true;
   }
 }

@@ -253,6 +253,10 @@ public final class FuncallExpression extends Expression {
         // have reduced visibility.
         matchingMethod.setAccessible(true);
         Object result = matchingMethod.invoke(obj, args.toArray());
+        if (result != null && !EvalUtils.isSkylarkImmutable(result.getClass())) {
+          throw new EvalException(func.getLocation(), "Method '" + methodName
+              + "' returns a mutable object (type of " + EvalUtils.getDatatypeName(result) + ").");
+        }
         if (result instanceof NestedSet<?>) {
           // This is probably the most terrible hack ever written. However this is the last place
           // where we can infer generic type information, so SkylarkNestedSets can remain safe.

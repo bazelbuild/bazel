@@ -16,6 +16,7 @@ package com.google.devtools.build.lib.packages;
 import com.google.common.base.Preconditions;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableList.Builder;
+import com.google.devtools.build.lib.concurrent.ThreadSafety.Immutable;
 import com.google.devtools.build.lib.events.Location;
 import com.google.devtools.build.lib.events.NullErrorEventListener;
 import com.google.devtools.build.lib.events.StoredErrorEventListener;
@@ -34,6 +35,7 @@ import com.google.devtools.build.lib.syntax.GlobList;
 import com.google.devtools.build.lib.syntax.Label;
 import com.google.devtools.build.lib.util.Pair;
 import com.google.devtools.build.lib.vfs.Path;
+import com.google.devtools.build.lib.vfs.PathFragment;
 
 import java.util.ArrayList;
 import java.util.HashMap;
@@ -156,8 +158,9 @@ public class PackageDeserializer {
   private final Environment environment;
   private final RuleClassProvider ruleClassProvider;
 
+  @Immutable
   private static final class ExplicitLocation extends Location {
-    private final Path path;
+    private final PathFragment path;
     private final int startLine;
     private final int startColumn;
     private final int endLine;
@@ -167,7 +170,7 @@ public class PackageDeserializer {
       super(
           location.hasStartOffset() && location.hasEndOffset() ? location.getStartOffset() : 0,
           location.hasStartOffset() && location.hasEndOffset() ? location.getEndOffset() : 0);
-      this.path = path;
+      this.path = path.asFragment();
       if (location.hasStartLine() && location.hasStartColumn() &&
           location.hasEndLine() && location.hasEndColumn()) {
         this.startLine = location.getStartLine();
@@ -183,7 +186,7 @@ public class PackageDeserializer {
     }
 
     @Override
-    public Path getPath() {
+    public PathFragment getPath() {
       return path;
     }
 

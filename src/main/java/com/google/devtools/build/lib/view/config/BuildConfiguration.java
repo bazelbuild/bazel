@@ -33,8 +33,6 @@ import com.google.devtools.build.lib.events.ErrorEventListener;
 import com.google.devtools.build.lib.packages.Attribute.ConfigurationTransition;
 import com.google.devtools.build.lib.syntax.Label;
 import com.google.devtools.build.lib.syntax.Label.SyntaxException;
-import com.google.devtools.build.lib.syntax.SkylarkBuiltin;
-import com.google.devtools.build.lib.syntax.SkylarkCallable;
 import com.google.devtools.build.lib.util.Fingerprint;
 import com.google.devtools.build.lib.util.RegexFilter;
 import com.google.devtools.build.lib.util.StringUtilities;
@@ -52,11 +50,15 @@ import com.google.devtools.common.options.TriState;
 
 import java.io.IOException;
 import java.util.ArrayList;
+import java.util.Collection;
 import java.util.Collections;
 import java.util.HashMap;
 import java.util.HashSet;
+import java.util.LinkedHashSet;
+import java.util.LinkedList;
 import java.util.List;
 import java.util.Map;
+import java.util.Queue;
 import java.util.Set;
 
 import javax.annotation.Nullable;
@@ -81,7 +83,6 @@ import javax.annotation.Nullable;
  * <p>Instances of BuildConfiguration are canonical:
  * <pre>c1.equals(c2) <=> c1==c2.</pre>
  */
-@SkylarkBuiltin(name = "BuildConfiguration", doc = "A helper class to handle configurations.")
 public final class BuildConfiguration {
 
   /**
@@ -661,6 +662,7 @@ public final class BuildConfiguration {
   private final String shortCacheKey;
 
   private Transitions transitions;
+  private Set<BuildConfiguration> allReachableConfigurations;
 
   private final ImmutableMap<Class<? extends Fragment>, Fragment> fragments;
 
@@ -856,6 +858,37 @@ public final class BuildConfiguration {
   public Transitions getTransitions() {
     Preconditions.checkState(this.transitions != null || isHostConfiguration());
     return transitions;
+  }
+
+  /**
+   * Returns all configurations that can be reached from this configuration through any kind of
+   * configuration transition.
+   */
+  public synchronized Collection<BuildConfiguration> getAllReachableConfigurations() {
+    if (allReachableConfigurations == null) {
+      // This is needed for every configured target in skyframe m2, so we cache it.
+      // We could alternatively make the corresponding dependencies into a skyframe node.
+      this.allReachableConfigurations = computeAllReachableConfigurations();
+    }
+    return allReachableConfigurations;
+  }
+
+  /**
+   * Returns all configurations that can be reached from this configuration through any kind of
+   * configuration transition.
+   */
+  private Set<BuildConfiguration> computeAllReachableConfigurations() {
+    Set<BuildConfiguration> result = new LinkedHashSet<>();
+    Queue<BuildConfiguration> queue = new LinkedList<>();
+    queue.add(this);
+    while (!queue.isEmpty()) {
+      BuildConfiguration config = queue.remove();
+      if (!result.add(config)) {
+        continue;
+      }
+      config.getTransitions().addDirectlyReachableConfigurations(queue);
+    }
+    return result;
   }
 
   /**
@@ -1083,7 +1116,6 @@ public final class BuildConfiguration {
   /**
    * Returns the default shell environment
    */
-  @SkylarkCallable(doc = "")
   public ImmutableMap<String, String> getDefaultShellEnvironment() {
     return defaultShellEnvironment;
   }

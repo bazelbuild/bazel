@@ -50,12 +50,12 @@ import com.google.devtools.build.lib.view.buildinfo.BuildInfoFactory.BuildInfoKe
 import com.google.devtools.build.lib.view.config.BinTools;
 import com.google.devtools.build.lib.view.config.BuildConfiguration;
 import com.google.devtools.build.lib.view.config.BuildConfigurationCollection;
-import com.google.devtools.build.skyframe.AutoUpdatingGraph.NodeProgressReceiver;
 import com.google.devtools.build.skyframe.CycleInfo;
 import com.google.devtools.build.skyframe.ErrorInfo;
 import com.google.devtools.build.skyframe.Node;
 import com.google.devtools.build.skyframe.NodeBuilder.Environment;
 import com.google.devtools.build.skyframe.NodeKey;
+import com.google.devtools.build.skyframe.NodeProgressReceiver;
 import com.google.devtools.build.skyframe.UpdateResult;
 
 import java.util.Collection;
@@ -210,7 +210,7 @@ public final class SkyframeBuildView {
     for (Map.Entry<NodeKey, ErrorInfo> errorEntry : result.errorMap().entrySet()) {
       if (nodes.contains(errorEntry.getKey().getNodeName())) {
         NodeKey errorKey = errorEntry.getKey();
-        Label label = ((LabelAndConfiguration) errorKey.getNodeName()).getLabel();
+        LabelAndConfiguration label = (LabelAndConfiguration) errorKey.getNodeName();
         ErrorInfo errorInfo = errorEntry.getValue();
         assertSaneAnalysisError(errorInfo);
 
@@ -346,7 +346,7 @@ public final class SkyframeBuildView {
       return null;
     }
     return new CachingAnalysisEnvironment(
-        artifactFactory, null, owner, workspaceStatusArtifacts, isSystemEnv,
+        artifactFactory, owner, workspaceStatusArtifacts, isSystemEnv,
         extendedSanityChecks, listener, env, allowRegisteringActions, outputFormatters, binTools);
   }
 

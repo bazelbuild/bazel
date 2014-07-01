@@ -17,7 +17,6 @@ import com.google.common.annotations.VisibleForTesting;
 import com.google.common.base.Predicate;
 import com.google.devtools.build.lib.collect.nestedset.NestedSetVisitor;
 import com.google.devtools.build.lib.concurrent.ThreadSafety.ThreadHostile;
-import com.google.devtools.build.lib.concurrent.ThreadSafety.ThreadSafe;
 import com.google.devtools.build.lib.events.ErrorEventListener;
 
 import java.io.PrintStream;
@@ -150,67 +149,6 @@ public interface AutoUpdatingGraph {
    */
   @ThreadHostile
   void dump(PrintStream out);
-
-  /**
-   * Receiver to inform callers which nodes have been invalidated. Nodes may be invalidated and then
-   * re-validated if they have been found not to be changed.
-   */
-  public interface NodeProgressReceiver {
-    /**
-     * New state of the node entry after evaluation.
-     */
-    enum EvaluationState {
-      /** The node was successfully re-evaluated. */
-      BUILT,
-      /** The node is clean or re-validated. */
-      CLEAN,
-    }
-
-    /**
-     * New state of the node entry after invalidation.
-     */
-    enum InvalidationState {
-      /** The node is dirty, although it might get re-validated again. */
-      DIRTY,
-      /** The node is dirty and got deleted, cannot get re-validated again. */
-      DELETED,
-    }
-
-    /**
-     * Notifies that {@code node} has been invalidated.
-     *
-     * <p>{@code state} indicates the new state of the node.
-     *
-     * <p>This method is not called on invalidation of nodes which do not have a value (usually
-     * because they are in error).
-     *
-     * <p>May be called concurrently from multiple threads, possibly with the same {@code node}
-     * object.
-     */
-    @ThreadSafe
-    void invalidated(Node node, InvalidationState state);
-
-    /**
-     * Notifies that {@code nodeKey} is about to get queued for evaluation.
-     *
-     * <p>Note that we don't guarantee that it actually got enqueued or will, only that if
-     * everything "goes well" (e.g. no interrupts happen) it will.
-     *
-     * <p>This guarantee is intentionally vague to encourage writing robust implementations.
-     */
-    @ThreadSafe
-    void enqueueing(NodeKey nodeKey);
-
-    /**
-     * Notifies that {@code node} has been evaluated.
-     *
-     * <p>{@code state} indicates the new state of the node.
-     *
-     * <p>This method is not called if the node builder threw an error when building this node.
-     */
-    @ThreadSafe
-    void evaluated(NodeKey nodeKey, Node node, EvaluationState state);
-  }
 
   /**
    * Keeps track of already-emitted events. Users of the graph should instantiate an

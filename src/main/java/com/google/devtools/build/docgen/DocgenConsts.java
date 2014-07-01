@@ -34,6 +34,8 @@ public class DocgenConsts {
   public static final String BODY_TEMPLATE = "templates/be-body.html";
   public static final String SKYLARK_BODY_TEMPLATE = "templates/skylark-body.html";
 
+  public static final String VAR_LEFT_PANEL = "LEFT_PANEL";
+
   public static final String VAR_SECTION_BINARY = "SECTION_BINARY";
   public static final String VAR_SECTION_LIBRARY = "SECTION_LIBRARY";
   public static final String VAR_SECTION_TEST = "SECTION_TEST";

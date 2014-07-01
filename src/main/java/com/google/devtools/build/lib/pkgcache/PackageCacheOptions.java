@@ -53,7 +53,7 @@ public class PackageCacheOptions extends OptionsBase {
   }
 
   @Option(name = "package_path",
-          defaultValue = "%workspace%:%workspace%/../READONLY/google3",
+          defaultValue = "%workspace%",
           category = "package loading",
           converter = Converters.ColonSeparatedOptionListConverter.class,
           help = "A colon-separated list of where to look for packages. "

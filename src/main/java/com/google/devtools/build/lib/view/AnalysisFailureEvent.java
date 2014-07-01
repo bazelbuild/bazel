@@ -14,6 +14,7 @@
 
 package com.google.devtools.build.lib.view;
 
+import com.google.devtools.build.lib.skyframe.LabelAndConfiguration;
 import com.google.devtools.build.lib.syntax.Label;
 
 /**
@@ -22,15 +23,15 @@ import com.google.devtools.build.lib.syntax.Label;
  * dependencies.
  */
 public class AnalysisFailureEvent {
-  private final Label failedTarget;
+  private final LabelAndConfiguration failedTarget;
   private final Label failureReason;
 
-  public AnalysisFailureEvent(Label failedTarget, Label failureReason) {
+  public AnalysisFailureEvent(LabelAndConfiguration failedTarget, Label failureReason) {
     this.failedTarget = failedTarget;
     this.failureReason = failureReason;
   }
 
-  public Label getFailedTarget() {
+  public LabelAndConfiguration getFailedTarget() {
     return failedTarget;
   }
 

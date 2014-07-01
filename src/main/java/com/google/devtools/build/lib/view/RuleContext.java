@@ -27,6 +27,7 @@ import com.google.devtools.build.lib.actions.ArtifactOwner;
 import com.google.devtools.build.lib.actions.Root;
 import com.google.devtools.build.lib.collect.ImmutableSortedKeyListMultimap;
 import com.google.devtools.build.lib.collect.nestedset.NestedSet;
+import com.google.devtools.build.lib.concurrent.ThreadSafety.Immutable;
 import com.google.devtools.build.lib.events.Location;
 import com.google.devtools.build.lib.packages.Attribute;
 import com.google.devtools.build.lib.packages.Attribute.ConfigurationTransition;
@@ -69,7 +70,6 @@ import java.util.Map;
 import java.util.Set;
 
 import javax.annotation.Nullable;
-import javax.annotation.concurrent.Immutable;
 
 /**
  * A helper class for rule implementations building and initialization. Objects of this
@@ -189,48 +189,61 @@ public final class RuleContext extends TargetContext
     return getAnalysisEnvironment().getOwner();
   }
 
+  // TODO(bazel-team): This class could be simpler if Rule and BuildConfiguration classes
+  // were immutable. Then we would need to store only references those two.
+  @Immutable
   private static final class RuleActionOwner implements ActionOwner {
-    private final Rule rule;
-    private final BuildConfiguration configuration;
+    private final Label label;
+    private final Location location;
+    private final String configurationName;
+    private final String mnemonic;
+    private final String targetKind;
+    private final String shortCacheKey;
+    private final boolean hostConfiguration;
 
     private RuleActionOwner(Rule rule, BuildConfiguration configuration) {
-      this.rule = rule;
-      this.configuration = configuration;
+      this.label = rule.getLabel();
+      this.location = rule.getLocation();
+      this.targetKind = rule.getTargetKind();
+      this.configurationName = configuration.getShortName();
+      this.mnemonic = configuration.getMnemonic();
+      this.shortCacheKey = configuration.shortCacheKey();
+      this.hostConfiguration = configuration.isHostConfiguration();
     }
 
     @Override
     public Location getLocation() {
-      return rule.getLocation();
+      return location;
     }
 
     @Override
     public Label getLabel() {
-      return rule.getLabel();
+      return label;
     }
 
     @Override
     public String getConfigurationName() {
-      return configuration.getShortName();
+      return configurationName;
     }
 
     @Override
     public String getConfigurationMnemonic() {
-      return configuration.getMnemonic();
+      return mnemonic;
     }
 
     @Override
     public String getConfigurationShortCacheKey() {
-      return configuration.shortCacheKey();
+      return shortCacheKey;
     }
 
     @Override
     public String getTargetKind() {
-      return rule.getTargetKind();
+      return targetKind;
     }
 
     @Override
     public String getAdditionalProgressInfo() {
-      return configuration.isHostConfiguration() ? "host" : null;
+      return hostConfiguration ? "host" : null;
     }
   }
 

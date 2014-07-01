@@ -38,6 +38,7 @@ import com.google.devtools.build.lib.packages.Attribute.ConfigurationTransition;
 import com.google.devtools.build.lib.packages.AttributeMap;
 import com.google.devtools.build.lib.packages.ImplicitOutputsFunction;
 import com.google.devtools.build.lib.packages.MethodLibrary;
+import com.google.devtools.build.lib.packages.Rule;
 import com.google.devtools.build.lib.packages.RuleClass;
 import com.google.devtools.build.lib.packages.RuleClass.Builder.RuleClassType;
 import com.google.devtools.build.lib.packages.SkylarkFileType;
@@ -49,6 +50,7 @@ import com.google.devtools.build.lib.syntax.EvalException;
 import com.google.devtools.build.lib.syntax.EvalUtils;
 import com.google.devtools.build.lib.syntax.FuncallExpression;
 import com.google.devtools.build.lib.syntax.Function;
+import com.google.devtools.build.lib.syntax.Ident;
 import com.google.devtools.build.lib.syntax.Label;
 import com.google.devtools.build.lib.syntax.SkylarkBuiltin;
 import com.google.devtools.build.lib.syntax.SkylarkBuiltin.Param;
@@ -62,8 +64,10 @@ import com.google.devtools.build.lib.vfs.Path;
 
 import java.lang.reflect.Field;
 import java.lang.reflect.Modifier;
+import java.util.HashSet;
 import java.util.List;
 import java.util.Map;
+import java.util.Set;
 
 /**
  * A helper class to provide an easier API for Skylark rule definitions.
@@ -257,7 +261,7 @@ public class SkylarkRuleClassFunctions {
         @Override
         public Object call(Map<String, Object> arguments, final FuncallExpression ast,
             final Environment funcallEnv) throws EvalException, ConversionException {
-          Location loc = ast.getLocation();
+          final Location loc = ast.getLocation();
           String name = cast(arguments.get("name"), String.class, "rule class name", loc);
 
           RuleClassType type = RuleClassType.NORMAL;
@@ -273,9 +277,11 @@ public class SkylarkRuleClassFunctions {
 
           RuleClass.Builder builder = new RuleClass.Builder(name, type, true, parents);
 
+          Set<String> attributeNames = new HashSet<>();
           for (Attribute attribute : castList(arguments.get("add"), Attribute.class,
               "new attributes to add to the rule")) {
             builder.add(attribute);
+            attributeNames.add(attribute.getName());
           }
 
           for (Attribute attribute : castList(arguments.get("override"), Attribute.class,
@@ -291,21 +297,34 @@ public class SkylarkRuleClassFunctions {
           if (arguments.containsKey("implicit_outputs")) {
             final Object implicitOutputs = arguments.get("implicit_outputs");
             if (implicitOutputs instanceof UserDefinedFunction) {
+              final UserDefinedFunction callback = (UserDefinedFunction) implicitOutputs;
+              for (Ident arg : callback.getListArgNames()) {
+                if (!attributeNames.contains(arg.getName())) {
+                  throw new EvalException(loc,
+                      "Invalid attribute name in implicit output function: " + arg.getName());
+                }
+              }
               builder.setImplicitOutputsFunction(new ImplicitOutputsFunction() {
                 @Override
-                public Iterable<String> getImplicitOutputs(AttributeMap rule) {
+                public Iterable<String> getImplicitOutputs(AttributeMap attributeMap) {
                   try {
                     // TODO(bazel-team): This is not a nice design. Figure out a way to migrate the
                     // whole implicit output functionality to Skylark, and kill this workaround.
                     // Maybe add argument checking.
-                    UserDefinedFunction callback = (UserDefinedFunction) implicitOutputs;
+                    ImmutableList.Builder<Object> args = ImmutableList.builder();
+                    Rule rule = (Rule) attributeMap;
+                    for (Ident arg : callback.getListArgNames()) {
+                      String name = arg.getName();
+                      args.add(rule.getAttr(name));
+                    }
                     Environment env = new SkylarkEnvironment(
                         ((SkylarkEnvironment) funcallEnv).getGlobalEnvironment());
                     MethodLibrary.setupMethodEnvironment(env);
                     return ImplicitOutputsFunction.fromTemplates(
-                        castList(callback.call(ImmutableList.<Object>of(rule), null, ast, env),
+                        castList(callback.call(args.build(), null, ast, env),
                         String.class, "implicit outputs")).getImplicitOutputs(rule);
-                  } catch (EvalException | InterruptedException | ConversionException e) {
+                  } catch (EvalException | InterruptedException | ConversionException
+                      | ClassCastException e) {
                     throw new IllegalStateException(e);
                   }
                 }

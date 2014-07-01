@@ -27,8 +27,8 @@ import com.google.devtools.build.lib.util.LoggingUtil;
 import com.google.devtools.build.lib.util.io.AnsiTerminalPrinter;
 import com.google.devtools.build.lib.util.io.AnsiTerminalPrinter.Mode;
 import com.google.devtools.build.lib.vfs.Path;
+import com.google.devtools.build.lib.view.ConfiguredTarget;
 import com.google.devtools.build.lib.view.FilesToRunProvider;
-import com.google.devtools.build.lib.view.TransitiveInfoCollection;
 import com.google.devtools.build.lib.view.test.BlazeTestStatus;
 import com.google.devtools.build.lib.view.test.TestResult;
 import com.google.devtools.build.lib.view.test.TestResult.FailedTestCaseDetails;
@@ -104,7 +104,7 @@ public class TestSummary implements Comparable<TestSummary> {
       checkMutation();
     }
 
-    public Builder setTarget(TransitiveInfoCollection target) {
+    public Builder setTarget(ConfiguredTarget target) {
       checkMutation(target);
       summary.target = target;
       return this;
@@ -236,7 +236,7 @@ public class TestSummary implements Comparable<TestSummary> {
     }
   }
 
-  private TransitiveInfoCollection target;
+  private ConfiguredTarget target;
   private BlazeTestStatus status;
   // Currently only populated if --runs_per_test_detects_flakes is enabled.
   private Multimap<Integer, BlazeTestStatus> shardRunStatuses = ArrayListMultimap.create();
@@ -272,7 +272,7 @@ public class TestSummary implements Comparable<TestSummary> {
     return builder;
   }
 
-  public TransitiveInfoCollection getTarget() {
+  public ConfiguredTarget getTarget() {
     return target;
   }
 

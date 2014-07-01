@@ -14,10 +14,12 @@
 
 package com.google.devtools.build.lib.syntax;
 
+import com.google.devtools.build.lib.concurrent.ThreadSafety.Immutable;
 import com.google.devtools.build.lib.events.ErrorEventListener;
 import com.google.devtools.build.lib.events.Location;
 import com.google.devtools.build.lib.util.Pair;
 import com.google.devtools.build.lib.vfs.Path;
+import com.google.devtools.build.lib.vfs.PathFragment;
 
 import java.util.ArrayList;
 import java.util.HashMap;
@@ -140,28 +142,29 @@ public final class Lexer {
 
   // Don't use an inner class as we don't want to close over the Lexer, only
   // the LocationInfo.
-  private static class LexerLocation extends Location {
+  @Immutable
+  private static final class LexerLocation extends Location {
 
-    private final LocationInfo locationInfo;
+    private final LineNumberTable lineNumberTable;
 
     LexerLocation(LocationInfo locationInfo, int start, int end) {
       super(start, end);
-      this.locationInfo = locationInfo;
+      this.lineNumberTable = locationInfo.lineNumberTable;
     }
 
     @Override
-    public Path getPath() {
-      return locationInfo.lineNumberTable.getPath(getStartOffset());
+    public PathFragment getPath() {
+      return lineNumberTable.getPath(getStartOffset()).asFragment();
     }
 
     @Override
     public LineAndColumn getStartLineAndColumn() {
-      return locationInfo.lineNumberTable.getLineAndColumn(getStartOffset());
+      return lineNumberTable.getLineAndColumn(getStartOffset());
     }
 
     @Override
     public LineAndColumn getEndLineAndColumn() {
-      return locationInfo.lineNumberTable.getLineAndColumn(getEndOffset());
+      return lineNumberTable.getLineAndColumn(getEndOffset());
     }
   }
 

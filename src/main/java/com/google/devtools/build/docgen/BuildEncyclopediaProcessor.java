@@ -32,6 +32,7 @@ import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.Set;
+import java.util.TreeMap;
 import java.util.TreeSet;
 
 /**
@@ -255,7 +256,23 @@ public class BuildEncyclopediaProcessor {
         DocgenConsts.VAR_TEST_ATTRIBUTE_DEFINITION, generateCommonAttributeDocs(
             PredefinedAttributes.TEST_ATTRIBUTES, DocgenConsts.TEST_ATTRIBUTES),
         DocgenConsts.VAR_BINARY_ATTRIBUTE_DEFINITION, generateCommonAttributeDocs(
-            PredefinedAttributes.BINARY_ATTRIBUTES, DocgenConsts.BINARY_ATTRIBUTES));
+            PredefinedAttributes.BINARY_ATTRIBUTES, DocgenConsts.BINARY_ATTRIBUTES),
+        DocgenConsts.VAR_LEFT_PANEL, generateLeftNavigationPanel(docEntries));
+  }
+
+  private String generateLeftNavigationPanel(Set<RuleDocumentation> docEntries) {
+    // Order the rules alphabetically. At this point they are ordered according to
+    // RuleDocumentation.compareTo() which is not alphabetical.
+    TreeMap<String, String> ruleNames = new TreeMap<>();
+    for (RuleDocumentation ruleDoc : docEntries) {
+      String ruleName = ruleDoc.getRuleName();
+      ruleNames.put(ruleName.toLowerCase(), ruleName);
+    }
+    StringBuilder sb = new StringBuilder();
+    for (String ruleName : ruleNames.values()) {
+      sb.append(String.format("<a href=\"#%s\">%s</a><br/>\n", ruleName, ruleName));
+    }
+    return sb.toString();
   }
 
   private String generateCommonAttributeDocs(Map<String, RuleDocumentationAttribute> attributes,

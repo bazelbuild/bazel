@@ -25,7 +25,6 @@ import com.google.devtools.build.lib.actions.Artifact;
 import com.google.devtools.build.lib.collect.nestedset.NestedSet;
 import com.google.devtools.build.lib.collect.nestedset.Order;
 import com.google.devtools.build.lib.events.Location;
-import com.google.devtools.build.lib.packages.ImplicitOutputsFunction;
 import com.google.devtools.build.lib.packages.MethodLibrary;
 import com.google.devtools.build.lib.packages.Type.ConversionException;
 import com.google.devtools.build.lib.syntax.AbstractFunction;
@@ -71,7 +70,6 @@ public class SkylarkRuleImplementationFunctions {
   public static final Map<String, Object> JAVA_OBJECTS_TO_EXPOSE =
       new ImmutableMap.Builder<String, Object>()
           .put("Files", SkylarkFileset.class)
-          .put("ImplicitOutputsFunction", ImplicitOutputsFunction.class)
           // TODO(bazel-team): Check the Skylark environment for duplicate symbols,
           // also these symbols should be protected from being overwritten.
           .put("DEFAULT", defaultState)

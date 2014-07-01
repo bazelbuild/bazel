@@ -96,7 +96,7 @@ public class TestResultAnalyzer {
     int totalRun = 0; // Number of targets running at least one non-cached test.
     int passCount = 0;
 
-    for (TransitiveInfoCollection testTarget : testTargets) {
+    for (ConfiguredTarget testTarget : testTargets) {
       TestSummary summary = aggregateAndReportSummary(testTarget, listener).build();
       summaries.add(summary);
 
@@ -121,7 +121,7 @@ public class TestResultAnalyzer {
    * for an individual target, reporting runs on the EventBus if necessary.
    */
   private TestSummary.Builder aggregateAndReportSummary(
-      TransitiveInfoCollection testTarget,
+      ConfiguredTarget testTarget,
       AggregatingTestListener listener) {
 
     // If already reported by the listener, no work remains for this target.

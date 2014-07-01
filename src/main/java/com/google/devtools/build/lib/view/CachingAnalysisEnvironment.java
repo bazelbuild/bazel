@@ -28,7 +28,6 @@ import com.google.devtools.build.lib.actions.Root;
 import com.google.devtools.build.lib.events.ErrorEventListener;
 import com.google.devtools.build.lib.events.StoredErrorEventListener;
 import com.google.devtools.build.lib.packages.Target;
-import com.google.devtools.build.lib.pkgcache.PackageManager;
 import com.google.devtools.build.lib.query2.output.OutputFormatter;
 import com.google.devtools.build.lib.skyframe.BuildInfoCollectionNode;
 import com.google.devtools.build.lib.skyframe.WorkspaceStatusNode;
@@ -56,7 +55,6 @@ import javax.annotation.Nullable;
  */
 public class CachingAnalysisEnvironment implements AnalysisEnvironment {
   private final ArtifactFactory artifactFactory;
-  private final PackageManager packageManager;
   // This is null when we use skyframe to obtain the actions (in skyframe execution), as well as in
   // unit tests.
   @Nullable private final WorkspaceStatusArtifacts workspaceStatusArtifacts;
@@ -95,12 +93,11 @@ public class CachingAnalysisEnvironment implements AnalysisEnvironment {
   final ArrayList<Action> actions = new ArrayList<>();
 
   public CachingAnalysisEnvironment(ArtifactFactory artifactFactory,
-      PackageManager packageManager, ArtifactOwner owner, WorkspaceStatusArtifacts buildInfoHeaders,
+      ArtifactOwner owner, WorkspaceStatusArtifacts buildInfoHeaders,
       boolean isSystemEnv, boolean extendedSanityChecks, ErrorEventListener errorEventListener,
       NodeBuilder.Environment env, boolean allowRegisteringActions,
       ImmutableList<OutputFormatter> outputFormatters, BinTools binTools) {
     this.artifactFactory = artifactFactory;
-    this.packageManager = packageManager;
     this.workspaceStatusArtifacts = buildInfoHeaders;
     this.owner = Preconditions.checkNotNull(owner);
     this.isSystemEnv = isSystemEnv;

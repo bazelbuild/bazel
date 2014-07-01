@@ -39,7 +39,6 @@ import com.google.devtools.build.lib.events.Reporter;
 import com.google.devtools.build.lib.testutil.JunitTestUtils;
 import com.google.devtools.build.lib.testutil.MoreAsserts;
 import com.google.devtools.build.lib.testutil.TestThread;
-import com.google.devtools.build.skyframe.AutoUpdatingGraph.NodeProgressReceiver;
 import com.google.devtools.build.skyframe.GraphTester.SomeErrorException;
 import com.google.devtools.build.skyframe.GraphTester.StringNode;
 import com.google.devtools.build.skyframe.NotifyingInMemoryGraph.EventType;
