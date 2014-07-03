@@ -466,22 +466,16 @@ public final class BuildConfiguration {
         + "(2) the test is marked as external "
         + "(3) multiple test runs were requested with --runs_per_test"
         + "(4) the test failed"
-        + "(5) the cached result is older than the interval specified by the "
-        + "--test_result_expiration option (usually 3 hours). "
         + "If 'yes', the caching behavior will be the same as 'auto' except that "
         + "it may cache test failures and test runs with --runs_per_test."
-        + "If 'no', all tests will be always executed unconditionally.")
+        + "If 'no', all tests will be always executed.")
     public TriState cacheTestResults;
 
+    @Deprecated
     @Option(name = "test_result_expiration",
         defaultValue = "-1", // No expiration by defualt.
         category = "testing",
-        help = "Specifies interval (in seconds) during which test results from the previous test "
-        + "execution will be considered valid. This option is applicable only when used with "
-        + "'yes' or 'auto' value of the --cache_test_result option. Otherwise, it is "
-        + "ignored. Setting option to 0 immeditely expires cached results and is identical "
-        + "to spcecifying --nocache_test_results.  Setting the option to -1 will result in "
-        + "cached results never expiring.")
+        help = "This option is deprecated and has no effect.")
     public int testResultExpiration;
 
     @Option(name = "test_sharding_strategy",
@@ -1284,13 +1278,6 @@ public final class BuildConfiguration {
 
   public int getMinParamFileSize() {
     return options.minParamFileSize;
-  }
-
-  /**
-   * @return test result expiration interval in ms.
-   */
-  public long getTestResultExpirationInMs() {
-    return options.testResultExpiration == -1 ? -1L : options.testResultExpiration * 1000L;
   }
 
   public boolean isCodeCoverageEnabled() {

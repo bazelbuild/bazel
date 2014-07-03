@@ -242,13 +242,7 @@ public class PackageSerializer {
 
     builder.setContainsErrors(pkg.containsErrors());
   }
-  
-  private static void serializeLegacyPackageInternal(LegacyPackage pkg,
-      Build.Package.Builder builder) {
-    serializePackageInternal(pkg, builder);
-    builder.setContainsTemporaryErrors(pkg.containsTemporaryErrors());
-  }
-  
+
   /**
    * Serialize a package to a protocol message. The inverse of
    * {@link PackageDeserializer#deserialize}.
@@ -256,13 +250,6 @@ public class PackageSerializer {
   public static Build.Package serializePackage(Package pkg) {
     Build.Package.Builder builder = Build.Package.newBuilder();
     serializePackageInternal(pkg, builder);
-    return builder.build();
-  }
-  
-  
-  public static Build.Package serializeLegacyPackage(LegacyPackage pkg) {
-    Build.Package.Builder builder = Build.Package.newBuilder();
-    serializeLegacyPackageInternal(pkg, builder);
     return builder.build();
   }
 

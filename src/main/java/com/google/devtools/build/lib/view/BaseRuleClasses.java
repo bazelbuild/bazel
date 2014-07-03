@@ -149,7 +149,7 @@ public class BaseRuleClasses {
           .add(attr("args", STRING_LIST).nonconfigurable())
           // Keep this in sync with BinTools.
           .add(attr("$test_tools", LABEL_LIST).cfg(HOST).value(ImmutableList.of(
-              env.getLabel("//tools/test:test-setup.sh"))))
+              env.getLabel("//tools:test_setup_scripts"))))
           // TODO(bazel-team): TestHelper loads gcov for coverage, so all tests implicitly depend on
           // crosstool. Ugh!
           .add(attr(":coverage_support", LABEL_LIST).cfg(HOST).value(COVERAGE_SUPPORT))

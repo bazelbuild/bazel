@@ -21,11 +21,14 @@ import com.google.devtools.build.lib.actions.ActionContextConsumer;
 import com.google.devtools.build.lib.actions.ActionContextProvider;
 import com.google.devtools.build.lib.actions.ActionInputFileCache;
 import com.google.devtools.build.lib.exec.OutputService;
+import com.google.devtools.build.lib.packages.MakeEnvironment;
 import com.google.devtools.build.lib.packages.NoSuchThingException;
+import com.google.devtools.build.lib.packages.PackageFactory;
 import com.google.devtools.build.lib.packages.Preprocessor;
 import com.google.devtools.build.lib.query2.engine.QueryEnvironment.QueryFunction;
 import com.google.devtools.build.lib.query2.output.OutputFormatter;
 import com.google.devtools.build.lib.skyframe.DiffAwareness;
+import com.google.devtools.build.lib.syntax.Environment;
 import com.google.devtools.build.lib.syntax.Label;
 import com.google.devtools.build.lib.util.Clock;
 import com.google.devtools.build.lib.util.ExitCausingException;
@@ -168,7 +171,7 @@ public abstract class BlazeModule {
   /**
    * Services provided for Blaze modules via BlazeRuntime.
    */
-  public interface Environment {
+  public interface ModuleEnvironment {
     /**
      * Gets a file from the depot based on its label and returns the {@link Path} where it can
      * be found.
@@ -307,5 +310,17 @@ public abstract class BlazeModule {
    */
   public ActionInputFileCache createActionInputCache(String cwd, FileSystem fs) {
     return null;
+  }
+
+  /**
+   * Returns the extensions this module contributes to the global namespace of the BUILD language.
+   */
+  public PackageFactory.EnvironmentExtension getPackageEnvironmentExtension() {
+    return new PackageFactory.EnvironmentExtension() {
+      @Override
+      public void update(
+          Environment environment, MakeEnvironment.Builder pkgMakeEnv, Label buildFileLabel) {
+      }
+    };
   }
 }

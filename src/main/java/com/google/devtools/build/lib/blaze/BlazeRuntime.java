@@ -185,7 +185,7 @@ public final class BlazeRuntime {
   private OutputService outputService;
 
   private final Iterable<BlazeModule> blazeModules;
-  private final BlazeModule.Environment blazeModuleEnvironment;
+  private final BlazeModule.ModuleEnvironment blazeModuleEnvironment;
 
   private UUID commandId;  // Unique identifier for the command being run
 
@@ -209,7 +209,7 @@ public final class BlazeRuntime {
 
   private final Predicate<PathFragment> allowedMissingInputs;
 
-  private class BlazeModuleEnvironment implements BlazeModule.Environment {
+  private class BlazeModuleEnvironment implements BlazeModule.ModuleEnvironment {
     @Override
     public Path getFileFromDepot(Label label)
         throws NoSuchThingException, InterruptedException, IOException {
@@ -543,7 +543,7 @@ public final class BlazeRuntime {
     return workspaceStatusActionFactory;
   }
 
-  public BlazeModule.Environment getBlazeModuleEnvironment() {
+  public BlazeModule.ModuleEnvironment getBlazeModuleEnvironment() {
     return blazeModuleEnvironment;
   }
 
@@ -1360,7 +1360,6 @@ public final class BlazeRuntime {
           "Bad --output_base option specified: '" + outputBase + "'");
     }
 
-    PathFragment workingDirFragment = FileSystemUtils.getWorkingDirectory();
     PathFragment outputPathFragment = BlazeDirectories.outputPathFromOutputBase(
         outputBase, workspaceDirectory);
     FileSystem fs = null;
@@ -1587,8 +1586,13 @@ public final class BlazeRuntime {
         }
       }
 
-      final PackageFactory pkgFactory = new PackageFactory(ruleClassProvider, /*trackDeps=*/false,
-          platformRegexps);
+      List<PackageFactory.EnvironmentExtension> extensions = new ArrayList<>();
+      for (BlazeModule module : blazeModules) {
+        extensions.add(module.getPackageEnvironmentExtension());
+      }
+
+      final PackageFactory pkgFactory =
+          new PackageFactory(ruleClassProvider, platformRegexps, extensions);
       skyframeExecutor = new SkyframeExecutor(reporter, pkgFactory,
           skyframe == SkyframeMode.FULL, timestampMonitor, directories,
           workspaceStatusActionFactory, ruleClassProvider.getBuildInfoFactories(),

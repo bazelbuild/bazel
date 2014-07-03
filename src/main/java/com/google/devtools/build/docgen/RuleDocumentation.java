@@ -192,8 +192,9 @@ class RuleDocumentation implements Comparable<RuleDocumentation> {
       sb.append("<ul>\n");
     }
     for (RuleDocumentationAttribute attributeDoc : attributes) {
-      if (attributeDoc.isGeneratedIn(ruleName)) {
-        // Generate the attribute documentation here
+      // Only generate attribute documentation here if the rule and the attribute is
+      // either both user defined or built in (of common type).
+      if (isCommonType() == attributeDoc.isCommonType()) {
         String attrName = attributeDoc.getAttributeName();
         sb.append(String.format("<li id=\"%s.%s\"%s><code>%s</code>:\n%s</li>\n",
             ruleName.toLowerCase(), attrName, getDeprecatedString(
@@ -219,7 +220,7 @@ class RuleDocumentation implements Comparable<RuleDocumentation> {
       String attrName = attributeDoc.getAttributeName();
       // Generate the link for the attribute documentation
       sb.append(String.format("<a href=\"#%s.%s\">%s</a>",
-          attributeDoc.getGeneratedInRule().toLowerCase(), attrName, attrName));
+          attributeDoc.getGeneratedInRule(ruleName).toLowerCase(), attrName, attrName));
       if (i < attributes.size() - 1) {
         sb.append(",");
       } else {
@@ -277,6 +278,13 @@ class RuleDocumentation implements Comparable<RuleDocumentation> {
       lineCount++;
     }
     return examples;
+  }
+
+  /**
+   * Return true if the rule doesn't belong to a specific rule family. 
+   */
+  private boolean isCommonType() {
+    return ruleFamily == null;
   }
 
   /**

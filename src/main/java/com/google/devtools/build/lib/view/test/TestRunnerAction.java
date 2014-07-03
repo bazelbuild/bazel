@@ -34,7 +34,6 @@ import com.google.devtools.build.lib.actions.TestMiddlemanObserver;
 import com.google.devtools.build.lib.events.ErrorEventListener;
 import com.google.devtools.build.lib.pkgcache.PackageUpToDateChecker;
 import com.google.devtools.build.lib.syntax.Label;
-import com.google.devtools.build.lib.util.BlazeClock;
 import com.google.devtools.build.lib.util.Fingerprint;
 import com.google.devtools.build.lib.util.LoggingUtil;
 import com.google.devtools.build.lib.util.Pair;
@@ -286,18 +285,8 @@ public class TestRunnerAction extends ConfigurationAction
         if (LEGAL_CACHED_TEST_STATUSES.contains(result.getStatus()) &&
             result.getAttemptsCount() == 0) {
           // --cacheTestResults=auto only caches passing tests
-          if (configuration.cacheTestResults() == TriState.AUTO
-              && result.getStatus() != TestStatus.PASSED) {
-            // since it didn't pass, execute unconditionally
-            return true;
-          }
-
-          // Allow test to be skipped (return false) if --cache_test_results is used,
-          // expiration check is disabled or test result is still valid.
-          long expiration = configuration.getTestResultExpirationInMs();
-          return expiration == -1L ? false :  expiration > 0 &&
-                 result.getStartTimeMillis() + result.getRunDurationMillis()
-                 < BlazeClock.instance().currentTimeMillis() - expiration;
+          return (configuration.cacheTestResults() == TriState.AUTO
+              && result.getStatus() != TestStatus.PASSED);
         } else {
           return true;
         }

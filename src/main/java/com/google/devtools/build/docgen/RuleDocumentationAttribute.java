@@ -35,7 +35,7 @@ class RuleDocumentationAttribute implements Comparable<RuleDocumentationAttribut
   private final Class<? extends RuleDefinition> definitionClass;
   private final String attributeName;
   private final String htmlDocumentation;
-  private String generatedInRule = null;
+  private final String commonType;
   private int startLineCnt;
   private Set<String> flags;
 
@@ -46,39 +46,30 @@ class RuleDocumentationAttribute implements Comparable<RuleDocumentationAttribut
   static RuleDocumentationAttribute create(
       String attributeName, String commonType, String htmlDocumentation) {
     RuleDocumentationAttribute docAttribute = new RuleDocumentationAttribute(
-        null, attributeName, htmlDocumentation, 0, ImmutableSet.<String>of());
-    docAttribute.generatedInRule = commonType;
+        null, attributeName, htmlDocumentation, 0, ImmutableSet.<String>of(), commonType);
     return docAttribute;
   }
 
   /**
-   * Creates a RuleDocumentationAttribute with all the necessary fields.
+   * Creates a RuleDocumentationAttribute with all the necessary fields for explicitly
+   * defined rule attributes.
    */
   static RuleDocumentationAttribute create(Class<? extends RuleDefinition> definitionClass,
       String attributeName, String htmlDocumentation, int startLineCnt, Set<String> flags) {
     return new RuleDocumentationAttribute(definitionClass, attributeName, htmlDocumentation,
-        startLineCnt, flags);
+        startLineCnt, flags, null);
   }
 
   private RuleDocumentationAttribute(Class<? extends RuleDefinition> definitionClass,
-      String attributeName, String htmlDocumentation, int startLineCnt, Set<String> flags) {
+      String attributeName, String htmlDocumentation, int startLineCnt, Set<String> flags,
+      String commonType) {
     Preconditions.checkNotNull(attributeName, "AttributeName must not be null.");
     this.definitionClass = definitionClass;
     this.attributeName = attributeName;
     this.htmlDocumentation = htmlDocumentation;
     this.startLineCnt = startLineCnt;
     this.flags = flags;
-  }
-
-  /**
-   * Sets the name of the rule documentation where attribute documentation is going to be generated
-   * if it has not been set already. The attribute doc is going to be generated in first rule that
-   * calls this function. All the following rules will have a link instead.
-   */
-  void setGeneratedInRuleIfNotSet(String ruleName) {
-    if (generatedInRule == null) {
-      generatedInRule = ruleName;
-    }
+    this.commonType = commonType;
   }
 
   /**
@@ -103,17 +94,18 @@ class RuleDocumentationAttribute implements Comparable<RuleDocumentationAttribut
   }
 
   /**
-   * Returns true if the attribute documentation is generated in the parameter rule. 
+   * Returns true if the attribute doc is of a common attribute type.
    */
-  boolean isGeneratedIn(String ruleName) {
-    return generatedInRule.equals(ruleName);
+  boolean isCommonType() {
+    return commonType != null;
   }
 
   /**
-   * Returns the name of the rule class where this attribute documentation is generated.
+   * Returns the common attribute type if this attribute doc is of a common type
+   * otherwise actualRule.
    */
-  String getGeneratedInRule() {
-    return generatedInRule;
+  String getGeneratedInRule(String actualRule) {
+    return isCommonType() ? commonType : actualRule;
   }
 
   /**

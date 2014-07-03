@@ -374,29 +374,15 @@ public class PackageDeserializer {
       context.deserializeRule(rulePb);
     }
 
-
-
     for (Build.Event event : packagePb.getEventList()) {
       deserializeEvent(context, listener, event);
     }
 
-
     if (packagePb.hasContainsErrors() && packagePb.getContainsErrors()) {
       builder.setContainsErrors();
     }
-
-
   }
-  
-  private void deserializeLegacyInternal(Build.Package packagePb,
-      StoredErrorEventListener listener, LegacyPackageBuilder builder)
-          throws PackageDeserializationException {
-    deserializeInternal(packagePb, listener, builder);
-    if (packagePb.hasContainsTemporaryErrors() && packagePb.getContainsTemporaryErrors()) {
-      builder.setContainsTemporaryErrors();
-    }
-  }
-  
+
   /**
    * Serialize a package to a protocol message. The inverse of
    * {@link PackageDeserializer#deserialize}.
@@ -412,7 +398,7 @@ public class PackageDeserializer {
       throws PackageDeserializationException, InterruptedException {
     LegacyPackageBuilder builder = new LegacyPackageBuilder(packagePb.getName());
     StoredErrorEventListener listener = new StoredErrorEventListener();
-    deserializeLegacyInternal(packagePb, listener, builder);
+    deserializeInternal(packagePb, listener, builder);
     return builder.build(LegacyPackage.EMPTY_BULK_PACKAGE_LOCATOR, listener);
   }
 

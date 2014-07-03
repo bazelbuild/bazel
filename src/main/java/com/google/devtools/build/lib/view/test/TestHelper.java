@@ -53,7 +53,7 @@ import javax.annotation.Nullable;
  */
 public final class TestHelper {
   /**
-   * Path of the alarm script in the Blaze binary.
+   * The alarm script is added to $PATH, for use by tests, in particular, shell-scripts.
    */
   @VisibleForTesting
   static final String ALARM = "alarm";
@@ -185,7 +185,7 @@ public final class TestHelper {
   /**
    * Creates a test action and artifacts for the given rule. The test action will
    * use the specified executable and runfiles.
-
+   *
    * @param targetName the google3 relative path of the target to run
    * @return ordered list of test status artifacts
    */
@@ -260,7 +260,6 @@ public final class TestHelper {
             ? root.getExecPath().getRelative(
                 targetName.getChild("coverage" + suffix + ".dat"))
             : null;
-
 
         PathFragment microCoverageData = collectCodeCoverage && config.isMicroCoverageEnabled()
             ? root.getExecPath().getRelative(

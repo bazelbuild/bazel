@@ -83,31 +83,16 @@ public class PackageNodeBuilder implements NodeBuilder {
   private class SkyframePackageLocator implements CachingPackageLocator,
       BulkPackageLocatorForCrossingSubpackageBoundaries {
 
-    private Set<NodeKey> deps = Sets.newConcurrentHashSet();
+    private final Set<NodeKey> deps = Sets.newConcurrentHashSet();
 
     private SkyframePackageLocator() {}
 
-    private void maybeAddDep(NodeKey dep) {
-      if (deps != null) {
-        deps.add(dep);
-      }
-    }
-
     /**
      * Returns an immutable copy of the package lookup dependencies recorded since this
-     * SkyframePackageLocator was constructed, and stops recording them in the future.
-     *
-     * This function can be called at most once.
-     *
-     * Unfortunately, the Package returned by Package#loadPackage transitively keeps a reference
-     * to our package locator. Since we don't care about future uses, we stop recording
-     * dependencies.
+     * SkyframePackageLocator was constructed.
      */
-    private ImmutableSet<NodeKey> getAndClearPackageLookupDeps() {
-      Preconditions.checkNotNull(deps);
-      ImmutableSet<NodeKey> copy = ImmutableSet.copyOf(deps);
-      deps = null;
-      return copy;
+    private ImmutableSet<NodeKey> getDeps() {
+      return ImmutableSet.copyOf(deps);
     }
 
     @Override
@@ -128,7 +113,7 @@ public class PackageNodeBuilder implements NodeBuilder {
       for (PathFragment pkgName : candidates) {
         // We first add a dependency on the PackageLookupNode for this package. This is important in
         // case the value of --deleted_packages changes in the future.
-        maybeAddDep(PackageLookupNode.key(pkgName));
+        deps.add(PackageLookupNode.key(pkgName));
         // Note the call to our wrapper implementation, which handles deleted packages.
         Path path = getBuildFileForPackage(pkgName.getPathString());
         if (path != null) {
@@ -263,7 +248,7 @@ public class PackageNodeBuilder implements NodeBuilder {
     boolean packageShouldBeInError = pkg.containsErrors();
     // Tell the environment about our dependencies on potential subpackages.
     getPackageLookupDepsAndPropagateInconsistentFilesystemExceptions(
-        skyframePackageLocator.getAndClearPackageLookupDeps(), env, pkg.containsErrors());
+        skyframePackageLocator.getDeps(), env, pkg.containsErrors());
 
     // TODO(bazel-team): Mark Skylark imports as dependencies.
 

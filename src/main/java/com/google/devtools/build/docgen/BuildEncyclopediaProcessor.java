@@ -132,6 +132,8 @@ public class BuildEncyclopediaProcessor {
             if (attributeDocList != null) {
               // There are attribute docs for this attribute.
               // Search the closest one in the ancestor graph.
+              // Note that there can be only one 'closest' attribute since we forbid multiple
+              // inheritance of the same attribute in RuleClass.
               int minLevel = Integer.MAX_VALUE;
               RuleDocumentationAttribute bestAttributeDoc = null;
               for (RuleDocumentationAttribute attributeDoc : attributeDocList) {
@@ -143,10 +145,6 @@ public class BuildEncyclopediaProcessor {
               }
               if (bestAttributeDoc != null) {
                 ruleDoc.addAttribute(bestAttributeDoc);
-                // If this is the first rule using this attribute documentation
-                // it is going to be generated here in the Build Encyclopedia.
-                // If not, there will be a link.
-                bestAttributeDoc.setGeneratedInRuleIfNotSet(ruleDoc.getRuleName());
               // If there is no matching attribute doc try to add the common.
               } else if (ruleDoc.getRuleType().equals(RuleType.BINARY)
                   && PredefinedAttributes.BINARY_ATTRIBUTES.containsKey(attrName)) {

@@ -42,7 +42,6 @@ class CompactActionCacheEntry implements Entry {
   private final List<String> files;
   private Map<String, Metadata> mdMap;
   private Digest digest;
-  private boolean isPacked;
 
   static final CompactActionCacheEntry CORRUPTED = new CompactActionCacheEntry(null);
 
@@ -55,7 +54,6 @@ class CompactActionCacheEntry implements Entry {
     actionKey = key;
     files = Lists.newArrayList();
     mdMap = Maps.newHashMap();
-    isPacked = false;
   }
 
   /**
@@ -87,23 +85,16 @@ class CompactActionCacheEntry implements Entry {
         throw new IOException("serialized entry data has not been fully decoded");
       }
       files = builder.build();
-      isPacked = true;
     } catch (BufferUnderflowException e) {
       throw new IOException("encoded entry data is incomplete", e);
     }
-  }
-
-  @Override
-  public void ensurePacked() {
-    getFileDigest();
-    isPacked = true;
   }
 
   /**
    * @return action data encoded as a byte[] array.
    */
   byte[] getData(StringIndexer indexer) {
-    Preconditions.checkState(isPacked);
+    Preconditions.checkState(mdMap == null);
     Preconditions.checkState(!isCorrupted());
 
     try {
@@ -144,8 +135,8 @@ class CompactActionCacheEntry implements Entry {
   public Digest getFileDigest() {
     if (digest == null) {
       digest = Digest.fromMetadata(mdMap);
+      mdMap = null;
     }
-    mdMap = null;
     return digest;
   }
 
@@ -154,7 +145,7 @@ class CompactActionCacheEntry implements Entry {
     // TODO(bazel-team): Refactor into addFiles(Map<PathFragment, Metadata>) which
     // will be called only once. This would allows us to get rid of the mdMap
     // used as temporary scratch space until the digest is computed.
-    Preconditions.checkState(!isPacked);
+    Preconditions.checkState(mdMap != null);
     Preconditions.checkState(!isCorrupted());
     Preconditions.checkState(digest == null);
 

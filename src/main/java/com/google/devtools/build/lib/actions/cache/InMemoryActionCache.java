@@ -43,29 +43,20 @@ public class InMemoryActionCache implements ActionCache {
 
     private final String actionKey;
     private final List<String> files;
-    private boolean isPacked; // true iff ensurePacked() has been called.
     private Map<String, Metadata> mdMap;
     private Digest digest;
 
     public InMemoryEntry(String key) {
       actionKey = key;
       files = Lists.newArrayList();
-      isPacked = false;
       mdMap = Maps.newHashMap();
     }
 
     @Override
     public void addFile(PathFragment relativePath, Metadata md) {
-      Preconditions.checkState(!isPacked);
+      Preconditions.checkState(mdMap != null);
       files.add(relativePath.getPathString());
       mdMap.put(relativePath.getPathString(), md);
-    }
-
-    @Override
-    public void ensurePacked() {
-      getFileDigest();
-      mdMap = null;
-      isPacked = true;
     }
 
     @Override
@@ -77,6 +68,7 @@ public class InMemoryActionCache implements ActionCache {
     public Digest getFileDigest() {
       if (digest == null) {
         digest = Digest.fromMetadata(mdMap);
+        mdMap = null;
       }
       return digest;
     }

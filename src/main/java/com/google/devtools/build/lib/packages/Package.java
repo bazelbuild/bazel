@@ -168,7 +168,7 @@ public class Package implements Serializable {
   // Hack to avoid having to copy every attribute. See #readObject and #readResolve.
   // This will always be null for externally observable instances.
   private Package deserializedPkg = null;
-  
+
   /**
    * Package initialization, part 1 of 3: instantiates a new package with the
    * given name.
@@ -352,7 +352,7 @@ public class Package implements Serializable {
    * though not necessarily: data in a subdirectory of a test package may use a
    * different filename to avoid inadvertently creating a new package.
    */
-  public Label getBuildFileLabel() {
+  Label getBuildFileLabel() {
     return buildFile.getLabel();
   }
 
@@ -602,6 +602,11 @@ public class Package implements Serializable {
     // - makeEnv
   }
 
+  /**
+   * Builder class for {@link Package}.
+   *
+   * <p>Should only be used by the package loading and the package deserialization machineries,
+   */
   static class PackageBuilder extends AbstractPackageBuilder<Package, PackageBuilder> {
     PackageBuilder(String packageName) {
       super(new Package(packageName));
@@ -645,7 +650,7 @@ public class Package implements Serializable {
      * True iff the "package" function has already been called in this package.
      */
     private boolean packageFunctionUsed;
-    
+
     /**
      * The collection of the prefixes of every output file. Maps every prefix
      * to an output file whose prefix it is.
@@ -656,14 +661,14 @@ public class Package implements Serializable {
      * package itself.
      */
     private Map<String, OutputFile> outputFilePrefixes = new HashMap<>();
-    
+
     protected AbstractPackageBuilder(P pkg) {
       this.pkg = pkg;
       if (pkg.getName().startsWith("javatests/")) {
         setDefaultTestonly(true);
       }
     }
-    
+
     protected abstract B self();
 
     /**
@@ -681,7 +686,7 @@ public class Package implements Serializable {
       return self();
     }
 
-    Label getBuildFileLabel() {
+    public Label getBuildFileLabel() {
       return buildFileLabel;
     }
 
@@ -961,7 +966,7 @@ public class Package implements Serializable {
       Preconditions.checkNotNull(filename);
       Preconditions.checkNotNull(buildFileLabel);
       Preconditions.checkNotNull(makeEnv);
-      
+
       // Freeze subincludes.
       subincludes = (subincludes == null)
           ? Collections.<Label, Path>emptyMap()
@@ -971,7 +976,7 @@ public class Package implements Serializable {
       // visibility may be overridden with an exports_files directive, so we need to obtain the
       // current instance here.
       buildFile = (InputFile) Preconditions.checkNotNull(targets.get(buildFileLabel.getName()));
-      
+
       List<Rule> rules = Lists.newArrayList(getTargets(Rule.class));
 
       // All labels mentioned in a rule that refer to an unknown target in the
@@ -1006,13 +1011,13 @@ public class Package implements Serializable {
         }
       }
     }
-    
+
     protected P buildInternal(StoredErrorEventListener listener) {
       // Freeze targets and distributions.
       targets = ImmutableMap.copyOf(targets);
       defaultDistributionSet =
           Collections.unmodifiableSet(defaultDistributionSet);
-          
+
       // Build the package.
       pkg.finishInit(this, listener.getEvents());
 
@@ -1021,7 +1026,7 @@ public class Package implements Serializable {
       pkg = null;
       return returnablePackage;
     }
-    
+
     protected void afterBuildInternal() {
       // If any error occurred during evaluation of this package, consider all
       // rules in the package to be "in error" also (even if they were evaluated
@@ -1035,7 +1040,7 @@ public class Package implements Serializable {
         }
       }
     }
-    
+
     protected P build(StoredErrorEventListener listener) {
       beforeBuildInternal();
       P pkg = buildInternal(listener);

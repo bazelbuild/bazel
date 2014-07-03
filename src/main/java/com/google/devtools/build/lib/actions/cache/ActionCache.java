@@ -26,9 +26,6 @@ import java.util.Collection;
  *
  * Each action entry uses one of its output paths as a key (after conversion
  * to the string).
- *
- * TODO(bazel-team): (2010) Key should not be absolute output path but rather relative
- * path (relative to the, e.g., output directory).
  */
 @ThreadCompatible
 public interface ActionCache {
@@ -60,17 +57,10 @@ public interface ActionCache {
    * artifact paths and their metadata plus action key itself.
    *
    * Cache entry operates under assumption that once it is fully initialized
-   * and ensurePacked() method is called, it becomes logically immutable (all methods
+   * and getFileDigest() method is called, it becomes logically immutable (all methods
    * will continue to return same result regardless of internal data transformations).
    */
   public interface Entry {
-
-    /**
-     * May compress cache entry data into the more compact representation. Called
-     * when new action cache entry is created or when dependency checker
-     * finished working with the particular entry instance.
-     */
-    public void ensurePacked();
 
     /**
      * @return action key string.
@@ -79,6 +69,9 @@ public interface ActionCache {
 
     /**
      * Returns the combined digest of the action's inputs and outputs.
+     *
+     * This may compresses the data into a more compact representation, and
+     * makes the object immutable.
      */
     public Digest getFileDigest();
 

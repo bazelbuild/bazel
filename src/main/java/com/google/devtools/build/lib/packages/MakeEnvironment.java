@@ -35,7 +35,7 @@ import javax.annotation.Nullable;
  * complex range of assigment operators.
  */
 @Immutable @ThreadSafe
-class MakeEnvironment {
+public class MakeEnvironment {
   /**
    *  The platform set regexp that matches all platforms.  Canonical.
    */

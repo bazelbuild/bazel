@@ -202,7 +202,7 @@ public class ActionCacheChecker {
       return true; // must execute -- action key is different
     }
 
-    entry.ensurePacked();
+    entry.getFileDigest();
     return false; // cache hit
   }
 
@@ -225,7 +225,7 @@ public class ActionCacheChecker {
     for (Artifact input : action.getInputs()) {
       entry.addFile(input.getExecPath(), metadataHandler.getMetadataMaybe(input));
     }
-    entry.ensurePacked();
+    entry.getFileDigest();
     actionCache.put(key, entry);
   }
 
@@ -290,7 +290,6 @@ public class ActionCacheChecker {
     }
 
     metadataHandler.setDigestForVirtualArtifact(middleman, entry.getFileDigest());
-    entry.ensurePacked();
     if (changed) {
       actionCache.put(cacheKey, entry);
     }

@@ -37,7 +37,6 @@ import com.google.devtools.build.lib.syntax.BuildFileAST;
 import com.google.devtools.build.lib.syntax.Environment;
 import com.google.devtools.build.lib.syntax.EvalException;
 import com.google.devtools.build.lib.syntax.Expression;
-import com.google.devtools.build.lib.syntax.FilesetEntry;
 import com.google.devtools.build.lib.syntax.FuncallExpression;
 import com.google.devtools.build.lib.syntax.Function;
 import com.google.devtools.build.lib.syntax.GlobList;
@@ -77,6 +76,16 @@ import javax.annotation.Nullable;
  * Typically only one is needed per client application.
  */
 public final class PackageFactory {
+  /**
+   * An extension to the global namespace of the BUILD language.
+   */
+  public interface EnvironmentExtension {
+    /**
+     * Update the global environment with the identifiers this extension contributes.
+     */
+    void update(Environment environment, MakeEnvironment.Builder pkgMakeEnv,
+        Label buildFileLabel);
+  }
 
   private static final int EXCLUDE_DIR_DEFAULT = 1;
 
@@ -120,7 +129,6 @@ public final class PackageFactory {
   private final Profiler profiler = Profiler.instance();
   private final boolean retainAsts;
   // TODO(bazel-team): Remove this field - it's not used with Skyframe.
-  private final boolean trackFsDeps;
   private final Environment globalEnv;
 
   private AtomicReference<? extends UnixGlob.FilesystemCalls> syscalls;
@@ -130,24 +138,31 @@ public final class PackageFactory {
   private final ThreadPoolExecutor threadPool;
   private Map<String, String> platformSetRegexps;
 
+  private final ImmutableList<EnvironmentExtension> environmentExtensions;
+
   /**
    * Constructs a {@code PackageFactory} instance with the given rule factory,
    * never retains ASTs.
    */
-  // TODO(bazel-team): Remove the trackFsDeps parameter.
-  public PackageFactory(RuleClassProvider ruleClassProvider, boolean trackFsDeps,
-      Map<String, String> platformSetRegexps) {
-    this(false, ruleClassProvider, trackFsDeps, platformSetRegexps);
+  public PackageFactory(RuleClassProvider ruleClassProvider,
+      Map<String, String> platformSetRegexps,
+      Iterable<EnvironmentExtension> environmentExtensions) {
+    this(ruleClassProvider, platformSetRegexps, environmentExtensions, false);
   }
 
   /**
    * Constructs a {@code PackageFactory} instance with the given rule factory,
    * never retains ASTs.
    */
-  public PackageFactory(RuleClassProvider ruleClassProvider, boolean trackFsDeps) {
-    this(false, ruleClassProvider, trackFsDeps, null);
+  public PackageFactory(RuleClassProvider ruleClassProvider) {
+    this(ruleClassProvider, null, ImmutableList.<EnvironmentExtension>of(), false);
   }
 
+  @VisibleForTesting
+  public PackageFactory(RuleClassProvider ruleClassProvider,
+      EnvironmentExtension environmentExtensions) {
+    this(ruleClassProvider, null, ImmutableList.of(environmentExtensions), false);
+  }
   /**
    * Constructs a {@code PackageFactory} instance with a specific AST retention
    * policy, glob path translator, and rule factory.
@@ -157,8 +172,10 @@ public final class PackageFactory {
    * @see #evaluateBuildFile for details on the ast retention policy
    */
   @VisibleForTesting
-  public PackageFactory(boolean retainAsts, RuleClassProvider ruleClassProvider,
-      boolean trackFsDeps, Map<String, String> platformSetRegexps) {
+  public PackageFactory(RuleClassProvider ruleClassProvider,
+      Map<String, String> platformSetRegexps,
+      Iterable<EnvironmentExtension> environmentExtensions,
+      boolean retainAsts) {
     this.platformSetRegexps = platformSetRegexps;
     this.ruleFactory = new RuleFactory(ruleClassProvider);
     this.skylarkRuleFactory = new SkylarkRuleFactory(ruleClassProvider);
@@ -170,7 +187,7 @@ public final class PackageFactory {
         new ThreadFactoryBuilder().setNameFormat("PackageFactory %d").build());
     // Do not consume threads when not in use.
     threadPool.allowCoreThreadTimeOut(true);
-    this.trackFsDeps = trackFsDeps;
+    this.environmentExtensions = ImmutableList.copyOf(environmentExtensions);
   }
 
   /**
@@ -279,7 +296,7 @@ public final class PackageFactory {
     } catch (IOException expected) {
       context.listener.error(ast.getLocation(),
           "error globbing [" + Joiner.on(", ").join(includes) + "]: " + expected.getMessage());
-      context.pkgBuilder.setContainsTemporaryErrors();
+      context.pkgBuilder.setContainsErrors();
       return GlobList.captureResults(includes, excludes, ImmutableList.<String>of());
     } catch (GlobCache.BadGlobException e) {
       throw new EvalException(ast.getLocation(), e.getMessage());
@@ -301,96 +318,6 @@ public final class PackageFactory {
               "select({...}) argument isn't a dictionary");
         }
         return new SelectorValue((Map<?, ?>) dict);
-      }
-    };
-  }
-
-  /**
-   * Returns a function-value implementing "FilesetEntry" in the specified package
-   * context.
-   */
-  private static Function newFilesetEntryFunction(final PackageContext context) {
-    List<String> params = ImmutableList.of("srcdir", "files", "destdir",
-        "excludes", "symlinks", "strip_prefix");
-    return new MixedModeFunction("FilesetEntry", params, 0, true) {
-      @Override
-      public Object call(Object[] namedArguments,
-          List<Object> surplusPositionalArguments,
-          Map<String, Object> surplusKeywordArguments,
-          FuncallExpression ast) throws EvalException, ConversionException, InterruptedException {
-
-        final String filesetArg = "'FilesetEntry' argument";
-
-        Label srcLabel = null;
-        String srcDir = namedArguments[0] == null
-            ? null
-            : Type.STRING.convert(namedArguments[0], filesetArg);
-
-        // The srcDir can either refer to a package as whole, or another Fileset rule.
-        // If the former, we set the label to be the package's BUILD file.
-        if (srcDir == null) {
-          // If srcDir is null, it refers to the current package.
-          srcLabel = context.pkgBuilder.getBuildFileLabel();
-        } else if (srcDir.startsWith("//") && !srcDir.contains(":")) {
-          // Here, srcDir refers to a remote package.
-          try {
-            srcLabel = Label.parseAbsolute(srcDir + ":BUILD");
-          } catch (Label.SyntaxException e) {
-            throw new EvalException(ast.getLocation(),
-                "Could not parse 'srcDir' label '" + srcDir +
-                "' in FilesetEntry: " + e.getMessage());
-          }
-        } else {
-          // Here, srcDir refers to an arbitrary label, though we must assert
-          // during analysis that it refers to another Fileset.
-          srcLabel = Type.LABEL.convert(srcDir, filesetArg,
-              context.pkgBuilder.getBuildFileLabel());
-        }
-
-        List<Label> files;
-        if (namedArguments[1] == null) {
-          files = null;
-        } else {
-          files =
-              Type.LABEL_LIST.convert(namedArguments[1], filesetArg, srcLabel);
-
-          for (Label label : files) {
-            if (!srcLabel.getPackageFragment().equals(label.getPackageFragment())) {
-              throw new EvalException(ast.getLocation(), "'files' element '" + label +
-                                                         "' must be a relative label.");
-            }
-          }
-        }
-        String destDir = namedArguments[2] == null
-            ? null
-            : Type.STRING.convert(namedArguments[2], filesetArg);
-
-        List<String> excludes = namedArguments[3] == null
-            ? null
-            : Type.STRING_LIST.convert(namedArguments[3], filesetArg, srcLabel);
-
-        FilesetEntry.SymlinkBehavior symlinkBehavior = FilesetEntry.SymlinkBehavior.COPY;
-        if (namedArguments[4] != null) {
-          String behaviorString =
-            Type.STRING.convert(namedArguments[4], filesetArg);
-
-          try {
-            symlinkBehavior =
-              FilesetEntry.SymlinkBehavior.parse(behaviorString);
-          } catch (IllegalArgumentException e) {
-            throw new EvalException(ast.getLocation(),
-                "Invalid value for 'symlinks' attribute. Valid values are " +
-                "'copy' and 'dereference'.");
-          }
-        }
-
-        String stripPrefix = namedArguments[5] == null
-            ? "."
-            : Type.STRING.convert(namedArguments[5], filesetArg);
-
-
-        return new FilesetEntry(srcLabel, files, excludes, destDir,
-                                symlinkBehavior, stripPrefix);
       }
     };
   }
@@ -709,83 +636,13 @@ public final class PackageFactory {
   }
 
   /**
-   * Returns a function (closed over the specified MakeEnvironment) which
-   * implements "vardef".
-   */
-  static Function newVarDefFunction(final MakeEnvironment.Builder makeEnv) {
-    List<String> params = ImmutableList.of("name", "value", "platform_name");
-    return new MixedModeFunction("vardef", params, 2, false) {
-        // vardef(varname, value, platformName=null)
-        @Override
-        public Object call(Object[] namedArguments,
-                           List<Object> surplusPositionalArguments,
-                           Map<String, Object> surplusKeywordArguments,
-                           FuncallExpression ast) throws EvalException, ConversionException {
-          String varname = Type.STRING.convert(namedArguments[0], "'vardef' argument");
-          String value = Type.STRING.convert(namedArguments[1], "'vardef' argument");
-
-          String platformSetRegexp = MakeEnvironment.MATCH_ANY;
-          if (namedArguments[2] != null) {
-            String nickname = Type.STRING.convert(namedArguments[2], "'vardef' argument");
-            platformSetRegexp = makeEnv.getPlatformSetRegexp(nickname);
-            if (platformSetRegexp == null) {
-              throw new EvalException(ast.getLocation(),
-                  "invalid platform-set name '" + nickname + "' in call to vardef");
-            }
-          }
-          makeEnv.update(varname, value, platformSetRegexp);
-          return 0;
-        }
-      };
-  }
-
-  /**
-   * Returns a function which implements "varref". Due to the staged-evaluation
-   * nature of google3, this is simply defined as:
-   *
-   * <pre>
-   *     def varref(x):
-   *       return '$(%s)' % x
-   * </pre>
-   *
-   * The real work of evaluation happens in the second stage.
-   */
-  static Function newVarRefFunction() {
-    // varref(varname)
-    return new PositionalFunction("varref", 1, 1) {
-        @Override
-        public Object call(List<Object> args, FuncallExpression ast) throws ConversionException {
-          String varname = Type.STRING.convert(args.get(0), "'varref' argument");
-          return "$(" + varname + ")";
-        }
-      };
-  }
-
-  /**
    * Returns a new environment populated with common entries that can be shared
    * across packages and that don't require the context.
    */
   private static Environment newGlobalEnvironment() {
     Environment env = new Environment();
     MethodLibrary.setupMethodEnvironment(env);
-    setupGlobalEnvironment(env);
     return env;
-  }
-
-  /**
-   * Set up GLOBAL build environment (c.f. gconfig/guild //tools:GLOBALS).
-   */
-  private static void setupGlobalEnvironment(Environment env) {
-    // varref actually has nothing to do with the MakeEnvironment: it's just a
-    // string function, 'x' -> '$(x)'.
-    env.update("varref", newVarRefFunction());
-
-    env.update("sysname", "linux");
-    env.update("opt_level", "$(BINMODE)");
-    env.update("cxx_abi", "$(ABI)");
-    env.update("cxx_abi_ref", "$(ABI)");
-    env.update("generic_cpu", "$(TARGET_CPU)");
-    env.update("glibc_version", "$(GLIBC_VERSION)");
   }
 
   /****************************************************************************
@@ -849,8 +706,7 @@ public final class PackageFactory {
 
       return evaluateBuildFile(
           packageName, buildFileAST, buildFile, globCache, localReporter.getEvents(),
-          defaultVisibility, hasPreprocessorError,
-          preprocessingResult.containsTransientErrors, bulkPackageLocator, locator, makeEnv);
+          defaultVisibility, hasPreprocessorError, bulkPackageLocator, locator, makeEnv);
     } catch (InterruptedException e) {
       globCache.cancelBackgroundTasks();
       throw e;
@@ -946,7 +802,7 @@ public final class PackageFactory {
    * discarded at the end of evaluation.  Please be aware of your memory
    * footprint when making changes here!
    */
-  private static class PackageContext {
+  public static class PackageContext {
 
     final LegacyPackage.LegacyPackageBuilder pkgBuilder;
     final ErrorEventListener listener;
@@ -960,15 +816,13 @@ public final class PackageFactory {
     }
   }
 
-  private static void buildPkgEnv(Environment pkgEnv, String packageName,
-      MakeEnvironment.Builder pkgMakeEnv, PackageContext context) {
+  private static void buildPkgEnv(
+      Environment pkgEnv, String packageName, PackageContext context) {
     pkgEnv.update("distribs", newDistribsFunction(context));
     pkgEnv.update("glob", newGlobFunction(context, /*async=*/false));
     pkgEnv.update("select", newSelectFunction());
-    pkgEnv.update("FilesetEntry", newFilesetEntryFunction(context));
     pkgEnv.update("mocksubinclude", newMockSubincludeFunction(context));
     pkgEnv.update("licenses", newLicensesFunction(context));
-    pkgEnv.update("vardef", newVarDefFunction(pkgMakeEnv));
     pkgEnv.update("exports_files", newExportsFilesFunction(context));
     pkgEnv.update("package_group", newPackageGroupFunction(context));
     pkgEnv.update("package", newPackageFunction(context));
@@ -981,10 +835,14 @@ public final class PackageFactory {
       MakeEnvironment.Builder pkgMakeEnv, PackageContext context, RuleFactory ruleFactory,
       SkylarkRuleFactory skylarkRuleFactory) {
     pkgEnv.setImportAllowed(skylarkEnabled);
-    buildPkgEnv(pkgEnv, packageName, pkgMakeEnv, context);
+    buildPkgEnv(pkgEnv, packageName, context);
     for (String ruleClass : ruleFactory.getRuleClassNames()) {
       pkgEnv.update(ruleClass,
           newRuleFunction(ruleFactory, skylarkRuleFactory, ruleClass, null, context));
+    }
+
+    for (EnvironmentExtension extension : environmentExtensions) {
+      extension.update(pkgEnv, pkgMakeEnv, context.pkgBuilder.getBuildFileLabel());
     }
   }
 
@@ -1079,7 +937,7 @@ public final class PackageFactory {
   @VisibleForTesting // used by PackageFactoryApparatus
   public LegacyPackage evaluateBuildFile(String packageName, BuildFileAST buildFileAST,
       Path buildFilePath, GlobCache globCache, Iterable<Event> pastEvents,
-      RuleVisibility defaultVisibility, boolean containsError, boolean containsTransientError,
+      RuleVisibility defaultVisibility, boolean containsError,
       @Nullable BulkPackageLocatorForCrossingSubpackageBoundaries bulkPackageLocator,
       CachingPackageLocator locator,
       MakeEnvironment.Builder pkgMakeEnv)
@@ -1107,10 +965,6 @@ public final class PackageFactory {
 
     if (containsError) {
       pkgBuilder.setContainsErrors();
-    }
-
-    if (containsTransientError) {
-      pkgBuilder.setContainsTemporaryErrors();
     }
 
     if (!validatePackageName(packageName, buildFileAST.getLocation(), listener)) {
@@ -1169,7 +1023,7 @@ public final class PackageFactory {
 
     // Stuff that closes over the package context:
     PackageContext context = new PackageContext(pkgBuilder, NullErrorEventListener.INSTANCE, false);
-    buildPkgEnv(pkgEnv, packageName, pkgMakeEnv, context);
+    buildPkgEnv(pkgEnv, packageName, context);
     pkgEnv.update("glob", newGlobFunction(context, /*async=*/true));
     // The Fileset function is heavyweight in that it can run glob(). Avoid this during the
     // preloading phase.
