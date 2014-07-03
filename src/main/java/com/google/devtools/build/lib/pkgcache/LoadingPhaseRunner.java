@@ -284,10 +284,9 @@ public class LoadingPhaseRunner {
   }
 
   /**
-   * This method only exists for the benefit of CleanCommand and InfoCommand, which need to
-   * construct a {@code BuildConfigurationCollection} without running a full loading phase. Don't
-   * add any more clients; instead, we should change clean and info so that they don't need the
-   * configuration.
+   * This method only exists for the benefit of InfoCommand, which needs to construct
+   * a {@code BuildConfigurationCollection} without running a full loading phase. Don't
+   * add any more clients; instead, we should change info so that it doesn't need the configuration.
    */
   public LoadedPackageProvider loadForConfigurations(ErrorEventListener listener,
       Set<Label> labelsToLoad) throws InterruptedException {

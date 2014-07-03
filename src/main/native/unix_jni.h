@@ -46,26 +46,27 @@ extern void PostFileException(JNIEnv *env, int error_number,
 // Returns the standard error message for a given UNIX error number.
 extern std::string ErrorMessage(int error_number);
 
-// Runs fstatat, if available.
+// Runs fstatat(2), if available, or sets errno to ENOSYS if not.
 int portable_fstatat(int dirfd, char *name, struct stat *statbuf, int flags);
 
+// Encoding for different timestamps in a struct stat{}.
 enum StatTimes {
-  STAT_ATIME,
-  STAT_MTIME,
-  STAT_CTIME,
+  STAT_ATIME,  // access
+  STAT_MTIME,  // modification
+  STAT_CTIME,  // status change
 };
 
-// Seconds from a stat buffer.
+// Returns seconds from a stat buffer.
 int StatSeconds(const struct stat64 &statbuf, StatTimes t);
 
-// NanoSeconds from a stat buffer.
+// Returns nanoseconds from a stat buffer.
 int StatNanoSeconds(const struct stat64 &statbuf, StatTimes t);
 
-// Runs getxattr, if available.
+// Runs getxattr(2), if available. If not, sets errno to ENOSYS.
 ssize_t portable_getxattr(const char *path, const char *name, void *value,
                           size_t size);
 
-// Run lgetxattr, if available.
+// Run lgetxattr(2), if available. If not, sets errno to ENOSYS.
 ssize_t portable_lgetxattr(const char *path, const char *name, void *value,
                            size_t size);
 

@@ -1914,7 +1914,8 @@ public class ParallelEvaluatorTest {
     };
 
     AutoUpdatingGraph aug = new InMemoryAutoUpdatingGraph(
-        ImmutableMap.of(GraphTester.NODE_TYPE, tester.getNodeBuilder()), progressReceiver);
+        ImmutableMap.of(GraphTester.NODE_TYPE, tester.getNodeBuilder()), new RecordingDifferencer(),
+        progressReceiver);
 
     tester.getOrCreate("top1").setComputedValue(CONCATENATE)
         .addDependency("d1").addDependency("d2");

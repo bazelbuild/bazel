@@ -23,7 +23,6 @@ import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 import com.google.devtools.build.lib.actions.Artifact;
 import com.google.devtools.build.lib.collect.nestedset.NestedSet;
-import com.google.devtools.build.lib.collect.nestedset.Order;
 import com.google.devtools.build.lib.events.Location;
 import com.google.devtools.build.lib.packages.MethodLibrary;
 import com.google.devtools.build.lib.packages.Type.ConversionException;
@@ -52,6 +51,7 @@ import com.google.devtools.build.lib.view.TransitiveInfoProvider;
 import com.google.devtools.build.lib.view.actions.SpawnAction;
 
 import java.util.List;
+import java.util.Locale;
 import java.util.Map;
 import java.util.concurrent.ExecutionException;
 
@@ -305,7 +305,7 @@ public class SkylarkRuleImplementationFunctions {
         Runfiles defaultRunfiles = Runfiles.EMPTY;
         Runfiles dataRunfiles = Runfiles.EMPTY;
         for (String param : arguments.keySet()) {
-          switch (param.toUpperCase()) {
+          switch (param.toUpperCase(Locale.ENGLISH)) {
             case "DEFAULT":
               defaultRunfiles = handleRunfiles(param, arguments, loc);
               break;
@@ -355,33 +355,6 @@ public class SkylarkRuleImplementationFunctions {
         }
       }
       return builder.build();
-    }
-  };
-
-  @SkylarkBuiltin(name = "nset",
-      doc = "Creates a nested set from the <i>items</i>. "
-          + "The nesting is applied to other nested sets among <i>items</i>.",
-      mandatoryParams = {
-      @Param(name = "order", type = String.class, doc = "ordering of the nested set")},
-      optionalParams = {
-      @Param(name = "items", doc = "items of the nested set")})
-  private final SkylarkFunction nset = new SimpleSkylarkFunction("nset") {
-
-    // TODO(bazel-team): Not safe, see comments at runfiles and createTarget.
-    @SuppressWarnings("unchecked")
-    @Override
-    protected Object call(Map<String, Object> arguments, Location loc)
-        throws EvalException, ConversionException {
-      // TODO(bazel-team): Investigate if enums or constants can be used here in the argument.
-      String orderString = cast(arguments.get("order"), String.class, "order", loc);
-      Order order;
-      try {
-        order = Order.valueOf(orderString);
-      } catch (IllegalArgumentException e) {
-        throw new EvalException(loc, "Invalid order " + orderString);
-      }
-      return new SkylarkNestedSet(
-          order, castList(arguments.get("items"), Object.class, "items"));
     }
   };
 

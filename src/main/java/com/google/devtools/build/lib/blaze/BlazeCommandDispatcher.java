@@ -145,24 +145,25 @@ public class BlazeCommandDispatcher {
    */
   private ExitCode checkCwdInWorkspace(Command commandAnnotation, String commandName,
       OutErr outErr) {
-    if (commandAnnotation.mustRunInWorkspace()) {
-      Path workspace = runtime.getWorkspace();
-      if (!workspace.getPathString().endsWith("/" + runtime.getWorkspaceSuffix())) {
-        outErr.printErrLn("The '" + commandName
-            + "' command is only supported if your working directory is under '"
-            + runtime.getWorkspaceSuffix() + "'. Try 'blaze help'.");
-        return ExitCode.COMMAND_LINE_ERROR;
-      }
+    if (!commandAnnotation.mustRunInWorkspace()) {
+      return ExitCode.SUCCESS;
+    }
 
-      Path doNotBuild = workspace.getParentDirectory().getRelative(
-          BlazeRuntime.DO_NOT_BUILD_FILE_NAME);
-      if (doNotBuild.exists()) {
-        if (!commandAnnotation.canRunInOutputDirectory()) {
-          outErr.printErrLn(getNotInRealWorkspaceError(doNotBuild));
-          return ExitCode.COMMAND_LINE_ERROR;
-        } else {
-          outErr.printErrLn("WARNING: Blaze is run from output directory. This is unsound.");
-        }
+    if (!runtime.inWorkspace()) {
+      outErr.printErrLn("The '" + commandName + "' command is only supported from within a "
+          + "workspace.");
+      return ExitCode.COMMAND_LINE_ERROR;
+    }
+
+    Path workspace = runtime.getWorkspace();
+    Path doNotBuild = workspace.getParentDirectory().getRelative(
+        BlazeRuntime.DO_NOT_BUILD_FILE_NAME);
+    if (doNotBuild.exists()) {
+      if (!commandAnnotation.canRunInOutputDirectory()) {
+        outErr.printErrLn(getNotInRealWorkspaceError(doNotBuild));
+        return ExitCode.COMMAND_LINE_ERROR;
+      } else {
+        outErr.printErrLn("WARNING: Blaze is run from output directory. This is unsound.");
       }
     }
     return ExitCode.SUCCESS;

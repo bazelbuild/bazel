@@ -17,11 +17,12 @@ package com.google.devtools.build.lib.blaze;
 import com.google.common.base.Preconditions;
 import com.google.devtools.build.lib.actions.Root;
 import com.google.devtools.build.lib.concurrent.ThreadSafety.Immutable;
-import com.google.devtools.build.lib.util.Fingerprint;
 import com.google.devtools.build.lib.util.StringCanonicalizer;
 import com.google.devtools.build.lib.vfs.FileSystem;
 import com.google.devtools.build.lib.vfs.Path;
 import com.google.devtools.build.lib.vfs.PathFragment;
+
+import javax.annotation.Nullable;
 
 /**
  * Encapsulation of all of the interesting top-level directories in any Blaze application.
@@ -61,34 +62,21 @@ public final class BlazeDirectories {
   private final Path outputPath;
   private final Path localOutputPath;
 
-  public BlazeDirectories(Path installBase, Path outputBase, Path workspace) {
+  public BlazeDirectories(Path installBase, Path outputBase, @Nullable Path workspace) {
     this.installBase = installBase;
     this.workspace = workspace;
     this.outputBase = outputBase;
-    this.execRoot = outputBase.getChild("google3");
+    if (this.workspace == null) {
+      // TODO(bazel-team): this should be null, but at the moment there is a lot of code that
+      // depends on it being non-null.
+      this.execRoot = outputBase.getChild("default-exec-root");
+    } else {
+      this.execRoot = outputBase.getChild(workspace.getBaseName());
+    }
     this.outputPath = execRoot.getRelative(RELATIVE_OUTPUT_PATH);
-    Preconditions.checkState(outputPath.asFragment().equals(
-        outputPathFromOutputBase(outputBase.asFragment())));
+    Preconditions.checkState(this.workspace == null || outputPath.asFragment().equals(
+        outputPathFromOutputBase(outputBase.asFragment(), workspace.asFragment())));
     this.localOutputPath = outputBase.getRelative(BlazeDirectories.RELATIVE_OUTPUT_PATH);
-  }
-
-  /**
-   * Computes the base output directory path, in the form
-   *
-   * <!--
-   *     <outputRoot>/_blaze_<username>/<md5>
-   * -->
-   * <i>outputRoot</i>/_<i>appname</i>_<i>username</i>/<i>md5</i>,
-   *
-   * where <i>md5</i> is the md5 hash of the workspaces
-   * and <i>appname</i> is the name of the application (e.g. "blaze")
-   * We put actual output files in subdirectories of this,
-   * e.g. /usr/local/google/_blaze_user/<i>md5</i>/output
-   * or   /usr/local/google/_blaze_user/<i>md5</i>/action_cache.
-   */
-  public static String outputBase(String workspace, String appName, String userName) {
-    String basename = Fingerprint.md5Digest(workspace);
-    return "/usr/local/google/_" + appName + "_" + userName + "/" + basename;
   }
 
   /**
@@ -111,6 +99,13 @@ public final class BlazeDirectories {
    */
   public Path getWorkspace() {
     return workspace;
+  }
+
+  /**
+   * Returns if the workspace directory is a valid workspace.
+   */
+  public boolean inWorkspace() {
+    return this.workspace != null;
   }
 
   /**
@@ -139,10 +134,15 @@ public final class BlazeDirectories {
 
   /**
    * @param outputBase the outputBase as a path fragment.
+   * @param workspace the workspace as a path fragment.
    * @return the outputPath as a path fragment, given the outputBase.
    */
-  public static PathFragment outputPathFromOutputBase(PathFragment outputBase) {
-    return outputBase.getRelative("google3/" + RELATIVE_OUTPUT_PATH);
+  public static PathFragment outputPathFromOutputBase(
+      PathFragment outputBase, PathFragment workspace) {
+    if (workspace.equals(PathFragment.EMPTY_FRAGMENT)) {
+      return outputBase;
+    }
+    return outputBase.getRelative(workspace.getBaseName() + "/" + RELATIVE_OUTPUT_PATH);
   }
 
   /**

@@ -34,8 +34,10 @@ import com.google.devtools.build.lib.syntax.SkylarkBuiltin;
 import com.google.devtools.build.lib.syntax.SkylarkCallable;
 import com.google.devtools.build.lib.util.FileType;
 import com.google.devtools.build.lib.util.FileTypeSet;
+import com.google.devtools.build.lib.view.ConfigurationMakeVariableContext;
 import com.google.devtools.build.lib.view.LabelExpander;
 import com.google.devtools.build.lib.view.LabelExpander.NotUniqueExpansionException;
+import com.google.devtools.build.lib.view.MakeVariableExpander.ExpansionException;
 import com.google.devtools.build.lib.view.RuleConfiguredTarget.Mode;
 import com.google.devtools.build.lib.view.RuleContext;
 import com.google.devtools.build.lib.view.TransitiveInfoProvider;
@@ -323,5 +325,22 @@ public final class SkylarkRuleContext {
       }
     }
     return true;
+  }
+
+  @SkylarkCallable(doc = "")
+  public String expandMakeVariables(String attributeName, String command,
+      final Map<String, String> additionalSubstitutions) {
+    return ruleContext.expandMakeVariables(attributeName,
+        command, new ConfigurationMakeVariableContext(ruleContext.getRule().getPackage(),
+            ruleContext.getConfiguration()) {
+          @Override
+          public String lookupMakeVariable(String name) throws ExpansionException {
+            if (additionalSubstitutions.containsKey(name)) {
+              return additionalSubstitutions.get(name);
+            } else {
+              return super.lookupMakeVariable(name);
+            }
+          }
+        });
   }
 }

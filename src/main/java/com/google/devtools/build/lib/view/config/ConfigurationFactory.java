@@ -20,7 +20,6 @@ import com.google.common.cache.Cache;
 import com.google.common.cache.CacheBuilder;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
-import com.google.common.io.BaseEncoding;
 import com.google.devtools.build.lib.blaze.BlazeDirectories;
 import com.google.devtools.build.lib.concurrent.ThreadSafety.ThreadCompatible;
 import com.google.devtools.build.lib.events.ErrorEventListener;
@@ -34,17 +33,15 @@ import com.google.devtools.build.lib.packages.Target;
 import com.google.devtools.build.lib.pkgcache.LoadedPackageProvider;
 import com.google.devtools.build.lib.syntax.Label;
 import com.google.devtools.build.lib.syntax.Label.SyntaxException;
-import com.google.devtools.build.lib.util.StringUtilities;
 import com.google.devtools.build.lib.vfs.Path;
 import com.google.devtools.build.lib.view.ConfigurationCollectionFactory;
 import com.google.devtools.build.lib.view.config.BuildConfiguration.Fragment;
 
 import java.io.IOException;
+import java.util.ArrayList;
 import java.util.HashMap;
-import java.util.HashSet;
 import java.util.List;
 import java.util.Map;
-import java.util.Set;
 
 /**
  * A factory class for {@link BuildConfiguration} instances. This is
@@ -74,9 +71,6 @@ public final class ConfigurationFactory {
 
   // A cache of key to configuration instances.
   private final Cache<String, BuildConfiguration> hostConfigCache =
-      CacheBuilder.newBuilder().softValues().build();
-
-  private final Cache<String, TargetConfigurationCacheEntry> configurationCollectionCache =
       CacheBuilder.newBuilder().softValues().build();
 
   private boolean performSanityCheck = true;
@@ -109,15 +103,6 @@ public final class ConfigurationFactory {
     return fragmentFactories.factoryMap;
   }
 
-  /** Create the build configurations with the given options. */
-  public BuildConfigurationCollection getConfigurations(ErrorEventListener listener,
-      LoadedPackageProvider loadedPackageProvider, BuildConfigurationKey key)
-          throws InvalidConfigurationException {
-    return getConfigurations(loadedPackageProvider, key.getBuildOptions(), key.getDirectories(),
-        key.getClientEnv(), listener);
-  }
-
-
   /**
    * Returns a plain BuildConfiguration with no additional configuration
    * information. This method should only be used during tests when no extra
@@ -136,86 +121,52 @@ public final class ConfigurationFactory {
   /**
    * Constructs and returns a set of build configurations for the given options. The reporter is
    * only used to warn about unsupported configurations.
-   *
-   * <p>Use {@link #getConfigurations(ErrorEventListener, LoadedPackageProvider,
-   * BuildConfigurationKey)} instead.
    */
   @VisibleForTesting
-  public BuildConfigurationCollection getConfigurations(LoadedPackageProvider loadedPackageProvider,
-      BuildOptions buildOptions, BlazeDirectories directories,
-      Map<String, String> clientEnv, ErrorEventListener errorEventListener)
+  public BuildConfiguration getConfiguration(ErrorEventListener errorEventListener,
+      LoadedPackageProvider loadedPackageProvider, BuildConfigurationKey key)
       throws InvalidConfigurationException {
-    return new BuildConfigurationCollection(getConfiguration(loadedPackageProvider, buildOptions,
-        directories, clientEnv, errorEventListener));
-  }
-
-  /**
-   * Constructs and returns a set of build configurations for the given options. The reporter is
-   * only used to warn about unsupported configurations.
-   *
-   * <p>Use {@link #getConfigurations(ErrorEventListener, LoadedPackageProvider,
-   * BuildConfigurationKey)} instead.
-   */
-  @VisibleForTesting
-  public BuildConfiguration getConfiguration(LoadedPackageProvider loadedPackageProvider,
-      BuildOptions buildOptions, BlazeDirectories directories,
-      Map<String, String> clientEnv, ErrorEventListener errorEventListener)
-      throws InvalidConfigurationException {
-    BuildConfiguration.Options commonOptions = buildOptions.get(BuildConfiguration.Options.class);
-    // Try to get a cache hit on the entire configuration collection.
-    String cacheKey = StringUtilities.combineKeys(
-        // NOTE: identityHashCode isn't sound; may cause tests to fail.
-        String.valueOf(System.identityHashCode(directories.getOutputBase().getFileSystem())),
-        directories.getOutputBase().toString(),
-        directories.getWorkspace().toString(),
-        buildOptions.computeCacheKey(),
-        BuildConfiguration.getTestEnv(commonOptions.testEnvironment, clientEnv).toString());
-
-    TargetConfigurationCacheEntry cacheEntry =
-        configurationCollectionCache.getIfPresent(cacheKey);
-    if ((cacheEntry == null) || !cacheEntry.isUpToDate(loadedPackageProvider)) {
-      cacheEntry = makeCacheEntry(loadedPackageProvider, buildOptions, directories, clientEnv);
-      configurationCollectionCache.put(cacheKey, cacheEntry);
-    }
-    cacheEntry.storedErrorEventListener.replayOn(errorEventListener);
-    if (cacheEntry.storedErrorEventListener.hasErrors()) {
-      throw new InvalidConfigurationException("Build options are invalid");
-    }
-    return cacheEntry.targetConfiguration;
+    return createConfiguration(errorEventListener, loadedPackageProvider, key, null);
   }
 
   /** Create the build configurations with the given options. */
-  public BuildConfigurationCollection getConfigurationsInSkyframe(ErrorEventListener listener,
+  public BuildConfigurationCollection getConfigurations(ErrorEventListener listener,
       LoadedPackageProvider loadedPackageProvider, BuildConfigurationKey key)
           throws InvalidConfigurationException {
-    BuildOptions buildOptions = key.getBuildOptions();
-    BlazeDirectories directories = key.getDirectories();
-    Map<String, String> clientEnv = key.getClientEnv();
-
-    TargetConfigurationCacheEntry cacheEntry =
-        makeCacheEntry(loadedPackageProvider, buildOptions, directories, clientEnv);
-    cacheEntry.storedErrorEventListener.replayOn(listener);
-    if (cacheEntry.storedErrorEventListener.hasErrors()) {
-      throw new InvalidConfigurationException("Build options are invalid");
+    List<BuildConfiguration> targetConfigurations = new ArrayList<>();
+    if (!key.getMultiCpu().isEmpty()) {
+      for (String cpu : key.getMultiCpu()) {
+        targetConfigurations.add(createConfiguration(
+            listener, loadedPackageProvider, key, cpu));
+      }
+    } else {
+      targetConfigurations.add(createConfiguration(
+          listener, loadedPackageProvider, key, null));
     }
-    return new BuildConfigurationCollection(cacheEntry.targetConfiguration);
+    return new BuildConfigurationCollection(targetConfigurations);
   }
 
-  private TargetConfigurationCacheEntry makeCacheEntry(
-      LoadedPackageProvider loadedPackageProvider,
-      BuildOptions buildOptions,
-      BlazeDirectories directories,
-      Map<String, String> clientEnv) throws InvalidConfigurationException {
+  private BuildConfiguration createConfiguration(
+      ErrorEventListener originalEventListener, LoadedPackageProvider loadedPackageProvider,
+      BuildConfigurationKey key, String cpuOverride) throws InvalidConfigurationException {
     StoredErrorEventListener errorEventListener = new StoredErrorEventListener();
-
-    CachingConfigurationEnvironment env =
-        new CachingConfigurationEnvironment(loadedPackageProvider);
+    BuildOptions buildOptions = key.getBuildOptions();
+    if (cpuOverride != null) {
+      // TODO(bazel-team): Options classes should be immutable. This is a bit of a hack.
+      buildOptions = buildOptions.clone();
+      buildOptions.get(BuildConfiguration.Options.class).cpu = cpuOverride;
+    }
+    ConfigurationBuilderEnvironment env =
+        new ConfigurationBuilderEnvironment(loadedPackageProvider);
 
     BuildConfiguration targetConfig = configurationCollectionFactory.createConfigurations(this,
-        hostMachineSpecification, loadedPackageProvider, buildOptions, directories, clientEnv,
-        errorEventListener, env, performSanityCheck);
-    return new TargetConfigurationCacheEntry(targetConfig, env.targets, env.nonExistentLabels,
-        env.paths, errorEventListener);
+        hostMachineSpecification, loadedPackageProvider, buildOptions, key.getDirectories(),
+        key.getClientEnv(), errorEventListener, env, performSanityCheck);
+    errorEventListener.replayOn(originalEventListener);
+    if (errorEventListener.hasErrors()) {
+      throw new InvalidConfigurationException("Build options are invalid");
+    }
+    return targetConfig;
   }
 
   /**
@@ -268,114 +219,29 @@ public final class ConfigurationFactory {
   }
 
   /**
-   * A {@link ConfigurationEnvironment} implementation that keeps a list of all packages seen in the
-   * process.
+   * A {@link ConfigurationEnvironment} implementation that can create dependencies on files.
    */
-  private final class CachingConfigurationEnvironment implements ConfigurationEnvironment {
+  private final class ConfigurationBuilderEnvironment implements ConfigurationEnvironment {
     private final LoadedPackageProvider loadedPackageProvider;
-    /** The set of targets seen. */
-    private final Set<Target> targets = new HashSet<>();
-    /** The set of labels that were not found. */
-    private final Set<Label> nonExistentLabels = new HashSet<>();
-    /** The set of paths seen. */
-    private final Map<Path, String> paths = new HashMap<>();
 
-    CachingConfigurationEnvironment(LoadedPackageProvider loadedPackageProvider) {
+    ConfigurationBuilderEnvironment(LoadedPackageProvider loadedPackageProvider) {
       this.loadedPackageProvider = loadedPackageProvider;
     }
 
     @Override
     public Target getTarget(Label label) throws NoSuchPackageException, NoSuchTargetException {
-      Target target = null;
-      try {
-        target = loadedPackageProvider.getLoadedTarget(label);
-        targets.add(target);
-      } finally {
-        if (target == null) {
-          // That means an exception was thrown before we got here.
-          nonExistentLabels.add(label);
-        }
-      }
-      return target;
+      return loadedPackageProvider.getLoadedTarget(label);
     }
 
     @Override
     public Path getPath(Package pkg, String fileName) {
       Path result = pkg.getPackageDirectory().getRelative(fileName);
       try {
-        // TODO(bazel-team): remove this line and field, after removing old-style configuration
-        // creation from BlazeInfoCommand
-        paths.put(result,
-            BaseEncoding.base16().lowerCase().encode(result.getMD5Digest()));
         loadedPackageProvider.addDependency(pkg, fileName);
       } catch (IOException | SyntaxException e) {
         return null;
       }
       return result;
-    }
-  }
-
-  /**
-   * A cache entry of target {@link BuildConfiguration} instances.
-   *
-   * <p>This also keeps the list of packages that were accessed during the creation of the entry.
-   * This allows quickly checking if the cache entry is safe to be re-used, as long as the creation
-   * is hermetic (i.e. only the {@link ConfigurationEnvironment} and the configuration options are
-   * used, but not, for example, files directly read from the file system).
-   */
-  private static final class TargetConfigurationCacheEntry {
-    private final BuildConfiguration targetConfiguration;
-    private final ImmutableList<Target> targets;
-    private final ImmutableList<Label> nonExistentLabels;
-    private final ImmutableMap<Path, String> paths;
-    private final StoredErrorEventListener storedErrorEventListener;
-
-    private TargetConfigurationCacheEntry(BuildConfiguration targetConfiguration,
-        Set<Target> targets, Set<Label> nonExistentLabels, Map<Path, String> paths,
-        StoredErrorEventListener storedErrorEventListener) {
-      this.targetConfiguration = targetConfiguration;
-      this.targets = ImmutableList.copyOf(targets);
-      this.nonExistentLabels = ImmutableList.copyOf(nonExistentLabels);
-      this.paths = ImmutableMap.copyOf(paths);
-      this.storedErrorEventListener = storedErrorEventListener;
-    }
-
-    public boolean isUpToDate(LoadedPackageProvider loadedPackageProvider) {
-      if (!targetConfiguration.supportsIncrementalBuild()) {
-        return false;
-      }
-      try {
-        for (Target target : targets) {
-          if (!loadedPackageProvider.isTargetCurrent(target)) {
-            return false;
-          }
-        }
-        for (Label label : nonExistentLabels) {
-          // If the target exists now, then the cache entry is no longer up-to-date.
-          if (exists(loadedPackageProvider, label)) {
-            return false;
-          }
-        }
-        for (Map.Entry<Path, String> entry : paths.entrySet()) {
-          String currentMd5 = BaseEncoding.base16().lowerCase().encode(
-              entry.getKey().getMD5Digest());
-          if (!currentMd5.equals(entry.getValue())) {
-            return false;
-          }
-        }
-        return true;
-      } catch (IOException e) {
-        return false;
-      }
-    }
-
-    private boolean exists(LoadedPackageProvider loadedPackageProvider, Label label) {
-      try {
-        loadedPackageProvider.getLoadedTarget(label);
-        return true;
-      } catch (NoSuchPackageException | NoSuchTargetException e) {
-        return false;
-      }
     }
   }
 

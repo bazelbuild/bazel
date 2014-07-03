@@ -20,6 +20,8 @@ import javax.annotation.Nullable;
 /**
  * Wrapper for a node or the exception thrown when trying to build it.
  *
+ * <p>This is intended only for use in alternative {@code AutoUpdatingGraph} implementations.
+ *
  * @param <E> Exception class that may have been thrown when building requested node.
  */
 public final class NodeOrException<E extends Throwable> {
@@ -44,11 +46,21 @@ public final class NodeOrException<E extends Throwable> {
     this.node = null;
   }
 
-  static <F extends Throwable> NodeOrException<F> ofNode(Node node) {
+  /**
+   * Returns a {@code NodeOrException} representing success.
+   *
+   * <p>This is intended only for use in alternative {@code AutoUpdatingGraph} implementations.
+   */
+  public static <F extends Throwable> NodeOrException<F> ofNode(Node node) {
     return new NodeOrException<>(node);
   }
 
-  static <F extends Throwable> NodeOrException<F> ofException(F exception) {
+  /**
+   * Returns a {@code NodeOrException} representing failure.
+   *
+   * <p>This is intended only for use in alternative {@code AutoUpdatingGraph} implementations.
+   */
+  public static <F extends Throwable> NodeOrException<F> ofException(F exception) {
     return new NodeOrException<>(exception);
   }
 

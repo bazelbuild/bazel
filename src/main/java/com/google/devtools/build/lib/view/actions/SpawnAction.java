@@ -50,6 +50,7 @@ import com.google.devtools.build.lib.view.AnalysisEnvironment;
 import com.google.devtools.build.lib.view.FilesToRunProvider;
 import com.google.devtools.build.lib.view.TransitiveInfoCollection;
 import com.google.devtools.build.lib.view.config.BuildConfiguration;
+import com.google.protobuf.GeneratedMessage.GeneratedExtension;
 
 import java.nio.charset.Charset;
 import java.util.ArrayList;
@@ -62,6 +63,26 @@ import java.util.Map;
  * An Action representing an arbitrary subprocess to be forked and exec'd.
  */
 public class SpawnAction extends ConfigurationAction {
+  private static class ExtraActionInfoSupplier<T> {
+    private final ActionType type;
+    private final GeneratedExtension<ExtraActionInfo, T> extension;
+    private final T value;
+
+    private ExtraActionInfoSupplier(
+        ActionType type,
+        GeneratedExtension<ExtraActionInfo, T> extension,
+        T value) {
+      this.type = type;
+      this.extension = extension;
+      this.value = value;
+    }
+
+    void extend(ExtraActionInfo.Builder builder) {
+      builder.setType(type);
+      builder.setExtension(extension, value);
+    }
+  }
+
   private static final String GUID = "ebd6fce3-093e-45ee-adb6-bf513b602f0d";
 
   private final CommandLine argv;
@@ -75,6 +96,7 @@ public class SpawnAction extends ConfigurationAction {
   private final ImmutableMap<String, String> environment;
   private final ImmutableMap<String, String> executionInfo;
 
+  private final ExtraActionInfoSupplier<?> extraActionInfoSupplier;
   /**
    * Constructs a SpawnAction using direct initialization arguments.
    * <p>
@@ -106,7 +128,7 @@ public class SpawnAction extends ConfigurationAction {
     this(owner, inputs, outputs, configuration,
         resourceSet, argv, ImmutableMap.copyOf(environment),
         ImmutableMap.<String, String>of(), progressMessage,
-        ImmutableMap.<PathFragment, Artifact>of(), mnemonic);
+        ImmutableMap.<PathFragment, Artifact>of(), mnemonic, null);
   }
 
   /**
@@ -142,7 +164,8 @@ public class SpawnAction extends ConfigurationAction {
       ImmutableMap<String, String> executionInfo,
       String progressMessage,
       ImmutableMap<PathFragment, Artifact> inputManifests,
-      String mnemonic) {
+      String mnemonic,
+      ExtraActionInfoSupplier extraActionInfoSupplier) {
     super(owner, inputs, outputs, configuration);
     this.resourceSet = resourceSet;
     this.executionInfo = executionInfo;
@@ -151,6 +174,7 @@ public class SpawnAction extends ConfigurationAction {
     this.progressMessage = progressMessage;
     this.inputManifests = inputManifests;
     this.mnemonic = mnemonic;
+    this.extraActionInfoSupplier = extraActionInfoSupplier;
   }
 
   /**
@@ -396,6 +420,7 @@ public class SpawnAction extends ConfigurationAction {
     private String progressMessage;
     private ParamFileInfo paramFileInfo = null;
     private String mnemonic = "Unknown";
+    private ExtraActionInfoSupplier<?> extraActionInfoSupplier = null;
     private boolean registerSpawnAction = true;
 
     /**
@@ -467,7 +492,9 @@ public class SpawnAction extends ConfigurationAction {
           configuration, resourceSet, actualCommandLine,
           environment, executionInfo,
           progressMessage,
-          ImmutableMap.copyOf(inputManifests), mnemonic);
+          ImmutableMap.copyOf(inputManifests),
+          mnemonic,
+          extraActionInfoSupplier);
 
       if (registerSpawnAction) {
         analysisEnvironment.registerAction(action);
@@ -801,6 +828,12 @@ public class SpawnAction extends ConfigurationAction {
 
     public Builder setMnemonic(String mnemonic) {
       this.mnemonic = mnemonic;
+      return this;
+    }
+
+    public <T> Builder setExtraActionInfo(
+        ActionType type, GeneratedExtension<ExtraActionInfo, T> extension, T value) {
+      this.extraActionInfoSupplier = new ExtraActionInfoSupplier<T>(type, extension, value);
       return this;
     }
 

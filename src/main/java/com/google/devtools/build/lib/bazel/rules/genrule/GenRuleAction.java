@@ -50,7 +50,7 @@ public final class GenRuleAction extends SpawnAction {
     super(owner, inputs, outputs, configuration, GENRULE_RESOURCES,
         CommandLine.of(argv, false), environment, executionInfo, progressMessage,
         runfilesManifests,
-        "Genrule");
+        "Genrule", null);
   }
 
   @Override

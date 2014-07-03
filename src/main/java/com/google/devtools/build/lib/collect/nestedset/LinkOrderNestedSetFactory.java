@@ -13,6 +13,8 @@
 // limitations under the License.
 package com.google.devtools.build.lib.collect.nestedset;
 
+import com.google.common.collect.ImmutableList;
+
 /**
  * Link order {@code NestedSet} factory.
  */
@@ -21,6 +23,11 @@ final class LinkOrderNestedSetFactory implements NestedSetFactory {
   @Override
   public <E> NestedSet<E> onlyDirects(Object[] directs) {
     return new LinkOnlyDirectsNestedSet<>(directs);
+  }
+
+  @Override
+  public <E> NestedSet<E> onlyDirects(ImmutableList<E> directs) {
+    return new LinkOrderImmutableListDirectsNestedSet<>(directs);
   }
 
   @Override
@@ -117,5 +124,16 @@ final class LinkOrderNestedSetFactory implements NestedSetFactory {
 
     @Override
     public Order getOrder() { return Order.LINK_ORDER; }
+  }
+
+  private static class LinkOrderImmutableListDirectsNestedSet<E> extends
+      ImmutableListDirectsNestedSet<E> {
+
+    public LinkOrderImmutableListDirectsNestedSet(ImmutableList<E> directs) { super(directs); }
+
+    @Override
+    public Order getOrder() {
+      return Order.LINK_ORDER;
+    }
   }
 }

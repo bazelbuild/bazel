@@ -20,6 +20,7 @@ import com.google.common.collect.Iterables;
 import com.google.common.collect.Lists;
 import com.google.devtools.build.lib.collect.nestedset.NestedSet;
 import com.google.devtools.build.lib.concurrent.ThreadSafety.Immutable;
+import com.google.devtools.build.lib.events.Location;
 
 import java.io.IOException;
 import java.util.ArrayList;
@@ -425,6 +426,21 @@ public abstract class EvalUtils {
       return !(Iterables.isEmpty((Iterable<?>) o));
     } else {
       return true;
+    }
+  }
+
+  @SuppressWarnings("unchecked")
+  public static Collection<Object> toCollection(Object o, Location loc) throws EvalException {
+    if (o instanceof Collection) {
+      return (Collection<Object>) o;
+    } else if (o instanceof Map<?, ?>) {
+      // For dictionaries we iterate through the keys only
+      return ((Map<Object, Object>) o).keySet();
+    } else if (o instanceof SkylarkNestedSet) {
+      return ((SkylarkNestedSet) o).toCollection();
+    } else {
+      throw new EvalException(loc,
+          "type '" + EvalUtils.getDatatypeName(o) + "' is not a collection");
     }
   }
 

@@ -115,18 +115,15 @@ public class BlazeServerStartupOptions extends OptionsBase {
       defaultValue = "null", // NOTE: purely decorative!  See class docstring.
       category = "server startup",
       converter = OptionsUtils.PathFragmentConverter.class,
-      help = "If set, specifies the output location to which all build " +
-             "output will be written. Otherwise, the location will be " +
-             "/usr/local/google/_blaze_${USER}/${MD5_OF_WORKSPACE_ROOT}. " +
-             "Note: If you specify a different option from one to the next " +
-             "Blaze invocation for this value, you'll likely start up a " +
-             "new, additional Blaze server. Blaze starts exactly one server " +
-             "per specified output base. Typically there is one output base " +
-             "per google3 workspace--however, with this option you may have " +
-             "multiple output bases per google3 workspace and thereby run " +
-             "multiple builds for the same client on the same machine " +
-             "concurrently. See 'blaze help shutdown' on how to shutdown a " +
-             "Blaze server.")
+      help = "If set, specifies the output location to which all build output will be written. "
+          + "Otherwise, the location will be "
+          + "${OUTPUT_ROOT}/_blaze_${USER}/${MD5_OF_WORKSPACE_ROOT}. Note: If you specify a "
+          + "different option from one to the next Blaze invocation for this value, you'll likely "
+          + "start up a new, additional Blaze server. Blaze starts exactly one server per "
+          + "specified output base. Typically there is one output base per google3 "
+          + "workspace--however, with this option you may have multiple output bases per google3 "
+          + "workspace and thereby run multiple builds for the same client on the same machine "
+          + "concurrently. See 'blaze help shutdown' on how to shutdown a Blaze server.")
   public PathFragment outputBase;
 
   /* Note: This option is only used by the C++ client, never by the Java server.
@@ -142,6 +139,14 @@ public class BlazeServerStartupOptions extends OptionsBase {
           + "can be shared between collaborating users.  "
           + "See http://wiki/Main/BlazeOutputDirectoryStructure or the manual for more details.")
   public PathFragment outputUserRoot;
+
+  @Option(name = "workspace_directory",
+      defaultValue = "",
+      category = "server startup",
+      converter = OptionsUtils.PathFragmentConverter.class,
+      help = "The root of the workspace, that is, the directory that Blaze uses as the root of the "
+          + "build.")
+  public PathFragment workspaceDirectory;
 
   @Option(name = "max_idle_secs",
       defaultValue = "" + (3 * 3600), // NOTE: purely decorative!  See class docstring.

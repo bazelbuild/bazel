@@ -17,7 +17,6 @@ import com.google.common.base.Preconditions;
 import com.google.common.base.Supplier;
 import com.google.devtools.build.lib.actions.Artifact;
 import com.google.devtools.build.lib.actions.Root;
-import com.google.devtools.build.lib.events.Reporter;
 import com.google.devtools.build.lib.packages.NoSuchPackageException;
 import com.google.devtools.build.lib.packages.NoSuchTargetException;
 import com.google.devtools.build.lib.packages.Package;
@@ -37,6 +36,8 @@ import com.google.devtools.build.skyframe.NodeBuilder;
 import com.google.devtools.build.skyframe.NodeBuilderException;
 import com.google.devtools.build.skyframe.NodeKey;
 
+import java.io.IOException;
+
 /**
  * A builder for {@link ConfigurationCollectionNode}s.
  */
@@ -44,21 +45,17 @@ public class ConfigurationCollectionNodeBuilder implements NodeBuilder {
 
   private final Supplier<ConfigurationFactory> configurationFactory;
   private final Supplier<BuildConfigurationKey> configurationKey;
-  private final Reporter reporter;
 
   public ConfigurationCollectionNodeBuilder(
       Supplier<ConfigurationFactory> configurationFactory,
-      Supplier<BuildConfigurationKey> key,
-      Reporter reporter) {
+      Supplier<BuildConfigurationKey> key) {
     this.configurationFactory = configurationFactory;
     this.configurationKey = key;
-    this.reporter = reporter;
   }
 
   @Override
   public Node build(NodeKey nodeKey, Environment env) throws InterruptedException,
       ConfigurationCollectionNodeBuilderException {
-    BuildConfigurationCollection collection;
     try {
       // We are not using these values, because we have copies inside BuildConfigurationKey.
       // Unfortunately, we can't use BuildConfigurationKey as BuildVariableNode, because it contains
@@ -70,23 +67,25 @@ public class ConfigurationCollectionNodeBuilder implements NodeBuilder {
       Preconditions.checkState(!env.depsMissing(),
           "BuildOptions and TestEnvironment must be created already");
 
-      collection = configurationFactory.get().getConfigurationsInSkyframe(reporter,
+      BuildConfigurationCollection result =
+          configurationFactory.get().getConfigurations(env.getListener(),
           new SkyframePackageLoaderWithNodeEnvironment(env), configurationKey.get());
+      
       // BuildConfigurationCollection can be created, but dependencies to some files might be
       // missing. In that case we need to build configurationCollection second time.
       if (env.depsMissing()) {
         return null;
       }
       // For non-incremental builds the configuration collection is not going to be cached.
-      for (BuildConfiguration config : collection.getTargetConfigurations()) {
+      for (BuildConfiguration config : result.getTargetConfigurations()) {
         if (!config.supportsIncrementalBuild()) {
           BuildVariableNode.BUILD_ID.get(env);
         }
       }
+      return new ConfigurationCollectionNode(result);
     } catch (InvalidConfigurationException e) {
       throw new ConfigurationCollectionNodeBuilderException(nodeKey, e);
     }
-    return new ConfigurationCollectionNode(collection);
   }
 
   /**
@@ -132,7 +131,7 @@ public class ConfigurationCollectionNodeBuilder implements NodeBuilder {
     }
 
     @Override
-    public void addDependency(Package pkg, String fileName) throws SyntaxException {
+    public void addDependency(Package pkg, String fileName) throws SyntaxException, IOException {
       Label label = Label.create(pkg.getName(), fileName);
       LabelAndConfiguration lac = new LabelAndConfiguration(label, null);
       Path pathToArtifact = pkg.getPackageDirectory().getRelative(fileName);
@@ -141,7 +140,10 @@ public class ConfigurationCollectionNodeBuilder implements NodeBuilder {
           pkg.getNameFragment().getRelative(fileName),
           lac);
       
-      env.getDep(FileNode.key(artifact));
+      FileNode result = (FileNode) env.getDep(FileNode.key(artifact));
+      if (result != null && !result.exists()) {
+        throw new IOException();
+      }
     }
   }
 

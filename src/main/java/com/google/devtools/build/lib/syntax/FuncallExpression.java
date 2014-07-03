@@ -314,12 +314,12 @@ public final class FuncallExpression extends Expression {
   private void evalArguments(List<Object> posargs, Map<String, Object> kwargs, Environment env)
       throws EvalException, InterruptedException {
     for (Argument arg : args) {
+      Object value = arg.getValue().eval(env);
       if (arg.isPositional()) {
-        Expression e = arg.getValue();
-        posargs.add(e.eval(env));
+        posargs.add(value);
       } else {
         String name = arg.getName().getName();
-        if (kwargs.put(name, arg.getValue().eval(env)) != null) {
+        if (kwargs.put(name, value) != null) {
           throw new EvalException(func.getLocation(),
               "duplicate keyword '" + name + "' in call to '" + func + "'");
         }

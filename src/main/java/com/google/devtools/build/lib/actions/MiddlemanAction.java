@@ -100,6 +100,11 @@ public class MiddlemanAction extends AbstractAction {
     return MIDDLEMAN_MNEMONIC;
   }
 
+  @Override
+  public boolean shouldCreateExtraAction() {
+    return false;
+  }
+
   /**
    * Creates a new middleman action.
    */

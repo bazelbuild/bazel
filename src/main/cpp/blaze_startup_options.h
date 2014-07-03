@@ -151,7 +151,7 @@ class BlazeStartupOptions {
   // WORKSPACE file in it.  If there is no such enclosing directory, returns "".
   //
   // E.g., if there was a WORKSPACE file in foo/bar/build_root:
-  // GetWorkspace('foo/bar') --> 'foo/bar'
+  // GetWorkspace('foo/bar') --> ''
   // GetWorkspace('foo/bar/build_root') --> 'foo/bar/build_root'
   // GetWorkspace('foo/bar/build_root/biz') --> 'foo/bar/build_root'
   //

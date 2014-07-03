@@ -13,6 +13,8 @@
 // limitations under the License.
 package com.google.devtools.build.lib.collect.nestedset;
 
+import com.google.common.collect.ImmutableList;
+
 /**
  * Factory methods for creating {@link NestedSet}s of specific shapes. This allows the
  * implementation to be memory efficient (e.g. a specialized implementation for the case where
@@ -26,6 +28,9 @@ interface NestedSetFactory {
 
   /** Create a NestedSet with only direct elements. */
   <E> NestedSet<E> onlyDirects(Object[] directs);
+
+  /** Create a NestedSet with only direct elements potentially sharing the ImmutableList. */
+  <E> NestedSet<E> onlyDirects(ImmutableList<E> directs);
 
   /** Create a NestedSet with one direct element and one transitive {@code NestedSet}. */
   <E> NestedSet<E> oneDirectOneTransitive(E direct, NestedSet<E> transitive);

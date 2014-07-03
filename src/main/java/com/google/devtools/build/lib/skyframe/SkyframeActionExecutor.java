@@ -257,6 +257,12 @@ public final class SkyframeActionExecutor extends AbstractActionExecutor {
     // If x << y << z (where x << y means "y starts with x"), then we only report (x,y), (x,z), but
     // not (y,z).
     Iterator<PathFragment> iter = artifactPathMap.keySet().iterator();
+    if (!iter.hasNext()) {
+      // No actions in graph -- currently happens only in tests. Special-cased because .next() call
+      // below is unconditional.
+      this.badActionMap = ImmutableMap.of();
+      return;
+    }
     for (PathFragment pathJ = iter.next(); iter.hasNext(); ) {
       // For each comparison, we have a prefix candidate (pathI) and a suffix candidate (pathJ).
       // At the beginning of the loop, we set pathI to the last suffix candidate, since it has not

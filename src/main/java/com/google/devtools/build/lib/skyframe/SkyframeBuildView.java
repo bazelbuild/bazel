@@ -170,8 +170,21 @@ public final class SkyframeBuildView {
     ImmutableMap<Action, Exception> badActions = skyframeExecutor.skyframeBuild()
         ? skyframeExecutor.findArtifactConflicts()
         : ImmutableMap.<Action, Exception>of();
+
+    // Filter out all CTs that have a bad action and convert to a list of configured targets. This
+    // code ensures that the resulting list of configured targets has the same order as the incoming
+    // list of nodes, i.e., that the order is deterministic.
+    Collection<ConfiguredTarget> goodCts = Lists.newArrayListWithCapacity(nodes.size());
+    for (LabelAndConfiguration node : nodes) {
+      ConfiguredTargetNode ctNode = result.get(ConfiguredTargetNode.key(node));
+      if (ctNode == null || hasAnyBadAction(ctNode.getActions(), badActions.keySet())) {
+        continue;
+      }
+      goodCts.add(ctNode.getConfiguredTarget());
+    }
+
     if (!result.hasError() && badActions.isEmpty()) {
-      return toConfiguredTargets(result.values());
+      return goodCts;
     }
 
     // --nokeep_going so we fail with an exception for the first error.
@@ -253,15 +266,16 @@ public final class SkyframeBuildView {
       }
     }
 
-    Collection<ConfiguredTargetNode> goodCts = Sets.newHashSet(result.values());
-    for (ConfiguredTargetNode ctNode : result.values()) {
-      for (Action action : ctNode.getActions()) {
-        if (badActions.containsKey(action)) {
-          goodCts.remove(ctNode);
-        }
+    return goodCts;
+  }
+
+  private boolean hasAnyBadAction(Iterable<Action> actions, Set<Action> badActions) {
+    for (Action action : actions) {
+      if (badActions.contains(action)) {
+        return true;
       }
     }
-    return toConfiguredTargets(goodCts);
+    return false;
   }
 
   @Nullable
@@ -285,14 +299,6 @@ public final class SkyframeBuildView {
       // that the only errors should be analysis errors.
       Preconditions.checkState(cause instanceof ConfiguredNodeCreationException, errorInfo);
     }
-  }
-
-  private Collection<ConfiguredTarget> toConfiguredTargets(Collection<ConfiguredTargetNode> nodes) {
-    Collection<ConfiguredTarget> targets = Lists.newArrayListWithCapacity(nodes.size());
-    for (ConfiguredTargetNode node : nodes) {
-      targets.add(node.getConfiguredTarget());
-    }
-    return targets;
   }
 
   MutableActionGraph getActionGraph() {

@@ -16,8 +16,8 @@ package com.google.devtools.build.lib.syntax;
 import com.google.common.base.Preconditions;
 import com.google.common.collect.ImmutableList;
 
+import java.util.Collection;
 import java.util.List;
-import java.util.Map;
 
 /**
  * Syntax node for a for loop statement.
@@ -59,19 +59,9 @@ public final class ForStatement extends Statement {
   @Override
   void exec(Environment env) throws EvalException, InterruptedException {
     Object o = collection.eval(env);
-    Iterable<?> col;
-    if (o instanceof Iterable) {
-      col = (Iterable<?>) o;
-    } else if (o instanceof Map<?, ?>) {
-      // For dictionaries we iterate through the keys only
-      col = ((Map<?, ?>) o).keySet();
-    } else {
-      throw new EvalException(getLocation(),
-          "type '" + EvalUtils.getDatatypeName(o) + "' is not iterable");
-    }
+    Collection<?> col = EvalUtils.toCollection(o, getLocation());
 
     int i = 0;
-    // Create a copy of col to prevent infinite loops.
     for (Object it : ImmutableList.copyOf(col)) {
       env.update(variable.getName(), it);
       for (Statement stmt : block) {
@@ -79,9 +69,7 @@ public final class ForStatement extends Statement {
       }
       i++;
     }
-    // TODO(bazel-team): This is not very efficient (we iterate through the Iterable 3 times).
-    // It also doesn't catch changes where the size of the Iterable doesn't change, e.g.
-    // Map updates with an existing key. However it's good enough to detect infinite loops.
+    // TODO(bazel-team): This should not happen if every collection is immutable.
     if (i != EvalUtils.size(col)) {
       throw new EvalException(getLocation(),
           String.format("Cannot modify '%s' during during iteration.", collection.toString()));

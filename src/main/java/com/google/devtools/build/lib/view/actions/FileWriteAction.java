@@ -111,6 +111,11 @@ public class FileWriteAction extends AbstractFileWriteAction {
     return f.hexDigest();
   }
 
+  @Override
+  public boolean shouldCreateExtraAction() {
+    return false;
+  }
+
   /**
    * Creates a FileWriteAction to write contents to the resulting artifact
    * fileName in the genfiles root underneath the package path.

@@ -85,6 +85,7 @@ import com.google.devtools.build.lib.view.config.BuildOptions;
 import com.google.devtools.build.lib.view.config.ConfigurationFactory;
 import com.google.devtools.build.lib.view.config.InvalidConfigurationException;
 import com.google.devtools.build.skyframe.AutoUpdatingGraph;
+import com.google.devtools.build.skyframe.AutoUpdatingGraph.GraphSupplier;
 import com.google.devtools.build.skyframe.CycleInfo;
 import com.google.devtools.build.skyframe.CyclesReporter;
 import com.google.devtools.build.skyframe.InMemoryAutoUpdatingGraph;
@@ -93,6 +94,7 @@ import com.google.devtools.build.skyframe.NodeBuilder;
 import com.google.devtools.build.skyframe.NodeKey;
 import com.google.devtools.build.skyframe.NodeProgressReceiver;
 import com.google.devtools.build.skyframe.NodeType;
+import com.google.devtools.build.skyframe.RecordingDifferencer;
 import com.google.devtools.build.skyframe.UpdateResult;
 
 import java.io.IOException;
@@ -110,6 +112,7 @@ import java.util.concurrent.ConcurrentMap;
 import java.util.concurrent.atomic.AtomicBoolean;
 import java.util.concurrent.atomic.AtomicInteger;
 import java.util.concurrent.atomic.AtomicReference;
+import java.util.logging.Logger;
 
 import javax.annotation.Nullable;
 
@@ -121,6 +124,7 @@ import javax.annotation.Nullable;
  * for use during the build.
  */
 public final class SkyframeExecutor {
+  private final GraphSupplier graphSupplier;
   private AutoUpdatingGraph autoUpdatingGraph;
   private final AutoUpdatingGraph.EmittedEventState emittedEventState =
       new AutoUpdatingGraph.EmittedEventState();
@@ -130,6 +134,7 @@ public final class SkyframeExecutor {
   private final BlazeDirectories directories;
   @Nullable
   private BatchStat batchStatter;
+  private static final Logger LOG = Logger.getLogger(SkyframeExecutor.class.getName());
 
   // Stores Packages between reruns of the PackageNodeBuilder (because of missing dependencies,
   // within the same update() run) to avoid loading the same package twice (first time loading
@@ -143,6 +148,8 @@ public final class SkyframeExecutor {
   private SkyframeBuildView skyframeBuildView;
   private ErrorEventListener errorEventListener;
   private ActionLogBufferPathGenerator actionLogBufferPathGenerator;
+
+  private RecordingDifferencer recordingDiffer;
   private final ImmutableSet<? extends DiffAwareness.Factory> diffAwarenessFactories;
   private Map<Path, DiffAwareness> currentDiffAwarenesses = Maps.newHashMap();
 
@@ -232,11 +239,28 @@ public final class SkyframeExecutor {
       WorkspaceStatusAction.Factory workspaceStatusActionFactory,
       ImmutableList<BuildInfoFactory> buildInfoFactories,
       Iterable<? extends DiffAwareness.Factory> diffAwarenessFactories,
+      Predicate<PathFragment> allowedMissingInputs) {
+    this(reporter, InMemoryAutoUpdatingGraph.SUPPLIER, pkgFactory, skyframeBuild, tsgm,
+        directories, workspaceStatusActionFactory, buildInfoFactories, diffAwarenessFactories,
+        allowedMissingInputs);
+  }
+
+  public SkyframeExecutor(
+      Reporter reporter,
+      GraphSupplier graphSupplier,
+      PackageFactory pkgFactory,
+      boolean skyframeBuild,
+      TimestampGranularityMonitor tsgm,
+      BlazeDirectories directories,
+      WorkspaceStatusAction.Factory workspaceStatusActionFactory,
+      ImmutableList<BuildInfoFactory> buildInfoFactories,
+      Iterable<? extends DiffAwareness.Factory> diffAwarenessFactories,
       Predicate<PathFragment> allowedMissingInputs
       ) {
     // Strictly speaking, these arguments are not required for initialization, but all current
     // callsites have them at hand, so we might as well set them during construction.
     this.reporter = Preconditions.checkNotNull(reporter);
+    this.graphSupplier = graphSupplier;
     this.pkgFactory = pkgFactory;
     this.pkgFactory.setSyscalls(syscalls);
     this.tsgm = tsgm;
@@ -281,7 +305,7 @@ public final class SkyframeExecutor {
     map.put(NodeTypes.CONFIGURED_TARGET,
         new ConfiguredTargetNodeBuilder(new BuildViewProvider(), skyframeBuild));
     map.put(NodeTypes.CONFIGURATION_COLLECTION, new ConfigurationCollectionNodeBuilder(
-        configurationFactory, buildConfigurationKey, reporter));
+        configurationFactory, buildConfigurationKey));
     if (skyframeBuild) {
       map.put(NodeTypes.TARGET_COMPLETION,
           new TargetCompletionNodeBuilder(new BuildViewProvider()));
@@ -361,10 +385,12 @@ public final class SkyframeExecutor {
   @ThreadCompatible
   public void resetGraph() {
     emittedEventState.clear();
+    recordingDiffer = new RecordingDifferencer();
     progressReceiver = new SkyframeProgressReceiver();
-    autoUpdatingGraph = new InMemoryAutoUpdatingGraph(
-        nodeBuilders(directories.getBuildDataDirectory(), pkgFactory, allowedMissingInputs),
-        progressReceiver, emittedEventState);
+    Map<NodeType, NodeBuilder> nodeBuilders = nodeBuilders(
+        directories.getBuildDataDirectory(), pkgFactory, allowedMissingInputs);
+    autoUpdatingGraph = graphSupplier.createGraph(
+        nodeBuilders, recordingDiffer, progressReceiver, emittedEventState);
     currentDiffAwarenesses.clear();
     if (skyframeBuildView != null) {
       skyframeBuildView.clearLegacyData();
@@ -406,7 +432,7 @@ public final class SkyframeExecutor {
    * Invalidates ConfiguredCollectionNode.
    */
   public void invalidateConfigurationCollection() {
-    autoUpdatingGraph.invalidate(ImmutableList.of(ConfigurationCollectionNode.CONFIGURATION_KEY));
+    recordingDiffer.invalidate(ImmutableList.of(ConfigurationCollectionNode.CONFIGURATION_KEY));
   }
 
   /**
@@ -520,7 +546,8 @@ public final class SkyframeExecutor {
     showLoadingProgress.set(showLoadingProgressValue);
   }
 
-  private void setCommandId(UUID commandId) {
+  @VisibleForTesting
+  public void setCommandId(UUID commandId) {
     BuildVariableNode.BUILD_ID.set(autoUpdatingGraph, commandId);
     buildId.val = commandId;
   }
@@ -531,7 +558,7 @@ public final class SkyframeExecutor {
       PathFragment pathFragment = new PathFragment(deletedPackage);
       packagesToInvalidate.add(PackageLookupNode.key(pathFragment));
     }
-    autoUpdatingGraph.invalidate(packagesToInvalidate);
+    recordingDiffer.invalidate(packagesToInvalidate);
   }
 
   /** Returns the build-info.txt and build-changelist.txt artifacts from the graph. */
@@ -551,7 +578,7 @@ public final class SkyframeExecutor {
   // modified files for targets in current request. Skyframe checks for modification all files
   // from previous requests.
   public void informAboutNumberOfModifiedFiles() {
-    errorEventListener.info(null, String.format("Found %d modified files", modifiedFiles));
+    LOG.info(String.format("Found %d modified files from last build", modifiedFiles));
   }
 
   public Reporter getReporter() {
@@ -636,6 +663,7 @@ public final class SkyframeExecutor {
       dropConfiguredTargetsNow();
       lastAnalysisDiscarded = false;
     }
+
     modifiedFiles = 0;
     Map<Path, ModifiedFileSet> modifiedFilesByPathEntry = Maps.newHashMap();
     Set<Path> pathEntriesWithoutDiffInformation = Sets.newHashSet();
@@ -722,7 +750,7 @@ public final class SkyframeExecutor {
   }
 
   private void invalidateAndAccrueChangedFiles(Iterable<NodeKey> nodes) {
-    autoUpdatingGraph.invalidate(nodes);
+    recordingDiffer.invalidate(nodes);
     if (skyframeBuild()) {
       incrementalBuildMonitor.accrue(nodes);
     }
@@ -1035,7 +1063,7 @@ public final class SkyframeExecutor {
       keys = getNodeKeysPotentiallyAffected(modifiedFileSet.modifiedSourceFiles(), pathEntry);
     }
     syscalls.set(new PerBuildSyscallCache());
-    autoUpdatingGraph.invalidate(keys);
+    recordingDiffer.invalidate(keys);
     // Blaze invalidates (transient) errors on every build.
     invalidateErrors();
   }
@@ -1046,7 +1074,7 @@ public final class SkyframeExecutor {
   @VisibleForTesting  // productionVisibility = Visibility.PRIVATE
   public void invalidateErrors() {
     checkActive();
-    autoUpdatingGraph.invalidateErrors();
+    recordingDiffer.invalidateErrors();
   }
 
   @VisibleForTesting
@@ -1060,13 +1088,9 @@ public final class SkyframeExecutor {
   public UpdateResult<ConfiguredTargetNode> configureTargets(List<LabelAndConfiguration> nodes,
       boolean keepGoing) throws InterruptedException {
     checkActive();
-    List<NodeKey> nodeNames = Lists.newArrayListWithCapacity(nodes.size());
-    for (LabelAndConfiguration node : nodes) {
-      nodeNames.add(ConfiguredTargetNode.key(node));
-    }
 
     // Make sure to not run too many analysis threads. This can cause memory thrashing.
-    return autoUpdatingGraph.update(nodeNames, keepGoing,
+    return autoUpdatingGraph.update(ConfiguredTargetNode.keys(nodes), keepGoing,
         ResourceUsage.getAvailableProcessors(), errorEventListener);
   }
 
@@ -1267,6 +1291,11 @@ public final class SkyframeExecutor {
     return autoUpdatingGraph;
   }
 
+  @VisibleForTesting
+  public RecordingDifferencer getDifferencerForTesting() {
+    return recordingDiffer;
+  }
+
   /**
    * Returns true if the old set of Packages is a subset or superset of the new one.
    *
@@ -1371,7 +1400,7 @@ public final class SkyframeExecutor {
 
     // Detect external modifications in the output tree.
     FilesystemNodeChecker fsnc = new FilesystemNodeChecker(autoUpdatingGraph, tsgm);
-    autoUpdatingGraph.invalidate(fsnc.getDirtyActionNodes(batchStatter));
+    recordingDiffer.invalidate(fsnc.getDirtyActionNodes(batchStatter));
     modifiedFiles += fsnc.getNumberOfModifiedOutputFiles();
   }
 

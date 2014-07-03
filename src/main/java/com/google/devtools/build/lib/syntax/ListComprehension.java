@@ -42,24 +42,17 @@ public final class ListComprehension extends Expression {
   @Override
   Object eval(Environment env) throws EvalException, InterruptedException {
     if (lists.size() == 0) {
-      return new ArrayList<>(); // has to be mutable (list)
+      return new ArrayList<>();
     }
 
     List<Map.Entry<Ident, Iterable<?>>> listValues = Lists.newArrayListWithCapacity(lists.size());
     int size = 1;
     for (Map.Entry<Ident, Expression> list : lists) {
       Object listValueObject = list.getValue().eval(env);
-      final Collection<?> listValue;
-      if (listValueObject instanceof Map<?, ?>) {
-        listValue = ((Map<?, ?>) listValueObject).keySet();
-      } else if (listValueObject instanceof List<?>) {
-        listValue = (List<?>) listValueObject;
-      } else {
-        throw new EvalException(getLocation(), "iteration over non-sequence");
-      }
+      final Collection<?> listValue = EvalUtils.toCollection(listValueObject, getLocation());
       int listSize = listValue.size();
       if (listSize == 0) {
-        return new ArrayList<>(); // has to be mutable (list)
+        return new ArrayList<>();
       }
       size *= listSize;
       listValues.add(Maps.<Ident, Iterable<?>>immutableEntry(list.getKey(), listValue));

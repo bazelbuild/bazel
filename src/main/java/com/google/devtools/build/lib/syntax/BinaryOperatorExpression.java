@@ -137,6 +137,10 @@ public final class BinaryOperatorExpression extends Expression {
           result.putAll(rdict);
           return result;
         }
+
+        if (env.isSkylarkEnabled() && lval instanceof SkylarkNestedSet) {
+          return new SkylarkNestedSet((SkylarkNestedSet) lval, rval, getLocation());
+        }
         break;
       }
 

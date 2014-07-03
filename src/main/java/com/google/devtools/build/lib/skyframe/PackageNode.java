@@ -38,6 +38,11 @@ public class PackageNode implements Node {
     return pkg;
   }
 
+  @Override
+  public String toString() {
+    return "<PackageNode name=" + pkg.getName() + ">";
+  }
+
   @ThreadSafe
   public static NodeKey key(PathFragment pkgName) {
     return new NodeKey(NodeTypes.PACKAGE, pkgName);

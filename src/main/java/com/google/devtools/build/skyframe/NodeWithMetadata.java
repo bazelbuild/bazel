@@ -23,8 +23,10 @@ import javax.annotation.Nullable;
 
 /**
  * Encapsulation of data stored by {@link NodeEntry} when the node has finished building.
+ *
+ * <p>This is intended only for use in alternative {@code AutoUpdatingGraph} implementations.
  */
-abstract class NodeWithMetadata implements Node {
+public abstract class NodeWithMetadata implements Node {
   protected final Node node;
 
   private static final NestedSet<TaggedEvents> NO_EVENTS =
@@ -34,14 +36,20 @@ abstract class NodeWithMetadata implements Node {
     this.node = node;
   }
 
-  /** Build a node entry value that has an error (and no node value). */
-  static NodeWithMetadata error(ErrorInfo errorInfo, NestedSet<TaggedEvents> transitiveEvents) {
+  /** Builds a node entry value that has an error (and no node value).
+   *
+   * <p>This is intended only for use in alternative {@code AutoUpdatingGraph} implementations.
+   */
+  public static NodeWithMetadata error(ErrorInfo errorInfo,
+      NestedSet<TaggedEvents> transitiveEvents) {
     return new ErrorInfoNode(errorInfo, null, transitiveEvents);
   }
 
   /**
-   * Build a node entry value that has a node value, and possibly an error (constructed from its
+   * Builds a node entry value that has a node value, and possibly an error (constructed from its
    * children's errors).
+   *
+   * <p>This is intended only for use in alternative {@code AutoUpdatingGraph} implementations.
    */
   static Node normal(@Nullable Node node, @Nullable ErrorInfo errorInfo,
       NestedSet<TaggedEvents> transitiveEvents) {
@@ -190,7 +198,7 @@ abstract class NodeWithMetadata implements Node {
   }
 
   @Nullable
-  static ErrorInfo getMaybeErrorInfo(Node node) {
+  public static ErrorInfo getMaybeErrorInfo(Node node) {
     if (node.getClass() == ErrorInfoNode.class) {
       return ((NodeWithMetadata) node).getErrorInfo();
     }

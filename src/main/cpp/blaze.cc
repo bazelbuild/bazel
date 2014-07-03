@@ -293,6 +293,7 @@ static vector<string> GetArgumentArray() {
   }
   result.push_back("--install_base=" + globals->options.install_base);
   result.push_back("--output_base=" + globals->options.output_base);
+  result.push_back("--workspace_directory=" + globals->workspace);
   if (!globals->options.skyframe.empty()) {
     result.push_back("--skyframe=" + globals->options.skyframe);
   }
@@ -401,7 +402,8 @@ static void Daemonize(int socket) {
 
 // Do a chdir into the workspace, and die if it fails.
 static void GoToWorkspace() {
-  if (chdir(globals->workspace.c_str()) != 0) {
+  if (BlazeStartupOptions::InWorkspace(globals->workspace) &&
+      chdir(globals->workspace.c_str()) != 0) {
     pdie(blaze_exit_code::INTERNAL_ERROR,
          "chdir() into %s failed", globals->workspace.c_str());
   }

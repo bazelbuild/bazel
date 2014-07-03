@@ -126,27 +126,32 @@ public class UpdateResult<T extends Node> {
         .toString();
   }
 
-  static <T extends Node> Builder<T> builder() {
+  public static <T extends Node> Builder<T> builder() {
     return new Builder<>();
   }
 
-  static class Builder<T extends Node> {
+  /**
+   * Builder for {@link UpdateResult}.
+   *
+   * <p>This is intended only for use in alternative {@code AutoUpdatingGraph} implementations.
+   */
+  public static class Builder<T extends Node> {
     private final Map<NodeKey, T> result = new HashMap<>();
     private final Map<NodeKey, ErrorInfo> errors = new HashMap<>();
     private boolean hasError = false;
 
     @SuppressWarnings("unchecked")
-    Builder<T> addResult(NodeKey key, Node node) {
+    public Builder<T> addResult(NodeKey key, Node node) {
       result.put(key, Preconditions.checkNotNull((T) node, key));
       return this;
     }
 
-    Builder<T> addError(NodeKey key, ErrorInfo error) {
+    public Builder<T> addError(NodeKey key, ErrorInfo error) {
       errors.put(key, Preconditions.checkNotNull(error, key));
       return this;
     }
 
-    UpdateResult<T> build() {
+    public UpdateResult<T> build() {
       return new UpdateResult<>(result, errors, hasError);
     }
 

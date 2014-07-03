@@ -26,9 +26,8 @@ import com.google.devtools.build.skyframe.NodeKey;
 @ThreadSafe
 public final class TargetMarkerNode implements Node {
 
-  static final TargetMarkerNode TARGET_MARKER_INSTANCE = 
-      new TargetMarkerNode();
-  
+  static final TargetMarkerNode TARGET_MARKER_INSTANCE = new TargetMarkerNode();
+
   private TargetMarkerNode() {
   }
 

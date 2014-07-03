@@ -183,7 +183,7 @@ public final class NestedSetBuilder<E> {
     } else if (wrappedList.size() == 1) {
       return new SingleDirectNestedSet<>(wrappedItems.iterator().next());
     } else {
-      return order.factory.onlyDirects(wrappedList.toArray());
+      return order.factory.onlyDirects(wrappedList);
     }
   }
 

@@ -24,12 +24,17 @@ import com.google.devtools.build.lib.syntax.SkylarkCallable;
 public final class SkylarkFileset {
 
   @SkylarkCallable(doc = "Returns the relative path of this file relative to its root.")
-  public static Object rootRelativePath(Artifact artifact) {
+  public static String rootRelativePath(Artifact artifact) {
     return artifact.getRootRelativePath().getPathString();
   }
 
   @SkylarkCallable(doc = "Returns the execution path of this file.")
-  public static Object execPath(Artifact artifact) {
+  public static String execPath(Artifact artifact) {
     return artifact.getExecPathString();
+  }
+
+  @SkylarkCallable(doc = "Returns the joint execution paths of these files using the delimiter.")
+  public static String joinExecPaths(String delimiter, Iterable<Artifact> artifacts) {
+    return Artifact.joinExecPaths(delimiter, artifacts);
   }
 }

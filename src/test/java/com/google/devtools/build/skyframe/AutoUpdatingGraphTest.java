@@ -461,7 +461,7 @@ public class AutoUpdatingGraphTest {
     final NodeKey mid = GraphTester.toNodeKey("mid");
     final CountDownLatch valueSet = new CountDownLatch(1);
     final TrackingAwaiter trackingAwaiter = new TrackingAwaiter();
-    tester.graph.setGraphForTesting(new NotifyingInMemoryGraph(new Listener() {
+    setGraphForTesting(new NotifyingInMemoryGraph(new Listener() {
       @Override
       public void accept(NodeKey key, EventType type, Order order, Object context) {
         if (!key.equals(mid)) {
@@ -754,7 +754,7 @@ public class AutoUpdatingGraphTest {
     // We don't do anything on the first build.
     final AtomicBoolean secondBuild = new AtomicBoolean(false);
     final TrackingAwaiter trackingAwaiter = new TrackingAwaiter();
-    tester.graph.setGraphForTesting(new DeterministicInMemoryGraph(new Listener() {
+    setGraphForTesting(new DeterministicInMemoryGraph(new Listener() {
       @Override
       public void accept(NodeKey key, EventType type, Order order, Object context) {
         if (!secondBuild.get()) {
@@ -1272,7 +1272,7 @@ public class AutoUpdatingGraphTest {
    * about to throw signals its parent and the parent's builder restarts itself before the exception
    * is thrown. Here, the signaling happens while dirty dependencies are being checked, as opposed
    * to during actual evaluation, but the principle is the same. We control the timing by blocking
-   * "top"'s registering itself on its deps 
+   * "top"'s registering itself on its deps.
    */
   private void dirtyChildEnqueuesParentDuringCheckDependencies(boolean throwError)
       throws Exception {
@@ -1286,7 +1286,7 @@ public class AutoUpdatingGraphTest {
     final CountDownLatch topSignaled = new CountDownLatch(1);
     final CountDownLatch topRestartedBuild = new CountDownLatch(1);
     final TrackingAwaiter trackingAwaiter = new TrackingAwaiter();
-    tester.graph.setGraphForTesting(new NotifyingInMemoryGraph(new Listener() {
+    setGraphForTesting(new NotifyingInMemoryGraph(new Listener() {
       @Override
       public void accept(NodeKey key, EventType type, Order order, Object context) {
         if (!delayTopSignaling.get()) {
@@ -1383,7 +1383,7 @@ public class AutoUpdatingGraphTest {
     // leaf4 should not built in the second build.
     final NodeKey leaf4 = GraphTester.toNodeKey("leaf4");
     final AtomicBoolean shouldNotBuildLeaf4 = new AtomicBoolean(false);
-    tester.graph.setGraphForTesting(new NotifyingInMemoryGraph(new Listener() {
+    setGraphForTesting(new NotifyingInMemoryGraph(new Listener() {
       @Override
       public void accept(NodeKey key, EventType type, Order order, Object context) {
         if (shouldNotBuildLeaf4.get() && key.equals(leaf4)) {
@@ -1484,7 +1484,7 @@ public class AutoUpdatingGraphTest {
     // to see if it is changed, and if it is dirty.
     final CountDownLatch threadsStarted = new CountDownLatch(3);
     final TrackingAwaiter trackingAwaiter = new TrackingAwaiter();
-    tester.graph.setGraphForTesting(new NotifyingInMemoryGraph(new Listener() {
+    setGraphForTesting(new NotifyingInMemoryGraph(new Listener() {
       @Override
       public void accept(NodeKey key, EventType type, Order order, Object context) {
         if (!blockingEnabled.get()) {
@@ -2187,7 +2187,7 @@ public class AutoUpdatingGraphTest {
   @Test
   public void errorOnlyBubblesToRequestingParents() throws Exception {
     // We need control over the order of reverse deps, so use a deterministic graph.
-    tester.graph.setGraphForTesting(new DeterministicInMemoryGraph());
+    setGraphForTesting(new DeterministicInMemoryGraph());
     NodeKey errorKey = GraphTester.toNodeKey("error");
     tester.set(errorKey, new StringNode("biding time"));
     NodeKey slowKey = GraphTester.toNodeKey("slow");
@@ -2431,7 +2431,7 @@ public class AutoUpdatingGraphTest {
     tester.graph.inject(ImmutableMap.of(key, val));
     tester.eval(/*keepGoing=*/false, new NodeKey[0]); // Create the node.
 
-    tester.graph.invalidate(ImmutableList.of(key));
+    tester.differencer.invalidate(ImmutableList.of(key));
     tester.eval(/*keepGoing=*/false, new NodeKey[0]); // Mark node as dirty.
 
     tester.graph.inject(ImmutableMap.of(key, val));
@@ -2445,7 +2445,7 @@ public class AutoUpdatingGraphTest {
     Node val = new StringNode("val");
 
     tester.getOrCreate(key).setConstantValue(new StringNode("old_val"));
-    tester.graph.invalidate(ImmutableList.of(key));
+    tester.differencer.invalidate(ImmutableList.of(key));
     tester.graph.inject(ImmutableMap.of(key, val));
     assertEquals(val, tester.evalAndGet("node"));
   }
@@ -2469,7 +2469,7 @@ public class AutoUpdatingGraphTest {
     tester.graph.inject(ImmutableMap.of(key, val));
     assertEquals(val, tester.evalAndGet("node"));
 
-    tester.graph.invalidate(ImmutableList.of(key));
+    tester.differencer.invalidate(ImmutableList.of(key));
     tester.graph.inject(ImmutableMap.of(key, val));
     assertEquals(val, tester.evalAndGet("node"));
   }
@@ -2575,6 +2575,11 @@ public class AutoUpdatingGraphTest {
     assertEquals(val, tester.getExistingNode("parent"));
   }
 
+  private void setGraphForTesting(NotifyingInMemoryGraph notifyingInMemoryGraph) {
+    InMemoryAutoUpdatingGraph autoUpdatingGraph = (InMemoryAutoUpdatingGraph) tester.graph;
+    autoUpdatingGraph.setGraphForTesting(notifyingInMemoryGraph);
+  }
+
   private static final class PassThroughSelected implements NodeComputer {
     private final NodeKey key;
 
@@ -2634,13 +2639,15 @@ public class AutoUpdatingGraphTest {
    * A graph tester that is specific to the auto-updating graph, with some convenience methods.
    */
   private class AutoUpdatingGraphTester extends GraphTester {
+    private RecordingDifferencer differencer;
     private AutoUpdatingGraph graph;
     private TrackingInvalidationReceiver invalidationReceiver = new TrackingInvalidationReceiver();
 
     public void initialize() {
+      this.differencer = new RecordingDifferencer();
       this.graph = new InMemoryAutoUpdatingGraph(
-          ImmutableMap.of(NODE_TYPE, createDelegatingNodeBuilder()), invalidationReceiver,
-          emittedEventState);
+          ImmutableMap.of(NODE_TYPE, createDelegatingNodeBuilder()), differencer,
+          invalidationReceiver, emittedEventState);
     }
 
     public void setInvalidationReceiver(TrackingInvalidationReceiver customInvalidationReceiver) {
@@ -2649,13 +2656,13 @@ public class AutoUpdatingGraphTest {
     }
 
     public void invalidate() {
-      graph.invalidate(getModifiedNodes());
+      differencer.invalidate(getModifiedNodes());
       getModifiedNodes().clear();
       invalidationReceiver.clear();
     }
 
     public void invalidateErrors() {
-      graph.invalidateErrors();
+      differencer.invalidateErrors();
     }
 
     public void delete(String key) {

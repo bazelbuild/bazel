@@ -14,18 +14,11 @@
 package com.google.devtools.build.skyframe;
 
 /**
- * Calculate set of changed nodes between two {@link Version}s of a graph.
+ * Calculate set of changed nodes in a graph.
  */
-interface Differencer {
+public interface Differencer {
   /**
-   * Returns the set of node keys that have changed between the given versions.
+   * Returns the set of node keys that have changed since the last call to getDiff().
    */
-  Iterable<NodeKey> getDiff(Version baseVersion, Version newVersion);
-
-  /**
-   * Equivalent to calling {@link #getDiff} with baseVersion equal to the most recent version before
-   * newVersion. Useful if the caller can guarantee that all changes before newVersion have
-   * been processed.
-   */
-  Iterable<NodeKey> getDiffFromLast(Version newVersion);
+  Iterable<NodeKey> getDiff();
 }

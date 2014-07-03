@@ -15,6 +15,7 @@ package com.google.devtools.build.lib.view.config;
 
 import com.google.common.base.Preconditions;
 import com.google.common.collect.ImmutableMap;
+import com.google.common.collect.ImmutableSortedSet;
 import com.google.common.collect.ListMultimap;
 import com.google.devtools.build.lib.blaze.BlazeDirectories;
 import com.google.devtools.build.lib.syntax.Label;
@@ -30,6 +31,7 @@ public final class BuildConfigurationKey {
   private final BuildOptions buildOptions;
   private final BlazeDirectories directories;
   private final Map<String, String> clientEnv;
+  private final ImmutableSortedSet<String> multiCpu;
 
   /**
    * Creates a key for the creation of {@link BuildConfigurationCollection} instances.
@@ -37,10 +39,16 @@ public final class BuildConfigurationKey {
    * Note that the BuildConfiguration.Options instance must not contain unresolved relative paths.
    */
   public BuildConfigurationKey(BuildOptions buildOptions, BlazeDirectories directories,
-      Map<String, String> clientEnv) {
+      Map<String, String> clientEnv, ImmutableSortedSet<String> multiCpu) {
     this.buildOptions = Preconditions.checkNotNull(buildOptions);
     this.directories = Preconditions.checkNotNull(directories);
     this.clientEnv = ImmutableMap.copyOf(clientEnv);
+    this.multiCpu = ImmutableSortedSet.copyOf(multiCpu);
+  }
+
+  public BuildConfigurationKey(BuildOptions buildOptions, BlazeDirectories directories,
+      Map<String, String> clientEnv) {
+    this(buildOptions, directories, clientEnv, ImmutableSortedSet.<String>of());
   }
 
   public BuildOptions getBuildOptions() {
@@ -55,6 +63,10 @@ public final class BuildConfigurationKey {
     return clientEnv;
   }
 
+  public ImmutableSortedSet<String> getMultiCpu() {
+    return multiCpu;
+  }
+
   public ListMultimap<String, Label> getLabelsToLoadUnconditionally() {
     return buildOptions.getAllLabels();
   }
@@ -67,11 +79,12 @@ public final class BuildConfigurationKey {
     BuildConfigurationKey k = (BuildConfigurationKey) o;
     return buildOptions.equals(k.buildOptions)
         && directories.equals(k.directories)
-        && clientEnv.equals(k.clientEnv);
+        && clientEnv.equals(k.clientEnv)
+        && multiCpu.equals(k.multiCpu);
   }
 
   @Override
   public int hashCode() {
-    return Objects.hash(buildOptions, directories, clientEnv);
+    return Objects.hash(buildOptions, directories, clientEnv, multiCpu);
   }
 }

@@ -24,6 +24,7 @@ import com.google.common.base.Predicates;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.ImmutableSet;
+import com.google.common.collect.ImmutableSortedSet;
 import com.google.common.collect.Iterables;
 import com.google.common.collect.Lists;
 import com.google.common.collect.Sets;
@@ -79,7 +80,6 @@ import com.google.devtools.build.lib.util.ExitCode;
 import com.google.devtools.build.lib.util.LoggingUtil;
 import com.google.devtools.build.lib.util.ProcessUtils;
 import com.google.devtools.build.lib.util.SkyframeMode;
-import com.google.devtools.build.lib.util.UserUtils;
 import com.google.devtools.build.lib.util.io.OutErr;
 import com.google.devtools.build.lib.util.io.TimestampGranularityMonitor;
 import com.google.devtools.build.lib.vfs.FileSystem;
@@ -269,8 +269,10 @@ public final class BlazeRuntime {
     this.buildTool = new BuildTool(this);
     initEventBus();
 
-    writeOutputBaseReadmeFile();
-    writeOutputBaseDoNotBuildHereFile();
+    if (inWorkspace()) {
+      writeOutputBaseReadmeFile();
+      writeOutputBaseDoNotBuildHereFile();
+    }
     setupExecRoot();
   }
 
@@ -351,6 +353,7 @@ public final class BlazeRuntime {
    * which output base directory corresponds to which workspace.
    */
   private void writeOutputBaseReadmeFile() {
+    Preconditions.checkNotNull(getWorkspace());
     Path outputBaseReadmeFile = getOutputBase().getRelative("README");
     try {
       FileSystemUtils.writeIsoLatin1(outputBaseReadmeFile, "WORKSPACE: " + getWorkspace(), "",
@@ -371,6 +374,7 @@ public final class BlazeRuntime {
   }
 
   private void writeOutputBaseDoNotBuildHereFile() {
+    Preconditions.checkNotNull(getWorkspace());
     Path filePath = getOutputBase().getRelative(DO_NOT_BUILD_FILE_NAME);
     try {
       FileSystemUtils.writeContent(filePath, ISO_8859_1, getWorkspace().toString());
@@ -419,7 +423,8 @@ public final class BlazeRuntime {
    * Returns the working directory of the server.
    *
    * <p>This directly is often the first entry on the {@code --package_path},
-   * but not always.  Callers should certainly not make this assumption.
+   * but not always.  Callers should certainly not make this assumption. The Path returned may be
+   * null.
    *
    * @see #getWorkingDirectory()
    */
@@ -436,6 +441,13 @@ public final class BlazeRuntime {
    */
   public Path getWorkingDirectory() {
     return workingDirectory;
+  }
+
+  /**
+   * Returns if the client passed a valid workspace to be used for the build.
+   */
+  public boolean inWorkspace() {
+    return directories.inWorkspace();
   }
 
   /**
@@ -699,17 +711,15 @@ public final class BlazeRuntime {
     outputFileSystem = determineOutputFileSystem();
 
     // Ensure that the working directory will be under the workspace directory.
-    Path workdir = getWorkspace().getRelative(options.clientCwd);
-    if (!workdir.startsWith(getWorkspace())) {
-      throw new ExitCausingException("Command aborted. " +
-          "Client workdir must be under workspace directory. " +
-          "Workspace directory is: " + getWorkspace() + " and given client working directory is: " +
-          workdir,
-          ExitCode.COMMAND_LINE_ERROR);
+    Path workspace = getWorkspace();
+    if (inWorkspace()) {
+      workingDirectory = workspace.getRelative(options.clientCwd);
+    } else {
+      workspace = FileSystemUtils.getWorkingDirectory(directories.getFileSystem());
+      workingDirectory = workspace;
     }
-    workingDirectory = workdir;
     updateClientEnv(options.clientEnv, options.ignoreClientEnv);
-    loadingPhaseRunner.updatePatternEvaluator(workingDirectory.relativeTo(getWorkspace()));
+    loadingPhaseRunner.updatePatternEvaluator(workingDirectory.relativeTo(workspace));
 
     // Fail fast in the case where a Blaze command forgets to install the package path correctly.
     skyframeExecutor.setActive(false);
@@ -768,8 +778,7 @@ public final class BlazeRuntime {
     if (!storedExitCode.compareAndSet(ExitCode.RESERVED.getNumericExitCode(), exitCode)) {
       // This command has already been called, presumably because there is a race between the main
       // thread and a worker thread that crashed. Don't try to arbitrate the dispute. If the main
-      // thread won the race (unlikely, but possible), this may be incorrectly logged as a success
-      // in Dremel.
+      // thread won the race (unlikely, but possible), this may be incorrectly logged as a success.
       return;
     }
     eventBus.post(new CommandCompleteEvent(exitCode));
@@ -916,8 +925,9 @@ public final class BlazeRuntime {
   /**
    * Constructs a build configuration key for the given options.
    */
-  public BuildConfigurationKey getBuildConfigurationKey(BuildOptions buildOptions) {
-    return new BuildConfigurationKey(buildOptions, directories, clientEnv);
+  public BuildConfigurationKey getBuildConfigurationKey(BuildOptions buildOptions,
+      ImmutableSortedSet<String> multiCpu) {
+    return new BuildConfigurationKey(buildOptions, directories, clientEnv, multiCpu);
   }
 
   /**
@@ -927,15 +937,16 @@ public final class BlazeRuntime {
    */
   public BuildConfigurationCollection getConfigurations(OptionsProvider optionsProvider)
       throws InvalidConfigurationException, InterruptedException {
-    BuildConfigurationKey configurationKey =
-        getBuildConfigurationKey(createBuildOptions(optionsProvider));
+    BuildConfigurationKey configurationKey = getBuildConfigurationKey(
+        createBuildOptions(optionsProvider), ImmutableSortedSet.<String>of());
     LoadedPackageProvider loadedPackageProvider =
         loadingPhaseRunner.loadForConfigurations(reporter,
             ImmutableSet.copyOf(configurationKey.getLabelsToLoadUnconditionally().values()));
     if (loadedPackageProvider == null) {
       throw new InvalidConfigurationException("Configuration creation failed");
     }
-    return configurationFactory.getConfigurations(reporter, loadedPackageProvider,
+    return skyframeExecutor.createConfigurations(
+        optionsProvider.getOptions(BuildView.Options.class).keepGoing, configurationFactory,
         configurationKey);
   }
 
@@ -1333,6 +1344,7 @@ public final class BlazeRuntime {
     }
 
     BlazeServerStartupOptions startupOptions = options.getOptions(BlazeServerStartupOptions.class);
+    PathFragment workspaceDirectory = startupOptions.workspaceDirectory;
     PathFragment installBase = startupOptions.installBase;
     PathFragment outputBase = startupOptions.outputBase;
     forceJNI(installBase); // Must be before first use of JNI.
@@ -1349,12 +1361,8 @@ public final class BlazeRuntime {
     }
 
     PathFragment workingDirFragment = FileSystemUtils.getWorkingDirectory();
-    if (outputBase == null) {
-      outputBase = new PathFragment(BlazeDirectories.outputBase(
-          workingDirFragment.getPathString(), "blaze", UserUtils.getUserName()));
-    }
-
-    PathFragment outputPathFragment = BlazeDirectories.outputPathFromOutputBase(outputBase);
+    PathFragment outputPathFragment = BlazeDirectories.outputPathFromOutputBase(
+        outputBase, workspaceDirectory);
     FileSystem fs = null;
     for (BlazeModule module : blazeModules) {
       FileSystem moduleFs = module.getFileSystem(options, outputPathFragment);
@@ -1370,10 +1378,13 @@ public final class BlazeRuntime {
 
     Path installBasePath = fs.getPath(installBase);
     Path outputBasePath = fs.getPath(outputBase);
-    Path workingDirectory = fs.getPath(workingDirFragment);
+    Path workspaceDirectoryPath = null;
+    if (!workspaceDirectory.equals(PathFragment.EMPTY_FRAGMENT)) {
+      workspaceDirectoryPath = fs.getPath(workspaceDirectory);
+    }
 
     BlazeDirectories directories =
-        new BlazeDirectories(installBasePath, outputBasePath, workingDirectory);
+        new BlazeDirectories(installBasePath, outputBasePath, workspaceDirectoryPath);
 
     Clock clock = BlazeClock.instance();
 
@@ -1387,7 +1398,6 @@ public final class BlazeRuntime {
     }
 
     BlazeRuntime.Builder runtimeBuilder = new BlazeRuntime.Builder().setDirectories(directories)
-        .setWorkspaceSuffix("google3")
         .setStartupOptionsProvider(options)
         .setSkyframe(startupOptions.skyframe)
         .setBinTools(binTools)
@@ -1487,10 +1497,9 @@ public final class BlazeRuntime {
     private BlazeDirectories directories;
     private Reporter reporter;
     private ConfigurationFactory configurationFactory;
-    private String workspaceSuffix = "google3";
     private Clock clock;
     private OptionsProvider startupOptionsProvider;
-    private List<BlazeModule> blazeModules = Lists.newArrayList();
+    private final List<BlazeModule> blazeModules = Lists.newArrayList();
     private SkyframeMode skyframe;
     private SubscriberExceptionHandler eventBusExceptionHandler =
         new RemoteExceptionHandler();
@@ -1597,11 +1606,19 @@ public final class BlazeRuntime {
 
       return new BlazeRuntime(directories, reporter, workspaceStatusActionFactory, skyframeExecutor,
           preprocessorFactory,
-          pkgFactory, ruleClassProvider, tempConfigurationFactory, workspaceSuffix, clock,
+          pkgFactory, ruleClassProvider, tempConfigurationFactory, getWorkspaceSuffix(), clock,
           startupOptionsProvider, ImmutableList.copyOf(blazeModules),
           clientEnv,
           timestampMonitor,
           eventBusExceptionHandler, binTools, allowedMissingInputs);
+    }
+
+    public String getWorkspaceSuffix() {
+      Path workspace = directories.getWorkspace();
+      if (workspace == null) {
+        return "";
+      }
+      return workspace.getBaseName();
     }
 
     public Builder setBinTools(BinTools binTools) {
@@ -1631,11 +1648,6 @@ public final class BlazeRuntime {
 
     public Builder setConfigurationFactory(ConfigurationFactory configurationFactory) {
       this.configurationFactory = configurationFactory;
-      return this;
-    }
-
-    public Builder setWorkspaceSuffix(String workspaceSuffix) {
-      this.workspaceSuffix = workspaceSuffix;
       return this;
     }
 

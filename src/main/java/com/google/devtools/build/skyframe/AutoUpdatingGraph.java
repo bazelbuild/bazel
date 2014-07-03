@@ -44,22 +44,6 @@ public interface AutoUpdatingGraph {
   public static int DEFAULT_THREAD_COUNT = 200;
 
   /**
-   * Invalidates the cached values of the given nodes.
-   *
-   * <p>If a future call to {@link #update} requests a node that transitively depends on any of
-   * these (or is one of these), they will be re-computed.
-   */
-  void invalidate(Iterable<NodeKey> diff);
-
-  /**
-   * Invalidates the cached values of any nodes in error.
-   *
-   * <p>If a future call to {@link #update} requests a node that transitively depends on any node
-   * that was in an error state (or is one of these), they will be re-computed.
-   */
-  void invalidateErrors();
-
-  /**
    * Ensures that after the next completed {@link #update} call the current values of any node
    * matching this predicate (and all nodes that transitively depend on them) will be removed from
    * the node cache. All nodes that were already marked dirty in the graph will also be deleted,
@@ -140,9 +124,6 @@ public interface AutoUpdatingGraph {
   @Nullable
   ErrorInfo getExistingErrorForTesting(NodeKey key);
 
-  @VisibleForTesting
-  public void setGraphForTesting(InMemoryGraph graph);
-
   /**
    * Write the graph to the output stream. Not necessarily thread-safe. Use only for debugging
    * purposes.
@@ -151,9 +132,19 @@ public interface AutoUpdatingGraph {
   void dump(PrintStream out);
 
   /**
+   * A supplier for creating instances of a particular graph implementation.
+   */
+  public static interface GraphSupplier {
+    AutoUpdatingGraph createGraph(Map<? extends NodeType, ? extends NodeBuilder> nodeBuilders,
+        Differencer differencer, @Nullable NodeProgressReceiver invalidationReceiver,
+        EmittedEventState emittedEventState);
+  }
+
+  /**
    * Keeps track of already-emitted events. Users of the graph should instantiate an
    * {@code EmittedEventState} first and pass it to the graph during creation. This allows them to
    * determine whether or not to replay events.
    */
   public static class EmittedEventState extends NestedSetVisitor.VisitedState<TaggedEvents> {}
+
 }

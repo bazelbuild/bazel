@@ -16,6 +16,7 @@ package com.google.devtools.build.lib.packages;
 
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
+import com.google.devtools.build.lib.collect.nestedset.Order;
 import com.google.devtools.build.lib.packages.Type.ConversionException;
 import com.google.devtools.build.lib.syntax.AbstractFunction;
 import com.google.devtools.build.lib.syntax.ClassObject;
@@ -28,6 +29,7 @@ import com.google.devtools.build.lib.syntax.MixedModeFunction;
 import com.google.devtools.build.lib.syntax.PositionalFunction;
 import com.google.devtools.build.lib.syntax.SkylarkBuiltin;
 import com.google.devtools.build.lib.syntax.SkylarkCallable;
+import com.google.devtools.build.lib.syntax.SkylarkNestedSet;
 
 import java.util.HashSet;
 import java.util.Iterator;
@@ -409,6 +411,30 @@ public class MethodLibrary {
     }
   };
 
+  @SkylarkBuiltin(name = "nset",
+      doc = "Creates a nested set from the <i>items</i>. "
+          + "The nesting is applied to other nested sets among <i>items</i>.")
+  private static final Function nset = new PositionalFunction("nset", 1, 2) {
+
+    @Override
+    public Object call(List<Object> args, FuncallExpression ast) throws EvalException,
+        ConversionException {
+      // TODO(bazel-team): Investigate if enums or constants can be used here in the argument.
+      String orderString = Type.STRING.cast(args.get(0));
+      Order order;
+      try {
+        order = Order.valueOf(orderString);
+      } catch (IllegalArgumentException e) {
+        throw new EvalException(ast.getLocation(), "Invalid order " + orderString);
+      }
+      if (args.size() == 2) {
+        return new SkylarkNestedSet(order, args.get(1), ast.getLocation());
+      } else {
+        return new SkylarkNestedSet(order, ImmutableList.of(), ast.getLocation());
+      }
+    }
+  };
+
   @SkylarkBuiltin(name = "String", doc = "")
   public static final List<Function> stringFunctions = ImmutableList
       .<Function>builder()
@@ -444,6 +470,7 @@ public class MethodLibrary {
       .<Function>builder()
       .addAll(pureFunctions)
       .add(struct)
+      .add(nset)
       .build();
 
   // TODO(bazel-team): listFunctions are not allowed in Skylark extensions (use += instead).
@@ -471,5 +498,7 @@ public class MethodLibrary {
     }
     builder.put(struct.getName(), Object.class);
     builder.put(struct.getName() + ".return", ClassObject.class);
+    builder.put(nset.getName(), Object.class);
+    builder.put(nset.getName() + ".return", Object.class);
   }
 }

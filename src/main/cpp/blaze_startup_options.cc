@@ -89,7 +89,7 @@ string BlazeStartupOptions::GetWorkspace(const string &cwd) {
     }
     workspace = blaze_util::Dirname(workspace);
   } while (!workspace.empty() && workspace != "/");
-  return cwd;
+  return "";
 }
 
 bool BlazeStartupOptions::ProcessArgExtra(

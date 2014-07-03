@@ -52,11 +52,12 @@ public class QueryOptions extends OptionsBase {
       category = "query",
           help = "If enabled, dependencies on 'host configuration' targets will be included in "
           + "the dependency graph over which the query operates.  A 'host configuration' "
-          + "dependency edge, such as the one from any 'genproto' rule to the Protocol Compiler, "
-          + "usually points to a tool executed during the build (on the host machine) rather than "
-          + "a part of the same 'target' program.  Queries whose purpose is to discover the set "
-          + "of things needed during a build will typically enable this option; queries aimed at "
-          + "revealing the structure of a single program will typically  disable this option.")
+          + "dependency edge, such as the one from any 'proto_library' rule to the Protocol "
+          + "Compiler, usually points to a tool executed during the build (on the host machine) "
+          + "rather than a part of the same 'target' program.  Queries whose purpose is to "
+          + "discover the set of things needed during a build will typically enable this option; "
+          + "queries aimed at revealing the structure of a single program will typically  disable "
+          + "this option.")
   public boolean includeHostDeps;
 
   @Option(name = "implicit_deps",

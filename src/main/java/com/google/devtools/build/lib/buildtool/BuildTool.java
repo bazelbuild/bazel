@@ -64,9 +64,7 @@ import com.google.devtools.build.lib.view.config.BuildOptions;
 import com.google.devtools.build.lib.view.config.DefaultsPackage;
 import com.google.devtools.build.lib.view.config.InvalidConfigurationException;
 
-import java.util.ArrayList;
 import java.util.Collection;
-import java.util.List;
 import java.util.Set;
 import java.util.concurrent.TimeUnit;
 import java.util.logging.Logger;
@@ -150,7 +148,6 @@ public class BuildTool {
       loadingResult = runLoadingPhase(request, validator);
 
       // Create the build configurations.
-      boolean keepGoing = request.getViewOptions().keepGoing;
       if (!request.getMultiCpus().isEmpty()) {
         getReporter().warn(null,
             "The --experimental_multi_cpu option is _very_ experimental and only intended for "
@@ -161,20 +158,10 @@ public class BuildTool {
               "The experimental setting to select multiple CPUs is only supported for 'build' "
               + "right now!");
         }
-        List<BuildConfiguration> targetConfigurations = new ArrayList<>();
-        for (String cpu : request.getMultiCpus()) {
-          // TODO(bazel-team): Options classes should be immutable. This is a bit of a hack.
-          BuildOptions actualOptions = buildOptions.clone();
-          actualOptions.get(BuildConfiguration.Options.class).cpu = cpu;
-          BuildConfigurationCollection collection =
-              getConfigurations(runtime.getBuildConfigurationKey(actualOptions), keepGoing);
-          targetConfigurations.addAll(collection.getTargetConfigurations());
-        }
-        configurations = new BuildConfigurationCollection(targetConfigurations);
-      } else {
-        configurations = getConfigurations(
-            runtime.getBuildConfigurationKey(buildOptions), keepGoing);
       }
+      configurations = getConfigurations(
+          runtime.getBuildConfigurationKey(buildOptions, request.getMultiCpus()),
+          request.getViewOptions().keepGoing);
 
       getEventBus().post(new ConfigurationsCreatedEvent(configurations));
       runtime.throwPendingException();

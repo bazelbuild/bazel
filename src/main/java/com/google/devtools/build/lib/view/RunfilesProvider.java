@@ -41,6 +41,10 @@ public final class RunfilesProvider implements TransitiveInfoProvider {
     return dataRunfiles;
   }
 
+  /**
+   * Returns a function that gets the default runfiles from a {@link TransitiveInfoCollection} or
+   * the empty runfiles instance if it does not contain that provider.
+   */
   public static final Function<TransitiveInfoCollection, Runfiles> DEFAULT_RUNFILES =
       new Function<TransitiveInfoCollection, Runfiles>() {
         @Override
@@ -54,6 +58,12 @@ public final class RunfilesProvider implements TransitiveInfoProvider {
         }
       };
 
+  /**
+   * Returns a function that gets the data runfiles from a {@link TransitiveInfoCollection} or the
+   * empty runfiles instance if it does not contain that provider.
+   *
+   * <p>These are usually used if the target is depended on through a {@code data} attribute.
+   */
   public static final Function<TransitiveInfoCollection, Runfiles> DATA_RUNFILES =
       new Function<TransitiveInfoCollection, Runfiles>() {
         @Override

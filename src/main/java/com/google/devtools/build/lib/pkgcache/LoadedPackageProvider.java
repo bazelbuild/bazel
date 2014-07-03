@@ -20,6 +20,8 @@ import com.google.devtools.build.lib.packages.Target;
 import com.google.devtools.build.lib.syntax.Label;
 import com.google.devtools.build.lib.syntax.Label.SyntaxException;
 
+import java.io.IOException;
+
 /**
  * Read-only API for retrieving packages, i.e., calling this API should not result in packages being
  * loaded.
@@ -52,5 +54,5 @@ public interface LoadedPackageProvider {
    * Adds dependency to fileName if needed. Used only in skyframe, for creating correct dependencies
    * for ConfigurationCollectionNode.
    */
-  void addDependency(Package pkg, String fileName) throws SyntaxException;
+  void addDependency(Package pkg, String fileName) throws SyntaxException, IOException;
 }

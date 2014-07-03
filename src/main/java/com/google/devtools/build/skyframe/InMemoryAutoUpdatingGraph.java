@@ -56,6 +56,8 @@ public final class InMemoryAutoUpdatingGraph implements AutoUpdatingGraph {
   private Set<NodeKey> nodesToDirty = new LinkedHashSet<>();
   private Map<NodeKey, Node> nodesToInject = new HashMap<>();
   private final InvalidationState deleterState = new DeletingInvalidationState();
+  private final Differencer differencer;
+
   // Nodes that the caller explicitly specified are assumed to be changed -- they will be
   // re-evaluated even if none of their children are changed.
   private final InvalidationState invalidatorState = new DirtyingInvalidationState();
@@ -64,33 +66,28 @@ public final class InMemoryAutoUpdatingGraph implements AutoUpdatingGraph {
 
   private final AtomicBoolean updating = new AtomicBoolean(false);
 
-  public InMemoryAutoUpdatingGraph(Map<? extends NodeType, ? extends NodeBuilder> nodeBuilders) {
-    this(nodeBuilders, null);
+  public InMemoryAutoUpdatingGraph(Map<? extends NodeType, ? extends NodeBuilder> nodeBuilders,
+      Differencer differencer) {
+    this(nodeBuilders, differencer, null);
   }
 
   public InMemoryAutoUpdatingGraph(Map<? extends NodeType, ? extends NodeBuilder> nodeBuilders,
-      @Nullable NodeProgressReceiver invalidationReceiver) {
-    this(nodeBuilders, invalidationReceiver, new EmittedEventState());
+      Differencer differencer, @Nullable NodeProgressReceiver invalidationReceiver) {
+    this(nodeBuilders, differencer, invalidationReceiver, new EmittedEventState());
   }
 
   public InMemoryAutoUpdatingGraph(Map<? extends NodeType, ? extends NodeBuilder> nodeBuilders,
-      @Nullable NodeProgressReceiver invalidationReceiver, EmittedEventState emittedEventState) {
+      Differencer differencer, @Nullable NodeProgressReceiver invalidationReceiver,
+      EmittedEventState emittedEventState) {
     this.nodeBuilders = ImmutableMap.copyOf(nodeBuilders);
+    this.differencer = Preconditions.checkNotNull(differencer);
     this.progressReceiver = invalidationReceiver;
     this.graph = new InMemoryGraph();
     this.emittedEventState = emittedEventState;
   }
 
-  @Override
-  public void invalidate(Iterable<NodeKey> diff) {
+  private void invalidate(Iterable<NodeKey> diff) {
     Iterables.addAll(nodesToDirty, diff);
-  }
-
-  @Override
-  public void invalidateErrors() {
-    // All error nodes have a dependency on the single global ERROR_TRANSIENCE node,
-    // so we only have to invalidate that one node to catch everything.
-    nodesToDirty.add(ErrorTransienceNode.key());
   }
 
   @Override
@@ -124,6 +121,7 @@ public final class InMemoryAutoUpdatingGraph implements AutoUpdatingGraph {
     // NOTE: Performance critical code. See bug "Null build performance parity".
     setAndCheckUpdateState(true, roots);
     try {
+      invalidate(differencer.getDiff());
       pruneInjectedNodes();
       invalidate(nodesToInject.keySet());
 
@@ -239,7 +237,6 @@ public final class InMemoryAutoUpdatingGraph implements AutoUpdatingGraph {
     return (entry == null || !entry.isDone()) ? null : entry.getErrorInfo();
   }
 
-  @Override
   public void setGraphForTesting(InMemoryGraph graph) {
     this.graph = graph;
   }
@@ -266,4 +263,14 @@ public final class InMemoryAutoUpdatingGraph implements AutoUpdatingGraph {
       }
     }
   }
+
+  public static final GraphSupplier SUPPLIER = new GraphSupplier() {
+    @Override
+    public AutoUpdatingGraph createGraph(
+        Map<? extends NodeType, ? extends NodeBuilder> nodeBuilders, Differencer differencer,
+        @Nullable NodeProgressReceiver invalidationReceiver, EmittedEventState emittedEventState) {
+      return new InMemoryAutoUpdatingGraph(nodeBuilders, differencer, invalidationReceiver,
+          emittedEventState);
+    }
+  };
 }

@@ -17,7 +17,7 @@ import com.google.common.base.Preconditions;
 import com.google.common.collect.HashMultimap;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
-import com.google.common.collect.Iterables;
+import com.google.common.collect.ImmutableSet;
 import com.google.common.collect.Lists;
 import com.google.common.collect.Multimap;
 import com.google.devtools.build.lib.actions.Action;
@@ -44,11 +44,9 @@ import com.google.devtools.build.lib.view.test.TestProvider;
 import com.google.devtools.build.lib.view.test.TestProvider.TestParams;
 
 import java.util.Collection;
-import java.util.LinkedHashSet;
 import java.util.List;
 import java.util.Map;
 import java.util.Map.Entry;
-import java.util.Set;
 
 /**
  * Builder class for analyzed rule instances (i.e., instances of {@link ConfiguredTarget}).
@@ -63,8 +61,7 @@ public final class RuleConfiguredTargetBuilder {
   private RunfilesSupport runfilesSupport;
   private Artifact executable;
   private ImmutableList<Artifact> mandatoryStampFiles;
-  private ImmutableList<Action> extraActionPseudoActions;
-  private ImmutableList<Artifact> extraActionPseudoArtifacts;
+  private ImmutableSet<Action> actionsWithoutExtraAction = ImmutableSet.of();
 
   public RuleConfiguredTargetBuilder(RuleContext ruleContext) {
     this.ruleContext = ruleContext;
@@ -171,17 +168,15 @@ public final class RuleConfiguredTargetBuilder {
       ExtraActionsVisitor visitor = new ExtraActionsVisitor(ruleContext,
           computeMnemonicsToExtraActionMap());
 
-      Set<Artifact> outputs = new LinkedHashSet<>(ruleContext.getOutputArtifacts());
-      Iterables.addAll(outputs, filesToBuild);
-      visitor.visitWhiteNodes(outputs);
-
-      if (extraActionPseudoArtifacts != null) {
-        visitor.visitWhiteNodes(extraActionPseudoArtifacts);
+      // The action list is modified within the body of the loop by the addExtraAction() call,
+      // thus the copy
+      for (Action action : ImmutableList.copyOf(
+          ruleContext.getAnalysisEnvironment().getRegisteredActions())) {
+        if (!actionsWithoutExtraAction.contains(action)) {
+          visitor.addExtraAction(action);
+        }
       }
 
-      if (extraActionPseudoActions != null) {
-        visitor.visitBlackNodes(extraActionPseudoActions);
-      }
       extraActionArtifacts = visitor.getAndResetExtraArtifacts();
       if (!extraActionArtifacts.isEmpty()) {
         builder.add(ExtraArtifactSet.of(ruleContext.getLabel(), extraActionArtifacts));
@@ -317,18 +312,9 @@ public final class RuleConfiguredTargetBuilder {
   /**
    * Set the extra action pseudo actions.
    */
-  public RuleConfiguredTargetBuilder setExtraActionPseudoActions(
-      ImmutableList<Action> actions) {
-    this.extraActionPseudoActions = actions;
-    return this;
-  }
-
-  /**
-   * Set the extra action pseudo artifacts.
-   */
-  public RuleConfiguredTargetBuilder setExtraActionPseudoArtifacts(
-      ImmutableList<Artifact> artifacts) {
-    this.extraActionPseudoArtifacts = artifacts;
+  public RuleConfiguredTargetBuilder setActionsWithoutExtraAction(
+      ImmutableSet<Action> actions) {
+    this.actionsWithoutExtraAction = actions;
     return this;
   }
 

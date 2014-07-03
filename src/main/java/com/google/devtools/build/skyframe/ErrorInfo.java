@@ -25,6 +25,8 @@ import javax.annotation.Nullable;
 
 /**
  * Information about why a {@link Node} failed to evaluate successfully.
+ *
+ * <p>This is intended only for use in alternative {@code AutoUpdatingGraph} implementations.
  */
 public class ErrorInfo {
   /**
@@ -44,7 +46,7 @@ public class ErrorInfo {
 
   private final boolean isTransient;
 
-  ErrorInfo(NodeBuilderException builderException) {
+  public ErrorInfo(NodeBuilderException builderException) {
     this.rootCauses = NestedSetBuilder.create(Order.STABLE_ORDER,
         Preconditions.checkNotNull(builderException.getRootCauseNodeKey(), builderException));
     this.exception = Preconditions.checkNotNull(builderException.getCause(), builderException);
@@ -59,7 +61,7 @@ public class ErrorInfo {
     this.isTransient = false;
   }
 
-  ErrorInfo(NodeKey currentNode, Collection<ErrorInfo> childErrors) {
+  public ErrorInfo(NodeKey currentNode, Collection<ErrorInfo> childErrors) {
     Preconditions.checkNotNull(currentNode);
     Preconditions.checkState(!childErrors.isEmpty(),
         "Error node %s with no exception must depend on another error node", currentNode);
