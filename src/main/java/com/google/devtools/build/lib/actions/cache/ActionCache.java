@@ -14,17 +14,28 @@
 
 package com.google.devtools.build.lib.actions.cache;
 
+import com.google.common.base.Preconditions;
+import com.google.common.collect.Lists;
 import com.google.devtools.build.lib.concurrent.ThreadSafety.ThreadCompatible;
 import com.google.devtools.build.lib.vfs.PathFragment;
 
 import java.io.IOException;
 import java.io.PrintStream;
+import java.util.ArrayList;
 import java.util.Collection;
+import java.util.Collections;
+import java.util.HashMap;
+import java.util.List;
+import java.util.Map;
 
 /**
  * An interface defining a cache of already-executed Actions.
  *
- * Each action entry uses one of its output paths as a key (after conversion
+ * <p>This class' naming is misleading; it doesn't cache the actual actions, but it stores a
+ * fingerprint of the action state (ie. a hash of the input and output files on disk), so
+ * we can tell if we need to rerun an action given the state of the file system.
+ *
+ * <p>Each action entry uses one of its output paths as a key (after conversion
  * to the string).
  */
 @ThreadCompatible
@@ -60,12 +71,46 @@ public interface ActionCache {
    * and getFileDigest() method is called, it becomes logically immutable (all methods
    * will continue to return same result regardless of internal data transformations).
    */
-  public interface Entry {
+  public final class Entry {
+    private final String actionKey;
+    private final List<String> files;
+    // If null, digest is non-null and the entry is immutable.
+    private Map<String, Metadata> mdMap;
+    private Digest digest;
+
+    public Entry(String key) {
+      actionKey = key;
+      files = new ArrayList<>();
+      mdMap = new HashMap<>();
+    }
+
+    public Entry(String key, List<String> files, Digest digest) {
+      actionKey = key;
+      this.files = files;
+      this.digest = digest;
+      mdMap = null;
+    }
+
+    /**
+     * Adds the artifact, specified by the executable relative path and its
+     * metadata into the cache entry.
+     */
+    public void addFile(PathFragment relativePath, Metadata md) {
+      Preconditions.checkState(mdMap != null);
+      Preconditions.checkState(!isCorrupted());
+      Preconditions.checkState(digest == null);
+
+      String execPath = relativePath.getPathString();
+      files.add(execPath);
+      mdMap.put(execPath, md);
+    }
 
     /**
      * @return action key string.
      */
-    public String getActionKey();
+    public String getActionKey() {
+      return actionKey;
+    }
 
     /**
      * Returns the combined digest of the action's inputs and outputs.
@@ -73,26 +118,46 @@ public interface ActionCache {
      * This may compresses the data into a more compact representation, and
      * makes the object immutable.
      */
-    public Digest getFileDigest();
-
-    /**
-     * Adds the artifact, specified by the executable relative path and its
-     * metadata into the cache entry.
-     */
-    public void addFile(PathFragment relativePath, Metadata metadata);
+    public Digest getFileDigest() {
+      if (digest == null) {
+        digest = Digest.fromMetadata(mdMap);
+        mdMap = null;
+      }
+      return digest;
+    }
 
     /**
      * Returns true if this cache entry is corrupted and should be ignored.
-     * It will do so by trying to unpack the cache entry and catching
-     * the IllegalStateException that might be thrown by the unpack() method.
      */
-    public boolean isCorrupted();
+    public boolean isCorrupted() {
+      return actionKey == null;
+    }
 
     /**
      * @return stored path strings.
      */
-    public Collection<String> getPaths();
+    public Collection<String> getPaths() {
+      return files;
+    }
 
+    @Override
+    public String toString() {
+      StringBuilder builder = new StringBuilder();
+      builder.append("      actionKey = ").append(actionKey).append("\n");
+      builder.append("      digestKey = ");
+      if (digest == null) {
+        builder.append(Digest.fromMetadata(mdMap)).append(" (from mdMap)\n");
+      } else {
+        builder.append(digest).append("\n");
+      }
+      List<String> fileInfo = Lists.newArrayListWithCapacity(files.size());
+      fileInfo.addAll(files);
+      Collections.sort(fileInfo);
+      for (String info : fileInfo) {
+        builder.append("      ").append(info).append("\n");
+      }
+      return builder.toString();
+    }
   }
 
   /**

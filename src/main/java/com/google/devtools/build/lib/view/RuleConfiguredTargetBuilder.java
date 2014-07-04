@@ -39,7 +39,7 @@ import com.google.devtools.build.lib.view.extra.ExtraActionMapProvider;
 import com.google.devtools.build.lib.view.extra.ExtraActionSpec;
 import com.google.devtools.build.lib.view.test.ExecutionRequirementProvider;
 import com.google.devtools.build.lib.view.test.InstrumentedFilesProvider;
-import com.google.devtools.build.lib.view.test.TestHelper;
+import com.google.devtools.build.lib.view.test.TestActionBuilder;
 import com.google.devtools.build.lib.view.test.TestProvider;
 import com.google.devtools.build.lib.view.test.TestProvider.TestParams;
 
@@ -103,7 +103,7 @@ public final class RuleConfiguredTargetBuilder {
           "Having more than 50 shards is indicative of poor test organization. "
           + "Please reduce the number of shards.");
     }
-    final TestParams testParams = new TestHelper(ruleContext)
+    final TestParams testParams = new TestActionBuilder(ruleContext)
         .setFilesToRunProvider(filesToRunProvider)
         .setFilesToRun(RuleContext.getFilesToRun(runfilesSupport, filesToBuild))
         .setInstrumentedFiles(findProvider(InstrumentedFilesProvider.class))

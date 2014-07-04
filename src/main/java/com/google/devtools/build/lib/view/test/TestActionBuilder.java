@@ -16,21 +16,17 @@ package com.google.devtools.build.lib.view.test;
 
 import com.google.common.annotations.VisibleForTesting;
 import com.google.common.base.Preconditions;
-import com.google.common.base.Predicate;
 import com.google.common.collect.ImmutableList;
-import com.google.common.collect.Iterables;
 import com.google.common.collect.Lists;
 import com.google.devtools.build.lib.actions.Artifact;
 import com.google.devtools.build.lib.actions.Root;
 import com.google.devtools.build.lib.collect.nestedset.NestedSetBuilder;
 import com.google.devtools.build.lib.collect.nestedset.Order;
-import com.google.devtools.build.lib.packages.Target;
 import com.google.devtools.build.lib.packages.TargetUtils;
 import com.google.devtools.build.lib.packages.TestSize;
 import com.google.devtools.build.lib.packages.TestTimeout;
 import com.google.devtools.build.lib.vfs.PathFragment;
 import com.google.devtools.build.lib.view.AnalysisEnvironment;
-import com.google.devtools.build.lib.view.ConfiguredTarget;
 import com.google.devtools.build.lib.view.FileProvider;
 import com.google.devtools.build.lib.view.FilesToRunProvider;
 import com.google.devtools.build.lib.view.RuleConfiguredTarget.Mode;
@@ -44,14 +40,13 @@ import com.google.devtools.common.options.EnumConverter;
 
 import java.util.Collection;
 import java.util.List;
-import java.util.Set;
 
 import javax.annotation.Nullable;
 
 /**
  * Helper class to create test actions.
  */
-public final class TestHelper {
+public final class TestActionBuilder {
   /**
    * The alarm script is added to $PATH, for use by tests, in particular, shell-scripts.
    */
@@ -67,7 +62,7 @@ public final class TestHelper {
   private ImmutableList<Artifact> filesToRun;
   private int explicitShardCount;
 
-  public TestHelper(RuleContext ruleContext) {
+  public TestActionBuilder(RuleContext ruleContext) {
     this.ruleContext = ruleContext;
   }
 
@@ -108,7 +103,7 @@ public final class TestHelper {
   /**
    * Set the runfiles and executable to be run as a test.
    */
-  public TestHelper setFilesToRunProvider(FilesToRunProvider provider) {
+  public TestActionBuilder setFilesToRunProvider(FilesToRunProvider provider) {
     Preconditions.checkNotNull(provider.getRunfilesSupport());
     Preconditions.checkNotNull(provider.getExecutable());
     this.runfilesSupport = provider.getRunfilesSupport();
@@ -116,18 +111,19 @@ public final class TestHelper {
     return this;
   }
 
-  public TestHelper setFilesToRun(ImmutableList<Artifact> filesToRun) {
+  public TestActionBuilder setFilesToRun(ImmutableList<Artifact> filesToRun) {
     Preconditions.checkNotNull(filesToRun);
     this.filesToRun = filesToRun;
     return this;
   }
 
-  public TestHelper setInstrumentedFiles(@Nullable InstrumentedFilesProvider instrumentedFiles) {
+  public TestActionBuilder setInstrumentedFiles(
+      @Nullable InstrumentedFilesProvider instrumentedFiles) {
     this.instrumentedFiles = instrumentedFiles;
     return this;
   }
 
-  public TestHelper setExecutionRequirements(
+  public TestActionBuilder setExecutionRequirements(
       @Nullable ExecutionRequirementProvider executionRequirements) {
     this.executionRequirements = executionRequirements;
     return this;
@@ -136,13 +132,13 @@ public final class TestHelper {
   /**
    * Set the explicit shard count. Note that this may be overridden by the sharding strategy.
    */
-  public TestHelper setShardCount(int explicitShardCount) {
+  public TestActionBuilder setShardCount(int explicitShardCount) {
     this.explicitShardCount = explicitShardCount;
     return this;
   }
 
   /**
-   * Converts to {@link TestHelper.TestShardingStrategy}.
+   * Converts to {@link TestActionBuilder.TestShardingStrategy}.
    */
   public static class ShardingStrategyConverter extends EnumConverter<TestShardingStrategy> {
     public ShardingStrategyConverter() {
@@ -150,6 +146,9 @@ public final class TestHelper {
     }
   }
 
+  /**
+   * A strategy for running the same tests in many processes.
+   */
   public static enum TestShardingStrategy {
     EXPLICIT {
       @Override public int getNumberOfShards(boolean isLocal, int shardCountFromAttr,
@@ -275,29 +274,5 @@ public final class TestHelper {
       }
     }
     return ImmutableList.copyOf(results);
-  }
-
-  /**
-   * Returns the collection of configured targets corresponding to any of the provided targets.
-   */
-  public static Iterable<? extends ConfiguredTarget> filterTestsByTargets(
-      Collection<? extends ConfiguredTarget> targets, final Set<? extends Target> allowedTargets) {
-    return Iterables.filter(targets,
-        new Predicate<ConfiguredTarget>() {
-          @Override
-          public boolean apply(ConfiguredTarget rule) {
-            return allowedTargets.contains(rule.getTarget());
-          }
-        });
-  }
-
-  /**
-   * Returns the test status artifacts for a specified configured target
-   *
-   * @param target the configured target. Should belong to a test rule.
-   * @return the test status artifacts
-   */
-  public static ImmutableList<Artifact> getTestStatusArtifacts(TransitiveInfoCollection target) {
-    return target.getProvider(TestProvider.class).getTestParams().getTestStatusArtifacts();
   }
 }

@@ -40,7 +40,7 @@ import com.google.devtools.build.lib.vfs.Path;
 import com.google.devtools.build.lib.vfs.PathFragment;
 import com.google.devtools.build.lib.view.ViewCreationFailedException;
 import com.google.devtools.build.lib.view.config.BuildConfigurationCollection.Transitions;
-import com.google.devtools.build.lib.view.test.TestHelper;
+import com.google.devtools.build.lib.view.test.TestActionBuilder;
 import com.google.devtools.common.options.Converter;
 import com.google.devtools.common.options.Converters;
 import com.google.devtools.common.options.EnumConverter;
@@ -481,14 +481,14 @@ public final class BuildConfiguration {
     @Option(name = "test_sharding_strategy",
         defaultValue = "explicit",
         category = "testing",
-        converter = TestHelper.ShardingStrategyConverter.class,
+        converter = TestActionBuilder.ShardingStrategyConverter.class,
         help = "Specify strategy for test sharding: "
             + "'explicit' to only use sharding if the 'shard_count' BUILD attribute is present. "
             + "'disabled' to never use test sharding. "
             + "'experimental_heuristic' to enable sharding on remotely executed tests without an "
             + "explicit  'shard_count' attribute which link in a supported framework. Considered "
             + "experimental.")
-    public TestHelper.TestShardingStrategy testShardingStrategy;
+    public TestActionBuilder.TestShardingStrategy testShardingStrategy;
 
     @Option(name = "runs_per_test",
         allowMultiple = true,
@@ -718,7 +718,8 @@ public final class BuildConfiguration {
           "The internal '--configuration short name' option cannot be used on the command line");
     }
 
-    if (options.testShardingStrategy == TestHelper.TestShardingStrategy.EXPERIMENTAL_HEURISTIC) {
+    if (options.testShardingStrategy
+        == TestActionBuilder.TestShardingStrategy.EXPERIMENTAL_HEURISTIC) {
       reporter.warn(null,
           "Heuristic sharding is intended as a one-off experimentation tool for determing the " +
           "benefit from sharding certain tests. Please don't keep this option in your " +
@@ -1292,7 +1293,7 @@ public final class BuildConfiguration {
     return actionsEnabled;
   }
 
-  public TestHelper.TestShardingStrategy testShardingStrategy() {
+  public TestActionBuilder.TestShardingStrategy testShardingStrategy() {
     return options.testShardingStrategy;
   }
 

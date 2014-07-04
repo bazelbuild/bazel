@@ -269,7 +269,7 @@ public final class SkyframeBuildView {
     return goodCts;
   }
 
-  private boolean hasAnyBadAction(Iterable<Action> actions, Set<Action> badActions) {
+  private static boolean hasAnyBadAction(Iterable<Action> actions, Set<Action> badActions) {
     for (Action action : actions) {
       if (badActions.contains(action)) {
         return true;

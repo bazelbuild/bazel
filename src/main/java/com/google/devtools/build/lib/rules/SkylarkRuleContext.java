@@ -24,14 +24,17 @@ import com.google.common.collect.ImmutableSet;
 import com.google.common.collect.Iterables;
 import com.google.devtools.build.lib.actions.Action;
 import com.google.devtools.build.lib.actions.Artifact;
+import com.google.devtools.build.lib.packages.Attribute;
 import com.google.devtools.build.lib.packages.ImplicitOutputsFunction;
 import com.google.devtools.build.lib.packages.OutputFile;
 import com.google.devtools.build.lib.shell.ShellUtils;
 import com.google.devtools.build.lib.shell.ShellUtils.TokenizationException;
+import com.google.devtools.build.lib.syntax.ClassObject;
 import com.google.devtools.build.lib.syntax.FuncallExpression.FuncallException;
 import com.google.devtools.build.lib.syntax.Label;
 import com.google.devtools.build.lib.syntax.SkylarkBuiltin;
 import com.google.devtools.build.lib.syntax.SkylarkCallable;
+import com.google.devtools.build.lib.syntax.UserDefinedFunction;
 import com.google.devtools.build.lib.util.FileType;
 import com.google.devtools.build.lib.util.FileTypeSet;
 import com.google.devtools.build.lib.view.ConfigurationMakeVariableContext;
@@ -73,11 +76,20 @@ public final class SkylarkRuleContext {
 
   private final RuleContext ruleContext;
 
+  private final ClassObject attrObject;
+
   /**
    * Creates a new SkylarkRuleContext using ruleContext.
    */
   public SkylarkRuleContext(RuleContext ruleContext) {
     this.ruleContext = Preconditions.checkNotNull(ruleContext);
+
+    ImmutableMap.Builder<String, Object> builder = new ImmutableMap.Builder<>();
+    for (Attribute a : ruleContext.getRule().getAttributes()) {
+      Object val = ruleContext.getRule().getAttr(a);
+      builder.put(a.getName(), val == null ? UserDefinedFunction.NONE : val);
+    }
+    attrObject = new ClassObject(builder.build());
   }
 
   /**
@@ -186,6 +198,11 @@ public final class SkylarkRuleContext {
     } catch (IllegalArgumentException e) {
       throw new FuncallException(e.getMessage());
     }
+  }
+
+  @SkylarkCallable(doc = "")
+  public ClassObject attr() {
+    return attrObject;
   }
 
   /**

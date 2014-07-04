@@ -153,10 +153,10 @@ public class BuildTool {
             "The --experimental_multi_cpu option is _very_ experimental and only intended for "
             + "internal testing at this time. If you do not work on the build tool, then you "
             + "should stop now!");
-        if (!"build".equals(request.getCommandName())) {
+        if (!"build".equals(request.getCommandName()) && !"test".equals(request.getCommandName())) {
           throw new InvalidConfigurationException(
-              "The experimental setting to select multiple CPUs is only supported for 'build' "
-              + "right now!");
+              "The experimental setting to select multiple CPUs is only supported for 'build' and "
+              + "'test' right now!");
         }
       }
       configurations = getConfigurations(

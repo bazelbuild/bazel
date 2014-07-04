@@ -31,7 +31,7 @@ public class UserDefinedFunction extends AbstractFunction {
    * Dummy default return value.
    */
   public static final class SkylarkDefaultReturnValue {}
-  private static final SkylarkDefaultReturnValue NONE = new SkylarkDefaultReturnValue();
+  public static final SkylarkDefaultReturnValue NONE = new SkylarkDefaultReturnValue();
 
   private final ImmutableList<Ident> listArgNames;
   private final ImmutableList<Statement> statements;

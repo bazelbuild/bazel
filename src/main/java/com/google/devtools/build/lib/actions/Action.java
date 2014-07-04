@@ -65,9 +65,6 @@ public interface Action extends ActionMetadata, Describable {
    * <p>Action execution must be ThreadCompatible in order to be safely used
    * with a concurrent Builder implementation such as ParallelBuilder.
    *
-   * @param executor the application-specific value passed to the
-   *   executor parameter of the top-level call to
-   *   Builder.buildArtifacts().
    * @param actionExecutionContext Services in the scope of the action, like the output and error
    *   streams to use for messages arising during action execution.
    * @throws ActionExecutionException if execution fails for any reason.

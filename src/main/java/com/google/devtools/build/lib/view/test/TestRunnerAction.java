@@ -99,8 +99,8 @@ public class TestRunnerAction extends ConfigurationAction
   private boolean unconditionalExecution = false;
 
   /**
-   * Create new TestRunnerAction instance. Should not be called directly. Use {@link TestHelper}
-   * instead.
+   * Create new TestRunnerAction instance. Should not be called directly.
+   * Use {@link TestActionBuilder} instead.
    *
    * @param shardNum The shard number. Must be 0 if totalShards == 0
    *     (no sharding). Otherwise, must be >= 0 and < totalShards.

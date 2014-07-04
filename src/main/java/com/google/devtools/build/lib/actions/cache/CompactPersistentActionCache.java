@@ -13,20 +13,27 @@
 // limitations under the License.
 package com.google.devtools.build.lib.actions.cache;
 
+import static java.nio.charset.StandardCharsets.ISO_8859_1;
+
 import com.google.common.base.Preconditions;
+import com.google.common.collect.ImmutableList;
 import com.google.devtools.build.lib.concurrent.ThreadSafety.ConditionallyThreadSafe;
 import com.google.devtools.build.lib.util.Clock;
 import com.google.devtools.build.lib.util.CompactStringIndexer;
 import com.google.devtools.build.lib.util.PersistentMap;
+import com.google.devtools.build.lib.util.StringIndexer;
+import com.google.devtools.build.lib.util.VarInt;
 import com.google.devtools.build.lib.vfs.Path;
 import com.google.devtools.build.lib.vfs.UnixGlob;
 
+import java.io.ByteArrayOutputStream;
 import java.io.DataInputStream;
 import java.io.DataOutputStream;
 import java.io.IOException;
 import java.io.PrintStream;
 import java.nio.BufferUnderflowException;
 import java.nio.ByteBuffer;
+import java.util.Collection;
 import java.util.HashMap;
 import java.util.Map;
 
@@ -34,6 +41,9 @@ import java.util.Map;
  * An implementation of the ActionCache interface that uses
  * {@link CompactStringIndexer} to reduce memory footprint and saves
  * cached actions using the {@link PersistentMap}.
+ *
+ * <p>This cache is not fully correct: as hashes are xor'd together, a permutation of input
+ * file contents will erroneously be considered up to date.
  */
 @ConditionallyThreadSafe // condition: each instance must instantiated with
                          // different cache root
@@ -122,6 +132,7 @@ public class CompactPersistentActionCache implements ActionCache {
 
   private final PersistentMap<Integer, byte[]> map;
   private final PersistentStringIndexer indexer;
+  static final ActionCache.Entry CORRUPTED = new ActionCache.Entry(null);
 
   public CompactPersistentActionCache(Path cacheRoot, Clock clock) throws IOException {
     Path cacheFile = cacheFile(cacheRoot);
@@ -208,7 +219,7 @@ public class CompactPersistentActionCache implements ActionCache {
 
   @Override
   public ActionCache.Entry createEntry(String key) {
-    return new CompactActionCacheEntry(key);
+    return new ActionCache.Entry(key);
   }
 
   @Override
@@ -222,20 +233,18 @@ public class CompactPersistentActionCache implements ActionCache {
       data = map.get(index);
     }
     try {
-      return data != null ? new CompactActionCacheEntry(indexer, data) : null;
+      return data != null ? CompactPersistentActionCache.decode(indexer, data) : null;
     } catch (IOException e) {
       // return entry marked as corrupted.
-      return CompactActionCacheEntry.CORRUPTED;
+      return CORRUPTED;
     }
   }
 
   @Override
   public void put(String key, ActionCache.Entry entry) {
-    Preconditions.checkArgument(entry instanceof CompactActionCacheEntry);
-
     // Encode record. Note that both methods may create new mappings in the indexer.
     int index = indexer.getOrCreateIndex(key);
-    byte[] content = ((CompactActionCacheEntry) entry).getData(indexer);
+    byte[] content = encode(indexer, entry);
 
     // Update validation record.
     ByteBuffer buffer = ByteBuffer.allocate(4); // size of int in bytes
@@ -273,7 +282,7 @@ public class CompactPersistentActionCache implements ActionCache {
       if (entry.getKey() == VALIDATION_KEY) { continue; }
       String content;
       try {
-        content = new CompactActionCacheEntry(indexer, entry.getValue()).toString();
+        content = decode(indexer, entry.getValue()).toString();
       } catch (IOException e) {
         content = e.toString() + "\n";
       }
@@ -295,12 +304,82 @@ public class CompactPersistentActionCache implements ActionCache {
       if (entry.getKey() == VALIDATION_KEY) { continue; }
       String content;
       try {
-        content = new CompactActionCacheEntry(indexer, entry.getValue()).toString();
+        content = CompactPersistentActionCache.decode(indexer, entry.getValue()).toString();
       } catch (IOException e) {
         content = e.toString() + "\n";
       }
       out.println(entry.getKey() + ", " + indexer.getStringForIndex(entry.getKey()) + ":\n"
           +  content + "\n      packed_len = " + entry.getValue().length + "\n");
+    }
+  }
+
+  /**
+   * @return action data encoded as a byte[] array.
+   */
+  private static byte[] encode(StringIndexer indexer, ActionCache.Entry entry) {
+    Preconditions.checkState(!entry.isCorrupted());
+
+    try {
+      byte[] actionKeyBytes = entry.getActionKey().getBytes(ISO_8859_1);
+      Collection<String> files = entry.getPaths();
+
+      // Estimate the size of the buffer:
+      //   5 bytes max for the actionKey length
+      // + the actionKey itself
+      // + 16 bytes for the digest
+      // + 5 bytes max for the file list length
+      // + 5 bytes max for each file id
+      int maxSize = VarInt.MAX_VARINT_SIZE + actionKeyBytes.length + Digest.MD5_SIZE
+          + VarInt.MAX_VARINT_SIZE + files.size() * VarInt.MAX_VARINT_SIZE;
+      ByteArrayOutputStream sink = new ByteArrayOutputStream(maxSize);
+
+      VarInt.putVarInt(actionKeyBytes.length, sink);
+      sink.write(actionKeyBytes);
+
+      entry.getFileDigest().write(sink);
+
+      VarInt.putVarInt(files.size(), sink);
+      for (String file : files) {
+        VarInt.putVarInt(indexer.getOrCreateIndex(file), sink);
+      }
+      return sink.toByteArray();
+    } catch (IOException e) {
+      // This Exception can never be thrown by ByteArrayOutputStream.
+      throw new AssertionError(e);
+    }
+  }
+
+  /**
+   * Creates new action cache entry using given compressed entry data. Data
+   * will stay in the compressed format until entry is actually used by the
+   * dependency checker.
+   */
+  private static ActionCache.Entry decode(StringIndexer indexer, byte[] data) throws IOException {
+    try {
+      ByteBuffer source = ByteBuffer.wrap(data);
+
+      byte[] actionKeyBytes = new byte[VarInt.getVarInt(source)];
+      source.get(actionKeyBytes);
+      String actionKey = new String(actionKeyBytes, ISO_8859_1);
+
+      Digest digest = Digest.read(source);
+
+      int count = VarInt.getVarInt(source);
+      ImmutableList.Builder<String> builder = new ImmutableList.Builder<>();
+      for (int i = 0; i < count; i++) {
+        int id = VarInt.getVarInt(source);
+        String filename = (id >= 0 ? indexer.getStringForIndex(id) : null);
+        if (filename == null) {
+          throw new IOException("Corrupted file index");
+        }
+        builder.add(filename);
+      }
+      if (source.remaining() > 0) {
+        throw new IOException("serialized entry data has not been fully decoded");
+      }
+      return new Entry(actionKey, builder.build(), digest);
+    } catch (BufferUnderflowException e) {
+      throw new IOException("encoded entry data is incomplete", e);
     }
   }
 }

@@ -459,11 +459,9 @@ abstract class AbstractBuilder implements Builder {
     }
   }
 
-  protected void scheduleAndExecuteAction(Action action,
+  protected abstract void scheduleAndExecuteAction(Action action,
       ActionExecutionContext actionExecutionContext)
-  throws ActionExecutionException, InterruptedException {
-    actionExecutor.executeActionTask(action, actionExecutionContext);
-  }
+      throws ActionExecutionException, InterruptedException;
 
   /** Indents a log message by the specified depth. */
   protected final String indent(String message) {

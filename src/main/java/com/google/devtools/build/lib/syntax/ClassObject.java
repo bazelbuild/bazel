@@ -14,6 +14,7 @@
 package com.google.devtools.build.lib.syntax;
 
 import com.google.common.collect.ImmutableMap;
+import com.google.devtools.build.lib.concurrent.ThreadSafety.Immutable;
 
 import java.util.Map;
 
@@ -21,6 +22,7 @@ import java.util.Map;
  * An instance of a Skylark class.
  */
 // TODO(bazel-team): type checks
+@Immutable
 public class ClassObject {
 
   private final ImmutableMap<String, Object> values;

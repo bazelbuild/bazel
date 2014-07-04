@@ -28,7 +28,6 @@ import com.google.devtools.build.lib.vfs.PathFragment;
 import com.google.devtools.build.lib.view.ConfiguredTarget;
 import com.google.devtools.build.lib.view.TransitiveInfoCollection;
 import com.google.devtools.build.lib.view.test.BlazeTestStatus;
-import com.google.devtools.build.lib.view.test.TestHelper;
 import com.google.devtools.build.lib.view.test.TestProvider;
 import com.google.devtools.build.lib.view.test.TestResult;
 import com.google.testing.proto.TestStrategy;
@@ -139,7 +138,7 @@ public class TestResultAnalyzer {
     // We will get back multiple TestResult instances if test had to be retried several
     // times before passing. Sharding and multiple runs of the same test without retries
     // will be represented by separate artifacts and will produce exactly one TestResult.
-    for (Artifact testStatus : TestHelper.getTestStatusArtifacts(testTarget)) {
+    for (Artifact testStatus : TestProvider.getTestStatusArtifacts(testTarget)) {
       // When a build is interrupted ( eg. a broken target with --nokeep_going ) runResult could
       // be null for an unrelated test because we were not able to even try to execute the test.
       // In that case, for tests that were previously passing we return null ( == NO STATUS),

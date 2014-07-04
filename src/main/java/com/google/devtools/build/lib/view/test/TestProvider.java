@@ -18,6 +18,7 @@ import com.google.common.collect.ImmutableList;
 import com.google.devtools.build.lib.actions.Artifact;
 import com.google.devtools.build.lib.concurrent.ThreadSafety.Immutable;
 import com.google.devtools.build.lib.packages.TestTimeout;
+import com.google.devtools.build.lib.view.TransitiveInfoCollection;
 import com.google.devtools.build.lib.view.TransitiveInfoProvider;
 
 import java.util.List;
@@ -52,6 +53,16 @@ public final class TestProvider implements TransitiveInfoProvider {
   }
 
   /**
+   * Returns the test status artifacts for a specified configured target
+   *
+   * @param target the configured target. Should belong to a test rule.
+   * @return the test status artifacts
+   */
+  public static ImmutableList<Artifact> getTestStatusArtifacts(TransitiveInfoCollection target) {
+    return target.getProvider(TestProvider.class).getTestParams().getTestStatusArtifacts();
+  }
+
+  /**
    * A value class describing the properties of a test.
    */
   public static class TestParams {
@@ -62,7 +73,7 @@ public final class TestProvider implements TransitiveInfoProvider {
     private final ImmutableList<Artifact> testStatusArtifacts;
 
     /**
-     * Don't call this directly. Instead use {@link TestHelper}.
+     * Don't call this directly. Instead use {@link TestActionBuilder}.
      */
     TestParams(int runs, int shards, TestTimeout timeout, String testRuleClass,
         ImmutableList<Artifact> testStatusArtifacts) {

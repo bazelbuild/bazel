@@ -480,7 +480,8 @@ public final class SkyframeExecutor {
         continue;
       }
       ConfiguredTargetNode ctNode = (ConfiguredTargetNode) entry.getValue();
-      if (!topLevelTargets.contains(ctNode.getConfiguredTarget())) {
+      // ctNode may be null if target was not successfully analyzed.
+      if (ctNode != null && !topLevelTargets.contains(ctNode.getConfiguredTarget())) {
         ctNode.clear();
       }
     }

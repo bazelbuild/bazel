@@ -17,6 +17,7 @@ package com.google.devtools.build.lib.view;
 import com.google.common.annotations.VisibleForTesting;
 import com.google.common.base.Function;
 import com.google.common.base.Preconditions;
+import com.google.common.base.Predicate;
 import com.google.common.cache.LoadingCache;
 import com.google.common.collect.ArrayListMultimap;
 import com.google.common.collect.ImmutableList;
@@ -84,7 +85,7 @@ import com.google.devtools.build.lib.view.actions.TargetCompletionMiddlemanActio
 import com.google.devtools.build.lib.view.config.BinTools;
 import com.google.devtools.build.lib.view.config.BuildConfiguration;
 import com.google.devtools.build.lib.view.config.BuildConfigurationCollection;
-import com.google.devtools.build.lib.view.test.TestHelper;
+import com.google.devtools.build.lib.view.test.TestProvider;
 import com.google.devtools.build.lib.view.test.TestRunnerAction;
 import com.google.devtools.build.skyframe.NodeKey;
 import com.google.devtools.common.options.Option;
@@ -750,6 +751,23 @@ public class BuildView {
     }
   }
 
+
+  /**
+   * Returns the collection of configured targets corresponding to any of the provided targets.
+   */
+  @VisibleForTesting
+  static Iterable<? extends ConfiguredTarget> filterTestsByTargets(
+      Collection<? extends ConfiguredTarget> targets,
+      final Set<? extends Target> allowedTargets) {
+    return Iterables.filter(targets,
+        new Predicate<ConfiguredTarget>() {
+          @Override
+              public boolean apply(ConfiguredTarget rule) {
+            return allowedTargets.contains(rule.getTarget());
+          }
+        });
+  }
+
   private void prepareToBuild() throws ViewCreationFailedException {
     for (BuildConfiguration config : configurations.getTargetConfigurations()) {
       config.prepareToBuild(directories.getExecRoot(), getArtifactFactory());
@@ -935,7 +953,7 @@ public class BuildView {
     if (testsToRun != null) {
       // Determine the subset of configured targets that are meant to be run as tests.
       targetsToTest = Lists.newArrayList(
-          TestHelper.filterTestsByTargets(configuredTargets, Sets.newHashSet(testsToRun)));
+          filterTestsByTargets(configuredTargets, Sets.newHashSet(testsToRun)));
     }
 
     Multimap<ConfiguredTarget, Artifact> targetCompletionMap =
@@ -1125,7 +1143,7 @@ public class BuildView {
         boolean exclusive =
             isExclusive || TargetUtils.isExclusiveTestRule((Rule) target.getTarget());
         Collection<Artifact> artifacts = exclusive ? exclusiveTestArtifacts : artifactsToBuild;
-        artifacts.addAll(TestHelper.getTestStatusArtifacts(target));
+        artifacts.addAll(TestProvider.getTestStatusArtifacts(target));
       }
     }
   }
@@ -1165,7 +1183,7 @@ public class BuildView {
           // We need to explicitly set them to null, because of possibility that
           // previous blaze invocation used --test_strategy=exclusive and the
           // current one used analysis caching.
-          for (Artifact artifact : TestHelper.getTestStatusArtifacts(target)) {
+          for (Artifact artifact : TestProvider.getTestStatusArtifacts(target)) {
             TestRunnerAction action = (TestRunnerAction)
                 legacyActionGraph.getGeneratingAction(artifact);
             Pair<Artifact, Action> middlemanAndStamp = action.setSchedulingDependencies(
@@ -1195,7 +1213,7 @@ public class BuildView {
     Collection<Artifact> dependencies = nonExclusiveArtifacts;
 
     for (ConfiguredTarget target : testTargets) {
-      for (Artifact artifact : TestHelper.getTestStatusArtifacts(target)) {
+      for (Artifact artifact : TestProvider.getTestStatusArtifacts(target)) {
         // If artifact is already in the artifactsToTest set, then target was
         // already processed as a non-exclusive test and should be skipped.
         if (!artifactsToTest.contains(artifact)) {
