@@ -178,7 +178,7 @@ public class BuildEncyclopediaProcessor {
     for (RuleDocumentation doc : docEntries) {
       RuleClass ruleClass = ruleClassProvider.getRuleClassMap().get(doc.getRuleName());
       if (ruleClass.isDocumented()) {
-        if (DocgenConsts.LANGUAGE_SPECIFIC_RULE_FAMILIES.contains(doc.getRuleFamily())) {
+        if (doc.isLanguageSpecific()) {
           switch(doc.getRuleType()) {
             case BINARY:
               binaryDocs.add(doc);
@@ -193,10 +193,8 @@ public class BuildEncyclopediaProcessor {
               otherDocs.add(doc);
               break;
           }
-        } else if (DocgenConsts.OTHER_RULE_FAMILIES.contains(doc.getRuleFamily())) {
-          otherDocs.add(doc);
         } else {
-          throw doc.createException("Unknown rule family: " + doc);
+          otherDocs.add(doc);
         }
       }
     }
@@ -216,12 +214,49 @@ public class BuildEncyclopediaProcessor {
   private Map<String, String> generateBEHeaderMapping(Set<RuleDocumentation> docEntries)
       throws BuildEncyclopediaDocException {
     StringBuilder sb = new StringBuilder();
+
     sb.append("<table id=\"rules\" summary=\"Table of rules sorted by language\">\n")
       .append("<colgroup span=\"5\" width=\"20%\"></colgroup>\n")
       .append("<tr><th>Language</th><th>Binary rules</th><th>Library rules</th>"
         + "<th>Test rules</th><th>Other rules</th><th></th></tr>\n");
+
+    // Separate rule families into language-specific and generic ones.
+    Set<String> languageSpecificRuleFamilies = new TreeSet<>();
+    Set<String> genericRuleFamilies = new TreeSet<>();
+    separateRuleFamilies(docEntries, languageSpecificRuleFamilies, genericRuleFamilies);
+
     // Create a mapping of rules based on rule type and family.
     Map<String, ListMultimap<RuleType, RuleDocumentation>> ruleMapping = new HashMap<>();
+    createRuleMapping(docEntries, ruleMapping);
+
+    // Generate the table.
+    for (String ruleFamily : languageSpecificRuleFamilies) {
+      generateHeaderTableRuleFamily(sb, ruleMapping.get(ruleFamily), ruleFamily);
+    }
+    sb.append(" </tr>\n");
+    sb.append("<tr><th>&nbsp;</th></tr>");
+    sb.append("<tr><th colspan=\"5\">Rules that do not apply to a "
+            + "specific programming language</th></tr>");
+    for (String ruleFamily : genericRuleFamilies) {
+      generateHeaderTableRuleFamily(sb, ruleMapping.get(ruleFamily), ruleFamily);
+    }
+    sb.append("</table>\n");
+    return ImmutableMap.<String, String>of(DocgenConsts.VAR_HEADER_TABLE, sb.toString(),
+        DocgenConsts.VAR_COMMON_ATTRIBUTE_DEFINITION, generateCommonAttributeDocs(
+            PredefinedAttributes.COMMON_ATTRIBUTES, DocgenConsts.COMMON_ATTRIBUTES),
+        DocgenConsts.VAR_TEST_ATTRIBUTE_DEFINITION, generateCommonAttributeDocs(
+            PredefinedAttributes.TEST_ATTRIBUTES, DocgenConsts.TEST_ATTRIBUTES),
+        DocgenConsts.VAR_BINARY_ATTRIBUTE_DEFINITION, generateCommonAttributeDocs(
+            PredefinedAttributes.BINARY_ATTRIBUTES, DocgenConsts.BINARY_ATTRIBUTES),
+        DocgenConsts.VAR_LEFT_PANEL, generateLeftNavigationPanel(docEntries));
+  }
+
+  /**
+   * Create a mapping of rules based on rule type and family.
+   */
+  private void createRuleMapping(Set<RuleDocumentation> docEntries,
+      Map<String, ListMultimap<RuleType, RuleDocumentation>> ruleMapping)
+      throws BuildEncyclopediaDocException {
     for (RuleDocumentation ruleDoc : docEntries) {
       RuleClass ruleClass = ruleClassProvider.getRuleClassMap().get(ruleDoc.getRuleName());
       if (ruleClass != null) {
@@ -236,26 +271,29 @@ public class BuildEncyclopediaProcessor {
         throw ruleDoc.createException("Can't find RuleClass for " + ruleDoc.getRuleName());
       }
     }
-    // Generate the table.
-    for (String ruleFamilyKey : DocgenConsts.LANGUAGE_SPECIFIC_RULE_FAMILIES) {
-      generateHeaderTableRuleFamily(sb, ruleMapping, ruleFamilyKey);
+  }
+
+  /**
+   * Separates all rule families in docEntries into language-specific rules and generic rules.
+   */
+  private void separateRuleFamilies(Set<RuleDocumentation> docEntries,
+      Set<String> languageSpecificRuleFamilies, Set<String> genericRuleFamilies)
+      throws BuildEncyclopediaDocException {
+    for (RuleDocumentation ruleDoc : docEntries) {
+      if (ruleDoc.isLanguageSpecific()) {
+        if (genericRuleFamilies.contains(ruleDoc.getRuleFamily())) {
+          throw ruleDoc.createException("The rule is marked as being language-specific, but other "
+              + "rules of the same family have already been marked as being not.");
+        }
+        languageSpecificRuleFamilies.add(ruleDoc.getRuleFamily());
+      } else {
+        if (languageSpecificRuleFamilies.contains(ruleDoc.getRuleFamily())) {
+          throw ruleDoc.createException("The rule is marked as being generic, but other rules of "
+              + "the same family have already been marked as being language-specific.");
+        }
+        genericRuleFamilies.add(ruleDoc.getRuleFamily());
+      }
     }
-    sb.append(" </tr>\n");
-    sb.append("<tr><th>&nbsp;</th></tr>");
-    sb.append("<tr><th colspan=\"5\">Rules that do not apply to a "
-            + "specific programming language</th></tr>");
-    for (String ruleFamilyKey : DocgenConsts.OTHER_RULE_FAMILIES) {
-      generateHeaderTableRuleFamily(sb, ruleMapping, ruleFamilyKey);
-    }
-    sb.append("</table>\n");
-    return ImmutableMap.<String, String>of(DocgenConsts.VAR_HEADER_TABLE, sb.toString(),
-        DocgenConsts.VAR_COMMON_ATTRIBUTE_DEFINITION, generateCommonAttributeDocs(
-            PredefinedAttributes.COMMON_ATTRIBUTES, DocgenConsts.COMMON_ATTRIBUTES),
-        DocgenConsts.VAR_TEST_ATTRIBUTE_DEFINITION, generateCommonAttributeDocs(
-            PredefinedAttributes.TEST_ATTRIBUTES, DocgenConsts.TEST_ATTRIBUTES),
-        DocgenConsts.VAR_BINARY_ATTRIBUTE_DEFINITION, generateCommonAttributeDocs(
-            PredefinedAttributes.BINARY_ATTRIBUTES, DocgenConsts.BINARY_ATTRIBUTES),
-        DocgenConsts.VAR_LEFT_PANEL, generateLeftNavigationPanel(docEntries));
   }
 
   private String generateLeftNavigationPanel(Set<RuleDocumentation> docEntries) {
@@ -284,11 +322,9 @@ public class BuildEncyclopediaProcessor {
   }
 
   private void generateHeaderTableRuleFamily(StringBuilder sb,
-      Map<String, ListMultimap<RuleType, RuleDocumentation>> ruleMapping, String ruleFamilyKey) {
-    String ruleFamilyName = DocgenConsts.RULE_FAMILY_NAMES.get(ruleFamilyKey);
+      ListMultimap<RuleType, RuleDocumentation> ruleTypeMap, String ruleFamily) {
     sb.append(" <tr>\n")
-      .append(String.format("  <td class=\"lang\">%s</td>\n", ruleFamilyName));
-    ListMultimap<RuleType, RuleDocumentation> ruleTypeMap = ruleMapping.get(ruleFamilyKey);
+      .append(String.format("  <td class=\"lang\">%s</td>\n", ruleFamily));
     boolean otherRulesSplitted = false;
     for (RuleType ruleType : DocgenConsts.RuleType.values()) {
       sb.append("  <td>");

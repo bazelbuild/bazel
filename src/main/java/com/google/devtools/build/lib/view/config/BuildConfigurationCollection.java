@@ -193,20 +193,13 @@ public final class BuildConfigurationCollection {
     protected final BuildConfiguration configuration;
 
     /**
-     * Cross-references back to its parent.
-     */
-    private final BuildConfiguration parent;
-
-    /**
      * Look up table for the configuration transitions, i.e., HOST, DATA, etc.
      */
     private final Map<ConfigurationTransition, ConfigurationHolder> configurationTransitions;
 
     public Transitions(BuildConfiguration configuration,
-        BuildConfiguration parent,
         Map<ConfigurationTransition, ConfigurationHolder> transitionTable) {
       this.configuration = configuration;
-      this.parent = parent;
       this.configurationTransitions = ImmutableMap.copyOf(transitionTable);
     }
 
@@ -215,27 +208,11 @@ public final class BuildConfigurationCollection {
      * any kind of configuration transition.
      */
     public void addDirectlyReachableConfigurations(Collection<BuildConfiguration> queue) {
-      queue.add(parent);
       for (ConfigurationHolder holder : configurationTransitions.values()) {
         if (holder.configuration != null) {
           queue.add(holder.configuration);
         }
       }
-    }
-
-    /**
-     * Returns the parent configuration of a related configuration. For example
-     * the parent configuration of the target Java configuration is the main
-     * target configuration. The parent configuration of a main configuration
-     * (target, data, host) is the main configuration itself.
-     *
-     * <p>If two related configurations of two different main configurations are
-     * indistinguishable, an arbitrary potential parent configuration is returned.
-     *
-     * @return the parent configuration or {@code null} if none can be found
-     */
-    public BuildConfiguration getParentConfiguration() {
-      return parent;
     }
 
     /**

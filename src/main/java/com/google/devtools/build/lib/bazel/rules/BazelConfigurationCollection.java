@@ -39,7 +39,6 @@ import com.google.devtools.build.lib.view.config.ConfigurationFactory;
 import com.google.devtools.build.lib.view.config.InvalidConfigurationException;
 import com.google.devtools.build.lib.view.config.MachineSpecification;
 
-import java.util.Arrays;
 import java.util.Collection;
 import java.util.HashMap;
 import java.util.HashSet;
@@ -177,22 +176,9 @@ public class BazelConfigurationCollection implements ConfigurationCollectionFact
       }
     }
 
-    // Note that this code depends on the invariant that the related
-    // configurations are identical if and only if the parent configurations are
-    // identical. The invariant is ensured by the short name computation in
-    // BuildConfiguration for the data and target configurations, and by the
-    // short name setting in ConfigurationFactory for the host and target
-    // configurations. If --nodistinct_host_configuration is set, then the host
-    // and target are identical, so that's also ok.
-    HashMap<BuildConfiguration, BuildConfiguration> parentBuilder = new HashMap<>();
-    for (BuildConfiguration parentConfig :
-        Arrays.asList(targetConfiguration, dataConfiguration, hostConfiguration)) {
-      parentBuilder.put(parentConfig, parentConfig);
-    }
-
     for (BuildConfiguration config : allConfigurations) {
-      Transitions outgoingTransitions = new BazelConfigurationTransitions(
-          config, parentBuilder.get(config), transitionBuilder.row(config));
+      Transitions outgoingTransitions =
+          new BazelConfigurationTransitions(config, transitionBuilder.row(config));
       // We allow host configurations to be shared between target configurations. In that case, the
       // transitions may already be set.
       // TODO(bazel-team): Check that the transitions are identical, or even better, change the

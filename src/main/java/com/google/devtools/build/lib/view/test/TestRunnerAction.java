@@ -69,7 +69,7 @@ public class TestRunnerAction extends ConfigurationAction
   private static final String GUID = "94857c93-f11c-4cbc-8c1b-e0a281633f9e";
 
   private final Artifact testLog;
-  private final Artifact testStatus;
+  private final Artifact testTargetResult;
   private final Path testWarningsPath;
   private final Path splitLogsPath;
   private final Path splitLogsDir;
@@ -109,7 +109,7 @@ public class TestRunnerAction extends ConfigurationAction
   TestRunnerAction(ActionOwner owner,
                    Iterable<Artifact> inputs,
                    Artifact testLog,
-                   Artifact testStatus,
+                   Artifact testTargetResult,
                    PathFragment coverageData,
                    PathFragment microCoverageData,
                    TestTargetProperties testProperties,
@@ -117,11 +117,11 @@ public class TestRunnerAction extends ConfigurationAction
                    int shardNum,
                    int runNumber,
                    BuildConfiguration configuration) {
-    super(owner, inputs, ImmutableList.of(testLog, testStatus), configuration);
+    super(owner, inputs, ImmutableList.of(testLog, testTargetResult), configuration);
     Preconditions.checkNotNull(testProperties);
     Preconditions.checkNotNull(executionSettings);
     this.testLog = testLog;
-    this.testStatus = testStatus;
+    this.testTargetResult = testTargetResult;
     this.coverageData = coverageData;
     this.microCoverageData = microCoverageData;
     this.shardNum = shardNum;
@@ -129,45 +129,37 @@ public class TestRunnerAction extends ConfigurationAction
     this.testProperties = testProperties;
     this.executionSettings = executionSettings;
 
+    Path dir = configuration.getExecRoot().getRelative(testTargetResult.getExecPath())
+        .getParentDirectory();
+    String base = FileSystemUtils.removeExtension(testTargetResult.getExecPath().getBaseName());
+
     int totalShards = executionSettings.getTotalShards();
     Preconditions.checkState((totalShards == 0 && shardNum == 0) ||
                                 (totalShards > 0 && 0 <= shardNum && shardNum < totalShards));
-    this.testExitSafe = getExecRootPath(configuration, testStatus.getExecPath(),
-                                        ".exited_prematurely");
+    this.testExitSafe = dir.getChild(base + ".exited_prematurely");
     // testShard Path should be set only if sharding is enabled.
     this.testShard = totalShards > 1
-        ? getExecRootPath(configuration, testStatus.getExecPath(), ".shard")
+        ? dir.getChild(base + ".shard")
         : null;
-    this.xmlOutputPath = getExecRootPath(configuration, testStatus.getExecPath(), ".xml");
-    this.testWarningsPath = getExecRootPath(configuration, testStatus.getExecPath(), ".warnings");
-    this.testStderr = getExecRootPath(configuration, testStatus.getExecPath(), ".err");
-    this.splitLogsDir = getExecRootPath(configuration, testStatus.getExecPath(), ".raw_splitlogs");
+    this.xmlOutputPath = dir.getChild(base + ".xml");
+    this.testWarningsPath = dir.getChild(base + ".warnings");
+    this.testStderr = dir.getChild(base + ".err");
+    this.splitLogsDir = dir.getChild(base + ".raw_splitlogs");
     // See note in {@link #getSplitLogsPath} on the choice of file name.
     this.splitLogsPath = splitLogsDir.getChild("test.splitlogs");
-    this.undeclaredOutputsDir = getExecRootPath(
-        configuration, testStatus.getExecPath(), ".outputs");
+    this.undeclaredOutputsDir = dir.getChild(base + ".outputs");
     this.undeclaredOutputsZipPath = undeclaredOutputsDir.getChild("outputs.zip");
-    this.undeclaredOutputsAnnotationsDir = getExecRootPath(
-        configuration, testStatus.getExecPath(), ".outputs_manifest");
+    this.undeclaredOutputsAnnotationsDir = dir.getChild(base + ".outputs_manifest");
     this.undeclaredOutputsManifestPath = undeclaredOutputsAnnotationsDir.getChild("MANIFEST");
     this.undeclaredOutputsAnnotationsPath = undeclaredOutputsAnnotationsDir.getChild("ANNOTATIONS");
-    this.testInfrastructureFailure = getExecRootPath(configuration, testStatus.getExecPath(),
-        ".infrastructure_failure");
-    this.testDiagnosticsDir = getExecRootPath(configuration, testStatus.getExecPath(),
-        ".test_diagnostics");
+    this.testInfrastructureFailure = dir.getChild(base + ".infrastructure_failure");
+    this.testDiagnosticsDir = dir.getChild(base + ".test_diagnostics");
     this.testDiagnostics = testDiagnosticsDir.getChild("test_diagnostics.recordio");
   }
 
   @Override
   public boolean shouldShowOutput(ErrorEventListener listener) {
     return true;
-  }
-
-  private static Path getExecRootPath(BuildConfiguration config,
-                                      PathFragment executionRootRelativePath,
-                                      String extension) {
-    return config.getExecRoot().getRelative(
-        FileSystemUtils.replaceExtension(executionRootRelativePath, extension));
   }
 
   /**
@@ -278,9 +270,10 @@ public class TestRunnerAction extends ConfigurationAction
     // Test will not be executed unconditionally - check whether test result exists and is
     // valid. If it is, method will return false and we will rely on the dependency checker
     // to make a decision about test execution.
-    if (testStatus.getPath().exists()) {
+    if (testTargetResult.getPath().exists()) {
       try {
-        TestTargetResult result = TestTargetResult.parseFrom(testStatus.getPath().getInputStream());
+        TestTargetResult result = TestTargetResult.parseFrom(
+            testTargetResult.getPath().getInputStream());
         // Only cache PASSED and FAILED test results obtained without multiple attempts.
         if (LEGAL_CACHED_TEST_STATUSES.contains(result.getStatus()) &&
             result.getAttemptsCount() == 0) {
@@ -436,8 +429,8 @@ public class TestRunnerAction extends ConfigurationAction
     return testStderr;
   }
 
-  public Artifact getTestStatus() {
-    return testStatus;
+  public Artifact getTestTargetResult() {
+    return testTargetResult;
   }
 
   public Path getTestWarningsPath() {

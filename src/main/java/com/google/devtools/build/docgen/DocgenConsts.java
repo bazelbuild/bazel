@@ -14,12 +14,10 @@
 package com.google.devtools.build.docgen;
 
 import com.google.common.collect.ImmutableMap;
-import com.google.common.collect.ImmutableSet;
 import com.google.devtools.build.lib.util.FileType;
 import com.google.devtools.build.lib.util.FileTypeSet;
 
 import java.util.Map;
-import java.util.Set;
 import java.util.regex.Pattern;
 
 /**
@@ -61,6 +59,7 @@ public class DocgenConsts {
    * Mark the attribute as deprecated in the Build Encyclopedia.
    */
   public static final String FLAG_DEPRECATED = "DEPRECATED";
+  public static final String FLAG_GENERIC_RULE = "GENERIC_RULE";
 
   public static final String HEADER_COMMENT =
       "<!DOCTYPE html>\n"
@@ -92,7 +91,7 @@ public class DocgenConsts {
    * i.e. <!-- #BLAZE_RULE(...)[DEPRECATED] -->
    */
   public static final Pattern BLAZE_RULE_START = Pattern.compile(
-      "^[\\s]*/\\*[\\s]*\\<!\\-\\-[\\s]*#BLAZE_RULE[\\s]*\\(([\\w\\s=,]+)\\)"
+      "^[\\s]*/\\*[\\s]*\\<!\\-\\-[\\s]*#BLAZE_RULE[\\s]*\\(([\\w\\s=,+/()-]+)\\)"
       + "(\\[[\\w,]+\\])?[\\s]*\\-\\-\\>");
   /**
    * i.e. <!-- #END_BLAZE_RULE -->
@@ -133,30 +132,6 @@ public class DocgenConsts {
       "^[\\s]*\\<!\\-\\-[\\s]*#END_BLAZE_RULE\\.ATTRIBUTE[\\s]*\\-\\-\\>[\\s]*\\*/");
 
   public static final Pattern BLAZE_RULE_FLAGS = Pattern.compile("^.*\\[(.*)\\].*$");
-
-  /**
-   * Rule families to be put under the language specific rules section in the
-   * Build Encyclopedia. Every rule family has to be present either here or
-   * in {@link DocgenConsts#OTHER_RULE_FAMILIES}.
-   */
-  public static final Set<String> LANGUAGE_SPECIFIC_RULE_FAMILIES = ImmutableSet.<String>of(
-      "SH");
-
-  /**
-   * Rule families to be put under the non language specific rules section
-   * in the Build Encyclopedia. Every rule family has to be present either here or in
-   * {@link DocgenConsts#LANGUAGE_SPECIFIC_RULE_FAMILIES}.
-   */
-  public static final Set<String> OTHER_RULE_FAMILIES = ImmutableSet.<String>of(
-      "GENERATE", "EXTRA_ACTIONS", "GENERAL");
-
-  public static final Map<String, String> RULE_FAMILY_NAMES = ImmutableMap
-      .<String, String>builder()
-      .put("SH", "Shell")
-      .put("GENERATE", "Generate source files")
-      .put("EXTRA_ACTIONS", "Extra Actions")
-      .put("GENERAL", "General")
-      .build();
 
   public static final Map<String, Integer> ATTRIBUTE_ORDERING = ImmutableMap
       .<String, Integer>builder()

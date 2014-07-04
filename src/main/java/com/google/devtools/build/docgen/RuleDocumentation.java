@@ -113,6 +113,17 @@ class RuleDocumentation implements Comparable<RuleDocumentation> {
   boolean hasFlag(String flag) {
     return flags.contains(flag);
   }
+  
+  /**
+   * Returns true if this rule applies to a specific programming language (e.g. java_library),
+   * returns false if it is a generic action (e.g. genrule, filegroup).
+   * 
+   * A rule is considered to be specific to a programming language by default. Generic rules have
+   * to be marked with the flag GENERIC_RULE in their #BLAZE_RULE definition.
+   */
+  boolean isLanguageSpecific() {
+    return !flags.contains(DocgenConsts.FLAG_GENERIC_RULE);
+  }
 
   /**
    * Adds a variable name - value pair to the documentation to be substituted. 

@@ -17,7 +17,7 @@ import com.google.devtools.build.lib.bazel.rules.BazelRuleClassProvider;
 
 /**
  * The main class for the docgen project. The class checks the input arguments
- * and uses the BuildEncyclopeidaPRocessor for the actual documentation generation.
+ * and uses the BuildEncyclopediaProcessor for the actual documentation generation.
  */
 public class BuildEncyclopediaGenerator {
 

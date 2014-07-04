@@ -60,7 +60,7 @@ public final class ShLibraryRule implements RuleDefinition {
   }
 }
 
-/*<!-- #BLAZE_RULE (NAME = sh_library, TYPE = LIBRARY, FAMILY = SH) -->
+/*<!-- #BLAZE_RULE (NAME = sh_library, TYPE = LIBRARY, FAMILY = Shell) -->
 
 ${ATTRIBUTE_SIGNATURE}
 

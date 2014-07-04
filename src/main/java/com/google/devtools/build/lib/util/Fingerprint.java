@@ -23,6 +23,7 @@ import com.google.devtools.build.lib.vfs.PathFragment;
 import java.security.MessageDigest;
 import java.security.NoSuchAlgorithmException;
 import java.util.Map;
+import java.util.UUID;
 
 /**
  * Simplified wrapper for MD5 message digests. See also
@@ -154,20 +155,31 @@ public class Fingerprint {
    *
    * @param input the long with which to update the digest
    */
-   public Fingerprint addLong(long input) {
-     md.update(new byte[]{
-         (byte) input,
-         (byte) (input >> 8),
-         (byte) (input >> 16),
-         (byte) (input >> 24),
-         (byte) (input >> 32),
-         (byte) (input >> 40),
-         (byte) (input >> 48),
-         (byte) (input >> 56),
-     });
+  public Fingerprint addLong(long input) {
+    md.update(new byte[]{
+        (byte) input,
+        (byte) (input >> 8),
+        (byte) (input >> 16),
+        (byte) (input >> 24),
+        (byte) (input >> 32),
+        (byte) (input >> 40),
+        (byte) (input >> 48),
+        (byte) (input >> 56),
+    });
 
-     return this;
-   }
+    return this;
+  }
+
+  /**
+   * Updates the digest with a UUID.
+   *
+   * @param uuid the UUID with which to update the digest. Must not be null.
+   */
+  public Fingerprint addUUID(UUID uuid) {
+    addLong(uuid.getLeastSignificantBits());
+    addLong(uuid.getMostSignificantBits());
+    return this;
+  }
 
   /**
    * Updates the digest with a String using its length plus its UTF8 encoded bytes.

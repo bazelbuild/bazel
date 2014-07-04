@@ -142,7 +142,7 @@ public class SourceFileReader {
           throws BuildEncyclopediaDocException {
         checkDocValidity();
         // Start of a new rule
-        String[] metaData = matcher.group(1).replaceAll("[\\s]", "").split(",");
+        String[] metaData = matcher.group(1).split(",");
 
         ruleName = readMetaData(metaData, DocgenConsts.META_KEY_NAME);
         ruleType = readMetaData(metaData, DocgenConsts.META_KEY_TYPE);
@@ -244,8 +244,13 @@ public class SourceFileReader {
 
   private String readMetaData(String[] metaData, String metaKey) {
     for (String metaDataItem : metaData) {
-      if (metaDataItem.startsWith(metaKey + "=")) {
-        return metaDataItem.substring(metaKey.length() + 1);
+      String[] metaDataItemParts = metaDataItem.split("=", 2);     
+      if (metaDataItemParts.length != 2) {
+        return null;
+      }
+      
+      if (metaDataItemParts[0].trim().equals(metaKey)) {
+        return metaDataItemParts[1].trim();
       }
     }
     return null;

@@ -82,4 +82,3 @@ message SpawnInfo {
   repeated string input_file = 4;
   repeated string output_file = 5;
 }
-

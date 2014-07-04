@@ -167,7 +167,7 @@ public class TestResult {
    */
   public static TestResult createCached(TestRunnerAction testAction) throws IOException {
     return new TestResult(testAction,
-        TestTargetResult.parseFrom(testAction.getTestStatus().getPath().getInputStream()),
+        TestTargetResult.parseFrom(testAction.getTestTargetResult().getPath().getInputStream()),
         true);
   }
 
@@ -394,7 +394,7 @@ public class TestResult {
    * @return The test status artifact.
    */
   public Artifact getTestStatusArtifact() {
-    return testAction.getTestStatus();
+    return testAction.getTestTargetResult();
   }
 
   /**

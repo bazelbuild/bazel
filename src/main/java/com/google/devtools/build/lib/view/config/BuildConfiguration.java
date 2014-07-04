@@ -898,19 +898,6 @@ public final class BuildConfiguration {
   }
 
   /**
-   * Returns the parent configuration of a related configuration. The parent configuration
-   * of a main configuration (target, data, host) is  the main configuration itself.
-   *
-   * <p>If two related configurations of two different main configurations are
-   * indistinguishable, an arbitrary potential parent configuration is returned.
-   *
-   * @return the parent configuration or {@code null} if none can be found
-   */
-  public BuildConfiguration getParentConfiguration() {
-    return transitions.getParentConfiguration();
-  }
-
-  /**
    * Returns a multimap of all labels that should be implicitly loaded from labels that were
    * specified as options, keyed by the name to be displayed to the user if something goes wrong.
    * The returned set only contains labels that were derived from command-line options; the
