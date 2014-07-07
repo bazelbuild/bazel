@@ -252,7 +252,9 @@ public final class TestActionBuilder {
             + runSuffix;
         Artifact testLog = env.getDerivedArtifact(
             targetName.getChild("test" + suffix + ".log"), root);
-        Artifact testStatus = env.getDerivedArtifact(
+        Artifact cacheStatus = env.getDerivedArtifact(
+            targetName.getChild("test" + suffix + ".cache_status"), root);
+        Artifact testTargetResult = env.getDerivedArtifact(
             targetName.getChild("test" + suffix + ".status"), root);
 
         PathFragment coverageData = collectCodeCoverage
@@ -267,10 +269,10 @@ public final class TestActionBuilder {
 
         env.registerAction(new TestRunnerAction(
             ruleContext.getActionOwner(), inputs,
-            testLog, testStatus, coverageData, microCoverageData,
+            testLog, cacheStatus, testTargetResult, coverageData, microCoverageData,
             testProperties, executionSettings,
             shard, run, config));
-        results.add(testStatus);
+        results.add(testTargetResult);
       }
     }
     return ImmutableList.copyOf(results);

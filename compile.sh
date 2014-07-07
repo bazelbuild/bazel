@@ -49,6 +49,7 @@ PROTO_FILES=(
 src/main/protobuf/build.proto
 src/main/protobuf/extra_actions.proto
 src/main/protobuf/testing_api.proto
+src/main/protobuf/test_status.proto
 )
 
 # TODO: CC target architecture needs to match JAVA_HOME.

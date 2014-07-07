@@ -35,6 +35,7 @@ public final class ExtraActionArtifactsProvider implements TransitiveInfoProvide
   /**
    * The set of extra artifacts provided by a single configured target.
    */
+  @Immutable
   public static final class ExtraArtifactSet {
     private final Label label;
     private final ImmutableList<Artifact> artifacts;

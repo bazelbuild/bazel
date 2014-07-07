@@ -48,6 +48,7 @@ import com.google.devtools.build.lib.view.Runfiles;
 import com.google.devtools.build.lib.view.RunfilesProvider;
 import com.google.devtools.build.lib.view.TransitiveInfoCollection;
 import com.google.devtools.build.lib.view.TransitiveInfoProvider;
+import com.google.devtools.build.lib.view.actions.FileWriteAction;
 import com.google.devtools.build.lib.view.actions.SpawnAction;
 
 import java.util.List;
@@ -174,6 +175,30 @@ public class SkylarkRuleImplementationFunctions {
         builder.useDefaultShellEnvironment();
       }
       return builder.build();
+    }
+  };
+
+  // TODO(bazel-team): improve this method to be more memory friendly
+  @SkylarkBuiltin(name = "create_file_action",
+      doc = "Creates a file write action and registers it with the environment.",
+      mandatoryParams = {
+      @Param(name = "output", type = Artifact.class, doc = "the output file"),
+      @Param(name = "executable", type = Boolean.class,
+             doc = "whether to change the output file to an executable or not"),
+      @Param(name = "content", type = String.class, doc = "the contents of the file")})
+  private final SkylarkFunction createFileWriteAction =
+    new SimpleSkylarkFunction("create_file_action") {
+
+    @Override
+    public Object call(Map<String, Object> params, Location loc) throws EvalException,
+        ConversionException {
+      FileWriteAction action = new FileWriteAction(
+          ruleContext.getRuleContext().getActionOwner(),
+          cast(params.get("output"), Artifact.class, "output", loc),
+          cast(params.get("content"), String.class, "content", loc),
+          cast(params.get("executable"), Boolean.class, "executable", loc));
+      ruleContext.getRuleContext().registerAction(action);
+      return action;
     }
   };
 

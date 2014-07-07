@@ -66,6 +66,7 @@ public final class RuleConfiguredTargetBuilder {
   public RuleConfiguredTargetBuilder(RuleContext ruleContext) {
     this.ruleContext = ruleContext;
     add(LicensesProvider.class, initializeLicensesProvider());
+    add(VisibilityProvider.class, new VisibilityProviderImpl(ruleContext.getVisibility()));
   }
 
   /**

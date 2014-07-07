@@ -43,14 +43,16 @@ import com.google.devtools.build.lib.vfs.PathFragment;
 import com.google.devtools.build.lib.view.actions.ConfigurationAction;
 import com.google.devtools.build.lib.view.config.BuildConfiguration;
 import com.google.devtools.build.lib.view.config.RunUnder;
+import com.google.devtools.build.lib.view.test.TestStatus.CacheStatus;
 import com.google.devtools.common.options.TriState;
-import com.google.testing.proto.TestStatus;
-import com.google.testing.proto.TestTargetResult;
 
 import java.io.IOException;
+import java.io.InputStream;
+import java.io.OutputStream;
 import java.util.Collection;
-import java.util.EnumSet;
 import java.util.logging.Level;
+
+import javax.annotation.Nullable;
 
 /**
  * An Action representing a test with the associated environment (runfiles,
@@ -61,14 +63,11 @@ import java.util.logging.Level;
 public class TestRunnerAction extends ConfigurationAction
     implements NotifyOnActionCacheHit, SuppressNoBuildAttemptError, MayStream {
 
-  // Test status values that allowed to be cached. Blaze will re-run test with any
-  // other status value.
-  private static final EnumSet<TestStatus> LEGAL_CACHED_TEST_STATUSES =
-      EnumSet.of(TestStatus.PASSED, TestStatus.FAILED);
 
   private static final String GUID = "94857c93-f11c-4cbc-8c1b-e0a281633f9e";
 
   private final Artifact testLog;
+  private final Artifact cacheStatus;
   private final Artifact testTargetResult;
   private final Path testWarningsPath;
   private final Path splitLogsPath;
@@ -107,20 +106,23 @@ public class TestRunnerAction extends ConfigurationAction
    * @param runNumber test run number
    */
   TestRunnerAction(ActionOwner owner,
-                   Iterable<Artifact> inputs,
-                   Artifact testLog,
-                   Artifact testTargetResult,
-                   PathFragment coverageData,
-                   PathFragment microCoverageData,
-                   TestTargetProperties testProperties,
-                   TestTargetExecutionSettings executionSettings,
-                   int shardNum,
-                   int runNumber,
-                   BuildConfiguration configuration) {
-    super(owner, inputs, ImmutableList.of(testLog, testTargetResult), configuration);
+      Iterable<Artifact> inputs,
+      Artifact testLog,
+      Artifact cacheStatus,
+      Artifact testTargetResult,
+      PathFragment coverageData,
+      PathFragment microCoverageData,
+      TestTargetProperties testProperties,
+      TestTargetExecutionSettings executionSettings,
+      int shardNum,
+      int runNumber,
+      BuildConfiguration configuration) {
+    super(owner, inputs,
+        ImmutableList.of(testLog, cacheStatus, testTargetResult), configuration);
     Preconditions.checkNotNull(testProperties);
     Preconditions.checkNotNull(executionSettings);
     this.testLog = testLog;
+    this.cacheStatus = cacheStatus;
     this.testTargetResult = testTargetResult;
     this.coverageData = coverageData;
     this.microCoverageData = microCoverageData;
@@ -129,9 +131,9 @@ public class TestRunnerAction extends ConfigurationAction
     this.testProperties = testProperties;
     this.executionSettings = executionSettings;
 
-    Path dir = configuration.getExecRoot().getRelative(testTargetResult.getExecPath())
+    Path dir = configuration.getExecRoot().getRelative(cacheStatus.getExecPath())
         .getParentDirectory();
-    String base = FileSystemUtils.removeExtension(testTargetResult.getExecPath().getBaseName());
+    String base = FileSystemUtils.removeExtension(cacheStatus.getExecPath().getBaseName());
 
     int totalShards = executionSettings.getTotalShards();
     Preconditions.checkState((totalShards == 0 && shardNum == 0) ||
@@ -260,6 +262,32 @@ public class TestRunnerAction extends ConfigurationAction
     return true;
   }
 
+  /**
+   * Saves cache status to disk.
+   */
+  public void saveCacheStatus(boolean cachable, boolean passed) throws IOException {
+    CacheStatus.Builder status = CacheStatus.newBuilder();
+    status.setCachable(cachable);
+    status.setTestPassed(passed);
+
+    try (OutputStream out = cacheStatus.getPath().getOutputStream()) {
+      status.build().writeTo(out);
+    }
+  }
+
+  /**
+   * Returns the cache from disk, or null if there is an error.
+   */
+  @Nullable
+  private CacheStatus readCacheStatus() {
+    try (InputStream in = cacheStatus.getPath().getInputStream()) {
+      return CacheStatus.parseFrom(in);
+    } catch (IOException expected) {
+
+    }
+    return null;
+  }
+
   private boolean updateExecuteUnconditionallyFromTestStatus() {
     if (configuration.cacheTestResults() == TriState.NO || testProperties.isExternal()
         || (configuration.cacheTestResults() == TriState.AUTO
@@ -270,28 +298,19 @@ public class TestRunnerAction extends ConfigurationAction
     // Test will not be executed unconditionally - check whether test result exists and is
     // valid. If it is, method will return false and we will rely on the dependency checker
     // to make a decision about test execution.
-    if (testTargetResult.getPath().exists()) {
-      try {
-        TestTargetResult result = TestTargetResult.parseFrom(
-            testTargetResult.getPath().getInputStream());
-        // Only cache PASSED and FAILED test results obtained without multiple attempts.
-        if (LEGAL_CACHED_TEST_STATUSES.contains(result.getStatus()) &&
-            result.getAttemptsCount() == 0) {
-          // --cacheTestResults=auto only caches passing tests
-          return (configuration.cacheTestResults() == TriState.AUTO
-              && result.getStatus() != TestStatus.PASSED);
-        } else {
-          return true;
-        }
-      } catch (IOException e) {
-        // Do nothing. Dependency checker will invalidate action anyway with proper explanation.
-        return false;
+    CacheStatus status = readCacheStatus();
+    if (status != null) {
+      if (!status.getCachable()) {
+        return true;
       }
-    } else {
-      // Dependency checker will invalidate action if old test.status does not
-      // exist.
-      return false;
+
+      return (configuration.cacheTestResults() == TriState.AUTO
+          && !status.getTestPassed());
     }
+
+    // CacheStatus is an artifact, so if it does not exist, the dependency checker will rebuild
+    // it. We can't return "true" here, as it also signals to not accept cached remote results.
+    return false;
   }
 
   /**

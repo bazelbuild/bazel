@@ -237,7 +237,8 @@ public class BuildRequest implements OptionsClassProvider {
             allowMultiple = true,
             defaultValue = "",
             category = "semantics",
-            help = "Additional target CPUs.")
+            help = "This flag allows specifying multiple target CPUs. If this is specified, "
+                 + "the --cpu option is ignored.")
     public List<String> multiCpus;
   }
 

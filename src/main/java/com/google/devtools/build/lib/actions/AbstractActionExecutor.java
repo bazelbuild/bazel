@@ -119,15 +119,13 @@ public abstract class AbstractActionExecutor {
             /* Fall through to plan B. */
           }
 
-          // Possibly one of the ancestors is a regular file.  In that case, we unlink all the
-          // ancestors until we reach a directory, then try again.  This handles the case where
-          // a file becomes a directory either from one build to another, or within a single
-          // build.
+          // Possibly some direct ancestors are not directories.  In that case, we unlink all the
+          // ancestors until we reach a directory, then try again. This handles the case where a
+          // file becomes a directory, either from one build to another, or within a single build.
           try {
             for (Path p = outputDir; !p.isDirectory(); p = p.getParentDirectory()) {
-              if (p.isFile()) {
-                p.delete(); // throws IOException
-              }
+              // p may be a file or dangling symlink.
+              p.delete(); // throws IOException
             }
             createDirectoryAndParents(outputDir);
           } catch (IOException e) {

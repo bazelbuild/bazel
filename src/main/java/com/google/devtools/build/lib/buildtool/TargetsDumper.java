@@ -24,7 +24,6 @@ import com.google.devtools.build.lib.packages.InputFile;
 import com.google.devtools.build.lib.packages.NoSuchThingException;
 import com.google.devtools.build.lib.packages.Target;
 import com.google.devtools.build.lib.pkgcache.LoadedPackageProvider;
-import com.google.devtools.build.lib.view.RuleConfiguredTarget;
 import com.google.devtools.common.options.EnumConverter;
 
 import java.io.PrintStream;
@@ -184,22 +183,20 @@ class TargetsDumper implements Dumper {
 
     @Override
     protected boolean shouldVisit(Action action) {
-      // There is one more implementation of ActionOwner (SystemActionOwner), which we can safely
-      // ignore here.
-      if (action.getOwner() instanceof RuleConfiguredTarget) {
-        RuleConfiguredTarget ruleConfiguredTarget =
-            (RuleConfiguredTarget) action.getOwner();
-        if (dumpHostDeps || !ruleConfiguredTarget.getConfiguration().isHostConfiguration()) {
-          return true;
-        }
+      if (dumpHostDeps || !"host".equals(action.getOwner().getConfigurationName())) {
+        return true;
       }
       return false;
     }
 
     @Override
     protected void visitAction(Action action) {
-      if (action.getOwner() instanceof RuleConfiguredTarget) {
-        targets.add(((RuleConfiguredTarget) action.getOwner()).getTarget());
+      if (action.getOwner() != null && action.getOwner().getLabel() != null) {
+        try {
+          targets.add(packageCache.getLoadedTarget(action.getOwner().getLabel()));
+        } catch (NoSuchThingException e) {
+          throw new IllegalStateException();
+        }
       }
     }
 

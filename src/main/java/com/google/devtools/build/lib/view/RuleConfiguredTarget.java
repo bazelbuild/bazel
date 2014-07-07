@@ -17,10 +17,8 @@ import com.google.common.base.Preconditions;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.Maps;
-import com.google.devtools.build.lib.actions.ActionOwner;
 import com.google.devtools.build.lib.actions.Artifact;
 import com.google.devtools.build.lib.concurrent.ThreadSafety.Immutable;
-import com.google.devtools.build.lib.events.Location;
 import com.google.devtools.build.lib.packages.OutputFile;
 import com.google.devtools.build.lib.packages.Rule;
 import com.google.devtools.build.lib.syntax.Label;
@@ -31,14 +29,12 @@ import com.google.devtools.build.lib.view.config.RunUnder;
 
 import java.util.Map;
 
-//TODO(bazel-team): Remove ActionOwner from here; use ruleContext.getActionOwner() instead.
 /**
  * A generic implementation of RuleConfiguredTarget. Do not use directly. Use {@link
  * RuleConfiguredTargetBuilder} instead.
  */
 @SkylarkBuiltin(name = "", doc = "")
-public final class RuleConfiguredTarget extends AbstractConfiguredTarget implements
-    ActionOwner {
+public final class RuleConfiguredTarget extends AbstractConfiguredTarget {
 
   /**
    * The configuration transition for an attribute through which a prerequisite
@@ -62,10 +58,6 @@ public final class RuleConfiguredTarget extends AbstractConfiguredTarget impleme
     // We don't use ImmutableMap.Builder here to allow augmenting the initial list of 'default'
     // providers by passing them in.
     Map<Class<? extends TransitiveInfoProvider>, Object> providerBuilder = Maps.newHashMap();
-    // Eventually, we want to remove these interfaces from RuleConfiguredTarget.
-    providerBuilder.put(VisibilityProvider.class, this);
-    providerBuilder.put(LicensesProvider.class, this);
-    providerBuilder.put(ExtraActionArtifactsProvider.class, this);
     for (TransitiveInfo info : infos) {
       providerBuilder.put(info.key, info.value);
     }
@@ -128,7 +120,7 @@ public final class RuleConfiguredTarget extends AbstractConfiguredTarget impleme
     }
   }
 
-  public boolean isSimpleSkylarkObjectImmutable(Object object) {
+  private static boolean isSimpleSkylarkObjectImmutable(Object object) {
     if (object instanceof String
         || object instanceof Integer
         || object instanceof Label
@@ -162,38 +154,6 @@ public final class RuleConfiguredTarget extends AbstractConfiguredTarget impleme
 
   public ImmutableList<Artifact> getMandatoryStampFiles() {
     return mandatoryStampFiles;
-  }
-
-  // ActionOwner functions
-
-  @Override
-  public final String getTargetKind() {
-    return getTarget().getTargetKind();
-  }
-
-  @Override
-  public final String getConfigurationName() {
-    return getConfiguration().getShortName();
-  }
-
-  @Override
-  public final String getConfigurationMnemonic() {
-    return getConfiguration().getMnemonic();
-  }
-
-  @Override
-  public final String getConfigurationShortCacheKey() {
-    return getConfiguration().shortCacheKey();
-  }
-
-  @Override
-  public final Location getLocation() {
-    return getTarget().getLocation();
-  }
-
-  @Override
-  public final String getAdditionalProgressInfo() {
-    return getConfiguration().isHostConfiguration() ? "for host" : null;
   }
 
   @Override
