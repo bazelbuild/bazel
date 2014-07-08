@@ -20,6 +20,7 @@
 #include "blaze_exit_code.h"
 #include "blaze_util_platform.h"
 #include "blaze_util.h"
+#include "util/file.h"
 #include "util/strings.h"
 
 namespace blaze {
@@ -121,6 +122,25 @@ string GetProcessCWD(int pid) {
 
 bool IsSharedLibrary(string filename) {
   return blaze_util::ends_with(filename, ".so");
+}
+
+string GetDefaultHostJavabase() {
+  // which javac
+  string javac_dir = blaze_util::Which("javac");
+  if (javac_dir.empty()) {
+    die(blaze_exit_code::LOCAL_ENVIRONMENTAL_ERROR, "Could not find javac");
+  }
+
+  // Resolve all symlinks.
+  char resolved_path[PATH_MAX];
+  if (realpath(javac_dir.c_str(), resolved_path) == NULL) {
+    pdie(blaze_exit_code::LOCAL_ENVIRONMENTAL_ERROR,
+        "Could not resolve javac directory");
+  }
+  javac_dir = resolved_path;
+
+  // dirname dirname
+  return blaze_util::Dirname(blaze_util::Dirname(javac_dir));
 }
 
 }  // namespace blaze

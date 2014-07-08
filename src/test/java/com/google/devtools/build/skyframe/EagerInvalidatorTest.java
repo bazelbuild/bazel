@@ -125,7 +125,7 @@ public class EagerInvalidatorTest {
     Reporter reporter = new Reporter();
     ParallelEvaluator evaluator = new ParallelEvaluator(graph, graphVersion++,
         ImmutableMap.of(GraphTester.NODE_TYPE, tester.createDelegatingNodeBuilder()),
-        reporter, keepGoing);
+        reporter, new AutoUpdatingGraph.EmittedEventState(), keepGoing, 200, null);
     return evaluator.eval(ImmutableList.copyOf(keys));
   }
 

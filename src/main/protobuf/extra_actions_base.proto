@@ -18,11 +18,17 @@ syntax = "proto2";
 
 package blaze;
 
-option java_package = "com.google.devtools.build.lib.actions";
+option java_multiple_files = true;
+option java_package = "com.google.devtools.build.lib.actions.extra";
 
 enum ActionType {
   NONE = 0;
+  JAVAC = 1;
+  CPP_COMPILE = 2;
+  CPP_LINK = 3;
   SPAWN = 4;
+  JAVASCRIPT = 5;
+  PYTHON = 6;
 }
 
 // A list of extra actions and metadata for the print_action command.

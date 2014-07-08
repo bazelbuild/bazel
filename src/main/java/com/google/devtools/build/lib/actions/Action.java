@@ -14,7 +14,7 @@
 
 package com.google.devtools.build.lib.actions;
 
-import com.google.devtools.build.lib.actions.ExtraActions.ExtraActionInfo;
+import com.google.devtools.build.lib.actions.extra.ExtraActionInfo;
 import com.google.devtools.build.lib.concurrent.ThreadSafety.ConditionallyThreadCompatible;
 import com.google.devtools.build.lib.events.ErrorEventListener;
 import com.google.devtools.build.lib.pkgcache.PackageUpToDateChecker;

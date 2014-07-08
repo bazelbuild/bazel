@@ -13,7 +13,6 @@
 // limitations under the License.
 package com.google.devtools.build.skyframe;
 
-import com.google.common.annotations.VisibleForTesting;
 import com.google.common.base.Function;
 import com.google.common.base.Preconditions;
 import com.google.common.base.Predicate;
@@ -110,15 +109,6 @@ final class ParallelEvaluator implements Evaluator {
   @Nullable private final NodeProgressReceiver progressReceiver;
 
   private static final Interner<NodeKey> KEY_CANONICALIZER =  Interners.newWeakInterner();
-
-  @VisibleForTesting
-  ParallelEvaluator(ProcessableGraph graph, long graphVersion,
-                    ImmutableMap<? extends NodeType, ? extends NodeBuilder> nodeBuilders,
-                    final ErrorEventListener reporter,
-                    boolean keepGoing) {
-    this(graph, graphVersion, nodeBuilders, reporter, new AutoUpdatingGraph.EmittedEventState(),
-        keepGoing, AutoUpdatingGraph.DEFAULT_THREAD_COUNT, null);
-  }
 
   ParallelEvaluator(ProcessableGraph graph, long graphVersion,
                     ImmutableMap<? extends NodeType, ? extends NodeBuilder> nodeBuilders,

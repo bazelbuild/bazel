@@ -68,12 +68,12 @@ public final class ActionListener implements RuleConfiguredTargetFactory {
     List<ExtraActionSpec> extraActions = new ArrayList<>();
     for (TransitiveInfoCollection prerequisite :
         ruleContext.getPrerequisites("extra_actions", Mode.TARGET)) {
-      ExtraActionProvider provider = prerequisite.getProvider(ExtraActionProvider.class);
-      if (provider == null) {
+      ExtraActionSpec spec = prerequisite.getProvider(ExtraActionSpec.class);
+      if (spec == null) {
         ruleContext.attributeError("extra_actions", String.format("target %s is not an "
             + "extra_action rule", prerequisite.getLabel().toString()));
       } else {
-        extraActions.add(provider.getSpec());
+        extraActions.add(spec);
       }
     }
     if (extraActions.size() == 0) {

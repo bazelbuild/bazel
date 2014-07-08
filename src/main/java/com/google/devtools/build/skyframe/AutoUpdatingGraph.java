@@ -36,12 +36,13 @@ import javax.annotation.Nullable;
  */
 public interface AutoUpdatingGraph {
 
-  // TODO(bazel-team): Figure out how to handle node builders that block internally. Blocking
-  // operations may need to be handled in another (bigger?) thread pool. Also, we should detect
-  // the number of cores and use that as the thread-pool size for CPU-bound operations.
-  // I just bumped this to 200 to get reasonable execution phase performance; that may cause
-  // significant overhead for CPU-bound processes (i.e. analysis). [skyframe-analysis]
-  public static int DEFAULT_THREAD_COUNT = 200;
+  /**
+   * Computes the transitive closure of a given set of nodes. See
+   * {@link EagerInvalidator#invalidate}.
+   */
+  <T extends Node> UpdateResult<T> update(Iterable<NodeKey> roots, boolean keepGoing,
+                                          int numThreads, ErrorEventListener reporter)
+      throws InterruptedException;
 
   /**
    * Ensures that after the next completed {@link #update} call the current values of any node
@@ -70,24 +71,6 @@ public interface AutoUpdatingGraph {
    * <p>To delete all dirty nodes, you can specify 0 for the limit.
    */
   void deleteDirty(final long versionAgeLimit);
-
-  /**
-   * Injects the given nodes into the graph before the next {@link #update}.
-   *
-   * <p>If there are existing nodes with the same keys, they will be overwritten with the new values
-   * and their transitive closure will be invalidated.
-   *
-   * <p>Overwriting nodes which have known dependencies is not allowed in order to prevent
-   * conflation of injected nodes and derived nodes.
-   */
-  void inject(Map<NodeKey, ? extends Node> nodes);
-
-  /**
-   * Computes the transitive closure of a given set of nodes. See
-   * {@link EagerInvalidator#invalidate}.
-   */
-  <T extends Node> UpdateResult<T> update(Iterable<NodeKey> roots, boolean keepGoing,
-      int numThreads, ErrorEventListener reporter) throws InterruptedException;
 
   /**
    * Returns the nodes in the graph.

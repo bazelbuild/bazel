@@ -61,6 +61,17 @@ public final class TopLevelArtifactHelper {
       allArtifacts.addAll(tempsProvider.getTemps());
     }
 
+    TopLevelArtifactProvider topLevelArtifactProvider =
+        target.getProvider(TopLevelArtifactProvider.class);
+    if (topLevelArtifactProvider != null) {
+      for (String outputGroup : options.outputGroups()) {
+        NestedSet<Artifact> results = topLevelArtifactProvider.getOutputGroup(outputGroup);
+        if (results != null) {
+          allArtifacts.addTransitive(results);
+        }
+      }
+    }
+
     if (options.compileOnly()) {
       FilesToCompileProvider provider = target.getProvider(FilesToCompileProvider.class);
       if (provider != null) {

@@ -134,6 +134,15 @@ public final class SkyframeExecutor {
   private final BlazeDirectories directories;
   @Nullable
   private BatchStat batchStatter;
+
+  // TODO(bazel-team): Figure out how to handle node builders that block internally. Blocking
+  // operations may need to be handled in another (bigger?) thread pool. Also, we should detect
+  // the number of cores and use that as the thread-pool size for CPU-bound operations.
+  // I just bumped this to 200 to get reasonable execution phase performance; that may cause
+  // significant overhead for CPU-bound processes (i.e. analysis). [skyframe-analysis]
+  @VisibleForTesting
+  public static final int DEFAULT_THREAD_COUNT = 200;
+
   private static final Logger LOG = Logger.getLogger(SkyframeExecutor.class.getName());
 
   // Stores Packages between reruns of the PackageNodeBuilder (because of missing dependencies,
@@ -505,7 +514,7 @@ public final class SkyframeExecutor {
    */
   @VisibleForTesting
   public void setupDefaultPackage(String defaultsPackageContents) {
-    BuildVariableNode.DEFAULTS_PACKAGE_CONTENTS.set(autoUpdatingGraph, defaultsPackageContents);
+    BuildVariableNode.DEFAULTS_PACKAGE_CONTENTS.set(recordingDiffer, defaultsPackageContents);
   }
 
   /**
@@ -513,11 +522,11 @@ public final class SkyframeExecutor {
    */
   public void injectTopLevelContext(TopLevelArtifactContext options) {
     Preconditions.checkState(skyframeBuild(), "Only inject top-level context in Skyframe full");
-    BuildVariableNode.TOP_LEVEL_CONTEXT.set(autoUpdatingGraph, options);
+    BuildVariableNode.TOP_LEVEL_CONTEXT.set(recordingDiffer, options);
   }
 
   public void injectWorkspaceStatusData() {
-    BuildVariableNode.WORKSPACE_STATUS_KEY.set(autoUpdatingGraph,
+    BuildVariableNode.WORKSPACE_STATUS_KEY.set(recordingDiffer,
         workspaceStatusActionFactory.createWorkspaceStatusAction(
             artifactFactory.get(), WorkspaceStatusNode.ARTIFACT_OWNER, buildId));
   }
@@ -526,7 +535,7 @@ public final class SkyframeExecutor {
    * Sets the default visibility.
    */
   private void setDefaultVisibility(RuleVisibility defaultVisibility) {
-    BuildVariableNode.DEFAULT_VISIBILITY.set(autoUpdatingGraph, defaultVisibility);
+    BuildVariableNode.DEFAULT_VISIBILITY.set(recordingDiffer, defaultVisibility);
   }
 
   /**
@@ -540,7 +549,7 @@ public final class SkyframeExecutor {
     for (BuildInfoFactory factory : buildInfoFactories) {
       factoryMapBuilder.put(factory.getKey(), factory);
     }
-    BuildVariableNode.BUILD_INFO_FACTORIES.set(autoUpdatingGraph, factoryMapBuilder.build());
+    BuildVariableNode.BUILD_INFO_FACTORIES.set(recordingDiffer, factoryMapBuilder.build());
   }
 
   private void setShowLoadingProgress(boolean showLoadingProgressValue) {
@@ -549,7 +558,7 @@ public final class SkyframeExecutor {
 
   @VisibleForTesting
   public void setCommandId(UUID commandId) {
-    BuildVariableNode.BUILD_ID.set(autoUpdatingGraph, commandId);
+    BuildVariableNode.BUILD_ID.set(recordingDiffer, commandId);
     buildId.val = commandId;
   }
 
@@ -719,7 +728,7 @@ public final class SkyframeExecutor {
     // have actually been invalidated (recall that invalidation happens at the beginning of the
     // next update call), because checking those is a waste of time.
     autoUpdatingGraph.update(ImmutableList.<NodeKey>of(), false,
-        AutoUpdatingGraph.DEFAULT_THREAD_COUNT, reporter);
+        DEFAULT_THREAD_COUNT, reporter);
     FilesystemNodeChecker fsnc = new FilesystemNodeChecker(autoUpdatingGraph, tsgm);
     // We need to manually check for changes to known files. This entails finding all dirty file
     // system nodes under package roots for which we don't have diff information. If at least
@@ -904,13 +913,13 @@ public final class SkyframeExecutor {
     // TestEnvironmentVariables and BlazeDirectories. There is a problem only with
     // TestEnvironmentVariables because BuildConfigurationKey stores client environment variables
     // and we don't want to rebuild everything when any variable changes.
-    BuildVariableNode.BUILD_OPTIONS.set(autoUpdatingGraph, buildOptions);
-    BuildVariableNode.TEST_ENVIRONMENT_VARIABLES.set(autoUpdatingGraph, testEnv);
-    BuildVariableNode.BLAZE_DIRECTORIES.set(autoUpdatingGraph, configurationKey.getDirectories());
+    BuildVariableNode.BUILD_OPTIONS.set(recordingDiffer, buildOptions);
+    BuildVariableNode.TEST_ENVIRONMENT_VARIABLES.set(recordingDiffer, testEnv);
+    BuildVariableNode.BLAZE_DIRECTORIES.set(recordingDiffer, configurationKey.getDirectories());
 
     UpdateResult<ConfigurationCollectionNode> result =
         autoUpdatingGraph.update(Arrays.asList(ConfigurationCollectionNode.CONFIGURATION_KEY),
-        keepGoing, AutoUpdatingGraph.DEFAULT_THREAD_COUNT, errorEventListener);
+        keepGoing, DEFAULT_THREAD_COUNT, errorEventListener);
     if (result.hasError()) {
       Throwable e = result.getError(ConfigurationCollectionNode.CONFIGURATION_KEY).getException();
       Throwables.propagateIfInstanceOf(e, InvalidConfigurationException.class);
@@ -979,7 +988,7 @@ public final class SkyframeExecutor {
       boolean keepGoing, ErrorEventListener listener) throws InterruptedException {
     checkActive();
     return autoUpdatingGraph.update(patternNodeKeys, keepGoing,
-        AutoUpdatingGraph.DEFAULT_THREAD_COUNT, listener);
+        DEFAULT_THREAD_COUNT, listener);
   }
 
   /**
@@ -1006,7 +1015,7 @@ public final class SkyframeExecutor {
             try {
               skyframeBuildView.enableAnalysis(true);
               return autoUpdatingGraph.update(nodeKeys, false,
-                  AutoUpdatingGraph.DEFAULT_THREAD_COUNT, errorEventListener);
+                  DEFAULT_THREAD_COUNT, errorEventListener);
             } finally {
               skyframeBuildView.enableAnalysis(false);
             }
@@ -1119,7 +1128,7 @@ public final class SkyframeExecutor {
         nodeNames.add(TransitiveTargetNode.key(label));
       }
 
-      return autoUpdatingGraph.update(nodeNames, keepGoing, AutoUpdatingGraph.DEFAULT_THREAD_COUNT,
+      return autoUpdatingGraph.update(nodeNames, keepGoing, DEFAULT_THREAD_COUNT,
           errorEventListener);
     }
 
@@ -1208,7 +1217,7 @@ public final class SkyframeExecutor {
         NodeKey key = PackageNode.key(new PathFragment(pkgName));
         UpdateResult<PackageNode> result =
             autoUpdatingGraph.update(ImmutableList.of(key), false,
-                AutoUpdatingGraph.DEFAULT_THREAD_COUNT, listener);
+                DEFAULT_THREAD_COUNT, listener);
         if (result.hasError()) {
           if (!Iterables.isEmpty(result.getError().getCycleInfo())) {
             reportCycles(result.getError().getCycleInfo(), key);
@@ -1430,7 +1439,7 @@ public final class SkyframeExecutor {
       }
       nodes.put(ArtifactNode.key(artifact, /*isMandatory=*/true), fileArtifactNode);
     }
-    autoUpdatingGraph.inject(nodes);
+    recordingDiffer.inject(nodes);
     needToInjectEmbeddedArtifacts = false;
   }
 

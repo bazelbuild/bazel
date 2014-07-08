@@ -186,7 +186,8 @@ public final class TestActionBuilder {
    * use the specified executable and runfiles.
    *
    * @param targetName the google3 relative path of the target to run
-   * @return ordered list of test status artifacts
+   * @return ordered list of test status artifacts. These are used by AggregatingTestListener and
+   *    TestResultAnalyzer to keep track of completed and pending test runs.
    */
   private ImmutableList<Artifact> createTestAction(PathFragment targetName, int shards) {
     BuildConfiguration config = ruleContext.getConfiguration();
@@ -272,7 +273,7 @@ public final class TestActionBuilder {
             testLog, cacheStatus, testTargetResult, coverageData, microCoverageData,
             testProperties, executionSettings,
             shard, run, config));
-        results.add(testTargetResult);
+        results.add(cacheStatus);
       }
     }
     return ImmutableList.copyOf(results);

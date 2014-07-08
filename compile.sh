@@ -22,20 +22,31 @@ mkdir -p output/objs
 mkdir -p output/native
 
 PLATFORM=$(uname -s | tr 'A-Z' 'a-z')
+ARCHIVE_CFLAGS=""
+ARCHIVE_LDFLAGS=""
 
 case ${PLATFORM} in
 darwin)
-  # for use with Macports
-  ARCHIVE_CFLAGS="-I/opt/local/include"
-  ARCHIVE_LDFLAGS="-L/opt/local/lib"
+  homebrew_header=$(ls -1 /usr/local/Cellar/libarchive/*/include/archive.h | head -n1)
+  if [[ -e /opt/local/include/archive.h ]]; then
+    # For use with Macports.
+    ARCHIVE_CFLAGS="-I/opt/local/include"
+    ARCHIVE_LDFLAGS="-L/opt/local/lib"
+  elif [[ -e $homebrew_header ]]; then
+    # For use with Homebrew.
+    archive_dir=$(dirname $(dirname $homebrew_header))
+    ARCHIVE_CFLAGS="-L${archive_dir}/include"
+    ARCHIVE_LDFLAGS="-L${archive_dir}/lib"
+  else
+    echo "WARNING: Could not find libarchive installation, proceeding bravely."
+  fi
+
   DYNAMIC_EXT="dylib"
   REALTIME_LDFLAGS=""
   MD5SUM="md5"
   JAVA_HOME=${JAVA_HOME:-$(/usr/libexec/java_home -v 1.7)}
   ;;
 linux)
-  ARCHIVE_CFLAGS=""
-  ARCHIVE_LDFLAGS=""
   DYNAMIC_EXT="so"
   REALTIME_LDFLAGS="-lrt"
   MD5SUM="md5sum"
@@ -47,7 +58,7 @@ esac
 # Compile .proto files using protoc
 PROTO_FILES=(
 src/main/protobuf/build.proto
-src/main/protobuf/extra_actions.proto
+src/main/protobuf/extra_actions_base.proto
 src/main/protobuf/testing_api.proto
 src/main/protobuf/test_status.proto
 )
@@ -153,7 +164,8 @@ echo "LD libunix.${DYNAMIC_EXT}"
 "${CC}" -o output/libunix.${DYNAMIC_EXT} -shared output/native/*.o -l stdc++
 
 echo "CC build-runfiles"
-"${CC}" -o output/build-runfiles -std=c++0x src/main/tools/build-runfiles.cc
+# Clang on Linux requires libstdc++
+"${CC}" -o output/build-runfiles -std=c++0x -l stdc++ src/main/tools/build-runfiles.cc
 
 echo "CC process-wrapper"
 "${CC}" -o output/process-wrapper src/main/tools/process-wrapper.c

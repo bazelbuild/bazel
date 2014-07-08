@@ -18,7 +18,9 @@ import com.google.common.collect.Iterables;
 import com.google.devtools.build.lib.concurrent.ThreadSafety;
 
 import java.util.ArrayList;
+import java.util.HashMap;
 import java.util.List;
+import java.util.Map;
 
 /**
  * A simple Differencer which just records the invalidated nodes it's been given.
@@ -27,6 +29,7 @@ import java.util.List;
 public class RecordingDifferencer implements Differencer {
 
   private List<NodeKey> nodesToInvalidate;
+  private Map<NodeKey, Node> nodesToInject;
 
   public RecordingDifferencer() {
     clear();
@@ -34,13 +37,14 @@ public class RecordingDifferencer implements Differencer {
 
   private void clear() {
     nodesToInvalidate = new ArrayList<>();
+    nodesToInject = new HashMap<>();
   }
 
   @Override
-  public Iterable<NodeKey> getDiff() {
-    Iterable<NodeKey> nodes = nodesToInvalidate;
+  public Diff getDiff() {
+    Diff diff = new Diff(nodesToInvalidate, nodesToInject);
     clear();
-    return nodes;
+    return diff;
   }
 
   /**
@@ -62,4 +66,31 @@ public class RecordingDifferencer implements Differencer {
     invalidate(ImmutableList.of(ErrorTransienceNode.key()));
   }
 
+  /**
+   * Store the given nodes for injection.
+   */
+  public void inject(Map<NodeKey, ? extends Node> nodes) {
+    nodesToInject.putAll(nodes);
+  }
+
+  private static class Diff implements Differencer.Diff {
+
+    private final List<NodeKey> nodesToInvalidate;
+    private final Map<NodeKey, Node> nodesToInject;
+
+    private Diff(List<NodeKey> nodesToInvalidate, Map<NodeKey, Node> nodesToInject) {
+      this.nodesToInvalidate = nodesToInvalidate;
+      this.nodesToInject = nodesToInject;
+    }
+
+    @Override
+    public Iterable<NodeKey> changedKeysWithoutNewValues() {
+      return nodesToInvalidate;
+    }
+
+    @Override
+    public Map<NodeKey, Node> changedKeysWithNewValues() {
+      return nodesToInject;
+    }
+  }
 }

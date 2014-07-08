@@ -25,6 +25,7 @@ import com.google.common.collect.Iterables;
 import com.google.devtools.build.lib.actions.Action;
 import com.google.devtools.build.lib.actions.Artifact;
 import com.google.devtools.build.lib.packages.Attribute;
+import com.google.devtools.build.lib.packages.Attribute.ConfigurationTransition;
 import com.google.devtools.build.lib.packages.ImplicitOutputsFunction;
 import com.google.devtools.build.lib.packages.OutputFile;
 import com.google.devtools.build.lib.shell.ShellUtils;
@@ -44,6 +45,7 @@ import com.google.devtools.build.lib.view.MakeVariableExpander.ExpansionExceptio
 import com.google.devtools.build.lib.view.RuleConfiguredTarget.Mode;
 import com.google.devtools.build.lib.view.RuleContext;
 import com.google.devtools.build.lib.view.TransitiveInfoProvider;
+import com.google.devtools.build.lib.view.config.BuildConfiguration;
 
 import java.util.ArrayList;
 import java.util.LinkedList;
@@ -329,6 +331,21 @@ public final class SkylarkRuleContext {
   public ImmutableList<String> substitutePlaceholders(String template) {
     return ImplicitOutputsFunction.substitutePlaceholderIntoTemplate(
         template, ruleContext.getRule());
+  }
+
+  @SkylarkCallable(doc = "")
+  public BuildConfiguration configuration() {
+    return ruleContext.getConfiguration();
+  }
+
+  @SkylarkCallable(doc = "")
+  public BuildConfiguration hostConfiguration() {
+    return ruleContext.getHostConfiguration();
+  }
+
+  @SkylarkCallable(doc = "")
+  public BuildConfiguration dataConfiguration() {
+    return ruleContext.getConfiguration().getConfiguration(ConfigurationTransition.DATA);
   }
 
   @SkylarkCallable(doc = "")

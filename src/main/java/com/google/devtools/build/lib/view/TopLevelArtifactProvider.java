@@ -15,10 +15,9 @@
 package com.google.devtools.build.lib.view;
 
 import com.google.common.collect.ImmutableList;
+import com.google.common.collect.ImmutableMap;
 import com.google.devtools.build.lib.actions.Artifact;
 import com.google.devtools.build.lib.collect.nestedset.NestedSet;
-import com.google.devtools.build.lib.collect.nestedset.NestedSetBuilder;
-import com.google.devtools.build.lib.collect.nestedset.Order;
 import com.google.devtools.build.lib.concurrent.ThreadSafety.Immutable;
 
 /**
@@ -30,19 +29,19 @@ public final class TopLevelArtifactProvider implements TransitiveInfoProvider {
 
   private final ImmutableList<String> commandsForExtraArtifacts;
   private final ImmutableList<Artifact> artifactsForCommand;
-  private final NestedSet<Artifact> artifactsToBuild;
+  private final ImmutableMap<String, NestedSet<Artifact>> outputGroups;
 
   public TopLevelArtifactProvider(ImmutableList<String> commandsForExtraArtifacts,
       ImmutableList<Artifact> artifactsForCommand) {
     this.commandsForExtraArtifacts = commandsForExtraArtifacts;
     this.artifactsForCommand = artifactsForCommand;
-    this.artifactsToBuild = NestedSetBuilder.emptySet(Order.STABLE_ORDER);
+    this.outputGroups = ImmutableMap.<String, NestedSet<Artifact>>of();
   }
 
-  public TopLevelArtifactProvider(NestedSet<Artifact> artifactsToBuild) {
+  public TopLevelArtifactProvider(String key, NestedSet<Artifact> artifactsToBuild) {
     this.commandsForExtraArtifacts = ImmutableList.of();
     this.artifactsForCommand = ImmutableList.of();
-    this.artifactsToBuild = artifactsToBuild;
+    this.outputGroups = ImmutableMap.<String, NestedSet<Artifact>>of(key, artifactsToBuild);
   }
 
   /** Returns the commands (in lowercase) that this provider should provide artifacts for. */
@@ -56,7 +55,7 @@ public final class TopLevelArtifactProvider implements TransitiveInfoProvider {
   }
 
   /** Returns artifacts that are to be built for every command. */
-  public NestedSet<Artifact> getAllArtifactsToBuild() {
-    return artifactsToBuild;
+  public NestedSet<Artifact> getOutputGroup(String outputGroupName) {
+    return outputGroups.get(outputGroupName);
   }
 }

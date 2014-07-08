@@ -31,6 +31,11 @@ string Basename(const string &path);
 
 string JoinPath(const string &path1, const string &path2);
 
+// Checks each element of the PATH variable for executable. If none is found, ""
+// is returned.  Otherwise, the full path to executable is returned. Can die if
+// looking up PATH fails.
+string Which(const string &executable);
+
 }  // namespace blaze_util
 
 #endif  // DEVTOOLS_BLAZE_MAIN_UTIL_FILE_H_

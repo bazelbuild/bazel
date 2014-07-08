@@ -13,12 +13,33 @@
 // limitations under the License.
 package com.google.devtools.build.skyframe;
 
+import java.util.Map;
+
 /**
  * Calculate set of changed nodes in a graph.
  */
 public interface Differencer {
+
   /**
-   * Returns the set of node keys that have changed since the last call to getDiff().
+   * Represents a set of changed nodes.
    */
-  Iterable<NodeKey> getDiff();
+  interface Diff {
+    /**
+     * Returns the node keys whose values have changed, but for which we don't have the new values.
+     */
+    Iterable<NodeKey> changedKeysWithoutNewValues();
+
+    /**
+     * Returns the node keys whose values have changed, along with their new values.
+     *
+     * <p> The nodes in here cannot have any dependencies. This is required in order to prevent
+     * conflation of injected nodes and derived nodes.
+     */
+    Map<NodeKey, ? extends Node> changedKeysWithNewValues();
+  }
+
+  /**
+   * Returns the node keys that have changed since the last call to getDiff().
+   */
+  Diff getDiff();
 }

@@ -16,6 +16,7 @@ package com.google.devtools.build.lib.syntax;
 import com.google.common.base.Preconditions;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
+import com.google.common.collect.ImmutableSet;
 import com.google.common.collect.Iterables;
 import com.google.common.collect.Lists;
 import com.google.devtools.build.lib.collect.nestedset.NestedSet;
@@ -38,12 +39,17 @@ import java.util.MissingFormatWidthException;
  */
 public abstract class EvalUtils {
 
-  // TODO(bazel-team): Yet an other hack committed in the name of Skylark. The problem is that the
+  // TODO(bazel-team): Yet an other hack committed in the name of Skylark. One problem is that the
   // syntax package cannot depend on actions so we have to have this until Actions are immutable.
-  private static final Class<?> actionClass;
+  // The other is that BuildConfigurations are technically not immutable but they cannot be modified
+  // from Skylark.
+  private static final ImmutableSet<Class<?>> quasiImmutableClasses;
   static {
     try {
-      actionClass = Class.forName("com.google.devtools.build.lib.actions.Action");
+      ImmutableSet.Builder<Class<?>> builder = ImmutableSet.builder(); 
+      builder.add(Class.forName("com.google.devtools.build.lib.actions.Action"));
+      builder.add(Class.forName("com.google.devtools.build.lib.view.config.BuildConfiguration"));
+      quasiImmutableClasses = builder.build();
     } catch (ClassNotFoundException e) {
       throw new RuntimeException(e);
     }
@@ -91,10 +97,14 @@ public abstract class EvalUtils {
       return true;
     } else if (c.equals(String.class) || c.equals(Integer.class) || c.equals(Boolean.class)
         || ImmutableList.class.isAssignableFrom(c) || ImmutableMap.class.isAssignableFrom(c)
-        || NestedSet.class.isAssignableFrom(c)
-        // Actions are technically not immutable but we cannot modify them from Skylark
-        || actionClass.isAssignableFrom(c)) {
+        || NestedSet.class.isAssignableFrom(c)) {
       return true;
+    } else {
+      for (Class<?> classObject : quasiImmutableClasses) {
+        if (classObject.isAssignableFrom(c)) {
+          return true;
+        }
+      }
     }
     return false;
   }

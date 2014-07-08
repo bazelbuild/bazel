@@ -87,7 +87,7 @@ public class ParallelEvaluatorTest {
       ImmutableMap<NodeType, ? extends NodeBuilder> builders, boolean keepGoing) {
     return new ParallelEvaluator(graph, /*graphVersion=*/0L,
         builders, reporter,  new AutoUpdatingGraph.EmittedEventState(), keepGoing,
-        AutoUpdatingGraph.DEFAULT_THREAD_COUNT, revalidationReceiver);
+        150, revalidationReceiver);
   }
 
   /** Convenience method for eval-ing a single node. */
@@ -1927,18 +1927,15 @@ public class ParallelEvaluatorTest {
     tester.set("d2", new StringNode("2"));
     tester.set("d3", new StringNode("3"));
 
-    aug.update(ImmutableList.of(GraphTester.toNodeKey("top1")), false,
-        AutoUpdatingGraph.DEFAULT_THREAD_COUNT, reporter);
+    aug.update(ImmutableList.of(GraphTester.toNodeKey("top1")), false, 200, reporter);
     MoreAsserts.assertContentsAnyOrder(enqueuedNodes, GraphTester.toNodeKeys("top1", "d1", "d2"));
     enqueuedNodes.clear();
 
-    aug.update(ImmutableList.of(GraphTester.toNodeKey("top2")), false,
-        AutoUpdatingGraph.DEFAULT_THREAD_COUNT, reporter);
+    aug.update(ImmutableList.of(GraphTester.toNodeKey("top2")), false, 200, reporter);
     MoreAsserts.assertContentsAnyOrder(enqueuedNodes, GraphTester.toNodeKeys("top2", "d3"));
     enqueuedNodes.clear();
 
-    aug.update(ImmutableList.of(GraphTester.toNodeKey("top1")), false,
-        AutoUpdatingGraph.DEFAULT_THREAD_COUNT, reporter);
+    aug.update(ImmutableList.of(GraphTester.toNodeKey("top1")), false, 200, reporter);
     ASSERT.that(enqueuedNodes).isEmpty();
   }
 }

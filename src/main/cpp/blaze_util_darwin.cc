@@ -16,6 +16,7 @@
 #include <sys/socket.h>
 #include <sys/un.h>
 #include <unistd.h>
+#include <cstdio>
 
 #include "blaze_exit_code.h"
 #include "blaze_util.h"
@@ -77,6 +78,31 @@ string GetProcessCWD(int pid) {
 
 bool IsSharedLibrary(string filename) {
   return blaze_util::ends_with(filename, ".dylib");
+}
+
+string GetDefaultHostJavabase() {
+  FILE *output = popen("/usr/libexec/java_home -v 1.7", "r");
+  if (output == NULL) {
+    pdie(blaze_exit_code::LOCAL_ENVIRONMENTAL_ERROR,
+         "Could not run /usr/libexec/java_home");
+  }
+
+  char buf[512];
+  char *result = fgets(buf, sizeof(buf), output);
+  pclose(output);
+  if (result == NULL) {
+    die(blaze_exit_code::LOCAL_ENVIRONMENTAL_ERROR,
+        "No output from /usr/libexec/java_home");
+  }
+
+  string javabase = buf;
+  if (javabase.empty()) {
+    die(blaze_exit_code::LOCAL_ENVIRONMENTAL_ERROR,
+        "Empty output from /usr/libexec/java_home");
+  }
+
+  // The output ends with a \n, trim it off.
+  return javabase.substr(0, javabase.length()-1);
 }
 
 }   // namespace blaze.

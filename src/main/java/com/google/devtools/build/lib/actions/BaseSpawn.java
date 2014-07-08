@@ -16,8 +16,8 @@ package com.google.devtools.build.lib.actions;
 
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
-import com.google.devtools.build.lib.actions.ExtraActions.EnvironmentVariable;
-import com.google.devtools.build.lib.actions.ExtraActions.SpawnInfo;
+import com.google.devtools.build.lib.actions.extra.EnvironmentVariable;
+import com.google.devtools.build.lib.actions.extra.SpawnInfo;
 import com.google.devtools.build.lib.util.CommandDescriptionForm;
 import com.google.devtools.build.lib.util.CommandFailureUtils;
 import com.google.devtools.build.lib.vfs.Path;

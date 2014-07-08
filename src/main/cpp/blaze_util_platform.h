@@ -46,6 +46,10 @@ std::string GetProcessCWD(int pid);
 
 bool IsSharedLibrary(std::string filename);
 
+// Return the default path to the JDK used to run Blaze itself
+// (must be an absolute directory).
+std::string GetDefaultHostJavabase();
+
 }  // namespace blaze
 
 #endif  // DEVTOOLS_BLAZE_MAIN_BLAZE_UTIL_PLATFORM_H_

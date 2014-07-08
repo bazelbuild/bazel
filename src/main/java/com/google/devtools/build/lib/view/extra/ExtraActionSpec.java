@@ -25,6 +25,7 @@ import com.google.devtools.build.lib.util.Fingerprint;
 import com.google.devtools.build.lib.vfs.PathFragment;
 import com.google.devtools.build.lib.view.CommandHelper;
 import com.google.devtools.build.lib.view.RuleContext;
+import com.google.devtools.build.lib.view.TransitiveInfoProvider;
 import com.google.devtools.build.lib.view.actions.CommandLine;
 
 import java.util.Collection;
@@ -36,7 +37,7 @@ import java.util.Map;
  * The specification for a particular extra action type.
  */
 @Immutable
-public class ExtraActionSpec {
+public final class ExtraActionSpec implements TransitiveInfoProvider {
   private final ImmutableList<Artifact> resolvedTools;
   private final ImmutableList<Artifact> resolvedData;
   private final ImmutableList<String> outputTemplates;

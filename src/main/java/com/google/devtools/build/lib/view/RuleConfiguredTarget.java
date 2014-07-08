@@ -21,10 +21,10 @@ import com.google.devtools.build.lib.actions.Artifact;
 import com.google.devtools.build.lib.concurrent.ThreadSafety.Immutable;
 import com.google.devtools.build.lib.packages.OutputFile;
 import com.google.devtools.build.lib.packages.Rule;
+import com.google.devtools.build.lib.syntax.EvalUtils;
 import com.google.devtools.build.lib.syntax.Label;
 import com.google.devtools.build.lib.syntax.SkylarkBuiltin;
 import com.google.devtools.build.lib.syntax.SkylarkCallable;
-import com.google.devtools.build.lib.syntax.SkylarkNestedSet;
 import com.google.devtools.build.lib.view.config.RunUnder;
 
 import java.util.Map;
@@ -113,9 +113,9 @@ public final class RuleConfiguredTarget extends AbstractConfiguredTarget {
         Preconditions.checkArgument(
             // Java transitive Info Providers are still accessible from Skylark, e.g.
             // RunfilesProvider. Those are safe.
-            value instanceof TransitiveInfoProvider
-            || value instanceof SkylarkNestedSet,
-            String.format("Transitive Info Provider '%s' is mutable", entry.getKey()));
+            value.getClass().isAnnotationPresent(Immutable.class),
+            String.format("Transitive Info Provider '%s' is mutable (type of %s)",
+                entry.getKey(), EvalUtils.getDatatypeName(value)));
       }
     }
   }

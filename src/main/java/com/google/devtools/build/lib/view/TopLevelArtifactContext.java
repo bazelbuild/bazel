@@ -14,28 +14,36 @@
 
 package com.google.devtools.build.lib.view;
 
+import com.google.common.collect.ImmutableSet;
+import com.google.devtools.build.lib.concurrent.ThreadSafety.Immutable;
+
 import java.util.Objects;
+import java.util.Set;
 
 /**
  * Contains options which control the set of artifacts to build for top-level targets.
  */
+@Immutable
 public final class TopLevelArtifactContext {
 
   public static final TopLevelArtifactContext DEFAULT = new TopLevelArtifactContext(
       "", /*compileOnly=*/false, /*compilationPrerequisitesOnly*/false,
-      /*runTestsExclusively=*/false);
+      /*runTestsExclusively=*/false, /*outputGroups=*/ImmutableSet.<String>of());
 
+  private final String buildCommand;
   private final boolean compileOnly;
   private final boolean compilationPrerequisitesOnly;
   private final boolean runTestsExclusively;
-  private final String buildCommand;
+  private final ImmutableSet<String> outputGroups;
 
   public TopLevelArtifactContext(String buildCommand, boolean compileOnly,
-      boolean compilationPrerequisitesOnly, boolean runTestsExclusively) {
+      boolean compilationPrerequisitesOnly, boolean runTestsExclusively,
+      ImmutableSet<String> outputGroups) {
     this.buildCommand = buildCommand;
     this.compileOnly = compileOnly;
     this.compilationPrerequisitesOnly = compilationPrerequisitesOnly;
     this.runTestsExclusively = runTestsExclusively;
+    this.outputGroups = outputGroups;
   }
 
   /** Returns the build command as a string. */
@@ -58,15 +66,22 @@ public final class TopLevelArtifactContext {
     return runTestsExclusively;
   }
 
+  /** Returns the value of the --output_groups flag. */
+  public Set<String> outputGroups() {
+    return outputGroups;
+  }
+
   // TopLevelArtifactContexts are stored in maps in BuildView,
   // so equals() and hashCode() need to work.
   @Override
   public boolean equals(Object other) {
     if (other instanceof TopLevelArtifactContext) {
       TopLevelArtifactContext otherContext = (TopLevelArtifactContext) other;
-      return buildCommand.equals(otherContext.buildCommand) &&
-             compileOnly == otherContext.compileOnly &&
-             runTestsExclusively == otherContext.runTestsExclusively;
+      return buildCommand.equals(otherContext.buildCommand)
+          && compileOnly == otherContext.compileOnly
+          && compilationPrerequisitesOnly == otherContext.compilationPrerequisitesOnly
+          && runTestsExclusively == otherContext.runTestsExclusively
+          && outputGroups.equals(otherContext.outputGroups);
     } else {
       return false;
     }
@@ -74,6 +89,7 @@ public final class TopLevelArtifactContext {
 
   @Override
   public int hashCode() {
-    return Objects.hash(buildCommand, compileOnly, runTestsExclusively);
+    return Objects.hash(buildCommand, compileOnly, compilationPrerequisitesOnly,
+        runTestsExclusively, outputGroups);
   }
 }

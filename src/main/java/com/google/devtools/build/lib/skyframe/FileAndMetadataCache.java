@@ -228,7 +228,7 @@ class FileAndMetadataCache implements ActionInputFileCache, MetadataHandler {
       Preconditions.checkState(injectedArtifacts.add(artifact), artifact);
       FileNode fileNode;
       try {
-        // This call may do an unnecessary call to the filesystem's xattr to see if the digest is
+        // This call may do an unnecessary call to Path#getFastDigest to see if the digest is
         // readily available. We cannot pass the digest in, though, because if it is not available
         // from the filesystem, this FileNode will not compare equal to another one created for the
         // same file, because the other one will be missing its digest.

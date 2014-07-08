@@ -52,10 +52,11 @@ import com.google.devtools.build.lib.view.actions.FileWriteAction;
 import com.google.devtools.build.lib.view.actions.SpawnAction;
 
 import java.util.List;
-import java.util.Locale;
 import java.util.Map;
 import java.util.concurrent.ExecutionException;
 
+// TODO(bazel-team): function argument names are often duplicated,
+// figure out a nicely readable way to get rid of the duplications.
 /**
  * A helper class to provide an easier API for Skylark rule implementations
  * and hide the original Java API. This is experimental code.
@@ -329,21 +330,12 @@ public class SkylarkRuleImplementationFunctions {
       } else {
         Runfiles defaultRunfiles = Runfiles.EMPTY;
         Runfiles dataRunfiles = Runfiles.EMPTY;
-        for (String param : arguments.keySet()) {
-          switch (param.toUpperCase(Locale.ENGLISH)) {
-            case "DEFAULT":
-              defaultRunfiles = handleRunfiles(param, arguments, loc);
-              break;
-
-            case "DATA":
-              dataRunfiles = handleRunfiles(param, arguments, loc);
-              break;
-
-            default:
-              break;
-          }
+        if (arguments.containsKey("default")) {
+          defaultRunfiles = handleRunfiles("default", arguments, loc);
         }
-
+        if (arguments.containsKey("data")) {
+          dataRunfiles = handleRunfiles("data", arguments, loc);
+        }
         return RunfilesProvider.withData(defaultRunfiles, dataRunfiles);
       }
     }
@@ -408,21 +400,23 @@ public class SkylarkRuleImplementationFunctions {
     // defined there. However the rule definition environment is shared between rules
     // of the same type, so it needs to be cloned to avoid conflicts. Note that Skylark
     // Environments don't have parents by design.
-    // TODO(bazel-team): Alternatively (or additionally), we should forbid to write global variables
-    // in rule implementations. We could also introduce Immutable Environments.
-    // Another problem: this provides access to SkylarkRuleClass functions (e.g. rule, attr) for
-    // the rule implementations.
+    // TODO(bazel-team): Another problem: this provides access to SkylarkRuleClass functions
+    // (e.g. rule, attr) for the rule implementations.
     SkylarkEnvironment ruleDefEnv =
         context.getRuleContext().getRule().getRuleClassObject().getRuleDefinitionEnvironment();
     final SkylarkEnvironment env;
-    // TODO(bazel-team): This is needed because of the tests. If we separated Skylark from legacy
-    // Blaze completely (including testing) we can remove this.
     if (ruleDefEnv != null) {
       Preconditions.checkState(ruleDefEnv.isGlobalEnvironment());
       env = ruleDefEnv.cloneEnv();
     } else {
+      // TODO(bazel-team): This is needed because of the tests. If we separated Skylark from legacy
+      // Blaze completely (including testing) we can remove this.
       env = new SkylarkEnvironment();
       MethodLibrary.setupMethodEnvironment(env);
+      for (Map.Entry<String, Object> object
+          : SkylarkRuleClassFunctions.JAVA_OBJECTS_TO_EXPOSE.entrySet()) {
+        env.update(object.getKey(), object.getValue());
+      }
     }
 
     SkylarkRuleImplementationFunctions functions = new SkylarkRuleImplementationFunctions(context);

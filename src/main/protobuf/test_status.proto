@@ -19,8 +19,8 @@ package blaze;
 option java_package = "com.google.devtools.build.lib.view.test";
 
 /**
- * Used to implement test specific caching behavior. This reflects the
- * fact that failing tests are a successful actions that might be
+ * Used to implement test-specific caching behavior. This reflects the
+ * fact that failing tests are successful actions that might be
  * cached, depending on option settings.
  */
 message CacheStatus {

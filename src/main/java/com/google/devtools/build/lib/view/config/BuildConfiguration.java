@@ -33,6 +33,8 @@ import com.google.devtools.build.lib.events.ErrorEventListener;
 import com.google.devtools.build.lib.packages.Attribute.ConfigurationTransition;
 import com.google.devtools.build.lib.syntax.Label;
 import com.google.devtools.build.lib.syntax.Label.SyntaxException;
+import com.google.devtools.build.lib.syntax.SkylarkBuiltin;
+import com.google.devtools.build.lib.syntax.SkylarkCallable;
 import com.google.devtools.build.lib.util.Fingerprint;
 import com.google.devtools.build.lib.util.RegexFilter;
 import com.google.devtools.build.lib.util.StringUtilities;
@@ -83,6 +85,9 @@ import javax.annotation.Nullable;
  * <p>Instances of BuildConfiguration are canonical:
  * <pre>c1.equals(c2) <=> c1==c2.</pre>
  */
+@SkylarkBuiltin(name = "Configuration",
+    doc = "Data required for the analysis of a target that comes from targets that "
+        + "depend on it and not targets that it depends on.")
 public final class BuildConfiguration {
 
   /**
@@ -1192,6 +1197,7 @@ public final class BuildConfiguration {
   /**
    * Returns a configuration fragment instances of the given class.
    */
+  @SkylarkCallable(doc = "Returns a configuration fragment using the key.")
   public <T extends Fragment> T getFragment(Class<T> clazz) {
     return clazz.cast(fragments.get(clazz));
   }

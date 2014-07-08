@@ -452,6 +452,10 @@ public class TestRunnerAction extends ConfigurationAction
     return testTargetResult;
   }
 
+  public Artifact getCacheStatusArtifact() {
+    return cacheStatus;
+  }
+
   public Path getTestWarningsPath() {
     return testWarningsPath;
   }

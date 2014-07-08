@@ -15,11 +15,11 @@
 
 #include <assert.h>
 #include <errno.h>  // errno, ENOENT
-#include <sys/stat.h>
 #include <stdlib.h>  // getenv, exit
 #include <unistd.h>  // access
 
 #include "blaze_exit_code.h"
+#include "blaze_util_platform.h"
 #include "blaze_util.h"
 #include "util/file.h"
 #include "util/strings.h"
@@ -102,64 +102,8 @@ void BlazeStartupOptions::CheckForReExecuteOptions(
     int argc, const char *argv[]) {
 }
 
-static const char kJvmDir32[] = "/usr/lib/jvm/default-java";
-static const char kJvmDir64[] = "/usr/lib64/jvm/default-java";
-
 string BlazeStartupOptions::GetDefaultHostJavabase() const {
-  // First check for Java in /usr/lib64/jvm.
-  bool arch_is_64 = GetBlazeArchitecture() == k64Bit;
-  if (arch_is_64 && access(kJvmDir64, X_OK) == 0) {
-    return kJvmDir64;
-  }
-
-  // 32- or 64-bit might live in /usr/lib/jvm.
-  if (access(kJvmDir32, X_OK) == 0) {
-    char buf[256];
-    ssize_t len = readlink(kJvmDir32, buf, sizeof(buf));
-    string jvm_dir = "";
-    if (len > 0) {
-      jvm_dir = string(buf, len);
-    } else if (errno == EINVAL) {
-      // Not a symbolic link
-      jvm_dir = kJvmDir32;
-    }
-
-    if (jvm_dir != "") {
-      bool dir_is_64 = jvm_dir.find("64") != string::npos;
-      if (dir_is_64 == arch_is_64) {
-        return kJvmDir32;
-      }
-    }
-  }
-
-  // Check the PATH for java.
-  string path(getenv("PATH"));
-  if (path.empty()) {
-    die(blaze_exit_code::LOCAL_ENVIRONMENTAL_ERROR,
-        "Could not get PATH to find Java");
-  }
-
-  vector<string> pieces = blaze_util::Split(path, ':');
-  string base;
-  for (auto piece : pieces) {
-    if (piece.empty()) {
-      piece = ".";
-    }
-
-    struct stat file_stat;
-    string candidate = blaze_util::JoinPath(piece, "java");
-    if (access(candidate.c_str(), X_OK) == 0 &&
-        stat(candidate.c_str(), &file_stat) == 0 &&
-        S_ISREG(file_stat.st_mode)) {
-      // Structure is JAVABASE/bin/java.
-      base = blaze_util::Dirname(blaze_util::Dirname(candidate));
-      break;
-    }
-  }
-  if (base.empty()) {
-    die(blaze_exit_code::LOCAL_ENVIRONMENTAL_ERROR, "Could not find Java");
-  }
-  return base;
+  return blaze::GetDefaultHostJavabase();
 }
 
 string BlazeStartupOptions::GetJvm() const {

@@ -83,7 +83,7 @@ public final class ExtraActionFactory implements RuleConfiguredTargetFactory {
         requiresActionOutput);
 
     return new RuleConfiguredTargetBuilder(context)
-        .addProvider(ExtraActionProvider.class, new ExtraActionProvider(spec))
+        .addProvider(ExtraActionSpec.class, spec)
         .add(RunfilesProvider.class, RunfilesProvider.simple(Runfiles.EMPTY))
         .build();
   }

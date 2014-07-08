@@ -23,10 +23,10 @@ import com.google.devtools.build.lib.view.WorkspaceStatusAction;
 import com.google.devtools.build.lib.view.buildinfo.BuildInfoFactory;
 import com.google.devtools.build.lib.view.buildinfo.BuildInfoFactory.BuildInfoKey;
 import com.google.devtools.build.lib.view.config.BuildOptions;
-import com.google.devtools.build.skyframe.AutoUpdatingGraph;
 import com.google.devtools.build.skyframe.Node;
 import com.google.devtools.build.skyframe.NodeBuilder;
 import com.google.devtools.build.skyframe.NodeKey;
+import com.google.devtools.build.skyframe.RecordingDifferencer;
 
 import java.util.Map;
 import java.util.UUID;
@@ -130,8 +130,8 @@ public class BuildVariableNode implements Node {
     /**
      * Injects a new variable value.
      */
-    void set(AutoUpdatingGraph graph, T value) {
-      graph.inject(ImmutableMap.of(key, (Node) new BuildVariableNode(value)));
+    void set(RecordingDifferencer differencer, T value) {
+      differencer.inject(ImmutableMap.of(key, (Node) new BuildVariableNode(value)));
     }
   }
 }

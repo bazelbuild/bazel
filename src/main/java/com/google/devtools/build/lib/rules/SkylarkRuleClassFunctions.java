@@ -89,12 +89,22 @@ public class SkylarkRuleClassFunctions {
       doc = "A rule class filter allowing no rule class at all.")
   private static final Predicate<RuleClass> NO_RULE = Attribute.NO_RULE;
 
-  private static final Map<String, Object> JAVA_OBJECTS_TO_EXPOSE =
+  //TODO(bazel-team): proper enum support
+  @SkylarkBuiltin(name = "DATA_CFG", doc = "The default runfiles collection state.")
+  private static final Object dataTransition = ConfigurationTransition.DATA;
+
+  @SkylarkBuiltin(name = "HOST_CFG", doc = "The default runfiles collection state.")
+  private static final Object hostTransition = ConfigurationTransition.HOST;
+
+  @VisibleForTesting
+  static final Map<String, Object> JAVA_OBJECTS_TO_EXPOSE =
       ImmutableMap.<String, Object>builder()
           .put("ANY_FILE", ANY_FILE)
           .put("NO_FILE", NO_FILE)
           .put("ANY_RULE", ANY_RULE)
           .put("NO_RULE", NO_RULE)
+          .put("DATA_CFG", dataTransition)
+          .put("HOST_CFG", hostTransition)
           .build();
 
   private final SkylarkRuleFactory ruleFactory;
@@ -233,8 +243,8 @@ public class SkylarkRuleClassFunctions {
       }
 
       if (arguments.containsKey("cfg")) {
-        builder.cfg(ConfigurationTransition.valueOf(
-            cast(arguments.get("cfg"), String.class, "configuration", loc)));
+        builder.cfg(
+            cast(arguments.get("cfg"), ConfigurationTransition.class, "configuration", loc));
       }
       return builder.build();
     }

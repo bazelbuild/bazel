@@ -16,6 +16,7 @@
 #include <cassert>
 
 #include "blaze_exit_code.h"
+#include "blaze_util_platform.h"
 #include "blaze_util.h"
 #include "util/numbers.h"
 #include "util/strings.h"

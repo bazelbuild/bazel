@@ -394,6 +394,10 @@ public class TestResult {
    * @return The test status artifact.
    */
   public Artifact getTestStatusArtifact() {
+    // these artifacts are used to keep track of the number of pending and completed tests.
+    return testAction.getCacheStatusArtifact();
+  }
+  public Artifact getTestTargetResult() {
     return testAction.getTestTargetResult();
   }
 

@@ -49,7 +49,7 @@ public final class FilteringPolicies {
     }
   }
 
-  private static class NoFilter implements FilteringPolicy {
+  private static class NoFilter extends AbstractFilteringPolicy {
     @Override
     public boolean shouldRetain(Target target, boolean explicit) {
       return true;

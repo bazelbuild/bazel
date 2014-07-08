@@ -2408,7 +2408,7 @@ public class AutoUpdatingGraphTest {
     NodeKey key = GraphTester.toNodeKey("new_node");
     Node val = new StringNode("val");
 
-    tester.graph.inject(ImmutableMap.of(key, val));
+    tester.differencer.inject(ImmutableMap.of(key, val));
     assertEquals(val, tester.evalAndGet("new_node"));
   }
 
@@ -2418,7 +2418,7 @@ public class AutoUpdatingGraphTest {
     Node val = new StringNode("val");
 
     tester.getOrCreate(key).setConstantValue(new StringNode("old_val"));
-    tester.graph.inject(ImmutableMap.of(key, val));
+    tester.differencer.inject(ImmutableMap.of(key, val));
     assertEquals(val, tester.evalAndGet("node"));
   }
 
@@ -2428,13 +2428,13 @@ public class AutoUpdatingGraphTest {
     Node val = new StringNode("val");
 
     tester.getOrCreate(key).setConstantValue(new StringNode("old_val"));
-    tester.graph.inject(ImmutableMap.of(key, val));
+    tester.differencer.inject(ImmutableMap.of(key, val));
     tester.eval(/*keepGoing=*/false, new NodeKey[0]); // Create the node.
 
     tester.differencer.invalidate(ImmutableList.of(key));
     tester.eval(/*keepGoing=*/false, new NodeKey[0]); // Mark node as dirty.
 
-    tester.graph.inject(ImmutableMap.of(key, val));
+    tester.differencer.inject(ImmutableMap.of(key, val));
     tester.eval(/*keepGoing=*/false, new NodeKey[0]); // Inject again.
     assertEquals(val, tester.evalAndGet("node"));
   }
@@ -2446,7 +2446,7 @@ public class AutoUpdatingGraphTest {
 
     tester.getOrCreate(key).setConstantValue(new StringNode("old_val"));
     tester.differencer.invalidate(ImmutableList.of(key));
-    tester.graph.inject(ImmutableMap.of(key, val));
+    tester.differencer.inject(ImmutableMap.of(key, val));
     assertEquals(val, tester.evalAndGet("node"));
   }
 
@@ -2457,7 +2457,7 @@ public class AutoUpdatingGraphTest {
 
     tester.getOrCreate(key).setConstantValue(new StringNode("old_val"));
     tester.graph.delete(Predicates.<NodeKey>alwaysTrue());
-    tester.graph.inject(ImmutableMap.of(key, val));
+    tester.differencer.inject(ImmutableMap.of(key, val));
     assertEquals(val, tester.evalAndGet("node"));
   }
 
@@ -2466,11 +2466,11 @@ public class AutoUpdatingGraphTest {
     NodeKey key = GraphTester.toNodeKey("node");
     Node val = new StringNode("val");
 
-    tester.graph.inject(ImmutableMap.of(key, val));
+    tester.differencer.inject(ImmutableMap.of(key, val));
     assertEquals(val, tester.evalAndGet("node"));
 
     tester.differencer.invalidate(ImmutableList.of(key));
-    tester.graph.inject(ImmutableMap.of(key, val));
+    tester.differencer.inject(ImmutableMap.of(key, val));
     assertEquals(val, tester.evalAndGet("node"));
   }
 
@@ -2479,11 +2479,11 @@ public class AutoUpdatingGraphTest {
     NodeKey key = GraphTester.toNodeKey("node");
     Node val = new StringNode("val");
 
-    tester.graph.inject(ImmutableMap.of(key, val));
+    tester.differencer.inject(ImmutableMap.of(key, val));
     assertEquals(val, tester.evalAndGet("node"));
 
     tester.graph.delete(Predicates.<NodeKey>alwaysTrue());
-    tester.graph.inject(ImmutableMap.of(key, val));
+    tester.differencer.inject(ImmutableMap.of(key, val));
     assertEquals(val, tester.evalAndGet("node"));
   }
 
@@ -2496,7 +2496,7 @@ public class AutoUpdatingGraphTest {
     tester.getOrCreate("other").setConstantValue(prevVal);
     tester.getOrCreate(key).addDependency("other").setComputedValue(COPY);
     assertEquals(prevVal, tester.evalAndGet("node"));
-    tester.graph.inject(ImmutableMap.of(key, val));
+    tester.differencer.inject(ImmutableMap.of(key, val));
     try {
       tester.evalAndGet("node");
       Assert.fail("injection over node with deps should have failed");
@@ -2513,7 +2513,7 @@ public class AutoUpdatingGraphTest {
     tester.getOrCreate("other").setConstantValue(val);
     tester.getOrCreate(key).addDependency("other").setComputedValue(COPY);
     assertEquals(val, tester.evalAndGet("node"));
-    tester.graph.inject(ImmutableMap.of(key, val));
+    tester.differencer.inject(ImmutableMap.of(key, val));
     try {
       tester.evalAndGet("node");
       Assert.fail("injection over node with deps should have failed");
@@ -2530,7 +2530,7 @@ public class AutoUpdatingGraphTest {
     tester.getOrCreate(key).setHasNonTransientError(true);
     tester.evalAndGetError(key);
 
-    tester.graph.inject(ImmutableMap.of(key, val));
+    tester.differencer.inject(ImmutableMap.of(key, val));
     assertEquals(val, tester.evalAndGet(false, key));
   }
 
@@ -2548,7 +2548,7 @@ public class AutoUpdatingGraphTest {
     assertEquals(oldVal, result.get(parentKey));
 
     Node val = new StringNode("val");
-    tester.graph.inject(ImmutableMap.of(childKey, val));
+    tester.differencer.inject(ImmutableMap.of(childKey, val));
     assertEquals(val, tester.evalAndGet("child"));
     // Injecting a new child should have invalidated the parent.
     Assert.assertNull(tester.getExistingNode("parent"));
@@ -2569,7 +2569,7 @@ public class AutoUpdatingGraphTest {
     tester.getOrCreate(childKey).setConstantValue(new StringNode("same_val"));
     assertEquals(val, tester.evalAndGet("parent"));
 
-    tester.graph.inject(ImmutableMap.of(childKey, val));
+    tester.differencer.inject(ImmutableMap.of(childKey, val));
     assertEquals(val, tester.getExistingNode("child"));
     // Since we are injecting an equal value, the parent should not have been invalidated.
     assertEquals(val, tester.getExistingNode("parent"));
@@ -2693,7 +2693,7 @@ public class AutoUpdatingGraphTest {
 
     public <T extends Node> UpdateResult<T> eval(boolean keepGoing, NodeKey... keys)
         throws InterruptedException {
-      return eval(keepGoing, AutoUpdatingGraph.DEFAULT_THREAD_COUNT, keys);
+      return eval(keepGoing, 100, keys);
     }
 
     public <T extends Node> UpdateResult<T> eval(boolean keepGoing, String... keys)

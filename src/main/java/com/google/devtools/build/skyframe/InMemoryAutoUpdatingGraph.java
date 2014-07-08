@@ -21,6 +21,7 @@ import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.Iterables;
 import com.google.common.collect.Maps;
 import com.google.devtools.build.lib.events.ErrorEventListener;
+import com.google.devtools.build.skyframe.Differencer.Diff;
 import com.google.devtools.build.skyframe.InvalidatingNodeVisitor.DeletingInvalidationState;
 import com.google.devtools.build.skyframe.InvalidatingNodeVisitor.DirtyingInvalidationState;
 import com.google.devtools.build.skyframe.InvalidatingNodeVisitor.InvalidationState;
@@ -54,7 +55,6 @@ public final class InMemoryAutoUpdatingGraph implements AutoUpdatingGraph {
   // State related to invalidation and deletion.
   private Set<NodeKey> nodesToDelete = new LinkedHashSet<>();
   private Set<NodeKey> nodesToDirty = new LinkedHashSet<>();
-  private Map<NodeKey, Node> nodesToInject = new HashMap<>();
   private final InvalidationState deleterState = new DeletingInvalidationState();
   private final Differencer differencer;
 
@@ -121,13 +121,15 @@ public final class InMemoryAutoUpdatingGraph implements AutoUpdatingGraph {
     // NOTE: Performance critical code. See bug "Null build performance parity".
     setAndCheckUpdateState(true, roots);
     try {
-      invalidate(differencer.getDiff());
-      pruneInjectedNodes();
+      Diff diff = differencer.getDiff();
+      Map<NodeKey, Node> nodesToInject = new HashMap<>(diff.changedKeysWithNewValues());
+      invalidate(diff.changedKeysWithoutNewValues());
+      pruneInjectedNodes(nodesToInject);
       invalidate(nodesToInject.keySet());
 
       performNodeInvalidation(progressReceiver);
 
-      injectNodes();
+      injectNodes(nodesToInject);
 
       ParallelEvaluator evaluator = new ParallelEvaluator(graph, graphVersion, nodeBuilders,
           listener, emittedEventState, keepGoing, numThreads, progressReceiver);
@@ -140,10 +142,10 @@ public final class InMemoryAutoUpdatingGraph implements AutoUpdatingGraph {
   }
 
   /**
-   * Removes entries in {@link #nodesToInject} whose values are equal to the present values in the
+   * Removes entries in {@code nodesToInject} whose values are equal to the present values in the
    * graph.
    */
-  private void pruneInjectedNodes() {
+  private void pruneInjectedNodes(Map<NodeKey, Node> nodesToInject) {
     for (Iterator<Entry<NodeKey, Node>> it = nodesToInject.entrySet().iterator(); it.hasNext();) {
       Entry<NodeKey, Node> entry = it.next();
       NodeKey key = entry.getKey();
@@ -162,9 +164,9 @@ public final class InMemoryAutoUpdatingGraph implements AutoUpdatingGraph {
   }
 
   /**
-   * Injects nodes in {@link #nodesToInject} into the graph.
+   * Injects nodes in {@code nodesToInject} into the graph.
    */
-  private void injectNodes() {
+  private void injectNodes(Map<NodeKey, Node> nodesToInject) {
     if (nodesToInject.isEmpty()) {
       return;
     }
@@ -190,7 +192,6 @@ public final class InMemoryAutoUpdatingGraph implements AutoUpdatingGraph {
       }
       prevEntry.setValue(entry.getValue(), graphVersion);
     }
-    nodesToInject = new HashMap<>();
   }
 
   private void performNodeInvalidation(NodeProgressReceiver invalidationReceiver)
@@ -204,11 +205,6 @@ public final class InMemoryAutoUpdatingGraph implements AutoUpdatingGraph {
     EagerInvalidator.invalidate(graph, nodesToDirty, invalidationReceiver, invalidatorState);
     // Ditto.
     nodesToDirty = new LinkedHashSet<>();
-  }
-
-  @Override
-  public void inject(Map<NodeKey, ? extends Node> nodes) {
-    nodesToInject.putAll(nodes);
   }
 
   private void setAndCheckUpdateState(boolean newValue, Object requestInfo) {

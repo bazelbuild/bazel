@@ -18,6 +18,7 @@ import com.google.common.cache.CacheBuilder;
 import com.google.common.cache.CacheLoader;
 import com.google.common.cache.LoadingCache;
 import com.google.common.collect.ImmutableList;
+import com.google.common.collect.ImmutableSet;
 import com.google.common.collect.ImmutableSortedSet;
 import com.google.devtools.build.lib.blaze.BlazeCommandEventHandler;
 import com.google.devtools.build.lib.exec.ExecutionOptions;
@@ -201,6 +202,14 @@ public class BuildRequest implements OptionsClassProvider {
              + "building the target itself.")
     public boolean compilationPrerequisitesOnly;
 
+    @Option(name = "output_groups",
+        converter = Converters.CommaSeparatedOptionListConverter.class,
+        allowMultiple = true,
+        defaultValue = "",
+        category = "undocumented",
+        help = "Specifies, which output groups of the top-level target to build.")
+    public List<String> outputGroups;
+
     @Option(name = "show_result",
             defaultValue = "1",
             category = "verbosity",
@@ -238,7 +247,7 @@ public class BuildRequest implements OptionsClassProvider {
             defaultValue = "",
             category = "semantics",
             help = "This flag allows specifying multiple target CPUs. If this is specified, "
-                 + "the --cpu option is ignored.")
+                + "the --cpu option is ignored.")
     public List<String> multiCpus;
   }
 
@@ -461,7 +470,8 @@ public class BuildRequest implements OptionsClassProvider {
   public TopLevelArtifactContext getTopLevelArtifactContext() {
     return new TopLevelArtifactContext(getCommandName(),
         getBuildOptions().compileOnly, getBuildOptions().compilationPrerequisitesOnly,
-        getOptions(ExecutionOptions.class).testStrategy.equals("exclusive"));
+        getOptions(ExecutionOptions.class).testStrategy.equals("exclusive"),
+        ImmutableSet.<String>copyOf(getBuildOptions().outputGroups));
   }
 
   public String getSymlinkPrefix() {
