@@ -341,7 +341,12 @@ public final class FuncallExpression extends Expression {
           throw new EvalException(func.getLocation(),
               "Arguments are not allowed when accessing fields");
         }
-        return ((ClassObject) objValue).getValue(func.getName());
+        Object value = ((ClassObject) objValue).getValue(func.getName());
+        if (value == null) {
+          throw new EvalException(func.getLocation(),
+              "Unknown struct field " + func.getName());
+        }
+        return value; 
       }
       // Strings, lists and dictionaries (maps) have functions that we want to use in MethodLibrary.
       // For other classes, we can call the Java methods.

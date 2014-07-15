@@ -26,7 +26,7 @@ public interface TestActionContext extends ActionContext {
    * Executes the test command, directing standard out / err to {@code outErr}.
    */
   void exec(TestRunnerAction action,
-      ActionExecutionContext actionExecutionContext) throws ExecException;
+      ActionExecutionContext actionExecutionContext) throws ExecException, InterruptedException;
 
   /**
    * String describing where the action will run.

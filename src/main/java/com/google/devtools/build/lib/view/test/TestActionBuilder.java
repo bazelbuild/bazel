@@ -53,7 +53,6 @@ public final class TestActionBuilder {
   @VisibleForTesting
   static final String ALARM = "alarm";
 
-
   private final RuleContext ruleContext;
   private RunfilesSupport runfilesSupport;
   private Artifact executable;
@@ -186,7 +185,8 @@ public final class TestActionBuilder {
    * use the specified executable and runfiles.
    *
    * @param targetName the google3 relative path of the target to run
-   * @return ordered list of test status artifacts. These are used by AggregatingTestListener and
+   * @return ordered list of test artifacts, one per action. These are used to drive
+   *    execution in Skyframe, and by AggregatingTestListener and
    *    TestResultAnalyzer to keep track of completed and pending test runs.
    */
   private ImmutableList<Artifact> createTestAction(PathFragment targetName, int shards) {
@@ -255,8 +255,6 @@ public final class TestActionBuilder {
             targetName.getChild("test" + suffix + ".log"), root);
         Artifact cacheStatus = env.getDerivedArtifact(
             targetName.getChild("test" + suffix + ".cache_status"), root);
-        Artifact testTargetResult = env.getDerivedArtifact(
-            targetName.getChild("test" + suffix + ".status"), root);
 
         PathFragment coverageData = collectCodeCoverage
             ? root.getExecPath().getRelative(
@@ -270,7 +268,7 @@ public final class TestActionBuilder {
 
         env.registerAction(new TestRunnerAction(
             ruleContext.getActionOwner(), inputs,
-            testLog, cacheStatus, testTargetResult, coverageData, microCoverageData,
+            testLog, cacheStatus, coverageData, microCoverageData,
             testProperties, executionSettings,
             shard, run, config));
         results.add(cacheStatus);

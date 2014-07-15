@@ -102,7 +102,7 @@ public final class SymlinkTreeHelper {
    */
   public void createSymlinks(ConfigurationAction action,
       ActionExecutionContext actionExecutionContext, BinTools binTools)
-      throws ExecException {
+      throws ExecException, InterruptedException {
     // TODO(bazel-team): (2010) Add support for RPC-based symlink tree creation.
     createSymlinksUsingSpawn(action, actionExecutionContext, binTools);
   }
@@ -130,7 +130,8 @@ public final class SymlinkTreeHelper {
    * Implements symlink tree creation using build-runfiles helper executable.
    */
   private void createSymlinksUsingSpawn(ConfigurationAction action,
-      ActionExecutionContext actionExecutionContext, BinTools binTools) throws ExecException {
+      ActionExecutionContext actionExecutionContext, BinTools binTools)
+          throws ExecException, InterruptedException {
     BuildConfiguration config = action.getConfiguration();
     List<String> args = getSpawnArgumentList(
         actionExecutionContext.getExecutor().getExecRoot(), binTools);
@@ -140,11 +141,6 @@ public final class SymlinkTreeHelper {
           new BaseSpawn.Local(args, config.getDefaultShellEnvironment(),
               action),
           actionExecutionContext);
-    } catch (InterruptedException e) {
-      // Restore interrupt bit.
-      Thread.currentThread().interrupt();
-      throw new InterruptedExecException(
-          "symlink tree creation aborted while waiting for resource acquisition", e);
     } finally {
       ResourceManager.instance().releaseResources(action, RESOURCE_SET);
     }

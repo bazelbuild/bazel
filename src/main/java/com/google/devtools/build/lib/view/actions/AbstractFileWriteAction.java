@@ -59,7 +59,7 @@ public abstract class AbstractFileWriteAction extends AbstractAction {
 
   @Override
   public void execute(ActionExecutionContext actionExecutionContext)
-      throws ActionExecutionException {
+      throws ActionExecutionException, InterruptedException {
     try {
       getStrategy(actionExecutionContext.getExecutor()).exec(actionExecutionContext.getExecutor(),
           this, actionExecutionContext.getFileOutErr());

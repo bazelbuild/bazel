@@ -240,6 +240,8 @@ public final class BinaryOperatorExpression extends Expression {
   Class<?> validate(ValidationEnvironment env) throws EvalException {
     Class<?> ltype = lhs.validate(env);
     Class<?> rtype = rhs.validate(env);
+    String lname = EvalUtils.getDataTypeNameFromClass(ltype);
+    String rname = EvalUtils.getDataTypeNameFromClass(rtype);
 
     switch (operator) {
       case AND: {
@@ -264,16 +266,24 @@ public final class BinaryOperatorExpression extends Expression {
         // list + list, tuple + tuple (list + tuple, tuple + list => error)
         if (List.class.isAssignableFrom(ltype) && List.class.isAssignableFrom(rtype)) {
           if (EvalUtils.isTuple(ltype) != EvalUtils.isTuple(rtype)) {
-            throw new EvalException(getLocation(), "can only concatenate "
-                + EvalUtils.getDataTypeNameFromClass(rtype) + " (not \""
-                + EvalUtils.getDataTypeNameFromClass(ltype) + "\") to "
-                + EvalUtils.getDataTypeNameFromClass(rtype));
+            throw new EvalException(getLocation(),
+                "can only concatenate " + rname + " (not \"" + lname + "\") to " + rname);
           }
           return ltype;
         }
 
         if (Map.class.isAssignableFrom(ltype) && Map.class.isAssignableFrom(rtype)) {
           return Map.class;
+        }
+
+        if (ltype.equals(SkylarkNestedSet.class)) {
+          if (List.class.isAssignableFrom(rtype) || rtype.equals(SkylarkNestedSet.class)) {
+            return SkylarkNestedSet.class;
+          }
+          if (!rtype.equals(Object.class)) {
+            throw new EvalException(getLocation(), String.format("can only concatenate nested sets "
+                + "with other nested sets or list of items, not '" + rname + "'"));
+          }
         }
 
         break;
@@ -306,14 +316,11 @@ public final class BinaryOperatorExpression extends Expression {
       case GREATER:
       case GREATER_EQUALS: {
         if (!ltype.equals(Object.class) && !(Comparable.class.isAssignableFrom(ltype))) {
-          throw new EvalException(getLocation(),
-              EvalUtils.getDataTypeNameFromClass(ltype) + " is not comparable");
+          throw new EvalException(getLocation(), lname + " is not comparable");
         }
         if (!ltype.equals(Object.class) && !rtype.equals(Object.class) && !ltype.equals(rtype)) {
           throw new EvalException(getLocation(),
-              String.format("cannot compare a %s to a(n) %s",
-                  EvalUtils.getDataTypeNameFromClass(ltype),
-                  EvalUtils.getDataTypeNameFromClass(rtype)));
+              String.format("cannot compare a %s to a(n) %s", lname, rname));
         }
         return Boolean.class;
       }
@@ -335,9 +342,7 @@ public final class BinaryOperatorExpression extends Expression {
 
     if (!ltype.equals(Object.class) && !rtype.equals(Object.class)) {
       throw new EvalException(getLocation(),
-          "unsupported operand types for '" + operator + "': '"
-          + EvalUtils.getDataTypeNameFromClass(ltype) + "' and '"
-          + EvalUtils.getDataTypeNameFromClass(rtype) + "'");
+          "unsupported operand types for '" + operator + "': '" + lname + "' and '" + rname + "'");
     }
     return Object.class;
   }

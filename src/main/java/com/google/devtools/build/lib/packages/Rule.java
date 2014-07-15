@@ -23,6 +23,7 @@ import com.google.devtools.build.lib.events.ErrorEventListener;
 import com.google.devtools.build.lib.events.Location;
 import com.google.devtools.build.lib.packages.Attribute.ConfigurationTransition;
 import com.google.devtools.build.lib.packages.License.DistributionType;
+import com.google.devtools.build.lib.syntax.EvalException;
 import com.google.devtools.build.lib.syntax.FuncallExpression;
 import com.google.devtools.build.lib.syntax.GlobList;
 import com.google.devtools.build.lib.syntax.Label;
@@ -541,13 +542,17 @@ public final class Rule implements Target, AttributeMap {
    */
   private void populateImplicitOutputFiles(ErrorEventListener listener,
       Package.AbstractPackageBuilder<?, ?> pkgBuilder) {
-    for (String out : ruleClass.getImplicitOutputsFunction().apply(this)) {
-      try {
-        addOutputFile(pkgBuilder.createLabel(out), listener);
-      } catch (SyntaxException e) {
-        reportError("illegal output file name '" + out + "' in rule "
-                    + getLabel(), listener);
+    try {
+      for (String out : ruleClass.getImplicitOutputsFunction().getImplicitOutputs(this)) {
+        try {
+          addOutputFile(pkgBuilder.createLabel(out), listener);
+        } catch (SyntaxException e) {
+          reportError("illegal output file name '" + out + "' in rule "
+                      + getLabel(), listener);
+        }
       }
+    } catch (EvalException e) {
+      reportError(e.print(), listener);
     }
   }
 

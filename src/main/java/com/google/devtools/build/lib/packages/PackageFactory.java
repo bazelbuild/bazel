@@ -852,7 +852,7 @@ public final class PackageFactory {
     BuildFileAST buildFileAST;
     try {
       buildFileAST = BuildFileAST.parseSkylarkFile(file, context.listener, locator,
-          ruleClassProvider.getSkylarkValidationEnvironment());
+          ruleClassProvider.getSkylarkValidationEnvironment().clone());
     } catch (IOException e) {
       context.listener.error(Location.fromFile(file), e.getMessage());
       return null;

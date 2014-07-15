@@ -17,13 +17,16 @@ package com.google.devtools.build.lib.view.test;
 import com.google.common.base.Preconditions;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.Lists;
-import com.google.common.collect.Sets;
 import com.google.devtools.build.lib.actions.Artifact;
 import com.google.devtools.build.lib.concurrent.ThreadSafety.Immutable;
 import com.google.devtools.build.lib.concurrent.ThreadSafety.ThreadSafe;
 import com.google.devtools.build.lib.syntax.Label;
 import com.google.devtools.build.lib.vfs.Path;
 import com.google.devtools.build.lib.vfs.PathFragment;
+import com.google.devtools.build.lib.view.test.TestResultData.FailedTestCaseDetails;
+import com.google.devtools.build.lib.view.test.TestResultData.FailedTestCaseDetailsStatus;
+import com.google.devtools.build.lib.view.test.TestResultData.TestCaseDetail;
+import com.google.devtools.build.lib.view.test.TestResultData.TestCaseStatus;
 import com.google.testing.proto.HierarchicalTestResult;
 import com.google.testing.proto.TestStatus;
 import com.google.testing.proto.TestStrategy;
@@ -33,10 +36,7 @@ import com.google.testing.proto.TimingBreakdown;
 
 import java.io.IOException;
 import java.util.ArrayList;
-import java.util.Collection;
-import java.util.Comparator;
 import java.util.List;
-import java.util.TreeSet;
 
 /**
  * This is the event passed from the various test strategies to the {@code RecordingTestListener}
@@ -46,117 +46,9 @@ import java.util.TreeSet;
 @Immutable
 public class TestResult {
 
-  /**
-   * How much information is present in a TestCaseDetails.
-   */
-  public enum FailedTestCaseDetailsStatus {
-    /** Information about every test case is available. */
-    FULL,
-    /** Information about some test cases may be missing. */
-    PARTIAL,
-    /** No information about individual test cases. */
-    NOT_AVAILABLE,
-    /** This is an empty object still without data. */
-    EMPTY,
-  }
-
-  /**
-   * The collection of test case details for a test run. Contains a list of test
-   * case results and a status field to show how much information is available.
-   *
-   * <p>The test cases are sorted according to their name.
-   */
-  public static class FailedTestCaseDetails {
-    private TreeSet<TestCaseDetail> details;
-    private FailedTestCaseDetailsStatus status;
-
-    public FailedTestCaseDetails(FailedTestCaseDetailsStatus status) {
-      this.details = Sets.newTreeSet(new Comparator<TestCaseDetail>() {
-        @Override
-        public int compare(TestCaseDetail o1, TestCaseDetail o2) {
-          return o1.getName().compareTo(o2.getName());
-        }
-      });
-      this.status = status;
-    }
-
-    public FailedTestCaseDetailsStatus getStatus() {
-      return status;
-    }
-
-    public ImmutableList<TestCaseDetail> getDetails() {
-      return ImmutableList.copyOf(details);
-    }
-
-    public void add(TestCaseDetail newDetail) {
-      details.add(newDetail);
-    }
-
-    public void addAll(Collection<TestCaseDetail> newDetails) {
-      details.addAll(newDetails);
-    }
-
-    public void mergeFrom(FailedTestCaseDetails that) {
-      this.details.addAll(that.details);
-
-      if (this.status == FailedTestCaseDetailsStatus.EMPTY) {
-
-        // If there was no data yet, just copy the status.
-        this.status = that.status;
-      } else if (that.status == FailedTestCaseDetailsStatus.EMPTY) {
-
-        // If the other one was empty, keep our old status.
-        return;
-      } else if (this.status != that.status) {
-
-        // Otherwise, if the statuses were different, change status to partial.
-        this.status = FailedTestCaseDetailsStatus.PARTIAL;
-      }
-    }
-
-    void setStatus(FailedTestCaseDetailsStatus status) {
-      this.status = status;
-    }
-  }
-
-  /**
-   * The status of an individual test case. Other test results are not needed
-   * here, because if we get back information from a test run, we have at least
-   * tried to run it.
-   */
-  public enum TestCaseStatus { PASSED, FAILED, ERROR }
-
-  /**
-   * The summary of an individual test case
-   */
-  public static class TestCaseDetail {
-    private final String name;
-    private final TestCaseStatus status;
-    private final Long runDurationMillis;       // so that it can be null
-
-    public TestCaseDetail(
-        String name, TestCaseStatus status, Long runDurationMillis) {
-      this.name = name;
-      this.status = status;
-      this.runDurationMillis = runDurationMillis;
-    }
-
-    public String getName() {
-      return name;
-    }
-
-    public TestCaseStatus getStatus() {
-      return status;
-    }
-
-    public Long getRunDurationMillis() {
-      return runDurationMillis;
-    }
-  }
-
   private final TestRunnerAction testAction;
   private final TestTargetResult result;
-  private final boolean isCached;
+  private final TestResultData data;
 
   /**
    * Construct a cached TestResult instance from the saved test result
@@ -166,9 +58,10 @@ public class TestResult {
    * @throws IOException on underlying or protocol buffer parsing failure.
    */
   public static TestResult createCached(TestRunnerAction testAction) throws IOException {
-    return new TestResult(testAction,
-        TestTargetResult.parseFrom(testAction.getTestTargetResult().getPath().getInputStream()),
-        true);
+    TestTargetResult result = TestTargetResult.parseFrom(
+        testAction.getTestTargetResult().getInputStream());
+
+    return new TestResult(testAction, fromTestTargetResult(result, testAction, true), result);
   }
 
   /**
@@ -178,7 +71,7 @@ public class TestResult {
    * @param result test result protobuffer.
    */
   public static TestResult createNew(TestRunnerAction testAction, TestTargetResult result) {
-    return new TestResult(testAction, result, false);
+    return new TestResult(testAction, fromTestTargetResult(result, testAction, false), result);
   }
 
   /**
@@ -188,14 +81,107 @@ public class TestResult {
    * @param result test result protobuffer.
    * @param isCached true if this is a cached test result.
    */
-  private TestResult(TestRunnerAction testAction, TestTargetResult result, boolean isCached) {
+  private TestResult(TestRunnerAction testAction, TestResultData data, TestTargetResult result) {
     this.testAction = Preconditions.checkNotNull(testAction);
+    this.result = result;
+    this.data  = data;
+  }
+
+  private static TestResultData fromTestTargetResult(
+      TestTargetResult result, TestRunnerAction action,
+      boolean cached) {
+    TestResultData.Builder data = TestResultData.newBuilder();
+    data.setIsCached(cached);
+    data.setStatus(BlazeTestStatus.getStatusFromTestTargetResult(result));
+    data.setRemotelyCached(false);
+    data.setIsRemoteStrategy(false);
+
+    boolean isPassed = result.getStatus() == TestStatus.PASSED;
     if (result.hasCombinedOut()) {
-      Preconditions.checkState(testAction.getTestLog().getPath().getPathString().equals(
+      Preconditions.checkState(action.getTestLog().getPath().getPathString().equals(
           result.getCombinedOut().getPathname()));
     }
-    this.result = result;
-    this.isCached = isCached;
+
+    {
+      List<Path> list = new ArrayList<>();
+      Path basePath = action.getTestLog().getPath();
+      if (!isPassed && result.hasCombinedOut()) {
+        list.add(basePath.getRelative(result.getCombinedOut().getPathname()));
+      }
+      for (TestTargetResult attempt : result.getAttemptsList()) {
+        if (attempt.hasCombinedOut()) {
+          list.add(basePath.getRelative(attempt.getCombinedOut().getPathname()));
+        }
+      }
+      data.setFailedLogs(list);
+    }
+
+    {
+      FailedTestCaseDetails details;
+      if (!result.hasHierarchicalTestResult()) {
+        details = new FailedTestCaseDetails(FailedTestCaseDetailsStatus.NOT_AVAILABLE);
+      } else {
+        details = new FailedTestCaseDetails(FailedTestCaseDetailsStatus.FULL);
+        collectNotPassedTestCases(result.getHierarchicalTestResult(), details);
+      }
+      data.setFailedTestCaseDetails(details);
+    }
+
+    if (isPassed && result.hasCombinedOut()) {
+      data.setPassedLogs(ImmutableList.<Path>of(action.getTestLog().getPath().getRelative(
+          result.getCombinedOut().getPathname())));
+    }
+
+
+    {
+      List<String> warnings = new ArrayList<>();
+
+      for (TestTargetResult attempt : result.getAttemptsList()) {
+        for (TestWarning warning : attempt.getWarningList()) {
+          warnings.add(warning.getWarningMessage());
+        }
+      }
+
+      for (TestWarning warning : result.getWarningList()) {
+        warnings.add(warning.getWarningMessage());
+      }
+      data.setWarnings(warnings);
+    }
+
+    {
+      List<Long> list = Lists.newArrayList(result.getRunDurationMillis());
+      for (TestTargetResult attempt : result.getAttemptsList()) {
+        list.add(attempt.getRunDurationMillis());
+      }
+      data.setTestTimes(list);
+    }
+
+    {
+      List<Long> list = Lists.newArrayList(getTestProcessTime(result));
+      for (TestTargetResult attempt : result.getAttemptsList()) {
+        list.add(getTestProcessTime(attempt));
+      }
+      data.setTestProcessTimes(list);
+    }
+
+    if (result.hasCoverage()) {
+      data.setHasCoverage(true);
+      Preconditions.checkState(
+          result.getCoverage().hasLcov() && result.getCoverage().getLcov().hasPathname());
+      Preconditions.checkState(
+          result.getCoverage().getLcov().getPathname().endsWith(
+              action.getCoverageData().getPathString()));
+    }
+    return data.build();
+  }
+
+  private static long getTestProcessTime(TestTargetResult result) {
+    for (TimingBreakdown child : result.getTimingBreakdown().getChildList()) {
+      if (child.getName().equals("test process")) {
+        return child.getTimeMillis();
+      }
+    }
+    return 0;
   }
 
   /**
@@ -213,60 +199,7 @@ public class TestResult {
     return result;
   }
 
-  /**
-   * @return The test status.
-   */
-  public BlazeTestStatus getStatus() {
-    return BlazeTestStatus.getStatusFromTestTargetResult(result);
-  }
-
-  /**
-   * @return true iff result represents cached test result.
-   */
-  public boolean isCached() {
-    return isCached;
-  }
-
-  /**
-   * @return true iff result represents successful test.
-   */
-  public boolean isPassed() {
-    return result.getStatus() == TestStatus.PASSED;
-  }
-
-  /**
-   * @return immutable list of failed log paths.
-   */
-  public List<Path> getFailedLogs() {
-    List<Path> list = new ArrayList<>();
-    Path basePath = testAction.getTestLog().getPath();
-    if (!isPassed() && result.hasCombinedOut()) {
-      list.add(basePath.getRelative(result.getCombinedOut().getPathname()));
-    }
-    for (TestTargetResult attempt : result.getAttemptsList()) {
-      if (attempt.hasCombinedOut()) {
-        list.add(basePath.getRelative(attempt.getCombinedOut().getPathname()));
-      }
-    }
-    return ImmutableList.copyOf(list);
-  }
-
-  /**
-   * @return immutable list of failed test case names.
-   */
-  public FailedTestCaseDetails getFailedTestCaseDetails() {
-    if (!result.hasHierarchicalTestResult()) {
-      return new FailedTestCaseDetails(FailedTestCaseDetailsStatus.NOT_AVAILABLE);
-    }
-
-    FailedTestCaseDetails testCaseDetails =
-      new FailedTestCaseDetails(FailedTestCaseDetailsStatus.FULL);
-
-    collectNotPassedTestCases(result.getHierarchicalTestResult(), testCaseDetails);
-    return testCaseDetails;
-  }
-
-  private void collectNotPassedTestCases(
+  private static void collectNotPassedTestCases(
       HierarchicalTestResult hierarchicalResult, FailedTestCaseDetails testCaseDetails) {
     if (hierarchicalResult.getChildCount() > 0) {
       // This is a non-leaf result. Traverse its children, but do not add its
@@ -307,84 +240,19 @@ public class TestResult {
   }
 
   /**
-   * @return immutable list of passed log paths (either 0 or 1 entries).
-   */
-  public List<Path> getPassedLogs() {
-    return (isPassed() && result.hasCombinedOut())
-        ? ImmutableList.<Path>of(testAction.getTestLog().getPath().getRelative(
-            result.getCombinedOut().getPathname()))
-        : ImmutableList.<Path>of();
-  }
-
-  /**
-   * @return immutable list of warnings.
-   */
-  public List<String> getWarnings() {
-    List<String> warnings = new ArrayList<>();
-
-    for (TestTargetResult attempt : result.getAttemptsList()) {
-      for (TestWarning warning : attempt.getWarningList()) {
-        warnings.add(warning.getWarningMessage());
-      }
-    }
-
-    for (TestWarning warning : result.getWarningList()) {
-      warnings.add(warning.getWarningMessage());
-    }
-    return ImmutableList.copyOf(warnings);
-  }
-
-  /**
-   * @return immutable list of all associated test times (in ms).
-   */
-  public List<Long> getTestTimes() {
-    List<Long> list = Lists.newArrayList(result.getRunDurationMillis());
-    for (TestTargetResult attempt : result.getAttemptsList()) {
-      list.add(attempt.getRunDurationMillis());
-    }
-    return ImmutableList.copyOf(list);
-  }
-
-  /**
-   * @return immutable list of all associated test times (in ms).
-   * Unlike getTestTimes(), does not include remote execution overhead.
-   */
-  public List<Long> getTestProcessTimes() {
-    List<Long> list = Lists.newArrayList(getTestProcessTime(result));
-    for (TestTargetResult attempt : result.getAttemptsList()) {
-      list.add(getTestProcessTime(attempt));
-    }
-    return ImmutableList.copyOf(list);
-  }
-
-  private static long getTestProcessTime(TestTargetResult result) {
-    for (TimingBreakdown child : result.getTimingBreakdown().getChildList()) {
-      if (child.getName().equals("test process")) {
-        return child.getTimeMillis();
-      }
-    }
-    throw new RuntimeException("Test does not have 'test process' timing breakdown field");
-  }
-
-  /**
-   * @return The test log artifact. Note, that actual log file may no longer
+   * @return The test log path. Note, that actual log file may no longer
    *         correspond to this artifact - use getActualLogPath() method if
    *         you need log location.
    */
-  public Artifact getTestLogArtifact() {
-    return testAction.getTestLog();
+  public Path getTestLogPath() {
+    return testAction.getTestLog().getPath();
   }
 
   /**
    * @return Coverage data artifact, if available and null otherwise.
    */
   public PathFragment getCoverageData() {
-    if (result.hasCoverage()) {
-      Preconditions.checkState(
-          result.getCoverage().hasLcov() && result.getCoverage().getLcov().hasPathname());
-      Preconditions.checkState(
-          result.getCoverage().getLcov().getPathname().endsWith(
-              testAction.getCoverageData().getPathString()));
+    if (data.hasCoverage()) {
       return testAction.getCoverageData();
     }
     return null;
@@ -397,7 +265,8 @@ public class TestResult {
     // these artifacts are used to keep track of the number of pending and completed tests.
     return testAction.getCacheStatusArtifact();
   }
-  public Artifact getTestTargetResult() {
+
+  public Path getTestTargetResult() {
     return testAction.getTestTargetResult();
   }
 
@@ -433,15 +302,7 @@ public class TestResult {
     return testAction.getExecutionSettings().getTotalShards();
   }
 
-  /**
-   * Returns if this was cached in remote execution.
-   */
-  public boolean isRemotelyCached() {
-    // TODO(bazel-team): see if this can be folded into isCached().
-    return result.getRemoteCacheHit();
-  }
-
-  public TestStrategy getStrategy() {
-    return result.getStrategy();
+  public TestResultData getData() {
+    return data;
   }
 }

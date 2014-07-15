@@ -25,14 +25,6 @@ import java.util.Map;
  */
 public class UserDefinedFunction extends AbstractFunction {
 
-  // This Dummy type helps debugging.
-  // TODO(bazel-team): Move NONE somewhere else
-  /**
-   * Dummy default return value.
-   */
-  public static final class SkylarkDefaultReturnValue {}
-  public static final SkylarkDefaultReturnValue NONE = new SkylarkDefaultReturnValue();
-
   private final ImmutableList<Ident> listArgNames;
   private final ImmutableList<Statement> statements;
   private final Location location;
@@ -83,6 +75,6 @@ public class UserDefinedFunction extends AbstractFunction {
     } catch (ReturnStatement.ReturnException e) {
       return e.getValue();
     }
-    return NONE;
+    return Environment.NONE;
   }
 }

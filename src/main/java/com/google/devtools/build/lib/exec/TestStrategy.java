@@ -118,7 +118,7 @@ public abstract class TestStrategy implements TestActionContext {
 
   @Override
   public abstract void exec(TestRunnerAction action, ActionExecutionContext actionExecutionContext)
-      throws ExecException;
+      throws ExecException, InterruptedException;
 
   @Override
   public abstract String strategyLocality(TestRunnerAction action);

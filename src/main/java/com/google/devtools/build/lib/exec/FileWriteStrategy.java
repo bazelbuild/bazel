@@ -55,7 +55,7 @@ public final class FileWriteStrategy implements FileWriteActionContext {
 
   @Override
   public void exec(Executor executor, AbstractFileWriteAction action,
-      FileOutErr outErr) throws ExecException {
+      FileOutErr outErr) throws ExecException, InterruptedException {
     ErrorEventListener reporter = executor == null ? null : executor.getReporter();
     try {
       Path outputPath = Iterables.getOnlyElement(action.getOutputs()).getPath();
@@ -68,8 +68,6 @@ public final class FileWriteStrategy implements FileWriteActionContext {
       if (action.makeExecutable()) {
         outputPath.setExecutable(true);
       }
-    } catch (InterruptedException e) {
-      throw new InterruptedExecException("File write was interrupted");
     } catch (IOException e) {
       throw new EnvironmentalExecException("failed to create file '"
           + Iterables.getOnlyElement(action.getOutputs()).prettyPrint()

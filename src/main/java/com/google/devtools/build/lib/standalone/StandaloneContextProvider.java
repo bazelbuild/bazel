@@ -39,11 +39,6 @@ public class StandaloneContextProvider implements ActionContextProvider {
   }
 
   @Override
-  public Iterable<ActionContext> getMandatoryActionContexts() {
-    return ImmutableList.<ActionContext>of(localSpawnStrategy);
-  }
-
-  @Override
   public void executorCreated(Iterable<ActionContext> usedContexts) throws ExecutorInitException {
   }
 

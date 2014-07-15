@@ -23,7 +23,6 @@ import com.google.devtools.build.lib.collect.nestedset.NestedSetBuilder;
 import com.google.devtools.build.lib.collect.nestedset.Order;
 import com.google.devtools.build.lib.packages.FileTarget;
 import com.google.devtools.build.lib.util.FileType;
-import com.google.devtools.build.lib.view.RuleConfiguredTargetBuilder.FileProviderImpl;
 import com.google.devtools.build.lib.view.fileset.FilesetProvider;
 import com.google.devtools.build.lib.view.test.InstrumentedFilesProvider;
 
@@ -46,7 +45,7 @@ public abstract class FileConfiguredTarget extends AbstractConfiguredTarget
         .<Class<? extends TransitiveInfoProvider>, TransitiveInfoProvider>builder()
         .put(VisibilityProvider.class, this)
         .put(LicensesProvider.class, this)
-        .put(FileProvider.class, new FileProviderImpl(targetContext.getLabel(), filesToBuild))
+        .put(FileProvider.class, new FileProvider(targetContext.getLabel(), filesToBuild))
         .put(FilesToRunProvider.class, new FilesToRunProvider(targetContext.getLabel(),
             ImmutableList.copyOf(filesToBuild), null, artifact));
     if (this instanceof FilesetProvider) {

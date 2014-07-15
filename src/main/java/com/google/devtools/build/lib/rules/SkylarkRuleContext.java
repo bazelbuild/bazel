@@ -24,6 +24,7 @@ import com.google.common.collect.ImmutableSet;
 import com.google.common.collect.Iterables;
 import com.google.devtools.build.lib.actions.Action;
 import com.google.devtools.build.lib.actions.Artifact;
+import com.google.devtools.build.lib.actions.Root;
 import com.google.devtools.build.lib.packages.Attribute;
 import com.google.devtools.build.lib.packages.Attribute.ConfigurationTransition;
 import com.google.devtools.build.lib.packages.ImplicitOutputsFunction;
@@ -31,13 +32,14 @@ import com.google.devtools.build.lib.packages.OutputFile;
 import com.google.devtools.build.lib.shell.ShellUtils;
 import com.google.devtools.build.lib.shell.ShellUtils.TokenizationException;
 import com.google.devtools.build.lib.syntax.ClassObject;
+import com.google.devtools.build.lib.syntax.Environment;
 import com.google.devtools.build.lib.syntax.FuncallExpression.FuncallException;
 import com.google.devtools.build.lib.syntax.Label;
 import com.google.devtools.build.lib.syntax.SkylarkBuiltin;
 import com.google.devtools.build.lib.syntax.SkylarkCallable;
-import com.google.devtools.build.lib.syntax.UserDefinedFunction;
 import com.google.devtools.build.lib.util.FileType;
 import com.google.devtools.build.lib.util.FileTypeSet;
+import com.google.devtools.build.lib.vfs.PathFragment;
 import com.google.devtools.build.lib.view.ConfigurationMakeVariableContext;
 import com.google.devtools.build.lib.view.LabelExpander;
 import com.google.devtools.build.lib.view.LabelExpander.NotUniqueExpansionException;
@@ -89,7 +91,7 @@ public final class SkylarkRuleContext {
     ImmutableMap.Builder<String, Object> builder = new ImmutableMap.Builder<>();
     for (Attribute a : ruleContext.getRule().getAttributes()) {
       Object val = ruleContext.getRule().getAttr(a);
-      builder.put(a.getName(), val == null ? UserDefinedFunction.NONE : val);
+      builder.put(a.getName(), val == null ? Environment.NONE : val);
     }
     attrObject = new ClassObject(builder.build());
   }
@@ -160,8 +162,7 @@ public final class SkylarkRuleContext {
    * See {@link RuleContext#getPrerequisiteArtifact(String, Mode)}.
    */
   @SkylarkCallable(doc = "")
-  public Object getPrerequisiteArtifact(String attributeName, String mode)
-      throws FuncallException {
+  public Object getPrerequisiteArtifact(String attributeName, String mode) throws FuncallException {
     return ruleContext.getPrerequisiteArtifact(attributeName, convertMode(mode));
   }
 
@@ -346,6 +347,15 @@ public final class SkylarkRuleContext {
   @SkylarkCallable(doc = "")
   public BuildConfiguration dataConfiguration() {
     return ruleContext.getConfiguration().getConfiguration(ConfigurationTransition.DATA);
+  }
+
+  @SkylarkCallable(doc = "")
+  public Artifact derivedArtifact(Root root, List<String> pathFragmentStrings) {
+    PathFragment fragment = ruleContext.getLabel().getPackageFragment();
+    for (String pathFragmentString : pathFragmentStrings) {
+      fragment = fragment.getRelative(pathFragmentString);
+    }
+    return ruleContext.getAnalysisEnvironment().getDerivedArtifact(fragment, root);
   }
 
   @SkylarkCallable(doc = "")

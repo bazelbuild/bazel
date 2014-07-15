@@ -39,7 +39,7 @@ public final class SymlinkTreeStrategy implements SymlinkTreeActionContext {
   @Override
   public void createSymlinks(SymlinkTreeAction action,
       ActionExecutionContext actionExecutionContext)
-      throws ActionExecutionException {
+      throws ActionExecutionException, InterruptedException {
     Executor executor = actionExecutionContext.getExecutor();
     try {
       SymlinkTreeHelper helper = new SymlinkTreeHelper(

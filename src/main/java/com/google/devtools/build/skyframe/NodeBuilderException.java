@@ -53,4 +53,11 @@ public abstract class NodeBuilderException extends Exception {
   final boolean isTransient() {
     return isTransient;
   }
+
+  /**
+   * Catastrophic failures halt the build even when in keepGoing mode.
+   */
+  public boolean isCatastrophic() {
+    return false;
+  }
 }

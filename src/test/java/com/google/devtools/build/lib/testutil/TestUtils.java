@@ -16,9 +16,12 @@ package com.google.devtools.build.lib.testutil;
 
 import com.google.common.base.Joiner;
 import com.google.common.collect.ImmutableList;
+import com.google.devtools.build.lib.blaze.BlazeDirectories;
 import com.google.devtools.build.lib.util.SkyframeMode;
 import com.google.devtools.build.lib.vfs.FileSystemUtils;
 import com.google.devtools.build.lib.vfs.Path;
+import com.google.devtools.build.lib.vfs.PathFragment;
+import com.google.devtools.build.lib.view.config.BinTools;
 
 import java.io.ByteArrayInputStream;
 import java.io.ByteArrayOutputStream;
@@ -26,6 +29,7 @@ import java.io.File;
 import java.io.IOException;
 import java.io.ObjectInputStream;
 import java.io.ObjectOutputStream;
+import java.util.Collection;
 import java.util.UUID;
 import java.util.concurrent.Executors;
 import java.util.concurrent.ThreadPoolExecutor;
@@ -41,9 +45,12 @@ public class TestUtils {
    */
   public static final ImmutableList<String> EMBEDDED_TOOLS = ImmutableList.of(
       "build-runfiles",
-      "client_info",
+      "p4_client_info.sh",
+      "grep-includes",
+      "alarm",
       "process-wrapper",
-      "alarm");
+      "normalize-ar",
+      "build_interface_so");
 
   public static final ThreadPoolExecutor POOL =
     (ThreadPoolExecutor) Executors.newFixedThreadPool(10);
@@ -95,6 +102,42 @@ public class TestUtils {
       newMtime += 1000;
       path.setLastModifiedTime(newMtime);
     } while (path.getLastModifiedTime() == prevMtime);
+  }
+
+  /**
+   * The Bazel zip dumps all of the bin tools in one directory but the integration tests access
+   * these tools by making them data dependencies. Thus, instead of all being in a top-level
+   * directory, they're (mostly) under runfiles/google3/devtools/blaze.
+   *
+   * This copies the tools over to directories' installBase, which is more like the layout from a
+   * normal Bazel install. Integration tests that want to use embedded binaries should call this
+   * instead of calling BinTools.forIntegrationTests directly.
+   */
+  public static BinTools getIntegrationBinTools(BlazeDirectories directories) throws IOException {
+    Path embeddedDir = directories.getInstallBase();
+    Path runfiles = embeddedDir.getParentDirectory().getParentDirectory().getRelative("runfiles");
+    try {
+      // Copy over everything in embedded_scripts.
+      Path embeddedScripts = runfiles.getRelative("google3/devtools/blaze/embedded_scripts");
+      Collection<Path> files = embeddedScripts.getDirectoryEntries();
+      for (Path fromFile : files) {
+        Path toFile = embeddedDir.getRelative(fromFile.getBaseName());
+        FileSystemUtils.copyFile(fromFile, toFile);
+      }
+
+      // Copy over stragglers.
+      PathFragment buildInterface = new PathFragment("google3/util/elf/build_interface_so");
+      FileSystemUtils.copyFile(
+          runfiles.getRelative(buildInterface),
+          embeddedDir.getRelative(buildInterface.getBaseName()));
+    } catch (IOException e) {
+      // It's okay if this fails, some tests use in invalid dirs.
+      System.err.println("Could not copy over runfiles: " + e.getMessage());
+    }
+
+    // Note: assumes that the test binary is running in its .runfiles directory.
+    return BinTools.forIntegrationTesting(
+        directories, embeddedDir.toString(), TestUtils.EMBEDDED_TOOLS);
   }
 
   /**

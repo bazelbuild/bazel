@@ -196,7 +196,7 @@ public class SkylarkDocumentationProcessor {
             collectMethodLibraryDoc(MethodLibrary.listFunctions)))
         .add(SkylarkJavaObject.ofExtraMethods(
             getMethodLibraryAnnotation("stringFunctions"),
-            collectMethodLibraryDoc(MethodLibrary.stringFunctions)))
+            collectMethodLibraryDoc(MethodLibrary.stringFunctions.keySet())))
         .build();
   }
 
@@ -204,7 +204,7 @@ public class SkylarkDocumentationProcessor {
   ImmutableMap<String, SkylarkCallable> collectMethodLibraryDocMap() {
     return ImmutableMap.<String, SkylarkCallable>builder()
         .putAll(collectMethodLibraryDoc(MethodLibrary.listFunctions))
-        .putAll(collectMethodLibraryDoc(MethodLibrary.stringFunctions))
+        .putAll(collectMethodLibraryDoc(MethodLibrary.stringFunctions.keySet()))
         .build();
   }
 
@@ -218,7 +218,7 @@ public class SkylarkDocumentationProcessor {
   }
 
   private Map<String, SkylarkCallable> collectMethodLibraryDoc(
-      List<com.google.devtools.build.lib.syntax.Function> functions) {
+      Iterable<com.google.devtools.build.lib.syntax.Function> functions) {
     Map<String, SkylarkCallable> methods = new HashMap<>();
     for (com.google.devtools.build.lib.syntax.Function function : functions) {
       try {

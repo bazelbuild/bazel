@@ -47,6 +47,7 @@ import com.google.devtools.build.lib.packages.TargetUtils;
 import com.google.devtools.build.lib.packages.Type;
 import com.google.devtools.build.lib.pkgcache.LoadedPackageProvider;
 import com.google.devtools.build.lib.shell.ShellUtils;
+import com.google.devtools.build.lib.syntax.EvalException;
 import com.google.devtools.build.lib.syntax.FilesetEntry;
 import com.google.devtools.build.lib.syntax.Label;
 import com.google.devtools.build.lib.util.FileType;
@@ -783,7 +784,13 @@ public final class RuleContext extends TargetContext
    * can be found as a result of the template, an exception is thrown.
    */
   public Artifact getImplicitOutputArtifact(ImplicitOutputsFunction function) {
-    Iterable<String> result = function.apply(rule);
+    Iterable<String> result;
+    try {
+      result = function.getImplicitOutputs(rule);
+    } catch (EvalException e) {
+      // It's ok as long as we don't use this method from Skylark.
+      throw new IllegalStateException(e);
+    }
     String path = Iterables.getOnlyElement(result);
     Root root = getBinOrGenfilesDirectory();
     PathFragment packageFragment = getLabel().getPackageFragment();

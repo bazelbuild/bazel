@@ -53,8 +53,9 @@ public interface OutputService {
    * Start the build.
    *
    * @throws BuildFailedException if build preparation failed
+   * @throws InterruptedException
    */
-  void startBuild() throws BuildFailedException, ExitCausingException;
+  void startBuild() throws BuildFailedException, ExitCausingException, InterruptedException;
 
   /**
    * Finish the build.
@@ -94,17 +95,19 @@ public interface OutputService {
    * @param outputPath the output manifest
    * @param filesetTree is true iff we're constructing a Fileset
    * @param symlinkTreeRoot the symlink tree root, relative to the execRoot
-   * @throws ExecException on interruption or failure
+   * @throws ExecException on failure
+   * @throws InterruptedException
    */
   void createSymlinkTree(Path inputPath, Path outputPath, boolean filesetTree,
-      PathFragment symlinkTreeRoot) throws ExecException;
+      PathFragment symlinkTreeRoot) throws ExecException, InterruptedException;
 
   /**
    * Cleans the entire output tree.
    *
    * @throws ExecException on failure
+   * @throws InterruptedException
    */
-  void clean() throws ExecException;
+  void clean() throws ExecException, InterruptedException;
 
   /**
    * @param file the File

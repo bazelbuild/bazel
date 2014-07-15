@@ -30,7 +30,7 @@ import com.google.devtools.build.lib.actions.ArtifactFactory;
 import com.google.devtools.build.lib.actions.Root;
 import com.google.devtools.build.lib.blaze.BlazeDirectories;
 import com.google.devtools.build.lib.events.ErrorEventListener;
-import com.google.devtools.build.lib.packages.Attribute.ConfigurationTransition;
+import com.google.devtools.build.lib.packages.Attribute.Transition;
 import com.google.devtools.build.lib.syntax.Label;
 import com.google.devtools.build.lib.syntax.Label.SyntaxException;
 import com.google.devtools.build.lib.syntax.SkylarkBuiltin;
@@ -892,14 +892,14 @@ public final class BuildConfiguration {
   }
 
   /**
-   * Returns the new configuration after traversing a dependency edge with a
-   * given configuration transition.
+   * Returns the new configuration after traversing a dependency edge with a given configuration
+   * transition.
    *
-   * @param configurationTransition the configuration transition
+   * @param transition the configuration transition
    * @return the new configuration
    */
-  public BuildConfiguration getConfiguration(ConfigurationTransition configurationTransition) {
-    return transitions.getConfiguration(configurationTransition);
+  public BuildConfiguration getConfiguration(Transition transition) {
+    return transitions.getConfiguration(transition);
   }
 
   /**
@@ -986,6 +986,7 @@ public final class BuildConfiguration {
   /**
    * Returns the genfiles directory for this build configuration.
    */
+  @SkylarkCallable(doc = "Returns the genfiles directory for this build configuration")
   public Root getGenfilesDirectory() {
     return genfilesDirectory;
   }

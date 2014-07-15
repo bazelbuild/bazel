@@ -13,7 +13,6 @@
 // limitations under the License.
 package com.google.devtools.build.lib.skyframe;
 
-import com.google.devtools.build.lib.pkgcache.PathPackageLocator;
 import com.google.devtools.build.lib.vfs.RootedPath;
 import com.google.devtools.build.skyframe.Node;
 import com.google.devtools.build.skyframe.NodeBuilder;
@@ -21,8 +20,6 @@ import com.google.devtools.build.skyframe.NodeBuilderException;
 import com.google.devtools.build.skyframe.NodeKey;
 
 import java.io.IOException;
-import java.util.UUID;
-import java.util.concurrent.atomic.AtomicReference;
 
 import javax.annotation.Nullable;
 
@@ -31,59 +28,35 @@ import javax.annotation.Nullable;
  */
 final class DirectoryListingNodeBuilder implements NodeBuilder {
 
-  private final AtomicReference<PathPackageLocator> pkgLocator;
-
-  public DirectoryListingNodeBuilder(AtomicReference<PathPackageLocator> pkgLocator) {
-    this.pkgLocator = pkgLocator;
-  }
-
   @Override
   public Node build(NodeKey nodeKey, Environment env) throws DirectoryListingNodeBuilderException {
     RootedPath dirRootedPath = (RootedPath) nodeKey.getNodeName();
 
-    FileNode dirFile = (FileNode) env.getDep(FileNode.key(dirRootedPath));
-    if (dirFile == null) {
+    FileNode dirFileNode = (FileNode) env.getDep(FileNode.key(dirRootedPath));
+    if (dirFileNode == null) {
       return null;
     }
-    if (!dirFile.isDirectory()) {
+
+    RootedPath realDirRootedPath = dirFileNode.realRootedPath();
+    if (!dirFileNode.isDirectory()) {
       // Recall that the directory is assumed to exist (see DirectoryListingNode#key).
       throw new DirectoryListingNodeBuilderException(nodeKey,
           new InconsistentFilesystemException(dirRootedPath.asPath()
               + " is no longer an existing directory. Did you delete it during the build?"));
     }
 
-    if (!dirFile.realRootedPath().equals(dirRootedPath)) {
-      // If the realpath of the directory does not match the actual path, then look up the real
-      // directory that it corresponds to and fetch the directory entries from that. This saves
-      // a little bit of I/O, and more importantly it keeps listings of "virtual" directories
-      // correct when changes are reported in the real directory (which what file delta interfaces
-      // usually provide).
-      //
-      // Note that FileNode#isDirectory follows symlinks.
-      DirectoryListingNode resolvedDir = (DirectoryListingNode)
-          env.getDep(DirectoryListingNode.key(dirFile.realRootedPath()));
-      if (resolvedDir == null) {
-        return null;
-      }
-      return new DirectoryListingNode(dirRootedPath, resolvedDir);
-    }
-
-    DirectoryListingNode node;
+    DirectoryListingStateNode directoryListingStateNode;
     try {
-      node = DirectoryListingNode.nodeForRootedPath(dirRootedPath);
+      directoryListingStateNode = (DirectoryListingStateNode) env.getDepOrThrow(
+          DirectoryListingStateNode.key(realDirRootedPath), IOException.class);
     } catch (IOException e) {
       throw new DirectoryListingNodeBuilderException(nodeKey, e);
     }
-
-    // See the note about external files in FileNodeBuilder.
-    if (!pkgLocator.get().getPathEntries().contains(dirRootedPath.getRoot())) {
-      UUID buildId = BuildVariableNode.BUILD_ID.get(env);
-      if (buildId == null) {
-        return null;
-      }
+    if (directoryListingStateNode == null) {
+      return null;
     }
 
-    return node;
+    return DirectoryListingNode.node(dirRootedPath, dirFileNode, directoryListingStateNode);
   }
 
   @Nullable

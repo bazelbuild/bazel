@@ -350,14 +350,14 @@ public class BuildRequest implements OptionsClassProvider {
   /**
    * Enables test execution for this build request.
    */
-  public void setRunTestsDuringBuild() {
+  public void setRunTests() {
     runTests = true;
   }
 
   /**
    * Returns true if tests should be run by the build tool.
    */
-  public boolean shouldRunTestsDuringBuild() {
+  public boolean shouldRunTests() {
     return runTests;
   }
 

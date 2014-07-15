@@ -213,13 +213,13 @@ public class SpawnAction extends ConfigurationAction {
    * <p>Called by {@link #execute}.
    */
   protected void internalExecute(
-      ActionExecutionContext actionExecutionContext) throws ExecException {
+      ActionExecutionContext actionExecutionContext) throws ExecException, InterruptedException {
     getContext(actionExecutionContext.getExecutor()).exec(getSpawn(), actionExecutionContext);
   }
 
   @Override
   public void execute(ActionExecutionContext actionExecutionContext)
-      throws ActionExecutionException {
+      throws ActionExecutionException, InterruptedException {
     Executor executor = actionExecutionContext.getExecutor();
     try {
       internalExecute(actionExecutionContext);
@@ -655,7 +655,8 @@ public class SpawnAction extends ConfigurationAction {
      * {@link #setShellCommand(String)}.
      */
     public Builder setExecutable(FilesToRunProvider executableProvider) {
-      Preconditions.checkArgument(executableProvider.getExecutable() != null);
+      Preconditions.checkArgument(executableProvider.getExecutable() != null,
+          "The target does not have an executable");
       setExecutable(executableProvider.getExecutable().getExecPath());
       return addTool(executableProvider);
     }

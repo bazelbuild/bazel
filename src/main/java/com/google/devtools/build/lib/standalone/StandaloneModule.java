@@ -13,6 +13,7 @@
 // limitations under the License.
 package com.google.devtools.build.lib.standalone;
 
+import com.google.devtools.build.lib.actions.ActionContextConsumer;
 import com.google.devtools.build.lib.actions.ActionContextProvider;
 import com.google.devtools.build.lib.blaze.BlazeModule;
 
@@ -20,11 +21,23 @@ import com.google.devtools.build.lib.blaze.BlazeModule;
  * StandaloneModule provides pluggable functionality for blaze.
  */
 public class StandaloneModule extends BlazeModule {
+  private final ActionContextProvider actionContextProvider = new StandaloneContextProvider();
+  private final ActionContextConsumer actionContextConsumer = new StandaloneContextConsumer();
+  
   /**
    * Returns the action context provider the module contributes to Blaze, if any.
    */
   @Override
   public ActionContextProvider getActionContextProvider() {
-    return new StandaloneContextProvider();
+    return actionContextProvider;
   }
+
+  /**
+   * Returns the action context consumer the module contributes to Blaze, if any.
+   */
+  @Override
+  public ActionContextConsumer getActionContextConsumer() {
+    return actionContextConsumer;
+  }
+
 }

@@ -40,9 +40,26 @@ public class ValidationEnvironment {
   // The function we are currently validating.
   private String currentFunction;
 
+  // Whether this validation environment is not modified therefore clonable or not.
+  private boolean clonable;
+
   public ValidationEnvironment(ImmutableMap<String, Class<?>> builtinVariableTypes) {
     variableTypes.putAll(builtinVariableTypes);
     readOnlyVariables.addAll(builtinVariableTypes.keySet());
+    clonable = true;
+  }
+
+  private ValidationEnvironment(
+      Map<String, Class<?>> variableTypes, Set<String> readOnlyVariables) {
+    this.variableTypes = new HashMap<>(variableTypes);
+    this.readOnlyVariables = new HashSet<>(readOnlyVariables);
+    clonable = false;
+  }
+
+  @Override
+  public ValidationEnvironment clone() {
+    Preconditions.checkState(clonable);
+    return new ValidationEnvironment(variableTypes, readOnlyVariables);
   }
 
   /**
@@ -67,6 +84,7 @@ public class ValidationEnvironment {
       variableTypes.put(varname, newVartype);
       variableLocations.put(varname, location);
     }
+    clonable = false;
   }
 
   public void checkIterable(Class<?> type, Location loc) throws EvalException {
@@ -115,6 +133,7 @@ public class ValidationEnvironment {
 
   public void setCurrentFunction(String fct) {
     currentFunction = fct;
+    clonable = false;
   }
 
   public String getCurrentFunction() {

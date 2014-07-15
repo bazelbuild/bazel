@@ -65,11 +65,6 @@ public final class FilesetActionContextImpl implements FilesetActionContext {
     }
 
     @Override
-    public Iterable<ActionContext> getMandatoryActionContexts() {
-      return ImmutableList.of();
-    }
-
-    @Override
     public void executorCreated(Iterable<ActionContext> usedStrategies) {}
 
     @Override

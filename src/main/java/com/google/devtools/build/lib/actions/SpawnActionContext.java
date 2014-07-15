@@ -24,7 +24,7 @@ public interface SpawnActionContext extends Executor.ActionContext {
    * Executes the given spawn.
    */
   void exec(Spawn spawn, ActionExecutionContext actionExecutionContext)
-      throws ExecException;
+      throws ExecException, InterruptedException;
 
   /** Returns the locality of running the spawn, i.e., "local". */
   String strategyLocality(String mnemonic, boolean remotable);

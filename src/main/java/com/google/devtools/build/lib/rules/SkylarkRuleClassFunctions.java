@@ -35,10 +35,11 @@ import com.google.common.collect.Iterables;
 import com.google.devtools.build.lib.events.Location;
 import com.google.devtools.build.lib.packages.Attribute;
 import com.google.devtools.build.lib.packages.Attribute.ConfigurationTransition;
+import com.google.devtools.build.lib.packages.Attribute.SkylarkLateBound;
 import com.google.devtools.build.lib.packages.AttributeMap;
 import com.google.devtools.build.lib.packages.ImplicitOutputsFunction;
+import com.google.devtools.build.lib.packages.ImplicitOutputsFunction.SkylarkImplicitOutputsFunction;
 import com.google.devtools.build.lib.packages.MethodLibrary;
-import com.google.devtools.build.lib.packages.Rule;
 import com.google.devtools.build.lib.packages.RuleClass;
 import com.google.devtools.build.lib.packages.RuleClass.Builder.RuleClassType;
 import com.google.devtools.build.lib.packages.SkylarkFileType;
@@ -50,10 +51,10 @@ import com.google.devtools.build.lib.syntax.EvalException;
 import com.google.devtools.build.lib.syntax.EvalUtils;
 import com.google.devtools.build.lib.syntax.FuncallExpression;
 import com.google.devtools.build.lib.syntax.Function;
-import com.google.devtools.build.lib.syntax.Ident;
 import com.google.devtools.build.lib.syntax.Label;
 import com.google.devtools.build.lib.syntax.SkylarkBuiltin;
 import com.google.devtools.build.lib.syntax.SkylarkBuiltin.Param;
+import com.google.devtools.build.lib.syntax.SkylarkCallbackFunction;
 import com.google.devtools.build.lib.syntax.SkylarkEnvironment;
 import com.google.devtools.build.lib.syntax.SkylarkFunction;
 import com.google.devtools.build.lib.syntax.SkylarkFunction.SimpleSkylarkFunction;
@@ -64,10 +65,8 @@ import com.google.devtools.build.lib.vfs.Path;
 
 import java.lang.reflect.Field;
 import java.lang.reflect.Modifier;
-import java.util.HashSet;
 import java.util.List;
 import java.util.Map;
-import java.util.Set;
 
 /**
  * A helper class to provide an easier API for Skylark rule definitions.
@@ -184,7 +183,6 @@ public class SkylarkRuleClassFunctions {
 
   @SkylarkBuiltin(name = "attr", doc = "Creates a rule class attribute.",
       mandatoryParams = {
-      @Param(name = "name", type = String.class, doc = "name of the attribute"),
       @Param(name = "type", type = String.class, doc = "type of the attribute")},
       optionalParams = {
       @Param(name = "default", doc = "the default value of the attribute"),
@@ -193,21 +191,37 @@ public class SkylarkRuleClassFunctions {
           doc = "allowed file types of the label type attribute"),
       @Param(name = "rule_classes", doc = "allowed rule classes of the label type attribute"),
       @Param(name = "cfg", type = String.class, doc = "configuration of the attribute")})
-  private final SkylarkFunction attr = new SimpleSkylarkFunction("attr") {
-
+  private final SkylarkFunction attr = new SkylarkFunction("attr") {
     @SuppressWarnings("unchecked")
     @Override
-    public Object call(Map<String, Object> arguments, Location loc) throws EvalException,
-        ConversionException {
-      String name = cast(arguments.get("name"), String.class, "first argument", loc);
+    public Object call(Map<String, Object> arguments, FuncallExpression ast,
+        Environment funcallEnv) throws EvalException, ConversionException {
+      final Location loc = ast.getLocation();
       Type<?> type = createTypeFromString(
           cast(arguments.get("type"), String.class, "attribute type", loc), loc,
           "invalid attribute type %s");
-      Attribute.Builder<?> builder = Attribute.attr(name, type);
+      // We use an empty name now so that we can set it later.
+      // This trick makes sense only in the context of Skylark (builtin rules should not use it).
+      Attribute.Builder<?> builder = Attribute.attr("", type);
 
       Object defaultValue = arguments.get("default");
       if (defaultValue != null) {
-        builder.defaultValue(defaultValue);
+        if (defaultValue instanceof UserDefinedFunction) {
+          // Late bound attribute
+          UserDefinedFunction func =
+              cast(defaultValue, UserDefinedFunction.class, "default", loc);
+          final SkylarkCallbackFunction callback =
+              new SkylarkCallbackFunction(func, ast, (SkylarkEnvironment) funcallEnv);
+          final SkylarkLateBound computedValue;
+          if (type.equals(Type.LABEL) || type.equals(Type.LABEL_LIST)) {
+            computedValue = new SkylarkLateBound(false, callback);
+          } else {
+            throw new EvalException(loc, "Only label type attributes can be late bound");
+          }
+          builder.value(computedValue);
+        } else {
+          builder.defaultValue(defaultValue);
+        }
       }
 
       for (String flag :
@@ -246,7 +260,7 @@ public class SkylarkRuleClassFunctions {
         builder.cfg(
             cast(arguments.get("cfg"), ConfigurationTransition.class, "configuration", loc));
       }
-      return builder.build();
+      return builder;
     }
   };
 
@@ -262,15 +276,13 @@ public class SkylarkRuleClassFunctions {
       @Param(name = "parents", type = List.class,
           doc = "list of parent rule classes, this rule class inherits all the attributes and "
               + "the impicit outputs of the parent rule classes"),
-      @Param(name = "add", doc = "list of attributes to add to this rule class"),
-      @Param(name = "override", doc = "list of attributes to override in this rule class"),
-      @Param(name = "remove", doc = "list of attribute names remove from this rule class"),
+      @Param(name = "attr", doc = "dictionary mapping an attribute name to an attribute"),
       @Param(name = "implicit_outputs", doc = "implicit outputs of this rule")})
   private final SkylarkFunction rule = new SkylarkFunction("rule") {
 
         @Override
-        public Object call(Map<String, Object> arguments, final FuncallExpression ast,
-            final Environment funcallEnv) throws EvalException, ConversionException {
+        public Object call(Map<String, Object> arguments, FuncallExpression ast,
+            Environment funcallEnv) throws EvalException, ConversionException {
           final Location loc = ast.getLocation();
           String name = cast(arguments.get("name"), String.class, "rule class name", loc);
 
@@ -287,58 +299,25 @@ public class SkylarkRuleClassFunctions {
 
           RuleClass.Builder builder = new RuleClass.Builder(name, type, true, parents);
 
-          Set<String> attributeNames = new HashSet<>();
-          for (Attribute attribute : castList(arguments.get("add"), Attribute.class,
-              "new attributes to add to the rule")) {
-            builder.add(attribute);
-            attributeNames.add(attribute.getName());
-          }
-
-          for (Attribute attribute : castList(arguments.get("override"), Attribute.class,
-              "existing attributes to override in the rule class")) {
-            builder.override(attribute);
-          }
-
-          for (String attribute : castList(arguments.get("remove"), String.class,
-              "attributes to remove from rule class")) {
-            builder.removeAttribute(attribute);
+          for (Map.Entry<String, Attribute.Builder> attr :
+                   castMap(arguments.get("attr"), String.class, Attribute.Builder.class, "attr")) {
+            String attrName = attr.getKey();
+            if (attr.getValue() == null) {
+              builder.removeAttribute(attrName);
+            } else {
+              Attribute.Builder<?> attrBuilder = attr.getValue();
+              attrBuilder.setName(attrName);
+              builder.addOrOverrideAttribute(attrBuilder.build());
+            }
           }
 
           if (arguments.containsKey("implicit_outputs")) {
             final Object implicitOutputs = arguments.get("implicit_outputs");
             if (implicitOutputs instanceof UserDefinedFunction) {
-              final UserDefinedFunction callback = (UserDefinedFunction) implicitOutputs;
-              for (Ident arg : callback.getListArgNames()) {
-                if (!attributeNames.contains(arg.getName())) {
-                  throw new EvalException(loc,
-                      "Invalid attribute name in implicit output function: " + arg.getName());
-                }
-              }
-              builder.setImplicitOutputsFunction(new ImplicitOutputsFunction() {
-                @Override
-                public Iterable<String> getImplicitOutputs(AttributeMap attributeMap) {
-                  try {
-                    // TODO(bazel-team): This is not a nice design. Figure out a way to migrate the
-                    // whole implicit output functionality to Skylark, and kill this workaround.
-                    // Maybe add argument checking.
-                    ImmutableList.Builder<Object> args = ImmutableList.builder();
-                    Rule rule = (Rule) attributeMap;
-                    for (Ident arg : callback.getListArgNames()) {
-                      String name = arg.getName();
-                      args.add(rule.getAttr(name));
-                    }
-                    Environment env = new SkylarkEnvironment(
-                        ((SkylarkEnvironment) funcallEnv).getGlobalEnvironment());
-                    MethodLibrary.setupMethodEnvironment(env);
-                    return ImplicitOutputsFunction.fromTemplates(
-                        castList(callback.call(args.build(), null, ast, env),
-                        String.class, "implicit outputs")).getImplicitOutputs(rule);
-                  } catch (EvalException | InterruptedException | ConversionException
-                      | ClassCastException e) {
-                    throw new IllegalStateException(e);
-                  }
-                }
-              });
+              UserDefinedFunction func = (UserDefinedFunction) implicitOutputs;
+              final SkylarkCallbackFunction callback =
+                  new SkylarkCallbackFunction(func, ast, (SkylarkEnvironment) funcallEnv);
+              builder.setImplicitOutputsFunction(new SkylarkImplicitOutputsFunction(callback, loc));
             } else {
               builder.setImplicitOutputsFunction(ImplicitOutputsFunction.fromTemplates(castList(
                   arguments.get("implicit_outputs"), String.class,
@@ -362,7 +341,7 @@ public class SkylarkRuleClassFunctions {
         @Override
         public Object call(Map<String, Object> arguments, Location loc) throws EvalException,
             ConversionException {
-        String label = cast(arguments.get("label"), String.class, "label", loc);
+          String label = cast(arguments.get("label"), String.class, "label", loc);
           return labelCache.getUnchecked(label);
         }
       };
@@ -403,32 +382,34 @@ public class SkylarkRuleClassFunctions {
     if (obj == null) {
       return ImmutableList.of();
     }
-    if (obj instanceof Map<?, ?>) {
-      return Iterables.transform(((Map<?, ?>) obj).entrySet(),
-          new com.google.common.base.Function<Map.Entry<?, ?>, Map.Entry<KEY_TYPE, VALUE_TYPE>>() {
-            // This is safe. We check the type of the key-value pairs for every entry in the Map.
-            // In Map.Entry the key always has the type of the first generic parameter, the
-            // value has the second.
-            @SuppressWarnings("unchecked")
-            @Override
-            public Map.Entry<KEY_TYPE, VALUE_TYPE> apply(Map.Entry<?, ?> input) {
-              if (keyType.isAssignableFrom(input.getKey().getClass())
-                  && valueType.isAssignableFrom(input.getValue().getClass())) {
-                return (Map.Entry<KEY_TYPE, VALUE_TYPE>) input;
-              } else {
-                throw new IllegalArgumentException(String.format(
-                    "expected <%s, %s> type for '%s' but got <%s, %s> instead",
-                    keyType.getSimpleName(), valueType.getSimpleName(), what,
-                    EvalUtils.getDatatypeName(input.getKey()),
-                    EvalUtils.getDatatypeName(input.getValue())));
-              }
-            }
-      });
-    } else {
+    if (!(obj instanceof Map<?, ?>)) {
       throw new IllegalArgumentException(String.format(
           "expected a dictionary for %s but got %s instead",
           what, EvalUtils.getDatatypeName(obj)));
     }
+    return Iterables.transform(((Map<?, ?>) obj).entrySet(),
+        new com.google.common.base.Function<Map.Entry<?, ?>, Map.Entry<KEY_TYPE, VALUE_TYPE>>() {
+          // This is safe. We check the type of the key-value pairs for every entry in the Map.
+          // In Map.Entry the key always has the type of the first generic parameter, the
+          // value has the second.
+          @SuppressWarnings("unchecked")
+            @Override
+            public Map.Entry<KEY_TYPE, VALUE_TYPE> apply(Map.Entry<?, ?> input) {
+            if (keyType.isAssignableFrom(input.getKey().getClass())) {
+              if (input.getValue() == Environment.NONE) {
+                input.setValue(null);
+                return (Map.Entry<KEY_TYPE, VALUE_TYPE>) input;
+              } else if (valueType.isAssignableFrom(input.getValue().getClass())) {
+                return (Map.Entry<KEY_TYPE, VALUE_TYPE>) input;
+              }
+            }
+            throw new IllegalArgumentException(String.format(
+                "expected <%s, %s> type for '%s' but got <%s, %s> instead",
+                keyType.getSimpleName(), valueType.getSimpleName(), what,
+                EvalUtils.getDatatypeName(input.getKey()),
+                EvalUtils.getDatatypeName(input.getValue())));
+          }
+        });
   }
 
   private static Type<?> createTypeFromString(

@@ -30,6 +30,7 @@ import com.google.devtools.build.lib.packages.Rule;
 import com.google.devtools.build.lib.packages.Target;
 import com.google.devtools.build.lib.packages.TargetUtils;
 import com.google.devtools.build.lib.skyframe.SkyframeExecutor.BuildViewProvider;
+import com.google.devtools.build.lib.syntax.EvalException;
 import com.google.devtools.build.lib.syntax.Label;
 import com.google.devtools.build.lib.view.CachingAnalysisEnvironment;
 import com.google.devtools.build.lib.view.ConfiguredTarget;
@@ -104,7 +105,13 @@ final class ConfiguredTargetNodeBuilder implements NodeBuilder {
 
     ListMultimap<Attribute, Label> labelMap = null;
     if (target instanceof Rule) {
-      labelMap = new LateBoundAttributeHelper((Rule) target, configuration).createAttributeMap();
+      try {
+        labelMap = new LateBoundAttributeHelper((Rule) target, configuration).createAttributeMap();
+      } catch (EvalException e) {
+        env.getListener().error(e.getLocation(), e.getMessage());
+        throw new ConfiguredTargetNodeBuilderException(packageNodeKey,
+            new ConfiguredNodeCreationException(e.print()));
+      }
     }
     Collection<TargetAndConfiguration> depNodeNames =
         resolver.dependentNodes(ctgNode, labelMap);
@@ -272,6 +279,10 @@ final class ConfiguredTargetNodeBuilder implements NodeBuilder {
     }
 
     public ConfiguredTargetNodeBuilderException(NodeKey key, ConfiguredNodeCreationException e) {
+      super(key, e);
+    }
+
+    public ConfiguredTargetNodeBuilderException(NodeKey key, EvalException e) {
       super(key, e);
     }
   }

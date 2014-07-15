@@ -41,6 +41,8 @@ import javax.annotation.Nullable;
  *   <li> For a file, the existence is noted, along with metadata about the file (e.g.
  *        file digest). See {@link FileFileStateNode}.
  * <ul>
+ *
+ * <p>This class is an implementation detail of {@link FileNode}.
  */
 abstract class FileStateNode implements Node {
 
@@ -140,25 +142,34 @@ abstract class FileStateNode implements Node {
      */
     public static FileFileStateNode fromPath(Path path, FileStatusWithDigest stat,
                                         @Nullable TimestampGranularityMonitor tsgm)
-        throws IOException {
+        throws InconsistentFilesystemException {
       Preconditions.checkState(stat.isFile(), path);
-      byte[] digest = stat.getDigest();
-      if (digest == null) {
-        digest = path.getFastDigest();
-      }
-      if (digest == null) {
-        long mtime = stat.getLastModifiedTime();
-        // Note that TimestampGranularityMonitor#notifyDependenceOnFileTime is a thread-safe method.
-        if (tsgm != null) {
-          tsgm.notifyDependenceOnFileTime(mtime);
+      try {
+        byte[] digest = stat.getDigest();
+        if (digest == null) {
+          digest = path.getFastDigest();
         }
-        return new FileFileStateNode(stat.getSize(), stat.getLastModifiedTime(), null,
-            FileContentsProxy.create(mtime, stat.getNodeId()));
-      } else {
-        // We are careful here to avoid putting the node ID into FileMetadata if we already have a
-        // digest. Arbitrary filesystems may do weird things with the node ID; a digest is more
-        // robust.
-        return new FileFileStateNode(stat.getSize(), stat.getLastModifiedTime(), digest, null);
+        if (digest == null) {
+          long mtime = stat.getLastModifiedTime();
+          // Note that TimestampGranularityMonitor#notifyDependenceOnFileTime is a thread-safe
+          // method.
+          if (tsgm != null) {
+            tsgm.notifyDependenceOnFileTime(mtime);
+          }
+          return new FileFileStateNode(stat.getSize(), stat.getLastModifiedTime(), null,
+              FileContentsProxy.create(mtime, stat.getNodeId()));
+        } else {
+          // We are careful here to avoid putting the node ID into FileMetadata if we already have
+          // a digest. Arbitrary filesystems may do weird things with the node ID; a digest is more
+          // robust.
+          return new FileFileStateNode(stat.getSize(), stat.getLastModifiedTime(), digest, null);
+        }
+      } catch (IOException e) {
+        String errorMessage = e.getMessage() != null
+            ? "error '" + e.getMessage() + "'" : "an error";
+        throw new InconsistentFilesystemException("'stat' said " + path + " is a file but then we "
+            + "later encountered " + errorMessage + " which indicates that " + path + " no longer "
+            + "exists. Did you delete it during the build?");
       }
     }
 

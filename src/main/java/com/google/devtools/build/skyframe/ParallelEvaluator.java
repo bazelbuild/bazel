@@ -639,9 +639,10 @@ final class ParallelEvaluator implements Evaluator {
             // without any re-evaluation.
             visitor.notifyDone(nodeKey);
             Set<NodeKey> reverseDeps = state.markClean();
-            if (progressReceiver != null) {
+            Node node = state.getNode();
+            if (progressReceiver != null && node != null) {
               // Tell the receiver that the node was not actually changed this run.
-              progressReceiver.evaluated(nodeKey, state.getNode(), EvaluationState.CLEAN);
+              progressReceiver.evaluated(nodeKey, node, EvaluationState.CLEAN);
             }
             signalNodesAndEnqueueIfReady(visitor, reverseDeps, state.getVersion());
             return;
@@ -674,7 +675,7 @@ final class ParallelEvaluator implements Evaluator {
         registerNewlyDiscoveredDepsForDoneEntry(nodeKey, state, env);
         env.setError(new ErrorInfo(builderException));
         env.commit(/*enqueueParents=*/keepGoing);
-        if (keepGoing) {
+        if (keepGoing && !builderException.isCatastrophic()) {
           return;
         }
         throw SchedulerException.ofError(new ErrorInfo(builderException), nodeKey);
@@ -826,7 +827,7 @@ final class ParallelEvaluator implements Evaluator {
     // Optimization: if all required node values are already present in the cache, return them
     // directly without launching the heavy machinery, spawning threads, etc.
     if (Iterables.all(nodeKeySet, nodeEntryIsDone)) {
-      return constructResult(null, nodeKeySet, null);
+      return constructResult(null, nodeKeySet, null, /*catastrophe=*/false);
     }
 
     Profiler.instance().startTask(ProfilerTask.SKYFRAME_EVAL, nodeKeySet);
@@ -889,6 +890,7 @@ final class ParallelEvaluator implements Evaluator {
   private <T extends Node> UpdateResult<T> waitForCompletionAndConstructResult(
       NodeVisitor visitor, Iterable<NodeKey> nodeKeys) throws InterruptedException {
     Map<NodeKey, NodeWithMetadata> bubbleErrorInfo = null;
+    boolean catastrophe = false;
     try {
       visitor.waitForCompletion();
     } catch (final SchedulerException e) {
@@ -906,11 +908,12 @@ final class ParallelEvaluator implements Evaluator {
       // that should have been propagated.
       ErrorInfo errorInfo = Preconditions.checkNotNull(e.getErrorInfo(), errorKey);
       bubbleErrorInfo = bubbleErrorUp(errorInfo, errorKey, nodeKeys, visitor);
+      catastrophe = errorInfo.isCatastrophic();
     }
 
     // Successful evaluation, either because keepGoing or because we actually did succeed.
     // TODO(bazel-team): Maybe report root causes during the build for lower latency.
-    return constructResult(visitor, nodeKeys, bubbleErrorInfo);
+    return constructResult(visitor, nodeKeys, bubbleErrorInfo, catastrophe);
   }
 
   /**
@@ -1036,8 +1039,9 @@ final class ParallelEvaluator implements Evaluator {
    */
   private <T extends Node> UpdateResult<T> constructResult(
       @Nullable NodeVisitor visitor, Iterable<NodeKey> nodeKeys,
-      Map<NodeKey, NodeWithMetadata> bubbleErrorInfo) {
-    Preconditions.checkState(!keepGoing || bubbleErrorInfo == null, "", nodeKeys, bubbleErrorInfo);
+      Map<NodeKey, NodeWithMetadata> bubbleErrorInfo, boolean catastrophe) {
+    Preconditions.checkState(!keepGoing || catastrophe || bubbleErrorInfo == null,
+        "", nodeKeys, bubbleErrorInfo);
     UpdateResult.Builder<T> result = UpdateResult.builder();
     List<NodeKey> cycleRoots = new ArrayList<>();
     boolean hasError = false;

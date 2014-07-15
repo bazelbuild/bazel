@@ -16,6 +16,7 @@ package com.google.devtools.build.lib.skyframe;
 import com.google.common.annotations.VisibleForTesting;
 import com.google.common.base.Preconditions;
 import com.google.common.collect.ImmutableMap;
+import com.google.devtools.build.lib.actions.Action;
 import com.google.devtools.build.lib.blaze.BlazeDirectories;
 import com.google.devtools.build.lib.packages.RuleVisibility;
 import com.google.devtools.build.lib.view.TopLevelArtifactContext;
@@ -67,6 +68,9 @@ public class BuildVariableNode implements Node {
 
   static final BuildVariable<BlazeDirectories> BLAZE_DIRECTORIES =
       new BuildVariable<>(new NodeKey(NodeTypes.BUILD_VARIABLE, "blaze_directories"));
+
+  static final BuildVariable<ImmutableMap<Action, Exception>> BAD_ACTIONS =
+      new BuildVariable<>(new NodeKey(NodeTypes.BUILD_VARIABLE, "bad_actions"));
 
   private final Object value;
 

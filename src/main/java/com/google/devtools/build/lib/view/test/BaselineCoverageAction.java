@@ -83,7 +83,7 @@ public class BaselineCoverageAction extends SpawnAction implements NotifyOnActio
 
   @Override
   protected void internalExecute(
-      ActionExecutionContext actionExecutionContext) throws ExecException {
+      ActionExecutionContext actionExecutionContext) throws ExecException, InterruptedException {
     super.internalExecute(actionExecutionContext);
     notifyAboutBaselineCoverage(actionExecutionContext.getExecutor().getEventBus());
   }

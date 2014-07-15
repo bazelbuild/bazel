@@ -63,12 +63,11 @@ import javax.annotation.Nullable;
 public class TestRunnerAction extends ConfigurationAction
     implements NotifyOnActionCacheHit, SuppressNoBuildAttemptError, MayStream {
 
-
   private static final String GUID = "94857c93-f11c-4cbc-8c1b-e0a281633f9e";
 
   private final Artifact testLog;
   private final Artifact cacheStatus;
-  private final Artifact testTargetResult;
+  private final Path testTargetResult;
   private final Path testWarningsPath;
   private final Path splitLogsPath;
   private final Path splitLogsDir;
@@ -84,6 +83,9 @@ public class TestRunnerAction extends ConfigurationAction
   private final Path testInfrastructureFailure;
   private final Path testDiagnosticsDir;
   private final Path testDiagnostics;
+  private final Path baseDir;
+  private final String namePrefix;
+
   private final PathFragment coverageData;
   private final PathFragment microCoverageData;
   private final TestTargetProperties testProperties;
@@ -109,7 +111,6 @@ public class TestRunnerAction extends ConfigurationAction
       Iterable<Artifact> inputs,
       Artifact testLog,
       Artifact cacheStatus,
-      Artifact testTargetResult,
       PathFragment coverageData,
       PathFragment microCoverageData,
       TestTargetProperties testProperties,
@@ -118,12 +119,11 @@ public class TestRunnerAction extends ConfigurationAction
       int runNumber,
       BuildConfiguration configuration) {
     super(owner, inputs,
-        ImmutableList.of(testLog, cacheStatus, testTargetResult), configuration);
+        ImmutableList.of(testLog, cacheStatus), configuration);
     Preconditions.checkNotNull(testProperties);
     Preconditions.checkNotNull(executionSettings);
     this.testLog = testLog;
     this.cacheStatus = cacheStatus;
-    this.testTargetResult = testTargetResult;
     this.coverageData = coverageData;
     this.microCoverageData = microCoverageData;
     this.shardNum = shardNum;
@@ -131,31 +131,32 @@ public class TestRunnerAction extends ConfigurationAction
     this.testProperties = testProperties;
     this.executionSettings = executionSettings;
 
-    Path dir = configuration.getExecRoot().getRelative(cacheStatus.getExecPath())
+    this.baseDir = configuration.getExecRoot().getRelative(cacheStatus.getExecPath())
         .getParentDirectory();
-    String base = FileSystemUtils.removeExtension(cacheStatus.getExecPath().getBaseName());
+    this.namePrefix = FileSystemUtils.removeExtension(cacheStatus.getExecPath().getBaseName());
 
     int totalShards = executionSettings.getTotalShards();
     Preconditions.checkState((totalShards == 0 && shardNum == 0) ||
                                 (totalShards > 0 && 0 <= shardNum && shardNum < totalShards));
-    this.testExitSafe = dir.getChild(base + ".exited_prematurely");
+    this.testTargetResult = baseDir.getChild(namePrefix + ".status");
+    this.testExitSafe = baseDir.getChild(namePrefix + ".exited_prematurely");
     // testShard Path should be set only if sharding is enabled.
     this.testShard = totalShards > 1
-        ? dir.getChild(base + ".shard")
+        ? baseDir.getChild(namePrefix + ".shard")
         : null;
-    this.xmlOutputPath = dir.getChild(base + ".xml");
-    this.testWarningsPath = dir.getChild(base + ".warnings");
-    this.testStderr = dir.getChild(base + ".err");
-    this.splitLogsDir = dir.getChild(base + ".raw_splitlogs");
+    this.xmlOutputPath = baseDir.getChild(namePrefix + ".xml");
+    this.testWarningsPath = baseDir.getChild(namePrefix + ".warnings");
+    this.testStderr = baseDir.getChild(namePrefix + ".err");
+    this.splitLogsDir = baseDir.getChild(namePrefix + ".raw_splitlogs");
     // See note in {@link #getSplitLogsPath} on the choice of file name.
     this.splitLogsPath = splitLogsDir.getChild("test.splitlogs");
-    this.undeclaredOutputsDir = dir.getChild(base + ".outputs");
+    this.undeclaredOutputsDir = baseDir.getChild(namePrefix + ".outputs");
     this.undeclaredOutputsZipPath = undeclaredOutputsDir.getChild("outputs.zip");
-    this.undeclaredOutputsAnnotationsDir = dir.getChild(base + ".outputs_manifest");
+    this.undeclaredOutputsAnnotationsDir = baseDir.getChild(namePrefix + ".outputs_manifest");
     this.undeclaredOutputsManifestPath = undeclaredOutputsAnnotationsDir.getChild("MANIFEST");
     this.undeclaredOutputsAnnotationsPath = undeclaredOutputsAnnotationsDir.getChild("ANNOTATIONS");
-    this.testInfrastructureFailure = dir.getChild(base + ".infrastructure_failure");
-    this.testDiagnosticsDir = dir.getChild(base + ".test_diagnostics");
+    this.testInfrastructureFailure = baseDir.getChild(namePrefix + ".infrastructure_failure");
+    this.testDiagnosticsDir = baseDir.getChild(namePrefix + ".test_diagnostics");
     this.testDiagnostics = testDiagnosticsDir.getChild("test_diagnostics.recordio");
   }
 
@@ -362,6 +363,10 @@ public class TestRunnerAction extends ConfigurationAction
   @Override
   protected void deleteOutputs() throws IOException {
     super.deleteOutputs();
+
+    // We do not rely on globs, as it causes quadratic behavior in --runs_per_test and test
+    // shard count.
+
     // We also need to remove *.(xml|data|shard|warnings|zip) files if they are present.
     xmlOutputPath.delete();
     testWarningsPath.delete();
@@ -376,17 +381,18 @@ public class TestRunnerAction extends ConfigurationAction
       testShard.delete();
     }
     testInfrastructureFailure.delete();
-    Path outputDir = testLog.getPath().getParentDirectory();
-    String namePrefix = FileSystemUtils.removeExtension(testLog.getExecPath().getBaseName());
+
     // Coverage files use "coverage" instead of "test".
     String coveragePrefix = "coverage" + namePrefix.substring(4);
+
     // We cannot use coverageData artifact since it may be null. Generate coverage name instead.
-    outputDir.getChild(coveragePrefix + ".dat").delete();
+    baseDir.getChild(coveragePrefix + ".dat").delete();
     // We cannot use microcoverageData artifact since it may be null. Generate filename instead.
-    outputDir.getChild(coveragePrefix + ".micro.dat").delete();
+    baseDir.getChild(coveragePrefix + ".micro.dat").delete();
+
     // Delete files fetched from remote execution.
-    outputDir.getChild(namePrefix + ".zip").delete();
-    deleteTestAttemptsDirMaybe(outputDir, namePrefix);
+    baseDir.getChild(namePrefix + ".zip").delete();
+    deleteTestAttemptsDirMaybe(baseDir, namePrefix);
   }
 
   private void deleteTestAttemptsDirMaybe(Path outputDir, String namePrefix) throws IOException {
@@ -448,7 +454,7 @@ public class TestRunnerAction extends ConfigurationAction
     return testStderr;
   }
 
-  public Artifact getTestTargetResult() {
+  public Path getTestTargetResult() {
     return testTargetResult;
   }
 
@@ -579,7 +585,7 @@ public class TestRunnerAction extends ConfigurationAction
 
   @Override
   public void execute(ActionExecutionContext actionExecutionContext)
-      throws ActionExecutionException {
+      throws ActionExecutionException, InterruptedException {
     TestActionContext context =
         actionExecutionContext.getExecutor().getContext(TestActionContext.class);
     try {

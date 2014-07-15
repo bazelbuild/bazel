@@ -82,7 +82,7 @@ public class TerminalTestResultNotifier implements TestResultNotifier {
   private void printDetailedTestResultSummary(Set<TestSummary> summaries) {
     for (TestSummary entry : summaries) {
       if (entry.getStatus() != BlazeTestStatus.PASSED) {
-        entry.print(printer, summaryOptions.verboseSummary, true);
+        TestSummaryPrinter.print(entry, printer, summaryOptions.verboseSummary, true);
       }
     }
   }
@@ -93,7 +93,7 @@ public class TerminalTestResultNotifier implements TestResultNotifier {
   private void printShortSummary(Set<TestSummary> summaries, boolean showPassingTests) {
     for (TestSummary entry : summaries) {
       if (entry.getStatus() != BlazeTestStatus.PASSED || showPassingTests) {
-        entry.print(printer, summaryOptions.verboseSummary, false);
+        TestSummaryPrinter.print(entry, printer, summaryOptions.verboseSummary, false);
       }
     }
   }
@@ -122,7 +122,7 @@ public class TerminalTestResultNotifier implements TestResultNotifier {
     for (TestSummary summary : summaries) {
       if (summary.isLocalActionCached()
           && TestLogHelper.shouldOutputTestLog(testOutput, summary.getStatus().isPassed())) {
-        summary.printCachedOutput(testOutput, printer);
+        TestSummaryPrinter.printCachedOutput(summary, testOutput, printer);
       }
     }
 

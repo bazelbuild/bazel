@@ -487,6 +487,60 @@ public class ParallelEvaluatorTest {
   }
 
   @Test
+  public void catastropheHaltsKeepGoingBuild() throws Exception {
+    catastrophicBuild(true);
+  }
+
+  @Test
+  public void catastropheInFailFastBuild() throws Exception {
+    catastrophicBuild(false);
+  }
+
+  private void catastrophicBuild(boolean keepGoing) throws Exception {
+    graph = new InMemoryGraph();
+
+    NodeKey catastropheKey = GraphTester.toNodeKey("catastrophe");
+    NodeKey otherKey = GraphTester.toNodeKey("someKey");
+
+    tester.getOrCreate(catastropheKey).setBuilder(new NodeBuilder() {
+      @Nullable
+      @Override
+      public Node build(NodeKey nodeKey, Environment env) throws NodeBuilderException {
+        throw new NodeBuilderException(nodeKey, new Exception()) {
+          @Override
+          public boolean isCatastrophic() {
+            return true;
+          }
+        };
+      }
+
+      @Nullable
+      @Override
+      public String extractTag(NodeKey nodeKey) {
+        return null;
+      }
+    });
+
+    tester.getOrCreate(otherKey).setBuilder(new NodeBuilder() {
+      @Nullable
+      @Override
+      public Node build(NodeKey nodeKey, Environment env) throws InterruptedException {
+        new CountDownLatch(1).await();
+        throw new RuntimeException("can't get here");
+      }
+
+      @Nullable
+      @Override
+      public String extractTag(NodeKey nodeKey) {
+        return null;
+      }
+    });
+    UpdateResult<StringNode> result = eval(keepGoing, catastropheKey, otherKey);
+    ErrorInfo error = result.getError(catastropheKey);
+    MoreAsserts.assertContentsAnyOrder(error.getRootCauses(), catastropheKey);
+  }
+
+  @Test
   public void parentFailureDoesntAffectChild() throws Exception {
     graph = new InMemoryGraph();
     NodeKey parentKey = GraphTester.toNodeKey("parent");

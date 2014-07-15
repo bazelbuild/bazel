@@ -16,24 +16,42 @@ package com.google.devtools.build.lib.view;
 
 import com.google.devtools.build.lib.actions.Artifact;
 import com.google.devtools.build.lib.collect.nestedset.NestedSet;
+import com.google.devtools.build.lib.concurrent.ThreadSafety.Immutable;
 import com.google.devtools.build.lib.syntax.Label;
 import com.google.devtools.build.lib.syntax.SkylarkBuiltin;
 import com.google.devtools.build.lib.syntax.SkylarkCallable;
+
+import javax.annotation.Nullable;
 
 /**
  * A representation of the concept "this transitive info provider builds these files".
  *
  * <p>Every transitive info collection contains at least this provider.
  */
+@Immutable
 @SkylarkBuiltin(name = "FileProvider", doc = "An interface for rules that provide files.")
-public interface FileProvider extends TransitiveInfoProvider {
+public final class FileProvider implements TransitiveInfoProvider {
+
+  @Nullable private final Label label;
+  private final NestedSet<Artifact> filesToBuild;
+
+  public FileProvider(@Nullable Label label, NestedSet<Artifact> filesToBuild) {
+    this.label = label;
+    this.filesToBuild = filesToBuild;
+  }
+
   /**
    * Returns the label that is associated with this piece of information.
    *
    * <p>This is usually the label of the target that provides the information.
    */
   @SkylarkCallable(doc = "")
-  Label getLabel();
+  public Label getLabel() {
+    if (label == null) {
+      throw new UnsupportedOperationException();
+    }
+    return label;
+  }
 
   /**
    * Returns the set of artifacts that are the "output" of this rule.
@@ -52,5 +70,7 @@ public interface FileProvider extends TransitiveInfoProvider {
    * implicit targets, for example, deploy jars.
    */
   @SkylarkCallable(doc = "")
-  NestedSet<Artifact> getFilesToBuild();
+  public NestedSet<Artifact> getFilesToBuild() {
+    return filesToBuild;
+  }
 }

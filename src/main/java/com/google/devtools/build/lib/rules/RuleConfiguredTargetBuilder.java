@@ -51,7 +51,7 @@ public final class RuleConfiguredTargetBuilder {
       ruleContext.ruleError(e.getMessage());
       return null;
     } catch (EvalException e) {
-      ruleContext.ruleError("\n" + e.getLocation().print() + ": " + e.getMessage());
+      ruleContext.ruleError("\n" + e.print());
       return null;
     }
   }

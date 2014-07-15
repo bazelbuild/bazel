@@ -28,5 +28,5 @@ public interface SymlinkTreeActionContext extends ActionContext {
   void createSymlinks(
 SymlinkTreeAction action,
       ActionExecutionContext actionExecutionContext)
-      throws ActionExecutionException;
+      throws ActionExecutionException, InterruptedException;
 }

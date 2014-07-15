@@ -177,7 +177,7 @@ public final class SkyframeBuildView {
     Collection<ConfiguredTarget> goodCts = Lists.newArrayListWithCapacity(nodes.size());
     for (LabelAndConfiguration node : nodes) {
       ConfiguredTargetNode ctNode = result.get(ConfiguredTargetNode.key(node));
-      if (ctNode == null || hasAnyBadAction(ctNode.getActions(), badActions.keySet())) {
+      if (ctNode == null) {
         continue;
       }
       goodCts.add(ctNode.getConfiguredTarget());
@@ -219,6 +219,7 @@ public final class SkyframeBuildView {
           + "' failed; build aborted";
       throw new ViewCreationFailedException(errorMsg);
     }
+
     // --keep_going : We notify the error and return a ConfiguredTargetNode
     for (Map.Entry<NodeKey, ErrorInfo> errorEntry : result.errorMap().entrySet()) {
       if (nodes.contains(errorEntry.getKey().getNodeName())) {
@@ -266,16 +267,22 @@ public final class SkyframeBuildView {
       }
     }
 
-    return goodCts;
-  }
+    if (!badActions.isEmpty()) {
+      // In order to determine the set of configured targets transitively error free from action
+      // conflict issues, we run a post-processing update() that uses the bad action map.
+      UpdateResult<PostConfiguredTargetNode> actionConflictResult =
+          skyframeExecutor.postConfigureTargets(nodes, keepGoing, badActions);
 
-  private static boolean hasAnyBadAction(Iterable<Action> actions, Set<Action> badActions) {
-    for (Action action : actions) {
-      if (badActions.contains(action)) {
-        return true;
+      goodCts = Lists.newArrayListWithCapacity(nodes.size());
+      for (LabelAndConfiguration node : nodes) {
+        PostConfiguredTargetNode postCt =
+            actionConflictResult.get(PostConfiguredTargetNode.key(node));
+        if (postCt != null) {
+          goodCts.add(postCt.getCt());
+        }
       }
     }
-    return false;
+    return goodCts;
   }
 
   @Nullable
@@ -550,6 +557,7 @@ public final class SkyframeBuildView {
           // During multithreaded operation, this is only set to true, so no concurrency issues.
           someConfiguredTargetEvaluated = true;
         }
+        Preconditions.checkNotNull(node, "%s %s", nodeKey, state);
         ConfiguredTargetNode ctNode = (ConfiguredTargetNode) node;
         dirtyConfiguredTargets.remove(ctNode);
         for (Action action : ctNode.getActions()) {

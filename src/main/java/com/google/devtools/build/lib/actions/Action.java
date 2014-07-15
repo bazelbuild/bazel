@@ -68,10 +68,11 @@ public interface Action extends ActionMetadata, Describable {
    * @param actionExecutionContext Services in the scope of the action, like the output and error
    *   streams to use for messages arising during action execution.
    * @throws ActionExecutionException if execution fails for any reason.
+   * @throws InterruptedException
    */
   @ConditionallyThreadCompatible
   void execute(ActionExecutionContext actionExecutionContext)
-      throws ActionExecutionException;
+      throws ActionExecutionException, InterruptedException;
 
   /**
    * Returns true iff action must be executed regardless of its current state.

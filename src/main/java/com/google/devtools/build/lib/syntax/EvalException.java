@@ -14,6 +14,7 @@
 
 package com.google.devtools.build.lib.syntax;
 
+import com.google.common.base.Preconditions;
 import com.google.devtools.build.lib.events.Location;
 
 /**
@@ -38,7 +39,7 @@ public class EvalException extends Exception {
    */
   public EvalException(Location location, String message) {
     this.location = location;
-    this.message = message;
+    this.message = Preconditions.checkNotNull(message);
     this.dueToIncompleteAST = false;
   }
 
@@ -49,14 +50,14 @@ public class EvalException extends Exception {
    */
   public EvalException(Location location, String message, boolean dueToIncompleteAST) {
     this.location = location;
-    this.message = message;
+    this.message = Preconditions.checkNotNull(message);
     this.dueToIncompleteAST = dueToIncompleteAST;
   }
 
   private EvalException(Location location, Throwable cause) {
     super(cause);
     this.location = location;
-    this.message = cause.getMessage();
+    this.message = Preconditions.checkNotNull(cause.getMessage());
     this.dueToIncompleteAST = false;
   }
 
@@ -88,5 +89,12 @@ public class EvalException extends Exception {
     public EvalExceptionWithJavaCause(Location location, Throwable cause) {
       super(location, cause);
     }
+  }
+
+  /**
+   * Returns the error message with location info.
+   */
+  public String print() {
+    return getLocation().print() + ": " + getMessage();
   }
 }

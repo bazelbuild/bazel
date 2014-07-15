@@ -104,7 +104,8 @@ public class SymlinkTreeAction extends ConfigurationAction {
 
   @Override
   public void execute(
-      ActionExecutionContext actionExecutionContext) throws ActionExecutionException {
+      ActionExecutionContext actionExecutionContext)
+          throws ActionExecutionException, InterruptedException {
     actionExecutionContext.getExecutor().getContext(SymlinkTreeActionContext.class)
         .createSymlinks(this, actionExecutionContext);
   }

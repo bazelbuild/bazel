@@ -1547,6 +1547,7 @@ static void CheckBinaryPath(const string& argv0) {
 static void CreateSecureOutputRoot() {
   const char* root = globals->options.output_user_root.c_str();
   struct stat fileinfo = {};
+
   if (lstat(root, &fileinfo) < 0) {
     if (errno != ENOENT) {
       pdie(blaze_exit_code::LOCAL_ENVIRONMENTAL_ERROR, "lstat('%s')", root);
@@ -1560,10 +1561,7 @@ static void CreateSecureOutputRoot() {
       die(blaze_exit_code::LOCAL_ENVIRONMENTAL_ERROR,
           "'%s' is not owned by me\n", root);
     }
-    if (!S_ISDIR(fileinfo.st_mode)) {
-      die(blaze_exit_code::LOCAL_ENVIRONMENTAL_ERROR,
-          "'%s' is not a directory\n", root);
-    }
+
     if ((fileinfo.st_mode & 022) != 0) {
       int new_mode = fileinfo.st_mode & (~022);
       if (chmod(root, new_mode) < 0) {
@@ -1571,6 +1569,15 @@ static void CreateSecureOutputRoot() {
             "'%s' has mode %o, chmod to %o failed\n",
             root, fileinfo.st_mode & 07777, new_mode);
       }
+    }
+
+    if (stat(root, &fileinfo) < 0) {
+      pdie(blaze_exit_code::LOCAL_ENVIRONMENTAL_ERROR, "stat('%s')", root);
+    }
+
+    if (!S_ISDIR(fileinfo.st_mode)) {
+      die(blaze_exit_code::LOCAL_ENVIRONMENTAL_ERROR,
+          "'%s' is not a directory\n", root);
     }
   }
 }

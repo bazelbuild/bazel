@@ -14,7 +14,6 @@
 package com.google.devtools.build.lib.syntax;
 
 import com.google.common.collect.ImmutableList;
-import com.google.devtools.build.lib.syntax.UserDefinedFunction.SkylarkDefaultReturnValue;
 
 import java.util.Collection;
 
@@ -74,7 +73,7 @@ public class FunctionDefStatement extends Statement {
     env.update(ident.getName(), UserDefinedFunction.class, getLocation());
     // Register a dummy return value with an incompatible type if there was no return statement.
     if (!env.hasVariable(ident.getName() + ".return")) {
-      env.update(ident.getName() + ".return", SkylarkDefaultReturnValue.class, getLocation());
+      env.update(ident.getName() + ".return", Environment.NoneType.class, getLocation());
     }
   }
 }

@@ -23,14 +23,19 @@ import com.google.common.collect.ImmutableSet;
 import com.google.common.collect.Iterables;
 import com.google.common.collect.Sets;
 import com.google.devtools.build.lib.packages.Type.ConversionException;
+import com.google.devtools.build.lib.syntax.ClassObject;
+import com.google.devtools.build.lib.syntax.EvalException;
 import com.google.devtools.build.lib.syntax.Label;
+import com.google.devtools.build.lib.syntax.SkylarkCallbackFunction;
 import com.google.devtools.build.lib.util.FileType;
 import com.google.devtools.build.lib.util.FileTypeSet;
 import com.google.devtools.build.lib.util.StringUtil;
 
 import java.util.Collection;
 import java.util.EnumSet;
+import java.util.HashMap;
 import java.util.List;
+import java.util.Map;
 import java.util.Set;
 
 import javax.annotation.concurrent.Immutable;
@@ -50,18 +55,38 @@ public class Attribute implements Comparable<Attribute> {
   public static final Predicate<RuleClass> NO_RULE = Predicates.alwaysFalse();
 
   /**
+   * A configuration transition.
+   */
+  public interface Transition {
+    /**
+     * Usually, a non-existent entry in the configuration transition table indicates an error.
+     * Unfortunately, that means that we need to always build the full table. This method allows a
+     * transition to indicate that a non-existent entry indicates a self transition, i.e., that the
+     * resulting configuration is the same as the current configuration. This can simplify the code
+     * needed to set up the transition table.
+     */
+    boolean defaultsToSelf();
+  }
+
+  /**
    * Declaration how the configuration should change when following a label or
    * label list attribute.
    */
-  public enum ConfigurationTransition {
-    /** Keep the original configuration. */
+  public enum ConfigurationTransition implements Transition {
+    /** No transition, i.e., the same configuration as the current. */
     NONE,
 
-    /** Switch to the host configuration. */
+    /** Transition to the host configuration. */
     HOST,
 
-    /** Switch from the target configuration to the data configuration. */
-    DATA,
+    /** Transition from the target configuration to the data configuration. */
+    // TODO(ulfjack): Move this elsewhere.
+    DATA;
+
+    @Override
+    public boolean defaultsToSelf() {
+      return false;
+    }
   }
 
   private enum PropertyFlag {
@@ -212,9 +237,9 @@ public class Attribute implements Comparable<Attribute> {
    * already undocumented based on its name cannot be marked as undocumented.
    */
   public static class Builder <TYPE> {
-    private final String name;
+    private String name;
     private final Type<TYPE> type;
-    private ConfigurationTransition configTransition = ConfigurationTransition.NONE;
+    private Transition configTransition = ConfigurationTransition.NONE;
     private Predicate<RuleClass> allowedRuleClassesForLabels = Predicates.alwaysTrue();
     private Predicate<RuleClass> allowedRuleClassesForLabelsWarning = Predicates.alwaysFalse();
     private Configurator<?, ?> configurator = null;
@@ -241,6 +266,17 @@ public class Attribute implements Comparable<Attribute> {
       if (isImplicit(name) || isLateBound(name)) {
         setPropertyFlag(PropertyFlag.UNDOCUMENTED, "undocumented");
       }
+    }
+
+    /**
+     * Set the attribute name, only if the name was empty.
+     * Only meant to use from Skylark, do not use from Java.
+     */
+    public Builder<TYPE> setName(String name) {
+      Preconditions.checkArgument(!name.isEmpty());
+      Preconditions.checkArgument(this.name.isEmpty());
+      this.name = name;
+      return this;
     }
 
     private Builder<TYPE> setPropertyFlag(PropertyFlag flag, String propertyName) {
@@ -324,7 +360,7 @@ public class Attribute implements Comparable<Attribute> {
      * Defines the configuration transition for this attribute. Defaults to
      * {@code NONE}.
      */
-    public Builder<TYPE> cfg(ConfigurationTransition configTransition) {
+    public Builder<TYPE> cfg(Transition configTransition) {
       Preconditions.checkState(this.configTransition == ConfigurationTransition.NONE,
           "the configuration transition is already set");
       this.configTransition = configTransition;
@@ -415,7 +451,7 @@ public class Attribute implements Comparable<Attribute> {
      */
     public Builder<TYPE> value(LateBoundDefault<?> defaultValue) {
       Preconditions.checkState(!valueSet, "the default value is already set");
-      Preconditions.checkState(isLateBound(name));
+      Preconditions.checkState(name.isEmpty() || isLateBound(name));
       value = defaultValue;
       valueSet = true;
       return this;
@@ -595,6 +631,9 @@ public class Attribute implements Comparable<Attribute> {
      * and the default value configured by the builder.
      */
     public Attribute build() {
+      Preconditions.checkState(!name.isEmpty(), "name has not been set");
+      Preconditions.checkState(value instanceof LateBoundDefault || !isLateBound(name),
+          "The name of late bound attributes has to start with ':'");
       return new Attribute(name, type, Sets.immutableEnumSet(propertyFlags),
           valueSet ? value : type.getDefaultValue(), configTransition, configurator,
           allowedRuleClassesForLabels, allowedRuleClassesForLabelsWarning,
@@ -685,7 +724,7 @@ public class Attribute implements Comparable<Attribute> {
      * configuration. Note that configurations transitions are applied after the late-bound
      * attribute was evaluated.
      */
-    Object getDefault(Rule rule, T o);
+    Object getDefault(Rule rule, T o) throws EvalException;
   }
 
   /**
@@ -750,6 +789,45 @@ public class Attribute implements Comparable<Attribute> {
     public abstract List<Label> getDefault(Rule rule, T configuration);
   }
 
+  /**
+   * A class for late bound attributes defined in Skylark.
+   */
+  public static final class SkylarkLateBound implements LateBoundDefault<Object> {
+
+    private final boolean useHostConfig;
+    private final SkylarkCallbackFunction callback;
+
+    public SkylarkLateBound(boolean useHostConfig, SkylarkCallbackFunction callback) {
+      this.useHostConfig = useHostConfig;
+      this.callback = callback;
+    }
+
+    @Override
+    public boolean useHostConfiguration() {
+      return useHostConfig;
+    }
+
+    @Override
+    public Object getDefault() {
+      return null;
+    }
+
+    @Override
+    public Object getDefault(Rule rule, Object o) throws EvalException {
+      Map<String, Object> attrValues = new HashMap<>();
+      for (Attribute attr : rule.getAttributes()) {
+        if (!attr.isLateBound()) {
+          Object value = rule.getAttr(attr.getName());
+          if (value != null) {
+            attrValues.put(attr.getName(), value);
+          }
+        }
+      }
+      ClassObject attrs = new ClassObject(attrValues);
+      return callback.call(attrs, o);
+    }
+  }
+
   private final String name;
 
   private final Type<?> type;
@@ -766,7 +844,7 @@ public class Attribute implements Comparable<Attribute> {
   // (We assume a hypothetical Type.isValid(Object) predicate.)
   private final Object defaultValue;
 
-  private final ConfigurationTransition configTransition;
+  private final Transition configTransition;
 
   private final Configurator<?, ?> configurator;
 
@@ -816,7 +894,7 @@ public class Attribute implements Comparable<Attribute> {
    *        NODEP_LABEL_LIST).
    */
   private Attribute(String name, Type<?> type, Set<PropertyFlag> propertyFlags,
-      Object defaultValue, ConfigurationTransition configTransition,
+      Object defaultValue, Transition configTransition,
       Configurator<?, ?> configurator,
       Predicate<RuleClass> allowedRuleClassesForLabels,
       Predicate<RuleClass> allowedRuleClassesForLabelsWarning,
@@ -910,7 +988,7 @@ public class Attribute implements Comparable<Attribute> {
    * Returns the configuration transition for this attribute for label or label
    * list attributes. For other attributes it will always return {@code NONE}.
    */
-  public ConfigurationTransition getConfigurationTransition() {
+  public Transition getConfigurationTransition() {
     return configTransition;
   }
 

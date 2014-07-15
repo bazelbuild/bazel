@@ -42,7 +42,7 @@ public class RecordingDifferencer implements Differencer {
 
   @Override
   public Diff getDiff() {
-    Diff diff = new Diff(nodesToInvalidate, nodesToInject);
+    Diff diff = new ImmutableDiff(nodesToInvalidate, nodesToInject);
     clear();
     return diff;
   }
@@ -71,26 +71,5 @@ public class RecordingDifferencer implements Differencer {
    */
   public void inject(Map<NodeKey, ? extends Node> nodes) {
     nodesToInject.putAll(nodes);
-  }
-
-  private static class Diff implements Differencer.Diff {
-
-    private final List<NodeKey> nodesToInvalidate;
-    private final Map<NodeKey, Node> nodesToInject;
-
-    private Diff(List<NodeKey> nodesToInvalidate, Map<NodeKey, Node> nodesToInject) {
-      this.nodesToInvalidate = nodesToInvalidate;
-      this.nodesToInject = nodesToInject;
-    }
-
-    @Override
-    public Iterable<NodeKey> changedKeysWithoutNewValues() {
-      return nodesToInvalidate;
-    }
-
-    @Override
-    public Map<NodeKey, Node> changedKeysWithNewValues() {
-      return nodesToInject;
-    }
   }
 }

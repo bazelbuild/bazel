@@ -16,6 +16,7 @@ package com.google.devtools.build.lib.view.extra;
 
 import com.google.common.base.Preconditions;
 import com.google.common.base.Predicate;
+import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.Iterables;
 import com.google.common.collect.Lists;
 import com.google.devtools.build.lib.actions.AbstractAction;
@@ -33,6 +34,7 @@ import com.google.devtools.build.lib.actions.Spawn;
 import com.google.devtools.build.lib.actions.SpawnActionContext;
 import com.google.devtools.build.lib.actions.extra.ExtraActionInfo;
 import com.google.devtools.build.lib.vfs.FileSystemUtils;
+import com.google.devtools.build.lib.vfs.PathFragment;
 import com.google.devtools.build.lib.view.actions.CommandLine;
 import com.google.devtools.build.lib.view.actions.SpawnAction;
 import com.google.devtools.build.lib.view.config.BuildConfiguration;
@@ -49,13 +51,14 @@ import java.util.Map;
  * command-line using {@link SpawnActionContext} for executions.
  */
 public final class ExtraAction extends SpawnAction {
-
   private final Action shadowedAction;
   private final boolean createDummyOutput;
   private final Artifact extraActionInfoFile;
+  private final ImmutableMap<PathFragment, Artifact> runfilesManifests;
 
   public ExtraAction(ActionOwner owner,
       Iterable<Artifact> inputs,
+      Map<PathFragment, Artifact> runfilesManifests,
       Artifact extraActionInfoFile,
       Collection<Artifact> outputs,
       Action shadowedAction,
@@ -69,6 +72,7 @@ public final class ExtraAction extends SpawnAction {
         argv, environment, progressMessage, mnemonic);
     this.extraActionInfoFile = extraActionInfoFile;
     this.shadowedAction = shadowedAction;
+    this.runfilesManifests = ImmutableMap.copyOf(runfilesManifests);
     this.createDummyOutput = createDummyOutput;
 
     if (createDummyOutput) {
@@ -89,7 +93,7 @@ public final class ExtraAction extends SpawnAction {
    */
   @Override
   public void execute(ActionExecutionContext actionExecutionContext)
-      throws ActionExecutionException {
+      throws ActionExecutionException, InterruptedException {
     // PHASE 1: generate .xa file containing protocol buffer describing
     // the action being shadowed
 
@@ -164,6 +168,13 @@ public final class ExtraAction extends SpawnAction {
                 return item != extraActionInfoFile;
               }
             }));
+      }
+
+      @Override public ImmutableMap<PathFragment, Artifact> getRunfilesManifests() {
+        ImmutableMap.Builder<PathFragment, Artifact> builder = ImmutableMap.builder();
+        builder.putAll(super.getRunfilesManifests());
+        builder.putAll(runfilesManifests);
+        return builder.build();
       }
 
       @Override public String getMnemonic() { return ExtraAction.this.getMnemonic(); }

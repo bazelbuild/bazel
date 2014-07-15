@@ -45,6 +45,7 @@ public class ErrorInfo {
   private final Iterable<CycleInfo> cycles;
 
   private final boolean isTransient;
+  private final boolean isCatastrophic;
 
   public ErrorInfo(NodeBuilderException builderException) {
     this.rootCauses = NestedSetBuilder.create(Order.STABLE_ORDER,
@@ -52,6 +53,7 @@ public class ErrorInfo {
     this.exception = Preconditions.checkNotNull(builderException.getCause(), builderException);
     this.cycles = ImmutableList.of();
     this.isTransient = builderException.isTransient();
+    this.isCatastrophic = builderException.isCatastrophic();
   }
 
   ErrorInfo(CycleInfo cycleInfo) {
@@ -59,6 +61,7 @@ public class ErrorInfo {
     this.exception = null;
     this.cycles = ImmutableList.of(cycleInfo);
     this.isTransient = false;
+    this.isCatastrophic = false;
   }
 
   public ErrorInfo(NodeKey currentNode, Collection<ErrorInfo> childErrors) {
@@ -69,6 +72,7 @@ public class ErrorInfo {
     ImmutableList.Builder<CycleInfo> cycleBuilder = ImmutableList.builder();
     Throwable firstException = null;
     boolean isTransient = false;
+    boolean isCatastrophic = false;
     for (ErrorInfo child : childErrors) {
       if (firstException == null) {
         firstException = child.getException();
@@ -76,11 +80,13 @@ public class ErrorInfo {
       builder.addTransitive(child.rootCauses);
       cycleBuilder.addAll(CycleInfo.prepareCycles(currentNode, child.cycles));
       isTransient |= child.isTransient();
+      isCatastrophic |= child.isCatastrophic();
     }
     this.rootCauses = builder.build();
     this.exception = firstException;
     this.cycles = cycleBuilder.build();
     this.isTransient = isTransient;
+    this.isCatastrophic = isCatastrophic;
   }
 
   @Override
@@ -126,5 +132,14 @@ public class ErrorInfo {
    */
   public boolean isTransient() {
     return isTransient;
+  }
+
+
+  /**
+   * Returns true iff the error is catastrophic, i.e. it should halt even for a keepGoing update()
+   * call.
+   */
+  public boolean isCatastrophic() {
+    return isCatastrophic;
   }
 }

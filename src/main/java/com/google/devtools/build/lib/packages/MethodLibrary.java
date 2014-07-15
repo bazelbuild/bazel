@@ -35,6 +35,7 @@ import java.util.HashSet;
 import java.util.Iterator;
 import java.util.List;
 import java.util.Map;
+import java.util.Set;
 import java.util.regex.Matcher;
 import java.util.regex.Pattern;
 
@@ -398,6 +399,22 @@ public class MethodLibrary {
     }
   };
 
+  @SkylarkBuiltin(name = "str", doc = "Converts an object to string")
+  private static Function str = new PositionalFunction("str", 1, 1) {
+    @Override
+    public Object call(List<Object> args, FuncallExpression ast) throws EvalException {
+      return EvalUtils.printValue(args.get(0));
+    }
+  };
+
+  @SkylarkBuiltin(name = "bool", doc = "Converts an object to boolean")
+  private static Function bool = new PositionalFunction("bool", 1, 1) {
+    @Override
+    public Object call(List<Object> args, FuncallExpression ast) throws EvalException {
+      return EvalUtils.toBoolean(args.get(0));
+    }
+  };
+
   @SkylarkBuiltin(name = "struct", doc = "Creates a struct using the keyword arguments as fields.")
   private static Function struct = new AbstractFunction("struct") {
 
@@ -436,18 +453,18 @@ public class MethodLibrary {
   };
 
   @SkylarkBuiltin(name = "String", doc = "")
-  public static final List<Function> stringFunctions = ImmutableList
-      .<Function>builder()
-      .add(join)
-      .add(lower)
-      .add(replace)
-      .add(split)
-      .add(rfind)
-      .add(find)
-      .add(endswith)
-      .add(startswith)
-      .add(strip)
-      .add(substring)
+  public static final Map<Function, Class<?>> stringFunctions = ImmutableMap
+      .<Function, Class<?>>builder()
+      .put(join, String.class)
+      .put(lower, String.class)
+      .put(replace, String.class)
+      .put(split, List.class)
+      .put(rfind, Integer.class)
+      .put(find, Integer.class)
+      .put(endswith, Boolean.class)
+      .put(startswith, Boolean.class)
+      .put(strip, String.class)
+      .put(substring, String.class)
       .build();
 
   @SkylarkBuiltin(name = "List", doc = "")
@@ -457,27 +474,29 @@ public class MethodLibrary {
       .add(extend)
       .build();
 
-  private static final List<Function> pureFunctions = ImmutableList
-      .<Function>builder()
-      .addAll(stringFunctions)
-      .add(index)
-      .add(minus)
-      .add(set)
-      .add(len)
+  private static final Map<Function, Class<?>> pureFunctions = ImmutableMap
+      .<Function, Class<?>>builder()
+      .putAll(stringFunctions)
+      .put(index, Object.class)
+      .put(minus, Integer.class)
+      .put(set, Set.class)
+      .put(len, Integer.class)
+      .put(str, String.class)
+      .put(bool, Boolean.class)
       .build();
 
-  private static final List<Function> skylarkFunctions = ImmutableList
-      .<Function>builder()
-      .addAll(pureFunctions)
-      .add(struct)
-      .add(nset)
+  private static final Map<Function, Class<?>> skylarkFunctions = ImmutableMap
+      .<Function, Class<?>>builder()
+      .putAll(pureFunctions)
+      .put(struct, ClassObject.class)
+      .put(nset, SkylarkNestedSet.class)
       .build();
 
   // TODO(bazel-team): listFunctions are not allowed in Skylark extensions (use += instead).
   // It is allowed in BUILD files only for backward-compatibility.
   private static final List<Function> functions = ImmutableList
       .<Function>builder()
-      .addAll(pureFunctions)
+      .addAll(pureFunctions.keySet())
       .addAll(listFunctions)
       .build();
 
@@ -485,20 +504,16 @@ public class MethodLibrary {
    * Set up a given environment for supported class methods.
    */
   public static void setupMethodEnvironment(Environment env) {
-    for (Function function : env.isSkylarkEnabled() ? skylarkFunctions : functions) {
+    for (Function function : env.isSkylarkEnabled() ? skylarkFunctions.keySet() : functions) {
       env.update(function.getName(), function);
     }
   }
 
   public static void setupValidationEnvironment(ImmutableMap.Builder<String, Class<?>> builder) {
-    for (Function function : pureFunctions) {
-      // TODO(bazel-team): infer types
-      builder.put(function.getName(), Object.class);
-      builder.put(function.getName() + ".return", Object.class);
+    for (Map.Entry<Function, Class<?>> function : skylarkFunctions.entrySet()) {
+      String name = function.getKey().getName();
+      builder.put(name, Function.class);
+      builder.put(name + ".return", function.getValue());
     }
-    builder.put(struct.getName(), Object.class);
-    builder.put(struct.getName() + ".return", ClassObject.class);
-    builder.put(nset.getName(), Object.class);
-    builder.put(nset.getName() + ".return", Object.class);
   }
 }

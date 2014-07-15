@@ -15,6 +15,7 @@ package com.google.devtools.build.lib.view.extra;
 
 import com.google.common.annotations.VisibleForTesting;
 import com.google.common.collect.ImmutableList;
+import com.google.common.collect.ImmutableMap;
 import com.google.devtools.build.lib.actions.Action;
 import com.google.devtools.build.lib.actions.ActionOwner;
 import com.google.devtools.build.lib.actions.Artifact;
@@ -39,6 +40,7 @@ import java.util.Map;
 @Immutable
 public final class ExtraActionSpec implements TransitiveInfoProvider {
   private final ImmutableList<Artifact> resolvedTools;
+  private final ImmutableMap<PathFragment, Artifact> manifests;
   private final ImmutableList<Artifact> resolvedData;
   private final ImmutableList<String> outputTemplates;
   private final String command;
@@ -47,12 +49,14 @@ public final class ExtraActionSpec implements TransitiveInfoProvider {
 
   ExtraActionSpec(
       Iterable<Artifact> resolvedTools,
+      Map<PathFragment, Artifact> manifests,
       Iterable<Artifact> resolvedData,
       Iterable<String> outputTemplates,
       String command,
       Label label,
       boolean requiresActionOutput) {
     this.resolvedTools = ImmutableList.copyOf(resolvedTools);
+    this.manifests = ImmutableMap.copyOf(manifests);
     this.resolvedData = ImmutableList.copyOf(resolvedData);
     this.outputTemplates = ImmutableList.copyOf(outputTemplates);
     this.command = command;
@@ -115,6 +119,7 @@ public final class ExtraActionSpec implements TransitiveInfoProvider {
     owningRule.getAnalysisEnvironment().registerAction(new ExtraAction(
         actionToShadow.getOwner(),
         extraActionInputs.build(),
+        manifests,
         extraActionInfoFile,
         extraActionOutputs,
         actionToShadow,

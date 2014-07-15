@@ -55,7 +55,7 @@ public final class GenRuleAction extends SpawnAction {
 
   @Override
   protected void internalExecute(
-      ActionExecutionContext actionExecutionContext) throws ExecException {
+      ActionExecutionContext actionExecutionContext) throws ExecException, InterruptedException {
     ErrorEventListener reporter = actionExecutionContext.getExecutor().getReporter();
     checkInputsForDirectories(reporter);
     super.internalExecute(actionExecutionContext);

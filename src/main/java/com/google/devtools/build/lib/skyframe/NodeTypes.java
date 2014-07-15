@@ -23,10 +23,12 @@ import com.google.devtools.build.skyframe.NodeType;
 public final class NodeTypes {
   public static final NodeType BUILD_VARIABLE = new NodeType("BUILD_VARIABLE", false);
   public static final NodeType FILE_STATE = new NodeType("FILE_STATE", false);
-  public static final NodeType DIRECTORY_LISTING = new NodeType("DIRECTORY_LISTING", false);
+  public static final NodeType DIRECTORY_LISTING_STATE =
+      new NodeType("DIRECTORY_LISTING_STATE", false);
   public static final NodeType FILE_SYMLINK_CYCLE_UNIQUENESS_NODE =
       NodeType.computed("FILE_SYMLINK_CYCLE_UNIQUENESS_NODE");
   public static final NodeType FILE = NodeType.computed("FILE");
+  public static final NodeType DIRECTORY_LISTING = NodeType.computed("DIRECTORY_LISTING");
   public static final NodeType PACKAGE_LOOKUP = NodeType.computed("PACKAGE_LOOKUP");
   public static final NodeType CONTAINING_PACKAGE_LOOKUP =
       NodeType.computed("CONTAINING_PACKAGE_LOOKUP");
@@ -37,6 +39,7 @@ public final class NodeTypes {
   public static final NodeType RECURSIVE_PKG = NodeType.computed("RECURSIVE_PKG");
   public static final NodeType TRANSITIVE_TARGET = NodeType.computed("TRANSITIVE_TARGET");
   public static final NodeType CONFIGURED_TARGET = NodeType.computed("CONFIGURED_TARGET");
+  public static final NodeType POST_CONFIGURED_TARGET = NodeType.computed("POST_CONFIGURED_TARGET");
   public static final NodeType TARGET_COMPLETION = NodeType.computed("TARGET_COMPLETION");
   public static final NodeType CONFIGURATION_COLLECTION =
       NodeType.computed("CONFIGURATION_COLLECTION");

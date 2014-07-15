@@ -22,7 +22,11 @@ import com.google.common.collect.Lists;
 import com.google.common.collect.Sets;
 import com.google.common.escape.Escaper;
 import com.google.common.escape.Escapers;
+import com.google.devtools.build.lib.events.Location;
+import com.google.devtools.build.lib.syntax.ClassObject;
+import com.google.devtools.build.lib.syntax.EvalException;
 import com.google.devtools.build.lib.syntax.Label;
+import com.google.devtools.build.lib.syntax.SkylarkCallbackFunction;
 import com.google.devtools.build.lib.util.StringUtil;
 import com.google.devtools.build.lib.vfs.FileSystemUtils;
 import com.google.devtools.build.lib.vfs.PathFragment;
@@ -30,8 +34,10 @@ import com.google.devtools.build.lib.vfs.PathFragment;
 import java.util.Arrays;
 import java.util.Collection;
 import java.util.Collections;
+import java.util.HashMap;
 import java.util.LinkedHashSet;
 import java.util.List;
+import java.util.Map;
 import java.util.Set;
 
 import javax.annotation.Nullable;
@@ -41,7 +47,52 @@ import javax.annotation.Nullable;
  * in a more dynamic way than just simple template-substitution.  For example,
  * the set of implicit outputs may be a function of rule attributes.
  */
-public abstract class ImplicitOutputsFunction implements Function<AttributeMap, Iterable<String>> {
+public abstract class ImplicitOutputsFunction {
+
+  /**
+   * Implicit output functions executing Skylark code.
+   */
+  public static final class SkylarkImplicitOutputsFunction extends ImplicitOutputsFunction {
+
+    private final SkylarkCallbackFunction callback;
+    private final Location loc;
+
+    public SkylarkImplicitOutputsFunction(SkylarkCallbackFunction callback, Location loc) {
+      this.callback = callback;
+      this.loc = loc;
+    }
+
+    @Override
+    public Iterable<String> getImplicitOutputs(AttributeMap map) throws EvalException {
+      Rule rule = (Rule) map;
+      Map<String, Object> attrValues = new HashMap<>();
+      for (Attribute attr : rule.getAttributes()) {
+        Object value = rule.getAttr(attr.getName());
+        if (value != null) {
+          attrValues.put(attr.getName(), value);
+        }
+      }
+      ClassObject attrs = new ClassObject(attrValues);
+      try {
+        // TODO(bazel-team): do this properly. Unfortunately cannot use
+        // SkylarkRuleClassFunctions.castList() here. FromTemplates() will throw a
+        // ClassCastException which gets converted but still not very nice.
+        @SuppressWarnings("unchecked")
+        List<String> result = (List<String>) callback.call(attrs);
+        return fromTemplates(result).getImplicitOutputs(rule);
+      } catch (ClassCastException e) {
+        throw new EvalException(loc, e.getMessage());
+      }
+    }
+  }
+
+  /**
+   * Implicit output functions which can not throw an EvalException.
+   */
+  public abstract static class SafeImplicitOutputsFunction extends ImplicitOutputsFunction {
+    @Override
+    public abstract Iterable<String> getImplicitOutputs(AttributeMap map);
+  }
 
   /**
    * An interface to objects that can retrieve rule attributes.
@@ -73,17 +124,12 @@ public abstract class ImplicitOutputsFunction implements Function<AttributeMap, 
    * Given a newly-constructed Rule instance (with attributes populated),
    * returns the list of output files that this rule produces implicitly.
    */
-  public abstract Iterable<String> getImplicitOutputs(AttributeMap rule);
-
-  @Override
-  public Iterable<String> apply(AttributeMap rule) {
-    return getImplicitOutputs(rule);
-  }
+  public abstract Iterable<String> getImplicitOutputs(AttributeMap rule) throws EvalException;
 
   /**
    * The implicit output function that returns no files.
    */
-  public static final ImplicitOutputsFunction NONE = new ImplicitOutputsFunction() {
+  public static final SafeImplicitOutputsFunction NONE = new SafeImplicitOutputsFunction() {
       @Override public Iterable<String> getImplicitOutputs(AttributeMap rule) {
         return Collections.emptyList();
       }
@@ -92,7 +138,7 @@ public abstract class ImplicitOutputsFunction implements Function<AttributeMap, 
   /**
    * A convenience wrapper for {@link #fromTemplates(Iterable)}.
    */
-  public static ImplicitOutputsFunction fromTemplates(String... templates) {
+  public static SafeImplicitOutputsFunction fromTemplates(String... templates) {
     return fromTemplates(Arrays.asList(templates));
   }
 
@@ -106,8 +152,8 @@ public abstract class ImplicitOutputsFunction implements Function<AttributeMap, 
    *   name of each source file without its extension.  If multiple %{}
    *   substrings exist, the cross-product of them is generated.
    */
-  public static ImplicitOutputsFunction fromTemplates(final Iterable<String> templates) {
-    return new ImplicitOutputsFunction() {
+  public static SafeImplicitOutputsFunction fromTemplates(final Iterable<String> templates) {
+    return new SafeImplicitOutputsFunction() {
       // TODO(bazel-team): parse the templates already here
       @Override
       public Iterable<String> getImplicitOutputs(AttributeMap rule) {
@@ -140,7 +186,8 @@ public abstract class ImplicitOutputsFunction implements Function<AttributeMap, 
   /**
    * A convenience wrapper for {@link #fromFunctions(Iterable)}.
    */
-  public static ImplicitOutputsFunction fromFunctions(ImplicitOutputsFunction... functions) {
+  public static SafeImplicitOutputsFunction fromFunctions(
+      SafeImplicitOutputsFunction... functions) {
     return fromFunctions(Arrays.asList(functions));
   }
 
@@ -154,14 +201,14 @@ public abstract class ImplicitOutputsFunction implements Function<AttributeMap, 
    *   name of each source file without its extension.  If multiple %{}
    *   substrings exist, the cross-product of them is generated.
    */
-  public static ImplicitOutputsFunction fromFunctions(
-      final Iterable<ImplicitOutputsFunction> functions) {
-    return new ImplicitOutputsFunction() {
+  public static SafeImplicitOutputsFunction fromFunctions(
+      final Iterable<SafeImplicitOutputsFunction> functions) {
+    return new SafeImplicitOutputsFunction() {
       @Override
       public Iterable<String> getImplicitOutputs(AttributeMap rule) {
         Collection<String> result = new LinkedHashSet<>();
-        for (ImplicitOutputsFunction function : functions) {
-          Iterables.addAll(result, function.apply(rule));
+        for (SafeImplicitOutputsFunction function : functions) {
+          Iterables.addAll(result, function.getImplicitOutputs(rule));
         }
         return result;
       }

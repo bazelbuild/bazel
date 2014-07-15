@@ -29,7 +29,7 @@ public interface FileWriteActionContext extends ActionContext {
    * Performs all the setup and then calls back into the action to write the data.
    */
   void exec(Executor executor, AbstractFileWriteAction action, FileOutErr outErr)
-      throws ExecException;
+      throws ExecException, InterruptedException;
 
   /**
    * Estimates the resources needed for this action.

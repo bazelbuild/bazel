@@ -76,6 +76,7 @@ public final class ExtraActionFactory implements RuleConfiguredTargetFactory {
 
     ExtraActionSpec spec = new ExtraActionSpec(
         commandHelper.getResolvedTools(),
+        commandHelper.getRemoteRunfileManifestMap(),
         resolvedData,
         outputTemplates,
         command,

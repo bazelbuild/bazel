@@ -457,7 +457,7 @@ public class AutoUpdatingGraphTest {
   // using a latch), so that the top-level enqueuing finds that mid has already been built. The
   // progress receiver should not be notified of any node having been evaluated.
   @Test
-  public void testAlreadyAnalyzedBadTarget() throws Exception {
+  public void alreadyAnalyzedBadTarget() throws Exception {
     final NodeKey mid = GraphTester.toNodeKey("mid");
     final CountDownLatch valueSet = new CountDownLatch(1);
     final TrackingAwaiter trackingAwaiter = new TrackingAwaiter();
@@ -489,6 +489,23 @@ public class AutoUpdatingGraphTest {
     assertEquals(0L, valueSet.getCount());
     trackingAwaiter.assertNoErrors();
     ASSERT.that(tester.invalidationReceiver.evaluated).isEmpty();
+  }
+
+  @Test
+  public void receiverNotToldOfVerifiedNodeDependingOnCycle() throws Exception {
+    NodeKey leaf = GraphTester.toNodeKey("leaf");
+    NodeKey cycle = GraphTester.toNodeKey("cycle");
+    NodeKey top = GraphTester.toNodeKey("top");
+    tester.set(leaf, new StringNode("leaf"));
+    tester.getOrCreate(cycle).addDependency(cycle);
+    tester.getOrCreate(top).addDependency(leaf).addDependency(cycle);
+    System.err.println(" " + tester.eval(/*keepGoing=*/true, top));
+    ASSERT.that(tester.invalidationReceiver.evaluated).iteratesAs(leaf);
+    tester.invalidationReceiver.clear();
+    tester.getOrCreate(leaf, /*markAsModified=*/true);
+    tester.invalidate();
+    tester.eval(/*keepGoing=*/true, top);
+    ASSERT.that(tester.invalidationReceiver.evaluated).iteratesAs(leaf);
   }
 
   @Test

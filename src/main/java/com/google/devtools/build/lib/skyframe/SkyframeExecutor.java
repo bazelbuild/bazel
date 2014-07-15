@@ -88,6 +88,8 @@ import com.google.devtools.build.skyframe.AutoUpdatingGraph;
 import com.google.devtools.build.skyframe.AutoUpdatingGraph.GraphSupplier;
 import com.google.devtools.build.skyframe.CycleInfo;
 import com.google.devtools.build.skyframe.CyclesReporter;
+import com.google.devtools.build.skyframe.Differencer.Diff;
+import com.google.devtools.build.skyframe.ImmutableDiff;
 import com.google.devtools.build.skyframe.InMemoryAutoUpdatingGraph;
 import com.google.devtools.build.skyframe.Node;
 import com.google.devtools.build.skyframe.NodeBuilder;
@@ -297,10 +299,11 @@ public final class SkyframeExecutor {
     Map<NodeType, NodeBuilder> map = new HashMap<>();
     map.put(NodeTypes.BUILD_VARIABLE, new BuildVariableNodeBuilder());
     map.put(NodeTypes.FILE_STATE, new FileStateNodeBuilder(tsgm, pkgLocator));
+    map.put(NodeTypes.DIRECTORY_LISTING_STATE, new DirectoryListingStateNodeBuilder(pkgLocator));
     map.put(NodeTypes.FILE_SYMLINK_CYCLE_UNIQUENESS_NODE,
         new FileSymlinkCycleUniquenessNodeBuilder());
     map.put(NodeTypes.FILE, new FileNodeBuilder(pkgLocator));
-    map.put(NodeTypes.DIRECTORY_LISTING, new DirectoryListingNodeBuilder(pkgLocator));
+    map.put(NodeTypes.DIRECTORY_LISTING, new DirectoryListingNodeBuilder());
     map.put(NodeTypes.PACKAGE_LOOKUP, new PackageLookupNodeBuilder(pkgLocator, deletedPackages));
     map.put(NodeTypes.CONTAINING_PACKAGE_LOOKUP, new ContainingPackageLookupNodeBuilder());
     map.put(NodeTypes.GLOB, new GlobNodeBuilder());
@@ -313,6 +316,8 @@ public final class SkyframeExecutor {
     map.put(NodeTypes.TRANSITIVE_TARGET, new TransitiveTargetNodeBuilder());
     map.put(NodeTypes.CONFIGURED_TARGET,
         new ConfiguredTargetNodeBuilder(new BuildViewProvider(), skyframeBuild));
+    map.put(NodeTypes.POST_CONFIGURED_TARGET,
+        new PostConfiguredTargetNodeBuilder(new BuildViewProvider()));
     map.put(NodeTypes.CONFIGURATION_COLLECTION, new ConfigurationCollectionNodeBuilder(
         configurationFactory, buildConfigurationKey));
     if (skyframeBuild) {
@@ -616,7 +621,7 @@ public final class SkyframeExecutor {
         ImmutableSetMultimap.builder();
     for (NodeKey key : filesystemNodeKeys) {
       Preconditions.checkState(key.getNodeType() == NodeTypes.FILE_STATE
-          || key.getNodeType() == NodeTypes.DIRECTORY_LISTING, key);
+          || key.getNodeType() == NodeTypes.DIRECTORY_LISTING_STATE, key);
       Path root = ((RootedPath) key.getNodeName()).getRoot();
       if (pkgRoots.contains(root)) {
         multimapBuilder.put(root, key);
@@ -644,15 +649,15 @@ public final class SkyframeExecutor {
     // TODO(bazel-team): Even if we don't have that information, we could avoid invalidating
     // directories when the state of a file does not change by statting them and comparing
     // the new filetype (nonexistent/file/symlink/directory) with the old one.
-    Iterable<NodeKey> dirNodeKeys = Iterables.transform(modifiedSourceFiles,
+    Iterable<NodeKey> dirListingStateNodeKeys = Iterables.transform(modifiedSourceFiles,
         new Function<PathFragment, NodeKey>() {
           @Override
           public NodeKey apply(PathFragment pathFragment) {
-            return DirectoryListingNode.key(RootedPath.toRootedPath(pathEntry,
+            return DirectoryListingStateNode.key(RootedPath.toRootedPath(pathEntry,
                 pathFragment.getParentDirectory()));
           }
         });
-    return Iterables.concat(fileStateNodeKeys, dirNodeKeys);
+    return Iterables.concat(fileStateNodeKeys, dirListingStateNodeKeys);
   }
 
   private static int getNumberOfModifiedFiles(Iterable<NodeKey> modifiedNodes) {
@@ -712,8 +717,7 @@ public final class SkyframeExecutor {
       Preconditions.checkState(!modifiedFileSet.treatEverythingAsModified(), pathEntry);
       Iterable<NodeKey> dirtyNodes = getNodeKeysPotentiallyAffected(
           modifiedFileSet.modifiedSourceFiles(), pathEntry);
-      modifiedFiles += getNumberOfModifiedFiles(dirtyNodes);
-      invalidateAndAccrueChangedFiles(dirtyNodes);
+      handleChangedFiles(new ImmutableDiff(dirtyNodes, ImmutableMap.<NodeKey, Node>of()));
       modifiedFilesByPathEntry.remove(pathEntry);
     }
   }
@@ -744,11 +748,9 @@ public final class SkyframeExecutor {
     for (Path pathEntry : pathEntriesWithoutDiffInformation) {
       nodesToCheckManually.add(nodeKeysByPathEntry.get(pathEntry));
     }
+    Diff diff;
     try {
-      Collection<NodeKey> dirtyNodes =
-          fsnc.getDirtyFilesystemNodes(Iterables.concat(nodesToCheckManually));
-      modifiedFiles += getNumberOfModifiedFiles(dirtyNodes);
-      invalidateAndAccrueChangedFiles(dirtyNodes);
+      diff = fsnc.getDirtyFilesystemNodes(Iterables.concat(nodesToCheckManually));
     } catch (InterruptedException e) {
       for (Path pathEntry : pathEntriesWithoutDiffInformation) {
         // The diffs from these paths haven't been processed fully, so we need to reset the
@@ -757,12 +759,17 @@ public final class SkyframeExecutor {
       }
       throw e;
     }
+    handleChangedFiles(diff);
   }
 
-  private void invalidateAndAccrueChangedFiles(Iterable<NodeKey> nodes) {
-    recordingDiffer.invalidate(nodes);
+  private void handleChangedFiles(Diff diff) {
+    recordingDiffer.invalidate(diff.changedKeysWithoutNewValues());
+    recordingDiffer.inject(diff.changedKeysWithNewValues());
+    modifiedFiles += getNumberOfModifiedFiles(diff.changedKeysWithoutNewValues());
+    modifiedFiles += getNumberOfModifiedFiles(diff.changedKeysWithNewValues().keySet());
     if (skyframeBuild()) {
-      incrementalBuildMonitor.accrue(nodes);
+      incrementalBuildMonitor.accrue(diff.changedKeysWithoutNewValues());
+      incrementalBuildMonitor.accrue(diff.changedKeysWithNewValues().keySet());
     }
   }
 
@@ -841,7 +848,7 @@ public final class SkyframeExecutor {
    * invalidated if the package locator changes.
    */
   private static final Set<NodeType> PACKAGE_LOCATOR_DEPENDENT_NODES =
-      ImmutableSet.of(NodeTypes.FILE_STATE, NodeTypes.FILE, NodeTypes.DIRECTORY_LISTING,
+      ImmutableSet.of(NodeTypes.FILE_STATE, NodeTypes.FILE, NodeTypes.DIRECTORY_LISTING_STATE,
           NodeTypes.PACKAGE_LOOKUP, NodeTypes.TARGET_PATTERN);
 
   @SuppressWarnings("unchecked")
@@ -1068,7 +1075,9 @@ public final class SkyframeExecutor {
     }
     Iterable<NodeKey> keys;
     if (modifiedFileSet.treatEverythingAsModified()) {
-      keys = new FilesystemNodeChecker(autoUpdatingGraph, tsgm).getDirtyFilesystemNodeKeys();
+      Diff diff = new FilesystemNodeChecker(autoUpdatingGraph, tsgm).getDirtyFilesystemNodeKeys();
+      keys = diff.changedKeysWithoutNewValues();
+      recordingDiffer.inject(diff.changedKeysWithNewValues());
     } else {
       keys = getNodeKeysPotentiallyAffected(modifiedFileSet.modifiedSourceFiles(), pathEntry);
     }
@@ -1102,6 +1111,27 @@ public final class SkyframeExecutor {
     // Make sure to not run too many analysis threads. This can cause memory thrashing.
     return autoUpdatingGraph.update(ConfiguredTargetNode.keys(nodes), keepGoing,
         ResourceUsage.getAvailableProcessors(), errorEventListener);
+  }
+
+  /**
+   * Post-process the targets. Values in the UpdateResult are known to be transitively
+   * error-free from action conflicts.
+   */
+  public UpdateResult<PostConfiguredTargetNode> postConfigureTargets(
+      List<LabelAndConfiguration> nodes, boolean keepGoing,
+      ImmutableMap<Action, Exception> badActions) throws InterruptedException {
+    checkActive();
+    BuildVariableNode.BAD_ACTIONS.set(recordingDiffer, badActions);
+    // Make sure to not run too many analysis threads. This can cause memory thrashing.
+    UpdateResult<PostConfiguredTargetNode> result =
+        autoUpdatingGraph.update(PostConfiguredTargetNode.keys(nodes), keepGoing,
+            ResourceUsage.getAvailableProcessors(), errorEventListener);
+
+    // Remove all post-configured target nodes immediately for memory efficiency. We are OK with
+    // this mini-phase being non-incremental as the failure mode of action conflict is rare.
+    autoUpdatingGraph.delete(NodeType.nodeTypeIs(NodeTypes.POST_CONFIGURED_TARGET));
+
+    return result;
   }
 
   /**
@@ -1177,7 +1207,7 @@ public final class SkyframeExecutor {
         public Action call() throws InterruptedException {
           ArtifactOwner artifactOwner = artifact.getArtifactOwner();
           Preconditions.checkState(artifactOwner instanceof ActionLookupNode.ActionLookupKey,
-              "", artifact, artifactOwner);
+              "%s %s", artifact, artifactOwner);
           NodeKey actionLookupKey =
               ActionLookupNode.key((ActionLookupNode.ActionLookupKey) artifactOwner);
 

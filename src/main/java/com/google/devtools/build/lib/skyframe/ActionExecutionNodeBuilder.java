@@ -203,8 +203,17 @@ public class ActionExecutionNodeBuilder implements NodeBuilder {
    * {@link ActionExecutionNodeBuilder#build}.
    */
   private static final class ActionExecutionNodeBuilderException extends NodeBuilderException {
+
+    private final ActionExecutionException actionException;
+
     public ActionExecutionNodeBuilderException(NodeKey key, ActionExecutionException e) {
       super(key, e);
+      this.actionException = e;
+    }
+
+    @Override
+    public boolean isCatastrophic() {
+      return actionException.isCatastrophe();
     }
   }
 }

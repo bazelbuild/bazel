@@ -37,6 +37,18 @@ public class Environment {
   @SkylarkBuiltin(name = "False", doc = "Literal for the boolean false.")
   private static final boolean FALSE = false;
 
+  /**
+   * There should be only one instance of this type to allow "== None" tests.
+   */
+  public static final class NoneType {
+    @Override
+    public String toString() { return "None"; }
+    private NoneType() {}
+  }
+
+  @SkylarkBuiltin(name = "None", doc = "Literal for the None value.")
+  public static final NoneType NONE = new NoneType();
+
   protected final Map<String, Object> env = new HashMap<>();
 
   /**
@@ -81,6 +93,7 @@ public class Environment {
     // simplicity. We define them as Boolean objects.
     env.put("False", FALSE);
     env.put("True", TRUE);
+    env.put("None", NONE);
   }
 
   public boolean isSkylarkEnabled() {

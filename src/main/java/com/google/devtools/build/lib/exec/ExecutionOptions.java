@@ -73,10 +73,7 @@ public class ExecutionOptions extends OptionsBase {
   @Option(name = "test_strategy",
       defaultValue = "",
       category = "testing",
-      help = "Specify how to run tests: "
-           + "'local' means run the tests locally in parallel. "
-           + "'exclusive' means run the tests one at a time after all build activities are "
-           + "completed.")
+      help = "Specifies which strategy to use when running tests.")
   public String testStrategy;
 
   @Option(name = "test_keep_going",

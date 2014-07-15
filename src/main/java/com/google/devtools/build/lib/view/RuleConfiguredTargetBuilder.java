@@ -78,7 +78,7 @@ public final class RuleConfiguredTargetBuilder {
     }
     FilesToRunProvider filesToRunProvider = new FilesToRunProvider(ruleContext.getLabel(),
         RuleContext.getFilesToRun(runfilesSupport, filesToBuild), runfilesSupport, executable);
-    add(FileProvider.class, new FileProviderImpl(ruleContext.getLabel(), filesToBuild));
+    add(FileProvider.class, new FileProvider(ruleContext.getLabel(), filesToBuild));
     add(FilesToRunProvider.class, filesToRunProvider);
 
     // Create test action and artifacts if target was successfully initialized
@@ -317,28 +317,5 @@ public final class RuleConfiguredTargetBuilder {
       ImmutableSet<Action> actions) {
     this.actionsWithoutExtraAction = actions;
     return this;
-  }
-
-  /**
-   * An implementation class for FileProvider.
-   */
-  public static final class FileProviderImpl implements FileProvider {
-    private final Label label;
-    private final NestedSet<Artifact> filesToBuild;
-
-    public FileProviderImpl(Label label, NestedSet<Artifact> filesToBuild) {
-      this.label = label;
-      this.filesToBuild = filesToBuild;
-    }
-
-    @Override
-    public Label getLabel() {
-      return label;
-    }
-
-    @Override
-    public NestedSet<Artifact> getFilesToBuild() {
-      return filesToBuild;
-    }
   }
 }

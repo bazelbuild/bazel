@@ -49,6 +49,7 @@ public abstract class EvalUtils {
       ImmutableSet.Builder<Class<?>> builder = ImmutableSet.builder(); 
       builder.add(Class.forName("com.google.devtools.build.lib.actions.Action"));
       builder.add(Class.forName("com.google.devtools.build.lib.view.config.BuildConfiguration"));
+      builder.add(Class.forName("com.google.devtools.build.lib.actions.Root"));
       quasiImmutableClasses = builder.build();
     } catch (ClassNotFoundException e) {
       throw new RuntimeException(e);
@@ -145,8 +146,8 @@ public abstract class EvalUtils {
       return "int";
     } else if (c.equals(Boolean.class)) {
       return "bool";
-    } else if (c.equals(Double.class)) {
-      return "float"; /* unused */
+    } else if (c.equals(Environment.NoneType.class)) {
+      return "None";
     } else if (List.class.isAssignableFrom(c)) {
       return isTuple(c) ? "tuple" : "list";
     } else if (GlobList.class.isAssignableFrom(c)) {
@@ -191,6 +192,15 @@ public abstract class EvalUtils {
         o instanceof Integer ||
         o instanceof Double) {
       buffer.append(o.toString());
+
+    } else if (o == Environment.NONE) {
+      buffer.append("None");
+
+    } else if (o == Boolean.TRUE) {
+      buffer.append("True");
+
+    } else if (o == Boolean.FALSE) {
+      buffer.append("False");
 
     } else if (o instanceof List<?>) {
       List<?> seq = (List<?>) o;
@@ -418,7 +428,7 @@ public abstract class EvalUtils {
    * http://docs.python.org/2/library/stdtypes.html#truth-value-testing
    */
   public static boolean toBoolean(Object o) {
-    if (o == null) {
+    if (o == null || o == Environment.NONE) {
       return false;
     } else if (o instanceof Boolean) {
       return (Boolean) o;

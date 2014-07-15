@@ -22,6 +22,7 @@ import com.google.devtools.build.lib.packages.OutputFile;
 import com.google.devtools.build.lib.packages.PackageGroup;
 import com.google.devtools.build.lib.packages.Rule;
 import com.google.devtools.build.lib.packages.Target;
+import com.google.devtools.build.lib.syntax.EvalException;
 import com.google.devtools.build.lib.syntax.Label;
 import com.google.devtools.build.lib.view.config.BuildConfiguration;
 import com.google.devtools.build.lib.view.config.BuildConfigurationCollection;
@@ -77,8 +78,12 @@ public abstract class DependencyResolver {
       TargetAndConfiguration node) {
     ListMultimap<Attribute, Label> labelMap = null;
     if (node.getTarget() instanceof Rule) {
-      labelMap = new LateBoundAttributeHelper(
-          (Rule) node.getTarget(), node.getConfiguration()).createAttributeMap();
+      try {
+        labelMap = new LateBoundAttributeHelper(
+            (Rule) node.getTarget(), node.getConfiguration()).createAttributeMap();
+      } catch (EvalException e) {
+        throw new IllegalStateException(e);
+      }
     }
     return dependentNodes(node, labelMap);
   }

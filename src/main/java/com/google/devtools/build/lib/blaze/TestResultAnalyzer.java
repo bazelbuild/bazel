@@ -30,7 +30,6 @@ import com.google.devtools.build.lib.view.TransitiveInfoCollection;
 import com.google.devtools.build.lib.view.test.BlazeTestStatus;
 import com.google.devtools.build.lib.view.test.TestProvider;
 import com.google.devtools.build.lib.view.test.TestResult;
-import com.google.testing.proto.TestStrategy;
 
 import java.util.ArrayList;
 import java.util.Collection;
@@ -190,7 +189,7 @@ public class TestResultAnalyzer {
     int numCached = existingSummary.numCached();
     int numLocalActionCached = existingSummary.numLocalActionCached();
 
-    if (!existingSummary.actionRan() && !result.isCached()) {
+    if (!existingSummary.actionRan() && !result.getData().isCached()) {
       // At least one run of the test actually ran uncached.
       summaryBuilder.setActionRan(true);
 
@@ -203,20 +202,20 @@ public class TestResultAnalyzer {
       }
     }
 
-    if (result.isCached() || result.isRemotelyCached()) {
+    if (result.getData().isCached() || result.getData().isRemotelyCached()) {
       numCached++;
     }
-    if (result.isCached()) {
+    if (result.getData().isCached()) {
       numLocalActionCached++;
     }
 
     if (!executionOptions.runsPerTestDetectsFlakes) {
-      status = status.aggregateStatus(result.getStatus());
+      status = status.aggregateStatus(result.getData().getStatus());
     } else {
       int shardNumber = result.getShardNum();
       int runsPerTestForLabel = target.getProvider(TestProvider.class).getTestParams().getRuns();
       List<BlazeTestStatus> singleShardStatuses = summaryBuilder.addShardStatus(
-          shardNumber, result.getStatus());
+          shardNumber, result.getData().getStatus());
       if (singleShardStatuses.size() == runsPerTestForLabel) {
         BlazeTestStatus shardStatus = BlazeTestStatus.NO_STATUS;
         int passes = 0;
@@ -235,20 +234,35 @@ public class TestResultAnalyzer {
         }
       }
     }
+
+    List<String> filtered = new ArrayList<>();
+    for (String warning : result.getData().getWarnings()) {
+      if (warning.startsWith("Forge overhead time")) {
+        // TODO(bazel-team): Remove ugly hack ASAP.
+        // If several forge actions request the same file from a single
+        // casnode at the same time, they will often timeout after 30 seconds,
+        // triggering the warning below. When this occurred, this warning was
+        // printed dozens of time. We don't print the warning, but leave it in
+        // the test result protocol buffer for the benefit of log collectors.
+        continue;
+      }
+
+      filtered.add(warning);
+    }
+
     summaryBuilder
-        .addTestTimes(result.getTestTimes())
-        .addPassedLogs(result.getPassedLogs())
-        .addFailedLogs(result.getFailedLogs())
-        .addWarnings(result.getWarnings())
-        .addFailedTestCases(result.getFailedTestCaseDetails())
-        .setRanRemotely(
-            result.getStrategy() == TestStrategy.REMOTE);
+        .addTestTimes(result.getData().getTestTimes())
+        .addPassedLogs(result.getData().getPassedLogs())
+        .addFailedLogs(result.getData().getFailedLogs())
+        .addWarnings(filtered)
+        .addFailedTestCases(result.getData().getFailedTestCaseDetails())
+        .setRanRemotely(result.getData().isRemoteStrategy());
 
     List<String> warnings = new ArrayList<>();
     if (status == BlazeTestStatus.PASSED) {
       if (shouldEmitTestSizeWarningInSummary(
           summaryOptions.testVerboseTimeoutWarnings,
-          warnings, result.getTestProcessTimes(), target)) {
+          warnings, result.getData().getTestProcessTimes(), target)) {
         summaryBuilder.setWasUnreportedWrongSize(true);
       }
     }

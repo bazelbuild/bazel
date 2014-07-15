@@ -18,8 +18,7 @@ import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 import com.google.devtools.build.lib.concurrent.ThreadSafety.ThreadSafe;
 import com.google.devtools.build.lib.packages.Attribute;
-import com.google.devtools.build.lib.packages.Attribute.ConfigurationTransition;
-import com.google.devtools.build.lib.packages.Attribute.Configurator;
+import com.google.devtools.build.lib.packages.Attribute.Transition;
 import com.google.devtools.build.lib.packages.InputFile;
 import com.google.devtools.build.lib.packages.PackageGroup;
 import com.google.devtools.build.lib.packages.Rule;
@@ -118,13 +117,8 @@ public final class BuildConfigurationCollection {
     // TODO(bazel-team): Right now we have two mechanisms for this: see
     // Attribute.ConfigurationTransition and Attribute.Configurator. The plan is to get rid the
     // first one.
-    @SuppressWarnings("unchecked")
-    Configurator<BuildConfiguration, Rule> configurator =
-        (Configurator<BuildConfiguration, Rule>) attribute.getConfigurator();
-    // If there's a configurator callback, use that. Otherwise, fall back to the legacy approach.
-    BuildConfiguration toConfiguration = (configurator != null)
-        ? configurator.apply(fromRule, fromConfiguration, attribute, toTarget)
-        : fromConfiguration.getConfiguration(attribute.getConfigurationTransition());
+    BuildConfiguration toConfiguration =
+        fromConfiguration.getConfiguration(attribute.getConfigurationTransition());
 
     // IV. Allow the transition object to perform an arbitrary switch.
     // Blaze modules can inject configuration transition logic by extending
@@ -195,10 +189,10 @@ public final class BuildConfigurationCollection {
     /**
      * Look up table for the configuration transitions, i.e., HOST, DATA, etc.
      */
-    private final Map<ConfigurationTransition, ConfigurationHolder> configurationTransitions;
+    private final Map<? extends Transition, ConfigurationHolder> configurationTransitions;
 
     public Transitions(BuildConfiguration configuration,
-        Map<ConfigurationTransition, ConfigurationHolder> transitionTable) {
+        Map<? extends Transition, ConfigurationHolder> transitionTable) {
       this.configuration = configuration;
       this.configurationTransitions = ImmutableMap.copyOf(transitionTable);
     }
@@ -232,8 +226,12 @@ public final class BuildConfigurationCollection {
      * @param configurationTransition the configuration transition
      * @return the new configuration
      */
-    public BuildConfiguration getConfiguration(ConfigurationTransition configurationTransition) {
-      return configurationTransitions.get(configurationTransition).configuration;
+    public BuildConfiguration getConfiguration(Transition configurationTransition) {
+      ConfigurationHolder holder = configurationTransitions.get(configurationTransition);
+      if (holder == null && configurationTransition.defaultsToSelf()) {
+        return configuration;
+      }
+      return holder.configuration;
     }
 
     /**

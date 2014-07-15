@@ -84,18 +84,17 @@ public class RunfilesSupport {
    * @param executable the executable for whose runfiles this runfiles support is responsible, may
    *        be null
    * @param runfiles the runfiles
-   * @param appendingArgs to be added after the rule's args
    */
-  private RunfilesSupport(RuleContext ruleContext, Artifact executable, Runfiles runfiles,
-      List<String> appendingArgs, boolean createSymlinks) {
+  private RunfilesSupport(
+      RuleContext ruleContext, Artifact executable, Runfiles runfiles, boolean createSymlinks) {
     owningExecutable = executable;
     this.createSymlinks = createSymlinks;
 
     // Adding run_under target to the runfiles manifest so it would become part
     // of runfiles tree and would be executable everywhere.
     RunUnder runUnder = ruleContext.getConfiguration().getRunUnder();
-    if (runUnder != null && runUnder.getLabel() != null &&
-        TargetUtils.isTestRule(ruleContext.getRule())) {
+    if (runUnder != null && runUnder.getLabel() != null
+        && TargetUtils.isTestRule(ruleContext.getRule())) {
       TransitiveInfoCollection runUnderTarget =
           ruleContext.getPrerequisite(":run_under", Mode.DATA);
       runfiles = new Runfiles.Builder()
@@ -109,8 +108,7 @@ public class RunfilesSupport {
 
     Map<PathFragment, Artifact> symlinks = getRunfilesSymlinks();
     if (executable != null && !symlinks.values().contains(executable)) {
-      throw new IllegalStateException("main program " + executable +
-                                      " not included in runfiles");
+      throw new IllegalStateException("main program " + executable + " not included in runfiles");
     }
 
     runfilesInputManifest = createRunfilesInputManifestArtifact(ruleContext);
@@ -119,7 +117,6 @@ public class RunfilesSupport {
     sourcesManifest = createSourceManifest(ruleContext, runfiles);
     args = ImmutableList.<String>builder()
         .addAll(ruleContext.getTokenizedStringListAttr("args"))
-        .addAll(appendingArgs)
         .build();
   }
 
@@ -351,8 +348,8 @@ public class RunfilesSupport {
    */
   public static RunfilesSupport withExecutable(RuleContext ruleContext, Runfiles runfiles,
       Artifact executable) {
-    return new RunfilesSupport(ruleContext, executable, runfiles, ImmutableList.<String>of(),
-        ruleContext.shouldCreateRunfilesSymlinks());
+    return new RunfilesSupport(
+        ruleContext, executable, runfiles, ruleContext.shouldCreateRunfilesSymlinks());
   }
 
   /**
@@ -361,15 +358,14 @@ public class RunfilesSupport {
    */
   public static RunfilesSupport withExecutable(RuleContext ruleContext, Runfiles runfiles,
       Artifact executable, boolean createSymlinks) {
-    return new RunfilesSupport(ruleContext, executable, runfiles, ImmutableList.<String>of(),
-        createSymlinks);
+    return new RunfilesSupport(ruleContext, executable, runfiles, createSymlinks);
   }
   /**
    * Creates and returns a RunfilesSupport object for the given rule, executable, and runfiles.
    */
   public static RunfilesSupport withExecutable(RuleContext ruleContext, Artifact executable,
-      Runfiles runfiles, List<String> appendingArgs) {
-    return new RunfilesSupport(ruleContext, executable, runfiles,
-        ImmutableList.copyOf(appendingArgs), ruleContext.shouldCreateRunfilesSymlinks());
+      Runfiles runfiles) {
+    return new RunfilesSupport(
+        ruleContext, executable, runfiles, ruleContext.shouldCreateRunfilesSymlinks());
   }
 }

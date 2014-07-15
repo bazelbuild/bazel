@@ -22,6 +22,7 @@ import com.google.devtools.build.lib.packages.Attribute.LateBoundDefault;
 import com.google.devtools.build.lib.packages.AttributeMap;
 import com.google.devtools.build.lib.packages.Rule;
 import com.google.devtools.build.lib.packages.Type;
+import com.google.devtools.build.lib.syntax.EvalException;
 import com.google.devtools.build.lib.syntax.Label;
 import com.google.devtools.build.lib.util.Pair;
 import com.google.devtools.build.lib.view.config.BuildConfiguration;
@@ -46,7 +47,7 @@ public final class LateBoundAttributeHelper {
     this.configuration = configuration;
   }
 
-  public ListMultimap<Attribute, Label> createAttributeMap() {
+  public ListMultimap<Attribute, Label> createAttributeMap() throws EvalException {
     final ImmutableSortedKeyListMultimap.Builder<Attribute, Label> builder =
         ImmutableSortedKeyListMultimap.builder();
 

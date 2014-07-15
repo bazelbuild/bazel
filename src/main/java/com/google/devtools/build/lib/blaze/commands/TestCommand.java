@@ -107,7 +107,7 @@ public class TestCommand implements BlazeCommand {
       runtime.getReporter().error(null, message);
       return ExitCode.COMMAND_LINE_ERROR;
     }
-    request.setRunTestsDuringBuild();
+    request.setRunTests();
 
     BuildResult buildResult = runtime.getBuildTool().processRequest(request, null);
 

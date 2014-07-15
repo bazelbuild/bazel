@@ -21,7 +21,6 @@ import com.google.common.base.Throwables;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableSet;
 import com.google.common.collect.Iterables;
-import com.google.common.collect.Lists;
 import com.google.common.collect.Sets;
 import com.google.common.util.concurrent.ThreadFactoryBuilder;
 import com.google.devtools.build.lib.actions.Artifact;
@@ -35,6 +34,7 @@ import com.google.devtools.build.lib.vfs.BatchStat;
 import com.google.devtools.build.lib.vfs.FileStatusWithDigest;
 import com.google.devtools.build.lib.vfs.RootedPath;
 import com.google.devtools.build.skyframe.AutoUpdatingGraph;
+import com.google.devtools.build.skyframe.Differencer;
 import com.google.devtools.build.skyframe.Node;
 import com.google.devtools.build.skyframe.NodeKey;
 import com.google.devtools.build.skyframe.NodeType;
@@ -46,6 +46,7 @@ import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.Set;
+import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.ExecutorService;
 import java.util.concurrent.Executors;
 import java.util.concurrent.atomic.AtomicInteger;
@@ -63,8 +64,9 @@ class FilesystemNodeChecker {
   private static final int DIRTINESS_CHECK_THREADS = 50;
   private static final Logger LOG = Logger.getLogger(FilesystemNodeChecker.class.getName());
 
-  private static final Predicate<NodeKey> FILE_STATE_AND_DIRECTORY_LISTING_FILTER =
-      NodeType.nodeTypeIsIn(ImmutableSet.of(NodeTypes.FILE_STATE, NodeTypes.DIRECTORY_LISTING));
+  private static final Predicate<NodeKey> FILE_STATE_AND_DIRECTORY_LISTING_STATE_FILTER =
+      NodeType.nodeTypeIsIn(ImmutableSet.of(NodeTypes.FILE_STATE,
+          NodeTypes.DIRECTORY_LISTING_STATE));
   private static final Predicate<NodeKey> ACTION_FILTER =
       NodeType.nodeTypeIs(NodeTypes.ACTION_EXECUTION);
 
@@ -89,26 +91,31 @@ class FilesystemNodeChecker {
 
   Iterable<NodeKey> getFilesystemNodeKeys() {
     return Iterables.filter(graphNodesSupplier.get().keySet(),
-        FILE_STATE_AND_DIRECTORY_LISTING_FILTER);
+        FILE_STATE_AND_DIRECTORY_LISTING_STATE_FILTER);
   }
 
-  Collection<NodeKey> getDirtyFilesystemNodeKeys() throws InterruptedException {
+  Differencer.Diff getDirtyFilesystemNodeKeys() throws InterruptedException {
     return getDirtyFilesystemNodes(getFilesystemNodeKeys());
   }
 
   /**
    * Check the given file and directory nodes for modifications. {@code nodes} is assumed to only
-   * have {@link FileNode}s and {@link DirectoryListingNode}s.
+   * have {@link FileNode}s and {@link DirectoryListingStateNode}s.
    */
-  Collection<NodeKey> getDirtyFilesystemNodes(Iterable<NodeKey> nodes)
+  Differencer.Diff getDirtyFilesystemNodes(Iterable<NodeKey> nodes)
       throws InterruptedException {
-    return getDirtyNodes(nodes, FILE_STATE_AND_DIRECTORY_LISTING_FILTER, new DirtyChecker() {
+    return getDirtyNodes(nodes, FILE_STATE_AND_DIRECTORY_LISTING_STATE_FILTER, new DirtyChecker() {
       @Override
-      public boolean isDirty(NodeKey key, Node value, TimestampGranularityMonitor tsgm) {
-        return ((key.getNodeType() == NodeTypes.FILE_STATE
-            && fileStateNodeIsDirty((RootedPath) key.getNodeName(), (FileStateNode) value, tsgm))
-            || (key.getNodeType() == NodeTypes.DIRECTORY_LISTING
-            && directoryNodeIsDirty((DirectoryListingNode) value)));
+      public DirtyResult check(NodeKey key, Node oldValue, TimestampGranularityMonitor tsgm) {
+        if (key.getNodeType() == NodeTypes.FILE_STATE) {
+          return checkFileStateNode((RootedPath) key.getNodeName(), (FileStateNode) oldValue,
+              tsgm);
+        } else if (key.getNodeType() == NodeTypes.DIRECTORY_LISTING_STATE) {
+          return checkDirectoryListingStateNode((RootedPath) key.getNodeName(),
+              (DirectoryListingStateNode) oldValue);
+        } else {
+          throw new IllegalStateException("Unexpected key type " + key);
+        }
       }
     });
   }
@@ -258,15 +265,13 @@ class FilesystemNodeChecker {
     return isDirty;
   }
 
-  private Collection<NodeKey> getDirtyNodes(Iterable<NodeKey> nodes,
-                                            Predicate<NodeKey> keyFilter,
-                                            final DirtyChecker checker)
-      throws InterruptedException {
+  private BatchDirtyResult getDirtyNodes(Iterable<NodeKey> nodes,
+                                         Predicate<NodeKey> keyFilter,
+                                         final DirtyChecker checker) throws InterruptedException {
     ExecutorService executor = Executors.newFixedThreadPool(DIRTINESS_CHECK_THREADS,
         new ThreadFactoryBuilder().setNameFormat("FileSystem Node Invalidator %d").build());
 
-    Collection<NodeKey> dirtyKeys = Lists.newArrayList();
-    final Collection<NodeKey> concurrentDirtyKeys = Collections.synchronizedCollection(dirtyKeys);
+    final BatchDirtyResult batchResult = new BatchDirtyResult();
     ThrowableRecordingRunnableWrapper wrapper =
         new ThrowableRecordingRunnableWrapper("FilesystemNodeChecker#getDirtyNodes");
     for (final NodeKey key : nodes) {
@@ -275,10 +280,15 @@ class FilesystemNodeChecker {
       executor.execute(wrapper.wrap(new Runnable() {
         @Override
         public void run() {
-          // value will be null if the node is in error or part of a cycle.
-          // TODO(bazel-team): This is overly conservative.
-          if (value == null || checker.isDirty(key, value, tsgm)) {
-            concurrentDirtyKeys.add(key);
+          if (value == null) {
+            // value will be null if the node is in error or part of a cycle.
+            // TODO(bazel-team): This is overly conservative.
+            batchResult.add(key, /*newValue=*/null);
+            return;
+          }
+          DirtyResult result = checker.check(key, value, tsgm);
+          if (result.isDirty()) {
+            batchResult.add(key, result.getNewValue());
           }
         }
       }));
@@ -289,33 +299,99 @@ class FilesystemNodeChecker {
     if (interrupted) {
       throw new InterruptedException();
     }
-    return dirtyKeys;
+    return batchResult;
   }
 
-  private static boolean fileStateNodeIsDirty(RootedPath rootedPath, FileStateNode fileStateNode,
+  private static DirtyResult checkFileStateNode(RootedPath rootedPath, FileStateNode fileStateNode,
       TimestampGranularityMonitor tsgm) {
     try {
       FileStateNode newNode = FileStateNode.create(rootedPath, tsgm);
-      return !newNode.equals(fileStateNode);
+      return newNode.equals(fileStateNode)
+          ? DirtyResult.NOT_DIRTY : DirtyResult.dirtyWithNewValue(newNode);
     } catch (InconsistentFilesystemException | IOException e) {
       // TODO(bazel-team): An IOException indicates a failure to get a file digest or a symlink
       // target, not a missing file. Such a failure really shouldn't happen, so failing early
       // may be better here.
-      return true;
+      return DirtyResult.DIRTY;
     }
   }
 
-  private static boolean directoryNodeIsDirty(DirectoryListingNode directoryNode) {
+  private static DirtyResult checkDirectoryListingStateNode(RootedPath dirRootedPath,
+      DirectoryListingStateNode directoryListingStateNode) {
     try {
-      DirectoryListingNode newNode = DirectoryListingNode.nodeForRootedPath(
-          directoryNode.getRootedPath());
-      return !newNode.equals(directoryNode);
+      DirectoryListingStateNode newNode = DirectoryListingStateNode.create(dirRootedPath);
+      return newNode.equals(directoryListingStateNode)
+          ? DirtyResult.NOT_DIRTY : DirtyResult.dirtyWithNewValue(newNode);
     } catch (IOException e) {
-      return true;
+      return DirtyResult.DIRTY;
     }
   }
 
-  private interface DirtyChecker {
-    boolean isDirty(NodeKey key, Node value, TimestampGranularityMonitor tsgm);
+  /**
+   * Result of a batch call to {@link DirtyChecker#check}. Partitions the dirty nodes based on
+   * whether we have a new value available for them or not.
+   */
+  private static class BatchDirtyResult implements Differencer.Diff {
+
+    private final Set<NodeKey> concurrentDirtyKeysWithoutNewValues =
+        Collections.newSetFromMap(new ConcurrentHashMap<NodeKey, Boolean>());
+    private final ConcurrentHashMap<NodeKey, Node> concurrentDirtyKeysWithNewValues =
+        new ConcurrentHashMap<>();
+
+    private void add(NodeKey key, @Nullable Node newValue) {
+      if (newValue == null) {
+        concurrentDirtyKeysWithoutNewValues.add(key);
+      } else {
+        concurrentDirtyKeysWithNewValues.put(key, newValue);
+      }
+    }
+
+    @Override
+    public Iterable<NodeKey> changedKeysWithoutNewValues() {
+      return concurrentDirtyKeysWithoutNewValues;
+    }
+
+    @Override
+    public Map<NodeKey, ? extends Node> changedKeysWithNewValues() {
+      return concurrentDirtyKeysWithNewValues;
+    }
+  }
+
+  private static class DirtyResult {
+
+    static final DirtyResult NOT_DIRTY = new DirtyResult(false, null);
+    static final DirtyResult DIRTY = new DirtyResult(true, null);
+
+    private final boolean isDirty;
+    @Nullable private final Node newValue;
+
+    private DirtyResult(boolean isDirty, @Nullable Node newValue) {
+      this.isDirty = isDirty;
+      this.newValue = newValue;
+    }
+
+    boolean isDirty() {
+      return isDirty;
+    }
+
+    /**
+     * If {@code isDirty()}, then either returns the new value for the node or {@code null} if
+     * the new value wasn't computed. In the case where the node is dirty and a new value is
+     * available, then the new value can be injected into the skyframe graph. Otherwise, the node
+     * should simply be invalidated.
+     */
+    @Nullable
+    Node getNewValue() {
+      Preconditions.checkState(isDirty());
+      return newValue;
+    }
+
+    static DirtyResult dirtyWithNewValue(Node newValue) {
+      return new DirtyResult(true, newValue);
+    }
+  }
+
+  private static interface DirtyChecker {
+    DirtyResult check(NodeKey key, Node oldValue, TimestampGranularityMonitor tsgm);
   }
 }

@@ -99,8 +99,7 @@ public class RunCommand implements BlazeCommand  {
   @VisibleForTesting
   static final String NO_TARGET_MESSAGE = "No targets found to run";
 
-  private static final String PROCESS_WRAPPER =
-      "process-wrapper";
+  private static final String PROCESS_WRAPPER = "process-wrapper";
 
   // Value of --run_under as of the most recent command invocation.
   private RunUnder currentRunUnder;

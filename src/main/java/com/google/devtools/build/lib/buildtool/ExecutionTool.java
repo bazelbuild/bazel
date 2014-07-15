@@ -19,7 +19,6 @@ import com.google.common.base.Predicate;
 import com.google.common.base.Stopwatch;
 import com.google.common.collect.HashBasedTable;
 import com.google.common.collect.ImmutableSet;
-import com.google.common.collect.Iterables;
 import com.google.common.collect.Multimap;
 import com.google.common.collect.Ordering;
 import com.google.common.collect.Table;
@@ -105,6 +104,7 @@ import com.google.devtools.build.lib.view.ViewCreationFailedException;
 import com.google.devtools.build.lib.view.config.BuildConfiguration;
 import com.google.devtools.build.lib.view.config.BuildConfigurationCollection;
 import com.google.devtools.build.lib.view.fileset.FilesetActionContext;
+import com.google.devtools.build.lib.view.test.TestActionContext;
 
 import java.io.IOException;
 import java.io.OutputStream;
@@ -144,14 +144,18 @@ public class ExecutionTool {
     private Map<Class<? extends ActionContext>, ActionContext> defaultClassMap =
         new HashMap<>();
 
+    /**
+     * Aggregates all {@link ActionContext}s that are in {@code contextProviders}.
+     */
     @SuppressWarnings("unchecked")
     private StrategyConverter(Iterable<ActionContextProvider> contextProviders) {
       for (ActionContextProvider provider : contextProviders) {
         for (ActionContext strategy : provider.getActionContexts()) {
           ExecutionStrategy annotation =
               strategy.getClass().getAnnotation(ExecutionStrategy.class);
-          defaultClassMap.put(annotation.contextType(), strategy);
           if (annotation != null) {
+            defaultClassMap.put(annotation.contextType(), strategy);
+            
             for (String name : annotation.name()) {
               classMap.put(annotation.contextType(), name, strategy);
             }
@@ -212,10 +216,13 @@ public class ExecutionTool {
     strategies.add(new SymlinkTreeStrategy(runtime.getOutputService(), runtime.getBinTools()));
 
     StrategyConverter strategyConverter = new StrategyConverter(actionContextProviders);
-
     strategies.add(strategyConverter.getStrategy(FilesetActionContext.class, ""));
 
     for (ActionContextConsumer consumer : actionContextConsumers) {
+      // There are many different SpawnActions, and we want to control the action context they use
+      // independently from each other, for example, to run genrules locally and Java compile action
+      // in prod. Thus, for SpawnActions, we decide the action context to use not only based on the
+      // context class, but also the mnemonic of the action.
       for (Map.Entry<String, String> entry : consumer.getSpawnActionContexts().entrySet()) {
         SpawnActionContext context =
             strategyConverter.getStrategy(SpawnActionContext.class, entry.getValue());
@@ -244,9 +251,11 @@ public class ExecutionTool {
         }
       }
     }
-
-    for (ActionContextProvider provider : actionContextProviders) {
-      Iterables.addAll(strategies, provider.getMandatoryActionContexts());
+   
+    // If tests are to be run during build, too, we have to explicitly load the test action context.
+    if (request.shouldRunTests()) {
+      strategies.add(strategyConverter.getStrategy(TestActionContext.class,
+          request.getOptions(ExecutionOptions.class).testStrategy));
     }
   }
 

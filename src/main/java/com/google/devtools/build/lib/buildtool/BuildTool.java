@@ -321,7 +321,7 @@ public class BuildTool {
     LoadingResult result = runtime.getLoadingPhaseRunner().execute(getReporter(),
         getEventBus(), request.getTargets(), request.getLoadingOptions(),
         runtime.createBuildOptions(request).getAllLabels(), keepGoing,
-        request.shouldRunTestsDuringBuild(), callback);
+        request.shouldRunTests(), callback);
     runtime.throwPendingException();
     return result;
   }
@@ -362,7 +362,7 @@ public class BuildTool {
         analysisResult.getTargetsToTest()));
 
     for (BuildConfiguration targetConfiguration : configurations.getTargetConfigurations()) {
-      if (request.shouldRunTestsDuringBuild()) {
+      if (request.shouldRunTests()) {
         // If blaze was asked to run tests, check whether we know that the host machine can run
         // them, and give a warning if not.
         if (!targetConfiguration.canRunOn(runtime.getHostMachineSpecification())) {

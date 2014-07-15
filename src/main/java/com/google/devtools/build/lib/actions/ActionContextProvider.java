@@ -30,14 +30,6 @@ public interface ActionContextProvider {
   Iterable<ActionContext> getActionContexts();
 
   /**
-   * Returns the action contexts that must be present in the executor.
-   *
-   * <p>These action context will always be present in the executor regardless of the value of
-   * command line options or any other factor influencing how the executor is set up.
-   */
-  Iterable<ActionContext> getMandatoryActionContexts() throws ExecutorInitException;
-
-  /**
    * Called when the executor is constructed. The parameter contains all the contexts that were
    * selected for this execution phase.
    */

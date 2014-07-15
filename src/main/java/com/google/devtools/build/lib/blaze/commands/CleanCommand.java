@@ -118,12 +118,15 @@ public final class CleanCommand implements BlazeCommand {
     } catch (ExecException e) {
       runtime.getReporter().error(null, e.getMessage());
       return ExitCode.RUN_FAILURE;
+    } catch (InterruptedException e) {
+      runtime.getReporter().error(null, "clean interrupted");
+      return ExitCode.INTERRUPTED;
     }
   }
 
   private void actuallyClean(BlazeRuntime runtime,
-      Path outputBase, Options cleanOptions, String symlinkPrefix)
-      throws IOException, ShutdownBlazeServerException, CommandException, ExecException {
+      Path outputBase, Options cleanOptions, String symlinkPrefix) throws IOException,
+      ShutdownBlazeServerException, CommandException, ExecException, InterruptedException {
     if (runtime.getOutputService() != null) {
       runtime.getOutputService().clean();
     }
