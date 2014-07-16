@@ -15,10 +15,8 @@
 package com.google.devtools.build.lib.view.actions;
 
 import com.google.devtools.build.lib.actions.AbstractAction;
-import com.google.devtools.build.lib.actions.ActionExecutionException;
 import com.google.devtools.build.lib.actions.ActionOwner;
 import com.google.devtools.build.lib.actions.Artifact;
-import com.google.devtools.build.lib.actions.ExecException;
 import com.google.devtools.build.lib.view.config.BuildConfiguration;
 
 /**
@@ -52,12 +50,6 @@ public abstract class ConfigurationAction extends AbstractAction {
    */
   public BuildConfiguration getConfiguration() {
     return configuration;
-  }
-
-  protected ActionExecutionException newActionExecutionException(String messagePrefix,
-                                                                 ExecException e,
-                                                                 boolean verboseFailures) {
-    return e.toActionExecutionException(messagePrefix, verboseFailures, this);
   }
 }
 

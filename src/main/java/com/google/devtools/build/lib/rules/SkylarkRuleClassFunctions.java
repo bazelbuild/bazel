@@ -95,6 +95,9 @@ public class SkylarkRuleClassFunctions {
   @SkylarkBuiltin(name = "HOST_CFG", doc = "The default runfiles collection state.")
   private static final Object hostTransition = ConfigurationTransition.HOST;
 
+  @SkylarkBuiltin(name = "Attr", doc = "Module for creating new attributes.")
+  private static final Object ATTR = SkylarkAttr.module;
+
   @VisibleForTesting
   static final Map<String, Object> JAVA_OBJECTS_TO_EXPOSE =
       ImmutableMap.<String, Object>builder()
@@ -104,6 +107,7 @@ public class SkylarkRuleClassFunctions {
           .put("NO_RULE", NO_RULE)
           .put("DATA_CFG", dataTransition)
           .put("HOST_CFG", hostTransition)
+          .put("Attr", ATTR)
           .build();
 
   private final SkylarkRuleFactory ruleFactory;
@@ -176,11 +180,81 @@ public class SkylarkRuleClassFunctions {
     for (Map.Entry<String, Object> entry : JAVA_OBJECTS_TO_EXPOSE.entrySet()) {
       env.update(entry.getKey(), entry.getValue());
     }
+    SkylarkAttr.registerFunctions(env);
 
     MethodLibrary.setupMethodEnvironment(env);
     return env;
   }
 
+  static Attribute.Builder<?> createAttribute(String strType, Map<String, Object> arguments,
+      FuncallExpression ast, Environment funcallEnv)
+      throws EvalException, ConversionException {
+    final Location loc = ast.getLocation();
+    Type<?> type = createTypeFromString(strType, loc, "invalid attribute type %s");
+    // We use an empty name now so that we can set it later.
+    // This trick makes sense only in the context of Skylark (builtin rules should not use it).
+    Attribute.Builder<?> builder = Attribute.attr("", type);
+
+    Object defaultValue = arguments.get("default");
+    if (defaultValue != null) {
+      if (defaultValue instanceof UserDefinedFunction) {
+        // Late bound attribute
+        UserDefinedFunction func =
+            cast(defaultValue, UserDefinedFunction.class, "default", loc);
+        final SkylarkCallbackFunction callback =
+            new SkylarkCallbackFunction(func, ast, (SkylarkEnvironment) funcallEnv);
+        final SkylarkLateBound computedValue;
+        if (type.equals(Type.LABEL) || type.equals(Type.LABEL_LIST)) {
+          computedValue = new SkylarkLateBound(false, callback);
+        } else {
+          throw new EvalException(loc, "Only label type attributes can be late bound");
+        }
+        builder.value(computedValue);
+      } else {
+        builder.defaultValue(defaultValue);
+      }
+    }
+
+    for (String flag :
+             castList(arguments.get("flags"), String.class, "flags for attribute definition")) {
+      builder.setPropertyFlag(flag);
+    }
+
+    if (arguments.containsKey("file_types")) {
+      Object fileTypesObj = arguments.get("file_types");
+      if (fileTypesObj == FileTypeSet.ANY_FILE || fileTypesObj == FileTypeSet.NO_FILE) {
+        builder.allowedFileTypes((FileTypeSet) fileTypesObj);
+      } else if (fileTypesObj instanceof SkylarkFileType) {
+        builder.allowedFileTypes(((SkylarkFileType) fileTypesObj).getFileTypeSet());
+      } else {
+        builder.allowedFileTypes(FileTypeSet.of(Iterables.transform(
+            castList(fileTypesObj, String.class, "allowed file types for attribute definition"),
+            new com.google.common.base.Function<String, FileType>() {
+              @Override
+                public FileType apply(String input) {
+                return FileType.of(input);
+              }
+            })));
+      }
+    }
+
+    Object ruleClassesObj = arguments.get("rule_classes");
+    if (ruleClassesObj == Attribute.ANY_RULE || ruleClassesObj == Attribute.NO_RULE) {
+      // This causes an unchecked warning but it's fine because of the surrounding if.
+      builder.allowedRuleClasses((Predicate<RuleClass>) ruleClassesObj);
+    } else if (ruleClassesObj != null) {
+      builder.allowedRuleClasses(castList(ruleClassesObj, String.class,
+              "allowed rule classes for attribute definition"));
+    }
+
+    if (arguments.containsKey("cfg")) {
+      builder.cfg(
+          cast(arguments.get("cfg"), ConfigurationTransition.class, "configuration", loc));
+    }
+    return builder;
+  }
+
+  // TODO(bazel-team): Get rid of this function, and use Attr.* functions.
   @SkylarkBuiltin(name = "attr", doc = "Creates a rule class attribute.",
       mandatoryParams = {
       @Param(name = "type", type = String.class, doc = "type of the attribute")},
@@ -191,76 +265,13 @@ public class SkylarkRuleClassFunctions {
           doc = "allowed file types of the label type attribute"),
       @Param(name = "rule_classes", doc = "allowed rule classes of the label type attribute"),
       @Param(name = "cfg", type = String.class, doc = "configuration of the attribute")})
-  private final SkylarkFunction attr = new SkylarkFunction("attr") {
+  private static final SkylarkFunction attr = new SkylarkFunction("attr") {
     @SuppressWarnings("unchecked")
     @Override
     public Object call(Map<String, Object> arguments, FuncallExpression ast,
         Environment funcallEnv) throws EvalException, ConversionException {
-      final Location loc = ast.getLocation();
-      Type<?> type = createTypeFromString(
-          cast(arguments.get("type"), String.class, "attribute type", loc), loc,
-          "invalid attribute type %s");
-      // We use an empty name now so that we can set it later.
-      // This trick makes sense only in the context of Skylark (builtin rules should not use it).
-      Attribute.Builder<?> builder = Attribute.attr("", type);
-
-      Object defaultValue = arguments.get("default");
-      if (defaultValue != null) {
-        if (defaultValue instanceof UserDefinedFunction) {
-          // Late bound attribute
-          UserDefinedFunction func =
-              cast(defaultValue, UserDefinedFunction.class, "default", loc);
-          final SkylarkCallbackFunction callback =
-              new SkylarkCallbackFunction(func, ast, (SkylarkEnvironment) funcallEnv);
-          final SkylarkLateBound computedValue;
-          if (type.equals(Type.LABEL) || type.equals(Type.LABEL_LIST)) {
-            computedValue = new SkylarkLateBound(false, callback);
-          } else {
-            throw new EvalException(loc, "Only label type attributes can be late bound");
-          }
-          builder.value(computedValue);
-        } else {
-          builder.defaultValue(defaultValue);
-        }
-      }
-
-      for (String flag :
-          castList(arguments.get("flags"), String.class, "flags for attribute definition")) {
-        builder.setPropertyFlag(flag);
-      }
-
-      if (arguments.containsKey("file_types")) {
-        Object fileTypesObj = arguments.get("file_types");
-        if (fileTypesObj == FileTypeSet.ANY_FILE || fileTypesObj == FileTypeSet.NO_FILE) {
-          builder.allowedFileTypes((FileTypeSet) fileTypesObj);
-        } else if (fileTypesObj instanceof SkylarkFileType) {
-          builder.allowedFileTypes(((SkylarkFileType) fileTypesObj).getFileTypeSet());
-        } else {
-          builder.allowedFileTypes(FileTypeSet.of(Iterables.transform(
-              castList(fileTypesObj, String.class, "allowed file types for attribute definition"),
-              new com.google.common.base.Function<String, FileType>() {
-                @Override
-                public FileType apply(String input) {
-                  return FileType.of(input);
-                }
-              })));
-        }
-      }
-
-      Object ruleClassesObj = arguments.get("rule_classes");
-      if (ruleClassesObj == Attribute.ANY_RULE || ruleClassesObj == Attribute.NO_RULE) {
-        // This causes an unchecked warning but it's fine because of the surrounding if.
-        builder.allowedRuleClasses((Predicate<RuleClass>) ruleClassesObj);
-      } else if (ruleClassesObj != null) {
-        builder.allowedRuleClasses(castList(ruleClassesObj, String.class,
-            "allowed rule classes for attribute definition"));
-      }
-
-      if (arguments.containsKey("cfg")) {
-        builder.cfg(
-            cast(arguments.get("cfg"), ConfigurationTransition.class, "configuration", loc));
-      }
-      return builder;
+      String type = cast(arguments.get("type"), String.class, "attribute type", ast.getLocation());
+      return createAttribute(type, arguments, ast, funcallEnv);
     }
   };
 

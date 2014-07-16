@@ -59,7 +59,6 @@ import com.google.devtools.build.lib.profiler.Profiler;
 import com.google.devtools.build.lib.profiler.ProfilerTask;
 import com.google.devtools.build.lib.util.Pair;
 import com.google.devtools.build.lib.util.io.FileOutErr;
-import com.google.devtools.build.lib.util.io.OutErr;
 import com.google.devtools.build.lib.vfs.FileStatus;
 import com.google.devtools.build.lib.vfs.PathFragment;
 import com.google.protobuf.ByteString;
@@ -478,15 +477,7 @@ public final class SkyframeActionExecutor extends AbstractActionExecutor {
     hadExecutionError = true;
   }
 
-  /**
-   * Returns true if the Builder is winding down (i.e. cancelling outstanding
-   * actions and preparing to abort.)
-   * The builder is winding down iff:
-   * <ul>
-   * <li>we had an execution error
-   * <li>we are not running with --keep_going
-   * </ul>
-   */
+  @Override
   protected boolean isBuilderAborting() {
     return hadExecutionError && !keepGoing;
   }
@@ -629,13 +620,6 @@ public final class SkyframeActionExecutor extends AbstractActionExecutor {
           "failed to update action cache for " + action.prettyPrint()
           + ", but all outputs should already have been checked", e);
     }
-  }
-
-  @Override
-  protected void dumpRecordedOutErr(Action action, FileOutErr outErrBuffer) {
-    OutErr outErr = reporter.getOutErr();
-    outErrBuffer.dumpOutAsLatin1(outErr.getOutputStream());
-    outErrBuffer.dumpErrAsLatin1(outErr.getErrorStream());
   }
 
   public void reportActionExecutionFailure(Action action) {

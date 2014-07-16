@@ -70,12 +70,25 @@ public abstract class ExecException extends Exception {
   }
 
   /**
+   * Returns a new ActionExecutionException without a message prefix.
+   * @param action failed action
+   * @return ActionExecutionException object describing the action failure
+   */
+  public ActionExecutionException toActionExecutionException(Action action) {
+    // In all ExecException implementations verboseFailures argument used only to determine should
+    // we pass ExecException as cause of ActionExecutionException. So use this method only 
+    // if you need this information inside of ActionExecutionexception.
+    return toActionExecutionException("", true, action);
+  }
+
+  /**
    * Returns a new ActionExecutionException given a message prefix describing the action type as a
    * noun. When appropriate (we use some heuristics to decide), produces an abbreviated message
    * incorporating just the termination status if available.
    *
    * @param messagePrefix describes the action type as noun
    * @param verboseFailures true if user requested verbose output with flag --verbose_failures
+   * @param action failed action
    * @return ActionExecutionException object describing the action failure
    */
   public abstract ActionExecutionException toActionExecutionException(String messagePrefix,

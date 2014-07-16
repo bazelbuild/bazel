@@ -35,7 +35,7 @@ darwin)
   elif [[ -e $homebrew_header ]]; then
     # For use with Homebrew.
     archive_dir=$(dirname $(dirname $homebrew_header))
-    ARCHIVE_CFLAGS="-L${archive_dir}/include"
+    ARCHIVE_CFLAGS="-I${archive_dir}/include"
     ARCHIVE_LDFLAGS="-L${archive_dir}/lib"
   else
     echo "WARNING: Could not find libarchive installation, proceeding bravely."

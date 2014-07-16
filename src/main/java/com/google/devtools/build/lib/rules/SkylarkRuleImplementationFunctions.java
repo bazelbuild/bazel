@@ -445,6 +445,7 @@ public class SkylarkRuleImplementationFunctions {
         .put("get_provider", Object.class)
         .put("get_provider.return", Object.class);
     MethodLibrary.setupValidationEnvironment(builder);
+    SkylarkAttr.setupValidationEnvironment(builder);
     SkylarkFunction.collectSkylarkFunctionReturnTypesFromFields(
         SkylarkRuleClassFunctions.class, builder);
     SkylarkFunction.collectSkylarkFunctionReturnTypesFromFields(

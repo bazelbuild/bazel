@@ -24,6 +24,7 @@ import com.google.devtools.build.lib.profiler.Profiler;
 import com.google.devtools.build.lib.profiler.ProfilerTask;
 import com.google.devtools.build.lib.syntax.Label;
 import com.google.devtools.build.lib.util.io.FileOutErr;
+import com.google.devtools.build.lib.util.io.OutErr;
 import com.google.devtools.build.lib.vfs.Path;
 import com.google.devtools.build.lib.vfs.Symlinks;
 
@@ -224,11 +225,6 @@ public abstract class AbstractActionExecutor {
       // Defer reporting action success until outputs are checked
     } catch (ActionExecutionException e) {
       reportActionExecution(action, e, outErrBuffer);
-
-      // We must do the pollInterruptedStatus before we print the error. For some actions
-      // (e.g. actions that run remotely), it transforms the ActionExecutionException into an
-      // InterruptedException, which does not gets its output dumped.
-      pollInterruptedStatus(); // may throw InterruptedException
       boolean reported = reportErrorIfNotAbortingMode(e, outErrBuffer);
 
       ActionExecutionException toThrow = e;
@@ -252,16 +248,6 @@ public abstract class AbstractActionExecutor {
       throw toThrow;
     } finally {
       profiler.completeTask(ProfilerTask.ACTION_EXECUTE);
-    }
-  }
-
-  /**
-   * Tests and clears the current thread's pending "interrupted" status, and
-   * throws InterruptedException iff it was set.
-   */
-  protected final void pollInterruptedStatus() throws InterruptedException {
-    if (Thread.interrupted()) {
-      throw new InterruptedException();
     }
   }
 
@@ -317,7 +303,6 @@ public abstract class AbstractActionExecutor {
     if (outErr.hasRecordedStderr()) {
       stderr = outErr.getErrorFile().toString();
     }
-
     postEvent(new ActionExecutedEvent(action, exception, stdout, stderr));
   }
 
@@ -408,7 +393,37 @@ public abstract class AbstractActionExecutor {
    * @param action The action whose output is being dumped
    * @param outErrBuffer The OutErr that recorded the actions output
    */
-  protected abstract void dumpRecordedOutErr(Action action, FileOutErr outErrBuffer);
+  protected void dumpRecordedOutErr(Action action, FileOutErr outErrBuffer) {
+    StringBuilder message = new StringBuilder("");
+    message.append("From ");
+    message.append(action.describe());
+    message.append(":");
+
+    // Synchronize this on the reporter, so that the output from multiple
+    // actions will not be interleaved.
+    synchronized (reporter) {
+      // Only print the output if we're not winding down.
+      if (isBuilderAborting()) {
+        return;
+      }
+      reporter.info(null, message.toString());
+
+      OutErr outErr = this.reporter.getOutErr();
+      outErrBuffer.dumpOutAsLatin1(outErr.getOutputStream());
+      outErrBuffer.dumpErrAsLatin1(outErr.getErrorStream());
+    }
+  }
+ 
+  /**
+   * Returns true if the Builder is winding down (i.e. cancelling outstanding
+   * actions and preparing to abort.)
+   * The builder is winding down iff:
+   * <ul>
+   * <li>we had an execution error
+   * <li>we are not running with --keep_going
+   * </ul>
+   */
+  protected abstract boolean isBuilderAborting();
 
   protected abstract void updateCache(Action action, Token token, MetadataHandler metadataHandler)
       throws ActionExecutionException;

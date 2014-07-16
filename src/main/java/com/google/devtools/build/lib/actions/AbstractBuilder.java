@@ -29,7 +29,6 @@ import com.google.devtools.build.lib.profiler.ProfilerTask;
 import com.google.devtools.build.lib.syntax.Label;
 import com.google.devtools.build.lib.util.StringUtilities;
 import com.google.devtools.build.lib.util.io.FileOutErr;
-import com.google.devtools.build.lib.util.io.OutErr;
 import com.google.devtools.build.lib.vfs.ModifiedFileSet;
 import com.google.devtools.build.lib.vfs.Path;
 
@@ -165,25 +164,8 @@ abstract class AbstractBuilder implements Builder {
     }
 
     @Override
-    protected void dumpRecordedOutErr(Action action, FileOutErr outErrBuffer) {
-      StringBuilder message = new StringBuilder("");
-      message.append("From ");
-      message.append(action.describe());
-      message.append(":");
-
-      // Synchronize this on the reporter, so that the output from multiple
-      // actions will not be interleaved.
-      synchronized (this.reporter) {
-        // Only print the output if we're not winding down.
-        if (isBuilderAborting()) {
-          return;
-        }
-        this.reporter.info(null, message.toString());
-
-        OutErr outErr = this.reporter.getOutErr();
-        outErrBuffer.dumpOutAsLatin1(outErr.getOutputStream());
-        outErrBuffer.dumpErrAsLatin1(outErr.getErrorStream());
-      }
+    protected boolean isBuilderAborting() {
+      return AbstractBuilder.this.isBuilderAborting();
     }
 
     @Override
@@ -336,7 +318,9 @@ abstract class AbstractBuilder implements Builder {
   @ConditionallyThreadSafe
   protected void executeActionIfNeeded(Action action)
       throws InterruptedException, ActionExecutionException, IOException {
-    actionExecutor.pollInterruptedStatus();
+    if (Thread.interrupted()) {
+      throw new InterruptedException();
+    }
 
     String error = badActions.get(action);
     if (error != null) {

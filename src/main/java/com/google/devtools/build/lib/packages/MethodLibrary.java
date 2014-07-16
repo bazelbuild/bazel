@@ -303,11 +303,7 @@ public class MethodLibrary {
     public Object call(List<Object> args, FuncallExpression ast) throws EvalException,
         ConversionException {
       List<Object> thiz = Type.OBJECT_LIST.convert(args.get(0), "'append' operand");
-      try {
-        thiz.add(args.get(1));
-      } catch (UnsupportedOperationException e) {
-        throw new EvalException(ast.getLocation(), "cannot append to a read-only collection");
-      }
+      thiz.add(args.get(1));
       return 0;
     }
   };
@@ -321,11 +317,7 @@ public class MethodLibrary {
         ConversionException {
       List<Object> thiz = Type.OBJECT_LIST.convert(args.get(0), "'extend' operand");
       List<Object> l = Type.OBJECT_LIST.convert(args.get(1), "'extend' argument");
-      try {
-        thiz.addAll(l);
-      } catch (UnsupportedOperationException e) {
-        throw new EvalException(ast.getLocation(), "cannot extend a read-only collection");
-      }
+      thiz.addAll(l);
       return 0;
     }
   };
@@ -358,6 +350,7 @@ public class MethodLibrary {
 
         throw new EvalException(ast.getLocation(), "List is empty");
       } else {
+        // TODO(bazel-team): This is dead code, get rid of it.
         throw new EvalException(ast.getLocation(), String.format(
             "Unsupported datatype (%s) for indexing, only works for dict and list",
             EvalUtils.getDatatypeName(collectionCandidate)));
@@ -476,8 +469,6 @@ public class MethodLibrary {
 
   private static final Map<Function, Class<?>> pureFunctions = ImmutableMap
       .<Function, Class<?>>builder()
-      .putAll(stringFunctions)
-      .put(index, Object.class)
       .put(minus, Integer.class)
       .put(set, Set.class)
       .put(len, Integer.class)
@@ -492,19 +483,33 @@ public class MethodLibrary {
       .put(nset, SkylarkNestedSet.class)
       .build();
 
-  // TODO(bazel-team): listFunctions are not allowed in Skylark extensions (use += instead).
-  // It is allowed in BUILD files only for backward-compatibility.
-  private static final List<Function> functions = ImmutableList
-      .<Function>builder()
-      .addAll(pureFunctions.keySet())
-      .addAll(listFunctions)
-      .build();
-
   /**
    * Set up a given environment for supported class methods.
    */
   public static void setupMethodEnvironment(Environment env) {
-    for (Function function : env.isSkylarkEnabled() ? skylarkFunctions.keySet() : functions) {
+    env.registerFunction(List.class, index.getName(), index);
+    env.registerFunction(ImmutableList.class, index.getName(), index);
+    env.registerFunction(Map.class, index.getName(), index);
+    setupMethodEnvironment(env, String.class, stringFunctions.keySet());
+    if (env.isSkylarkEnabled()) {
+      setupMethodEnvironment(env, skylarkFunctions.keySet());
+    } else {
+      // TODO(bazel-team): listFunctions are not allowed in Skylark extensions (use += instead).
+      // It is allowed in BUILD files only for backward-compatibility.
+      setupMethodEnvironment(env, List.class, listFunctions);
+      setupMethodEnvironment(env, pureFunctions.keySet());
+    }
+  }
+
+  private static void setupMethodEnvironment(
+      Environment env, Class<?> nameSpace, Iterable<Function> functions) {
+    for (Function function : functions) {
+      env.registerFunction(nameSpace, function.getName(), function);
+    }
+  }
+
+  private static void setupMethodEnvironment(Environment env, Iterable<Function> functions) {
+    for (Function function : functions) {
       env.update(function.getName(), function);
     }
   }

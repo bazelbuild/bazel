@@ -123,7 +123,7 @@ public final class ExtraAction extends SpawnAction {
       try {
         getContext(executor).exec(getSpawn(extraFiles), actionExecutionContext);
       } catch (ExecException e) {
-        throw new ActionExecutionException(e.getMessage(), this, e.isCatastrophic());
+        throw e.toActionExecutionException(this);
       }
     } else {
       super.execute(actionExecutionContext);

@@ -591,7 +591,7 @@ public class TestRunnerAction extends ConfigurationAction
     try {
       context.exec(this, actionExecutionContext);
     } catch (ExecException e) {
-      throw new ActionExecutionException(e, this, e.isCatastrophic());
+      throw e.toActionExecutionException(this);
     } finally {
       checkedCaching = false;
     }

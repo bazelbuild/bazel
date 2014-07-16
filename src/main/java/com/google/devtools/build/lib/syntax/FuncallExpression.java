@@ -247,14 +247,14 @@ public final class FuncallExpression extends Expression {
       }
       if (matchingMethod != null) {
         if (obj == null && !Modifier.isStatic(matchingMethod.getModifiers())) {
-          throw new EvalException(func.getLocation(), "Method '" + methodName + "' is not static.");
+          throw new EvalException(getLocation(), "Method '" + methodName + "' is not static.");
         }
         // This happens when the interface is public but the implementation classes
         // have reduced visibility.
         matchingMethod.setAccessible(true);
         Object result = matchingMethod.invoke(obj, args.toArray());
         if (result != null && !EvalUtils.isSkylarkImmutable(result.getClass())) {
-          throw new EvalException(func.getLocation(), "Method '" + methodName
+          throw new EvalException(getLocation(), "Method '" + methodName
               + "' returns a mutable object (type of " + EvalUtils.getDatatypeName(result) + ").");
         }
         if (result instanceof NestedSet<?>) {
@@ -268,24 +268,24 @@ public final class FuncallExpression extends Expression {
         }
         return result;
       } else {
-        throw new EvalException(func.getLocation(), "No matching method found for "
+        throw new EvalException(getLocation(), "No matching method found for "
             + formatMethod(methodName, args) + " in " + getClassName(objClass));
       }
     } catch (IllegalAccessException e) {
       // TODO(bazel-team): Print a nice error message. Maybe the method exists
       // and an argument is missing or has the wrong type.
-      throw new EvalException(func.getLocation(), "Method invocation failed: " + e);
+      throw new EvalException(getLocation(), "Method invocation failed: " + e);
     } catch (InvocationTargetException e) {
       if (e.getCause() instanceof FuncallException) {
-        throw new EvalException(func.getLocation(), e.getCause().getMessage());
+        throw new EvalException(getLocation(), e.getCause().getMessage());
       } else if (e.getCause() != null) {
-        throw new EvalExceptionWithJavaCause(func.getLocation(), e.getCause());
+        throw new EvalExceptionWithJavaCause(getLocation(), e.getCause());
       } else {
         // This is unlikely to happen
-        throw new EvalException(func.getLocation(), "Method invocation failed: " + e);
+        throw new EvalException(getLocation(), "Method invocation failed: " + e);
       }
     } catch (ExecutionException e) {
-      throw new EvalException(func.getLocation(), "Method invocation failed: " + e);
+      throw new EvalException(getLocation(), "Method invocation failed: " + e);
     }
   }
 
@@ -320,7 +320,7 @@ public final class FuncallExpression extends Expression {
       } else {
         String name = arg.getName().getName();
         if (kwargs.put(name, value) != null) {
-          throw new EvalException(func.getLocation(),
+          throw new EvalException(getLocation(),
               "duplicate keyword '" + name + "' in call to '" + func + "'");
         }
       }
@@ -338,20 +338,25 @@ public final class FuncallExpression extends Expression {
         // Accessing Skylark object fields
         evalArguments(posargs, kwargs, env);
         if (!kwargs.isEmpty() || !posargs.isEmpty()) {
-          throw new EvalException(func.getLocation(),
+          throw new EvalException(getLocation(),
               "Arguments are not allowed when accessing fields");
         }
         Object value = ((ClassObject) objValue).getValue(func.getName());
         if (value == null) {
-          throw new EvalException(func.getLocation(),
+          throw new EvalException(getLocation(),
               "Unknown struct field " + func.getName());
         }
         return value; 
       }
       // Strings, lists and dictionaries (maps) have functions that we want to use in MethodLibrary.
       // For other classes, we can call the Java methods.
-      if (env.isSkylarkEnabled() &&
-          !(objValue instanceof String || objValue instanceof List || objValue instanceof Map)) {
+      Function function =
+          env.getFunction(EvalUtils.getSkylarkType(objValue.getClass()), func.getName());
+      if (function != null) {
+        posargs.add(objValue);
+        evalArguments(posargs, kwargs, env);
+        return function.call(posargs, kwargs, this, env);
+      } else if (env.isSkylarkEnabled()) {
 
         // When calling a Java method, the name is not in the Environment, so
         // evaluating 'func' would fail.
@@ -367,15 +372,16 @@ public final class FuncallExpression extends Expression {
         } else {
           return invokeJavaMethod(objValue, objValue.getClass(), func.getName(), posargs);
         }
-
       } else {
-        posargs.add(objValue);
+        throw new EvalException(getLocation(), String.format(
+            "function '%s' is not defined on '%s'", func.getName(),
+            EvalUtils.getDatatypeName(objValue)));
       }
     }
 
     Object funcValue = func.eval(env);
     if (!(funcValue instanceof Function)) {
-      throw new EvalException(func.getLocation(),
+      throw new EvalException(getLocation(),
                               "'" + EvalUtils.getDatatypeName(funcValue)
                               + "' object is not callable");
     }
@@ -398,7 +404,7 @@ public final class FuncallExpression extends Expression {
     } else {
       // TODO(bazel-team): validate function calls on objects too.
       if (!env.hasVariable(func.getName())) {
-        throw new EvalException(func.getLocation(),
+        throw new EvalException(getLocation(),
             String.format("function '%s' does not exist", func.getName()));
       }
       Class<?> returnValue = env.getVartype(func.getName() + ".return");

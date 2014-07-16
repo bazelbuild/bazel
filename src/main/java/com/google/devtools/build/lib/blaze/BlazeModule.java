@@ -215,6 +215,14 @@ public abstract class BlazeModule {
   public Iterable<Class<? extends OptionsBase>> getCommandOptions(Command command) {
     return ImmutableList.of();
   }
+  
+  /**
+   * Returns a map of option categories to descriptive strings. This is used by {@code HelpCommand}
+   * to show a more readable list of flags.
+   */
+  public Map<String, String> getOptionCategories() {
+    return ImmutableMap.of();
+  }
 
   /**
    * A item that is returned by "blaze info".

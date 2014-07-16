@@ -350,10 +350,11 @@ public abstract class AbstractAction implements Action {
    *
    * @throws ActionExecutionException only when code called from this method
    *     throws that execption.
+   * @throws InterruptedException
    */
   public Collection<String> getAdditionalFilesForExtraAction(
       ActionExecutionContext actionExecutionContext, ActionMetadata extraActionMetaData)
-      throws ActionExecutionException {
+      throws ActionExecutionException, InterruptedException {
     return Collections.emptyList();
   }
 

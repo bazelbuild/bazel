@@ -35,7 +35,6 @@ import com.google.devtools.build.lib.actions.ParameterFile.ParameterFileType;
 import com.google.devtools.build.lib.actions.ResourceSet;
 import com.google.devtools.build.lib.actions.Spawn;
 import com.google.devtools.build.lib.actions.SpawnActionContext;
-import com.google.devtools.build.lib.actions.extra.ActionType;
 import com.google.devtools.build.lib.actions.extra.ExtraActionInfo;
 import com.google.devtools.build.lib.actions.extra.SpawnInfo;
 import com.google.devtools.build.lib.collect.CollectionUtils;
@@ -64,21 +63,17 @@ import java.util.Map;
  */
 public class SpawnAction extends ConfigurationAction {
   private static class ExtraActionInfoSupplier<T> {
-    private final ActionType type;
     private final GeneratedExtension<ExtraActionInfo, T> extension;
     private final T value;
 
     private ExtraActionInfoSupplier(
-        ActionType type,
         GeneratedExtension<ExtraActionInfo, T> extension,
         T value) {
-      this.type = type;
       this.extension = extension;
       this.value = value;
     }
 
     void extend(ExtraActionInfo.Builder builder) {
-      builder.setType(type);
       builder.setExtension(extension, value);
     }
   }
@@ -236,7 +231,7 @@ public class SpawnAction extends ConfigurationAction {
         failMessage = "error executing shell command: " + "'"
             + truncate(Iterables.get(argv.arguments(), 2), 200) + "'";
       }
-      throw newActionExecutionException(failMessage, e, executor.getVerboseFailures());
+      throw e.toActionExecutionException(failMessage, executor.getVerboseFailures(), this);
     }
   }
 
@@ -306,12 +301,17 @@ public class SpawnAction extends ConfigurationAction {
 
   @Override
   public ExtraActionInfo.Builder getExtraActionInfo() {
-    Spawn spawn = getSpawn();
-    SpawnInfo spawnInfo = spawn.getExtraActionInfo();
+    ExtraActionInfo.Builder builder = super.getExtraActionInfo();
+    if (extraActionInfoSupplier == null) {
+      Spawn spawn = getSpawn();
+      SpawnInfo spawnInfo = spawn.getExtraActionInfo();
 
-    return super.getExtraActionInfo()
-        .setType(ActionType.SPAWN)
-        .setExtension(SpawnInfo.spawnInfo, spawnInfo);
+      return builder
+          .setExtension(SpawnInfo.spawnInfo, spawnInfo);
+    } else {
+      extraActionInfoSupplier.extend(builder);
+      return builder;
+    }
   }
 
   /**
@@ -833,8 +833,8 @@ public class SpawnAction extends ConfigurationAction {
     }
 
     public <T> Builder setExtraActionInfo(
-        ActionType type, GeneratedExtension<ExtraActionInfo, T> extension, T value) {
-      this.extraActionInfoSupplier = new ExtraActionInfoSupplier<T>(type, extension, value);
+        GeneratedExtension<ExtraActionInfo, T> extension, T value) {
+      this.extraActionInfoSupplier = new ExtraActionInfoSupplier<T>(extension, value);
       return this;
     }
 

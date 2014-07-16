@@ -115,10 +115,10 @@ public abstract class EvalUtils {
    * language doesn't have inheritance. 
    */
   public static Class<?> getSkylarkType(Class<?> c) {
-    if (List.class.isAssignableFrom(c)) {
-      return List.class;
-    } else if (ImmutableList.class.isAssignableFrom(c)) {
+    if (ImmutableList.class.isAssignableFrom(c)) {
       return ImmutableList.class;
+    } else if (List.class.isAssignableFrom(c)) {
+      return List.class;
     } else if (Map.class.isAssignableFrom(c)) {
       return Map.class;
     } else if (NestedSet.class.isAssignableFrom(c)) {

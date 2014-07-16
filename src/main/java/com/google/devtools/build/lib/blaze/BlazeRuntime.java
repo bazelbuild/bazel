@@ -268,7 +268,7 @@ public final class BlazeRuntime {
     this.blazeModuleEnvironment = new BlazeModuleEnvironment();
     this.buildTool = new BuildTool(this);
     initEventBus();
-
+       
     if (inWorkspace()) {
       writeOutputBaseReadmeFile();
       writeOutputBaseDoNotBuildHereFile();

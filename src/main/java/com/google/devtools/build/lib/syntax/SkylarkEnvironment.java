@@ -18,6 +18,7 @@ import com.google.common.collect.ImmutableList;
 import com.google.common.collect.Iterables;
 
 import java.util.HashSet;
+import java.util.Map;
 import java.util.Map.Entry;
 import java.util.Set;
 
@@ -83,6 +84,9 @@ public class SkylarkEnvironment extends Environment {
     SkylarkEnvironment newEnv = new SkylarkEnvironment();
     for (Entry<String, Object> entry : env.entrySet()) {
       newEnv.env.put(entry.getKey(), entry.getValue());
+    }
+    for (Map.Entry<Class<?>, Map<String, Function>> functionMap : functions.entrySet()) {
+      newEnv.functions.put(functionMap.getKey(), functionMap.getValue());
     }
     return newEnv;
   }

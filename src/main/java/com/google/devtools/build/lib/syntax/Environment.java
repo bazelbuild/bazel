@@ -51,6 +51,9 @@ public class Environment {
 
   protected final Map<String, Object> env = new HashMap<>();
 
+  // Functions with namespaces. Works only in the global environment.
+  protected final Map<Class<?>, Map<String, Function>> functions = new HashMap<>();
+
   /**
    * The parent environment. For Skylark it's the global environment,
    * used for global read only variable lookup.
@@ -61,7 +64,7 @@ public class Environment {
    * Map from a Skylark extension to an environment, which contains all symbols defined in the
    * extension.
    */
-  private Map<PathFragment, Environment> importedExtensions;
+  protected Map<PathFragment, Environment> importedExtensions;
 
   /**
    * True if importing a Skylark extension is allowed. False by default, until
@@ -223,5 +226,28 @@ public class Environment {
       throw new NoSuchVariableException(extension.toString());
     }
     update(symbol, importedExtensions.get(extension).lookup(symbol));
+  }
+
+  /**
+   * Registers a function with namespace to this global environment.
+   */
+  public void registerFunction(Class<?> nameSpace, String name, Function function) {
+    Preconditions.checkArgument(parent == null);
+    if (!functions.containsKey(nameSpace)) {
+      functions.put(nameSpace, new HashMap<String, Function>());
+    }
+    functions.get(nameSpace).put(name, function);
+  }
+
+  /**
+   * Returns the function of the namespace of the given name or null of it does not exists.
+   */
+  public Function getFunction(Class<?> nameSpace, String name) {
+    Environment topLevel = this;
+    while (topLevel.parent != null) {
+      topLevel = topLevel.parent;
+    }
+    Map<String, Function> nameSpaceFunctions = topLevel.functions.get(nameSpace);
+    return nameSpaceFunctions != null ? nameSpaceFunctions.get(name) : null;
   }
 }
