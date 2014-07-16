@@ -45,11 +45,7 @@ linux)
 esac
 
 # Compile .proto files using protoc
-PROTO_FILES=(
-src/main/protobuf/build.proto
-src/main/protobuf/extra_actions.proto
-src/main/protobuf/testing_api.proto
-)
+PROTO_FILES=(src/main/protobuf/*.proto)
 
 # TODO: CC target architecture needs to match JAVA_HOME.
 
