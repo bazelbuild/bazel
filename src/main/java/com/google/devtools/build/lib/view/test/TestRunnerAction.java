@@ -43,7 +43,7 @@ import com.google.devtools.build.lib.vfs.PathFragment;
 import com.google.devtools.build.lib.view.actions.ConfigurationAction;
 import com.google.devtools.build.lib.view.config.BuildConfiguration;
 import com.google.devtools.build.lib.view.config.RunUnder;
-import com.google.devtools.build.lib.view.test.TestStatus.CacheStatus;
+import com.google.devtools.build.lib.view.test.TestStatus.TestResultData;
 import com.google.devtools.common.options.TriState;
 
 import java.io.IOException;
@@ -67,7 +67,6 @@ public class TestRunnerAction extends ConfigurationAction
 
   private final Artifact testLog;
   private final Artifact cacheStatus;
-  private final Path testTargetResult;
   private final Path testWarningsPath;
   private final Path splitLogsPath;
   private final Path splitLogsDir;
@@ -81,11 +80,8 @@ public class TestRunnerAction extends ConfigurationAction
   private final Path testExitSafe;
   private final Path testStderr;
   private final Path testInfrastructureFailure;
-  private final Path testDiagnosticsDir;
-  private final Path testDiagnostics;
   private final Path baseDir;
   private final String namePrefix;
-
   private final PathFragment coverageData;
   private final PathFragment microCoverageData;
   private final TestTargetProperties testProperties;
@@ -138,7 +134,6 @@ public class TestRunnerAction extends ConfigurationAction
     int totalShards = executionSettings.getTotalShards();
     Preconditions.checkState((totalShards == 0 && shardNum == 0) ||
                                 (totalShards > 0 && 0 <= shardNum && shardNum < totalShards));
-    this.testTargetResult = baseDir.getChild(namePrefix + ".status");
     this.testExitSafe = baseDir.getChild(namePrefix + ".exited_prematurely");
     // testShard Path should be set only if sharding is enabled.
     this.testShard = totalShards > 1
@@ -156,13 +151,19 @@ public class TestRunnerAction extends ConfigurationAction
     this.undeclaredOutputsManifestPath = undeclaredOutputsAnnotationsDir.getChild("MANIFEST");
     this.undeclaredOutputsAnnotationsPath = undeclaredOutputsAnnotationsDir.getChild("ANNOTATIONS");
     this.testInfrastructureFailure = baseDir.getChild(namePrefix + ".infrastructure_failure");
-    this.testDiagnosticsDir = baseDir.getChild(namePrefix + ".test_diagnostics");
-    this.testDiagnostics = testDiagnosticsDir.getChild("test_diagnostics.recordio");
   }
 
   @Override
   public boolean shouldShowOutput(ErrorEventListener listener) {
     return true;
+  }
+
+  public final Path getBaseDir() {
+    return baseDir;
+  }
+
+  public final String getNamePrefix() {
+    return namePrefix;
   }
 
   /**
@@ -266,13 +267,9 @@ public class TestRunnerAction extends ConfigurationAction
   /**
    * Saves cache status to disk.
    */
-  public void saveCacheStatus(boolean cachable, boolean passed) throws IOException {
-    CacheStatus.Builder status = CacheStatus.newBuilder();
-    status.setCachable(cachable);
-    status.setTestPassed(passed);
-
+  public void saveCacheStatus(TestResultData data) throws IOException {
     try (OutputStream out = cacheStatus.getPath().getOutputStream()) {
-      status.build().writeTo(out);
+      data.writeTo(out);
     }
   }
 
@@ -280,9 +277,9 @@ public class TestRunnerAction extends ConfigurationAction
    * Returns the cache from disk, or null if there is an error.
    */
   @Nullable
-  private CacheStatus readCacheStatus() {
+  private TestResultData readCacheStatus() {
     try (InputStream in = cacheStatus.getPath().getInputStream()) {
-      return CacheStatus.parseFrom(in);
+      return TestResultData.parseFrom(in);
     } catch (IOException expected) {
 
     }
@@ -299,7 +296,7 @@ public class TestRunnerAction extends ConfigurationAction
     // Test will not be executed unconditionally - check whether test result exists and is
     // valid. If it is, method will return false and we will rely on the dependency checker
     // to make a decision about test execution.
-    CacheStatus status = readCacheStatus();
+    TestResultData status = readCacheStatus();
     if (status != null) {
       if (!status.getCachable()) {
         return true;
@@ -328,9 +325,9 @@ public class TestRunnerAction extends ConfigurationAction
   @Override
   public void actionCacheHit(Executor executor) {
     checkedCaching = false;
-
     try {
-      executor.getEventBus().post(TestResult.createCached(this));
+      executor.getEventBus().post(
+          executor.getContext(TestActionContext.class).newCachedTestResult(this));
     } catch (IOException e) {
       LoggingUtil.logToRemote(Level.WARNING, "Failed creating cached protocol buffer", e);
     }
@@ -374,7 +371,6 @@ public class TestRunnerAction extends ConfigurationAction
     // it's not necessary to delete it explicitly.
     FileSystemUtils.deleteTree(splitLogsDir);
     FileSystemUtils.deleteTree(undeclaredOutputsDir);
-    FileSystemUtils.deleteTree(testDiagnosticsDir);
     testStderr.delete();
     testExitSafe.delete();
     if (testShard != null) {
@@ -454,10 +450,6 @@ public class TestRunnerAction extends ConfigurationAction
     return testStderr;
   }
 
-  public Path getTestTargetResult() {
-    return testTargetResult;
-  }
-
   public Artifact getCacheStatusArtifact() {
     return cacheStatus;
   }
@@ -522,14 +514,6 @@ public class TestRunnerAction extends ConfigurationAction
    */
   public Path getXmlOutputPath() {
     return xmlOutputPath;
-  }
-
-  public Path getTestDiagnosticsDir() {
-    return testDiagnosticsDir;
-  }
-
-  public Path getTestDiagnostics() {
-    return testDiagnostics;
   }
 
   /**

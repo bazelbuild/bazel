@@ -33,6 +33,8 @@ public @interface SkylarkBuiltin {
 
   boolean hidden() default false;
 
+  Class<?> objectType() default Object.class;
+
   /**
    * An annotation for parameters of Skylark built-in functions.
    */

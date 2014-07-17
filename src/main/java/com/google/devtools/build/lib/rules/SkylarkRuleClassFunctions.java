@@ -157,16 +157,17 @@ public class SkylarkRuleClassFunctions {
     // TODO(bazel-team): we might want to define base rule in Skylark later.
     // Right now we need some default attributes.
     baseRule = new RuleClass.Builder("$base_rule", RuleClassType.ABSTRACT, true)
-        .add(attr("deprecation", STRING).nonconfigurable().value(deprecationDefault))
-        .add(attr("visibility", NODEP_LABEL_LIST).orderIndependent().nonconfigurable().cfg(HOST))
-        .add(attr("tags", STRING_LIST).orderIndependent().nonconfigurable().taggable())
-        .add(attr("deps", LABEL_LIST))
         .add(attr("data", LABEL_LIST).cfg(DATA))
+        .add(attr("deprecation", STRING).nonconfigurable().value(deprecationDefault))
+        .add(attr("deps", LABEL_LIST))
+        .add(attr("expect_failure", STRING))
+        .add(attr("tags", STRING_LIST).orderIndependent().nonconfigurable().taggable())
         .add(attr("testonly", BOOLEAN).nonconfigurable().value(testonlyDefault))
+        .add(attr("visibility", NODEP_LABEL_LIST).orderIndependent().nonconfigurable().cfg(HOST))
         .build();
 
     ImmutableList.Builder<Function> builtInFunctionsBuilder = ImmutableList.builder();
-    SkylarkFunction.collectSkylarkFunctionsFromFields(this, builtInFunctionsBuilder);
+    SkylarkFunction.collectSkylarkFunctionsFromFields(getClass(), this, builtInFunctionsBuilder);
     builtInFunctions = builtInFunctionsBuilder.build();
   }
 
@@ -253,27 +254,6 @@ public class SkylarkRuleClassFunctions {
     }
     return builder;
   }
-
-  // TODO(bazel-team): Get rid of this function, and use Attr.* functions.
-  @SkylarkBuiltin(name = "attr", doc = "Creates a rule class attribute.",
-      mandatoryParams = {
-      @Param(name = "type", type = String.class, doc = "type of the attribute")},
-      optionalParams = {
-      @Param(name = "default", doc = "the default value of the attribute"),
-      @Param(name = "flags", type = List.class, doc = ""),
-      @Param(name = "file_types", type = FileTypeSet.class,
-          doc = "allowed file types of the label type attribute"),
-      @Param(name = "rule_classes", doc = "allowed rule classes of the label type attribute"),
-      @Param(name = "cfg", type = String.class, doc = "configuration of the attribute")})
-  private static final SkylarkFunction attr = new SkylarkFunction("attr") {
-    @SuppressWarnings("unchecked")
-    @Override
-    public Object call(Map<String, Object> arguments, FuncallExpression ast,
-        Environment funcallEnv) throws EvalException, ConversionException {
-      String type = cast(arguments.get("type"), String.class, "attribute type", ast.getLocation());
-      return createAttribute(type, arguments, ast, funcallEnv);
-    }
-  };
 
   // TODO(bazel-team): implement attribute copy and other rule properties
 

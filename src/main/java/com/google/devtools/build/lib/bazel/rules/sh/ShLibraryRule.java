@@ -100,16 +100,12 @@ ${ATTRIBUTE_DEFINITION}
 
 <h4 id="sh_library_examples">Examples</h4>
 
-<p>This example comes from
-   <code>google3/googledata/partnerservices/aggregator/BUILD</code>:
-</p>
-
 <pre class="code">
 sh_library(
-    name = "aggregator",
+    name = "foo",
     data = [
-        ":aggregator_service_script",  # a sh_binary with srcs
-        ":deploy_aggregator",  # another sh_binary with srcs
+        ":foo_service_script",  # a sh_binary with srcs
+        ":deploy_foo",  # another sh_binary with srcs
     ],
 )
 </pre>

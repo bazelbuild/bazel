@@ -36,6 +36,7 @@ public abstract class SkylarkFunction extends AbstractFunction {
   private ImmutableList<String> parameters;
   private int mandatoryParamNum;
   private boolean configured = false;
+  private Class<?> objectType;
 
   /**
    * Creates a SkylarkFunction with the given name. 
@@ -61,6 +62,7 @@ public abstract class SkylarkFunction extends AbstractFunction {
       paramListBuilder.add(param.name());
     }
     parameters = paramListBuilder.build();
+    this.objectType = annotation.objectType().equals(Object.class) ? null : annotation.objectType();
     configured = true;
   }
 
@@ -69,6 +71,11 @@ public abstract class SkylarkFunction extends AbstractFunction {
    */
   public boolean isConfigured() {
     return configured;
+  }
+
+  @Override
+  public Class<?> getObjectType() {
+    return objectType;
   }
 
   @Override
@@ -81,24 +88,28 @@ public abstract class SkylarkFunction extends AbstractFunction {
     Preconditions.checkState(configured);
     try {
       ImmutableMap.Builder<String, Object> arguments = new ImmutableMap.Builder<>();
+      if (objectType != null) {
+        arguments.put("self", args.remove(0));
+      }
+
       int maxParamNum = parameters.size();
       int paramNum = args.size() + kwargs.size();
-  
+
       if (paramNum < mandatoryParamNum || paramNum > maxParamNum) {
         throw new EvalException(ast.getLocation(),
             String.format("incorrect number of arguments %s (expected %s - %s)",
                 paramNum, mandatoryParamNum, maxParamNum));
       }
-  
+
       for (int i = 0; i < mandatoryParamNum; i++) {
         Preconditions.checkState(i < args.size() || kwargs.containsKey(parameters.get(i)),
             String.format("missing mandatory parameter: %s", parameters.get(i)));
       }
-  
+
       for (int i = 0; i < args.size(); i++) {
         arguments.put(parameters.get(i), args.get(i));
       }
-  
+
       for (Entry<String, Object> kwarg : kwargs.entrySet()) {
         int idx = parameters.indexOf(kwarg.getKey()); 
         if (idx < 0) {
@@ -170,8 +181,8 @@ public abstract class SkylarkFunction extends AbstractFunction {
    * and adds them into the builder.
    */
   public static void collectSkylarkFunctionsFromFields(
-      Object object, ImmutableList.Builder<Function> builder) {
-    for (Field field : object.getClass().getDeclaredFields()) {
+      Class<?> type, Object object, ImmutableList.Builder<Function> builder) {
+    for (Field field : type.getDeclaredFields()) {
       if (SkylarkFunction.class.isAssignableFrom(field.getType())
           && field.isAnnotationPresent(SkylarkBuiltin.class)) {
         try {

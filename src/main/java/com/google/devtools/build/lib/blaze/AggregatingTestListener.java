@@ -35,9 +35,9 @@ import com.google.devtools.build.lib.events.ExceptionListener;
 import com.google.devtools.build.lib.skyframe.LabelAndConfiguration;
 import com.google.devtools.build.lib.view.AnalysisFailureEvent;
 import com.google.devtools.build.lib.view.ConfiguredTarget;
-import com.google.devtools.build.lib.view.test.BlazeTestStatus;
 import com.google.devtools.build.lib.view.test.TestProvider;
 import com.google.devtools.build.lib.view.test.TestResult;
+import com.google.devtools.build.lib.view.test.TestStatus.BlazeTestStatus;
 
 import java.util.Collection;
 import java.util.Collections;

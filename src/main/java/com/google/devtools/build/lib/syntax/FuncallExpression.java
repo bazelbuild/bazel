@@ -407,8 +407,12 @@ public final class FuncallExpression extends Expression {
         throw new EvalException(getLocation(),
             String.format("function '%s' does not exist", func.getName()));
       }
-      Class<?> returnValue = env.getVartype(func.getName() + ".return");
-      return returnValue;
+      Class<?> funcType = env.getVartype(func.getName());
+      if (Function.class.isAssignableFrom(funcType)) {
+        // TODO(bazel-team): Imported functions don't have return-s.
+        Class<?> returnValue = env.getVartype(func.getName() + ".return");
+        return returnValue;
+      }
     }
     return Object.class;
   }

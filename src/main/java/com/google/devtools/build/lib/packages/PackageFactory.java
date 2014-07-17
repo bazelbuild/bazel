@@ -858,7 +858,7 @@ public final class PackageFactory {
       return null;
     }
 
-    Environment env = skylarkRuleFactory.getSkylarkRuleClassEnvironment(file);
+    Environment env = skylarkRuleFactory.getSkylarkRuleClassEnvironment(file).cloneEnv();
     env.setImportAllowed(true);
 
     if (!loadAllImports(

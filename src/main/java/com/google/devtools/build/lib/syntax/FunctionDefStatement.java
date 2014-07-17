@@ -35,7 +35,8 @@ public class FunctionDefStatement extends Statement {
 
   @Override
   void exec(Environment env) throws EvalException, InterruptedException {
-    env.update(ident.getName(), new UserDefinedFunction(ident, arg, statements));
+    env.update(ident.getName(), new UserDefinedFunction(
+        ident, arg, statements, (SkylarkEnvironment) env));
   }
 
   @Override

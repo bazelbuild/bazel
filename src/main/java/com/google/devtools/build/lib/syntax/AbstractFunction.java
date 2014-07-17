@@ -31,4 +31,9 @@ public abstract class AbstractFunction implements Function {
   public String getName() {
     return name;
   }
+
+  @Override
+  public Class<?> getObjectType() {
+    return null;
+  }
 }

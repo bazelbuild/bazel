@@ -17,6 +17,8 @@ import com.google.devtools.build.lib.actions.ActionExecutionContext;
 import com.google.devtools.build.lib.actions.ExecException;
 import com.google.devtools.build.lib.actions.Executor.ActionContext;
 
+import java.io.IOException;
+
 /**
  * A context for the execution of test actions ({@link TestRunnerAction}).
  */
@@ -32,4 +34,9 @@ public interface TestActionContext extends ActionContext {
    * String describing where the action will run.
    */
   String strategyLocality(TestRunnerAction action);
+
+  /**
+   * create a cached test result.
+   */
+  TestResult newCachedTestResult(TestRunnerAction action) throws IOException;
 }

@@ -39,4 +39,11 @@ public interface Function {
    * Returns the name of the function.
    */
   String getName();
+
+  // TODO(bazel-team): implement this for MethodLibrary functions as well.
+  /**
+   * Returns the type of the object on which this function is defined or null
+   * if this is a global function.
+   */
+  Class<?> getObjectType();
 }

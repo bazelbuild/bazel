@@ -469,6 +469,10 @@ public class MethodLibrary {
 
   private static final Map<Function, Class<?>> pureFunctions = ImmutableMap
       .<Function, Class<?>>builder()
+      // TODO(bazel-team): String methods are added two times, because there are
+      // a lot of cases when they are used as global functions in the depot. Those
+      // should be cleaned up first.
+      .putAll(stringFunctions)
       .put(minus, Integer.class)
       .put(set, Set.class)
       .put(len, Integer.class)

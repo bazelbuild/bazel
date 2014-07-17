@@ -19,15 +19,15 @@ import com.google.common.collect.ImmutableList;
 /**
  * A nested set expander that implements a variation of left-to-right preordering.
  *
- * <p>For example, for the nested set {B, D, {A, C}}, the iteration order is "A C B D"
- * (child-first).
+ * <p>For example, for the nested set {A, C, {B, D}}, the iteration order is "A C B D"
+ * (parent-first).
  *
  * <p>This type of set would typically be used for artifacts where elements of
  * nested sets go after the direct members of a set, for example when providing
  * a list of libraries to the C++ compiler.
  *
  * <p>The custom ordering has the property that elements of nested sets always come
- * before elements of parent nested sets. Left-to-right order is preserved if
+ * before elements of descendant nested sets. Left-to-right order is preserved if
  * possible, both for items and for references to nested sets.
  *
  * <p>The left-to-right pre-order-like ordering is implemented by running a
@@ -46,8 +46,8 @@ import com.google.common.collect.ImmutableList;
  * </pre>
  *
  * <p>Naive preordering would produce "A B D C", which does not preserve the
- * "child before parent" property: C is a parent of D, so C should come before
- * D. Either "D B C A" or "D C B A" would be acceptable. This implementation
+ * "parent before child" property: C is a parent of D, so C should come before
+ * D. Either "A B C D" or "A C B D" would be acceptable. This implementation
  * returns the first option of the two so that left-to-right order is preserved.
  *
  * <p>In case the nested sets form a tree, the ordering algorithm is equivalent to

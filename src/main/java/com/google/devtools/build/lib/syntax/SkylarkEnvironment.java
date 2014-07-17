@@ -42,7 +42,8 @@ public class SkylarkEnvironment extends Environment {
    * caller Environment (which must be a Skylark Environment).
    */
   public static SkylarkEnvironment createEnvironmentForFunctionCalling(
-      SkylarkEnvironment callerEnv, UserDefinedFunction function) throws EvalException {
+      SkylarkEnvironment callerEnv, SkylarkEnvironment definitionEnv,
+      UserDefinedFunction function) throws EvalException {
     if (callerEnv.getStackTrace().contains(function.getName())) {
       throw new EvalException(function.getLocation(), "Recursion was detected when calling '"
           + function.getName() + "' from '" + Iterables.getLast(callerEnv.getStackTrace()) + "'");
@@ -51,11 +52,11 @@ public class SkylarkEnvironment extends Environment {
         .addAll(callerEnv.getStackTrace())
         .add(function.getName())
         .build();
-    return new SkylarkEnvironment(callerEnv, stackTrace);
+    return new SkylarkEnvironment(definitionEnv, stackTrace);
   }
 
-  private SkylarkEnvironment(SkylarkEnvironment callerEnv, ImmutableList<String> stackTrace) {
-    super(callerEnv.getGlobalEnvironment());
+  private SkylarkEnvironment(SkylarkEnvironment definitionEnv, ImmutableList<String> stackTrace) {
+    super(definitionEnv.getGlobalEnvironment());
     this.stackTrace = stackTrace;
   }
 
@@ -160,7 +161,7 @@ public class SkylarkEnvironment extends Environment {
   @Override
   public void update(String varname, Object value) {
     Preconditions.checkNotNull(value, "update(value == null)");
-    Preconditions.checkArgument(!isReadOnly(varname));
+    Preconditions.checkArgument(!isReadOnly(varname), varname + " is readonly");
     env.put(varname, value);
   }
 

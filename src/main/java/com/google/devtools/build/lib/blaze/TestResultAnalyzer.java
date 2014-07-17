@@ -27,9 +27,9 @@ import com.google.devtools.build.lib.vfs.Path;
 import com.google.devtools.build.lib.vfs.PathFragment;
 import com.google.devtools.build.lib.view.ConfiguredTarget;
 import com.google.devtools.build.lib.view.TransitiveInfoCollection;
-import com.google.devtools.build.lib.view.test.BlazeTestStatus;
 import com.google.devtools.build.lib.view.test.TestProvider;
 import com.google.devtools.build.lib.view.test.TestResult;
+import com.google.devtools.build.lib.view.test.TestStatus.BlazeTestStatus;
 
 import java.util.ArrayList;
 import java.util.Collection;
@@ -69,8 +69,6 @@ public class TestResultAnalyzer {
    * Reports all targets on the console via the given notifier.
    * Run at the end of the build, run only once.
    *
-   *
-   *
    * @param testTargets The list of targets being run
    * @param successfulTargets The targets that ran successfully
    * @param listener An aggregating listener with intermediate results
@@ -103,7 +101,7 @@ public class TestResultAnalyzer {
         totalRun++;
       }
 
-      if (summary.getStatus().isPassed()) {
+      if (TestResult.isBlazeTestStatusPassed(summary.getStatus())) {
         passCount++;
       }
     }
@@ -112,6 +110,10 @@ public class TestResultAnalyzer {
 
     notifier.notify(summaries, totalRun);
     return passCount == testTargets.size();
+  }
+
+  private static BlazeTestStatus aggregateStatus(BlazeTestStatus status, BlazeTestStatus other) {
+    return status.ordinal() > other.ordinal() ? status : other;
   }
 
   /**
@@ -189,7 +191,7 @@ public class TestResultAnalyzer {
     int numCached = existingSummary.numCached();
     int numLocalActionCached = existingSummary.numLocalActionCached();
 
-    if (!existingSummary.actionRan() && !result.getData().isCached()) {
+    if (!existingSummary.actionRan() && !result.isCached()) {
       // At least one run of the test actually ran uncached.
       summaryBuilder.setActionRan(true);
 
@@ -202,15 +204,15 @@ public class TestResultAnalyzer {
       }
     }
 
-    if (result.getData().isCached() || result.getData().isRemotelyCached()) {
+    if (result.isCached() || result.getData().getRemotelyCached()) {
       numCached++;
     }
-    if (result.getData().isCached()) {
+    if (result.isCached()) {
       numLocalActionCached++;
     }
 
     if (!executionOptions.runsPerTestDetectsFlakes) {
-      status = status.aggregateStatus(result.getData().getStatus());
+      status = aggregateStatus(status, result.getData().getStatus());
     } else {
       int shardNumber = result.getShardNum();
       int runsPerTestForLabel = target.getProvider(TestProvider.class).getTestParams().getRuns();
@@ -220,23 +222,23 @@ public class TestResultAnalyzer {
         BlazeTestStatus shardStatus = BlazeTestStatus.NO_STATUS;
         int passes = 0;
         for (BlazeTestStatus runStatusForShard : singleShardStatuses) {
-          shardStatus = shardStatus.aggregateStatus(runStatusForShard);
-          if (shardStatus.isPassed()) {
+          shardStatus = aggregateStatus(shardStatus, runStatusForShard);
+          if (TestResult.isBlazeTestStatusPassed(shardStatus)) {
             passes++;
           }
         }
         // Under the RunsPerTestDetectsFlakes option, return flaky if 1 <= p < n shards pass.
         // If all results pass or fail, aggregate the passing/failing shardStatus.
         if (passes == 0 || passes == runsPerTestForLabel) {
-          status = status.aggregateStatus(shardStatus);
+          status = aggregateStatus(status, shardStatus);
         } else {
-          status = status.aggregateStatus(BlazeTestStatus.FLAKY);
+          status = aggregateStatus(status, BlazeTestStatus.FLAKY);
         }
       }
     }
 
     List<String> filtered = new ArrayList<>();
-    for (String warning : result.getData().getWarnings()) {
+    for (String warning : result.getData().getWarningList()) {
       if (warning.startsWith("Forge overhead time")) {
         // TODO(bazel-team): Remove ugly hack ASAP.
         // If several forge actions request the same file from a single
@@ -250,19 +252,30 @@ public class TestResultAnalyzer {
       filtered.add(warning);
     }
 
+    List<Path> passed = new ArrayList<>();
+    if (result.getData().hasPassedLog()) {
+      passed.add(result.getTestAction().getTestLog().getPath().getRelative(
+          result.getData().getPassedLog()));
+    }
+
+    List<Path> failed = new ArrayList<>();
+    for (String path : result.getData().getFailedLogsList()) {
+      failed.add(result.getTestAction().getTestLog().getPath().getRelative(path));
+    }
+
     summaryBuilder
-        .addTestTimes(result.getData().getTestTimes())
-        .addPassedLogs(result.getData().getPassedLogs())
-        .addFailedLogs(result.getData().getFailedLogs())
+        .addTestTimes(result.getData().getTestTimesList())
+        .addPassedLogs(passed)
+        .addFailedLogs(failed)
         .addWarnings(filtered)
         .addFailedTestCases(result.getData().getFailedTestCaseDetails())
-        .setRanRemotely(result.getData().isRemoteStrategy());
+        .setRanRemotely(result.getData().getIsRemoteStrategy());
 
     List<String> warnings = new ArrayList<>();
     if (status == BlazeTestStatus.PASSED) {
       if (shouldEmitTestSizeWarningInSummary(
           summaryOptions.testVerboseTimeoutWarnings,
-          warnings, result.getData().getTestProcessTimes(), target)) {
+          warnings, result.getData().getTestProcessTimesList(), target)) {
         summaryBuilder.setWasUnreportedWrongSize(true);
       }
     }
@@ -280,7 +293,7 @@ public class TestResultAnalyzer {
     TestSummary summary = summaryBuilder.peek();
     BlazeTestStatus status = summary.getStatus();
     if (status != BlazeTestStatus.NO_STATUS) {
-      status = status.aggregateStatus(BlazeTestStatus.INCOMPLETE);
+      status = aggregateStatus(status, BlazeTestStatus.INCOMPLETE);
     }
 
     return summaryBuilder.setStatus(status);

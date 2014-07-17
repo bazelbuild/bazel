@@ -15,11 +15,13 @@ package com.google.devtools.build.lib.rules;
 
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
+import com.google.devtools.build.lib.packages.Type;
 import com.google.devtools.build.lib.syntax.Environment;
 import com.google.devtools.build.lib.syntax.EvalException;
 import com.google.devtools.build.lib.syntax.Function;
 import com.google.devtools.build.lib.view.ConfiguredTarget;
 import com.google.devtools.build.lib.view.RuleContext;
+import com.google.devtools.build.lib.view.RunfilesProvider;
 
 /**
  * A helper class to build Rule Configured Targets via runtime loaded rule implementations
@@ -31,26 +33,36 @@ public final class RuleConfiguredTargetBuilder {
    * Create a Rule Configured Target from the ruleContext and the ruleImplementation.
    */
   public static ConfiguredTarget buildRule(RuleContext ruleContext,
-      ImmutableMap<String, Class<?>> builtInClasses, Function ruleImplementation) {
+      Function ruleImplementation) {
     SkylarkRuleContext skylarkRuleContext = new SkylarkRuleContext(ruleContext);
     Environment env =
-        SkylarkRuleImplementationFunctions.getNewEnvironment(skylarkRuleContext, builtInClasses);
+        SkylarkRuleImplementationFunctions.getNewEnvironment(skylarkRuleContext);
+    String expectError = ruleContext.getRule().get("expect_failure", Type.STRING);
     try {
       Object target = ruleImplementation.call(ImmutableList.<Object>of(skylarkRuleContext),
           ImmutableMap.<String, Object>of(), null, env);
 
       if (ruleContext.hasErrors()) {
         return null;
-      } else if (target instanceof ConfiguredTarget) {
-        return (ConfiguredTarget) target;
-      } else {
+      } else if (!(target instanceof ConfiguredTarget)) {
         ruleContext.ruleError("Rule implementation doesn't return a RuleConfiguredTarget");
         return null;
+      } else if (!expectError.isEmpty()) {
+        ruleContext.ruleError("Expected error not found: " + expectError);
+        return null;
       }
+      return (ConfiguredTarget) target;
+
     } catch (InterruptedException e) {
       ruleContext.ruleError(e.getMessage());
       return null;
     } catch (EvalException e) {
+      // If the error was expected, return an empty target.
+      if (!expectError.isEmpty() && e.getMessage().matches(expectError)) {
+        return new com.google.devtools.build.lib.view.RuleConfiguredTargetBuilder(ruleContext)
+            .add(RunfilesProvider.class, RunfilesProvider.EMPTY)
+            .build();
+      }
       ruleContext.ruleError("\n" + e.print());
       return null;
     }

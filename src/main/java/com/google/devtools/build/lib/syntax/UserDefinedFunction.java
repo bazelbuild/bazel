@@ -28,13 +28,15 @@ public class UserDefinedFunction extends AbstractFunction {
   private final ImmutableList<Ident> listArgNames;
   private final ImmutableList<Statement> statements;
   private final Location location;
+  private final SkylarkEnvironment definitionEnv;
 
   protected UserDefinedFunction(Ident function, ImmutableList<Ident> listArgNames,
-      ImmutableList<Statement> statements) {
+      ImmutableList<Statement> statements, SkylarkEnvironment definitionEnv) {
     super(function.getName());
     this.location = function.getLocation();
     this.listArgNames = listArgNames;
     this.statements = statements;
+    this.definitionEnv = definitionEnv;
   }
 
   public ImmutableList<Ident> getListArgNames() {
@@ -59,7 +61,7 @@ public class UserDefinedFunction extends AbstractFunction {
     }
     // Creating an environment from this functions arguments and the global environment
     SkylarkEnvironment functionEnv = SkylarkEnvironment.createEnvironmentForFunctionCalling(
-        (SkylarkEnvironment) env, this);
+        (SkylarkEnvironment) env, definitionEnv, this);
     int i = 0;
     // TODO(bazel-team): support kwargs
 

@@ -16,7 +16,7 @@ package com.google.devtools.build.lib.packages;
 import com.google.common.annotations.VisibleForTesting;
 import com.google.common.base.Preconditions;
 import com.google.common.collect.ImmutableSet;
-import com.google.devtools.build.lib.syntax.Environment;
+import com.google.devtools.build.lib.syntax.SkylarkEnvironment;
 import com.google.devtools.build.lib.vfs.Path;
 
 import java.util.HashMap;
@@ -90,7 +90,7 @@ public class SkylarkRuleFactory {
   /**
    * Returns a Skylark Environment for rule creation using this SkylarkRuleFactory.
    */
-  public Environment getSkylarkRuleClassEnvironment(Path file) {
+  public SkylarkEnvironment getSkylarkRuleClassEnvironment(Path file) {
     return ruleClassProvider.getSkylarkRuleClassEnvironment(this, file);
   }
 }

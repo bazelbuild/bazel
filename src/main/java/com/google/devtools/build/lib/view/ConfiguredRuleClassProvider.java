@@ -31,8 +31,9 @@ import com.google.devtools.build.lib.packages.RuleClassProvider;
 import com.google.devtools.build.lib.packages.SkylarkRuleFactory;
 import com.google.devtools.build.lib.rules.RuleConfiguredTargetFactory;
 import com.google.devtools.build.lib.rules.SkylarkRuleClassFunctions;
-import com.google.devtools.build.lib.syntax.Environment;
+import com.google.devtools.build.lib.rules.SkylarkRuleImplementationFunctions;
 import com.google.devtools.build.lib.syntax.Label;
+import com.google.devtools.build.lib.syntax.SkylarkEnvironment;
 import com.google.devtools.build.lib.syntax.ValidationEnvironment;
 import com.google.devtools.build.lib.vfs.Path;
 import com.google.devtools.build.lib.view.PrerequisiteMap.Prerequisite;
@@ -386,13 +387,14 @@ public class ConfiguredRuleClassProvider implements RuleClassProvider {
   }
 
   @Override
-  public Environment getSkylarkRuleClassEnvironment(SkylarkRuleFactory ruleFactory, Path file) {
-    return SkylarkRuleClassFunctions.getNewEnvironment(ruleFactory, file);
-  }
-
-  @Override
-  public ImmutableMap<String, Class<?>> getSkylarkAccessibleJavaClasses() {
-    return skylarkAccessibleJavaClasses;
+  public SkylarkEnvironment getSkylarkRuleClassEnvironment(
+      SkylarkRuleFactory ruleFactory, Path file) {
+    SkylarkEnvironment env = SkylarkRuleClassFunctions.getNewEnvironment(ruleFactory, file);
+    SkylarkRuleImplementationFunctions.updateEnvironment(env);
+    for (Map.Entry<String, Class<?>> entry : skylarkAccessibleJavaClasses.entrySet()) {
+      env.update(entry.getKey(), entry.getValue());
+    }
+    return env;
   }
 
   @Override

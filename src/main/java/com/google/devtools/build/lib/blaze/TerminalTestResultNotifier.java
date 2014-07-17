@@ -19,7 +19,8 @@ import com.google.devtools.build.lib.exec.TestStrategy.TestOutputFormat;
 import com.google.devtools.build.lib.exec.TestStrategy.TestSummaryFormat;
 import com.google.devtools.build.lib.util.StringUtil;
 import com.google.devtools.build.lib.util.io.AnsiTerminalPrinter;
-import com.google.devtools.build.lib.view.test.BlazeTestStatus;
+import com.google.devtools.build.lib.view.test.TestResult;
+import com.google.devtools.build.lib.view.test.TestStatus.BlazeTestStatus;
 import com.google.devtools.common.options.Option;
 import com.google.devtools.common.options.OptionsBase;
 import com.google.devtools.common.options.OptionsProvider;
@@ -105,6 +106,7 @@ public class TerminalTestResultNotifier implements TestResultNotifier {
     return options.getOptions(ExecutionOptions.class).testCheckUpToDate;
   }
 
+
   /**
    * Prints a test summary information for all tests to the terminal.
    *
@@ -121,13 +123,14 @@ public class TerminalTestResultNotifier implements TestResultNotifier {
 
     for (TestSummary summary : summaries) {
       if (summary.isLocalActionCached()
-          && TestLogHelper.shouldOutputTestLog(testOutput, summary.getStatus().isPassed())) {
+          && TestLogHelper.shouldOutputTestLog(testOutput,
+              TestResult.isBlazeTestStatusPassed(summary.getStatus()))) {
         TestSummaryPrinter.printCachedOutput(summary, testOutput, printer);
       }
     }
 
     for (TestSummary summary : summaries) {
-      if (summary.getStatus().isPassed()) {
+      if (TestResult.isBlazeTestStatusPassed(summary.getStatus())) {
         stats.passCount++;
       } else if (summary.getStatus() == BlazeTestStatus.FAILED_TO_BUILD) {
         stats.failedToBuildCount++;

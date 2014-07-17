@@ -14,8 +14,7 @@
 
 package com.google.devtools.build.lib.packages;
 
-import com.google.common.collect.ImmutableMap;
-import com.google.devtools.build.lib.syntax.Environment;
+import com.google.devtools.build.lib.syntax.SkylarkEnvironment;
 import com.google.devtools.build.lib.syntax.ValidationEnvironment;
 import com.google.devtools.build.lib.vfs.Path;
 
@@ -33,12 +32,7 @@ public interface RuleClassProvider {
   /**
    * Returns a Skylark Environment for rule creation.
    */
-  Environment getSkylarkRuleClassEnvironment(SkylarkRuleFactory ruleFactory, Path file);
-
-  /**
-   * Returns built in Java classes accessible from Skylark.
-   */
-  ImmutableMap<String, Class<?>> getSkylarkAccessibleJavaClasses();
+  SkylarkEnvironment getSkylarkRuleClassEnvironment(SkylarkRuleFactory ruleFactory, Path file);
 
   /**
    * Returns a validation environment for static analysis of skylark files.

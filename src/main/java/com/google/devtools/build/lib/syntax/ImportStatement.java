@@ -81,5 +81,8 @@ public final class ImportStatement extends Statement {
   @Override
   void validate(ValidationEnvironment env) throws EvalException {
     // TODO(bazel-team): implement semantical check.
+    for (Ident symbol : symbols) {
+      env.update(symbol.getName(), Object.class, getLocation());
+    }
   }
 }

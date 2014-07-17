@@ -21,6 +21,11 @@ package blaze;
 option java_multiple_files = true;
 option java_package = "com.google.devtools.build.lib.actions.extra";
 
+enum ActionType {
+  NONE = 0;
+  SPAWN = 4;
+};
+
 // A list of extra actions and metadata for the print_action command.
 message ExtraActionSummary {
   repeated DetailedExtraActionInfo action = 1;
@@ -54,6 +59,9 @@ message ExtraActionInfo {
   optional string owner = 1;
   // An id uniquely describing the shadowed action at the ActionOwner level.
   optional string id = 2;
+
+  optional ActionType type = 3 [deprecated=true];
+
   // The mnemonic of the shadowed action. Used to distinguish actions with the
   // same ActionType.
   optional string mnemonic = 5;
@@ -70,6 +78,7 @@ message SpawnInfo {
   extend ExtraActionInfo {
     optional SpawnInfo spawn_info = 1003;
   }
+
   repeated string argument = 1;
   repeated EnvironmentVariable variable = 2;
   repeated string input_file = 4;

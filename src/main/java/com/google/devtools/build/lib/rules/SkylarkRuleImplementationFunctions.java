@@ -18,7 +18,6 @@ import static com.google.devtools.build.lib.rules.SkylarkRuleClassFunctions.cast
 import static com.google.devtools.build.lib.rules.SkylarkRuleClassFunctions.castMap;
 
 import com.google.common.annotations.VisibleForTesting;
-import com.google.common.base.Preconditions;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 import com.google.devtools.build.lib.actions.Artifact;
@@ -50,6 +49,8 @@ import com.google.devtools.build.lib.view.TransitiveInfoCollection;
 import com.google.devtools.build.lib.view.TransitiveInfoProvider;
 import com.google.devtools.build.lib.view.actions.FileWriteAction;
 import com.google.devtools.build.lib.view.actions.SpawnAction;
+import com.google.devtools.build.lib.view.actions.TemplateExpansionAction;
+import com.google.devtools.build.lib.view.actions.TemplateExpansionAction.Substitution;
 
 import java.util.List;
 import java.util.Map;
@@ -78,16 +79,13 @@ public class SkylarkRuleImplementationFunctions {
           .put("DATA", dataState)
           .build();
 
-  private final SkylarkRuleContext ruleContext;
-  private final ImmutableList<Function> builtInFunctions;
-
-  private SkylarkRuleImplementationFunctions(SkylarkRuleContext ruleContext) {
-    this.ruleContext = Preconditions.checkNotNull(ruleContext);
+  private static ImmutableList<Function> getBuiltinFunctions() {
     ImmutableList.Builder<Function> builtInFunctionsBuilder = ImmutableList.<Function>builder()
         .add(preconditionCheckState)
         .add(getProvider);
-    SkylarkFunction.collectSkylarkFunctionsFromFields(this, builtInFunctionsBuilder);
-    builtInFunctions = builtInFunctionsBuilder.build();
+    SkylarkFunction.collectSkylarkFunctionsFromFields(
+        SkylarkRuleImplementationFunctions.class, null, builtInFunctionsBuilder);
+    return builtInFunctionsBuilder.build();
   }
 
   // TODO(bazel-team): add all the remaining parameters
@@ -108,6 +106,7 @@ public class SkylarkRuleImplementationFunctions {
   @SkylarkBuiltin(name = "create_action",
       doc = "Creates an action and registers it with the environment (unless <i>register</i> "
           + "is set to False).",
+      objectType = SkylarkRuleContext.class,
       optionalParams = {
       @Param(name = "inputs", type = List.class, doc = "list of the input files of the action"),
       @Param(name = "outputs", type = List.class, doc = "list of the output files of the action"),
@@ -121,12 +120,14 @@ public class SkylarkRuleImplementationFunctions {
       @Param(name = "use_default_shell_env", type = Boolean.class,
           doc = "whether the action should use the built in shell environment or not"),
       @Param(name = "env", type = Map.class, doc = "sets the dictionary of environment variables")})
-  private final SkylarkFunction createSpawnAction = new SimpleSkylarkFunction("create_action") {
+  private static final SkylarkFunction createSpawnAction =
+      new SimpleSkylarkFunction("create_action") {
 
     @Override
     public Object call(Map<String, Object> params, Location loc) throws EvalException,
         ConversionException {
-      SpawnAction.Builder builder = new SpawnAction.Builder(ruleContext.getRuleContext());
+      SkylarkRuleContext ctx = cast(params.get("self"), SkylarkRuleContext.class, "ctx", loc);
+      SpawnAction.Builder builder = new SpawnAction.Builder(ctx.getRuleContext());
       builder.addInputs(castList(params.get("inputs"), Artifact.class, "inputs"));
       builder.addOutputs(castList(params.get("outputs"), Artifact.class, "outputs"));
       builder.addArguments(
@@ -182,28 +183,65 @@ public class SkylarkRuleImplementationFunctions {
   // TODO(bazel-team): improve this method to be more memory friendly
   @SkylarkBuiltin(name = "create_file_action",
       doc = "Creates a file write action and registers it with the environment.",
+      objectType = SkylarkRuleContext.class,
       mandatoryParams = {
       @Param(name = "output", type = Artifact.class, doc = "the output file"),
       @Param(name = "executable", type = Boolean.class,
              doc = "whether to change the output file to an executable or not"),
       @Param(name = "content", type = String.class, doc = "the contents of the file")})
-  private final SkylarkFunction createFileWriteAction =
+  private static final SkylarkFunction createFileWriteAction =
     new SimpleSkylarkFunction("create_file_action") {
 
     @Override
     public Object call(Map<String, Object> params, Location loc) throws EvalException,
         ConversionException {
+      SkylarkRuleContext ctx = cast(params.get("self"), SkylarkRuleContext.class, "ctx", loc);
       FileWriteAction action = new FileWriteAction(
-          ruleContext.getRuleContext().getActionOwner(),
+          ctx.getRuleContext().getActionOwner(),
           cast(params.get("output"), Artifact.class, "output", loc),
           cast(params.get("content"), String.class, "content", loc),
           cast(params.get("executable"), Boolean.class, "executable", loc));
-      ruleContext.getRuleContext().registerAction(action);
+      ctx.getRuleContext().registerAction(action);
+      return action;
+    }
+  };
+
+  @SkylarkBuiltin(name = "create_template_action",
+      doc = "Creates a template expansion action and registers it with the environment.",
+      objectType = SkylarkRuleContext.class,
+      mandatoryParams = {
+      @Param(name = "template", type = Artifact.class, doc = "the template file"),
+      @Param(name = "output", type = Artifact.class, doc = "the output file"),
+      @Param(name = "substitutions", type = Map.class,
+             doc = "substitutions to make when expanding the template"),
+      @Param(name = "executable", type = Boolean.class,
+             doc = "whether to change the output file to an executable or not")})
+  private static final SkylarkFunction createTemplateAction =
+    new SimpleSkylarkFunction("create_template_action") {
+
+    @Override
+    public Object call(Map<String, Object> params, Location loc) throws EvalException,
+        ConversionException {
+      SkylarkRuleContext ctx = cast(params.get("self"), SkylarkRuleContext.class, "ctx", loc);
+      ImmutableList.Builder<Substitution> substitutions = ImmutableList.builder();
+      for (Map.Entry<String, String> substitution
+          : castMap(params.get("substitutions"), String.class, String.class, "substitutions")) {
+        substitutions.add(Substitution.of(substitution.getKey(), substitution.getValue()));
+      }
+      
+      TemplateExpansionAction action = new TemplateExpansionAction(
+          ctx.getRuleContext().getActionOwner(),
+          cast(params.get("template"), Artifact.class, "template", loc),
+          cast(params.get("output"), Artifact.class, "output", loc),
+          substitutions.build(),
+          cast(params.get("executable"), Boolean.class, "executable", loc));
+      ctx.getRuleContext().registerAction(action);
       return action;
     }
   };
 
   @SkylarkBuiltin(name = "create_target", doc = "Creates a Configured Target from the rule.",
+      objectType = SkylarkRuleContext.class,
       optionalParams = {
       @Param(name = "files_to_build", type = SkylarkFileset.class,
           doc = "the files the rule outputs"),
@@ -213,32 +251,33 @@ public class SkylarkRuleImplementationFunctions {
           doc = "the executable the rule creates"),
       @Param(name = "providers", type = Map.class,
           doc = "the dictionary of the transitive info providers of the rule")})
-  private final SkylarkFunction createTarget = new SimpleSkylarkFunction("create_target") {
+  private static final SkylarkFunction createTarget = new SimpleSkylarkFunction("create_target") {
 
     // TODO(bazel-team): this is NOT safe. Create a wrapper class for NestedSet<Artifact>
     // to fix this. This is for files_to_build.
     @SuppressWarnings("unchecked")
     @Override
-    public Object call(Map<String, Object> arguments, Location loc)
+    public Object call(Map<String, Object> params, Location loc)
         throws EvalException, ExecutionException {
+      SkylarkRuleContext ctx = cast(params.get("self"), SkylarkRuleContext.class, "ctx", loc);
       RuleConfiguredTargetBuilder builder =
-          new RuleConfiguredTargetBuilder(ruleContext.getRuleContext());
-      if (arguments.containsKey("files_to_build")) {
-        builder.setFilesToBuild(cast(arguments.get("files_to_build"),
+          new RuleConfiguredTargetBuilder(ctx.getRuleContext());
+      if (params.containsKey("files_to_build")) {
+        builder.setFilesToBuild(cast(params.get("files_to_build"),
             SkylarkNestedSet.class, "files_to_build", loc).getSet(Artifact.class));
       }
-      if (arguments.containsKey("runfiles")) {
-        builder.add(RunfilesProvider.class, cast(arguments.get("runfiles"),
+      if (params.containsKey("runfiles")) {
+        builder.add(RunfilesProvider.class, cast(params.get("runfiles"),
             RunfilesProvider.class, "runfiles", loc));
       } else {
         // Every target needs runfiles provider by default.
         builder.add(RunfilesProvider.class, RunfilesProvider.EMPTY);
       }
-      if (arguments.containsKey("executable")) {
+      if (params.containsKey("executable")) {
         builder.setRunfilesSupport(null,
-            cast(arguments.get("executable"), Artifact.class, "executable", loc));
+            cast(params.get("executable"), Artifact.class, "executable", loc));
       }
-      for (Map.Entry<String, Object> provider : castMap(arguments.get("providers"),
+      for (Map.Entry<String, Object> provider : castMap(params.get("providers"),
           String.class, Object.class, "transitive info providers")) {
         builder.addSkylarkTransitiveInfo(provider.getKey(), provider.getValue());
       }
@@ -253,7 +292,7 @@ public class SkylarkRuleImplementationFunctions {
   @SkylarkBuiltin(name = "check_state",
       doc = "Checks if the first argument is True, if not, stops the execution of the Skylark "
           + "program signalling an error using the second argument as an error message.")
-  private final Function preconditionCheckState = new AbstractFunction("check_state") {
+  private static final Function preconditionCheckState = new AbstractFunction("check_state") {
 
     @Override
     public Object call(List<Object> args, Map<String, Object> kwargs, FuncallExpression ast,
@@ -284,7 +323,7 @@ public class SkylarkRuleImplementationFunctions {
   @SkylarkBuiltin(name = "get_provider",
       doc = "Returns the transitive info provider "
           + "(second argument) of the transitive info collection (first argument).")
-  private final Function getProvider = new PositionalFunction("get_provider", 2, 2) {
+  private static final Function getProvider = new PositionalFunction("get_provider", 2, 2) {
 
     @Override
     public Object call(List<Object> args, FuncallExpression ast) throws EvalException,
@@ -309,20 +348,22 @@ public class SkylarkRuleImplementationFunctions {
   // TODO(bazel-team): Remove runfile states from Skylark.
   @SkylarkBuiltin(name = "runfiles",
       doc = "Creates a runfiles provider creating runfiles for every specified runfile state.",
+      objectType = SkylarkRuleContext.class,
       optionalParams = {
       @Param(name = "stateless",
           doc = "list of the runfile items; cannot be specified together with other attributes"),
       @Param(name = "default", doc = "default runfile items"),
       @Param(name = "data", doc = "data runfile items")})
-  private final SkylarkFunction runfiles = new SimpleSkylarkFunction("runfiles") {
+  private static final SkylarkFunction runfiles = new SimpleSkylarkFunction("runfiles") {
     @Override
-    public Object call(Map<String, Object> arguments, Location loc) throws EvalException,
+    public Object call(Map<String, Object> params, Location loc) throws EvalException,
         ConversionException {
-      if (arguments.size() == 0) {
+      SkylarkRuleContext ctx = cast(params.get("self"), SkylarkRuleContext.class, "ctx", loc);
+      if (params.size() == 1) {
         return RunfilesProvider.EMPTY;
-      } else if (arguments.containsKey("stateless")) {
-        if (arguments.size() == 1) {
-          return RunfilesProvider.simple(handleRunfiles("stateless", arguments, loc));
+      } else if (params.containsKey("stateless")) {
+        if (params.size() == 2) {
+          return RunfilesProvider.simple(handleRunfiles(ctx, "stateless", params, loc));
         } else {
           throw new EvalException(loc,
               "runfiles('stateless') does not take any extra args");
@@ -330,28 +371,26 @@ public class SkylarkRuleImplementationFunctions {
       } else {
         Runfiles defaultRunfiles = Runfiles.EMPTY;
         Runfiles dataRunfiles = Runfiles.EMPTY;
-        if (arguments.containsKey("default")) {
-          defaultRunfiles = handleRunfiles("default", arguments, loc);
+        if (params.containsKey("default")) {
+          defaultRunfiles = handleRunfiles(ctx, "default", params, loc);
         }
-        if (arguments.containsKey("data")) {
-          dataRunfiles = handleRunfiles("data", arguments, loc);
+        if (params.containsKey("data")) {
+          dataRunfiles = handleRunfiles(ctx, "data", params, loc);
         }
         return RunfilesProvider.withData(defaultRunfiles, dataRunfiles);
       }
     }
 
     @SuppressWarnings("unchecked")
-    private Runfiles handleRunfiles(String attr, Map<String, Object> arguments, Location loc)
+    private Runfiles handleRunfiles(
+        SkylarkRuleContext ctx, String attr, Map<String, Object> params, Location loc)
         throws ConversionException, EvalException {
       Runfiles.Builder builder = new Runfiles.Builder();
-      for (Object obj : castList(arguments.get(attr), Object.class,
-          "runfiles artifacts")) {
+      for (Object obj : castList(params.get(attr), Object.class, "runfiles artifacts")) {
         if (obj == RunfilesProvider.DEFAULT_RUNFILES) {
-          builder.addRunfiles(
-              ruleContext.getRuleContext(), RunfilesProvider.DEFAULT_RUNFILES);
+          builder.addRunfiles(ctx.getRuleContext(), RunfilesProvider.DEFAULT_RUNFILES);
         } else if (obj == RunfilesProvider.DATA_RUNFILES) {
-          builder.addRunfiles(
-              ruleContext.getRuleContext(), RunfilesProvider.DATA_RUNFILES);
+          builder.addRunfiles(ctx.getRuleContext(), RunfilesProvider.DATA_RUNFILES);
         } else if (obj instanceof Artifact) {
           builder.addArtifact((Artifact) obj);
         } else if (obj instanceof SkylarkFileset) {
@@ -376,26 +415,40 @@ public class SkylarkRuleImplementationFunctions {
   };
 
   @SkylarkBuiltin(name = "create_command_helper", doc = "Creates a command helper class.",
+      objectType = SkylarkRuleContext.class,
       mandatoryParams = {
       @Param(name = "tools", type = List.class, doc = "list of tools"),
       @Param(name = "label_dict", type = Map.class,
              doc = "dictionary of resolved labels and the corresponding list of artifacts")})
-  private final SkylarkFunction createCommandHelper =
+  private static final SkylarkFunction createCommandHelper =
       new SimpleSkylarkFunction("create_command_helper") {
         @SuppressWarnings("unchecked")
         @Override
-        protected Object call(Map<String, Object> arguments, Location loc)
-            throws ConversionException {
-          return new CommandHelper(ruleContext.getRuleContext(),
-              castList(arguments.get("tools"), FilesToRunProvider.class, "tools"),
+        protected Object call(Map<String, Object> params, Location loc)
+            throws ConversionException, EvalException {
+          SkylarkRuleContext ctx = cast(params.get("self"), SkylarkRuleContext.class, "ctx", loc);
+          return new CommandHelper(ctx.getRuleContext(),
+              castList(params.get("tools"), FilesToRunProvider.class, "tools"),
               // TODO(bazel-team): this cast to Map is unchecked and is not safe.
               // The best way to fix this probably is to convert CommandHelper to Skylark.
-              ImmutableMap.copyOf((Map<Label, Iterable<Artifact>>) arguments.get("label_dict")));
+              ImmutableMap.copyOf((Map<Label, Iterable<Artifact>>) params.get("label_dict")));
         }
       };
 
-  public static SkylarkEnvironment getNewEnvironment(SkylarkRuleContext context,
-      ImmutableMap<String, Class<?>> builtInClasses) {
+  public static void updateEnvironment(SkylarkEnvironment env) {
+    for (Function function : SkylarkRuleImplementationFunctions.getBuiltinFunctions()) {
+      if (function.getObjectType() != null) {
+        env.registerFunction(function.getObjectType(), function.getName(), function);
+      } else {
+        env.update(function.getName(), function);
+      }
+    }
+    for (Map.Entry<String, Object> entry : JAVA_OBJECTS_TO_EXPOSE.entrySet()) {
+      env.update(entry.getKey(), entry.getValue());
+    }
+  }
+
+  public static SkylarkEnvironment getNewEnvironment(SkylarkRuleContext context) {
     // The rule definition environment is needed because of the helper functions and constants
     // defined there. However the rule definition environment is shared between rules
     // of the same type, so it needs to be cloned to avoid conflicts. Note that Skylark
@@ -406,7 +459,6 @@ public class SkylarkRuleImplementationFunctions {
         context.getRuleContext().getRule().getRuleClassObject().getRuleDefinitionEnvironment();
     final SkylarkEnvironment env;
     if (ruleDefEnv != null) {
-      Preconditions.checkState(ruleDefEnv.isGlobalEnvironment());
       env = ruleDefEnv.cloneEnv();
     } else {
       // TODO(bazel-team): This is needed because of the tests. If we separated Skylark from legacy
@@ -417,17 +469,7 @@ public class SkylarkRuleImplementationFunctions {
           : SkylarkRuleClassFunctions.JAVA_OBJECTS_TO_EXPOSE.entrySet()) {
         env.update(object.getKey(), object.getValue());
       }
-    }
-
-    SkylarkRuleImplementationFunctions functions = new SkylarkRuleImplementationFunctions(context);
-    for (Function builtInFunction : functions.builtInFunctions) {
-      env.update(builtInFunction.getName(), builtInFunction);
-    }
-    for (Map.Entry<String, Class<?>> entry : builtInClasses.entrySet()) {
-      env.update(entry.getKey(), entry.getValue());
-    }
-    for (Map.Entry<String, Object> entry : JAVA_OBJECTS_TO_EXPOSE.entrySet()) {
-      env.update(entry.getKey(), entry.getValue());
+      updateEnvironment(env);
     }
 
     return env;

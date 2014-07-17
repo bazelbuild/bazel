@@ -23,12 +23,15 @@ import com.google.devtools.build.lib.util.io.AnsiTerminalPrinter.Mode;
 import com.google.devtools.build.lib.vfs.Path;
 import com.google.devtools.build.lib.view.ConfiguredTarget;
 import com.google.devtools.build.lib.view.FilesToRunProvider;
-import com.google.devtools.build.lib.view.test.BlazeTestStatus;
-import com.google.devtools.build.lib.view.test.TestResultData.FailedTestCaseDetails;
+import com.google.devtools.build.lib.view.test.TestStatus.BlazeTestStatus;
+import com.google.devtools.build.lib.view.test.TestStatus.FailedTestCaseDetails;
+import com.google.devtools.build.lib.view.test.TestStatus.TestCaseDetail;
 
 import java.util.ArrayList;
 import java.util.Collections;
 import java.util.List;
+import java.util.Map;
+import java.util.TreeMap;
 
 /**
  * Test summary entry. Stores summary information for a single test rule.
@@ -124,11 +127,35 @@ public class TestSummary implements Comparable<TestSummary> {
 
     public Builder addFailedTestCases(FailedTestCaseDetails failedTestCases) {
       checkMutation(failedTestCases);
+      if (failedTestCases.getStatus() == FailedTestCaseDetails.Status.EMPTY) {
+        return this;
+      }
+
+      FailedTestCaseDetails.Builder builder = FailedTestCaseDetails.newBuilder();
+
+      Map<String, TestCaseDetail> cases = new TreeMap<>();
+      if (summary.failedTestCases != null) {
+        for (TestCaseDetail detail : summary.failedTestCases.getDetailList()) {
+          cases.put(detail.getName(), detail);
+        }
+      }
+      for (TestCaseDetail detail : failedTestCases.getDetailList()) {
+        cases.put(detail.getName(), detail);
+      }
+
 
       if (summary.failedTestCases == null) {
-        summary.failedTestCases = new FailedTestCaseDetails(failedTestCases.getStatus());
+        builder.setStatus(failedTestCases.getStatus());
+      } else if (summary.failedTestCases.getStatus() == FailedTestCaseDetails.Status.EMPTY) {
+        builder.setStatus(failedTestCases.getStatus());
+      } else if (summary.failedTestCases.getStatus() != failedTestCases.getStatus()) {
+        builder.setStatus(FailedTestCaseDetails.Status.PARTIAL);
       }
-      summary.failedTestCases.mergeFrom(failedTestCases);
+
+      for (TestCaseDetail detail : cases.values()) {
+         builder.addDetail(detail);
+      }
+      summary.failedTestCases = builder.build();
       return this;
     }
 
@@ -322,6 +349,10 @@ public class TestSummary implements Comparable<TestSummary> {
     return Collections.unmodifiableList(warnings);
   }
 
+  private static int getSortKey(BlazeTestStatus status) {
+    return status == BlazeTestStatus.PASSED ? -1 : status.ordinal();
+  }
+
   @Override
   public int compareTo(TestSummary that) {
     if (this.isCached() != that.isCached()) {
@@ -329,7 +360,7 @@ public class TestSummary implements Comparable<TestSummary> {
     } else if ((this.isCached() && that.isCached()) && (this.numUncached() != that.numUncached())) {
       return this.numUncached() - that.numUncached();
     } else if (this.status != that.status) {
-      return this.status.getSortKey() - that.status.getSortKey();
+      return getSortKey(this.status) - getSortKey(that.status);
     } else {
       Artifact thisExecutable = this.target.getProvider(FilesToRunProvider.class).getExecutable();
       Artifact thatExecutable = that.target.getProvider(FilesToRunProvider.class).getExecutable();

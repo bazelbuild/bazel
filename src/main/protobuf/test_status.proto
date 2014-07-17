@@ -18,13 +18,80 @@ package blaze;
 
 option java_package = "com.google.devtools.build.lib.view.test";
 
-/**
- * Used to implement test-specific caching behavior. This reflects the
- * fact that failing tests are successful actions that might be
- * cached, depending on option settings.
- */
-message CacheStatus {
-  // If true, may be cached under some circumstance.
+// TestCaseDetail has data on a single test method/test case.
+message TestCaseDetail {
+  optional string name = 1;
+
+  enum Status {
+    PASSED = 1;
+    FAILED = 2;
+    ERROR = 3;
+  };
+  optional Status status = 2;
+  optional int64 run_duration_millis = 3;
+};
+
+// Aggregates the per case/method data.
+message FailedTestCaseDetails {
+  enum Status {
+    /** Information about every test case is available. */
+    FULL = 1;
+    /** Information about some test cases may be missing. */
+    PARTIAL = 2;
+    /** No information about individual test cases. */
+    NOT_AVAILABLE = 3;
+    /** This is an empty object still without data. */
+    EMPTY = 4;
+  };
+
+  repeated TestCaseDetail detail = 1;
+  optional Status status = 2;
+};
+
+// Detailed status data for a TestRunnerAction execution.
+enum BlazeTestStatus {
+  NO_STATUS = 0;
+  PASSED = 1;
+  FLAKY = 2;
+  TIMEOUT = 3;
+  FAILED = 4;
+  INCOMPLETE = 5;
+  REMOTE_FAILURE = 6;
+  FAILED_TO_BUILD = 7;
+};
+
+// TestResultData holds the outcome data for a single test action (A
+// single test rule can result in multiple actions due to sharding and
+// runs_per_test settings.)
+message TestResultData {
+  // The following two fields are used for TestRunnerAction caching.
+  // This reflects the fact that failing tests are successful
+  // actions that might be cached, depending on option settings.
   optional bool cachable = 1;
   optional bool test_passed = 2;
+
+  // Following data is informational.
+  optional BlazeTestStatus status = 3 [default = NO_STATUS];
+  repeated string failed_logs = 4;
+  optional FailedTestCaseDetails failed_test_case_details = 5;
+  repeated string warning = 6;
+  optional bool has_coverage = 7;
+
+  // Returns if this was cached in remote execution.
+  optional bool remotely_cached = 8;
+
+  // Returns true if this was executed remotely
+  optional bool is_remote_strategy = 9;
+
+  // All associated test times (in ms).
+  repeated int64 test_times = 10;
+
+  // Passed log paths. Set if the test passed.
+  optional string passed_log = 11;
+
+  // Test times, without remote execution overhead (in ms).
+  repeated int64 test_process_times = 12;
+
+  // Total time in ms.
+  optional int64 run_duration_millis = 13;
 };
