@@ -35,6 +35,7 @@ import com.google.devtools.build.lib.actions.ParameterFile.ParameterFileType;
 import com.google.devtools.build.lib.actions.ResourceSet;
 import com.google.devtools.build.lib.actions.Spawn;
 import com.google.devtools.build.lib.actions.SpawnActionContext;
+import com.google.devtools.build.lib.actions.extra.ActionType;
 import com.google.devtools.build.lib.actions.extra.ExtraActionInfo;
 import com.google.devtools.build.lib.actions.extra.SpawnInfo;
 import com.google.devtools.build.lib.collect.CollectionUtils;
@@ -63,17 +64,21 @@ import java.util.Map;
  */
 public class SpawnAction extends ConfigurationAction {
   private static class ExtraActionInfoSupplier<T> {
+    private final ActionType type;
     private final GeneratedExtension<ExtraActionInfo, T> extension;
     private final T value;
 
     private ExtraActionInfoSupplier(
+        ActionType type,
         GeneratedExtension<ExtraActionInfo, T> extension,
         T value) {
+      this.type = type;
       this.extension = extension;
       this.value = value;
     }
 
     void extend(ExtraActionInfo.Builder builder) {
+      builder.setType(type);
       builder.setExtension(extension, value);
     }
   }
@@ -307,6 +312,7 @@ public class SpawnAction extends ConfigurationAction {
       SpawnInfo spawnInfo = spawn.getExtraActionInfo();
 
       return builder
+          .setType(ActionType.SPAWN)
           .setExtension(SpawnInfo.spawnInfo, spawnInfo);
     } else {
       extraActionInfoSupplier.extend(builder);
@@ -833,8 +839,8 @@ public class SpawnAction extends ConfigurationAction {
     }
 
     public <T> Builder setExtraActionInfo(
-        GeneratedExtension<ExtraActionInfo, T> extension, T value) {
-      this.extraActionInfoSupplier = new ExtraActionInfoSupplier<T>(extension, value);
+        ActionType type, GeneratedExtension<ExtraActionInfo, T> extension, T value) {
+      this.extraActionInfoSupplier = new ExtraActionInfoSupplier<T>(type, extension, value);
       return this;
     }
 

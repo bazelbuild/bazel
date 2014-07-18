@@ -133,7 +133,6 @@ public final class PackageFactory {
 
   private AtomicReference<? extends UnixGlob.FilesystemCalls> syscalls;
   private Preprocessor preprocessor;
-  private boolean skylarkEnabled;
 
   private final ThreadPoolExecutor threadPool;
   private Map<String, String> platformSetRegexps;
@@ -202,13 +201,6 @@ public final class PackageFactory {
    */
   public void setSyscalls(AtomicReference<? extends UnixGlob.FilesystemCalls> syscalls) {
     this.syscalls = Preconditions.checkNotNull(syscalls);
-  }
-
- /**
-   * Sets whether Skylark import statements are allowed.
-   */
-  public void setSkylarkEnabled(boolean skylarkEnabled) {
-    this.skylarkEnabled = skylarkEnabled;
   }
 
   /**
@@ -834,7 +826,6 @@ public final class PackageFactory {
   private void buildPkgEnv(Environment pkgEnv, String packageName,
       MakeEnvironment.Builder pkgMakeEnv, PackageContext context, RuleFactory ruleFactory,
       SkylarkRuleFactory skylarkRuleFactory) {
-    pkgEnv.setImportAllowed(skylarkEnabled);
     buildPkgEnv(pkgEnv, packageName, context);
     for (String ruleClass : ruleFactory.getRuleClassNames()) {
       pkgEnv.update(ruleClass,
@@ -859,7 +850,6 @@ public final class PackageFactory {
     }
 
     Environment env = skylarkRuleFactory.getSkylarkRuleClassEnvironment(file).cloneEnv();
-    env.setImportAllowed(true);
 
     if (!loadAllImports(
         buildFileAST, root, file, locator, env, context, extensionFileStack, false)) {

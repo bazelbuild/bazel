@@ -25,7 +25,8 @@ import java.io.IOException;
 public interface TestActionContext extends ActionContext {
 
   /**
-   * Executes the test command, directing standard out / err to {@code outErr}.
+   * Executes the test command, directing standard out / err to {@code outErr}.  The status of
+   * the test should be communicated by posting a {@link TestResult} object to the eventbus.
    */
   void exec(TestRunnerAction action,
       ActionExecutionContext actionExecutionContext) throws ExecException, InterruptedException;

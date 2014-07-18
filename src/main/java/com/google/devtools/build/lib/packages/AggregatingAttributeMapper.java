@@ -168,6 +168,10 @@ public class AggregatingAttributeMapper extends AbstractAttributeMapper {
 
       @Override public String getName() { return owner.getName(); }
       @Override public Label getLabel() { return owner.getLabel(); }
+      @Override public Iterable<String> getAttributeNames() {
+        return ImmutableList.<String>builder()
+            .addAll(directMap.keySet()).addAll(nonconfigurableAttributes).build();
+      }
       @Override
       public void visitLabels(AcceptsLabelAttribute observer) { owner.visitLabels(observer); }
       @Override

@@ -105,7 +105,9 @@ public final class SkyframeActionExecutor extends AbstractActionExecutor {
   // This map is also used for Actions that try to execute twice because they have discovered
   // headers -- the NodeBuilder tries to declare a dep on the missing headers and has to restart.
   // We don't want to execute the action again on the second entry to the NodeBuilder.
-  private ConcurrentMap<Artifact, Pair<Action, FutureTask<Void>>> buildActionMap;
+  // In both cases, we store the already-computed ActionExecutionNode to avoid having to compute it
+  // again.
+  private ConcurrentMap<Artifact, Pair<Action, FutureTask<ActionExecutionNode>>> buildActionMap;
 
   // Errors found when examining all actions in the graph are stored here, so that they can be
   // thrown when execution of the action is requested. This field is set during each call to
@@ -194,8 +196,8 @@ public final class SkyframeActionExecutor extends AbstractActionExecutor {
     }
 
     @Override
-    public void injectDigest(ActionInput output, FileStatus stat, byte[] digest) {
-      perActionHandler.injectDigest(output, stat, digest);
+    public void injectDigest(ActionInput output, FileStatus statNoFollow, byte[] digest) {
+      perActionHandler.injectDigest(output, statNoFollow, digest);
     }
 
     @Override
@@ -383,11 +385,12 @@ public final class SkyframeActionExecutor extends AbstractActionExecutor {
   }
 
   /**
-   * Executes the provided action on the current thread.
+   * Executes the provided action on the current thread. Returns the ActionExecutionNode with the
+   * result, either computed here or already computed on another thread.
    *
    * <p>For use from {@link ArtifactNodeBuilder} only.
    */
-  protected void executeAction(Action action, FileAndMetadataCache graphFileCache)
+  protected ActionExecutionNode executeAction(Action action, FileAndMetadataCache graphFileCache)
       throws ActionExecutionException, InterruptedException {
     Exception exception = badActionMap.get(action);
     if (exception != null) {
@@ -395,14 +398,13 @@ public final class SkyframeActionExecutor extends AbstractActionExecutor {
       reportError(exception, action);
     }
     Artifact primaryOutput = action.getPrimaryOutput();
-    FutureTask<Void> actionTask = new FutureTask<Void>(new ActionRunner(action, graphFileCache));
+    FutureTask<ActionExecutionNode> actionTask =
+        new FutureTask<>(new ActionRunner(action, graphFileCache));
     // Check to see if another action is already executing/has executed this node.
-    Pair<Action, FutureTask<Void>> oldAction =
+    Pair<Action, FutureTask<ActionExecutionNode>> oldAction =
         buildActionMap.putIfAbsent(primaryOutput, Pair.of(action, actionTask));
     ActionExecutionStatusReporter statusReporter =
         Preconditions.checkNotNull(statusReporterRef.get());
-
-    boolean waitingForShared = false;
 
     if (oldAction == null) {
       ResourceSet estimate = action.estimateResourceConsumption(executorEngine);
@@ -433,22 +435,9 @@ public final class SkyframeActionExecutor extends AbstractActionExecutor {
           "Actions cannot be shared: %s %s", oldAction.first, action);
       // Wait for other action to finish, so any actions that depend on its outputs can execute.
       actionTask = oldAction.second;
-      waitingForShared = true;
     }
     try {
-      actionTask.get();
-      if (waitingForShared || action.discoversInputs()) {
-        // We wastefully check the output files again, so that this node can retrieve the data. If
-        // it was waiting for the shared action to be executed, it did not actually find the output
-        // data itself. If the action discovers inputs and this is the second run (after the action
-        // declared its dependencies on undeclared inputs and the node builder restarted), we didn't
-        // actually execute the action. Note that if the action actually was executed, there will be
-        // no additional filesystem access here. This is a trade-off of filesystem access versus
-        // memory -- we could keep the output data of every action through the entire execution
-        // phase, but that might be too expensive. Until shown to be a bottleneck, these filesystem
-        // accesses shouldn't be too bad.
-        checkOutputs(action, graphFileCache);
-      }
+      return actionTask.get();
     } catch (ExecutionException e) {
       Throwables.propagateIfPossible(e.getCause(),
           ActionExecutionException.class, InterruptedException.class);
@@ -486,7 +475,7 @@ public final class SkyframeActionExecutor extends AbstractActionExecutor {
     this.perBuildFileCache = fileCache;
   }
 
-  private class ActionRunner implements Callable<Void> {
+  private class ActionRunner implements Callable<ActionExecutionNode> {
     private final Action action;
     private final FileAndMetadataCache graphFileCache;
 
@@ -496,7 +485,7 @@ public final class SkyframeActionExecutor extends AbstractActionExecutor {
     }
 
     @Override
-    public Void call() throws ActionExecutionException, InterruptedException {
+    public ActionExecutionNode call() throws ActionExecutionException, InterruptedException {
       profiler.startTask(ProfilerTask.ACTION_CHECK, action);
       long actionStartTime = Profiler.nanoTimeMaybe();
 
@@ -526,7 +515,8 @@ public final class SkyframeActionExecutor extends AbstractActionExecutor {
           postEvent(new CachedActionEvent(action, actionStartTime));
         }
 
-        return null;
+        return new ActionExecutionNode(
+            graphFileCache.getOutputData(), graphFileCache.getAdditionalOutputData());
       } else if (actionCacheChecker.isActionExecutionProhibited(action)) {
         // We can't execute an action (e.g. because --check_???_up_to_date option was used). Fail
         // the build instead.
@@ -560,7 +550,8 @@ public final class SkyframeActionExecutor extends AbstractActionExecutor {
               }
             }, actionStartTime);
 
-      return null;
+      return new ActionExecutionNode(
+          graphFileCache.getOutputData(), graphFileCache.getAdditionalOutputData());
     }
   }
 

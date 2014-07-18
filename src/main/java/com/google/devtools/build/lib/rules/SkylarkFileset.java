@@ -14,8 +14,11 @@
 package com.google.devtools.build.lib.rules;
 
 import com.google.devtools.build.lib.actions.Artifact;
+import com.google.devtools.build.lib.actions.Root;
 import com.google.devtools.build.lib.syntax.SkylarkBuiltin;
 import com.google.devtools.build.lib.syntax.SkylarkCallable;
+import com.google.devtools.build.lib.vfs.FileSystemUtils;
+import com.google.devtools.build.lib.vfs.PathFragment;
 
 /**
  * A wrapper class for NestedSet of Artifacts in Skylark to ensure type safety.
@@ -36,5 +39,14 @@ public final class SkylarkFileset {
   @SkylarkCallable(doc = "Returns the joint execution paths of these files using the delimiter.")
   public static String joinExecPaths(String delimiter, Iterable<Artifact> artifacts) {
     return Artifact.joinExecPaths(delimiter, artifacts);
+  }
+
+  @SkylarkCallable(
+      doc = "Returns a working directory for the file using suffix for the directory name")
+  public static PathFragment workDir(Root root, Artifact file, String suffix) {
+    PathFragment path = file.getRootRelativePath();
+    String basename = FileSystemUtils.removeExtension(path.getBaseName()) + suffix;
+    path = path.replaceName(basename);
+    return root.getExecPath().getRelative(path);
   }
 }

@@ -357,6 +357,11 @@ public final class Rule implements Target, AttributeMap {
     return attributeMap.get(attributeName, type);
   }
 
+  @Override
+  public Iterable<String> getAttributeNames() {
+    throw new UnsupportedOperationException();
+  }
+
   /**
    * Returns the value of the named rule attribute, which may be of any
    * type, but must exist (an exception is thrown otherwise).  The class of
@@ -441,17 +446,20 @@ public final class Rule implements Target, AttributeMap {
 
   @Override
   public Boolean getPackageDefaultObsolete() {
-    return attributeMap.getPackageDefaultObsolete();
+    throw new UnsupportedOperationException(
+        "Temporary interface requirement - use AbstractAttributeMapper instead");
   }
 
   @Override
   public Boolean getPackageDefaultTestOnly() {
-    return attributeMap.getPackageDefaultTestOnly();
+    throw new UnsupportedOperationException(
+        "Temporary interface requirement - use AbstractAttributeMapper instead");
   }
 
   @Override
   public String getPackageDefaultDeprecation() {
-    return attributeMap.getPackageDefaultDeprecation();
+    throw new UnsupportedOperationException(
+        "Temporary interface requirement - use AbstractAttributeMapper instead");
   }
 
   /**
@@ -543,7 +551,7 @@ public final class Rule implements Target, AttributeMap {
   private void populateImplicitOutputFiles(ErrorEventListener listener,
       Package.AbstractPackageBuilder<?, ?> pkgBuilder) {
     try {
-      for (String out : ruleClass.getImplicitOutputsFunction().getImplicitOutputs(this)) {
+      for (String out : ruleClass.getImplicitOutputsFunction().getImplicitOutputs(attributeMap)) {
         try {
           addOutputFile(pkgBuilder.createLabel(out), listener);
         } catch (SyntaxException e) {

@@ -393,7 +393,7 @@ public final class SkyframeBuildView {
   @Nullable
   SkyframeDependencyResolver createDependencyResolver(Environment env) {
     BuildConfigurationCollection configurations = getBuildConfigurationCollection(env);
-    return configurations == null ? null : new SkyframeDependencyResolver(configurations, env);
+    return configurations == null ? null : new SkyframeDependencyResolver(env);
   }
 
   /**

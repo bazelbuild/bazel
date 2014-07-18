@@ -746,7 +746,7 @@ public final class ProfileCommand implements BlazeCommand {
 
     typeFilter = getTypeFilter(ProfilerTask.REMOTE_PARSE);
     path = info.getCriticalPath(typeFilter);
-    out.printf(TWO_COLUMN_FORMAT, "  local distributor scan",
+    out.printf(TWO_COLUMN_FORMAT, "  remote execution parse",
         prettyPercentage(optimalTime - path.cumulativeDuration, optimalTime));
 
     typeFilter = getTypeFilter(ProfilerTask.REMOTE_EXECUTION);

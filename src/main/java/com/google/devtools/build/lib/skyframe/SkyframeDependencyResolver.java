@@ -19,7 +19,6 @@ import com.google.devtools.build.lib.packages.TargetUtils;
 import com.google.devtools.build.lib.syntax.Label;
 import com.google.devtools.build.lib.view.DependencyResolver;
 import com.google.devtools.build.lib.view.TargetAndConfiguration;
-import com.google.devtools.build.lib.view.config.BuildConfigurationCollection;
 import com.google.devtools.build.skyframe.Node;
 import com.google.devtools.build.skyframe.NodeBuilder.Environment;
 import com.google.devtools.build.skyframe.NodeKey;
@@ -33,9 +32,7 @@ public final class SkyframeDependencyResolver extends DependencyResolver {
 
   private final Environment env;
 
-  public SkyframeDependencyResolver(BuildConfigurationCollection configurations,
-      Environment env) {
-    super(configurations);
+  public SkyframeDependencyResolver(Environment env) {
     this.env = env;
   }
 

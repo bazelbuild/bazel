@@ -44,6 +44,11 @@ public interface AttributeMap {
   <T> T get(String attributeName, Type<T> type);
 
   /**
+   * Returns the names of all attributes covered by this map.
+   */
+  Iterable<String> getAttributeNames();
+
+  /**
    * Returns the type of the given attribute, if it exists. Otherwise returns null.
    */
   @Nullable Type<?> getAttributeType(String attrName);

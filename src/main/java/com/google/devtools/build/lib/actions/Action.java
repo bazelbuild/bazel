@@ -193,9 +193,9 @@ public interface Action extends ActionMetadata, Describable {
     ERROR_PROPAGATING_MIDDLEMAN,
 
     /**
-     * A runfiles middleman, which is validated by the dependency checker, but is not expanded in
-     * blaze. Instead, the runfiles manifest is sent to the distributor, which performs the
-     * expansion.
+     * A runfiles middleman, which is validated by the dependency checker, but is not expanded
+     * in blaze. Instead, the runfiles manifest is sent to remote execution client, which
+     * performs the expansion.
      */
     RUNFILES_MIDDLEMAN;
 

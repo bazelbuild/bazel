@@ -31,6 +31,7 @@ import com.google.devtools.build.lib.vfs.FileStatusWithDigest;
 import com.google.devtools.build.lib.vfs.FileStatusWithDigestAdapter;
 import com.google.devtools.build.lib.vfs.Path;
 import com.google.devtools.build.lib.vfs.RootedPath;
+import com.google.devtools.build.lib.vfs.Symlinks;
 import com.google.protobuf.ByteString;
 
 import java.io.File;
@@ -222,7 +223,7 @@ class FileAndMetadataCache implements ActionInputFileCache, MetadataHandler {
   }
 
   @Override
-  public void injectDigest(ActionInput output, FileStatus stat, byte[] digest) {
+  public void injectDigest(ActionInput output, FileStatus statNoFollow, byte[] digest) {
     if (output instanceof Artifact) {
       Artifact artifact = (Artifact) output;
       Preconditions.checkState(injectedArtifacts.add(artifact), artifact);
@@ -232,7 +233,8 @@ class FileAndMetadataCache implements ActionInputFileCache, MetadataHandler {
         // readily available. We cannot pass the digest in, though, because if it is not available
         // from the filesystem, this FileNode will not compare equal to another one created for the
         // same file, because the other one will be missing its digest.
-        fileNode = fileNodeFromArtifact(artifact, FileStatusWithDigestAdapter.adapt(stat), tsgm);
+        fileNode = fileNodeFromArtifact(artifact, FileStatusWithDigestAdapter.adapt(statNoFollow),
+            tsgm);
         byte[] fileDigest = fileNode.getDigest();
         Preconditions.checkState(fileDigest == null || Arrays.equals(digest, fileDigest),
             "%s %s %s", artifact, digest, fileDigest);
@@ -346,11 +348,23 @@ class FileAndMetadataCache implements ActionInputFileCache, MetadataHandler {
     return reverseMap.containsKey(digest);
   }
 
-  static FileNode fileNodeFromArtifact(Artifact artifact, @Nullable FileStatusWithDigest stat,
-      TimestampGranularityMonitor tsgm) throws IOException {
+  static FileNode fileNodeFromArtifact(Artifact artifact,
+      @Nullable FileStatusWithDigest statNoFollow, TimestampGranularityMonitor tsgm)
+          throws IOException {
     Path path = artifact.getPath();
+    RootedPath rootedPath =
+        RootedPath.toRootedPath(artifact.getRoot().getPath(), artifact.getRootRelativePath());
+    if (statNoFollow == null) {
+      statNoFollow = FileStatusWithDigestAdapter.adapt(path.statIfFound(Symlinks.NOFOLLOW));
+      if (statNoFollow == null) {
+        return FileNode.node(rootedPath, FileStateNode.NONEXISTENT_FILE_STATE_NODE,
+            rootedPath, FileStateNode.NONEXISTENT_FILE_STATE_NODE);
+      }
+    }
     Path realPath = path;
-    if (path.isSymbolicLink()) {
+    // We use FileStatus#isSymbolicLink over Path#isSymbolicLink to avoid the unnecessary stat
+    // done by the latter.
+    if (statNoFollow.isSymbolicLink()) {
       realPath = path.resolveSymbolicLinks();
       // We need to protect against symlink cycles since FileNode#node assumes it's dealing with a
       // file that's not in a symlink cycle.
@@ -358,18 +372,16 @@ class FileAndMetadataCache implements ActionInputFileCache, MetadataHandler {
         throw new IOException("symlink cycle");
       }
     }
-    RootedPath rootedPath =
-        RootedPath.toRootedPath(artifact.getRoot().getPath(), artifact.getRootRelativePath());
     RootedPath realRootedPath = RootedPath.toRootedPathMaybeUnderRoot(realPath,
         ImmutableList.of(artifact.getRoot().getPath()));
     FileStateNode fileStateNode;
     FileStateNode realFileStateNode;
     try {
-      fileStateNode = FileStateNode.create(rootedPath, stat, tsgm);
+      fileStateNode = FileStateNode.createWithStatNoFollow(rootedPath, statNoFollow, tsgm);
       // TODO(bazel-devel): consider avoiding a 'stat' here when the symlink target hasn't changed
       // and is a source file (since changes to those are checked separately).
       realFileStateNode = realPath.equals(path) ? fileStateNode
-          : FileStateNode.create(realRootedPath, null, tsgm);
+          : FileStateNode.create(realRootedPath, tsgm);
     } catch (InconsistentFilesystemException e) {
       throw new IOException(e);
     }

@@ -56,10 +56,6 @@ public final class ImportStatement extends Statement {
 
   @Override
   void exec(Environment env) throws EvalException, InterruptedException {
-    if (!env.isImportAllowed()) {
-      throw new EvalException(getLocation(), "imports are not yet allowed in BUILD files");
-    }
-
     for (Ident i : symbols) {
       try {
         if (i.getName().startsWith("_")) {

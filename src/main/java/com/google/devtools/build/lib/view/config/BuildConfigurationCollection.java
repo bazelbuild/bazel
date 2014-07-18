@@ -25,6 +25,7 @@ import com.google.devtools.build.lib.packages.Rule;
 import com.google.devtools.build.lib.packages.RuleClass;
 import com.google.devtools.build.lib.packages.Target;
 
+import java.io.PrintStream;
 import java.util.Collection;
 import java.util.HashMap;
 import java.util.LinkedHashSet;
@@ -50,29 +51,19 @@ import java.util.Set;
 public final class BuildConfigurationCollection {
   private final ImmutableList<BuildConfiguration> targetConfigurations;
 
-  public BuildConfigurationCollection(BuildConfiguration... targetConfiguration)
-      throws InvalidConfigurationException {
-    this(ImmutableList.copyOf(targetConfiguration));
-  }
-
   public BuildConfigurationCollection(List<BuildConfiguration> targetConfigurations)
       throws InvalidConfigurationException {
     this.targetConfigurations = ImmutableList.copyOf(targetConfigurations);
 
-    // Except for the host configuration (which may be idential across target configs), the other
+    // Except for the host configuration (which may be identical across target configs), the other
     // configurations must all have different cache keys or we will end up with problems.
     HashMap<String, BuildConfiguration> cacheKeyConflictDetector = new HashMap<>();
-    for (BuildConfiguration target : targetConfigurations) {
-      for (BuildConfiguration config : target.getAllReachableConfigurations()) {
-        if (config.isHostConfiguration()) {
-          continue;
-        }
-        if (cacheKeyConflictDetector.containsKey(config.cacheKey())) {
-          throw new InvalidConfigurationException("Conflicting configurations: " + config + " & "
-              + cacheKeyConflictDetector.get(config.cacheKey()));
-        }
-        cacheKeyConflictDetector.put(config.cacheKey(), config);
+    for (BuildConfiguration config : getAllConfigurations()) {
+      if (cacheKeyConflictDetector.containsKey(config.cacheKey())) {
+        throw new InvalidConfigurationException("Conflicting configurations: " + config + " & "
+            + cacheKeyConflictDetector.get(config.cacheKey()));
       }
+      cacheKeyConflictDetector.put(config.cacheKey(), config);
     }
   }
 
@@ -181,6 +172,28 @@ public final class BuildConfigurationCollection {
   }
 
   /**
+   * Prints the configuration graph in dot format to the given print stream. This is only intended
+   * for debugging.
+   */
+  public void dumpAsDotGraph(PrintStream out) {
+    out.println("digraph g {");
+    out.println("  ratio = 0.3;");
+    for (BuildConfiguration config : getAllConfigurations()) {
+      String from = config.shortCacheKey();
+      for (Map.Entry<? extends Transition, ConfigurationHolder> entry :
+          config.getTransitions().getTransitionTable().entrySet()) {
+        BuildConfiguration toConfig = entry.getValue().getConfiguration();
+        if (toConfig == config) {
+          continue;
+        }
+        String to = toConfig == null ? "ERROR" : toConfig.shortCacheKey();
+        out.println("  \"" + from + "\" -> \"" + to + "\" [label=\"" + entry.getKey() + "\"]");
+      }
+    }
+    out.println("}");
+  }
+
+  /**
    * The outgoing transitions for a build configuration.
    */
   public static class Transitions {
@@ -189,12 +202,16 @@ public final class BuildConfigurationCollection {
     /**
      * Look up table for the configuration transitions, i.e., HOST, DATA, etc.
      */
-    private final Map<? extends Transition, ConfigurationHolder> configurationTransitions;
+    private final Map<? extends Transition, ConfigurationHolder> transitionTable;
 
     public Transitions(BuildConfiguration configuration,
         Map<? extends Transition, ConfigurationHolder> transitionTable) {
       this.configuration = configuration;
-      this.configurationTransitions = ImmutableMap.copyOf(transitionTable);
+      this.transitionTable = ImmutableMap.copyOf(transitionTable);
+    }
+
+    public Map<? extends Transition, ConfigurationHolder> getTransitionTable() {
+      return transitionTable;
     }
 
     /**
@@ -202,7 +219,7 @@ public final class BuildConfigurationCollection {
      * any kind of configuration transition.
      */
     public void addDirectlyReachableConfigurations(Collection<BuildConfiguration> queue) {
-      for (ConfigurationHolder holder : configurationTransitions.values()) {
+      for (ConfigurationHolder holder : transitionTable.values()) {
         if (holder.configuration != null) {
           queue.add(holder.configuration);
         }
@@ -227,7 +244,7 @@ public final class BuildConfigurationCollection {
      * @return the new configuration
      */
     public BuildConfiguration getConfiguration(Transition configurationTransition) {
-      ConfigurationHolder holder = configurationTransitions.get(configurationTransition);
+      ConfigurationHolder holder = transitionTable.get(configurationTransition);
       if (holder == null && configurationTransition.defaultsToSelf()) {
         return configuration;
       }
@@ -261,6 +278,10 @@ public final class BuildConfigurationCollection {
 
     public ConfigurationHolder(BuildConfiguration configuration) {
       this.configuration = configuration;
+    }
+
+    public BuildConfiguration getConfiguration() {
+      return configuration;
     }
 
     @Override

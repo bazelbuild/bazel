@@ -132,11 +132,6 @@ public final class RuleConfiguredTarget extends AbstractConfiguredTarget {
   }
 
   @Override
-  public Iterable<Class<? extends TransitiveInfoProvider>> getImplementedProviders() {
-    return providers.keySet();
-  }
-
-  @Override
   public <P extends TransitiveInfoProvider> P getProvider(Class<P> provider) {
     AnalysisUtils.checkProvider(provider);
     return provider.cast(providers.get(provider));

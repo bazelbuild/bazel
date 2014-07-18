@@ -1392,15 +1392,10 @@ public final class SkyframeExecutor {
         preprocessorFactory, defaultsPackageContents, commandId);
     setDeletedPackages(ImmutableSet.copyOf(packageCacheOptions.deletedPackages));
     this.nodeCacheEvictionLimit = packageCacheOptions.minLoadedPkgCountForCtNodeEviction;
-    setSkylarkEnabled(packageCacheOptions);
 
     incrementalBuildMonitor = new SkyframeIncrementalBuildMonitor();
     invalidateErrors();
     handleDiffs();
-  }
-
-  public void setSkylarkEnabled(PackageCacheOptions packageCacheOptions) {
-    pkgFactory.setSkylarkEnabled(packageCacheOptions.enableSkylark);
   }
 
   private CyclesReporter createCyclesReporter() {

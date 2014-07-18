@@ -27,7 +27,7 @@ import com.google.devtools.build.lib.view.config.BuildConfiguration;
  * {@link TransitiveInfoCollection}s. Also, {@link ConfiguredTarget} objects should not be
  * accessible from the action graph.
  */
-public interface ConfiguredTarget extends EnumerableTransitiveInfoCollection {
+public interface ConfiguredTarget extends TransitiveInfoCollection {
   /**
    * Returns the Target with which this {@link ConfiguredTarget} is associated.
    */

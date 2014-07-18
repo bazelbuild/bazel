@@ -972,6 +972,7 @@ public final class BuildConfiguration {
   /**
    * Returns the bin directory for this build configuration.
    */
+  @SkylarkCallable(doc = "Returns the bin directory for this build configuration")
   public Root getBinDirectory() {
     return binDirectory;
   }
@@ -1104,6 +1105,7 @@ public final class BuildConfiguration {
   /**
    * Returns the default shell environment
    */
+  @SkylarkCallable(doc = "Returns the default shell environment.")
   public ImmutableMap<String, String> getDefaultShellEnvironment() {
     return defaultShellEnvironment;
   }

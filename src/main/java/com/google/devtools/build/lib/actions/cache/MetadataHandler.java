@@ -44,9 +44,9 @@ public interface MetadataHandler {
   void setDigestForVirtualArtifact(Artifact artifact, Digest digest);
 
   /**
-   * Injects provided digest into the metadata handler, simultaneously caching stat() data as well.
+   * Injects provided digest into the metadata handler, simultaneously caching lstat() data as well.
    */
-  void injectDigest(ActionInput output, FileStatus stat, byte[] digest);
+  void injectDigest(ActionInput output, FileStatus statNoFollow, byte[] digest);
 
   /** Returns true iff artifact exists. */
   boolean artifactExists(Artifact artifact);

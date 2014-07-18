@@ -89,10 +89,20 @@ public class ActionExecutionNodeBuilder implements NodeBuilder {
     if (env.depsMissing()) {
       return null;
     }
-    FileAndMetadataCache cache = new FileAndMetadataCache(inputArtifactData, expandedMiddlemen,
-        skyframeActionExecutor.getExecRoot(), tsgm);
+
+    ActionExecutionNode result;
     try {
-      skyframeActionExecutor.executeAction(action, cache);
+      // If this is the second time we are here (because the action discovers inputs, and we had
+      // to restart the node builder after declaring our dependence on newly discovered inputs), the
+      // result returned here is the already-computed result from the first run.
+      // Similarly, if this is a shared action and the other action is the one that executed, we
+      // must use that other action's node, provided here, since it is populated with metadata for
+      // the outputs.
+      // If this action was not shared and this is the first run of the action, this returned result
+      // was computed during the call.
+      result = skyframeActionExecutor.executeAction(action,
+          new FileAndMetadataCache(inputArtifactData, expandedMiddlemen,
+          skyframeActionExecutor.getExecRoot(), tsgm));
     } catch (ActionExecutionException e) {
       skyframeActionExecutor.reportActionExecutionFailure(action);
       // In this case we do not report the error to the action reporter because we have already
@@ -109,7 +119,7 @@ public class ActionExecutionNodeBuilder implements NodeBuilder {
       return null;
     }
 
-    return new ActionExecutionNode(cache.getOutputData(), cache.getAdditionalOutputData());
+    return result;
   }
 
   private static Collection<NodeKey> toKeys(Iterable<Artifact> inputs,

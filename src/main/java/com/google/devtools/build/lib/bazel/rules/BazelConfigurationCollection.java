@@ -30,6 +30,7 @@ import com.google.devtools.build.lib.pkgcache.LoadedPackageProvider;
 import com.google.devtools.build.lib.syntax.Label;
 import com.google.devtools.build.lib.view.ConfigurationCollectionFactory;
 import com.google.devtools.build.lib.view.config.BuildConfiguration;
+import com.google.devtools.build.lib.view.config.BuildConfigurationCollection;
 import com.google.devtools.build.lib.view.config.BuildConfigurationCollection.ConfigurationHolder;
 import com.google.devtools.build.lib.view.config.BuildConfigurationCollection.Transitions;
 import com.google.devtools.build.lib.view.config.BuildConfigurationKey;
@@ -178,7 +179,7 @@ public class BazelConfigurationCollection implements ConfigurationCollectionFact
 
     for (BuildConfiguration config : allConfigurations) {
       Transitions outgoingTransitions =
-          new BazelConfigurationTransitions(config, transitionBuilder.row(config));
+          new BuildConfigurationCollection.Transitions(config, transitionBuilder.row(config));
       // We allow host configurations to be shared between target configurations. In that case, the
       // transitions may already be set.
       // TODO(bazel-team): Check that the transitions are identical, or even better, change the

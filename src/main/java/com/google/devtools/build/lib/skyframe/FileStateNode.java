@@ -16,6 +16,7 @@ package com.google.devtools.build.lib.skyframe;
 import com.google.common.base.Preconditions;
 import com.google.devtools.build.lib.concurrent.ThreadSafety.ThreadSafe;
 import com.google.devtools.build.lib.util.io.TimestampGranularityMonitor;
+import com.google.devtools.build.lib.vfs.FileStatus;
 import com.google.devtools.build.lib.vfs.FileStatusWithDigest;
 import com.google.devtools.build.lib.vfs.FileStatusWithDigestAdapter;
 import com.google.devtools.build.lib.vfs.Path;
@@ -63,25 +64,25 @@ abstract class FileStateNode implements Node {
   public static FileStateNode create(RootedPath rootedPath,
       @Nullable TimestampGranularityMonitor tsgm) throws InconsistentFilesystemException,
       IOException {
-    return create(rootedPath, null, tsgm);
-  }
-
-  public static FileStateNode create(RootedPath rootedPath, @Nullable FileStatusWithDigest stat,
-      @Nullable TimestampGranularityMonitor tsgm) throws InconsistentFilesystemException,
-      IOException {
     Path path = rootedPath.asPath();
     // Stat, but don't throw an exception for the common case of a nonexistent file. This still
     // throws an IOException in case any other IO error is encountered.
-    if (stat == null) {
-      stat = FileStatusWithDigestAdapter.adapt(path.statIfFound(Symlinks.NOFOLLOW));
-    }
+    FileStatus stat = path.statIfFound(Symlinks.NOFOLLOW);
     if (stat == null) {
       return NONEXISTENT_FILE_STATE_NODE;
-    } else if (stat.isFile()) {
-      return FileFileStateNode.fromPath(path, stat, tsgm);
-    } else if (stat.isDirectory()) {
+    }
+    return createWithStatNoFollow(rootedPath, FileStatusWithDigestAdapter.adapt(stat), tsgm);
+  }
+
+  public static FileStateNode createWithStatNoFollow(RootedPath rootedPath,
+      FileStatusWithDigest statNoFollow, @Nullable TimestampGranularityMonitor tsgm)
+          throws InconsistentFilesystemException, IOException {
+    Path path = rootedPath.asPath();
+    if (statNoFollow.isFile()) {
+      return FileFileStateNode.fromPath(path, statNoFollow, tsgm);
+    } else if (statNoFollow.isDirectory()) {
       return DIRECTORY_FILE_STATE_NODE;
-    } else if (stat.isSymbolicLink()) {
+    } else if (statNoFollow.isSymbolicLink()) {
       return new SymlinkFileStateNode(path.readSymbolicLink());
     }
     throw new InconsistentFilesystemException("according to stat, existing path " + path + " is "

@@ -92,12 +92,6 @@ public class PackageCacheOptions extends OptionsBase {
           + "problem.")
   public List<String> deletedPackages;
 
-  @Option(name = "experimental_enable_skylark",
-          defaultValue = "false",
-          category = "undocumented",
-          help = "Allow the import of Skylark extensions")
-  public boolean enableSkylark;
-
   @Option(name = "default_visibility",
       defaultValue = "private",
       category = "undocumented",

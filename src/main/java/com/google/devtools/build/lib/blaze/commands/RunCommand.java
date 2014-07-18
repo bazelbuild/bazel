@@ -440,8 +440,7 @@ public class RunCommand implements BlazeCommand  {
     return "Cannot run target " + target.getLabel() + ": Not executable";
   }
 
-  // Return null if the target is a runnable non-test rule, or an appropriate
-  // error message otherwise.
+  /** Returns null if the target is a runnable rule, or an appropriate error message otherwise. */
   private static String validateTarget(Target target) {
     return isExecutable(target)
         ? null

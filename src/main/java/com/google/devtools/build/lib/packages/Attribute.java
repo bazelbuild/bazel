@@ -621,9 +621,32 @@ public class Attribute implements Comparable<Attribute> {
     /**
      * Makes the built attribute "non-configurable", i.e. its value cannot be influenced by
      * the build configuration. Attributes are "configurable" unless explicitly opted out here.
+     *
+     * @deprecated use {@link #nonconfigurable(String)} instead
      */
+    @Deprecated
     public Builder<TYPE> nonconfigurable() {
       return setPropertyFlag(PropertyFlag.NONCONFIGURABLE, "nonconfigurable");
+    }
+
+    /**
+     * Variation of {@link #nonconfigurable} that requires a stated reason *why* this attribute
+     * can't be configurable. The reason isn't used by Blaze - it's solely a mechanism
+     * for enforced developer documentation.
+     *
+     * <p>Non-configurability indicates an exceptional state: there exists Blaze logic that needs
+     * the attribute's value, has no access to configurations, and can't apply a workaround
+     * through an appropriate {@link AbstractAttributeMapper} implementation. Scenarios like
+     * this should be as uncommon as possible (ideally non-existent), so it's important we
+     * maintain clear documentation on what causes them and why users consequently can't
+     * configure certain attributes.
+     *
+     * <p>Always use this over {@link #nonconfigurable()}  That version will be removed
+     * outright when all instances are properly updated.
+     */
+    public Builder<TYPE> nonconfigurable(String reason) {
+      Preconditions.checkState(!reason.isEmpty());
+      return nonconfigurable();
     }
 
     /**
@@ -1100,7 +1123,7 @@ public class Attribute implements Comparable<Attribute> {
    *   {@code hasComputedDefault()}; ignored otherwise.
    */
   public Object getDefaultValue(Rule rule) {
-    if (!getCondition().apply(rule)) {
+    if (!getCondition().apply(rule == null ? null : NonconfigurableAttributeMapper.of(rule))) {
       return null;
     } else if (defaultValue instanceof LateBoundDefault<?>) {
       return ((LateBoundDefault<?>) defaultValue).getDefault();

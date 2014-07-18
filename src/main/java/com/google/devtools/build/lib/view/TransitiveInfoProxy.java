@@ -22,13 +22,13 @@ import com.google.devtools.build.lib.view.RuleConfiguredTarget.SkylarkProviders;
  *
  * <p>To enable the proxy, set {@link Options#extendedSanityChecks} to true.
  */
-public class TransitiveInfoProxy {
+public final class TransitiveInfoProxy {
 
-  private static class TransitiveInfoCollectionProxy implements TransitiveInfoCollection {
+  private static final class TransitiveInfoCollectionProxy implements TransitiveInfoCollection {
 
-    private final EnumerableTransitiveInfoCollection collection;
+    private final TransitiveInfoCollection collection;
 
-    public TransitiveInfoCollectionProxy(EnumerableTransitiveInfoCollection collection) {
+    public TransitiveInfoCollectionProxy(TransitiveInfoCollection collection) {
       this.collection = collection; 
     }
 
@@ -54,7 +54,7 @@ public class TransitiveInfoProxy {
    * given {@code infoCollection} and then deserializing the result.
    */
   public static TransitiveInfoCollection createCollectionProxy(
-      EnumerableTransitiveInfoCollection collection) {
+      TransitiveInfoCollection collection) {
     return new TransitiveInfoCollectionProxy(collection);
   }
 }

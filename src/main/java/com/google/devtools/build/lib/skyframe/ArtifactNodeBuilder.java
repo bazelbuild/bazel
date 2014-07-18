@@ -148,7 +148,8 @@ class ArtifactNodeBuilder implements NodeBuilder {
     // Middleman artifacts have no corresponding files, so their ArtifactNodes should have already
     // been constructed during execution of the action.
     Preconditions.checkState(!artifact.isMiddlemanArtifact(), artifact);
-    FileNode data = Preconditions.checkNotNull(actionNode.getData(artifact), artifact);
+    FileNode data = Preconditions.checkNotNull(actionNode.getData(artifact),
+        "%s %s", artifact, actionNode);
     Preconditions.checkNotNull(data.getDigest(),
           "Digest should already have been calculated for %s (%s)", artifact, data);
     return FileArtifactNode.create(artifact, data);

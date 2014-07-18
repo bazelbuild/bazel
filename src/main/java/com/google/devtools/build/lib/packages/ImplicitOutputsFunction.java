@@ -64,12 +64,15 @@ public abstract class ImplicitOutputsFunction {
 
     @Override
     public Iterable<String> getImplicitOutputs(AttributeMap map) throws EvalException {
-      Rule rule = (Rule) map;
       Map<String, Object> attrValues = new HashMap<>();
-      for (Attribute attr : rule.getAttributes()) {
-        Object value = rule.getAttr(attr.getName());
+      for (String attrName : map.getAttributeNames()) {
+        // TODO(bazel-team): support configurable attributes - which value would we want to
+        // pass on to the child outputs function? Maybe implicit output functions shouldn't
+        // have access to configurable values (makes them too complicated?). Maybe they
+        // should have *full* access (gives them the most power?).
+        Object value = map.get(attrName, map.getAttributeType(attrName));
         if (value != null) {
-          attrValues.put(attr.getName(), value);
+          attrValues.put(attrName, value);
         }
       }
       ClassObject attrs = new ClassObject(attrValues);
@@ -79,7 +82,7 @@ public abstract class ImplicitOutputsFunction {
         // ClassCastException which gets converted but still not very nice.
         @SuppressWarnings("unchecked")
         List<String> result = (List<String>) callback.call(attrs);
-        return fromTemplates(result).getImplicitOutputs(rule);
+        return fromTemplates(result).getImplicitOutputs(map);
       } catch (ClassCastException e) {
         throw new EvalException(loc, e.getMessage());
       }

@@ -22,6 +22,7 @@ import com.google.common.collect.Lists;
 import com.google.devtools.build.lib.collect.nestedset.NestedSet;
 import com.google.devtools.build.lib.concurrent.ThreadSafety.Immutable;
 import com.google.devtools.build.lib.events.Location;
+import com.google.devtools.build.lib.vfs.PathFragment;
 
 import java.io.IOException;
 import java.util.ArrayList;
@@ -246,6 +247,8 @@ public abstract class EvalUtils {
       buffer.append(", symlinks = '");
       buffer.append(entry.getSymlinkBehavior().toString());
       buffer.append("' )");
+    } else if (o instanceof PathFragment) {
+      buffer.append(((PathFragment) o).getPathString());
     } else {
       buffer.append(o.toString());
     }

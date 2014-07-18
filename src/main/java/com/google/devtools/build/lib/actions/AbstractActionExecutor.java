@@ -67,7 +67,7 @@ public abstract class AbstractActionExecutor {
    *
    * @param action  The action to execute
    * @param token  The token returned by dependencyChecker.needToExecute()
-   * @param actionInputFileCache source of file data for the distributor.
+   * @param actionInputFileCache source of file metadata.
    * @param metadataHandler source of file data for the action cache and output-checking.
    * @param middlemanExpander The object that can expand middleman inputs of the action.
    * @param actionStartTime time when we started the first phase of the action execution.
@@ -262,9 +262,8 @@ public abstract class AbstractActionExecutor {
    *
    * <p>May execute in a worker thread.
    *
-   * <p>Note: setting these bits maintains transparency regarding the locality
-   * of the build; because the execution-engine and the distributor sets them, they should be
-   * set for local builds too.
+   * <p>Note: setting these bits maintains transparency regarding the locality of the build;
+   * because the remote execution engine sets them, they should be set for local builds too.
    *
    * @throws IOException if an I/O error occurred.
    */
@@ -413,7 +412,7 @@ public abstract class AbstractActionExecutor {
       outErrBuffer.dumpErrAsLatin1(outErr.getErrorStream());
     }
   }
- 
+
   /**
    * Returns true if the Builder is winding down (i.e. cancelling outstanding
    * actions and preparing to abort.)

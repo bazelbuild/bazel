@@ -14,9 +14,7 @@
 
 package com.google.devtools.build.lib.view;
 
-import com.google.common.base.Preconditions;
 import com.google.devtools.build.lib.collect.nestedset.NestedSet;
-import com.google.devtools.build.lib.packages.Attribute.ConfigurationTransition;
 import com.google.devtools.build.lib.packages.PackageSpecification;
 import com.google.devtools.build.lib.packages.Target;
 import com.google.devtools.build.lib.syntax.Label;
@@ -75,19 +73,6 @@ public class TargetContext {
   @Nullable
   public BuildConfiguration getConfiguration() {
     return configuration;
-  }
-
-  /**
-   * Returns the host configuration for this rule; keep in mind that there may be multiple different
-   * host configurations, even during a single build.
-   *
-   * @throws IllegalStateException if called for a target that is analyzed in the null configuration
-   *         - see {@link #getConfiguration}
-   */
-  // TODO(bazel-team): Move this to RuleContext, where it's guaranteed to never throw.
-  public BuildConfiguration getHostConfiguration() {
-    Preconditions.checkState(configuration != null);
-    return configuration.getConfiguration(ConfigurationTransition.HOST);
   }
 
   public NestedSet<PackageSpecification> getVisibility() {

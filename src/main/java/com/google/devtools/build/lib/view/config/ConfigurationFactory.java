@@ -20,6 +20,7 @@ import com.google.common.cache.Cache;
 import com.google.common.cache.CacheBuilder;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
+import com.google.common.collect.ImmutableSortedMap;
 import com.google.devtools.build.lib.blaze.BlazeDirectories;
 import com.google.devtools.build.lib.concurrent.ThreadSafety.ThreadCompatible;
 import com.google.devtools.build.lib.events.ErrorEventListener;
@@ -39,6 +40,7 @@ import com.google.devtools.build.lib.view.config.BuildConfiguration.Fragment;
 
 import java.io.IOException;
 import java.util.ArrayList;
+import java.util.Comparator;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
@@ -97,10 +99,6 @@ public final class ConfigurationFactory {
   @VisibleForTesting
   public void forbidSanityCheck() {
     performSanityCheck = false;
-  }
-
-  public Map<Class<? extends Fragment>, ConfigurationFragmentFactory> getFragmentFactoryMap() {
-    return fragmentFactories.factoryMap;
   }
 
   /**
@@ -207,6 +205,17 @@ public final class ConfigurationFactory {
       }
     }
 
+    // Sort the fragments by class name to make sure that the order is stable. Afterwards, copy to
+    // an ImmutableMap, which keeps the order stable, but uses hashing, and drops the reference to
+    // the Comparator object.
+    fragments = ImmutableSortedMap.copyOf(fragments, new Comparator<Class<? extends Fragment>>() {
+      @Override
+      public int compare(Class<? extends Fragment> o1, Class<? extends Fragment> o2) {
+        return o1.getName().compareTo(o2.getName());
+      }
+    });
+    fragments = ImmutableMap.copyOf(fragments);
+
     String key = BuildConfiguration.computeCacheKey(
         directories, fragments, buildOptions, clientEnv);
     BuildConfiguration configuration = cache.getIfPresent(key);
@@ -250,11 +259,11 @@ public final class ConfigurationFactory {
    * Takes dependency information from {@code ConfigurationFragmentFactory.requires()}.
    */
   private class FragmentFactories {
-    // The topological order of fragment factories
+    /**
+     * The topological order of fragment factories; note that the ordering of factories in this list
+     * may be non-deterministic from JVM invocation to JVM invocation.
+     */
     final List<ConfigurationFragmentFactory> creationOrder;
-
-    // Mapping from fragment to their factories
-    final Map<Class<? extends Fragment>, ConfigurationFragmentFactory> factoryMap;
 
     // Mapping from fragments to their dependencies
     final Map<ConfigurationFragmentFactory, List<Class<? extends Fragment>>> dependencies;
@@ -275,7 +284,8 @@ public final class ConfigurationFactory {
           dependencyGraph.addEdge(dependency, factory.creates());
         }
       }
-      factoryMap = factoryBuilder.build();
+      Map<Class<? extends Fragment>, ConfigurationFragmentFactory> factoryMap =
+          factoryBuilder.build();
       dependencies = depsBuilder.build();
 
       ImmutableList.Builder<ConfigurationFragmentFactory> builder = ImmutableList.builder();

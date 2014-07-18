@@ -107,7 +107,7 @@ public final class LateBoundAttributeHelper {
     // Handle late-bound attributes.
     for (Attribute attribute : rule.getAttributes()) {
       String attributeName = attribute.getName();
-      if (Attribute.isLateBound(attributeName) && attribute.getCondition().apply(rule)) {
+      if (Attribute.isLateBound(attributeName) && attribute.getCondition().apply(attributes)) {
         @SuppressWarnings("unchecked")
         LateBoundDefault<BuildConfiguration> lateBoundDefault =
             (LateBoundDefault<BuildConfiguration>) attribute.getLateBoundDefault();

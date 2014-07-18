@@ -13,6 +13,7 @@
 // limitations under the License.
 package com.google.devtools.build.lib.skyframe;
 
+import com.google.common.base.Objects;
 import com.google.common.base.Preconditions;
 import com.google.devtools.build.lib.actions.Artifact;
 import com.google.devtools.build.lib.actions.cache.DigestUtils;
@@ -133,5 +134,13 @@ public class FileArtifactNode extends ArtifactNode {
     FileArtifactNode that = (FileArtifactNode) other;
     return this.mtime == that.mtime && this.size == that.size
         && Arrays.equals(this.digest, that.digest);
+  }
+
+  @Override
+  public String toString() {
+    return Objects.toStringHelper(FileArtifactNode.class)
+        .add("digest", digest)
+        .add("mtime", mtime)
+        .add("size", size).toString();
   }
 }

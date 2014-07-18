@@ -14,6 +14,7 @@
 package com.google.devtools.build.lib.skyframe;
 
 import com.google.common.annotations.VisibleForTesting;
+import com.google.common.base.Objects;
 import com.google.common.base.Preconditions;
 import com.google.common.collect.ImmutableMap;
 import com.google.devtools.build.lib.actions.Action;
@@ -104,5 +105,13 @@ public class ActionExecutionNode implements Node {
    */
   public static boolean isReportWorthyAction(Action action) {
     return action.getActionType() == MiddlemanType.NORMAL;
+  }
+
+  @Override
+  public String toString() {
+    return Objects.toStringHelper(this)
+        .add("artifactData", artifactData)
+        .add("additionalOutputData", additionalOutputData)
+        .toString();
   }
 }

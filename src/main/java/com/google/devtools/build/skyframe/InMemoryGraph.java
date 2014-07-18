@@ -29,11 +29,11 @@ import javax.annotation.Nullable;
  * An in-memory graph implementation. All operations are thread-safe with ConcurrentMap semantics.
  * Also see {@link NodeEntry}.
  * 
- * <p>This class is non-final only for testing purposes.
+ * <p>This class is public only for use in alternative graph implementations.
  */
-class InMemoryGraph implements ProcessableGraph {
-  
-  private final ConcurrentMap<NodeKey, NodeEntry> nodeMap = Maps.newConcurrentMap();
+public class InMemoryGraph implements ProcessableGraph {
+
+  protected final ConcurrentMap<NodeKey, NodeEntry> nodeMap = Maps.newConcurrentMap();
 
   public InMemoryGraph() {
   }

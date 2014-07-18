@@ -23,12 +23,15 @@ import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.ImmutableSet;
 import com.google.common.collect.Iterables;
 import com.google.devtools.build.lib.actions.Action;
+import com.google.devtools.build.lib.actions.ActionOwner;
 import com.google.devtools.build.lib.actions.Artifact;
 import com.google.devtools.build.lib.actions.Root;
+import com.google.devtools.build.lib.collect.nestedset.NestedSet;
 import com.google.devtools.build.lib.packages.Attribute;
 import com.google.devtools.build.lib.packages.Attribute.ConfigurationTransition;
 import com.google.devtools.build.lib.packages.ImplicitOutputsFunction;
 import com.google.devtools.build.lib.packages.OutputFile;
+import com.google.devtools.build.lib.packages.RawAttributeMapper;
 import com.google.devtools.build.lib.shell.ShellUtils;
 import com.google.devtools.build.lib.shell.ShellUtils.TokenizationException;
 import com.google.devtools.build.lib.syntax.ClassObject;
@@ -40,12 +43,15 @@ import com.google.devtools.build.lib.syntax.SkylarkCallable;
 import com.google.devtools.build.lib.util.FileType;
 import com.google.devtools.build.lib.util.FileTypeSet;
 import com.google.devtools.build.lib.vfs.PathFragment;
+import com.google.devtools.build.lib.view.AnalysisUtils;
 import com.google.devtools.build.lib.view.ConfigurationMakeVariableContext;
+import com.google.devtools.build.lib.view.FilesToRunProvider;
 import com.google.devtools.build.lib.view.LabelExpander;
 import com.google.devtools.build.lib.view.LabelExpander.NotUniqueExpansionException;
 import com.google.devtools.build.lib.view.MakeVariableExpander.ExpansionException;
 import com.google.devtools.build.lib.view.RuleConfiguredTarget.Mode;
 import com.google.devtools.build.lib.view.RuleContext;
+import com.google.devtools.build.lib.view.TransitiveInfoCollection;
 import com.google.devtools.build.lib.view.TransitiveInfoProvider;
 import com.google.devtools.build.lib.view.config.BuildConfiguration;
 
@@ -108,7 +114,7 @@ public final class SkylarkRuleContext {
    */
   @SkylarkCallable(
       doc = "Returns the immutable list of files for the specified attribute and mode.")
-  public Object getPrerequisiteArtifacts(String attributeName, String mode)
+  public ImmutableList<Artifact> files(String attributeName, String mode)
       throws FuncallException {
     return ruleContext.getPrerequisiteArtifacts(attributeName, convertMode(mode));
   }
@@ -117,7 +123,7 @@ public final class SkylarkRuleContext {
    * See {@link RuleContext#getPrerequisiteArtifacts(String, Mode, FileTypeSet)}.
    */
   @SkylarkCallable(doc = "")
-  public Object getPrerequisiteArtifacts(
+  public ImmutableList<Artifact> files(
       String attributeName, String mode, List<?> fileTypes) throws FuncallException {
     return ruleContext.getPrerequisiteArtifacts(attributeName, convertMode(mode), FileTypeSet.of(
         Iterables.transform(fileTypes, new Function<Object, FileType>() {
@@ -133,7 +139,8 @@ public final class SkylarkRuleContext {
    * See {@link RuleContext#getPrerequisites(String, Mode)}.
    */
   @SkylarkCallable(doc = "")
-  public Object getPrerequisites(String attributeName, String mode) throws FuncallException {
+  public Iterable<? extends TransitiveInfoCollection> targets(String attributeName, String mode)
+      throws FuncallException {
     return ruleContext.getPrerequisites(attributeName, convertMode(mode));
   }
 
@@ -147,7 +154,7 @@ public final class SkylarkRuleContext {
    * <p>See {@link RuleContext#getPrerequisites(String, Mode, Class)}.
    */
   @SkylarkCallable(doc = "")
-  public Iterable<? extends TransitiveInfoProvider> getPrerequisites(
+  public Iterable<? extends TransitiveInfoProvider> targets(
       String attributeName, String mode, String type) throws FuncallException {
     try {
       Class<? extends TransitiveInfoProvider> convertedClass =
@@ -162,7 +169,7 @@ public final class SkylarkRuleContext {
    * See {@link RuleContext#getPrerequisiteArtifact(String, Mode)}.
    */
   @SkylarkCallable(doc = "")
-  public Object getPrerequisiteArtifact(String attributeName, String mode) throws FuncallException {
+  public Artifact file(String attributeName, String mode) throws FuncallException {
     return ruleContext.getPrerequisiteArtifact(attributeName, convertMode(mode));
   }
 
@@ -170,7 +177,7 @@ public final class SkylarkRuleContext {
    * <p>See {@link RuleContext#getExecutablePrerequisite(String, Mode)}.
    */
   @SkylarkCallable(doc = "")
-  public Object getExecutablePrerequisite(String attributeName, String mode)
+  public FilesToRunProvider executable(String attributeName, String mode)
       throws FuncallException {
     return ruleContext.getExecutablePrerequisite(attributeName, convertMode(mode));
   }
@@ -187,20 +194,8 @@ public final class SkylarkRuleContext {
    * <p>See {@link RuleContext#getCompiler(boolean)}.
    */
   @SkylarkCallable(doc = "")
-  public Object getCompiler(Boolean warnIfNotDefault) {
+  public FilesToRunProvider compiler(Boolean warnIfNotDefault) {
     return ruleContext.getCompiler(warnIfNotDefault);
-  }
-
-  /**
-   * Returns the rule attribute field if exists.
-   */
-  @SkylarkCallable(doc = "")
-  public Object get(String attributeName) throws FuncallException {
-    try {
-      return ruleContext.getRule().getAttr(attributeName);
-    } catch (IllegalArgumentException e) {
-      throw new FuncallException(e.getMessage());
-    }
   }
 
   @SkylarkCallable(doc = "")
@@ -212,7 +207,7 @@ public final class SkylarkRuleContext {
    * Returns the rule's label.
    */
   @SkylarkCallable(doc = "")
-  public Label getLabel() {
+  public Label label() {
     return ruleContext.getLabel();
   }
 
@@ -220,7 +215,7 @@ public final class SkylarkRuleContext {
    * Returns the rule's action owner.
    */
   @SkylarkCallable(doc = "")
-  public Object getActionOwner() {
+  public ActionOwner actionOwner() {
     return ruleContext.getActionOwner();
   }
 
@@ -230,14 +225,6 @@ public final class SkylarkRuleContext {
   @SkylarkCallable(doc = "")
   public void registerAction(Action action) {
     ruleContext.getAnalysisEnvironment().registerAction(action);
-  }
-
-  /**
-   * See {@link RuleContext#getConfiguration()}.
-   */
-  @SkylarkCallable(doc = "")
-  public Object getConfiguration() {
-    return ruleContext.getConfiguration();
   }
 
   /**
@@ -272,11 +259,12 @@ public final class SkylarkRuleContext {
     ruleContext.attributeWarning(attrName, message);
   }
 
+  // TODO(bazel-team): Don't expose OutputFile-s.
   /**
    * See {@link RuleContext#createOutputArtifact(OutputFile)}.
    */
   @SkylarkCallable(doc = "")
-  public Object createOutputArtifact(OutputFile out) {
+  public Artifact createOutputFile(OutputFile out) {
     return ruleContext.createOutputArtifact(out);
   }
 
@@ -284,7 +272,7 @@ public final class SkylarkRuleContext {
    * See {@link RuleContext#getOutputArtifacts()}.
    */
   @SkylarkCallable(doc = "")
-  public Object getOutputArtifacts() {
+  public ImmutableList<Artifact> outputArtifacts() {
     return ruleContext.getOutputArtifacts();
   }
 
@@ -292,7 +280,7 @@ public final class SkylarkRuleContext {
    * See {@link RuleContext#createOutputArtifact(OutputFile)}.
    */
   @SkylarkCallable(doc = "")
-  public ImmutableList<OutputFile> getOutputFiles() {
+  public ImmutableList<OutputFile> outputFiles() {
     return ImmutableList.copyOf(ruleContext.getRule().getOutputFiles());
   }
 
@@ -300,11 +288,6 @@ public final class SkylarkRuleContext {
   @SkylarkCallable(doc = "")
   public String toString() {
     return ruleContext.getLabel().toString();
-  }
-
-  @SkylarkCallable(doc = "")
-  public ImmutableMap<String, String> getDefaultShellEnvironment() {
-    return ruleContext.getConfiguration().getDefaultShellEnvironment();
   }
 
   @SkylarkCallable(doc = "")
@@ -331,7 +314,7 @@ public final class SkylarkRuleContext {
   @SkylarkCallable(doc = "")
   public ImmutableList<String> substitutePlaceholders(String template) {
     return ImplicitOutputsFunction.substitutePlaceholderIntoTemplate(
-        template, ruleContext.getRule());
+        template, RawAttributeMapper.of(ruleContext.getRule()));
   }
 
   @SkylarkCallable(doc = "")
@@ -350,12 +333,17 @@ public final class SkylarkRuleContext {
   }
 
   @SkylarkCallable(doc = "")
-  public Artifact derivedArtifact(Root root, List<String> pathFragmentStrings) {
+  public Artifact file(Root root, List<String> pathFragmentStrings) {
     PathFragment fragment = ruleContext.getLabel().getPackageFragment();
     for (String pathFragmentString : pathFragmentStrings) {
       fragment = fragment.getRelative(pathFragmentString);
     }
     return ruleContext.getAnalysisEnvironment().getDerivedArtifact(fragment, root);
+  }
+
+  @SkylarkCallable(doc = "")
+  public NestedSet<Artifact> middleMan(String attribute) {
+    return AnalysisUtils.getMiddlemanFor(ruleContext, attribute);
   }
 
   @SkylarkCallable(doc = "")

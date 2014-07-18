@@ -183,10 +183,9 @@ int main(int argc, char *argv[]) {
       DIE("Could not setsid from child");
     }
     ClearSignalMask();
-    // Force umask to include read and execute for everyone.
-    // We need to run subprocesses with this umask in order to comply
-    // with the Test Encyclopedia.
-    // Current users of the distributor either do not have "secret"
+    // Force umask to include read and execute for everyone.  We need
+    // to run subprocesses with this umask in order to comply with the
+    // Test Encyclopedia.  Current users either do not have "secret"
     // outputs, or create the parent directories for our output files,
     // presumably honoring umask themselves.
     umask(022);

@@ -39,6 +39,7 @@ import com.google.devtools.build.lib.packages.NoSuchPackageException;
 import com.google.devtools.build.lib.packages.NoSuchTargetException;
 import com.google.devtools.build.lib.packages.OutputFile;
 import com.google.devtools.build.lib.packages.PackageSpecification;
+import com.google.devtools.build.lib.packages.RawAttributeMapper;
 import com.google.devtools.build.lib.packages.Rule;
 import com.google.devtools.build.lib.packages.RuleClass;
 import com.google.devtools.build.lib.packages.RuleErrorConsumer;
@@ -138,6 +139,17 @@ public final class RuleContext extends TargetContext
   @Override
   public Rule getRule() {
     return rule;
+  }
+
+
+  /**
+   * Returns the host configuration for this rule; keep in mind that there may be multiple different
+   * host configurations, even during a single build.
+   */
+  public BuildConfiguration getHostConfiguration() {
+    BuildConfiguration configuration = getConfiguration();
+    // Note: the Builder checks that the configuration is non-null.
+    return configuration.getConfiguration(ConfigurationTransition.HOST);
   }
 
   /**
@@ -786,7 +798,7 @@ public final class RuleContext extends TargetContext
   public Artifact getImplicitOutputArtifact(ImplicitOutputsFunction function) {
     Iterable<String> result;
     try {
-      result = function.getImplicitOutputs(rule);
+      result = function.getImplicitOutputs(RawAttributeMapper.of(rule));
     } catch (EvalException e) {
       // It's ok as long as we don't use this method from Skylark.
       throw new IllegalStateException(e);
@@ -990,28 +1002,6 @@ public final class RuleContext extends TargetContext
       return this;
     }
 
-    /**
-     * A builder class for the target map.
-     *
-     * <p>This class is also responsible for proxying providers (if requested).
-     */
-    private static final class TargetMapBuilder {
-
-      private ImmutableSortedKeyListMultimap.Builder<String, TransitiveInfoCollection> builder =
-          ImmutableSortedKeyListMultimap.builder();
-
-      public TargetMapBuilder() {
-      }
-
-      public void put(String attr, TransitiveInfoCollection target) {
-        builder.put(attr, target);
-      }
-
-      public ListMultimap<String, TransitiveInfoCollection> build() {
-        return builder.build();
-      }
-    }
-
     private boolean validateFilesetEntry(FilesetEntry filesetEntry, Prerequisite src) {
       if (src.getTransitiveInfoCollection().getProvider(FilesetProvider.class) != null) {
         return true;
@@ -1077,8 +1067,9 @@ public final class RuleContext extends TargetContext
     /**
      * Determines and returns a map from attribute name to list of configured targets.
      */
-    private ListMultimap<String, TransitiveInfoCollection> createTargetMap() {
-      TargetMapBuilder mapBuilder = new TargetMapBuilder();
+    private ImmutableSortedKeyListMultimap<String, TransitiveInfoCollection> createTargetMap() {
+      ImmutableSortedKeyListMultimap.Builder<String, TransitiveInfoCollection> mapBuilder =
+          ImmutableSortedKeyListMultimap.builder();
 
       for (Map.Entry<Attribute, Collection<Label>> entry : labelMap.asMap().entrySet()) {
         Attribute attribute = entry.getKey();

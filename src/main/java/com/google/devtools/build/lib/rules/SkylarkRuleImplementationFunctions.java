@@ -40,6 +40,7 @@ import com.google.devtools.build.lib.syntax.SkylarkFunction;
 import com.google.devtools.build.lib.syntax.SkylarkFunction.SimpleSkylarkFunction;
 import com.google.devtools.build.lib.syntax.SkylarkNestedSet;
 import com.google.devtools.build.lib.syntax.ValidationEnvironment;
+import com.google.devtools.build.lib.vfs.PathFragment;
 import com.google.devtools.build.lib.view.CommandHelper;
 import com.google.devtools.build.lib.view.FilesToRunProvider;
 import com.google.devtools.build.lib.view.RuleConfiguredTargetBuilder;
@@ -135,14 +136,14 @@ public class SkylarkRuleImplementationFunctions {
       if (params.containsKey("executable")) {
         Object exe = params.get("executable");
         if (exe instanceof Artifact) {
-          builder.setExecutable(
-              cast(exe, Artifact.class, "executable", loc));
+          builder.setExecutable(cast(exe, Artifact.class, "executable", loc));
         } else if (exe instanceof FilesToRunProvider) {
-          builder.setExecutable(
-              cast(exe, FilesToRunProvider.class, "executable", loc));
+          builder.setExecutable(cast(exe, FilesToRunProvider.class, "executable", loc));
+        } else if (exe instanceof PathFragment) {
+          builder.setExecutable(cast(exe, PathFragment.class, "executable", loc));
         } else {
-          throw new EvalException(loc, "expected Artifact or FilesToRunProvider for executable "
-              + "but got " + EvalUtils.getDatatypeName(exe) + " instead");
+          throw new EvalException(loc, "expected Artifact, FilesToRunProvider or PathFragment for "
+              + "executable but got " + EvalUtils.getDatatypeName(exe) + " instead");
         }
       }
       if (params.containsKey("command")) {

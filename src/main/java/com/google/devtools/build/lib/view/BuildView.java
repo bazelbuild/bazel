@@ -609,11 +609,6 @@ public class BuildView {
     }
 
     class SilentDependencyResolver extends DependencyResolver {
-
-      SilentDependencyResolver(BuildConfigurationCollection configurations) {
-        super(configurations);
-      }
-
       @Override
       protected void invalidVisibilityReferenceHook(TargetAndConfiguration node, Label label) {
         // The error must have been reported already during analysis.
@@ -639,7 +634,7 @@ public class BuildView {
       }
     }
 
-    DependencyResolver dependencyResolver = new SilentDependencyResolver(configurations);
+    DependencyResolver dependencyResolver = new SilentDependencyResolver();
     TargetAndConfiguration ctgNode =
         new TargetAndConfiguration(ct.getTarget(), ct.getConfiguration());
     return getExistingConfiguredTargets(dependencyResolver.dependentNodes(ctgNode));
@@ -1107,7 +1102,7 @@ public class BuildView {
       ConfiguredTarget target, boolean extendedSanityChecks) {
     PrerequisiteMap.Builder prerequisiteMap = new PrerequisiteMap.Builder(extendedSanityChecks);
 
-    DependencyResolver resolver = new DependencyResolver(configurations) {
+    DependencyResolver resolver = new DependencyResolver() {
       @Override
       protected void invalidVisibilityReferenceHook(TargetAndConfiguration node, Label label) {
         throw new RuntimeException("bad visibility on " + label + " during testing unexpected");

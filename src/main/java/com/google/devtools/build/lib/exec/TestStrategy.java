@@ -189,7 +189,7 @@ public abstract class TestStrategy implements TestActionContext {
     return executionOptions.testTimeout.get(testAction.getTestProperties().getTimeout());
   }
 
-  /*
+  /**
    * Returns a subset of the environment from the current shell.
    *
    * <p>Warning: Since these variables are not part of the configuration's fingerprint, they

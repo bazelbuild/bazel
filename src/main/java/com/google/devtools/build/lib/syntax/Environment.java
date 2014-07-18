@@ -67,17 +67,12 @@ public class Environment {
   protected Map<PathFragment, Environment> importedExtensions;
 
   /**
-   * True if importing a Skylark extension is allowed. False by default, until
-   * the feature is ready for users.
-   */
-  private boolean importAllowed;
-
-  /**
    * Constructs an empty root non-Skylark environment.
    * The root environment is also the global environment.
    */
   public Environment() {
     this.parent = null;
+    this.importedExtensions = new HashMap<>();
     setupGlobal();
   }
 
@@ -87,6 +82,7 @@ public class Environment {
   public Environment(Environment parent) {
     Preconditions.checkNotNull(parent);
     this.parent = parent;
+    this.importedExtensions = new HashMap<>();
   }
 
   // Sets up the global environment
@@ -207,14 +203,6 @@ public class Environment {
     NoSuchVariableException(String variable) {
       super("no such variable: " + variable);
     }
-  }
-
-  public void setImportAllowed(boolean importAllowed) {
-    this.importAllowed = importAllowed;
-  }
-
-  public boolean isImportAllowed() {
-    return importAllowed;
   }
 
   public void setImportedExtensions(Map<PathFragment, Environment> importedExtensions) {

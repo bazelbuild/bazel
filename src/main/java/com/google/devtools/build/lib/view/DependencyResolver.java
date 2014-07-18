@@ -40,7 +40,7 @@ import javax.annotation.Nullable;
  */
 public abstract class DependencyResolver {
 
-  protected DependencyResolver(BuildConfigurationCollection configurations) {
+  protected DependencyResolver() {
   }
 
   /**
@@ -52,7 +52,7 @@ public abstract class DependencyResolver {
     Collection<TargetAndConfiguration> outgoingEdges = new LinkedHashSet<>();
     if (target instanceof OutputFile) {
       Rule rule = ((OutputFile) target).getGeneratingRule();
-      visitTarget(rule, node.getConfiguration(), outgoingEdges);
+      addEdge(rule, node.getConfiguration(), outgoingEdges);
       visitTargetVisibility(node, outgoingEdges);
     } else if (target instanceof InputFile) {
       visitTargetVisibility(node, outgoingEdges);
@@ -104,17 +104,16 @@ public abstract class DependencyResolver {
           continue;
         }
 
-        visitTarget(target, node.getConfiguration(), outgoingEdges);
+        addEdge(target, node.getConfiguration(), outgoingEdges);
       } catch (NoSuchThingException e) {
         // Don't visit targets that don't exist (--keep_going)
       }
     }
   }
 
-  private void visitTarget(Target toTarget, BuildConfiguration configuration,
+  private void addEdge(Target toTarget, BuildConfiguration configuration,
       Collection<TargetAndConfiguration> outgoingEdges) {
-    TargetAndConfiguration to = new TargetAndConfiguration(toTarget, configuration);
-    outgoingEdges.add(to);
+    outgoingEdges.add(new TargetAndConfiguration(toTarget, configuration));
   }
 
   private void visitLabelInAttribute(TargetAndConfiguration from, Rule fromRule, Label to,
@@ -136,7 +135,7 @@ public abstract class DependencyResolver {
 
     if (toConfiguration != null ||
         !(toTarget instanceof Rule || toTarget instanceof OutputFile)) {
-      visitTarget(toTarget, toConfiguration, outgoingEdges);
+      addEdge(toTarget, toConfiguration, outgoingEdges);
     }
   }
 
@@ -169,7 +168,7 @@ public abstract class DependencyResolver {
         }
 
         // Visibility always has null configuration
-        visitTarget(visibilityTarget, null, outgoingEdges);
+        addEdge(visibilityTarget, null, outgoingEdges);
       } catch (NoSuchThingException e) {
         // Don't visit targets that don't exist (--keep_going)
       }

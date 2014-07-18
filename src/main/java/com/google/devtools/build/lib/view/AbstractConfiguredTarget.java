@@ -47,7 +47,7 @@ public abstract class AbstractConfiguredTarget
   }
 
   @Override
-  public NestedSet<PackageSpecification> getVisibility() {
+  public final NestedSet<PackageSpecification> getVisibility() {
     return visibility;
   }
 
@@ -69,11 +69,6 @@ public abstract class AbstractConfiguredTarget
   @Override
   public String toString() {
     return "ConfiguredTarget(" + getTarget().getLabel() + ", " + getConfiguration() + ")";
-  }
-
-  @Override
-  public Iterable<Class<? extends TransitiveInfoProvider>> getImplementedProviders() {
-    return TransitiveInfoProviderCache.getProviderClasses(this.getClass());
   }
 
   @Override
