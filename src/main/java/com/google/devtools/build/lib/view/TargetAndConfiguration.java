@@ -37,6 +37,11 @@ public class TargetAndConfiguration {
     this.configuration = configuration;
   }
 
+  public TargetAndConfiguration(ConfiguredTarget configuredTarget) {
+    this.target = Preconditions.checkNotNull(configuredTarget).getTarget();
+    this.configuration = configuredTarget.getConfiguration();
+  }
+
   // The node name in the graph. The name should be unique.
   // It is not suitable for user display.
   public String getName() {

@@ -31,7 +31,7 @@ import com.google.devtools.build.lib.syntax.Label;
 import com.google.devtools.build.lib.view.BaseRuleClasses;
 import com.google.devtools.build.lib.view.ConfiguredRuleClassProvider;
 import com.google.devtools.build.lib.view.ConfiguredRuleClassProvider.PrerequisiteValidator;
-import com.google.devtools.build.lib.view.PrerequisiteMap.Prerequisite;
+import com.google.devtools.build.lib.view.ConfiguredTarget;
 import com.google.devtools.build.lib.view.RuleContext;
 import com.google.devtools.build.lib.view.config.BuildConfiguration;
 import com.google.devtools.build.lib.view.config.FragmentOptions;
@@ -47,12 +47,12 @@ public class BazelRuleClassProvider {
   private static class BazelPrerequisiteValidator implements PrerequisiteValidator {
     @Override
     public void validate(RuleContext.Builder context,
-        Prerequisite prerequisite, Attribute attribute) {
+        ConfiguredTarget prerequisite, Attribute attribute) {
       validateDirectPrerequisiteVisibility(context, prerequisite, attribute.getName());
     }
 
     private void validateDirectPrerequisiteVisibility(
-        RuleContext.Builder context, Prerequisite prerequisite, String attrName) {
+        RuleContext.Builder context, ConfiguredTarget prerequisite, String attrName) {
       Rule rule = context.getRule();
       Target prerequisiteTarget = prerequisite.getTarget();
       Label prerequisiteLabel = prerequisiteTarget.getLabel();
@@ -60,7 +60,7 @@ public class BazelRuleClassProvider {
       // features.
       if (!context.getRule().getLabel().getPackageName().equals(
               prerequisite.getTarget().getLabel().getPackageName())
-          && !context.isVisible(prerequisite.getTransitiveInfoCollection())) {
+          && !context.isVisible(prerequisite)) {
         if (!context.getConfiguration().checkVisibility()) {
           context.ruleWarning(String.format("Target '%s' violates visibility of target "
               + "'%s'. Continuing because --nocheck_visibility is active",

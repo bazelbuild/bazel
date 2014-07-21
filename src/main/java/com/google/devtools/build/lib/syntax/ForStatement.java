@@ -84,9 +84,9 @@ public final class ForStatement extends Statement {
   @Override
   void validate(ValidationEnvironment env) throws EvalException {
     // TODO(bazel-team): validate variable. Maybe make it temporarily readonly.
-    Class<?> type = collection.validate(env);
+    SkylarkType type = collection.validate(env);
     env.checkIterable(type, getLocation());
-    env.update(variable.getName(), Object.class, getLocation());
+    env.update(variable.getName(), SkylarkType.UNKNOWN, getLocation());
     for (Statement stmt : block) {
       stmt.validate(env);
     }

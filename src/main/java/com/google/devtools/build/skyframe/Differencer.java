@@ -39,7 +39,7 @@ public interface Differencer {
   }
 
   /**
-   * Returns the node keys that have changed since the last call to getDiff().
+   * Returns the node keys that have changed between the two Versions.
    */
-  Diff getDiff();
+  Diff getDiff(Version fromVersion, Version toVersion);
 }

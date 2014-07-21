@@ -14,6 +14,8 @@
 package com.google.devtools.build.lib.skyframe;
 
 import com.google.devtools.build.lib.collect.nestedset.NestedSet;
+import com.google.devtools.build.lib.collect.nestedset.NestedSetBuilder;
+import com.google.devtools.build.lib.collect.nestedset.Order;
 import com.google.devtools.build.lib.concurrent.ThreadSafety.Immutable;
 import com.google.devtools.build.lib.concurrent.ThreadSafety.ThreadSafe;
 import com.google.devtools.build.lib.packages.NoSuchTargetException;
@@ -21,6 +23,11 @@ import com.google.devtools.build.lib.syntax.Label;
 import com.google.devtools.build.lib.vfs.PathFragment;
 import com.google.devtools.build.skyframe.Node;
 import com.google.devtools.build.skyframe.NodeKey;
+
+import java.io.IOException;
+import java.io.ObjectInputStream;
+import java.io.ObjectOutputStream;
+import java.util.Set;
 
 import javax.annotation.Nullable;
 
@@ -36,11 +43,12 @@ import javax.annotation.Nullable;
 @ThreadSafe
 public class TransitiveTargetNode implements Node {
 
-  private final NestedSet<PathFragment> transitiveSuccessfulPkgs;
-  private final NestedSet<PathFragment> transitiveUnsuccessfulPkgs;
-  private final NestedSet<Label> transitiveTargets;
-  @Nullable private final NestedSet<Label> transitiveRootCauses;
-  @Nullable private final NoSuchTargetException errorLoadingTarget;
+  // Non-final for serialization purposes.
+  private NestedSet<PathFragment> transitiveSuccessfulPkgs;
+  private NestedSet<PathFragment> transitiveUnsuccessfulPkgs;
+  private NestedSet<Label> transitiveTargets;
+  @Nullable private NestedSet<Label> transitiveRootCauses;
+  @Nullable private NoSuchTargetException errorLoadingTarget;
 
   private TransitiveTargetNode(NestedSet<PathFragment> transitiveSuccessfulPkgs,
       NestedSet<PathFragment> transitiveUnsuccessfulPkgs, NestedSet<Label> transitiveTargets,
@@ -51,6 +59,37 @@ public class TransitiveTargetNode implements Node {
     this.transitiveTargets = transitiveTargets;
     this.transitiveRootCauses = transitiveRootCauses;
     this.errorLoadingTarget = errorLoadingTarget;
+  }
+
+  private void writeObject(ObjectOutputStream out) throws IOException {
+    // It helps to flatten the transitiveSuccessfulPkgs nested set as it has lots of duplicates.
+    Set<PathFragment> successfulPkgs = transitiveSuccessfulPkgs.toSet();
+    out.writeInt(successfulPkgs.size());
+    for (PathFragment pkg : successfulPkgs) {
+      out.writeUTF(pkg.toString());
+    }
+
+    out.writeObject(transitiveUnsuccessfulPkgs);
+    // Deliberately do not write out transitiveTargets. There is a lot of those and they drive
+    // serialization costs through the roof, both in terms of space and of time.
+    // TODO(bazel-team): Deal with this properly once we have efficient serialization of NestedSets.
+    out.writeObject(transitiveRootCauses);
+    out.writeObject(errorLoadingTarget);
+  }
+
+  @SuppressWarnings("unchecked")
+  private void readObject(ObjectInputStream in) throws IOException, ClassNotFoundException {
+    int successfulPkgCount = in.readInt();
+    NestedSetBuilder<PathFragment> pkgs = NestedSetBuilder.stableOrder();
+    for (int i = 0; i < successfulPkgCount; i++) {
+      pkgs.add(new PathFragment(in.readUTF()));
+    }
+    transitiveSuccessfulPkgs = pkgs.build();
+    transitiveUnsuccessfulPkgs = (NestedSet<PathFragment>) in.readObject();
+    // TODO(bazel-team): Deal with transitiveTargets properly.
+    transitiveTargets = NestedSetBuilder.emptySet(Order.STABLE_ORDER);
+    transitiveRootCauses = (NestedSet<Label>) in.readObject();
+    errorLoadingTarget = (NoSuchTargetException) in.readObject();
   }
 
   static TransitiveTargetNode unsuccessfulTransitiveLoading(

@@ -39,6 +39,7 @@ import com.google.devtools.build.lib.syntax.SkylarkEnvironment;
 import com.google.devtools.build.lib.syntax.SkylarkFunction;
 import com.google.devtools.build.lib.syntax.SkylarkFunction.SimpleSkylarkFunction;
 import com.google.devtools.build.lib.syntax.SkylarkNestedSet;
+import com.google.devtools.build.lib.syntax.SkylarkType;
 import com.google.devtools.build.lib.syntax.ValidationEnvironment;
 import com.google.devtools.build.lib.vfs.PathFragment;
 import com.google.devtools.build.lib.view.CommandHelper;
@@ -478,15 +479,15 @@ public class SkylarkRuleImplementationFunctions {
 
   public static ValidationEnvironment getValidationEnvironment(
       ImmutableMap<String, Class<?>> extraObjects) {
-    ImmutableMap.Builder<String, Class<?>> builder = ImmutableMap.builder();
+    ImmutableMap.Builder<String, SkylarkType> builder = ImmutableMap.builder();
     // TODO(bazel-team): kill check_state, create_object and get_provider.
     builder
-        .put("check_state", Object.class)
-        .put("check_state.return", Object.class)
-        .put("create_object", Object.class)
-        .put("create_object.return", Object.class)
-        .put("get_provider", Object.class)
-        .put("get_provider.return", Object.class);
+        .put("check_state", SkylarkType.UNKNOWN)
+        .put("check_state.return", SkylarkType.NONE)
+        .put("create_object", SkylarkType.UNKNOWN)
+        .put("create_object.return", SkylarkType.UNKNOWN)
+        .put("get_provider", SkylarkType.UNKNOWN)
+        .put("get_provider.return", SkylarkType.UNKNOWN);
     MethodLibrary.setupValidationEnvironment(builder);
     SkylarkAttr.setupValidationEnvironment(builder);
     SkylarkFunction.collectSkylarkFunctionReturnTypesFromFields(
@@ -494,9 +495,11 @@ public class SkylarkRuleImplementationFunctions {
     SkylarkFunction.collectSkylarkFunctionReturnTypesFromFields(
         SkylarkRuleImplementationFunctions.class, builder);
     for (Map.Entry<String, Object> entry : JAVA_OBJECTS_TO_EXPOSE.entrySet()) {
-      builder.put(entry.getKey(), entry.getValue().getClass());
+      builder.put(entry.getKey(), SkylarkType.of(entry.getValue().getClass()));
     }
-    builder.putAll(extraObjects);
+    for (Map.Entry<String, Class<?>> entry : extraObjects.entrySet()) {
+      builder.put(entry.getKey(), SkylarkType.of(entry.getValue()));
+    }
     return new ValidationEnvironment(builder.build());
   }
 

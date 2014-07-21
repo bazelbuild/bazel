@@ -37,8 +37,7 @@ public class ConfiguredAttributeMapper extends AbstractAttributeMapper {
 
   private final BuildConfiguration configuration;
 
-  public ConfiguredAttributeMapper(Rule rule, BuildConfiguration configuration) {
-    // TODO(bazel-team): make this private, make {@link of} the sole construction interface.
+  private ConfiguredAttributeMapper(Rule rule, BuildConfiguration configuration) {
     super(Preconditions.checkNotNull(rule).getPackage(), rule.getRuleClassObject(), rule.getLabel(),
         rule.getAttributeContainer());
     this.configuration = Preconditions.checkNotNull(configuration);

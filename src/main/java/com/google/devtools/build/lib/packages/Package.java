@@ -982,7 +982,7 @@ public class Package implements Serializable {
       // All labels mentioned in a rule that refer to an unknown target in the
       // current package are assumed to be InputFiles, so let's create them:
       for (final Rule rule : rules) {
-        new AggregatingAttributeMapper(rule).visitLabels(new AcceptsLabelAttribute() {
+        AggregatingAttributeMapper.of(rule).visitLabels(new AcceptsLabelAttribute() {
           @Override
           public void acceptLabelAttribute(Label label, Attribute attribute) {
             createInputFileMaybe(label, rule.getAttributeLocation(attribute.getName()));

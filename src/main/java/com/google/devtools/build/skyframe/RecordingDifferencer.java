@@ -41,7 +41,7 @@ public class RecordingDifferencer implements Differencer {
   }
 
   @Override
-  public Diff getDiff() {
+  public Diff getDiff(Version fromVersion, Version toVersion) {
     Diff diff = new ImmutableDiff(nodesToInvalidate, nodesToInject);
     clear();
     return diff;

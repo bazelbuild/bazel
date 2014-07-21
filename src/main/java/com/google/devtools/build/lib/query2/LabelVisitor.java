@@ -579,7 +579,7 @@ final class LabelVisitor implements TransitivePackageLoader {
     @ThreadSafe
     private void visitRule(final Rule rule, final int depth, final int count) {
       // Follow all labels defined by this rule:
-      new AggregatingAttributeMapper(rule).visitLabels(new AttributeMap.AcceptsLabelAttribute() {
+      AggregatingAttributeMapper.of(rule).visitLabels(new AttributeMap.AcceptsLabelAttribute() {
         @Override
         public void acceptLabelAttribute(Label label, Attribute attribute) {
           enqueueTarget(rule, attribute, label, depth, count);

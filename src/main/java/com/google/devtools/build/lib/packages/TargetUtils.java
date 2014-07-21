@@ -178,7 +178,7 @@ public final class TargetUtils {
     }
 
     ExplicitEdgeVisitor visitor = new ExplicitEdgeVisitor(rule, label);
-    new AggregatingAttributeMapper(rule).visitLabels(visitor);
+    AggregatingAttributeMapper.of(rule).visitLabels(visitor);
     return visitor.isExplicit();
   }
 

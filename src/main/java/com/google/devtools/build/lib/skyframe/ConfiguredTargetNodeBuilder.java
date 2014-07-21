@@ -13,8 +13,11 @@
 // limitations under the License.
 package com.google.devtools.build.lib.skyframe;
 
+import com.google.common.base.Function;
 import com.google.common.base.Preconditions;
+import com.google.common.collect.ArrayListMultimap;
 import com.google.common.collect.ImmutableList;
+import com.google.common.collect.Iterables;
 import com.google.common.collect.ListMultimap;
 import com.google.common.collect.Lists;
 import com.google.devtools.build.lib.actions.Action;
@@ -35,7 +38,6 @@ import com.google.devtools.build.lib.syntax.Label;
 import com.google.devtools.build.lib.view.CachingAnalysisEnvironment;
 import com.google.devtools.build.lib.view.ConfiguredTarget;
 import com.google.devtools.build.lib.view.LateBoundAttributeHelper;
-import com.google.devtools.build.lib.view.PrerequisiteMap;
 import com.google.devtools.build.lib.view.TargetAndConfiguration;
 import com.google.devtools.build.lib.view.config.BuildConfiguration;
 import com.google.devtools.build.skyframe.Node;
@@ -45,7 +47,7 @@ import com.google.devtools.build.skyframe.NodeKey;
 import com.google.devtools.build.skyframe.NodeOrException;
 
 import java.util.Collection;
-import java.util.List;
+import java.util.HashMap;
 import java.util.Map;
 
 import javax.annotation.Nullable;
@@ -54,6 +56,14 @@ import javax.annotation.Nullable;
  * NodeBuilder for {@link ConfiguredTargetNode}s.
  */
 final class ConfiguredTargetNodeBuilder implements NodeBuilder {
+  private static final Function<TargetAndConfiguration, NodeKey> TO_KEYS =
+      new Function<TargetAndConfiguration, NodeKey>() {
+    @Override
+    public NodeKey apply(TargetAndConfiguration input) {
+      Label depLabel = input.getLabel();
+      return ConfiguredTargetNode.key(depLabel, input.getConfiguration());
+    }
+  };
 
   private final BuildViewProvider buildViewProvider;
   private final boolean skyframeFull;
@@ -103,6 +113,7 @@ final class ConfiguredTargetNodeBuilder implements NodeBuilder {
       return null;
     }
 
+    // 1. Get the map from attributes to labels.
     ListMultimap<Attribute, Label> labelMap = null;
     if (target instanceof Rule) {
       try {
@@ -113,21 +124,20 @@ final class ConfiguredTargetNodeBuilder implements NodeBuilder {
             new ConfiguredNodeCreationException(e.print()));
       }
     }
-    Collection<TargetAndConfiguration> depNodeNames =
-        resolver.dependentNodes(ctgNode, labelMap);
+    // 2. Convert each label to a (target, configuration) pair.
+    ListMultimap<Attribute, TargetAndConfiguration> depNodeNames =
+        resolver.dependentNodeMap(ctgNode, labelMap);
 
+    // 3. Resolve dependencies and handle errors.
     boolean ok = !env.depsMissing();
-    List<ConfiguredTargetNode> depNodes = Lists.newArrayListWithCapacity(depNodeNames.size());
     String message = null;
-    List<NodeKey> depKeys = Lists.newArrayList();
-    for (TargetAndConfiguration depNodeName : depNodeNames) {
-      Label depLabel = depNodeName.getLabel();
-      depKeys.add(ConfiguredTargetNode.key(depLabel, depNodeName.getConfiguration()));
-    }
+    Iterable<NodeKey> depKeys = Iterables.transform(depNodeNames.values(), TO_KEYS);
     // TODO(bazel-team): maybe having a two-exception argument is better than typing a generic
     // Exception here.
-    for (Map.Entry<NodeKey, NodeOrException<Exception>> entry :
-        env.getDepsOrThrow(depKeys, Exception.class).entrySet()) {
+    Map<NodeKey, NodeOrException<Exception>> depNodesOrExceptions =
+        env.getDepsOrThrow(depKeys, Exception.class);
+    Map<NodeKey, ConfiguredTargetNode> depNodes = new HashMap<>(depNodesOrExceptions.size());
+    for (Map.Entry<NodeKey, NodeOrException<Exception>> entry : depNodesOrExceptions.entrySet()) {
       LabelAndConfiguration depLabelAndConfiguration =
           (LabelAndConfiguration) entry.getKey().getNodeName();
       Label depLabel = depLabelAndConfiguration.getLabel();
@@ -160,7 +170,7 @@ final class ConfiguredTargetNodeBuilder implements NodeBuilder {
       if (depNode == null) {
         ok = false;
       } else {
-        depNodes.add(depNode);
+        depNodes.put(entry.getKey(), depNode);
       }
     }
     if (message != null) {
@@ -171,7 +181,16 @@ final class ConfiguredTargetNodeBuilder implements NodeBuilder {
       return null;
     }
 
-    return createConfiguredTarget(view, env, target, configuration, depNodes, labelMap);
+    // 4. Convert each (target, configuration) pair to a ConfiguredTarget instance.
+    ListMultimap<Attribute, ConfiguredTarget> depNodeMap = ArrayListMultimap.create();
+    for (Map.Entry<Attribute, TargetAndConfiguration> entry : depNodeNames.entries()) {
+      ConfiguredTargetNode node = depNodes.get(TO_KEYS.apply(entry.getValue()));
+      // The code above guarantees that node is non-null here.
+      depNodeMap.put(entry.getKey(), node.getConfiguredTarget());
+    }
+
+    // 5. Create the ConfiguredTarget for the present node.
+    return createConfiguredTarget(view, env, target, configuration, depNodeMap);
   }
 
   @Override
@@ -182,7 +201,7 @@ final class ConfiguredTargetNodeBuilder implements NodeBuilder {
   @Nullable
   private ConfiguredTargetNode createConfiguredTarget(SkyframeBuildView view,
       Environment env, Target target, BuildConfiguration configuration,
-      List<ConfiguredTargetNode> depNodes, ListMultimap<Attribute, Label> labelMap)
+      ListMultimap<Attribute, ConfiguredTarget> depNodeMap)
       throws ConfiguredTargetNodeBuilderException,
       InterruptedException {
     boolean extendedSanityChecks = configuration != null && configuration.extendedSanityChecks();
@@ -198,14 +217,9 @@ final class ConfiguredTargetNodeBuilder implements NodeBuilder {
     if (env.depsMissing()) {
       return null;
     }
-    PrerequisiteMap.Builder prerequisiteMap = new PrerequisiteMap.Builder(extendedSanityChecks);
-    for (ConfiguredTargetNode prerequisiteNode : depNodes) {
-      ConfiguredTarget prerequisite = prerequisiteNode.getConfiguredTarget();
-      prerequisiteMap.add(prerequisite);
-    }
 
     ConfiguredTarget configuredTarget = view.createAndInitialize(
-        target, configuration, analysisEnvironment, prerequisiteMap.build(), labelMap, env);
+        target, configuration, analysisEnvironment, depNodeMap);
     if (env.depsMissing()) {
       return null;
     }

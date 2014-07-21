@@ -117,14 +117,14 @@ public final class ListComprehension extends Expression {
   }
 
   @Override
-  Class<?> validate(ValidationEnvironment env) throws EvalException {
+  SkylarkType validate(ValidationEnvironment env) throws EvalException {
     for (Map.Entry<Ident, Expression> list : lists) {
       // TODO(bazel-team): Get the type of elements
-      Class<?> type = list.getValue().validate(env);
+      SkylarkType type = list.getValue().validate(env);
       env.checkIterable(type, getLocation());
-      env.update(list.getKey().getName(), Object.class, getLocation());
+      env.update(list.getKey().getName(), SkylarkType.UNKNOWN, getLocation());
     }
     elementExpression.validate(env);
-    return List.class;
+    return SkylarkType.of(List.class);
   }
 }

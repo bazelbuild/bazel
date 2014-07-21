@@ -637,7 +637,7 @@ public class BuildView {
     DependencyResolver dependencyResolver = new SilentDependencyResolver();
     TargetAndConfiguration ctgNode =
         new TargetAndConfiguration(ct.getTarget(), ct.getConfiguration());
-    return getExistingConfiguredTargets(dependencyResolver.dependentNodes(ctgNode));
+    return getExistingConfiguredTargets(dependencyResolver.dependentNodeMap(ctgNode).values());
   }
 
   public TransitiveInfoCollection getGeneratingRule(OutputFileConfiguredTarget target) {
@@ -1098,9 +1098,8 @@ public class BuildView {
   }
 
   @VisibleForTesting
-  PrerequisiteMap getPrerequisiteMapForTesting(
-      ConfiguredTarget target, boolean extendedSanityChecks) {
-    PrerequisiteMap.Builder prerequisiteMap = new PrerequisiteMap.Builder(extendedSanityChecks);
+  ListMultimap<Attribute, ConfiguredTarget> getPrerequisiteMapForTesting(ConfiguredTarget target) {
+    ListMultimap<Attribute, ConfiguredTarget> prerequisiteMap = ArrayListMultimap.create();
 
     DependencyResolver resolver = new DependencyResolver() {
       @Override
@@ -1119,13 +1118,13 @@ public class BuildView {
         return packageManager.getLoadedTarget(label);
       }
     };
-    TargetAndConfiguration ctNode =
-        new TargetAndConfiguration(target.getTarget(), target.getConfiguration());
-    for (TargetAndConfiguration ct : resolver.dependentNodes(ctNode)) {
-      prerequisiteMap.add(getExistingConfiguredTarget(ct));
+    TargetAndConfiguration ctNode = new TargetAndConfiguration(target);
+    for (Map.Entry<Attribute, TargetAndConfiguration> entry :
+        resolver.dependentNodeMap(ctNode).entries()) {
+      prerequisiteMap.put(entry.getKey(), getExistingConfiguredTarget(entry.getValue()));
     }
 
-    return prerequisiteMap.build();
+    return prerequisiteMap;
   }
 
   private void scheduleTestsSkyframe(Collection<Artifact> artifactsToBuild,
@@ -1299,19 +1298,18 @@ public class BuildView {
    */
   @VisibleForTesting
   public RuleContext getRuleContextForTesting(ConfiguredTarget target,
-      ListMultimap<Attribute, Label> labelMap, StoredErrorEventListener listener) {
+      StoredErrorEventListener listener) {
     BuildConfiguration config = target.getConfiguration();
     CachingAnalysisEnvironment analysisEnvironment =
         new CachingAnalysisEnvironment(artifactFactory,
             new LabelAndConfiguration(target.getLabel(), config),
             lastWorkspaceStatusArtifacts, /*isSystemEnv=*/false, config.extendedSanityChecks(),
             listener, /*skyframeEnv=*/null, config.isActionsEnabled(), outputFormatters, binTools);
-    RuleContext ruleContext = new RuleContext.Builder(analysisEnvironment, packageManager,
+    RuleContext ruleContext = new RuleContext.Builder(analysisEnvironment,
         (Rule) target.getTarget(), config, ruleClassProvider.getPrerequisiteValidator())
             .setVisibility(NestedSetBuilder.<PackageSpecification>create(
                 Order.STABLE_ORDER, PackageSpecification.EVERYTHING))
-            .setPrerequisites(getPrerequisiteMapForTesting(target, true))
-            .setLabelMap(labelMap)
+            .setPrerequisites(getPrerequisiteMapForTesting(target))
             .build();
     return ruleContext;
   }

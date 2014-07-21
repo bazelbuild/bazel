@@ -1011,6 +1011,7 @@ public final class BuildConfiguration {
   /**
    * Returns a relative path to the genfiles directory at execution time.
    */
+  @SkylarkCallable(doc = "Returns a relative path to the genfiles directory at execution time.")
   public PathFragment getGenfilesFragment() {
     return genfilesFragment;
   }
@@ -1021,6 +1022,7 @@ public final class BuildConfiguration {
    * not match the host platform. You should only use this when invoking tools that are known to use
    * the native path separator, i.e., the path separator for the machine that they run on.
    */
+  @SkylarkCallable(doc = "Returns the path separator for the host platform.")
   public String getHostPathSeparator() {
     // TODO(bazel-team): This needs to change when we support Windows.
     return ":";

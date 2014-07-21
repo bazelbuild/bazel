@@ -40,12 +40,12 @@ public abstract class Expression extends ASTNode {
   abstract Object eval(Environment env) throws EvalException, InterruptedException;
 
   /**
-   * Returns the inferred type of the result of the Expression, or Object.class if it cannot be
-   * inferred. 
+   * Returns the inferred type of the result of the Expression.
+   *
    * <p>Checks the semantics of the Expression using the SkylarkEnvironment according to
    * the rules of the Skylark language, throws EvalException in case of a semantical error.
    *
    * @see Statement
    */
-  abstract Class<?> validate(ValidationEnvironment env) throws EvalException;
+  abstract SkylarkType validate(ValidationEnvironment env) throws EvalException;
 }

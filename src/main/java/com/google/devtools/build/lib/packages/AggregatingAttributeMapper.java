@@ -33,14 +33,13 @@ import javax.annotation.Nullable;
 public class AggregatingAttributeMapper extends AbstractAttributeMapper {
 
   /**
-   * Store for all of this rule's attributs that are non-configurable. These are
+   * Store for all of this rule's attributes that are non-configurable. These are
    * unconditionally  available to computed defaults no matter what dependencies
    * they've declared.
    */
   private final List<String> nonconfigurableAttributes;
 
-  // TODO(bazel-team): deprecate this in favor of {@link of}.
-  public AggregatingAttributeMapper(Rule rule) {
+  private AggregatingAttributeMapper(Rule rule) {
     super(rule.getPackage(), rule.getRuleClassObject(), rule.getLabel(),
         rule.getAttributeContainer());
 

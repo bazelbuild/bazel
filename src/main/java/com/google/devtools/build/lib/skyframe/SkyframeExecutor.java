@@ -97,6 +97,7 @@ import com.google.devtools.build.skyframe.NodeKey;
 import com.google.devtools.build.skyframe.NodeProgressReceiver;
 import com.google.devtools.build.skyframe.NodeType;
 import com.google.devtools.build.skyframe.RecordingDifferencer;
+import com.google.devtools.build.skyframe.SequentialBuildDriver;
 import com.google.devtools.build.skyframe.UpdateResult;
 
 import java.io.IOException;
@@ -161,6 +162,7 @@ public final class SkyframeExecutor {
   private ActionLogBufferPathGenerator actionLogBufferPathGenerator;
 
   private RecordingDifferencer recordingDiffer;
+  private SequentialBuildDriver sequentialBuildDriver;
   private final ImmutableSet<? extends DiffAwareness.Factory> diffAwarenessFactories;
   private Map<Path, DiffAwareness> currentDiffAwarenesses = Maps.newHashMap();
 
@@ -380,6 +382,11 @@ public final class SkyframeExecutor {
     incrementalBuildMonitor = null;
   }
 
+  @VisibleForTesting
+  public SequentialBuildDriver getDriverForTesting() {
+    return sequentialBuildDriver;
+  }
+
   class BuildViewProvider {
     /**
      * Returns the current {@link SkyframeBuildView} instance.
@@ -405,6 +412,7 @@ public final class SkyframeExecutor {
         directories.getBuildDataDirectory(), pkgFactory, allowedMissingInputs);
     autoUpdatingGraph = graphSupplier.createGraph(
         nodeBuilders, recordingDiffer, progressReceiver, emittedEventState);
+    sequentialBuildDriver = new SequentialBuildDriver(autoUpdatingGraph);
     currentDiffAwarenesses.clear();
     if (skyframeBuildView != null) {
       skyframeBuildView.clearLegacyData();
@@ -466,7 +474,7 @@ public final class SkyframeExecutor {
       callUninterruptibly(new Callable<Void>() {
         @Override
         public Void call() throws InterruptedException {
-          autoUpdatingGraph.update(ImmutableList.<NodeKey>of(), false,
+          sequentialBuildDriver.update(ImmutableList.<NodeKey>of(), false,
               ResourceUsage.getAvailableProcessors(), reporter);
           return null;
         }
@@ -579,7 +587,7 @@ public final class SkyframeExecutor {
   /** Returns the build-info.txt and build-changelist.txt artifacts from the graph. */
   public Collection<Artifact> getWorkspaceStatusArtifacts() throws InterruptedException {
     // Should already be in the graph, unless the user didn't request any targets for analysis.
-    UpdateResult<WorkspaceStatusNode> result = autoUpdatingGraph.update(
+    UpdateResult<WorkspaceStatusNode> result = sequentialBuildDriver.update(
         ImmutableList.of(WorkspaceStatusNode.NODE_KEY), /*keepGoing=*/false, /*numThreads=*/1,
         reporter);
     WorkspaceStatusNode node = result.get(WorkspaceStatusNode.NODE_KEY);
@@ -731,7 +739,7 @@ public final class SkyframeExecutor {
     // Before running the FilesystemNodeChecker, ensure that all nodes marked for invalidation
     // have actually been invalidated (recall that invalidation happens at the beginning of the
     // next update call), because checking those is a waste of time.
-    autoUpdatingGraph.update(ImmutableList.<NodeKey>of(), false,
+    sequentialBuildDriver.update(ImmutableList.<NodeKey>of(), false,
         DEFAULT_THREAD_COUNT, reporter);
     FilesystemNodeChecker fsnc = new FilesystemNodeChecker(autoUpdatingGraph, tsgm);
     // We need to manually check for changes to known files. This entails finding all dirty file
@@ -925,8 +933,9 @@ public final class SkyframeExecutor {
     BuildVariableNode.BLAZE_DIRECTORIES.set(recordingDiffer, configurationKey.getDirectories());
 
     UpdateResult<ConfigurationCollectionNode> result =
-        autoUpdatingGraph.update(Arrays.asList(ConfigurationCollectionNode.CONFIGURATION_KEY),
-        keepGoing, DEFAULT_THREAD_COUNT, errorEventListener);
+        sequentialBuildDriver.update(
+            Arrays.asList(ConfigurationCollectionNode.CONFIGURATION_KEY), keepGoing,
+            DEFAULT_THREAD_COUNT, errorEventListener);
     if (result.hasError()) {
       Throwable e = result.getError(ConfigurationCollectionNode.CONFIGURATION_KEY).getException();
       Throwables.propagateIfInstanceOf(e, InvalidConfigurationException.class);
@@ -982,8 +991,8 @@ public final class SkyframeExecutor {
     resourceManager.resetResourceUsage();
     try {
       progressReceiver.executionProgressReceiver = executionProgressReceiver;
-      return autoUpdatingGraph.update(ArtifactNode.mandatoryKeys(artifacts), keepGoing, numJobs,
-          errorEventListener);
+      return sequentialBuildDriver.update(ArtifactNode.mandatoryKeys(artifacts), keepGoing,
+          numJobs, errorEventListener);
     } finally {
       progressReceiver.executionProgressReceiver = null;
       // Also releases thread locks.
@@ -994,8 +1003,8 @@ public final class SkyframeExecutor {
   UpdateResult<TargetPatternNode> targetPatterns(Iterable<NodeKey> patternNodeKeys,
       boolean keepGoing, ErrorEventListener listener) throws InterruptedException {
     checkActive();
-    return autoUpdatingGraph.update(patternNodeKeys, keepGoing,
-        DEFAULT_THREAD_COUNT, listener);
+    return sequentialBuildDriver.update(patternNodeKeys, keepGoing, DEFAULT_THREAD_COUNT,
+        listener);
   }
 
   /**
@@ -1021,8 +1030,8 @@ public final class SkyframeExecutor {
           synchronized (graphNodeLookupLock) {
             try {
               skyframeBuildView.enableAnalysis(true);
-              return autoUpdatingGraph.update(nodeKeys, false,
-                  DEFAULT_THREAD_COUNT, errorEventListener);
+              return sequentialBuildDriver.update(nodeKeys, false, DEFAULT_THREAD_COUNT,
+                  errorEventListener);
             } finally {
               skyframeBuildView.enableAnalysis(false);
             }
@@ -1109,7 +1118,7 @@ public final class SkyframeExecutor {
     checkActive();
 
     // Make sure to not run too many analysis threads. This can cause memory thrashing.
-    return autoUpdatingGraph.update(ConfiguredTargetNode.keys(nodes), keepGoing,
+    return sequentialBuildDriver.update(ConfiguredTargetNode.keys(nodes), keepGoing,
         ResourceUsage.getAvailableProcessors(), errorEventListener);
   }
 
@@ -1124,7 +1133,7 @@ public final class SkyframeExecutor {
     BuildVariableNode.BAD_ACTIONS.set(recordingDiffer, badActions);
     // Make sure to not run too many analysis threads. This can cause memory thrashing.
     UpdateResult<PostConfiguredTargetNode> result =
-        autoUpdatingGraph.update(PostConfiguredTargetNode.keys(nodes), keepGoing,
+        sequentialBuildDriver.update(PostConfiguredTargetNode.keys(nodes), keepGoing,
             ResourceUsage.getAvailableProcessors(), errorEventListener);
 
     // Remove all post-configured target nodes immediately for memory efficiency. We are OK with
@@ -1158,7 +1167,7 @@ public final class SkyframeExecutor {
         nodeNames.add(TransitiveTargetNode.key(label));
       }
 
-      return autoUpdatingGraph.update(nodeNames, keepGoing, DEFAULT_THREAD_COUNT,
+      return sequentialBuildDriver.update(nodeNames, keepGoing, DEFAULT_THREAD_COUNT,
           errorEventListener);
     }
 
@@ -1172,7 +1181,7 @@ public final class SkyframeExecutor {
         return callUninterruptibly(new Callable<Set<Package>>() {
           @Override
           public Set<Package> call() throws Exception {
-            UpdateResult<PackageNode> result = autoUpdatingGraph.update(nodeNames, false,
+            UpdateResult<PackageNode> result = sequentialBuildDriver.update(nodeNames, false,
                 ResourceUsage.getAvailableProcessors(), errorEventListener);
             Preconditions.checkState(!result.hasError(),
                 "unexpected errors: %s", result.errorMap());
@@ -1216,9 +1225,9 @@ public final class SkyframeExecutor {
             // analysis) after a failed --nokeep_going analysis in which the configured target that
             // failed was a (transitive) dependency of the configured target that should generate
             // this action. We don't expect callers to query generating actions in such cases.
-            UpdateResult<ActionLookupNode> result = autoUpdatingGraph.update(
-                ImmutableList.of(actionLookupKey), false,
-                ResourceUsage.getAvailableProcessors(), errorEventListener);
+            UpdateResult<ActionLookupNode> result = sequentialBuildDriver.update(
+                ImmutableList.of(actionLookupKey), false, ResourceUsage.getAvailableProcessors(),
+                errorEventListener);
             return result.hasError()
                 ? null
                 : result.get(actionLookupKey).getGeneratingAction(artifact);
@@ -1246,7 +1255,7 @@ public final class SkyframeExecutor {
       synchronized (graphNodeLookupLock) {
         NodeKey key = PackageNode.key(new PathFragment(pkgName));
         UpdateResult<PackageNode> result =
-            autoUpdatingGraph.update(ImmutableList.of(key), false,
+            sequentialBuildDriver.update(ImmutableList.of(key), false,
                 DEFAULT_THREAD_COUNT, listener);
         if (result.hasError()) {
           if (!Iterables.isEmpty(result.getError().getCycleInfo())) {

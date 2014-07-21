@@ -13,8 +13,10 @@
 // limitations under the License.
 package com.google.devtools.build.lib.skyframe;
 
+import com.google.common.base.Function;
 import com.google.common.base.Preconditions;
 import com.google.common.collect.ImmutableMap;
+import com.google.common.collect.Iterables;
 import com.google.devtools.build.lib.actions.Action;
 import com.google.devtools.build.lib.syntax.Label;
 import com.google.devtools.build.lib.view.ConfiguredTarget;
@@ -30,6 +32,14 @@ import javax.annotation.Nullable;
  * Build a post-processed ConfiguredTarget, vetting it for action conflict issues.
  */
 public class PostConfiguredTargetNodeBuilder implements NodeBuilder {
+  private static final Function<TargetAndConfiguration, NodeKey> TO_KEYS =
+      new Function<TargetAndConfiguration, NodeKey>() {
+    @Override
+    public NodeKey apply(TargetAndConfiguration input) {
+      return PostConfiguredTargetNode.key(
+          new LabelAndConfiguration(input.getLabel(), input.getConfiguration()));
+    }
+  };
 
   private final SkyframeExecutor.BuildViewProvider buildViewProvider;
 
@@ -59,10 +69,7 @@ public class PostConfiguredTargetNodeBuilder implements NodeBuilder {
     TargetAndConfiguration ctgNode =
         new TargetAndConfiguration(ct.getTarget(), ct.getConfiguration());
 
-    for (TargetAndConfiguration dep : resolver.dependentNodes(ctgNode)) {
-      env.getDep(PostConfiguredTargetNode.key(
-          new LabelAndConfiguration(dep.getLabel(), dep.getConfiguration())));
-    }
+    env.getDeps(Iterables.transform(resolver.dependentNodeMap(ctgNode).values(), TO_KEYS));
     if (env.depsMissing()) {
       return null;
     }

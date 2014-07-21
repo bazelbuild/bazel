@@ -193,68 +193,54 @@ public final class SkylarkRuleContext {
   /**
    * <p>See {@link RuleContext#getCompiler(boolean)}.
    */
-  @SkylarkCallable(doc = "")
+  @SkylarkCallable(doc =
+      "Convenience method to return a host configured target for the \"compiler\" "
+    + "attribute. Allows caller to decide whether a warning should be printed if "
+    + "the \"compiler\" attribute is not set to the default value.<br> "
+    + "If argument is true, print a warning if the value for the \"compiler\" attribute "
+    + "is set to something other than the default")
   public FilesToRunProvider compiler(Boolean warnIfNotDefault) {
     return ruleContext.getCompiler(warnIfNotDefault);
   }
 
-  @SkylarkCallable(doc = "")
+  @SkylarkCallable(doc = "A struct which provides access to the attributes.")
   public ClassObject attr() {
     return attrObject;
   }
 
-  /**
-   * Returns the rule's label.
-   */
-  @SkylarkCallable(doc = "")
+  @SkylarkCallable(doc = "Returns the rule's label.")
   public Label label() {
     return ruleContext.getLabel();
   }
 
-  /**
-   * Returns the rule's action owner.
-   */
-  @SkylarkCallable(doc = "")
+  @SkylarkCallable(doc = "Returns the rule's action owner.")
   public ActionOwner actionOwner() {
     return ruleContext.getActionOwner();
   }
 
-  /**
-   * Registers an action.
-   */
-  @SkylarkCallable(doc = "")
-  public void registerAction(Action action) {
+  @SkylarkCallable(doc = "Registers an action, that will be executed at runtime if needed.")
+  public void register(Action action) {
     ruleContext.getAnalysisEnvironment().registerAction(action);
   }
 
-  /**
-   * Signals a rule error with the given message.
-   */
-  @SkylarkCallable(doc = "")
+  @SkylarkCallable(doc =
+      "Signals a rule error with the given message. This function does not return.")
   public void error(String message) throws FuncallException {
     throw new FuncallException(message);
   }
 
-  /**
-   * Signals an attribute error with the given attribute and message.
-   */
-  @SkylarkCallable(doc = "")
+  @SkylarkCallable(doc =
+      "Signals an attribute error with the given attribute and message.")
   public void error(String attrName, String message) throws FuncallException {
     throw new FuncallException("attribute " + attrName + ": " + message);
   }
 
-  /**
-   * Signals a warning error with the given message.
-   */
-  @SkylarkCallable(doc = "")
+  @SkylarkCallable(doc = "Signals a warning error with the given message.")
   public void warning(String message) {
     ruleContext.ruleWarning(message);
   }
 
-  /**
-   * Signals an attribute warning with the given attribute and message.
-   */
-  @SkylarkCallable(doc = "")
+  @SkylarkCallable(doc = "Signals an attribute warning with the given attribute and message.")
   public void warning(String attrName, String message) {
     ruleContext.attributeWarning(attrName, message);
   }
@@ -263,7 +249,11 @@ public final class SkylarkRuleContext {
   /**
    * See {@link RuleContext#createOutputArtifact(OutputFile)}.
    */
-  @SkylarkCallable(doc = "")
+  @SkylarkCallable(doc =
+      "Returns an artifact beneath the root of either the \"bin\" or \"genfiles\" "
+    + "tree, whose path is based on the name of this target and the current "
+    + "configuration.  The choice of which tree to use is based on the rule with "
+    + "which this target (which must be an OutputFile or a Rule) is associated.")
   public Artifact createOutputFile(OutputFile out) {
     return ruleContext.createOutputArtifact(out);
   }
@@ -271,26 +261,27 @@ public final class SkylarkRuleContext {
   /**
    * See {@link RuleContext#getOutputArtifacts()}.
    */
-  @SkylarkCallable(doc = "")
+  @SkylarkCallable(doc =
+      "Returns the (unmodifiable, ordered) list of artifacts which are the outputs "
+    + "of this target. "
+    + "Each element in this list is associated with a single output, either "
+    + "declared implicitly (via implicitOutputsFunction) or explicitly.")
   public ImmutableList<Artifact> outputArtifacts() {
     return ruleContext.getOutputArtifacts();
   }
 
-  /**
-   * See {@link RuleContext#createOutputArtifact(OutputFile)}.
-   */
-  @SkylarkCallable(doc = "")
+  @SkylarkCallable(doc =
+      "Returns an ordered collection containing all the declared output files of this rule.")
   public ImmutableList<OutputFile> outputFiles() {
     return ImmutableList.copyOf(ruleContext.getRule().getOutputFiles());
   }
 
   @Override
-  @SkylarkCallable(doc = "")
   public String toString() {
     return ruleContext.getLabel().toString();
   }
 
-  @SkylarkCallable(doc = "")
+  @SkylarkCallable(doc = "Splits a shell command to a list of tokens.")
   public List<String> tokenize(String optionString) throws FuncallException {
     List<String> options = new ArrayList<String>();
     try {
@@ -301,7 +292,9 @@ public final class SkylarkRuleContext {
     return ImmutableList.copyOf(options);
   }
 
-  @SkylarkCallable(doc = "")
+  @SkylarkCallable(doc =
+      "Expands all references to labels embedded within a string using the "
+    + "provided expansion mapping from labels to artifacts.")
   public <T extends Iterable<Artifact>> String expand(@Nullable String expression,
       Map<Label, T> labelMap, Label labelResolver) throws FuncallException {
     try {
@@ -338,6 +331,13 @@ public final class SkylarkRuleContext {
     for (String pathFragmentString : pathFragmentStrings) {
       fragment = fragment.getRelative(pathFragmentString);
     }
+    return ruleContext.getAnalysisEnvironment().getDerivedArtifact(fragment, root);
+  }
+
+  @SkylarkCallable(doc = "")
+  public Artifact paramFile(Root root, Artifact baseArtifact, String name) {
+    PathFragment original = baseArtifact.getRootRelativePath();
+    PathFragment fragment = original.replaceName(original.getBaseName() + name);
     return ruleContext.getAnalysisEnvironment().getDerivedArtifact(fragment, root);
   }
 

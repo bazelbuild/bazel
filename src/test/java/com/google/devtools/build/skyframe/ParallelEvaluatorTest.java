@@ -1970,6 +1970,7 @@ public class ParallelEvaluatorTest {
     AutoUpdatingGraph aug = new InMemoryAutoUpdatingGraph(
         ImmutableMap.of(GraphTester.NODE_TYPE, tester.getNodeBuilder()), new RecordingDifferencer(),
         progressReceiver);
+    SequentialBuildDriver driver = new SequentialBuildDriver(aug);
 
     tester.getOrCreate("top1").setComputedValue(CONCATENATE)
         .addDependency("d1").addDependency("d2");
@@ -1981,15 +1982,15 @@ public class ParallelEvaluatorTest {
     tester.set("d2", new StringNode("2"));
     tester.set("d3", new StringNode("3"));
 
-    aug.update(ImmutableList.of(GraphTester.toNodeKey("top1")), false, 200, reporter);
+    driver.update(ImmutableList.of(GraphTester.toNodeKey("top1")), false, 200, reporter);
     MoreAsserts.assertContentsAnyOrder(enqueuedNodes, GraphTester.toNodeKeys("top1", "d1", "d2"));
     enqueuedNodes.clear();
 
-    aug.update(ImmutableList.of(GraphTester.toNodeKey("top2")), false, 200, reporter);
+    driver.update(ImmutableList.of(GraphTester.toNodeKey("top2")), false, 200, reporter);
     MoreAsserts.assertContentsAnyOrder(enqueuedNodes, GraphTester.toNodeKeys("top2", "d3"));
     enqueuedNodes.clear();
 
-    aug.update(ImmutableList.of(GraphTester.toNodeKey("top1")), false, 200, reporter);
+    driver.update(ImmutableList.of(GraphTester.toNodeKey("top1")), false, 200, reporter);
     ASSERT.that(enqueuedNodes).isEmpty();
   }
 }

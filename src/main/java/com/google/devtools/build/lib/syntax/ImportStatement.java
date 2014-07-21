@@ -34,7 +34,7 @@ public final class ImportStatement extends Statement {
   ImportStatement(List<Ident> dir, List<Ident> symbols) {
     this.dir = ImmutableList.copyOf(dir);
     this.symbols = ImmutableList.copyOf(symbols);
-    this.importPath = new PathFragment(Joiner.on("/").join(dir));
+    this.importPath = new PathFragment(Joiner.on("/").join(dir) + ".bzl");
   }
 
   public ImmutableList<Ident> getDir() {
@@ -78,7 +78,7 @@ public final class ImportStatement extends Statement {
   void validate(ValidationEnvironment env) throws EvalException {
     // TODO(bazel-team): implement semantical check.
     for (Ident symbol : symbols) {
-      env.update(symbol.getName(), Object.class, getLocation());
+      env.update(symbol.getName(), SkylarkType.UNKNOWN, getLocation());
     }
   }
 }

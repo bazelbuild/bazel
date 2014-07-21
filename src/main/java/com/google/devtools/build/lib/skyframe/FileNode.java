@@ -169,8 +169,7 @@ abstract class FileNode implements Node {
 
     @Override
     public String toString() {
-      return rootedPath + "with state " + fileStateNode
-          + " (neither this file nor any ancestor is a symlink)";
+      return rootedPath + ", " + fileStateNode;
     }
   }
 
@@ -219,8 +218,7 @@ abstract class FileNode implements Node {
 
     @Override
     public String toString() {
-      return realRootedPath + "with state " + realFileStateNode
-          + " (at least one ancestory is a symlink)";
+      return realRootedPath + ", " + realFileStateNode + " (symlink ancestor)";
     }
   }
 
@@ -256,7 +254,7 @@ abstract class FileNode implements Node {
 
     @Override
     public String toString() {
-      return "symlink to " + realRootedPath + "with state " + realFileStateNode;
+      return "symlink (realpath=" + realRootedPath + "), " + realFileStateNode;
     }
   }
 }

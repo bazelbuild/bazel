@@ -11,24 +11,11 @@
 // WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
 // See the License for the specific language governing permissions and
 // limitations under the License.
-package com.google.devtools.build.lib.syntax;
+package com.google.devtools.build.skyframe;
 
 /**
- * Syntax node for an integer literal.
+ *  A Version defines a node in a version tree used in persistent data structures.
+ *  See http://en.wikipedia.org/wiki/Persistent_data_structure.
  */
-public final class IntegerLiteral extends Literal<Integer> {
-
-  public IntegerLiteral(Integer value) {
-    super(value);
-  }
-
-  @Override
-  public void accept(SyntaxTreeVisitor visitor) {
-    visitor.visit(this);
-  }
-
-  @Override
-  SkylarkType validate(ValidationEnvironment env) throws EvalException {
-    return SkylarkType.INT;
-  }
+interface Version {
 }

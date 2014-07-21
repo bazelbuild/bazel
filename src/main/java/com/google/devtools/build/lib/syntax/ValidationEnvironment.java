@@ -31,7 +31,7 @@ import java.util.Set;
  */
 public class ValidationEnvironment {
 
-  private Map<String, Class<?>> variableTypes = new HashMap<>();
+  private Map<String, SkylarkType> variableTypes = new HashMap<>();
 
   private Map<String, Location> variableLocations = new HashMap<>();
 
@@ -43,14 +43,14 @@ public class ValidationEnvironment {
   // Whether this validation environment is not modified therefore clonable or not.
   private boolean clonable;
 
-  public ValidationEnvironment(ImmutableMap<String, Class<?>> builtinVariableTypes) {
+  public ValidationEnvironment(ImmutableMap<String, SkylarkType> builtinVariableTypes) {
     variableTypes.putAll(builtinVariableTypes);
     readOnlyVariables.addAll(builtinVariableTypes.keySet());
     clonable = true;
   }
 
   private ValidationEnvironment(
-      Map<String, Class<?>> variableTypes, Set<String> readOnlyVariables) {
+      Map<String, SkylarkType> variableTypes, Set<String> readOnlyVariables) {
     this.variableTypes = new HashMap<>(variableTypes);
     this.readOnlyVariables = new HashSet<>(readOnlyVariables);
     clonable = false;
@@ -67,34 +67,30 @@ public class ValidationEnvironment {
    * The old and the new vartype has to be compatible, otherwise an EvalException is thrown.
    * The new type is stronger if the old one doesn't exist or unknown.
    */
-  public void update(String varname, Class<?> newVartype, Location location) throws EvalException {
+  public void update(String varname, SkylarkType newVartype, Location location)
+      throws EvalException {
     if (readOnlyVariables.contains(varname)) {
       throw new EvalException(location, String.format("Variable %s is read only", varname));
     }
-    if (!isVariableTypeCompatible(varname, newVartype)) {
-      throw new EvalException(location, String.format("Incompatible variable types, "
-          + "trying to assign type of %s to variable %s which is also a %s at %s",
-          EvalUtils.getDataTypeNameFromClass(newVartype),
-          varname,
-          EvalUtils.getDataTypeNameFromClass(getVartype(varname)),
-          variableLocations.get(varname)));
+    SkylarkType oldVartype = variableTypes.get(varname);
+    if (oldVartype != null) {
+      newVartype = oldVartype.infer(newVartype, "variable '" + varname + "'",
+          location, variableLocations.get(varname));
     }
-    Class<?> oldVartype = variableTypes.get(varname);
-    if (oldVartype == null || oldVartype.equals(Object.class)) {
-      variableTypes.put(varname, newVartype);
-      variableLocations.put(varname, location);
-    }
+    variableTypes.put(varname, newVartype);
+    variableLocations.put(varname, location);
     clonable = false;
   }
 
-  public void checkIterable(Class<?> type, Location loc) throws EvalException {
-    if (type.equals(Object.class)) {
+  public void checkIterable(SkylarkType type, Location loc) throws EvalException {
+    if (type == SkylarkType.UNKNOWN) {
       // Until all the language is properly typed, we ignore Object types.
       return;
     }
-    if (!Iterable.class.isAssignableFrom(type) && !Map.class.isAssignableFrom(type)) {
+    if (!Iterable.class.isAssignableFrom(type.getType())
+        && !Map.class.isAssignableFrom(type.getType())) {
       throw new EvalException(loc,
-          "type '" + EvalUtils.getDataTypeNameFromClass(type) + "' is not iterable");
+          "type '" + EvalUtils.getDataTypeNameFromClass(type.getType()) + "' is not iterable");
     }
   }
 
@@ -108,27 +104,9 @@ public class ValidationEnvironment {
   /**
    * Returns the type of the existing variable.
    */
-  public Class<?> getVartype(String varname) {
+  public SkylarkType getVartype(String varname) {
     return Preconditions.checkNotNull(variableTypes.get(varname),
         String.format("Variable %s is not found in the validation environment", varname));
-  }
-
-  /**
-   * Returns true if the new vartype is compatible with the old one.
-   */
-  private boolean isVariableTypeCompatible(String varname, Class<?> newVartype) {
-    if (newVartype.equals(Object.class)) {
-      // Object.class means unknown variable type
-      return true;
-    }
-    Class<?> oldVartype = variableTypes.get(varname);
-    if (oldVartype == null) {
-      return true;
-    } else if (oldVartype.equals(Object.class)) {
-        return true;
-    } else {
-        return newVartype.equals(oldVartype);
-    }
   }
 
   public void setCurrentFunction(String fct) {

@@ -210,7 +210,7 @@ public abstract class SkylarkFunction extends AbstractFunction {
    * and adds their class and their corresponding return value to the builder.
    */
   public static void collectSkylarkFunctionReturnTypesFromFields(
-      Class<?> classObject, ImmutableMap.Builder<String, Class<?>> builder) {
+      Class<?> classObject, ImmutableMap.Builder<String, SkylarkType> builder) {
     for (Field field : classObject.getDeclaredFields()) {
       if (SkylarkFunction.class.isAssignableFrom(field.getType())
           && field.isAnnotationPresent(SkylarkBuiltin.class)) {
@@ -218,8 +218,8 @@ public abstract class SkylarkFunction extends AbstractFunction {
           field.setAccessible(true);
           SkylarkBuiltin annotation = field.getAnnotation(SkylarkBuiltin.class);
           // TODO(bazel-team): infer the correct types.
-          builder.put(annotation.name(), Object.class);
-          builder.put(annotation.name() + ".return", Object.class);
+          builder.put(annotation.name(), SkylarkType.UNKNOWN);
+          builder.put(annotation.name() + ".return", SkylarkType.UNKNOWN);
         } catch (IllegalArgumentException e) {
           // This should never happen.
           throw new RuntimeException(e);

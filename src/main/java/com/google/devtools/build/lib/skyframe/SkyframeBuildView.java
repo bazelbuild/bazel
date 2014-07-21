@@ -28,12 +28,7 @@ import com.google.devtools.build.lib.actions.MutableActionGraph;
 import com.google.devtools.build.lib.concurrent.ThreadSafety.ThreadHostile;
 import com.google.devtools.build.lib.events.ErrorEventListener;
 import com.google.devtools.build.lib.packages.Attribute;
-import com.google.devtools.build.lib.packages.NoSuchPackageException;
-import com.google.devtools.build.lib.packages.NoSuchTargetException;
-import com.google.devtools.build.lib.packages.Package;
-import com.google.devtools.build.lib.packages.PackageNotInCacheException;
 import com.google.devtools.build.lib.packages.Target;
-import com.google.devtools.build.lib.pkgcache.LoadedPackageProvider;
 import com.google.devtools.build.lib.query2.output.OutputFormatter;
 import com.google.devtools.build.lib.skyframe.BuildInfoCollectionNode.BuildInfoKeyAndConfig;
 import com.google.devtools.build.lib.skyframe.ConfiguredTargetNodeBuilder.ConfiguredNodeCreationException;
@@ -42,7 +37,6 @@ import com.google.devtools.build.lib.view.AnalysisFailureEvent;
 import com.google.devtools.build.lib.view.CachingAnalysisEnvironment;
 import com.google.devtools.build.lib.view.ConfiguredTarget;
 import com.google.devtools.build.lib.view.ConfiguredTargetFactory;
-import com.google.devtools.build.lib.view.PrerequisiteMap;
 import com.google.devtools.build.lib.view.ViewCreationFailedException;
 import com.google.devtools.build.lib.view.WorkspaceStatusArtifacts;
 import com.google.devtools.build.lib.view.buildinfo.BuildInfoFactory;
@@ -372,15 +366,13 @@ public final class SkyframeBuildView {
    */
   @Nullable
   ConfiguredTarget createAndInitialize(Target target, BuildConfiguration configuration,
-      CachingAnalysisEnvironment analysisEnvironment, PrerequisiteMap prerequisiteMap,
-      ListMultimap<Attribute, Label> labelMap, Environment skyframeEnv)
+      CachingAnalysisEnvironment analysisEnvironment,
+      ListMultimap<Attribute, ConfiguredTarget> prerequisiteMap)
       throws InterruptedException {
     Preconditions.checkState(enableAnalysis,
         "Already in execution phase %s %s", target, configuration);
-    LoadedPackageProvider targetProvider = new TargetProvider(skyframeEnv);
-    return factory.createAndInitialize(analysisEnvironment,
-        artifactFactory, targetProvider, target, configuration,
-        prerequisiteMap, labelMap);
+    return factory.createAndInitialize(analysisEnvironment, artifactFactory, target, configuration,
+        prerequisiteMap);
   }
 
   @Nullable
@@ -450,42 +442,6 @@ public final class SkyframeBuildView {
    */
   void enableAnalysis(boolean enable) {
     this.enableAnalysis = enable;
-  }
-
-  private static class TargetProvider implements LoadedPackageProvider {
-
-    private final Environment skyframeEnv;
-
-    public TargetProvider(Environment skyframeEnv) {
-      this.skyframeEnv = skyframeEnv;
-    }
-
-    @Override
-    public Target getLoadedTarget(Label label)
-        throws NoSuchPackageException, NoSuchTargetException {
-      NodeKey key = PackageNode.key(label.getPackageFragment());
-      Node node = skyframeEnv.getDep(key);
-      if (node == null) {
-        throw new PackageNotInCacheException(label.getPackageName());
-      }
-      PackageNode packageNode = (PackageNode) node;
-      return packageNode.getPackage().getTarget(label.getName());
-    }
-
-    @Override
-    public Package getLoadedPackage(String packageName) throws NoSuchPackageException {
-      // Not used for fetching prerequisites.
-      throw new UnsupportedOperationException();
-    }
-
-    @Override
-    public boolean isTargetCurrent(Target target) {
-      // Not used for fetching prerequisites.
-      throw new UnsupportedOperationException();
-    }
-
-    @Override
-    public void addDependency(Package pkg, String fileName) {}
   }
 
   /**

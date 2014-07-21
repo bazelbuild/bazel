@@ -396,7 +396,7 @@ public final class FuncallExpression extends Expression {
   }
 
   @Override
-  Class<?> validate(ValidationEnvironment env) throws EvalException {
+  SkylarkType validate(ValidationEnvironment env) throws EvalException {
     // TODO(bazel-team): implement semantical check.
 
     if (obj != null) {
@@ -407,13 +407,13 @@ public final class FuncallExpression extends Expression {
         throw new EvalException(getLocation(),
             String.format("function '%s' does not exist", func.getName()));
       }
-      Class<?> funcType = env.getVartype(func.getName());
-      if (Function.class.isAssignableFrom(funcType)) {
+      SkylarkType funcType = env.getVartype(func.getName());
+      if (Function.class.isAssignableFrom(funcType.getType())) {
         // TODO(bazel-team): Imported functions don't have return-s.
-        Class<?> returnValue = env.getVartype(func.getName() + ".return");
+        SkylarkType returnValue = env.getVartype(func.getName() + ".return");
         return returnValue;
       }
     }
-    return Object.class;
+    return SkylarkType.UNKNOWN;
   }
 }

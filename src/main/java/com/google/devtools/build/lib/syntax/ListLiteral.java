@@ -13,8 +13,6 @@
 // limitations under the License.
 package com.google.devtools.build.lib.syntax;
 
-import com.google.common.collect.ImmutableList;
-
 import java.util.ArrayList;
 import java.util.List;
 
@@ -112,12 +110,16 @@ public final class ListLiteral extends Expression {
   }
 
   @Override
-  Class<?> validate(ValidationEnvironment env) throws EvalException {
-    // TODO(bazel-team): implement semantical check.
-    if (isTuple()) {
-      return ImmutableList.class;
-    } else {
-      return List.class;
+  SkylarkType validate(ValidationEnvironment env) throws EvalException {
+    SkylarkType type = SkylarkType.UNKNOWN;
+    for (Expression expr : exprs) {
+      SkylarkType nextType = expr.validate(env);
+      if (!nextType.isSimple()) {
+        throw new EvalException(getLocation(),
+            String.format("List cannot contain composite type '%s'", nextType));
+      }
+      type = type.infer(nextType, "list literal", expr.getLocation(), getLocation());
     }
+    return SkylarkType.of(List.class, type.getType());
   }
 }

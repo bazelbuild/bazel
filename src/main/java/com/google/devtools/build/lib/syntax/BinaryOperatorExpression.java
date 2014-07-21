@@ -237,50 +237,50 @@ public final class BinaryOperatorExpression extends Expression {
   }
 
   @Override
-  Class<?> validate(ValidationEnvironment env) throws EvalException {
-    Class<?> ltype = lhs.validate(env);
-    Class<?> rtype = rhs.validate(env);
-    String lname = EvalUtils.getDataTypeNameFromClass(ltype);
-    String rname = EvalUtils.getDataTypeNameFromClass(rtype);
+  SkylarkType validate(ValidationEnvironment env) throws EvalException {
+    SkylarkType ltype = lhs.validate(env);
+    SkylarkType rtype = rhs.validate(env);
+    String lname = EvalUtils.getDataTypeNameFromClass(ltype.getType());
+    String rname = EvalUtils.getDataTypeNameFromClass(rtype.getType());
 
     switch (operator) {
       case AND: {
-        return Object.class;
+        return ltype.infer(rtype, "and operator", rhs.getLocation(), lhs.getLocation());
       }
 
       case OR: {
-        return Object.class;
+        return ltype.infer(rtype, "or operator", rhs.getLocation(), lhs.getLocation());
       }
 
       case PLUS: {
         // int + int
-        if (ltype.equals(Integer.class) && rtype.equals(Integer.class)) {
-          return Integer.class;
+        if (ltype == SkylarkType.INT && rtype == SkylarkType.INT) {
+          return SkylarkType.INT;
         }
 
         // string + string
-        if (ltype.equals(String.class) && rtype.equals(String.class)) {
-          return String.class;
+        if (ltype == SkylarkType.STRING && rtype == SkylarkType.STRING) {
+          return SkylarkType.STRING;
         }
 
-        // list + list, tuple + tuple (list + tuple, tuple + list => error)
-        if (List.class.isAssignableFrom(ltype) && List.class.isAssignableFrom(rtype)) {
-          if (EvalUtils.isTuple(ltype) != EvalUtils.isTuple(rtype)) {
-            throw new EvalException(getLocation(),
-                "can only concatenate " + rname + " (not \"" + lname + "\") to " + rname);
+        // list + list
+        if (ltype.isList() && rtype.isList()) {
+          return ltype.infer(rtype, "list concatenation", rhs.getLocation(), lhs.getLocation());
+        }
+
+        // dict + dict
+        if (ltype.isDict() && rtype.isDict()) {
+          return ltype.infer(rtype, "dict concatenation", rhs.getLocation(), lhs.getLocation());
+        }
+
+        if (ltype.isNset()) {
+          if (rtype.isNset()) {
+            return ltype.infer(rtype, "nested set", rhs.getLocation(), lhs.getLocation());
+          } else if (rtype.isList()) {
+            return ltype.infer(SkylarkType.of(SkylarkNestedSet.class, rtype.getGenericType1()),
+                "nested set", rhs.getLocation(), lhs.getLocation());
           }
-          return ltype;
-        }
-
-        if (Map.class.isAssignableFrom(ltype) && Map.class.isAssignableFrom(rtype)) {
-          return Map.class;
-        }
-
-        if (ltype.equals(SkylarkNestedSet.class)) {
-          if (List.class.isAssignableFrom(rtype) || rtype.equals(SkylarkNestedSet.class)) {
-            return SkylarkNestedSet.class;
-          }
-          if (!rtype.equals(Object.class)) {
+          if (rtype != SkylarkType.UNKNOWN) {
             throw new EvalException(getLocation(), String.format("can only concatenate nested sets "
                 + "with other nested sets or list of items, not '" + rname + "'"));
           }
@@ -290,21 +290,21 @@ public final class BinaryOperatorExpression extends Expression {
       }
 
       case MINUS: {
-        if (ltype.equals(Integer.class) && rtype.equals(Integer.class)) {
-          return Integer.class;
+        if (ltype == SkylarkType.INT && rtype == SkylarkType.INT) {
+          return SkylarkType.INT;
         }
         break;
       }
 
       case PERCENT: {
         // int % int
-        if (ltype.equals(Integer.class) && rtype.equals(Integer.class)) {
-          return Integer.class;
+        if (ltype == SkylarkType.INT && rtype == SkylarkType.INT) {
+          return SkylarkType.INT;
         }
 
         // string % tuple, string % dict, string % anything-else
-        if (ltype.equals(String.class)) {
-          return String.class;
+        if (ltype == SkylarkType.STRING) {
+          return SkylarkType.STRING;
         }
         break;
       }
@@ -315,35 +315,32 @@ public final class BinaryOperatorExpression extends Expression {
       case LESS_EQUALS:
       case GREATER:
       case GREATER_EQUALS: {
-        if (!ltype.equals(Object.class) && !(Comparable.class.isAssignableFrom(ltype))) {
+        if (ltype != SkylarkType.UNKNOWN && !(Comparable.class.isAssignableFrom(ltype.getType()))) {
           throw new EvalException(getLocation(), lname + " is not comparable");
         }
-        if (!ltype.equals(Object.class) && !rtype.equals(Object.class) && !ltype.equals(rtype)) {
-          throw new EvalException(getLocation(),
-              String.format("cannot compare a %s to a(n) %s", lname, rname));
-        }
-        return Boolean.class;
+        ltype.infer(rtype, "comparison", lhs.getLocation(), rhs.getLocation());
+        return SkylarkType.BOOL;
       }
 
       case IN: {
-        if (Collection.class.isAssignableFrom(rtype)
-            || Map.class.isAssignableFrom(rtype)
-            || String.class.isAssignableFrom(rtype)) {
-          return Boolean.class;
+        if (Collection.class.isAssignableFrom(rtype.getType())
+            || rtype.isDict()
+            || rtype == SkylarkType.STRING) {
+          return SkylarkType.BOOL;
         } else {
-          if (!rtype.equals(Object.class)) {
+          if (rtype != SkylarkType.UNKNOWN) {
             throw new EvalException(getLocation(), String.format(
                 "operand 'in' only works on strings, dictionaries, lists or tuples, not on a(n) %s",
-                EvalUtils.getDataTypeNameFromClass(rtype)));
+                EvalUtils.getDataTypeNameFromClass(rtype.getType())));
           }
         }
       }
     } // endswitch
 
-    if (!ltype.equals(Object.class) && !rtype.equals(Object.class)) {
+    if (ltype != SkylarkType.UNKNOWN && rtype != SkylarkType.UNKNOWN) {
       throw new EvalException(getLocation(),
           "unsupported operand types for '" + operator + "': '" + lname + "' and '" + rname + "'");
     }
-    return Object.class;
+    return SkylarkType.UNKNOWN;
   }
 }

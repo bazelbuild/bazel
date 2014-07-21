@@ -69,7 +69,7 @@ public class SkylarkDocumentationProcessor {
   }
 
   private String generateAllBuiltinDoc() {
-    Set<SkylarkJavaObject> reachableObjects = new TreeSet<>();       
+    Set<SkylarkJavaObject> reachableObjects = new TreeSet<>();
     StringBuilder sb = new StringBuilder();
 
     reachableObjects.addAll(collectMethodLibraryDocs());
@@ -116,23 +116,36 @@ public class SkylarkDocumentationProcessor {
 
   private String generateDirectJavaMethodDoc(
       String objectName, String methodName, Method method, SkylarkCallable annotation) {
+    if (annotation.hidden()) {
+      return "";
+    }
+
     StringBuilder sb = new StringBuilder();
-      if (!annotation.hidden()) {
-          sb.append(String.format("<h4 id=\"objects.%s.%s\">%s(%s)</h4>\n",
-              objectName,
-              methodName,
-              methodName,
-              getParameterString(method)))
-          .append(annotation.doc())
-          .append("\n");
-      }
+    sb.append(String.format("<h4 id=\"objects.%s.%s\">%s</h4>\n%s\n",
+            objectName,
+            methodName,
+            methodName,
+            getSignature(objectName, methodName, method)))
+        .append(annotation.doc())
+        .append("\n");
     return sb.toString();
   }
 
-  private String getParameterString(Method method) {
+  private String getSignature(String objectName, String methodName, Method method) {
     if (method == null) {
       return "";
     }
+
+    String args = getParameterString(method);
+    if (!args.isEmpty()) {
+      args = "(" + args + ")";
+    }
+
+    return String.format("<code>%s %s.%s%s</code><br>",
+        EvalUtils.getDataTypeNameFromClass(method.getReturnType()), objectName, methodName, args);
+  }
+
+  private String getParameterString(Method method) {
     return Joiner.on(", ").join(Iterables.transform(
         ImmutableList.copyOf(method.getParameterTypes()), new Function<Class<?>, String>() {
           @Override
@@ -171,7 +184,7 @@ public class SkylarkDocumentationProcessor {
       if (obj instanceof Class<?>) {
         Class<?> classObj = (Class<?>) obj;
         if (classObj.isAnnotationPresent(SkylarkBuiltin.class)) {
-          SkylarkBuiltin skylarkBuiltin = classObj.getAnnotation(SkylarkBuiltin.class); 
+          SkylarkBuiltin skylarkBuiltin = classObj.getAnnotation(SkylarkBuiltin.class);
           builder.put(skylarkBuiltin, classObj);
         }
       }
@@ -183,7 +196,7 @@ public class SkylarkDocumentationProcessor {
       Field[] fields) {
     for (Field field : fields) {
       if (field.isAnnotationPresent(SkylarkBuiltin.class)) {
-        SkylarkBuiltin skylarkBuiltin = field.getAnnotation(SkylarkBuiltin.class); 
+        SkylarkBuiltin skylarkBuiltin = field.getAnnotation(SkylarkBuiltin.class);
         builder.put(skylarkBuiltin, field.getClass());
       }
     }

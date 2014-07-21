@@ -37,11 +37,12 @@ import javax.annotation.Nullable;
 public interface AutoUpdatingGraph {
 
   /**
-   * Computes the transitive closure of a given set of nodes. See
+   * Computes the transitive closure of a given set of nodes at the given {@link Version}. See
    * {@link EagerInvalidator#invalidate}.
    */
-  <T extends Node> UpdateResult<T> update(Iterable<NodeKey> roots, boolean keepGoing,
-                                          int numThreads, ErrorEventListener reporter)
+  <T extends Node> UpdateResult<T> update(Iterable<NodeKey> roots, Version version,
+                                          boolean keepGoing, int numThreads,
+                                          ErrorEventListener reporter)
       throws InterruptedException;
 
   /**

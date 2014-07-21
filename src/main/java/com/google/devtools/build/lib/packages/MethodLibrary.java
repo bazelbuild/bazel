@@ -30,6 +30,7 @@ import com.google.devtools.build.lib.syntax.PositionalFunction;
 import com.google.devtools.build.lib.syntax.SkylarkBuiltin;
 import com.google.devtools.build.lib.syntax.SkylarkCallable;
 import com.google.devtools.build.lib.syntax.SkylarkNestedSet;
+import com.google.devtools.build.lib.syntax.SkylarkType;
 
 import java.util.HashSet;
 import java.util.Iterator;
@@ -194,7 +195,7 @@ public class MethodLibrary {
 
   @SkylarkCallable(
       doc = "Returns the first index where <i>sub</i> is found, "
-          + "or -1 if no such index exists, optionally restricting to [<i>start</i>:<i>end</i>, "
+          + "or -1 if no such index exists, optionally restricting to [<i>start</i>:<i>end]</i>, "
           + "<i>start</i> being inclusive and <i>end</i> being exclusive.")
   private static Function find =
       new MixedModeFunction("find", ImmutableList.of("this", "sub", "start", "end"), 2, false) {
@@ -446,45 +447,45 @@ public class MethodLibrary {
   };
 
   @SkylarkBuiltin(name = "String", doc = "")
-  public static final Map<Function, Class<?>> stringFunctions = ImmutableMap
-      .<Function, Class<?>>builder()
-      .put(join, String.class)
-      .put(lower, String.class)
-      .put(replace, String.class)
-      .put(split, List.class)
-      .put(rfind, Integer.class)
-      .put(find, Integer.class)
-      .put(endswith, Boolean.class)
-      .put(startswith, Boolean.class)
-      .put(strip, String.class)
-      .put(substring, String.class)
+  public static final Map<Function, SkylarkType> stringFunctions = ImmutableMap
+      .<Function, SkylarkType>builder()
+      .put(join, SkylarkType.STRING)
+      .put(lower, SkylarkType.STRING)
+      .put(replace, SkylarkType.STRING)
+      .put(split, SkylarkType.of(List.class, String.class))
+      .put(rfind, SkylarkType.INT)
+      .put(find, SkylarkType.INT)
+      .put(endswith, SkylarkType.BOOL)
+      .put(startswith, SkylarkType.BOOL)
+      .put(strip, SkylarkType.STRING)
+      .put(substring, SkylarkType.STRING)
       .build();
 
-  @SkylarkBuiltin(name = "List", doc = "")
+  @SkylarkBuiltin(name = "List", doc = "", hidden = true)
   public static final List<Function> listFunctions = ImmutableList
       .<Function>builder()
       .add(append)
       .add(extend)
       .build();
 
-  private static final Map<Function, Class<?>> pureFunctions = ImmutableMap
-      .<Function, Class<?>>builder()
+  private static final Map<Function, SkylarkType> pureFunctions = ImmutableMap
+      .<Function, SkylarkType>builder()
       // TODO(bazel-team): String methods are added two times, because there are
       // a lot of cases when they are used as global functions in the depot. Those
       // should be cleaned up first.
       .putAll(stringFunctions)
-      .put(minus, Integer.class)
-      .put(set, Set.class)
-      .put(len, Integer.class)
-      .put(str, String.class)
-      .put(bool, Boolean.class)
+      .put(minus, SkylarkType.INT)
+      .put(set, SkylarkType.of(Set.class))
+      .put(len, SkylarkType.INT)
+      .put(str, SkylarkType.STRING)
+      .put(bool, SkylarkType.BOOL)
       .build();
 
-  private static final Map<Function, Class<?>> skylarkFunctions = ImmutableMap
-      .<Function, Class<?>>builder()
+  private static final Map<Function, SkylarkType> skylarkFunctions = ImmutableMap
+      .<Function, SkylarkType>builder()
       .putAll(pureFunctions)
-      .put(struct, ClassObject.class)
-      .put(nset, SkylarkNestedSet.class)
+      .put(struct, SkylarkType.of(ClassObject.class))
+      .put(nset, SkylarkType.of(SkylarkNestedSet.class))
       .build();
 
   /**
@@ -518,10 +519,10 @@ public class MethodLibrary {
     }
   }
 
-  public static void setupValidationEnvironment(ImmutableMap.Builder<String, Class<?>> builder) {
-    for (Map.Entry<Function, Class<?>> function : skylarkFunctions.entrySet()) {
+  public static void setupValidationEnvironment(ImmutableMap.Builder<String, SkylarkType> builder) {
+    for (Map.Entry<Function, SkylarkType> function : skylarkFunctions.entrySet()) {
       String name = function.getKey().getName();
-      builder.put(name, Function.class);
+      builder.put(name, SkylarkType.of(Function.class));
       builder.put(name + ".return", function.getValue());
     }
   }

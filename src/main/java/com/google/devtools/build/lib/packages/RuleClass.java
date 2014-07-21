@@ -1063,7 +1063,7 @@ public final class RuleClass {
     final String attrName = attribute.getName();
     // This attribute may be selectable, so iterate over each selection possibility in turn.
     // TODO(bazel-team): merge '*' condition into all lists when implemented.
-    AggregatingAttributeMapper attributeMap = new AggregatingAttributeMapper(rule);
+    AggregatingAttributeMapper attributeMap = AggregatingAttributeMapper.of(rule);
     for (List<Label> labels : attributeMap.visitAttribute(attrName, Type.LABEL_LIST)) {
       if (!labels.isEmpty()) {
         Set<Label> duplicates = CollectionUtils.duplicatedElementsOf(labels);

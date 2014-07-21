@@ -268,7 +268,7 @@ public abstract class FoundationTestCase extends ChattyAssertsTestCase {
     JunitTestUtils.assertContainsSubset(arguments, expectedSubset);
   }
 
-  protected String loadFile(String file) throws IOException {
-    return Files.toString(new File(file), Charset.defaultCharset());
+  protected String loadFile(File file) throws IOException {
+    return Files.toString(file, Charset.defaultCharset());
   }
 }

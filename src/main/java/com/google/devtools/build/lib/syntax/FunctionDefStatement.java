@@ -66,15 +66,15 @@ public class FunctionDefStatement extends Statement {
     env.setCurrentFunction(ident.getName());
     // TODO(bazel-team): set up local environment.
     for (Ident i : arg) {
-      env.update(i.getName(), Object.class, getLocation());
+      env.update(i.getName(), SkylarkType.UNKNOWN, getLocation());
     }
     for (Statement stmts : statements) {
       stmts.validate(env);
     }
-    env.update(ident.getName(), UserDefinedFunction.class, getLocation());
+    env.update(ident.getName(), SkylarkType.of(UserDefinedFunction.class), getLocation());
     // Register a dummy return value with an incompatible type if there was no return statement.
     if (!env.hasVariable(ident.getName() + ".return")) {
-      env.update(ident.getName() + ".return", Environment.NoneType.class, getLocation());
+      env.update(ident.getName() + ".return", SkylarkType.NONE, getLocation());
     }
   }
 }

@@ -36,7 +36,6 @@ import com.google.devtools.build.lib.syntax.Label;
 import com.google.devtools.build.lib.syntax.SkylarkEnvironment;
 import com.google.devtools.build.lib.syntax.ValidationEnvironment;
 import com.google.devtools.build.lib.vfs.Path;
-import com.google.devtools.build.lib.view.PrerequisiteMap.Prerequisite;
 import com.google.devtools.build.lib.view.buildinfo.BuildInfoFactory;
 import com.google.devtools.build.lib.view.config.BuildOptions;
 import com.google.devtools.build.lib.view.config.ConfigurationFragmentFactory;
@@ -71,7 +70,7 @@ public class ConfiguredRuleClassProvider implements RuleClassProvider {
      * workspace.
      */
     void validate(
-        RuleContext.Builder contextBuilder, Prerequisite prerequisite, Attribute attribute);
+        RuleContext.Builder contextBuilder, ConfiguredTarget prerequisite, Attribute attribute);
   }
 
   /**

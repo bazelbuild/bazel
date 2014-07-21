@@ -56,7 +56,7 @@ public final class Ident extends Expression {
   }
 
   @Override
-  Class<?> validate(ValidationEnvironment env) throws EvalException {
+  SkylarkType validate(ValidationEnvironment env) throws EvalException {
     if (env.hasVariable(name)) {
       return env.getVartype(name);
     } else {

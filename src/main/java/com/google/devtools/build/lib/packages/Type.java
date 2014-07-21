@@ -94,7 +94,7 @@ public abstract class Type<T> {
   /**
    * Variation of {@link #convert} that supports selector expressions for configurable attributes
    * (i.e. "{ config1: 'value1_of_orig_type', config2: 'value2_of_orig_type; }"). If x is a
-   * selector expression, returns a {@link Selector<T>} instance that contains key-mapped entries
+   * selector expression, returns a {@link Selector} instance that contains key-mapped entries
    * of the native type. Else, returns the native type directly.
    *
    * <p>The caller is responsible for casting the returned value appropriately.
@@ -132,7 +132,7 @@ public abstract class Type<T> {
   abstract Iterable<Label> getLabels(Object value);
 
   /**
-   * {@link #getLabels) return value for types that don't contain labels.
+   * {@link #getLabels} return value for types that don't contain labels.
    */
   private static final Iterable<Label> NO_LABELS_HERE = ImmutableList.of();
 
@@ -141,6 +141,7 @@ public abstract class Type<T> {
    * This operation is only valid for certain sub-Types which are guaranteed
    * to be properly initialized.
    *
+   * @param value the actual value
    * @throws UnsupportedOperationException if the concrete type does not support
    * tag conversion or if a convertible type has no initialized value.
    */

@@ -43,6 +43,9 @@ import javax.annotation.Nullable;
  * not thread-safe. Neither is it thread-safe to use this class in parallel with any of the
  * returned graphs. However, it is allowed to access the graph from multiple threads as long as
  * that does not happen in parallel with an {@link #update} call.
+ *
+ * <p>This auto-updating graph requires a sequential versioning scheme. Update invocations
+ * must pass in a monotonically increasing {@link IntVersion}.
  */
 public final class InMemoryAutoUpdatingGraph implements AutoUpdatingGraph {
 
@@ -50,7 +53,7 @@ public final class InMemoryAutoUpdatingGraph implements AutoUpdatingGraph {
   @Nullable private final NodeProgressReceiver progressReceiver;
   // Not final only for testing.
   private InMemoryGraph graph;
-  private long graphVersion = 0L;
+  private IntVersion lastGraphVersion = null;
 
   // State related to invalidation and deletion.
   private Set<NodeKey> nodesToDelete = new LinkedHashSet<>();
@@ -104,7 +107,7 @@ public final class InMemoryAutoUpdatingGraph implements AutoUpdatingGraph {
   @Override
   public void deleteDirty(long versionAgeLimit) {
     Preconditions.checkArgument(versionAgeLimit >= 0);
-    final long threshold = graphVersion - versionAgeLimit;
+    final long threshold = lastGraphVersion.getVal() - versionAgeLimit;
 
     nodesToDelete.addAll(
         Maps.filterEntries(graph.getAllNodes(), new Predicate<Entry<NodeKey, NodeEntry>>() {
@@ -116,27 +119,31 @@ public final class InMemoryAutoUpdatingGraph implements AutoUpdatingGraph {
   }
 
   @Override
-  public <T extends Node> UpdateResult<T> update(Iterable<NodeKey> roots, boolean keepGoing,
-          int numThreads, ErrorEventListener listener) throws InterruptedException {
+  public <T extends Node> UpdateResult<T> update(Iterable<NodeKey> roots, Version version,
+          boolean keepGoing, int numThreads, ErrorEventListener listener)
+      throws InterruptedException {
     // NOTE: Performance critical code. See bug "Null build performance parity".
+    IntVersion intVersion = (IntVersion) version;
+    Preconditions.checkState((lastGraphVersion == null && intVersion.getVal() == 0)
+        || version.equals(lastGraphVersion.next()),
+        "InMemoryGraph supports only monotonically increasing Integer versions: %s %s",
+        lastGraphVersion, version);
     setAndCheckUpdateState(true, roots);
     try {
-      Diff diff = differencer.getDiff();
+      Diff diff = differencer.getDiff(lastGraphVersion, version);
       Map<NodeKey, Node> nodesToInject = new HashMap<>(diff.changedKeysWithNewValues());
       invalidate(diff.changedKeysWithoutNewValues());
       pruneInjectedNodes(nodesToInject);
       invalidate(nodesToInject.keySet());
 
       performNodeInvalidation(progressReceiver);
+      injectNodes(nodesToInject, intVersion);
 
-      injectNodes(nodesToInject);
-
-      ParallelEvaluator evaluator = new ParallelEvaluator(graph, graphVersion, nodeBuilders,
-          listener, emittedEventState, keepGoing, numThreads, progressReceiver);
-      // Increment graph version for next build.
-      graphVersion++;
+      ParallelEvaluator evaluator = new ParallelEvaluator(graph, intVersion.getVal(),
+          nodeBuilders, listener, emittedEventState, keepGoing, numThreads, progressReceiver);
       return evaluator.eval(roots);
     } finally {
+      lastGraphVersion = intVersion;
       setAndCheckUpdateState(false, roots);
     }
   }
@@ -166,7 +173,7 @@ public final class InMemoryAutoUpdatingGraph implements AutoUpdatingGraph {
   /**
    * Injects nodes in {@code nodesToInject} into the graph.
    */
-  private void injectNodes(Map<NodeKey, Node> nodesToInject) {
+  private void injectNodes(Map<NodeKey, Node> nodesToInject, IntVersion version) {
     if (nodesToInject.isEmpty()) {
       return;
     }
@@ -190,7 +197,7 @@ public final class InMemoryAutoUpdatingGraph implements AutoUpdatingGraph {
         Preconditions.checkState(prevEntry.noDepsLastBuild(),
             "existing entry for %s has deps: %s", key, prevEntry);
       }
-      prevEntry.setValue(entry.getValue(), graphVersion);
+      prevEntry.setValue(entry.getValue(), version.getVal());
     }
   }
 

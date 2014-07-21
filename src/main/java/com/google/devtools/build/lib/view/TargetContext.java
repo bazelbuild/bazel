@@ -18,8 +18,9 @@ import com.google.devtools.build.lib.collect.nestedset.NestedSet;
 import com.google.devtools.build.lib.packages.PackageSpecification;
 import com.google.devtools.build.lib.packages.Target;
 import com.google.devtools.build.lib.syntax.Label;
-import com.google.devtools.build.lib.view.PrerequisiteMap.Prerequisite;
 import com.google.devtools.build.lib.view.config.BuildConfiguration;
+
+import java.util.List;
 
 import javax.annotation.Nullable;
 
@@ -37,14 +38,19 @@ public class TargetContext {
   private final AnalysisEnvironment env;
   private final Target target;
   private final BuildConfiguration configuration;
-  private final PrerequisiteMap directPrerequisites;
+  /**
+   * This list only contains prerequisites that are not declared in rule attributes, with the
+   * exception of visibility (i.e., visibility is represented here, even though it is a rule
+   * attribute in case of a rule). Rule attributes are handled by the {@link RuleContext} subclass.
+   */
+  private final List<ConfiguredTarget> directPrerequisites;
   private final NestedSet<PackageSpecification> visibility;
 
   /**
    * The constructor is intentionally package private.
    */
   TargetContext(AnalysisEnvironment env, Target target, BuildConfiguration configuration,
-      PrerequisiteMap directPrerequisites,
+      List<ConfiguredTarget> directPrerequisites,
       NestedSet<PackageSpecification> visibility) {
     this.env = env;
     this.target = target;
@@ -80,7 +86,11 @@ public class TargetContext {
   }
 
   TransitiveInfoCollection findDirectPrerequisite(Label label, BuildConfiguration config) {
-    Prerequisite prerequisite = directPrerequisites.get(label, config);
-    return prerequisite == null ? null : prerequisite.getTransitiveInfoCollection();
+    for (ConfiguredTarget prerequisite : directPrerequisites) {
+      if (prerequisite.getLabel().equals(label) && (prerequisite.getConfiguration() == config)) {
+        return prerequisite;
+      }
+    }
+    return null;
   }
 }

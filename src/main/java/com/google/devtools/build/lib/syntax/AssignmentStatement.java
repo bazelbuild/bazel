@@ -102,13 +102,13 @@ public final class AssignmentStatement extends Statement {
     // TODO(bazel-team): Implement other validations.
     if (lvalue instanceof Ident) {
       Ident ident = (Ident) lvalue;
-      Class<?> resultType = expression.validate(env);
+      SkylarkType resultType = expression.validate(env);
       env.update(ident.getName(), resultType, getLocation());
     } else {
       if (lvalue instanceof FuncallExpression) {
         FuncallExpression func = (FuncallExpression) lvalue;
-        Class<?> resultType = func.getObject().validate(env);
-        if (resultType.equals(ClassObject.class)) {
+        SkylarkType resultType = func.getObject().validate(env);
+        if (resultType.isStruct()) {
           throw new EvalException(getLocation(), "structs are immutable");
         }
       }

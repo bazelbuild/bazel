@@ -36,14 +36,14 @@ import com.google.devtools.build.lib.packages.PackageSpecification;
 import com.google.devtools.build.lib.packages.Rule;
 import com.google.devtools.build.lib.packages.RuleVisibility;
 import com.google.devtools.build.lib.packages.Target;
-import com.google.devtools.build.lib.pkgcache.LoadedPackageProvider;
 import com.google.devtools.build.lib.rules.RuleConfiguredTargetBuilder;
 import com.google.devtools.build.lib.skyframe.LabelAndConfiguration;
 import com.google.devtools.build.lib.syntax.Label;
 import com.google.devtools.build.lib.vfs.PathFragment;
-import com.google.devtools.build.lib.view.PrerequisiteMap.Prerequisite;
 import com.google.devtools.build.lib.view.buildinfo.BuildInfoFactory;
 import com.google.devtools.build.lib.view.config.BuildConfiguration;
+
+import javax.annotation.Nullable;
 
 /**
  * This class creates {@link ConfiguredTarget} instances using a given {@link
@@ -72,7 +72,7 @@ public final class ConfiguredTargetFactory {
    * to the {@code AnalysisEnvironment}.
    */
   private NestedSet<PackageSpecification> convertVisibility(
-      PrerequisiteMap prerequisites, ErrorEventListener reporter,
+      ListMultimap<Attribute, ConfiguredTarget> prerequisiteMap, ErrorEventListener reporter,
       Target target, BuildConfiguration packageGroupConfiguration) {
     RuleVisibility ruleVisibility = target.getVisibility();
     if (ruleVisibility instanceof ConstantRuleVisibility) {
@@ -88,9 +88,8 @@ public final class ConfiguredTargetFactory {
           NestedSetBuilder.stableOrder();
       for (Label groupLabel : packageGroupsVisibility.getPackageGroups()) {
         // PackageGroupsConfiguredTargets are always in the package-group configuration.
-        Prerequisite groupPrerequisite = prerequisites.get(groupLabel, packageGroupConfiguration);
-        TransitiveInfoCollection group =
-            groupPrerequisite == null ? null : groupPrerequisite.getTransitiveInfoCollection();
+        ConfiguredTarget group =
+            findPrerequisite(prerequisiteMap, groupLabel, packageGroupConfiguration);
         PackageSpecificationProvider provider = null;
         // group == null can only happen if the package group list comes
         // from a default_visibility attribute, because in every other case,
@@ -118,6 +117,17 @@ public final class ConfiguredTargetFactory {
     }
   }
 
+  private ConfiguredTarget findPrerequisite(
+      ListMultimap<Attribute, ConfiguredTarget> prerequisiteMap, Label label,
+      BuildConfiguration config) {
+    for (ConfiguredTarget prerequisite : prerequisiteMap.get(null)) {
+      if (prerequisite.getLabel().equals(label) && (prerequisite.getConfiguration() == config)) {
+        return prerequisite;
+      }
+    }
+    return null;
+  }
+
   private Artifact getOutputArtifact(OutputFile outputFile, BuildConfiguration configuration,
       boolean isFileset, ArtifactFactory artifactFactory) {
     Rule rule = outputFile.getAssociatedRule();
@@ -137,22 +147,22 @@ public final class ConfiguredTargetFactory {
   /**
    * Invokes the appropriate constructor to create a {@link ConfiguredTarget} instance.
    */
+  @Nullable
   public final ConfiguredTarget createAndInitialize(
       AnalysisEnvironment analysisEnvironment, ArtifactFactory artifactFactory,
-      LoadedPackageProvider loadedPackageProvider, Target target, BuildConfiguration config,
-      PrerequisiteMap prerequisiteMap, ListMultimap<Attribute, Label> labelMap)
+      Target target, BuildConfiguration config,
+      ListMultimap<Attribute, ConfiguredTarget> prerequisiteMap)
       throws InterruptedException {
     if (target instanceof Rule) {
       return createRule(
-          analysisEnvironment, loadedPackageProvider, (Rule) target, config,
-          prerequisiteMap, labelMap);
+          analysisEnvironment, (Rule) target, config, prerequisiteMap);
     }
 
     // Visibility, like all package groups, doesn't have a configuration
     NestedSet<PackageSpecification> visibility = convertVisibility(
         prerequisiteMap, analysisEnvironment.getReporter(), target, null);
     TargetContext targetContext = new TargetContext(analysisEnvironment, target, config,
-        prerequisiteMap, visibility);
+        prerequisiteMap.get(null), visibility);
     if (target instanceof OutputFile) {
       OutputFile outputFile = (OutputFile) target;
       boolean isFileset = outputFile.getGeneratingRule().getRuleClass().equals("Fileset");
@@ -181,20 +191,18 @@ public final class ConfiguredTargetFactory {
   }
 
   /**
-   * Factory method: constructs a RuleConfiguredTarget of the appropriate class,
-   * based on the rule class.
+   * Factory method: constructs a RuleConfiguredTarget of the appropriate class, based on the rule
+   * class. May return null if an error occurred.
    */
+  @Nullable
   private ConfiguredTarget createRule(
-      AnalysisEnvironment env, LoadedPackageProvider loadedPackageProvider, Rule rule,
-      BuildConfiguration configuration, PrerequisiteMap prerequisiteMap,
-      ListMultimap<Attribute, Label> labelMap)
-      throws InterruptedException {
+      AnalysisEnvironment env, Rule rule, BuildConfiguration configuration,
+      ListMultimap<Attribute, ConfiguredTarget> prerequisiteMap) throws InterruptedException {
     // Visibility computation and checking is done for every rule.
-    RuleContext ruleContext = new RuleContext.Builder(env, loadedPackageProvider, rule,
-        configuration, ruleClassProvider.getPrerequisiteValidator())
+    RuleContext ruleContext = new RuleContext.Builder(env, rule, configuration,
+        ruleClassProvider.getPrerequisiteValidator())
         .setVisibility(convertVisibility(prerequisiteMap, env.getReporter(), rule, null))
         .setPrerequisites(prerequisiteMap)
-        .setLabelMap(labelMap)
         .build();
     if (ruleContext.hasErrors()) {
       return null;

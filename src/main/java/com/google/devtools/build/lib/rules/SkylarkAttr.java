@@ -24,6 +24,7 @@ import com.google.devtools.build.lib.syntax.FuncallExpression;
 import com.google.devtools.build.lib.syntax.Function;
 import com.google.devtools.build.lib.syntax.SkylarkBuiltin;
 import com.google.devtools.build.lib.syntax.SkylarkBuiltin.Param;
+import com.google.devtools.build.lib.syntax.SkylarkType;
 import com.google.devtools.build.lib.util.FileTypeSet;
 
 import java.util.List;
@@ -178,7 +179,7 @@ public final class SkylarkAttr {
     }
   }
 
-  public static void setupValidationEnvironment(ImmutableMap.Builder<String, Class<?>> builder) {
-    builder.put("Attr", Object.class);
+  public static void setupValidationEnvironment(ImmutableMap.Builder<String, SkylarkType> builder) {
+    builder.put("Attr", SkylarkType.UNKNOWN);
   }
 }

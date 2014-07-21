@@ -2658,6 +2658,7 @@ public class AutoUpdatingGraphTest {
   private class AutoUpdatingGraphTester extends GraphTester {
     private RecordingDifferencer differencer;
     private AutoUpdatingGraph graph;
+    private SequentialBuildDriver driver;
     private TrackingInvalidationReceiver invalidationReceiver = new TrackingInvalidationReceiver();
 
     public void initialize() {
@@ -2665,6 +2666,7 @@ public class AutoUpdatingGraphTest {
       this.graph = new InMemoryAutoUpdatingGraph(
           ImmutableMap.of(NODE_TYPE, createDelegatingNodeBuilder()), differencer,
           invalidationReceiver, emittedEventState);
+      this.driver = new SequentialBuildDriver(graph);
     }
 
     public void setInvalidationReceiver(TrackingInvalidationReceiver customInvalidationReceiver) {
@@ -2705,7 +2707,7 @@ public class AutoUpdatingGraphTest {
     public <T extends Node> UpdateResult<T> eval(boolean keepGoing, int numThreads, NodeKey... keys)
         throws InterruptedException {
       Preconditions.checkState(getModifiedNodes().isEmpty());
-      return graph.update(ImmutableList.copyOf(keys), keepGoing, numThreads, reporter);
+      return driver.update(ImmutableList.copyOf(keys), keepGoing, numThreads, reporter);
     }
 
     public <T extends Node> UpdateResult<T> eval(boolean keepGoing, NodeKey... keys)

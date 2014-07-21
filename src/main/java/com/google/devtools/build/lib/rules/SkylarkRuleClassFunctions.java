@@ -14,11 +14,9 @@
 
 package com.google.devtools.build.lib.rules;
 
-import static com.google.devtools.build.lib.packages.Attribute.attr;
-import static com.google.devtools.build.lib.packages.Attribute.ConfigurationTransition.DATA;
 import static com.google.devtools.build.lib.packages.Attribute.ConfigurationTransition.HOST;
+import static com.google.devtools.build.lib.packages.Attribute.attr;
 import static com.google.devtools.build.lib.packages.Type.BOOLEAN;
-import static com.google.devtools.build.lib.packages.Type.LABEL_LIST;
 import static com.google.devtools.build.lib.packages.Type.NODEP_LABEL_LIST;
 import static com.google.devtools.build.lib.packages.Type.STRING;
 import static com.google.devtools.build.lib.packages.Type.STRING_LIST;
@@ -157,9 +155,7 @@ public class SkylarkRuleClassFunctions {
     // TODO(bazel-team): we might want to define base rule in Skylark later.
     // Right now we need some default attributes.
     baseRule = new RuleClass.Builder("$base_rule", RuleClassType.ABSTRACT, true)
-        .add(attr("data", LABEL_LIST).cfg(DATA))
         .add(attr("deprecation", STRING).nonconfigurable().value(deprecationDefault))
-        .add(attr("deps", LABEL_LIST))
         .add(attr("expect_failure", STRING))
         .add(attr("tags", STRING_LIST).orderIndependent().nonconfigurable().taggable())
         .add(attr("testonly", BOOLEAN).nonconfigurable().value(testonlyDefault))
@@ -283,23 +279,14 @@ public class SkylarkRuleClassFunctions {
                 RuleClassType.valueOf(cast(arguments.get("type"), String.class, "rule type", loc));
           }
 
-          RuleClass[] parents = Iterables.toArray(Iterables.concat(
-              castList(arguments.get("parents"), RuleClass.class,
-                  "parent rule classes of the rule class"),
-              ImmutableList.of(baseRule)), RuleClass.class);
-
-          RuleClass.Builder builder = new RuleClass.Builder(name, type, true, parents);
+          RuleClass.Builder builder = new RuleClass.Builder(name, type, true, baseRule);
 
           for (Map.Entry<String, Attribute.Builder> attr :
                    castMap(arguments.get("attr"), String.class, Attribute.Builder.class, "attr")) {
             String attrName = attr.getKey();
-            if (attr.getValue() == null) {
-              builder.removeAttribute(attrName);
-            } else {
-              Attribute.Builder<?> attrBuilder = attr.getValue();
-              attrBuilder.setName(attrName);
-              builder.addOrOverrideAttribute(attrBuilder.build());
-            }
+            Attribute.Builder<?> attrBuilder = attr.getValue();
+            attrBuilder.setName(attrName);
+            builder.addOrOverrideAttribute(attrBuilder.build());
           }
 
           if (arguments.containsKey("implicit_outputs")) {
@@ -386,13 +373,9 @@ public class SkylarkRuleClassFunctions {
           @SuppressWarnings("unchecked")
             @Override
             public Map.Entry<KEY_TYPE, VALUE_TYPE> apply(Map.Entry<?, ?> input) {
-            if (keyType.isAssignableFrom(input.getKey().getClass())) {
-              if (input.getValue() == Environment.NONE) {
-                input.setValue(null);
-                return (Map.Entry<KEY_TYPE, VALUE_TYPE>) input;
-              } else if (valueType.isAssignableFrom(input.getValue().getClass())) {
-                return (Map.Entry<KEY_TYPE, VALUE_TYPE>) input;
-              }
+            if (keyType.isAssignableFrom(input.getKey().getClass())
+                && valueType.isAssignableFrom(input.getValue().getClass())) {
+              return (Map.Entry<KEY_TYPE, VALUE_TYPE>) input;
             }
             throw new IllegalArgumentException(String.format(
                 "expected <%s, %s> type for '%s' but got <%s, %s> instead",

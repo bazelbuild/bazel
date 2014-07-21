@@ -68,7 +68,7 @@ public class ReturnStatement extends Statement {
     if (fct == null) {
       throw new EvalException(getLocation(), "Return statements must be inside a function");
     }
-    Class<?> resultType = returnExpression.validate(env);
+    SkylarkType resultType = returnExpression.validate(env);
     env.update(fct + ".return", resultType, getLocation());
   }
 }

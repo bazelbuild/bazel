@@ -483,7 +483,7 @@ public final class Rule implements Target, AttributeMap {
     // TODO(bazel-team): move this to AttributeMap, too. Just like visitLabels, which labels should
     // be visited may depend on the calling context. We shouldn't implicitly decide this for
     // the caller.
-    new AggregatingAttributeMapper(this).visitLabels(new AttributeMap.AcceptsLabelAttribute() {
+    AggregatingAttributeMapper.of(this).visitLabels(new AttributeMap.AcceptsLabelAttribute() {
       @Override
       public void acceptLabelAttribute(Label label, Attribute attribute) {
         if (predicate.apply(Rule.this, attribute)) {
@@ -691,7 +691,7 @@ public final class Rule implements Target, AttributeMap {
   // the introduction of this code is #2210848 (NullPointerException in
   // Package.checkForConflicts() ).
   void checkForNullLabels() {
-    new AggregatingAttributeMapper(this).visitLabels(
+    AggregatingAttributeMapper.of(this).visitLabels(
         new AttributeMap.AcceptsLabelAttribute() {
           @Override
           public void acceptLabelAttribute(Label labelToCheck, Attribute attribute) {

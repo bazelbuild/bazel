@@ -14,6 +14,7 @@
 package com.google.devtools.build.lib.view;
 
 import com.google.common.base.Preconditions;
+import com.google.common.collect.ArrayListMultimap;
 import com.google.common.collect.ListMultimap;
 import com.google.devtools.build.lib.packages.Attribute;
 import com.google.devtools.build.lib.packages.InputFile;
@@ -28,7 +29,6 @@ import com.google.devtools.build.lib.view.config.BuildConfiguration;
 import com.google.devtools.build.lib.view.config.BuildConfigurationCollection;
 
 import java.util.Collection;
-import java.util.LinkedHashSet;
 import java.util.Map;
 
 import javax.annotation.Nullable;
@@ -44,27 +44,28 @@ public abstract class DependencyResolver {
   }
 
   /**
-   * Returns ids for dependent nodes of a given node.
+   * Returns ids for dependent nodes of a given node, sorted by attribute. Note that some
+   * dependencies do not have a corresponding attribute here, and we use the null attribute to
+   * represent those edges.
    */
-  public final Collection<TargetAndConfiguration> dependentNodes(
+  public final ListMultimap<Attribute, TargetAndConfiguration> dependentNodeMap(
       TargetAndConfiguration node, ListMultimap<Attribute, Label> labelMap) {
     Target target = node.getTarget();
-    Collection<TargetAndConfiguration> outgoingEdges = new LinkedHashSet<>();
+    ListMultimap<Attribute, TargetAndConfiguration> outgoingEdges = ArrayListMultimap.create();
     if (target instanceof OutputFile) {
       Rule rule = ((OutputFile) target).getGeneratingRule();
-      addEdge(rule, node.getConfiguration(), outgoingEdges);
-      visitTargetVisibility(node, outgoingEdges);
+      addEdge(rule, node.getConfiguration(), outgoingEdges.get(null));
+      visitTargetVisibility(node, outgoingEdges.get(null));
     } else if (target instanceof InputFile) {
-      visitTargetVisibility(node, outgoingEdges);
+      visitTargetVisibility(node, outgoingEdges.get(null));
     } else if (target instanceof Rule) {
-      visitTargetVisibility(node, outgoingEdges);
+      visitTargetVisibility(node, outgoingEdges.get(null));
       visitRule(node, (Rule) target, labelMap, outgoingEdges);
     } else if (target instanceof PackageGroup) {
-      visitPackageGroup(node, (PackageGroup) target, outgoingEdges);
+      visitPackageGroup(node, (PackageGroup) target, outgoingEdges.get(null));
     } else {
       throw new IllegalStateException(target.getLabel().toString());
     }
-
     return outgoingEdges;
   }
 
@@ -74,7 +75,7 @@ public abstract class DependencyResolver {
    *
    * <p>TODO(bazel-team): Remove this version when non-SkyFrame code is stripped out.
    */
-  public final Collection<TargetAndConfiguration> dependentNodes(
+  public final ListMultimap<Attribute, TargetAndConfiguration> dependentNodeMap(
       TargetAndConfiguration node) {
     ListMultimap<Attribute, Label> labelMap = null;
     if (node.getTarget() instanceof Rule) {
@@ -85,7 +86,7 @@ public abstract class DependencyResolver {
         throw new IllegalStateException(e);
       }
     }
-    return dependentNodes(node, labelMap);
+    return dependentNodeMap(node, labelMap);
   }
 
   private void visitPackageGroup(TargetAndConfiguration node, PackageGroup packageGroup,
@@ -140,11 +141,12 @@ public abstract class DependencyResolver {
   }
 
   private void visitRule(final TargetAndConfiguration node, Rule rule,
-      ListMultimap<Attribute, Label> labelMap, Collection<TargetAndConfiguration> outgoingEdges) {
+      ListMultimap<Attribute, Label> labelMap,
+      ListMultimap<Attribute, TargetAndConfiguration> outgoingEdges) {
     Preconditions.checkNotNull(labelMap);
     for (Map.Entry<Attribute, Collection<Label>> entry : labelMap.asMap().entrySet()) {
       for (Label label : entry.getValue()) {
-        visitLabelInAttribute(node, rule, label, entry.getKey(), outgoingEdges);
+        visitLabelInAttribute(node, rule, label, entry.getKey(), outgoingEdges.get(entry.getKey()));
       }
     }
   }
@@ -198,7 +200,7 @@ public abstract class DependencyResolver {
    * <p>Throws {@link NoSuchThingException} if the target is known not to exist.
    *
    * <p>Returns null if the target is not ready to be returned at this moment. If getTarget returns
-   * null once or more during a {@link #dependentNodes} call, the results of that call will be
+   * null once or more during a {@link #dependentNodeMap} call, the results of that call will be
    * incomplete. For use within Skyframe, where several iterations may be needed to discover
    * all dependencies.
    */
