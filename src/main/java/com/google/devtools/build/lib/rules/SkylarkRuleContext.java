@@ -30,12 +30,14 @@ import com.google.devtools.build.lib.collect.nestedset.NestedSet;
 import com.google.devtools.build.lib.packages.Attribute;
 import com.google.devtools.build.lib.packages.Attribute.ConfigurationTransition;
 import com.google.devtools.build.lib.packages.ImplicitOutputsFunction;
+import com.google.devtools.build.lib.packages.ImplicitOutputsFunction.SkylarkImplicitOutputsFunction;
 import com.google.devtools.build.lib.packages.OutputFile;
 import com.google.devtools.build.lib.packages.RawAttributeMapper;
 import com.google.devtools.build.lib.shell.ShellUtils;
 import com.google.devtools.build.lib.shell.ShellUtils.TokenizationException;
 import com.google.devtools.build.lib.syntax.ClassObject;
 import com.google.devtools.build.lib.syntax.Environment;
+import com.google.devtools.build.lib.syntax.EvalException;
 import com.google.devtools.build.lib.syntax.FuncallExpression.FuncallException;
 import com.google.devtools.build.lib.syntax.Label;
 import com.google.devtools.build.lib.syntax.SkylarkBuiltin;
@@ -88,10 +90,12 @@ public final class SkylarkRuleContext {
 
   private final ClassObject attrObject;
 
+  private final ImmutableMap<String, Artifact> implicitOutputs;
+
   /**
    * Creates a new SkylarkRuleContext using ruleContext.
    */
-  public SkylarkRuleContext(RuleContext ruleContext) {
+  public SkylarkRuleContext(RuleContext ruleContext) throws EvalException {
     this.ruleContext = Preconditions.checkNotNull(ruleContext);
 
     ImmutableMap.Builder<String, Object> builder = new ImmutableMap.Builder<>();
@@ -100,6 +104,20 @@ public final class SkylarkRuleContext {
       builder.put(a.getName(), val == null ? Environment.NONE : val);
     }
     attrObject = new ClassObject(builder.build());
+
+    ImplicitOutputsFunction implicitOutputsFunction =
+        ruleContext.getRule().getRuleClassObject().getImplicitOutputsFunction();
+    ImmutableMap.Builder<String, Artifact> implicitOutputsBuilder = ImmutableMap.builder();
+    if (implicitOutputsFunction instanceof SkylarkImplicitOutputsFunction) {
+      SkylarkImplicitOutputsFunction func = (SkylarkImplicitOutputsFunction)
+          ruleContext.getRule().getRuleClassObject().getImplicitOutputsFunction();
+      for (Map.Entry<String, String> entry : func.calculateOutputs(
+          RawAttributeMapper.of(ruleContext.getRule())).entrySet()) {
+        implicitOutputsBuilder.put(
+            entry.getKey(), ruleContext.getImplicitOutputArtifact(entry.getValue()));
+      }
+    }
+    implicitOutputs = implicitOutputsBuilder.build();
   }
 
   /**
@@ -254,6 +272,7 @@ public final class SkylarkRuleContext {
     + "tree, whose path is based on the name of this target and the current "
     + "configuration.  The choice of which tree to use is based on the rule with "
     + "which this target (which must be an OutputFile or a Rule) is associated.")
+  @Deprecated
   public Artifact createOutputFile(OutputFile out) {
     return ruleContext.createOutputArtifact(out);
   }
@@ -268,6 +287,11 @@ public final class SkylarkRuleContext {
     + "declared implicitly (via implicitOutputsFunction) or explicitly.")
   public ImmutableList<Artifact> outputArtifacts() {
     return ruleContext.getOutputArtifacts();
+  }
+
+  @SkylarkCallable(doc = "Returns the implicit output map.")
+  public ImmutableMap<String, Artifact> outputs() throws EvalException {
+    return implicitOutputs;
   }
 
   @SkylarkCallable(doc =
@@ -302,12 +326,6 @@ public final class SkylarkRuleContext {
     } catch (NotUniqueExpansionException e) {
       throw new FuncallException(e.getMessage() + " while expanding '" + expression + "'");
     }
-  }
-
-  @SkylarkCallable(doc = "")
-  public ImmutableList<String> substitutePlaceholders(String template) {
-    return ImplicitOutputsFunction.substitutePlaceholderIntoTemplate(
-        template, RawAttributeMapper.of(ruleContext.getRule()));
   }
 
   @SkylarkCallable(doc = "")

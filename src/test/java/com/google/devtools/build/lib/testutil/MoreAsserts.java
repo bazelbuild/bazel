@@ -13,9 +13,10 @@
 // limitations under the License.
 package com.google.devtools.build.lib.testutil;
 
+import static com.google.common.truth.Truth.assertThat;
+import static com.google.common.truth.Truth.assert_;
 import static org.junit.Assert.assertFalse;
 import static org.junit.Assert.assertTrue;
-import static org.truth0.Truth.ASSERT;
 
 import com.google.common.base.Predicate;
 import com.google.common.collect.ImmutableList;
@@ -37,109 +38,109 @@ import java.util.regex.Pattern;
 public class MoreAsserts {
 
   public static void assertContentsAnyOrderOf(Iterable<?> actual, Object... expected) {
-    ASSERT.that(ImmutableList.copyOf(actual)).has().exactlyAs(ImmutableList.copyOf(expected));
+    assertThat(ImmutableList.copyOf(actual)).has().exactlyAs(ImmutableList.copyOf(expected));
   }
 
   @SafeVarargs
   public static <T> void assertContentsAnyOrder(Iterable<T> actual, T... expected) {
-    ASSERT.that(ImmutableList.copyOf(actual)).has().exactlyAs(ImmutableList.copyOf(expected));
+    assertThat(ImmutableList.copyOf(actual)).has().exactlyAs(ImmutableList.copyOf(expected));
   }
 
   @SafeVarargs
   public static <T> void assertContentsAnyOrder(String msg, Iterable<T> actual, T... expected) {
-    ASSERT.that(ImmutableList.copyOf(actual)).labeled(msg).has()
+    assertThat(ImmutableList.copyOf(actual)).labeled(msg).has()
       .exactlyAs(ImmutableList.copyOf(expected));
   }
 
   public static <T> void assertContentsAnyOrder(Iterable<T> expected, Iterable<T> actual) {
-    ASSERT.that(ImmutableList.copyOf(actual)).has().exactlyAs(ImmutableList.copyOf(expected));
+    assertThat(ImmutableList.copyOf(actual)).has().exactlyAs(ImmutableList.copyOf(expected));
   }
 
   public static <T> void assertContentsAnyOrder(
       String msg, Iterable<T> expected, Iterable<T> actual) {
-    ASSERT.that(ImmutableList.copyOf(actual)).labeled(msg).has()
+    assertThat(ImmutableList.copyOf(actual)).labeled(msg).has()
       .exactlyAs(ImmutableList.copyOf(expected));
   }
 
   @SafeVarargs
   public static <T> void assertContentsInOrder(Iterable<T> actual, T... expected) {
-    ASSERT.that(ImmutableList.copyOf(actual)).has()
+    assertThat(ImmutableList.copyOf(actual)).has()
       .exactlyAs(ImmutableList.copyOf(expected)).inOrder();
   }
 
   @SafeVarargs
   public static <T> void assertContentsInOrder(String msg, Iterable<T> actual, T... expected) {
-    ASSERT.that(ImmutableList.copyOf(actual)).labeled(msg).has()
+    assertThat(ImmutableList.copyOf(actual)).labeled(msg).has()
       .exactlyAs(ImmutableList.copyOf(expected)).inOrder();
   }
 
   public static <T> void assertContentsInOrder(
       String msg, Iterable<T> expected, Iterable<T> actual) {
-    ASSERT.that(ImmutableList.copyOf(actual)).labeled(msg).has()
+    assertThat(ImmutableList.copyOf(actual)).labeled(msg).has()
       .exactlyAs(ImmutableList.copyOf(expected)).inOrder();
   }
 
   public static <T> void assertContentsInOrder(Iterable<T> expected, Iterable<T> actual) {
-    ASSERT.that(ImmutableList.copyOf(actual)).has()
+    assertThat(ImmutableList.copyOf(actual)).has()
     .exactlyAs(ImmutableList.copyOf(expected)).inOrder();
   }
 
   public static void assertEmpty(Iterable<?> items) {
-    ASSERT.that(items).isEmpty();
+    assertThat(items).isEmpty();
   }
 
   public static void assertEmpty(String msg, Iterable<?> items) {
-    ASSERT.that(items).labeled(msg).isEmpty();
+    assertThat(items).labeled(msg).isEmpty();
   }
 
   public static void assertEmpty(Map<?, ?> map) {
-    ASSERT.that(map).isEmpty();
+    assertThat(map).isEmpty();
   }
 
   public static void assertNotEmpty(String msg, Iterable<?> items) {
-    ASSERT.that(items).labeled(msg).isNotEmpty();
+    assertThat(items).labeled(msg).isNotEmpty();
   }
 
   public static void assertNotEmpty(Iterable<?> items) {
-    ASSERT.that(items).isNotEmpty();
+    assertThat(items).isNotEmpty();
   }
 
   public static void assertNotEmpty(Map<?, ?> map) {
-    ASSERT.that(map).isNotEmpty();
+    assertThat(map).isNotEmpty();
   }
 
   public static void assertNotEqual(Object expected, Object actual) {
-    ASSERT.that(actual).isNotEqualTo(expected);
+    assertThat(actual).isNotEqualTo(expected);
   }
 
   public static void assertNotEqual(String msg, Object expected, Object actual) {
-    ASSERT.that(actual).labeled(msg).isNotEqualTo(expected);
+    assertThat(actual).labeled(msg).isNotEqualTo(expected);
   }
 
   public static void assertContains(String expected, String actual) {
-    ASSERT.that(actual).contains(expected);
+    assertThat(actual).contains(expected);
   }
 
   public static void assertNotContains(String expected, String actual) {
-    ASSERT.that(actual).doesNotContain(expected);
+    assertThat(actual).doesNotContain(expected);
   }
 
   @SafeVarargs
   public static <T> void assertContains(Iterable<T> actual, T... expected) {
-    ASSERT.that(ImmutableList.copyOf(actual)).has().allFrom(ImmutableList.copyOf(expected));
+    assertThat(ImmutableList.copyOf(actual)).has().allFrom(ImmutableList.copyOf(expected));
   }
   
   public static <T> void assertNotContains(Iterable<T> actual, T unexpected) {
     for (T i : actual) {
       if (i.equals(unexpected)) {
-        ASSERT.fail();
+        assert_().fail();
       }
     }
   }
 
   
   public static void assertContains(String msg, String expected, String actual) {
-    ASSERT.that(actual).labeled(msg).contains(expected);
+    assertThat(actual).labeled(msg).contains(expected);
   }
 
   public static void assertNotContains(String msg, String expected, String actual) {
@@ -148,12 +149,12 @@ public class MoreAsserts {
 
   @SafeVarargs
   public static <T> void assertContains(String msg, Iterable<T> actual, T... expected) {
-    ASSERT.that(ImmutableList.copyOf(actual)).labeled(msg)
+    assertThat(ImmutableList.copyOf(actual)).labeled(msg)
         .has().allFrom(ImmutableList.copyOf(expected));
   }
 
   public static <T> void assertNotContains(String msg, Iterable<T> actual, T unexpected) {
-    ASSERT.that(ImmutableList.copyOf(actual)).labeled(msg)
+    assertThat(ImmutableList.copyOf(actual)).labeled(msg)
         .has().noneOf(unexpected);
   }
 
@@ -251,11 +252,11 @@ public class MoreAsserts {
   }
 
   public static void assertEndsWith(String ending, String actual) {
-    ASSERT.that(actual).endsWith(ending);
+    assertThat(actual).endsWith(ending);
   }
 
   public static void assertStartsWith(String prefix, String actual) {
-    ASSERT.that(actual).startsWith(prefix);
+    assertThat(actual).startsWith(prefix);
   }
 
   /**
@@ -279,7 +280,7 @@ public class MoreAsserts {
         }
       };
     if (isRetained(p, start)) {
-      ASSERT.fail("Found an instance of " + clazz.getCanonicalName() +
+      assert_().fail("Found an instance of " + clazz.getCanonicalName() +
           " reachable from " + start.toString());
     }
   }

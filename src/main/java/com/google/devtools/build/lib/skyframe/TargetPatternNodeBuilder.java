@@ -238,11 +238,8 @@ public class TargetPatternNodeBuilder implements NodeBuilder {
       }
 
       for (RecursivePkgNode node : lookupNodes) {
-        for (Package pkg : node.getPackages()) {
-          // TODO(bazel-team): Use the packages we just got from the RecursivePkgNodes instead of
-          // throwing them away.
-          builder.merge(
-              getTargetsInPackage(originalPattern, pkg.getName(), FilteringPolicies.NO_FILTER));
+        for (String pkg : node.getPackages()) {
+          builder.merge(getTargetsInPackage(originalPattern, pkg, FilteringPolicies.NO_FILTER));
         }
       }
 

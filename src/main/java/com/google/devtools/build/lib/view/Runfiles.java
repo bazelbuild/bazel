@@ -723,7 +723,7 @@ public final class Runfiles {
      *
      * <p>If the rule does not have the specified attribute, returns the empty list.
      */
-    private static Iterable<TransitiveInfoCollection> getPrerequisites(
+    private static Iterable<? extends TransitiveInfoCollection> getPrerequisites(
         RuleContext ruleContext, String attributeName, Mode mode) {
       if (ruleContext.getRule().isAttrDefined(attributeName, Type.LABEL_LIST)) {
         return ruleContext.getPrerequisites(attributeName, mode);

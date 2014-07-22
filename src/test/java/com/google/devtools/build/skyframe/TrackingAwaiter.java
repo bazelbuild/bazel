@@ -13,7 +13,7 @@
 // limitations under the License.
 package com.google.devtools.build.skyframe;
 
-import static org.truth0.Truth.ASSERT;
+import static com.google.common.truth.Truth.assertThat;
 
 import com.google.common.base.Throwables;
 import com.google.common.util.concurrent.Uninterruptibles;
@@ -73,6 +73,6 @@ class TrackingAwaiter {
   }
 
   void assertNoErrors() {
-    ASSERT.that(exceptionsThrown).isEmpty();
+    assertThat(exceptionsThrown).isEmpty();
   }
 }

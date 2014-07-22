@@ -14,10 +14,11 @@
 
 package com.google.devtools.build.lib.packages;
 
-import com.google.common.base.Optional;
-import com.google.common.collect.ImmutableSet;
+import com.google.common.collect.ImmutableMap;
 import com.google.devtools.build.lib.events.Location;
 import com.google.devtools.build.lib.syntax.Label;
+
+import java.util.Map;
 
 import javax.annotation.Nullable;
 
@@ -143,11 +144,18 @@ public final class TargetUtils {
   }
 
   /**
-   * Returns the constraint keywords.
+   * Returns the execution info. These include execution requirement
+   * tags ('requires-*' as well as "local") as keys with empty values.
    */
-  public static ImmutableSet<String> constraintKeywords(Rule rule) {
-    return ImmutableSet.copyOf(
-        NonconfigurableAttributeMapper.of(rule).get(CONSTRAINTS_ATTR, Type.STRING_LIST));
+  public static Map<String, String> getExecutionInfo(Rule rule) {
+    ImmutableMap.Builder<String, String> builder = ImmutableMap.builder();
+    for (String tag :
+        NonconfigurableAttributeMapper.of(rule).get(CONSTRAINTS_ATTR, Type.STRING_LIST)) {
+      if (tag.startsWith("requires-") || tag.equals("local")) {
+        builder.put(tag, "");
+      }
+    }
+    return builder.build();
   }
 
   /**

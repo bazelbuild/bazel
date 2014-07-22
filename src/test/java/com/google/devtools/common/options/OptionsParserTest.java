@@ -14,9 +14,9 @@
 
 package com.google.devtools.common.options;
 
+import static com.google.common.truth.Truth.assertThat;
 import static com.google.devtools.common.options.OptionsParser.newOptionsParser;
 import static java.util.Arrays.asList;
-import static org.truth0.Truth.ASSERT;
 
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
@@ -174,7 +174,7 @@ public class OptionsParserTest extends TestCase {
   public void testMultipleOccuringOption() throws OptionsParsingException {
     OptionsParser parser = newOptionsParser(ExampleFoo.class);
     parser.parse("--bing", "abcdef", "--foo", "foo1", "--bing", "123456" );
-    ASSERT.that(parser.getOptions(ExampleFoo.class).bing).has().exactly("abcdef", "123456");
+    assertThat(parser.getOptions(ExampleFoo.class).bing).has().exactly("abcdef", "123456");
   }
 
   public void testMultipleOccurringOptionWithConverter() throws OptionsParsingException {
@@ -182,7 +182,7 @@ public class OptionsParserTest extends TestCase {
     // This test also tests option values with embedded commas and spaces.
     OptionsParser parser = newOptionsParser(ExampleFoo.class);
     parser.parse("--bang", "abc,def ghi", "--foo", "foo1", "--bang", "123456" );
-    ASSERT.that(parser.getOptions(ExampleFoo.class).bang).has().exactly("abc,def ghi", "123456");
+    assertThat(parser.getOptions(ExampleFoo.class).bang).has().exactly("abc,def ghi", "123456");
   }
 
   public void testParserIgnoresOptionsAfterMinusMinus()
@@ -463,32 +463,32 @@ public class OptionsParserTest extends TestCase {
   public void testWarningForImplicitOverridingExplicitOption() throws Exception {
     OptionsParser parser = OptionsParser.newOptionsParser(ImplicitDependencyWarningOptions.class);
     parser.parse("--second=second", "--first=first");
-    ASSERT.that(parser.getWarnings()).has().exactly("Option 'second' is implicitly defined by "
+    assertThat(parser.getWarnings()).has().exactly("Option 'second' is implicitly defined by "
         + "option 'first'; the implicitly set value overrides the previous one");
   }
 
   public void testWarningForExplicitOverridingImplicitOption() throws Exception {
     OptionsParser parser = OptionsParser.newOptionsParser(ImplicitDependencyWarningOptions.class);
     parser.parse("--first=first");
-    ASSERT.that(parser.getWarnings()).isEmpty();
+    assertThat(parser.getWarnings()).isEmpty();
     parser.parse("--second=second");
-    ASSERT.that(parser.getWarnings()).has().exactly("A new value for option 'second' overrides a"
+    assertThat(parser.getWarnings()).has().exactly("A new value for option 'second' overrides a"
         + " previous implicit setting of that option by option 'first'");
   }
 
   public void testWarningForExplicitOverridingImplicitOptionInSameCall() throws Exception {
     OptionsParser parser = OptionsParser.newOptionsParser(ImplicitDependencyWarningOptions.class);
     parser.parse("--first=first", "--second=second");
-    ASSERT.that(parser.getWarnings()).has().exactly("Option 'second' is implicitly defined by "
+    assertThat(parser.getWarnings()).has().exactly("Option 'second' is implicitly defined by "
         + "option 'first'; the implicitly set value overrides the previous one");
   }
 
   public void testWarningForImplicitOverridingImplicitOption() throws Exception {
     OptionsParser parser = OptionsParser.newOptionsParser(ImplicitDependencyWarningOptions.class);
     parser.parse("--first=first");
-    ASSERT.that(parser.getWarnings()).isEmpty();
+    assertThat(parser.getWarnings()).isEmpty();
     parser.parse("--third=third");
-    ASSERT.that(parser.getWarnings()).has().exactly("Option 'second' is implicitly defined by both "
+    assertThat(parser.getWarnings()).has().exactly("Option 'second' is implicitly defined by both "
         + "option 'first' and option 'third'");
   }
 
@@ -600,7 +600,7 @@ public class OptionsParserTest extends TestCase {
   public void testWarningForExpansionOverridingExplicitOption() throws Exception {
     OptionsParser parser = OptionsParser.newOptionsParser(ExpansionWarningOptions.class);
     parser.parse("--second=second", "--first");
-    ASSERT.that(parser.getWarnings()).has().exactly(
+    assertThat(parser.getWarnings()).has().exactly(
         "The option 'first' was expanded and now overrides a " +
         "previous explicitly specified option 'second'");
   }

@@ -13,6 +13,8 @@
 // limitations under the License.
 package com.google.devtools.build.skyframe;
 
+import static com.google.common.truth.Truth.assertThat;
+import static com.google.common.truth.Truth.assert_;
 import static com.google.devtools.build.skyframe.GraphTester.CONCATENATE;
 import static org.junit.Assert.assertEquals;
 import static org.junit.Assert.assertFalse;
@@ -21,7 +23,6 @@ import static org.junit.Assert.assertNull;
 import static org.junit.Assert.assertSame;
 import static org.junit.Assert.assertTrue;
 import static org.junit.Assert.fail;
-import static org.truth0.Truth.ASSERT;
 
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
@@ -618,13 +619,13 @@ public class ParallelEvaluatorTest {
     tester.getOrCreate(badKey).setHasError(true);
 
     UpdateResult<Node> result = eval(/*keepGoing=*/true, ImmutableList.of(recoveryKey));
-    ASSERT.that(result.errorMap()).isEmpty();
+    assertThat(result.errorMap()).isEmpty();
     assertTrue(result.hasError());
     assertEquals(new StringNode("i recovered"), result.get(recoveryKey));
 
     result = eval(/*keepGoing=*/false, ImmutableList.of(topKey));
     assertTrue(result.hasError());
-    ASSERT.that(result.keyNames()).isEmpty();
+    assertThat(result.keyNames()).isEmpty();
     assertEquals(1, result.errorMap().size());
     assertNotNull(result.getError(topKey).getException());
   }
@@ -805,7 +806,7 @@ public class ParallelEvaluatorTest {
     // Make sure slowAddingDep is already in the graph, so it will be DONE.
     eval(/*keepGoing=*/false, slowAddingDep);
     UpdateResult<StringNode> result = eval(/*keepGoing=*/false, ImmutableList.of(top));
-    ASSERT.that(result.keyNames()).isEmpty(); // No successfully evaluated nodes.
+    assertThat(result.keyNames()).isEmpty(); // No successfully evaluated nodes.
     ErrorInfo errorInfo = result.getError(top);
     MoreAsserts.assertContentsAnyOrder(errorInfo.getRootCauses(), errorKey);
     JunitTestUtils.assertContainsEvent(eventCollector, warningText);
@@ -1133,7 +1134,7 @@ public class ParallelEvaluatorTest {
     NodeKey errorKey = GraphTester.toNodeKey("my_error_node");
     tester.getOrCreate(errorKey).setHasError(true);
     UpdateResult<StringNode> result = eval(false, ImmutableList.of(errorKey));
-    ASSERT.that(result.keyNames()).isEmpty();
+    assertThat(result.keyNames()).isEmpty();
     MoreAsserts.assertContentsAnyOrder(result.errorMap().keySet(), errorKey);
     ErrorInfo errorInfo = result.getError();
     MoreAsserts.assertContentsAnyOrder(errorInfo.getRootCauses(), errorKey);
@@ -1141,7 +1142,7 @@ public class ParallelEvaluatorTest {
     tester.getOrCreate(errorKey).setHasError(false);
     tester.set(errorKey, new StringNode("no error?"));
     result = eval(false, ImmutableList.of(errorKey));
-    ASSERT.that(result.keyNames()).isEmpty();
+    assertThat(result.keyNames()).isEmpty();
     MoreAsserts.assertContentsAnyOrder(result.errorMap().keySet(), errorKey);
     errorInfo = result.getError();
     MoreAsserts.assertContentsAnyOrder(errorInfo.getRootCauses(), errorKey);
@@ -1239,7 +1240,7 @@ public class ParallelEvaluatorTest {
     tester.getOrCreate(lastSelfKey).addDependency(lastSelfKey);
     UpdateResult<StringNode> result = eval(/*keepGoing=*/true,
         ImmutableList.of(lastSelfKey, firstSelfKey, midSelfKey));
-    ASSERT.withFailureMessage(result.toString()).that(result.keyNames()).isEmpty();
+    assert_().withFailureMessage(result.toString()).that(result.keyNames()).isEmpty();
     MoreAsserts.assertContentsAnyOrder(result.errorMap().keySet(),
         lastSelfKey, firstSelfKey, midSelfKey);
 
@@ -1248,7 +1249,7 @@ public class ParallelEvaluatorTest {
     assertEquals(errorInfo.toString(), 1, Iterables.size(errorInfo.getCycleInfo()));
     CycleInfo cycleInfo = Iterables.getOnlyElement(errorInfo.getCycleInfo());
     MoreAsserts.assertContentsAnyOrder(cycleInfo.getCycle(), lastSelfKey);
-    ASSERT.that(cycleInfo.getPathToCycle()).isEmpty();
+    assertThat(cycleInfo.getPathToCycle()).isEmpty();
 
     // Check firstSelfKey. It should not have discovered its own self-edge, because there were too
     // many other nodes before it in the queue.
@@ -1264,7 +1265,7 @@ public class ParallelEvaluatorTest {
     NodeKey errorKey = GraphTester.toNodeKey("my_error_node");
     tester.getOrCreate(errorKey).setHasError(true);
     UpdateResult<StringNode> result = eval(true, ImmutableList.of(errorKey));
-    ASSERT.that(result.keyNames()).isEmpty();
+    assertThat(result.keyNames()).isEmpty();
     MoreAsserts.assertContentsAnyOrder(result.errorMap().keySet(), errorKey);
     ErrorInfo errorInfo = result.getError();
     MoreAsserts.assertContentsAnyOrder(errorInfo.getRootCauses(), errorKey);
@@ -1272,7 +1273,7 @@ public class ParallelEvaluatorTest {
     tester.getOrCreate(errorKey).setHasError(false);
     tester.set(errorKey, new StringNode("no error?"));
     result = eval(true, ImmutableList.of(errorKey));
-    ASSERT.that(result.keyNames()).isEmpty();
+    assertThat(result.keyNames()).isEmpty();
     MoreAsserts.assertContentsAnyOrder(result.errorMap().keySet(), errorKey);
     errorInfo = result.getError();
     MoreAsserts.assertContentsAnyOrder(errorInfo.getRootCauses(), errorKey);
@@ -1288,10 +1289,10 @@ public class ParallelEvaluatorTest {
     tester.getOrCreate(parentKey).addErrorDependency(errorKey, new StringNode("recovered"))
         .setComputedValue(CONCATENATE).addDependency("after");
     UpdateResult<StringNode> result = eval(/*keepGoing=*/true, ImmutableList.of(parentKey));
-    ASSERT.that(result.errorMap()).isEmpty();
+    assertThat(result.errorMap()).isEmpty();
     assertEquals("recoveredafter", result.get(parentKey).getValue());
     result = eval(/*keepGoing=*/false, ImmutableList.of(parentKey));
-    ASSERT.that(result.keyNames()).isEmpty();
+    assertThat(result.keyNames()).isEmpty();
     Map.Entry<NodeKey, ErrorInfo> error = Iterables.getOnlyElement(result.errorMap().entrySet());
     assertEquals(parentKey, error.getKey());
     MoreAsserts.assertContentsAnyOrder(error.getValue().getRootCauses(), errorKey);
@@ -1307,12 +1308,12 @@ public class ParallelEvaluatorTest {
     tester.getOrCreate(parentKey).addErrorDependency(errorKey, new StringNode("recovered"))
         .setComputedValue(CONCATENATE).addDependency("after");
     UpdateResult<StringNode> result = eval(/*keepGoing=*/false, ImmutableList.of(parentKey));
-    ASSERT.that(result.keyNames()).isEmpty();
+    assertThat(result.keyNames()).isEmpty();
     Map.Entry<NodeKey, ErrorInfo> error = Iterables.getOnlyElement(result.errorMap().entrySet());
     assertEquals(parentKey, error.getKey());
     MoreAsserts.assertContentsAnyOrder(error.getValue().getRootCauses(), errorKey);
     result = eval(/*keepGoing=*/true, ImmutableList.of(parentKey));
-    ASSERT.that(result.errorMap()).isEmpty();
+    assertThat(result.errorMap()).isEmpty();
     assertEquals("recoveredafter", result.get(parentKey).getValue());
   }
 
@@ -1326,13 +1327,13 @@ public class ParallelEvaluatorTest {
         .setComputedValue(CONCATENATE);
     // When the error node throws, the propagation will cause an interrupted exception in parent.
     UpdateResult<StringNode> result = eval(/*keepGoing=*/false, ImmutableList.of(parentKey));
-    ASSERT.that(result.keyNames()).isEmpty();
+    assertThat(result.keyNames()).isEmpty();
     Map.Entry<NodeKey, ErrorInfo> error = Iterables.getOnlyElement(result.errorMap().entrySet());
     assertEquals(parentKey, error.getKey());
     MoreAsserts.assertContentsAnyOrder(error.getValue().getRootCauses(), errorKey);
     assertFalse(Thread.interrupted());
     result = eval(/*keepGoing=*/true, ImmutableList.of(parentKey));
-    ASSERT.that(result.errorMap()).isEmpty();
+    assertThat(result.errorMap()).isEmpty();
     assertEquals("recovered", result.get(parentKey).getValue());
   }
 
@@ -1345,7 +1346,7 @@ public class ParallelEvaluatorTest {
     tester.getOrCreate(parentErrorKey).addErrorDependency(errorKey, new StringNode("recovered"))
         .setHasError(true);
     UpdateResult<StringNode> result = eval(/*keepGoing=*/false, ImmutableList.of(parentErrorKey));
-    ASSERT.that(result.keyNames()).isEmpty();
+    assertThat(result.keyNames()).isEmpty();
     Map.Entry<NodeKey, ErrorInfo> error = Iterables.getOnlyElement(result.errorMap().entrySet());
     assertEquals(parentErrorKey, error.getKey());
     MoreAsserts.assertContentsAnyOrder(error.getValue().getRootCauses(), parentErrorKey);
@@ -1360,7 +1361,7 @@ public class ParallelEvaluatorTest {
     tester.getOrCreate(parentErrorKey).addErrorDependency(errorKey, new StringNode("recovered"))
         .setHasError(true);
     UpdateResult<StringNode> result = eval(/*keepGoing=*/true, ImmutableList.of(parentErrorKey));
-    ASSERT.that(result.keyNames()).isEmpty();
+    assertThat(result.keyNames()).isEmpty();
     Map.Entry<NodeKey, ErrorInfo> error = Iterables.getOnlyElement(result.errorMap().entrySet());
     assertEquals(parentErrorKey, error.getKey());
     MoreAsserts.assertContentsAnyOrder(error.getValue().getRootCauses(), parentErrorKey);
@@ -1382,7 +1383,7 @@ public class ParallelEvaluatorTest {
     MoreAsserts.assertContentsAnyOrder(
         ImmutableList.<String>copyOf(result.<String>keyNames()), "top");
     assertEquals("parent valueafter", result.get(topKey).getValue());
-    ASSERT.that(result.errorMap()).isEmpty();
+    assertThat(result.errorMap()).isEmpty();
   }
 
   @Test
@@ -1398,7 +1399,7 @@ public class ParallelEvaluatorTest {
     tester.getOrCreate(topKey).addDependency(parentErrorKey).addDependency("after")
         .setComputedValue(CONCATENATE);
     UpdateResult<StringNode> result = eval(/*keepGoing=*/false, ImmutableList.of(topKey));
-    ASSERT.that(result.keyNames()).isEmpty();
+    assertThat(result.keyNames()).isEmpty();
     Map.Entry<NodeKey, ErrorInfo> error = Iterables.getOnlyElement(result.errorMap().entrySet());
     assertEquals(topKey, error.getKey());
     MoreAsserts.assertContentsAnyOrder(error.getValue().getRootCauses(), errorKey);
@@ -1463,7 +1464,7 @@ public class ParallelEvaluatorTest {
       // The error thrown will only be recorded in keep_going mode.
       MoreAsserts.assertContentsAnyOrder(result.getError().getRootCauses(), errorKey);
     }
-    ASSERT.that(cycleInfos).isNotEmpty();
+    assertThat(cycleInfos).isNotEmpty();
     CycleInfo cycleInfo = Iterables.getOnlyElement(cycleInfos);
     MoreAsserts.assertContentsAnyOrder(cycleInfo.getPathToCycle(), topKey);
     MoreAsserts.assertContentsAnyOrder(cycleInfo.getCycle(), midKey, cycleKey);
@@ -1518,7 +1519,7 @@ public class ParallelEvaluatorTest {
         eval(/*keepGoing=*/false, ImmutableSet.of(topKey, otherTop));
     MoreAsserts.assertContentsAnyOrder(result.errorMap().keySet(), topKey);
     Iterable<CycleInfo> cycleInfos = result.getError(topKey).getCycleInfo();
-    ASSERT.that(cycleInfos).isNotEmpty();
+    assertThat(cycleInfos).isNotEmpty();
     CycleInfo cycleInfo = Iterables.getOnlyElement(cycleInfos);
     MoreAsserts.assertContentsAnyOrder(cycleInfo.getPathToCycle(), topKey);
     MoreAsserts.assertContentsAnyOrder(cycleInfo.getCycle(), midKey, cycleKey);
@@ -1564,7 +1565,7 @@ public class ParallelEvaluatorTest {
       // The error thrown will only be recorded in keep_going mode.
       MoreAsserts.assertContentsAnyOrder(result.getError(topKey).getRootCauses(), errorKey);
     }
-    ASSERT.that(cycleInfos).isNotEmpty();
+    assertThat(cycleInfos).isNotEmpty();
     CycleInfo cycleInfo = Iterables.getOnlyElement(cycleInfos);
     MoreAsserts.assertContentsAnyOrder(cycleInfo.getPathToCycle(), topKey);
     MoreAsserts.assertContentsAnyOrder(cycleInfo.getCycle(), midKey, cycleKey);
@@ -1642,7 +1643,7 @@ public class ParallelEvaluatorTest {
     tester.getOrCreate(topKey).addErrorDependency(errorKey, new StringNode("recovered"))
         .setComputedValue(CONCATENATE);
     UpdateResult<StringNode> result = eval(keepGoing, ImmutableList.of(topKey));
-    ASSERT.that(result.keyNames()).isEmpty();
+    assertThat(result.keyNames()).isEmpty();
     assertSame(exception, result.getError(topKey).getException());
     MoreAsserts.assertContentsAnyOrder(result.getError(topKey).getRootCauses(), errorKey);
   }
@@ -1707,7 +1708,7 @@ public class ParallelEvaluatorTest {
         .setComputedValue(CONCATENATE);
     UpdateResult<StringNode> result = eval(keepGoing, ImmutableList.of(topKey));
     if (!keepGoing) {
-      ASSERT.that(result.keyNames()).isEmpty();
+      assertThat(result.keyNames()).isEmpty();
       assertEquals(topException, result.getError(topKey).getException());
       MoreAsserts.assertContentsAnyOrder(result.getError(topKey).getRootCauses(), topKey);
       assertTrue(result.hasError());
@@ -1976,7 +1977,7 @@ public class ParallelEvaluatorTest {
         .addDependency("d1").addDependency("d2");
     tester.getOrCreate("top2").setComputedValue(CONCATENATE).addDependency("d3");
     tester.getOrCreate("top3");
-    ASSERT.that(enqueuedNodes).isEmpty();
+    assertThat(enqueuedNodes).isEmpty();
 
     tester.set("d1", new StringNode("1"));
     tester.set("d2", new StringNode("2"));
@@ -1991,6 +1992,6 @@ public class ParallelEvaluatorTest {
     enqueuedNodes.clear();
 
     driver.update(ImmutableList.of(GraphTester.toNodeKey("top1")), false, 200, reporter);
-    ASSERT.that(enqueuedNodes).isEmpty();
+    assertThat(enqueuedNodes).isEmpty();
   }
 }

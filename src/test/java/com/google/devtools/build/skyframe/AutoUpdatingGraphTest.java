@@ -13,6 +13,8 @@
 // limitations under the License.
 package com.google.devtools.build.skyframe;
 
+import static com.google.common.truth.Truth.assertThat;
+import static com.google.common.truth.Truth.assert_;
 import static com.google.devtools.build.skyframe.GraphTester.CONCATENATE;
 import static com.google.devtools.build.skyframe.GraphTester.COPY;
 import static com.google.devtools.build.skyframe.GraphTester.NODE_TYPE;
@@ -22,7 +24,6 @@ import static org.junit.Assert.assertNotNull;
 import static org.junit.Assert.assertNull;
 import static org.junit.Assert.assertSame;
 import static org.junit.Assert.assertTrue;
-import static org.truth0.Truth.ASSERT;
 
 import com.google.common.base.Preconditions;
 import com.google.common.base.Predicates;
@@ -175,7 +176,7 @@ public class AutoUpdatingGraphTest {
     UpdateResult<Node> result = tester.eval(false, "top");
     assertTrue(result.hasError());
     assertEquals(toNodeKey("badNode"), Iterables.getOnlyElement(result.getError().getRootCauses()));
-    ASSERT.that(result.keyNames()).isEmpty();
+    assertThat(result.keyNames()).isEmpty();
   }
 
   @Test
@@ -215,7 +216,7 @@ public class AutoUpdatingGraphTest {
         .addDependency("d1").addDependency("d2");
     tester.getOrCreate("top2").setComputedValue(CONCATENATE).addDependency("d3");
     tester.getOrCreate("top3");
-    ASSERT.that(tester.getEnqueuedNodes()).isEmpty();
+    assertThat(tester.getEnqueuedNodes()).isEmpty();
 
     tester.set("d1", new StringNode("1"));
     tester.set("d2", new StringNode("2"));
@@ -488,7 +489,7 @@ public class AutoUpdatingGraphTest {
     tester.eval(/*keepGoing=*/false, top, mid);
     assertEquals(0L, valueSet.getCount());
     trackingAwaiter.assertNoErrors();
-    ASSERT.that(tester.invalidationReceiver.evaluated).isEmpty();
+    assertThat(tester.invalidationReceiver.evaluated).isEmpty();
   }
 
   @Test
@@ -500,12 +501,12 @@ public class AutoUpdatingGraphTest {
     tester.getOrCreate(cycle).addDependency(cycle);
     tester.getOrCreate(top).addDependency(leaf).addDependency(cycle);
     System.err.println(" " + tester.eval(/*keepGoing=*/true, top));
-    ASSERT.that(tester.invalidationReceiver.evaluated).iteratesAs(leaf);
+    assertThat(tester.invalidationReceiver.evaluated).iteratesAs(leaf);
     tester.invalidationReceiver.clear();
     tester.getOrCreate(leaf, /*markAsModified=*/true);
     tester.invalidate();
     tester.eval(/*keepGoing=*/true, top);
-    ASSERT.that(tester.invalidationReceiver.evaluated).iteratesAs(leaf);
+    assertThat(tester.invalidationReceiver.evaluated).iteratesAs(leaf);
   }
 
   @Test
@@ -703,7 +704,7 @@ public class AutoUpdatingGraphTest {
     ErrorInfo errorInfo = result.getError(cycleKey1);
     CycleInfo cycleInfo = Iterables.getOnlyElement(errorInfo.getCycleInfo());
     MoreAsserts.assertContentsInOrder(cycleInfo.getCycle(), cycleKey1);
-    ASSERT.that(cycleInfo.getPathToCycle()).isEmpty();
+    assertThat(cycleInfo.getPathToCycle()).isEmpty();
     tester.getOrCreate(cycleKey1, /*markAsModified=*/true);
     tester.invalidate();
     result = tester.eval(/*keepGoing=*/true, cycleKey1, cycleKey2);
@@ -711,7 +712,7 @@ public class AutoUpdatingGraphTest {
     errorInfo = result.getError(cycleKey1);
     cycleInfo = Iterables.getOnlyElement(errorInfo.getCycleInfo());
     MoreAsserts.assertContentsInOrder(cycleInfo.getCycle(), cycleKey1);
-    ASSERT.that(cycleInfo.getPathToCycle()).isEmpty();
+    assertThat(cycleInfo.getPathToCycle()).isEmpty();
     cycleInfo =
         Iterables.getOnlyElement(tester.graph.getExistingErrorForTesting(cycleKey2).getCycleInfo());
     MoreAsserts.assertContentsInOrder(cycleInfo.getCycle(), cycleKey1);
@@ -731,7 +732,7 @@ public class AutoUpdatingGraphTest {
     ErrorInfo errorInfo = result.getError(cycleKey1);
     CycleInfo cycleInfo = Iterables.getOnlyElement(errorInfo.getCycleInfo());
     MoreAsserts.assertContentsInOrder(cycleInfo.getCycle(), cycleKey1, cycleKey2);
-    ASSERT.that(cycleInfo.getPathToCycle()).isEmpty();
+    assertThat(cycleInfo.getPathToCycle()).isEmpty();
     tester.getOrCreate(cycleKey1, /*markAsModified=*/true);
     tester.invalidate();
     result = tester.eval(/*keepGoing=*/true, cycleKey1);
@@ -739,7 +740,7 @@ public class AutoUpdatingGraphTest {
     errorInfo = result.getError(cycleKey1);
     cycleInfo = Iterables.getOnlyElement(errorInfo.getCycleInfo());
     MoreAsserts.assertContentsInOrder(cycleInfo.getCycle(), cycleKey1, cycleKey2);
-    ASSERT.that(cycleInfo.getPathToCycle()).isEmpty();
+    assertThat(cycleInfo.getPathToCycle()).isEmpty();
   }
 
   /**
@@ -841,7 +842,7 @@ public class AutoUpdatingGraphTest {
     trackingAwaiter.assertNoErrors();
     MoreAsserts.assertContentsAnyOrder(result.errorMap().keySet(), topKey);
     Iterable<CycleInfo> cycleInfos = result.getError(topKey).getCycleInfo();
-    ASSERT.withFailureMessage(result.toString()).that(cycleInfos).isNotEmpty();
+    assert_().withFailureMessage(result.toString()).that(cycleInfos).isNotEmpty();
     CycleInfo cycleInfo = Iterables.getOnlyElement(cycleInfos);
     MoreAsserts.assertContentsAnyOrder(cycleInfo.getPathToCycle(), topKey);
     MoreAsserts.assertContentsAnyOrder(cycleInfo.getCycle(), cycle1Key, cycle2Key);
@@ -1062,12 +1063,12 @@ public class AutoUpdatingGraphTest {
     tester.getOrCreate(parentKey).addErrorDependency(errorKey, new StringNode("recovered"))
         .setComputedValue(CONCATENATE).addDependency("after");
     UpdateResult<StringNode> result = tester.eval(/*keepGoing=*/true, parentKey);
-    ASSERT.that(result.errorMap()).isEmpty();
+    assertThat(result.errorMap()).isEmpty();
     assertEquals("recoveredafter", result.get(parentKey).getValue());
     tester.set("after", new StringNode("before"));
     tester.invalidate();
     result = tester.eval(/*keepGoing=*/true, parentKey);
-    ASSERT.that(result.errorMap()).isEmpty();
+    assertThat(result.errorMap()).isEmpty();
     assertEquals("recoveredbefore", result.get(parentKey).getValue());
   }
 
@@ -1081,12 +1082,12 @@ public class AutoUpdatingGraphTest {
     tester.getOrCreate(parentKey).addErrorDependency(errorKey, new StringNode("recovered"))
         .setComputedValue(CONCATENATE).addDependency("after");
     UpdateResult<StringNode> result = tester.eval(/*keepGoing=*/true, parentKey);
-    ASSERT.that(result.errorMap()).isEmpty();
+    assertThat(result.errorMap()).isEmpty();
     assertEquals("recoveredafter", result.get(parentKey).getValue());
     tester.set(errorKey, new StringNode("reformed")).setHasError(false);
     tester.invalidate();
     result = tester.eval(/*keepGoing=*/true, parentKey);
-    ASSERT.that(result.errorMap()).isEmpty();
+    assertThat(result.errorMap()).isEmpty();
     assertEquals("reformedafter", result.get(parentKey).getValue());
   }
 
@@ -1102,7 +1103,7 @@ public class AutoUpdatingGraphTest {
     MoreAsserts.assertContentsAnyOrder(tester.evalAndGetError(errorKey).getRootCauses(), errorKey);
     UpdateResult<StringNode> result = tester.eval(/*keepGoing=*/false, parentKey);
     // Request the parent.
-    ASSERT.that(result.getError(parentKey).getRootCauses()).iteratesAs(parentKey);
+    assertThat(result.getError(parentKey).getRootCauses()).iteratesAs(parentKey);
     // Change the error node to no longer throw.
     tester.set(errorKey, new StringNode("reformed")).setHasError(false);
     tester.getOrCreate(parentKey, /*markAsModified=*/false).setHasError(false)
@@ -1110,14 +1111,14 @@ public class AutoUpdatingGraphTest {
     tester.invalidate();
     // Request the parent again. This time it should succeed.
     result = tester.eval(/*keepGoing=*/false, parentKey);
-    ASSERT.that(result.errorMap()).isEmpty();
+    assertThat(result.errorMap()).isEmpty();
     assertEquals("reformed", result.get(parentKey).getValue());
     // Confirm that the parent no longer depends on the error transience node -- make it unbuildable
     // again, but without invalidating it, and invalidate errors. The parent should not be rebuilt.
     tester.getOrCreate(parentKey, /*markAsModified=*/false).setHasError(true);
     tester.invalidateErrors();
     result = tester.eval(/*keepGoing=*/false, parentKey);
-    ASSERT.that(result.errorMap()).isEmpty();
+    assertThat(result.errorMap()).isEmpty();
     assertEquals("reformed", result.get(parentKey).getValue());
   }
 
@@ -1137,11 +1138,11 @@ public class AutoUpdatingGraphTest {
     NodeKey topKey = GraphTester.toNodeKey("top");
     tester.getOrCreate(topKey).addDependency(leafKey).setHasError(true);
     // Build top -- it has an error.
-    ASSERT.that(tester.evalAndGetError(topKey).getRootCauses()).iteratesAs(topKey);
+    assertThat(tester.evalAndGetError(topKey).getRootCauses()).iteratesAs(topKey);
     // Invalidate top via leaf, and rebuild.
     tester.set(leafKey, new StringNode("leaf2"));
     tester.invalidate();
-    ASSERT.that(tester.evalAndGetError(topKey).getRootCauses()).iteratesAs(topKey);
+    assertThat(tester.evalAndGetError(topKey).getRootCauses()).iteratesAs(topKey);
   }
 
   @Test
@@ -1252,10 +1253,10 @@ public class AutoUpdatingGraphTest {
     UpdateResult<StringNode> updateResult = tester.eval(/*keepGoing=*/true, groupDepA, depC);
     assertTrue(updateResult.hasError());
     assertEquals("depC", updateResult.get(groupDepA).getValue());
-    ASSERT.that(updateResult.getError(depC).getRootCauses()).iteratesAs(depC);
+    assertThat(updateResult.getError(depC).getRootCauses()).iteratesAs(depC);
     updateResult = tester.eval(/*keepGoing=*/false, topKey);
     assertTrue(updateResult.hasError());
-    ASSERT.that(updateResult.getError(topKey).getRootCauses()).iteratesAs(topKey);
+    assertThat(updateResult.getError(topKey).getRootCauses()).iteratesAs(topKey);
 
     tester.set(groupDepA, new StringNode("groupDepB"));
     tester.getOrCreate(depC, /*markAsModified=*/true);
@@ -1367,7 +1368,7 @@ public class AutoUpdatingGraphTest {
     trackingAwaiter.assertNoErrors();
     if (throwError) {
       assertTrue(result.hasError());
-      ASSERT.that(result.keyNames()).isEmpty(); // No successfully evaluated nodes.
+      assertThat(result.keyNames()).isEmpty(); // No successfully evaluated nodes.
       ErrorInfo errorInfo = result.getError(top);
       MoreAsserts.assertContentsAnyOrder(errorInfo.getRootCauses(), firstKey);
     } else {
@@ -1816,8 +1817,8 @@ public class AutoUpdatingGraphTest {
     assertFalse(result.hasError());
     topNode = result.get(top);
     assertEquals("leafy", topNode.getValue());
-    ASSERT.that(tester.getDirtyNodes()).isEmpty();
-    ASSERT.that(tester.getDeletedNodes()).isEmpty();
+    assertThat(tester.getDirtyNodes()).isEmpty();
+    assertThat(tester.getDeletedNodes()).isEmpty();
   }
 
   @Test
@@ -1845,13 +1846,13 @@ public class AutoUpdatingGraphTest {
     assertEquals("leafy", node.getValue());
     MoreAsserts.assertContentsAnyOrder(tester.getDirtyNodes(), new StringNode("leafysuffix"),
         new StringNode("leafysuffixsuffix"));
-    ASSERT.that(tester.getDeletedNodes()).isEmpty();
+    assertThat(tester.getDeletedNodes()).isEmpty();
     UpdateResult<StringNode> result = tester.eval(/*keepGoing=*/false, top);
     assertFalse(result.hasError());
     node = result.get(top);
     assertEquals("leafysuffixsuffix", node.getValue());
-    ASSERT.that(tester.getDirtyNodes()).isEmpty();
-    ASSERT.that(tester.getDeletedNodes()).isEmpty();
+    assertThat(tester.getDirtyNodes()).isEmpty();
+    assertThat(tester.getDeletedNodes()).isEmpty();
   }
 
   @Test
@@ -1897,7 +1898,7 @@ public class AutoUpdatingGraphTest {
     assertEquals("joyce drank whiskey", topNode.getValue());
     MoreAsserts.assertContentsAnyOrder(tester.getDirtyNodes(), new StringNode("hemingway"),
         new StringNode("hemingway drank absinthe"));
-    ASSERT.that(tester.getDeletedNodes()).isEmpty();
+    assertThat(tester.getDeletedNodes()).isEmpty();
   }
 
   @Test
@@ -1912,21 +1913,21 @@ public class AutoUpdatingGraphTest {
     tester.set(leaf, new StringNode("leafy"));
     StringNode topNode = (StringNode) tester.evalAndGet("top");
     assertEquals("ignore", topNode.getValue());
-    ASSERT.that(tester.getDirtyNodes()).isEmpty();
-    ASSERT.that(tester.getDeletedNodes()).isEmpty();
+    assertThat(tester.getDirtyNodes()).isEmpty();
+    assertThat(tester.getDeletedNodes()).isEmpty();
     // Change leaf.
     tester.set(leaf, new StringNode("crunchy"));
     tester.invalidate();
     topNode = (StringNode) tester.evalAndGet("top");
     assertEquals("ignore", topNode.getValue());
     MoreAsserts.assertContentsAnyOrder(tester.getDirtyNodes(), new StringNode("leafy"));
-    ASSERT.that(tester.getDeletedNodes()).isEmpty();
+    assertThat(tester.getDeletedNodes()).isEmpty();
     tester.set(leaf, new StringNode("smushy"));
     tester.invalidate();
     topNode = (StringNode) tester.evalAndGet("top");
     assertEquals("ignore", topNode.getValue());
     MoreAsserts.assertContentsAnyOrder(tester.getDirtyNodes(), new StringNode("crunchy"));
-    ASSERT.that(tester.getDeletedNodes()).isEmpty();
+    assertThat(tester.getDeletedNodes()).isEmpty();
   }
 
   private static final NodeBuilder INTERRUPT_BUILDER = new NodeBuilder() {
@@ -1974,8 +1975,8 @@ public class AutoUpdatingGraphTest {
     tester.set(leaf, new StringNode("leafy"));
     StringNode topNode = (StringNode) tester.evalAndGet("top");
     assertEquals("leafy", topNode.getValue());
-    ASSERT.that(tester.getDirtyNodes()).isEmpty();
-    ASSERT.that(tester.getDeletedNodes()).isEmpty();
+    assertThat(tester.getDirtyNodes()).isEmpty();
+    assertThat(tester.getDeletedNodes()).isEmpty();
     failBuildAndRemoveNode(leaf);
     // Leaf should no longer exist in the graph. Check that this doesn't cause problems.
     tester.set(leaf, null);
@@ -1999,8 +2000,8 @@ public class AutoUpdatingGraphTest {
     tester.set(leaf, new StringNode("leafy"));
     StringNode topNode = (StringNode) tester.evalAndGet("top");
     assertEquals("leafy", topNode.getValue());
-    ASSERT.that(tester.getDirtyNodes()).isEmpty();
-    ASSERT.that(tester.getDeletedNodes()).isEmpty();
+    assertThat(tester.getDirtyNodes()).isEmpty();
+    assertThat(tester.getDeletedNodes()).isEmpty();
     failBuildAndRemoveNode(leaf);
     tester.set(leaf, new StringNode("crunchy"));
     tester.invalidate();
@@ -2069,8 +2070,8 @@ public class AutoUpdatingGraphTest {
     tester.set(leaf, new StringNode("leafy"));
     StringNode topNode = (StringNode) tester.evalAndGet("top");
     assertEquals("leafy", topNode.getValue());
-    ASSERT.that(tester.getDirtyNodes()).isEmpty();
-    ASSERT.that(tester.getDeletedNodes()).isEmpty();
+    assertThat(tester.getDirtyNodes()).isEmpty();
+    assertThat(tester.getDeletedNodes()).isEmpty();
     // Change leaf.
     tester.getOrCreate(leaf, /*markAsModified=*/true).setHasError(true);
     tester.getOrCreate(top, /*markAsModified=*/false).setHasError(true);
@@ -2094,8 +2095,8 @@ public class AutoUpdatingGraphTest {
     tester.set(leaf, new StringNode("leafy"));
     StringNode topNode = (StringNode) tester.evalAndGet("top");
     assertEquals("leafysecondError", topNode.getValue());
-    ASSERT.that(tester.getDirtyNodes()).isEmpty();
-    ASSERT.that(tester.getDeletedNodes()).isEmpty();
+    assertThat(tester.getDirtyNodes()).isEmpty();
+    assertThat(tester.getDeletedNodes()).isEmpty();
     // Invalidate leaf.
     tester.getOrCreate(leaf, /*markAsModified=*/true);
     tester.set(leaf, new StringNode("crunchy"));

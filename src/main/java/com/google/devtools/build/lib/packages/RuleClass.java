@@ -367,7 +367,7 @@ public final class RuleClass {
         attr("local", Type.BOOLEAN).build()
     );
 
-    private final String name;
+    private String name;
     private final RuleClassType type;
     private final boolean skylark;
     private boolean documented;
@@ -395,7 +395,6 @@ public final class RuleClass {
      * in more than one parent
      */
     public Builder(String name, RuleClassType type, boolean skylark, RuleClass... parents) {
-      type.checkName(name);
       this.name = name;
       this.skylark = skylark;
       this.type = type;
@@ -439,6 +438,7 @@ public final class RuleClass {
      * @throws IllegalStateException if any of the required attributes is missing
      */
     public RuleClass build() {
+      type.checkName(name);
       type.checkAttributes(attributes);
       boolean skylarkExecutable =
           skylark && (type == RuleClassType.NORMAL || type == RuleClassType.TEST);
@@ -449,6 +449,15 @@ public final class RuleClass {
           validityPredicate, preferredDependencyPredicate,
           configuredTargetFunction, ruleDefinitionEnvironment, allowConfigurableAttributes,
           attributes.values().toArray(new Attribute[0]));
+    }
+
+    /**
+     * This function should be used only from Skylark. Skylark passes the empty string to
+     * the constructor and calls setName later.
+     */
+    public Builder setName(String name) {
+      this.name = name;
+      return this;
     }
 
     public Builder setUndocumented() {

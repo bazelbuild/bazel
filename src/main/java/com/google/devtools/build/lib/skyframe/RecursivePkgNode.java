@@ -16,7 +16,6 @@ package com.google.devtools.build.lib.skyframe;
 import com.google.devtools.build.lib.collect.nestedset.NestedSet;
 import com.google.devtools.build.lib.concurrent.ThreadSafety.Immutable;
 import com.google.devtools.build.lib.concurrent.ThreadSafety.ThreadSafe;
-import com.google.devtools.build.lib.packages.Package;
 import com.google.devtools.build.lib.vfs.RootedPath;
 import com.google.devtools.build.skyframe.Node;
 import com.google.devtools.build.skyframe.NodeKey;
@@ -29,9 +28,9 @@ import com.google.devtools.build.skyframe.NodeKey;
 @ThreadSafe
 public class RecursivePkgNode implements Node {
 
-  private final NestedSet<Package> packages;
+  private final NestedSet<String> packages;
 
-  public RecursivePkgNode(NestedSet<Package> packages) {
+  public RecursivePkgNode(NestedSet<String> packages) {
     this.packages = packages;
   }
 
@@ -43,7 +42,7 @@ public class RecursivePkgNode implements Node {
     return new NodeKey(NodeTypes.RECURSIVE_PKG, rootedPath);
   }
 
-  public NestedSet<Package> getPackages() {
+  public NestedSet<String> getPackages() {
     return packages;
   }
 }

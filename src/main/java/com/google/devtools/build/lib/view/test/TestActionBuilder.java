@@ -56,7 +56,7 @@ public final class TestActionBuilder {
   private final RuleContext ruleContext;
   private RunfilesSupport runfilesSupport;
   private Artifact executable;
-  private ExecutionRequirementProvider executionRequirements;
+  private ExecutionInfoProvider executionRequirements;
   private InstrumentedFilesProvider instrumentedFiles;
   private ImmutableList<Artifact> filesToRun;
   private int explicitShardCount;
@@ -123,7 +123,7 @@ public final class TestActionBuilder {
   }
 
   public TestActionBuilder setExecutionRequirements(
-      @Nullable ExecutionRequirementProvider executionRequirements) {
+      @Nullable ExecutionInfoProvider executionRequirements) {
     this.executionRequirements = executionRequirements;
     return this;
   }

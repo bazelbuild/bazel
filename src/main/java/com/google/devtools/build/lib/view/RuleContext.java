@@ -116,13 +116,13 @@ public final class RuleContext extends TargetContext
   }
 
   private final Rule rule;
-  private final ListMultimap<String, TransitiveInfoCollection> targetMap;
+  private final ListMultimap<String, ConfiguredTarget> targetMap;
   private final ListMultimap<String, ConfiguredFilesetEntry> filesetEntryMap;
   private final AttributeMap attributes;
 
   private ActionOwner actionOwner;
 
-  private RuleContext(Builder builder, ListMultimap<String, TransitiveInfoCollection> targetMap,
+  private RuleContext(Builder builder, ListMultimap<String, ConfiguredTarget> targetMap,
       ListMultimap<String, ConfiguredFilesetEntry> filesetEntryMap) {
     super(builder.env, builder.rule, builder.configuration, builder.prerequisiteMap.get(null),
         builder.visibility);
@@ -136,7 +136,6 @@ public final class RuleContext extends TargetContext
   public Rule getRule() {
     return rule;
   }
-
 
   /**
    * Returns the host configuration for this rule; keep in mind that there may be multiple different
@@ -166,7 +165,7 @@ public final class RuleContext extends TargetContext
   /**
    * Returns an immutable map from attribute name to list of configured targets for that attribute.
    */
-  public ListMultimap<String, TransitiveInfoCollection> getConfiguredTargetMap() {
+  public ListMultimap<String, ? extends TransitiveInfoCollection> getConfiguredTargetMap() {
     return targetMap;
   }
 
@@ -385,7 +384,8 @@ public final class RuleContext extends TargetContext
    * specified attribute. Note that you need to specify the correct mode for the attribute,
    * otherwise an assertion will be raised.
    */
-  public List<TransitiveInfoCollection> getPrerequisites(String attributeName, Mode mode) {
+  public List<? extends TransitiveInfoCollection> getPrerequisites(
+      String attributeName, Mode mode) {
     checkAttribute(attributeName, mode);
     return targetMap.get(attributeName);
   }
@@ -424,7 +424,8 @@ public final class RuleContext extends TargetContext
       throw new IllegalStateException(rule.getRuleClass() + " attribute " + attributeName
         + " is not a label type attribute");
     }
-    List<TransitiveInfoCollection> elements = unmodifiablePrerequisites(attributeName, mode);
+    List<? extends TransitiveInfoCollection> elements =
+        unmodifiablePrerequisites(attributeName, mode);
     if (Iterables.size(elements) > 1) {
       throw new IllegalStateException(rule.getRuleClass() + " attribute " + attributeName
           + " produces more then one prerequisites");
@@ -438,7 +439,7 @@ public final class RuleContext extends TargetContext
    * returns them as an immutable list. If no attribute with that name exists, it returns an empty
    * list.
    */
-  private List<TransitiveInfoCollection> unmodifiablePrerequisites(String attributeName,
+  private List<? extends TransitiveInfoCollection> unmodifiablePrerequisites(String attributeName,
                                                                    Mode mode) {
     checkAttribute(attributeName, mode);
     return targetMap.get(attributeName);
@@ -799,7 +800,13 @@ public final class RuleContext extends TargetContext
       // It's ok as long as we don't use this method from Skylark.
       throw new IllegalStateException(e);
     }
-    String path = Iterables.getOnlyElement(result);
+    return getImplicitOutputArtifact(Iterables.getOnlyElement(result));
+  }
+
+  /**
+   * Only use from Skylark. Returns the implicit output artifact for a given output path.
+   */
+  public Artifact getImplicitOutputArtifact(String path) {
     Root root = getBinOrGenfilesDirectory();
     PathFragment packageFragment = getLabel().getPackageFragment();
     return getAnalysisEnvironment().getDerivedArtifact(packageFragment.getRelative(path), root);
@@ -944,7 +951,7 @@ public final class RuleContext extends TargetContext
     }
 
     RuleContext build() {
-      ListMultimap<String, TransitiveInfoCollection> targetMap = createTargetMap();
+      ListMultimap<String, ConfiguredTarget> targetMap = createTargetMap();
       ListMultimap<String, ConfiguredFilesetEntry> filesetEntryMap = createFilesetEntryMap(rule);
       return new RuleContext(this, targetMap, filesetEntryMap);
     }
@@ -1031,8 +1038,8 @@ public final class RuleContext extends TargetContext
     /**
      * Determines and returns a map from attribute name to list of configured targets.
      */
-    private ImmutableSortedKeyListMultimap<String, TransitiveInfoCollection> createTargetMap() {
-      ImmutableSortedKeyListMultimap.Builder<String, TransitiveInfoCollection> mapBuilder =
+    private ImmutableSortedKeyListMultimap<String, ConfiguredTarget> createTargetMap() {
+      ImmutableSortedKeyListMultimap.Builder<String, ConfiguredTarget> mapBuilder =
           ImmutableSortedKeyListMultimap.builder();
 
       for (Map.Entry<Attribute, Collection<ConfiguredTarget>> entry :

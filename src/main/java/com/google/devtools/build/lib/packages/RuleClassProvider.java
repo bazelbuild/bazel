@@ -16,7 +16,6 @@ package com.google.devtools.build.lib.packages;
 
 import com.google.devtools.build.lib.syntax.SkylarkEnvironment;
 import com.google.devtools.build.lib.syntax.ValidationEnvironment;
-import com.google.devtools.build.lib.vfs.Path;
 
 import java.util.Map;
 
@@ -32,7 +31,7 @@ public interface RuleClassProvider {
   /**
    * Returns a Skylark Environment for rule creation.
    */
-  SkylarkEnvironment getSkylarkRuleClassEnvironment(SkylarkRuleFactory ruleFactory, Path file);
+  SkylarkEnvironment getSkylarkRuleClassEnvironment();
 
   /**
    * Returns a validation environment for static analysis of skylark files.

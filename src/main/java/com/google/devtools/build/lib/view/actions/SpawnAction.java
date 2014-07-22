@@ -585,20 +585,6 @@ public class SpawnAction extends ConfigurationAction {
     }
 
     /**
-     * Sets the map of environment variables from a collection of map entries.
-     */
-    public Builder setEnvironment(Iterable<Map.Entry<String, String>> environment) {
-      // TODO(bazel-team): we use a list of Map.Entry-s because of type safety checks in Skylark.
-      // Maybe we could come up with a better way.
-      ImmutableMap.Builder<String, String> builder = ImmutableMap.<String, String>builder();
-      for (Map.Entry<String, String> entry : environment) {
-        builder.put(entry.getKey(), entry.getValue());
-      }
-      this.environment = builder.build();
-      return this;
-    }
-
-    /**
      * Sets the environment to the configurations default shell environment,
      * see {@link BuildConfiguration#getDefaultShellEnvironment}.
      */

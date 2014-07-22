@@ -39,7 +39,7 @@ public interface Spawn {
    * Out-of-band data for this spawn. This can be used to signal hints (hardware requirements,
    * local vs. remote) to the execution subsystem.
    *
-   * <p>String tags from {@link TestTargetProperties#getRequirements()} can be added as keys
+   * <p>String tags from {@link TestTargetProperties#getExecutionInfo()} can be added as keys
    * with arbitrary values to this map too.
    */
   ImmutableMap<String, String> getExecutionInfo();

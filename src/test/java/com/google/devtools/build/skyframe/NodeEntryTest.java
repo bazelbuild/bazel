@@ -13,12 +13,12 @@
 // limitations under the License.
 package com.google.devtools.build.skyframe;
 
+import static com.google.common.truth.Truth.assertThat;
 import static org.junit.Assert.assertEquals;
 import static org.junit.Assert.assertFalse;
 import static org.junit.Assert.assertNull;
 import static org.junit.Assert.assertTrue;
 import static org.junit.Assert.fail;
-import static org.truth0.Truth.ASSERT;
 
 import com.google.common.collect.ImmutableSet;
 import com.google.common.collect.Iterables;
@@ -61,7 +61,7 @@ public class NodeEntryTest {
     assertTrue(entry.isReady());
     assertFalse(entry.isDirty());
     assertFalse(entry.isChanged());
-    ASSERT.that(entry.getTemporaryDirectDeps()).isEmpty();
+    assertThat(entry.getTemporaryDirectDeps()).isEmpty();
   }
 
   @Test
@@ -185,7 +185,7 @@ public class NodeEntryTest {
     assertFalse(entry.isChanged());
     assertFalse(entry.isDone());
     assertTrue(entry.isReady());
-    ASSERT.that(entry.getTemporaryDirectDeps()).isEmpty();
+    assertThat(entry.getTemporaryDirectDeps()).isEmpty();
     NodeKey parent = key("parent");
     entry.addReverseDepAndCheckIfDone(parent);
     assertEquals(BuildingState.DirtyState.CHECK_DEPENDENCIES, entry.getDirtyState());
@@ -216,7 +216,7 @@ public class NodeEntryTest {
     entry.addReverseDepAndCheckIfDone(parent);
     assertEquals(BuildingState.DirtyState.REBUILDING, entry.getDirtyState());
     assertTrue(entry.isReady());
-    ASSERT.that(entry.getTemporaryDirectDeps()).isEmpty();
+    assertThat(entry.getTemporaryDirectDeps()).isEmpty();
     MoreAsserts.assertContentsAnyOrder(setValue(entry, new Node() {}, /*errorInfo=*/null,
         /*graphVersion=*/1L), parent);
     assertEquals(1L, entry.getVersion());

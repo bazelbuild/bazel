@@ -17,7 +17,6 @@ import com.google.common.collect.Lists;
 import com.google.devtools.build.lib.collect.nestedset.NestedSetBuilder;
 import com.google.devtools.build.lib.collect.nestedset.Order;
 import com.google.devtools.build.lib.packages.NoSuchPackageException;
-import com.google.devtools.build.lib.packages.Package;
 import com.google.devtools.build.lib.pkgcache.PathPackageLocator;
 import com.google.devtools.build.lib.vfs.Dirent;
 import com.google.devtools.build.lib.vfs.Path;
@@ -56,13 +55,13 @@ public class RecursivePkgNodeBuilder implements NodeBuilder {
     }
 
     if (!fileNode.isDirectory()) {
-      return new RecursivePkgNode(NestedSetBuilder.<Package>emptySet(ORDER));
+      return new RecursivePkgNode(NestedSetBuilder.<String>emptySet(ORDER));
     }
 
     if (fileNode.isSymlink()) {
       // We do not follow directory symlinks when we look recursively for packages. It also
       // prevents symlink loops.
-      return new RecursivePkgNode(NestedSetBuilder.<Package>emptySet(ORDER));
+      return new RecursivePkgNode(NestedSetBuilder.<String>emptySet(ORDER));
     }
 
     PackageLookupNode pkgLookupNode =
@@ -71,7 +70,7 @@ public class RecursivePkgNodeBuilder implements NodeBuilder {
       return null;
     }
 
-    NestedSetBuilder<Package> packages = new NestedSetBuilder<>(ORDER);
+    NestedSetBuilder<String> packages = new NestedSetBuilder<>(ORDER);
 
     if (pkgLookupNode.packageExists()) {
       if (pkgLookupNode.getRoot().equals(root)) {
@@ -82,14 +81,14 @@ public class RecursivePkgNodeBuilder implements NodeBuilder {
           if (pkgNode == null) {
             return null;
           }
-          packages.add(pkgNode.getPackage());
+          packages.add(pkgNode.getPackage().getName());
         } catch (NoSuchPackageException e) {
           // The package had errors, but don't fail-fast as there might subpackages below the
           // current directory.
           env.getListener().error(null,
               "package contains errors: " + rootRelativePath.getPathString());
           if (e.getPackage() != null) {
-            packages.add(e.getPackage());
+            packages.add(e.getPackage().getName());
           }
         }
       }

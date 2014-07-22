@@ -13,30 +13,31 @@
 // limitations under the License.
 package com.google.devtools.build.lib.view.test;
 
-import com.google.common.collect.ImmutableSet;
+import com.google.common.collect.ImmutableMap;
 import com.google.devtools.build.lib.concurrent.ThreadSafety.Immutable;
 import com.google.devtools.build.lib.view.TransitiveInfoProvider;
 
-import java.util.Set;
+import java.util.Map;
 
 /**
  * This provider can be implemented by rules which need special environments to run in (especially
  * tests).
  */
 @Immutable
-public final class ExecutionRequirementProvider implements TransitiveInfoProvider {
+public final class ExecutionInfoProvider implements TransitiveInfoProvider {
 
-  private final ImmutableSet<String> requirements;
+  private final ImmutableMap<String, String> executionInfo;
 
-  public ExecutionRequirementProvider(Set<String> requirements) {
-    this.requirements = ImmutableSet.copyOf(requirements);
+  public ExecutionInfoProvider(Map<String, String> requirements) {
+    this.executionInfo = ImmutableMap.copyOf(requirements);
   }
 
   /**
-   * Returns a set of string tags that indicate special execution requirements, such as hardware
-   * platforms, web browsers, etc.
+   * Returns a map to indicate special execution requirements, such as hardware
+   * platforms, web browsers, etc. Rule tags, such as "requires-XXX", may also be added
+   * as keys to the map.
    */
-  public ImmutableSet<String> getRequirements() {
-    return requirements;
+  public ImmutableMap<String, String> getExecutionInfo() {
+    return executionInfo;
   }
 }

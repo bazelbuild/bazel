@@ -48,7 +48,7 @@ import javax.annotation.concurrent.Immutable;
  * attributes in common).
  */
 @Immutable
-public class Attribute implements Comparable<Attribute> {
+public final class Attribute implements Comparable<Attribute> {
 
   public static final Predicate<RuleClass> ANY_RULE = Predicates.alwaysTrue();
 

@@ -327,7 +327,8 @@ public class TestRunnerAction extends ConfigurationAction
     checkedCaching = false;
     try {
       executor.getEventBus().post(
-          executor.getContext(TestActionContext.class).newCachedTestResult(this));
+          executor.getContext(TestActionContext.class).newCachedTestResult(
+              this, readCacheStatus()));
     } catch (IOException e) {
       LoggingUtil.logToRemote(Level.WARNING, "Failed creating cached protocol buffer", e);
     }

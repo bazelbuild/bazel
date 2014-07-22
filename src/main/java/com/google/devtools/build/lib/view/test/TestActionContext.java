@@ -16,6 +16,7 @@ package com.google.devtools.build.lib.view.test;
 import com.google.devtools.build.lib.actions.ActionExecutionContext;
 import com.google.devtools.build.lib.actions.ExecException;
 import com.google.devtools.build.lib.actions.Executor.ActionContext;
+import com.google.devtools.build.lib.view.test.TestStatus.TestResultData;
 
 import java.io.IOException;
 
@@ -39,5 +40,5 @@ public interface TestActionContext extends ActionContext {
   /**
    * create a cached test result.
    */
-  TestResult newCachedTestResult(TestRunnerAction action) throws IOException;
+  TestResult newCachedTestResult(TestRunnerAction action, TestResultData cached) throws IOException;
 }

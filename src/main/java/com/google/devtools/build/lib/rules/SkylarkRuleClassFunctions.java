@@ -20,6 +20,8 @@ import static com.google.devtools.build.lib.packages.Type.BOOLEAN;
 import static com.google.devtools.build.lib.packages.Type.NODEP_LABEL_LIST;
 import static com.google.devtools.build.lib.packages.Type.STRING;
 import static com.google.devtools.build.lib.packages.Type.STRING_LIST;
+import static com.google.devtools.build.lib.syntax.SkylarkFunction.cast;
+import static com.google.devtools.build.lib.syntax.SkylarkFunction.castList;
 
 import com.google.common.annotations.VisibleForTesting;
 import com.google.common.base.Preconditions;
@@ -35,18 +37,16 @@ import com.google.devtools.build.lib.packages.Attribute;
 import com.google.devtools.build.lib.packages.Attribute.ConfigurationTransition;
 import com.google.devtools.build.lib.packages.Attribute.SkylarkLateBound;
 import com.google.devtools.build.lib.packages.AttributeMap;
-import com.google.devtools.build.lib.packages.ImplicitOutputsFunction;
-import com.google.devtools.build.lib.packages.ImplicitOutputsFunction.SkylarkImplicitOutputsFunction;
+import com.google.devtools.build.lib.packages.ImplicitOutputsFunction.SkylarkImplicitOutputsFunctionWithCallback;
+import com.google.devtools.build.lib.packages.ImplicitOutputsFunction.SkylarkImplicitOutputsFunctionWithMap;
 import com.google.devtools.build.lib.packages.MethodLibrary;
 import com.google.devtools.build.lib.packages.RuleClass;
 import com.google.devtools.build.lib.packages.RuleClass.Builder.RuleClassType;
 import com.google.devtools.build.lib.packages.SkylarkFileType;
-import com.google.devtools.build.lib.packages.SkylarkRuleFactory;
 import com.google.devtools.build.lib.packages.Type;
 import com.google.devtools.build.lib.packages.Type.ConversionException;
 import com.google.devtools.build.lib.syntax.Environment;
 import com.google.devtools.build.lib.syntax.EvalException;
-import com.google.devtools.build.lib.syntax.EvalUtils;
 import com.google.devtools.build.lib.syntax.FuncallExpression;
 import com.google.devtools.build.lib.syntax.Function;
 import com.google.devtools.build.lib.syntax.Label;
@@ -59,7 +59,6 @@ import com.google.devtools.build.lib.syntax.SkylarkFunction.SimpleSkylarkFunctio
 import com.google.devtools.build.lib.syntax.UserDefinedFunction;
 import com.google.devtools.build.lib.util.FileType;
 import com.google.devtools.build.lib.util.FileTypeSet;
-import com.google.devtools.build.lib.vfs.Path;
 
 import java.lang.reflect.Field;
 import java.lang.reflect.Modifier;
@@ -108,9 +107,7 @@ public class SkylarkRuleClassFunctions {
           .put("Attr", ATTR)
           .build();
 
-  private final SkylarkRuleFactory ruleFactory;
   private final SkylarkEnvironment env;
-  private final Path file;
 
   private final RuleClass baseRule;
   private final ImmutableList<Function> builtInFunctions;
@@ -147,11 +144,8 @@ public class SkylarkRuleClassFunctions {
         }
      };
 
-  private SkylarkRuleClassFunctions(
-      SkylarkRuleFactory ruleFactory, SkylarkEnvironment env, Path file) {
-    this.ruleFactory = Preconditions.checkNotNull(ruleFactory);
+  private SkylarkRuleClassFunctions(SkylarkEnvironment env) {
     this.env = Preconditions.checkNotNull(env);
-    this.file = Preconditions.checkNotNull(file);
     // TODO(bazel-team): we might want to define base rule in Skylark later.
     // Right now we need some default attributes.
     baseRule = new RuleClass.Builder("$base_rule", RuleClassType.ABSTRACT, true)
@@ -167,9 +161,9 @@ public class SkylarkRuleClassFunctions {
     builtInFunctions = builtInFunctionsBuilder.build();
   }
 
-  public static SkylarkEnvironment getNewEnvironment(SkylarkRuleFactory ruleFactory, Path file) {
+  public static SkylarkEnvironment getNewEnvironment() {
     SkylarkEnvironment env = new SkylarkEnvironment();
-    SkylarkRuleClassFunctions functions = new SkylarkRuleClassFunctions(ruleFactory, env, file);
+    SkylarkRuleClassFunctions functions = new SkylarkRuleClassFunctions(env);
     for (Function builtInFunction : functions.builtInFunctions) {
       env.update(builtInFunction.getName(), builtInFunction);
     }
@@ -255,7 +249,6 @@ public class SkylarkRuleClassFunctions {
 
   @SkylarkBuiltin(name = "rule", doc = "Creates a rule class.",
       mandatoryParams = {
-      @Param(name = "name", type = String.class, doc = "name of the rule class"),
       @Param(name = "implementation", type = UserDefinedFunction.class,
           doc = "the function implementing this rule, has to have exactly one parameter: 'ctx'")},
       optionalParams = {
@@ -271,7 +264,6 @@ public class SkylarkRuleClassFunctions {
         public Object call(Map<String, Object> arguments, FuncallExpression ast,
             Environment funcallEnv) throws EvalException, ConversionException {
           final Location loc = ast.getLocation();
-          String name = cast(arguments.get("name"), String.class, "rule class name", loc);
 
           RuleClassType type = RuleClassType.NORMAL;
           if (arguments.containsKey("type")) {
@@ -279,7 +271,8 @@ public class SkylarkRuleClassFunctions {
                 RuleClassType.valueOf(cast(arguments.get("type"), String.class, "rule type", loc));
           }
 
-          RuleClass.Builder builder = new RuleClass.Builder(name, type, true, baseRule);
+          // We'll set the name later, pass the empty string for now.
+          RuleClass.Builder builder = new RuleClass.Builder("", type, true, baseRule);
 
           for (Map.Entry<String, Attribute.Builder> attr :
                    castMap(arguments.get("attr"), String.class, Attribute.Builder.class, "attr")) {
@@ -295,21 +288,19 @@ public class SkylarkRuleClassFunctions {
               UserDefinedFunction func = (UserDefinedFunction) implicitOutputs;
               final SkylarkCallbackFunction callback =
                   new SkylarkCallbackFunction(func, ast, (SkylarkEnvironment) funcallEnv);
-              builder.setImplicitOutputsFunction(new SkylarkImplicitOutputsFunction(callback, loc));
+              builder.setImplicitOutputsFunction(
+                  new SkylarkImplicitOutputsFunctionWithCallback(callback, loc));
             } else {
-              builder.setImplicitOutputsFunction(ImplicitOutputsFunction.fromTemplates(castList(
-                  arguments.get("implicit_outputs"), String.class,
-                  "implicit outputs of the rule class")));
+              builder.setImplicitOutputsFunction(new SkylarkImplicitOutputsFunctionWithMap(
+                  toMap(castMap(arguments.get("implicit_outputs"), String.class, String.class,
+                  "implicit outputs of the rule class"))));
             }
           }
 
           builder.setConfiguredTargetFunction(cast(arguments.get("implementation"),
               UserDefinedFunction.class, "rule implementation", loc));
           builder.setRuleDefinitionEnvironment(env);
-
-          RuleClass ruleClass = builder.build();
-          ruleFactory.addSkylarkRuleClass(ruleClass, file);
-          return ruleClass;
+          return builder;
         }
       };
 
@@ -335,57 +326,6 @@ public class SkylarkRuleClassFunctions {
         }
       };
 
-  public static <TYPE> Iterable<TYPE> castList(
-      Object obj, final Class<TYPE> type, final String what) throws ConversionException {
-    if (obj == null) {
-      return ImmutableList.of();
-    }
-    return Iterables.transform(Type.LIST.convert(obj, what),
-        new com.google.common.base.Function<Object, TYPE>() {
-          @Override
-          public TYPE apply(Object input) {
-            try {
-              return type.cast(input);
-            } catch (ClassCastException e) {
-              throw new IllegalArgumentException(String.format(
-                  "expected %s type for '%s' but got %s instead",
-                  type.getSimpleName(), what, EvalUtils.getDatatypeName(input)));
-            }
-          }
-    });
-  }
-
-  public static <KEY_TYPE, VALUE_TYPE> Iterable<Map.Entry<KEY_TYPE, VALUE_TYPE>> castMap(Object obj,
-      final Class<KEY_TYPE> keyType, final Class<VALUE_TYPE> valueType, final String what) {
-    if (obj == null) {
-      return ImmutableList.of();
-    }
-    if (!(obj instanceof Map<?, ?>)) {
-      throw new IllegalArgumentException(String.format(
-          "expected a dictionary for %s but got %s instead",
-          what, EvalUtils.getDatatypeName(obj)));
-    }
-    return Iterables.transform(((Map<?, ?>) obj).entrySet(),
-        new com.google.common.base.Function<Map.Entry<?, ?>, Map.Entry<KEY_TYPE, VALUE_TYPE>>() {
-          // This is safe. We check the type of the key-value pairs for every entry in the Map.
-          // In Map.Entry the key always has the type of the first generic parameter, the
-          // value has the second.
-          @SuppressWarnings("unchecked")
-            @Override
-            public Map.Entry<KEY_TYPE, VALUE_TYPE> apply(Map.Entry<?, ?> input) {
-            if (keyType.isAssignableFrom(input.getKey().getClass())
-                && valueType.isAssignableFrom(input.getValue().getClass())) {
-              return (Map.Entry<KEY_TYPE, VALUE_TYPE>) input;
-            }
-            throw new IllegalArgumentException(String.format(
-                "expected <%s, %s> type for '%s' but got <%s, %s> instead",
-                keyType.getSimpleName(), valueType.getSimpleName(), what,
-                EvalUtils.getDatatypeName(input.getKey()),
-                EvalUtils.getDatatypeName(input.getValue())));
-          }
-        });
-  }
-
   private static Type<?> createTypeFromString(
       String typeString, Location location, String errorMsg) throws EvalException {
     try {
@@ -399,16 +339,6 @@ public class SkylarkRuleClassFunctions {
       throw new EvalException(location, e.getMessage());
     } catch (NoSuchFieldException e) {
       throw new EvalException(location, String.format(errorMsg, typeString));
-    }
-  }
-
-  public static <TYPE> TYPE cast(Object elem, Class<TYPE> type, String what, Location loc)
-      throws EvalException {
-    try {
-      return type.cast(elem);
-    } catch (ClassCastException e) {
-      throw new EvalException(loc, String.format("expected %s for '%s' but got %s instead",
-          type.getSimpleName(), what, EvalUtils.getDatatypeName(elem)));
     }
   }
 

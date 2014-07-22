@@ -96,7 +96,7 @@ echo "Main-Class: com.google.devtools.build.lib.bazel.BazelMain" > output/MANIFE
 jar cmf output/MANIFEST.MF output/libblaze.jar -C output/classes com/ -C output/classes javax/ -C output/classes org/
 
 echo "JAVAC src/test/java/**/*.java"
-find src/test/java -name "*.java" | xargs "${JAVAC}" -classpath ${CLASSPATH}:third_party/junit/junit-4.11.jar:third_party/truth/truth-0.20.jar:third_party/guava/guava-testlib.jar:output/classes -d output/test_classes
+find src/test/java -name "*.java" | xargs "${JAVAC}" -classpath ${CLASSPATH}:third_party/junit/junit-4.11.jar:third_party/truth/truth-0.23.jar:third_party/guava/guava-testlib.jar:output/classes -d output/test_classes
 
 # Compile client .cc files.
 CC_FILES=(

@@ -13,9 +13,7 @@
 // limitations under the License.
 package com.google.devtools.build.lib.rules;
 
-import static com.google.devtools.build.lib.rules.SkylarkRuleClassFunctions.cast;
-import static com.google.devtools.build.lib.rules.SkylarkRuleClassFunctions.castList;
-import static com.google.devtools.build.lib.rules.SkylarkRuleClassFunctions.castMap;
+import static com.google.devtools.build.lib.syntax.SkylarkFunction.cast;
 
 import com.google.common.annotations.VisibleForTesting;
 import com.google.common.collect.ImmutableList;
@@ -168,7 +166,8 @@ public class SkylarkRuleImplementationFunctions {
         builder.setRegisterSpawnAction(EvalUtils.toBoolean(params.get("register")));
       }
       if (params.containsKey("env")) {
-        builder.setEnvironment(castMap(params.get("env"), String.class, String.class, "env"));
+        builder.setEnvironment(
+            toMap(castMap(params.get("env"), String.class, String.class, "env")));
       }
       if (params.containsKey("progress_message")) {
         builder.setProgressMessage(cast(
@@ -230,7 +229,7 @@ public class SkylarkRuleImplementationFunctions {
           : castMap(params.get("substitutions"), String.class, String.class, "substitutions")) {
         substitutions.add(Substitution.of(substitution.getKey(), substitution.getValue()));
       }
-      
+
       TemplateExpansionAction action = new TemplateExpansionAction(
           ctx.getRuleContext().getActionOwner(),
           cast(params.get("template"), Artifact.class, "template", loc),

@@ -76,7 +76,7 @@ public final class NestedSetBuilder<E> {
    * @return the builder.
    */
   @SuppressWarnings("unchecked")  // B is the type of the concrete subclass
-  public NestedSetBuilder<E> addAll(Iterable<E> elements) {
+  public NestedSetBuilder<E> addAll(Iterable<? extends E> elements) {
     Preconditions.checkNotNull(elements);
     Iterables.addAll(items, elements);
     return this;

@@ -14,8 +14,8 @@
 
 package com.google.devtools.common.options;
 
+import static com.google.common.truth.Truth.assertThat;
 import static java.util.Arrays.asList;
-import static org.truth0.Truth.ASSERT;
 
 import junit.framework.TestCase;
 
@@ -135,7 +135,7 @@ public class OptionsTest extends TestCase {
         Options.parse(HttpOptions.class, "--port", "80").getOptions(),
         Options.parse(HttpOptions.class).getOptions());
 
-    ASSERT.that(Options.parse(HttpOptions.class, "--port", "3").getOptions())
+    assertThat(Options.parse(HttpOptions.class, "--port", "3").getOptions())
         .isNotEqualTo(Options.parse(HttpOptions.class).getOptions());
   }
 

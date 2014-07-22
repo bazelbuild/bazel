@@ -14,11 +14,11 @@
 
 package com.google.devtools.build.lib.view.test;
 
-import com.google.common.base.Optional;
 import com.google.common.base.Preconditions;
 import com.google.common.collect.ImmutableMap;
-import com.google.common.collect.ImmutableSet;
+import com.google.common.collect.Maps;
 import com.google.devtools.build.lib.actions.ResourceSet;
+import com.google.devtools.build.lib.actions.Spawn;
 import com.google.devtools.build.lib.packages.Rule;
 import com.google.devtools.build.lib.packages.TargetUtils;
 import com.google.devtools.build.lib.packages.TestSize;
@@ -27,6 +27,7 @@ import com.google.devtools.build.lib.packages.Type;
 import com.google.devtools.build.lib.view.RuleContext;
 
 import java.util.List;
+import java.util.Map;
 
 /**
  * Container for test target properties available to the
@@ -59,14 +60,14 @@ public class TestTargetProperties {
   private final boolean isExternal;
   private final ResourceSet resources;
   private final String language;
-  private final ImmutableSet<String> requirements;
+  private final ImmutableMap<String, String> executionInfo;
 
   /**
    * Creates test target properties instance. Constructor expects that it
    * will be called only for test configured targets.
    */
   TestTargetProperties(RuleContext ruleContext,
-      ExecutionRequirementProvider executionRequirements) {
+      ExecutionInfoProvider executionRequirements) {
     Rule rule = ruleContext.getRule();
 
     Preconditions.checkState(TargetUtils.isTestRule(rule));
@@ -79,14 +80,14 @@ public class TestTargetProperties {
     isFlaky = ruleContext.attributes().get("flaky", Type.BOOLEAN);
     isExternal = TargetUtils.isExternalTestRule(rule);
 
+
+    Map<String, String> executionInfo = Maps.newLinkedHashMap();
+    executionInfo.putAll(TargetUtils.getExecutionInfo(rule));
     if (executionRequirements != null) {
-      ImmutableSet.Builder<String> builder = ImmutableSet.builder();
-      builder.addAll(TargetUtils.constraintKeywords(rule));
-      builder.addAll(executionRequirements.getRequirements());
-      requirements = builder.build();
-    } else {
-      requirements = TargetUtils.constraintKeywords(rule);
+      // This will overwrite whatever TargetUtils put there, which might be confusing.
+      executionInfo.putAll(executionRequirements.getExecutionInfo());
     }
+    this.executionInfo = ImmutableMap.copyOf(executionInfo);
 
     language = TargetUtils.getRuleLanguage(rule);
     resources = TestTargetProperties.getResourceSetFromSize(size);
@@ -121,21 +122,10 @@ public class TestTargetProperties {
   }
 
   /**
-   * Returns a set of strings describing constraints on the execution environment.
-   */
-  public ImmutableSet<String> getRequirements() {
-    return requirements;
-  }
-
-  /**
-   * Returns a map of execution info. Includes getRequirements() as keys.
+   * Returns a map of execution info. See {@link Spawn#getExecutionInfo}.
    */
   public ImmutableMap<String, String> getExecutionInfo() {
-    ImmutableMap.Builder<String, String> builder = ImmutableMap.builder();
-    for (String key : requirements) {
-      builder.put(key, "");
-    }
-    return builder.build();
+    return executionInfo;
   }
 
   public String getLanguage() {

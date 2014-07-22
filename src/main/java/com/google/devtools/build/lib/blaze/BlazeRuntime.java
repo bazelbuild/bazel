@@ -1555,8 +1555,10 @@ public final class BlazeRuntime {
       Iterable<DiffAwareness.Factory> diffAwarenessFactories = null;
       {
         ImmutableList.Builder<DiffAwareness.Factory> builder = new ImmutableList.Builder<>();
+        boolean watchFS = startupOptionsProvider != null
+            && startupOptionsProvider.getOptions(BlazeServerStartupOptions.class).watchFS;
         for (BlazeModule module : blazeModules) {
-          builder.addAll(module.getDiffAwarenessFactories());
+          builder.addAll(module.getDiffAwarenessFactories(watchFS));
         }
         diffAwarenessFactories = builder.build();
       }

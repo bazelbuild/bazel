@@ -34,6 +34,15 @@ public class FileWriteAction extends AbstractFileWriteAction {
 
   private static final String GUID = "332877c7-ca9f-4731-b387-54f620408522";
 
+  /**
+   * We keep it as a CharSequence for memory-efficiency reasons. The toString()
+   * method of the object represents the content of the file.
+   *
+   * <p>For example, this allows us to keep a {@code List<Artifact>} wrapped
+   * in a {@code LazyString} instead of the string representation of the concatenation.
+   * This saves memory because the Artifacts are shared objects but the
+   * resulting String is not.
+   */
   private final CharSequence fileContents;
 
   /**

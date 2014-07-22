@@ -849,7 +849,7 @@ public final class PackageFactory {
       return null;
     }
 
-    Environment env = skylarkRuleFactory.getSkylarkRuleClassEnvironment(file).cloneEnv();
+    Environment env = skylarkRuleFactory.getSkylarkRuleClassEnvironment();
 
     if (!loadAllImports(
         buildFileAST, root, file, locator, env, context, extensionFileStack, false)) {
@@ -889,9 +889,14 @@ public final class PackageFactory {
         return false;
       }
       if (updateSkylarkRuleFactory) {
-        for (String ruleClass : skylarkRuleFactory.getRuleClassNames(file)) {
-          extensionEnv.update(ruleClass,
-              newRuleFunction(ruleFactory, skylarkRuleFactory, ruleClass, file, context));
+        for (Map.Entry<String, RuleClass.Builder> var :
+                 extensionEnv.getAll(RuleClass.Builder.class).entrySet()) {
+          RuleClass ruleClass = var.getValue().setName(var.getKey()).build();
+          skylarkRuleFactory.addSkylarkRuleClass(ruleClass, file);
+
+          extensionEnv.remove(ruleClass.getName());
+          extensionEnv.update(ruleClass.getName(),
+              newRuleFunction(ruleFactory, skylarkRuleFactory, ruleClass.getName(), file, context));
         }
       }
       imports.put(imp, extensionEnv);

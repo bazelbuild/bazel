@@ -13,6 +13,7 @@
 // limitations under the License.
 package com.google.devtools.build.skyframe;
 
+import static com.google.common.truth.Truth.assertThat;
 import static com.google.devtools.build.skyframe.GraphTester.CONCATENATE;
 import static org.junit.Assert.assertEquals;
 import static org.junit.Assert.assertFalse;
@@ -20,7 +21,6 @@ import static org.junit.Assert.assertNotNull;
 import static org.junit.Assert.assertNull;
 import static org.junit.Assert.assertTrue;
 import static org.junit.Assert.fail;
-import static org.truth0.Truth.ASSERT;
 
 import com.google.common.base.Preconditions;
 import com.google.common.collect.ImmutableList;
@@ -236,11 +236,11 @@ public class EagerInvalidatorTest {
     };
     graph = new InMemoryGraph();
     invalidateWithoutError(receiver, nodeKey("a"));
-    ASSERT.that(invalidated).isEmpty();
+    assertThat(invalidated).isEmpty();
     set("a", "a");
     assertNodeValue("a", "a");
     invalidateWithoutError(receiver, nodeKey("b"));
-    ASSERT.that(invalidated).isEmpty();
+    assertThat(invalidated).isEmpty();
   }
 
   @Test
@@ -293,7 +293,7 @@ public class EagerInvalidatorTest {
     assertTrue(isInvalidated(nodeKey("abc")));
 
     // The reverse deps to ab and ab_c should have been removed.
-    ASSERT.that(graph.get(nodeKey("a")).getReverseDeps()).isEmpty();
+    assertThat(graph.get(nodeKey("a")).getReverseDeps()).isEmpty();
     MoreAsserts.assertContentsAnyOrder(graph.get(nodeKey("b")).getReverseDeps(),
         nodeKey("bc"));
     MoreAsserts.assertContentsAnyOrder(graph.get(nodeKey("c")).getReverseDeps(),
@@ -377,8 +377,8 @@ public class EagerInvalidatorTest {
       }
     };
     invalidateWithoutError(receiver);
-    ASSERT.that(invalidated).has().item(parentNode);
-    ASSERT.that(state.getInvalidationsForTesting()).isEmpty();
+    assertThat(invalidated).has().item(parentNode);
+    assertThat(state.getInvalidationsForTesting()).isEmpty();
 
     // Regression test coverage:
     // "all pending nodes are marked changed on interrupt".
@@ -479,7 +479,7 @@ public class EagerInvalidatorTest {
             Sets.newHashSet(
                 Iterables.transform(nodesToInvalidate,
                     Pair.<NodeKey, InvalidationType>firstFunction())).toArray(new NodeKey[0]));
-        ASSERT.that(state.getInvalidationsForTesting()).isEmpty();
+        assertThat(state.getInvalidationsForTesting()).isEmpty();
       } catch (InterruptedException e) {
         // Expected.
       }

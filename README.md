@@ -10,22 +10,20 @@ Then run:
 
     ./compile.sh
 
-We are working on bootstrapping bazel with itself.
+This will create the bazel binary in the output directory. We are working on
+bootstrapping bazel with itself.
 
 Running Bazel
 =============
 
-Bazel has some workspace setup requirements (which we're working on removing).
-All builds need to happen from within a google3 directory (or subdirectory) and
-have certain files exist in certain places. To get your workspace set up
-correctly, copy example-workspace/google3 to wherever you want to do your
+Bazel requires certain files to exist in certain places. To get your workspace
+set up correctly, copy `example_workspace/` to wherever you want to do your
 builds.
 
-Create your own project with a BUILD file within this google3 directory, for
-example:
+Create your own project with a BUILD file in a subdirectory, for example:
 
-    $ cd google3
-    $ mkdir -p hello
+    $ cd example_workspace
+    $ mkdir hello
     $ echo 'genrule(name = "world", outs = ["hi"], cmd = "touch $(@D)/hi")' > hello/BUILD
 
 Now run Bazel, e.g.,

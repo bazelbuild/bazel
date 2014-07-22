@@ -14,6 +14,11 @@
 
 package com.google.devtools.build.lib.util;
 
+import com.google.common.base.Objects;
+
+import java.util.Collection;
+import java.util.HashMap;
+
 /**
  *  <p>Anything marked FAILURE is generally from a problem with the source code
  *  under consideration.  In these cases, a re-run in an identical client should
@@ -26,41 +31,135 @@ package com.google.devtools.build.lib.util;
  *  <p>Note that these exit codes should be kept consistent with the codes
  *  returned by Blaze's launcher in //devtools/blaze/main:blaze.cc
  */
-public enum ExitCode {
-  SUCCESS(0),
-  BUILD_FAILURE(1),
-  PARSING_FAILURE(1),
-  COMMAND_LINE_ERROR(2),
-  TESTS_FAILED(3),
-  PARTIAL_ANALYSIS_FAILURE(3),
-  NO_TESTS_FOUND(4),
-  COVERAGE_REPORT_NOT_GENERATED(5),
-  RUN_FAILURE(6),
-  ANALYSIS_FAILURE(7),
-  INTERRUPTED(8),
-  REMOTE_ENVIRONMENTAL_ERROR(32),
-  OOM_ERROR(33),
-  RESERVED_1(34),
-  RESERVED_2(35),
-  LOCAL_ENVIRONMENTAL_ERROR(36),
-  BLAZE_INTERNAL_ERROR(37),
-  PUBLISH_ERROR(38),  // Errors publishing the Blaze results to message-queueing system.
-  RESERVED(40);
+public class ExitCode {
+  // Tracks all exit codes defined here and elsewhere in Bazel.
+  private static final HashMap<Integer, ExitCode> exitCodeRegistry = new HashMap<>();
+
+  public static final ExitCode SUCCESS = ExitCode.create(0, "SUCCESS");
+  public static final ExitCode BUILD_FAILURE = ExitCode.create(1, "BUILD_FAILURE");
+  public static final ExitCode PARSING_FAILURE = ExitCode.createUnregistered(1, "PARSING_FAILURE");
+  public static final ExitCode COMMAND_LINE_ERROR = ExitCode.create(2, "COMMAND_LINE_ERROR");
+  public static final ExitCode TESTS_FAILED = ExitCode.create(3, "TESTS_FAILED");
+  public static final ExitCode PARTIAL_ANALYSIS_FAILURE =
+      ExitCode.createUnregistered(3, "PARTIAL_ANALYSIS_FAILURE");
+  public static final ExitCode NO_TESTS_FOUND = ExitCode.create(4, "NO_TESTS_FOUND");
+  public static final ExitCode RUN_FAILURE = ExitCode.create(6, "RUN_FAILURE");
+  public static final ExitCode ANALYSIS_FAILURE = ExitCode.create(7, "ANALYSIS_FAILURE");
+  public static final ExitCode INTERRUPTED = ExitCode.create(8, "INTERRUPTED");
+  public static final ExitCode OOM_ERROR = ExitCode.createInfrastructureFailure(33, "OOM_ERROR");
+  public static final ExitCode LOCAL_ENVIRONMENTAL_ERROR =
+      ExitCode.createInfrastructureFailure(36, "LOCAL_ENIVRONMENTAL_ERROR");
+  public static final ExitCode BLAZE_INTERNAL_ERROR =
+      ExitCode.createInfrastructureFailure(37, "BLAZE_INTERNAL_ERROR");
+  public static final ExitCode RESERVED = ExitCode.createInfrastructureFailure(40, "RESERVED");
   /*
     exit codes [50..60] and 253 are reserved for site specific wrappers to Bazel.
-  */
+   */
 
-  // Keep in sync with the enum.
-  private final static int FIRST_INFRASTRUCTURE_FAILURE = 30;
-
-  private final int numericExitCode;
-
-  private ExitCode(int exitCode) {
-    this.numericExitCode = exitCode;
+  /**
+   * Creates and returns an ExitCode.  Requires a unique exit code number.
+   *
+   * @param code the int value for this exit code
+   * @param name a human-readable description
+   */
+  public static ExitCode create(int code, String name) {
+    return new ExitCode(code, name, /*infrastructureFailure=*/false, /*register=*/true);
   }
 
+  /**
+   * Creates and returns an ExitCode that represents an infrastructure failure.
+   *
+   * @param code the int value for this exit code
+   * @param name a human-readable description
+   */
+  public static ExitCode createInfrastructureFailure(int code, String name) {
+    return new ExitCode(code, name, /*infrastructureFailure=*/true, /*register=*/true);
+  }
+
+  /**
+   * Creates and returns an ExitCode that has the same numeric code as another ExitCode. This is to
+   * allow the duplicate error codes listed above to be registered, but is private to prevent other
+   * users from creating duplicate error codes in the future.
+   *
+   * @param code the int value for this exit code
+   * @param name a human-readable description
+   */
+  private static ExitCode createUnregistered(int code, String name) {
+    return new ExitCode(code, name, /*infrastructureFailure=*/false, /*register=*/false);
+  }
+
+  /**
+   * Add the given exit code to the registry.
+   *
+   * @param exitCode the exit code to register
+   * @throws IllegalStateException if the numeric exit code is already in the registry.
+   */
+  private static void register(ExitCode exitCode) {
+    synchronized (exitCodeRegistry) {
+      int codeNum = exitCode.getNumericExitCode();
+      if (exitCodeRegistry.containsKey(codeNum)) {
+        throw new IllegalStateException(
+            "Exit code " + codeNum + " (" + exitCode.name + ") already registered");
+      }
+      exitCodeRegistry.put(codeNum, exitCode);
+    }
+  }
+
+  /**
+   * Returns all registered ExitCodes.
+   */
+  public static Collection<ExitCode> values() {
+    synchronized (exitCodeRegistry) {
+      return exitCodeRegistry.values();
+    }
+  }
+
+  private final int numericExitCode;
+  private final String name;
+  private final boolean infrastructureFailure;
+
+  /**
+   * Whenever a new exit code is created, it is registered (to prevent exit codes with identical
+   * numeric codes from being created).  However, there are some exit codes in this file that have
+   * duplicate numeric codes, so these are not registered.
+   */
+  private ExitCode(int exitCode, String name, boolean infrastructureFailure, boolean register) {
+    this.numericExitCode = exitCode;
+    this.name = name;
+    this.infrastructureFailure = infrastructureFailure;
+    if (register) {
+      ExitCode.register(this);
+    }
+  }
+
+  @Override
+  public int hashCode() {
+    return Objects.hashCode(numericExitCode, name, infrastructureFailure);
+  }
+
+  @Override
+  public boolean equals(Object object) {
+    if (object instanceof ExitCode) {
+      ExitCode that = (ExitCode) object;
+      return this.numericExitCode == that.numericExitCode
+          && this.name.equals(that.name)
+          && this.infrastructureFailure == that.infrastructureFailure;
+    }
+    return false;
+  }
+
+  /**
+   * Returns the error's int value.
+   */
   public int getNumericExitCode() {
     return numericExitCode;
+  }
+
+  /**
+   * Returns the human-readable name.
+   */
+  public String name() {
+    return name;
   }
 
   /**
@@ -68,6 +167,6 @@ public enum ExitCode {
    * vs. a build failure.
    */
   public boolean isInfrastructureFailure() {
-    return numericExitCode >= FIRST_INFRASTRUCTURE_FAILURE;
+    return infrastructureFailure;
   }
 }

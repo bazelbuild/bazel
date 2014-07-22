@@ -300,6 +300,9 @@ static vector<string> GetArgumentArray() {
   if (globals->options.allow_configurable_attributes) {
     result.push_back("--allow_configurable_attributes");
   }
+  if (globals->options.watchfs) {
+    result.push_back("--watchfs");
+  }
 
   // This is only for Blaze reporting purposes; the real interpretation of the
   // jvm flags occurs when we set up the java command line.

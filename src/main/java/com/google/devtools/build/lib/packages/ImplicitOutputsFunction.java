@@ -13,10 +13,12 @@
 // limitations under the License.
 package com.google.devtools.build.lib.packages;
 
+import static com.google.devtools.build.lib.syntax.SkylarkFunction.castMap;
 import static java.util.Collections.singleton;
 
 import com.google.common.base.Function;
 import com.google.common.collect.ImmutableList;
+import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.Iterables;
 import com.google.common.collect.Lists;
 import com.google.common.collect.Sets;
@@ -50,20 +52,36 @@ import javax.annotation.Nullable;
 public abstract class ImplicitOutputsFunction {
 
   /**
+   * Implicit output functions for Skylark supporting key value access of expanded implicit outputs.
+   */
+  public abstract static class SkylarkImplicitOutputsFunction extends ImplicitOutputsFunction {
+
+    public abstract ImmutableMap<String, String> calculateOutputs(AttributeMap map)
+        throws EvalException;
+
+    @Override
+    public Iterable<String> getImplicitOutputs(AttributeMap map) throws EvalException {
+      return calculateOutputs(map).values();
+    }
+  }
+
+  /**
    * Implicit output functions executing Skylark code.
    */
-  public static final class SkylarkImplicitOutputsFunction extends ImplicitOutputsFunction {
+  public static final class SkylarkImplicitOutputsFunctionWithCallback
+      extends SkylarkImplicitOutputsFunction {
 
     private final SkylarkCallbackFunction callback;
     private final Location loc;
 
-    public SkylarkImplicitOutputsFunction(SkylarkCallbackFunction callback, Location loc) {
+    public SkylarkImplicitOutputsFunctionWithCallback(
+        SkylarkCallbackFunction callback, Location loc) {
       this.callback = callback;
       this.loc = loc;
     }
 
     @Override
-    public Iterable<String> getImplicitOutputs(AttributeMap map) throws EvalException {
+    public ImmutableMap<String, String> calculateOutputs(AttributeMap map) throws EvalException {
       Map<String, Object> attrValues = new HashMap<>();
       for (String attrName : map.getAttributeNames()) {
         // TODO(bazel-team): support configurable attributes - which value would we want to
@@ -77,15 +95,43 @@ public abstract class ImplicitOutputsFunction {
       }
       ClassObject attrs = new ClassObject(attrValues);
       try {
-        // TODO(bazel-team): do this properly. Unfortunately cannot use
-        // SkylarkRuleClassFunctions.castList() here. FromTemplates() will throw a
-        // ClassCastException which gets converted but still not very nice.
-        @SuppressWarnings("unchecked")
-        List<String> result = (List<String>) callback.call(attrs);
-        return fromTemplates(result).getImplicitOutputs(map);
-      } catch (ClassCastException e) {
+        ImmutableMap.Builder<String, String> builder = ImmutableMap.builder();
+        for (Map.Entry<String, String> entry : castMap(callback.call(attrs),
+            String.class, String.class, "implicit outputs function return value")) {
+          Iterable<String> substitutions = fromTemplates(entry.getValue()).getImplicitOutputs(map);
+          if (!Iterables.isEmpty(substitutions)) {
+            builder.put(entry.getKey(), Iterables.getOnlyElement(substitutions));
+          }
+        }
+        return builder.build();
+      } catch (IllegalArgumentException e) {
         throw new EvalException(loc, e.getMessage());
       }
+    }
+  }
+
+  /**
+   * Implicit output functions using a simple an output map.
+   */
+  public static final class SkylarkImplicitOutputsFunctionWithMap
+      extends SkylarkImplicitOutputsFunction {
+
+    private final ImmutableMap<String, String> outputMap;
+
+    public SkylarkImplicitOutputsFunctionWithMap(ImmutableMap<String, String> outputMap) {
+      this.outputMap = outputMap;
+    }
+
+    @Override
+    public ImmutableMap<String, String> calculateOutputs(AttributeMap map) {
+      ImmutableMap.Builder<String, String> builder = ImmutableMap.builder();
+      for (Map.Entry<String, String> entry : outputMap.entrySet()) {
+        Iterable<String> substitutions = fromTemplates(entry.getValue()).getImplicitOutputs(map);
+        if (!Iterables.isEmpty(substitutions)) {
+          builder.put(entry.getKey(), Iterables.getOnlyElement(substitutions));
+        }
+      }
+      return builder.build();
     }
   }
 

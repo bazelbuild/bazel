@@ -34,11 +34,12 @@ public final class RuleConfiguredTargetBuilder {
    */
   public static ConfiguredTarget buildRule(RuleContext ruleContext,
       Function ruleImplementation) {
-    SkylarkRuleContext skylarkRuleContext = new SkylarkRuleContext(ruleContext);
-    Environment env =
-        SkylarkRuleImplementationFunctions.getNewEnvironment(skylarkRuleContext);
-    String expectError = ruleContext.getRule().get("expect_failure", Type.STRING);
+    String expectError = ruleContext.attributes().get("expect_failure", Type.STRING);
     try {
+      SkylarkRuleContext skylarkRuleContext = new SkylarkRuleContext(ruleContext);
+      Environment env =
+          SkylarkRuleImplementationFunctions.getNewEnvironment(skylarkRuleContext);
+
       Object target = ruleImplementation.call(ImmutableList.<Object>of(skylarkRuleContext),
           ImmutableMap.<String, Object>of(), null, env);
 

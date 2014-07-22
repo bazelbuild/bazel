@@ -136,7 +136,8 @@ public abstract class BlazeModule {
    *
    * <p>This method will be called during Blaze startup (after #blazeStartup).
    */
-  public Iterable<? extends DiffAwareness.Factory> getDiffAwarenessFactories() {
+  @SuppressWarnings("unused")
+  public Iterable<? extends DiffAwareness.Factory> getDiffAwarenessFactories(boolean watchFS) {
     return ImmutableList.of();
   }
 

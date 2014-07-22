@@ -90,7 +90,7 @@ public class SkylarkRuleFactory {
   /**
    * Returns a Skylark Environment for rule creation using this SkylarkRuleFactory.
    */
-  public SkylarkEnvironment getSkylarkRuleClassEnvironment(Path file) {
-    return ruleClassProvider.getSkylarkRuleClassEnvironment(this, file);
+  public SkylarkEnvironment getSkylarkRuleClassEnvironment() {
+    return ruleClassProvider.getSkylarkRuleClassEnvironment();
   }
 }

@@ -110,13 +110,11 @@ public class GenRule implements RuleConfiguredTargetFactory {
     ImmutableMap<String, String> env =
             ruleContext.getConfiguration().getDefaultShellEnvironment();
 
-    Map<String, String> requirements = Maps.newLinkedHashMap();
-    for (String word : TargetUtils.constraintKeywords(ruleContext.getRule())) {
-      requirements.put(word, "");
-    }
+    Map<String, String> executionInfo = Maps.newLinkedHashMap();
+    executionInfo.putAll(TargetUtils.getExecutionInfo(ruleContext.getRule()));
 
     if (ruleContext.attributes().get("local", Type.BOOLEAN)) {
-      requirements.put("local", "");
+      executionInfo.put("local", "");
     }
 
     NestedSetBuilder<Artifact> inputs = NestedSetBuilder.stableOrder();
@@ -134,7 +132,7 @@ public class GenRule implements RuleConfiguredTargetFactory {
 
     ruleContext.getAnalysisEnvironment().registerAction(new GenRuleAction(
         ruleContext.getActionOwner(), inputs.build(), filesToBuild, ruleContext.getConfiguration(),
-        argv, env, ImmutableMap.copyOf(requirements),
+        argv, env, ImmutableMap.copyOf(executionInfo),
         commandHelper.getRemoteRunfileManifestMap(),
         message + ' ' + ruleContext.getLabel()));
 

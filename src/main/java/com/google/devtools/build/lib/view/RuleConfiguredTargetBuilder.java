@@ -37,7 +37,7 @@ import com.google.devtools.build.lib.view.RuleConfiguredTarget.TransitiveInfo;
 import com.google.devtools.build.lib.view.config.BuildConfiguration;
 import com.google.devtools.build.lib.view.extra.ExtraActionMapProvider;
 import com.google.devtools.build.lib.view.extra.ExtraActionSpec;
-import com.google.devtools.build.lib.view.test.ExecutionRequirementProvider;
+import com.google.devtools.build.lib.view.test.ExecutionInfoProvider;
 import com.google.devtools.build.lib.view.test.InstrumentedFilesProvider;
 import com.google.devtools.build.lib.view.test.TestActionBuilder;
 import com.google.devtools.build.lib.view.test.TestProvider;
@@ -108,7 +108,7 @@ public final class RuleConfiguredTargetBuilder {
         .setFilesToRunProvider(filesToRunProvider)
         .setFilesToRun(RuleContext.getFilesToRun(runfilesSupport, filesToBuild))
         .setInstrumentedFiles(findProvider(InstrumentedFilesProvider.class))
-        .setExecutionRequirements(findProvider(ExecutionRequirementProvider.class))
+        .setExecutionRequirements(findProvider(ExecutionInfoProvider.class))
         .setShardCount(explicitShardCount)
         .build();
     final ImmutableList<String> testTags =
