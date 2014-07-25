@@ -314,12 +314,16 @@ public interface QueryEnvironment<T> {
     String getStringAttr(T target, String attrName);
 
     /**
-     * Returns the given attribute represented as a string. Note that for backwards compatibility,
-     * tristate and boolean attributes are returned as int using the values {@code 0, 1} and {@code
-     * -1}. If there is no such attribute, this method returns {@code null} instead.
+     * Returns the given attribute represented as a list of strings. For "normal" attributes,
+     * this should just be a list of size one containing the attribute's value. For configurable
+     * attributes, there should be one entry for each possible value the attribute may take.
+     *
+     *<p>Note that for backwards compatibility, tristate and boolean attributes are returned as
+     * int using the values {@code 0, 1} and {@code -1}. If there is no such attribute, this
+     * method returns an empty list.
      *
      * @throws IllegalArgumentException if target is not a rule (according to {@link #isRule})
      */
-    String getAttrAsString(T target, String attrName);
+    Iterable<String> getAttrAsString(T target, String attrName);
   }
 }

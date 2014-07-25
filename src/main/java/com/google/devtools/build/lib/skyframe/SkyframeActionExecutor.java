@@ -103,11 +103,11 @@ public final class SkyframeActionExecutor extends AbstractActionExecutor {
   // action has finished execution, because a downstream action might be reading the output file
   // at the same time as the shared action was writing to it.
   // This map is also used for Actions that try to execute twice because they have discovered
-  // headers -- the NodeBuilder tries to declare a dep on the missing headers and has to restart.
-  // We don't want to execute the action again on the second entry to the NodeBuilder.
-  // In both cases, we store the already-computed ActionExecutionNode to avoid having to compute it
+  // headers -- the SkyFunction tries to declare a dep on the missing headers and has to restart.
+  // We don't want to execute the action again on the second entry to the SkyFunction.
+  // In both cases, we store the already-computed ActionExecutionValue to avoid having to compute it
   // again.
-  private ConcurrentMap<Artifact, Pair<Action, FutureTask<ActionExecutionNode>>> buildActionMap;
+  private ConcurrentMap<Artifact, Pair<Action, FutureTask<ActionExecutionValue>>> buildActionMap;
 
   // Errors found when examining all actions in the graph are stored here, so that they can be
   // thrown when execution of the action is requested. This field is set during each call to
@@ -171,7 +171,8 @@ public final class SkyframeActionExecutor extends AbstractActionExecutor {
       if (metadata != null) {
         return metadata;
       }
-      // Skyframe stats all generated artifacts on the assumption they may be outputs.
+      // Skyframe stats all generated artifacts, because either they are outputs of the action being
+      // executed or they are generated files already present in the graph.
       Preconditions.checkState(artifact.isSourceArtifact(), artifact);
       metadata = undeclaredInputsMetadata.get(artifact);
       if (metadata != null) {
@@ -246,11 +247,11 @@ public final class SkyframeActionExecutor extends AbstractActionExecutor {
    * any conflicts it has, since this method will compare it against all other actions. So there is
    * no sequence of builds that can evade the error.
    */
-  void findAndStoreArtifactConflicts(Iterable<ActionLookupNode> actionLookupNodes)
+  void findAndStoreArtifactConflicts(Iterable<ActionLookupValue> actionLookupValues)
       throws InterruptedException {
     ConcurrentMap<Action, Exception> temporaryBadActionMap = new ConcurrentHashMap<>();
     Pair<ActionGraph, SortedMap<PathFragment, Artifact>> result;
-    result = constructActionGraphAndPathMap(actionLookupNodes, temporaryBadActionMap);
+    result = constructActionGraphAndPathMap(actionLookupValues, temporaryBadActionMap);
     ActionGraph actionGraph = result.first;
     SortedMap<PathFragment, Artifact> artifactPathMap = result.second;
 
@@ -302,16 +303,17 @@ public final class SkyframeActionExecutor extends AbstractActionExecutor {
    */
   private static Pair<ActionGraph, SortedMap<PathFragment, Artifact>>
       constructActionGraphAndPathMap(
-          Iterable<ActionLookupNode> nodes,
+          Iterable<ActionLookupValue> values,
           ConcurrentMap<Action, Exception> badActionMap) throws InterruptedException {
     MutableActionGraph actionGraph = new MapBasedActionGraph();
     ConcurrentNavigableMap<PathFragment, Artifact> artifactPathMap = new ConcurrentSkipListMap<>();
     // Action graph construction is CPU-bound.
     int numJobs = Runtime.getRuntime().availableProcessors();
-    // No great reason for expecting 5000 action lookup nodes, but not worth counting size of nodes.
-    Sharder<ActionLookupNode> actionShards = new Sharder<>(numJobs, 5000);
-    for (ActionLookupNode node : nodes) {
-      actionShards.add(node);
+    // No great reason for expecting 5000 action lookup values, but not worth counting size of
+    // values.
+    Sharder<ActionLookupValue> actionShards = new Sharder<>(numJobs, 5000);
+    for (ActionLookupValue value : values) {
+      actionShards.add(value);
     }
 
     ThrowableRecordingRunnableWrapper wrapper = new ThrowableRecordingRunnableWrapper(
@@ -319,8 +321,8 @@ public final class SkyframeActionExecutor extends AbstractActionExecutor {
 
     ExecutorService executor = Executors.newFixedThreadPool(
         numJobs,
-        new ThreadFactoryBuilder().setNameFormat("ActionLookupNode Processor %d").build());
-    for (List<ActionLookupNode> shard : actionShards) {
+        new ThreadFactoryBuilder().setNameFormat("ActionLookupValue Processor %d").build());
+    for (List<ActionLookupValue> shard : actionShards) {
       executor.execute(
           wrapper.wrap(actionRegistration(shard, actionGraph, artifactPathMap, badActionMap)));
     }
@@ -333,16 +335,16 @@ public final class SkyframeActionExecutor extends AbstractActionExecutor {
   }
 
   private static Runnable actionRegistration(
-      final List<ActionLookupNode> nodes,
+      final List<ActionLookupValue> values,
       final MutableActionGraph actionGraph,
       final ConcurrentMap<PathFragment, Artifact> artifactPathMap,
       final ConcurrentMap<Action, Exception> badActionMap) {
     return new Runnable() {
       @Override
       public void run() {
-        for (ActionLookupNode node : nodes) {
+        for (ActionLookupValue value : values) {
           Set<Action> registeredActions = new HashSet<>();
-          for (Map.Entry<Artifact, Action> entry : node.getMapForConsistencyCheck().entrySet()) {
+          for (Map.Entry<Artifact, Action> entry : value.getMapForConsistencyCheck().entrySet()) {
             Action action = entry.getValue();
             // We have an entry for each <action, artifact> pair. Only try to register each action
             // once.
@@ -385,12 +387,12 @@ public final class SkyframeActionExecutor extends AbstractActionExecutor {
   }
 
   /**
-   * Executes the provided action on the current thread. Returns the ActionExecutionNode with the
+   * Executes the provided action on the current thread. Returns the ActionExecutionValue with the
    * result, either computed here or already computed on another thread.
    *
-   * <p>For use from {@link ArtifactNodeBuilder} only.
+   * <p>For use from {@link ArtifactFunction} only.
    */
-  protected ActionExecutionNode executeAction(Action action, FileAndMetadataCache graphFileCache)
+  protected ActionExecutionValue executeAction(Action action, FileAndMetadataCache graphFileCache)
       throws ActionExecutionException, InterruptedException {
     Exception exception = badActionMap.get(action);
     if (exception != null) {
@@ -398,10 +400,10 @@ public final class SkyframeActionExecutor extends AbstractActionExecutor {
       reportError(exception, action);
     }
     Artifact primaryOutput = action.getPrimaryOutput();
-    FutureTask<ActionExecutionNode> actionTask =
+    FutureTask<ActionExecutionValue> actionTask =
         new FutureTask<>(new ActionRunner(action, graphFileCache));
-    // Check to see if another action is already executing/has executed this node.
-    Pair<Action, FutureTask<ActionExecutionNode>> oldAction =
+    // Check to see if another action is already executing/has executed this value.
+    Pair<Action, FutureTask<ActionExecutionValue>> oldAction =
         buildActionMap.putIfAbsent(primaryOutput, Pair.of(action, actionTask));
     ActionExecutionStatusReporter statusReporter =
         Preconditions.checkNotNull(statusReporterRef.get());
@@ -475,7 +477,7 @@ public final class SkyframeActionExecutor extends AbstractActionExecutor {
     this.perBuildFileCache = fileCache;
   }
 
-  private class ActionRunner implements Callable<ActionExecutionNode> {
+  private class ActionRunner implements Callable<ActionExecutionValue> {
     private final Action action;
     private final FileAndMetadataCache graphFileCache;
 
@@ -485,7 +487,7 @@ public final class SkyframeActionExecutor extends AbstractActionExecutor {
     }
 
     @Override
-    public ActionExecutionNode call() throws ActionExecutionException, InterruptedException {
+    public ActionExecutionValue call() throws ActionExecutionException, InterruptedException {
       profiler.startTask(ProfilerTask.ACTION_CHECK, action);
       long actionStartTime = Profiler.nanoTimeMaybe();
 
@@ -509,13 +511,13 @@ public final class SkyframeActionExecutor extends AbstractActionExecutor {
           notify.actionCacheHit(executorEngine);
         }
 
-        // We still need to check the outputs so that output file data is available to the node.
+        // We still need to check the outputs so that output file data is available to the value.
         checkOutputs(action, graphFileCache);
         if (!eventPosted) {
           postEvent(new CachedActionEvent(action, actionStartTime));
         }
 
-        return new ActionExecutionNode(
+        return new ActionExecutionValue(
             graphFileCache.getOutputData(), graphFileCache.getAdditionalOutputData());
       } else if (actionCacheChecker.isActionExecutionProhibited(action)) {
         // We can't execute an action (e.g. because --check_???_up_to_date option was used). Fail
@@ -550,7 +552,7 @@ public final class SkyframeActionExecutor extends AbstractActionExecutor {
               }
             }, actionStartTime);
 
-      return new ActionExecutionNode(
+      return new ActionExecutionValue(
           graphFileCache.getOutputData(), graphFileCache.getAdditionalOutputData());
     }
   }
@@ -627,9 +629,9 @@ public final class SkyframeActionExecutor extends AbstractActionExecutor {
   /**
    * Currently this is a copy of what we do in legacy. The main implication is that we are
    * printing the error to the top level reporter instead of the action reporter. Because of that
-   * Skyframe nodes do not know about the errors happening in the execution phase. Even if we
+   * Skyframe values do not know about the errors happening in the execution phase. Even if we
    * change in the future to log to the action reporter (that would be done in
-   * ActionExecutionNodeBuilder.build() method when we get a ActionExecutionException),
+   * ActionExecutionFunction.build() method when we get a ActionExecutionException),
    * we probably do not want to also store the StdErr output, so dumpRecordedOutErr() should
    * still be called here.
    */

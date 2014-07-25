@@ -19,9 +19,9 @@ import com.google.devtools.build.lib.packages.TargetUtils;
 import com.google.devtools.build.lib.syntax.Label;
 import com.google.devtools.build.lib.view.DependencyResolver;
 import com.google.devtools.build.lib.view.TargetAndConfiguration;
-import com.google.devtools.build.skyframe.Node;
-import com.google.devtools.build.skyframe.NodeBuilder.Environment;
-import com.google.devtools.build.skyframe.NodeKey;
+import com.google.devtools.build.skyframe.SkyFunction.Environment;
+import com.google.devtools.build.skyframe.SkyKey;
+import com.google.devtools.build.skyframe.SkyValue;
 
 import javax.annotation.Nullable;
 
@@ -37,26 +37,26 @@ public final class SkyframeDependencyResolver extends DependencyResolver {
   }
 
   @Override
-  protected void invalidVisibilityReferenceHook(TargetAndConfiguration node, Label label) {
-    env.getListener().error(TargetUtils.getLocationMaybe(node.getTarget()), String.format(
+  protected void invalidVisibilityReferenceHook(TargetAndConfiguration value, Label label) {
+    env.getListener().error(TargetUtils.getLocationMaybe(value.getTarget()), String.format(
         "Label '%s' in visibility attribute does not refer to a package group", label));
   }
 
   @Override
-  protected void invalidPackageGroupReferenceHook(TargetAndConfiguration node, Label label) {
-    env.getListener().error(TargetUtils.getLocationMaybe(node.getTarget()), String.format(
+  protected void invalidPackageGroupReferenceHook(TargetAndConfiguration value, Label label) {
+    env.getListener().error(TargetUtils.getLocationMaybe(value.getTarget()), String.format(
         "label '%s' does not refer to a package group", label));
   }
 
   @Nullable
   @Override
   protected Target getTarget(Label label) throws NoSuchThingException {
-    NodeKey key = PackageNode.key(label.getPackageFragment());
-    Node node = env.getDep(key);
-    if (node == null) {
+    SkyKey key = PackageValue.key(label.getPackageFragment());
+    SkyValue value = env.getValue(key);
+    if (value == null) {
       return null;
     }
-    PackageNode packageNode = (PackageNode) node;
-    return packageNode.getPackage().getTarget(label.getName());
+    PackageValue packageValue = (PackageValue) value;
+    return packageValue.getPackage().getTarget(label.getName());
   }
 }

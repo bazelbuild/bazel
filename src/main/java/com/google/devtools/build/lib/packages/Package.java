@@ -580,7 +580,10 @@ public class Package implements Serializable {
     for (Rule rule : getTargets(Rule.class)) {
       out.println("      " + rule.getTargetKind() + " " + rule.getLabel());
       for (Attribute attr : rule.getAttributes()) {
-        out.println("        " + attr.getName() + " = " + rule.getAttr(attr));
+        for (Object possibleValue : AggregatingAttributeMapper.of(rule)
+            .visitAttribute(attr.getName(), attr.getType())) {
+          out.println("        " + attr.getName() + " = " + possibleValue);
+        }
       }
     }
 

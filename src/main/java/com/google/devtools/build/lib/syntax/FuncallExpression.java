@@ -50,15 +50,23 @@ public final class FuncallExpression extends Expression {
           Map<String, List<Method>> methodMap = new HashMap<>();
           for (Method method : key.getMethods()) {
             // Synthetic methods lead to false multiple matches
-            if (!method.isSynthetic()
-                && isAnnotationPresentInParentClass(method.getDeclaringClass(), method)) {
-              String signature = StringUtilities.toPythonStyleFunctionName(method.getName())
-                  + "#" + method.getParameterTypes().length;
-              if (methodMap.containsKey(signature)) {
-                methodMap.get(signature).add(method);
-              } else {
-                methodMap.put(signature, Lists.newArrayList(method));
-              }
+            if (method.isSynthetic()) {
+              continue;
+            }
+            SkylarkCallable callable = getAnnotationFromParentClass(
+                  method.getDeclaringClass(), method);
+            if (callable == null) {
+              continue;
+            }
+            String name = callable.name();
+            if (name.isEmpty()) {
+              name = StringUtilities.toPythonStyleFunctionName(method.getName());
+            }
+            String signature = name + "#" + method.getParameterTypes().length;
+            if (methodMap.containsKey(signature)) {
+              methodMap.get(signature).add(method);
+            } else {
+              methodMap.put(signature, Lists.newArrayList(method));
             }
           }
           return ImmutableMap.copyOf(methodMap);

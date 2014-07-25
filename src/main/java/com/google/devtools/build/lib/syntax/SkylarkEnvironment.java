@@ -42,7 +42,7 @@ public class SkylarkEnvironment extends Environment {
    * caller Environment (which must be a Skylark Environment).
    */
   public static SkylarkEnvironment createEnvironmentForFunctionCalling(
-      SkylarkEnvironment callerEnv, SkylarkEnvironment definitionEnv,
+      Environment callerEnv, SkylarkEnvironment definitionEnv,
       UserDefinedFunction function) throws EvalException {
     if (callerEnv.getStackTrace().contains(function.getName())) {
       throw new EvalException(function.getLocation(), "Recursion was detected when calling '"
@@ -73,6 +73,7 @@ public class SkylarkEnvironment extends Environment {
     stackTrace = ImmutableList.of();
   }
 
+  @Override
   public ImmutableList<String> getStackTrace() {
     return stackTrace;
   }

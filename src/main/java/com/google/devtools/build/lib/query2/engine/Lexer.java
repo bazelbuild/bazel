@@ -169,10 +169,9 @@ final class Lexer {
     return kind == null ? TokenKind.WORD : kind;
   }
 
-  // Unquoted words may contain [-*$], but not start with them.  For user
-  // convenience, unquoted words must include UNIX filenames, google3 labels
-  // and target label patterns, and simple regexps (e.g. cc_.*)
-  // Keep consistent with TargetLiteral.toString()!
+  // Unquoted words may contain [-*$], but not start with them.  For user convenience, unquoted
+  // words must include UNIX filenames, labels and target label patterns, and simple regexps
+  // (e.g. cc_.*). Keep consistent with TargetLiteral.toString()!
   private String scanWord() {
     int oldPos = pos - 1;
     while (pos < buffer.length) {

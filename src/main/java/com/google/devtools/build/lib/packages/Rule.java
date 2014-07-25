@@ -18,6 +18,9 @@ import com.google.common.base.Preconditions;
 import com.google.common.base.Predicate;
 import com.google.common.base.Predicates;
 import com.google.common.collect.ImmutableList;
+import com.google.common.collect.ImmutableListMultimap;
+import com.google.common.collect.LinkedListMultimap;
+import com.google.common.collect.ListMultimap;
 import com.google.common.collect.Lists;
 import com.google.devtools.build.lib.events.ErrorEventListener;
 import com.google.devtools.build.lib.events.Location;
@@ -28,8 +31,6 @@ import com.google.devtools.build.lib.syntax.FuncallExpression;
 import com.google.devtools.build.lib.syntax.GlobList;
 import com.google.devtools.build.lib.syntax.Label;
 import com.google.devtools.build.lib.syntax.Label.SyntaxException;
-import com.google.devtools.build.lib.syntax.SkylarkBuiltin;
-import com.google.devtools.build.lib.syntax.SkylarkCallable;
 import com.google.devtools.build.lib.util.BinaryPredicate;
 
 import java.util.Collection;
@@ -37,8 +38,6 @@ import java.util.HashSet;
 import java.util.LinkedHashSet;
 import java.util.List;
 import java.util.Set;
-
-import javax.annotation.Nullable;
 
 /**
  * An instance of a build rule in the build language.  A rule has a name, a
@@ -56,8 +55,7 @@ import javax.annotation.Nullable;
  *            deps = ['bar'])
  * </pre>
  */
-@SkylarkBuiltin(name = "Rule", doc = "An instance of a BUILD rule.")
-public final class Rule implements Target, AttributeMap {
+public final class Rule implements Target {
   /** Dependency predicate that includes all dependencies */
   public static final BinaryPredicate<Rule, Attribute> ALL_DEPS =
       new BinaryPredicate<Rule, Attribute>() {
@@ -149,6 +147,7 @@ public final class Rule implements Target, AttributeMap {
 
   // Initialized in the call to populateOutputFiles.
   private List<OutputFile> outputFiles;
+  private ListMultimap<String, OutputFile> outputFileMap;
 
   Rule(Package pkg, Label label, RuleClass ruleClass, FuncallExpression ast, Location location) {
     this.pkg = Preconditions.checkNotNull(pkg);
@@ -283,22 +282,11 @@ public final class Rule implements Target, AttributeMap {
   }
 
   /**
-   * @deprecated use {@link AbstractAttributeMapper#getAttributeType} instead
-   */
-  @Override
-  @Nullable
-  @Deprecated
-  public Type<?> getAttributeType(String attrName) {
-    return attributeMap.getAttributeType(attrName);
-  }
-
-  /**
    * Returns the attribute definition whose name is {@code attrName}, or null
    * if not found.  (Use get[X]Attr for the actual value.)
    *
    * @deprecated use {@link AbstractAttributeMapper#getAttributeDefinition} instead
    */
-  @Override
   @Deprecated
   public Attribute getAttributeDefinition(String attrName) {
     return attributeMap.getAttributeDefinition(attrName);
@@ -319,9 +307,16 @@ public final class Rule implements Target, AttributeMap {
    * <p>The fact that the relative order of the explicit outputs is also retained is less obviously
    * useful but is still well defined.
    */
-  @SkylarkCallable(doc = "")
   public Collection<OutputFile> getOutputFiles() {
     return outputFiles;
+  }
+
+  /**
+   * Returns an (unmodifiable, ordered) map containing the list of output files for every
+   * output type attribute.
+   */
+  public ListMultimap<String, OutputFile> getOutputFileMap() {
+    return outputFileMap;
   }
 
   @Override
@@ -344,60 +339,16 @@ public final class Rule implements Target, AttributeMap {
   }
 
   /********************************************************************
-   * Attribute accessor functions
-   ********************************************************************/
-
-  /**
-   * @deprecated use {@link AbstractAttributeMapper#get} instead
-   */
-  @Override
-  @Nullable
-  @Deprecated
-  public <T> T get(String attributeName, Type<T> type) {
-    return attributeMap.get(attributeName, type);
-  }
-
-  @Override
-  public Iterable<String> getAttributeNames() {
-    throw new UnsupportedOperationException();
-  }
-
-  /**
-   * Returns the value of the named rule attribute, which may be of any
-   * type, but must exist (an exception is thrown otherwise).  The class of
-   * the result will depend on the attribute definition.</p>
+   * Attribute accessor functions.
    *
-   * <p>The typed attribute accessor methods should be used in preference to
-   * this one where possible; this method is useful when the attribute name
-   * (and type) is not known statically.</p>
-   */
-  public Object getAttr(Attribute attribute) {
-    // TODO(bazel-team): replace this method with something that handles configurable attributes.
-    Object attr = attributes.getAttr(attribute);
-    if (attr instanceof Attribute.ComputedDefault) {
-      attr = ((Attribute.ComputedDefault) attr).getDefault(RawAttributeMapper.of(this));
-    }
-    return attr;
-  }
-
-  /**
-   * Returns the value of a named rule attribute without any type check. An attribute
-   * with the given name must exist, otherwise an exception is thrown.
-   */
-  @SkylarkCallable(doc = "")
-  public Object getAttr(String attrName) {
-    // TODO(bazel-team): replace this method with something that handles configurable attributes.
-    Object attr = attributes.getAttr(attrName);
-    if (attr != null) {
-      if (attr instanceof Attribute.ComputedDefault) {
-        attr = ((Attribute.ComputedDefault) attr).getDefault(RawAttributeMapper.of(this));
-      }
-      return attr;
-    } else {
-      throw new IllegalArgumentException("No such attribute " + attrName
-          + " in rule " + getName());
-    }
-  }
+   * The below provide access to attribute definitions and other generic
+   * metadata.
+   *
+   * For access to attribute *values* (e.g. "What's the value of attribute
+   * X for Rule Y?"), go through {@link RuleContext#attributes}. If no
+   * RuleContext is available, create a localized {@link AbstractAttributeMapper}
+   * instance instead.
+   ********************************************************************/
 
   /**
    * Returns the default value for the attribute {@code attrName}, which may be
@@ -426,7 +377,6 @@ public final class Rule implements Target, AttributeMap {
     return attributes.isAttributeValueExplicitlySpecified(attribute);
   }
 
-  @Override
   public boolean isAttributeValueExplicitlySpecified(String attrName) {
     return attributeMap.isAttributeValueExplicitlySpecified(attrName);
   }
@@ -442,24 +392,6 @@ public final class Rule implements Target, AttributeMap {
       attrLocation = attributes.getAttributeLocation(attrName);
     }
     return attrLocation != null ? attrLocation : getLocation();
-  }
-
-  @Override
-  public Boolean getPackageDefaultObsolete() {
-    throw new UnsupportedOperationException(
-        "Temporary interface requirement - use AbstractAttributeMapper instead");
-  }
-
-  @Override
-  public Boolean getPackageDefaultTestOnly() {
-    throw new UnsupportedOperationException(
-        "Temporary interface requirement - use AbstractAttributeMapper instead");
-  }
-
-  @Override
-  public String getPackageDefaultDeprecation() {
-    throw new UnsupportedOperationException(
-        "Temporary interface requirement - use AbstractAttributeMapper instead");
   }
 
   /**
@@ -494,11 +426,6 @@ public final class Rule implements Target, AttributeMap {
     return labels;
   }
 
-  @Override
-  public void visitLabels(AttributeMap.AcceptsLabelAttribute observer) {
-    throw new UnsupportedOperationException("Temporary interface requirement - do not use");
-  }
-
   /**
    * Check if this rule is valid according to the validityPredicate of its RuleClass.
    */
@@ -519,9 +446,11 @@ public final class Rule implements Target, AttributeMap {
     Preconditions.checkState(outputFiles == null);
     // Order is important here: implicit before explicit
     outputFiles = Lists.newArrayList();
+    outputFileMap = LinkedListMultimap.create();
     populateImplicitOutputFiles(listener, pkgBuilder);
     populateExplicitOutputFiles(listener);
     outputFiles = ImmutableList.copyOf(outputFiles);
+    outputFileMap = ImmutableListMultimap.copyOf(outputFileMap);
   }
 
   // Explicit output files are user-specified attributes of type OUTPUT.
@@ -571,17 +500,20 @@ public final class Rule implements Target, AttributeMap {
           + "' but instead refers to '" + label.getPackageFragment()
           + "' (label '" + label.getName() + "')");
     }
-    addOutputFile(label, listener);
+    OutputFile outputFile = addOutputFile(label, listener);
+    outputFileMap.put(attribute.getName(), outputFile);
   }
 
-  private void addOutputFile(Label label, ErrorEventListener listener) {
+  private OutputFile addOutputFile(Label label, ErrorEventListener listener) {
     if (label.getName().equals(getName())) {
       // TODO(bazel-team): for now (23 Apr 2008) this is just a warning.  After
       // June 1st we should make it an error.
       reportWarning("target '" + getName() + "' is both a rule and a file; please choose "
                     + "another name for the rule", listener);
     }
-    outputFiles.add(new OutputFile(pkg, label, this));
+    OutputFile outputFile = new OutputFile(pkg, label, this);
+    outputFiles.add(outputFile);
+    return outputFile;
   }
 
   void reportError(String message, ErrorEventListener listener) {
@@ -670,10 +602,9 @@ public final class Rule implements Target, AttributeMap {
    * Returns the globs that were expanded to create an attribute value, or
    * null if unknown or not applicable.
    */
-  public GlobList<?> getGlobInfo(Attribute attribute) {
-    Object value = getAttr(attribute);
-    if (value instanceof GlobList<?>) {
-      return (GlobList<?>) value;
+  public static GlobList<?> getGlobInfo(Object attributeValue) {
+    if (attributeValue instanceof GlobList<?>) {
+      return (GlobList<?>) attributeValue;
     } else {
       return null;
     }

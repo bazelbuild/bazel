@@ -45,7 +45,7 @@ public final class FileProvider implements TransitiveInfoProvider {
    *
    * <p>This is usually the label of the target that provides the information.
    */
-  @SkylarkCallable(doc = "")
+  @SkylarkCallable(name = "label", doc = "")
   public Label getLabel() {
     if (label == null) {
       throw new UnsupportedOperationException();
@@ -69,7 +69,7 @@ public final class FileProvider implements TransitiveInfoProvider {
    * <p>Also, some rules may generate artifacts that are not listed here by way of defining other
    * implicit targets, for example, deploy jars.
    */
-  @SkylarkCallable(doc = "")
+  @SkylarkCallable(name = "files_to_build", doc = "")
   public NestedSet<Artifact> getFilesToBuild() {
     return filesToBuild;
   }

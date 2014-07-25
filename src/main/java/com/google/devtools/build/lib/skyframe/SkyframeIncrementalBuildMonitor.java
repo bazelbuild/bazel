@@ -18,7 +18,7 @@ import com.google.devtools.build.lib.actions.ChangedFilesMessage;
 import com.google.devtools.build.lib.concurrent.ThreadSafety;
 import com.google.devtools.build.lib.vfs.PathFragment;
 import com.google.devtools.build.lib.vfs.RootedPath;
-import com.google.devtools.build.skyframe.NodeKey;
+import com.google.devtools.build.skyframe.SkyKey;
 
 import java.util.HashSet;
 import java.util.Set;
@@ -33,10 +33,10 @@ class SkyframeIncrementalBuildMonitor {
   private Set<PathFragment> files = new HashSet<>();
   private static final int MAX_FILES = 100;
 
-  public void accrue(Iterable<NodeKey> invalidatedNodes) {
-    for (NodeKey nodeKey : invalidatedNodes) {
-      if (nodeKey.getNodeType() == NodeTypes.FILE_STATE) {
-        RootedPath file = (RootedPath) nodeKey.getNodeName();
+  public void accrue(Iterable<SkyKey> invalidatedValues) {
+    for (SkyKey skyKey : invalidatedValues) {
+      if (skyKey.functionName() == SkyFunctions.FILE_STATE) {
+        RootedPath file = (RootedPath) skyKey.argument();
         maybeAddFile(file.getRelativePath());
       }
     }

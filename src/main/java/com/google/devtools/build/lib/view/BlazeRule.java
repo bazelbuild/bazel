@@ -23,7 +23,7 @@ import java.lang.annotation.RetentionPolicy;
 import java.lang.annotation.Target;
 
 /**
- * An annotation for google3 rule classes.
+ * An annotation for rule classes.
  */
 @Target(ElementType.TYPE)
 @Retention(RetentionPolicy.RUNTIME)

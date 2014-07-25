@@ -31,7 +31,7 @@ class CycleDeduper<T> {
       HashMultimap.create();
 
   /**
-   * Marks a non-empty list representing a cycle of unique nodes as being seen and returns true
+   * Marks a non-empty list representing a cycle of unique values as being seen and returns true
    * iff the cycle hasn't been seen before, accounting for logical equivalence of cycles.
    *
    * For example, the cycle 'a' -> 'b' -> 'c' -> 'a' is represented by the list ['a', 'b', 'c']

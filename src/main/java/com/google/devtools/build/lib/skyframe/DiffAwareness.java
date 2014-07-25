@@ -17,6 +17,8 @@ import com.google.common.collect.ImmutableList;
 import com.google.devtools.build.lib.vfs.ModifiedFileSet;
 import com.google.devtools.build.lib.vfs.Path;
 
+import java.io.Closeable;
+
 import javax.annotation.Nullable;
 
 /**
@@ -28,7 +30,7 @@ import javax.annotation.Nullable;
  * constant-time; if it were linear in the number of files of interest, we might as well just
  * detect modifications manually.
  */
-public interface DiffAwareness {
+public interface DiffAwareness extends Closeable {
 
   /** Factory for creating {@link DiffAwareness} instances. */
   public interface Factory {
@@ -48,8 +50,9 @@ public interface DiffAwareness {
    * {@link #getDiff}. If this is the first such call then
    * {@code ModifiedFileSet.EVERYTHING_MODIFIED} should be returned.
    *
-   * The caller should either fully process these results, or conservatively throw away this
-   * {@link DiffAwareness} instance and make another one so as to not forget the changes.
+   * <p> The caller should either fully process these results, or conservatively call
+   * {@link #close} and throw away this {@link DiffAwareness} instance. Otherwise the results of
+   * the next {@link #getDiff} call won't make sense.
    */
   ModifiedFileSet getDiff();
 
@@ -59,4 +62,11 @@ public interface DiffAwareness {
    * the future to potentially create a more sophisticated {@link DiffAwareness}).
    */
   boolean canStillBeUsed();
+
+  /**
+   * Must be called whenever the {@link DiffAwareness} object is to be discarded. Using a
+   * {@link DiffAwareness} instance after calling {@link #close} on it is unspecified behavior.
+   */
+  @Override
+  void close();
 }

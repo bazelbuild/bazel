@@ -25,7 +25,6 @@ import com.google.devtools.build.lib.view.config.ConfigurationFragmentFactory;
 import com.google.devtools.build.lib.view.config.InvalidConfigurationException;
 
 import java.util.List;
-import java.util.Map;
 
 /**
  * Bazel-specific configuration fragment.
@@ -37,7 +36,7 @@ public class BazelConfiguration extends Fragment {
   public static class Loader implements ConfigurationFragmentFactory {
     @Override
     public Fragment create(ConfigurationEnvironment env, BlazeDirectories directories,
-        BuildOptions buildOptions, Map<Class<? extends Fragment>, Fragment> requiredFragments)
+        BuildOptions buildOptions)
         throws InvalidConfigurationException {
       return new BazelConfiguration();
     }

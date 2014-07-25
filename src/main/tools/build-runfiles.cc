@@ -25,21 +25,21 @@
 // created.
 //
 // Given the line
-//   google3/output/path /real/path
+//   <workspace root>/output/path /real/path
 // we will create directories
-//   RUNFILES/google3
-//   RUNFILES/google3/output
+//   RUNFILES/<workspace root>
+//   RUNFILES/<workspace root>/output
 // a symlink
-//   RUNFILES/google3/output/path -> /real/path
+//   RUNFILES/<workspace root>/output/path -> /real/path
 // and the output manifest will contain a line
-//   google3/output/path /real/path
+//   <workspace root>/output/path /real/path
 //
 // If --use_metadata is supplied, every other line is treated as opaque
 // metadata, and is ignored here.
 //
 // All output paths must be relative and generally (but not always) begin with
-// 'google3'. No output path may be equal to another.  No output path may be a
-// path prefix of another.
+// <workspace root>. No output path may be equal to another.  No output path may
+// be a path prefix of another.
 
 #define _FILE_OFFSET_BITS 64
 

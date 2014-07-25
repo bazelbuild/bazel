@@ -129,7 +129,7 @@ public abstract class Type<T> {
    * be careful about defining default instances in base types that get auto-inherited
    * by their children. Keep all definitions as explicit as possible.
    */
-  abstract Iterable<Label> getLabels(Object value);
+  public abstract Iterable<Label> getLabels(Object value);
 
   /**
    * {@link #getLabels} return value for types that don't contain labels.
@@ -213,7 +213,7 @@ public abstract class Type<T> {
     }
 
     @Override
-    Iterable<Label> getLabels(Object value) {
+    public Iterable<Label> getLabels(Object value) {
       return NO_LABELS_HERE;
     }
 
@@ -448,7 +448,7 @@ public abstract class Type<T> {
     }
 
     @Override
-    Iterable<Label> getLabels(Object value) {
+    public Iterable<Label> getLabels(Object value) {
       return NO_LABELS_HERE;
     }
 
@@ -475,7 +475,7 @@ public abstract class Type<T> {
     }
 
     @Override
-    Iterable<Label> getLabels(Object value) {
+    public Iterable<Label> getLabels(Object value) {
       return NO_LABELS_HERE;
     }
 
@@ -506,7 +506,7 @@ public abstract class Type<T> {
     }
 
     @Override
-    Iterable<Label> getLabels(Object value) {
+    public Iterable<Label> getLabels(Object value) {
       return NO_LABELS_HERE;
     }
 
@@ -567,7 +567,7 @@ public abstract class Type<T> {
     }
 
     @Override
-    Iterable<Label> getLabels(Object value) {
+    public Iterable<Label> getLabels(Object value) {
       return NO_LABELS_HERE;
     }
 
@@ -610,7 +610,7 @@ public abstract class Type<T> {
     }
 
     @Override
-    Iterable<Label> getLabels(Object value) {
+    public Iterable<Label> getLabels(Object value) {
       return NO_LABELS_HERE;
     }
 
@@ -669,7 +669,7 @@ public abstract class Type<T> {
     }
 
     @Override
-    Iterable<Label> getLabels(Object value) {
+    public Iterable<Label> getLabels(Object value) {
       return cast(value).getLabels();
     }
   }
@@ -686,7 +686,7 @@ public abstract class Type<T> {
     }
 
     @Override
-    Iterable<Label> getLabels(Object value) {
+    public Iterable<Label> getLabels(Object value) {
       return ImmutableList.of(cast(value));
     }
 
@@ -738,7 +738,7 @@ public abstract class Type<T> {
     }
 
     @Override
-    Iterable<Label> getLabels(Object value) {
+    public Iterable<Label> getLabels(Object value) {
       return NO_LABELS_HERE;
     }
 
@@ -777,7 +777,7 @@ public abstract class Type<T> {
     }
 
     @Override
-    Iterable<Label> getLabels(Object what) {
+    public Iterable<Label> getLabels(Object what) {
       return NO_LABELS_HERE;
     }
 
@@ -804,8 +804,8 @@ public abstract class Type<T> {
     }
 
     @Override
-    Iterable<Label> getLabels(Object value) {
-      return NO_LABELS_HERE;
+    public Iterable<Label> getLabels(Object value) {
+      return ImmutableList.of(cast(value));
     }
 
     @Override
@@ -869,7 +869,7 @@ public abstract class Type<T> {
     }
 
     @Override
-    Iterable<Label> getLabels(Object value) {
+    public Iterable<Label> getLabels(Object value) {
       ImmutableList.Builder<Label> labels = ImmutableList.builder();
       for (ELEM entry : cast(value)) {
         labels.addAll(elemType.getLabels(entry));
@@ -983,7 +983,7 @@ public abstract class Type<T> {
     }
 
     @Override
-    Iterable<Label> getLabels(Object value) {
+    public Iterable<Label> getLabels(Object value) {
       return ImmutableList.<Label>builder()
           .addAll(firstType.getLabels(cast(value).first))
           .addAll(secondType.getLabels(cast(value).second))

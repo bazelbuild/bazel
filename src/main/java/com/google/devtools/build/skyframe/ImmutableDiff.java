@@ -23,21 +23,21 @@ import java.util.Map;
  */
 public class ImmutableDiff implements Differencer.Diff {
 
-  private final ImmutableList<NodeKey> nodesToInvalidate;
-  private final ImmutableMap<NodeKey, Node> nodesToInject;
+  private final ImmutableList<SkyKey> valuesToInvalidate;
+  private final ImmutableMap<SkyKey, SkyValue> valuesToInject;
 
-  public ImmutableDiff(Iterable<NodeKey> nodesToInvalidate, Map<NodeKey, Node> nodesToInject) {
-    this.nodesToInvalidate = ImmutableList.copyOf(nodesToInvalidate);
-    this.nodesToInject = ImmutableMap.copyOf(nodesToInject);
+  public ImmutableDiff(Iterable<SkyKey> valuesToInvalidate, Map<SkyKey, SkyValue> valuesToInject) {
+    this.valuesToInvalidate = ImmutableList.copyOf(valuesToInvalidate);
+    this.valuesToInject = ImmutableMap.copyOf(valuesToInject);
   }
 
   @Override
-  public Iterable<NodeKey> changedKeysWithoutNewValues() {
-    return nodesToInvalidate;
+  public Iterable<SkyKey> changedKeysWithoutNewValues() {
+    return valuesToInvalidate;
   }
 
   @Override
-  public Map<NodeKey, Node> changedKeysWithNewValues() {
-    return nodesToInject;
+  public Map<SkyKey, SkyValue> changedKeysWithNewValues() {
+    return valuesToInject;
   }
 }

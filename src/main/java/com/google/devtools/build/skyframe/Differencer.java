@@ -16,30 +16,30 @@ package com.google.devtools.build.skyframe;
 import java.util.Map;
 
 /**
- * Calculate set of changed nodes in a graph.
+ * Calculate set of changed values in a graph.
  */
 public interface Differencer {
 
   /**
-   * Represents a set of changed nodes.
+   * Represents a set of changed values.
    */
   interface Diff {
     /**
-     * Returns the node keys whose values have changed, but for which we don't have the new values.
+     * Returns the value keys whose values have changed, but for which we don't have the new values.
      */
-    Iterable<NodeKey> changedKeysWithoutNewValues();
+    Iterable<SkyKey> changedKeysWithoutNewValues();
 
     /**
-     * Returns the node keys whose values have changed, along with their new values.
+     * Returns the value keys whose values have changed, along with their new values.
      *
-     * <p> The nodes in here cannot have any dependencies. This is required in order to prevent
-     * conflation of injected nodes and derived nodes.
+     * <p> The values in here cannot have any dependencies. This is required in order to prevent
+     * conflation of injected values and derived values.
      */
-    Map<NodeKey, ? extends Node> changedKeysWithNewValues();
+    Map<SkyKey, ? extends SkyValue> changedKeysWithNewValues();
   }
 
   /**
-   * Returns the node keys that have changed between the two Versions.
+   * Returns the value keys that have changed between the two Versions.
    */
   Diff getDiff(Version fromVersion, Version toVersion);
 }

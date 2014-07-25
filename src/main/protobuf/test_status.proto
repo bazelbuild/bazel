@@ -58,6 +58,7 @@ enum BlazeTestStatus {
   INCOMPLETE = 5;
   REMOTE_FAILURE = 6;
   FAILED_TO_BUILD = 7;
+  BLAZE_HALTED_BEFORE_TESTING = 8;
 };
 
 // TestResultData holds the outcome data for a single test action (A

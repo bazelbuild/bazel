@@ -22,43 +22,44 @@ import com.google.devtools.build.lib.concurrent.ThreadSafety.ThreadCompatible;
 import com.google.devtools.build.lib.util.GroupedList;
 import com.google.devtools.build.lib.util.GroupedList.GroupedListHelper;
 
+import java.util.Collection;
 import java.util.Iterator;
 import java.util.List;
 import java.util.Set;
 
 /**
- * Data the NodeEntry uses to maintain its state before it is done building. It allows the {@link
- * NodeEntry} to keep the current state of the entry across invalidation and successive evaluations.
- * A done node does not contain any of this data. However, if a node is marked dirty, its entry
- * acquires a new {@code BuildingState} object, which persists until it is done again.
+ * Data the ValueEntry uses to maintain its state before it is done building. It allows the
+ * {@link ValueEntry} to keep the current state of the entry across invalidation and successive
+ * evaluations. A done value does not contain any of this data. However, if a value is marked dirty,
+ * its entry acquires a new {@code BuildingState} object, which persists until it is done again.
  *
- * <p>This class should be considered a private inner class of {@link NodeEntry} -- no other classes
- * should instantiate a {@code BuildingState} object or call any of its methods directly. It is
- * in a separate file solely to keep the {@code NodeEntry} class readable. In particular, the caller
- * must synchronize access to this class.
+ * <p>This class should be considered a private inner class of {@link ValueEntry} -- no other
+ * classes should instantiate a {@code BuildingState} object or call any of its methods directly.
+ * It is in a separate file solely to keep the {@code ValueEntry} class readable. In particular, the
+ * caller must synchronize access to this class.
  */
 @ThreadCompatible
 final class BuildingState {
   enum DirtyState {
     /**
-     * The node's dependencies need to be checked to see if it needs to be rebuilt. The dependencies
-     * must be obtained through calls to {@link #getNextDirtyDirectDeps} and checked.
+     * The value's dependencies need to be checked to see if it needs to be rebuilt. The
+     * dependencies must be obtained through calls to {@link #getNextDirtyDirectDeps} and checked.
      */
     CHECK_DEPENDENCIES,
     /**
-     * All of the node's dependencies are unchanged, and the node itself was not marked changed,
+     * All of the value's dependencies are unchanged, and the value itself was not marked changed,
      * so its current value is still valid -- it need not be rebuilt.
      */
     VERIFIED_CLEAN,
     /**
-     * A rebuilding is required or in progress, because either the node itself changed or one of
+     * A rebuilding is required or in progress, because either the value itself changed or one of
      * its dependencies did.
      */
     REBUILDING
   }
 
   /**
-   * During its life, a node can go through states as follows:
+   * During its life, a value can go through states as follows:
    * <ol>
    * <li>Non-existent
    * <li>Just created ({@code evaluating} is false)
@@ -71,93 +72,93 @@ final class BuildingState {
    * </ol>
    *
    * <p>The "just created" state is there to allow the {@link EvaluableGraph#createIfAbsent} and
-   * {@link NodeEntry#addReverseDepAndCheckIfDone} methods to be separate. All callers have to
-   * call both methods in that order if they want to create a node. The second method calls
-   * {@link #startEvaluating}, which transitions the current node to the "evaluating" state and
+   * {@link ValueEntry#addReverseDepAndCheckIfDone} methods to be separate. All callers have to
+   * call both methods in that order if they want to create a value. The second method calls
+   * {@link #startEvaluating}, which transitions the current value to the "evaluating" state and
    * returns true only the first time it was called. A caller that gets "true" back from that call
-   * must start the evaluation of this node, while any subsequent callers must not.
+   * must start the evaluation of this value, while any subsequent callers must not.
    *
-   * <p>An entry is set to "evaluating" as soon as it is scheduled for evaluation. Thus, even a node
-   * that is never actually built (for instance, a dirty node that is verified as clean) is in the
-   * "evaluating" state until it is done.
+   * <p>An entry is set to "evaluating" as soon as it is scheduled for evaluation. Thus, even a
+   * value that is never actually built (for instance, a dirty value that is verified as clean) is
+   * in the "evaluating" state until it is done.
    */
   private boolean evaluating = false;
 
   /**
-   * The state of a dirty node. A node is marked dirty in the BuildingState constructor, and goes
+   * The state of a dirty value. A value is marked dirty in the BuildingState constructor, and goes
    * into either the state {@link DirtyState#CHECK_DEPENDENCIES} or {@link DirtyState#REBUILDING},
-   * depending on whether the caller specified that the node was itself changed or not. A non-null
-   * {@code dirtyState} indicates that the node {@link #isDirty} in some way.
+   * depending on whether the caller specified that the value was itself changed or not. A non-null
+   * {@code dirtyState} indicates that the value {@link #isDirty} in some way.
    */
   private DirtyState dirtyState = null;
 
   /**
-   * The number of dependencies that are known to be done in a {@link NodeEntry}. There is a
+   * The number of dependencies that are known to be done in a {@link ValueEntry}. There is a
    * potential check-then-act race here, so we need to make sure that when this is increased, we
    * always check if the new value is equal to the number of required dependencies, and if so, we
-   * must re-schedule the node for evaluation.
+   * must re-schedule the value for evaluation.
    *
-   * <p>There are two potential pitfalls here: 1) If multiple dependencies signal this node in
-   * close succession, this node should be scheduled exactly once. 2) If a thread is still working
-   * on this node, it should not be scheduled.
+   * <p>There are two potential pitfalls here: 1) If multiple dependencies signal this value in
+   * close succession, this value should be scheduled exactly once. 2) If a thread is still working
+   * on this value, it should not be scheduled.
    *
-   * <p>The first problem is solved by the {@link #signalDep} method, which also returns if the node
-   * needs to be re-scheduled, and ensures that only one thread gets a true return value.
+   * <p>The first problem is solved by the {@link #signalDep} method, which also returns if the
+   * value needs to be re-scheduled, and ensures that only one thread gets a true return value.
    *
-   * <p>The second problem is solved by first adding the newly discovered deps to a node's
-   * {@link #directDeps}, and then looping through the direct deps and registering this node as a
+   * <p>The second problem is solved by first adding the newly discovered deps to a value's
+   * {@link #directDeps}, and then looping through the direct deps and registering this value as a
    * reverse dependency. This ensures that the signaledDeps counter can only reach
    * {@link #directDeps}.size() on the very last iteration of the loop, i.e., the thread is not
-   * working on the node anymore. Note that this requires that there is no code after the loop in
+   * working on the value anymore. Note that this requires that there is no code after the loop in
    * {@code ParallelEvaluator.Evaluate#run}.
    */
   private int signaledDeps = 0;
 
   /**
    * Direct dependencies discovered during the build. They will be written to the immutable field
-   * {@code NodeEntry#directDeps} and the dependency group data to {@code NodeEntry#groupData} once
-   * the node is finished building. {@link NodeBuilder}s can request deps in groups, and these
+   * {@code ValueEntry#directDeps} and the dependency group data to {@code ValueEntry#groupData}
+   * once the value is finished building. {@link SkyFunction}s can request deps in groups, and these
    * groupings are preserved in this field.
    */
-  private final GroupedList<NodeKey> directDeps = new GroupedList<>();
+  private final GroupedList<SkyKey> directDeps = new GroupedList<>();
 
   /**
-   * The set of reverse dependencies that are registered before the node has finished building.
+   * The set of reverse dependencies that are registered before the value has finished building.
    * Upon building, these reverse deps will be signaled and then stored in the permanent
-   * {@code NodeEntry#reverseDeps}.
+   * {@code ValueEntry#reverseDeps}.
    */
   // TODO(bazel-team): Remove this field. With eager invalidation, all direct deps on this dirty
-  // node will be removed by the time evaluation starts, so reverse deps to signal can just be
-  // reverse deps in the main NodeEntry object.
-  private final Set<NodeKey> reverseDepsToSignal = CompactHashSet.createWithExpectedSize(1);
+  // value will be removed by the time evaluation starts, so reverse deps to signal can just be
+  // reverse deps in the main ValueEntry object.
+  private final Set<SkyKey> reverseDepsToSignal = CompactHashSet.createWithExpectedSize(1);
 
-  // Below are fields that are used for dirty nodes.
+  // Below are fields that are used for dirty values.
 
   /**
-   * The dependencies requested (with group markers) last time the node was built (and below, the
-   * value last time the node was built). They will be compared to dependencies requested on this
-   * build to check whether this node has changed in {@link NodeEntry#setValue}. If they are null,
-   * it means that this node is being built for the first time. See {@link #directDeps} for more on
+   * The dependencies requested (with group markers) last time the value was built (and below, the
+   * value last time the value was built). They will be compared to dependencies requested on this
+   * build to check whether this value has changed in {@link ValueEntry#setValue}. If they are null,
+   * it means that this value is being built for the first time. See {@link #directDeps} for more on
    * dependency group storage.
    */
-  private final GroupedList<NodeKey> lastBuildDirectDeps;
-  private final Node lastBuildNode;
+  private final GroupedList<SkyKey> lastBuildDirectDeps;
+  private final SkyValue lastBuildValue;
 
   /**
    * Which child should be re-evaluated next in the process of determining if this entry needs to
    * be re-evaluated. Used by {@link #getNextDirtyDirectDeps} and {@link #signalDep(boolean)}.
    */
-  private Iterator<Iterable<NodeKey>> dirtyDirectDepIterator = null;
+  private Iterator<Iterable<SkyKey>> dirtyDirectDepIterator = null;
 
   BuildingState() {
     lastBuildDirectDeps = null;
-    lastBuildNode = null;
+    lastBuildValue = null;
   }
 
-  private BuildingState(boolean isChanged, GroupedList<NodeKey> lastBuildDirectDeps,
-      Node lastBuildNode) {
+  private BuildingState(boolean isChanged, GroupedList<SkyKey> lastBuildDirectDeps,
+      SkyValue lastBuildValue) {
     this.lastBuildDirectDeps = lastBuildDirectDeps;
-    this.lastBuildNode = Preconditions.checkNotNull(lastBuildNode);
+    this.lastBuildValue = Preconditions.checkNotNull(lastBuildValue);
     Preconditions.checkState(isChanged || !this.lastBuildDirectDeps.isEmpty(),
         "is being marked dirty, not changed, but has no children that could have dirtied it", this);
     dirtyState = isChanged ? DirtyState.REBUILDING : DirtyState.CHECK_DEPENDENCIES;
@@ -168,8 +169,8 @@ final class BuildingState {
   }
 
   static BuildingState newDirtyState(boolean isChanged,
-      GroupedList<NodeKey> lastBuildDirectDeps, Node lastBuildNode) {
-    return new BuildingState(isChanged, lastBuildDirectDeps, lastBuildNode);
+      GroupedList<SkyKey> lastBuildDirectDeps, SkyValue lastBuildValue) {
+    return new BuildingState(isChanged, lastBuildDirectDeps, lastBuildValue);
   }
 
   void markChanged() {
@@ -179,8 +180,16 @@ final class BuildingState {
     dirtyState = DirtyState.REBUILDING;
   }
 
+  void forceChanged() {
+    Preconditions.checkState(isDirty(), this);
+    Preconditions.checkState(!isChanged(), this);
+    Preconditions.checkState(evaluating, this);
+    Preconditions.checkState(isReady(), this);
+    dirtyState = DirtyState.REBUILDING;
+  }
+
   /**
-   * Returns whether all known children of this node have signaled that they are done.
+   * Returns whether all known children of this value have signaled that they are done.
    */
   boolean isReady() {
     int directDepsSize = directDeps.size();
@@ -192,7 +201,7 @@ final class BuildingState {
    * Returns true if the entry is marked dirty, meaning that at least one of its transitive
    * dependencies is marked changed.
    *
-   * @see NodeEntry#isDirty()
+   * @see ValueEntry#isDirty()
    */
   boolean isDirty() {
     return dirtyState != null;
@@ -201,7 +210,7 @@ final class BuildingState {
   /**
    * Returns true if the entry is known to require re-evaluation.
    *
-   * @see NodeEntry#isChanged()
+   * @see ValueEntry#isChanged()
    */
   boolean isChanged() {
     return dirtyState == DirtyState.REBUILDING;
@@ -212,8 +221,8 @@ final class BuildingState {
   }
 
   /**
-   * Helper method to assert that node has finished building, as far as we can tell. We would
-   * actually like to check that the node has evaluated, but that is not available in
+   * Helper method to assert that value has finished building, as far as we can tell. We would
+   * actually like to check that the value has evaluated, but that is not available in
    * this context.
    */
   private void checkNotProcessing() {
@@ -224,9 +233,9 @@ final class BuildingState {
   }
 
   /**
-   * Puts the node in the "evaluating" state if it is not already in it. Returns whether or not the
-   * node was already evaluating. Should only be called by
-   * {@link NodeEntry#addReverseDepAndCheckIfDone}.
+   * Puts the value in the "evaluating" state if it is not already in it. Returns whether or not the
+   * value was already evaluating. Should only be called by
+   * {@link ValueEntry#addReverseDepAndCheckIfDone}.
    */
   boolean startEvaluating() {
     boolean result = !evaluating;
@@ -238,18 +247,18 @@ final class BuildingState {
    * Increments the number of children known to be finished. Returns true if the number of children
    * finished is equal to the number of known children.
    *
-   * <p>If the node is dirty and checking its deps for changes, this also updates {@link
+   * <p>If the value is dirty and checking its deps for changes, this also updates {@link
    * #dirtyState} as needed -- {@link DirtyState#REBUILDING} if the child has changed,
    * and {@link DirtyState#VERIFIED_CLEAN} if the child has not changed and this was the last
    * child to be checked (as determined by {@link #dirtyDirectDepIterator} == null, isReady(), and
    * a flag set in {@link #getNextDirtyDirectDeps}).
    *
-   * @see NodeEntry#signalDep(long)
+   * @see ValueEntry#signalDep(long)
    */
   boolean signalDep(boolean childChanged) {
     signaledDeps++;
     if (isDirty() && !rebuilding()) {
-      // Synchronization isn't needed here because the only caller is NodeEntry, which does it
+      // Synchronization isn't needed here because the only caller is ValueEntry, which does it
       // through the synchronized method signalDep(long).
       if (childChanged) {
         dirtyState = DirtyState.REBUILDING;
@@ -264,21 +273,21 @@ final class BuildingState {
   }
 
   /**
-   * Returns true if {@code newValue}.equals the value from the last time this node was built, and
-   * the deps requested during this evaluation are exactly those requested the last time this node
-   * was built, in the same order. Should only be used by {@link NodeEntry#setValue}.
+   * Returns true if {@code newValue}.equals the value from the last time this value was built, and
+   * the deps requested during this evaluation are exactly those requested the last time this value
+   * was built, in the same order. Should only be used by {@link ValueEntry#setValue}.
    */
-  boolean unchangedFromLastBuild(Node newValue) {
+  boolean unchangedFromLastBuild(SkyValue newValue) {
     checkNotProcessing();
-    return lastBuildNode.equals(newValue) && lastBuildDirectDeps.equals(directDeps);
+    return lastBuildValue.equals(newValue) && lastBuildDirectDeps.equals(directDeps);
   }
 
   boolean noDepsLastBuild() {
     return lastBuildDirectDeps.isEmpty();
   }
 
-  Node getLastBuildValue() {
-    return Preconditions.checkNotNull(lastBuildNode, this);
+  SkyValue getLastBuildValue() {
+    return Preconditions.checkNotNull(lastBuildValue, this);
   }
 
   /**
@@ -286,7 +295,7 @@ final class BuildingState {
    * called each time evaluation of a dirty entry starts to find the proper action to perform next,
    * as enumerated by {@link DirtyState}.
    *
-   * @see NodeEntry#getDirtyState()
+   * @see ValueEntry#getDirtyState()
    */
   DirtyState getDirtyState() {
     // Entry may not be ready if being built just for its errors.
@@ -296,20 +305,19 @@ final class BuildingState {
   }
 
   /**
-   * Gets the next children to be re-evaluated to see if this dirty node needs to be re-evaluated.
+   * Gets the next children to be re-evaluated to see if this dirty value needs to be re-evaluated.
    *
    * <p>If this is the last group of children to be checked, then sets {@link
    * #dirtyDirectDepIterator} to null so that the final call to {@link #signalDep(boolean)} will
    * know to mark this entry as {@link DirtyState#VERIFIED_CLEAN} if no deps have changed.
    *
-   * See {@link NodeEntry#getNextDirtyDirectDeps}.
+   * See {@link ValueEntry#getNextDirtyDirectDeps}.
    */
-  Iterable<NodeKey> getNextDirtyDirectDeps() {
+  Collection<SkyKey> getNextDirtyDirectDeps() {
     Preconditions.checkState(isDirty(), this);
     Preconditions.checkState(dirtyState == DirtyState.CHECK_DEPENDENCIES, this);
     Preconditions.checkState(evaluating, this);
-    List<NodeKey> nextDeps = ImmutableList.copyOf(dirtyDirectDepIterator.next());
-    addDirectDeps(GroupedListHelper.create(nextDeps));
+    List<SkyKey> nextDeps = ImmutableList.copyOf(dirtyDirectDepIterator.next());
     if (!dirtyDirectDepIterator.hasNext()) {
       // Done checking deps. If this last group is clean, the state will become VERIFIED_CLEAN.
       dirtyDirectDepIterator = null;
@@ -317,52 +325,52 @@ final class BuildingState {
     return nextDeps;
   }
 
-  void addDirectDeps(GroupedListHelper<NodeKey> depsThisRun) {
+  void addDirectDeps(GroupedListHelper<SkyKey> depsThisRun) {
     directDeps.append(depsThisRun);
   }
 
   /**
-   * Returns the direct deps found so far on this build. Should only be called before the node has
+   * Returns the direct deps found so far on this build. Should only be called before the value has
    * finished building.
    *
-   * @see NodeEntry#getTemporaryDirectDeps()
+   * @see ValueEntry#getTemporaryDirectDeps()
    */
-  Set<NodeKey> getDirectDepsForBuild() {
+  Set<SkyKey> getDirectDepsForBuild() {
     return directDeps.toSet();
   }
 
   /**
-   * Returns the direct deps (in groups) found on this build. Should only be called when the node is
-   * done.
+   * Returns the direct deps (in groups) found on this build. Should only be called when the value
+   * is done.
    *
-   * @see NodeEntry#setStateFinishedAndReturnReverseDeps
+   * @see ValueEntry#setStateFinishedAndReturnReverseDeps
    */
-  GroupedList<NodeKey> getFinishedDirectDeps() {
+  GroupedList<SkyKey> getFinishedDirectDeps() {
     return directDeps;
   }
 
   /**
    * Returns reverse deps to signal that have been registered this build.
    *
-   * @see NodeEntry#getReverseDeps()
+   * @see ValueEntry#getReverseDeps()
    */
-  ImmutableSet<NodeKey> getReverseDepsToSignal() {
+  ImmutableSet<SkyKey> getReverseDepsToSignal() {
     return ImmutableSet.copyOf(reverseDepsToSignal);
   }
 
   /**
    * Adds a reverse dependency that should be notified when this entry is done.
    *
-   * @see NodeEntry#addReverseDepAndCheckIfDone(NodeKey)
+   * @see ValueEntry#addReverseDepAndCheckIfDone(SkyKey)
    */
-  boolean addReverseDepToSignal(NodeKey reverseDep) {
+  boolean addReverseDepToSignal(SkyKey reverseDep) {
     return reverseDepsToSignal.add(Preconditions.checkNotNull(reverseDep, this));
   }
 
   /**
-   * @see NodeEntry#removeReverseDep(NodeKey)
+   * @see ValueEntry#removeReverseDep(SkyKey)
    */
-  boolean removeReverseDepToSignal(NodeKey reverseDep) {
+  boolean removeReverseDepToSignal(SkyKey reverseDep) {
     return reverseDepsToSignal.remove(Preconditions.checkNotNull(reverseDep, this));
   }
 
@@ -371,9 +379,9 @@ final class BuildingState {
    * to maintain the group data. If we remove a dep that ended a group, then its predecessor's
    * group data must be changed to indicate that it now ends the group.
    *
-   * @see NodeEntry#removeUnfinishedDeps
+   * @see ValueEntry#removeUnfinishedDeps
    */
-   void removeDirectDeps(Set<NodeKey> unfinishedDeps) {
+   void removeDirectDeps(Set<SkyKey> unfinishedDeps) {
      directDeps.remove(unfinishedDeps);
    }
 
@@ -387,7 +395,7 @@ final class BuildingState {
          .add("directDeps", directDeps)
          .add("reverseDepsToSignal", reverseDepsToSignal)
          .add("lastBuildDirectDeps", lastBuildDirectDeps)
-         .add("lastBuildNode", lastBuildNode)
+         .add("lastBuildValue", lastBuildValue)
          .add("dirtyDirectDepIterator", dirtyDirectDepIterator).toString();
    }
 }

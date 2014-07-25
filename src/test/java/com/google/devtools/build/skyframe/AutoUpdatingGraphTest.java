@@ -43,10 +43,10 @@ import com.google.devtools.build.lib.events.Reporter;
 import com.google.devtools.build.lib.testutil.JunitTestUtils;
 import com.google.devtools.build.lib.testutil.MoreAsserts;
 import com.google.devtools.build.lib.testutil.TestThread;
-import com.google.devtools.build.skyframe.GraphTester.NodeComputer;
 import com.google.devtools.build.skyframe.GraphTester.SomeErrorException;
-import com.google.devtools.build.skyframe.GraphTester.StringNode;
-import com.google.devtools.build.skyframe.GraphTester.TestNodeBuilder;
+import com.google.devtools.build.skyframe.GraphTester.StringValue;
+import com.google.devtools.build.skyframe.GraphTester.TestFunction;
+import com.google.devtools.build.skyframe.GraphTester.ValueComputer;
 import com.google.devtools.build.skyframe.NotifyingInMemoryGraph.EventType;
 import com.google.devtools.build.skyframe.NotifyingInMemoryGraph.Listener;
 import com.google.devtools.build.skyframe.NotifyingInMemoryGraph.Order;
@@ -106,36 +106,36 @@ public class AutoUpdatingGraphTest {
     tester.resetPlayedEvents();
   }
 
-  protected static NodeKey toNodeKey(String name) {
-    return new NodeKey(NODE_TYPE, name);
+  protected static SkyKey toSkyKey(String name) {
+    return new SkyKey(NODE_TYPE, name);
   }
 
   @Test
   public void smoke() throws Exception {
-    tester.set("x", new StringNode("y"));
-    StringNode node = (StringNode) tester.evalAndGet("x");
-    assertEquals("y", node.getValue());
+    tester.set("x", new StringValue("y"));
+    StringValue value = (StringValue) tester.evalAndGet("x");
+    assertEquals("y", value.getValue());
   }
 
   @Test
   public void invalidationWithNothingChanged() throws Exception {
-    tester.set("x", new StringNode("y")).setWarning("fizzlepop");
-    StringNode node = (StringNode) tester.evalAndGet("x");
-    assertEquals("y", node.getValue());
+    tester.set("x", new StringValue("y")).setWarning("fizzlepop");
+    StringValue value = (StringValue) tester.evalAndGet("x");
+    assertEquals("y", value.getValue());
     JunitTestUtils.assertContainsEvent(eventCollector, "fizzlepop");
     JunitTestUtils.assertEventCount(1, eventCollector);
 
     initializeReporter();
     tester.invalidate();
-    node = (StringNode) tester.evalAndGet("x");
-    assertEquals("y", node.getValue());
+    value = (StringValue) tester.evalAndGet("x");
+    assertEquals("y", value.getValue());
     JunitTestUtils.assertContainsEvent(eventCollector, "fizzlepop");
     JunitTestUtils.assertEventCount(1, eventCollector);
   }
 
-  private abstract static class NoExtractorNodeBuilder implements NodeBuilder {
+  private abstract static class NoExtractorFunction implements SkyFunction {
     @Override
-    public final String extractTag(NodeKey nodeKey) {
+    public final String extractTag(SkyKey skyKey) {
       return null;
     }
   }
@@ -143,99 +143,99 @@ public class AutoUpdatingGraphTest {
   @Test
   // Regression test for bug: "[skyframe-m1]: registerIfDone() crash".
   public void bubbleRace() throws Exception {
-    // The top-level node declares dependencies on a "badNode" in error, and a "sleepyNode"
-    // which is very slow. After "badNode" fails, the builder interrupts the "sleepyNode" and
+    // The top-level value declares dependencies on a "badValue" in error, and a "sleepyValue"
+    // which is very slow. After "badValue" fails, the builder interrupts the "sleepyValue" and
     // attempts to re-run "top" for error bubbling. Make sure this doesn't cause a precondition
-    // failure because "top" still has an outstanding dep ("sleepyNode").
-    tester.getOrCreate("top").setBuilder(new NoExtractorNodeBuilder() {
+    // failure because "top" still has an outstanding dep ("sleepyValue").
+    tester.getOrCreate("top").setBuilder(new NoExtractorFunction() {
       @Override
-      public Node build(NodeKey nodeKey, Environment env) throws InterruptedException {
-        env.getDep(toNodeKey("sleepyNode"));
+      public SkyValue compute(SkyKey skyKey, Environment env) throws InterruptedException {
+        env.getValue(toSkyKey("sleepyValue"));
         try {
-          env.getDepOrThrow(toNodeKey("badNode"), SomeErrorException.class);
+          env.getValueOrThrow(toSkyKey("badValue"), SomeErrorException.class);
         } catch (SomeErrorException e) {
-          // In order to trigger this bug, we need to request a dep on an already computed node.
-          env.getDep(toNodeKey("otherNode1"));
+          // In order to trigger this bug, we need to request a dep on an already computed value.
+          env.getValue(toSkyKey("otherValue1"));
         }
-        if (!env.depsMissing()) {
-          throw new AssertionError("SleepyNode should always be unavailable");
+        if (!env.valuesMissing()) {
+          throw new AssertionError("SleepyValue should always be unavailable");
         }
         return null;
       }
     });
-    tester.getOrCreate("sleepyNode").setBuilder(new NoExtractorNodeBuilder() {
+    tester.getOrCreate("sleepyValue").setBuilder(new NoExtractorFunction() {
       @Override
-      public Node build(NodeKey nodeKey, Environment env) throws InterruptedException {
+      public SkyValue compute(SkyKey skyKey, Environment env) throws InterruptedException {
         Thread.sleep(99999);
         throw new AssertionError("I should have been interrupted");
       }
     });
-    tester.getOrCreate("badNode").addDependency("otherNode1").setHasError(true);
-    tester.getOrCreate("otherNode1").setConstantValue(new StringNode("otherVal1"));
+    tester.getOrCreate("badValue").addDependency("otherValue1").setHasError(true);
+    tester.getOrCreate("otherValue1").setConstantValue(new StringValue("otherVal1"));
 
-    UpdateResult<Node> result = tester.eval(false, "top");
+    UpdateResult<SkyValue> result = tester.eval(false, "top");
     assertTrue(result.hasError());
-    assertEquals(toNodeKey("badNode"), Iterables.getOnlyElement(result.getError().getRootCauses()));
+    assertEquals(toSkyKey("badValue"), Iterables.getOnlyElement(result.getError().getRootCauses()));
     assertThat(result.keyNames()).isEmpty();
   }
 
   @Test
-  public void deleteNodes() throws Exception {
+  public void deleteValues() throws Exception {
     tester.getOrCreate("top").setComputedValue(CONCATENATE)
         .addDependency("d1").addDependency("d2").addDependency("d3");
-    tester.set("d1", new StringNode("1"));
-    StringNode d2 = new StringNode("2");
+    tester.set("d1", new StringValue("1"));
+    StringValue d2 = new StringValue("2");
     tester.set("d2", d2);
-    StringNode d3 = new StringNode("3");
+    StringValue d3 = new StringValue("3");
     tester.set("d3", d3);
     tester.eval(true, "top");
 
     tester.delete("d1");
     tester.eval(true, "d3");
 
-    assertEquals(ImmutableSet.of(), tester.getDirtyNodes());
-    assertEquals(ImmutableSet.of(new StringNode("1"), new StringNode("123")),
-        tester.getDeletedNodes());
-    assertEquals(null, tester.getExistingNode("top"));
-    assertEquals(null, tester.getExistingNode("d1"));
-    assertEquals(d2, tester.getExistingNode("d2"));
-    assertEquals(d3, tester.getExistingNode("d3"));
+    assertEquals(ImmutableSet.of(), tester.getDirtyValues());
+    assertEquals(ImmutableSet.of(new StringValue("1"), new StringValue("123")),
+        tester.getDeletedValues());
+    assertEquals(null, tester.getExistingValue("top"));
+    assertEquals(null, tester.getExistingValue("d1"));
+    assertEquals(d2, tester.getExistingValue("d2"));
+    assertEquals(d3, tester.getExistingValue("d3"));
   }
 
   @Test
-  public void deleteNonexistentNodes() throws Exception {
-    tester.getOrCreate("d1").setConstantValue(new StringNode("1"));
+  public void deleteNonexistentValues() throws Exception {
+    tester.getOrCreate("d1").setConstantValue(new StringValue("1"));
     tester.delete("d1");
     tester.delete("d2");
     tester.eval(true, "d1");
   }
 
   @Test
-  public void signalNodeEnqueued() throws Exception {
+  public void signalValueEnqueued() throws Exception {
     tester.getOrCreate("top1").setComputedValue(CONCATENATE)
         .addDependency("d1").addDependency("d2");
     tester.getOrCreate("top2").setComputedValue(CONCATENATE).addDependency("d3");
     tester.getOrCreate("top3");
-    assertThat(tester.getEnqueuedNodes()).isEmpty();
+    assertThat(tester.getEnqueuedValues()).isEmpty();
 
-    tester.set("d1", new StringNode("1"));
-    tester.set("d2", new StringNode("2"));
-    tester.set("d3", new StringNode("3"));
+    tester.set("d1", new StringValue("1"));
+    tester.set("d2", new StringValue("2"));
+    tester.set("d3", new StringValue("3"));
     tester.eval(true, "top1");
-    MoreAsserts.assertContentsAnyOrder(tester.getEnqueuedNodes(),
-        AutoUpdatingGraphTester.toNodeKeys("top1", "d1", "d2"));
+    MoreAsserts.assertContentsAnyOrder(tester.getEnqueuedValues(),
+        AutoUpdatingGraphTester.toSkyKeys("top1", "d1", "d2"));
 
     tester.eval(true, "top2");
-    MoreAsserts.assertContentsAnyOrder(tester.getEnqueuedNodes(),
-        AutoUpdatingGraphTester.toNodeKeys("top1", "d1", "d2", "top2", "d3"));
+    MoreAsserts.assertContentsAnyOrder(tester.getEnqueuedValues(),
+        AutoUpdatingGraphTester.toSkyKeys("top1", "d1", "d2", "top2", "d3"));
   }
 
   // NOTE: Some of these tests exercising errors/warnings run through a size-2 for loop in order
   // to ensure that we are properly recording and replyaing these messages on null builds.
   @Test
   public void warningViaMultiplePaths() throws Exception {
-    tester.set("d1", new StringNode("d1")).setWarning("warn-d1");
-    tester.set("d2", new StringNode("d2")).setWarning("warn-d2");
+    tester.set("d1", new StringValue("d1")).setWarning("warn-d1");
+    tester.set("d2", new StringValue("d2")).setWarning("warn-d2");
     tester.getOrCreate("top").setComputedValue(CONCATENATE).addDependency("d1").addDependency("d2");
     for (int i = 0; i < 2; i++) {
       initializeReporter();
@@ -248,12 +248,12 @@ public class AutoUpdatingGraphTest {
 
   @Test
   public void warningBeforeErrorOnFailFastBuild() throws Exception {
-    tester.set("dep", new StringNode("dep")).setWarning("warn-dep");
-    NodeKey topKey = GraphTester.toNodeKey("top");
+    tester.set("dep", new StringValue("dep")).setWarning("warn-dep");
+    SkyKey topKey = GraphTester.toSkyKey("top");
     tester.getOrCreate(topKey).setHasError(true).addDependency("dep");
     for (int i = 0; i < 2; i++) {
       initializeReporter();
-      UpdateResult<StringNode> result = tester.eval(false, "top");
+      UpdateResult<StringValue> result = tester.eval(false, "top");
       assertTrue(result.hasError());
       MoreAsserts.assertContentsAnyOrder(result.getError(topKey).getRootCauses(), topKey);
       assertEquals(topKey.toString(), result.getError(topKey).getException().getMessage());
@@ -266,11 +266,11 @@ public class AutoUpdatingGraphTest {
 
   @Test
   public void warningAndErrorOnFailFastBuild() throws Exception {
-    NodeKey topKey = GraphTester.toNodeKey("top");
-    tester.set(topKey, new StringNode("top")).setWarning("warning msg").setHasError(true);
+    SkyKey topKey = GraphTester.toSkyKey("top");
+    tester.set(topKey, new StringValue("top")).setWarning("warning msg").setHasError(true);
     for (int i = 0; i < 2; i++) {
       initializeReporter();
-      UpdateResult<StringNode> result = tester.eval(false, "top");
+      UpdateResult<StringValue> result = tester.eval(false, "top");
       assertTrue(result.hasError());
       MoreAsserts.assertContentsAnyOrder(result.getError(topKey).getRootCauses(), topKey);
       assertEquals(topKey.toString(), result.getError(topKey).getException().getMessage());
@@ -282,11 +282,11 @@ public class AutoUpdatingGraphTest {
 
   @Test
   public void warningAndErrorOnFailFastBuildAfterKeepGoingBuild() throws Exception {
-    NodeKey topKey = GraphTester.toNodeKey("top");
-    tester.set(topKey, new StringNode("top")).setWarning("warning msg").setHasError(true);
+    SkyKey topKey = GraphTester.toSkyKey("top");
+    tester.set(topKey, new StringValue("top")).setWarning("warning msg").setHasError(true);
     for (int i = 0; i < 2; i++) {
       initializeReporter();
-      UpdateResult<StringNode> result = tester.eval(i == 0, "top");
+      UpdateResult<StringValue> result = tester.eval(i == 0, "top");
       assertTrue(result.hasError());
       MoreAsserts.assertContentsAnyOrder(result.getError(topKey).getRootCauses(), topKey);
       assertEquals(topKey.toString(), result.getError(topKey).getException().getMessage());
@@ -297,10 +297,10 @@ public class AutoUpdatingGraphTest {
   }
 
   @Test
-  public void twoTLTsOnOneWarningNode() throws Exception {
-    tester.set("t1", new StringNode("t1")).addDependency("dep");
-    tester.set("t2", new StringNode("t2")).addDependency("dep");
-    tester.set("dep", new StringNode("dep")).setWarning("look both ways before crossing");
+  public void twoTLTsOnOneWarningValue() throws Exception {
+    tester.set("t1", new StringValue("t1")).addDependency("dep");
+    tester.set("t2", new StringValue("t2")).addDependency("dep");
+    tester.set("dep", new StringValue("dep")).setWarning("look both ways before crossing");
     for (int i = 0; i < 2; i++) {
       // Make sure we see the warning exactly once.
       initializeReporter();
@@ -311,20 +311,20 @@ public class AutoUpdatingGraphTest {
   }
 
   @Test
-  public void errorNodeDepOnWarningNode() throws Exception {
-    tester.getOrCreate("error-node").setHasError(true).addDependency("warning-node");
-    tester.set("warning-node", new StringNode("warning-node"))
+  public void errorValueDepOnWarningValue() throws Exception {
+    tester.getOrCreate("error-value").setHasError(true).addDependency("warning-value");
+    tester.set("warning-value", new StringValue("warning-value"))
         .setWarning("don't chew with your mouth open");
 
     for (int i = 0; i < 2; i++) {
       initializeReporter();
-      tester.evalAndGetError("error-node");
+      tester.evalAndGetError("error-value");
       JunitTestUtils.assertContainsEvent(eventCollector, "don't chew with your mouth open");
       JunitTestUtils.assertEventCount(1, eventCollector);
     }
 
     initializeReporter();
-    tester.evalAndGet("warning-node");
+    tester.evalAndGet("warning-value");
     JunitTestUtils.assertContainsEvent(eventCollector, "don't chew with your mouth open");
     JunitTestUtils.assertEventCount(1, eventCollector);
   }
@@ -334,19 +334,19 @@ public class AutoUpdatingGraphTest {
     // The framework keeps track of warning and error messages, but not progress messages.
     // So here we see both the progress and warning on the first build, but only the warning
     // on the subsequent null build.
-    tester.set("x", new StringNode("y")).setWarning("fizzlepop")
+    tester.set("x", new StringValue("y")).setWarning("fizzlepop")
         .setProgress("just letting you know");
 
-    StringNode node = (StringNode) tester.evalAndGet("x");
-    assertEquals("y", node.getValue());
+    StringValue value = (StringValue) tester.evalAndGet("x");
+    assertEquals("y", value.getValue());
     JunitTestUtils.assertContainsEvent(eventCollector, "fizzlepop");
     JunitTestUtils.assertContainsEvent(eventCollector, "just letting you know");
     JunitTestUtils.assertEventCount(2, eventCollector);
 
     // On the rebuild, we only replay warning messages.
     initializeReporter();
-    node = (StringNode) tester.evalAndGet("x");
-    assertEquals("y", node.getValue());
+    value = (StringValue) tester.evalAndGet("x");
+    assertEquals("y", value.getValue());
     JunitTestUtils.assertContainsEvent(eventCollector, "fizzlepop");
     JunitTestUtils.assertEventCount(1, eventCollector);
   }
@@ -356,41 +356,41 @@ public class AutoUpdatingGraphTest {
     tester.getOrCreate("a")
         .addDependency("b")
         .setComputedValue(COPY);
-    tester.set("b", new StringNode("y"));
-    StringNode original = (StringNode) tester.evalAndGet("a");
+    tester.set("b", new StringValue("y"));
+    StringValue original = (StringValue) tester.evalAndGet("a");
     assertEquals("y", original.getValue());
-    tester.set("b", new StringNode("z"));
+    tester.set("b", new StringValue("z"));
     tester.invalidate();
-    StringNode old = (StringNode) tester.evalAndGet("a");
+    StringValue old = (StringValue) tester.evalAndGet("a");
     assertEquals("z", old.getValue());
     tester.invalidate();
-    StringNode current = (StringNode) tester.evalAndGet("a");
+    StringValue current = (StringValue) tester.evalAndGet("a");
     assertSame(old, current);
   }
 
   @Test
-  public void errorNodeInvalidation() throws Exception {
-    // Verify that invalidating errors causes all error nodes to be rerun.
-    tester.getOrCreate("error-node").setHasError(true).setProgress("just letting you know");
+  public void errorValueInvalidation() throws Exception {
+    // Verify that invalidating errors causes all error values to be rerun.
+    tester.getOrCreate("error-value").setHasError(true).setProgress("just letting you know");
 
-    tester.evalAndGetError("error-node");
+    tester.evalAndGetError("error-value");
     JunitTestUtils.assertContainsEvent(eventCollector, "just letting you know");
     JunitTestUtils.assertEventCount(1, eventCollector);
 
     // Change the progress message.
-    tester.getOrCreate("error-node").setHasError(true).setProgress("letting you know more");
+    tester.getOrCreate("error-value").setHasError(true).setProgress("letting you know more");
 
     // Without invalidating errors, we shouldn't show the new progress message.
     for (int i = 0; i < 2; i++) {
       initializeReporter();
-      tester.evalAndGetError("error-node");
+      tester.evalAndGetError("error-value");
       JunitTestUtils.assertNoEvents(eventCollector);
     }
 
     // When invalidating errors, we should show the new progress message.
     initializeReporter();
     tester.invalidateErrors();
-    tester.evalAndGetError("error-node");
+    tester.evalAndGetError("error-value");
     JunitTestUtils.assertContainsEvent(eventCollector, "letting you know more");
     JunitTestUtils.assertEventCount(1, eventCollector);
   }
@@ -400,9 +400,9 @@ public class AutoUpdatingGraphTest {
     tester.getOrCreate("ab")
         .addDependency("a")
         .setComputedValue(COPY);
-    tester.set("a", new StringNode("me"));
-    StringNode node = (StringNode) tester.evalAndGet("ab");
-    assertEquals("me", node.getValue());
+    tester.set("a", new StringValue("me"));
+    StringValue value = (StringValue) tester.evalAndGet("ab");
+    assertEquals("me", value.getValue());
   }
 
   @Test
@@ -410,33 +410,33 @@ public class AutoUpdatingGraphTest {
     tester.getOrCreate("ab")
         .addDependency("a")
         .setComputedValue(COPY);
-    tester.set("a", new StringNode("me"));
+    tester.set("a", new StringValue("me"));
     tester.evalAndGet("ab");
 
-    tester.set("a", new StringNode("other"));
+    tester.set("a", new StringValue("other"));
     tester.invalidate();
-    StringNode node = (StringNode) tester.evalAndGet("ab");
-    assertEquals("other", node.getValue());
+    StringValue value = (StringValue) tester.evalAndGet("ab");
+    assertEquals("other", value.getValue());
   }
 
   @Test
   public void diamondDependency() throws Exception {
     setupDiamondDependency();
-    tester.set("d", new StringNode("me"));
-    StringNode node = (StringNode) tester.evalAndGet("a");
-    assertEquals("meme", node.getValue());
+    tester.set("d", new StringValue("me"));
+    StringValue value = (StringValue) tester.evalAndGet("a");
+    assertEquals("meme", value.getValue());
   }
 
   @Test
   public void incrementalDiamondDependency() throws Exception {
     setupDiamondDependency();
-    tester.set("d", new StringNode("me"));
+    tester.set("d", new StringValue("me"));
     tester.evalAndGet("a");
 
-    tester.set("d", new StringNode("other"));
+    tester.set("d", new StringValue("other"));
     tester.invalidate();
-    StringNode node = (StringNode) tester.evalAndGet("a");
-    assertEquals("otherother", node.getValue());
+    StringValue value = (StringValue) tester.evalAndGet("a");
+    assertEquals("otherother", value.getValue());
   }
 
   private void setupDiamondDependency() {
@@ -452,26 +452,26 @@ public class AutoUpdatingGraphTest {
         .setComputedValue(COPY);
   }
 
-  // Regression test: ParallelEvaluator notifies NodeProgressReceiver of already-built top-level
-  // nodes in error: we built "top" and "mid" as top-level targets; "mid" contains an error. We make
-  // sure "mid" is built as a dependency of "top" before enqueuing mid as a top-level target (by
-  // using a latch), so that the top-level enqueuing finds that mid has already been built. The
-  // progress receiver should not be notified of any node having been evaluated.
+  // Regression test: ParallelEvaluator notifies ValueProgressReceiver of already-built top-level
+  // values in error: we built "top" and "mid" as top-level targets; "mid" contains an error. We
+  // make sure "mid" is built as a dependency of "top" before enqueuing mid as a top-level target
+  // (by using a latch), so that the top-level enqueuing finds that mid has already been built. The
+  // progress receiver should not be notified of any value having been evaluated.
   @Test
   public void alreadyAnalyzedBadTarget() throws Exception {
-    final NodeKey mid = GraphTester.toNodeKey("mid");
+    final SkyKey mid = GraphTester.toSkyKey("mid");
     final CountDownLatch valueSet = new CountDownLatch(1);
     final TrackingAwaiter trackingAwaiter = new TrackingAwaiter();
     setGraphForTesting(new NotifyingInMemoryGraph(new Listener() {
       @Override
-      public void accept(NodeKey key, EventType type, Order order, Object context) {
+      public void accept(SkyKey key, EventType type, Order order, Object context) {
         if (!key.equals(mid)) {
           return;
         }
         switch (type) {
           case ADD_REVERSE_DEP:
             if (context == null) {
-              // Context is null when we are enqueuing this node as a top-level job.
+              // Context is null when we are enqueuing this value as a top-level job.
               trackingAwaiter.awaitLatchAndTrackExceptions(valueSet, "value not set");
             }
             break;
@@ -483,7 +483,7 @@ public class AutoUpdatingGraphTest {
         }
       }
     }));
-    NodeKey top = GraphTester.nodeKey("top");
+    SkyKey top = GraphTester.skyKey("top");
     tester.getOrCreate(top).addDependency(mid).setComputedValue(CONCATENATE);
     tester.getOrCreate(mid).setHasError(true);
     tester.eval(/*keepGoing=*/false, top, mid);
@@ -493,11 +493,11 @@ public class AutoUpdatingGraphTest {
   }
 
   @Test
-  public void receiverNotToldOfVerifiedNodeDependingOnCycle() throws Exception {
-    NodeKey leaf = GraphTester.toNodeKey("leaf");
-    NodeKey cycle = GraphTester.toNodeKey("cycle");
-    NodeKey top = GraphTester.toNodeKey("top");
-    tester.set(leaf, new StringNode("leaf"));
+  public void receiverNotToldOfVerifiedValueDependingOnCycle() throws Exception {
+    SkyKey leaf = GraphTester.toSkyKey("leaf");
+    SkyKey cycle = GraphTester.toSkyKey("cycle");
+    SkyKey top = GraphTester.toSkyKey("top");
+    tester.set(leaf, new StringValue("leaf"));
     tester.getOrCreate(cycle).addDependency(cycle);
     tester.getOrCreate(top).addDependency(leaf).addDependency(cycle);
     System.err.println(" " + tester.eval(/*keepGoing=*/true, top));
@@ -514,140 +514,140 @@ public class AutoUpdatingGraphTest {
     tester.getOrCreate("a")
         .addDependency("b")
         .setComputedValue(CONCATENATE);
-    tester.set("b", new StringNode("first"));
-    tester.set("c", new StringNode("second"));
+    tester.set("b", new StringValue("first"));
+    tester.set("c", new StringValue("second"));
     tester.evalAndGet("a");
 
     tester.getOrCreate("a").addDependency("c");
-    tester.set("b", new StringNode("now"));
+    tester.set("b", new StringValue("now"));
     tester.invalidate();
-    StringNode node = (StringNode) tester.evalAndGet("a");
-    assertEquals("nowsecond", node.getValue());
+    StringValue value = (StringValue) tester.evalAndGet("a");
+    assertEquals("nowsecond", value.getValue());
   }
 
   @Test
-  public void manyNodesDependOnSingleNode() throws Exception {
+  public void manyValuesDependOnSingleValue() throws Exception {
     initializeTester();
-    String[] nodes = new String[TEST_NODE_COUNT];
-    for (int i = 0; i < nodes.length; i++) {
-      nodes[i] = Integer.toString(i);
-      tester.getOrCreate(nodes[i])
+    String[] values = new String[TEST_NODE_COUNT];
+    for (int i = 0; i < values.length; i++) {
+      values[i] = Integer.toString(i);
+      tester.getOrCreate(values[i])
           .addDependency("leaf")
           .setComputedValue(COPY);
     }
-    tester.set("leaf", new StringNode("leaf"));
+    tester.set("leaf", new StringValue("leaf"));
 
-    UpdateResult<StringNode> result = tester.eval(/*keep_going=*/false, nodes);
-    for (int i = 0; i < nodes.length; i++) {
-      Node actual = result.get(new NodeKey(GraphTester.NODE_TYPE, nodes[i]));
-      assertEquals(new StringNode("leaf"), actual);
+    UpdateResult<StringValue> result = tester.eval(/*keep_going=*/false, values);
+    for (int i = 0; i < values.length; i++) {
+      SkyValue actual = result.get(new SkyKey(GraphTester.NODE_TYPE, values[i]));
+      assertEquals(new StringValue("leaf"), actual);
     }
 
     for (int j = 0; j < TESTED_NODES; j++) {
-      tester.set("leaf", new StringNode("other" + j));
+      tester.set("leaf", new StringValue("other" + j));
       tester.invalidate();
-      result = tester.eval(/*keep_going=*/false, nodes);
-      for (int i = 0; i < nodes.length; i++) {
-        Node actual = result.get(new NodeKey(GraphTester.NODE_TYPE, nodes[i]));
-        assertEquals("Run " + j + ", node " + i, new StringNode("other" + j), actual);
+      result = tester.eval(/*keep_going=*/false, values);
+      for (int i = 0; i < values.length; i++) {
+        SkyValue actual = result.get(new SkyKey(GraphTester.NODE_TYPE, values[i]));
+        assertEquals("Run " + j + ", value " + i, new StringValue("other" + j), actual);
       }
     }
   }
 
   @Test
-  public void singleNodeDependsOnManyNodes() throws Exception {
+  public void singleValueDependsOnManyValues() throws Exception {
     initializeTester();
-    String[] nodes = new String[TEST_NODE_COUNT];
+    String[] values = new String[TEST_NODE_COUNT];
     StringBuilder expected = new StringBuilder();
-    for (int i = 0; i < nodes.length; i++) {
-      nodes[i] = Integer.toString(i);
-      tester.set(nodes[i], new StringNode(nodes[i]));
-      expected.append(nodes[i]);
+    for (int i = 0; i < values.length; i++) {
+      values[i] = Integer.toString(i);
+      tester.set(values[i], new StringValue(values[i]));
+      expected.append(values[i]);
     }
-    NodeKey rootKey = new NodeKey(GraphTester.NODE_TYPE, "root");
-    TestNodeBuilder node = tester.getOrCreate(rootKey)
+    SkyKey rootKey = new SkyKey(GraphTester.NODE_TYPE, "root");
+    TestFunction value = tester.getOrCreate(rootKey)
         .setComputedValue(CONCATENATE);
-    for (int i = 0; i < nodes.length; i++) {
-      node.addDependency(nodes[i]);
+    for (int i = 0; i < values.length; i++) {
+      value.addDependency(values[i]);
     }
 
-    UpdateResult<StringNode> result = tester.eval(/*keep_going=*/false, rootKey);
-    assertEquals(new StringNode(expected.toString()), result.get(rootKey));
+    UpdateResult<StringValue> result = tester.eval(/*keep_going=*/false, rootKey);
+    assertEquals(new StringValue(expected.toString()), result.get(rootKey));
 
     for (int j = 0; j < 10; j++) {
       expected.setLength(0);
-      for (int i = 0; i < nodes.length; i++) {
-        String value = "other" + i + " " + j;
-        tester.set(nodes[i], new StringNode(value));
-        expected.append(value);
+      for (int i = 0; i < values.length; i++) {
+        String s = "other" + i + " " + j;
+        tester.set(values[i], new StringValue(s));
+        expected.append(s);
       }
       tester.invalidate();
 
       result = tester.eval(/*keep_going=*/false, rootKey);
-      assertEquals(new StringNode(expected.toString()), result.get(rootKey));
+      assertEquals(new StringValue(expected.toString()), result.get(rootKey));
     }
   }
 
   @Test
   public void twoRailLeftRightDependencies() throws Exception {
     initializeTester();
-    String[] leftNodes = new String[TEST_NODE_COUNT];
-    String[] rightNodes = new String[TEST_NODE_COUNT];
-    for (int i = 0; i < leftNodes.length; i++) {
-      leftNodes[i] = "left-" + i;
-      rightNodes[i] = "right-" + i;
+    String[] leftValues = new String[TEST_NODE_COUNT];
+    String[] rightValues = new String[TEST_NODE_COUNT];
+    for (int i = 0; i < leftValues.length; i++) {
+      leftValues[i] = "left-" + i;
+      rightValues[i] = "right-" + i;
       if (i == 0) {
-        tester.getOrCreate(leftNodes[i])
+        tester.getOrCreate(leftValues[i])
               .addDependency("leaf")
               .setComputedValue(COPY);
-        tester.getOrCreate(rightNodes[i])
+        tester.getOrCreate(rightValues[i])
               .addDependency("leaf")
               .setComputedValue(COPY);
       } else {
-        tester.getOrCreate(leftNodes[i])
-              .addDependency(leftNodes[i - 1])
-              .addDependency(rightNodes[i - 1])
-              .setComputedValue(new PassThroughSelected(toNodeKey(leftNodes[i - 1])));
-        tester.getOrCreate(rightNodes[i])
-              .addDependency(leftNodes[i - 1])
-              .addDependency(rightNodes[i - 1])
-              .setComputedValue(new PassThroughSelected(toNodeKey(rightNodes[i - 1])));
+        tester.getOrCreate(leftValues[i])
+              .addDependency(leftValues[i - 1])
+              .addDependency(rightValues[i - 1])
+              .setComputedValue(new PassThroughSelected(toSkyKey(leftValues[i - 1])));
+        tester.getOrCreate(rightValues[i])
+              .addDependency(leftValues[i - 1])
+              .addDependency(rightValues[i - 1])
+              .setComputedValue(new PassThroughSelected(toSkyKey(rightValues[i - 1])));
       }
     }
-    tester.set("leaf", new StringNode("leaf"));
+    tester.set("leaf", new StringValue("leaf"));
 
     String lastLeft = "left-" + (TEST_NODE_COUNT - 1);
     String lastRight = "right-" + (TEST_NODE_COUNT - 1);
 
-    UpdateResult<StringNode> result = tester.eval(/*keep_going=*/false, lastLeft, lastRight);
-    assertEquals(new StringNode("leaf"), result.get(toNodeKey(lastLeft)));
-    assertEquals(new StringNode("leaf"), result.get(toNodeKey(lastRight)));
+    UpdateResult<StringValue> result = tester.eval(/*keep_going=*/false, lastLeft, lastRight);
+    assertEquals(new StringValue("leaf"), result.get(toSkyKey(lastLeft)));
+    assertEquals(new StringValue("leaf"), result.get(toSkyKey(lastRight)));
 
     for (int j = 0; j < TESTED_NODES; j++) {
       String value = "other" + j;
-      tester.set("leaf", new StringNode(value));
+      tester.set("leaf", new StringValue(value));
       tester.invalidate();
       result = tester.eval(/*keep_going=*/false, lastLeft, lastRight);
-      assertEquals(new StringNode(value), result.get(toNodeKey(lastLeft)));
-      assertEquals(new StringNode(value), result.get(toNodeKey(lastRight)));
+      assertEquals(new StringValue(value), result.get(toSkyKey(lastLeft)));
+      assertEquals(new StringValue(value), result.get(toSkyKey(lastRight)));
     }
   }
 
   @Test
   public void noKeepGoingAfterKeepGoingCycle() throws Exception {
     initializeTester();
-    NodeKey aKey = GraphTester.toNodeKey("a");
-    NodeKey bKey = GraphTester.toNodeKey("b");
-    NodeKey topKey = GraphTester.toNodeKey("top");
-    NodeKey midKey = GraphTester.toNodeKey("mid");
-    NodeKey goodKey = GraphTester.toNodeKey("good");
-    StringNode goodValue = new StringNode("good");
+    SkyKey aKey = GraphTester.toSkyKey("a");
+    SkyKey bKey = GraphTester.toSkyKey("b");
+    SkyKey topKey = GraphTester.toSkyKey("top");
+    SkyKey midKey = GraphTester.toSkyKey("mid");
+    SkyKey goodKey = GraphTester.toSkyKey("good");
+    StringValue goodValue = new StringValue("good");
     tester.set(goodKey, goodValue);
     tester.getOrCreate(topKey).addDependency(midKey);
     tester.getOrCreate(midKey).addDependency(aKey);
     tester.getOrCreate(aKey).addDependency(bKey);
     tester.getOrCreate(bKey).addDependency(aKey);
-    UpdateResult<StringNode> result = tester.eval(/*keepGoing=*/true, topKey, goodKey);
+    UpdateResult<StringValue> result = tester.eval(/*keepGoing=*/true, topKey, goodKey);
     assertEquals(goodValue, result.get(goodKey));
     assertEquals(null, result.get(topKey));
     ErrorInfo errorInfo = result.getError(topKey);
@@ -667,15 +667,15 @@ public class AutoUpdatingGraphTest {
   @Test
   public void changeCycle() throws Exception {
     initializeTester();
-    NodeKey aKey = GraphTester.toNodeKey("a");
-    NodeKey bKey = GraphTester.toNodeKey("b");
-    NodeKey topKey = GraphTester.toNodeKey("top");
-    NodeKey midKey = GraphTester.toNodeKey("mid");
+    SkyKey aKey = GraphTester.toSkyKey("a");
+    SkyKey bKey = GraphTester.toSkyKey("b");
+    SkyKey topKey = GraphTester.toSkyKey("top");
+    SkyKey midKey = GraphTester.toSkyKey("mid");
     tester.getOrCreate(topKey).addDependency(midKey).setComputedValue(COPY);
     tester.getOrCreate(midKey).addDependency(aKey).setComputedValue(COPY);
     tester.getOrCreate(aKey).addDependency(bKey).setComputedValue(COPY);
     tester.getOrCreate(bKey).addDependency(aKey);
-    UpdateResult<StringNode> result = tester.eval(/*keepGoing=*/false, topKey);
+    UpdateResult<StringValue> result = tester.eval(/*keepGoing=*/false, topKey);
     assertEquals(null, result.get(topKey));
     ErrorInfo errorInfo = result.getError(topKey);
     CycleInfo cycleInfo = Iterables.getOnlyElement(errorInfo.getCycleInfo());
@@ -683,23 +683,23 @@ public class AutoUpdatingGraphTest {
     MoreAsserts.assertContentsInOrder(cycleInfo.getPathToCycle(), topKey, midKey);
 
     tester.getOrCreate(bKey).removeDependency(aKey);
-    tester.set(bKey, new StringNode("bNode"));
+    tester.set(bKey, new StringValue("bValue"));
     tester.invalidate();
     result = tester.eval(/*keepGoing=*/false, topKey);
-    assertEquals(new StringNode("bNode"), result.get(topKey));
+    assertEquals(new StringValue("bValue"), result.get(topKey));
     assertEquals(null, result.getError(topKey));
   }
 
-  /** Regression test: "crash in cycle checker with dirty nodes". */
+  /** Regression test: "crash in cycle checker with dirty values". */
   @Test
-  public void cycleAndSelfEdgeWithDirtyNode() throws Exception {
+  public void cycleAndSelfEdgeWithDirtyValue() throws Exception {
     initializeTester();
-    NodeKey cycleKey1 = GraphTester.toNodeKey("cycleKey1");
-    NodeKey cycleKey2 = GraphTester.toNodeKey("cycleKey2");
+    SkyKey cycleKey1 = GraphTester.toSkyKey("cycleKey1");
+    SkyKey cycleKey2 = GraphTester.toSkyKey("cycleKey2");
     tester.getOrCreate(cycleKey1).addDependency(cycleKey2).addDependency(cycleKey1)
     .setComputedValue(CONCATENATE);
     tester.getOrCreate(cycleKey2).addDependency(cycleKey1).setComputedValue(COPY);
-    UpdateResult<StringNode> result = tester.eval(/*keepGoing=*/true, cycleKey1);
+    UpdateResult<StringValue> result = tester.eval(/*keepGoing=*/true, cycleKey1);
     assertEquals(null, result.get(cycleKey1));
     ErrorInfo errorInfo = result.getError(cycleKey1);
     CycleInfo cycleInfo = Iterables.getOnlyElement(errorInfo.getCycleInfo());
@@ -719,15 +719,15 @@ public class AutoUpdatingGraphTest {
     MoreAsserts.assertContentsInOrder(cycleInfo.getPathToCycle(), cycleKey2);
   }
 
-  /** Regression test: "crash in cycle checker with dirty nodes". */
+  /** Regression test: "crash in cycle checker with dirty values". */
   @Test
-  public void cycleWithDirtyNode() throws Exception {
+  public void cycleWithDirtyValue() throws Exception {
     initializeTester();
-    NodeKey cycleKey1 = GraphTester.toNodeKey("cycleKey1");
-    NodeKey cycleKey2 = GraphTester.toNodeKey("cycleKey2");
+    SkyKey cycleKey1 = GraphTester.toSkyKey("cycleKey1");
+    SkyKey cycleKey2 = GraphTester.toSkyKey("cycleKey2");
     tester.getOrCreate(cycleKey1).addDependency(cycleKey2).setComputedValue(COPY);
     tester.getOrCreate(cycleKey2).addDependency(cycleKey1).setComputedValue(COPY);
-    UpdateResult<StringNode> result = tester.eval(/*keepGoing=*/true, cycleKey1);
+    UpdateResult<StringValue> result = tester.eval(/*keepGoing=*/true, cycleKey1);
     assertEquals(null, result.get(cycleKey1));
     ErrorInfo errorInfo = result.getError(cycleKey1);
     CycleInfo cycleInfo = Iterables.getOnlyElement(errorInfo.getCycleInfo());
@@ -745,27 +745,27 @@ public class AutoUpdatingGraphTest {
 
   /**
    * Regression test: IllegalStateException in BuildingState.isReady(). The ParallelEvaluator used
-   * to assume during cycle-checking that all nodes had been built as fully as possible -- that
+   * to assume during cycle-checking that all values had been built as fully as possible -- that
    * evaluation had not been interrupted. However, we also do cycle-checking in nokeep-going mode
-   * when a node throws an error (possibly prematurely shutting down evaluation) but that error then
-   * bubbles up into a cycle.
+   * when a value throws an error (possibly prematurely shutting down evaluation) but that error
+   * then bubbles up into a cycle.
    *
-   * <p>We want to achieve the following state: we are checking for a cycle; the node we examine has
-   * not yet finished checking its children to see if they are dirty; but all children checked so
-   * far have been unchanged. This node is "otherTop". We first build otherTop, then mark its first
-   * child changed (without actually changing it), and then do a second build. On the second build,
-   * we also build "top", which requests a cycle that depends on an error. We wait to signal
+   * <p>We want to achieve the following state: we are checking for a cycle; the value we examine
+   * has not yet finished checking its children to see if they are dirty; but all children checked
+   * so far have been unchanged. This value is "otherTop". We first build otherTop, then mark its
+   * first child changed (without actually changing it), and then do a second build. On the second
+   * build, we also build "top", which requests a cycle that depends on an error. We wait to signal
    * otherTop that its first child is done until the error throws and shuts down evaluation. The
    * error then bubbles up to the cycle, and so the bubbling is aborted. Finally, cycle checking
    * happens, and otherTop is examined, as desired.
    */
   @Test
   public void cycleAndErrorAndReady() throws Exception {
-    // This node will not have finished building on the second build when the error is thrown.
-    final NodeKey otherTop = GraphTester.toNodeKey("otherTop");
-    final NodeKey errorKey = GraphTester.toNodeKey("error");
+    // This value will not have finished building on the second build when the error is thrown.
+    final SkyKey otherTop = GraphTester.toSkyKey("otherTop");
+    final SkyKey errorKey = GraphTester.toSkyKey("error");
     // Is the graph state all set up and ready for the error to be thrown?
-    final CountDownLatch nodesReady = new CountDownLatch(3);
+    final CountDownLatch valuesReady = new CountDownLatch(3);
     // Is evaluation being shut down? This is counted down by the exceptionMarker's builder, after
     // it has waited for the threadpool's exception latch to be released.
     final CountDownLatch errorThrown = new CountDownLatch(1);
@@ -774,70 +774,70 @@ public class AutoUpdatingGraphTest {
     final TrackingAwaiter trackingAwaiter = new TrackingAwaiter();
     setGraphForTesting(new DeterministicInMemoryGraph(new Listener() {
       @Override
-      public void accept(NodeKey key, EventType type, Order order, Object context) {
+      public void accept(SkyKey key, EventType type, Order order, Object context) {
         if (!secondBuild.get()) {
           return;
         }
         if (key.equals(errorKey) && type == EventType.SET_VALUE) {
           // If the error is about to be thrown, make sure all listeners are ready.
-          trackingAwaiter.awaitLatchAndTrackExceptions(nodesReady, "waiting nodes not ready");
+          trackingAwaiter.awaitLatchAndTrackExceptions(valuesReady, "waiting values not ready");
           return;
         }
         if (key.equals(otherTop) && type == EventType.SIGNAL) {
-          // otherTop is being signaled that dep1 is done. Tell the error node that it is ready,
+          // otherTop is being signaled that dep1 is done. Tell the error value that it is ready,
           // then wait until the error is thrown, so that otherTop's builder is not re-entered.
-          nodesReady.countDown();
+          valuesReady.countDown();
           trackingAwaiter.awaitLatchAndTrackExceptions(errorThrown, "error not thrown");
           return;
         }
       }
     }));
-    final NodeKey dep1 = GraphTester.toNodeKey("dep1");
-    tester.set(dep1, new StringNode("dep1"));
-    final NodeKey dep2 = GraphTester.toNodeKey("dep2");
-    tester.set(dep2, new StringNode("dep2"));
+    final SkyKey dep1 = GraphTester.toSkyKey("dep1");
+    tester.set(dep1, new StringValue("dep1"));
+    final SkyKey dep2 = GraphTester.toSkyKey("dep2");
+    tester.set(dep2, new StringValue("dep2"));
     // otherTop should request the deps one at a time, so that it can be in the CHECK_DEPENDENCIES
     // state even after one dep is re-evaluated.
-    tester.getOrCreate(otherTop).setBuilder(new NoExtractorNodeBuilder() {
+    tester.getOrCreate(otherTop).setBuilder(new NoExtractorFunction() {
       @Override
-      public Node build(NodeKey nodeKey, Environment env) {
-        env.getDep(dep1);
-        if (env.depsMissing()) {
+      public SkyValue compute(SkyKey skyKey, Environment env) {
+        env.getValue(dep1);
+        if (env.valuesMissing()) {
           return null;
         }
-        env.getDep(dep2);
-        return env.depsMissing() ? null : new StringNode("otherTop");
+        env.getValue(dep2);
+        return env.valuesMissing() ? null : new StringValue("otherTop");
       }
     });
     // Prime the graph with otherTop, so we can dirty it next build.
-    assertEquals(new StringNode("otherTop"), tester.evalAndGet(/*keepGoing=*/false, otherTop));
+    assertEquals(new StringValue("otherTop"), tester.evalAndGet(/*keepGoing=*/false, otherTop));
     // Mark dep1 changed, so otherTop will be dirty and request re-evaluation of dep1.
     tester.getOrCreate(dep1, /*markAsModified=*/true);
-    NodeKey topKey = GraphTester.toNodeKey("top");
+    SkyKey topKey = GraphTester.toSkyKey("top");
     // Note that since DeterministicInMemoryGraph alphabetizes reverse deps, it is important that
     // "cycle2" comes before "top".
-    final NodeKey cycle1Key = GraphTester.toNodeKey("cycle1");
-    final NodeKey cycle2Key = GraphTester.toNodeKey("cycle2");
+    final SkyKey cycle1Key = GraphTester.toSkyKey("cycle1");
+    final SkyKey cycle2Key = GraphTester.toSkyKey("cycle2");
     tester.getOrCreate(topKey).addDependency(cycle1Key).setComputedValue(CONCATENATE);
     tester.getOrCreate(cycle1Key).addDependency(errorKey).addDependency(cycle2Key)
         .setComputedValue(CONCATENATE);
     tester.getOrCreate(errorKey).setHasError(true);
     // Make sure cycle2Key has declared its dependence on cycle1Key before error throws.
-    tester.getOrCreate(cycle2Key).setBuilder(new ChainedNodeBuilder(/*notifyStart=*/nodesReady,
-        null, null, false, new StringNode("never returned"), ImmutableList.<NodeKey>of(cycle1Key)));
-    // Node that waits until an exception is thrown to finish building. We use it just to be
+    tester.getOrCreate(cycle2Key).setBuilder(new ChainedFunction(/*notifyStart=*/valuesReady,
+        null, null, false, new StringValue("never returned"), ImmutableList.<SkyKey>of(cycle1Key)));
+    // Value that waits until an exception is thrown to finish building. We use it just to be
     // informed when the threadpool is shutting down.
-    final NodeKey exceptionMarker = GraphTester.toNodeKey("exceptionMarker");
-    tester.getOrCreate(exceptionMarker).setBuilder(new ChainedNodeBuilder(
-        /*notifyStart=*/nodesReady, /*waitToFinish=*/new CountDownLatch(0),
+    final SkyKey exceptionMarker = GraphTester.toSkyKey("exceptionMarker");
+    tester.getOrCreate(exceptionMarker).setBuilder(new ChainedFunction(
+        /*notifyStart=*/valuesReady, /*waitToFinish=*/new CountDownLatch(0),
         /*notifyFinish=*/errorThrown,
-        /*waitForException=*/true, new StringNode("exception marker"),
-        ImmutableList.<NodeKey>of()));
+        /*waitForException=*/true, new StringValue("exception marker"),
+        ImmutableList.<SkyKey>of()));
     tester.invalidate();
     secondBuild.set(true);
-    // otherTop must be first, since we check top-level nodes for cycles in the order in which
+    // otherTop must be first, since we check top-level values for cycles in the order in which
     // they appear here.
-    UpdateResult<StringNode> result =
+    UpdateResult<StringValue> result =
         tester.eval(/*keepGoing=*/false, otherTop, topKey, exceptionMarker);
     trackingAwaiter.assertNoErrors();
     MoreAsserts.assertContentsAnyOrder(result.errorMap().keySet(), topKey);
@@ -857,13 +857,13 @@ public class AutoUpdatingGraphTest {
     final AtomicInteger inProgressCount = new AtomicInteger();
     final int[] maxValue = {0};
 
-    NodeKey topLevel = GraphTester.toNodeKey("toplevel");
-    TestNodeBuilder topLevelBuilder = tester.getOrCreate(topLevel);
+    SkyKey topLevel = GraphTester.toSkyKey("toplevel");
+    TestFunction topLevelBuilder = tester.getOrCreate(topLevel);
     for (int i = 0; i < numKeys; i++) {
       topLevelBuilder.addDependency("subKey" + i);
-      tester.getOrCreate("subKey" + i).setComputedValue(new NodeComputer() {
+      tester.getOrCreate("subKey" + i).setComputedValue(new ValueComputer() {
         @Override
-        public Node compute(Map<NodeKey, Node> deps, NodeBuilder.Environment env) {
+        public SkyValue compute(Map<SkyKey, SkyValue> deps, SkyFunction.Environment env) {
           int val = inProgressCount.incrementAndGet();
           synchronized (lock) {
             if (val > maxValue[0]) {
@@ -873,22 +873,22 @@ public class AutoUpdatingGraphTest {
           Uninterruptibles.sleepUninterruptibly(5, TimeUnit.SECONDS);
 
           inProgressCount.decrementAndGet();
-          return new StringNode("abc");
+          return new StringValue("abc");
         }
       });
     }
-    topLevelBuilder.setConstantValue(new StringNode("xyz"));
+    topLevelBuilder.setConstantValue(new StringValue("xyz"));
 
-    UpdateResult<StringNode> result = tester.eval(/*keepGoing=*/true, /*numThreads=*/5, topLevel);
+    UpdateResult<StringValue> result = tester.eval(/*keepGoing=*/true, /*numThreads=*/5, topLevel);
     assertFalse(result.hasError());
     assertEquals(5, maxValue[0]);
   }
 
   /**
-   * Regression test: error on clearMaybeDirtyNode. We do an update of topKey, which registers
+   * Regression test: error on clearMaybeDirtyValue. We do an update of topKey, which registers
    * dependencies on midKey and errorKey. midKey enqueues slowKey, and waits. errorKey throws an
    * error, which bubbles up to topKey. If topKey does not unregister its dependence on midKey, it
-   * will have a dangling reference to midKey after unfinished nodes are cleaned from the graph.
+   * will have a dangling reference to midKey after unfinished values are cleaned from the graph.
    * Note that slowKey will wait until errorKey has thrown and the threadpool has caught the
    * exception before returning, so the Evaluator will already have stopped enqueuing new jobs, so
    * midKey is not evaluated.
@@ -898,30 +898,30 @@ public class AutoUpdatingGraphTest {
     initializeTester();
     CountDownLatch slowStart = new CountDownLatch(1);
     CountDownLatch errorFinish = new CountDownLatch(1);
-    NodeKey errorKey = GraphTester.toNodeKey("error");
+    SkyKey errorKey = GraphTester.toSkyKey("error");
     tester.getOrCreate(errorKey).setBuilder(
-        new ChainedNodeBuilder(/*notifyStart=*/null, /*waitToFinish=*/slowStart,
+        new ChainedFunction(/*notifyStart=*/null, /*waitToFinish=*/slowStart,
             /*notifyFinish=*/errorFinish, /*waitForException=*/false, /*value=*/null,
-            /*deps=*/ImmutableList.<NodeKey>of()));
-    NodeKey slowKey = GraphTester.toNodeKey("slow");
+            /*deps=*/ImmutableList.<SkyKey>of()));
+    SkyKey slowKey = GraphTester.toSkyKey("slow");
     tester.getOrCreate(slowKey).setBuilder(
-        new ChainedNodeBuilder(/*notifyStart=*/slowStart, /*waitToFinish=*/errorFinish,
-            /*notifyFinish=*/null, /*waitForException=*/true, new StringNode("slow"),
-            /*deps=*/ImmutableList.<NodeKey>of()));
-    NodeKey midKey = GraphTester.toNodeKey("mid");
+        new ChainedFunction(/*notifyStart=*/slowStart, /*waitToFinish=*/errorFinish,
+            /*notifyFinish=*/null, /*waitForException=*/true, new StringValue("slow"),
+            /*deps=*/ImmutableList.<SkyKey>of()));
+    SkyKey midKey = GraphTester.toSkyKey("mid");
     tester.getOrCreate(midKey).addDependency(slowKey).setComputedValue(COPY);
-    NodeKey topKey = GraphTester.toNodeKey("top");
+    SkyKey topKey = GraphTester.toSkyKey("top");
     tester.getOrCreate(topKey).addDependency(midKey).addDependency(errorKey)
         .setComputedValue(CONCATENATE);
     // slowKey starts -> errorKey finishes, written to graph -> slowKey finishes & (Visitor aborts)
     // -> topKey builds.
-    UpdateResult<StringNode> result = tester.eval(/*keepGoing=*/false, topKey);
+    UpdateResult<StringValue> result = tester.eval(/*keepGoing=*/false, topKey);
     MoreAsserts.assertContentsAnyOrder(result.getError().getRootCauses(), errorKey);
     // Make sure midKey didn't finish building.
-    assertEquals(null, tester.graph.getExistingNodeForTesting(midKey));
+    assertEquals(null, tester.graph.getExistingValueForTesting(midKey));
     // Give slowKey a nice ordinary builder.
     tester.getOrCreate(slowKey, /*markAsModified=*/false).setBuilder(null)
-        .setConstantValue(new StringNode("slow"));
+        .setConstantValue(new StringValue("slow"));
     // Put midKey into the graph. It won't have a reverse dependence on topKey.
     tester.evalAndGet(/*keepGoing=*/false, midKey);
     tester.invalidateErrors();
@@ -930,38 +930,38 @@ public class AutoUpdatingGraphTest {
   }
 
   /**
-   * Regression test: error on clearMaybeDirtyNode. Same as the previous test, but the second update
-   * is keepGoing, which should cause an access of the children of topKey.
+   * Regression test: error on clearMaybeDirtyValue. Same as the previous test, but the second
+   * update is keepGoing, which should cause an access of the children of topKey.
    */
   @Test
   public void incompleteDirectDepsAreClearedBeforeKeepGoing() throws Exception {
     initializeTester();
     CountDownLatch slowStart = new CountDownLatch(1);
     CountDownLatch errorFinish = new CountDownLatch(1);
-    NodeKey errorKey = GraphTester.toNodeKey("error");
+    SkyKey errorKey = GraphTester.toSkyKey("error");
     tester.getOrCreate(errorKey).setBuilder(
-        new ChainedNodeBuilder(/*notifyStart=*/null, /*waitToFinish=*/slowStart,
+        new ChainedFunction(/*notifyStart=*/null, /*waitToFinish=*/slowStart,
             /*notifyFinish=*/errorFinish, /*waitForException=*/false, /*value=*/null,
-            /*deps=*/ImmutableList.<NodeKey>of()));
-    NodeKey slowKey = GraphTester.toNodeKey("slow");
+            /*deps=*/ImmutableList.<SkyKey>of()));
+    SkyKey slowKey = GraphTester.toSkyKey("slow");
     tester.getOrCreate(slowKey).setBuilder(
-        new ChainedNodeBuilder(/*notifyStart=*/slowStart, /*waitToFinish=*/errorFinish,
-            /*notifyFinish=*/null, /*waitForException=*/true, new StringNode("slow"),
-            /*deps=*/ImmutableList.<NodeKey>of()));
-    NodeKey midKey = GraphTester.toNodeKey("mid");
+        new ChainedFunction(/*notifyStart=*/slowStart, /*waitToFinish=*/errorFinish,
+            /*notifyFinish=*/null, /*waitForException=*/true, new StringValue("slow"),
+            /*deps=*/ImmutableList.<SkyKey>of()));
+    SkyKey midKey = GraphTester.toSkyKey("mid");
     tester.getOrCreate(midKey).addDependency(slowKey).setComputedValue(COPY);
-    NodeKey topKey = GraphTester.toNodeKey("top");
+    SkyKey topKey = GraphTester.toSkyKey("top");
     tester.getOrCreate(topKey).addDependency(midKey).addDependency(errorKey)
         .setComputedValue(CONCATENATE);
     // slowKey starts -> errorKey finishes, written to graph -> slowKey finishes & (Visitor aborts)
     // -> topKey builds.
-    UpdateResult<StringNode> result = tester.eval(/*keepGoing=*/false, topKey);
+    UpdateResult<StringValue> result = tester.eval(/*keepGoing=*/false, topKey);
     MoreAsserts.assertContentsAnyOrder(result.getError().getRootCauses(), errorKey);
     // Make sure midKey didn't finish building.
-    assertEquals(null, tester.graph.getExistingNodeForTesting(midKey));
+    assertEquals(null, tester.graph.getExistingValueForTesting(midKey));
     // Give slowKey a nice ordinary builder.
     tester.getOrCreate(slowKey, /*markAsModified=*/false).setBuilder(null)
-        .setConstantValue(new StringNode("slow"));
+        .setConstantValue(new StringValue("slow"));
     // Put midKey into the graph. It won't have a reverse dependence on topKey.
     tester.evalAndGet(/*keepGoing=*/false, midKey);
     // topKey should not access midKey as if it were already registered as a dependency.
@@ -976,61 +976,61 @@ public class AutoUpdatingGraphTest {
   @Test
   public void passThenFailToBuild() throws Exception {
     CountDownLatch blocker = new CountDownLatch(1);
-    NodeKey successKey = GraphTester.toNodeKey("success");
+    SkyKey successKey = GraphTester.toSkyKey("success");
     tester.getOrCreate(successKey).setBuilder(
-        new ChainedNodeBuilder(/*notifyStart=*/null, /*waitToFinish=*/null,
-            /*notifyFinish=*/blocker, /*waitForException=*/false, new StringNode("yippee"),
-            /*deps=*/ImmutableList.<NodeKey>of()));
-    NodeKey slowFailKey = GraphTester.toNodeKey("slow_then_fail");
+        new ChainedFunction(/*notifyStart=*/null, /*waitToFinish=*/null,
+            /*notifyFinish=*/blocker, /*waitForException=*/false, new StringValue("yippee"),
+            /*deps=*/ImmutableList.<SkyKey>of()));
+    SkyKey slowFailKey = GraphTester.toSkyKey("slow_then_fail");
     tester.getOrCreate(slowFailKey).setBuilder(
-        new ChainedNodeBuilder(/*notifyStart=*/null, /*waitToFinish=*/blocker,
+        new ChainedFunction(/*notifyStart=*/null, /*waitToFinish=*/blocker,
             /*notifyFinish=*/null, /*waitForException=*/false, /*value=*/null,
-            /*deps=*/ImmutableList.<NodeKey>of()));
+            /*deps=*/ImmutableList.<SkyKey>of()));
 
-    UpdateResult<StringNode> result = tester.eval(/*keepGoing=*/false, successKey, slowFailKey);
+    UpdateResult<StringValue> result = tester.eval(/*keepGoing=*/false, successKey, slowFailKey);
     MoreAsserts.assertContentsAnyOrder(result.getError().getRootCauses(), slowFailKey);
-    MoreAsserts.assertContentsAnyOrder(result.values(), new StringNode("yippee"));
+    MoreAsserts.assertContentsAnyOrder(result.values(), new StringValue("yippee"));
   }
 
   @Test
   public void passThenFailToBuildAlternateOrder() throws Exception {
     CountDownLatch blocker = new CountDownLatch(1);
-    NodeKey successKey = GraphTester.toNodeKey("success");
+    SkyKey successKey = GraphTester.toSkyKey("success");
     tester.getOrCreate(successKey).setBuilder(
-        new ChainedNodeBuilder(/*notifyStart=*/null, /*waitToFinish=*/null,
-            /*notifyFinish=*/blocker, /*waitForException=*/false, new StringNode("yippee"),
-            /*deps=*/ImmutableList.<NodeKey>of()));
-    NodeKey slowFailKey = GraphTester.toNodeKey("slow_then_fail");
+        new ChainedFunction(/*notifyStart=*/null, /*waitToFinish=*/null,
+            /*notifyFinish=*/blocker, /*waitForException=*/false, new StringValue("yippee"),
+            /*deps=*/ImmutableList.<SkyKey>of()));
+    SkyKey slowFailKey = GraphTester.toSkyKey("slow_then_fail");
     tester.getOrCreate(slowFailKey).setBuilder(
-        new ChainedNodeBuilder(/*notifyStart=*/null, /*waitToFinish=*/blocker,
+        new ChainedFunction(/*notifyStart=*/null, /*waitToFinish=*/blocker,
             /*notifyFinish=*/null, /*waitForException=*/false, /*value=*/null,
-            /*deps=*/ImmutableList.<NodeKey>of()));
+            /*deps=*/ImmutableList.<SkyKey>of()));
 
-    UpdateResult<StringNode> result = tester.eval(/*keepGoing=*/false, slowFailKey, successKey);
+    UpdateResult<StringValue> result = tester.eval(/*keepGoing=*/false, slowFailKey, successKey);
     MoreAsserts.assertContentsAnyOrder(result.getError().getRootCauses(), slowFailKey);
-    MoreAsserts.assertContentsAnyOrder(result.values(), new StringNode("yippee"));
+    MoreAsserts.assertContentsAnyOrder(result.values(), new StringValue("yippee"));
   }
 
   @Test
-  public void incompleteDirectDepsForDirtyNode() throws Exception {
+  public void incompleteDirectDepsForDirtyValue() throws Exception {
     initializeTester();
-    NodeKey topKey = GraphTester.toNodeKey("top");
-    tester.set(topKey, new StringNode("initial"));
+    SkyKey topKey = GraphTester.toSkyKey("top");
+    tester.set(topKey, new StringValue("initial"));
     // Put topKey into graph so it will be dirtied on next run.
-    assertEquals(new StringNode("initial"), tester.evalAndGet(/*keepGoing=*/false, topKey));
+    assertEquals(new StringValue("initial"), tester.evalAndGet(/*keepGoing=*/false, topKey));
     CountDownLatch slowStart = new CountDownLatch(1);
     CountDownLatch errorFinish = new CountDownLatch(1);
-    NodeKey errorKey = GraphTester.toNodeKey("error");
+    SkyKey errorKey = GraphTester.toSkyKey("error");
     tester.getOrCreate(errorKey).setBuilder(
-        new ChainedNodeBuilder(/*notifyStart=*/null, /*waitToFinish=*/slowStart,
+        new ChainedFunction(/*notifyStart=*/null, /*waitToFinish=*/slowStart,
             /*notifyFinish=*/errorFinish,
-            /*waitForException=*/false, /*value=*/null, /*deps=*/ImmutableList.<NodeKey>of()));
-    NodeKey slowKey = GraphTester.toNodeKey("slow");
+            /*waitForException=*/false, /*value=*/null, /*deps=*/ImmutableList.<SkyKey>of()));
+    SkyKey slowKey = GraphTester.toSkyKey("slow");
     tester.getOrCreate(slowKey).setBuilder(
-        new ChainedNodeBuilder(/*notifyStart=*/slowStart, /*waitToFinish=*/errorFinish,
+        new ChainedFunction(/*notifyStart=*/slowStart, /*waitToFinish=*/errorFinish,
             /*notifyFinish=*/null, /*waitForException=*/true,
-            new StringNode("slow"), /*deps=*/ImmutableList.<NodeKey>of()));
-    NodeKey midKey = GraphTester.toNodeKey("mid");
+            new StringValue("slow"), /*deps=*/ImmutableList.<SkyKey>of()));
+    SkyKey midKey = GraphTester.toSkyKey("mid");
     tester.getOrCreate(midKey).addDependency(slowKey).setComputedValue(COPY);
     tester.set(topKey, null);
     tester.getOrCreate(topKey).addDependency(midKey).addDependency(errorKey)
@@ -1038,13 +1038,13 @@ public class AutoUpdatingGraphTest {
     tester.invalidate();
     // slowKey starts -> errorKey finishes, written to graph -> slowKey finishes & (Visitor aborts)
     // -> topKey builds.
-    UpdateResult<StringNode> result = tester.eval(/*keepGoing=*/false, topKey);
+    UpdateResult<StringValue> result = tester.eval(/*keepGoing=*/false, topKey);
     MoreAsserts.assertContentsAnyOrder(result.getError().getRootCauses(), errorKey);
     // Make sure midKey didn't finish building.
-    assertEquals(null, tester.graph.getExistingNodeForTesting(midKey));
+    assertEquals(null, tester.graph.getExistingValueForTesting(midKey));
     // Give slowKey a nice ordinary builder.
     tester.getOrCreate(slowKey, /*markAsModified=*/false).setBuilder(null)
-        .setConstantValue(new StringNode("slow"));
+        .setConstantValue(new StringValue("slow"));
     // Put midKey into the graph. It won't have a reverse dependence on topKey.
     tester.evalAndGet(/*keepGoing=*/false, midKey);
     // topKey should not access midKey as if it were already registered as a dependency.
@@ -1056,16 +1056,16 @@ public class AutoUpdatingGraphTest {
   @Test
   public void continueWithErrorDep() throws Exception {
     initializeTester();
-    NodeKey errorKey = GraphTester.toNodeKey("my_error_node");
+    SkyKey errorKey = GraphTester.toSkyKey("my_error_value");
     tester.getOrCreate(errorKey).setHasError(true);
-    tester.set("after", new StringNode("after"));
-    NodeKey parentKey = GraphTester.toNodeKey("parent");
-    tester.getOrCreate(parentKey).addErrorDependency(errorKey, new StringNode("recovered"))
+    tester.set("after", new StringValue("after"));
+    SkyKey parentKey = GraphTester.toSkyKey("parent");
+    tester.getOrCreate(parentKey).addErrorDependency(errorKey, new StringValue("recovered"))
         .setComputedValue(CONCATENATE).addDependency("after");
-    UpdateResult<StringNode> result = tester.eval(/*keepGoing=*/true, parentKey);
+    UpdateResult<StringValue> result = tester.eval(/*keepGoing=*/true, parentKey);
     assertThat(result.errorMap()).isEmpty();
     assertEquals("recoveredafter", result.get(parentKey).getValue());
-    tester.set("after", new StringNode("before"));
+    tester.set("after", new StringValue("before"));
     tester.invalidate();
     result = tester.eval(/*keepGoing=*/true, parentKey);
     assertThat(result.errorMap()).isEmpty();
@@ -1075,16 +1075,16 @@ public class AutoUpdatingGraphTest {
   @Test
   public void continueWithErrorDepTurnedGood() throws Exception {
     initializeTester();
-    NodeKey errorKey = GraphTester.toNodeKey("my_error_node");
+    SkyKey errorKey = GraphTester.toSkyKey("my_error_value");
     tester.getOrCreate(errorKey).setHasError(true);
-    tester.set("after", new StringNode("after"));
-    NodeKey parentKey = GraphTester.toNodeKey("parent");
-    tester.getOrCreate(parentKey).addErrorDependency(errorKey, new StringNode("recovered"))
+    tester.set("after", new StringValue("after"));
+    SkyKey parentKey = GraphTester.toSkyKey("parent");
+    tester.getOrCreate(parentKey).addErrorDependency(errorKey, new StringValue("recovered"))
         .setComputedValue(CONCATENATE).addDependency("after");
-    UpdateResult<StringNode> result = tester.eval(/*keepGoing=*/true, parentKey);
+    UpdateResult<StringValue> result = tester.eval(/*keepGoing=*/true, parentKey);
     assertThat(result.errorMap()).isEmpty();
     assertEquals("recoveredafter", result.get(parentKey).getValue());
-    tester.set(errorKey, new StringNode("reformed")).setHasError(false);
+    tester.set(errorKey, new StringValue("reformed")).setHasError(false);
     tester.invalidate();
     result = tester.eval(/*keepGoing=*/true, parentKey);
     assertThat(result.errorMap()).isEmpty();
@@ -1094,18 +1094,18 @@ public class AutoUpdatingGraphTest {
   @Test
   public void errorDepAlreadyThereThenTurnedGood() throws Exception {
     initializeTester();
-    NodeKey errorKey = GraphTester.toNodeKey("my_error_node");
+    SkyKey errorKey = GraphTester.toSkyKey("my_error_value");
     tester.getOrCreate(errorKey).setHasError(true);
-    NodeKey parentKey = GraphTester.toNodeKey("parent");
-    tester.getOrCreate(parentKey).addErrorDependency(errorKey, new StringNode("recovered"))
+    SkyKey parentKey = GraphTester.toSkyKey("parent");
+    tester.getOrCreate(parentKey).addErrorDependency(errorKey, new StringValue("recovered"))
         .setHasError(true);
-    // Prime the graph by putting the error node in it beforehand.
+    // Prime the graph by putting the error value in it beforehand.
     MoreAsserts.assertContentsAnyOrder(tester.evalAndGetError(errorKey).getRootCauses(), errorKey);
-    UpdateResult<StringNode> result = tester.eval(/*keepGoing=*/false, parentKey);
+    UpdateResult<StringValue> result = tester.eval(/*keepGoing=*/false, parentKey);
     // Request the parent.
     assertThat(result.getError(parentKey).getRootCauses()).iteratesAs(parentKey);
-    // Change the error node to no longer throw.
-    tester.set(errorKey, new StringNode("reformed")).setHasError(false);
+    // Change the error value to no longer throw.
+    tester.set(errorKey, new StringValue("reformed")).setHasError(false);
     tester.getOrCreate(parentKey, /*markAsModified=*/false).setHasError(false)
         .setComputedValue(COPY);
     tester.invalidate();
@@ -1113,8 +1113,9 @@ public class AutoUpdatingGraphTest {
     result = tester.eval(/*keepGoing=*/false, parentKey);
     assertThat(result.errorMap()).isEmpty();
     assertEquals("reformed", result.get(parentKey).getValue());
-    // Confirm that the parent no longer depends on the error transience node -- make it unbuildable
-    // again, but without invalidating it, and invalidate errors. The parent should not be rebuilt.
+    // Confirm that the parent no longer depends on the error transience value -- make it
+    // unbuildable again, but without invalidating it, and invalidate errors. The parent should not
+    // be rebuilt.
     tester.getOrCreate(parentKey, /*markAsModified=*/false).setHasError(true);
     tester.invalidateErrors();
     result = tester.eval(/*keepGoing=*/false, parentKey);
@@ -1123,134 +1124,154 @@ public class AutoUpdatingGraphTest {
   }
 
   /**
-   * Regression test for 2014 bug: error transience node is registered before newly requested deps.
-   * A node requests a child, gets it back immediately, and then throws, causing the error
-   * transience node to be registered as a dep. The following build, the error is invalidated via
+   * Regression test for 2014 bug: error transience value is registered before newly requested deps.
+   * A value requests a child, gets it back immediately, and then throws, causing the error
+   * transience value to be registered as a dep. The following build, the error is invalidated via
    * that child.
    */
   @Test
-  public void doubleDepOnErrorTransienceNode() throws Exception {
+  public void doubleDepOnErrorTransienceValue() throws Exception {
     initializeTester();
-    NodeKey leafKey = GraphTester.toNodeKey("leaf");
-    tester.set(leafKey, new StringNode("leaf"));
+    SkyKey leafKey = GraphTester.toSkyKey("leaf");
+    tester.set(leafKey, new StringValue("leaf"));
     // Prime the graph by putting leaf in beforehand.
-    assertEquals(new StringNode("leaf"), tester.evalAndGet(/*keepGoing=*/false, leafKey));
-    NodeKey topKey = GraphTester.toNodeKey("top");
+    assertEquals(new StringValue("leaf"), tester.evalAndGet(/*keepGoing=*/false, leafKey));
+    SkyKey topKey = GraphTester.toSkyKey("top");
     tester.getOrCreate(topKey).addDependency(leafKey).setHasError(true);
     // Build top -- it has an error.
     assertThat(tester.evalAndGetError(topKey).getRootCauses()).iteratesAs(topKey);
     // Invalidate top via leaf, and rebuild.
-    tester.set(leafKey, new StringNode("leaf2"));
+    tester.set(leafKey, new StringValue("leaf2"));
     tester.invalidate();
     assertThat(tester.evalAndGetError(topKey).getRootCauses()).iteratesAs(topKey);
   }
 
   @Test
-  public void incompleteNodeAlreadyThereNotUsed() throws Exception {
+  public void errorTransienceDepCleared() throws Exception {
     initializeTester();
-    NodeKey errorKey = GraphTester.toNodeKey("my_error_node");
+    final SkyKey top = GraphTester.toSkyKey("top");
+    SkyKey leaf = GraphTester.toSkyKey("leaf");
+    tester.set(leaf, new StringValue("leaf"));
+    tester.getOrCreate(top).addDependency(leaf).setHasError(true);
+    UpdateResult<StringValue> result = tester.eval(/*keepGoing=*/false, top);
+    assertTrue(result.toString(), result.hasError());
+    tester.getOrCreate(leaf, /*markAsModified=*/true);
+    tester.invalidate();
+    SkyKey irrelevant = GraphTester.toSkyKey("irrelevant");
+    tester.set(irrelevant, new StringValue("irrelevant"));
+    tester.eval(/*keepGoing=*/true, irrelevant);
+    tester.invalidateErrors();
+    result = tester.eval(/*keepGoing=*/true, top);
+    assertTrue(result.toString(), result.hasError());
+  }
+
+  @Test
+  public void incompleteValueAlreadyThereNotUsed() throws Exception {
+    initializeTester();
+    SkyKey errorKey = GraphTester.toSkyKey("my_error_value");
     tester.getOrCreate(errorKey).setHasError(true);
-    NodeKey midKey = GraphTester.toNodeKey("mid");
-    tester.getOrCreate(midKey).addErrorDependency(errorKey, new StringNode("recovered"))
+    SkyKey midKey = GraphTester.toSkyKey("mid");
+    tester.getOrCreate(midKey).addErrorDependency(errorKey, new StringValue("recovered"))
         .setComputedValue(COPY);
-    NodeKey parentKey = GraphTester.toNodeKey("parent");
-    tester.getOrCreate(parentKey).addErrorDependency(midKey, new StringNode("don't use this"))
+    SkyKey parentKey = GraphTester.toSkyKey("parent");
+    tester.getOrCreate(parentKey).addErrorDependency(midKey, new StringValue("don't use this"))
         .setComputedValue(COPY);
-    // Prime the graph by evaluating the mid-level node. It shouldn't be stored in the graph because
+    // Prime the graph by evaluating the mid-level value. It shouldn't be stored in the graph
+    // because
     // it was only called during the bubbling-up phase.
-    UpdateResult<StringNode> result = tester.eval(/*keepGoing=*/false, midKey);
+    UpdateResult<StringValue> result = tester.eval(/*keepGoing=*/false, midKey);
     assertEquals(null, result.get(midKey));
     MoreAsserts.assertContentsAnyOrder(result.getError().getRootCauses(), errorKey);
     // In a keepGoing build, midKey should be re-evaluated.
     assertEquals("recovered",
-        ((StringNode) tester.evalAndGet(/*keepGoing=*/true, parentKey)).getValue());
+        ((StringValue) tester.evalAndGet(/*keepGoing=*/true, parentKey)).getValue());
   }
 
   /**
-   * "top" requests a dependency group in which the first node, called "error", throws an exception,
-   * so "mid" and "mid2", which depend on "slow", never get built.
+   * "top" requests a dependency group in which the first value, called "error", throws an
+   * exception, so "mid" and "mid2", which depend on "slow", never get built.
    */
   @Test
   public void errorInDependencyGroup() throws Exception {
     initializeTester();
-    NodeKey topKey = GraphTester.toNodeKey("top");
+    SkyKey topKey = GraphTester.toSkyKey("top");
     CountDownLatch slowStart = new CountDownLatch(1);
     CountDownLatch errorFinish = new CountDownLatch(1);
-    final NodeKey errorKey = GraphTester.toNodeKey("error");
+    final SkyKey errorKey = GraphTester.toSkyKey("error");
     tester.getOrCreate(errorKey).setBuilder(
-        new ChainedNodeBuilder(/*notifyStart=*/null, /*waitToFinish=*/slowStart,
+        new ChainedFunction(/*notifyStart=*/null, /*waitToFinish=*/slowStart,
             /*notifyFinish=*/errorFinish, /*waitForException=*/false,
-            // ChainedNodeBuilder throws when value is null.
-            /*value=*/null, /*deps=*/ImmutableList.<NodeKey>of()));
-    NodeKey slowKey = GraphTester.toNodeKey("slow");
+            // ChainedFunction throws when value is null.
+            /*value=*/null, /*deps=*/ImmutableList.<SkyKey>of()));
+    SkyKey slowKey = GraphTester.toSkyKey("slow");
     tester.getOrCreate(slowKey).setBuilder(
-        new ChainedNodeBuilder(/*notifyStart=*/slowStart, /*waitToFinish=*/errorFinish,
+        new ChainedFunction(/*notifyStart=*/slowStart, /*waitToFinish=*/errorFinish,
             /*notifyFinish=*/null, /*waitForException=*/true,
-            new StringNode("slow"), /*deps=*/ImmutableList.<NodeKey>of()));
-    final NodeKey midKey = GraphTester.toNodeKey("mid");
+            new StringValue("slow"), /*deps=*/ImmutableList.<SkyKey>of()));
+    final SkyKey midKey = GraphTester.toSkyKey("mid");
     tester.getOrCreate(midKey).addDependency(slowKey).setComputedValue(COPY);
-    final NodeKey mid2Key = GraphTester.toNodeKey("mid2");
+    final SkyKey mid2Key = GraphTester.toSkyKey("mid2");
     tester.getOrCreate(mid2Key).addDependency(slowKey).setComputedValue(COPY);
     tester.set(topKey, null);
-    tester.getOrCreate(topKey).setBuilder(new NodeBuilder() {
+    tester.getOrCreate(topKey).setBuilder(new SkyFunction() {
       @Override
-      public Node build(NodeKey nodeKey, Environment env) throws NodeBuilderException,
+      public SkyValue compute(SkyKey skyKey, Environment env) throws SkyFunctionException,
           InterruptedException {
-        env.getDeps(ImmutableList.of(errorKey, midKey, mid2Key));
-        if (env.depsMissing()) {
+        env.getValues(ImmutableList.of(errorKey, midKey, mid2Key));
+        if (env.valuesMissing()) {
           return null;
         }
-        return new StringNode("top");
+        return new StringValue("top");
       }
 
       @Override
-      public String extractTag(NodeKey nodeKey) {
+      public String extractTag(SkyKey skyKey) {
         return null;
       }
     });
 
     // Assert that build fails and "error" really is in error.
-    UpdateResult<StringNode> result = tester.eval(/*keepGoing=*/false, topKey);
+    UpdateResult<StringValue> result = tester.eval(/*keepGoing=*/false, topKey);
     assertTrue(result.hasError());
     MoreAsserts.assertContentsAnyOrder(result.getError(topKey).getRootCauses(), errorKey);
 
     // Ensure that evaluation succeeds if errorKey does not throw an error.
     tester.getOrCreate(errorKey).setBuilder(null);
-    tester.set(errorKey, new StringNode("ok"));
+    tester.set(errorKey, new StringValue("ok"));
     tester.invalidate();
-    assertEquals(new StringNode("top"), tester.evalAndGet("top"));
+    assertEquals(new StringValue("top"), tester.evalAndGet("top"));
   }
 
   /**
-   * Regression test -- if node top requests {depA, depB}, depC, with depA and depC there and depB
+   * Regression test -- if value top requests {depA, depB}, depC, with depA and depC there and depB
    * absent, and then throws an exception, the stored deps should be depA, depC (in different
    * groups), not {depA, depC} (same group).
    */
   @Test
-  public void nodeInErrorWithGroups() throws Exception {
+  public void valueInErrorWithGroups() throws Exception {
     initializeTester();
-    NodeKey topKey = GraphTester.toNodeKey("top");
-    final NodeKey groupDepA = GraphTester.toNodeKey("groupDepA");
-    final NodeKey groupDepB = GraphTester.toNodeKey("groupDepB");
-    NodeKey depC = GraphTester.toNodeKey("depC");
-    tester.set(groupDepA, new StringNode("depC"));
-    tester.set(groupDepB, new StringNode(""));
+    SkyKey topKey = GraphTester.toSkyKey("top");
+    final SkyKey groupDepA = GraphTester.toSkyKey("groupDepA");
+    final SkyKey groupDepB = GraphTester.toSkyKey("groupDepB");
+    SkyKey depC = GraphTester.toSkyKey("depC");
+    tester.set(groupDepA, new StringValue("depC"));
+    tester.set(groupDepB, new StringValue(""));
     tester.getOrCreate(depC).setHasError(true);
-    tester.getOrCreate(topKey).setBuilder(new NoExtractorNodeBuilder() {
+    tester.getOrCreate(topKey).setBuilder(new NoExtractorFunction() {
       @Override
-      public Node build(NodeKey nodeKey, Environment env) throws NodeBuilderException {
-        String nextDep = ((StringNode) env.getDeps(ImmutableList.of(groupDepA, groupDepB))
+      public SkyValue compute(SkyKey skyKey, Environment env) throws SkyFunctionException {
+        String nextDep = ((StringValue) env.getValues(ImmutableList.of(groupDepA, groupDepB))
             .get(groupDepA)).getValue();
         try {
-          env.getDepOrThrow(GraphTester.toNodeKey(nextDep), SomeErrorException.class);
+          env.getValueOrThrow(GraphTester.toSkyKey(nextDep), SomeErrorException.class);
         } catch (SomeErrorException e) {
-          throw new GenericNodeBuilderException(nodeKey, e);
+          throw new GenericFunctionException(skyKey, e);
         }
-        return env.depsMissing() ? null : new StringNode("top");
+        return env.valuesMissing() ? null : new StringValue("top");
       }
     });
 
-    UpdateResult<StringNode> updateResult = tester.eval(/*keepGoing=*/true, groupDepA, depC);
+    UpdateResult<StringValue> updateResult = tester.eval(/*keepGoing=*/true, groupDepA, depC);
     assertTrue(updateResult.hasError());
     assertEquals("depC", updateResult.get(groupDepA).getValue());
     assertThat(updateResult.getError(depC).getRootCauses()).iteratesAs(depC);
@@ -1258,7 +1279,7 @@ public class AutoUpdatingGraphTest {
     assertTrue(updateResult.hasError());
     assertThat(updateResult.getError(topKey).getRootCauses()).iteratesAs(topKey);
 
-    tester.set(groupDepA, new StringNode("groupDepB"));
+    tester.set(groupDepA, new StringValue("groupDepB"));
     tester.getOrCreate(depC, /*markAsModified=*/true);
     tester.invalidate();
     updateResult = tester.eval(/*keepGoing=*/false, topKey);
@@ -1269,36 +1290,37 @@ public class AutoUpdatingGraphTest {
   @Test
   public void errorOnlyEmittedOnce() throws Exception {
     initializeTester();
-    tester.set("x", new StringNode("y")).setWarning("fizzlepop");
-    StringNode node = (StringNode) tester.evalAndGet("x");
-    assertEquals("y", node.getValue());
+    tester.set("x", new StringValue("y")).setWarning("fizzlepop");
+    StringValue value = (StringValue) tester.evalAndGet("x");
+    assertEquals("y", value.getValue());
     JunitTestUtils.assertContainsEvent(eventCollector, "fizzlepop");
     JunitTestUtils.assertEventCount(1, eventCollector);
 
     tester.invalidate();
-    node = (StringNode) tester.evalAndGet("x");
-    assertEquals("y", node.getValue());
+    value = (StringValue) tester.evalAndGet("x");
+    assertEquals("y", value.getValue());
     // No new events emitted.
     JunitTestUtils.assertEventCount(1, eventCollector);
   }
 
   /**
-   * We are checking here that we are resilient to a race condition in which a node that is checking
-   * its children for dirtiness is signaled by all of its children, putting it in a ready state,
-   * before the thread has terminated. Optionally, one of its children may throw an error, shutting
-   * down the threadpool. This is similar to {@link ParallelEvaluatorTest#slowChildCleanup}: a child
-   * about to throw signals its parent and the parent's builder restarts itself before the exception
-   * is thrown. Here, the signaling happens while dirty dependencies are being checked, as opposed
-   * to during actual evaluation, but the principle is the same. We control the timing by blocking
-   * "top"'s registering itself on its deps.
+   * We are checking here that we are resilient to a race condition in which a value that is
+   * checking its children for dirtiness is signaled by all of its children, putting it in a ready
+   * state, before the thread has terminated. Optionally, one of its children may throw an error,
+   * shutting down the threadpool. This is similar to
+   * {@link ParallelEvaluatorTest#slowChildCleanup}: a child about to throw signals its parent and
+   * the parent's builder restarts itself before the exception is thrown. Here, the signaling
+   * happens while dirty dependencies are being checked, as opposed to during actual evaluation, but
+   * the principle is the same. We control the timing by blocking "top"'s registering itself on its
+   * deps.
    */
   private void dirtyChildEnqueuesParentDuringCheckDependencies(boolean throwError)
       throws Exception {
-    // Node to be built. It will be signaled to rebuild before it has finished checking its deps.
-    final NodeKey top = GraphTester.toNodeKey("top");
-    // Dep that blocks before it acknowledges being added as a dep by top, so the firstKey node has
+    // Value to be built. It will be signaled to rebuild before it has finished checking its deps.
+    final SkyKey top = GraphTester.toSkyKey("top");
+    // Dep that blocks before it acknowledges being added as a dep by top, so the firstKey value has
     // time to signal top.
-    final NodeKey slowAddingDep = GraphTester.toNodeKey("dep");
+    final SkyKey slowAddingDep = GraphTester.toSkyKey("dep");
     // Don't perform any blocking on the first build.
     final AtomicBoolean delayTopSignaling = new AtomicBoolean(false);
     final CountDownLatch topSignaled = new CountDownLatch(1);
@@ -1306,7 +1328,7 @@ public class AutoUpdatingGraphTest {
     final TrackingAwaiter trackingAwaiter = new TrackingAwaiter();
     setGraphForTesting(new NotifyingInMemoryGraph(new Listener() {
       @Override
-      public void accept(NodeKey key, EventType type, Order order, Object context) {
+      public void accept(SkyKey key, EventType type, Order order, Object context) {
         if (!delayTopSignaling.get()) {
           return;
         }
@@ -1326,24 +1348,24 @@ public class AutoUpdatingGraphTest {
         }
       }
     }));
-    // Node that is modified on the second build. Its thread won't finish until it signals top,
+    // Value that is modified on the second build. Its thread won't finish until it signals top,
     // which will wait for the signal before it enqueues its next dep. We prevent the thread from
     // finishing by having the listener to which it reports its warning block until top's builder
     // starts.
-    final NodeKey firstKey = GraphTester.nodeKey("first");
-    tester.set(firstKey, new StringNode("biding"));
-    tester.set(slowAddingDep, new StringNode("dep"));
+    final SkyKey firstKey = GraphTester.skyKey("first");
+    tester.set(firstKey, new StringValue("biding"));
+    tester.set(slowAddingDep, new StringValue("dep"));
     // top's builder just requests both deps in a group.
-    tester.getOrCreate(top).setBuilder(new NoExtractorNodeBuilder() {
+    tester.getOrCreate(top).setBuilder(new NoExtractorFunction() {
       @Override
-      public Node build(NodeKey key, NodeBuilder.Environment env) {
+      public SkyValue compute(SkyKey key, SkyFunction.Environment env) {
         if (delayTopSignaling.get()) {
           // The reporter will be given firstKey's warning to emit when it is requested as a dep
           // below, if firstKey is already built, so we release the reporter's latch beforehand.
           topRestartedBuild.countDown();
         }
-        env.getDepsOrThrow(ImmutableList.of(firstKey, slowAddingDep), Exception.class);
-        return env.depsMissing() ? null : new StringNode("top");
+        env.getValuesOrThrow(ImmutableList.of(firstKey, slowAddingDep), Exception.class);
+        return env.valuesMissing() ? null : new StringValue("top");
       }
     });
     reporter = new DelegatingErrorEventListener(reporter) {
@@ -1355,9 +1377,9 @@ public class AutoUpdatingGraphTest {
       }
     };
     // First build : just prime the graph.
-    UpdateResult<StringNode> result = tester.eval(/*keepGoing=*/false, top);
+    UpdateResult<StringValue> result = tester.eval(/*keepGoing=*/false, top);
     assertFalse(result.hasError());
-    assertEquals(new StringNode("top"), result.get(top));
+    assertEquals(new StringValue("top"), result.get(top));
     // Now dirty the graph, and maybe have firstKey throw an error.
     String warningText = "warning text";
     tester.getOrCreate(firstKey, /*markAsModified=*/true).setHasError(throwError)
@@ -1368,11 +1390,11 @@ public class AutoUpdatingGraphTest {
     trackingAwaiter.assertNoErrors();
     if (throwError) {
       assertTrue(result.hasError());
-      assertThat(result.keyNames()).isEmpty(); // No successfully evaluated nodes.
+      assertThat(result.keyNames()).isEmpty(); // No successfully evaluated values.
       ErrorInfo errorInfo = result.getError(top);
       MoreAsserts.assertContentsAnyOrder(errorInfo.getRootCauses(), firstKey);
     } else {
-      assertEquals(new StringNode("top"), result.get(top));
+      assertEquals(new StringValue("top"), result.get(top));
       assertFalse(result.hasError());
     }
     JunitTestUtils.assertContainsEvent(eventCollector, warningText);
@@ -1399,49 +1421,49 @@ public class AutoUpdatingGraphTest {
     initializeTester();
 
     // leaf4 should not built in the second build.
-    final NodeKey leaf4 = GraphTester.toNodeKey("leaf4");
+    final SkyKey leaf4 = GraphTester.toSkyKey("leaf4");
     final AtomicBoolean shouldNotBuildLeaf4 = new AtomicBoolean(false);
     setGraphForTesting(new NotifyingInMemoryGraph(new Listener() {
       @Override
-      public void accept(NodeKey key, EventType type, Order order, Object context) {
+      public void accept(SkyKey key, EventType type, Order order, Object context) {
         if (shouldNotBuildLeaf4.get() && key.equals(leaf4)) {
           throw new IllegalStateException("leaf4 should not have been considered this build: "
               + type + ", " + order + ", " + context);
         }
       }
     }));
-    tester.set(leaf4, new StringNode("leaf4"));
+    tester.set(leaf4, new StringValue("leaf4"));
 
-    // Create leaf0, leaf1 and leaf2 nodes with values "leaf2", "leaf3", "leaf4" respectively.
+    // Create leaf0, leaf1 and leaf2 values with values "leaf2", "leaf3", "leaf4" respectively.
     // These will be requested as one dependency group. In the second build, leaf2 will have the
     // value "leaf5".
-    final List<NodeKey> leaves = new ArrayList<>();
+    final List<SkyKey> leaves = new ArrayList<>();
     for (int i = 0; i <= 2; i++) {
-      NodeKey leaf = GraphTester.toNodeKey("leaf" + i);
+      SkyKey leaf = GraphTester.toSkyKey("leaf" + i);
       leaves.add(leaf);
-      tester.set(leaf, new StringNode("leaf" + (i + 2)));
+      tester.set(leaf, new StringValue("leaf" + (i + 2)));
     }
 
-    // Create "top" node. It depends on all leaf nodes in two overlapping dependency groups.
-    NodeKey topKey = GraphTester.toNodeKey("top");
-    final Node topValue = new StringNode("top");
-    tester.getOrCreate(topKey).setBuilder(new NoExtractorNodeBuilder() {
+    // Create "top" value. It depends on all leaf values in two overlapping dependency groups.
+    SkyKey topKey = GraphTester.toSkyKey("top");
+    final SkyValue topValue = new StringValue("top");
+    tester.getOrCreate(topKey).setBuilder(new NoExtractorFunction() {
       @Override
-      public Node build(NodeKey nodeKey, Environment env) throws NodeBuilderException,
+      public SkyValue compute(SkyKey skyKey, Environment env) throws SkyFunctionException,
           InterruptedException {
         // Request the first group, [leaf0, leaf1, leaf2].
         // In the first build, it has values ["leaf2", "leaf3", "leaf4"].
         // In the second build it has values ["leaf2", "leaf3", "leaf5"]
-        Map<NodeKey, Node> nodes = env.getDeps(leaves);
-        if (env.depsMissing()) {
+        Map<SkyKey, SkyValue> values = env.getValues(leaves);
+        if (env.valuesMissing()) {
           return null;
         }
 
         // Request the second group. In the first build it's [leaf2, leaf4].
         // In the second build it's [leaf2, leaf5]
-        env.getDeps(ImmutableList.of(leaves.get(2),
-            GraphTester.toNodeKey(((StringNode) nodes.get(leaves.get(2))).getValue())));
-        if (env.depsMissing()) {
+        env.getValues(ImmutableList.of(leaves.get(2),
+            GraphTester.toSkyKey(((StringValue) values.get(leaves.get(2))).getValue())));
+        if (env.valuesMissing()) {
           return null;
         }
 
@@ -1453,9 +1475,9 @@ public class AutoUpdatingGraphTest {
     assertEquals(topValue, tester.evalAndGet(/*keepGoing=*/false, topKey));
 
     // Second build: replace "leaf4" by "leaf5" in leaf2's value. Assert leaf4 is not requested.
-    final NodeKey leaf5 = GraphTester.toNodeKey("leaf5");
-    tester.set(leaf5, new StringNode("leaf5"));
-    tester.set(leaves.get(2), new StringNode("leaf5"));
+    final SkyKey leaf5 = GraphTester.toSkyKey("leaf5");
+    tester.set(leaf5, new StringValue("leaf5"));
+    tester.set(leaves.get(2), new StringValue("leaf5"));
     tester.invalidate();
     shouldNotBuildLeaf4.set(true);
     assertEquals(topValue, tester.evalAndGet(/*keepGoing=*/false, topKey));
@@ -1464,47 +1486,47 @@ public class AutoUpdatingGraphTest {
   @Test
   public void dirtyAndChanged() throws Exception {
     initializeTester();
-    NodeKey leaf = GraphTester.toNodeKey("leaf");
-    NodeKey mid = GraphTester.toNodeKey("mid");
-    NodeKey top = GraphTester.toNodeKey("top");
+    SkyKey leaf = GraphTester.toSkyKey("leaf");
+    SkyKey mid = GraphTester.toSkyKey("mid");
+    SkyKey top = GraphTester.toSkyKey("top");
     tester.getOrCreate(top).addDependency(mid).setComputedValue(COPY);
     tester.getOrCreate(mid).addDependency(leaf).setComputedValue(COPY);
-    tester.set(leaf, new StringNode("leafy"));
+    tester.set(leaf, new StringValue("leafy"));
     // For invalidation.
-    tester.set("dummy", new StringNode("dummy"));
-    StringNode topNode = (StringNode) tester.evalAndGet("top");
-    assertEquals("leafy", topNode.getValue());
-    tester.set(leaf, new StringNode("crunchy"));
+    tester.set("dummy", new StringValue("dummy"));
+    StringValue topValue = (StringValue) tester.evalAndGet("top");
+    assertEquals("leafy", topValue.getValue());
+    tester.set(leaf, new StringValue("crunchy"));
     tester.invalidate();
     // For invalidation.
     tester.evalAndGet("dummy");
     tester.getOrCreate(mid, /*markAsModified=*/true);
     tester.invalidate();
-    topNode = (StringNode) tester.evalAndGet("top");
-    assertEquals("crunchy", topNode.getValue());
+    topValue = (StringValue) tester.evalAndGet("top");
+    assertEquals("crunchy", topValue.getValue());
   }
 
   /**
-   * Test whether a node that was already marked changed will be incorrectly marked dirty, not
+   * Test whether a value that was already marked changed will be incorrectly marked dirty, not
    * changed, if another thread tries to mark it just dirty. To exercise this, we need to have a
-   * race condition where both threads see that the node is not dirty yet, then the "changed" thread
-   * marks the node changed before the "dirty" thread marks the node dirty. To accomplish this, we
-   * use a countdown latch to make the "dirty" thread wait until the "changed" thread is done, and
-   * another countdown latch to make both of them wait until they have both checked if the node
-   * is currently clean.
+   * race condition where both threads see that the value is not dirty yet, then the "changed"
+   * thread marks the value changed before the "dirty" thread marks the value dirty. To accomplish
+   * this, we use a countdown latch to make the "dirty" thread wait until the "changed" thread is
+   * done, and another countdown latch to make both of them wait until they have both checked if the
+   * value is currently clean.
    */
   @Test
-  public void dirtyAndChangedNodeIsChanged() throws Exception {
-    final NodeKey parent = GraphTester.toNodeKey("parent");
+  public void dirtyAndChangedValueIsChanged() throws Exception {
+    final SkyKey parent = GraphTester.toSkyKey("parent");
     final AtomicBoolean blockingEnabled = new AtomicBoolean(false);
     final CountDownLatch waitForChanged = new CountDownLatch(1);
-    // changed thread checks node entry once (to see if it is changed). dirty thread checks twice,
+    // changed thread checks value entry once (to see if it is changed). dirty thread checks twice,
     // to see if it is changed, and if it is dirty.
     final CountDownLatch threadsStarted = new CountDownLatch(3);
     final TrackingAwaiter trackingAwaiter = new TrackingAwaiter();
     setGraphForTesting(new NotifyingInMemoryGraph(new Listener() {
       @Override
-      public void accept(NodeKey key, EventType type, Order order, Object context) {
+      public void accept(SkyKey key, EventType type, Order order, Object context) {
         if (!blockingEnabled.get()) {
           return;
         }
@@ -1520,11 +1542,11 @@ public class AutoUpdatingGraphTest {
         }
         if (type == EventType.MARK_DIRTY) {
           trackingAwaiter.awaitLatchAndTrackExceptions(threadsStarted,
-              "Both threads did not query if node isChanged in time");
+              "Both threads did not query if value isChanged in time");
           boolean isChanged = (Boolean) context;
           if (order == Order.BEFORE && !isChanged) {
             trackingAwaiter.awaitLatchAndTrackExceptions(waitForChanged,
-                "'changed' thread did not mark node changed in time");
+                "'changed' thread did not mark value changed in time");
             return;
           }
           if (order == Order.AFTER && isChanged) {
@@ -1533,17 +1555,17 @@ public class AutoUpdatingGraphTest {
         }
       }
     }));
-    NodeKey leaf = GraphTester.toNodeKey("leaf");
-    tester.set(leaf, new StringNode("leaf"));
+    SkyKey leaf = GraphTester.toSkyKey("leaf");
+    tester.set(leaf, new StringValue("leaf"));
     tester.getOrCreate(parent).addDependency(leaf).setComputedValue(CONCATENATE);
-    UpdateResult<StringNode> result;
+    UpdateResult<StringValue> result;
     result = tester.eval(/*keepGoing=*/false, parent);
     assertEquals("leaf", result.get(parent).getValue());
     // Invalidate leaf, but don't actually change it. It will transitively dirty parent
     // concurrently with parent directly dirtying itself.
     tester.getOrCreate(leaf, /*markAsModified=*/true);
-    NodeKey other2 = GraphTester.toNodeKey("other2");
-    tester.set(other2, new StringNode("other2"));
+    SkyKey other2 = GraphTester.toSkyKey("other2");
+    tester.set(other2, new StringValue("other2"));
     // Invalidate parent, actually changing it.
     tester.getOrCreate(parent, /*markAsModified=*/true).addDependency(other2);
     tester.invalidate();
@@ -1556,64 +1578,64 @@ public class AutoUpdatingGraphTest {
   }
 
   @Test
-  public void singleNodeDependsOnManyDirtyNodes() throws Exception {
+  public void singleValueDependsOnManyDirtyValues() throws Exception {
     initializeTester();
-    NodeKey[] nodes = new NodeKey[TEST_NODE_COUNT];
+    SkyKey[] values = new SkyKey[TEST_NODE_COUNT];
     StringBuilder expected = new StringBuilder();
-    for (int i = 0; i < nodes.length; i++) {
-      String nodeName = Integer.toString(i);
-      nodes[i] = GraphTester.toNodeKey(nodeName);
-      tester.set(nodes[i], new StringNode(nodeName));
-      expected.append(nodeName);
+    for (int i = 0; i < values.length; i++) {
+      String valueName = Integer.toString(i);
+      values[i] = GraphTester.toSkyKey(valueName);
+      tester.set(values[i], new StringValue(valueName));
+      expected.append(valueName);
     }
-    NodeKey topKey = new NodeKey(GraphTester.NODE_TYPE, "top");
-    TestNodeBuilder node = tester.getOrCreate(topKey)
+    SkyKey topKey = new SkyKey(GraphTester.NODE_TYPE, "top");
+    TestFunction value = tester.getOrCreate(topKey)
         .setComputedValue(CONCATENATE);
-    for (int i = 0; i < nodes.length; i++) {
-      node.addDependency(nodes[i]);
+    for (int i = 0; i < values.length; i++) {
+      value.addDependency(values[i]);
     }
 
-    UpdateResult<StringNode> result = tester.eval(/*keepGoing=*/false, topKey);
-    assertEquals(new StringNode(expected.toString()), result.get(topKey));
+    UpdateResult<StringValue> result = tester.eval(/*keepGoing=*/false, topKey);
+    assertEquals(new StringValue(expected.toString()), result.get(topKey));
 
     for (int j = 0; j < RUNS; j++) {
-      for (int i = 0; i < nodes.length; i++) {
-        tester.getOrCreate(nodes[i], /*markAsModified=*/true);
+      for (int i = 0; i < values.length; i++) {
+        tester.getOrCreate(values[i], /*markAsModified=*/true);
       }
-      // This node has an error, but we should never discover it because it is not marked changed
+      // This value has an error, but we should never discover it because it is not marked changed
       // and all of its dependencies re-evaluate to the same thing.
       tester.getOrCreate(topKey, /*markAsModified=*/false).setHasError(true);
       tester.invalidate();
 
       result = tester.eval(/*keep_going=*/false, topKey);
-      assertEquals(new StringNode(expected.toString()), result.get(topKey));
+      assertEquals(new StringValue(expected.toString()), result.get(topKey));
     }
   }
 
   /**
-   * Tests scenario where we have dirty nodes in the graph, and then one of them is deleted since
+   * Tests scenario where we have dirty values in the graph, and then one of them is deleted since
    * its evaluation did not complete before an error was thrown. Can either test the graph via an
-   * update of that deleted node, or an invalidation of a child, and can either remove the thrown
+   * update of that deleted value, or an invalidation of a child, and can either remove the thrown
    * error or throw it again on that update.
    */
-  private void dirtyNodeChildrenProperlyRemovedOnEarlyBuildAbort(
-      boolean reevaluateMissingNode, boolean removeError) throws Exception {
+  private void dirtyValueChildrenProperlyRemovedOnEarlyBuildAbort(
+      boolean reevaluateMissingValue, boolean removeError) throws Exception {
     initializeTester();
-    NodeKey errorKey = GraphTester.toNodeKey("error");
-    tester.set(errorKey, new StringNode("biding time"));
-    NodeKey slowKey = GraphTester.toNodeKey("slow");
-    tester.set(slowKey, new StringNode("slow"));
-    NodeKey midKey = GraphTester.toNodeKey("mid");
+    SkyKey errorKey = GraphTester.toSkyKey("error");
+    tester.set(errorKey, new StringValue("biding time"));
+    SkyKey slowKey = GraphTester.toSkyKey("slow");
+    tester.set(slowKey, new StringValue("slow"));
+    SkyKey midKey = GraphTester.toSkyKey("mid");
     tester.getOrCreate(midKey).addDependency(slowKey).setComputedValue(COPY);
-    NodeKey lastKey = GraphTester.toNodeKey("last");
-    tester.set(lastKey, new StringNode("last"));
-    NodeKey motherKey = GraphTester.toNodeKey("mother");
+    SkyKey lastKey = GraphTester.toSkyKey("last");
+    tester.set(lastKey, new StringValue("last"));
+    SkyKey motherKey = GraphTester.toSkyKey("mother");
     tester.getOrCreate(motherKey).addDependency(errorKey)
         .addDependency(midKey).addDependency(lastKey).setComputedValue(CONCATENATE);
-    NodeKey fatherKey = GraphTester.toNodeKey("father");
+    SkyKey fatherKey = GraphTester.toSkyKey("father");
     tester.getOrCreate(fatherKey).addDependency(errorKey)
         .addDependency(midKey).addDependency(lastKey).setComputedValue(CONCATENATE);
-    UpdateResult<StringNode> result = tester.eval(/*keepGoing=*/false, motherKey, fatherKey);
+    UpdateResult<StringValue> result = tester.eval(/*keepGoing=*/false, motherKey, fatherKey);
     assertEquals("biding timeslowlast", result.get(motherKey).getValue());
     assertEquals("biding timeslowlast", result.get(fatherKey).getValue());
     tester.set(slowKey, null);
@@ -1624,13 +1646,13 @@ public class AutoUpdatingGraphTest {
     CountDownLatch errorFinish = new CountDownLatch(1);
     tester.set(errorKey, null);
     tester.getOrCreate(errorKey).setBuilder(
-        new ChainedNodeBuilder(/*notifyStart=*/null, /*waitToFinish=*/null,
+        new ChainedFunction(/*notifyStart=*/null, /*waitToFinish=*/null,
             /*notifyFinish=*/errorFinish, /*waitForException=*/false, /*value=*/null,
-            /*deps=*/ImmutableList.<NodeKey>of()));
+            /*deps=*/ImmutableList.<SkyKey>of()));
     tester.getOrCreate(slowKey).setBuilder(
-        new ChainedNodeBuilder(/*notifyStart=*/null, /*waitToFinish=*/errorFinish,
-            /*notifyFinish=*/null, /*waitForException=*/true, new StringNode("leaf2"),
-            /*deps=*/ImmutableList.<NodeKey>of()));
+        new ChainedFunction(/*notifyStart=*/null, /*waitToFinish=*/errorFinish,
+            /*notifyFinish=*/null, /*waitForException=*/true, new StringValue("leaf2"),
+            /*deps=*/ImmutableList.<SkyKey>of()));
     tester.invalidate();
     // errorKey finishes, written to graph -> leafKey maybe starts+finishes & (Visitor aborts)
     // -> one of mother or father builds. The other one should be cleaned, and no references to it
@@ -1640,21 +1662,21 @@ public class AutoUpdatingGraphTest {
     // Only one of mother or father should be in the graph.
     assertTrue(result.getError(motherKey) + ", " + result.getError(fatherKey),
         (result.getError(motherKey) == null) != (result.getError(fatherKey) == null));
-    NodeKey parentKey = (reevaluateMissingNode == (result.getError(motherKey) == null)) ?
-        motherKey : fatherKey;
+    SkyKey parentKey = (reevaluateMissingValue == (result.getError(motherKey) == null))
+        ? motherKey : fatherKey;
     // Give slowKey a nice ordinary builder.
     tester.getOrCreate(slowKey, /*markAsModified=*/false).setBuilder(null)
-        .setConstantValue(new StringNode("leaf2"));
+        .setConstantValue(new StringValue("leaf2"));
     if (removeError) {
       tester.getOrCreate(errorKey, /*markAsModified=*/true).setBuilder(null)
-          .setConstantValue(new StringNode("reformed"));
+          .setConstantValue(new StringValue("reformed"));
     }
     String lastString = "last";
-    if (!reevaluateMissingNode) {
-      // Mark the last key modified if we're not trying the absent node again. This invalidation
-      // will test if lastKey still has a reference to the absent node.
+    if (!reevaluateMissingValue) {
+      // Mark the last key modified if we're not trying the absent value again. This invalidation
+      // will test if lastKey still has a reference to the absent value.
       lastString = "last2";
-      tester.set(lastKey, new StringNode(lastString));
+      tester.set(lastKey, new StringValue(lastString));
     }
     tester.invalidate();
     result = tester.eval(/*keepGoing=*/false, parentKey);
@@ -1667,75 +1689,76 @@ public class AutoUpdatingGraphTest {
 
   /**
    * The following four tests (dirtyChildrenProperlyRemovedWith*) test the consistency of the graph
-   * after a failed build in which a dirty node should have been deleted from the graph. The
-   * consistency is tested via either evaluating the missing node, or the re-evaluating the present
-   * node, and either clearing the error or keeping it. To evaluate the present node, we invalidate
-   * the error node to force re-evaluation. Related to bug "skyframe m1: graph may not be properly
-   * cleaned on interrupt or failure".
+   * after a failed build in which a dirty value should have been deleted from the graph. The
+   * consistency is tested via either evaluating the missing value, or the re-evaluating the present
+   * value, and either clearing the error or keeping it. To evaluate the present value, we
+   * invalidate the error value to force re-evaluation. Related to bug "skyframe m1: graph may not
+   * be properly cleaned on interrupt or failure".
    */
   @Test
   public void dirtyChildrenProperlyRemovedWithInvalidateRemoveError() throws Exception {
-    dirtyNodeChildrenProperlyRemovedOnEarlyBuildAbort(/*reevaluateMissingNode=*/false,
+    dirtyValueChildrenProperlyRemovedOnEarlyBuildAbort(/*reevaluateMissingValue=*/false,
         /*removeError=*/true);
   }
 
   @Test
   public void dirtyChildrenProperlyRemovedWithInvalidateKeepError() throws Exception {
-    dirtyNodeChildrenProperlyRemovedOnEarlyBuildAbort(/*reevaluateMissingNode=*/false,
+    dirtyValueChildrenProperlyRemovedOnEarlyBuildAbort(/*reevaluateMissingValue=*/false,
         /*removeError=*/false);
   }
 
   @Test
   public void dirtyChildrenProperlyRemovedWithReevaluateRemoveError() throws Exception {
-    dirtyNodeChildrenProperlyRemovedOnEarlyBuildAbort(/*reevaluateMissingNode=*/true,
+    dirtyValueChildrenProperlyRemovedOnEarlyBuildAbort(/*reevaluateMissingValue=*/true,
         /*removeError=*/true);
   }
 
   @Test
   public void dirtyChildrenProperlyRemovedWithReevaluateKeepError() throws Exception {
-    dirtyNodeChildrenProperlyRemovedOnEarlyBuildAbort(/*reevaluateMissingNode=*/true,
+    dirtyValueChildrenProperlyRemovedOnEarlyBuildAbort(/*reevaluateMissingValue=*/true,
         /*removeError=*/false);
   }
 
   /**
-   * Regression test: enqueue so many nodes that some of them won't have started processing, and
+   * Regression test: enqueue so many values that some of them won't have started processing, and
    * then either interrupt processing or have a child throw an error. In the latter case, this also
-   * tests that a node that hasn't started processing can still have a child error bubble up to it.
-   * In both cases, it tests that the graph is properly cleaned of the dirty nodes and references to
-   * them.
+   * tests that a value that hasn't started processing can still have a child error bubble up to it.
+   * In both cases, it tests that the graph is properly cleaned of the dirty values and references
+   * to them.
    */
-  private void manyDirtyNodesClearChildrenOnFail(boolean interrupt) throws Exception {
-    NodeKey leafKey = GraphTester.toNodeKey("leaf");
-    tester.set(leafKey, new StringNode("leafy"));
-    NodeKey lastKey = GraphTester.toNodeKey("last");
-    tester.set(lastKey, new StringNode("last"));
-    final List<NodeKey> tops = new ArrayList<>();
-    // Request far more top-level nodes than there are threads, so some of them will block until the
+  private void manyDirtyValuesClearChildrenOnFail(boolean interrupt) throws Exception {
+    SkyKey leafKey = GraphTester.toSkyKey("leaf");
+    tester.set(leafKey, new StringValue("leafy"));
+    SkyKey lastKey = GraphTester.toSkyKey("last");
+    tester.set(lastKey, new StringValue("last"));
+    final List<SkyKey> tops = new ArrayList<>();
+    // Request far more top-level values than there are threads, so some of them will block until
+    // the
     // leaf child is enqueued for processing.
     for (int i = 0; i < 10000; i++) {
-      NodeKey topKey = GraphTester.toNodeKey("top" + i);
+      SkyKey topKey = GraphTester.toSkyKey("top" + i);
       tester.getOrCreate(topKey).addDependency(leafKey).addDependency(lastKey)
           .setComputedValue(CONCATENATE);
       tops.add(topKey);
     }
-    tester.eval(/*keepGoing=*/false, tops.toArray(new NodeKey[0]));
+    tester.eval(/*keepGoing=*/false, tops.toArray(new SkyKey[0]));
     final CountDownLatch notifyStart = new CountDownLatch(1);
     tester.set(leafKey, null);
     if (interrupt) {
-      // leaf will wait for an interrupt if desired. We cannot use the usual ChainedNodeBuilder
+      // leaf will wait for an interrupt if desired. We cannot use the usual ChainedFunction
       // because we need to actually throw the interrupt.
       final AtomicBoolean shouldSleep = new AtomicBoolean(true);
       tester.getOrCreate(leafKey, /*markAsModified=*/true).setBuilder(
-          new NoExtractorNodeBuilder() {
+          new NoExtractorFunction() {
             @Override
-            public Node build(NodeKey nodeKey, Environment env) throws InterruptedException {
+            public SkyValue compute(SkyKey skyKey, Environment env) throws InterruptedException {
               notifyStart.countDown();
               if (shouldSleep.get()) {
                 // Should be interrupted within 5 seconds.
                 Thread.sleep(5000);
                 throw new AssertionError("leaf was not interrupted");
               }
-              return new StringNode("crunchy");
+              return new StringValue("crunchy");
             }
           });
       tester.invalidate();
@@ -1743,7 +1766,7 @@ public class AutoUpdatingGraphTest {
         @Override
         public void runTest() {
           try {
-            tester.eval(/*keepGoing=*/false, tops.toArray(new NodeKey[0]));
+            tester.eval(/*keepGoing=*/false, tops.toArray(new SkyKey[0]));
             Assert.fail();
           } catch (InterruptedException e) {
             // Expected.
@@ -1763,113 +1786,113 @@ public class AutoUpdatingGraphTest {
       tester.invalidate();
       // The error thrown may non-deterministically bubble up to a parent that has not yet started
       // processing, but has been enqueued for processing.
-      tester.eval(/*keepGoing=*/false, tops.toArray(new NodeKey[0]));
+      tester.eval(/*keepGoing=*/false, tops.toArray(new SkyKey[0]));
       tester.getOrCreate(leafKey, /*markAsModified=*/true).setHasError(false);
-      tester.set(leafKey, new StringNode("crunchy"));
+      tester.set(leafKey, new StringValue("crunchy"));
     }
     // lastKey was not touched during the previous build, but its reverse deps on its parents should
     // still be accurate.
-    tester.set(lastKey, new StringNode("new last"));
+    tester.set(lastKey, new StringValue("new last"));
     tester.invalidate();
-    UpdateResult<StringNode> result =
-        tester.eval(/*keepGoing=*/false, tops.toArray(new NodeKey[0]));
-    for (NodeKey topKey : tops) {
+    UpdateResult<StringValue> result =
+        tester.eval(/*keepGoing=*/false, tops.toArray(new SkyKey[0]));
+    for (SkyKey topKey : tops) {
       assertEquals(topKey.toString(), "crunchynew last", result.get(topKey).getValue());
     }
   }
 
   /**
-   * Regression test: make sure that if an evaluation fails before a dirty node starts evaluation
+   * Regression test: make sure that if an evaluation fails before a dirty value starts evaluation
    * (in particular, before it is reset), the graph remains consistent.
    */
   @Test
-  public void manyDirtyNodesClearChildrenOnError() throws Exception {
-    manyDirtyNodesClearChildrenOnFail(/*interrupt=*/false);
+  public void manyDirtyValuesClearChildrenOnError() throws Exception {
+    manyDirtyValuesClearChildrenOnFail(/*interrupt=*/false);
   }
 
   /**
-   * Regression test: Make sure that if an evaluation is interrupted before a dirty node starts
+   * Regression test: Make sure that if an evaluation is interrupted before a dirty value starts
    * evaluation (in particular, before it is reset), the graph remains consistent.
    */
   @Test
-  public void manyDirtyNodesClearChildrenOnInterrupt() throws Exception {
-    manyDirtyNodesClearChildrenOnFail(/*interrupt=*/true);
+  public void manyDirtyValuesClearChildrenOnInterrupt() throws Exception {
+    manyDirtyValuesClearChildrenOnFail(/*interrupt=*/true);
   }
 
   @Test
   public void changePruning() throws Exception {
     initializeTester();
-    NodeKey leaf = GraphTester.toNodeKey("leaf");
-    NodeKey mid = GraphTester.toNodeKey("mid");
-    NodeKey top = GraphTester.toNodeKey("top");
+    SkyKey leaf = GraphTester.toSkyKey("leaf");
+    SkyKey mid = GraphTester.toSkyKey("mid");
+    SkyKey top = GraphTester.toSkyKey("top");
     tester.getOrCreate(top).addDependency(mid).setComputedValue(COPY);
     tester.getOrCreate(mid).addDependency(leaf).setComputedValue(COPY);
-    tester.set(leaf, new StringNode("leafy"));
-    StringNode topNode = (StringNode) tester.evalAndGet("top");
-    assertEquals("leafy", topNode.getValue());
+    tester.set(leaf, new StringValue("leafy"));
+    StringValue topValue = (StringValue) tester.evalAndGet("top");
+    assertEquals("leafy", topValue.getValue());
     // Mark leaf changed, but don't actually change it.
     tester.getOrCreate(leaf, /*markAsModified=*/true);
     // mid will give an error if re-evaluated, but it shouldn't be because it is not marked changed,
     // and its dirty child will evaluate to the same element.
     tester.getOrCreate(mid, /*markAsModified=*/false).setHasError(true);
     tester.invalidate();
-    UpdateResult<StringNode> result = tester.eval(/*keepGoing=*/false, top);
+    UpdateResult<StringValue> result = tester.eval(/*keepGoing=*/false, top);
     assertFalse(result.hasError());
-    topNode = result.get(top);
-    assertEquals("leafy", topNode.getValue());
-    assertThat(tester.getDirtyNodes()).isEmpty();
-    assertThat(tester.getDeletedNodes()).isEmpty();
+    topValue = result.get(top);
+    assertEquals("leafy", topValue.getValue());
+    assertThat(tester.getDirtyValues()).isEmpty();
+    assertThat(tester.getDeletedValues()).isEmpty();
   }
 
   @Test
-  public void changePruningWithDoneNode() throws Exception {
+  public void changePruningWithDoneValue() throws Exception {
     initializeTester();
-    NodeKey leaf = GraphTester.toNodeKey("leaf");
-    NodeKey mid = GraphTester.toNodeKey("mid");
-    NodeKey top = GraphTester.toNodeKey("top");
-    NodeKey suffix = GraphTester.toNodeKey("suffix");
-    StringNode suffixNode = new StringNode("suffix");
-    tester.set(suffix, suffixNode);
+    SkyKey leaf = GraphTester.toSkyKey("leaf");
+    SkyKey mid = GraphTester.toSkyKey("mid");
+    SkyKey top = GraphTester.toSkyKey("top");
+    SkyKey suffix = GraphTester.toSkyKey("suffix");
+    StringValue suffixValue = new StringValue("suffix");
+    tester.set(suffix, suffixValue);
     tester.getOrCreate(top).addDependency(mid).addDependency(suffix).setComputedValue(CONCATENATE);
     tester.getOrCreate(mid).addDependency(leaf).addDependency(suffix).setComputedValue(CONCATENATE);
-    Node leafyNode = new StringNode("leafy");
-    tester.set(leaf, leafyNode);
-    StringNode node = (StringNode) tester.evalAndGet("top");
-    assertEquals("leafysuffixsuffix", node.getValue());
+    SkyValue leafyValue = new StringValue("leafy");
+    tester.set(leaf, leafyValue);
+    StringValue value = (StringValue) tester.evalAndGet("top");
+    assertEquals("leafysuffixsuffix", value.getValue());
     // Mark leaf changed, but don't actually change it.
     tester.getOrCreate(leaf, /*markAsModified=*/true);
     // mid will give an error if re-evaluated, but it shouldn't be because it is not marked changed,
     // and its dirty child will evaluate to the same element.
     tester.getOrCreate(mid, /*markAsModified=*/false).setHasError(true);
     tester.invalidate();
-    node = (StringNode) tester.evalAndGet("leaf");
-    assertEquals("leafy", node.getValue());
-    MoreAsserts.assertContentsAnyOrder(tester.getDirtyNodes(), new StringNode("leafysuffix"),
-        new StringNode("leafysuffixsuffix"));
-    assertThat(tester.getDeletedNodes()).isEmpty();
-    UpdateResult<StringNode> result = tester.eval(/*keepGoing=*/false, top);
+    value = (StringValue) tester.evalAndGet("leaf");
+    assertEquals("leafy", value.getValue());
+    MoreAsserts.assertContentsAnyOrder(tester.getDirtyValues(), new StringValue("leafysuffix"),
+        new StringValue("leafysuffixsuffix"));
+    assertThat(tester.getDeletedValues()).isEmpty();
+    UpdateResult<StringValue> result = tester.eval(/*keepGoing=*/false, top);
     assertFalse(result.hasError());
-    node = result.get(top);
-    assertEquals("leafysuffixsuffix", node.getValue());
-    assertThat(tester.getDirtyNodes()).isEmpty();
-    assertThat(tester.getDeletedNodes()).isEmpty();
+    value = result.get(top);
+    assertEquals("leafysuffixsuffix", value.getValue());
+    assertThat(tester.getDirtyValues()).isEmpty();
+    assertThat(tester.getDeletedValues()).isEmpty();
   }
 
   @Test
   public void changedChildChangesDepOfParent() throws Exception {
     initializeTester();
-    final NodeKey buildFile = GraphTester.toNodeKey("buildFile");
-    NodeComputer authorDrink = new NodeComputer() {
+    final SkyKey buildFile = GraphTester.toSkyKey("buildFile");
+    ValueComputer authorDrink = new ValueComputer() {
       @Override
-      public Node compute(Map<NodeKey, Node> deps, NodeBuilder.Environment env) {
-        String author = ((StringNode) deps.get(buildFile)).getValue();
-        StringNode beverage;
+      public SkyValue compute(Map<SkyKey, SkyValue> deps, SkyFunction.Environment env) {
+        String author = ((StringValue) deps.get(buildFile)).getValue();
+        StringValue beverage;
         switch (author) {
           case "hemingway":
-            beverage = (StringNode) env.getDep(GraphTester.toNodeKey("absinthe"));
+            beverage = (StringValue) env.getValue(GraphTester.toSkyKey("absinthe"));
             break;
           case "joyce":
-            beverage = (StringNode) env.getDep(GraphTester.toNodeKey("whiskey"));
+            beverage = (StringValue) env.getValue(GraphTester.toSkyKey("whiskey"));
             break;
           default:
               throw new IllegalStateException(author);
@@ -1877,145 +1900,145 @@ public class AutoUpdatingGraphTest {
         if (beverage == null) {
           return null;
         }
-        return new StringNode(author + " drank " + beverage.getValue());
+        return new StringValue(author + " drank " + beverage.getValue());
       }
     };
 
-    tester.set(buildFile, new StringNode("hemingway"));
-    NodeKey absinthe = GraphTester.toNodeKey("absinthe");
-    tester.set(absinthe, new StringNode("absinthe"));
-    NodeKey whiskey = GraphTester.toNodeKey("whiskey");
-    tester.set(whiskey, new StringNode("whiskey"));
-    NodeKey top = GraphTester.toNodeKey("top");
+    tester.set(buildFile, new StringValue("hemingway"));
+    SkyKey absinthe = GraphTester.toSkyKey("absinthe");
+    tester.set(absinthe, new StringValue("absinthe"));
+    SkyKey whiskey = GraphTester.toSkyKey("whiskey");
+    tester.set(whiskey, new StringValue("whiskey"));
+    SkyKey top = GraphTester.toSkyKey("top");
     tester.getOrCreate(top).addDependency(buildFile).setComputedValue(authorDrink);
-    StringNode topNode = (StringNode) tester.evalAndGet("top");
-    assertEquals("hemingway drank absinthe", topNode.getValue());
-    tester.set(buildFile, new StringNode("joyce"));
+    StringValue topValue = (StringValue) tester.evalAndGet("top");
+    assertEquals("hemingway drank absinthe", topValue.getValue());
+    tester.set(buildFile, new StringValue("joyce"));
     // Don't evaluate absinthe successfully anymore.
     tester.getOrCreate(absinthe).setHasError(true);
     tester.invalidate();
-    topNode = (StringNode) tester.evalAndGet("top");
-    assertEquals("joyce drank whiskey", topNode.getValue());
-    MoreAsserts.assertContentsAnyOrder(tester.getDirtyNodes(), new StringNode("hemingway"),
-        new StringNode("hemingway drank absinthe"));
-    assertThat(tester.getDeletedNodes()).isEmpty();
+    topValue = (StringValue) tester.evalAndGet("top");
+    assertEquals("joyce drank whiskey", topValue.getValue());
+    MoreAsserts.assertContentsAnyOrder(tester.getDirtyValues(), new StringValue("hemingway"),
+        new StringValue("hemingway drank absinthe"));
+    assertThat(tester.getDeletedValues()).isEmpty();
   }
 
   @Test
   public void dirtyDepIgnoresChildren() throws Exception {
     initializeTester();
-    NodeKey leaf = GraphTester.toNodeKey("leaf");
-    NodeKey mid = GraphTester.toNodeKey("mid");
-    NodeKey top = GraphTester.toNodeKey("top");
-    tester.set(mid, new StringNode("ignore"));
+    SkyKey leaf = GraphTester.toSkyKey("leaf");
+    SkyKey mid = GraphTester.toSkyKey("mid");
+    SkyKey top = GraphTester.toSkyKey("top");
+    tester.set(mid, new StringValue("ignore"));
     tester.getOrCreate(top).addDependency(mid).setComputedValue(COPY);
     tester.getOrCreate(mid).addDependency(leaf);
-    tester.set(leaf, new StringNode("leafy"));
-    StringNode topNode = (StringNode) tester.evalAndGet("top");
-    assertEquals("ignore", topNode.getValue());
-    assertThat(tester.getDirtyNodes()).isEmpty();
-    assertThat(tester.getDeletedNodes()).isEmpty();
+    tester.set(leaf, new StringValue("leafy"));
+    StringValue topValue = (StringValue) tester.evalAndGet("top");
+    assertEquals("ignore", topValue.getValue());
+    assertThat(tester.getDirtyValues()).isEmpty();
+    assertThat(tester.getDeletedValues()).isEmpty();
     // Change leaf.
-    tester.set(leaf, new StringNode("crunchy"));
+    tester.set(leaf, new StringValue("crunchy"));
     tester.invalidate();
-    topNode = (StringNode) tester.evalAndGet("top");
-    assertEquals("ignore", topNode.getValue());
-    MoreAsserts.assertContentsAnyOrder(tester.getDirtyNodes(), new StringNode("leafy"));
-    assertThat(tester.getDeletedNodes()).isEmpty();
-    tester.set(leaf, new StringNode("smushy"));
+    topValue = (StringValue) tester.evalAndGet("top");
+    assertEquals("ignore", topValue.getValue());
+    MoreAsserts.assertContentsAnyOrder(tester.getDirtyValues(), new StringValue("leafy"));
+    assertThat(tester.getDeletedValues()).isEmpty();
+    tester.set(leaf, new StringValue("smushy"));
     tester.invalidate();
-    topNode = (StringNode) tester.evalAndGet("top");
-    assertEquals("ignore", topNode.getValue());
-    MoreAsserts.assertContentsAnyOrder(tester.getDirtyNodes(), new StringNode("crunchy"));
-    assertThat(tester.getDeletedNodes()).isEmpty();
+    topValue = (StringValue) tester.evalAndGet("top");
+    assertEquals("ignore", topValue.getValue());
+    MoreAsserts.assertContentsAnyOrder(tester.getDirtyValues(), new StringValue("crunchy"));
+    assertThat(tester.getDeletedValues()).isEmpty();
   }
 
-  private static final NodeBuilder INTERRUPT_BUILDER = new NodeBuilder() {
+  private static final SkyFunction INTERRUPT_BUILDER = new SkyFunction() {
 
     @Override
-    public Node build(NodeKey nodeKey, Environment env) throws NodeBuilderException,
+    public SkyValue compute(SkyKey skyKey, Environment env) throws SkyFunctionException,
         InterruptedException {
       throw new InterruptedException();
     }
 
     @Override
-    public String extractTag(NodeKey nodeKey) {
+    public String extractTag(SkyKey skyKey) {
       throw new UnsupportedOperationException();
     }
   };
 
   /**
-   * Utility function to induce a graph clean of whatever node is requested, by trying to build this
-   * node and interrupting the build as soon as this node's builder starts.
+   * Utility function to induce a graph clean of whatever value is requested, by trying to build
+   * this value and interrupting the build as soon as this value's function evaluation starts.
    */
-  private void failBuildAndRemoveNode(final NodeKey node) {
-    tester.set(node, null);
+  private void failBuildAndRemoveValue(final SkyKey value) {
+    tester.set(value, null);
     // Evaluator will think leaf was interrupted because it threw, so it will be cleaned from graph.
-    tester.getOrCreate(node, /*markAsModified=*/true).setBuilder(INTERRUPT_BUILDER);
+    tester.getOrCreate(value, /*markAsModified=*/true).setBuilder(INTERRUPT_BUILDER);
     tester.invalidate();
     try {
-      tester.eval(/*keepGoing=*/false, node);
+      tester.eval(/*keepGoing=*/false, value);
       Assert.fail();
     } catch (InterruptedException e) {
       // Expected.
     }
-    tester.getOrCreate(node, /*markAsModified=*/false).setBuilder(null);
+    tester.getOrCreate(value, /*markAsModified=*/false).setBuilder(null);
   }
 
   /**
-   * Make sure that when a dirty node is building, the fact that a child may no longer exist in the
+   * Make sure that when a dirty value is building, the fact that a child may no longer exist in the
    * graph doesn't cause problems.
    */
   @Test
   public void dirtyBuildAfterFailedBuild() throws Exception {
     initializeTester();
-    final NodeKey leaf = GraphTester.toNodeKey("leaf");
-    NodeKey top = GraphTester.toNodeKey("top");
+    final SkyKey leaf = GraphTester.toSkyKey("leaf");
+    SkyKey top = GraphTester.toSkyKey("top");
     tester.getOrCreate(top).addDependency(leaf).setComputedValue(COPY);
-    tester.set(leaf, new StringNode("leafy"));
-    StringNode topNode = (StringNode) tester.evalAndGet("top");
-    assertEquals("leafy", topNode.getValue());
-    assertThat(tester.getDirtyNodes()).isEmpty();
-    assertThat(tester.getDeletedNodes()).isEmpty();
-    failBuildAndRemoveNode(leaf);
+    tester.set(leaf, new StringValue("leafy"));
+    StringValue topValue = (StringValue) tester.evalAndGet("top");
+    assertEquals("leafy", topValue.getValue());
+    assertThat(tester.getDirtyValues()).isEmpty();
+    assertThat(tester.getDeletedValues()).isEmpty();
+    failBuildAndRemoveValue(leaf);
     // Leaf should no longer exist in the graph. Check that this doesn't cause problems.
     tester.set(leaf, null);
-    tester.set(leaf, new StringNode("crunchy"));
+    tester.set(leaf, new StringValue("crunchy"));
     tester.invalidate();
-    topNode = (StringNode) tester.evalAndGet("top");
-    assertEquals("crunchy", topNode.getValue());
+    topValue = (StringValue) tester.evalAndGet("top");
+    assertEquals("crunchy", topValue.getValue());
   }
 
   /**
-   * Regression test: error when clearing reverse deps on dirty node about to be rebuilt, because
-   * child nodes were deleted and recreated in interim, forgetting they had reverse dep on dirty
-   * node in the first place.
+   * Regression test: error when clearing reverse deps on dirty value about to be rebuilt, because
+   * child values were deleted and recreated in interim, forgetting they had reverse dep on dirty
+   * value in the first place.
    */
   @Test
   public void changedBuildAfterFailedThenSuccessfulBuild() throws Exception {
     initializeTester();
-    final NodeKey leaf = GraphTester.toNodeKey("leaf");
-    NodeKey top = GraphTester.toNodeKey("top");
+    final SkyKey leaf = GraphTester.toSkyKey("leaf");
+    SkyKey top = GraphTester.toSkyKey("top");
     tester.getOrCreate(top).addDependency(leaf).setComputedValue(COPY);
-    tester.set(leaf, new StringNode("leafy"));
-    StringNode topNode = (StringNode) tester.evalAndGet("top");
-    assertEquals("leafy", topNode.getValue());
-    assertThat(tester.getDirtyNodes()).isEmpty();
-    assertThat(tester.getDeletedNodes()).isEmpty();
-    failBuildAndRemoveNode(leaf);
-    tester.set(leaf, new StringNode("crunchy"));
+    tester.set(leaf, new StringValue("leafy"));
+    StringValue topValue = (StringValue) tester.evalAndGet("top");
+    assertEquals("leafy", topValue.getValue());
+    assertThat(tester.getDirtyValues()).isEmpty();
+    assertThat(tester.getDeletedValues()).isEmpty();
+    failBuildAndRemoveValue(leaf);
+    tester.set(leaf, new StringValue("crunchy"));
     tester.invalidate();
     tester.eval(/*keepGoing=*/false, leaf);
     // Leaf no longer has reverse dep on top. Check that this doesn't cause problems, even if the
-    // top node is evaluated unconditionally.
+    // top value is evaluated unconditionally.
     tester.getOrCreate(top, /*markAsModified=*/true);
     tester.invalidate();
-    topNode = (StringNode) tester.evalAndGet("top");
-    assertEquals("crunchy", topNode.getValue());
+    topValue = (StringValue) tester.evalAndGet("top");
+    assertEquals("crunchy", topValue.getValue());
   }
 
   /**
-   * Regression test: child node that has been deleted since it and its parent were marked dirty no
+   * Regression test: child value that has been deleted since it and its parent were marked dirty no
    * longer knows it has a reverse dep on its parent.
    *
    * <p>Start with:
@@ -2028,22 +2051,22 @@ public class AutoUpdatingGraphTest {
    * depended on by tops. Now build tops, but fail again.
    */
   @Test
-  public void manyDirtyNodesClearChildrenOnSecondFail() throws Exception {
-    final NodeKey leafKey = GraphTester.toNodeKey("leaf");
-    tester.set(leafKey, new StringNode("leafy"));
-    NodeKey lastKey = GraphTester.toNodeKey("last");
-    tester.set(lastKey, new StringNode("last"));
-    final List<NodeKey> tops = new ArrayList<>();
-    // Request far more top-level nodes than there are threads, so some of them will block until the
-    // leaf child is enqueued for processing.
+  public void manyDirtyValuesClearChildrenOnSecondFail() throws Exception {
+    final SkyKey leafKey = GraphTester.toSkyKey("leaf");
+    tester.set(leafKey, new StringValue("leafy"));
+    SkyKey lastKey = GraphTester.toSkyKey("last");
+    tester.set(lastKey, new StringValue("last"));
+    final List<SkyKey> tops = new ArrayList<>();
+    // Request far more top-level values than there are threads, so some of them will block until
+    // the leaf child is enqueued for processing.
     for (int i = 0; i < 10000; i++) {
-      NodeKey topKey = GraphTester.toNodeKey("top" + i);
+      SkyKey topKey = GraphTester.toSkyKey("top" + i);
       tester.getOrCreate(topKey).addDependency(leafKey).addDependency(lastKey)
           .setComputedValue(CONCATENATE);
       tops.add(topKey);
     }
-    tester.eval(/*keepGoing=*/false, tops.toArray(new NodeKey[0]));
-    failBuildAndRemoveNode(leafKey);
+    tester.eval(/*keepGoing=*/false, tops.toArray(new SkyKey[0]));
+    failBuildAndRemoveValue(leafKey);
     // Request the tops. Since leaf was deleted from the graph last build, it no longer knows that
     // its parents depend on it. When leaf throws, at least one of its parents (hopefully) will not
     // have re-informed leaf that the parent depends on it, exposing the bug, since the parent
@@ -2053,7 +2076,7 @@ public class AutoUpdatingGraphTest {
     tester.getOrCreate(leafKey, /*markAsModified=*/true).setBuilder(INTERRUPT_BUILDER);
     tester.invalidate();
     try {
-      tester.eval(/*keepGoing=*/false, tops.toArray(new NodeKey[0]));
+      tester.eval(/*keepGoing=*/false, tops.toArray(new SkyKey[0]));
       Assert.fail();
     } catch (InterruptedException e) {
       // Expected.
@@ -2063,21 +2086,21 @@ public class AutoUpdatingGraphTest {
   @Test
   public void failedDirtyBuild() throws Exception {
     initializeTester();
-    NodeKey leaf = GraphTester.toNodeKey("leaf");
-    NodeKey top = GraphTester.toNodeKey("top");
-    tester.getOrCreate(top).addErrorDependency(leaf, new StringNode("recover"))
+    SkyKey leaf = GraphTester.toSkyKey("leaf");
+    SkyKey top = GraphTester.toSkyKey("top");
+    tester.getOrCreate(top).addErrorDependency(leaf, new StringValue("recover"))
         .setComputedValue(COPY);
-    tester.set(leaf, new StringNode("leafy"));
-    StringNode topNode = (StringNode) tester.evalAndGet("top");
-    assertEquals("leafy", topNode.getValue());
-    assertThat(tester.getDirtyNodes()).isEmpty();
-    assertThat(tester.getDeletedNodes()).isEmpty();
+    tester.set(leaf, new StringValue("leafy"));
+    StringValue topValue = (StringValue) tester.evalAndGet("top");
+    assertEquals("leafy", topValue.getValue());
+    assertThat(tester.getDirtyValues()).isEmpty();
+    assertThat(tester.getDeletedValues()).isEmpty();
     // Change leaf.
     tester.getOrCreate(leaf, /*markAsModified=*/true).setHasError(true);
     tester.getOrCreate(top, /*markAsModified=*/false).setHasError(true);
     tester.invalidate();
-    UpdateResult<StringNode> result = tester.eval(/*keepGoing=*/false, top);
-    assertNull("node should not have completed evaluation", result.get(top));
+    UpdateResult<StringValue> result = tester.eval(/*keepGoing=*/false, top);
+    assertNull("value should not have completed evaluation", result.get(top));
     MoreAsserts.assertContentsAnyOrder(
         "The error thrown by leaf should have been swallowed by the error thrown by top",
         result.getError().getRootCauses(), top);
@@ -2086,40 +2109,40 @@ public class AutoUpdatingGraphTest {
   @Test
   public void failedDirtyBuildInBuilder() throws Exception {
     initializeTester();
-    NodeKey leaf = GraphTester.toNodeKey("leaf");
-    NodeKey secondError = GraphTester.toNodeKey("secondError");
-    NodeKey top = GraphTester.toNodeKey("top");
+    SkyKey leaf = GraphTester.toSkyKey("leaf");
+    SkyKey secondError = GraphTester.toSkyKey("secondError");
+    SkyKey top = GraphTester.toSkyKey("top");
     tester.getOrCreate(top).addDependency(leaf)
-        .addErrorDependency(secondError, new StringNode("recover")).setComputedValue(CONCATENATE);
-    tester.set(secondError, new StringNode("secondError")).addDependency(leaf);
-    tester.set(leaf, new StringNode("leafy"));
-    StringNode topNode = (StringNode) tester.evalAndGet("top");
-    assertEquals("leafysecondError", topNode.getValue());
-    assertThat(tester.getDirtyNodes()).isEmpty();
-    assertThat(tester.getDeletedNodes()).isEmpty();
+        .addErrorDependency(secondError, new StringValue("recover")).setComputedValue(CONCATENATE);
+    tester.set(secondError, new StringValue("secondError")).addDependency(leaf);
+    tester.set(leaf, new StringValue("leafy"));
+    StringValue topValue = (StringValue) tester.evalAndGet("top");
+    assertEquals("leafysecondError", topValue.getValue());
+    assertThat(tester.getDirtyValues()).isEmpty();
+    assertThat(tester.getDeletedValues()).isEmpty();
     // Invalidate leaf.
     tester.getOrCreate(leaf, /*markAsModified=*/true);
-    tester.set(leaf, new StringNode("crunchy"));
+    tester.set(leaf, new StringValue("crunchy"));
     tester.getOrCreate(secondError, /*markAsModified=*/true).setHasError(true);
     tester.getOrCreate(top, /*markAsModified=*/false).setHasError(true);
     tester.invalidate();
-    UpdateResult<StringNode> result = tester.eval(/*keepGoing=*/false, top);
-    assertNull("node should not have completed evaluation", result.get(top));
+    UpdateResult<StringValue> result = tester.eval(/*keepGoing=*/false, top);
+    assertNull("value should not have completed evaluation", result.get(top));
     MoreAsserts.assertContentsAnyOrder(
         "The error thrown by leaf should have been swallowed by the error thrown by top",
         result.getError().getRootCauses(), top);
   }
 
   @Test
-  public void dirtyErrorTransienceNode() throws Exception {
+  public void dirtyErrorTransienceValue() throws Exception {
     initializeTester();
-    NodeKey error = GraphTester.toNodeKey("error");
+    SkyKey error = GraphTester.toSkyKey("error");
     tester.getOrCreate(error).setHasError(true);
     assertNotNull(tester.evalAndGetError(error));
     tester.invalidateErrors();
-    NodeKey secondError = GraphTester.toNodeKey("secondError");
+    SkyKey secondError = GraphTester.toSkyKey("secondError");
     tester.getOrCreate(secondError).setHasError(true);
-    // secondError declares a new dependence on ErrorTransienceNode, but not until it has already
+    // secondError declares a new dependence on ErrorTransienceValue, but not until it has already
     // thrown an error.
     assertNotNull(tester.evalAndGetError(secondError));
   }
@@ -2127,17 +2150,17 @@ public class AutoUpdatingGraphTest {
   @Test
   public void dirtyDependsOnErrorTurningGood() throws Exception {
     initializeTester();
-    NodeKey error = GraphTester.toNodeKey("error");
+    SkyKey error = GraphTester.toSkyKey("error");
     tester.getOrCreate(error).setHasError(true);
-    NodeKey topKey = GraphTester.toNodeKey("top");
+    SkyKey topKey = GraphTester.toSkyKey("top");
     tester.getOrCreate(topKey).addDependency(error).setComputedValue(COPY);
-    UpdateResult<StringNode> result = tester.eval(/*keepGoing=*/false, topKey);
+    UpdateResult<StringValue> result = tester.eval(/*keepGoing=*/false, topKey);
     MoreAsserts.assertContentsAnyOrder(result.getError(topKey).getRootCauses(), error);
     tester.invalidateErrors();
     result = tester.eval(/*keepGoing=*/false, topKey);
     MoreAsserts.assertContentsAnyOrder(result.getError(topKey).getRootCauses(), error);
     tester.getOrCreate(error).setHasError(false);
-    StringNode val = new StringNode("reformed");
+    StringValue val = new StringValue("reformed");
     tester.set(error, val);
     tester.invalidate();
     result = tester.eval(/*keepGoing=*/false, topKey);
@@ -2148,35 +2171,35 @@ public class AutoUpdatingGraphTest {
   @Test
   public void dirtyWithOwnErrorDependsOnErrorTurningGood() throws Exception {
     initializeTester();
-    final NodeKey error = GraphTester.toNodeKey("error");
+    final SkyKey error = GraphTester.toSkyKey("error");
     tester.getOrCreate(error).setHasError(true);
-    NodeKey topKey = GraphTester.toNodeKey("top");
+    SkyKey topKey = GraphTester.toSkyKey("top");
     final AtomicBoolean firstTime = new AtomicBoolean(true);
-    NodeBuilder errorNodeBuilder = new NodeBuilder() {
+    SkyFunction errorFunction = new SkyFunction() {
       @Override
-      public Node build(NodeKey nodeKey, Environment env) throws GenericNodeBuilderException,
+      public SkyValue compute(SkyKey skyKey, Environment env) throws GenericFunctionException,
           InterruptedException {
-        env.getDep(error);
+        env.getValue(error);
         if (firstTime.getAndSet(false)) {
           return null;
         }
-        throw new GenericNodeBuilderException(nodeKey, new Exception());
+        throw new GenericFunctionException(skyKey, new Exception());
       }
 
       @Override
-      public String extractTag(NodeKey nodeKey) {
+      public String extractTag(SkyKey skyKey) {
         throw new UnsupportedOperationException();
       }
     };
-    tester.getOrCreate(topKey).setBuilder(errorNodeBuilder);
-    UpdateResult<StringNode> result = tester.eval(/*keepGoing=*/false, topKey);
+    tester.getOrCreate(topKey).setBuilder(errorFunction);
+    UpdateResult<StringValue> result = tester.eval(/*keepGoing=*/false, topKey);
     MoreAsserts.assertContentsAnyOrder(result.getError(topKey).getRootCauses(), topKey);
     tester.invalidateErrors();
     firstTime.set(true);
     result = tester.eval(/*keepGoing=*/false, topKey);
     MoreAsserts.assertContentsAnyOrder(result.getError(topKey).getRootCauses(), topKey);
     tester.getOrCreate(error).setHasError(false);
-    StringNode reformed = new StringNode("reformed");
+    StringValue reformed = new StringValue("reformed");
     tester.set(error, reformed);
     tester.getOrCreate(topKey).setBuilder(null).addDependency(error).setComputedValue(COPY);
     tester.invalidate();
@@ -2187,7 +2210,7 @@ public class AutoUpdatingGraphTest {
 
   /**
    * Make sure that when an error is thrown, it is given for handling only to parents that have
-   * already registered a dependence on the node that threw the error.
+   * already registered a dependence on the value that threw the error.
    *
    * <pre>
    *  topBubbleKey  topErrorFirstKey
@@ -2206,35 +2229,35 @@ public class AutoUpdatingGraphTest {
   public void errorOnlyBubblesToRequestingParents() throws Exception {
     // We need control over the order of reverse deps, so use a deterministic graph.
     setGraphForTesting(new DeterministicInMemoryGraph());
-    NodeKey errorKey = GraphTester.toNodeKey("error");
-    tester.set(errorKey, new StringNode("biding time"));
-    NodeKey slowKey = GraphTester.toNodeKey("slow");
-    tester.set(slowKey, new StringNode("slow"));
-    NodeKey midKey = GraphTester.toNodeKey("mid");
+    SkyKey errorKey = GraphTester.toSkyKey("error");
+    tester.set(errorKey, new StringValue("biding time"));
+    SkyKey slowKey = GraphTester.toSkyKey("slow");
+    tester.set(slowKey, new StringValue("slow"));
+    SkyKey midKey = GraphTester.toSkyKey("mid");
     tester.getOrCreate(midKey).addDependency(slowKey).setComputedValue(COPY);
-    NodeKey topErrorFirstKey = GraphTester.toNodeKey("2nd top alphabetically");
+    SkyKey topErrorFirstKey = GraphTester.toSkyKey("2nd top alphabetically");
     tester.getOrCreate(topErrorFirstKey).addDependency(errorKey).setComputedValue(CONCATENATE);
-    NodeKey topBubbleKey = GraphTester.toNodeKey("1st top alphabetically");
+    SkyKey topBubbleKey = GraphTester.toSkyKey("1st top alphabetically");
     tester.getOrCreate(topBubbleKey).addDependency(midKey).addDependency(errorKey)
         .setComputedValue(CONCATENATE);
-    // First error-free evaluation, to put all nodes in graph.
-    UpdateResult<StringNode> result = tester.eval(/*keepGoing=*/false,
+    // First error-free evaluation, to put all values in graph.
+    UpdateResult<StringValue> result = tester.eval(/*keepGoing=*/false,
         topErrorFirstKey, topBubbleKey);
     assertEquals("biding time", result.get(topErrorFirstKey).getValue());
     assertEquals("slowbiding time", result.get(topBubbleKey).getValue());
-    // Set up timing of child nodes: slowKey waits to finish until errorKey has thrown an
+    // Set up timing of child values: slowKey waits to finish until errorKey has thrown an
     // exception that has been caught by the threadpool.
     tester.set(slowKey, null);
     CountDownLatch errorFinish = new CountDownLatch(1);
     tester.set(errorKey, null);
     tester.getOrCreate(errorKey).setBuilder(
-        new ChainedNodeBuilder(/*notifyStart=*/null, /*waitToFinish=*/null,
+        new ChainedFunction(/*notifyStart=*/null, /*waitToFinish=*/null,
             /*notifyFinish=*/errorFinish, /*waitForException=*/false, /*value=*/null,
-            /*deps=*/ImmutableList.<NodeKey>of()));
+            /*deps=*/ImmutableList.<SkyKey>of()));
     tester.getOrCreate(slowKey).setBuilder(
-        new ChainedNodeBuilder(/*notifyStart=*/null, /*waitToFinish=*/errorFinish,
-            /*notifyFinish=*/null, /*waitForException=*/true, new StringNode("leaf2"),
-            /*deps=*/ImmutableList.<NodeKey>of()));
+        new ChainedFunction(/*notifyStart=*/null, /*waitToFinish=*/errorFinish,
+            /*notifyFinish=*/null, /*waitForException=*/true, new StringValue("leaf2"),
+            /*deps=*/ImmutableList.<SkyKey>of()));
     tester.invalidate();
     // errorKey finishes, written to graph -> slowKey maybe starts+finishes & (Visitor aborts)
     // -> some top key builds.
@@ -2246,34 +2269,34 @@ public class AutoUpdatingGraphTest {
   @Test
   public void dirtyWithRecoveryErrorDependsOnErrorTurningGood() throws Exception {
     initializeTester();
-    final NodeKey error = GraphTester.toNodeKey("error");
+    final SkyKey error = GraphTester.toSkyKey("error");
     tester.getOrCreate(error).setHasError(true);
-    NodeKey topKey = GraphTester.toNodeKey("top");
-    NodeBuilder recoveryErrorNodeBuilder = new NodeBuilder() {
+    SkyKey topKey = GraphTester.toSkyKey("top");
+    SkyFunction recoveryErrorFunction = new SkyFunction() {
       @Override
-      public Node build(NodeKey nodeKey, Environment env) throws NodeBuilderException,
+      public SkyValue compute(SkyKey skyKey, Environment env) throws SkyFunctionException,
           InterruptedException {
         try {
-          env.getDepOrThrow(error, SomeErrorException.class);
+          env.getValueOrThrow(error, SomeErrorException.class);
         } catch (SomeErrorException e) {
-          throw new GenericNodeBuilderException(nodeKey, e);
+          throw new GenericFunctionException(skyKey, e);
         }
         return null;
       }
 
       @Override
-      public String extractTag(NodeKey nodeKey) {
+      public String extractTag(SkyKey skyKey) {
         throw new UnsupportedOperationException();
       }
     };
-    tester.getOrCreate(topKey).setBuilder(recoveryErrorNodeBuilder);
-    UpdateResult<StringNode> result = tester.eval(/*keepGoing=*/false, topKey);
+    tester.getOrCreate(topKey).setBuilder(recoveryErrorFunction);
+    UpdateResult<StringValue> result = tester.eval(/*keepGoing=*/false, topKey);
     MoreAsserts.assertContentsAnyOrder(result.getError(topKey).getRootCauses(), topKey);
     tester.invalidateErrors();
     result = tester.eval(/*keepGoing=*/false, topKey);
     MoreAsserts.assertContentsAnyOrder(result.getError(topKey).getRootCauses(), topKey);
     tester.getOrCreate(error).setHasError(false);
-    StringNode reformed = new StringNode("reformed");
+    StringValue reformed = new StringValue("reformed");
     tester.set(error, reformed);
     tester.getOrCreate(topKey).setBuilder(null).addDependency(error).setComputedValue(COPY);
     tester.invalidate();
@@ -2286,17 +2309,17 @@ public class AutoUpdatingGraphTest {
   @Test
   public void absentParent() throws Exception {
     initializeTester();
-    NodeKey errorKey = GraphTester.toNodeKey("my_error_node");
-    tester.set(errorKey, new StringNode("biding time"));
-    NodeKey absentParentKey = GraphTester.toNodeKey("absentParent");
+    SkyKey errorKey = GraphTester.toSkyKey("my_error_value");
+    tester.set(errorKey, new StringValue("biding time"));
+    SkyKey absentParentKey = GraphTester.toSkyKey("absentParent");
     tester.getOrCreate(absentParentKey).addDependency(errorKey).setComputedValue(CONCATENATE);
-    assertEquals(new StringNode("biding time"),
+    assertEquals(new StringValue("biding time"),
         tester.evalAndGet(/*keepGoing=*/false, absentParentKey));
     tester.getOrCreate(errorKey, /*markAsModified=*/true).setHasError(true);
-    NodeKey newParent = GraphTester.toNodeKey("newParent");
+    SkyKey newParent = GraphTester.toSkyKey("newParent");
     tester.getOrCreate(newParent).addDependency(errorKey).setComputedValue(CONCATENATE);
     tester.invalidate();
-    UpdateResult<StringNode> result = tester.eval(/*keepGoing=*/false, newParent);
+    UpdateResult<StringValue> result = tester.eval(/*keepGoing=*/false, newParent);
     ErrorInfo error = result.getError(newParent);
     MoreAsserts.assertContentsAnyOrder(error.getRootCauses(), errorKey);
   }
@@ -2306,21 +2329,21 @@ public class AutoUpdatingGraphTest {
   public void errorTransienceBug() throws Exception {
     tester.getOrCreate("key").setHasError(true);
     assertNotNull(tester.evalAndGetError("key").getException());
-    StringNode node = new StringNode("hi");
-    tester.getOrCreate("key").setHasError(false).setConstantValue(node);
+    StringValue value = new StringValue("hi");
+    tester.getOrCreate("key").setHasError(false).setConstantValue(value);
     tester.invalidateErrors();
-    assertEquals(node, tester.evalAndGet("key"));
-    // This works because the version of the NodeEntry for the ErrorTransience node is always
+    assertEquals(value, tester.evalAndGet("key"));
+    // This works because the version of the ValueEntry for the ErrorTransience value is always
     // increased on each InMemoryAutoUpdatingGraph#update call. But that's not the only way to
     // implement error transience; another valid implementation would be to unconditionally mark
-    // nodes depending on the ErrorTransience node as being changed (rather than merely dirtied)
+    // values depending on the ErrorTransience value as being changed (rather than merely dirtied)
     // during invalidation.
   }
 
   @Test
   public void transientErrorTurningGoodHasNoError() throws Exception {
     initializeTester();
-    NodeKey errorKey = GraphTester.toNodeKey("my_error_node");
+    SkyKey errorKey = GraphTester.toSkyKey("my_error_value");
     tester.getOrCreate(errorKey).setHasError(true);
     ErrorInfo errorInfo = tester.evalAndGetError(errorKey);
     assertNotNull(errorInfo);
@@ -2329,37 +2352,37 @@ public class AutoUpdatingGraphTest {
     tester.invalidateErrors();
     errorInfo = tester.evalAndGetError(errorKey);
     assertNotNull(errorInfo);
-    StringNode value = new StringNode("reformed");
+    StringValue value = new StringValue("reformed");
     MoreAsserts.assertContentsAnyOrder(errorInfo.getRootCauses(), errorKey);
     tester.getOrCreate(errorKey, /*markAsModified=*/false).setHasError(false)
         .setConstantValue(value);
     tester.invalidateErrors();
-    StringNode node = (StringNode) tester.evalAndGet(/*keepGoing=*/true, errorKey);
-    assertSame(node, value);
-    // Node builder will now throw, but we should never get to it because it isn't dirty.
+    StringValue stringValue = (StringValue) tester.evalAndGet(/*keepGoing=*/true, errorKey);
+    assertSame(stringValue, value);
+    // Value builder will now throw, but we should never get to it because it isn't dirty.
     tester.getOrCreate(errorKey, /*markAsModified=*/false).setHasError(true);
     tester.invalidateErrors();
-    node = (StringNode) tester.evalAndGet(/*keepGoing=*/true, errorKey);
-    assertSame(node, value);
+    stringValue = (StringValue) tester.evalAndGet(/*keepGoing=*/true, errorKey);
+    assertSame(stringValue, value);
   }
 
   @Test
-  public void deleteInvalidatedNode() throws Exception {
+  public void deleteInvalidatedValue() throws Exception {
     initializeTester();
-    NodeKey top = GraphTester.toNodeKey("top");
-    NodeKey toDelete = GraphTester.toNodeKey("toDelete");
+    SkyKey top = GraphTester.toSkyKey("top");
+    SkyKey toDelete = GraphTester.toSkyKey("toDelete");
     // Must be a concatenation -- COPY doesn't actually copy.
     tester.getOrCreate(top).addDependency(toDelete).setComputedValue(CONCATENATE);
-    tester.set(toDelete, new StringNode("toDelete"));
-    Node node = tester.evalAndGet("top");
-    NodeKey forceInvalidation = GraphTester.toNodeKey("forceInvalidation");
-    tester.set(forceInvalidation, new StringNode("forceInvalidation"));
+    tester.set(toDelete, new StringValue("toDelete"));
+    SkyValue value = tester.evalAndGet("top");
+    SkyKey forceInvalidation = GraphTester.toSkyKey("forceInvalidation");
+    tester.set(forceInvalidation, new StringValue("forceInvalidation"));
     tester.getOrCreate(toDelete, /*markAsModified=*/true);
     tester.invalidate();
     tester.eval(/*keepGoing=*/false, forceInvalidation);
     tester.delete("toDelete");
-    WeakReference<Node> ref = new WeakReference<>(node);
-    node = null;
+    WeakReference<SkyValue> ref = new WeakReference<>(value);
+    value = null;
     tester.eval(/*keepGoing=*/false, forceInvalidation);
     tester.invalidate(); // So that invalidation receiver doesn't hang on to reference.
     GcFinalization.awaitClear(ref);
@@ -2372,48 +2395,48 @@ public class AutoUpdatingGraphTest {
   @Test
   public void twoRailLeftRightDependenciesWithFailure() throws Exception {
     initializeTester();
-    NodeKey[] leftNodes = new NodeKey[TEST_NODE_COUNT];
-    NodeKey[] rightNodes = new NodeKey[TEST_NODE_COUNT];
+    SkyKey[] leftValues = new SkyKey[TEST_NODE_COUNT];
+    SkyKey[] rightValues = new SkyKey[TEST_NODE_COUNT];
     for (int i = 0; i < TEST_NODE_COUNT; i++) {
-      leftNodes[i] = GraphTester.toNodeKey("left-" + i);
-      rightNodes[i] = GraphTester.toNodeKey("right-" + i);
+      leftValues[i] = GraphTester.toSkyKey("left-" + i);
+      rightValues[i] = GraphTester.toSkyKey("right-" + i);
       if (i == 0) {
-        tester.getOrCreate(leftNodes[i])
+        tester.getOrCreate(leftValues[i])
               .addDependency("leaf")
               .setComputedValue(COPY);
-        tester.getOrCreate(rightNodes[i])
+        tester.getOrCreate(rightValues[i])
               .addDependency("leaf")
               .setComputedValue(COPY);
       } else {
-        tester.getOrCreate(leftNodes[i])
-              .addDependency(leftNodes[i - 1])
-              .addDependency(rightNodes[i - 1])
-              .setComputedValue(new PassThroughSelected(leftNodes[i - 1]));
-        tester.getOrCreate(rightNodes[i])
-              .addDependency(leftNodes[i - 1])
-              .addDependency(rightNodes[i - 1])
-              .setComputedValue(new PassThroughSelected(rightNodes[i - 1]));
+        tester.getOrCreate(leftValues[i])
+              .addDependency(leftValues[i - 1])
+              .addDependency(rightValues[i - 1])
+              .setComputedValue(new PassThroughSelected(leftValues[i - 1]));
+        tester.getOrCreate(rightValues[i])
+              .addDependency(leftValues[i - 1])
+              .addDependency(rightValues[i - 1])
+              .setComputedValue(new PassThroughSelected(rightValues[i - 1]));
       }
     }
-    tester.set("leaf", new StringNode("leaf"));
+    tester.set("leaf", new StringValue("leaf"));
 
     String lastLeft = "left-" + (TEST_NODE_COUNT - 1);
     String lastRight = "right-" + (TEST_NODE_COUNT - 1);
 
     for (int i = 0; i < TESTED_NODES; i++) {
       try {
-        tester.getOrCreate(leftNodes[i], /*markAsModified=*/true).setHasError(true);
+        tester.getOrCreate(leftValues[i], /*markAsModified=*/true).setHasError(true);
         tester.invalidate();
-        UpdateResult<StringNode> result = tester.eval(/*keep_going=*/false, lastLeft, lastRight);
+        UpdateResult<StringValue> result = tester.eval(/*keep_going=*/false, lastLeft, lastRight);
         assertTrue(result.hasError());
         tester.invalidateErrors();
         result = tester.eval(/*keep_going=*/false, lastLeft, lastRight);
         assertTrue(result.hasError());
-        tester.getOrCreate(leftNodes[i], /*markAsModified=*/true).setHasError(false);
+        tester.getOrCreate(leftValues[i], /*markAsModified=*/true).setHasError(false);
         tester.invalidate();
         result = tester.eval(/*keep_going=*/false, lastLeft, lastRight);
-        assertEquals(new StringNode("leaf"), result.get(toNodeKey(lastLeft)));
-        assertEquals(new StringNode("leaf"), result.get(toNodeKey(lastRight)));
+        assertEquals(new StringValue("leaf"), result.get(toSkyKey(lastLeft)));
+        assertEquals(new StringValue("leaf"), result.get(toSkyKey(lastRight)));
       } catch (Exception e) {
         System.err.println("twoRailLeftRightDependenciesWithFailure exception on run " + i);
         throw e;
@@ -2422,128 +2445,128 @@ public class AutoUpdatingGraphTest {
   }
 
   @Test
-  public void nodeInjection() throws Exception {
-    NodeKey key = GraphTester.toNodeKey("new_node");
-    Node val = new StringNode("val");
+  public void valueInjection() throws Exception {
+    SkyKey key = GraphTester.toSkyKey("new_value");
+    SkyValue val = new StringValue("val");
 
     tester.differencer.inject(ImmutableMap.of(key, val));
-    assertEquals(val, tester.evalAndGet("new_node"));
+    assertEquals(val, tester.evalAndGet("new_value"));
   }
 
   @Test
-  public void nodeInjectionOverExistingEntry() throws Exception {
-    NodeKey key = GraphTester.toNodeKey("node");
-    Node val = new StringNode("val");
+  public void valueInjectionOverExistingEntry() throws Exception {
+    SkyKey key = GraphTester.toSkyKey("value");
+    SkyValue val = new StringValue("val");
 
-    tester.getOrCreate(key).setConstantValue(new StringNode("old_val"));
+    tester.getOrCreate(key).setConstantValue(new StringValue("old_val"));
     tester.differencer.inject(ImmutableMap.of(key, val));
-    assertEquals(val, tester.evalAndGet("node"));
+    assertEquals(val, tester.evalAndGet("value"));
   }
 
   @Test
-  public void nodeInjectionOverExistingDirtyEntry() throws Exception {
-    NodeKey key = GraphTester.toNodeKey("node");
-    Node val = new StringNode("val");
+  public void valueInjectionOverExistingDirtyEntry() throws Exception {
+    SkyKey key = GraphTester.toSkyKey("value");
+    SkyValue val = new StringValue("val");
 
-    tester.getOrCreate(key).setConstantValue(new StringNode("old_val"));
+    tester.getOrCreate(key).setConstantValue(new StringValue("old_val"));
     tester.differencer.inject(ImmutableMap.of(key, val));
-    tester.eval(/*keepGoing=*/false, new NodeKey[0]); // Create the node.
+    tester.eval(/*keepGoing=*/false, new SkyKey[0]); // Create the value.
 
     tester.differencer.invalidate(ImmutableList.of(key));
-    tester.eval(/*keepGoing=*/false, new NodeKey[0]); // Mark node as dirty.
+    tester.eval(/*keepGoing=*/false, new SkyKey[0]); // Mark value as dirty.
 
     tester.differencer.inject(ImmutableMap.of(key, val));
-    tester.eval(/*keepGoing=*/false, new NodeKey[0]); // Inject again.
-    assertEquals(val, tester.evalAndGet("node"));
+    tester.eval(/*keepGoing=*/false, new SkyKey[0]); // Inject again.
+    assertEquals(val, tester.evalAndGet("value"));
   }
 
   @Test
-  public void nodeInjectionOverExistingEntryMarkedForInvalidation() throws Exception {
-    NodeKey key = GraphTester.toNodeKey("node");
-    Node val = new StringNode("val");
+  public void valueInjectionOverExistingEntryMarkedForInvalidation() throws Exception {
+    SkyKey key = GraphTester.toSkyKey("value");
+    SkyValue val = new StringValue("val");
 
-    tester.getOrCreate(key).setConstantValue(new StringNode("old_val"));
+    tester.getOrCreate(key).setConstantValue(new StringValue("old_val"));
     tester.differencer.invalidate(ImmutableList.of(key));
     tester.differencer.inject(ImmutableMap.of(key, val));
-    assertEquals(val, tester.evalAndGet("node"));
+    assertEquals(val, tester.evalAndGet("value"));
   }
 
   @Test
-  public void nodeInjectionOverExistingEntryMarkedForDeletion() throws Exception {
-    NodeKey key = GraphTester.toNodeKey("node");
-    Node val = new StringNode("val");
+  public void valueInjectionOverExistingEntryMarkedForDeletion() throws Exception {
+    SkyKey key = GraphTester.toSkyKey("value");
+    SkyValue val = new StringValue("val");
 
-    tester.getOrCreate(key).setConstantValue(new StringNode("old_val"));
-    tester.graph.delete(Predicates.<NodeKey>alwaysTrue());
+    tester.getOrCreate(key).setConstantValue(new StringValue("old_val"));
+    tester.graph.delete(Predicates.<SkyKey>alwaysTrue());
     tester.differencer.inject(ImmutableMap.of(key, val));
-    assertEquals(val, tester.evalAndGet("node"));
+    assertEquals(val, tester.evalAndGet("value"));
   }
 
   @Test
-  public void nodeInjectionOverExistingEqualEntryMarkedForInvalidation() throws Exception {
-    NodeKey key = GraphTester.toNodeKey("node");
-    Node val = new StringNode("val");
+  public void valueInjectionOverExistingEqualEntryMarkedForInvalidation() throws Exception {
+    SkyKey key = GraphTester.toSkyKey("value");
+    SkyValue val = new StringValue("val");
 
     tester.differencer.inject(ImmutableMap.of(key, val));
-    assertEquals(val, tester.evalAndGet("node"));
+    assertEquals(val, tester.evalAndGet("value"));
 
     tester.differencer.invalidate(ImmutableList.of(key));
     tester.differencer.inject(ImmutableMap.of(key, val));
-    assertEquals(val, tester.evalAndGet("node"));
+    assertEquals(val, tester.evalAndGet("value"));
   }
 
   @Test
-  public void nodeInjectionOverExistingEqualEntryMarkedForDeletion() throws Exception {
-    NodeKey key = GraphTester.toNodeKey("node");
-    Node val = new StringNode("val");
+  public void valueInjectionOverExistingEqualEntryMarkedForDeletion() throws Exception {
+    SkyKey key = GraphTester.toSkyKey("value");
+    SkyValue val = new StringValue("val");
 
     tester.differencer.inject(ImmutableMap.of(key, val));
-    assertEquals(val, tester.evalAndGet("node"));
+    assertEquals(val, tester.evalAndGet("value"));
 
-    tester.graph.delete(Predicates.<NodeKey>alwaysTrue());
+    tester.graph.delete(Predicates.<SkyKey>alwaysTrue());
     tester.differencer.inject(ImmutableMap.of(key, val));
-    assertEquals(val, tester.evalAndGet("node"));
+    assertEquals(val, tester.evalAndGet("value"));
   }
 
   @Test
-  public void nodeInjectionOverNodeWithDeps() throws Exception {
-    NodeKey key = GraphTester.toNodeKey("node");
-    Node val = new StringNode("val");
-    StringNode prevVal = new StringNode("foo");
+  public void valueInjectionOverValueWithDeps() throws Exception {
+    SkyKey key = GraphTester.toSkyKey("value");
+    SkyValue val = new StringValue("val");
+    StringValue prevVal = new StringValue("foo");
 
     tester.getOrCreate("other").setConstantValue(prevVal);
     tester.getOrCreate(key).addDependency("other").setComputedValue(COPY);
-    assertEquals(prevVal, tester.evalAndGet("node"));
+    assertEquals(prevVal, tester.evalAndGet("value"));
     tester.differencer.inject(ImmutableMap.of(key, val));
     try {
-      tester.evalAndGet("node");
-      Assert.fail("injection over node with deps should have failed");
+      tester.evalAndGet("value");
+      Assert.fail("injection over value with deps should have failed");
     } catch (IllegalStateException e) {
-      assertEquals("existing entry for Type:node has deps: [Type:other]", e.getMessage());
+      assertEquals("existing entry for Type:value has deps: [Type:other]", e.getMessage());
     }
   }
 
   @Test
-  public void nodeInjectionOverEqualNodeWithDeps() throws Exception {
-    NodeKey key = GraphTester.toNodeKey("node");
-    Node val = new StringNode("val");
+  public void valueInjectionOverEqualValueWithDeps() throws Exception {
+    SkyKey key = GraphTester.toSkyKey("value");
+    SkyValue val = new StringValue("val");
 
     tester.getOrCreate("other").setConstantValue(val);
     tester.getOrCreate(key).addDependency("other").setComputedValue(COPY);
-    assertEquals(val, tester.evalAndGet("node"));
+    assertEquals(val, tester.evalAndGet("value"));
     tester.differencer.inject(ImmutableMap.of(key, val));
     try {
-      tester.evalAndGet("node");
-      Assert.fail("injection over node with deps should have failed");
+      tester.evalAndGet("value");
+      Assert.fail("injection over value with deps should have failed");
     } catch (IllegalStateException e) {
-      assertEquals("existing entry for Type:node has deps: [Type:other]", e.getMessage());
+      assertEquals("existing entry for Type:value has deps: [Type:other]", e.getMessage());
     }
   }
 
   @Test
-  public void nodeInjectionOverNodeWithErrors() throws Exception {
-    NodeKey key = GraphTester.toNodeKey("node");
-    Node val = new StringNode("val");
+  public void valueInjectionOverValueWithErrors() throws Exception {
+    SkyKey key = GraphTester.toSkyKey("value");
+    SkyValue val = new StringValue("val");
 
     tester.getOrCreate(key).setHasNonTransientError(true);
     tester.evalAndGetError(key);
@@ -2553,44 +2576,44 @@ public class AutoUpdatingGraphTest {
   }
 
   @Test
-  public void nodeInjectionInvalidatesReverseDeps() throws Exception {
-    NodeKey childKey = GraphTester.toNodeKey("child");
-    NodeKey parentKey = GraphTester.toNodeKey("parent");
-    StringNode oldVal = new StringNode("old_val");
+  public void valueInjectionInvalidatesReverseDeps() throws Exception {
+    SkyKey childKey = GraphTester.toSkyKey("child");
+    SkyKey parentKey = GraphTester.toSkyKey("parent");
+    StringValue oldVal = new StringValue("old_val");
 
     tester.getOrCreate(childKey).setConstantValue(oldVal);
     tester.getOrCreate(parentKey).addDependency("child").setComputedValue(COPY);
 
-    UpdateResult<Node> result = tester.eval(false, parentKey);
+    UpdateResult<SkyValue> result = tester.eval(false, parentKey);
     assertFalse(result.hasError());
     assertEquals(oldVal, result.get(parentKey));
 
-    Node val = new StringNode("val");
+    SkyValue val = new StringValue("val");
     tester.differencer.inject(ImmutableMap.of(childKey, val));
     assertEquals(val, tester.evalAndGet("child"));
     // Injecting a new child should have invalidated the parent.
-    Assert.assertNull(tester.getExistingNode("parent"));
+    Assert.assertNull(tester.getExistingValue("parent"));
 
     tester.eval(false, childKey);
-    assertEquals(val, tester.getExistingNode("child"));
-    Assert.assertNull(tester.getExistingNode("parent"));
+    assertEquals(val, tester.getExistingValue("child"));
+    Assert.assertNull(tester.getExistingValue("parent"));
     assertEquals(val, tester.evalAndGet("parent"));
   }
 
   @Test
-  public void nodeInjectionOverExistingEqualEntryDoesNotInvalidate() throws Exception {
-    NodeKey childKey = GraphTester.toNodeKey("child");
-    NodeKey parentKey = GraphTester.toNodeKey("parent");
-    Node val = new StringNode("same_val");
+  public void valueInjectionOverExistingEqualEntryDoesNotInvalidate() throws Exception {
+    SkyKey childKey = GraphTester.toSkyKey("child");
+    SkyKey parentKey = GraphTester.toSkyKey("parent");
+    SkyValue val = new StringValue("same_val");
 
     tester.getOrCreate(parentKey).addDependency("child").setComputedValue(COPY);
-    tester.getOrCreate(childKey).setConstantValue(new StringNode("same_val"));
+    tester.getOrCreate(childKey).setConstantValue(new StringValue("same_val"));
     assertEquals(val, tester.evalAndGet("parent"));
 
     tester.differencer.inject(ImmutableMap.of(childKey, val));
-    assertEquals(val, tester.getExistingNode("child"));
+    assertEquals(val, tester.getExistingValue("child"));
     // Since we are injecting an equal value, the parent should not have been invalidated.
-    assertEquals(val, tester.getExistingNode("parent"));
+    assertEquals(val, tester.getExistingValue("parent"));
   }
 
   private void setGraphForTesting(NotifyingInMemoryGraph notifyingInMemoryGraph) {
@@ -2598,51 +2621,51 @@ public class AutoUpdatingGraphTest {
     autoUpdatingGraph.setGraphForTesting(notifyingInMemoryGraph);
   }
 
-  private static final class PassThroughSelected implements NodeComputer {
-    private final NodeKey key;
+  private static final class PassThroughSelected implements ValueComputer {
+    private final SkyKey key;
 
-    public PassThroughSelected(NodeKey key) {
+    public PassThroughSelected(SkyKey key) {
       this.key = key;
     }
 
     @Override
-    public Node compute(Map<NodeKey, Node> deps, NodeBuilder.Environment env) {
+    public SkyValue compute(Map<SkyKey, SkyValue> deps, SkyFunction.Environment env) {
       return Preconditions.checkNotNull(deps.get(key));
     }
   }
 
-  private static class TrackingInvalidationReceiver implements NodeProgressReceiver {
-    public final Set<Node> dirty = Sets.newConcurrentHashSet();
-    public final Set<Node> deleted = Sets.newConcurrentHashSet();
-    public final Set<NodeKey> enqueued = Sets.newConcurrentHashSet();
-    public final Set<NodeKey> evaluated = Sets.newConcurrentHashSet();
+  private static class TrackingInvalidationReceiver implements ValueProgressReceiver {
+    public final Set<SkyValue> dirty = Sets.newConcurrentHashSet();
+    public final Set<SkyValue> deleted = Sets.newConcurrentHashSet();
+    public final Set<SkyKey> enqueued = Sets.newConcurrentHashSet();
+    public final Set<SkyKey> evaluated = Sets.newConcurrentHashSet();
 
     @Override
-    public void invalidated(Node node, InvalidationState state) {
+    public void invalidated(SkyValue value, InvalidationState state) {
       switch (state) {
         case DELETED:
-          dirty.remove(node);
-          deleted.add(node);
+          dirty.remove(value);
+          deleted.add(value);
           break;
         case DIRTY:
-          dirty.add(node);
-          Preconditions.checkState(!deleted.contains(node));
+          dirty.add(value);
+          Preconditions.checkState(!deleted.contains(value));
           break;
       }
     }
 
     @Override
-    public void enqueueing(NodeKey nodeKey) {
-      enqueued.add(nodeKey);
+    public void enqueueing(SkyKey skyKey) {
+      enqueued.add(skyKey);
     }
 
     @Override
-    public void evaluated(NodeKey nodeKey, Node node, EvaluationState state) {
-      evaluated.add(nodeKey);
+    public void evaluated(SkyKey skyKey, SkyValue value, EvaluationState state) {
+      evaluated.add(skyKey);
       switch (state) {
         default:
-          dirty.remove(node);
-          deleted.remove(node);
+          dirty.remove(value);
+          deleted.remove(value);
           break;
       }
     }
@@ -2665,7 +2688,7 @@ public class AutoUpdatingGraphTest {
     public void initialize() {
       this.differencer = new RecordingDifferencer();
       this.graph = new InMemoryAutoUpdatingGraph(
-          ImmutableMap.of(NODE_TYPE, createDelegatingNodeBuilder()), differencer,
+          ImmutableMap.of(NODE_TYPE, createDelegatingFunction()), differencer,
           invalidationReceiver, emittedEventState);
       this.driver = new SequentialBuildDriver(graph);
     }
@@ -2676,8 +2699,8 @@ public class AutoUpdatingGraphTest {
     }
 
     public void invalidate() {
-      differencer.invalidate(getModifiedNodes());
-      getModifiedNodes().clear();
+      differencer.invalidate(getModifiedValues());
+      getModifiedValues().clear();
       invalidationReceiver.clear();
     }
 
@@ -2686,72 +2709,72 @@ public class AutoUpdatingGraphTest {
     }
 
     public void delete(String key) {
-      graph.delete(Predicates.equalTo(GraphTester.nodeKey(key)));
+      graph.delete(Predicates.equalTo(GraphTester.skyKey(key)));
     }
 
     public void resetPlayedEvents() {
       emittedEventState.clear();
     }
 
-    public Set<Node> getDirtyNodes() {
+    public Set<SkyValue> getDirtyValues() {
       return invalidationReceiver.dirty;
     }
 
-    public Set<Node> getDeletedNodes() {
+    public Set<SkyValue> getDeletedValues() {
       return invalidationReceiver.deleted;
     }
 
-    public Set<NodeKey> getEnqueuedNodes() {
+    public Set<SkyKey> getEnqueuedValues() {
       return invalidationReceiver.enqueued;
     }
 
-    public <T extends Node> UpdateResult<T> eval(boolean keepGoing, int numThreads, NodeKey... keys)
-        throws InterruptedException {
-      Preconditions.checkState(getModifiedNodes().isEmpty());
+    public <T extends SkyValue> UpdateResult<T> eval(
+        boolean keepGoing, int numThreads, SkyKey... keys) throws InterruptedException {
+      Preconditions.checkState(getModifiedValues().isEmpty());
       return driver.update(ImmutableList.copyOf(keys), keepGoing, numThreads, reporter);
     }
 
-    public <T extends Node> UpdateResult<T> eval(boolean keepGoing, NodeKey... keys)
+    public <T extends SkyValue> UpdateResult<T> eval(boolean keepGoing, SkyKey... keys)
         throws InterruptedException {
       return eval(keepGoing, 100, keys);
     }
 
-    public <T extends Node> UpdateResult<T> eval(boolean keepGoing, String... keys)
+    public <T extends SkyValue> UpdateResult<T> eval(boolean keepGoing, String... keys)
         throws InterruptedException {
-      return eval(keepGoing, toNodeKeys(keys));
+      return eval(keepGoing, toSkyKeys(keys));
     }
 
-    public Node evalAndGet(boolean keepGoing, String key)
+    public SkyValue evalAndGet(boolean keepGoing, String key)
         throws InterruptedException {
-      return evalAndGet(keepGoing, new NodeKey(NODE_TYPE, key));
+      return evalAndGet(keepGoing, new SkyKey(NODE_TYPE, key));
     }
 
-    public Node evalAndGet(String key) throws InterruptedException {
+    public SkyValue evalAndGet(String key) throws InterruptedException {
       return evalAndGet(/*keepGoing=*/false, key);
     }
 
-    public Node evalAndGet(boolean keepGoing, NodeKey key)
+    public SkyValue evalAndGet(boolean keepGoing, SkyKey key)
         throws InterruptedException {
-      UpdateResult<StringNode> updateResult = eval(keepGoing, key);
-      Node result = updateResult.get(key);
+      UpdateResult<StringValue> updateResult = eval(keepGoing, key);
+      SkyValue result = updateResult.get(key);
       assertNotNull(updateResult.toString(), result);
       return result;
     }
 
-    public ErrorInfo evalAndGetError(NodeKey key) throws InterruptedException {
-      UpdateResult<StringNode> updateResult = eval(/*keepGoing=*/true, key);
+    public ErrorInfo evalAndGetError(SkyKey key) throws InterruptedException {
+      UpdateResult<StringValue> updateResult = eval(/*keepGoing=*/true, key);
       ErrorInfo result = updateResult.getError(key);
       assertNotNull(updateResult.toString(), result);
       return result;
     }
 
     public ErrorInfo evalAndGetError(String key) throws InterruptedException {
-      return evalAndGetError(new NodeKey(NODE_TYPE, key));
+      return evalAndGetError(new SkyKey(NODE_TYPE, key));
     }
 
     @Nullable
-    public Node getExistingNode(String key) {
-      return graph.getExistingNodeForTesting(new NodeKey(NODE_TYPE, key));
+    public SkyValue getExistingValue(String key) {
+      return graph.getExistingValueForTesting(new SkyKey(NODE_TYPE, key));
     }
   }
 }

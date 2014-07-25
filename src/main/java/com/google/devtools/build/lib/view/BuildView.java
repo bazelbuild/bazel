@@ -87,7 +87,7 @@ import com.google.devtools.build.lib.view.config.BuildConfiguration;
 import com.google.devtools.build.lib.view.config.BuildConfigurationCollection;
 import com.google.devtools.build.lib.view.test.TestProvider;
 import com.google.devtools.build.lib.view.test.TestRunnerAction;
-import com.google.devtools.build.skyframe.NodeKey;
+import com.google.devtools.build.skyframe.SkyKey;
 import com.google.devtools.common.options.Option;
 import com.google.devtools.common.options.OptionsBase;
 
@@ -111,7 +111,7 @@ import javax.annotation.Nullable;
 
 /**
  * <p>The BuildView presents a semantically-consistent and transitively-closed
- * google3 dependency graph for some set of packages.
+ * dependency graph for some set of packages.
  *
  * <h2>Package design</h2>
  *
@@ -277,7 +277,7 @@ public class BuildView {
   private boolean skyframeAnalysisWasDiscarded = false;
 
   @VisibleForTesting
-  public Set<NodeKey> getSkyframeEvaluatedTargetKeysForTesting() {
+  public Set<SkyKey> getSkyframeEvaluatedTargetKeysForTesting() {
     return skyframeBuildView.getEvaluatedTargetKeys();
   }
 

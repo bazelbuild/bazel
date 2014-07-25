@@ -26,23 +26,23 @@ import java.util.Map;
 
 /**
  * The result of a Skyframe {@link Evaluator#eval} call. Will contain all the
- * successfully evaluated nodes, retrievable through {@link #get}. As well, the {@link ErrorInfo}
- * for the first node that failed to evaluate (in the non-keep-going case), or any remaining nodes
+ * successfully evaluated values, retrievable through {@link #get}. As well, the {@link ErrorInfo}
+ * for the first value that failed to evaluate (in the non-keep-going case), or any remaining values
  * that failed to evaluate (in the keep-going case) will be retrievable.
  *
- * @param <T> The type of the nodes that the caller has requested.
+ * @param <T> The type of the values that the caller has requested.
  */
-public class UpdateResult<T extends Node> {
+public class UpdateResult<T extends SkyValue> {
 
   private final boolean hasError;
 
-  private final Map<NodeKey, T> resultMap;
-  private final Map<NodeKey, ErrorInfo> errorMap;
+  private final Map<SkyKey, T> resultMap;
+  private final Map<SkyKey, ErrorInfo> errorMap;
 
   /**
    * Constructor for the "completed" case. Used only by {@link Builder}.
    */
-  private UpdateResult(Map<NodeKey, T> result, Map<NodeKey, ErrorInfo> errorMap, boolean hasError) {
+  private UpdateResult(Map<SkyKey, T> result, Map<SkyKey, ErrorInfo> errorMap, boolean hasError) {
     Preconditions.checkState(errorMap.isEmpty() || hasError,
         "result=%s, errorMap=%s", result, errorMap);
     this.resultMap = Preconditions.checkNotNull(result);
@@ -51,59 +51,59 @@ public class UpdateResult<T extends Node> {
   }
 
   /**
-   * Get a successfully evaluated node.
+   * Get a successfully evaluated value.
    */
-  public T get(NodeKey key) {
+  public T get(SkyKey key) {
     Preconditions.checkNotNull(resultMap, key);
     return resultMap.get(key);
   }
 
   /**
-   * @return Whether or not the eval successfully evaluated all requested nodes. Note that this
-   * may return true even if all nodes returned are available in get(). This happens if a top-level
-   * node depends transitively on some node that recovered from a {@link NodeBuilderException}.
+   * @return Whether or not the eval successfully evaluated all requested values. Note that this
+   * may return true even if all values returned are available in get(). This happens if a top-level
+   * value depends transitively on some value that recovered from a {@link SkyFunctionException}.
    */
   public boolean hasError() {
     return hasError;
   }
 
   /**
-   * @return All successfully evaluated {@link Node}s.
+   * @return All successfully evaluated {@link SkyValue}s.
    */
   public Collection<T> values() {
     return Collections.unmodifiableCollection(resultMap.values());
   }
 
   /**
-   * Returns {@link Map} of {@link NodeKey}s to {@link ErrorInfo}. Note that currently some
-   * of the returned NodeKeys may not be the ones requested by the user. Moreover, the NodeKey
-   * is not necessarily the cause of the error -- it is just the node that was being evaluated
+   * Returns {@link Map} of {@link SkyKey}s to {@link ErrorInfo}. Note that currently some
+   * of the returned SkyKeys may not be the ones requested by the user. Moreover, the SkyKey
+   * is not necessarily the cause of the error -- it is just the value that was being evaluated
    * when the error was discovered. For the cause of the error, use
    * {@link ErrorInfo#getRootCauses()} on each ErrorInfo.
    */
-  public Map<NodeKey, ErrorInfo> errorMap() {
+  public Map<SkyKey, ErrorInfo> errorMap() {
     return ImmutableMap.copyOf(errorMap);
   }
 
   /**
-   * @param key {@link NodeKey} to get {@link ErrorInfo} for.
+   * @param key {@link SkyKey} to get {@link ErrorInfo} for.
    */
-  public ErrorInfo getError(NodeKey key) {
+  public ErrorInfo getError(SkyKey key) {
     return Preconditions.checkNotNull(errorMap, key).get(key);
   }
 
   /**
-   * @return Names of all nodes that were successfully evaluated.
+   * @return Names of all values that were successfully evaluated.
    */
   public <S> Collection<? extends S> keyNames() {
     return this.<S>getNames(resultMap.keySet());
   }
 
   @SuppressWarnings("unchecked")
-  private <S> Collection<? extends S> getNames(Collection<NodeKey> keys) {
+  private <S> Collection<? extends S> getNames(Collection<SkyKey> keys) {
     Collection<S> names = Lists.newArrayListWithCapacity(keys.size());
-    for (NodeKey key : keys) {
-      names.add((S) key.getNodeName());
+    for (SkyKey key : keys) {
+      names.add((S) key.argument());
     }
     return names;
   }
@@ -126,7 +126,7 @@ public class UpdateResult<T extends Node> {
         .toString();
   }
 
-  public static <T extends Node> Builder<T> builder() {
+  public static <T extends SkyValue> Builder<T> builder() {
     return new Builder<>();
   }
 
@@ -135,18 +135,18 @@ public class UpdateResult<T extends Node> {
    *
    * <p>This is intended only for use in alternative {@code AutoUpdatingGraph} implementations.
    */
-  public static class Builder<T extends Node> {
-    private final Map<NodeKey, T> result = new HashMap<>();
-    private final Map<NodeKey, ErrorInfo> errors = new HashMap<>();
+  public static class Builder<T extends SkyValue> {
+    private final Map<SkyKey, T> result = new HashMap<>();
+    private final Map<SkyKey, ErrorInfo> errors = new HashMap<>();
     private boolean hasError = false;
 
     @SuppressWarnings("unchecked")
-    public Builder<T> addResult(NodeKey key, Node node) {
-      result.put(key, Preconditions.checkNotNull((T) node, key));
+    public Builder<T> addResult(SkyKey key, SkyValue value) {
+      result.put(key, Preconditions.checkNotNull((T) value, key));
       return this;
     }
 
-    public Builder<T> addError(NodeKey key, ErrorInfo error) {
+    public Builder<T> addError(SkyKey key, ErrorInfo error) {
       errors.put(key, Preconditions.checkNotNull(error, key));
       return this;
     }

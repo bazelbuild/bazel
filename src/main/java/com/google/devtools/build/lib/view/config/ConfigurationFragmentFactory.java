@@ -17,7 +17,6 @@ import com.google.devtools.build.lib.blaze.BlazeDirectories;
 import com.google.devtools.build.lib.view.config.BuildConfiguration.Fragment;
 
 import java.util.List;
-import java.util.Map;
 
 /**
  * A factory that creates configuration fragments.
@@ -28,13 +27,10 @@ public interface ConfigurationFragmentFactory {
    *
    * @param env the ConfigurationEnvironment for querying targets and paths
    * @param buildOptions command-line options (see {@link FragmentOptions})
-   * @param requiredFragments already created configuration fragments that the currently generated
-   *        fragment depends on. Matches the list specified by {@code requires()}.
-   *
    * @return the configuration fragment.
    */
   BuildConfiguration.Fragment create(ConfigurationEnvironment env, BlazeDirectories directories,
-      BuildOptions buildOptions, Map<Class<? extends Fragment>, Fragment> requiredFragments)
+      BuildOptions buildOptions)
       throws InvalidConfigurationException;
 
   /**

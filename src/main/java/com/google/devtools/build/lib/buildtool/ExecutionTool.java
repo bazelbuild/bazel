@@ -155,7 +155,7 @@ public class ExecutionTool {
               strategy.getClass().getAnnotation(ExecutionStrategy.class);
           if (annotation != null) {
             defaultClassMap.put(annotation.contextType(), strategy);
-            
+
             for (String name : annotation.name()) {
               classMap.put(annotation.contextType(), name, strategy);
             }
@@ -251,7 +251,7 @@ public class ExecutionTool {
         }
       }
     }
-   
+
     // If tests are to be run during build, too, we have to explicitly load the test action context.
     if (request.shouldRunTests()) {
       strategies.add(strategyConverter.getStrategy(TestActionContext.class,
@@ -308,7 +308,8 @@ public class ExecutionTool {
   void executeBuild(LoadingResult loadingResult, AnalysisResult analysisResult,
       BuildResult buildResult, @Nullable SkyframeExecutor skyframeExecutor,
       BuildConfigurationCollection configurations)
-      throws BuildFailedException, InterruptedException, ExitCausingException, TestExecException {
+      throws BuildFailedException, InterruptedException, ExitCausingException, TestExecException,
+      ViewCreationFailedException {
     Stopwatch timer = Stopwatch.createStarted();
     prepare(loadingResult, configurations);
 
@@ -856,7 +857,7 @@ public class ExecutionTool {
     boolean verboseExplanations = options.verboseExplanations;
     boolean keepGoing = request.getViewOptions().keepGoing;
 
-    skyframeExecutor.setVersionWindowForDirtyNodeGc(
+    skyframeExecutor.setVersionWindowForDirtyGc(
         request.getViewOptions().versionWindowForDirtyNodeGc == -1
             ? Long.MAX_VALUE
             : request.getViewOptions().versionWindowForDirtyNodeGc);

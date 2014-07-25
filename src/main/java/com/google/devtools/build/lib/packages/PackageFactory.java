@@ -878,7 +878,7 @@ public final class PackageFactory {
         parentEnv.setImportedExtensions(imports);
         return false;
       }
-      // TODO(bazel-team): Update the Skyframe code path in PackageNodeBuilder too.
+      // TODO(bazel-team): Update the Skyframe code path in PackageFunction too.
       if (updateSkylarkRuleFactory) {
         skylarkRuleFactory.clear(file);
       }

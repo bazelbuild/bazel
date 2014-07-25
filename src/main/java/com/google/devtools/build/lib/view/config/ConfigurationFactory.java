@@ -27,23 +27,16 @@ import com.google.devtools.build.lib.events.ErrorEventListener;
 import com.google.devtools.build.lib.events.StoredErrorEventListener;
 import com.google.devtools.build.lib.graph.Digraph;
 import com.google.devtools.build.lib.graph.Node;
-import com.google.devtools.build.lib.packages.NoSuchPackageException;
-import com.google.devtools.build.lib.packages.NoSuchTargetException;
-import com.google.devtools.build.lib.packages.Package;
-import com.google.devtools.build.lib.packages.Target;
-import com.google.devtools.build.lib.pkgcache.LoadedPackageProvider;
-import com.google.devtools.build.lib.syntax.Label;
-import com.google.devtools.build.lib.syntax.Label.SyntaxException;
-import com.google.devtools.build.lib.vfs.Path;
 import com.google.devtools.build.lib.view.ConfigurationCollectionFactory;
 import com.google.devtools.build.lib.view.config.BuildConfiguration.Fragment;
 
-import java.io.IOException;
 import java.util.ArrayList;
 import java.util.Comparator;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
+
+import javax.annotation.Nullable;
 
 /**
  * A factory class for {@link BuildConfiguration} instances. This is
@@ -108,11 +101,9 @@ public final class ConfigurationFactory {
    */
   @VisibleForTesting
   public BuildConfiguration getTestConfiguration(BlazeDirectories directories,
-      LoadedPackageProvider loadedPackageProvider, BuildOptions buildOptions,
-      Map<String, String> clientEnv) throws InvalidConfigurationException {
-    ConfigurationEnvironment env =
-        new ConfigurationEnvironment.TargetProviderEnvironment(loadedPackageProvider);
-    return getConfiguration(env, directories, buildOptions, clientEnv, false,
+      PackageProviderForConfigurations loadedPackageProvider, BuildOptions buildOptions,
+      Map<String, String> clientEnv) throws InvalidConfigurationException {    
+    return getConfiguration(loadedPackageProvider, directories, buildOptions, clientEnv, false,
         CacheBuilder.newBuilder().<String, BuildConfiguration>build());
   }
 
@@ -122,30 +113,44 @@ public final class ConfigurationFactory {
    */
   @VisibleForTesting
   public BuildConfiguration getConfiguration(ErrorEventListener errorEventListener,
-      LoadedPackageProvider loadedPackageProvider, BuildConfigurationKey key)
+      PackageProviderForConfigurations loadedPackageProvider, BuildConfigurationKey key)
       throws InvalidConfigurationException {
     return createConfiguration(errorEventListener, loadedPackageProvider, key, null);
   }
 
   /** Create the build configurations with the given options. */
+  @Nullable
   public BuildConfigurationCollection getConfigurations(ErrorEventListener listener,
-      LoadedPackageProvider loadedPackageProvider, BuildConfigurationKey key)
+      PackageProviderForConfigurations loadedPackageProvider, BuildConfigurationKey key)
           throws InvalidConfigurationException {
     List<BuildConfiguration> targetConfigurations = new ArrayList<>();
     if (!key.getMultiCpu().isEmpty()) {
       for (String cpu : key.getMultiCpu()) {
-        targetConfigurations.add(createConfiguration(
-            listener, loadedPackageProvider, key, cpu));
+        BuildConfiguration targetConfiguration = createConfiguration(
+            listener, loadedPackageProvider, key, cpu);
+        if (targetConfiguration == null || targetConfigurations.contains(targetConfiguration)) {
+          continue;
+        }
+        targetConfigurations.add(targetConfiguration);
+      }
+      if (loadedPackageProvider.valuesMissing()) {
+        return null;
       }
     } else {
-      targetConfigurations.add(createConfiguration(
-          listener, loadedPackageProvider, key, null));
+      BuildConfiguration targetConfiguration = createConfiguration(
+          listener, loadedPackageProvider, key, null);
+      if (targetConfiguration == null) {
+        return null;
+      }
+      targetConfigurations.add(targetConfiguration);
     }
     return new BuildConfigurationCollection(targetConfigurations);
   }
 
+  @Nullable
   private BuildConfiguration createConfiguration(
-      ErrorEventListener originalEventListener, LoadedPackageProvider loadedPackageProvider,
+      ErrorEventListener originalEventListener,
+      PackageProviderForConfigurations loadedPackageProvider,
       BuildConfigurationKey key, String cpuOverride) throws InvalidConfigurationException {
     StoredErrorEventListener errorEventListener = new StoredErrorEventListener();
     BuildOptions buildOptions = key.getBuildOptions();
@@ -154,12 +159,13 @@ public final class ConfigurationFactory {
       buildOptions = buildOptions.clone();
       buildOptions.get(BuildConfiguration.Options.class).cpu = cpuOverride;
     }
-    ConfigurationBuilderEnvironment env =
-        new ConfigurationBuilderEnvironment(loadedPackageProvider);
 
     BuildConfiguration targetConfig = configurationCollectionFactory.createConfigurations(this,
         hostMachineSpecification, loadedPackageProvider, buildOptions, key.getDirectories(),
-        key.getClientEnv(), errorEventListener, env, performSanityCheck);
+        key.getClientEnv(), errorEventListener, performSanityCheck);
+    if (targetConfig == null) {
+      return null;
+    }
     errorEventListener.replayOn(originalEventListener);
     if (errorEventListener.hasErrors()) {
       throw new InvalidConfigurationException("Build options are invalid");
@@ -171,38 +177,35 @@ public final class ConfigurationFactory {
    * Returns a (possibly new) canonical host BuildConfiguration instance based
    * upon a given request configuration
    */
-  public BuildConfiguration getHostConfiguration(ConfigurationEnvironment env,
+  @Nullable
+  public BuildConfiguration getHostConfiguration(
+      PackageProviderForConfigurations loadedPackageProvider,
       BlazeDirectories directories, Map<String, String> clientEnv, BuildOptions buildOptions,
       boolean fallback) throws InvalidConfigurationException {
-    return getConfiguration(env, directories, buildOptions.createHostOptions(fallback), clientEnv,
-        false, hostConfigCache);
+    return getConfiguration(loadedPackageProvider, directories,
+        buildOptions.createHostOptions(fallback), clientEnv, false, hostConfigCache);
   }
 
   /**
    * The core of BuildConfiguration creation. All host and target instances are
    * constructed and cached here.
    */
-  public BuildConfiguration getConfiguration(ConfigurationEnvironment env,
-      BlazeDirectories directories, BuildOptions buildOptions,
-      Map<String, String> clientEnv, boolean actionsDisabled,
-      Cache<String, BuildConfiguration> cache)
+  @Nullable
+  public BuildConfiguration getConfiguration(PackageProviderForConfigurations loadedPackageProvider,
+      BlazeDirectories directories, BuildOptions buildOptions, Map<String, String> clientEnv,
+      boolean actionsDisabled, Cache<String, BuildConfiguration> cache)
           throws InvalidConfigurationException {
-    // Create configuration fragments
+    
     Map<Class<? extends Fragment>, Fragment> fragments = new HashMap<>();
-    for (ConfigurationFragmentFactory factory : fragmentFactories.creationOrder) {
-      // Assemble a strict subset of required fragments (see FragmentLoader.requires)
-      Map<Class<? extends Fragment>, Fragment> fragmentsSubset = new HashMap<>();
-      for (Class<? extends Fragment> dep : fragmentFactories.dependencies.get(factory)) {
-        fragmentsSubset.put(dep, fragments.get(dep));
+    // Create configuration fragments
+    for (Class<? extends Fragment> fragmentType : fragmentFactories.factoryMap.keySet()) {
+      Fragment fragment = loadedPackageProvider.getFragment(buildOptions, fragmentType);
+      if (fragment != null && fragments.get(fragment) == null) {
+        fragments.put(fragment.getClass(), fragment);
       }
-
-      Fragment fragment = factory.create(env, directories, buildOptions, fragmentsSubset);
-      if (fragment != null) {
-        if (fragments.put(fragment.getClass(), fragment) != null) {
-          throw new InvalidConfigurationException(
-              fragment.getClass() + " is created more than once.");
-        }
-      }
+    }
+    if (loadedPackageProvider.valuesMissing()) {
+      return null;
     }
 
     // Sort the fragments by class name to make sure that the order is stable. Afterwards, copy to
@@ -227,66 +230,37 @@ public final class ConfigurationFactory {
     return configuration;
   }
 
-  /**
-   * A {@link ConfigurationEnvironment} implementation that can create dependencies on files.
-   */
-  private final class ConfigurationBuilderEnvironment implements ConfigurationEnvironment {
-    private final LoadedPackageProvider loadedPackageProvider;
-
-    ConfigurationBuilderEnvironment(LoadedPackageProvider loadedPackageProvider) {
-      this.loadedPackageProvider = loadedPackageProvider;
-    }
-
-    @Override
-    public Target getTarget(Label label) throws NoSuchPackageException, NoSuchTargetException {
-      return loadedPackageProvider.getLoadedTarget(label);
-    }
-
-    @Override
-    public Path getPath(Package pkg, String fileName) {
-      Path result = pkg.getPackageDirectory().getRelative(fileName);
-      try {
-        loadedPackageProvider.addDependency(pkg, fileName);
-      } catch (IOException | SyntaxException e) {
-        return null;
-      }
-      return result;
-    }
+  public List<ConfigurationFragmentFactory> getFactories() {
+    return fragmentFactories.creationOrder;
   }
-
+  
   /**
    * This class creates a topological order for configuration fragments factories.
    * Takes dependency information from {@code ConfigurationFragmentFactory.requires()}.
    */
+  // TODO(bazel-team): remove this class. We don't need it's functionality anymore.
   private class FragmentFactories {
     /**
      * The topological order of fragment factories; note that the ordering of factories in this list
      * may be non-deterministic from JVM invocation to JVM invocation.
      */
     final List<ConfigurationFragmentFactory> creationOrder;
-
-    // Mapping from fragments to their dependencies
-    final Map<ConfigurationFragmentFactory, List<Class<? extends Fragment>>> dependencies;
+    final Map<Class<? extends Fragment>, ConfigurationFragmentFactory> factoryMap;
 
     FragmentFactories(List<ConfigurationFragmentFactory> factories) {
       ImmutableMap.Builder<Class<? extends Fragment>, ConfigurationFragmentFactory> factoryBuilder =
           ImmutableMap.builder();
-      ImmutableMap.Builder<ConfigurationFragmentFactory,
-          List<Class<? extends Fragment>>> depsBuilder = ImmutableMap.builder();
       // Adding fragments to a directed graph, with each edge representing a dependency.
       // The topological ordering of the digraph nodes represent a correct build order.
       Digraph<Class<? extends Fragment>> dependencyGraph = new Digraph<>();
       for (ConfigurationFragmentFactory factory : factories) {
         dependencyGraph.createNode(factory.creates());
         factoryBuilder.put(factory.creates(), factory);
-        depsBuilder.put(factory, factory.requires());
         for (Class<? extends Fragment> dependency : factory.requires()) {
           dependencyGraph.addEdge(dependency, factory.creates());
         }
       }
-      Map<Class<? extends Fragment>, ConfigurationFragmentFactory> factoryMap =
-          factoryBuilder.build();
-      dependencies = depsBuilder.build();
+      factoryMap = factoryBuilder.build();
 
       ImmutableList.Builder<ConfigurationFragmentFactory> builder = ImmutableList.builder();
       for (Node<Class<? extends Fragment>> fragment : dependencyGraph.getTopologicalOrder()) {

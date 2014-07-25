@@ -32,10 +32,10 @@ import com.google.devtools.build.lib.events.Reporter;
 import com.google.devtools.build.lib.testutil.MoreAsserts;
 import com.google.devtools.build.lib.testutil.TestUtils;
 import com.google.devtools.build.lib.util.Pair;
-import com.google.devtools.build.skyframe.GraphTester.StringNode;
-import com.google.devtools.build.skyframe.InvalidatingNodeVisitor.DirtyingInvalidationState;
-import com.google.devtools.build.skyframe.InvalidatingNodeVisitor.InvalidationState;
-import com.google.devtools.build.skyframe.InvalidatingNodeVisitor.InvalidationType;
+import com.google.devtools.build.skyframe.GraphTester.StringValue;
+import com.google.devtools.build.skyframe.InvalidatingValueVisitor.DirtyingInvalidationState;
+import com.google.devtools.build.skyframe.InvalidatingValueVisitor.InvalidationState;
+import com.google.devtools.build.skyframe.InvalidatingValueVisitor.InvalidationType;
 
 import org.junit.Test;
 import org.junit.experimental.runners.Enclosed;
@@ -53,32 +53,32 @@ import java.util.concurrent.atomic.AtomicReference;
 import javax.annotation.Nullable;
 
 /**
- * Tests for {@link InvalidatingNodeVisitor}.
+ * Tests for {@link InvalidatingValueVisitor}.
  */
 @RunWith(Enclosed.class)
 public class EagerInvalidatorTest {
   protected InMemoryGraph graph;
   protected GraphTester tester = new GraphTester();
   protected InvalidationState state = newInvalidationState();
-  protected AtomicReference<InvalidatingNodeVisitor> visitor = new AtomicReference<>();
+  protected AtomicReference<InvalidatingValueVisitor> visitor = new AtomicReference<>();
 
   private int graphVersion = 0;
 
   // The following three methods should be abstract, but junit4 does not allow us to run inner
   // classes in an abstract outer class. Thus, we provide implementations. These methods will never
   // be run because only the inner classes, annotated with @RunWith, will actually be executed.
-  NodeProgressReceiver.InvalidationState expectedState() {
+  ValueProgressReceiver.InvalidationState expectedState() {
     throw new UnsupportedOperationException();
   }
 
   @SuppressWarnings("unused") // Overridden by subclasses.
-  void invalidate(DirtiableGraph graph, NodeProgressReceiver invalidationReceiver,
-      NodeKey... keys) throws InterruptedException { throw new UnsupportedOperationException(); }
+  void invalidate(DirtiableGraph graph, ValueProgressReceiver invalidationReceiver,
+      SkyKey... keys) throws InterruptedException { throw new UnsupportedOperationException(); }
 
   boolean gcExpected() { throw new UnsupportedOperationException(); }
 
-  private boolean isInvalidated(NodeKey key) {
-    NodeEntry entry = graph.get(key);
+  private boolean isInvalidated(SkyKey key) {
+    ValueEntry entry = graph.get(key);
     if (gcExpected()) {
       return entry == null;
     } else {
@@ -86,8 +86,8 @@ public class EagerInvalidatorTest {
     }
   }
 
-  private void assertChanged(NodeKey key) {
-    NodeEntry entry = graph.get(key);
+  private void assertChanged(SkyKey key) {
+    ValueEntry entry = graph.get(key);
     if (gcExpected()) {
       assertNull(entry);
     } else {
@@ -95,8 +95,8 @@ public class EagerInvalidatorTest {
     }
   }
 
-  private void assertDirtyAndNotChanged(NodeKey key) {
-    NodeEntry entry = graph.get(key);
+  private void assertDirtyAndNotChanged(SkyKey key) {
+    ValueEntry entry = graph.get(key);
     if (gcExpected()) {
       assertNull(entry);
     } else {
@@ -114,57 +114,57 @@ public class EagerInvalidatorTest {
     throw new UnsupportedOperationException("Sublcasses must override");
   }
 
-  // Convenience method for eval-ing a single node.
-  protected Node eval(boolean keepGoing, NodeKey key) throws InterruptedException {
-    NodeKey[] keys = { key };
+  // Convenience method for eval-ing a single value.
+  protected SkyValue eval(boolean keepGoing, SkyKey key) throws InterruptedException {
+    SkyKey[] keys = { key };
     return eval(keepGoing, keys).get(key);
   }
 
-  protected <T extends Node> UpdateResult<T> eval(boolean keepGoing, NodeKey... keys)
+  protected <T extends SkyValue> UpdateResult<T> eval(boolean keepGoing, SkyKey... keys)
     throws InterruptedException {
     Reporter reporter = new Reporter();
     ParallelEvaluator evaluator = new ParallelEvaluator(graph, graphVersion++,
-        ImmutableMap.of(GraphTester.NODE_TYPE, tester.createDelegatingNodeBuilder()),
+        ImmutableMap.of(GraphTester.NODE_TYPE, tester.createDelegatingFunction()),
         reporter, new AutoUpdatingGraph.EmittedEventState(), keepGoing, 200, null);
     return evaluator.eval(ImmutableList.copyOf(keys));
   }
 
-  protected void invalidateWithoutError(@Nullable NodeProgressReceiver invalidationReceiver,
-      NodeKey... keys) throws InterruptedException {
+  protected void invalidateWithoutError(@Nullable ValueProgressReceiver invalidationReceiver,
+      SkyKey... keys) throws InterruptedException {
     invalidate(graph, invalidationReceiver, keys);
     assertTrue(state.isEmpty());
   }
 
   protected void set(String name, String value) {
-    tester.set(name, new StringNode(value));
+    tester.set(name, new StringValue(value));
   }
 
-  protected NodeKey nodeKey(String name) {
-    return GraphTester.toNodeKeys(name)[0];
+  protected SkyKey skyKey(String name) {
+    return GraphTester.toSkyKeys(name)[0];
   }
 
-  protected void assertNodeValue(String name, String expectedValue) throws InterruptedException {
-    StringNode node = (StringNode) eval(false, nodeKey(name));
-    assertEquals(expectedValue, node.getValue());
+  protected void assertValueValue(String name, String expectedValue) throws InterruptedException {
+    StringValue value = (StringValue) eval(false, skyKey(name));
+    assertEquals(expectedValue, value.getValue());
   }
 
   @Test
   public void receiverWorks() throws Exception {
     final Set<String> invalidated = Sets.newConcurrentHashSet();
-    NodeProgressReceiver receiver = new NodeProgressReceiver() {
+    ValueProgressReceiver receiver = new ValueProgressReceiver() {
       @Override
-      public void invalidated(Node node, InvalidationState state) {
+      public void invalidated(SkyValue value, InvalidationState state) {
         Preconditions.checkState(state == expectedState());
-        invalidated.add(((StringNode) node).getValue());
+        invalidated.add(((StringValue) value).getValue());
       }
       
       @Override
-      public void enqueueing(NodeKey nodeKey) {
+      public void enqueueing(SkyKey skyKey) {
         throw new UnsupportedOperationException();        
       }
 
       @Override
-      public void evaluated(NodeKey nodeKey, Node node, EvaluationState state) {
+      public void evaluated(SkyKey skyKey, SkyValue value, EvaluationState state) {
         throw new UnsupportedOperationException();
       }
     };
@@ -173,34 +173,34 @@ public class EagerInvalidatorTest {
     set("b", "b");
     tester.getOrCreate("ab").addDependency("a").addDependency("b")
         .setComputedValue(CONCATENATE);
-    assertNodeValue("ab", "ab");
+    assertValueValue("ab", "ab");
 
     set("a", "c");
-    invalidateWithoutError(receiver, nodeKey("a"));
+    invalidateWithoutError(receiver, skyKey("a"));
     MoreAsserts.assertContentsAnyOrder(invalidated, "a", "ab");
-    assertNodeValue("ab", "cb");
+    assertValueValue("ab", "cb");
     set("b", "d");
-    invalidateWithoutError(receiver, nodeKey("b"));
+    invalidateWithoutError(receiver, skyKey("b"));
     MoreAsserts.assertContentsAnyOrder(invalidated, "a", "ab", "b", "cb");
   }
 
   @Test
-  public void receiverIsNotNotifiedAboutNodesInError() throws Exception {
+  public void receiverIsNotNotifiedAboutValuesInError() throws Exception {
     final Set<String> invalidated = Sets.newConcurrentHashSet();
-    NodeProgressReceiver receiver = new NodeProgressReceiver() {
+    ValueProgressReceiver receiver = new ValueProgressReceiver() {
       @Override
-      public void invalidated(Node node, InvalidationState state) {
+      public void invalidated(SkyValue value, InvalidationState state) {
         Preconditions.checkState(state == expectedState());
-        invalidated.add(((StringNode) node).getValue());
+        invalidated.add(((StringValue) value).getValue());
       }
       
       @Override
-      public void enqueueing(NodeKey nodeKey) {
+      public void enqueueing(SkyKey skyKey) {
         throw new UnsupportedOperationException();        
       }
 
       @Override
-      public void evaluated(NodeKey nodeKey, Node node, EvaluationState state) {
+      public void evaluated(SkyKey skyKey, SkyValue value, EvaluationState state) {
         throw new UnsupportedOperationException();
       }
     };
@@ -208,54 +208,54 @@ public class EagerInvalidatorTest {
     graph = new InMemoryGraph();
     set("a", "a");
     tester.getOrCreate("ab").addDependency("a").setHasError(true);
-    eval(false, nodeKey("ab"));
+    eval(false, skyKey("ab"));
 
-    invalidateWithoutError(receiver, nodeKey("a"));
+    invalidateWithoutError(receiver, skyKey("a"));
     MoreAsserts.assertContentsInOrder(invalidated, "a");  // "ab" is not present
   }
 
   @Test
-  public void invalidateNodesNotInGraph() throws Exception {
+  public void invalidateValuesNotInGraph() throws Exception {
     final Set<String> invalidated = Sets.newConcurrentHashSet();
-    NodeProgressReceiver receiver = new NodeProgressReceiver() {
+    ValueProgressReceiver receiver = new ValueProgressReceiver() {
       @Override
-      public void invalidated(Node node, InvalidationState state) {
+      public void invalidated(SkyValue value, InvalidationState state) {
         Preconditions.checkState(state == InvalidationState.DIRTY);
-        invalidated.add(((StringNode) node).getValue());
+        invalidated.add(((StringValue) value).getValue());
       }
       
       @Override
-      public void enqueueing(NodeKey nodeKey) {
+      public void enqueueing(SkyKey skyKey) {
         throw new UnsupportedOperationException();        
       }
 
       @Override
-      public void evaluated(NodeKey nodeKey, Node node, EvaluationState state) {
+      public void evaluated(SkyKey skyKey, SkyValue value, EvaluationState state) {
         throw new UnsupportedOperationException();
       }
     };
     graph = new InMemoryGraph();
-    invalidateWithoutError(receiver, nodeKey("a"));
+    invalidateWithoutError(receiver, skyKey("a"));
     assertThat(invalidated).isEmpty();
     set("a", "a");
-    assertNodeValue("a", "a");
-    invalidateWithoutError(receiver, nodeKey("b"));
+    assertValueValue("a", "a");
+    invalidateWithoutError(receiver, skyKey("b"));
     assertThat(invalidated).isEmpty();
   }
 
   @Test
-  public void invalidatedNodesAreGCedAsExpected() throws Exception {
-    NodeKey key = GraphTester.nodeKey("a");
-    HeavyNode heavyNode = new HeavyNode();
-    WeakReference<HeavyNode> weakRef = new WeakReference<>(heavyNode);
-    tester.set("a", heavyNode);
+  public void invalidatedValuesAreGCedAsExpected() throws Exception {
+    SkyKey key = GraphTester.skyKey("a");
+    HeavyValue heavyValue = new HeavyValue();
+    WeakReference<HeavyValue> weakRef = new WeakReference<>(heavyValue);
+    tester.set("a", heavyValue);
 
     graph = new InMemoryGraph();
     eval(false, key);
     invalidate(graph, null, key);
 
     tester = null;
-    heavyNode = null;
+    heavyValue = null;
     if (gcExpected()) {
       GcFinalization.awaitClear(weakRef);
     } else {
@@ -276,59 +276,59 @@ public class EagerInvalidatorTest {
     tester.getOrCreate("bc").addDependency("b").addDependency("c").setComputedValue(CONCATENATE);
     tester.getOrCreate("ab_c").addDependency("ab").addDependency("c")
         .setComputedValue(CONCATENATE);
-    eval(false, nodeKey("ab_c"), nodeKey("bc"));
+    eval(false, skyKey("ab_c"), skyKey("bc"));
 
-    MoreAsserts.assertContentsAnyOrder(graph.get(nodeKey("a")).getReverseDeps(),
-        nodeKey("ab"));
-    MoreAsserts.assertContentsAnyOrder(graph.get(nodeKey("b")).getReverseDeps(),
-        nodeKey("ab"), nodeKey("bc"));
-    MoreAsserts.assertContentsAnyOrder(graph.get(nodeKey("c")).getReverseDeps(),
-        nodeKey("ab_c"), nodeKey("bc"));
+    MoreAsserts.assertContentsAnyOrder(graph.get(skyKey("a")).getReverseDeps(),
+        skyKey("ab"));
+    MoreAsserts.assertContentsAnyOrder(graph.get(skyKey("b")).getReverseDeps(),
+        skyKey("ab"), skyKey("bc"));
+    MoreAsserts.assertContentsAnyOrder(graph.get(skyKey("c")).getReverseDeps(),
+        skyKey("ab_c"), skyKey("bc"));
 
-    invalidateWithoutError(null, nodeKey("ab"));
+    invalidateWithoutError(null, skyKey("ab"));
     eval(false);
 
-    // The graph nodes should be gone.
-    assertTrue(isInvalidated(nodeKey("ab")));
-    assertTrue(isInvalidated(nodeKey("abc")));
+    // The graph values should be gone.
+    assertTrue(isInvalidated(skyKey("ab")));
+    assertTrue(isInvalidated(skyKey("abc")));
 
     // The reverse deps to ab and ab_c should have been removed.
-    assertThat(graph.get(nodeKey("a")).getReverseDeps()).isEmpty();
-    MoreAsserts.assertContentsAnyOrder(graph.get(nodeKey("b")).getReverseDeps(),
-        nodeKey("bc"));
-    MoreAsserts.assertContentsAnyOrder(graph.get(nodeKey("c")).getReverseDeps(),
-        nodeKey("bc"));
+    assertThat(graph.get(skyKey("a")).getReverseDeps()).isEmpty();
+    MoreAsserts.assertContentsAnyOrder(graph.get(skyKey("b")).getReverseDeps(),
+        skyKey("bc"));
+    MoreAsserts.assertContentsAnyOrder(graph.get(skyKey("c")).getReverseDeps(),
+        skyKey("bc"));
   }
 
   @Test
   public void interruptChild() throws Exception {
     graph = new InMemoryGraph();
-    int numNodes = 50; // More nodes than the invalidator has threads.
-    final NodeKey[] family = new NodeKey[numNodes];
-    final NodeKey child = GraphTester.nodeKey("child");
-    final StringNode childNode = new StringNode("child");
-    tester.set(child, childNode);
+    int numValues = 50; // More values than the invalidator has threads.
+    final SkyKey[] family = new SkyKey[numValues];
+    final SkyKey child = GraphTester.skyKey("child");
+    final StringValue childValue = new StringValue("child");
+    tester.set(child, childValue);
     family[0] = child;
-    for (int i = 1; i < numNodes; i++) {
-      NodeKey member = nodeKey(Integer.toString(i));
+    for (int i = 1; i < numValues; i++) {
+      SkyKey member = skyKey(Integer.toString(i));
       tester.getOrCreate(member).addDependency(family[i - 1]).setComputedValue(CONCATENATE);
       family[i] = member;
     }
-    NodeKey parent = GraphTester.nodeKey("parent");
-    tester.getOrCreate(parent).addDependency(family[numNodes - 1]).setComputedValue(CONCATENATE);
+    SkyKey parent = GraphTester.skyKey("parent");
+    tester.getOrCreate(parent).addDependency(family[numValues - 1]).setComputedValue(CONCATENATE);
     eval(/*keepGoing=*/false, parent);
     final Thread mainThread = Thread.currentThread();
-    final AtomicReference<Node> badNode = new AtomicReference<>();
-    NodeProgressReceiver receiver = new NodeProgressReceiver() {
+    final AtomicReference<SkyValue> badValue = new AtomicReference<>();
+    ValueProgressReceiver receiver = new ValueProgressReceiver() {
       @Override
-      public void invalidated(Node node, InvalidationState state) {
-        if (node == childNode) {
+      public void invalidated(SkyValue value, InvalidationState state) {
+        if (value == childValue) {
           // Interrupt on the very first invalidate
           mainThread.interrupt();
-        } else if (!childNode.equals(node)) {
-          // All other invalidations should be of the same node.
+        } else if (!childValue.equals(value)) {
+          // All other invalidations should be of the same value.
           // Exceptions thrown here may be silently dropped, so keep track of errors ourselves.
-          badNode.set(node);
+          badValue.set(value);
         }
         try {
           assertTrue(visitor.get().awaitInterruptionForTestingOnly(2, TimeUnit.HOURS));
@@ -339,12 +339,12 @@ public class EagerInvalidatorTest {
       }
       
       @Override
-      public void enqueueing(NodeKey nodeKey) {
+      public void enqueueing(SkyKey skyKey) {
         throw new UnsupportedOperationException();        
       }
 
       @Override
-      public void evaluated(NodeKey nodeKey, Node node, EvaluationState state) {
+      public void evaluated(SkyKey skyKey, SkyValue value, EvaluationState state) {
         throw new UnsupportedOperationException();
       }
     };
@@ -354,68 +354,68 @@ public class EagerInvalidatorTest {
     } catch (InterruptedException e) {
       // Expected.
     }
-    assertNull(badNode.get());
+    assertNull(badValue.get());
     assertFalse(state.isEmpty());
-    final Set<Node> invalidated = new HashSet<>();
+    final Set<SkyValue> invalidated = new HashSet<>();
     assertFalse(isInvalidated(parent));
-    Node parentNode = graph.getNode(parent);
-    assertNotNull(parentNode);
-    receiver = new NodeProgressReceiver() {
+    SkyValue parentValue = graph.getValue(parent);
+    assertNotNull(parentValue);
+    receiver = new ValueProgressReceiver() {
       @Override
-      public void invalidated(Node node, InvalidationState state) {
-        invalidated.add(node);
+      public void invalidated(SkyValue value, InvalidationState state) {
+        invalidated.add(value);
       }
       
       @Override
-      public void enqueueing(NodeKey nodeKey) {
+      public void enqueueing(SkyKey skyKey) {
         throw new UnsupportedOperationException();        
       }
 
       @Override
-      public void evaluated(NodeKey nodeKey, Node node, EvaluationState state) {
+      public void evaluated(SkyKey skyKey, SkyValue value, EvaluationState state) {
         throw new UnsupportedOperationException();
       }
     };
     invalidateWithoutError(receiver);
-    assertThat(invalidated).has().item(parentNode);
+    assertThat(invalidated).has().item(parentValue);
     assertThat(state.getInvalidationsForTesting()).isEmpty();
 
     // Regression test coverage:
-    // "all pending nodes are marked changed on interrupt".
+    // "all pending values are marked changed on interrupt".
     assertTrue(isInvalidated(child));
     assertChanged(child);
-    for (int i = 1; i < numNodes; i++) {
+    for (int i = 1; i < numValues; i++) {
       assertDirtyAndNotChanged(family[i]);
     }
     assertDirtyAndNotChanged(parent);
   }
 
-  private NodeKey[] constructLargeGraph(int size) {
+  private SkyKey[] constructLargeGraph(int size) {
     Random random = new Random(TestUtils.getRandomSeed());
-    NodeKey[] nodes = new NodeKey[size];
+    SkyKey[] values = new SkyKey[size];
     for (int i = 0; i < size; i++) {
       String iString = Integer.toString(i);
-      NodeKey iKey = GraphTester.toNodeKey(iString);
+      SkyKey iKey = GraphTester.toSkyKey(iString);
       set(iString, iString);
       for (int j = 0; j < i; j++) {
         if (random.nextInt(3) == 0) {
           tester.getOrCreate(iKey).addDependency(Integer.toString(j));
         }
       }
-      nodes[i] = iKey;
+      values[i] = iKey;
     }
-    return nodes;
+    return values;
   }
 
-  /** Return a subset of {@code nodes} that are still valid and so can be invalidated. */
-  private Set<Pair<NodeKey, InvalidationType>> getNodesToInvalidate(NodeKey[] nodes) {
-    Set<Pair<NodeKey, InvalidationType>> result = new HashSet<>();
+  /** Return a subset of {@code values} that are still valid and so can be invalidated. */
+  private Set<Pair<SkyKey, InvalidationType>> getValuesToInvalidate(SkyKey[] values) {
+    Set<Pair<SkyKey, InvalidationType>> result = new HashSet<>();
     Random random = new Random(TestUtils.getRandomSeed());
-    for (NodeKey node : nodes) {
-      if (!isInvalidated(node)) {
+    for (SkyKey value : values) {
+      if (!isInvalidated(value)) {
         if (result.isEmpty() || random.nextInt(3) == 0) {
-          // Add at least one node, if we can.
-          result.add(Pair.of(node, defaultInvalidationType()));
+          // Add at least one value, if we can.
+          result.add(Pair.of(value, defaultInvalidationType()));
         }
       }
     }
@@ -428,25 +428,25 @@ public class EagerInvalidatorTest {
     int graphSize = 1000;
     int tries = 5;
     graph = new InMemoryGraph();
-    NodeKey[] nodes = constructLargeGraph(graphSize);
-    eval(/*keepGoing=*/false, nodes);
+    SkyKey[] values = constructLargeGraph(graphSize);
+    eval(/*keepGoing=*/false, values);
     final Thread mainThread = Thread.currentThread();
     for (int run = 0; run < tries; run++) {
-      Set<Pair<NodeKey, InvalidationType>> nodesToInvalidate = getNodesToInvalidate(nodes);
+      Set<Pair<SkyKey, InvalidationType>> valuesToInvalidate = getValuesToInvalidate(values);
       // Find how many invalidations will actually be enqueued for invalidation in the first round,
       // so that we can interrupt before all of them are done.
-      int validNodesToDo =
-          Sets.difference(nodesToInvalidate, state.getInvalidationsForTesting()).size();
-      for (Pair<NodeKey, InvalidationType> pair : state.getInvalidationsForTesting()) {
+      int validValuesToDo =
+          Sets.difference(valuesToInvalidate, state.getInvalidationsForTesting()).size();
+      for (Pair<SkyKey, InvalidationType> pair : state.getInvalidationsForTesting()) {
         if (!isInvalidated(pair.first)) {
-          validNodesToDo++;
+          validValuesToDo++;
         }
       }
-      int countDownStart = validNodesToDo > 0 ? random.nextInt(validNodesToDo) : 0;
+      int countDownStart = validValuesToDo > 0 ? random.nextInt(validValuesToDo) : 0;
       final CountDownLatch countDownToInterrupt = new CountDownLatch(countDownStart);
-      final NodeProgressReceiver receiver = new NodeProgressReceiver() {
+      final ValueProgressReceiver receiver = new ValueProgressReceiver() {
         @Override
-        public void invalidated(Node node, InvalidationState state) {
+        public void invalidated(SkyValue value, InvalidationState state) {
           countDownToInterrupt.countDown();
           if (countDownToInterrupt.getCount() == 0) {
             mainThread.interrupt();
@@ -465,34 +465,34 @@ public class EagerInvalidatorTest {
         }
 
         @Override
-        public void enqueueing(NodeKey nodeKey) {
+        public void enqueueing(SkyKey skyKey) {
           throw new UnsupportedOperationException();
         }
 
         @Override
-        public void evaluated(NodeKey nodeKey, Node node, EvaluationState state) {
+        public void evaluated(SkyKey skyKey, SkyValue value, EvaluationState state) {
           throw new UnsupportedOperationException();
         }
       };
       try {
         invalidate(graph, receiver,
             Sets.newHashSet(
-                Iterables.transform(nodesToInvalidate,
-                    Pair.<NodeKey, InvalidationType>firstFunction())).toArray(new NodeKey[0]));
+                Iterables.transform(valuesToInvalidate,
+                    Pair.<SkyKey, InvalidationType>firstFunction())).toArray(new SkyKey[0]));
         assertThat(state.getInvalidationsForTesting()).isEmpty();
       } catch (InterruptedException e) {
         // Expected.
       }
       if (state.isEmpty()) {
-        // Ran out of nodes to invalidate.
+        // Ran out of values to invalidate.
         break;
       }
     }
 
-    eval(/*keepGoing=*/false, nodes);
+    eval(/*keepGoing=*/false, values);
   }
 
-  private static class HeavyNode implements Node {
+  private static class HeavyValue implements SkyValue {
   }
 
   /**
@@ -501,9 +501,9 @@ public class EagerInvalidatorTest {
   @RunWith(JUnit4.class)
   public static class DeletingInvalidatorTest extends EagerInvalidatorTest {
     @Override
-    protected void invalidate(DirtiableGraph graph, NodeProgressReceiver invalidationReceiver,
-        NodeKey... keys) throws InterruptedException {
-      InvalidatingNodeVisitor invalidatingVisitor =
+    protected void invalidate(DirtiableGraph graph, ValueProgressReceiver invalidationReceiver,
+        SkyKey... keys) throws InterruptedException {
+      InvalidatingValueVisitor invalidatingVisitor =
           EagerInvalidator.createVisitor(/*delete=*/true, graph, ImmutableList.copyOf(keys),
               invalidationReceiver, state);
       if (invalidatingVisitor != null) {
@@ -513,8 +513,8 @@ public class EagerInvalidatorTest {
     }
 
     @Override
-    NodeProgressReceiver.InvalidationState expectedState() {
-      return NodeProgressReceiver.InvalidationState.DELETED;
+    ValueProgressReceiver.InvalidationState expectedState() {
+      return ValueProgressReceiver.InvalidationState.DELETED;
     }
 
     @Override
@@ -524,7 +524,7 @@ public class EagerInvalidatorTest {
 
     @Override
     protected InvalidationState newInvalidationState() {
-      return new InvalidatingNodeVisitor.DeletingInvalidationState();
+      return new InvalidatingValueVisitor.DeletingInvalidationState();
     }
 
     @Override
@@ -539,9 +539,9 @@ public class EagerInvalidatorTest {
   @RunWith(JUnit4.class)
   public static class DirtyingInvalidatorTest extends EagerInvalidatorTest {
     @Override
-    protected void invalidate(DirtiableGraph graph, NodeProgressReceiver invalidationReceiver,
-        NodeKey... keys) throws InterruptedException {
-      InvalidatingNodeVisitor invalidatingVisitor =
+    protected void invalidate(DirtiableGraph graph, ValueProgressReceiver invalidationReceiver,
+        SkyKey... keys) throws InterruptedException {
+      InvalidatingValueVisitor invalidatingVisitor =
           EagerInvalidator.createVisitor(/*delete=*/false, graph, ImmutableList.copyOf(keys),
               invalidationReceiver, state);
       if (invalidatingVisitor != null) {
@@ -551,8 +551,8 @@ public class EagerInvalidatorTest {
     }
 
     @Override
-    NodeProgressReceiver.InvalidationState expectedState() {
-      return NodeProgressReceiver.InvalidationState.DIRTY;
+    ValueProgressReceiver.InvalidationState expectedState() {
+      return ValueProgressReceiver.InvalidationState.DIRTY;
     }
 
     @Override

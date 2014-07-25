@@ -23,53 +23,53 @@ import java.util.List;
 import java.util.Map;
 
 /**
- * A simple Differencer which just records the invalidated nodes it's been given.
+ * A simple Differencer which just records the invalidated values it's been given.
  */
 @ThreadSafety.ThreadCompatible
 public class RecordingDifferencer implements Differencer {
 
-  private List<NodeKey> nodesToInvalidate;
-  private Map<NodeKey, Node> nodesToInject;
+  private List<SkyKey> valuesToInvalidate;
+  private Map<SkyKey, SkyValue> valuesToInject;
 
   public RecordingDifferencer() {
     clear();
   }
 
   private void clear() {
-    nodesToInvalidate = new ArrayList<>();
-    nodesToInject = new HashMap<>();
+    valuesToInvalidate = new ArrayList<>();
+    valuesToInject = new HashMap<>();
   }
 
   @Override
   public Diff getDiff(Version fromVersion, Version toVersion) {
-    Diff diff = new ImmutableDiff(nodesToInvalidate, nodesToInject);
+    Diff diff = new ImmutableDiff(valuesToInvalidate, valuesToInject);
     clear();
     return diff;
   }
 
   /**
-   * Store the given nodes for invalidation.
+   * Store the given values for invalidation.
    */
-  public void invalidate(Iterable<NodeKey> nodes) {
-    Iterables.addAll(nodesToInvalidate, nodes);
+  public void invalidate(Iterable<SkyKey> values) {
+    Iterables.addAll(valuesToInvalidate, values);
   }
 
   /**
-   * Invalidates the cached values of any nodes in error.
+   * Invalidates the cached values of any values in error.
    *
-   * <p>If a future call to {@link AutoUpdatingGraph#update} requests a node that transitively
-   * depends on any node that was in an error state (or is one of these), they will be re-computed.
+   * <p>If a future call to {@link AutoUpdatingGraph#update} requests a value that transitively
+   * depends on any value that was in an error state (or is one of these), they will be re-computed.
    */
   public void invalidateErrors() {
-    // All error nodes have a dependency on the single global ERROR_TRANSIENCE node,
-    // so we only have to invalidate that one node to catch everything.
-    invalidate(ImmutableList.of(ErrorTransienceNode.key()));
+    // All error values have a dependency on the single global ERROR_TRANSIENCE value,
+    // so we only have to invalidate that one value to catch everything.
+    invalidate(ImmutableList.of(ErrorTransienceValue.key()));
   }
 
   /**
-   * Store the given nodes for injection.
+   * Store the given values for injection.
    */
-  public void inject(Map<NodeKey, ? extends Node> nodes) {
-    nodesToInject.putAll(nodes);
+  public void inject(Map<SkyKey, ? extends SkyValue> values) {
+    valuesToInject.putAll(values);
   }
 }

@@ -30,31 +30,31 @@ public class NotifyingInMemoryGraph extends InMemoryGraph {
   }
 
   @Override
-  public NodeEntry createIfAbsent(NodeKey key) {
+  public ValueEntry createIfAbsent(SkyKey key) {
     graphListener.accept(key, EventType.CREATE_IF_ABSENT, Order.BEFORE, null);
-    NodeEntry newval = getEntry(key);
-    NodeEntry oldval = getNodeMap().putIfAbsent(key, newval);
+    ValueEntry newval = getEntry(key);
+    ValueEntry oldval = getValueMap().putIfAbsent(key, newval);
     return oldval == null ? newval : oldval;
   }
 
-  // Subclasses should override if they wish to subclass NotifyingNodeEntry.
-  protected NotifyingNodeEntry getEntry(NodeKey key) {
-    return new NotifyingNodeEntry(key);
+  // Subclasses should override if they wish to subclass NotifyingValueEntry.
+  protected NotifyingValueEntry getEntry(SkyKey key) {
+    return new NotifyingValueEntry(key);
   }
 
   /** Receiver to be informed when an event for a given key occurs. */
   public interface Listener {
     @ThreadSafe
-    void accept(NodeKey key, EventType type, Order order, Object context);
+    void accept(SkyKey key, EventType type, Order order, Object context);
 
     public static Listener NULL_LISTENER = new Listener() {
       @Override
-      public void accept(NodeKey key, EventType type, Order order, Object context) {}
+      public void accept(SkyKey key, EventType type, Order order, Object context) {}
     };
   }
 
   /**
-   * Graph/node entry events that the receiver can be informed of. When writing tests, feel free to
+   * Graph/value entry events that the receiver can be informed of. When writing tests, feel free to
    * add additional events here if needed.
    */
   public enum EventType {
@@ -72,17 +72,17 @@ public class NotifyingInMemoryGraph extends InMemoryGraph {
     AFTER
   }
 
-  protected class NotifyingNodeEntry extends NodeEntry {
-    private final NodeKey myKey;
+  protected class NotifyingValueEntry extends ValueEntry {
+    private final SkyKey myKey;
 
-    protected NotifyingNodeEntry(NodeKey key) {
+    protected NotifyingValueEntry(SkyKey key) {
       myKey = key;
     }
 
     // Note that these methods are not synchronized. Necessary synchronization happens when calling
     // the super() methods.
     @Override
-    DependencyState addReverseDepAndCheckIfDone(NodeKey reverseDep) {
+    DependencyState addReverseDepAndCheckIfDone(SkyKey reverseDep) {
       graphListener.accept(myKey, EventType.ADD_REVERSE_DEP, Order.BEFORE, reverseDep);
       DependencyState result = super.addReverseDepAndCheckIfDone(reverseDep);
       graphListener.accept(myKey, EventType.ADD_REVERSE_DEP, Order.AFTER, reverseDep);
@@ -98,15 +98,15 @@ public class NotifyingInMemoryGraph extends InMemoryGraph {
     }
 
     @Override
-    Set<NodeKey> setValue(Node value, long version) {
+    Set<SkyKey> setValue(SkyValue value, long version) {
       graphListener.accept(myKey, EventType.SET_VALUE, Order.BEFORE, value);
       return super.setValue(value, version);
     }
 
     @Override
-    Pair<? extends Iterable<NodeKey>, ? extends Node> markDirty(boolean isChanged) {
+    Pair<? extends Iterable<SkyKey>, ? extends SkyValue> markDirty(boolean isChanged) {
       graphListener.accept(myKey, EventType.MARK_DIRTY, Order.BEFORE, isChanged);
-      Pair<? extends Iterable<NodeKey>, ? extends Node> result = super.markDirty(isChanged);
+      Pair<? extends Iterable<SkyKey>, ? extends SkyValue> result = super.markDirty(isChanged);
       graphListener.accept(myKey, EventType.MARK_DIRTY, Order.AFTER, isChanged);
       return result;
     }

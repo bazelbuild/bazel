@@ -14,6 +14,7 @@
 package com.google.devtools.build.lib.query2.engine;
 
 import com.google.common.base.Predicate;
+import com.google.common.collect.ImmutableList;
 import com.google.devtools.build.lib.graph.Node;
 import com.google.devtools.build.lib.query2.engine.QueryEnvironment.Argument;
 import com.google.devtools.build.lib.query2.engine.QueryEnvironment.QueryFunction;
@@ -46,8 +47,12 @@ abstract class RegexFilterExpression implements QueryFunction {
     return QueryUtils.filterTargets(argument.eval(env), new Predicate<T>() {
         @Override
         public boolean apply(T target) {
-          String str = getFilterString(env, args, target);
-          return (str != null) && compiledPattern.matcher(str).find();
+          for (String str : getFilterStrings(env, args, target)) {
+            if ((str != null) && compiledPattern.matcher(str).find()) {
+              return true;
+            }
+          }
+          return false; // No strings matched.
         }
       });
   }
@@ -58,6 +63,23 @@ abstract class RegexFilterExpression implements QueryFunction {
    */
   protected abstract <T> String getFilterString(
       QueryEnvironment<T> env, List<Argument> args, T target);
+
+  /**
+   * Returns a list of strings for the given target that must be matched against
+   * pattern. The filter matches if *any* of these strings matches.
+   *
+   * <p>Unless subclasses have an explicit reason to override this method, it's fine
+   * to keep the default implementation that just delegates to {@link #getFilterString}.
+   * Overriding this method is useful for subclasses that want to match against a
+   * universe of possible values. For example, with configurable attributes, an
+   * attribute might have different values depending on the build configuration. One
+   * may wish the filter to match if *any* of those values matches.
+   */
+  protected <T> Iterable<String> getFilterStrings(
+      QueryEnvironment<T> env, List<Argument> args, T target) {
+    String filterString = getFilterString(env, args, target);
+    return filterString == null ? ImmutableList.<String>of() : ImmutableList.of(filterString);
+  }
 
   protected abstract String getPattern(List<Argument> args);
 }

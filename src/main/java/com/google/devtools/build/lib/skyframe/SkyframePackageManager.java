@@ -161,7 +161,7 @@ class SkyframePackageManager implements PackageManager {
         || LabelValidator.validatePackageName(packageName) != null) {
       return null;
     }
-    // TODO(bazel-team): Use a PackageLookupNode here [skyframe-loading]
+    // TODO(bazel-team): Use a PackageLookupValue here [skyframe-loading]
     // TODO(bazel-team): The implementation in PackageCache also checks for duplicate packages, see
     // BuildFileCache#getBuildFile [skyframe-loading]
     return pkgLocator.get().getPackageBuildFileNullable(packageName, syscalls);
@@ -181,7 +181,4 @@ class SkyframePackageManager implements PackageManager {
   public TargetPatternEvaluator getTargetPatternEvaluator() {
     return patternEvaluator;
   }
-
-  @Override
-  public void addDependency(Package pkg, String fileName) {}
 }

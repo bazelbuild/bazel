@@ -13,6 +13,8 @@
 // limitations under the License.
 package com.google.devtools.build.lib.query2.output;
 
+import com.google.common.collect.ImmutableList;
+import com.google.common.collect.Iterables;
 import com.google.devtools.build.lib.graph.Digraph;
 import com.google.devtools.build.lib.graph.Node;
 import com.google.devtools.build.lib.packages.Attribute;
@@ -34,6 +36,8 @@ import org.w3c.dom.Element;
 
 import java.io.PrintStream;
 import java.util.Collection;
+import java.util.HashSet;
+import java.util.Set;
 
 import javax.xml.parsers.DocumentBuilderFactory;
 import javax.xml.parsers.ParserConfigurationException;
@@ -109,9 +113,9 @@ class XmlOutputFormatter extends OutputFormatter {
       elem = doc.createElement("rule");
       elem.setAttribute("class", rule.getRuleClass());
       for (Attribute attr: rule.getAttributes()) {
-        Pair<Object, AttributeValueSource> value = getAttributeValue(rule, attr);
-        if (value.second == AttributeValueSource.RULE || showDefaultValues) {
-          Element attrElem = createValueElement(doc, attr.getType(), value.first);
+        Pair<Iterable<Object>, AttributeValueSource> values = getAttributeValues(rule, attr);
+        if (values.second == AttributeValueSource.RULE || showDefaultValues) {
+          Element attrElem = createValueElement(doc, attr.getType(), values.first);
           attrElem.setAttribute("name", attr.getName());
           elem.appendChild(attrElem);
         }
@@ -214,14 +218,20 @@ class XmlOutputFormatter extends OutputFormatter {
   }
 
   /**
-   * Creates and returns a new DOM tree for the specified attribute value.
+   * Creates and returns a new DOM tree for the specified attribute values.
+   * For non-configurable attributes, this is a single value. For configurable
+   * attributes, this contains one value for each configuration.
    * (Only toplevel values are named attributes; list elements are unnamed.)
    *
-   * (The ungainly qualified class name is required to avoid ambiguity with
+   * <p>In the case of configurable attributes, multi-value attributes (e.g. lists)
+   * merge all configured lists into an aggregate flattened list. Single-value attributes
+   * simply refrain to set a value and annotate the DOM element as configurable.
+   *
+   * <P>(The ungainly qualified class name is required to avoid ambiguity with
    * OutputFormatter.Type.)
    */
   private static Element createValueElement(Document doc,
-      com.google.devtools.build.lib.packages.Type<?> type, Object value) {
+      com.google.devtools.build.lib.packages.Type<?> type, Iterable<Object> values) {
     // "Import static" with method scope:
     com.google.devtools.build.lib.packages.Type<?>
         FILESET_ENTRY = com.google.devtools.build.lib.packages.Type.FILESET_ENTRY,
@@ -231,6 +241,7 @@ class XmlOutputFormatter extends OutputFormatter {
         STRING_LIST   = com.google.devtools.build.lib.packages.Type.STRING_LIST;
 
     final Element elem;
+    final boolean hasMultipleValues = Iterables.size(values) > 1;
     com.google.devtools.build.lib.packages.Type<?> elemType = type.getListElementType();
     if (elemType != null) { // it's a list (includes "distribs")
       if (type == LABEL_LIST_DICT) {
@@ -239,60 +250,90 @@ class XmlOutputFormatter extends OutputFormatter {
       } else {
         elem = doc.createElement("list");
       }
-      for (Object elemValue : (Collection<?>) value) {
-        elem.appendChild(createValueElement(doc, elemType, elemValue));
+      // TODO(bazel-team): support better de-duping for dictionaries.
+      Set<Object> visitedValues = new HashSet<>();
+      for (Object value : values) {
+        for (Object elemValue : (Collection<?>) value) {
+          if (visitedValues.add(elemValue)) {
+            elem.appendChild(createValueElement(doc, elemType, elemValue));
+          }
+        }
       }
 
     } else if (type instanceof com.google.devtools.build.lib.packages.Type.PairType<?, ?>) {
-      Pair<?, ?> pair = (Pair<?, ?>) value;
       com.google.devtools.build.lib.packages.Type.PairType<?, ?> pairType =
           (com.google.devtools.build.lib.packages.Type.PairType<?, ?>) type;
-      elem = doc.createElement("pair");
-      elem.appendChild(createValueElement(doc, pairType.getFirstType(), pair.first));
-      elem.appendChild(createValueElement(doc, pairType.getSecondType(), pair.second));
+      elem = createSingleValueElement(doc, "pair", hasMultipleValues);
+      if (!hasMultipleValues) {
+        Pair<?, ?> pair = (Pair<?, ?>) Iterables.getOnlyElement(values);
+        elem.appendChild(createValueElement(doc, pairType.getFirstType(), pair.first));
+        elem.appendChild(createValueElement(doc, pairType.getSecondType(), pair.second));
+      }
     } else if (type == LICENSE) {
-      License license = (License) value;
-      elem = doc.createElement("license");
+      elem = createSingleValueElement(doc, "license", hasMultipleValues);
+      if (!hasMultipleValues) {
+        License license = (License) Iterables.getOnlyElement(values);
 
-      Element exceptions = createValueElement(doc, LABEL_LIST, license.getExceptions());
-      exceptions.setAttribute("name", "exceptions");
-      elem.appendChild(exceptions);
+        Element exceptions = createValueElement(doc, LABEL_LIST, license.getExceptions());
+        exceptions.setAttribute("name", "exceptions");
+        elem.appendChild(exceptions);
 
-      Element licenseTypes = createValueElement(doc, STRING_LIST, license.getLicenseTypes());
-      licenseTypes.setAttribute("name", "license-types");
-      elem.appendChild(licenseTypes);
-
+        Element licenseTypes = createValueElement(doc, STRING_LIST, license.getLicenseTypes());
+        licenseTypes.setAttribute("name", "license-types");
+        elem.appendChild(licenseTypes);
+      }
     } else if (type == FILESET_ENTRY) {
-      FilesetEntry filesetEntry = (FilesetEntry) value;
+      // Fileset entries: not configurable.
+      FilesetEntry filesetEntry = (FilesetEntry) Iterables.getOnlyElement(values);
       elem = doc.createElement("fileset-entry");
-      if (value != null) {  // (I don't think null is possible, actually)
-        elem.setAttribute("srcdir",  filesetEntry.getSrcLabel().toString());
-        elem.setAttribute("destdir",  filesetEntry.getDestDir().toString());
-        elem.setAttribute("symlinks", filesetEntry.getSymlinkBehavior().toString());
-        elem.setAttribute("strip_prefix", filesetEntry.getStripPrefix());
+      elem.setAttribute("srcdir",  filesetEntry.getSrcLabel().toString());
+      elem.setAttribute("destdir",  filesetEntry.getDestDir().toString());
+      elem.setAttribute("symlinks", filesetEntry.getSymlinkBehavior().toString());
+      elem.setAttribute("strip_prefix", filesetEntry.getStripPrefix());
 
-        if (filesetEntry.getExcludes() != null) {
-          Element excludes = createValueElement(doc, LABEL_LIST, filesetEntry.getExcludes());
-          excludes.setAttribute("name", "excludes");
-          elem.appendChild(excludes);
-        }
-        if (filesetEntry.getFiles() != null) {
-          Element files = createValueElement(doc, LABEL_LIST, filesetEntry.getFiles());
-          files.setAttribute("name", "files");
-          elem.appendChild(files);
-        }
+      if (filesetEntry.getExcludes() != null) {
+        Element excludes =
+            createValueElement(doc, LABEL_LIST, filesetEntry.getExcludes());
+        excludes.setAttribute("name", "excludes");
+        elem.appendChild(excludes);
       }
-
+      if (filesetEntry.getFiles() != null) {
+        Element files = createValueElement(doc, LABEL_LIST, filesetEntry.getFiles());
+        files.setAttribute("name", "files");
+        elem.appendChild(files);
+      }
     } else { // INTEGER STRING LABEL DISTRIBUTION OUTPUT
-      elem = doc.createElement(type.toString());
-      // Values such as those of attribute "linkstamp" may be null.
-      if (value != null) {
-        try {
-          elem.setAttribute("value", value.toString());
-        } catch (DOMException e) {
-          elem.setAttribute("value", "[[[ERROR: could not be encoded as XML]]]");
+      elem = createSingleValueElement(doc, type.toString(), hasMultipleValues);
+      if (!hasMultipleValues && !Iterables.isEmpty(values)) {
+        Object value = Iterables.getOnlyElement(values);
+        // Values such as those of attribute "linkstamp" may be null.
+        if (value != null) {
+          try {
+            elem.setAttribute("value", value.toString());
+          } catch (DOMException e) {
+            elem.setAttribute("value", "[[[ERROR: could not be encoded as XML]]]");
+          }
         }
       }
+    }
+    return elem;
+  }
+
+  private static Element createValueElement(Document doc,
+        com.google.devtools.build.lib.packages.Type<?> type, Object value) {
+    return createValueElement(doc, type, ImmutableList.of(value));
+  }
+
+  /**
+   * Creates the given DOM element, adding <code>configurable="yes"</code> if it represents
+   * a configurable single-value attribute (configurable list attributes simply have their
+   * lists merged into an aggregate flat list).
+   */
+  private static Element createSingleValueElement(Document doc, String name,
+      boolean configurable) {
+    Element elem = doc.createElement(name);
+    if (configurable) {
+      elem.setAttribute("configurable", "yes");
     }
     return elem;
   }

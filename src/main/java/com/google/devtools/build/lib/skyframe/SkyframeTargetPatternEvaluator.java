@@ -27,7 +27,7 @@ import com.google.devtools.build.lib.pkgcache.ParseFailureListener;
 import com.google.devtools.build.lib.pkgcache.TargetPatternEvaluator;
 import com.google.devtools.build.lib.vfs.PathFragment;
 import com.google.devtools.build.skyframe.ErrorInfo;
-import com.google.devtools.build.skyframe.NodeKey;
+import com.google.devtools.build.skyframe.SkyKey;
 import com.google.devtools.build.skyframe.UpdateResult;
 
 import java.util.List;
@@ -87,24 +87,24 @@ final class SkyframeTargetPatternEvaluator implements TargetPatternEvaluator {
   ResolvedTargets<Target> parseTargetPatternList(String offset, ErrorEventListener listener,
       List<String> targetPatterns, FilteringPolicy policy, boolean keepGoing)
       throws InterruptedException, TargetParsingException {
-    Iterable<NodeKey> patternNodeKeys = TargetPatternNode.keys(targetPatterns, policy, offset);
-    UpdateResult<TargetPatternNode> result =
-        skyframeExecutor.targetPatterns(patternNodeKeys, keepGoing, listener);
+    Iterable<SkyKey> patternSkyKeys = TargetPatternValue.keys(targetPatterns, policy, offset);
+    UpdateResult<TargetPatternValue> result =
+        skyframeExecutor.targetPatterns(patternSkyKeys, keepGoing, listener);
 
     String errorMessage = null;
     ResolvedTargets.Builder<Target> builder = ResolvedTargets.builder();
-    for (NodeKey key : patternNodeKeys) {
-      TargetPatternNode resultNode = result.get(key);
-      if (resultNode != null) {
-        ResolvedTargets<Target> results = resultNode.getTargets();
-        if (((TargetPatternNode.TargetPattern) key.getNodeName()).isNegative()) {
+    for (SkyKey key : patternSkyKeys) {
+      TargetPatternValue resultValue = result.get(key);
+      if (resultValue != null) {
+        ResolvedTargets<Target> results = resultValue.getTargets();
+        if (((TargetPatternValue.TargetPattern) key.argument()).isNegative()) {
           builder.filter(Predicates.not(Predicates.in(results.getTargets())));
         } else {
           builder.merge(results);
         }
       } else {
-        TargetPatternNode.TargetPattern pattern =
-            (TargetPatternNode.TargetPattern) key.getNodeName();
+        TargetPatternValue.TargetPattern pattern =
+            (TargetPatternValue.TargetPattern) key.argument();
         String rawPattern = pattern.getPattern();
         ErrorInfo error = result.errorMap().get(key);
         if (error == null) {

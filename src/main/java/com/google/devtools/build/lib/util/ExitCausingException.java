@@ -15,11 +15,10 @@
 package com.google.devtools.build.lib.util;
 
 /**
- * An exception thrown by various error conditions that happen when running
- * commands for users that is pretty much the end of the command. These
- * typically need to signal to the handling code what happened.  Therefore,
- * these exceptions contain a recommended ExitCode allowing the exception
- * to "set" a returned numeric exit code.
+ * An exception thrown by various error conditions are severe enough to halt the command (e.g.
+ * even a --keep_going build). These typically need to signal to the handling code what happened.
+ * Therefore, these exceptions contain a recommended ExitCode allowing the exception to "set" a
+ * returned numeric exit code.
  */
 public class ExitCausingException extends Exception {
 

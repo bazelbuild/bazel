@@ -23,7 +23,7 @@ class FileSymlinkCycleException extends Exception {
 
   FileSymlinkCycleException(ImmutableList<RootedPath> pathToCycle,
       ImmutableList<RootedPath> cycle) {
-    // The cycle itself has already been reported by FileSymlinkCycleUniquenessNode, but we still
+    // The cycle itself has already been reported by FileSymlinkCycleUniquenessValue, but we still
     // want to have a readable #getMessage.
     super("Symlink cycle");
     this.pathToCycle = pathToCycle;

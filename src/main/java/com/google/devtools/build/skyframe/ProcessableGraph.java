@@ -14,7 +14,7 @@
 package com.google.devtools.build.skyframe;
 
 /**
- * A graph that is both Dirtiable (nodes can be deleted) and Evaluable (nodes can be added). All
+ * A graph that is both Dirtiable (values can be deleted) and Evaluable (values can be added). All
  * methods in this interface (as inherited from super-interfaces) should be thread-safe.
  */
 interface ProcessableGraph extends DirtiableGraph, EvaluableGraph {

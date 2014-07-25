@@ -24,7 +24,7 @@ import javax.annotation.Nullable;
  * stateful in order to differentiate between new cycles and cycles that have already been
  * reported (do not reuse the instances or cache the results as it could end up printing
  * inconsistent information or leak memory). It treats two cycles as the same if they contain the
- * same {@link NodeKey}s in the same order, but perhaps with different starting points. See
+ * same {@link SkyKey}s in the same order, but perhaps with different starting points. See
  * {@link CycleDeduper} for more information.
  */
 public class CyclesReporter {
@@ -44,12 +44,12 @@ public class CyclesReporter {
      *        {@link CyclesReporter}.
      * @param listener the listener to which to report the error
      */
-    boolean maybeReportCycle(NodeKey topLevelKey, CycleInfo cycleInfo, boolean alreadyReported,
+    boolean maybeReportCycle(SkyKey topLevelKey, CycleInfo cycleInfo, boolean alreadyReported,
         @Nullable ErrorEventListener listener);
   }
 
   private final ImmutableList<SingleCycleReporter> cycleReporters;
-  private final CycleDeduper<NodeKey> cycleDeduper = new CycleDeduper<>();
+  private final CycleDeduper<SkyKey> cycleDeduper = new CycleDeduper<>();
 
   /**
    * Constructs a {@link CyclesReporter} that delegates to the given {@link SingleCycleReporter}s,
@@ -63,10 +63,10 @@ public class CyclesReporter {
    * Reports the given cycles, differentiating between cycles that have already been reported.
    *
    * @param cycles The {@code Iterable} of cycles.
-   * @param topLevelKey This key represents the top level node key that returned cycle errors.
+   * @param topLevelKey This key represents the top level value key that returned cycle errors.
    * @param listener the listener to which to report the error
    */
-  public void reportCycles(Iterable<CycleInfo> cycles, NodeKey topLevelKey,
+  public void reportCycles(Iterable<CycleInfo> cycles, SkyKey topLevelKey,
       @Nullable ErrorEventListener listener) {
     for (CycleInfo cycleInfo : cycles) {
       boolean alreadyReported = false;
@@ -85,18 +85,18 @@ public class CyclesReporter {
     }
   }
 
-  private String printArbitraryCycle(NodeKey topLevelKey, CycleInfo cycleInfo,
+  private String printArbitraryCycle(SkyKey topLevelKey, CycleInfo cycleInfo,
       boolean alreadyReported) {
     StringBuilder cycleMessage = new StringBuilder()
         .append("topLevelKey: " + topLevelKey + "\n")
         .append("alreadyReported: " + alreadyReported + "\n")
         .append("path to cycle:\n");
-    for (NodeKey nodeKey : cycleInfo.getPathToCycle()) {
-      cycleMessage.append(nodeKey + "\n");
+    for (SkyKey skyKey : cycleInfo.getPathToCycle()) {
+      cycleMessage.append(skyKey + "\n");
     }
     cycleMessage.append("cycle:\n");
-    for (NodeKey nodeKey : cycleInfo.getCycle()) {
-      cycleMessage.append(nodeKey + "\n");
+    for (SkyKey skyKey : cycleInfo.getCycle()) {
+      cycleMessage.append(skyKey + "\n");
     }
     return cycleMessage.toString();
   }

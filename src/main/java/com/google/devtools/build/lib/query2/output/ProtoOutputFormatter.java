@@ -37,6 +37,7 @@ import static com.google.devtools.build.lib.query2.proto.proto2api.Build.Target.
 import static com.google.devtools.build.lib.query2.proto.proto2api.Build.Target.Discriminator.RULE;
 import static com.google.devtools.build.lib.query2.proto.proto2api.Build.Target.Discriminator.SOURCE_FILE;
 
+import com.google.common.collect.Iterables;
 import com.google.devtools.build.lib.events.Location;
 import com.google.devtools.build.lib.graph.Digraph;
 import com.google.devtools.build.lib.packages.Attribute;
@@ -60,7 +61,9 @@ import com.google.devtools.build.lib.util.Pair;
 import java.io.IOException;
 import java.io.PrintStream;
 import java.util.Collection;
+import java.util.HashSet;
 import java.util.List;
+import java.util.Set;
 
 /**
  * An output formatter that outputs a protocol buffer representation
@@ -121,11 +124,8 @@ public class ProtoOutputFormatter extends OutputFormatter {
           .setLocation(location);
 
       for (Attribute attr : rule.getAttributes()) {
-        Pair<Object, AttributeValueSource> value = getAttributeValue(rule, attr);
-        if (value.first != null) {
-          addAttributeToProto(rulePb, attr, value.first, null,
-              rule.isAttributeValueExplicitlySpecified(attr), false);
-        }
+        addAttributeToProto(rulePb, attr, getAttributeValues(rule, attr).first, null,
+            rule.isAttributeValueExplicitlySpecified(attr), false);
       }
 
       // Include explicit elements for all direct inputs and outputs of a rule;
@@ -220,14 +220,15 @@ public class ProtoOutputFormatter extends OutputFormatter {
    *
    * @param rulePb the message to amend
    * @param attr the attribute to add
-   * @param value the value of the attribute
+   * @param value the possible values of the attribute (can be a multi-value list for
+   *              configurable attributes)
    * @param location the location of the attribute in the source file
    * @param explicitlySpecified whether the attribute was explicitly specified or not
    * @param includeGlobs add glob expression for attributes that contain them
    */
   @SuppressWarnings("unchecked")
   public static void addAttributeToProto(
-      Build.Rule.Builder rulePb, Attribute attr, Object value,
+      Build.Rule.Builder rulePb, Attribute attr, Iterable<Object> values,
       Location location, Boolean explicitlySpecified, boolean includeGlobs) {
     // Get the attribute type.  We need to convert and add appropriately
     com.google.devtools.build.lib.packages.Type<?> type = attr.getType();
@@ -246,6 +247,15 @@ public class ProtoOutputFormatter extends OutputFormatter {
       attrPb.setExplicitlySpecified(explicitlySpecified);
     }
 
+    // Convenience binding for single-value attributes. Because those attributes can only
+    // have a single value, when we encounter configurable versions of them we need to
+    // react somehow to having multiple possible values to report. We currently just
+    // refrain from setting *any* value in that scenario. This variable is set to null
+    // to indicate that scenario.
+    Object singleAttributeValue = Iterables.size(values) == 1
+        ? Iterables.getOnlyElement(values)
+        : null;
+
     /*
      * Set the appropriate type and value.  Since string and string list store
      * values for multiple types, use the toString() method on the objects
@@ -253,141 +263,177 @@ public class ProtoOutputFormatter extends OutputFormatter {
      * both an integer and string representation.
      */
     if (type == INTEGER) {
-      attrPb.setIntValue((Integer) value);
+      if (singleAttributeValue != null) {
+        attrPb.setIntValue((Integer) singleAttributeValue);
+      }
     } else if (type == STRING || type == LABEL || type == NODEP_LABEL || type == OUTPUT) {
-      attrPb.setStringValue(value.toString());
+      if (singleAttributeValue != null) {
+        attrPb.setStringValue(singleAttributeValue.toString());
+      }
     } else if (type == STRING_LIST || type == LABEL_LIST || type == NODEP_LABEL_LIST
         || type == OUTPUT_LIST || type == DISTRIBUTIONS) {
-      Collection<?> values = (Collection<?>) value;
-      for (Object entry : values) {
-        attrPb.addStringListValue(entry.toString());
+      Set<Object> visitedValues = new HashSet<>();
+      for (Object value : values) {
+        for (Object entry : (Collection<?>) value) {
+          if (visitedValues.add(entry)) {
+            attrPb.addStringListValue(entry.toString());
+          }
+        }
       }
     } else if (type == INTEGER_LIST) {
-      Collection<Integer> values = (Collection<Integer>) value;
-      for (Integer entry : values) {
-        attrPb.addIntListValue(entry);
+      Set<Integer> visitedValues = new HashSet<>();
+      for (Object value : values) {
+        for (Integer entry : (Collection<Integer>) value) {
+          if (visitedValues.add(entry)) {
+            attrPb.addIntListValue(entry);
+          }
+        }
       }
     } else if (type == BOOLEAN) {
-      if ((Boolean) value) {
-        attrPb.setStringValue("true");
-        attrPb.setBooleanValue(true);
-      } else {
-        attrPb.setStringValue("false");
-        attrPb.setBooleanValue(false);
+      if (singleAttributeValue != null) {
+        if ((Boolean) singleAttributeValue) {
+          attrPb.setStringValue("true");
+          attrPb.setBooleanValue(true);
+        } else {
+          attrPb.setStringValue("false");
+          attrPb.setBooleanValue(false);
+        }
+        // This maintains partial backward compatibility for external users of the
+        // protobuf that were expecting an integer field and not a true boolean.
+        attrPb.setIntValue((Boolean) singleAttributeValue ? 1 : 0);
       }
-      // This maintains partial backward compatibility for external users of the
-      // protobuf that were expecting an integer field and not a true boolean.
-      attrPb.setIntValue((Boolean) value ? 1 : 0);
     } else if (type == TRISTATE) {
-      switch ((TriState) value) {
-        case AUTO:
-          attrPb.setIntValue(-1);
-          attrPb.setStringValue("auto");
-          attrPb.setTristateValue(Build.Attribute.Tristate.AUTO);
-          break;
-        case NO:
-          attrPb.setIntValue(0);
-          attrPb.setStringValue("no");
-          attrPb.setTristateValue(Build.Attribute.Tristate.NO);
-          break;
-        case YES:
-          attrPb.setIntValue(1);
-          attrPb.setStringValue("yes");
-          attrPb.setTristateValue(Build.Attribute.Tristate.YES);
-          break;
+      if (singleAttributeValue != null) {
+        switch ((TriState) singleAttributeValue) {
+          case AUTO:
+            attrPb.setIntValue(-1);
+            attrPb.setStringValue("auto");
+            attrPb.setTristateValue(Build.Attribute.Tristate.AUTO);
+            break;
+          case NO:
+            attrPb.setIntValue(0);
+            attrPb.setStringValue("no");
+            attrPb.setTristateValue(Build.Attribute.Tristate.NO);
+            break;
+          case YES:
+            attrPb.setIntValue(1);
+            attrPb.setStringValue("yes");
+            attrPb.setTristateValue(Build.Attribute.Tristate.YES);
+            break;
+          default:
+            throw new IllegalStateException("Execpted AUTO/NO/YES to cover all possible cases");
+        }
       }
     } else if (type == LICENSE) {
-      License license = (License) value;
-      Build.License.Builder licensePb = Build.License.newBuilder();
-      for (License.LicenseType licenseType : license.getLicenseTypes()) {
-        licensePb.addLicenseType(licenseType.toString());
+      if (singleAttributeValue != null) {
+        License license = (License) singleAttributeValue;
+        Build.License.Builder licensePb = Build.License.newBuilder();
+        for (License.LicenseType licenseType : license.getLicenseTypes()) {
+          licensePb.addLicenseType(licenseType.toString());
+        }
+        for (Label exception : license.getExceptions()) {
+          licensePb.addException(exception.toString());
+        }
+        attrPb.setLicense(licensePb);
       }
-      for (Label exception : license.getExceptions()) {
-        licensePb.addException(exception.toString());
-      }
-      attrPb.setLicense(licensePb);
     } else if (type == STRING_DICT) {
+      // TODO(bazel-team): support better de-duping here and in other dictionaries.
+      for (Object value : values) {
       List<List<String>> dict = (List<List<String>>) value;
-      for (List<String> keyValueList : dict) {
-        Build.StringDictEntry entry = Build.StringDictEntry.newBuilder()
-            .setKey(keyValueList.get(0))
-            .setValue(keyValueList.get(1))
-            .build();
-        attrPb.addStringDictValue(entry);
+        for (List<String> keyValueList : dict) {
+          Build.StringDictEntry entry = Build.StringDictEntry.newBuilder()
+              .setKey(keyValueList.get(0))
+              .setValue(keyValueList.get(1))
+              .build();
+          attrPb.addStringDictValue(entry);
+        }
       }
     } else if (type == STRING_DICT_UNARY) {
-      List<Pair<String, String>> dict = (List<Pair<String, String>>) value;
-      for (Pair<String, String> dictEntry : dict) {
-        Build.StringDictUnaryEntry entry = Build.StringDictUnaryEntry.newBuilder()
-            .setKey(dictEntry.first)
-            .setValue(dictEntry.second)
-            .build();
-        attrPb.addStringDictUnaryValue(entry);
+      for (Object value : values) {
+        List<Pair<String, String>> dict = (List<Pair<String, String>>) value;
+        for (Pair<String, String> dictEntry : dict) {
+          Build.StringDictUnaryEntry entry = Build.StringDictUnaryEntry.newBuilder()
+              .setKey(dictEntry.first)
+              .setValue(dictEntry.second)
+              .build();
+          attrPb.addStringDictUnaryValue(entry);
+        }
       }
     } else if (type == STRING_LIST_DICT) {
-      List<Pair<String, List<?>>> dict = (List<Pair<String, List<?>>>) value;
-      for (Pair<String, List<?>> dictEntry : dict) {
-        Build.StringListDictEntry.Builder entry = Build.StringListDictEntry.newBuilder()
-            .setKey(dictEntry.first);
-        for (Object dictEntryValue : dictEntry.second) {
-          entry.addValue(dictEntryValue.toString());
+      for (Object value : values) {
+        List<Pair<String, List<?>>> dict = (List<Pair<String, List<?>>>) value;
+        for (Pair<String, List<?>> dictEntry : dict) {
+          Build.StringListDictEntry.Builder entry = Build.StringListDictEntry.newBuilder()
+              .setKey(dictEntry.first);
+          for (Object dictEntryValue : dictEntry.second) {
+            entry.addValue(dictEntryValue.toString());
+          }
+          attrPb.addStringListDictValue(entry);
         }
-        attrPb.addStringListDictValue(entry);
       }
     } else if (type == LABEL_LIST_DICT) {
-      List<Pair<String, List<?>>> dict = (List<Pair<String, List<?>>>) value;
-      for (Pair<String, List<?>> dictEntry : dict) {
-        Build.LabelListDictEntry.Builder entry = Build.LabelListDictEntry.newBuilder()
-            .setKey(dictEntry.first);
-        for (Object dictEntryValue : dictEntry.second) {
-          entry.addValue(dictEntryValue.toString());
+      for (Object value : values) {
+        List<Pair<String, List<?>>> dict = (List<Pair<String, List<?>>>) value;
+        for (Pair<String, List<?>> dictEntry : dict) {
+          Build.LabelListDictEntry.Builder entry = Build.LabelListDictEntry.newBuilder()
+              .setKey(dictEntry.first);
+          for (Object dictEntryValue : dictEntry.second) {
+            entry.addValue(dictEntryValue.toString());
+          }
+          attrPb.addLabelListDictValue(entry);
         }
-        attrPb.addLabelListDictValue(entry);
       }
     } else if (type == FILESET_ENTRY_LIST) {
-      List<FilesetEntry> filesetEntries = (List<FilesetEntry>) value;
-      for (FilesetEntry filesetEntry : filesetEntries) {
-        Build.FilesetEntry.Builder filesetEntryPb = Build.FilesetEntry.newBuilder()
-            .setSource(filesetEntry.getSrcLabel().toString())
-            .setDestinationDirectory(filesetEntry.getDestDir().getPathString())
-            .setSymlinkBehavior(symlinkBehaviorToPb(filesetEntry.getSymlinkBehavior()))
-            .setStripPrefix(filesetEntry.getStripPrefix())
-            .setFilesPresent(filesetEntry.getFiles() != null);
+      for (Object value : values) {
+        List<FilesetEntry> filesetEntries = (List<FilesetEntry>) value;
+        for (FilesetEntry filesetEntry : filesetEntries) {
+          Build.FilesetEntry.Builder filesetEntryPb = Build.FilesetEntry.newBuilder()
+              .setSource(filesetEntry.getSrcLabel().toString())
+              .setDestinationDirectory(filesetEntry.getDestDir().getPathString())
+              .setSymlinkBehavior(symlinkBehaviorToPb(filesetEntry.getSymlinkBehavior()))
+              .setStripPrefix(filesetEntry.getStripPrefix())
+              .setFilesPresent(filesetEntry.getFiles() != null);
 
-        if (filesetEntry.getFiles() != null) {
-          for (Label file : filesetEntry.getFiles()) {
-            filesetEntryPb.addFile(file.toString());
+          if (filesetEntry.getFiles() != null) {
+            for (Label file : filesetEntry.getFiles()) {
+              filesetEntryPb.addFile(file.toString());
+            }
           }
-        }
 
-        if (filesetEntry.getExcludes() != null) {
-          for (String exclude : filesetEntry.getExcludes()) {
-            filesetEntryPb.addExclude(exclude);
+          if (filesetEntry.getExcludes() != null) {
+            for (String exclude : filesetEntry.getExcludes()) {
+              filesetEntryPb.addExclude(exclude);
+            }
           }
-        }
 
-        attrPb.addFilesetListValue(filesetEntryPb);
+          attrPb.addFilesetListValue(filesetEntryPb);
+        }
       }
     } else {
       throw new IllegalStateException("Unknown type: " + type);
     }
 
-    if (includeGlobs && value instanceof GlobList<?>) {
-      GlobList<?> globList = (GlobList<?>) value;
+    if (includeGlobs) {
+      for (Object value : values) {
+        if (value instanceof GlobList<?>) {
+          GlobList<?> globList = (GlobList<?>) value;
 
-      for (GlobCriteria criteria : globList.getCriteria()) {
-        Build.GlobCriteria.Builder criteriaPb = Build.GlobCriteria.newBuilder()
-            .setGlob(criteria.isGlob());
-        for (String include : criteria.getIncludePatterns()) {
-          criteriaPb.addInclude(include);
-        }
-        for (String exclude : criteria.getExcludePatterns()) {
-          criteriaPb.addExclude(exclude);
-        }
+          for (GlobCriteria criteria : globList.getCriteria()) {
+            Build.GlobCriteria.Builder criteriaPb = Build.GlobCriteria.newBuilder()
+                .setGlob(criteria.isGlob());
+            for (String include : criteria.getIncludePatterns()) {
+              criteriaPb.addInclude(include);
+            }
+            for (String exclude : criteria.getExcludePatterns()) {
+              criteriaPb.addExclude(exclude);
+            }
 
-        attrPb.addGlobCriteria(criteriaPb);
+            attrPb.addGlobCriteria(criteriaPb);
+          }
+        }
       }
     }
+
     rulePb.addAttribute(attrPb);
   }
 

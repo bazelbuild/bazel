@@ -27,88 +27,88 @@ import javax.annotation.Nullable;
 
 /**
  * An in-memory graph implementation. All operations are thread-safe with ConcurrentMap semantics.
- * Also see {@link NodeEntry}.
+ * Also see {@link ValueEntry}.
  * 
  * <p>This class is public only for use in alternative graph implementations.
  */
 public class InMemoryGraph implements ProcessableGraph {
 
-  protected final ConcurrentMap<NodeKey, NodeEntry> nodeMap = Maps.newConcurrentMap();
+  protected final ConcurrentMap<SkyKey, ValueEntry> valueMap = Maps.newConcurrentMap();
 
   public InMemoryGraph() {
   }
 
   @Override
-  public void remove(NodeKey nodeKey) {
-    nodeMap.remove(nodeKey);
+  public void remove(SkyKey skyKey) {
+    valueMap.remove(skyKey);
   }
 
   @Override
-  public NodeEntry get(NodeKey nodeKey) {
-    return nodeMap.get(nodeKey);
+  public ValueEntry get(SkyKey skyKey) {
+    return valueMap.get(skyKey);
   }
 
   @Override
-  public NodeEntry createIfAbsent(NodeKey key) {
-    NodeEntry newval = new NodeEntry();
-    NodeEntry oldval = nodeMap.putIfAbsent(key, newval);
+  public ValueEntry createIfAbsent(SkyKey key) {
+    ValueEntry newval = new ValueEntry();
+    ValueEntry oldval = valueMap.putIfAbsent(key, newval);
     return oldval == null ? newval : oldval;
   }
 
-  /** Only done nodes exist to the outside world. */
-  private static final Predicate<NodeEntry> NODE_DONE_PREDICATE =
-      new Predicate<NodeEntry>() {
+  /** Only done values exist to the outside world. */
+  private static final Predicate<ValueEntry> NODE_DONE_PREDICATE =
+      new Predicate<ValueEntry>() {
         @Override
-        public boolean apply(NodeEntry entry) {
+        public boolean apply(ValueEntry entry) {
           return entry != null && entry.isDone();
         }
       };
 
   /**
-   * Returns a node, if it exists. If not, returns null.
+   * Returns a value, if it exists. If not, returns null.
    */
-  @Nullable public Node getNode(NodeKey key) {
-    NodeEntry entry = get(key);
-    return NODE_DONE_PREDICATE.apply(entry) ? entry.getNode() : null;
+  @Nullable public SkyValue getValue(SkyKey key) {
+    ValueEntry entry = get(key);
+    return NODE_DONE_PREDICATE.apply(entry) ? entry.getValue() : null;
   }
 
   /**
-   * Returns a read-only live view of the nodes in the graph. All nodes are included. Dirty nodes
-   * include their Node value. Nodes in error have a null value.
+   * Returns a read-only live view of the values in the graph. All values are included. Dirty values
+   * include their Value value. Values in error have a null value.
    */
-  Map<NodeKey, Node> getNodes() {
+  Map<SkyKey, SkyValue> getValues() {
     return Collections.unmodifiableMap(Maps.transformValues(
-        nodeMap,
-        new Function<NodeEntry, Node>() {
+        valueMap,
+        new Function<ValueEntry, SkyValue>() {
           @Override
-          public Node apply(NodeEntry entry) {
-            return entry.toNodeValue();
+          public SkyValue apply(ValueEntry entry) {
+            return entry.toValueValue();
           }
         }));
   }
 
   /**
-   * Returns a read-only live view of the done nodes in the graph. Dirty, changed, and error nodes
+   * Returns a read-only live view of the done values in the graph. Dirty, changed, and error values
    * are not present in the returned map
    */
-  Map<NodeKey, Node> getDoneNodes() {
+  Map<SkyKey, SkyValue> getDoneValues() {
     return Collections.unmodifiableMap(Maps.filterValues(Maps.transformValues(
-        nodeMap,
-        new Function<NodeEntry, Node>() {
+        valueMap,
+        new Function<ValueEntry, SkyValue>() {
           @Override
-          public Node apply(NodeEntry entry) {
-            return entry.isDone() ? entry.getNode() : null;
+          public SkyValue apply(ValueEntry entry) {
+            return entry.isDone() ? entry.getValue() : null;
           }
         }), Predicates.notNull()));
   }
 
   // Only for use by AutoUpdatingGraph#delete
-  Map<NodeKey, NodeEntry> getAllNodes() {
-    return Collections.unmodifiableMap(nodeMap);
+  Map<SkyKey, ValueEntry> getAllValues() {
+    return Collections.unmodifiableMap(valueMap);
   }
 
   @VisibleForTesting
-  protected ConcurrentMap<NodeKey, NodeEntry> getNodeMap() {
-    return nodeMap;
+  protected ConcurrentMap<SkyKey, ValueEntry> getValueMap() {
+    return valueMap;
   }
 }

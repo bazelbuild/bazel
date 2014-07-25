@@ -14,9 +14,9 @@
 package com.google.devtools.build.skyframe;
 
 import com.google.common.annotations.VisibleForTesting;
-import com.google.devtools.build.skyframe.InvalidatingNodeVisitor.DeletingNodeVisitor;
-import com.google.devtools.build.skyframe.InvalidatingNodeVisitor.DirtyingNodeVisitor;
-import com.google.devtools.build.skyframe.InvalidatingNodeVisitor.InvalidationState;
+import com.google.devtools.build.skyframe.InvalidatingValueVisitor.DeletingValueVisitor;
+import com.google.devtools.build.skyframe.InvalidatingValueVisitor.DirtyingValueVisitor;
+import com.google.devtools.build.skyframe.InvalidatingValueVisitor.InvalidationState;
 
 /**
  * Utility class for performing eager invalidation on Skyframe graphs.
@@ -26,12 +26,12 @@ final class EagerInvalidator {
   private EagerInvalidator() {}
 
   /**
-   * Deletes given nodes and their transitive dependencies from the graph.
+   * Deletes given values and their transitive dependencies from the graph.
    */
-  public static void delete(DirtiableGraph graph, Iterable<NodeKey> diff,
-      NodeProgressReceiver invalidationReceiver, InvalidationState state)
+  public static void delete(DirtiableGraph graph, Iterable<SkyKey> diff,
+      ValueProgressReceiver invalidationReceiver, InvalidationState state)
           throws InterruptedException {
-    InvalidatingNodeVisitor visitor =
+    InvalidatingValueVisitor visitor =
         createVisitor(/*delete=*/true, graph, diff, invalidationReceiver, state);
     if (visitor != null) {
       visitor.run();
@@ -43,24 +43,24 @@ final class EagerInvalidator {
    * Allows test classes to keep a reference to the visitor, and await exceptions/interrupts.
    */
   @VisibleForTesting
-  static InvalidatingNodeVisitor createVisitor(boolean delete, DirtiableGraph graph,
-      Iterable<NodeKey> diff, NodeProgressReceiver invalidationReceiver, InvalidationState state) {
+  static InvalidatingValueVisitor createVisitor(boolean delete, DirtiableGraph graph,
+      Iterable<SkyKey> diff, ValueProgressReceiver invalidationReceiver, InvalidationState state) {
     state.update(diff);
     if (state.isEmpty()) {
       return null;
     }
     return delete
-        ? new DeletingNodeVisitor(graph, invalidationReceiver, state)
-        : new DirtyingNodeVisitor(graph, invalidationReceiver, state);
+        ? new DeletingValueVisitor(graph, invalidationReceiver, state)
+        : new DirtyingValueVisitor(graph, invalidationReceiver, state);
   }
 
   /**
-   * Invalidates given nodes and their upward transitive closure in the graph.
+   * Invalidates given values and their upward transitive closure in the graph.
    */
-  public static void invalidate(DirtiableGraph graph, Iterable<NodeKey> diff,
-      NodeProgressReceiver invalidationReceiver, InvalidationState state)
+  public static void invalidate(DirtiableGraph graph, Iterable<SkyKey> diff,
+      ValueProgressReceiver invalidationReceiver, InvalidationState state)
           throws InterruptedException {
-    InvalidatingNodeVisitor visitor =
+    InvalidatingValueVisitor visitor =
         createVisitor(/*delete=*/false, graph, diff, invalidationReceiver, state);
     if (visitor != null) {
       visitor.run();

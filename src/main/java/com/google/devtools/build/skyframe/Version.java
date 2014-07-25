@@ -14,7 +14,7 @@
 package com.google.devtools.build.skyframe;
 
 /**
- *  A Version defines a node in a version tree used in persistent data structures.
+ *  A Version defines a value in a version tree used in persistent data structures.
  *  See http://en.wikipedia.org/wiki/Persistent_data_structure.
  */
 public interface Version {

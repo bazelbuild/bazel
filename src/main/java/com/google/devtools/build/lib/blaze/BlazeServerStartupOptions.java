@@ -120,10 +120,10 @@ public class BlazeServerStartupOptions extends OptionsBase {
           + "${OUTPUT_ROOT}/_blaze_${USER}/${MD5_OF_WORKSPACE_ROOT}. Note: If you specify a "
           + "different option from one to the next Blaze invocation for this value, you'll likely "
           + "start up a new, additional Blaze server. Blaze starts exactly one server per "
-          + "specified output base. Typically there is one output base per google3 "
-          + "workspace--however, with this option you may have multiple output bases per google3 "
-          + "workspace and thereby run multiple builds for the same client on the same machine "
-          + "concurrently. See 'blaze help shutdown' on how to shutdown a Blaze server.")
+          + "specified output base. Typically there is one output base per workspace--however, "
+          + "with this option you may have multiple output bases per workspace and thereby run "
+          + "multiple builds for the same client on the same machine concurrently. See "
+          + "'blaze help shutdown' on how to shutdown a Blaze server.")
   public PathFragment outputBase;
 
   /* Note: This option is only used by the C++ client, never by the Java server.

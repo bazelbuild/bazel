@@ -13,20 +13,17 @@
 // limitations under the License.
 package com.google.devtools.build.lib.pkgcache;
 
-import com.google.devtools.build.lib.util.ExitCausingException;
-import com.google.devtools.build.lib.util.ExitCode;
-
 /**
  * An exception indicating that there was a problem during the loading phase for one or more
  * targets in such a way that the build cannot proceed (for example because keep_going is disabled).
  */
-public class LoadingFailedException extends ExitCausingException {
+public class LoadingFailedException extends Exception {
 
   public LoadingFailedException(String message) {
-    super(message, ExitCode.PARSING_FAILURE);
+    super(message);
   }
 
   public LoadingFailedException(String message, Throwable cause) {
-    super(message + ": " + cause.getMessage(), ExitCode.PARSING_FAILURE, cause);
+    super(message + ": " + cause.getMessage(), cause);
   }
 }

@@ -74,8 +74,8 @@ public class RootedPath implements Serializable {
   }
 
   public Path asPath() {
-    // Ideally, this helper method would not be needed. But Skyframe's FileNodeBuilder and
-    // DirectoryListingNodeBuilder need to do filesystem operations on the absolute path and
+    // Ideally, this helper method would not be needed. But Skyframe's FileFunction and
+    // DirectoryListingFunction need to do filesystem operations on the absolute path and
     // Path#getRelative(relPath) is O(relPath.segmentCount()). Therefore we precompute the absolute
     // path represented by this relative path.
     return path;

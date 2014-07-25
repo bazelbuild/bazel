@@ -14,12 +14,12 @@
 package com.google.devtools.build.skyframe;
 
 /**
- * Interface for classes that need to remove nodes from graph. Currently just used by {@link
+ * Interface for classes that need to remove values from graph. Currently just used by {@link
  * Invalidator}.
  */
 interface DirtiableGraph extends QueryableGraph {
   /**
-   * Remove the node with given name from the graph.
+   * Remove the value with given name from the graph.
    */
-  void remove(NodeKey key);
+  void remove(SkyKey key);
 }

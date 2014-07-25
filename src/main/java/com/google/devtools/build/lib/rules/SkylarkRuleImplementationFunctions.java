@@ -45,6 +45,7 @@ import com.google.devtools.build.lib.view.FilesToRunProvider;
 import com.google.devtools.build.lib.view.RuleConfiguredTargetBuilder;
 import com.google.devtools.build.lib.view.Runfiles;
 import com.google.devtools.build.lib.view.RunfilesProvider;
+import com.google.devtools.build.lib.view.RunfilesSupport;
 import com.google.devtools.build.lib.view.TransitiveInfoCollection;
 import com.google.devtools.build.lib.view.TransitiveInfoProvider;
 import com.google.devtools.build.lib.view.actions.FileWriteAction;
@@ -248,15 +249,14 @@ public class SkylarkRuleImplementationFunctions {
           doc = "the files the rule outputs"),
       @Param(name = "runfiles", type = RunfilesProvider.class,
           doc = "files the output of the rule needs at runtime"),
+      @Param(name = "runfiles_support", type = RunfilesSupport.class,
+          doc = "runfiles symlink farm support needed at runtime"),
       @Param(name = "executable", type = Artifact.class,
           doc = "the executable the rule creates"),
       @Param(name = "providers", type = Map.class,
           doc = "the dictionary of the transitive info providers of the rule")})
   private static final SkylarkFunction createTarget = new SimpleSkylarkFunction("create_target") {
 
-    // TODO(bazel-team): this is NOT safe. Create a wrapper class for NestedSet<Artifact>
-    // to fix this. This is for files_to_build.
-    @SuppressWarnings("unchecked")
     @Override
     public Object call(Map<String, Object> params, Location loc)
         throws EvalException, ExecutionException {
@@ -274,6 +274,11 @@ public class SkylarkRuleImplementationFunctions {
         // Every target needs runfiles provider by default.
         builder.add(RunfilesProvider.class, RunfilesProvider.EMPTY);
       }
+      if (params.containsKey("runfiles_support")) {
+        RunfilesSupport runfilesSupport =
+            cast(params.get("runfiles_support"), RunfilesSupport.class, "runfiles support", loc);
+        builder.setRunfilesSupport(runfilesSupport, runfilesSupport.getExecutable());
+      }
       if (params.containsKey("executable")) {
         builder.setRunfilesSupport(null,
             cast(params.get("executable"), Artifact.class, "executable", loc));
@@ -283,6 +288,30 @@ public class SkylarkRuleImplementationFunctions {
         builder.addSkylarkTransitiveInfo(provider.getKey(), provider.getValue());
       }
       return builder.build();
+    }
+  };
+
+  @SkylarkBuiltin(name = "runfiles_support", doc = "Creates a runfiles support",
+      objectType = SkylarkRuleContext.class,
+      mandatoryParams = {
+      @Param(name = "runfiles", type = Runfiles.class,
+          doc = "files the output of the rule needs at runtime"),
+      @Param(name = "executable", type = Artifact.class,
+          doc = "the executable output of the target")})
+  private static final SkylarkFunction runfilesSupport =
+      new SimpleSkylarkFunction("runfiles_support") {
+
+    @Override
+    public Object call(Map<String, Object> params, Location loc)
+        throws EvalException, ExecutionException {
+      SkylarkRuleContext ctx = cast(params.get("self"), SkylarkRuleContext.class, "ctx", loc);
+      Runfiles runfiles = cast(
+          params.get("runfiles"), RunfilesProvider.class, "runfiles", loc).getDefaultRunfiles();
+      if (runfiles.isEmpty()) {
+        throw new IllegalArgumentException("Cannot use runfiles support with empty runfiles");
+      }
+      return RunfilesSupport.withExecutable(ctx.getRuleContext(), runfiles,          
+          cast(params.get("executable"), Artifact.class, "executable", loc));
     }
   };
 
@@ -321,10 +350,10 @@ public class SkylarkRuleImplementationFunctions {
    * A built in Skylark helper function to access the
    * Transitive info providers of Transitive info collections.
    */
-  @SkylarkBuiltin(name = "get_provider",
+  @SkylarkBuiltin(name = "provider",
       doc = "Returns the transitive info provider "
           + "(second argument) of the transitive info collection (first argument).")
-  private static final Function getProvider = new PositionalFunction("get_provider", 2, 2) {
+  private static final Function getProvider = new PositionalFunction("provider", 2, 2) {
 
     @Override
     public Object call(List<Object> args, FuncallExpression ast) throws EvalException,
@@ -479,14 +508,14 @@ public class SkylarkRuleImplementationFunctions {
   public static ValidationEnvironment getValidationEnvironment(
       ImmutableMap<String, Class<?>> extraObjects) {
     ImmutableMap.Builder<String, SkylarkType> builder = ImmutableMap.builder();
-    // TODO(bazel-team): kill check_state, create_object and get_provider.
+    // TODO(bazel-team): kill check_state, create_object and provider.
     builder
         .put("check_state", SkylarkType.UNKNOWN)
         .put("check_state.return", SkylarkType.NONE)
         .put("create_object", SkylarkType.UNKNOWN)
         .put("create_object.return", SkylarkType.UNKNOWN)
-        .put("get_provider", SkylarkType.UNKNOWN)
-        .put("get_provider.return", SkylarkType.UNKNOWN);
+        .put("provider", SkylarkType.UNKNOWN)
+        .put("provider.return", SkylarkType.UNKNOWN);
     MethodLibrary.setupValidationEnvironment(builder);
     SkylarkAttr.setupValidationEnvironment(builder);
     SkylarkFunction.collectSkylarkFunctionReturnTypesFromFields(

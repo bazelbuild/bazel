@@ -88,6 +88,12 @@ public class SkylarkDocumentationProcessor {
     return sb.toString();
   }
 
+  private String getName(SkylarkCallable callable, String javaName) {
+    return callable.name().isEmpty()
+        ? StringUtilities.toPythonStyleFunctionName(javaName)
+        : callable.name();
+  }
+
   private String generateBuiltinItemDoc(SkylarkJavaObject object) {
     SkylarkBuiltin annotation = object.getAnnotation();
     StringBuilder sb = new StringBuilder()
@@ -102,12 +108,12 @@ public class SkylarkDocumentationProcessor {
 
     for (Map.Entry<Method, SkylarkCallable> method : object.getMethods().entrySet()) {
       sb.append(generateDirectJavaMethodDoc(
-          annotation.name(), StringUtilities.toPythonStyleFunctionName(method.getKey().getName()),
+          annotation.name(), getName(method.getValue(), method.getKey().getName()),
           method.getKey(), method.getValue()));
     }
     for (Map.Entry<String, SkylarkCallable> method : object.getExtraMethods().entrySet()) {
       sb.append(generateDirectJavaMethodDoc(
-          annotation.name(), StringUtilities.toPythonStyleFunctionName(method.getKey()),
+          annotation.name(), getName(method.getValue(), method.getKey()),
           null, method.getValue()));
     }
 
@@ -205,11 +211,11 @@ public class SkylarkDocumentationProcessor {
   private List<SkylarkJavaObject> collectMethodLibraryDocs() {
     return ImmutableList.<SkylarkJavaObject>builder()
         .add(SkylarkJavaObject.ofExtraMethods(
-            getMethodLibraryAnnotation("listFunctions"),
-            collectMethodLibraryDoc(MethodLibrary.listFunctions)))
-        .add(SkylarkJavaObject.ofExtraMethods(
             getMethodLibraryAnnotation("stringFunctions"),
             collectMethodLibraryDoc(MethodLibrary.stringFunctions.keySet())))
+        .add(SkylarkJavaObject.ofExtraMethods(
+            getMethodLibraryAnnotation("dictFunctions"),
+            collectMethodLibraryDoc(MethodLibrary.dictFunctions)))
         .build();
   }
 

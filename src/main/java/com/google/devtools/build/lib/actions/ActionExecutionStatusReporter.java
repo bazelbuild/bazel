@@ -107,7 +107,7 @@ public final class ActionExecutionStatusReporter {
    * Remove action from the list of active actions.
    */
   public void remove(Action action) {
-    Preconditions.checkNotNull(actionStatus.remove(action));
+    Preconditions.checkNotNull(actionStatus.remove(action), action);
   }
 
   /**

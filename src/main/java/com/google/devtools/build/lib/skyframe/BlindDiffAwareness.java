@@ -32,4 +32,8 @@ public class BlindDiffAwareness implements DiffAwareness {
     // we'll use BlindDiffAwareness but we don't want to be stuck with it forever.
     return false;
   }
+
+  @Override
+  public void close() {
+  }
 }

@@ -17,7 +17,6 @@ import com.google.common.annotations.VisibleForTesting;
 import com.google.common.base.Preconditions;
 import com.google.common.base.Predicate;
 import com.google.common.base.Throwables;
-import com.google.common.collect.ImmutableSet;
 import com.google.common.collect.Iterables;
 import com.google.common.collect.Lists;
 import com.google.common.util.concurrent.SettableFuture;
@@ -87,9 +86,6 @@ public class GlobCache {
    */
   private final ThreadPoolExecutor globExecutor;
 
-  private boolean traversedExternalSymlinks;
-  private boolean containsTemporaryErrors;
-
   /**
    * Create a glob expansion cache.
    * @param packageDirectory globs will be expanded relatively to this
@@ -106,7 +102,6 @@ public class GlobCache {
     this.packageDirectory = Preconditions.checkNotNull(packageDirectory);
     this.packageName = Preconditions.checkNotNull(packageName);
     this.globExecutor = Preconditions.checkNotNull(globExecutor);
-    this.traversedExternalSymlinks = true;
     this.syscalls = syscalls == null ? new AtomicReference<>(UnixGlob.DEFAULT_SYSCALLS) : syscalls;
 
     Preconditions.checkNotNull(locator);
@@ -309,32 +304,6 @@ public class GlobCache {
 
   public Collection<Pair<String, Boolean>> getKeySet() {
     return globCache.keySet();
-  }
-
-  /**
-   * Returns the set of directories and files whose changes can possibly affect the globs in this
-   * cache (relative to the workspace root directory).
-   *
-   * <p>Is only guaranteed to be complete if {@link #traversedExternalFiles()} returns false.
-   */
-  // TODO(bazel-team): Remove this method.
-  public Set<PathFragment> getDeps() {
-    return ImmutableSet.<PathFragment>of();
-  }
-
-  /**
-   * Returns whether symlinks out of the client root were traversed during the evaluation of the
-   * globs.
-   */
-  public boolean traversedExternalFiles() {
-    return traversedExternalSymlinks;
-  }
-
-  /**
-   * Returns whether a transient error happened during the evaluation of the globs.
-   */
-  public boolean containsTemporaryErrors() {
-    return containsTemporaryErrors;
   }
 
   /**

@@ -15,14 +15,14 @@ package com.google.devtools.build.lib.skyframe;
 
 import com.google.devtools.build.lib.syntax.Label;
 import com.google.devtools.build.lib.view.config.BuildConfiguration;
-import com.google.devtools.build.skyframe.NodeKey;
-import com.google.devtools.build.skyframe.NodeType;
+import com.google.devtools.build.skyframe.SkyFunctionName;
+import com.google.devtools.build.skyframe.SkyKey;
 
 /**
  * Like LabelAndConfiguration, TargetCompletionKey is used as an ArtifactOwner. The only
  * difference is that it's used specifically for target completion Artifacts.
  */
-public final class TargetCompletionKey extends ActionLookupNode.ActionLookupKey {
+public final class TargetCompletionKey extends ActionLookupValue.ActionLookupKey {
   private final LabelAndConfiguration lac;
 
   public TargetCompletionKey(Label label, BuildConfiguration configuration) {
@@ -35,12 +35,12 @@ public final class TargetCompletionKey extends ActionLookupNode.ActionLookupKey 
   }
 
   @Override
-  NodeKey getNodeKey() {
-    return new NodeKey(NodeTypes.TARGET_COMPLETION, lac);
+  SkyKey getSkyKey() {
+    return new SkyKey(SkyFunctions.TARGET_COMPLETION, lac);
   }
 
   @Override
-  NodeType getType() {
+  SkyFunctionName getType() {
     throw new UnsupportedOperationException();
   }
 }

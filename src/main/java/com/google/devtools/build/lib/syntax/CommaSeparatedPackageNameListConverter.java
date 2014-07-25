@@ -23,8 +23,7 @@ import com.google.devtools.common.options.OptionsParsingException;
 import java.util.List;
 
 /**
- * A converter from strings containing comma-separated names of google3
- * packages to lists of strings.
+ * A converter from strings containing comma-separated names of packages to lists of strings.
  */
 public class CommaSeparatedPackageNameListConverter
     implements Converter<List<String>> {

@@ -24,31 +24,31 @@ import java.util.Objects;
 import java.util.Set;
 
 /**
- * Data for a single cycle in the graph, together with the path to the cycle. For any node, the
- * head of path to the cycle should be the node itself, or, if the node is actually in the cycle,
- * the cycle should start with the node.
+ * Data for a single cycle in the graph, together with the path to the cycle. For any value, the
+ * head of path to the cycle should be the value itself, or, if the value is actually in the cycle,
+ * the cycle should start with the value.
  */
 public class CycleInfo {
-  private final ImmutableList<NodeKey> cycle;
-  private final ImmutableList<NodeKey> pathToCycle;
+  private final ImmutableList<SkyKey> cycle;
+  private final ImmutableList<SkyKey> pathToCycle;
 
-  CycleInfo(Iterable<NodeKey> cycle) {
-    this(ImmutableList.<NodeKey>of(), cycle);
+  CycleInfo(Iterable<SkyKey> cycle) {
+    this(ImmutableList.<SkyKey>of(), cycle);
   }
 
-  CycleInfo(Iterable<NodeKey> pathToCycle, Iterable<NodeKey> cycle) {
+  CycleInfo(Iterable<SkyKey> pathToCycle, Iterable<SkyKey> cycle) {
     this.pathToCycle = ImmutableList.copyOf(pathToCycle);
     this.cycle = ImmutableList.copyOf(cycle);
   }
 
-  // If a cycle is already known, but we are processing a node in the middle of the cycle, we need
-  // to shift the cycle so that the node is at the head.
-  private CycleInfo(Iterable<NodeKey> cycle, int cycleStart) {
+  // If a cycle is already known, but we are processing a value in the middle of the cycle, we need
+  // to shift the cycle so that the value is at the head.
+  private CycleInfo(Iterable<SkyKey> cycle, int cycleStart) {
     Preconditions.checkState(cycleStart >= 0, cycleStart);
-    ImmutableList.Builder<NodeKey> cycleTail = ImmutableList.builder();
-    ImmutableList.Builder<NodeKey> cycleHead = ImmutableList.builder();
+    ImmutableList.Builder<SkyKey> cycleTail = ImmutableList.builder();
+    ImmutableList.Builder<SkyKey> cycleHead = ImmutableList.builder();
     int index = 0;
-    for (NodeKey key : cycle) {
+    for (SkyKey key : cycle) {
       if (index >= cycleStart) {
         cycleHead.add(key);
       } else {
@@ -61,21 +61,21 @@ public class CycleInfo {
     this.pathToCycle = ImmutableList.of();
   }
 
-  public ImmutableList<NodeKey> getCycle() {
+  public ImmutableList<SkyKey> getCycle() {
     return cycle;
   }
 
-  public ImmutableList<NodeKey> getPathToCycle() {
+  public ImmutableList<SkyKey> getPathToCycle() {
     return pathToCycle;
   }
 
-  // Given a cycle and a node, if the node is part of the cycle, shift the cycle. Otherwise,
-  // prepend the node to the head of pathToCycle.
-  private static CycleInfo normalizeCycle(final NodeKey node, CycleInfo cycle) {
-    int index = cycle.cycle.indexOf(node);
+  // Given a cycle and a value, if the value is part of the cycle, shift the cycle. Otherwise,
+  // prepend the value to the head of pathToCycle.
+  private static CycleInfo normalizeCycle(final SkyKey value, CycleInfo cycle) {
+    int index = cycle.cycle.indexOf(value);
     if (index > -1) {
       if (!cycle.pathToCycle.isEmpty()) {
-        // The head node we are considering is already part of a cycle, but we have reached it by a
+        // The head value we are considering is already part of a cycle, but we have reached it by a
         // roundabout way. Since we should have reached it directly as well, filter this roundabout
         // way out. Example (c has a dependence on top):
         //          top
@@ -91,23 +91,23 @@ public class CycleInfo {
       }
       return new CycleInfo(cycle.cycle, index);
     }
-    return new CycleInfo(Iterables.concat(ImmutableList.of(node), cycle.pathToCycle),
+    return new CycleInfo(Iterables.concat(ImmutableList.of(value), cycle.pathToCycle),
         cycle.cycle);
   }
 
   /**
    * Normalize multiple cycles. This includes removing multiple paths to the same cycle, so that
-   * a node does not depend on the same cycle multiple ways through the same child node. Note that a
-   * node can still depend on the same cycle multiple ways, it's just that each way must be through
-   * a different child node (a path with a different first element).
+   * a value does not depend on the same cycle multiple ways through the same child value. Note that
+   * a value can still depend on the same cycle multiple ways, it's just that each way must be
+   * through a different child value (a path with a different first element).
    */
-  static Iterable<CycleInfo> prepareCycles(final NodeKey node, Iterable<CycleInfo> cycles) {
-    final Set<ImmutableList<NodeKey>> alreadyDoneCycles = new HashSet<>();
+  static Iterable<CycleInfo> prepareCycles(final SkyKey value, Iterable<CycleInfo> cycles) {
+    final Set<ImmutableList<SkyKey>> alreadyDoneCycles = new HashSet<>();
     return Iterables.filter(Iterables.transform(cycles,
         new Function<CycleInfo, CycleInfo>() {
           @Override
           public CycleInfo apply(CycleInfo input) {
-            CycleInfo normalized = normalizeCycle(node, input);
+            CycleInfo normalized = normalizeCycle(value, input);
             if (normalized != null && alreadyDoneCycles.add(normalized.cycle)) {
               return normalized;
             }

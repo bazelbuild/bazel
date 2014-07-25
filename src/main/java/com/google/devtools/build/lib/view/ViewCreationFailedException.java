@@ -13,22 +13,19 @@
 // limitations under the License.
 package com.google.devtools.build.lib.view;
 
-import com.google.devtools.build.lib.util.ExitCausingException;
-import com.google.devtools.build.lib.util.ExitCode;
-
 /**
  * An exception indicating that there was a problem during the view
  * construction (loading and analysis phases) for one or more targets, that the
  * configured target graph could not be successfully constructed, and that
  * a build cannot be started.
  */
-public class ViewCreationFailedException extends ExitCausingException {
+public class ViewCreationFailedException extends Exception {
 
   public ViewCreationFailedException(String message) {
-    super(message, ExitCode.PARSING_FAILURE);
+    super(message);
   }
 
   public ViewCreationFailedException(String message, Throwable cause) {
-    super(message + ": " + cause.getMessage(), ExitCode.PARSING_FAILURE, cause);
+    super(message + ": " + cause.getMessage(), cause);
   }
 }

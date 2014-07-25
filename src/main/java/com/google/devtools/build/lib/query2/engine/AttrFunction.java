@@ -63,9 +63,15 @@ class AttrFunction extends RegexFilterExpression {
 
   @Override
   protected <T> String getFilterString(QueryEnvironment<T> env, List<Argument> args, T target) {
+    throw new IllegalStateException(
+        "The 'attr' regex filter gets its match values directly from getFilterStrings");
+  }
+
+  protected <T> Iterable<String> getFilterStrings(QueryEnvironment<T> env,
+      List<Argument> args, T target) {
     if (env.getAccessor().isRule(target)) {
       return env.getAccessor().getAttrAsString(target, args.get(0).getWord());
     }
-    return null;
+    return ImmutableList.of();
   }
 }

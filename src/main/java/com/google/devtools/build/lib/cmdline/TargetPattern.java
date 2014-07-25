@@ -313,9 +313,9 @@ public abstract class TargetPattern {
 
     /**
      * Directory prefix to use when resolving relative labels (rather than absolute ones). For
-     * example, if the working directory is "google3/foo", then this should be "foo", which will
-     * make patterns such as "bar:bar" be resolved as "//foo/bar:bar". This makes the command line
-     * a bit more convenient to use.
+     * example, if the working directory is "<workspace root>/foo", then this should be "foo",
+     * which will make patterns such as "bar:bar" be resolved as "//foo/bar:bar". This makes the
+     * command line a bit more convenient to use.
      */
     private final String relativeDirectory;
 

@@ -29,13 +29,13 @@ import com.google.devtools.build.lib.events.ErrorEventListener;
 import com.google.devtools.build.lib.events.StoredErrorEventListener;
 import com.google.devtools.build.lib.packages.Target;
 import com.google.devtools.build.lib.query2.output.OutputFormatter;
-import com.google.devtools.build.lib.skyframe.BuildInfoCollectionNode;
-import com.google.devtools.build.lib.skyframe.WorkspaceStatusNode;
+import com.google.devtools.build.lib.skyframe.BuildInfoCollectionValue;
+import com.google.devtools.build.lib.skyframe.WorkspaceStatusValue;
 import com.google.devtools.build.lib.vfs.PathFragment;
 import com.google.devtools.build.lib.view.buildinfo.BuildInfoCollection;
 import com.google.devtools.build.lib.view.buildinfo.BuildInfoFactory.BuildInfoKey;
 import com.google.devtools.build.lib.view.config.BinTools;
-import com.google.devtools.build.skyframe.NodeBuilder;
+import com.google.devtools.build.skyframe.SkyFunction;
 
 import java.io.PrintWriter;
 import java.io.StringWriter;
@@ -82,7 +82,7 @@ public class CachingAnalysisEnvironment implements AnalysisEnvironment {
   private boolean enabled = true;
   private MiddlemanFactory middlemanFactory;
   private ErrorEventListener errorEventListener;
-  private NodeBuilder.Environment skyframeEnv;
+  private SkyFunction.Environment skyframeEnv;
   private Map<Artifact, String> artifacts;
   private final BinTools binTools;
 
@@ -95,7 +95,7 @@ public class CachingAnalysisEnvironment implements AnalysisEnvironment {
   public CachingAnalysisEnvironment(ArtifactFactory artifactFactory,
       ArtifactOwner owner, WorkspaceStatusArtifacts buildInfoHeaders,
       boolean isSystemEnv, boolean extendedSanityChecks, ErrorEventListener errorEventListener,
-      NodeBuilder.Environment env, boolean allowRegisteringActions,
+      SkyFunction.Environment env, boolean allowRegisteringActions,
       ImmutableList<OutputFormatter> outputFormatters, BinTools binTools) {
     this.artifactFactory = artifactFactory;
     this.workspaceStatusArtifacts = buildInfoHeaders;
@@ -270,14 +270,14 @@ public class CachingAnalysisEnvironment implements AnalysisEnvironment {
   }
 
   @Override
-  public NodeBuilder.Environment getSkyframeEnv() {
+  public SkyFunction.Environment getSkyframeEnv() {
     return skyframeEnv;
   }
 
   @Override
   public Artifact getBuildInfoArtifact() {
     return workspaceStatusArtifacts == null
-        ? ((WorkspaceStatusNode) skyframeEnv.getDep(WorkspaceStatusNode.NODE_KEY))
+        ? ((WorkspaceStatusValue) skyframeEnv.getValue(WorkspaceStatusValue.SKY_KEY))
             .getStableArtifact()
         : workspaceStatusArtifacts.getStableStatus();
   }
@@ -285,7 +285,7 @@ public class CachingAnalysisEnvironment implements AnalysisEnvironment {
   @Override
   public Artifact getBuildChangelistArtifact() {
     return workspaceStatusArtifacts == null
-        ? ((WorkspaceStatusNode) skyframeEnv.getDep(WorkspaceStatusNode.NODE_KEY))
+        ? ((WorkspaceStatusValue) skyframeEnv.getValue(WorkspaceStatusValue.SKY_KEY))
             .getVolatileArtifact()
         : workspaceStatusArtifacts.getVolatileStatus();
   }
@@ -295,8 +295,8 @@ public class CachingAnalysisEnvironment implements AnalysisEnvironment {
     boolean stamp = AnalysisUtils.isStampingEnabled(ruleContext);
     if (workspaceStatusArtifacts == null) {
       BuildInfoCollection collection =
-          ((BuildInfoCollectionNode) skyframeEnv.getDep(BuildInfoCollectionNode.key(
-          new BuildInfoCollectionNode.BuildInfoKeyAndConfig(key, ruleContext.getConfiguration()))))
+          ((BuildInfoCollectionValue) skyframeEnv.getValue(BuildInfoCollectionValue.key(
+          new BuildInfoCollectionValue.BuildInfoKeyAndConfig(key, ruleContext.getConfiguration()))))
           .getCollection();
       return stamp ? collection.getStampedBuildInfo() : collection.getRedactedBuildInfo();
     }

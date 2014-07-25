@@ -25,78 +25,78 @@ import java.util.Map;
 import javax.annotation.Nullable;
 
 /**
- * A graph, defined by a set of functions that can construct nodes from node keys.
+ * A graph, defined by a set of functions that can construct values from value keys.
  *
- * <p>The node constructor functions ({@link NodeBuilder}s) can declare dependencies on prerequisite
- * {@link Node}s. The {@link AutoUpdatingGraph} implementation makes sure that those are created
- * beforehand.
+ * <p>The value constructor functions ({@link SkyFunction}s) can declare dependencies on
+ * prerequisite {@link SkyValue}s. The {@link AutoUpdatingGraph} implementation makes sure that
+ * those are created beforehand.
  *
- * <p>The graph caches previously computed node values. Arbitrary nodes can be invalidated between
+ * <p>The graph caches previously computed value values. Arbitrary values can be invalidated between
  * calls to {@link #update}; they will be recreated the next time they are requested.
  */
 public interface AutoUpdatingGraph {
 
   /**
-   * Computes the transitive closure of a given set of nodes at the given {@link Version}. See
+   * Computes the transitive closure of a given set of values at the given {@link Version}. See
    * {@link EagerInvalidator#invalidate}.
    */
-  <T extends Node> UpdateResult<T> update(Iterable<NodeKey> roots, Version version,
+  <T extends SkyValue> UpdateResult<T> update(Iterable<SkyKey> roots, Version version,
                                           boolean keepGoing, int numThreads,
                                           ErrorEventListener reporter)
       throws InterruptedException;
 
   /**
-   * Ensures that after the next completed {@link #update} call the current values of any node
-   * matching this predicate (and all nodes that transitively depend on them) will be removed from
-   * the node cache. All nodes that were already marked dirty in the graph will also be deleted,
+   * Ensures that after the next completed {@link #update} call the current values of any value
+   * matching this predicate (and all values that transitively depend on them) will be removed from
+   * the value cache. All values that were already marked dirty in the graph will also be deleted,
    * regardless of whether or not they match the predicate.
    *
-   * <p>If a later call to {@link #update} requests some of the deleted nodes, those nodes will be
+   * <p>If a later call to {@link #update} requests some of the deleted values, those values will be
    * recomputed and the new values stored in the cache again.
    *
-   * <p>To delete all dirty nodes, you can specify a predicate that's always false.
+   * <p>To delete all dirty values, you can specify a predicate that's always false.
    */
-  void delete(Predicate<NodeKey> pred);
+  void delete(Predicate<SkyKey> pred);
 
   /**
-   * Marks dirty nodes for deletion if they have been dirty for at least as many graph versions
+   * Marks dirty values for deletion if they have been dirty for at least as many graph versions
    * as the specified limit.
    *
-   * <p>This ensures that after the next completed {@link #update} call, all such nodes, along
-   * with all nodes that transitively depend on them, will be removed from the node cache. Nodes
+   * <p>This ensures that after the next completed {@link #update} call, all such values, along
+   * with all values that transitively depend on them, will be removed from the value cache. Values
    * that were marked dirty after the threshold version will not be affected by this call.
    *
-   * <p>If a later call to {@link #update} requests some of the deleted nodes, those nodes will be
+   * <p>If a later call to {@link #update} requests some of the deleted values, those values will be
    * recomputed and the new values stored in the cache again.
    *
-   * <p>To delete all dirty nodes, you can specify 0 for the limit.
+   * <p>To delete all dirty values, you can specify 0 for the limit.
    */
   void deleteDirty(final long versionAgeLimit);
 
   /**
-   * Returns the nodes in the graph.
+   * Returns the values in the graph.
    *
    * <p>The returned map may be a live view of the graph.
    */
-  Map<NodeKey, Node> getNodes();
+  Map<SkyKey, SkyValue> getValues();
 
 
   /**
-   * Returns the done (without error) nodes in the graph.
+   * Returns the done (without error) values in the graph.
    *
    * <p>The returned map may be a live view of the graph.
    */
-  Map<NodeKey, Node> getDoneNodes();
+  Map<SkyKey, SkyValue> getDoneValues();
 
   /**
-   * Returns a node if and only if an earlier call to {@link #update} created it; null otherwise.
+   * Returns a value if and only if an earlier call to {@link #update} created it; null otherwise.
    *
-   * <p>This method should only be used by tests that need to verify the presence of a node in the
+   * <p>This method should only be used by tests that need to verify the presence of a value in the
    * graph after an {@link #update} call.
    */
   @VisibleForTesting
   @Nullable
-  Node getExistingNodeForTesting(NodeKey key);
+  SkyValue getExistingValueForTesting(SkyKey key);
 
   /**
    * Returns an error if and only if an earlier call to {@link #update} created it; null otherwise.
@@ -106,7 +106,7 @@ public interface AutoUpdatingGraph {
    */
   @VisibleForTesting
   @Nullable
-  ErrorInfo getExistingErrorForTesting(NodeKey key);
+  ErrorInfo getExistingErrorForTesting(SkyKey key);
 
   /**
    * Write the graph to the output stream. Not necessarily thread-safe. Use only for debugging
@@ -119,9 +119,9 @@ public interface AutoUpdatingGraph {
    * A supplier for creating instances of a particular graph implementation.
    */
   public static interface GraphSupplier {
-    AutoUpdatingGraph createGraph(Map<? extends NodeType, ? extends NodeBuilder> nodeBuilders,
-        Differencer differencer, @Nullable NodeProgressReceiver invalidationReceiver,
-        EmittedEventState emittedEventState);
+    AutoUpdatingGraph createGraph(
+        Map<? extends SkyFunctionName, ? extends SkyFunction> skyFunctions, Differencer differencer,
+        @Nullable ValueProgressReceiver invalidationReceiver, EmittedEventState emittedEventState);
   }
 
   /**

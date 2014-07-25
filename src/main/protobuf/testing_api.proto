@@ -68,20 +68,6 @@ enum CoverageInstrumentation {
 }
 
 //
-// A generic string to string key/value pair.
-//
-// This can be used to store arbitrary named string values describing the test
-// environement, for example, hostname, working directory etc.
-//
-// This can also be used to store large custom strings or text files, for
-// example, all the flags used by the test.
-//
-message Property {
-  required string key = 1;
-  required string value = 2;
-}
-
-//
 // Represents a text file. It may contain:
 //   * a pathname. Can be either absolute or relative. In either case, any tool
 //     using this proto should be able to resolve it and locate the file on disk
@@ -138,12 +124,6 @@ message TargetCoverage {
 // failures are anticipated.
 //
 message TestFailure {
-  // a short summary of the failure
-  required string failure_message = 1;
-  // the type of the failure (e.g. junit.framework.ComparisonFailure)
-  required string failure_type = 2;
-  // detailed description and stack trace of the failure
-  required string detail = 3;
 }
 
 //
@@ -153,19 +133,6 @@ message TestFailure {
 // propagated from a xUnit test method.
 //
 message TestError {
-  // a short summary of the error
-  required string error_message = 1;
-  // the type of the error (e.g. java.lang.NullPointerException)
-  required string error_type = 2;
-  // detailed description and stack trace of the error
-  required string detail = 3;
-}
-
-//
-// Represents a warning from a testsuite or a testcase.
-//
-message TestWarning {
-  required string warning_message = 1;
 }
 
 //
@@ -177,22 +144,16 @@ message HierarchicalTestResult {
   repeated HierarchicalTestResult child = 1;
   required string name = 2;
   optional string class_name = 3;        // Not used for suites or decorators.
-  optional bool was_run = 4 [default=true];
   required int64 run_duration_millis = 5;
-  repeated Property property = 6;
-  required int32 test_case_count = 7;
-  optional int32 test_failure_count = 8 [default=0];
-  optional int32 test_error_count = 9 [default=0];
-  optional int32 disabled_count = 10 [default=0];    // For gunit
   repeated TestFailure failure = 11;
   repeated TestError error = 12;
-  // contains interleaved stdout and stderr
-  optional string combined_out = 13;
-  // stdout
-  optional string system_out = 14;
-  // stderr
-  optional string system_err = 15;
-  optional int64 memory_delta = 16;
+}
+
+//
+// Represents a warning from a testsuite or a testcase.
+//
+message TestWarning {
+  required string warning_message = 1;
 }
 
 //
@@ -227,11 +188,7 @@ message TestTargetResult {
   optional TestSize size = 9 [default=UNSPECIFIED_SIZE];
   optional TestStrategy strategy = 10 [default=UNSPECIFIED_STRATEGY];
   required string user = 11;
-  // for small custom attributes
-  repeated Property custom_attribute = 12;
-  // for large custom text
-  repeated Property custom_large_text = 13;
-  repeated Property environment_variable = 14;
+
   // contains interleaved stdout and stderr
   optional TextFile combined_out = 15;
   // stdout, usually not used

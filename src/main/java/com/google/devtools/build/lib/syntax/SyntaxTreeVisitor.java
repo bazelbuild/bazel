@@ -70,6 +70,13 @@ public class SyntaxTreeVisitor {
     }
   }
 
+  public void accept(DictComprehension node) {
+    visit(node.getKeyExpression());
+    visit(node.getValueExpression());
+    visit(node.getLoopVar());
+    visit(node.getListExpression());
+  }
+
   public void visit(ListLiteral node) {
     visitAll(node.getElements());
   }

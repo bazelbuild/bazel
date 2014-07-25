@@ -15,13 +15,12 @@ package com.google.devtools.build.lib.view;
 
 import com.google.devtools.build.lib.blaze.BlazeDirectories;
 import com.google.devtools.build.lib.events.ErrorEventListener;
-import com.google.devtools.build.lib.pkgcache.LoadedPackageProvider;
 import com.google.devtools.build.lib.view.config.BuildConfiguration;
 import com.google.devtools.build.lib.view.config.BuildOptions;
-import com.google.devtools.build.lib.view.config.ConfigurationEnvironment;
 import com.google.devtools.build.lib.view.config.ConfigurationFactory;
 import com.google.devtools.build.lib.view.config.InvalidConfigurationException;
 import com.google.devtools.build.lib.view.config.MachineSpecification;
+import com.google.devtools.build.lib.view.config.PackageProviderForConfigurations;
 
 import java.util.Map;
 
@@ -48,11 +47,10 @@ public interface ConfigurationCollectionFactory {
   public BuildConfiguration createConfigurations(
       ConfigurationFactory configurationFactory,
       MachineSpecification hostMachineSpecification,
-      LoadedPackageProvider loadedPackageProvider,
+      PackageProviderForConfigurations loadedPackageProvider,
       BuildOptions buildOptions,
       BlazeDirectories directories,
       Map<String, String> clientEnv,
       ErrorEventListener errorEventListener,
-      ConfigurationEnvironment env,
       boolean performSanityCheck) throws InvalidConfigurationException;
 }

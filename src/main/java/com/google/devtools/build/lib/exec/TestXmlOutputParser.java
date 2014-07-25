@@ -15,15 +15,14 @@
 package com.google.devtools.build.lib.exec;
 
 import com.google.common.collect.ImmutableSet;
+import com.google.devtools.build.lib.view.test.TestStatus.FailedTestCaseDetails;
+import com.google.devtools.build.lib.view.test.TestStatus.TestCaseDetail;
 import com.google.protobuf.UninitializedMessageException;
-import com.google.testing.proto.HierarchicalTestResult;
-import com.google.testing.proto.HierarchicalTestResult.Builder;
-import com.google.testing.proto.Property;
-import com.google.testing.proto.TestError;
-import com.google.testing.proto.TestFailure;
 
 import java.io.InputStream;
+import java.util.ArrayList;
 import java.util.Collection;
+import java.util.List;
 
 import javax.xml.stream.XMLInputFactory;
 import javax.xml.stream.XMLStreamConstants;
@@ -36,10 +35,67 @@ import javax.xml.stream.XMLStreamReader;
  * some guesswork involved.
  */
 class TestXmlOutputParser {
+  private static class HierarchicalTestResult {
+    private List<HierarchicalTestResult> children = new ArrayList<>();
+    private String name;
+    private String className;        // Not used for suites or decorators.
+    private long runDurationMillis;
+    private int failures;
+    private int errors;
+  };
 
   // jUnit can use either "testsuites" or "testsuite".
   private static final Collection<String> TOPLEVEL_ELEMENT_NAMES =
       ImmutableSet.of("testsuites", "testsuite");
+
+  public FailedTestCaseDetails parseXmlIntoTestResult(InputStream xmlStream)
+      throws TestXmlOutputParserException {
+    HierarchicalTestResult result = parseXmlToTree(xmlStream);
+    FailedTestCaseDetails.Builder builder = FailedTestCaseDetails.newBuilder();
+    // will be overwritten if something goes wrong.
+    builder.setStatus(FailedTestCaseDetails.Status.FULL);
+    collectFailedTestCases(result, builder);
+    return builder.build();
+  }
+
+  private static void collectFailedTestCases(
+      HierarchicalTestResult hierarchicalResult, FailedTestCaseDetails.Builder testCaseDetails) {
+    if (!hierarchicalResult.children.isEmpty()) {
+      // This is a non-leaf result. Traverse its children, but do not add its
+      // name to the output list. It should not contain any 'failure' or
+      // 'error' tags, but we want to be lax here, because the syntax of the
+      // test.xml file is also lax.
+      for (HierarchicalTestResult child : hierarchicalResult.children) {
+        collectFailedTestCases(child, testCaseDetails);
+      }
+    } else {
+      // This is a leaf result. If there was a failure or an error, return it.
+      boolean passed = hierarchicalResult.failures == 0
+          && hierarchicalResult.errors == 0;
+      if (passed) {
+        return;
+      }
+
+      String name = hierarchicalResult.name;
+      String className = hierarchicalResult.className;
+      if (name == null || className == null) {
+        // A test case detail is not really interesting if we cannot tell which
+        // one it is.
+        testCaseDetails.setStatus(FailedTestCaseDetails.Status.PARTIAL);
+        return;
+      }
+
+      // TODO(bazel-team): The dot separator is only correct for Java.
+      String testCaseName = className + "." + name;
+
+      testCaseDetails.addDetail(TestCaseDetail.newBuilder()
+          .setName(testCaseName)
+          .setStatus(hierarchicalResult.errors > 0
+              ? TestCaseDetail.Status.ERROR : TestCaseDetail.Status.FAILED)
+          .setRunDurationMillis(hierarchicalResult.runDurationMillis)
+          .build());
+    }
+  }
 
   /**
    * Parses the a test result XML file into the corresponding protocol buffer.
@@ -49,7 +105,7 @@ class TestXmlOutputParser {
    *
    * @throws TestXmlOutputParserException when the XML file cannot be parsed
    */
-  public HierarchicalTestResult parseXmlIntoTestResult(InputStream xmlStream)
+  private HierarchicalTestResult parseXmlToTree(InputStream xmlStream)
       throws TestXmlOutputParserException {
     XMLStreamReader parser = null;
 
@@ -138,29 +194,21 @@ class TestXmlOutputParser {
    */
   private HierarchicalTestResult parseTestSuite(XMLStreamReader parser, String elementName)
       throws XMLStreamException, TestXmlOutputParserException {
-    HierarchicalTestResult.Builder pbBuilder = HierarchicalTestResult.newBuilder();
+    HierarchicalTestResult result = new HierarchicalTestResult();
 
     for (int i = 0; i < parser.getAttributeCount(); i++) {
       String name = parser.getAttributeLocalName(i).intern();
       String value = parser.getAttributeValue(i);
 
       if (name.equals("name")) {
-        pbBuilder.setName(value);
-      } else if (name.equals("tests")) {
-        pbBuilder.setTestCaseCount(Integer.parseInt(value));
-      } else if (name.equals("failures")) {
-        pbBuilder.setTestFailureCount(Integer.parseInt(value));
-      } else if (name.equals("errors")) {
-        pbBuilder.setTestErrorCount(Integer.parseInt(value));
+        result.name = value;
       } else if (name.equals("time")) {
-        pbBuilder.setRunDurationMillis(parseTime(value));
-      } else {
-        pbBuilder.addProperty(createProperty(name, value));
+        result.runDurationMillis = parseTime(value);
       }
     }
 
-    parseContainedElements(parser, elementName, pbBuilder);
-    return pbBuilder.build();
+    parseContainedElements(parser, elementName, result);
+    return result;
   }
 
   /**
@@ -182,35 +230,6 @@ class TestXmlOutputParser {
   }
 
   /**
-   * Parses a 'properties' element.
-   *
-   * @throws TestXmlOutputParserException if the XML document is malformed
-   * @throws XMLStreamException if there was an error processing the XML
-   */
-  private void parseProperties(XMLStreamReader parser, HierarchicalTestResult.Builder pbBuilder)
-      throws XMLStreamException, TestXmlOutputParserException {
-    while (true) {
-      int event = parser.next();
-      switch (event) {
-        case XMLStreamConstants.START_ELEMENT:
-          if (parser.getLocalName().equals("property")) {
-            pbBuilder.addProperty(createProperty(
-                parser.getAttributeValue(null, "name"),
-                parser.getAttributeValue(null, "value")));
-          }
-          skipCompleteElement(parser);
-          break;
-
-        case XMLStreamConstants.END_ELEMENT:
-          if (!parser.getLocalName().equals("properties")) {
-            throw createBadElementException("properties", parser);
-          }
-          return;
-      }
-    }
-  }
-
-  /**
    * Parses a 'decorator' element.
    *
    * @throws TestXmlOutputParserException if the XML document is malformed
@@ -220,34 +239,22 @@ class TestXmlOutputParser {
    */
   private HierarchicalTestResult parseTestDecorator(XMLStreamReader parser)
       throws XMLStreamException, TestXmlOutputParserException {
-    HierarchicalTestResult.Builder pbBuilder = HierarchicalTestResult.newBuilder();
+    HierarchicalTestResult result = new HierarchicalTestResult();
 
     for (int i = 0; i < parser.getAttributeCount(); i++) {
       String name = parser.getAttributeLocalName(i);
       String value = parser.getAttributeValue(i);
 
-      pbBuilder.setName("");
-      name = name.intern();
-
+      result.name = name.intern();
       if (name.equals("classname")) {
-        pbBuilder.setClassName(value);
-      } else if (name.equals("tests")) {
-        pbBuilder.setTestCaseCount(Integer.parseInt(value));
-      } else if (name.equals("failures")) {
-        pbBuilder.setTestFailureCount(Integer.parseInt(value));
-      } else if (name.equals("errors")) {
-        pbBuilder.setTestErrorCount(Integer.parseInt(value));
+        result.className = value;
       } else if (name.equals("time")) {
-        pbBuilder.setRunDurationMillis(parseTime(value));
-      } else if (name.equals("memory-delta")) {
-        pbBuilder.setMemoryDelta(Long.parseLong(value));
-      } else {
-        pbBuilder.addProperty(createProperty(name, value));
+        result.runDurationMillis = parseTime(value);
       }
     }
 
-    parseContainedElements(parser, "testdecorator", pbBuilder);
-    return pbBuilder.build();
+    parseContainedElements(parser, "testdecorator", result);
+    return result;
   }
 
   /**
@@ -262,7 +269,7 @@ class TestXmlOutputParser {
    *         a valid number
    */
   private void parseContainedElements(
-      XMLStreamReader parser, String elementName, Builder pbBuilder)
+      XMLStreamReader parser, String elementName, HierarchicalTestResult result)
       throws XMLStreamException, TestXmlOutputParserException {
     while (true) {
       int event = parser.next();
@@ -276,27 +283,17 @@ class TestXmlOutputParser {
           // elements to the output without a message, so that there is a
           // difference between passed and failed test cases.
           if (childElementName.equals("testsuite")) {
-            pbBuilder.addChild(parseTestSuite(parser, childElementName));
+            result.children.add(parseTestSuite(parser, childElementName));
           } else if (childElementName.equals("testcase")) {
-            pbBuilder.addChild(parseTestCase(parser));
-          } else if (childElementName.equals("properties")) {
-            parseProperties(parser, pbBuilder);
+            result.children.add(parseTestCase(parser));
           } else if (childElementName.equals("failure")) {
-            TestFailure.Builder childBuilder = TestFailure.newBuilder();
-            childBuilder.setFailureMessage("");
-            childBuilder.setFailureType("");
-            childBuilder.setDetail("");
-            pbBuilder.addFailure(childBuilder.build());
+            result.failures++;
             skipCompleteElement(parser);
           } else if (childElementName.equals("error")) {
-            TestError.Builder childBuilder = TestError.newBuilder();
-            childBuilder.setErrorMessage("");
-            childBuilder.setErrorType("");
-            childBuilder.setDetail("");
-            pbBuilder.addError(childBuilder.build());
+            result.errors++;
             skipCompleteElement(parser);
           } else if (childElementName.equals("testdecorator")) {
-            pbBuilder.addChild(parseTestDecorator(parser));
+            result.children.add(parseTestDecorator(parser));
           } else {
 
             // Unknown element encountered. Since the schema of the input file
@@ -318,6 +315,7 @@ class TestXmlOutputParser {
     }
   }
 
+
   /**
    * Parses a 'testcase' element.
    *
@@ -328,37 +326,23 @@ class TestXmlOutputParser {
    */
   private HierarchicalTestResult parseTestCase(XMLStreamReader parser)
       throws XMLStreamException, TestXmlOutputParserException {
-    HierarchicalTestResult.Builder pbBuilder = HierarchicalTestResult.newBuilder();
+    HierarchicalTestResult result = new HierarchicalTestResult();
 
     for (int i = 0; i < parser.getAttributeCount(); i++) {
       String name = parser.getAttributeLocalName(i).intern();
       String value = parser.getAttributeValue(i);
 
       if (name.equals("name")) {
-        pbBuilder.setName(value);
+        result.name = value;
       } else if (name.equals("classname")) {
-        pbBuilder.setClassName(value);
-      } else if (name.equals("status")) {
-        pbBuilder.setWasRun(value.equals("run"));
+        result.className = value;
       } else if (name.equals("time")) {
-        pbBuilder.setRunDurationMillis(parseTime(value));
-      } else {
-        pbBuilder.addProperty(createProperty(name, value));
+        result.runDurationMillis = parseTime(value);
       }
     }
 
-    pbBuilder.setTestCaseCount(1);
-    parseContainedElements(parser, "testcase", pbBuilder);
-    return pbBuilder.build();
-  }
-
-  private Property createProperty(String name, String value) {
-    Property.Builder builder = Property.newBuilder();
-
-    builder.setKey(name);
-    builder.setValue(value);
-
-    return builder.build();
+    parseContainedElements(parser, "testcase", result);
+    return result;
   }
 
   /**

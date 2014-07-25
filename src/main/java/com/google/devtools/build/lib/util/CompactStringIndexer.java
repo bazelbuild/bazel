@@ -331,9 +331,9 @@ public class CompactStringIndexer extends AbstractIndexer {
     int[] intHolder = new int[1];
     int contentOffset = VarInt.getVarInt(content, 0, intHolder); // parent id
     contentOffset = VarInt.getVarInt(content, contentOffset, intHolder); // key length
-    int nodeKeyLen = intHolder[0];
+    int skyKeyLen = intHolder[0];
     int remainingKeyLen = key.length - offset;
-    int minKeyLen = remainingKeyLen > nodeKeyLen ? nodeKeyLen : remainingKeyLen;
+    int minKeyLen = remainingKeyLen > skyKeyLen ? skyKeyLen : remainingKeyLen;
 
     // Compare given key/offset content with the node key. Skip first key byte for recursive
     // calls - this byte is equal to the byte in the jump entry and was already compared.
@@ -348,12 +348,12 @@ public class CompactStringIndexer extends AbstractIndexer {
     if (remainingKeyLen > minKeyLen) {
       // Node key matched portion of the key - find appropriate jump entry. If found - recursion.
       // If not - mismatch (we will add new child node if requested).
-      contentOffset += nodeKeyLen;
+      contentOffset += skyKeyLen;
       while (contentOffset < content.length) {
-        if (key[offset + nodeKeyLen] == content[contentOffset]) {  // compare index value
+        if (key[offset + skyKeyLen] == content[contentOffset]) {  // compare index value
           VarInt.getVarInt(content, contentOffset + 1, intHolder);
           // Found matching jump entry - recursively compare the child.
-          return findOrCreateIndexInternal(intHolder[0], key, offset + nodeKeyLen,
+          return findOrCreateIndexInternal(intHolder[0], key, offset + skyKeyLen,
               createIfNotFound);
         } else {
           // Jump entry key does not match. Skip rest of the entry data.
@@ -361,8 +361,8 @@ public class CompactStringIndexer extends AbstractIndexer {
         }
       }
       // There are no matching jump entries - report mismatch or create a new leaf if necessary.
-      return createIfNotFound ? addChildNode(node, key, offset + nodeKeyLen) : NOT_FOUND;
-    } else if (nodeKeyLen > minKeyLen) {
+      return createIfNotFound ? addChildNode(node, key, offset + skyKeyLen) : NOT_FOUND;
+    } else if (skyKeyLen > minKeyLen) {
       // Key suffix is a subset of the node key. Report mismatch or split the node if requested).
       return createIfNotFound ? splitNodeSuffix(node, minKeyLen) : NOT_FOUND;
     } else {

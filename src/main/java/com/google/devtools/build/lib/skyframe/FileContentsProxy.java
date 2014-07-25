@@ -18,8 +18,8 @@ import java.util.Objects;
 
 /**
  * In case we can't get a fast digest from the filesystem, we store this metadata as a proxy to
- * the file contents. Currently it is a pair of the mtime and "node id" (which is right now just
- * the inode number). We may wish to augment this object with the following data:
+ * the file contents. Currently it is a pair of the mtime and "value id" (which is right now just
+ * the ivalue number). We may wish to augment this object with the following data:
  * a. the device number
  * b. the ctime, which cannot be tampered with in userspace
  *
@@ -29,15 +29,15 @@ import java.util.Objects;
  */
 public final class FileContentsProxy implements Serializable {
   private final long mtime;
-  private final long nodeId;
+  private final long valueId;
 
-  private FileContentsProxy(long mtime, long nodeId) {
+  private FileContentsProxy(long mtime, long valueId) {
     this.mtime = mtime;
-    this.nodeId = nodeId;
+    this.valueId = valueId;
   }
 
-  public static FileContentsProxy create(long mtime, long nodeId) {
-    return new FileContentsProxy(mtime, nodeId);
+  public static FileContentsProxy create(long mtime, long valueId) {
+    return new FileContentsProxy(mtime, valueId);
   }
 
   @Override
@@ -51,16 +51,16 @@ public final class FileContentsProxy implements Serializable {
     }
 
     FileContentsProxy that = (FileContentsProxy) other;
-    return mtime == that.mtime && nodeId == that.nodeId;
+    return mtime == that.mtime && valueId == that.valueId;
   }
 
   @Override
   public int hashCode() {
-    return Objects.hash(mtime, nodeId);
+    return Objects.hash(mtime, valueId);
   }
 
   @Override
   public String toString() {
-    return "mtime: " + mtime + " nodeId: " + nodeId;
+    return "mtime: " + mtime + " valueId: " + valueId;
   }
 }

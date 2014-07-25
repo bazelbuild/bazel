@@ -712,7 +712,7 @@ class Parser {
   // list_expression ::= '[' ']'
   //                    |'[' expr ']'
   //                    |'[' expr ',' expr_list ']'
-  //                    |'[' expr ('FOR' loop_variables IN expr)+ ']'
+  //                    |'[' expr ('FOR' loop_variables 'IN' expr)+ ']'
   private Expression parseListExpression() {
     int start = token.left;
     expect(TokenKind.LBRACKET);
@@ -784,6 +784,7 @@ class Parser {
 
   // dict_expression ::= '{' '}'
   //                    |'{' dict_entry_list '}'
+  //                    |'{' dict_entry 'FOR' loop_variables 'IN' expr '}'
   private Expression parseDictExpression() {
     int start = token.left;
     expect(TokenKind.LBRACE);
@@ -794,7 +795,23 @@ class Parser {
       nextToken();
       return literal;
     }
-    List<DictionaryEntryLiteral> entries = parseDictEntryList();
+    DictionaryEntryLiteral entry = parseDictEntry();
+    if (token.kind == TokenKind.FOR) {
+      // Dict comprehension
+      nextToken();
+      Ident loopVar = parseForLoopVariables();
+      expect(TokenKind.IN);
+      Expression listExpression = parseExpression();
+      expect(TokenKind.RBRACE);
+      return setLocation(new DictComprehension(
+          entry.getKey(), entry.getValue(), loopVar, listExpression), start, token.right);
+    }
+    List<DictionaryEntryLiteral> entries = new ArrayList<>();
+    entries.add(entry);
+    if (token.kind == TokenKind.COMMA) {
+      expect(TokenKind.COMMA);
+      entries.addAll(parseDictEntryList());
+    }
     if (token.kind == TokenKind.RBRACE) {
       DictionaryLiteral literal = new DictionaryLiteral(entries);
       setLocation(literal, start, token.right);

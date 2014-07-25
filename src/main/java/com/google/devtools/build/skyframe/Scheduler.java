@@ -39,36 +39,36 @@ interface Scheduler {
    * by callers of {@link #run}.
    */
   static class SchedulerException extends RuntimeException {
-    private final NodeKey failedNode;
+    private final SkyKey failedValue;
     private final ErrorInfo errorInfo;
 
     private SchedulerException(@Nullable Throwable cause, @Nullable ErrorInfo errorInfo,
-        NodeKey failedNode) {
+        SkyKey failedValue) {
       super(errorInfo != null ? errorInfo.getException() : cause);
       this.errorInfo = errorInfo;
-      this.failedNode = Preconditions.checkNotNull(failedNode, errorInfo);
+      this.failedValue = Preconditions.checkNotNull(failedValue, errorInfo);
     }
 
     /**
      * Returns a SchedulerException wrapping an expected error, e.g. an error describing an expected
-     * build failure when trying to evaluate the given node, that should cause Skyframe to produce
+     * build failure when trying to evaluate the given value, that should cause Skyframe to produce
      * useful error information to the user.
      */
-    static SchedulerException ofError(ErrorInfo errorInfo, NodeKey failedNode) {
+    static SchedulerException ofError(ErrorInfo errorInfo, SkyKey failedValue) {
       Preconditions.checkNotNull(errorInfo);
-      return new SchedulerException(errorInfo.getException(), errorInfo, failedNode);
+      return new SchedulerException(errorInfo.getException(), errorInfo, failedValue);
     }
 
     /**
      * Returns a SchedulerException wrapping an InterruptedException, e.g. if the user interrupts
      * the build, that should cause Skyframe to exit as soon as possible.
      */
-    static SchedulerException ofInterruption(InterruptedException cause, NodeKey failedNode) {
-      return new SchedulerException(cause, null, failedNode);
+    static SchedulerException ofInterruption(InterruptedException cause, SkyKey failedValue) {
+      return new SchedulerException(cause, null, failedValue);
     }
 
-    NodeKey getFailedNode() {
-      return failedNode;
+    SkyKey getFailedValue() {
+      return failedValue;
     }
 
     @Nullable ErrorInfo getErrorInfo() {

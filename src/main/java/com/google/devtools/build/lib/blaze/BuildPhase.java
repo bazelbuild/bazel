@@ -27,6 +27,7 @@ public enum BuildPhase {
   NOT_BUILT("not-built", false),
   NOT_ANALYZED("not-analyzed", false),
   EXECUTION("build-failed", false),
+  BLAZE_HALTED("blaze-halted", false),
   COMPLETE("built", true);
 
   private final String msg;

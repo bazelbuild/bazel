@@ -127,7 +127,7 @@ public class BazelRulesModule extends BlazeModule {
   }
 
   /**
-   * Execution options for google3 rules.
+   * Execution options affecting how we execute the build actions (but not their semantics).
    */
   public static class Google3ExecutionOptions extends OptionsBase {
     @Option(name = "spawn_strategy", defaultValue = "", category = "strategy", help =

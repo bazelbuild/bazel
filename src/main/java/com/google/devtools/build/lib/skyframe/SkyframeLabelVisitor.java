@@ -31,7 +31,7 @@ import com.google.devtools.build.lib.vfs.PathFragment;
 import com.google.devtools.build.skyframe.CycleInfo;
 import com.google.devtools.build.skyframe.CyclesReporter;
 import com.google.devtools.build.skyframe.ErrorInfo;
-import com.google.devtools.build.skyframe.NodeKey;
+import com.google.devtools.build.skyframe.SkyKey;
 import com.google.devtools.build.skyframe.UpdateResult;
 
 import java.util.Collection;
@@ -54,7 +54,7 @@ final class SkyframeLabelVisitor implements TransitivePackageLoader {
   private Set<PathFragment> allVisitedPackages;
   private Set<PathFragment> errorFreeVisitedPackages;
   private Set<Label> visitedTargets;
-  private Set<TransitiveTargetNode> previousBuildTargetNodeSet = null;
+  private Set<TransitiveTargetValue> previousBuildTargetValueSet = null;
   private boolean lastBuildKeepGoing = false;
   private final Multimap<Label, Label> rootCauses = HashMultimap.create();
 
@@ -70,24 +70,24 @@ final class SkyframeLabelVisitor implements TransitivePackageLoader {
       throws InterruptedException {
     rootCauses.clear();
     lastBuildKeepGoing = false;
-    UpdateResult<TransitiveTargetNode> result =
+    UpdateResult<TransitiveTargetValue> result =
         transitivePackageLoader.loadTransitiveTargets(targetsToVisit, labelsToVisit, keepGoing);
-    updateVisitedNodes(result.values());
+    updateVisitedValues(result.values());
     lastBuildKeepGoing = keepGoing;
 
     if (!hasErrors(result)) {
       return true;
     }
 
-    Set<Entry<NodeKey, ErrorInfo>> errors = result.errorMap().entrySet();
+    Set<Entry<SkyKey, ErrorInfo>> errors = result.errorMap().entrySet();
     if (!keepGoing) {
       // We may have multiple errors, but in non keep_going builds, we're obligated to print only
       // one of them.
       Preconditions.checkState(!errors.isEmpty(), result);
-      Entry<NodeKey, ErrorInfo> error = errors.iterator().next();
+      Entry<SkyKey, ErrorInfo> error = errors.iterator().next();
       ErrorInfo errorInfo = error.getValue();
-      NodeKey topLevel = error.getKey();
-      Label topLevelLabel = (Label) topLevel.getNodeName();
+      SkyKey topLevel = error.getKey();
+      Label topLevelLabel = (Label) topLevel.argument();
       if (!Iterables.isEmpty(errorInfo.getCycleInfo())) {
         skyframeCyclesReporter.get().reportCycles(errorInfo.getCycleInfo(), topLevel, listener);
         errorAboutLoadingFailure(topLevelLabel, null, listener);
@@ -101,11 +101,11 @@ final class SkyframeLabelVisitor implements TransitivePackageLoader {
       return false;
     }
 
-    for (Entry<NodeKey, ErrorInfo> errorEntry : errors) {
-      NodeKey key = errorEntry.getKey();
+    for (Entry<SkyKey, ErrorInfo> errorEntry : errors) {
+      SkyKey key = errorEntry.getKey();
       ErrorInfo errorInfo = errorEntry.getValue();
-      Preconditions.checkState(key.getNodeType().equals(NodeTypes.TRANSITIVE_TARGET), errorEntry);
-      Label topLevelLabel = (Label) key.getNodeName();
+      Preconditions.checkState(key.functionName().equals(SkyFunctions.TRANSITIVE_TARGET), errorEntry);
+      Label topLevelLabel = (Label) key.argument();
       if (!Iterables.isEmpty(errorInfo.getCycleInfo())) {
         skyframeCyclesReporter.get().reportCycles(errorInfo.getCycleInfo(), key, listener);
         for (Label rootCause : getRootCausesOfCycles(topLevelLabel, errorInfo.getCycleInfo())) {
@@ -120,15 +120,15 @@ final class SkyframeLabelVisitor implements TransitivePackageLoader {
         listener.error(null, errorInfo.getException().getMessage());
       }
       warnAboutLoadingFailure(topLevelLabel, listener);
-      for (NodeKey badKey : errorInfo.getRootCauses()) {
-        rootCauses.put(topLevelLabel, (Label) badKey.getNodeName());
+      for (SkyKey badKey : errorInfo.getRootCauses()) {
+        rootCauses.put(topLevelLabel, (Label) badKey.argument());
       }
     }
     for (Label topLevelLabel : result.<Label>keyNames()) {
-      NodeKey topLevelTransitiveTargetKey = TransitiveTargetNode.key(topLevelLabel);
-      TransitiveTargetNode topLevelTransitiveTargetNode = result.get(topLevelTransitiveTargetKey);
-      if (topLevelTransitiveTargetNode.getTransitiveRootCauses() != null) {
-        for (Label rootCause : topLevelTransitiveTargetNode.getTransitiveRootCauses()) {
+      SkyKey topLevelTransitiveTargetKey = TransitiveTargetValue.key(topLevelLabel);
+      TransitiveTargetValue topLevelTransitiveTargetValue = result.get(topLevelTransitiveTargetKey);
+      if (topLevelTransitiveTargetValue.getTransitiveRootCauses() != null) {
+        for (Label rootCause : topLevelTransitiveTargetValue.getTransitiveRootCauses()) {
           rootCauses.put(topLevelLabel, rootCause);
         }
         warnAboutLoadingFailure(topLevelLabel, listener);
@@ -137,12 +137,12 @@ final class SkyframeLabelVisitor implements TransitivePackageLoader {
     return false;
   }
 
-  private static boolean hasErrors(UpdateResult<TransitiveTargetNode> result) {
+  private static boolean hasErrors(UpdateResult<TransitiveTargetValue> result) {
     if (result.hasError()) {
       return true;
     }
-    for (TransitiveTargetNode transitiveTargetNode : result.values()) {
-      if (transitiveTargetNode.getTransitiveRootCauses() != null) {
+    for (TransitiveTargetValue transitiveTargetValue : result.values()) {
+      if (transitiveTargetValue.getTransitiveRootCauses() != null) {
         return true;
       }
     }
@@ -152,7 +152,7 @@ final class SkyframeLabelVisitor implements TransitivePackageLoader {
   private static boolean isDirectErrorFromTopLevelLabel(Label label, Set<Label> topLevelLabels,
       ErrorInfo errorInfo) {
     return errorInfo.getException() != null && topLevelLabels.contains(label)
-        && Iterables.contains(errorInfo.getRootCauses(), TransitiveTargetNode.key(label));
+        && Iterables.contains(errorInfo.getRootCauses(), TransitiveTargetValue.key(label));
   }
 
   private static void errorAboutLoadingFailure(Label topLevelLabel, @Nullable Throwable throwable,
@@ -175,20 +175,20 @@ final class SkyframeLabelVisitor implements TransitivePackageLoader {
     for (CycleInfo cycleInfo : cycles) {
       // The root cause of a cycle depends on the type of a cycle.
 
-      NodeKey culprit = Iterables.getFirst(cycleInfo.getCycle(), null);
+      SkyKey culprit = Iterables.getFirst(cycleInfo.getCycle(), null);
       if (culprit == null) {
         continue;
       }
-      if (culprit.getNodeType().equals(NodeTypes.TRANSITIVE_TARGET)) {
+      if (culprit.functionName().equals(SkyFunctions.TRANSITIVE_TARGET)) {
         // For a cycle between build targets, the root cause is the first element of the cycle.
-        builder.add((Label) culprit.getNodeName());
+        builder.add((Label) culprit.argument());
       } else {
         // For other types of cycles (e.g. file symlink cycles), the root cause is the furthest
         // target dependency that itself depended on the cycle.
         Label furthestTarget = labelToLoad;
-        for (NodeKey nodeKey : cycleInfo.getPathToCycle()) {
-          if (nodeKey.getNodeType().equals(NodeTypes.TRANSITIVE_TARGET)) {
-            furthestTarget = (Label) nodeKey.getNodeName();
+        for (SkyKey skyKey : cycleInfo.getPathToCycle()) {
+          if (skyKey.functionName().equals(SkyFunctions.TRANSITIVE_TARGET)) {
+            furthestTarget = (Label) skyKey.argument();
           } else {
             break;
           }
@@ -201,9 +201,9 @@ final class SkyframeLabelVisitor implements TransitivePackageLoader {
 
   // Unfortunately we have to do an effective O(TC) visitation after the eval() call above to
   // determine all of the packages in the closure.
-  private void updateVisitedNodes(Collection<TransitiveTargetNode> targetNodes) {
-    Set<TransitiveTargetNode> currentBuildTargetNodeSet = new HashSet<>(targetNodes);
-    if (Objects.equals(previousBuildTargetNodeSet, currentBuildTargetNodeSet)) {
+  private void updateVisitedValues(Collection<TransitiveTargetValue> targetValues) {
+    Set<TransitiveTargetValue> currentBuildTargetValueSet = new HashSet<>(targetValues);
+    if (Objects.equals(previousBuildTargetValueSet, currentBuildTargetValueSet)) {
       // The next stanza is slow (and scales with the edge count of the target graph), so avoid
       // the computation if the previous build already did it.
       return;
@@ -211,16 +211,16 @@ final class SkyframeLabelVisitor implements TransitivePackageLoader {
     NestedSetBuilder<PathFragment> nestedAllPkgsBuilder = NestedSetBuilder.stableOrder();
     NestedSetBuilder<PathFragment> nestedErrorFreePkgsBuilder = NestedSetBuilder.stableOrder();
     NestedSetBuilder<Label> nestedTargetBuilder = NestedSetBuilder.stableOrder();
-    for (TransitiveTargetNode node : targetNodes) {
-      nestedAllPkgsBuilder.addTransitive(node.getTransitiveSuccessfulPackages());
-      nestedAllPkgsBuilder.addTransitive(node.getTransitiveUnsuccessfulPackages());
-      nestedErrorFreePkgsBuilder.addTransitive(node.getTransitiveSuccessfulPackages());
-      nestedTargetBuilder.addTransitive(node.getTransitiveTargets());
+    for (TransitiveTargetValue value : targetValues) {
+      nestedAllPkgsBuilder.addTransitive(value.getTransitiveSuccessfulPackages());
+      nestedAllPkgsBuilder.addTransitive(value.getTransitiveUnsuccessfulPackages());
+      nestedErrorFreePkgsBuilder.addTransitive(value.getTransitiveSuccessfulPackages());
+      nestedTargetBuilder.addTransitive(value.getTransitiveTargets());
     }
     allVisitedPackages = nestedAllPkgsBuilder.build().toSet();
     errorFreeVisitedPackages = nestedErrorFreePkgsBuilder.build().toSet();
     visitedTargets = nestedTargetBuilder.build().toSet();
-    previousBuildTargetNodeSet = currentBuildTargetNodeSet;
+    previousBuildTargetValueSet = currentBuildTargetValueSet;
   }
 
 

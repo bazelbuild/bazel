@@ -299,10 +299,11 @@ public class TestResultAnalyzer {
     return summaryBuilder.setStatus(status);
   }
 
-  TestSummary.Builder markUnbuilt(TestSummary.Builder summary) {
-    BlazeTestStatus runStatus = executionOptions.testCheckUpToDate
-        ? BlazeTestStatus.NO_STATUS
-        : BlazeTestStatus.FAILED_TO_BUILD;
+  TestSummary.Builder markUnbuilt(TestSummary.Builder summary, boolean blazeHalted) {
+    BlazeTestStatus runStatus = blazeHalted ? BlazeTestStatus.BLAZE_HALTED_BEFORE_TESTING
+        : (executionOptions.testCheckUpToDate
+            ? BlazeTestStatus.NO_STATUS
+            : BlazeTestStatus.FAILED_TO_BUILD);
 
     return summary.setStatus(runStatus);
   }

@@ -69,6 +69,8 @@ import java.util.Set;
 import java.util.concurrent.TimeUnit;
 import java.util.logging.Logger;
 
+import javax.annotation.Nullable;
+
 /**
  * Provides the bulk of the implementation of the 'blaze build' command.
  *
@@ -123,8 +125,8 @@ public class BuildTool {
   public void buildTargets(BuildRequest request, BuildResult result, TargetValidator validator)
       throws BuildFailedException, LocalEnvironmentException,
              InterruptedException, ViewCreationFailedException,
-             TargetParsingException, ExecutorInitException, ExitCausingException,
-             InvalidConfigurationException, TestExecException {
+             TargetParsingException, LoadingFailedException, ExecutorInitException,
+             ExitCausingException, InvalidConfigurationException, TestExecException {
     validateOptions(request);
     BuildOptions buildOptions = runtime.createBuildOptions(request);
     // Sync the package manager before sending the BuildStartingEvent in runLoadingPhase()
@@ -182,10 +184,8 @@ public class BuildTool {
       reportTargets(analysisResult);
 
       // Execution phase.
-      if (needsExecutionPhase(request.getBuildOptions())) {
-        executionTool.executeBuild(loadingResult, analysisResult, result,
-            runtime.getSkyframeExecutor(), configurations);
-      }
+      runExecutionPhase(request, loadingResult, analysisResult, result, executionTool,
+          configurations);
 
       String delayedErrorMsg = analysisResult.getError();
       if (delayedErrorMsg != null) {
@@ -261,7 +261,7 @@ public class BuildTool {
       exitCode = ExitCode.INTERRUPTED;
       getReporter().error(null, "build interrupted");
       getEventBus().post(new BuildInterruptedEvent());
-    } catch (TargetParsingException e) {
+    } catch (TargetParsingException | LoadingFailedException | ViewCreationFailedException e) {
       exitCode = ExitCode.PARSING_FAILURE;
       reportExceptionError(e);
     } catch (TestExecException e) {
@@ -275,6 +275,7 @@ public class BuildTool {
     } catch (ExitCausingException e) {
       exitCode = e.getExitCode();
       reportExceptionError(e);
+      result.setCatastrophe();
     } catch (Throwable throwable) {
       catastrophe = throwable;
       Throwables.propagate(throwable);
@@ -324,6 +325,23 @@ public class BuildTool {
         request.shouldRunTests(), callback);
     runtime.throwPendingException();
     return result;
+  }
+
+  private void runExecutionPhase(BuildRequest request, LoadingResult loadingResult,
+      AnalysisResult analysisResult, BuildResult result, @Nullable ExecutionTool executionTool,
+      BuildConfigurationCollection configurations)
+      throws TestExecException, BuildFailedException, InterruptedException, ExitCausingException,
+      ViewCreationFailedException {
+    try {
+      if (needsExecutionPhase(request.getBuildOptions())) {
+        executionTool.executeBuild(loadingResult, analysisResult, result,
+            runtime.getSkyframeExecutor(), configurations);
+      }
+    } finally {
+      if (runtime.getSkyframeExecutor() != null) {
+        runtime.getSkyframeExecutor().deleteOldNodes();
+      }
+    }
   }
 
   /**

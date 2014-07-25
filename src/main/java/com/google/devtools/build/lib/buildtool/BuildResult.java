@@ -207,7 +207,7 @@ public final class BuildResult {
   @Override
   @SuppressWarnings("deprecation")
   public String toString() {
-    // We need to be compatible with Guava, so we use this, even though it is deprecated in google3
+    // We need to be compatible with Guava, so we use this, even though it is deprecated.
     return Objects.toStringHelper(this)
         .add("startTimeMillis", startTimeMillis)
         .add("stopTimeMillis", stopTimeMillis)

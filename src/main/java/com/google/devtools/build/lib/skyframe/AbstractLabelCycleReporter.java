@@ -22,11 +22,11 @@ import com.google.devtools.build.lib.pkgcache.LoadedPackageProvider;
 import com.google.devtools.build.lib.syntax.Label;
 import com.google.devtools.build.skyframe.CycleInfo;
 import com.google.devtools.build.skyframe.CyclesReporter;
-import com.google.devtools.build.skyframe.NodeKey;
+import com.google.devtools.build.skyframe.SkyKey;
 
 import javax.annotation.Nullable;
 
-/** Reports cycles between skyframe nodes whose keys contains {@link Label}s. */
+/** Reports cycles between skyframe values whose keys contains {@link Label}s. */
 abstract class AbstractLabelCycleReporter implements CyclesReporter.SingleCycleReporter {
 
   private final LoadedPackageProvider loadedPackageProvider;
@@ -35,16 +35,16 @@ abstract class AbstractLabelCycleReporter implements CyclesReporter.SingleCycleR
     this.loadedPackageProvider = loadedPackageProvider;
   }
 
-  /** Returns the String representation of the {@code NodeKey}. */
-  protected abstract String prettyPrint(NodeKey key);
+  /** Returns the String representation of the {@code SkyKey}. */
+  protected abstract String prettyPrint(SkyKey key);
 
-  /** Returns the associated Label of the NodeKey. */
-  protected abstract Label getLabel(NodeKey key);
+  /** Returns the associated Label of the SkyKey. */
+  protected abstract Label getLabel(SkyKey key);
 
-  protected abstract boolean canReportCycle(NodeKey topLevelKey, CycleInfo cycleInfo);
+  protected abstract boolean canReportCycle(SkyKey topLevelKey, CycleInfo cycleInfo);
 
   @Override
-  public boolean maybeReportCycle(NodeKey topLevelKey, CycleInfo cycleInfo,
+  public boolean maybeReportCycle(SkyKey topLevelKey, CycleInfo cycleInfo,
       boolean alreadyReported, @Nullable ErrorEventListener listener) {
     if (!canReportCycle(topLevelKey, cycleInfo)) {
       return false;
@@ -62,33 +62,33 @@ abstract class AbstractLabelCycleReporter implements CyclesReporter.SingleCycleR
               ": cycle in dependency graph: target depends on an already-reported cycle");
     } else {
       StringBuilder cycleMessage = new StringBuilder("cycle in dependency graph:");
-      ImmutableList<NodeKey> pathToCycle = cycleInfo.getPathToCycle();
-      ImmutableList<NodeKey> cycle = cycleInfo.getCycle();
-      for (NodeKey node : pathToCycle) {
+      ImmutableList<SkyKey> pathToCycle = cycleInfo.getPathToCycle();
+      ImmutableList<SkyKey> cycle = cycleInfo.getCycle();
+      for (SkyKey value : pathToCycle) {
         cycleMessage.append("\n    ");
-        cycleMessage.append(prettyPrint(node));
+        cycleMessage.append(prettyPrint(value));
       }
 
-      Iterable<NodeKey> nodesToPrint = cycle.size() > 1 ?
-          Iterables.concat(cycle, ImmutableList.of(cycle.get(0))) : cycle;
-      NodeKey cycleNode = null;
-      for (NodeKey node : nodesToPrint) {
-        if (cycleNode == null) {
-          cycleNode = node;
+      Iterable<SkyKey> valuesToPrint = cycle.size() > 1
+          ? Iterables.concat(cycle, ImmutableList.of(cycle.get(0))) : cycle;
+      SkyKey cycleValue = null;
+      for (SkyKey value : valuesToPrint) {
+        if (cycleValue == null) {
+          cycleValue = value;
         }
-        if (node == cycleNode) {
+        if (value == cycleValue) {
           cycleMessage.append("\n  * ");
         } else {
           cycleMessage.append("\n    ");
         }
-        cycleMessage.append(prettyPrint(node));
+        cycleMessage.append(prettyPrint(value));
       }
 
       if (cycle.size() == 1) {
         cycleMessage.append(" [self-edge]");
       }
 
-      Label label = getLabel(cycleNode);
+      Label label = getLabel(cycleValue);
       Target target = getTargetForLabel(label);
       listener.error(target.getLocation(), "in " + target.getTargetKind() + " " + label
           + ": " + cycleMessage.toString());

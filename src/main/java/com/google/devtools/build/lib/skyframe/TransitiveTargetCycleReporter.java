@@ -19,35 +19,35 @@ import com.google.common.collect.Iterables;
 import com.google.devtools.build.lib.pkgcache.LoadedPackageProvider;
 import com.google.devtools.build.lib.syntax.Label;
 import com.google.devtools.build.skyframe.CycleInfo;
-import com.google.devtools.build.skyframe.NodeKey;
+import com.google.devtools.build.skyframe.SkyKey;
 
 /**
- * Reports cycles between {@link TransitiveTargetNode}s. These indicates cycles between targets
+ * Reports cycles between {@link TransitiveTargetValue}s. These indicates cycles between targets
  * (e.g. '//a:foo' depends on '//b:bar' and '//b:bar' depends on '//a:foo').
  */
 class TransitiveTargetCycleReporter extends AbstractLabelCycleReporter {
 
-  private static final Predicate<NodeKey> IS_TRANSITIVE_TARGET_NODE_KEY =
-      NodeTypes.hasNodeType(NodeTypes.TRANSITIVE_TARGET);
+  private static final Predicate<SkyKey> IS_TRANSITIVE_TARGET_SKY_KEY =
+      SkyFunctions.isSkyFunction(SkyFunctions.TRANSITIVE_TARGET);
 
   TransitiveTargetCycleReporter(LoadedPackageProvider loadedPackageProvider) {
     super(loadedPackageProvider);
   }
 
   @Override
-  protected boolean canReportCycle(NodeKey topLevelKey, CycleInfo cycleInfo) {
+  protected boolean canReportCycle(SkyKey topLevelKey, CycleInfo cycleInfo) {
     return Iterables.all(Iterables.concat(ImmutableList.of(topLevelKey),
         cycleInfo.getPathToCycle(), cycleInfo.getCycle()),
-        IS_TRANSITIVE_TARGET_NODE_KEY);
+        IS_TRANSITIVE_TARGET_SKY_KEY);
   }
 
   @Override
-  public String prettyPrint(NodeKey key) {
+  public String prettyPrint(SkyKey key) {
     return getLabel(key).toString();
   }
 
   @Override
-  protected Label getLabel(NodeKey key) {
-    return (Label) key.getNodeName();
+  protected Label getLabel(SkyKey key) {
+    return (Label) key.argument();
   }
 }

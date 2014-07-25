@@ -22,10 +22,10 @@ import com.google.common.collect.Iterables;
 import com.google.common.collect.Maps;
 import com.google.devtools.build.lib.events.ErrorEventListener;
 import com.google.devtools.build.skyframe.Differencer.Diff;
-import com.google.devtools.build.skyframe.InvalidatingNodeVisitor.DeletingInvalidationState;
-import com.google.devtools.build.skyframe.InvalidatingNodeVisitor.DirtyingInvalidationState;
-import com.google.devtools.build.skyframe.InvalidatingNodeVisitor.InvalidationState;
-import com.google.devtools.build.skyframe.NodeEntry.DependencyState;
+import com.google.devtools.build.skyframe.InvalidatingValueVisitor.DeletingInvalidationState;
+import com.google.devtools.build.skyframe.InvalidatingValueVisitor.DirtyingInvalidationState;
+import com.google.devtools.build.skyframe.InvalidatingValueVisitor.InvalidationState;
+import com.google.devtools.build.skyframe.ValueEntry.DependencyState;
 
 import java.io.PrintStream;
 import java.util.HashMap;
@@ -49,19 +49,19 @@ import javax.annotation.Nullable;
  */
 public final class InMemoryAutoUpdatingGraph implements AutoUpdatingGraph {
 
-  private final ImmutableMap<? extends NodeType, ? extends NodeBuilder> nodeBuilders;
-  @Nullable private final NodeProgressReceiver progressReceiver;
+  private final ImmutableMap<? extends SkyFunctionName, ? extends SkyFunction> skyFunctions;
+  @Nullable private final ValueProgressReceiver progressReceiver;
   // Not final only for testing.
   private InMemoryGraph graph;
   private IntVersion lastGraphVersion = null;
 
   // State related to invalidation and deletion.
-  private Set<NodeKey> nodesToDelete = new LinkedHashSet<>();
-  private Set<NodeKey> nodesToDirty = new LinkedHashSet<>();
+  private Set<SkyKey> valuesToDelete = new LinkedHashSet<>();
+  private Set<SkyKey> valuesToDirty = new LinkedHashSet<>();
   private final InvalidationState deleterState = new DeletingInvalidationState();
   private final Differencer differencer;
 
-  // Nodes that the caller explicitly specified are assumed to be changed -- they will be
+  // Values that the caller explicitly specified are assumed to be changed -- they will be
   // re-evaluated even if none of their children are changed.
   private final InvalidationState invalidatorState = new DirtyingInvalidationState();
 
@@ -69,36 +69,37 @@ public final class InMemoryAutoUpdatingGraph implements AutoUpdatingGraph {
 
   private final AtomicBoolean updating = new AtomicBoolean(false);
 
-  public InMemoryAutoUpdatingGraph(Map<? extends NodeType, ? extends NodeBuilder> nodeBuilders,
-      Differencer differencer) {
-    this(nodeBuilders, differencer, null);
+  public InMemoryAutoUpdatingGraph(
+      Map<? extends SkyFunctionName, ? extends SkyFunction> skyFunctions, Differencer differencer) {
+    this(skyFunctions, differencer, null);
   }
 
-  public InMemoryAutoUpdatingGraph(Map<? extends NodeType, ? extends NodeBuilder> nodeBuilders,
-      Differencer differencer, @Nullable NodeProgressReceiver invalidationReceiver) {
-    this(nodeBuilders, differencer, invalidationReceiver, new EmittedEventState());
+  public InMemoryAutoUpdatingGraph(
+      Map<? extends SkyFunctionName, ? extends SkyFunction> skyFunctions, Differencer differencer,
+      @Nullable ValueProgressReceiver invalidationReceiver) {
+    this(skyFunctions, differencer, invalidationReceiver, new EmittedEventState());
   }
 
-  public InMemoryAutoUpdatingGraph(Map<? extends NodeType, ? extends NodeBuilder> nodeBuilders,
-      Differencer differencer, @Nullable NodeProgressReceiver invalidationReceiver,
-      EmittedEventState emittedEventState) {
-    this.nodeBuilders = ImmutableMap.copyOf(nodeBuilders);
+  public InMemoryAutoUpdatingGraph(
+      Map<? extends SkyFunctionName, ? extends SkyFunction> skyFunctions, Differencer differencer,
+      @Nullable ValueProgressReceiver invalidationReceiver, EmittedEventState emittedEventState) {
+    this.skyFunctions = ImmutableMap.copyOf(skyFunctions);
     this.differencer = Preconditions.checkNotNull(differencer);
     this.progressReceiver = invalidationReceiver;
     this.graph = new InMemoryGraph();
     this.emittedEventState = emittedEventState;
   }
 
-  private void invalidate(Iterable<NodeKey> diff) {
-    Iterables.addAll(nodesToDirty, diff);
+  private void invalidate(Iterable<SkyKey> diff) {
+    Iterables.addAll(valuesToDirty, diff);
   }
 
   @Override
-  public void delete(final Predicate<NodeKey> deletePredicate) {
-    nodesToDelete.addAll(
-        Maps.filterEntries(graph.getAllNodes(), new Predicate<Entry<NodeKey, NodeEntry>>() {
+  public void delete(final Predicate<SkyKey> deletePredicate) {
+    valuesToDelete.addAll(
+        Maps.filterEntries(graph.getAllValues(), new Predicate<Entry<SkyKey, ValueEntry>>() {
           @Override
-          public boolean apply(Entry<NodeKey, NodeEntry> input) {
+          public boolean apply(Entry<SkyKey, ValueEntry> input) {
             return input.getValue().isDirty() || deletePredicate.apply(input.getKey());
           }
         }).keySet());
@@ -109,17 +110,17 @@ public final class InMemoryAutoUpdatingGraph implements AutoUpdatingGraph {
     Preconditions.checkArgument(versionAgeLimit >= 0);
     final long threshold = lastGraphVersion.getVal() - versionAgeLimit;
 
-    nodesToDelete.addAll(
-        Maps.filterEntries(graph.getAllNodes(), new Predicate<Entry<NodeKey, NodeEntry>>() {
+    valuesToDelete.addAll(
+        Maps.filterEntries(graph.getAllValues(), new Predicate<Entry<SkyKey, ValueEntry>>() {
           @Override
-          public boolean apply(Entry<NodeKey, NodeEntry> input) {
+          public boolean apply(Entry<SkyKey, ValueEntry> input) {
             return input.getValue().isDirty() && input.getValue().getVersion() <= threshold;
           }
         }).keySet());
   }
 
   @Override
-  public <T extends Node> UpdateResult<T> update(Iterable<NodeKey> roots, Version version,
+  public <T extends SkyValue> UpdateResult<T> update(Iterable<SkyKey> roots, Version version,
           boolean keepGoing, int numThreads, ErrorEventListener listener)
       throws InterruptedException {
     // NOTE: Performance critical code. See bug "Null build performance parity".
@@ -131,16 +132,16 @@ public final class InMemoryAutoUpdatingGraph implements AutoUpdatingGraph {
     setAndCheckUpdateState(true, roots);
     try {
       Diff diff = differencer.getDiff(lastGraphVersion, version);
-      Map<NodeKey, Node> nodesToInject = new HashMap<>(diff.changedKeysWithNewValues());
+      Map<SkyKey, SkyValue> valuesToInject = new HashMap<>(diff.changedKeysWithNewValues());
       invalidate(diff.changedKeysWithoutNewValues());
-      pruneInjectedNodes(nodesToInject);
-      invalidate(nodesToInject.keySet());
+      pruneInjectedValues(valuesToInject);
+      invalidate(valuesToInject.keySet());
 
-      performNodeInvalidation(progressReceiver);
-      injectNodes(nodesToInject, intVersion);
+      performValueInvalidation(progressReceiver);
+      injectValues(valuesToInject, intVersion);
 
       ParallelEvaluator evaluator = new ParallelEvaluator(graph, intVersion.getVal(),
-          nodeBuilders, listener, emittedEventState, keepGoing, numThreads, progressReceiver);
+          skyFunctions, listener, emittedEventState, keepGoing, numThreads, progressReceiver);
       return evaluator.eval(roots);
     } finally {
       lastGraphVersion = intVersion;
@@ -149,21 +150,22 @@ public final class InMemoryAutoUpdatingGraph implements AutoUpdatingGraph {
   }
 
   /**
-   * Removes entries in {@code nodesToInject} whose values are equal to the present values in the
+   * Removes entries in {@code valuesToInject} whose values are equal to the present values in the
    * graph.
    */
-  private void pruneInjectedNodes(Map<NodeKey, Node> nodesToInject) {
-    for (Iterator<Entry<NodeKey, Node>> it = nodesToInject.entrySet().iterator(); it.hasNext();) {
-      Entry<NodeKey, Node> entry = it.next();
-      NodeKey key = entry.getKey();
-      Node newValue = entry.getValue();
-      NodeEntry prevEntry = graph.get(key);
+  private void pruneInjectedValues(Map<SkyKey, SkyValue> valuesToInject) {
+    for (Iterator<Entry<SkyKey, SkyValue>> it = valuesToInject.entrySet().iterator();
+        it.hasNext();) {
+      Entry<SkyKey, SkyValue> entry = it.next();
+      SkyKey key = entry.getKey();
+      SkyValue newValue = entry.getValue();
+      ValueEntry prevEntry = graph.get(key);
       if (prevEntry != null && prevEntry.isDone()) {
-        Iterable<NodeKey> directDeps = prevEntry.getDirectDeps();
+        Iterable<SkyKey> directDeps = prevEntry.getDirectDeps();
         Preconditions.checkState(Iterables.isEmpty(directDeps),
             "existing entry for %s has deps: %s", key, directDeps);
-        if (newValue.equals(prevEntry.getNode())
-            && !nodesToDirty.contains(key) && !nodesToDelete.contains(key)) {
+        if (newValue.equals(prevEntry.getValue())
+            && !valuesToDirty.contains(key) && !valuesToDelete.contains(key)) {
           it.remove();
         }
       }
@@ -171,29 +173,29 @@ public final class InMemoryAutoUpdatingGraph implements AutoUpdatingGraph {
   }
 
   /**
-   * Injects nodes in {@code nodesToInject} into the graph.
+   * Injects values in {@code valuesToInject} into the graph.
    */
-  private void injectNodes(Map<NodeKey, Node> nodesToInject, IntVersion version) {
-    if (nodesToInject.isEmpty()) {
+  private void injectValues(Map<SkyKey, SkyValue> valuesToInject, IntVersion version) {
+    if (valuesToInject.isEmpty()) {
       return;
     }
-    for (Entry<NodeKey, Node> entry : nodesToInject.entrySet()) {
-      NodeKey key = entry.getKey();
-      Node nodeValue = entry.getValue();
-      Preconditions.checkState(nodeValue != null, key);
-      NodeEntry prevEntry = graph.createIfAbsent(key);
+    for (Entry<SkyKey, SkyValue> entry : valuesToInject.entrySet()) {
+      SkyKey key = entry.getKey();
+      SkyValue value = entry.getValue();
+      Preconditions.checkState(value != null, key);
+      ValueEntry prevEntry = graph.createIfAbsent(key);
       if (prevEntry.isDirty()) {
         // There was an existing entry for this key in the graph.
-        // Get the node in the state where it is able to accept a value.
+        // Get the value in the state where it is able to accept a value.
         Preconditions.checkState(prevEntry.getTemporaryDirectDeps().isEmpty(), key);
 
         DependencyState newState = prevEntry.addReverseDepAndCheckIfDone(null);
         Preconditions.checkState(newState == DependencyState.NEEDS_SCHEDULING, key);
 
-        // Check that the previous node has no dependencies. Overwriting a node with deps with an
-        // injected node (which is by definition deps-free) needs a little additional bookkeeping
+        // Check that the previous value has no dependencies. Overwriting a value with deps with an
+        // injected value (which is by definition deps-free) needs a little additional bookkeeping
         // (removing reverse deps from the dependencies), but more importantly it's something that
-        // we want to avoid, because it indicates confusion of input nodes and derived nodes.
+        // we want to avoid, because it indicates confusion of input values and derived values.
         Preconditions.checkState(prevEntry.noDepsLastBuild(),
             "existing entry for %s has deps: %s", key, prevEntry);
       }
@@ -201,17 +203,17 @@ public final class InMemoryAutoUpdatingGraph implements AutoUpdatingGraph {
     }
   }
 
-  private void performNodeInvalidation(NodeProgressReceiver invalidationReceiver)
+  private void performValueInvalidation(ValueProgressReceiver invalidationReceiver)
       throws InterruptedException {
-    EagerInvalidator.delete(graph, nodesToDelete, invalidationReceiver, deleterState);
-    // Note that clearing the nodesToDelete would not do an internal resizing. Therefore, if any
-    // build has a large set of dirty nodes, subsequent operations (even clearing) will be slower.
+    EagerInvalidator.delete(graph, valuesToDelete, invalidationReceiver, deleterState);
+    // Note that clearing the valuesToDelete would not do an internal resizing. Therefore, if any
+    // build has a large set of dirty values, subsequent operations (even clearing) will be slower.
     // Instead, just start afresh with a new LinkedHashSet.
-    nodesToDelete = new LinkedHashSet<>();
+    valuesToDelete = new LinkedHashSet<>();
 
-    EagerInvalidator.invalidate(graph, nodesToDirty, invalidationReceiver, invalidatorState);
+    EagerInvalidator.invalidate(graph, valuesToDirty, invalidationReceiver, invalidatorState);
     // Ditto.
-    nodesToDirty = new LinkedHashSet<>();
+    valuesToDirty = new LinkedHashSet<>();
   }
 
   private void setAndCheckUpdateState(boolean newValue, Object requestInfo) {
@@ -220,23 +222,23 @@ public final class InMemoryAutoUpdatingGraph implements AutoUpdatingGraph {
   }
 
   @Override
-  public Map<NodeKey, Node> getNodes() {
-    return graph.getNodes();
+  public Map<SkyKey, SkyValue> getValues() {
+    return graph.getValues();
   }
 
   @Override
-  public Map<NodeKey, Node> getDoneNodes() {
-    return graph.getDoneNodes();
+  public Map<SkyKey, SkyValue> getDoneValues() {
+    return graph.getDoneValues();
   }
 
   @Override
-  @Nullable public Node getExistingNodeForTesting(NodeKey key) {
-    return graph.getNode(key);
+  @Nullable public SkyValue getExistingValueForTesting(SkyKey key) {
+    return graph.getValue(key);
   }
 
   @Override
-  @Nullable public ErrorInfo getExistingErrorForTesting(NodeKey key) {
-    NodeEntry entry = graph.get(key);
+  @Nullable public ErrorInfo getExistingErrorForTesting(SkyKey key) {
+    ValueEntry entry = graph.get(key);
     return (entry == null || !entry.isDone()) ? null : entry.getErrorInfo();
   }
 
@@ -246,18 +248,18 @@ public final class InMemoryAutoUpdatingGraph implements AutoUpdatingGraph {
 
   @Override
   public void dump(PrintStream out) {
-    Function<NodeKey, String> keyFormatter =
-        new Function<NodeKey, String>() {
+    Function<SkyKey, String> keyFormatter =
+        new Function<SkyKey, String>() {
           @Override
-          public String apply(NodeKey key) {
+          public String apply(SkyKey key) {
             return String.format("%s:%s",
-                key.getNodeType(), key.getNodeName().toString().replace('\n', '_'));
+                key.functionName(), key.argument().toString().replace('\n', '_'));
           }
         };
 
-    for (Entry<NodeKey, NodeEntry> mapPair : graph.getAllNodes().entrySet()) {
-      NodeKey key = mapPair.getKey();
-      NodeEntry entry = mapPair.getValue();
+    for (Entry<SkyKey, ValueEntry> mapPair : graph.getAllValues().entrySet()) {
+      SkyKey key = mapPair.getKey();
+      ValueEntry entry = mapPair.getValue();
       if (entry.isDone()) {
         System.out.print(keyFormatter.apply(key));
         System.out.print("|");
@@ -270,9 +272,9 @@ public final class InMemoryAutoUpdatingGraph implements AutoUpdatingGraph {
   public static final GraphSupplier SUPPLIER = new GraphSupplier() {
     @Override
     public AutoUpdatingGraph createGraph(
-        Map<? extends NodeType, ? extends NodeBuilder> nodeBuilders, Differencer differencer,
-        @Nullable NodeProgressReceiver invalidationReceiver, EmittedEventState emittedEventState) {
-      return new InMemoryAutoUpdatingGraph(nodeBuilders, differencer, invalidationReceiver,
+        Map<? extends SkyFunctionName, ? extends SkyFunction> skyFunctions, Differencer differencer,
+        @Nullable ValueProgressReceiver invalidationReceiver, EmittedEventState emittedEventState) {
+      return new InMemoryAutoUpdatingGraph(skyFunctions, differencer, invalidationReceiver,
           emittedEventState);
     }
   };

@@ -239,7 +239,7 @@ public final class Label implements Comparable<Label>, Serializable {
    * Returns the name by which this rule was declared (e.g. {@code //file/base:fileutils_test}
    * returns {@code fileutils_test}).
    */
-  @SkylarkCallable(doc = "")
+  @SkylarkCallable(name = "name", doc = "")
   public String getName() {
     return name;
   }

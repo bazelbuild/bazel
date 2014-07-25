@@ -30,40 +30,40 @@ class DeterministicInMemoryGraph extends NotifyingInMemoryGraph {
   }
 
   @Override
-  protected DeterministicNodeEntry getEntry(NodeKey key) {
-    return new DeterministicNodeEntry(key);
+  protected DeterministicValueEntry getEntry(SkyKey key) {
+    return new DeterministicValueEntry(key);
   }
 
   /**
-   * This class uses TreeSet to store reverse dependencies of NodeEntry. As a result all nodes are
+   * This class uses TreeSet to store reverse dependencies of ValueEntry. As a result all values are
    * lexicographically sorted.
    */
-  private class DeterministicNodeEntry extends NotifyingNodeEntry {
-    private DeterministicNodeEntry(NodeKey myKey) {
+  private class DeterministicValueEntry extends NotifyingValueEntry {
+    private DeterministicValueEntry(SkyKey myKey) {
       super(myKey);
     }
 
-    final Comparator<NodeKey> nodeEntryComparator = new Comparator<NodeKey>() {
+    final Comparator<SkyKey> valueEntryComparator = new Comparator<SkyKey>() {
       @Override
-      public int compare(NodeKey o1, NodeKey o2) {
+      public int compare(SkyKey o1, SkyKey o2) {
         return o1.toString().compareTo(o2.toString());
       }
     };
     @SuppressWarnings("unchecked")
     @Override
-    synchronized Iterable<NodeKey> getReverseDeps() {
-      TreeSet<NodeKey> result = new TreeSet<NodeKey>(nodeEntryComparator);
+    synchronized Iterable<SkyKey> getReverseDeps() {
+      TreeSet<SkyKey> result = new TreeSet<SkyKey>(valueEntryComparator);
       if (reverseDeps instanceof List) {
-        result.addAll((Collection<? extends NodeKey>) reverseDeps);
+        result.addAll((Collection<? extends SkyKey>) reverseDeps);
       } else {
-        result.add((NodeKey) reverseDeps);
+        result.add((SkyKey) reverseDeps);
       }
       return result;
     }
 
     @Override
-    synchronized Set<NodeKey> getInProgressReverseDeps() {
-      TreeSet<NodeKey> result = new TreeSet<NodeKey>(nodeEntryComparator);
+    synchronized Set<SkyKey> getInProgressReverseDeps() {
+      TreeSet<SkyKey> result = new TreeSet<SkyKey>(valueEntryComparator);
       result.addAll(buildingState.getReverseDepsToSignal());
       return result;
     }

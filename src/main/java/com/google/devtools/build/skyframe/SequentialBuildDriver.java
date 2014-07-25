@@ -29,7 +29,7 @@ public class SequentialBuildDriver {
     this.curVersion = new IntVersion(0);
   }
 
-  public <T extends Node> UpdateResult<T> update(Iterable<NodeKey> roots, boolean keepGoing,
+  public <T extends SkyValue> UpdateResult<T> update(Iterable<SkyKey> roots, boolean keepGoing,
                                                  int numThreads, ErrorEventListener reporter)
       throws InterruptedException {
     try {

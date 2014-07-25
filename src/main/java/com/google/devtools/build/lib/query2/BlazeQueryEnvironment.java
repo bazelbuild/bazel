@@ -28,8 +28,10 @@ import com.google.devtools.build.lib.events.ErrorEventListener;
 import com.google.devtools.build.lib.events.ErrorSensingErrorEventListener;
 import com.google.devtools.build.lib.graph.Digraph;
 import com.google.devtools.build.lib.graph.Node;
+import com.google.devtools.build.lib.packages.AggregatingAttributeMapper;
 import com.google.devtools.build.lib.packages.Attribute;
 import com.google.devtools.build.lib.packages.NoSuchThingException;
+import com.google.devtools.build.lib.packages.NonconfigurableAttributeMapper;
 import com.google.devtools.build.lib.packages.OutputFile;
 import com.google.devtools.build.lib.packages.Package;
 import com.google.devtools.build.lib.packages.Rule;
@@ -522,78 +524,80 @@ public class BlazeQueryEnvironment implements QueryEnvironment<Target> {
         String errorMsgPrefix) throws QueryException {
       Preconditions.checkArgument(target instanceof Rule);
 
-      List<Label> labels;
+      List<Target> result = new ArrayList<>();
       Rule rule = (Rule) target;
-      if (rule.isAttrDefined(attrName, Type.LABEL_LIST)) {
-        labels = rule.get(attrName, Type.LABEL_LIST);
-      } else if (rule.isAttrDefined(attrName, Type.LABEL)
-          && (rule.get(attrName, Type.LABEL) != null)) {
-        labels = ImmutableList.of(rule.get(attrName, Type.LABEL));
 
-      } else if (rule.isAttrDefined(attrName, Type.OUTPUT_LIST)) {
-        labels = rule.get(attrName, Type.OUTPUT_LIST);
-      } else if (rule.isAttrDefined(attrName, Type.OUTPUT)
-          && (rule.get(attrName, Type.OUTPUT) != null)) {
-        labels = ImmutableList.of(rule.get(attrName, Type.OUTPUT));
-      } else {
+      AggregatingAttributeMapper attrMap = AggregatingAttributeMapper.of(rule);
+      Type<?> attrType = attrMap.getAttributeType(attrName);
+      if (attrType == null) {
+        // Return an empty list if the attribute isn't defined for this rule.
         return ImmutableList.of();
       }
-
-      List<Target> result = new ArrayList<>();
-      for (Label label : labels) {
-        try {
-          result.add(getTarget(label).getLabel());
-        } catch (TargetNotFoundException e) {
-          reportBuildFileError(caller, errorMsgPrefix + e.getMessage());
+      for (Object value : attrMap.visitAttribute(attrName, attrType)) {
+        // Computed defaults may have null values.
+        if (value != null) {
+          for (Label label : attrType.getLabels(value)) {
+            try {
+              result.add(getTarget(label).getLabel());
+            } catch (TargetNotFoundException e) {
+              reportBuildFileError(caller, errorMsgPrefix + e.getMessage());
+            }
+          }
         }
       }
+
       return result;
     }
 
     @Override
     public List<String> getStringListAttr(Target target, String attrName) {
       Preconditions.checkArgument(target instanceof Rule);
-      return ((Rule) target).get(attrName, Type.STRING_LIST);
+      return NonconfigurableAttributeMapper.of((Rule) target).get(attrName, Type.STRING_LIST);
     }
 
     @Override
     public String getStringAttr(Target target, String attrName) {
       Preconditions.checkArgument(target instanceof Rule);
-      return ((Rule) target).get(attrName, Type.STRING);
+      return NonconfigurableAttributeMapper.of((Rule) target).get(attrName, Type.STRING);
     }
 
     @Override
-    public String getAttrAsString(Target target, String attrName) {
+    public Iterable<String> getAttrAsString(Target target, String attrName) {
       Preconditions.checkArgument(target instanceof Rule);
+      ImmutableList.Builder<String> values = ImmutableList.builder();
       Attribute attribute = ((Rule) target).getAttributeDefinition(attrName);
       if (attribute != null) {
-        Object attrValue = ((Rule) target).getAttr(attribute);
-        if (attrValue == null) {
-          return null;
-        }
-        // Ugly hack to maintain backward 'attr' query compatibility for BOOLEAN and TRISTATE
-        // attributes. These are internally stored as actual Boolean or TriState objects but were
-        // historically queried as integers. To maintain compatibility, we inspect their actual
-        // value and return the integer equivalent represented as a String. This code is the
-        // opposite of the code in BooleanType and TriStateType respectively.
         Type<?> attributeType = attribute.getType();
-        if (attributeType == BOOLEAN) {
-         return (((Rule) target).get(attrName, Type.BOOLEAN)) ? "1" : "0";
-        } else if (attributeType == TRISTATE) {
-            switch (((Rule) target).get(attrName, Type.TRISTATE)) {
-              case AUTO :
-                return "-1";
-              case NO :
-                return "0";
-              case YES :
-                return "1";
-              default :
-                throw new AssertionError("This can't happen!");
-            }
+        for (Object attrValue : AggregatingAttributeMapper.of((Rule) target).visitAttribute(
+            attribute.getName(), attributeType)) {
+
+          // Ugly hack to maintain backward 'attr' query compatibility for BOOLEAN and TRISTATE
+          // attributes. These are internally stored as actual Boolean or TriState objects but were
+          // historically queried as integers. To maintain compatibility, we inspect their actual
+          // value and return the integer equivalent represented as a String. This code is the
+          // opposite of the code in BooleanType and TriStateType respectively.
+          if (attributeType == BOOLEAN) {
+            values.add(Type.BOOLEAN.cast(attrValue) ? "1" : "0");
+          } else if (attributeType == TRISTATE) {
+              switch (Type.TRISTATE.cast(attrValue)) {
+                case AUTO :
+                  values.add("-1");
+                  break;
+                case NO :
+                  values.add("0");
+                  break;
+                case YES :
+                  values.add("1");
+                  break;
+                default :
+                  throw new AssertionError("This can't happen!");
+              }
+          } else {
+            values.add(attrValue.toString());
+          }
         }
-        return attrValue.toString();
       }
-      return null;
+      return values.build();
     }
 
     @Override

@@ -972,7 +972,8 @@ public final class BuildConfiguration {
   /**
    * Returns the bin directory for this build configuration.
    */
-  @SkylarkCallable(doc = "Returns the bin directory for this build configuration")
+  @SkylarkCallable(name = "bin_dir",
+      doc = "Returns the bin directory for this build configuration")
   public Root getBinDirectory() {
     return binDirectory;
   }
@@ -987,7 +988,8 @@ public final class BuildConfiguration {
   /**
    * Returns the genfiles directory for this build configuration.
    */
-  @SkylarkCallable(doc = "Returns the genfiles directory for this build configuration")
+  @SkylarkCallable(name = "genfiles_dir",
+      doc = "Returns the genfiles directory for this build configuration")
   public Root getGenfilesDirectory() {
     return genfilesDirectory;
   }
@@ -1011,7 +1013,8 @@ public final class BuildConfiguration {
   /**
    * Returns a relative path to the genfiles directory at execution time.
    */
-  @SkylarkCallable(doc = "Returns a relative path to the genfiles directory at execution time.")
+  @SkylarkCallable(name = "genfiles_fragment",
+      doc = "Returns a relative path to the genfiles directory at execution time.")
   public PathFragment getGenfilesFragment() {
     return genfilesFragment;
   }
@@ -1022,7 +1025,8 @@ public final class BuildConfiguration {
    * not match the host platform. You should only use this when invoking tools that are known to use
    * the native path separator, i.e., the path separator for the machine that they run on.
    */
-  @SkylarkCallable(doc = "Returns the path separator for the host platform.")
+  @SkylarkCallable(name = "host_path_separator",
+      doc = "Returns the path separator for the host platform.")
   public String getHostPathSeparator() {
     // TODO(bazel-team): This needs to change when we support Windows.
     return ":";
@@ -1107,7 +1111,8 @@ public final class BuildConfiguration {
   /**
    * Returns the default shell environment
    */
-  @SkylarkCallable(doc = "Returns the default shell environment.")
+  @SkylarkCallable(name = "default_shell_env",
+      doc = "Returns the default shell environment.")
   public ImmutableMap<String, String> getDefaultShellEnvironment() {
     return defaultShellEnvironment;
   }
@@ -1202,7 +1207,7 @@ public final class BuildConfiguration {
   /**
    * Returns a configuration fragment instances of the given class.
    */
-  @SkylarkCallable(doc = "Returns a configuration fragment using the key.")
+  @SkylarkCallable(name = "fragment", doc = "Returns a configuration fragment using the key.")
   public <T extends Fragment> T getFragment(Class<T> clazz) {
     return clazz.cast(fragments.get(clazz));
   }

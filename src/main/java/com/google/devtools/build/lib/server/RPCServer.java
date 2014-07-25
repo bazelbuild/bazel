@@ -96,7 +96,7 @@ public final class RPCServer {
    * @param maxIdleMillis      The maximum time the server will wait idly.
    * @param statusCheckPeriodMillis How long to wait between system status checks.
    * @param serverDirectory    Directory to put file socket and pid files, etc.
-   * @param workspaceDir The google3 workspace. Used soley to ensure it persists.
+   * @param workspaceDir The workspace. Used solely to ensure it persists.
    * @throws IOException
    */
   public RPCServer(Clock clock, RPCService rpcService,
@@ -125,7 +125,7 @@ public final class RPCServer {
    *                           instances, as requests arrive.
    * @param maxIdleMillis      The maximum time the server will wait idly.
    * @param serverDirectory    Directory to put file socket and pid files, etc.
-   * @param workspaceDir       The google3 workspace. Used solely to ensure it persists.
+   * @param workspaceDir       The workspace. Used solely to ensure it persists.
    * @throws IOException
    */
   public RPCServer(Clock clock, RPCService rpcService,
@@ -583,7 +583,7 @@ public final class RPCServer {
    * @param appCommand The application's ServerCommand implementation.
    * @param serverDirectory The directory for server-related files. The caller
    * must ensure the directory has been created.
-   * @param workspaceDir The google3 workspace, used solely to ensure it persists.
+   * @param workspaceDir The workspace, used solely to ensure it persists.
    * @param maxIdleSeconds The idle time in seconds after which the rpc
    * server will die unless it receives a request.
    */

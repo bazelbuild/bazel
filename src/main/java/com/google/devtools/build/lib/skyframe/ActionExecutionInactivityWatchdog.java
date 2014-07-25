@@ -143,7 +143,7 @@ public final class ActionExecutionInactivityWatchdog {
   private void enterWatchdogLoop() {
     while (isRunning.get()) {
       try {
-        // Wait a while for any NodeBuilder to finish. The returned number indicates how many
+        // Wait a while for any SkyFunction to finish. The returned number indicates how many
         // actions completed during the wait. It's possible that this is more than 1, since
         // this thread may not immediately regain control.
         int completedActions = monitor.waitForNextCompletion(waitTime.next() * 1000);

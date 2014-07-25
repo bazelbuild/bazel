@@ -372,6 +372,7 @@ public class TestRunnerAction extends ConfigurationAction
     // it's not necessary to delete it explicitly.
     FileSystemUtils.deleteTree(splitLogsDir);
     FileSystemUtils.deleteTree(undeclaredOutputsDir);
+    FileSystemUtils.deleteTree(undeclaredOutputsAnnotationsDir);
     testStderr.delete();
     testExitSafe.delete();
     if (testShard != null) {

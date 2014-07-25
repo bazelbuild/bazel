@@ -628,7 +628,9 @@ public final class Runfiles {
      */
     public Builder addNonDataDeps(RuleContext ruleContext,
         Function<TransitiveInfoCollection, Runfiles> mapping) {
-      addTargets(getNonDataDeps(ruleContext), mapping);
+      for (TransitiveInfoCollection target : getNonDataDeps(ruleContext)) {
+        addTargetExceptFileTargets(target, mapping);
+      }
       return this;
     }
 
@@ -642,6 +644,21 @@ public final class Runfiles {
 
     public Builder addTarget(TransitiveInfoCollection target,
         Function<TransitiveInfoCollection, Runfiles> mapping) {
+      return addTargetIncludingFileTargets(target, mapping);
+    }
+
+    private Builder addTargetExceptFileTargets(TransitiveInfoCollection target,
+        Function<TransitiveInfoCollection, Runfiles> mapping) {
+      Runfiles runfiles = mapping.apply(target);
+      if (runfiles != null) {
+        merge(runfiles);
+      }
+
+      return this;
+    }
+
+    private Builder addTargetIncludingFileTargets(TransitiveInfoCollection target,
+        Function<TransitiveInfoCollection, Runfiles> mapping) {
       if (target.getProvider(RunfilesProvider.class) == null
           && mapping == RunfilesProvider.DATA_RUNFILES) {
         // RuleConfiguredTarget implements RunfilesProvider, so this will only be called on
@@ -653,12 +670,7 @@ public final class Runfiles {
         return this;
       }
 
-      Runfiles runfiles = mapping.apply(target);
-      if (runfiles != null) {
-        merge(runfiles);
-      }
-
-      return this;
+      return addTargetExceptFileTargets(target, mapping);
     }
 
     /**

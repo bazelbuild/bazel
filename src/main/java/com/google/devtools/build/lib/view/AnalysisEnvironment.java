@@ -23,7 +23,7 @@ import com.google.devtools.build.lib.events.ErrorEventListener;
 import com.google.devtools.build.lib.query2.output.OutputFormatter;
 import com.google.devtools.build.lib.vfs.PathFragment;
 import com.google.devtools.build.lib.view.buildinfo.BuildInfoFactory.BuildInfoKey;
-import com.google.devtools.build.skyframe.NodeBuilder;
+import com.google.devtools.build.skyframe.SkyFunction;
 
 import java.util.List;
 
@@ -100,12 +100,12 @@ public interface AnalysisEnvironment extends ActionRegistry {
   Iterable<Action> getRegisteredActions();
 
   /**
-   * Returns the Skyframe NodeBuilder.Environment if available. Otherwise, null.
+   * Returns the Skyframe SkyFunction.Environment if available. Otherwise, null.
    *
    * <p>If you need to use this for something other than genquery, please think long and hard
    * about that.
    */
-  NodeBuilder.Environment getSkyframeEnv();
+  SkyFunction.Environment getSkyframeEnv();
 
   /**
    * Returns the Artifact that is used to hold the non-volatile workspace status for the current

@@ -359,6 +359,40 @@ public class MethodLibrary {
     }
   };
 
+  @SkylarkCallable(doc = "Return the list of values.")
+  private static Function values = new PositionalFunction("values", 1, 1) {
+    @Override
+    public Object call(List<Object> args, FuncallExpression ast) throws EvalException,
+        ConversionException {
+      Map<?, ?> dict = (Map<?, ?>) args.get(0);
+      return ImmutableList.copyOf(dict.values());
+    }
+  };
+
+  @SkylarkCallable(doc = "Return the list of key-value tuples.")
+  private static Function items = new PositionalFunction("items", 1, 1) {
+    @Override
+    public Object call(List<Object> args, FuncallExpression ast) throws EvalException,
+        ConversionException {
+      Map<Object, Object> dict = (Map<Object, Object>) args.get(0);
+      ImmutableList.Builder<List<Object>> builder = ImmutableList.builder();
+      for (Map.Entry<Object, Object> entries : dict.entrySet()) {
+        builder.add(ImmutableList.of(entries.getKey(), entries.getValue()));
+      }
+      return builder.build();
+    }
+  };
+
+  @SkylarkCallable(doc = "Return the list of keys.")
+  private static Function keys = new PositionalFunction("keys", 1, 1) {
+    @Override
+    public Object call(List<Object> args, FuncallExpression ast) throws EvalException,
+        ConversionException {
+      Map<?, ?> dict = (Map<?, ?>) args.get(0);
+      return ImmutableList.copyOf(dict.keySet());
+    }
+  };
+
   // unary minus
   @SkylarkBuiltin(name = "-", hidden = true, doc = "Unary minus operator.")
   private static Function minus = new PositionalFunction("-", 1, 1) {
@@ -468,6 +502,14 @@ public class MethodLibrary {
       .add(extend)
       .build();
 
+  @SkylarkBuiltin(name = "Dict", doc = "")
+  public static final List<Function> dictFunctions = ImmutableList
+      .<Function>builder()
+      .add(items)
+      .add(keys)
+      .add(values)
+      .build();
+
   private static final Map<Function, SkylarkType> pureFunctions = ImmutableMap
       .<Function, SkylarkType>builder()
       // TODO(bazel-team): String methods are added two times, because there are
@@ -495,6 +537,7 @@ public class MethodLibrary {
     env.registerFunction(List.class, index.getName(), index);
     env.registerFunction(ImmutableList.class, index.getName(), index);
     env.registerFunction(Map.class, index.getName(), index);
+    setupMethodEnvironment(env, Map.class, dictFunctions);
     setupMethodEnvironment(env, String.class, stringFunctions.keySet());
     if (env.isSkylarkEnabled()) {
       setupMethodEnvironment(env, skylarkFunctions.keySet());

@@ -33,6 +33,7 @@ import com.google.devtools.build.lib.packages.ImplicitOutputsFunction;
 import com.google.devtools.build.lib.packages.ImplicitOutputsFunction.SkylarkImplicitOutputsFunction;
 import com.google.devtools.build.lib.packages.OutputFile;
 import com.google.devtools.build.lib.packages.RawAttributeMapper;
+import com.google.devtools.build.lib.packages.Type;
 import com.google.devtools.build.lib.shell.ShellUtils;
 import com.google.devtools.build.lib.shell.ShellUtils.TokenizationException;
 import com.google.devtools.build.lib.syntax.ClassObject;
@@ -58,6 +59,7 @@ import com.google.devtools.build.lib.view.TransitiveInfoProvider;
 import com.google.devtools.build.lib.view.config.BuildConfiguration;
 
 import java.util.ArrayList;
+import java.util.Collection;
 import java.util.LinkedList;
 import java.util.List;
 import java.util.Map;
@@ -88,9 +90,12 @@ public final class SkylarkRuleContext {
 
   private final RuleContext ruleContext;
 
+  // TODO(bazel-team): support configurable attributes.
   private final ClassObject attrObject;
 
   private final ImmutableMap<String, Artifact> implicitOutputs;
+
+  private final ImmutableMap<String, ImmutableMap<Label, Artifact>> explicitOutputs;
 
   /**
    * Creates a new SkylarkRuleContext using ruleContext.
@@ -100,7 +105,7 @@ public final class SkylarkRuleContext {
 
     ImmutableMap.Builder<String, Object> builder = new ImmutableMap.Builder<>();
     for (Attribute a : ruleContext.getRule().getAttributes()) {
-      Object val = ruleContext.getRule().getAttr(a);
+      Object val = (Object) ruleContext.attributes().get(a.getName(), a.getType());
       builder.put(a.getName(), val == null ? Environment.NONE : val);
     }
     attrObject = new ClassObject(builder.build());
@@ -118,6 +123,19 @@ public final class SkylarkRuleContext {
       }
     }
     implicitOutputs = implicitOutputsBuilder.build();
+
+    ImmutableMap.Builder<String, ImmutableMap<Label, Artifact>> explicitOutputsBuilder =
+        ImmutableMap.builder();
+    for (Map.Entry<String, Collection<OutputFile>> entry
+        : ruleContext.getRule().getOutputFileMap().asMap().entrySet()) {
+      ImmutableMap.Builder<Label, Artifact> labelArtifactBuilder = ImmutableMap.builder();
+      for (OutputFile outputFile : entry.getValue()) {
+        Artifact artifact = ruleContext.createOutputArtifact(outputFile);
+        labelArtifactBuilder.put(outputFile.getLabel(), artifact);
+      }
+      explicitOutputsBuilder.put(entry.getKey(), labelArtifactBuilder.build());
+    }
+    explicitOutputs = explicitOutputsBuilder.build();
   }
 
   /**
@@ -263,41 +281,33 @@ public final class SkylarkRuleContext {
     ruleContext.attributeWarning(attrName, message);
   }
 
-  // TODO(bazel-team): Don't expose OutputFile-s.
-  /**
-   * See {@link RuleContext#createOutputArtifact(OutputFile)}.
-   */
-  @SkylarkCallable(doc =
-      "Returns an artifact beneath the root of either the \"bin\" or \"genfiles\" "
-    + "tree, whose path is based on the name of this target and the current "
-    + "configuration.  The choice of which tree to use is based on the rule with "
-    + "which this target (which must be an OutputFile or a Rule) is associated.")
-  @Deprecated
-  public Artifact createOutputFile(OutputFile out) {
-    return ruleContext.createOutputArtifact(out);
-  }
-
-  /**
-   * See {@link RuleContext#getOutputArtifacts()}.
-   */
-  @SkylarkCallable(doc =
-      "Returns the (unmodifiable, ordered) list of artifacts which are the outputs "
-    + "of this target. "
-    + "Each element in this list is associated with a single output, either "
-    + "declared implicitly (via implicitOutputsFunction) or explicitly.")
-  public ImmutableList<Artifact> outputArtifacts() {
-    return ruleContext.getOutputArtifacts();
-  }
-
   @SkylarkCallable(doc = "Returns the implicit output map.")
-  public ImmutableMap<String, Artifact> outputs() throws EvalException {
+  public ImmutableMap<String, Artifact> outputs() {
     return implicitOutputs;
   }
 
-  @SkylarkCallable(doc =
-      "Returns an ordered collection containing all the declared output files of this rule.")
-  public ImmutableList<OutputFile> outputFiles() {
-    return ImmutableList.copyOf(ruleContext.getRule().getOutputFiles());
+  @SkylarkCallable(
+      doc = "Returns the dict of labels and the corresponding output files of "
+          + "the output type attribute \"attr\".")
+  public ImmutableMap<Label, Artifact> outputsWithLabel(String attr) throws FuncallException {
+    if  (ruleContext.attributes().getAttributeType(attr) != Type.OUTPUT
+        && ruleContext.attributes().getAttributeType(attr) != Type.OUTPUT_LIST) {
+      throw new FuncallException("Attribute " + attr + " is not of output type");
+    }
+    ImmutableMap<Label, Artifact> map = explicitOutputs.get(attr);
+    if (map == null) {
+      // The attribute is output type but it\'s not in the map which means it's empty,
+      // i.e. not defined or defined with an empty list.
+      return ImmutableMap.<Label, Artifact>of();
+    }
+    return map;
+  }
+
+  @SkylarkCallable(doc = "Returns the list of output files of the output type attribute \"attr\".")
+  public ImmutableList<Artifact> outputs(String attr) throws FuncallException {
+    // We need to convert to ImmutableList from ImmutableCollection because Skylark doesn't
+    // handle collections well.
+    return ImmutableList.copyOf(outputsWithLabel(attr).values());
   }
 
   @Override
@@ -318,7 +328,7 @@ public final class SkylarkRuleContext {
 
   @SkylarkCallable(doc =
       "Expands all references to labels embedded within a string using the "
-    + "provided expansion mapping from labels to artifacts.")
+    + "provided expansion mapping from labels to files.")
   public <T extends Iterable<Artifact>> String expand(@Nullable String expression,
       Map<Label, T> labelMap, Label labelResolver) throws FuncallException {
     try {

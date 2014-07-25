@@ -94,7 +94,7 @@ public interface TransitiveInfoCollection {
   /**
    * Returns the label associated with this prerequisite.
    */
-  @SkylarkCallable(doc = "")
+  @SkylarkCallable(name = "label", doc = "")
   Label getLabel();
 
   /**

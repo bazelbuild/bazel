@@ -184,7 +184,7 @@ public final class TestActionBuilder {
    * Creates a test action and artifacts for the given rule. The test action will
    * use the specified executable and runfiles.
    *
-   * @param targetName the google3 relative path of the target to run
+   * @param targetName the relative path of the target to run
    * @return ordered list of test artifacts, one per action. These are used to drive
    *    execution in Skyframe, and by AggregatingTestListener and
    *    TestResultAnalyzer to keep track of completed and pending test runs.

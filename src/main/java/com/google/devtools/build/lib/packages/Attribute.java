@@ -838,9 +838,12 @@ public final class Attribute implements Comparable<Attribute> {
     @Override
     public Object getDefault(Rule rule, Object o) throws EvalException {
       Map<String, Object> attrValues = new HashMap<>();
+      // TODO(bazel-team): support configurable attributes here. RawAttributeMapper will throw
+      // an exception on any instance of configurable attributes.
+      AttributeMap attributes = RawAttributeMapper.of(rule);
       for (Attribute attr : rule.getAttributes()) {
         if (!attr.isLateBound()) {
-          Object value = rule.getAttr(attr.getName());
+          Object value = attributes.get(attr.getName(), attr.getType());
           if (value != null) {
             attrValues.put(attr.getName(), value);
           }

@@ -32,6 +32,7 @@ import com.google.devtools.build.lib.vfs.FileStatusWithDigestAdapter;
 import com.google.devtools.build.lib.vfs.Path;
 import com.google.devtools.build.lib.vfs.RootedPath;
 import com.google.devtools.build.lib.vfs.Symlinks;
+import com.google.devtools.build.skyframe.SkyFunction;
 import com.google.protobuf.ByteString;
 
 import java.io.File;
@@ -48,7 +49,7 @@ import java.util.concurrent.ConcurrentMap;
 import javax.annotation.Nullable;
 
 /**
- * Cache provided by an {@link ActionExecutionNodeBuilder}, allowing Blaze to obtain data from the
+ * Cache provided by an {@link ActionExecutionFunction}, allowing Blaze to obtain data from the
  * graph and to inject data (e.g. file digests) back into the graph.
  *
  * <p>Data for the action's inputs is injected into this cache on construction, using the graph as
@@ -58,30 +59,35 @@ import javax.annotation.Nullable;
  * ways. First, it is served as requested during action execution, primarily by the {@code
  * ActionCacheChecker} when determining if the action must be rerun, and then after the action is
  * run, to gather information about the outputs. Second, it is accessed by {@link
- * ArtifactNodeBuilder}s in order to construct {@link ArtifactNode}s. Third, the {@link
- * FilesystemNodeChecker} uses it to determine the set of output files to check for inter-build
+ * ArtifactFunction}s in order to construct {@link ArtifactValue}s. Third, the {@link
+ * FilesystemValueChecker} uses it to determine the set of output files to check for inter-build
  * modifications. Because all these use cases are slightly different, we must occasionally store two
- * versions of the data for a node (see {@link #getAdditionalOutputData} for more.
+ * versions of the data for a value (see {@link #getAdditionalOutputData} for more.
  */
 class FileAndMetadataCache implements ActionInputFileCache, MetadataHandler {
-  private final Map<Artifact, FileArtifactNode> inputArtifactData;
+  private final Map<Artifact, FileArtifactValue> inputArtifactData;
   private final Map<Artifact, Collection<Artifact>> expandedInputMiddlemen;
   private final File execRoot;
   private final Map<ByteString, Artifact> reverseMap = new ConcurrentHashMap<>();
-  private final ConcurrentMap<Artifact, FileNode> outputArtifactData =
+  private final ConcurrentMap<Artifact, FileValue> outputArtifactData =
       new ConcurrentHashMap<>();
   // See #getAdditionalOutputData for documentation of this field.
-  private final ConcurrentMap<Artifact, FileArtifactNode> additionalOutputData =
+  private final ConcurrentMap<Artifact, FileArtifactValue> additionalOutputData =
       new ConcurrentHashMap<>();
   private final Set<Artifact> injectedArtifacts = Sets.newConcurrentHashSet();
+  private final ImmutableSet<Artifact> outputs;
+  @Nullable private final SkyFunction.Environment env;
   private final TimestampGranularityMonitor tsgm;
 
-  FileAndMetadataCache(Map<Artifact, FileArtifactNode> inputArtifactData,
+  FileAndMetadataCache(Map<Artifact, FileArtifactValue> inputArtifactData,
       Map<Artifact, Collection<Artifact>> expandedInputMiddlemen, File execRoot,
+      Iterable<Artifact> outputs, @Nullable SkyFunction.Environment env,
       TimestampGranularityMonitor tsgm) {
     this.inputArtifactData = Preconditions.checkNotNull(inputArtifactData);
     this.expandedInputMiddlemen = Preconditions.checkNotNull(expandedInputMiddlemen);
     this.execRoot = Preconditions.checkNotNull(execRoot);
+    this.outputs = ImmutableSet.copyOf(outputs);
+    this.env = env;
     this.tsgm = tsgm;
   }
 
@@ -94,15 +100,18 @@ class FileAndMetadataCache implements ActionInputFileCache, MetadataHandler {
     }
   }
 
-  private static Metadata metadataFromNode(FileArtifactNode node) {
+  private static Metadata metadataFromValue(FileArtifactValue value) throws FileNotFoundException {
+    if (value == FileArtifactValue.MISSING_FILE_MARKER) {
+      throw new FileNotFoundException();
+    }
     // If the file is empty or a directory, we need to return the mtime because the action cache
     // uses mtime to determine if this artifact has changed.  We do not optimize for this code
     // path (by storing the mtime somewhere) because we eventually may be switching to use digests
     // for empty files. We want this code path to go away somehow too for directories (maybe by
     // implementing FileSet in Skyframe).
-    return node.getSize() > 0
-        ? new Metadata(0L, node.getDigest())
-        : new Metadata(node.getModifiedTime(), null);
+    return value.getSize() > 0
+        ? new Metadata(0L, value.getDigest())
+        : new Metadata(value.getModifiedTime(), null);
   }
 
   @Override
@@ -114,50 +123,70 @@ class FileAndMetadataCache implements ActionInputFileCache, MetadataHandler {
   /**
    * We cache data for constant-metadata artifacts, even though it is technically unnecessary,
    * because the data stored in this cache is consumed by various parts of Blaze via the {@link
-   * ActionExecutionNode} (for now, {@link FilesystemNodeChecker} and {@link ArtifactNodeBuilder}).
+   * ActionExecutionValue} (for now, {@link FilesystemValueChecker} and {@link ArtifactFunction}).
    * It is simpler for those parts if every output of the action is present in the cache. However,
    * we must not return the actual metadata for a constant-metadata artifact.
    */
   private Metadata getRealMetadata(Artifact artifact) throws IOException {
-    FileArtifactNode node = inputArtifactData.get(artifact);
-    if (node != null) {
-      return metadataFromNode(node);
+    FileArtifactValue value = inputArtifactData.get(artifact);
+    if (value != null) {
+      return metadataFromValue(value);
     }
-    if (artifact.isSourceArtifact()) {
-      // We might have no artifact data for discovered headers, and it's not worth storing it in
-      // this cache, because it won't be reused across actions.
-      return null;
+    if (!outputs.contains(artifact)) {
+      // TODO(bazel-team): Remove this codepath once Skyframe has native input discovery, so all
+      // inputs will already have metadata known.
+      // ActionExecutionFunction may have passed in null environment if this action does not
+      // discover inputs. In which case we should not have gotten here.
+      Preconditions.checkNotNull(env, artifact);
+      if (artifact.isSourceArtifact()) {
+        // We might have no artifact data for discovered source inputs, and it's not worth storing
+        // it in this cache, because it won't be reused across actions. Instead, we let the
+        // undeclared inputs handler stat it, so it can be reused.
+        return null;
+      } else {
+        // This getValue call is theoretically less efficient for a subsequent incremental build
+        // than it would be to do a bulk getValues call after action execution, as is done for
+        // source inputs. However, since almost all nodes requested here are transitive deps of an
+        // already-declared dependency, change pruning will request these values serially, but they
+        // will already have been built. So the only penalty is restarting ParallelEvaluator#run, as
+        // opposed to traversing the entire downward transitive closure on a single thread.
+        value = (FileArtifactValue) env.getValue(
+            FileArtifactValue.key(artifact, /*isMandatory=*/false));
+        if (value != null) {
+          return metadataFromValue(value);
+        }
+      }
     }
     if (artifact.isMiddlemanArtifact()) {
       // A middleman artifact's data was either already injected from the action cache checker using
       // #setDigestForVirtualArtifact, or it has the default middleman value.
-      node = additionalOutputData.get(artifact);
-      if (node != null) {
-        return metadataFromNode(node);
+      value = additionalOutputData.get(artifact);
+      if (value != null) {
+        return metadataFromValue(value);
       }
-      node = FileArtifactNode.DEFAULT_MIDDLEMAN;
-      FileArtifactNode oldNode = additionalOutputData.putIfAbsent(artifact, node);
-      checkInconsistentData(artifact, oldNode, node);
-      return metadataFromNode(node);
+      value = FileArtifactValue.DEFAULT_MIDDLEMAN;
+      FileArtifactValue oldValue = additionalOutputData.putIfAbsent(artifact, value);
+      checkInconsistentData(artifact, oldValue, value);
+      return metadataFromValue(value);
     }
-    FileNode fileNode = outputArtifactData.get(artifact);
-    if (fileNode != null) {
+    FileValue fileValue = outputArtifactData.get(artifact);
+    if (fileValue != null) {
       // Non-middleman artifacts should only have additionalOutputData if they have
       // outputArtifactData. We don't assert this because of concurrency possibilities, but at least
       // we don't check additionalOutputData unless we expect that we might see the artifact there.
-      node = additionalOutputData.get(artifact);
+      value = additionalOutputData.get(artifact);
       // If additional output data is present for this artifact, we use it in preference to the
       // usual calculation.
-      return node != null
-          ? metadataFromNode(node)
-          : new Metadata(0L, Preconditions.checkNotNull(fileNode.getDigest(), artifact));
+      return value != null
+          ? metadataFromValue(value)
+          : new Metadata(0L, Preconditions.checkNotNull(fileValue.getDigest(), artifact));
     }
     // We do not cache exceptions besides nonexistence here, because it is unlikely that the file
     // will be requested from this cache too many times.
-    fileNode = fileNodeFromArtifact(artifact, null, tsgm);
-    FileNode oldFileNode = outputArtifactData.putIfAbsent(artifact, fileNode);
-    checkInconsistentData(artifact, oldFileNode, node);
-    return maybeStoreAdditionalData(artifact, fileNode, null);
+    fileValue = fileValueFromArtifact(artifact, null, tsgm);
+    FileValue oldFileValue = outputArtifactData.putIfAbsent(artifact, fileValue);
+    checkInconsistentData(artifact, oldFileValue, value);
+    return maybeStoreAdditionalData(artifact, fileValue, null);
   }
 
   /** Expands one of the input middlemen artifacts of the corresponding action. */
@@ -188,7 +217,7 @@ class FileAndMetadataCache implements ActionInputFileCache, MetadataHandler {
    * for normal (non-middleman) artifacts.
    */
   @Nullable
-  private Metadata maybeStoreAdditionalData(Artifact artifact, FileNode data,
+  private Metadata maybeStoreAdditionalData(Artifact artifact, FileValue data,
       @Nullable byte[] injectedDigest) throws IOException {
     if (!data.exists()) {
       // Nonexistent files should only occur before executing an action.
@@ -197,21 +226,21 @@ class FileAndMetadataCache implements ActionInputFileCache, MetadataHandler {
     boolean isFile = data.isFile();
     boolean useDigest = DigestUtils.useFileDigest(artifact, isFile, isFile ? data.getSize() : 0);
     if (useDigest && data.getDigest() != null) {
-      // We do not need to store the FileArtifactNode separately -- the digest is in the file node
+      // We do not need to store the FileArtifactValue separately -- the digest is in the file value
       // and that is all that is needed for this file's metadata.
       return new Metadata(0L, data.getDigest());
     }
-    // Unfortunately, the FileNode does not contain enough information for us to calculate the
-    // corresponding FileArtifactNode -- either the metadata must use the modified time, which we do
-    // not expose in the FileNode, or the FileNode didn't store the digest So we store the metadata
-    // separately.
-    // Use the FileNode's digest if no digest was injected, or if the file can't be digested.
+    // Unfortunately, the FileValue does not contain enough information for us to calculate the
+    // corresponding FileArtifactValue -- either the metadata must use the modified time, which we
+    // do not expose in the FileValue, or the FileValue didn't store the digest So we store the
+    // metadata separately.
+    // Use the FileValue's digest if no digest was injected, or if the file can't be digested.
     injectedDigest = injectedDigest != null || !isFile ? injectedDigest : data.getDigest();
-    FileArtifactNode node =
-        FileArtifactNode.create(artifact, isFile, isFile ? data.getSize() : 0, injectedDigest);
-    FileArtifactNode oldNode = additionalOutputData.putIfAbsent(artifact, node);
-    checkInconsistentData(artifact, oldNode, node);
-    return metadataFromNode(node);
+    FileArtifactValue value =
+        FileArtifactValue.create(artifact, isFile, isFile ? data.getSize() : 0, injectedDigest);
+    FileArtifactValue oldValue = additionalOutputData.putIfAbsent(artifact, value);
+    checkInconsistentData(artifact, oldValue, value);
+    return metadataFromValue(value);
   }
 
   @Override
@@ -219,7 +248,7 @@ class FileAndMetadataCache implements ActionInputFileCache, MetadataHandler {
     Preconditions.checkState(artifact.isMiddlemanArtifact(), artifact);
     Preconditions.checkNotNull(digest, artifact);
     additionalOutputData.put(artifact,
-        FileArtifactNode.createMiddleman(digest.asMetadata().digest));
+        FileArtifactValue.createMiddleman(digest.asMetadata().digest));
   }
 
   @Override
@@ -227,18 +256,18 @@ class FileAndMetadataCache implements ActionInputFileCache, MetadataHandler {
     if (output instanceof Artifact) {
       Artifact artifact = (Artifact) output;
       Preconditions.checkState(injectedArtifacts.add(artifact), artifact);
-      FileNode fileNode;
+      FileValue fileValue;
       try {
         // This call may do an unnecessary call to Path#getFastDigest to see if the digest is
         // readily available. We cannot pass the digest in, though, because if it is not available
-        // from the filesystem, this FileNode will not compare equal to another one created for the
+        // from the filesystem, this FileValue will not compare equal to another one created for the
         // same file, because the other one will be missing its digest.
-        fileNode = fileNodeFromArtifact(artifact, FileStatusWithDigestAdapter.adapt(statNoFollow),
+        fileValue = fileValueFromArtifact(artifact, FileStatusWithDigestAdapter.adapt(statNoFollow),
             tsgm);
-        byte[] fileDigest = fileNode.getDigest();
+        byte[] fileDigest = fileValue.getDigest();
         Preconditions.checkState(fileDigest == null || Arrays.equals(digest, fileDigest),
             "%s %s %s", artifact, digest, fileDigest);
-        outputArtifactData.put(artifact, fileNode);
+        outputArtifactData.put(artifact, fileValue);
       } catch (IOException e) {
         // Do nothing - we just failed to inject metadata. Real error handling will be done later,
         // when somebody will try to access that file.
@@ -248,9 +277,9 @@ class FileAndMetadataCache implements ActionInputFileCache, MetadataHandler {
       // the filesystem does not support fast digests. Since we usually only inject digests when
       // running with a filesystem that supports fast digests, this is fairly unlikely.
       try {
-        maybeStoreAdditionalData(artifact, fileNode, digest);
+        maybeStoreAdditionalData(artifact, fileValue, digest);
       } catch (IOException e) {
-        if (fileNode.getSize() != 0) {
+        if (fileValue.getSize() != 0) {
           // Empty files currently have their mtimes examined, and so could throw. No other files
           // should throw, since all filesystem access has already been done.
           throw new IllegalStateException(
@@ -284,7 +313,7 @@ class FileAndMetadataCache implements ActionInputFileCache, MetadataHandler {
    * @return data for output files that was computed during execution. Should include data for all
    * non-middleman artifacts.
    */
-  Map<Artifact, FileNode> getOutputData() {
+  Map<Artifact, FileValue> getOutputData() {
     return outputArtifactData;
   }
 
@@ -293,23 +322,23 @@ class FileAndMetadataCache implements ActionInputFileCache, MetadataHandler {
    * entry in {@link #getOutputData}.
    *
    * <p>There are three reasons why we might not be able to compute metadata for an artifact from
-   * the FileNode. First, middleman artifacts have no corresponding FileNodes. Second, if computing
-   * a file's digest is not fast, the FileNode does not do so, so a file on a filesystem without
-   * fast digests has to have its metadata stored separately. Third, some files' metadata
-   * (directories, empty files) contain their mtimes, which the FileNode does not expose, so that
+   * the FileValue. First, middleman artifacts have no corresponding FileValues. Second, if
+   * computing a file's digest is not fast, the FileValue does not do so, so a file on a filesystem
+   * without fast digests has to have its metadata stored separately. Third, some files' metadata
+   * (directories, empty files) contain their mtimes, which the FileValue does not expose, so that
    * has to be stored separately.
    *
-   * <p>Note that for files that need digests, we can't easily inject the digest in the FileNode
+   * <p>Note that for files that need digests, we can't easily inject the digest in the FileValue
    * because it would complicate equality-checking on subsequent builds -- if our filesystem doesn't
-   * do fast digests, the comparison node would not have a digest.
+   * do fast digests, the comparison value would not have a digest.
    */
-  Map<Artifact, FileArtifactNode> getAdditionalOutputData() {
+  Map<Artifact, FileArtifactValue> getAdditionalOutputData() {
     return additionalOutputData;
   }
 
   @Override
   public long getSizeInBytes(ActionInput input) throws IOException {
-    FileArtifactNode metadata = inputArtifactData.get(input);
+    FileArtifactValue metadata = inputArtifactData.get(input);
     if (metadata != null) {
       return metadata.getSize();
     }
@@ -330,7 +359,7 @@ class FileAndMetadataCache implements ActionInputFileCache, MetadataHandler {
   @Nullable
   @Override
   public ByteString getDigest(ActionInput input) throws IOException {
-    FileArtifactNode metadata = inputArtifactData.get(input);
+    FileArtifactValue metadata = inputArtifactData.get(input);
     if (metadata != null) {
       byte[] bytes = metadata.getDigest();
       if (bytes != null) {
@@ -348,7 +377,7 @@ class FileAndMetadataCache implements ActionInputFileCache, MetadataHandler {
     return reverseMap.containsKey(digest);
   }
 
-  static FileNode fileNodeFromArtifact(Artifact artifact,
+  static FileValue fileValueFromArtifact(Artifact artifact,
       @Nullable FileStatusWithDigest statNoFollow, TimestampGranularityMonitor tsgm)
           throws IOException {
     Path path = artifact.getPath();
@@ -357,8 +386,8 @@ class FileAndMetadataCache implements ActionInputFileCache, MetadataHandler {
     if (statNoFollow == null) {
       statNoFollow = FileStatusWithDigestAdapter.adapt(path.statIfFound(Symlinks.NOFOLLOW));
       if (statNoFollow == null) {
-        return FileNode.node(rootedPath, FileStateNode.NONEXISTENT_FILE_STATE_NODE,
-            rootedPath, FileStateNode.NONEXISTENT_FILE_STATE_NODE);
+        return FileValue.value(rootedPath, FileStateValue.NONEXISTENT_FILE_STATE_NODE,
+            rootedPath, FileStateValue.NONEXISTENT_FILE_STATE_NODE);
       }
     }
     Path realPath = path;
@@ -366,7 +395,7 @@ class FileAndMetadataCache implements ActionInputFileCache, MetadataHandler {
     // done by the latter.
     if (statNoFollow.isSymbolicLink()) {
       realPath = path.resolveSymbolicLinks();
-      // We need to protect against symlink cycles since FileNode#node assumes it's dealing with a
+      // We need to protect against symlink cycles since FileValue#value assumes it's dealing with a
       // file that's not in a symlink cycle.
       if (realPath.equals(path)) {
         throw new IOException("symlink cycle");
@@ -374,17 +403,17 @@ class FileAndMetadataCache implements ActionInputFileCache, MetadataHandler {
     }
     RootedPath realRootedPath = RootedPath.toRootedPathMaybeUnderRoot(realPath,
         ImmutableList.of(artifact.getRoot().getPath()));
-    FileStateNode fileStateNode;
-    FileStateNode realFileStateNode;
+    FileStateValue fileStateValue;
+    FileStateValue realFileStateValue;
     try {
-      fileStateNode = FileStateNode.createWithStatNoFollow(rootedPath, statNoFollow, tsgm);
+      fileStateValue = FileStateValue.createWithStatNoFollow(rootedPath, statNoFollow, tsgm);
       // TODO(bazel-devel): consider avoiding a 'stat' here when the symlink target hasn't changed
       // and is a source file (since changes to those are checked separately).
-      realFileStateNode = realPath.equals(path) ? fileStateNode
-          : FileStateNode.create(realRootedPath, tsgm);
+      realFileStateValue = realPath.equals(path) ? fileStateValue
+          : FileStateValue.create(realRootedPath, tsgm);
     } catch (InconsistentFilesystemException e) {
       throw new IOException(e);
     }
-    return FileNode.node(rootedPath, fileStateNode, realRootedPath, realFileStateNode);
+    return FileValue.value(rootedPath, fileStateValue, realRootedPath, realFileStateValue);
   }
 }

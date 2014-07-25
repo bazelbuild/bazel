@@ -19,8 +19,8 @@ package com.google.devtools.build.skyframe;
  */
 interface EvaluableGraph extends QueryableGraph {
   /**
-   * Creates a new node with the specified key if it does not exist yet. Returns the node entry
+   * Creates a new value with the specified key if it does not exist yet. Returns the value entry
    * (either the existing one or the one just created), never {@code null}.
    */
-  NodeEntry createIfAbsent(NodeKey key);
+  ValueEntry createIfAbsent(SkyKey key);
 }

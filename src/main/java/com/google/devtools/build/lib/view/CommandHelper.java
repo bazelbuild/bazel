@@ -127,7 +127,7 @@ public final class CommandHelper {
     this.labelMap = labelMapBuilder.build();
   }
 
-  @SkylarkCallable(doc = "")
+  @SkylarkCallable(name = "resolved_tools", doc = "")
   public List<Artifact> getResolvedTools() {
     return resolvedTools;
   }

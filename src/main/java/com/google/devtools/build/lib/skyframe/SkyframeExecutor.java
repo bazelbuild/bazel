@@ -83,6 +83,7 @@ import com.google.devtools.build.lib.view.config.BuildConfigurationCollection;
 import com.google.devtools.build.lib.view.config.BuildConfigurationKey;
 import com.google.devtools.build.lib.view.config.BuildOptions;
 import com.google.devtools.build.lib.view.config.ConfigurationFactory;
+import com.google.devtools.build.lib.view.config.ConfigurationFragmentFactory;
 import com.google.devtools.build.lib.view.config.InvalidConfigurationException;
 import com.google.devtools.build.skyframe.AutoUpdatingGraph;
 import com.google.devtools.build.skyframe.AutoUpdatingGraph.GraphSupplier;
@@ -91,14 +92,14 @@ import com.google.devtools.build.skyframe.CyclesReporter;
 import com.google.devtools.build.skyframe.Differencer.Diff;
 import com.google.devtools.build.skyframe.ImmutableDiff;
 import com.google.devtools.build.skyframe.InMemoryAutoUpdatingGraph;
-import com.google.devtools.build.skyframe.Node;
-import com.google.devtools.build.skyframe.NodeBuilder;
-import com.google.devtools.build.skyframe.NodeKey;
-import com.google.devtools.build.skyframe.NodeProgressReceiver;
-import com.google.devtools.build.skyframe.NodeType;
 import com.google.devtools.build.skyframe.RecordingDifferencer;
 import com.google.devtools.build.skyframe.SequentialBuildDriver;
+import com.google.devtools.build.skyframe.SkyFunction;
+import com.google.devtools.build.skyframe.SkyFunctionName;
+import com.google.devtools.build.skyframe.SkyKey;
+import com.google.devtools.build.skyframe.SkyValue;
 import com.google.devtools.build.skyframe.UpdateResult;
+import com.google.devtools.build.skyframe.ValueProgressReceiver;
 
 import java.io.IOException;
 import java.io.PrintStream;
@@ -123,7 +124,7 @@ import javax.annotation.Nullable;
  * A helper object to support Skyframe-driven execution.
  *
  * <p>This object is mostly used to inject external state, such as the executor engine or
- * some additional artifacts (workspace status and build info artifacts) into NodeBuilders
+ * some additional artifacts (workspace status and build info artifacts) into SkyFunctions
  * for use during the build.
  */
 public final class SkyframeExecutor {
@@ -138,7 +139,7 @@ public final class SkyframeExecutor {
   @Nullable
   private BatchStat batchStatter;
 
-  // TODO(bazel-team): Figure out how to handle node builders that block internally. Blocking
+  // TODO(bazel-team): Figure out how to handle value builders that block internally. Blocking
   // operations may need to be handled in another (bigger?) thread pool. Also, we should detect
   // the number of cores and use that as the thread-pool size for CPU-bound operations.
   // I just bumped this to 200 to get reasonable execution phase performance; that may cause
@@ -148,12 +149,12 @@ public final class SkyframeExecutor {
 
   private static final Logger LOG = Logger.getLogger(SkyframeExecutor.class.getName());
 
-  // Stores Packages between reruns of the PackageNodeBuilder (because of missing dependencies,
+  // Stores Packages between reruns of the PackageFunction (because of missing dependencies,
   // within the same update() run) to avoid loading the same package twice (first time loading
-  // to find subincludes and declare node dependencies).
+  // to find subincludes and declare value dependencies).
   // TODO(bazel-team): remove this cache once we have skyframe-native package loading
   // [skyframe-loading]
-  private final ConcurrentMap<String, LegacyPackage> packageNodeBuilderCache =
+  private final ConcurrentMap<String, LegacyPackage> packageFunctionCache =
       Maps.newConcurrentMap();
   private final AtomicInteger numPackagesLoaded = new AtomicInteger(0);
 
@@ -166,7 +167,7 @@ public final class SkyframeExecutor {
   private final ImmutableSet<? extends DiffAwareness.Factory> diffAwarenessFactories;
   private Map<Path, DiffAwareness> currentDiffAwarenesses = Maps.newHashMap();
 
-  // AtomicReferences are used here as mutable boxes shared with node builders.
+  // AtomicReferences are used here as mutable boxes shared with value builders.
   private final AtomicBoolean showLoadingProgress = new AtomicBoolean();
   private final AtomicReference<UnixGlob.FilesystemCalls> syscalls =
       new AtomicReference<>(UnixGlob.DEFAULT_SYSCALLS);
@@ -178,33 +179,33 @@ public final class SkyframeExecutor {
 
   private final ImmutableList<BuildInfoFactory> buildInfoFactories;
   // Under normal circumstances, the artifact factory persists for the life of a Blaze server, but
-  // since it is not yet created when we create the node builders, we have to use a supplier,
+  // since it is not yet created when we create the value builders, we have to use a supplier,
   // initialized when the build view is created.
   private final MutableSupplier<ArtifactFactory> artifactFactory = new MutableSupplier<>();
-  // Used to give to WriteBuildInfoAction via a supplier. Relying on BuildVariableNode.BUILD_ID
-  // would be preferable, but we have no way to have the Action depend on that node directly.
-  // Having the BuildInfoNodeBuilder own the supplier is currently not possible either, because then
-  // it would be invalidated on every build, since it would depend on the build id node.
+  // Used to give to WriteBuildInfoAction via a supplier. Relying on BuildVariableValue.BUILD_ID
+  // would be preferable, but we have no way to have the Action depend on that value directly.
+  // Having the BuildInfoFunction own the supplier is currently not possible either, because then
+  // it would be invalidated on every build, since it would depend on the build id value.
   private MutableSupplier<UUID> buildId = new MutableSupplier<>();
 
   private boolean active = true;
   private boolean lastAnalysisDiscarded = false;
   private final PackageManager packageManager;
 
-  /** Lower limit for size of {@link #allLoadedPackages} to consider clearing CT nodes. */
-  private int nodeCacheEvictionLimit = -1;
+  /** Lower limit for size of {@link #allLoadedPackages} to consider clearing CT values. */
+  private int valueCacheEvictionLimit = -1;
 
-  /** Union of labels of loaded packages since the last eviction of CT nodes. */
+  /** Union of labels of loaded packages since the last eviction of CT values. */
   private Set<PathFragment> allLoadedPackages = ImmutableSet.of();
 
   /**
-   * Upper limit for how many graph versions should dirty nodes be retained for.
+   * Upper limit for how many graph versions should dirty values be retained for.
    *
-   * <p>Specifying a value N means, if the current graph version is V and a node was dirtied (and
-   * has remained so) in version U, and U + N &lt;= V, then the node will be marked for deletion
+   * <p>Specifying a value N means, if the current graph version is V and a value was dirtied (and
+   * has remained so) in version U, and U + N &lt;= V, then the value will be marked for deletion
    * and purged in version V+1.
    */
-  private long versionWindowForDirtyNodeGc = Long.MAX_VALUE;
+  private long versionWindowForDirtyGc = Long.MAX_VALUE;
 
   // Use skyframe for execution? Alternative is to use legacy execution codepath.
   // TODO(bazel-team): Remove when legacy codepath is no longer used. [skyframe-execution]
@@ -214,8 +215,8 @@ public final class SkyframeExecutor {
 
   private final ResourceManager resourceManager;
 
-  /** Used to lock auto-updating graph on legacy calls to get existing nodes. */
-  private final Object graphNodeLookupLock = new Object();
+  /** Used to lock auto-updating graph on legacy calls to get existing values. */
+  private final Object graphValueLookupLock = new Object();
   private final AtomicReference<ActionExecutionStatusReporter> statusReporterRef =
       new AtomicReference<>();
   private SkyframeActionExecutor skyframeActionExecutor;
@@ -232,6 +233,8 @@ public final class SkyframeExecutor {
 
   private MutableSupplier<ConfigurationFactory> configurationFactory = new MutableSupplier<>();
   private MutableSupplier<BuildConfigurationKey> buildConfigurationKey = new MutableSupplier<>();
+  private MutableSupplier<ImmutableList<ConfigurationFragmentFactory>> configurationFragments =
+      new MutableSupplier<>();      
 
   @VisibleForTesting
   public SkyframeExecutor(Reporter reporter, PackageFactory pkgFactory,
@@ -294,43 +297,45 @@ public final class SkyframeExecutor {
     resetGraph();
   }
 
-  private ImmutableMap<NodeType, NodeBuilder> nodeBuilders(
+  private ImmutableMap<SkyFunctionName, SkyFunction> skyFunctions(
       Root buildDataDirectory,
       PackageFactory pkgFactory,
       Predicate<PathFragment> allowedMissingInputs) {
-    Map<NodeType, NodeBuilder> map = new HashMap<>();
-    map.put(NodeTypes.BUILD_VARIABLE, new BuildVariableNodeBuilder());
-    map.put(NodeTypes.FILE_STATE, new FileStateNodeBuilder(tsgm, pkgLocator));
-    map.put(NodeTypes.DIRECTORY_LISTING_STATE, new DirectoryListingStateNodeBuilder(pkgLocator));
-    map.put(NodeTypes.FILE_SYMLINK_CYCLE_UNIQUENESS_NODE,
-        new FileSymlinkCycleUniquenessNodeBuilder());
-    map.put(NodeTypes.FILE, new FileNodeBuilder(pkgLocator));
-    map.put(NodeTypes.DIRECTORY_LISTING, new DirectoryListingNodeBuilder());
-    map.put(NodeTypes.PACKAGE_LOOKUP, new PackageLookupNodeBuilder(pkgLocator, deletedPackages));
-    map.put(NodeTypes.CONTAINING_PACKAGE_LOOKUP, new ContainingPackageLookupNodeBuilder());
-    map.put(NodeTypes.GLOB, new GlobNodeBuilder());
-    map.put(NodeTypes.TARGET_PATTERN, new TargetPatternNodeBuilder(pkgLocator));
-    map.put(NodeTypes.RECURSIVE_PKG, new RecursivePkgNodeBuilder());
-    map.put(NodeTypes.PACKAGE, new PackageNodeBuilder(
-        reporter, pkgFactory, packageManager, showLoadingProgress, packageNodeBuilderCache,
+    Map<SkyFunctionName, SkyFunction> map = new HashMap<>();
+    map.put(SkyFunctions.BUILD_VARIABLE, new BuildVariableFunction());
+    map.put(SkyFunctions.FILE_STATE, new FileStateFunction(tsgm, pkgLocator));
+    map.put(SkyFunctions.DIRECTORY_LISTING_STATE, new DirectoryListingStateFunction(pkgLocator));
+    map.put(SkyFunctions.FILE_SYMLINK_CYCLE_UNIQUENESS,
+        new FileSymlinkCycleUniquenessFunction());
+    map.put(SkyFunctions.FILE, new FileFunction(pkgLocator));
+    map.put(SkyFunctions.DIRECTORY_LISTING, new DirectoryListingFunction());
+    map.put(SkyFunctions.PACKAGE_LOOKUP, new PackageLookupFunction(pkgLocator, deletedPackages));
+    map.put(SkyFunctions.CONTAINING_PACKAGE_LOOKUP, new ContainingPackageLookupFunction());
+    map.put(SkyFunctions.GLOB, new GlobFunction());
+    map.put(SkyFunctions.TARGET_PATTERN, new TargetPatternFunction(pkgLocator));
+    map.put(SkyFunctions.RECURSIVE_PKG, new RecursivePkgFunction());
+    map.put(SkyFunctions.PACKAGE, new PackageFunction(
+        reporter, pkgFactory, packageManager, showLoadingProgress, packageFunctionCache,
         eventBus, numPackagesLoaded));
-    map.put(NodeTypes.TARGET_MARKER, new TargetMarkerNodeBuilder());
-    map.put(NodeTypes.TRANSITIVE_TARGET, new TransitiveTargetNodeBuilder());
-    map.put(NodeTypes.CONFIGURED_TARGET,
-        new ConfiguredTargetNodeBuilder(new BuildViewProvider(), skyframeBuild));
-    map.put(NodeTypes.POST_CONFIGURED_TARGET,
-        new PostConfiguredTargetNodeBuilder(new BuildViewProvider()));
-    map.put(NodeTypes.CONFIGURATION_COLLECTION, new ConfigurationCollectionNodeBuilder(
+    map.put(SkyFunctions.TARGET_MARKER, new TargetMarkerFunction());
+    map.put(SkyFunctions.TRANSITIVE_TARGET, new TransitiveTargetFunction());
+    map.put(SkyFunctions.CONFIGURED_TARGET,
+        new ConfiguredTargetFunction(new BuildViewProvider(), skyframeBuild));
+    map.put(SkyFunctions.POST_CONFIGURED_TARGET,
+        new PostConfiguredTargetFunction(new BuildViewProvider()));
+    map.put(SkyFunctions.CONFIGURATION_COLLECTION, new ConfigurationCollectionFunction(
         configurationFactory, buildConfigurationKey));
+    map.put(SkyFunctions.CONFIGURATION_FRAGMENT, new ConfigurationFragmentFunction(
+        configurationFragments));
     if (skyframeBuild) {
-      map.put(NodeTypes.TARGET_COMPLETION,
-          new TargetCompletionNodeBuilder(new BuildViewProvider()));
-      map.put(NodeTypes.ARTIFACT, new ArtifactNodeBuilder(eventBus, allowedMissingInputs));
-      map.put(NodeTypes.BUILD_INFO_COLLECTION, new BuildInfoCollectionNodeBuilder(artifactFactory,
+      map.put(SkyFunctions.TARGET_COMPLETION,
+          new TargetCompletionFunction(new BuildViewProvider()));
+      map.put(SkyFunctions.ARTIFACT, new ArtifactFunction(eventBus, allowedMissingInputs));
+      map.put(SkyFunctions.BUILD_INFO_COLLECTION, new BuildInfoCollectionFunction(artifactFactory,
           buildDataDirectory));
-      map.put(NodeTypes.BUILD_INFO, new WorkspaceStatusNodeBuilder());
-      map.put(NodeTypes.ACTION_EXECUTION,
-          new ActionExecutionNodeBuilder(skyframeActionExecutor, tsgm));
+      map.put(SkyFunctions.BUILD_INFO, new WorkspaceStatusFunction());
+      map.put(SkyFunctions.ACTION_EXECUTION,
+          new ActionExecutionFunction(skyframeActionExecutor, tsgm));
     }
     return ImmutableMap.copyOf(map);
   }
@@ -361,11 +366,11 @@ public final class SkyframeExecutor {
   }
 
   public void dumpPackages(PrintStream out) {
-    Iterable<NodeKey> packageNodeKeys = Iterables.filter(autoUpdatingGraph.getNodes().keySet(),
-        NodeTypes.hasNodeType(NodeTypes.PACKAGE));
-    out.println(Iterables.size(packageNodeKeys) + " packages");
-    for (NodeKey packageNodeKey : packageNodeKeys) {
-      Package pkg = ((PackageNode) autoUpdatingGraph.getNodes().get(packageNodeKey)).getPackage();
+    Iterable<SkyKey> packageSkyKeys = Iterables.filter(autoUpdatingGraph.getValues().keySet(),
+        SkyFunctions.isSkyFunction(SkyFunctions.PACKAGE));
+    out.println(Iterables.size(packageSkyKeys) + " packages");
+    for (SkyKey packageSkyKey : packageSkyKeys) {
+      Package pkg = ((PackageValue) autoUpdatingGraph.getValues().get(packageSkyKey)).getPackage();
       pkg.dump(out);
     }
   }
@@ -397,84 +402,86 @@ public final class SkyframeExecutor {
   }
 
   /**
-   * Reinitializes the Skyframe graph, dropping all previously computed nodes.
+   * Reinitializes the Skyframe graph, dropping all previously computed values.
    *
-   * <p>Be careful with this method as it also deletes all injected nodes. You need to make sure
+   * <p>Be careful with this method as it also deletes all injected values. You need to make sure
    * that any necessary build variables are reinjected before the next build. Constants can be put
-   * in {@link #reinjectConstantNodes}.
+   * in {@link #reinjectConstantValues}.
    */
   @ThreadCompatible
   public void resetGraph() {
     emittedEventState.clear();
     recordingDiffer = new RecordingDifferencer();
     progressReceiver = new SkyframeProgressReceiver();
-    Map<NodeType, NodeBuilder> nodeBuilders = nodeBuilders(
+    Map<SkyFunctionName, SkyFunction> skyFunctions = skyFunctions(
         directories.getBuildDataDirectory(), pkgFactory, allowedMissingInputs);
     autoUpdatingGraph = graphSupplier.createGraph(
-        nodeBuilders, recordingDiffer, progressReceiver, emittedEventState);
+        skyFunctions, recordingDiffer, progressReceiver, emittedEventState);
     sequentialBuildDriver = new SequentialBuildDriver(autoUpdatingGraph);
     currentDiffAwarenesses.clear();
     if (skyframeBuildView != null) {
       skyframeBuildView.clearLegacyData();
     }
-    reinjectConstantNodes();
+    reinjectConstantValues();
   }
 
   /**
-   * Nodes whose values are known at startup and guaranteed constant are still wiped from the graph
+   * Values whose values are known at startup and guaranteed constant are still wiped from the graph
    * when we create a new one, so they must be re-injected each time we create a new graph.
    */
-  private void reinjectConstantNodes() {
+  private void reinjectConstantValues() {
     injectBuildInfoFactories();
     needToInjectEmbeddedArtifacts = true;
   }
 
   /**
-   * Deletes all ConfiguredTarget nodes from the Skyframe cache.
+   * Deletes all ConfiguredTarget values from the Skyframe cache.
    *
-   * <p>The next graph update will delete all invalid nodes.
+   * <p>The next graph update will delete all invalid values.
    */
   public void dropConfiguredTargets() {
     if (skyframeBuildView != null) {
       skyframeBuildView.clearInvalidatedConfiguredTargets();
     }
     autoUpdatingGraph.delete(
-        // We delete any node that can hold an action -- all subclasses of ActionLookupNode -- as
-        // well as ActionExecutionNodes, since they do not depend on ActionLookupNodes.
-        NodeType.nodeTypeIsIn(ImmutableSet.of(
-            NodeTypes.CONFIGURED_TARGET,
-            NodeTypes.ACTION_LOOKUP,
-            NodeTypes.BUILD_INFO,
-            NodeTypes.TARGET_COMPLETION,
-            NodeTypes.BUILD_INFO_COLLECTION,
-            NodeTypes.ACTION_EXECUTION)));
+        // We delete any value that can hold an action -- all subclasses of ActionLookupValue -- as
+        // well as ActionExecutionValues, since they do not depend on ActionLookupValues.
+        SkyFunctionName.functionIsIn(ImmutableSet.of(
+            SkyFunctions.CONFIGURED_TARGET,
+            SkyFunctions.ACTION_LOOKUP,
+            SkyFunctions.BUILD_INFO,
+            SkyFunctions.TARGET_COMPLETION,
+            SkyFunctions.BUILD_INFO_COLLECTION,
+            SkyFunctions.ACTION_EXECUTION)));
   }
 
   /**
-   * Invalidates ConfiguredCollectionNode.
+   * Removes ConfigurationFragmentValuess and ConfigurationCollectionValues from graph.
    */
+  @VisibleForTesting
   public void invalidateConfigurationCollection() {
-    recordingDiffer.invalidate(ImmutableList.of(ConfigurationCollectionNode.CONFIGURATION_KEY));
+    autoUpdatingGraph.delete(SkyFunctionName.functionIsIn(ImmutableSet.of(
+        SkyFunctions.CONFIGURATION_FRAGMENT, SkyFunctions.CONFIGURATION_COLLECTION)));
   }
 
   /**
-   * Deletes all ConfiguredTarget nodes from the Skyframe cache.
+   * Deletes all ConfiguredTarget values from the Skyframe cache.
    *
-   * <p>After the execution of this method all invalidated and marked for deletion nodes
-   * (and the nodes depending on them) will be deleted from the graph.
+   * <p>After the execution of this method all invalidated and marked for deletion values
+   * (and the values depending on them) will be deleted from the graph.
    *
    * <p>WARNING: Note that a call to this method leaves legacy data inconsistent with Skyframe.
    * The next build should clear the legacy caches.
    */
   private void dropConfiguredTargetsNow() {
     dropConfiguredTargets();
-    // Run the invalidator to actually delete the nodes.
+    // Run the invalidator to actually delete the values.
     try {
       progressReceiver.ignoreInvalidations = true;
       callUninterruptibly(new Callable<Void>() {
         @Override
         public Void call() throws InterruptedException {
-          sequentialBuildDriver.update(ImmutableList.<NodeKey>of(), false,
+          sequentialBuildDriver.update(ImmutableList.<SkyKey>of(), false,
               ResourceUsage.getAvailableProcessors(), reporter);
           return null;
         }
@@ -488,30 +495,31 @@ public final class SkyframeExecutor {
 
   /**
    * Save memory by removing references to configured targets and actions in the Skyframe graph.
-   * These nodes must be recreated on subsequent builds. We do not clear the top-level target nodes,
-   * since their configured targets are needed for the target completion middleman nodes.
+   * These values must be recreated on subsequent builds. We do not clear the top-level target
+   * values, since their configured targets are needed for the target completion middleman values.
    *
-   * <p>The nodes are not deleted during this method call, because they are needed for the execution
-   * phase. Instead, their data is cleared. The next build will delete the nodes (and recreate them
+   * <p>
+   * The values are not deleted during this method call, because they are needed for the execution
+   * phase. Instead, their data is cleared. The next build will delete the values (and recreate them
    * if necessary).
    */
   private void discardAnalysisCache(Collection<ConfiguredTarget> topLevelTargets) {
     lastAnalysisDiscarded = true;
-    for (Map.Entry<NodeKey, Node> entry : autoUpdatingGraph.getNodes().entrySet()) {
-      if (!entry.getKey().getNodeType().equals(NodeTypes.CONFIGURED_TARGET)) {
+    for (Map.Entry<SkyKey, SkyValue> entry : autoUpdatingGraph.getValues().entrySet()) {
+      if (!entry.getKey().functionName().equals(SkyFunctions.CONFIGURED_TARGET)) {
         continue;
       }
-      ConfiguredTargetNode ctNode = (ConfiguredTargetNode) entry.getValue();
-      // ctNode may be null if target was not successfully analyzed.
-      if (ctNode != null && !topLevelTargets.contains(ctNode.getConfiguredTarget())) {
-        ctNode.clear();
+      ConfiguredTargetValue ctValue = (ConfiguredTargetValue) entry.getValue();
+      // ctValue may be null if target was not successfully analyzed.
+      if (ctValue != null && !topLevelTargets.contains(ctValue.getConfiguredTarget())) {
+        ctValue.clear();
       }
     }
   }
 
   /**
    * Saves memory by clearing analysis objects from Skyframe. If using legacy execution, actually
-   * deletes the relevant nodes. If using Skyframe execution, clears their data without deleting
+   * deletes the relevant values. If using Skyframe execution, clears their data without deleting
    * them (they will be deleted on the next build).
    */
   public void clearAnalysisCache(Collection<ConfiguredTarget> topLevelTargets) {
@@ -527,7 +535,7 @@ public final class SkyframeExecutor {
    */
   @VisibleForTesting
   public void setupDefaultPackage(String defaultsPackageContents) {
-    BuildVariableNode.DEFAULTS_PACKAGE_CONTENTS.set(recordingDiffer, defaultsPackageContents);
+    BuildVariableValue.DEFAULTS_PACKAGE_CONTENTS.set(recordingDiffer, defaultsPackageContents);
   }
 
   /**
@@ -535,20 +543,20 @@ public final class SkyframeExecutor {
    */
   public void injectTopLevelContext(TopLevelArtifactContext options) {
     Preconditions.checkState(skyframeBuild(), "Only inject top-level context in Skyframe full");
-    BuildVariableNode.TOP_LEVEL_CONTEXT.set(recordingDiffer, options);
+    BuildVariableValue.TOP_LEVEL_CONTEXT.set(recordingDiffer, options);
   }
 
   public void injectWorkspaceStatusData() {
-    BuildVariableNode.WORKSPACE_STATUS_KEY.set(recordingDiffer,
+    BuildVariableValue.WORKSPACE_STATUS_KEY.set(recordingDiffer,
         workspaceStatusActionFactory.createWorkspaceStatusAction(
-            artifactFactory.get(), WorkspaceStatusNode.ARTIFACT_OWNER, buildId));
+            artifactFactory.get(), WorkspaceStatusValue.ARTIFACT_OWNER, buildId));
   }
 
   /**
    * Sets the default visibility.
    */
   private void setDefaultVisibility(RuleVisibility defaultVisibility) {
-    BuildVariableNode.DEFAULT_VISIBILITY.set(recordingDiffer, defaultVisibility);
+    BuildVariableValue.DEFAULT_VISIBILITY.set(recordingDiffer, defaultVisibility);
   }
 
   /**
@@ -562,7 +570,7 @@ public final class SkyframeExecutor {
     for (BuildInfoFactory factory : buildInfoFactories) {
       factoryMapBuilder.put(factory.getKey(), factory);
     }
-    BuildVariableNode.BUILD_INFO_FACTORIES.set(recordingDiffer, factoryMapBuilder.build());
+    BuildVariableValue.BUILD_INFO_FACTORIES.set(recordingDiffer, factoryMapBuilder.build());
   }
 
   private void setShowLoadingProgress(boolean showLoadingProgressValue) {
@@ -571,15 +579,15 @@ public final class SkyframeExecutor {
 
   @VisibleForTesting
   public void setCommandId(UUID commandId) {
-    BuildVariableNode.BUILD_ID.set(recordingDiffer, commandId);
+    BuildVariableValue.BUILD_ID.set(recordingDiffer, commandId);
     buildId.val = commandId;
   }
 
   private void invalidateDeletedPackages(Iterable<String> deletedPackages) {
-    ArrayList<NodeKey> packagesToInvalidate = Lists.newArrayList();
+    ArrayList<SkyKey> packagesToInvalidate = Lists.newArrayList();
     for (String deletedPackage : deletedPackages) {
       PathFragment pathFragment = new PathFragment(deletedPackage);
-      packagesToInvalidate.add(PackageLookupNode.key(pathFragment));
+      packagesToInvalidate.add(PackageLookupValue.key(pathFragment));
     }
     recordingDiffer.invalidate(packagesToInvalidate);
   }
@@ -587,11 +595,11 @@ public final class SkyframeExecutor {
   /** Returns the build-info.txt and build-changelist.txt artifacts from the graph. */
   public Collection<Artifact> getWorkspaceStatusArtifacts() throws InterruptedException {
     // Should already be in the graph, unless the user didn't request any targets for analysis.
-    UpdateResult<WorkspaceStatusNode> result = sequentialBuildDriver.update(
-        ImmutableList.of(WorkspaceStatusNode.NODE_KEY), /*keepGoing=*/false, /*numThreads=*/1,
+    UpdateResult<WorkspaceStatusValue> result = sequentialBuildDriver.update(
+        ImmutableList.of(WorkspaceStatusValue.SKY_KEY), /*keepGoing=*/false, /*numThreads=*/1,
         reporter);
-    WorkspaceStatusNode node = result.get(WorkspaceStatusNode.NODE_KEY);
-    return ImmutableList.of(node.getStableArtifact(), node.getVolatileArtifact());
+    WorkspaceStatusValue value = result.get(WorkspaceStatusValue.SKY_KEY);
+    return ImmutableList.of(value.getStableArtifact(), value.getVolatileArtifact());
   }
 
   /**
@@ -617,62 +625,62 @@ public final class SkyframeExecutor {
   }
 
   /**
-   * Partitions the given filesystem nodes based on which package path root they are under.
+   * Partitions the given filesystem values based on which package path root they are under.
    * Returns a {@link Multimap} {@code m} such that {@code m.containsEntry(k, pe)} is true for
-   * each filesystem nodekey {@code k} under a package path root {@code pe}. Note that nodes not
-   * under a package path root are not present in the returned {@link Multimap}; these nodes are
+   * each filesystem valuekey {@code k} under a package path root {@code pe}. Note that values not
+   * under a package path root are not present in the returned {@link Multimap}; these values are
    * unconditionally checked for changes on each incremental build.
    */
-  private static Multimap<Path, NodeKey> partitionNodeKeysByPackagePathEntry(
-      Set<Path> pkgRoots, Iterable<NodeKey> filesystemNodeKeys) {
-    ImmutableSetMultimap.Builder<Path, NodeKey> multimapBuilder =
+  private static Multimap<Path, SkyKey> partitionSkyKeysByPackagePathEntry(
+      Set<Path> pkgRoots, Iterable<SkyKey> filesystemSkyKeys) {
+    ImmutableSetMultimap.Builder<Path, SkyKey> multimapBuilder =
         ImmutableSetMultimap.builder();
-    for (NodeKey key : filesystemNodeKeys) {
-      Preconditions.checkState(key.getNodeType() == NodeTypes.FILE_STATE
-          || key.getNodeType() == NodeTypes.DIRECTORY_LISTING_STATE, key);
-      Path root = ((RootedPath) key.getNodeName()).getRoot();
+    for (SkyKey key : filesystemSkyKeys) {
+      Preconditions.checkState(key.functionName() == SkyFunctions.FILE_STATE
+          || key.functionName() == SkyFunctions.DIRECTORY_LISTING_STATE, key);
+      Path root = ((RootedPath) key.argument()).getRoot();
       if (pkgRoots.contains(root)) {
         multimapBuilder.put(root, key);
       }
-      // We don't need to worry about FileStateNodes for external files because they have a
+      // We don't need to worry about FileStateValues for external files because they have a
       // dependency on the build_id and so they get invalidated each build.
     }
     return multimapBuilder.build();
   }
 
-  private Iterable<NodeKey> getNodeKeysPotentiallyAffected(
+  private Iterable<SkyKey> getSkyKeysPotentiallyAffected(
       Iterable<PathFragment> modifiedSourceFiles, final Path pathEntry) {
     // TODO(bazel-team): change ModifiedFileSet to work with RootedPaths instead of PathFragments.
-    Iterable<NodeKey> fileStateNodeKeys = Iterables.transform(modifiedSourceFiles,
-        new Function<PathFragment, NodeKey>() {
+    Iterable<SkyKey> fileStateSkyKeys = Iterables.transform(modifiedSourceFiles,
+        new Function<PathFragment, SkyKey>() {
           @Override
-          public NodeKey apply(PathFragment pathFragment) {
-            return FileStateNode.key(RootedPath.toRootedPath(pathEntry, pathFragment));
+          public SkyKey apply(PathFragment pathFragment) {
+            return FileStateValue.key(RootedPath.toRootedPath(pathEntry, pathFragment));
           }
         });
-    // TODO(bazel-team): Strictly speaking, we only need to invalidate directory nodes when a file
+    // TODO(bazel-team): Strictly speaking, we only need to invalidate directory values when a file
     // has been created or deleted, not when it has been modified. Unfortunately we
     // do not have that information here, although fancy filesystems could provide it with a
     // hypothetically modified DiffAwareness interface.
     // TODO(bazel-team): Even if we don't have that information, we could avoid invalidating
     // directories when the state of a file does not change by statting them and comparing
     // the new filetype (nonexistent/file/symlink/directory) with the old one.
-    Iterable<NodeKey> dirListingStateNodeKeys = Iterables.transform(modifiedSourceFiles,
-        new Function<PathFragment, NodeKey>() {
+    Iterable<SkyKey> dirListingStateSkyKeys = Iterables.transform(modifiedSourceFiles,
+        new Function<PathFragment, SkyKey>() {
           @Override
-          public NodeKey apply(PathFragment pathFragment) {
-            return DirectoryListingStateNode.key(RootedPath.toRootedPath(pathEntry,
+          public SkyKey apply(PathFragment pathFragment) {
+            return DirectoryListingStateValue.key(RootedPath.toRootedPath(pathEntry,
                 pathFragment.getParentDirectory()));
           }
         });
-    return Iterables.concat(fileStateNodeKeys, dirListingStateNodeKeys);
+    return Iterables.concat(fileStateSkyKeys, dirListingStateSkyKeys);
   }
 
-  private static int getNumberOfModifiedFiles(Iterable<NodeKey> modifiedNodes) {
-    // We are searching only for changed files, DirectoryListingNodes don't depend on
-    // child nodes, that's why they are invalidated separately
-    return Iterables.size(Iterables.filter(modifiedNodes,
-        NodeType.nodeTypeIs(NodeTypes.FILE_STATE)));
+  private static int getNumberOfModifiedFiles(Iterable<SkyKey> modifiedValues) {
+    // We are searching only for changed files, DirectoryListingValues don't depend on
+    // child values, that's why they are invalidated separately
+    return Iterables.size(Iterables.filter(modifiedValues,
+        SkyFunctionName.functionIs(SkyFunctions.FILE_STATE)));
   }
 
   /**
@@ -681,7 +689,7 @@ public final class SkyframeExecutor {
   @VisibleForTesting
   public void handleDiffs() throws InterruptedException {
     if (lastAnalysisDiscarded) {
-      // Nodes were cleared last build, but they couldn't be deleted because they were needed for
+      // Values were cleared last build, but they couldn't be deleted because they were needed for
       // the execution phase. We can delete them now.
       dropConfiguredTargetsNow();
       lastAnalysisDiscarded = false;
@@ -723,9 +731,9 @@ public final class SkyframeExecutor {
     for (Path pathEntry : ImmutableSet.copyOf(modifiedFilesByPathEntry.keySet())) {
       ModifiedFileSet modifiedFileSet = modifiedFilesByPathEntry.get(pathEntry);
       Preconditions.checkState(!modifiedFileSet.treatEverythingAsModified(), pathEntry);
-      Iterable<NodeKey> dirtyNodes = getNodeKeysPotentiallyAffected(
+      Iterable<SkyKey> dirtyValues = getSkyKeysPotentiallyAffected(
           modifiedFileSet.modifiedSourceFiles(), pathEntry);
-      handleChangedFiles(new ImmutableDiff(dirtyNodes, ImmutableMap.<NodeKey, Node>of()));
+      handleChangedFiles(new ImmutableDiff(dirtyValues, ImmutableMap.<SkyKey, SkyValue>of()));
       modifiedFilesByPathEntry.remove(pathEntry);
     }
   }
@@ -736,33 +744,37 @@ public final class SkyframeExecutor {
    */
   private void handleDiffsWithMissingDiffInformation(Set<Path> pathEntriesWithoutDiffInformation)
       throws InterruptedException {
-    // Before running the FilesystemNodeChecker, ensure that all nodes marked for invalidation
+    // Before running the FilesystemValueChecker, ensure that all values marked for invalidation
     // have actually been invalidated (recall that invalidation happens at the beginning of the
     // next update call), because checking those is a waste of time.
-    sequentialBuildDriver.update(ImmutableList.<NodeKey>of(), false,
+    sequentialBuildDriver.update(ImmutableList.<SkyKey>of(), false,
         DEFAULT_THREAD_COUNT, reporter);
-    FilesystemNodeChecker fsnc = new FilesystemNodeChecker(autoUpdatingGraph, tsgm);
+    FilesystemValueChecker fsnc = new FilesystemValueChecker(autoUpdatingGraph, tsgm);
     // We need to manually check for changes to known files. This entails finding all dirty file
-    // system nodes under package roots for which we don't have diff information. If at least
+    // system values under package roots for which we don't have diff information. If at least
     // one path entry doesn't have diff information, then we're going to have to iterate over
     // the skyframe graph at least once no matter what so we might as well do so now and avoid
     // doing so more than once.
-    Iterable<NodeKey> filesystemNodeKeys = fsnc.getFilesystemNodeKeys();
+    Iterable<SkyKey> filesystemSkyKeys = fsnc.getFilesystemSkyKeys();
     // Partition by package path entry.
-    Multimap<Path, NodeKey> nodeKeysByPathEntry = partitionNodeKeysByPackagePathEntry(
-        ImmutableSet.copyOf(pkgLocator.get().getPathEntries()), filesystemNodeKeys);
-    // Contains all file system nodes that we need to check for dirtiness.
-    List<Iterable<NodeKey>> nodesToCheckManually = Lists.newArrayList();
+    Multimap<Path, SkyKey> skyKeysByPathEntry = partitionSkyKeysByPackagePathEntry(
+        ImmutableSet.copyOf(pkgLocator.get().getPathEntries()), filesystemSkyKeys);
+    // Contains all file system values that we need to check for dirtiness.
+    List<Iterable<SkyKey>> valuesToCheckManually = Lists.newArrayList();
     for (Path pathEntry : pathEntriesWithoutDiffInformation) {
-      nodesToCheckManually.add(nodeKeysByPathEntry.get(pathEntry));
+      valuesToCheckManually.add(skyKeysByPathEntry.get(pathEntry));
     }
     Diff diff;
     try {
-      diff = fsnc.getDirtyFilesystemNodes(Iterables.concat(nodesToCheckManually));
+      diff = fsnc.getDirtyFilesystemValues(Iterables.concat(valuesToCheckManually));
     } catch (InterruptedException e) {
       for (Path pathEntry : pathEntriesWithoutDiffInformation) {
-        // The diffs from these paths haven't been processed fully, so we need to reset the
-        // diff awareness strategies, per {@link DiffAwareness#getDiff}.
+        // The diffs from these paths haven't been processed fully, so we need to close and throw
+        // away the diff awareness strategies, per {@link DiffAwareness#close and
+        // @link DiffAwareness#getDiff}.
+        DiffAwareness diffAwareness = Preconditions.checkNotNull(
+            currentDiffAwarenesses.get(pathEntry));
+        diffAwareness.close();
         currentDiffAwarenesses.remove(pathEntry);
       }
       throw e;
@@ -843,8 +855,8 @@ public final class SkyframeExecutor {
     }
     emittedEventState.clear();
 
-    // If the PackageNodeBuilder was interrupted, there may be stale entries here.
-    packageNodeBuilderCache.clear();
+    // If the PackageFunction was interrupted, there may be stale entries here.
+    packageFunctionCache.clear();
     numPackagesLoaded.set(0);
 
     // Reset the stateful SkyframeCycleReporter, which contains cycles from last run.
@@ -852,23 +864,29 @@ public final class SkyframeExecutor {
   }
 
   /**
-   * The node types whose builders have direct access to the package locator. They need to be
+   * The value types whose builders have direct access to the package locator. They need to be
    * invalidated if the package locator changes.
    */
-  private static final Set<NodeType> PACKAGE_LOCATOR_DEPENDENT_NODES =
-      ImmutableSet.of(NodeTypes.FILE_STATE, NodeTypes.FILE, NodeTypes.DIRECTORY_LISTING_STATE,
-          NodeTypes.PACKAGE_LOOKUP, NodeTypes.TARGET_PATTERN);
+  private static final Set<SkyFunctionName> PACKAGE_LOCATOR_DEPENDENT_VALUES = ImmutableSet.of(
+          SkyFunctions.FILE_STATE,
+          SkyFunctions.FILE,
+          SkyFunctions.DIRECTORY_LISTING_STATE,
+          SkyFunctions.PACKAGE_LOOKUP,
+          SkyFunctions.TARGET_PATTERN);
 
   @SuppressWarnings("unchecked")
   private void setPackageLocator(PathPackageLocator pkgLocator) {
     PathPackageLocator oldLocator = this.pkgLocator.getAndSet(pkgLocator);
     if ((oldLocator == null || !oldLocator.getPathEntries().equals(pkgLocator.getPathEntries()))) {
-      autoUpdatingGraph.delete(NodeType.nodeTypeIsIn(PACKAGE_LOCATOR_DEPENDENT_NODES));
+      autoUpdatingGraph.delete(SkyFunctionName.functionIsIn(PACKAGE_LOCATOR_DEPENDENT_VALUES));
 
-      // The package path is read not only by NodeBuilders but also by some other code paths.
+      // The package path is read not only by SkyFunctions but also by some other code paths.
       // We need to take additional steps to keep the corresponding data structures in sync.
-      // (Some of the additional steps are carried out by ConfiguredTargetNodeInvalidationListener,
+      // (Some of the additional steps are carried out by ConfiguredTargetValueInvalidationListener,
       // and some by BuildView#buildHasIncompatiblePackageRoots and #updateSkyframe.)
+      for (DiffAwareness diffAwareness : currentDiffAwarenesses.values()) {
+        diffAwareness.close();
+      }
       currentDiffAwarenesses.clear();
     }
   }
@@ -908,11 +926,20 @@ public final class SkyframeExecutor {
     this.skyframeActionExecutor.setActionLogBufferPathGenerator(actionLogBufferPathGenerator);
   }
 
+  @VisibleForTesting
+  public void setConfigurationDataForTesting(BuildOptions options,
+      BlazeDirectories directories, ConfigurationFactory configurationFactory) {
+    BuildVariableValue.BUILD_OPTIONS.set(recordingDiffer, options);
+    BuildVariableValue.BLAZE_DIRECTORIES.set(recordingDiffer, directories);
+    this.configurationFactory.val = configurationFactory;
+    this.configurationFragments.val = ImmutableList.copyOf(configurationFactory.getFactories());
+  }
+
   /**
-   * Asks the Skyframe evaluator to build the node for BuildConfigurationCollection and
-   * returns result. Also invalidates {@link BuildVariableNode#BUILD_OPTIONS},
-   * {@link BuildVariableNode#TEST_ENVIRONMENT_VARIABLES} and
-   * {@link BuildVariableNode#BLAZE_DIRECTORIES} if they have changed.
+   * Asks the Skyframe evaluator to build the value for BuildConfigurationCollection and
+   * returns result. Also invalidates {@link BuildVariableValue#BUILD_OPTIONS},
+   * {@link BuildVariableValue#TEST_ENVIRONMENT_VARIABLES} and
+   * {@link BuildVariableValue#BLAZE_DIRECTORIES} if they have changed.
    */
   public BuildConfigurationCollection createConfigurations(boolean keepGoing,
       ConfigurationFactory configurationFactory, BuildConfigurationKey configurationKey)
@@ -920,6 +947,7 @@ public final class SkyframeExecutor {
 
     this.buildConfigurationKey.val = configurationKey;
     this.configurationFactory.val = configurationFactory;
+    this.configurationFragments.val = ImmutableList.copyOf(configurationFactory.getFactories());
     BuildOptions buildOptions = configurationKey.getBuildOptions();
     Map<String, String> testEnv = BuildConfiguration.getTestEnv(
         buildOptions.get(BuildConfiguration.Options.class).testEnvironment,
@@ -928,28 +956,28 @@ public final class SkyframeExecutor {
     // TestEnvironmentVariables and BlazeDirectories. There is a problem only with
     // TestEnvironmentVariables because BuildConfigurationKey stores client environment variables
     // and we don't want to rebuild everything when any variable changes.
-    BuildVariableNode.BUILD_OPTIONS.set(recordingDiffer, buildOptions);
-    BuildVariableNode.TEST_ENVIRONMENT_VARIABLES.set(recordingDiffer, testEnv);
-    BuildVariableNode.BLAZE_DIRECTORIES.set(recordingDiffer, configurationKey.getDirectories());
+    BuildVariableValue.BUILD_OPTIONS.set(recordingDiffer, buildOptions);
+    BuildVariableValue.TEST_ENVIRONMENT_VARIABLES.set(recordingDiffer, testEnv);
+    BuildVariableValue.BLAZE_DIRECTORIES.set(recordingDiffer, configurationKey.getDirectories());
 
-    UpdateResult<ConfigurationCollectionNode> result =
+    UpdateResult<ConfigurationCollectionValue> result =
         sequentialBuildDriver.update(
-            Arrays.asList(ConfigurationCollectionNode.CONFIGURATION_KEY), keepGoing,
+            Arrays.asList(ConfigurationCollectionValue.KEY), keepGoing,
             DEFAULT_THREAD_COUNT, errorEventListener);
     if (result.hasError()) {
-      Throwable e = result.getError(ConfigurationCollectionNode.CONFIGURATION_KEY).getException();
+      Throwable e = result.getError(ConfigurationCollectionValue.KEY).getException();
       Throwables.propagateIfInstanceOf(e, InvalidConfigurationException.class);
       throw new IllegalStateException(
-          "Unknown error during ConfigurationCollectionNode evaluation", e);
+          "Unknown error during ConfigurationCollectionValue evaluation", e);
     }
     Preconditions.checkState(result.values().size() == 1,
         "Result of update must contain exactly one value " + result);
     return Iterables.getOnlyElement(result.values()).getConfigurationCollection();
   }
 
-  private Iterable<ActionLookupNode> getActionLookupNodes() {
-    // This filter keeps subclasses of ActionLookupNode.
-    return Iterables.filter(autoUpdatingGraph.getDoneNodes().values(), ActionLookupNode.class);
+  private Iterable<ActionLookupValue> getActionLookupValues() {
+    // This filter keeps subclasses of ActionLookupValue.
+    return Iterables.filter(autoUpdatingGraph.getDoneValues().values(), ActionLookupValue.class);
   }
 
   /**
@@ -963,7 +991,7 @@ public final class SkyframeExecutor {
         || skyframeBuildView.isSomeConfiguredTargetInvalidated()) {
       // This operation is somewhat expensive, so we only do it if the graph might have changed in
       // some way -- either we analyzed a new target or we invalidated an old one.
-      skyframeActionExecutor.findAndStoreArtifactConflicts(getActionLookupNodes());
+      skyframeActionExecutor.findAndStoreArtifactConflicts(getActionLookupValues());
       skyframeBuildView.resetEvaluatedConfiguredTargetFlag();
       // The invalidated configured targets flag will be reset later in the update call.
     }
@@ -971,18 +999,18 @@ public final class SkyframeExecutor {
   }
 
   /**
-   * Asks the Skyframe evaluator to build the nodes corresponding to the given artifacts.
+   * Asks the Skyframe evaluator to build the values corresponding to the given artifacts.
    *
    * <p>The returned artifacts should be built and present on the filesystem after the call
    * completes.
    */
-  public UpdateResult<ArtifactNode> buildArtifacts(
+  public UpdateResult<ArtifactValue> buildArtifacts(
       Executor executor,
       Set<Artifact> artifacts,
       boolean keepGoing,
       int numJobs,
       ActionCacheChecker actionCacheChecker,
-      @Nullable NodeProgressReceiver executionProgressReceiver) throws InterruptedException {
+      @Nullable ValueProgressReceiver executionProgressReceiver) throws InterruptedException {
     checkActive();
     Preconditions.checkState(actionLogBufferPathGenerator != null);
 
@@ -991,7 +1019,7 @@ public final class SkyframeExecutor {
     resourceManager.resetResourceUsage();
     try {
       progressReceiver.executionProgressReceiver = executionProgressReceiver;
-      return sequentialBuildDriver.update(ArtifactNode.mandatoryKeys(artifacts), keepGoing,
+      return sequentialBuildDriver.update(ArtifactValue.mandatoryKeys(artifacts), keepGoing,
           numJobs, errorEventListener);
     } finally {
       progressReceiver.executionProgressReceiver = null;
@@ -1000,10 +1028,10 @@ public final class SkyframeExecutor {
     }
   }
 
-  UpdateResult<TargetPatternNode> targetPatterns(Iterable<NodeKey> patternNodeKeys,
+  UpdateResult<TargetPatternValue> targetPatterns(Iterable<SkyKey> patternSkyKeys,
       boolean keepGoing, ErrorEventListener listener) throws InterruptedException {
     checkActive();
-    return sequentialBuildDriver.update(patternNodeKeys, keepGoing, DEFAULT_THREAD_COUNT,
+    return sequentialBuildDriver.update(patternSkyKeys, keepGoing, DEFAULT_THREAD_COUNT,
         listener);
   }
 
@@ -1021,16 +1049,16 @@ public final class SkyframeExecutor {
       // This is most likely to happen after a failed loading phase.
       return ImmutableList.of();
     }
-    final Collection<NodeKey> nodeKeys = ConfiguredTargetNode.keys(lacs);
-    UpdateResult<Node> result;
+    final Collection<SkyKey> skyKeys = ConfiguredTargetValue.keys(lacs);
+    UpdateResult<SkyValue> result;
     try {
-      result = callUninterruptibly(new Callable<UpdateResult<Node>>() {
+      result = callUninterruptibly(new Callable<UpdateResult<SkyValue>>() {
         @Override
-        public UpdateResult<Node> call() throws Exception {
-          synchronized (graphNodeLookupLock) {
+        public UpdateResult<SkyValue> call() throws Exception {
+          synchronized (graphValueLookupLock) {
             try {
               skyframeBuildView.enableAnalysis(true);
-              return sequentialBuildDriver.update(nodeKeys, false, DEFAULT_THREAD_COUNT,
+              return sequentialBuildDriver.update(skyKeys, false, DEFAULT_THREAD_COUNT,
                   errorEventListener);
             } finally {
               skyframeBuildView.enableAnalysis(false);
@@ -1043,9 +1071,9 @@ public final class SkyframeExecutor {
     }
 
     ImmutableList.Builder<ConfiguredTarget> cts = ImmutableList.builder();
-    for (Node value : result.values()) {
-      ConfiguredTargetNode ctNode = (ConfiguredTargetNode) value;
-      cts.add(ctNode.getConfiguredTarget());
+    for (SkyValue value : result.values()) {
+      ConfiguredTargetValue ctValue = (ConfiguredTargetValue) value;
+      cts.add(ctValue.getConfiguredTarget());
     }
     return cts.build();
   }
@@ -1059,8 +1087,8 @@ public final class SkyframeExecutor {
   @Nullable
   public ConfiguredTarget getConfiguredTargetForTesting(
       Label label, BuildConfiguration configuration) {
-    if (autoUpdatingGraph.getExistingNodeForTesting(
-        BuildVariableNode.WORKSPACE_STATUS_KEY.getKeyForTesting()) == null) {
+    if (autoUpdatingGraph.getExistingValueForTesting(
+        BuildVariableValue.WORKSPACE_STATUS_KEY.getKeyForTesting()) == null) {
       injectWorkspaceStatusData();
     }
     return Iterables.getFirst(getConfiguredTargets(ImmutableList.of(
@@ -1068,27 +1096,27 @@ public final class SkyframeExecutor {
   }
 
   /**
-   * Invalidates Skyframe nodes corresponding to the given set of modified files under the given
+   * Invalidates Skyframe values corresponding to the given set of modified files under the given
    * path entry.
    *
-   * <p>May throw an {@link InterruptedException}, which means that no nodes have been invalidated.
+   * <p>May throw an {@link InterruptedException}, which means that no values have been invalidated.
    */
   @VisibleForTesting
   public void invalidateFilesUnderPathForTesting(ModifiedFileSet modifiedFileSet, Path pathEntry)
       throws InterruptedException {
     if (lastAnalysisDiscarded) {
-      // Nodes were cleared last build, but they couldn't be deleted because they were needed for
+      // Values were cleared last build, but they couldn't be deleted because they were needed for
       // the execution phase. We can delete them now.
       dropConfiguredTargetsNow();
       lastAnalysisDiscarded = false;
     }
-    Iterable<NodeKey> keys;
+    Iterable<SkyKey> keys;
     if (modifiedFileSet.treatEverythingAsModified()) {
-      Diff diff = new FilesystemNodeChecker(autoUpdatingGraph, tsgm).getDirtyFilesystemNodeKeys();
+      Diff diff = new FilesystemValueChecker(autoUpdatingGraph, tsgm).getDirtyFilesystemSkyKeys();
       keys = diff.changedKeysWithoutNewValues();
       recordingDiffer.inject(diff.changedKeysWithNewValues());
     } else {
-      keys = getNodeKeysPotentiallyAffected(modifiedFileSet.modifiedSourceFiles(), pathEntry);
+      keys = getSkyKeysPotentiallyAffected(modifiedFileSet.modifiedSourceFiles(), pathEntry);
     }
     syscalls.set(new PerBuildSyscallCache());
     recordingDiffer.invalidate(keys);
@@ -1097,7 +1125,7 @@ public final class SkyframeExecutor {
   }
 
   /**
-   * Invalidates SkyFrame nodes that may have failed for transient reasons.
+   * Invalidates SkyFrame values that may have failed for transient reasons.
    */
   @VisibleForTesting  // productionVisibility = Visibility.PRIVATE
   public void invalidateErrors() {
@@ -1113,12 +1141,12 @@ public final class SkyframeExecutor {
   /**
    * Configures a given set of configured targets.
    */
-  public UpdateResult<ConfiguredTargetNode> configureTargets(List<LabelAndConfiguration> nodes,
+  public UpdateResult<ConfiguredTargetValue> configureTargets(List<LabelAndConfiguration> values,
       boolean keepGoing) throws InterruptedException {
     checkActive();
 
     // Make sure to not run too many analysis threads. This can cause memory thrashing.
-    return sequentialBuildDriver.update(ConfiguredTargetNode.keys(nodes), keepGoing,
+    return sequentialBuildDriver.update(ConfiguredTargetValue.keys(values), keepGoing,
         ResourceUsage.getAvailableProcessors(), errorEventListener);
   }
 
@@ -1126,19 +1154,19 @@ public final class SkyframeExecutor {
    * Post-process the targets. Values in the UpdateResult are known to be transitively
    * error-free from action conflicts.
    */
-  public UpdateResult<PostConfiguredTargetNode> postConfigureTargets(
-      List<LabelAndConfiguration> nodes, boolean keepGoing,
+  public UpdateResult<PostConfiguredTargetValue> postConfigureTargets(
+      List<LabelAndConfiguration> values, boolean keepGoing,
       ImmutableMap<Action, Exception> badActions) throws InterruptedException {
     checkActive();
-    BuildVariableNode.BAD_ACTIONS.set(recordingDiffer, badActions);
+    BuildVariableValue.BAD_ACTIONS.set(recordingDiffer, badActions);
     // Make sure to not run too many analysis threads. This can cause memory thrashing.
-    UpdateResult<PostConfiguredTargetNode> result =
-        sequentialBuildDriver.update(PostConfiguredTargetNode.keys(nodes), keepGoing,
+    UpdateResult<PostConfiguredTargetValue> result =
+        sequentialBuildDriver.update(PostConfiguredTargetValue.keys(values), keepGoing,
             ResourceUsage.getAvailableProcessors(), errorEventListener);
 
-    // Remove all post-configured target nodes immediately for memory efficiency. We are OK with
+    // Remove all post-configured target values immediately for memory efficiency. We are OK with
     // this mini-phase being non-incremental as the failure mode of action conflict is rare.
-    autoUpdatingGraph.delete(NodeType.nodeTypeIs(NodeTypes.POST_CONFIGURED_TARGET));
+    autoUpdatingGraph.delete(SkyFunctionName.functionIs(SkyFunctions.POST_CONFIGURED_TARGET));
 
     return result;
   }
@@ -1154,40 +1182,40 @@ public final class SkyframeExecutor {
 
   class SkyframeTransitivePackageLoader {
     /**
-     * Loads the specified {@link TransitiveTargetNode}s.
+     * Loads the specified {@link TransitiveTargetValue}s.
      */
-    UpdateResult<TransitiveTargetNode> loadTransitiveTargets(
+    UpdateResult<TransitiveTargetValue> loadTransitiveTargets(
         Iterable<Target> targetsToVisit, Iterable<Label> labelsToVisit, boolean keepGoing)
         throws InterruptedException {
-      List<NodeKey> nodeNames = new ArrayList<>();
+      List<SkyKey> valueNames = new ArrayList<>();
       for (Target target : targetsToVisit) {
-        nodeNames.add(TransitiveTargetNode.key(target.getLabel()));
+        valueNames.add(TransitiveTargetValue.key(target.getLabel()));
       }
       for (Label label : labelsToVisit) {
-        nodeNames.add(TransitiveTargetNode.key(label));
+        valueNames.add(TransitiveTargetValue.key(label));
       }
 
-      return sequentialBuildDriver.update(nodeNames, keepGoing, DEFAULT_THREAD_COUNT,
+      return sequentialBuildDriver.update(valueNames, keepGoing, DEFAULT_THREAD_COUNT,
           errorEventListener);
     }
 
     public Set<Package> retrievePackages(Set<PathFragment> packageNames) {
-      final List<NodeKey> nodeNames = new ArrayList<>();
+      final List<SkyKey> valueNames = new ArrayList<>();
       for (PathFragment pkgName : packageNames) {
-        nodeNames.add(PackageNode.key(pkgName));
+        valueNames.add(PackageValue.key(pkgName));
       }
 
       try {
         return callUninterruptibly(new Callable<Set<Package>>() {
           @Override
           public Set<Package> call() throws Exception {
-            UpdateResult<PackageNode> result = sequentialBuildDriver.update(nodeNames, false,
+            UpdateResult<PackageValue> result = sequentialBuildDriver.update(valueNames, false,
                 ResourceUsage.getAvailableProcessors(), errorEventListener);
             Preconditions.checkState(!result.hasError(),
                 "unexpected errors: %s", result.errorMap());
             Set<Package> packages = Sets.newHashSet();
-            for (PackageNode node : result.values()) {
-              packages.add(node.getPackage());
+            for (PackageValue value : result.values()) {
+              packages.add(value.getPackage());
             }
             return packages;
           }
@@ -1215,17 +1243,17 @@ public final class SkyframeExecutor {
         @Override
         public Action call() throws InterruptedException {
           ArtifactOwner artifactOwner = artifact.getArtifactOwner();
-          Preconditions.checkState(artifactOwner instanceof ActionLookupNode.ActionLookupKey,
+          Preconditions.checkState(artifactOwner instanceof ActionLookupValue.ActionLookupKey,
               "%s %s", artifact, artifactOwner);
-          NodeKey actionLookupKey =
-              ActionLookupNode.key((ActionLookupNode.ActionLookupKey) artifactOwner);
+          SkyKey actionLookupKey =
+              ActionLookupValue.key((ActionLookupValue.ActionLookupKey) artifactOwner);
 
-          synchronized (graphNodeLookupLock) {
-            // Note that this will crash (attempting to run a configured target node builder after
+          synchronized (graphValueLookupLock) {
+            // Note that this will crash (attempting to run a configured target value builder after
             // analysis) after a failed --nokeep_going analysis in which the configured target that
             // failed was a (transitive) dependency of the configured target that should generate
             // this action. We don't expect callers to query generating actions in such cases.
-            UpdateResult<ActionLookupNode> result = sequentialBuildDriver.update(
+            UpdateResult<ActionLookupValue> result = sequentialBuildDriver.update(
                 ImmutableList.of(actionLookupKey), false, ResourceUsage.getAvailableProcessors(),
                 errorEventListener);
             return result.hasError()
@@ -1252,9 +1280,9 @@ public final class SkyframeExecutor {
      */
     Package getPackage(ErrorEventListener listener, String pkgName) throws InterruptedException,
         NoSuchPackageException {
-      synchronized (graphNodeLookupLock) {
-        NodeKey key = PackageNode.key(new PathFragment(pkgName));
-        UpdateResult<PackageNode> result =
+      synchronized (graphValueLookupLock) {
+        SkyKey key = PackageValue.key(new PathFragment(pkgName));
+        UpdateResult<PackageValue> result =
             sequentialBuildDriver.update(ImmutableList.of(key), false,
                 DEFAULT_THREAD_COUNT, listener);
         if (result.hasError()) {
@@ -1266,10 +1294,10 @@ public final class SkyframeExecutor {
                 "Cycle encountered while loading package " + pkgName);
           }
           Throwable e = result.getError().getException();
-          // PackageNodeBuilder should be catching, swallowing, and rethrowing all transitive
+          // PackageFunction should be catching, swallowing, and rethrowing all transitive
           // errors as NoSuchPackageExceptions.
           Throwables.propagateIfInstanceOf(e, NoSuchPackageException.class);
-          throw new IllegalStateException("Unexpected Exception type from PackageNode.", e);
+          throw new IllegalStateException("Unexpected Exception type from PackageValue.", e);
         }
         return result.get(key).getPackage();
       }
@@ -1305,7 +1333,7 @@ public final class SkyframeExecutor {
 
     /** Same as {@link PackageManager#partiallyClear}. */
     void partiallyClear() {
-      packageNodeBuilderCache.clear();
+      packageFunctionCache.clear();
     }
   }
 
@@ -1367,20 +1395,20 @@ public final class SkyframeExecutor {
   }
 
   /**
-   * Stores the set of loaded packages and, if needed, evicts ConfiguredTarget nodes.
+   * Stores the set of loaded packages and, if needed, evicts ConfiguredTarget values.
    *
    * <p>The set represents all packages from the transitive closure of the top-level targets from
    * the latest build.
    */
   @ThreadCompatible
   public void updateLoadedPackageSet(Set<PathFragment> loadedPackages) {
-    Preconditions.checkState(nodeCacheEvictionLimit >= 0,
-        "should have called setMinLoadedPkgCountForCtNodeEviction earlier");
+    Preconditions.checkState(valueCacheEvictionLimit >= 0,
+        "should have called setMinLoadedPkgCountForCtValueEviction earlier");
 
     // Make a copy to avoid nesting SetView objects. It also computes size(), which we need below.
     Set<PathFragment> union = ImmutableSet.copyOf(Sets.union(allLoadedPackages, loadedPackages));
 
-    if (union.size() < nodeCacheEvictionLimit ||
+    if (union.size() < valueCacheEvictionLimit ||
         isBuildSubsetOrSupersetOfPreviousBuild(allLoadedPackages, loadedPackages)) {
       allLoadedPackages = union;
     } else {
@@ -1400,7 +1428,7 @@ public final class SkyframeExecutor {
         packageCacheOptions.defaultVisibility, packageCacheOptions.showLoadingProgress,
         preprocessorFactory, defaultsPackageContents, commandId);
     setDeletedPackages(ImmutableSet.copyOf(packageCacheOptions.deletedPackages));
-    this.nodeCacheEvictionLimit = packageCacheOptions.minLoadedPkgCountForCtNodeEviction;
+    this.valueCacheEvictionLimit = packageCacheOptions.minLoadedPkgCountForCtNodeEviction;
 
     incrementalBuildMonitor = new SkyframeIncrementalBuildMonitor();
     invalidateErrors();
@@ -1417,7 +1445,7 @@ public final class SkyframeExecutor {
   }
 
   /** Convenience method with same semantics as {@link CyclesReporter#reportCycles}. */
-  public void reportCycles(Iterable<CycleInfo> cycles, NodeKey topLevelKey) {
+  public void reportCycles(Iterable<CycleInfo> cycles, SkyKey topLevelKey) {
     getCyclesReporter().reportCycles(cycles, topLevelKey, errorEventListener);
   }
 
@@ -1443,8 +1471,8 @@ public final class SkyframeExecutor {
     maybeInjectEmbeddedArtifacts();
 
     // Detect external modifications in the output tree.
-    FilesystemNodeChecker fsnc = new FilesystemNodeChecker(autoUpdatingGraph, tsgm);
-    recordingDiffer.invalidate(fsnc.getDirtyActionNodes(batchStatter));
+    FilesystemValueChecker fsnc = new FilesystemValueChecker(autoUpdatingGraph, tsgm);
+    recordingDiffer.invalidate(fsnc.getDirtyActionValues(batchStatter));
     modifiedFiles += fsnc.getNumberOfModifiedOutputFiles();
   }
 
@@ -1459,49 +1487,49 @@ public final class SkyframeExecutor {
 
     Preconditions.checkNotNull(artifactFactory.get());
     Preconditions.checkNotNull(binTools);
-    Map<NodeKey, Node> nodes = Maps.newHashMap();
+    Map<SkyKey, SkyValue> values = Maps.newHashMap();
     // Blaze separately handles the symlinks that target these binaries. See BinTools#setupTool.
     for (Artifact artifact : binTools.getAllEmbeddedArtifacts(artifactFactory.get())) {
-      FileArtifactNode fileArtifactNode = null;
+      FileArtifactValue fileArtifactValue = null;
       try {
-        fileArtifactNode = FileArtifactNode.create(artifact);
+        fileArtifactValue = FileArtifactValue.create(artifact);
       } catch (IOException e) {
         // See ExtractData in blaze.cc.
         String message = "Error: corrupt installation: file " + artifact.getPath() + " missing. "
             + "Please remove '" + directories.getInstallBase() + "' and try again.";
         throw new ExitCausingException(message, ExitCode.LOCAL_ENVIRONMENTAL_ERROR, e);
       }
-      nodes.put(ArtifactNode.key(artifact, /*isMandatory=*/true), fileArtifactNode);
+      values.put(ArtifactValue.key(artifact, /*isMandatory=*/true), fileArtifactValue);
     }
-    recordingDiffer.inject(nodes);
+    recordingDiffer.inject(values);
     needToInjectEmbeddedArtifacts = false;
   }
 
   /**
-   * Sets the upper limit for the number of graph versions that dirty nodes may be retained for.
+   * Sets the upper limit for the number of graph versions that dirty values may be retained for.
    *
-   * <p>Specifying a value N means, if the current graph version is V and a node was dirtied (and
-   * has remained so) in version U, and U + N &lt;= V, then the node will be marked for deletion
+   * <p>Specifying a value N means, if the current graph version is V and a value was dirtied (and
+   * has remained so) in version U, and U + N &lt;= V, then the value will be marked for deletion
    * and purged in version V + 1.
    *
    * @param versionWindow a non-negative number indicating the length of the window
    */
-  public void setVersionWindowForDirtyNodeGc(long versionWindow) {
+  public void setVersionWindowForDirtyGc(long versionWindow) {
     Preconditions.checkArgument(versionWindow >= 0);
-    this.versionWindowForDirtyNodeGc = versionWindow;
+    this.versionWindowForDirtyGc = versionWindow;
   }
 
   /**
-   * Mark dirty nodes for deletion if they've been dirty for longer than
-   * {@link #versionWindowForDirtyNodeGc} versions.
+   * Mark dirty values for deletion if they've been dirty for longer than
+   * {@link #versionWindowForDirtyGc} versions.
    */
-  void deleteOldNodes() {
+  public void deleteOldNodes() {
     // TODO(bazel-team): perhaps we should come up with a separate GC class dedicated to maintaining
-    // node garbage. If we ever do so, this logic should be moved there.
-    autoUpdatingGraph.deleteDirty(versionWindowForDirtyNodeGc);
+    // value garbage. If we ever do so, this logic should be moved there.
+    autoUpdatingGraph.deleteDirty(versionWindowForDirtyGc);
   }
 
-  private class SkyframeProgressReceiver implements NodeProgressReceiver {
+  private class SkyframeProgressReceiver implements ValueProgressReceiver {
 
     /**
      * This flag is needed in order to avoid invalidating legacy data when we clear the
@@ -1510,41 +1538,41 @@ public final class SkyframeExecutor {
      */
     private boolean ignoreInvalidations = false;
     /** This receiver is only needed for execution, so it is null otherwise. */
-    @Nullable NodeProgressReceiver executionProgressReceiver = null;
+    @Nullable ValueProgressReceiver executionProgressReceiver = null;
 
     @Override
-    public void invalidated(Node node, InvalidationState state) {
+    public void invalidated(SkyValue value, InvalidationState state) {
       if (ignoreInvalidations) {
         return;
       }
       if (skyframeBuildView != null) {
-        skyframeBuildView.getInvalidationReceiver().invalidated(node, state);
+        skyframeBuildView.getInvalidationReceiver().invalidated(value, state);
       }
     }
 
     @Override
-    public void enqueueing(NodeKey nodeKey) {
+    public void enqueueing(SkyKey skyKey) {
       if (ignoreInvalidations) {
         return;
       }
       if (skyframeBuildView != null) {
-        skyframeBuildView.getInvalidationReceiver().enqueueing(nodeKey);
+        skyframeBuildView.getInvalidationReceiver().enqueueing(skyKey);
       }
       if (executionProgressReceiver != null) {
-        executionProgressReceiver.enqueueing(nodeKey);
+        executionProgressReceiver.enqueueing(skyKey);
       }
     }
 
     @Override
-    public void evaluated(NodeKey nodeKey, Node node, EvaluationState state) {
+    public void evaluated(SkyKey skyKey, SkyValue value, EvaluationState state) {
       if (ignoreInvalidations) {
         return;
       }
       if (skyframeBuildView != null) {
-        skyframeBuildView.getInvalidationReceiver().evaluated(nodeKey, node, state);
+        skyframeBuildView.getInvalidationReceiver().evaluated(skyKey, value, state);
       }
       if (executionProgressReceiver != null) {
-        executionProgressReceiver.evaluated(nodeKey, node, state);
+        executionProgressReceiver.evaluated(skyKey, value, state);
       }
     }
   }
@@ -1571,3 +1599,4 @@ public final class SkyframeExecutor {
     }
   }
 }
+

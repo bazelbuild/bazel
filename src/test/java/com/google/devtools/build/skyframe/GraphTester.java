@@ -29,62 +29,62 @@ import javax.annotation.Nullable;
 /**
  * A helper class to create graphs and run skyframe tests over these graphs.
  *
- * <p>There are two types of nodes, computing nodes, which may not be set to a constant value,
- * and leaf nodes, which must be set to a constant value and may not have any dependencies.
+ * <p>There are two types of values, computing values, which may not be set to a constant value,
+ * and leaf values, which must be set to a constant value and may not have any dependencies.
  *
- * <p>Note that the node builder looks into the test nodes created here to determine how to
- * behave. However, skyframe will only re-evaluate the node and call the node builder if any of
- * its dependencies has changed. That means in order to change the set of dependencies of a node,
+ * <p>Note that the value builder looks into the test values created here to determine how to
+ * behave. However, skyframe will only re-evaluate the value and call the value builder if any of
+ * its dependencies has changed. That means in order to change the set of dependencies of a value,
  * you need to also change one of its previous dependencies to force re-evaluation. Changing a
- * computing node does not mark it as modified.
+ * computing value does not mark it as modified.
  */
 public class GraphTester {
 
-  // TODO(bazel-team): Split this for computing and non-computing nodes?
-  public static final NodeType NODE_TYPE = new NodeType("Type", false);
+  // TODO(bazel-team): Split this for computing and non-computing values?
+  public static final SkyFunctionName NODE_TYPE = new SkyFunctionName("Type", false);
 
-  private final Map<NodeKey, TestNodeBuilder> nodes = new HashMap<>();
-  private final Set<NodeKey> modifiedNodes = new LinkedHashSet<>();
+  private final Map<SkyKey, TestFunction> values = new HashMap<>();
+  private final Set<SkyKey> modifiedValues = new LinkedHashSet<>();
 
-  public TestNodeBuilder getOrCreate(String name) {
-    return getOrCreate(nodeKey(name));
+  public TestFunction getOrCreate(String name) {
+    return getOrCreate(skyKey(name));
   }
 
-  public TestNodeBuilder getOrCreate(NodeKey key) {
+  public TestFunction getOrCreate(SkyKey key) {
     return getOrCreate(key, false);
   }
 
-  public TestNodeBuilder getOrCreate(NodeKey key, boolean markAsModified) {
-    TestNodeBuilder result = nodes.get(key);
+  public TestFunction getOrCreate(SkyKey key, boolean markAsModified) {
+    TestFunction result = values.get(key);
     if (result == null) {
-      result = new TestNodeBuilder();
-      nodes.put(key, result);
+      result = new TestFunction();
+      values.put(key, result);
     } else if (markAsModified) {
-      modifiedNodes.add(key);
+      modifiedValues.add(key);
     }
     return result;
   }
 
-  public TestNodeBuilder set(String key, Node value) {
-    return set(nodeKey(key), value);
+  public TestFunction set(String key, SkyValue value) {
+    return set(skyKey(key), value);
   }
 
-  public TestNodeBuilder set(NodeKey key, Node value) {
+  public TestFunction set(SkyKey key, SkyValue value) {
     return getOrCreate(key, true).setConstantValue(value);
   }
 
-  public Collection<NodeKey> getModifiedNodes() {
-    return modifiedNodes;
+  public Collection<SkyKey> getModifiedValues() {
+    return modifiedValues;
   }
 
-  public NodeBuilder getNodeBuilder() {
-    return new NodeBuilder() {
+  public SkyFunction getFunction() {
+    return new SkyFunction() {
       @Override
-      public Node build(NodeKey key, Environment env)
-          throws NodeBuilderException, InterruptedException {
-        TestNodeBuilder builder = nodes.get(key);
+      public SkyValue compute(SkyKey key, Environment env)
+          throws SkyFunctionException, InterruptedException {
+        TestFunction builder = values.get(key);
         if (builder.builder != null) {
-          return builder.builder.build(key, env);
+          return builder.builder.compute(key, env);
         }
         if (builder.warning != null) {
           env.getListener().warn(null, builder.warning);
@@ -92,15 +92,15 @@ public class GraphTester {
         if (builder.progress != null) {
           env.getListener().progress(null, builder.progress);
         }
-        Map<NodeKey, Node> deps = new LinkedHashMap<>();
+        Map<SkyKey, SkyValue> deps = new LinkedHashMap<>();
         boolean oneMissing = false;
-        for (Pair<NodeKey, Node> dep : builder.deps) {
-          Node value;
+        for (Pair<SkyKey, SkyValue> dep : builder.deps) {
+          SkyValue value;
           if (dep.second == null) {
-            value = env.getDep(dep.first);
+            value = env.getValue(dep.first);
           } else {
             try {
-              value = env.getDepOrThrow(dep.first, SomeErrorException.class);
+              value = env.getValueOrThrow(dep.first, SomeErrorException.class);
             } catch (SomeErrorException e) {
               value = dep.second;
             }
@@ -110,17 +110,17 @@ public class GraphTester {
           } else {
             deps.put(dep.first, value);
           }
-          Preconditions.checkState(oneMissing == env.depsMissing());
+          Preconditions.checkState(oneMissing == env.valuesMissing());
         }
-        if (env.depsMissing()) {
+        if (env.valuesMissing()) {
           return null;
         }
 
         if (builder.hasError) {
-          throw new GenericNodeBuilderException(key, new SomeErrorException(key.toString()));
+          throw new GenericFunctionException(key, new SomeErrorException(key.toString()));
         }
         if (builder.hasNonTransientError) {
-          throw new GenericNodeBuilderException(key, new SomeErrorException(key.toString()), false);
+          throw new GenericFunctionException(key, new SomeErrorException(key.toString()), false);
         }
 
         if (builder.value != null) {
@@ -136,14 +136,14 @@ public class GraphTester {
 
       @Nullable
       @Override
-      public String extractTag(NodeKey nodeKey) {
-        return nodes.get(nodeKey).tag;
+      public String extractTag(SkyKey skyKey) {
+        return values.get(skyKey).tag;
       }
     };
   }
 
-  public static NodeKey nodeKey(String key) {
-    return new NodeKey(NODE_TYPE, key);
+  public static SkyKey skyKey(String key) {
+    return new SkyKey(NODE_TYPE, key);
   }
 
   public static class SomeErrorException extends Exception {
@@ -153,14 +153,14 @@ public class GraphTester {
   }
 
   /**
-   * A node in the testing graph that is constructed in the tester.
+   * A value in the testing graph that is constructed in the tester.
    */
-  public class TestNodeBuilder {
+  public class TestFunction {
     // TODO(bazel-team): We could use a multiset here to simulate multi-pass dependency discovery.
-    private final Set<Pair<NodeKey, Node>> deps = new LinkedHashSet<>();
-    private Node value;
-    private NodeComputer computer;
-    private NodeBuilder builder = null;
+    private final Set<Pair<SkyKey, SkyValue>> deps = new LinkedHashSet<>();
+    private SkyValue value;
+    private ValueComputer computer;
+    private SkyFunction builder = null;
 
     private boolean hasError;
     private boolean hasNonTransientError;
@@ -170,46 +170,46 @@ public class GraphTester {
 
     private String tag;
 
-    public TestNodeBuilder addDependency(String name) {
-      return addDependency(nodeKey(name));
+    public TestFunction addDependency(String name) {
+      return addDependency(skyKey(name));
     }
 
-    public TestNodeBuilder addDependency(NodeKey key) {
-      deps.add(Pair.<NodeKey, Node>of(key, null));
+    public TestFunction addDependency(SkyKey key) {
+      deps.add(Pair.<SkyKey, SkyValue>of(key, null));
       return this;
     }
 
-    public TestNodeBuilder removeDependency(String name) {
-      return removeDependency(nodeKey(name));
+    public TestFunction removeDependency(String name) {
+      return removeDependency(skyKey(name));
     }
 
-    public TestNodeBuilder removeDependency(NodeKey key) {
-      deps.remove(Pair.<NodeKey, Node>of(key, null));
+    public TestFunction removeDependency(SkyKey key) {
+      deps.remove(Pair.<SkyKey, SkyValue>of(key, null));
       return this;
     }
 
-    public TestNodeBuilder addErrorDependency(String name, Node altValue) {
-      return addErrorDependency(nodeKey(name), altValue);
+    public TestFunction addErrorDependency(String name, SkyValue altValue) {
+      return addErrorDependency(skyKey(name), altValue);
     }
 
-    public TestNodeBuilder addErrorDependency(NodeKey key, Node altValue) {
+    public TestFunction addErrorDependency(SkyKey key, SkyValue altValue) {
       deps.add(Pair.of(key, altValue));
       return this;
     }
 
-    public TestNodeBuilder setConstantValue(Node value) {
+    public TestFunction setConstantValue(SkyValue value) {
       Preconditions.checkState(this.computer == null);
       this.value = value;
       return this;
     }
 
-    public TestNodeBuilder setComputedValue(NodeComputer computer) {
+    public TestFunction setComputedValue(ValueComputer computer) {
       Preconditions.checkState(this.value == null);
       this.computer = computer;
       return this;
     }
 
-    public TestNodeBuilder setBuilder(NodeBuilder builder) {
+    public TestFunction setBuilder(SkyFunction builder) {
       Preconditions.checkState(this.value == null);
       Preconditions.checkState(this.computer == null);
       Preconditions.checkState(deps.isEmpty());
@@ -221,71 +221,71 @@ public class GraphTester {
       return this;
     }
 
-    public TestNodeBuilder setHasError(boolean hasError) {
+    public TestFunction setHasError(boolean hasError) {
       this.hasError = hasError;
       return this;
     }
 
-    public TestNodeBuilder setHasNonTransientError(boolean hasError) {
+    public TestFunction setHasNonTransientError(boolean hasError) {
       // TODO(bazel-team): switch to an enum for hasError.
       this.hasNonTransientError = hasError;
       return this;
     }
 
-    public TestNodeBuilder setWarning(String warning) {
+    public TestFunction setWarning(String warning) {
       this.warning = warning;
       return this;
     }
 
-    public TestNodeBuilder setProgress(String info) {
+    public TestFunction setProgress(String info) {
       this.progress = info;
       return this;
     }
 
-    public TestNodeBuilder setTag(String tag) {
+    public TestFunction setTag(String tag) {
       this.tag = tag;
       return this;
     }
 
   }
 
-  public static NodeKey[] toNodeKeys(String... names) {
-    NodeKey[] result = new NodeKey[names.length];
+  public static SkyKey[] toSkyKeys(String... names) {
+    SkyKey[] result = new SkyKey[names.length];
     for (int i = 0; i < names.length; i++) {
-      result[i] = new NodeKey(GraphTester.NODE_TYPE, names[i]);
+      result[i] = new SkyKey(GraphTester.NODE_TYPE, names[i]);
     }
     return result;
   }
 
-  public static NodeKey toNodeKey(String name) {
-    return toNodeKeys(name)[0];
+  public static SkyKey toSkyKey(String name) {
+    return toSkyKeys(name)[0];
   }
 
-  private class DelegatingNodeBuilder implements NodeBuilder {
+  private class DelegatingFunction implements SkyFunction {
     @Override
-    public Node build(NodeKey nodeKey, Environment env) throws NodeBuilderException,
+    public SkyValue compute(SkyKey skyKey, Environment env) throws SkyFunctionException,
         InterruptedException {
-      return getNodeBuilder().build(nodeKey, env);
+      return getFunction().compute(skyKey, env);
     }
 
     @Nullable
     @Override
-    public String extractTag(NodeKey nodeKey) {
-      return getNodeBuilder().extractTag(nodeKey);
+    public String extractTag(SkyKey skyKey) {
+      return getFunction().extractTag(skyKey);
     }
   }
 
-  public DelegatingNodeBuilder createDelegatingNodeBuilder() {
-    return new DelegatingNodeBuilder();
+  public DelegatingFunction createDelegatingFunction() {
+    return new DelegatingFunction();
   }
 
   /**
-   * Simple node class that stores strings.
+   * Simple value class that stores strings.
    */
-  public static class StringNode implements Node {
+  public static class StringValue implements SkyValue {
     private final String value;
 
-    public StringNode(String value) {
+    public StringValue(String value) {
       this.value = value;
     }
 
@@ -295,10 +295,10 @@ public class GraphTester {
 
     @Override
     public boolean equals(Object o) {
-      if (!(o instanceof StringNode)) {
+      if (!(o instanceof StringValue)) {
         return false;
       }
-      return value.equals(((StringNode) o).value);
+      return value.equals(((StringValue) o).value);
     }
 
     @Override
@@ -308,33 +308,33 @@ public class GraphTester {
 
     @Override
     public String toString() {
-      return "StringNode: " + getValue();
+      return "StringValue: " + getValue();
     }
   }
 
   /**
-   * A callback interface to provide the node computation.
+   * A callback interface to provide the value computation.
    */
-  public interface NodeComputer {
+  public interface ValueComputer {
     /** This is called when all the declared dependencies exist. It may request new dependencies. */
-    Node compute(Map<NodeKey, Node> deps, NodeBuilder.Environment env);
+    SkyValue compute(Map<SkyKey, SkyValue> deps, SkyFunction.Environment env);
   }
 
-  public static final NodeComputer COPY = new NodeComputer() {
+  public static final ValueComputer COPY = new ValueComputer() {
     @Override
-    public Node compute(Map<NodeKey, Node> deps, NodeBuilder.Environment env) {
+    public SkyValue compute(Map<SkyKey, SkyValue> deps, SkyFunction.Environment env) {
       return Iterables.getOnlyElement(deps.values());
     }
   };
 
-  public static final NodeComputer CONCATENATE = new NodeComputer() {
+  public static final ValueComputer CONCATENATE = new ValueComputer() {
     @Override
-    public Node compute(Map<NodeKey, Node> deps, NodeBuilder.Environment env) {
+    public SkyValue compute(Map<SkyKey, SkyValue> deps, SkyFunction.Environment env) {
       StringBuilder result = new StringBuilder();
-      for (Node node : deps.values()) {
-        result.append(((StringNode) node).value);
+      for (SkyValue value : deps.values()) {
+        result.append(((StringValue) value).value);
       }
-      return new StringNode(result.toString());
+      return new StringValue(result.toString());
     }
   };
 }

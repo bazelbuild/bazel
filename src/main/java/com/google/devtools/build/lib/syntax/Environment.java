@@ -16,6 +16,7 @@ package com.google.devtools.build.lib.syntax;
 
 import com.google.common.annotations.VisibleForTesting;
 import com.google.common.base.Preconditions;
+import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 import com.google.devtools.build.lib.vfs.PathFragment;
 
@@ -251,5 +252,14 @@ public class Environment {
     }
     Map<String, Function> nameSpaceFunctions = topLevel.functions.get(nameSpace);
     return nameSpaceFunctions != null ? nameSpaceFunctions.get(name) : null;
+  }
+
+  /**
+   * Return the current stack trace (list of function names).
+   */
+  public ImmutableList<String> getStackTrace() {
+    // Empty list, since this environment does not allow function definition
+    // (see SkylarkEnvironment)
+    return ImmutableList.of();
   }
 }

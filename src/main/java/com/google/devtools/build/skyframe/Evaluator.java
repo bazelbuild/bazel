@@ -27,7 +27,7 @@ public interface Evaluator {
      * @param graph the graph to operate on
      * @param graphVersion the version at which to write entries in the graph.
      * @param reporter where to write warning/error/progress messages.
-     * @param keepGoing whether {@link #eval} should continue if building a {link Node} fails.
+     * @param keepGoing whether {@link #eval} should continue if building a {link Value} fails.
      *                  Otherwise, we throw an exception on failure.
      */
     Evaluator create(ProcessableGraph graph, long graphVersion, ErrorEventListener reporter,
@@ -35,8 +35,8 @@ public interface Evaluator {
   }
 
   /**
-   * Evaluates a set of nodes. Returns an {@link UpdateResult}. All elements of nodeKeys must
-   * be keys for Nodes of subtype T.
+   * Evaluates a set of values. Returns an {@link UpdateResult}. All elements of skyKeys must
+   * be keys for Values of subtype T.
    */
-  <T extends Node> UpdateResult<T> eval(Iterable<NodeKey> nodeKeys) throws InterruptedException;
+  <T extends SkyValue> UpdateResult<T> eval(Iterable<SkyKey> skyKeys) throws InterruptedException;
 }

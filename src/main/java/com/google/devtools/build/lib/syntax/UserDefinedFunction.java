@@ -61,7 +61,7 @@ public class UserDefinedFunction extends AbstractFunction {
     }
     // Creating an environment from this functions arguments and the global environment
     SkylarkEnvironment functionEnv = SkylarkEnvironment.createEnvironmentForFunctionCalling(
-        (SkylarkEnvironment) env, definitionEnv, this);
+        env, definitionEnv, this);
     int i = 0;
     // TODO(bazel-team): support kwargs
 

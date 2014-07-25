@@ -54,7 +54,7 @@ public interface ActionOwner {
    * constant. If the configuration is null, this should return "null".
    *
    * <p>These requirements exist so that {@link ActionOwner} instances are consistent with
-   * {@code BuildView.ActionOwnerIdentity(ConfiguredTargetNode)}.
+   * {@code BuildView.ActionOwnerIdentity(ConfiguredTargetValue)}.
    */
   String getConfigurationShortCacheKey();
 

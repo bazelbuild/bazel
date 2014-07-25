@@ -21,6 +21,7 @@ import com.google.common.collect.Sets;
 import com.google.devtools.build.lib.events.Location;
 import com.google.devtools.build.lib.graph.Digraph;
 import com.google.devtools.build.lib.graph.Node;
+import com.google.devtools.build.lib.packages.AggregatingAttributeMapper;
 import com.google.devtools.build.lib.packages.Attribute;
 import com.google.devtools.build.lib.packages.Rule;
 import com.google.devtools.build.lib.packages.Target;
@@ -36,6 +37,7 @@ import java.util.Comparator;
 import java.util.HashMap;
 import java.util.HashSet;
 import java.util.LinkedHashSet;
+import java.util.LinkedList;
 import java.util.List;
 import java.util.Map;
 import java.util.Set;
@@ -338,22 +340,26 @@ public abstract class OutputFormatter {
   }
 
   /**
-   * Returns the value of the specified attribute in the specified rule. This
-   * is needed because the visibility attribute is replaced with an empty list
+   * Returns the possible values of the specified attribute in the specified rule. For
+   * non-configured attributes, this is a single value. For configurable attributes, this
+   * may be multiple values.
+   *
+   * <p>This is needed because the visibility attribute is replaced with an empty list
    * during package loading if it is public or private in order not to visit
    * the package called 'visibility'.
    *
-   * @return a pair, where the first value is the value of the attribute and the
-   *     second is an enum that tells where the value of the attribute comes
-   *     from (declared on the rule, declared as a package level default or a
+   * @return a pair, where the first value is the set of possible values and the
+   *     second is an enum that tells where the values come from (declared on the
+   *     rule, declared as a package level default or a
    *     global default)
    */
-  protected static Pair<Object, AttributeValueSource> getAttributeValue(Rule rule, Attribute attr) {
-    Object value;
+  protected static Pair<Iterable<Object>, AttributeValueSource> getAttributeValues(
+      Rule rule, Attribute attr) {
+    List<Object> values = new LinkedList<>(); // Not an ImmutableList: may host null values.
     AttributeValueSource source;
 
     if (attr.getName().equals("visibility")) {
-      value = rule.getVisibility().getDeclaredLabels();
+      values.add(rule.getVisibility().getDeclaredLabels());
       if (rule.isVisibilitySpecified()) {
         source = AttributeValueSource.RULE;
       } else if (rule.getPackage().isDefaultVisibilitySet()) {
@@ -362,11 +368,14 @@ public abstract class OutputFormatter {
         source = AttributeValueSource.DEFAULT;
       }
     } else {
-      value = rule.getAttr(attr);
+      for (Object o :
+          AggregatingAttributeMapper.of(rule).visitAttribute(attr.getName(), attr.getType())) {
+        values.add(o);
+      }
       source = rule.isAttributeValueExplicitlySpecified(attr)
           ? AttributeValueSource.RULE : AttributeValueSource.DEFAULT;
     }
 
-    return Pair.of(value, source);
+    return Pair.of((Iterable<Object>) values, source);
   }
 }

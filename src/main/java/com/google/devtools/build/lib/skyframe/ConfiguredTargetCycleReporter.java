@@ -19,10 +19,10 @@ import com.google.common.collect.Iterables;
 import com.google.devtools.build.lib.pkgcache.LoadedPackageProvider;
 import com.google.devtools.build.lib.syntax.Label;
 import com.google.devtools.build.skyframe.CycleInfo;
-import com.google.devtools.build.skyframe.NodeKey;
+import com.google.devtools.build.skyframe.SkyKey;
 
 /**
- * Reports cycles between {@link ConfiguredTargetNode}s. As with
+ * Reports cycles between {@link ConfiguredTargetValue}s. As with
  * {@link TransitiveTargetCycleReporter}, these indicate cycles between targets. But in the current
  * target-parsing, loading, analysis, and execution phase distinction, such cycles would have been
  * caught during the loading phase. While we don't expect any of these cycles to occur in practice,
@@ -30,26 +30,26 @@ import com.google.devtools.build.skyframe.NodeKey;
  */
 class ConfiguredTargetCycleReporter extends AbstractLabelCycleReporter {
 
-  private static final Predicate<NodeKey> IS_CONFIGURED_TARGET_NODE_KEY =
-      NodeTypes.hasNodeType(NodeTypes.CONFIGURED_TARGET);
+  private static final Predicate<SkyKey> IS_CONFIGURED_TARGET_SKY_KEY =
+      SkyFunctions.isSkyFunction(SkyFunctions.CONFIGURED_TARGET);
 
   ConfiguredTargetCycleReporter(LoadedPackageProvider loadedPackageProvider) {
     super(loadedPackageProvider);
   }
 
   @Override
-  protected boolean canReportCycle(NodeKey topLevelKey, CycleInfo cycleInfo) {
+  protected boolean canReportCycle(SkyKey topLevelKey, CycleInfo cycleInfo) {
     return Iterables.all(Iterables.concat(ImmutableList.of(topLevelKey),
-        cycleInfo.getPathToCycle(), cycleInfo.getCycle()), IS_CONFIGURED_TARGET_NODE_KEY);
+        cycleInfo.getPathToCycle(), cycleInfo.getCycle()), IS_CONFIGURED_TARGET_SKY_KEY);
   }
 
   @Override
-  public String prettyPrint(NodeKey key) {
-    return ((LabelAndConfiguration) key.getNodeName()).prettyPrint();
+  public String prettyPrint(SkyKey key) {
+    return ((LabelAndConfiguration) key.argument()).prettyPrint();
   }
 
   @Override
-  public Label getLabel(NodeKey key) {
-    return ((LabelAndConfiguration) key.getNodeName()).getLabel();
+  public Label getLabel(SkyKey key) {
+    return ((LabelAndConfiguration) key.argument()).getLabel();
   }
 }

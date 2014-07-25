@@ -18,9 +18,6 @@ import com.google.devtools.build.lib.packages.NoSuchTargetException;
 import com.google.devtools.build.lib.packages.Package;
 import com.google.devtools.build.lib.packages.Target;
 import com.google.devtools.build.lib.syntax.Label;
-import com.google.devtools.build.lib.syntax.Label.SyntaxException;
-
-import java.io.IOException;
 
 /**
  * Read-only API for retrieving packages, i.e., calling this API should not result in packages being
@@ -49,10 +46,4 @@ public interface LoadedPackageProvider {
    * #getLoadedTarget} would return the same target instance.
    */
   boolean isTargetCurrent(Target target);
-
-  /**
-   * Adds dependency to fileName if needed. Used only in skyframe, for creating correct dependencies
-   * for ConfigurationCollectionNode.
-   */
-  void addDependency(Package pkg, String fileName) throws SyntaxException, IOException;
 }

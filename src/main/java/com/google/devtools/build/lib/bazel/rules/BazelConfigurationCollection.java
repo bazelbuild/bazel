@@ -21,12 +21,12 @@ import com.google.common.collect.ImmutableSet;
 import com.google.common.collect.Table;
 import com.google.devtools.build.lib.blaze.BlazeDirectories;
 import com.google.devtools.build.lib.events.ErrorEventListener;
+import com.google.devtools.build.lib.packages.AggregatingAttributeMapper;
 import com.google.devtools.build.lib.packages.Attribute.ConfigurationTransition;
 import com.google.devtools.build.lib.packages.NoSuchThingException;
 import com.google.devtools.build.lib.packages.Rule;
 import com.google.devtools.build.lib.packages.Target;
 import com.google.devtools.build.lib.packages.Type;
-import com.google.devtools.build.lib.pkgcache.LoadedPackageProvider;
 import com.google.devtools.build.lib.syntax.Label;
 import com.google.devtools.build.lib.view.ConfigurationCollectionFactory;
 import com.google.devtools.build.lib.view.config.BuildConfiguration;
@@ -35,31 +35,34 @@ import com.google.devtools.build.lib.view.config.BuildConfigurationCollection.Co
 import com.google.devtools.build.lib.view.config.BuildConfigurationCollection.Transitions;
 import com.google.devtools.build.lib.view.config.BuildConfigurationKey;
 import com.google.devtools.build.lib.view.config.BuildOptions;
-import com.google.devtools.build.lib.view.config.ConfigurationEnvironment;
 import com.google.devtools.build.lib.view.config.ConfigurationFactory;
 import com.google.devtools.build.lib.view.config.InvalidConfigurationException;
 import com.google.devtools.build.lib.view.config.MachineSpecification;
+import com.google.devtools.build.lib.view.config.PackageProviderForConfigurations;
 
 import java.util.Collection;
 import java.util.HashMap;
 import java.util.HashSet;
+import java.util.List;
 import java.util.Map;
 import java.util.Set;
+
+import javax.annotation.Nullable;
 
 /**
  * Configuration collection used by the rules Bazel knows.
  */
 public class BazelConfigurationCollection implements ConfigurationCollectionFactory {
   @Override
+  @Nullable
   public BuildConfiguration createConfigurations(
       ConfigurationFactory configurationFactory,
       MachineSpecification hostMachineSpecification,
-      LoadedPackageProvider loadedPackageProvider,
+      PackageProviderForConfigurations loadedPackageProvider,
       BuildOptions buildOptions,
       BlazeDirectories directories,
       Map<String, String> clientEnv,
       ErrorEventListener errorEventListener,
-      ConfigurationEnvironment env,
       boolean performSanityCheck) throws InvalidConfigurationException {
 
     // We cache all the related configurations for this target configuration in a cache that is
@@ -71,7 +74,7 @@ public class BazelConfigurationCollection implements ConfigurationCollectionFact
 
     // Target configuration
     BuildConfiguration targetConfiguration = configurationFactory.getConfiguration(
-        env, directories, buildOptions, clientEnv, false, cache);
+        loadedPackageProvider, directories, buildOptions, clientEnv, false, cache);
 
     BuildConfiguration dataConfiguration = targetConfiguration;
 
@@ -79,8 +82,8 @@ public class BazelConfigurationCollection implements ConfigurationCollectionFact
     // Note that this passes in the dataConfiguration, not the target
     // configuration. This is intentional.
     BuildConfiguration hostConfiguration = getHostConfigurationFromRequest(configurationFactory,
-        env, directories, clientEnv, dataConfiguration, buildOptions, errorEventListener,
-        hostMachineSpecification);
+        loadedPackageProvider, directories, clientEnv, dataConfiguration, buildOptions,
+        errorEventListener, hostMachineSpecification);
 
     // Sanity check that the implicit labels are all in the transitive closure of explicit ones.
     // This also registers all targets in the cache entry and validates them on subsequent requests.
@@ -90,7 +93,7 @@ public class BazelConfigurationCollection implements ConfigurationCollectionFact
       // We allow the package provider to be null for testing.
       for (Label label : buildOptions.getAllLabels().values()) {
         try {
-          collectTransitiveClosure(env, reachableLabels, label);
+          collectTransitiveClosure(loadedPackageProvider, reachableLabels, label);
         } catch (NoSuchThingException e) {
           // We've loaded the transitive closure of the labels-to-load above, and made sure that
           // there are no errors loading it, so this can't happen.
@@ -124,11 +127,12 @@ public class BazelConfigurationCollection implements ConfigurationCollectionFact
    *   this build.
    * @param buildOptions the configuration options used for the target configuration
    */
+  @Nullable
   private BuildConfiguration getHostConfigurationFromRequest(
-      ConfigurationFactory configurationFactory, ConfigurationEnvironment env,
-      BlazeDirectories directories, Map<String, String> clientEnv, BuildConfiguration requestConfig,
-      BuildOptions buildOptions, ErrorEventListener errorEventListener,
-      MachineSpecification hostMachineSpecification)
+      ConfigurationFactory configurationFactory,
+      PackageProviderForConfigurations loadedPackageProvider, BlazeDirectories directories,
+      Map<String, String> clientEnv, BuildConfiguration requestConfig, BuildOptions buildOptions,
+      ErrorEventListener errorEventListener, MachineSpecification hostMachineSpecification)
       throws InvalidConfigurationException {
     BuildConfiguration.Options commonOptions = buildOptions.get(BuildConfiguration.Options.class);
     if (!commonOptions.useDistinctHostConfiguration) {
@@ -139,8 +143,11 @@ public class BazelConfigurationCollection implements ConfigurationCollectionFact
       }
       return requestConfig;
     } else {
-      BuildConfiguration hostConfig = configurationFactory.getHostConfiguration(env, directories,
-          clientEnv, buildOptions, /*fallback=*/false);
+      BuildConfiguration hostConfig = configurationFactory.getHostConfiguration(
+          loadedPackageProvider, directories, clientEnv, buildOptions, /*fallback=*/false);
+      if (hostConfig == null) {
+        return null;
+      }
       // Check that the user's inputs are sensible. If they are not, retry with a default value.
       if (!hostConfig.canRunOn(hostMachineSpecification)) {
         errorEventListener.warn(null, "The host configuration appears to contain settings that "
@@ -149,8 +156,8 @@ public class BazelConfigurationCollection implements ConfigurationCollectionFact
         // configuration, so for now we fall back to a known configuration. We need to add a full
         // set of options to control the host configuration and then remove the fallback and fail
         // with a meaningful error message.
-        hostConfig = configurationFactory.getHostConfiguration(env, directories, clientEnv,
-            buildOptions, /*fallback=*/true);
+        hostConfig = configurationFactory.getHostConfiguration(loadedPackageProvider, directories,
+            clientEnv, buildOptions, /*fallback=*/true);
       }
       return hostConfig;
     }
@@ -221,17 +228,24 @@ public class BazelConfigurationCollection implements ConfigurationCollectionFact
     }
   }
 
-  private void collectTransitiveClosure(ConfigurationEnvironment env,
+  private void collectTransitiveClosure(PackageProviderForConfigurations loadedPackageProvider,
       Set<Label> reachableLabels, Label from) throws NoSuchThingException {
     if (!reachableLabels.add(from)) {
       return;
     }
-    Target fromTarget = env.getTarget(from);
+    Target fromTarget = loadedPackageProvider.getLoadedTarget(from);
     if (fromTarget instanceof Rule) {
       Rule rule = (Rule) fromTarget;
       if (rule.getRuleClassObject().hasAttr("srcs", Type.LABEL_LIST)) {
-        for (Label label : rule.get("srcs", Type.LABEL_LIST)) {
-          collectTransitiveClosure(env, reachableLabels, label);
+        // TODO(bazel-team): refine this. This visits "srcs" reachable under *any* configuration,
+        // not necessarily the configuration actually applied to the rule. We should correlate the
+        // two. However, doing so requires faithfully reflecting the configuration transitions that
+        // might happen as we traverse the dependency chain.
+        for (List<Label> labelsForConfiguration :
+            AggregatingAttributeMapper.of(rule).visitAttribute("srcs", Type.LABEL_LIST)) {
+          for (Label label : labelsForConfiguration) {
+            collectTransitiveClosure(loadedPackageProvider, reachableLabels, label);
+          }
         }
       }
     }

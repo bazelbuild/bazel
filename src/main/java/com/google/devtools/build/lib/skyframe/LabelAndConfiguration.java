@@ -17,7 +17,7 @@ import com.google.common.base.Preconditions;
 import com.google.devtools.build.lib.syntax.Label;
 import com.google.devtools.build.lib.view.ConfiguredTarget;
 import com.google.devtools.build.lib.view.config.BuildConfiguration;
-import com.google.devtools.build.skyframe.NodeType;
+import com.google.devtools.build.skyframe.SkyFunctionName;
 
 import java.util.Objects;
 
@@ -26,7 +26,7 @@ import javax.annotation.Nullable;
 /**
  * A (Label, Configuration) pair.
  */
-public final class LabelAndConfiguration extends ActionLookupNode.ActionLookupKey {
+public final class LabelAndConfiguration extends ActionLookupValue.ActionLookupKey {
   private final Label label;
   @Nullable private final BuildConfiguration configuration;
 
@@ -45,8 +45,8 @@ public final class LabelAndConfiguration extends ActionLookupNode.ActionLookupKe
   }
 
   @Override
-  NodeType getType() {
-    return NodeTypes.CONFIGURED_TARGET;
+  SkyFunctionName getType() {
+    return SkyFunctions.CONFIGURED_TARGET;
   }
 
   @Nullable

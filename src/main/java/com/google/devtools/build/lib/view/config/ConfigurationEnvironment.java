@@ -23,6 +23,7 @@ import com.google.devtools.build.lib.pkgcache.PackageProvider;
 import com.google.devtools.build.lib.pkgcache.TargetProvider;
 import com.google.devtools.build.lib.syntax.Label;
 import com.google.devtools.build.lib.vfs.Path;
+import com.google.devtools.build.lib.view.config.BuildConfiguration.Fragment;
 
 /**
  * An environment to support creating BuildConfiguration instances in a hermetic fashion; all
@@ -41,6 +42,10 @@ public interface ConfigurationEnvironment {
 
   /** Returns a path for the given file within the given package. */
   Path getPath(Package pkg, String fileName);
+  
+  /** Returns fragment based on fragment class and build options. */
+  public <T extends Fragment> T getFragment(BuildOptions buildOptions, Class<T> fragmentType) 
+      throws InvalidConfigurationException;
 
   /**
    * An implementation backed by a {@link PackageProvider} instance.
@@ -61,6 +66,11 @@ public interface ConfigurationEnvironment {
     @Override
     public Path getPath(Package pkg, String fileName) {
       return pkg.getPackageDirectory().getRelative(fileName);
+    }
+
+    @Override
+    public <T extends Fragment> T getFragment(BuildOptions buildOptions, Class<T> fragmentType) {
+      throw new UnsupportedOperationException();
     }
   }
 }

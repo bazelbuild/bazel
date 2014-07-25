@@ -21,7 +21,7 @@ import java.util.Set;
 /**
  * Base class for expressions in the Blaze query language, revision 2.
  *
- * <p>All queries return a subgraph of the google3 dependency graph, represented
+ * <p>All queries return a subgraph of the dependency graph, represented
  * as a set of target nodes.
  *
  * <p>All queries must ensure that sufficient graph edges are created in the

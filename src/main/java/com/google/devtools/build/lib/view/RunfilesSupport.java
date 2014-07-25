@@ -134,6 +134,13 @@ public class RunfilesSupport {
   }
 
   /**
+   * Returns the executable owning this RunfilesSupport. Only use from Skylark.
+   */
+  public Artifact getExecutable() {
+    return owningExecutable;
+  }
+
+  /**
    * Returns the exec path of the directory where the runfiles contained in this
    * RunfilesSupport are generated. When the owning rule has no executable,
    * returns null.
@@ -359,13 +366,5 @@ public class RunfilesSupport {
   public static RunfilesSupport withExecutable(RuleContext ruleContext, Runfiles runfiles,
       Artifact executable, boolean createSymlinks) {
     return new RunfilesSupport(ruleContext, executable, runfiles, createSymlinks);
-  }
-  /**
-   * Creates and returns a RunfilesSupport object for the given rule, executable, and runfiles.
-   */
-  public static RunfilesSupport withExecutable(RuleContext ruleContext, Artifact executable,
-      Runfiles runfiles) {
-    return new RunfilesSupport(
-        ruleContext, executable, runfiles, ruleContext.shouldCreateRunfilesSymlinks());
   }
 }

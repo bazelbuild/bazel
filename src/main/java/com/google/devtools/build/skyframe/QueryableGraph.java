@@ -18,7 +18,7 @@ package com.google.devtools.build.skyframe;
  */
 public interface QueryableGraph {
   /**
-   * Returns the node with the given name, or {@code null} if the node does not exist.
+   * Returns the value with the given name, or {@code null} if the value does not exist.
    */
-  NodeEntry get(NodeKey key);
+  ValueEntry get(SkyKey key);
 }

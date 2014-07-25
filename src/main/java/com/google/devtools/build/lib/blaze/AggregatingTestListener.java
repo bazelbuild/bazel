@@ -26,15 +26,19 @@ import com.google.common.collect.Sets;
 import com.google.common.eventbus.AllowConcurrentEvents;
 import com.google.common.eventbus.EventBus;
 import com.google.common.eventbus.Subscribe;
+import com.google.devtools.build.lib.actions.ActionNotExecutedEvent;
 import com.google.devtools.build.lib.actions.ActionOwner;
 import com.google.devtools.build.lib.actions.Artifact;
 import com.google.devtools.build.lib.buildtool.buildevent.BuildCompleteEvent;
+import com.google.devtools.build.lib.buildtool.buildevent.BuildInterruptedEvent;
 import com.google.devtools.build.lib.buildtool.buildevent.TestFilteringCompleteEvent;
 import com.google.devtools.build.lib.concurrent.ThreadSafety;
 import com.google.devtools.build.lib.events.ExceptionListener;
 import com.google.devtools.build.lib.skyframe.LabelAndConfiguration;
+import com.google.devtools.build.lib.syntax.Label;
 import com.google.devtools.build.lib.view.AnalysisFailureEvent;
 import com.google.devtools.build.lib.view.ConfiguredTarget;
+import com.google.devtools.build.lib.view.config.BuildConfiguration;
 import com.google.devtools.build.lib.view.test.TestProvider;
 import com.google.devtools.build.lib.view.test.TestResult;
 import com.google.devtools.build.lib.view.test.TestStatus.BlazeTestStatus;
@@ -55,6 +59,9 @@ public class AggregatingTestListener {
   private final TestResultAnalyzer analyzer;
   private final EventBus eventBus;
   private final EventHandlerPreconditions preconditionHelper;
+  private volatile boolean blazeHalted = false;
+
+  private final Multimap<Label, BuildConfiguration> labelToConfigurations;
 
   // summaryLock guards concurrent access to these two collections, which should be kept
   // synchronized with each other.
@@ -69,6 +76,7 @@ public class AggregatingTestListener {
     this.eventBus = eventBus;
     this.preconditionHelper = new EventHandlerPreconditions(listener);
 
+    this.labelToConfigurations = HashMultimap.create();
     this.summaries = Maps.newHashMap();
     this.remainingRuns = HashMultimap.create();
   }
@@ -100,6 +108,7 @@ public class AggregatingTestListener {
             .setTarget(target)
             .setStatus(BlazeTestStatus.NO_STATUS);
         preconditionHelper.checkState(summaries.put(asKey(target), summary) == null);
+        labelToConfigurations.put(target.getLabel(), target.getConfiguration());
       }
     }
   }
@@ -156,7 +165,7 @@ public class AggregatingTestListener {
         // Not a test target; nothing to do.
         return;
       }
-      finalSummary = analyzer.markUnbuilt(summary).build();
+      finalSummary = analyzer.markUnbuilt(summary, blazeHalted).build();
 
       // These are never going to run; removing them marks the target complete.
       remainingRuns.removeAll(label);
@@ -179,12 +188,40 @@ public class AggregatingTestListener {
 
   @Subscribe
   public void buildCompleteEvent(BuildCompleteEvent event) {
+    if (event.getResult().wasCatastrophe()) {
+      blazeHalted = true;
+    }
     buildComplete(event.getResult().getActualTargets(), event.getResult().getSuccessfulTargets());
   }
 
   @Subscribe
   public void analysisFailure(AnalysisFailureEvent event) {
     targetFailure(event.getFailedTarget());
+  }
+
+  @Subscribe
+  @AllowConcurrentEvents
+  public void buildInterrupted(BuildInterruptedEvent event) {
+    blazeHalted = true;
+  }
+
+  /**
+   * Called when a build action is not executed (e.g. because a dependency failed to build). We want
+   * to catch such events in order to determine when a test target has failed to build.
+   */
+  @Subscribe
+  @AllowConcurrentEvents
+  public void failureReason(ActionNotExecutedEvent event) {
+    Label notExecuted = event.getNotExecuted().getOwner().getLabel();
+    // TODO(bazel-devel): This is completely wrong when a top level target is built with multiple
+    // configurations but at least this is currently a corner case.
+    for (BuildConfiguration configuration : labelToConfigurations.get(notExecuted)) {
+      // There's a very minor race condition here, e.g. if blaze's main thread gets interrupted
+      // while the current thread is processing this event. The result is that we'll treat this
+      // legitimate failure the same as we would if the action didn't execute because blaze halted
+      // first. This isn't that big of a deal as we're much more concerned with the reverse case.
+      targetFailure(new LabelAndConfiguration(notExecuted, configuration));
+    }
   }
 
   /**

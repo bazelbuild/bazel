@@ -22,6 +22,7 @@ import com.google.common.collect.Iterables;
 import com.google.common.collect.Sets;
 import com.google.common.eventbus.EventBus;
 import com.google.common.util.concurrent.ThreadFactoryBuilder;
+import com.google.devtools.build.lib.actions.Action.MiddlemanType;
 import com.google.devtools.build.lib.concurrent.ThreadSafety.ConditionallyThreadCompatible;
 import com.google.devtools.build.lib.concurrent.ThreadSafety.ConditionallyThreadSafe;
 import com.google.devtools.build.lib.concurrent.ThreadSafety.ThreadCompatible;
@@ -928,7 +929,8 @@ public class ParallelBuilder extends AbstractBuilder implements ResourceManager.
         if (notExecuted == null) {
           continue;
         }
-        if (actionsAlreadySeen.add(notExecuted)) {
+        if (actionsAlreadySeen.add(notExecuted)
+            && notExecuted.getActionType() != MiddlemanType.SCHEDULING_MIDDLEMAN) {
           actionExecutor.postActionNotExecutedEvents(notExecuted, rootCauses);
           walkDependentActionsAndSignalNotExecuted(
               rootCauses, notExecuted, actionsAlreadySeen);
