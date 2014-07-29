@@ -27,8 +27,8 @@ import com.google.devtools.build.lib.pkgcache.ParseFailureListener;
 import com.google.devtools.build.lib.pkgcache.TargetPatternEvaluator;
 import com.google.devtools.build.lib.vfs.PathFragment;
 import com.google.devtools.build.skyframe.ErrorInfo;
+import com.google.devtools.build.skyframe.EvaluationResult;
 import com.google.devtools.build.skyframe.SkyKey;
-import com.google.devtools.build.skyframe.UpdateResult;
 
 import java.util.List;
 
@@ -88,7 +88,7 @@ final class SkyframeTargetPatternEvaluator implements TargetPatternEvaluator {
       List<String> targetPatterns, FilteringPolicy policy, boolean keepGoing)
       throws InterruptedException, TargetParsingException {
     Iterable<SkyKey> patternSkyKeys = TargetPatternValue.keys(targetPatterns, policy, offset);
-    UpdateResult<TargetPatternValue> result =
+    EvaluationResult<TargetPatternValue> result =
         skyframeExecutor.targetPatterns(patternSkyKeys, keepGoing, listener);
 
     String errorMessage = null;

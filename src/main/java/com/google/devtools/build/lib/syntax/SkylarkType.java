@@ -20,13 +20,18 @@ import java.util.List;
 import java.util.Map;
 import java.util.Set;
 
+import javax.annotation.Nullable;
+
 /**
  * A class representing types available in Skylark.
  */
 public class SkylarkType {
 
+  private static final class Global {}
+
   public static final SkylarkType UNKNOWN = new SkylarkType(Object.class);
   public static final SkylarkType NONE = new SkylarkType(Environment.NoneType.class);
+  public static final SkylarkType GLOBAL = new SkylarkType(Global.class);
 
   public static final SkylarkType STRING = new SkylarkType(String.class);
   public static final SkylarkType INT = new SkylarkType(Integer.class);
@@ -42,6 +47,15 @@ public class SkylarkType {
   }
 
   public static SkylarkType of(Class<?> type) {
+    if (type.equals(Object.class)) {
+      return SkylarkType.UNKNOWN;
+    } else if (type.equals(String.class)) {
+      return SkylarkType.STRING;
+    } else if (type.equals(Integer.class)) {
+      return SkylarkType.INT;
+    } else if (type.equals(Boolean.class)) {
+      return SkylarkType.BOOL;
+    }
     return new SkylarkType(type);
   }
 
@@ -55,7 +69,7 @@ public class SkylarkType {
     this.generic1 = null;
   }
 
-  Class<?> getType() {
+  public Class<?> getType() {
     return type;
   }
 
@@ -132,7 +146,70 @@ public class SkylarkType {
 
   @Override
   public String toString() {
-    return EvalUtils.getDataTypeNameFromClass(type);
+    return this == UNKNOWN ? "Unknown" : EvalUtils.getDataTypeNameFromClass(type);
   }
-  // TODO(bazel-team): implement a special composite type for functions
+
+  // hashCode() and equals() only uses the type field
+
+  @Override
+  public boolean equals(Object other) {
+    if (this == other) {
+      return true;
+    }
+    if (!(other instanceof SkylarkType)) {
+      return false;
+    }
+    SkylarkType o = (SkylarkType) other;
+    return this.type.equals(o.type);
+  }
+
+  @Override
+  public int hashCode() {
+    return type.hashCode();
+  }
+
+  /**
+   * A class representing the type of a Skylark function.
+   */
+  public static final class SkylarkFunctionType extends SkylarkType {
+
+    private final String name;
+    @Nullable private SkylarkType returnType;
+    @Nullable private Location returnTypeLoc;
+
+    public static SkylarkFunctionType of(String name) {
+      return new SkylarkFunctionType(name, null);
+    }
+
+    public static SkylarkFunctionType of(String name, SkylarkType returnType) {
+      return new SkylarkFunctionType(name, returnType);
+    }
+
+    private SkylarkFunctionType(String name, SkylarkType returnType) {
+      super(Function.class);
+      this.name = name;
+      this.returnType = returnType;
+    }
+
+    public SkylarkType getReturnType() {
+      return returnType;
+    }
+
+    /**
+     * Sets the return type of the function type if it's compatible with the existing return type.
+     * Note that setting NONE only has an effect if the return type hasn't been set previously.
+     */
+    public void setReturnType(SkylarkType newReturnType, Location newLoc) throws EvalException {
+      if (returnType == null) {
+        returnType = newReturnType;
+        returnTypeLoc = newLoc;
+      } else if (newReturnType != SkylarkType.NONE) {
+        returnType =
+            returnType.infer(newReturnType, "return type of " + name, newLoc, returnTypeLoc);
+        if (returnType == newReturnType) {
+          returnTypeLoc = newLoc;
+        }
+      }
+    }
+  }
 }

@@ -33,8 +33,8 @@ import com.google.devtools.build.lib.util.io.TimestampGranularityMonitor;
 import com.google.devtools.build.lib.vfs.BatchStat;
 import com.google.devtools.build.lib.vfs.FileStatusWithDigest;
 import com.google.devtools.build.lib.vfs.RootedPath;
-import com.google.devtools.build.skyframe.AutoUpdatingGraph;
 import com.google.devtools.build.skyframe.Differencer;
+import com.google.devtools.build.skyframe.MemoizingEvaluator;
 import com.google.devtools.build.skyframe.SkyFunctionName;
 import com.google.devtools.build.skyframe.SkyKey;
 import com.google.devtools.build.skyframe.SkyValue;
@@ -71,26 +71,26 @@ class FilesystemValueChecker {
       SkyFunctionName.functionIs(SkyFunctions.ACTION_EXECUTION);
 
   private final TimestampGranularityMonitor tsgm;
-  private final Supplier<Map<SkyKey, SkyValue>> graphValuesSupplier;
+  private final Supplier<Map<SkyKey, SkyValue>> valuesSupplier;
   private AtomicInteger modifiedOutputFilesCounter = new AtomicInteger(0);
 
-  FilesystemValueChecker(final AutoUpdatingGraph graph, TimestampGranularityMonitor tsgm) {
+  FilesystemValueChecker(final MemoizingEvaluator evaluator, TimestampGranularityMonitor tsgm) {
     this.tsgm = tsgm;
 
     // Construct the full map view of the entire graph at most once ("memoized"), lazily. If
     // getDirtyFilesystemValues(Iterable<SkyKey>) is called on an empty Iterable, we avoid having
     // to create the Map of value keys to values. This is useful in the case where the graph
     // getValues() method could be slow.
-    this.graphValuesSupplier = Suppliers.memoize(new Supplier<Map<SkyKey, SkyValue>>() {
+    this.valuesSupplier = Suppliers.memoize(new Supplier<Map<SkyKey, SkyValue>>() {
       @Override
       public Map<SkyKey, SkyValue> get() {
-        return graph.getValues();
+        return evaluator.getValues();
       }
     });
   }
 
   Iterable<SkyKey> getFilesystemSkyKeys() {
-    return Iterables.filter(graphValuesSupplier.get().keySet(),
+    return Iterables.filter(valuesSupplier.get().keySet(),
         FILE_STATE_AND_DIRECTORY_LISTING_STATE_FILTER);
   }
 
@@ -131,12 +131,12 @@ class FilesystemValueChecker {
     LOG.info("Accumulating dirty actions");
     final int numOutputJobs = Runtime.getRuntime().availableProcessors() * 4;
     final Set<SkyKey> actionSkyKeys =
-        Sets.filter(graphValuesSupplier.get().keySet(), ACTION_FILTER);
+        Sets.filter(valuesSupplier.get().keySet(), ACTION_FILTER);
     final Sharder<Pair<SkyKey, ActionExecutionValue>> outputShards =
         new Sharder<>(numOutputJobs, actionSkyKeys.size());
 
     for (SkyKey key : actionSkyKeys) {
-      outputShards.add(Pair.of(key, (ActionExecutionValue) graphValuesSupplier.get().get(key)));
+      outputShards.add(Pair.of(key, (ActionExecutionValue) valuesSupplier.get().get(key)));
     }
     LOG.info("Sharded action values for batching");
 
@@ -277,7 +277,7 @@ class FilesystemValueChecker {
         new ThrowableRecordingRunnableWrapper("FilesystemValueChecker#getDirtyValues");
     for (final SkyKey key : values) {
       Preconditions.checkState(keyFilter.apply(key), key);
-      final SkyValue value = graphValuesSupplier.get().get(key);
+      final SkyValue value = valuesSupplier.get().get(key);
       executor.execute(wrapper.wrap(new Runnable() {
         @Override
         public void run() {

@@ -57,7 +57,7 @@ public class RecordingDifferencer implements Differencer {
   /**
    * Invalidates the cached values of any values in error.
    *
-   * <p>If a future call to {@link AutoUpdatingGraph#update} requests a value that transitively
+   * <p>If a future call to {@link MemoizingEvaluator#evaluate} requests a value that transitively
    * depends on any value that was in an error state (or is one of these), they will be re-computed.
    */
   public void invalidateErrors() {

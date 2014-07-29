@@ -59,7 +59,6 @@ esac
 PROTO_FILES=(
 src/main/protobuf/build.proto
 src/main/protobuf/extra_actions_base.proto
-src/main/protobuf/testing_api.proto
 src/main/protobuf/test_status.proto
 )
 

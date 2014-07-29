@@ -18,15 +18,12 @@ import com.google.common.annotations.VisibleForTesting;
 import com.google.common.base.Preconditions;
 import com.google.common.cache.Cache;
 import com.google.common.cache.CacheBuilder;
-import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.ImmutableSortedMap;
 import com.google.devtools.build.lib.blaze.BlazeDirectories;
 import com.google.devtools.build.lib.concurrent.ThreadSafety.ThreadCompatible;
 import com.google.devtools.build.lib.events.ErrorEventListener;
 import com.google.devtools.build.lib.events.StoredErrorEventListener;
-import com.google.devtools.build.lib.graph.Digraph;
-import com.google.devtools.build.lib.graph.Node;
 import com.google.devtools.build.lib.view.ConfigurationCollectionFactory;
 import com.google.devtools.build.lib.view.config.BuildConfiguration.Fragment;
 
@@ -61,7 +58,7 @@ public final class ConfigurationFactory {
    * configurations.
    */
   private final MachineSpecification hostMachineSpecification;
-  private final FragmentFactories fragmentFactories;
+  private final List<ConfigurationFragmentFactory> configurationFragmentFactories;
   private final ConfigurationCollectionFactory configurationCollectionFactory;
 
   // A cache of key to configuration instances.
@@ -77,16 +74,11 @@ public final class ConfigurationFactory {
     this.hostMachineSpecification = hostMachineSpecification;
     this.configurationCollectionFactory =
         Preconditions.checkNotNull(configurationCollectionFactory);
-    this.fragmentFactories = new FragmentFactories(fragmentFactories);
+    this.configurationFragmentFactories = fragmentFactories;
   }
 
   public MachineSpecification getHostMachineSpecification() {
     return hostMachineSpecification;
-  }
-
-  @VisibleForTesting
-  public List<ConfigurationFragmentFactory> getOrderedFragmentFactories() {
-    return fragmentFactories.creationOrder;
   }
 
   @VisibleForTesting
@@ -105,17 +97,6 @@ public final class ConfigurationFactory {
       Map<String, String> clientEnv) throws InvalidConfigurationException {    
     return getConfiguration(loadedPackageProvider, directories, buildOptions, clientEnv, false,
         CacheBuilder.newBuilder().<String, BuildConfiguration>build());
-  }
-
-  /**
-   * Constructs and returns a set of build configurations for the given options. The reporter is
-   * only used to warn about unsupported configurations.
-   */
-  @VisibleForTesting
-  public BuildConfiguration getConfiguration(ErrorEventListener errorEventListener,
-      PackageProviderForConfigurations loadedPackageProvider, BuildConfigurationKey key)
-      throws InvalidConfigurationException {
-    return createConfiguration(errorEventListener, loadedPackageProvider, key, null);
   }
 
   /** Create the build configurations with the given options. */
@@ -198,7 +179,8 @@ public final class ConfigurationFactory {
     
     Map<Class<? extends Fragment>, Fragment> fragments = new HashMap<>();
     // Create configuration fragments
-    for (Class<? extends Fragment> fragmentType : fragmentFactories.factoryMap.keySet()) {
+    for (ConfigurationFragmentFactory factory : configurationFragmentFactories) {
+      Class<? extends Fragment> fragmentType = factory.creates();
       Fragment fragment = loadedPackageProvider.getFragment(buildOptions, fragmentType);
       if (fragment != null && fragments.get(fragment) == null) {
         fragments.put(fragment.getClass(), fragment);
@@ -231,47 +213,6 @@ public final class ConfigurationFactory {
   }
 
   public List<ConfigurationFragmentFactory> getFactories() {
-    return fragmentFactories.creationOrder;
-  }
-  
-  /**
-   * This class creates a topological order for configuration fragments factories.
-   * Takes dependency information from {@code ConfigurationFragmentFactory.requires()}.
-   */
-  // TODO(bazel-team): remove this class. We don't need it's functionality anymore.
-  private class FragmentFactories {
-    /**
-     * The topological order of fragment factories; note that the ordering of factories in this list
-     * may be non-deterministic from JVM invocation to JVM invocation.
-     */
-    final List<ConfigurationFragmentFactory> creationOrder;
-    final Map<Class<? extends Fragment>, ConfigurationFragmentFactory> factoryMap;
-
-    FragmentFactories(List<ConfigurationFragmentFactory> factories) {
-      ImmutableMap.Builder<Class<? extends Fragment>, ConfigurationFragmentFactory> factoryBuilder =
-          ImmutableMap.builder();
-      // Adding fragments to a directed graph, with each edge representing a dependency.
-      // The topological ordering of the digraph nodes represent a correct build order.
-      Digraph<Class<? extends Fragment>> dependencyGraph = new Digraph<>();
-      for (ConfigurationFragmentFactory factory : factories) {
-        dependencyGraph.createNode(factory.creates());
-        factoryBuilder.put(factory.creates(), factory);
-        for (Class<? extends Fragment> dependency : factory.requires()) {
-          dependencyGraph.addEdge(dependency, factory.creates());
-        }
-      }
-      factoryMap = factoryBuilder.build();
-
-      ImmutableList.Builder<ConfigurationFragmentFactory> builder = ImmutableList.builder();
-      for (Node<Class<? extends Fragment>> fragment : dependencyGraph.getTopologicalOrder()) {
-        ConfigurationFragmentFactory factory = factoryMap.get(fragment.getLabel());
-        if (factory == null) {
-          throw new RuntimeException("There is no configuration loader for " + fragment.getLabel());
-        }
-        builder.add(factory);
-      }
-      creationOrder = builder.build();
-      return;
-    }
+    return configurationFragmentFactories;
   }
 }

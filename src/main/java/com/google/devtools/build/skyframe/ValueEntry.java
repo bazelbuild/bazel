@@ -18,9 +18,6 @@ import com.google.common.base.Objects;
 import com.google.common.base.Preconditions;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableSet;
-import com.google.common.collect.Iterables;
-import com.google.common.collect.Lists;
-import com.google.common.collect.Sets;
 import com.google.devtools.build.lib.util.GroupedList;
 import com.google.devtools.build.lib.util.GroupedList.GroupedListHelper;
 import com.google.devtools.build.lib.util.Pair;
@@ -108,6 +105,39 @@ class ValueEntry {
    */
   private List<SkyKey> reverseDepsToRemove = null;
 
+  private static final ReverseDepsUtil<ValueEntry> REVERSE_DEPS_UTIL =
+      new ReverseDepsUtil<ValueEntry>() {
+    @Override
+    void setReverseDepsObject(ValueEntry container, Object object) {
+      container.reverseDeps = object;
+    }
+
+    @Override
+    void setSingleReverseDep(ValueEntry container, boolean singleObject) {
+      container.reverseDepIsSingleObject = singleObject;
+    }
+
+    @Override
+    void setReverseDepsToRemove(ValueEntry container, List<SkyKey> object) {
+      container.reverseDepsToRemove = object;
+    }
+
+    @Override
+    Object getReverseDepsObject(ValueEntry container) {
+      return container.reverseDeps;
+    }
+
+    @Override
+    boolean isSingleReverseDep(ValueEntry container) {
+      return container.reverseDepIsSingleObject;
+    }
+
+    @Override
+    List<SkyKey> getReverseDepsToRemove(ValueEntry container) {
+      return container.reverseDepsToRemove;
+    }
+  };
+
   /**
    * The transient state of this entry, after it has been created but before it is done. It allows
    * us to keep the current state of the entry across invalidation and successive evaluations.
@@ -138,7 +168,7 @@ class ValueEntry {
    * i.e., after {@link #setValue} has been called.
    */
   synchronized ValueWithMetadata getValueWithMetadata() {
-    Preconditions.checkState(isDone(), "no value until done", this);
+    Preconditions.checkState(isDone(), "no value until done: %s", this);
     return ValueWithMetadata.wrapWithMetadata(value);
   }
 
@@ -183,8 +213,8 @@ class ValueEntry {
   private synchronized Set<SkyKey> setStateFinishedAndReturnReverseDeps() {
     // Get reverse deps that need to be signaled.
     ImmutableSet<SkyKey> reverseDepsToSignal = buildingState.getReverseDepsToSignal();
-    consolidateReverseDepsRemovals();
-    addReverseDeps(reverseDepsToSignal);
+    REVERSE_DEPS_UTIL.consolidateReverseDepsRemovals(this);
+    REVERSE_DEPS_UTIL.addReverseDeps(this, reverseDepsToSignal);
     this.directDeps = buildingState.getFinishedDirectDeps().compress();
 
     // Set state of entry to done.
@@ -258,14 +288,13 @@ class ValueEntry {
    */
   synchronized DependencyState addReverseDepAndCheckIfDone(SkyKey reverseDep) {
     if (reverseDep != null) {
-      consolidateReverseDepsRemovals();
-      maybeCheckReverseDepNotPresent(reverseDep);
+      REVERSE_DEPS_UTIL.consolidateReverseDepsRemovals(this);
+      REVERSE_DEPS_UTIL.maybeCheckReverseDepNotPresent(this, reverseDep);
       if (isDone()) {
-        addReverseDeps(ImmutableList.of(reverseDep));
+        REVERSE_DEPS_UTIL.addReverseDeps(this, ImmutableList.of(reverseDep));
       } else {
         // Parent should never register itself twice in the same build.
-        Preconditions.checkState(buildingState.addReverseDepToSignal(reverseDep),
-            "%s %s", reverseDep, this);
+        buildingState.addReverseDepToSignal(reverseDep);        
       }
     }
     if (isDone()) {
@@ -276,28 +305,10 @@ class ValueEntry {
   }
 
   /**
-   * We check that the reverse dependency is not already present. We only do that if reverseDeps
-   * is small, so that it does not impact performance.
-   */
-  private void maybeCheckReverseDepNotPresent(SkyKey reverseDep) {
-    if (reverseDepIsSingleObject) {
-      Preconditions.checkState(reverseDep.equals(reverseDep), "Reverse dep %s already present",
-          reverseDep);
-      return;
-    }
-    @SuppressWarnings("unchecked")
-    List<SkyKey> asList = (List<SkyKey>) reverseDeps;
-    if (asList.size() < 10) {
-      Preconditions.checkState(!asList.contains(reverseDep), "Reverse dep %s already present"
-          + " in %s", reverseDep, asList);
-    }
-  }
-
-  /**
    * Removes a reverse dependency.
    */
   synchronized void removeReverseDep(SkyKey reverseDep) {
-    removeReverseDepInternal(reverseDep);
+    REVERSE_DEPS_UTIL.removeReverseDep(this, reverseDep);
     if (!isDone()) {
       // This is currently unnecessary -- the only time we remove a reverse dep that was added this
       // build is during the clean following a build failure. In that case, this value that is not
@@ -306,122 +317,9 @@ class ValueEntry {
     }
   }
 
-  /**
-   * We use a memory-efficient trick to keep reverseDeps memory usage low. Edges in Blaze are
-   * dominant over the number of values.
-   *
-   * <p>Most of the values have zero or one reverse dep. That is why we use immutable versions of
-   * the lists for those cases. In case of the size being > 1 we switch to an ArrayList. That is
-   * because we also have a decent number of values for which the reverseDeps are huge (for
-   * example almost everything depends on BuildInfo value).
-   */
-  // TODO(bazel-team): One potential new candidate for saving memory would be to keep a direct
-  // reference for size = 1, instead of wrapping it in a list. But for now I want to keep it simple
-  @SuppressWarnings("unchecked")
-  private void addReverseDeps(Collection<SkyKey> newReverseDeps) {
-    if (newReverseDeps.isEmpty()) {
-      return;
-    }
-    int reverseDepsSize = reverseDepIsSingleObject ? 1 : ((List<SkyKey>) reverseDeps).size();
-    int newSize = reverseDepsSize + newReverseDeps.size();
-    if (newSize == 1) {
-      overwriteReverseDepsWithObject(Iterables.getOnlyElement(newReverseDeps));
-    } else if (reverseDepsSize == 0) {
-      overwriteReverseDepsList(Lists.newArrayList(newReverseDeps));
-    } else if (reverseDepsSize == 1) {
-      List<SkyKey> newList = Lists.newArrayListWithExpectedSize(newSize);
-      newList.add((SkyKey) reverseDeps);
-      newList.addAll(newReverseDeps);
-      overwriteReverseDepsList(newList);
-    } else {
-      ((List<SkyKey>) reverseDeps).addAll(newReverseDeps);
-    }
-  }
 
-  private void overwriteReverseDepsWithObject(SkyKey newObject) {
-    reverseDeps = newObject;
-    reverseDepIsSingleObject = true;
-  }
 
-  private void overwriteReverseDepsList(List<SkyKey> list) {
-    reverseDeps = list;
-    reverseDepIsSingleObject = false;
-  }
 
-  private void consolidateReverseDepsRemovals() {
-    if (reverseDepsToRemove == null) {
-      return;
-    }
-    // Should not happen, as we only create reverseDepsToRemove in case we have at least one
-    // reverse dep to remove.
-    Preconditions.checkState(reverseDepIsSingleObject || (!((List<?>) reverseDeps).isEmpty()),
-          "Could not remove %s elements from %s.\nReverse deps to remove: %s",
-          reverseDepsToRemove.size(),
-          reverseDeps, reverseDepsToRemove);
-
-    // It might be the immutable single list if we failed to remove the reverse dep.
-    if (reverseDepIsSingleObject) {
-      Preconditions.checkState(reverseDepsToRemove.size() == 1
-              && reverseDepsToRemove.contains(reverseDeps),
-          "Could not remove %s elements from %s.\nReverse deps to remove: %s",
-          reverseDepsToRemove.size(),
-          reverseDeps, reverseDepsToRemove
-      );
-      overwriteReverseDepsList(ImmutableList.<SkyKey>of());
-      return;
-    }
-
-    Set<SkyKey> toRemove = Sets.newHashSet(reverseDepsToRemove);
-    int expectedRemovals = toRemove.size();
-    Preconditions.checkState(expectedRemovals == reverseDepsToRemove.size(),
-        "A reverse dependency tried to remove itself twice: %s", reverseDepsToRemove);
-
-    @SuppressWarnings("unchecked")
-    List<SkyKey> reverseDepsAsList = (List<SkyKey>) reverseDeps;
-    List<SkyKey> newReverseDeps = Lists
-        .newArrayListWithExpectedSize(reverseDepsAsList.size() - expectedRemovals);
-
-    for (SkyKey reverseDep : reverseDepsAsList) {
-      if (!toRemove.contains(reverseDep)) {
-        newReverseDeps.add(reverseDep);
-      }
-    }
-    Preconditions.checkState(newReverseDeps.size() == reverseDepsAsList.size() - expectedRemovals,
-        "Could not remove some elements from %s.\nReverse deps to remove: %s", reverseDeps,
-        toRemove);
-
-    if (newReverseDeps.isEmpty()) {
-      overwriteReverseDepsList(ImmutableList.<SkyKey>of());
-    } else if (newReverseDeps.size() == 1) {
-      overwriteReverseDepsWithObject(newReverseDeps.get(0));
-    } else {
-      overwriteReverseDepsList(newReverseDeps);
-    }
-    reverseDepsToRemove = null;
-  }
-
-  /**
-   * See {@code addReverseDeps} method.
-   */
-  private void removeReverseDepInternal(SkyKey reverseDep) {
-    if (reverseDepIsSingleObject) {
-      // This removal is cheap so let's do it and not keep it in reverseDepsToRemove.
-      // contains should only return false in case of catastrophe.
-      if (reverseDeps.equals(reverseDep)) {
-        overwriteReverseDepsList(ImmutableList.<SkyKey>of());
-      }
-      return;
-    }
-    @SuppressWarnings("unchecked")
-    List<SkyKey> reverseDepsAsList = (List<SkyKey>) reverseDeps;
-    if (reverseDepsAsList.isEmpty()) {
-      return;
-    }
-    if (reverseDepsToRemove == null) {
-      reverseDepsToRemove = Lists.newArrayListWithExpectedSize(1);
-    }
-    reverseDepsToRemove.add(reverseDep);
-  }
 
   /**
    * Returns a copy of the set of reverse dependencies. Note that this introduces a potential
@@ -430,20 +328,8 @@ class ValueEntry {
   synchronized Iterable<SkyKey> getReverseDeps() {
     Preconditions.checkState(isDone() || buildingState.getReverseDepsToSignal().isEmpty(),
         "Reverse deps should only be queried before the build has begun "
-        + "or after the value is done %s", this);
-    consolidateReverseDepsRemovals();
-
-    // TODO(bazel-team): Unfortunately, we need to make a copy here right now to be on the safe side
-    // wrt. thread-safety. The parents of a value get modified when any of the parents is deleted,
-    // and we can't handle that right now.
-    if (reverseDepIsSingleObject) {
-      return ImmutableSet.of((SkyKey) reverseDeps);
-    } else {
-      ImmutableSet<SkyKey> set = ImmutableSet.copyOf((Iterable<SkyKey>) reverseDeps);
-      Preconditions.checkState(set.size() == ((List<?>) reverseDeps).size(),
-          "Duplicate reverse deps present in %s: %s", this, reverseDeps);
-      return set;
-    }
+            + "or after the value is done %s", this);
+    return REVERSE_DEPS_UTIL.getReverseDeps(this);
   }
 
   /**
@@ -537,7 +423,7 @@ class ValueEntry {
         "Direct deps must be the same as those found last build for value to be marked clean",
         this);
     Preconditions.checkState(isDirty(), this);
-    Preconditions.checkState(!buildingState.isChanged(), "shouldn't be changed:", this);
+    Preconditions.checkState(!buildingState.isChanged(), "shouldn't be changed: %s", this);
     return setStateFinishedAndReturnReverseDeps();
   }
 
@@ -622,22 +508,6 @@ class ValueEntry {
   }
 
   /**
-   * Add a direct dependency to this value. This may only be called while the value is being
-   * evaluated, that is, before {@link #setValue} and after {@link #markDirty}. Note that the
-   * temporary deps implicitly become the direct deps of the value (see {@link #getDirectDeps} when
-   * {@link #setValue} is called. It is an illegal operation to add the same dep twice in the same
-   * build, and this method will fail-fast if that is attempted.
-   *
-   * <p>The main purpose of this method is to keep state between evaluation attempts.
-   *
-   * @param dep child this value depends on
-   * @param continueGroup true if the set of deps requested after this one would be requested
-   * regardless of the value of this value, false, otherwise -- if the set of deps requested after
-   * this one depends on the value of this value. Used for change pruning: if continueGroup is
-   * false, this dep will be checked to see if it has changed before any later deps are checked.
-   */
-
-  /**
    * Returns true if the value is ready to be evaluated, i.e., it has been signaled exactly as many
    * times as it has temporary dependencies. This may only be called while the value is being
    * evaluated, that is, before {@link #setValue} and after {@link #markDirty}.
@@ -654,7 +524,7 @@ class ValueEntry {
         .add("value", value)
         .add("version", version)
         .add("directDeps", directDeps == null ? null : GroupedList.create(directDeps))
-        .add("reverseDeps", reverseDeps)
+        .add("reverseDeps", REVERSE_DEPS_UTIL.toString(this))
         .add("buildingState", buildingState).toString();
   }
 }

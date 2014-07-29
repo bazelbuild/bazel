@@ -14,7 +14,6 @@
 package com.google.devtools.build.lib.query2.engine;
 
 import com.google.common.collect.ImmutableList;
-import com.google.devtools.build.lib.graph.Node;
 import com.google.devtools.build.lib.query2.engine.QueryEnvironment.Argument;
 import com.google.devtools.build.lib.query2.engine.QueryEnvironment.ArgumentType;
 import com.google.devtools.build.lib.query2.engine.QueryEnvironment.QueryFunction;
@@ -54,19 +53,17 @@ class LabelsFunction implements QueryFunction {
   }
 
   @Override
-  public <T> Set<Node<T>> eval(
-      QueryEnvironment<T> env, QueryExpression expression, List<Argument> args)
+  public <T> Set<T> eval(QueryEnvironment<T> env, QueryExpression expression, List<Argument> args)
       throws QueryException {
-    Set<Node<T>> inputs = args.get(1).getExpression().eval(env);
-    Set<Node<T>> result = new LinkedHashSet<>();
+    Set<T> inputs = args.get(1).getExpression().eval(env);
+    Set<T> result = new LinkedHashSet<>();
     String attrName = args.get(0).getWord();
-    for (Node<T> input : inputs) {
-      if (env.getAccessor().isRule(input.getLabel())) {
-        List<T> targets = env.getAccessor().getLabelListAttr(
-            expression, input.getLabel(), attrName,
-            "in '" + attrName + "' of rule " + env.getAccessor().getLabel(input.getLabel()) + ": ");
+    for (T input : inputs) {
+      if (env.getAccessor().isRule(input)) {
+        List<T> targets = env.getAccessor().getLabelListAttr(expression, input, attrName,
+            "in '" + attrName + "' of rule " + env.getAccessor().getLabel(input) + ": ");
         for (T target : targets) {
-          result.add(env.getNode(target));
+          result.add(env.getOrCreate(target));
         }
       }
     }

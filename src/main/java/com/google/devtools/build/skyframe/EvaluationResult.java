@@ -32,7 +32,7 @@ import java.util.Map;
  *
  * @param <T> The type of the values that the caller has requested.
  */
-public class UpdateResult<T extends SkyValue> {
+public class EvaluationResult<T extends SkyValue> {
 
   private final boolean hasError;
 
@@ -42,7 +42,8 @@ public class UpdateResult<T extends SkyValue> {
   /**
    * Constructor for the "completed" case. Used only by {@link Builder}.
    */
-  private UpdateResult(Map<SkyKey, T> result, Map<SkyKey, ErrorInfo> errorMap, boolean hasError) {
+  private EvaluationResult(Map<SkyKey, T> result, Map<SkyKey, ErrorInfo> errorMap,
+      boolean hasError) {
     Preconditions.checkState(errorMap.isEmpty() || hasError,
         "result=%s, errorMap=%s", result, errorMap);
     this.resultMap = Preconditions.checkNotNull(result);
@@ -131,9 +132,9 @@ public class UpdateResult<T extends SkyValue> {
   }
 
   /**
-   * Builder for {@link UpdateResult}.
+   * Builder for {@link EvaluationResult}.
    *
-   * <p>This is intended only for use in alternative {@code AutoUpdatingGraph} implementations.
+   * <p>This is intended only for use in alternative {@code MemoizingEvaluator} implementations.
    */
   public static class Builder<T extends SkyValue> {
     private final Map<SkyKey, T> result = new HashMap<>();
@@ -151,8 +152,8 @@ public class UpdateResult<T extends SkyValue> {
       return this;
     }
 
-    public UpdateResult<T> build() {
-      return new UpdateResult<>(result, errors, hasError);
+    public EvaluationResult<T> build() {
+      return new EvaluationResult<>(result, errors, hasError);
     }
 
     public void setHasError(boolean hasError) {

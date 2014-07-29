@@ -14,7 +14,6 @@
 package com.google.devtools.build.lib.query2.engine;
 
 import com.google.common.base.Preconditions;
-import com.google.devtools.build.lib.graph.Node;
 
 import java.util.Collection;
 import java.util.Set;
@@ -42,10 +41,10 @@ final class TargetLiteral extends QueryExpression {
   }
 
   @Override
-  public <T> Set<Node<T>> eval(QueryEnvironment<T> env) throws QueryException {
+  public <T> Set<T> eval(QueryEnvironment<T> env) throws QueryException {
     if (isVariableReference()) {
       String varName = LetExpression.getNameFromReference(pattern);
-      Set<Node<T>> value = env.getVariable(varName);
+      Set<T> value = env.getVariable(varName);
       if (value == null) {
         throw new QueryException(this, "undefined variable '" + varName + "'");
       }

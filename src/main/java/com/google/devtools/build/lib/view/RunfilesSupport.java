@@ -84,9 +84,10 @@ public class RunfilesSupport {
    * @param executable the executable for whose runfiles this runfiles support is responsible, may
    *        be null
    * @param runfiles the runfiles
+   * @param appendingArgs to be added after the rule's args
    */
-  private RunfilesSupport(
-      RuleContext ruleContext, Artifact executable, Runfiles runfiles, boolean createSymlinks) {
+  private RunfilesSupport(RuleContext ruleContext, Artifact executable, Runfiles runfiles,
+      List<String> appendingArgs, boolean createSymlinks) {
     owningExecutable = executable;
     this.createSymlinks = createSymlinks;
 
@@ -117,6 +118,7 @@ public class RunfilesSupport {
     sourcesManifest = createSourceManifest(ruleContext, runfiles);
     args = ImmutableList.<String>builder()
         .addAll(ruleContext.getTokenizedStringListAttr("args"))
+        .addAll(appendingArgs)
         .build();
   }
 
@@ -355,8 +357,8 @@ public class RunfilesSupport {
    */
   public static RunfilesSupport withExecutable(RuleContext ruleContext, Runfiles runfiles,
       Artifact executable) {
-    return new RunfilesSupport(
-        ruleContext, executable, runfiles, ruleContext.shouldCreateRunfilesSymlinks());
+    return new RunfilesSupport(ruleContext, executable, runfiles, ImmutableList.<String>of(),
+        ruleContext.shouldCreateRunfilesSymlinks());
   }
 
   /**
@@ -365,6 +367,16 @@ public class RunfilesSupport {
    */
   public static RunfilesSupport withExecutable(RuleContext ruleContext, Runfiles runfiles,
       Artifact executable, boolean createSymlinks) {
-    return new RunfilesSupport(ruleContext, executable, runfiles, createSymlinks);
+    return new RunfilesSupport(ruleContext, executable, runfiles, ImmutableList.<String>of(),
+        createSymlinks);
+  }
+
+  /**
+   * Creates and returns a RunfilesSupport object for the given rule, executable, runfiles and args.
+   */
+  public static RunfilesSupport withExecutable(RuleContext ruleContext, Runfiles runfiles,
+      Artifact executable, List<String> appendingArgs) {
+    return new RunfilesSupport(ruleContext, executable, runfiles,
+        ImmutableList.copyOf(appendingArgs), ruleContext.shouldCreateRunfilesSymlinks());
   }
 }

@@ -14,15 +14,12 @@
 
 package com.google.devtools.build.lib.actions;
 
-import com.google.common.base.Preconditions;
 import com.google.devtools.build.lib.actions.cache.ArtifactMetadataCache;
 import com.google.devtools.build.lib.actions.cache.MetadataCache;
 import com.google.devtools.build.lib.vfs.ModifiedFileSet;
 
 import java.util.Objects;
 import java.util.Set;
-
-import javax.annotation.Nullable;
 
 /**
  * A persistent in-memory cache to store the last seen modification time of
@@ -40,7 +37,7 @@ import javax.annotation.Nullable;
  * (presumably because the build was interrupted before that stage). See documentation of
  * {@link DependentActionGraph#staleActions} for more details on this last case.
  */
-public class ArtifactMTimeCache implements ArtifactMetadataRetriever {
+public class ArtifactMTimeCache {
 
   /** Reference to the {@code ArtifactMetadataCache} to use for stat calls. */
   private ArtifactMetadataCache cache;
@@ -152,13 +149,6 @@ public class ArtifactMTimeCache implements ArtifactMetadataRetriever {
 
   public ArtifactMetadataCache getArtifactMetadataCache() {
     return cache;
-  }
-
-  @Override
-  @Nullable
-  public byte[] getDigest(Artifact artifact) {
-    Preconditions.checkState(cache != null);
-    return cache.getDigestMaybe(artifact);
   }
 
   public void beforeBuild() {

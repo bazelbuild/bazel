@@ -27,17 +27,7 @@ import javax.annotation.concurrent.ThreadSafe;
  * NOTE: Implementations must be thread safe.
  */
 @ThreadSafe
-public interface ActionInputFileCache {
-
-  /**
-   * Retrieve the digest at the given path.
-   *
-   * @param input the input.
-   * @return the digest.
-   * @throws IOException on failure.
-   */
-  ByteString getDigest(ActionInput input) throws IOException;
-
+public interface ActionInputFileCache extends ArtifactMetadataRetriever {
   /**
    * Retrieve the size of the file at the given path. Will usually return 0 on failure instead of
    * throwing an IOException. Returns 0 for files inaccessible to user, but available to the

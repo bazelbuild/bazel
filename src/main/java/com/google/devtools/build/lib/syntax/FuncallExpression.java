@@ -92,10 +92,6 @@ public final class FuncallExpression extends Expression {
     return methodMap;
   }
 
-  private static boolean isAnnotationPresentInParentClass(Class<?> classObj, Method method) {
-    return getAnnotationFromParentClass(classObj, method) != null;
-  }
-
   private static SkylarkCallable getAnnotationFromParentClass(Class<?> classObj, Method method) {
     boolean keepLooking = false;
     try {
@@ -408,20 +404,15 @@ public final class FuncallExpression extends Expression {
     // TODO(bazel-team): implement semantical check.
 
     if (obj != null) {
-      obj.validate(env);
-    } else {
       // TODO(bazel-team): validate function calls on objects too.
-      if (!env.hasVariable(func.getName())) {
+      return env.getReturnType(obj.validate(env), func.getName(), getLocation());
+    } else {
+      // TODO(bazel-team): Imported functions are not validated properly.
+      if (!env.hasGlobalSymbol(func.getName())) {
         throw new EvalException(getLocation(),
             String.format("function '%s' does not exist", func.getName()));
       }
-      SkylarkType funcType = env.getVartype(func.getName());
-      if (Function.class.isAssignableFrom(funcType.getType())) {
-        // TODO(bazel-team): Imported functions don't have return-s.
-        SkylarkType returnValue = env.getVartype(func.getName() + ".return");
-        return returnValue;
-      }
+      return env.getReturnType(func.getName(), getLocation());
     }
-    return SkylarkType.UNKNOWN;
   }
 }

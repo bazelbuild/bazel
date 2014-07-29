@@ -80,8 +80,8 @@ import com.google.devtools.build.lib.profiler.Profiler;
 import com.google.devtools.build.lib.profiler.ProfilerTask;
 import com.google.devtools.build.lib.skyframe.SkyframeExecutor;
 import com.google.devtools.build.lib.syntax.Label;
+import com.google.devtools.build.lib.util.AbruptExitException;
 import com.google.devtools.build.lib.util.BlazeClock;
-import com.google.devtools.build.lib.util.ExitCausingException;
 import com.google.devtools.build.lib.util.LoggingUtil;
 import com.google.devtools.build.lib.util.Pair;
 import com.google.devtools.build.lib.util.io.OutErr;
@@ -308,7 +308,7 @@ public class ExecutionTool {
   void executeBuild(LoadingResult loadingResult, AnalysisResult analysisResult,
       BuildResult buildResult, @Nullable SkyframeExecutor skyframeExecutor,
       BuildConfigurationCollection configurations)
-      throws BuildFailedException, InterruptedException, ExitCausingException, TestExecException,
+      throws BuildFailedException, InterruptedException, AbruptExitException, TestExecException,
       ViewCreationFailedException {
     Stopwatch timer = Stopwatch.createStarted();
     prepare(loadingResult, configurations);

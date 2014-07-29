@@ -46,11 +46,11 @@ import com.google.devtools.build.lib.view.config.BuildConfiguration;
 import com.google.devtools.build.lib.view.config.BuildConfigurationCollection;
 import com.google.devtools.build.skyframe.CycleInfo;
 import com.google.devtools.build.skyframe.ErrorInfo;
+import com.google.devtools.build.skyframe.EvaluationProgressReceiver;
+import com.google.devtools.build.skyframe.EvaluationResult;
 import com.google.devtools.build.skyframe.SkyFunction.Environment;
 import com.google.devtools.build.skyframe.SkyKey;
 import com.google.devtools.build.skyframe.SkyValue;
-import com.google.devtools.build.skyframe.UpdateResult;
-import com.google.devtools.build.skyframe.ValueProgressReceiver;
 
 import java.util.Collection;
 import java.util.List;
@@ -93,7 +93,7 @@ public final class SkyframeBuildView {
 
   // This hack allows us to connect legacy Blaze with Skyframe by listening to events of Skyframe.
   // TODO(bazel-team): Remove this hack. [skyframe-execution]
-  private final ValueProgressReceiver invalidationReceiver =
+  private final EvaluationProgressReceiver invalidationReceiver =
       new ConfiguredTargetValueInvalidationReceiver();
   private final Set<SkyKey> evaluatedConfiguredTargets = Sets.newConcurrentHashSet();
   // Used to see if checks of graph consistency need to be done after analysis.
@@ -152,7 +152,7 @@ public final class SkyframeBuildView {
       EventBus eventBus, boolean keepGoing)
   throws InterruptedException, ViewCreationFailedException {
     enableAnalysis(true);
-    UpdateResult<ConfiguredTargetValue> result;
+    EvaluationResult<ConfiguredTargetValue> result;
     try {
       result = skyframeExecutor.configureTargets(values, keepGoing);
     } finally {
@@ -263,7 +263,7 @@ public final class SkyframeBuildView {
     if (!badActions.isEmpty()) {
       // In order to determine the set of configured targets transitively error free from action
       // conflict issues, we run a post-processing update() that uses the bad action map.
-      UpdateResult<PostConfiguredTargetValue> actionConflictResult =
+      EvaluationResult<PostConfiguredTargetValue> actionConflictResult =
           skyframeExecutor.postConfigureTargets(values, keepGoing, badActions);
 
       goodCts = Lists.newArrayListWithCapacity(values.size());
@@ -400,7 +400,7 @@ public final class SkyframeBuildView {
    * Hack to invalidate actions in legacy action graph when their values are invalidated in
    * skyframe.
    */
-  ValueProgressReceiver getInvalidationReceiver() {
+  EvaluationProgressReceiver getInvalidationReceiver() {
     return invalidationReceiver;
   }
 
@@ -478,7 +478,7 @@ public final class SkyframeBuildView {
     pendingInvalidatedActions = Sets.newConcurrentHashSet();
   }
 
-  private class ConfiguredTargetValueInvalidationReceiver implements ValueProgressReceiver {
+  private class ConfiguredTargetValueInvalidationReceiver implements EvaluationProgressReceiver {
     @Override
     public void invalidated(SkyValue value, InvalidationState state) {
       if (value instanceof ConfiguredTargetValue) {

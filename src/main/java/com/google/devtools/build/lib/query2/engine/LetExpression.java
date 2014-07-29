@@ -13,8 +13,6 @@
 // limitations under the License.
 package com.google.devtools.build.lib.query2.engine;
 
-import com.google.devtools.build.lib.graph.Node;
-
 import java.util.Collection;
 import java.util.Set;
 import java.util.regex.Pattern;
@@ -54,12 +52,12 @@ class LetExpression extends QueryExpression {
   }
 
   @Override
-  public <T> Set<Node<T>> eval(QueryEnvironment<T> env) throws QueryException {
+  public <T> Set<T> eval(QueryEnvironment<T> env) throws QueryException {
     if (!NAME_PATTERN.matcher(varName).matches()) {
       throw new QueryException(this, "invalid variable name '" + varName + "' in let expression");
     }
-    Set<Node<T>> varValue = varExpr.eval(env);
-    Set<Node<T>> prevValue = env.setVariable(varName, varValue);
+    Set<T> varValue = varExpr.eval(env);
+    Set<T> prevValue = env.setVariable(varName, varValue);
     try {
       return bodyExpr.eval(env);
     } finally {

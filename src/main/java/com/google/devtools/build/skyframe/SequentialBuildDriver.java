@@ -21,25 +21,25 @@ import com.google.devtools.build.lib.events.ErrorEventListener;
  * versions.
  */
 public class SequentialBuildDriver {
-  private final AutoUpdatingGraph autoUpdatingGraph;
+  private final MemoizingEvaluator memoizingEvaluator;
   private IntVersion curVersion;
 
-  public SequentialBuildDriver(AutoUpdatingGraph graph) {
-    this.autoUpdatingGraph = Preconditions.checkNotNull(graph);
+  public SequentialBuildDriver(MemoizingEvaluator evaluator) {
+    this.memoizingEvaluator = Preconditions.checkNotNull(evaluator);
     this.curVersion = new IntVersion(0);
   }
 
-  public <T extends SkyValue> UpdateResult<T> update(Iterable<SkyKey> roots, boolean keepGoing,
-                                                 int numThreads, ErrorEventListener reporter)
+  public <T extends SkyValue> EvaluationResult<T> evaluate(
+      Iterable<SkyKey> roots, boolean keepGoing, int numThreads, ErrorEventListener reporter)
       throws InterruptedException {
     try {
-      return autoUpdatingGraph.update(roots, curVersion, keepGoing, numThreads, reporter);
+      return memoizingEvaluator.evaluate(roots, curVersion, keepGoing, numThreads, reporter);
     } finally {
       curVersion = curVersion.next();
     }
   }
 
-  public AutoUpdatingGraph getGraph() {
-    return autoUpdatingGraph;
+  public MemoizingEvaluator getGraph() {
+    return memoizingEvaluator;
   }
 }

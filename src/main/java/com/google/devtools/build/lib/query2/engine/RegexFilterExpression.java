@@ -13,12 +13,11 @@
 // limitations under the License.
 package com.google.devtools.build.lib.query2.engine;
 
-import com.google.common.base.Predicate;
 import com.google.common.collect.ImmutableList;
-import com.google.devtools.build.lib.graph.Node;
 import com.google.devtools.build.lib.query2.engine.QueryEnvironment.Argument;
 import com.google.devtools.build.lib.query2.engine.QueryEnvironment.QueryFunction;
 
+import java.util.LinkedHashSet;
 import java.util.List;
 import java.util.Set;
 import java.util.regex.Pattern;
@@ -32,10 +31,9 @@ abstract class RegexFilterExpression implements QueryFunction {
   }
 
   @Override
-  public <T> Set<Node<T>> eval(
-      final QueryEnvironment<T> env, QueryExpression expression, final List<Argument> args)
+  public <T> Set<T> eval(QueryEnvironment<T> env, QueryExpression expression, List<Argument> args)
       throws QueryException {
-    final Pattern compiledPattern;
+    Pattern compiledPattern;
     try {
       compiledPattern = Pattern.compile(getPattern(args));
     } catch (IllegalArgumentException e) {
@@ -44,17 +42,17 @@ abstract class RegexFilterExpression implements QueryFunction {
     }
 
     QueryExpression argument = args.get(args.size() - 1).getExpression();
-    return QueryUtils.filterTargets(argument.eval(env), new Predicate<T>() {
-        @Override
-        public boolean apply(T target) {
-          for (String str : getFilterStrings(env, args, target)) {
-            if ((str != null) && compiledPattern.matcher(str).find()) {
-              return true;
-            }
-          }
-          return false; // No strings matched.
+
+    Set<T> result = new LinkedHashSet<>();
+    for (T target : argument.eval(env)) {
+      for (String str : getFilterStrings(env, args, target)) {
+        if ((str != null) && compiledPattern.matcher(str).find()) {
+          result.add(target);
+          break;
         }
-      });
+      }
+    }
+    return result;
   }
 
   /**

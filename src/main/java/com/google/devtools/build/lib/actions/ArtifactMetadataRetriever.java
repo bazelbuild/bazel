@@ -13,6 +13,10 @@
 // limitations under the License.
 package com.google.devtools.build.lib.actions;
 
+import com.google.protobuf.ByteString;
+
+import java.io.IOException;
+
 import javax.annotation.Nullable;
 
 
@@ -28,10 +32,10 @@ public interface ArtifactMetadataRetriever {
    * and the artifact is an output of an action that already executed at time p, then t >= p. Aside
    * from these properties, t can be any value and may vary arbitrarily across calls.
    *
-   * @param artifact the artifact to retrieve the digest for
+   * @param input the input to retrieve the digest for
    * @return the artifact's digest or null if digest cannot be obtained (due to artifact
    *         non-existence, lookup errors, or any other reason)
    */
   @Nullable
-  byte[] getDigest(Artifact artifact);
+  ByteString getDigest(ActionInput input) throws IOException;
 }

@@ -28,6 +28,7 @@ import com.google.devtools.build.lib.packages.Rule;
 import com.google.devtools.build.lib.packages.Target;
 import com.google.devtools.build.lib.rules.SkylarkRuleImplementationFunctions;
 import com.google.devtools.build.lib.syntax.Label;
+import com.google.devtools.build.lib.syntax.SkylarkType;
 import com.google.devtools.build.lib.view.BaseRuleClasses;
 import com.google.devtools.build.lib.view.ConfiguredRuleClassProvider;
 import com.google.devtools.build.lib.view.ConfiguredRuleClassProvider.PrerequisiteValidator;
@@ -109,8 +110,8 @@ public class BazelRuleClassProvider {
   /**
    * Java objects accessible from Skylark rule implementations using this module.
    */
-  private static final ImmutableMap<String, Class<?>> skylarkBuiltinJavaObects =
-      ImmutableMap.<String, Class<?>>of();
+  private static final ImmutableMap<String, SkylarkType> skylarkBuiltinJavaObects =
+      ImmutableMap.<String, SkylarkType>of();
 
   public static void setup(ConfiguredRuleClassProvider.Builder builder) {
     builder

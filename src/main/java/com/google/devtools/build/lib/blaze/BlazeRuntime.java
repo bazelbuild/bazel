@@ -73,9 +73,9 @@ import com.google.devtools.build.lib.server.signal.InterruptSignalHandler;
 import com.google.devtools.build.lib.skyframe.DiffAwareness;
 import com.google.devtools.build.lib.skyframe.SkyframeExecutor;
 import com.google.devtools.build.lib.syntax.Label;
+import com.google.devtools.build.lib.util.AbruptExitException;
 import com.google.devtools.build.lib.util.BlazeClock;
 import com.google.devtools.build.lib.util.Clock;
-import com.google.devtools.build.lib.util.ExitCausingException;
 import com.google.devtools.build.lib.util.ExitCode;
 import com.google.devtools.build.lib.util.LoggingUtil;
 import com.google.devtools.build.lib.util.ProcessUtils;
@@ -199,7 +199,7 @@ public final class BlazeRuntime {
   private String outputFileSystem;
   private Map<String, BlazeCommand> commandMap;
 
-  private ExitCausingException pendingException;
+  private AbruptExitException pendingException;
 
   private final SubscriberExceptionHandler eventBusExceptionHandler;
 
@@ -220,7 +220,7 @@ public final class BlazeRuntime {
     }
 
     @Override
-    public void exit(ExitCausingException exception) {
+    public void exit(AbruptExitException exception) {
       Preconditions.checkState(pendingException == null);
       pendingException = exception;
     }
@@ -628,7 +628,7 @@ public final class BlazeRuntime {
    * Removes in-memory caches.
    */
   public void clearCaches() throws IOException {
-    skyframeExecutor.resetGraph();
+    skyframeExecutor.resetEvaluator();
     view.clear();
     actionCache = null;
     metadataCache = null;
@@ -678,11 +678,11 @@ public final class BlazeRuntime {
    * each command.
    *
    * @param options The CommonCommandOptions used by every command.
-   * @throws ExitCausingException if this command is unsuitable to be run as specified
+   * @throws AbruptExitException if this command is unsuitable to be run as specified
    */
   void beforeCommand(String commandName, OptionsParser optionsParser,
       CommonCommandOptions options, long execStartTimeNanos)
-      throws ExitCausingException {
+      throws AbruptExitException {
     commandStartTime -= options.startupTime;
 
     eventBus.post(new GotOptionsEvent(startupOptionsProvider,
@@ -987,9 +987,9 @@ public final class BlazeRuntime {
    * possible. Ideally, we'd not need this, but the event bus swallows exceptions so we raise
    * the exception this way.
    */
-  public void throwPendingException() throws ExitCausingException {
+  public void throwPendingException() throws AbruptExitException {
     if (pendingException != null) {
-      ExitCausingException exception = pendingException;
+      AbruptExitException exception = pendingException;
       pendingException = null;
       throw exception;
     }
@@ -1176,7 +1176,7 @@ public final class BlazeRuntime {
     } catch (OptionsParsingException e) {
       OutErr.SYSTEM_OUT_ERR.printErr(e.getMessage());
       return ExitCode.COMMAND_LINE_ERROR.getNumericExitCode();
-    } catch (ExitCausingException e) {
+    } catch (AbruptExitException e) {
       OutErr.SYSTEM_OUT_ERR.printErr(e.getMessage());
       return e.getExitCode().getNumericExitCode();
     }
@@ -1209,7 +1209,7 @@ public final class BlazeRuntime {
     } catch (IOException e) {
       outErr.printErr("I/O Error: " + e.getMessage());
       return ExitCode.BUILD_FAILURE.getNumericExitCode();
-    } catch (ExitCausingException e) {
+    } catch (AbruptExitException e) {
       outErr.printErr(e.getMessage());
       return e.getExitCode().getNumericExitCode();
     }
@@ -1232,7 +1232,7 @@ public final class BlazeRuntime {
    * Creates and returns a new Blaze RPCServer. Call {@link RPCServer#serve()} to start the server.
    */
   private static RPCServer createBlazeRPCServer(Iterable<BlazeModule> modules, List<String> args)
-      throws IOException, OptionsParsingException, ExitCausingException {
+      throws IOException, OptionsParsingException, AbruptExitException {
     OptionsProvider options = parseOptions(modules, args);
     BlazeServerStartupOptions startupOptions = options.getOptions(BlazeServerStartupOptions.class);
 
@@ -1338,7 +1338,7 @@ public final class BlazeRuntime {
    *         this runtime unsuitable for real commands
    */
   private static BlazeRuntime newRuntime(
-      Iterable<BlazeModule> blazeModules, OptionsProvider options) throws ExitCausingException {
+      Iterable<BlazeModule> blazeModules, OptionsProvider options) throws AbruptExitException {
     for (BlazeModule module : blazeModules) {
       module.globalInit(options);
     }
@@ -1391,7 +1391,7 @@ public final class BlazeRuntime {
     try {
       binTools = BinTools.forProduction(directories);
     } catch (IOException e) {
-      throw new ExitCausingException(
+      throw new AbruptExitException(
           "Cannot enumerate embedded binaries: " + e.getMessage(),
           ExitCode.LOCAL_ENVIRONMENTAL_ERROR);
     }
@@ -1505,7 +1505,7 @@ public final class BlazeRuntime {
     private BinTools binTools;
     private UUID instanceId;
 
-    public BlazeRuntime build() throws ExitCausingException {
+    public BlazeRuntime build() throws AbruptExitException {
       Preconditions.checkNotNull(directories);
       Preconditions.checkNotNull(skyframe);
       Preconditions.checkNotNull(startupOptionsProvider);

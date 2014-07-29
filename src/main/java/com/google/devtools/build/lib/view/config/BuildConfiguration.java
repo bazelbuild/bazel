@@ -30,7 +30,13 @@ import com.google.devtools.build.lib.actions.ArtifactFactory;
 import com.google.devtools.build.lib.actions.Root;
 import com.google.devtools.build.lib.blaze.BlazeDirectories;
 import com.google.devtools.build.lib.events.ErrorEventListener;
+import com.google.devtools.build.lib.packages.Attribute;
 import com.google.devtools.build.lib.packages.Attribute.Transition;
+import com.google.devtools.build.lib.packages.InputFile;
+import com.google.devtools.build.lib.packages.PackageGroup;
+import com.google.devtools.build.lib.packages.Rule;
+import com.google.devtools.build.lib.packages.RuleClass;
+import com.google.devtools.build.lib.packages.Target;
 import com.google.devtools.build.lib.syntax.Label;
 import com.google.devtools.build.lib.syntax.Label.SyntaxException;
 import com.google.devtools.build.lib.syntax.SkylarkBuiltin;
@@ -900,6 +906,54 @@ public final class BuildConfiguration {
    */
   public BuildConfiguration getConfiguration(Transition transition) {
     return transitions.getConfiguration(transition);
+  }
+
+  /**
+   * Calculates the configurations of a direct dependency. If a rule in some BUILD file refers
+   * to a target (like another rule or a source file) using a label attribute, that target needs
+   * to have a configuration, too. This method figures out the proper configuration for the
+   * dependency.
+   *
+   * @param fromRule the rule that's depending on some target
+   * @param attribute the attribute using which the rule depends on that target (eg. "srcs")
+   * @param toTarget the target that's dependeded on
+   * @return the configuration that should be associated to {@code toTarget}
+   */
+  public BuildConfiguration evaluateTransition(final Rule fromRule,
+      final Attribute attribute, final Target toTarget) {
+    // Fantastic configurations and where to find them:
+
+    // I. Input files and package groups have no configurations. We don't want to duplicate them.
+    if (toTarget instanceof InputFile || toTarget instanceof PackageGroup) {
+      return null;
+    }
+
+    // II. Host configurations never switch to another. All prerequisites of host targets have the
+    // same host configuration.
+    if (isHostConfiguration()) {
+      return this;
+    }
+
+    // III. Attributes determine configurations. The configuration of a prerequisite is determined
+    // by the attribute.
+    BuildConfiguration toConfiguration = getConfiguration(attribute.getConfigurationTransition());
+
+    // IV. Allow the transition object to perform an arbitrary switch. Blaze modules can inject
+    // configuration transition logic by extending the Transitions class.
+    toConfiguration = getTransitions().configurationHook(
+        fromRule, attribute, toTarget, toConfiguration);
+
+    // V. Allow rule classes to override their own configurations.
+    Rule associatedRule = toTarget.getAssociatedRule();
+    if (associatedRule != null) {
+      @SuppressWarnings("unchecked")
+      RuleClass.Configurator<BuildConfiguration, Rule> func =
+          (RuleClass.Configurator<BuildConfiguration, Rule>)
+          associatedRule.getRuleClassObject().getConfigurator();
+      toConfiguration = func.apply(associatedRule, toConfiguration);
+    }
+
+    return toConfiguration;
   }
 
   /**

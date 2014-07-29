@@ -13,8 +13,6 @@
 // limitations under the License.
 package com.google.devtools.build.lib.query2.engine;
 
-import com.google.devtools.build.lib.graph.Node;
-
 import java.util.Collection;
 import java.util.Set;
 
@@ -37,9 +35,9 @@ import java.util.Set;
  * <p>This package consists of two basic class hierarchies.  The first, {@code
  * QueryExpression}, is the set of different query expressions in the language,
  * and the {@link #eval} method of each defines the semantics.  The result of
- * evaluating a query is set of {@code Digraph} {@link Node}s, each labelled
- * with a Blaze {@code Target} (a file or rule).  The set may be interpreted as
- * either a set or a DAG, depending on the context.
+ * evaluating a query is set of Blaze {@code Target}s (a file or rule).  The
+ * set may be interpreted as either a set or as nodes of a DAG, depending on
+ * the context.
  *
  * <p>The second hierarchy is {@code OutputFormatter}.  Its subclasses define
  * different ways of printing out the result of a query.  Each accepts a {@code
@@ -69,7 +67,7 @@ public abstract class QueryExpression {
    * thrown.  If disabled, evaluation will stumble on to produce a (possibly
    * inaccurate) result, but a result nonetheless.
    */
-  public abstract <T> Set<Node<T>> eval(QueryEnvironment<T> env) throws QueryException;
+  public abstract <T> Set<T> eval(QueryEnvironment<T> env) throws QueryException;
 
   /**
    * Collects all target patterns that are referenced anywhere within this query expression and adds

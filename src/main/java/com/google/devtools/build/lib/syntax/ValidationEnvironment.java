@@ -16,7 +16,9 @@ package com.google.devtools.build.lib.syntax;
 
 import com.google.common.base.Preconditions;
 import com.google.common.collect.ImmutableMap;
+import com.google.devtools.build.lib.collect.CollectionUtils;
 import com.google.devtools.build.lib.events.Location;
+import com.google.devtools.build.lib.syntax.SkylarkType.SkylarkFunctionType;
 
 import java.util.HashMap;
 import java.util.HashSet;
@@ -31,27 +33,28 @@ import java.util.Set;
  */
 public class ValidationEnvironment {
 
-  private Map<String, SkylarkType> variableTypes = new HashMap<>();
+  private Map<SkylarkType, Map<String, SkylarkType>> variableTypes = new HashMap<>();
 
   private Map<String, Location> variableLocations = new HashMap<>();
 
   private Set<String> readOnlyVariables = new HashSet<>();
 
   // The function we are currently validating.
-  private String currentFunction;
+  private SkylarkFunctionType currentFunction;
 
   // Whether this validation environment is not modified therefore clonable or not.
   private boolean clonable;
 
-  public ValidationEnvironment(ImmutableMap<String, SkylarkType> builtinVariableTypes) {
-    variableTypes.putAll(builtinVariableTypes);
-    readOnlyVariables.addAll(builtinVariableTypes.keySet());
+  public ValidationEnvironment(
+      ImmutableMap<SkylarkType, ImmutableMap<String, SkylarkType>> builtinVariableTypes) {
+    variableTypes = CollectionUtils.copyOf(builtinVariableTypes);
+    readOnlyVariables.addAll(builtinVariableTypes.get(SkylarkType.GLOBAL).keySet());
     clonable = true;
   }
 
-  private ValidationEnvironment(
-      Map<String, SkylarkType> variableTypes, Set<String> readOnlyVariables) {
-    this.variableTypes = new HashMap<>(variableTypes);
+  private ValidationEnvironment(Map<SkylarkType, Map<String, SkylarkType>> builtinVariableTypes,
+      Set<String> readOnlyVariables) {
+    this.variableTypes = CollectionUtils.copyOf(builtinVariableTypes);
     this.readOnlyVariables = new HashSet<>(readOnlyVariables);
     clonable = false;
   }
@@ -69,17 +72,21 @@ public class ValidationEnvironment {
    */
   public void update(String varname, SkylarkType newVartype, Location location)
       throws EvalException {
-    if (readOnlyVariables.contains(varname)) {
-      throw new EvalException(location, String.format("Variable %s is read only", varname));
-    }
-    SkylarkType oldVartype = variableTypes.get(varname);
+    checkReadonly(varname, location);
+    SkylarkType oldVartype = variableTypes.get(SkylarkType.GLOBAL).get(varname);
     if (oldVartype != null) {
       newVartype = oldVartype.infer(newVartype, "variable '" + varname + "'",
           location, variableLocations.get(varname));
     }
-    variableTypes.put(varname, newVartype);
+    variableTypes.get(SkylarkType.GLOBAL).put(varname, newVartype);
     variableLocations.put(varname, location);
     clonable = false;
+  }
+
+  private void checkReadonly(String varname, Location location) throws EvalException {
+    if (readOnlyVariables.contains(varname)) {
+      throw new EvalException(location, String.format("Variable %s is read only", varname));
+    }
   }
 
   public void checkIterable(SkylarkType type, Location loc) throws EvalException {
@@ -95,26 +102,68 @@ public class ValidationEnvironment {
   }
 
   /**
-   * Returns true if the variable exists.
+   * Returns true if the symbol exists in the validation environment.
    */
-  public boolean hasVariable(String varname) {
-    return variableTypes.containsKey(varname);
+  public boolean hasGlobalSymbol(String varname) {
+    return variableTypes.get(SkylarkType.GLOBAL).containsKey(varname);
   }
 
   /**
    * Returns the type of the existing variable.
    */
   public SkylarkType getVartype(String varname) {
-    return Preconditions.checkNotNull(variableTypes.get(varname),
+    return Preconditions.checkNotNull(variableTypes.get(SkylarkType.GLOBAL).get(varname),
         String.format("Variable %s is not found in the validation environment", varname));
   }
 
-  public void setCurrentFunction(String fct) {
+  public void setCurrentFunction(SkylarkFunctionType fct) {
     currentFunction = fct;
     clonable = false;
   }
 
-  public String getCurrentFunction() {
+  public SkylarkFunctionType getCurrentFunction() {
     return currentFunction;
+  }
+
+  /**
+   * Returns the return type of the function.
+   */
+  public SkylarkType getReturnType(String funcName, Location loc) throws EvalException {
+    return getReturnType(SkylarkType.GLOBAL, funcName, loc);
+  }
+
+  /**
+   * Returns the return type of the object function.
+   */
+  public SkylarkType getReturnType(SkylarkType objectType, String funcName, Location loc)
+      throws EvalException {
+    Map<String, SkylarkType> functions = variableTypes.get(objectType);
+    // TODO(bazel-team): eventually not finding the return type should be a validation error,
+    // because it means the function doesn't exist. First we have to make sure that we register
+    // every possible function before.
+    if (functions != null) {
+      SkylarkType functionType = functions.get(funcName);
+      if (functionType != null && functionType != SkylarkType.UNKNOWN) {
+        if (!(functionType instanceof SkylarkFunctionType)) {
+          throw new EvalException(loc, (objectType == SkylarkType.GLOBAL ? "" : objectType + ".")
+              + funcName + " is not a function");
+        }
+        return ((SkylarkFunctionType) functionType).getReturnType();
+      }
+    }
+    return SkylarkType.UNKNOWN;
+  }
+
+  /**
+   * Adds a user defined function to the validation environment is not exists.
+   */
+  public void updateFunction(String name, SkylarkFunctionType type, Location loc)
+      throws EvalException {
+    checkReadonly(name, loc);
+    if (variableTypes.get(SkylarkType.GLOBAL).containsKey(name)) {
+      throw new EvalException(loc, "function " + name + " already exists");
+    }
+    variableTypes.get(SkylarkType.GLOBAL).put(name, type);
+    clonable = false;
   }
 }

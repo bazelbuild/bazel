@@ -35,16 +35,16 @@ import com.google.devtools.build.lib.skyframe.ArtifactValue.OwnedArtifact;
 import com.google.devtools.build.lib.skyframe.SkyFunctions;
 import com.google.devtools.build.lib.skyframe.SkyframeActionExecutor;
 import com.google.devtools.build.lib.skyframe.SkyframeExecutor;
+import com.google.devtools.build.lib.util.AbruptExitException;
 import com.google.devtools.build.lib.util.BlazeClock;
-import com.google.devtools.build.lib.util.ExitCausingException;
 import com.google.devtools.build.lib.vfs.ModifiedFileSet;
 import com.google.devtools.build.skyframe.CycleInfo;
 import com.google.devtools.build.skyframe.ErrorInfo;
+import com.google.devtools.build.skyframe.EvaluationProgressReceiver;
+import com.google.devtools.build.skyframe.EvaluationResult;
 import com.google.devtools.build.skyframe.SkyFunctionName;
 import com.google.devtools.build.skyframe.SkyKey;
 import com.google.devtools.build.skyframe.SkyValue;
-import com.google.devtools.build.skyframe.UpdateResult;
-import com.google.devtools.build.skyframe.ValueProgressReceiver;
 
 import java.util.Collections;
 import java.util.Map;
@@ -78,7 +78,7 @@ class SkyframeBuilder implements Builder {
       Set<Artifact> exclusiveTestArtifacts,
       DependentActionGraph forwardGraph, Executor executor,
       ModifiedFileSet modifiedFileSet, Set<Artifact> builtArtifacts)
-      throws BuildFailedException, ExitCausingException, TestExecException, InterruptedException {
+      throws BuildFailedException, AbruptExitException, TestExecException, InterruptedException {
     skyframeExecutor.prepareExecution();
     skyframeExecutor.setFileCache(fileCache);
     // Note that executionProgressReceiver accesses builtArtifacts concurrently (after wrapping in a
@@ -87,7 +87,7 @@ class SkyframeBuilder implements Builder {
         new ExecutionProgressReceiver(artifacts, builtArtifacts);
 
     boolean success = false;
-    UpdateResult<ArtifactValue> result = null;
+    EvaluationResult<ArtifactValue> result = null;
 
     ActionExecutionStatusReporter statusReporter = ActionExecutionStatusReporter.create(
         skyframeExecutor.getReporter(), executor, skyframeExecutor.getEventBus());
@@ -139,7 +139,7 @@ class SkyframeBuilder implements Builder {
    * Returns false if the update() failed, but we should continue. Returns true on success.
    * Throws on fail-fast failures.
    */
-  private static boolean processResult(UpdateResult<?> result, boolean keepGoing,
+  private static boolean processResult(EvaluationResult<?> result, boolean keepGoing,
       SkyframeExecutor skyframeExecutor) throws BuildFailedException, TestExecException {
     if (result.hasError()) {
       boolean hasCycles = false;
@@ -172,7 +172,7 @@ class SkyframeBuilder implements Builder {
    * Listener for executed actions and built artifacts. We use a listener so that we have an
    * accurate set of successfully run actions and built artifacts, even if the build is interrupted.
    */
-  private static final class ExecutionProgressReceiver implements ValueProgressReceiver,
+  private static final class ExecutionProgressReceiver implements EvaluationProgressReceiver,
       SkyframeActionExecutor.ProgressSupplier, SkyframeActionExecutor.ActionCompletedReceiver {
     // Must be thread-safe!
     private final Set<Artifact> builtArtifacts;

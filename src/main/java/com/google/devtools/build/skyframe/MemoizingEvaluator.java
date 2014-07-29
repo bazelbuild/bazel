@@ -28,31 +28,34 @@ import javax.annotation.Nullable;
  * A graph, defined by a set of functions that can construct values from value keys.
  *
  * <p>The value constructor functions ({@link SkyFunction}s) can declare dependencies on
- * prerequisite {@link SkyValue}s. The {@link AutoUpdatingGraph} implementation makes sure that
+ * prerequisite {@link SkyValue}s. The {@link MemoizingEvaluator} implementation makes sure that
  * those are created beforehand.
  *
  * <p>The graph caches previously computed value values. Arbitrary values can be invalidated between
- * calls to {@link #update}; they will be recreated the next time they are requested.
+ * calls to {@link #evaluate}; they will be recreated the next time they are requested.
  */
-public interface AutoUpdatingGraph {
+public interface MemoizingEvaluator {
 
   /**
    * Computes the transitive closure of a given set of values at the given {@link Version}. See
    * {@link EagerInvalidator#invalidate}.
    */
-  <T extends SkyValue> UpdateResult<T> update(Iterable<SkyKey> roots, Version version,
-                                          boolean keepGoing, int numThreads,
-                                          ErrorEventListener reporter)
-      throws InterruptedException;
+  <T extends SkyValue> EvaluationResult<T> evaluate(
+      Iterable<SkyKey> roots,
+      Version version,
+      boolean keepGoing,
+      int numThreads,
+      ErrorEventListener reporter)
+          throws InterruptedException;
 
   /**
-   * Ensures that after the next completed {@link #update} call the current values of any value
+   * Ensures that after the next completed {@link #evaluate} call the current values of any value
    * matching this predicate (and all values that transitively depend on them) will be removed from
    * the value cache. All values that were already marked dirty in the graph will also be deleted,
    * regardless of whether or not they match the predicate.
    *
-   * <p>If a later call to {@link #update} requests some of the deleted values, those values will be
-   * recomputed and the new values stored in the cache again.
+   * <p>If a later call to {@link #evaluate} requests some of the deleted values, those values will
+   * be recomputed and the new values stored in the cache again.
    *
    * <p>To delete all dirty values, you can specify a predicate that's always false.
    */
@@ -62,12 +65,12 @@ public interface AutoUpdatingGraph {
    * Marks dirty values for deletion if they have been dirty for at least as many graph versions
    * as the specified limit.
    *
-   * <p>This ensures that after the next completed {@link #update} call, all such values, along
+   * <p>This ensures that after the next completed {@link #evaluate} call, all such values, along
    * with all values that transitively depend on them, will be removed from the value cache. Values
    * that were marked dirty after the threshold version will not be affected by this call.
    *
-   * <p>If a later call to {@link #update} requests some of the deleted values, those values will be
-   * recomputed and the new values stored in the cache again.
+   * <p>If a later call to {@link #evaluate} requests some of the deleted values, those values will
+   * be recomputed and the new values stored in the cache again.
    *
    * <p>To delete all dirty values, you can specify 0 for the limit.
    */
@@ -89,20 +92,21 @@ public interface AutoUpdatingGraph {
   Map<SkyKey, SkyValue> getDoneValues();
 
   /**
-   * Returns a value if and only if an earlier call to {@link #update} created it; null otherwise.
+   * Returns a value if and only if an earlier call to {@link #evaluate} created it; null otherwise.
    *
    * <p>This method should only be used by tests that need to verify the presence of a value in the
-   * graph after an {@link #update} call.
+   * graph after an {@link #evaluate} call.
    */
   @VisibleForTesting
   @Nullable
   SkyValue getExistingValueForTesting(SkyKey key);
 
   /**
-   * Returns an error if and only if an earlier call to {@link #update} created it; null otherwise.
+   * Returns an error if and only if an earlier call to {@link #evaluate} created it; null
+   * otherwise.
    *
    * <p>This method should only be used by tests that need to verify the presence of an error in the
-   * graph after an {@link #update} call.
+   * graph after an {@link #evaluate} call.
    */
   @VisibleForTesting
   @Nullable
@@ -116,12 +120,13 @@ public interface AutoUpdatingGraph {
   void dump(PrintStream out);
 
   /**
-   * A supplier for creating instances of a particular graph implementation.
+   * A supplier for creating instances of a particular evaluator implementation.
    */
-  public static interface GraphSupplier {
-    AutoUpdatingGraph createGraph(
+  public static interface EvaluatorSupplier {
+    MemoizingEvaluator create(
         Map<? extends SkyFunctionName, ? extends SkyFunction> skyFunctions, Differencer differencer,
-        @Nullable ValueProgressReceiver invalidationReceiver, EmittedEventState emittedEventState);
+        @Nullable EvaluationProgressReceiver invalidationReceiver,
+        EmittedEventState emittedEventState);
   }
 
   /**
@@ -130,5 +135,4 @@ public interface AutoUpdatingGraph {
    * determine whether or not to replay events.
    */
   public static class EmittedEventState extends NestedSetVisitor.VisitedState<TaggedEvents> {}
-
 }

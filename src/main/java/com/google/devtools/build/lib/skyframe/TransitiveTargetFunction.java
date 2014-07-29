@@ -209,7 +209,7 @@ public class TransitiveTargetFunction implements SkyFunction {
 
   /**
    * Used to declare all the exception types that can be wrapped in the exception thrown by
-   * {@link TransitiveTargetFunction#build}.
+   * {@link TransitiveTargetFunction#compute}.
    */
   private static class TransitiveTargetFunctionException extends SkyFunctionException {
     /**

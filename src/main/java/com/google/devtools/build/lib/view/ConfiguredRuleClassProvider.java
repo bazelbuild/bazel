@@ -33,6 +33,7 @@ import com.google.devtools.build.lib.rules.SkylarkRuleClassFunctions;
 import com.google.devtools.build.lib.rules.SkylarkRuleImplementationFunctions;
 import com.google.devtools.build.lib.syntax.Label;
 import com.google.devtools.build.lib.syntax.SkylarkEnvironment;
+import com.google.devtools.build.lib.syntax.SkylarkType;
 import com.google.devtools.build.lib.syntax.ValidationEnvironment;
 import com.google.devtools.build.lib.view.buildinfo.BuildInfoFactory;
 import com.google.devtools.build.lib.view.config.BuildOptions;
@@ -89,7 +90,7 @@ public class ConfiguredRuleClassProvider implements RuleClassProvider {
     private boolean allowConfigurableAttributes;
     private ConfigurationCollectionFactory configurationCollectionFactory;
     private PrerequisiteValidator prerequisiteValidator;
-    private ImmutableMap<String, Class<?>> skylarkAccessibleJavaClasses;
+    private ImmutableMap<String, SkylarkType> skylarkAccessibleJavaClasses;
     private ValidationEnvironment skylarkValidationEnvironment;
 
     public Builder setPrerequisiteValidator(PrerequisiteValidator prerequisiteValidator) {
@@ -132,7 +133,7 @@ public class ConfiguredRuleClassProvider implements RuleClassProvider {
       return this;
     }
 
-    public Builder setSkylarkAccessibleJavaClasses(ImmutableMap<String, Class<?>> objects) {
+    public Builder setSkylarkAccessibleJavaClasses(ImmutableMap<String, SkylarkType> objects) {
       this.skylarkAccessibleJavaClasses = objects;
       return this;
     }
@@ -273,7 +274,7 @@ public class ConfiguredRuleClassProvider implements RuleClassProvider {
 
   private final PrerequisiteValidator prerequisiteValidator;
 
-  private final ImmutableMap<String, Class<?>> skylarkAccessibleJavaClasses;
+  private final ImmutableMap<String, SkylarkType> skylarkAccessibleJavaClasses;
 
   private final ValidationEnvironment skylarkValidationEnvironment;
 
@@ -286,7 +287,7 @@ public class ConfiguredRuleClassProvider implements RuleClassProvider {
       ImmutableList<ConfigurationFragmentFactory> configurationFragments,
       ConfigurationCollectionFactory configurationCollectionFactory,
       PrerequisiteValidator prerequisiteValidator,
-      ImmutableMap<String, Class<?>> skylarkAccessibleJavaClasses,
+      ImmutableMap<String, SkylarkType> skylarkAccessibleJavaClasses,
       ValidationEnvironment skylarkValidationEnvironment) {
 
     this.ruleClassMap = ruleClassMap;
@@ -387,8 +388,8 @@ public class ConfiguredRuleClassProvider implements RuleClassProvider {
   public SkylarkEnvironment getSkylarkRuleClassEnvironment() {
     SkylarkEnvironment env = SkylarkRuleClassFunctions.getNewEnvironment();
     SkylarkRuleImplementationFunctions.updateEnvironment(env);
-    for (Map.Entry<String, Class<?>> entry : skylarkAccessibleJavaClasses.entrySet()) {
-      env.update(entry.getKey(), entry.getValue());
+    for (Map.Entry<String, SkylarkType> entry : skylarkAccessibleJavaClasses.entrySet()) {
+      env.update(entry.getKey(), entry.getValue().getType());
     }
     return env;
   }

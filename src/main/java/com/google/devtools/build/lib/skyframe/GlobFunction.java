@@ -240,7 +240,7 @@ final class GlobFunction implements SkyFunction {
 
   /**
    * Used to declare all the exception types that can be wrapped in the exception thrown by
-   * {@link GlobFunction#build}.
+   * {@link GlobFunction#compute}.
    */
   private static final class GlobFunctionException extends SkyFunctionException {
     public GlobFunctionException(SkyKey key, InconsistentFilesystemException e) {

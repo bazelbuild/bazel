@@ -13,7 +13,7 @@
 // limitations under the License.
 package com.google.devtools.build.lib.skyframe;
 
-import com.google.devtools.build.skyframe.AutoUpdatingGraph;
+import com.google.devtools.build.skyframe.MemoizingEvaluator;
 import com.google.devtools.build.skyframe.SkyFunction;
 import com.google.devtools.build.skyframe.SkyFunctionException;
 import com.google.devtools.build.skyframe.SkyKey;
@@ -23,7 +23,7 @@ import com.google.devtools.build.skyframe.SkyValue;
  * Builder for {@link BuildVariableValue}s.
  *
  * <p>Always throws an error, because variables are intended to always be injected from outside
- * using {@link AutoUpdatingGraph#inject}.
+ * using {@link MemoizingEvaluator#inject}.
  */
 public class BuildVariableFunction implements SkyFunction {
 

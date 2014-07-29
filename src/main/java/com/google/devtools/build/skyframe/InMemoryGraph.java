@@ -102,7 +102,7 @@ public class InMemoryGraph implements ProcessableGraph {
         }), Predicates.notNull()));
   }
 
-  // Only for use by AutoUpdatingGraph#delete
+  // Only for use by MemoizingEvaluator#delete
   Map<SkyKey, ValueEntry> getAllValues() {
     return Collections.unmodifiableMap(valueMap);
   }

@@ -17,15 +17,15 @@ package com.google.devtools.build.skyframe;
 import com.google.common.base.Preconditions;
 
 /**
- * Base class of exceptions thrown by {@link SkyFunction#build} on failure.
+ * Base class of exceptions thrown by {@link SkyFunction#compute} on failure.
  *
  * SkyFunctions should declare a subclass {@code C} of {@link SkyFunctionException} whose
  * constructors forward fine-grained exception types (e.g. {@link IOException}) to
  * {@link SkyFunctionException}'s constructor, and they should also declare
- * {@link SkyFunction#build} to throw {@code C}. This way the type system checks that no unexpected
- * exceptions are thrown by the {@link SkyFunction}.
+ * {@link SkyFunction#compute} to throw {@code C}. This way the type system checks that no
+ * unexpected exceptions are thrown by the {@link SkyFunction}.
  *
- * We took this approach over using a generic exception class Java since disallows it because of
+ * We took this approach over using a generic exception class since Java disallows it because of
  * type erasure
  * (see http://docs.oracle.com/javase/tutorial/java/generics/restrictions.html#cannotCatch).
  */

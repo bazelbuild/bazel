@@ -457,6 +457,17 @@ public final class RuleContext extends TargetContext
   }
 
   /**
+   * Returns all the providers of the specified type that are listed under the specified attribute
+   * of this target in the BUILD file, and that contain the specified provider.
+   */
+  public <C extends TransitiveInfoProvider> Iterable<? extends TransitiveInfoCollection>
+      getPrerequisitesIf(String attributeName, Mode mode, final Class<C> classType) {
+    AnalysisUtils.checkProvider(classType);
+    checkAttribute(attributeName, mode);
+    return AnalysisUtils.filterByProvider(targetMap.get(attributeName), classType);
+  }
+
+  /**
    * Returns the prerequisite referred to by the specified attribute. Also checks whether
    * the attribute is marked as executable and that the target referred to can actually be
    * executed.
@@ -1237,5 +1248,10 @@ public final class RuleContext extends TargetContext
       validateDirectPrerequisiteFileTypes(prerequisite, attribute);
       prerequisiteValidator.validate(this, prerequisite, attribute);
     }
+  }
+
+  @Override
+  public String toString() {
+    return "RuleContext(" + getLabel() + ", " + getConfiguration() + ")";
   }
 }

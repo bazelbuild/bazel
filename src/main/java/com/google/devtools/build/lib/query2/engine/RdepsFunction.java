@@ -14,7 +14,6 @@
 package com.google.devtools.build.lib.query2.engine;
 
 import com.google.common.collect.ImmutableList;
-import com.google.devtools.build.lib.graph.Node;
 import com.google.devtools.build.lib.query2.engine.QueryEnvironment.Argument;
 import com.google.devtools.build.lib.query2.engine.QueryEnvironment.ArgumentType;
 import com.google.devtools.build.lib.query2.engine.QueryEnvironment.QueryFunction;
@@ -58,23 +57,22 @@ final class RdepsFunction implements QueryFunction {
    * towards the universe while staying within the transitive closure.
    */
   @Override
-  public <T> Set<Node<T>> eval(
-      QueryEnvironment<T> env, QueryExpression expression, List<Argument> args)
+  public <T> Set<T> eval(QueryEnvironment<T> env, QueryExpression expression, List<Argument> args)
       throws QueryException {
-    Set<Node<T>> universeValue = args.get(0).getExpression().eval(env);
-    Set<Node<T>> argumentValue = args.get(1).getExpression().eval(env);
+    Set<T> universeValue = args.get(0).getExpression().eval(env);
+    Set<T> argumentValue = args.get(1).getExpression().eval(env);
     int depthBound = args.size() > 2 ? args.get(2).getInteger() : Integer.MAX_VALUE;
 
     env.buildTransitiveClosure(expression, universeValue, Integer.MAX_VALUE);
 
-    Set<Node<T>> visited = new LinkedHashSet<>();
-    Set<Node<T>> reachableFromUniverse = env.getTransitiveClosure(universeValue);
-    Collection<Node<T>> current = argumentValue;
+    Set<T> visited = new LinkedHashSet<>();
+    Set<T> reachableFromUniverse = env.getTransitiveClosure(universeValue);
+    Collection<T> current = argumentValue;
 
     // We need to iterate depthBound + 1 times.
     for (int i = 0; i <= depthBound; i++) {
-      List<Node<T>> next = new ArrayList<>();
-      for (Node<T> node : current) {
+      List<T> next = new ArrayList<>();
+      for (T node : current) {
         if (!reachableFromUniverse.contains(node)) {
           // Traversed outside the transitive closure of the universe.
           continue;
@@ -87,7 +85,7 @@ final class RdepsFunction implements QueryFunction {
           continue;
         }
 
-        next.addAll(node.getPredecessors());
+        next.addAll(env.getReverseDeps(node));
       }
       if (next.isEmpty()) {
         // Exit when there are no more nodes to visit.

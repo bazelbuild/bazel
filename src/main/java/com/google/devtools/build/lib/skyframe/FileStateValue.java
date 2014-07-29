@@ -44,6 +44,8 @@ import javax.annotation.Nullable;
  * <ul>
  *
  * <p>This class is an implementation detail of {@link FileValue}.
+ *
+ * <p>All subclasses must implement {@link #equals} and {@link #hashCode} properly.
  */
 abstract class FileStateValue implements SkyValue {
 
@@ -229,6 +231,17 @@ abstract class FileStateValue implements SkyValue {
     public String toString() {
       return "directory";
     }
+
+    // This object is normally a singleton, but deserialization produces copies.
+    @Override
+    public boolean equals(Object obj) {
+      return obj instanceof DirectoryFileStateValue;
+    }
+
+    @Override
+    public int hashCode() {
+      return 7654321;
+    }
   }
 
   /** Implementation of {@link FileStateValue} for symlinks. */
@@ -286,6 +299,17 @@ abstract class FileStateValue implements SkyValue {
     @Override
     public String toString() {
       return "nonexistent";
+    }
+
+    // This object is normally a singleton, but deserialization produces copies.
+    @Override
+    public boolean equals(Object obj) {
+      return obj instanceof NonexistentFileStateValue;
+    }
+
+    @Override
+    public int hashCode() {
+      return 8765432;
     }
   }
 }

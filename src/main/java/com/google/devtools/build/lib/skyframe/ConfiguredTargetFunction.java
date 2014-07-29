@@ -286,7 +286,7 @@ final class ConfiguredTargetFunction implements SkyFunction {
 
   /**
    * Used to declare all the exception types that can be wrapped in the exception thrown by
-   * {@link ConfiguredTargetFunction#build}.
+   * {@link ConfiguredTargetFunction#compute}.
    */
   private static final class ConfiguredTargetFunctionException extends SkyFunctionException {
     public ConfiguredTargetFunctionException(SkyKey key, NoSuchTargetException e) {

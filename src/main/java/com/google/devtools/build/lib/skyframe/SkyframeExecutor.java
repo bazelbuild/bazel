@@ -62,7 +62,7 @@ import com.google.devtools.build.lib.pkgcache.TransitivePackageLoader;
 import com.google.devtools.build.lib.skyframe.SkyframeActionExecutor.ActionCompletedReceiver;
 import com.google.devtools.build.lib.skyframe.SkyframeActionExecutor.ProgressSupplier;
 import com.google.devtools.build.lib.syntax.Label;
-import com.google.devtools.build.lib.util.ExitCausingException;
+import com.google.devtools.build.lib.util.AbruptExitException;
 import com.google.devtools.build.lib.util.ExitCode;
 import com.google.devtools.build.lib.util.ResourceUsage;
 import com.google.devtools.build.lib.util.io.TimestampGranularityMonitor;
@@ -85,21 +85,21 @@ import com.google.devtools.build.lib.view.config.BuildOptions;
 import com.google.devtools.build.lib.view.config.ConfigurationFactory;
 import com.google.devtools.build.lib.view.config.ConfigurationFragmentFactory;
 import com.google.devtools.build.lib.view.config.InvalidConfigurationException;
-import com.google.devtools.build.skyframe.AutoUpdatingGraph;
-import com.google.devtools.build.skyframe.AutoUpdatingGraph.GraphSupplier;
 import com.google.devtools.build.skyframe.CycleInfo;
 import com.google.devtools.build.skyframe.CyclesReporter;
 import com.google.devtools.build.skyframe.Differencer.Diff;
+import com.google.devtools.build.skyframe.EvaluationProgressReceiver;
+import com.google.devtools.build.skyframe.EvaluationResult;
 import com.google.devtools.build.skyframe.ImmutableDiff;
-import com.google.devtools.build.skyframe.InMemoryAutoUpdatingGraph;
+import com.google.devtools.build.skyframe.InMemoryMemoizingEvaluator;
+import com.google.devtools.build.skyframe.MemoizingEvaluator;
+import com.google.devtools.build.skyframe.MemoizingEvaluator.EvaluatorSupplier;
 import com.google.devtools.build.skyframe.RecordingDifferencer;
 import com.google.devtools.build.skyframe.SequentialBuildDriver;
 import com.google.devtools.build.skyframe.SkyFunction;
 import com.google.devtools.build.skyframe.SkyFunctionName;
 import com.google.devtools.build.skyframe.SkyKey;
 import com.google.devtools.build.skyframe.SkyValue;
-import com.google.devtools.build.skyframe.UpdateResult;
-import com.google.devtools.build.skyframe.ValueProgressReceiver;
 
 import java.io.IOException;
 import java.io.PrintStream;
@@ -128,10 +128,10 @@ import javax.annotation.Nullable;
  * for use during the build.
  */
 public final class SkyframeExecutor {
-  private final GraphSupplier graphSupplier;
-  private AutoUpdatingGraph autoUpdatingGraph;
-  private final AutoUpdatingGraph.EmittedEventState emittedEventState =
-      new AutoUpdatingGraph.EmittedEventState();
+  private final EvaluatorSupplier evaluatorSupplier;
+  private MemoizingEvaluator memoizingEvaluator;
+  private final MemoizingEvaluator.EmittedEventState emittedEventState =
+      new MemoizingEvaluator.EmittedEventState();
   private final Reporter reporter;
   private final PackageFactory pkgFactory;
   private final WorkspaceStatusAction.Factory workspaceStatusActionFactory;
@@ -150,7 +150,7 @@ public final class SkyframeExecutor {
   private static final Logger LOG = Logger.getLogger(SkyframeExecutor.class.getName());
 
   // Stores Packages between reruns of the PackageFunction (because of missing dependencies,
-  // within the same update() run) to avoid loading the same package twice (first time loading
+  // within the same evaluate() run) to avoid loading the same package twice (first time loading
   // to find subincludes and declare value dependencies).
   // TODO(bazel-team): remove this cache once we have skyframe-native package loading
   // [skyframe-loading]
@@ -199,9 +199,9 @@ public final class SkyframeExecutor {
   private Set<PathFragment> allLoadedPackages = ImmutableSet.of();
 
   /**
-   * Upper limit for how many graph versions should dirty values be retained for.
+   * Upper limit for how many value versions should dirty values be retained for.
    *
-   * <p>Specifying a value N means, if the current graph version is V and a value was dirtied (and
+   * <p>Specifying a value N means, if the current version is V and a value was dirtied (and
    * has remained so) in version U, and U + N &lt;= V, then the value will be marked for deletion
    * and purged in version V+1.
    */
@@ -215,8 +215,8 @@ public final class SkyframeExecutor {
 
   private final ResourceManager resourceManager;
 
-  /** Used to lock auto-updating graph on legacy calls to get existing values. */
-  private final Object graphValueLookupLock = new Object();
+  /** Used to lock evaluator on legacy calls to get existing values. */
+  private final Object valueLookupLock = new Object();
   private final AtomicReference<ActionExecutionStatusReporter> statusReporterRef =
       new AtomicReference<>();
   private SkyframeActionExecutor skyframeActionExecutor;
@@ -234,7 +234,7 @@ public final class SkyframeExecutor {
   private MutableSupplier<ConfigurationFactory> configurationFactory = new MutableSupplier<>();
   private MutableSupplier<BuildConfigurationKey> buildConfigurationKey = new MutableSupplier<>();
   private MutableSupplier<ImmutableList<ConfigurationFragmentFactory>> configurationFragments =
-      new MutableSupplier<>();      
+      new MutableSupplier<>();
 
   @VisibleForTesting
   public SkyframeExecutor(Reporter reporter, PackageFactory pkgFactory,
@@ -256,14 +256,14 @@ public final class SkyframeExecutor {
       ImmutableList<BuildInfoFactory> buildInfoFactories,
       Iterable<? extends DiffAwareness.Factory> diffAwarenessFactories,
       Predicate<PathFragment> allowedMissingInputs) {
-    this(reporter, InMemoryAutoUpdatingGraph.SUPPLIER, pkgFactory, skyframeBuild, tsgm,
+    this(reporter, InMemoryMemoizingEvaluator.SUPPLIER, pkgFactory, skyframeBuild, tsgm,
         directories, workspaceStatusActionFactory, buildInfoFactories, diffAwarenessFactories,
         allowedMissingInputs);
   }
 
   public SkyframeExecutor(
       Reporter reporter,
-      GraphSupplier graphSupplier,
+      EvaluatorSupplier evaluatorSupplier,
       PackageFactory pkgFactory,
       boolean skyframeBuild,
       TimestampGranularityMonitor tsgm,
@@ -276,7 +276,7 @@ public final class SkyframeExecutor {
     // Strictly speaking, these arguments are not required for initialization, but all current
     // callsites have them at hand, so we might as well set them during construction.
     this.reporter = Preconditions.checkNotNull(reporter);
-    this.graphSupplier = graphSupplier;
+    this.evaluatorSupplier = evaluatorSupplier;
     this.pkgFactory = pkgFactory;
     this.pkgFactory.setSyscalls(syscalls);
     this.tsgm = tsgm;
@@ -294,7 +294,7 @@ public final class SkyframeExecutor {
     this.buildInfoFactories = buildInfoFactories;
     this.diffAwarenessFactories = ImmutableSet.copyOf(diffAwarenessFactories);
     this.allowedMissingInputs = allowedMissingInputs;
-    resetGraph();
+    resetEvaluator();
   }
 
   private ImmutableMap<SkyFunctionName, SkyFunction> skyFunctions(
@@ -362,15 +362,15 @@ public final class SkyframeExecutor {
   }
 
   public void dump(PrintStream out) {
-    autoUpdatingGraph.dump(out);
+    memoizingEvaluator.dump(out);
   }
 
   public void dumpPackages(PrintStream out) {
-    Iterable<SkyKey> packageSkyKeys = Iterables.filter(autoUpdatingGraph.getValues().keySet(),
+    Iterable<SkyKey> packageSkyKeys = Iterables.filter(memoizingEvaluator.getValues().keySet(),
         SkyFunctions.isSkyFunction(SkyFunctions.PACKAGE));
     out.println(Iterables.size(packageSkyKeys) + " packages");
     for (SkyKey packageSkyKey : packageSkyKeys) {
-      Package pkg = ((PackageValue) autoUpdatingGraph.getValues().get(packageSkyKey)).getPackage();
+      Package pkg = ((PackageValue) memoizingEvaluator.getValues().get(packageSkyKey)).getPackage();
       pkg.dump(out);
     }
   }
@@ -402,22 +402,22 @@ public final class SkyframeExecutor {
   }
 
   /**
-   * Reinitializes the Skyframe graph, dropping all previously computed values.
+   * Reinitializes the Skyframe evaluator, dropping all previously computed values.
    *
    * <p>Be careful with this method as it also deletes all injected values. You need to make sure
    * that any necessary build variables are reinjected before the next build. Constants can be put
    * in {@link #reinjectConstantValues}.
    */
   @ThreadCompatible
-  public void resetGraph() {
+  public void resetEvaluator() {
     emittedEventState.clear();
     recordingDiffer = new RecordingDifferencer();
     progressReceiver = new SkyframeProgressReceiver();
     Map<SkyFunctionName, SkyFunction> skyFunctions = skyFunctions(
         directories.getBuildDataDirectory(), pkgFactory, allowedMissingInputs);
-    autoUpdatingGraph = graphSupplier.createGraph(
+    memoizingEvaluator = evaluatorSupplier.create(
         skyFunctions, recordingDiffer, progressReceiver, emittedEventState);
-    sequentialBuildDriver = new SequentialBuildDriver(autoUpdatingGraph);
+    sequentialBuildDriver = new SequentialBuildDriver(memoizingEvaluator);
     currentDiffAwarenesses.clear();
     if (skyframeBuildView != null) {
       skyframeBuildView.clearLegacyData();
@@ -426,8 +426,9 @@ public final class SkyframeExecutor {
   }
 
   /**
-   * Values whose values are known at startup and guaranteed constant are still wiped from the graph
-   * when we create a new one, so they must be re-injected each time we create a new graph.
+   * Values whose values are known at startup and guaranteed constant are still wiped from the
+   * evaluator when we create a new one, so they must be re-injected each time we create a new
+   * evaluator.
    */
   private void reinjectConstantValues() {
     injectBuildInfoFactories();
@@ -437,13 +438,13 @@ public final class SkyframeExecutor {
   /**
    * Deletes all ConfiguredTarget values from the Skyframe cache.
    *
-   * <p>The next graph update will delete all invalid values.
+   * <p>The next evaluation delete all invalid values.
    */
   public void dropConfiguredTargets() {
     if (skyframeBuildView != null) {
       skyframeBuildView.clearInvalidatedConfiguredTargets();
     }
-    autoUpdatingGraph.delete(
+    memoizingEvaluator.delete(
         // We delete any value that can hold an action -- all subclasses of ActionLookupValue -- as
         // well as ActionExecutionValues, since they do not depend on ActionLookupValues.
         SkyFunctionName.functionIsIn(ImmutableSet.of(
@@ -456,11 +457,11 @@ public final class SkyframeExecutor {
   }
 
   /**
-   * Removes ConfigurationFragmentValuess and ConfigurationCollectionValues from graph.
+   * Removes ConfigurationFragmentValuess and ConfigurationCollectionValues from the cache.
    */
   @VisibleForTesting
   public void invalidateConfigurationCollection() {
-    autoUpdatingGraph.delete(SkyFunctionName.functionIsIn(ImmutableSet.of(
+    memoizingEvaluator.delete(SkyFunctionName.functionIsIn(ImmutableSet.of(
         SkyFunctions.CONFIGURATION_FRAGMENT, SkyFunctions.CONFIGURATION_COLLECTION)));
   }
 
@@ -468,7 +469,7 @@ public final class SkyframeExecutor {
    * Deletes all ConfiguredTarget values from the Skyframe cache.
    *
    * <p>After the execution of this method all invalidated and marked for deletion values
-   * (and the values depending on them) will be deleted from the graph.
+   * (and the values depending on them) will be deleted from the cache.
    *
    * <p>WARNING: Note that a call to this method leaves legacy data inconsistent with Skyframe.
    * The next build should clear the legacy caches.
@@ -481,7 +482,7 @@ public final class SkyframeExecutor {
       callUninterruptibly(new Callable<Void>() {
         @Override
         public Void call() throws InterruptedException {
-          sequentialBuildDriver.update(ImmutableList.<SkyKey>of(), false,
+          sequentialBuildDriver.evaluate(ImmutableList.<SkyKey>of(), false,
               ResourceUsage.getAvailableProcessors(), reporter);
           return null;
         }
@@ -494,18 +495,18 @@ public final class SkyframeExecutor {
   }
 
   /**
-   * Save memory by removing references to configured targets and actions in the Skyframe graph.
-   * These values must be recreated on subsequent builds. We do not clear the top-level target
+   * Save memory by removing references to configured targets and actions in Skyframe.
+   *
+   * <p>These values must be recreated on subsequent builds. We do not clear the top-level target
    * values, since their configured targets are needed for the target completion middleman values.
    *
-   * <p>
-   * The values are not deleted during this method call, because they are needed for the execution
-   * phase. Instead, their data is cleared. The next build will delete the values (and recreate them
-   * if necessary).
+   * <p>The values are not deleted during this method call, because they are needed for the
+   * execution phase. Instead, their data is cleared. The next build will delete the values (and
+   * recreate them if necessary).
    */
   private void discardAnalysisCache(Collection<ConfiguredTarget> topLevelTargets) {
     lastAnalysisDiscarded = true;
-    for (Map.Entry<SkyKey, SkyValue> entry : autoUpdatingGraph.getValues().entrySet()) {
+    for (Map.Entry<SkyKey, SkyValue> entry : memoizingEvaluator.getValues().entrySet()) {
       if (!entry.getKey().functionName().equals(SkyFunctions.CONFIGURED_TARGET)) {
         continue;
       }
@@ -562,7 +563,7 @@ public final class SkyframeExecutor {
   /**
    * Injects the build info factory map that will be used when constructing build info
    * actions/artifacts. Unchanged across the life of the Blaze server, although it must be injected
-   * each time the graph is created.
+   * each time the evaluator is created.
    */
   private void injectBuildInfoFactories() {
     ImmutableMap.Builder<BuildInfoKey, BuildInfoFactory> factoryMapBuilder =
@@ -592,10 +593,10 @@ public final class SkyframeExecutor {
     recordingDiffer.invalidate(packagesToInvalidate);
   }
 
-  /** Returns the build-info.txt and build-changelist.txt artifacts from the graph. */
+  /** Returns the build-info.txt and build-changelist.txt artifacts. */
   public Collection<Artifact> getWorkspaceStatusArtifacts() throws InterruptedException {
-    // Should already be in the graph, unless the user didn't request any targets for analysis.
-    UpdateResult<WorkspaceStatusValue> result = sequentialBuildDriver.update(
+    // Should already be present, unless the user didn't request any targets for analysis.
+    EvaluationResult<WorkspaceStatusValue> result = sequentialBuildDriver.evaluate(
         ImmutableList.of(WorkspaceStatusValue.SKY_KEY), /*keepGoing=*/false, /*numThreads=*/1,
         reporter);
     WorkspaceStatusValue value = result.get(WorkspaceStatusValue.SKY_KEY);
@@ -702,7 +703,15 @@ public final class SkyframeExecutor {
       for (Path pathEntry : pkgLocator.get().getPathEntries()) {
         DiffAwareness diffAwareness = getDiffAwareness(pathEntry);
         // Note that we must invalidate these files, per the contract of DiffAwareness#getDiff.
-        ModifiedFileSet modifiedFileSet = diffAwareness.getDiff();
+        ModifiedFileSet modifiedFileSet = ModifiedFileSet.EVERYTHING_MODIFIED;
+        try {
+          modifiedFileSet = diffAwareness.getDiff();
+        } catch (BrokenDiffAwarenessException e) {
+          currentDiffAwarenesses.remove(pathEntry);
+          if (e.getMessage() != null) {
+            errorEventListener.warn(null, e.getMessage());
+          }
+        }
         if (modifiedFileSet.treatEverythingAsModified()) {
           pathEntriesWithoutDiffInformation.add(pathEntry);
         } else {
@@ -746,14 +755,14 @@ public final class SkyframeExecutor {
       throws InterruptedException {
     // Before running the FilesystemValueChecker, ensure that all values marked for invalidation
     // have actually been invalidated (recall that invalidation happens at the beginning of the
-    // next update call), because checking those is a waste of time.
-    sequentialBuildDriver.update(ImmutableList.<SkyKey>of(), false,
+    // next evaluate() call), because checking those is a waste of time.
+    sequentialBuildDriver.evaluate(ImmutableList.<SkyKey>of(), false,
         DEFAULT_THREAD_COUNT, reporter);
-    FilesystemValueChecker fsnc = new FilesystemValueChecker(autoUpdatingGraph, tsgm);
+    FilesystemValueChecker fsnc = new FilesystemValueChecker(memoizingEvaluator, tsgm);
     // We need to manually check for changes to known files. This entails finding all dirty file
     // system values under package roots for which we don't have diff information. If at least
     // one path entry doesn't have diff information, then we're going to have to iterate over
-    // the skyframe graph at least once no matter what so we might as well do so now and avoid
+    // the skyframe values at least once no matter what so we might as well do so now and avoid
     // doing so more than once.
     Iterable<SkyKey> filesystemSkyKeys = fsnc.getFilesystemSkyKeys();
     // Partition by package path entry.
@@ -795,13 +804,11 @@ public final class SkyframeExecutor {
 
   /**
    * Returns the {@link DiffAwareness} to use for finding changes to files under the given path.
-   * This will either be an old diff awareness for the path that is still good per
-   * {@link DiffAwareness#canStillBeUsed}, or a fresh one.
    */
   @VisibleForTesting
   public DiffAwareness getDiffAwareness(Path pathEntry) {
     DiffAwareness currentDiffAwareness = currentDiffAwarenesses.get(pathEntry);
-    if (currentDiffAwareness != null && currentDiffAwareness.canStillBeUsed()) {
+    if (currentDiffAwareness != null) {
       return currentDiffAwareness;
     }
     DiffAwareness newDiffAwareness = null;
@@ -831,7 +838,7 @@ public final class SkyframeExecutor {
   }
 
   /**
-   * Prepares the graph for loading.
+   * Prepares the evaluator for loading.
    *
    * <p>MUST be run before every incremental build.
    */
@@ -878,7 +885,7 @@ public final class SkyframeExecutor {
   private void setPackageLocator(PathPackageLocator pkgLocator) {
     PathPackageLocator oldLocator = this.pkgLocator.getAndSet(pkgLocator);
     if ((oldLocator == null || !oldLocator.getPathEntries().equals(pkgLocator.getPathEntries()))) {
-      autoUpdatingGraph.delete(SkyFunctionName.functionIsIn(PACKAGE_LOCATOR_DEPENDENT_VALUES));
+      memoizingEvaluator.delete(SkyFunctionName.functionIsIn(PACKAGE_LOCATOR_DEPENDENT_VALUES));
 
       // The package path is read not only by SkyFunctions but also by some other code paths.
       // We need to take additional steps to keep the corresponding data structures in sync.
@@ -960,8 +967,8 @@ public final class SkyframeExecutor {
     BuildVariableValue.TEST_ENVIRONMENT_VARIABLES.set(recordingDiffer, testEnv);
     BuildVariableValue.BLAZE_DIRECTORIES.set(recordingDiffer, configurationKey.getDirectories());
 
-    UpdateResult<ConfigurationCollectionValue> result =
-        sequentialBuildDriver.update(
+    EvaluationResult<ConfigurationCollectionValue> result =
+        sequentialBuildDriver.evaluate(
             Arrays.asList(ConfigurationCollectionValue.KEY), keepGoing,
             DEFAULT_THREAD_COUNT, errorEventListener);
     if (result.hasError()) {
@@ -971,13 +978,13 @@ public final class SkyframeExecutor {
           "Unknown error during ConfigurationCollectionValue evaluation", e);
     }
     Preconditions.checkState(result.values().size() == 1,
-        "Result of update must contain exactly one value " + result);
+        "Result of evaluate() must contain exactly one value " + result);
     return Iterables.getOnlyElement(result.values()).getConfigurationCollection();
   }
 
   private Iterable<ActionLookupValue> getActionLookupValues() {
     // This filter keeps subclasses of ActionLookupValue.
-    return Iterables.filter(autoUpdatingGraph.getDoneValues().values(), ActionLookupValue.class);
+    return Iterables.filter(memoizingEvaluator.getDoneValues().values(), ActionLookupValue.class);
   }
 
   /**
@@ -993,7 +1000,7 @@ public final class SkyframeExecutor {
       // some way -- either we analyzed a new target or we invalidated an old one.
       skyframeActionExecutor.findAndStoreArtifactConflicts(getActionLookupValues());
       skyframeBuildView.resetEvaluatedConfiguredTargetFlag();
-      // The invalidated configured targets flag will be reset later in the update call.
+      // The invalidated configured targets flag will be reset later in the evaluate() call.
     }
     return skyframeActionExecutor.badActions();
   }
@@ -1004,13 +1011,13 @@ public final class SkyframeExecutor {
    * <p>The returned artifacts should be built and present on the filesystem after the call
    * completes.
    */
-  public UpdateResult<ArtifactValue> buildArtifacts(
+  public EvaluationResult<ArtifactValue> buildArtifacts(
       Executor executor,
       Set<Artifact> artifacts,
       boolean keepGoing,
       int numJobs,
       ActionCacheChecker actionCacheChecker,
-      @Nullable ValueProgressReceiver executionProgressReceiver) throws InterruptedException {
+      @Nullable EvaluationProgressReceiver executionProgressReceiver) throws InterruptedException {
     checkActive();
     Preconditions.checkState(actionLogBufferPathGenerator != null);
 
@@ -1019,7 +1026,7 @@ public final class SkyframeExecutor {
     resourceManager.resetResourceUsage();
     try {
       progressReceiver.executionProgressReceiver = executionProgressReceiver;
-      return sequentialBuildDriver.update(ArtifactValue.mandatoryKeys(artifacts), keepGoing,
+      return sequentialBuildDriver.evaluate(ArtifactValue.mandatoryKeys(artifacts), keepGoing,
           numJobs, errorEventListener);
     } finally {
       progressReceiver.executionProgressReceiver = null;
@@ -1028,10 +1035,10 @@ public final class SkyframeExecutor {
     }
   }
 
-  UpdateResult<TargetPatternValue> targetPatterns(Iterable<SkyKey> patternSkyKeys,
+  EvaluationResult<TargetPatternValue> targetPatterns(Iterable<SkyKey> patternSkyKeys,
       boolean keepGoing, ErrorEventListener listener) throws InterruptedException {
     checkActive();
-    return sequentialBuildDriver.update(patternSkyKeys, keepGoing, DEFAULT_THREAD_COUNT,
+    return sequentialBuildDriver.evaluate(patternSkyKeys, keepGoing, DEFAULT_THREAD_COUNT,
         listener);
   }
 
@@ -1050,15 +1057,15 @@ public final class SkyframeExecutor {
       return ImmutableList.of();
     }
     final Collection<SkyKey> skyKeys = ConfiguredTargetValue.keys(lacs);
-    UpdateResult<SkyValue> result;
+    EvaluationResult<SkyValue> result;
     try {
-      result = callUninterruptibly(new Callable<UpdateResult<SkyValue>>() {
+      result = callUninterruptibly(new Callable<EvaluationResult<SkyValue>>() {
         @Override
-        public UpdateResult<SkyValue> call() throws Exception {
-          synchronized (graphValueLookupLock) {
+        public EvaluationResult<SkyValue> call() throws Exception {
+          synchronized (valueLookupLock) {
             try {
               skyframeBuildView.enableAnalysis(true);
-              return sequentialBuildDriver.update(skyKeys, false, DEFAULT_THREAD_COUNT,
+              return sequentialBuildDriver.evaluate(skyKeys, false, DEFAULT_THREAD_COUNT,
                   errorEventListener);
             } finally {
               skyframeBuildView.enableAnalysis(false);
@@ -1087,7 +1094,7 @@ public final class SkyframeExecutor {
   @Nullable
   public ConfiguredTarget getConfiguredTargetForTesting(
       Label label, BuildConfiguration configuration) {
-    if (autoUpdatingGraph.getExistingValueForTesting(
+    if (memoizingEvaluator.getExistingValueForTesting(
         BuildVariableValue.WORKSPACE_STATUS_KEY.getKeyForTesting()) == null) {
       injectWorkspaceStatusData();
     }
@@ -1112,7 +1119,7 @@ public final class SkyframeExecutor {
     }
     Iterable<SkyKey> keys;
     if (modifiedFileSet.treatEverythingAsModified()) {
-      Diff diff = new FilesystemValueChecker(autoUpdatingGraph, tsgm).getDirtyFilesystemSkyKeys();
+      Diff diff = new FilesystemValueChecker(memoizingEvaluator, tsgm).getDirtyFilesystemSkyKeys();
       keys = diff.changedKeysWithoutNewValues();
       recordingDiffer.inject(diff.changedKeysWithNewValues());
     } else {
@@ -1141,32 +1148,32 @@ public final class SkyframeExecutor {
   /**
    * Configures a given set of configured targets.
    */
-  public UpdateResult<ConfiguredTargetValue> configureTargets(List<LabelAndConfiguration> values,
-      boolean keepGoing) throws InterruptedException {
+  public EvaluationResult<ConfiguredTargetValue> configureTargets(
+      List<LabelAndConfiguration> values, boolean keepGoing) throws InterruptedException {
     checkActive();
 
     // Make sure to not run too many analysis threads. This can cause memory thrashing.
-    return sequentialBuildDriver.update(ConfiguredTargetValue.keys(values), keepGoing,
+    return sequentialBuildDriver.evaluate(ConfiguredTargetValue.keys(values), keepGoing,
         ResourceUsage.getAvailableProcessors(), errorEventListener);
   }
 
   /**
-   * Post-process the targets. Values in the UpdateResult are known to be transitively
+   * Post-process the targets. Values in the EvaluationResult are known to be transitively
    * error-free from action conflicts.
    */
-  public UpdateResult<PostConfiguredTargetValue> postConfigureTargets(
+  public EvaluationResult<PostConfiguredTargetValue> postConfigureTargets(
       List<LabelAndConfiguration> values, boolean keepGoing,
       ImmutableMap<Action, Exception> badActions) throws InterruptedException {
     checkActive();
     BuildVariableValue.BAD_ACTIONS.set(recordingDiffer, badActions);
     // Make sure to not run too many analysis threads. This can cause memory thrashing.
-    UpdateResult<PostConfiguredTargetValue> result =
-        sequentialBuildDriver.update(PostConfiguredTargetValue.keys(values), keepGoing,
+    EvaluationResult<PostConfiguredTargetValue> result =
+        sequentialBuildDriver.evaluate(PostConfiguredTargetValue.keys(values), keepGoing,
             ResourceUsage.getAvailableProcessors(), errorEventListener);
 
     // Remove all post-configured target values immediately for memory efficiency. We are OK with
     // this mini-phase being non-incremental as the failure mode of action conflict is rare.
-    autoUpdatingGraph.delete(SkyFunctionName.functionIs(SkyFunctions.POST_CONFIGURED_TARGET));
+    memoizingEvaluator.delete(SkyFunctionName.functionIs(SkyFunctions.POST_CONFIGURED_TARGET));
 
     return result;
   }
@@ -1184,7 +1191,7 @@ public final class SkyframeExecutor {
     /**
      * Loads the specified {@link TransitiveTargetValue}s.
      */
-    UpdateResult<TransitiveTargetValue> loadTransitiveTargets(
+    EvaluationResult<TransitiveTargetValue> loadTransitiveTargets(
         Iterable<Target> targetsToVisit, Iterable<Label> labelsToVisit, boolean keepGoing)
         throws InterruptedException {
       List<SkyKey> valueNames = new ArrayList<>();
@@ -1195,7 +1202,7 @@ public final class SkyframeExecutor {
         valueNames.add(TransitiveTargetValue.key(label));
       }
 
-      return sequentialBuildDriver.update(valueNames, keepGoing, DEFAULT_THREAD_COUNT,
+      return sequentialBuildDriver.evaluate(valueNames, keepGoing, DEFAULT_THREAD_COUNT,
           errorEventListener);
     }
 
@@ -1209,8 +1216,8 @@ public final class SkyframeExecutor {
         return callUninterruptibly(new Callable<Set<Package>>() {
           @Override
           public Set<Package> call() throws Exception {
-            UpdateResult<PackageValue> result = sequentialBuildDriver.update(valueNames, false,
-                ResourceUsage.getAvailableProcessors(), errorEventListener);
+            EvaluationResult<PackageValue> result = sequentialBuildDriver.evaluate(
+                valueNames, false, ResourceUsage.getAvailableProcessors(), errorEventListener);
             Preconditions.checkState(!result.hasError(),
                 "unexpected errors: %s", result.errorMap());
             Set<Package> packages = Sets.newHashSet();
@@ -1248,12 +1255,12 @@ public final class SkyframeExecutor {
           SkyKey actionLookupKey =
               ActionLookupValue.key((ActionLookupValue.ActionLookupKey) artifactOwner);
 
-          synchronized (graphValueLookupLock) {
+          synchronized (valueLookupLock) {
             // Note that this will crash (attempting to run a configured target value builder after
             // analysis) after a failed --nokeep_going analysis in which the configured target that
             // failed was a (transitive) dependency of the configured target that should generate
             // this action. We don't expect callers to query generating actions in such cases.
-            UpdateResult<ActionLookupValue> result = sequentialBuildDriver.update(
+            EvaluationResult<ActionLookupValue> result = sequentialBuildDriver.evaluate(
                 ImmutableList.of(actionLookupKey), false, ResourceUsage.getAvailableProcessors(),
                 errorEventListener);
             return result.hasError()
@@ -1275,15 +1282,15 @@ public final class SkyframeExecutor {
     /**
      * Looks up a particular package (used after the loading phase).
      *
-     * <p>Note that this method needs to be synchronized since InMemoryAutoUpdatingGraph.update()
+     * <p>Note that this method needs to be synchronized since InMemoryMemoizingEvaluator.evaluate()
      * method does not support concurrent calls.
      */
     Package getPackage(ErrorEventListener listener, String pkgName) throws InterruptedException,
         NoSuchPackageException {
-      synchronized (graphValueLookupLock) {
+      synchronized (valueLookupLock) {
         SkyKey key = PackageValue.key(new PathFragment(pkgName));
-        UpdateResult<PackageValue> result =
-            sequentialBuildDriver.update(ImmutableList.of(key), false,
+        EvaluationResult<PackageValue> result =
+            sequentialBuildDriver.evaluate(ImmutableList.of(key), false,
                 DEFAULT_THREAD_COUNT, listener);
         if (result.hasError()) {
           if (!Iterables.isEmpty(result.getError().getCycleInfo())) {
@@ -1364,8 +1371,8 @@ public final class SkyframeExecutor {
   }
 
   @VisibleForTesting
-  public AutoUpdatingGraph getGraphForTesting() {
-    return autoUpdatingGraph;
+  public MemoizingEvaluator getEvaluatorForTesting() {
+    return memoizingEvaluator;
   }
 
   @VisibleForTesting
@@ -1465,18 +1472,18 @@ public final class SkyframeExecutor {
     this.binTools = binTools;
   }
 
-  public void prepareExecution() throws ExitCausingException, InterruptedException {
+  public void prepareExecution() throws AbruptExitException, InterruptedException {
     Preconditions.checkState(skyframeBuild(),
         "Cannot prepare execution phase if not using Skyframe full");
     maybeInjectEmbeddedArtifacts();
 
     // Detect external modifications in the output tree.
-    FilesystemValueChecker fsnc = new FilesystemValueChecker(autoUpdatingGraph, tsgm);
+    FilesystemValueChecker fsnc = new FilesystemValueChecker(memoizingEvaluator, tsgm);
     recordingDiffer.invalidate(fsnc.getDirtyActionValues(batchStatter));
     modifiedFiles += fsnc.getNumberOfModifiedOutputFiles();
   }
 
-  @VisibleForTesting void maybeInjectEmbeddedArtifacts() throws ExitCausingException {
+  @VisibleForTesting void maybeInjectEmbeddedArtifacts() throws AbruptExitException {
     // The blaze client already ensures that the contents of the embedded binaries never change,
     // so we just need to make sure that the appropriate artifacts are present in the skyframe
     // graph.
@@ -1497,7 +1504,7 @@ public final class SkyframeExecutor {
         // See ExtractData in blaze.cc.
         String message = "Error: corrupt installation: file " + artifact.getPath() + " missing. "
             + "Please remove '" + directories.getInstallBase() + "' and try again.";
-        throw new ExitCausingException(message, ExitCode.LOCAL_ENVIRONMENTAL_ERROR, e);
+        throw new AbruptExitException(message, ExitCode.LOCAL_ENVIRONMENTAL_ERROR, e);
       }
       values.put(ArtifactValue.key(artifact, /*isMandatory=*/true), fileArtifactValue);
     }
@@ -1508,7 +1515,7 @@ public final class SkyframeExecutor {
   /**
    * Sets the upper limit for the number of graph versions that dirty values may be retained for.
    *
-   * <p>Specifying a value N means, if the current graph version is V and a value was dirtied (and
+   * <p>Specifying a value N means, if the current version is V and a value was dirtied (and
    * has remained so) in version U, and U + N &lt;= V, then the value will be marked for deletion
    * and purged in version V + 1.
    *
@@ -1526,10 +1533,10 @@ public final class SkyframeExecutor {
   public void deleteOldNodes() {
     // TODO(bazel-team): perhaps we should come up with a separate GC class dedicated to maintaining
     // value garbage. If we ever do so, this logic should be moved there.
-    autoUpdatingGraph.deleteDirty(versionWindowForDirtyGc);
+    memoizingEvaluator.deleteDirty(versionWindowForDirtyGc);
   }
 
-  private class SkyframeProgressReceiver implements ValueProgressReceiver {
+  private class SkyframeProgressReceiver implements EvaluationProgressReceiver {
 
     /**
      * This flag is needed in order to avoid invalidating legacy data when we clear the
@@ -1538,7 +1545,7 @@ public final class SkyframeExecutor {
      */
     private boolean ignoreInvalidations = false;
     /** This receiver is only needed for execution, so it is null otherwise. */
-    @Nullable ValueProgressReceiver executionProgressReceiver = null;
+    @Nullable EvaluationProgressReceiver executionProgressReceiver = null;
 
     @Override
     public void invalidated(SkyValue value, InvalidationState state) {
@@ -1599,4 +1606,3 @@ public final class SkyframeExecutor {
     }
   }
 }
-

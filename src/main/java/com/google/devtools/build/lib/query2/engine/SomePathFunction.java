@@ -17,12 +17,10 @@ import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableSet;
 import com.google.common.collect.Sets;
 import com.google.common.collect.Sets.SetView;
-import com.google.devtools.build.lib.graph.Node;
 import com.google.devtools.build.lib.query2.engine.QueryEnvironment.Argument;
 import com.google.devtools.build.lib.query2.engine.QueryEnvironment.ArgumentType;
 import com.google.devtools.build.lib.query2.engine.QueryEnvironment.QueryFunction;
 
-import java.util.Collections;
 import java.util.HashSet;
 import java.util.List;
 import java.util.Set;
@@ -53,11 +51,10 @@ class SomePathFunction implements QueryFunction {
   }
 
   @Override
-  public <T> Set<Node<T>> eval(
-      QueryEnvironment<T> env, QueryExpression expression, List<Argument> args)
+  public <T> Set<T> eval(QueryEnvironment<T> env, QueryExpression expression, List<Argument> args)
       throws QueryException {
-    Set<Node<T>> fromValue = args.get(0).getExpression().eval(env);
-    Set<Node<T>> toValue = args.get(1).getExpression().eval(env);
+    Set<T> fromValue = args.get(0).getExpression().eval(env);
+    Set<T> toValue = args.get(1).getExpression().eval(env);
 
     // Implementation strategy: for each x in "from", compute its forward
     // transitive closure.  If it intersects "to", then do a path search from x
@@ -67,14 +64,14 @@ class SomePathFunction implements QueryFunction {
     env.buildTransitiveClosure(expression, fromValue, Integer.MAX_VALUE);
 
     // This set contains all nodes whose TC does not intersect "toValue".
-    Set<Node<T>> done = new HashSet<>();
+    Set<T> done = new HashSet<>();
 
-    for (Node<T> x : fromValue) {
+    for (T x : fromValue) {
       if (done.contains(x)) {
         continue;
       }
-      Set<Node<T>> xtc = env.getTransitiveClosure(ImmutableSet.of(x));
-      SetView<Node<T>> result;
+      Set<T> xtc = env.getTransitiveClosure(ImmutableSet.of(x));
+      SetView<T> result;
       if (xtc.size() > toValue.size()) {
         result = Sets.intersection(toValue, xtc);
       } else {
@@ -85,6 +82,6 @@ class SomePathFunction implements QueryFunction {
       }
       done.addAll(xtc);
     }
-    return Collections.emptySet();
+    return ImmutableSet.of();
   }
 }

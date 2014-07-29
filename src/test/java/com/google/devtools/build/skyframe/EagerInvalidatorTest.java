@@ -33,9 +33,9 @@ import com.google.devtools.build.lib.testutil.MoreAsserts;
 import com.google.devtools.build.lib.testutil.TestUtils;
 import com.google.devtools.build.lib.util.Pair;
 import com.google.devtools.build.skyframe.GraphTester.StringValue;
-import com.google.devtools.build.skyframe.InvalidatingValueVisitor.DirtyingInvalidationState;
-import com.google.devtools.build.skyframe.InvalidatingValueVisitor.InvalidationState;
-import com.google.devtools.build.skyframe.InvalidatingValueVisitor.InvalidationType;
+import com.google.devtools.build.skyframe.InvalidatingNodeVisitor.DirtyingInvalidationState;
+import com.google.devtools.build.skyframe.InvalidatingNodeVisitor.InvalidationState;
+import com.google.devtools.build.skyframe.InvalidatingNodeVisitor.InvalidationType;
 
 import org.junit.Test;
 import org.junit.experimental.runners.Enclosed;
@@ -53,26 +53,26 @@ import java.util.concurrent.atomic.AtomicReference;
 import javax.annotation.Nullable;
 
 /**
- * Tests for {@link InvalidatingValueVisitor}.
+ * Tests for {@link InvalidatingNodeVisitor}.
  */
 @RunWith(Enclosed.class)
 public class EagerInvalidatorTest {
   protected InMemoryGraph graph;
   protected GraphTester tester = new GraphTester();
   protected InvalidationState state = newInvalidationState();
-  protected AtomicReference<InvalidatingValueVisitor> visitor = new AtomicReference<>();
+  protected AtomicReference<InvalidatingNodeVisitor> visitor = new AtomicReference<>();
 
   private int graphVersion = 0;
 
   // The following three methods should be abstract, but junit4 does not allow us to run inner
   // classes in an abstract outer class. Thus, we provide implementations. These methods will never
   // be run because only the inner classes, annotated with @RunWith, will actually be executed.
-  ValueProgressReceiver.InvalidationState expectedState() {
+  EvaluationProgressReceiver.InvalidationState expectedState() {
     throw new UnsupportedOperationException();
   }
 
   @SuppressWarnings("unused") // Overridden by subclasses.
-  void invalidate(DirtiableGraph graph, ValueProgressReceiver invalidationReceiver,
+  void invalidate(DirtiableGraph graph, EvaluationProgressReceiver invalidationReceiver,
       SkyKey... keys) throws InterruptedException { throw new UnsupportedOperationException(); }
 
   boolean gcExpected() { throw new UnsupportedOperationException(); }
@@ -120,16 +120,16 @@ public class EagerInvalidatorTest {
     return eval(keepGoing, keys).get(key);
   }
 
-  protected <T extends SkyValue> UpdateResult<T> eval(boolean keepGoing, SkyKey... keys)
+  protected <T extends SkyValue> EvaluationResult<T> eval(boolean keepGoing, SkyKey... keys)
     throws InterruptedException {
     Reporter reporter = new Reporter();
     ParallelEvaluator evaluator = new ParallelEvaluator(graph, graphVersion++,
         ImmutableMap.of(GraphTester.NODE_TYPE, tester.createDelegatingFunction()),
-        reporter, new AutoUpdatingGraph.EmittedEventState(), keepGoing, 200, null);
+        reporter, new MemoizingEvaluator.EmittedEventState(), keepGoing, 200, null);
     return evaluator.eval(ImmutableList.copyOf(keys));
   }
 
-  protected void invalidateWithoutError(@Nullable ValueProgressReceiver invalidationReceiver,
+  protected void invalidateWithoutError(@Nullable EvaluationProgressReceiver invalidationReceiver,
       SkyKey... keys) throws InterruptedException {
     invalidate(graph, invalidationReceiver, keys);
     assertTrue(state.isEmpty());
@@ -151,7 +151,7 @@ public class EagerInvalidatorTest {
   @Test
   public void receiverWorks() throws Exception {
     final Set<String> invalidated = Sets.newConcurrentHashSet();
-    ValueProgressReceiver receiver = new ValueProgressReceiver() {
+    EvaluationProgressReceiver receiver = new EvaluationProgressReceiver() {
       @Override
       public void invalidated(SkyValue value, InvalidationState state) {
         Preconditions.checkState(state == expectedState());
@@ -187,7 +187,7 @@ public class EagerInvalidatorTest {
   @Test
   public void receiverIsNotNotifiedAboutValuesInError() throws Exception {
     final Set<String> invalidated = Sets.newConcurrentHashSet();
-    ValueProgressReceiver receiver = new ValueProgressReceiver() {
+    EvaluationProgressReceiver receiver = new EvaluationProgressReceiver() {
       @Override
       public void invalidated(SkyValue value, InvalidationState state) {
         Preconditions.checkState(state == expectedState());
@@ -217,7 +217,7 @@ public class EagerInvalidatorTest {
   @Test
   public void invalidateValuesNotInGraph() throws Exception {
     final Set<String> invalidated = Sets.newConcurrentHashSet();
-    ValueProgressReceiver receiver = new ValueProgressReceiver() {
+    EvaluationProgressReceiver receiver = new EvaluationProgressReceiver() {
       @Override
       public void invalidated(SkyValue value, InvalidationState state) {
         Preconditions.checkState(state == InvalidationState.DIRTY);
@@ -319,7 +319,7 @@ public class EagerInvalidatorTest {
     eval(/*keepGoing=*/false, parent);
     final Thread mainThread = Thread.currentThread();
     final AtomicReference<SkyValue> badValue = new AtomicReference<>();
-    ValueProgressReceiver receiver = new ValueProgressReceiver() {
+    EvaluationProgressReceiver receiver = new EvaluationProgressReceiver() {
       @Override
       public void invalidated(SkyValue value, InvalidationState state) {
         if (value == childValue) {
@@ -360,7 +360,7 @@ public class EagerInvalidatorTest {
     assertFalse(isInvalidated(parent));
     SkyValue parentValue = graph.getValue(parent);
     assertNotNull(parentValue);
-    receiver = new ValueProgressReceiver() {
+    receiver = new EvaluationProgressReceiver() {
       @Override
       public void invalidated(SkyValue value, InvalidationState state) {
         invalidated.add(value);
@@ -444,7 +444,7 @@ public class EagerInvalidatorTest {
       }
       int countDownStart = validValuesToDo > 0 ? random.nextInt(validValuesToDo) : 0;
       final CountDownLatch countDownToInterrupt = new CountDownLatch(countDownStart);
-      final ValueProgressReceiver receiver = new ValueProgressReceiver() {
+      final EvaluationProgressReceiver receiver = new EvaluationProgressReceiver() {
         @Override
         public void invalidated(SkyValue value, InvalidationState state) {
           countDownToInterrupt.countDown();
@@ -501,9 +501,9 @@ public class EagerInvalidatorTest {
   @RunWith(JUnit4.class)
   public static class DeletingInvalidatorTest extends EagerInvalidatorTest {
     @Override
-    protected void invalidate(DirtiableGraph graph, ValueProgressReceiver invalidationReceiver,
+    protected void invalidate(DirtiableGraph graph, EvaluationProgressReceiver invalidationReceiver,
         SkyKey... keys) throws InterruptedException {
-      InvalidatingValueVisitor invalidatingVisitor =
+      InvalidatingNodeVisitor invalidatingVisitor =
           EagerInvalidator.createVisitor(/*delete=*/true, graph, ImmutableList.copyOf(keys),
               invalidationReceiver, state);
       if (invalidatingVisitor != null) {
@@ -513,8 +513,8 @@ public class EagerInvalidatorTest {
     }
 
     @Override
-    ValueProgressReceiver.InvalidationState expectedState() {
-      return ValueProgressReceiver.InvalidationState.DELETED;
+    EvaluationProgressReceiver.InvalidationState expectedState() {
+      return EvaluationProgressReceiver.InvalidationState.DELETED;
     }
 
     @Override
@@ -524,7 +524,7 @@ public class EagerInvalidatorTest {
 
     @Override
     protected InvalidationState newInvalidationState() {
-      return new InvalidatingValueVisitor.DeletingInvalidationState();
+      return new InvalidatingNodeVisitor.DeletingInvalidationState();
     }
 
     @Override
@@ -539,9 +539,9 @@ public class EagerInvalidatorTest {
   @RunWith(JUnit4.class)
   public static class DirtyingInvalidatorTest extends EagerInvalidatorTest {
     @Override
-    protected void invalidate(DirtiableGraph graph, ValueProgressReceiver invalidationReceiver,
+    protected void invalidate(DirtiableGraph graph, EvaluationProgressReceiver invalidationReceiver,
         SkyKey... keys) throws InterruptedException {
-      InvalidatingValueVisitor invalidatingVisitor =
+      InvalidatingNodeVisitor invalidatingVisitor =
           EagerInvalidator.createVisitor(/*delete=*/false, graph, ImmutableList.copyOf(keys),
               invalidationReceiver, state);
       if (invalidatingVisitor != null) {
@@ -551,8 +551,8 @@ public class EagerInvalidatorTest {
     }
 
     @Override
-    ValueProgressReceiver.InvalidationState expectedState() {
-      return ValueProgressReceiver.InvalidationState.DIRTY;
+    EvaluationProgressReceiver.InvalidationState expectedState() {
+      return EvaluationProgressReceiver.InvalidationState.DIRTY;
     }
 
     @Override

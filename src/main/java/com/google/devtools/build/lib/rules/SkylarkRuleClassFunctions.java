@@ -40,6 +40,7 @@ import com.google.devtools.build.lib.packages.AttributeMap;
 import com.google.devtools.build.lib.packages.ImplicitOutputsFunction.SkylarkImplicitOutputsFunctionWithCallback;
 import com.google.devtools.build.lib.packages.ImplicitOutputsFunction.SkylarkImplicitOutputsFunctionWithMap;
 import com.google.devtools.build.lib.packages.MethodLibrary;
+import com.google.devtools.build.lib.packages.Rule;
 import com.google.devtools.build.lib.packages.RuleClass;
 import com.google.devtools.build.lib.packages.RuleClass.Builder.RuleClassType;
 import com.google.devtools.build.lib.packages.SkylarkFileType;
@@ -248,6 +249,7 @@ public class SkylarkRuleClassFunctions {
   // TODO(bazel-team): implement attribute copy and other rule properties
 
   @SkylarkBuiltin(name = "rule", doc = "Creates a rule class.",
+      returnType = Rule.class,
       mandatoryParams = {
       @Param(name = "implementation", type = UserDefinedFunction.class,
           doc = "the function implementing this rule, has to have exactly one parameter: 'ctx'")},
@@ -305,6 +307,7 @@ public class SkylarkRuleClassFunctions {
       };
 
   @SkylarkBuiltin(name = "label", doc = "Creates a label referring to a BUILD target.",
+      returnType = Label.class,
       mandatoryParams = {@Param(name = "label", type = String.class, doc = "the label string")})
   private final SkylarkFunction label = new SimpleSkylarkFunction("label") {
         @Override
@@ -316,6 +319,7 @@ public class SkylarkRuleClassFunctions {
       };
 
   @SkylarkBuiltin(name = "filetype", doc = "Creates a file filter from a list of strings.",
+      returnType = SkylarkFileType.class,
       mandatoryParams = {
       @Param(name = "types", doc = "a list of the accepted file extensions")})
   private static final SkylarkFunction fileType = new SimpleSkylarkFunction("filetype") {

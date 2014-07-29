@@ -15,7 +15,6 @@ package com.google.devtools.build.lib.query2.engine;
 
 import com.google.common.base.Preconditions;
 import com.google.common.collect.ImmutableList;
-import com.google.devtools.build.lib.graph.Node;
 
 import java.util.Collection;
 import java.util.LinkedHashSet;
@@ -47,11 +46,11 @@ class BinaryOperatorExpression extends QueryExpression {
   }
 
   @Override
-  public <T> Set<Node<T>> eval(QueryEnvironment<T> env) throws QueryException {
-    Set<Node<T>> lhsValue = new LinkedHashSet<>(operands.get(0).eval(env));
+  public <T> Set<T> eval(QueryEnvironment<T> env) throws QueryException {
+    Set<T> lhsValue = new LinkedHashSet<>(operands.get(0).eval(env));
 
     for (int i = 1; i < operands.size(); i++) {
-      Set<Node<T>> rhsValue = operands.get(i).eval(env);
+      Set<T> rhsValue = operands.get(i).eval(env);
       switch (operator) {
         case INTERSECT:
         case CARET:

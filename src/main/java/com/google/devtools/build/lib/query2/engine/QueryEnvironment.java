@@ -13,8 +13,9 @@
 // limitations under the License.
 package com.google.devtools.build.lib.query2.engine;
 
-import com.google.devtools.build.lib.graph.Node;
+import com.google.common.collect.ImmutableList;
 
+import java.util.Collection;
 import java.util.List;
 import java.util.Set;
 
@@ -121,7 +122,7 @@ public interface QueryEnvironment<T> {
      * @param args the input arguments. These are type-checked against the specification returned
      *     by {@link #getArgumentTypes} and {@link #getMandatoryArguments}
      */
-    <T> Set<Node<T>> eval(QueryEnvironment<T> env, QueryExpression expression, List<Argument> args)
+    <T> Set<T> eval(QueryEnvironment<T> env, QueryExpression expression, List<Argument> args)
         throws QueryException;
   }
 
@@ -143,21 +144,26 @@ public interface QueryEnvironment<T> {
    * Returns the set of target nodes in the graph for the specified target
    * pattern, in 'blaze build' syntax.
    */
-  Set<Node<T>> getTargetsMatchingPattern(QueryExpression owner, String pattern)
+  Set<T> getTargetsMatchingPattern(QueryExpression owner, String pattern)
       throws QueryException;
 
-  /**
-   * Returns the graph node for the specified target, creating a new one if not
-   * found.
-   */
-  Node<T> getNode(T target);
+  /** Ensures the specified target exists. */
+  // NOTE(bazel-team): this method is left here as scaffolding from a previous refactoring. It may
+  // be possible to remove it.
+  T getOrCreate(T target);
+
+  /** Returns the direct forward dependencies of the specified target. */
+  Collection<T> getFwdDeps(T target);
+
+  /** Returns the direct reverse dependencies of the specified target. */
+  Collection<T> getReverseDeps(T target);
 
   /**
-   * Returns the forward transitive closure of all of the nodes in
-   * "targetNodes".  Callers must ensure that {@link #buildTransitiveClosure}
+   * Returns the forward transitive closure of all of the targets in
+   * "targets".  Callers must ensure that {@link #buildTransitiveClosure}
    * has been called for the relevant subgraph.
    */
-  Set<Node<T>> getTransitiveClosure(Set<Node<T>> targetNodes);
+  Set<T> getTransitiveClosure(Set<T> targets);
 
   /**
    * Construct the dependency graph for a depth-bounded forward transitive closure
@@ -169,24 +175,24 @@ public interface QueryEnvironment<T> {
    * after it is built anyway.
    */
   void buildTransitiveClosure(QueryExpression caller,
-                              Set<Node<T>> targetNodes,
+                              Set<T> targetNodes,
                               int maxDepth) throws QueryException;
 
   /**
    * Returns the set of nodes on some path from "from" to "to".
    */
-  Set<Node<T>> getNodesOnPath(Node<T> from, Node<T> to);
+  Set<T> getNodesOnPath(T from, T to);
 
   /**
    * Returns the value of the specified variable, or null if it is undefined.
    */
-  Set<Node<T>> getVariable(String name);
+  Set<T> getVariable(String name);
 
   /**
    * Sets the value of the specified variable.  If value is null the variable
    * becomes undefined.  Returns the previous value, if any.
    */
-  Set<Node<T>> setVariable(String name, Set<Node<T>> value);
+  Set<T> setVariable(String name, Set<T> value);
 
   void reportBuildFileError(QueryExpression expression, String msg) throws QueryException;
 
@@ -194,7 +200,7 @@ public interface QueryEnvironment<T> {
    * Returns the set of BUILD, included, and sub-included files that define the given set of
    * targets. Each such file is itself represented as a target in the result.
    */
-  Set<Node<T>> getBuildFiles(QueryExpression caller, Set<Node<T>> nodes) throws QueryException;
+  Set<T> getBuildFiles(QueryExpression caller, Set<T> nodes) throws QueryException;
 
   /**
    * Returns an object that can be used to query information about targets. Implementations should
@@ -326,4 +332,20 @@ public interface QueryEnvironment<T> {
      */
     Iterable<String> getAttrAsString(T target, String attrName);
   }
+
+  /** List of the default query functions. */
+  public static final List<QueryFunction> DEFAULT_QUERY_FUNCTIONS =
+      ImmutableList.<QueryFunction>of(
+          new AllPathsFunction(),
+          new BuildFilesFunction(),
+          new AttrFunction(),
+          new FilterFunction(),
+          new LabelsFunction(),
+          new KindFunction(),
+          new SomeFunction(),
+          new SomePathFunction(),
+          new TestsFunction(),
+          new DepsFunction(),
+          new RdepsFunction()
+          );
 }

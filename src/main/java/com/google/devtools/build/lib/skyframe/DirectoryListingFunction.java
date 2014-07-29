@@ -68,7 +68,7 @@ final class DirectoryListingFunction implements SkyFunction {
 
   /**
    * Used to declare all the exception types that can be wrapped in the exception thrown by
-   * {@link DirectoryListingFunction#build}.
+   * {@link DirectoryListingFunction#compute}.
    */
   private static final class DirectoryListingFunctionException extends SkyFunctionException {
     public DirectoryListingFunctionException(SkyKey key, IOException e) {

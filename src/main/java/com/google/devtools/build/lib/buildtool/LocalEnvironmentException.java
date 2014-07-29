@@ -14,7 +14,7 @@
 
 package com.google.devtools.build.lib.buildtool;
 
-import com.google.devtools.build.lib.util.ExitCausingException;
+import com.google.devtools.build.lib.util.AbruptExitException;
 import com.google.devtools.build.lib.util.ExitCode;
 
 /**
@@ -29,7 +29,7 @@ import com.google.devtools.build.lib.util.ExitCode;
  * <p>This exception is only thrown when we've decided that the build has, in
  * fact, failed and we should exit.
  */
-public class LocalEnvironmentException extends ExitCausingException {
+public class LocalEnvironmentException extends AbruptExitException {
 
   public LocalEnvironmentException(String message) {
     super(message, ExitCode.LOCAL_ENVIRONMENTAL_ERROR);

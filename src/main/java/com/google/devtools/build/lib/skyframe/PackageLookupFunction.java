@@ -109,7 +109,7 @@ class PackageLookupFunction implements SkyFunction {
 
   /**
    * Used to declare all the exception types that can be wrapped in the exception thrown by
-   * {@link PackageLookupFunction#build}.
+   * {@link PackageLookupFunction#compute}.
    */
   private static final class PackageLookupFunctionException extends SkyFunctionException {
     public PackageLookupFunctionException(SkyKey key, BuildFileNotFoundException e) {

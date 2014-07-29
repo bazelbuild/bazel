@@ -16,8 +16,6 @@ package com.google.devtools.build.lib.view.config;
 import com.google.devtools.build.lib.blaze.BlazeDirectories;
 import com.google.devtools.build.lib.view.config.BuildConfiguration.Fragment;
 
-import java.util.List;
-
 /**
  * A factory that creates configuration fragments.
  */
@@ -37,10 +35,4 @@ public interface ConfigurationFragmentFactory {
    * @return the exact type of the fragment this factory creates.
    */
   Class<? extends Fragment> creates();
-
-  /**
-   * @return the list of fragment classes on which this factory depends on. It's guaranteed
-   *         that those fragments will be created before the create() method is called.
-   */
-  List<Class<? extends Fragment>> requires();
 }

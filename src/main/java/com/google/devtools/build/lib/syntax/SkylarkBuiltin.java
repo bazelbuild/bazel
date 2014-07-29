@@ -35,6 +35,8 @@ public @interface SkylarkBuiltin {
 
   Class<?> objectType() default Object.class;
 
+  Class<?> returnType() default Object.class;
+
   /**
    * An annotation for parameters of Skylark built-in functions.
    */

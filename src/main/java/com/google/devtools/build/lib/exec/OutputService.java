@@ -17,11 +17,10 @@ package com.google.devtools.build.lib.exec;
 import com.google.devtools.build.lib.actions.BuildFailedException;
 import com.google.devtools.build.lib.actions.ExecException;
 import com.google.devtools.build.lib.packages.Target;
-import com.google.devtools.build.lib.util.ExitCausingException;
+import com.google.devtools.build.lib.util.AbruptExitException;
 import com.google.devtools.build.lib.vfs.BatchStat;
 import com.google.devtools.build.lib.vfs.Path;
 import com.google.devtools.build.lib.vfs.PathFragment;
-import com.google.testing.proto.TextFile;
 
 import java.io.IOException;
 
@@ -55,7 +54,7 @@ public interface OutputService {
    * @throws BuildFailedException if build preparation failed
    * @throws InterruptedException
    */
-  void startBuild() throws BuildFailedException, ExitCausingException, InterruptedException;
+  void startBuild() throws BuildFailedException, AbruptExitException, InterruptedException;
 
   /**
    * Finish the build.
@@ -63,7 +62,7 @@ public interface OutputService {
    * @param buildSuccessful iff build was successful
    * @throws BuildFailedException on failure
    */
-  void finalizeBuild(boolean buildSuccessful) throws BuildFailedException, ExitCausingException;
+  void finalizeBuild(boolean buildSuccessful) throws BuildFailedException, AbruptExitException;
 
   /**
    * Stages the given tool from the package path, possibly copying it to local disk.
@@ -120,13 +119,4 @@ public interface OutputService {
    * @return true iff path is under this output service's control
    */
   boolean resolvedPathUnderTree(Path path);
-
-  /**
-   * Update a TextFile with any necessary information: This is used to update metadata
-   * for test files.
-   *
-   * @param txtBuilder the TextFile builer.
-   * @param path the path where the test-related file lives.
-   */
-  void updateTextFile(TextFile.Builder txtBuilder, Path path);
 }

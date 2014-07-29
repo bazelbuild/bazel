@@ -29,7 +29,7 @@ import com.google.devtools.build.lib.buildtool.BuildResult;
 import com.google.devtools.build.lib.exec.ExecutionOptions;
 import com.google.devtools.build.lib.exec.TestStrategy;
 import com.google.devtools.build.lib.exec.TestStrategy.TestOutputFormat;
-import com.google.devtools.build.lib.util.ExitCausingException;
+import com.google.devtools.build.lib.util.AbruptExitException;
 import com.google.devtools.build.lib.util.ExitCode;
 import com.google.devtools.build.lib.util.io.AnsiTerminalPrinter;
 import com.google.devtools.build.lib.util.io.OutErr;
@@ -56,7 +56,7 @@ public class TestCommand implements BlazeCommand {
 
   @Override
   public void editOptions(BlazeRuntime runtime, OptionsParser optionsParser)
-      throws ExitCausingException {
+      throws AbruptExitException {
     TestOutputFormat testOutput = optionsParser.getOptions(ExecutionOptions.class).testOutput;
 
     if (testOutput == TestStrategy.TestOutputFormat.STREAMED) {

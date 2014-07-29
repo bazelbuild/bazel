@@ -265,7 +265,7 @@ public class TargetPatternFunction implements SkyFunction {
 
   /**
    * Used to declare all the exception types that can be wrapped in the exception thrown by
-   * {@link TargetPatternFunction#build}.
+   * {@link TargetPatternFunction#compute}.
    */
   private static final class TargetPatternFunctionException extends SkyFunctionException {
     public TargetPatternFunctionException(SkyKey key, TargetParsingException e) {

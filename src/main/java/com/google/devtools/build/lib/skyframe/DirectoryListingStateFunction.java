@@ -63,7 +63,7 @@ public class DirectoryListingStateFunction implements SkyFunction {
 
   /**
    * Used to declare all the exception types that can be wrapped in the exception thrown by
-   * {@link DirectoryListingStateFunction#build}.
+   * {@link DirectoryListingStateFunction#compute}.
    */
   private static final class DirectoryListingStateFunctionException
       extends SkyFunctionException {

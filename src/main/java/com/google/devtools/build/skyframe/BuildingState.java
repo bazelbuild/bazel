@@ -17,12 +17,12 @@ import com.google.common.base.Objects;
 import com.google.common.base.Preconditions;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableSet;
-import com.google.devtools.build.lib.collect.CompactHashSet;
 import com.google.devtools.build.lib.concurrent.ThreadSafety.ThreadCompatible;
 import com.google.devtools.build.lib.util.GroupedList;
 import com.google.devtools.build.lib.util.GroupedList.GroupedListHelper;
 
 import java.util.Collection;
+import java.util.Collections;
 import java.util.Iterator;
 import java.util.List;
 import java.util.Set;
@@ -130,7 +130,42 @@ final class BuildingState {
   // TODO(bazel-team): Remove this field. With eager invalidation, all direct deps on this dirty
   // value will be removed by the time evaluation starts, so reverse deps to signal can just be
   // reverse deps in the main ValueEntry object.
-  private final Set<SkyKey> reverseDepsToSignal = CompactHashSet.createWithExpectedSize(1);
+  private Object reverseDepsToSignal = ImmutableList.of();
+  private List<SkyKey> reverseDepsToRemove = null;
+  private boolean reverseDepIsSingleObject = false;
+
+  private static final ReverseDepsUtil<BuildingState> REVERSE_DEPS_UTIL =
+      new ReverseDepsUtil<BuildingState>() {
+    @Override
+    void setReverseDepsObject(BuildingState container, Object object) {
+      container.reverseDepsToSignal = object;
+    }
+
+    @Override
+    void setSingleReverseDep(BuildingState container, boolean singleObject) {
+      container.reverseDepIsSingleObject = singleObject;
+    }
+
+    @Override
+    void setReverseDepsToRemove(BuildingState container, List<SkyKey> object) {
+      container.reverseDepsToRemove = object;
+    }
+
+    @Override
+    Object getReverseDepsObject(BuildingState container) {
+      return container.reverseDepsToSignal;
+    }
+
+    @Override
+    boolean isSingleReverseDep(BuildingState container) {
+      return container.reverseDepIsSingleObject;
+    }
+
+    @Override
+    List<SkyKey> getReverseDepsToRemove(BuildingState container) {
+      return container.reverseDepsToRemove;
+    }
+  };
 
   // Below are fields that are used for dirty values.
 
@@ -355,7 +390,7 @@ final class BuildingState {
    * @see ValueEntry#getReverseDeps()
    */
   ImmutableSet<SkyKey> getReverseDepsToSignal() {
-    return ImmutableSet.copyOf(reverseDepsToSignal);
+    return REVERSE_DEPS_UTIL.getReverseDeps(this);
   }
 
   /**
@@ -363,15 +398,16 @@ final class BuildingState {
    *
    * @see ValueEntry#addReverseDepAndCheckIfDone(SkyKey)
    */
-  boolean addReverseDepToSignal(SkyKey reverseDep) {
-    return reverseDepsToSignal.add(Preconditions.checkNotNull(reverseDep, this));
+  void addReverseDepToSignal(SkyKey newReverseDep) {
+    REVERSE_DEPS_UTIL.consolidateReverseDepsRemovals(this);
+    REVERSE_DEPS_UTIL.addReverseDeps(this, Collections.singleton(newReverseDep));
   }
 
   /**
    * @see ValueEntry#removeReverseDep(SkyKey)
    */
-  boolean removeReverseDepToSignal(SkyKey reverseDep) {
-    return reverseDepsToSignal.remove(Preconditions.checkNotNull(reverseDep, this));
+  void removeReverseDepToSignal(SkyKey reverseDep) {
+    REVERSE_DEPS_UTIL.removeReverseDep(this, reverseDep);
   }
 
   /**
@@ -381,21 +417,21 @@ final class BuildingState {
    *
    * @see ValueEntry#removeUnfinishedDeps
    */
-   void removeDirectDeps(Set<SkyKey> unfinishedDeps) {
-     directDeps.remove(unfinishedDeps);
-   }
+  void removeDirectDeps(Set<SkyKey> unfinishedDeps) {
+    directDeps.remove(unfinishedDeps);
+  }
 
-   @Override
-   @SuppressWarnings("deprecation")
-   public String toString() {
-     return Objects.toStringHelper(this)  // MoreObjects is not in Guava
-         .add("evaluating", evaluating)
-         .add("dirtyState", dirtyState)
-         .add("signaledDeps", signaledDeps)
-         .add("directDeps", directDeps)
-         .add("reverseDepsToSignal", reverseDepsToSignal)
-         .add("lastBuildDirectDeps", lastBuildDirectDeps)
-         .add("lastBuildValue", lastBuildValue)
-         .add("dirtyDirectDepIterator", dirtyDirectDepIterator).toString();
-   }
+  @Override
+  @SuppressWarnings("deprecation")
+  public String toString() {
+    return Objects.toStringHelper(this)  // MoreObjects is not in Guava
+        .add("evaluating", evaluating)
+        .add("dirtyState", dirtyState)
+        .add("signaledDeps", signaledDeps)
+        .add("directDeps", directDeps)
+        .add("reverseDepsToSignal", REVERSE_DEPS_UTIL.toString(this))
+        .add("lastBuildDirectDeps", lastBuildDirectDeps)
+        .add("lastBuildValue", lastBuildValue)
+        .add("dirtyDirectDepIterator", dirtyDirectDepIterator).toString();
+  }
 }

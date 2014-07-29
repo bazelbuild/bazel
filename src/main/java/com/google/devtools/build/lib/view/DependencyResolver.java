@@ -26,7 +26,6 @@ import com.google.devtools.build.lib.packages.Target;
 import com.google.devtools.build.lib.syntax.EvalException;
 import com.google.devtools.build.lib.syntax.Label;
 import com.google.devtools.build.lib.view.config.BuildConfiguration;
-import com.google.devtools.build.lib.view.config.BuildConfigurationCollection;
 
 import java.util.Collection;
 import java.util.Map;
@@ -119,6 +118,7 @@ public abstract class DependencyResolver {
 
   private void visitLabelInAttribute(TargetAndConfiguration from, Rule fromRule, Label to,
       Attribute attribute, Collection<TargetAndConfiguration> outgoingEdges) {
+    Preconditions.checkNotNull(from.getConfiguration());
     Target toTarget;
     try {
       toTarget = getTarget(to);
@@ -131,8 +131,8 @@ public abstract class DependencyResolver {
       return;
     }
 
-    BuildConfiguration toConfiguration = BuildConfigurationCollection.configureTarget(
-        fromRule, from.getConfiguration(), attribute, toTarget);
+    BuildConfiguration toConfiguration = from.getConfiguration().evaluateTransition(
+        fromRule, attribute, toTarget);
 
     if (toConfiguration != null ||
         !(toTarget instanceof Rule || toTarget instanceof OutputFile)) {

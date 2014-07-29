@@ -40,9 +40,9 @@ import com.google.devtools.build.lib.profiler.Profiler;
 import com.google.devtools.build.lib.profiler.ProfilerTask;
 import com.google.devtools.build.lib.util.GroupedList.GroupedListHelper;
 import com.google.devtools.build.skyframe.BuildingState.DirtyState;
+import com.google.devtools.build.skyframe.EvaluationProgressReceiver.EvaluationState;
 import com.google.devtools.build.skyframe.Scheduler.SchedulerException;
 import com.google.devtools.build.skyframe.ValueEntry.DependencyState;
-import com.google.devtools.build.skyframe.ValueProgressReceiver.EvaluationState;
 
 import java.util.ArrayDeque;
 import java.util.ArrayList;
@@ -106,16 +106,16 @@ final class ParallelEvaluator implements Evaluator {
   private final NestedSetVisitor<TaggedEvents> replayingNestedSetEventVisitor;
   private final boolean keepGoing;
   private final int threadCount;
-  @Nullable private final ValueProgressReceiver progressReceiver;
+  @Nullable private final EvaluationProgressReceiver progressReceiver;
 
   private static final Interner<SkyKey> KEY_CANONICALIZER =  Interners.newWeakInterner();
 
   ParallelEvaluator(ProcessableGraph graph, long graphVersion,
                     ImmutableMap<? extends SkyFunctionName, ? extends SkyFunction> skyFunctions,
                     final ErrorEventListener reporter,
-                    AutoUpdatingGraph.EmittedEventState emittedEventState,
+                    MemoizingEvaluator.EmittedEventState emittedEventState,
                     boolean keepGoing, int threadCount,
-                    @Nullable ValueProgressReceiver progressReceiver) {
+                    @Nullable EvaluationProgressReceiver progressReceiver) {
     this.graph = graph;
     this.skyFunctions = skyFunctions;
     Preconditions.checkState(graphVersion >= 0L, graphVersion);
@@ -848,7 +848,7 @@ final class ParallelEvaluator implements Evaluator {
 
   @Override
   @ThreadCompatible
-  public <T extends SkyValue> UpdateResult<T> eval(Iterable<SkyKey> skyKeys)
+  public <T extends SkyValue> EvaluationResult<T> eval(Iterable<SkyKey> skyKeys)
       throws InterruptedException {
     ImmutableSet<SkyKey> skyKeySet = ImmutableSet.copyOf(skyKeys);
 
@@ -867,7 +867,7 @@ final class ParallelEvaluator implements Evaluator {
   }
 
   @ThreadCompatible
-  private <T extends SkyValue> UpdateResult<T> eval(ImmutableSet<SkyKey> skyKeys,
+  private <T extends SkyValue> EvaluationResult<T> eval(ImmutableSet<SkyKey> skyKeys,
       ValueVisitor visitor) throws InterruptedException {
     // We unconditionally add the ErrorTransienceValue here, to ensure that it will be created, and
     // in the graph, by the time that it is needed. Creating it on demand in a parallel context sets
@@ -915,7 +915,7 @@ final class ParallelEvaluator implements Evaluator {
     }
   }
 
-  private <T extends SkyValue> UpdateResult<T> waitForCompletionAndConstructResult(
+  private <T extends SkyValue> EvaluationResult<T> waitForCompletionAndConstructResult(
       ValueVisitor visitor, Iterable<SkyKey> skyKeys) throws InterruptedException {
     Map<SkyKey, ValueWithMetadata> bubbleErrorInfo = null;
     boolean catastrophe = false;
@@ -1058,19 +1058,19 @@ final class ParallelEvaluator implements Evaluator {
   }
 
   /**
-   * Constructs an {@link UpdateResult} from the {@link #graph}.  Looks for cycles if there
+   * Constructs an {@link EvaluationResult} from the {@link #graph}.  Looks for cycles if there
    * are unfinished values but no error was already found through bubbling up
    * (as indicated by {@code bubbleErrorInfo} being null).
    *
    * <p>{@code visitor} may be null, but only in the case where all graph entries corresponding to
    * {@code skyKeys} are known to be in the DONE state ({@code entry.isDone()} returns true).
    */
-  private <T extends SkyValue> UpdateResult<T> constructResult(
+  private <T extends SkyValue> EvaluationResult<T> constructResult(
       @Nullable ValueVisitor visitor, Iterable<SkyKey> skyKeys,
       Map<SkyKey, ValueWithMetadata> bubbleErrorInfo, boolean catastrophe) {
     Preconditions.checkState(!keepGoing || catastrophe || bubbleErrorInfo == null,
         "", skyKeys, bubbleErrorInfo);
-    UpdateResult.Builder<T> result = UpdateResult.builder();
+    EvaluationResult.Builder<T> result = EvaluationResult.builder();
     List<SkyKey> cycleRoots = new ArrayList<>();
     boolean hasError = false;
     for (SkyKey skyKey : skyKeys) {
@@ -1119,7 +1119,7 @@ final class ParallelEvaluator implements Evaluator {
   }
 
   private <T extends SkyValue> void checkForCycles(
-      Iterable<SkyKey> badRoots, UpdateResult.Builder<T> result, final ValueVisitor visitor,
+      Iterable<SkyKey> badRoots, EvaluationResult.Builder<T> result, final ValueVisitor visitor,
       boolean keepGoing) {
     for (SkyKey root : badRoots) {
       ErrorInfo errorInfo = checkForCycles(root, visitor, keepGoing);

@@ -46,7 +46,7 @@ import javax.annotation.Nullable;
  * on the graph can be delicate, and is documented below. Moreover, no other modifications to the
  * graph can take place while invalidation occurs.
  */
-abstract class InvalidatingValueVisitor extends AbstractQueueVisitor {
+abstract class InvalidatingNodeVisitor extends AbstractQueueVisitor {
 
   // Default thread count is equal to the number of cores to exploit
   // that level of hardware parallelism, since invalidation should be CPU-bound.
@@ -54,12 +54,12 @@ abstract class InvalidatingValueVisitor extends AbstractQueueVisitor {
   private static final int DEFAULT_THREAD_COUNT = Runtime.getRuntime().availableProcessors();
 
   protected final DirtiableGraph graph;
-  @Nullable protected final ValueProgressReceiver invalidationReceiver;
+  @Nullable protected final EvaluationProgressReceiver invalidationReceiver;
   // Aliased to InvalidationState.pendingVisitations.
   protected final Set<Pair<SkyKey, InvalidationType>> pendingVisitations;
 
-  protected InvalidatingValueVisitor(
-      DirtiableGraph graph, @Nullable ValueProgressReceiver invalidationReceiver,
+  protected InvalidatingNodeVisitor(
+      DirtiableGraph graph, @Nullable EvaluationProgressReceiver invalidationReceiver,
       InvalidationState state) {
     super(/*concurrent*/true,
         /*corePoolSize*/DEFAULT_THREAD_COUNT,
@@ -89,7 +89,7 @@ abstract class InvalidatingValueVisitor extends AbstractQueueVisitor {
   }
 
   protected void informInvalidationReceiver(SkyValue value,
-      ValueProgressReceiver.InvalidationState state) {
+      EvaluationProgressReceiver.InvalidationState state) {
     if (invalidationReceiver != null && value != null) {
       invalidationReceiver.invalidated(value, state);
     }
@@ -167,12 +167,12 @@ abstract class InvalidatingValueVisitor extends AbstractQueueVisitor {
   /**
    * A value-deleting implementation.
    */
-  static class DeletingValueVisitor extends InvalidatingValueVisitor {
+  static class DeletingNodeVisitor extends InvalidatingNodeVisitor {
 
     private final Set<SkyKey> visitedValues = Sets.newConcurrentHashSet();
 
-    protected DeletingValueVisitor(DirtiableGraph graph, ValueProgressReceiver invalidationReceiver,
-        InvalidationState state) {
+    protected DeletingNodeVisitor(DirtiableGraph graph,
+        EvaluationProgressReceiver invalidationReceiver, InvalidationState state) {
       super(graph, invalidationReceiver, state);
     }
 
@@ -212,7 +212,7 @@ abstract class InvalidatingValueVisitor extends AbstractQueueVisitor {
             }
             // Allow custom Value-specific logic to update dirtiness status.
             informInvalidationReceiver(entry.getValue(),
-                ValueProgressReceiver.InvalidationState.DELETED);
+                EvaluationProgressReceiver.InvalidationState.DELETED);
           }
           // Force reverseDeps consolidation (validates that attempts to remove reverse deps were
           // really successful.
@@ -230,12 +230,12 @@ abstract class InvalidatingValueVisitor extends AbstractQueueVisitor {
   /**
    * A value-dirtying implementation.
    */
-  static class DirtyingValueVisitor extends InvalidatingValueVisitor {
+  static class DirtyingNodeVisitor extends InvalidatingNodeVisitor {
 
     private final Set<Pair<SkyKey, InvalidationType>> visited = Sets.newConcurrentHashSet();
 
-    protected DirtyingValueVisitor(DirtiableGraph graph, ValueProgressReceiver invalidationReceiver,
-        InvalidationState state) {
+    protected DirtyingNodeVisitor(DirtiableGraph graph,
+        EvaluationProgressReceiver invalidationReceiver, InvalidationState state) {
       super(graph, invalidationReceiver, state);
     }
 
@@ -324,7 +324,7 @@ abstract class InvalidatingValueVisitor extends AbstractQueueVisitor {
           }
 
           SkyValue value = ValueWithMetadata.justValue(depsAndValue.second);
-          informInvalidationReceiver(value, ValueProgressReceiver.InvalidationState.DIRTY);
+          informInvalidationReceiver(value, EvaluationProgressReceiver.InvalidationState.DIRTY);
           // Remove the value from the set as the last operation.
           pendingVisitations.remove(invalidationPair);
         }

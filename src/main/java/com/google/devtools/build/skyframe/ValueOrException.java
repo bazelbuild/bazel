@@ -20,7 +20,7 @@ import javax.annotation.Nullable;
 /**
  * Wrapper for a value or the exception thrown when trying to build it.
  *
- * <p>This is intended only for use in alternative {@code AutoUpdatingGraph} implementations.
+ * <p>This is intended only for use in alternative {@code MemoizingEvaluator} implementations.
  *
  * @param <E> Exception class that may have been thrown when building requested value.
  */
@@ -49,7 +49,7 @@ public final class ValueOrException<E extends Throwable> {
   /**
    * Returns a {@code ValueOrException} representing success.
    *
-   * <p>This is intended only for use in alternative {@code AutoUpdatingGraph} implementations.
+   * <p>This is intended only for use in alternative {@code MemoizingEvaluator} implementations.
    */
   public static <F extends Throwable> ValueOrException<F> ofValue(SkyValue value) {
     return new ValueOrException<>(value);
@@ -58,7 +58,7 @@ public final class ValueOrException<E extends Throwable> {
   /**
    * Returns a {@code ValueOrException} representing failure.
    *
-   * <p>This is intended only for use in alternative {@code AutoUpdatingGraph} implementations.
+   * <p>This is intended only for use in alternative {@code MemoizingEvaluator} implementations.
    */
   public static <F extends Throwable> ValueOrException<F> ofException(F exception) {
     return new ValueOrException<>(exception);

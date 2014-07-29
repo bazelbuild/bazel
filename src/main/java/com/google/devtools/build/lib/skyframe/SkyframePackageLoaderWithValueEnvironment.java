@@ -20,6 +20,7 @@ import com.google.devtools.build.lib.packages.NoSuchPackageException;
 import com.google.devtools.build.lib.packages.NoSuchTargetException;
 import com.google.devtools.build.lib.packages.Package;
 import com.google.devtools.build.lib.packages.Target;
+import com.google.devtools.build.lib.skyframe.SkyframeExecutor.SkyframePackageLoader;
 import com.google.devtools.build.lib.syntax.Label;
 import com.google.devtools.build.lib.syntax.Label.SyntaxException;
 import com.google.devtools.build.lib.vfs.Path;
@@ -28,6 +29,7 @@ import com.google.devtools.build.lib.view.config.BuildConfiguration.Fragment;
 import com.google.devtools.build.lib.view.config.BuildOptions;
 import com.google.devtools.build.lib.view.config.InvalidConfigurationException;
 import com.google.devtools.build.lib.view.config.PackageProviderForConfigurations;
+import com.google.devtools.build.skyframe.MemoizingEvaluator;
 import com.google.devtools.build.skyframe.SkyFunction;
 import com.google.devtools.build.skyframe.SkyKey;
 
@@ -35,10 +37,10 @@ import java.io.IOException;
 
 /**
  * Repeats functionality of {@link SkyframePackageLoader} but uses
- * {@link SkyFunction.Environment#getValue} instead of {@link AutoUpdatingGraph#update}
+ * {@link SkyFunction.Environment#getValue} instead of {@link MemoizingEvaluator#evaluate}
  * for node evaluation
  */
-class SkyframePackageLoaderWithValueEnvironment implements 
+class SkyframePackageLoaderWithValueEnvironment implements
     PackageProviderForConfigurations {
   private final SkyFunction.Environment env;
 
@@ -85,24 +87,24 @@ class SkyframePackageLoaderWithValueEnvironment implements
         Root.asSourceRoot(pkg.getSourceRoot()),
         pkg.getNameFragment().getRelative(fileName),
         lac);
-    
+
     FileValue result = (FileValue) env.getValue(FileValue.key(artifact));
     if (result != null && !result.exists()) {
       throw new IOException();
     }
   }
-  
+
   @SuppressWarnings("unchecked")
   @Override
-  public <T extends Fragment> T getFragment(BuildOptions buildOptions, Class<T> fragmentType) 
+  public <T extends Fragment> T getFragment(BuildOptions buildOptions, Class<T> fragmentType)
       throws InvalidConfigurationException {
     ConfigurationFragmentValue fragmentNode = (ConfigurationFragmentValue) env.getValueOrThrow(
-        ConfigurationFragmentValue.key(buildOptions, fragmentType), 
+        ConfigurationFragmentValue.key(buildOptions, fragmentType),
         InvalidConfigurationException.class);
     if (fragmentNode == null) {
       return null;
     }
-    return (T) fragmentNode.getFragment();  
+    return (T) fragmentNode.getFragment();
   }
 
   @Override

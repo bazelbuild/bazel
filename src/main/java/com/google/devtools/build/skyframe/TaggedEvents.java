@@ -27,7 +27,7 @@ import javax.annotation.concurrent.Immutable;
  *
  * <p>The only usage of this code for now is to be able to use --output_filter in Skyframe
  *
- * <p>This is intended only for use in alternative {@code AutoUpdatingGraph} implementations.
+ * <p>This is intended only for use in alternative {@code MemoizingEvaluator} implementations.
  */
 @Immutable
 public final class TaggedEvents {

@@ -14,7 +14,6 @@
 package com.google.devtools.build.lib.query2.engine;
 
 import com.google.common.collect.ImmutableList;
-import com.google.devtools.build.lib.graph.Node;
 import com.google.devtools.build.lib.query2.engine.QueryEnvironment.Argument;
 import com.google.devtools.build.lib.query2.engine.QueryEnvironment.ArgumentType;
 import com.google.devtools.build.lib.query2.engine.QueryEnvironment.QueryFunction;
@@ -55,20 +54,19 @@ final class DepsFunction implements QueryFunction {
    * Breadth-first search from the arguments.
    */
   @Override
-  public <T> Set<Node<T>> eval(
-      QueryEnvironment<T> env, QueryExpression expression, List<Argument> args)
+  public <T> Set<T> eval(QueryEnvironment<T> env, QueryExpression expression, List<Argument> args)
       throws QueryException {
-    Set<Node<T>> argumentValue = args.get(0).getExpression().eval(env);
+    Set<T> argumentValue = args.get(0).getExpression().eval(env);
     int depthBound = args.size() > 1 ? args.get(1).getInteger() : Integer.MAX_VALUE;
     env.buildTransitiveClosure(expression, argumentValue, depthBound);
 
-    Set<Node<T>> visited = new LinkedHashSet<>();
-    Collection<Node<T>> current = argumentValue;
+    Set<T> visited = new LinkedHashSet<>();
+    Collection<T> current = argumentValue;
 
     // We need to iterate depthBound + 1 times.
     for (int i = 0; i <= depthBound; i++) {
-      List<Node<T>> next = new ArrayList<>();
-      for (Node<T> node : current) {
+      List<T> next = new ArrayList<>();
+      for (T node : current) {
         if (!visited.add(node)) {
           // Already visited; if we see a node in a later round, then we don't need to visit it
           // again, because the depth at which we see it at must be greater than or equal to the
@@ -76,7 +74,7 @@ final class DepsFunction implements QueryFunction {
           continue;
         }
 
-        next.addAll(node.getSuccessors());
+        next.addAll(env.getFwdDeps(node));
       }
       if (next.isEmpty()) {
         // Exit when there are no more nodes to visit.

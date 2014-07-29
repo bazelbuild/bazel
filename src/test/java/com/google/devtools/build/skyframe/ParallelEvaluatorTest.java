@@ -76,7 +76,7 @@ public class ParallelEvaluatorTest {
   private EventCollector eventCollector;
   private ErrorEventListener reporter;
 
-  private ValueProgressReceiver revalidationReceiver;
+  private EvaluationProgressReceiver revalidationReceiver;
 
   @Before
   public void initializeReporter() {
@@ -87,7 +87,7 @@ public class ParallelEvaluatorTest {
   private ParallelEvaluator makeEvaluator(ProcessableGraph graph,
       ImmutableMap<SkyFunctionName, ? extends SkyFunction> builders, boolean keepGoing) {
     return new ParallelEvaluator(graph, /*graphVersion=*/0L,
-        builders, reporter,  new AutoUpdatingGraph.EmittedEventState(), keepGoing,
+        builders, reporter,  new MemoizingEvaluator.EmittedEventState(), keepGoing,
         150, revalidationReceiver);
   }
 
@@ -100,12 +100,12 @@ public class ParallelEvaluatorTest {
     return eval(true, ImmutableList.of(key)).getError(key);
   }
 
-  protected <T extends SkyValue> UpdateResult<T> eval(boolean keepGoing, SkyKey... keys)
+  protected <T extends SkyValue> EvaluationResult<T> eval(boolean keepGoing, SkyKey... keys)
       throws InterruptedException {
     return eval(keepGoing, ImmutableList.copyOf(keys));
   }
 
-  protected <T extends SkyValue> UpdateResult<T> eval(boolean keepGoing, Iterable<SkyKey> keys)
+  protected <T extends SkyValue> EvaluationResult<T> eval(boolean keepGoing, Iterable<SkyKey> keys)
       throws InterruptedException {
     ParallelEvaluator evaluator = makeEvaluator(graph,
         ImmutableMap.of(GraphTester.NODE_TYPE, tester.createDelegatingFunction()),
@@ -230,7 +230,7 @@ public class ParallelEvaluatorTest {
       eval(/*keepGoing=*/false, fastKey);
     }
     final Set<SkyKey> receivedValues = Sets.newConcurrentHashSet();
-    revalidationReceiver = new ValueProgressReceiver() {
+    revalidationReceiver = new EvaluationProgressReceiver() {
       @Override
       public void invalidated(SkyValue value, InvalidationState state) {}
 
@@ -480,7 +480,7 @@ public class ParallelEvaluatorTest {
     tester.getOrCreate(errorKey).setHasError(true);
     tester.getOrCreate(errorFreeKey).addDependency("a").addDependency("b")
     .setComputedValue(CONCATENATE);
-    UpdateResult<StringValue> result = eval(true, parentErrorKey, errorFreeKey);
+    EvaluationResult<StringValue> result = eval(true, parentErrorKey, errorFreeKey);
     ErrorInfo error = result.getError(parentErrorKey);
     MoreAsserts.assertContentsAnyOrder(error.getRootCauses(), errorKey);
     StringValue abValue = result.get(errorFreeKey);
@@ -536,7 +536,7 @@ public class ParallelEvaluatorTest {
         return null;
       }
     });
-    UpdateResult<StringValue> result = eval(keepGoing, catastropheKey, otherKey);
+    EvaluationResult<StringValue> result = eval(keepGoing, catastropheKey, otherKey);
     ErrorInfo error = result.getError(catastropheKey);
     MoreAsserts.assertContentsAnyOrder(error.getRootCauses(), catastropheKey);
   }
@@ -549,7 +549,7 @@ public class ParallelEvaluatorTest {
     SkyKey childKey = GraphTester.toSkyKey("child");
     set("child", "onions");
     tester.getOrCreate(parentKey).addDependency(childKey).setComputedValue(CONCATENATE);
-    UpdateResult<StringValue> result = eval(/*keepGoing=*/true, parentKey, childKey);
+    EvaluationResult<StringValue> result = eval(/*keepGoing=*/true, parentKey, childKey);
     // Child is guaranteed to complete successfully before parent can run (and fail),
     // since parent depends on it.
     StringValue childValue = result.get(childKey);
@@ -598,7 +598,7 @@ public class ParallelEvaluatorTest {
     tester.getOrCreate(topKey).addDependency(midKey).setComputedValue(CONCATENATE);
     tester.getOrCreate(midKey).addDependency(badKey).setComputedValue(CONCATENATE);
     tester.getOrCreate(badKey).setHasError(true);
-    UpdateResult<SkyValue> result = eval(/*keepGoing=*/false, topKey, midKey);
+    EvaluationResult<SkyValue> result = eval(/*keepGoing=*/false, topKey, midKey);
     MoreAsserts.assertContentsAnyOrder(result.getError(midKey).getRootCauses(), badKey);
     // Do it again with keepGoing.  We should also see an error for the top key this time.
     result = eval(/*keepGoing=*/true, topKey, midKey);
@@ -618,7 +618,7 @@ public class ParallelEvaluatorTest {
         .setComputedValue(CONCATENATE);
     tester.getOrCreate(badKey).setHasError(true);
 
-    UpdateResult<SkyValue> result = eval(/*keepGoing=*/true, ImmutableList.of(recoveryKey));
+    EvaluationResult<SkyValue> result = eval(/*keepGoing=*/true, ImmutableList.of(recoveryKey));
     assertThat(result.errorMap()).isEmpty();
     assertTrue(result.hasError());
     assertEquals(new StringValue("i recovered"), result.get(recoveryKey));
@@ -674,7 +674,7 @@ public class ParallelEvaluatorTest {
     tester.getOrCreate(topKey).addDependency(midKey).setComputedValue(CONCATENATE);
     tester.getOrCreate(midKey).addDependency(badKey).setComputedValue(CONCATENATE);
     tester.getOrCreate(badKey).setHasError(true);
-    UpdateResult<SkyValue> result = eval(/*keepGoing=*/false, topKey, midKey);
+    EvaluationResult<SkyValue> result = eval(/*keepGoing=*/false, topKey, midKey);
     MoreAsserts.assertContentsAnyOrder(result.getError(midKey).getRootCauses(), badKey);
     waitForSecondCall.set(true);
     result = eval(/*keepGoing=*/true, topKey, midKey);
@@ -805,7 +805,7 @@ public class ParallelEvaluatorTest {
     tester.getOrCreate(top).setBuilder(topBuilder);
     // Make sure slowAddingDep is already in the graph, so it will be DONE.
     eval(/*keepGoing=*/false, slowAddingDep);
-    UpdateResult<StringValue> result = eval(/*keepGoing=*/false, ImmutableList.of(top));
+    EvaluationResult<StringValue> result = eval(/*keepGoing=*/false, ImmutableList.of(top));
     assertThat(result.keyNames()).isEmpty(); // No successfully evaluated values.
     ErrorInfo errorInfo = result.getError(top);
     MoreAsserts.assertContentsAnyOrder(errorInfo.getRootCauses(), errorKey);
@@ -844,7 +844,7 @@ public class ParallelEvaluatorTest {
     tester.getOrCreate(errorKey).setHasError(true);
     tester.getOrCreate("mid").addDependency(errorKey).setComputedValue(CONCATENATE);
     tester.getOrCreate(parentKey).addDependency("mid").setComputedValue(CONCATENATE);
-    UpdateResult<StringValue> result = eval(false, ImmutableList.of(parentKey));
+    EvaluationResult<StringValue> result = eval(false, ImmutableList.of(parentKey));
     Map.Entry<SkyKey, ErrorInfo> error = Iterables.getOnlyElement(result.errorMap().entrySet());
     assertEquals(parentKey, error.getKey());
     MoreAsserts.assertContentsAnyOrder(error.getValue().getRootCauses(), errorKey);
@@ -860,7 +860,7 @@ public class ParallelEvaluatorTest {
     ErrorInfo error = evalValueInError(parentKey);
     MoreAsserts.assertContentsAnyOrder(error.getRootCauses(), errorKey);
     SkyKey[] list = { parentKey };
-    UpdateResult<StringValue> result = eval(false, list);
+    EvaluationResult<StringValue> result = eval(false, list);
     ErrorInfo errorInfo = result.getError();
     assertEquals(errorKey, Iterables.getOnlyElement(errorInfo.getRootCauses()));
     assertEquals(errorKey.toString(), errorInfo.getException().getMessage());
@@ -879,7 +879,7 @@ public class ParallelEvaluatorTest {
     tester.getOrCreate(secondError).setBuilder(new ChainedFunction(secondStart, firstStart,
         /*notifyFinish=*/null, /*waitForException=*/false, /*value=*/null,
         ImmutableList.<SkyKey>of()));
-    UpdateResult<StringValue> result = eval(/*keepGoing=*/false, firstError, secondError);
+    EvaluationResult<StringValue> result = eval(/*keepGoing=*/false, firstError, secondError);
     assertTrue(result.toString(), result.hasError());
     assertNotNull(result.toString(), result.getError(firstError));
     assertNotNull(result.toString(), result.getError(secondError));
@@ -948,7 +948,7 @@ public class ParallelEvaluatorTest {
     tester.getOrCreate(midKey).addDependency(aKey);
     tester.getOrCreate(aKey).addDependency(bKey);
     tester.getOrCreate(bKey).addDependency(aKey);
-    UpdateResult<StringValue> result = eval(true, topKey, goodKey);
+    EvaluationResult<StringValue> result = eval(true, topKey, goodKey);
     assertEquals(goodValue, result.get(goodKey));
     assertEquals(null, result.get(topKey));
     ErrorInfo errorInfo = result.getError(topKey);
@@ -970,7 +970,7 @@ public class ParallelEvaluatorTest {
     tester.getOrCreate(bKey).addDependency(aKey);
     tester.getOrCreate(cKey).addDependency(dKey);
     tester.getOrCreate(dKey).addDependency(cKey);
-    UpdateResult<StringValue> result = eval(false, ImmutableList.of(topKey));
+    EvaluationResult<StringValue> result = eval(false, ImmutableList.of(topKey));
     assertEquals(null, result.get(topKey));
     ErrorInfo errorInfo = result.getError(topKey);
     Iterable<CycleInfo> cycles = CycleInfo.prepareCycles(topKey,
@@ -993,7 +993,7 @@ public class ParallelEvaluatorTest {
     tester.getOrCreate(bKey).addDependency(aKey);
     tester.getOrCreate(cKey).addDependency(dKey);
     tester.getOrCreate(dKey).addDependency(cKey);
-    UpdateResult<StringValue> result = eval(true, ImmutableList.of(topKey));
+    EvaluationResult<StringValue> result = eval(true, ImmutableList.of(topKey));
     assertEquals(null, result.get(topKey));
     ErrorInfo errorInfo = result.getError(topKey);
     CycleInfo aCycle = new CycleInfo(ImmutableList.of(topKey), ImmutableList.of(aKey, bKey));
@@ -1012,7 +1012,7 @@ public class ParallelEvaluatorTest {
     tester.getOrCreate(aKey).addDependency(bKey).addDependency(cKey);
     tester.getOrCreate(bKey).addDependency(cKey);
     tester.getOrCreate(cKey).addDependency(topKey);
-    UpdateResult<StringValue> result = eval(true, ImmutableList.of(topKey));
+    EvaluationResult<StringValue> result = eval(true, ImmutableList.of(topKey));
     assertEquals(null, result.get(topKey));
     ErrorInfo errorInfo = result.getError(topKey);
     CycleInfo topCycle = new CycleInfo(ImmutableList.of(topKey, aKey, cKey));
@@ -1030,7 +1030,7 @@ public class ParallelEvaluatorTest {
     tester.getOrCreate(aKey).addDependency(bKey);
     tester.getOrCreate(bKey).addDependency(cKey);
     tester.getOrCreate(cKey).addDependency(topKey);
-    UpdateResult<StringValue> result = eval(true, ImmutableList.of(topKey));
+    EvaluationResult<StringValue> result = eval(true, ImmutableList.of(topKey));
     assertEquals(null, result.get(topKey));
     ErrorInfo errorInfo = result.getError(topKey);
     CycleInfo topCycle = new CycleInfo(ImmutableList.of(topKey, aKey, bKey, cKey));
@@ -1049,7 +1049,7 @@ public class ParallelEvaluatorTest {
     tester.getOrCreate(bKey).addDependency(aKey).addDependency(cKey);
     tester.getOrCreate(cKey);
     tester.set(cKey, new StringValue("cValue"));
-    UpdateResult<StringValue> result = eval(false, ImmutableList.of(topKey));
+    EvaluationResult<StringValue> result = eval(false, ImmutableList.of(topKey));
     assertEquals(null, result.get(topKey));
     ErrorInfo errorInfo = result.getError(topKey);
     CycleInfo cycleInfo = Iterables.getOnlyElement(errorInfo.getCycleInfo());
@@ -1067,7 +1067,7 @@ public class ParallelEvaluatorTest {
     tester.getOrCreate(aKey).addDependency(bKey);
     tester.getOrCreate(bKey).addDependency(cKey).addDependency(bKey);
     tester.getOrCreate(cKey).addDependency(aKey);
-    UpdateResult<StringValue> result = eval(/*keepGoing=*/true, ImmutableList.of(aKey));
+    EvaluationResult<StringValue> result = eval(/*keepGoing=*/true, ImmutableList.of(aKey));
     assertEquals(null, result.get(aKey));
     ErrorInfo errorInfo = result.getError(aKey);
     CycleInfo cycleInfo = Iterables.getOnlyElement(errorInfo.getCycleInfo());
@@ -1087,7 +1087,7 @@ public class ParallelEvaluatorTest {
     tester.getOrCreate(bKey).addDependency(cKey).addDependency(dKey);
     tester.getOrCreate(cKey).addDependency(aKey);
     tester.getOrCreate(dKey).addDependency(bKey);
-    UpdateResult<StringValue> result = eval(/*keepGoing=*/true, ImmutableList.of(aKey));
+    EvaluationResult<StringValue> result = eval(/*keepGoing=*/true, ImmutableList.of(aKey));
     assertEquals(null, result.get(aKey));
     ErrorInfo errorInfo = result.getError(aKey);
     CycleInfo cycleInfo = Iterables.getOnlyElement(errorInfo.getCycleInfo());
@@ -1105,7 +1105,7 @@ public class ParallelEvaluatorTest {
     tester.getOrCreate(aKey).addDependency(bKey);
     tester.getOrCreate(bKey).addDependency(cKey);
     tester.getOrCreate(cKey).addDependency(aKey).addDependency(bKey);
-    UpdateResult<StringValue> result = eval(/*keepGoing=*/true, ImmutableList.of(aKey));
+    EvaluationResult<StringValue> result = eval(/*keepGoing=*/true, ImmutableList.of(aKey));
     assertEquals(null, result.get(aKey));
     MoreAsserts.assertContentsAnyOrder(result.getError(aKey).getCycleInfo(),
         new CycleInfo(ImmutableList.of(aKey, bKey, cKey)),
@@ -1120,7 +1120,7 @@ public class ParallelEvaluatorTest {
     tester.getOrCreate(aKey).addDependency(bKey).addDependency(errorKey);
     tester.getOrCreate(bKey).addDependency(bKey);
     tester.getOrCreate(errorKey).setHasError(true);
-    UpdateResult<StringValue> result = eval(/*keepGoing=*/true, ImmutableList.of(aKey));
+    EvaluationResult<StringValue> result = eval(/*keepGoing=*/true, ImmutableList.of(aKey));
     assertEquals(null, result.get(aKey));
     assertNotNull(result.getError(aKey).getException());
     CycleInfo cycleInfo = Iterables.getOnlyElement(result.getError(aKey).getCycleInfo());
@@ -1133,7 +1133,7 @@ public class ParallelEvaluatorTest {
     graph = new InMemoryGraph();
     SkyKey errorKey = GraphTester.toSkyKey("my_error_value");
     tester.getOrCreate(errorKey).setHasError(true);
-    UpdateResult<StringValue> result = eval(false, ImmutableList.of(errorKey));
+    EvaluationResult<StringValue> result = eval(false, ImmutableList.of(errorKey));
     assertThat(result.keyNames()).isEmpty();
     MoreAsserts.assertContentsAnyOrder(result.errorMap().keySet(), errorKey);
     ErrorInfo errorInfo = result.getError();
@@ -1161,7 +1161,7 @@ public class ParallelEvaluatorTest {
       tester.getOrCreate(topKey).addDependency(dep);
       tester.getOrCreate(dep).addDependency(dep);
     }
-    UpdateResult<StringValue> result = eval(/*keepGoing=*/true, ImmutableList.of(topKey));
+    EvaluationResult<StringValue> result = eval(/*keepGoing=*/true, ImmutableList.of(topKey));
     assertEquals(null, result.get(topKey));
     assertManyCycles(result.getError(topKey), topKey, /*selfEdge=*/false);
   }
@@ -1183,7 +1183,7 @@ public class ParallelEvaluatorTest {
       tester.getOrCreate(midKey).addDependency(dep);
       tester.getOrCreate(dep).addDependency(cycleKey);
     }
-    UpdateResult<StringValue> result = eval(/*keepGoing=*/true, ImmutableList.of(topKey));
+    EvaluationResult<StringValue> result = eval(/*keepGoing=*/true, ImmutableList.of(topKey));
     assertEquals(null, result.get(topKey));
     CycleInfo cycleInfo = Iterables.getOnlyElement(result.getError(topKey).getCycleInfo());
     assertEquals(1, cycleInfo.getCycle().size());
@@ -1238,7 +1238,7 @@ public class ParallelEvaluatorTest {
     }
     // All the deps will be cleared from lastSelf.
     tester.getOrCreate(lastSelfKey).addDependency(lastSelfKey);
-    UpdateResult<StringValue> result = eval(/*keepGoing=*/true,
+    EvaluationResult<StringValue> result = eval(/*keepGoing=*/true,
         ImmutableList.of(lastSelfKey, firstSelfKey, midSelfKey));
     assert_().withFailureMessage(result.toString()).that(result.keyNames()).isEmpty();
     MoreAsserts.assertContentsAnyOrder(result.errorMap().keySet(),
@@ -1264,7 +1264,7 @@ public class ParallelEvaluatorTest {
     graph = new InMemoryGraph();
     SkyKey errorKey = GraphTester.toSkyKey("my_error_value");
     tester.getOrCreate(errorKey).setHasError(true);
-    UpdateResult<StringValue> result = eval(true, ImmutableList.of(errorKey));
+    EvaluationResult<StringValue> result = eval(true, ImmutableList.of(errorKey));
     assertThat(result.keyNames()).isEmpty();
     MoreAsserts.assertContentsAnyOrder(result.errorMap().keySet(), errorKey);
     ErrorInfo errorInfo = result.getError();
@@ -1288,7 +1288,7 @@ public class ParallelEvaluatorTest {
     SkyKey parentKey = GraphTester.toSkyKey("parent");
     tester.getOrCreate(parentKey).addErrorDependency(errorKey, new StringValue("recovered"))
         .setComputedValue(CONCATENATE).addDependency("after");
-    UpdateResult<StringValue> result = eval(/*keepGoing=*/true, ImmutableList.of(parentKey));
+    EvaluationResult<StringValue> result = eval(/*keepGoing=*/true, ImmutableList.of(parentKey));
     assertThat(result.errorMap()).isEmpty();
     assertEquals("recoveredafter", result.get(parentKey).getValue());
     result = eval(/*keepGoing=*/false, ImmutableList.of(parentKey));
@@ -1307,7 +1307,7 @@ public class ParallelEvaluatorTest {
     SkyKey parentKey = GraphTester.toSkyKey("parent");
     tester.getOrCreate(parentKey).addErrorDependency(errorKey, new StringValue("recovered"))
         .setComputedValue(CONCATENATE).addDependency("after");
-    UpdateResult<StringValue> result = eval(/*keepGoing=*/false, ImmutableList.of(parentKey));
+    EvaluationResult<StringValue> result = eval(/*keepGoing=*/false, ImmutableList.of(parentKey));
     assertThat(result.keyNames()).isEmpty();
     Map.Entry<SkyKey, ErrorInfo> error = Iterables.getOnlyElement(result.errorMap().entrySet());
     assertEquals(parentKey, error.getKey());
@@ -1326,7 +1326,7 @@ public class ParallelEvaluatorTest {
     tester.getOrCreate(parentKey).addErrorDependency(errorKey, new StringValue("recovered"))
         .setComputedValue(CONCATENATE);
     // When the error value throws, the propagation will cause an interrupted exception in parent.
-    UpdateResult<StringValue> result = eval(/*keepGoing=*/false, ImmutableList.of(parentKey));
+    EvaluationResult<StringValue> result = eval(/*keepGoing=*/false, ImmutableList.of(parentKey));
     assertThat(result.keyNames()).isEmpty();
     Map.Entry<SkyKey, ErrorInfo> error = Iterables.getOnlyElement(result.errorMap().entrySet());
     assertEquals(parentKey, error.getKey());
@@ -1345,7 +1345,8 @@ public class ParallelEvaluatorTest {
     SkyKey parentErrorKey = GraphTester.toSkyKey("parent");
     tester.getOrCreate(parentErrorKey).addErrorDependency(errorKey, new StringValue("recovered"))
         .setHasError(true);
-    UpdateResult<StringValue> result = eval(/*keepGoing=*/false, ImmutableList.of(parentErrorKey));
+    EvaluationResult<StringValue> result = eval(
+        /*keepGoing=*/false, ImmutableList.of(parentErrorKey));
     assertThat(result.keyNames()).isEmpty();
     Map.Entry<SkyKey, ErrorInfo> error = Iterables.getOnlyElement(result.errorMap().entrySet());
     assertEquals(parentErrorKey, error.getKey());
@@ -1360,7 +1361,8 @@ public class ParallelEvaluatorTest {
     SkyKey parentErrorKey = GraphTester.toSkyKey("parent");
     tester.getOrCreate(parentErrorKey).addErrorDependency(errorKey, new StringValue("recovered"))
         .setHasError(true);
-    UpdateResult<StringValue> result = eval(/*keepGoing=*/true, ImmutableList.of(parentErrorKey));
+    EvaluationResult<StringValue> result = eval(
+        /*keepGoing=*/true, ImmutableList.of(parentErrorKey));
     assertThat(result.keyNames()).isEmpty();
     Map.Entry<SkyKey, ErrorInfo> error = Iterables.getOnlyElement(result.errorMap().entrySet());
     assertEquals(parentErrorKey, error.getKey());
@@ -1379,7 +1381,7 @@ public class ParallelEvaluatorTest {
     SkyKey topKey = GraphTester.toSkyKey("top");
     tester.getOrCreate(topKey).addDependency(parentErrorKey).addDependency("after")
         .setComputedValue(CONCATENATE);
-    UpdateResult<StringValue> result = eval(/*keepGoing=*/true, ImmutableList.of(topKey));
+    EvaluationResult<StringValue> result = eval(/*keepGoing=*/true, ImmutableList.of(topKey));
     MoreAsserts.assertContentsAnyOrder(
         ImmutableList.<String>copyOf(result.<String>keyNames()), "top");
     assertEquals("parent valueafter", result.get(topKey).getValue());
@@ -1398,7 +1400,7 @@ public class ParallelEvaluatorTest {
     SkyKey topKey = GraphTester.toSkyKey("top");
     tester.getOrCreate(topKey).addDependency(parentErrorKey).addDependency("after")
         .setComputedValue(CONCATENATE);
-    UpdateResult<StringValue> result = eval(/*keepGoing=*/false, ImmutableList.of(topKey));
+    EvaluationResult<StringValue> result = eval(/*keepGoing=*/false, ImmutableList.of(topKey));
     assertThat(result.keyNames()).isEmpty();
     Map.Entry<SkyKey, ErrorInfo> error = Iterables.getOnlyElement(result.errorMap().entrySet());
     assertEquals(topKey, error.getKey());
@@ -1426,7 +1428,7 @@ public class ParallelEvaluatorTest {
     tester.getOrCreate(cycleKey).addDependency(midKey);
     tester.getOrCreate(selfEdge1).addDependency(selfEdge1);
     tester.getOrCreate(selfEdge2).addDependency(selfEdge2);
-    UpdateResult<StringValue> result = eval(/*keepGoing=*/true, ImmutableSet.of(topKey));
+    EvaluationResult<StringValue> result = eval(/*keepGoing=*/true, ImmutableSet.of(topKey));
     MoreAsserts.assertContentsAnyOrder(result.errorMap().keySet(), topKey);
     Iterable<CycleInfo> cycleInfos = result.getError(topKey).getCycleInfo();
     CycleInfo cycleInfo = Iterables.getOnlyElement(cycleInfos);
@@ -1457,7 +1459,7 @@ public class ParallelEvaluatorTest {
     tester.getOrCreate(errorKey).setBuilder(new ChainedFunction(null, cycleFinish,
         null, /*waitForException=*/false, null, ImmutableSet.<SkyKey>of()));
 
-    UpdateResult<StringValue> result = eval(keepGoing, ImmutableSet.of(topKey));
+    EvaluationResult<StringValue> result = eval(keepGoing, ImmutableSet.of(topKey));
     MoreAsserts.assertContentsAnyOrder(result.errorMap().keySet(), topKey);
     Iterable<CycleInfo> cycleInfos = result.getError(topKey).getCycleInfo();
     if (keepGoing) {
@@ -1515,7 +1517,7 @@ public class ParallelEvaluatorTest {
     tester.getOrCreate(errorKey).setBuilder(new ChainedFunction(null, topStartAndCycleFinish,
         null, /*waitForException=*/false, null,
         ImmutableSet.<SkyKey>of()));
-    UpdateResult<StringValue> result =
+    EvaluationResult<StringValue> result =
         eval(/*keepGoing=*/false, ImmutableSet.of(topKey, otherTop));
     MoreAsserts.assertContentsAnyOrder(result.errorMap().keySet(), topKey);
     Iterable<CycleInfo> cycleInfos = result.getError(topKey).getCycleInfo();
@@ -1556,7 +1558,7 @@ public class ParallelEvaluatorTest {
     tester.getOrCreate(cycleKey).setBuilder(new ChainedFunction(null, null,
         topStartAndCycleFinish, /*waitForException=*/false, new StringValue(""),
         ImmutableSet.<SkyKey>of(midKey)));
-    UpdateResult<StringValue> result =
+    EvaluationResult<StringValue> result =
         eval(keepGoing, ImmutableSet.of(topKey, otherTop));
     MoreAsserts.assertContentsAnyOrder(result.errorMap().keySet(), otherTop, topKey);
     MoreAsserts.assertContentsAnyOrder(result.getError(otherTop).getRootCauses(), otherTop);
@@ -1642,7 +1644,7 @@ public class ParallelEvaluatorTest {
     SkyKey topKey = GraphTester.toSkyKey("top");
     tester.getOrCreate(topKey).addErrorDependency(errorKey, new StringValue("recovered"))
         .setComputedValue(CONCATENATE);
-    UpdateResult<StringValue> result = eval(keepGoing, ImmutableList.of(topKey));
+    EvaluationResult<StringValue> result = eval(keepGoing, ImmutableList.of(topKey));
     assertThat(result.keyNames()).isEmpty();
     assertSame(exception, result.getError(topKey).getException());
     MoreAsserts.assertContentsAnyOrder(result.getError(topKey).getRootCauses(), errorKey);
@@ -1706,7 +1708,7 @@ public class ParallelEvaluatorTest {
     });
     tester.getOrCreate(topKey).addErrorDependency(errorKey, new StringValue("recovered"))
         .setComputedValue(CONCATENATE);
-    UpdateResult<StringValue> result = eval(keepGoing, ImmutableList.of(topKey));
+    EvaluationResult<StringValue> result = eval(keepGoing, ImmutableList.of(topKey));
     if (!keepGoing) {
       assertThat(result.keyNames()).isEmpty();
       assertEquals(topException, result.getError(topKey).getException());
@@ -1871,9 +1873,9 @@ public class ParallelEvaluatorTest {
         return null;
       }
     });
-    UpdateResult<StringValue> updateResult = eval(keepGoing, ImmutableList.of(parentKey));
-    assertTrue(updateResult.hasError());
-    assertEquals(keepGoing ? parentExn : childExn, updateResult.getError().getException());
+    EvaluationResult<StringValue> evaluationResult = eval(keepGoing, ImmutableList.of(parentKey));
+    assertTrue(evaluationResult.hasError());
+    assertEquals(keepGoing ? parentExn : childExn, evaluationResult.getError().getException());
   }
 
   @Test
@@ -1921,7 +1923,7 @@ public class ParallelEvaluatorTest {
   @Test
   public void signalValueEnqueued() throws Exception {
     final Set<SkyKey> enqueuedValues = new HashSet<>();
-    ValueProgressReceiver progressReceiver = new ValueProgressReceiver() {
+    EvaluationProgressReceiver progressReceiver = new EvaluationProgressReceiver() {
       @Override
       public void invalidated(SkyValue value, InvalidationState state) {
         throw new IllegalStateException();
@@ -1968,7 +1970,7 @@ public class ParallelEvaluatorTest {
       }
     };
 
-    AutoUpdatingGraph aug = new InMemoryAutoUpdatingGraph(
+    MemoizingEvaluator aug = new InMemoryMemoizingEvaluator(
         ImmutableMap.of(GraphTester.NODE_TYPE, tester.getFunction()), new RecordingDifferencer(),
         progressReceiver);
     SequentialBuildDriver driver = new SequentialBuildDriver(aug);
@@ -1983,15 +1985,15 @@ public class ParallelEvaluatorTest {
     tester.set("d2", new StringValue("2"));
     tester.set("d3", new StringValue("3"));
 
-    driver.update(ImmutableList.of(GraphTester.toSkyKey("top1")), false, 200, reporter);
+    driver.evaluate(ImmutableList.of(GraphTester.toSkyKey("top1")), false, 200, reporter);
     MoreAsserts.assertContentsAnyOrder(enqueuedValues, GraphTester.toSkyKeys("top1", "d1", "d2"));
     enqueuedValues.clear();
 
-    driver.update(ImmutableList.of(GraphTester.toSkyKey("top2")), false, 200, reporter);
+    driver.evaluate(ImmutableList.of(GraphTester.toSkyKey("top2")), false, 200, reporter);
     MoreAsserts.assertContentsAnyOrder(enqueuedValues, GraphTester.toSkyKeys("top2", "d3"));
     enqueuedValues.clear();
 
-    driver.update(ImmutableList.of(GraphTester.toSkyKey("top1")), false, 200, reporter);
+    driver.evaluate(ImmutableList.of(GraphTester.toSkyKey("top1")), false, 200, reporter);
     assertThat(enqueuedValues).isEmpty();
   }
 }

@@ -15,7 +15,6 @@ package com.google.devtools.build.lib.bazel.rules.genrule;
 
 import static com.google.devtools.build.lib.packages.Attribute.ConfigurationTransition.HOST;
 import static com.google.devtools.build.lib.packages.Attribute.attr;
-import static com.google.devtools.build.lib.packages.RuleClass.DependentTargetConfiguration.PARENT;
 import static com.google.devtools.build.lib.packages.Type.BOOLEAN;
 import static com.google.devtools.build.lib.packages.Type.LABEL;
 import static com.google.devtools.build.lib.packages.Type.LABEL_LIST;
@@ -45,7 +44,6 @@ public final class GenRuleRule implements RuleDefinition {
   @Override
   public RuleClass build(Builder builder, RuleDefinitionEnvironment env) {
     return builder
-        .setDependentTargetConfiguration(PARENT)
         .setOutputToGenfiles()
         .add(attr("srcs", LABEL_LIST)
             .direct_compile_time_input())

@@ -15,7 +15,6 @@ package com.google.devtools.build.lib.query2.engine;
 
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.Sets;
-import com.google.devtools.build.lib.graph.Node;
 import com.google.devtools.build.lib.query2.engine.QueryEnvironment.Argument;
 import com.google.devtools.build.lib.query2.engine.QueryEnvironment.ArgumentType;
 import com.google.devtools.build.lib.query2.engine.QueryEnvironment.QueryFunction;
@@ -63,18 +62,16 @@ class TestsFunction implements QueryFunction {
   }
 
   @Override
-  public <T> Set<Node<T>> eval(
-      QueryEnvironment<T> env, QueryExpression expression, List<Argument> args)
+  public <T> Set<T> eval(QueryEnvironment<T> env, QueryExpression expression, List<Argument> args)
       throws QueryException {
     Closure<T> closure = new Closure<>(expression, env);
-    Set<Node<T>> result = new HashSet<>();
-    for (Node<T> node : args.get(0).getExpression().eval(env)) {
-      T target = node.getLabel();
+    Set<T> result = new HashSet<>();
+    for (T target : args.get(0).getExpression().eval(env)) {
       if (env.getAccessor().isTestRule(target)) {
-        result.add(node);
+        result.add(target);
       } else if (env.getAccessor().isTestSuite(target)) {
         for (T test : closure.getTestsInSuite(target)) {
-          result.add(env.getNode(test));
+          result.add(env.getOrCreate(test));
         }
       }
     }

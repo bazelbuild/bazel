@@ -15,6 +15,7 @@ package com.google.devtools.build.lib.collect;
 
 import com.google.common.base.Preconditions;
 import com.google.common.collect.ImmutableList;
+import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.ImmutableSet;
 import com.google.devtools.build.lib.collect.nestedset.NestedSet;
 
@@ -22,8 +23,10 @@ import java.util.ArrayList;
 import java.util.Collection;
 import java.util.Comparator;
 import java.util.EnumSet;
+import java.util.HashMap;
 import java.util.HashSet;
 import java.util.List;
+import java.util.Map;
 import java.util.Set;
 
 /**
@@ -194,5 +197,29 @@ public final class CollectionUtils {
    */
   public static <T> boolean containsAll(Iterable<T> superset, Iterable<T> subset) {
     return ImmutableSet.copyOf(superset).containsAll(ImmutableList.copyOf(subset));
+  }
+
+  /**
+   * Returns an ImmutableMap of ImmutableMaps created from the Map of Maps parameter.
+   */
+  public static <KEY_1, KEY_2, VALUE> ImmutableMap<KEY_1, ImmutableMap<KEY_2, VALUE>> toImmutable(
+      Map<KEY_1, Map<KEY_2, VALUE>> map) {
+    ImmutableMap.Builder<KEY_1, ImmutableMap<KEY_2, VALUE>> builder = ImmutableMap.builder();
+    for (Map.Entry<KEY_1, Map<KEY_2, VALUE>> entry : map.entrySet()) {
+      builder.put(entry.getKey(), ImmutableMap.copyOf(entry.getValue()));
+    }
+    return builder.build();
+  }
+
+  /**
+   * Returns a copy of the Map of Maps parameter.
+   */
+  public static <KEY_1, KEY_2, VALUE> Map<KEY_1, Map<KEY_2, VALUE>> copyOf(
+      Map<KEY_1, ? extends Map<KEY_2, VALUE>> map) {
+    Map<KEY_1, Map<KEY_2, VALUE>> result = new HashMap<>();
+    for (Map.Entry<KEY_1, ? extends Map<KEY_2, VALUE>> entry : map.entrySet()) {
+      result.put(entry.getKey(), new HashMap<>(entry.getValue()));
+    }
+    return result;
   }
 }

@@ -19,7 +19,7 @@ import com.google.devtools.build.lib.concurrent.ThreadSafety;
  * Receiver to inform callers which values have been invalidated. Values may be invalidated and then
  * re-validated if they have been found not to be changed.
  */
-public interface ValueProgressReceiver {
+public interface EvaluationProgressReceiver {
   /**
    * New state of the value entry after evaluation.
    */

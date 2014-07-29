@@ -33,7 +33,6 @@ import com.google.devtools.build.skyframe.SkyKey;
 import com.google.devtools.build.skyframe.SkyValue;
 import com.google.devtools.build.skyframe.ValueOrException;
 
-import java.util.ArrayList;
 import java.util.Collection;
 import java.util.HashMap;
 import java.util.HashSet;
@@ -130,9 +129,19 @@ public class ActionExecutionFunction implements SkyFunction {
   private static Collection<SkyKey> toKeys(Iterable<Artifact> inputs,
       Iterable<Artifact> mandatoryInputs) {
     Set<Artifact> mandatory = Sets.newHashSet(mandatoryInputs);
-    Collection<SkyKey> discoveredArtifacts = new ArrayList<>();
+    Collection<SkyKey> discoveredArtifacts = new HashSet<>();
     for (Artifact artifact : inputs) {
       discoveredArtifacts.add(ArtifactValue.key(artifact, mandatory.contains(artifact)));
+    }
+
+    // In case the action violates the invariant that getInputs() is a superset of
+    // getMandatoryInputs(), explicitly add the mandatory inputs. See bug about an
+    // "action not in canonical form" error message. Also note that we may add Skyframe edges on
+    // these potentially stale deps due to the way loading inputs from the action cache functions.
+    // In practice, this is safe since C++ actions (the only ones which discover inputs) only add
+    // possibly stale inputs on source artifacts, which we treat as non-mandatory.
+    for (Artifact artifact : mandatory) {
+      discoveredArtifacts.add(ArtifactValue.key(artifact, true));
     }
     return discoveredArtifacts;
   }
@@ -215,7 +224,7 @@ public class ActionExecutionFunction implements SkyFunction {
 
   /**
    * Used to declare all the exception types that can be wrapped in the exception thrown by
-   * {@link ActionExecutionFunction#build}.
+   * {@link ActionExecutionFunction#compute}.
    */
   private static final class ActionExecutionFunctionException extends SkyFunctionException {
 

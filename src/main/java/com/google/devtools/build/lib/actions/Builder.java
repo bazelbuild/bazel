@@ -15,7 +15,7 @@
 package com.google.devtools.build.lib.actions;
 
 import com.google.devtools.build.lib.concurrent.ThreadSafety.ThreadCompatible;
-import com.google.devtools.build.lib.util.ExitCausingException;
+import com.google.devtools.build.lib.util.AbruptExitException;
 import com.google.devtools.build.lib.vfs.ModifiedFileSet;
 
 import java.util.Set;
@@ -74,7 +74,7 @@ public interface Builder {
                       Executor executor,
                       ModifiedFileSet modifiedFileSet,
                       Set<Artifact> builtArtifacts)
-      throws BuildFailedException, ExitCausingException, InterruptedException, TestExecException;
+      throws BuildFailedException, AbruptExitException, InterruptedException, TestExecException;
 
   /**
    * Returns an estimate of the "incrementality" of the build.

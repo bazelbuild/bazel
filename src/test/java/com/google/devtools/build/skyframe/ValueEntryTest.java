@@ -305,6 +305,7 @@ public class ValueEntryTest {
     assertEquals(DependencyState.NEEDS_SCHEDULING, entry.addReverseDepAndCheckIfDone(parent));
     try {
       entry.addReverseDepAndCheckIfDone(parent);
+      entry.getReverseDeps();
       fail("Cannot add same dep twice");
     } catch (IllegalStateException e) {
       // Expected.
@@ -351,6 +352,8 @@ public class ValueEntryTest {
     assertEquals(DependencyState.NEEDS_SCHEDULING, entry.addReverseDepAndCheckIfDone(parent));
     try {
       entry.addReverseDepAndCheckIfDone(parent);
+      // We only check for duplicates when we request all the reverse deps.
+      entry.getReverseDeps();
       fail("Cannot add same dep twice in one build, even if dirty");
     } catch (IllegalStateException e) {
       // Expected.

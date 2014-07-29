@@ -42,7 +42,11 @@ enum InfoKey {
   PACKAGE_PATH("package_path", "The search path for resolving package labels."),
 
   // memory statistics
-  USED_HEAP_SIZE("used-heap-size", "The amount of used memory in bytes."),
+  USED_HEAP_SIZE("used-heap-size", "The amount of used memory in bytes. Note that this is not a "
+      + "good indicator of the actual memory use, as it includes any remaining inaccessible "
+      + "memory."),
+  USED_HEAP_SIZE_AFTER_GC("used-heap-size-after-gc",
+      "The amount of used memory in bytes after a call to System.gc().", true),
   COMMITTED_HEAP_SIZE("committed-heap-size",
       "The amount of memory in bytes that is committed for the Java virtual machine to use"),
   MAX_HEAP_SIZE("max-heap-size",

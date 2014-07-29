@@ -35,8 +35,9 @@ public interface Evaluator {
   }
 
   /**
-   * Evaluates a set of values. Returns an {@link UpdateResult}. All elements of skyKeys must
+   * Evaluates a set of values. Returns an {@link EvaluationResult}. All elements of skyKeys must
    * be keys for Values of subtype T.
    */
-  <T extends SkyValue> UpdateResult<T> eval(Iterable<SkyKey> skyKeys) throws InterruptedException;
+  <T extends SkyValue> EvaluationResult<T> eval(Iterable<SkyKey> skyKeys)
+      throws InterruptedException;
 }

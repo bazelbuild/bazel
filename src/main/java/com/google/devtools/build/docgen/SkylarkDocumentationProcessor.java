@@ -21,6 +21,7 @@ import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.Iterables;
 import com.google.devtools.build.docgen.SkylarkJavaInterfaceExplorer.SkylarkJavaObject;
 import com.google.devtools.build.lib.packages.MethodLibrary;
+import com.google.devtools.build.lib.rules.SkylarkAttr;
 import com.google.devtools.build.lib.rules.SkylarkRuleClassFunctions;
 import com.google.devtools.build.lib.rules.SkylarkRuleContext;
 import com.google.devtools.build.lib.rules.SkylarkRuleImplementationFunctions;
@@ -184,6 +185,7 @@ public class SkylarkDocumentationProcessor {
     collectBuiltinDoc(builder, MethodLibrary.class.getDeclaredFields());
     collectBuiltinDoc(builder, SkylarkRuleClassFunctions.class.getDeclaredFields());
     collectBuiltinDoc(builder, SkylarkRuleImplementationFunctions.class.getDeclaredFields());
+    collectBuiltinDoc(builder, SkylarkAttr.class.getDeclaredFields());
     builder.put(
         SkylarkRuleContext.class.getAnnotation(SkylarkBuiltin.class), SkylarkRuleContext.class);
     for (Object obj : SkylarkRuleImplementationFunctions.JAVA_OBJECTS_TO_EXPOSE.values()) {
@@ -215,7 +217,7 @@ public class SkylarkDocumentationProcessor {
             collectMethodLibraryDoc(MethodLibrary.stringFunctions.keySet())))
         .add(SkylarkJavaObject.ofExtraMethods(
             getMethodLibraryAnnotation("dictFunctions"),
-            collectMethodLibraryDoc(MethodLibrary.dictFunctions)))
+            collectMethodLibraryDoc(MethodLibrary.dictFunctions.keySet())))
         .build();
   }
 

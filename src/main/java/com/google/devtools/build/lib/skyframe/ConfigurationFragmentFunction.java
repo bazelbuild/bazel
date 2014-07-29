@@ -83,7 +83,8 @@ public class ConfigurationFragmentFunction implements SkyFunction {
         return factory;
       }
     }
-    throw new IllegalStateException("There is no factory for fragment: " + fragmentType);
+    throw new IllegalStateException(
+        "There is no factory for fragment: " + fragmentType.getSimpleName());
   }
 
   @Override

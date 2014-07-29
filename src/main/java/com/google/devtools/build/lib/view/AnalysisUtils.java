@@ -15,7 +15,9 @@
 package com.google.devtools.build.lib.view;
 
 import com.google.common.base.Preconditions;
+import com.google.common.base.Predicate;
 import com.google.common.collect.ImmutableList;
+import com.google.common.collect.Iterables;
 import com.google.devtools.build.lib.actions.Artifact;
 import com.google.devtools.build.lib.collect.nestedset.NestedSet;
 import com.google.devtools.build.lib.collect.nestedset.NestedSetBuilder;
@@ -77,6 +79,19 @@ public final class AnalysisUtils {
       }
     }
     return ImmutableList.copyOf(result);
+  }
+
+  /**
+   * Returns the iterable of collections that have the specified provider.
+   */
+  public static <S extends TransitiveInfoCollection, C extends TransitiveInfoProvider> Iterable<S>
+      filterByProvider(Iterable<S> prerequisites, final Class<C> provider) {
+    return Iterables.filter(prerequisites, new Predicate<S>() {
+      @Override
+      public boolean apply(S target) {
+        return target.getProvider(provider) != null;
+      }
+    });
   }
 
   /**

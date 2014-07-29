@@ -47,21 +47,20 @@ public interface DiffAwareness extends Closeable {
 
   /**
    * Returns details about modifications of files of interest since the last call to
-   * {@link #getDiff}. If this is the first such call then
+   * {@link #getDiff}
+   *
+   * <p> Throws a {@link BrokenDiffAwarenessException} to indicate that something is
+   * wrong and the caller should throw away this {@link DiffAwareness} instance. The
+   * {@link DiffAwareness} closes itself in this case.
+   *
+   * <p> If this is the first call to {@link #getDiff} then
    * {@code ModifiedFileSet.EVERYTHING_MODIFIED} should be returned.
    *
    * <p> The caller should either fully process these results, or conservatively call
    * {@link #close} and throw away this {@link DiffAwareness} instance. Otherwise the results of
    * the next {@link #getDiff} call won't make sense.
    */
-  ModifiedFileSet getDiff();
-
-  /**
-   * Returns whether the {@link DiffAwareness} object is still appropriate for watching its files
-   * of interest. If not, {@link BlindDiffAwareness} will be used (but the factory may be asked in
-   * the future to potentially create a more sophisticated {@link DiffAwareness}).
-   */
-  boolean canStillBeUsed();
+  ModifiedFileSet getDiff() throws BrokenDiffAwarenessException;
 
   /**
    * Must be called whenever the {@link DiffAwareness} object is to be discarded. Using a

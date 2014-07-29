@@ -192,7 +192,7 @@ public class FileFunction implements SkyFunction {
 
   /**
    * Used to declare all the exception types that can be wrapped in the exception thrown by
-   * {@link FileFunction#build}.
+   * {@link FileFunction#compute}.
    */
   private static final class FileFunctionException extends SkyFunctionException {
 

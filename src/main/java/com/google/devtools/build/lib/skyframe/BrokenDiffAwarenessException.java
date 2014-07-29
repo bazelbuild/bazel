@@ -13,22 +13,17 @@
 // limitations under the License.
 package com.google.devtools.build.lib.skyframe;
 
-import com.google.devtools.build.lib.vfs.ModifiedFileSet;
-
 /**
- * Dummy class that implements blind diff awareness and always says everything is modified.
+ * Thrown on {@link DiffAwareness#getDiff} to indicate that something is wrong with the
+ * {@link DiffAwareness} instance and it should not be used again.
  */
-public class BlindDiffAwareness implements DiffAwareness {
+public class BrokenDiffAwarenessException extends Exception {
 
-  @Override
-  public ModifiedFileSet getDiff() throws BrokenDiffAwarenessException {
-    // We throw an exception here so that a more sophisticated diff awareness strategy has a chance
-    // to be chosen, if one becomes applicable. If there are problems with a more sophisticated
-    // strategy, we'll use BlindDiffAwareness but we don't want to be stuck with it forever.
-    throw new BrokenDiffAwarenessException();
+  public BrokenDiffAwarenessException() {
+    super();
   }
 
-  @Override
-  public void close() {
+  public BrokenDiffAwarenessException(String msg) {
+    super(msg);
   }
 }

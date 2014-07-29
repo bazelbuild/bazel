@@ -26,8 +26,8 @@ import com.google.devtools.build.lib.events.Event;
 import com.google.devtools.build.lib.events.EventHandler;
 import com.google.devtools.build.lib.events.EventKind;
 import com.google.devtools.build.lib.events.Reporter;
+import com.google.devtools.build.lib.util.AbruptExitException;
 import com.google.devtools.build.lib.util.AnsiStrippingOutputStream;
-import com.google.devtools.build.lib.util.ExitCausingException;
 import com.google.devtools.build.lib.util.ExitCode;
 import com.google.devtools.build.lib.util.LoggingUtil;
 import com.google.devtools.build.lib.util.Pair;
@@ -301,11 +301,11 @@ public class BlazeCommandDispatcher {
     }
     Command commandAnnotation = command.getClass().getAnnotation(Command.class);
 
-    ExitCausingException exitCausingException = null;
+    AbruptExitException exitCausingException = null;
     for (BlazeModule module : runtime.getBlazeModules()) {
       try {
         module.beforeCommand(runtime, commandAnnotation);
-      } catch (ExitCausingException e) {
+      } catch (AbruptExitException e) {
         // Don't let one module's complaints prevent the other modules from doing necessary
         // setup. We promised to call beforeCommand exactly once per-module before each command
         // and will be calling afterCommand soon in the future - a module's afterCommand might
@@ -401,7 +401,7 @@ public class BlazeCommandDispatcher {
         runtime.beforeCommand(commandName, optionsParser, commonOptions, execStartTimeNanos);
         // Allow the command to edit options after parsing:
         command.editOptions(runtime, optionsParser);
-      } catch (ExitCausingException e) {
+      } catch (AbruptExitException e) {
         outErr.printErrLn(e.getMessage());
         return e.getExitCode().getNumericExitCode();
       }

@@ -13,13 +13,13 @@
 // limitations under the License.
 package com.google.devtools.build.lib.actions;
 
-import com.google.devtools.build.lib.util.ExitCausingException;
+import com.google.devtools.build.lib.util.AbruptExitException;
 import com.google.devtools.build.lib.util.ExitCode;
 
 /**
  * An exception that is thrown when an executor can't be initialized.
  */
-public class ExecutorInitException extends ExitCausingException {
+public class ExecutorInitException extends AbruptExitException {
 
   public ExecutorInitException(String message) {
     super(message, ExitCode.LOCAL_ENVIRONMENTAL_ERROR);

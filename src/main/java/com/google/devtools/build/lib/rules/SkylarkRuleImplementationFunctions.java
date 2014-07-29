@@ -19,6 +19,7 @@ import com.google.common.annotations.VisibleForTesting;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 import com.google.devtools.build.lib.actions.Artifact;
+import com.google.devtools.build.lib.collect.CollectionUtils;
 import com.google.devtools.build.lib.collect.nestedset.NestedSet;
 import com.google.devtools.build.lib.events.Location;
 import com.google.devtools.build.lib.packages.MethodLibrary;
@@ -38,6 +39,7 @@ import com.google.devtools.build.lib.syntax.SkylarkFunction;
 import com.google.devtools.build.lib.syntax.SkylarkFunction.SimpleSkylarkFunction;
 import com.google.devtools.build.lib.syntax.SkylarkNestedSet;
 import com.google.devtools.build.lib.syntax.SkylarkType;
+import com.google.devtools.build.lib.syntax.SkylarkType.SkylarkFunctionType;
 import com.google.devtools.build.lib.syntax.ValidationEnvironment;
 import com.google.devtools.build.lib.vfs.PathFragment;
 import com.google.devtools.build.lib.view.CommandHelper;
@@ -53,6 +55,7 @@ import com.google.devtools.build.lib.view.actions.SpawnAction;
 import com.google.devtools.build.lib.view.actions.TemplateExpansionAction;
 import com.google.devtools.build.lib.view.actions.TemplateExpansionAction.Substitution;
 
+import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.concurrent.ExecutionException;
@@ -506,33 +509,31 @@ public class SkylarkRuleImplementationFunctions {
   }
 
   public static ValidationEnvironment getValidationEnvironment(
-      ImmutableMap<String, Class<?>> extraObjects) {
-    ImmutableMap.Builder<String, SkylarkType> builder = ImmutableMap.builder();
+      ImmutableMap<String, SkylarkType> extraObjects) {
+    Map<SkylarkType, Map<String, SkylarkType>> builtIn = new HashMap<>();
+    Map<String, SkylarkType> global = new HashMap<>();
+    builtIn.put(SkylarkType.GLOBAL, global);
+
     // TODO(bazel-team): kill check_state, create_object and provider.
-    builder
-        .put("check_state", SkylarkType.UNKNOWN)
-        .put("check_state.return", SkylarkType.NONE)
-        .put("create_object", SkylarkType.UNKNOWN)
-        .put("create_object.return", SkylarkType.UNKNOWN)
-        .put("provider", SkylarkType.UNKNOWN)
-        .put("provider.return", SkylarkType.UNKNOWN);
-    MethodLibrary.setupValidationEnvironment(builder);
-    SkylarkAttr.setupValidationEnvironment(builder);
+    global.put("check_state", SkylarkFunctionType.of("check_state", SkylarkType.NONE));
+    global.put("create_object", SkylarkFunctionType.of("create_object", SkylarkType.UNKNOWN));
+    global.put("provider", SkylarkFunctionType.of("provider", SkylarkType.UNKNOWN));
+
+    MethodLibrary.setupValidationEnvironment(builtIn);
+    SkylarkAttr.setupValidationEnvironment(builtIn);
     SkylarkFunction.collectSkylarkFunctionReturnTypesFromFields(
-        SkylarkRuleClassFunctions.class, builder);
+        SkylarkRuleClassFunctions.class, builtIn);
     SkylarkFunction.collectSkylarkFunctionReturnTypesFromFields(
-        SkylarkRuleImplementationFunctions.class, builder);
+        SkylarkRuleImplementationFunctions.class, builtIn);
     for (Map.Entry<String, Object> entry : JAVA_OBJECTS_TO_EXPOSE.entrySet()) {
-      builder.put(entry.getKey(), SkylarkType.of(entry.getValue().getClass()));
+      global.put(entry.getKey(), SkylarkType.of(entry.getValue().getClass()));
     }
-    for (Map.Entry<String, Class<?>> entry : extraObjects.entrySet()) {
-      builder.put(entry.getKey(), SkylarkType.of(entry.getValue()));
-    }
-    return new ValidationEnvironment(builder.build());
+    global.putAll(extraObjects);
+    return new ValidationEnvironment(CollectionUtils.toImmutable(builtIn));
   }
 
   @VisibleForTesting
   public static ValidationEnvironment getValidationEnvironment() {
-    return getValidationEnvironment(ImmutableMap.<String, Class<?>>of());
+    return getValidationEnvironment(ImmutableMap.<String, SkylarkType>of());
   }
 }

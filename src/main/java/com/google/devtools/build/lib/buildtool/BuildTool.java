@@ -43,7 +43,7 @@ import com.google.devtools.build.lib.pkgcache.LoadingPhaseRunner.LoadingResult;
 import com.google.devtools.build.lib.profiler.ProfilePhase;
 import com.google.devtools.build.lib.profiler.Profiler;
 import com.google.devtools.build.lib.skyframe.SkyframeExecutor;
-import com.google.devtools.build.lib.util.ExitCausingException;
+import com.google.devtools.build.lib.util.AbruptExitException;
 import com.google.devtools.build.lib.util.ExitCode;
 import com.google.devtools.build.lib.vfs.PathFragment;
 import com.google.devtools.build.lib.view.AnalysisPhaseCompleteEvent;
@@ -126,7 +126,7 @@ public class BuildTool {
       throws BuildFailedException, LocalEnvironmentException,
              InterruptedException, ViewCreationFailedException,
              TargetParsingException, LoadingFailedException, ExecutorInitException,
-             ExitCausingException, InvalidConfigurationException, TestExecException {
+             AbruptExitException, InvalidConfigurationException, TestExecException {
     validateOptions(request);
     BuildOptions buildOptions = runtime.createBuildOptions(request);
     // Sync the package manager before sending the BuildStartingEvent in runLoadingPhase()
@@ -272,7 +272,7 @@ public class BuildTool {
     } catch (InvalidConfigurationException e) {
       exitCode = ExitCode.COMMAND_LINE_ERROR;
       reportExceptionError(e);
-    } catch (ExitCausingException e) {
+    } catch (AbruptExitException e) {
       exitCode = e.getExitCode();
       reportExceptionError(e);
       result.setCatastrophe();
@@ -299,7 +299,7 @@ public class BuildTool {
   protected final LoadingResult runLoadingPhase(final BuildRequest request,
                                                 final TargetValidator validator)
           throws LoadingFailedException, TargetParsingException, InterruptedException,
-          ExitCausingException {
+          AbruptExitException {
     Profiler.instance().markPhase(ProfilePhase.LOAD);
     runtime.throwPendingException();
 
@@ -330,7 +330,7 @@ public class BuildTool {
   private void runExecutionPhase(BuildRequest request, LoadingResult loadingResult,
       AnalysisResult analysisResult, BuildResult result, @Nullable ExecutionTool executionTool,
       BuildConfigurationCollection configurations)
-      throws TestExecException, BuildFailedException, InterruptedException, ExitCausingException,
+      throws TestExecException, BuildFailedException, InterruptedException, AbruptExitException,
       ViewCreationFailedException {
     try {
       if (needsExecutionPhase(request.getBuildOptions())) {

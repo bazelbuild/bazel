@@ -34,7 +34,7 @@ import com.google.devtools.build.lib.query2.proto.proto2api.Build.AllowedRuleCla
 import com.google.devtools.build.lib.query2.proto.proto2api.Build.AttributeDefinition;
 import com.google.devtools.build.lib.query2.proto.proto2api.Build.BuildLanguage;
 import com.google.devtools.build.lib.query2.proto.proto2api.Build.RuleDefinition;
-import com.google.devtools.build.lib.util.ExitCausingException;
+import com.google.devtools.build.lib.util.AbruptExitException;
 import com.google.devtools.build.lib.util.ExitCode;
 import com.google.devtools.build.lib.util.ProcessUtils;
 import com.google.devtools.build.lib.util.StringUtilities;
@@ -255,7 +255,7 @@ public class InfoCommand implements BlazeCommand {
           outErr.getOutputStream().write(infoItem.get(configurationSupplier));
         }
       }
-    } catch (ExitCausingException e) {
+    } catch (AbruptExitException e) {
       return e.getExitCode();
     } catch (ExitCausingRuntimeException e) {
       return e.getExitCode();
@@ -314,16 +314,17 @@ public class InfoCommand implements BlazeCommand {
         }
 
       case MAX_HEAP_SIZE :
-        MemoryMXBean maxMemBean = ManagementFactory.getMemoryMXBean();
-        MemoryUsage maxMem = maxMemBean.getHeapMemoryUsage();
-        return StringUtilities.prettyPrintBytes(maxMem.getMax());
+        return StringUtilities.prettyPrintBytes(getMemoryUsage().getMax());
       case USED_HEAP_SIZE :
       case COMMITTED_HEAP_SIZE :
-        MemoryMXBean memBean = ManagementFactory.getMemoryMXBean();
-        memBean.gc();
-        MemoryUsage mem = memBean.getHeapMemoryUsage();
         return StringUtilities.prettyPrintBytes(key == InfoKey.USED_HEAP_SIZE ?
-            mem.getUsed() : mem.getCommitted());
+            getMemoryUsage().getUsed() : getMemoryUsage().getCommitted());
+
+      case USED_HEAP_SIZE_AFTER_GC :
+        // Note that this info value is not printed by default, but only when explicitly requested.
+        System.gc();
+        return StringUtilities.prettyPrintBytes(getMemoryUsage().getUsed());
+
       case DEFAULTS_PACKAGE:
         return runtime.getDefaultsPackageContent();
 
@@ -333,6 +334,11 @@ public class InfoCommand implements BlazeCommand {
       default:
         throw new IllegalArgumentException("missing implementation for " + key);
     }
+  }
+
+  private static MemoryUsage getMemoryUsage() {
+    MemoryMXBean memBean = ManagementFactory.getMemoryMXBean();
+    return memBean.getHeapMemoryUsage();
   }
 
   /**

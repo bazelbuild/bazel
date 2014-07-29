@@ -15,31 +15,34 @@
 package com.google.devtools.build.lib.util;
 
 /**
- * An exception thrown by various error conditions are severe enough to halt the command (e.g.
+ * An exception thrown by various error conditions that are severe enough to halt the command (e.g.
  * even a --keep_going build). These typically need to signal to the handling code what happened.
  * Therefore, these exceptions contain a recommended ExitCode allowing the exception to "set" a
  * returned numeric exit code.
+ *
+ * When an instance of this exception is thrown, Blaze will try to halt as soon as reasonably
+ * possible.
  */
-public class ExitCausingException extends Exception {
+public class AbruptExitException extends Exception {
 
   private final ExitCode exitCode;
 
-  public ExitCausingException(String message, ExitCode exitCode) {
+  public AbruptExitException(String message, ExitCode exitCode) {
     super(message);
     this.exitCode = exitCode;
   }
 
-  public ExitCausingException(String message, ExitCode exitCode, Throwable cause) {
+  public AbruptExitException(String message, ExitCode exitCode, Throwable cause) {
     super(message, cause);
     this.exitCode = exitCode;
   }
 
-  public ExitCausingException(ExitCode exitCode, Throwable cause) {
+  public AbruptExitException(ExitCode exitCode, Throwable cause) {
     super(cause);
     this.exitCode = exitCode;
   }
 
-  public ExitCausingException(ExitCode exitCode) {
+  public AbruptExitException(ExitCode exitCode) {
     this.exitCode = exitCode;
   }
 

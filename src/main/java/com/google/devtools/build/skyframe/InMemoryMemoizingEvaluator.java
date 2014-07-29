@@ -22,9 +22,9 @@ import com.google.common.collect.Iterables;
 import com.google.common.collect.Maps;
 import com.google.devtools.build.lib.events.ErrorEventListener;
 import com.google.devtools.build.skyframe.Differencer.Diff;
-import com.google.devtools.build.skyframe.InvalidatingValueVisitor.DeletingInvalidationState;
-import com.google.devtools.build.skyframe.InvalidatingValueVisitor.DirtyingInvalidationState;
-import com.google.devtools.build.skyframe.InvalidatingValueVisitor.InvalidationState;
+import com.google.devtools.build.skyframe.InvalidatingNodeVisitor.DeletingInvalidationState;
+import com.google.devtools.build.skyframe.InvalidatingNodeVisitor.DirtyingInvalidationState;
+import com.google.devtools.build.skyframe.InvalidatingNodeVisitor.InvalidationState;
 import com.google.devtools.build.skyframe.ValueEntry.DependencyState;
 
 import java.io.PrintStream;
@@ -42,15 +42,15 @@ import javax.annotation.Nullable;
  * An inmemory implementation that uses the eager invalidation strategy. This class is, by itself,
  * not thread-safe. Neither is it thread-safe to use this class in parallel with any of the
  * returned graphs. However, it is allowed to access the graph from multiple threads as long as
- * that does not happen in parallel with an {@link #update} call.
+ * that does not happen in parallel with an {@link #evaluate} call.
  *
- * <p>This auto-updating graph requires a sequential versioning scheme. Update invocations
+ * <p>This memoizing evaluator requires a sequential versioning scheme. Evaluations
  * must pass in a monotonically increasing {@link IntVersion}.
  */
-public final class InMemoryAutoUpdatingGraph implements AutoUpdatingGraph {
+public final class InMemoryMemoizingEvaluator implements MemoizingEvaluator {
 
   private final ImmutableMap<? extends SkyFunctionName, ? extends SkyFunction> skyFunctions;
-  @Nullable private final ValueProgressReceiver progressReceiver;
+  @Nullable private final EvaluationProgressReceiver progressReceiver;
   // Not final only for testing.
   private InMemoryGraph graph;
   private IntVersion lastGraphVersion = null;
@@ -67,22 +67,23 @@ public final class InMemoryAutoUpdatingGraph implements AutoUpdatingGraph {
 
   private final EmittedEventState emittedEventState;
 
-  private final AtomicBoolean updating = new AtomicBoolean(false);
+  private final AtomicBoolean evaluating = new AtomicBoolean(false);
 
-  public InMemoryAutoUpdatingGraph(
+  public InMemoryMemoizingEvaluator(
       Map<? extends SkyFunctionName, ? extends SkyFunction> skyFunctions, Differencer differencer) {
     this(skyFunctions, differencer, null);
   }
 
-  public InMemoryAutoUpdatingGraph(
+  public InMemoryMemoizingEvaluator(
       Map<? extends SkyFunctionName, ? extends SkyFunction> skyFunctions, Differencer differencer,
-      @Nullable ValueProgressReceiver invalidationReceiver) {
+      @Nullable EvaluationProgressReceiver invalidationReceiver) {
     this(skyFunctions, differencer, invalidationReceiver, new EmittedEventState());
   }
 
-  public InMemoryAutoUpdatingGraph(
+  public InMemoryMemoizingEvaluator(
       Map<? extends SkyFunctionName, ? extends SkyFunction> skyFunctions, Differencer differencer,
-      @Nullable ValueProgressReceiver invalidationReceiver, EmittedEventState emittedEventState) {
+      @Nullable EvaluationProgressReceiver invalidationReceiver,
+      EmittedEventState emittedEventState) {
     this.skyFunctions = ImmutableMap.copyOf(skyFunctions);
     this.differencer = Preconditions.checkNotNull(differencer);
     this.progressReceiver = invalidationReceiver;
@@ -120,7 +121,7 @@ public final class InMemoryAutoUpdatingGraph implements AutoUpdatingGraph {
   }
 
   @Override
-  public <T extends SkyValue> UpdateResult<T> update(Iterable<SkyKey> roots, Version version,
+  public <T extends SkyValue> EvaluationResult<T> evaluate(Iterable<SkyKey> roots, Version version,
           boolean keepGoing, int numThreads, ErrorEventListener listener)
       throws InterruptedException {
     // NOTE: Performance critical code. See bug "Null build performance parity".
@@ -129,7 +130,7 @@ public final class InMemoryAutoUpdatingGraph implements AutoUpdatingGraph {
         || version.equals(lastGraphVersion.next()),
         "InMemoryGraph supports only monotonically increasing Integer versions: %s %s",
         lastGraphVersion, version);
-    setAndCheckUpdateState(true, roots);
+    setAndCheckEvaluateState(true, roots);
     try {
       Diff diff = differencer.getDiff(lastGraphVersion, version);
       Map<SkyKey, SkyValue> valuesToInject = new HashMap<>(diff.changedKeysWithNewValues());
@@ -145,7 +146,7 @@ public final class InMemoryAutoUpdatingGraph implements AutoUpdatingGraph {
       return evaluator.eval(roots);
     } finally {
       lastGraphVersion = intVersion;
-      setAndCheckUpdateState(false, roots);
+      setAndCheckEvaluateState(false, roots);
     }
   }
 
@@ -203,7 +204,7 @@ public final class InMemoryAutoUpdatingGraph implements AutoUpdatingGraph {
     }
   }
 
-  private void performValueInvalidation(ValueProgressReceiver invalidationReceiver)
+  private void performValueInvalidation(EvaluationProgressReceiver invalidationReceiver)
       throws InterruptedException {
     EagerInvalidator.delete(graph, valuesToDelete, invalidationReceiver, deleterState);
     // Note that clearing the valuesToDelete would not do an internal resizing. Therefore, if any
@@ -216,9 +217,9 @@ public final class InMemoryAutoUpdatingGraph implements AutoUpdatingGraph {
     valuesToDirty = new LinkedHashSet<>();
   }
 
-  private void setAndCheckUpdateState(boolean newValue, Object requestInfo) {
-    Preconditions.checkState(updating.getAndSet(newValue) != newValue,
-        "Re-entrant auto-graph-update for request: %s", requestInfo);
+  private void setAndCheckEvaluateState(boolean newValue, Object requestInfo) {
+    Preconditions.checkState(evaluating.getAndSet(newValue) != newValue,
+        "Re-entrant evaluation for request: %s", requestInfo);
   }
 
   @Override
@@ -269,12 +270,13 @@ public final class InMemoryAutoUpdatingGraph implements AutoUpdatingGraph {
     }
   }
 
-  public static final GraphSupplier SUPPLIER = new GraphSupplier() {
+  public static final EvaluatorSupplier SUPPLIER = new EvaluatorSupplier() {
     @Override
-    public AutoUpdatingGraph createGraph(
+    public MemoizingEvaluator create(
         Map<? extends SkyFunctionName, ? extends SkyFunction> skyFunctions, Differencer differencer,
-        @Nullable ValueProgressReceiver invalidationReceiver, EmittedEventState emittedEventState) {
-      return new InMemoryAutoUpdatingGraph(skyFunctions, differencer, invalidationReceiver,
+        @Nullable EvaluationProgressReceiver invalidationReceiver,
+        EmittedEventState emittedEventState) {
+      return new InMemoryMemoizingEvaluator(skyFunctions, differencer, invalidationReceiver,
           emittedEventState);
     }
   };

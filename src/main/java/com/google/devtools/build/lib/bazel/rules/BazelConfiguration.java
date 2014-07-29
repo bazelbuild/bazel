@@ -14,7 +14,6 @@
 
 package com.google.devtools.build.lib.bazel.rules;
 
-import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 import com.google.devtools.build.lib.blaze.BlazeDirectories;
 import com.google.devtools.build.lib.vfs.PathFragment;
@@ -23,8 +22,6 @@ import com.google.devtools.build.lib.view.config.BuildOptions;
 import com.google.devtools.build.lib.view.config.ConfigurationEnvironment;
 import com.google.devtools.build.lib.view.config.ConfigurationFragmentFactory;
 import com.google.devtools.build.lib.view.config.InvalidConfigurationException;
-
-import java.util.List;
 
 /**
  * Bazel-specific configuration fragment.
@@ -44,11 +41,6 @@ public class BazelConfiguration extends Fragment {
     @Override
     public Class<? extends Fragment> creates() {
       return BazelConfiguration.class;
-    }
-
-    @Override
-    public List<Class<? extends Fragment>> requires() {
-      return ImmutableList.<Class<? extends Fragment>>of();
     }
   }
 

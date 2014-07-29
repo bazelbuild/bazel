@@ -114,7 +114,7 @@ public final class TargetMarkerFunction implements SkyFunction {
 
   /**
    * Used to declare all the exception types that can be wrapped in the exception thrown by
-   * {@link TransitiveTargetFunction#build}.
+   * {@link TargetMarkerFunction#compute}.
    */
   private static final class TargetMarkerFunctionException extends SkyFunctionException {
     public TargetMarkerFunctionException(SkyKey key, NoSuchTargetException e) {

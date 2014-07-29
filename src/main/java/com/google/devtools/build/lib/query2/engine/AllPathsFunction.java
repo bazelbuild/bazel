@@ -15,7 +15,6 @@ package com.google.devtools.build.lib.query2.engine;
 
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.Sets;
-import com.google.devtools.build.lib.graph.Node;
 import com.google.devtools.build.lib.query2.engine.QueryEnvironment.Argument;
 import com.google.devtools.build.lib.query2.engine.QueryEnvironment.ArgumentType;
 import com.google.devtools.build.lib.query2.engine.QueryEnvironment.QueryFunction;
@@ -48,14 +47,13 @@ public class AllPathsFunction implements QueryFunction {
   }
 
   @Override
-  public <T> Set<Node<T>> eval(
-      QueryEnvironment<T> env, QueryExpression expression, List<Argument> args)
+  public <T> Set<T> eval(QueryEnvironment<T> env, QueryExpression expression, List<Argument> args)
       throws QueryException {
     QueryExpression from = args.get(0).getExpression();
     QueryExpression to = args.get(1).getExpression();
 
-    Set<Node<T>> fromValue = from.eval(env);
-    Set<Node<T>> toValue = to.eval(env);
+    Set<T> fromValue = from.eval(env);
+    Set<T> toValue = to.eval(env);
 
     // Algorithm: compute "reachableFromX", the forward transitive closure of
     // the "from" set, then find the intersection of "reachableFromX" with the
@@ -65,13 +63,13 @@ public class AllPathsFunction implements QueryFunction {
 
     env.buildTransitiveClosure(expression, fromValue, Integer.MAX_VALUE);
 
-    Set<Node<T>> reachableFromX = env.getTransitiveClosure(fromValue);
-    Set<Node<T>> result = intersection(reachableFromX, toValue);
-    LinkedList<Node<T>> worklist = new LinkedList<>(result);
+    Set<T> reachableFromX = env.getTransitiveClosure(fromValue);
+    Set<T> result = intersection(reachableFromX, toValue);
+    LinkedList<T> worklist = new LinkedList<>(result);
 
-    Node<T> n;
+    T n;
     while ((n = worklist.poll()) != null) {
-      for (Node<T> np : n.getPredecessors()) {
+      for (T np : env.getReverseDeps(n)) {
         if (reachableFromX.contains(np)) {
           if (result.add(np)) {
             worklist.add(np);

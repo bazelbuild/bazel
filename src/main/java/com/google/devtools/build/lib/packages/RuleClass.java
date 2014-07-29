@@ -87,27 +87,6 @@ import javax.annotation.concurrent.Immutable;
  */
 @Immutable
 public final class RuleClass {
-
-  /**
-   * The type of configuration that is needed for all dependencies of rules of
-   * this class on the parent/Java/Python axis. This is orthogonal to the
-   * host/target distinction.
-   *
-   * <p>For a bit more detailed explanation why this is necessary, check
-   * {@code BuildView.restoreParentConfigurationIfNecessary}.
-   */
-  public enum DependentTargetConfiguration {
-    /**
-     * Use the same configuration as the original rule.
-     */
-    SAME,
-    /**
-     * Revert back to parent configuration, provided that the dependency
-     * cannot contribute to the dynamically loaded library.
-     */
-    PARENT,
-  }
-
   /**
    * A constraint for the package name of the Rule instances.
    */
@@ -372,7 +351,6 @@ public final class RuleClass {
     private final boolean skylark;
     private boolean documented;
     private boolean binaryOutput = true;
-    private DependentTargetConfiguration dependentTargetConfiguration;
     private ImplicitOutputsFunction implicitOutputsFunction = ImplicitOutputsFunction.NONE;
     private Configurator<?, ?> configurator = NO_CHANGE;
     private PredicateWithMessage<Rule> validityPredicate =
@@ -399,11 +377,7 @@ public final class RuleClass {
       this.skylark = skylark;
       this.type = type;
       this.documented = type != RuleClassType.ABSTRACT;
-      this.dependentTargetConfiguration = DependentTargetConfiguration.SAME;
       for (RuleClass parent : parents) {
-        if (parent.getDependentTargetConfiguration() != DependentTargetConfiguration.SAME) {
-          setDependentTargetConfiguration(parent.getDependentTargetConfiguration());
-        }
         if (parent.getValidityPredicate() != PredicatesWithMessage.<Rule>alwaysTrue()) {
           setValidityPredicate(parent.getValidityPredicate());
         }
@@ -445,7 +419,7 @@ public final class RuleClass {
       Preconditions.checkState(skylarkExecutable == (configuredTargetFunction != null));
       Preconditions.checkState(skylarkExecutable == (ruleDefinitionEnvironment != null));
       return new RuleClass(name, skylarkExecutable, documented, binaryOutput,
-          dependentTargetConfiguration, implicitOutputsFunction, configurator,
+          implicitOutputsFunction, configurator,
           validityPredicate, preferredDependencyPredicate,
           configuredTargetFunction, ruleDefinitionEnvironment, allowConfigurableAttributes,
           attributes.values().toArray(new Attribute[0]));
@@ -467,15 +441,6 @@ public final class RuleClass {
 
     public Builder allowConfigurableAttributes(boolean allow) {
       this.allowConfigurableAttributes = allow;
-      return this;
-    }
-
-    /**
-     * Determines the configuration dependent targets need to have. For more
-     * information, see {@link DependentTargetConfiguration}.
-     */
-    public Builder setDependentTargetConfiguration(DependentTargetConfiguration config) {
-      dependentTargetConfiguration = config;
       return this;
     }
 
@@ -625,6 +590,7 @@ public final class RuleClass {
   }
 
   private final String name; // e.g. "cc_library"
+
   /**
    * The kind of target represented by this RuleClass (e.g. "cc_library rule").
    * Note: Even though there is partial duplication with the {@link RuleClass#name} field,
@@ -660,11 +626,6 @@ public final class RuleClass {
    * of that rule.
    */
   private final Configurator<?, ?> configurator;
-
-  /**
-   * The configuration dependent targets need to have.
-   */
-  private final DependentTargetConfiguration dependentTargetConfiguration;
 
   /**
    * The constraint the package name of the rule instance must fulfill
@@ -715,7 +676,6 @@ public final class RuleClass {
    */
   @VisibleForTesting
   RuleClass(String name, boolean skylarkExecutable, boolean documented, boolean binaryOutput,
-      DependentTargetConfiguration dependentTargetConfiguration,
       ImplicitOutputsFunction implicitOutputsFunction,
       Configurator<?, ?> configurator,
       PredicateWithMessage<Rule> validityPredicate, Predicate<String> preferredDependencyPredicate,
@@ -727,7 +687,6 @@ public final class RuleClass {
     this.skylarkExecutable = skylarkExecutable;
     this.documented = documented;
     this.binaryOutput = binaryOutput;
-    this.dependentTargetConfiguration = dependentTargetConfiguration;
     this.implicitOutputsFunction = implicitOutputsFunction;
     this.configurator = Preconditions.checkNotNull(configurator);
     this.validityPredicate = validityPredicate;
@@ -837,10 +796,6 @@ public final class RuleClass {
    */
   public List<Attribute> getAttributes() {
     return ImmutableList.copyOf(attributes);
-  }
-
-  public DependentTargetConfiguration getDependentTargetConfiguration() {
-    return dependentTargetConfiguration;
   }
 
   public PredicateWithMessage<Rule> getValidityPredicate() {

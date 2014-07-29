@@ -472,7 +472,7 @@ public class PackageFunction implements SkyFunction {
 
   /**
    * Used to declare all the exception types that can be wrapped in the exception thrown by
-   * {@link PackageFunction#build}.
+   * {@link PackageFunction#compute}.
    */
   private static class PackageFunctionException extends SkyFunctionException {
     public PackageFunctionException(SkyKey key, NoSuchPackageException e) {

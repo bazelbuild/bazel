@@ -71,7 +71,7 @@ public final class SkyFunctionName implements Serializable {
     return new Predicate<SkyKey>() {
       @Override
       public boolean apply(SkyKey skyKey) {
-        return skyKey.functionName() == functionName;
+        return functionName.equals(skyKey.functionName());
       }
     };
   }

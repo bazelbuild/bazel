@@ -14,6 +14,7 @@
 package com.google.devtools.build.lib.syntax;
 
 import com.google.common.collect.ImmutableList;
+import com.google.devtools.build.lib.syntax.SkylarkType.SkylarkFunctionType;
 
 import java.util.Collection;
 
@@ -63,18 +64,17 @@ public class FunctionDefStatement extends Statement {
 
   @Override
   void validate(ValidationEnvironment env) throws EvalException {
-    env.setCurrentFunction(ident.getName());
     // TODO(bazel-team): set up local environment.
     for (Ident i : arg) {
       env.update(i.getName(), SkylarkType.UNKNOWN, getLocation());
     }
+    SkylarkFunctionType type = SkylarkFunctionType.of(ident.getName());
+    env.setCurrentFunction(type);
     for (Statement stmts : statements) {
       stmts.validate(env);
     }
-    env.update(ident.getName(), SkylarkType.of(UserDefinedFunction.class), getLocation());
+    env.updateFunction(ident.getName(), type, getLocation());
     // Register a dummy return value with an incompatible type if there was no return statement.
-    if (!env.hasVariable(ident.getName() + ".return")) {
-      env.update(ident.getName() + ".return", SkylarkType.NONE, getLocation());
-    }
+    type.setReturnType(SkylarkType.NONE, getLocation());
   }
 }

@@ -17,9 +17,7 @@ package com.google.devtools.build.lib.exec;
 import com.google.common.annotations.VisibleForTesting;
 import com.google.devtools.build.lib.actions.ActionExecutionContext;
 import com.google.devtools.build.lib.actions.ExecException;
-import com.google.devtools.build.lib.actions.Executor;
 import com.google.devtools.build.lib.util.io.OutErr;
-import com.google.devtools.build.lib.vfs.Path;
 import com.google.devtools.build.lib.vfs.PathFragment;
 import com.google.devtools.build.lib.view.config.BuildConfiguration;
 import com.google.devtools.build.lib.view.test.TestActionContext;
@@ -28,7 +26,6 @@ import com.google.devtools.common.options.Converters.RangeConverter;
 import com.google.devtools.common.options.EnumConverter;
 import com.google.devtools.common.options.OptionsClassProvider;
 import com.google.devtools.common.options.OptionsParsingException;
-import com.google.testing.proto.TextFile;
 
 import java.util.HashMap;
 import java.util.Map;
@@ -109,13 +106,6 @@ public abstract class TestStrategy implements TestActionContext {
   /** The strategy name, preferably suitable for passing to --test_strategy. */
   public abstract String testStrategyName();
 
-  /**
-   * Returns a TextFile message for a specified path. This is an abstract method because test
-   * strategy implementations may want to put more information into the message than simply its
-   * path.
-   */
-  protected abstract TextFile.Builder textFileFor(Executor executor, Path path);
-
   @Override
   public abstract void exec(TestRunnerAction action, ActionExecutionContext actionExecutionContext)
       throws ExecException, InterruptedException;
@@ -145,6 +135,7 @@ public abstract class TestStrategy implements TestActionContext {
     env.remove("LANG");
     env.put("TZ", "UTC");
     env.put("TEST_SIZE", action.getTestProperties().getSize().toString());
+    env.put("TEST_TIMEOUT", Integer.toString(getTimeout(action)));
 
     if (action.isSharded()) {
       env.put("TEST_SHARD_INDEX", Integer.toString(action.getShardNum()));

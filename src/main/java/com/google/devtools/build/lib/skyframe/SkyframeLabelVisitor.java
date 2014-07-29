@@ -31,8 +31,8 @@ import com.google.devtools.build.lib.vfs.PathFragment;
 import com.google.devtools.build.skyframe.CycleInfo;
 import com.google.devtools.build.skyframe.CyclesReporter;
 import com.google.devtools.build.skyframe.ErrorInfo;
+import com.google.devtools.build.skyframe.EvaluationResult;
 import com.google.devtools.build.skyframe.SkyKey;
-import com.google.devtools.build.skyframe.UpdateResult;
 
 import java.util.Collection;
 import java.util.HashSet;
@@ -70,7 +70,7 @@ final class SkyframeLabelVisitor implements TransitivePackageLoader {
       throws InterruptedException {
     rootCauses.clear();
     lastBuildKeepGoing = false;
-    UpdateResult<TransitiveTargetValue> result =
+    EvaluationResult<TransitiveTargetValue> result =
         transitivePackageLoader.loadTransitiveTargets(targetsToVisit, labelsToVisit, keepGoing);
     updateVisitedValues(result.values());
     lastBuildKeepGoing = keepGoing;
@@ -137,7 +137,7 @@ final class SkyframeLabelVisitor implements TransitivePackageLoader {
     return false;
   }
 
-  private static boolean hasErrors(UpdateResult<TransitiveTargetValue> result) {
+  private static boolean hasErrors(EvaluationResult<TransitiveTargetValue> result) {
     if (result.hasError()) {
       return true;
     }

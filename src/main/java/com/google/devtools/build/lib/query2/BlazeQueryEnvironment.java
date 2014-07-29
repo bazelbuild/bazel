@@ -46,13 +46,13 @@ import com.google.devtools.build.lib.query2.engine.QueryEnvironment;
 import com.google.devtools.build.lib.query2.engine.QueryEvalResult;
 import com.google.devtools.build.lib.query2.engine.QueryException;
 import com.google.devtools.build.lib.query2.engine.QueryExpression;
-import com.google.devtools.build.lib.query2.engine.QueryUtils;
 import com.google.devtools.build.lib.query2.engine.SkyframeRestartQueryException;
 import com.google.devtools.build.lib.syntax.Label;
 import com.google.devtools.build.lib.util.BinaryPredicate;
 import com.google.devtools.build.lib.vfs.PathFragment;
 
 import java.util.ArrayList;
+import java.util.Collection;
 import java.util.HashMap;
 import java.util.HashSet;
 import java.util.Iterator;
@@ -71,7 +71,7 @@ public class BlazeQueryEnvironment implements QueryEnvironment<Target> {
   private final Digraph<Target> graph = new Digraph<>();
   private final ErrorPrintingTargetEdgeErrorObserver errorObserver;
   private final LabelVisitor labelVisitor;
-  private final Map<String, Set<Node<Target>>> letBindings = new HashMap<>();
+  private final Map<String, Set<Target>> letBindings = new HashMap<>();
   private final Map<String, ResolvedTargets<Target>> resolvedTargetPatterns = new HashMap<>();
   protected final boolean keepGoing;
   private final boolean strictScope;
@@ -179,7 +179,7 @@ public class BlazeQueryEnvironment implements QueryEnvironment<Target> {
       resolvedTargetPatterns.put(orderedTargetPatterns.get(i), resolvedTargets.get(i));
     }
 
-    Set<Node<Target>> resultNodes;
+    Set<Target> resultNodes;
     try {
       resultNodes = expr.eval(this);
     } catch (QueryException e) {
@@ -198,8 +198,7 @@ public class BlazeQueryEnvironment implements QueryEnvironment<Target> {
       }
     }
 
-    return new QueryEvalResult<>(!listener.hasErrors(),
-        QueryUtils.getTargetsFromNodes(resultNodes), getGraph());
+    return new QueryEvalResult<>(!listener.hasErrors(), resultNodes, graph);
   }
 
   public QueryEvalResult<Target> evaluateQuery(String query) throws QueryException {
@@ -216,15 +215,8 @@ public class BlazeQueryEnvironment implements QueryEnvironment<Target> {
     }
   }
 
-  /**
-   * Returns the partial DAG over Targets populated by this query.
-   */
-  public Digraph<Target> getGraph() {
-    return graph;
-  }
-
   @Override
-  public Set<Node<Target>> getTargetsMatchingPattern(QueryExpression caller,
+  public Set<Target> getTargetsMatchingPattern(QueryExpression caller,
       String pattern) throws QueryException {
     // We can safely ignore the boolean error flag. The evaluateQuery() method above wraps the
     // entire query computation in an error sensor.
@@ -245,9 +237,9 @@ public class BlazeQueryEnvironment implements QueryEnvironment<Target> {
       packages.add(target.getLabel().getPackageFragment());
     }
 
-    Set<Node<Target>> result = new LinkedHashSet<>();
+    Set<Target> result = new LinkedHashSet<>();
     for (Target target : targets) {
-      result.add(getNode(target));
+      result.add(getOrCreate(target));
 
       // Preservation of graph order: it is important that targets obtained via
       // a wildcard such as p:* are correctly ordered w.r.t. each other, so to
@@ -295,17 +287,39 @@ public class BlazeQueryEnvironment implements QueryEnvironment<Target> {
     }
   }
 
-  @Override
-  public Node<Target> getNode(Target target) {
+  private Node<Target> getNode(Target target) {
     return graph.createNode(target);
   }
 
+  private Collection<Node<Target>> getNodes(Iterable<Target> target) {
+    Set<Node<Target>> result = new LinkedHashSet<>();
+    for (Target t : target) {
+      result.add(getNode(t));
+    }
+    return result;
+  }
+
   @Override
-  public Set<Node<Target>> getTransitiveClosure(Set<Node<Target>> targetNodes) {
-    for (Node<Target> node : targetNodes) {
+  public Target getOrCreate(Target target) {
+    return getNode(target).getLabel();
+  }
+
+  @Override
+  public Collection<Target> getFwdDeps(Target target) {
+    return getTargetsFromNodes(getNode(target).getSuccessors());
+  }
+
+  @Override
+  public Collection<Target> getReverseDeps(Target target) {
+    return getTargetsFromNodes(getNode(target).getPredecessors());
+  }
+
+  @Override
+  public Set<Target> getTransitiveClosure(Set<Target> targetNodes) {
+    for (Target node : targetNodes) {
       checkBuilt(node);
     }
-    return new LinkedHashSet<>(graph.getFwdReachable(targetNodes));
+    return getTargetsFromNodes(graph.getFwdReachable(getNodes(targetNodes)));
   }
 
   /**
@@ -319,11 +333,11 @@ public class BlazeQueryEnvironment implements QueryEnvironment<Target> {
    * loaded (and hence errors reported) would depend on the ordering details of
    * the query operators' implementations.
    */
-  private void checkBuilt(Node<Target> targetNode) {
+  private void checkBuilt(Target targetNode) {
     Preconditions.checkState(
-        labelVisitor.getVisitedTargets().contains(targetNode.getLabel().getLabel()),
+        labelVisitor.getVisitedTargets().contains(targetNode.getLabel()),
         "getTransitiveClosure(%s) called without prior call to buildTransitiveClosure()",
-        targetNode.getLabel());
+        targetNode);
   }
 
   protected void preloadTransitiveClosure(Set<Target> targets, int maxDepth) throws QueryException {
@@ -331,9 +345,9 @@ public class BlazeQueryEnvironment implements QueryEnvironment<Target> {
 
   @Override
   public void buildTransitiveClosure(QueryExpression caller,
-                                     Set<Node<Target>> targetNodes,
+                                     Set<Target> targetNodes,
                                      int maxDepth) throws QueryException {
-    Set<Target> targets = QueryUtils.getTargetsFromNodes(targetNodes);
+    Set<Target> targets = targetNodes;
     preloadTransitiveClosure(targets, maxDepth);
 
     try {
@@ -349,17 +363,17 @@ public class BlazeQueryEnvironment implements QueryEnvironment<Target> {
   }
 
   @Override
-  public Set<Node<Target>> getNodesOnPath(Node<Target> from, Node<Target> to) {
-    return new LinkedHashSet<>(graph.getShortestPath(from, to));
+  public Set<Target> getNodesOnPath(Target from, Target to) {
+    return getTargetsFromNodes(graph.getShortestPath(getNode(from), getNode(to)));
   }
 
   @Override
-  public Set<Node<Target>> getVariable(String name) {
+  public Set<Target> getVariable(String name) {
     return letBindings.get(name);
   }
 
   @Override
-  public Set<Node<Target>> setVariable(String name, Set<Node<Target>> value) {
+  public Set<Target> setVariable(String name, Set<Target> value) {
     return letBindings.put(name, value);
   }
 
@@ -407,7 +421,7 @@ public class BlazeQueryEnvironment implements QueryEnvironment<Target> {
     return true;
   }
 
-  public Set<Node<Target>> evalTargetPattern(QueryExpression caller, String pattern)
+  public Set<Target> evalTargetPattern(QueryExpression caller, String pattern)
       throws QueryException {
     if (!resolvedTargetPatterns.containsKey(pattern)) {
       try {
@@ -448,9 +462,9 @@ public class BlazeQueryEnvironment implements QueryEnvironment<Target> {
   }
 
   @Override
-  public Set<Node<Target>> getBuildFiles(final QueryExpression caller, Set<Node<Target>> nodes)
+  public Set<Target> getBuildFiles(final QueryExpression caller, Set<Target> nodes)
       throws QueryException {
-    Set<Node<Target>> buildfiles = new LinkedHashSet<>();
+    Set<Target> buildfiles = new LinkedHashSet<>();
     Set<Package> seenPackages = new HashSet<>();
     // Keep track of seen labels, to avoid adding a fake subinclude label that also exists as a
     // real target.
@@ -458,8 +472,8 @@ public class BlazeQueryEnvironment implements QueryEnvironment<Target> {
 
     // Adds all the package definition files (BUILD files and build
     // extensions) for package "pkg", to "buildfiles".
-    for (Node<Target> x : nodes) {
-      Package pkg = x.getLabel().getPackage();
+    for (Target x : nodes) {
+      Package pkg = x.getPackage();
       if (seenPackages.add(pkg)) {
         addIfUniqueLabel(getNode(pkg.getBuildFile()), seenLabels, buildfiles);
         for (Label subinclude : pkg.getSubincludes().keySet()) {
@@ -478,10 +492,9 @@ public class BlazeQueryEnvironment implements QueryEnvironment<Target> {
     return buildfiles;
   }
 
-  private static void addIfUniqueLabel(Node<Target> node, Set<Label> labels,
-                                       Set<Node<Target>> nodes) {
+  private static void addIfUniqueLabel(Node<Target> node, Set<Label> labels, Set<Target> nodes) {
     if (labels.add(node.getLabel().getLabel())) {
-      nodes.add(node);
+      nodes.add(node.getLabel());
     }
   }
 
@@ -502,7 +515,7 @@ public class BlazeQueryEnvironment implements QueryEnvironment<Target> {
   @Override
   public Iterable<QueryFunction> getFunctions() {
     ImmutableList.Builder<QueryFunction> builder = ImmutableList.builder();
-    builder.addAll(QueryUtils.getDefaultFunctions());
+    builder.addAll(DEFAULT_QUERY_FUNCTIONS);
     builder.addAll(extraFunctions);
     return builder.build();
   }
@@ -614,5 +627,14 @@ public class BlazeQueryEnvironment implements QueryEnvironment<Target> {
     public boolean isTestSuite(Target target) {
       return TargetUtils.isTestSuiteRule(target);
     }
+  }
+
+  /** Given a set of target nodes, returns the targets. */
+  private static Set<Target> getTargetsFromNodes(Iterable<Node<Target>> input) {
+    Set<Target> result = new LinkedHashSet<>();
+    for (Node<Target> node : input) {
+      result.add(node.getLabel());
+    }
+    return result;
   }
 }

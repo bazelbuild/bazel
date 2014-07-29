@@ -26,7 +26,7 @@ import javax.annotation.Nullable;
 /**
  * Information about why a {@link SkyValue} failed to evaluate successfully.
  *
- * <p>This is intended only for use in alternative {@code AutoUpdatingGraph} implementations.
+ * <p>This is intended only for use in alternative {@code MemoizingEvaluator} implementations.
  */
 public class ErrorInfo {
   /**

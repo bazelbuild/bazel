@@ -24,7 +24,7 @@ import javax.annotation.Nullable;
 /**
  * Encapsulation of data stored by {@link ValueEntry} when the value has finished building.
  *
- * <p>This is intended only for use in alternative {@code AutoUpdatingGraph} implementations.
+ * <p>This is intended only for use in alternative {@code MemoizingEvaluator} implementations.
  */
 public abstract class ValueWithMetadata implements SkyValue {
   protected final SkyValue value;
@@ -38,7 +38,7 @@ public abstract class ValueWithMetadata implements SkyValue {
 
   /** Builds a value entry value that has an error (and no value value).
    *
-   * <p>This is intended only for use in alternative {@code AutoUpdatingGraph} implementations.
+   * <p>This is intended only for use in alternative {@code MemoizingEvaluator} implementations.
    */
   public static ValueWithMetadata error(ErrorInfo errorInfo,
       NestedSet<TaggedEvents> transitiveEvents) {
@@ -49,7 +49,7 @@ public abstract class ValueWithMetadata implements SkyValue {
    * Builds a value entry value that has a value value, and possibly an error (constructed from its
    * children's errors).
    *
-   * <p>This is intended only for use in alternative {@code AutoUpdatingGraph} implementations.
+   * <p>This is intended only for use in alternative {@code MemoizingEvaluator} implementations.
    */
   static SkyValue normal(@Nullable SkyValue value, @Nullable ErrorInfo errorInfo,
       NestedSet<TaggedEvents> transitiveEvents) {

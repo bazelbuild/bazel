@@ -57,7 +57,7 @@ public final class Ident extends Expression {
 
   @Override
   SkylarkType validate(ValidationEnvironment env) throws EvalException {
-    if (env.hasVariable(name)) {
+    if (env.hasGlobalSymbol(name)) {
       return env.getVartype(name);
     } else {
       throw new EvalException(getLocation(), "name '" + name + "' is not defined");

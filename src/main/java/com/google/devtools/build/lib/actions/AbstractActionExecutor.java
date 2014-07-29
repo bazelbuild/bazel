@@ -315,7 +315,7 @@ public abstract class AbstractActionExecutor {
       String suffix = genrule ? " by genrule. This is probably "
           + "because the genrule actually didn't create this output, or because the output was a "
           + "directory and the genrule was run remotely (note that only the contents of "
-          + "declared file outputs are copied from genrules run remotely." : "";
+          + "declared file outputs are copied from genrules run remotely)" : "";
       reporter.error(action.getOwner().getLocation(), prefix + "was not created" + suffix);
     }
   }

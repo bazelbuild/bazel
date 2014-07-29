@@ -13,7 +13,7 @@
 // limitations under the License.
 package com.google.devtools.build.lib.blaze;
 
-import com.google.devtools.build.lib.util.ExitCausingException;
+import com.google.devtools.build.lib.util.AbruptExitException;
 import com.google.devtools.build.lib.util.ExitCode;
 import com.google.devtools.build.lib.util.io.OutErr;
 import com.google.devtools.common.options.OptionsParser;
@@ -59,7 +59,7 @@ public interface BlazeCommand {
    *
    * @param runtime The Blaze runtime requesting the execution of the command
    *
-   * @throws ExitCausingException if something went wrong
+   * @throws AbruptExitException if something went wrong
    */
-  void editOptions(BlazeRuntime runtime, OptionsParser optionsParser) throws ExitCausingException;
+  void editOptions(BlazeRuntime runtime, OptionsParser optionsParser) throws AbruptExitException;
 }

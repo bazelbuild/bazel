@@ -75,6 +75,9 @@ public class BazelConfigurationCollection implements ConfigurationCollectionFact
     // Target configuration
     BuildConfiguration targetConfiguration = configurationFactory.getConfiguration(
         loadedPackageProvider, directories, buildOptions, clientEnv, false, cache);
+    if (targetConfiguration == null) {
+      return null;
+    }
 
     BuildConfiguration dataConfiguration = targetConfiguration;
 
@@ -84,12 +87,14 @@ public class BazelConfigurationCollection implements ConfigurationCollectionFact
     BuildConfiguration hostConfiguration = getHostConfigurationFromRequest(configurationFactory,
         loadedPackageProvider, directories, clientEnv, dataConfiguration, buildOptions,
         errorEventListener, hostMachineSpecification);
+    if (hostConfiguration == null) {
+      return null;
+    }
 
     // Sanity check that the implicit labels are all in the transitive closure of explicit ones.
     // This also registers all targets in the cache entry and validates them on subsequent requests.
     Set<Label> reachableLabels = new HashSet<>();
-    // TODO(bazel-team): remove first part of condition when legacy code is gone.
-    if (loadedPackageProvider != null && performSanityCheck) {
+    if (performSanityCheck) {
       // We allow the package provider to be null for testing.
       for (Label label : buildOptions.getAllLabels().values()) {
         try {

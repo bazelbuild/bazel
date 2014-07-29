@@ -30,8 +30,8 @@ import com.google.devtools.build.lib.query2.output.OutputFormatter;
 import com.google.devtools.build.lib.skyframe.DiffAwareness;
 import com.google.devtools.build.lib.syntax.Environment;
 import com.google.devtools.build.lib.syntax.Label;
+import com.google.devtools.build.lib.util.AbruptExitException;
 import com.google.devtools.build.lib.util.Clock;
-import com.google.devtools.build.lib.util.ExitCausingException;
 import com.google.devtools.build.lib.vfs.FileSystem;
 import com.google.devtools.build.lib.vfs.Path;
 import com.google.devtools.build.lib.vfs.PathFragment;
@@ -69,7 +69,7 @@ public abstract class BlazeModule {
    * <p>This method will be called at the beginning of Blaze startup.
    */
   @SuppressWarnings("unused")
-  public void globalInit(OptionsProvider startupOptions) throws ExitCausingException {
+  public void globalInit(OptionsProvider startupOptions) throws AbruptExitException {
   }
 
   /**
@@ -90,7 +90,7 @@ public abstract class BlazeModule {
   @SuppressWarnings("unused")
   public void blazeStartup(OptionsProvider startupOptions,
       BlazeVersionInfo versionInfo, UUID instanceId, BlazeDirectories directories,
-      Clock clock) throws ExitCausingException {
+      Clock clock) throws AbruptExitException {
   }
 
   /**
@@ -185,7 +185,7 @@ public abstract class BlazeModule {
      * event handlers for {@code BuildStartingEvent}, {@code GotOptionsEvent} and
      * {@code LoadingPhaseCompleteEvent}.
      */
-    void exit(ExitCausingException exception);
+    void exit(AbruptExitException exception);
   }
 
   /**
@@ -193,7 +193,7 @@ public abstract class BlazeModule {
    */
   @SuppressWarnings("unused")
   public void beforeCommand(BlazeRuntime blazeRuntime, Command command)
-      throws ExitCausingException {
+      throws AbruptExitException {
   }
 
   /**
@@ -203,7 +203,7 @@ public abstract class BlazeModule {
    * <p>This method will be called at the beginning of each command (after #beforeCommand).
    */
   @SuppressWarnings("unused")
-  public OutputService getOutputService() throws ExitCausingException {
+  public OutputService getOutputService() throws AbruptExitException {
     return null;
   }
 
@@ -250,7 +250,7 @@ public abstract class BlazeModule {
     /**
      * Returns the value of the info key. The return value is directly printed to stdout.
      */
-    byte[] get(Supplier<BuildConfiguration> configurationSupplier) throws ExitCausingException;
+    byte[] get(Supplier<BuildConfiguration> configurationSupplier) throws AbruptExitException;
   }
 
   /**

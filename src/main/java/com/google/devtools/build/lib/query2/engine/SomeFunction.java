@@ -14,12 +14,11 @@
 package com.google.devtools.build.lib.query2.engine;
 
 import com.google.common.collect.ImmutableList;
-import com.google.devtools.build.lib.graph.Node;
+import com.google.common.collect.ImmutableSet;
 import com.google.devtools.build.lib.query2.engine.QueryEnvironment.Argument;
 import com.google.devtools.build.lib.query2.engine.QueryEnvironment.ArgumentType;
 import com.google.devtools.build.lib.query2.engine.QueryEnvironment.QueryFunction;
 
-import java.util.Collections;
 import java.util.List;
 import java.util.Set;
 
@@ -49,13 +48,12 @@ class SomeFunction implements QueryFunction {
   }
 
   @Override
-  public <T> Set<Node<T>> eval(
-      QueryEnvironment<T> env, QueryExpression expression, List<Argument> args)
+  public <T> Set<T> eval(QueryEnvironment<T> env, QueryExpression expression, List<Argument> args)
       throws QueryException {
-    Set<Node<T>> argumentValue = args.get(0).getExpression().eval(env);
+    Set<T> argumentValue = args.get(0).getExpression().eval(env);
     if (argumentValue.isEmpty()) {
       throw new QueryException(expression, "argument set is empty");
     }
-    return Collections.singleton(argumentValue.iterator().next());
+    return ImmutableSet.of(argumentValue.iterator().next());
   }
 }

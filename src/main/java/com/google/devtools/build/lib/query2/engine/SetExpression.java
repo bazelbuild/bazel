@@ -14,7 +14,6 @@
 package com.google.devtools.build.lib.query2.engine;
 
 import com.google.common.base.Joiner;
-import com.google.devtools.build.lib.graph.Node;
 
 import java.util.Collection;
 import java.util.LinkedHashSet;
@@ -49,8 +48,8 @@ class SetExpression extends QueryExpression {
   }
 
   @Override
-  public <T> Set<Node<T>> eval(QueryEnvironment<T> env) throws QueryException {
-    Set<Node<T>> result = new LinkedHashSet<>();
+  public <T> Set<T> eval(QueryEnvironment<T> env) throws QueryException {
+    Set<T> result = new LinkedHashSet<>();
     for (TargetLiteral expr : words) {
       result.addAll(expr.eval(env));
     }
