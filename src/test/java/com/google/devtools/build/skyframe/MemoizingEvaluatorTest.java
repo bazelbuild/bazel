@@ -24,6 +24,7 @@ import static org.junit.Assert.assertNotNull;
 import static org.junit.Assert.assertNull;
 import static org.junit.Assert.assertSame;
 import static org.junit.Assert.assertTrue;
+import static org.junit.Assert.fail;
 
 import com.google.common.base.Preconditions;
 import com.google.common.base.Predicates;
@@ -499,7 +500,7 @@ public class MemoizingEvaluatorTest {
     tester.set(leaf, new StringValue("leaf"));
     tester.getOrCreate(cycle).addDependency(cycle);
     tester.getOrCreate(top).addDependency(leaf).addDependency(cycle);
-    System.err.println(" " + tester.eval(/*keepGoing=*/true, top));
+    tester.eval(/*keepGoing=*/true, top);
     assertThat(tester.invalidationReceiver.evaluated).iteratesAs(leaf);
     tester.invalidationReceiver.clear();
     tester.getOrCreate(leaf, /*markAsModified=*/true);
@@ -2620,6 +2621,23 @@ public class MemoizingEvaluatorTest {
     assertEquals(val, tester.getExistingValue("parent"));
   }
 
+  @Test
+  public void valueInjectionInterrupt() throws Exception {
+    SkyKey key = GraphTester.toSkyKey("key");
+    SkyValue val = new StringValue("val");
+
+    tester.differencer.inject(ImmutableMap.of(key, val));
+    Thread.currentThread().interrupt();
+    try {
+      tester.evalAndGet("key");
+      fail();
+    } catch (InterruptedException expected) {
+      // Expected.
+    }
+    SkyValue newVal = tester.evalAndGet("key");
+    assertEquals(val, newVal);
+  }
+
   private void setGraphForTesting(NotifyingInMemoryGraph notifyingInMemoryGraph) {
     InMemoryMemoizingEvaluator memoizingEvaluator = (InMemoryMemoizingEvaluator) tester.graph;
     memoizingEvaluator.setGraphForTesting(notifyingInMemoryGraph);
@@ -2695,7 +2713,7 @@ public class MemoizingEvaluatorTest {
       this.differencer = new RecordingDifferencer();
       this.graph = new InMemoryMemoizingEvaluator(
           ImmutableMap.of(NODE_TYPE, createDelegatingFunction()), differencer,
-          invalidationReceiver, emittedEventState);
+          invalidationReceiver, emittedEventState, true);
       this.driver = new SequentialBuildDriver(graph);
     }
 

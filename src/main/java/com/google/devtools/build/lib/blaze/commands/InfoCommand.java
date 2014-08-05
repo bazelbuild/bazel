@@ -214,20 +214,21 @@ public class InfoCommand implements BlazeCommand {
 
     Map<String, BlazeModule.InfoItem> items = getInfoItemMap(runtime, optionsProvider);
 
-    if (infoOptions.showMakeEnvironment) {
-      for (Map.Entry<String, String> entry :
-          configurationSupplier.get().getMakeEnvironment().entrySet()) {
-        BlazeModule.InfoItem item = new MakeInfoItem(entry.getKey(), entry.getValue());
-        items.put(item.getName(), item);
-      }
-    }
-
-    List<String> residue = optionsProvider.getResidue();
-    if (residue.size() > 1) {
-      runtime.getReporter().error(null, "at most one key may be specified");
-      return ExitCode.COMMAND_LINE_ERROR;
-    }
     try {
+      if (infoOptions.showMakeEnvironment) {
+        Map<String, String> makeEnv = configurationSupplier.get().getMakeEnvironment();
+        for (Map.Entry<String, String> entry : makeEnv.entrySet()) {
+          BlazeModule.InfoItem item = new MakeInfoItem(entry.getKey(), entry.getValue());
+          items.put(item.getName(), item);
+        }
+      }
+
+      List<String> residue = optionsProvider.getResidue();
+      if (residue.size() > 1) {
+        runtime.getReporter().error(null, "at most one key may be specified");
+        return ExitCode.COMMAND_LINE_ERROR;
+      }
+
       String key = residue.size() == 1 ? residue.get(0) : null;
       if (key != null) { // print just the value for the specified key:
         byte[] value;

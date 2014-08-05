@@ -25,7 +25,6 @@ import java.util.Set;
 /**
  * A base class for constructing test suites by searching the classpath for
  * tests, possibly restricted to a predicate.
- *
  */
 public class BlazeTestSuiteBuilder {
 
@@ -38,14 +37,6 @@ public class BlazeTestSuiteBuilder {
         .withName(getClass().getName())
         .addPackageRecursive("com.google.devtools.build.lib");
   }
-
-  /** A predicate that succeeds only for PERFORMANCE tests. */
-  public static final Predicate<Class<?>> TEST_IS_PERFORMANCE =
-      hasSize(Suite.PERFORMANCE_TESTS);
-
-  /** A predicate that succeeds for everything but PERFORMANCE tests. */
-  public static Predicate<Class<?>> NOT_PERFORMANCE =
-    Predicates.not(BlazeTestSuiteBuilder.TEST_IS_PERFORMANCE);
 
   /** A predicate that succeeds only for UNIX tests. */
   public static final Predicate<Class<?>> TEST_IS_UNIX =

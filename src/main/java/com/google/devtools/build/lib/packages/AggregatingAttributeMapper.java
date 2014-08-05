@@ -65,7 +65,7 @@ public class AggregatingAttributeMapper extends AbstractAttributeMapper {
     Type.Selector<T> selector = getSelector(attributeName, type);
     if (selector != null) {
       ImmutableList.Builder<T> builder = ImmutableList.builder();
-      for (Map.Entry<String, T> entry : selector.getEntries().entrySet()) {
+      for (Map.Entry<Label, T> entry : selector.getEntries().entrySet()) {
         builder.add(entry.getValue());
       }
       return builder.build();

@@ -92,10 +92,10 @@ public final class ConfigurationFactory {
    * configuration components are required.
    */
   @VisibleForTesting
-  public BuildConfiguration getTestConfiguration(BlazeDirectories directories,
+  public BuildConfiguration getTestConfiguration(
       PackageProviderForConfigurations loadedPackageProvider, BuildOptions buildOptions,
       Map<String, String> clientEnv) throws InvalidConfigurationException {    
-    return getConfiguration(loadedPackageProvider, directories, buildOptions, clientEnv, false,
+    return getConfiguration(loadedPackageProvider, buildOptions, clientEnv, false,
         CacheBuilder.newBuilder().<String, BuildConfiguration>build());
   }
 
@@ -142,8 +142,8 @@ public final class ConfigurationFactory {
     }
 
     BuildConfiguration targetConfig = configurationCollectionFactory.createConfigurations(this,
-        hostMachineSpecification, loadedPackageProvider, buildOptions, key.getDirectories(),
-        key.getClientEnv(), errorEventListener, performSanityCheck);
+        hostMachineSpecification, loadedPackageProvider, buildOptions, key.getClientEnv(),
+        errorEventListener, performSanityCheck);
     if (targetConfig == null) {
       return null;
     }
@@ -160,11 +160,10 @@ public final class ConfigurationFactory {
    */
   @Nullable
   public BuildConfiguration getHostConfiguration(
-      PackageProviderForConfigurations loadedPackageProvider,
-      BlazeDirectories directories, Map<String, String> clientEnv, BuildOptions buildOptions,
-      boolean fallback) throws InvalidConfigurationException {
-    return getConfiguration(loadedPackageProvider, directories,
-        buildOptions.createHostOptions(fallback), clientEnv, false, hostConfigCache);
+      PackageProviderForConfigurations loadedPackageProvider, Map<String, String> clientEnv,
+      BuildOptions buildOptions, boolean fallback) throws InvalidConfigurationException {
+    return getConfiguration(loadedPackageProvider, buildOptions.createHostOptions(fallback),
+        clientEnv, false, hostConfigCache);
   }
 
   /**
@@ -173,7 +172,7 @@ public final class ConfigurationFactory {
    */
   @Nullable
   public BuildConfiguration getConfiguration(PackageProviderForConfigurations loadedPackageProvider,
-      BlazeDirectories directories, BuildOptions buildOptions, Map<String, String> clientEnv,
+      BuildOptions buildOptions, Map<String, String> clientEnv,
       boolean actionsDisabled, Cache<String, BuildConfiguration> cache)
           throws InvalidConfigurationException {
     
@@ -186,6 +185,7 @@ public final class ConfigurationFactory {
         fragments.put(fragment.getClass(), fragment);
       }
     }
+    BlazeDirectories directories = loadedPackageProvider.getDirectories();
     if (loadedPackageProvider.valuesMissing()) {
       return null;
     }

@@ -57,8 +57,8 @@ public class BuildFileAST extends ASTNode {
   private List<PathFragment> fetchImports(List<Statement> stmts) {
     List<PathFragment> imports = new ArrayList<>();
     for (Statement stmt : stmts) {
-      if (stmt instanceof ImportStatement) {
-        ImportStatement imp = (ImportStatement) stmt;
+      if (stmt instanceof LoadStatement) {
+        LoadStatement imp = (LoadStatement) stmt;
         imports.add(imp.getImportPath());
       }
     }

@@ -14,6 +14,8 @@
 package com.google.devtools.build.lib.skyframe;
 
 import com.google.common.base.Supplier;
+import com.google.devtools.build.lib.blaze.BlazeDirectories;
+import com.google.devtools.build.lib.skyframe.ConfigurationCollectionValue.ConfigurationCollectionKey;
 import com.google.devtools.build.lib.view.config.BuildConfiguration;
 import com.google.devtools.build.lib.view.config.BuildConfigurationCollection;
 import com.google.devtools.build.lib.view.config.BuildConfigurationKey;
@@ -24,39 +26,41 @@ import com.google.devtools.build.skyframe.SkyFunctionException;
 import com.google.devtools.build.skyframe.SkyKey;
 import com.google.devtools.build.skyframe.SkyValue;
 
+import java.util.Map;
+
 /**
  * A builder for {@link ConfigurationCollectionValue}s.
  */
 public class ConfigurationCollectionFunction implements SkyFunction {
 
   private final Supplier<ConfigurationFactory> configurationFactory;
-  private final Supplier<BuildConfigurationKey> configurationKey;
+  private final Supplier<Map<String, String>> clientEnv;
 
   public ConfigurationCollectionFunction(
       Supplier<ConfigurationFactory> configurationFactory,
-      Supplier<BuildConfigurationKey> key) {
+      Supplier<Map<String, String>> clientEnv) {
     this.configurationFactory = configurationFactory;
-    this.configurationKey = key;
+    this.clientEnv = clientEnv;
   }
 
   @Override
   public SkyValue compute(SkyKey skyKey, Environment env) throws InterruptedException,
       ConfigurationCollectionFunctionException {
+    ConfigurationCollectionKey collectionKey = (ConfigurationCollectionKey) skyKey.argument();
     try {
-      // We are not using these values, because we have copies inside BuildConfigurationKey.
-      // Unfortunately, we can't use BuildConfigurationKey as BuildVariableValue, because it
-      // contains clientEnvironment and we would have to invalidate ConfigurationCollectionValue
-      // each time when any variable in client environment changes.
-      BuildVariableValue.BUILD_OPTIONS.get(env);
+      // We are not using this value, because test_environment can be created from clientEnv. But
+      // we want ConfigurationCollection to be recomputed each time when test_environment changes.
       BuildVariableValue.TEST_ENVIRONMENT_VARIABLES.get(env);
-      BuildVariableValue.BLAZE_DIRECTORIES.get(env);
+      BlazeDirectories directories = BuildVariableValue.BLAZE_DIRECTORIES.get(env);
       if (env.valuesMissing()) {
         return null;
       }
 
       BuildConfigurationCollection result =
           configurationFactory.get().getConfigurations(env.getListener(),
-          new SkyframePackageLoaderWithValueEnvironment(env), configurationKey.get());
+          new SkyframePackageLoaderWithValueEnvironment(env),
+          new BuildConfigurationKey(collectionKey.getBuildOptions(), directories, clientEnv.get(), 
+              collectionKey.getMultiCpu()));
 
       // BuildConfigurationCollection can be created, but dependencies to some files might be
       // missing. In that case we need to build configurationCollection second time.

@@ -137,8 +137,8 @@ public final class ConfiguredTargetFactory {
     ArtifactOwner owner = new LabelAndConfiguration(rule.getLabel(), configuration);
     PathFragment rootRelativePath = Util.getWorkspaceRelativePath(outputFile);
     Artifact result = isFileset
-        ? artifactFactory.getExistingFilesetArtifact(rootRelativePath, root, owner)
-        : artifactFactory.getExistingDerivedArtifact(rootRelativePath, root, owner);
+        ? artifactFactory.getFilesetArtifact(rootRelativePath, root, owner)
+        : artifactFactory.getDerivedArtifact(rootRelativePath, root, owner);
     // The associated rule should have created the artifact.
     Preconditions.checkNotNull(result, "no artifact for %s", rootRelativePath);
     return result;

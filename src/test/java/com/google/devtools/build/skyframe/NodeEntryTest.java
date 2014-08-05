@@ -27,7 +27,7 @@ import com.google.devtools.build.lib.collect.nestedset.NestedSetBuilder;
 import com.google.devtools.build.lib.collect.nestedset.Order;
 import com.google.devtools.build.lib.testutil.MoreAsserts;
 import com.google.devtools.build.lib.util.GroupedList.GroupedListHelper;
-import com.google.devtools.build.skyframe.ValueEntry.DependencyState;
+import com.google.devtools.build.skyframe.NodeEntry.DependencyState;
 
 import org.junit.Test;
 import org.junit.runner.RunWith;
@@ -40,10 +40,10 @@ import java.util.Set;
 import javax.annotation.Nullable;
 
 /**
- * Tests for {@link ValueEntry}.
+ * Tests for {@link NodeEntry}.
  */
 @RunWith(JUnit4.class)
-public class ValueEntryTest {
+public class NodeEntryTest {
 
   private static final SkyFunctionName NODE_TYPE = new SkyFunctionName("Type", false);
   private static final NestedSet<TaggedEvents> NO_EVENTS =
@@ -55,7 +55,7 @@ public class ValueEntryTest {
 
   @Test
   public void createEntry() {
-    ValueEntry entry = new ValueEntry();
+    NodeEntry entry = new NodeEntry();
     entry.addReverseDepAndCheckIfDone(null); // Start evaluation.
     assertFalse(entry.isDone());
     assertTrue(entry.isReady());
@@ -66,7 +66,7 @@ public class ValueEntryTest {
 
   @Test
   public void signalEntry() {
-    ValueEntry entry = new ValueEntry();
+    NodeEntry entry = new NodeEntry();
     entry.addReverseDepAndCheckIfDone(null); // Start evaluation.
     SkyKey dep1 = key("dep1");
     addTemporaryDirectDep(entry, dep1);
@@ -92,7 +92,7 @@ public class ValueEntryTest {
 
   @Test
   public void reverseDeps() {
-    ValueEntry entry = new ValueEntry();
+    NodeEntry entry = new NodeEntry();
     SkyKey mother = key("mother");
     SkyKey father = key("father");
     assertEquals(DependencyState.NEEDS_SCHEDULING, entry.addReverseDepAndCheckIfDone(mother));
@@ -109,7 +109,7 @@ public class ValueEntryTest {
 
   @Test
   public void errorValue() {
-    ValueEntry entry = new ValueEntry();
+    NodeEntry entry = new NodeEntry();
     entry.addReverseDepAndCheckIfDone(null); // Start evaluation.
     GenericFunctionException exception =
         new GenericFunctionException(key("cause"), new Exception());
@@ -122,7 +122,7 @@ public class ValueEntryTest {
 
   @Test
   public void errorAndValue() {
-    ValueEntry entry = new ValueEntry();
+    NodeEntry entry = new NodeEntry();
     entry.addReverseDepAndCheckIfDone(null); // Start evaluation.
     GenericFunctionException exception =
         new GenericFunctionException(key("cause"), new Exception());
@@ -134,7 +134,7 @@ public class ValueEntryTest {
 
   @Test
   public void crashOnNullErrorAndValue() {
-    ValueEntry entry = new ValueEntry();
+    NodeEntry entry = new NodeEntry();
     entry.addReverseDepAndCheckIfDone(null); // Start evaluation.
     try {
       setValue(entry, /*value=*/null, /*errorInfo=*/null, /*graphVersion=*/0L);
@@ -146,7 +146,7 @@ public class ValueEntryTest {
 
   @Test
   public void crashOnTooManySignals() {
-    ValueEntry entry = new ValueEntry();
+    NodeEntry entry = new NodeEntry();
     entry.addReverseDepAndCheckIfDone(null); // Start evaluation.
     try {
       entry.signalDep();
@@ -158,7 +158,7 @@ public class ValueEntryTest {
 
   @Test
   public void crashOnDifferentValue() {
-    ValueEntry entry = new ValueEntry();
+    NodeEntry entry = new NodeEntry();
     entry.addReverseDepAndCheckIfDone(null); // Start evaluation.
     setValue(entry, new SkyValue() {}, /*errorInfo=*/null, /*graphVersion=*/0L);
     try {
@@ -172,7 +172,7 @@ public class ValueEntryTest {
 
   @Test
   public void dirtyLifecycle() {
-    ValueEntry entry = new ValueEntry();
+    NodeEntry entry = new NodeEntry();
     entry.addReverseDepAndCheckIfDone(null); // Start evaluation.
     SkyKey dep = key("dep");
     addTemporaryDirectDep(entry, dep);
@@ -200,7 +200,7 @@ public class ValueEntryTest {
 
   @Test
   public void changedLifecycle() {
-    ValueEntry entry = new ValueEntry();
+    NodeEntry entry = new NodeEntry();
     entry.addReverseDepAndCheckIfDone(null); // Start evaluation.
     SkyKey dep = key("dep");
     addTemporaryDirectDep(entry, dep);
@@ -225,7 +225,7 @@ public class ValueEntryTest {
 
   @Test
   public void markDirtyThenChanged() {
-    ValueEntry entry = new ValueEntry();
+    NodeEntry entry = new NodeEntry();
     entry.addReverseDepAndCheckIfDone(null); // Start evaluation.
     addTemporaryDirectDep(entry, key("dep"));
     entry.signalDep();
@@ -247,7 +247,7 @@ public class ValueEntryTest {
 
   @Test
   public void markChangedThenDirty() {
-    ValueEntry entry = new ValueEntry();
+    NodeEntry entry = new NodeEntry();
     entry.addReverseDepAndCheckIfDone(null); // Start evaluation.
     addTemporaryDirectDep(entry, key("dep"));
     entry.signalDep();
@@ -268,7 +268,7 @@ public class ValueEntryTest {
 
   @Test
   public void crashOnTwiceMarkedChanged() {
-    ValueEntry entry = new ValueEntry();
+    NodeEntry entry = new NodeEntry();
     entry.addReverseDepAndCheckIfDone(null); // Start evaluation.
     setValue(entry, new SkyValue() {}, /*errorInfo=*/null, /*graphVersion=*/0L);
     assertFalse(entry.isDirty());
@@ -284,7 +284,7 @@ public class ValueEntryTest {
 
   @Test
   public void crashOnTwiceMarkedDirty() {
-    ValueEntry entry = new ValueEntry();
+    NodeEntry entry = new NodeEntry();
     entry.addReverseDepAndCheckIfDone(null); // Start evaluation.
     addTemporaryDirectDep(entry, key("dep"));
     entry.signalDep();
@@ -300,7 +300,7 @@ public class ValueEntryTest {
 
   @Test
   public void crashOnAddReverseDepTwice() {
-    ValueEntry entry = new ValueEntry();
+    NodeEntry entry = new NodeEntry();
     SkyKey parent = key("parent");
     assertEquals(DependencyState.NEEDS_SCHEDULING, entry.addReverseDepAndCheckIfDone(parent));
     try {
@@ -314,7 +314,7 @@ public class ValueEntryTest {
 
   @Test
   public void crashOnAddReverseDepTwiceAfterDone() {
-    ValueEntry entry = new ValueEntry();
+    NodeEntry entry = new NodeEntry();
     entry.addReverseDepAndCheckIfDone(null); // Start evaluation.
     setValue(entry, new SkyValue() {}, /*errorInfo=*/null, /*graphVersion=*/0L);
     SkyKey parent = key("parent");
@@ -331,7 +331,7 @@ public class ValueEntryTest {
 
   @Test
   public void crashOnAddReverseDepBeforeAfterDone() {
-    ValueEntry entry = new ValueEntry();
+    NodeEntry entry = new NodeEntry();
     SkyKey parent = key("parent");
     assertEquals(DependencyState.NEEDS_SCHEDULING, entry.addReverseDepAndCheckIfDone(parent));
     setValue(entry, new SkyValue() {}, /*errorInfo=*/null, /*graphVersion=*/0L);
@@ -347,7 +347,7 @@ public class ValueEntryTest {
 
   @Test
   public void crashOnAddDirtyReverseDep() {
-    ValueEntry entry = new ValueEntry();
+    NodeEntry entry = new NodeEntry();
     SkyKey parent = key("parent");
     assertEquals(DependencyState.NEEDS_SCHEDULING, entry.addReverseDepAndCheckIfDone(parent));
     try {
@@ -362,7 +362,7 @@ public class ValueEntryTest {
 
   @Test
   public void pruneBeforeBuild() {
-    ValueEntry entry = new ValueEntry();
+    NodeEntry entry = new NodeEntry();
     SkyKey dep = key("dep");
     entry.addReverseDepAndCheckIfDone(null); // Start evaluation.
     addTemporaryDirectDep(entry, dep);
@@ -407,7 +407,7 @@ public class ValueEntryTest {
 
   @Test
   public void pruneAfterBuild() {
-    ValueEntry entry = new ValueEntry();
+    NodeEntry entry = new NodeEntry();
     entry.addReverseDepAndCheckIfDone(null); // Start evaluation.
     SkyKey dep = key("dep");
     addTemporaryDirectDep(entry, dep);
@@ -430,7 +430,7 @@ public class ValueEntryTest {
 
   @Test
   public void noPruneWhenDetailsChange() {
-    ValueEntry entry = new ValueEntry();
+    NodeEntry entry = new NodeEntry();
     entry.addReverseDepAndCheckIfDone(null); // Start evaluation.
     SkyKey dep = key("dep");
     addTemporaryDirectDep(entry, dep);
@@ -460,7 +460,7 @@ public class ValueEntryTest {
 
   @Test
   public void pruneErrorValue() {
-    ValueEntry entry = new ValueEntry();
+    NodeEntry entry = new NodeEntry();
     entry.addReverseDepAndCheckIfDone(null); // Start evaluation.
     SkyKey dep = key("dep");
     addTemporaryDirectDep(entry, dep);
@@ -484,7 +484,7 @@ public class ValueEntryTest {
 
   @Test
   public void getDependencyGroup() {
-    ValueEntry entry = new ValueEntry();
+    NodeEntry entry = new NodeEntry();
     entry.addReverseDepAndCheckIfDone(null); // Start evaluation.
     SkyKey dep = key("dep");
     SkyKey dep2 = key("dep2");
@@ -508,7 +508,7 @@ public class ValueEntryTest {
 
   @Test
   public void maintainDependencyGroupAfterRemoval() {
-    ValueEntry entry = new ValueEntry();
+    NodeEntry entry = new NodeEntry();
     entry.addReverseDepAndCheckIfDone(null); // Start evaluation.
     SkyKey dep = key("dep");
     SkyKey dep2 = key("dep2");
@@ -536,7 +536,7 @@ public class ValueEntryTest {
 
   @Test
   public void noPruneWhenDepsChange() {
-    ValueEntry entry = new ValueEntry();
+    NodeEntry entry = new NodeEntry();
     entry.addReverseDepAndCheckIfDone(null); // Start evaluation.
     SkyKey dep = key("dep");
     addTemporaryDirectDep(entry, dep);
@@ -559,7 +559,7 @@ public class ValueEntryTest {
 
   @Test
   public void checkDepsOneByOne() {
-    ValueEntry entry = new ValueEntry();
+    NodeEntry entry = new NodeEntry();
     entry.addReverseDepAndCheckIfDone(null); // Start evaluation.
     List<SkyKey> deps = new ArrayList<>();
     for (int ii = 0; ii < 10; ii++) {
@@ -586,7 +586,7 @@ public class ValueEntryTest {
 
   @Test
   public void signalOnlyNewParents() {
-    ValueEntry entry = new ValueEntry();
+    NodeEntry entry = new NodeEntry();
     entry.addReverseDepAndCheckIfDone(key("parent"));
     setValue(entry, new SkyValue() {}, /*errorInfo=*/null, /*graphVersion=*/0L);
     entry.markDirty(/*isChanged=*/true);
@@ -598,18 +598,18 @@ public class ValueEntryTest {
         newParent);
   }
 
-  private static Set<SkyKey> setValue(ValueEntry entry, SkyValue value,
+  private static Set<SkyKey> setValue(NodeEntry entry, SkyValue value,
       @Nullable ErrorInfo errorInfo, long graphVersion) {
     return entry.setValue(ValueWithMetadata.normal(value, errorInfo, NO_EVENTS), graphVersion);
   }
 
-  private static void addTemporaryDirectDep(ValueEntry entry, SkyKey key) {
+  private static void addTemporaryDirectDep(NodeEntry entry, SkyKey key) {
     GroupedListHelper<SkyKey> helper = new GroupedListHelper<>();
     helper.add(key);
     entry.addTemporaryDirectDeps(helper);
   }
 
-  private static void addTemporaryDirectDeps(ValueEntry entry, SkyKey... keys) {
+  private static void addTemporaryDirectDeps(NodeEntry entry, SkyKey... keys) {
     GroupedListHelper<SkyKey> helper = new GroupedListHelper<>();
     helper.startGroup();
     for (SkyKey key : keys) {

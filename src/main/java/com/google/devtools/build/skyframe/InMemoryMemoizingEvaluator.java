@@ -25,7 +25,7 @@ import com.google.devtools.build.skyframe.Differencer.Diff;
 import com.google.devtools.build.skyframe.InvalidatingNodeVisitor.DeletingInvalidationState;
 import com.google.devtools.build.skyframe.InvalidatingNodeVisitor.DirtyingInvalidationState;
 import com.google.devtools.build.skyframe.InvalidatingNodeVisitor.InvalidationState;
-import com.google.devtools.build.skyframe.ValueEntry.DependencyState;
+import com.google.devtools.build.skyframe.NodeEntry.DependencyState;
 
 import java.io.PrintStream;
 import java.util.HashMap;
@@ -58,8 +58,13 @@ public final class InMemoryMemoizingEvaluator implements MemoizingEvaluator {
   // State related to invalidation and deletion.
   private Set<SkyKey> valuesToDelete = new LinkedHashSet<>();
   private Set<SkyKey> valuesToDirty = new LinkedHashSet<>();
+  private Map<SkyKey, SkyValue> valuesToInject = new HashMap<>();
   private final InvalidationState deleterState = new DeletingInvalidationState();
   private final Differencer differencer;
+
+  // Keep edges in graph. Can be false to save memory, in which case incremental builds are
+  // not possible.
+  private final boolean keepEdges;
 
   // Values that the caller explicitly specified are assumed to be changed -- they will be
   // re-evaluated even if none of their children are changed.
@@ -77,18 +82,19 @@ public final class InMemoryMemoizingEvaluator implements MemoizingEvaluator {
   public InMemoryMemoizingEvaluator(
       Map<? extends SkyFunctionName, ? extends SkyFunction> skyFunctions, Differencer differencer,
       @Nullable EvaluationProgressReceiver invalidationReceiver) {
-    this(skyFunctions, differencer, invalidationReceiver, new EmittedEventState());
+    this(skyFunctions, differencer, invalidationReceiver, new EmittedEventState(), true);
   }
 
   public InMemoryMemoizingEvaluator(
       Map<? extends SkyFunctionName, ? extends SkyFunction> skyFunctions, Differencer differencer,
       @Nullable EvaluationProgressReceiver invalidationReceiver,
-      EmittedEventState emittedEventState) {
+      EmittedEventState emittedEventState, boolean keepEdges) {
     this.skyFunctions = ImmutableMap.copyOf(skyFunctions);
     this.differencer = Preconditions.checkNotNull(differencer);
     this.progressReceiver = invalidationReceiver;
-    this.graph = new InMemoryGraph();
+    this.graph = new InMemoryGraph(keepEdges);
     this.emittedEventState = emittedEventState;
+    this.keepEdges = keepEdges;
   }
 
   private void invalidate(Iterable<SkyKey> diff) {
@@ -98,9 +104,9 @@ public final class InMemoryMemoizingEvaluator implements MemoizingEvaluator {
   @Override
   public void delete(final Predicate<SkyKey> deletePredicate) {
     valuesToDelete.addAll(
-        Maps.filterEntries(graph.getAllValues(), new Predicate<Entry<SkyKey, ValueEntry>>() {
+        Maps.filterEntries(graph.getAllValues(), new Predicate<Entry<SkyKey, NodeEntry>>() {
           @Override
-          public boolean apply(Entry<SkyKey, ValueEntry> input) {
+          public boolean apply(Entry<SkyKey, NodeEntry> input) {
             return input.getValue().isDirty() || deletePredicate.apply(input.getKey());
           }
         }).keySet());
@@ -112,9 +118,9 @@ public final class InMemoryMemoizingEvaluator implements MemoizingEvaluator {
     final long threshold = lastGraphVersion.getVal() - versionAgeLimit;
 
     valuesToDelete.addAll(
-        Maps.filterEntries(graph.getAllValues(), new Predicate<Entry<SkyKey, ValueEntry>>() {
+        Maps.filterEntries(graph.getAllValues(), new Predicate<Entry<SkyKey, NodeEntry>>() {
           @Override
-          public boolean apply(Entry<SkyKey, ValueEntry> input) {
+          public boolean apply(Entry<SkyKey, NodeEntry> input) {
             return input.getValue().isDirty() && input.getValue().getVersion() <= threshold;
           }
         }).keySet());
@@ -132,14 +138,18 @@ public final class InMemoryMemoizingEvaluator implements MemoizingEvaluator {
         lastGraphVersion, version);
     setAndCheckEvaluateState(true, roots);
     try {
+      // The RecordingDifferencer implementation is not quite working as it should be at this point.
+      // It clears the internal data structures after getDiff is called and will not return
+      // diffs for historical versions. This makes the following code sensitive to interrupts.
+      // Ideally we would simply not update lastGraphVersion if an interrupt occurs.
       Diff diff = differencer.getDiff(lastGraphVersion, version);
-      Map<SkyKey, SkyValue> valuesToInject = new HashMap<>(diff.changedKeysWithNewValues());
+      valuesToInject.putAll(diff.changedKeysWithNewValues());
       invalidate(diff.changedKeysWithoutNewValues());
       pruneInjectedValues(valuesToInject);
       invalidate(valuesToInject.keySet());
 
-      performValueInvalidation(progressReceiver);
-      injectValues(valuesToInject, intVersion);
+      performInvalidation(progressReceiver);
+      injectValues(intVersion);
 
       ParallelEvaluator evaluator = new ParallelEvaluator(graph, intVersion.getVal(),
           skyFunctions, listener, emittedEventState, keepGoing, numThreads, progressReceiver);
@@ -160,7 +170,7 @@ public final class InMemoryMemoizingEvaluator implements MemoizingEvaluator {
       Entry<SkyKey, SkyValue> entry = it.next();
       SkyKey key = entry.getKey();
       SkyValue newValue = entry.getValue();
-      ValueEntry prevEntry = graph.get(key);
+      NodeEntry prevEntry = graph.get(key);
       if (prevEntry != null && prevEntry.isDone()) {
         Iterable<SkyKey> directDeps = prevEntry.getDirectDeps();
         Preconditions.checkState(Iterables.isEmpty(directDeps),
@@ -176,7 +186,7 @@ public final class InMemoryMemoizingEvaluator implements MemoizingEvaluator {
   /**
    * Injects values in {@code valuesToInject} into the graph.
    */
-  private void injectValues(Map<SkyKey, SkyValue> valuesToInject, IntVersion version) {
+  private void injectValues(IntVersion version) {
     if (valuesToInject.isEmpty()) {
       return;
     }
@@ -184,16 +194,16 @@ public final class InMemoryMemoizingEvaluator implements MemoizingEvaluator {
       SkyKey key = entry.getKey();
       SkyValue value = entry.getValue();
       Preconditions.checkState(value != null, key);
-      ValueEntry prevEntry = graph.createIfAbsent(key);
+      NodeEntry prevEntry = graph.createIfAbsent(key);
       if (prevEntry.isDirty()) {
         // There was an existing entry for this key in the graph.
-        // Get the value in the state where it is able to accept a value.
+        // Get the node in the state where it is able to accept a value.
         Preconditions.checkState(prevEntry.getTemporaryDirectDeps().isEmpty(), key);
 
         DependencyState newState = prevEntry.addReverseDepAndCheckIfDone(null);
         Preconditions.checkState(newState == DependencyState.NEEDS_SCHEDULING, key);
 
-        // Check that the previous value has no dependencies. Overwriting a value with deps with an
+        // Check that the previous node has no dependencies. Overwriting a value with deps with an
         // injected value (which is by definition deps-free) needs a little additional bookkeeping
         // (removing reverse deps from the dependencies), but more importantly it's something that
         // we want to avoid, because it indicates confusion of input values and derived values.
@@ -202,11 +212,13 @@ public final class InMemoryMemoizingEvaluator implements MemoizingEvaluator {
       }
       prevEntry.setValue(entry.getValue(), version.getVal());
     }
+    // Start with a new map to avoid bloat since clear() does not downsize the map.
+    valuesToInject = new HashMap<>();
   }
 
-  private void performValueInvalidation(EvaluationProgressReceiver invalidationReceiver)
+  private void performInvalidation(EvaluationProgressReceiver invalidationReceiver)
       throws InterruptedException {
-    EagerInvalidator.delete(graph, valuesToDelete, invalidationReceiver, deleterState);
+    EagerInvalidator.delete(graph, valuesToDelete, invalidationReceiver, deleterState, keepEdges);
     // Note that clearing the valuesToDelete would not do an internal resizing. Therefore, if any
     // build has a large set of dirty values, subsequent operations (even clearing) will be slower.
     // Instead, just start afresh with a new LinkedHashSet.
@@ -239,7 +251,7 @@ public final class InMemoryMemoizingEvaluator implements MemoizingEvaluator {
 
   @Override
   @Nullable public ErrorInfo getExistingErrorForTesting(SkyKey key) {
-    ValueEntry entry = graph.get(key);
+    NodeEntry entry = graph.get(key);
     return (entry == null || !entry.isDone()) ? null : entry.getErrorInfo();
   }
 
@@ -258,9 +270,9 @@ public final class InMemoryMemoizingEvaluator implements MemoizingEvaluator {
           }
         };
 
-    for (Entry<SkyKey, ValueEntry> mapPair : graph.getAllValues().entrySet()) {
+    for (Entry<SkyKey, NodeEntry> mapPair : graph.getAllValues().entrySet()) {
       SkyKey key = mapPair.getKey();
-      ValueEntry entry = mapPair.getValue();
+      NodeEntry entry = mapPair.getValue();
       if (entry.isDone()) {
         System.out.print(keyFormatter.apply(key));
         System.out.print("|");
@@ -275,9 +287,9 @@ public final class InMemoryMemoizingEvaluator implements MemoizingEvaluator {
     public MemoizingEvaluator create(
         Map<? extends SkyFunctionName, ? extends SkyFunction> skyFunctions, Differencer differencer,
         @Nullable EvaluationProgressReceiver invalidationReceiver,
-        EmittedEventState emittedEventState) {
+        EmittedEventState emittedEventState, boolean keepEdges) {
       return new InMemoryMemoizingEvaluator(skyFunctions, differencer, invalidationReceiver,
-          emittedEventState);
+          emittedEventState, keepEdges);
     }
   };
 }

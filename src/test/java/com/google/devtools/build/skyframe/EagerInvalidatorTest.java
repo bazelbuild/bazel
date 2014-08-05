@@ -78,7 +78,7 @@ public class EagerInvalidatorTest {
   boolean gcExpected() { throw new UnsupportedOperationException(); }
 
   private boolean isInvalidated(SkyKey key) {
-    ValueEntry entry = graph.get(key);
+    NodeEntry entry = graph.get(key);
     if (gcExpected()) {
       return entry == null;
     } else {
@@ -87,7 +87,7 @@ public class EagerInvalidatorTest {
   }
 
   private void assertChanged(SkyKey key) {
-    ValueEntry entry = graph.get(key);
+    NodeEntry entry = graph.get(key);
     if (gcExpected()) {
       assertNull(entry);
     } else {
@@ -96,7 +96,7 @@ public class EagerInvalidatorTest {
   }
 
   private void assertDirtyAndNotChanged(SkyKey key) {
-    ValueEntry entry = graph.get(key);
+    NodeEntry entry = graph.get(key);
     if (gcExpected()) {
       assertNull(entry);
     } else {
@@ -157,10 +157,10 @@ public class EagerInvalidatorTest {
         Preconditions.checkState(state == expectedState());
         invalidated.add(((StringValue) value).getValue());
       }
-      
+
       @Override
       public void enqueueing(SkyKey skyKey) {
-        throw new UnsupportedOperationException();        
+        throw new UnsupportedOperationException();
       }
 
       @Override
@@ -193,10 +193,10 @@ public class EagerInvalidatorTest {
         Preconditions.checkState(state == expectedState());
         invalidated.add(((StringValue) value).getValue());
       }
-      
+
       @Override
       public void enqueueing(SkyKey skyKey) {
-        throw new UnsupportedOperationException();        
+        throw new UnsupportedOperationException();
       }
 
       @Override
@@ -223,10 +223,10 @@ public class EagerInvalidatorTest {
         Preconditions.checkState(state == InvalidationState.DIRTY);
         invalidated.add(((StringValue) value).getValue());
       }
-      
+
       @Override
       public void enqueueing(SkyKey skyKey) {
-        throw new UnsupportedOperationException();        
+        throw new UnsupportedOperationException();
       }
 
       @Override
@@ -337,10 +337,10 @@ public class EagerInvalidatorTest {
           // already interrupted.
         }
       }
-      
+
       @Override
       public void enqueueing(SkyKey skyKey) {
-        throw new UnsupportedOperationException();        
+        throw new UnsupportedOperationException();
       }
 
       @Override
@@ -365,10 +365,10 @@ public class EagerInvalidatorTest {
       public void invalidated(SkyValue value, InvalidationState state) {
         invalidated.add(value);
       }
-      
+
       @Override
       public void enqueueing(SkyKey skyKey) {
-        throw new UnsupportedOperationException();        
+        throw new UnsupportedOperationException();
       }
 
       @Override
@@ -407,15 +407,15 @@ public class EagerInvalidatorTest {
     return values;
   }
 
-  /** Return a subset of {@code values} that are still valid and so can be invalidated. */
-  private Set<Pair<SkyKey, InvalidationType>> getValuesToInvalidate(SkyKey[] values) {
+  /** Returns a subset of {@code nodes} that are still valid and so can be invalidated. */
+  private Set<Pair<SkyKey, InvalidationType>> getValuesToInvalidate(SkyKey[] nodes) {
     Set<Pair<SkyKey, InvalidationType>> result = new HashSet<>();
     Random random = new Random(TestUtils.getRandomSeed());
-    for (SkyKey value : values) {
-      if (!isInvalidated(value)) {
+    for (SkyKey node : nodes) {
+      if (!isInvalidated(node)) {
         if (result.isEmpty() || random.nextInt(3) == 0) {
-          // Add at least one value, if we can.
-          result.add(Pair.of(value, defaultInvalidationType()));
+          // Add at least one node, if we can.
+          result.add(Pair.of(node, defaultInvalidationType()));
         }
       }
     }
@@ -505,7 +505,7 @@ public class EagerInvalidatorTest {
         SkyKey... keys) throws InterruptedException {
       InvalidatingNodeVisitor invalidatingVisitor =
           EagerInvalidator.createVisitor(/*delete=*/true, graph, ImmutableList.copyOf(keys),
-              invalidationReceiver, state);
+              invalidationReceiver, state, true);
       if (invalidatingVisitor != null) {
         visitor.set(invalidatingVisitor);
         invalidatingVisitor.run();
@@ -543,7 +543,7 @@ public class EagerInvalidatorTest {
         SkyKey... keys) throws InterruptedException {
       InvalidatingNodeVisitor invalidatingVisitor =
           EagerInvalidator.createVisitor(/*delete=*/false, graph, ImmutableList.copyOf(keys),
-              invalidationReceiver, state);
+              invalidationReceiver, state, true);
       if (invalidatingVisitor != null) {
         visitor.set(invalidatingVisitor);
         invalidatingVisitor.run();

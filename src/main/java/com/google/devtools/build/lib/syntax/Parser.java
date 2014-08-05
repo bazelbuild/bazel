@@ -911,30 +911,31 @@ class Parser {
     return list;
   }
 
-  // dotted_name ::= IDENTIFIER ('.' IDENTIFIER)*
-  private List<Ident> parseDottedName() {
-    List<Ident> list = new ArrayList<>();
-    list.add(parseIdent());
-    while (token.kind == TokenKind.DOT) {
-      expect(TokenKind.DOT);
-      list.add(parseIdent());
-    }
-    return list;
-  }
-
-  // import_from: FROM dotted_name IMPORT IDENTIFIER (',' IDENTIFIER)*
-  private Statement parseImport() {
+  // load(STRING (COMMA STRING)*)
+  private void parseLoad(List<Statement> list) {
     int start = token.left;
-    expect(TokenKind.FROM);
-    List<Ident> dir = parseDottedName();
-    expect(TokenKind.IMPORT);
+    if (token.kind != TokenKind.STRING) {
+      expect(TokenKind.STRING);
+      return;
+    }
+    String path = (String) token.value;
+    nextToken();
+    expect(TokenKind.COMMA);
+
     List<Ident> symbols = new ArrayList<>();
-    symbols.add(parseIdent());
+    if (token.kind == TokenKind.STRING) {
+      symbols.add(new Ident((String) token.value));
+    }
+    expect(TokenKind.STRING);
     while (token.kind == TokenKind.COMMA) {
       expect(TokenKind.COMMA);
-      symbols.add(parseIdent());
+      if (token.kind == TokenKind.STRING) {
+        symbols.add(new Ident((String) token.value));
+      }
+      expect(TokenKind.STRING);
     }
-    return setLocation(new ImportStatement(dir, symbols), start, token.left);
+    expect(TokenKind.RPAREN);
+    list.add(setLocation(new LoadStatement(path, symbols), start, token.left));
   }
 
   private void parseTopLevelStatement(List<Statement> list) {
@@ -955,11 +956,12 @@ class Parser {
         expect(TokenKind.STRING);
         expect(TokenKind.RPAREN);
         return;
+      } else if (ident.getName().equals("load") && token.kind == TokenKind.LPAREN) {
+        expect(TokenKind.LPAREN);
+        parseLoad(list);
+        return;
       }
       pushToken(identToken); // push the ident back to parse it as a statement
-    } else if (token.kind == TokenKind.FROM) {
-      list.add(parseImport());
-      return;
     }
     parseStatement(list);
   }

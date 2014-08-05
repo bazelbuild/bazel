@@ -402,7 +402,6 @@ public class ExecutionTool {
         skyframeExecutor.drainChangedFiles();
       }
 
-
       configureResourceManager(request);
 
       Profiler.instance().markPhase(ProfilePhase.EXECUTE);
@@ -818,7 +817,10 @@ public class ExecutionTool {
         result.addAll(provider.getCompilationPrerequisites());
       }
     } else {
-      result.addAll(target.getProvider(FileProvider.class).getFilesToBuild());
+      FileProvider provider = target.getProvider(FileProvider.class);
+      if (provider != null) {
+        result.addAll(provider.getFilesToBuild());
+      }
     }
     TempsProvider tempsProvider = target.getProvider(TempsProvider.class);
     if (tempsProvider != null) {
@@ -856,11 +858,6 @@ public class ExecutionTool {
     BuildRequest.BuildRequestOptions options = request.getBuildOptions();
     boolean verboseExplanations = options.verboseExplanations;
     boolean keepGoing = request.getViewOptions().keepGoing;
-
-    skyframeExecutor.setVersionWindowForDirtyGc(
-        request.getViewOptions().versionWindowForDirtyNodeGc == -1
-            ? Long.MAX_VALUE
-            : request.getViewOptions().versionWindowForDirtyNodeGc);
 
     metadataCache.setInvocationStartTime(new Date().getTime());
 

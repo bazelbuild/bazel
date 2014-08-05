@@ -18,6 +18,7 @@ import com.google.common.collect.Maps;
 import com.google.devtools.build.lib.util.StringUtilities;
 
 import java.util.Map;
+import java.util.logging.Logger;
 
 /**
  * Determines the version information of the current process.
@@ -31,6 +32,8 @@ public class BlazeVersionInfo {
   private final Map<String, String> buildData = Maps.newTreeMap();
   private static BlazeVersionInfo instance = null;
   private static final String BUILD_LABEL = "Build label";
+
+  private static final Logger LOG = Logger.getLogger(BlazeVersionInfo.class.getName());
 
   public BlazeVersionInfo(Map<String, String> info) {
     buildData.putAll(info);
@@ -49,6 +52,14 @@ public class BlazeVersionInfo {
     return instance;
   }
 
+  private static void logVersionInfo(BlazeVersionInfo info) {
+    if (info.getSummary() == null) {
+      LOG.warning("Blaze release version information not available");
+    } else {
+      LOG.info("Blaze version info: " + info.getSummary());
+    }
+  }
+
   /**
    * Sets build info.
    *
@@ -60,6 +71,7 @@ public class BlazeVersionInfo {
       throw new IllegalStateException("setBuildInfo called twice.");
     }
     instance = new BlazeVersionInfo(info);
+    logVersionInfo(instance);
   }
 
   /**

@@ -98,7 +98,7 @@ echo "JAVAC src/test/java/**/*.java"
 find src/test/java -name "*.java" | xargs "${JAVAC}" -classpath ${CLASSPATH}:third_party/junit/junit-4.11.jar:third_party/truth/truth-0.23.jar:third_party/guava/guava-testlib.jar:output/classes -d output/test_classes
 
 # Compile client .cc files.
-CC_FILES=(
+BLAZE_CC_FILES=(
 src/main/cpp/blaze_startup_options.cc
 src/main/cpp/blaze_startup_options_common.cc
 src/main/cpp/blaze_util.cc
@@ -112,7 +112,7 @@ src/main/cpp/util/md5.cc
 src/main/cpp/util/numbers.cc
 )
 
-for FILE in "${CC_FILES[@]}"; do
+for FILE in "${BLAZE_CC_FILES[@]}"; do
   if [[ ! "${FILE}" =~ ^-.*$ ]]; then
     echo "CC ${FILE}"
     OUT=$(basename "${FILE}").o
@@ -168,6 +168,11 @@ echo "CC build-runfiles"
 
 echo "CC process-wrapper"
 "${CC}" -o output/process-wrapper src/main/tools/process-wrapper.c
+
+echo "CC normalizer-ar"
+"${CC}" -o output/normalize-ar src/main/tools/normalize-ar.c
+
+cp src/main/tools/build_interface_so output/build_interface_so
 
 touch output/alarm
 chmod 755 output/alarm

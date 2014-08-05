@@ -13,6 +13,7 @@
 // limitations under the License.
 package com.google.devtools.build.lib.view.config;
 
+import com.google.devtools.build.lib.blaze.BlazeDirectories;
 import com.google.devtools.build.lib.packages.Package;
 import com.google.devtools.build.lib.pkgcache.LoadedPackageProvider;
 import com.google.devtools.build.lib.syntax.Label.SyntaxException;
@@ -33,8 +34,13 @@ public interface PackageProviderForConfigurations extends LoadedPackageProvider 
   /**
    * Returns fragment based on fragment type and build options.
    */
-  public <T extends Fragment> T getFragment(BuildOptions buildOptions, Class<T> fragmentType) 
+  <T extends Fragment> T getFragment(BuildOptions buildOptions, Class<T> fragmentType) 
       throws InvalidConfigurationException;
+  
+  /**
+   * Returns blaze directories and adds dependency to that value.
+   */
+  BlazeDirectories getDirectories();
   
   /**
    * Returns true if any dependency is missing (value of some node hasn't been evaluated yet).

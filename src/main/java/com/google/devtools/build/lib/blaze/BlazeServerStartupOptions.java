@@ -142,10 +142,10 @@ public class BlazeServerStartupOptions extends OptionsBase {
 
   @Option(name = "workspace_directory",
       defaultValue = "",
-      category = "server startup",
+      category = "hidden",
       converter = OptionsUtils.PathFragmentConverter.class,
       help = "The root of the workspace, that is, the directory that Blaze uses as the root of the "
-          + "build.")
+          + "build. This flag is only to be set by the blaze client.")
   public PathFragment workspaceDirectory;
 
   @Option(name = "max_idle_secs",

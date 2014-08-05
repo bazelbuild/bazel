@@ -23,6 +23,7 @@ import com.google.common.collect.Maps;
 import com.google.common.io.BaseEncoding;
 import com.google.devtools.build.lib.actions.ActionInput;
 import com.google.devtools.build.lib.actions.ActionInputFileCache;
+import com.google.devtools.build.lib.actions.DigestOfDirectoryException;
 import com.google.devtools.build.lib.util.Pair;
 import com.google.devtools.build.lib.vfs.FileSystem;
 import com.google.devtools.build.lib.vfs.Path;
@@ -66,8 +67,9 @@ public class SingleBuildFileCache implements ActionInputFileCache {
       .build(new CacheLoader<ActionInput, Pair<ByteString, IOException>>() {
         @Override
         public Pair<ByteString, IOException> load(ActionInput input) {
+          Path path = null;
           try {
-            Path path = fs.getPath(fullPath(input));
+            path = fs.getPath(fullPath(input));
             BaseEncoding hex = BaseEncoding.base16().lowerCase();
             ByteString digest = ByteString.copyFrom(
                 hex.encode(path.getMD5Digest())
@@ -78,6 +80,12 @@ public class SingleBuildFileCache implements ActionInputFileCache {
             digestToPath.put(digest, input);
             return Pair.of(digest, null);
           } catch (IOException e) {
+            if (path != null && path.isDirectory()) {
+              pathToBytes.put(input, 0L);
+              return Pair.<ByteString, IOException>of(null, new DigestOfDirectoryException(
+                  "Input is a directory: " + input.getExecPathString()));
+            }
+
             // Put value into size map to avoid trying to read file again later.
             pathToBytes.put(input, 0L);
             return Pair.of(null, e);

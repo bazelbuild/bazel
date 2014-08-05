@@ -29,11 +29,11 @@ public final class FilesToRunProvider implements TransitiveInfoProvider {
 
   private final Label label;
   private final ImmutableList<Artifact> filesToRun;
-  private final RunfilesSupport runfilesSupport;
-  private final Artifact executable;
+  @Nullable private final RunfilesSupport runfilesSupport;
+  @Nullable private final Artifact executable;
 
   public FilesToRunProvider(Label label, ImmutableList<Artifact> filesToRun,
-      RunfilesSupport runfilesSupport, Artifact executable) {
+      @Nullable RunfilesSupport runfilesSupport, @Nullable Artifact executable) {
     this.label = label;
     this.filesToRun = filesToRun;
     this.runfilesSupport = runfilesSupport;

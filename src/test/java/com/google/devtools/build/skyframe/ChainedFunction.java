@@ -15,6 +15,7 @@ package com.google.devtools.build.skyframe;
 
 import com.google.common.base.Preconditions;
 import com.google.devtools.build.skyframe.GraphTester.ValueComputer;
+import com.google.devtools.build.skyframe.ParallelEvaluator.SkyFunctionEnvironment;
 
 import java.util.concurrent.CountDownLatch;
 
@@ -55,7 +56,8 @@ final class ChainedFunction implements SkyFunction {
         TrackingAwaiter.waitAndMaybeThrowInterrupt(waitToFinish,
             key + " timed out waiting to finish");
         if (waitForException) {
-          TrackingAwaiter.waitAndMaybeThrowInterrupt(env.getExceptionLatchForTesting(),
+          SkyFunctionEnvironment skyEnv = (SkyFunctionEnvironment) env;
+          TrackingAwaiter.waitAndMaybeThrowInterrupt(skyEnv.getExceptionLatchForTesting(),
               key + " timed out waiting for exception");
         }
       }

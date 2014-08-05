@@ -706,7 +706,7 @@ public abstract class Type<T> {
             STRING.convert(x, what, currentRule));
       } catch (Label.SyntaxException e) {
         throw new ConversionException("invalid label '" + x + "' in "
-                                      + what + ": "+ e.getMessage());
+            + what + ": "+ e.getMessage());
       }
     }
   }
@@ -896,8 +896,8 @@ public abstract class Type<T> {
           result.add(converted);
         } else {
           // shouldn't happen but it does, rarely
-          String message = "Converting a list with a null element: " +
-              "element " + index + " of " + what + " in " + currentRule;
+          String message = "Converting a list with a null element: "
+              + "element " + index + " of " + what + " in " + currentRule;
           LoggingUtil.logToRemote(Level.WARNING, message,
               new ConversionException(message));
         }
@@ -922,7 +922,7 @@ public abstract class Type<T> {
       }
       Set<String> tags = new LinkedHashSet<>();
       @SuppressWarnings("unchecked")
-      List<ELEM> itemsAsListofElem = (List<ELEM>)items;
+      List<ELEM> itemsAsListofElem = (List<ELEM>) items;
       for (ELEM element : itemsAsListofElem) {
         tags.add(element.toString());
       }
@@ -1034,41 +1034,46 @@ public abstract class Type<T> {
    * Returns whether the specified type is a label type or not.
    */
   public static boolean isLabelType(Type<?> type) {
-    return type == LABEL || type == LABEL_LIST ||
-        type == NODEP_LABEL || type == NODEP_LABEL_LIST ||
-        type == LABEL_LIST_DICT || type == FILESET_ENTRY_LIST;
+    return type == LABEL || type == LABEL_LIST
+        || type == NODEP_LABEL || type == NODEP_LABEL_LIST
+        || type == LABEL_LIST_DICT || type == FILESET_ENTRY_LIST;
   }
 
   /**
    * Special Type that represents a selector expression for configurable attributes. Holds a
-   * mapping of <String, T> entries, where keys are configurability patterns and values are
+   * mapping of <Label, T> entries, where keys are configurability patterns and values are
    * objects of the attribute's native Type.
    */
   public static final class Selector<T> {
 
     private final Type<T> originalType;
-    private final Map<String, T> map;
+    private final Map<Label, T> map;
+    private final Label defaultConditionLabel;
 
     /**
      * Value to use when none of an attribute's selection criteria match.
      */
-    private static final String DEFAULT_CONDITION = "default";
+    @VisibleForTesting
+    public static final String DEFAULT_CONDITION_KEY = "//conditions:default";
 
     @VisibleForTesting
     Selector(Object x, String what, @Nullable Label currentRule, Type<T> originalType)
         throws ConversionException {
       Preconditions.checkState(x instanceof Map<?, ?>);
+
+      try {
+        defaultConditionLabel = Label.parseAbsolute(DEFAULT_CONDITION_KEY);
+      } catch (Label.SyntaxException e) {
+        throw new IllegalStateException(DEFAULT_CONDITION_KEY + " is not a valid label");
+      }
+
+
       boolean hasDefaultCondition = false;
       this.originalType = originalType;
-      Map<String, T> result = Maps.newHashMap();
+      Map<Label, T> result = Maps.newLinkedHashMap();
       for (Entry<?, ?> entry : ((Map<?, ?>) x).entrySet()) {
-        if (!(entry.getKey() instanceof String)) {
-          throw new ConversionException(String.format(
-              "key (%s) in attribute selector is not a string but a %s",
-              entry.getKey(), entry.getKey().getClass().getName()));
-        }
-        String key = (String) entry.getKey();
-        if (key.equals(DEFAULT_CONDITION)) {
+        Label key = LABEL.convert(entry.getKey(), what, currentRule);
+        if (key.equals(defaultConditionLabel)) {
           hasDefaultCondition = true;
         }
         result.put(key, originalType.convert(entry.getValue(), what, currentRule));
@@ -1084,15 +1089,15 @@ public abstract class Type<T> {
     /**
      * Returns the selector's (configurability pattern --gt; matching values) map.
      */
-    public Map<String, T> getEntries() {
+    public Map<Label, T> getEntries() {
       return map;
     }
 
     /**
-     * Returns the value to use when none of the attribute's selection criteria match.
+     * Returns the value to use when none of the attribute's selection keys match.
      */
     public T getDefault() {
-      return map.get(DEFAULT_CONDITION);
+      return map.get(defaultConditionLabel);
     }
 
     /**
@@ -1101,6 +1106,14 @@ public abstract class Type<T> {
      */
     public Type<T> getOriginalType() {
       return originalType;
+    }
+
+    /**
+     * Returns true for labels that are "reserved selector key words" and not intended to
+     * map to actual targets.
+     */
+    public static boolean isReservedLabel(Label label) {
+      return label.toString().equals(DEFAULT_CONDITION_KEY);
     }
   }
 }

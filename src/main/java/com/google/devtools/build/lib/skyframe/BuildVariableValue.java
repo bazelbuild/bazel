@@ -23,7 +23,6 @@ import com.google.devtools.build.lib.view.TopLevelArtifactContext;
 import com.google.devtools.build.lib.view.WorkspaceStatusAction;
 import com.google.devtools.build.lib.view.buildinfo.BuildInfoFactory;
 import com.google.devtools.build.lib.view.buildinfo.BuildInfoFactory.BuildInfoKey;
-import com.google.devtools.build.lib.view.config.BuildOptions;
 import com.google.devtools.build.skyframe.RecordingDifferencer;
 import com.google.devtools.build.skyframe.SkyFunction;
 import com.google.devtools.build.skyframe.SkyKey;
@@ -63,9 +62,6 @@ public class BuildVariableValue implements SkyValue {
   static final BuildVariable<Map<String, String>> TEST_ENVIRONMENT_VARIABLES =
       new BuildVariable<>(new SkyKey(SkyFunctions.BUILD_VARIABLE, "test_environment"));
 
-  static final BuildVariable<BuildOptions> BUILD_OPTIONS =
-      new BuildVariable<>(new SkyKey(SkyFunctions.BUILD_VARIABLE, "build_options"));
-
   static final BuildVariable<BlazeDirectories> BLAZE_DIRECTORIES =
       new BuildVariable<>(new SkyKey(SkyFunctions.BUILD_VARIABLE, "blaze_directories"));
 
@@ -97,6 +93,11 @@ public class BuildVariableValue implements SkyValue {
     }
     BuildVariableValue other = (BuildVariableValue) obj;
     return value.equals(other.value);
+  }
+
+  @Override
+  public String toString() {
+    return "<BuildVariable " + value + ">";
   }
 
   /**

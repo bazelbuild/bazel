@@ -15,6 +15,7 @@ package com.google.devtools.build.lib.view.config;
 
 import com.google.common.base.Preconditions;
 import com.google.common.collect.ImmutableMap;
+import com.google.common.collect.ImmutableSet;
 import com.google.common.collect.ImmutableSortedSet;
 import com.google.common.collect.ListMultimap;
 import com.google.devtools.build.lib.blaze.BlazeDirectories;
@@ -22,6 +23,7 @@ import com.google.devtools.build.lib.syntax.Label;
 
 import java.util.Map;
 import java.util.Objects;
+import java.util.Set;
 
 /**
  * A key for the creation of {@link BuildConfigurationCollection} instances.
@@ -39,7 +41,7 @@ public final class BuildConfigurationKey {
    * Note that the BuildConfiguration.Options instance must not contain unresolved relative paths.
    */
   public BuildConfigurationKey(BuildOptions buildOptions, BlazeDirectories directories,
-      Map<String, String> clientEnv, ImmutableSortedSet<String> multiCpu) {
+      Map<String, String> clientEnv, Set<String> multiCpu) {
     this.buildOptions = Preconditions.checkNotNull(buildOptions);
     this.directories = Preconditions.checkNotNull(directories);
     this.clientEnv = ImmutableMap.copyOf(clientEnv);
@@ -48,7 +50,7 @@ public final class BuildConfigurationKey {
 
   public BuildConfigurationKey(BuildOptions buildOptions, BlazeDirectories directories,
       Map<String, String> clientEnv) {
-    this(buildOptions, directories, clientEnv, ImmutableSortedSet.<String>of());
+    this(buildOptions, directories, clientEnv, ImmutableSet.<String>of());
   }
 
   public BuildOptions getBuildOptions() {

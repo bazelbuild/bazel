@@ -26,13 +26,18 @@ final class EagerInvalidator {
   private EagerInvalidator() {}
 
   /**
-   * Deletes given values and their transitive dependencies from the graph.
+   * Deletes given values. The {@code traverseGraph} parameter controls whether this method deletes
+   * (transitive) dependents of these nodes and relevant graph edges, or just the nodes themselves.
+   * Deleting just the nodes is inconsistent unless the graph will not be used for incremental
+   * builds in the future, but unfortunately there is a case where we delete nodes intra-build. As
+   * long as the full upward transitive closure of the nodes is specified for deletion, the graph
+   * remains consistent.
    */
   public static void delete(DirtiableGraph graph, Iterable<SkyKey> diff,
-      EvaluationProgressReceiver invalidationReceiver, InvalidationState state)
-          throws InterruptedException {
+      EvaluationProgressReceiver invalidationReceiver, InvalidationState state,
+      boolean traverseGraph) throws InterruptedException {
     InvalidatingNodeVisitor visitor =
-        createVisitor(/*delete=*/true, graph, diff, invalidationReceiver, state);
+        createVisitor(/*delete=*/true, graph, diff, invalidationReceiver, state, traverseGraph);
     if (visitor != null) {
       visitor.run();
     }
@@ -45,13 +50,13 @@ final class EagerInvalidator {
   @VisibleForTesting
   static InvalidatingNodeVisitor createVisitor(boolean delete, DirtiableGraph graph,
       Iterable<SkyKey> diff, EvaluationProgressReceiver invalidationReceiver,
-      InvalidationState state) {
+      InvalidationState state, boolean traverseGraph) {
     state.update(diff);
     if (state.isEmpty()) {
       return null;
     }
     return delete
-        ? new DeletingNodeVisitor(graph, invalidationReceiver, state)
+        ? new DeletingNodeVisitor(graph, invalidationReceiver, state, traverseGraph)
         : new DirtyingNodeVisitor(graph, invalidationReceiver, state);
   }
 
@@ -61,8 +66,13 @@ final class EagerInvalidator {
   public static void invalidate(DirtiableGraph graph, Iterable<SkyKey> diff,
       EvaluationProgressReceiver invalidationReceiver, InvalidationState state)
           throws InterruptedException {
+    // If we are invalidating, we must be in an incremental build by definition, so we must
+    // maintain a consistent graph state by traversing the graph and invalidating transitive
+    // dependencies. If edges aren't present, it would be impossible to check the dependencies of
+    // a dirty node in any case.
     InvalidatingNodeVisitor visitor =
-        createVisitor(/*delete=*/false, graph, diff, invalidationReceiver, state);
+        createVisitor(/*delete=*/false, graph, diff, invalidationReceiver, state,
+            /*traverseGraph=*/true);
     if (visitor != null) {
       visitor.run();
     }

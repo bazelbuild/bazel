@@ -49,13 +49,6 @@ public enum Suite {
   ENORMOUS_TESTS,
 
   /**
-   * I don't want the continuous build to run this test because the test is
-   * doing timing.  If I run in on my computer, I'll need to make sure my
-   * computer is not heavily taxed running other things.
-   */
-  PERFORMANCE_TESTS,
-
-  /**
    * Tests that can only be run on Unix.
    */
   UNIX_TESTS,

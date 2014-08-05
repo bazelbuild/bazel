@@ -628,11 +628,16 @@ public final class BlazeRuntime {
    * Removes in-memory caches.
    */
   public void clearCaches() throws IOException {
-    skyframeExecutor.resetEvaluator();
-    view.clear();
+    clearSkyframeRelevantCaches();
     actionCache = null;
     metadataCache = null;
     FileSystemUtils.deleteTree(getCacheDirectory());
+  }
+
+  /** Removes skyframe cache and other caches that must be kept synchronized with skyframe. */
+  private void clearSkyframeRelevantCaches() {
+    skyframeExecutor.resetEvaluator();
+    view.clear();
   }
 
   /**
@@ -723,6 +728,10 @@ public final class BlazeRuntime {
 
     // Fail fast in the case where a Blaze command forgets to install the package path correctly.
     skyframeExecutor.setActive(false);
+    // Let skyframe figure out if it needs to store graph edges for this build.
+    skyframeExecutor.decideKeepIncrementalState(
+        startupOptionsProvider.getOptions(BlazeServerStartupOptions.class).batch,
+        optionsParser.getOptions(BuildView.Options.class));
 
     // Conditionally enable profiling
     // We need to compensate for launchTimeNanos (measurements taken outside of the jvm).
@@ -969,6 +978,9 @@ public final class BlazeRuntime {
    */
   public void setupPackageCache(PackageCacheOptions packageCacheOptions,
       String defaultsPackageContents) throws InterruptedException {
+    if (!skyframeExecutor.hasIncrementalState()) {
+      clearSkyframeRelevantCaches();
+    }
     skyframeExecutor.sync(
         preprocessorFactory, packageCacheOptions, getWorkingDirectory(),
         defaultsPackageContents, getCommandId());
@@ -1518,7 +1530,6 @@ public final class BlazeRuntime {
       Map<String, String> clientEnv = new HashMap<>();
       TimestampGranularityMonitor timestampMonitor = new TimestampGranularityMonitor(clock);
 
-      SkyframeExecutor skyframeExecutor;
       Preprocessor.Factory preprocessorFactory = null;
       for (BlazeModule module : blazeModules) {
         module.blazeStartup(startupOptionsProvider,
@@ -1595,7 +1606,7 @@ public final class BlazeRuntime {
 
       final PackageFactory pkgFactory =
           new PackageFactory(ruleClassProvider, platformRegexps, extensions);
-      skyframeExecutor = new SkyframeExecutor(reporter, pkgFactory,
+      SkyframeExecutor skyframeExecutor = new SkyframeExecutor(reporter, pkgFactory,
           skyframe == SkyframeMode.FULL, timestampMonitor, directories,
           workspaceStatusActionFactory, ruleClassProvider.getBuildInfoFactories(),
           diffAwarenessFactories, allowedMissingInputs);

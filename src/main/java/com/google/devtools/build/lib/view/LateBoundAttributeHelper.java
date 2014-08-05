@@ -51,7 +51,9 @@ public final class LateBoundAttributeHelper {
     final ImmutableSortedKeyListMultimap.Builder<Attribute, Label> builder =
         ImmutableSortedKeyListMultimap.builder();
 
-    ConfiguredAttributeMapper.of(rule, configuration).visitLabels(
+    AttributeMap attributes = ConfiguredAttributeMapper.of(rule, configuration);
+
+    attributes.visitLabels(
         new AttributeMap.AcceptsLabelAttribute() {
       @Override
       public void acceptLabelAttribute(Label label, Attribute attribute) {
@@ -74,8 +76,6 @@ public final class LateBoundAttributeHelper {
         builder.put(attribute, label);
       }
     });
-
-    AttributeMap attributes = ConfiguredAttributeMapper.of(rule, configuration);
 
     if (attributes.getAttributeDefinition("abi_deps") != null) {
       Attribute depsAttribute = attributes.getAttributeDefinition("deps");

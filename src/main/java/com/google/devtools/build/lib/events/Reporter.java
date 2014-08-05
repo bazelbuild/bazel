@@ -101,9 +101,10 @@ public final class Reporter implements ErrorEventListener, ExceptionListener {
   /**
    * Removes handler from this reporter.
    */
-  public synchronized void removeHandler(EventHandler handler) {
-    handlers.remove(handler);
+  public synchronized boolean removeHandler(EventHandler handler) {
+    boolean removed = handlers.remove(handler);
     recomputeMask();
+    return removed;
   }
 
   /**

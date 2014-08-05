@@ -29,6 +29,7 @@ import com.google.devtools.build.lib.packages.Package.AbstractPackageBuilder.Nam
 import com.google.devtools.build.lib.packages.Package.PackageBuilder;
 import com.google.devtools.build.lib.packages.RuleClass.ParsedAttributeValue;
 import com.google.devtools.build.lib.query2.proto.proto2api.Build;
+import com.google.devtools.build.lib.query2.proto.proto2api.Build.StringDictUnaryEntry;
 import com.google.devtools.build.lib.syntax.FilesetEntry;
 import com.google.devtools.build.lib.syntax.GlobCriteria;
 import com.google.devtools.build.lib.syntax.GlobList;
@@ -393,7 +394,7 @@ public class PackageDeserializer {
     deserializeInternal(packagePb, listener, builder);
     return builder.build(listener);
   }
-  
+
   public LegacyPackage deserializeLegacy(Build.Package packagePb)
       throws PackageDeserializationException, InterruptedException {
     LegacyPackageBuilder builder = new LegacyPackageBuilder(packagePb.getName());
@@ -486,6 +487,14 @@ public class PackageDeserializer {
         return builder.build();
       }
 
+      case STRING_DICT_UNARY: {
+        ImmutableList.Builder<Pair<String, String>> builder = ImmutableList.builder();
+        for (StringDictUnaryEntry entry : attrPb.getStringDictUnaryValueList()) {
+          builder.add(new Pair<>(entry.getKey(), entry.getValue()));
+        }
+        return builder.build();
+      }
+
       case FILESET_ENTRY_LIST:
         return deserializeFilesetEntries(attrPb.getFilesetListValueList());
 
@@ -514,7 +523,7 @@ public class PackageDeserializer {
         return deserializeTriStateValue(attrPb.getStringValue());
 
       default:
-          throw new PackageDeserializationException("Invalid discriminator");
+          throw new PackageDeserializationException("Invalid discriminator: " + attrPb.getType());
     }
   }
 

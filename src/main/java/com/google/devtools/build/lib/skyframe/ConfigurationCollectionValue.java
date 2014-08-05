@@ -14,11 +14,15 @@
 package com.google.devtools.build.lib.skyframe;
 
 import com.google.common.base.Preconditions;
+import com.google.common.collect.ImmutableSet;
 import com.google.devtools.build.lib.concurrent.ThreadSafety.Immutable;
 import com.google.devtools.build.lib.concurrent.ThreadSafety.ThreadSafe;
 import com.google.devtools.build.lib.view.config.BuildConfigurationCollection;
+import com.google.devtools.build.lib.view.config.BuildOptions;
 import com.google.devtools.build.skyframe.SkyKey;
 import com.google.devtools.build.skyframe.SkyValue;
+
+import java.util.Objects;
 
 /**
  * A Skyframe value representing a build configuration collection.
@@ -26,11 +30,6 @@ import com.google.devtools.build.skyframe.SkyValue;
 @Immutable
 @ThreadSafe
 public class ConfigurationCollectionValue implements SkyValue {
-
-  /**
-   * Key for ConfigurationCollectionValue.
-   */
-  public static final SkyKey KEY = new SkyKey(SkyFunctions.CONFIGURATION_COLLECTION, "");
 
   private final BuildConfigurationCollection configurationCollection;
 
@@ -40,5 +39,47 @@ public class ConfigurationCollectionValue implements SkyValue {
 
   public BuildConfigurationCollection getConfigurationCollection() {
     return configurationCollection;
+  }
+
+  @ThreadSafe
+  public static SkyKey key(BuildOptions buildOptions, ImmutableSet<String> multiCpu) {
+    return new SkyKey(SkyFunctions.CONFIGURATION_COLLECTION, 
+        new ConfigurationCollectionKey(buildOptions, multiCpu));
+  }
+
+  static final class ConfigurationCollectionKey {
+    private final BuildOptions buildOptions;
+    private final ImmutableSet<String> multiCpu;
+    
+    public ConfigurationCollectionKey(BuildOptions buildOptions, ImmutableSet<String> multiCpu) {
+      this.buildOptions = Preconditions.checkNotNull(buildOptions);
+      this.multiCpu = Preconditions.checkNotNull(multiCpu);      
+    }
+    
+    public BuildOptions getBuildOptions() {
+      return buildOptions;
+    }
+    
+    public ImmutableSet<String> getMultiCpu() {
+      return multiCpu;
+    }
+    
+    @Override
+    public boolean equals(Object o) {
+      if (this == o) {
+        return true;
+      }
+      if (!(o instanceof ConfigurationCollectionKey)) {
+        return false;
+      }
+      ConfigurationCollectionKey confObject = (ConfigurationCollectionKey) o;
+      return Objects.equals(multiCpu, confObject.multiCpu)
+          && Objects.equals(buildOptions, confObject.buildOptions);
+    }
+
+    @Override
+    public int hashCode() {
+      return Objects.hash(buildOptions, multiCpu);
+    }
   }
 }

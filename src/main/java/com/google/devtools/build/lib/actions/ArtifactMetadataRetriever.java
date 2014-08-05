@@ -35,6 +35,10 @@ public interface ArtifactMetadataRetriever {
    * @param input the input to retrieve the digest for
    * @return the artifact's digest or null if digest cannot be obtained (due to artifact
    *         non-existence, lookup errors, or any other reason)
+   *
+   * @throws DigestOfDirectoryException in case {@code input} is a directory.
+   * @throws IOException If the file cannot be digested.
+   *
    */
   @Nullable
   ByteString getDigest(ActionInput input) throws IOException;

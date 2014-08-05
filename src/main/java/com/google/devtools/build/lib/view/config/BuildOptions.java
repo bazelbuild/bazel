@@ -165,6 +165,13 @@ public final class BuildOptions implements Cloneable {
   }
 
   /**
+   * Returns the options contained in this collection.
+   */
+  public Iterable<FragmentOptions> getOptions() {
+    return fragmentOptionsMap.values();
+  }
+
+  /**
    * Creates a copy of the BuildOptions object that contains copies of the FragmentOptions.
    */
   @Override

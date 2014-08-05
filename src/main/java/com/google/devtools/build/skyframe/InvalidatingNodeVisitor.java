@@ -30,16 +30,16 @@ import java.util.concurrent.TimeUnit;
 import javax.annotation.Nullable;
 
 /**
- * A visitor that is useful for invalidating transitive dependencies of Skyframe values.
+ * A visitor that is useful for invalidating transitive dependencies of Skyframe nodes.
  *
  * <p>Interruptibility: It is safe to interrupt the invalidation process at any time. Consider a
- * graph and a set of modified values. Then the reverse transitive closure of the modified values is
- * the set of dirty values. We provide interruptibility by making sure that the following invariant
+ * graph and a set of modified nodes. Then the reverse transitive closure of the modified nodes is
+ * the set of dirty nodes. We provide interruptibility by making sure that the following invariant
  * holds at any time:
  *
- * <p>If a value is dirty, but not removed (or marked as dirty) yet, then either it or any of its
+ * <p>If a node is dirty, but not removed (or marked as dirty) yet, then either it or any of its
  * transitive dependencies must be in the {@link #pendingVisitations} set. Furthermore, reverse dep
- * pointers must always point to existing values.
+ * pointers must always point to existing nodes.
  *
  * <p>Thread-safety: This class should only be instantiated and called on a single thread, but
  * internally it spawns many worker threads to process the graph. The thread-safety of the workers
@@ -77,7 +77,7 @@ abstract class InvalidatingNodeVisitor extends AbstractQueueVisitor {
    * Initiates visitation and waits for completion.
    */
   void run() throws InterruptedException {
-    // Make a copy to avoid concurrent modification confusing us as to which values were passed by
+    // Make a copy to avoid concurrent modification confusing us as to which nodes were passed by
     // the caller, and which are added by other threads during the run. Since no tasks have been
     // started yet (the queueDirtying calls start them), this is thread-safe.
     for (Pair<SkyKey, InvalidationType> visitData : ImmutableList.copyOf(pendingVisitations)) {
@@ -85,7 +85,7 @@ abstract class InvalidatingNodeVisitor extends AbstractQueueVisitor {
     }
     work(/*failFastOnInterrupt=*/true);
     Preconditions.checkState(pendingVisitations.isEmpty(),
-        "All dirty values should have been processed: %s", pendingVisitations);
+        "All dirty nodes should have been processed: %s", pendingVisitations);
   }
 
   protected void informInvalidationReceiver(SkyValue value,
@@ -96,7 +96,7 @@ abstract class InvalidatingNodeVisitor extends AbstractQueueVisitor {
   }
 
   /**
-   * Enqueues a value for invalidation.
+   * Enqueues a node for invalidation.
    */
   @ThreadSafe
   abstract void visit(SkyKey key, InvalidationType second);
@@ -104,22 +104,22 @@ abstract class InvalidatingNodeVisitor extends AbstractQueueVisitor {
   @VisibleForTesting
   enum InvalidationType {
     /**
-     * The value is dirty and must be recomputed.
+     * The node is dirty and must be recomputed.
      */
     CHANGED,
     /**
-     * The value is dirty, but may be marked clean later during change pruning.
+     * The node is dirty, but may be marked clean later during change pruning.
      */
     DIRTIED,
     /**
-     * The value is deleted.
+     * The node is deleted.
      */
     DELETED;
   }
 
   /**
-   * Invalidation state object that keeps track of which values need to be invalidated, but have not
-   * been dirtied/deleted yet. This supports interrupts - by only deleting a value from this set
+   * Invalidation state object that keeps track of which nodes need to be invalidated, but have not
+   * been dirtied/deleted yet. This supports interrupts - by only deleting a node from this set
    * when all its parents have been invalidated, we ensure that no information is lost when an
    * interrupt comes in.
    */
@@ -165,15 +165,18 @@ abstract class InvalidatingNodeVisitor extends AbstractQueueVisitor {
   }
 
   /**
-   * A value-deleting implementation.
+   * A node-deleting implementation.
    */
   static class DeletingNodeVisitor extends InvalidatingNodeVisitor {
 
     private final Set<SkyKey> visitedValues = Sets.newConcurrentHashSet();
+    private final boolean traverseGraph;
 
     protected DeletingNodeVisitor(DirtiableGraph graph,
-        EvaluationProgressReceiver invalidationReceiver, InvalidationState state) {
+        EvaluationProgressReceiver invalidationReceiver, InvalidationState state,
+        boolean traverseGraph) {
       super(graph, invalidationReceiver, state);
+      this.traverseGraph = traverseGraph;
     }
 
     @Override
@@ -187,40 +190,46 @@ abstract class InvalidatingNodeVisitor extends AbstractQueueVisitor {
       enqueue(new Runnable() {
         @Override
         public void run() {
-          ValueEntry entry = graph.get(key);
+          NodeEntry entry = graph.get(key);
           if (entry == null) {
             pendingVisitations.remove(invalidationPair);
             return;
           }
 
-          // Propagate deletion upwards.
-          for (SkyKey reverseDep : entry.getReverseDeps()) {
-            visit(reverseDep, InvalidationType.DELETED);
+          if (traverseGraph) {
+            // Propagate deletion upwards.
+            for (SkyKey reverseDep : entry.getReverseDeps()) {
+              visit(reverseDep, InvalidationType.DELETED);
+            }
           }
 
           if (entry.isDone()) {
-            // Only process this value's value and children if it is done, since dirty values have
+            // Only process this node's value and children if it is done, since dirty nodes have
             // no awareness of either.
 
-            // Unregister this value from direct deps, since reverse dep edges cannot point to
-            // non-existent values.
-            for (SkyKey directDep : entry.getDirectDeps()) {
-              ValueEntry dep = graph.get(directDep);
-              if (dep != null) {
-                dep.removeReverseDep(key);
+            // Unregister this node from direct deps, since reverse dep edges cannot point to
+            // non-existent nodes.
+            if (traverseGraph) {
+              for (SkyKey directDep : entry.getDirectDeps()) {
+                NodeEntry dep = graph.get(directDep);
+                if (dep != null) {
+                  dep.removeReverseDep(key);
+                }
               }
             }
             // Allow custom Value-specific logic to update dirtiness status.
             informInvalidationReceiver(entry.getValue(),
                 EvaluationProgressReceiver.InvalidationState.DELETED);
           }
-          // Force reverseDeps consolidation (validates that attempts to remove reverse deps were
-          // really successful.
-          entry.getReverseDeps();
-          // Actually remove the value.
+          if (traverseGraph) {
+            // Force reverseDeps consolidation (validates that attempts to remove reverse deps were
+            // really successful.
+            entry.getReverseDeps();
+          }
+          // Actually remove the node.
           graph.remove(key);
 
-          // Remove the value from the set as the last operation.
+          // Remove the node from the set as the last operation.
           pendingVisitations.remove(invalidationPair);
         }
       });
@@ -228,7 +237,7 @@ abstract class InvalidatingNodeVisitor extends AbstractQueueVisitor {
   }
 
   /**
-   * A value-dirtying implementation.
+   * A node-dirtying implementation.
    */
   static class DirtyingNodeVisitor extends InvalidatingNodeVisitor {
 
@@ -240,20 +249,20 @@ abstract class InvalidatingNodeVisitor extends AbstractQueueVisitor {
     }
 
     /**
-     * Queues a task to dirty the value named by {@code key}. May be called from multiple threads.
-     * It is possible that the same value is enqueued many times. However, we require that a value
+     * Queues a task to dirty the node named by {@code key}. May be called from multiple threads.
+     * It is possible that the same node is enqueued many times. However, we require that a node
      * is only actually marked dirty/changed once, with two exceptions:
      *
-     * (1) If a value is marked dirty, it can subsequently be marked changed. This can occur if, for
+     * (1) If a node is marked dirty, it can subsequently be marked changed. This can occur if, for
      * instance, FileValue workspace/foo/foo.cc is marked dirty because FileValue workspace/foo is
      * marked changed (and every FileValue depends on its parent). Then FileValue
      * workspace/foo/foo.cc is itself changed (this can even happen on the same build).
      *
-     * (2) If a value is going to be marked both dirty and changed, as, for example, in the previous
+     * (2) If a node is going to be marked both dirty and changed, as, for example, in the previous
      * case if both workspace/foo/foo.cc and workspace/foo have been changed in the same build, the
      * thread marking workspace/foo/foo.cc dirty may race with the one marking it changed, and so
      * try to mark it dirty after it has already been marked changed. In that case, the
-     * {@link ValueEntry} ignores the second marking.
+     * {@link NodeEntry} ignores the second marking.
      *
      * The invariant that we do not process a (SkyKey, InvalidationType) pair twice is enforced by
      * the {@link #visited} set.
@@ -278,22 +287,22 @@ abstract class InvalidatingNodeVisitor extends AbstractQueueVisitor {
       enqueue(new Runnable() {
         @Override
         public void run() {
-          ValueEntry entry = graph.get(key);
+          NodeEntry entry = graph.get(key);
 
           if (entry == null) {
             // Currently, the only way for an entry to not exist is if the caller requested
-            // invalidation of a non-existent value. Since all caller-specified values are
-            // isChanged, we check for that. Values that depend on the error transience value can
+            // invalidation of a non-existent node. Since all caller-specified nodes are
+            // isChanged, we check for that. Nodes that depend on the error transience node can
             // also be marked changed, so this fail-fast check is not perfectly tight.
             Preconditions.checkState(isChanged,
-                "%s does not exist in the graph but was enqueued for dirtying by another value",
+                "%s does not exist in the graph but was enqueued for dirtying by another node",
                 key);
             pendingVisitations.remove(invalidationPair);
             return;
           }
 
           if (entry.isChanged() || (!isChanged && entry.isDirty())) {
-            // If this value is already marked changed, or we are only marking this value dirty, and
+            // If this node is already marked changed, or we are only marking this node dirty, and
             // it already is, move along.
             pendingVisitations.remove(invalidationPair);
             return;
@@ -305,19 +314,19 @@ abstract class InvalidatingNodeVisitor extends AbstractQueueVisitor {
           // It is not safe to interrupt the logic from this point until the end of the method.
           // Any exception thrown should be unrecoverable.
           if (depsAndValue == null) {
-            // Another thread has already dirtied this value. Don't do anything in this thread.
+            // Another thread has already dirtied this node. Don't do anything in this thread.
             pendingVisitations.remove(invalidationPair);
             return;
           }
-          // Propagate dirtiness upwards and mark this value dirty/changed. Reverse deps should only
-          // be marked dirty (because only a dependency of theirs has changed) unless this value is
-          // the error transience value, in which case the caller wants any value in error to be
-          // re-evaluated unconditionally, hence those error values should be marked changed.
+          // Propagate dirtiness upwards and mark this node dirty/changed. Reverse deps should only
+          // be marked dirty (because only a dependency of theirs has changed) unless this node is
+          // the error transience node, in which case the caller wants any node in error to be
+          // re-evaluated unconditionally, hence those error nodes should be marked changed.
           for (SkyKey reverseDep : entry.getReverseDeps()) {
             visit(reverseDep, InvalidationType.DIRTIED);
           }
 
-          // Remove this value as a reverse dep from its children, since we have reset it and it no
+          // Remove this node as a reverse dep from its children, since we have reset it and it no
           // longer lists its children as direct deps.
           for (SkyKey dep : depsAndValue.first) {
             graph.get(dep).removeReverseDep(key);
@@ -325,7 +334,7 @@ abstract class InvalidatingNodeVisitor extends AbstractQueueVisitor {
 
           SkyValue value = ValueWithMetadata.justValue(depsAndValue.second);
           informInvalidationReceiver(value, EvaluationProgressReceiver.InvalidationState.DIRTY);
-          // Remove the value from the set as the last operation.
+          // Remove the node from the set as the last operation.
           pendingVisitations.remove(invalidationPair);
         }
       });

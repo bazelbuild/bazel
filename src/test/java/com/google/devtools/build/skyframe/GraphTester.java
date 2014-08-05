@@ -83,6 +83,7 @@ public class GraphTester {
       public SkyValue compute(SkyKey key, Environment env)
           throws SkyFunctionException, InterruptedException {
         TestFunction builder = values.get(key);
+        Preconditions.checkState(builder != null, "No TestFunction for " + key);
         if (builder.builder != null) {
           return builder.builder.compute(key, env);
         }

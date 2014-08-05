@@ -45,6 +45,7 @@ import com.google.devtools.build.skyframe.GraphTester.StringValue;
 import com.google.devtools.build.skyframe.NotifyingInMemoryGraph.EventType;
 import com.google.devtools.build.skyframe.NotifyingInMemoryGraph.Listener;
 import com.google.devtools.build.skyframe.NotifyingInMemoryGraph.Order;
+import com.google.devtools.build.skyframe.ParallelEvaluator.SkyFunctionEnvironment;
 
 import org.junit.Assert;
 import org.junit.Before;
@@ -382,7 +383,7 @@ public class ParallelEvaluatorTest {
       evaluator.eval(ImmutableList.of(valueToEval));
     } catch (RuntimeException re) {
       assertTrue(re.getMessage()
-          .contains("Unrecoverable error while evaluating value '" + valueToEval.toString() + "'"));
+          .contains("Unrecoverable error while evaluating node '" + valueToEval.toString() + "'"));
       assertTrue(re.getCause() instanceof CustomRuntimeException);
     }
   }
@@ -784,7 +785,8 @@ public class ParallelEvaluatorTest {
         if (firstTime) {
           return null;
         }
-        trackingAwaiter.awaitLatchAndTrackExceptions(env.getExceptionLatchForTesting(),
+        SkyFunctionEnvironment skyEnv = (SkyFunctionEnvironment) env;
+        trackingAwaiter.awaitLatchAndTrackExceptions(skyEnv.getExceptionLatchForTesting(),
             "top did not get exception in time");
         return null;
       }
@@ -1621,8 +1623,8 @@ public class ParallelEvaluatorTest {
       fail();
     } catch (RuntimeException e) {
       assertEquals("I WANT A PONY!!!", e.getCause().getMessage());
-      assertEquals("Unrecoverable error while evaluating value 'child:billy the kid' "
-          + "(requested by values 'parent:octodad')", e.getMessage());
+      assertEquals("Unrecoverable error while evaluating node 'child:billy the kid' "
+          + "(requested by nodes 'parent:octodad')", e.getMessage());
     }
   }
 

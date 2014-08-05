@@ -18,6 +18,7 @@ import com.google.common.collect.ImmutableMap;
 import com.google.devtools.build.lib.events.Location;
 import com.google.devtools.build.lib.syntax.Label;
 
+import java.util.HashMap;
 import java.util.Map;
 
 import javax.annotation.Nullable;
@@ -148,14 +149,15 @@ public final class TargetUtils {
    * tags ('requires-*' as well as "local") as keys with empty values.
    */
   public static Map<String, String> getExecutionInfo(Rule rule) {
-    ImmutableMap.Builder<String, String> builder = ImmutableMap.builder();
+    // tags may contain duplicate values.
+    Map<String, String> map = new HashMap<>();
     for (String tag :
         NonconfigurableAttributeMapper.of(rule).get(CONSTRAINTS_ATTR, Type.STRING_LIST)) {
       if (tag.startsWith("requires-") || tag.equals("local")) {
-        builder.put(tag, "");
+        map.put(tag, "");
       }
     }
-    return builder.build();
+    return ImmutableMap.copyOf(map);
   }
 
   /**

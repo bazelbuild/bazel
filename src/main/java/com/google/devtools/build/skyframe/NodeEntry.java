@@ -29,70 +29,76 @@ import java.util.Set;
 import javax.annotation.Nullable;
 
 /**
- * A value in the graph. All operations on this class are thread-safe. Care was taken to provide
+ * A node in the graph. All operations on this class are thread-safe. Care was taken to provide
  * certain compound operations to avoid certain check-then-act races. That means this class is
  * somewhat closely tied to the exact Evaluator implementation.
  *
- * <p>Consider the example with two threads working on two values, where one depends on the other,
+ * <p>Consider the example with two threads working on two nodes, where one depends on the other,
  * say b depends on a. If a completes first, it's done. If it completes second, it needs to signal
  * b, and potentially re-schedule it. If b completes first, it must exit, because it will be
  * signaled (and re-scheduled) by a. If it completes second, it must signal (and re-schedule)
- * itself. However, if the Evaluator supported re-entrancy for a value, then this wouldn't have to
+ * itself. However, if the Evaluator supported re-entrancy for a node, then this wouldn't have to
  * be so strict, because duplicate scheduling would be less problematic.
  *
- * <p>The transient state of a {@code ValueEntry} is kept in a {@link BuildingState} object. Many of
- * the methods of {@code ValueEntry} are just wrappers around the corresponding
+ * <p>The transient state of a {@code NodeEntry} is kept in a {@link BuildingState} object. Many of
+ * the methods of {@code NodeEntry} are just wrappers around the corresponding
  * {@link BuildingState} methods.
  *
  * <p>This class is non-final only for testing purposes.
  */
-class ValueEntry {
+class NodeEntry {
   /**
    * Return code for {@link #addReverseDepAndCheckIfDone(SkyKey)}.
    */
   enum DependencyState {
-    /** The value is done. */
+    /** The node is done. */
     DONE,
+
     /**
-     * The value was just created and needs to be scheduled for its first evaluation pass. The value
-     * evaluator is responsible for signaling the reverse dependency value.
+     * The node was just created and needs to be scheduled for its first evaluation pass. The
+     * evaluator is responsible for signaling the reverse dependency node.
      */
     NEEDS_SCHEDULING,
+
     /**
-     * The value was already created, but isn't done yet. The value evaluator is responsible for
-     * signaling the reverse dependency value.
+     * The node was already created, but isn't done yet. The evaluator is responsible for
+     * signaling the reverse dependency node.
      */
     ADDED_DEP;
   }
 
   /** Actual data stored in this entry when it is done. */
   private SkyValue value = null;
+
   /**
-   * The last version of the graph at which this value entry was changed. In {@link #setValue} it
+   * The last version of the graph at which this node entry was changed. In {@link #setValue} it
    * may be determined that the data being written to the graph at a given version is the same as
    * the already-stored data. In that case, the version will remain the same. The version can be
    * thought of as the latest timestamp at which this entry was changed.
    */
   private long version = -1L;
+
   /**
    * This object represents a {@link GroupedList}<SkyKey> in a memory-efficient way. It stores the
-   * direct dependencies of this value, in groups if the value builder requested them that way.
+   * direct dependencies of this node, in groups if the {@code SkyFunction} requested them that way.
    */
   private Object directDeps = null;
 
   /**
-   * This list stores the reverse dependencies of this value that have been declared so far.
+   * This list stores the reverse dependencies of this node that have been declared so far.
    *
    * <p>In case of a single object we store the object unwrapped, without the list, for
    * memory-efficiency.
    */
   @VisibleForTesting
   protected Object reverseDeps = ImmutableList.of();
+
   /**
    * We take advantage of memory alignment to avoid doing a nasty {@code instanceof} for knowing
    * if {@code reverseDeps} is a single object or a list.
    */
   protected boolean reverseDepIsSingleObject = false;
+
   /**
    * During the invalidation we keep the reverse deps to be removed in this list instead of directly
    * removing them from {@code reverseDeps}. That is because removals from reverseDeps are O(N).
@@ -105,35 +111,35 @@ class ValueEntry {
    */
   private List<SkyKey> reverseDepsToRemove = null;
 
-  private static final ReverseDepsUtil<ValueEntry> REVERSE_DEPS_UTIL =
-      new ReverseDepsUtil<ValueEntry>() {
+  private static final ReverseDepsUtil<NodeEntry> REVERSE_DEPS_UTIL =
+      new ReverseDepsUtil<NodeEntry>() {
     @Override
-    void setReverseDepsObject(ValueEntry container, Object object) {
+    void setReverseDepsObject(NodeEntry container, Object object) {
       container.reverseDeps = object;
     }
 
     @Override
-    void setSingleReverseDep(ValueEntry container, boolean singleObject) {
+    void setSingleReverseDep(NodeEntry container, boolean singleObject) {
       container.reverseDepIsSingleObject = singleObject;
     }
 
     @Override
-    void setReverseDepsToRemove(ValueEntry container, List<SkyKey> object) {
+    void setReverseDepsToRemove(NodeEntry container, List<SkyKey> object) {
       container.reverseDepsToRemove = object;
     }
 
     @Override
-    Object getReverseDepsObject(ValueEntry container) {
+    Object getReverseDepsObject(NodeEntry container) {
       return container.reverseDeps;
     }
 
     @Override
-    boolean isSingleReverseDep(ValueEntry container) {
+    boolean isSingleReverseDep(NodeEntry container) {
       return container.reverseDepIsSingleObject;
     }
 
     @Override
-    List<SkyKey> getReverseDepsToRemove(ValueEntry container) {
+    List<SkyKey> getReverseDepsToRemove(NodeEntry container) {
       return container.reverseDepsToRemove;
     }
   };
@@ -145,7 +151,11 @@ class ValueEntry {
   @VisibleForTesting
   protected BuildingState buildingState = new BuildingState();
 
-  ValueEntry() {
+  NodeEntry() {
+  }
+
+  protected boolean keepEdges() {
+    return true;
   }
 
   /** Returns whether the entry has been built and is finished evaluating. */
@@ -155,7 +165,7 @@ class ValueEntry {
 
   /**
    * Returns the value stored in this entry. This method may only be called after the evaluation of
-   * this value is complete, i.e., after {@link #setValue} has been called.
+   * this node is complete, i.e., after {@link #setValue} has been called.
    */
   synchronized SkyValue getValue() {
     Preconditions.checkState(isDone(), "no value until done. ValueEntry: %s", this);
@@ -164,7 +174,7 @@ class ValueEntry {
 
   /**
    * Returns the {@link SkyValue} for this entry and the metadata associated with it (Like events
-   * and errors). This method may only be called after the evaluation of this value is complete,
+   * and errors). This method may only be called after the evaluation of this node is complete,
    * i.e., after {@link #setValue} has been called.
    */
   synchronized ValueWithMetadata getValueWithMetadata() {
@@ -173,9 +183,9 @@ class ValueEntry {
   }
 
   /**
-   * Returns the Value value, even if dirty or changed. Returns null otherwise.
+   * Returns the value, even if dirty or changed. Returns null otherwise.
    */
-  public synchronized SkyValue toValueValue() {
+  public synchronized SkyValue toValue() {
     if (isDone()) {
       return getErrorInfo() == null ? getValue() : null;
     } else if (isChanged() || isDirty()) {
@@ -187,22 +197,23 @@ class ValueEntry {
   }
 
   /**
-   * Returns an immutable iterable of the direct deps of this value. This method may only be called
-   * after the evaluation of this value is complete, i.e., after {@link #setValue} has been called.
+   * Returns an immutable iterable of the direct deps of this node. This method may only be called
+   * after the evaluation of this node is complete, i.e., after {@link #setValue} has been called.
    *
    * <p>This method is not very efficient, but is only be called in limited circumstances --
-   * when the value is about to be deleted, or when the value is expected to have no direct deps (in
-   * which case the overhead is not so bad). It should not be called repeatedly for the same value,
-   * since each call takes time proportional to the number of direct deps of the value.
+   * when the node is about to be deleted, or when the node is expected to have no direct deps (in
+   * which case the overhead is not so bad). It should not be called repeatedly for the same node,
+   * since each call takes time proportional to the number of direct deps of the node.
    */
   synchronized Iterable<SkyKey> getDirectDeps() {
+    assertKeepEdges();
     Preconditions.checkState(isDone(), "no deps until done. ValueEntry: %s", this);
     return GroupedList.<SkyKey>create(directDeps).toSet();
   }
 
   /**
-   * Returns the error, if any, associated to this value. This method may only be called after
-   * the evaluation of this value is complete, i.e., after {@link #setValue} has been called.
+   * Returns the error, if any, associated to this node. This method may only be called after
+   * the evaluation of this node is complete, i.e., after {@link #setValue} has been called.
    */
   @Nullable
   synchronized ErrorInfo getErrorInfo() {
@@ -220,6 +231,10 @@ class ValueEntry {
     // Set state of entry to done.
     buildingState = null;
 
+    if (!keepEdges()) {
+      this.directDeps = null;
+      this.reverseDeps = null;
+    }
     return reverseDepsToSignal;
   }
 
@@ -234,19 +249,19 @@ class ValueEntry {
   }
 
   /**
-   * Transitions the value from the EVALUATING to the DONE state and simultaneously sets it to the
+   * Transitions the node from the EVALUATING to the DONE state and simultaneously sets it to the
    * given value and error state. It then returns the set of reverse dependencies that need to be
    * signaled.
    *
-   * <p>This is an atomic operation to avoid a race where two threads work on two values, where one
-   * value depends on another (b depends on a). When a finishes, it signals <b>exactly</b> the set
+   * <p>This is an atomic operation to avoid a race where two threads work on two nodes, where one
+   * node depends on another (b depends on a). When a finishes, it signals <b>exactly</b> the set
    * of reverse dependencies that are registered at the time of the {@code setValue} call. If b
    * comes in before a, it is signaled (and re-scheduled) by a, otherwise it needs to do that
    * itself.
    *
-   * <p>{@code version} indicates the graph version at which this value is being written. If the
+   * <p>{@code version} indicates the graph version at which this node is being written. If the
    * entry determines that the new value is equal to the previous value, the entry will keep its
-   * current version. Callers can query that version to see if the value considers its value to have
+   * current version. Callers can query that version to see if the node considers its value to have
    * changed.
    */
   synchronized Set<SkyKey> setValue(SkyValue value, long version) {
@@ -269,32 +284,36 @@ class ValueEntry {
   }
 
   /**
-   * Queries if the value is done and adds the given key as a reverse dependency. The return code
-   * indicates whether a) the value is done, b) the reverse dependency is the first one, so the
-   * value needs to be scheduled, or c) the reverse dependency was added, and the value does not
+   * Queries if the node is done and adds the given key as a reverse dependency. The return code
+   * indicates whether a) the node is done, b) the reverse dependency is the first one, so the
+   * node needs to be scheduled, or c) the reverse dependency was added, and the node does not
    * need to be scheduled.
    *
    * <p>This method <b>must</b> be called before any processing of the entry. This encourages
    * callers to check that the entry is ready to be processed.
    *
-   * <p>Adding the dependency and checking if the value needs to be scheduled is an atomic operation
-   * to avoid a race where two threads work on two values, where one depends on the other (b depends
+   * <p>Adding the dependency and checking if the node needs to be scheduled is an atomic operation
+   * to avoid a race where two threads work on two nodes, where one depends on the other (b depends
    * on a). In that case, we need to ensure that b is re-scheduled exactly once when a is done.
    * However, a may complete first, in which case b has to re-schedule itself. Also see {@link
    * #setValue}.
    *
    * <p>If the parameter is {@code null}, then no reverse dependency is added, but we still check
-   * if the value needs to be scheduled.
+   * if the node needs to be scheduled.
    */
   synchronized DependencyState addReverseDepAndCheckIfDone(SkyKey reverseDep) {
     if (reverseDep != null) {
-      REVERSE_DEPS_UTIL.consolidateReverseDepsRemovals(this);
-      REVERSE_DEPS_UTIL.maybeCheckReverseDepNotPresent(this, reverseDep);
+      if (keepEdges()) {
+        REVERSE_DEPS_UTIL.consolidateReverseDepsRemovals(this);
+        REVERSE_DEPS_UTIL.maybeCheckReverseDepNotPresent(this, reverseDep);
+      }
       if (isDone()) {
-        REVERSE_DEPS_UTIL.addReverseDeps(this, ImmutableList.of(reverseDep));
+        if (keepEdges()) {
+          REVERSE_DEPS_UTIL.addReverseDeps(this, ImmutableList.of(reverseDep));
+        }
       } else {
         // Parent should never register itself twice in the same build.
-        buildingState.addReverseDepToSignal(reverseDep);        
+        buildingState.addReverseDepToSignal(reverseDep);
       }
     }
     if (isDone()) {
@@ -308,33 +327,33 @@ class ValueEntry {
    * Removes a reverse dependency.
    */
   synchronized void removeReverseDep(SkyKey reverseDep) {
+    if (!keepEdges()) {
+      return;
+    }
     REVERSE_DEPS_UTIL.removeReverseDep(this, reverseDep);
     if (!isDone()) {
       // This is currently unnecessary -- the only time we remove a reverse dep that was added this
-      // build is during the clean following a build failure. In that case, this value that is not
+      // build is during the clean following a build failure. In that case, this node that is not
       // done will be deleted soon, so clearing the reverse dep is not required.
       buildingState.removeReverseDepToSignal(reverseDep);
     }
   }
-
-
-
-
 
   /**
    * Returns a copy of the set of reverse dependencies. Note that this introduces a potential
    * check-then-act race; {@link #removeReverseDep} may fail for a key that is returned here.
    */
   synchronized Iterable<SkyKey> getReverseDeps() {
+    assertKeepEdges();
     Preconditions.checkState(isDone() || buildingState.getReverseDepsToSignal().isEmpty(),
         "Reverse deps should only be queried before the build has begun "
-            + "or after the value is done %s", this);
+            + "or after the node is done %s", this);
     return REVERSE_DEPS_UTIL.getReverseDeps(this);
   }
 
   /**
-   * Tell this value that one of its dependencies is now done. Callers must check the return value,
-   * and if true, they must re-schedule this value for evaluation. Equivalent to
+   * Tell this node that one of its dependencies is now done. Callers must check the return value,
+   * and if true, they must re-schedule this node for evaluation. Equivalent to
    * {@code #signalDep(Long.MAX_VALUE)}. Since this entry's version is less than
    * {@link Long#MAX_VALUE}, informing this entry that a child of it has version
    * {@link Long#MAX_VALUE} will force it to re-evaluate.
@@ -345,7 +364,7 @@ class ValueEntry {
 
   /**
    * Tell this entry that one of its dependencies is now done. Callers must check the return value,
-   * and if true, they must re-schedule this value for evaluation.
+   * and if true, they must re-schedule this node for evaluation.
    *
    * @param childVersion If this entry {@link #isDirty()} and {@code childVersion} is greater than
    * {@link #getVersion()}, then this entry records that one of its children has changed since it
@@ -374,17 +393,23 @@ class ValueEntry {
     return !isDone() && buildingState.isChanged();
   }
 
+  /** Checks that a caller is not trying to access not-stored graph edges. */
+  private void assertKeepEdges() {
+    Preconditions.checkState(keepEdges(), "Graph edges not stored. %s", this);
+  }
+
   /**
-   * Marks this value dirty, or changed if {@code isChanged} is true. The value is put in the
+   * Marks this node dirty, or changed if {@code isChanged} is true. The node  is put in the
    * just-created state. It will be re-evaluated if necessary during the evaluation phase,
    * but if it has not changed, it will not force a re-evaluation of its parents.
    *
    * @return The direct deps and value of this entry, or null if the entry has already been marked
-   * dirty. In the latter case, the caller should abort its handling of this value, since another
+   * dirty. In the latter case, the caller should abort its handling of this node, since another
    * thread is already dealing with it.
    */
   @Nullable
   synchronized Pair<? extends Iterable<SkyKey>, ? extends SkyValue> markDirty(boolean isChanged) {
+    assertKeepEdges();
     if (isDone()) {
       GroupedList<SkyKey> lastDirectDeps = GroupedList.create(directDeps);
       buildingState = BuildingState.newDirtyState(isChanged, lastDirectDeps, value);
@@ -394,12 +419,12 @@ class ValueEntry {
       directDeps = null;
       return result;
     }
-    // The caller may be simultaneously trying to mark this value dirty and changed, and the dirty
+    // The caller may be simultaneously trying to mark this node dirty and changed, and the dirty
     // thread may have lost the race, but it is the caller's responsibility not to try to mark
-    // this value changed twice. The end result of racing markers must be a changed value, since one
-    // of the markers is trying to mark the value changed.
+    // this node changed twice. The end result of racing markers must be a changed node, since one
+    // of the markers is trying to mark the node changed.
     Preconditions.checkState(isChanged != isChanged(),
-        "Cannot mark value dirty twice or changed twice: %s", this);
+        "Cannot mark node dirty twice or changed twice: %s", this);
     Preconditions.checkState(value == null, "Value should have been reset already %s", this);
     Preconditions.checkState(directDeps == null, "direct deps not already reset %s", this);
     if (isChanged) {
@@ -413,14 +438,14 @@ class ValueEntry {
   /**
    * Marks this entry as up-to-date at this version.
    *
-   * @return {@link Set} of reverse dependencies to signal that this value is done.
+   * @return {@link Set} of reverse dependencies to signal that this node is done.
    */
   synchronized Set<SkyKey> markClean() {
     this.value = buildingState.getLastBuildValue();
     // This checks both the value and the direct deps, but since we're passing in the same value,
     // the value check should be trivial.
     Preconditions.checkState(buildingState.unchangedFromLastBuild(this.value),
-        "Direct deps must be the same as those found last build for value to be marked clean",
+        "Direct deps must be the same as those found last build for node to be marked clean: %s",
         this);
     Preconditions.checkState(isDirty(), this);
     Preconditions.checkState(!buildingState.isChanged(), "shouldn't be changed: %s", this);
@@ -428,10 +453,12 @@ class ValueEntry {
   }
 
   /**
-   * Forces this value to be rebuilt, even if none of its dependencies are known to have changed.
-   * Used when an external caller has reason to believe that re-evaluating may yield a new result.
-   * This method should not be used if one of the normal deps of this value has changed -- the usual
-   * change-pruning process should work in that case.
+   * Forces this node to be reevaluated, even if none of its dependencies are known to have
+   * changed.
+   *
+   * <p>Used when an external caller has reason to believe that re-evaluating may yield a new
+   * result. This method should not be used if one of the normal deps of this node has changed,
+   * the usual change-pruning process should work in that case.
    */
   synchronized void forceRebuild() {
     buildingState.forceChanged();
@@ -461,13 +488,13 @@ class ValueEntry {
    * have already called {@link #getDirtyState} and received a return value of
    * {@link BuildingState.DirtyState#CHECK_DEPENDENCIES} before calling this method -- any other
    * return value from {@link #getDirtyState} means that this method must not be called, since
-   * whether or not the value needs to be rebuilt is already known.
+   * whether or not the node needs to be rebuilt is already known.
    *
    * <p>Deps are returned in groups. The deps in each group were requested in parallel by the
-   * builder last build, meaning independently of the values of any other deps in this group
-   * (although possibly depending on deps in earlier groups). Thus the caller may check all the deps
-   * in this group in parallel, since the deps in all previous groups are verified unchanged. See
-   * {@link SkyFunction.Environment#getValues} for more on dependency groups.
+   * {@code SkyFunction} last build, meaning independently of the values of any other deps in this
+   * group (although possibly depending on deps in earlier groups). Thus the caller may check all
+   * the deps in this group in parallel, since the deps in all previous groups are verified
+   * unchanged. See {@link SkyFunction.Environment#getValues} for more on dependency groups.
    *
    * <p>The caller should register these as deps of this entry using {@link #addTemporaryDirectDeps}
    * before checking them.
@@ -479,7 +506,7 @@ class ValueEntry {
   }
 
   /**
-   * Returns the set of direct dependencies. This may only be called while the value is being
+   * Returns the set of direct dependencies. This may only be called while the node is being
    * evaluated, that is, before {@link #setValue} and after {@link #markDirty}.
    */
   synchronized Set<SkyKey> getTemporaryDirectDeps() {
@@ -493,7 +520,7 @@ class ValueEntry {
 
   /**
    * Remove dep from direct deps. This should only be called if this entry is about to be
-   * committed as a cycle value, but some of its children were not checked for cycles, either
+   * committed as a cycle node, but some of its children were not checked for cycles, either
    * because the cycle was discovered before some children were checked; some children didn't have a
    * chance to finish before the evaluator aborted; or too many cycles were found when it came time
    * to check the children.
@@ -508,8 +535,8 @@ class ValueEntry {
   }
 
   /**
-   * Returns true if the value is ready to be evaluated, i.e., it has been signaled exactly as many
-   * times as it has temporary dependencies. This may only be called while the value is being
+   * Returns true if the node is ready to be evaluated, i.e., it has been signaled exactly as many
+   * times as it has temporary dependencies. This may only be called while the node is being
    * evaluated, that is, before {@link #setValue} and after {@link #markDirty}.
    */
   synchronized boolean isReady() {

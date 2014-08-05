@@ -38,7 +38,7 @@ class DeterministicInMemoryGraph extends NotifyingInMemoryGraph {
    * This class uses TreeSet to store reverse dependencies of ValueEntry. As a result all values are
    * lexicographically sorted.
    */
-  private class DeterministicValueEntry extends NotifyingValueEntry {
+  private class DeterministicValueEntry extends NotifyingNodeEntry {
     private DeterministicValueEntry(SkyKey myKey) {
       super(myKey);
     }

@@ -408,7 +408,7 @@ public final class FuncallExpression extends Expression {
       return env.getReturnType(obj.validate(env), func.getName(), getLocation());
     } else {
       // TODO(bazel-team): Imported functions are not validated properly.
-      if (!env.hasGlobalSymbol(func.getName())) {
+      if (!env.hasSymbolInEnvironment(func.getName())) {
         throw new EvalException(getLocation(),
             String.format("function '%s' does not exist", func.getName()));
       }

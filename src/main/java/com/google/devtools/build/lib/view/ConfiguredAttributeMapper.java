@@ -19,6 +19,7 @@ import com.google.devtools.build.lib.packages.AbstractAttributeMapper;
 import com.google.devtools.build.lib.packages.AttributeMap;
 import com.google.devtools.build.lib.packages.Rule;
 import com.google.devtools.build.lib.packages.Type;
+import com.google.devtools.build.lib.syntax.Label;
 import com.google.devtools.build.lib.view.config.BuildConfiguration;
 
 /**
@@ -27,10 +28,15 @@ import com.google.devtools.build.lib.view.config.BuildConfiguration;
  * <ol>
  *   <li>If the attribute is selectable (i.e. its BUILD declaration is of the form
  *   "attr = { config1: "value1", "config2: "value2", ... }", returns the subset of values
- *   chosen by the current configuration in accordance with Blaze's documented policy on
+ *   chosen by the current configuration in accordance with Bazel's documented policy on
  *   configurable attribute selection.
  *   <li>If the attribute is not selectable (i.e. its value is static), returns that value with
  *   no additional processing.
+ *
+ * <p>Example usage:
+ * <pre>
+ *   Label fooLabel = ConfiguredAttributeMapper.of(ruleConfiguredTarget).get("foo", Type.LABEL);
+ * </pre>
  * </ol>
  */
 public class ConfiguredAttributeMapper extends AbstractAttributeMapper {
@@ -44,12 +50,12 @@ public class ConfiguredAttributeMapper extends AbstractAttributeMapper {
   }
 
   /**
-   * Example usage:
-   *
-   * <pre>
-   *   Label fooLabel = ConfiguredAttributeMapper.of(rule, config).get("foo", Type.LABEL);
-   * </pre>
+   * "Do-it-all" constructor that just needs a {@link RuleConfiguredTarget}.
    */
+  public static ConfiguredAttributeMapper of(RuleConfiguredTarget ct) {
+    return new ConfiguredAttributeMapper(ct.getTarget(), ct.getConfiguration());
+  }
+
   public static ConfiguredAttributeMapper of(Rule rule, BuildConfiguration configuration) {
     return new ConfiguredAttributeMapper(rule, configuration);
   }
@@ -58,7 +64,7 @@ public class ConfiguredAttributeMapper extends AbstractAttributeMapper {
   public <T> T get(String attributeName, Type<T> type) {
     Type.Selector<T> selector = getSelector(attributeName, type);
     if (selector != null) {
-      String selectionKey = configuration.getAttributeSelector();
+      Label selectionKey = configuration.getAttributeSelector();
       T value = selectionKey != null ? selector.getEntries().get(selectionKey) : null;
       if (value == null) {
         value = selector.getDefault();

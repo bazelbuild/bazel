@@ -72,6 +72,7 @@ import com.google.devtools.build.lib.vfs.Path;
 import com.google.devtools.build.lib.vfs.PathFragment;
 import com.google.devtools.build.lib.vfs.RootedPath;
 import com.google.devtools.build.lib.vfs.UnixGlob;
+import com.google.devtools.build.lib.view.BuildView.Options;
 import com.google.devtools.build.lib.view.ConfiguredTarget;
 import com.google.devtools.build.lib.view.TopLevelArtifactContext;
 import com.google.devtools.build.lib.view.WorkspaceStatusAction;
@@ -198,18 +199,13 @@ public final class SkyframeExecutor {
   /** Union of labels of loaded packages since the last eviction of CT values. */
   private Set<PathFragment> allLoadedPackages = ImmutableSet.of();
 
-  /**
-   * Upper limit for how many value versions should dirty values be retained for.
-   *
-   * <p>Specifying a value N means, if the current version is V and a value was dirtied (and
-   * has remained so) in version U, and U + N &lt;= V, then the value will be marked for deletion
-   * and purged in version V+1.
-   */
-  private long versionWindowForDirtyGc = Long.MAX_VALUE;
-
   // Use skyframe for execution? Alternative is to use legacy execution codepath.
   // TODO(bazel-team): Remove when legacy codepath is no longer used. [skyframe-execution]
   private final boolean skyframeBuild;
+
+  // Can only be set once (to false) over the lifetime of this object. If false, the graph will not
+  // store edges, saving memory but making incremental builds impossible.
+  private boolean keepGraphEdges = true;
 
   private final TimestampGranularityMonitor tsgm;
 
@@ -232,9 +228,10 @@ public final class SkyframeExecutor {
       new SkyframeIncrementalBuildMonitor();
 
   private MutableSupplier<ConfigurationFactory> configurationFactory = new MutableSupplier<>();
-  private MutableSupplier<BuildConfigurationKey> buildConfigurationKey = new MutableSupplier<>();
+  private MutableSupplier<Map<String, String>> clientEnv = new MutableSupplier<>();
   private MutableSupplier<ImmutableList<ConfigurationFragmentFactory>> configurationFragments =
       new MutableSupplier<>();
+  private SkyKey configurationSkyKey = null;
 
   @VisibleForTesting
   public SkyframeExecutor(Reporter reporter, PackageFactory pkgFactory,
@@ -324,7 +321,7 @@ public final class SkyframeExecutor {
     map.put(SkyFunctions.POST_CONFIGURED_TARGET,
         new PostConfiguredTargetFunction(new BuildViewProvider()));
     map.put(SkyFunctions.CONFIGURATION_COLLECTION, new ConfigurationCollectionFunction(
-        configurationFactory, buildConfigurationKey));
+        configurationFactory, clientEnv));
     map.put(SkyFunctions.CONFIGURATION_FRAGMENT, new ConfigurationFragmentFunction(
         configurationFragments));
     if (skyframeBuild) {
@@ -416,7 +413,7 @@ public final class SkyframeExecutor {
     Map<SkyFunctionName, SkyFunction> skyFunctions = skyFunctions(
         directories.getBuildDataDirectory(), pkgFactory, allowedMissingInputs);
     memoizingEvaluator = evaluatorSupplier.create(
-        skyFunctions, recordingDiffer, progressReceiver, emittedEventState);
+        skyFunctions, recordingDiffer, progressReceiver, emittedEventState, keepGraphEdges);
     sequentialBuildDriver = new SequentialBuildDriver(memoizingEvaluator);
     currentDiffAwarenesses.clear();
     if (skyframeBuildView != null) {
@@ -516,6 +513,31 @@ public final class SkyframeExecutor {
         ctValue.clear();
       }
     }
+  }
+
+  /**
+   * Decides if graph edges should be stored for this build. If not, re-creates the graph to not
+   * store graph edges. Necessary conditions to not store graph edges are:
+   * (1) batch (since incremental builds are not possible);
+   * (2) skyframe build (since otherwise the memory savings are too slight to bother);
+   * (3) keep-going (since otherwise bubbling errors up may require edges of done nodes);
+   * (4) discard_analysis_cache (since otherwise user isn't concerned about saving memory this way).
+   */
+  public void decideKeepIncrementalState(boolean batch, Options viewOptions) {
+    Preconditions.checkState(!active);
+    if (viewOptions == null) {
+      // Some blaze commands don't include the view options. Don't bother with them.
+      return;
+    }
+    if (skyframeBuild && batch && viewOptions.keepGoing && viewOptions.discardAnalysisCache) {
+      Preconditions.checkState(keepGraphEdges, "May only be called once if successful");
+      keepGraphEdges = false;
+      // Graph will be recreated on next sync.
+    }
+  }
+
+  public boolean hasIncrementalState() {
+    return keepGraphEdges;
   }
 
   /**
@@ -780,11 +802,13 @@ public final class SkyframeExecutor {
       for (Path pathEntry : pathEntriesWithoutDiffInformation) {
         // The diffs from these paths haven't been processed fully, so we need to close and throw
         // away the diff awareness strategies, per {@link DiffAwareness#close and
-        // @link DiffAwareness#getDiff}.
-        DiffAwareness diffAwareness = Preconditions.checkNotNull(
-            currentDiffAwarenesses.get(pathEntry));
-        diffAwareness.close();
-        currentDiffAwarenesses.remove(pathEntry);
+        // @link DiffAwareness#getDiff}, unless we've already done so (e.g. because
+        // {@link DiffAwareness#getDiff} threw a {@link BrokenDiffAwarenessException}).
+        DiffAwareness diffAwareness = currentDiffAwarenesses.get(pathEntry);
+        if (diffAwareness != null) {
+          diffAwareness.close();
+          currentDiffAwarenesses.remove(pathEntry);
+        }
       }
       throw e;
     }
@@ -904,6 +928,7 @@ public final class SkyframeExecutor {
    */
   public void setSkyframeBuildView(SkyframeBuildView skyframeBuildView) {
     this.skyframeBuildView = skyframeBuildView;
+    setConfigurationSkyKey(configurationSkyKey);
     this.artifactFactory.val = skyframeBuildView.getArtifactFactory();
     if (skyframeBuildView.getWarningListener() != null) {
       setErrorEventListener(skyframeBuildView.getWarningListener());
@@ -933,10 +958,18 @@ public final class SkyframeExecutor {
     this.skyframeActionExecutor.setActionLogBufferPathGenerator(actionLogBufferPathGenerator);
   }
 
+  private void setConfigurationSkyKey(SkyKey skyKey) {
+    this.configurationSkyKey = skyKey;
+    if (skyframeBuildView != null) {
+      skyframeBuildView.setConfigurationSkyKey(skyKey);
+    }
+  }
+
   @VisibleForTesting
   public void setConfigurationDataForTesting(BuildOptions options,
       BlazeDirectories directories, ConfigurationFactory configurationFactory) {
-    BuildVariableValue.BUILD_OPTIONS.set(recordingDiffer, options);
+    SkyKey skyKey = ConfigurationCollectionValue.key(options, ImmutableSet.<String>of());
+    setConfigurationSkyKey(skyKey);
     BuildVariableValue.BLAZE_DIRECTORIES.set(recordingDiffer, directories);
     this.configurationFactory.val = configurationFactory;
     this.configurationFragments.val = ImmutableList.copyOf(configurationFactory.getFactories());
@@ -944,35 +977,34 @@ public final class SkyframeExecutor {
 
   /**
    * Asks the Skyframe evaluator to build the value for BuildConfigurationCollection and
-   * returns result. Also invalidates {@link BuildVariableValue#BUILD_OPTIONS},
-   * {@link BuildVariableValue#TEST_ENVIRONMENT_VARIABLES} and
+   * returns result. Also invalidates {@link BuildVariableValue#TEST_ENVIRONMENT_VARIABLES} and
    * {@link BuildVariableValue#BLAZE_DIRECTORIES} if they have changed.
    */
   public BuildConfigurationCollection createConfigurations(boolean keepGoing,
       ConfigurationFactory configurationFactory, BuildConfigurationKey configurationKey)
       throws InvalidConfigurationException, InterruptedException {
 
-    this.buildConfigurationKey.val = configurationKey;
+    this.clientEnv.val = configurationKey.getClientEnv();
     this.configurationFactory.val = configurationFactory;
     this.configurationFragments.val = ImmutableList.copyOf(configurationFactory.getFactories());
     BuildOptions buildOptions = configurationKey.getBuildOptions();
     Map<String, String> testEnv = BuildConfiguration.getTestEnv(
         buildOptions.get(BuildConfiguration.Options.class).testEnvironment,
         configurationKey.getClientEnv());
-    // TODO(bazel-team): find a way to use only BuildConfigurationKey instead of BuildOptions,
+    // TODO(bazel-team): find a way to use only BuildConfigurationKey instead of
     // TestEnvironmentVariables and BlazeDirectories. There is a problem only with
     // TestEnvironmentVariables because BuildConfigurationKey stores client environment variables
     // and we don't want to rebuild everything when any variable changes.
-    BuildVariableValue.BUILD_OPTIONS.set(recordingDiffer, buildOptions);
     BuildVariableValue.TEST_ENVIRONMENT_VARIABLES.set(recordingDiffer, testEnv);
     BuildVariableValue.BLAZE_DIRECTORIES.set(recordingDiffer, configurationKey.getDirectories());
 
-    EvaluationResult<ConfigurationCollectionValue> result =
-        sequentialBuildDriver.evaluate(
-            Arrays.asList(ConfigurationCollectionValue.KEY), keepGoing,
-            DEFAULT_THREAD_COUNT, errorEventListener);
+    SkyKey skyKey = ConfigurationCollectionValue.key(configurationKey.getBuildOptions(), 
+        configurationKey.getMultiCpu());
+    setConfigurationSkyKey(skyKey);
+    EvaluationResult<ConfigurationCollectionValue> result = sequentialBuildDriver.evaluate(
+            Arrays.asList(skyKey), keepGoing, DEFAULT_THREAD_COUNT, errorEventListener);
     if (result.hasError()) {
-      Throwable e = result.getError(ConfigurationCollectionValue.KEY).getException();
+      Throwable e = result.getError(skyKey).getException();
       Throwables.propagateIfInstanceOf(e, InvalidConfigurationException.class);
       throw new IllegalStateException(
           "Unknown error during ConfigurationCollectionValue evaluation", e);
@@ -1513,24 +1545,13 @@ public final class SkyframeExecutor {
   }
 
   /**
-   * Sets the upper limit for the number of graph versions that dirty values may be retained for.
+   * Mark dirty values for deletion if they've been dirty for longer than N versions.
    *
    * <p>Specifying a value N means, if the current version is V and a value was dirtied (and
    * has remained so) in version U, and U + N &lt;= V, then the value will be marked for deletion
-   * and purged in version V + 1.
-   *
-   * @param versionWindow a non-negative number indicating the length of the window
+   * and purged in version V+1.
    */
-  public void setVersionWindowForDirtyGc(long versionWindow) {
-    Preconditions.checkArgument(versionWindow >= 0);
-    this.versionWindowForDirtyGc = versionWindow;
-  }
-
-  /**
-   * Mark dirty values for deletion if they've been dirty for longer than
-   * {@link #versionWindowForDirtyGc} versions.
-   */
-  public void deleteOldNodes() {
+  public void deleteOldNodes(long versionWindowForDirtyGc) {
     // TODO(bazel-team): perhaps we should come up with a separate GC class dedicated to maintaining
     // value garbage. If we ever do so, this logic should be moved there.
     memoizingEvaluator.deleteDirty(versionWindowForDirtyGc);

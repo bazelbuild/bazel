@@ -209,7 +209,7 @@ public class BuildView {
     public boolean extraActionTopLevelOnly;
 
     @Option(name = "version_window_for_dirty_node_gc",
-            defaultValue = "-1",
+            defaultValue = "0",
             category = "undocumented",
             help = "Nodes that have been dirty for more than this many versions will be deleted"
                 + " from the graph upon the next update. Values must be non-negative long integers,"
@@ -374,7 +374,7 @@ public class BuildView {
   @VisibleForTesting
   public void clear() {
     cumulativePackageRoots.clear();
-    artifactFactory.clear(false);
+    artifactFactory.clear();
     if (forwardGraphCache != null) {
       forwardGraphCache.clear();
     }
@@ -466,7 +466,7 @@ public class BuildView {
 
       // These actions serve similar roles to middlemen, but, unlike middlemen,
       // are expected to execute.
-      Artifact middleman = artifactFactory.getExistingDerivedArtifact(
+      Artifact middleman = artifactFactory.getDerivedArtifact(
           TopLevelArtifactHelper.getMiddlemanRelativePath(target.getLabel()),
           configuration.getMiddlemanDirectory(),
           // Null owner because this artifact's generating action is currently retrieved from the
@@ -1409,13 +1409,7 @@ public class BuildView {
       for (Artifact artifact : target.getProvider(FilesToRunProvider.class).getFilesToRun()) {
         if (artifactReferenceMap.put(artifact, Boolean.TRUE) == null) {
           artifactReferenceMap.remove(artifact);
-          if (artifactFactory.artifactExists(artifact)) {
-            out.println("  !!! " + BuildView.dumpArtifact(artifact)
-                + " NOT IDENTICAL TO THE ONE IN THE FACTORY !!!");
-          } else {
-            out.println("  !!! " + BuildView.dumpArtifact(artifact)
-                + " NOT IN THE FACTORY !!!");
-          }
+          out.println("  !!! " + BuildView.dumpArtifact(artifact));
         }
         if (!artifact.isSourceArtifact()) {
           out.println("  " + BuildView.dumpArtifact(artifact));
@@ -1481,11 +1475,6 @@ public class BuildView {
           out.println("    input " + dumpArtifact(input));
           if (artifactReferenceMap.put(input, Boolean.TRUE) == null) {
             artifactReferenceMap.remove(input);
-            if (artifactFactory.artifactExists(input)) {
-              out.println("      !!! NOT IDENTICAL TO THE ARTIFACT IN THE FACTORY");
-            } else {
-              out.println("      !!! NOT IN THE FACTORY");
-            }
           }
         }
         boolean found = false;
@@ -1496,11 +1485,6 @@ public class BuildView {
           out.println("    output " + dumpArtifact(output));
           if (artifactReferenceMap.put(output, Boolean.TRUE) == null) {
             artifactReferenceMap.remove(output);
-            if (artifactFactory.artifactExists(output)) {
-              out.println("      !!! NOT IDENTICAL TO THE ARTIFACT IN THE FACTORY");
-            } else {
-              out.println("      !!! NOT IN THE FACTORY");
-            }
           }
         }
         if (!found) {

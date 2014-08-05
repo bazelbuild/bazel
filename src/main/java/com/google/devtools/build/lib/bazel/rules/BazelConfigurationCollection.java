@@ -19,7 +19,6 @@ import com.google.common.cache.CacheBuilder;
 import com.google.common.collect.HashBasedTable;
 import com.google.common.collect.ImmutableSet;
 import com.google.common.collect.Table;
-import com.google.devtools.build.lib.blaze.BlazeDirectories;
 import com.google.devtools.build.lib.events.ErrorEventListener;
 import com.google.devtools.build.lib.packages.AggregatingAttributeMapper;
 import com.google.devtools.build.lib.packages.Attribute.ConfigurationTransition;
@@ -60,7 +59,6 @@ public class BazelConfigurationCollection implements ConfigurationCollectionFact
       MachineSpecification hostMachineSpecification,
       PackageProviderForConfigurations loadedPackageProvider,
       BuildOptions buildOptions,
-      BlazeDirectories directories,
       Map<String, String> clientEnv,
       ErrorEventListener errorEventListener,
       boolean performSanityCheck) throws InvalidConfigurationException {
@@ -74,7 +72,7 @@ public class BazelConfigurationCollection implements ConfigurationCollectionFact
 
     // Target configuration
     BuildConfiguration targetConfiguration = configurationFactory.getConfiguration(
-        loadedPackageProvider, directories, buildOptions, clientEnv, false, cache);
+        loadedPackageProvider, buildOptions, clientEnv, false, cache);
     if (targetConfiguration == null) {
       return null;
     }
@@ -85,7 +83,7 @@ public class BazelConfigurationCollection implements ConfigurationCollectionFact
     // Note that this passes in the dataConfiguration, not the target
     // configuration. This is intentional.
     BuildConfiguration hostConfiguration = getHostConfigurationFromRequest(configurationFactory,
-        loadedPackageProvider, directories, clientEnv, dataConfiguration, buildOptions,
+        loadedPackageProvider, clientEnv, dataConfiguration, buildOptions,
         errorEventListener, hostMachineSpecification);
     if (hostConfiguration == null) {
       return null;
@@ -135,8 +133,8 @@ public class BazelConfigurationCollection implements ConfigurationCollectionFact
   @Nullable
   private BuildConfiguration getHostConfigurationFromRequest(
       ConfigurationFactory configurationFactory,
-      PackageProviderForConfigurations loadedPackageProvider, BlazeDirectories directories,
-      Map<String, String> clientEnv, BuildConfiguration requestConfig, BuildOptions buildOptions,
+      PackageProviderForConfigurations loadedPackageProvider, Map<String, String> clientEnv, 
+      BuildConfiguration requestConfig, BuildOptions buildOptions,
       ErrorEventListener errorEventListener, MachineSpecification hostMachineSpecification)
       throws InvalidConfigurationException {
     BuildConfiguration.Options commonOptions = buildOptions.get(BuildConfiguration.Options.class);
@@ -149,7 +147,7 @@ public class BazelConfigurationCollection implements ConfigurationCollectionFact
       return requestConfig;
     } else {
       BuildConfiguration hostConfig = configurationFactory.getHostConfiguration(
-          loadedPackageProvider, directories, clientEnv, buildOptions, /*fallback=*/false);
+          loadedPackageProvider, clientEnv, buildOptions, /*fallback=*/false);
       if (hostConfig == null) {
         return null;
       }
@@ -161,8 +159,8 @@ public class BazelConfigurationCollection implements ConfigurationCollectionFact
         // configuration, so for now we fall back to a known configuration. We need to add a full
         // set of options to control the host configuration and then remove the fallback and fail
         // with a meaningful error message.
-        hostConfig = configurationFactory.getHostConfiguration(loadedPackageProvider, directories,
-            clientEnv, buildOptions, /*fallback=*/true);
+        hostConfig = configurationFactory.getHostConfiguration(loadedPackageProvider, clientEnv,
+            buildOptions, /*fallback=*/true);
       }
       return hostConfig;
     }

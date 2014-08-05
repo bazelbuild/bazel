@@ -56,6 +56,7 @@ import com.google.devtools.build.lib.view.ConfiguredTarget;
 import com.google.devtools.build.lib.view.LicensesProvider;
 import com.google.devtools.build.lib.view.LicensesProvider.TargetLicense;
 import com.google.devtools.build.lib.view.MakeEnvironmentEvent;
+import com.google.devtools.build.lib.view.RuleConfiguredTarget;
 import com.google.devtools.build.lib.view.ViewCreationFailedException;
 import com.google.devtools.build.lib.view.config.BuildConfiguration;
 import com.google.devtools.build.lib.view.config.BuildConfigurationCollection;
@@ -68,8 +69,6 @@ import java.util.Collection;
 import java.util.Set;
 import java.util.concurrent.TimeUnit;
 import java.util.logging.Logger;
-
-import javax.annotation.Nullable;
 
 /**
  * Provides the bulk of the implementation of the 'blaze build' command.
@@ -184,8 +183,10 @@ public class BuildTool {
       reportTargets(analysisResult);
 
       // Execution phase.
-      runExecutionPhase(request, loadingResult, analysisResult, result, executionTool,
-          configurations);
+      if (needsExecutionPhase(request.getBuildOptions())) {
+        executionTool.executeBuild(loadingResult, analysisResult, result,
+            runtime.getSkyframeExecutor(), configurations);
+      }
 
       String delayedErrorMsg = analysisResult.getError();
       if (delayedErrorMsg != null) {
@@ -198,6 +199,12 @@ public class BuildTool {
           e.getMessage());
       throw e;
     } finally {
+      // Delete dirty nodes to ensure that they do not accumulate indefinitely.
+      long versionWindow = request.getViewOptions().versionWindowForDirtyNodeGc;
+      if (versionWindow != -1) {
+        runtime.getSkyframeExecutor().deleteOldNodes(versionWindow);
+      }
+
       if (executionTool != null) {
         executionTool.shutdown();
       }
@@ -325,23 +332,6 @@ public class BuildTool {
         request.shouldRunTests(), callback);
     runtime.throwPendingException();
     return result;
-  }
-
-  private void runExecutionPhase(BuildRequest request, LoadingResult loadingResult,
-      AnalysisResult analysisResult, BuildResult result, @Nullable ExecutionTool executionTool,
-      BuildConfigurationCollection configurations)
-      throws TestExecException, BuildFailedException, InterruptedException, AbruptExitException,
-      ViewCreationFailedException {
-    try {
-      if (needsExecutionPhase(request.getBuildOptions())) {
-        executionTool.executeBuild(loadingResult, analysisResult, result,
-            runtime.getSkyframeExecutor(), configurations);
-      }
-    } finally {
-      if (runtime.getSkyframeExecutor() != null) {
-        runtime.getSkyframeExecutor().deleteOldNodes();
-      }
-    }
   }
 
   /**
@@ -503,7 +493,7 @@ public class BuildTool {
       boolean staticallyLinked = (config != null) && config.performsStaticLink();
       staticallyLinked |= (config != null) && (target instanceof Rule)
           && ((Rule) target).getRuleClassObject().hasAttr("linkopts", Type.STRING_LIST)
-          && ConfiguredAttributeMapper.of((Rule) target, configuredTarget.getConfiguration())
+          && ConfiguredAttributeMapper.of((RuleConfiguredTarget) configuredTarget)
               .get("linkopts", Type.STRING_LIST).contains("-static");
 
       LicensesProvider provider = configuredTarget.getProvider(LicensesProvider.class);

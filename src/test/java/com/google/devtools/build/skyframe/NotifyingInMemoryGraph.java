@@ -30,16 +30,16 @@ public class NotifyingInMemoryGraph extends InMemoryGraph {
   }
 
   @Override
-  public ValueEntry createIfAbsent(SkyKey key) {
+  public NodeEntry createIfAbsent(SkyKey key) {
     graphListener.accept(key, EventType.CREATE_IF_ABSENT, Order.BEFORE, null);
-    ValueEntry newval = getEntry(key);
-    ValueEntry oldval = getValueMap().putIfAbsent(key, newval);
+    NodeEntry newval = getEntry(key);
+    NodeEntry oldval = getNodeMap().putIfAbsent(key, newval);
     return oldval == null ? newval : oldval;
   }
 
   // Subclasses should override if they wish to subclass NotifyingValueEntry.
-  protected NotifyingValueEntry getEntry(SkyKey key) {
-    return new NotifyingValueEntry(key);
+  protected NotifyingNodeEntry getEntry(SkyKey key) {
+    return new NotifyingNodeEntry(key);
   }
 
   /** Receiver to be informed when an event for a given key occurs. */
@@ -72,10 +72,10 @@ public class NotifyingInMemoryGraph extends InMemoryGraph {
     AFTER
   }
 
-  protected class NotifyingValueEntry extends ValueEntry {
+  protected class NotifyingNodeEntry extends NodeEntry {
     private final SkyKey myKey;
 
-    protected NotifyingValueEntry(SkyKey key) {
+    protected NotifyingNodeEntry(SkyKey key) {
       myKey = key;
     }
 

@@ -31,6 +31,7 @@ import com.google.devtools.build.lib.actions.Root;
 import com.google.devtools.build.lib.blaze.BlazeDirectories;
 import com.google.devtools.build.lib.events.ErrorEventListener;
 import com.google.devtools.build.lib.packages.Attribute;
+import com.google.devtools.build.lib.packages.Attribute.Configurator;
 import com.google.devtools.build.lib.packages.Attribute.Transition;
 import com.google.devtools.build.lib.packages.InputFile;
 import com.google.devtools.build.lib.packages.PackageGroup;
@@ -42,6 +43,7 @@ import com.google.devtools.build.lib.syntax.Label.SyntaxException;
 import com.google.devtools.build.lib.syntax.SkylarkBuiltin;
 import com.google.devtools.build.lib.syntax.SkylarkCallable;
 import com.google.devtools.build.lib.util.Fingerprint;
+import com.google.devtools.build.lib.util.Pair;
 import com.google.devtools.build.lib.util.RegexFilter;
 import com.google.devtools.build.lib.util.StringUtilities;
 import com.google.devtools.build.lib.vfs.Path;
@@ -57,6 +59,7 @@ import com.google.devtools.common.options.OptionsParsingException;
 import com.google.devtools.common.options.TriState;
 
 import java.io.IOException;
+import java.lang.reflect.Field;
 import java.util.ArrayList;
 import java.util.Collection;
 import java.util.Collections;
@@ -348,11 +351,12 @@ public final class BuildConfiguration {
     public String cpu;
 
     @Option(name = "experimental_selector",
+            converter = LabelConverter.class,
             defaultValue = "null",
             category = "undocumented",
             help = "Experimental interface for triggering selectable attributes. Not yet "
                 + "suitable for public consumption.")
-    public String attributeSelector;
+    public Label attributeSelector;
 
     @Option(name = "min_param_file_size",
         defaultValue = "32768",
@@ -395,10 +399,10 @@ public final class BuildConfiguration {
     @Option(name = "show_cached_analysis_results",
         defaultValue = "true",
         category = "undocumented",
-        help = "Bazel reruns a static analysis only if it detects changes in the analysis " +
-         "or its dependencies. If this option is enabled, Bazel will show the analysis' " +
-         "results, even if it did not rerun the analysis.  If this option is disabled, " +
-         "Bazel will show analysis results only if it reran the analysis.")
+        help = "Bazel reruns a static analysis only if it detects changes in the analysis "
+            + "or its dependencies. If this option is enabled, Bazel will show the analysis' "
+            + "results, even if it did not rerun the analysis.  If this option is disabled, "
+            + "Bazel will show analysis results only if it reran the analysis.")
     public boolean showCachedAnalysisResults;
 
     @Option(name = "host_cpu",
@@ -439,11 +443,11 @@ public final class BuildConfiguration {
         allowMultiple = true,
         defaultValue = "",
         category = "testing",
-        help = "Specifies additional environment variables to be injected into the test runner " +
-               "environment. Variables can be either specified by name, in which case its value " +
-               "will be read from the Bazel client environment, or by the name=value pair. " +
-               "This option can be used multiple times to specify several variables. " +
-               "Used only by the 'bazel test' command."
+        help = "Specifies additional environment variables to be injected into the test runner "
+            + "environment. Variables can be either specified by name, in which case its value "
+            + "will be read from the Bazel client environment, or by the name=value pair. "
+            + "This option can be used multiple times to specify several variables. "
+            + "Used only by the 'bazel test' command."
         )
     public List<Map.Entry<String, String>> testEnvironment;
 
@@ -522,18 +526,18 @@ public final class BuildConfiguration {
     @Option(name = "build_runfile_links",
             defaultValue = "true",
             category = "strategy",
-            help = "If true, build runfiles symlink forests for all targets.  " +
-                   "If false, write only manifests when possible.")
+            help = "If true, build runfiles symlink forests for all targets.  "
+                + "If false, write only manifests when possible.")
     public boolean buildRunfiles;
 
     @Option(name = "test_arg",
         allowMultiple = true,
         defaultValue = "",
         category = "testing",
-        help = "Specifies additional options and arguments that should be passed to the test " +
-               "executable. Can be used multiple times to specify several arguments. " +
-               "If multiple tests are executed, each of them will receive identical arguments. " +
-               "Used only by the 'bazel test' command."
+        help = "Specifies additional options and arguments that should be passed to the test "
+            + "executable. Can be used multiple times to specify several arguments. "
+            + "If multiple tests are executed, each of them will receive identical arguments. "
+            + "Used only by the 'bazel test' command."
         )
     public List<String> testArguments;
 
@@ -714,6 +718,27 @@ public final class BuildConfiguration {
   private final ImmutableMap<String, String> clientEnvironment;
 
   /**
+   * Maps option names to the {@link FragmentOptions} class that defines the option and
+   * the value that option takes for this configuration.
+   *
+   * <p>This can be used to:
+   * <ol>
+   *   <li>Find an option's (parsed) value given its command-line name</li>
+   *   <li>Parse alternative values for the option.</li>
+   * </ol>
+   *
+   * <p>This map is "transitive" in that it includes *all* options recognizable by this
+   * configuration, including those defined in child fragments.
+   */
+  private final Map<String, Pair<Class, Object>> transitiveOptionsMap;
+
+  /**
+   * Reference for null option values (since we can't actually store null values
+   * in an {@link ImmutableMap}).
+   */
+  private static final Object NULL_OPTION_VALUE = new Object();
+
+  /**
    * Validates the options for this BuildConfiguration. Issues warnings for the
    * use of deprecated options, and warnings or errors for any option settings
    * that conflict.
@@ -732,9 +757,9 @@ public final class BuildConfiguration {
     if (options.testShardingStrategy
         == TestActionBuilder.TestShardingStrategy.EXPERIMENTAL_HEURISTIC) {
       reporter.warn(null,
-          "Heuristic sharding is intended as a one-off experimentation tool for determing the " +
-          "benefit from sharding certain tests. Please don't keep this option in your " +
-          ".blazerc or continuous build");
+          "Heuristic sharding is intended as a one-off experimentation tool for determing the "
+          + "benefit from sharding certain tests. Please don't keep this option in your "
+          + ".blazerc or continuous build");
     }
   }
 
@@ -801,6 +826,8 @@ public final class BuildConfiguration {
 
     this.defaultShellEnvironment = setupShellEnvironment();
 
+    this.transitiveOptionsMap = computeOptionsMap(buildOptions);
+
     ImmutableMap.Builder<String, String> globalMakeEnvBuilder = ImmutableMap.builder();
     for (Fragment fragment : fragments.values()) {
       fragment.addGlobalMakeVariables(globalMakeEnvBuilder);
@@ -829,6 +856,37 @@ public final class BuildConfiguration {
     cacheKey = computeCacheKey(
         this.directories, fragmentsMap, this.buildOptions, this.clientEnvironment);
     shortCacheKey = shortName + "-" + Fingerprint.md5Digest(cacheKey);
+  }
+
+
+  /**
+   * Computes and returns the transitive optionName -> <definingClass, optionValue>
+   * map for this configuration.
+   */
+  private static Map<String, Pair<Class, Object>> computeOptionsMap(BuildOptions buildOptions) {
+    ImmutableMap.Builder<String, Pair<Class, Object>> map = ImmutableMap.builder();
+    try {
+      for (FragmentOptions options : buildOptions.getOptions()) {
+        for (Field field : options.getClass().getFields()) {
+          if (field.isAnnotationPresent(Option.class)) {
+            Option option = field.getAnnotation(Option.class);
+            Object value = field.get(options);
+            if (value == null) {
+              value = option.defaultValue();
+              if (value.equals("null")) {
+                // See {@link Option#defaultValue} for an explanation of default "null" strings.
+                value = NULL_OPTION_VALUE;
+              }
+            }
+            map.put(option.name(), Pair.<Class, Object>of(options.getClass(), value));
+          }
+        }
+      }
+    } catch (IllegalAccessException e) {
+      throw new IllegalStateException(
+          "Unexpected illegal access trying to create this configuration's options map: ", e);
+    }
+    return map.build();
   }
 
   private String buildShortName(String outputDirName) {
@@ -934,9 +992,31 @@ public final class BuildConfiguration {
       return this;
     }
 
+    // Make sure config_setting dependencies are resolved in the referencing rule's configuration,
+    // unconditionally. For example, given:
+    //
+    // genrule(
+    //     name = 'myrule',
+    //     tools = select({ '//a:condition': [':sometool'] })
+    //
+    // all labels in "tools" get resolved in the host configuration (since the "tools" attribute
+    // declares a host configuration transition). We want to explicitly exclude configuration labels
+    // from these transitions, since their *purpose* is to do computation on the owning
+    // rule's configuration.
+    // TODO(bazel-team): implement this more elegantly. This is far too hackish. Specifically:
+    // don't reference the rule name explicitly and don't require special-casing here.
+    if (toTarget instanceof Rule && ((Rule) toTarget).getRuleClass().equals("config_setting")) {
+      return getConfiguration(Attribute.ConfigurationTransition.NONE);
+    }
+
     // III. Attributes determine configurations. The configuration of a prerequisite is determined
     // by the attribute.
-    BuildConfiguration toConfiguration = getConfiguration(attribute.getConfigurationTransition());
+    @SuppressWarnings("unchecked")
+    Configurator<BuildConfiguration, Rule> configurator =
+        (Configurator<BuildConfiguration, Rule>) attribute.getConfigurator();
+    BuildConfiguration toConfiguration = (configurator != null)
+        ? configurator.apply(fromRule, this, attribute, toTarget)
+        : getConfiguration(attribute.getConfigurationTransition());
 
     // IV. Allow the transition object to perform an arbitrary switch. Blaze modules can inject
     // configuration transition logic by extending the Transitions class.
@@ -998,6 +1078,33 @@ public final class BuildConfiguration {
   // TODO(bazel-team): Remove this.
   public Map<String, String> getClientEnv() {
     return clientEnvironment;
+  }
+
+  /**
+   * Returns the {@link Option} class the defines the given option, null if the
+   * option isn't recognized.
+   *
+   * <p>optionName is the name of the option as it appears on the command line
+   * e.g. {@link Option#name}).
+   */
+  Class getOptionClass(String optionName) {
+    Pair<Class, Object> value = transitiveOptionsMap.get(optionName);
+    return value == null ? null : value.first;
+  }
+
+  /**
+   * Returns the value of the specified option for this configuration or null if the
+   * option isn't recognized. Since an option's legitimate value could be null, use
+   * {@link #getOptionClass} to distinguish between that and an unknown option.
+   *
+   * <p>optionName is the name of the option as it appears on the command line
+   * e.g. {@link Option#name}).
+   */
+  Object getOptionValue(String optionName) {
+    Pair<Class, Object> value = transitiveOptionsMap.get(optionName);
+    // value is null for unknown options, non-null with value.second = NULL_OPTION_VALUE
+    // for known options set to null defaults.
+    return (value == null || value.second == NULL_OPTION_VALUE) ? null : value.second;
   }
 
   /**
@@ -1208,14 +1315,17 @@ public final class BuildConfiguration {
    * <p>This does *not* include package-defined overrides (e.g. vardef)
    * and so should not be used by the build logic.  This is used only for
    * the 'info' command.
+   *
+   * Command-line definitions of make enviroments override variables defined by
+   * {@code Fragment.addGlobalMakeVariables()}.
    */
   public Map<String, String> getMakeEnvironment() {
-    ImmutableMap.Builder<String, String> builder = ImmutableMap.builder();
-    builder.putAll(globalMakeEnv);
+    Map<String, String> makeEnvironment = new HashMap<>();
+    makeEnvironment.putAll(globalMakeEnv);
     for (Fragment fragment : fragments.values()) {
-      builder.putAll(fragment.getCommandLineDefines());
+      makeEnvironment.putAll(fragment.getCommandLineDefines());
     }
-    return builder.build();
+    return ImmutableMap.copyOf(makeEnvironment);
   }
 
   /**
@@ -1367,7 +1477,7 @@ public final class BuildConfiguration {
     return 1;
   }
 
-  public String getAttributeSelector() {
+  public Label getAttributeSelector() {
     return options.attributeSelector;
   }
 

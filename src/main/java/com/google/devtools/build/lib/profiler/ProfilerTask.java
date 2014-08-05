@@ -68,7 +68,7 @@ public enum ProfilerTask {
   TRANSITIVE_CLOSURE("transitive closure creation", -1, 0x996600, 0),
   TEST("for testing only", -1, 0x000000, 0),
   SKYFRAME_EVAL("skyframe evaluator", -1, 0xCC9900, 0),
-  SKYFRAME_NODE_BUILDER("skyframe node builder", -1, 0xCC6600, 0),
+  SKYFUNCTION("skyfunction", -1, 0xCC6600, 0),
   CRITICAL_PATH("critical path", -1, 0x666699, 0),
   CRITICAL_PATH_COMPONENT("critical path component", -1, 0x666699, 0),
   IDE_BUILD_INFO("ide_build_info", -1, 0xCC6633, 0),

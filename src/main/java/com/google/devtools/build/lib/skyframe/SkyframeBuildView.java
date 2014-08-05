@@ -107,6 +107,7 @@ public final class SkyframeBuildView {
   private volatile boolean anyConfiguredTargetDeleted = false;
   // This remains null in a skyframe build.
   private WorkspaceStatusArtifacts workspaceStatusArtifacts = null;
+  private SkyKey configurationKey = null;
 
   public SkyframeBuildView(MutableActionGraph actionGraph, ConfiguredTargetFactory factory,
       ArtifactFactory artifactFactory, @Nullable ErrorEventListener warningListener,
@@ -115,9 +116,6 @@ public final class SkyframeBuildView {
     this.actionGraph = actionGraph;
     this.factory = factory;
     this.artifactFactory = artifactFactory;
-    // We never reuse derived artifacts in Skyframe, because we never unnecessarily reanalyze an
-    // unchanged target, so the same artifact should rarely be requested twice from the factory.
-    this.artifactFactory.clear(/*newReuseDerivedArtifacts=*/false);
     this.warningListener = warningListener;
     this.skyframeExecutor = skyframeExecutor;
     this.legacyDataCleaner = legacyDataCleaner;
@@ -133,6 +131,10 @@ public final class SkyframeBuildView {
 
   public void setWarningListener(@Nullable ErrorEventListener warningListener) {
     this.warningListener = warningListener;
+  }
+
+  public void setConfigurationSkyKey(SkyKey skyKey) {
+    this.configurationKey = skyKey;
   }
 
   public void resetEvaluatedConfiguredTargetKeysSet() {
@@ -377,7 +379,7 @@ public final class SkyframeBuildView {
   @Nullable
   private BuildConfigurationCollection getBuildConfigurationCollection(Environment env) {
     ConfigurationCollectionValue configurationsValue =
-        (ConfigurationCollectionValue) env.getValue(ConfigurationCollectionValue.KEY);
+        (ConfigurationCollectionValue) env.getValue(configurationKey);
     return configurationsValue == null ? null : configurationsValue.getConfigurationCollection();
   }
 

@@ -13,11 +13,9 @@
 // limitations under the License.
 package com.google.devtools.build.skyframe;
 
-import com.google.common.annotations.VisibleForTesting;
 import com.google.devtools.build.lib.events.ErrorEventListener;
 
 import java.util.Map;
-import java.util.concurrent.CountDownLatch;
 
 import javax.annotation.Nullable;
 
@@ -154,15 +152,5 @@ public interface SkyFunction {
      * warnings, or progress messages while building.
      */
     ErrorEventListener getListener();
-
-    /**
-     * Gets the latch that is counted down when an exception is thrown in {@code
-     * AbstractQueueVisitor}. For use in tests to check if an exception actually was thrown. Calling
-     * {@code AbstractQueueVisitor#awaitExceptionForTestingOnly} can throw a spurious {@link
-     * InterruptedException} because {@link CountDownLatch#await} checks the interrupted bit before
-     * returning, even if the latch is already at 0. See bug "testTwoErrors is flaky".
-     */
-    @VisibleForTesting
-    CountDownLatch getExceptionLatchForTesting();
   }
 }

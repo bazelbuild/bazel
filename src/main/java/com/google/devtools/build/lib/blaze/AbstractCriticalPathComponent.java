@@ -48,7 +48,7 @@ public class AbstractCriticalPathComponent<C extends AbstractCriticalPathCompone
   }
 
   public void setFinishTime(long finishTime) {
-    Preconditions.checkState(isRunning, "Already stopped!");
+    Preconditions.checkState(isRunning, "Already stopped! %s.", action);
     this.finishTime = finishTime;
     isRunning = false;
   }
@@ -62,7 +62,8 @@ public class AbstractCriticalPathComponent<C extends AbstractCriticalPathCompone
    */
   public void addDepInfo(C dep) {
     Preconditions.checkState(!dep.isRunning,
-        "Cannot add critical path stats when the action is not finished");
+        "Cannot add critical path stats when the action is not finished. %s. %s", action,
+        dep.getAction());
     long childTotalWallTime = dep.getAggregatedWallTime();
     // Replace the child if its critical path had the maximum wall time.
     if (childTotalWallTime > this.childCriticalPathWallTime) {
@@ -72,12 +73,12 @@ public class AbstractCriticalPathComponent<C extends AbstractCriticalPathCompone
   }
 
   public long getActionWallTime() {
-    Preconditions.checkState(!isRunning, "Still running");
+    Preconditions.checkState(!isRunning, "Still running %s", action);
     return finishTime - startTime;
   }
 
   public long getAggregatedWallTime() {
-    Preconditions.checkState(!isRunning, "Still running");
+    Preconditions.checkState(!isRunning, "Still running %s", action);
     return getActionWallTime() + childCriticalPathWallTime;
   }
 

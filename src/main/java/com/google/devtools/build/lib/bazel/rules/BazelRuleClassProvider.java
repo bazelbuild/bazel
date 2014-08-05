@@ -35,6 +35,7 @@ import com.google.devtools.build.lib.view.ConfiguredRuleClassProvider.Prerequisi
 import com.google.devtools.build.lib.view.ConfiguredTarget;
 import com.google.devtools.build.lib.view.RuleContext;
 import com.google.devtools.build.lib.view.config.BuildConfiguration;
+import com.google.devtools.build.lib.view.config.ConfigRuleClasses;
 import com.google.devtools.build.lib.view.config.FragmentOptions;
 import com.google.devtools.build.lib.view.extra.ActionListenerRule;
 import com.google.devtools.build.lib.view.extra.ExtraActionRule;
@@ -131,6 +132,7 @@ public class BazelRuleClassProvider {
     builder.addRuleDefinition(BaseRuleClasses.TestBaseRule.class);
     builder.addRuleDefinition(BazelBaseRuleClasses.BaselineCoverageRule.class);
     builder.addRuleDefinition(BazelBaseRuleClasses.ErrorRule.class);
+    builder.addRuleDefinition(ConfigRuleClasses.ConfigSettingRule.class);
     builder.addRuleDefinition(FilegroupRule.class);
     builder.addRuleDefinition(TestSuiteRule.class);
     builder.addRuleDefinition(GenRuleRule.class);

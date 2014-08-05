@@ -64,14 +64,13 @@ public class FunctionDefStatement extends Statement {
 
   @Override
   void validate(ValidationEnvironment env) throws EvalException {
-    // TODO(bazel-team): set up local environment.
-    for (Ident i : arg) {
-      env.update(i.getName(), SkylarkType.UNKNOWN, getLocation());
-    }
     SkylarkFunctionType type = SkylarkFunctionType.of(ident.getName());
-    env.setCurrentFunction(type);
+    ValidationEnvironment localEnv = new ValidationEnvironment(env, type);
+    for (Ident i : arg) {
+      localEnv.update(i.getName(), SkylarkType.UNKNOWN, getLocation());
+    }
     for (Statement stmts : statements) {
-      stmts.validate(env);
+      stmts.validate(localEnv);
     }
     env.updateFunction(ident.getName(), type, getLocation());
     // Register a dummy return value with an incompatible type if there was no return statement.

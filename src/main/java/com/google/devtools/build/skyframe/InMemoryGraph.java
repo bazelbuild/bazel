@@ -27,39 +27,45 @@ import javax.annotation.Nullable;
 
 /**
  * An in-memory graph implementation. All operations are thread-safe with ConcurrentMap semantics.
- * Also see {@link ValueEntry}.
- * 
+ * Also see {@link NodeEntry}.
+ *
  * <p>This class is public only for use in alternative graph implementations.
  */
 public class InMemoryGraph implements ProcessableGraph {
 
-  protected final ConcurrentMap<SkyKey, ValueEntry> valueMap = Maps.newConcurrentMap();
+  protected final ConcurrentMap<SkyKey, NodeEntry> nodeMap = Maps.newConcurrentMap();
+  private final boolean keepEdges;
 
-  public InMemoryGraph() {
+  InMemoryGraph() {
+    this(/*keepEdges=*/true);
+  }
+
+  public InMemoryGraph(boolean keepEdges) {
+    this.keepEdges = keepEdges;
   }
 
   @Override
   public void remove(SkyKey skyKey) {
-    valueMap.remove(skyKey);
+    nodeMap.remove(skyKey);
   }
 
   @Override
-  public ValueEntry get(SkyKey skyKey) {
-    return valueMap.get(skyKey);
+  public NodeEntry get(SkyKey skyKey) {
+    return nodeMap.get(skyKey);
   }
 
   @Override
-  public ValueEntry createIfAbsent(SkyKey key) {
-    ValueEntry newval = new ValueEntry();
-    ValueEntry oldval = valueMap.putIfAbsent(key, newval);
+  public NodeEntry createIfAbsent(SkyKey key) {
+    NodeEntry newval = keepEdges ? new NodeEntry() : new EdgelessNodeEntry();
+    NodeEntry oldval = nodeMap.putIfAbsent(key, newval);
     return oldval == null ? newval : oldval;
   }
 
-  /** Only done values exist to the outside world. */
-  private static final Predicate<ValueEntry> NODE_DONE_PREDICATE =
-      new Predicate<ValueEntry>() {
+  /** Only done nodes exist to the outside world. */
+  private static final Predicate<NodeEntry> NODE_DONE_PREDICATE =
+      new Predicate<NodeEntry>() {
         @Override
-        public boolean apply(ValueEntry entry) {
+        public boolean apply(NodeEntry entry) {
           return entry != null && entry.isDone();
         }
       };
@@ -68,21 +74,21 @@ public class InMemoryGraph implements ProcessableGraph {
    * Returns a value, if it exists. If not, returns null.
    */
   @Nullable public SkyValue getValue(SkyKey key) {
-    ValueEntry entry = get(key);
+    NodeEntry entry = get(key);
     return NODE_DONE_PREDICATE.apply(entry) ? entry.getValue() : null;
   }
 
   /**
-   * Returns a read-only live view of the values in the graph. All values are included. Dirty values
-   * include their Value value. Values in error have a null value.
+   * Returns a read-only live view of the nodes in the graph. All node are included. Dirty values
+   * include their Node value. Values in error have a null value.
    */
   Map<SkyKey, SkyValue> getValues() {
     return Collections.unmodifiableMap(Maps.transformValues(
-        valueMap,
-        new Function<ValueEntry, SkyValue>() {
+        nodeMap,
+        new Function<NodeEntry, SkyValue>() {
           @Override
-          public SkyValue apply(ValueEntry entry) {
-            return entry.toValueValue();
+          public SkyValue apply(NodeEntry entry) {
+            return entry.toValue();
           }
         }));
   }
@@ -93,22 +99,22 @@ public class InMemoryGraph implements ProcessableGraph {
    */
   Map<SkyKey, SkyValue> getDoneValues() {
     return Collections.unmodifiableMap(Maps.filterValues(Maps.transformValues(
-        valueMap,
-        new Function<ValueEntry, SkyValue>() {
+        nodeMap,
+        new Function<NodeEntry, SkyValue>() {
           @Override
-          public SkyValue apply(ValueEntry entry) {
+          public SkyValue apply(NodeEntry entry) {
             return entry.isDone() ? entry.getValue() : null;
           }
         }), Predicates.notNull()));
   }
 
   // Only for use by MemoizingEvaluator#delete
-  Map<SkyKey, ValueEntry> getAllValues() {
-    return Collections.unmodifiableMap(valueMap);
+  Map<SkyKey, NodeEntry> getAllValues() {
+    return Collections.unmodifiableMap(nodeMap);
   }
 
   @VisibleForTesting
-  protected ConcurrentMap<SkyKey, ValueEntry> getValueMap() {
-    return valueMap;
+  protected ConcurrentMap<SkyKey, NodeEntry> getNodeMap() {
+    return nodeMap;
   }
 }

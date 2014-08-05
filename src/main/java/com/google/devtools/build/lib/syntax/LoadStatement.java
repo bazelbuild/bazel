@@ -22,23 +22,17 @@ import java.util.List;
 /**
  * Syntax node for an import statement.
  */
-public final class ImportStatement extends Statement {
+public final class LoadStatement extends Statement {
 
-  private final ImmutableList<Ident> dir;
   private final ImmutableList<Ident> symbols;
   private final PathFragment importPath;
 
   /**
    * Constructs an import statement.
    */
-  ImportStatement(List<Ident> dir, List<Ident> symbols) {
-    this.dir = ImmutableList.copyOf(dir);
+  LoadStatement(String path, List<Ident> symbols) {
     this.symbols = ImmutableList.copyOf(symbols);
-    this.importPath = new PathFragment(Joiner.on("/").join(dir) + ".bzl");
-  }
-
-  public ImmutableList<Ident> getDir() {
-    return dir;
+    this.importPath = new PathFragment(path + ".bzl");
   }
 
   public ImmutableList<Ident> getSymbols() {
@@ -51,7 +45,7 @@ public final class ImportStatement extends Statement {
 
   @Override
   public String toString() {
-    return "from " + Joiner.on(".").join(dir) + " import " + Joiner.on(", ").join(symbols);
+    return String.format("load(\"%s\", %s)", importPath, Joiner.on(", ").join(symbols));
   }
 
   @Override

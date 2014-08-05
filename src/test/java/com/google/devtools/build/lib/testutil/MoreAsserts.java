@@ -48,8 +48,8 @@ public class MoreAsserts {
 
   @SafeVarargs
   public static <T> void assertContentsAnyOrder(String msg, Iterable<T> actual, T... expected) {
-    assertThat(ImmutableList.copyOf(actual)).labeled(msg).has()
-      .exactlyAs(ImmutableList.copyOf(expected));
+    assertThat(ImmutableList.copyOf(actual)).named(msg).has()
+        .exactlyAs(ImmutableList.copyOf(expected));
   }
 
   public static <T> void assertContentsAnyOrder(Iterable<T> expected, Iterable<T> actual) {
@@ -58,31 +58,35 @@ public class MoreAsserts {
 
   public static <T> void assertContentsAnyOrder(
       String msg, Iterable<T> expected, Iterable<T> actual) {
-    assertThat(ImmutableList.copyOf(actual)).labeled(msg).has()
-      .exactlyAs(ImmutableList.copyOf(expected));
+    assertThat(ImmutableList.copyOf(actual)).named(msg).has()
+        .exactlyAs(ImmutableList.copyOf(expected));
   }
 
   @SafeVarargs
   public static <T> void assertContentsInOrder(Iterable<T> actual, T... expected) {
     assertThat(ImmutableList.copyOf(actual)).has()
-      .exactlyAs(ImmutableList.copyOf(expected)).inOrder();
+        .exactlyAs(ImmutableList.copyOf(expected)).inOrder();
   }
 
   @SafeVarargs
   public static <T> void assertContentsInOrder(String msg, Iterable<T> actual, T... expected) {
-    assertThat(ImmutableList.copyOf(actual)).labeled(msg).has()
-      .exactlyAs(ImmutableList.copyOf(expected)).inOrder();
+    assertThat(ImmutableList.copyOf(actual))
+        .named(msg)
+        .has()
+        .exactlyAs(ImmutableList.copyOf(expected)).inOrder();
   }
 
   public static <T> void assertContentsInOrder(
       String msg, Iterable<T> expected, Iterable<T> actual) {
-    assertThat(ImmutableList.copyOf(actual)).labeled(msg).has()
-      .exactlyAs(ImmutableList.copyOf(expected)).inOrder();
+    assertThat(ImmutableList.copyOf(actual))
+        .named(msg)
+        .has()
+        .exactlyAs(ImmutableList.copyOf(expected)).inOrder();
   }
 
   public static <T> void assertContentsInOrder(Iterable<T> expected, Iterable<T> actual) {
     assertThat(ImmutableList.copyOf(actual)).has()
-    .exactlyAs(ImmutableList.copyOf(expected)).inOrder();
+        .exactlyAs(ImmutableList.copyOf(expected)).inOrder();
   }
 
   public static void assertEmpty(Iterable<?> items) {
@@ -90,7 +94,7 @@ public class MoreAsserts {
   }
 
   public static void assertEmpty(String msg, Iterable<?> items) {
-    assertThat(items).labeled(msg).isEmpty();
+    assertThat(items).named(msg).isEmpty();
   }
 
   public static void assertEmpty(Map<?, ?> map) {
@@ -98,7 +102,7 @@ public class MoreAsserts {
   }
 
   public static void assertNotEmpty(String msg, Iterable<?> items) {
-    assertThat(items).labeled(msg).isNotEmpty();
+    assertThat(items).named(msg).isNotEmpty();
   }
 
   public static void assertNotEmpty(Iterable<?> items) {
@@ -114,7 +118,7 @@ public class MoreAsserts {
   }
 
   public static void assertNotEqual(String msg, Object expected, Object actual) {
-    assertThat(actual).labeled(msg).isNotEqualTo(expected);
+    assertThat(actual).named(msg).isNotEqualTo(expected);
   }
 
   public static void assertContains(String expected, String actual) {
@@ -140,7 +144,7 @@ public class MoreAsserts {
 
   
   public static void assertContains(String msg, String expected, String actual) {
-    assertThat(actual).labeled(msg).contains(expected);
+    assertThat(actual).named(msg).contains(expected);
   }
 
   public static void assertNotContains(String msg, String expected, String actual) {
@@ -149,12 +153,12 @@ public class MoreAsserts {
 
   @SafeVarargs
   public static <T> void assertContains(String msg, Iterable<T> actual, T... expected) {
-    assertThat(ImmutableList.copyOf(actual)).labeled(msg)
+    assertThat(ImmutableList.copyOf(actual)).named(msg)
         .has().allFrom(ImmutableList.copyOf(expected));
   }
 
   public static <T> void assertNotContains(String msg, Iterable<T> actual, T unexpected) {
-    assertThat(ImmutableList.copyOf(actual)).labeled(msg)
+    assertThat(ImmutableList.copyOf(actual)).named(msg)
         .has().noneOf(unexpected);
   }
 

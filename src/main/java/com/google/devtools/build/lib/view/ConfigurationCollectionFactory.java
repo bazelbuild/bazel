@@ -13,7 +13,6 @@
 // limitations under the License.
 package com.google.devtools.build.lib.view;
 
-import com.google.devtools.build.lib.blaze.BlazeDirectories;
 import com.google.devtools.build.lib.events.ErrorEventListener;
 import com.google.devtools.build.lib.view.config.BuildConfiguration;
 import com.google.devtools.build.lib.view.config.BuildOptions;
@@ -36,7 +35,6 @@ public interface ConfigurationCollectionFactory {
    * via configuration transitions.
    * @param loadedPackageProvider the package provider
    * @param buildOptions top-level build options representing the command-line
-   * @param directories set of significant Blaze directories
    * @param clientEnv the system environment
    * @param errorEventListener the event listener for errors
    * @param performSanityCheck flag to signal about performing sanity check. Can be false only for
@@ -49,7 +47,6 @@ public interface ConfigurationCollectionFactory {
       MachineSpecification hostMachineSpecification,
       PackageProviderForConfigurations loadedPackageProvider,
       BuildOptions buildOptions,
-      BlazeDirectories directories,
       Map<String, String> clientEnv,
       ErrorEventListener errorEventListener,
       boolean performSanityCheck) throws InvalidConfigurationException;

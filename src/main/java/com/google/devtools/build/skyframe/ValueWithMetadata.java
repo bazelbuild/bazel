@@ -22,7 +22,7 @@ import java.util.Objects;
 import javax.annotation.Nullable;
 
 /**
- * Encapsulation of data stored by {@link ValueEntry} when the value has finished building.
+ * Encapsulation of data stored by {@link NodeEntry} when the value has finished building.
  *
  * <p>This is intended only for use in alternative {@code MemoizingEvaluator} implementations.
  */
@@ -90,7 +90,7 @@ public abstract class ValueWithMetadata implements SkyValue {
     NestedSet<TaggedEvents> getTransitiveEvents() { return transitiveEvents; }
 
     /**
-     * We override equals so that if the same value is written to a {@link ValueEntry} twice, it can
+     * We override equals so that if the same value is written to a {@link NodeEntry} twice, it can
      * verify that the two values are equal, and avoid incrementing its version.
      */
     @Override

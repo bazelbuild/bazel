@@ -422,9 +422,12 @@ public final class RPCServer {
    * <p>Blaze consistently uses the platform default encoding (defined in
    * blaze.cc) to interface with Unix APIs.
    */
-  private static List<String> readRequest(InputStream input)
-      throws IOException {
-    String s = new String(ByteStreams.toByteArray(input), Charset.defaultCharset());
+  private static List<String> readRequest(InputStream input) throws IOException {
+    byte[] inputBytes = ByteStreams.toByteArray(input);
+    if (inputBytes.length == 0) {
+      return null;
+    }
+    String s = new String(inputBytes, Charset.defaultCharset());
     return ImmutableList.copyOf(NULLTERMINATOR_SPLITTER.split(s));
   }
 
@@ -432,6 +435,10 @@ public final class RPCServer {
     int exitStatus = 2;
     try {
       List<String> request = readRequest(requestIo.in);
+      if (request == null) {
+        LOG.info("Short-circuiting empty request");
+        return;
+      }
       LOG.info(logRequest(request));
       exitStatus = rpcService.executeRequest(request, requestIo.requestOutErr,
           requestIo.firstContactTime);
@@ -501,7 +508,7 @@ public final class RPCServer {
    * {@link RPCServer#executeRequest(RequestIo)}.
    * It's unfortunately complicated, so it's explained here.
    */
-  private class RequestIo {
+  private static class RequestIo {
 
     // Used by the client code
     private final InputStream in;
@@ -538,6 +545,10 @@ public final class RPCServer {
     }
 
     public void writeExitStatus(int exitStatus) {
+      // Make sure to flush the output / error streams prior to writing the exit status.
+      // The client may stop reading that direction of the socket immediately upon reading the
+      // exit code.
+      flushOutErr();
       try {
         controlChannel.write(("" + exitStatus + "\n").getBytes(UTF_8));
         controlChannel.flush();
@@ -547,7 +558,7 @@ public final class RPCServer {
       }
     }
 
-    public void shutdown() {
+    private void flushOutErr() {
       try {
         requestOutErr.getOutputStream().flush();
       } catch (IOException e) {
@@ -558,6 +569,9 @@ public final class RPCServer {
       } catch (IOException e) {
         printStack(e);
       }
+    }
+
+    public void shutdown() {
       try {
         requestOut.close();
       } catch (IOException e) {

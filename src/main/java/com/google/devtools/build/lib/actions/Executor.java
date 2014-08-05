@@ -25,7 +25,7 @@ import com.google.devtools.common.options.OptionsClassProvider;
  *
  * <p>This class provides the actual logic to execute actions. The platonic ideal of this system
  * is that {@link Action}s are immutable objects that tell Blaze <b>what</b> to do and
- * <link>ActionContext</link>s tell Blaze <b>how</b> to do it (however, we do have an "exeute"
+ * <link>ActionContext</link>s tell Blaze <b>how</b> to do it (however, we do have an "execute"
  * method on actions now).
  *
  * <p>In theory, most of the methods below would not exist and they would be methods on action

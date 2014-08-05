@@ -59,12 +59,6 @@ public class ArtifactFactory implements ArtifactResolver, ArtifactSerializer, Ar
    */
   private ImmutableCollection<Root> derivedRoots = ImmutableList.of();
 
-  /**
-   * Whether to also keep track of derived artifacts in the {@link #pathToArtifact} map. If
-   * set to false, a instance is returned upon each call that returns an {@link Artifact}.
-   */
-  private boolean reuseDerivedArtifacts;
-
   private ArtifactIdRegistry artifactIdRegistry = new ArtifactIdRegistry();
 
   /**
@@ -75,17 +69,15 @@ public class ArtifactFactory implements ArtifactResolver, ArtifactSerializer, Ar
    */
   public ArtifactFactory(Path execRoot) {
     this.execRoot = execRoot;
-    this.reuseDerivedArtifacts = true;
   }
 
   /**
    * Clear the cache.
    */
-  public synchronized void clear(boolean newReuseDerivedArtifacts) {
+  public synchronized void clear() {
     pathToArtifact.clear();
     packageRoots = null;
     derivedRoots = ImmutableList.of();
-    reuseDerivedArtifacts = newReuseDerivedArtifacts;
     artifactIdRegistry = new ArtifactIdRegistry();
   }
 
@@ -191,50 +183,6 @@ public class ArtifactFactory implements ArtifactResolver, ArtifactSerializer, Ar
   }
 
   /**
-   * Returns the artifact at the specified location under the specified root if it exists. If it
-   * does not, returns null, unless noReuseDerivedArtifacts is set, in which case it will always
-   * return an artifact.
-   */
-  public synchronized Artifact getExistingDerivedArtifact(
-      PathFragment rootRelativePath, Root root, ArtifactOwner owner) {
-    if (!reuseDerivedArtifacts) {
-      return getDerivedArtifact(rootRelativePath, root, owner);
-    }
-
-    Preconditions.checkState(!root.isSourceRoot());
-    validatePath(rootRelativePath, root);
-    Path path = root.getPath().getRelative(rootRelativePath);
-    PathFragment execPath = path.relativeTo(execRoot);
-    Artifact result = pathToArtifact.get(execPath);
-    Preconditions.checkState(result == null || owner == ArtifactOwner.NULL_OWNER
-        || result.getArtifactOwner().equals(owner), "%s has owner %s but %s was specified", result,
-        result == null ? null : result.getArtifactOwner(), owner);
-    return result;
-  }
-
-  /**
-   * Returns the fileset artifact at the specified location under the specified root if it exists.
-   * If it does not, returns null, unless noReuseDerivedArtifacts is set, in which case it will
-   * always return an artifact.
-   */
-  public synchronized Artifact getExistingFilesetArtifact(
-      PathFragment rootRelativePath, Root root, ArtifactOwner owner) {
-    if (!reuseDerivedArtifacts) {
-      return getFilesetArtifact(rootRelativePath, root, owner);
-    }
-
-    Preconditions.checkState(!root.isSourceRoot());
-    validatePath(rootRelativePath, root);
-    Path path = root.getPath().getRelative(rootRelativePath);
-    PathFragment execPath = path.relativeTo(execRoot);
-    Artifact result = pathToArtifact.get(execPath);
-    Preconditions.checkState(result == null || result.getArtifactOwner().equals(owner),
-        "%s has owner %s but %s was specified", result,
-        result == null ? null : result.getArtifactOwner(), owner);
-    return result;
-  }
-
-  /**
    * Returns the Artifact for the specified path, creating one if not found and
    * setting the <code>root</code> and <code>execPath</code> to the
    * specified values.
@@ -244,7 +192,7 @@ public class ArtifactFactory implements ArtifactResolver, ArtifactSerializer, Ar
     Preconditions.checkNotNull(root);
     Preconditions.checkNotNull(execPath);
 
-    if (!reuseDerivedArtifacts && !root.isSourceRoot()) {
+    if (!root.isSourceRoot()) {
       return createArtifact(path, root, execPath, owner, type);
     }
 
@@ -276,17 +224,6 @@ public class ArtifactFactory implements ArtifactResolver, ArtifactSerializer, Ar
     } else {
       return new Artifact.SpecialArtifact(path, root, execPath, owner, type);
     }
-  }
-
-  /**
-   * Returns true if the artifact factory still contains an artifact
-   * corresponding to the exec path of the given artifact.
-   */
-  public synchronized boolean artifactExists(Artifact artifact) {
-    if (!reuseDerivedArtifacts) {
-      return true;  // we are amnesic; assume that it does.
-    }
-    return pathToArtifact.containsKey(artifact.getExecPath());
   }
 
   /**
@@ -388,10 +325,6 @@ public class ArtifactFactory implements ArtifactResolver, ArtifactSerializer, Ar
   // target that is deserializing this artifact, not just the label. [skyframe-execution]
   public Artifact deserializeArtifact(PathFragment execPath, boolean isFileset, Label owner) {
     ArtifactOwner artifactOwner = new LabelArtifactOwner(owner);
-    if (reuseDerivedArtifacts) {
-      return internalResolveArtifact(execPath, true, artifactOwner);
-    }
-
     Path path = execRoot.getRelative(execPath);
     Root root = findDerivedRoot(path);
 

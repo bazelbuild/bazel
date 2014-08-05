@@ -235,7 +235,7 @@ class SkyframeBuilder implements Builder {
         // We monitor actions because it is possible that an action will successfully run but its
         // output artifact's node will not be created before the build is interrupted. By adding the
         // artifact to the set of built artifacts here, we avoid an inconsistency between the built
-        // artifacts here and successful actions (as given by events posted from the node builder).
+        // artifacts here and successful actions (as given by events posted from the SkyFunction).
         for (Artifact artifact : ((Action) skyKey.argument()).getOutputs()) {
           if (artifacts.contains(artifact)) {
             builtArtifacts.add(artifact);

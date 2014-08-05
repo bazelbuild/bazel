@@ -33,6 +33,8 @@ import java.util.Set;
  */
 public class ValidationEnvironment {
 
+  private final ValidationEnvironment parent;
+
   private Map<SkylarkType, Map<String, SkylarkType>> variableTypes = new HashMap<>();
 
   private Map<String, Location> variableLocations = new HashMap<>();
@@ -47,6 +49,7 @@ public class ValidationEnvironment {
 
   public ValidationEnvironment(
       ImmutableMap<SkylarkType, ImmutableMap<String, SkylarkType>> builtinVariableTypes) {
+    parent = null;
     variableTypes = CollectionUtils.copyOf(builtinVariableTypes);
     readOnlyVariables.addAll(builtinVariableTypes.get(SkylarkType.GLOBAL).keySet());
     clonable = true;
@@ -54,6 +57,7 @@ public class ValidationEnvironment {
 
   private ValidationEnvironment(Map<SkylarkType, Map<String, SkylarkType>> builtinVariableTypes,
       Set<String> readOnlyVariables) {
+    parent = null;
     this.variableTypes = CollectionUtils.copyOf(builtinVariableTypes);
     this.readOnlyVariables = new HashSet<>(readOnlyVariables);
     clonable = false;
@@ -63,6 +67,16 @@ public class ValidationEnvironment {
   public ValidationEnvironment clone() {
     Preconditions.checkState(clonable);
     return new ValidationEnvironment(variableTypes, readOnlyVariables);
+  }
+
+  /**
+   * Creates a local ValidationEnvironment to validate user defined function bodies.
+   */
+  public ValidationEnvironment(ValidationEnvironment parent, SkylarkFunctionType currentFunction) {
+    this.parent = parent;
+    this.variableTypes.put(SkylarkType.GLOBAL, new HashMap<String, SkylarkType>());
+    this.currentFunction = currentFunction;
+    this.clonable = false;
   }
 
   /**
@@ -104,21 +118,21 @@ public class ValidationEnvironment {
   /**
    * Returns true if the symbol exists in the validation environment.
    */
-  public boolean hasGlobalSymbol(String varname) {
-    return variableTypes.get(SkylarkType.GLOBAL).containsKey(varname);
+  public boolean hasSymbolInEnvironment(String varname) {
+    return variableTypes.get(SkylarkType.GLOBAL).containsKey(varname)
+        || topLevel().variableTypes.get(SkylarkType.GLOBAL).containsKey(varname);
   }
 
   /**
    * Returns the type of the existing variable.
    */
   public SkylarkType getVartype(String varname) {
-    return Preconditions.checkNotNull(variableTypes.get(SkylarkType.GLOBAL).get(varname),
+    SkylarkType type = variableTypes.get(SkylarkType.GLOBAL).get(varname);
+    if (type == null && parent != null) {
+      type = parent.getVartype(varname);
+    }
+    return Preconditions.checkNotNull(type,
         String.format("Variable %s is not found in the validation environment", varname));
-  }
-
-  public void setCurrentFunction(SkylarkFunctionType fct) {
-    currentFunction = fct;
-    clonable = false;
   }
 
   public SkylarkFunctionType getCurrentFunction() {
@@ -137,7 +151,8 @@ public class ValidationEnvironment {
    */
   public SkylarkType getReturnType(SkylarkType objectType, String funcName, Location loc)
       throws EvalException {
-    Map<String, SkylarkType> functions = variableTypes.get(objectType);
+    // All functions are registered in the top level ValidationEnvironment.
+    Map<String, SkylarkType> functions = topLevel().variableTypes.get(objectType);
     // TODO(bazel-team): eventually not finding the return type should be a validation error,
     // because it means the function doesn't exist. First we have to make sure that we register
     // every possible function before.
@@ -152,6 +167,10 @@ public class ValidationEnvironment {
       }
     }
     return SkylarkType.UNKNOWN;
+  }
+
+  private ValidationEnvironment topLevel() {
+    return Preconditions.checkNotNull(parent == null ? this : parent);
   }
 
   /**

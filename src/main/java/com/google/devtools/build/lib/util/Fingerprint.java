@@ -14,6 +14,7 @@
 
 package com.google.devtools.build.lib.util;
 
+import static java.nio.charset.StandardCharsets.ISO_8859_1;
 import static java.nio.charset.StandardCharsets.UTF_8;
 
 import com.google.common.collect.Iterables;
@@ -203,10 +204,7 @@ public class Fingerprint {
    */
   public Fingerprint addStringLatin1(String input) {
     addInt(input.length());
-    for (int i = 0; i < input.length(); i++) {
-      md.update((byte) input.charAt(i));
-    }
-
+    md.update(input.getBytes(ISO_8859_1));
     return this;
   }
 

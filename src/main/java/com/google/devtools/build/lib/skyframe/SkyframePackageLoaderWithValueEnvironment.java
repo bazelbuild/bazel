@@ -16,6 +16,7 @@ package com.google.devtools.build.lib.skyframe;
 import com.google.common.base.Preconditions;
 import com.google.devtools.build.lib.actions.Artifact;
 import com.google.devtools.build.lib.actions.Root;
+import com.google.devtools.build.lib.blaze.BlazeDirectories;
 import com.google.devtools.build.lib.packages.NoSuchPackageException;
 import com.google.devtools.build.lib.packages.NoSuchTargetException;
 import com.google.devtools.build.lib.packages.Package;
@@ -105,6 +106,11 @@ class SkyframePackageLoaderWithValueEnvironment implements
       return null;
     }
     return (T) fragmentNode.getFragment();
+  }
+
+  @Override
+  public BlazeDirectories getDirectories() {
+    return BuildVariableValue.BLAZE_DIRECTORIES.get(env);
   }
 
   @Override

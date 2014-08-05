@@ -74,7 +74,7 @@ public interface MemoizingEvaluator {
    *
    * <p>To delete all dirty values, you can specify 0 for the limit.
    */
-  void deleteDirty(final long versionAgeLimit);
+  void deleteDirty(long versionAgeLimit);
 
   /**
    * Returns the values in the graph.
@@ -126,7 +126,7 @@ public interface MemoizingEvaluator {
     MemoizingEvaluator create(
         Map<? extends SkyFunctionName, ? extends SkyFunction> skyFunctions, Differencer differencer,
         @Nullable EvaluationProgressReceiver invalidationReceiver,
-        EmittedEventState emittedEventState);
+        EmittedEventState emittedEventState, boolean keepEdges);
   }
 
   /**
