@@ -25,7 +25,6 @@ import com.google.devtools.build.lib.util.CommandBuilder;
 import com.google.devtools.build.lib.util.ExitCode;
 import com.google.devtools.build.lib.util.ProcessUtils;
 import com.google.devtools.build.lib.util.ShellEscaper;
-import com.google.devtools.build.lib.util.io.OutErr;
 import com.google.devtools.build.lib.vfs.FileSystemUtils;
 import com.google.devtools.build.lib.vfs.Path;
 import com.google.devtools.common.options.Option;
@@ -85,7 +84,7 @@ public final class CleanCommand implements BlazeCommand {
   private static final String[] SUBDIRECTORIES = { "google3", "blaze-out" };
 
   @Override
-  public ExitCode exec(BlazeRuntime runtime, OptionsProvider options, OutErr outErr)
+  public ExitCode exec(BlazeRuntime runtime, OptionsProvider options)
       throws ShutdownBlazeServerException {
     Options cleanOptions = options.getOptions(Options.class);
     cleanOptions.expunge_async = cleanOptions.cleanStyle.equals("expunge_async");

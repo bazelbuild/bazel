@@ -68,7 +68,7 @@ class RecordingUniqueifier implements Uniqueifier {
     SHARED_SMALL_MEMOS_2 = memos2;
   }
 
-  private final Set<Object> witnessed = new HashSet<>();
+  private final Set<Object> witnessed = new HashSet<>(256);
   private final BitSet memo = new BitSet();
   private int idx = 0;
 

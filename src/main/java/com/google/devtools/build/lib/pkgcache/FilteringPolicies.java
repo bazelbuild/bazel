@@ -34,7 +34,7 @@ public final class FilteringPolicies {
   private abstract static class AbstractFilteringPolicy implements FilteringPolicy {
     @Override
     public int hashCode() {
-      return getClass().hashCode();
+      return getClass().getSimpleName().hashCode();
     }
 
     @Override

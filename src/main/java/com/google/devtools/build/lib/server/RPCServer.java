@@ -16,7 +16,6 @@ package com.google.devtools.build.lib.server;
 
 import static java.nio.charset.StandardCharsets.UTF_8;
 
-import com.google.common.annotations.VisibleForTesting;
 import com.google.common.base.Splitter;
 import com.google.common.collect.ImmutableList;
 import com.google.common.io.ByteStreams;
@@ -47,7 +46,6 @@ import java.util.concurrent.atomic.AtomicBoolean;
 import java.util.concurrent.atomic.AtomicLong;
 import java.util.logging.Level;
 import java.util.logging.Logger;
-import java.util.regex.Pattern;
 
 /**
  * An RPCServer server is a Java object that sits and waits for RPC requests
@@ -81,8 +79,6 @@ public final class RPCServer {
   private volatile boolean lameDuck;
 
   private static final long STATUS_CHECK_PERIOD_MILLIS = 1000 * 60; // 1 minute.
-  private static final Pattern suppressFromLog = Pattern.compile(".*(auth|pass|cookie).*",
-      Pattern.CASE_INSENSITIVE);
   private static final Splitter NULLTERMINATOR_SPLITTER = Splitter.on('\0');
 
   /**
@@ -439,7 +435,6 @@ public final class RPCServer {
         LOG.info("Short-circuiting empty request");
         return;
       }
-      LOG.info(logRequest(request));
       exitStatus = rpcService.executeRequest(request, requestIo.requestOutErr,
           requestIo.firstContactTime);
       LOG.info("Finished executing request");
@@ -464,42 +459,6 @@ public final class RPCServer {
     }
 
     requestIo.writeExitStatus(exitStatus);
-  }
-
-  /**
-   * Generates a string form of a request to be written to the logs,
-   * filtering the user environment to remove anything that looks private.
-   * The current filter criteria removes any variable whose name includes
-   * "auth", "pass", or "cookie".
-   *
-   * @param requestStrings
-   * @return the filtered request to write to the log.
-   */
-  @VisibleForTesting
-  public String logRequest(List<String> requestStrings) {
-    StringBuilder buf = new StringBuilder();
-    buf.append('[');
-    String sep = "";
-    for (String s : requestStrings) {
-      buf.append(sep);
-      if (s.startsWith("--client_env")) {
-        int varStart = "--client_env=".length();
-        int varEnd = s.indexOf('=', varStart);
-        String varName = s.substring(varStart, varEnd);
-        if (suppressFromLog.matcher(varName).matches()) {
-          buf.append("--client_env=");
-          buf.append(varName);
-          buf.append("=__private_value_removed__");
-        } else {
-          buf.append(s);
-        }
-      } else {
-        buf.append(s);
-      }
-      sep = ", ";
-    }
-    buf.append(']');
-    return buf.toString();
   }
 
   /**

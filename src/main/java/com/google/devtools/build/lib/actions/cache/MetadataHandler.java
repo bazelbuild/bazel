@@ -50,6 +50,8 @@ public interface MetadataHandler {
 
   /** Returns true iff artifact exists. */
   boolean artifactExists(Artifact artifact);
+  /** Returns true iff artifact is a regular file. */
+  boolean isRegularFile(Artifact artifact);
 
   /**
    * @return Whether the artifact's data was injected.

@@ -33,7 +33,6 @@ import com.google.devtools.build.lib.query2.engine.QueryExpression;
 import com.google.devtools.build.lib.query2.output.OutputFormatter;
 import com.google.devtools.build.lib.query2.output.QueryOptions;
 import com.google.devtools.build.lib.util.ExitCode;
-import com.google.devtools.build.lib.util.io.OutErr;
 import com.google.devtools.common.options.OptionsParser;
 import com.google.devtools.common.options.OptionsProvider;
 
@@ -65,7 +64,7 @@ public final class QueryCommand implements BlazeCommand {
    *        (only when --keep_going is in effect.)
    */
   @Override
-  public ExitCode exec(BlazeRuntime runtime, OptionsProvider options, OutErr outErr) {
+  public ExitCode exec(BlazeRuntime runtime, OptionsProvider options) {
     QueryOptions queryOptions = options.getOptions(QueryOptions.class);
 
     try {
@@ -125,7 +124,7 @@ public final class QueryCommand implements BlazeCommand {
 
     // 3. Output results:
     Digraph<Target> graph = result.getResultGraph();
-    PrintStream output = new PrintStream(outErr.getOutputStream());
+    PrintStream output = new PrintStream(runtime.getReporter().getOutErr().getOutputStream());
     try {
       formatter.output(queryOptions, graph, output);
     } finally {

@@ -43,7 +43,7 @@ public interface Action extends ActionMetadata, Describable {
    *
    * @throws IOException
    */
-  void prepare() throws IOException;
+  void prepare(ActionExecutionContext actionExecutionContext) throws IOException;
 
   /**
    * Executes this action; called by the Builder when all of this Action's

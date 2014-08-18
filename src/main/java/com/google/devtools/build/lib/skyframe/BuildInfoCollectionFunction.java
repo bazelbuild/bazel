@@ -72,6 +72,7 @@ public class BuildInfoCollectionFunction implements SkyFunction {
         return buildDataDirectory;
       }
     };
+
     return new BuildInfoCollectionValue(buildInfoFactories.get(
         keyAndConfig.getInfoKey()).create(context, keyAndConfig.getConfig(),
             infoArtifactValue.getStableArtifact(), infoArtifactValue.getVolatileArtifact()));

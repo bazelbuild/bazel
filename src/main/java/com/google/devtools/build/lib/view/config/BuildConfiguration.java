@@ -43,7 +43,6 @@ import com.google.devtools.build.lib.syntax.Label.SyntaxException;
 import com.google.devtools.build.lib.syntax.SkylarkBuiltin;
 import com.google.devtools.build.lib.syntax.SkylarkCallable;
 import com.google.devtools.build.lib.util.Fingerprint;
-import com.google.devtools.build.lib.util.Pair;
 import com.google.devtools.build.lib.util.RegexFilter;
 import com.google.devtools.build.lib.util.StringUtilities;
 import com.google.devtools.build.lib.vfs.Path;
@@ -55,6 +54,7 @@ import com.google.devtools.common.options.Converter;
 import com.google.devtools.common.options.Converters;
 import com.google.devtools.common.options.EnumConverter;
 import com.google.devtools.common.options.Option;
+import com.google.devtools.common.options.OptionsBase;
 import com.google.devtools.common.options.OptionsParsingException;
 import com.google.devtools.common.options.TriState;
 
@@ -251,6 +251,15 @@ public final class BuildConfiguration {
     @SuppressWarnings("unused")
     public void defineExecutables(ImmutableMap.Builder<String, PathFragment> builder) {
     }
+
+    /**
+     * Returns { 'option name': 'alternative default' } entries for options where the
+     * "real default" should be something besides the default specified in the {@link Option}
+     * declaration.
+     */
+    public Map<String, Object> lateBoundOptionDefaults() {
+      return ImmutableMap.of();
+    }
   }
 
   /**
@@ -349,14 +358,6 @@ public final class BuildConfiguration {
             category = "semantics",
             help = "The target CPU.")
     public String cpu;
-
-    @Option(name = "experimental_selector",
-            converter = LabelConverter.class,
-            defaultValue = "null",
-            category = "undocumented",
-            help = "Experimental interface for triggering selectable attributes. Not yet "
-                + "suitable for public consumption.")
-    public Label attributeSelector;
 
     @Option(name = "min_param_file_size",
         defaultValue = "32768",
@@ -718,8 +719,30 @@ public final class BuildConfiguration {
   private final ImmutableMap<String, String> clientEnvironment;
 
   /**
-   * Maps option names to the {@link FragmentOptions} class that defines the option and
-   * the value that option takes for this configuration.
+   * Helper container for {@link #transitiveOptionsMap} below.
+   */
+  private static class OptionDetails {
+    private OptionDetails(Class<? extends OptionsBase> optionsClass, Object value,
+        boolean allowsMultiple) {
+      this.optionsClass = optionsClass;
+      this.value = value;
+      this.allowsMultiple = allowsMultiple;
+    }
+
+    /** The {@link FragmentOptions} class that defines this option. */
+    private final Class<? extends OptionsBase> optionsClass;
+
+    /**
+     * The value of the given option (either explicitly defined or default). May be null.
+     */
+    private final Object value;
+
+    /** Whether or not this option supports multiple values. */
+    private final boolean allowsMultiple;
+  }
+
+  /**
+   * Maps option names to the {@link OptionDetails} the option takes for this configuration.
    *
    * <p>This can be used to:
    * <ol>
@@ -730,13 +753,8 @@ public final class BuildConfiguration {
    * <p>This map is "transitive" in that it includes *all* options recognizable by this
    * configuration, including those defined in child fragments.
    */
-  private final Map<String, Pair<Class, Object>> transitiveOptionsMap;
+  private final Map<String, OptionDetails> transitiveOptionsMap;
 
-  /**
-   * Reference for null option values (since we can't actually store null values
-   * in an {@link ImmutableMap}).
-   */
-  private static final Object NULL_OPTION_VALUE = new Object();
 
   /**
    * Validates the options for this BuildConfiguration. Issues warnings for the
@@ -826,7 +844,7 @@ public final class BuildConfiguration {
 
     this.defaultShellEnvironment = setupShellEnvironment();
 
-    this.transitiveOptionsMap = computeOptionsMap(buildOptions);
+    this.transitiveOptionsMap = computeOptionsMap(buildOptions, fragments.values());
 
     ImmutableMap.Builder<String, String> globalMakeEnvBuilder = ImmutableMap.builder();
     for (Fragment fragment : fragments.values()) {
@@ -860,11 +878,19 @@ public final class BuildConfiguration {
 
 
   /**
-   * Computes and returns the transitive optionName -> <definingClass, optionValue>
-   * map for this configuration.
+   * Computes and returns the transitive optionName -> "option info" map for
+   * this configuration.
    */
-  private static Map<String, Pair<Class, Object>> computeOptionsMap(BuildOptions buildOptions) {
-    ImmutableMap.Builder<String, Pair<Class, Object>> map = ImmutableMap.builder();
+  private static Map<String, OptionDetails> computeOptionsMap(BuildOptions buildOptions,
+      Iterable<Fragment> fragments) {
+    // Collect from our fragments "alternative defaults" for options where the default
+    // should be something other than what's specified in Option.defaultValue.
+    Map<String, Object> lateBoundDefaults = Maps.newHashMap();
+    for (Fragment fragment : fragments) {
+      lateBoundDefaults.putAll(fragment.lateBoundOptionDefaults());
+    }
+
+    ImmutableMap.Builder<String, OptionDetails> map = ImmutableMap.builder();
     try {
       for (FragmentOptions options : buildOptions.getOptions()) {
         for (Field field : options.getClass().getFields()) {
@@ -872,13 +898,15 @@ public final class BuildConfiguration {
             Option option = field.getAnnotation(Option.class);
             Object value = field.get(options);
             if (value == null) {
-              value = option.defaultValue();
-              if (value.equals("null")) {
-                // See {@link Option#defaultValue} for an explanation of default "null" strings.
-                value = NULL_OPTION_VALUE;
+              if (lateBoundDefaults.containsKey(option.name())) {
+                value = lateBoundDefaults.get(option.name());
+              } else if (!option.defaultValue().equals("null")) {
+                 // See {@link Option#defaultValue} for an explanation of default "null" strings.
+                value = option.defaultValue();
               }
             }
-            map.put(option.name(), Pair.<Class, Object>of(options.getClass(), value));
+            map.put(option.name(),
+                new OptionDetails(options.getClass(), value, option.allowMultiple()));
           }
         }
       }
@@ -1087,9 +1115,9 @@ public final class BuildConfiguration {
    * <p>optionName is the name of the option as it appears on the command line
    * e.g. {@link Option#name}).
    */
-  Class getOptionClass(String optionName) {
-    Pair<Class, Object> value = transitiveOptionsMap.get(optionName);
-    return value == null ? null : value.first;
+  Class<? extends OptionsBase> getOptionClass(String optionName) {
+    OptionDetails optionData = transitiveOptionsMap.get(optionName);
+    return optionData == null ? null : optionData.optionsClass;
   }
 
   /**
@@ -1101,10 +1129,21 @@ public final class BuildConfiguration {
    * e.g. {@link Option#name}).
    */
   Object getOptionValue(String optionName) {
-    Pair<Class, Object> value = transitiveOptionsMap.get(optionName);
-    // value is null for unknown options, non-null with value.second = NULL_OPTION_VALUE
-    // for known options set to null defaults.
-    return (value == null || value.second == NULL_OPTION_VALUE) ? null : value.second;
+    OptionDetails optionData = transitiveOptionsMap.get(optionName);
+    return (optionData == null) ? null : optionData.value;
+  }
+
+  /**
+   * Returns whether or not the given option supports multiple values at the command line (e.g.
+   * "--myoption value1 --myOption value2 ..."). Returns false for unrecognized options. Use
+   * {@link #getOptionClass} to distinguish between those and legitimate single-value options.
+   *
+   * <p>As declared in {@link Option#allowMultiple}, multi-value options are expected to be
+   * of type {@code List<T>}.
+   */
+  boolean allowsMultipleValues(String optionName) {
+    OptionDetails optionData = transitiveOptionsMap.get(optionName);
+    return (optionData == null) ? false : optionData.allowsMultiple;
   }
 
   /**
@@ -1475,10 +1514,6 @@ public final class BuildConfiguration {
       }
     }
     return 1;
-  }
-
-  public Label getAttributeSelector() {
-    return options.attributeSelector;
   }
 
   public RunUnder getRunUnder() {

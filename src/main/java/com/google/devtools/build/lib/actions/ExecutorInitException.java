@@ -22,7 +22,11 @@ import com.google.devtools.build.lib.util.ExitCode;
 public class ExecutorInitException extends AbruptExitException {
 
   public ExecutorInitException(String message) {
-    super(message, ExitCode.LOCAL_ENVIRONMENTAL_ERROR);
+    this(message, ExitCode.LOCAL_ENVIRONMENTAL_ERROR);
+  }
+
+  public ExecutorInitException(String message, ExitCode exitCode) {
+    super(message, exitCode);
   }
 
   public ExecutorInitException(String message, Throwable cause) {

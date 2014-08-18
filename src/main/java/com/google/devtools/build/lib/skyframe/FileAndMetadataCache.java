@@ -305,6 +305,17 @@ class FileAndMetadataCache implements ActionInputFileCache, MetadataHandler {
   }
 
   @Override
+  public boolean isRegularFile(Artifact artifact) {
+    // Currently this method is used only for genrule input directory checks. If we need to call
+    // this on output artifacts too, this could be more efficient.
+    FileArtifactValue value = inputArtifactData.get(artifact);
+    if (value != null && value.getDigest() != null) {
+      return true;
+    }
+    return artifact.getPath().isFile();
+  }
+
+  @Override
   public boolean isInjected(Artifact artifact) {
     return injectedArtifacts.contains(artifact);
   }

@@ -184,6 +184,7 @@ public class CachingAnalysisEnvironment implements AnalysisEnvironment {
     if (isSystemEnv) {
       return false;
     }
+    Preconditions.checkState(enabled);
     return ((StoredErrorEventListener) errorEventListener).hasErrors();
   }
 
@@ -275,7 +276,7 @@ public class CachingAnalysisEnvironment implements AnalysisEnvironment {
   }
 
   @Override
-  public Artifact getBuildInfoArtifact() {
+  public Artifact getStableWorkspaceStatusArtifact() {
     return workspaceStatusArtifacts == null
         ? ((WorkspaceStatusValue) skyframeEnv.getValue(WorkspaceStatusValue.SKY_KEY))
             .getStableArtifact()
@@ -283,7 +284,7 @@ public class CachingAnalysisEnvironment implements AnalysisEnvironment {
   }
 
   @Override
-  public Artifact getBuildChangelistArtifact() {
+  public Artifact getVolatileWorkspaceStatusArtifact() {
     return workspaceStatusArtifacts == null
         ? ((WorkspaceStatusValue) skyframeEnv.getValue(WorkspaceStatusValue.SKY_KEY))
             .getVolatileArtifact()

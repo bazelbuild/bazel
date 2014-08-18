@@ -21,28 +21,74 @@ import com.google.devtools.build.lib.vfs.Path;
 import java.io.IOException;
 import java.util.Set;
 
-/**
- * A Preprocessor is an interface to implement generic text-based
- * preprocessing of BUILD files.
- */
+import javax.annotation.Nullable;
+
+/** A Preprocessor is an interface to implement generic text-based preprocessing of BUILD files. */
 public interface Preprocessor {
-  /**
-   * Creates Preprocessor instances.
-   */
-  public interface Factory {
+  /** Factory for {@link Preprocessor} instances. */
+  interface Factory {
+    /** Supplier for {@link Factory} instances. */
+    interface Supplier {
+      /**
+       * Returns a Preprocessor factory to use for getting Preprocessor instances.
+       *
+       * <p>The CachingPackageLocator is provided so the constructed preprocessors can look up
+       * other BUILD files.
+       */
+      Factory getFactory(CachingPackageLocator loc);
+
+      /** Supplier that always returns {@code NullFactory.INSTANCE}. */
+      static class NullSupplier implements Supplier {
+
+        public static final NullSupplier INSTANCE = new NullSupplier();
+
+        private NullSupplier() {
+        }
+
+        @Override
+        public Factory getFactory(CachingPackageLocator loc) {
+          return NullFactory.INSTANCE;
+        }
+      }
+    }
+
     /**
-     * Returns a Preprocessor instance. The CachingPackageLocator is
-     * provided so the preprocessor can lookup other BUILD files.
-     * Currently, newPreprocessor() is called every time a BUILD
-     * preprocessor parse is attempted.
+     * Returns whether this {@link Factory} is still suitable for providing {@link Preprocessor}s.
+     * If not, all previous preprocessing results should be assumed to be invalid and a new
+     * {@link Factory} should be created via {@link Supplier#getFactory}.
      */
-    Preprocessor newPreprocessor(CachingPackageLocator loc);
+    boolean isStillValid();
+
+    /**
+     * Returns a Preprocessor instance capable of preprocessing a BUILD file independently (e.g. it
+     * ought to be fine to call {@link #getPreprocessor} for each BUILD file).
+     */
+    @Nullable
+    Preprocessor getPreprocessor();
+
+    /** Factory that always returns {@code null} {@link Preprocessor}s. */
+    static class NullFactory implements Factory {
+      public static final NullFactory INSTANCE = new NullFactory();
+
+      private NullFactory() {
+      }
+
+      @Override
+      public boolean isStillValid() {
+        return true;
+      }
+
+      @Override
+      public Preprocessor getPreprocessor() {
+        return null;
+      }
+    }
   }
 
   /**
    * A (result, success) tuple indicating the outcome of preprocessing.
    */
-  public static class Result {
+  static class Result {
     public final ParserInputSource result;
     public final boolean preprocessed;
     public final boolean containsTransientErrors;
@@ -83,7 +129,7 @@ public interface Preprocessor {
    * @throws IOException if there was an I/O problem during preprocessing.
    * @return a pair of the ParserInputSource and a map of subincludes seen during the evaluation
    */
-  public Result preprocess(
+  Result preprocess(
       ParserInputSource in,
       String packageName,
       GlobCache globCache,

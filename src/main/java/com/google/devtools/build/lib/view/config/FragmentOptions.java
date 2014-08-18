@@ -21,13 +21,14 @@ import com.google.devtools.build.lib.syntax.Label.SyntaxException;
 import com.google.devtools.common.options.Options;
 import com.google.devtools.common.options.OptionsBase;
 
+import java.io.Serializable;
 import java.util.Map;
 import java.util.Set;
 
 /**
  * Command-line build options for a Blaze module.
  */
-public abstract class FragmentOptions extends OptionsBase implements Cloneable {
+public abstract class FragmentOptions extends OptionsBase implements Cloneable, Serializable {
 
   /**
    * Adds all labels defined by the options to a multimap. See {@code BuildOptions.getAllLabels()}.

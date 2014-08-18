@@ -17,8 +17,8 @@ package com.google.devtools.build.lib.query2.engine;
  * This exception is thrown when a query operation was unable to complete because of a Skyframe
  * missing dependency.
  */
-public class SkyframeRestartQueryException extends QueryException {
-  public SkyframeRestartQueryException(String missing) {
-    super("need skyframe retry. missing: " + missing);
+public class SkyframeRestartQueryException extends RuntimeException {
+  public SkyframeRestartQueryException() {
+    super("need skyframe retry. missing dep");
   }
 }

@@ -23,12 +23,12 @@ import java.util.List;
  * The main class.
  */
 public final class BazelMain {
-  private static final List<Class<? extends BlazeModule>> BAZEL_MODULES =
-      ImmutableList.<Class<? extends BlazeModule>>of(
-          com.google.devtools.build.lib.bazel.rules.BazelRulesModule.class,
-          com.google.devtools.build.lib.standalone.StandaloneModule.class,
-          com.google.devtools.build.lib.blaze.BuildSummaryStatsModule.class
-      );
+  private static final List<Class<? extends BlazeModule>> BAZEL_MODULES = ImmutableList.of(
+      com.google.devtools.build.lib.bazel.BazelWorkspaceStatusModule.class,
+      com.google.devtools.build.lib.bazel.rules.BazelRulesModule.class,
+      com.google.devtools.build.lib.standalone.StandaloneModule.class,
+      com.google.devtools.build.lib.blaze.BuildSummaryStatsModule.class
+  );
 
   public static void main(String[] args) {
     System.loadLibrary("unix");

@@ -17,6 +17,7 @@ import com.google.common.base.Function;
 import com.google.common.base.Preconditions;
 import com.google.common.collect.ArrayListMultimap;
 import com.google.common.collect.ImmutableList;
+import com.google.common.collect.ImmutableSet;
 import com.google.common.collect.Iterables;
 import com.google.common.collect.ListMultimap;
 import com.google.common.collect.Lists;
@@ -29,9 +30,11 @@ import com.google.devtools.build.lib.packages.NoSuchPackageException;
 import com.google.devtools.build.lib.packages.NoSuchTargetException;
 import com.google.devtools.build.lib.packages.NoSuchThingException;
 import com.google.devtools.build.lib.packages.PackageGroup;
+import com.google.devtools.build.lib.packages.RawAttributeMapper;
 import com.google.devtools.build.lib.packages.Rule;
 import com.google.devtools.build.lib.packages.Target;
 import com.google.devtools.build.lib.packages.TargetUtils;
+import com.google.devtools.build.lib.packages.Type;
 import com.google.devtools.build.lib.skyframe.SkyframeExecutor.BuildViewProvider;
 import com.google.devtools.build.lib.syntax.EvalException;
 import com.google.devtools.build.lib.syntax.Label;
@@ -40,6 +43,7 @@ import com.google.devtools.build.lib.view.ConfiguredTarget;
 import com.google.devtools.build.lib.view.LateBoundAttributeHelper;
 import com.google.devtools.build.lib.view.TargetAndConfiguration;
 import com.google.devtools.build.lib.view.config.BuildConfiguration;
+import com.google.devtools.build.lib.view.config.ConfigMatchingProvider;
 import com.google.devtools.build.skyframe.SkyFunction;
 import com.google.devtools.build.skyframe.SkyFunctionException;
 import com.google.devtools.build.skyframe.SkyKey;
@@ -49,6 +53,7 @@ import com.google.devtools.build.skyframe.ValueOrException;
 import java.util.Collection;
 import java.util.HashMap;
 import java.util.Map;
+import java.util.Set;
 
 import javax.annotation.Nullable;
 
@@ -114,22 +119,120 @@ final class ConfiguredTargetFunction implements SkyFunction {
       return null;
     }
 
-    // 1. Get the map from attributes to labels.
+    // 1. Get the configuration targets that trigger this rule's configurable attributes.
+    Set<ConfigMatchingProvider> configConditions =
+        getConfigConditions(target, env, resolver, ctgValue, packageSkyKey);
+    if (configConditions == null) {
+      // Those targets haven't yet been resolved.
+      return null;
+    }
+
+    // 2. Get the map from attributes to labels.
     ListMultimap<Attribute, Label> labelMap = null;
     if (target instanceof Rule) {
       try {
-        labelMap = new LateBoundAttributeHelper((Rule) target, configuration).createAttributeMap();
+        labelMap = new LateBoundAttributeHelper((Rule) target, configuration, configConditions)
+            .createAttributeMap();
       } catch (EvalException e) {
         env.getListener().error(e.getLocation(), e.getMessage());
         throw new ConfiguredTargetFunctionException(packageSkyKey,
             new ConfiguredValueCreationException(e.print()));
       }
     }
-    // 2. Convert each label to a (target, configuration) pair.
+
+    // 3. Convert each label to a (target, configuration) pair.
     ListMultimap<Attribute, TargetAndConfiguration> depValueNames =
         resolver.dependentNodeMap(ctgValue, labelMap);
 
-    // 3. Resolve dependencies and handle errors.
+    // 4. Resolve dependencies and handle errors.
+    Map<SkyKey, ConfiguredTargetValue> depValues =
+        resolveDependencies(env, depValueNames, packageSkyKey, target);
+    if (depValues == null) {
+      return null;
+    }
+
+    // 5. Convert each (target, configuration) pair to a ConfiguredTarget instance.
+    ListMultimap<Attribute, ConfiguredTarget> depValueMap = ArrayListMultimap.create();
+    for (Map.Entry<Attribute, TargetAndConfiguration> entry : depValueNames.entries()) {
+      ConfiguredTargetValue value = depValues.get(TO_KEYS.apply(entry.getValue()));
+      // The code above guarantees that value is non-null here.
+      depValueMap.put(entry.getKey(), value.getConfiguredTarget());
+    }
+
+    // 6. Create the ConfiguredTarget for the present value.
+    return createConfiguredTarget(view, env, target, configuration, depValueMap, configConditions);
+  }
+
+  /**
+   * Returns the set of {@link ConfigMatchingProvider}s that key the configurable attributes
+   * used by this rule.
+   *
+   * <p>>If the configured targets supplying those providers aren't yet resolved by the
+   * dependency resolver, returns null.
+   */
+  private Set<ConfigMatchingProvider> getConfigConditions(Target target, Environment env,
+      SkyframeDependencyResolver resolver, TargetAndConfiguration ctgValue, SkyKey packageSkyKey)
+      throws ConfiguredTargetFunctionException, InterruptedException {
+    if (!(target instanceof Rule)) {
+      return ImmutableSet.of();
+    }
+
+    ImmutableSet.Builder<ConfigMatchingProvider> configConditions = ImmutableSet.builder();
+
+    // Collect the labels of the configured targets we need to resolve.
+    ListMultimap<Attribute, Label> configLabelMap = ArrayListMultimap.create();
+    RawAttributeMapper attributeMap = RawAttributeMapper.of(((Rule) target));
+    for (Attribute a : ((Rule) target).getAttributes()) {
+      for (Label configLabel : attributeMap.getConfigurabilityKeys(a.getName(), a.getType())) {
+        if (!Type.Selector.isReservedLabel(configLabel)) {
+          configLabelMap.put(a, configLabel);
+        }
+      }
+    }
+
+    // Collect the corresponding Skyframe configured target values. Abort early if they haven't
+    // been computed yet.
+    ListMultimap<Attribute, TargetAndConfiguration> configValueNames =
+        resolver.dependentNodeMap(ctgValue, configLabelMap, /*visitVisibility=*/false);
+    Map<SkyKey, ConfiguredTargetValue> configValues =
+        resolveDependencies(env, configValueNames, packageSkyKey, target);
+    if (configValues == null) {
+      return null;
+    }
+
+    // Get the configured targets as ConfigMatchingProvider interfaces.
+    for (Map.Entry<Attribute, TargetAndConfiguration> entry : configValueNames.entries()) {
+      ConfiguredTargetValue value = configValues.get(TO_KEYS.apply(entry.getValue()));
+      // The code above guarantees that value is non-null here.
+      ConfigMatchingProvider provider =
+          value.getConfiguredTarget().getProvider(ConfigMatchingProvider.class);
+      if (provider != null) {
+        configConditions.add(provider);
+      } else {
+        // Not a valid provider for configuration conditions.
+        Target badTarget = entry.getValue().getTarget();
+        String message = badTarget + " is not a valid configuration key for "
+            + target.getLabel().toString();
+        env.getListener().error(TargetUtils.getLocationMaybe(badTarget), message);
+        throw new ConfiguredTargetFunctionException(packageSkyKey,
+            new ConfiguredValueCreationException(message));
+      }
+    }
+
+    return configConditions.build();
+  }
+
+  /***
+   * Resolves the targets referenced in depValueNames and returns their ConfiguredTarget
+   * instances.
+   *
+   * <p>Returns null if not all instances are available yet.
+   *
+   */
+  private Map<SkyKey, ConfiguredTargetValue> resolveDependencies(Environment env,
+      ListMultimap<Attribute, TargetAndConfiguration> depValueNames, SkyKey packageSkyKey,
+      Target target
+      ) throws ConfiguredTargetFunctionException, InterruptedException{
     boolean ok = !env.valuesMissing();
     String message = null;
     Iterable<SkyKey> depKeys = Iterables.transform(depValueNames.values(), TO_KEYS);
@@ -180,19 +283,11 @@ final class ConfiguredTargetFunction implements SkyFunction {
     }
     if (!ok) {
       return null;
+    } else {
+      return depValues;
     }
-
-    // 4. Convert each (target, configuration) pair to a ConfiguredTarget instance.
-    ListMultimap<Attribute, ConfiguredTarget> depValueMap = ArrayListMultimap.create();
-    for (Map.Entry<Attribute, TargetAndConfiguration> entry : depValueNames.entries()) {
-      ConfiguredTargetValue value = depValues.get(TO_KEYS.apply(entry.getValue()));
-      // The code above guarantees that value is non-null here.
-      depValueMap.put(entry.getKey(), value.getConfiguredTarget());
-    }
-
-    // 5. Create the ConfiguredTarget for the present value.
-    return createConfiguredTarget(view, env, target, configuration, depValueMap);
   }
+
 
   @Override
   public String extractTag(SkyKey skyKey) {
@@ -202,7 +297,8 @@ final class ConfiguredTargetFunction implements SkyFunction {
   @Nullable
   private ConfiguredTargetValue createConfiguredTarget(SkyframeBuildView view,
       Environment env, Target target, BuildConfiguration configuration,
-      ListMultimap<Attribute, ConfiguredTarget> depValueMap)
+      ListMultimap<Attribute, ConfiguredTarget> depValueMap,
+      Set<ConfigMatchingProvider> configConditions)
       throws ConfiguredTargetFunctionException,
       InterruptedException {
     boolean extendedSanityChecks = configuration != null && configuration.extendedSanityChecks();
@@ -220,12 +316,7 @@ final class ConfiguredTargetFunction implements SkyFunction {
     }
 
     ConfiguredTarget configuredTarget = view.createAndInitialize(
-        target, configuration, analysisEnvironment, depValueMap);
-    if (env.valuesMissing()) {
-      return null;
-    }
-
-    Collection<Action> actions = ImmutableList.copyOf(analysisEnvironment.getRegisteredActions());
+        target, configuration, analysisEnvironment, depValueMap, configConditions);
 
     events.replayOn(env.getListener());
     if (events.hasErrors()) {
@@ -236,8 +327,14 @@ final class ConfiguredTargetFunction implements SkyFunction {
     }
     Preconditions.checkState(!analysisEnvironment.hasErrors(),
         "Analysis environment hasError() but no errors reported");
-    Preconditions.checkNotNull(configuredTarget);
+    if (env.valuesMissing()) {
+      return null;
+    }
+
     analysisEnvironment.disable(target);
+    Preconditions.checkNotNull(configuredTarget, target);
+
+    Collection<Action> actions = ImmutableList.copyOf(analysisEnvironment.getRegisteredActions());
 
     // Record actions and check duplicates.
     // It's a bit awkward that non-ActionOwner configured targets can have actions, but that's

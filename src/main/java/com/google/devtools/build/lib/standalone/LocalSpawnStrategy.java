@@ -42,8 +42,10 @@ public class LocalSpawnStrategy implements SpawnActionContext {
       ActionExecutionContext actionExecutionContext)
       throws ExecException {
     Executor executor = actionExecutionContext.getExecutor();
-    executor.reportSubcommand(Label.print(spawn.getOwner().getLabel()),
-        spawn.asShellCommand(executor.getExecRoot()));
+    if (executor.reportsSubcommands()) {
+      executor.reportSubcommand(Label.print(spawn.getOwner().getLabel()),
+          spawn.asShellCommand(executor.getExecRoot()));
+    }
     String[] args = spawn.getArguments().toArray(new String[]{});
     Command cmd = new Command(args, spawn.getEnvironment(),
         new File(executor.getExecRoot().getPathString()));

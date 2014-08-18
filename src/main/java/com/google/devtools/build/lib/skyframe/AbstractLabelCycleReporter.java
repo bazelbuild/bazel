@@ -43,6 +43,10 @@ abstract class AbstractLabelCycleReporter implements CyclesReporter.SingleCycleR
 
   protected abstract boolean canReportCycle(SkyKey topLevelKey, CycleInfo cycleInfo);
 
+  protected String getAdditionalMessageAboutCycle(SkyKey topLevelKey, CycleInfo cycleInfo) {
+    return "";
+  }
+
   @Override
   public boolean maybeReportCycle(SkyKey topLevelKey, CycleInfo cycleInfo,
       boolean alreadyReported, @Nullable ErrorEventListener listener) {
@@ -88,6 +92,8 @@ abstract class AbstractLabelCycleReporter implements CyclesReporter.SingleCycleR
         cycleMessage.append(" [self-edge]");
       }
 
+      cycleMessage.append(getAdditionalMessageAboutCycle(topLevelKey, cycleInfo));
+
       Label label = getLabel(cycleValue);
       Target target = getTargetForLabel(label);
       listener.error(target.getLocation(), "in " + target.getTargetKind() + " " + label
@@ -97,7 +103,7 @@ abstract class AbstractLabelCycleReporter implements CyclesReporter.SingleCycleR
     return true;
   }
 
-  private Target getTargetForLabel(Label label) {
+  protected final Target getTargetForLabel(Label label) {
     try {
       return loadedPackageProvider.getLoadedTarget(label);
     } catch (NoSuchThingException e) {

@@ -92,7 +92,7 @@ public class ErrorInfo {
   @Override
   public String toString() {
     return String.format("<ErrorInfo exception=%s rootCauses=%s cycles=%s>",
-        rootCauses, exception, cycles);
+        exception, rootCauses, cycles);
   }
 
   /**

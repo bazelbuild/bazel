@@ -45,7 +45,6 @@ public class TestRuleClassProvider {
           new ConfiguredRuleClassProvider.Builder();
       BazelRuleClassProvider.setup(builder);
       builder.addRuleDefinition(TestingDummyRule.class);
-      builder.allowConfigurableAttributes(true);
       ruleProvider = builder.build();
     }
     return ruleProvider;

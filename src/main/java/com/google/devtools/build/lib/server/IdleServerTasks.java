@@ -25,6 +25,8 @@ import java.util.concurrent.TimeUnit;
 import java.util.logging.Level;
 import java.util.logging.Logger;
 
+import javax.annotation.Nullable;
+
 /**
  * Run cleanup-related tasks during idle periods in the server.
  * idle() and busy() must be called in that order, and only once.
@@ -40,7 +42,7 @@ class IdleServerTasks {
   /**
    * Must be called from the main thread.
    */
-  public IdleServerTasks(Path workspaceDir) {
+  public IdleServerTasks(@Nullable Path workspaceDir) {
     this.executor = new ScheduledThreadPoolExecutor(1);
     this.workspaceDir = workspaceDir;
   }
@@ -96,7 +98,7 @@ class IdleServerTasks {
    * Called from the main thread, so it should return quickly.
    */
   public boolean continueProcessing(long idleMillis) {
-    return memoryHeuristic(idleMillis) && workspaceDir.isDirectory();
+    return memoryHeuristic(idleMillis) && workspaceDir != null && workspaceDir.isDirectory();
   }
 
   private boolean memoryHeuristic(long idleMillis) {

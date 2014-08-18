@@ -131,9 +131,14 @@ public class MoreAsserts {
 
   @SafeVarargs
   public static <T> void assertContains(Iterable<T> actual, T... expected) {
-    assertThat(ImmutableList.copyOf(actual)).has().allFrom(ImmutableList.copyOf(expected));
+    // We cannot use the Truth API here, because .containsAllIn is not in the OSS version and
+    // .has().allFrom() is not in the Google version.
+    ImmutableList<T> actualList = ImmutableList.copyOf(actual);
+    for (T expectedItem : ImmutableList.copyOf(expected)) {
+      assertTrue(actualList.contains(expectedItem));
+    }
   }
-  
+
   public static <T> void assertNotContains(Iterable<T> actual, T unexpected) {
     for (T i : actual) {
       if (i.equals(unexpected)) {
@@ -142,7 +147,7 @@ public class MoreAsserts {
     }
   }
 
-  
+
   public static void assertContains(String msg, String expected, String actual) {
     assertThat(actual).named(msg).contains(expected);
   }
@@ -153,8 +158,12 @@ public class MoreAsserts {
 
   @SafeVarargs
   public static <T> void assertContains(String msg, Iterable<T> actual, T... expected) {
-    assertThat(ImmutableList.copyOf(actual)).named(msg)
-        .has().allFrom(ImmutableList.copyOf(expected));
+    // We cannot use the Truth API here, because .containsAllIn is not in the OSS version and
+    // .has().allFrom() is not in the Google version.
+    ImmutableList<T> actualList = ImmutableList.copyOf(actual);
+    for (T expectedItem : ImmutableList.copyOf(expected)) {
+      assertTrue(msg, actualList.contains(expectedItem));
+    }
   }
 
   public static <T> void assertNotContains(String msg, Iterable<T> actual, T unexpected) {
@@ -168,7 +177,8 @@ public class MoreAsserts {
   }
 
   public static void assertContainsRegex(String regex, String actual) {
-    assertTrue(getMatcher(regex, actual).find());
+    assertTrue(String.format("string '%s' did not contain '%s'", actual, regex),
+        getMatcher(regex, actual).find());
   }
 
   public static void assertContainsRegex(String msg, String regex, String actual) {
@@ -289,8 +299,8 @@ public class MoreAsserts {
     }
   }
 
-  private static final Field NON_STRONG_REF; 
-  
+  private static final Field NON_STRONG_REF;
+
   static {
     try {
       NON_STRONG_REF = Reference.class.getDeclaredField("referent");
@@ -307,7 +317,7 @@ public class MoreAsserts {
       return NON_STRONG_REF.equals(field);
     }
   };
-  
+
   private static boolean isRetained(Predicate<Object> predicate, Object start) {
     Map<Object, Object> visited = Maps.newIdentityHashMap();
     visited.put(start, start);

@@ -32,7 +32,6 @@ import com.google.devtools.build.lib.exec.TestStrategy.TestOutputFormat;
 import com.google.devtools.build.lib.util.AbruptExitException;
 import com.google.devtools.build.lib.util.ExitCode;
 import com.google.devtools.build.lib.util.io.AnsiTerminalPrinter;
-import com.google.devtools.build.lib.util.io.OutErr;
 import com.google.devtools.build.lib.view.ConfiguredTarget;
 import com.google.devtools.common.options.OptionPriority;
 import com.google.devtools.common.options.OptionsParser;
@@ -74,14 +73,14 @@ public class TestCommand implements BlazeCommand {
   }
 
   @Override
-  public ExitCode exec(BlazeRuntime runtime, OptionsProvider options, OutErr outErr) {
+  public ExitCode exec(BlazeRuntime runtime, OptionsProvider options) {
     TestResultAnalyzer resultAnalyzer = new TestResultAnalyzer(
         runtime.getExecRoot(),
         options.getOptions(TestSummaryOptions.class),
         options.getOptions(ExecutionOptions.class),
         runtime.getEventBus());
 
-    printer = new AnsiTerminalPrinter(outErr.getOutputStream(),
+    printer = new AnsiTerminalPrinter(runtime.getReporter().getOutErr().getOutputStream(),
         options.getOptions(BlazeCommandEventHandler.Options.class).useColor());
 
     // Initialize test handler.
@@ -89,18 +88,17 @@ public class TestCommand implements BlazeCommand {
         resultAnalyzer, runtime.getEventBus(), runtime.getReporter());
 
     runtime.getEventBus().register(testListener);
-    return doTest(runtime, options, testListener, outErr);
+    return doTest(runtime, options, testListener);
   }
 
   private ExitCode doTest(BlazeRuntime runtime,
-                          OptionsProvider options,
-                          AggregatingTestListener testListener,
-                          OutErr outErr) {
+      OptionsProvider options,
+      AggregatingTestListener testListener) {
     // Run simultaneous build and test.
     BuildRequest request = BuildRequest.create(
         getClass().getAnnotation(Command.class).name(), options,
         runtime.getStartupOptionsProvider(), options.getResidue(),
-        outErr, runtime.getCommandId(), runtime.getCommandStartTime());
+        runtime.getReporter().getOutErr(), runtime.getCommandId(), runtime.getCommandStartTime());
     if (request.getBuildOptions().compileOnly) {
       String message =  "The '" + getClass().getAnnotation(Command.class).name() +
                         "' command is incompatible with the --compile_only option";

@@ -377,7 +377,7 @@ public class EagerInvalidatorTest {
       }
     };
     invalidateWithoutError(receiver);
-    assertThat(invalidated).has().item(parentValue);
+    assertTrue(invalidated.contains(parentValue));
     assertThat(state.getInvalidationsForTesting()).isEmpty();
 
     // Regression test coverage:

@@ -192,7 +192,7 @@ abstract class LineNumberTable {
 
     @Override
     LineAndColumn getLineAndColumn(int offset) {
-      Integer line = -1;
+      int line = -1;
       for (int ii = 0, len = table.size(); ii < len; ii++) {
         SingleHashLine hash = table.get(ii);
         if (hash.offset > offset) {

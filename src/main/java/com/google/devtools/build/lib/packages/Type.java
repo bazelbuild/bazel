@@ -1049,6 +1049,7 @@ public abstract class Type<T> {
     private final Type<T> originalType;
     private final Map<Label, T> map;
     private final Label defaultConditionLabel;
+    private final boolean hasDefaultCondition;
 
     /**
      * Value to use when none of an attribute's selection criteria match.
@@ -1068,22 +1069,18 @@ public abstract class Type<T> {
       }
 
 
-      boolean hasDefaultCondition = false;
       this.originalType = originalType;
       Map<Label, T> result = Maps.newLinkedHashMap();
+      boolean foundDefaultCondition = false;
       for (Entry<?, ?> entry : ((Map<?, ?>) x).entrySet()) {
         Label key = LABEL.convert(entry.getKey(), what, currentRule);
         if (key.equals(defaultConditionLabel)) {
-          hasDefaultCondition = true;
+          foundDefaultCondition = true;
         }
         result.put(key, originalType.convert(entry.getValue(), what, currentRule));
       }
-      if (!hasDefaultCondition) {
-        // TODO(bazel-team): lift the requirement for default conditions, so long as *something*
-        // matches.
-        throw new ConversionException("no default condition specified for " + what);
-      }
       map = ImmutableMap.copyOf(result);
+      hasDefaultCondition = foundDefaultCondition;
     }
 
     /**
@@ -1098,6 +1095,13 @@ public abstract class Type<T> {
      */
     public T getDefault() {
       return map.get(defaultConditionLabel);
+    }
+
+    /**
+     * Returns whether or not this selector has a default condition.
+     */
+    public boolean hasDefault() {
+      return hasDefaultCondition;
     }
 
     /**

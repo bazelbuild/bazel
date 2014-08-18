@@ -85,6 +85,7 @@ import com.google.devtools.build.lib.view.actions.TargetCompletionMiddlemanActio
 import com.google.devtools.build.lib.view.config.BinTools;
 import com.google.devtools.build.lib.view.config.BuildConfiguration;
 import com.google.devtools.build.lib.view.config.BuildConfigurationCollection;
+import com.google.devtools.build.lib.view.config.ConfigMatchingProvider;
 import com.google.devtools.build.lib.view.test.TestProvider;
 import com.google.devtools.build.lib.view.test.TestRunnerAction;
 import com.google.devtools.build.skyframe.SkyKey;
@@ -741,8 +742,9 @@ public class BuildView {
     }
 
     public boolean hasStaleActionData() {
-      return dependentActionGraph != null ?
-          dependentActionGraph.hasStaleActionDataAndInit() : false;
+      return dependentActionGraph != null
+          ? dependentActionGraph.hasStaleActionDataAndInit()
+          : false;
     }
   }
 
@@ -871,8 +873,8 @@ public class BuildView {
       // if skyframeCacheWasInvalidated then we have already invalidated everything.
       // In case of an interrupted exception, if we had invalidated some configured targets we
       // also clear legacy data.
-      if (!skyframeCacheWasInvalidated && skyframeBuildView.isSomeConfiguredTargetInvalidated() &&
-          artifactMTimeCache != null) {
+      if (!skyframeCacheWasInvalidated && skyframeBuildView.isSomeConfiguredTargetInvalidated()
+          && artifactMTimeCache != null) {
         // ConfiguredTargets have changed. We cannot reuse forwardGraphCache and artifactMTimeCache
         // in Skyframe. ForwardGraphCache should go away once we have full Skyframe. It is not worth
         // it to optimize it now.
@@ -1310,6 +1312,7 @@ public class BuildView {
             .setVisibility(NestedSetBuilder.<PackageSpecification>create(
                 Order.STABLE_ORDER, PackageSpecification.EVERYTHING))
             .setPrerequisites(getPrerequisiteMapForTesting(target))
+            .setConfigConditions(ImmutableSet.<ConfigMatchingProvider>of())
             .build();
     return ruleContext;
   }
@@ -1371,71 +1374,6 @@ public class BuildView {
   }
 
   /**
-   * Returns developer-friendly configured target name used for dumps
-   */
-  private static String dumpTarget(ConfiguredTarget target) {
-    if (target.getConfiguration() == null) {
-      return target.getTarget().getTargetKind() + " " + target.getLabel();
-    } else {
-      return target.getTarget().getTargetKind() + " " + target.getLabel()
-          + ", " + target.getConfiguration().getShortName();
-    }
-  }
-
-  // TODO(bazel-team): Fix blaze dump --targets or remove feature.
-  private static final boolean DUMP_BROKEN = true;
-
-  /**
-   * Dumps existing configured target information.
-   */
-  public void dumpConfiguredTargets(PrintStream out) {
-    if (DUMP_BROKEN) {
-      reporter.error(null, "dump --targets is currently broken");
-      return;
-    }
-    out.println("Target configurator (" + Iterables.size(getAllConfiguredTargets())
-        + " configured targets)");
-    // Map below associates every artifact with the Boolean.FALSE value. During
-    // traversal, values for visited artifacts will be set to the Boolean.TRUE.
-    // Any artifacts associated with Boolean.FALSE value will then be reported
-    // as not referenced.
-    Map<Artifact, Boolean> artifactReferenceMap = getArtifactReferences();
-    for (ConfiguredTarget target : getAllConfiguredTargets()) {
-      out.println(dumpTarget(target));
-      if (hasErrors(target)) {
-        out.println("  !!! HAS ERRORS !!!");
-        continue;
-      }
-      for (Artifact artifact : target.getProvider(FilesToRunProvider.class).getFilesToRun()) {
-        if (artifactReferenceMap.put(artifact, Boolean.TRUE) == null) {
-          artifactReferenceMap.remove(artifact);
-          out.println("  !!! " + BuildView.dumpArtifact(artifact));
-        }
-        if (!artifact.isSourceArtifact()) {
-          out.println("  " + BuildView.dumpArtifact(artifact));
-          out.println("    "
-              + BuildView.dumpAction(legacyActionGraph.getGeneratingAction(artifact)));
-        }
-      }
-      for (ConfiguredTarget prerequisite : getDirectPrerequisites(target)) {
-        out.println("  " + dumpTarget(prerequisite));
-      }
-    }
-    out.println();
-    out.println("The following artifacts were NEVER directly referenced by configured targets:");
-    for (Map.Entry<Artifact, Boolean> entry : artifactReferenceMap.entrySet()) {
-      if (!entry.getValue()) {
-        Artifact artifact = entry.getKey();
-        out.println("  " + BuildView.dumpArtifact(artifact));
-        if (!artifact.isSourceArtifact()) {
-          out.println("    "
-              + BuildView.dumpAction(legacyActionGraph.getGeneratingAction(artifact)));
-        }
-      }
-    }
-  }
-
-  /**
    * Dumps state of the artifact factory and referenced actions.
    */
   public void dumpArtifacts(PrintStream out) {
@@ -1471,14 +1409,14 @@ public class BuildView {
             out.println ("    !!! " + dumpAction(action) + " HAS IDENTICAL ANNOTATION !!!");
           }
         }
-        for (Artifact input: action.getInputs()) {
+        for (Artifact input : action.getInputs()) {
           out.println("    input " + dumpArtifact(input));
           if (artifactReferenceMap.put(input, Boolean.TRUE) == null) {
             artifactReferenceMap.remove(input);
           }
         }
         boolean found = false;
-        for (Artifact output: action.getOutputs()) {
+        for (Artifact output : action.getOutputs()) {
           if (output.equals(artifact)) {
             found = true;
           }

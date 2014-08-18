@@ -63,6 +63,12 @@ public class StoredErrorEventListener implements ErrorEventListener {
   }
 
   @Override
+  public void report(EventKind kind, Location location, byte[] message) {
+    hasErrors |= kind == EventKind.ERROR;
+    events.add(new Event(kind, location, message));
+  }
+
+  @Override
   public boolean showOutput(String tag) {
     return true;
   }

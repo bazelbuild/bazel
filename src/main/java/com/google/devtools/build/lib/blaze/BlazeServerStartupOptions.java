@@ -232,12 +232,6 @@ public class BlazeServerStartupOptions extends OptionsBase {
           + "skyframe just for loading and analysis, and the legacy codepath for execution.")
   public SkyframeMode skyframe;
 
-  @Option(name = "allow_configurable_attributes",
-      defaultValue = "false",  // NOTE: purely decorative!
-      category = "undocumented",
-      help = "Whether or not to allow configurable attribute syntax in BUILD files. Experimental.")
-  public boolean allowConfigurableAttributes;
-
   @Option(name = "fatal_event_bus_exceptions",
       defaultValue = "false",  // NOTE: purely decorative!
       category = "undocumented",

@@ -107,23 +107,27 @@ public class FileFunction implements SkyFunction {
   private Pair<RootedPath, FileStateValue> resolveFromAncestors(RootedPath rootedPath,
       Environment env, SkyKey key) throws FileFunctionException {
     PathFragment relativePath = rootedPath.getRelativePath();
-    RootedPath parentRootedPath = RootedPath.toRootedPath(rootedPath.getRoot(),
-        relativePath.getParentDirectory());
-    FileValue parentFileValue = (FileValue) env.getValue(FileValue.key(parentRootedPath));
-    if (parentFileValue == null) {
-      return null;
+    RootedPath realRootedPath = rootedPath;
+    FileValue parentFileValue = null;
+    if (!relativePath.equals(PathFragment.EMPTY_FRAGMENT)) {
+      RootedPath parentRootedPath = RootedPath.toRootedPath(rootedPath.getRoot(),
+          relativePath.getParentDirectory());
+      parentFileValue = (FileValue) env.getValue(FileValue.key(parentRootedPath));
+      if (parentFileValue == null) {
+        return null;
+      }
+      PathFragment baseName = new PathFragment(relativePath.getBaseName());
+      RootedPath parentRealRootedPath = parentFileValue.realRootedPath();
+      realRootedPath = RootedPath.toRootedPath(parentRealRootedPath.getRoot(),
+          parentRealRootedPath.getRelativePath().getRelative(baseName));
     }
-    PathFragment baseName = new PathFragment(relativePath.getBaseName());
-    RootedPath parentRealRootedPath = parentFileValue.realRootedPath();
-    RootedPath realRootedPath = RootedPath.toRootedPath(parentRealRootedPath.getRoot(),
-        parentRealRootedPath.getRelativePath().getRelative(baseName));
     FileStateValue realFileStateValue =
         (FileStateValue) env.getValue(FileStateValue.key(realRootedPath));
     if (realFileStateValue == null) {
       return null;
     }
     if (realFileStateValue.getType() != FileStateValue.Type.NONEXISTENT
-        && !parentFileValue.isDirectory()) {
+        && parentFileValue != null && !parentFileValue.isDirectory()) {
       String type = realFileStateValue.getType().toString().toLowerCase();
       String message = type + " " + rootedPath.asPath() + " exists but its parent "
           + "directory " + parentFileValue.realRootedPath().asPath() + " doesn't exist.";

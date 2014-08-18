@@ -411,7 +411,7 @@ public class BlazeCommandDispatcher {
         reporter.warn(null, warning);
       }
 
-      ExitCode outcome = command.exec(runtime, optionsParser, reporter.getOutErr());
+      ExitCode outcome = command.exec(runtime, optionsParser);
       outcome = runtime.precompleteCommand(outcome);
       numericExitCode = outcome.getNumericExitCode();
       return numericExitCode;

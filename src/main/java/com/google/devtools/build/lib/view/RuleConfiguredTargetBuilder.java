@@ -238,8 +238,7 @@ public final class RuleConfiguredTargetBuilder {
   /**
    * Add a specific provider with a given value.
    */
-  public <T extends TransitiveInfoProvider> RuleConfiguredTargetBuilder add(
-      Class<T> key, T value) {
+  public <T extends TransitiveInfoProvider> RuleConfiguredTargetBuilder add(Class<T> key, T value) {
     AnalysisUtils.checkProvider(key);
     infos.add(new TransitiveInfo(key, value));
     return this;

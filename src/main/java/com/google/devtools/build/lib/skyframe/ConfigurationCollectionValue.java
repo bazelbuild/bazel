@@ -50,20 +50,22 @@ public class ConfigurationCollectionValue implements SkyValue {
   static final class ConfigurationCollectionKey {
     private final BuildOptions buildOptions;
     private final ImmutableSet<String> multiCpu;
-    
+    private final int hashCode;
+
     public ConfigurationCollectionKey(BuildOptions buildOptions, ImmutableSet<String> multiCpu) {
       this.buildOptions = Preconditions.checkNotNull(buildOptions);
-      this.multiCpu = Preconditions.checkNotNull(multiCpu);      
+      this.multiCpu = Preconditions.checkNotNull(multiCpu);
+      this.hashCode = Objects.hash(buildOptions, multiCpu);
     }
-    
+
     public BuildOptions getBuildOptions() {
       return buildOptions;
     }
-    
+
     public ImmutableSet<String> getMultiCpu() {
       return multiCpu;
     }
-    
+
     @Override
     public boolean equals(Object o) {
       if (this == o) {
@@ -79,7 +81,7 @@ public class ConfigurationCollectionValue implements SkyValue {
 
     @Override
     public int hashCode() {
-      return Objects.hash(buildOptions, multiCpu);
+      return hashCode;
     }
   }
 }

@@ -40,7 +40,7 @@ import java.util.List;
  *
  * <p>This class will typically be used by subclasses of ConfiguredTarget that support
  * instrumentation. They should store an instance of this class as an attribute and forward calls
- * to {@link #getInstrumentedFiles(NestedSet)} and 
+ * to {@link #getInstrumentedFiles(NestedSet)} and
  * {@link #getInstrumentationMetadataFiles(NestedSet)}.
  */
 public final class InstrumentedFilesCollector {
@@ -138,9 +138,9 @@ public final class InstrumentedFilesCollector {
    * Returns instrumented source files for the target provided during construction.
    */
   public final synchronized NestedSet<Artifact> getInstrumentedFiles(
-      NestedSet<Artifact> filesToBuild) {
+      Iterable<Artifact> rootFiles) {
     if (instrumentedFiles == null) {
-      invokeCollector(ruleContext.getAnalysisEnvironment(), filesToBuild);
+      invokeCollector(ruleContext.getAnalysisEnvironment(), rootFiles);
     }
     return instrumentedFiles;
   }
@@ -149,9 +149,9 @@ public final class InstrumentedFilesCollector {
    * Returns instrumentation metadata files for the target provided during construction.
    */
   public final synchronized NestedSet<Artifact> getInstrumentationMetadataFiles(
-      NestedSet<Artifact> filesToBuild) {
+      Iterable<Artifact> rootFiles) {
     if (instrumentationMetadataFiles == null) {
-      invokeCollector(ruleContext.getAnalysisEnvironment(), filesToBuild);
+      invokeCollector(ruleContext.getAnalysisEnvironment(), rootFiles);
     }
     return instrumentationMetadataFiles;
   }
@@ -163,7 +163,7 @@ public final class InstrumentedFilesCollector {
    * of the sets.
    */
   private void invokeCollector(AnalysisEnvironment analysisEnvironment,
-      NestedSet<Artifact> filesToBuild) {
+      Iterable<Artifact> rootFiles) {
     Preconditions.checkNotNull(ruleContext, "RuleContext already cleared. That means that the"
         + " collector data was already memoized. You do not have to call it again.");
     if (!ruleContext.getConfiguration().isCodeCoverageEnabled()) {
@@ -177,7 +177,7 @@ public final class InstrumentedFilesCollector {
     NestedSetBuilder<Artifact> instrumentedFilesBuilder =
         NestedSetBuilder.stableOrder();
     NestedSetBuilder<Artifact> metadataFilesBuilder = NestedSetBuilder.stableOrder();
-    collect(analysisEnvironment, instrumentedFilesBuilder, metadataFilesBuilder, filesToBuild);
+    collect(analysisEnvironment, instrumentedFilesBuilder, metadataFilesBuilder, rootFiles);
     instrumentedFiles = instrumentedFilesBuilder.build();
     instrumentationMetadataFiles = metadataFilesBuilder.build();
     // After we memoize instrumentedFiles and MetadataFiles we do not need the RuleContext
@@ -191,7 +191,7 @@ public final class InstrumentedFilesCollector {
   private void collect(AnalysisEnvironment analysisEnvironment,
       NestedSetBuilder<Artifact> instrumentedFilesBuilder,
       NestedSetBuilder<Artifact> metadataFilesBuilder,
-      NestedSet<Artifact> filesToBuild) {
+      Iterable<Artifact> rootFiles) {
     for (TransitiveInfoCollection dep : getAllPrerequisites()) {
       InstrumentedFilesProvider provider = dep.getProvider(InstrumentedFilesProvider.class);
       if (provider != null) {
@@ -208,7 +208,7 @@ public final class InstrumentedFilesCollector {
     }
 
     if (localMetadataCollector != null) {
-      localMetadataCollector.collectMetadataArtifacts(filesToBuild,
+      localMetadataCollector.collectMetadataArtifacts(rootFiles,
           analysisEnvironment, metadataFilesBuilder);
     }
   }

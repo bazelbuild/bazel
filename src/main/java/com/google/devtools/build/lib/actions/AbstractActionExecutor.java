@@ -83,18 +83,18 @@ public abstract class AbstractActionExecutor {
     metadataHandler.discardMetadata(action.getOutputs());
     // Delete the outputs before executing the action, just to ensure that
     // the action really does produce the outputs.
+    FileOutErr fileOutErr = actionLogBufferPathGenerator.generate();
+    ActionExecutionContext context = new ActionExecutionContext(
+        executorEngine, actionInputFileCache, metadataHandler, fileOutErr, middlemanExpander);
     try {
-      action.prepare();
+      action.prepare(context);
     } catch (IOException e) {
       reportError("failed to delete output files before executing action", e, action);
     }
 
-    FileOutErr fileOutErr = actionLogBufferPathGenerator.generate();
     postEvent(new ActionStartedEvent(action, actionStartTime));
     try {
-      scheduleAndExecuteAction(action,
-          new ActionExecutionContext(executorEngine, actionInputFileCache, metadataHandler,
-              fileOutErr, middlemanExpander));
+      scheduleAndExecuteAction(action, context);
       completeAction(action, token, metadataHandler, fileOutErr);
     } finally {
       postEvent(new ActionCompletionEvent(action, action.describeStrategy(executorEngine)));

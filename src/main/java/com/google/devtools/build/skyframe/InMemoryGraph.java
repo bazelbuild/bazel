@@ -17,6 +17,7 @@ import com.google.common.annotations.VisibleForTesting;
 import com.google.common.base.Function;
 import com.google.common.base.Predicate;
 import com.google.common.base.Predicates;
+import com.google.common.collect.MapMaker;
 import com.google.common.collect.Maps;
 
 import java.util.Collections;
@@ -33,7 +34,8 @@ import javax.annotation.Nullable;
  */
 public class InMemoryGraph implements ProcessableGraph {
 
-  protected final ConcurrentMap<SkyKey, NodeEntry> nodeMap = Maps.newConcurrentMap();
+  protected final ConcurrentMap<SkyKey, NodeEntry> nodeMap =
+      new MapMaker().initialCapacity(1024).concurrencyLevel(64).makeMap();
   private final boolean keepEdges;
 
   InMemoryGraph() {

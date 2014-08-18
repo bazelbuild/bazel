@@ -15,9 +15,12 @@
 package com.google.devtools.build.lib.exec;
 
 import com.google.common.annotations.VisibleForTesting;
+import com.google.common.io.ByteStreams;
 import com.google.devtools.build.lib.actions.ActionExecutionContext;
 import com.google.devtools.build.lib.actions.ExecException;
+import com.google.devtools.build.lib.util.io.FileWatcher;
 import com.google.devtools.build.lib.util.io.OutErr;
+import com.google.devtools.build.lib.vfs.Path;
 import com.google.devtools.build.lib.vfs.PathFragment;
 import com.google.devtools.build.lib.view.config.BuildConfiguration;
 import com.google.devtools.build.lib.view.test.TestActionContext;
@@ -27,6 +30,9 @@ import com.google.devtools.common.options.EnumConverter;
 import com.google.devtools.common.options.OptionsClassProvider;
 import com.google.devtools.common.options.OptionsParsingException;
 
+import java.io.Closeable;
+import java.io.IOException;
+import java.io.InputStream;
 import java.util.HashMap;
 import java.util.Map;
 
@@ -96,11 +102,8 @@ public abstract class TestStrategy implements TestActionContext {
 
   protected final ExecutionOptions executionOptions;
 
-  protected final OutErr outErr;
-
-  public TestStrategy(OptionsClassProvider options, OutErr outErr) {
+  public TestStrategy(OptionsClassProvider options) {
     this.executionOptions = options.getOptions(ExecutionOptions.class);
-    this.outErr = outErr;
   }
 
   /** The strategy name, preferably suitable for passing to --test_strategy. */
@@ -207,4 +210,45 @@ public abstract class TestStrategy implements TestActionContext {
     }
     return result;
   }
+
+  /**
+   * Implements the --test_output=streamed option.
+   */
+  protected static class StreamedTestOutput implements Closeable {
+    private final TestLogHelper.FilterTestHeaderOutputStream headerFilter;
+    private final FileWatcher watcher;
+    private final Path testLogPath;
+    private final OutErr outErr;
+
+    public StreamedTestOutput(OutErr outErr, Path testLogPath) throws IOException {
+      this.testLogPath = testLogPath;
+      this.outErr = outErr;
+      this.headerFilter = TestLogHelper.getHeaderFilteringOutputStream(outErr.getOutputStream());
+      this.watcher = new FileWatcher(testLogPath, OutErr.create(headerFilter, headerFilter), false);
+      watcher.start();
+    }
+
+    @Override
+    public void close() throws IOException {
+      watcher.stopPumping();
+      try {
+        // The watcher thread might leak if the following call is interrupted.
+        // This is a relatively minor issue since the worst it could do is
+        // write one additional line from the test.log to the console later on
+        // in the build.
+        watcher.join();
+      } catch (InterruptedException e) {
+        Thread.currentThread().interrupt();
+      }
+      if (!headerFilter.foundHeader()) {
+        InputStream input = testLogPath.getInputStream();
+        try {
+          ByteStreams.copy(input, outErr.getOutputStream());
+        } finally {
+          input.close();
+        }
+      }
+    }
+  }
+
 }

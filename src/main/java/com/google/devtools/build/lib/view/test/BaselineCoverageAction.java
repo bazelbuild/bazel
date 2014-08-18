@@ -17,75 +17,77 @@ package com.google.devtools.build.lib.view.test;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.Iterables;
 import com.google.common.eventbus.EventBus;
-import com.google.devtools.build.lib.actions.ActionExecutionContext;
 import com.google.devtools.build.lib.actions.ActionOwner;
 import com.google.devtools.build.lib.actions.Artifact;
-import com.google.devtools.build.lib.actions.ExecException;
 import com.google.devtools.build.lib.actions.Executor;
 import com.google.devtools.build.lib.actions.NotifyOnActionCacheHit;
-import com.google.devtools.build.lib.collect.nestedset.NestedSetBuilder;
+import com.google.devtools.build.lib.events.ErrorEventListener;
 import com.google.devtools.build.lib.syntax.Label;
-import com.google.devtools.build.lib.view.FileProvider;
-import com.google.devtools.build.lib.view.RuleConfiguredTarget.Mode;
+import com.google.devtools.build.lib.util.Fingerprint;
 import com.google.devtools.build.lib.view.RuleContext;
-import com.google.devtools.build.lib.view.TransitiveInfoCollection;
 import com.google.devtools.build.lib.view.Util;
-import com.google.devtools.build.lib.view.actions.CommandLine;
-import com.google.devtools.build.lib.view.actions.SpawnAction;
-import com.google.devtools.build.lib.view.config.BuildConfiguration;
+import com.google.devtools.build.lib.view.actions.AbstractFileWriteAction;
 
-import java.util.Collection;
-
-import javax.annotation.Nullable;
+import java.io.IOException;
+import java.io.OutputStream;
+import java.io.PrintWriter;
+import java.util.ArrayList;
+import java.util.List;
 
 /**
  * Generates baseline (empty) coverage for the given non-test target.
  */
-public class BaselineCoverageAction extends SpawnAction implements NotifyOnActionCacheHit {
+public class BaselineCoverageAction extends AbstractFileWriteAction
+    implements NotifyOnActionCacheHit {
+  // TODO(bazel-team): Remove this list of languages by separately collecting offline and online
+  // instrumented files.
+  private static final List<String> OFFLINE_INSTRUMENTATION_SUFFIXES = ImmutableList.of(
+      ".c", ".cc", ".cpp", ".go", ".h", ".java", ".py");
+  private final Iterable<Artifact> instrumentedFiles;
 
-  /**
-   * Helper interface for language specific processing hooks.
-   */
-  public interface LanguageHelper {
-    /**
-     * A hook function that implements language specific customizations. Such an implementation can
-     * add extra artifacts to the inputs and set language specific args for lcov_merger.
-     */
-    void languageHook(
-        RuleContext ruleContext,
-        Collection<Artifact> metadataFiles,
-        NestedSetBuilder<Artifact> inputs,
-        StringBuilder langArgs);
-  }
-
-  /**
-   * Helper interface to construct the tool command line that generates coverage data.
-   */
-  public interface CommandConstructor {
-    /**
-     * Returns a command that will generate baseline coverage data.
-     *
-     * @param configuration BuildConfiguration, giving access to the shell.
-     * @param output Artifact for baseline_coverage.data
-     * @param manifest Artifact for the input source file.
-     * @param langArgs Arguments to append to the command-line.
-     */
-    CommandLine get(BuildConfiguration configuration, Artifact output,
-      Artifact manifest, String langArgs);
-  };
-
-  private BaselineCoverageAction(ActionOwner owner, Iterable<Artifact> inputs, Artifact output,
-      BuildConfiguration configuration, CommandLine commandLine) {
-    super(owner, inputs, ImmutableList.of(output), configuration, DEFAULT_RESOURCE_SET,
-        commandLine, configuration.getDefaultShellEnvironment(),
-        "Generating baseline coverage data for " + owner.getLabel(), "BaselineCoverage");
+  private BaselineCoverageAction(
+      ActionOwner owner, Iterable<Artifact> instrumentedFiles, Artifact output) {
+    super(owner, ImmutableList.<Artifact>of(), output, false);
+    this.instrumentedFiles = instrumentedFiles;
   }
 
   @Override
-  protected void internalExecute(
-      ActionExecutionContext actionExecutionContext) throws ExecException, InterruptedException {
-    super.internalExecute(actionExecutionContext);
-    notifyAboutBaselineCoverage(actionExecutionContext.getExecutor().getEventBus());
+  public String getMnemonic() {
+    return "BaselineCoverage";
+  }
+
+  @Override
+  public String computeKey() {
+    return new Fingerprint()
+        .addStrings(getInstrumentedFilePathStrings())
+        .hexDigest();
+  }
+
+  private Iterable<String> getInstrumentedFilePathStrings() {
+    List<String> result = new ArrayList<>();
+    for (Artifact instrumentedFile : instrumentedFiles) {
+      String pathString = instrumentedFile.getExecPathString();
+      for (String suffix : OFFLINE_INSTRUMENTATION_SUFFIXES) {
+        if (pathString.endsWith(suffix)) {
+          result.add(pathString);
+          break;
+        }
+      }
+    }
+
+    return result;
+  }
+
+  @Override
+  public void writeOutputFile(OutputStream out, ErrorEventListener listener,
+      Executor executor) throws IOException, InterruptedException {
+    PrintWriter writer = new PrintWriter(out);
+    for (String execPath : getInstrumentedFilePathStrings()) {
+      writer.write("SF:" + execPath + "\n");
+      writer.write("end_of_record\n");
+    }
+    writer.flush();
+    notifyAboutBaselineCoverage(executor.getEventBus());
   }
 
   @Override
@@ -107,51 +109,13 @@ public class BaselineCoverageAction extends SpawnAction implements NotifyOnActio
    * Will always return 0 or 1 elements.
    */
   public static ImmutableList<Artifact> getBaselineCoverageArtifacts(RuleContext ruleContext,
-      Iterable<Artifact> instrumentedFiles, Iterable<Artifact> instrumentationMetadataFiles,
-      Iterable<Artifact> filestoRun,
-      CommandConstructor commandConstructor, @Nullable LanguageHelper helper) {
-    // Create instrumented file manifest.
-    final Collection<Artifact> metadataFiles =
-        ImmutableList.copyOf(instrumentationMetadataFiles);
-
-    if (metadataFiles.isEmpty()) {
-      // Since there are no instrumentation metadata files, baseline coverage will be empty.
-      // So skip it altogether.
-      return ImmutableList.of();
-    }
-    BuildConfiguration configuration = ruleContext.getConfiguration();
-
+      Iterable<Artifact> instrumentedFiles) {
     // Baseline coverage artifacts will still go into "testlogs" directory.
-    final Artifact coverageData = ruleContext.getAnalysisEnvironment().getDerivedArtifact(
+    Artifact coverageData = ruleContext.getAnalysisEnvironment().getDerivedArtifact(
         Util.getWorkspaceRelativePath(ruleContext.getTarget()).getChild("baseline_coverage.dat"),
-        configuration.getTestLogsDirectory());
-
-    Artifact instrumentedFileManifest =
-        InstrumentedFileManifestAction.getInstrumentedFileManifest(ruleContext, filestoRun,
-            ImmutableList.copyOf(instrumentedFiles), metadataFiles);
-
-    // Create input list for our action. Basically it should contain everything that lcov_merger
-    // might need to generate empty LCOV file with proper line information inside it.
-    NestedSetBuilder<Artifact> inputs = NestedSetBuilder.stableOrder();
-    for (TransitiveInfoCollection dep :
-        ruleContext.getPrerequisites(":baseline_coverage_common", Mode.HOST)) {
-      inputs.addTransitive(dep.getProvider(FileProvider.class).getFilesToBuild());
-    }
-
-    // Add language-specific parts, if necessary.
-    StringBuilder langArgs = new StringBuilder();
-    if (helper != null) {
-      helper.languageHook(ruleContext, metadataFiles, inputs, langArgs);
-    }
-
-    inputs.add(instrumentedFileManifest);
-    inputs.addAll(metadataFiles);
-
-    CommandLine commandLine = commandConstructor.get(
-        configuration, coverageData, instrumentedFileManifest, langArgs.toString());
+        ruleContext.getConfiguration().getTestLogsDirectory());
     ruleContext.getAnalysisEnvironment().registerAction(new BaselineCoverageAction(
-        ruleContext.getActionOwner(), inputs.build(), coverageData,
-        ruleContext.getConfiguration(), commandLine));
+        ruleContext.getActionOwner(), instrumentedFiles, coverageData));
 
     return ImmutableList.of(coverageData);
   }

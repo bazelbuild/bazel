@@ -23,6 +23,7 @@ import com.google.common.collect.Lists;
 import com.google.common.collect.Sets;
 import com.google.common.eventbus.EventBus;
 import com.google.devtools.build.lib.actions.Action;
+import com.google.devtools.build.lib.actions.Artifact;
 import com.google.devtools.build.lib.actions.ArtifactFactory;
 import com.google.devtools.build.lib.actions.MutableActionGraph;
 import com.google.devtools.build.lib.concurrent.ThreadSafety.ThreadHostile;
@@ -30,9 +31,11 @@ import com.google.devtools.build.lib.events.ErrorEventListener;
 import com.google.devtools.build.lib.packages.Attribute;
 import com.google.devtools.build.lib.packages.Target;
 import com.google.devtools.build.lib.query2.output.OutputFormatter;
+import com.google.devtools.build.lib.skyframe.ActionLookupValue.ActionLookupKey;
 import com.google.devtools.build.lib.skyframe.BuildInfoCollectionValue.BuildInfoKeyAndConfig;
 import com.google.devtools.build.lib.skyframe.ConfiguredTargetFunction.ConfiguredValueCreationException;
 import com.google.devtools.build.lib.syntax.Label;
+import com.google.devtools.build.lib.vfs.PathFragment;
 import com.google.devtools.build.lib.view.AnalysisFailureEvent;
 import com.google.devtools.build.lib.view.CachingAnalysisEnvironment;
 import com.google.devtools.build.lib.view.ConfiguredTarget;
@@ -44,6 +47,7 @@ import com.google.devtools.build.lib.view.buildinfo.BuildInfoFactory.BuildInfoKe
 import com.google.devtools.build.lib.view.config.BinTools;
 import com.google.devtools.build.lib.view.config.BuildConfiguration;
 import com.google.devtools.build.lib.view.config.BuildConfigurationCollection;
+import com.google.devtools.build.lib.view.config.ConfigMatchingProvider;
 import com.google.devtools.build.skyframe.CycleInfo;
 import com.google.devtools.build.skyframe.ErrorInfo;
 import com.google.devtools.build.skyframe.EvaluationProgressReceiver;
@@ -145,6 +149,27 @@ public final class SkyframeBuildView {
     return ImmutableSet.copyOf(evaluatedConfiguredTargets);
   }
 
+  private void setDeserializedArtifactOwners() {
+    Map<PathFragment, Artifact> deserializedArtifacts = artifactFactory.getDeserializedArtifacts();
+    if (deserializedArtifacts.isEmpty()) {
+      // If there are no deserialized artifacts to process, don't pay the price of iterating over
+      // the graph.
+      return;
+    }
+    for (Map.Entry<SkyKey, ActionLookupValue> entry :
+      skyframeExecutor.getActionLookupValueMap().entrySet()) {
+      for (Action action : entry.getValue().getActionsForFindingArtifactOwners()) {
+        for (Artifact output : action.getOutputs()) {
+          Artifact deserializedArtifact = deserializedArtifacts.get(output.getExecPath());
+          if (deserializedArtifact != null) {
+            deserializedArtifact.setArtifactOwner((ActionLookupKey) entry.getKey().argument());
+          }
+        }
+      }
+    }
+    artifactFactory.clearDeserializedArtifacts();
+  }
+
   /**
    * Analyzes the specified targets using Skyframe as the driving framework.
    *
@@ -179,6 +204,9 @@ public final class SkyframeBuildView {
     }
 
     if (!result.hasError() && badActions.isEmpty()) {
+      if (skyframeExecutor.skyframeBuild()) {
+        setDeserializedArtifactOwners();
+      }
       return goodCts;
     }
 
@@ -204,7 +232,7 @@ public final class SkyframeBuildView {
       Map.Entry<SkyKey, ErrorInfo> error = result.errorMap().entrySet().iterator().next();
       SkyKey topLevel = error.getKey();
       ErrorInfo errorInfo = error.getValue();
-      assertSaneAnalysisError(errorInfo);
+      assertSaneAnalysisError(errorInfo, topLevel);
       skyframeExecutor.getCyclesReporter().reportCycles(errorInfo.getCycleInfo(), topLevel,
           warningListener);
       Throwable cause = errorInfo.getException();
@@ -221,7 +249,7 @@ public final class SkyframeBuildView {
         SkyKey errorKey = errorEntry.getKey();
         LabelAndConfiguration label = (LabelAndConfiguration) errorKey.argument();
         ErrorInfo errorInfo = errorEntry.getValue();
-        assertSaneAnalysisError(errorInfo);
+        assertSaneAnalysisError(errorInfo, errorKey);
 
         skyframeExecutor.getCyclesReporter().reportCycles(errorInfo.getCycleInfo(), errorKey,
             warningListener);
@@ -277,6 +305,9 @@ public final class SkyframeBuildView {
         }
       }
     }
+    if (skyframeExecutor.skyframeBuild()) {
+      setDeserializedArtifactOwners();
+    }
     return goodCts;
   }
 
@@ -294,12 +325,13 @@ public final class SkyframeBuildView {
     return null;
   }
 
-  private static void assertSaneAnalysisError(ErrorInfo errorInfo) {
+  private static void assertSaneAnalysisError(ErrorInfo errorInfo, SkyKey key) {
     Throwable cause = errorInfo.getException();
     if (cause != null) {
       // We should only be trying to configure targets when the loading phase succeeds, meaning
       // that the only errors should be analysis errors.
-      Preconditions.checkState(cause instanceof ConfiguredValueCreationException, errorInfo);
+      Preconditions.checkState(cause instanceof ConfiguredValueCreationException,
+          "%s -> %s", key, errorInfo);
     }
   }
 
@@ -368,12 +400,13 @@ public final class SkyframeBuildView {
   @Nullable
   ConfiguredTarget createAndInitialize(Target target, BuildConfiguration configuration,
       CachingAnalysisEnvironment analysisEnvironment,
-      ListMultimap<Attribute, ConfiguredTarget> prerequisiteMap)
+      ListMultimap<Attribute, ConfiguredTarget> prerequisiteMap,
+      Set<ConfigMatchingProvider> configConditions)
       throws InterruptedException {
     Preconditions.checkState(enableAnalysis,
         "Already in execution phase %s %s", target, configuration);
     return factory.createAndInitialize(analysisEnvironment, artifactFactory, target, configuration,
-        prerequisiteMap);
+        prerequisiteMap, configConditions);
   }
 
   @Nullable

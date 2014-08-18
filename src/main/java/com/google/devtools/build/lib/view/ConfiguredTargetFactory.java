@@ -42,6 +42,9 @@ import com.google.devtools.build.lib.syntax.Label;
 import com.google.devtools.build.lib.vfs.PathFragment;
 import com.google.devtools.build.lib.view.buildinfo.BuildInfoFactory;
 import com.google.devtools.build.lib.view.config.BuildConfiguration;
+import com.google.devtools.build.lib.view.config.ConfigMatchingProvider;
+
+import java.util.Set;
 
 import javax.annotation.Nullable;
 
@@ -134,7 +137,8 @@ public final class ConfiguredTargetFactory {
     Root root = rule.hasBinaryOutput()
         ? configuration.getBinDirectory()
         : configuration.getGenfilesDirectory();
-    ArtifactOwner owner = new LabelAndConfiguration(rule.getLabel(), configuration);
+    ArtifactOwner owner =
+        new LabelAndConfiguration(rule.getLabel(), configuration.getArtifactOwnerConfiguration());
     PathFragment rootRelativePath = Util.getWorkspaceRelativePath(outputFile);
     Artifact result = isFileset
         ? artifactFactory.getFilesetArtifact(rootRelativePath, root, owner)
@@ -151,11 +155,12 @@ public final class ConfiguredTargetFactory {
   public final ConfiguredTarget createAndInitialize(
       AnalysisEnvironment analysisEnvironment, ArtifactFactory artifactFactory,
       Target target, BuildConfiguration config,
-      ListMultimap<Attribute, ConfiguredTarget> prerequisiteMap)
+      ListMultimap<Attribute, ConfiguredTarget> prerequisiteMap,
+      Set<ConfigMatchingProvider> configConditions)
       throws InterruptedException {
     if (target instanceof Rule) {
       return createRule(
-          analysisEnvironment, (Rule) target, config, prerequisiteMap);
+          analysisEnvironment, (Rule) target, config, prerequisiteMap, configConditions);
     }
 
     // Visibility, like all package groups, doesn't have a configuration
@@ -197,12 +202,14 @@ public final class ConfiguredTargetFactory {
   @Nullable
   private ConfiguredTarget createRule(
       AnalysisEnvironment env, Rule rule, BuildConfiguration configuration,
-      ListMultimap<Attribute, ConfiguredTarget> prerequisiteMap) throws InterruptedException {
+      ListMultimap<Attribute, ConfiguredTarget> prerequisiteMap,
+      Set<ConfigMatchingProvider> configConditions) throws InterruptedException {
     // Visibility computation and checking is done for every rule.
     RuleContext ruleContext = new RuleContext.Builder(env, rule, configuration,
         ruleClassProvider.getPrerequisiteValidator())
         .setVisibility(convertVisibility(prerequisiteMap, env.getReporter(), rule, null))
         .setPrerequisites(prerequisiteMap)
+        .setConfigConditions(configConditions)
         .build();
     if (ruleContext.hasErrors()) {
       return null;

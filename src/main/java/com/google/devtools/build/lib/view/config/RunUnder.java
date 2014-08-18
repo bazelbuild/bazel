@@ -15,12 +15,13 @@ package com.google.devtools.build.lib.view.config;
 
 import com.google.devtools.build.lib.syntax.Label;
 
+import java.io.Serializable;
 import java.util.List;
 
 /**
  * Components of --run_under option.
  */
-public interface RunUnder {
+public interface RunUnder extends Serializable {
   /**
    * @return the whole value passed to --run_under option.
    */

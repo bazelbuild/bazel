@@ -102,7 +102,6 @@ class InstrumentedFileManifestAction extends AbstractFileWriteAction {
    * @return instrumented file manifest artifact
    */
   public static Artifact getInstrumentedFileManifest(final RuleContext ruleContext,
-      final Iterable<Artifact> filesToRun,
       final Collection<Artifact> additionalSourceFiles, final Collection<Artifact> metadataFiles) {
     // Instrumented manifest makes sense only for rules with binary output.
     Preconditions.checkState(ruleContext.getRule().hasBinaryOutput());
@@ -118,7 +117,6 @@ class InstrumentedFileManifestAction extends AbstractFileWriteAction {
     // actions that use slightly different subsets of runfiles set are generated for the same rule.
     // So check whether we need to create a new action instance.
     ImmutableList<Artifact> inputs = ImmutableList.<Artifact>builder()
-        .addAll(filesToRun)
         .addAll(additionalSourceFiles)
         .addAll(metadataFiles)
         .build();

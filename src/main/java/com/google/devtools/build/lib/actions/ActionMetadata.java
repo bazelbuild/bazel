@@ -44,7 +44,6 @@ public interface ActionMetadata {
    * <p>If this executable does not supply verbose information, this function may throw an
    * IllegalStateException.
    */
-  // TODO(bazel-team): Make this always return a non-null value.
   public ActionOwner getOwner();
 
   /**

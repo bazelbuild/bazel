@@ -18,6 +18,7 @@ import com.google.common.base.Preconditions;
 import com.google.common.base.Predicate;
 import com.google.common.base.Stopwatch;
 import com.google.common.collect.HashBasedTable;
+import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.ImmutableSet;
 import com.google.common.collect.Multimap;
 import com.google.common.collect.Ordering;
@@ -82,8 +83,8 @@ import com.google.devtools.build.lib.skyframe.SkyframeExecutor;
 import com.google.devtools.build.lib.syntax.Label;
 import com.google.devtools.build.lib.util.AbruptExitException;
 import com.google.devtools.build.lib.util.BlazeClock;
+import com.google.devtools.build.lib.util.ExitCode;
 import com.google.devtools.build.lib.util.LoggingUtil;
-import com.google.devtools.build.lib.util.Pair;
 import com.google.devtools.build.lib.util.io.OutErr;
 import com.google.devtools.build.lib.vfs.BatchStat;
 import com.google.devtools.build.lib.vfs.FileSystem;
@@ -101,6 +102,7 @@ import com.google.devtools.build.lib.view.OutputFileConfiguredTarget;
 import com.google.devtools.build.lib.view.TempsProvider;
 import com.google.devtools.build.lib.view.TransitiveInfoCollection;
 import com.google.devtools.build.lib.view.ViewCreationFailedException;
+import com.google.devtools.build.lib.view.WorkspaceStatusAction;
 import com.google.devtools.build.lib.view.config.BuildConfiguration;
 import com.google.devtools.build.lib.view.config.BuildConfigurationCollection;
 import com.google.devtools.build.lib.view.fileset.FilesetActionContext;
@@ -217,6 +219,7 @@ public class ExecutionTool {
 
     StrategyConverter strategyConverter = new StrategyConverter(actionContextProviders);
     strategies.add(strategyConverter.getStrategy(FilesetActionContext.class, ""));
+    strategies.add(strategyConverter.getStrategy(WorkspaceStatusAction.Context.class, ""));
 
     for (ActionContextConsumer consumer : actionContextConsumers) {
       // There are many different SpawnActions, and we want to control the action context they use
@@ -227,9 +230,8 @@ public class ExecutionTool {
         SpawnActionContext context =
             strategyConverter.getStrategy(SpawnActionContext.class, entry.getValue());
         if (context == null) {
-          throw new ExecutorInitException(String.format(
-              "'%s' is an invalid value for spawn strategy. Valid values are: %s",
-              entry.getValue(), strategyConverter.getValidValues(SpawnActionContext.class)));
+          throw makeExceptionForInvalidStrategyValue(entry.getValue(), "spawn",
+              strategyConverter.getValidValues(SpawnActionContext.class));
         }
 
         spawnStrategyMap.put(entry.getKey(), context);
@@ -244,19 +246,31 @@ public class ExecutionTool {
           // If the action context consumer requested the default value (by passing in the empty
           // string), we do not throw the exception, because we assume that whoever put together
           // the modules in this Blaze binary knew what they were doing.
-          throw new ExecutorInitException(String.format(
-              "'%s' is an invalid value for %s strategy. Valid values are: %s",
-              entry.getValue(), strategyConverter.getUserFriendlyName(entry.getKey()),
-              strategyConverter.getValidValues(entry.getKey())));
+          throw makeExceptionForInvalidStrategyValue(entry.getValue(),
+              strategyConverter.getUserFriendlyName(entry.getKey()),
+              strategyConverter.getValidValues(entry.getKey()));
         }
       }
     }
 
     // If tests are to be run during build, too, we have to explicitly load the test action context.
     if (request.shouldRunTests()) {
-      strategies.add(strategyConverter.getStrategy(TestActionContext.class,
-          request.getOptions(ExecutionOptions.class).testStrategy));
+      String testStrategyValue = request.getOptions(ExecutionOptions.class).testStrategy;
+      ActionContext context = strategyConverter.getStrategy(TestActionContext.class,
+          testStrategyValue);
+      if (context == null) {
+        throw makeExceptionForInvalidStrategyValue(testStrategyValue, "test",
+            strategyConverter.getValidValues(TestActionContext.class));
+      }
+      strategies.add(context);
     }
+  }
+
+  private static ExecutorInitException makeExceptionForInvalidStrategyValue(String value,
+      String strategy, String validValues) {
+    return new ExecutorInitException(String.format(
+        "'%s' is an invalid value for %s strategy. Valid values are: %s", value, strategy,
+        validValues), ExitCode.COMMAND_LINE_ERROR);
   }
 
   Executor getExecutor() throws ExecutorInitException {
@@ -314,7 +328,10 @@ public class ExecutionTool {
     prepare(loadingResult, configurations);
 
     ActionGraph actionGraph = analysisResult.getActionGraph();
-    executor.setActionGraph(actionGraph);
+    if (!useSkyframeFull(skyframeExecutor)) {
+      // Skyframe execution does not use a global action graph.
+      executor.setActionGraph(actionGraph);
+    }
 
     // Get top-level artifacts.
     ImmutableSet<Artifact> artifactsToBuild = analysisResult.getArtifactsToBuild();
@@ -358,14 +375,17 @@ public class ExecutionTool {
       startLocalOutputBuild(); // TODO(bazel-team): this could be just another OutputService
     }
 
-    Pair<ActionCache, MetadataCache> caches = getCaches();
+    ActionCache actionCache = getActionCache();
+    MetadataCache metadataCache = useSkyframeFull(skyframeExecutor)
+        ? null
+        : runtime.getPersistentMetadataCache();
     ArtifactMTimeCache artifactMTimeCache = getView().getArtifactMTimeCache();
     String workspace = (outputService != null) ? outputService.getWorkspace() : null;
     boolean buildIsIncremental = !useSkyframeFull(skyframeExecutor) &&
         artifactMTimeCache.isApplicableToBuild(
             request.getBuildOptions().useIncrementalDependencyChecker,
-            artifactsToBuild, caches.second, workspace, analysisResult.hasStaleActionData());
-    Builder builder = createBuilder(request, executor, caches.first, caches.second,
+            artifactsToBuild, metadataCache, workspace, analysisResult.hasStaleActionData());
+    Builder builder = createBuilder(request, executor, actionCache, metadataCache,
         artifactMTimeCache, buildIsIncremental, skyframeExecutor);
 
     //
@@ -397,9 +417,19 @@ public class ExecutionTool {
             actionGraph,
             artifactsToBuild);
       }
-      executor.executionPhaseStarting(request.getOutErr());
+      executor.executionPhaseStarting();
       if (useSkyframeFull(skyframeExecutor)) {
         skyframeExecutor.drainChangedFiles();
+      }
+
+      if (request.getViewOptions().discardAnalysisCache) {
+        // Free memory by removing cache entries that aren't going to be needed. Note that in
+        // skyframe full, this destroys the action graph as well, so we can only do it after the
+        // action graph is no longer needed.
+        getView().clearAnalysisCache(analysisResult.getTargetsToBuild());
+        if (useSkyframeFull(skyframeExecutor)) {
+          actionGraph = null;
+        }
       }
 
       configureResourceManager(request);
@@ -440,12 +470,14 @@ public class ExecutionTool {
       // Transfer over source file "last save time" stats so the remote logger can find them.
       runtime.getEventBus().post(
           new ExecutionFinishedEvent(
-              caches.second.getChangedFileSaveTimes(),
-              caches.second.getLastFileSaveTime()));
+              metadataCache == null
+                  ? ImmutableMap.<String, Long> of()
+                  : metadataCache.getChangedFileSaveTimes(),
+              metadataCache == null ? 0 : metadataCache.getLastFileSaveTime()));
 
       // Disable system load polling (noop if it was not enabled).
       ResourceManager.instance().setAutoSensing(false);
-      executor.executionPhaseEnding(request.getOutErr());
+      executor.executionPhaseEnding();
       for (ActionContextProvider actionContextProvider : actionContextProviders) {
         actionContextProvider.executionPhaseEnding();
       }
@@ -453,7 +485,7 @@ public class ExecutionTool {
       Profiler.instance().markPhase(ProfilePhase.FINISH);
 
       if (!interrupted) {
-        saveCaches(caches.first, caches.second);
+        saveCaches(actionCache, metadataCache);
       }
 
       long startTime = Profiler.nanoTimeMaybe();
@@ -830,18 +862,16 @@ public class ExecutionTool {
     return result.build();
   }
 
-  private Pair<ActionCache, MetadataCache> getCaches()
-      throws LocalEnvironmentException {
+  private ActionCache getActionCache() throws LocalEnvironmentException {
     try {
-      ActionCache actionCache = runtime.getPersistentActionCache();
-      MetadataCache metadataCache = runtime.getPersistentMetadataCache();
-      return Pair.of(actionCache, metadataCache);
+      return runtime.getPersistentActionCache();
     } catch (IOException e) {
       // TODO(bazel-team): (2010) Ideally we should just remove all cache data and reinitialize
       // caches.
-      LoggingUtil.logToRemote(Level.WARNING, "Failed to initialize caches: " + e.getMessage(), e);
-      throw new LocalEnvironmentException("couldn't create caches: " + e.getMessage() +
-          ". If error persists, use 'blaze clean'");
+      LoggingUtil.logToRemote(Level.WARNING, "Failed to initialize action cache: "
+          + e.getMessage(), e);
+      throw new LocalEnvironmentException("couldn't create action cache: " + e.getMessage()
+          + ". If error persists, use 'blaze clean'");
     }
   }
 
@@ -851,7 +881,7 @@ public class ExecutionTool {
 
   private Builder createBuilder(BuildRequest request,
       Executor executor,
-      ActionCache actionCache, MetadataCache metadataCache,
+      ActionCache actionCache, @Nullable MetadataCache metadataCache,
       @Nullable ArtifactMTimeCache artifactMTimeCache, boolean buildIsIncremental,
       @Nullable SkyframeExecutor skyframeExecutor) {
     boolean skyframeFull = useSkyframeFull(skyframeExecutor);
@@ -859,7 +889,9 @@ public class ExecutionTool {
     boolean verboseExplanations = options.verboseExplanations;
     boolean keepGoing = request.getViewOptions().keepGoing;
 
-    metadataCache.setInvocationStartTime(new Date().getTime());
+    if (metadataCache != null) {
+      metadataCache.setInvocationStartTime(new Date().getTime());
+    }
 
     Path actionOutputRoot = runtime.getDirectories().getActionConsoleOutputDirectory();
     PackageUpToDateChecker packageUpToDateChecker = runtime.getPackageUpToDateChecker();
@@ -936,11 +968,11 @@ public class ExecutionTool {
    * Writes the cache files to disk, reporting any errors that occurred during
    * writing.
    */
-  private void saveCaches(ActionCache actionCache, MetadataCache metadataCache) {
+  private void saveCaches(ActionCache actionCache, @Nullable MetadataCache metadataCache) {
     long actionCacheSizeInBytes = 0;
     long metadataCacheSizeInBytes = 0;
     long actionCacheSaveTime;
-    long metadataCacheSaveTime;
+    long metadataCacheSaveTime = 0;
 
     long startTime = BlazeClock.nanoTime();
     try {
@@ -957,19 +989,21 @@ public class ExecutionTool {
                                         ProfilerTask.INFO, "Saving action cache");
     }
 
-    startTime = BlazeClock.nanoTime();
-    try {
-      LOG.info("saving metadata cache...");
-      metadataCacheSizeInBytes = metadataCache.save();
-      LOG.info("metadata cache saved");
-    } catch (IOException e) {
-      getReporter().error(null, "I/O error while writing metadata cache: " + e.getMessage());
-    } finally {
-      long stopTime = BlazeClock.nanoTime();
-      metadataCacheSaveTime =
-          TimeUnit.MILLISECONDS.convert(stopTime - startTime, TimeUnit.NANOSECONDS);
-      Profiler.instance().logSimpleTask(startTime, stopTime,
-                                        ProfilerTask.INFO, "Saving metadata cache");
+    if (metadataCache != null) {
+      startTime = BlazeClock.nanoTime();
+      try {
+        LOG.info("saving metadata cache...");
+        metadataCacheSizeInBytes = metadataCache.save();
+        LOG.info("metadata cache saved");
+      } catch (IOException e) {
+        getReporter().error(null, "I/O error while writing metadata cache: " + e.getMessage());
+      } finally {
+        long stopTime = BlazeClock.nanoTime();
+        metadataCacheSaveTime =
+            TimeUnit.MILLISECONDS.convert(stopTime - startTime, TimeUnit.NANOSECONDS);
+        Profiler.instance().logSimpleTask(startTime, stopTime,
+            ProfilerTask.INFO, "Saving metadata cache");
+      }
     }
 
     runtime.getEventBus().post(new CachesSavedEvent(

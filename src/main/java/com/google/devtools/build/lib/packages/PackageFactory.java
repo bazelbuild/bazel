@@ -132,7 +132,7 @@ public final class PackageFactory {
   private final Environment globalEnv;
 
   private AtomicReference<? extends UnixGlob.FilesystemCalls> syscalls;
-  private Preprocessor preprocessor;
+  private Preprocessor.Factory preprocessorFactory = Preprocessor.Factory.NullFactory.INSTANCE;
 
   private final ThreadPoolExecutor threadPool;
   private Map<String, String> platformSetRegexps;
@@ -192,8 +192,8 @@ public final class PackageFactory {
   /**
    * Sets the preprocessor used.
    */
-  public void setPreprocessor(Preprocessor preprocessor) {
-    this.preprocessor = preprocessor;
+  public void setPreprocessorFactory(Preprocessor.Factory preprocessorFactory) {
+    this.preprocessorFactory = preprocessorFactory;
   }
 
  /**
@@ -769,6 +769,7 @@ public final class PackageFactory {
       return Preprocessor.Result.transientError(buildFile);
     }
 
+    Preprocessor preprocessor = preprocessorFactory.getPreprocessor();
     if (preprocessor == null) {
       return Preprocessor.Result.success(inputSource, false);
     }

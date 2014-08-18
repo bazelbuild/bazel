@@ -394,11 +394,6 @@ public class BuildTool {
           request.getViewOptions().keepGoing);
     }
 
-    // Free memory by removing cache entries that aren't going to be needed.
-    if (request.getViewOptions().discardAnalysisCache) {
-      getView().clearAnalysisCache(analysisResult.getTargetsToBuild());
-    }
-
     return analysisResult;
   }
 

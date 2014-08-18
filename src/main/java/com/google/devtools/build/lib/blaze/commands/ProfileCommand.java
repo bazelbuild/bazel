@@ -36,7 +36,6 @@ import com.google.devtools.build.lib.profiler.chart.HtmlChartVisitor;
 import com.google.devtools.build.lib.util.ExitCode;
 import com.google.devtools.build.lib.util.StringUtil;
 import com.google.devtools.build.lib.util.TimeUtilities;
-import com.google.devtools.build.lib.util.io.OutErr;
 import com.google.devtools.build.lib.vfs.Path;
 import com.google.devtools.common.options.Converters;
 import com.google.devtools.common.options.Option;
@@ -136,7 +135,7 @@ public final class ProfileCommand implements BlazeCommand {
   public void editOptions(BlazeRuntime runtime, OptionsParser optionsParser) {}
 
   @Override
-  public ExitCode exec(BlazeRuntime runtime, OptionsProvider options, OutErr outErr) {
+  public ExitCode exec(BlazeRuntime runtime, OptionsProvider options) {
     ProfileOptions opts =
         options.getOptions(ProfileOptions.class);
 
@@ -144,7 +143,7 @@ public final class ProfileCommand implements BlazeCommand {
       opts.vfsStatsLimit = 0;
     }
 
-    PrintStream out = new PrintStream(outErr.getOutputStream());
+    PrintStream out = new PrintStream(runtime.getReporter().getOutErr().getOutputStream());
     try {
       runtime.getReporter().warn(
           null, "This information is intended for consumption by Blaze developers"

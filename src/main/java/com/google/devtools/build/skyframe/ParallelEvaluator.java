@@ -47,6 +47,7 @@ import com.google.devtools.build.skyframe.Scheduler.SchedulerException;
 import java.util.ArrayDeque;
 import java.util.ArrayList;
 import java.util.Collection;
+import java.util.Collections;
 import java.util.Deque;
 import java.util.HashMap;
 import java.util.HashSet;
@@ -218,7 +219,7 @@ final class ParallelEvaluator implements Evaluator {
     private SkyFunctionEnvironment(SkyKey skyKey, Set<SkyKey> directDeps,
         @Nullable Map<SkyKey, ValueWithMetadata> bubbleErrorInfo, ValueVisitor visitor) {
       this.skyKey = skyKey;
-      this.directDeps = ImmutableSet.copyOf(directDeps);
+      this.directDeps = Collections.unmodifiableSet(directDeps);
       this.bubbleErrorInfo = bubbleErrorInfo;
       this.childErrorInfos.addAll(childErrorInfos);
       this.visitor = visitor;
@@ -376,7 +377,7 @@ final class ParallelEvaluator implements Evaluator {
     @Override
     public <E extends Throwable> Map<SkyKey, ValueOrException<E>> getValuesOrThrow(
         Iterable<SkyKey> depKeys, Class<E> exceptionClass) {
-      Map<SkyKey, ValueOrException<E>> result = new HashMap<>();
+      Map<SkyKey, ValueOrException<E>> result = new HashMap<>(128);
       newlyRequestedDeps.startGroup();
       for (SkyKey key : depKeys) {
         if (result.containsKey(key)) {
@@ -385,7 +386,7 @@ final class ParallelEvaluator implements Evaluator {
         result.put(key, getValueOrException(key, exceptionClass));
       }
       newlyRequestedDeps.endGroup();
-      return ImmutableMap.copyOf(result);
+      return Collections.unmodifiableMap(result);
     }
 
     @Override
@@ -851,6 +852,22 @@ final class ParallelEvaluator implements Evaluator {
     Preconditions.checkState(entry.isReady(), "%s %s %s", skyKey, entry, env.newlyRequestedDeps);
   }
 
+  private void informProgressReceiverThatValueIsDone(SkyKey key) {
+    if (progressReceiver != null) {
+      NodeEntry entry = graph.get(key);
+      Preconditions.checkState(entry.isDone(), entry);
+      SkyValue value = entry.getValue();
+      if (value != null) {
+        // Nodes with errors will have no value. Don't inform the receiver in that case.
+        // For most nodes we do not inform the progress receiver if they were already done
+        // when we retrieve them, but top-level nodes are presumably of more interest.
+        progressReceiver.evaluated(key, value, entry.getVersion() < graphVersion
+            ? EvaluationState.CLEAN
+            : EvaluationState.BUILT);
+      }
+    }
+  }
+
   @Override
   @ThreadCompatible
   public <T extends SkyValue> EvaluationResult<T> eval(Iterable<SkyKey> skyKeys)
@@ -859,7 +876,11 @@ final class ParallelEvaluator implements Evaluator {
 
     // Optimization: if all required node values are already present in the cache, return them
     // directly without launching the heavy machinery, spawning threads, etc.
+    // Inform progressReceiver that these nodes are done to be consistent with the main code path.
     if (Iterables.all(skyKeySet, nodeEntryIsDone)) {
+      for (SkyKey skyKey : skyKeySet) {
+        informProgressReceiverThatValueIsDone(skyKey);
+      }
       return constructResult(null, skyKeySet, null, /*catastrophe=*/false);
     }
 
@@ -895,17 +916,7 @@ final class ParallelEvaluator implements Evaluator {
           visitor.enqueueEvaluation(skyKey);
           break;
         case DONE:
-          if (progressReceiver != null) {
-            SkyValue value = entry.getValue();
-            if (value != null) {
-              // Nodes with errors will have no value. Don't inform the receiver in that case.
-              // For most values we do not inform the progress receiver if they were already done
-              // when we retrieve them, but top-level values are presumably of more interest.
-              progressReceiver.evaluated(skyKey, value, entry.getVersion() < graphVersion
-                  ? EvaluationState.CLEAN
-                  : EvaluationState.BUILT);
-            }
-          }
+          informProgressReceiverThatValueIsDone(skyKey);
           break;
         case ADDED_DEP:
           break;
@@ -950,9 +961,8 @@ final class ParallelEvaluator implements Evaluator {
   }
 
   /**
-   * Walk up graph to find a toplevel node that wanted this failure (or all such nodes if
-   * {@code keepGoing=true}). Store the failed nodes along the way in a map, with ErrorInfos that
-   * are appropriate for that layer.
+   * Walk up graph to find a top-level node (without parents) that wanted this failure. Store
+   * the failed nodes along the way in a map, with ErrorInfos that are appropriate for that layer.
    * Example:
    *                      foo   bar
    *                        \   /
@@ -961,8 +971,8 @@ final class ParallelEvaluator implements Evaluator {
    *                      failed-node
    * User requests foo, bar. When failed-node fails, we look at its parents. unrequested is not
    * in-flight, so we replace failed-node by baz and repeat. We look at baz's parents. foo is
-   * in-flight, so we replace baz by foo. Since foo is a toplevel node, we then break, since we
-   * know a top-level node, foo, that depended on the failed node.
+   * in-flight, so we replace baz by foo. Since foo is a top-level node and doesn't have parents,
+   * we then break, since we know a top-level node, foo, that depended on the failed node.
    *
    * There's the potential for a weird "track jump" here in the case:
    *                        foo
@@ -976,6 +986,9 @@ final class ParallelEvaluator implements Evaluator {
    * appropriate error can be returned to the caller, even though that error was not written to the
    * graph. If a cycle is detected during the bubbling, this method aborts and returns null so that
    * the normal cycle detection can handle the cycle.
+   * 
+   * <p>Note that we are not propagating error to the first top-level node but to the highest one,
+   * because during this process we can add useful information about error from other nodes.  
    */
   private Map<SkyKey, ValueWithMetadata> bubbleErrorUp(final ErrorInfo leafFailure,
       SkyKey errorKey, Iterable<SkyKey> skyKeys, ValueVisitor visitor) {
@@ -983,11 +996,17 @@ final class ParallelEvaluator implements Evaluator {
     ErrorInfo error = leafFailure;
     Map<SkyKey, ValueWithMetadata> bubbleErrorInfo = new HashMap<>();
     boolean externalInterrupt = false;
-    while (!rootValues.contains(errorKey)) {
+    while (true) {
       NodeEntry errorEntry = graph.get(errorKey);
       Iterable<SkyKey> reverseDeps = errorEntry.isDone()
           ? errorEntry.getReverseDeps()
           : errorEntry.getInProgressReverseDeps();
+      // We should break from loop only when node doesn't have any parents.
+      if (Iterables.isEmpty(reverseDeps)) {
+        Preconditions.checkState(rootValues.contains(errorKey),
+            "Current key %s has to be a top-level key: %s", errorKey, rootValues);
+        break;
+      }
       SkyKey parent = Iterables.getFirst(reverseDeps, null);
       Preconditions.checkNotNull(parent, "", errorKey, bubbleErrorInfo);
       if (bubbleErrorInfo.containsKey(parent)) {

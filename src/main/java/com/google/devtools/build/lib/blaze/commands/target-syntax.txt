@@ -56,8 +56,9 @@ Subtractive patterns:
 
     % blaze build -- foo/... -foo/contrib/...
 
-  builds everything in 'foo', except 'contrib'.  As usual, the
-  '--' is required to prevent '-b' from being interpreted as an
-  option.
+  builds everything in 'foo', except 'contrib'.  In case a target not
+  under 'contrib' depends on something under 'contrib' though, in order to
+  build the former blaze has to build the latter too. As usual, the '--' is
+  required to prevent '-b' from being interpreted as an option.
 
 %{options}

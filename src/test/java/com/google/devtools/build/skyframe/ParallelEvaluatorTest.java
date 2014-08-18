@@ -853,6 +853,21 @@ public class ParallelEvaluatorTest {
   }
 
   @Test
+  public void errorBubblesToParentsOfTopLevelValue() throws Exception {
+    graph = new InMemoryGraph();
+    SkyKey parentKey = GraphTester.toSkyKey("parent");
+    final SkyKey errorKey = GraphTester.toSkyKey("error");
+    final CountDownLatch latch = new CountDownLatch(1);
+    tester.getOrCreate(errorKey).setBuilder(new ChainedFunction(null, /*waitToFinish=*/latch, null,
+        false, /*value=*/null, ImmutableList.<SkyKey>of()));
+    tester.getOrCreate(parentKey).setBuilder(new ChainedFunction(/*notifyStart=*/latch, null, null,
+        false, new StringValue("unused"), ImmutableList.of(errorKey)));
+    EvaluationResult<StringValue> result = eval( /*keepGoing=*/false,
+        ImmutableList.of(parentKey, errorKey));
+    assertEquals(result.toString(), 2, result.errorMap().size());
+  }
+
+  @Test
   public void noKeepGoingAfterKeepGoingFails() throws Exception {
     graph = new InMemoryGraph();
     SkyKey errorKey = GraphTester.toSkyKey("my_error_value");
@@ -1923,8 +1938,9 @@ public class ParallelEvaluatorTest {
   }
 
   @Test
-  public void signalValueEnqueued() throws Exception {
+  public void signalValueEnqueuedAndEvaluated() throws Exception {
     final Set<SkyKey> enqueuedValues = new HashSet<>();
+    final Set<SkyKey> evaluatedValues = new HashSet<>();
     EvaluationProgressReceiver progressReceiver = new EvaluationProgressReceiver() {
       @Override
       public void invalidated(SkyValue value, InvalidationState state) {
@@ -1937,7 +1953,9 @@ public class ParallelEvaluatorTest {
       }
 
       @Override
-      public void evaluated(SkyKey skyKey, SkyValue value, EvaluationState state) {}
+      public void evaluated(SkyKey skyKey, SkyValue value, EvaluationState state) {
+        evaluatedValues.add(skyKey);
+      }
     };
 
     ErrorEventListener reporter = new ErrorEventListener() {
@@ -1953,6 +1971,11 @@ public class ParallelEvaluatorTest {
 
       @Override
       public void report(EventKind kind, Location location, String message) {
+        throw new IllegalStateException();
+      }
+
+      @Override
+      public void report(EventKind kind, Location location, byte[] message) {
         throw new IllegalStateException();
       }
 
@@ -1982,6 +2005,7 @@ public class ParallelEvaluatorTest {
     tester.getOrCreate("top2").setComputedValue(CONCATENATE).addDependency("d3");
     tester.getOrCreate("top3");
     assertThat(enqueuedValues).isEmpty();
+    assertThat(evaluatedValues).isEmpty();
 
     tester.set("d1", new StringValue("1"));
     tester.set("d2", new StringValue("2"));
@@ -1989,13 +2013,18 @@ public class ParallelEvaluatorTest {
 
     driver.evaluate(ImmutableList.of(GraphTester.toSkyKey("top1")), false, 200, reporter);
     MoreAsserts.assertContentsAnyOrder(enqueuedValues, GraphTester.toSkyKeys("top1", "d1", "d2"));
+    MoreAsserts.assertContentsAnyOrder(evaluatedValues, GraphTester.toSkyKeys("top1", "d1", "d2"));
     enqueuedValues.clear();
+    evaluatedValues.clear();
 
     driver.evaluate(ImmutableList.of(GraphTester.toSkyKey("top2")), false, 200, reporter);
     MoreAsserts.assertContentsAnyOrder(enqueuedValues, GraphTester.toSkyKeys("top2", "d3"));
+    MoreAsserts.assertContentsAnyOrder(evaluatedValues, GraphTester.toSkyKeys("top2", "d3"));
     enqueuedValues.clear();
+    evaluatedValues.clear();
 
     driver.evaluate(ImmutableList.of(GraphTester.toSkyKey("top1")), false, 200, reporter);
     assertThat(enqueuedValues).isEmpty();
+    MoreAsserts.assertContentsAnyOrder(evaluatedValues, GraphTester.toSkyKeys("top1"));
   }
 }

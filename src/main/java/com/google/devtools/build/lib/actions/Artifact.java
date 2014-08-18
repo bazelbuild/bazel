@@ -93,7 +93,8 @@ public class Artifact implements FileType.HasFilename, Comparable<Artifact>, Act
   private final Root root;
   private final PathFragment execPath;
   private final PathFragment rootRelativePath;
-  private final ArtifactOwner owner;
+  // Non-final only for use when dealing with deserialized artifacts.
+  private ArtifactOwner owner;
 
   /**
    * Constructs an artifact for the specified path, root and execPath. The root must be an ancestor
@@ -203,9 +204,24 @@ public class Artifact implements FileType.HasFilename, Comparable<Artifact>, Act
    * ArtifactOwner#NULL_OWNER} or a dummy owner set in tests. Such a dummy value should only occur
    * for source artifacts if created without specifying the owner, or for special derived artifacts,
    * such as target completion middleman artifacts, build info artifacts, and the like.
+   *
+   * When deserializing artifacts we end up with a dummy owner. In that case, it must be set using
+   * {@link #setArtifactOwner} before this method is called.
    */
   public final ArtifactOwner getArtifactOwner() {
+    Preconditions.checkState(owner != DESERIALIZED_MARKER_OWNER, this);
     return owner;
+  }
+
+  /**
+   * Sets the artifact owner of this artifact. Should only be called for artifacts that were created
+   * through deserialization, and so their owner was unknown at the time of creation.
+   */
+  public final void setArtifactOwner(ArtifactOwner owner) {
+    if (this.owner == DESERIALIZED_MARKER_OWNER) {
+      // We tolerate multiple calls of this method to accommodate shared actions.
+      this.owner = Preconditions.checkNotNull(owner, this);
+    }
   }
 
   /**
@@ -644,4 +660,10 @@ public class Artifact implements FileType.HasFilename, Comparable<Artifact>, Act
   public static List<PathFragment> asPathFragments(Iterable<Artifact> artifacts) {
     return ImmutableList.copyOf(Iterables.transform(artifacts, EXEC_PATH_FORMATTER));
   }
+
+  static final ArtifactOwner DESERIALIZED_MARKER_OWNER = new ArtifactOwner() {
+    @Override
+    public Label getLabel() {
+      return null;
+    }};
 }

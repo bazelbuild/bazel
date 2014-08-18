@@ -199,7 +199,7 @@ public class BuildRequest implements OptionsClassProvider {
         category = "what",
         help = "If specified, Blaze will only build files that are prerequisites to compilation "
              + "of the given target (for example, generated source files and headers) without "
-             + "building the target itself.")
+             + "building the target itself. This flag is ignored if --compile_only is enabled.")
     public boolean compilationPrerequisitesOnly;
 
     @Option(name = "output_groups",

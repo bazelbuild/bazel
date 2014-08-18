@@ -16,10 +16,15 @@ package com.google.devtools.build.lib.skyframe;
 import com.google.common.base.Predicate;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.Iterables;
+import com.google.common.collect.Lists;
+import com.google.devtools.build.lib.packages.PackageGroup;
+import com.google.devtools.build.lib.packages.Target;
 import com.google.devtools.build.lib.pkgcache.LoadedPackageProvider;
 import com.google.devtools.build.lib.syntax.Label;
 import com.google.devtools.build.skyframe.CycleInfo;
 import com.google.devtools.build.skyframe.SkyKey;
+
+import java.util.List;
 
 /**
  * Reports cycles between {@link TransitiveTargetValue}s. These indicates cycles between targets
@@ -49,5 +54,33 @@ class TransitiveTargetCycleReporter extends AbstractLabelCycleReporter {
   @Override
   protected Label getLabel(SkyKey key) {
     return (Label) key.argument();
+  }
+
+  @Override
+  protected String getAdditionalMessageAboutCycle(SkyKey topLevelKey, CycleInfo cycleInfo) {
+    Target currentTarget = getTargetForLabel(getLabel(topLevelKey));
+    List<SkyKey> keys = Lists.newArrayList();
+    if (!cycleInfo.getPathToCycle().isEmpty()) {
+      keys.add(topLevelKey);
+      keys.addAll(cycleInfo.getPathToCycle());
+    }
+    keys.addAll(cycleInfo.getCycle());
+    // Make sure we check the edge from the last element of the cycle to the first element of the
+    // cycle.
+    keys.add(cycleInfo.getCycle().get(0));
+    for (SkyKey nextKey : keys) {
+      Label nextLabel = getLabel(nextKey);
+      Target nextTarget = getTargetForLabel(nextLabel);
+      // This is inefficient but it's no big deal since we only do this when there's a cycle.
+      if (currentTarget.getVisibility().getDependencyLabels().contains(nextLabel)
+          && !nextTarget.getTargetKind().equals(PackageGroup.targetKind())) {
+        return "\nThe cycle is caused by a visibility edge from " + currentTarget.getLabel()
+            + " to the non-package-group target " + nextTarget.getLabel() + " . Note that "
+            + "visibility labels are supposed to be package group targets (which prevents cycles "
+            + "of this form)";
+      }
+      currentTarget = nextTarget;
+    }
+    return "";
   }
 }

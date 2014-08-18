@@ -46,4 +46,13 @@ public class RawAttributeMapper extends AbstractAttributeMapper {
   public <T> boolean isConfigurable(String attributeName, Type<T> type) {
     return getSelector(attributeName, type) != null;
   }
+
+  /**
+   * If the attribute is configurable for this rule instance, returns its configuration
+   * keys. Else returns an empty list.
+   */
+  public <T> Iterable<Label> getConfigurabilityKeys(String attributeName, Type<T> type) {
+    Type.Selector<T> selector = getSelector(attributeName, type);
+    return selector == null ? ImmutableList.<Label>of() : selector.getEntries().keySet();
+  }
 }

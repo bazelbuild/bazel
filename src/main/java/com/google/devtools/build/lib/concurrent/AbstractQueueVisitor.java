@@ -196,7 +196,27 @@ public class AbstractQueueVisitor {
    */
   public AbstractQueueVisitor(ThreadPoolExecutor executor, boolean shutdownOnCompletion,
                               boolean failFastOnException, boolean failFastOnInterrupt) {
-    this.concurrent = true;
+    this(/*concurrent=*/true, executor, shutdownOnCompletion, failFastOnException,
+        failFastOnInterrupt);
+  }
+
+  /**
+   * Create the AbstractQueueVisitor.
+   *
+   * @param concurrent if false, run tasks inline instead of using the thread pool.
+   * @param executor The ThreadPool to use.
+   * @param shutdownOnCompletion If true, pass ownership of the Threadpool to
+   *                             this class. The pool will be shut down after a
+   *                             call to work(). Callers must not shut down the
+   *                             threadpool while queue visitors use it.
+   * @param failFastOnException if true, don't run new actions after
+   *                            an uncaught exception.
+   * @param failFastOnInterrupt if true, don't run new actions after interrupt.
+   */
+  public AbstractQueueVisitor(boolean concurrent, ThreadPoolExecutor executor,
+                              boolean shutdownOnCompletion, boolean failFastOnException,
+                              boolean failFastOnInterrupt) {
+    this.concurrent = concurrent;
     this.failFastOnException = failFastOnException;
     this.failFastOnInterrupt = failFastOnInterrupt;
     this.pool = executor;
@@ -314,14 +334,15 @@ public class AbstractQueueVisitor {
         boolean addedJob = false;
         try {
           ranTask.set(true);
-          if (blockNewActions()) {
-            // Make any newly enqueued tasks quickly die
-            // Don't add it to the jobs map, as we just remove it below anyway
-            return;
-          }
           thread = Thread.currentThread();
           addJob(thread);
           addedJob = true;
+          if (blockNewActions()) {
+            // Make any newly enqueued tasks quickly die. We check after adding to the jobs map so
+            // that if another thread is racing to kill this thread and didn't make it before this
+            // conditional, it will be able to find and kill this thread anyway.
+            return;
+          }
           runnable.run();
         } catch (Throwable e) {
           synchronized (AbstractQueueVisitor.this) {

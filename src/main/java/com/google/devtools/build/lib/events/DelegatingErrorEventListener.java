@@ -54,6 +54,11 @@ public class DelegatingErrorEventListener implements ErrorEventListener {
   }
 
   @Override
+  public void report(EventKind kind, Location location, byte[] message) {
+    delegate.report(kind, location, message);
+  }
+
+  @Override
   public boolean showOutput(String tag) {
     return delegate.showOutput(tag);
   }

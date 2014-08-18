@@ -18,7 +18,6 @@ import com.google.devtools.build.lib.blaze.BlazeCommandDispatcher.ShutdownBlazeS
 import com.google.devtools.build.lib.blaze.BlazeRuntime;
 import com.google.devtools.build.lib.blaze.Command;
 import com.google.devtools.build.lib.util.ExitCode;
-import com.google.devtools.build.lib.util.io.OutErr;
 import com.google.devtools.common.options.Option;
 import com.google.devtools.common.options.OptionsBase;
 import com.google.devtools.common.options.OptionsParser;
@@ -50,7 +49,7 @@ public final class ShutdownCommand implements BlazeCommand {
   public void editOptions(BlazeRuntime runtime, OptionsParser optionsParser) {}
 
   @Override
-  public ExitCode exec(BlazeRuntime runtime, OptionsProvider options, OutErr outErr)
+  public ExitCode exec(BlazeRuntime runtime, OptionsProvider options)
       throws ShutdownBlazeServerException {
 
     int limit = options.getOptions(Options.class).heapSizeLimit;

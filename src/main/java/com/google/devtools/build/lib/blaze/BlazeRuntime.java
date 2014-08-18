@@ -131,6 +131,7 @@ import java.util.UUID;
 import java.util.concurrent.atomic.AtomicInteger;
 import java.util.logging.Level;
 import java.util.logging.Logger;
+import java.util.regex.Pattern;
 
 /**
  * The BlazeRuntime class encapsulates the runtime settings and services that
@@ -157,6 +158,9 @@ public final class BlazeRuntime {
 
   public static final String DO_NOT_BUILD_FILE_NAME = "DO_NOT_BUILD_HERE";
 
+  private static final Pattern suppressFromLog = Pattern.compile(".*(auth|pass|cookie).*",
+      Pattern.CASE_INSENSITIVE);
+
   private static final Logger LOG = Logger.getLogger(BlazeRuntime.class.getName());
 
   private final BlazeDirectories directories;
@@ -171,7 +175,6 @@ public final class BlazeRuntime {
   private final Reporter reporter;
   private EventBus eventBus;
   private final LoadingPhaseRunner loadingPhaseRunner;
-  private final Preprocessor.Factory preprocessorFactory;
   private final PackageFactory packageFactory;
   private final ConfigurationFactory configurationFactory;
   private final ConfiguredRuleClassProvider ruleClassProvider;
@@ -229,7 +232,6 @@ public final class BlazeRuntime {
   private BlazeRuntime(BlazeDirectories directories, Reporter reporter,
       WorkspaceStatusAction.Factory workspaceStatusActionFactory,
       final SkyframeExecutor skyframeExecutor,
-      final Preprocessor.Factory preprocessorFactory,
       PackageFactory pkgFactory, ConfiguredRuleClassProvider ruleClassProvider,
       ConfigurationFactory configurationFactory, String workspaceSuffix, Clock clock,
       OptionsProvider startupOptionsProvider, Iterable<BlazeModule> blazeModules,
@@ -243,7 +245,6 @@ public final class BlazeRuntime {
     this.reporter = reporter;
     this.workspaceSuffix = workspaceSuffix;
     this.packageFactory = pkgFactory;
-    this.preprocessorFactory = preprocessorFactory;
     this.binTools = binTools;
     this.allowedMissingInputs = allowedMissingInputs;
 
@@ -981,8 +982,7 @@ public final class BlazeRuntime {
     if (!skyframeExecutor.hasIncrementalState()) {
       clearSkyframeRelevantCaches();
     }
-    skyframeExecutor.sync(
-        preprocessorFactory, packageCacheOptions, getWorkingDirectory(),
+    skyframeExecutor.sync(packageCacheOptions, getWorkingDirectory(),
         defaultsPackageContents, getCommandId());
   }
 
@@ -1056,12 +1056,12 @@ public final class BlazeRuntime {
    */
   public static void main(Iterable<Class<? extends BlazeModule>> moduleClasses, String[] args) {
     setupUncaughtHandler(args);
-    LOG.info("Starting Blaze server with args " + Arrays.toString(args));
     List<BlazeModule> modules = createModules(moduleClasses);
     if (args.length >= 1 && args[0].equals("--batch")) {
       // Run Blaze in batch mode.
       System.exit(batchMain(modules, args));
     }
+    LOG.info("Starting Blaze server with args " + Arrays.toString(args));
     try {
       // Run Blaze in server mode.
       System.exit(serverMain(modules, OutErr.SYSTEM_OUT_ERR, args));
@@ -1087,6 +1087,42 @@ public final class BlazeRuntime {
     }
 
     return result.build();
+  }
+
+  /**
+   * Generates a string form of a request to be written to the logs,
+   * filtering the user environment to remove anything that looks private.
+   * The current filter criteria removes any variable whose name includes
+   * "auth", "pass", or "cookie".
+   *
+   * @param requestStrings
+   * @return the filtered request to write to the log.
+   */
+  @VisibleForTesting
+  public static String getRequestLogString(List<String> requestStrings) {
+    StringBuilder buf = new StringBuilder();
+    buf.append('[');
+    String sep = "";
+    for (String s : requestStrings) {
+      buf.append(sep);
+      if (s.startsWith("--client_env")) {
+        int varStart = "--client_env=".length();
+        int varEnd = s.indexOf('=', varStart);
+        String varName = s.substring(varStart, varEnd);
+        if (suppressFromLog.matcher(varName).matches()) {
+          buf.append("--client_env=");
+          buf.append(varName);
+          buf.append("=__private_value_removed__");
+        } else {
+          buf.append(s);
+        }
+      } else {
+        buf.append(s);
+      }
+      sep = ", ";
+    }
+    buf.append(']');
+    return buf.toString();
   }
 
   /**
@@ -1176,6 +1212,8 @@ public final class BlazeRuntime {
   private static int batchMain(Iterable<BlazeModule> modules, String[] args) {
     captureSigint();
     CommandLineOptions commandLineOptions = splitStartupOptions(modules, args);
+    LOG.info("Running Blaze in batch mode with startup args "
+        + commandLineOptions.getStartupArgs());
 
     String memoryWarning = validateJvmMemorySettings();
     if (memoryWarning != null) {
@@ -1197,6 +1235,7 @@ public final class BlazeRuntime {
         new BlazeCommandDispatcher(runtime, getBuiltinCommandList());
 
     try {
+      LOG.info(getRequestLogString(commandLineOptions.getOtherArgs()));
       return dispatcher.exec(commandLineOptions.getOtherArgs(), OutErr.SYSTEM_OUT_ERR,
           runtime.getClock().currentTimeMillis());
     } catch (BlazeCommandDispatcher.ShutdownBlazeServerException e) {
@@ -1261,6 +1300,7 @@ public final class BlazeRuntime {
 
       @Override
       public int exec(List<String> args, OutErr outErr, long firstContactTime) {
+        LOG.info(getRequestLogString(args));
         if (memoryWarning != null) {
           outErr.printErrLn(memoryWarning);
         }
@@ -1530,23 +1570,24 @@ public final class BlazeRuntime {
       Map<String, String> clientEnv = new HashMap<>();
       TimestampGranularityMonitor timestampMonitor = new TimestampGranularityMonitor(clock);
 
-      Preprocessor.Factory preprocessorFactory = null;
+      Preprocessor.Factory.Supplier preprocessorFactorySupplier = null;
       for (BlazeModule module : blazeModules) {
         module.blazeStartup(startupOptionsProvider,
             BlazeVersionInfo.instance(), instanceId, directories, clock);
-        Preprocessor.Factory modulePreprocessorFactory = module.getPreprocessorFactory();
-        if (modulePreprocessorFactory != null) {
-          Preconditions.checkState(preprocessorFactory == null,
-              "more than one module defines a preprocessor");
-          preprocessorFactory = modulePreprocessorFactory;
+        Preprocessor.Factory.Supplier modulePreprocessorFactorySupplier =
+            module.getPreprocessorFactorySupplier();
+        if (modulePreprocessorFactorySupplier != null) {
+          Preconditions.checkState(preprocessorFactorySupplier == null,
+              "more than one module defines a preprocessor factory supplier");
+          preprocessorFactorySupplier = modulePreprocessorFactorySupplier;
         }
+      }
+      if (preprocessorFactorySupplier == null) {
+        preprocessorFactorySupplier = Preprocessor.Factory.Supplier.NullSupplier.INSTANCE;
       }
 
       ConfiguredRuleClassProvider.Builder ruleClassBuilder =
           new ConfiguredRuleClassProvider.Builder();
-      ruleClassBuilder.allowConfigurableAttributes(
-          startupOptionsProvider.getOptions(BlazeServerStartupOptions.class)
-              .allowConfigurableAttributes);
       for (BlazeModule module : blazeModules) {
         module.initializeRuleClasses(ruleClassBuilder);
       }
@@ -1609,7 +1650,7 @@ public final class BlazeRuntime {
       SkyframeExecutor skyframeExecutor = new SkyframeExecutor(reporter, pkgFactory,
           skyframe == SkyframeMode.FULL, timestampMonitor, directories,
           workspaceStatusActionFactory, ruleClassProvider.getBuildInfoFactories(),
-          diffAwarenessFactories, allowedMissingInputs);
+          diffAwarenessFactories, allowedMissingInputs, preprocessorFactorySupplier);
 
       ConfigurationFactory tempConfigurationFactory;
       if (configurationFactory == null) {
@@ -1622,7 +1663,6 @@ public final class BlazeRuntime {
       }
 
       return new BlazeRuntime(directories, reporter, workspaceStatusActionFactory, skyframeExecutor,
-          preprocessorFactory,
           pkgFactory, ruleClassProvider, tempConfigurationFactory, getWorkspaceSuffix(), clock,
           startupOptionsProvider, ImmutableList.copyOf(blazeModules),
           clientEnv,

@@ -59,11 +59,13 @@ import com.google.devtools.build.lib.pkgcache.PackageCacheOptions;
 import com.google.devtools.build.lib.pkgcache.PackageManager;
 import com.google.devtools.build.lib.pkgcache.PathPackageLocator;
 import com.google.devtools.build.lib.pkgcache.TransitivePackageLoader;
+import com.google.devtools.build.lib.skyframe.DiffAwarenessManager.ProcessableModifiedFileSet;
 import com.google.devtools.build.lib.skyframe.SkyframeActionExecutor.ActionCompletedReceiver;
 import com.google.devtools.build.lib.skyframe.SkyframeActionExecutor.ProgressSupplier;
 import com.google.devtools.build.lib.syntax.Label;
 import com.google.devtools.build.lib.util.AbruptExitException;
 import com.google.devtools.build.lib.util.ExitCode;
+import com.google.devtools.build.lib.util.Pair;
 import com.google.devtools.build.lib.util.ResourceUsage;
 import com.google.devtools.build.lib.util.io.TimestampGranularityMonitor;
 import com.google.devtools.build.lib.vfs.BatchStat;
@@ -165,8 +167,8 @@ public final class SkyframeExecutor {
 
   private RecordingDifferencer recordingDiffer;
   private SequentialBuildDriver sequentialBuildDriver;
-  private final ImmutableSet<? extends DiffAwareness.Factory> diffAwarenessFactories;
-  private Map<Path, DiffAwareness> currentDiffAwarenesses = Maps.newHashMap();
+
+  private final DiffAwarenessManager diffAwarenessManager;
 
   // AtomicReferences are used here as mutable boxes shared with value builders.
   private final AtomicBoolean showLoadingProgress = new AtomicBoolean();
@@ -192,6 +194,9 @@ public final class SkyframeExecutor {
   private boolean active = true;
   private boolean lastAnalysisDiscarded = false;
   private final PackageManager packageManager;
+
+  private final Preprocessor.Factory.Supplier preprocessorFactorySupplier;
+  private Preprocessor.Factory preprocessorFactory;
 
   /** Lower limit for size of {@link #allLoadedPackages} to consider clearing CT values. */
   private int valueCacheEvictionLimit = -1;
@@ -240,7 +245,8 @@ public final class SkyframeExecutor {
                           ImmutableList<BuildInfoFactory> buildInfoFactories,
                           Iterable<? extends DiffAwareness.Factory> diffAwarenessFactories) {
     this(reporter, pkgFactory, true, tsgm, directories, workspaceStatusActionFactory,
-        buildInfoFactories, diffAwarenessFactories, Predicates.<PathFragment>alwaysFalse());
+        buildInfoFactories, diffAwarenessFactories, Predicates.<PathFragment>alwaysFalse(),
+        Preprocessor.Factory.Supplier.NullSupplier.INSTANCE);
   }
 
   public SkyframeExecutor(
@@ -252,10 +258,11 @@ public final class SkyframeExecutor {
       WorkspaceStatusAction.Factory workspaceStatusActionFactory,
       ImmutableList<BuildInfoFactory> buildInfoFactories,
       Iterable<? extends DiffAwareness.Factory> diffAwarenessFactories,
-      Predicate<PathFragment> allowedMissingInputs) {
+      Predicate<PathFragment> allowedMissingInputs,
+      Preprocessor.Factory.Supplier preprocessorFactorySupplier) {
     this(reporter, InMemoryMemoizingEvaluator.SUPPLIER, pkgFactory, skyframeBuild, tsgm,
         directories, workspaceStatusActionFactory, buildInfoFactories, diffAwarenessFactories,
-        allowedMissingInputs);
+        allowedMissingInputs, preprocessorFactorySupplier);
   }
 
   public SkyframeExecutor(
@@ -268,8 +275,8 @@ public final class SkyframeExecutor {
       WorkspaceStatusAction.Factory workspaceStatusActionFactory,
       ImmutableList<BuildInfoFactory> buildInfoFactories,
       Iterable<? extends DiffAwareness.Factory> diffAwarenessFactories,
-      Predicate<PathFragment> allowedMissingInputs
-      ) {
+      Predicate<PathFragment> allowedMissingInputs,
+      Preprocessor.Factory.Supplier preprocessorFactorySupplier) {
     // Strictly speaking, these arguments are not required for initialization, but all current
     // callsites have them at hand, so we might as well set them during construction.
     this.reporter = Preconditions.checkNotNull(reporter);
@@ -289,8 +296,11 @@ public final class SkyframeExecutor {
         statusReporterRef);
     this.directories = Preconditions.checkNotNull(directories);
     this.buildInfoFactories = buildInfoFactories;
-    this.diffAwarenessFactories = ImmutableSet.copyOf(diffAwarenessFactories);
+    this.diffAwarenessManager = new DiffAwarenessManager(diffAwarenessFactories, reporter);
     this.allowedMissingInputs = allowedMissingInputs;
+    this.preprocessorFactorySupplier = preprocessorFactorySupplier;
+    this.preprocessorFactory = preprocessorFactorySupplier.getFactory(packageManager);
+    pkgFactory.setPreprocessorFactory(preprocessorFactory);
     resetEvaluator();
   }
 
@@ -415,7 +425,7 @@ public final class SkyframeExecutor {
     memoizingEvaluator = evaluatorSupplier.create(
         skyFunctions, recordingDiffer, progressReceiver, emittedEventState, keepGraphEdges);
     sequentialBuildDriver = new SequentialBuildDriver(memoizingEvaluator);
-    currentDiffAwarenesses.clear();
+    diffAwarenessManager.reset();
     if (skyframeBuildView != null) {
       skyframeBuildView.clearLegacyData();
     }
@@ -719,35 +729,20 @@ public final class SkyframeExecutor {
     }
 
     modifiedFiles = 0;
-    Map<Path, ModifiedFileSet> modifiedFilesByPathEntry = Maps.newHashMap();
-    Set<Path> pathEntriesWithoutDiffInformation = Sets.newHashSet();
-    try {
-      for (Path pathEntry : pkgLocator.get().getPathEntries()) {
-        DiffAwareness diffAwareness = getDiffAwareness(pathEntry);
-        // Note that we must invalidate these files, per the contract of DiffAwareness#getDiff.
-        ModifiedFileSet modifiedFileSet = ModifiedFileSet.EVERYTHING_MODIFIED;
-        try {
-          modifiedFileSet = diffAwareness.getDiff();
-        } catch (BrokenDiffAwarenessException e) {
-          currentDiffAwarenesses.remove(pathEntry);
-          if (e.getMessage() != null) {
-            errorEventListener.warn(null, e.getMessage());
-          }
-        }
-        if (modifiedFileSet.treatEverythingAsModified()) {
-          pathEntriesWithoutDiffInformation.add(pathEntry);
-        } else {
-          modifiedFilesByPathEntry.put(pathEntry, modifiedFileSet);
-        }
+    Map<Path, ProcessableModifiedFileSet> modifiedFilesByPathEntry =
+        Maps.newHashMap();
+    Set<Pair<Path, ProcessableModifiedFileSet>> pathEntriesWithoutDiffInformation =
+        Sets.newHashSet();
+    for (Path pathEntry : pkgLocator.get().getPathEntries()) {
+      ProcessableModifiedFileSet modifiedFileSet = diffAwarenessManager.getDiff(pathEntry);
+      if (modifiedFileSet.getModifiedFileSet().treatEverythingAsModified()) {
+        pathEntriesWithoutDiffInformation.add(Pair.of(pathEntry, modifiedFileSet));
+      } else {
+        modifiedFilesByPathEntry.put(pathEntry, modifiedFileSet);
       }
-      // It's important that this function *not* exit before here, lest we forget to invalidate the
-      // changed files.
-      handleDiffsWithCompleteDiffInformation(modifiedFilesByPathEntry);
-      handleDiffsWithMissingDiffInformation(pathEntriesWithoutDiffInformation);
-    } finally {
-      // Protect against early termination before processing the diffs.
-      Preconditions.checkState(modifiedFilesByPathEntry.isEmpty());
     }
+    handleDiffsWithCompleteDiffInformation(modifiedFilesByPathEntry);
+    handleDiffsWithMissingDiffInformation(pathEntriesWithoutDiffInformation);
   }
 
   /**
@@ -756,16 +751,18 @@ public final class SkyframeExecutor {
    * invalidated, so the map should be empty upon completion of this function.
    */
   private void handleDiffsWithCompleteDiffInformation(
-      Map<Path, ModifiedFileSet> modifiedFilesByPathEntry) {
+      Map<Path, ProcessableModifiedFileSet> modifiedFilesByPathEntry) {
     // It's important that the below code be uninterruptible, since we already promised to
     // invalidate these files.
     for (Path pathEntry : ImmutableSet.copyOf(modifiedFilesByPathEntry.keySet())) {
-      ModifiedFileSet modifiedFileSet = modifiedFilesByPathEntry.get(pathEntry);
+      ProcessableModifiedFileSet processableModifiedFileSet =
+          modifiedFilesByPathEntry.get(pathEntry);
+      ModifiedFileSet modifiedFileSet = processableModifiedFileSet.getModifiedFileSet();
       Preconditions.checkState(!modifiedFileSet.treatEverythingAsModified(), pathEntry);
       Iterable<SkyKey> dirtyValues = getSkyKeysPotentiallyAffected(
           modifiedFileSet.modifiedSourceFiles(), pathEntry);
       handleChangedFiles(new ImmutableDiff(dirtyValues, ImmutableMap.<SkyKey, SkyValue>of()));
-      modifiedFilesByPathEntry.remove(pathEntry);
+      processableModifiedFileSet.markProcessed();
     }
   }
 
@@ -773,7 +770,8 @@ public final class SkyframeExecutor {
    * Finds and invalidates changed files under path entries whose corresponding
    * {@link DiffAwareness} said all files may have been modified.
    */
-  private void handleDiffsWithMissingDiffInformation(Set<Path> pathEntriesWithoutDiffInformation)
+  private void handleDiffsWithMissingDiffInformation(
+      Set<Pair<Path, ProcessableModifiedFileSet>> pathEntriesWithoutDiffInformation)
       throws InterruptedException {
     // Before running the FilesystemValueChecker, ensure that all values marked for invalidation
     // have actually been invalidated (recall that invalidation happens at the beginning of the
@@ -792,27 +790,16 @@ public final class SkyframeExecutor {
         ImmutableSet.copyOf(pkgLocator.get().getPathEntries()), filesystemSkyKeys);
     // Contains all file system values that we need to check for dirtiness.
     List<Iterable<SkyKey>> valuesToCheckManually = Lists.newArrayList();
-    for (Path pathEntry : pathEntriesWithoutDiffInformation) {
+    for (Pair<Path, ProcessableModifiedFileSet> pair : pathEntriesWithoutDiffInformation) {
+      Path pathEntry = pair.getFirst();
       valuesToCheckManually.add(skyKeysByPathEntry.get(pathEntry));
     }
-    Diff diff;
-    try {
-      diff = fsnc.getDirtyFilesystemValues(Iterables.concat(valuesToCheckManually));
-    } catch (InterruptedException e) {
-      for (Path pathEntry : pathEntriesWithoutDiffInformation) {
-        // The diffs from these paths haven't been processed fully, so we need to close and throw
-        // away the diff awareness strategies, per {@link DiffAwareness#close and
-        // @link DiffAwareness#getDiff}, unless we've already done so (e.g. because
-        // {@link DiffAwareness#getDiff} threw a {@link BrokenDiffAwarenessException}).
-        DiffAwareness diffAwareness = currentDiffAwarenesses.get(pathEntry);
-        if (diffAwareness != null) {
-          diffAwareness.close();
-          currentDiffAwarenesses.remove(pathEntry);
-        }
-      }
-      throw e;
-    }
+    Diff diff = fsnc.getDirtyFilesystemValues(Iterables.concat(valuesToCheckManually));
     handleChangedFiles(diff);
+    for (Pair<Path, ProcessableModifiedFileSet> pair : pathEntriesWithoutDiffInformation) {
+      ProcessableModifiedFileSet processableModifiedFileSet = pair.getSecond();
+      processableModifiedFileSet.markProcessed();
+    }
   }
 
   private void handleChangedFiles(Diff diff) {
@@ -824,29 +811,6 @@ public final class SkyframeExecutor {
       incrementalBuildMonitor.accrue(diff.changedKeysWithoutNewValues());
       incrementalBuildMonitor.accrue(diff.changedKeysWithNewValues().keySet());
     }
-  }
-
-  /**
-   * Returns the {@link DiffAwareness} to use for finding changes to files under the given path.
-   */
-  @VisibleForTesting
-  public DiffAwareness getDiffAwareness(Path pathEntry) {
-    DiffAwareness currentDiffAwareness = currentDiffAwarenesses.get(pathEntry);
-    if (currentDiffAwareness != null) {
-      return currentDiffAwareness;
-    }
-    DiffAwareness newDiffAwareness = null;
-    for (DiffAwareness.Factory factory : diffAwarenessFactories) {
-      newDiffAwareness = factory.maybeCreate(pathEntry, pkgLocator.get().getPathEntries());
-      if (newDiffAwareness != null) {
-        break;
-      }
-    }
-    if (newDiffAwareness == null) {
-      newDiffAwareness = new BlindDiffAwareness();
-    }
-    currentDiffAwarenesses.put(pathEntry, newDiffAwareness);
-    return newDiffAwareness;
   }
 
   /**
@@ -869,7 +833,6 @@ public final class SkyframeExecutor {
   @VisibleForTesting  // productionVisibility = Visibility.PRIVATE
   public void preparePackageLoading(PathPackageLocator pkgLocator, RuleVisibility defaultVisibility,
       boolean showLoadingProgress,
-      Preprocessor.Factory preprocessorFactory,
       String defaultsPackageContents, UUID commandId) {
     Preconditions.checkNotNull(pkgLocator);
     setActive(true);
@@ -881,9 +844,7 @@ public final class SkyframeExecutor {
     setPackageLocator(pkgLocator);
 
     syscalls.set(new PerBuildSyscallCache());
-    if (preprocessorFactory != null) {
-      pkgFactory.setPreprocessor(preprocessorFactory.newPreprocessor(getPackageManager()));
-    }
+    checkPreprocessorFactory();
     emittedEventState.clear();
 
     // If the PackageFunction was interrupted, there may be stale entries here.
@@ -915,10 +876,18 @@ public final class SkyframeExecutor {
       // We need to take additional steps to keep the corresponding data structures in sync.
       // (Some of the additional steps are carried out by ConfiguredTargetValueInvalidationListener,
       // and some by BuildView#buildHasIncompatiblePackageRoots and #updateSkyframe.)
-      for (DiffAwareness diffAwareness : currentDiffAwarenesses.values()) {
-        diffAwareness.close();
-      }
-      currentDiffAwarenesses.clear();
+
+      diffAwarenessManager.setPathEntries(pkgLocator.getPathEntries());
+    }
+  }
+
+  private void checkPreprocessorFactory() {
+    if (!preprocessorFactory.isStillValid()) {
+      Preprocessor.Factory newPreprocessorFactory = preprocessorFactorySupplier.getFactory(
+          packageManager);
+      memoizingEvaluator.delete(SkyFunctionName.functionIs(SkyFunctions.PACKAGE));
+      pkgFactory.setPreprocessorFactory(newPreprocessorFactory);
+      preprocessorFactory = newPreprocessorFactory;
     }
   }
 
@@ -1017,6 +986,12 @@ public final class SkyframeExecutor {
   private Iterable<ActionLookupValue> getActionLookupValues() {
     // This filter keeps subclasses of ActionLookupValue.
     return Iterables.filter(memoizingEvaluator.getDoneValues().values(), ActionLookupValue.class);
+  }
+
+  @SuppressWarnings({"unchecked", "rawtypes"})
+  Map<SkyKey, ActionLookupValue> getActionLookupValueMap() {
+    return (Map) Maps.filterValues(memoizingEvaluator.getDoneValues(),
+        Predicates.instanceOf(ActionLookupValue.class));
   }
 
   /**
@@ -1456,8 +1431,7 @@ public final class SkyframeExecutor {
     }
   }
 
-  public void sync(Preprocessor.Factory preprocessorFactory,
-      PackageCacheOptions packageCacheOptions, Path workingDirectory,
+  public void sync(PackageCacheOptions packageCacheOptions, Path workingDirectory,
       String defaultsPackageContents, UUID commandId) throws InterruptedException {
     PathPackageLocator packageLocator = PathPackageLocator.create(
         packageCacheOptions.packagePath, getReporter(), directories.getWorkspace(),
@@ -1465,7 +1439,7 @@ public final class SkyframeExecutor {
 
     preparePackageLoading(packageLocator,
         packageCacheOptions.defaultVisibility, packageCacheOptions.showLoadingProgress,
-        preprocessorFactory, defaultsPackageContents, commandId);
+        defaultsPackageContents, commandId);
     setDeletedPackages(ImmutableSet.copyOf(packageCacheOptions.deletedPackages));
     this.valueCacheEvictionLimit = packageCacheOptions.minLoadedPkgCountForCtNodeEviction;
 

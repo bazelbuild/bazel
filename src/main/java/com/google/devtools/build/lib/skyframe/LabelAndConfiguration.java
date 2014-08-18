@@ -24,7 +24,10 @@ import java.util.Objects;
 import javax.annotation.Nullable;
 
 /**
- * A (Label, Configuration) pair.
+ * A (Label, Configuration) pair. Note that this pair may be used to look up the generating action
+ * of an artifact. Callers may want to ensure that they have the correct configuration for this
+ * purpose by passing in {@link BuildConfiguration#getArtifactOwnerConfiguration} in preference to
+ * the raw configuration.
  */
 public final class LabelAndConfiguration extends ActionLookupValue.ActionLookupKey {
   private final Label label;
@@ -56,7 +59,8 @@ public final class LabelAndConfiguration extends ActionLookupValue.ActionLookupK
 
   @Override
   public int hashCode() {
-    return Objects.hash(label, configuration);
+    int configVal = configuration == null ? 79 : configuration.hashCode();
+    return 31 * label.hashCode() + configVal;
   }
 
   @Override

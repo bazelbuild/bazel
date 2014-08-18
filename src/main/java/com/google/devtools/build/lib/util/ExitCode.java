@@ -149,6 +149,15 @@ public class ExitCode {
   }
 
   /**
+   * Returns the human-readable name for this exit code.  Not guaranteed to be stable, use the
+   * numeric exit code for that.
+   */
+  @Override
+  public String toString() {
+    return name;
+  }
+
+  /**
    * Returns the error's int value.
    */
   public int getNumericExitCode() {

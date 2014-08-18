@@ -124,7 +124,7 @@ public class PackageGroup implements Target {
 
   @Override
   public String getTargetKind() {
-    return "package group";
+    return targetKind();
   }
 
   @Override
@@ -134,7 +134,7 @@ public class PackageGroup implements Target {
 
   @Override
   public String toString() {
-   return "package group " + getLabel();
+   return targetKind() + " " + getLabel();
   }
 
   @Override
@@ -143,5 +143,9 @@ public class PackageGroup implements Target {
     // needing itself for the visibility check. It may work, but I did not
     // think it over completely.
     return ConstantRuleVisibility.PUBLIC;
+  }
+
+  public static String targetKind() {
+    return "package group";
   }
 }

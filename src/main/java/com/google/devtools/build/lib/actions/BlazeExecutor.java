@@ -18,11 +18,11 @@ import com.google.common.collect.ImmutableMap;
 import com.google.common.eventbus.EventBus;
 import com.google.devtools.build.lib.concurrent.ThreadSafety.ThreadSafe;
 import com.google.devtools.build.lib.events.ErrorEventListener;
+import com.google.devtools.build.lib.events.EventKind;
 import com.google.devtools.build.lib.events.Reporter;
 import com.google.devtools.build.lib.profiler.Profiler;
 import com.google.devtools.build.lib.profiler.ProfilerTask;
 import com.google.devtools.build.lib.util.Clock;
-import com.google.devtools.build.lib.util.io.OutErr;
 import com.google.devtools.build.lib.vfs.Path;
 import com.google.devtools.common.options.OptionsClassProvider;
 
@@ -140,6 +140,11 @@ public final class BlazeExecutor implements Executor {
     return clock;
   }
 
+  @Override
+  public boolean reportsSubcommands() {
+    return reporter.hasHandlerFor(EventKind.SUBCOMMAND);
+  }
+
   /**
    * Report a subcommand event to this Executor's Reporter and, if action
    * logging is enabled, post it on its EventBus.
@@ -153,9 +158,8 @@ public final class BlazeExecutor implements Executor {
    * This method is called before the start of the execution phase of each
    * build request.
    */
-  public void executionPhaseStarting(OutErr outErr) {
+  public void executionPhaseStarting() {
     Preconditions.checkState(!inExecutionPhase.getAndSet(true));
-    Preconditions.checkState(getActionGraph() != null);
     Profiler.instance().startTask(ProfilerTask.INFO, "Initializing executors");
     Profiler.instance().completeTask(ProfilerTask.INFO);
   }
@@ -164,7 +168,7 @@ public final class BlazeExecutor implements Executor {
    * This method is called after the end of the execution phase of each build
    * request (even if there was an interrupt).
    */
-  public void executionPhaseEnding(OutErr outErr) {
+  public void executionPhaseEnding() {
     if (!inExecutionPhase.get()) {
       return;
     }
@@ -223,7 +227,7 @@ public final class BlazeExecutor implements Executor {
 
   @Override
   public ActionGraph getActionGraph() {
-    return actionGraph;
+    return Preconditions.checkNotNull(actionGraph);
   }
 
   /** Returns true iff the --verbose_failures option was enabled. */

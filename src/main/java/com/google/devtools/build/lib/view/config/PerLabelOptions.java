@@ -22,6 +22,7 @@ import com.google.devtools.build.lib.util.RegexFilter.RegexFilterConverter;
 import com.google.devtools.common.options.Converter;
 import com.google.devtools.common.options.OptionsParsingException;
 
+import java.io.Serializable;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.Objects;
@@ -30,7 +31,7 @@ import java.util.Objects;
  * Models options that can be added to a command line when a label matches a
  * given {@link RegexFilter}.
  */
-public class PerLabelOptions {
+public class PerLabelOptions implements Serializable {
 
   /** The filter used to match labels */
   private final RegexFilter regexFilter;

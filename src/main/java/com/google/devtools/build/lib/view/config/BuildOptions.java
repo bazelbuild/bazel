@@ -28,6 +28,7 @@ import com.google.devtools.common.options.OptionsClassProvider;
 import com.google.devtools.common.options.OptionsParser;
 import com.google.devtools.common.options.OptionsParsingException;
 
+import java.io.Serializable;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
@@ -39,7 +40,7 @@ import java.util.TreeSet;
  * This is a collection of command-line options from all configuration fragments. Contains
  * a single instance for all FragmentOptions classes provided by Blaze language modules.
  */
-public final class BuildOptions implements Cloneable {
+public final class BuildOptions implements Cloneable, Serializable {
   /**
    * Creates a BuildOptions object with all options set to its default value.
    */

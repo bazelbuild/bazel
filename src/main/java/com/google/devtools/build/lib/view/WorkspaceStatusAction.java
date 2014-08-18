@@ -14,13 +14,22 @@
 
 package com.google.devtools.build.lib.view;
 
+import com.google.common.base.Splitter;
 import com.google.common.base.Supplier;
+import com.google.common.collect.ImmutableList;
+import com.google.common.collect.ImmutableMap;
 import com.google.devtools.build.lib.actions.AbstractAction;
 import com.google.devtools.build.lib.actions.ActionOwner;
 import com.google.devtools.build.lib.actions.Artifact;
 import com.google.devtools.build.lib.actions.ArtifactFactory;
 import com.google.devtools.build.lib.actions.ArtifactOwner;
+import com.google.devtools.build.lib.actions.Executor.ActionContext;
+import com.google.devtools.build.lib.vfs.FileSystemUtils;
+import com.google.devtools.build.lib.vfs.Path;
 
+import java.io.IOException;
+import java.util.HashMap;
+import java.util.List;
 import java.util.Map;
 import java.util.UUID;
 
@@ -39,6 +48,102 @@ import java.util.UUID;
  * that does not significantly affect the build, e.g. the current time.
  */
 public abstract class WorkspaceStatusAction extends AbstractAction {
+
+  /**
+   * The type of a workspace status action key.
+   */
+  public enum KeyType {
+    INTEGER,
+    STRING,
+    VERBATIM,
+  }
+
+  /**
+   * Language for keys that should be present in the build info for every language.
+   */
+  // TODO(bazel-team): Once this is released, migrate the only place in the depot to use
+  // the BUILD_USERNAME, BUILD_HOSTNAME and BUILD_DIRECTORY keys instead of BUILD_INFO. Then
+  // language-specific build info keys can be removed.
+  public static final String ALL_LANGUAGES = "*";
+
+  /**
+   * Action context required by the actions that write language-specific workspace status artifacts.
+   */
+  public static interface Context extends ActionContext {
+    ImmutableMap<String, Key> getStableKeys();
+    ImmutableMap<String, Key> getVolatileKeys();
+  }
+
+  /**
+   * A key in the workspace status info file.
+   */
+  public static class Key {
+    private final KeyType type;
+
+    /**
+     * Should be set to ALL_LANGUAGES if the key should be present in the build info of every
+     * language.
+     */
+    private final String language;
+    private final String defaultValue;
+    private final String redactedValue;
+
+    private Key(KeyType type, String language, String defaultValue, String redactedValue) {
+      this.type = type;
+      this.language = language;
+      this.defaultValue = defaultValue;
+      this.redactedValue = redactedValue;
+    }
+
+    public KeyType getType() {
+      return type;
+    }
+
+    public boolean isInLanguage(String language) {
+      return this.language.equals(ALL_LANGUAGES) || this.language.equals(language);
+    }
+
+    public String getDefaultValue() {
+      return defaultValue;
+    }
+
+    public String getRedactedValue() {
+      return redactedValue;
+    }
+
+    public static Key forLanguage(
+        String language, KeyType type, String defaultValue, String redactedValue) {
+      return new Key(type, language, defaultValue, redactedValue);
+    }
+
+    public static Key of(KeyType type, String defaultValue, String redactedValue) {
+      return new Key(type, ALL_LANGUAGES, defaultValue, redactedValue);
+    }
+  }
+
+  /**
+   * Parses the output of the workspace status action.
+   *
+   * <p>The output is a text file with each line representing a workspace status info key.
+   * The key is the part of the line before the first space and should consist of the characters
+   * [A-Z_] (although this is not checked). Everything after the first space is the value.
+   */
+  public static Map<String, String> parseValues(Path file) throws IOException {
+    HashMap<String, String> result = new HashMap<>();
+    Splitter lineSplitter = Splitter.on(" ").limit(2);
+    for (String line : Splitter.on("\n").split(
+        new String(FileSystemUtils.readContentAsLatin1(file)))) {
+      List<String> items = ImmutableList.copyOf(lineSplitter.split(line));
+      if (items.size() != 2) {
+        continue;
+      }
+
+      result.put(items.get(0), items.get(1));
+    }
+
+    return ImmutableMap.copyOf(result);
+  }
+
   /**
    * Factory for {@link WorkspaceStatusAction}.
    */

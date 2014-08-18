@@ -47,6 +47,11 @@ public interface ErrorEventListener {
   void report(EventKind kind, Location location, String message);
 
   /**
+   * Reports an arbitrary event.
+   */
+  void report(EventKind kind, Location location, byte []message);
+
+  /**
    * Returns true iff the given tag matches the output filter.
    */
   // TODO(bazel-team): We probably don't need this; when we have one instance per configured

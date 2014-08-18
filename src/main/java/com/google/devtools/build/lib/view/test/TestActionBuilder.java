@@ -221,7 +221,6 @@ public final class TestActionBuilder {
       }
       Artifact instrumentedFileManifest =
           InstrumentedFileManifestAction.getInstrumentedFileManifest(ruleContext,
-              filesToRun,
               ImmutableList.copyOf(instrumentedFiles.getInstrumentedFiles()),
               metadataFiles);
       executionSettings = new TestTargetExecutionSettings(ruleContext, runfilesSupport,

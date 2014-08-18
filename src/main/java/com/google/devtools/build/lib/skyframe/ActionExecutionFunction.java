@@ -13,9 +13,9 @@
 // limitations under the License.
 package com.google.devtools.build.lib.skyframe;
 
+import com.google.common.base.Function;
 import com.google.common.base.Predicate;
 import com.google.common.collect.ImmutableList;
-import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.Iterables;
 import com.google.common.collect.Sets;
 import com.google.devtools.build.lib.actions.Action;
@@ -34,6 +34,7 @@ import com.google.devtools.build.skyframe.SkyValue;
 import com.google.devtools.build.skyframe.ValueOrException;
 
 import java.util.Collection;
+import java.util.Collections;
 import java.util.HashMap;
 import java.util.HashSet;
 import java.util.Map;
@@ -45,11 +46,11 @@ import java.util.Set;
 public class ActionExecutionFunction implements SkyFunction {
 
   private static final Predicate<Artifact> IS_SOURCE_ARTIFACT = new Predicate<Artifact>() {
-      @Override
-      public boolean apply(Artifact input) {
-        return input.isSourceArtifact();
-      }
-    };
+    @Override
+    public boolean apply(Artifact input) {
+      return input.isSourceArtifact();
+    }
+  };
 
   private final SkyframeActionExecutor skyframeActionExecutor;
   private final TimestampGranularityMonitor tsgm;
@@ -66,12 +67,15 @@ public class ActionExecutionFunction implements SkyFunction {
     Action action = (Action) skyKey.argument();
     Map<Artifact, FileArtifactValue> inputArtifactData = null;
     Map<Artifact, Collection<Artifact>> expandedMiddlemen = null;
+    boolean alreadyRan = skyframeActionExecutor.probeActionExecution(action);
     try {
       Pair<Map<Artifact, FileArtifactValue>, Map<Artifact, Collection<Artifact>>> checkedInputs =
-          checkInputs(env, action); // Declare deps on known inputs to action.
+          checkInputs(env, action, alreadyRan); // Declare deps on known inputs to action.
 
-      inputArtifactData = checkedInputs.first;
-      expandedMiddlemen = checkedInputs.second;
+      if (checkedInputs != null) {
+        inputArtifactData = checkedInputs.first;
+        expandedMiddlemen = checkedInputs.second;
+      }
     } catch (ActionExecutionException e) {
       skyframeActionExecutor.postActionNotExecutedEvents(action, e.getRootCauses());
       throw new ActionExecutionFunctionException(skyKey, e);
@@ -100,7 +104,9 @@ public class ActionExecutionFunction implements SkyFunction {
       // If this action was not shared and this is the first run of the action, this returned result
       // was computed during the call.
       result = skyframeActionExecutor.executeAction(action,
-          new FileAndMetadataCache(inputArtifactData, expandedMiddlemen,
+          inputArtifactData == null
+              ? null
+              : new FileAndMetadataCache(inputArtifactData, expandedMiddlemen,
           skyframeActionExecutor.getExecRoot(), action.getOutputs(),
           // Only give the metadata cache the ability to look up Skyframe values if the action might
           // have undeclared inputs. If those undeclared inputs are generated, they are present in
@@ -126,24 +132,35 @@ public class ActionExecutionFunction implements SkyFunction {
     return result;
   }
 
-  private static Collection<SkyKey> toKeys(Iterable<Artifact> inputs,
+  private static Iterable<SkyKey> toKeys(Iterable<Artifact> inputs,
       Iterable<Artifact> mandatoryInputs) {
-    Set<Artifact> mandatory = Sets.newHashSet(mandatoryInputs);
-    Collection<SkyKey> discoveredArtifacts = new HashSet<>();
-    for (Artifact artifact : inputs) {
-      discoveredArtifacts.add(ArtifactValue.key(artifact, mandatory.contains(artifact)));
-    }
+    if (mandatoryInputs == null) {
+      // This is a non inputs-discovering action, so no need to distinguish mandatory from regular
+      // inputs.
+      return Iterables.transform(inputs, new Function<Artifact, SkyKey>() {
+        @Override
+        public SkyKey apply(Artifact artifact) {
+          return ArtifactValue.key(artifact, true);
+        }
+      });
+    } else {
+      Collection<SkyKey> discoveredArtifacts = new HashSet<>();
+      Set<Artifact> mandatory = Sets.newHashSet(mandatoryInputs);
+      for (Artifact artifact : inputs) {
+        discoveredArtifacts.add(ArtifactValue.key(artifact, mandatory.contains(artifact)));
+      }
 
-    // In case the action violates the invariant that getInputs() is a superset of
-    // getMandatoryInputs(), explicitly add the mandatory inputs. See bug about an
-    // "action not in canonical form" error message. Also note that we may add Skyframe edges on
-    // these potentially stale deps due to the way loading inputs from the action cache functions.
-    // In practice, this is safe since C++ actions (the only ones which discover inputs) only add
-    // possibly stale inputs on source artifacts, which we treat as non-mandatory.
-    for (Artifact artifact : mandatory) {
-      discoveredArtifacts.add(ArtifactValue.key(artifact, true));
+      // In case the action violates the invariant that getInputs() is a superset of
+      // getMandatoryInputs(), explicitly add the mandatory inputs. See bug about an
+      // "action not in canonical form" error message. Also note that we may add Skyframe edges on
+      // these potentially stale deps due to the way loading inputs from the action cache functions.
+      // In practice, this is safe since C++ actions (the only ones which discover inputs) only add
+      // possibly stale inputs on source artifacts, which we treat as non-mandatory.
+      for (Artifact artifact : mandatory) {
+        discoveredArtifacts.add(ArtifactValue.key(artifact, true));
+      }
+      return discoveredArtifacts;
     }
-    return discoveredArtifacts;
   }
 
   /**
@@ -151,22 +168,35 @@ public class ActionExecutionFunction implements SkyFunction {
    * missing. Some inputs may not yet be in the graph, in which case the builder should abort.
    */
   private Pair<Map<Artifact, FileArtifactValue>, Map<Artifact, Collection<Artifact>>> checkInputs(
-      Environment env, Action action) throws ActionExecutionException {
+      Environment env, Action action, boolean alreadyRan) throws ActionExecutionException {
+    Map<SkyKey, ValueOrException<Exception>> inputDeps = env.getValuesOrThrow(
+        toKeys(action.getInputs(), action.discoversInputs() ? action.getMandatoryInputs() : null),
+        Exception.class);
+
+    // If the action was already run, then break out early. This avoids the cost of constructing the
+    // input map and expanded middlemen if they're not going to be used.
+    if (alreadyRan) {
+      return null;
+    }
+
     int missingCount = 0;
+    // Only populate input data if we have the input values, otherwise they'll just go unused.
+    // We still want to loop through the inputs to collect missing deps errors. During the
+    // evaluator "error bubbling", we may get one last chance at reporting errors even though
+    // some deps are stilling missing.
+    boolean populateInputData = !env.valuesMissing();
     ImmutableList.Builder<Label> rootCauses = ImmutableList.builder();
-    Map<Artifact, FileArtifactValue> inputArtifactData = new HashMap<>();
-    Map<Artifact, Collection<Artifact>> expandedMiddlemen = new HashMap<>();
+    Map<Artifact, FileArtifactValue> inputArtifactData = new HashMap<>(128);
+    Map<Artifact, Collection<Artifact>> expandedMiddlemen = new HashMap<>(128);
 
     ActionExecutionException firstActionExecutionException = null;
-    for (Map.Entry<SkyKey, ValueOrException<Exception>> depsEntry :
-      env.getValuesOrThrow(toKeys(action.getInputs(), action.getMandatoryInputs()), Exception.class)
-          .entrySet()) {
+    for (Map.Entry<SkyKey, ValueOrException<Exception>> depsEntry : inputDeps.entrySet()) {
       Artifact input = ArtifactValue.artifact(depsEntry.getKey());
       try {
         ArtifactValue value = (ArtifactValue) depsEntry.getValue().get();
-        if (value instanceof AggregatingArtifactValue) {
+        if (populateInputData && value instanceof AggregatingArtifactValue) {
           AggregatingArtifactValue aggregatingValue = (AggregatingArtifactValue) value;
-          Set<Artifact> expansion = new HashSet<>();
+          Set<Artifact> expansion = new HashSet<>(256);
           for (Pair<Artifact, FileArtifactValue> entry : aggregatingValue.getInputs()) {
             inputArtifactData.put(entry.first, entry.second);
             expansion.add(entry.first);
@@ -174,8 +204,8 @@ public class ActionExecutionFunction implements SkyFunction {
           // We have to cache the "digest" of the aggregating value itself, because the action cache
           // checker may want it.
           inputArtifactData.put(input, aggregatingValue.getSelfData());
-          expandedMiddlemen.put(input, ImmutableList.copyOf(expansion));
-        } else if (value instanceof FileArtifactValue) {
+          expandedMiddlemen.put(input, Collections.unmodifiableSet(expansion));
+        } else if (populateInputData && value instanceof FileArtifactValue) {
           // TODO(bazel-team): Make sure middleman "virtual" artifact data is properly processed.
           inputArtifactData.put(input, (FileArtifactValue) value);
         }
@@ -190,7 +220,7 @@ public class ActionExecutionFunction implements SkyFunction {
         }
         skyframeActionExecutor.postActionNotExecutedEvents(action, e.getRootCauses());
       } catch (Exception e) {
-        // can't get here
+        // Can't get here.
         throw new IllegalStateException(e);
       }
     }
@@ -200,11 +230,16 @@ public class ActionExecutionFunction implements SkyFunction {
     }
 
     if (missingCount > 0) {
+      for (Label missingInput : rootCauses.build()) {
+        env.getListener().error(action.getOwner().getLocation(), String.format(
+            "%s: missing input file '%s'", action.getOwner().getLabel(), missingInput));
+      }
       throw new ActionExecutionException(missingCount + " input file(s) do not exist", action,
           rootCauses.build(), /*catastrophe=*/false);
     }
-    return Pair.<Map<Artifact, FileArtifactValue>, Map<Artifact, Collection<Artifact>>>of(
-        ImmutableMap.copyOf(inputArtifactData), ImmutableMap.copyOf(expandedMiddlemen));
+    return Pair.of(
+        Collections.unmodifiableMap(inputArtifactData),
+        Collections.unmodifiableMap(expandedMiddlemen));
   }
 
   private static void declareAdditionalDependencies(Environment env, Action action) {

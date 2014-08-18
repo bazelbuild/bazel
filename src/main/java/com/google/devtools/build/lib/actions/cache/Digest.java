@@ -83,8 +83,12 @@ public class Digest {
    */
   public static Digest fromMetadata(Map<String, Metadata> mdMap) {
     byte[] result = new byte[MD5_SIZE];
+    // Profiling showed that MD5 engine instantiation was a hotspot, so create one instance for
+    // this computation to amortize its cost.
+    Fingerprint fp = new Fingerprint();
     for (Map.Entry<String, Metadata> entry : mdMap.entrySet()) {
-      xorWith(result, getDigest(entry.getKey(), entry.getValue()));
+      xorWith(result, getDigest(fp, entry.getKey(), entry.getValue()));
+      fp.reset();
     }
     return new Digest(result);
   }
@@ -111,8 +115,7 @@ public class Digest {
     return Fingerprint.hexDigest(digest);
   }
 
-  private static byte[] getDigest(String execPath, Metadata md) {
-    Fingerprint fp = new Fingerprint();
+  private static byte[] getDigest(Fingerprint fp, String execPath, Metadata md) {
     fp.addString(execPath);
 
     if (md == null) {

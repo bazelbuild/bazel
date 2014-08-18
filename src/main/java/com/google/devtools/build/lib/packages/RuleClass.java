@@ -358,7 +358,6 @@ public final class RuleClass {
     private Predicate<String> preferredDependencyPredicate = Predicates.alwaysFalse();
     private UserDefinedFunction configuredTargetFunction = null;
     private SkylarkEnvironment ruleDefinitionEnvironment = null;
-    private boolean allowConfigurableAttributes = false;
 
     private final Map<String, Attribute> attributes = new LinkedHashMap<>();
 
@@ -421,7 +420,7 @@ public final class RuleClass {
       return new RuleClass(name, skylarkExecutable, documented, binaryOutput,
           implicitOutputsFunction, configurator,
           validityPredicate, preferredDependencyPredicate,
-          configuredTargetFunction, ruleDefinitionEnvironment, allowConfigurableAttributes,
+          configuredTargetFunction, ruleDefinitionEnvironment,
           attributes.values().toArray(new Attribute[0]));
     }
 
@@ -436,11 +435,6 @@ public final class RuleClass {
 
     public Builder setUndocumented() {
       documented = false;
-      return this;
-    }
-
-    public Builder allowConfigurableAttributes(boolean allow) {
-      this.allowConfigurableAttributes = allow;
       return this;
     }
 
@@ -649,11 +643,6 @@ public final class RuleClass {
   @Nullable private final SkylarkEnvironment ruleDefinitionEnvironment;
 
   /**
-   * Temporary gate while the configurable attributes feature is under development
-   */
-  private final boolean allowConfigurableAttributes;
-
-  /**
    * Constructs an instance of RuleClass whose name is 'name', attributes
    * are 'attributes'. The {@code srcsAllowedFiles} determines which types of
    * files are allowed as parameters to the "srcs" attribute; rules are always
@@ -680,8 +669,7 @@ public final class RuleClass {
       Configurator<?, ?> configurator,
       PredicateWithMessage<Rule> validityPredicate, Predicate<String> preferredDependencyPredicate,
       @Nullable UserDefinedFunction configuredTargetFunction,
-      @Nullable SkylarkEnvironment ruleDefinitionEnvironment, boolean allowConfigurableAttributes,
-      Attribute... attributes) {
+      @Nullable SkylarkEnvironment ruleDefinitionEnvironment, Attribute... attributes) {
     this.name = name;
     this.targetKind = name + " rule";
     this.skylarkExecutable = skylarkExecutable;
@@ -693,7 +681,6 @@ public final class RuleClass {
     this.preferredDependencyPredicate = preferredDependencyPredicate;
     this.configuredTargetFunction = configuredTargetFunction;
     this.ruleDefinitionEnvironment = ruleDefinitionEnvironment;
-    this.allowConfigurableAttributes = allowConfigurableAttributes;
     // Do not make a defensive copy as builder does that already
     this.attributes = attributes;
 
@@ -1117,11 +1104,7 @@ public final class RuleClass {
     Object converted;
     try {
       String what = "attribute '" + attrName + "' in '" + name + "' rule";
-      // Temporary branch while configurable attributes is being developed. This will eventually
-      // universally apply selectableConvert.
-      converted = allowConfigurableAttributes
-          ? attr.getType().selectableConvert(attrVal, what, rule.getLabel())
-          : attr.getType().convert(attrVal, what, rule.getLabel());
+      converted = attr.getType().selectableConvert(attrVal, what, rule.getLabel());
 
       if ((converted instanceof Type.Selector<?>) && !attr.isConfigurable()) {
         rule.reportError(rule.getLabel() + ": attribute \"" + attr.getName()

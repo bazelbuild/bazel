@@ -51,6 +51,9 @@ public final class SkyframeDependencyResolver extends DependencyResolver {
   @Nullable
   @Override
   protected Target getTarget(Label label) throws NoSuchThingException {
+    if (env.getValue(TargetMarkerValue.key(label)) == null) {
+      return null;
+    }
     SkyKey key = PackageValue.key(label.getPackageFragment());
     SkyValue value = env.getValue(key);
     if (value == null) {

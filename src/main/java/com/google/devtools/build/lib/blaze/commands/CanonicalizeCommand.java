@@ -18,7 +18,6 @@ import com.google.devtools.build.lib.blaze.BlazeCommandUtils;
 import com.google.devtools.build.lib.blaze.BlazeRuntime;
 import com.google.devtools.build.lib.blaze.Command;
 import com.google.devtools.build.lib.util.ExitCode;
-import com.google.devtools.build.lib.util.io.OutErr;
 import com.google.devtools.common.options.Converter;
 import com.google.devtools.common.options.Option;
 import com.google.devtools.common.options.OptionsBase;
@@ -72,7 +71,7 @@ public final class CanonicalizeCommand implements BlazeCommand {
   }
 
   @Override
-  public ExitCode exec(BlazeRuntime runtime, OptionsProvider options, OutErr outErr) {
+  public ExitCode exec(BlazeRuntime runtime, OptionsProvider options) {
     BlazeCommand command = runtime.getCommandMap().get(
         options.getOptions(Options.class).forCommand);
     Collection<Class<? extends OptionsBase>> optionsClasses =
@@ -81,7 +80,7 @@ public final class CanonicalizeCommand implements BlazeCommand {
     try {
       List<String> result = OptionsParser.canonicalize(optionsClasses, options.getResidue());
       for (String piece : result) {
-        outErr.printOutLn(piece);
+        runtime.getReporter().getOutErr().printOutLn(piece);
       }
     } catch (OptionsParsingException e) {
       runtime.getReporter().error(null, e.getMessage());

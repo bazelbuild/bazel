@@ -111,13 +111,13 @@ public interface AnalysisEnvironment extends ActionRegistry {
    * Returns the Artifact that is used to hold the non-volatile workspace status for the current
    * build request.
    */
-  Artifact getBuildInfoArtifact();
+  Artifact getStableWorkspaceStatusArtifact();
 
   /**
    * Returns the Artifact that is used to hold the volatile workspace status (e.g. build
    * changelist) for the current build request.
    */
-  Artifact getBuildChangelistArtifact();
+  Artifact getVolatileWorkspaceStatusArtifact();
 
   /**
    * Returns the Artifacts that contain the workspace status for the current build request.

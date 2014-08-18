@@ -94,12 +94,16 @@ public abstract class BlazeModule {
   }
 
   /**
-   * May supply a factory for a Preprocessor to apply. Only one of the
+   * May yield a supplier that provides factories for the Preprocessor to apply. Only one of the
    * configured modules may return non-null.
+   *
+   * The factory yielded by the supplier will be checked with
+   * {@link Preprocessor.Factory#isStillValid} at the beginning of each incremental build. This
+   * allows modules to have preprocessors customizable by flags.
    *
    * <p>This method will be called during Blaze startup (after #blazeStartup).
    */
-  public Preprocessor.Factory getPreprocessorFactory() {
+  public Preprocessor.Factory.Supplier getPreprocessorFactorySupplier() {
     return null;
   }
 

@@ -45,15 +45,18 @@ public final class Reporter implements ErrorEventListener, ExceptionListener {
   /** An OutErr that sends all of its output to this Reporter.
    * Each write will (when flushed) get mapped to an EventKind.STDOUT or EventKind.STDERR event.
    */
-  private final OutErr outErrToReporter = OutErr.create(
-      // We don't use BufferedOutputStream here, because in general the Blaze
-      // code base assumes that the output streams are not buffered.
-      new ReporterStream(this, EventKind.STDOUT),
-      new ReporterStream(this, EventKind.STDERR));
-
+  private final OutErr outErrToReporter = outErrForReporter(this);
   private volatile OutputFilter outputFilter = OutputFilter.OUTPUT_EVERYTHING;
 
   public Reporter() {}
+
+  public static OutErr outErrForReporter(ErrorEventListener rep) {
+    return OutErr.create(
+        // We don't use BufferedOutputStream here, because in general the Blaze
+        // code base assumes that the output streams are not buffered.
+        new ReporterStream(rep, EventKind.STDOUT),
+        new ReporterStream(rep, EventKind.STDERR));
+  }
 
   /**
    * A copy constructor, to make it convenient to replicate a reporter
@@ -138,8 +141,9 @@ public final class Reporter implements ErrorEventListener, ExceptionListener {
   /**
    * Variant of report() for a byte-array.
    */
+  @Override
   public synchronized void report(EventKind kind, Location location,
-                                   byte[] messageBytes) {
+                                  byte[] messageBytes) {
     Event event = null; // Created lazily iff required.
     if (hasHandlerFor(kind)) {
       for (EventHandler handler : handlers) {

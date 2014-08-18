@@ -23,10 +23,10 @@ import java.io.OutputStream;
  */
 public final class ReporterStream extends OutputStream {
 
-  private final Reporter reporter;
+  private final ErrorEventListener reporter;
   private final EventKind eventKind;
 
-  public ReporterStream(Reporter reporter, EventKind eventKind) {
+  public ReporterStream(ErrorEventListener reporter, EventKind eventKind) {
     this.reporter = reporter;
     this.eventKind = eventKind;
   }

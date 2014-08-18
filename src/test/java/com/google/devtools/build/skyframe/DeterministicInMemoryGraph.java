@@ -20,7 +20,7 @@ import java.util.Set;
 import java.util.TreeSet;
 
 /** {@link NotifyingInMemoryGraph} that returns reverse deps ordered alphabetically. */
-class DeterministicInMemoryGraph extends NotifyingInMemoryGraph {
+public class DeterministicInMemoryGraph extends NotifyingInMemoryGraph {
   public DeterministicInMemoryGraph(Listener listener) {
     super(listener);
   }
@@ -35,7 +35,7 @@ class DeterministicInMemoryGraph extends NotifyingInMemoryGraph {
   }
 
   /**
-   * This class uses TreeSet to store reverse dependencies of ValueEntry. As a result all values are
+   * This class uses TreeSet to store reverse dependencies of NodeEntry. As a result all values are
    * lexicographically sorted.
    */
   private class DeterministicValueEntry extends NotifyingNodeEntry {

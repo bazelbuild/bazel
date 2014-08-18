@@ -26,8 +26,10 @@ import com.google.devtools.build.lib.syntax.EvalException;
 import com.google.devtools.build.lib.syntax.Label;
 import com.google.devtools.build.lib.util.Pair;
 import com.google.devtools.build.lib.view.config.BuildConfiguration;
+import com.google.devtools.build.lib.view.config.ConfigMatchingProvider;
 
 import java.util.List;
+import java.util.Set;
 import java.util.regex.Pattern;
 import java.util.regex.PatternSyntaxException;
 
@@ -41,41 +43,44 @@ public final class LateBoundAttributeHelper {
 
   private final Rule rule;
   private final BuildConfiguration configuration;
+  private final Set<ConfigMatchingProvider> configConditions;
 
-  public LateBoundAttributeHelper(Rule rule, BuildConfiguration configuration) {
+  public LateBoundAttributeHelper(Rule rule, BuildConfiguration configuration,
+      Set<ConfigMatchingProvider> configConditions) {
     this.rule = rule;
     this.configuration = configuration;
+    this.configConditions = configConditions;
   }
 
   public ListMultimap<Attribute, Label> createAttributeMap() throws EvalException {
     final ImmutableSortedKeyListMultimap.Builder<Attribute, Label> builder =
         ImmutableSortedKeyListMultimap.builder();
+    ConfiguredAttributeMapper attributes = ConfiguredAttributeMapper.of(rule, configConditions);
 
-    AttributeMap attributes = ConfiguredAttributeMapper.of(rule, configuration);
-
+    attributes.validateAttributes();
     attributes.visitLabels(
         new AttributeMap.AcceptsLabelAttribute() {
-      @Override
-      public void acceptLabelAttribute(Label label, Attribute attribute) {
-        String attributeName = attribute.getName();
-        if (attributeName.equals("abi_deps")) {
-          // abi_deps is handled specially: we visit only the branch that
-          // needs to be taken based on the configuration.
-          return;
-        }
+          @Override
+          public void acceptLabelAttribute(Label label, Attribute attribute) {
+            String attributeName = attribute.getName();
+            if (attributeName.equals("abi_deps")) {
+              // abi_deps is handled specially: we visit only the branch that
+              // needs to be taken based on the configuration.
+              return;
+            }
 
-        if (attribute.getType() == Type.NODEP_LABEL) {
-          return;
-        }
+            if (attribute.getType() == Type.NODEP_LABEL) {
+              return;
+            }
 
-        if (Attribute.isLateBound(attributeName)) {
-          // Late-binding attributes are handled specially.
-          return;
-        }
+            if (Attribute.isLateBound(attributeName)) {
+              // Late-binding attributes are handled specially.
+              return;
+            }
 
-        builder.put(attribute, label);
-      }
-    });
+            builder.put(attribute, label);
+          }
+        });
 
     if (attributes.getAttributeDefinition("abi_deps") != null) {
       Attribute depsAttribute = attributes.getAttributeDefinition("deps");

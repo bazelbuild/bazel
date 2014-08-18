@@ -207,6 +207,11 @@ public final class SkyframeActionExecutor extends AbstractActionExecutor {
     }
 
     @Override
+    public boolean isRegularFile(Artifact artifact) {
+      return perActionHandler.isRegularFile(artifact);
+    }
+
+    @Override
     public boolean isInjected(Artifact artifact) throws IOException {
       return perActionHandler.isInjected(artifact);
     }
@@ -384,6 +389,10 @@ public final class SkyframeActionExecutor extends AbstractActionExecutor {
 
   File getExecRoot() {
     return executorEngine.getExecRoot().getPathFile();
+  }
+
+  protected boolean probeActionExecution(Action action) {
+    return buildActionMap.containsKey(action.getPrimaryOutput());
   }
 
   /**

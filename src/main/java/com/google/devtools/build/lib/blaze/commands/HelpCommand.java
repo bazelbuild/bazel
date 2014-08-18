@@ -124,7 +124,8 @@ public final class HelpCommand implements BlazeCommand {
   public void editOptions(BlazeRuntime runtime, OptionsParser optionsParser) {}
 
   @Override
-  public ExitCode exec(BlazeRuntime runtime, OptionsProvider options, OutErr outErr) {
+  public ExitCode exec(BlazeRuntime runtime, OptionsProvider options) {
+    OutErr outErr = runtime.getReporter().getOutErr();
     Options helpOptions = options.getOptions(Options.class);
     if (options.getResidue().isEmpty()) {
       emitBlazeVersionInfo(outErr);

@@ -17,7 +17,6 @@ import com.google.common.base.Function;
 import com.google.common.base.Preconditions;
 
 import java.io.Serializable;
-import java.util.Objects;
 
 /**
  * A {@link SkyKey} is effectively a pair (type, name) that identifies a Skyframe value.
@@ -54,7 +53,7 @@ public final class SkyKey implements Serializable {
 
   @Override
   public int hashCode() {
-    return Objects.hash(functionName, argument);
+    return 31 * functionName.hashCode() + argument.hashCode();
   }
 
   @Override

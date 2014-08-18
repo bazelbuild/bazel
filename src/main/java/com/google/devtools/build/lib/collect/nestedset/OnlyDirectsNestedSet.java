@@ -13,6 +13,7 @@
 // limitations under the License.
 package com.google.devtools.build.lib.collect.nestedset;
 
+import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableSet;
 
 import java.util.Arrays;
@@ -58,7 +59,7 @@ abstract class OnlyDirectsNestedSet<E> extends NestedSet<E> {
   @SuppressWarnings("unchecked")
   @Override
   public List<E> toList() {
-    return (List<E>) Arrays.asList(directDeps);
+    return (List<E>) ImmutableList.copyOf(directDeps);
   }
 
   @SuppressWarnings("unchecked")

@@ -43,6 +43,10 @@ public final class NullErrorEventListener implements ErrorEventListener {
   }
 
   @Override
+  public void report(EventKind kind, Location location, byte[] message) {
+  }
+
+  @Override
   public boolean showOutput(String tag) {
     return false;
   }

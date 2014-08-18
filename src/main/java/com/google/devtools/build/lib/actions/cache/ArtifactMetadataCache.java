@@ -155,6 +155,11 @@ public class ArtifactMetadataCache implements MetadataHandler {
   }
 
   @Override
+  public boolean isRegularFile(Artifact artifact) {
+    return getArtifactFileStatus(artifact).isFile();
+  }
+
+  @Override
   public boolean isInjected(Artifact artifact) throws IOException {
     FileStatus stat = getArtifactFileStatus(artifact);
     if (stat instanceof FileStatusException) {

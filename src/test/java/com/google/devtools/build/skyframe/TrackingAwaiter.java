@@ -24,7 +24,7 @@ import java.util.concurrent.CountDownLatch;
 import java.util.concurrent.TimeUnit;
 
 /** Safely await {@link CountDownLatch}es in tests, storing any exceptions that happen. */
-class TrackingAwaiter {
+public class TrackingAwaiter {
   private final ConcurrentLinkedQueue<Pair<String, Throwable>> exceptionsThrown =
       new ConcurrentLinkedQueue<>();
 
@@ -41,7 +41,7 @@ class TrackingAwaiter {
    * this was not a race condition, but an honest-to-goodness interrupt, and we propagate the
    * exception onward.
    */
-  static void waitAndMaybeThrowInterrupt(CountDownLatch latch, String errorMessage)
+  public static void waitAndMaybeThrowInterrupt(CountDownLatch latch, String errorMessage)
       throws InterruptedException {
     // Wait up to 2 seconds to avoid borking test in case of bad test. Normally should complete
     // almost immediately.
@@ -59,7 +59,7 @@ class TrackingAwaiter {
   }
 
   /** Threadpools can swallow exceptions. Make sure they don't get lost. */
-  void awaitLatchAndTrackExceptions(CountDownLatch latch, String errorMessage) {
+  public void awaitLatchAndTrackExceptions(CountDownLatch latch, String errorMessage) {
     try {
       waitAndMaybeThrowInterrupt(latch, errorMessage);
     } catch (Throwable e) {
@@ -72,7 +72,7 @@ class TrackingAwaiter {
     }
   }
 
-  void assertNoErrors() {
+  public void assertNoErrors() {
     assertThat(exceptionsThrown).isEmpty();
   }
 }

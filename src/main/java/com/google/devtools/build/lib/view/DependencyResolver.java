@@ -15,6 +15,7 @@ package com.google.devtools.build.lib.view;
 
 import com.google.common.base.Preconditions;
 import com.google.common.collect.ArrayListMultimap;
+import com.google.common.collect.ImmutableSet;
 import com.google.common.collect.ListMultimap;
 import com.google.devtools.build.lib.packages.Attribute;
 import com.google.devtools.build.lib.packages.InputFile;
@@ -26,6 +27,7 @@ import com.google.devtools.build.lib.packages.Target;
 import com.google.devtools.build.lib.syntax.EvalException;
 import com.google.devtools.build.lib.syntax.Label;
 import com.google.devtools.build.lib.view.config.BuildConfiguration;
+import com.google.devtools.build.lib.view.config.ConfigMatchingProvider;
 
 import java.util.Collection;
 import java.util.Map;
@@ -49,6 +51,16 @@ public abstract class DependencyResolver {
    */
   public final ListMultimap<Attribute, TargetAndConfiguration> dependentNodeMap(
       TargetAndConfiguration node, ListMultimap<Attribute, Label> labelMap) {
+    return dependentNodeMap(node, labelMap, /*visitVisibility=*/true);
+  }
+
+  /**
+   * Variation that lets the caller choose whether to visit visibility labels in
+   * addition to what's explicitly requested.
+   */
+  public final ListMultimap<Attribute, TargetAndConfiguration> dependentNodeMap(
+      TargetAndConfiguration node, ListMultimap<Attribute, Label> labelMap,
+      boolean visitVisibility) {
     Target target = node.getTarget();
     ListMultimap<Attribute, TargetAndConfiguration> outgoingEdges = ArrayListMultimap.create();
     if (target instanceof OutputFile) {
@@ -58,7 +70,9 @@ public abstract class DependencyResolver {
     } else if (target instanceof InputFile) {
       visitTargetVisibility(node, outgoingEdges.get(null));
     } else if (target instanceof Rule) {
-      visitTargetVisibility(node, outgoingEdges.get(null));
+      if (visitVisibility) {
+        visitTargetVisibility(node, outgoingEdges.get(null));
+      }
       visitRule(node, (Rule) target, labelMap, outgoingEdges);
     } else if (target instanceof PackageGroup) {
       visitPackageGroup(node, (PackageGroup) target, outgoingEdges.get(null));
@@ -79,8 +93,8 @@ public abstract class DependencyResolver {
     ListMultimap<Attribute, Label> labelMap = null;
     if (node.getTarget() instanceof Rule) {
       try {
-        labelMap = new LateBoundAttributeHelper(
-            (Rule) node.getTarget(), node.getConfiguration()).createAttributeMap();
+        labelMap = new LateBoundAttributeHelper((Rule) node.getTarget(), node.getConfiguration(),
+            ImmutableSet.<ConfigMatchingProvider>of()).createAttributeMap();
       } catch (EvalException e) {
         throw new IllegalStateException(e);
       }
@@ -134,8 +148,8 @@ public abstract class DependencyResolver {
     BuildConfiguration toConfiguration = from.getConfiguration().evaluateTransition(
         fromRule, attribute, toTarget);
 
-    if (toConfiguration != null ||
-        !(toTarget instanceof Rule || toTarget instanceof OutputFile)) {
+    if (toConfiguration != null
+        || !(toTarget instanceof Rule || toTarget instanceof OutputFile)) {
       addEdge(toTarget, toConfiguration, outgoingEdges);
     }
   }

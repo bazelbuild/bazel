@@ -87,7 +87,6 @@ public class ConfiguredRuleClassProvider implements RuleClassProvider {
     private final Map<Class<? extends RuleDefinition>, RuleClass> ruleMap = new HashMap<>();
     private final Digraph<Class<? extends RuleDefinition>> dependencyGraph =
         new Digraph<>();
-    private boolean allowConfigurableAttributes;
     private ConfigurationCollectionFactory configurationCollectionFactory;
     private PrerequisiteValidator prerequisiteValidator;
     private ImmutableMap<String, SkylarkType> skylarkAccessibleJavaClasses;
@@ -120,11 +119,6 @@ public class ConfiguredRuleClassProvider implements RuleClassProvider {
 
     public Builder addConfigurationFragment(ConfigurationFragmentFactory factory) {
       configurationFragments.add(factory);
-      return this;
-    }
-
-    public Builder allowConfigurableAttributes(boolean allow) {
-      this.allowConfigurableAttributes = allow;
       return this;
     }
 
@@ -184,7 +178,6 @@ public class ConfiguredRuleClassProvider implements RuleClassProvider {
 
       RuleClass.Builder builder = new RuleClass.Builder(
           annotation.name(), annotation.type(), false, ancestorClasses);
-      builder.allowConfigurableAttributes(allowConfigurableAttributes);
       RuleClass ruleClass = instance.build(builder, this);
       ruleMap.put(definitionClass, ruleClass);
       ruleClassMap.put(ruleClass.getName(), ruleClass);

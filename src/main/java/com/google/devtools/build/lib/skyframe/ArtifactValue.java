@@ -24,7 +24,6 @@ import com.google.devtools.build.skyframe.SkyKey;
 import com.google.devtools.build.skyframe.SkyValue;
 
 import java.util.Collection;
-import java.util.Objects;
 
 /**
  * A value representing an artifact. Source artifacts are checked for existence, while output
@@ -120,7 +119,8 @@ public abstract class ArtifactValue implements SkyValue {
 
     @Override
     public int hashCode() {
-      return Objects.hash(artifact, artifact.getArtifactOwner(), isMandatory);
+      int initialHash = artifact.hashCode() +  artifact.getArtifactOwner().hashCode();
+      return isMandatory ? initialHash : 47 * initialHash + 1;
     }
 
     @Override

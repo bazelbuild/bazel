@@ -18,13 +18,13 @@ package com.google.devtools.build.skyframe;
  */
 public final class IntVersion implements Version {
 
-  private final int val;
+  private final long val;
 
-  public IntVersion(int val) {
+  public IntVersion(long val) {
     this.val = val;
   }
 
-  public int getVal() {
+  public long getVal() {
     return val;
   }
 
@@ -34,7 +34,7 @@ public final class IntVersion implements Version {
 
   @Override
   public int hashCode() {
-    return val;
+    return Long.valueOf(val).hashCode();
   }
 
   @Override

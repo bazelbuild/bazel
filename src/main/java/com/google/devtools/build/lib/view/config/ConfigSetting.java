@@ -14,7 +14,10 @@
 
 package com.google.devtools.build.lib.view.config;
 
+import com.google.common.base.Preconditions;
 import com.google.common.collect.ImmutableList;
+import com.google.common.collect.Iterables;
+import com.google.common.collect.Lists;
 import com.google.devtools.build.lib.actions.Artifact;
 import com.google.devtools.build.lib.collect.nestedset.NestedSetBuilder;
 import com.google.devtools.build.lib.collect.nestedset.Order;
@@ -29,10 +32,12 @@ import com.google.devtools.build.lib.view.RuleConfiguredTargetBuilder;
 import com.google.devtools.build.lib.view.RuleContext;
 import com.google.devtools.build.lib.view.RunfilesProvider;
 
+import com.google.devtools.common.options.OptionsBase;
 import com.google.devtools.common.options.OptionsParser;
 import com.google.devtools.common.options.OptionsParsingException;
 
 import java.util.List;
+import java.util.Map;
 
 /**
  * Implementation for the config_setting rule.
@@ -85,23 +90,74 @@ public class ConfigSetting implements RuleConfiguredTargetFactory {
       throws OptionsParsingException {
     for (List<String> setting : expectedSettings) {
       String optionName = setting.get(0);
-      Class optionClass = config.getOptionClass(optionName);
+      String expectedRawValue = setting.get(1);
+
+      Class<? extends OptionsBase> optionClass = config.getOptionClass(optionName);
       if (optionClass == null) {
         throw new OptionsParsingException("unknown option: '" + optionName + "'");
       }
-      String optionValue = setting.get(1);
 
       OptionsParser parser = OptionsParser.newOptionsParser(optionClass);
-      parser.parse("--" + optionName + "=" + optionValue);
+      parser.parse("--" + optionName + "=" + expectedRawValue);
+      Object expectedParsedValue = parser.getOptions(optionClass).asMap().get(optionName);
 
-      Object expectedValue = parser.getOptions(optionClass).asMap().get(optionName);
-      // TODO(bazel-team): support multi-value parameters.
-      Object actualValue = config.getOptionValue(optionName);
-
-      if ((expectedValue == null && actualValue != null) || !expectedValue.equals(actualValue)) {
+      if (!optionMatches(config, optionName, expectedParsedValue)) {
         return false;
       }
     }
     return true;
+  }
+
+  /**
+   * For single-value options, returns true iff the option's value matches the expected value.
+   *
+   * <p>For multi-value List options, returns true iff any of the option's values matches
+   * the expected value. This means, e.g. "--tool_tag=foo --tool_tag=bar" would match the
+   * expected condition { 'tool_tag': 'bar' }.
+   *
+   * <p>For multi-value Map options, returns true iff the last instance with the same key as the
+   * expected key has the same value. This means, e.g. "--define foo=1 --define bar=2" would
+   * match { 'define': 'foo=1' }, but "--define foo=1 --define bar=2 --define foo=3" would not
+   * match. Note that the definition of --define states that the last instance takes precedence.
+   */
+  private static boolean optionMatches(BuildConfiguration config, String optionName,
+      Object expectedValue) {
+    Object actualValue = config.getOptionValue(optionName);
+    if (actualValue == null) {
+      return expectedValue == null;
+
+    // Single-value case:
+    } else if (!config.allowsMultipleValues(optionName)) {
+      return actualValue.equals(expectedValue);
+    }
+
+    // Multi-value case:
+    Preconditions.checkState(actualValue instanceof List);
+    Preconditions.checkState(expectedValue instanceof List);
+    List<?> actualList = (List<?>) actualValue;
+    List<?> expectedList = (List<?>) expectedValue;
+
+    if (actualList.isEmpty() || expectedList.isEmpty()) {
+      return actualList.isEmpty() && expectedList.isEmpty();
+    }
+
+    // We're expecting a single value of a multi-value type: the options parser still embeds
+    // that single value within a List container. Retrieve it here.
+    Object expectedSingleValue = Iterables.getOnlyElement(expectedList);
+
+    // Multi-value map:
+    if (actualList.get(0) instanceof Map.Entry) {
+      Map.Entry<?, ?> expectedEntry = (Map.Entry<?, ?>) expectedSingleValue;
+      for (Map.Entry<?, ?> actualEntry : Lists.reverse((List<Map.Entry<?, ?>>) actualList)) {
+        if (actualEntry.getKey().equals(expectedEntry.getKey())) {
+          // Found a key match!
+          return actualEntry.getValue().equals(expectedEntry.getValue());
+        }
+      }
+      return false; // Never found any matching key.
+    }
+
+    // Multi-value list:
+    return actualList.contains(expectedSingleValue);
   }
 }

@@ -437,26 +437,22 @@ public class BlazeQueryEnvironment implements QueryEnvironment<Target> {
   }
 
   private List<ResolvedTargets<Target>> preloadOrThrow(List<String> patterns)
-      throws TargetParsingException, QueryException {
-    List<ResolvedTargets<Target>> resolvedPatterns;
+      throws TargetParsingException {
     try {
-      resolvedPatterns = targetPatternEvaluator.preloadTargetPatterns(
+      // Note that this may throw a RuntimeException if deps are missing in Skyframe.
+      return targetPatternEvaluator.preloadTargetPatterns(
           listener, patterns, keepGoing);
     } catch (InterruptedException e) {
       // TODO(bazel-team): Propagate the InterruptedException from here [skyframe-loading].
       throw new TargetParsingException("interrupted");
     }
-    if (resolvedPatterns == null) {
-      throw new SkyframeRestartQueryException("target patterns " + patterns);
-    }
-    return resolvedPatterns;
   }
 
   private Target getTargetOrThrow(Label label)
       throws NoSuchThingException, SkyframeRestartQueryException, InterruptedException {
     Target target = targetProvider.getTarget(listener, label);
     if (target == null) {
-      throw new SkyframeRestartQueryException("target " + label.toString());
+      throw new SkyframeRestartQueryException();
     }
     return target;
   }
@@ -577,7 +573,7 @@ public class BlazeQueryEnvironment implements QueryEnvironment<Target> {
     @Override
     public Iterable<String> getAttrAsString(Target target, String attrName) {
       Preconditions.checkArgument(target instanceof Rule);
-      ImmutableList.Builder<String> values = ImmutableList.builder();
+      List<String> values = new ArrayList<>(); // May hold null values.
       Attribute attribute = ((Rule) target).getAttributeDefinition(attrName);
       if (attribute != null) {
         Type<?> attributeType = attribute.getType();
@@ -606,11 +602,11 @@ public class BlazeQueryEnvironment implements QueryEnvironment<Target> {
                   throw new AssertionError("This can't happen!");
               }
           } else {
-            values.add(attrValue.toString());
+            values.add(attrValue == null ? null : attrValue.toString());
           }
         }
       }
-      return values.build();
+      return values;
     }
 
     @Override

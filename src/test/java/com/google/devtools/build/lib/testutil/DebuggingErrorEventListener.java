@@ -14,6 +14,8 @@
 
 package com.google.devtools.build.lib.testutil;
 
+import static java.nio.charset.StandardCharsets.ISO_8859_1;
+
 import com.google.devtools.build.lib.events.ErrorEventListener;
 import com.google.devtools.build.lib.events.EventKind;
 import com.google.devtools.build.lib.events.Location;
@@ -62,6 +64,11 @@ public class DebuggingErrorEventListener implements ErrorEventListener {
   @Override
   public void report(EventKind kind, Location location, String message) {
     print(kind, location, message);
+  }
+
+  @Override
+  public void report(EventKind kind, Location location, byte[] message) {
+    print(kind, location, new String(message, 0, message.length, ISO_8859_1));
   }
 
   @Override

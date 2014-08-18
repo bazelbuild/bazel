@@ -98,7 +98,7 @@ public class Path implements Comparable<Path>, Serializable {
     this.name = name;
     this.parent = parent;
     this.depth = parent == null ? 0 : parent.depth + 1;
-    this.hashCode = (parent != null) ? Objects.hash(parent, name) : Objects.hash(fileSystem);
+    this.hashCode = Objects.hash(parent, name);
   }
 
   /**
@@ -124,13 +124,12 @@ public class Path implements Comparable<Path>, Serializable {
       this.name = "/";
       this.parent = null;
       this.depth = 0;
-      this.hashCode = Objects.hash(fileSystem);
     } else {
       this.name = pf.getBaseName();
       this.parent = fileSystem.getPath(parentDir);
       this.depth = this.parent.depth + 1;
-      this.hashCode = Objects.hash(parent, name);
     }
+    this.hashCode = Objects.hash(parent, name);
   }
 
   /**

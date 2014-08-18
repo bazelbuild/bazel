@@ -15,7 +15,6 @@ package com.google.devtools.build.lib.blaze;
 
 import com.google.devtools.build.lib.util.AbruptExitException;
 import com.google.devtools.build.lib.util.ExitCode;
-import com.google.devtools.build.lib.util.io.OutErr;
 import com.google.devtools.common.options.OptionsParser;
 import com.google.devtools.common.options.OptionsProvider;
 
@@ -49,7 +48,7 @@ public interface BlazeCommand {
    * @throws BlazeCommandDispatcher.ShutdownBlazeServerException Indicates
    *     that the command wants to shutdown the Blaze server.
    */
-  ExitCode exec(BlazeRuntime runtime, OptionsProvider options, OutErr outErr)
+  ExitCode exec(BlazeRuntime runtime, OptionsProvider options)
       throws BlazeCommandDispatcher.ShutdownBlazeServerException;
 
   /**

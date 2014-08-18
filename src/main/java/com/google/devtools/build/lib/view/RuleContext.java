@@ -17,6 +17,7 @@ package com.google.devtools.build.lib.view;
 import com.google.common.base.Preconditions;
 import com.google.common.base.Predicate;
 import com.google.common.collect.ImmutableList;
+import com.google.common.collect.ImmutableSet;
 import com.google.common.collect.Iterables;
 import com.google.common.collect.ListMultimap;
 import com.google.devtools.build.lib.actions.Action;
@@ -57,6 +58,7 @@ import com.google.devtools.build.lib.view.RuleConfiguredTarget.Mode;
 import com.google.devtools.build.lib.view.actions.ActionConstructionContext;
 import com.google.devtools.build.lib.view.config.BuildConfiguration;
 import com.google.devtools.build.lib.view.config.BuildConfiguration.Fragment;
+import com.google.devtools.build.lib.view.config.ConfigMatchingProvider;
 import com.google.devtools.build.lib.view.fileset.FilesetProvider;
 
 import java.util.ArrayList;
@@ -118,23 +120,34 @@ public final class RuleContext extends TargetContext
   private final Rule rule;
   private final ListMultimap<String, ConfiguredTarget> targetMap;
   private final ListMultimap<String, ConfiguredFilesetEntry> filesetEntryMap;
+  private final Set<ConfigMatchingProvider> configConditions;
   private final AttributeMap attributes;
 
   private ActionOwner actionOwner;
 
   private RuleContext(Builder builder, ListMultimap<String, ConfiguredTarget> targetMap,
-      ListMultimap<String, ConfiguredFilesetEntry> filesetEntryMap) {
+      ListMultimap<String, ConfiguredFilesetEntry> filesetEntryMap,
+      Set<ConfigMatchingProvider> configConditions) {
     super(builder.env, builder.rule, builder.configuration, builder.prerequisiteMap.get(null),
         builder.visibility);
     this.rule = builder.rule;
     this.targetMap = targetMap;
-    this.attributes = ConfiguredAttributeMapper.of(builder.rule, builder.configuration);
     this.filesetEntryMap = filesetEntryMap;
+    this.configConditions = configConditions;
+    this.attributes =
+        ConfiguredAttributeMapper.of(builder.rule, configConditions);
   }
 
   @Override
   public Rule getRule() {
     return rule;
+  }
+
+  /**
+   * The configuration conditions that trigger this rule's configurable attributes.
+   */
+  Set<ConfigMatchingProvider> getConfigConditions() {
+    return configConditions;
   }
 
   /**
@@ -267,15 +280,6 @@ public final class RuleContext extends TargetContext
   @Override
   public void ruleError(String message) {
     reportError(rule.getLocation(), prefixRuleMessage(message));
-  }
-
-  /**
-   * Reports a rule error for each string in {@code errors}.
-   */
-  public void reportRuleErrors(Iterable<String> errors) {
-    for (String error : errors) {
-      ruleError(error);
-    }
   }
 
   /**
@@ -951,6 +955,7 @@ public final class RuleContext extends TargetContext
     private final BuildConfiguration configuration;
     private final PrerequisiteValidator prerequisiteValidator;
     private ListMultimap<Attribute, ConfiguredTarget> prerequisiteMap;
+    private Set<ConfigMatchingProvider> configConditions;
     private NestedSet<PackageSpecification> visibility;
 
     Builder(AnalysisEnvironment env, Rule rule, BuildConfiguration configuration,
@@ -962,9 +967,12 @@ public final class RuleContext extends TargetContext
     }
 
     RuleContext build() {
+      Preconditions.checkNotNull(prerequisiteMap);
+      Preconditions.checkNotNull(configConditions);
+      Preconditions.checkNotNull(visibility);
       ListMultimap<String, ConfiguredTarget> targetMap = createTargetMap();
       ListMultimap<String, ConfiguredFilesetEntry> filesetEntryMap = createFilesetEntryMap(rule);
-      return new RuleContext(this, targetMap, filesetEntryMap);
+      return new RuleContext(this, targetMap, filesetEntryMap, configConditions);
     }
 
     Builder setVisibility(NestedSet<PackageSpecification> visibility) {
@@ -977,7 +985,16 @@ public final class RuleContext extends TargetContext
      * warning messages and sets the error flag as appropriate.
      */
     Builder setPrerequisites(ListMultimap<Attribute, ConfiguredTarget> prerequisiteMap) {
-      this.prerequisiteMap = prerequisiteMap;
+      this.prerequisiteMap = Preconditions.checkNotNull(prerequisiteMap);
+      return this;
+    }
+
+    /**
+     * Sets the configuration conditions needed to determine which paths to follow for this
+     * rule's configurable attributes.
+     */
+    Builder setConfigConditions(Set<ConfigMatchingProvider> configConditions) {
+      this.configConditions = Preconditions.checkNotNull(configConditions);
       return this;
     }
 
@@ -998,8 +1015,8 @@ public final class RuleContext extends TargetContext
       }
 
       if (srcTarget instanceof OutputFile) {
-        attributeWarning("entries", String.format("'srcdir' target '%s' is not an input file. " +
-            "This forces the Fileset to be executed unconditionally",
+        attributeWarning("entries", String.format("'srcdir' target '%s' is not an input file. "
+            + "This forces the Fileset to be executed unconditionally",
             srcTarget.getLabel()));
       }
 
@@ -1023,7 +1040,8 @@ public final class RuleContext extends TargetContext
         for (ConfiguredTarget prerequisite : prerequisiteMap.get(attr)) {
           ctMap.put(prerequisite.getLabel(), prerequisite);
         }
-        List<FilesetEntry> entries = ConfiguredAttributeMapper.of(rule, configuration)
+        List<FilesetEntry> entries = ConfiguredAttributeMapper.of(rule,
+            ImmutableSet.<ConfigMatchingProvider>of())
             .get(attributeName, Type.FILESET_ENTRY_LIST);
         for (FilesetEntry entry : entries) {
           if (entry.getFiles() == null) {
@@ -1063,8 +1081,8 @@ public final class RuleContext extends TargetContext
           Predicate<RuleClass> filter = attribute.getAllowedRuleClassesPredicate();
           for (ConfiguredTarget configuredTarget : entry.getValue()) {
             Target prerequisiteTarget = configuredTarget.getTarget();
-            if ((prerequisiteTarget instanceof Rule) &&
-                filter.apply(((Rule) prerequisiteTarget).getRuleClassObject())) {
+            if ((prerequisiteTarget instanceof Rule)
+                && filter.apply(((Rule) prerequisiteTarget).getRuleClassObject())) {
               validateDirectPrerequisite(attribute, configuredTarget);
               mapBuilder.put(attribute.getName(), configuredTarget);
             }

@@ -25,9 +25,11 @@ import com.google.devtools.build.lib.syntax.EvalUtils;
 import com.google.devtools.build.lib.syntax.Label;
 import com.google.devtools.build.lib.syntax.SkylarkBuiltin;
 import com.google.devtools.build.lib.syntax.SkylarkCallable;
+import com.google.devtools.build.lib.view.config.ConfigMatchingProvider;
 import com.google.devtools.build.lib.view.config.RunUnder;
 
 import java.util.Map;
+import java.util.Set;
 
 /**
  * A generic implementation of RuleConfiguredTarget. Do not use directly. Use {@link
@@ -49,6 +51,7 @@ public final class RuleConfiguredTarget extends AbstractConfiguredTarget {
 
   private final ImmutableMap<Class<? extends TransitiveInfoProvider>, Object> providers;
   private final ImmutableList<Artifact> mandatoryStampFiles;
+  private final Set<ConfigMatchingProvider> configConditions;
 
   RuleConfiguredTarget(RuleContext ruleContext,
       ImmutableList<Artifact> mandatoryStampFiles,
@@ -70,6 +73,7 @@ public final class RuleConfiguredTarget extends AbstractConfiguredTarget {
 
     this.providers = ImmutableMap.copyOf(providerBuilder);
     this.mandatoryStampFiles = mandatoryStampFiles;
+    this.configConditions = ruleContext.getConfigConditions();
 
     // If this rule is the run_under target, then check that we have an executable; note that
     // run_under is only set in the target configuration, and the target must also be analyzed for
@@ -88,6 +92,13 @@ public final class RuleConfiguredTarget extends AbstractConfiguredTarget {
         ruleContext.createOutputArtifact(out);
       }
     }
+  }
+
+  /**
+   * The configuration conditions that trigger this rule's configurable attributes.
+   */
+  Set<ConfigMatchingProvider> getConfigConditions() {
+    return configConditions;
   }
 
   /**

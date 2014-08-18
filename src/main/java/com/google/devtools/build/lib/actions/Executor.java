@@ -76,9 +76,16 @@ public interface Executor {
   boolean getVerboseFailures();
 
   /**
-   * Returns the command line options of the Blaze commnd being executed.
+   * Returns the command line options of the Blaze command being executed.
    */
   OptionsClassProvider getOptions();
+
+  /**
+   * Whether this Executor reports subcommands. If not, reportSubcommand has no effect.
+   * This is provided so the caller of reportSubcommand can avoid wastefully constructing the
+   * subcommand string.
+   */
+  boolean reportsSubcommands();
 
   /**
    * Report a subcommand event to this Executor's Reporter and, if action

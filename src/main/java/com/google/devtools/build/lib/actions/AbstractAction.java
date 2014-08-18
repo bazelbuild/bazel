@@ -18,6 +18,7 @@ import com.google.common.base.Preconditions;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableSet;
 import com.google.common.collect.Iterables;
+import com.google.devtools.build.lib.actions.cache.MetadataHandler;
 import com.google.devtools.build.lib.actions.extra.ExtraActionInfo;
 import com.google.devtools.build.lib.collect.CollectionUtils;
 import com.google.devtools.build.lib.concurrent.ThreadSafety.Immutable;
@@ -257,11 +258,13 @@ public abstract class AbstractAction implements Action {
    * If the action might read directories as inputs in a way that is unsound wrt dependency
    * checking, this method must be called.
    */
-  protected void checkInputsForDirectories(ErrorEventListener listener) {
-    // Report "directory dependency checking" warning only for non-generated
-    // directories (generated ones will be reported earlier
+  protected void checkInputsForDirectories(ErrorEventListener listener,
+                                           MetadataHandler metadataHandler) {
+    // Report "directory dependency checking" warning only for non-generated directories (generated
+    // ones will be reported earlier).
     for (Artifact input : getMandatoryInputs()) {
-      if (input.isSourceArtifact() && input.getPath().isDirectory()) {
+      // Assume that if the file did not exist, we would not have gotten here.
+      if (input.isSourceArtifact() && !metadataHandler.isRegularFile(input)) {
         listener.warn(getOwner().getLocation(), "input '"
             + input.prettyPrint() + "' to " + getOwner().getLabel()
             + " is a directory; dependency checking of directories is unsound");
@@ -299,7 +302,7 @@ public abstract class AbstractAction implements Action {
   }
 
   @Override
-  public void prepare() throws IOException {
+  public void prepare(ActionExecutionContext actionExecutionContext) throws IOException {
     deleteOutputs();
   }
 

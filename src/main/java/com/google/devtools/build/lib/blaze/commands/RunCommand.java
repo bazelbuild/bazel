@@ -121,7 +121,7 @@ public class RunCommand implements BlazeCommand  {
   public void editOptions(BlazeRuntime runtime, OptionsParser optionsParser) { }
 
   @Override
-  public ExitCode exec(BlazeRuntime runtime, OptionsProvider options, OutErr outErr) {
+  public ExitCode exec(BlazeRuntime runtime, OptionsProvider options) {
     RunOptions runOptions = options.getOptions(RunOptions.class);
     // This list should look like: ["//executable:target", "arg1", "arg2"]
     List<String> targetAndArgs = options.getResidue();
@@ -135,6 +135,7 @@ public class RunCommand implements BlazeCommand  {
     List<String> runTargetArgs = targetAndArgs.subList(1, targetAndArgs.size());
     RunUnder runUnder = options.getOptions(BuildConfiguration.Options.class).runUnder;
 
+    OutErr outErr = runtime.getReporter().getOutErr();
     List<String> targets = (runUnder != null) && (runUnder.getLabel() != null)
         ? ImmutableList.of(targetString, runUnder.getLabel().toString())
         : ImmutableList.of(targetString);
@@ -375,7 +376,7 @@ public class RunCommand implements BlazeCommand  {
     Path scriptPath = runtime.getWorkingDirectory().getRelative(scriptPathFrag);
     try {
       FileSystemUtils.writeContent(scriptPath, StandardCharsets.ISO_8859_1,
-          SH_SHEBANG + "\n" + cmd);
+          SH_SHEBANG + "\n" + cmd + " \"$@\"");
       scriptPath.setExecutable(true);
     } catch (IOException e) {
       runtime.getReporter().error(null, "Error writing run script:" + e.getMessage());

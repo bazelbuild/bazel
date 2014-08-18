@@ -177,10 +177,10 @@ public class InfoCommand implements BlazeCommand {
   public void editOptions(BlazeRuntime runtime, OptionsParser optionsParser) { }
 
   @Override
-  public ExitCode exec(final BlazeRuntime runtime, final OptionsProvider optionsProvider,
-      OutErr outErr) {
+  public ExitCode exec(final BlazeRuntime runtime, final OptionsProvider optionsProvider) {
     Options infoOptions = optionsProvider.getOptions(Options.class);
 
+    OutErr outErr = runtime.getReporter().getOutErr();
     // Creating a BuildConfiguration is expensive and often unnecessary. Delay the creation until
     // it is needed.
     Supplier<BuildConfiguration> configurationSupplier = new Supplier<BuildConfiguration>() {

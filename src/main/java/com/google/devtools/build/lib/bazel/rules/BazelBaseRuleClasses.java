@@ -14,17 +14,12 @@
 
 package com.google.devtools.build.lib.bazel.rules;
 
-import static com.google.devtools.build.lib.packages.Attribute.ConfigurationTransition.HOST;
 import static com.google.devtools.build.lib.packages.Attribute.attr;
 import static com.google.devtools.build.lib.packages.Type.BOOLEAN;
-import static com.google.devtools.build.lib.packages.Type.LABEL_LIST;
 import static com.google.devtools.build.lib.packages.Type.LICENSE;
 import static com.google.devtools.build.lib.packages.Type.STRING_LIST;
 
-import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableSet;
-import com.google.devtools.build.lib.packages.Attribute.LateBoundLabelList;
-import com.google.devtools.build.lib.packages.Rule;
 import com.google.devtools.build.lib.packages.RuleClass;
 import com.google.devtools.build.lib.packages.RuleClass.Builder;
 import com.google.devtools.build.lib.packages.RuleClass.Builder.RuleClassType;
@@ -33,9 +28,6 @@ import com.google.devtools.build.lib.view.BaseRuleClasses;
 import com.google.devtools.build.lib.view.BlazeRule;
 import com.google.devtools.build.lib.view.RuleDefinition;
 import com.google.devtools.build.lib.view.RuleDefinitionEnvironment;
-import com.google.devtools.build.lib.view.config.BuildConfiguration;
-
-import java.util.List;
 
 /**
  * The foundational rule templates to help in real rule construction. Only attributes truly common
@@ -50,14 +42,6 @@ public class BazelBaseRuleClasses {
   public static final ImmutableSet<String> ALLOWED_RULE_CLASSES =
       ImmutableSet.of("filegroup", "genrule", "Fileset");
 
-  private static final LateBoundLabelList<BuildConfiguration> BASELINE_COVERAGE_COMMON =
-      new LateBoundLabelList<BuildConfiguration>(ImmutableList.of(LCOV_MERGER_LABEL)) {
-        @Override
-        public List<Label> getDefault(Rule rule, BuildConfiguration configuration) {
-          return ImmutableList.<Label>of();
-        }
-      };
-
   /**
    * A base rule for all binary rules.
    */
@@ -70,21 +54,6 @@ public class BazelBaseRuleClasses {
           .add(attr("args", STRING_LIST).nonconfigurable())
           .add(attr("output_licenses", LICENSE).nonconfigurable())
           .add(attr("$is_executable", BOOLEAN).nonconfigurable().value(true))
-          .build();
-    }
-  }
-
-  /**
-   * A base rule for all rules that support baseline coverage.
-   */
-  @BlazeRule(name = "$baseline_coverage_rule",
-               type = RuleClassType.ABSTRACT)
-  public static final class BaselineCoverageRule implements RuleDefinition {
-    @Override
-    public RuleClass build(Builder builder, RuleDefinitionEnvironment env) {
-      return builder
-          .add(attr(":baseline_coverage_common", LABEL_LIST).cfg(HOST)
-              .value(BASELINE_COVERAGE_COMMON))
           .build();
     }
   }

@@ -14,7 +14,6 @@
 
 package com.google.devtools.build.lib.util;
 
-import static java.nio.charset.StandardCharsets.ISO_8859_1;
 import static java.nio.charset.StandardCharsets.UTF_8;
 
 import com.google.common.collect.Iterables;
@@ -196,15 +195,18 @@ public class Fingerprint {
   }
 
   /**
-   * Updates the digest with a String using its length plus its ISO-8859-1
-   * encoded bytes.
+   * Updates the digest with a String using its length and content.
    *
    * @param input the String with which to update the digest
    * @see java.security.MessageDigest#update(byte[])
    */
   public Fingerprint addStringLatin1(String input) {
     addInt(input.length());
-    md.update(input.getBytes(ISO_8859_1));
+    byte[] bytes = new byte[input.length()];
+    for (int i = 0; i < input.length(); i++) {
+      bytes[i] = (byte) input.charAt(i);
+    }
+    md.update(bytes);
     return this;
   }
 
@@ -288,6 +290,13 @@ public class Fingerprint {
     }
 
     return this;
+  }
+
+  /**
+   * Reset the Fingerprint for additional use as though previous digesting had not been done.
+   */
+  public void reset() {
+    md.reset();
   }
 
   // -------- Convenience methods ----------------------------

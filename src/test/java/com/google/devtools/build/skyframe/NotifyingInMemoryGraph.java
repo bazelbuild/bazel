@@ -37,7 +37,7 @@ public class NotifyingInMemoryGraph extends InMemoryGraph {
     return oldval == null ? newval : oldval;
   }
 
-  // Subclasses should override if they wish to subclass NotifyingValueEntry.
+  // Subclasses should override if they wish to subclass NotifyingNodeEntry.
   protected NotifyingNodeEntry getEntry(SkyKey key) {
     return new NotifyingNodeEntry(key);
   }

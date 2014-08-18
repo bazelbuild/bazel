@@ -68,6 +68,18 @@ class GraphOutputFormatter extends OutputFormatter {
   private void outputFactored(Digraph<Target> result, PrintWriter out) {
     EquivalenceRelation<Node<Target>> equivalenceRelation = createEquivalenceRelation();
 
+    // Notes on ordering:
+    // - Digraph.getNodes() returns nodes in no particular order
+    // - CollectionUtils.partition inserts elements into unordered sets
+    // This means partitions may contain nodes in a different order than perhaps expected.
+    // Example (package //foo):
+    //   some_rule(
+    //       name = 'foo',
+    //       srcs = ['a', 'b', 'c'],
+    //   )
+    // Querying for deps('foo') will return (among others) the 'foo' node with successors 'a', 'b'
+    // and 'c' (in this order), however when asking the Digraph for all of its nodes, the returned
+    // collection may be ordered differently.
     Collection<Set<Node<Target>>> partition =
         CollectionUtils.partition(result.getNodes(), equivalenceRelation);
 

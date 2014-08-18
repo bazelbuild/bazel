@@ -21,7 +21,6 @@ import com.google.devtools.common.options.Converter;
 import com.google.devtools.common.options.OptionsParsingException;
 
 import java.util.ArrayList;
-import java.util.Collections;
 import java.util.List;
 
 /**
@@ -42,32 +41,51 @@ public class RunUnderConverter implements Converter<RunUnder> {
     final String runUnderCommand = runUnderList.get(0);
     if (runUnderCommand.startsWith("//")) {
       try {
-        final Label runUnderLable = Label.parseAbsolute(runUnderCommand);
-        return new RunUnder() {
-          @Override public String getValue() { return input; }
-          @Override public Label getLabel() { return runUnderLable; }
-          @Override public String getCommand() { return null; }
-          @Override public List<String> getOptions() {
-            return Collections.unmodifiableList(runUnderList.subList(1, runUnderList.size()));
-          }
-          @Override public String toString() { return input; }
-        };
+        final Label runUnderLabel = Label.parseAbsolute(runUnderCommand);
+        return new RunUnderLabel(input, runUnderLabel, runUnderList);
       } catch (SyntaxException e) {
         throw new OptionsParsingException("Not a valid label " + e.getMessage());
       }
     } else {
-      return new RunUnder() {
-        @Override public String getValue() { return input; }
-        @Override public Label getLabel() { return null; }
-        @Override public String getCommand() { return runUnderCommand; }
-        @Override public List<String> getOptions() {
-          return Collections.unmodifiableList(runUnderList.subList(1, runUnderList.size()));
-        }
-        @Override public String toString() { return input; }
-      };
+      return new RunUnderCommand(input, runUnderCommand, runUnderList);
     }
   }
 
+  private static final class RunUnderLabel implements RunUnder {
+    private final String input;
+    private final Label runUnderLabel;
+    private final List<String> runUnderList;
+
+    public RunUnderLabel(String input, Label runUnderLabel, List<String> runUnderList) {
+      this.input = input;
+      this.runUnderLabel = runUnderLabel;
+      this.runUnderList = new ArrayList<String>(runUnderList.subList(1, runUnderList.size()));
+    }
+
+    @Override public String getValue() { return input; }
+    @Override public Label getLabel() { return runUnderLabel; }
+    @Override public String getCommand() { return null; }
+    @Override public List<String> getOptions() { return runUnderList; }
+    @Override public String toString() { return input; }
+  }
+
+  private static final class RunUnderCommand implements RunUnder {
+    private final String input;
+    private final String runUnderCommand;
+    private final List<String> runUnderList;
+
+    public RunUnderCommand(String input, String runUnderCommand, List<String> runUnderList) {
+      this.input = input;
+      this.runUnderCommand = runUnderCommand;
+      this.runUnderList = new ArrayList<String>(runUnderList.subList(1, runUnderList.size()));
+    }
+
+    @Override public String getValue() { return input; }
+    @Override public Label getLabel() { return null; }
+    @Override public String getCommand() { return runUnderCommand; }
+    @Override public List<String> getOptions() { return runUnderList; }
+    @Override public String toString() { return input; }
+  }
   @Override
   public String getTypeDescription() {
     return "a prefix in front of command";

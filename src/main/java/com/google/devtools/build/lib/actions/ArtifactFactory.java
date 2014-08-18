@@ -21,7 +21,6 @@ import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.ImmutableSortedSet;
 import com.google.devtools.build.lib.actions.Artifact.SpecialArtifactType;
 import com.google.devtools.build.lib.concurrent.ThreadSafety.ThreadSafe;
-import com.google.devtools.build.lib.syntax.Label;
 import com.google.devtools.build.lib.vfs.Path;
 import com.google.devtools.build.lib.vfs.PathFragment;
 
@@ -29,6 +28,8 @@ import java.util.Collection;
 import java.util.HashMap;
 import java.util.Map;
 import java.util.Objects;
+import java.util.concurrent.ConcurrentHashMap;
+import java.util.concurrent.ConcurrentMap;
 
 import javax.annotation.Nullable;
 
@@ -79,6 +80,7 @@ public class ArtifactFactory implements ArtifactResolver, ArtifactSerializer, Ar
     packageRoots = null;
     derivedRoots = ImmutableList.of();
     artifactIdRegistry = new ArtifactIdRegistry();
+    clearDeserializedArtifacts();
   }
 
   /**
@@ -309,6 +311,23 @@ public class ArtifactFactory implements ArtifactResolver, ArtifactSerializer, Ar
     return ImmutableList.copyOf(pathToArtifact.values());
   }
 
+  // Non-final only because clear()ing a map does not actually free the memory it took up, so we
+  // assign it to a new map in lieu of clearing.
+  private ConcurrentMap<PathFragment, Artifact> deserializedArtifacts =
+      new ConcurrentHashMap<>();
+
+  /**
+   * Returns the map of all artifacts that were deserialized this build. The caller should process
+   * them and then call {@link #clearDeserializedArtifacts}.
+   */
+  public Map<PathFragment, Artifact> getDeserializedArtifacts() {
+    return deserializedArtifacts;
+  }
+
+  /** Clears the map of deserialized artifacts. */
+  public void clearDeserializedArtifacts() {
+    deserializedArtifacts = new ConcurrentHashMap<>();
+  }
 
   /**
    * Resolves an artifact based on its deserialized representation. The artifact can be either a
@@ -318,22 +337,19 @@ public class ArtifactFactory implements ArtifactResolver, ArtifactSerializer, Ar
    * cannot be created. Unfortunately, we currently need this in some cases.
    *
    * @param execPath the exec path of the artifact
-   * @param isFileset whether the artifact is the output of a fileset
-   * @param owner the owner of the artifact.
    */
-  // TODO(bazel-team): This probably doesn't work. We may need to know the actual configured
-  // target that is deserializing this artifact, not just the label. [skyframe-execution]
-  public Artifact deserializeArtifact(PathFragment execPath, boolean isFileset, Label owner) {
-    ArtifactOwner artifactOwner = new LabelArtifactOwner(owner);
+  public Artifact deserializeArtifact(PathFragment execPath) {
     Path path = execRoot.getRelative(execPath);
     Root root = findDerivedRoot(path);
 
     Artifact result;
     if (root != null) {
-      Preconditions.checkState(owner == null);
-      result = isFileset
-          ? getFilesetArtifact(path.relativeTo(root.getPath()), root, artifactOwner)
-          : getDerivedArtifact(path.relativeTo(root.getPath()), root, artifactOwner);
+      result = getDerivedArtifact(path.relativeTo(root.getPath()), root,
+          Artifact.DESERIALIZED_MARKER_OWNER);
+      Artifact oldResult = deserializedArtifacts.putIfAbsent(execPath, result);
+      if (oldResult != null) {
+        result = oldResult;
+      }
     } else {
       for (PathFragment dir = execPath.getParentDirectory(); dir != null;
           dir = dir.getParentDirectory()) {
@@ -348,7 +364,7 @@ public class ArtifactFactory implements ArtifactResolver, ArtifactSerializer, Ar
         return null;
       }
 
-      result = getSourceArtifact(execPath, root, artifactOwner);
+      result = getSourceArtifact(execPath, root, ArtifactOwner.NULL_OWNER);
     }
 
     return result;
@@ -367,36 +383,5 @@ public class ArtifactFactory implements ArtifactResolver, ArtifactSerializer, Ar
   @Override
   public int getArtifactId(Artifact artifact) {
     return artifactIdRegistry.getArtifactId(artifact);
-  }
-
-  /**
-   * ArtifactOwner wrapper for Labels.
-   */
-  @VisibleForTesting
-  public static class LabelArtifactOwner implements ArtifactOwner {
-    private final Label label;
-
-    @VisibleForTesting
-    public LabelArtifactOwner(Label label) {
-      this.label = label;
-    }
-
-    @Override
-    public Label getLabel() {
-      return label;
-    }
-
-    @Override
-    public int hashCode() {
-      return label == null ? super.hashCode() : label.hashCode();
-    }
-
-    @Override
-    public boolean equals(Object that) {
-      if (!(that instanceof LabelArtifactOwner)) {
-        return false;
-      }
-      return Objects.equals(this.label, ((LabelArtifactOwner) that).label);
-    }
   }
 }

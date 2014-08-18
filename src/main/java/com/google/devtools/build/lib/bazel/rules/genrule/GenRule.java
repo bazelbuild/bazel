@@ -126,8 +126,8 @@ public class GenRule implements RuleConfiguredTargetFactory {
     List<String> argv = commandHelper.buildCommandLine(command, inputs, ".genrule_script.sh");
 
     if (ruleContext.attributes().get("stamp", Type.BOOLEAN)) {
-      inputs.add(ruleContext.getAnalysisEnvironment().getBuildInfoArtifact());
-      inputs.add(ruleContext.getAnalysisEnvironment().getBuildChangelistArtifact());
+      inputs.add(ruleContext.getAnalysisEnvironment().getStableWorkspaceStatusArtifact());
+      inputs.add(ruleContext.getAnalysisEnvironment().getVolatileWorkspaceStatusArtifact());
     }
 
     ruleContext.getAnalysisEnvironment().registerAction(new GenRuleAction(

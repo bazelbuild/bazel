@@ -22,7 +22,6 @@ import com.google.devtools.build.lib.exec.ExecutionOptions;
 import com.google.devtools.build.lib.pkgcache.LoadingPhaseRunner;
 import com.google.devtools.build.lib.pkgcache.PackageCacheOptions;
 import com.google.devtools.build.lib.util.ExitCode;
-import com.google.devtools.build.lib.util.io.OutErr;
 import com.google.devtools.build.lib.view.BuildView;
 import com.google.devtools.build.lib.view.config.BuildConfiguration;
 import com.google.devtools.common.options.OptionsParser;
@@ -51,12 +50,12 @@ public final class BuildCommand implements BlazeCommand {
   public void editOptions(BlazeRuntime runtime, OptionsParser optionsParser) { }
 
   @Override
-  public ExitCode exec(BlazeRuntime runtime, OptionsProvider options, OutErr outErr) {
+  public ExitCode exec(BlazeRuntime runtime, OptionsProvider options) {
     BuildRequest request = BuildRequest.create(
         getClass().getAnnotation(Command.class).name(), options,
         runtime.getStartupOptionsProvider(),
         options.getResidue(),
-        outErr, runtime.getCommandId(), runtime.getCommandStartTime());
+        runtime.getReporter().getOutErr(), runtime.getCommandId(), runtime.getCommandStartTime());
     return runtime.getBuildTool().processRequest(request, null).getExitCondition();
   }
 }

@@ -61,6 +61,14 @@ public class ActionLookupValue implements SkyValue {
     return generatingActionMap;
   }
 
+  /**
+   * To be used only when setting the owners of deserialized artifacts whose owners were unknown at
+   * creation time -- not by other callers or values.
+   */
+  Iterable<Action> getActionsForFindingArtifactOwners() {
+    return generatingActionMap.values();
+  }
+
   @VisibleForTesting
   public static SkyKey key(ActionLookupKey ownerKey) {
     return ownerKey.getSkyKey();

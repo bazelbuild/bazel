@@ -57,6 +57,26 @@ public class AggregatingAttributeMapper extends AbstractAttributeMapper {
   }
 
   /**
+   * Override that also visits the rule's configurable attribute keys (which are
+   * themselves labels).
+   */
+  @Override
+  public void visitLabels(AcceptsLabelAttribute observer) {
+    super.visitLabels(observer);
+    for (String attrName : getAttributeNames()) {
+      Attribute attribute = getAttributeDefinition(attrName);
+      Type.Selector<?> selector = getSelector(attrName, attribute.getType());
+      if (selector != null) {
+        for (Label configLabel : selector.getEntries().keySet()) {
+          if (!Type.Selector.isReservedLabel(configLabel)) {
+            observer.acceptLabelAttribute(configLabel, attribute);
+          }
+        }
+      }
+    }
+  }
+
+  /**
    * Returns a list of all possible values an attribute can take for this rule.
    */
   @Override
