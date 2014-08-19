@@ -454,7 +454,7 @@ public class MethodLibrary {
       if (args.size() > 0) {
         throw new EvalException(ast.getLocation(), "struct only supports keyword arguments");
       }
-      return new ClassObject(kwargs);
+      return new ClassObject(kwargs, ast.getLocation());
     }
   };
 

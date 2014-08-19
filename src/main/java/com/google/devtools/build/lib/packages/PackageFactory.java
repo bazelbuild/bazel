@@ -47,6 +47,7 @@ import com.google.devtools.build.lib.syntax.ParserInputSource;
 import com.google.devtools.build.lib.syntax.PositionalFunction;
 import com.google.devtools.build.lib.syntax.SelectorValue;
 import com.google.devtools.build.lib.syntax.Statement;
+import com.google.devtools.build.lib.util.StringUtil;
 import com.google.devtools.build.lib.vfs.Path;
 import com.google.devtools.build.lib.vfs.PathFragment;
 import com.google.devtools.build.lib.vfs.UnixGlob;
@@ -89,11 +90,16 @@ public final class PackageFactory {
 
   private static final int EXCLUDE_DIR_DEFAULT = 1;
 
+  private static final List<String> ALLOWED_HDRS_CHECK_VALUES =
+      ImmutableList.of("loose", "warn", "strict");
+
   /**
    * Positional parameters for the 'package' function.
    */
   private static enum PackageParams {
+    DEFAULT_HDRS_CHECK("defualt_hdrs_check"),
     DEFAULT_VISIBILITY("default_visibility"),
+    DEFAULT_COPTS("default_copts"),
     DEFAULT_OBSOLETE("default_obsolete"),
     DEFAULT_DEPRECATION("default_deprecation"),
     DEFAULT_TESTONLY("default_testonly"),
@@ -540,8 +546,20 @@ public final class PackageFactory {
               pkgBuilder.setDefaultVisibility(getVisibility(
                   Type.LABEL_LIST.convert(arg, "'package' argument", buildFileLabel)));
               break;
+            case DEFAULT_COPTS:
+              pkgBuilder.setDefaultCopts(Type.STRING_LIST.convert(arg, "'package' argument"));
+              break;
             case DEFAULT_DEPRECATION:
               pkgBuilder.setDefaultDeprecation(Type.STRING.convert(arg, "'package' argument"));
+              break;
+            case DEFAULT_HDRS_CHECK:
+              String hdrsCheck = Type.STRING.convert(arg, "'package' argument", buildFileLabel);
+              if (!ALLOWED_HDRS_CHECK_VALUES.contains(hdrsCheck)) {
+                throw new EvalException(ast.getLocation(),
+                    "default_hdrs_check must be one of: " +
+                    StringUtil.joinEnglishList(ALLOWED_HDRS_CHECK_VALUES, "or"));
+              }
+              pkgBuilder.setDefaultHdrsCheck(hdrsCheck);
               break;
             case DEFAULT_OBSOLETE:
               pkgBuilder.setDefaultObsolete(Type.BOOLEAN.convert(arg, "'package' argument"));

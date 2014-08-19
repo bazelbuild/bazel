@@ -13,8 +13,11 @@
 // limitations under the License.
 package com.google.devtools.build.lib.syntax;
 
+import com.google.common.base.Preconditions;
+import com.google.common.collect.ImmutableCollection;
 import com.google.common.collect.ImmutableMap;
 import com.google.devtools.build.lib.concurrent.ThreadSafety.Immutable;
+import com.google.devtools.build.lib.events.Location;
 
 import java.util.Map;
 
@@ -26,12 +29,27 @@ import java.util.Map;
 public class ClassObject {
 
   private final ImmutableMap<String, Object> values;
+  private final Location creationLoc;
 
   public ClassObject(Map<String, Object> values) {
     this.values = ImmutableMap.copyOf(values);
+    this.creationLoc = null;
+  }
+
+  public ClassObject(Map<String, Object> values, Location creationLoc) {
+    this.values = ImmutableMap.copyOf(values);
+    this.creationLoc = Preconditions.checkNotNull(creationLoc);
   }
 
   public Object getValue(String name) {
     return values.get(name);
   }
+
+  public ImmutableCollection<String> getKeys() {
+    return values.keySet();
+  }
+
+  public Location getCreationLoc() {
+    return Preconditions.checkNotNull(creationLoc, "This struct was not created in a Skylark code");
+  }  
 }

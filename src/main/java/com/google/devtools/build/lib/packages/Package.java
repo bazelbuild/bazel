@@ -130,6 +130,17 @@ public class Package implements Serializable {
   private String defaultDeprecation;
 
   /**
+   * Default header strictness checking for rules that do not specify it.
+   */
+  private String defaultHdrsCheck;
+
+  /**
+   * Default copts for cc_* rules.  The rules' individual copts will append to
+   * this value.
+   */
+  private List<String> defaultCopts;
+
+  /**
    * The InputFile target corresponding to this package's BUILD file.
    */
   private InputFile buildFile;
@@ -220,6 +231,18 @@ public class Package implements Serializable {
   }
 
   /**
+   * Package initialization: part 2 of 3: sets this package's default header
+   * strictness checking.
+   *
+   * <p>This is needed to support C++-related rule classes
+   * which accesses {@link #getDefaultHdrsCheck} from the still-under-construction
+   * package.
+   */
+  protected void setDefaultHdrsCheck(String defaultHdrsCheck) {
+    this.defaultHdrsCheck = defaultHdrsCheck;
+  }
+
+  /**
    * Set the default 'obsolete' value for this package.
    */
   protected void setDefaultObsolete(boolean obsolete) {
@@ -272,6 +295,11 @@ public class Package implements Serializable {
     this.targets = ImmutableSortedKeyMap.copyOf(builder.targets);
     this.defaultVisibility = builder.defaultVisibility;
     this.defaultVisibilitySet = builder.defaultVisibilitySet;
+    if (builder.defaultCopts == null) {
+      this.defaultCopts = ImmutableList.of();
+    } else {
+      this.defaultCopts = ImmutableList.copyOf(builder.defaultCopts);
+    }
     this.buildFile = builder.buildFile;
     this.containsErrors = builder.containsErrors;
     this.subincludes = builder.subincludes;
@@ -543,6 +571,29 @@ public class Package implements Serializable {
     return defaultDeprecation;
   }
 
+  /**
+   * Gets the default header checking mode.
+   */
+  public String getDefaultHdrsCheck() {
+    return defaultHdrsCheck != null ? defaultHdrsCheck : "loose";
+  }
+
+  /**
+   * Returns the default copts value, to which rules should append their
+   * specific copts.
+   */
+  public List<String> getDefaultCopts() {
+    return defaultCopts;
+  }
+
+  /**
+   * Returns whether the default header checking mode has been set or it is the
+   * default value.
+   */
+  public boolean isDefaultHdrsCheckSet() {
+    return defaultHdrsCheck != null;
+  }
+
   public boolean isDefaultVisibilitySet() {
     return defaultVisibilitySet;
   }
@@ -638,6 +689,7 @@ public class Package implements Serializable {
     private MakeEnvironment.Builder makeEnv = null;
     private RuleVisibility defaultVisibility = null;
     private boolean defaultVisibilitySet;
+    private List<String> defaultCopts = null;
     private List<String> features = ImmutableList.of();
     private boolean containsErrors = false;
 
@@ -766,6 +818,25 @@ public class Package implements Serializable {
 
     public void setPackageFunctionUsed() {
       packageFunctionUsed = true;
+    }
+
+    /**
+     * Sets the default header checking mode.
+     */
+    B setDefaultHdrsCheck(String hdrsCheck) {
+      // Note that this setting is propagated directly to the package because
+      // other code needs the ability to read this info directly from the
+      // under-construction package. See {@link Package#setDefaultHdrsCheck}.
+      pkg.setDefaultHdrsCheck(hdrsCheck);
+      return self();
+    }
+
+    /**
+     * Sets the default value of copts. Rule-level copts will append to this.
+     */
+    B setDefaultCopts(List<String> defaultCopts) {
+      this.defaultCopts = defaultCopts;
+      return self();
     }
 
     /**

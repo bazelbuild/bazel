@@ -291,6 +291,24 @@ public final class BuildConfiguration {
     }
   }
 
+  public static class PluginOptionConverter implements Converter<Map.Entry<String, String>> {
+    @Override
+        public Map.Entry<String, String> convert(String input) throws OptionsParsingException {
+      int index = input.indexOf('=');
+      if (index == -1) {
+        throw new OptionsParsingException("Plugin option not in the plugin=option format");
+      }
+      String option = input.substring(0, index);
+      String value = input.substring(index + 1);
+      return Maps.immutableEntry(option, value);
+    }
+
+    @Override
+        public String getTypeDescription() {
+      return "An option for a plugin";
+    }
+  }
+
   public static class RunsPerTestConverter extends PerLabelOptions.PerLabelOptionsConverter {
     @Override
     public PerLabelOptions convert(String input) throws OptionsParsingException {
@@ -334,6 +352,31 @@ public final class BuildConfiguration {
     @Override
     public String getTypeDescription() {
       return "a positive integer or test_regex@runs. This flag may be passed more than once";
+    }
+  }
+
+  /**
+   * Values for the --strict_*_deps option
+   */
+  public static enum StrictDepsMode {
+    /** Silently allow referencing transitive dependencies. */
+    OFF,
+    /** Warn about transitive dependencies being used directly. */
+    WARN,
+    /** Fail the build when transitive dependencies are used directly. */
+    ERROR,
+    /** Transition to strict by default. */
+    STRICT,
+    /** When no flag value is specified on the command line. */
+    DEFAULT
+  }
+
+  /**
+   * Converter for the --strict_*_deps option.
+   */
+  public static class StrictDepsConverter extends EnumConverter<StrictDepsMode> {
+    public StrictDepsConverter() {
+      super(StrictDepsMode.class, "strict dependency checking level");
     }
   }
 
@@ -383,6 +426,27 @@ public final class BuildConfiguration {
                 + "as errors. It does not work when check_fileset_dependencies_recursively is "
                 + "disabled.")
     public boolean strictFilesets;
+
+    // Plugins are build using the host config. To avoid cycles we just don't propagate
+    // this option to the host config. If one day we decide to use plugins when building
+    // host tools, we can improve this by (for example) creating a compiler configuration that is
+    // used only for building plugins.
+    @Option(name = "plugin",
+        converter = LabelConverter.class,
+        allowMultiple = true,
+        defaultValue = "",
+        category = "flags",
+            help = "Plugins to use in the build. Currently works with both cc_plugin and "
+        + "java_plugin.")
+    public List<Label> pluginList;
+
+    @Option(name = "plugin_copt",
+        converter = PluginOptionConverter.class,
+        allowMultiple = true,
+        category = "flags",
+        defaultValue = ":",
+        help = "Plugin options")
+    public List<Map.Entry<String, String>> pluginCoptList;
 
     @Option(name = "stamp",
         defaultValue = "true",
@@ -693,6 +757,7 @@ public final class BuildConfiguration {
   private final Root genfilesDirectory;
   private final Root coverageMetadataDirectory; // for coverage-related metadata, artifacts, etc.
   private final Root testLogsDirectory;
+  private final Root includeDirectory;
   private final Root middlemanDirectory;
 
   private final PathFragment binFragment;
@@ -777,6 +842,20 @@ public final class BuildConfiguration {
       fragment.reportInvalidOptions(reporter, this.buildOptions, hostConfiguration);
     }
 
+    Set<String> plugins = new HashSet<>();
+    for (Label plugin : options.pluginList) {
+      String name = plugin.getName();
+      if (plugins.contains(name)) {
+        reporter.handle(Event.error("A build cannot have two plugins with the same name"));
+      }
+      plugins.add(name);
+    }
+    for (Map.Entry<String, String> opt : options.pluginCoptList) {
+      if (!plugins.contains(opt.getKey())) {
+        reporter.handle(Event.error("A plugin_copt must refer to an existing plugin"));
+      }
+    }
+
     if (options.shortName != null) {
       reporter.handle(Event.error(
           "The internal '--configuration short name' option cannot be used on the command line"));
@@ -833,6 +912,8 @@ public final class BuildConfiguration {
     this.coverageMetadataDirectory = Root.asDerivedRoot(execRoot,
         outputDir.getRelative("coverage-metadata"));
     this.testLogsDirectory = Root.asDerivedRoot(execRoot, outputDir.getRelative("testlogs"));
+    this.includeDirectory = Root.asDerivedRoot(execRoot,
+        outputDir.getRelative(BlazeDirectories.RELATIVE_INCLUDE_DIR));
     this.middlemanDirectory = Root.middlemanRoot(execRoot, outputDir);
 
     // precompute some frequently-used relative paths
@@ -876,6 +957,8 @@ public final class BuildConfiguration {
     // These variables will be used on Windows as well, so we need to make sure
     // that paths use the correct system file-separator.
     globalMakeEnvBuilder.put("BINDIR", binFragment.getPathString());
+    globalMakeEnvBuilder.put("INCDIR",
+        getIncludeDirectory().getExecPath().getPathString());
     globalMakeEnvBuilder.put("GENDIR", genfilesFragment.getPathString());
     globalMakeEnv = globalMakeEnvBuilder.build();
 
@@ -1222,6 +1305,13 @@ public final class BuildConfiguration {
   }
 
   /**
+   * Returns the include directory for this build configuration.
+   */
+  public Root getIncludeDirectory() {
+    return includeDirectory;
+  }
+
+  /**
    * Returns the genfiles directory for this build configuration.
    */
   @SkylarkCallable(name = "genfiles_dir",
@@ -1277,6 +1367,14 @@ public final class BuildConfiguration {
 
   public boolean isStrictFilesets() {
     return options.strictFilesets;
+  }
+
+  public List<Label> getPlugins() {
+    return options.pluginList;
+  }
+
+  public List<Map.Entry<String, String>> getPluginCopts() {
+    return options.pluginCoptList;
   }
 
   /**

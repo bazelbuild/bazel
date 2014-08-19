@@ -37,7 +37,7 @@ import com.google.devtools.build.lib.packages.PackageSpecification;
 import com.google.devtools.build.lib.packages.Rule;
 import com.google.devtools.build.lib.packages.RuleVisibility;
 import com.google.devtools.build.lib.packages.Target;
-import com.google.devtools.build.lib.rules.RuleConfiguredTargetBuilder;
+import com.google.devtools.build.lib.rules.SkylarkRuleConfiguredTargetBuilder;
 import com.google.devtools.build.lib.skyframe.LabelAndConfiguration;
 import com.google.devtools.build.lib.syntax.Label;
 import com.google.devtools.build.lib.vfs.PathFragment;
@@ -217,7 +217,7 @@ public final class ConfiguredTargetFactory {
     }
     if (rule.getRuleClassObject().isSkylarkExecutable()) {
       // TODO(bazel-team): maybe merge with RuleConfiguredTargetBuilder?
-      return RuleConfiguredTargetBuilder.buildRule(
+      return SkylarkRuleConfiguredTargetBuilder.buildRule(
           ruleContext, rule.getRuleClassObject().getConfiguredTargetFunction());
     } else {
       return ruleClassProvider.createConfiguredTarget(rule, ruleContext);

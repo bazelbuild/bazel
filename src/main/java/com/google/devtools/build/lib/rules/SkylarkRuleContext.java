@@ -105,7 +105,7 @@ public final class SkylarkRuleContext {
 
     ImmutableMap.Builder<String, Object> builder = new ImmutableMap.Builder<>();
     for (Attribute a : ruleContext.getRule().getAttributes()) {
-      Object val = (Object) ruleContext.attributes().get(a.getName(), a.getType());
+      Object val = ruleContext.attributes().get(a.getName(), a.getType());
       builder.put(a.getName(), val == null ? Environment.NONE : val);
     }
     attrObject = new ClassObject(builder.build());

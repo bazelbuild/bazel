@@ -44,7 +44,6 @@ import com.google.devtools.build.lib.syntax.ValidationEnvironment;
 import com.google.devtools.build.lib.vfs.PathFragment;
 import com.google.devtools.build.lib.view.CommandHelper;
 import com.google.devtools.build.lib.view.FilesToRunProvider;
-import com.google.devtools.build.lib.view.RuleConfiguredTargetBuilder;
 import com.google.devtools.build.lib.view.Runfiles;
 import com.google.devtools.build.lib.view.RunfilesProvider;
 import com.google.devtools.build.lib.view.RunfilesSupport;
@@ -242,55 +241,6 @@ public class SkylarkRuleImplementationFunctions {
           cast(params.get("executable"), Boolean.class, "executable", loc));
       ctx.getRuleContext().registerAction(action);
       return action;
-    }
-  };
-
-  @SkylarkBuiltin(name = "create_target", doc = "Creates a Configured Target from the rule.",
-      objectType = SkylarkRuleContext.class,
-      optionalParams = {
-      @Param(name = "files_to_build", type = SkylarkFileset.class,
-          doc = "the files the rule outputs"),
-      @Param(name = "runfiles", type = RunfilesProvider.class,
-          doc = "files the output of the rule needs at runtime"),
-      @Param(name = "runfiles_support", type = RunfilesSupport.class,
-          doc = "runfiles symlink farm support needed at runtime"),
-      @Param(name = "executable", type = Artifact.class,
-          doc = "the executable the rule creates"),
-      @Param(name = "providers", type = Map.class,
-          doc = "the dictionary of the transitive info providers of the rule")})
-  private static final SkylarkFunction createTarget = new SimpleSkylarkFunction("create_target") {
-
-    @Override
-    public Object call(Map<String, Object> params, Location loc)
-        throws EvalException, ExecutionException {
-      SkylarkRuleContext ctx = cast(params.get("self"), SkylarkRuleContext.class, "ctx", loc);
-      RuleConfiguredTargetBuilder builder =
-          new RuleConfiguredTargetBuilder(ctx.getRuleContext());
-      if (params.containsKey("files_to_build")) {
-        builder.setFilesToBuild(cast(params.get("files_to_build"),
-            SkylarkNestedSet.class, "files_to_build", loc).getSet(Artifact.class));
-      }
-      if (params.containsKey("runfiles")) {
-        builder.add(RunfilesProvider.class, cast(params.get("runfiles"),
-            RunfilesProvider.class, "runfiles", loc));
-      } else {
-        // Every target needs runfiles provider by default.
-        builder.add(RunfilesProvider.class, RunfilesProvider.EMPTY);
-      }
-      if (params.containsKey("runfiles_support")) {
-        RunfilesSupport runfilesSupport =
-            cast(params.get("runfiles_support"), RunfilesSupport.class, "runfiles support", loc);
-        builder.setRunfilesSupport(runfilesSupport, runfilesSupport.getExecutable());
-      }
-      if (params.containsKey("executable")) {
-        builder.setRunfilesSupport(null,
-            cast(params.get("executable"), Artifact.class, "executable", loc));
-      }
-      for (Map.Entry<String, Object> provider : castMap(params.get("providers"),
-          String.class, Object.class, "transitive info providers")) {
-        builder.addSkylarkTransitiveInfo(provider.getKey(), provider.getValue());
-      }
-      return builder.build();
     }
   };
 
