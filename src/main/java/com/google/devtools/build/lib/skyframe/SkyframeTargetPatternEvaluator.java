@@ -19,7 +19,8 @@ import com.google.common.collect.ImmutableList;
 import com.google.common.collect.Iterables;
 import com.google.devtools.build.lib.cmdline.ResolvedTargets;
 import com.google.devtools.build.lib.cmdline.TargetParsingException;
-import com.google.devtools.build.lib.events.ErrorEventListener;
+import com.google.devtools.build.lib.events.Event;
+import com.google.devtools.build.lib.events.EventHandler;
 import com.google.devtools.build.lib.packages.Target;
 import com.google.devtools.build.lib.pkgcache.FilteringPolicies;
 import com.google.devtools.build.lib.pkgcache.FilteringPolicy;
@@ -44,16 +45,16 @@ final class SkyframeTargetPatternEvaluator implements TargetPatternEvaluator {
   }
 
   @Override
-  public ResolvedTargets<Target> parseTargetPatternList(ErrorEventListener listener,
+  public ResolvedTargets<Target> parseTargetPatternList(EventHandler eventHandler,
       List<String> targetPatterns, FilteringPolicy policy, boolean keepGoing)
       throws TargetParsingException, InterruptedException {
-    return parseTargetPatternList(offset, listener, targetPatterns, policy, keepGoing);
+    return parseTargetPatternList(offset, eventHandler, targetPatterns, policy, keepGoing);
   }
 
   @Override
-  public ResolvedTargets<Target> parseTargetPattern(ErrorEventListener listener,
+  public ResolvedTargets<Target> parseTargetPattern(EventHandler eventHandler,
       String pattern, boolean keepGoing) throws TargetParsingException, InterruptedException {
-    return parseTargetPatternList(listener, ImmutableList.of(pattern),
+    return parseTargetPatternList(eventHandler, ImmutableList.of(pattern),
         FilteringPolicies.NO_FILTER, keepGoing);
   }
 
@@ -68,7 +69,7 @@ final class SkyframeTargetPatternEvaluator implements TargetPatternEvaluator {
   }
 
   @Override
-  public List<ResolvedTargets<Target>> preloadTargetPatterns(ErrorEventListener listener,
+  public List<ResolvedTargets<Target>> preloadTargetPatterns(EventHandler eventHandler,
       List<String> patterns, boolean keepGoing)
           throws TargetParsingException, InterruptedException {
     // TODO(bazel-team): This is used only in "blaze query". There are plans to dramatically change
@@ -76,7 +77,7 @@ final class SkyframeTargetPatternEvaluator implements TargetPatternEvaluator {
     ImmutableList.Builder<ResolvedTargets<Target>> result = ImmutableList.builder();
     for (String pattern : patterns) {
       // TODO(bazel-team): This could be parallelized to improve performance. [skyframe-loading]
-      result.add(parseTargetPattern(listener, pattern, keepGoing));
+      result.add(parseTargetPattern(eventHandler, pattern, keepGoing));
     }
     return result.build();
   }
@@ -84,12 +85,12 @@ final class SkyframeTargetPatternEvaluator implements TargetPatternEvaluator {
   /**
    * Loads a list of target patterns (eg, "foo/...").
    */
-  ResolvedTargets<Target> parseTargetPatternList(String offset, ErrorEventListener listener,
+  ResolvedTargets<Target> parseTargetPatternList(String offset, EventHandler eventHandler,
       List<String> targetPatterns, FilteringPolicy policy, boolean keepGoing)
       throws InterruptedException, TargetParsingException {
     Iterable<SkyKey> patternSkyKeys = TargetPatternValue.keys(targetPatterns, policy, offset);
     EvaluationResult<TargetPatternValue> result =
-        skyframeExecutor.targetPatterns(patternSkyKeys, keepGoing, listener);
+        skyframeExecutor.targetPatterns(patternSkyKeys, keepGoing, eventHandler);
 
     String errorMessage = null;
     ResolvedTargets.Builder<Target> builder = ResolvedTargets.builder();
@@ -115,17 +116,18 @@ final class SkyframeTargetPatternEvaluator implements TargetPatternEvaluator {
           errorMessage = error.getException().getMessage();
         } else if (!Iterables.isEmpty(error.getCycleInfo())) {
           errorMessage = "cycles detected during target parsing";
-          skyframeExecutor.getCyclesReporter().reportCycles(error.getCycleInfo(), key, listener);
+          skyframeExecutor.getCyclesReporter().reportCycles(
+              error.getCycleInfo(), key, eventHandler);
         } else {
           throw new IllegalStateException(error.toString());
         }
         if (keepGoing) {
-          listener.error(null, "Skipping '" + rawPattern + "': " + errorMessage);
+          eventHandler.handle(Event.error("Skipping '" + rawPattern + "': " + errorMessage));
         }
         builder.setError();
 
-        if (listener instanceof ParseFailureListener) {
-          ParseFailureListener parseListener = (ParseFailureListener) listener;
+        if (eventHandler instanceof ParseFailureListener) {
+          ParseFailureListener parseListener = (ParseFailureListener) eventHandler;
           parseListener.parsingError(rawPattern,  errorMessage);
         }
       }

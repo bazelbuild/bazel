@@ -18,7 +18,8 @@ import com.google.common.annotations.VisibleForTesting;
 import com.google.common.base.Preconditions;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
-import com.google.devtools.build.lib.events.ErrorEventListener;
+import com.google.devtools.build.lib.events.Event;
+import com.google.devtools.build.lib.events.EventHandler;
 import com.google.devtools.build.lib.events.Location;
 import com.google.devtools.build.lib.packages.CachingPackageLocator;
 import com.google.devtools.build.lib.syntax.DictionaryLiteral.DictionaryEntryLiteral;
@@ -91,7 +92,7 @@ class Parser {
   private static final boolean DEBUGGING = false;
 
   private final Lexer lexer;
-  private final ErrorEventListener listener;
+  private final EventHandler eventHandler;
   private final List<Comment> comments;
   private final boolean parsePython;
   /** Whether advanced language constructs are allowed */
@@ -141,10 +142,10 @@ class Parser {
   private static final String PREPROCESSING_NEEDED =
       "Add \"# PYTHON-PREPROCESSING-REQUIRED\" on the first line of the file";
 
-  private Parser(Lexer lexer, ErrorEventListener listener, CachingPackageLocator locator,
+  private Parser(Lexer lexer, EventHandler eventHandler, CachingPackageLocator locator,
                  boolean parsePython) {
     this.lexer = lexer;
-    this.listener = listener;
+    this.eventHandler = eventHandler;
     this.parsePython = parsePython;
     this.tokens = lexer.getTokens().iterator();
     this.comments = new ArrayList<Comment>();
@@ -154,8 +155,8 @@ class Parser {
     nextToken();
   }
 
-  private Parser(Lexer lexer, ErrorEventListener listener, CachingPackageLocator locator) {
-    this(lexer, listener, locator, false /* parsePython */);
+  private Parser(Lexer lexer, EventHandler eventHandler, CachingPackageLocator locator) {
+    this(lexer, eventHandler, locator, false /* parsePython */);
   }
 
   public Parser setSkylarkMode(boolean skylarkMode) {
@@ -168,9 +169,9 @@ class Parser {
    * encountered during parsing are reported via "reporter".
    */
   public static ParseResult parseFile(
-      Lexer lexer, ErrorEventListener listener, CachingPackageLocator locator,
+      Lexer lexer, EventHandler eventHandler, CachingPackageLocator locator,
       boolean parsePython) {
-    Parser parser = new Parser(lexer, listener, locator, parsePython);
+    Parser parser = new Parser(lexer, eventHandler, locator, parsePython);
     List<Statement> statements = parser.parseFileInput();
     return new ParseResult(statements, parser.comments,
         parser.errorsCount > 0 || lexer.containsErrors());
@@ -182,9 +183,9 @@ class Parser {
    * that are not part of the core BUILD language.
    */
   public static ParseResult parseFileForSkylark(
-      Lexer lexer, ErrorEventListener listener, CachingPackageLocator locator,
+      Lexer lexer, EventHandler eventHandler, CachingPackageLocator locator,
       ValidationEnvironment validationEnvironment) {
-    Parser parser = new Parser(lexer, listener, locator).setSkylarkMode(true);
+    Parser parser = new Parser(lexer, eventHandler, locator).setSkylarkMode(true);
     List<Statement> statements = parser.parseFileInput();
     boolean hasSemanticalErrors = false;
     try {
@@ -192,7 +193,7 @@ class Parser {
         statement.validate(validationEnvironment);
       }
     } catch (EvalException e) {
-      listener.error(e.getLocation(), e.getMessage());
+      eventHandler.handle(Event.error(e.getLocation(), e.getMessage()));
       hasSemanticalErrors = true;
     }
     return new ParseResult(statements, parser.comments,
@@ -205,8 +206,8 @@ class Parser {
    */
   @VisibleForTesting
   public static Statement parseStatement(
-      Lexer lexer, ErrorEventListener listener) {
-    return new Parser(lexer, listener, null).parseSmallStatement();
+      Lexer lexer, EventHandler eventHandler) {
+    return new Parser(lexer, eventHandler, null).parseSmallStatement();
   }
 
   /**
@@ -215,8 +216,8 @@ class Parser {
    * by newline tokens.
    */
   @VisibleForTesting
-  public static Expression parseExpression(Lexer lexer, ErrorEventListener listener) {
-    Parser parser = new Parser(lexer, listener, null);
+  public static Expression parseExpression(Lexer lexer, EventHandler eventHandler) {
+    Parser parser = new Parser(lexer, eventHandler, null);
     Expression result = parser.parseExpression();
     while (parser.token.kind == TokenKind.NEWLINE) {
       parser.nextToken();
@@ -233,7 +234,7 @@ class Parser {
     errorsCount++;
     // Limit the number of reported errors to avoid spamming output.
     if (errorsCount <= 5) {
-      listener.error(location, message);
+      eventHandler.handle(Event.error(location, message));
     }
   }
 
@@ -519,8 +520,8 @@ class Parser {
       // Insert call to the mocksubinclude function to get the dependencies right.
       list.add(mocksubincludeExpression(labelName, file.toString(), location));
 
-      Lexer lexer = new Lexer(inputSource, listener, parsePython);
-      Parser parser = new Parser(lexer, listener, locator, parsePython);
+      Lexer lexer = new Lexer(inputSource, eventHandler, parsePython);
+      Parser parser = new Parser(lexer, eventHandler, locator, parsePython);
       parser.addIncludedFiles(this.includedFiles);
       list.addAll(parser.parseFileInput());
     } catch (Label.SyntaxException e) {
@@ -996,6 +997,9 @@ class Parser {
   // on x.__iadd__(y), then it takes precedence, and in the case of lists it side-effects
   // the original list (it doesn't do that on tuples); if no such method is defined it falls back
   // to the x.__add__(y) method that backs x + y. In Skylark, we don't support this side-effect.
+  // Note also that there is a special casing to translate 'ident[key] = value'
+  // to 'ident = ident + {key: value}'. This is needed to support the pure version of Python-like
+  // dictionary assignment syntax.
   private Statement parseSmallStatement() {
     int start = token.left;
     if (token.kind == TokenKind.RETURN) {
@@ -1005,6 +1009,20 @@ class Parser {
     if (token.kind == TokenKind.EQUALS) {
       nextToken();
       Expression rvalue = parseExpression();
+      if (expression instanceof FuncallExpression) {
+        FuncallExpression func = (FuncallExpression) expression;
+        if (func.getFunction().getName().equals("$index") && func.getObject() instanceof Ident) {
+          // Special casing to translate 'ident[key] = value' to 'ident = ident + {key: value}'
+          // Note that the locations of these extra expressions are fake.
+          Preconditions.checkArgument(func.getArguments().size() == 1);
+          DictionaryLiteral dictRValue = setLocation(new DictionaryLiteral(ImmutableList.of(
+              setLocation(new DictionaryEntryLiteral(func.getArguments().get(0).getValue(), rvalue),
+                  start, token.right))), start, token.right);
+          BinaryOperatorExpression binExp = setLocation(new BinaryOperatorExpression(
+              Operator.PLUS, func.getObject(), dictRValue), start, token.right);
+          return setLocation(new AssignmentStatement(func.getObject(), binExp), start, token.right);
+        }
+      }
       return setLocation(new AssignmentStatement(expression, rvalue), start, rvalue);
     } else if (augmentedAssignmentMethods.containsKey(token.kind)) {
       Operator operator = augmentedAssignmentMethods.get(token.kind);

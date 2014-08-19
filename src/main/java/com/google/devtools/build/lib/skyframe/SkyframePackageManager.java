@@ -15,7 +15,7 @@ package com.google.devtools.build.lib.skyframe;
 
 import com.google.devtools.build.lib.cmdline.LabelValidator;
 import com.google.devtools.build.lib.concurrent.ThreadSafety.ThreadSafe;
-import com.google.devtools.build.lib.events.ErrorEventListener;
+import com.google.devtools.build.lib.events.EventHandler;
 import com.google.devtools.build.lib.packages.NoSuchPackageException;
 import com.google.devtools.build.lib.packages.NoSuchTargetException;
 import com.google.devtools.build.lib.packages.Package;
@@ -76,10 +76,10 @@ class SkyframePackageManager implements PackageManager {
 
   @ThreadSafe
   @Override
-  public Package getPackage(ErrorEventListener listener, String packageName)
+  public Package getPackage(EventHandler eventHandler, String packageName)
       throws NoSuchPackageException, InterruptedException {
     try {
-      return packageLoader.getPackage(listener, packageName);
+      return packageLoader.getPackage(eventHandler, packageName);
     } catch (NoSuchPackageException e) {
       if (e.getPackage() != null) {
         return e.getPackage();
@@ -94,9 +94,9 @@ class SkyframePackageManager implements PackageManager {
   }
 
   @Override
-  public Target getTarget(ErrorEventListener listener, Label label)
+  public Target getTarget(EventHandler eventHandler, Label label)
       throws NoSuchPackageException, NoSuchTargetException, InterruptedException {
-    return getPackage(listener, label.getPackageName()).getTarget(label.getName());
+    return getPackage(eventHandler, label.getPackageName()).getTarget(label.getName());
   }
 
   @Override

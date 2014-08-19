@@ -30,11 +30,11 @@ import com.google.common.collect.ImmutableSet;
 import com.google.common.collect.Iterables;
 import com.google.common.collect.Lists;
 import com.google.common.collect.Sets;
-import com.google.devtools.build.lib.events.DelegatingErrorEventListener;
-import com.google.devtools.build.lib.events.ErrorEventListener;
+import com.google.devtools.build.lib.events.DelegatingEventHandler;
+import com.google.devtools.build.lib.events.Event;
 import com.google.devtools.build.lib.events.EventCollector;
+import com.google.devtools.build.lib.events.EventHandler;
 import com.google.devtools.build.lib.events.EventKind;
-import com.google.devtools.build.lib.events.Location;
 import com.google.devtools.build.lib.events.OutputFilter.RegexOutputFilter;
 import com.google.devtools.build.lib.events.Reporter;
 import com.google.devtools.build.lib.testutil.JunitTestUtils;
@@ -75,7 +75,7 @@ public class ParallelEvaluatorTest {
   protected GraphTester tester = new GraphTester();
 
   private EventCollector eventCollector;
-  private ErrorEventListener reporter;
+  private EventHandler reporter;
 
   private EvaluationProgressReceiver revalidationReceiver;
 
@@ -796,14 +796,17 @@ public class ParallelEvaluatorTest {
         return skyKey.toString();
       }
     };
-    reporter = new DelegatingErrorEventListener(reporter) {
-      @Override
-      public void warn(Location location, String message) {
-        super.warn(location, message);
-        trackingAwaiter.awaitLatchAndTrackExceptions(topRestartedBuild,
-            "top's builder did not restart in time");
-      }
-    };
+    reporter = new DelegatingEventHandler(reporter) {
+        // Duplicate from MemoizingEvaluatorTest.
+        @Override
+        public void handle(Event e) {
+          super.handle(e);
+          if (e.getKind() == EventKind.WARNING) {
+            trackingAwaiter.awaitLatchAndTrackExceptions(topRestartedBuild,
+                "top's builder did not start in time");
+          }
+        }
+      };
     tester.getOrCreate(top).setBuilder(topBuilder);
     // Make sure slowAddingDep is already in the graph, so it will be DONE.
     eval(/*keepGoing=*/false, slowAddingDep);
@@ -1958,9 +1961,9 @@ public class ParallelEvaluatorTest {
       }
     };
 
-    ErrorEventListener reporter = new ErrorEventListener() {
+    EventHandler reporter = new EventHandler() {
       @Override
-      public void warn(Location location, String message) {
+      public void handle(Event e) {
         throw new IllegalStateException();
       }
 
@@ -1970,27 +1973,7 @@ public class ParallelEvaluatorTest {
       }
 
       @Override
-      public void report(EventKind kind, Location location, String message) {
-        throw new IllegalStateException();
-      }
-
-      @Override
-      public void report(EventKind kind, Location location, byte[] message) {
-        throw new IllegalStateException();
-      }
-
-      @Override
-      public void progress(Location location, String message) {
-        throw new IllegalStateException();
-      }
-
-      @Override
-      public void info(Location location, String message) {
-        throw new IllegalStateException();
-      }
-
-      @Override
-      public void error(Location location, String message) {
+      public Set<EventKind> getEventMask() {
         throw new IllegalStateException();
       }
     };

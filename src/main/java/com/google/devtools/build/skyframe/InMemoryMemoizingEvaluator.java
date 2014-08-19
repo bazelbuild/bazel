@@ -20,7 +20,7 @@ import com.google.common.base.Predicate;
 import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.Iterables;
 import com.google.common.collect.Maps;
-import com.google.devtools.build.lib.events.ErrorEventListener;
+import com.google.devtools.build.lib.events.EventHandler;
 import com.google.devtools.build.skyframe.Differencer.Diff;
 import com.google.devtools.build.skyframe.InvalidatingNodeVisitor.DeletingInvalidationState;
 import com.google.devtools.build.skyframe.InvalidatingNodeVisitor.DirtyingInvalidationState;
@@ -128,7 +128,7 @@ public final class InMemoryMemoizingEvaluator implements MemoizingEvaluator {
 
   @Override
   public <T extends SkyValue> EvaluationResult<T> evaluate(Iterable<SkyKey> roots, Version version,
-          boolean keepGoing, int numThreads, ErrorEventListener listener)
+          boolean keepGoing, int numThreads, EventHandler eventHandler)
       throws InterruptedException {
     // NOTE: Performance critical code. See bug "Null build performance parity".
     IntVersion intVersion = (IntVersion) version;
@@ -152,7 +152,7 @@ public final class InMemoryMemoizingEvaluator implements MemoizingEvaluator {
       injectValues(intVersion);
 
       ParallelEvaluator evaluator = new ParallelEvaluator(graph, intVersion.getVal(),
-          skyFunctions, listener, emittedEventState, keepGoing, numThreads, progressReceiver);
+          skyFunctions, eventHandler, emittedEventState, keepGoing, numThreads, progressReceiver);
       return evaluator.eval(roots);
     } finally {
       lastGraphVersion = intVersion;

@@ -22,7 +22,8 @@ import com.google.common.collect.Sets;
 import com.google.common.collect.Table;
 import com.google.devtools.build.lib.concurrent.ThreadSafety.Immutable;
 import com.google.devtools.build.lib.concurrent.ThreadSafety.ThreadSafe;
-import com.google.devtools.build.lib.events.ErrorEventListener;
+import com.google.devtools.build.lib.events.Event;
+import com.google.devtools.build.lib.events.EventHandler;
 import com.google.devtools.build.lib.events.Location;
 import com.google.devtools.build.lib.syntax.Label;
 import com.google.devtools.build.lib.syntax.Label.SyntaxException;
@@ -234,13 +235,13 @@ public final class License {
    * @param target the target which is being checked, and which will be used for
    *        checking exceptions
    * @param licensedTarget the target which declared the license being checked.
-   * @param listener a reporter where any licensing issues discovered should be
+   * @param eventHandler a reporter where any licensing issues discovered should be
    *        reported
    * @param staticallyLinked whether the target is statically linked under this command
    * @return true if the license is compatible with the distributions
    */
   public boolean checkCompatibility(Set<DistributionType> dists,
-      Target target, Label licensedTarget, ErrorEventListener listener,
+      Target target, Label licensedTarget, EventHandler eventHandler,
       boolean staticallyLinked) {
     Location location = (target instanceof Rule) ? ((Rule) target).getLocation() : null;
 
@@ -260,14 +261,16 @@ public final class License {
     for (DistributionType dt : dists) {
       if (LICENSE_INCOMPATIBILIES.contains(dt, leastRestrictiveLicense)) {
         if (!exceptions.contains(target.getLabel())) {
-          listener.error(location, "Build target '" + target.getLabel()
+          eventHandler.handle(Event.error(location, "Build target '" + target.getLabel()
               + "' is not compatible with license '" + this + "' from target '"
-              + licensedTarget + "'");
+                  + licensedTarget + "'"));
           return false;
         }
       } else if (LICENSE_WARNINGS.contains(dt, leastRestrictiveLicense)) {
-        listener.warn(location, "Build target '" + target + "' has a potential licensing issue "
-            + "with a '" + this + "' license from target '" + licensedTarget + "'");
+        eventHandler.handle(
+            Event.warn(location, "Build target '" + target
+                + "' has a potential licensing issue "
+                + "with a '" + this + "' license from target '" + licensedTarget + "'"));
       }
     }
     return true;

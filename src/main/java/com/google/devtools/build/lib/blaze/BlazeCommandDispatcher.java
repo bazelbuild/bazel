@@ -235,6 +235,11 @@ public class BlazeCommandDispatcher {
     }
 
     @Override
+    public boolean showOutput(String tag) {
+      return true;
+    }
+
+    @Override
     public void handle(Event event) {
       try {
         switch (event.getKind()) {
@@ -248,7 +253,7 @@ public class BlazeCommandDispatcher {
             throw new IllegalStateException();
         }
       } catch (IOException e) {
-        // We cannot do too much here -- EventHandler#handle does not provide us with ways to
+        // We cannot do too much here -- ErrorEventListener#handle does not provide us with ways to
         // report an error.
       }
     }
@@ -392,7 +397,7 @@ public class BlazeCommandDispatcher {
 
       if (commonOptions.announceRcOptions) {
         for (String note : rcfileNotes) {
-          reporter.info(null, note);
+          reporter.handle(Event.info(note));
         }
       }
 
@@ -408,7 +413,7 @@ public class BlazeCommandDispatcher {
 
       // Print warnings for odd options usage
       for (String warning : optionsParser.getWarnings()) {
-        reporter.warn(null, warning);
+        reporter.handle(Event.warn(warning));
       }
 
       ExitCode outcome = command.exec(runtime, optionsParser);

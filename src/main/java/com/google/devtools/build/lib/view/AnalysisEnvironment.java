@@ -14,18 +14,17 @@
 
 package com.google.devtools.build.lib.view;
 
+import com.google.common.collect.ImmutableList;
 import com.google.devtools.build.lib.actions.Action;
 import com.google.devtools.build.lib.actions.ActionRegistry;
 import com.google.devtools.build.lib.actions.Artifact;
 import com.google.devtools.build.lib.actions.MiddlemanFactory;
 import com.google.devtools.build.lib.actions.Root;
-import com.google.devtools.build.lib.events.ErrorEventListener;
+import com.google.devtools.build.lib.events.EventHandler;
 import com.google.devtools.build.lib.query2.output.OutputFormatter;
 import com.google.devtools.build.lib.vfs.PathFragment;
 import com.google.devtools.build.lib.view.buildinfo.BuildInfoFactory.BuildInfoKey;
 import com.google.devtools.build.skyframe.SkyFunction;
-
-import java.util.List;
 
 /**
  * The set of services that are provided to {@link ConfiguredTarget} objects
@@ -36,7 +35,7 @@ public interface AnalysisEnvironment extends ActionRegistry {
    * Returns a callback to be used in this build for reporting analysis errors.
    */
   // TODO(bazel-team): Rename to something better?
-  ErrorEventListener getReporter();
+  EventHandler getReporter();
 
   /**
    * Returns whether any errors were reported to this instance.
@@ -125,5 +124,5 @@ public interface AnalysisEnvironment extends ActionRegistry {
    * @param ruleContext the rule to use for error reporting and to determine the
    *        configuration
    */
-  List<Artifact> getBuildInfo(RuleContext ruleContext, BuildInfoKey key);
+  ImmutableList<Artifact> getBuildInfo(RuleContext ruleContext, BuildInfoKey key);
 }

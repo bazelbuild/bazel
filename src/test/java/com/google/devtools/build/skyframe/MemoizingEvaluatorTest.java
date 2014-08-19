@@ -35,11 +35,11 @@ import com.google.common.collect.Iterables;
 import com.google.common.collect.Sets;
 import com.google.common.testing.GcFinalization;
 import com.google.common.util.concurrent.Uninterruptibles;
-import com.google.devtools.build.lib.events.DelegatingErrorEventListener;
-import com.google.devtools.build.lib.events.ErrorEventListener;
+import com.google.devtools.build.lib.events.DelegatingEventHandler;
+import com.google.devtools.build.lib.events.Event;
 import com.google.devtools.build.lib.events.EventCollector;
+import com.google.devtools.build.lib.events.EventHandler;
 import com.google.devtools.build.lib.events.EventKind;
-import com.google.devtools.build.lib.events.Location;
 import com.google.devtools.build.lib.events.Reporter;
 import com.google.devtools.build.lib.testutil.JunitTestUtils;
 import com.google.devtools.build.lib.testutil.MoreAsserts;
@@ -78,7 +78,7 @@ public class MemoizingEvaluatorTest {
 
   private MemoizingEvaluatorTester tester;
   private EventCollector eventCollector;
-  private ErrorEventListener reporter;
+  private EventHandler reporter;
   private MemoizingEvaluator.EmittedEventState emittedEventState;
 
   // Knobs that control the size / duration of larger tests.
@@ -1372,12 +1372,14 @@ public class MemoizingEvaluatorTest {
         return env.valuesMissing() ? null : new StringValue("top");
       }
     });
-    reporter = new DelegatingErrorEventListener(reporter) {
+    reporter = new DelegatingEventHandler(reporter) {
       @Override
-      public void warn(Location location, String message) {
-        super.warn(location, message);
-        trackingAwaiter.awaitLatchAndTrackExceptions(topRestartedBuild,
-            "top's builder did not start in time");
+      public void handle(Event e) {
+        super.handle(e);
+        if (e.getKind() == EventKind.WARNING) {
+          trackingAwaiter.awaitLatchAndTrackExceptions(topRestartedBuild,
+              "top's builder did not start in time");
+        }
       }
     };
     // First build : just prime the graph.

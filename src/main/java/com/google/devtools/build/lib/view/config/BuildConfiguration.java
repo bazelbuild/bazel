@@ -15,6 +15,7 @@
 package com.google.devtools.build.lib.view.config;
 
 import com.google.common.annotations.VisibleForTesting;
+import com.google.common.base.Function;
 import com.google.common.base.Joiner;
 import com.google.common.base.Preconditions;
 import com.google.common.base.Predicates;
@@ -29,9 +30,11 @@ import com.google.common.collect.Multimap;
 import com.google.devtools.build.lib.actions.ArtifactFactory;
 import com.google.devtools.build.lib.actions.Root;
 import com.google.devtools.build.lib.blaze.BlazeDirectories;
-import com.google.devtools.build.lib.events.ErrorEventListener;
+import com.google.devtools.build.lib.events.Event;
+import com.google.devtools.build.lib.events.EventHandler;
 import com.google.devtools.build.lib.packages.Attribute;
 import com.google.devtools.build.lib.packages.Attribute.Configurator;
+import com.google.devtools.build.lib.packages.Attribute.SplitTransition;
 import com.google.devtools.build.lib.packages.Attribute.Transition;
 import com.google.devtools.build.lib.packages.InputFile;
 import com.google.devtools.build.lib.packages.PackageGroup;
@@ -61,6 +64,7 @@ import com.google.devtools.common.options.TriState;
 import java.io.IOException;
 import java.lang.reflect.Field;
 import java.util.ArrayList;
+import java.util.Arrays;
 import java.util.Collection;
 import java.util.Collections;
 import java.util.HashMap;
@@ -114,7 +118,7 @@ public final class BuildConfiguration {
      * that conflict.
      */
     @SuppressWarnings("unused")
-    public void reportInvalidOptions(ErrorEventListener reporter, BuildOptions buildOptions,
+    public void reportInvalidOptions(EventHandler reporter, BuildOptions buildOptions,
         BuildConfiguration hostConfiguration) {
     }
 
@@ -668,6 +672,12 @@ public final class BuildConfiguration {
     }
   }
 
+  /**
+   * A list of build configurations that only contains the null element.
+   */
+  private static final List<BuildConfiguration> NULL_LIST =
+      Collections.unmodifiableList(Arrays.asList(new BuildConfiguration[] { null }));
+
   private final String cacheKey;
   private final String shortCacheKey;
 
@@ -762,22 +772,22 @@ public final class BuildConfiguration {
    * that conflict.
    */
   public void reportInvalidOptions(
-      ErrorEventListener reporter, BuildConfiguration hostConfiguration) {
+      EventHandler reporter, BuildConfiguration hostConfiguration) {
     for (Fragment fragment : fragments.values()) {
       fragment.reportInvalidOptions(reporter, this.buildOptions, hostConfiguration);
     }
 
     if (options.shortName != null) {
-      reporter.error(null,
-          "The internal '--configuration short name' option cannot be used on the command line");
+      reporter.handle(Event.error(
+          "The internal '--configuration short name' option cannot be used on the command line"));
     }
 
     if (options.testShardingStrategy
         == TestActionBuilder.TestShardingStrategy.EXPERIMENTAL_HEURISTIC) {
-      reporter.warn(null,
+      reporter.handle(Event.warn(
           "Heuristic sharding is intended as a one-off experimentation tool for determing the "
           + "benefit from sharding certain tests. Please don't keep this option in your "
-          + ".blazerc or continuous build");
+          + ".blazerc or continuous build"));
     }
   }
 
@@ -989,9 +999,23 @@ public final class BuildConfiguration {
    *
    * @param transition the configuration transition
    * @return the new configuration
+   * @throw IllegalArgumentException if the transition is a {@link SplitTransition}
    */
   public BuildConfiguration getConfiguration(Transition transition) {
+    Preconditions.checkArgument(!(transition instanceof SplitTransition));
     return transitions.getConfiguration(transition);
+  }
+
+  /**
+   * Returns the new configurations after traversing a dependency edge with a given split
+   * transition.
+   *
+   * @param transition the split configuration transition
+   * @return the new configurations
+   */
+  @VisibleForTesting
+  List<BuildConfiguration> getSplitConfigurations(SplitTransition transition) {
+    return transitions.getSplitConfigurations(transition);
   }
 
   /**
@@ -1005,19 +1029,19 @@ public final class BuildConfiguration {
    * @param toTarget the target that's dependeded on
    * @return the configuration that should be associated to {@code toTarget}
    */
-  public BuildConfiguration evaluateTransition(final Rule fromRule,
+  public Iterable<BuildConfiguration> evaluateTransition(final Rule fromRule,
       final Attribute attribute, final Target toTarget) {
     // Fantastic configurations and where to find them:
 
     // I. Input files and package groups have no configurations. We don't want to duplicate them.
     if (toTarget instanceof InputFile || toTarget instanceof PackageGroup) {
-      return null;
+      return NULL_LIST;
     }
 
     // II. Host configurations never switch to another. All prerequisites of host targets have the
     // same host configuration.
     if (isHostConfiguration()) {
-      return this;
+      return ImmutableList.of(this);
     }
 
     // Make sure config_setting dependencies are resolved in the referencing rule's configuration,
@@ -1034,34 +1058,46 @@ public final class BuildConfiguration {
     // TODO(bazel-team): implement this more elegantly. This is far too hackish. Specifically:
     // don't reference the rule name explicitly and don't require special-casing here.
     if (toTarget instanceof Rule && ((Rule) toTarget).getRuleClass().equals("config_setting")) {
-      return getConfiguration(Attribute.ConfigurationTransition.NONE);
+      return ImmutableList.of(this);
     }
 
-    // III. Attributes determine configurations. The configuration of a prerequisite is determined
-    // by the attribute.
-    @SuppressWarnings("unchecked")
-    Configurator<BuildConfiguration, Rule> configurator =
-        (Configurator<BuildConfiguration, Rule>) attribute.getConfigurator();
-    BuildConfiguration toConfiguration = (configurator != null)
-        ? configurator.apply(fromRule, this, attribute, toTarget)
-        : getConfiguration(attribute.getConfigurationTransition());
-
-    // IV. Allow the transition object to perform an arbitrary switch. Blaze modules can inject
-    // configuration transition logic by extending the Transitions class.
-    toConfiguration = getTransitions().configurationHook(
-        fromRule, attribute, toTarget, toConfiguration);
-
-    // V. Allow rule classes to override their own configurations.
-    Rule associatedRule = toTarget.getAssociatedRule();
-    if (associatedRule != null) {
+    List<BuildConfiguration> toConfigurations;
+    if (attribute.getConfigurationTransition() instanceof SplitTransition) {
+      toConfigurations = getSplitConfigurations(
+          (SplitTransition) attribute.getConfigurationTransition());
+    } else {
+      // III. Attributes determine configurations. The configuration of a prerequisite is determined
+      // by the attribute.
       @SuppressWarnings("unchecked")
-      RuleClass.Configurator<BuildConfiguration, Rule> func =
-          (RuleClass.Configurator<BuildConfiguration, Rule>)
-          associatedRule.getRuleClassObject().getConfigurator();
-      toConfiguration = func.apply(associatedRule, toConfiguration);
+      Configurator<BuildConfiguration, Rule> configurator =
+          (Configurator<BuildConfiguration, Rule>) attribute.getConfigurator();
+      toConfigurations = ImmutableList.of((configurator != null)
+          ? configurator.apply(fromRule, this, attribute, toTarget)
+          : getConfiguration(attribute.getConfigurationTransition()));
     }
 
-    return toConfiguration;
+    return Iterables.transform(toConfigurations,
+        new Function<BuildConfiguration, BuildConfiguration>() {
+      @Override
+      public BuildConfiguration apply(BuildConfiguration input) {
+        // IV. Allow the transition object to perform an arbitrary switch. Blaze modules can inject
+        // configuration transition logic by extending the Transitions class.
+        BuildConfiguration actual = getTransitions().configurationHook(
+            fromRule, attribute, toTarget, input);
+
+        // V. Allow rule classes to override their own configurations.
+        Rule associatedRule = toTarget.getAssociatedRule();
+        if (associatedRule != null) {
+          @SuppressWarnings("unchecked")
+          RuleClass.Configurator<BuildConfiguration, Rule> func =
+              (RuleClass.Configurator<BuildConfiguration, Rule>)
+              associatedRule.getRuleClassObject().getConfigurator();
+          actual = func.apply(associatedRule, actual);
+        }
+
+        return actual;
+      }
+    });
   }
 
   /**

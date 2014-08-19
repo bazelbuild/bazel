@@ -45,7 +45,7 @@ import com.google.devtools.build.lib.actions.Root;
 import com.google.devtools.build.lib.blaze.BlazeDirectories;
 import com.google.devtools.build.lib.concurrent.ThreadSafety;
 import com.google.devtools.build.lib.concurrent.ThreadSafety.ThreadCompatible;
-import com.google.devtools.build.lib.events.ErrorEventListener;
+import com.google.devtools.build.lib.events.EventHandler;
 import com.google.devtools.build.lib.events.Reporter;
 import com.google.devtools.build.lib.packages.BuildFileContainsErrorsException;
 import com.google.devtools.build.lib.packages.LegacyPackage;
@@ -162,7 +162,7 @@ public final class SkyframeExecutor {
   private final AtomicInteger numPackagesLoaded = new AtomicInteger(0);
 
   private SkyframeBuildView skyframeBuildView;
-  private ErrorEventListener errorEventListener;
+  private EventHandler errorEventListener;
   private ActionLogBufferPathGenerator actionLogBufferPathGenerator;
 
   private RecordingDifferencer recordingDiffer;
@@ -912,10 +912,10 @@ public final class SkyframeExecutor {
   }
 
   /**
-   * Sets the listener to use for reporting errors.
+   * Sets the eventHandler to use for reporting errors.
    */
-  public void setErrorEventListener(ErrorEventListener listener) {
-    this.errorEventListener = listener;
+  public void setErrorEventListener(EventHandler eventHandler) {
+    this.errorEventListener = eventHandler;
   }
 
   /**
@@ -1043,10 +1043,10 @@ public final class SkyframeExecutor {
   }
 
   EvaluationResult<TargetPatternValue> targetPatterns(Iterable<SkyKey> patternSkyKeys,
-      boolean keepGoing, ErrorEventListener listener) throws InterruptedException {
+      boolean keepGoing, EventHandler eventHandler) throws InterruptedException {
     checkActive();
     return sequentialBuildDriver.evaluate(patternSkyKeys, keepGoing, DEFAULT_THREAD_COUNT,
-        listener);
+        eventHandler);
   }
 
   /**
@@ -1292,13 +1292,13 @@ public final class SkyframeExecutor {
      * <p>Note that this method needs to be synchronized since InMemoryMemoizingEvaluator.evaluate()
      * method does not support concurrent calls.
      */
-    Package getPackage(ErrorEventListener listener, String pkgName) throws InterruptedException,
+    Package getPackage(EventHandler eventHandler, String pkgName) throws InterruptedException,
         NoSuchPackageException {
       synchronized (valueLookupLock) {
         SkyKey key = PackageValue.key(new PathFragment(pkgName));
         EvaluationResult<PackageValue> result =
             sequentialBuildDriver.evaluate(ImmutableList.of(key), false,
-                DEFAULT_THREAD_COUNT, listener);
+                DEFAULT_THREAD_COUNT, eventHandler);
         if (result.hasError()) {
           if (!Iterables.isEmpty(result.getError().getCycleInfo())) {
             reportCycles(result.getError().getCycleInfo(), key);

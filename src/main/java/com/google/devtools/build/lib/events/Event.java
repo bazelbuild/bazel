@@ -86,26 +86,68 @@ public final class Event {
   }
 
   /**
-   * Replay a sequence of events on an {@link ErrorEventListener}.
+   * Replay a sequence of events on an {@link EventHandler}.
    */
-  public static void replayEventsOn(ErrorEventListener listener, Iterable<Event> events) {
+  public static void replayEventsOn(EventHandler eventHandler, Iterable<Event> events) {
     for (Event event : events) {
-      switch (event.getKind()) {
-        case WARNING :
-          listener.warn(event.getLocation(), event.getMessage());
-          break;
-        case ERROR :
-          listener.error(event.getLocation(), event.getMessage());
-          break;
-        case INFO :
-          listener.info(event.getLocation(), event.getMessage());
-          break;
-        case PROGRESS :
-          listener.progress(event.getLocation(), event.getMessage());
-          break;
-        default :
-          throw new IllegalStateException("Can't happen!");
-      }
+      eventHandler.handle(event);
     }
   }
+
+  /**
+   * Reports a warning.
+   */
+  public static Event warn(Location location, String message) {
+    return new Event(EventKind.WARNING, location, message);
+  }
+
+  /**
+   * Reports an error.
+   */
+  public static Event error(Location location, String message){
+    return new Event(EventKind.ERROR, location, message);
+  }
+
+  /**
+   * Reports atemporal statements about the build, i.e. they're true for the duration of execution.
+   */
+  public static Event info(Location location, String message) {
+    return new Event(EventKind.INFO, location, message);
+  }
+
+  /**
+   * Reports a temporal statement about the build.
+   */
+  public static Event progress(Location location, String message) {
+    return new Event(EventKind.PROGRESS, location, message);
+  }
+
+  /**
+   * Reports a warning.
+   */
+  public static Event warn(String message) {
+    return warn(null, message);
+  }
+
+  /**
+   * Reports an error.
+   */
+  public static Event error(String message){
+    return error(null, message);
+  }
+
+  /**
+   * Reports atemporal statements about the build, i.e. they're true for the duration of execution.
+   */
+  public static Event info(String message) {
+    return info(null, message);
+  }
+
+  /**
+   * Reports a temporal statement about the build.
+   */
+  public static Event progress(String message) {
+    return progress(null, message);
+  }
+
 }

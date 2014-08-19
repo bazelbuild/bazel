@@ -27,7 +27,8 @@ import com.google.devtools.build.lib.actions.Artifact;
 import com.google.devtools.build.lib.actions.ArtifactFactory;
 import com.google.devtools.build.lib.actions.MutableActionGraph;
 import com.google.devtools.build.lib.concurrent.ThreadSafety.ThreadHostile;
-import com.google.devtools.build.lib.events.ErrorEventListener;
+import com.google.devtools.build.lib.events.Event;
+import com.google.devtools.build.lib.events.EventHandler;
 import com.google.devtools.build.lib.packages.Attribute;
 import com.google.devtools.build.lib.packages.Target;
 import com.google.devtools.build.lib.query2.output.OutputFormatter;
@@ -73,7 +74,7 @@ public final class SkyframeBuildView {
   private final MutableActionGraph actionGraph;
   private final ConfiguredTargetFactory factory;
   private final ArtifactFactory artifactFactory;
-  @Nullable private ErrorEventListener warningListener;
+  @Nullable private EventHandler warningListener;
   private final SkyframeExecutor skyframeExecutor;
   private final Runnable legacyDataCleaner;
   private final BinTools binTools;
@@ -114,7 +115,7 @@ public final class SkyframeBuildView {
   private SkyKey configurationKey = null;
 
   public SkyframeBuildView(MutableActionGraph actionGraph, ConfiguredTargetFactory factory,
-      ArtifactFactory artifactFactory, @Nullable ErrorEventListener warningListener,
+      ArtifactFactory artifactFactory, @Nullable EventHandler warningListener,
       SkyframeExecutor skyframeExecutor, Runnable legacyDataCleaner,
       ImmutableList<OutputFormatter> outputFormatters, BinTools binTools) {
     this.actionGraph = actionGraph;
@@ -133,7 +134,7 @@ public final class SkyframeBuildView {
     this.workspaceStatusArtifacts = buildInfoArtifacts;
   }
 
-  public void setWarningListener(@Nullable ErrorEventListener warningListener) {
+  public void setWarningListener(@Nullable EventHandler warningListener) {
     this.warningListener = warningListener;
   }
 
@@ -224,7 +225,7 @@ public final class SkyframeBuildView {
               + "' failed; build aborted";
           throw new ViewCreationFailedException(errorMsg);
         } else {
-          skyframeExecutor.getReporter().error(null, ex.getMessage());
+          skyframeExecutor.getReporter().handle(Event.error(ex.getMessage()));
         }
         throw new ViewCreationFailedException(ex.getMessage());
       }
@@ -265,8 +266,8 @@ public final class SkyframeBuildView {
           root = maybeGetConfiguredTargetCycleCulprit(errorInfo.getCycleInfo());
         }
         if (warningListener != null) {
-          warningListener.warn(null, "errors encountered while analyzing target '"
-              + label + "': it will not be built");
+          warningListener.handle(Event.warn("errors encountered while analyzing target '"
+              + label + "': it will not be built"));
         }
         eventBus.post(new AnalysisFailureEvent(label, root));
       }
@@ -280,12 +281,12 @@ public final class SkyframeBuildView {
             (MutableActionGraph.ActionConflictException) ex;
         ace.reportTo(skyframeExecutor.getReporter());
         if (warningListener != null) {
-          warningListener.warn(null, "errors encountered while analyzing target '"
-              + bad.getKey().getOwner().getLabel() + "': it will not be built");
+          warningListener.handle(Event.warn("errors encountered while analyzing target '"
+              + bad.getKey().getOwner().getLabel() + "': it will not be built"));
         }
       } else {
         if (reportedExceptions.add(ex)) {
-          skyframeExecutor.getReporter().error(null, ex.getMessage());
+          skyframeExecutor.getReporter().handle(Event.error(ex.getMessage()));
         }
       }
     }
@@ -344,7 +345,7 @@ public final class SkyframeBuildView {
   }
 
   @Nullable
-  ErrorEventListener getWarningListener() {
+  EventHandler getWarningListener() {
     return warningListener;
   }
 
@@ -380,14 +381,15 @@ public final class SkyframeBuildView {
   /** Returns null if any build-info values are not ready. */
   @Nullable
   CachingAnalysisEnvironment createAnalysisEnvironment(LabelAndConfiguration owner,
-      boolean isSystemEnv, boolean extendedSanityChecks, ErrorEventListener listener,
+      boolean isSystemEnv, boolean extendedSanityChecks, EventHandler eventHandler,
       Environment env, boolean allowRegisteringActions) {
     if (skyframeExecutor.skyframeBuild() && !getWorkspaceStatusValues(env)) {
       return null;
     }
     return new CachingAnalysisEnvironment(
         artifactFactory, owner, workspaceStatusArtifacts, isSystemEnv,
-        extendedSanityChecks, listener, env, allowRegisteringActions, outputFormatters, binTools);
+        extendedSanityChecks, eventHandler, env, allowRegisteringActions,
+        outputFormatters, binTools);
   }
 
   /**
@@ -568,4 +570,3 @@ public final class SkyframeBuildView {
     }
   }
 }
-

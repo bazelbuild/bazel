@@ -47,6 +47,7 @@ import com.google.devtools.build.lib.blaze.commands.ShutdownCommand;
 import com.google.devtools.build.lib.blaze.commands.TestCommand;
 import com.google.devtools.build.lib.blaze.commands.VersionCommand;
 import com.google.devtools.build.lib.buildtool.BuildTool;
+import com.google.devtools.build.lib.events.Event;
 import com.google.devtools.build.lib.events.OutputFilter;
 import com.google.devtools.build.lib.events.Reporter;
 import com.google.devtools.build.lib.exec.OutputService;
@@ -269,7 +270,7 @@ public final class BlazeRuntime {
     this.blazeModuleEnvironment = new BlazeModuleEnvironment();
     this.buildTool = new BuildTool(this);
     initEventBus();
-       
+
     if (inWorkspace()) {
       writeOutputBaseReadmeFile();
       writeOutputBaseDoNotBuildHereFile();
@@ -329,7 +330,7 @@ public final class BlazeRuntime {
 
         recordFullProfilerData = options.recordFullProfilerData;
         out = new BufferedOutputStream(profilePath.getOutputStream(), 1024 * 1024);
-        getReporter().info(null, "Writing profile data to '" + profilePath + "'");
+        getReporter().handle(Event.info("Writing profile data to '" + profilePath + "'"));
         profiledTasks = ProfiledTaskKinds.ALL;
       } else if (options.alwaysProfileSlowOperations) {
         recordFullProfilerData = false;
@@ -343,7 +344,7 @@ public final class BlazeRuntime {
         return true;
       }
     } catch (IOException e) {
-      getReporter().error(null, "Error while creating profile file: " + e.getMessage());
+      getReporter().handle(Event.error("Error while creating profile file: " + e.getMessage()));
     }
     return false;
   }
@@ -614,9 +615,10 @@ public final class BlazeRuntime {
         LOG.log(Level.WARNING, "Failed to load action cache: " + e.getMessage(), e);
         LoggingUtil.logToRemote(Level.WARNING, "Failed to load action cache: "
             + e.getMessage(), e);
-        getReporter().error(null, "Error during action cache initialization: " + e.getMessage()
+        getReporter().handle(
+            Event.error("Error during action cache initialization: " + e.getMessage()
             + ". Corrupted files were renamed to '" + getCacheDirectory() + "/*.bad'. "
-            + "Blaze will now reset action cache data, causing a full rebuild");
+            + "Blaze will now reset action cache data, causing a full rebuild"));
         actionCache = new CompactPersistentActionCache(getCacheDirectory(), clock);
       } finally {
         Profiler.instance().logSimpleTask(startTime, ProfilerTask.INFO, "Loading action cache");
@@ -754,7 +756,8 @@ public final class BlazeRuntime {
       try {
         MemoryProfiler.instance().start(memoryProfilePath.getOutputStream());
       } catch (IOException e) {
-        getReporter().error(null, "Error while creating memory profile file: " + e.getMessage());
+        getReporter().handle(
+            Event.error("Error while creating memory profile file: " + e.getMessage()));
       }
     }
 
@@ -814,7 +817,7 @@ public final class BlazeRuntime {
       Profiler.instance().stop();
       MemoryProfiler.instance().stop();
     } catch (IOException e) {
-      getReporter().error(null, "Error while writing profile file: " + e.getMessage());
+      getReporter().handle(Event.error("Error while writing profile file: " + e.getMessage()));
     }
   }
 

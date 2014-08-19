@@ -21,8 +21,8 @@ import com.google.common.collect.Lists;
 import com.google.common.collect.Sets;
 import com.google.common.eventbus.EventBus;
 import com.google.devtools.build.lib.concurrent.ThreadSafety.ThreadSafe;
-import com.google.devtools.build.lib.events.ErrorEventListener;
 import com.google.devtools.build.lib.events.Event;
+import com.google.devtools.build.lib.events.EventHandler;
 import com.google.devtools.build.lib.events.Reporter;
 import com.google.devtools.build.lib.packages.BuildFileContainsErrorsException;
 import com.google.devtools.build.lib.packages.BuildFileNotFoundException;
@@ -67,7 +67,7 @@ import javax.annotation.Nullable;
  */
 public class PackageFunction implements SkyFunction {
 
-  private final ErrorEventListener reporter;
+  private final EventHandler reporter;
   private final PackageFactory packageFactory;
   private final CachingPackageLocator packageLocator;
   private final ConcurrentMap<String, LegacyPackage> packageFunctionCache;
@@ -438,7 +438,7 @@ public class PackageFunction implements SkyFunction {
    * Note that the returned package may be in error.
    */
   private LegacyPackage loadPackage(@Nullable String replacementContents, String packageName,
-      Path buildFilePath, ErrorEventListener listener,
+      Path buildFilePath, EventHandler eventHandler,
       SkyframePackageLocator skyframePackageLocator,
       RuleVisibility defaultVisibility) throws InterruptedException {
     ParserInputSource replacementSource = replacementContents == null ? null
@@ -447,7 +447,7 @@ public class PackageFunction implements SkyFunction {
     LegacyPackage pkg = packageFunctionCache.get(packageName);
     if (pkg == null) {
       if (showLoadingProgress.get()) {
-        reporter.progress(null, "Loading package: " + packageName);
+        reporter.handle(Event.progress("Loading package: " + packageName));
       }
 
       Clock clock = new JavaClock();
@@ -466,7 +466,7 @@ public class PackageFunction implements SkyFunction {
       numPackagesLoaded.incrementAndGet();
       packageFunctionCache.put(packageName, pkg);
     }
-    Event.replayEventsOn(listener, pkg.getEvents());
+    Event.replayEventsOn(eventHandler, pkg.getEvents());
     return pkg;
   }
 

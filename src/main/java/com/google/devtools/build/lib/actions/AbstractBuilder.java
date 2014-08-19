@@ -23,6 +23,7 @@ import com.google.devtools.build.lib.actions.ActionCacheChecker.Token;
 import com.google.devtools.build.lib.actions.cache.MetadataHandler;
 import com.google.devtools.build.lib.concurrent.ThreadSafety.ConditionallyThreadCompatible;
 import com.google.devtools.build.lib.concurrent.ThreadSafety.ConditionallyThreadSafe;
+import com.google.devtools.build.lib.events.Event;
 import com.google.devtools.build.lib.events.Reporter;
 import com.google.devtools.build.lib.profiler.Profiler;
 import com.google.devtools.build.lib.profiler.ProfilerTask;
@@ -148,7 +149,7 @@ abstract class AbstractBuilder implements Builder {
         if (keepGoing) {
           message = "Couldn't " + describeAction(action) + ": " + message;
         }
-        reporter.error(action.getOwner().getLocation(), message);
+        reporter.handle(Event.error(action.getOwner().getLocation(), message));
         recordExecutionError();
       }
     }
@@ -345,8 +346,8 @@ abstract class AbstractBuilder implements Builder {
         ImmutableList.Builder<Label> rootCauses = ImmutableList.builder();
 
         for (Artifact missingInput : missingInputs) {
-          reporter.error(action.getOwner().getLocation(),
-              String.format("missing input file '%s'", missingInput.prettyPrint()));
+          reporter.handle(Event.error(action.getOwner().getLocation(),
+              String.format("missing input file '%s'", missingInput.prettyPrint())));
           if (missingInput.getOwner() != null) {
             rootCauses.add(missingInput.getOwner());
           }
@@ -396,7 +397,7 @@ abstract class AbstractBuilder implements Builder {
       // the build instead.
       synchronized (reporter) {
         TargetOutOfDateException e = new TargetOutOfDateException(action);
-        reporter.error(null, e.getMessage());
+        reporter.handle(Event.error(e.getMessage()));
         recordExecutionError();
         throw e;
       }

@@ -18,6 +18,7 @@ import com.google.common.eventbus.EventBus;
 import com.google.common.eventbus.Subscribe;
 import com.google.devtools.build.lib.buildtool.buildevent.BuildCompleteEvent;
 import com.google.devtools.build.lib.buildtool.buildevent.ExecutionStartingEvent;
+import com.google.devtools.build.lib.events.Event;
 import com.google.devtools.build.lib.events.Reporter;
 import com.google.devtools.build.lib.profiler.Profiler;
 import com.google.devtools.build.lib.profiler.ProfilerTask;
@@ -80,7 +81,7 @@ public class BuildSummaryStatsModule extends BlazeModule {
         Profiler.instance().completeTask(ProfilerTask.CRITICAL_PATH);
       }
 
-      reporter.info(null, Joiner.on(", ").join(items));
+      reporter.handle(Event.info(Joiner.on(", ").join(items)));
     } finally {
       criticalPathComputer = null;
     }

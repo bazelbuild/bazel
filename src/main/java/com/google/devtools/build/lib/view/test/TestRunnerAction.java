@@ -31,7 +31,7 @@ import com.google.devtools.build.lib.actions.NotifyOnActionCacheHit;
 import com.google.devtools.build.lib.actions.ResourceSet;
 import com.google.devtools.build.lib.actions.SuppressNoBuildAttemptError;
 import com.google.devtools.build.lib.actions.TestMiddlemanObserver;
-import com.google.devtools.build.lib.events.ErrorEventListener;
+import com.google.devtools.build.lib.events.EventHandler;
 import com.google.devtools.build.lib.pkgcache.PackageUpToDateChecker;
 import com.google.devtools.build.lib.syntax.Label;
 import com.google.devtools.build.lib.util.Fingerprint;
@@ -154,7 +154,7 @@ public class TestRunnerAction extends ConfigurationAction
   }
 
   @Override
-  public boolean shouldShowOutput(ErrorEventListener listener) {
+  public boolean shouldShowOutput(EventHandler eventHandler) {
     return true;
   }
 

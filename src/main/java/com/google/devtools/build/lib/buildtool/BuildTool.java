@@ -29,6 +29,7 @@ import com.google.devtools.build.lib.buildtool.buildevent.BuildStartingEvent;
 import com.google.devtools.build.lib.buildtool.buildevent.TestFilteringCompleteEvent;
 import com.google.devtools.build.lib.cmdline.TargetParsingException;
 import com.google.devtools.build.lib.collect.nestedset.NestedSet;
+import com.google.devtools.build.lib.events.Event;
 import com.google.devtools.build.lib.events.Reporter;
 import com.google.devtools.build.lib.packages.InputFile;
 import com.google.devtools.build.lib.packages.License;
@@ -150,10 +151,10 @@ public class BuildTool {
 
       // Create the build configurations.
       if (!request.getMultiCpus().isEmpty()) {
-        getReporter().warn(null,
+        getReporter().handle(Event.warn(
             "The --experimental_multi_cpu option is _very_ experimental and only intended for "
             + "internal testing at this time. If you do not work on the build tool, then you "
-            + "should stop now!");
+            + "should stop now!"));
         if (!"build".equals(request.getCommandName()) && !"test".equals(request.getCommandName())) {
           throw new InvalidConfigurationException(
               "The experimental setting to select multiple CPUs is only supported for 'build' and "
@@ -224,7 +225,7 @@ public class BuildTool {
 
   private void reportExceptionError(Exception e) {
     if (e.getMessage() != null) {
-      getReporter().error(null, e.getMessage());
+      getReporter().handle(Event.error(e.getMessage()));
     }
   }
   /**
@@ -266,7 +267,7 @@ public class BuildTool {
       exitCode = ExitCode.BUILD_FAILURE;
     } catch (InterruptedException e) {
       exitCode = ExitCode.INTERRUPTED;
-      getReporter().error(null, "build interrupted");
+      getReporter().handle(Event.error("build interrupted"));
       getEventBus().post(new BuildInterruptedEvent());
     } catch (TargetParsingException | LoadingFailedException | ViewCreationFailedException e) {
       exitCode = ExitCode.PARSING_FAILURE;
@@ -351,12 +352,12 @@ public class BuildTool {
       throws InterruptedException, ViewCreationFailedException {
     Stopwatch timer = Stopwatch.createStarted();
     if (!request.getBuildOptions().performAnalysisPhase) {
-      getReporter().progress(null, "Loading complete.");
+      getReporter().handle(Event.progress("Loading complete."));
       LOG.info("No analysis requested, so finished");
       return AnalysisResult.EMPTY;
     }
 
-    getReporter().progress(null, "Loading complete.  Analyzing...");
+    getReporter().handle(Event.progress("Loading complete.  Analyzing..."));
     Profiler.instance().markPhase(ProfilePhase.ANALYZE);
 
     AnalysisResult analysisResult = getView().update(request.getId(), loadingResult, configurations,
@@ -376,9 +377,11 @@ public class BuildTool {
         if (!targetConfiguration.canRunOn(runtime.getHostMachineSpecification())) {
           // We say "may fail", because they might be interpreted programs.  Still,
           // not the most sensible use-case.
-          getReporter().warn(null, "Your system, " + runtime.getHostMachineSpecification() + ", is "
-              + "not known to be capable of running binaries for "
-              + targetConfiguration.getMnemonic());
+          getReporter().handle(
+              Event.warn("Your system, "
+                  + runtime.getHostMachineSpecification() + ", is "
+                  + "not known to be capable of running binaries for "
+                  + targetConfiguration.getMnemonic()));
         }
       }
     }
@@ -435,17 +438,17 @@ public class BuildTool {
       int testCount = targetsToTest.size();
       int targetCount = targetsToBuild.size() - testCount;
       if (targetCount == 0) {
-        getReporter().info(null, "Found "
-            + testCount + (testCount == 1 ? " test target..." : " test targets..."));
+        getReporter().handle(Event.info("Found "
+            + testCount + (testCount == 1 ? " test target..." : " test targets...")));
       } else {
-        getReporter().info(null, "Found "
+        getReporter().handle(Event.info("Found "
             + targetCount + (targetCount == 1 ? " target and " : " targets and ")
-            + testCount + (testCount == 1 ? " test target..." : " test targets..."));
+            + testCount + (testCount == 1 ? " test target..." : " test targets...")));
       }
     } else {
       int targetCount = targetsToBuild.size();
-      getReporter().info(null, "Found "
-          + targetCount + (targetCount == 1 ? " target..." : " targets..."));
+      getReporter().handle(Event.info("Found "
+          + targetCount + (targetCount == 1 ? " target..." : " targets...")));
     }
   }
 
@@ -458,7 +461,7 @@ public class BuildTool {
   @VisibleForTesting
   public void validateOptions(BuildRequest request) throws InvalidConfigurationException {
     for (String issue : request.validateOptions()) {
-      getReporter().warn(null, issue);
+      getReporter().handle(Event.warn(issue));
     }
   }
 

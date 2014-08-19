@@ -23,6 +23,7 @@ import com.google.devtools.build.lib.blaze.BlazeModule;
 import com.google.devtools.build.lib.blaze.BlazeRuntime;
 import com.google.devtools.build.lib.blaze.BlazeVersionInfo;
 import com.google.devtools.build.lib.blaze.Command;
+import com.google.devtools.build.lib.events.Event;
 import com.google.devtools.build.lib.util.ExitCode;
 import com.google.devtools.build.lib.util.io.OutErr;
 import com.google.devtools.build.lib.view.ConfiguredRuleClassProvider;
@@ -133,7 +134,7 @@ public final class HelpCommand implements BlazeCommand {
       return ExitCode.SUCCESS;
     }
     if (options.getResidue().size() != 1) {
-      runtime.getReporter().error(null, "You must specify exactly one command");
+      runtime.getReporter().handle(Event.error("You must specify exactly one command"));
       return ExitCode.COMMAND_LINE_ERROR;
     }
     String helpSubject = options.getResidue().get(0);
@@ -158,8 +159,8 @@ public final class HelpCommand implements BlazeCommand {
         outErr.printOut(BlazeRuleHelpPrinter.getRuleDoc(helpSubject, provider));
         return ExitCode.SUCCESS;
       } else {
-        runtime.getReporter().error(
-            null, "'" + helpSubject + "' is neither a command nor a build rule");
+        runtime.getReporter().handle(Event.error(
+            null, "'" + helpSubject + "' is neither a command nor a build rule"));
         return ExitCode.COMMAND_LINE_ERROR;
       }
     }

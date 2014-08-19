@@ -15,7 +15,8 @@ package com.google.devtools.build.lib.skyframe;
 
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.Iterables;
-import com.google.devtools.build.lib.events.ErrorEventListener;
+import com.google.devtools.build.lib.events.Event;
+import com.google.devtools.build.lib.events.EventHandler;
 import com.google.devtools.build.lib.packages.NoSuchThingException;
 import com.google.devtools.build.lib.packages.Target;
 import com.google.devtools.build.lib.pkgcache.LoadedPackageProvider;
@@ -49,21 +50,21 @@ abstract class AbstractLabelCycleReporter implements CyclesReporter.SingleCycleR
 
   @Override
   public boolean maybeReportCycle(SkyKey topLevelKey, CycleInfo cycleInfo,
-      boolean alreadyReported, @Nullable ErrorEventListener listener) {
+      boolean alreadyReported, @Nullable EventHandler eventHandler) {
     if (!canReportCycle(topLevelKey, cycleInfo)) {
       return false;
     }
 
-    if (listener == null) {
+    if (eventHandler == null) {
       return true;
     }
 
     if (alreadyReported) {
       Label label = getLabel(topLevelKey);
       Target target = getTargetForLabel(label);
-      listener.error(target.getLocation(),
+      eventHandler.handle(Event.error(target.getLocation(),
           "in " + target.getTargetKind() + " " + label +
-              ": cycle in dependency graph: target depends on an already-reported cycle");
+              ": cycle in dependency graph: target depends on an already-reported cycle"));
     } else {
       StringBuilder cycleMessage = new StringBuilder("cycle in dependency graph:");
       ImmutableList<SkyKey> pathToCycle = cycleInfo.getPathToCycle();
@@ -96,8 +97,9 @@ abstract class AbstractLabelCycleReporter implements CyclesReporter.SingleCycleR
 
       Label label = getLabel(cycleValue);
       Target target = getTargetForLabel(label);
-      listener.error(target.getLocation(), "in " + target.getTargetKind() + " " + label
-          + ": " + cycleMessage.toString());
+      eventHandler.handle(
+          Event.error(target.getLocation(), "in " + target.getTargetKind() + " " + label
+              + ": " + cycleMessage.toString()));
     }
 
     return true;

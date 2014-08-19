@@ -19,7 +19,8 @@ import com.google.common.cache.CacheBuilder;
 import com.google.common.collect.HashBasedTable;
 import com.google.common.collect.ImmutableSet;
 import com.google.common.collect.Table;
-import com.google.devtools.build.lib.events.ErrorEventListener;
+import com.google.devtools.build.lib.events.Event;
+import com.google.devtools.build.lib.events.EventHandler;
 import com.google.devtools.build.lib.packages.AggregatingAttributeMapper;
 import com.google.devtools.build.lib.packages.Attribute.ConfigurationTransition;
 import com.google.devtools.build.lib.packages.NoSuchThingException;
@@ -60,7 +61,7 @@ public class BazelConfigurationCollection implements ConfigurationCollectionFact
       PackageProviderForConfigurations loadedPackageProvider,
       BuildOptions buildOptions,
       Map<String, String> clientEnv,
-      ErrorEventListener errorEventListener,
+      EventHandler errorEventListener,
       boolean performSanityCheck) throws InvalidConfigurationException {
 
     // We cache all the related configurations for this target configuration in a cache that is
@@ -133,9 +134,9 @@ public class BazelConfigurationCollection implements ConfigurationCollectionFact
   @Nullable
   private BuildConfiguration getHostConfigurationFromRequest(
       ConfigurationFactory configurationFactory,
-      PackageProviderForConfigurations loadedPackageProvider, Map<String, String> clientEnv, 
+      PackageProviderForConfigurations loadedPackageProvider, Map<String, String> clientEnv,
       BuildConfiguration requestConfig, BuildOptions buildOptions,
-      ErrorEventListener errorEventListener, MachineSpecification hostMachineSpecification)
+      EventHandler errorEventListener, MachineSpecification hostMachineSpecification)
       throws InvalidConfigurationException {
     BuildConfiguration.Options commonOptions = buildOptions.get(BuildConfiguration.Options.class);
     if (!commonOptions.useDistinctHostConfiguration) {
@@ -153,8 +154,9 @@ public class BazelConfigurationCollection implements ConfigurationCollectionFact
       }
       // Check that the user's inputs are sensible. If they are not, retry with a default value.
       if (!hostConfig.canRunOn(hostMachineSpecification)) {
-        errorEventListener.warn(null, "The host configuration appears to contain settings that "
-            + "are incompatible with the machine the build is run on.");
+        errorEventListener.handle(
+            Event.warn("The host configuration appears to contain settings that "
+                + "are incompatible with the machine the build is run on."));
         // TODO(bazel-team): Unfortunately, we don't have distinct options for the host
         // configuration, so for now we fall back to a known configuration. We need to add a full
         // set of options to control the host configuration and then remove the fallback and fail

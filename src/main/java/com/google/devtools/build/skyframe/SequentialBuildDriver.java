@@ -14,7 +14,7 @@
 package com.google.devtools.build.skyframe;
 
 import com.google.common.base.Preconditions;
-import com.google.devtools.build.lib.events.ErrorEventListener;
+import com.google.devtools.build.lib.events.EventHandler;
 
 /**
  * A driver for an auto-updating graph which operates over monotonically increasing integer
@@ -30,7 +30,7 @@ public class SequentialBuildDriver {
   }
 
   public <T extends SkyValue> EvaluationResult<T> evaluate(
-      Iterable<SkyKey> roots, boolean keepGoing, int numThreads, ErrorEventListener reporter)
+      Iterable<SkyKey> roots, boolean keepGoing, int numThreads, EventHandler reporter)
       throws InterruptedException {
     try {
       return memoizingEvaluator.evaluate(roots, curVersion, keepGoing, numThreads, reporter);

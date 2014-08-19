@@ -23,7 +23,8 @@ import com.google.devtools.build.lib.actions.extra.ExtraActionInfo;
 import com.google.devtools.build.lib.collect.CollectionUtils;
 import com.google.devtools.build.lib.concurrent.ThreadSafety.Immutable;
 import com.google.devtools.build.lib.concurrent.ThreadSafety.ThreadSafe;
-import com.google.devtools.build.lib.events.ErrorEventListener;
+import com.google.devtools.build.lib.events.Event;
+import com.google.devtools.build.lib.events.EventHandler;
 import com.google.devtools.build.lib.events.Location;
 import com.google.devtools.build.lib.pkgcache.PackageUpToDateChecker;
 import com.google.devtools.build.lib.syntax.Label;
@@ -258,23 +259,23 @@ public abstract class AbstractAction implements Action {
    * If the action might read directories as inputs in a way that is unsound wrt dependency
    * checking, this method must be called.
    */
-  protected void checkInputsForDirectories(ErrorEventListener listener,
+  protected void checkInputsForDirectories(EventHandler eventHandler,
                                            MetadataHandler metadataHandler) {
     // Report "directory dependency checking" warning only for non-generated directories (generated
     // ones will be reported earlier).
     for (Artifact input : getMandatoryInputs()) {
       // Assume that if the file did not exist, we would not have gotten here.
       if (input.isSourceArtifact() && !metadataHandler.isRegularFile(input)) {
-        listener.warn(getOwner().getLocation(), "input '"
+        eventHandler.handle(Event.warn(getOwner().getLocation(), "input '"
             + input.prettyPrint() + "' to " + getOwner().getLabel()
-            + " is a directory; dependency checking of directories is unsound");
+            + " is a directory; dependency checking of directories is unsound"));
       }
     }
   }
 
   @Override
-  public boolean shouldShowOutput(ErrorEventListener listener) {
-    return listener.showOutput(Label.print(getOwner().getLabel()));
+  public boolean shouldShowOutput(EventHandler eventHandler) {
+    return eventHandler.showOutput(Label.print(getOwner().getLabel()));
   }
 
   @Override
@@ -285,17 +286,17 @@ public abstract class AbstractAction implements Action {
   /**
    * If the action might create directories as outputs this method must be called.
    */
-  protected void checkOutputsForDirectories(ErrorEventListener listener) {
+  protected void checkOutputsForDirectories(EventHandler eventHandler) {
     for (Artifact output : getOutputs()) {
       Path path = output.getPath();
       String ownerString = getOwner().getLabel() == null
           ? "unknown provenance" : getOwner().getLabel().toString();
 
       if (path.isDirectory()) {
-        if (shouldShowOutput(listener)) {
-          listener.warn(getOwner().getLocation(), "output '"
+        if (shouldShowOutput(eventHandler)) {
+          eventHandler.handle(Event.warn(getOwner().getLocation(), "output '"
               + output.prettyPrint() + "' of " + ownerString
-              + " is a directory; dependency checking of directories is unsound");
+              + " is a directory; dependency checking of directories is unsound"));
         }
       }
     }

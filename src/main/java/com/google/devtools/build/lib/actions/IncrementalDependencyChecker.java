@@ -24,7 +24,8 @@ import com.google.devtools.build.lib.actions.cache.ArtifactMetadataCache;
 import com.google.devtools.build.lib.actions.cache.MetadataHandler;
 import com.google.devtools.build.lib.concurrent.ThreadSafety.ThreadCompatible;
 import com.google.devtools.build.lib.concurrent.ThreadSafety.ThreadSafe;
-import com.google.devtools.build.lib.events.ErrorEventListener;
+import com.google.devtools.build.lib.events.Event;
+import com.google.devtools.build.lib.events.EventHandler;
 import com.google.devtools.build.lib.pkgcache.PackageUpToDateChecker;
 import com.google.devtools.build.lib.vfs.ModifiedFileSet;
 import com.google.devtools.build.lib.vfs.PathFragment;
@@ -118,7 +119,7 @@ public class IncrementalDependencyChecker extends DatabaseDependencyChecker {
   @Override
   public void init(Set<Artifact> topLevelArtifacts, Set<Artifact> builtArtifacts,
       DependentActionGraph forwardGraph, Executor executor, ModifiedFileSet modified,
-      ErrorEventListener listener)
+      EventHandler listener)
           throws InterruptedException {
     super.init(topLevelArtifacts, builtArtifacts, forwardGraph, executor, modified, listener);
     // We dirty all actions that were not successfully executed last build.
@@ -139,10 +140,10 @@ public class IncrementalDependencyChecker extends DatabaseDependencyChecker {
       unsuccessfulActions =
           " and " + dirtyActions.size() + " actions that were not successfully executed last run";
     }
-    listener.info(null, String.format("Found %d modified" +
+    listener.handle(Event.info(String.format("Found %d modified" +
         unreadFiles + " files (using %s dependency graph)" + unsuccessfulActions,
         changedArtifacts.size() - artifactsKnownBad.size(),
-        executionGraph != dependencyGraph ? "pruned" : "full"));
+        executionGraph != dependencyGraph ? "pruned" : "full")));
     for (Artifact artifact : changedArtifacts) {
       markDirty(actionGraph.getGeneratingAction(artifact));
       for (DependentAction dependency :

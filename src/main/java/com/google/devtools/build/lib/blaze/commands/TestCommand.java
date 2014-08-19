@@ -26,6 +26,7 @@ import com.google.devtools.build.lib.blaze.TestResultAnalyzer;
 import com.google.devtools.build.lib.blaze.TestResultNotifier;
 import com.google.devtools.build.lib.buildtool.BuildRequest;
 import com.google.devtools.build.lib.buildtool.BuildResult;
+import com.google.devtools.build.lib.events.Event;
 import com.google.devtools.build.lib.exec.ExecutionOptions;
 import com.google.devtools.build.lib.exec.TestStrategy;
 import com.google.devtools.build.lib.exec.TestStrategy.TestOutputFormat;
@@ -59,9 +60,9 @@ public class TestCommand implements BlazeCommand {
     TestOutputFormat testOutput = optionsParser.getOptions(ExecutionOptions.class).testOutput;
 
     if (testOutput == TestStrategy.TestOutputFormat.STREAMED) {
-      runtime.getReporter().warn(null,
+      runtime.getReporter().handle(Event.warn(
           "Streamed test output requested so all tests will be run locally, without sharding, " +
-           "one at a time");
+           "one at a time"));
       try {
         optionsParser.parse(OptionPriority.SOFTWARE_REQUIREMENT,
             "streamed output requires locally run tests, without sharding",
@@ -102,7 +103,7 @@ public class TestCommand implements BlazeCommand {
     if (request.getBuildOptions().compileOnly) {
       String message =  "The '" + getClass().getAnnotation(Command.class).name() +
                         "' command is incompatible with the --compile_only option";
-      runtime.getReporter().error(null, message);
+      runtime.getReporter().handle(Event.error(message));
       return ExitCode.COMMAND_LINE_ERROR;
     }
     request.setRunTests();
@@ -116,14 +117,14 @@ public class TestCommand implements BlazeCommand {
       // This can happen if there were errors in the target parsing or loading phase
       // (original exitcode=BUILD_FAILURE) or if there weren't but --noanalyze was given
       // (original exitcode=SUCCESS).
-      runtime.getReporter().error(null, "Couldn't start the build. Unable to run tests");
+      runtime.getReporter().handle(Event.error("Couldn't start the build. Unable to run tests"));
       return buildResult.getSuccess() ? ExitCode.PARSING_FAILURE : buildResult.getExitCondition();
     }
     // TODO(bazel-team): the check above shadows NO_TESTS_FOUND, but switching the conditions breaks
     // more tests
     if (testTargets.isEmpty()) {
-      runtime.getReporter().error(
-          null, "No test targets were found, yet testing was requested");
+      runtime.getReporter().handle(Event.error(
+          null, "No test targets were found, yet testing was requested"));
       return buildResult.getSuccess() ? ExitCode.NO_TESTS_FOUND : buildResult.getExitCondition();
     }
 

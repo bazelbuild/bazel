@@ -14,7 +14,7 @@
 package com.google.devtools.build.lib.query2;
 
 import com.google.common.collect.ImmutableSet;
-import com.google.devtools.build.lib.events.ErrorEventListener;
+import com.google.devtools.build.lib.events.EventHandler;
 import com.google.devtools.build.lib.packages.Target;
 import com.google.devtools.build.lib.pkgcache.PackageProvider;
 import com.google.devtools.build.lib.pkgcache.TargetPatternEvaluator;
@@ -36,8 +36,8 @@ public final class SkyframeQueryEnvironment extends BlazeQueryEnvironment {
   public SkyframeQueryEnvironment(
       TransitivePackageLoader transitivePackageLoader, PackageProvider packageProvider,
       TargetPatternEvaluator targetPatternEvaluator, boolean keepGoing, int loadingPhaseThreads,
-      ErrorEventListener listener, Set<Setting> settings, Iterable<QueryFunction> functions) {
-    super(packageProvider, targetPatternEvaluator, keepGoing, loadingPhaseThreads, listener,
+      EventHandler eventHandler, Set<Setting> settings, Iterable<QueryFunction> functions) {
+    super(packageProvider, targetPatternEvaluator, keepGoing, loadingPhaseThreads, eventHandler,
         settings, functions);
     this.transitivePackageLoader = transitivePackageLoader;
   }
@@ -48,7 +48,7 @@ public final class SkyframeQueryEnvironment extends BlazeQueryEnvironment {
       // Only do the full visitation if "maxDepth" is large enough. Otherwise, the benefits of
       // preloading will be outweighed by the cost of doing more work than necessary.
       try {
-        transitivePackageLoader.sync(listener, targets, ImmutableSet.<Label>of(), keepGoing,
+        transitivePackageLoader.sync(eventHandler, targets, ImmutableSet.<Label>of(), keepGoing,
             loadingPhaseThreads, -1);
       } catch (InterruptedException e) {
         throw new QueryException("interrupted");

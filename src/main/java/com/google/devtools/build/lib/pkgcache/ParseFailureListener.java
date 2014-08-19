@@ -15,11 +15,11 @@
 package com.google.devtools.build.lib.pkgcache;
 
 import com.google.common.eventbus.EventBus;
-import com.google.devtools.build.lib.events.ErrorEventListener;
+import com.google.devtools.build.lib.events.EventHandler;
 
 /**
  * Represents a listener which reports parse errors to the underlying
- * {@link ErrorEventListener} and {@link EventBus} (if non-null).
+ * {@link EventHandler} and {@link EventBus} (if non-null).
  */
 public interface ParseFailureListener {
 

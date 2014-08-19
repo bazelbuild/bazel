@@ -18,7 +18,7 @@ import com.google.devtools.build.lib.actions.ActionCacheChecker.DepcheckerListen
 import com.google.devtools.build.lib.actions.ActionCacheChecker.Token;
 import com.google.devtools.build.lib.actions.cache.MetadataHandler;
 import com.google.devtools.build.lib.concurrent.ThreadSafety.ThreadCompatible;
-import com.google.devtools.build.lib.events.ErrorEventListener;
+import com.google.devtools.build.lib.events.EventHandler;
 import com.google.devtools.build.lib.vfs.ModifiedFileSet;
 
 import java.io.IOException;
@@ -42,11 +42,11 @@ public interface DependencyChecker {
    *     passed down to the execute() method of any Action executed during
    *     this build.
    * @param modified the modified source files.
-   * @param listener the error listener.
+   * @param eventHandler the error eventHandler.
    */
   void init(Set<Artifact> topLevelArtifacts, Set<Artifact> builtArtifacts,
       DependentActionGraph forwardGraph, Executor executor, ModifiedFileSet modified,
-      ErrorEventListener listener) throws InterruptedException;
+      EventHandler eventHandler) throws InterruptedException;
 
   /**
    * Returns a forward action graph suitable for builder execution. This may

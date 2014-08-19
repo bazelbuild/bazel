@@ -24,6 +24,7 @@ import com.google.devtools.build.lib.actions.AlreadyReportedActionExecutionExcep
 import com.google.devtools.build.lib.actions.Artifact;
 import com.google.devtools.build.lib.actions.MissingInputFileException;
 import com.google.devtools.build.lib.actions.NotifyOnActionCacheHit;
+import com.google.devtools.build.lib.events.Event;
 import com.google.devtools.build.lib.syntax.Label;
 import com.google.devtools.build.lib.util.Pair;
 import com.google.devtools.build.lib.util.io.TimestampGranularityMonitor;
@@ -231,8 +232,8 @@ public class ActionExecutionFunction implements SkyFunction {
 
     if (missingCount > 0) {
       for (Label missingInput : rootCauses.build()) {
-        env.getListener().error(action.getOwner().getLocation(), String.format(
-            "%s: missing input file '%s'", action.getOwner().getLabel(), missingInput));
+        env.getListener().handle(Event.error(action.getOwner().getLocation(), String.format(
+            "%s: missing input file '%s'", action.getOwner().getLabel(), missingInput)));
       }
       throw new ActionExecutionException(missingCount + " input file(s) do not exist", action,
           rootCauses.build(), /*catastrophe=*/false);

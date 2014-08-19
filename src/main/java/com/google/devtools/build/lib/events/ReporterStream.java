@@ -23,10 +23,10 @@ import java.io.OutputStream;
  */
 public final class ReporterStream extends OutputStream {
 
-  private final ErrorEventListener reporter;
+  private final EventHandler reporter;
   private final EventKind eventKind;
 
-  public ReporterStream(ErrorEventListener reporter, EventKind eventKind) {
+  public ReporterStream(EventHandler reporter, EventKind eventKind) {
     this.reporter = reporter;
     this.eventKind = eventKind;
   }
@@ -43,16 +43,16 @@ public final class ReporterStream extends OutputStream {
 
   @Override
   public void write(int b) {
-    reporter.report(eventKind, null, new byte[] { (byte) b });
+    reporter.handle(new Event(eventKind, null, new byte[] { (byte) b }));
   }
 
   @Override
   public void write(byte[] bytes) {
-    reporter.report(eventKind, null, bytes);
+    reporter.handle(new Event(eventKind, null, bytes));
   }
 
   @Override
   public void write(byte[] bytes, int offset, int len) {
-    reporter.report(eventKind, null, new String(bytes, offset, len, ISO_8859_1));
+    reporter.handle(new Event(eventKind, null, new String(bytes, offset, len, ISO_8859_1)));
   }
 }

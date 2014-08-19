@@ -21,7 +21,8 @@ import com.google.common.collect.Iterables;
 import com.google.common.collect.Multimap;
 import com.google.common.collect.Multimaps;
 import com.google.devtools.build.lib.collect.nestedset.NestedSetBuilder;
-import com.google.devtools.build.lib.events.ErrorEventListener;
+import com.google.devtools.build.lib.events.Event;
+import com.google.devtools.build.lib.events.EventHandler;
 import com.google.devtools.build.lib.packages.Package;
 import com.google.devtools.build.lib.packages.Target;
 import com.google.devtools.build.lib.pkgcache.TransitivePackageLoader;
@@ -65,7 +66,7 @@ final class SkyframeLabelVisitor implements TransitivePackageLoader {
   }
 
   @Override
-  public boolean sync(ErrorEventListener listener, Set<Target> targetsToVisit,
+  public boolean sync(EventHandler eventHandler, Set<Target> targetsToVisit,
       Set<Label> labelsToVisit, boolean keepGoing, int parallelThreads, int maxDepth)
       throws InterruptedException {
     rootCauses.clear();
@@ -89,14 +90,14 @@ final class SkyframeLabelVisitor implements TransitivePackageLoader {
       SkyKey topLevel = error.getKey();
       Label topLevelLabel = (Label) topLevel.argument();
       if (!Iterables.isEmpty(errorInfo.getCycleInfo())) {
-        skyframeCyclesReporter.get().reportCycles(errorInfo.getCycleInfo(), topLevel, listener);
-        errorAboutLoadingFailure(topLevelLabel, null, listener);
+        skyframeCyclesReporter.get().reportCycles(errorInfo.getCycleInfo(), topLevel, eventHandler);
+        errorAboutLoadingFailure(topLevelLabel, null, eventHandler);
       } else if (isDirectErrorFromTopLevelLabel(topLevelLabel, labelsToVisit, errorInfo)) {
         // An error caused by a non-top-level label has already been reported during error
         // bubbling but an error caused by the top-level non-target label itself hasn't been
         // reported yet. Note that errors from top-level targets have already been reported
         // during target parsing.
-        errorAboutLoadingFailure(topLevelLabel, errorInfo.getException(), listener);
+        errorAboutLoadingFailure(topLevelLabel, errorInfo.getException(), eventHandler);
       }
       return false;
     }
@@ -107,7 +108,7 @@ final class SkyframeLabelVisitor implements TransitivePackageLoader {
       Preconditions.checkState(key.functionName().equals(SkyFunctions.TRANSITIVE_TARGET), errorEntry);
       Label topLevelLabel = (Label) key.argument();
       if (!Iterables.isEmpty(errorInfo.getCycleInfo())) {
-        skyframeCyclesReporter.get().reportCycles(errorInfo.getCycleInfo(), key, listener);
+        skyframeCyclesReporter.get().reportCycles(errorInfo.getCycleInfo(), key, eventHandler);
         for (Label rootCause : getRootCausesOfCycles(topLevelLabel, errorInfo.getCycleInfo())) {
           rootCauses.put(topLevelLabel, rootCause);
         }
@@ -117,9 +118,9 @@ final class SkyframeLabelVisitor implements TransitivePackageLoader {
         // errors directly coming from top-level labels have not been reported yet.
         //
         // See the note in the --nokeep_going case above.
-        listener.error(null, errorInfo.getException().getMessage());
+        eventHandler.handle(Event.error(errorInfo.getException().getMessage()));
       }
-      warnAboutLoadingFailure(topLevelLabel, listener);
+      warnAboutLoadingFailure(topLevelLabel, eventHandler);
       for (SkyKey badKey : errorInfo.getRootCauses()) {
         rootCauses.put(topLevelLabel, (Label) badKey.argument());
       }
@@ -131,7 +132,7 @@ final class SkyframeLabelVisitor implements TransitivePackageLoader {
         for (Label rootCause : topLevelTransitiveTargetValue.getTransitiveRootCauses()) {
           rootCauses.put(topLevelLabel, rootCause);
         }
-        warnAboutLoadingFailure(topLevelLabel, listener);
+        warnAboutLoadingFailure(topLevelLabel, eventHandler);
       }
     }
     return false;
@@ -156,18 +157,18 @@ final class SkyframeLabelVisitor implements TransitivePackageLoader {
   }
 
   private static void errorAboutLoadingFailure(Label topLevelLabel, @Nullable Throwable throwable,
-      ErrorEventListener listener) {
-    listener.error(null,
+      EventHandler eventHandler) {
+    eventHandler.handle(Event.error(
         "Loading of target '" + topLevelLabel + "' failed; build aborted" +
-            (throwable == null ? "" : ": " + throwable.getMessage()));
+            (throwable == null ? "" : ": " + throwable.getMessage())));
   }
 
-  private static void warnAboutLoadingFailure(Label label, ErrorEventListener listener) {
-    listener.warn(null,
+  private static void warnAboutLoadingFailure(Label label, EventHandler eventHandler) {
+    eventHandler.handle(Event.warn(
         // TODO(bazel-team): We use 'analyzing' here so that we print the same message as legacy
         // Blaze. Once we get rid of legacy we should be able to change to 'loading' or
         // similar.
-        "errors encountered while analyzing target '" + label + "': it will not be built");
+        "errors encountered while analyzing target '" + label + "': it will not be built"));
   }
 
   private static Set<Label> getRootCausesOfCycles(Label labelToLoad, Iterable<CycleInfo> cycles) {

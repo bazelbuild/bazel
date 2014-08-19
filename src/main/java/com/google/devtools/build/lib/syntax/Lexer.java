@@ -15,7 +15,8 @@
 package com.google.devtools.build.lib.syntax;
 
 import com.google.devtools.build.lib.concurrent.ThreadSafety.Immutable;
-import com.google.devtools.build.lib.events.ErrorEventListener;
+import com.google.devtools.build.lib.events.Event;
+import com.google.devtools.build.lib.events.EventHandler;
 import com.google.devtools.build.lib.events.Location;
 import com.google.devtools.build.lib.util.Pair;
 import com.google.devtools.build.lib.vfs.Path;
@@ -38,7 +39,7 @@ import java.util.Stack;
  */
 public final class Lexer {
 
-  private final ErrorEventListener listener;
+  private final EventHandler eventHandler;
 
   // Input buffer and position
   private char[] buffer;
@@ -79,11 +80,11 @@ public final class Lexer {
    * Constructs a lexer which tokenizes the contents of the specified
    * InputBuffer. Any errors during lexing are reported on "handler".
    */
-  public Lexer(ParserInputSource input, ErrorEventListener listener, boolean parsePython) {
+  public Lexer(ParserInputSource input, EventHandler eventHandler, boolean parsePython) {
     this.buffer = input.getContent();
     this.pos = 0;
     this.parsePython = parsePython;
-    this.listener = listener;
+    this.eventHandler = eventHandler;
     this.locationInfo = new LocationInfo(input.getPath(),
         LineNumberTable.create(buffer, input.getPath()));
 
@@ -91,8 +92,8 @@ public final class Lexer {
     tokenize();
   }
 
-  public Lexer(ParserInputSource input, ErrorEventListener listener) {
-    this(input, listener, false);
+  public Lexer(ParserInputSource input, EventHandler eventHandler) {
+    this(input, eventHandler, false);
   }
 
   /**
@@ -133,7 +134,7 @@ public final class Lexer {
 
   private void error(String message, int start, int end)  {
     this.containsErrors = true;
-    listener.error(createLocation(start, end), message);
+    eventHandler.handle(Event.error(createLocation(start, end), message));
   }
 
   Location createLocation(int start, int end) {

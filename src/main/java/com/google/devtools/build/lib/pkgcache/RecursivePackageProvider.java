@@ -13,7 +13,7 @@
 // limitations under the License.
 package com.google.devtools.build.lib.pkgcache;
 
-import com.google.devtools.build.lib.events.ErrorEventListener;
+import com.google.devtools.build.lib.events.EventHandler;
 import com.google.devtools.build.lib.vfs.PathFragment;
 
 import java.util.concurrent.ThreadPoolExecutor;
@@ -42,8 +42,8 @@ public interface RecursivePackageProvider extends PackageProvider {
    * <p>This method guarantees that all BUILD files it returns correspond to valid package names
    * that are not marked as deleted within the current build.
    *
-   * @param listener a listener which should be used to log any errors that occur while scanning
-   *    directories for BUILD files
+   * @param eventHandler an eventHandler which should be used to log any errors that occur while
+   *    scanning directories for BUILD files
    * @param directory a relative, canonical path specifying the directory to search
    * @param useTopLevelExcludes whether to skip a pre-set list of top level directories
    * @param visitorPool the thread pool to use to visit packages in parallel
@@ -51,7 +51,7 @@ public interface RecursivePackageProvider extends PackageProvider {
    *    multiple parallel threads
    * @throws InterruptedException if the calling thread was interrupted.
    */
-  void visitPackageNamesRecursively(ErrorEventListener listener, PathFragment directory,
+  void visitPackageNamesRecursively(EventHandler eventHandler, PathFragment directory,
       boolean useTopLevelExcludes, @Nullable ThreadPoolExecutor visitorPool,
       PathPackageLocator.AcceptsPathFragment observer) throws InterruptedException;
 }

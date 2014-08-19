@@ -19,7 +19,8 @@ import com.google.common.collect.ImmutableSet;
 import com.google.common.collect.Sets;
 import com.google.common.util.concurrent.ThreadFactoryBuilder;
 import com.google.devtools.build.lib.concurrent.AbstractQueueVisitor;
-import com.google.devtools.build.lib.events.ErrorEventListener;
+import com.google.devtools.build.lib.events.Event;
+import com.google.devtools.build.lib.events.EventHandler;
 import com.google.devtools.build.lib.packages.BuildFileNotFoundException;
 import com.google.devtools.build.lib.packages.NoSuchPackageException;
 import com.google.devtools.build.lib.vfs.Dirent;
@@ -142,7 +143,7 @@ public class PathPackageLocator {
    *
    * @param directory The directory to search. It must be a relative
    *    path, free from up-level references.
-   * @param listener a listener which should be used to log any errors that
+   * @param eventHandler a eventHandler which should be used to log any errors that
    *    occur while scanning directories for BUILD files.
    * @param cache file system call cache to be used with the recursive
    *    visitation
@@ -152,7 +153,7 @@ public class PathPackageLocator {
    *    from multiple threads concurrently, and therefore must be thread-safe.
    * @throws InterruptedException if the calling thread was interrupted.
    */
-  public void visitPackageNamesRecursively(PathFragment directory, ErrorEventListener listener,
+  public void visitPackageNamesRecursively(PathFragment directory, EventHandler eventHandler,
       AtomicReference<? extends UnixGlob.FilesystemCalls> cache, Set<String> topLevelExcludes,
       ThreadPoolExecutor packageVisitorPool,
       final AcceptsPathFragment observer) throws InterruptedException {
@@ -161,7 +162,7 @@ public class PathPackageLocator {
     // Label.validatePackageName (or equivalent).  (Furthermore, the PackageCache may consider
     // some of these packages deleted.)
     Preconditions.checkNotNull(directory);
-    Preconditions.checkNotNull(listener);
+    Preconditions.checkNotNull(eventHandler);
     Preconditions.checkArgument(!directory.isAbsolute());
     Preconditions.checkArgument(directory.isNormalized());
 
@@ -172,7 +173,7 @@ public class PathPackageLocator {
           0L, TimeUnit.MILLISECONDS, new LinkedBlockingQueue<Runnable>(),
           new ThreadFactoryBuilder().setNameFormat("visit-packages-recursive-%d").build());
     }
-    PackageNameVisitor visitor = new PackageNameVisitor(listener, cache,
+    PackageNameVisitor visitor = new PackageNameVisitor(eventHandler, cache,
                                                         shutdownOnCompletion, packageVisitorPool) {
       @Override protected void visitPackageName(PathFragment pkgName) {
         observer.accept(pkgName);
@@ -187,13 +188,13 @@ public class PathPackageLocator {
   }
 
   /**
-   * Same as {@link #visitPackageNamesRecursively(PathFragment, ErrorEventListener,
+   * Same as {@link #visitPackageNamesRecursively(PathFragment, EventHandler,
    * UnixGlob.FilesystemCalls, Set, ThreadPoolExecutor, AcceptsPathFragment)}, with an empty set of
    * excludes and the {@link UnixGlob#DEFAULT_SYSCALLS}.
    */
-  void visitPackageNamesRecursively(PathFragment directory, ErrorEventListener listener,
+  void visitPackageNamesRecursively(PathFragment directory, EventHandler eventHandler,
       final AcceptsPathFragment observer) throws InterruptedException {
-    visitPackageNamesRecursively(directory, listener,
+    visitPackageNamesRecursively(directory, eventHandler,
         new AtomicReference<>(UnixGlob.DEFAULT_SYSCALLS),
         ImmutableSet.<String>of(), null, observer);
   }
@@ -210,15 +211,15 @@ public class PathPackageLocator {
   private abstract class PackageNameVisitor extends AbstractQueueVisitor {
     private final Set<Path> visitedDirs = Sets.newConcurrentHashSet();
     private final Set<PathFragment> visitedFrags = Sets.newConcurrentHashSet();
-    private final ErrorEventListener listener;
+    private final EventHandler eventHandler;
     private final AtomicReference<? extends UnixGlob.FilesystemCalls> cache;
 
-    private PackageNameVisitor(ErrorEventListener listener,
+    private PackageNameVisitor(EventHandler eventHandler,
         AtomicReference<? extends UnixGlob.FilesystemCalls> cache,
         boolean shutdownOnCompletion, ThreadPoolExecutor packageVisitorPool) {
       super(packageVisitorPool, shutdownOnCompletion, /*failFast=*/true,
             /*failFastOnInterrupt=*/true);
-      this.listener = listener;
+      this.eventHandler = eventHandler;
       this.cache = cache;
     }
 
@@ -263,8 +264,8 @@ public class PathPackageLocator {
               // that creates a stack dump, we should generate a valid error message.
               // To do this, we pass the error up to the package iterator, so that
               // it can (correctly) stop when it encounters an I/O error.
-              listener.error(null, "I/O error searching '" + directory
-                  + "' for BUILD files: " + e.getMessage());
+              eventHandler.handle(Event.error("I/O error searching '" + directory
+                  + "' for BUILD files: " + e.getMessage()));
             }
           }
         });
@@ -305,13 +306,13 @@ public class PathPackageLocator {
    *                     the path relative to the nearest enclosing workspace.  Relative
    *                     paths are interpreted relative to the client's working directory,
    *                     which may be below the workspace.
-   * @param listener The listener.
+   * @param eventHandler The eventHandler.
    * @param workspace The nearest enclosing package root directory.
    * @param clientWorkingDirectory The client's working directory.
    * @return a list of {@link Path}s.
    */
   public static PathPackageLocator create(List<String> pathElements,
-                                          ErrorEventListener listener,
+                                          EventHandler eventHandler,
                                           Path workspace,
                                           Path clientWorkingDirectory) {
     List<Path> resolvedPaths = new ArrayList<>();
@@ -328,10 +329,11 @@ public class PathPackageLocator {
       Path rootPath = clientWorkingDirectory.getRelative(pathElementFragment);
 
       if (!pathElementFragment.isAbsolute() && !clientWorkingDirectory.equals(workspace)) {
-        listener.warn(null, "The package path element '" + pathElementFragment + "' will be " +
-                            "taken relative to your working directory. You may have intended " +
-                            "to have the path taken relative to your workspace directory. " +
-                            "If so, please use the '" + workspaceWildcard + "' wildcard.");
+        eventHandler.handle(
+            Event.warn("The package path element '" + pathElementFragment + "' will be "
+                + "taken relative to your working directory. You may have intended "
+                + "to have the path taken relative to your workspace directory. "
+                + "If so, please use the '" + workspaceWildcard + "' wildcard."));
       }
 
       if (rootPath.exists()) {

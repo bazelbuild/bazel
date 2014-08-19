@@ -18,7 +18,8 @@ import com.google.common.base.Preconditions;
 import com.google.common.eventbus.EventBus;
 import com.google.common.eventbus.Subscribe;
 import com.google.devtools.build.lib.concurrent.ThreadSafety.ThreadSafe;
-import com.google.devtools.build.lib.events.ErrorEventListener;
+import com.google.devtools.build.lib.events.Event;
+import com.google.devtools.build.lib.events.EventHandler;
 import com.google.devtools.build.lib.util.BlazeClock;
 import com.google.devtools.build.lib.util.Clock;
 import com.google.devtools.build.lib.util.Pair;
@@ -49,7 +50,7 @@ public final class ActionExecutionStatusReporter {
   // Maximum number of lines to output per each status category before truncation.
   private static final int MAX_LINES = 10;
 
-  private final ErrorEventListener listener;
+  private final EventHandler eventHandler;
   private final Executor executor;
   private final EventBus eventBus;
   private final Clock clock;
@@ -61,23 +62,23 @@ public final class ActionExecutionStatusReporter {
   private final Map<ActionMetadata, Pair<String, Long>> actionStatus =
       new ConcurrentHashMap<>(100);
 
-  public static ActionExecutionStatusReporter create(ErrorEventListener listener) {
-    return create(listener, null, null);
+  public static ActionExecutionStatusReporter create(EventHandler eventHandler) {
+    return create(eventHandler, null, null);
   }
 
   @VisibleForTesting
-  static ActionExecutionStatusReporter create(ErrorEventListener listener, Clock clock) {
-    return create(listener, null, null, clock);
+  static ActionExecutionStatusReporter create(EventHandler eventHandler, Clock clock) {
+    return create(eventHandler, null, null, clock);
   }
 
-  public static ActionExecutionStatusReporter create(ErrorEventListener listener,
+  public static ActionExecutionStatusReporter create(EventHandler eventHandler,
       @Nullable Executor executor, @Nullable EventBus eventBus) {
-    return create(listener, executor, eventBus, null);
+    return create(eventHandler, executor, eventBus, null);
   }
 
-  private static ActionExecutionStatusReporter create(ErrorEventListener listener,
+  private static ActionExecutionStatusReporter create(EventHandler eventHandler,
       @Nullable Executor executor, @Nullable EventBus eventBus, @Nullable Clock clock) {
-    ActionExecutionStatusReporter result = new ActionExecutionStatusReporter(listener, executor,
+    ActionExecutionStatusReporter result = new ActionExecutionStatusReporter(eventHandler, executor,
         eventBus, clock == null ? BlazeClock.instance() : clock);
     if (eventBus != null) {
       eventBus.register(result);
@@ -85,9 +86,9 @@ public final class ActionExecutionStatusReporter {
     return result;
   }
 
-  private ActionExecutionStatusReporter(ErrorEventListener listener, @Nullable Executor executor,
+  private ActionExecutionStatusReporter(EventHandler eventHandler, @Nullable Executor executor,
       @Nullable EventBus eventBus, Clock clock) {
-    this.listener = Preconditions.checkNotNull(listener);
+    this.eventHandler = Preconditions.checkNotNull(eventHandler);
     this.executor = executor;
     this.eventBus = eventBus;
     this.clock = Preconditions.checkNotNull(clock);
@@ -217,7 +218,8 @@ public final class ActionExecutionStatusReporter {
     // Defensive copy to ensure thread safety.
     Map<ActionMetadata, Pair<String, Long>> statusMap = new HashMap<>(actionStatus);
     if (statusMap.size() > 0) {
-      listener.progress(null, progressPercentageMessage + getExecutionStatusMessage(statusMap));
+      eventHandler.handle(
+          Event.progress(progressPercentageMessage + getExecutionStatusMessage(statusMap)));
     }
   }
 
@@ -230,7 +232,7 @@ public final class ActionExecutionStatusReporter {
     Map<ActionMetadata, Pair<String, Long>> statusMap = new HashMap<>(actionStatus);
     if (statusMap.size() == 0) {
      // There are no tasks in the queue so there is nothing to report.
-      listener.warn(null, "There are no active jobs - stopping the build");
+      eventHandler.handle(Event.warn("There are no active jobs - stopping the build"));
       return;
     }
     Iterator<ActionMetadata> iterator = statusMap.keySet().iterator();
@@ -241,12 +243,12 @@ public final class ActionExecutionStatusReporter {
       }
     }
     if (statusMap.size() > 0) {
-      listener.warn(null, getExecutionStatusMessage(statusMap)
-          + "\nBuild will be stopped after these tasks terminate");
+      eventHandler.handle(Event.warn(getExecutionStatusMessage(statusMap)
+          + "\nBuild will be stopped after these tasks terminate"));
     } else {
       // It is possible that one or more tasks in "Preparing" state just started being executed.
       // So warn user just in case.
-      listener.warn(null, "Still waiting for unfinished jobs");
+      eventHandler.handle(Event.warn("Still waiting for unfinished jobs"));
     }
   }
 

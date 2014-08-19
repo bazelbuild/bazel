@@ -23,7 +23,7 @@ import com.google.devtools.build.lib.actions.cache.ActionCache;
 import com.google.devtools.build.lib.actions.cache.ArtifactMetadataCache;
 import com.google.devtools.build.lib.actions.cache.MetadataHandler;
 import com.google.devtools.build.lib.concurrent.ThreadSafety.ThreadSafe;
-import com.google.devtools.build.lib.events.ErrorEventListener;
+import com.google.devtools.build.lib.events.EventHandler;
 import com.google.devtools.build.lib.pkgcache.PackageUpToDateChecker;
 import com.google.devtools.build.lib.vfs.ModifiedFileSet;
 import com.google.devtools.build.lib.vfs.PathFragment;
@@ -72,7 +72,7 @@ public class DatabaseDependencyChecker extends ActionCacheChecker implements Dep
   @SuppressWarnings("unused") // Derived classes' implementation may throw.
   public void init(Set<Artifact> topLevelArtifacts, Set<Artifact> builtArtifacts,
       DependentActionGraph forwardGraph, Executor executor, ModifiedFileSet modified,
-      ErrorEventListener listener) throws InterruptedException {
+      EventHandler eventHandler) throws InterruptedException {
     Preconditions.checkState(builtArtifacts == null || builtArtifacts.isEmpty());
     this.dependencyGraph = Preconditions.checkNotNull(forwardGraph);
     this.actionGraph = Preconditions.checkNotNull(forwardGraph.getActionGraph());

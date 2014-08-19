@@ -23,10 +23,10 @@ import com.google.common.collect.Iterables;
 import com.google.common.collect.Lists;
 import com.google.common.collect.Maps;
 import com.google.devtools.build.lib.collect.ImmutableSortedKeyMap;
-import com.google.devtools.build.lib.events.ErrorEventListener;
 import com.google.devtools.build.lib.events.Event;
+import com.google.devtools.build.lib.events.EventHandler;
 import com.google.devtools.build.lib.events.Location;
-import com.google.devtools.build.lib.events.StoredErrorEventListener;
+import com.google.devtools.build.lib.events.StoredEventHandler;
 import com.google.devtools.build.lib.packages.AttributeMap.AcceptsLabelAttribute;
 import com.google.devtools.build.lib.packages.License.DistributionType;
 import com.google.devtools.build.lib.packages.PackageDeserializer.PackageDeserializationException;
@@ -161,7 +161,7 @@ public class Package implements Serializable {
   private License defaultLicense;
   private Set<License.DistributionType> defaultDistributionSet;
 
-  private Set<String> features;
+  private ImmutableSet<String> features;
 
   private ImmutableList<Event> events;
 
@@ -451,7 +451,7 @@ public class Package implements Serializable {
   /**
    * Returns the features specified in the <code>package()</code> declaration.
    */
-  public Collection<String> getFeatures() {
+  public ImmutableSet<String> getFeatures() {
     return features;
   }
 
@@ -929,10 +929,10 @@ public class Package implements Serializable {
      * implementation in PackageFactory.
      */
     void addPackageGroup(String name, Collection<String> packages, Collection<Label> includes,
-        ErrorEventListener listener, Location location)
+        EventHandler eventHandler, Location location)
         throws NameConflictException, Label.SyntaxException {
       PackageGroup group =
-          new PackageGroup(createLabel(name), pkg, packages, includes, listener, location);
+          new PackageGroup(createLabel(name), pkg, packages, includes, eventHandler, location);
       Target existing = targets.get(group.getName());
       if (existing != null) {
         throw nameConflict(group, existing);
@@ -1015,14 +1015,14 @@ public class Package implements Serializable {
       }
     }
 
-    protected P buildInternal(StoredErrorEventListener listener) {
+    protected P buildInternal(StoredEventHandler eventHandler) {
       // Freeze targets and distributions.
       targets = ImmutableMap.copyOf(targets);
       defaultDistributionSet =
           Collections.unmodifiableSet(defaultDistributionSet);
 
       // Build the package.
-      pkg.finishInit(this, listener.getEvents());
+      pkg.finishInit(this, eventHandler.getEvents());
 
       // Return the package and forget the reference (this builder's job is now done).
       P returnablePackage = pkg;
@@ -1044,9 +1044,9 @@ public class Package implements Serializable {
       }
     }
 
-    protected P build(StoredErrorEventListener listener) {
+    protected P build(StoredEventHandler eventHandler) {
       beforeBuildInternal();
-      P pkg = buildInternal(listener);
+      P pkg = buildInternal(eventHandler);
       afterBuildInternal();
       return pkg;
     }

@@ -13,6 +13,7 @@
 // limitations under the License.
 package com.google.devtools.build.lib.events;
 
+import java.beans.EventHandler;
 import java.util.ArrayList;
 import java.util.Collection;
 import java.util.Iterator;
@@ -24,10 +25,12 @@ import java.util.Set;
  * contain not just the original event information but also the location
  * context.
  */
-public class EventCollector extends AbstractEventHandler
-    implements EventHandler, Iterable<Event> {
+public class EventCollector extends AbstractEventHandler implements Iterable<Event> {
 
   private final Collection<Event> collected;
+
+  @Override
+  public boolean showOutput(String tag) { return true; }
 
   /**
    * This collector will collect all events that match the event mask.

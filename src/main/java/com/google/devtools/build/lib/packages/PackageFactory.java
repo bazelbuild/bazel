@@ -21,11 +21,11 @@ import com.google.common.collect.ImmutableList;
 import com.google.common.collect.Iterables;
 import com.google.common.util.concurrent.ThreadFactoryBuilder;
 import com.google.devtools.build.lib.cmdline.LabelValidator;
-import com.google.devtools.build.lib.events.ErrorEventListener;
 import com.google.devtools.build.lib.events.Event;
+import com.google.devtools.build.lib.events.EventHandler;
 import com.google.devtools.build.lib.events.Location;
-import com.google.devtools.build.lib.events.NullErrorEventListener;
-import com.google.devtools.build.lib.events.StoredErrorEventListener;
+import com.google.devtools.build.lib.events.NullEventHandler;
+import com.google.devtools.build.lib.events.StoredEventHandler;
 import com.google.devtools.build.lib.packages.LegacyPackage.LegacyPackageBuilder;
 import com.google.devtools.build.lib.packages.License.DistributionType;
 import com.google.devtools.build.lib.packages.Type.ConversionException;
@@ -286,8 +286,8 @@ public final class PackageFactory {
       List<String> matches = context.pkgBuilder.glob(includes, excludes, excludeDirs);
       return GlobList.captureResults(includes, excludes, matches);
     } catch (IOException expected) {
-      context.listener.error(ast.getLocation(),
-          "error globbing [" + Joiner.on(", ").join(includes) + "]: " + expected.getMessage());
+      context.eventHandler.handle(Event.error(ast.getLocation(),
+              "error globbing [" + Joiner.on(", ").join(includes) + "]: " + expected.getMessage()));
       context.pkgBuilder.setContainsErrors();
       return GlobList.captureResults(includes, excludes, ImmutableList.<String>of());
     } catch (GlobCache.BadGlobException e) {
@@ -432,7 +432,7 @@ public final class PackageFactory {
             License license = Type.LICENSE.convert(args.get(0), "'licenses' operand");
             context.pkgBuilder.setDefaultLicense(license);
           } catch (ConversionException e) {
-            context.listener.error(ast.getLocation(), e.getMessage());
+            context.eventHandler.handle(Event.error(ast.getLocation(), e.getMessage()));
             context.pkgBuilder.setContainsErrors();
           }
           return null;
@@ -453,7 +453,7 @@ public final class PackageFactory {
                 "'distribs' operand");
             context.pkgBuilder.setDefaultDistribs(distribs);
           } catch (ConversionException e) {
-            context.listener.error(ast.getLocation(), e.getMessage());
+            context.eventHandler.handle(Event.error(ast.getLocation(), e.getMessage()));
             context.pkgBuilder.setContainsErrors();
           }
           return null;
@@ -480,7 +480,7 @@ public final class PackageFactory {
                                         context.pkgBuilder.getBuildFileLabel());
 
           try {
-            context.pkgBuilder.addPackageGroup(name, packages, includes, context.listener,
+            context.pkgBuilder.addPackageGroup(name, packages, includes, context.eventHandler,
                 ast.getLocation());
             return null;
           } catch (Label.SyntaxException e) {
@@ -579,7 +579,7 @@ public final class PackageFactory {
     RuleClass ruleClass = getSkylarkOrBuiltInRuleClass(
         ruleClassName, extensionFile, ruleFactory, skylarkRuleFactory);
     Rule rule = RuleFactory.createRule(context.pkgBuilder, ruleClass, kwargs,
-                                       context.listener, ast,
+                                       context.eventHandler, ast,
                                        context.retainASTs,
                                        ast.getLocation());
     context.pkgBuilder.addRule(rule);
@@ -663,7 +663,7 @@ public final class PackageFactory {
       @Nullable BulkPackageLocatorForCrossingSubpackageBoundaries bulkPackageLocator)
       throws InterruptedException {
     profiler.startTask(ProfilerTask.CREATE_PACKAGE, packageName);
-    StoredErrorEventListener localReporter = new StoredErrorEventListener();
+    StoredEventHandler localReporter = new StoredEventHandler();
     GlobCache globCache = createGlobCache(buildFile.getParentDirectory(), packageName, locator);
     try {
       // Run the lexer and parser with a local reporter, so that errors from other threads do not
@@ -714,7 +714,7 @@ public final class PackageFactory {
    */
   @VisibleForTesting
   public LegacyPackage createPackageForTesting(String packageName, Path buildFile,
-      CachingPackageLocator locator, ErrorEventListener listener)
+      CachingPackageLocator locator, EventHandler eventHandler)
           throws NoSuchPackageException, InterruptedException {
     String error = LabelValidator.validatePackageName(packageName);
     if (error != null) {
@@ -723,7 +723,7 @@ public final class PackageFactory {
     }
     LegacyPackage result = createPackage(packageName, buildFile, locator, null,
         ConstantRuleVisibility.PUBLIC, LegacyPackage.EMPTY_BULK_PACKAGE_LOCATOR);
-    Event.replayEventsOn(listener, result.getEvents());
+    Event.replayEventsOn(eventHandler, result.getEvents());
     return result;
   }
 
@@ -734,19 +734,19 @@ public final class PackageFactory {
    * @param packageName the name of the package; used for error messages
    * @param buildFile the path of the BUILD file to read
    * @param locator package locator used in recursive globbing
-   * @param listener the listener on which preprocessing errors/warnings are to
+   * @param eventHandler the eventHandler on which preprocessing errors/warnings are to
    *        be reported
    * @throws NoSuchPackageException if the build file cannot be read
    * @return the preprocessed input, as seen by Blaze's parser
    */
   // Used externally!
   public ParserInputSource getParserInput(String packageName, Path buildFile,
-      CachingPackageLocator locator, ErrorEventListener listener)
+      CachingPackageLocator locator, EventHandler eventHandler)
       throws NoSuchPackageException, InterruptedException {
     return getParserInput(
         packageName, buildFile,
         createGlobCache(buildFile.getParentDirectory(), packageName, locator),
-        listener).result;
+        eventHandler).result;
   }
 
   private GlobCache createGlobCache(Path packageDirectory, String packageName,
@@ -759,13 +759,13 @@ public final class PackageFactory {
    * to inject a glob cache that gets populated during preprocessing.
    */
   private Preprocessor.Result getParserInput(
-      String packageName, Path buildFile, GlobCache globCache, ErrorEventListener listener)
+      String packageName, Path buildFile, GlobCache globCache, EventHandler eventHandler)
           throws InterruptedException {
     ParserInputSource inputSource;
     try {
       inputSource = ParserInputSource.create(buildFile);
     } catch (IOException e) {
-      listener.error(Location.fromFile(buildFile), e.getMessage());
+      eventHandler.handle(Event.error(Location.fromFile(buildFile), e.getMessage()));
       return Preprocessor.Result.transientError(buildFile);
     }
 
@@ -775,11 +775,11 @@ public final class PackageFactory {
     }
 
     try {
-      return preprocessor.preprocess(inputSource, packageName, globCache, listener,
+      return preprocessor.preprocess(inputSource, packageName, globCache, eventHandler,
                                             globalEnv, ruleFactory.getRuleClassNames());
     } catch (IOException e) {
-      listener.error(Location.fromFile(buildFile),
-                     "preprocessing failed: " + e.getMessage());
+      eventHandler.handle(Event.error(Location.fromFile(buildFile),
+                     "preprocessing failed: " + e.getMessage()));
       return Preprocessor.Result.transientError(buildFile);
     }
   }
@@ -798,13 +798,13 @@ public final class PackageFactory {
   public static class PackageContext {
 
     final LegacyPackage.LegacyPackageBuilder pkgBuilder;
-    final ErrorEventListener listener;
+    final EventHandler eventHandler;
     final boolean retainASTs;
 
-    PackageContext(LegacyPackage.LegacyPackageBuilder pkgBuilder, ErrorEventListener listener,
+    PackageContext(LegacyPackage.LegacyPackageBuilder pkgBuilder, EventHandler eventHandler,
         boolean retainASTs) {
       this.pkgBuilder = pkgBuilder;
-      this.listener = listener;
+      this.eventHandler = eventHandler;
       this.retainASTs = retainASTs;
     }
   }
@@ -843,10 +843,10 @@ public final class PackageFactory {
           throws InterruptedException {
     BuildFileAST buildFileAST;
     try {
-      buildFileAST = BuildFileAST.parseSkylarkFile(file, context.listener, locator,
+      buildFileAST = BuildFileAST.parseSkylarkFile(file, context.eventHandler, locator,
           ruleClassProvider.getSkylarkValidationEnvironment().clone());
     } catch (IOException e) {
-      context.listener.error(Location.fromFile(file), e.getMessage());
+      context.eventHandler.handle(Event.error(Location.fromFile(file), e.getMessage()));
       return null;
     }
 
@@ -857,7 +857,7 @@ public final class PackageFactory {
       return null;
     }
 
-    if (!buildFileAST.exec(env, context.listener)) {
+    if (!buildFileAST.exec(env, context.eventHandler)) {
       return null;
     }
 
@@ -875,7 +875,8 @@ public final class PackageFactory {
     for (PathFragment imp : buildFileAST.getImports()) {
       Path file = root.getRelative(imp);
       if (extensionFileStack.contains(file)) {
-        context.listener.error(Location.fromFile(parentFile), "Recursive import: " + file);
+        context.eventHandler.handle(
+            Event.error(Location.fromFile(parentFile), "Recursive import: " + file));
         parentEnv.setImportedExtensions(imports);
         return false;
       }
@@ -952,18 +953,18 @@ public final class PackageFactory {
         // set default_visibility once, be reseting the PackageBuilder.defaultVisibilitySet flag.
         .setDefaultVisibilitySet(false);
 
-    StoredErrorEventListener listener = new StoredErrorEventListener();
-    Event.replayEventsOn(listener, pastEvents);
+    StoredEventHandler eventHandler = new StoredEventHandler();
+    Event.replayEventsOn(eventHandler, pastEvents);
 
     // Stuff that closes over the package context:
-    PackageContext context = new PackageContext(pkgBuilder, listener, retainAsts);
+    PackageContext context = new PackageContext(pkgBuilder, eventHandler, retainAsts);
     buildPkgEnv(pkgEnv, packageName, pkgMakeEnv, context, ruleFactory, skylarkRuleFactory);
 
     if (containsError) {
       pkgBuilder.setContainsErrors();
     }
 
-    if (!validatePackageName(packageName, buildFileAST.getLocation(), listener)) {
+    if (!validatePackageName(packageName, buildFileAST.getLocation(), eventHandler)) {
       pkgBuilder.setContainsErrors();
     }
 
@@ -973,7 +974,7 @@ public final class PackageFactory {
       pkgBuilder.setContainsErrors();
     }
 
-    if (!validateAssignmentStatements(pkgEnv, buildFileAST, listener)) {
+    if (!validateAssignmentStatements(pkgEnv, buildFileAST, eventHandler)) {
       pkgBuilder.setContainsErrors();
     }
 
@@ -985,11 +986,11 @@ public final class PackageFactory {
     // as containing errors" is strewn all over this class.  Refactor to use an
     // event sensor--and see if we can simplify the calling code in
     // createPackage().
-    if (!buildFileAST.exec(pkgEnv, listener)) {
+    if (!buildFileAST.exec(pkgEnv, eventHandler)) {
       pkgBuilder.setContainsErrors();
     }
 
-    return pkgBuilder.build(bulkPackageLocator, listener);
+    return pkgBuilder.build(bulkPackageLocator, eventHandler);
   }
 
   /**
@@ -1018,14 +1019,14 @@ public final class PackageFactory {
         .setDefaultVisibilitySet(false);
 
     // Stuff that closes over the package context:
-    PackageContext context = new PackageContext(pkgBuilder, NullErrorEventListener.INSTANCE, false);
+    PackageContext context = new PackageContext(pkgBuilder, NullEventHandler.INSTANCE, false);
     buildPkgEnv(pkgEnv, packageName, context);
     pkgEnv.update("glob", newGlobFunction(context, /*async=*/true));
     // The Fileset function is heavyweight in that it can run glob(). Avoid this during the
     // preloading phase.
     pkgEnv.remove("FilesetEntry");
 
-    buildFileAST.exec(pkgEnv, NullErrorEventListener.INSTANCE);
+    buildFileAST.exec(pkgEnv, NullEventHandler.INSTANCE);
   }
 
 
@@ -1036,13 +1037,13 @@ public final class PackageFactory {
    * @param pkgEnv a package environment initialized with all of the built-in
    *        build rules
    * @param ast the build file AST to be tested
-   * @param listener a listener where any errors should be logged
+   * @param eventHandler a eventHandler where any errors should be logged
    * @return true if the build file contains no redefinitions of built-in
    *         functions
    */
   private static boolean validateAssignmentStatements(Environment pkgEnv,
                                                       BuildFileAST ast,
-                                                      ErrorEventListener listener) {
+                                                      EventHandler eventHandler) {
     for (Statement stmt : ast.getStatements()) {
       if (stmt instanceof AssignmentStatement) {
         Expression lvalue = ((AssignmentStatement) stmt).getLValue();
@@ -1051,8 +1052,8 @@ public final class PackageFactory {
         }
         String target = ((Ident) lvalue).getName();
         if (pkgEnv.lookup(target, null) != null) {
-          listener.error(stmt.getLocation(), "Reassignment of builtin build "
-              + "function '" + target + "' not permitted");
+          eventHandler.handle(Event.error(stmt.getLocation(), "Reassignment of builtin build "
+              + "function '" + target + "' not permitted"));
           return false;
         }
       }
@@ -1062,10 +1063,10 @@ public final class PackageFactory {
 
   // Reports an error and returns false iff package name was illegal.
   private static boolean validatePackageName(String name, Location location,
-      ErrorEventListener listener) {
+      EventHandler eventHandler) {
     String error = LabelValidator.validatePackageName(name);
     if (error != null) {
-      listener.error(location, error);
+      eventHandler.handle(Event.error(location, error));
       return false; // Invalid package name 'foo'
     }
     return true;

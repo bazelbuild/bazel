@@ -29,7 +29,7 @@ import com.google.common.util.concurrent.ThreadFactoryBuilder;
 import com.google.devtools.build.lib.concurrent.AbstractQueueVisitor;
 import com.google.devtools.build.lib.concurrent.ExecutorShutdownUtil;
 import com.google.devtools.build.lib.concurrent.ThreadSafety.ThreadSafe;
-import com.google.devtools.build.lib.events.ErrorEventListener;
+import com.google.devtools.build.lib.events.EventHandler;
 import com.google.devtools.build.lib.packages.AggregatingAttributeMapper;
 import com.google.devtools.build.lib.packages.Attribute;
 import com.google.devtools.build.lib.packages.AttributeMap;
@@ -238,17 +238,17 @@ final class LabelVisitor implements TransitivePackageLoader {
   }
 
   @Override
-  public boolean sync(ErrorEventListener listener,
+  public boolean sync(EventHandler eventHandler,
                       Set<Target> targetsToVisit,
                       Set<Label> labelsToVisit,
                       boolean keepGoing,
                       int parallelThreads,
                       int maxDepth) throws InterruptedException {
-    return syncWithVisitor(listener, targetsToVisit, labelsToVisit, keepGoing, parallelThreads,
-                           maxDepth, new ErrorPrintingTargetEdgeErrorObserver(listener));
+    return syncWithVisitor(eventHandler, targetsToVisit, labelsToVisit, keepGoing, parallelThreads,
+                           maxDepth, new ErrorPrintingTargetEdgeErrorObserver(eventHandler));
   }
 
-  public boolean syncWithVisitor(ErrorEventListener listener,
+  public boolean syncWithVisitor(EventHandler eventHandler,
                                  Collection<Target> targetsToVisit,
                                  Collection<Label> labelsToVisit,
                                  boolean keepGoing,
@@ -262,11 +262,11 @@ final class LabelVisitor implements TransitivePackageLoader {
     nextVisitation.keepGoing = keepGoing;
 
     if (!lastVisitation.success || !nextVisitation.current() ||
-        !upToDate(listener, parallelThreads)) {
+        !upToDate(eventHandler, parallelThreads)) {
       // If the up-to-date check finds something has been changed, it
       // fails-fast and we fall back on normal visitation.
       try {
-        nextVisitation.success = redoVisitation(listener, nextVisitation, keepGoing,
+        nextVisitation.success = redoVisitation(eventHandler, nextVisitation, keepGoing,
             parallelThreads, maxDepth, observers);
         return nextVisitation.success;
       } finally {
@@ -284,7 +284,7 @@ final class LabelVisitor implements TransitivePackageLoader {
    * @return true on success.
    * @throws InterruptedException if the check was interrupted.
    */
-  private boolean upToDate(ErrorEventListener listener, int parallelThreads)
+  private boolean upToDate(EventHandler eventHandler, int parallelThreads)
       throws InterruptedException {
     // Correctness sketch: Note that this method is entered only when the
     // previous visitation was successful and we are visiting the same
@@ -307,7 +307,8 @@ final class LabelVisitor implements TransitivePackageLoader {
     AtomicInteger counter = new AtomicInteger();
 
     for (int t = 0; t < parallelThreads; t++) {
-      executorService.execute(upToDateClosure(listener, counter, size, failure, pkgs, uncaught));
+      executorService.execute(
+          upToDateClosure(eventHandler, counter, size, failure, pkgs, uncaught));
     }
 
     boolean interrupted = ExecutorShutdownUtil.interruptibleShutdown(executorService);
@@ -326,7 +327,7 @@ final class LabelVisitor implements TransitivePackageLoader {
    *
    * <p>If anything is out of date, fail-fast by setting failure and exiting the thread.
    */
-  private Runnable upToDateClosure(final ErrorEventListener listener, final AtomicInteger counter,
+  private Runnable upToDateClosure(final EventHandler eventHandler, final AtomicInteger counter,
       final int size, final AtomicBoolean failure, final List<Package> packages,
       final AtomicReference<Throwable> exception) {
     return new Runnable() {
@@ -335,7 +336,7 @@ final class LabelVisitor implements TransitivePackageLoader {
         for (int n = counter.getAndIncrement(); n < size; n = counter.getAndIncrement()) {
           try {
             Package p = packages.get(n);
-            if (p != packageProvider.getPackage(listener, p.getName())) {
+            if (p != packageProvider.getPackage(eventHandler, p.getName())) {
               failure.set(true);
               return;
             }
@@ -356,7 +357,7 @@ final class LabelVisitor implements TransitivePackageLoader {
   }
 
   // Does a bounded transitive visitation starting at the given top-level targets.
-  private boolean redoVisitation(ErrorEventListener listener,
+  private boolean redoVisitation(EventHandler eventHandler,
                                  VisitationAttributes visitation,
                                  boolean keepGoing,
                                  int parallelThreads,
@@ -366,7 +367,7 @@ final class LabelVisitor implements TransitivePackageLoader {
     visitedMap.clear();
     visitedTargets.clear();
 
-    Visitor visitor = new Visitor(listener, keepGoing, parallelThreads, maxDepth, observers);
+    Visitor visitor = new Visitor(eventHandler, keepGoing, parallelThreads, maxDepth, observers);
 
     Throwable uncaught = null;
     boolean result;
@@ -421,7 +422,7 @@ final class LabelVisitor implements TransitivePackageLoader {
 
     private final static String THREAD_NAME = "LabelVisitor";
 
-    private final ErrorEventListener listener;
+    private final EventHandler eventHandler;
     private final boolean keepGoing;
     private final int maxDepth;
     private final Iterable<TargetEdgeObserver> observers;
@@ -430,14 +431,14 @@ final class LabelVisitor implements TransitivePackageLoader {
     private static final boolean CONCURRENT = true;
 
 
-    public Visitor(ErrorEventListener listener, boolean keepGoing, int parallelThreads,
+    public Visitor(EventHandler eventHandler, boolean keepGoing, int parallelThreads,
                    int maxDepth, TargetEdgeObserver... observers) {
       // Observing the loading phase of a typical large package (with all subpackages) shows
       // maximum thread-level concurrency of ~20. Limiting the total number of threads to 200 is
       // therefore conservative and should help us avoid hitting native limits.
       super(CONCURRENT, parallelThreads, parallelThreads, 1L, TimeUnit.SECONDS, !keepGoing,
           THREAD_NAME);
-      this.listener = listener;
+      this.eventHandler = eventHandler;
       this.maxDepth = maxDepth;
       this.errorObserver = new TargetEdgeErrorObserver();
       transitivelyErrorFreeTargetEdgeObserver = keepGoing
@@ -543,12 +544,12 @@ final class LabelVisitor implements TransitivePackageLoader {
         @Override
         public void run() {
           try {
-            Target target = packageProvider.getTarget(listener, label);
+            Target target = packageProvider.getTarget(eventHandler, label);
             if (target == null) {
               // Let target visitation continue so we can discover additional unknown inputs.
               return;
             }
-            visit(from, attr, packageProvider.getTarget(listener, label), depth + 1, count);
+            visit(from, attr, packageProvider.getTarget(eventHandler, label), depth + 1, count);
           } catch (NoSuchThingException e) {
             observeError(from, label, e);
           } catch (InterruptedException e) {

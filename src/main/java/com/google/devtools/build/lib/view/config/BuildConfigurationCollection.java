@@ -14,10 +14,14 @@
 
 package com.google.devtools.build.lib.view.config;
 
+import com.google.common.base.Preconditions;
 import com.google.common.collect.ImmutableList;
+import com.google.common.collect.ImmutableListMultimap;
 import com.google.common.collect.ImmutableMap;
+import com.google.common.collect.ListMultimap;
 import com.google.devtools.build.lib.concurrent.ThreadSafety.ThreadSafe;
 import com.google.devtools.build.lib.packages.Attribute;
+import com.google.devtools.build.lib.packages.Attribute.SplitTransition;
 import com.google.devtools.build.lib.packages.Attribute.Transition;
 import com.google.devtools.build.lib.packages.InputFile;
 import com.google.devtools.build.lib.packages.PackageGroup;
@@ -147,14 +151,38 @@ public final class BuildConfigurationCollection {
      */
     private final Map<? extends Transition, ConfigurationHolder> transitionTable;
 
+    // TODO(ulfjack): Consider merging transitionTable into this.
+    private final ListMultimap<? super SplitTransition, BuildConfiguration> splitTransitionTable;
+
     public Transitions(BuildConfiguration configuration,
-        Map<? extends Transition, ConfigurationHolder> transitionTable) {
+        Map<? extends Transition, ConfigurationHolder> transitionTable,
+        ListMultimap<? extends SplitTransition, BuildConfiguration> splitTransitionTable) {
       this.configuration = configuration;
       this.transitionTable = ImmutableMap.copyOf(transitionTable);
+      this.splitTransitionTable = ImmutableListMultimap.copyOf(splitTransitionTable);
+    }
+
+    public Transitions(BuildConfiguration configuration,
+        Map<? extends Transition, ConfigurationHolder> transitionTable) {
+      this(configuration, transitionTable,
+          ImmutableListMultimap.<SplitTransition, BuildConfiguration>of());
     }
 
     public Map<? extends Transition, ConfigurationHolder> getTransitionTable() {
       return transitionTable;
+    }
+
+    public ListMultimap<? super SplitTransition, BuildConfiguration> getSplitTransitionTable() {
+      return splitTransitionTable;
+    }
+
+    public List<BuildConfiguration> getSplitConfigurations(SplitTransition transition) {
+      if (splitTransitionTable.containsKey(transition)) {
+        return splitTransitionTable.get(transition);
+      } else {
+        Preconditions.checkState(transition.defaultsToSelf());
+        return ImmutableList.of(configuration);
+      }
     }
 
     /**
@@ -167,6 +195,7 @@ public final class BuildConfigurationCollection {
           queue.add(holder.configuration);
         }
       }
+      queue.addAll(splitTransitionTable.values());
     }
 
     /**

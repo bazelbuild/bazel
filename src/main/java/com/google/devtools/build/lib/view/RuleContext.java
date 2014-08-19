@@ -17,6 +17,7 @@ package com.google.devtools.build.lib.view;
 import com.google.common.base.Preconditions;
 import com.google.common.base.Predicate;
 import com.google.common.collect.ImmutableList;
+import com.google.common.collect.ImmutableListMultimap;
 import com.google.common.collect.ImmutableSet;
 import com.google.common.collect.Iterables;
 import com.google.common.collect.ListMultimap;
@@ -29,9 +30,11 @@ import com.google.devtools.build.lib.actions.Root;
 import com.google.devtools.build.lib.collect.ImmutableSortedKeyListMultimap;
 import com.google.devtools.build.lib.collect.nestedset.NestedSet;
 import com.google.devtools.build.lib.concurrent.ThreadSafety.Immutable;
+import com.google.devtools.build.lib.events.Event;
 import com.google.devtools.build.lib.events.Location;
 import com.google.devtools.build.lib.packages.Attribute;
 import com.google.devtools.build.lib.packages.Attribute.ConfigurationTransition;
+import com.google.devtools.build.lib.packages.Attribute.SplitTransition;
 import com.google.devtools.build.lib.packages.AttributeMap;
 import com.google.devtools.build.lib.packages.FileTarget;
 import com.google.devtools.build.lib.packages.ImplicitOutputsFunction;
@@ -334,11 +337,11 @@ public final class RuleContext extends TargetContext
   }
 
   private void reportError(Location location, String message) {
-    getAnalysisEnvironment().getReporter().error(location, message);
+    getAnalysisEnvironment().getReporter().handle(Event.error(location, message));
   }
 
   private void reportWarning(Location location, String message) {
-    getAnalysisEnvironment().getReporter().warn(location, message);
+    getAnalysisEnvironment().getReporter().handle(Event.warn(location, message));
   }
 
   /**
@@ -392,6 +395,22 @@ public final class RuleContext extends TargetContext
       String attributeName, Mode mode) {
     checkAttribute(attributeName, mode);
     return targetMap.get(attributeName);
+  }
+
+  /**
+   * Returns the a prerequisites keyed by the CPU of their configurations.
+   */
+  public Map<String, ? extends Collection<? extends TransitiveInfoCollection>>
+      getSplitPrerequisites(String attributeName) {
+    checkAttribute(attributeName, Mode.SPLIT);
+    // TODO(ulfjack): Splitting by CPU is probably going to be unreliable [fat-apk].
+    // Use an ImmutableListMultimap.Builder here to preserve ordering.
+    ImmutableListMultimap.Builder<String, ConfiguredTarget> result =
+        ImmutableListMultimap.builder();
+    for (ConfiguredTarget t : targetMap.get(attributeName)) {
+      result.put(t.getConfiguration().getCpu(), t);
+    }
+    return result.build().asMap();
   }
 
   /**
@@ -637,6 +656,12 @@ public final class RuleContext extends TargetContext
         throw new IllegalStateException(getRule().getLocation() + ": "
             + getRule().getRuleClass() + " attribute " + attributeName
             + " is not configured for the data configuration");
+      }
+    } else if (mode == Mode.SPLIT) {
+      if (!(attributeDefinition.getConfigurationTransition() instanceof SplitTransition)) {
+        throw new IllegalStateException(getRule().getLocation() + ": "
+            + getRule().getRuleClass() + " attribute " + attributeName
+            + " is not configured for a split transition");
       }
     }
   }
@@ -1118,7 +1143,7 @@ public final class RuleContext extends TargetContext
     }
 
     public void reportError(Location location, String message) {
-      env.getReporter().error(location, message);
+      env.getReporter().handle(Event.error(location, message));
     }
 
     public void ruleError(String message) {
@@ -1130,11 +1155,11 @@ public final class RuleContext extends TargetContext
     }
 
     public void reportWarning(Location location, String message) {
-      env.getReporter().warn(location, message);
+      env.getReporter().handle(Event.warn(location, message));
     }
 
     public void ruleWarning(String message) {
-      env.getReporter().warn(rule.getLocation(), prefixRuleMessage(message));
+      env.getReporter().handle(Event.warn(rule.getLocation(), prefixRuleMessage(message)));
     }
 
     public void attributeWarning(String attrName, String message) {

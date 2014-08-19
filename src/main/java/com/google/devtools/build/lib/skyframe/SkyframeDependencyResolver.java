@@ -13,6 +13,7 @@
 // limitations under the License.
 package com.google.devtools.build.lib.skyframe;
 
+import com.google.devtools.build.lib.events.Event;
 import com.google.devtools.build.lib.packages.NoSuchThingException;
 import com.google.devtools.build.lib.packages.Target;
 import com.google.devtools.build.lib.packages.TargetUtils;
@@ -38,14 +39,16 @@ public final class SkyframeDependencyResolver extends DependencyResolver {
 
   @Override
   protected void invalidVisibilityReferenceHook(TargetAndConfiguration value, Label label) {
-    env.getListener().error(TargetUtils.getLocationMaybe(value.getTarget()), String.format(
-        "Label '%s' in visibility attribute does not refer to a package group", label));
+    env.getListener().handle(
+        Event.error(TargetUtils.getLocationMaybe(value.getTarget()), String.format(
+            "Label '%s' in visibility attribute does not refer to a package group", label)));
   }
 
   @Override
   protected void invalidPackageGroupReferenceHook(TargetAndConfiguration value, Label label) {
-    env.getListener().error(TargetUtils.getLocationMaybe(value.getTarget()), String.format(
-        "label '%s' does not refer to a package group", label));
+    env.getListener().handle(
+        Event.error(TargetUtils.getLocationMaybe(value.getTarget()), String.format(
+            "label '%s' does not refer to a package group", label)));
   }
 
   @Nullable

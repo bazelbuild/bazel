@@ -13,7 +13,8 @@
 // limitations under the License.
 package com.google.devtools.build.lib.syntax;
 
-import com.google.devtools.build.lib.events.ErrorEventListener;
+import com.google.devtools.build.lib.events.Event;
+import com.google.devtools.build.lib.events.EventHandler;
 import com.google.devtools.build.lib.events.Location;
 import com.google.devtools.build.lib.packages.CachingPackageLocator;
 import com.google.devtools.build.lib.vfs.Path;
@@ -112,7 +113,7 @@ public class BuildFileAST extends ASTNode {
    *
    * @return true if no error occurred during execution.
    */
-  public boolean exec(Environment env, ErrorEventListener listener) throws InterruptedException {
+  public boolean exec(Environment env, EventHandler eventHandler) throws InterruptedException {
     boolean ok = true;
     for (Statement stmt : stmts) {
       try {
@@ -121,7 +122,7 @@ public class BuildFileAST extends ASTNode {
         // Do not report errors caused by a previous parsing error, as it has already been
         // reported.
         if (!e.isDueToIncompleteAST()) {
-          listener.error(e.getLocation(), e.getMessage());
+          eventHandler.handle(Event.error(e.getLocation(), e.getMessage()));
         }
         ok = false;
       }
@@ -145,21 +146,21 @@ public class BuildFileAST extends ASTNode {
    *
    * @throws IOException if the file cannot not be read.
    */
-  public static BuildFileAST parseBuildFile(Path buildFile, ErrorEventListener listener,
+  public static BuildFileAST parseBuildFile(Path buildFile, EventHandler eventHandler,
                                             CachingPackageLocator locator, boolean parsePython)
       throws IOException {
     ParserInputSource inputSource = ParserInputSource.create(buildFile);
-    return parseBuildFile(inputSource, listener, locator, parsePython);
+    return parseBuildFile(inputSource, eventHandler, locator, parsePython);
   }
 
   /**
    * Parse the specified build file, returning its AST. All errors during
    * scanning or parsing will be reported to the reporter.
    */
-  public static BuildFileAST parseBuildFile(ParserInputSource input, ErrorEventListener listener,
+  public static BuildFileAST parseBuildFile(ParserInputSource input, EventHandler eventHandler,
                                             CachingPackageLocator locator, boolean parsePython) {
-    Lexer lexer = new Lexer(input, listener, parsePython);
-    Parser.ParseResult result = Parser.parseFile(lexer, listener, locator, parsePython);
+    Lexer lexer = new Lexer(input, eventHandler, parsePython);
+    Parser.ParseResult result = Parser.parseFile(lexer, eventHandler, locator, parsePython);
     return new BuildFileAST(lexer, result);
   }
 
@@ -167,8 +168,8 @@ public class BuildFileAST extends ASTNode {
    * Parse the specified build file, returning its AST. All errors during
    * scanning or parsing will be reported to the reporter.
    */
-  public static BuildFileAST parseBuildFile(Lexer lexer, ErrorEventListener listener) {
-    Parser.ParseResult result = Parser.parseFile(lexer, listener, null, false);
+  public static BuildFileAST parseBuildFile(Lexer lexer, EventHandler eventHandler) {
+    Parser.ParseResult result = Parser.parseFile(lexer, eventHandler, null, false);
     return new BuildFileAST(lexer, result);
   }
 
@@ -178,13 +179,13 @@ public class BuildFileAST extends ASTNode {
    *
    * @throws IOException if the file cannot not be read.
    */
-  public static BuildFileAST parseSkylarkFile(Path file, ErrorEventListener listener,
+  public static BuildFileAST parseSkylarkFile(Path file, EventHandler eventHandler,
       CachingPackageLocator locator, ValidationEnvironment validationEnvironment)
           throws IOException {
     ParserInputSource input = ParserInputSource.create(file);
-    Lexer lexer = new Lexer(input, listener, false);
+    Lexer lexer = new Lexer(input, eventHandler, false);
     Parser.ParseResult result =
-        Parser.parseFileForSkylark(lexer, listener, locator, validationEnvironment);
+        Parser.parseFileForSkylark(lexer, eventHandler, locator, validationEnvironment);
     return new BuildFileAST(lexer, result);
   }
 
@@ -194,7 +195,7 @@ public class BuildFileAST extends ASTNode {
    * @return true if the input file is syntactically valid
    */
   public static boolean checkSyntax(ParserInputSource input,
-                                    ErrorEventListener listener, boolean parsePython) {
-    return !parseBuildFile(input, listener, null, parsePython).containsErrors();
+                                    EventHandler eventHandler, boolean parsePython) {
+    return !parseBuildFile(input, eventHandler, null, parsePython).containsErrors();
   }
 }

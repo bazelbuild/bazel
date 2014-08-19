@@ -15,7 +15,8 @@
 package com.google.devtools.build.lib.query2;
 
 import com.google.devtools.build.lib.concurrent.ThreadSafety;
-import com.google.devtools.build.lib.events.ErrorEventListener;
+import com.google.devtools.build.lib.events.Event;
+import com.google.devtools.build.lib.events.EventHandler;
 import com.google.devtools.build.lib.packages.NoSuchThingException;
 import com.google.devtools.build.lib.packages.Target;
 import com.google.devtools.build.lib.packages.TargetUtils;
@@ -33,20 +34,20 @@ import com.google.devtools.build.lib.syntax.Label;
                                       // once the visitation is complete.
 class ErrorPrintingTargetEdgeErrorObserver extends TargetEdgeErrorObserver {
 
-  private final ErrorEventListener listener;
+  private final EventHandler eventHandler;
 
   /**
-   * @param listener listener to route exceptions to as errors.
+   * @param eventHandler eventHandler to route exceptions to as errors.
    */
-  public ErrorPrintingTargetEdgeErrorObserver(ErrorEventListener listener) {
-    this.listener = listener;
+  public ErrorPrintingTargetEdgeErrorObserver(EventHandler eventHandler) {
+    this.eventHandler = eventHandler;
   }
 
   @ThreadSafety.ThreadSafe
   @Override
   public void missingEdge(Target target, Label label, NoSuchThingException e) {
-    listener.error(TargetUtils.getLocationMaybe(target),
-        TargetUtils.formatMissingEdge(target, label, e));
+    eventHandler.handle(Event.error(TargetUtils.getLocationMaybe(target),
+        TargetUtils.formatMissingEdge(target, label, e)));
     super.missingEdge(target, label, e);
   }
 }

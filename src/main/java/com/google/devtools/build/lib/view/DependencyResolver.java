@@ -145,11 +145,9 @@ public abstract class DependencyResolver {
       return;
     }
 
-    BuildConfiguration toConfiguration = from.getConfiguration().evaluateTransition(
+    Iterable<BuildConfiguration> toConfigurations = from.getConfiguration().evaluateTransition(
         fromRule, attribute, toTarget);
-
-    if (toConfiguration != null
-        || !(toTarget instanceof Rule || toTarget instanceof OutputFile)) {
+    for (BuildConfiguration toConfiguration : toConfigurations) {
       addEdge(toTarget, toConfiguration, outgoingEdges);
     }
   }

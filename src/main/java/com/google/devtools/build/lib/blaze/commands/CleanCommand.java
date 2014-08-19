@@ -20,6 +20,7 @@ import com.google.devtools.build.lib.blaze.BlazeRuntime;
 import com.google.devtools.build.lib.blaze.Command;
 import com.google.devtools.build.lib.buildtool.BuildRequest;
 import com.google.devtools.build.lib.buildtool.OutputDirectoryLinksUtils;
+import com.google.devtools.build.lib.events.Event;
 import com.google.devtools.build.lib.shell.CommandException;
 import com.google.devtools.build.lib.util.CommandBuilder;
 import com.google.devtools.build.lib.util.ExitCode;
@@ -92,8 +93,8 @@ public final class CleanCommand implements BlazeCommand {
 
     if (cleanOptions.expunge == false && cleanOptions.expunge_async == false &&
         !cleanOptions.cleanStyle.isEmpty()) {
-      runtime.getReporter().error(
-          null, "Invalid clean_style value '" + cleanOptions.cleanStyle + "'");
+      runtime.getReporter().handle(Event.error(
+          null, "Invalid clean_style value '" + cleanOptions.cleanStyle + "'"));
       return ExitCode.COMMAND_LINE_ERROR;
     }
 
@@ -102,23 +103,23 @@ public final class CleanCommand implements BlazeCommand {
         "Starting clean (this may take a while). " +
             "Consider using --expunge_async if the clean takes more than several minutes.";
 
-    runtime.getReporter().info(null/*location*/, cleanBanner);
+    runtime.getReporter().handle(Event.info(null/*location*/, cleanBanner));
     try {
       String symlinkPrefix =
           options.getOptions(BuildRequest.BuildRequestOptions.class).symlinkPrefix;
       actuallyClean(runtime, runtime.getOutputBase(), cleanOptions, symlinkPrefix);
       return ExitCode.SUCCESS;
     } catch (IOException e) {
-      runtime.getReporter().error(null, e.getMessage());
+      runtime.getReporter().handle(Event.error(e.getMessage()));
       return ExitCode.LOCAL_ENVIRONMENTAL_ERROR;
     } catch (CommandException e) {
-      runtime.getReporter().error(null, e.getMessage());
+      runtime.getReporter().handle(Event.error(e.getMessage()));
       return ExitCode.RUN_FAILURE;
     } catch (ExecException e) {
-      runtime.getReporter().error(null, e.getMessage());
+      runtime.getReporter().handle(Event.error(e.getMessage()));
       return ExitCode.RUN_FAILURE;
     } catch (InterruptedException e) {
-      runtime.getReporter().error(null, "clean interrupted");
+      runtime.getReporter().handle(Event.error("clean interrupted"));
       return ExitCode.INTERRUPTED;
     }
   }
@@ -146,8 +147,8 @@ public final class CleanCommand implements BlazeCommand {
       // same file system, and therefore the mv will be atomic and fast.
       Path tempOutputBase = outputBase.getParentDirectory().getChild(tempBaseName);
       outputBase.renameTo(tempOutputBase);
-      runtime.getReporter().info(
-          null, "Output base moved to " + tempOutputBase + " for deletion");
+      runtime.getReporter().handle(Event.info(
+          null, "Output base moved to " + tempOutputBase + " for deletion"));
 
       // Daemonize the shell and use the double-fork idiom to ensure that the shell
       // exits even while the "rm -rf" command continues.

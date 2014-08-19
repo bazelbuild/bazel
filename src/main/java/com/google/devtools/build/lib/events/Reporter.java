@@ -35,7 +35,7 @@ import java.util.Set;
  * Handlers may be run in an arbitary thread (but right now, they will not be
  * run concurrently).
  */
-public final class Reporter implements ErrorEventListener, ExceptionListener {
+public final class Reporter implements EventHandler, ExceptionListener {
 
   private final List<EventHandler> handlers = new ArrayList<>();
 
@@ -50,7 +50,7 @@ public final class Reporter implements ErrorEventListener, ExceptionListener {
 
   public Reporter() {}
 
-  public static OutErr outErrForReporter(ErrorEventListener rep) {
+  public static OutErr outErrForReporter(EventHandler rep) {
     return OutErr.create(
         // We don't use BufferedOutputStream here, because in general the Blaze
         // code base assumes that the output streams are not buffered.
@@ -80,7 +80,7 @@ public final class Reporter implements ErrorEventListener, ExceptionListener {
   private void recomputeMask() {
     // mask = union of hander.getEventMask()
     mask.clear();
-    for (EventHandler handler: handlers) {
+    for (EventHandler handler : handlers) {
       mask.addAll(handler.getEventMask());
     }
   }
@@ -110,8 +110,13 @@ public final class Reporter implements ErrorEventListener, ExceptionListener {
     return removed;
   }
 
+  @Override
+  public Set<EventKind> getEventMask() {
+    return mask;
+  }
+
   /**
-   * Returns true iff this Reporter has an EventHandler that will handle the
+   * Returns true iff this Reporter has an ErrorEventListener that will handle the
    * specified event kind.  Callers may use this to optimise away unnecessary
    * calls to the Reporter when no-one is listening.
    */
@@ -123,35 +128,11 @@ public final class Reporter implements ErrorEventListener, ExceptionListener {
    * This method is called by the build system to report an event.
    */
   @Override
-  public synchronized void report(EventKind kind, Location location,
-                                   String message) {
-    Event event = null; // Created lazily iff required.
-    if (hasHandlerFor(kind)) {
+  public synchronized void handle(Event e) {
+    if (hasHandlerFor(e.getKind())) {
       for (EventHandler handler : handlers) {
-        if (handler.getEventMask().contains(kind)) {
-          if (event == null) {
-            event = new Event(kind, location, message);
-          }
-          handler.handle(event);
-        }
-      }
-    }
-  }
-
-  /**
-   * Variant of report() for a byte-array.
-   */
-  @Override
-  public synchronized void report(EventKind kind, Location location,
-                                  byte[] messageBytes) {
-    Event event = null; // Created lazily iff required.
-    if (hasHandlerFor(kind)) {
-      for (EventHandler handler : handlers) {
-        if (handler.getEventMask().contains(kind)) {
-          if (event == null) {
-            event = new Event(kind, location, messageBytes);
-          }
-          handler.handle(event);
+        if (handler.getEventMask().contains(e.getKind())) {
+          handler.handle(e);
         }
       }
     }
@@ -162,28 +143,7 @@ public final class Reporter implements ErrorEventListener, ExceptionListener {
    * report() with event kind SUBCOMMAND.
    */
   public void subcommand(Location location, String message) {
-    report(EventKind.SUBCOMMAND, location, message);
-  }
-
-  /**
-   * Reports atemporal statements about the build, i.e. they're true for the
-   * duration of execution.  (e.g. how many targets were found.)
-   * Is a wrapper around report() with event kind INFO.
-   * This information is always displayed.
-   */
-  @Override
-  public void info(Location location, String message) {
-    report(EventKind.INFO, location, message);
-  }
-
-  /**
-   * Reports temporal statements about how far the build has progressed
-   * and what it is currently doing.  (e.g. what's executing now.)
-   * Is a wrapper around report() with event kind PROGRESS.
-   */
-  @Override
-  public void progress(Location location, String message) {
-    report(EventKind.PROGRESS, location, message);
+    handle(new Event(EventKind.SUBCOMMAND, location, message));
   }
 
   /**
@@ -194,7 +154,7 @@ public final class Reporter implements ErrorEventListener, ExceptionListener {
    * progress indicator (if any) in the message may differ.
    */
   public void startTask(Location location, String message) {
-    report(EventKind.START, location, message);
+    handle(new Event(EventKind.START, location, message));
   }
 
   /**
@@ -205,22 +165,12 @@ public final class Reporter implements ErrorEventListener, ExceptionListener {
    * progress indicator (if any) in the message may differ.
    */
   public void finishTask(Location location, String message) {
-    report(EventKind.FINISH, location, message);
-  }
-
-  @Override
-  public void warn(Location location, String message) {
-    report(EventKind.WARNING, location, message);
-  }
-
-  @Override
-  public void error(Location location, String message) {
-    report(EventKind.ERROR, location, message);
+    handle(new Event(EventKind.FINISH, location, message));
   }
 
   @Override
   public void error(Location location, String message, Throwable error) {
-    error(location, message);
+    handle(new Event(EventKind.ERROR, location, message));
     error.printStackTrace(new PrintStream(getOutErr().getErrorStream()));
   }
 
@@ -229,7 +179,7 @@ public final class Reporter implements ErrorEventListener, ExceptionListener {
    * rebuilt (or not).
    */
   public void depchecker(String message) {
-    report(EventKind.DEPCHECKER, null, message);
+    handle(new Event(EventKind.DEPCHECKER, null, message));
   }
 
   /**

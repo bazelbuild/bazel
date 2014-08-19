@@ -13,7 +13,7 @@
 // limitations under the License.
 package com.google.devtools.build.lib.view;
 
-import com.google.devtools.build.lib.events.ErrorEventListener;
+import com.google.devtools.build.lib.events.EventHandler;
 import com.google.devtools.build.lib.view.config.BuildConfiguration;
 import com.google.devtools.build.lib.view.config.BuildOptions;
 import com.google.devtools.build.lib.view.config.ConfigurationFactory;
@@ -48,6 +48,6 @@ public interface ConfigurationCollectionFactory {
       PackageProviderForConfigurations loadedPackageProvider,
       BuildOptions buildOptions,
       Map<String, String> clientEnv,
-      ErrorEventListener errorEventListener,
+      EventHandler errorEventListener,
       boolean performSanityCheck) throws InvalidConfigurationException;
 }

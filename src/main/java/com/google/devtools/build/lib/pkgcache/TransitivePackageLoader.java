@@ -14,7 +14,7 @@
 package com.google.devtools.build.lib.pkgcache;
 
 import com.google.common.collect.Multimap;
-import com.google.devtools.build.lib.events.ErrorEventListener;
+import com.google.devtools.build.lib.events.EventHandler;
 import com.google.devtools.build.lib.packages.Package;
 import com.google.devtools.build.lib.packages.Target;
 import com.google.devtools.build.lib.syntax.Label;
@@ -33,14 +33,14 @@ public interface TransitivePackageLoader {
    * outbound dependencies. If the targets have previously been visited,
    * may do an up-to-date check which will not trigger any of the observers.
    *
-   * @param listener the error and warnings listener; must be thread-safe
+   * @param eventHandler the error and warnings eventHandler; must be thread-safe
    * @param targetsToVisit the targets to visit
    * @param labelsToVisit the labels to visit in addition to the targets
    * @param keepGoing if false, stop visitation upon first error.
    * @param parallelThreads number of threads to use in the visitation.
    * @param maxDepth the maximum depth to traverse to.
    */
-  boolean sync(ErrorEventListener listener,
+  boolean sync(EventHandler eventHandler,
                Set<Target> targetsToVisit,
                Set<Label> labelsToVisit,
                boolean keepGoing,

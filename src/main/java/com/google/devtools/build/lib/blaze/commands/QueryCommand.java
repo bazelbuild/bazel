@@ -20,6 +20,7 @@ import com.google.devtools.build.lib.blaze.BlazeCommand;
 import com.google.devtools.build.lib.blaze.BlazeModule;
 import com.google.devtools.build.lib.blaze.BlazeRuntime;
 import com.google.devtools.build.lib.blaze.Command;
+import com.google.devtools.build.lib.events.Event;
 import com.google.devtools.build.lib.graph.Digraph;
 import com.google.devtools.build.lib.packages.Target;
 import com.google.devtools.build.lib.pkgcache.PackageCacheOptions;
@@ -72,14 +73,13 @@ public final class QueryCommand implements BlazeCommand {
           options.getOptions(PackageCacheOptions.class),
           runtime.getDefaultsPackageContent());
     } catch (InterruptedException e) {
-      runtime.getReporter().error(null, "query interrupted");
+      runtime.getReporter().handle(Event.error("query interrupted"));
       return ExitCode.INTERRUPTED;
     }
 
     if (options.getResidue().isEmpty()) {
-      runtime.getReporter().error(null,
-                          "missing query expression; "
-                          + "type 'blaze help query' for syntax and help");
+      runtime.getReporter().handle(Event.error(
+          "missing query expression. Type 'blaze help query' for syntax and help"));
       return ExitCode.COMMAND_LINE_ERROR;
     }
 
@@ -87,9 +87,9 @@ public final class QueryCommand implements BlazeCommand {
     OutputFormatter formatter =
         OutputFormatter.getFormatter(formatters, queryOptions.outputFormat);
     if (formatter == null) {
-      runtime.getReporter().error(null,
+      runtime.getReporter().handle(Event.error(
           String.format("Invalid output format '%s'. Valid values are: %s",
-              queryOptions.outputFormat, OutputFormatter.formatterNames(formatters)));
+              queryOptions.outputFormat, OutputFormatter.formatterNames(formatters))));
       return ExitCode.COMMAND_LINE_ERROR;
     }
 
@@ -107,8 +107,8 @@ public final class QueryCommand implements BlazeCommand {
     try {
       expr = QueryExpression.parse(query, env);
     } catch (QueryException e) {
-      runtime.getReporter().error(
-          null, "Error while parsing '" + query + "': " + e.getMessage());
+      runtime.getReporter().handle(Event.error(
+          null, "Error while parsing '" + query + "': " + e.getMessage()));
       return ExitCode.COMMAND_LINE_ERROR;
     }
 
@@ -118,7 +118,7 @@ public final class QueryCommand implements BlazeCommand {
       result = env.evaluateQuery(expr);
     } catch (QueryException e) {
       // Keep consistent with reportBuildFileError()
-      runtime.getReporter().error(null, e.getMessage());
+      runtime.getReporter().handle(Event.error(e.getMessage()));
       return ExitCode.ANALYSIS_FAILURE;
     }
 
@@ -131,7 +131,7 @@ public final class QueryCommand implements BlazeCommand {
       output.flush();
     }
     if (graph.getLabels().isEmpty()) {
-      runtime.getReporter().info(null, "Empty results");
+      runtime.getReporter().handle(Event.info("Empty results"));
     }
 
     return result.getSuccess() ? ExitCode.SUCCESS : ExitCode.PARTIAL_ANALYSIS_FAILURE;

@@ -23,7 +23,7 @@ import com.google.devtools.build.lib.actions.ExecException;
 import com.google.devtools.build.lib.actions.Executor;
 import com.google.devtools.build.lib.actions.UserExecException;
 import com.google.devtools.build.lib.collect.nestedset.NestedSet;
-import com.google.devtools.build.lib.events.ErrorEventListener;
+import com.google.devtools.build.lib.events.EventHandler;
 import com.google.devtools.build.lib.pkgcache.PackageUpToDateChecker;
 import com.google.devtools.build.lib.util.Fingerprint;
 import com.google.devtools.build.lib.vfs.PathFragment;
@@ -83,7 +83,7 @@ public class FilesetManifestAction extends AbstractFileWriteAction {
   }
 
   @Override
-  public void writeOutputFile(OutputStream out, ErrorEventListener listener,
+  public void writeOutputFile(OutputStream out, EventHandler eventHandler,
       Executor executor) throws IOException, InterruptedException, ExecException {
     // TODO(bazel-team): factor out common code from RunfilesManifestAction.
     Writer manifest = new BufferedWriter(new OutputStreamWriter(out, ISO_8859_1));
@@ -91,7 +91,7 @@ public class FilesetManifestAction extends AbstractFileWriteAction {
     try {
       ThreadPoolExecutor filesetPool =
           executor.getContext(FilesetActionContext.class).getFilesetPool();
-      traversal.addSymlinks(listener, links, filesetPool);
+      traversal.addSymlinks(eventHandler, links, filesetPool);
     } catch (BadSubpackageException e) {
       throw new UserExecException(""); // Error was already reported.
     } catch (DanglingSymlinkException e) {

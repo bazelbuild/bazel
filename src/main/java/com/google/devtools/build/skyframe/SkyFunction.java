@@ -13,7 +13,7 @@
 // limitations under the License.
 package com.google.devtools.build.skyframe;
 
-import com.google.devtools.build.lib.events.ErrorEventListener;
+import com.google.devtools.build.lib.events.EventHandler;
 
 import java.util.Map;
 
@@ -148,9 +148,9 @@ public interface SkyFunction {
         Iterable<SkyKey> depKeys, Class<E> exceptionClass);
 
     /**
-     * Returns the {@link ErrorEventListener} that a SkyFunction should use to print any errors,
+     * Returns the {@link EventHandler} that a SkyFunction should use to print any errors,
      * warnings, or progress messages while building.
      */
-    ErrorEventListener getListener();
+    EventHandler getListener();
   }
 }

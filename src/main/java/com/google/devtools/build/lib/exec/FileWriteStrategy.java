@@ -20,7 +20,7 @@ import com.google.devtools.build.lib.actions.ExecException;
 import com.google.devtools.build.lib.actions.ExecutionStrategy;
 import com.google.devtools.build.lib.actions.Executor;
 import com.google.devtools.build.lib.actions.ResourceSet;
-import com.google.devtools.build.lib.events.ErrorEventListener;
+import com.google.devtools.build.lib.events.EventHandler;
 import com.google.devtools.build.lib.util.io.FileOutErr;
 import com.google.devtools.build.lib.vfs.Path;
 import com.google.devtools.build.lib.view.actions.AbstractFileWriteAction;
@@ -56,7 +56,7 @@ public final class FileWriteStrategy implements FileWriteActionContext {
   @Override
   public void exec(Executor executor, AbstractFileWriteAction action,
       FileOutErr outErr) throws ExecException, InterruptedException {
-    ErrorEventListener reporter = executor == null ? null : executor.getReporter();
+    EventHandler reporter = executor == null ? null : executor.getReporter();
     try {
       Path outputPath = Iterables.getOnlyElement(action.getOutputs()).getPath();
       OutputStream out = new BufferedOutputStream(outputPath.getOutputStream());

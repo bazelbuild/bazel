@@ -24,7 +24,6 @@ import com.google.devtools.build.lib.view.buildinfo.BuildInfoFactory.BuildInfoKe
 import com.google.devtools.build.lib.view.config.BuildConfiguration;
 
 import java.util.Collection;
-import java.util.List;
 import java.util.Map;
 
 /** A container class for the workspace status artifacts and actions. */
@@ -68,7 +67,7 @@ public final class WorkspaceStatusArtifacts {
     return volatileStatus;
   }
 
-  List<Artifact> getBuildInfo(BuildConfiguration config, BuildInfoKey key, boolean stamp) {
+  ImmutableList<Artifact> getBuildInfo(BuildConfiguration config, BuildInfoKey key, boolean stamp) {
     String configKey = config.cacheKey();
     BuildInfoCollection collection = buildInfo.get(configKey, key);
     if (collection == null) {

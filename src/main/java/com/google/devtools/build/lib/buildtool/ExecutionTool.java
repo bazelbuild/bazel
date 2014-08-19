@@ -396,7 +396,7 @@ public class ExecutionTool {
     Collection<ConfiguredTarget> configuredTargets = buildResult.getActualTargets();
     getEventBus().post(new ExecutionStartingEvent(configuredTargets));
 
-    getReporter().progress(null, "Building...");
+    getReporter().handle(Event.progress("Building..."));
 
     // Conditionally record dependency-checker log:
     ExplanationHandler explanationHandler =
@@ -464,7 +464,7 @@ public class ExecutionTool {
       if (request.isRunningInEmacs()) {
         request.getOutErr().printErrLn("blaze: Leaving directory `" + getExecRoot() + "/'");
       }
-      getReporter().progress(null, "Building complete.");
+      getReporter().handle(Event.progress("Building complete."));
       buildResult.setIncrementality(builder.getPercentageCached());
 
       // Transfer over source file "last save time" stats so the remote logger can find them.
@@ -579,22 +579,22 @@ public class ExecutionTool {
         PrintStream out;
         if (options.dumpToStdout) {
           out = new PrintStream(getReporter().getOutErr().getOutputStream());
-          getReporter().info(null, "Dumping " + dumper.getName() + " to stdout");
+          getReporter().handle(Event.info("Dumping " + dumper.getName() + " to stdout"));
         } else {
           Path filename = getExecRoot().getRelative(dumper.getFileName());
           out = new PrintStream(filename.getOutputStream());
-          getReporter().info(
+          getReporter().handle(Event.info(
               null,
               "Dumping " + dumper.getName() + " to "
                   + OutputDirectoryLinksUtils.getPrettyPath(
-                      filename, getWorkspace(), request.getSymlinkPrefix()));
+                      filename, getWorkspace(), request.getSymlinkPrefix())));
         }
         dumper.dump(out);
       } catch (IOException e) {
-        getReporter().error(
+        getReporter().handle(Event.error(
             null,
             "I/O error while dumping " + dumper.getName() + "" + dumper.getName() + ": "
-                + e.getMessage());
+                + e.getMessage()));
       } finally {
         Profiler.instance()
             .logSimpleTask(startTime, ProfilerTask.INFO, "Generating Makefile.blaze");
@@ -643,12 +643,13 @@ public class ExecutionTool {
           getWorkspace().getRelative(explanationPath).getOutputStream(),
           allOptions);
     } catch (IOException e) {
-      getReporter().warn(null, String.format(
+      getReporter().handle(Event.warn(String.format(
           "Cannot write explanation of rebuilds to file '%s': %s",
-          explanationPath, e.getMessage()));
+          explanationPath, e.getMessage())));
       return null;
     }
-    getReporter().info(null, "Writing explanation of rebuilds to '" + explanationPath + "'");
+    getReporter().handle(
+        Event.info("Writing explanation of rebuilds to '" + explanationPath + "'"));
     getReporter().addHandler(handler);
     return handler;
   }
@@ -665,7 +666,7 @@ public class ExecutionTool {
   }
 
   /**
-   * An EventHandler implementation that records DEPCHECKER events into a log
+   * An ErrorEventListener implementation that records DEPCHECKER events into a log
    * file, iff the --explain flag is specified during a build.
    */
   private static class ExplanationHandler implements EventHandler {
@@ -674,18 +675,21 @@ public class ExecutionTool {
 
     private final PrintWriter log;
 
+    @Override
+    public boolean showOutput(String tag) {
+      return true;
+    }
+
     private ExplanationHandler(OutputStream log, String optionsDescription) {
       this.log = new PrintWriter(log);
       this.log.println("Build options: " + optionsDescription);
     }
 
-    /** Implements {@link EventHandler#getEventMask}. */
     @Override
     public Set<EventKind> getEventMask() {
       return DEPCHECKER;
     }
 
-    /** Implements {@link EventHandler#handle}. */
     @Override
     public void handle(Event event) {
       log.println(event.getMessage());
@@ -958,7 +962,8 @@ public class ExecutionTool {
       resourceMgr.setAvailableResources(LocalHostCapacity.getLocalHostCapacity());
       resourceMgr.setRamUtilizationPercentage(options.ramUtilizationPercentage);
       if (options.useResourceAutoSense) {
-        getReporter().warn(null, "Not using resource autosense due to known responsiveness issues");
+        getReporter().handle(
+            Event.warn("Not using resource autosense due to known responsiveness issues"));
       }
       ResourceManager.instance().setAutoSensing(/*autosense=*/false);
     }
@@ -980,7 +985,7 @@ public class ExecutionTool {
       actionCacheSizeInBytes = actionCache.save();
       LOG.info("action cache saved");
     } catch (IOException e) {
-      getReporter().error(null, "I/O error while writing action log: " + e.getMessage());
+      getReporter().handle(Event.error("I/O error while writing action log: " + e.getMessage()));
     } finally {
       long stopTime = BlazeClock.nanoTime();
       actionCacheSaveTime =
@@ -996,7 +1001,8 @@ public class ExecutionTool {
         metadataCacheSizeInBytes = metadataCache.save();
         LOG.info("metadata cache saved");
       } catch (IOException e) {
-        getReporter().error(null, "I/O error while writing metadata cache: " + e.getMessage());
+        getReporter().handle(
+            Event.error("I/O error while writing metadata cache: " + e.getMessage()));
       } finally {
         long stopTime = BlazeClock.nanoTime();
         metadataCacheSaveTime =

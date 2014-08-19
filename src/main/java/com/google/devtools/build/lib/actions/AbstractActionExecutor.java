@@ -19,6 +19,7 @@ import com.google.common.base.Preconditions;
 import com.google.devtools.build.lib.actions.ActionCacheChecker.Token;
 import com.google.devtools.build.lib.actions.Artifact.MiddlemanExpander;
 import com.google.devtools.build.lib.actions.cache.MetadataHandler;
+import com.google.devtools.build.lib.events.Event;
 import com.google.devtools.build.lib.events.Reporter;
 import com.google.devtools.build.lib.profiler.Profiler;
 import com.google.devtools.build.lib.profiler.ProfilerTask;
@@ -310,13 +311,15 @@ public abstract class AbstractActionExecutor {
     boolean genrule = action.getMnemonic().equals("Genrule");
     String prefix = (genrule ? "declared output '" : "output '") + output.prettyPrint() + "' ";
     if (isSymlink) {
-      reporter.error(action.getOwner().getLocation(), prefix + "is a dangling symbolic link");
+      reporter.handle(Event.error(
+          action.getOwner().getLocation(), prefix + "is a dangling symbolic link"));
     } else {
       String suffix = genrule ? " by genrule. This is probably "
           + "because the genrule actually didn't create this output, or because the output was a "
           + "directory and the genrule was run remotely (note that only the contents of "
           + "declared file outputs are copied from genrules run remotely)" : "";
-      reporter.error(action.getOwner().getLocation(), prefix + "was not created" + suffix);
+      reporter.handle(Event.error(
+          action.getOwner().getLocation(), prefix + "was not created" + suffix));
     }
   }
 
@@ -405,7 +408,7 @@ public abstract class AbstractActionExecutor {
       if (isBuilderAborting()) {
         return;
       }
-      reporter.info(null, message.toString());
+      reporter.handle(Event.info(message.toString()));
 
       OutErr outErr = this.reporter.getOutErr();
       outErrBuffer.dumpOutAsLatin1(outErr.getOutputStream());

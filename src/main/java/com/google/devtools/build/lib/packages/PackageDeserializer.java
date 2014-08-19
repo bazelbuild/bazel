@@ -17,9 +17,10 @@ import com.google.common.base.Preconditions;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableList.Builder;
 import com.google.devtools.build.lib.concurrent.ThreadSafety.Immutable;
+import com.google.devtools.build.lib.events.Event;
 import com.google.devtools.build.lib.events.Location;
-import com.google.devtools.build.lib.events.NullErrorEventListener;
-import com.google.devtools.build.lib.events.StoredErrorEventListener;
+import com.google.devtools.build.lib.events.NullEventHandler;
+import com.google.devtools.build.lib.events.StoredEventHandler;
 import com.google.devtools.build.lib.packages.LegacyPackage.LegacyPackageBuilder;
 import com.google.devtools.build.lib.packages.License.DistributionType;
 import com.google.devtools.build.lib.packages.License.LicenseParsingException;
@@ -108,7 +109,7 @@ public class PackageDeserializer {
             deserializeLabel(packageGroupPb.getName()).getName(),
             specifications,
             deserializeLabels(packageGroupPb.getIncludedPackageGroupList()),
-            NullErrorEventListener.INSTANCE,  // TODO(bazel-team): Handle errors properly
+            NullEventHandler.INSTANCE,  // TODO(bazel-team): Handle errors properly
             deserializeLocation(packageGroupPb.getParseableLocation()));
       } catch (Label.SyntaxException | PackageBuilder.NameConflictException e) {
         throw new PackageDeserializationException(e);
@@ -134,7 +135,7 @@ public class PackageDeserializer {
 
       Rule rule = ruleClass.createRuleWithParsedAttributeValues(
           ruleLabel, packageBuilder, ruleLocation, attributeValues,
-          NullErrorEventListener.INSTANCE);
+          NullEventHandler.INSTANCE);
       try {
         packageBuilder.addRule(rule);
       } catch (NameConflictException e) {
@@ -313,7 +314,7 @@ public class PackageDeserializer {
    * Deserialize a package from its representation as a protocol message. The inverse of
    * {@link PackageSerializer#serializePackage}.
    */
-  private void deserializeInternal(Build.Package packagePb, StoredErrorEventListener listener,
+  private void deserializeInternal(Build.Package packagePb, StoredEventHandler eventHandler,
       AbstractPackageBuilder<?, ?> builder) throws PackageDeserializationException {
     Path buildFile = environment.getBuildFile(packagePb.getName());
     Preconditions.checkNotNull(buildFile);
@@ -376,7 +377,7 @@ public class PackageDeserializer {
     }
 
     for (Build.Event event : packagePb.getEventList()) {
-      deserializeEvent(context, listener, event);
+      deserializeEvent(context, eventHandler, event);
     }
 
     if (packagePb.hasContainsErrors() && packagePb.getContainsErrors()) {
@@ -390,21 +391,21 @@ public class PackageDeserializer {
    */
   public Package deserialize(Build.Package packagePb) throws PackageDeserializationException {
     PackageBuilder builder = new PackageBuilder(packagePb.getName());
-    StoredErrorEventListener listener = new StoredErrorEventListener();
-    deserializeInternal(packagePb, listener, builder);
-    return builder.build(listener);
+    StoredEventHandler eventHandler = new StoredEventHandler();
+    deserializeInternal(packagePb, eventHandler, builder);
+    return builder.build(eventHandler);
   }
 
   public LegacyPackage deserializeLegacy(Build.Package packagePb)
       throws PackageDeserializationException, InterruptedException {
     LegacyPackageBuilder builder = new LegacyPackageBuilder(packagePb.getName());
-    StoredErrorEventListener listener = new StoredErrorEventListener();
-    deserializeInternal(packagePb, listener, builder);
-    return builder.build(LegacyPackage.EMPTY_BULK_PACKAGE_LOCATOR, listener);
+    StoredEventHandler eventHandler = new StoredEventHandler();
+    deserializeInternal(packagePb, eventHandler, builder);
+    return builder.build(LegacyPackage.EMPTY_BULK_PACKAGE_LOCATOR, eventHandler);
   }
 
   private static void deserializeEvent(
-      Context context, StoredErrorEventListener listener, Build.Event event) {
+      Context context, StoredEventHandler eventHandler, Build.Event event) {
     Location location = null;
     if (event.hasLocation()) {
       location = context.deserializeLocation(event.getLocation());
@@ -412,10 +413,10 @@ public class PackageDeserializer {
 
     String message = event.getMessage();
     switch (event.getKind()) {
-      case ERROR: listener.error(location, message); break;
-      case WARNING: listener.warn(location, message); break;
-      case INFO: listener.info(location, message); break;
-      case PROGRESS: listener.progress(location, message); break;
+      case ERROR: eventHandler.handle(Event.error(location, message)); break;
+      case WARNING: eventHandler.handle(Event.warn(location, message)); break;
+      case INFO: eventHandler.handle(Event.info(location, message)); break;
+      case PROGRESS: eventHandler.handle(Event.progress(location, message)); break;
       default: break;  // Ignore
     }
   }

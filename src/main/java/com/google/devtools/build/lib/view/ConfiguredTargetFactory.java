@@ -25,7 +25,8 @@ import com.google.devtools.build.lib.collect.nestedset.NestedSet;
 import com.google.devtools.build.lib.collect.nestedset.NestedSetBuilder;
 import com.google.devtools.build.lib.collect.nestedset.Order;
 import com.google.devtools.build.lib.concurrent.ThreadSafety.ThreadSafe;
-import com.google.devtools.build.lib.events.ErrorEventListener;
+import com.google.devtools.build.lib.events.Event;
+import com.google.devtools.build.lib.events.EventHandler;
 import com.google.devtools.build.lib.packages.Attribute;
 import com.google.devtools.build.lib.packages.ConstantRuleVisibility;
 import com.google.devtools.build.lib.packages.InputFile;
@@ -75,7 +76,7 @@ public final class ConfiguredTargetFactory {
    * to the {@code AnalysisEnvironment}.
    */
   private NestedSet<PackageSpecification> convertVisibility(
-      ListMultimap<Attribute, ConfiguredTarget> prerequisiteMap, ErrorEventListener reporter,
+      ListMultimap<Attribute, ConfiguredTarget> prerequisiteMap, EventHandler reporter,
       Target target, BuildConfiguration packageGroupConfiguration) {
     RuleVisibility ruleVisibility = target.getVisibility();
     if (ruleVisibility instanceof ConstantRuleVisibility) {
@@ -108,8 +109,8 @@ public final class ConfiguredTargetFactory {
         if (provider != null) {
           packageSpecifications.addTransitive(provider.getPackageSpecifications());
         } else {
-          reporter.error(target.getLocation(),
-              String.format("Label '%s' does not refer to a package group", groupLabel));
+          reporter.handle(Event.error(target.getLocation(),
+              String.format("Label '%s' does not refer to a package group", groupLabel)));
         }
       }
 

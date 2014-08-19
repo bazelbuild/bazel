@@ -14,7 +14,8 @@
 package com.google.devtools.build.lib.buildtool;
 
 import com.google.common.base.Joiner;
-import com.google.devtools.build.lib.events.ErrorEventListener;
+import com.google.devtools.build.lib.events.Event;
+import com.google.devtools.build.lib.events.EventHandler;
 import com.google.devtools.build.lib.vfs.FileSystemUtils;
 import com.google.devtools.build.lib.vfs.Path;
 import com.google.devtools.build.lib.vfs.PathFragment;
@@ -46,7 +47,7 @@ public class OutputDirectoryLinksUtils {
    * is readonly.
    */
   public static void createOutputDirectoryLinks(Path workspace, Path execRoot, Path outputPath,
-      ErrorEventListener listener, BuildConfiguration targetConfig, String symlinkPrefix) {
+      EventHandler eventHandler, BuildConfiguration targetConfig, String symlinkPrefix) {
     if (NO_CREATE_SYMLINKS_PREFIX.equals(symlinkPrefix)) {
       return;
     }
@@ -64,9 +65,9 @@ public class OutputDirectoryLinksUtils {
     createLink(workspace, symlinkPrefix + "genfiles", targetConfig.getGenfilesDirectory().getPath(),
         failures);
     if (!failures.isEmpty()) {
-      listener.warn(null, String.format(
+      eventHandler.handle(Event.warn(String.format(
           "failed to create one or more convenience symlinks for prefix '%s':\n  %s",
-          symlinkPrefix, Joiner.on("\n  ").join(failures)));
+          symlinkPrefix, Joiner.on("\n  ").join(failures))));
     }
   }
 
@@ -119,10 +120,10 @@ public class OutputDirectoryLinksUtils {
    * Also cleans up any child directories created by a custom prefix.
    *
    * @param workspace the runtime's workspace
-   * @param listener the error listener
+   * @param eventHandler the error eventHandler
    * @param symlinkPrefix the symlink prefix which should be removed
    */
-  public static void removeOutputDirectoryLinks(Path workspace, ErrorEventListener listener,
+  public static void removeOutputDirectoryLinks(Path workspace, EventHandler eventHandler,
       String symlinkPrefix) {
     if (NO_CREATE_SYMLINKS_PREFIX.equals(symlinkPrefix)) {
       return;
@@ -136,9 +137,9 @@ public class OutputDirectoryLinksUtils {
     removeLink(workspace, symlinkPrefix + "genfiles", failures);
     FileSystemUtils.removeDirectoryAndParents(workspace, new PathFragment(symlinkPrefix));
     if (!failures.isEmpty()) {
-      listener.warn(null, String.format(
+      eventHandler.handle(Event.warn(String.format(
           "failed to remove one or more convenience symlinks for prefix '%s':\n  %s", symlinkPrefix,
-          Joiner.on("\n  ").join(failures)));
+          Joiner.on("\n  ").join(failures))));
     }
   }
 

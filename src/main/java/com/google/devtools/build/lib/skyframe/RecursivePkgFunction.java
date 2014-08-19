@@ -16,6 +16,7 @@ package com.google.devtools.build.lib.skyframe;
 import com.google.common.collect.Lists;
 import com.google.devtools.build.lib.collect.nestedset.NestedSetBuilder;
 import com.google.devtools.build.lib.collect.nestedset.Order;
+import com.google.devtools.build.lib.events.Event;
 import com.google.devtools.build.lib.packages.NoSuchPackageException;
 import com.google.devtools.build.lib.pkgcache.PathPackageLocator;
 import com.google.devtools.build.lib.vfs.Dirent;
@@ -85,8 +86,8 @@ public class RecursivePkgFunction implements SkyFunction {
         } catch (NoSuchPackageException e) {
           // The package had errors, but don't fail-fast as there might subpackages below the
           // current directory.
-          env.getListener().error(null,
-              "package contains errors: " + rootRelativePath.getPathString());
+          env.getListener().handle(Event.error(
+              "package contains errors: " + rootRelativePath.getPathString()));
           if (e.getPackage() != null) {
             packages.add(e.getPackage().getName());
           }

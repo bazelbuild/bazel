@@ -60,6 +60,10 @@ public abstract class FoundationTestCase extends ChattyAssertsTestCase {
       public void handle(Event event) {
         fail(event.toString());
       }
+      @Override
+      public boolean showOutput(String tag) {
+        return true;
+      }
     };
 
   @Override

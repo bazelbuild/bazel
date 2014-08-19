@@ -13,7 +13,7 @@
 // limitations under the License.
 package com.google.devtools.build.skyframe;
 
-import com.google.devtools.build.lib.events.ErrorEventListener;
+import com.google.devtools.build.lib.events.EventHandler;
 
 /**
  * An interface for the evaluator for a particular graph version.
@@ -30,7 +30,7 @@ public interface Evaluator {
      * @param keepGoing whether {@link #eval} should continue if building a {link Value} fails.
      *                  Otherwise, we throw an exception on failure.
      */
-    Evaluator create(ProcessableGraph graph, long graphVersion, ErrorEventListener reporter,
+    Evaluator create(ProcessableGraph graph, long graphVersion, EventHandler reporter,
         boolean keepGoing);
   }
 

@@ -20,7 +20,7 @@ import com.google.devtools.build.lib.actions.ActionOwner;
 import com.google.devtools.build.lib.actions.Artifact;
 import com.google.devtools.build.lib.actions.Executor;
 import com.google.devtools.build.lib.actions.ParameterFile.ParameterFileType;
-import com.google.devtools.build.lib.events.ErrorEventListener;
+import com.google.devtools.build.lib.events.EventHandler;
 import com.google.devtools.build.lib.util.Fingerprint;
 import com.google.devtools.build.lib.util.ShellEscaper;
 
@@ -68,7 +68,7 @@ public final class ParameterFileWriteAction extends AbstractFileWriteAction {
   }
 
   @Override
-  public void writeOutputFile(OutputStream out, ErrorEventListener listener,
+  public void writeOutputFile(OutputStream out, EventHandler eventHandler,
       Executor executor) throws IOException {
     switch (type) {
       case SHELL_QUOTED :

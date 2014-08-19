@@ -23,7 +23,7 @@ import com.google.common.collect.Iterables;
 import com.google.devtools.build.lib.actions.ActionOwner;
 import com.google.devtools.build.lib.actions.Artifact;
 import com.google.devtools.build.lib.actions.Executor;
-import com.google.devtools.build.lib.events.ErrorEventListener;
+import com.google.devtools.build.lib.events.EventHandler;
 import com.google.devtools.build.lib.util.Fingerprint;
 import com.google.devtools.build.lib.util.ResourceFileLoader;
 import com.google.devtools.build.lib.util.StringUtilities;
@@ -294,7 +294,7 @@ public class TemplateExpansionAction extends AbstractFileWriteAction {
   }
 
   @Override
-  public void writeOutputFile(OutputStream out, ErrorEventListener listener,
+  public void writeOutputFile(OutputStream out, EventHandler eventHandler,
       Executor executor) throws IOException {
     byte[] bytes = getFileContents().getBytes(UTF_8);
     out.write(bytes);

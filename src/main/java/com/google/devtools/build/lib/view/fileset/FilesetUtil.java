@@ -17,7 +17,8 @@ package com.google.devtools.build.lib.view.fileset;
 import com.google.devtools.build.lib.actions.ActionOwner;
 import com.google.devtools.build.lib.concurrent.AbstractQueueVisitor;
 import com.google.devtools.build.lib.concurrent.ThreadSafety;
-import com.google.devtools.build.lib.events.ErrorEventListener;
+import com.google.devtools.build.lib.events.Event;
+import com.google.devtools.build.lib.events.EventHandler;
 import com.google.devtools.build.lib.syntax.FilesetEntry;
 import com.google.devtools.build.lib.vfs.IORuntimeException;
 import com.google.devtools.build.lib.vfs.Path;
@@ -78,10 +79,10 @@ class FilesetUtil {
   @ThreadSafety.ThreadSafe
   static void collectFilesRecursively(ThreadPoolExecutor pool, Path root, PathFragment src,
       FilesetLinks links, Collection<String> excludes, SubpackageMode pkgMode,
-      ErrorEventListener listener, ActionOwner owner, VisitParameters visitParameters)
+      EventHandler eventHandler, ActionOwner owner, VisitParameters visitParameters)
       throws IOException, InterruptedException {
     FilesetVisitor visitor = new FilesetVisitor(pool);
-    visitor.visitLinksRecursively(root, src, links, excludes, pkgMode, listener, owner,
+    visitor.visitLinksRecursively(root, src, links, excludes, pkgMode, eventHandler, owner,
         visitParameters);
     visitor.work();
   }
@@ -101,13 +102,13 @@ class FilesetUtil {
    */
   @ThreadSafety.ThreadSafe
   static void collectFilesNoExcludes(ThreadPoolExecutor pool, Path target, PathFragment src,
-      FilesetLinks links, ErrorEventListener listener, ActionOwner owner,
+      FilesetLinks links, EventHandler eventHandler, ActionOwner owner,
       VisitParameters visitParameters) throws IOException, InterruptedException {
     FilesetVisitor visitor = new FilesetVisitor(pool);
     // We use IGNORE here due to spurious warnings when Fileset "a" depends on Fileset "b", and
     // "b" contains a BUILD file in its output tree.
     // This may or may not be correct.
-    visitor.visitLinkNoExcludes(target, src, links, SubpackageMode.IGNORE, listener, owner,
+    visitor.visitLinkNoExcludes(target, src, links, SubpackageMode.IGNORE, eventHandler, owner,
         visitParameters);
     visitor.work();
   }
@@ -124,13 +125,13 @@ class FilesetUtil {
     }
 
     private void enqueue(final Path target, final PathFragment src,
-        final FilesetLinks links, final SubpackageMode pkgMode, final ErrorEventListener listener,
+        final FilesetLinks links, final SubpackageMode pkgMode, final EventHandler eventHandler,
         final ActionOwner owner, final VisitParameters visitParameters) {
       super.enqueue(new Runnable() {
         @Override
         public void run() {
           try {
-            visitLinkNoExcludes(target, src, links, pkgMode, listener, owner, visitParameters);
+            visitLinkNoExcludes(target, src, links, pkgMode, eventHandler, owner, visitParameters);
           } catch (IOException e) {
             throw new IORuntimeException(e);
           }
@@ -150,7 +151,7 @@ class FilesetUtil {
      * @throws IOException If a filesystem operation fails.
      */
     private void visitDirectoryEntries(Path target, PathFragment src, FilesetLinks links,
-        SubpackageMode pkgMode, ErrorEventListener listener, ActionOwner owner,
+        SubpackageMode pkgMode, EventHandler eventHandler, ActionOwner owner,
         VisitParameters visitParameters) throws IOException {
       for (Path element : target.getDirectoryEntries()) {
         // TODO(bazel-team): Consider the case where the BUILD file exists on another
@@ -160,16 +161,17 @@ class FilesetUtil {
           // We must allow this for parity with the subinclude-based Fileset.
           String msg = "Fileset crosses package boundary into package rooted at " + target;
           if (pkgMode == SubpackageMode.WARNING) {
-            listener.warn(owner.getLocation(), msg);
+            eventHandler.handle(Event.warn(owner.getLocation(), msg));
           } else {
-            listener.error(owner.getLocation(), msg);
+            eventHandler.handle(Event.error(owner.getLocation(), msg));
             throw new BadSubpackageException(msg);
           }
 
           // Don't need to warn on nested subpackages.
           pkgMode = SubpackageMode.IGNORE;
         }
-        enqueue(element, src.getRelative(element.getBaseName()), links, pkgMode, listener, owner,
+        enqueue(element,
+            src.getRelative(element.getBaseName()), links, pkgMode, eventHandler, owner,
             visitParameters);
       }
     }
@@ -190,7 +192,7 @@ class FilesetUtil {
      * @throws IOException If a filesystem operation fails.
      */
     private boolean visitLateParentDirs(PathFragment src, FilesetLinks links,
-        ErrorEventListener listener, ActionOwner owner, VisitParameters visitParameters,
+        EventHandler eventHandler, ActionOwner owner, VisitParameters visitParameters,
         boolean addStubLateDir) throws IOException {
       boolean addSucceeded = false;
       FilesetLinks.LateDirectoryInfo lateDir = links.getLateDirectoryInfo(src);
@@ -204,7 +206,7 @@ class FilesetUtil {
       if (lateDir != null) {
         if (lateDir.shouldAdd()) {
           visitDirectoryEntries(lateDir.getTarget(), lateDir.getSrc(), links,
-              lateDir.getPkgMode(), listener, owner, visitParameters);
+              lateDir.getPkgMode(), eventHandler, owner, visitParameters);
         } else if (!addSucceeded) {
           return true;
         }
@@ -212,7 +214,7 @@ class FilesetUtil {
 
       PathFragment parent = src.getParentDirectory();
       if (parent != null) {
-        visitLateParentDirs(parent, links, listener, owner, visitParameters, true);
+        visitLateParentDirs(parent, links, eventHandler, owner, visitParameters, true);
       }
       return lateDir != null;
     }
@@ -231,10 +233,10 @@ class FilesetUtil {
      * @throws IOException if a filesystem operation fails.
      */
     public void visitLinkNoExcludes(Path target, PathFragment src, FilesetLinks links,
-        SubpackageMode pkgMode, ErrorEventListener listener, ActionOwner owner,
+        SubpackageMode pkgMode, EventHandler eventHandler, ActionOwner owner,
         VisitParameters visitParameters) throws IOException {
       boolean shouldRecurse = visitParameters.getCheckDepsRecursively() ||
-          visitLateParentDirs(src, links, listener, owner, visitParameters, false);
+          visitLateParentDirs(src, links, eventHandler, owner, visitParameters, false);
       Symlinks followSymlinks =
         visitParameters.getCheckDepsRecursively() ? Symlinks.NOFOLLOW : Symlinks.FOLLOW;
 
@@ -247,11 +249,11 @@ class FilesetUtil {
           // Could have been added when we weren't looking.
           if (!links.putLateDirectoryInfo(src, lateDir)) {
             shouldRecurse = true;
-            visitLateParentDirs(src, links, listener, owner, visitParameters, false);
+            visitLateParentDirs(src, links, eventHandler, owner, visitParameters, false);
           }
         }
         if (shouldRecurse) {
-          visitDirectoryEntries(target, src, links, pkgMode, listener, owner, visitParameters);
+          visitDirectoryEntries(target, src, links, pkgMode, eventHandler, owner, visitParameters);
         }
       } else {
         links.addFile(src, target, getMetadata(target), visitParameters.getSymlinkBehavior());
@@ -285,12 +287,12 @@ class FilesetUtil {
      * @throws IOException if a filesystem operation fails.
      */
     public void visitLinksRecursively(Path root, PathFragment src, FilesetLinks links,
-        Collection<String> excludes, SubpackageMode pkgMode, ErrorEventListener listener,
+        Collection<String> excludes, SubpackageMode pkgMode, EventHandler eventHandler,
         ActionOwner owner, VisitParameters visitParameters) throws IOException {
       for (Path element : root.getDirectoryEntries()) {
         if (!excludes.contains(element.getBaseName())) {
           // Excludes only apply to the top-level elements, so this is ok.
-          enqueue(element, src.getRelative(element.getBaseName()), links, pkgMode, listener,
+          enqueue(element, src.getRelative(element.getBaseName()), links, pkgMode, eventHandler,
               owner, visitParameters);
         }
       }

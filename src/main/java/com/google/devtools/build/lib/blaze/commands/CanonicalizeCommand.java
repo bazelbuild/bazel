@@ -17,6 +17,7 @@ import com.google.devtools.build.lib.blaze.BlazeCommand;
 import com.google.devtools.build.lib.blaze.BlazeCommandUtils;
 import com.google.devtools.build.lib.blaze.BlazeRuntime;
 import com.google.devtools.build.lib.blaze.Command;
+import com.google.devtools.build.lib.events.Event;
 import com.google.devtools.build.lib.util.ExitCode;
 import com.google.devtools.common.options.Converter;
 import com.google.devtools.common.options.Option;
@@ -83,7 +84,7 @@ public final class CanonicalizeCommand implements BlazeCommand {
         runtime.getReporter().getOutErr().printOutLn(piece);
       }
     } catch (OptionsParsingException e) {
-      runtime.getReporter().error(null, e.getMessage());
+      runtime.getReporter().handle(Event.error(e.getMessage()));
       return ExitCode.COMMAND_LINE_ERROR;
     }
     return ExitCode.SUCCESS;

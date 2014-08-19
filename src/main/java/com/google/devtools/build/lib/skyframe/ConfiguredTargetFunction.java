@@ -23,7 +23,8 @@ import com.google.common.collect.ListMultimap;
 import com.google.common.collect.Lists;
 import com.google.devtools.build.lib.actions.Action;
 import com.google.devtools.build.lib.actions.MutableActionGraph.ActionConflictException;
-import com.google.devtools.build.lib.events.StoredErrorEventListener;
+import com.google.devtools.build.lib.events.Event;
+import com.google.devtools.build.lib.events.StoredEventHandler;
 import com.google.devtools.build.lib.packages.Attribute;
 import com.google.devtools.build.lib.packages.InputFile;
 import com.google.devtools.build.lib.packages.NoSuchPackageException;
@@ -134,7 +135,7 @@ final class ConfiguredTargetFunction implements SkyFunction {
         labelMap = new LateBoundAttributeHelper((Rule) target, configuration, configConditions)
             .createAttributeMap();
       } catch (EvalException e) {
-        env.getListener().error(e.getLocation(), e.getMessage());
+        env.getListener().handle(Event.error(e.getLocation(), e.getMessage()));
         throw new ConfiguredTargetFunctionException(packageSkyKey,
             new ConfiguredValueCreationException(e.print()));
       }
@@ -213,7 +214,7 @@ final class ConfiguredTargetFunction implements SkyFunction {
         Target badTarget = entry.getValue().getTarget();
         String message = badTarget + " is not a valid configuration key for "
             + target.getLabel().toString();
-        env.getListener().error(TargetUtils.getLocationMaybe(badTarget), message);
+        env.getListener().handle(Event.error(TargetUtils.getLocationMaybe(badTarget), message));
         throw new ConfiguredTargetFunctionException(packageSkyKey,
             new ConfiguredValueCreationException(message));
       }
@@ -268,7 +269,7 @@ final class ConfiguredTargetFunction implements SkyFunction {
       if (directChildException != null) {
         // Only update messages for missing targets we depend on directly.
         message = TargetUtils.formatMissingEdge(target, depLabel, directChildException);
-        env.getListener().error(TargetUtils.getLocationMaybe(target), message);
+        env.getListener().handle(Event.error(TargetUtils.getLocationMaybe(target), message));
       }
 
       if (depValue == null) {
@@ -303,7 +304,7 @@ final class ConfiguredTargetFunction implements SkyFunction {
       InterruptedException {
     boolean extendedSanityChecks = configuration != null && configuration.extendedSanityChecks();
 
-    StoredErrorEventListener events = new StoredErrorEventListener();
+    StoredEventHandler events = new StoredEventHandler();
     BuildConfiguration ownerConfig = (configuration == null)
         ? null : configuration.getArtifactOwnerConfiguration();
     boolean allowRegisteringActions = (configuration == null)

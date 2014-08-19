@@ -69,6 +69,15 @@ public final class Attribute implements Comparable<Attribute> {
   }
 
   /**
+   * A configuration split transition; this should be used to transition to multiple configurations
+   * simultaneously. Note that the corresponding rule implementations must have special support to
+   * handle this.
+   */
+  // TODO(ulfjack): Serializability constraints?
+  public interface SplitTransition extends Transition {
+  }
+
+  /**
    * Declaration how the configuration should change when following a label or
    * label list attribute.
    */

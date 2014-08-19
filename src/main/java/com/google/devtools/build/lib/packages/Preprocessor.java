@@ -13,7 +13,7 @@
 // limitations under the License.
 package com.google.devtools.build.lib.packages;
 
-import com.google.devtools.build.lib.events.ErrorEventListener;
+import com.google.devtools.build.lib.events.EventHandler;
 import com.google.devtools.build.lib.syntax.Environment;
 import com.google.devtools.build.lib.syntax.ParserInputSource;
 import com.google.devtools.build.lib.vfs.Path;
@@ -117,13 +117,13 @@ public interface Preprocessor {
 
   /**
    * Returns a Result resulting from applying Python preprocessing to the contents of "in". If
-   * errors happen, they must be reported both as an event on listener and in the function
+   * errors happen, they must be reported both as an event on eventHandler and in the function
    * return value.
    *
    * @param in the BUILD file to be preprocessed.
    * @param packageName the BUILD file's package.
    * @param globCache
-   * @param listener a listener on which to report warnings/errors.
+   * @param eventHandler a eventHandler on which to report warnings/errors.
    * @param globalEnv the GLOBALS Python environment.
    * @param ruleNames the set of names of all rules in the build language.
    * @throws IOException if there was an I/O problem during preprocessing.
@@ -133,7 +133,7 @@ public interface Preprocessor {
       ParserInputSource in,
       String packageName,
       GlobCache globCache,
-      ErrorEventListener listener,
+      EventHandler eventHandler,
       Environment globalEnv,
       Set<String> ruleNames)
     throws IOException, InterruptedException;

@@ -52,13 +52,12 @@ import com.google.devtools.build.lib.collect.nestedset.Order;
 import com.google.devtools.build.lib.concurrent.ThreadSafety.ThreadCompatible;
 import com.google.devtools.build.lib.concurrent.ThreadSafety.ThreadHostile;
 import com.google.devtools.build.lib.concurrent.ThreadSafety.ThreadSafe;
-import com.google.devtools.build.lib.events.DelegatingErrorEventListener;
-import com.google.devtools.build.lib.events.ErrorEventListener;
+import com.google.devtools.build.lib.events.DelegatingEventHandler;
 import com.google.devtools.build.lib.events.Event;
+import com.google.devtools.build.lib.events.EventHandler;
 import com.google.devtools.build.lib.events.EventKind;
-import com.google.devtools.build.lib.events.Location;
-import com.google.devtools.build.lib.events.StoredErrorEventListener;
-import com.google.devtools.build.lib.events.WarningsAsErrorsEventListener;
+import com.google.devtools.build.lib.events.StoredEventHandler;
+import com.google.devtools.build.lib.events.WarningsAsErrorsEventHandler;
 import com.google.devtools.build.lib.packages.Attribute;
 import com.google.devtools.build.lib.packages.NoSuchPackageException;
 import com.google.devtools.build.lib.packages.NoSuchTargetException;
@@ -224,7 +223,7 @@ public class BuildView {
 
   private final ImmutableList<OutputFormatter> outputFormatters;
 
-  private ErrorEventListener reporter;
+  private EventHandler reporter;
 
   private final SkyframeExecutor skyframeExecutor;
   private final SkyframeBuildView skyframeBuildView;
@@ -774,7 +773,7 @@ public class BuildView {
   @ThreadCompatible
   public AnalysisResult update(@Nullable UUID buildId, LoadingResult loadingResult,
       BuildConfigurationCollection configurations, BuildView.Options viewOptions,
-      TopLevelArtifactContext topLevelOptions, ErrorEventListener listener, EventBus eventBus)
+      TopLevelArtifactContext topLevelOptions, EventHandler eventHandler, EventBus eventBus)
           throws ViewCreationFailedException, InterruptedException {
 
     // Detect errors during analysis and don't attempt a build.
@@ -786,22 +785,22 @@ public class BuildView {
     // but visitation still succeeds.)
     ErrorCollector errorCollector = null;
     if (!viewOptions.keepGoing) {
-      listener = errorCollector = new ErrorCollector(listener);
+      eventHandler = errorCollector = new ErrorCollector(eventHandler);
     }
 
     // Treat analysis warnings as errors, to enable strict builds.
     //
     // Warnings reported during analysis are converted to errors, ultimately
     // triggering failure. This check needs to be added after the keep-going check
-    // above so that it is invoked first (FIFO listener chain). This way, detected
+    // above so that it is invoked first (FIFO eventHandler chain). This way, detected
     // warnings are converted to errors first, and then the proper error handling
     // logic is invoked.
-    WarningsAsErrorsEventListener warningsListener = null;
+    WarningsAsErrorsEventHandler warningsHandler = null;
     if (viewOptions.analysisWarningsAsErrors) {
-      listener = warningsListener = new WarningsAsErrorsEventListener(listener);
+      eventHandler = warningsHandler = new WarningsAsErrorsEventHandler(eventHandler);
     }
 
-    this.reporter = listener;
+    this.reporter = eventHandler;
     skyframeBuildView.setWarningListener(reporter);
     skyframeExecutor.setErrorEventListener(reporter);
 
@@ -859,7 +858,7 @@ public class BuildView {
         });
 
     prepareToBuild();
-    skyframeBuildView.setWarningListener(warningsListener);
+    skyframeBuildView.setWarningListener(warningsHandler);
     if (skyframeExecutor.skyframeBuild()) {
       skyframeExecutor.injectWorkspaceStatusData();
     } else {
@@ -893,11 +892,11 @@ public class BuildView {
     if (0 < numSuccessful && numSuccessful < numTargetsToAnalyze) {
       String msg = String.format("Analysis succeeded for only %d of %d top-level targets",
                                     numSuccessful, numTargetsToAnalyze);
-      reporter.info(null, msg);
+      reporter.handle(Event.info(msg));
       LOG.info(msg);
     }
 
-    postUpdateValidation(errorCollector, warningsListener);
+    postUpdateValidation(errorCollector, warningsHandler);
 
     AnalysisResult result = createResult(loadingResult, topLevelOptions,
         viewOptions, configuredTargets, analysisSuccessful);
@@ -908,8 +907,8 @@ public class BuildView {
 
   // Validates that the update has been done correctly
   private void postUpdateValidation(ErrorCollector errorCollector,
-      WarningsAsErrorsEventListener warningsListener) throws ViewCreationFailedException {
-    if (warningsListener != null && warningsListener.warningsEncountered()) {
+      WarningsAsErrorsEventHandler warningsHandler) throws ViewCreationFailedException {
+    if (warningsHandler != null && warningsHandler.warningsEncountered()) {
       throw new ViewCreationFailedException("Warnings being treated as errors");
     }
 
@@ -1300,13 +1299,14 @@ public class BuildView {
    */
   @VisibleForTesting
   public RuleContext getRuleContextForTesting(ConfiguredTarget target,
-      StoredErrorEventListener listener) {
+      StoredEventHandler eventHandler) {
     BuildConfiguration config = target.getConfiguration();
     CachingAnalysisEnvironment analysisEnvironment =
         new CachingAnalysisEnvironment(artifactFactory,
             new LabelAndConfiguration(target.getLabel(), config),
             lastWorkspaceStatusArtifacts, /*isSystemEnv=*/false, config.extendedSanityChecks(),
-            listener, /*skyframeEnv=*/null, config.isActionsEnabled(), outputFormatters, binTools);
+            eventHandler,
+            /*skyframeEnv=*/null, config.isActionsEnabled(), outputFormatters, binTools);
     RuleContext ruleContext = new RuleContext.Builder(analysisEnvironment,
         (Rule) target.getTarget(), config, ruleClassProvider.getPrerequisiteValidator())
             .setVisibility(NestedSetBuilder.<PackageSpecification>create(
@@ -1505,12 +1505,12 @@ public class BuildView {
   }
 
   /**
-   * Collects and stores error events while also forwarding them to another listener.
+   * Collects and stores error events while also forwarding them to another eventHandler.
    */
-  public static class ErrorCollector extends DelegatingErrorEventListener {
+  public static class ErrorCollector extends DelegatingEventHandler {
     private final List<Event> events;
 
-    public ErrorCollector(ErrorEventListener delegate) {
+    public ErrorCollector(EventHandler delegate) {
       super(delegate);
       this.events = Lists.newArrayList();
     }
@@ -1520,9 +1520,11 @@ public class BuildView {
     }
 
     @Override
-    public void error(Location location, String message) {
-      super.error(location, message);
-      events.add(new Event(EventKind.ERROR, location, message));
+    public void handle(Event e) {
+      super.handle(e);
+      if (e.getKind() == EventKind.ERROR) {
+        events.add(e);
+      }
     }
   }
 }

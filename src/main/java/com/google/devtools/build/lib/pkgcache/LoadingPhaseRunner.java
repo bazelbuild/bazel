@@ -28,8 +28,9 @@ import com.google.common.eventbus.EventBus;
 import com.google.devtools.build.lib.cmdline.ResolvedTargets;
 import com.google.devtools.build.lib.cmdline.TargetParsingException;
 import com.google.devtools.build.lib.concurrent.ThreadSafety.ThreadCompatible;
-import com.google.devtools.build.lib.events.DelegatingErrorEventListener;
-import com.google.devtools.build.lib.events.ErrorEventListener;
+import com.google.devtools.build.lib.events.DelegatingEventHandler;
+import com.google.devtools.build.lib.events.Event;
+import com.google.devtools.build.lib.events.EventHandler;
 import com.google.devtools.build.lib.packages.NoSuchPackageException;
 import com.google.devtools.build.lib.packages.NoSuchTargetException;
 import com.google.devtools.build.lib.packages.NoSuchThingException;
@@ -243,11 +244,11 @@ public class LoadingPhaseRunner {
     }
   }
 
-  private static final class ParseFailureListenerImpl extends DelegatingErrorEventListener
+  private static final class ParseFailureListenerImpl extends DelegatingEventHandler
       implements ParseFailureListener {
     private final EventBus eventBus;
 
-    private ParseFailureListenerImpl(ErrorEventListener delegate, EventBus eventBus) {
+    private ParseFailureListenerImpl(EventHandler delegate, EventBus eventBus) {
       super(delegate);
       this.eventBus = eventBus;
     }
@@ -288,11 +289,12 @@ public class LoadingPhaseRunner {
    * a {@code BuildConfigurationCollection} without running a full loading phase. Don't
    * add any more clients; instead, we should change info so that it doesn't need the configuration.
    */
-  public LoadedPackageProvider loadForConfigurations(ErrorEventListener listener,
+  public LoadedPackageProvider loadForConfigurations(EventHandler eventHandler,
       Set<Label> labelsToLoad) throws InterruptedException {
     // Use a new Label Visitor here to avoid erasing the cache on the existing one.
     TransitivePackageLoader transitivePackageLoader = packageManager.newTransitiveLoader();
-    boolean loadingSuccessful = transitivePackageLoader.sync(listener, ImmutableSet.<Target>of(),
+    boolean loadingSuccessful = transitivePackageLoader.sync(
+        eventHandler, ImmutableSet.<Target>of(),
         labelsToLoad, /*keepGoing=*/false, /*parallelThreads=*/10,
         /*maxDepth=*/Integer.MAX_VALUE);
     return loadingSuccessful ? packageManager : null;
@@ -303,7 +305,7 @@ public class LoadingPhaseRunner {
    * transitive closure of the resulting targets as well as of the targets needed to use the
    * given build configuration provider.
    */
-  public LoadingResult execute(ErrorEventListener listener, EventBus eventBus,
+  public LoadingResult execute(EventHandler eventHandler, EventBus eventBus,
       List<String> targetPatterns, Options options,
       ListMultimap<String, Label> labelsToLoadUnconditionally, boolean keepGoing,
       boolean determineTests, @Nullable Callback callback)
@@ -315,7 +317,7 @@ public class LoadingPhaseRunner {
           + "the --build_tests_only option or the 'bazel test' command ");
     }
 
-    ErrorEventListener parseFailureListener = new ParseFailureListenerImpl(listener, eventBus);
+    EventHandler parseFailureListener = new ParseFailureListenerImpl(eventHandler, eventBus);
     // Determine targets to build:
     ResolvedTargets<Target> targets = getTargetsToBuild(parseFailureListener,
         targetPatterns, options.compileOneDependency, keepGoing);
@@ -335,7 +337,7 @@ public class LoadingPhaseRunner {
       ResolvedTargets<Target> testTargets = determineTests(parseFailureListener,
           targetPatterns, options, keepGoing);
       if (testTargets.getTargets().isEmpty() && !testTargets.getFilteredTargets().isEmpty()) {
-        listener.warn(null, "All specified test targets were excluded by filters");
+        eventHandler.handle(Event.warn("All specified test targets were excluded by filters"));
       }
 
       if (buildTestsOnly) {
@@ -381,17 +383,17 @@ public class LoadingPhaseRunner {
         timer.stop().elapsed(TimeUnit.MILLISECONDS)));
 
     if (targets.hasError()) {
-      listener.warn(null, "Target pattern parsing failed. Continuing anyway");
+      eventHandler.handle(Event.warn("Target pattern parsing failed. Continuing anyway"));
     }
 
     if (callback != null) {
       callback.notifyTargets(targets.getTargets());
     }
 
-    maybeReportDeprecation(listener, targets.getTargets());
+    maybeReportDeprecation(eventHandler, targets.getTargets());
 
     // Load the transitive closure of all targets.
-    LoadingResult result = doLoadingPhase(listener, eventBus, targets.getTargets(),
+    LoadingResult result = doLoadingPhase(eventHandler, eventBus, targets.getTargets(),
         testsToRun, labelsToLoadUnconditionally, keepGoing, options.loadingPhaseThreads,
         targets.hasError());
 
@@ -414,12 +416,12 @@ public class LoadingPhaseRunner {
    * @param keepGoing if true, don't throw ViewCreationFailedException if some
    *                  targets could not be loaded, just skip thm.
    */
-  private LoadingResult doLoadingPhase(ErrorEventListener listener, EventBus eventBus,
+  private LoadingResult doLoadingPhase(EventHandler eventHandler, EventBus eventBus,
       ImmutableSet<Target> targetsToLoad, Collection<Target> testsToRun,
       ListMultimap<String, Label> labelsToLoadUnconditionally, boolean keepGoing,
       int loadingPhaseThreads, boolean hasError)
           throws InterruptedException, LoadingFailedException {
-    listener.progress(null, "Loading...");
+    eventHandler.handle(Event.progress("Loading..."));
     Stopwatch timer = Stopwatch.createStarted();
     LOG.info("Starting loading phase");
 
@@ -432,7 +434,7 @@ public class LoadingPhaseRunner {
     // configuration process is intolerant of missing packages/targets. Before
     // calling getConfiguredTarget(), clients must ensure that all necessary
     // packages/targets have been visited since the last sync/clear.
-    boolean loadingSuccessful = pkgLoader.sync(listener, targetsToLoad, labelsToLoad,
+    boolean loadingSuccessful = pkgLoader.sync(eventHandler, targetsToLoad, labelsToLoad,
           keepGoing, loadingPhaseThreads, Integer.MAX_VALUE);
 
     ImmutableSet<Target> targetsToAnalyze;
@@ -451,7 +453,7 @@ public class LoadingPhaseRunner {
       if (0 < loaded && loaded < requested) {
         String message = String.format("Loading succeeded for only %d of %d targets", loaded,
             requested);
-        listener.info(null, message);
+        eventHandler.handle(Event.info(message));
         LOG.info(message);
       }
     } else {
@@ -462,7 +464,7 @@ public class LoadingPhaseRunner {
     try {
       // We use strict test_suite expansion here to match the analysis-time checks.
       ResolvedTargets<Target> expandedResult = TestTargetUtils.expandTestSuites(
-          packageManager, listener, targetsToAnalyze, /*strict=*/true, /*keepGoing=*/true);
+          packageManager, eventHandler, targetsToAnalyze, /*strict=*/true, /*keepGoing=*/true);
       targetsToAnalyze = expandedResult.getTargets();
       filteredTargets = Sets.difference(filteredTargets, targetsToAnalyze);
       if (expandedResult.hasError()) {
@@ -563,15 +565,15 @@ public class LoadingPhaseRunner {
    *     {@link Options#compileOneDependency}
    * @throws TargetParsingException if parsing failed and !keepGoing
    */
-  private ResolvedTargets<Target> getTargetsToBuild(ErrorEventListener listener,
+  private ResolvedTargets<Target> getTargetsToBuild(EventHandler eventHandler,
       List<String> targetPatterns, boolean compileOneDependency,
       boolean keepGoing) throws TargetParsingException, InterruptedException {
     ResolvedTargets<Target> result =
-        targetPatternEvaluator.parseTargetPatternList(listener, targetPatterns,
+        targetPatternEvaluator.parseTargetPatternList(eventHandler, targetPatterns,
             FilteringPolicies.FILTER_MANUAL_AND_OBSOLETE, keepGoing);
     if (compileOneDependency) {
       return new CompileOneDependencyTransformer(packageManager)
-          .transformCompileOneDependency(listener, result);
+          .transformCompileOneDependency(eventHandler, result);
     }
     return result;
   }
@@ -580,12 +582,12 @@ public class LoadingPhaseRunner {
    * Interpret test target labels from the command-line arguments and return the corresponding set
    * of targets, handling the filter flags, and expanding test suites.
    *
-   * @param listener the error event listener
+   * @param eventHandler the error event eventHandler
    * @param targetPatterns the list of command-line target patterns specified by the user
    * @param options the loading phase options
    * @param keepGoing value of the --keep_going flag
    */
-  private ResolvedTargets<Target> determineTests(ErrorEventListener listener,
+  private ResolvedTargets<Target> determineTests(EventHandler eventHandler,
       List<String> targetPatterns, Options options, boolean keepGoing)
           throws TargetParsingException, InterruptedException {
     // Parse the targets to get the tests.
@@ -593,32 +595,32 @@ public class LoadingPhaseRunner {
     for (String targetPattern : targetPatterns) {
       if (targetPattern.startsWith("-")) {
         ResolvedTargets<Target> someNegativeTargets = targetPatternEvaluator.parseTargetPatternList(
-            listener, ImmutableList.of(targetPattern.substring(1)),
+            eventHandler, ImmutableList.of(targetPattern.substring(1)),
             FilteringPolicies.FILTER_TESTS, keepGoing);
         ResolvedTargets<Target> moreNegativeTargets = TestTargetUtils.expandTestSuites(
-            packageManager, listener, someNegativeTargets.getTargets(), /*strict=*/false,
+            packageManager, eventHandler, someNegativeTargets.getTargets(), /*strict=*/false,
             keepGoing);
         testTargetsBuilder.filter(Predicates.not(Predicates.in(moreNegativeTargets.getTargets())));
         testTargetsBuilder.mergeError(moreNegativeTargets.hasError());
       } else {
         ResolvedTargets<Target> somePositiveTargets = targetPatternEvaluator.parseTargetPatternList(
-            listener, ImmutableList.of(targetPattern),
+            eventHandler, ImmutableList.of(targetPattern),
             FilteringPolicies.FILTER_TESTS, keepGoing);
         ResolvedTargets<Target> morePositiveTargets = TestTargetUtils.expandTestSuites(
-            packageManager, listener, somePositiveTargets.getTargets(), /*strict=*/false,
+            packageManager, eventHandler, somePositiveTargets.getTargets(), /*strict=*/false,
             keepGoing);
         testTargetsBuilder.addAll(morePositiveTargets.getTargets());
         testTargetsBuilder.mergeError(morePositiveTargets.hasError());
       }
     }
-    testTargetsBuilder.filter(getTestFilter(listener, options));
+    testTargetsBuilder.filter(getTestFilter(eventHandler, options));
     return testTargetsBuilder.build();
   }
 
   /**
    * Convert the options into a test filter.
    */
-  private Predicate<Target> getTestFilter(ErrorEventListener listener, Options options) {
+  private Predicate<Target> getTestFilter(EventHandler eventHandler, Options options) {
     Predicate<Target> testFilter = Predicates.alwaysTrue();
     if (!options.testSizeFilterSet.isEmpty()) {
       testFilter = Predicates.and(testFilter,
@@ -634,7 +636,7 @@ public class LoadingPhaseRunner {
     }
     if (!options.testLangFilterList.isEmpty()) {
       testFilter = Predicates.and(testFilter,
-          TestTargetUtils.testLangFilter(options.testLangFilterList, listener, ruleNames));
+          TestTargetUtils.testLangFilter(options.testLangFilterList, eventHandler, ruleNames));
     }
     return testFilter;
   }
@@ -646,12 +648,12 @@ public class LoadingPhaseRunner {
    * style warnings for the same target and it is a good thing; <i>depending</i> on a target and
    * <i>wanting</i> to build it are different things.
    */
-  private void maybeReportDeprecation(ErrorEventListener listener, Collection<Target> targets) {
+  private void maybeReportDeprecation(EventHandler eventHandler, Collection<Target> targets) {
     for (Rule rule : Iterables.filter(targets, Rule.class)) {
       if (rule.isAttributeValueExplicitlySpecified("deprecation")) {
-        listener.warn(rule.getLocation(), String.format(
+        eventHandler.handle(Event.warn(rule.getLocation(), String.format(
             "target '%s' is deprecated: %s", rule.getLabel(),
-            NonconfigurableAttributeMapper.of(rule).get("deprecation", Type.STRING)));
+            NonconfigurableAttributeMapper.of(rule).get("deprecation", Type.STRING))));
       }
     }
   }

@@ -22,8 +22,8 @@ import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.ImmutableSortedMap;
 import com.google.devtools.build.lib.blaze.BlazeDirectories;
 import com.google.devtools.build.lib.concurrent.ThreadSafety.ThreadCompatible;
-import com.google.devtools.build.lib.events.ErrorEventListener;
-import com.google.devtools.build.lib.events.StoredErrorEventListener;
+import com.google.devtools.build.lib.events.EventHandler;
+import com.google.devtools.build.lib.events.StoredEventHandler;
 import com.google.devtools.build.lib.view.ConfigurationCollectionFactory;
 import com.google.devtools.build.lib.view.config.BuildConfiguration.Fragment;
 
@@ -101,14 +101,14 @@ public final class ConfigurationFactory {
 
   /** Create the build configurations with the given options. */
   @Nullable
-  public BuildConfigurationCollection getConfigurations(ErrorEventListener listener,
+  public BuildConfigurationCollection getConfigurations(EventHandler eventHandler,
       PackageProviderForConfigurations loadedPackageProvider, BuildConfigurationKey key)
           throws InvalidConfigurationException {
     List<BuildConfiguration> targetConfigurations = new ArrayList<>();
     if (!key.getMultiCpu().isEmpty()) {
       for (String cpu : key.getMultiCpu()) {
         BuildConfiguration targetConfiguration = createConfiguration(
-            listener, loadedPackageProvider, key, cpu);
+            eventHandler, loadedPackageProvider, key, cpu);
         if (targetConfiguration == null || targetConfigurations.contains(targetConfiguration)) {
           continue;
         }
@@ -119,7 +119,7 @@ public final class ConfigurationFactory {
       }
     } else {
       BuildConfiguration targetConfiguration = createConfiguration(
-          listener, loadedPackageProvider, key, null);
+          eventHandler, loadedPackageProvider, key, null);
       if (targetConfiguration == null) {
         return null;
       }
@@ -130,10 +130,10 @@ public final class ConfigurationFactory {
 
   @Nullable
   private BuildConfiguration createConfiguration(
-      ErrorEventListener originalEventListener,
+      EventHandler originalEventListener,
       PackageProviderForConfigurations loadedPackageProvider,
       BuildConfigurationKey key, String cpuOverride) throws InvalidConfigurationException {
-    StoredErrorEventListener errorEventListener = new StoredErrorEventListener();
+    StoredEventHandler errorEventListener = new StoredEventHandler();
     BuildOptions buildOptions = key.getBuildOptions();
     if (cpuOverride != null) {
       // TODO(bazel-team): Options classes should be immutable. This is a bit of a hack.

@@ -19,9 +19,10 @@ import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.ImmutableSet;
 import com.google.common.collect.Iterables;
 import com.google.common.collect.Maps;
-import com.google.devtools.build.lib.events.ErrorEventListener;
+import com.google.devtools.build.lib.events.Event;
+import com.google.devtools.build.lib.events.EventHandler;
 import com.google.devtools.build.lib.events.Location;
-import com.google.devtools.build.lib.events.StoredErrorEventListener;
+import com.google.devtools.build.lib.events.StoredEventHandler;
 import com.google.devtools.build.lib.syntax.Label;
 import com.google.devtools.build.lib.util.Pair;
 import com.google.devtools.build.lib.vfs.Path;
@@ -92,7 +93,7 @@ public class LegacyPackage extends Package implements Serializable {
   private static Set<PathFragment> checkLabelsCrossingSubpackages(
       Path buildFilePath, Map<Label, Location> labels,
       BulkPackageLocatorForCrossingSubpackageBoundaries locator,
-      @Nullable ErrorEventListener listener)
+      @Nullable EventHandler eventHandler)
           throws InterruptedException {
     if (labels.isEmpty()) {
       return ImmutableSet.of();
@@ -132,8 +133,8 @@ public class LegacyPackage extends Package implements Serializable {
                 + "If so, use the --deleted_packages=" + inner.getKey() + " option)";
           }
 
-          if (listener != null) {
-            listener.error(labels.get(label), message);
+          if (eventHandler != null) {
+            eventHandler.handle(Event.error(labels.get(label), message));
           }
 
           break;
@@ -196,7 +197,7 @@ public class LegacyPackage extends Package implements Serializable {
 
     // Set by #build and used by #beforeBuildInternal.
     private BulkPackageLocatorForCrossingSubpackageBoundaries bulkPackageLocator = null;
-    private StoredErrorEventListener listener = null;
+    private StoredEventHandler eventHandler = null;
 
     LegacyPackageBuilder(String packageName) {
       super(new LegacyPackage(packageName));
@@ -287,9 +288,9 @@ public class LegacyPackage extends Package implements Serializable {
       }
       try {
         subpackagesCuttingOffLabels.addAll(checkLabelsCrossingSubpackages(
-            getFilename(), labels, bulkPackageLocator, listener));
+            getFilename(), labels, bulkPackageLocator, eventHandler));
         subpackagesCuttingOffLabels.addAll(checkLabelsCrossingSubpackages(
-            getFilename(), subincludeLabels, bulkPackageLocator, listener));
+            getFilename(), subincludeLabels, bulkPackageLocator, eventHandler));
       } catch (InterruptedException e) {
         throw new InterruptedExceptionDuringBeforeBuildInternal(e);
       }
@@ -305,20 +306,20 @@ public class LegacyPackage extends Package implements Serializable {
      * Can only be called once per PackageBuilder instance.
      */
     @Override
-    protected LegacyPackage buildInternal(StoredErrorEventListener listener) {
-      LegacyPackage pkg = super.buildInternal(listener);
+    protected LegacyPackage buildInternal(StoredEventHandler eventHandler) {
+      LegacyPackage pkg = super.buildInternal(eventHandler);
       pkg.finishInit(this);
       return pkg;
     }
 
     protected LegacyPackage build(
         BulkPackageLocatorForCrossingSubpackageBoundaries bulkPackageLocator,
-        StoredErrorEventListener listener)
+        StoredEventHandler eventHandler)
             throws InterruptedException {
       this.bulkPackageLocator = bulkPackageLocator;
-      this.listener = listener;
+      this.eventHandler = eventHandler;
       try {
-        return super.build(listener);
+        return super.build(eventHandler);
       } catch (InterruptedExceptionDuringBeforeBuildInternal e) {
         throw e.getInterruptedException();
       }

@@ -46,6 +46,7 @@ public final class RuleConfiguredTarget extends AbstractConfiguredTarget {
     TARGET,
     HOST,
     DATA,
+    SPLIT,
     DONT_CHECK
   }
 

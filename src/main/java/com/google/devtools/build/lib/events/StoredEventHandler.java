@@ -14,17 +14,24 @@
 package com.google.devtools.build.lib.events;
 
 import com.google.common.collect.ImmutableList;
+import com.google.common.collect.ImmutableSet;
 
 import java.util.ArrayList;
 import java.util.List;
+import java.util.Set;
 
 /**
  * Stores error and warning events, and later replays them. Thread-safe.
  */
-public class StoredErrorEventListener implements ErrorEventListener {
+public class StoredEventHandler implements EventHandler {
 
   private final List<Event> events = new ArrayList<>();
   private boolean hasErrors;
+
+  @Override
+  public Set<EventKind> getEventMask() {
+    return ImmutableSet.of();
+  }
 
   public synchronized ImmutableList<Event> getEvents() {
     return ImmutableList.copyOf(events);
@@ -35,37 +42,11 @@ public class StoredErrorEventListener implements ErrorEventListener {
     return events.isEmpty();
   }
 
-  @Override
-  public synchronized void warn(Location location, String message) {
-    events.add(new Event(EventKind.WARNING, location, message));
-  }
 
   @Override
-  public synchronized void error(Location location, String message) {
-    hasErrors = true;
-    events.add(new Event(EventKind.ERROR, location, message));
-  }
-
-  @Override
-  public synchronized void info(Location location, String message) {
-    events.add(new Event(EventKind.INFO, location, message));
-  }
-
-  @Override
-  public synchronized void progress(Location location, String message) {
-    events.add(new Event(EventKind.PROGRESS, location, message));
-  }
-
-  @Override
-  public void report(EventKind kind, Location location, String message) {
-    hasErrors |= kind == EventKind.ERROR;
-    events.add(new Event(kind, location, message));
-  }
-
-  @Override
-  public void report(EventKind kind, Location location, byte[] message) {
-    hasErrors |= kind == EventKind.ERROR;
-    events.add(new Event(kind, location, message));
+  public synchronized void handle(Event e) {
+    hasErrors |= e.getKind() == EventKind.ERROR;
+    events.add(e);
   }
 
   @Override
@@ -74,10 +55,10 @@ public class StoredErrorEventListener implements ErrorEventListener {
   }
 
   /**
-   * Replay all events stored in this object on the given listener, in the same order.
+   * Replay all events stored in this object on the given eventHandler, in the same order.
    */
-  public synchronized void replayOn(ErrorEventListener listener) {
-    Event.replayEventsOn(listener, events);
+  public synchronized void replayOn(EventHandler eventHandler) {
+    Event.replayEventsOn(eventHandler, events);
   }
 
   /**

@@ -23,27 +23,26 @@ import java.util.List;
  * A collection of build-info files for both stamped and unstamped modes.
  */
 public final class BuildInfoCollection {
-
   private final ImmutableList<Action> actions;
-  private final List<Artifact> stampedBuildInfo;
-  private final List<Artifact> redactedBuildInfo;
+  private final ImmutableList<Artifact> stampedBuildInfo;
+  private final ImmutableList<Artifact> redactedBuildInfo;
 
   public BuildInfoCollection(List<? extends Action> actions, List<Artifact> stampedBuildInfo,
       List<Artifact> redactedBuildInfo) {
     this.actions = ImmutableList.copyOf(actions);
-    this.stampedBuildInfo = stampedBuildInfo;
-    this.redactedBuildInfo = redactedBuildInfo;
+    this.stampedBuildInfo = ImmutableList.copyOf(stampedBuildInfo);
+    this.redactedBuildInfo = ImmutableList.copyOf(redactedBuildInfo);
   }
 
   public ImmutableList<Action> getActions() {
     return actions;
   }
 
-  public List<Artifact> getStampedBuildInfo() {
+  public ImmutableList<Artifact> getStampedBuildInfo() {
     return stampedBuildInfo;
   }
 
-  public List<Artifact> getRedactedBuildInfo() {
+  public ImmutableList<Artifact> getRedactedBuildInfo() {
     return redactedBuildInfo;
   }
 }

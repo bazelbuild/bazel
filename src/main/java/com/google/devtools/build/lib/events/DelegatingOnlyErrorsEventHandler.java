@@ -14,36 +14,19 @@
 package com.google.devtools.build.lib.events;
 
 /**
- * An {@link ErrorEventListener} implementation that only
+ * An {@link EventHandler} implementation that only
  * passes through error messages.
  */
-public class DelegatingOnlyErrorsEventListener extends DelegatingErrorEventListener {
+public class DelegatingOnlyErrorsEventHandler extends DelegatingEventHandler {
 
-  public DelegatingOnlyErrorsEventListener(ErrorEventListener listener) {
-    super(listener);
+  public DelegatingOnlyErrorsEventHandler(EventHandler eventHandler) {
+    super(eventHandler);
   }
 
-  /**
-   * Ignores any warning received
-   */
   @Override
-  public void warn(Location location, String message) {
-    // Ignored.
-  }
-
-  /**
-   * Ignores any info received
-   */
-  @Override
-  public void info(Location location, String message) {
-    // Ignored.
-  }
-
-  /**
-   * Ignores any progress message received
-   */
-  @Override
-  public void progress(Location location, String message) {
-    // Ignored.
+  public void handle(Event e) {
+    if (e.getKind() == EventKind.ERROR) {
+      super.handle(e);
+    }
   }
 }

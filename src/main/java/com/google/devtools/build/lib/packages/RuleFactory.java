@@ -16,7 +16,7 @@ package com.google.devtools.build.lib.packages;
 
 import com.google.common.base.Preconditions;
 import com.google.common.collect.ImmutableMap;
-import com.google.devtools.build.lib.events.ErrorEventListener;
+import com.google.devtools.build.lib.events.EventHandler;
 import com.google.devtools.build.lib.events.Location;
 import com.google.devtools.build.lib.syntax.FuncallExpression;
 import com.google.devtools.build.lib.syntax.Label;
@@ -72,7 +72,7 @@ public class RuleFactory {
    *        attribute must be defined for this class of rule, and have a value
    *        of the appropriate type. There must be a map entry for each
    *        non-optional attribute of this class of rule.
-   * @param listener a listener on which errors and warnings are reported during
+   * @param eventHandler a eventHandler on which errors and warnings are reported during
    *        rule creation
    * @param ast the abstract syntax tree of the rule expression (optional)
    * @param retainAST true iff the rule should retain a reference to "ast"
@@ -84,7 +84,7 @@ public class RuleFactory {
   static Rule createRule(Package.AbstractPackageBuilder<?, ?> pkgBuilder,
                   RuleClass ruleClass,
                   Map<String, Object> attributeValues,
-                  ErrorEventListener listener,
+                  EventHandler eventHandler,
                   FuncallExpression ast,
                   boolean retainAST,
                   Location location) throws InvalidRuleException {
@@ -103,7 +103,7 @@ public class RuleFactory {
     } catch (Label.SyntaxException e) {
       throw new InvalidRuleException("illegal rule name: " + name + ": " + e.getMessage());
     }
-    return ruleClass.createRuleWithLabel(pkgBuilder, label, attributeValues, listener, ast,
+    return ruleClass.createRuleWithLabel(pkgBuilder, label, attributeValues, eventHandler, ast,
         retainAST, location);
   }
 

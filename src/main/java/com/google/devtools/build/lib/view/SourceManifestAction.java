@@ -21,7 +21,7 @@ import com.google.common.collect.ImmutableList;
 import com.google.devtools.build.lib.actions.ActionOwner;
 import com.google.devtools.build.lib.actions.Artifact;
 import com.google.devtools.build.lib.actions.Executor;
-import com.google.devtools.build.lib.events.ErrorEventListener;
+import com.google.devtools.build.lib.events.EventHandler;
 import com.google.devtools.build.lib.util.Fingerprint;
 import com.google.devtools.build.lib.util.Pair;
 import com.google.devtools.build.lib.vfs.PathFragment;
@@ -116,9 +116,9 @@ public class SourceManifestAction extends AbstractFileWriteAction {
   }
 
   @Override
-  public void writeOutputFile(OutputStream out, ErrorEventListener listener,
+  public void writeOutputFile(OutputStream out, EventHandler eventHandler,
       Executor executor) throws IOException {
-    writeFile(out, runfiles.getRunfilesInputs(root, listener, getOwner().getLocation()));
+    writeFile(out, runfiles.getRunfilesInputs(root, eventHandler, getOwner().getLocation()));
   }
 
   /**

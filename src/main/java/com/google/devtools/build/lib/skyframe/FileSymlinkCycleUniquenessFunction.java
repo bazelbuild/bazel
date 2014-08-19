@@ -14,6 +14,7 @@
 package com.google.devtools.build.lib.skyframe;
 
 import com.google.common.collect.ImmutableList;
+import com.google.devtools.build.lib.events.Event;
 import com.google.devtools.build.lib.vfs.RootedPath;
 import com.google.devtools.build.skyframe.SkyFunction;
 import com.google.devtools.build.skyframe.SkyKey;
@@ -33,7 +34,7 @@ public class FileSymlinkCycleUniquenessFunction implements SkyFunction {
     cycleMessage.append("[end of symlink cycle]");
     // The purpose of this value builder is the side effect of emitting an error message exactly
     // once per build per unique cycle.
-    env.getListener().error(null, cycleMessage.toString());
+    env.getListener().handle(Event.error(cycleMessage.toString()));
     return FileSymlinkCycleUniquenessValue.INSTANCE;
   }
 

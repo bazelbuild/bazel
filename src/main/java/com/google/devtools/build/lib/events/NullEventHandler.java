@@ -14,36 +14,27 @@
 
 package com.google.devtools.build.lib.events;
 
+import com.google.common.collect.ImmutableSet;
+
+import java.util.Set;
+
 /**
  * An ErrorEventListener which does nothing.
  */
-public final class NullErrorEventListener implements ErrorEventListener {
-  public static final ErrorEventListener INSTANCE = new NullErrorEventListener();
+public final class NullEventHandler implements EventHandler {
+  public static final EventHandler INSTANCE = new NullEventHandler();
 
-  private NullErrorEventListener() {}  // Prevent instantiation
+  private NullEventHandler() {}  // Prevent instantiation
+
+
 
   @Override
-  public void warn(Location location, String message) {
+  public Set<EventKind> getEventMask() {
+    return ImmutableSet.of();
   }
 
   @Override
-  public void error(Location location, String message) {
-  }
-
-  @Override
-  public void info(Location location, String message) {
-  }
-
-  @Override
-  public void progress(Location location, String message) {
-  }
-
-  @Override
-  public void report(EventKind kind, Location location, String message) {
-  }
-
-  @Override
-  public void report(EventKind kind, Location location, byte[] message) {
+  public void handle(Event e) {
   }
 
   @Override

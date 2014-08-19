@@ -27,6 +27,7 @@ import com.google.devtools.build.lib.buildtool.BuildRequest.BuildRequestOptions;
 import com.google.devtools.build.lib.buildtool.BuildResult;
 import com.google.devtools.build.lib.buildtool.OutputDirectoryLinksUtils;
 import com.google.devtools.build.lib.buildtool.TargetValidator;
+import com.google.devtools.build.lib.events.Event;
 import com.google.devtools.build.lib.events.Reporter;
 import com.google.devtools.build.lib.exec.SymlinkTreeHelper;
 import com.google.devtools.build.lib.packages.NonconfigurableAttributeMapper;
@@ -128,7 +129,7 @@ public class RunCommand implements BlazeCommand  {
 
     // The user must at the least specify an executable target.
     if (targetAndArgs.isEmpty()) {
-      runtime.getReporter().error(null, "Must specify a target to run");
+      runtime.getReporter().handle(Event.error("Must specify a target to run"));
       return ExitCode.COMMAND_LINE_ERROR;
     }
     String targetString = targetAndArgs.get(0);
@@ -146,7 +147,7 @@ public class RunCommand implements BlazeCommand  {
     if (request.getBuildOptions().compileOnly) {
       String message = "The '" + getClass().getAnnotation(Command.class).name() +
                        "' command is incompatible with the --compile_only option";
-      runtime.getReporter().error(null, message);
+      runtime.getReporter().handle(Event.error(message));
       return ExitCode.COMMAND_LINE_ERROR;
     }
 
@@ -159,7 +160,7 @@ public class RunCommand implements BlazeCommand  {
     }
 
     if (!result.getSuccess()) {
-      runtime.getReporter().error(null, "Build failed. Not running target");
+      runtime.getReporter().handle(Event.error("Build failed. Not running target"));
       return result.getExitCondition();
     }
 
@@ -174,7 +175,7 @@ public class RunCommand implements BlazeCommand  {
     if (targetsBuilt != null) {
       int maxTargets = runUnder != null && runUnder.getLabel() != null ? 2 : 1;
       if (targetsBuilt.size() > maxTargets) {
-        runtime.getReporter().error(null, SINGLE_TARGET_MESSAGE);
+        runtime.getReporter().handle(Event.error(SINGLE_TARGET_MESSAGE));
         return ExitCode.COMMAND_LINE_ERROR;
       }
       for (ConfiguredTarget target : targetsBuilt) {
@@ -184,15 +185,15 @@ public class RunCommand implements BlazeCommand  {
         }
         if (runUnder != null && target.getLabel().equals(runUnder.getLabel())) {
           if (runUnderTarget != null) {
-            runtime.getReporter().error(
-                null, "Can't identify the run_under target from multiple options?");
+            runtime.getReporter().handle(Event.error(
+                null, "Can't identify the run_under target from multiple options?"));
             return ExitCode.COMMAND_LINE_ERROR;
           }
           runUnderTarget = target;
         } else if (targetToRun == null) {
           targetToRun = target;
         } else {
-          runtime.getReporter().error(null, SINGLE_TARGET_MESSAGE);
+          runtime.getReporter().handle(Event.error(SINGLE_TARGET_MESSAGE));
           return ExitCode.COMMAND_LINE_ERROR;
         }
       }
@@ -202,7 +203,7 @@ public class RunCommand implements BlazeCommand  {
       targetToRun = runUnderTarget;
     }
     if (targetToRun == null) {
-      runtime.getReporter().error(null, NO_TARGET_MESSAGE);
+      runtime.getReporter().handle(Event.error(NO_TARGET_MESSAGE));
       return ExitCode.COMMAND_LINE_ERROR;
     }
 
@@ -219,7 +220,7 @@ public class RunCommand implements BlazeCommand  {
     try {
       workingDir = ensureRunfilesBuilt(runtime, targetToRun);
     } catch (CommandException e) {
-      runtime.getReporter().error(null, "Error creating runfiles: " + e.getMessage());
+      runtime.getReporter().handle(Event.error("Error creating runfiles: " + e.getMessage()));
       return ExitCode.LOCAL_ENVIRONMENTAL_ERROR;
     }
 
@@ -301,8 +302,8 @@ public class RunCommand implements BlazeCommand  {
       }
     }
 
-    runtime.getReporter().info(
-        null, "Running command line: " + ShellEscaper.escapeJoinAll(prettyCmdLine));
+    runtime.getReporter().handle(Event.info(
+        null, "Running command line: " + ShellEscaper.escapeJoinAll(prettyCmdLine)));
 
     com.google.devtools.build.lib.shell.Command command = new CommandBuilder()
         .addArgs(cmdLine).setEnv(runtime.getClientEnv()).setWorkingDir(workingDir).build();
@@ -321,13 +322,13 @@ public class RunCommand implements BlazeCommand  {
       String message = "Non-zero return code '"
                        + e.getResult().getTerminationStatus().getExitCode()
                        + "' from command: " + e.getMessage();
-      runtime.getReporter().error(null, message);
+      runtime.getReporter().handle(Event.error(message));
       return ExitCode.RUN_FAILURE;
     } catch (AbnormalTerminationException e) {
       // The process was likely terminated by a signal in this case.
       return ExitCode.INTERRUPTED;
     } catch (CommandException e) {
-      runtime.getReporter().error(null, "Error running program: " + e.getMessage());
+      runtime.getReporter().handle(Event.error("Error running program: " + e.getMessage()));
       return ExitCode.RUN_FAILURE;
     }
   }
@@ -379,7 +380,7 @@ public class RunCommand implements BlazeCommand  {
           SH_SHEBANG + "\n" + cmd + " \"$@\"");
       scriptPath.setExecutable(true);
     } catch (IOException e) {
-      runtime.getReporter().error(null, "Error writing run script:" + e.getMessage());
+      runtime.getReporter().handle(Event.error("Error writing run script:" + e.getMessage()));
       return false;
     }
     return true;
@@ -431,7 +432,7 @@ public class RunCommand implements BlazeCommand  {
   private void warningOrException(Reporter reporter, String message,
       boolean keepGoing) throws LoadingFailedException {
     if (keepGoing) {
-      reporter.warn(null, message + ". Will continue anyway");
+      reporter.handle(Event.warn(message + ". Will continue anyway"));
     } else {
       throw new LoadingFailedException(message);
     }
@@ -458,13 +459,13 @@ public class RunCommand implements BlazeCommand  {
     String targetError = validateTarget(target.getTarget());
 
     if (targetError != null) {
-      runtime.getReporter().error(null, targetError);
+      runtime.getReporter().handle(Event.error(targetError));
       return ExitCode.COMMAND_LINE_ERROR;
     }
 
     Artifact executable = target.getProvider(FilesToRunProvider.class).getExecutable();
     if (executable == null) {
-      runtime.getReporter().error(null, notExecutableError(target.getTarget()));
+      runtime.getReporter().handle(Event.error(notExecutableError(target.getTarget())));
       return ExitCode.COMMAND_LINE_ERROR;
     }
 
@@ -474,23 +475,23 @@ public class RunCommand implements BlazeCommand  {
     Path executablePath = executable.getPath();
     try {
       if (!executablePath.exists() || !executablePath.isExecutable()) {
-        runtime.getReporter().error(
-            null, "Non-existent or non-executable " + executablePath);
+        runtime.getReporter().handle(Event.error(
+            null, "Non-existent or non-executable " + executablePath));
         return ExitCode.BLAZE_INTERNAL_ERROR;
       }
     } catch (IOException e) {
-      runtime.getReporter().error(null,
-          "Error checking " + executablePath.getPathString() + ": " + e.getMessage());
+      runtime.getReporter().handle(Event.error(
+          "Error checking " + executablePath.getPathString() + ": " + e.getMessage()));
       return ExitCode.LOCAL_ENVIRONMENTAL_ERROR;
     }
 
     BuildConfiguration configuration = target.getConfiguration();
     if (configuration != null && !configuration.canRunOn(runtime.getHostMachineSpecification())) {
       // We say "may fail", because they might be interpreted programs.
-      runtime.getReporter().warn(null,
+      runtime.getReporter().handle(Event.warn(
           "Your system, " + runtime.getHostMachineSpecification() + ", is "
               + "not known to be capable of running binaries for "
-              + configuration.getMnemonic());
+              + configuration.getMnemonic()));
     }
     return ExitCode.SUCCESS;
   }

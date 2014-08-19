@@ -17,7 +17,7 @@ import com.google.common.annotations.VisibleForTesting;
 import com.google.common.base.Predicate;
 import com.google.devtools.build.lib.collect.nestedset.NestedSetVisitor;
 import com.google.devtools.build.lib.concurrent.ThreadSafety.ThreadHostile;
-import com.google.devtools.build.lib.events.ErrorEventListener;
+import com.google.devtools.build.lib.events.EventHandler;
 
 import java.io.PrintStream;
 import java.util.Map;
@@ -45,7 +45,7 @@ public interface MemoizingEvaluator {
       Version version,
       boolean keepGoing,
       int numThreads,
-      ErrorEventListener reporter)
+      EventHandler reporter)
           throws InterruptedException;
 
   /**

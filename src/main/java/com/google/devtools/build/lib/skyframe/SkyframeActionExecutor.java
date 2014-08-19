@@ -54,6 +54,7 @@ import com.google.devtools.build.lib.actions.cache.MetadataHandler;
 import com.google.devtools.build.lib.concurrent.ExecutorShutdownUtil;
 import com.google.devtools.build.lib.concurrent.Sharder;
 import com.google.devtools.build.lib.concurrent.ThrowableRecordingRunnableWrapper;
+import com.google.devtools.build.lib.events.Event;
 import com.google.devtools.build.lib.events.Reporter;
 import com.google.devtools.build.lib.profiler.Profiler;
 import com.google.devtools.build.lib.profiler.ProfilerTask;
@@ -533,7 +534,7 @@ public final class SkyframeActionExecutor extends AbstractActionExecutor {
         // the build instead.
         synchronized (reporter) {
           TargetOutOfDateException e = new TargetOutOfDateException(action);
-          reporter.error(null, e.getMessage());
+          reporter.handle(Event.error(e.getMessage()));
           recordExecutionError();
           throw e;
         }
@@ -594,7 +595,7 @@ public final class SkyframeActionExecutor extends AbstractActionExecutor {
       if (keepGoing) {
         message = "Couldn't " + describeAction(action) + ": " + message;
       }
-      reporter.error(action.getOwner().getLocation(), message);
+      reporter.handle(Event.error(action.getOwner().getLocation(), message));
       recordExecutionError();
     }
   }

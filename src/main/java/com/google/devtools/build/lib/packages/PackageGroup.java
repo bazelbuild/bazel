@@ -16,7 +16,8 @@ package com.google.devtools.build.lib.packages;
 
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.Lists;
-import com.google.devtools.build.lib.events.ErrorEventListener;
+import com.google.devtools.build.lib.events.Event;
+import com.google.devtools.build.lib.events.EventHandler;
 import com.google.devtools.build.lib.events.Location;
 import com.google.devtools.build.lib.packages.License.DistributionType;
 import com.google.devtools.build.lib.syntax.Label;
@@ -40,7 +41,7 @@ public class PackageGroup implements Target {
   private final List<Label> includes;
 
   public PackageGroup(Label label, Package pkg, Collection<String> packages,
-      Collection<Label> includes, ErrorEventListener listener, Location location) {
+      Collection<Label> includes, EventHandler eventHandler, Location location) {
     this.label = label;
     this.location = location;
     this.containingPackage = pkg;
@@ -53,7 +54,7 @@ public class PackageGroup implements Target {
         specification = PackageSpecification.fromString(containedPackage);
       } catch (PackageSpecification.InvalidPackageSpecificationException e) {
         containsErrors = true;
-        listener.error(location, e.getMessage());
+        eventHandler.handle(Event.error(location, e.getMessage()));
       }
 
       if (specification != null) {

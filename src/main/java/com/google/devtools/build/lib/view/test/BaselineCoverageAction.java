@@ -21,7 +21,7 @@ import com.google.devtools.build.lib.actions.ActionOwner;
 import com.google.devtools.build.lib.actions.Artifact;
 import com.google.devtools.build.lib.actions.Executor;
 import com.google.devtools.build.lib.actions.NotifyOnActionCacheHit;
-import com.google.devtools.build.lib.events.ErrorEventListener;
+import com.google.devtools.build.lib.events.EventHandler;
 import com.google.devtools.build.lib.syntax.Label;
 import com.google.devtools.build.lib.util.Fingerprint;
 import com.google.devtools.build.lib.view.RuleContext;
@@ -79,7 +79,7 @@ public class BaselineCoverageAction extends AbstractFileWriteAction
   }
 
   @Override
-  public void writeOutputFile(OutputStream out, ErrorEventListener listener,
+  public void writeOutputFile(OutputStream out, EventHandler eventHandler,
       Executor executor) throws IOException, InterruptedException {
     PrintWriter writer = new PrintWriter(out);
     for (String execPath : getInstrumentedFilePathStrings()) {

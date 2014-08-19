@@ -19,7 +19,7 @@ import static java.nio.charset.StandardCharsets.UTF_8;
 import com.google.devtools.build.lib.actions.ActionOwner;
 import com.google.devtools.build.lib.actions.Artifact;
 import com.google.devtools.build.lib.actions.Executor;
-import com.google.devtools.build.lib.events.ErrorEventListener;
+import com.google.devtools.build.lib.events.EventHandler;
 import com.google.devtools.build.lib.util.Fingerprint;
 import com.google.devtools.build.lib.view.RuleContext;
 
@@ -101,7 +101,7 @@ public class FileWriteAction extends AbstractFileWriteAction {
    * @throws IOException if the content cannot be written to the output stream
    */
   @Override
-  public void writeOutputFile(OutputStream out, ErrorEventListener listener,
+  public void writeOutputFile(OutputStream out, EventHandler eventHandler,
       Executor executor) throws IOException {
     byte[] bytes = getFileContents().getBytes(UTF_8);
     out.write(bytes);

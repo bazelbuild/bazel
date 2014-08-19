@@ -16,7 +16,8 @@ package com.google.devtools.build.lib.skyframe;
 import com.google.common.collect.Lists;
 import com.google.devtools.build.lib.collect.nestedset.NestedSet;
 import com.google.devtools.build.lib.collect.nestedset.NestedSetBuilder;
-import com.google.devtools.build.lib.events.ErrorEventListener;
+import com.google.devtools.build.lib.events.Event;
+import com.google.devtools.build.lib.events.EventHandler;
 import com.google.devtools.build.lib.packages.InputFile;
 import com.google.devtools.build.lib.packages.NoSuchPackageException;
 import com.google.devtools.build.lib.packages.NoSuchTargetException;
@@ -153,18 +154,18 @@ public class TransitiveTargetFunction implements SkyFunction {
   }
 
   private static void maybeReportErrorAboutMissingEdge(Target target, Label depLabel,
-      NoSuchThingException e, ErrorEventListener listener) {
+      NoSuchThingException e, EventHandler eventHandler) {
     if (e instanceof NoSuchTargetException) {
       NoSuchTargetException nste = (NoSuchTargetException) e;
       if (nste.getLabel().equals(depLabel)) {
-        listener.error(TargetUtils.getLocationMaybe(target),
-            TargetUtils.formatMissingEdge(target, depLabel, e));
+        eventHandler.handle(Event.error(TargetUtils.getLocationMaybe(target),
+            TargetUtils.formatMissingEdge(target, depLabel, e)));
       }
     } else if (e instanceof NoSuchPackageException) {
       NoSuchPackageException nspe = (NoSuchPackageException) e;
       if (nspe.getPackageName().equals(depLabel.getPackageName())) {
-        listener.error(TargetUtils.getLocationMaybe(target),
-            TargetUtils.formatMissingEdge(target, depLabel, e));
+        eventHandler.handle(Event.error(TargetUtils.getLocationMaybe(target),
+            TargetUtils.formatMissingEdge(target, depLabel, e)));
       }
     }
   }

@@ -18,6 +18,7 @@ import com.google.common.base.Preconditions;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableSet;
 import com.google.common.collect.Maps;
+import com.google.devtools.build.lib.events.Event;
 import com.google.devtools.build.lib.events.Reporter;
 import com.google.devtools.build.lib.vfs.ModifiedFileSet;
 import com.google.devtools.build.lib.vfs.Path;
@@ -88,7 +89,7 @@ public final class DiffAwarenessManager {
     } catch (BrokenDiffAwarenessException e) {
       currentDiffAwarenesses.remove(pathEntry);
       unprocessedDiffs.remove(pathEntry);
-      reporter.warn(null, e.getMessage());
+      reporter.handle(Event.warn(e.getMessage()));
       return BrokenProcessableModifiedFileSet.INSTANCE;
     }
     ModifiedFileSet diff = ModifiedFileSet.union(oldDiff, newDiff);

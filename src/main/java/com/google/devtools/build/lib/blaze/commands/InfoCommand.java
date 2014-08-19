@@ -24,6 +24,7 @@ import com.google.devtools.build.lib.blaze.BlazeModule;
 import com.google.devtools.build.lib.blaze.BlazeRuntime;
 import com.google.devtools.build.lib.blaze.BlazeVersionInfo;
 import com.google.devtools.build.lib.blaze.Command;
+import com.google.devtools.build.lib.events.Event;
 import com.google.devtools.build.lib.packages.Attribute;
 import com.google.devtools.build.lib.packages.ProtoUtils;
 import com.google.devtools.build.lib.packages.RuleClass;
@@ -203,10 +204,10 @@ public class InfoCommand implements BlazeCommand {
               .getTargetConfigurations().get(0);
           return configuration;
         } catch (InvalidConfigurationException e) {
-          runtime.getReporter().error(null, e.getMessage());
+          runtime.getReporter().handle(Event.error(e.getMessage()));
           throw new ExitCausingRuntimeException(ExitCode.COMMAND_LINE_ERROR);
         } catch (InterruptedException e) {
-          runtime.getReporter().error(null, "interrupted");
+          runtime.getReporter().handle(Event.error("interrupted"));
           throw new ExitCausingRuntimeException(ExitCode.INTERRUPTED);
         }
       }
@@ -225,7 +226,7 @@ public class InfoCommand implements BlazeCommand {
 
       List<String> residue = optionsProvider.getResidue();
       if (residue.size() > 1) {
-        runtime.getReporter().error(null, "at most one key may be specified");
+        runtime.getReporter().handle(Event.error("at most one key may be specified"));
         return ExitCode.COMMAND_LINE_ERROR;
       }
 
@@ -235,14 +236,14 @@ public class InfoCommand implements BlazeCommand {
         if (items.containsKey(key)) {
           value = items.get(key).get(configurationSupplier);
         } else {
-          runtime.getReporter().error(null, "unknown key: '" + key + "'");
+          runtime.getReporter().handle(Event.error("unknown key: '" + key + "'"));
           return ExitCode.COMMAND_LINE_ERROR;
         }
         try {
           outErr.getOutputStream().write(value);
           outErr.getOutputStream().flush();
         } catch (IOException e) {
-          runtime.getReporter().error(null, "Cannot write info block: " + e.getMessage());
+          runtime.getReporter().handle(Event.error("Cannot write info block: " + e.getMessage()));
           return ExitCode.ANALYSIS_FAILURE;
         }
       } else { // print them all

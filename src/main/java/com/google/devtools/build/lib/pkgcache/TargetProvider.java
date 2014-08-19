@@ -14,7 +14,7 @@
 
 package com.google.devtools.build.lib.pkgcache;
 
-import com.google.devtools.build.lib.events.ErrorEventListener;
+import com.google.devtools.build.lib.events.EventHandler;
 import com.google.devtools.build.lib.packages.NoSuchPackageException;
 import com.google.devtools.build.lib.packages.NoSuchTargetException;
 import com.google.devtools.build.lib.packages.Target;
@@ -35,6 +35,6 @@ public interface TargetProvider {
    *         the specified {@link Target} was not found in it
    * @throws InterruptedException if the package loading was interrupted
    */
-  Target getTarget(ErrorEventListener listener, Label label) throws NoSuchPackageException,
+  Target getTarget(EventHandler eventHandler, Label label) throws NoSuchPackageException,
       NoSuchTargetException, InterruptedException;
 }

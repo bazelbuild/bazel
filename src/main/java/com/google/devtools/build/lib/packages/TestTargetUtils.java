@@ -18,7 +18,8 @@ import com.google.common.collect.ImmutableList;
 import com.google.common.collect.Sets;
 import com.google.devtools.build.lib.cmdline.ResolvedTargets;
 import com.google.devtools.build.lib.cmdline.TargetParsingException;
-import com.google.devtools.build.lib.events.ErrorEventListener;
+import com.google.devtools.build.lib.events.Event;
+import com.google.devtools.build.lib.events.EventHandler;
 import com.google.devtools.build.lib.pkgcache.TargetProvider;
 import com.google.devtools.build.lib.syntax.Label;
 import com.google.devtools.build.lib.util.Pair;
@@ -75,7 +76,7 @@ public final class TestTargetUtils {
    * unknown languages.
    */
   public static Predicate<Target> testLangFilter(List<String> langFilterList,
-      ErrorEventListener reporter, Set<String> allRuleNames) {
+      EventHandler reporter, Set<String> allRuleNames) {
     final Set<String> requiredLangs = new HashSet<>();
     final Set<String> excludedLangs = new HashSet<>();
 
@@ -87,7 +88,8 @@ public final class TestTargetUtils {
         requiredLangs.add(lang);
       }
       if (!allRuleNames.contains(lang + "_test")) {
-        reporter.warn(null, "Unknown language '" + lang + "' in --test_lang_filters option");
+        reporter.handle(
+            Event.warn("Unknown language '" + lang + "' in --test_lang_filters option"));
       }
     }
 
@@ -205,15 +207,15 @@ public final class TestTargetUtils {
    * behavior will be kept in the future.
    *
    * @param targetProvider a target provider
-   * @param listener a failure listener to report loading failures to
+   * @param eventHandler a failure eventHandler to report loading failures to
    * @param targets Collection of the *_test and test_suite configured targets
    * @return a duplicate-free iterable of the tests under the specified targets
    */
   public static ResolvedTargets<Target> expandTestSuites(TargetProvider targetProvider,
-      ErrorEventListener listener, Iterable<? extends Target> targets, boolean strict,
+      EventHandler eventHandler, Iterable<? extends Target> targets, boolean strict,
       boolean keepGoing)
           throws TargetParsingException {
-    Closure closure = new Closure(targetProvider, listener, strict, keepGoing);
+    Closure closure = new Closure(targetProvider, eventHandler, strict, keepGoing);
     ResolvedTargets.Builder<Target> result = ResolvedTargets.builder();
     for (Target target : targets) {
       if (TargetUtils.isTestRule(target)) {
@@ -235,7 +237,7 @@ public final class TestTargetUtils {
   private static final class Closure {
     private final TargetProvider targetProvider;
 
-    private final ErrorEventListener listener;
+    private final EventHandler eventHandler;
 
     private final boolean keepGoing;
 
@@ -245,10 +247,10 @@ public final class TestTargetUtils {
 
     private boolean hasError;
 
-    public Closure(TargetProvider targetProvider, ErrorEventListener listener, boolean strict,
+    public Closure(TargetProvider targetProvider, EventHandler eventHandler, boolean strict,
         boolean keepGoing) {
       this.targetProvider = targetProvider;
-      this.listener = listener;
+      this.eventHandler = eventHandler;
       this.strict = strict;
       this.keepGoing = keepGoing;
     }
@@ -287,10 +289,10 @@ public final class TestTargetUtils {
           result.add(test);
         } else if (strict && !TargetUtils.isTestSuiteRule(test)) {
           // If strict mode is enabled, then give an error for any non-test, non-test-suite targets.
-          listener.error(testSuite.getLocation(),
+          eventHandler.handle(Event.error(testSuite.getLocation(),
               "in test_suite rule '" + testSuite.getLabel()
               + "': expecting a test or a test_suite rule but '" + test.getLabel()
-              + "' is not one.");
+              + "' is not one."));
           hasError = true;
           if (!keepGoing) {
             throw new TargetParsingException("Test suite expansion failed.");
@@ -331,13 +333,13 @@ public final class TestTargetUtils {
         // this multi-threaded.
         for (Label label :
             NonconfigurableAttributeMapper.of(testSuite).get(attrName, Type.LABEL_LIST)) {
-          targets.add(targetProvider.getTarget(listener, label));
+          targets.add(targetProvider.getTarget(eventHandler, label));
         }
         return targets;
       } catch (NoSuchThingException e) {
         if (keepGoing) {
           hasError = true;
-          listener.error(null, e.getMessage());
+          eventHandler.handle(Event.error(e.getMessage()));
           return ImmutableList.of();
         }
         throw new TargetParsingException(e.getMessage(), e);

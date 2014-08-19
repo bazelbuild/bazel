@@ -131,6 +131,7 @@ public class BazelRuleClassProvider {
     builder.addRuleDefinition(BazelBaseRuleClasses.BinaryBaseRule.class);
     builder.addRuleDefinition(BaseRuleClasses.TestBaseRule.class);
     builder.addRuleDefinition(BazelBaseRuleClasses.ErrorRule.class);
+    builder.addRuleDefinition(ConfigRuleClasses.ConfigBaseRule.class);
     builder.addRuleDefinition(ConfigRuleClasses.ConfigSettingRule.class);
     builder.addRuleDefinition(FilegroupRule.class);
     builder.addRuleDefinition(TestSuiteRule.class);

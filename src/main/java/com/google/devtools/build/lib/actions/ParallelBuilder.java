@@ -27,6 +27,7 @@ import com.google.devtools.build.lib.concurrent.ThreadSafety.ConditionallyThread
 import com.google.devtools.build.lib.concurrent.ThreadSafety.ConditionallyThreadSafe;
 import com.google.devtools.build.lib.concurrent.ThreadSafety.ThreadCompatible;
 import com.google.devtools.build.lib.concurrent.ThreadSafety.ThreadSafe;
+import com.google.devtools.build.lib.events.Event;
 import com.google.devtools.build.lib.events.Reporter;
 import com.google.devtools.build.lib.profiler.ProfilerTask;
 import com.google.devtools.build.lib.syntax.Label;
@@ -417,7 +418,8 @@ public class ParallelBuilder extends AbstractBuilder implements ResourceManager.
     if (keepGoing) {
       // can't use printError here, since we have a null Action.
       buildFailed = true;
-      reporter.error(missingInputException.getLocation(), missingInputException.getMessage());
+      reporter.handle(
+          Event.error(missingInputException.getLocation(), missingInputException.getMessage()));
       return false;
     } else {
       shutdownThreadPool();
@@ -551,8 +553,8 @@ public class ParallelBuilder extends AbstractBuilder implements ResourceManager.
     for (;;) {
       try {
         if (!actionExecutionService.awaitTermination(timeoutSec, TimeUnit.SECONDS)) {
-          reporter.warn(null, String.format("Worker tasks still active after %d seconds: " +
-                                            "exiting anyway", timeoutSec));
+          reporter.handle(Event.warn(String.format("Worker tasks still active after %d seconds: " +
+                                            "exiting anyway", timeoutSec)));
         }
         break;
       } catch (InterruptedException e) {
@@ -1131,11 +1133,11 @@ public class ParallelBuilder extends AbstractBuilder implements ResourceManager.
 
     // Number of threads, NOT blocked by the resource acquisition.
     int workingCount = activeCount - blockedCount.get();
-    reporter.progress(null, String.format(
+    reporter.handle(Event.progress(String.format(
         "%s s, queue: %d / %d, threads: %d / %d / %d / %d, actions: %d (%d), locked: %d%s",
         /* time, queue */ new DecimalFormat("#.##").format(time), queued, dequeued,
         /* threads */ queuedCount, activeCount, workingCount, statusReporter.getCount(),
         /* actions */ singleDepCount, dependencyGraph.getRemainingActionCount(),
-        /* locked */ blockedCount.get(), ((queuedCount <= activeCount) ? " >>> " + message : "")));
+        /* locked */ blockedCount.get(), ((queuedCount <= activeCount) ? " >>> " + message : ""))));
   }
 }

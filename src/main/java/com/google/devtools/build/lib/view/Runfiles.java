@@ -25,7 +25,8 @@ import com.google.devtools.build.lib.actions.Artifact;
 import com.google.devtools.build.lib.collect.nestedset.NestedSet;
 import com.google.devtools.build.lib.collect.nestedset.NestedSetBuilder;
 import com.google.devtools.build.lib.collect.nestedset.Order;
-import com.google.devtools.build.lib.events.ErrorEventListener;
+import com.google.devtools.build.lib.events.Event;
+import com.google.devtools.build.lib.events.EventHandler;
 import com.google.devtools.build.lib.events.Location;
 import com.google.devtools.build.lib.packages.Type;
 import com.google.devtools.build.lib.util.Pair;
@@ -234,14 +235,14 @@ public final class Runfiles {
   }
 
   /**
-   * @param listener Used for throwing an error if we have an obscuring runlink.
+   * @param eventHandler Used for throwing an error if we have an obscuring runlink.
    *                 May be null, in which case obscuring symlinks are silently discarded.
    * @param location Location for reporter. Ignored if reporter is null.
    * @param workingManifest Manifest to be checked for obscuring symlinks.
    * @return map of source file names mapped to their location on disk.
    */
   public static Map<PathFragment, Artifact> filterListForObscuringSymlinks(
-      ErrorEventListener listener, Location location, Map<PathFragment, Artifact> workingManifest) {
+      EventHandler eventHandler, Location location, Map<PathFragment, Artifact> workingManifest) {
     Map<PathFragment, Artifact> newManifest = new HashMap<>();
 
     outer:
@@ -257,15 +258,15 @@ public final class Runfiles {
         Artifact ancestor = workingManifest.get(prefix);
         if (ancestor != null) {
           // This is an obscuring symlink, so just drop it and move on if there's no reporter.
-          if (listener == null) {
+          if (eventHandler == null) {
             continue outer;
           }
           PathFragment suffix = source.subFragment(n - j, n);
           Path viaAncestor = ancestor.getPath().getRelative(suffix);
           Path expected = symlink.getPath();
           if (!viaAncestor.equals(expected)) {
-            listener.warn(location, "runfiles symlink " + source + " -> "
-                + expected + " obscured by " + prefix + " -> " + ancestor.getPath());
+            eventHandler.handle(Event.warn(location, "runfiles symlink " + source + " -> "
+                + expected + " obscured by " + prefix + " -> " + ancestor.getPath()));
           }
           continue outer;
         }
@@ -280,14 +281,14 @@ public final class Runfiles {
    * and rooted at the specified points.
    * @param root The root the PathFragment is computed relative to (before it is
    *             rooted again). May be null.
-   * @param listener Used for throwing an error if we have an obscuring runlink.
+   * @param eventHandler Used for throwing an error if we have an obscuring runlink.
    *                 May be null, in which case obscuring symlinks are silently discarded.
-   * @param location Location for listener warnings. Ignored if listener is null.
+   * @param location Location for eventHandler warnings. Ignored if eventHandler is null.
    * @return Pair of Maps from remote path fragment to artifact, the first of normal source tree
    *         entries, the second of any elements that live outside the source tree.
    */
   public Pair<Map<PathFragment, Artifact>, Map<PathFragment, Artifact>> getRunfilesInputs(
-      PathFragment root, ErrorEventListener listener, Location location)
+      PathFragment root, EventHandler eventHandler, Location location)
           throws IOException {
     Map<PathFragment, Artifact> manifest = getSymlinksAsMap();
     // Add unconditional artifacts (committed to inclusion on construction of runfiles).
@@ -313,7 +314,7 @@ public final class Runfiles {
       }
     }
 
-    manifest = filterListForObscuringSymlinks(listener, location, manifest);
+    manifest = filterListForObscuringSymlinks(eventHandler, location, manifest);
     manifest.putAll(manifestExpander.apply(manifest));
     PathFragment path = new PathFragment(SOURCE_SYMLINK_DIR);
     Map<PathFragment, Artifact> result = new HashMap<>();

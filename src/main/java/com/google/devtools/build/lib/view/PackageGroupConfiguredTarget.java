@@ -17,6 +17,7 @@ package com.google.devtools.build.lib.view;
 import com.google.common.base.Preconditions;
 import com.google.devtools.build.lib.collect.nestedset.NestedSet;
 import com.google.devtools.build.lib.collect.nestedset.NestedSetBuilder;
+import com.google.devtools.build.lib.events.Event;
 import com.google.devtools.build.lib.packages.PackageGroup;
 import com.google.devtools.build.lib.packages.PackageSpecification;
 import com.google.devtools.build.lib.syntax.Label;
@@ -41,8 +42,8 @@ public final class PackageGroupConfiguredTarget extends AbstractConfiguredTarget
       PackageSpecificationProvider provider = include == null ? null :
           include.getProvider(PackageSpecificationProvider.class);
       if (provider == null) {
-        targetContext.getAnalysisEnvironment().getReporter().error(getTarget().getLocation(),
-            String.format("label '%s' does not refer to a package group", label));
+        targetContext.getAnalysisEnvironment().getReporter().handle(Event.error(getTarget().getLocation(),
+            String.format("label '%s' does not refer to a package group", label)));
         continue;
       }
 

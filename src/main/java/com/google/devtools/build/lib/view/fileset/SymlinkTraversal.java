@@ -14,7 +14,7 @@
 
 package com.google.devtools.build.lib.view.fileset;
 
-import com.google.devtools.build.lib.events.ErrorEventListener;
+import com.google.devtools.build.lib.events.EventHandler;
 import com.google.devtools.build.lib.pkgcache.PackageUpToDateChecker;
 import com.google.devtools.build.lib.util.Fingerprint;
 
@@ -32,7 +32,7 @@ interface SymlinkTraversal {
    * @throws IOException if a filesystem operation fails.
    * @throws InterruptedException if the traversal is interrupted.
    */
-  void addSymlinks(ErrorEventListener listener, FilesetLinks links, ThreadPoolExecutor filesetPool)
+  void addSymlinks(EventHandler eventHandler, FilesetLinks links, ThreadPoolExecutor filesetPool)
       throws IOException, InterruptedException;
 
   /**

@@ -17,18 +17,22 @@ package com.google.devtools.build.lib.events;
 /**
  * Passes through any events, and converts any warnings to errors.
  */
-public final class WarningsAsErrorsEventListener extends DelegatingErrorEventListener {
+public final class WarningsAsErrorsEventHandler extends DelegatingEventHandler {
 
   boolean warningsEncountered = false;
 
-  public WarningsAsErrorsEventListener(ErrorEventListener listener) {
-    super(listener);
+  public WarningsAsErrorsEventHandler(EventHandler eventHandler) {
+    super(eventHandler);
   }
 
   @Override
-  public void warn(Location location, String message) {
-    warningsEncountered = true;
-    super.error(location, message);
+  public synchronized void handle(Event e) {
+    if (e.getKind() == EventKind.WARNING) {
+      warningsEncountered = true;
+      super.handle(new Event(EventKind.ERROR, e.getLocation(), e.getMessage()));
+    } else {
+      super.handle(e);
+    }
   }
 
   public boolean warningsEncountered() {

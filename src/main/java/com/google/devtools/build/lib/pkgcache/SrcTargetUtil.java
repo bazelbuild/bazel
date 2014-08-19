@@ -19,7 +19,7 @@ import com.google.common.collect.ImmutableSet;
 import com.google.common.collect.Lists;
 import com.google.common.collect.Sets;
 import com.google.devtools.build.lib.concurrent.ThreadSafety;
-import com.google.devtools.build.lib.events.ErrorEventListener;
+import com.google.devtools.build.lib.events.EventHandler;
 import com.google.devtools.build.lib.packages.AttributeMap;
 import com.google.devtools.build.lib.packages.FileTarget;
 import com.google.devtools.build.lib.packages.NoSuchPackageException;
@@ -57,10 +57,10 @@ public final class SrcTargetUtil {
    *         to a Target
    */
   @ThreadSafety.ThreadSafe
-  public static List<FileTarget> getSrcTargets(ErrorEventListener listener, Rule rule,
+  public static List<FileTarget> getSrcTargets(EventHandler eventHandler, Rule rule,
                                                TargetProvider provider)
       throws NoSuchTargetException, NoSuchPackageException, InterruptedException  {
-    return getTargets(listener, rule, SOURCE_ATTRIBUTES, Sets.newHashSet(rule), provider);
+    return getTargets(eventHandler, rule, SOURCE_ATTRIBUTES, Sets.newHashSet(rule), provider);
   }
 
   // Attributes referring to "sources".
@@ -76,20 +76,20 @@ public final class SrcTargetUtil {
    * the "hdrs" attribute).
    */
   @ThreadSafety.ThreadSafe
-  public static List<FileTarget> getSrcAndHdrTargets(ErrorEventListener listener, Rule rule,
+  public static List<FileTarget> getSrcAndHdrTargets(EventHandler eventHandler, Rule rule,
                                                      TargetProvider provider)
       throws NoSuchTargetException, NoSuchPackageException, InterruptedException  {
     ImmutableSet<String> srcAndHdrAttributes = ImmutableSet.<String>builder()
         .addAll(SOURCE_ATTRIBUTES)
         .addAll(HEADER_ATTRIBUTES)
         .build();
-    return getTargets(listener, rule, srcAndHdrAttributes, Sets.newHashSet(rule), provider);
+    return getTargets(eventHandler, rule, srcAndHdrAttributes, Sets.newHashSet(rule), provider);
   }
 
   /**
-   * @see #getSrcTargets(ErrorEventListener, Rule, TargetProvider)
+   * @see #getSrcTargets(EventHandler, Rule, TargetProvider)
    */
-  private static List<FileTarget> getTargets(ErrorEventListener listener,
+  private static List<FileTarget> getTargets(EventHandler eventHandler,
       Rule rule,
       ImmutableSet<String> attributes,
       Set<Rule> visitedRules,
@@ -113,7 +113,7 @@ public final class SrcTargetUtil {
     }
     List<FileTarget> srcTargets = new ArrayList<>();
     for (Label label : srcLabels) {
-      Target target = targetProvider.getTarget(listener, label);
+      Target target = targetProvider.getTarget(eventHandler, label);
       if (target instanceof FileTarget) {
         srcTargets.add((FileTarget) target);
       } else {
@@ -122,7 +122,7 @@ public final class SrcTargetUtil {
           visitedRules.add(srcRule);
           if ("filegroup".equals(srcRule.getRuleClass())) {
             srcTargets.addAll(
-                getTargets(listener, srcRule, attributes, visitedRules, targetProvider));
+                getTargets(eventHandler, srcRule, attributes, visitedRules, targetProvider));
           } else {
             srcTargets.addAll(srcRule.getOutputFiles());
           }

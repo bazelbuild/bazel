@@ -17,7 +17,8 @@ import com.google.common.base.Preconditions;
 import com.google.common.collect.ImmutableMap;
 import com.google.common.eventbus.EventBus;
 import com.google.devtools.build.lib.concurrent.ThreadSafety.ThreadSafe;
-import com.google.devtools.build.lib.events.ErrorEventListener;
+import com.google.devtools.build.lib.events.Event;
+import com.google.devtools.build.lib.events.EventHandler;
 import com.google.devtools.build.lib.events.EventKind;
 import com.google.devtools.build.lib.events.Reporter;
 import com.google.devtools.build.lib.profiler.Profiler;
@@ -178,7 +179,7 @@ public final class BlazeExecutor implements Executor {
     inExecutionPhase.set(false);
   }
 
-  public static void shutdownHelperPool(ErrorEventListener reporter, ExecutorService pool,
+  public static void shutdownHelperPool(EventHandler reporter, ExecutorService pool,
       String name) {
     pool.shutdownNow();
 
@@ -186,7 +187,7 @@ public final class BlazeExecutor implements Executor {
     while (true) {
       try {
         if (!pool.awaitTermination(10, TimeUnit.SECONDS)) {
-          reporter.warn(null, name + " threadpool shutdown took greater than ten seconds");
+          reporter.handle(Event.warn(name + " threadpool shutdown took greater than ten seconds"));
         }
         break;
       } catch (InterruptedException e) {

@@ -18,6 +18,7 @@ import com.google.devtools.build.lib.cmdline.ResolvedTargets;
 import com.google.devtools.build.lib.cmdline.TargetParsingException;
 import com.google.devtools.build.lib.cmdline.TargetPattern;
 import com.google.devtools.build.lib.cmdline.TargetPatternResolver;
+import com.google.devtools.build.lib.events.Event;
 import com.google.devtools.build.lib.packages.NoSuchPackageException;
 import com.google.devtools.build.lib.packages.NoSuchThingException;
 import com.google.devtools.build.lib.packages.Package;
@@ -92,7 +93,7 @@ public class TargetPatternFunction implements SkyFunction {
 
     @Override
     public void warn(String msg) {
-      env.getListener().warn(null, msg);
+      env.getListener().handle(Event.warn(msg));
     }
 
     /**

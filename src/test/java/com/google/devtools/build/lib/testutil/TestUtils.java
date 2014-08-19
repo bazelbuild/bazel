@@ -49,7 +49,6 @@ public class TestUtils {
       "grep-includes",
       "alarm",
       "process-wrapper",
-      "normalize-ar",
       "build_interface_so");
 
   public static final ThreadPoolExecutor POOL =

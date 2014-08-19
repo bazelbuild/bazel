@@ -24,7 +24,7 @@ import com.google.devtools.build.lib.actions.Artifact;
 import com.google.devtools.build.lib.actions.ExecException;
 import com.google.devtools.build.lib.actions.Executor;
 import com.google.devtools.build.lib.actions.ResourceSet;
-import com.google.devtools.build.lib.events.ErrorEventListener;
+import com.google.devtools.build.lib.events.EventHandler;
 import com.google.devtools.build.lib.syntax.Label;
 
 import java.io.IOException;
@@ -74,13 +74,13 @@ public abstract class AbstractFileWriteAction extends AbstractAction {
    * Write the content of the output file to the provided output stream.
    *
    * @param out the output stream to write the content to.
-   * @param listener destination for warning messages.  (Note that errors should
+   * @param eventHandler destination for warning messages.  (Note that errors should
    *        still be indicated by throwing an exception; reporter.error() will
    *        not cause action execution to fail.)
    * @param executor the Executor.
    * @throws IOException if the content cannot be written to the output stream
    */
-  public abstract void writeOutputFile(OutputStream out, ErrorEventListener listener,
+  public abstract void writeOutputFile(OutputStream out, EventHandler eventHandler,
       Executor executor) throws IOException, InterruptedException, ExecException;
 
   @Override

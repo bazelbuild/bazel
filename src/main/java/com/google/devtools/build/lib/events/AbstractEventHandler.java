@@ -35,4 +35,6 @@ public abstract class AbstractEventHandler implements EventHandler {
     return mask;
   }
 
+  @Override
+  public boolean showOutput(String tag) { return true; }
 }

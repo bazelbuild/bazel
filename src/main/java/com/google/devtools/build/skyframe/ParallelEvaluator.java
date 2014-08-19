@@ -31,11 +31,10 @@ import com.google.devtools.build.lib.collect.nestedset.NestedSetBuilder;
 import com.google.devtools.build.lib.collect.nestedset.NestedSetVisitor;
 import com.google.devtools.build.lib.concurrent.AbstractQueueVisitor;
 import com.google.devtools.build.lib.concurrent.ThreadSafety.ThreadCompatible;
-import com.google.devtools.build.lib.events.DelegatingOnlyErrorsEventListener;
-import com.google.devtools.build.lib.events.ErrorEventListener;
+import com.google.devtools.build.lib.events.DelegatingOnlyErrorsEventHandler;
 import com.google.devtools.build.lib.events.Event;
-import com.google.devtools.build.lib.events.Location;
-import com.google.devtools.build.lib.events.StoredErrorEventListener;
+import com.google.devtools.build.lib.events.EventHandler;
+import com.google.devtools.build.lib.events.StoredEventHandler;
 import com.google.devtools.build.lib.profiler.Profiler;
 import com.google.devtools.build.lib.profiler.ProfilerTask;
 import com.google.devtools.build.lib.util.GroupedList.GroupedListHelper;
@@ -102,7 +101,7 @@ final class ParallelEvaluator implements Evaluator {
 
   private final ImmutableMap<? extends SkyFunctionName, ? extends SkyFunction> skyFunctions;
 
-  private final ErrorEventListener reporter;
+  private final EventHandler reporter;
   private final NestedSetVisitor<TaggedEvents> replayingNestedSetEventVisitor;
   private final boolean keepGoing;
   private final int threadCount;
@@ -112,7 +111,7 @@ final class ParallelEvaluator implements Evaluator {
 
   ParallelEvaluator(ProcessableGraph graph, long graphVersion,
                     ImmutableMap<? extends SkyFunctionName, ? extends SkyFunction> skyFunctions,
-                    final ErrorEventListener reporter,
+                    final EventHandler reporter,
                     MemoizingEvaluator.EmittedEventState emittedEventState,
                     boolean keepGoing, int threadCount,
                     @Nullable EvaluationProgressReceiver progressReceiver) {
@@ -130,17 +129,17 @@ final class ParallelEvaluator implements Evaluator {
 
   /**
    * Receives the events from the NestedSet and delegates to the reporter
-   * if {@link ErrorEventListener#showOutput(String)} returns true. Otherwise if
+   * if {@link EventHandler#showOutput(String)} returns true. Otherwise if
    * it is not an error it ignores the event.
    */
   private static class NestedSetEventReceiver implements NestedSetVisitor.Receiver<TaggedEvents> {
 
-    private final ErrorEventListener reporter;
-    private final DelegatingOnlyErrorsEventListener onlyErrorsReporter;
+    private final EventHandler reporter;
+    private final DelegatingOnlyErrorsEventHandler onlyErrorsReporter;
 
-    public NestedSetEventReceiver(ErrorEventListener reporter) {
+    public NestedSetEventReceiver(EventHandler reporter) {
       this.reporter = reporter;
-      onlyErrorsReporter = new DelegatingOnlyErrorsEventListener(reporter);
+      onlyErrorsReporter = new DelegatingOnlyErrorsEventHandler(reporter);
     }
 
     @Override
@@ -184,31 +183,20 @@ final class ParallelEvaluator implements Evaluator {
 
     /** The set of errors encountered while fetching children. */
     private final Collection<ErrorInfo> childErrorInfos = new LinkedHashSet<>();
-    private final StoredErrorEventListener listener = new StoredErrorEventListener() {
+    private final StoredEventHandler eventHandler = new StoredEventHandler() {
       @Override
-      public void info(Location location, String message) {
+      public void handle(Event e) {
         checkActive();
-        throw new UnsupportedOperationException("Values should not display INFO messages: " +
-            skyKey + " printed " + location + ": " + message);
-      }
-
-      @Override
-      public void progress(Location location, String message) {
-        checkActive();
-        // Progress messages are printed immediately and not stored for replay.
-        reporter.progress(location, message);
-      }
-
-      @Override
-      public void warn(Location location, String message) {
-        checkActive();
-        super.warn(location, message);
-      }
-
-      @Override
-      public void error(Location location, String message) {
-        checkActive();
-        super.error(location, message);
+        switch (e.getKind()) {
+          case INFO:
+            throw new UnsupportedOperationException("Values should not display INFO messages: " +
+                skyKey + " printed " + e.getLocation() + ": " + e.getMessage());
+          case PROGRESS:
+            reporter.handle(e);
+            break;
+          default:
+            super.handle(e);
+        }
       }
     };
 
@@ -233,7 +221,7 @@ final class ParallelEvaluator implements Evaluator {
       // Aggregate the nested set of events from the direct deps, also adding the events from
       // building this value.
       NestedSetBuilder<TaggedEvents> eventBuilder = NestedSetBuilder.stableOrder();
-      ImmutableList<Event> events = listener.getEvents();
+      ImmutableList<Event> events = eventHandler.getEvents();
       if (!events.isEmpty()) {
         eventBuilder.add(new TaggedEvents(getTagFromKey(), events));
       }
@@ -408,9 +396,9 @@ final class ParallelEvaluator implements Evaluator {
     }
 
     @Override
-    public ErrorEventListener getListener() {
+    public EventHandler getListener() {
       checkActive();
-      return listener;
+      return eventHandler;
     }
 
     private void doneBuilding() {
@@ -986,9 +974,9 @@ final class ParallelEvaluator implements Evaluator {
    * appropriate error can be returned to the caller, even though that error was not written to the
    * graph. If a cycle is detected during the bubbling, this method aborts and returns null so that
    * the normal cycle detection can handle the cycle.
-   * 
+   *
    * <p>Note that we are not propagating error to the first top-level node but to the highest one,
-   * because during this process we can add useful information about error from other nodes.  
+   * because during this process we can add useful information about error from other nodes.
    */
   private Map<SkyKey, ValueWithMetadata> bubbleErrorUp(final ErrorInfo leafFailure,
       SkyKey errorKey, Iterable<SkyKey> skyKeys, ValueVisitor visitor) {

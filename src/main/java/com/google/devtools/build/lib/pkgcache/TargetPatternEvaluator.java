@@ -19,7 +19,7 @@ import com.google.devtools.build.lib.cmdline.ResolvedTargets;
 import com.google.devtools.build.lib.cmdline.TargetParsingException;
 import com.google.devtools.build.lib.concurrent.ThreadSafety;
 import com.google.devtools.build.lib.concurrent.ThreadSafety.ThreadHostile;
-import com.google.devtools.build.lib.events.ErrorEventListener;
+import com.google.devtools.build.lib.events.EventHandler;
 import com.google.devtools.build.lib.packages.Target;
 import com.google.devtools.build.lib.vfs.PathFragment;
 
@@ -47,7 +47,7 @@ public interface TargetPatternEvaluator {
    * "-", in which case the set difference is computed.  Implements the
    * specification described in the class-level comment.
    */
-  ResolvedTargets<Target> parseTargetPatternList(ErrorEventListener listener,
+  ResolvedTargets<Target> parseTargetPatternList(EventHandler eventHandler,
       List<String> targetPatterns, FilteringPolicy policy, boolean keepGoing)
       throws TargetParsingException, InterruptedException;
 
@@ -61,7 +61,7 @@ public interface TargetPatternEvaluator {
    * unless {@code keepGoing} is set to true. In that case, the returned object
    * will have its error bit set.
    */
-  ResolvedTargets<Target> parseTargetPattern(ErrorEventListener listener, String pattern,
+  ResolvedTargets<Target> parseTargetPattern(EventHandler eventHandler, String pattern,
       boolean keepGoing) throws TargetParsingException, InterruptedException;
 
   /**
@@ -74,7 +74,7 @@ public interface TargetPatternEvaluator {
    * keepGoing} is set to true. In that case, the patterns that failed to load have the error flag
    * set.
    */
-  List<ResolvedTargets<Target>> preloadTargetPatterns(ErrorEventListener listener,
+  List<ResolvedTargets<Target>> preloadTargetPatterns(EventHandler eventHandler,
       List<String> patterns, boolean keepGoing) throws TargetParsingException, InterruptedException;
 
 

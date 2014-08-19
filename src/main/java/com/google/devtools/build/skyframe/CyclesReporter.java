@@ -15,7 +15,7 @@ package com.google.devtools.build.skyframe;
 
 import com.google.common.base.Preconditions;
 import com.google.common.collect.ImmutableList;
-import com.google.devtools.build.lib.events.ErrorEventListener;
+import com.google.devtools.build.lib.events.EventHandler;
 
 import javax.annotation.Nullable;
 
@@ -42,10 +42,10 @@ public class CyclesReporter {
      * @param cycleInfo the cycle
      * @param alreadyReported whether the cycle has already been reported to the
      *        {@link CyclesReporter}.
-     * @param listener the listener to which to report the error
+     * @param eventHandler the eventHandler to which to report the error
      */
     boolean maybeReportCycle(SkyKey topLevelKey, CycleInfo cycleInfo, boolean alreadyReported,
-        @Nullable ErrorEventListener listener);
+        @Nullable EventHandler eventHandler);
   }
 
   private final ImmutableList<SingleCycleReporter> cycleReporters;
@@ -64,10 +64,10 @@ public class CyclesReporter {
    *
    * @param cycles The {@code Iterable} of cycles.
    * @param topLevelKey This key represents the top level value key that returned cycle errors.
-   * @param listener the listener to which to report the error
+   * @param eventHandler the eventHandler to which to report the error
    */
   public void reportCycles(Iterable<CycleInfo> cycles, SkyKey topLevelKey,
-      @Nullable ErrorEventListener listener) {
+      @Nullable EventHandler eventHandler) {
     for (CycleInfo cycleInfo : cycles) {
       boolean alreadyReported = false;
       if (!cycleDeduper.seen(cycleInfo.getCycle())) {
@@ -75,7 +75,7 @@ public class CyclesReporter {
       }
       boolean successfullyReported = false;
       for (SingleCycleReporter cycleReporter : cycleReporters) {
-        if (cycleReporter.maybeReportCycle(topLevelKey, cycleInfo, alreadyReported, listener)) {
+        if (cycleReporter.maybeReportCycle(topLevelKey, cycleInfo, alreadyReported, eventHandler)) {
           successfullyReported = true;
           break;
         }

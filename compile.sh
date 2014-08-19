@@ -169,9 +169,6 @@ echo "CC build-runfiles"
 echo "CC process-wrapper"
 "${CC}" -o output/process-wrapper src/main/tools/process-wrapper.c
 
-echo "CC normalizer-ar"
-"${CC}" -o output/normalize-ar src/main/tools/normalize-ar.c
-
 cp src/main/tools/build_interface_so output/build_interface_so
 
 touch output/alarm

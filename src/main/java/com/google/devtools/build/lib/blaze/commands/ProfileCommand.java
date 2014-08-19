@@ -21,7 +21,8 @@ import com.google.devtools.build.lib.actions.MiddlemanAction;
 import com.google.devtools.build.lib.blaze.BlazeCommand;
 import com.google.devtools.build.lib.blaze.BlazeRuntime;
 import com.google.devtools.build.lib.blaze.Command;
-import com.google.devtools.build.lib.events.ErrorEventListener;
+import com.google.devtools.build.lib.events.Event;
+import com.google.devtools.build.lib.events.EventHandler;
 import com.google.devtools.build.lib.profiler.ProfileInfo;
 import com.google.devtools.build.lib.profiler.ProfileInfo.CriticalPathEntry;
 import com.google.devtools.build.lib.profiler.ProfileInfo.InfoListener;
@@ -117,16 +118,16 @@ public final class ProfileCommand implements BlazeCommand {
 
   private InfoListener getInfoListener(final BlazeRuntime runtime) {
     return new InfoListener() {
-      private final ErrorEventListener reporter = runtime.getReporter();
+      private final EventHandler reporter = runtime.getReporter();
 
       @Override
       public void info(String text) {
-        reporter.info(null, text);
+        reporter.handle(Event.info(text));
       }
 
       @Override
       public void warn(String text) {
-        reporter.warn(null, text);
+        reporter.handle(Event.warn(text));
       }
     };
   }
@@ -145,9 +146,9 @@ public final class ProfileCommand implements BlazeCommand {
 
     PrintStream out = new PrintStream(runtime.getReporter().getOutErr().getOutputStream());
     try {
-      runtime.getReporter().warn(
+      runtime.getReporter().handle(Event.warn(
           null, "This information is intended for consumption by Blaze developers"
-              + " only, and may change at any time.  Script against it at your own risk");
+              + " only, and may change at any time.  Script against it at your own risk"));
 
       for (String name : options.getResidue()) {
         Path profileFile = runtime.getWorkingDirectory().getRelative(name);
@@ -162,8 +163,8 @@ public final class ProfileCommand implements BlazeCommand {
             createText(runtime, info, out, opts);
           }
         } catch (IOException e) {
-          runtime.getReporter().error(
-              null, "Failed to process file " + name + ": " + e.getMessage());
+          runtime.getReporter().handle(Event.error(
+              null, "Failed to process file " + name + ": " + e.getMessage()));
         }
       }
     } finally {
@@ -193,7 +194,7 @@ public final class ProfileCommand implements BlazeCommand {
         profileFile.getParentDirectory().getChild(profileFile.getBaseName() + ".html");
     List<ProfilePhaseStatistics> statistics = getStatistics(runtime, info, opts);
 
-    runtime.getReporter().info(null, "Creating HTML output in " + htmlFile);
+    runtime.getReporter().handle(Event.info("Creating HTML output in " + htmlFile));
 
     ChartCreator chartCreator =
         opts.htmlDetails ? new DetailedChartCreator(info, statistics)
@@ -215,7 +216,7 @@ public final class ProfileCommand implements BlazeCommand {
       BlazeRuntime runtime, ProfileInfo info, ProfileOptions opts) {
     try {
       ProfileInfo.aggregateProfile(info, getInfoListener(runtime));
-      runtime.getReporter().info(null, "Analyzing relationships");
+      runtime.getReporter().handle(Event.info("Analyzing relationships"));
 
       info.analyzeRelationships();
 

@@ -24,8 +24,9 @@ import com.google.common.collect.Iterables;
 import com.google.common.collect.Sets;
 import com.google.devtools.build.lib.cmdline.ResolvedTargets;
 import com.google.devtools.build.lib.cmdline.TargetParsingException;
-import com.google.devtools.build.lib.events.ErrorEventListener;
-import com.google.devtools.build.lib.events.ErrorSensingErrorEventListener;
+import com.google.devtools.build.lib.events.ErrorSensingEventHandler;
+import com.google.devtools.build.lib.events.Event;
+import com.google.devtools.build.lib.events.EventHandler;
 import com.google.devtools.build.lib.graph.Digraph;
 import com.google.devtools.build.lib.graph.Node;
 import com.google.devtools.build.lib.packages.AggregatingAttributeMapper;
@@ -65,7 +66,7 @@ import java.util.Set;
  * The environment of a Blaze query. Not thread-safe.
  */
 public class BlazeQueryEnvironment implements QueryEnvironment<Target> {
-  protected final ErrorSensingErrorEventListener listener;
+  protected final ErrorSensingEventHandler eventHandler;
   private final TargetProvider targetProvider;
   private final TargetPatternEvaluator targetPatternEvaluator;
   private final Digraph<Target> graph = new Digraph<>();
@@ -101,13 +102,13 @@ public class BlazeQueryEnvironment implements QueryEnvironment<Target> {
       boolean strictScope,
       int loadingPhaseThreads,
       Predicate<Label> labelFilter,
-      ErrorEventListener listener,
+      EventHandler eventHandler,
       Set<Setting> settings,
       Iterable<QueryFunction> extraFunctions) {
-    this.listener = new ErrorSensingErrorEventListener(listener);
+    this.eventHandler = new ErrorSensingEventHandler(eventHandler);
     this.targetProvider = packageProvider;
     this.targetPatternEvaluator = targetPatternEvaluator;
-    this.errorObserver = new ErrorPrintingTargetEdgeErrorObserver(this.listener);
+    this.errorObserver = new ErrorPrintingTargetEdgeErrorObserver(this.eventHandler);
     this.keepGoing = keepGoing;
     this.strictScope = strictScope;
     this.loadingPhaseThreads = loadingPhaseThreads;
@@ -129,11 +130,11 @@ public class BlazeQueryEnvironment implements QueryEnvironment<Target> {
       TargetPatternEvaluator targetPatternEvaluator,
       boolean keepGoing,
       int loadingPhaseThreads,
-      ErrorEventListener listener,
+      EventHandler eventHandler,
       Set<Setting> settings,
       Iterable<QueryFunction> extraFunctions) {
     this(packageProvider, targetPatternEvaluator, keepGoing, /*strictScope=*/true,
-        loadingPhaseThreads, Rule.ALL_LABELS, listener, settings, extraFunctions);
+        loadingPhaseThreads, Rule.ALL_LABELS, eventHandler, settings, extraFunctions);
   }
 
   private static BinaryPredicate<Rule, Attribute> constructDependencyFilter(Set<Setting> settings) {
@@ -160,7 +161,7 @@ public class BlazeQueryEnvironment implements QueryEnvironment<Target> {
   public QueryEvalResult<Target> evaluateQuery(QueryExpression expr) throws QueryException {
     // Some errors are reported as QueryExceptions and others as ERROR events
     // (if --keep_going).
-    listener.resetErrors();
+    eventHandler.resetErrors();
     resolvedTargetPatterns.clear();
 
     // In the --nokeep_going case, errors are reported in the order in which the patterns are
@@ -186,19 +187,19 @@ public class BlazeQueryEnvironment implements QueryEnvironment<Target> {
       throw new QueryException(e, expr);
     }
 
-    if (listener.hasErrors()) {
+    if (eventHandler.hasErrors()) {
       if (!keepGoing) {
         // This case represents loading-phase errors reported during evaluation
         // of target patterns that don't cause evaluation to fail per se.
         throw new QueryException("Evaluation of query \"" + expr
             + "\" failed due to BUILD file errors");
       } else {
-        listener.warn(null, "--keep_going specified, ignoring errors.  "
-                      + "Results may be inaccurate");
+        eventHandler.handle(Event.warn("--keep_going specified, ignoring errors.  "
+                      + "Results may be inaccurate"));
       }
     }
 
-    return new QueryEvalResult<>(!listener.hasErrors(), resultNodes, graph);
+    return new QueryEvalResult<>(!eventHandler.hasErrors(), resultNodes, graph);
   }
 
   public QueryEvalResult<Target> evaluateQuery(String query) throws QueryException {
@@ -211,7 +212,7 @@ public class BlazeQueryEnvironment implements QueryEnvironment<Target> {
       throw new QueryException(caller, message);
     } else {
       // Keep consistent with evaluateQuery() above.
-      listener.error(null, "Evaluation of query \"" + caller + "\" failed: " + message);
+      eventHandler.handle(Event.error("Evaluation of query \"" + caller + "\" failed: " + message));
     }
   }
 
@@ -351,7 +352,7 @@ public class BlazeQueryEnvironment implements QueryEnvironment<Target> {
     preloadTransitiveClosure(targets, maxDepth);
 
     try {
-      labelVisitor.syncWithVisitor(listener, targets, ImmutableSet.<Label>of(), keepGoing,
+      labelVisitor.syncWithVisitor(eventHandler, targets, ImmutableSet.<Label>of(), keepGoing,
           loadingPhaseThreads, maxDepth, errorObserver, new GraphBuildingObserver());
     } catch (InterruptedException e) {
       throw new QueryException(caller, "transitive closure computation was interrupted");
@@ -414,7 +415,7 @@ public class BlazeQueryEnvironment implements QueryEnvironment<Target> {
       if (strict) {
         throw new QueryException(error);
       } else {
-        listener.warn(null, error + ". Skipping");
+        eventHandler.handle(Event.warn(error + ". Skipping"));
         return false;
       }
     }
@@ -441,7 +442,7 @@ public class BlazeQueryEnvironment implements QueryEnvironment<Target> {
     try {
       // Note that this may throw a RuntimeException if deps are missing in Skyframe.
       return targetPatternEvaluator.preloadTargetPatterns(
-          listener, patterns, keepGoing);
+          eventHandler, patterns, keepGoing);
     } catch (InterruptedException e) {
       // TODO(bazel-team): Propagate the InterruptedException from here [skyframe-loading].
       throw new TargetParsingException("interrupted");
@@ -450,7 +451,7 @@ public class BlazeQueryEnvironment implements QueryEnvironment<Target> {
 
   private Target getTargetOrThrow(Label label)
       throws NoSuchThingException, SkyframeRestartQueryException, InterruptedException {
-    Target target = targetProvider.getTarget(listener, label);
+    Target target = targetProvider.getTarget(eventHandler, label);
     if (target == null) {
       throw new SkyframeRestartQueryException();
     }

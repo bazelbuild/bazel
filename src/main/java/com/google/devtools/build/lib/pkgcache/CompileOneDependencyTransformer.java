@@ -16,7 +16,7 @@ package com.google.devtools.build.lib.pkgcache;
 import com.google.common.collect.Lists;
 import com.google.devtools.build.lib.cmdline.ResolvedTargets;
 import com.google.devtools.build.lib.cmdline.TargetParsingException;
-import com.google.devtools.build.lib.events.ErrorEventListener;
+import com.google.devtools.build.lib.events.EventHandler;
 import com.google.devtools.build.lib.packages.InputFile;
 import com.google.devtools.build.lib.packages.NoSuchPackageException;
 import com.google.devtools.build.lib.packages.NoSuchThingException;
@@ -47,14 +47,14 @@ final class CompileOneDependencyTransformer {
    * For each input file in the original result, returns a rule in the same package which has the
    * input file as a source.
    */
-  public ResolvedTargets<Target> transformCompileOneDependency(ErrorEventListener listener,
+  public ResolvedTargets<Target> transformCompileOneDependency(EventHandler eventHandler,
       ResolvedTargets<Target> original) throws TargetParsingException {
     if (original.hasError()) {
       return original;
     }
     ResolvedTargets.Builder<Target> builder = ResolvedTargets.builder();
     for (Target target : original.getTargets()) {
-      builder.add(transformCompileOneDependency(listener, target));
+      builder.add(transformCompileOneDependency(eventHandler, target));
     }
     return builder.build();
   }
@@ -87,7 +87,7 @@ final class CompileOneDependencyTransformer {
     return orderedList;
   }
 
-  private Target transformCompileOneDependency(ErrorEventListener listener,
+  private Target transformCompileOneDependency(EventHandler eventHandler,
       Target target) throws TargetParsingException {
     if (!(target instanceof InputFile)) {
       throw new TargetParsingException("--compile_one_dependency target '" +
@@ -109,7 +109,7 @@ final class CompileOneDependencyTransformer {
       try {
         // The call to getSrcTargets here can be removed in favor of the
         // rule.getLabels() call below once we update "srcs" for all rules.
-        if (SrcTargetUtil.getSrcTargets(listener, rule, pkgManager).contains(target)) {
+        if (SrcTargetUtil.getSrcTargets(eventHandler, rule, pkgManager).contains(target)) {
           if (rule.getRuleClassObject().isPreferredDependency(target.getName())) {
             return rule;
           } else if (fallbackRule == null) {
@@ -148,7 +148,7 @@ final class CompileOneDependencyTransformer {
 
     try {
       // If the rule has source targets, return it.
-      if (!SrcTargetUtil.getSrcTargets(listener, result, pkgManager).isEmpty()) {
+      if (!SrcTargetUtil.getSrcTargets(eventHandler, result, pkgManager).isEmpty()) {
         return result;
       }
     } catch (NoSuchThingException e) {

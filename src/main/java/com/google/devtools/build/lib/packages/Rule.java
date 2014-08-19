@@ -19,10 +19,12 @@ import com.google.common.base.Predicate;
 import com.google.common.base.Predicates;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableListMultimap;
+import com.google.common.collect.ImmutableSet;
 import com.google.common.collect.LinkedListMultimap;
 import com.google.common.collect.ListMultimap;
 import com.google.common.collect.Lists;
-import com.google.devtools.build.lib.events.ErrorEventListener;
+import com.google.devtools.build.lib.events.Event;
+import com.google.devtools.build.lib.events.EventHandler;
 import com.google.devtools.build.lib.events.Location;
 import com.google.devtools.build.lib.packages.Attribute.ConfigurationTransition;
 import com.google.devtools.build.lib.packages.License.DistributionType;
@@ -218,7 +220,7 @@ public final class Rule implements Target {
   /**
    * Returns the build features that apply to this rule.
    */
-  public Collection<String> getFeatures() {
+  public ImmutableSet<String> getFeatures() {
     return pkg.getFeatures();
   }
 
@@ -435,10 +437,10 @@ public final class Rule implements Target {
   /**
    * Check if this rule is valid according to the validityPredicate of its RuleClass.
    */
-  void checkValidityPredicate(ErrorEventListener listener) {
+  void checkValidityPredicate(EventHandler eventHandler) {
     PredicateWithMessage<Rule> predicate = getRuleClassObject().getValidityPredicate();
     if (!predicate.apply(this)) {
-      reportError(predicate.getErrorReason(this), listener);
+      reportError(predicate.getErrorReason(this), eventHandler);
     }
   }
 
@@ -447,20 +449,20 @@ public final class Rule implements Target {
    * first, followed by any explicit files. Additionally both implicit and explicit output files
    * will retain the relative order in which they were declared.
    */
-  void populateOutputFiles(ErrorEventListener listener,
+  void populateOutputFiles(EventHandler eventHandler,
       Package.AbstractPackageBuilder<?, ?> pkgBuilder) {
     Preconditions.checkState(outputFiles == null);
     // Order is important here: implicit before explicit
     outputFiles = Lists.newArrayList();
     outputFileMap = LinkedListMultimap.create();
-    populateImplicitOutputFiles(listener, pkgBuilder);
-    populateExplicitOutputFiles(listener);
+    populateImplicitOutputFiles(eventHandler, pkgBuilder);
+    populateExplicitOutputFiles(eventHandler);
     outputFiles = ImmutableList.copyOf(outputFiles);
     outputFileMap = ImmutableListMultimap.copyOf(outputFileMap);
   }
 
   // Explicit output files are user-specified attributes of type OUTPUT.
-  private void populateExplicitOutputFiles(ErrorEventListener listener) {
+  private void populateExplicitOutputFiles(EventHandler eventHandler) {
     NonconfigurableAttributeMapper nonConfigurableAttributes =
         NonconfigurableAttributeMapper.of(this);
     for (Attribute attribute : ruleClass.getAttributes()) {
@@ -469,11 +471,11 @@ public final class Rule implements Target {
       if (type == Type.OUTPUT) {
         Label outputLabel = nonConfigurableAttributes.get(name, Type.OUTPUT);
         if (outputLabel != null) {
-          addLabelOutput(attribute, outputLabel, listener);
+          addLabelOutput(attribute, outputLabel, eventHandler);
         }
       } else if (type == Type.OUTPUT_LIST) {
         for (Label label : nonConfigurableAttributes.get(name, Type.OUTPUT_LIST)) {
-          addLabelOutput(attribute, label, listener);
+          addLabelOutput(attribute, label, eventHandler);
         }
       }
     }
@@ -483,52 +485,52 @@ public final class Rule implements Target {
    * Implicit output files come from rule-specific patterns, and are a function
    * of the rule's "name", "srcs", and other attributes.
    */
-  private void populateImplicitOutputFiles(ErrorEventListener listener,
+  private void populateImplicitOutputFiles(EventHandler eventHandler,
       Package.AbstractPackageBuilder<?, ?> pkgBuilder) {
     try {
       for (String out : ruleClass.getImplicitOutputsFunction().getImplicitOutputs(attributeMap)) {
         try {
-          addOutputFile(pkgBuilder.createLabel(out), listener);
+          addOutputFile(pkgBuilder.createLabel(out), eventHandler);
         } catch (SyntaxException e) {
           reportError("illegal output file name '" + out + "' in rule "
-                      + getLabel(), listener);
+                      + getLabel(), eventHandler);
         }
       }
     } catch (EvalException e) {
-      reportError(e.print(), listener);
+      reportError(e.print(), eventHandler);
     }
   }
 
-  private void addLabelOutput(Attribute attribute, Label label, ErrorEventListener listener) {
+  private void addLabelOutput(Attribute attribute, Label label, EventHandler eventHandler) {
     if (!label.getPackageFragment().equals(pkg.getNameFragment())) {
       throw new IllegalStateException("Label for attribute " + attribute
           + " should refer to '" + pkg.getName()
           + "' but instead refers to '" + label.getPackageFragment()
           + "' (label '" + label.getName() + "')");
     }
-    OutputFile outputFile = addOutputFile(label, listener);
+    OutputFile outputFile = addOutputFile(label, eventHandler);
     outputFileMap.put(attribute.getName(), outputFile);
   }
 
-  private OutputFile addOutputFile(Label label, ErrorEventListener listener) {
+  private OutputFile addOutputFile(Label label, EventHandler eventHandler) {
     if (label.getName().equals(getName())) {
       // TODO(bazel-team): for now (23 Apr 2008) this is just a warning.  After
       // June 1st we should make it an error.
       reportWarning("target '" + getName() + "' is both a rule and a file; please choose "
-                    + "another name for the rule", listener);
+                    + "another name for the rule", eventHandler);
     }
     OutputFile outputFile = new OutputFile(pkg, label, this);
     outputFiles.add(outputFile);
     return outputFile;
   }
 
-  void reportError(String message, ErrorEventListener listener) {
-    listener.error(location, message);
+  void reportError(String message, EventHandler eventHandler) {
+    eventHandler.handle(Event.error(location, message));
     this.containsErrors = true;
   }
 
-  void reportWarning(String message, ErrorEventListener listener) {
-    listener.warn(location, message);
+  void reportWarning(String message, EventHandler eventHandler) {
+    eventHandler.handle(Event.warn(location, message));
   }
 
   @Override

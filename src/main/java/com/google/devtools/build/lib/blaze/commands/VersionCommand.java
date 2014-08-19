@@ -17,6 +17,7 @@ import com.google.devtools.build.lib.blaze.BlazeCommand;
 import com.google.devtools.build.lib.blaze.BlazeRuntime;
 import com.google.devtools.build.lib.blaze.BlazeVersionInfo;
 import com.google.devtools.build.lib.blaze.Command;
+import com.google.devtools.build.lib.events.Event;
 import com.google.devtools.build.lib.util.ExitCode;
 import com.google.devtools.common.options.OptionsParser;
 import com.google.devtools.common.options.OptionsProvider;
@@ -39,7 +40,7 @@ public final class VersionCommand implements BlazeCommand {
   public ExitCode exec(BlazeRuntime runtime, OptionsProvider options) {
     BlazeVersionInfo info = BlazeVersionInfo.instance();
     if (info.getSummary() == null) {
-      runtime.getReporter().error(null, "Version information not available");
+      runtime.getReporter().handle(Event.error("Version information not available"));
       return ExitCode.COMMAND_LINE_ERROR;
     }
     runtime.getReporter().getOutErr().printOutLn(info.getSummary());

@@ -19,7 +19,8 @@ import com.google.devtools.build.lib.cmdline.LabelValidator;
 import com.google.devtools.build.lib.cmdline.ResolvedTargets;
 import com.google.devtools.build.lib.cmdline.TargetParsingException;
 import com.google.devtools.build.lib.cmdline.TargetPatternResolver;
-import com.google.devtools.build.lib.events.ErrorEventListener;
+import com.google.devtools.build.lib.events.Event;
+import com.google.devtools.build.lib.events.EventHandler;
 import com.google.devtools.build.lib.packages.BuildFileContainsErrorsException;
 import com.google.devtools.build.lib.packages.NoSuchPackageException;
 import com.google.devtools.build.lib.packages.NoSuchTargetException;
@@ -38,16 +39,16 @@ import java.util.concurrent.ThreadPoolExecutor;
 final class PackageCacheBackedTargetPatternResolver implements TargetPatternResolver<Target> {
 
   private final RecursivePackageProvider packageProvider;
-  private final ErrorEventListener listener;
+  private final EventHandler eventHandler;
   private final boolean keepGoing;
   private final FilteringPolicy policy;
   private final ThreadPoolExecutor packageVisitorPool;
 
   PackageCacheBackedTargetPatternResolver(RecursivePackageProvider packageProvider,
-      ErrorEventListener listener, boolean keepGoing, FilteringPolicy policy,
+      EventHandler eventHandler, boolean keepGoing, FilteringPolicy policy,
       ThreadPoolExecutor packageVisitorPool) {
     this.packageProvider = packageProvider;
-    this.listener = listener;
+    this.eventHandler = eventHandler;
     this.keepGoing = keepGoing;
     this.policy = policy;
     this.packageVisitorPool = packageVisitorPool;
@@ -55,13 +56,13 @@ final class PackageCacheBackedTargetPatternResolver implements TargetPatternReso
 
   @Override
   public void warn(String msg) {
-    listener.warn(null, msg);
+    eventHandler.handle(Event.warn(msg));
   }
 
   @Override
   public Target getTargetOrNull(String targetName) throws InterruptedException {
     try {
-      return packageProvider.getTarget(listener, Label.parseAbsolute(targetName));
+      return packageProvider.getTarget(eventHandler, Label.parseAbsolute(targetName));
     } catch (NoSuchPackageException | NoSuchTargetException | Label.SyntaxException e) {
       return null;
     }
@@ -77,7 +78,7 @@ final class PackageCacheBackedTargetPatternResolver implements TargetPatternReso
   private ResolvedTargets<Target> getExplicitTarget(Label label, String originalLabel)
       throws TargetParsingException, InterruptedException {
     try {
-      Target target = packageProvider.getTarget(listener, label);
+      Target target = packageProvider.getTarget(eventHandler, label);
       if (policy.shouldRetain(target, true)) {
         return ResolvedTargets.of(target);
       }
@@ -85,10 +86,10 @@ final class PackageCacheBackedTargetPatternResolver implements TargetPatternReso
     } catch (BuildFileContainsErrorsException e) {
       // We don't need to report an error here because errors
       // would have already been reported in this case.
-      return handleParsingError(listener, originalLabel,
+      return handleParsingError(eventHandler, originalLabel,
           new TargetParsingException(e.getMessage(), e), keepGoing);
     } catch (NoSuchThingException e) {
-      return handleParsingError(listener, originalLabel,
+      return handleParsingError(eventHandler, originalLabel,
           new TargetParsingException(e.getMessage(), e), keepGoing);
     }
   }
@@ -103,13 +104,13 @@ final class PackageCacheBackedTargetPatternResolver implements TargetPatternReso
    * @return the empty set.
    * @throws TargetParsingException if !keepGoing.
    */
-  private ResolvedTargets<Target> handleParsingError(ErrorEventListener listener, String badPattern,
+  private ResolvedTargets<Target> handleParsingError(EventHandler eventHandler, String badPattern,
       TargetParsingException e, boolean keepGoing) throws TargetParsingException {
-    if (listener instanceof ParseFailureListener) {
-      ((ParseFailureListener) listener).parsingError(badPattern, e.getMessage());
+    if (eventHandler instanceof ParseFailureListener) {
+      ((ParseFailureListener) eventHandler).parsingError(badPattern, e.getMessage());
     }
     if (keepGoing) {
-      listener.error(null, "Skipping '" + badPattern + "': " + e.getMessage());
+      eventHandler.handle(Event.error("Skipping '" + badPattern + "': " + e.getMessage()));
       return ResolvedTargets.<Target>failed();
     } else {
       throw e;
@@ -135,22 +136,22 @@ final class PackageCacheBackedTargetPatternResolver implements TargetPatternReso
     // that for now--see test case: testBadPackageNameButGoodEnoughForALabel. (BTW I tried
     // duplicating that validation logic in Label but it was extremely tricky.)
     if (LabelValidator.validatePackageName(packageName) != null) {
-      return handleParsingError(listener, originalPattern,
+      return handleParsingError(eventHandler, originalPattern,
                                 new TargetParsingException(
                                   "'" + packageName + "' is not a valid package name"), keepGoing);
     }
     Package pkg;
     try {
-      pkg = packageProvider.getPackage(listener, packageName);
+      pkg = packageProvider.getPackage(eventHandler, packageName);
     } catch (NoSuchPackageException e) {
-      return handleParsingError(listener, originalPattern, new TargetParsingException(
+      return handleParsingError(eventHandler, originalPattern, new TargetParsingException(
           TargetPatternResolverUtil.getParsingErrorMessage(
               e.getMessage(), originalPattern)), keepGoing);
     }
 
     if (pkg.containsErrors()) {
       // Report an error, but continue (and return partial results) if keepGoing is specified.
-      handleParsingError(listener, originalPattern, new TargetParsingException(
+      handleParsingError(eventHandler, originalPattern, new TargetParsingException(
           TargetPatternResolverUtil.getParsingErrorMessage(
               "package contains errors", originalPattern)), keepGoing);
     }
@@ -164,11 +165,11 @@ final class PackageCacheBackedTargetPatternResolver implements TargetPatternReso
     FilteringPolicy actualPolicy = rulesOnly
         ? FilteringPolicies.and(FilteringPolicies.RULES_ONLY, policy)
         : policy;
-    return findTargetsBeneathDirectory(listener, originalPattern, pathPrefix, actualPolicy,
+    return findTargetsBeneathDirectory(eventHandler, originalPattern, pathPrefix, actualPolicy,
         keepGoing, pathPrefix.isEmpty());
   }
 
-  private ResolvedTargets<Target> findTargetsBeneathDirectory(final ErrorEventListener listener,
+  private ResolvedTargets<Target> findTargetsBeneathDirectory(final EventHandler eventHandler,
       final String originalPattern, String pathPrefix, final FilteringPolicy policy,
       final boolean keepGoing, boolean useTopLevelExcludes)
       throws TargetParsingException, InterruptedException {
@@ -178,13 +179,13 @@ final class PackageCacheBackedTargetPatternResolver implements TargetPatternReso
           + pathPrefix + "'");
     }
     if (!pathPrefix.isEmpty() && (LabelValidator.validatePackageName(pathPrefix) != null)) {
-      return handleParsingError(listener, pathPrefix, new TargetParsingException(
+      return handleParsingError(eventHandler, pathPrefix, new TargetParsingException(
           "'" + pathPrefix + "' is not a valid package name"), keepGoing);
     }
 
     final ResolvedTargets.Builder<Target> builder = ResolvedTargets.concurrentBuilder();
     try {
-      packageProvider.visitPackageNamesRecursively(listener, directory,
+      packageProvider.visitPackageNamesRecursively(eventHandler, directory,
           useTopLevelExcludes, packageVisitorPool,
           new PathPackageLocator.AcceptsPathFragment() {
             @Override
@@ -215,7 +216,7 @@ final class PackageCacheBackedTargetPatternResolver implements TargetPatternReso
     }
 
     if (builder.isEmpty()) {
-      return handleParsingError(listener, originalPattern,
+      return handleParsingError(eventHandler, originalPattern,
           new TargetParsingException("no targets found beneath '" + directory + "'"),
           keepGoing);
     }

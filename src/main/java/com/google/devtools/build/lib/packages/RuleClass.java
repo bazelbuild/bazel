@@ -25,7 +25,7 @@ import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableSet;
 import com.google.common.collect.Ordering;
 import com.google.devtools.build.lib.collect.CollectionUtils;
-import com.google.devtools.build.lib.events.ErrorEventListener;
+import com.google.devtools.build.lib.events.EventHandler;
 import com.google.devtools.build.lib.events.Location;
 import com.google.devtools.build.lib.syntax.Argument;
 import com.google.devtools.build.lib.syntax.FuncallExpression;
@@ -801,21 +801,21 @@ public final class RuleClass {
    * Helper function for {@link RuleFactory#createRule}.
    */
   Rule createRuleWithLabel(Package.AbstractPackageBuilder<?, ?> pkgBuilder, Label ruleLabel,
-      Map<String, Object> attributeValues, ErrorEventListener listener, FuncallExpression ast,
+      Map<String, Object> attributeValues, EventHandler eventHandler, FuncallExpression ast,
       boolean retainAST, Location location) {
     Rule rule = pkgBuilder.newRuleWithLabel(ruleLabel, this, retainAST ? ast : null,
         location);
-    createRuleCommon(rule, pkgBuilder, attributeValues, listener, ast);
+    createRuleCommon(rule, pkgBuilder, attributeValues, eventHandler, ast);
     return rule;
   }
 
   private void createRuleCommon(Rule rule, Package.AbstractPackageBuilder<?, ?> pkgBuilder,
-      Map<String, Object> attributeValues, ErrorEventListener listener, FuncallExpression ast) {
+      Map<String, Object> attributeValues, EventHandler eventHandler, FuncallExpression ast) {
     populateRuleAttributeValues(
-        rule, pkgBuilder, attributeValues, listener, ast);
-    rule.populateOutputFiles(listener, pkgBuilder);
+        rule, pkgBuilder, attributeValues, eventHandler, ast);
+    rule.populateOutputFiles(eventHandler, pkgBuilder);
     rule.checkForNullLabels();
-    rule.checkValidityPredicate(listener);
+    rule.checkValidityPredicate(eventHandler);
   }
 
   static class ParsedAttributeValue {
@@ -851,9 +851,9 @@ public final class RuleClass {
   @SuppressWarnings("unchecked")
   Rule createRuleWithParsedAttributeValues(Label label,
       Package.AbstractPackageBuilder<?, ?> pkgBuilder, Location ruleLocation,
-      Map<String, ParsedAttributeValue> attributeValues, ErrorEventListener listener) {
+      Map<String, ParsedAttributeValue> attributeValues, EventHandler eventHandler) {
     Rule rule = pkgBuilder.newRuleWithLabel(label, this, null, ruleLocation);
-    rule.checkValidityPredicate(listener);
+    rule.checkValidityPredicate(eventHandler);
 
     for (Attribute attribute : rule.getRuleClassObject().getAttributes()) {
       ParsedAttributeValue value = attributeValues.get(attribute.getName());
@@ -865,7 +865,7 @@ public final class RuleClass {
         continue;
       }
 
-      checkAllowedValues(rule, attribute, value.getValue(), listener);
+      checkAllowedValues(rule, attribute, value.getValue(), eventHandler);
       rule.setAttributeValue(attribute, value.getValue(), value.getExplicitlySpecified());
       rule.setAttributeLocation(attribute, value.getLocation());
 
@@ -875,7 +875,7 @@ public final class RuleClass {
       }
     }
 
-    rule.populateOutputFiles(listener, pkgBuilder);
+    rule.populateOutputFiles(eventHandler, pkgBuilder);
     Preconditions.checkState(!rule.containsErrors());
     return rule;
   }
@@ -889,17 +889,17 @@ public final class RuleClass {
   private void populateRuleAttributeValues(Rule rule,
                                            Package.AbstractPackageBuilder<?, ?> pkgBuilder,
                                            Map<String, Object> attributeValues,
-                                           ErrorEventListener listener,
+                                           EventHandler eventHandler,
                                            FuncallExpression ast) {
     BitSet definedAttrs = new BitSet(); //  set of attr indices
 
     for (Map.Entry<String, Object> entry : attributeValues.entrySet()) {
       String attributeName = entry.getKey();
       Object attributeValue = entry.getValue();
-      Integer attrIndex = setRuleAttributeValue(rule, listener, attributeName, attributeValue);
+      Integer attrIndex = setRuleAttributeValue(rule, eventHandler, attributeName, attributeValue);
       if (attrIndex != null) {
         definedAttrs.set(attrIndex);
-        checkAttrValNonEmpty(rule, listener, attributeValue, attrIndex);
+        checkAttrValNonEmpty(rule, eventHandler, attributeValue, attrIndex);
       }
     }
 
@@ -928,15 +928,15 @@ public final class RuleClass {
         if (attr.isMandatory()) {
           rule.reportError(rule.getLabel() + ": missing value for mandatory "
                            + "attribute '" + attr.getName() + "' in '"
-                           + name + "' rule", listener);
+                           + name + "' rule", eventHandler);
         }
 
         if (attr.hasComputedDefault()) {
           attrsWithComputedDefaults.add(attr);
         } else {
           Object defaultValue = getAttributeNoncomputedDefaultValue(attr, pkgBuilder);
-          checkAttrValNonEmpty(rule, listener, defaultValue, attrIndex);
-          checkAllowedValues(rule, attr, defaultValue, listener);
+          checkAttrValNonEmpty(rule, eventHandler, defaultValue, attrIndex);
+          checkAllowedValues(rule, attr, defaultValue, eventHandler);
           rule.setAttributeValue(attr, defaultValue, /*explicit=*/false);
         }
       }
@@ -949,19 +949,19 @@ public final class RuleClass {
     for (Attribute attr : attrsWithComputedDefaults) {
       rule.setAttributeValue(attr, attr.getDefaultValue(rule), /*explicit=*/false);
     }
-    checkForDuplicateLabels(rule, listener);
-    checkThirdPartyRuleHasLicense(rule, pkgBuilder, listener);
-    checkForValidSizeAndTimeoutValues(rule, listener);
+    checkForDuplicateLabels(rule, eventHandler);
+    checkThirdPartyRuleHasLicense(rule, pkgBuilder, eventHandler);
+    checkForValidSizeAndTimeoutValues(rule, eventHandler);
   }
 
   private void checkAttrValNonEmpty(
-      Rule rule, ErrorEventListener listener, Object attributeValue, Integer attrIndex) {
+      Rule rule, EventHandler eventHandler, Object attributeValue, Integer attrIndex) {
     if (attributeValue instanceof List<?>) {
       Attribute attr = getAttribute(attrIndex);
       if (attr.isNonEmpty() && ((List<?>) attributeValue).isEmpty()) {
         rule.reportError(rule.getLabel() + ": non empty " + "attribute '" + attr.getName()
             + "' in '" + name + "' rule '" + rule.getLabel() + "' has to have at least one value",
-            listener);
+            eventHandler);
       }
     }
   }
@@ -971,12 +971,12 @@ public final class RuleClass {
    * of the given rule.
    *
    * @param rule The rule.
-   * @param listener The listener to use to report the duplicated deps.
+   * @param eventHandler The eventHandler to use to report the duplicated deps.
    */
-  private static void checkForDuplicateLabels(Rule rule, ErrorEventListener listener) {
+  private static void checkForDuplicateLabels(Rule rule, EventHandler eventHandler) {
     for (Attribute attribute : rule.getAttributes()) {
       if (attribute.getType() == Type.LABEL_LIST) {
-        checkForDuplicateLabels(rule, attribute, listener);
+        checkForDuplicateLabels(rule, attribute, eventHandler);
       }
     }
   }
@@ -986,7 +986,7 @@ public final class RuleClass {
    * but does not have a declared license.
    */
   private static void checkThirdPartyRuleHasLicense(Rule rule,
-      Package.AbstractPackageBuilder<?, ?> pkgBuilder, ErrorEventListener listener) {
+      Package.AbstractPackageBuilder<?, ?> pkgBuilder, EventHandler eventHandler) {
     if (rule.getLabel().getPackageName().startsWith("third_party/")) {
       License license = rule.getLicense();
       if (license == null) {
@@ -996,7 +996,7 @@ public final class RuleClass {
         rule.reportError("third-party rule '" + rule.getLabel() + "' lacks a license declaration "
                          + "with one of the following types: notice, reciprocal, permissive, "
                          + "restricted, unencumbered, by_exception_only",
-                         listener);
+                         eventHandler);
       }
     }
   }
@@ -1007,10 +1007,10 @@ public final class RuleClass {
    *
    * @param rule The rule.
    * @param attribute The attribute to check. Must exist in rule and be of type LABEL_LIST.
-   * @param listener The listener to use to report the duplicated deps.
+   * @param eventHandler The eventHandler to use to report the duplicated deps.
    */
   private static void checkForDuplicateLabels(Rule rule, Attribute attribute,
-       ErrorEventListener listener) {
+       EventHandler eventHandler) {
     final String attrName = attribute.getName();
     // This attribute may be selectable, so iterate over each selection possibility in turn.
     // TODO(bazel-team): merge '*' condition into all lists when implemented.
@@ -1021,7 +1021,7 @@ public final class RuleClass {
         for (Label label : duplicates) {
           rule.reportError(
               String.format("Label '%s' is duplicated in the '%s' attribute of rule '%s'",
-              label, attrName, rule.getName()), listener);
+              label, attrName, rule.getName()), eventHandler);
         }
       }
     }
@@ -1032,15 +1032,15 @@ public final class RuleClass {
    * legal value. These attributes appear on all tests.
    *
    * @param rule the rule to check
-   * @param listener the listener to use to report the duplicated deps
+   * @param eventHandler the eventHandler to use to report the duplicated deps
    */
-  private static void checkForValidSizeAndTimeoutValues(Rule rule, ErrorEventListener listener) {
+  private static void checkForValidSizeAndTimeoutValues(Rule rule, EventHandler eventHandler) {
     if (rule.getRuleClassObject().hasAttr("size", Type.STRING)) {
       String size = NonconfigurableAttributeMapper.of(rule).get("size", Type.STRING);
       if (TestSize.getTestSize(size) == null) {
         rule.reportError(
           String.format("In rule '%s', size '%s' is not a valid size.", rule.getName(), size),
-          listener);
+          eventHandler);
       }
     }
     if (rule.getRuleClassObject().hasAttr("timeout", Type.STRING)) {
@@ -1049,7 +1049,7 @@ public final class RuleClass {
         rule.reportError(
             String.format(
                 "In rule '%s', timeout '%s' is not a valid timeout.", rule.getName(), timeout),
-            listener);
+            eventHandler);
       }
     }
   }
@@ -1086,7 +1086,7 @@ public final class RuleClass {
    */
   @SuppressWarnings("unchecked")
   private Integer setRuleAttributeValue(Rule rule,
-                                        ErrorEventListener listener,
+                                        EventHandler eventHandler,
                                         String attrName,
                                         Object attrVal) {
     if (attrName.equals("name")) {
@@ -1096,7 +1096,7 @@ public final class RuleClass {
     Integer attrIndex = getAttributeIndex(attrName);
     if (attrIndex == null) {
       rule.reportError(rule.getLabel() + ": no such attribute '" + attrName +
-                       "' in '" + name + "' rule", listener);
+                       "' in '" + name + "' rule", eventHandler);
       return null;
     }
 
@@ -1108,7 +1108,7 @@ public final class RuleClass {
 
       if ((converted instanceof Type.Selector<?>) && !attr.isConfigurable()) {
         rule.reportError(rule.getLabel() + ": attribute \"" + attr.getName()
-            + "\" is not configurable", listener);
+            + "\" is not configurable", eventHandler);
         return null;
       }
 
@@ -1119,7 +1119,7 @@ public final class RuleClass {
         converted = ImmutableList.copyOf((List<?>) converted);
       }
     } catch (Type.ConversionException e) {
-      rule.reportError(rule.getLabel() + ": " + e.getMessage(), listener);
+      rule.reportError(rule.getLabel() + ": " + e.getMessage(), eventHandler);
       return null;
     }
 
@@ -1128,24 +1128,24 @@ public final class RuleClass {
       if (!attrList.isEmpty() &&
         ConstantRuleVisibility.LEGACY_PUBLIC_LABEL.equals(attrList.get(0))) {
         rule.reportError(rule.getLabel() + ": //visibility:legacy_public only allowed in package "
-            + "declaration", listener);
+            + "declaration", eventHandler);
       }
       rule.setVisibility(PackageFactory.getVisibility(attrList));
     }
 
-    checkAllowedValues(rule, attr, converted, listener);
+    checkAllowedValues(rule, attr, converted, eventHandler);
     rule.setAttributeValue(attr, converted, /*explicit=*/true);
     return attrIndex;
   }
 
   private void checkAllowedValues(Rule rule, Attribute attribute, Object value,
-      ErrorEventListener listener) {
+      EventHandler eventHandler) {
     if (attribute.checkAllowedValues()) {
       PredicateWithMessage<Object> allowedValues = attribute.getAllowedValues();
       if (!allowedValues.apply(value)) {
         rule.reportError(String.format(rule.getLabel() + ": invalid value in '%s' attribute: %s",
             attribute.getName(),
-            allowedValues.getErrorReason(value)), listener);
+            allowedValues.getErrorReason(value)), eventHandler);
       }
     }
   }

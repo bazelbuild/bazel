@@ -16,20 +16,20 @@ package com.google.devtools.build.lib.events;
 
 /**
  * Passes through any events, and keeps a flag if any of them were errors. It is thread-safe as long
- * as the target listener is thread-safe.
+ * as the target eventHandler is thread-safe.
  */
-public final class ErrorSensingErrorEventListener extends DelegatingErrorEventListener {
+public final class ErrorSensingEventHandler extends DelegatingEventHandler {
 
   private volatile boolean hasErrors;
 
-  public ErrorSensingErrorEventListener(ErrorEventListener listener) {
-    super(listener);
+  public ErrorSensingEventHandler(EventHandler eventHandler) {
+    super(eventHandler);
   }
 
   @Override
-  public void error(Location location, String message) {
-    hasErrors = true;
-    super.error(location, message);
+  public void handle(Event e) {
+    hasErrors |= e.getKind() == EventKind.ERROR;
+    super.handle(e);
   }
 
   /**

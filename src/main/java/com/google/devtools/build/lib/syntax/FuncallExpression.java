@@ -183,7 +183,7 @@ public final class FuncallExpression extends Expression {
   /**
    * Returns the function expression.
    */
-  public Expression getFunction() {
+  public Ident getFunction() {
     return func;
   }
 

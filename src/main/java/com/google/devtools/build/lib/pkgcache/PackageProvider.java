@@ -14,7 +14,7 @@
 
 package com.google.devtools.build.lib.pkgcache;
 
-import com.google.devtools.build.lib.events.ErrorEventListener;
+import com.google.devtools.build.lib.events.EventHandler;
 import com.google.devtools.build.lib.packages.NoSuchPackageException;
 import com.google.devtools.build.lib.packages.Package;
 
@@ -34,13 +34,13 @@ public interface PackageProvider extends TargetProvider {
    * missing some rules.  Any rules that are present may soundly be used for
    * builds, though.
    *
-   * @param listener the listener on which to report warning and errors; if the package has been
-   *        loaded by another thread, this listener won't see any warnings or errors
+   * @param eventHandler the eventHandler on which to report warning and errors; if the package
+   *        has been loaded by another thread, this eventHandler won't see any warnings or errors
    * @param packageName a legal package name.
    * @throws NoSuchPackageException if the package could not be found.
    * @throws InterruptedException if the package loading was interrupted.
    */
-  Package getPackage(ErrorEventListener listener, String packageName) throws NoSuchPackageException,
+  Package getPackage(EventHandler eventHandler, String packageName) throws NoSuchPackageException,
       InterruptedException;
 
   /**

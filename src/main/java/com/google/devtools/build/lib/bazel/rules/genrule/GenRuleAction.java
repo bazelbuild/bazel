@@ -20,7 +20,7 @@ import com.google.devtools.build.lib.actions.ActionOwner;
 import com.google.devtools.build.lib.actions.Artifact;
 import com.google.devtools.build.lib.actions.ExecException;
 import com.google.devtools.build.lib.actions.ResourceSet;
-import com.google.devtools.build.lib.events.ErrorEventListener;
+import com.google.devtools.build.lib.events.EventHandler;
 import com.google.devtools.build.lib.vfs.PathFragment;
 import com.google.devtools.build.lib.view.actions.CommandLine;
 import com.google.devtools.build.lib.view.actions.SpawnAction;
@@ -56,7 +56,7 @@ public final class GenRuleAction extends SpawnAction {
   @Override
   protected void internalExecute(
       ActionExecutionContext actionExecutionContext) throws ExecException, InterruptedException {
-    ErrorEventListener reporter = actionExecutionContext.getExecutor().getReporter();
+    EventHandler reporter = actionExecutionContext.getExecutor().getReporter();
     checkInputsForDirectories(reporter, actionExecutionContext.getMetadataHandler());
     super.internalExecute(actionExecutionContext);
     checkOutputsForDirectories(reporter);

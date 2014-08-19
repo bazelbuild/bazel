@@ -15,47 +15,30 @@
 package com.google.devtools.build.lib.events;
 
 import com.google.common.base.Preconditions;
+import com.google.common.collect.ImmutableSet;
+
+import java.util.Set;
 
 /**
  * An ErrorEventListener which delegates to another ErrorEventListener.
  * Primarily useful as a base class for extending behavior.
  */
-public class DelegatingErrorEventListener implements ErrorEventListener {
-  protected final ErrorEventListener delegate;
+public class DelegatingEventHandler implements EventHandler {
+  protected final EventHandler delegate;
 
-  public DelegatingErrorEventListener(ErrorEventListener delegate) {
+  @Override
+  public Set<EventKind> getEventMask() {
+    return ImmutableSet.of();
+  }
+
+  public DelegatingEventHandler(EventHandler delegate) {
     super();
     this.delegate = Preconditions.checkNotNull(delegate);
   }
 
   @Override
-  public void warn(Location location, String message) {
-    delegate.warn(location, message);
-  }
-
-  @Override
-  public void error(Location location, String message) {
-    delegate.error(location, message);
-  }
-
-  @Override
-  public void info(Location location, String message) {
-    delegate.info(location, message);
-  }
-
-  @Override
-  public void progress(Location location, String message) {
-    delegate.progress(location, message);
-  }
-
-  @Override
-  public void report(EventKind kind, Location location, String message) {
-    delegate.report(kind, location, message);
-  }
-
-  @Override
-  public void report(EventKind kind, Location location, byte[] message) {
-    delegate.report(kind, location, message);
+  public void handle(Event e) {
+    delegate.handle(e);
   }
 
   @Override

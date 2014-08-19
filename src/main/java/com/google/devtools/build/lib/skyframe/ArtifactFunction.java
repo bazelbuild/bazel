@@ -24,7 +24,8 @@ import com.google.devtools.build.lib.actions.Artifact;
 import com.google.devtools.build.lib.actions.ArtifactOwner;
 import com.google.devtools.build.lib.actions.MissingArtifactEvent;
 import com.google.devtools.build.lib.actions.MissingInputFileException;
-import com.google.devtools.build.lib.events.ErrorEventListener;
+import com.google.devtools.build.lib.events.Event;
+import com.google.devtools.build.lib.events.EventHandler;
 import com.google.devtools.build.lib.skyframe.ActionLookupValue.ActionLookupKey;
 import com.google.devtools.build.lib.skyframe.ArtifactValue.OwnedArtifact;
 import com.google.devtools.build.lib.syntax.Label;
@@ -86,7 +87,7 @@ class ArtifactFunction implements SkyFunction {
       } catch (IOException e) {
         ActionExecutionException ex = new ActionExecutionException(e, action,
             /*catastrophe=*/false);
-        env.getListener().error(ex.getLocation(), ex.getMessage());
+        env.getListener().handle(Event.error(ex.getLocation(), ex.getMessage()));
         throw new ArtifactFunctionException(skyKey, ex);
       }
     } else {
@@ -125,7 +126,7 @@ class ArtifactFunction implements SkyFunction {
 
   private static ArtifactValue missingInputFile(Artifact artifact, boolean mandatory,
                                                Exception failure,
-                                               ErrorEventListener reporter)
+                                               EventHandler reporter)
       throws MissingInputFileException {
     if (!mandatory) {
       return FileArtifactValue.MISSING_FILE_MARKER;
@@ -133,7 +134,7 @@ class ArtifactFunction implements SkyFunction {
     String extraMsg = (failure == null) ? "" : (":" + failure.getMessage());
     MissingInputFileException ex = new MissingInputFileException(
         constructErrorMessage(artifact) + extraMsg, null);
-    reporter.error(ex.getLocation(), ex.getMessage());
+    reporter.handle(Event.error(ex.getLocation(), ex.getMessage()));
     throw ex;
   }
 

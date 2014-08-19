@@ -15,6 +15,7 @@ package com.google.devtools.build.skyframe;
 
 import com.google.common.base.Preconditions;
 import com.google.common.collect.Iterables;
+import com.google.devtools.build.lib.events.Event;
 import com.google.devtools.build.lib.util.Pair;
 
 import java.util.Collection;
@@ -88,10 +89,10 @@ public class GraphTester {
           return builder.builder.compute(key, env);
         }
         if (builder.warning != null) {
-          env.getListener().warn(null, builder.warning);
+          env.getListener().handle(Event.warn(builder.warning));
         }
         if (builder.progress != null) {
-          env.getListener().progress(null, builder.progress);
+          env.getListener().handle(Event.progress(builder.progress));
         }
         Map<SkyKey, SkyValue> deps = new LinkedHashMap<>();
         boolean oneMissing = false;

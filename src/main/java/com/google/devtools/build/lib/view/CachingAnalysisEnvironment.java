@@ -25,8 +25,8 @@ import com.google.devtools.build.lib.actions.ArtifactFactory;
 import com.google.devtools.build.lib.actions.ArtifactOwner;
 import com.google.devtools.build.lib.actions.MiddlemanFactory;
 import com.google.devtools.build.lib.actions.Root;
-import com.google.devtools.build.lib.events.ErrorEventListener;
-import com.google.devtools.build.lib.events.StoredErrorEventListener;
+import com.google.devtools.build.lib.events.EventHandler;
+import com.google.devtools.build.lib.events.StoredEventHandler;
 import com.google.devtools.build.lib.packages.Target;
 import com.google.devtools.build.lib.query2.output.OutputFormatter;
 import com.google.devtools.build.lib.skyframe.BuildInfoCollectionValue;
@@ -81,7 +81,7 @@ public class CachingAnalysisEnvironment implements AnalysisEnvironment {
 
   private boolean enabled = true;
   private MiddlemanFactory middlemanFactory;
-  private ErrorEventListener errorEventListener;
+  private EventHandler errorEventListener;
   private SkyFunction.Environment skyframeEnv;
   private Map<Artifact, String> artifacts;
   private final BinTools binTools;
@@ -94,7 +94,7 @@ public class CachingAnalysisEnvironment implements AnalysisEnvironment {
 
   public CachingAnalysisEnvironment(ArtifactFactory artifactFactory,
       ArtifactOwner owner, WorkspaceStatusArtifacts buildInfoHeaders,
-      boolean isSystemEnv, boolean extendedSanityChecks, ErrorEventListener errorEventListener,
+      boolean isSystemEnv, boolean extendedSanityChecks, EventHandler errorEventListener,
       SkyFunction.Environment env, boolean allowRegisteringActions,
       ImmutableList<OutputFormatter> outputFormatters, BinTools binTools) {
     this.artifactFactory = artifactFactory;
@@ -174,7 +174,7 @@ public class CachingAnalysisEnvironment implements AnalysisEnvironment {
   }
 
   @Override
-  public ErrorEventListener getReporter() {
+  public EventHandler getReporter() {
     return errorEventListener;
   }
 
@@ -185,7 +185,7 @@ public class CachingAnalysisEnvironment implements AnalysisEnvironment {
       return false;
     }
     Preconditions.checkState(enabled);
-    return ((StoredErrorEventListener) errorEventListener).hasErrors();
+    return ((StoredEventHandler) errorEventListener).hasErrors();
   }
 
   @Deprecated
@@ -292,7 +292,7 @@ public class CachingAnalysisEnvironment implements AnalysisEnvironment {
   }
 
   @Override
-  public List<Artifact> getBuildInfo(RuleContext ruleContext, BuildInfoKey key) {
+  public ImmutableList<Artifact> getBuildInfo(RuleContext ruleContext, BuildInfoKey key) {
     boolean stamp = AnalysisUtils.isStampingEnabled(ruleContext);
     if (workspaceStatusArtifacts == null) {
       BuildInfoCollection collection =
