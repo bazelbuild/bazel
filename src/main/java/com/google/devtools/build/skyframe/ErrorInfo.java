@@ -19,6 +19,7 @@ import com.google.devtools.build.lib.collect.nestedset.NestedSet;
 import com.google.devtools.build.lib.collect.nestedset.NestedSetBuilder;
 import com.google.devtools.build.lib.collect.nestedset.Order;
 
+import java.io.Serializable;
 import java.util.Collection;
 
 import javax.annotation.Nullable;
@@ -28,7 +29,7 @@ import javax.annotation.Nullable;
  *
  * <p>This is intended only for use in alternative {@code MemoizingEvaluator} implementations.
  */
-public class ErrorInfo {
+public class ErrorInfo implements Serializable {
   /**
    * The set of descendants of this value that failed to build
    */

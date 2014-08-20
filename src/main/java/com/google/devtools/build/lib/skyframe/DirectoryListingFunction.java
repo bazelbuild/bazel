@@ -19,8 +19,6 @@ import com.google.devtools.build.skyframe.SkyFunctionException;
 import com.google.devtools.build.skyframe.SkyKey;
 import com.google.devtools.build.skyframe.SkyValue;
 
-import java.io.IOException;
-
 import javax.annotation.Nullable;
 
 /**
@@ -46,13 +44,8 @@ final class DirectoryListingFunction implements SkyFunction {
               + " is no longer an existing directory. Did you delete it during the build?"));
     }
 
-    DirectoryListingStateValue directoryListingStateValue;
-    try {
-      directoryListingStateValue = (DirectoryListingStateValue) env.getValueOrThrow(
-          DirectoryListingStateValue.key(realDirRootedPath), IOException.class);
-    } catch (IOException e) {
-      throw new DirectoryListingFunctionException(skyKey, e);
-    }
+    DirectoryListingStateValue directoryListingStateValue =
+       (DirectoryListingStateValue) env.getValue(DirectoryListingStateValue.key(realDirRootedPath));
     if (directoryListingStateValue == null) {
       return null;
     }
@@ -71,10 +64,6 @@ final class DirectoryListingFunction implements SkyFunction {
    * {@link DirectoryListingFunction#compute}.
    */
   private static final class DirectoryListingFunctionException extends SkyFunctionException {
-    public DirectoryListingFunctionException(SkyKey key, IOException e) {
-      super(key, e);
-    }
-
     public DirectoryListingFunctionException(SkyKey key, InconsistentFilesystemException e) {
       super(key, e);
     }

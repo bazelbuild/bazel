@@ -14,22 +14,12 @@
 
 package com.google.devtools.build.lib.testutil;
 
-import com.google.common.base.Joiner;
-import com.google.common.collect.ImmutableList;
-import com.google.devtools.build.lib.blaze.BlazeDirectories;
-import com.google.devtools.build.lib.util.SkyframeMode;
-import com.google.devtools.build.lib.vfs.FileSystemUtils;
-import com.google.devtools.build.lib.vfs.Path;
-import com.google.devtools.build.lib.vfs.PathFragment;
-import com.google.devtools.build.lib.view.config.BinTools;
-
 import java.io.ByteArrayInputStream;
 import java.io.ByteArrayOutputStream;
 import java.io.File;
 import java.io.IOException;
 import java.io.ObjectInputStream;
 import java.io.ObjectOutputStream;
-import java.util.Collection;
 import java.util.UUID;
 import java.util.concurrent.Executors;
 import java.util.concurrent.ThreadPoolExecutor;
@@ -38,106 +28,10 @@ import java.util.concurrent.ThreadPoolExecutor;
  * Some static utility functions for testing.
  */
 public class TestUtils {
-  /**
-   * A list of all embedded binaries that go into the regular Blaze binary. This is used to
-   * fake a list of these because the usual method of scanning the directory tree cannot be used,
-   * since we don't have one in tests.
-   */
-  public static final ImmutableList<String> EMBEDDED_TOOLS = ImmutableList.of(
-      "build-runfiles",
-      "p4_client_info.sh",
-      "grep-includes",
-      "alarm",
-      "process-wrapper",
-      "build_interface_so");
-
   public static final ThreadPoolExecutor POOL =
     (ThreadPoolExecutor) Executors.newFixedThreadPool(10);
 
   public static final UUID ZERO_UUID = UUID.fromString("00000000-0000-0000-0000-000000000000");
-
-  private TestUtils() {}
-
-  public static boolean sanityChecksEnabled() {
-    return false;
-  }
-
-  /** Returns the skyframe mode the test class should be run in. */
-  public static SkyframeMode skyframeMode(Class<?> clazz) {
-    String skyframeProperty = System.getProperty("blaze.skyframe");
-    SkyframeMode skyframeMin = Suite.getSkyframeMin(clazz);
-    SkyframeMode skyframeMax = Suite.getSkyframeMax(clazz);
-    if (skyframeProperty == null) {
-      // This most likely means the test is not being run via 'blaze test', e.g. it's being run in
-      // an IDE without blaze integration, such as Intellij.
-      return skyframeMin;
-    }
-    SkyframeMode skyframe = SkyframeMode.valueOf(skyframeProperty);
-    if (!skyframe.atLeast(skyframeMin) || !skyframe.atMost(skyframeMax)) {
-      // This most likely means the test is being run through an inappropriate blaze test target,
-      // so we at least try to run with a sensible skyframe mode.
-      return skyframeMin;
-    }
-    return skyframe;
-  }
-
-  /** Creates an empty file, along with all its parent directories. */
-  public static void makeEmptyFile(Path path) throws IOException {
-    FileSystemUtils.createDirectoryAndParents(path.getParentDirectory());
-    FileSystemUtils.createEmptyFile(path);
-  }
-
-  /**
-   * Changes the mtime of the file "path", which must exist.  No guarantee is
-   * made about the new mtime except that it is different from the previous one.
-   *
-   * @throws IOException if the mtime could not be read or set.
-   */
-  public static void changeModtime(Path path)
-    throws IOException {
-    long prevMtime = path.getLastModifiedTime();
-    long newMtime = prevMtime;
-    do {
-      newMtime += 1000;
-      path.setLastModifiedTime(newMtime);
-    } while (path.getLastModifiedTime() == prevMtime);
-  }
-
-  /**
-   * The Bazel zip dumps all of the bin tools in one directory but the integration tests access
-   * these tools by making them data dependencies. Thus, instead of all being in a top-level
-   * directory, they're (mostly) under runfiles/google3/devtools/blaze.
-   *
-   * This copies the tools over to directories' installBase, which is more like the layout from a
-   * normal Bazel install. Integration tests that want to use embedded binaries should call this
-   * instead of calling BinTools.forIntegrationTests directly.
-   */
-  public static BinTools getIntegrationBinTools(BlazeDirectories directories) throws IOException {
-    Path embeddedDir = directories.getInstallBase();
-    Path runfiles = embeddedDir.getParentDirectory().getParentDirectory().getRelative("runfiles");
-    try {
-      // Copy over everything in embedded_scripts.
-      Path embeddedScripts = runfiles.getRelative("google3/devtools/blaze/embedded_scripts");
-      Collection<Path> files = embeddedScripts.getDirectoryEntries();
-      for (Path fromFile : files) {
-        Path toFile = embeddedDir.getRelative(fromFile.getBaseName());
-        FileSystemUtils.copyFile(fromFile, toFile);
-      }
-
-      // Copy over stragglers.
-      PathFragment buildInterface = new PathFragment("google3/util/elf/build_interface_so");
-      FileSystemUtils.copyFile(
-          runfiles.getRelative(buildInterface),
-          embeddedDir.getRelative(buildInterface.getBaseName()));
-    } catch (IOException e) {
-      // It's okay if this fails, some tests use in invalid dirs.
-      System.err.println("Could not copy over runfiles: " + e.getMessage());
-    }
-
-    // Note: assumes that the test binary is running in its .runfiles directory.
-    return BinTools.forIntegrationTesting(
-        directories, embeddedDir.toString(), TestUtils.EMBEDDED_TOOLS);
-  }
 
   /**
    * Wait until the {@link System#currentTimeMillis} / 1000 advances.
@@ -151,21 +45,6 @@ public class TestUtils {
     } while (currentTimeSeconds == System.currentTimeMillis() / 1000);
   }
 
-  /**
-   * Writes a FilesetRule to a String array.
-   *
-   * @param name the name of the rule.
-   * @param out the output directory.
-   * @param entries The FilesetEntry entries.
-   * @return the String array of the rule.  One String for each line.
-   */
-  public static String[] createFilesetRule(String name, String out, String... entries) {
-    return new String[] {
-        String.format("Fileset(name = '%s', out = '%s',", name, out),
-                      "        entries = [" +  Joiner.on(", ").join(entries) + "])"
-    };
-  }
-
   public static ThreadPoolExecutor getPool() {
     return POOL;
   }
@@ -174,7 +53,7 @@ public class TestUtils {
     return tmpDirFile().getAbsolutePath();
   }
 
-  private static String getUserValue(String key) {
+  static String getUserValue(String key) {
     String value = System.getProperty(key);
     if (value == null) {
       value = System.getenv(key);
@@ -211,15 +90,6 @@ public class TestUtils {
     return tmpDir;
   }
 
-  public static File undeclaredOutputDir() {
-    String dir = System.getenv("TEST_UNDECLARED_OUTPUTS_DIR");
-    if (dir != null) {
-      return new File(dir);
-    }
-
-    return tmpDirFile();
-  }
-
   public static File makeTempDir() throws IOException {
     File dir = File.createTempFile(TestUtils.class.getName(), ".temp", tmpDirFile());
     if (!dir.delete()) {
@@ -229,38 +99,6 @@ public class TestUtils {
       throw new IOException("Cannot create a temporary directory " + dir);
     }
     return dir;
-  }
-
-  public static String srcDir() {
-    return runfilesDir();
-  }
-
-  public static String runfilesDir() {
-    File runfilesDir;
-
-    String runfilesDirStr = getUserValue("TEST_SRCDIR");
-    if (runfilesDirStr != null && runfilesDirStr.length() > 0) {
-      runfilesDir = new File(runfilesDirStr);
-    } else {
-      // Goal is to find the google3 directory, so we check current
-      // directory, then keep backing up until we see google3.
-      File dir = new File("");
-      while (dir != null) {
-        dir = dir.getAbsoluteFile();
-
-        File google3 = new File(dir, "google3");
-        if (google3.exists()) {
-          return dir.getAbsolutePath();
-        }
-
-        dir = dir.getParentFile();
-      }
-
-      // Fallback default $CWD/.. works if CWD is //depot/google3
-      runfilesDir = new File("").getAbsoluteFile().getParentFile();
-    }
-
-    return runfilesDir.getAbsolutePath();
   }
 
   public static int getRandomSeed() {

@@ -17,6 +17,7 @@ import com.google.common.base.Preconditions;
 import com.google.common.base.Predicates;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.Iterables;
+import com.google.common.collect.Maps;
 import com.google.devtools.build.lib.cmdline.ResolvedTargets;
 import com.google.devtools.build.lib.cmdline.TargetParsingException;
 import com.google.devtools.build.lib.events.Event;
@@ -31,7 +32,9 @@ import com.google.devtools.build.skyframe.ErrorInfo;
 import com.google.devtools.build.skyframe.EvaluationResult;
 import com.google.devtools.build.skyframe.SkyKey;
 
+import java.util.Collection;
 import java.util.List;
+import java.util.Map;
 
 /**
  * Skyframe-based target pattern parsing.
@@ -69,17 +72,18 @@ final class SkyframeTargetPatternEvaluator implements TargetPatternEvaluator {
   }
 
   @Override
-  public List<ResolvedTargets<Target>> preloadTargetPatterns(EventHandler eventHandler,
-      List<String> patterns, boolean keepGoing)
+  public Map<String, ResolvedTargets<Target>> preloadTargetPatterns(EventHandler eventHandler,
+      Collection<String> patterns, boolean keepGoing)
           throws TargetParsingException, InterruptedException {
     // TODO(bazel-team): This is used only in "blaze query". There are plans to dramatically change
     // how query works on Skyframe, in which case this method is likely to go away.
-    ImmutableList.Builder<ResolvedTargets<Target>> result = ImmutableList.builder();
+    // We cannot use an ImmutableMap here because there may be null values.
+    Map<String, ResolvedTargets<Target>> result = Maps.newHashMapWithExpectedSize(patterns.size());
     for (String pattern : patterns) {
       // TODO(bazel-team): This could be parallelized to improve performance. [skyframe-loading]
-      result.add(parseTargetPattern(eventHandler, pattern, keepGoing));
+      result.put(pattern, parseTargetPattern(eventHandler, pattern, keepGoing));
     }
-    return result.build();
+    return result;
   }
 
   /**

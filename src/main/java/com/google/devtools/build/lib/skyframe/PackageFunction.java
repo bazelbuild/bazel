@@ -401,6 +401,12 @@ public class PackageFunction implements SkyFunction {
       inconsistentFilesystemException = e;
     }
 
+    if (inconsistentFilesystemException != null) {
+      throw new PackageFunctionException(key,
+          new InconsistentFilesystemDuringPackageLoadingException(packageName,
+              inconsistentFilesystemException));
+    }
+
     if (env.valuesMissing()) {
       // The package we just loaded will be in the {@code packageFunctionCache} next when this
       // SkyFunction is called again.
@@ -413,13 +419,6 @@ public class PackageFunction implements SkyFunction {
     // out.
     legacyPkg.dropLegacyData();
     Package pkg = legacyPkg;
-
-    if (inconsistentFilesystemException != null) {
-      throw new PackageFunctionException(key,
-          new InconsistentFilesystemDuringPackageLoadingException(packageName,
-              inconsistentFilesystemException));
-    }
-
     if (packageShouldBeConsideredInError) {
       throw new PackageFunctionException(key, new BuildFileContainsErrorsException(pkg,
           "Package '" + packageName + "' contains errors"));

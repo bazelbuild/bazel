@@ -53,6 +53,8 @@ abstract class InvalidatingNodeVisitor extends AbstractQueueVisitor {
   // We may consider increasing this in the future.
   private static final int DEFAULT_THREAD_COUNT = Runtime.getRuntime().availableProcessors();
 
+  private static final boolean MUST_EXIST = true;
+
   protected final DirtiableGraph graph;
   @Nullable protected final EvaluationProgressReceiver invalidationReceiver;
   // Aliased to InvalidationState.pendingVisitations.
@@ -81,7 +83,10 @@ abstract class InvalidatingNodeVisitor extends AbstractQueueVisitor {
     // the caller, and which are added by other threads during the run. Since no tasks have been
     // started yet (the queueDirtying calls start them), this is thread-safe.
     for (Pair<SkyKey, InvalidationType> visitData : ImmutableList.copyOf(pendingVisitations)) {
-      visit(visitData.first, visitData.second);
+      // The caller may have specified non-existent SkyKeys, or there may be stale SkyKeys in
+      // pendingVisitations that have already been deleted. In both these cases, the nodes will not
+      // exist in the graph, so we must be tolerant of that case.
+      visit(visitData.first, visitData.second, !MUST_EXIST);
     }
     work(/*failFastOnInterrupt=*/true);
     Preconditions.checkState(pendingVisitations.isEmpty(),
@@ -99,7 +104,7 @@ abstract class InvalidatingNodeVisitor extends AbstractQueueVisitor {
    * Enqueues a node for invalidation.
    */
   @ThreadSafe
-  abstract void visit(SkyKey key, InvalidationType second);
+  abstract void visit(SkyKey key, InvalidationType second, boolean mustExist);
 
   @VisibleForTesting
   enum InvalidationType {
@@ -180,7 +185,7 @@ abstract class InvalidatingNodeVisitor extends AbstractQueueVisitor {
     }
 
     @Override
-    public void visit(final SkyKey key, InvalidationType invalidationType) {
+    public void visit(final SkyKey key, InvalidationType invalidationType, boolean mustExist) {
       Preconditions.checkState(invalidationType == InvalidationType.DELETED, key);
       if (!visitedValues.add(key)) {
         return;
@@ -199,7 +204,7 @@ abstract class InvalidatingNodeVisitor extends AbstractQueueVisitor {
           if (traverseGraph) {
             // Propagate deletion upwards.
             for (SkyKey reverseDep : entry.getReverseDeps()) {
-              visit(reverseDep, InvalidationType.DELETED);
+              visit(reverseDep, InvalidationType.DELETED, !MUST_EXIST);
             }
           }
 
@@ -276,7 +281,8 @@ abstract class InvalidatingNodeVisitor extends AbstractQueueVisitor {
      */
     @Override
     @ThreadSafe
-    public void visit(final SkyKey key, final InvalidationType invalidationType) {
+    public void visit(final SkyKey key, final InvalidationType invalidationType,
+        final boolean mustExist) {
       Preconditions.checkState(invalidationType != InvalidationType.DELETED, key);
       final boolean isChanged = (invalidationType == InvalidationType.CHANGED);
       final Pair<SkyKey, InvalidationType> invalidationPair = Pair.of(key, invalidationType);
@@ -290,11 +296,7 @@ abstract class InvalidatingNodeVisitor extends AbstractQueueVisitor {
           NodeEntry entry = graph.get(key);
 
           if (entry == null) {
-            // Currently, the only way for an entry to not exist is if the caller requested
-            // invalidation of a non-existent node. Since all caller-specified nodes are
-            // isChanged, we check for that. Nodes that depend on the error transience node can
-            // also be marked changed, so this fail-fast check is not perfectly tight.
-            Preconditions.checkState(isChanged,
+            Preconditions.checkState(!mustExist,
                 "%s does not exist in the graph but was enqueued for dirtying by another node",
                 key);
             pendingVisitations.remove(invalidationPair);
@@ -319,11 +321,9 @@ abstract class InvalidatingNodeVisitor extends AbstractQueueVisitor {
             return;
           }
           // Propagate dirtiness upwards and mark this node dirty/changed. Reverse deps should only
-          // be marked dirty (because only a dependency of theirs has changed) unless this node is
-          // the error transience node, in which case the caller wants any node in error to be
-          // re-evaluated unconditionally, hence those error nodes should be marked changed.
+          // be marked dirty (because only a dependency of theirs has changed).
           for (SkyKey reverseDep : entry.getReverseDeps()) {
-            visit(reverseDep, InvalidationType.DIRTIED);
+            visit(reverseDep, InvalidationType.DIRTIED, MUST_EXIST);
           }
 
           // Remove this node as a reverse dep from its children, since we have reset it and it no

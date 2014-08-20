@@ -42,6 +42,7 @@ import java.util.BitSet;
 import java.util.Collection;
 import java.util.HashMap;
 import java.util.LinkedHashMap;
+import java.util.LinkedHashSet;
 import java.util.List;
 import java.util.Map;
 import java.util.Set;
@@ -949,9 +950,40 @@ public final class RuleClass {
     for (Attribute attr : attrsWithComputedDefaults) {
       rule.setAttributeValue(attr, attr.getDefaultValue(rule), /*explicit=*/false);
     }
+
+    // Now that all attributes are bound to values, collect and store configurable attribute keys.
+    populateConfigDependenciesAttribute(rule);
     checkForDuplicateLabels(rule, eventHandler);
     checkThirdPartyRuleHasLicense(rule, pkgBuilder, eventHandler);
     checkForValidSizeAndTimeoutValues(rule, eventHandler);
+  }
+
+  /**
+   * Collects all labels used as keys for configurable attributes and places them into
+   * the special implicit attribute that tracks them.
+   */
+  private static void populateConfigDependenciesAttribute(Rule rule) {
+    RawAttributeMapper attributes = RawAttributeMapper.of(rule);
+    Attribute configDepsAttribute = attributes.getAttributeDefinition("$config_dependencies");
+    if (configDepsAttribute == null) {
+      // Not currently compatible with Skylark rules.
+      return;
+    }
+
+    Set<Label> configLabels = new LinkedHashSet<>();
+    for (Attribute attr : rule.getAttributes()) {
+      Type.Selector<?> selector = attributes.getSelector(attr.getName(), attr.getType());
+      if (selector != null) {
+        for (Label label : selector.getEntries().keySet()) {
+          if (!Type.Selector.isReservedLabel(label)) {
+            configLabels.add(label);
+          }
+        }
+      }
+    }
+
+    rule.setAttributeValue(configDepsAttribute, ImmutableList.copyOf(configLabels),
+        /*explicit=*/false);
   }
 
   private void checkAttrValNonEmpty(

@@ -84,3 +84,37 @@ message SpawnInfo {
   repeated string input_file = 4;
   repeated string output_file = 5;
 }
+
+// Provides access to data that is specific to C++ compile actions.
+// Usually provided by actions using the "CppCompile" Mnemonic.
+message CppCompileInfo {
+  extend ExtraActionInfo {
+    optional CppCompileInfo cpp_compile_info = 1001;
+  }
+
+  optional string tool = 1;
+  repeated string compiler_option = 2;
+  optional string source_file = 3;
+  optional string output_file = 4;
+  // Due to header discovery, this won't include headers unless the build is
+  // actually performed. If set, this field will include the value of
+  // "source_file" in addition to the headers.
+  repeated string sources_and_headers = 5;
+}
+
+// Provides access to data that is specific to C++ link  actions.
+// Usually provided by actions using the "CppLink" Mnemonic.
+message CppLinkInfo {
+  extend ExtraActionInfo {
+    optional CppLinkInfo cpp_link_info = 1002;
+  }
+
+  repeated string input_file = 1;
+  optional string output_file = 2;
+  optional string interface_output_file = 3;
+  optional string link_target_type = 4;
+  optional string link_staticness = 5;
+  repeated string link_stamp = 6;
+  repeated string build_info_header_artifact = 7;
+  repeated string link_opt = 8;
+}

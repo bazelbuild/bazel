@@ -20,7 +20,6 @@ import com.google.common.base.Preconditions;
 import com.google.common.base.Predicate;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableSet;
-import com.google.common.collect.Iterables;
 import com.google.common.collect.Sets;
 import com.google.devtools.build.lib.cmdline.ResolvedTargets;
 import com.google.devtools.build.lib.cmdline.TargetParsingException;
@@ -168,16 +167,11 @@ public class BlazeQueryEnvironment implements QueryEnvironment<Target> {
     // specified; using a linked hash set here makes sure that the left-most error is reported.
     Set<String> targetPatternSet = new LinkedHashSet<>();
     expr.collectTargetPatterns(targetPatternSet);
-    List<String> orderedTargetPatterns = new ArrayList<>(targetPatternSet);
-    List<ResolvedTargets<Target>> resolvedTargets;
     try {
-      resolvedTargets = preloadOrThrow(orderedTargetPatterns);
+      resolvedTargetPatterns.putAll(preloadOrThrow(targetPatternSet));
     } catch (TargetParsingException e) {
       // Unfortunately, by evaluating the patterns in parallel, we lose some location information.
       throw new QueryException(expr, e.getMessage());
-    }
-    for (int i = 0; i < orderedTargetPatterns.size(); i++) {
-      resolvedTargetPatterns.put(orderedTargetPatterns.get(i), resolvedTargets.get(i));
     }
 
     Set<Target> resultNodes;
@@ -426,8 +420,7 @@ public class BlazeQueryEnvironment implements QueryEnvironment<Target> {
       throws QueryException {
     if (!resolvedTargetPatterns.containsKey(pattern)) {
       try {
-        List<ResolvedTargets<Target>> resolvedPattern = preloadOrThrow(ImmutableList.of(pattern));
-        resolvedTargetPatterns.put(pattern, Iterables.getOnlyElement(resolvedPattern));
+        resolvedTargetPatterns.putAll(preloadOrThrow(ImmutableList.of(pattern)));
       } catch (TargetParsingException e) {
         // Will skip the target and keep going if -k is specified.
         resolvedTargetPatterns.put(pattern, ResolvedTargets.<Target>empty());
@@ -437,7 +430,7 @@ public class BlazeQueryEnvironment implements QueryEnvironment<Target> {
     return getTargetsMatchingPattern(caller, pattern);
   }
 
-  private List<ResolvedTargets<Target>> preloadOrThrow(List<String> patterns)
+  private Map<String, ResolvedTargets<Target>> preloadOrThrow(Collection<String> patterns)
       throws TargetParsingException {
     try {
       // Note that this may throw a RuntimeException if deps are missing in Skyframe.

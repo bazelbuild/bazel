@@ -21,10 +21,9 @@ import com.google.devtools.build.lib.actions.Artifact;
 import com.google.devtools.build.lib.concurrent.ThreadSafety.Immutable;
 import com.google.devtools.build.lib.packages.OutputFile;
 import com.google.devtools.build.lib.packages.Rule;
+import com.google.devtools.build.lib.syntax.ClassObject;
 import com.google.devtools.build.lib.syntax.EvalUtils;
 import com.google.devtools.build.lib.syntax.Label;
-import com.google.devtools.build.lib.syntax.SkylarkBuiltin;
-import com.google.devtools.build.lib.syntax.SkylarkCallable;
 import com.google.devtools.build.lib.view.config.ConfigMatchingProvider;
 import com.google.devtools.build.lib.view.config.RunUnder;
 
@@ -35,8 +34,7 @@ import java.util.Set;
  * A generic implementation of RuleConfiguredTarget. Do not use directly. Use {@link
  * RuleConfiguredTargetBuilder} instead.
  */
-@SkylarkBuiltin(name = "", doc = "")
-public final class RuleConfiguredTarget extends AbstractConfiguredTarget {
+public final class RuleConfiguredTarget extends AbstractConfiguredTarget implements ClassObject {
 
   /**
    * The configuration transition for an attribute through which a prerequisite
@@ -152,11 +150,9 @@ public final class RuleConfiguredTarget extends AbstractConfiguredTarget {
   /**
    * Returns a value provided by this target. Only meant to use from Skylark.
    */
-  @SkylarkCallable(
-      doc = "Returns the value provided by this target associated with the provider_key.")
   @Override
   public Object get(String providerKey) {
-    return getProvider(SkylarkProviders.class).get(providerKey);
+    return getProvider(SkylarkProviders.class).skylarkProviders.get(providerKey);
   }
 
   public ImmutableList<Artifact> getMandatoryStampFiles() {
@@ -184,15 +180,19 @@ public final class RuleConfiguredTarget extends AbstractConfiguredTarget {
    * A helper class for transitive infos provided by Skylark rule implementations.
    */
   @Immutable
-  static final class SkylarkProviders implements TransitiveInfoProvider {
+  private static final class SkylarkProviders implements TransitiveInfoProvider {
     private final ImmutableMap<String, Object> skylarkProviders;
 
     private SkylarkProviders(ImmutableMap<String, Object> skylarkProviders) {
       this.skylarkProviders = skylarkProviders;
     }
+  }
 
-    Object get(String providerKey) {
-      return skylarkProviders.get(providerKey);
+  @Override
+  public Object getValue(String name) {
+    if (name.equals("label")) {
+      return getLabel();
     }
+    return get(name);
   }
 }

@@ -20,6 +20,7 @@ import com.google.devtools.build.lib.collect.nestedset.Order;
 import com.google.devtools.build.lib.packages.Type.ConversionException;
 import com.google.devtools.build.lib.syntax.AbstractFunction;
 import com.google.devtools.build.lib.syntax.ClassObject;
+import com.google.devtools.build.lib.syntax.ClassObject.SkylarkClassObject;
 import com.google.devtools.build.lib.syntax.Environment;
 import com.google.devtools.build.lib.syntax.EvalException;
 import com.google.devtools.build.lib.syntax.EvalUtils;
@@ -376,9 +377,9 @@ public class MethodLibrary {
     @Override
     public Object call(List<Object> args, FuncallExpression ast) throws EvalException,
         ConversionException {
-      Map<Object, Object> dict = (Map<Object, Object>) args.get(0);
+      Map<?, ?> dict = (Map<?, ?>) args.get(0);
       ImmutableList.Builder<List<Object>> builder = ImmutableList.builder();
-      for (Map.Entry<Object, Object> entries : dict.entrySet()) {
+      for (Map.Entry<?, ?> entries : dict.entrySet()) {
         builder.add(ImmutableList.of(entries.getKey(), entries.getValue()));
       }
       return builder.build();
@@ -454,7 +455,7 @@ public class MethodLibrary {
       if (args.size() > 0) {
         throw new EvalException(ast.getLocation(), "struct only supports keyword arguments");
       }
-      return new ClassObject(kwargs, ast.getLocation());
+      return new SkylarkClassObject(kwargs, ast.getLocation());
     }
   };
 

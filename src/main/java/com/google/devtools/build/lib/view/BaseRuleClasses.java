@@ -14,9 +14,9 @@
 
 package com.google.devtools.build.lib.view;
 
-import static com.google.devtools.build.lib.packages.Attribute.attr;
 import static com.google.devtools.build.lib.packages.Attribute.ConfigurationTransition.DATA;
 import static com.google.devtools.build.lib.packages.Attribute.ConfigurationTransition.HOST;
+import static com.google.devtools.build.lib.packages.Attribute.attr;
 import static com.google.devtools.build.lib.packages.Type.BOOLEAN;
 import static com.google.devtools.build.lib.packages.Type.DISTRIBUTIONS;
 import static com.google.devtools.build.lib.packages.Type.INTEGER;
@@ -177,6 +177,20 @@ public class BaseRuleClasses {
           // Package groups always have the null configuration so that they are not duplicated
           // needlessly.
           .add(attr("visibility", NODEP_LABEL_LIST).orderIndependent().nonconfigurable().cfg(HOST))
+           // Aggregates the labels of all {@link ConfigRuleClasses} rules this rule uses (e.g.
+           // keys for configurable attributes). This is specially populated in
+           // {@RuleClass#populateRuleAttributeValues}.
+           //
+           // This attribute is not needed for actual builds. Its main purpose is so query's
+           // proto/XML output includes the labels of config dependencies, so, e.g., depserver
+           // reverse dependency lookups remain accurate. These can't just be added to the
+           // attribute definitions proto/XML queries already output because not all attributes
+           // contain labels.
+           //
+           // Builds and Blaze-interactive queries don't need this because they find dependencies
+           // through direct Rule label visitation, which already factors these in.
+          .add(attr("$config_dependencies", LABEL_LIST)
+              .nonconfigurable("not intended for actual builds"))
           .add(attr("tags", STRING_LIST).orderIndependent().taggable().nonconfigurable())
           .add(attr("deprecation", STRING).nonconfigurable().value(deprecationDefault))
           .add(attr("licenses", LICENSE).nonconfigurable())

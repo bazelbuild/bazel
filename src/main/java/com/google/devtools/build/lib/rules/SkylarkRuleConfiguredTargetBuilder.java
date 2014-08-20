@@ -20,7 +20,7 @@ import com.google.common.collect.ImmutableMap;
 import com.google.devtools.build.lib.actions.Artifact;
 import com.google.devtools.build.lib.events.Location;
 import com.google.devtools.build.lib.packages.Type;
-import com.google.devtools.build.lib.syntax.ClassObject;
+import com.google.devtools.build.lib.syntax.ClassObject.SkylarkClassObject;
 import com.google.devtools.build.lib.syntax.Environment;
 import com.google.devtools.build.lib.syntax.EvalException;
 import com.google.devtools.build.lib.syntax.Function;
@@ -53,14 +53,14 @@ public final class SkylarkRuleConfiguredTargetBuilder {
 
       if (ruleContext.hasErrors()) {
         return null;
-      } else if (!(target instanceof ClassObject)) {
+      } else if (!(target instanceof SkylarkClassObject)) {
         ruleContext.ruleError("Rule implementation doesn't return a struct");
         return null;
       } else if (!expectError.isEmpty()) {
         ruleContext.ruleError("Expected error not found: " + expectError);
         return null;
       }
-      return createTarget(ruleContext, (ClassObject) target);
+      return createTarget(ruleContext, (SkylarkClassObject) target);
 
     } catch (InterruptedException e) {
       ruleContext.ruleError(e.getMessage());
@@ -77,8 +77,8 @@ public final class SkylarkRuleConfiguredTargetBuilder {
     }
   }
 
-  private static ConfiguredTarget createTarget(RuleContext ruleContext, ClassObject struct)
-      throws EvalException {
+  private static ConfiguredTarget createTarget(
+      RuleContext ruleContext, SkylarkClassObject struct) throws EvalException {
     try {
       RuleConfiguredTargetBuilder builder = new RuleConfiguredTargetBuilder(ruleContext);
       // Every target needs runfiles provider by default.

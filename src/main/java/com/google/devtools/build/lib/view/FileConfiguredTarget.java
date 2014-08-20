@@ -22,6 +22,7 @@ import com.google.devtools.build.lib.collect.nestedset.NestedSet;
 import com.google.devtools.build.lib.collect.nestedset.NestedSetBuilder;
 import com.google.devtools.build.lib.collect.nestedset.Order;
 import com.google.devtools.build.lib.packages.FileTarget;
+import com.google.devtools.build.lib.syntax.ClassObject;
 import com.google.devtools.build.lib.util.FileType;
 import com.google.devtools.build.lib.view.fileset.FilesetProvider;
 import com.google.devtools.build.lib.view.test.InstrumentedFilesProvider;
@@ -31,7 +32,7 @@ import com.google.devtools.build.lib.view.test.InstrumentedFilesProvider;
  * subclass, OutputFileConfiguredTarget.)
  */
 public abstract class FileConfiguredTarget extends AbstractConfiguredTarget
-    implements FileType.HasFilename, LicensesProvider {
+    implements FileType.HasFilename, LicensesProvider, ClassObject {
 
   private final Artifact artifact;
   private final ImmutableMap<Class<? extends TransitiveInfoProvider>, TransitiveInfoProvider>
@@ -82,6 +83,14 @@ public abstract class FileConfiguredTarget extends AbstractConfiguredTarget
 
   @Override
   public Object get(String providerKey) {
+    return null;
+  }
+
+  @Override
+  public Object getValue(String name) {
+    if (name.equals("label")) {
+      return getLabel();
+    }
     return null;
   }
 }

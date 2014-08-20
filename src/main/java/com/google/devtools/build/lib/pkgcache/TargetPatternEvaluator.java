@@ -23,7 +23,9 @@ import com.google.devtools.build.lib.events.EventHandler;
 import com.google.devtools.build.lib.packages.Target;
 import com.google.devtools.build.lib.vfs.PathFragment;
 
+import java.util.Collection;
 import java.util.List;
+import java.util.Map;
 
 /**
  * A parser for target patterns.  Target patterns are a generalisation of
@@ -65,17 +67,16 @@ public interface TargetPatternEvaluator {
       boolean keepGoing) throws TargetParsingException, InterruptedException;
 
   /**
-   * Attempts to parse and load the given list of patterns; the returned list contains the results
-   * in the same order in which the patterns were specified. The result is guaranteed to contain
-   * exactly as many non-null entries as the list passed in here (if the list is not modified
-   * concurrently).
+   * Attempts to parse and load the given collection of patterns; the returned map contains the
+   * results for each pattern successfully parsed.
    *
    * <p>If an error is encountered, a {@link TargetParsingException} is thrown, unless {@code
    * keepGoing} is set to true. In that case, the patterns that failed to load have the error flag
    * set.
    */
-  List<ResolvedTargets<Target>> preloadTargetPatterns(EventHandler eventHandler,
-      List<String> patterns, boolean keepGoing) throws TargetParsingException, InterruptedException;
+  Map<String, ResolvedTargets<Target>> preloadTargetPatterns(EventHandler eventHandler,
+      Collection<String> patterns, boolean keepGoing)
+          throws TargetParsingException, InterruptedException;
 
 
   /**

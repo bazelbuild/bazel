@@ -37,6 +37,7 @@ import com.google.devtools.build.lib.packages.Type;
 import com.google.devtools.build.lib.shell.ShellUtils;
 import com.google.devtools.build.lib.shell.ShellUtils.TokenizationException;
 import com.google.devtools.build.lib.syntax.ClassObject;
+import com.google.devtools.build.lib.syntax.ClassObject.SkylarkClassObject;
 import com.google.devtools.build.lib.syntax.Environment;
 import com.google.devtools.build.lib.syntax.EvalException;
 import com.google.devtools.build.lib.syntax.FuncallExpression.FuncallException;
@@ -108,7 +109,7 @@ public final class SkylarkRuleContext {
       Object val = ruleContext.attributes().get(a.getName(), a.getType());
       builder.put(a.getName(), val == null ? Environment.NONE : val);
     }
-    attrObject = new ClassObject(builder.build());
+    attrObject = new SkylarkClassObject(builder.build());
 
     ImplicitOutputsFunction implicitOutputsFunction =
         ruleContext.getRule().getRuleClassObject().getImplicitOutputsFunction();

@@ -15,8 +15,6 @@
 package com.google.devtools.build.lib.view;
 
 import com.google.devtools.build.lib.syntax.Label;
-import com.google.devtools.build.lib.syntax.SkylarkBuiltin;
-import com.google.devtools.build.lib.syntax.SkylarkCallable;
 
 /**
  * Objects that implement this interface bundle multiple {@link TransitiveInfoProvider} interfaces.
@@ -81,8 +79,6 @@ import com.google.devtools.build.lib.syntax.SkylarkCallable;
  *
  * @see TransitiveInfoProvider
  */
-@SkylarkBuiltin(name = "TransitiveInfoCollection",
-    doc = "A collection of transitive info providers.")
 public interface TransitiveInfoCollection {
 
   /**
@@ -94,14 +90,11 @@ public interface TransitiveInfoCollection {
   /**
    * Returns the label associated with this prerequisite.
    */
-  @SkylarkCallable(name = "label", doc = "")
   Label getLabel();
 
   /**
    * Returns the transitive information requested or null, if the information is not found.
    * The transitive information has to have been added using the Skylark framework.
    */
-  @SkylarkCallable(
-      doc = "Returns the value provided by this target associated with the provider_key.")
   Object get(String providerKey);
 }

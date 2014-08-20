@@ -1825,6 +1825,54 @@ public class MemoizingEvaluatorTest {
     manyDirtyValuesClearChildrenOnFail(/*interrupt=*/true);
   }
 
+  /**
+   * Regression test for case where the user requests that we delete nodes that are already in the
+   * queue to be dirtied. We should handle that gracefully and not complain.
+   */
+  @Test
+  public void deletingDirtyNodes() throws Exception {
+    final Thread thread = Thread.currentThread();
+    final AtomicBoolean interruptInvalidation = new AtomicBoolean(false);
+    initializeTester(new TrackingInvalidationReceiver() {
+      private final AtomicBoolean firstInvalidation = new AtomicBoolean(true);
+      @Override
+      public void invalidated(SkyValue value, InvalidationState state) {
+        if (interruptInvalidation.get() && !firstInvalidation.getAndSet(false)) {
+          thread.interrupt();
+        }
+        super.invalidated(value, state);
+      }
+    });
+    SkyKey key = null;
+    // Create a long chain of nodes. Most of them will not actually be dirtied, but the last one to
+    // be dirtied will enqueue its parent for dirtying, so it will be in the queue for the next run.
+    for (int i = 0; i < TEST_NODE_COUNT; i++) {
+      key = GraphTester.toSkyKey("node" + i);
+      if (i > 0) {
+        tester.getOrCreate(key).addDependency("node" + (i - 1)).setComputedValue(COPY);
+      } else {
+        tester.set(key, new StringValue("node0"));
+      }
+    }
+    // Seed the graph.
+    assertEquals("node0", ((StringValue) tester.evalAndGet(/*keepGoing=*/false, key)).getValue());
+    // Start the dirtying process.
+    tester.set("node0", new StringValue("new"));
+    tester.invalidate();
+    interruptInvalidation.set(true);
+    try {
+      tester.eval(/*keepGoing=*/false, key);
+      fail();
+    } catch (InterruptedException e) {
+      // Expected.
+    }
+    interruptInvalidation.set(false);
+    // Now delete all the nodes. The node that was going to be dirtied is also deleted, which we
+    // should handle.
+    tester.graph.delete(Predicates.<SkyKey>alwaysTrue());
+    assertEquals("new", ((StringValue) tester.evalAndGet(/*keepGoing=*/false, key)).getValue());
+  }
+
   @Test
   public void changePruning() throws Exception {
     initializeTester();
@@ -2756,7 +2804,7 @@ public class MemoizingEvaluatorTest {
 
     public <T extends SkyValue> EvaluationResult<T> eval(
         boolean keepGoing, int numThreads, SkyKey... keys) throws InterruptedException {
-      Preconditions.checkState(getModifiedValues().isEmpty());
+      assertThat(getModifiedValues()).isEmpty();
       return driver.evaluate(ImmutableList.copyOf(keys), keepGoing, numThreads, reporter);
     }
 

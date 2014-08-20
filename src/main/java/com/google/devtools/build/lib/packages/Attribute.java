@@ -24,6 +24,8 @@ import com.google.common.collect.Iterables;
 import com.google.common.collect.Sets;
 import com.google.devtools.build.lib.packages.Type.ConversionException;
 import com.google.devtools.build.lib.syntax.ClassObject;
+import com.google.devtools.build.lib.syntax.ClassObject.SkylarkClassObject;
+import com.google.devtools.build.lib.syntax.Environment;
 import com.google.devtools.build.lib.syntax.EvalException;
 import com.google.devtools.build.lib.syntax.Label;
 import com.google.devtools.build.lib.syntax.SkylarkCallbackFunction;
@@ -858,8 +860,13 @@ public final class Attribute implements Comparable<Attribute> {
           }
         }
       }
-      ClassObject attrs = new ClassObject(attrValues);
-      return callback.call(attrs, o);
+      ClassObject attrs = new SkylarkClassObject(attrValues);
+      Object result = callback.call(attrs, o);
+      if (result == Environment.NONE) {
+        throw new EvalException(callback.getLocation(),
+            "Late bound attribute value cannot be None");
+      }
+      return result;
     }
   }
 

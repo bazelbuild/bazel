@@ -21,9 +21,13 @@ public class QueryException extends Exception {
    * Returns a better error message for the query.
    */
   static String describeFailedQuery(QueryException e, QueryExpression toplevel) {
-    return e.getFailedExpression() == toplevel
+    QueryExpression badQuery = e.getFailedExpression();
+    if (badQuery == null) {
+      return "Evaluation failed: " + e.getMessage();
+    }
+    return badQuery == toplevel
         ? "Evaluation of query \"" + toplevel + "\" failed: " + e.getMessage()
-        : "Evaluation of subquery \"" +  e.getFailedExpression() + "\" failed: " + e.getMessage();
+        : "Evaluation of subquery \"" +  badQuery + "\" failed: " + e.getMessage();
   }
 
   private final QueryExpression expression;

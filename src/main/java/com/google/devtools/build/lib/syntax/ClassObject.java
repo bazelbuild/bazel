@@ -22,34 +22,48 @@ import com.google.devtools.build.lib.events.Location;
 import java.util.Map;
 
 /**
- * An instance of a Skylark class.
+ * An interface for objects behaving like Skylark structs.
  */
 // TODO(bazel-team): type checks
-@Immutable
-public class ClassObject {
+public interface ClassObject {
 
-  private final ImmutableMap<String, Object> values;
-  private final Location creationLoc;
+  /**
+   * Returns the value associated with the name field in this struct.
+   */
+  Object getValue(String name);
 
-  public ClassObject(Map<String, Object> values) {
-    this.values = ImmutableMap.copyOf(values);
-    this.creationLoc = null;
+  /**
+   * An implementation class of ClassObject for structs created in Skylark code.
+   */
+  @Immutable
+  public class SkylarkClassObject implements ClassObject {
+
+    private final ImmutableMap<String, Object> values;
+    private final Location creationLoc;
+
+    public SkylarkClassObject(Map<String, Object> values) {
+      this.values = ImmutableMap.copyOf(values);
+      this.creationLoc = null;
+    }
+
+    public SkylarkClassObject(Map<String, Object> values, Location creationLoc) {
+      this.values = ImmutableMap.copyOf(values);
+      this.creationLoc = Preconditions.checkNotNull(creationLoc);
+    }
+
+    @Override
+    public Object getValue(String name) {
+      Object object = values.get(name); 
+      return object != null ? object : Environment.NONE;
+    }
+
+    public ImmutableCollection<String> getKeys() {
+      return values.keySet();
+    }
+
+    public Location getCreationLoc() {
+      return Preconditions.checkNotNull(creationLoc,
+          "This struct was not created in a Skylark code");
+    }
   }
-
-  public ClassObject(Map<String, Object> values, Location creationLoc) {
-    this.values = ImmutableMap.copyOf(values);
-    this.creationLoc = Preconditions.checkNotNull(creationLoc);
-  }
-
-  public Object getValue(String name) {
-    return values.get(name);
-  }
-
-  public ImmutableCollection<String> getKeys() {
-    return values.keySet();
-  }
-
-  public Location getCreationLoc() {
-    return Preconditions.checkNotNull(creationLoc, "This struct was not created in a Skylark code");
-  }  
 }

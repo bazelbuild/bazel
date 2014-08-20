@@ -348,7 +348,7 @@ public class PackageDeserializer {
     for (String subinclude : packagePb.getSubincludeLabelList()) {
       Label label = deserializeLabel(subinclude);
       Path subincludeBuildFile = environment.getBuildFile(label.getPackageName());
-      Preconditions.checkState(subincludeBuildFile != null);  // TODO(bazel-team): Handle this
+      Preconditions.checkState(subincludeBuildFile != null, label); // TODO(bazel-team): Handle this
       builder.addSubinclude(label,
           // TODO(bazel-team): Set location properly
           subincludeBuildFile.getParentDirectory().getRelative(label.getName()));
