@@ -31,10 +31,12 @@ public class AggregatedCriticalPath<T extends AbstractCriticalPathComponent> {
     this.criticalPathComponents = criticalPathComponents;
   }
 
+  /** Total wall time in ms spent running the critical path actions. */
   public long totalTime() {
     return totalTime;
   }
 
+  /** Returns a list of all the component stats for the critical path. */
   public ImmutableList<T> components() {
     return criticalPathComponents;
   }
@@ -52,7 +54,7 @@ public class AggregatedCriticalPath<T extends AbstractCriticalPathComponent> {
     return toString(true);
   }
 
-  public String toString(boolean summary) {
+  private String toString(boolean summary) {
     StringBuilder sb = new StringBuilder("Critical Path: ");
     double totalMillis = totalTime;
     sb.append(String.format("%.2f", totalMillis / 1000.0));
@@ -65,3 +67,4 @@ public class AggregatedCriticalPath<T extends AbstractCriticalPathComponent> {
     return sb.toString();
   }
 }
+

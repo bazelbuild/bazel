@@ -33,9 +33,15 @@ public final class SkyKey implements Serializable {
    */
   private final Object argument;
 
+  /**
+   * Cache the hash code for this object. It might be expensive to compute.
+   */
+  private final int hashCode;
+
   public SkyKey(SkyFunctionName functionName, Object valueName) {
     this.functionName = Preconditions.checkNotNull(functionName);
     this.argument = Preconditions.checkNotNull(valueName);
+    this.hashCode = 31 * functionName.hashCode() + argument.hashCode();
   }
 
   public SkyFunctionName functionName() {
@@ -53,7 +59,7 @@ public final class SkyKey implements Serializable {
 
   @Override
   public int hashCode() {
-    return 31 * functionName.hashCode() + argument.hashCode();
+    return hashCode;
   }
 
   @Override

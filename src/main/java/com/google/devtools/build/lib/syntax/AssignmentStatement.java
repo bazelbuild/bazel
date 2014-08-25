@@ -70,11 +70,6 @@ public final class AssignmentStatement extends Statement {
               + "' is referenced before assignment."
               + "The variable is defined in the global scope.");
         }
-        // Skylark has readonly variables.
-        if (skylarkEnv.isReadOnly(ident.getName())) {
-          throw new EvalException(getLocation(),
-              "Cannot assign readonly variable: '" + ident.getName() + "'");
-        }
         Class<?> variableType = skylarkEnv.getVariableType(ident.getName());
         Class<?> resultType = EvalUtils.getSkylarkType(result.getClass());
         if (variableType != null && !variableType.equals(resultType)) {

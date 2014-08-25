@@ -23,7 +23,6 @@ import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.ImmutableSet;
 import com.google.common.collect.Iterables;
 import com.google.devtools.build.lib.actions.Action;
-import com.google.devtools.build.lib.actions.ActionOwner;
 import com.google.devtools.build.lib.actions.Artifact;
 import com.google.devtools.build.lib.actions.Root;
 import com.google.devtools.build.lib.collect.nestedset.NestedSet;
@@ -37,7 +36,6 @@ import com.google.devtools.build.lib.packages.Type;
 import com.google.devtools.build.lib.shell.ShellUtils;
 import com.google.devtools.build.lib.shell.ShellUtils.TokenizationException;
 import com.google.devtools.build.lib.syntax.ClassObject;
-import com.google.devtools.build.lib.syntax.ClassObject.SkylarkClassObject;
 import com.google.devtools.build.lib.syntax.Environment;
 import com.google.devtools.build.lib.syntax.EvalException;
 import com.google.devtools.build.lib.syntax.FuncallExpression.FuncallException;
@@ -57,7 +55,6 @@ import com.google.devtools.build.lib.view.RuleConfiguredTarget.Mode;
 import com.google.devtools.build.lib.view.RuleContext;
 import com.google.devtools.build.lib.view.TransitiveInfoCollection;
 import com.google.devtools.build.lib.view.TransitiveInfoProvider;
-import com.google.devtools.build.lib.view.config.BuildConfiguration;
 
 import java.util.ArrayList;
 import java.util.Collection;
@@ -73,7 +70,7 @@ import javax.annotation.Nullable;
  * A Skylark API for the ruleContext.
  */
 @SkylarkBuiltin(name = "ctx", doc = "The Skylark rule context.")
-public final class SkylarkRuleContext {
+public final class SkylarkRuleContext implements ClassObject {
 
   public static final String PROVIDER_CLASS_PREFIX = "com.google.devtools.build.lib.view.";
 
@@ -240,19 +237,24 @@ public final class SkylarkRuleContext {
     return ruleContext.getCompiler(warnIfNotDefault);
   }
 
-  @SkylarkCallable(doc = "A struct which provides access to the attributes.")
-  public ClassObject attr() {
-    return attrObject;
-  }
-
-  @SkylarkCallable(doc = "Returns the rule's label.")
-  public Label label() {
-    return ruleContext.getLabel();
-  }
-
-  @SkylarkCallable(doc = "Returns the rule's action owner.")
-  public ActionOwner actionOwner() {
-    return ruleContext.getActionOwner();
+  @Override
+  public Object getValue(String name) {
+    if (name.equals("attr")) {
+      return attrObject;
+    } else if (name.equals("label")) {
+      return ruleContext.getLabel();
+    } else if (name.equals("action_owner")) {
+      return ruleContext.getActionOwner();
+    } else if (name.equals("outputs")) {
+      return implicitOutputs;
+    } else if (name.equals("configuration")) {
+      return ruleContext.getConfiguration();
+    } else if (name.equals("host_configuration")) {
+      return ruleContext.getHostConfiguration();
+    } else if (name.equals("data_configuration")) {
+      return ruleContext.getConfiguration().getConfiguration(ConfigurationTransition.DATA);
+    }
+    return null;
   }
 
   @SkylarkCallable(doc = "Registers an action, that will be executed at runtime if needed.")
@@ -337,21 +339,6 @@ public final class SkylarkRuleContext {
     } catch (NotUniqueExpansionException e) {
       throw new FuncallException(e.getMessage() + " while expanding '" + expression + "'");
     }
-  }
-
-  @SkylarkCallable(doc = "")
-  public BuildConfiguration configuration() {
-    return ruleContext.getConfiguration();
-  }
-
-  @SkylarkCallable(doc = "")
-  public BuildConfiguration hostConfiguration() {
-    return ruleContext.getHostConfiguration();
-  }
-
-  @SkylarkCallable(doc = "")
-  public BuildConfiguration dataConfiguration() {
-    return ruleContext.getConfiguration().getConfiguration(ConfigurationTransition.DATA);
   }
 
   @SkylarkCallable(doc = "")

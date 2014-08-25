@@ -249,7 +249,16 @@ public class PackageFunction implements SkyFunction {
     getPackageLookupDepsAndPropagateInconsistentFilesystemExceptions(
         skyframePackageLocator.getValues(), env, pkg.containsErrors());
 
-    // TODO(bazel-team): Mark Skylark imports as dependencies.
+    // TODO(bazel-team): The transitive closure of Skylark modules handled monolithically.
+    // This is not efficient. Create Skyframe nodes for every module.
+    Set<SkyKey> skylarkExtensionDepKeys = Sets.newHashSet();
+    for (PathFragment extensionPathFragment : pkg.getSkylarkExtensions()) {
+      SkyKey skylarkExtensionSkyKey = FileValue.key(
+          RootedPath.toRootedPath(pkg.getSkylarkRoot(), extensionPathFragment));
+      skylarkExtensionDepKeys.add(skylarkExtensionSkyKey);
+    }
+    packageShouldBeInError = markFileDepsAndPropagateInconsistentFilesystemExceptions(
+        skylarkExtensionDepKeys, env, pkg.containsErrors());
 
     // TODO(bazel-team): This means that many packages will have to be preprocessed twice. Ouch!
     // We need a better continuation mechanism to avoid repeating work. [skyframe-loading]
@@ -346,7 +355,7 @@ public class PackageFunction implements SkyFunction {
       throw new PackageFunctionException(key, e);
     } catch (InconsistentFilesystemException e) {
       throw new PackageFunctionException(key,
-          new InconsistentFilesystemDuringPackageLoadingException(packageName, e));
+          new InternalInconsistentFilesystemException(packageName, e));
     } catch (Exception e) {
       throw new IllegalStateException("Unexpected Exception type from PackageLookupValue.", e);
     }
@@ -392,19 +401,13 @@ public class PackageFunction implements SkyFunction {
     LegacyPackage legacyPkg = loadPackage(replacementContents, packageName, buildFilePath,
         env.getListener(), skyframePackageLocator, defaultVisibility);
     boolean packageShouldBeConsideredInError = legacyPkg.containsErrors();
-    InconsistentFilesystemException inconsistentFilesystemException = null;
     try {
       packageShouldBeConsideredInError =
           markDependenciesAndPropagateInconsistentFilesystemExceptions(legacyPkg, env,
               skyframePackageLocator);
     } catch (InconsistentFilesystemException e) {
-      inconsistentFilesystemException = e;
-    }
-
-    if (inconsistentFilesystemException != null) {
       throw new PackageFunctionException(key,
-          new InconsistentFilesystemDuringPackageLoadingException(packageName,
-              inconsistentFilesystemException));
+          new InternalInconsistentFilesystemException(packageName, e));
     }
 
     if (env.valuesMissing()) {
@@ -467,6 +470,13 @@ public class PackageFunction implements SkyFunction {
     }
     Event.replayEventsOn(eventHandler, pkg.getEvents());
     return pkg;
+  }
+
+  private static class InternalInconsistentFilesystemException extends NoSuchPackageException {
+    public InternalInconsistentFilesystemException(String packageName,
+        InconsistentFilesystemException e) {
+      super(packageName, e.getMessage(), e);
+    }
   }
 
   /**

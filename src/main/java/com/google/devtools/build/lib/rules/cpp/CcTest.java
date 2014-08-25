@@ -1,0 +1,43 @@
+// Copyright 2014 Google Inc. All rights reserved.
+//
+// Licensed under the Apache License, Version 2.0 (the "License");
+// you may not use this file except in compliance with the License.
+// You may obtain a copy of the License at
+//
+//    http://www.apache.org/licenses/LICENSE-2.0
+//
+// Unless required by applicable law or agreed to in writing, software
+// distributed under the License is distributed on an "AS IS" BASIS,
+// WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+// See the License for the specific language governing permissions and
+// limitations under the License.
+
+package com.google.devtools.build.lib.rules.cpp;
+
+import com.google.devtools.build.lib.rules.RuleConfiguredTargetFactory;
+import com.google.devtools.build.lib.view.ConfiguredTarget;
+import com.google.devtools.build.lib.view.RuleConfiguredTargetBuilder;
+import com.google.devtools.build.lib.view.RuleContext;
+
+/**
+ * A configured target class for cc_test rules.
+ */
+public abstract class CcTest implements RuleConfiguredTargetFactory {
+
+  private final CppSemantics semantics;
+
+  protected CcTest(CppSemantics semantics) {
+    this.semantics = semantics;
+  }
+
+  @Override
+  public ConfiguredTarget create(RuleContext context) throws InterruptedException {
+    RuleConfiguredTargetBuilder builder = new RuleConfiguredTargetBuilder(context);
+    CcBinary.init(semantics, context, builder, /*fake ==*/ false, useExecOrigin(context));
+    return builder.build();
+  }
+
+  private static boolean useExecOrigin(RuleContext context) {
+    return context.getConfiguration().getFragment(CppConfiguration.class).supportsExecOrigin();
+  }
+}

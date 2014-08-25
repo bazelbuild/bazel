@@ -4,7 +4,7 @@ Building Bazel
 We currently only support building on Ubuntu, and the binaries only run on
 Ubuntu. You will need packages for the protobuf-compiler, and for libarchive:
 
-    apt-get install protobuf-compiler libarchive-dev
+    sudo apt-get install protobuf-compiler libarchive-dev
 
 Then run:
 
@@ -24,7 +24,7 @@ Create your own project with a BUILD file in a subdirectory, for example:
 
     $ cd example_workspace
     $ mkdir hello
-    $ echo 'genrule(name = "world", outs = ["hi"], cmd = "touch $(@D)/hi")' > hello/BUILD
+    $ echo 'genrule(name = "world", outs = ["hi"], cmd = "touch $@")' > hello/BUILD
 
 Now run Bazel, e.g.,
 

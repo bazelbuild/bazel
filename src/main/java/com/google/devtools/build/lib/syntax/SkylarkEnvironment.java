@@ -162,12 +162,7 @@ public class SkylarkEnvironment extends Environment {
   @Override
   public void update(String varname, Object value) {
     Preconditions.checkNotNull(value, "update(value == null)");
-    Preconditions.checkArgument(!isReadOnly(varname), varname + " is readonly");
     env.put(varname, value);
-  }
-
-  public boolean isReadOnly(String varname) {
-    return isGlobalEnvironment() && env.containsKey(varname);
   }
 
   /**

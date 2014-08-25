@@ -14,6 +14,7 @@
 
 package com.google.devtools.build.lib.view;
 
+import com.google.common.collect.UnmodifiableIterator;
 import com.google.devtools.build.lib.syntax.Label;
 
 /**
@@ -27,9 +28,7 @@ import com.google.devtools.build.lib.syntax.Label;
  * <li>The associated Target (which will usually be a Rule)
  * <li>Its own configuration (the configured target does not have access to other configurations,
  * e.g. the host configuration, though)
- * <li>The transitive info providers and labels of its direct dependencies. Note that the
- * configured target cannot ask a direct dependency for the list of implemented providers, it is
- * only allowed to ask if a specific one is implemented or not.
+ * <li>The transitive info providers and labels of its direct dependencies.
  * </ul>
  *
  * <p>And these are the only inputs. Notably, a configured target is not supposed to access
@@ -79,7 +78,7 @@ import com.google.devtools.build.lib.syntax.Label;
  *
  * @see TransitiveInfoProvider
  */
-public interface TransitiveInfoCollection {
+public interface TransitiveInfoCollection extends Iterable<TransitiveInfoProvider> {
 
   /**
    * Returns the transitive information provider requested, or null if the provider is not found.
@@ -97,4 +96,10 @@ public interface TransitiveInfoCollection {
    * The transitive information has to have been added using the Skylark framework.
    */
   Object get(String providerKey);
+
+  /**
+   * Returns an unmodifiable iterator over the transitive info providers in the collections.
+   */
+  @Override
+  UnmodifiableIterator<TransitiveInfoProvider> iterator();
 }

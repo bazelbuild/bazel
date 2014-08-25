@@ -338,15 +338,6 @@ public final class FuncallExpression extends Expression {
 
     if (obj != null) {
       Object objValue = obj.eval(env);
-      if (env.isSkylarkEnabled() && objValue instanceof ClassObject) {
-        // Accessing Skylark object fields
-        evalArguments(posargs, kwargs, env);
-        if (!kwargs.isEmpty() || !posargs.isEmpty()) {
-          throw new EvalException(getLocation(),
-              "Arguments are not allowed when accessing fields");
-        }
-        return ((ClassObject) objValue).getValue(func.getName());
-      }
       // Strings, lists and dictionaries (maps) have functions that we want to use in MethodLibrary.
       // For other classes, we can call the Java methods.
       Function function =

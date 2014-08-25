@@ -167,8 +167,10 @@ public class MoreAsserts {
   }
 
   public static <T> void assertNotContains(String msg, Iterable<T> actual, T unexpected) {
-    assertThat(ImmutableList.copyOf(actual)).named(msg)
-        .has().noneOf(unexpected);
+    // We cannot use the Truth API here, because .containsAllIn is not in the OSS version and
+    // .has().allFrom() is not in the Google version.
+    ImmutableList<T> actualList = ImmutableList.copyOf(actual);
+    assertFalse(actualList.contains(unexpected));
   }
 
   private static Matcher getMatcher(String regex, String actual) {

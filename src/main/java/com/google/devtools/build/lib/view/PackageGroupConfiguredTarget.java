@@ -15,6 +15,7 @@
 package com.google.devtools.build.lib.view;
 
 import com.google.common.base.Preconditions;
+import com.google.common.collect.UnmodifiableIterator;
 import com.google.devtools.build.lib.collect.nestedset.NestedSet;
 import com.google.devtools.build.lib.collect.nestedset.NestedSetBuilder;
 import com.google.devtools.build.lib.events.Event;
@@ -67,5 +68,10 @@ public final class PackageGroupConfiguredTarget extends AbstractConfiguredTarget
   @Override
   public Object get(String providerKey) {
     throw new UnsupportedOperationException();
+  }
+
+  @Override
+  public UnmodifiableIterator<TransitiveInfoProvider> iterator() {
+    throw new IllegalStateException();
   }
 }

@@ -18,6 +18,9 @@ import com.google.common.collect.ImmutableMap.Builder;
 import com.google.devtools.build.lib.actions.ActionContextConsumer;
 import com.google.devtools.build.lib.actions.Executor.ActionContext;
 import com.google.devtools.build.lib.actions.SpawnActionContext;
+import com.google.devtools.build.lib.rules.cpp.CppCompileActionContext;
+import com.google.devtools.build.lib.rules.cpp.IncludeScanningContext;
+import com.google.devtools.build.lib.rules.cpp.LinkStrategy;
 
 import java.util.Map;
 
@@ -38,6 +41,11 @@ public class StandaloneContextConsumer implements ActionContextConsumer {
         new ImmutableMap.Builder<Class<? extends ActionContext>, String>();
 
     actionContexts.put(SpawnActionContext.class, "standalone");
+
+    // C++.
+    actionContexts.put(LinkStrategy.class, "");
+    actionContexts.put(IncludeScanningContext.class, "");
+    actionContexts.put(CppCompileActionContext.class, "");
 
     return actionContexts.build();
   }

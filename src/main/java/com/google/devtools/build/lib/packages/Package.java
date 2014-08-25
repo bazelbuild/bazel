@@ -164,6 +164,16 @@ public class Package implements Serializable {
   protected Map<Label, Path> subincludes;
 
   /**
+   * The transitive closure of imported skylark extension files.
+   */
+  protected Collection<PathFragment> skylarkExtensions;
+
+  /**
+   * The root of the skylark extension files;
+   */
+  protected Path skylarkRoot;
+
+  /**
    * The package's default "licenses" and "distribs" attributes, as specified
    * in calls to licenses() and distribs() in the BUILD file.
    */
@@ -303,6 +313,8 @@ public class Package implements Serializable {
     this.buildFile = builder.buildFile;
     this.containsErrors = builder.containsErrors;
     this.subincludes = builder.subincludes;
+    this.skylarkExtensions = builder.skylarkExtensions;
+    this.skylarkRoot = builder.skylarkRoot;
     this.defaultLicense = builder.defaultLicense;
     this.defaultDistributionSet = builder.defaultDistributionSet;
     this.features = ImmutableSet.copyOf(builder.features);
@@ -316,6 +328,14 @@ public class Package implements Serializable {
    */
   public Map<Label, Path> getSubincludes() {
     return subincludes;
+  }
+
+  public Collection<PathFragment> getSkylarkExtensions() {
+    return skylarkExtensions;
+  }
+
+  public Path getSkylarkRoot() {
+    return skylarkRoot;
   }
 
   /**
@@ -698,8 +718,9 @@ public class Package implements Serializable {
 
     protected Map<String, Target> targets = new HashMap<>();
 
-
     protected Map<Label, Path> subincludes = null;
+    protected Path skylarkRoot = null;
+    protected Collection<PathFragment> skylarkExtensions = null;
 
     /**
      * True iff the "package" function has already been called in this package.
@@ -907,6 +928,11 @@ public class Package implements Serializable {
         // The same label should have been resolved to the same path
         throw new IllegalStateException("Ambiguous subinclude path");
       }
+    }
+
+    void setSkylarkExtensions(Path root, Collection<PathFragment> extensions) {
+      this.skylarkRoot = root; 
+      this.skylarkExtensions = extensions;
     }
 
     /**

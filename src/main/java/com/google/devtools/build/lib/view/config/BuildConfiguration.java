@@ -41,6 +41,7 @@ import com.google.devtools.build.lib.packages.PackageGroup;
 import com.google.devtools.build.lib.packages.Rule;
 import com.google.devtools.build.lib.packages.RuleClass;
 import com.google.devtools.build.lib.packages.Target;
+import com.google.devtools.build.lib.syntax.ClassObject;
 import com.google.devtools.build.lib.syntax.Label;
 import com.google.devtools.build.lib.syntax.Label.SyntaxException;
 import com.google.devtools.build.lib.syntax.SkylarkBuiltin;
@@ -101,7 +102,7 @@ import javax.annotation.Nullable;
 @SkylarkBuiltin(name = "Configuration",
     doc = "Data required for the analysis of a target that comes from targets that "
         + "depend on it and not targets that it depends on.")
-public final class BuildConfiguration {
+public final class BuildConfiguration implements ClassObject {
 
   /**
    * An interface for language-specific configurations.
@@ -1288,11 +1289,26 @@ public final class BuildConfiguration {
     return outputDirectory;
   }
 
+  @Override
+  public Object getValue(String name) {
+    if (name.equals("bin_dir")) {
+      return binDirectory;
+    } else if (name.equals("genfiles_dir")) {
+      return genfilesDirectory;
+    } else if (name.equals("genfiles_fragment")) {
+      return genfilesFragment;
+    } else if (name.equals("host_path_separator")) {
+      return getHostPathSeparator();
+    } else if (name.equals("default_shell_env")) {
+      return defaultShellEnvironment;
+    } else {
+      return null;
+    }
+  }
+
   /**
    * Returns the bin directory for this build configuration.
    */
-  @SkylarkCallable(name = "bin_dir",
-      doc = "Returns the bin directory for this build configuration")
   public Root getBinDirectory() {
     return binDirectory;
   }
@@ -1314,8 +1330,6 @@ public final class BuildConfiguration {
   /**
    * Returns the genfiles directory for this build configuration.
    */
-  @SkylarkCallable(name = "genfiles_dir",
-      doc = "Returns the genfiles directory for this build configuration")
   public Root getGenfilesDirectory() {
     return genfilesDirectory;
   }
@@ -1339,8 +1353,6 @@ public final class BuildConfiguration {
   /**
    * Returns a relative path to the genfiles directory at execution time.
    */
-  @SkylarkCallable(name = "genfiles_fragment",
-      doc = "Returns a relative path to the genfiles directory at execution time.")
   public PathFragment getGenfilesFragment() {
     return genfilesFragment;
   }
@@ -1351,8 +1363,6 @@ public final class BuildConfiguration {
    * not match the host platform. You should only use this when invoking tools that are known to use
    * the native path separator, i.e., the path separator for the machine that they run on.
    */
-  @SkylarkCallable(name = "host_path_separator",
-      doc = "Returns the path separator for the host platform.")
   public String getHostPathSeparator() {
     // TODO(bazel-team): This needs to change when we support Windows.
     return ":";
@@ -1445,8 +1455,6 @@ public final class BuildConfiguration {
   /**
    * Returns the default shell environment
    */
-  @SkylarkCallable(name = "default_shell_env",
-      doc = "Returns the default shell environment.")
   public ImmutableMap<String, String> getDefaultShellEnvironment() {
     return defaultShellEnvironment;
   }

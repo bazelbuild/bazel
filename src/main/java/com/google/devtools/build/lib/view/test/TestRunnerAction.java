@@ -192,7 +192,6 @@ public class TestRunnerAction extends ConfigurationAction
       // to a mis-count of this action's inputs unless we reset the schedulingMiddleman first.
       Artifact oldSchedulingMiddleman = schedulingMiddleman;
       schedulingMiddleman = null;
-      artifactFactory.removeSchedulingMiddleman(oldSchedulingMiddleman);
       // In this call, the forward graph removes the artifact oldSchedulingMiddleman from the set
       // of inputs to the current object, the TestRunnerAction. As part of that process, the
       // DependentAction associated to this TestRunnerAction must be reset(), since the inputs to

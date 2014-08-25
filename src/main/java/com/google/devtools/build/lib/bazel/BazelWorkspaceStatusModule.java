@@ -23,7 +23,6 @@ import com.google.devtools.build.lib.actions.ActionGraph;
 import com.google.devtools.build.lib.actions.ActionInputFileCache;
 import com.google.devtools.build.lib.actions.Artifact;
 import com.google.devtools.build.lib.actions.ArtifactFactory;
-import com.google.devtools.build.lib.actions.ArtifactMTimeCache;
 import com.google.devtools.build.lib.actions.ArtifactOwner;
 import com.google.devtools.build.lib.actions.ExecutionStrategy;
 import com.google.devtools.build.lib.actions.Executor;
@@ -154,13 +153,13 @@ public class BazelWorkspaceStatusModule extends BlazeModule {
     }
 
     @Override
-    public void executionPhaseStarting(ActionInputFileCache actionInputFileCache,
-        ArtifactMTimeCache artifactMTimeCache, ActionGraph actionGraph,
-        Iterable<Artifact> topLevelArtifacts) throws ExecutorInitException, InterruptedException {
+    public void executionPhaseEnding() {
     }
 
     @Override
-    public void executionPhaseEnding() {
+    public void executionPhaseStarting(ActionInputFileCache actionInputFileCache,
+        ActionGraph actionGraph, Iterable<Artifact> topLevelArtifacts) throws ExecutorInitException,
+        InterruptedException {
     }
   }
 

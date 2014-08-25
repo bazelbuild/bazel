@@ -15,8 +15,10 @@
 package com.google.devtools.build.lib.bazel.rules;
 
 import com.google.common.annotations.VisibleForTesting;
+import com.google.common.base.Functions;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
+import com.google.devtools.build.lib.bazel.rules.cpp.BazelCppRuleClasses;
 import com.google.devtools.build.lib.bazel.rules.genrule.GenRuleRule;
 import com.google.devtools.build.lib.bazel.rules.sh.ShBinaryRule;
 import com.google.devtools.build.lib.bazel.rules.sh.ShLibraryRule;
@@ -27,6 +29,11 @@ import com.google.devtools.build.lib.packages.PackageGroup;
 import com.google.devtools.build.lib.packages.Rule;
 import com.google.devtools.build.lib.packages.Target;
 import com.google.devtools.build.lib.rules.SkylarkRuleImplementationFunctions;
+import com.google.devtools.build.lib.rules.cpp.CcToolchainRule;
+import com.google.devtools.build.lib.rules.cpp.CppConfigurationLoader;
+import com.google.devtools.build.lib.rules.cpp.CppOptions;
+import com.google.devtools.build.lib.rules.cpp.CrosstoolConfigurationLoader.CrosstoolResolver;
+import com.google.devtools.build.lib.rules.cpp.PackagePathCrosstoolResolver;
 import com.google.devtools.build.lib.syntax.Label;
 import com.google.devtools.build.lib.syntax.SkylarkType;
 import com.google.devtools.build.lib.view.BaseRuleClasses;
@@ -105,7 +112,8 @@ public class BazelRuleClassProvider {
   @SuppressWarnings("unchecked")
   public static final ImmutableList<Class<? extends FragmentOptions>> BUILD_OPTIONS =
       ImmutableList.<Class<? extends FragmentOptions>>of(
-          BuildConfiguration.Options.class
+          BuildConfiguration.Options.class,
+          CppOptions.class
       );
 
   /**
@@ -136,13 +144,29 @@ public class BazelRuleClassProvider {
     builder.addRuleDefinition(FilegroupRule.class);
     builder.addRuleDefinition(TestSuiteRule.class);
     builder.addRuleDefinition(GenRuleRule.class);
+
     builder.addRuleDefinition(ShRuleClasses.ShRule.class);
     builder.addRuleDefinition(ShLibraryRule.class);
     builder.addRuleDefinition(ShBinaryRule.class);
     builder.addRuleDefinition(ShTestRule.class);
+
+    builder.addRuleDefinition(CcToolchainRule.class);
+    builder.addRuleDefinition(BazelCppRuleClasses.CcLinkingRule.class);
+    builder.addRuleDefinition(BazelCppRuleClasses.CcDeclRule.class);
+    builder.addRuleDefinition(BazelCppRuleClasses.CcBaseRule.class);
+    builder.addRuleDefinition(BazelCppRuleClasses.CcRule.class);
+    builder.addRuleDefinition(BazelCppRuleClasses.CcBinaryBaseRule.class);
+    builder.addRuleDefinition(BazelCppRuleClasses.CcBinaryRule.class);
+
+    builder.addRuleDefinition(BazelCppRuleClasses.CcLibraryBaseRule.class);
+    builder.addRuleDefinition(BazelCppRuleClasses.CcLibraryRule.class);
+
     builder.addRuleDefinition(ExtraActionRule.class);
     builder.addRuleDefinition(ActionListenerRule.class);
 
+    CrosstoolResolver crosstoolResolver = new PackagePathCrosstoolResolver(
+        Functions.<String>identity());
     builder.addConfigurationFragment(new BazelConfiguration.Loader());
+    builder.addConfigurationFragment(new CppConfigurationLoader(crosstoolResolver));
   }
 }

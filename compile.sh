@@ -60,6 +60,7 @@ PROTO_FILES=(
 src/main/protobuf/build.proto
 src/main/protobuf/extra_actions_base.proto
 src/main/protobuf/test_status.proto
+src/main/protobuf/crosstool_config.proto
 )
 
 # TODO: CC target architecture needs to match JAVA_HOME.
@@ -177,7 +178,7 @@ chmod 755 output/alarm
 touch output/client_info
 chmod 755 output/client_info
 
-TO_ZIP="libblaze.jar libunix.${DYNAMIC_EXT} build-runfiles process-wrapper alarm client_info"
+TO_ZIP="libblaze.jar libunix.${DYNAMIC_EXT} build-runfiles process-wrapper alarm client_info build_interface_so"
 (cd output/ ; cat client ${TO_ZIP} | ${MD5SUM} | awk '{ print $1; }' > install_base_key)
 (cd output/ ; zip package.zip ${TO_ZIP} install_base_key)
 cat output/client output/package.zip > output/bazel

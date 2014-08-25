@@ -472,9 +472,6 @@ public class BuildView {
           // Null owner because this artifact's generating action is currently retrieved from the
           // skyframe executor, not from the configured target.
           ArtifactOwner.NULL_OWNER);
-      if (middleman != null) {
-        artifactFactory.removeSchedulingMiddleman(middleman);
-      }
       middleman = artifactFactory.getDerivedArtifact(
           TopLevelArtifactHelper.getMiddlemanRelativePath(target.getLabel()),
           configuration.getMiddlemanDirectory(),
@@ -1334,7 +1331,7 @@ public class BuildView {
   @VisibleForTesting
   Map<Artifact, Boolean> getArtifactReferences() {
     Map<Artifact, Boolean> artifactMap = Maps.newIdentityHashMap();
-    for (Artifact artifact : artifactFactory.getArtifacts()) {
+    for (Artifact artifact : artifactFactory.getSourceArtifacts()) {
       artifactMap.put(artifact, Boolean.FALSE);
     }
     return artifactMap;

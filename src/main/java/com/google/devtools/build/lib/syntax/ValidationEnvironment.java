@@ -87,6 +87,9 @@ public class ValidationEnvironment {
   public void update(String varname, SkylarkType newVartype, Location location)
       throws EvalException {
     checkReadonly(varname, location);
+    if (parent == null) {  // top-level values are immutable
+      readOnlyVariables.add(varname);
+    }
     SkylarkType oldVartype = variableTypes.get(SkylarkType.GLOBAL).get(varname);
     if (oldVartype != null) {
       newVartype = oldVartype.infer(newVartype, "variable '" + varname + "'",

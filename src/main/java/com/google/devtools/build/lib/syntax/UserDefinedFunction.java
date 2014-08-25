@@ -56,8 +56,11 @@ public class UserDefinedFunction extends AbstractFunction {
       FuncallExpression ast, Environment env)
       throws EvalException, InterruptedException {
     if (args.size() != listArgNames.size()) {
-      throw new EvalException(ast.getLocation(), String.format(
-          "Invalid number of arguments, got %s instead of %s", args.size(), listArgNames.size()));
+      // ast is null when called from Java (as there's no Skylark call site).
+      Location loc = ast == null ? getLocation() : ast.getLocation();
+      throw new EvalException(loc, String.format(
+          "Invalid number of arguments for function '%s', got %s instead of %s",
+          getName(), args.size(), listArgNames.size()));
     }
     // Creating an environment from this functions arguments and the global environment
     SkylarkEnvironment functionEnv = SkylarkEnvironment.createEnvironmentForFunctionCalling(

@@ -414,9 +414,7 @@ class Parser {
       if (token.kind == TokenKind.LPAREN) {
         return parseFuncallSuffix(start, receiver, ident);
       } else {
-        return makeFuncallExpression(receiver, ident,
-          new ArrayList<Argument>(),
-          start, token.right);
+        return setLocation(new DotExpression(receiver, ident), start, token.right);
       }
     } else {
       syntaxError(token);

@@ -21,6 +21,8 @@ import com.google.devtools.build.lib.events.Location;
 
 import java.util.Map;
 
+import javax.annotation.Nullable;
+
 /**
  * An interface for objects behaving like Skylark structs.
  */
@@ -28,8 +30,10 @@ import java.util.Map;
 public interface ClassObject {
 
   /**
-   * Returns the value associated with the name field in this struct.
+   * Returns the value associated with the name field in this struct,
+   * or null if the field does not exist.
    */
+  @Nullable
   Object getValue(String name);
 
   /**

@@ -35,7 +35,7 @@ import javax.annotation.Nullable;
 public class InMemoryGraph implements ProcessableGraph {
 
   protected final ConcurrentMap<SkyKey, NodeEntry> nodeMap =
-      new MapMaker().initialCapacity(1024).concurrencyLevel(64).makeMap();
+      new MapMaker().initialCapacity(1024).concurrencyLevel(200).makeMap();
   private final boolean keepEdges;
 
   InMemoryGraph() {

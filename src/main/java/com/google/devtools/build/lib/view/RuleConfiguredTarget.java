@@ -16,7 +16,9 @@ package com.google.devtools.build.lib.view;
 import com.google.common.base.Preconditions;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
+import com.google.common.collect.Lists;
 import com.google.common.collect.Maps;
+import com.google.common.collect.UnmodifiableIterator;
 import com.google.devtools.build.lib.actions.Artifact;
 import com.google.devtools.build.lib.concurrent.ThreadSafety.Immutable;
 import com.google.devtools.build.lib.packages.OutputFile;
@@ -27,6 +29,7 @@ import com.google.devtools.build.lib.syntax.Label;
 import com.google.devtools.build.lib.view.config.ConfigMatchingProvider;
 import com.google.devtools.build.lib.view.config.RunUnder;
 
+import java.util.List;
 import java.util.Map;
 import java.util.Set;
 
@@ -194,5 +197,14 @@ public final class RuleConfiguredTarget extends AbstractConfiguredTarget impleme
       return getLabel();
     }
     return get(name);
+  }
+
+  @Override
+  public UnmodifiableIterator<TransitiveInfoProvider> iterator() {
+    List<TransitiveInfoProvider> tip = Lists.newArrayList();
+    for (Map.Entry<Class<? extends TransitiveInfoProvider>, Object> entry : providers.entrySet()) {
+      tip.add(entry.getKey().cast(entry.getValue()));
+    }
+    return ImmutableList.copyOf(tip).iterator();
   }
 }

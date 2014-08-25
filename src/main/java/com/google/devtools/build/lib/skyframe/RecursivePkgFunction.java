@@ -20,6 +20,7 @@ import com.google.devtools.build.lib.events.Event;
 import com.google.devtools.build.lib.packages.NoSuchPackageException;
 import com.google.devtools.build.lib.pkgcache.PathPackageLocator;
 import com.google.devtools.build.lib.vfs.Dirent;
+import com.google.devtools.build.lib.vfs.Dirent.Type;
 import com.google.devtools.build.lib.vfs.Path;
 import com.google.devtools.build.lib.vfs.PathFragment;
 import com.google.devtools.build.lib.vfs.RootedPath;
@@ -113,6 +114,10 @@ public class RecursivePkgFunction implements SkyFunction {
 
     List<SkyKey> childDeps = Lists.newArrayList();
     for (Dirent dirent : dirValue.getDirents()) {
+      if (dirent.getType() != Type.DIRECTORY) {
+        // Non-directories can never host packages, and we do not follow symlinks (see above).
+        continue;
+      }
       String basename = dirent.getName();
       if (rootRelativePath.equals(PathFragment.EMPTY_FRAGMENT)
           && PathPackageLocator.DEFAULT_TOP_LEVEL_EXCLUDES.contains(basename)) {

@@ -42,10 +42,10 @@ public class ArtifactFactory implements ArtifactResolver, ArtifactSerializer, Ar
   private final Path execRoot;
 
   /**
-   * The main Path to Artifact cache. There will always be exactly one canonical
-   * artifact for a given path.
+   * The main Path to source artifact cache. There will always be exactly one canonical
+   * artifact for a given source path.
    */
-  private final Map<PathFragment, Artifact> pathToArtifact = new HashMap<>();
+  private final Map<PathFragment, Artifact> pathToSourceArtifact = new HashMap<>();
 
   /**
    * Map of package names to source root paths so that we can create source
@@ -54,9 +54,9 @@ public class ArtifactFactory implements ArtifactResolver, ArtifactSerializer, Ar
   private ImmutableMap<PathFragment, Root> packageRoots;
 
   /**
-   * Reverse-ordered list of derived roots for use in looking up or creating
-   * derived artifacts from execPaths. The reverse order is only significant
-   * for overlapping roots so that the longest is found first.
+   * Reverse-ordered list of derived roots for use in looking up or (in rare cases) creating
+   * derived artifacts from execPaths. The reverse order is only significant for overlapping roots
+   * so that the longest is found first.
    */
   private ImmutableCollection<Root> derivedRoots = ImmutableList.of();
 
@@ -76,7 +76,7 @@ public class ArtifactFactory implements ArtifactResolver, ArtifactSerializer, Ar
    * Clear the cache.
    */
   public synchronized void clear() {
-    pathToArtifact.clear();
+    pathToSourceArtifact.clear();
     packageRoots = null;
     derivedRoots = ImmutableList.of();
     artifactIdRegistry = new ArtifactIdRegistry();
@@ -198,14 +198,14 @@ public class ArtifactFactory implements ArtifactResolver, ArtifactSerializer, Ar
       return createArtifact(path, root, execPath, owner, type);
     }
 
-    Artifact artifact = pathToArtifact.get(execPath);
+    Artifact artifact = pathToSourceArtifact.get(execPath);
 
     if (artifact == null || !Objects.equals(artifact.getArtifactOwner(), owner)) {
       // There really should be a safety net that makes it impossible to create two Artifacts
       // with the same exec path but a different Owner, but we also need to reuse Artifacts from
       // previous builds.
       artifact = createArtifact(path, root, execPath, owner, type);
-      pathToArtifact.put(execPath, artifact);
+      pathToSourceArtifact.put(execPath, artifact);
     } else {
       // TODO(bazel-team): Maybe we should check for equality of the fileset bit. However, that
       // would require us to differentiate between artifact-creating and artifact-getting calls to
@@ -228,52 +228,17 @@ public class ArtifactFactory implements ArtifactResolver, ArtifactSerializer, Ar
     }
   }
 
-  /**
-   * Removes given Artifact from the artifact factory.
-   *
-   * <p> Note: It is a responsibility of the caller to be sure that the artifact is not referenced
-   * by any action on the dependency graph. {@link com.google.devtools.build.lib.view.BuildView}
-   * class will validate that all artifacts on the dependency graph are present in the artifact
-   * factory.
-   */
-  public synchronized void removeArtifact(Artifact artifact) {
-    Preconditions.checkNotNull(artifact);
-    pathToArtifact.remove(artifact.getExecPath());
-  }
-
-  /**
-   * Removes the scheduling middleman from the internal artifact storage. The caller of this
-   * function must ensure that there are no actions that use the middleman that is being removed.
-   *
-   * @param middleman the scheduling middleman to remove
-   */
-  public synchronized void removeSchedulingMiddleman(Artifact middleman) {
-    removeArtifact(middleman);
-  }
-
   @Override
   public synchronized Artifact resolveSourceArtifact(PathFragment execPath) {
-    Artifact result = internalResolveArtifact(execPath, false, ArtifactOwner.NULL_OWNER);
-    return result != null && result.isSourceArtifact() ? result : null;
-  }
-
-  private Artifact internalResolveArtifact(PathFragment execPath, boolean createDerivedArtifacts,
-      ArtifactOwner owner) {
     execPath = execPath.normalize();
     // First try a quick map lookup to see if the artifact already exists.
-    Artifact a = pathToArtifact.get(execPath);
+    Artifact a = pathToSourceArtifact.get(execPath);
     if (a != null) {
       return a;
     }
-    // See if the path starts with one of the derived roots, & create a derived Artifact if so.
-    Path path = execRoot.getRelative(execPath);
-    Root derivedRoot = findDerivedRoot(path);
-    if (derivedRoot != null) {
-      if (createDerivedArtifacts) {
-        return getDerivedArtifact(path.relativeTo(derivedRoot.getPath()), derivedRoot, owner);
-      } else {
-        return null;
-      }
+    // Don't create an artifact if it's derived.
+    if (findDerivedRoot(execRoot.getRelative(execPath)) != null) {
+      return null;
     }
     // Must be a new source artifact, so probe the known packages to find the longest package
     // prefix, and then use the corresponding source root to create a new artifact.
@@ -281,7 +246,7 @@ public class ArtifactFactory implements ArtifactResolver, ArtifactSerializer, Ar
          dir = dir.getParentDirectory()) {
       Root sourceRoot = packageRoots.get(dir);
       if (sourceRoot != null) {
-        return getSourceArtifact(execPath, sourceRoot, owner);
+        return getSourceArtifact(execPath, sourceRoot, ArtifactOwner.NULL_OWNER);
       }
     }
     return null;  // not a path that we can find...
@@ -305,10 +270,10 @@ public class ArtifactFactory implements ArtifactResolver, ArtifactSerializer, Ar
   }
 
   /**
-   * Returns all artifacts created by the artifact factory.
+   * Returns all source artifacts created by the artifact factory.
    */
-  public synchronized Collection<Artifact> getArtifacts() {
-    return ImmutableList.copyOf(pathToArtifact.values());
+  public synchronized Iterable<Artifact> getSourceArtifacts() {
+    return ImmutableList.copyOf(pathToSourceArtifact.values());
   }
 
   // Non-final only because clear()ing a map does not actually free the memory it took up, so we

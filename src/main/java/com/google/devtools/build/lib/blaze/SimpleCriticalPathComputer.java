@@ -29,8 +29,8 @@ public class SimpleCriticalPathComputer
   }
 
   @Override
-  public SimpleCriticalPathComponent createComponent(Action action, long nanoTimeStart) {
-    return new SimpleCriticalPathComponent(action, nanoTimeStart);
+  public SimpleCriticalPathComponent createComponent(Action action, long startTimeMillis) {
+    return new SimpleCriticalPathComponent(action, startTimeMillis);
   }
 
   /**
@@ -39,7 +39,8 @@ public class SimpleCriticalPathComputer
    * <p>This method allow us to calculate lazily the aggregate statistics of the critical path,
    * avoiding the memory and cpu penalty for doing it for all the actions executed.
    */
-  public synchronized AggregatedCriticalPath<SimpleCriticalPathComponent> aggregate() {
+  @Override
+  public AggregatedCriticalPath<SimpleCriticalPathComponent> aggregate() {
     ImmutableList.Builder<SimpleCriticalPathComponent> components = ImmutableList.builder();
     SimpleCriticalPathComponent maxCriticalPath = getMaxCriticalPath();
     if (maxCriticalPath == null) {
@@ -54,3 +55,4 @@ public class SimpleCriticalPathComputer
         components.build());
   }
 }
+

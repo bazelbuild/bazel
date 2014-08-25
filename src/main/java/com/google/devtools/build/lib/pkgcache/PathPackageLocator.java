@@ -13,32 +13,22 @@
 // limitations under the License.
 package com.google.devtools.build.lib.pkgcache;
 
-import com.google.common.base.Preconditions;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableSet;
-import com.google.common.collect.Sets;
-import com.google.common.util.concurrent.ThreadFactoryBuilder;
-import com.google.devtools.build.lib.concurrent.AbstractQueueVisitor;
 import com.google.devtools.build.lib.events.Event;
 import com.google.devtools.build.lib.events.EventHandler;
 import com.google.devtools.build.lib.packages.BuildFileNotFoundException;
 import com.google.devtools.build.lib.packages.NoSuchPackageException;
-import com.google.devtools.build.lib.vfs.Dirent;
 import com.google.devtools.build.lib.vfs.FileStatus;
 import com.google.devtools.build.lib.vfs.Path;
 import com.google.devtools.build.lib.vfs.PathFragment;
 import com.google.devtools.build.lib.vfs.Symlinks;
 import com.google.devtools.build.lib.vfs.UnixGlob;
 
-import java.io.IOException;
 import java.util.ArrayList;
 import java.util.Arrays;
-import java.util.Collection;
 import java.util.List;
 import java.util.Set;
-import java.util.concurrent.LinkedBlockingQueue;
-import java.util.concurrent.ThreadPoolExecutor;
-import java.util.concurrent.TimeUnit;
 import java.util.concurrent.atomic.AtomicReference;
 import java.util.logging.Logger;
 
@@ -125,164 +115,6 @@ public class PathPackageLocator {
     return null;
   }
 
-  /**
-   * <p>Visits the names of all packages beneath the given directory
-   * recursively and concurrently.
-   *
-   * <p>Note: This operation needs to stat directories recursively.  It could
-   * be very expensive when there is a big tree under the given directory.
-   *
-   * <p>Over a single iteration, package names are unique.
-   *
-   * <p>This method may spawn multiple threads and call the observer method
-   * concurrently. When this method terminates, however, all such threads
-   * will have completed.
-   *
-   * <p>To abort the traversal, call {@link Thread#interrupt()} on the calling
-   * thread.
-   *
-   * @param directory The directory to search. It must be a relative
-   *    path, free from up-level references.
-   * @param eventHandler a eventHandler which should be used to log any errors that
-   *    occur while scanning directories for BUILD files.
-   * @param cache file system call cache to be used with the recursive
-   *    visitation
-   * @param topLevelExcludes top level directories to skip
-   * @param packageVisitorPool the thread pool to use to visit packages in parallel. May be null.
-   * @param observer is called for each path fragment found. May be called
-   *    from multiple threads concurrently, and therefore must be thread-safe.
-   * @throws InterruptedException if the calling thread was interrupted.
-   */
-  public void visitPackageNamesRecursively(PathFragment directory, EventHandler eventHandler,
-      AtomicReference<? extends UnixGlob.FilesystemCalls> cache, Set<String> topLevelExcludes,
-      ThreadPoolExecutor packageVisitorPool,
-      final AcceptsPathFragment observer) throws InterruptedException {
-    // <p>TODO(bazel-team): (2009) this method currently doesn't guarantee that all BUILD files
-    // it returns correspond to valid package names, therefore the caller must call
-    // Label.validatePackageName (or equivalent).  (Furthermore, the PackageCache may consider
-    // some of these packages deleted.)
-    Preconditions.checkNotNull(directory);
-    Preconditions.checkNotNull(eventHandler);
-    Preconditions.checkArgument(!directory.isAbsolute());
-    Preconditions.checkArgument(directory.isNormalized());
-
-    boolean shutdownOnCompletion = false;
-    if (packageVisitorPool == null) {
-      shutdownOnCompletion = true;
-      packageVisitorPool =  new ThreadPoolExecutor(200, 200,
-          0L, TimeUnit.MILLISECONDS, new LinkedBlockingQueue<Runnable>(),
-          new ThreadFactoryBuilder().setNameFormat("visit-packages-recursive-%d").build());
-    }
-    PackageNameVisitor visitor = new PackageNameVisitor(eventHandler, cache,
-                                                        shutdownOnCompletion, packageVisitorPool) {
-      @Override protected void visitPackageName(PathFragment pkgName) {
-        observer.accept(pkgName);
-      }
-    };
-
-    for (Path root : pathEntries) {
-      visitor.enqueue(root, root.getRelative(directory), topLevelExcludes);
-    }
-
-    visitor.work(true);
-  }
-
-  /**
-   * Same as {@link #visitPackageNamesRecursively(PathFragment, EventHandler,
-   * UnixGlob.FilesystemCalls, Set, ThreadPoolExecutor, AcceptsPathFragment)}, with an empty set of
-   * excludes and the {@link UnixGlob#DEFAULT_SYSCALLS}.
-   */
-  void visitPackageNamesRecursively(PathFragment directory, EventHandler eventHandler,
-      final AcceptsPathFragment observer) throws InterruptedException {
-    visitPackageNamesRecursively(directory, eventHandler,
-        new AtomicReference<>(UnixGlob.DEFAULT_SYSCALLS),
-        ImmutableSet.<String>of(), null, observer);
-  }
-
-  /**
-   * A concurrent, recursive visitor over all package names
-   * under a given directory.
-   *
-   * If an uncaught RuntimeException is encountered during the visitation,
-   * subsequent traversal is stopped (fail-fast). The preferred method
-   * of aborting the traversal is {@link Thread#interrupt()} on the
-   * calling thread.
-   */
-  private abstract class PackageNameVisitor extends AbstractQueueVisitor {
-    private final Set<Path> visitedDirs = Sets.newConcurrentHashSet();
-    private final Set<PathFragment> visitedFrags = Sets.newConcurrentHashSet();
-    private final EventHandler eventHandler;
-    private final AtomicReference<? extends UnixGlob.FilesystemCalls> cache;
-
-    private PackageNameVisitor(EventHandler eventHandler,
-        AtomicReference<? extends UnixGlob.FilesystemCalls> cache,
-        boolean shutdownOnCompletion, ThreadPoolExecutor packageVisitorPool) {
-      super(packageVisitorPool, shutdownOnCompletion, /*failFast=*/true,
-            /*failFastOnInterrupt=*/true);
-      this.eventHandler = eventHandler;
-      this.cache = cache;
-    }
-
-    /**
-     * @param root Must be one of the pathEntries.
-     * @param directory Must be beneath the given pathEntry.
-     */
-    public void enqueue(final Path root, final Path directory, final Set<String> topLevelExcludes) {
-      if (visitedDirs.add(directory)) {
-        super.enqueue(new Runnable() {
-          @Override
-          public void run() {
-            try {
-              // We only traverse directories that are not symlinks.
-              if (!directory.isDirectory() || directory.isSymbolicLink()) {
-                return;
-              }
-
-              Collection<Dirent> dirents = cache.get().readdir(directory, Symlinks.FOLLOW);
-              for (Dirent dirent : dirents) {
-                String basename = dirent.getName();
-                if (topLevelExcludes.contains(basename)) {
-                  continue;
-                }
-                if (dirent.getType() == Dirent.Type.FILE) {
-                  if ("BUILD".equals(basename)) {
-                    PathFragment pkgName = directory.relativeTo(root);
-                    if (visitedFrags.add(pkgName)) {
-                      visitPackageName(pkgName);
-                    }
-                  }
-                } else {
-                  enqueue(root, directory.getChild(basename), ImmutableSet.<String>of());
-                }
-              }
-            } catch (IOException e) {
-              // The specified directory can not be found, or there is some kind of
-              // I/O error that occurs while trying to scan the directory. For example,
-              // bug "Blaze crashes during TargetLabelParser.findTargetsBeneathDirectory" shows
-              // a crash when a file in the package path cannot be
-              // read due to a permissions error. Rather than an assertion error
-              // that creates a stack dump, we should generate a valid error message.
-              // To do this, we pass the error up to the package iterator, so that
-              // it can (correctly) stop when it encounters an I/O error.
-              eventHandler.handle(Event.error("I/O error searching '" + directory
-                  + "' for BUILD files: " + e.getMessage()));
-            }
-          }
-        });
-      }
-    }
-
-    /**
-     * Called exactly once for each package name found.
-     * @param pkgName The package name PathFragment.
-     */
-    protected abstract void visitPackageName(PathFragment pkgName);
-
-    @Override
-    public void work(boolean interruptWorkers) throws InterruptedException {
-      super.work(interruptWorkers);
-    }
-  }
 
   /**
    * Returns an immutable ordered list of the directories on the package path.

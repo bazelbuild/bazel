@@ -14,6 +14,7 @@
 
 package com.google.devtools.build.lib.view;
 
+import com.google.common.collect.UnmodifiableIterator;
 import com.google.devtools.build.lib.packages.Target;
 import com.google.devtools.build.lib.view.config.BuildConfiguration;
 
@@ -30,6 +31,11 @@ final class ErrorConfiguredTarget extends AbstractConfiguredTarget {
   @Override
   public Object get(String providerKey) {
     throw new UnsupportedOperationException();
+  }
+
+  @Override
+  public UnmodifiableIterator<TransitiveInfoProvider> iterator() {
+    throw new IllegalStateException();
   }
 }
 

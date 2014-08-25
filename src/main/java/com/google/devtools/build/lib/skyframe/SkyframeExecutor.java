@@ -1277,7 +1277,8 @@ public final class SkyframeExecutor {
         }
       });
     } catch (Exception e) {
-      throw new IllegalStateException(e);
+      throw new IllegalStateException("Error getting generating action: " + artifact.prettyPrint(),
+          e);
     }
   }
 

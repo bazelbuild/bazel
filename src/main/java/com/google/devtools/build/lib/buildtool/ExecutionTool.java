@@ -413,7 +413,6 @@ public class ExecutionTool {
       for (ActionContextProvider actionContextProvider : actionContextProviders) {
         actionContextProvider.executionPhaseStarting(
             fileCache,
-            useSkyframeFull(skyframeExecutor) ? null : artifactMTimeCache,
             actionGraph,
             artifactsToBuild);
       }

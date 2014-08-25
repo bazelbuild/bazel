@@ -14,6 +14,7 @@
 package com.google.devtools.build.lib.vfs;
 
 import com.google.common.base.Function;
+import com.google.common.collect.Iterables;
 import com.google.devtools.build.lib.concurrent.ThreadSafety.Immutable;
 import com.google.devtools.build.lib.concurrent.ThreadSafety.ThreadSafe;
 import com.google.devtools.build.lib.util.StringCanonicalizer;
@@ -48,6 +49,14 @@ public final class PathFragment implements Comparable<PathFragment>, Serializabl
         @Override
         public PathFragment apply(String str) {
           return new PathFragment(str);
+        }
+      };
+
+  private static final Function<PathFragment, String> TO_SAFE_PATH_STRING =
+      new Function<PathFragment, String>() {
+        @Override
+        public String apply(PathFragment path) {
+          return path.getSafePathString();
         }
       };
 
@@ -199,6 +208,14 @@ public final class PathFragment implements Comparable<PathFragment>, Serializabl
   // TODO(bazel-team): Change getPathString to do this - this behavior makes more sense.
   public String getSafePathString() {
     return (!isAbsolute && (segmentCount() == 0)) ? "." : getPathString();
+  }
+
+  /**
+   * Returns a sequence consisting of the {@link #getSafePathString()} return of each item in
+   * {@code fragments}.
+   */
+  public static Iterable<String> safePathStrings(Iterable<PathFragment> fragments) {
+    return Iterables.transform(fragments, TO_SAFE_PATH_STRING);
   }
 
   private String joinSegments(char separatorChar) {

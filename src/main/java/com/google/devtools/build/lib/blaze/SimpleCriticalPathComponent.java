@@ -23,3 +23,4 @@ public class SimpleCriticalPathComponent
 
   public SimpleCriticalPathComponent(Action action, long startTime) { super(action, startTime); }
 }
+

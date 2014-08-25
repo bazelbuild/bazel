@@ -37,7 +37,7 @@ import java.io.Serializable;
  */
 @SkylarkBuiltin(name = "Label", doc = "A BUILD target identifier.")
 @Immutable @ThreadSafe
-public final class Label implements Comparable<Label>, Serializable {
+public final class Label implements Comparable<Label>, Serializable, ClassObject {
 
   /**
    * Thrown by the parsing methods to indicate a bad label.
@@ -235,11 +235,18 @@ public final class Label implements Comparable<Label>, Serializable {
     return packageName.getRelative(name);
   }
 
+  @Override
+  public Object getValue(String name) {
+    if (name.equals("name")) {
+      return this.name;
+    }
+    return null;
+  }
+
   /**
    * Returns the name by which this rule was declared (e.g. {@code //file/base:fileutils_test}
    * returns {@code fileutils_test}).
    */
-  @SkylarkCallable(name = "name", doc = "")
   public String getName() {
     return name;
   }

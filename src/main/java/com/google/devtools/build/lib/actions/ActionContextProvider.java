@@ -40,7 +40,6 @@ public interface ActionContextProvider {
    */
   void executionPhaseStarting(
       ActionInputFileCache actionInputFileCache,
-      ArtifactMTimeCache artifactMTimeCache,
       ActionGraph actionGraph,
       Iterable<Artifact> topLevelArtifacts)
           throws ExecutorInitException, InterruptedException;

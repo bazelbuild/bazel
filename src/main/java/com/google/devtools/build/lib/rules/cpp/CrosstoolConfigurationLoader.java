@@ -1,0 +1,344 @@
+// Copyright 2014 Google Inc. All rights reserved.
+//
+// Licensed under the Apache License, Version 2.0 (the "License");
+// you may not use this file except in compliance with the License.
+// You may obtain a copy of the License at
+//
+//    http://www.apache.org/licenses/LICENSE-2.0
+//
+// Unless required by applicable law or agreed to in writing, software
+// distributed under the License is distributed on an "AS IS" BASIS,
+// WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+// See the License for the specific language governing permissions and
+// limitations under the License.
+
+package com.google.devtools.build.lib.rules.cpp;
+
+import com.google.common.annotations.VisibleForTesting;
+import com.google.common.base.Function;
+import com.google.common.cache.Cache;
+import com.google.common.cache.CacheBuilder;
+import com.google.common.io.BaseEncoding;
+import com.google.devtools.build.lib.vfs.FileSystem;
+import com.google.devtools.build.lib.vfs.FileSystemUtils;
+import com.google.devtools.build.lib.vfs.Path;
+import com.google.devtools.build.lib.view.config.BuildOptions;
+import com.google.devtools.build.lib.view.config.ConfigurationEnvironment;
+import com.google.devtools.build.lib.view.config.InvalidConfigurationException;
+import com.google.devtools.build.lib.view.config.crosstool.CrosstoolConfig;
+import com.google.protobuf.TextFormat;
+import com.google.protobuf.TextFormat.ParseException;
+import com.google.protobuf.UninitializedMessageException;
+
+import java.io.IOException;
+import java.util.ArrayList;
+import java.util.Collection;
+
+/**
+ * A loader that reads Crosstool configuration files and creates CToolchain
+ * instances from them.
+ */
+public class CrosstoolConfigurationLoader {
+  /**
+   * Cache for storing result of toReleaseConfiguration function based on md5 sum of input file.
+   * We can use md5 because result of this function depends only on the file content.
+   */
+  private static final Cache<String, CrosstoolConfig.CrosstoolRelease> crosstoolReleaseCache =
+      CacheBuilder.newBuilder().concurrencyLevel(4).maximumSize(100).build();
+
+
+  /**
+   * A lookup function from crosstool top to path of the configuration file.
+   */
+  public interface CrosstoolResolver {
+
+    /**
+     * Returns a resolved crosstool top by performing an implementation
+     * specific lookup. This can be used to implement BUILD file level
+     * redirects.
+     *
+     * <p>The return value must not be {@code null}; the simplest valid
+     * implementation is to just return the passed in value.
+     *
+     * @throws NullPointerException implementations should throw this, if
+     *         {@code crosstoolTop} is {@code null}, but they are not required
+     *         to - the passed in value should never be {@code null}
+     * @throws InvalidConfigurationException if the resolution failed in a way that
+     *         implies that no progress is possible; this exception causes an
+     *         error message with the exception message as text and abortion of
+     *         the current command
+     */
+    String resolveCrosstoolTop(ConfigurationEnvironment env, String crosstoolTop)
+        throws InvalidConfigurationException;
+
+    /**
+     * Returns the path to the configuration file determined from the crosstool
+     * top. This method may return {@code null} if no file could be
+     * determined.
+     * @param fileSystem TODO(bazel-team):
+     */
+    Path findConfiguration(ConfigurationEnvironment env, FileSystem fileSystem, String crosstoolTop)
+        throws InvalidConfigurationException;
+
+    /**
+     * Selects a crosstool toolchain corresponding to the given crosstool
+     * configuration options. If all of these options are null, it returns the default
+     * toolchain specified in the crosstool release. If only cpu is non-null, it
+     * returns the default toolchain for that cpu, as specified in the crosstool
+     * release. Otherwise, all values must be non-null, and this method
+     * returns the toolchain which matches all of the values.
+     *
+     * @throws NullPointerException if {@code release} is null
+     * @throws InvalidConfigurationException if no matching toolchain can be found, or
+     *     if the input parameters do not obey the constraints described above
+     */
+    CrosstoolConfig.CToolchain selectToolchain(
+        CrosstoolConfig.CrosstoolRelease release, BuildOptions options)
+            throws InvalidConfigurationException;
+  }
+
+  /**
+   * A class that holds the results of reading a CROSSTOOL file.
+   */
+  public static class CrosstoolFile {
+    private final String crosstoolTop;
+    private Path crosstoolPath;
+    private CrosstoolConfig.CrosstoolRelease crosstool;
+    private String md5;
+
+    CrosstoolFile(String crosstoolTop) {
+      this.crosstoolTop = crosstoolTop;
+    }
+
+    void setCrosstoolPath(Path crosstoolPath) {
+      this.crosstoolPath = crosstoolPath;
+    }
+
+    void setCrosstool(CrosstoolConfig.CrosstoolRelease crosstool) {
+      this.crosstool = crosstool;
+    }
+
+    void setMd5(String md5) {
+      this.md5 = md5;
+    }
+
+    /**
+     * Returns the crosstool top as resolved by a
+     * {@link CrosstoolConfigurationLoader.CrosstoolResolver}.
+     */
+    public String getCrosstoolTop() {
+      return crosstoolTop;
+    }
+
+    /**
+     * Returns the absolute path from which the CROSSTOOL file was read.
+     */
+    public Path getCrosstoolPath() {
+      return crosstoolPath;
+    }
+
+    /**
+     * Returns the parsed contents of the CROSSTOOL file.
+     */
+    public CrosstoolConfig.CrosstoolRelease getProto() {
+      return crosstool;
+    }
+
+    /**
+     * Returns an MD5 hash of the CROSSTOOL file contents.
+     */
+    public String getMd5() {
+      return md5;
+    }
+  }
+
+  private CrosstoolConfigurationLoader() {
+  }
+
+  /**
+   * Reads the given <code>data</code> String, which must be in ascii format,
+   * into a protocol buffer. It uses the <code>name</code> parameter for error
+   * messages.
+   *
+   * @throws IOException if the parsing failed
+   */
+  @VisibleForTesting
+  static CrosstoolConfig.CrosstoolRelease toReleaseConfiguration(String name, String data)
+      throws IOException {
+    CrosstoolConfig.CrosstoolRelease.Builder builder =
+        CrosstoolConfig.CrosstoolRelease.newBuilder();
+    try {
+      TextFormat.merge(data, builder);
+      return builder.build();
+    } catch (ParseException e) {
+      throw new IOException("Could not read the crosstool configuration file '" + name + "', "
+          + "because of a parser error (" + e.getMessage() + ")");
+    } catch (UninitializedMessageException e) {
+      throw new IOException("Could not read the crosstool configuration file '" + name + "', "
+          + "because of an incomplete protocol buffer (" + e.getMessage() + ")");
+    }
+  }
+
+  private static void findCrosstoolConfiguration(ConfigurationEnvironment env,
+      CrosstoolConfigurationLoader.CrosstoolResolver crosstoolResolver,
+      CrosstoolConfigurationLoader.CrosstoolFile file)
+      throws IOException, InvalidConfigurationException {
+    String crosstoolTop = file.getCrosstoolTop();
+    Path path = crosstoolResolver.findConfiguration(env, null, crosstoolTop);
+    // If we can't find a file, fall back to the provided alternative.
+    if (path == null || !path.exists()) {
+      throw new InvalidConfigurationException("The crosstool_top you specified was resolved to '" +
+          crosstoolTop + "', which does not contain a CROSSTOOL file. " +
+          "You can use a crosstool from the depot by specifying its label.");
+    } else {
+      // Do this before we read the data, so if it changes, we get a different MD5 the next time.
+      // Alternatively, we could calculate the MD5 of the contents, which we also read, but this
+      // is faster if the file comes from a file system with md5 support.
+      file.setCrosstoolPath(path);
+      String md5 = BaseEncoding.base16().lowerCase().encode(path.getMD5Digest());
+      CrosstoolConfig.CrosstoolRelease release = crosstoolReleaseCache.getIfPresent(md5);
+      if (release == null) {
+        char[] data = FileSystemUtils.readContentAsLatin1(path);
+        release = toReleaseConfiguration(path.getPathString(), new String(data));
+        crosstoolReleaseCache.put(md5, release);
+      }
+      file.setCrosstool(release);
+      file.setMd5(md5);
+    }
+  }
+
+  /**
+   * Reads a crosstool file.
+   */
+  public static CrosstoolConfigurationLoader.CrosstoolFile readCrosstool(
+      ConfigurationEnvironment env,
+      CrosstoolConfigurationLoader.CrosstoolResolver crosstoolResolver, String crosstoolTop)
+      throws InvalidConfigurationException {
+    crosstoolTop = crosstoolResolver.resolveCrosstoolTop(env, crosstoolTop);
+    CrosstoolConfigurationLoader.CrosstoolFile file =
+        new CrosstoolConfigurationLoader.CrosstoolFile(crosstoolTop);
+    try {
+      findCrosstoolConfiguration(env, crosstoolResolver, file);
+      return file;
+    } catch (IOException e) {
+      throw new InvalidConfigurationException(e);
+    }
+  }
+
+  /**
+   * Selects a crosstool toolchain corresponding to the given crosstool
+   * configuration options. If all of these options are null, it returns the default
+   * toolchain specified in the crosstool release. If only cpu is non-null, it
+   * returns the default toolchain for that cpu, as specified in the crosstool
+   * release. Otherwise, all values must be non-null, and this method
+   * returns the toolchain which matches all of the values.
+   *
+   * @throws NullPointerException if {@code release} is null
+   * @throws InvalidConfigurationException if no matching toolchain can be found, or
+   *     if the input parameters do not obey the constraints described above
+   */
+  public static CrosstoolConfig.CToolchain selectToolchain(
+      CrosstoolConfig.CrosstoolRelease release, BuildOptions options,
+      Function<String, String> cpuTransformer)
+          throws InvalidConfigurationException {
+    CrosstoolConfigurationIdentifier config =
+        CrosstoolConfigurationIdentifier.fromReleaseAndCrosstoolConfiguration(release, options);
+    if ((config.getCompiler() != null) || (config.getLibc() != null)) {
+      ArrayList<CrosstoolConfig.CToolchain> candidateToolchains = new ArrayList<>();
+      for (CrosstoolConfig.CToolchain toolchain : release.getToolchainList()) {
+        if (config.isCandidateToolchain(toolchain)) {
+          candidateToolchains.add(toolchain);
+        }
+      }
+      switch (candidateToolchains.size()) {
+        case 0: {
+          StringBuilder message = new StringBuilder();
+          message.append("No toolchain found for");
+          message.append(config.describeFlags());
+          message.append(". Valid toolchains are: ");
+          describeToolchainList(message, release.getToolchainList());
+          throw new InvalidConfigurationException(message.toString());
+        }
+        case 1:
+          return candidateToolchains.get(0);
+        default: {
+          StringBuilder message = new StringBuilder();
+          message.append("Multiple toolchains found for");
+          message.append(config.describeFlags());
+          message.append(": ");
+          describeToolchainList(message, candidateToolchains);
+          throw new InvalidConfigurationException(message.toString());
+        }
+      }
+    }
+    String selectedIdentifier = null;
+    // We use fake CPU values to allow cross-platform builds for other languages that use the
+    // C++ toolchain. Translate to the actual target architecture.
+    String desiredCpu = cpuTransformer.apply(config.getCpu());
+    for (CrosstoolConfig.DefaultCpuToolchain selector : release.getDefaultToolchainList()) {
+      if (selector.getCpu().equals(desiredCpu)) {
+        selectedIdentifier = selector.getToolchainIdentifier();
+        break;
+      }
+    }
+    checkToolChain(selectedIdentifier, desiredCpu);
+    for (CrosstoolConfig.CToolchain toolchain : release.getToolchainList()) {
+      if (toolchain.getToolchainIdentifier().equals(selectedIdentifier)) {
+        return toolchain;
+      }
+    }
+    throw new InvalidConfigurationException("Inconsistent crosstool configuration; no toolchain "
+        + "corresponding to '" + selectedIdentifier + "' found for cpu '" + config.getCpu() + "'");
+  }
+
+  private static String describeToolchainFlags(CrosstoolConfig.CToolchain toolchain) {
+    return CrosstoolConfigurationIdentifier.fromToolchain(toolchain).describeFlags();
+  }
+
+  /**
+   * Appends a series of toolchain descriptions (as the blaze command line flags
+   * that would specify that toolchain) to 'message'.
+   */
+  private static void describeToolchainList(StringBuilder message,
+      Collection<CrosstoolConfig.CToolchain> toolchains) {
+    message.append("[");
+    for (CrosstoolConfig.CToolchain toolchain : toolchains) {
+      message.append(describeToolchainFlags(toolchain));
+      message.append(",");
+    }
+    message.append("]");
+  }
+
+  /**
+   * Makes sure that {@code selectedIdentifier} is a valid identifier for a toolchain,
+   * i.e. it starts with a letter or an underscore and continues with only dots, dashes,
+   * spaces, letters, digits or underscores (i.e. matches the following regular expression:
+   * "[a-zA-Z_][\.\- \w]*").
+   *
+   * @throws InvalidConfigurationException if selectedIdentifier is null or does not match the
+   *         aforementioned regular expression.
+   */
+  private static void checkToolChain(String selectedIdentifier, String cpu)
+      throws InvalidConfigurationException {
+    if (selectedIdentifier == null) {
+      throw new InvalidConfigurationException("No toolchain found for cpu '" + cpu + "'");
+    }
+    // If you update this regex, please do so in the javadoc comment too, and also in the
+    // crosstool_config.proto file.
+    String rx = "[a-zA-Z_][\\.\\- \\w]*";
+    if (!selectedIdentifier.matches(rx)) {
+      throw new InvalidConfigurationException("Toolchain identifier for cpu '" + cpu + "' " +
+          "is illegal (does not match '" + rx + "')");
+    }
+  }
+
+  public static CrosstoolConfig.CrosstoolRelease getCrosstoolReleaseProto(
+      ConfigurationEnvironment env, BuildOptions options, CrosstoolResolver crosstoolResolver,
+      String crosstoolTop) throws InvalidConfigurationException {
+    CrosstoolConfigurationLoader.CrosstoolFile file =
+        readCrosstool(env, crosstoolResolver, crosstoolTop);
+    // Make sure that we have the requested toolchain in the result. Throw an exception if not.
+    crosstoolResolver.selectToolchain(file.getProto(), options);
+    return file.getProto();
+  }
+}

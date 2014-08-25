@@ -11,17 +11,29 @@
 // WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
 // See the License for the specific language governing permissions and
 // limitations under the License.
-package com.google.devtools.build.lib.skyframe;
+package com.google.devtools.build.lib.rules.cpp;
 
-import com.google.devtools.build.lib.packages.NoSuchPackageException;
+import com.google.devtools.build.lib.actions.Artifact;
+import com.google.devtools.build.lib.concurrent.ThreadSafety.Immutable;
 
 /**
- * Used to indicate a filesystem inconsistency detected during package loading.
+ * Structure for C++ module maps. Stores the name of the module and a .cppmap artifact.
  */
-public class InconsistentFilesystemDuringPackageLoadingException
-    extends NoSuchPackageException {
-  public InconsistentFilesystemDuringPackageLoadingException(String packageName,
-     InconsistentFilesystemException e) {
-    super(packageName, e.getMessage());
+@Immutable
+public class CppModuleMap {
+  private final Artifact artifact;
+  private final String name;
+
+  public CppModuleMap(Artifact artifact, String name) {
+    this.artifact = artifact;
+    this.name = name;
+  }
+
+  public Artifact getArtifact() {
+    return artifact;
+  }
+
+  public String getName() {
+    return name;
   }
 }

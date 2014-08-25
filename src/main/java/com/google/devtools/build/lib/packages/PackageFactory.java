@@ -55,6 +55,7 @@ import com.google.devtools.build.lib.vfs.UnixGlob;
 import java.io.IOException;
 import java.util.Collections;
 import java.util.HashMap;
+import java.util.HashSet;
 import java.util.List;
 import java.util.Map;
 import java.util.Set;
@@ -857,7 +858,8 @@ public final class PackageFactory {
   }
 
   private Environment loadSkylarkExtension(Path file, CachingPackageLocator locator,
-      Path root, PackageContext context, ImmutableList<Path> extensionFileStack)
+      Path root, PackageContext context, ImmutableList<Path> extensionFileStack,
+      Set<PathFragment> transitiveSkylarkExtensions)
           throws InterruptedException {
     BuildFileAST buildFileAST;
     try {
@@ -870,8 +872,8 @@ public final class PackageFactory {
 
     Environment env = skylarkRuleFactory.getSkylarkRuleClassEnvironment();
 
-    if (!loadAllImports(
-        buildFileAST, root, file, locator, env, context, extensionFileStack, false)) {
+    if (!loadAllImports(buildFileAST, root, file, locator, env, context,
+        extensionFileStack, false, transitiveSkylarkExtensions)) {
       return null;
     }
 
@@ -885,7 +887,8 @@ public final class PackageFactory {
   // Load all extensions imported in buildFileAST and update the environment.
   private boolean loadAllImports(BuildFileAST buildFileAST, Path root, Path parentFile,
       CachingPackageLocator locator, Environment parentEnv, PackageContext context,
-      ImmutableList<Path> extensionFileStack, boolean updateSkylarkRuleFactory)
+      ImmutableList<Path> extensionFileStack, boolean updateSkylarkRuleFactory,
+      Set<PathFragment> transitiveSkylarkExtensions)
       throws InterruptedException {
     // TODO(bazel-team): We should have a global cache and make sure each
     // imported file is loaded at most once.
@@ -898,12 +901,12 @@ public final class PackageFactory {
         parentEnv.setImportedExtensions(imports);
         return false;
       }
-      // TODO(bazel-team): Update the Skyframe code path in PackageFunction too.
       if (updateSkylarkRuleFactory) {
         skylarkRuleFactory.clear(file);
       }
       Environment extensionEnv = loadSkylarkExtension(file, locator, root, context,
-          ImmutableList.<Path>builder().addAll(extensionFileStack).add(file).build());
+          ImmutableList.<Path>builder().addAll(extensionFileStack).add(file).build(),
+          transitiveSkylarkExtensions);
       if (extensionEnv == null) {
         parentEnv.setImportedExtensions(imports);
         return false;
@@ -922,6 +925,7 @@ public final class PackageFactory {
       imports.put(imp, extensionEnv);
     }
     parentEnv.setImportedExtensions(imports);
+    transitiveSkylarkExtensions.addAll(imports.keySet());
     return true;
   }
 
@@ -987,10 +991,12 @@ public final class PackageFactory {
     }
 
     Path root = Package.getSourceRoot(buildFilePath, new PathFragment(packageName));
+    Set<PathFragment> transitiveSkylarkExtensions = new HashSet<>();
     if (!loadAllImports(buildFileAST, root, buildFilePath, locator, pkgEnv,
-        context, ImmutableList.<Path>of(buildFilePath), true)) {
+        context, ImmutableList.<Path>of(buildFilePath), true, transitiveSkylarkExtensions)) {
       pkgBuilder.setContainsErrors();
     }
+    pkgBuilder.setSkylarkExtensions(root, transitiveSkylarkExtensions);
 
     if (!validateAssignmentStatements(pkgEnv, buildFileAST, eventHandler)) {
       pkgBuilder.setContainsErrors();

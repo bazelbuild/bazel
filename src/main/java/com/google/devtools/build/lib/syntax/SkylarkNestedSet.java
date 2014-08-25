@@ -100,7 +100,7 @@ public final class SkylarkNestedSet implements Iterable<Object> {
    * generic safety is guaranteed from the caller side.
    */
   SkylarkNestedSet(Class<?> genericType, NestedSet<?> set) {
-    // This is here for the sake of FuncallExcpression.
+    // This is here for the sake of FuncallExpression.
     this.genericType = Preconditions.checkNotNull(genericType, "type cannot be null");
     this.set = Preconditions.checkNotNull(set, "set cannot be null");
     this.items = null;

@@ -17,9 +17,11 @@ package com.google.devtools.build.lib.view;
 import com.google.devtools.build.lib.actions.Artifact;
 import com.google.devtools.build.lib.collect.nestedset.NestedSet;
 import com.google.devtools.build.lib.concurrent.ThreadSafety.Immutable;
+import com.google.devtools.build.lib.syntax.ClassObject;
 import com.google.devtools.build.lib.syntax.Label;
 import com.google.devtools.build.lib.syntax.SkylarkBuiltin;
 import com.google.devtools.build.lib.syntax.SkylarkCallable;
+import com.google.devtools.build.lib.syntax.SkylarkNestedSet;
 
 import javax.annotation.Nullable;
 
@@ -30,7 +32,7 @@ import javax.annotation.Nullable;
  */
 @Immutable
 @SkylarkBuiltin(name = "FileProvider", doc = "An interface for rules that provide files.")
-public final class FileProvider implements TransitiveInfoProvider {
+public final class FileProvider implements TransitiveInfoProvider, ClassObject {
 
   @Nullable private final Label label;
   private final NestedSet<Artifact> filesToBuild;
@@ -51,6 +53,17 @@ public final class FileProvider implements TransitiveInfoProvider {
       throw new UnsupportedOperationException();
     }
     return label;
+  }
+
+  @Override
+  public Object getValue(String name) {
+    if (name.equals("label")) {
+      return getLabel();
+    } else if (name.equals("files_to_build")) {
+      return SkylarkNestedSet.of(Artifact.class, filesToBuild);
+    } else {
+      return null;
+    }
   }
 
   /**

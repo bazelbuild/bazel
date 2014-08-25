@@ -13,23 +13,29 @@
 // limitations under the License.
 package com.google.devtools.build.lib.standalone;
 
+import com.google.common.eventbus.Subscribe;
 import com.google.devtools.build.lib.actions.ActionContextConsumer;
 import com.google.devtools.build.lib.actions.ActionContextProvider;
 import com.google.devtools.build.lib.blaze.BlazeModule;
+import com.google.devtools.build.lib.blaze.BlazeRuntime;
+import com.google.devtools.build.lib.blaze.Command;
+import com.google.devtools.build.lib.buildtool.BuildRequest;
+import com.google.devtools.build.lib.buildtool.buildevent.BuildStartingEvent;
 
 /**
  * StandaloneModule provides pluggable functionality for blaze.
  */
 public class StandaloneModule extends BlazeModule {
-  private final ActionContextProvider actionContextProvider = new StandaloneContextProvider();
   private final ActionContextConsumer actionContextConsumer = new StandaloneContextConsumer();
-  
+  private BuildRequest buildRequest;
+  private BlazeRuntime runtime;
+
   /**
    * Returns the action context provider the module contributes to Blaze, if any.
    */
   @Override
   public ActionContextProvider getActionContextProvider() {
-    return actionContextProvider;
+    return new StandaloneContextProvider(runtime, buildRequest);
   }
 
   /**
@@ -40,4 +46,14 @@ public class StandaloneModule extends BlazeModule {
     return actionContextConsumer;
   }
 
+  @Override
+  public void beforeCommand(BlazeRuntime runtime, Command command) {
+    this.runtime = runtime;
+    runtime.getEventBus().register(this);
+  }
+
+  @Subscribe
+  public void buildStarting(BuildStartingEvent event) {
+    buildRequest = event.getRequest();
+  }
 }
