@@ -176,6 +176,20 @@ int GetTerminalColumns() {
 // directory, using the given argument vector.
 // This function does not return on success.
 void ExecuteProgram(string exe, const vector<string>& args_vector) {
+  if (VerboseLogging()) {
+    string dbg;
+    for (const auto& s : args_vector) {
+      dbg.append(s);
+      dbg.append(" ");
+    }
+
+    char cwd[PATH_MAX] = {};
+    getcwd(cwd, sizeof(cwd));
+
+    fprintf(stderr, "Invoking binary %s in %s:\n  %s\n",
+            exe.c_str(), cwd, dbg.c_str());
+  }
+
   // Copy to a char* array for execv:
   int n = args_vector.size();
   const char **argv = new const char *[n + 1];
@@ -236,5 +250,10 @@ void CheckValidPortOrDie(const string& str, const string& option) {
       "Invalid argument to %s: '%s' (must be a valid port number).\n",
       option.c_str(), str.c_str());
 }
+
+bool VerboseLogging() {
+  return getenv("VERBOSE_BLAZE_CLIENT") != NULL;
+}
+
 
 }  // namespace blaze

@@ -470,7 +470,7 @@ static void StartStandalone() {
   // Wall clock time since process startup.
   globals->startup_time = ProcessClock() / 1000000LL;
 
-  if (SPAM) {
+  if (VerboseLogging()) {
     fprintf(stderr, "Starting blaze in batch mode.\n");
   }
   string command = globals->option_processor.GetCommand();
@@ -1087,7 +1087,7 @@ static void SendServerRequest(void) {
       // There's a distant possibility that the two paths look the same yet are
       // actually different because the two processes have different mount
       // tables.
-      if (SPAM) {
+      if (VerboseLogging()) {
         fprintf(stderr, "Server's cwd moved or deleted (%s).\n",
                 server_cwd.c_str());
       }
@@ -1100,7 +1100,7 @@ static void SendServerRequest(void) {
 
   FILE *fp = fdopen(socket, "r");  // use buffering for reads--it's faster
 
-  if (SPAM) {
+  if (VerboseLogging()) {
     fprintf(stderr, "Connected (server pid=%d).\n", globals->server_pid);
   }
 

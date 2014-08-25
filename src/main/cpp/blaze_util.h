@@ -99,5 +99,7 @@ bool GetNullaryOption(const char *arg, const char *key);
 
 void CheckValidPortOrDie(const string& str, const string& option);
 
+bool VerboseLogging();
+
 }  // namespace blaze
 #endif  // DEVTOOLS_BLAZE_MAIN_BLAZE_UTIL_H__
