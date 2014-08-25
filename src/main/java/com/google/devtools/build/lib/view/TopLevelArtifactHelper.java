@@ -67,8 +67,8 @@ public final class TopLevelArtifactHelper {
       for (String outputGroup : options.outputGroups()) {
         NestedSet<Artifact> results = topLevelArtifactProvider.getOutputGroup(outputGroup);
         if (results != null) {
-          allArtifacts.addTransitive(results);
-        }
+          allArtifacts.addTransitive(results);            
+        }         
       }
     }
 

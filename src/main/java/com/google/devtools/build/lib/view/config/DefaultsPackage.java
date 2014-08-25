@@ -70,6 +70,7 @@ public final class DefaultsPackage {
    * Returns a string of the defaults package with the given settings.
    */
   private String getContent() {
+    Preconditions.checkState(!values.isEmpty());
     StringBuilder result = new StringBuilder(HEADER);
     for (Map.Entry<String, ImmutableSet<Label>> entry : values.entrySet()) {
       result

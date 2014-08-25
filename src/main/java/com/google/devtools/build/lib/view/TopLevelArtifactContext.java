@@ -70,7 +70,7 @@ public final class TopLevelArtifactContext {
   public Set<String> outputGroups() {
     return outputGroups;
   }
-
+  
   // TopLevelArtifactContexts are stored in maps in BuildView,
   // so equals() and hashCode() need to work.
   @Override
