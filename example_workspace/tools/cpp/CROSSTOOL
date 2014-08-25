@@ -1,0 +1,81 @@
+major_version: "local"
+minor_version: ""
+default_target_cpu: "k8"
+default_toolchain {
+  cpu: "k8"
+  toolchain_identifier: "local"
+}
+
+toolchain {
+  abi_version: "local"
+  abi_libc_version: "local"
+  builtin_sysroot: ""
+  compiler: "compiler"
+  host_system_name: "local"
+  needsPic: true
+  supports_gold_linker: true
+  supports_incremental_linker: true
+  supports_fission: true
+  supports_interface_shared_objects: true
+  supports_normalizing_ar: true
+  supports_start_end_lib: true
+  supports_thin_archives: true
+  target_libc: "local"
+  target_cpu: "local"
+  target_system_name: "local"
+  toolchain_identifier: "local"
+
+  tool_path { name: "ar" path: "/usr/bin/ar" }
+
+  tool_path { name: "compat-ld" path: "/usr/bin/ld" }
+
+  tool_path { name: "cpp" path: "/usr/bin/cpp" }
+
+  tool_path { name: "dwp" path: "/usr/bin/dwp" }
+
+  tool_path { name: "gcc" path: "/usr/bin/gcc" }
+
+  compilation_mode_flags {
+    mode: FASTBUILD
+  }
+  compilation_mode_flags {
+    mode: DBG
+
+  }
+  compilation_mode_flags {
+    mode: COVERAGE
+  }
+
+  compilation_mode_flags {
+    mode: OPT
+
+  }
+
+  cxx_builtin_include_directory: "/usr/include"
+  cxx_builtin_include_directory: "/usr/lib/gcc"
+
+  tool_path { name: "gcov" path: "/usr/bin/gcov" }
+
+  tool_path { name: "ld" path: "/usr/bin/ld" }
+
+  linking_mode_flags {
+    mode: FULLY_STATIC
+  }
+
+  tool_path { name: "nm" path: "/usr/bin/nm" }
+
+  tool_path { name: "objcopy" path: "/usr/bin/objcopy" }
+  objcopy_embed_flag: "-I"
+  objcopy_embed_flag: "binary"
+
+  tool_path { name: "objdump" path: "/usr/bin/objdump" }
+
+  tool_path { name: "strip" path: "/usr/bin/strip" }
+
+  linking_mode_flags {
+    mode: MOSTLY_STATIC
+  }
+  linking_mode_flags {
+    mode: DYNAMIC
+  }
+}

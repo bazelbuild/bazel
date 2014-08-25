@@ -1,3 +1,1 @@
-exports_files([
-    "genrule-setup.sh",
-])
+exports_files(["genrule-setup.sh"])
