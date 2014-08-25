@@ -11,13 +11,11 @@
 // WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
 // See the License for the specific language governing permissions and
 // limitations under the License.
-package com.google.devtools.build.lib.view.filegroup;
+package com.google.devtools.build.lib.bazel.rules.common;
 
-import static com.google.devtools.build.lib.packages.Attribute.ConfigurationTransition.DATA;
 import static com.google.devtools.build.lib.packages.Attribute.attr;
 import static com.google.devtools.build.lib.packages.Type.LABEL_LIST;
-import static com.google.devtools.build.lib.packages.Type.LICENSE;
-import static com.google.devtools.build.lib.packages.Type.STRING;
+import static com.google.devtools.build.lib.packages.Type.STRING_LIST;
 
 import com.google.devtools.build.lib.packages.RuleClass;
 import com.google.devtools.build.lib.packages.RuleClass.Builder;
@@ -25,22 +23,25 @@ import com.google.devtools.build.lib.view.BaseRuleClasses;
 import com.google.devtools.build.lib.view.BlazeRule;
 import com.google.devtools.build.lib.view.RuleDefinition;
 import com.google.devtools.build.lib.view.RuleDefinitionEnvironment;
+import com.google.devtools.build.lib.view.extra.ActionListener;
 
 /**
- * Rule object implementing "filegroup".
+ * Rule definition for action_listener rule.
  */
-@BlazeRule(name = "filegroup",
-             ancestors = { BaseRuleClasses.BaseRule.class },
-             factoryClass = Filegroup.class)
-public final class FilegroupRule implements RuleDefinition {
+@BlazeRule(name = "action_listener",
+             ancestors = { BaseRuleClasses.RuleBase.class },
+             factoryClass = ActionListener.class)
+public final class BazelActionListenerRule implements RuleDefinition {
   @Override
-  public RuleClass build(Builder builder, RuleDefinitionEnvironment env) {
-    // filegroup ignores any filtering set with setSrcsAllowedFiles.
+  public RuleClass build(Builder builder, RuleDefinitionEnvironment environment) {
     return builder
-        .add(attr("srcs", LABEL_LIST))
-        .add(attr("data", LABEL_LIST).cfg(DATA))
-        .add(attr("output_licenses", LICENSE).nonconfigurable())
-        .add(attr("path", STRING))
+        .add(attr("mnemonics", STRING_LIST).mandatory())
+        .add(attr("extra_actions", LABEL_LIST).mandatory()
+            .allowedRuleClasses("extra_action")
+            .allowedFileTypes())
+        .removeAttribute("deps")
+        .removeAttribute("data")
+        .removeAttribute(":action_listener")
         .build();
   }
 }

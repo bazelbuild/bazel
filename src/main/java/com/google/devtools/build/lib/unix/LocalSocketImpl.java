@@ -13,8 +13,6 @@
 // limitations under the License.
 package com.google.devtools.build.lib.unix;
 
-import com.google.common.jni.JniLoader;
-
 import java.io.Closeable;
 import java.io.FileDescriptor;
 import java.io.FileInputStream;
@@ -41,7 +39,7 @@ class LocalSocketImpl extends SocketImpl {
       Logger.getLogger(LocalSocketImpl.class.getName());
 
   static {
-    JniLoader.loadLibrary("com/google/devtools/build/lib/libunix_lite_jni.so");
+    UnixJniLoader.loadJni();
     init();
   }
 

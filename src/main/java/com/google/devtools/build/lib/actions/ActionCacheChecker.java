@@ -21,6 +21,7 @@ import com.google.devtools.build.lib.actions.cache.ActionCache;
 import com.google.devtools.build.lib.actions.cache.Digest;
 import com.google.devtools.build.lib.actions.cache.Metadata;
 import com.google.devtools.build.lib.actions.cache.MetadataHandler;
+import com.google.devtools.build.lib.events.Event;
 import com.google.devtools.build.lib.events.EventKind;
 import com.google.devtools.build.lib.events.Reporter;
 import com.google.devtools.build.lib.pkgcache.PackageUpToDateChecker;
@@ -369,7 +370,7 @@ public class ActionCacheChecker {
      * Reports a dependency-checking event, which explains why an Action is being rebuilt (or not).
      */
     public void depchecker(String message) {
-      reporter.depchecker(message);
+      reporter.handle(new Event(EventKind.DEPCHECKER, null, message));
     }
 
     /** Returns a DepcheckerListener if the reporter handles DEPCHECKER events, null otherwise. */

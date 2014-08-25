@@ -11,11 +11,14 @@
 // WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
 // See the License for the specific language governing permissions and
 // limitations under the License.
-package com.google.devtools.build.lib.view.test;
+package com.google.devtools.build.lib.bazel.rules.common;
 
+import static com.google.devtools.build.lib.packages.Attribute.ConfigurationTransition.HOST;
 import static com.google.devtools.build.lib.packages.Attribute.attr;
 import static com.google.devtools.build.lib.packages.Type.BOOLEAN;
 import static com.google.devtools.build.lib.packages.Type.LABEL_LIST;
+import static com.google.devtools.build.lib.packages.Type.STRING;
+import static com.google.devtools.build.lib.packages.Type.STRING_LIST;
 
 import com.google.devtools.build.lib.packages.RuleClass;
 import com.google.devtools.build.lib.packages.RuleClass.Builder;
@@ -23,23 +26,24 @@ import com.google.devtools.build.lib.view.BaseRuleClasses;
 import com.google.devtools.build.lib.view.BlazeRule;
 import com.google.devtools.build.lib.view.RuleDefinition;
 import com.google.devtools.build.lib.view.RuleDefinitionEnvironment;
+import com.google.devtools.build.lib.view.extra.ExtraActionFactory;
 
 /**
- * Rule object implementing "test_suite".
+ * Rule definition for extra_action rule.
  */
-@BlazeRule(name = "test_suite",
-             ancestors = { BaseRuleClasses.BaseRule.class },
-             factoryClass = TestSuite.class)
-public final class TestSuiteRule implements RuleDefinition {
+@BlazeRule(name = "extra_action",
+             ancestors = { BaseRuleClasses.RuleBase.class },
+             factoryClass = ExtraActionFactory.class)
+public final class BazelExtraActionRule implements RuleDefinition {
   @Override
-  public RuleClass build(Builder builder, RuleDefinitionEnvironment env) {
+  public RuleClass build(Builder builder, RuleDefinitionEnvironment environment) {
     return builder
-        .override(attr("testonly", BOOLEAN).nonconfigurable().value(true))
-        .add(attr("tests", LABEL_LIST).orderIndependent().nonconfigurable())
-        .add(attr("suites", LABEL_LIST).orderIndependent().nonconfigurable())
-        // This magic attribute contains all *test rules in the package, iff
-        // tests=[] and suites=[]:
-        .add(attr("$implicit_tests", LABEL_LIST).nonconfigurable())
+        .add(attr("tools", LABEL_LIST).cfg(HOST).allowedFileTypes().exec())
+        .add(attr("out_templates", STRING_LIST))
+        .add(attr("cmd", STRING).mandatory())
+        .add(attr("requires_action_output", BOOLEAN))
+        .removeAttribute("deps")
+        .removeAttribute(":action_listener")
         .build();
   }
 }

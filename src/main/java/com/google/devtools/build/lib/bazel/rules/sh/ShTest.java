@@ -28,7 +28,7 @@ public class ShTest extends ShBinary implements RuleConfiguredTargetFactory {
   @Override
   protected Artifact getExecutableScript(RuleContext ruleContext, Artifact src) {
     if (ruleContext.attributes().get("bash_version", Type.STRING)
-        .equals(ShRuleClasses.SYSTEM_BASH_VERSION)) {
+        .equals(BazelShRuleClasses.SYSTEM_BASH_VERSION)) {
       return src;
     }
 
@@ -38,8 +38,8 @@ public class ShTest extends ShBinary implements RuleConfiguredTargetFactory {
     Artifact testRunner = ruleContext.getAnalysisEnvironment().getDerivedArtifact(
         newOutput, ruleContext.getConfiguration().getBinDirectory());
 
-    String bashPath = ShRuleClasses.BASH_BINARY_BINDINGS
-        .get(ShRuleClasses.SYSTEM_BASH_VERSION).execPath;
+    String bashPath = BazelShRuleClasses.BASH_BINARY_BINDINGS
+        .get(BazelShRuleClasses.SYSTEM_BASH_VERSION).execPath;
 
     // Generate the runner contents.
     String runnerContents = new StringBuilder()

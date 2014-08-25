@@ -39,7 +39,7 @@ import javax.annotation.Nullable;
 /**
  * Rule definitions for rule classes implementing shell support.
  */
-public final class ShRuleClasses {
+public final class BazelShRuleClasses {
 
   static final Collection<String> ALLOWED_RULES_IN_DEPS_WITH_WARNING = ImmutableSet.of(
       "filegroup", "Fileset", "genrule", "sh_binary", "sh_test", "test_suite");

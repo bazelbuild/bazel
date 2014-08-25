@@ -31,7 +31,6 @@ public final class BazelMain {
   );
 
   public static void main(String[] args) {
-    System.loadLibrary("unix");
     BlazeRuntime.main(BAZEL_MODULES, args);
   }
 }

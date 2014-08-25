@@ -25,14 +25,21 @@ public interface EventHandler {
   /**
    * Returns true iff the given tag matches the output filter.
    */
-  // TODO(bazel-team): We probably don't need this; when we have one instance per configured
-  // target, we can filter on that instead.
-  boolean showOutput(String tag);
+  // This method is used for the --output_filter option. This would be more 
+  // cleanly implemented by storing the 'tag' in Event, so this method does not have to 
+  // be propagated to all callers, except that test output is treated especially 
+  // (--output_filter is ignored for --test_output={errors,streamed}), which 
+  // breaks the generality.
+  boolean showOutput(String label);
 
   /**
    * Returns the set of event kinds that this event handler is interested
    * in receiving.
    */
+  // TODO(bazel-team): this should rather be implemented by having the handle()
+  // method inspect event.getKind(), so this method does not have to be implemented        
+  // in all EventHandlers. Unfortunately, this is  also used for Reporter.hasHandlerFor, which 
+  // is used for discovering if certain options are set, (e.g. --subcommands, --explain). 
   Set<EventKind> getEventMask();
 
   /**

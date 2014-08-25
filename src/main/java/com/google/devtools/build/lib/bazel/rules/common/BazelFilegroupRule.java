@@ -11,14 +11,13 @@
 // WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
 // See the License for the specific language governing permissions and
 // limitations under the License.
-package com.google.devtools.build.lib.view.extra;
+package com.google.devtools.build.lib.bazel.rules.common;
 
-import static com.google.devtools.build.lib.packages.Attribute.ConfigurationTransition.HOST;
+import static com.google.devtools.build.lib.packages.Attribute.ConfigurationTransition.DATA;
 import static com.google.devtools.build.lib.packages.Attribute.attr;
-import static com.google.devtools.build.lib.packages.Type.BOOLEAN;
 import static com.google.devtools.build.lib.packages.Type.LABEL_LIST;
+import static com.google.devtools.build.lib.packages.Type.LICENSE;
 import static com.google.devtools.build.lib.packages.Type.STRING;
-import static com.google.devtools.build.lib.packages.Type.STRING_LIST;
 
 import com.google.devtools.build.lib.packages.RuleClass;
 import com.google.devtools.build.lib.packages.RuleClass.Builder;
@@ -26,23 +25,23 @@ import com.google.devtools.build.lib.view.BaseRuleClasses;
 import com.google.devtools.build.lib.view.BlazeRule;
 import com.google.devtools.build.lib.view.RuleDefinition;
 import com.google.devtools.build.lib.view.RuleDefinitionEnvironment;
+import com.google.devtools.build.lib.view.filegroup.Filegroup;
 
 /**
- * Rule definition for extra_action rule.
+ * Rule object implementing "filegroup".
  */
-@BlazeRule(name = "extra_action",
-             ancestors = { BaseRuleClasses.RuleBase.class },
-             factoryClass = ExtraActionFactory.class)
-public final class ExtraActionRule implements RuleDefinition {
+@BlazeRule(name = "filegroup",
+             ancestors = { BaseRuleClasses.BaseRule.class },
+             factoryClass = Filegroup.class)
+public final class BazelFilegroupRule implements RuleDefinition {
   @Override
-  public RuleClass build(Builder builder, RuleDefinitionEnvironment environment) {
+  public RuleClass build(Builder builder, RuleDefinitionEnvironment env) {
+    // filegroup ignores any filtering set with setSrcsAllowedFiles.
     return builder
-        .add(attr("tools", LABEL_LIST).cfg(HOST).allowedFileTypes().exec())
-        .add(attr("out_templates", STRING_LIST))
-        .add(attr("cmd", STRING).mandatory())
-        .add(attr("requires_action_output", BOOLEAN))
-        .removeAttribute("deps")
-        .removeAttribute(":action_listener")
+        .add(attr("srcs", LABEL_LIST))
+        .add(attr("data", LABEL_LIST).cfg(DATA))
+        .add(attr("output_licenses", LICENSE).nonconfigurable())
+        .add(attr("path", STRING))
         .build();
   }
 }

@@ -14,7 +14,7 @@
 package com.google.devtools.build.lib.bazel.rules.sh;
 
 import com.google.devtools.build.lib.bazel.rules.BazelBaseRuleClasses;
-import com.google.devtools.build.lib.bazel.rules.sh.ShRuleClasses.ShRule;
+import com.google.devtools.build.lib.bazel.rules.sh.BazelShRuleClasses.ShRule;
 import com.google.devtools.build.lib.packages.RuleClass;
 import com.google.devtools.build.lib.packages.RuleClass.Builder;
 import com.google.devtools.build.lib.view.BlazeRule;
@@ -27,7 +27,7 @@ import com.google.devtools.build.lib.view.RuleDefinitionEnvironment;
 @BlazeRule(name = "sh_binary",
              ancestors = { ShRule.class, BazelBaseRuleClasses.BinaryBaseRule.class },
              factoryClass = ShBinary.class)
-public final class ShBinaryRule implements RuleDefinition {
+public final class BazelShBinaryRule implements RuleDefinition {
   @Override
   public RuleClass build(Builder builder, RuleDefinitionEnvironment environment) {
     return builder.build();

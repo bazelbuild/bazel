@@ -12,13 +12,13 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-package com.google.common.jni;
+package com.google.devtools.build.lib.unix;
 
 /**
- * This is a temporary class until we have cleaned up the code not to call this.
+ * A class to load JNI dependencies for tests.
  */
-public class JniLoader {
-  public static void loadLibrary(@SuppressWarnings("unused") String library) {
+public class UnixJniLoader {
+  public static void loadJni() {
     System.loadLibrary("unix");
   }
 }

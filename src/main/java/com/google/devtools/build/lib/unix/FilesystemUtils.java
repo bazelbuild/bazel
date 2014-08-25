@@ -15,7 +15,6 @@
 package com.google.devtools.build.lib.unix;
 
 import com.google.common.hash.HashCode;
-import com.google.common.jni.JniLoader;
 
 import java.io.File;
 import java.io.FileNotFoundException;
@@ -118,7 +117,7 @@ public final class FilesystemUtils {
         }
       }.start();
     }
-    JniLoader.loadLibrary("com/google/devtools/build/lib/libunix_lite_jni.so");
+    UnixJniLoader.loadJni();
   }
 
   /**

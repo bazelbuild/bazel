@@ -16,7 +16,7 @@ package com.google.devtools.build.lib.bazel.rules.sh;
 import static com.google.devtools.build.lib.packages.Attribute.attr;
 import static com.google.devtools.build.lib.packages.Type.LABEL_LIST;
 
-import com.google.devtools.build.lib.bazel.rules.sh.ShRuleClasses.ShRule;
+import com.google.devtools.build.lib.bazel.rules.sh.BazelShRuleClasses.ShRule;
 import com.google.devtools.build.lib.packages.RuleClass;
 import com.google.devtools.build.lib.packages.RuleClass.Builder;
 import com.google.devtools.build.lib.view.BlazeRule;
@@ -29,7 +29,7 @@ import com.google.devtools.build.lib.view.RuleDefinitionEnvironment;
 @BlazeRule(name = "sh_library",
              ancestors = { ShRule.class },
              factoryClass = ShLibrary.class)
-public final class ShLibraryRule implements RuleDefinition {
+public final class BazelShLibraryRule implements RuleDefinition {
   @Override
   public RuleClass build(Builder builder, RuleDefinitionEnvironment environment) {
     return builder

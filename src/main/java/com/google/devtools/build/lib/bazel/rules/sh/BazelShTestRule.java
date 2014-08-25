@@ -13,7 +13,7 @@
 // limitations under the License.
 package com.google.devtools.build.lib.bazel.rules.sh;
 
-import com.google.devtools.build.lib.bazel.rules.sh.ShRuleClasses.ShRule;
+import com.google.devtools.build.lib.bazel.rules.sh.BazelShRuleClasses.ShRule;
 import com.google.devtools.build.lib.packages.RuleClass;
 import com.google.devtools.build.lib.packages.RuleClass.Builder;
 import com.google.devtools.build.lib.packages.RuleClass.Builder.RuleClassType;
@@ -29,7 +29,7 @@ import com.google.devtools.build.lib.view.RuleDefinitionEnvironment;
              type = RuleClassType.TEST,
              ancestors = { ShRule.class, BaseRuleClasses.TestBaseRule.class },
              factoryClass = ShTest.class)
-public final class ShTestRule implements RuleDefinition {
+public final class BazelShTestRule implements RuleDefinition {
   @Override
   public RuleClass build(Builder builder, RuleDefinitionEnvironment environment) {
     return builder

@@ -38,7 +38,7 @@ import com.google.devtools.build.lib.view.RuleDefinitionEnvironment;
 @BlazeRule(name = "genrule",
              ancestors = { BaseRuleClasses.RuleBase.class },
              factoryClass = GenRule.class)
-public final class GenRuleRule implements RuleDefinition {
+public final class BazelGenRuleRule implements RuleDefinition {
   public static final String GENRULE_SETUP_LABEL = "//tools/genrule:genrule-setup.sh";
 
   @Override

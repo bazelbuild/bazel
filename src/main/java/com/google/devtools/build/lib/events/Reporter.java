@@ -175,14 +175,6 @@ public final class Reporter implements EventHandler, ExceptionListener {
   }
 
   /**
-   * Reports a dependency-checking event, which explains why an Action is being
-   * rebuilt (or not).
-   */
-  public void depchecker(String message) {
-    handle(new Event(EventKind.DEPCHECKER, null, message));
-  }
-
-  /**
    * Returns true iff the given tag matches the output filter.
    */
   @Override

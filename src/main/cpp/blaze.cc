@@ -272,7 +272,8 @@ static vector<string> GetArgumentArray() {
   result.push_back("-Dfile.encoding=ISO-8859-1");
 
   if (globals->options.host_jvm_debug) {
-    fprintf(stderr, "Running host JVM under debugger...\n");
+    fprintf(stderr,
+            "Running host JVM under debugger (listening on TCP port 5005).\n");
     // Start JVM so that it listens for a connection from a
     // JDWP-compliant debugger:
     result.push_back("-Xdebug");

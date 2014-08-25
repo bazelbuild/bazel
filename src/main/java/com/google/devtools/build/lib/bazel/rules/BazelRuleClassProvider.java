@@ -18,12 +18,16 @@ import com.google.common.annotations.VisibleForTesting;
 import com.google.common.base.Functions;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
+import com.google.devtools.build.lib.bazel.rules.common.BazelActionListenerRule;
+import com.google.devtools.build.lib.bazel.rules.common.BazelExtraActionRule;
+import com.google.devtools.build.lib.bazel.rules.common.BazelFilegroupRule;
+import com.google.devtools.build.lib.bazel.rules.common.BazelTestSuiteRule;
 import com.google.devtools.build.lib.bazel.rules.cpp.BazelCppRuleClasses;
-import com.google.devtools.build.lib.bazel.rules.genrule.GenRuleRule;
-import com.google.devtools.build.lib.bazel.rules.sh.ShBinaryRule;
-import com.google.devtools.build.lib.bazel.rules.sh.ShLibraryRule;
-import com.google.devtools.build.lib.bazel.rules.sh.ShRuleClasses;
-import com.google.devtools.build.lib.bazel.rules.sh.ShTestRule;
+import com.google.devtools.build.lib.bazel.rules.genrule.BazelGenRuleRule;
+import com.google.devtools.build.lib.bazel.rules.sh.BazelShBinaryRule;
+import com.google.devtools.build.lib.bazel.rules.sh.BazelShLibraryRule;
+import com.google.devtools.build.lib.bazel.rules.sh.BazelShRuleClasses;
+import com.google.devtools.build.lib.bazel.rules.sh.BazelShTestRule;
 import com.google.devtools.build.lib.packages.Attribute;
 import com.google.devtools.build.lib.packages.PackageGroup;
 import com.google.devtools.build.lib.packages.Rule;
@@ -44,10 +48,6 @@ import com.google.devtools.build.lib.view.RuleContext;
 import com.google.devtools.build.lib.view.config.BuildConfiguration;
 import com.google.devtools.build.lib.view.config.ConfigRuleClasses;
 import com.google.devtools.build.lib.view.config.FragmentOptions;
-import com.google.devtools.build.lib.view.extra.ActionListenerRule;
-import com.google.devtools.build.lib.view.extra.ExtraActionRule;
-import com.google.devtools.build.lib.view.filegroup.FilegroupRule;
-import com.google.devtools.build.lib.view.test.TestSuiteRule;
 
 /**
  * A rule class provider implementing the rules Bazel knows.
@@ -141,14 +141,14 @@ public class BazelRuleClassProvider {
     builder.addRuleDefinition(BazelBaseRuleClasses.ErrorRule.class);
     builder.addRuleDefinition(ConfigRuleClasses.ConfigBaseRule.class);
     builder.addRuleDefinition(ConfigRuleClasses.ConfigSettingRule.class);
-    builder.addRuleDefinition(FilegroupRule.class);
-    builder.addRuleDefinition(TestSuiteRule.class);
-    builder.addRuleDefinition(GenRuleRule.class);
+    builder.addRuleDefinition(BazelFilegroupRule.class);
+    builder.addRuleDefinition(BazelTestSuiteRule.class);
+    builder.addRuleDefinition(BazelGenRuleRule.class);
 
-    builder.addRuleDefinition(ShRuleClasses.ShRule.class);
-    builder.addRuleDefinition(ShLibraryRule.class);
-    builder.addRuleDefinition(ShBinaryRule.class);
-    builder.addRuleDefinition(ShTestRule.class);
+    builder.addRuleDefinition(BazelShRuleClasses.ShRule.class);
+    builder.addRuleDefinition(BazelShLibraryRule.class);
+    builder.addRuleDefinition(BazelShBinaryRule.class);
+    builder.addRuleDefinition(BazelShTestRule.class);
 
     builder.addRuleDefinition(CcToolchainRule.class);
     builder.addRuleDefinition(BazelCppRuleClasses.CcLinkingRule.class);
@@ -161,8 +161,8 @@ public class BazelRuleClassProvider {
     builder.addRuleDefinition(BazelCppRuleClasses.CcLibraryBaseRule.class);
     builder.addRuleDefinition(BazelCppRuleClasses.CcLibraryRule.class);
 
-    builder.addRuleDefinition(ExtraActionRule.class);
-    builder.addRuleDefinition(ActionListenerRule.class);
+    builder.addRuleDefinition(BazelExtraActionRule.class);
+    builder.addRuleDefinition(BazelActionListenerRule.class);
 
     CrosstoolResolver crosstoolResolver = new PackagePathCrosstoolResolver(
         Functions.<String>identity());

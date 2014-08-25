@@ -14,7 +14,6 @@
 
 package com.google.devtools.build.lib.unix;
 
-import com.google.common.jni.JniLoader;
 
 /**
  * A subsclass of FileStatus which contains an errno.
@@ -85,7 +84,7 @@ public class ErrnoFileStatus extends FileStatus {
     }
 
     static {
-      JniLoader.loadLibrary("com/google/devtools/build/lib/libunix_lite_jni.so");
+      UnixJniLoader.loadJni();
     }
 
     private native void initErrnoConstants();

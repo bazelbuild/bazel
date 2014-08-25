@@ -13,8 +13,6 @@
 // limitations under the License.
 package com.google.devtools.build.lib.unix;
 
-import com.google.common.jni.JniLoader;
-
 import java.io.Closeable;
 import java.io.FileDescriptor;
 import java.io.IOException;
@@ -173,7 +171,7 @@ abstract class LocalSocket implements Closeable {
   // JNI:
 
   static {
-    JniLoader.loadLibrary("com/google/devtools/build/lib/libunix_lite_jni.so");
+    UnixJniLoader.loadJni();
   }
 
   // The native calls below are thin wrappers around linux system calls. The

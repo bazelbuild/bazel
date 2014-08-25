@@ -13,7 +13,6 @@
 // limitations under the License.
 package com.google.devtools.build.lib.unix;
 
-import com.google.common.jni.JniLoader;
 
 /**
  * Various utilities related to UNIX processes.
@@ -23,7 +22,7 @@ public final class ProcessUtils {
   private ProcessUtils() {}
 
   static {
-    JniLoader.loadLibrary("com/google/devtools/build/lib/libunix_lite_jni.so");
+    UnixJniLoader.loadJni();
   }
 
   /**

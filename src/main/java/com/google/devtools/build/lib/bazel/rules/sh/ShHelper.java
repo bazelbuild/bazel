@@ -43,9 +43,10 @@ final class ShHelper {
         .getExecutable();
 
     // Create the sar package, but don't add it to filesToBuild; it's only built when requested.
-    Artifact sarOutput = ruleContext.getImplicitOutputArtifact(ShRuleClasses.SAR_PACKAGE_FILENAME);
+    Artifact sarOutput =
+        ruleContext.getImplicitOutputArtifact(BazelShRuleClasses.SAR_PACKAGE_FILENAME);
 
-    String bashPath = ShRuleClasses.BASH_BINARY_BINDINGS.get(bashVersion).execPath;
+    String bashPath = BazelShRuleClasses.BASH_BINARY_BINDINGS.get(bashVersion).execPath;
 
     // Generate the creating command.
     StringBuilder cmd = new StringBuilder();
@@ -58,7 +59,7 @@ final class ShHelper {
     cmd.append(" --minloglevel=1");
     cmd.append(" --compress=gzip");
     // If using an embedded bash, specify where to find it.
-    if (!bashVersion.equals(ShRuleClasses.SYSTEM_BASH_VERSION)) {
+    if (!bashVersion.equals(BazelShRuleClasses.SYSTEM_BASH_VERSION)) {
      cmd.append(" --bash=google3/" + bashPath);
     }
 

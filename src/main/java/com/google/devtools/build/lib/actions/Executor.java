@@ -98,8 +98,6 @@ public interface Executor {
    * they should throw an ActionExecutionException. Calling showOutput on the returned object is
    * not hermetic.
    */
-  // TODO(bazel-team): This should be removed in favor of reporting problems / debug output to
-  // OutErr.
   EventHandler getReporter();
 
   /**
