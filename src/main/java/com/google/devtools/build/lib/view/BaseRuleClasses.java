@@ -155,7 +155,7 @@ public class BaseRuleClasses {
           .add(attr(":coverage_support", LABEL_LIST).cfg(HOST).value(COVERAGE_SUPPORT))
 
           // The target itself and run_under both run on the same machine. We use the DATA config
-          // here because the run_under acts like a data dependency.
+          // here because the run_under acts like a data dependency (e.g. no LIPO optimization).
           .add(attr(":run_under", LABEL).cfg(DATA).value(RUN_UNDER))
           .build();
     }

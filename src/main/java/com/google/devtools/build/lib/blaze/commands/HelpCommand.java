@@ -15,7 +15,6 @@ package com.google.devtools.build.lib.blaze.commands;
 
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
-import com.google.common.collect.Maps;
 import com.google.devtools.build.docgen.BlazeRuleHelpPrinter;
 import com.google.devtools.build.lib.blaze.BlazeCommand;
 import com.google.devtools.build.lib.blaze.BlazeCommandUtils;

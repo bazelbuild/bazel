@@ -40,9 +40,6 @@ final class Classpath {
     String pathPrefix = (packageName + '.').replace('.', '/');
     for (String entryName : getClassPath()) {
       File classPathEntry = new File(entryName);
-      // Ignore missing entries; we may or may not run without certain .jar files on the classpath
-      // in some cases in the future if we are reasonably confident that they aren't needed for the
-      // test.
       if (classPathEntry.exists()) {
         try {
           Set<String> classNames;
