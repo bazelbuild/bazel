@@ -19,6 +19,7 @@ syntax = "proto2";
 
 package blaze_query;
 
+
 option java_package = "com.google.devtools.build.lib.query2.proto.proto2api";
 
 message License {

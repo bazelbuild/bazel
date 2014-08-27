@@ -18,6 +18,7 @@ syntax = "proto2";
 
 option java_package = "com.google.devtools.build.lib.view.config.crosstool";
 
+
 package com.google.devtools.build.lib.view.config.crosstool;
 
 // A description of a toolchain, which includes all the tools generally expected
@@ -259,3 +260,4 @@ message CrosstoolRelease {
   // All the toolchains in this release.
   repeated CToolchain toolchain = 5;
 }
+
