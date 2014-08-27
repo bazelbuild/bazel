@@ -287,6 +287,12 @@ public abstract class CcLibrary implements RuleConfiguredTargetFactory {
 
   private static void warnAboutEmptyLibraries(RuleContext ruleContext,
       List<Artifact> linkerInputs, LinkTargetType linkType, boolean linkstaticAttribute) {
+    if (ruleContext.getFragment(CppConfiguration.class).isLipoContextCollector()) {
+      // Do not signal warnings in the lipo context collector configuration. These will be duly
+      // signaled in the target configuration, and there can be spurious warnings since targets in
+      // the LIPO context collector configuration do not compile anything.
+      return;
+    }
     if (linkerInputs.isEmpty()) {
       if (linkType == LinkTargetType.ALWAYS_LINK_STATIC_LIBRARY
           || linkType == LinkTargetType.ALWAYS_LINK_PIC_STATIC_LIBRARY) {

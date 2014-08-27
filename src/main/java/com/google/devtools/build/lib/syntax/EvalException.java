@@ -57,6 +57,11 @@ public class EvalException extends Exception {
   private EvalException(Location location, Throwable cause) {
     super(cause);
     this.location = location;
+    // This is only used from Skylark, it's useful for debugging. Note that this only happens
+    // when the Precondition below kills the execution anyway.
+    if (cause.getMessage() == null) {
+      cause.printStackTrace();
+    }
     this.message = Preconditions.checkNotNull(cause.getMessage());
     this.dueToIncompleteAST = false;
   }

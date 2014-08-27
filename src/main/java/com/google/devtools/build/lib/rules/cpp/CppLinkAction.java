@@ -141,7 +141,11 @@ public final class CppLinkAction extends ConfigurationAction
   }
 
   @Override
-  public CppConfiguration getCppConfiguration() {
+  public List<PathFragment> getBuiltInIncludeDirectories() {
+    return getCppConfiguration().getBuiltInIncludeDirectories();
+  }
+
+  private CppConfiguration getCppConfiguration() {
     return configuration.getFragment(CppConfiguration.class);
   }
 

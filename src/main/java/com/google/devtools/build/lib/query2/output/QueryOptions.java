@@ -28,7 +28,9 @@ public class QueryOptions extends OptionsBase {
   @Option(name = "output",
       defaultValue = "label",
       category = "query",
-      help = "The format in which the query results should be printed.")
+      help = "The format in which the query results should be printed."
+          + " Allowed values are: label, label_kind, minrank, maxrank, package, location, graph,"
+          + " xml, proto, record.")
   public String outputFormat;
 
   @Option(name = "keep_going",

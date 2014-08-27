@@ -19,10 +19,12 @@ import com.google.common.cache.CacheBuilder;
 import com.google.common.collect.HashBasedTable;
 import com.google.common.collect.ImmutableSet;
 import com.google.common.collect.Table;
+import com.google.devtools.build.lib.bazel.rules.cpp.BazelCppRuleClasses.CppTransition;
 import com.google.devtools.build.lib.events.Event;
 import com.google.devtools.build.lib.events.EventHandler;
 import com.google.devtools.build.lib.packages.AggregatingAttributeMapper;
 import com.google.devtools.build.lib.packages.Attribute.ConfigurationTransition;
+import com.google.devtools.build.lib.packages.Attribute.Transition;
 import com.google.devtools.build.lib.packages.NoSuchThingException;
 import com.google.devtools.build.lib.packages.Rule;
 import com.google.devtools.build.lib.packages.Target;
@@ -173,7 +175,7 @@ public class BazelConfigurationCollection implements ConfigurationCollectionFact
     Set<BuildConfiguration> allConfigurations = ImmutableSet.of(targetConfiguration,
         dataConfiguration, hostConfiguration);
 
-    Table<BuildConfiguration, ConfigurationTransition, ConfigurationHolder> transitionBuilder =
+    Table<BuildConfiguration, Transition, ConfigurationHolder> transitionBuilder =
         HashBasedTable.create();
     for (BuildConfiguration from : allConfigurations) {
       for (ConfigurationTransition transition : ConfigurationTransition.values()) {
@@ -187,6 +189,15 @@ public class BazelConfigurationCollection implements ConfigurationCollectionFact
         }
         transitionBuilder.put(from, transition, new ConfigurationHolder(to));
       }
+    }
+
+    // TODO(bazel-team): This makes LIPO totally not work. Just a band-aid until we get around to
+    // implementing a way for the C++ rules to contribute this transition to the configuration
+    // collection.
+    for (BuildConfiguration config : allConfigurations) {
+      transitionBuilder.put(config, CppTransition.LIPO_COLLECTOR, new ConfigurationHolder(config));
+      transitionBuilder.put(config, CppTransition.TARGET_CONFIG_FOR_LIPO,
+          new ConfigurationHolder(config.isHostConfiguration() ? null : config));
     }
 
     for (BuildConfiguration config : allConfigurations) {

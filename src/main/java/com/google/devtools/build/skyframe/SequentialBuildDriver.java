@@ -17,10 +17,9 @@ import com.google.common.base.Preconditions;
 import com.google.devtools.build.lib.events.EventHandler;
 
 /**
- * A driver for an auto-updating graph which operates over monotonically increasing integer
- * versions.
+ * A driver for auto-updating graphs which operate over monotonically increasing integer versions.
  */
-public class SequentialBuildDriver {
+public class SequentialBuildDriver implements BuildDriver {
   private final MemoizingEvaluator memoizingEvaluator;
   private IntVersion curVersion;
 
@@ -39,7 +38,7 @@ public class SequentialBuildDriver {
     }
   }
 
-  public MemoizingEvaluator getGraph() {
+  public MemoizingEvaluator getGraphForTesting() {
     return memoizingEvaluator;
   }
 }

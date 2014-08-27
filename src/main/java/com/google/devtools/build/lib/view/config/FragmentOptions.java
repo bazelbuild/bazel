@@ -14,14 +14,17 @@
 
 package com.google.devtools.build.lib.view.config;
 
+import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.Multimap;
+import com.google.devtools.build.lib.packages.Attribute.SplitTransition;
 import com.google.devtools.build.lib.syntax.Label;
 import com.google.devtools.build.lib.syntax.Label.SyntaxException;
 import com.google.devtools.common.options.Options;
 import com.google.devtools.common.options.OptionsBase;
 
 import java.io.Serializable;
+import java.util.List;
 import java.util.Map;
 import java.util.Set;
 
@@ -36,8 +39,11 @@ public abstract class FragmentOptions extends OptionsBase implements Cloneable, 
    * <p>There should generally be no code duplication between this code and DefaultsPackage. Either
    * the labels are loaded unconditionally using this method, or they are added as magic labels
    * using the tools/defaults package, but not both.
+   *
+   * @param labelMap a mutable multimap to which the labels of this fragment should be added
    */
-  public abstract void addAllLabels(Multimap<String, Label> labelMap);
+  public void addAllLabels(Multimap<String, Label> labelMap) {
+  }
 
   /**
    * Returns the labels contributed to the defaults package by this fragment.
@@ -48,6 +54,14 @@ public abstract class FragmentOptions extends OptionsBase implements Cloneable, 
   @SuppressWarnings("unused")
   public Map<String, Set<Label>> getDefaultsLabels(BuildConfiguration.Options commonOptions) {
     return ImmutableMap.of();
+  }
+
+  /**
+   * Returns a list of potential split configuration transitions for this fragment. Split
+   * configurations usually need to be explicitly enabled by passing in an option.
+   */
+  public List<SplitTransition<BuildOptions>> getPotentialSplitTransitions() {
+    return ImmutableList.of();
   }
 
   @Override

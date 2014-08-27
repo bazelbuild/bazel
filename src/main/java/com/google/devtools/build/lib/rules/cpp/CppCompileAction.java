@@ -109,7 +109,8 @@ public class CppCompileAction extends ConfigurationAction implements IncludeScan
   private final CppCompileCommandLine cppCompileCommandLine;
   private final boolean enableModules;
 
-  private final CppConfiguration cppConfiguration;
+  @VisibleForTesting
+  final CppConfiguration cppConfiguration;
   private final Class<? extends CppCompileActionContext> actionContext;
   private final IncludeResolver includeResolver;
 
@@ -211,8 +212,8 @@ public class CppCompileAction extends ConfigurationAction implements IncludeScan
   }
 
   @Override
-  public CppConfiguration getCppConfiguration() {
-    return cppConfiguration;
+  public List<PathFragment> getBuiltInIncludeDirectories() {
+    return cppConfiguration.getBuiltInIncludeDirectories();
   }
 
   @Override
@@ -425,7 +426,7 @@ public class CppCompileAction extends ConfigurationAction implements IncludeScan
   @Override
   public ExtraActionInfo.Builder getExtraActionInfo() {
     CppCompileInfo.Builder info = CppCompileInfo.newBuilder();
-    info.setTool(getCppConfiguration().getToolPathFragment(Tool.GCC).getPathString());
+    info.setTool(cppConfiguration.getToolPathFragment(Tool.GCC).getPathString());
     for (String option : getCompilerOptions()) {
       info.addCompilerOption(option);
     }
@@ -474,7 +475,7 @@ public class CppCompileAction extends ConfigurationAction implements IncludeScan
   public void validateInclusions(
       MiddlemanExpander middlemanExpander, EventHandler eventHandler)
       throws ActionExecutionException {
-    if (!getCppConfiguration().shouldScanIncludes() || !inputsKnown()) {
+    if (!cppConfiguration.shouldScanIncludes() || !inputsKnown()) {
       return;
     }
 
@@ -490,7 +491,7 @@ public class CppCompileAction extends ConfigurationAction implements IncludeScan
 
     Iterables.addAll(allowedIncludes, optionalInputs);
     List<PathFragment> cxxSystemIncludeDirs =
-        getCppConfiguration().getBuiltInIncludeDirectories();
+        cppConfiguration.getBuiltInIncludeDirectories();
     Iterable<PathFragment> ignoreDirs = Iterables.concat(cxxSystemIncludeDirs,
         extraSystemIncludePrefixes, context.getSystemIncludeDirs());
 
@@ -619,7 +620,7 @@ public class CppCompileAction extends ConfigurationAction implements IncludeScan
   public final void updateActionInputs(Path execRoot,
       ArtifactResolver artifactResolver, CppCompileActionContext.Reply reply)
       throws ActionExecutionException {
-    if (!getCppConfiguration().shouldScanIncludes()) {
+    if (!cppConfiguration.shouldScanIncludes()) {
       return;
     }
     inputsKnown = false;
@@ -684,7 +685,7 @@ public class CppCompileAction extends ConfigurationAction implements IncludeScan
       DependencySet depSet = processDepset(execRoot, reply);
 
       // Determine prefixes of allowed absolute inclusions.
-      CppConfiguration toolchain = getCppConfiguration();
+      CppConfiguration toolchain = cppConfiguration;
       List<PathFragment> systemIncludePrefixes = new ArrayList<>();
       for (PathFragment includePath : toolchain.getBuiltInIncludeDirectories()) {
         if (includePath.isAbsolute()) {
@@ -932,7 +933,7 @@ public class CppCompileAction extends ConfigurationAction implements IncludeScan
     message.append('\n');
     message.append("  Command: ");
     message.append(
-        ShellEscaper.escapeString(getCppConfiguration().getLdExecutable().getPathString()));
+        ShellEscaper.escapeString(cppConfiguration.getLdExecutable().getPathString()));
     message.append('\n');
     // Outputting one argument per line makes it easier to diff the results.
     for (String argument : ShellEscaper.escapeAll(getArgv())) {
@@ -996,7 +997,7 @@ public class CppCompileAction extends ConfigurationAction implements IncludeScan
       List<String> commandLine = new ArrayList<>();
 
       // first: The command name.
-      commandLine.add(getCppConfiguration().getToolPathFragment(Tool.GCC).getPathString());
+      commandLine.add(cppConfiguration.getToolPathFragment(Tool.GCC).getPathString());
 
       // second: The compiler options.
       commandLine.addAll(getCompilerOptions());
@@ -1047,7 +1048,7 @@ public class CppCompileAction extends ConfigurationAction implements IncludeScan
         options.add(systemIncludePath.getSafePathString());
       }
 
-      CppConfiguration toolchain = getCppConfiguration();
+      CppConfiguration toolchain = cppConfiguration;
 
       // pluginOpts has to be added before defaultCopts because -fplugin must precede -plugin-arg.
       options.addAll(pluginOpts);

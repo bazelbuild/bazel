@@ -49,6 +49,7 @@ import com.google.devtools.build.lib.view.RunfilesProvider;
 import com.google.devtools.build.lib.view.RunfilesSupport;
 import com.google.devtools.build.lib.view.TransitiveInfoCollection;
 import com.google.devtools.build.lib.view.TransitiveInfoProvider;
+import com.google.devtools.build.lib.view.actions.CommandLine;
 import com.google.devtools.build.lib.view.actions.FileWriteAction;
 import com.google.devtools.build.lib.view.actions.SpawnAction;
 import com.google.devtools.build.lib.view.actions.TemplateExpansionAction;
@@ -73,6 +74,9 @@ public class SkylarkRuleImplementationFunctions {
   @SkylarkBuiltin(name = "DATA", doc = "The data runfiles collection state.")
   private static final Object dataState = RunfilesProvider.DATA_RUNFILES;
 
+  @SkylarkBuiltin(name = "Cmd", doc = "Module for creating memory efficient command lines.")
+  private static final Object Cmd = SkylarkCommandLine.module;
+
   public static final Map<String, Object> JAVA_OBJECTS_TO_EXPOSE =
       new ImmutableMap.Builder<String, Object>()
           .put("Files", SkylarkFileset.class)
@@ -80,6 +84,7 @@ public class SkylarkRuleImplementationFunctions {
           // also these symbols should be protected from being overwritten.
           .put("DEFAULT", defaultState)
           .put("DATA", dataState)
+          .put("Cmd", Cmd)
           .build();
 
   private static ImmutableList<Function> getBuiltinFunctions() {
@@ -117,6 +122,7 @@ public class SkylarkRuleImplementationFunctions {
       @Param(name = "arguments", type = List.class, doc = "command line arguments of the action"),
       @Param(name = "mnemonic", type = String.class, doc = "mnemonic"),
       @Param(name = "command", doc = "shell command to execute"),
+      @Param(name = "command_line", doc = "a command line to execute"),
       @Param(name = "register", type = Boolean.class,
           doc = "whether to register the action with the analysis environment"),
       @Param(name = "progress_message", type = String.class, doc = "progress message"),
@@ -149,17 +155,19 @@ public class SkylarkRuleImplementationFunctions {
         }
       }
       if (params.containsKey("command")) {
-        if (params.containsKey("command")) {
-          Object command = params.get("command");
-          if (command instanceof String) {
-            builder.setShellCommand((String) command);
-          } else if (command instanceof List) {
-            builder.setShellCommand(castList(command, String.class, "command"));
-          } else {
-            throw new EvalException(loc, "expected string or list of strings for "
-                + "command instead of " + EvalUtils.getDatatypeName(command));
-          }
+        Object command = params.get("command");
+        if (command instanceof String) {
+          builder.setShellCommand((String) command);
+        } else if (command instanceof List) {
+          builder.setShellCommand(castList(command, String.class, "command"));
+        } else {
+          throw new EvalException(loc, "expected string or list of strings for "
+              + "command instead of " + EvalUtils.getDatatypeName(command));
         }
+      }
+      if (params.containsKey("command_line")) {
+        builder.setCommandLine(CommandLine.ofCharSequences(ImmutableList.copyOf(castList(
+            params.get("command_line"), CharSequence.class, "command line"))));
       }
       if (params.containsKey("mnemonic")) {
         builder.setMnemonic(
@@ -448,6 +456,7 @@ public class SkylarkRuleImplementationFunctions {
       // Blaze completely (including testing) we can remove this.
       env = new SkylarkEnvironment();
       MethodLibrary.setupMethodEnvironment(env);
+      SkylarkCommandLine.registerFunctions(env);
       for (Map.Entry<String, Object> object
           : SkylarkRuleClassFunctions.JAVA_OBJECTS_TO_EXPOSE.entrySet()) {
         env.update(object.getKey(), object.getValue());
@@ -471,6 +480,7 @@ public class SkylarkRuleImplementationFunctions {
 
     MethodLibrary.setupValidationEnvironment(builtIn);
     SkylarkAttr.setupValidationEnvironment(builtIn);
+    SkylarkCommandLine.setupValidationEnvironment(builtIn);
     SkylarkFunction.collectSkylarkFunctionReturnTypesFromFields(
         SkylarkRuleClassFunctions.class, builtIn);
     SkylarkFunction.collectSkylarkFunctionReturnTypesFromFields(

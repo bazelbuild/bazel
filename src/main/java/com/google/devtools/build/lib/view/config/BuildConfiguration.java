@@ -1101,7 +1101,7 @@ public final class BuildConfiguration implements ClassObject {
    * @return the new configurations
    */
   @VisibleForTesting
-  List<BuildConfiguration> getSplitConfigurations(SplitTransition transition) {
+  List<BuildConfiguration> getSplitConfigurations(SplitTransition<?> transition) {
     return transitions.getSplitConfigurations(transition);
   }
 

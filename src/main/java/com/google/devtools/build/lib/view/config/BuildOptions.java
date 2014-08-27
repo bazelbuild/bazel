@@ -21,6 +21,7 @@ import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.ImmutableSet;
 import com.google.common.collect.ListMultimap;
+import com.google.devtools.build.lib.packages.Attribute.SplitTransition;
 import com.google.devtools.build.lib.syntax.Label;
 import com.google.devtools.common.options.Options;
 import com.google.devtools.common.options.OptionsBase;
@@ -29,6 +30,7 @@ import com.google.devtools.common.options.OptionsParser;
 import com.google.devtools.common.options.OptionsParsingException;
 
 import java.io.Serializable;
+import java.util.ArrayList;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
@@ -64,6 +66,18 @@ public final class BuildOptions implements Cloneable, Serializable {
       builder.add(options.getHost(fallback));
     }
     return builder.build();
+  }
+
+  /**
+   * Returns a list of potential split configuration transitions by calling {@link
+   * FragmentOptions#getPotentialSplitTransitions} on all the fragments.
+   */
+  public List<SplitTransition<BuildOptions>> getPotentialSplitTransitions() {
+    List<SplitTransition<BuildOptions>> result = new ArrayList<>();
+    for (FragmentOptions options : fragmentOptionsMap.values()) {
+      result.addAll(options.getPotentialSplitTransitions());
+    }
+    return result;
   }
 
   /**

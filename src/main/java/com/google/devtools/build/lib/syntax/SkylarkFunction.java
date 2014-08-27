@@ -21,6 +21,7 @@ import com.google.common.collect.Iterables;
 import com.google.devtools.build.lib.events.Location;
 import com.google.devtools.build.lib.packages.Type;
 import com.google.devtools.build.lib.packages.Type.ConversionException;
+import com.google.devtools.build.lib.syntax.EvalException.EvalExceptionWithJavaCause;
 import com.google.devtools.build.lib.syntax.SkylarkType.SkylarkFunctionType;
 
 import java.lang.reflect.Field;
@@ -130,7 +131,12 @@ public abstract class SkylarkFunction extends AbstractFunction {
       return call(arguments.build(), ast, env);
     } catch (ConversionException | IllegalArgumentException | IllegalStateException
         | ClassCastException | ClassNotFoundException | ExecutionException e) {
-      throw new EvalException(ast.getLocation(), e.getMessage());
+      if (e.getMessage() != null) {
+        throw new EvalException(ast.getLocation(), e.getMessage());
+      } else {
+        // TODO(bazel-team): ideally this shouldn't happen, however we need this for debugging
+        throw new EvalExceptionWithJavaCause(ast.getLocation(), e);
+      }
     }
   }
 

@@ -60,6 +60,7 @@ class OptionProcessor {
 
   virtual string FindDepotBlazerc(const string& workspace);
   virtual string FindUserBlazerc(const char* cmdLineRcFile,
+                                 const string& rc_basename,
                                  const string& workspace);
 
  private:

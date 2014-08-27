@@ -14,6 +14,7 @@
 
 package com.google.devtools.build.lib.view.config;
 
+import com.google.devtools.build.lib.concurrent.ThreadSafety.Immutable;
 import com.google.devtools.build.lib.syntax.Label;
 import com.google.devtools.build.lib.view.TransitiveInfoProvider;
 
@@ -25,16 +26,29 @@ import com.google.devtools.build.lib.view.TransitiveInfoProvider;
  * conditions which trigger a configurable attribute branch. In general,
  * this can be used to trigger for any user-configurable build behavior.
  */
-public interface ConfigMatchingProvider extends TransitiveInfoProvider {
+@Immutable
+public final class ConfigMatchingProvider implements TransitiveInfoProvider {
+
+  private final Label label;
+  private final boolean matches;
+
+  public ConfigMatchingProvider(Label label, boolean matches) {
+    this.label = label;
+    this.matches = matches;
+  }
 
   /**
    * The target's label.
    */
-  Label label();
+  public Label label() {
+    return label;
+  }
 
   /**
    * Whether or not the configuration criteria defined by this target match
    * its actual configuration.
    */
-  boolean matches();
+  public boolean matches() {
+    return matches;
+  }
 }

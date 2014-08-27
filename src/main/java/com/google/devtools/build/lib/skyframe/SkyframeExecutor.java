@@ -88,6 +88,7 @@ import com.google.devtools.build.lib.view.config.BuildOptions;
 import com.google.devtools.build.lib.view.config.ConfigurationFactory;
 import com.google.devtools.build.lib.view.config.ConfigurationFragmentFactory;
 import com.google.devtools.build.lib.view.config.InvalidConfigurationException;
+import com.google.devtools.build.skyframe.BuildDriver;
 import com.google.devtools.build.skyframe.CycleInfo;
 import com.google.devtools.build.skyframe.CyclesReporter;
 import com.google.devtools.build.skyframe.Differencer.Diff;
@@ -166,7 +167,7 @@ public final class SkyframeExecutor {
   private ActionLogBufferPathGenerator actionLogBufferPathGenerator;
 
   private RecordingDifferencer recordingDiffer;
-  private SequentialBuildDriver sequentialBuildDriver;
+  private BuildDriver buildDriver;
 
   private final DiffAwarenessManager diffAwarenessManager;
 
@@ -395,8 +396,8 @@ public final class SkyframeExecutor {
   }
 
   @VisibleForTesting
-  public SequentialBuildDriver getDriverForTesting() {
-    return sequentialBuildDriver;
+  public BuildDriver getDriverForTesting() {
+    return buildDriver;
   }
 
   class BuildViewProvider {
@@ -424,7 +425,7 @@ public final class SkyframeExecutor {
         directories.getBuildDataDirectory(), pkgFactory, allowedMissingInputs);
     memoizingEvaluator = evaluatorSupplier.create(
         skyFunctions, recordingDiffer, progressReceiver, emittedEventState, keepGraphEdges);
-    sequentialBuildDriver = new SequentialBuildDriver(memoizingEvaluator);
+    buildDriver = new SequentialBuildDriver(memoizingEvaluator);
     diffAwarenessManager.reset();
     if (skyframeBuildView != null) {
       skyframeBuildView.clearLegacyData();
@@ -443,9 +444,12 @@ public final class SkyframeExecutor {
   }
 
   /**
-   * Deletes all ConfiguredTarget values from the Skyframe cache.
+   * Deletes all ConfiguredTarget values from the Skyframe cache. This is done to save memory (e.g.
+   * on a configuration change); since the configuration is part of the key, these key/value pairs
+   * will be sitting around doing nothing until the configuration changes back to the previous
+   * value.
    *
-   * <p>The next evaluation delete all invalid values.
+   * <p>The next evaluation will delete all invalid values.
    */
   public void dropConfiguredTargets() {
     if (skyframeBuildView != null) {
@@ -468,8 +472,8 @@ public final class SkyframeExecutor {
    */
   @VisibleForTesting
   public void invalidateConfigurationCollection() {
-    memoizingEvaluator.delete(SkyFunctionName.functionIsIn(ImmutableSet.of(
-        SkyFunctions.CONFIGURATION_FRAGMENT, SkyFunctions.CONFIGURATION_COLLECTION)));
+    invalidate(SkyFunctionName.functionIsIn(ImmutableSet.of(SkyFunctions.CONFIGURATION_FRAGMENT,
+            SkyFunctions.CONFIGURATION_COLLECTION)));
   }
 
   /**
@@ -489,7 +493,7 @@ public final class SkyframeExecutor {
       callUninterruptibly(new Callable<Void>() {
         @Override
         public Void call() throws InterruptedException {
-          sequentialBuildDriver.evaluate(ImmutableList.<SkyKey>of(), false,
+          buildDriver.evaluate(ImmutableList.<SkyKey>of(), false,
               ResourceUsage.getAvailableProcessors(), reporter);
           return null;
         }
@@ -628,7 +632,7 @@ public final class SkyframeExecutor {
   /** Returns the build-info.txt and build-changelist.txt artifacts. */
   public Collection<Artifact> getWorkspaceStatusArtifacts() throws InterruptedException {
     // Should already be present, unless the user didn't request any targets for analysis.
-    EvaluationResult<WorkspaceStatusValue> result = sequentialBuildDriver.evaluate(
+    EvaluationResult<WorkspaceStatusValue> result = buildDriver.evaluate(
         ImmutableList.of(WorkspaceStatusValue.SKY_KEY), /*keepGoing=*/false, /*numThreads=*/1,
         reporter);
     WorkspaceStatusValue value = result.get(WorkspaceStatusValue.SKY_KEY);
@@ -655,6 +659,10 @@ public final class SkyframeExecutor {
 
   public ImmutableList<Path> getPathEntries() {
     return pkgLocator.get().getPathEntries();
+  }
+
+  private void invalidate(Predicate<SkyKey> pred) {
+    recordingDiffer.invalidate(Iterables.filter(memoizingEvaluator.getValues().keySet(), pred));
   }
 
   /**
@@ -776,7 +784,7 @@ public final class SkyframeExecutor {
     // Before running the FilesystemValueChecker, ensure that all values marked for invalidation
     // have actually been invalidated (recall that invalidation happens at the beginning of the
     // next evaluate() call), because checking those is a waste of time.
-    sequentialBuildDriver.evaluate(ImmutableList.<SkyKey>of(), false,
+    buildDriver.evaluate(ImmutableList.<SkyKey>of(), false,
         DEFAULT_THREAD_COUNT, reporter);
     FilesystemValueChecker fsnc = new FilesystemValueChecker(memoizingEvaluator, tsgm);
     // We need to manually check for changes to known files. This entails finding all dirty file
@@ -870,7 +878,7 @@ public final class SkyframeExecutor {
   private void setPackageLocator(PathPackageLocator pkgLocator) {
     PathPackageLocator oldLocator = this.pkgLocator.getAndSet(pkgLocator);
     if ((oldLocator == null || !oldLocator.getPathEntries().equals(pkgLocator.getPathEntries()))) {
-      memoizingEvaluator.delete(SkyFunctionName.functionIsIn(PACKAGE_LOCATOR_DEPENDENT_VALUES));
+      invalidate(SkyFunctionName.functionIsIn(PACKAGE_LOCATOR_DEPENDENT_VALUES));
 
       // The package path is read not only by SkyFunctions but also by some other code paths.
       // We need to take additional steps to keep the corresponding data structures in sync.
@@ -885,7 +893,7 @@ public final class SkyframeExecutor {
     if (!preprocessorFactory.isStillValid()) {
       Preprocessor.Factory newPreprocessorFactory = preprocessorFactorySupplier.getFactory(
           packageManager);
-      memoizingEvaluator.delete(SkyFunctionName.functionIs(SkyFunctions.PACKAGE));
+      invalidate(SkyFunctionName.functionIs(SkyFunctions.PACKAGE));
       pkgFactory.setPreprocessorFactory(newPreprocessorFactory);
       preprocessorFactory = newPreprocessorFactory;
     }
@@ -970,7 +978,7 @@ public final class SkyframeExecutor {
     SkyKey skyKey = ConfigurationCollectionValue.key(configurationKey.getBuildOptions(), 
         configurationKey.getMultiCpu());
     setConfigurationSkyKey(skyKey);
-    EvaluationResult<ConfigurationCollectionValue> result = sequentialBuildDriver.evaluate(
+    EvaluationResult<ConfigurationCollectionValue> result = buildDriver.evaluate(
             Arrays.asList(skyKey), keepGoing, DEFAULT_THREAD_COUNT, errorEventListener);
     if (result.hasError()) {
       Throwable e = result.getError(skyKey).getException();
@@ -1033,7 +1041,7 @@ public final class SkyframeExecutor {
     resourceManager.resetResourceUsage();
     try {
       progressReceiver.executionProgressReceiver = executionProgressReceiver;
-      return sequentialBuildDriver.evaluate(ArtifactValue.mandatoryKeys(artifacts), keepGoing,
+      return buildDriver.evaluate(ArtifactValue.mandatoryKeys(artifacts), keepGoing,
           numJobs, errorEventListener);
     } finally {
       progressReceiver.executionProgressReceiver = null;
@@ -1045,7 +1053,7 @@ public final class SkyframeExecutor {
   EvaluationResult<TargetPatternValue> targetPatterns(Iterable<SkyKey> patternSkyKeys,
       boolean keepGoing, EventHandler eventHandler) throws InterruptedException {
     checkActive();
-    return sequentialBuildDriver.evaluate(patternSkyKeys, keepGoing, DEFAULT_THREAD_COUNT,
+    return buildDriver.evaluate(patternSkyKeys, keepGoing, DEFAULT_THREAD_COUNT,
         eventHandler);
   }
 
@@ -1072,7 +1080,7 @@ public final class SkyframeExecutor {
           synchronized (valueLookupLock) {
             try {
               skyframeBuildView.enableAnalysis(true);
-              return sequentialBuildDriver.evaluate(skyKeys, false, DEFAULT_THREAD_COUNT,
+              return buildDriver.evaluate(skyKeys, false, DEFAULT_THREAD_COUNT,
                   errorEventListener);
             } finally {
               skyframeBuildView.enableAnalysis(false);
@@ -1160,7 +1168,7 @@ public final class SkyframeExecutor {
     checkActive();
 
     // Make sure to not run too many analysis threads. This can cause memory thrashing.
-    return sequentialBuildDriver.evaluate(ConfiguredTargetValue.keys(values), keepGoing,
+    return buildDriver.evaluate(ConfiguredTargetValue.keys(values), keepGoing,
         ResourceUsage.getAvailableProcessors(), errorEventListener);
   }
 
@@ -1175,7 +1183,7 @@ public final class SkyframeExecutor {
     BuildVariableValue.BAD_ACTIONS.set(recordingDiffer, badActions);
     // Make sure to not run too many analysis threads. This can cause memory thrashing.
     EvaluationResult<PostConfiguredTargetValue> result =
-        sequentialBuildDriver.evaluate(PostConfiguredTargetValue.keys(values), keepGoing,
+        buildDriver.evaluate(PostConfiguredTargetValue.keys(values), keepGoing,
             ResourceUsage.getAvailableProcessors(), errorEventListener);
 
     // Remove all post-configured target values immediately for memory efficiency. We are OK with
@@ -1209,7 +1217,7 @@ public final class SkyframeExecutor {
         valueNames.add(TransitiveTargetValue.key(label));
       }
 
-      return sequentialBuildDriver.evaluate(valueNames, keepGoing, DEFAULT_THREAD_COUNT,
+      return buildDriver.evaluate(valueNames, keepGoing, DEFAULT_THREAD_COUNT,
           errorEventListener);
     }
 
@@ -1223,7 +1231,7 @@ public final class SkyframeExecutor {
         return callUninterruptibly(new Callable<Set<Package>>() {
           @Override
           public Set<Package> call() throws Exception {
-            EvaluationResult<PackageValue> result = sequentialBuildDriver.evaluate(
+            EvaluationResult<PackageValue> result = buildDriver.evaluate(
                 valueNames, false, ResourceUsage.getAvailableProcessors(), errorEventListener);
             Preconditions.checkState(!result.hasError(),
                 "unexpected errors: %s", result.errorMap());
@@ -1267,7 +1275,7 @@ public final class SkyframeExecutor {
             // analysis) after a failed --nokeep_going analysis in which the configured target that
             // failed was a (transitive) dependency of the configured target that should generate
             // this action. We don't expect callers to query generating actions in such cases.
-            EvaluationResult<ActionLookupValue> result = sequentialBuildDriver.evaluate(
+            EvaluationResult<ActionLookupValue> result = buildDriver.evaluate(
                 ImmutableList.of(actionLookupKey), false, ResourceUsage.getAvailableProcessors(),
                 errorEventListener);
             return result.hasError()
@@ -1298,7 +1306,7 @@ public final class SkyframeExecutor {
       synchronized (valueLookupLock) {
         SkyKey key = PackageValue.key(new PathFragment(pkgName));
         EvaluationResult<PackageValue> result =
-            sequentialBuildDriver.evaluate(ImmutableList.of(key), false,
+            buildDriver.evaluate(ImmutableList.of(key), false,
                 DEFAULT_THREAD_COUNT, eventHandler);
         if (result.hasError()) {
           if (!Iterables.isEmpty(result.getError().getCycleInfo())) {

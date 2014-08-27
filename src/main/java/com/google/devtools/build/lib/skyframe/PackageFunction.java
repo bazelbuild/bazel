@@ -406,6 +406,7 @@ public class PackageFunction implements SkyFunction {
           markDependenciesAndPropagateInconsistentFilesystemExceptions(legacyPkg, env,
               skyframePackageLocator);
     } catch (InconsistentFilesystemException e) {
+      packageFunctionCache.remove(packageName);
       throw new PackageFunctionException(key,
           new InternalInconsistentFilesystemException(packageName, e));
     }

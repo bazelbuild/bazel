@@ -165,6 +165,9 @@ class BlazeStartupOptions {
   // Returns if workspace is a valid build workspace.
   static bool InWorkspace(const string &workspace);
 
+  // Returns the basename for the rc file.
+  static string RcBasename();
+
  private:
   // Sets default values for members.
   void Init();

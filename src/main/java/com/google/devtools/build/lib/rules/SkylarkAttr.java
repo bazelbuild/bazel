@@ -47,7 +47,7 @@ public final class SkylarkAttr {
   }
 
   @SkylarkBuiltin(name = "int", doc = "Creates a rule string class attribute.",
-      objectType = AttrModule.class,
+      objectType = SkylarkAttr.class,
       returnType = Attribute.class,
       optionalParams = {
       @Param(name = "default", doc = "the default value of the attribute"),
@@ -62,7 +62,7 @@ public final class SkylarkAttr {
     };
 
   @SkylarkBuiltin(name = "string", doc = "Creates a rule string class attribute.",
-      objectType = AttrModule.class,
+      objectType = SkylarkAttr.class,
       returnType = Attribute.class,
       optionalParams = {
       @Param(name = "default", doc = "the default value of the attribute"),
@@ -77,7 +77,7 @@ public final class SkylarkAttr {
     };
 
   @SkylarkBuiltin(name = "label", doc = "Creates a rule string class attribute.",
-      objectType = AttrModule.class,
+      objectType = SkylarkAttr.class,
       returnType = Attribute.class,
       optionalParams = {
       @Param(name = "default", doc = "the default value of the attribute"),
@@ -95,7 +95,7 @@ public final class SkylarkAttr {
     };
 
   @SkylarkBuiltin(name = "string_list", doc = "Creates a rule string_list class attribute.",
-      objectType = AttrModule.class,
+      objectType = SkylarkAttr.class,
       returnType = Attribute.class,
       optionalParams = {
       @Param(name = "default", doc = "the default value of the attribute"),
@@ -110,7 +110,7 @@ public final class SkylarkAttr {
     };
 
   @SkylarkBuiltin(name = "label_list", doc = "Creates a rule label_list class attribute.",
-      objectType = AttrModule.class,
+      objectType = SkylarkAttr.class,
       returnType = Attribute.class,
       optionalParams = {
       @Param(name = "default", doc = "the default value of the attribute"),
@@ -128,7 +128,7 @@ public final class SkylarkAttr {
     };
 
   @SkylarkBuiltin(name = "bool", doc = "Creates a rule bool class attribute.",
-      objectType = AttrModule.class,
+      objectType = SkylarkAttr.class,
       returnType = Attribute.class,
       optionalParams = {
       @Param(name = "default", doc = "the default value of the attribute"),
@@ -143,7 +143,7 @@ public final class SkylarkAttr {
     };
 
   @SkylarkBuiltin(name = "output_list", doc = "Creates a rule output_list class attribute.",
-      objectType = AttrModule.class,
+      objectType = SkylarkAttr.class,
       returnType = Attribute.class,
       optionalParams = {
       @Param(name = "default", doc = "the default value of the attribute"),
@@ -158,7 +158,7 @@ public final class SkylarkAttr {
     };
 
   @SkylarkBuiltin(name = "license", doc = "Creates a rule license class attribute.",
-      objectType = AttrModule.class,
+      objectType = SkylarkAttr.class,
       returnType = Attribute.class,
       optionalParams = {
       @Param(name = "default", doc = "the default value of the attribute"),
@@ -172,28 +172,19 @@ public final class SkylarkAttr {
       }
     };
 
-  /**
-   * Attr module object exposed in Skylark
-   */
-  public static final class AttrModule {
-    @Override
-    public String toString() { return "Attr"; }
-    private AttrModule() {}
-  }
-
-  public static final AttrModule module = new AttrModule();
+  public static final SkylarkAttr module = new SkylarkAttr();
 
   public static void registerFunctions(Environment env) {
     ImmutableList.Builder<Function> attrFunctions = ImmutableList.builder();
     SkylarkFunction.collectSkylarkFunctionsFromFields(SkylarkAttr.class, null, attrFunctions);
     for (Function fct : attrFunctions.build()) {
-      env.registerFunction(AttrModule.class, fct.getName(), fct);
+      env.registerFunction(SkylarkAttr.class, fct.getName(), fct);
     }
   }
 
   public static void setupValidationEnvironment(
       Map<SkylarkType, Map<String, SkylarkType>> builtIn) {
-    builtIn.get(SkylarkType.GLOBAL).put("Attr", SkylarkType.of(AttrModule.class));
+    builtIn.get(SkylarkType.GLOBAL).put("Attr", SkylarkType.of(SkylarkAttr.class));
     SkylarkFunction.collectSkylarkFunctionReturnTypesFromFields(
         SkylarkAttr.class, builtIn);
   }

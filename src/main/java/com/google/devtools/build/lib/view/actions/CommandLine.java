@@ -97,4 +97,21 @@ public abstract class CommandLine {
       }
     };
   }
+
+  /**
+   * Returns a Commandline with CharSequence arguments. This can be useful to create memory
+   * efficient command lines with LazyStrings.
+   */
+  public static CommandLine ofCharSequences(final ImmutableList<CharSequence> arguments) {
+    return new CommandLine() {
+      @Override
+      public Iterable<String> arguments() {
+        ImmutableList.Builder<String> builder = ImmutableList.builder();
+        for (CharSequence arg : arguments) {
+          builder.add(arg.toString());
+        }
+        return builder.build();
+      }
+    };
+  }
 }

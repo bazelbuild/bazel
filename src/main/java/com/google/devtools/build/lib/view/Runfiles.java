@@ -725,8 +725,10 @@ public final class Runfiles {
       return Iterables.concat(
           // TODO(bazel-team): This line shouldn't be here. Removing it requires that no rules have
           // dependent rules in srcs (except for filegroups and such), but always in deps.
-          getPrerequisites(ruleContext, "srcs", Mode.TARGET),
-          getPrerequisites(ruleContext, "deps", Mode.TARGET));
+          // TODO(bazel-team): DONT_CHECK is not optimal here. Rules that use split configs need to
+          // be changed not to call into here.
+          getPrerequisites(ruleContext, "srcs", Mode.DONT_CHECK),
+          getPrerequisites(ruleContext, "deps", Mode.DONT_CHECK));
     }
 
     /**

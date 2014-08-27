@@ -67,6 +67,7 @@ import com.google.devtools.build.lib.view.fileset.FilesetProvider;
 import java.util.ArrayList;
 import java.util.Collection;
 import java.util.HashMap;
+import java.util.HashSet;
 import java.util.LinkedHashSet;
 import java.util.List;
 import java.util.Map;
@@ -402,13 +403,36 @@ public final class RuleContext extends TargetContext
    */
   public Map<String, ? extends Collection<? extends TransitiveInfoCollection>>
       getSplitPrerequisites(String attributeName) {
-    checkAttribute(attributeName, Mode.SPLIT);
-    // TODO(ulfjack): Splitting by CPU is probably going to be unreliable [fat-apk].
+    Attribute attributeDefinition = getRule().getAttributeDefinition(attributeName);
+    if (!(attributeDefinition.getConfigurationTransition() instanceof SplitTransition)) {
+      throw new IllegalStateException(getRule().getLocation() + ": "
+          + getRule().getRuleClass() + " attribute " + attributeName
+          + " is not configured for a split transition");
+    }
+
+    SplitTransition<?> transition =
+        (SplitTransition<?>) attributeDefinition.getConfigurationTransition();
+    Set<String> cpus = new HashSet<>();
+    for (BuildConfiguration config :
+        getConfiguration().getTransitions().getSplitConfigurations(transition)) {
+      // This method should only be called when the split config is enabled on the command line, in
+      // which case this cpu can't be null.
+      Preconditions.checkNotNull(config.getCpu());
+      cpus.add(config.getCpu());
+    }
+
     // Use an ImmutableListMultimap.Builder here to preserve ordering.
     ImmutableListMultimap.Builder<String, ConfiguredTarget> result =
         ImmutableListMultimap.builder();
     for (ConfiguredTarget t : targetMap.get(attributeName)) {
-      result.put(t.getConfiguration().getCpu(), t);
+      if (t.getConfiguration() != null) {
+        result.put(t.getConfiguration().getCpu(), t);
+      } else {
+        // Source files don't have a configuration.
+        for (String cpu : cpus) {
+          result.put(cpu, t);
+        }
+      }
     }
     return result.build().asMap();
   }

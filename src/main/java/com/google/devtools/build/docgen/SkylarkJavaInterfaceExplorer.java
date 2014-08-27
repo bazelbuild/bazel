@@ -27,6 +27,8 @@ import java.util.Map;
 import java.util.Set;
 import java.util.TreeSet;
 
+import javax.annotation.Nullable;
+
 /**
  * A helper class to collect all the Java objects / methods reachable from Skylark.
  */
@@ -39,6 +41,7 @@ public class SkylarkJavaInterfaceExplorer {
   static final class SkylarkJavaObject implements Comparable<SkylarkJavaObject> {
 
     private final SkylarkBuiltin annotation;
+    @Nullable private final SkylarkBuiltin module;
     private final ImmutableMap<Method, SkylarkCallable> methods;
     private final ImmutableMap<String, SkylarkCallable> extraMethods;
 
@@ -48,6 +51,11 @@ public class SkylarkJavaInterfaceExplorer {
       this.annotation = Preconditions.checkNotNull(annotation);
       this.methods = methods;
       this.extraMethods = extraMethods;
+      if (annotation.objectType().isAnnotationPresent(SkylarkBuiltin.class)) {
+        module = annotation.objectType().getAnnotation(SkylarkBuiltin.class);
+      } else {
+        module = null;
+      }
     }
 
     /**
@@ -86,7 +94,11 @@ public class SkylarkJavaInterfaceExplorer {
 
     @Override
     public int hashCode() {
-      return annotation.hashCode();
+      int hashcode = annotation.hashCode();
+      if (module == null) {
+        hashcode ^= module.hashCode();
+      }
+      return hashcode;
     }
 
     @Override
@@ -94,12 +106,26 @@ public class SkylarkJavaInterfaceExplorer {
       if (!(obj instanceof SkylarkJavaObject)) {
         return false;
       }
-      return annotation.equals(((SkylarkJavaObject) obj).annotation);
+      SkylarkJavaObject o = (SkylarkJavaObject) obj;
+      if (this.module != null) {
+        if (!this.module.equals(o.module)) {
+          return false;
+        }
+      } else {
+        if (o.module != null) {
+          return false;
+        }
+      }
+      return annotation.equals(o.annotation);
     }
 
     @Override
     public int compareTo(SkylarkJavaObject o) {
-      return annotation.name().compareTo(o.annotation.name());
+      return this.name().compareTo(o.name());
+    }
+
+    public String name() {
+      return (module != null ? module.name() + "." : "") + annotation.name();
     }
   }
 

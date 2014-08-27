@@ -24,14 +24,12 @@ import com.google.devtools.build.lib.collect.nestedset.Order;
 import com.google.devtools.build.lib.packages.NonconfigurableAttributeMapper;
 import com.google.devtools.build.lib.packages.Type;
 import com.google.devtools.build.lib.rules.RuleConfiguredTargetFactory;
-import com.google.devtools.build.lib.syntax.Label;
 import com.google.devtools.build.lib.view.ConfiguredTarget;
 import com.google.devtools.build.lib.view.FileProvider;
 import com.google.devtools.build.lib.view.FilesToRunProvider;
 import com.google.devtools.build.lib.view.RuleConfiguredTargetBuilder;
 import com.google.devtools.build.lib.view.RuleContext;
 import com.google.devtools.build.lib.view.RunfilesProvider;
-
 import com.google.devtools.common.options.OptionsBase;
 import com.google.devtools.common.options.OptionsParser;
 import com.google.devtools.common.options.OptionsParsingException;
@@ -48,6 +46,7 @@ import java.util.Map;
  */
 public class ConfigSetting implements RuleConfiguredTargetFactory {
 
+  @Override
   public ConfiguredTarget create(RuleContext ruleContext) throws InterruptedException {
     // Get the required flag=value settings for this rule.
     List<List<String>> settings = NonconfigurableAttributeMapper.of(ruleContext.getRule())
@@ -60,12 +59,8 @@ public class ConfigSetting implements RuleConfiguredTargetFactory {
 
     ConfigMatchingProvider configMatcher;
     try {
-      final boolean match = matchesConfig(settings, ruleContext.getConfiguration());
-      final Label label = ruleContext.getLabel();
-      configMatcher = new ConfigMatchingProvider() {
-        @Override public boolean matches() { return match; }
-        @Override public Label label() { return label; }
-      };
+      configMatcher = new ConfigMatchingProvider(ruleContext.getLabel(),
+          matchesConfig(settings, ruleContext.getConfiguration()));
     } catch (OptionsParsingException e) {
       ruleContext.attributeError(ConfigRuleClasses.ConfigSettingRule.SETTINGS_ATTRIBUTE,
           "error while parsing configuration settings: " + e.getMessage());

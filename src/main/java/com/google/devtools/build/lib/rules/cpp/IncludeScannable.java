@@ -29,9 +29,11 @@ import java.util.Map;
 public interface IncludeScannable {
 
   /**
-   * Returns the C/C++ configuration to be used for include scanning.
+   * Returns the built-in list of system include paths for the toolchain compiler. All paths in this
+   * list should be relative to the exec directory. They may be absolute if they are also installed
+   * on the remote build nodes or for local compilation.
    */
-  CppConfiguration getCppConfiguration();
+  List<PathFragment> getBuiltInIncludeDirectories();
 
   /**
    * Returns an immutable list of "-iquote" include paths that should be used by

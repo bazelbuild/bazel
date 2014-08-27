@@ -135,4 +135,8 @@ void BlazeStartupOptions::AddJVMArguments(const string &host_javabase,
   // open-source world.
 }
 
+string BlazeStartupOptions::RcBasename() {
+  return ".bazelrc";
+}
+
 }  // namespace blaze

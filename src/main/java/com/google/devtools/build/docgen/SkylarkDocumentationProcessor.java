@@ -22,6 +22,7 @@ import com.google.common.collect.Iterables;
 import com.google.devtools.build.docgen.SkylarkJavaInterfaceExplorer.SkylarkJavaObject;
 import com.google.devtools.build.lib.packages.MethodLibrary;
 import com.google.devtools.build.lib.rules.SkylarkAttr;
+import com.google.devtools.build.lib.rules.SkylarkCommandLine;
 import com.google.devtools.build.lib.rules.SkylarkRuleClassFunctions;
 import com.google.devtools.build.lib.rules.SkylarkRuleContext;
 import com.google.devtools.build.lib.rules.SkylarkRuleImplementationFunctions;
@@ -99,8 +100,8 @@ public class SkylarkDocumentationProcessor {
     SkylarkBuiltin annotation = object.getAnnotation();
     StringBuilder sb = new StringBuilder()
         .append(String.format("<h3 id=\"objects.%s\">%s</h3>\n",
-            annotation.name(),
-            annotation.name()))
+            object.name(),
+            object.name()))
         .append(annotation.doc())
         .append("\n");
 
@@ -186,6 +187,7 @@ public class SkylarkDocumentationProcessor {
     collectBuiltinDoc(builder, SkylarkRuleClassFunctions.class.getDeclaredFields());
     collectBuiltinDoc(builder, SkylarkRuleImplementationFunctions.class.getDeclaredFields());
     collectBuiltinDoc(builder, SkylarkAttr.class.getDeclaredFields());
+    collectBuiltinDoc(builder, SkylarkCommandLine.class.getDeclaredFields());
     builder.put(
         SkylarkRuleContext.class.getAnnotation(SkylarkBuiltin.class), SkylarkRuleContext.class);
     for (Object obj : SkylarkRuleImplementationFunctions.JAVA_OBJECTS_TO_EXPOSE.values()) {

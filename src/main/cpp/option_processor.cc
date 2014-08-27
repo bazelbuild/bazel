@@ -159,14 +159,13 @@ string OptionProcessor::FindDepotBlazerc(const string& workspace) {
   return blazerc;
 }
 
-// Return the path the the user .blazerc file.
-// If cmdLineRcFile != NULL, use it, dying
-// it it is not readable.
-// Otherwise, return the first readable file of
-// [/path/to/workspace/google3/.blazerc, $HOME/.blazerc].
+// Return the path the the user rc file.  If cmdLineRcFile != NULL,
+// use it, dying if it is not readable.  Otherwise, return the first
+// readable file called rc_basename from [workspace, $HOME]
 //
 // If no readable .blazerc file is found, return the empty string.
 string OptionProcessor::FindUserBlazerc(const char* cmdLineRcFile,
+                                        const string& rc_basename,
                                         const string& workspace) {
   if (cmdLineRcFile != NULL) {
     string rcFile = MakeAbsolute(cmdLineRcFile);
@@ -177,7 +176,7 @@ string OptionProcessor::FindUserBlazerc(const char* cmdLineRcFile,
     return rcFile;
   }
 
-  string workspaceRcFile = blaze_util::JoinPath(workspace, ".blazerc");
+  string workspaceRcFile = blaze_util::JoinPath(workspace, rc_basename);
   if (!access(workspaceRcFile.c_str(), R_OK)) {
     return workspaceRcFile;
   }
@@ -187,7 +186,7 @@ string OptionProcessor::FindUserBlazerc(const char* cmdLineRcFile,
     return "";
   }
 
-  string userRcFile = blaze_util::JoinPath(home, ".blazerc");
+  string userRcFile = blaze_util::JoinPath(home, rc_basename);
   if (!access(userRcFile.c_str(), R_OK)) {
     return userRcFile;
   }
@@ -230,7 +229,8 @@ void OptionProcessor::ParseOptions(const vector<string>& args,
     }
   }
 
-  string user_blazerc_path = FindUserBlazerc(blazerc, workspace);
+  string user_blazerc_path = FindUserBlazerc(
+      blazerc, BlazeStartupOptions::RcBasename(), workspace);
   if (!user_blazerc_path.empty()) {
     blazercs_.push_back(RcFile(user_blazerc_path, blazercs_.size()));
     blazercs_.back().Parse(&blazercs_, &rcoptions_);

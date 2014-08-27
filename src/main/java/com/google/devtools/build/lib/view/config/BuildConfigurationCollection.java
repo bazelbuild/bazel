@@ -152,11 +152,11 @@ public final class BuildConfigurationCollection {
     private final Map<? extends Transition, ConfigurationHolder> transitionTable;
 
     // TODO(ulfjack): Consider merging transitionTable into this.
-    private final ListMultimap<? super SplitTransition, BuildConfiguration> splitTransitionTable;
+    private final ListMultimap<? super SplitTransition<?>, BuildConfiguration> splitTransitionTable;
 
     public Transitions(BuildConfiguration configuration,
         Map<? extends Transition, ConfigurationHolder> transitionTable,
-        ListMultimap<? extends SplitTransition, BuildConfiguration> splitTransitionTable) {
+        ListMultimap<? extends SplitTransition<?>, BuildConfiguration> splitTransitionTable) {
       this.configuration = configuration;
       this.transitionTable = ImmutableMap.copyOf(transitionTable);
       this.splitTransitionTable = ImmutableListMultimap.copyOf(splitTransitionTable);
@@ -165,18 +165,18 @@ public final class BuildConfigurationCollection {
     public Transitions(BuildConfiguration configuration,
         Map<? extends Transition, ConfigurationHolder> transitionTable) {
       this(configuration, transitionTable,
-          ImmutableListMultimap.<SplitTransition, BuildConfiguration>of());
+          ImmutableListMultimap.<SplitTransition<?>, BuildConfiguration>of());
     }
 
     public Map<? extends Transition, ConfigurationHolder> getTransitionTable() {
       return transitionTable;
     }
 
-    public ListMultimap<? super SplitTransition, BuildConfiguration> getSplitTransitionTable() {
+    public ListMultimap<? super SplitTransition<?>, BuildConfiguration> getSplitTransitionTable() {
       return splitTransitionTable;
     }
 
-    public List<BuildConfiguration> getSplitConfigurations(SplitTransition transition) {
+    public List<BuildConfiguration> getSplitConfigurations(SplitTransition<?> transition) {
       if (splitTransitionTable.containsKey(transition)) {
         return splitTransitionTable.get(transition);
       } else {

@@ -76,7 +76,11 @@ public final class Attribute implements Comparable<Attribute> {
    * handle this.
    */
   // TODO(ulfjack): Serializability constraints?
-  public interface SplitTransition extends Transition {
+  public interface SplitTransition<T> extends Transition {
+    /**
+     * Return the list of {@code BuildOptions} after splitting; empty if not applicable.
+     */
+    List<T> split(T buildOptions);
   }
 
   /**
