@@ -114,7 +114,7 @@ public final class ActionExecutionStatusReporter {
   /**
    * Set "Preparing" status.
    */
-  void setPreparing(Action action) {
+  public void setPreparing(Action action) {
     setStatus(action, PREPARING);
   }
 
@@ -147,7 +147,7 @@ public final class ActionExecutionStatusReporter {
   /**
    * Set "Scheduling" status.
    */
-  void setScheduling(ActionMetadata action) {
+  public void setScheduling(ActionMetadata action) {
     setStatus(action, "Scheduling");
   }
 

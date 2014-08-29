@@ -53,6 +53,7 @@ public class CcToolchain implements RuleConfiguredTargetFactory {
     final NestedSet<Artifact> strip = getFiles(ruleContext, "strip_files");
     final NestedSet<Artifact> objcopy = getFiles(ruleContext, "objcopy_files");
     final NestedSet<Artifact> link = getFiles(ruleContext, "linker_files");
+    final NestedSet<Artifact> dwp = getFiles(ruleContext, "dwp_files");
     String purposePrefix = Actions.escapeLabel(label) + "_";
     String runtimeSolibDirBase = "_solib_" + "_" + Actions.escapeLabel(label);
     final PathFragment runtimeSolibDir = ruleContext.getConfiguration()
@@ -114,6 +115,7 @@ public class CcToolchain implements RuleConfiguredTargetFactory {
         strip,
         objcopy,
         link,
+        dwp,
         staticRuntimeLinkInputs,
         staticRuntimeLinkMiddleman,
         dynamicRuntimeLinkInputs,

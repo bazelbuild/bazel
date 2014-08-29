@@ -58,16 +58,19 @@ class SkyframeBuilder implements Builder {
 
   private final SkyframeExecutor skyframeExecutor;
   private final boolean keepGoing;
+  private final boolean explain;
   private final int numJobs;
   private final ActionInputFileCache fileCache;
   private final ActionCacheChecker actionCacheChecker;
   private final int progressReportInterval;
 
   SkyframeBuilder(SkyframeExecutor skyframeExecutor, ActionCacheChecker actionCacheChecker,
-      boolean keepGoing, int numJobs, ActionInputFileCache fileCache, int progressReportInterval) {
+      boolean keepGoing, 
+      boolean explain, int numJobs, ActionInputFileCache fileCache, int progressReportInterval) {
     this.skyframeExecutor = skyframeExecutor;
     this.actionCacheChecker = actionCacheChecker;
     this.keepGoing = keepGoing;
+    this.explain = explain;
     this.numJobs = numJobs;
     this.fileCache = fileCache;
     this.progressReportInterval = progressReportInterval;
@@ -77,7 +80,8 @@ class SkyframeBuilder implements Builder {
   public void buildArtifacts(Set<Artifact> artifacts,
       Set<Artifact> exclusiveTestArtifacts,
       DependentActionGraph forwardGraph, Executor executor,
-      ModifiedFileSet modifiedFileSet, Set<Artifact> builtArtifacts)
+      ModifiedFileSet modifiedFileSet, Set<Artifact> builtArtifacts, 
+      boolean explain)
       throws BuildFailedException, AbruptExitException, TestExecException, InterruptedException {
     skyframeExecutor.prepareExecution();
     skyframeExecutor.setFileCache(fileCache);
@@ -106,7 +110,7 @@ class SkyframeBuilder implements Builder {
     // codepath is no longer used. [skyframe-execution]
     skyframeExecutor.informAboutNumberOfModifiedFiles();
     try {
-      result = skyframeExecutor.buildArtifacts(executor, artifacts, keepGoing, numJobs,
+      result = skyframeExecutor.buildArtifacts(executor, artifacts, keepGoing, explain, numJobs,
           actionCacheChecker, executionProgressReceiver);
       // progressReceiver is finished, so unsynchronized access to builtArtifacts is now safe.
       builtArtifacts.addAll(ArtifactValue.artifacts(result.<OwnedArtifact>keyNames()));
@@ -119,7 +123,7 @@ class SkyframeBuilder implements Builder {
         // Since only one artifact is being built at a time, we don't worry about an artifact being
         // built and then the build being interrupted.
         result = skyframeExecutor.buildArtifacts(executor, ImmutableSet.of(exclusiveArtifact),
-            keepGoing, numJobs, actionCacheChecker, null);
+            keepGoing, explain, numJobs, actionCacheChecker, null);
         success = processResult(result, keepGoing, skyframeExecutor) && success;
       }
     } finally {

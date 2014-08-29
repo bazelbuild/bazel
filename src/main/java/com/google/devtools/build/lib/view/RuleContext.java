@@ -21,6 +21,7 @@ import com.google.common.collect.ImmutableListMultimap;
 import com.google.common.collect.ImmutableSet;
 import com.google.common.collect.Iterables;
 import com.google.common.collect.ListMultimap;
+import com.google.common.collect.Sets;
 import com.google.devtools.build.lib.actions.Action;
 import com.google.devtools.build.lib.actions.ActionOwner;
 import com.google.devtools.build.lib.actions.ActionRegistry;
@@ -126,12 +127,13 @@ public final class RuleContext extends TargetContext
   private final ListMultimap<String, ConfiguredFilesetEntry> filesetEntryMap;
   private final Set<ConfigMatchingProvider> configConditions;
   private final AttributeMap attributes;
+  private final ImmutableSet<String> features;
 
   private ActionOwner actionOwner;
 
   private RuleContext(Builder builder, ListMultimap<String, ConfiguredTarget> targetMap,
       ListMultimap<String, ConfiguredFilesetEntry> filesetEntryMap,
-      Set<ConfigMatchingProvider> configConditions) {
+      Set<ConfigMatchingProvider> configConditions, ImmutableSet<String> features) {
     super(builder.env, builder.rule, builder.configuration, builder.prerequisiteMap.get(null),
         builder.visibility);
     this.rule = builder.rule;
@@ -140,6 +142,7 @@ public final class RuleContext extends TargetContext
     this.configConditions = configConditions;
     this.attributes =
         ConfiguredAttributeMapper.of(builder.rule, configConditions);
+    this.features = features;
   }
 
   @Override
@@ -998,6 +1001,13 @@ public final class RuleContext extends TargetContext
     return false;
   }
 
+  /**
+   * @returns the set of features applicable for the current rule's package.
+   */
+  public ImmutableSet<String> getFeatures() {
+    return features;
+  }
+  
   public static final class Builder {
     private final AnalysisEnvironment env;
     private final Rule rule;
@@ -1021,9 +1031,28 @@ public final class RuleContext extends TargetContext
       Preconditions.checkNotNull(visibility);
       ListMultimap<String, ConfiguredTarget> targetMap = createTargetMap();
       ListMultimap<String, ConfiguredFilesetEntry> filesetEntryMap = createFilesetEntryMap(rule);
-      return new RuleContext(this, targetMap, filesetEntryMap, configConditions);
+      return new RuleContext(this, targetMap, filesetEntryMap, configConditions,
+          getEnabledFeatures());
     }
-
+    
+    private ImmutableSet<String> getEnabledFeatures() {
+      Set<String> enabled = new HashSet<>();
+      Set<String> disabled = new HashSet<>();
+      for (String feature : Iterables.concat(getConfiguration().getDefaultFeatures(),
+          getRule().getPackage().getFeatures())) {
+        if (feature.startsWith("-")) {
+          disabled.add(feature.substring(1));
+        } else if (feature.equals("no_layering_check")) {
+          // TODO(bazel-team): Remove once we do not have BUILD files left that contain
+          // 'no_layering_check'.
+          disabled.add(feature.substring(3));
+        } else {
+          enabled.add(feature);
+        }
+      }
+      return Sets.difference(enabled, disabled).immutableCopy();
+    }
+    
     Builder setVisibility(NestedSet<PackageSpecification> visibility) {
       this.visibility = visibility;
       return this;

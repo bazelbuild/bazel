@@ -14,7 +14,6 @@
 
 package com.google.devtools.build.lib.actions;
 
-import com.google.devtools.build.lib.actions.ActionCacheChecker.DepcheckerListener;
 import com.google.devtools.build.lib.actions.ActionCacheChecker.Token;
 import com.google.devtools.build.lib.actions.cache.MetadataHandler;
 import com.google.devtools.build.lib.concurrent.ThreadSafety.ThreadCompatible;
@@ -90,7 +89,7 @@ public interface DependencyChecker {
    *   otherwise.  This value is opaque to the caller, and must be passed to
    *   the subsequent calls to afterExecution for this action.
    */
-  Token needToExecute(Action action, DepcheckerListener listener) throws IOException;
+  Token needToExecute(Action action, EventHandler listener) throws IOException;
 
   /**
    * This method is called immediately after the action has been executed.

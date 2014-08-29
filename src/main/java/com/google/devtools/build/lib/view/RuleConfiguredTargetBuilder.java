@@ -106,7 +106,6 @@ public final class RuleConfiguredTargetBuilder {
     }
     final TestParams testParams = new TestActionBuilder(ruleContext)
         .setFilesToRunProvider(filesToRunProvider)
-        .setFilesToRun(RuleContext.getFilesToRun(runfilesSupport, filesToBuild))
         .setInstrumentedFiles(findProvider(InstrumentedFilesProvider.class))
         .setExecutionRequirements(findProvider(ExecutionInfoProvider.class))
         .setShardCount(explicitShardCount)

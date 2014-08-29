@@ -36,20 +36,14 @@ public class ContainingPackageLookupFunction implements SkyFunction {
     }
 
     if (pkgLookupValue.packageExists()) {
-      return new ContainingPackageLookupValue(dir);
+      return ContainingPackageLookupValue.withContainingPackage(dir, pkgLookupValue.getRoot());
     }
 
     PathFragment parentDir = dir.getParentDirectory();
     if (parentDir == null) {
-      return new ContainingPackageLookupValue(null);
+      return ContainingPackageLookupValue.noContainingPackage();
     }
-    ContainingPackageLookupValue parentContainingPkgLookupValue =
-        (ContainingPackageLookupValue) env.getValue(ContainingPackageLookupValue.key(parentDir));
-    if (parentContainingPkgLookupValue == null) {
-      return null;
-    }
-    return new ContainingPackageLookupValue(
-        parentContainingPkgLookupValue.getContainingPackageNameOrNull());
+    return env.getValue(ContainingPackageLookupValue.key(parentDir));
   }
 
   @Nullable

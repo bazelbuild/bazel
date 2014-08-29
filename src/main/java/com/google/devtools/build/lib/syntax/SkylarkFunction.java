@@ -93,7 +93,7 @@ public abstract class SkylarkFunction extends AbstractFunction {
     Preconditions.checkState(configured, "Function " + getName() + " was not configured");
     try {
       ImmutableMap.Builder<String, Object> arguments = new ImmutableMap.Builder<>();
-      if (objectType != null) {
+      if (objectType != null && !FuncallExpression.isNamespace(objectType)) {
         arguments.put("self", args.remove(0));
       }
 

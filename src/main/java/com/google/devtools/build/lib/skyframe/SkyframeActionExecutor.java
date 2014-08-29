@@ -23,7 +23,6 @@ import com.google.devtools.build.lib.actions.AbstractActionExecutor;
 import com.google.devtools.build.lib.actions.Action;
 import com.google.devtools.build.lib.actions.Action.MiddlemanType;
 import com.google.devtools.build.lib.actions.ActionCacheChecker;
-import com.google.devtools.build.lib.actions.ActionCacheChecker.DepcheckerListener;
 import com.google.devtools.build.lib.actions.ActionCacheChecker.Token;
 import com.google.devtools.build.lib.actions.ActionCompletionEvent;
 import com.google.devtools.build.lib.actions.ActionExecutionContext;
@@ -93,7 +92,7 @@ public final class SkyframeActionExecutor extends AbstractActionExecutor {
   private ActionCacheChecker actionCacheChecker;
   private ConcurrentMap<Artifact, Metadata> undeclaredInputsMetadata = new ConcurrentHashMap<>();
   private final Profiler profiler = Profiler.instance();
-  private DepcheckerListener depcheckerListener;
+  private boolean explain;
 
   // We keep track of actions already executed this build in order to avoid executing a shared
   // action twice. Note that we may still unnecessarily re-execute the action on a subsequent
@@ -375,7 +374,7 @@ public final class SkyframeActionExecutor extends AbstractActionExecutor {
   }
 
   void prepareForExecution(Executor executor, boolean keepGoing,
-      ActionCacheChecker actionCacheChecker) {
+      boolean explain, ActionCacheChecker actionCacheChecker) {
     setExecutorEngine(Preconditions.checkNotNull(executor));
 
     // Start with a new map each build so there's no issue with internal resizing.
@@ -385,7 +384,7 @@ public final class SkyframeActionExecutor extends AbstractActionExecutor {
     this.actionCacheChecker = Preconditions.checkNotNull(actionCacheChecker);
     // Don't cache possibly stale data from the last build.
     undeclaredInputsMetadata = new ConcurrentHashMap<>();
-    this.depcheckerListener = DepcheckerListener.createListenerMaybe(reporter);
+    this.explain = explain;
   }
 
   File getExecRoot() {
@@ -415,27 +414,9 @@ public final class SkyframeActionExecutor extends AbstractActionExecutor {
     // Check to see if another action is already executing/has executed this value.
     Pair<Action, FutureTask<ActionExecutionValue>> oldAction =
         buildActionMap.putIfAbsent(primaryOutput, Pair.of(action, actionTask));
-    ActionExecutionStatusReporter statusReporter =
-        Preconditions.checkNotNull(statusReporterRef.get());
 
     if (oldAction == null) {
-      ResourceSet estimate = action.estimateResourceConsumption(executorEngine);
-      statusReporter.setRunningFromBuildData(action);
-      try {
-        if (estimate != null) {
-          // If estimated resource consumption is null, action will manually call
-          // resource manager when it knows what resources are needed.
-          resourceManager.acquireResources(action, estimate);
-        }
-        actionTask.run();
-      } finally {
-        // We don't expect to see any exceptions thrown from the try block, but it doesn't hurt
-        // to put releaseResources() in a finally block.
-        if (estimate != null) {
-          resourceManager.releaseResources(action, estimate);
-        }
-        statusReporter.remove(action);
-      }
+      actionTask.run();
     } else if (action == oldAction.first) {
       // We only allow the same action to be executed twice if it discovers inputs. We allow that
       // because we need to declare additional dependencies on those new inputs.
@@ -503,7 +484,8 @@ public final class SkyframeActionExecutor extends AbstractActionExecutor {
 
       MetadataHandler metadataHandler =
           new UndeclaredInputHandler(graphFileCache, undeclaredInputsMetadata);
-      Token token = actionCacheChecker.needToExecute(action, depcheckerListener, metadataHandler);
+      Token token = actionCacheChecker.needToExecute(
+          action, explain ? reporter : null, metadataHandler);
       profiler.completeTask(ProfilerTask.ACTION_CHECK);
 
       if (token == null) {
@@ -544,6 +526,7 @@ public final class SkyframeActionExecutor extends AbstractActionExecutor {
       if (message != null) {
         reporter.startTask(null, prependExecPhaseStats(message));
       }
+      statusReporterRef.get().setPreparing(action);
 
       createOutputDirectories(action);
 
@@ -633,7 +616,23 @@ public final class SkyframeActionExecutor extends AbstractActionExecutor {
   protected void scheduleAndExecuteAction(Action action,
       ActionExecutionContext actionExecutionContext)
   throws ActionExecutionException, InterruptedException {
-    executeActionTask(action, actionExecutionContext);
+    ResourceSet estimate = action.estimateResourceConsumption(executorEngine);
+    ActionExecutionStatusReporter statusReporter = statusReporterRef.get();
+    try {
+      if (estimate != null) {
+        statusReporter.setScheduling(action);
+        // If estimated resource consumption is null, action will manually call
+        // resource manager when it knows what resources are needed.
+        resourceManager.acquireResources(action, estimate);
+      }
+      statusReporter.setRunningFromBuildData(action);
+      executeActionTask(action, actionExecutionContext);
+    } finally {
+      if (estimate != null) {
+        resourceManager.releaseResources(action, estimate);
+      }
+      statusReporter.remove(action);
+    }
   }
 
   /**

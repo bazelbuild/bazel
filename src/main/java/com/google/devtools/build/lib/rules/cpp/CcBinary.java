@@ -129,7 +129,7 @@ public abstract class CcBinary implements RuleConfiguredTargetFactory {
       // The crosstool inputs for the link action are not sufficient; we also need the crosstool
       // inputs for compilation. Node that these cannot be middlemen because Runfiles does not
       // know how to expand them.
-      builder.addTransitiveArtifacts(CppHelper.getCrosstoolArtifacts(context));
+      builder.addTransitiveArtifacts(CppHelper.getCompiler(context).getCrosstool());
       TransitiveInfoCollection libcLink = context.getPrerequisite(":libc_link", Mode.HOST);
       if (libcLink != null) {
         builder.addTransitiveArtifacts(libcLink.getProvider(FileProvider.class).getFilesToBuild());
@@ -289,7 +289,7 @@ public abstract class CcBinary implements RuleConfiguredTargetFactory {
       CppConfiguration cppConfiguration, Artifact input, Artifact output) {
     new SpawnAction.Builder(context)
         .addInput(input)
-        .addInputs(CppHelper.getCrosstoolArtifactsForStripping(context))
+        .addTransitiveInputs(CppHelper.getCompiler(context).getStrip())
         .addOutput(output)
         .useDefaultShellEnvironment()
         .setExecutable(cppConfiguration.getStripExecutable())
@@ -474,8 +474,7 @@ public abstract class CcBinary implements RuleConfiguredTargetFactory {
     }
 
     // Get the tool inputs necessary to run the dwp command.
-    ImmutableList<Artifact> dwpTools =
-        context.getPrerequisiteArtifacts(CppRuleClasses.DWP_LABEL_NAME, Mode.HOST);
+    NestedSet<Artifact> dwpTools = CppHelper.getCompiler(context).getDwp();
     Preconditions.checkState(!dwpTools.isEmpty());
 
     // We apply a hierarchical action structure to limit the maximum number of inputs to any
@@ -552,9 +551,9 @@ public abstract class CcBinary implements RuleConfiguredTargetFactory {
    * standard settings.
    */
   private static SpawnAction.Builder newDwpAction(RuleContext context,
-      CppConfiguration cppConfiguration, List<Artifact> dwpTools) {
+      CppConfiguration cppConfiguration, NestedSet<Artifact> dwpTools) {
     return new SpawnAction.Builder(context)
-        .addInputs(dwpTools)
+        .addTransitiveInputs(dwpTools)
         .setExecutable(cppConfiguration.getDwpExecutable())
         .useParameterFile(ParameterFile.ParameterFileType.UNQUOTED);
   }

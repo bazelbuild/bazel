@@ -40,12 +40,18 @@ import com.google.devtools.build.lib.packages.AttributeMap;
 import com.google.devtools.build.lib.packages.ImplicitOutputsFunction.SkylarkImplicitOutputsFunctionWithCallback;
 import com.google.devtools.build.lib.packages.ImplicitOutputsFunction.SkylarkImplicitOutputsFunctionWithMap;
 import com.google.devtools.build.lib.packages.MethodLibrary;
+import com.google.devtools.build.lib.packages.Package.NameConflictException;
+import com.google.devtools.build.lib.packages.PackageFactory.PackageContext;
 import com.google.devtools.build.lib.packages.Rule;
 import com.google.devtools.build.lib.packages.RuleClass;
+import com.google.devtools.build.lib.packages.RuleClass.Builder;
 import com.google.devtools.build.lib.packages.RuleClass.Builder.RuleClassType;
+import com.google.devtools.build.lib.packages.RuleFactory;
+import com.google.devtools.build.lib.packages.RuleFactory.InvalidRuleException;
 import com.google.devtools.build.lib.packages.SkylarkFileType;
 import com.google.devtools.build.lib.packages.Type;
 import com.google.devtools.build.lib.packages.Type.ConversionException;
+import com.google.devtools.build.lib.syntax.AbstractFunction;
 import com.google.devtools.build.lib.syntax.Environment;
 import com.google.devtools.build.lib.syntax.EvalException;
 import com.google.devtools.build.lib.syntax.FuncallExpression;
@@ -93,11 +99,8 @@ public class SkylarkRuleClassFunctions {
   @SkylarkBuiltin(name = "HOST_CFG", doc = "The default runfiles collection state.")
   private static final Object hostTransition = ConfigurationTransition.HOST;
 
-  @SkylarkBuiltin(name = "Attr", doc = "Module for creating new attributes.")
-  private static final Object ATTR = SkylarkAttr.module;
-
   @VisibleForTesting
-  static final Map<String, Object> JAVA_OBJECTS_TO_EXPOSE =
+  public static final Map<String, Object> JAVA_OBJECTS_TO_EXPOSE =
       ImmutableMap.<String, Object>builder()
           .put("ANY_FILE", ANY_FILE)
           .put("NO_FILE", NO_FILE)
@@ -105,13 +108,14 @@ public class SkylarkRuleClassFunctions {
           .put("NO_RULE", NO_RULE)
           .put("DATA_CFG", dataTransition)
           .put("HOST_CFG", hostTransition)
-          .put("Attr", ATTR)
+          .put("Attr", SkylarkAttr.module)
           .build();
 
   private final SkylarkEnvironment env;
 
   private final RuleClass baseRule;
   private final ImmutableList<Function> builtInFunctions;
+  private final PackageContext pkgContext;
 
   // TODO(bazel-team): Copied from ConfiguredRuleClassProvider for the transition from built-in
   // rules to skylark extensions. Using the same instance would require a large refactoring.
@@ -145,8 +149,9 @@ public class SkylarkRuleClassFunctions {
         }
      };
 
-  private SkylarkRuleClassFunctions(SkylarkEnvironment env) {
+  private SkylarkRuleClassFunctions(SkylarkEnvironment env, PackageContext pkgContext) {
     this.env = Preconditions.checkNotNull(env);
+    this.pkgContext = pkgContext;
     // TODO(bazel-team): we might want to define base rule in Skylark later.
     // Right now we need some default attributes.
     baseRule = new RuleClass.Builder("$base_rule", RuleClassType.ABSTRACT, true)
@@ -162,9 +167,9 @@ public class SkylarkRuleClassFunctions {
     builtInFunctions = builtInFunctionsBuilder.build();
   }
 
-  public static SkylarkEnvironment getNewEnvironment() {
+  public static SkylarkEnvironment getNewEnvironment(PackageContext pkgContext) {
     SkylarkEnvironment env = new SkylarkEnvironment();
-    SkylarkRuleClassFunctions functions = new SkylarkRuleClassFunctions(env);
+    SkylarkRuleClassFunctions functions = new SkylarkRuleClassFunctions(env, pkgContext);
     for (Function builtInFunction : functions.builtInFunctions) {
       env.update(builtInFunction.getName(), builtInFunction);
     }
@@ -274,7 +279,7 @@ public class SkylarkRuleClassFunctions {
           }
 
           // We'll set the name later, pass the empty string for now.
-          RuleClass.Builder builder = new RuleClass.Builder("", type, true, baseRule);
+          final RuleClass.Builder builder = new RuleClass.Builder("", type, true, baseRule);
 
           for (Map.Entry<String, Attribute.Builder> attr :
                    castMap(arguments.get("attr"), String.class, Attribute.Builder.class, "attr")) {
@@ -302,9 +307,38 @@ public class SkylarkRuleClassFunctions {
           builder.setConfiguredTargetFunction(cast(arguments.get("implementation"),
               UserDefinedFunction.class, "rule implementation", loc));
           builder.setRuleDefinitionEnvironment(env);
-          return builder;
+          return new RuleFunction(builder);
         }
       };
+
+  // This class is needed for testing
+  final class RuleFunction extends AbstractFunction {
+    // Note that this means that we can reuse the same builder.
+    // This is fine since we change only the name.
+    private final RuleClass.Builder builder;
+
+    public RuleFunction(Builder builder) {
+      super("rule");
+      this.builder = builder;
+    }
+
+    @Override
+    public Object call(List<Object> args, Map<String, Object> kwargs, FuncallExpression ast,
+        Environment env) throws EvalException, InterruptedException {
+      try {
+        builder.setName(ast.getFunction().getName());
+        RuleClass ruleClass = builder.build();
+        return RuleFactory.createAndAddRule(pkgContext, ruleClass, kwargs, ast);
+      } catch (InvalidRuleException | NameConflictException e) {
+        throw new EvalException(ast.getLocation(), e.getMessage());
+      }
+    }
+
+    @VisibleForTesting
+    RuleClass.Builder getBuilder() {
+      return builder;
+    }
+  }
 
   @SkylarkBuiltin(name = "label", doc = "Creates a label referring to a BUILD target.",
       returnType = Label.class,

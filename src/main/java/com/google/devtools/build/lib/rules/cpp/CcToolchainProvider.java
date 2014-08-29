@@ -30,6 +30,7 @@ public final class CcToolchainProvider implements TransitiveInfoProvider {
   private final NestedSet<Artifact> strip;
   private final NestedSet<Artifact> objCopy;
   private final NestedSet<Artifact> link;
+  private final NestedSet<Artifact> dwp;
   private final NestedSet<Artifact> staticRuntimeLinkInputs;
   private final Artifact staticRuntimeLinkMiddleman;
   private final NestedSet<Artifact> dynamicRuntimeLinkInputs;
@@ -43,6 +44,7 @@ public final class CcToolchainProvider implements TransitiveInfoProvider {
       NestedSet<Artifact> strip,
       NestedSet<Artifact> objCopy,
       NestedSet<Artifact> link,
+      NestedSet<Artifact> dwp,
       NestedSet<Artifact> staticRuntimeLinkInputs,
       Artifact staticRuntimeLinkMiddleman,
       NestedSet<Artifact> dynamicRuntimeLinkInputs,
@@ -56,6 +58,7 @@ public final class CcToolchainProvider implements TransitiveInfoProvider {
     this.strip = strip;
     this.objCopy = objCopy;
     this.link = link;
+    this.dwp = dwp;
     this.staticRuntimeLinkInputs = staticRuntimeLinkInputs;
     this.staticRuntimeLinkMiddleman = staticRuntimeLinkMiddleman;
     this.dynamicRuntimeLinkInputs = dynamicRuntimeLinkInputs;
@@ -106,6 +109,10 @@ public final class CcToolchainProvider implements TransitiveInfoProvider {
     return link;
   }
 
+  public NestedSet<Artifact> getDwp() {
+    return dwp;
+  }
+
   /**
    * Returns the static runtime libraries.
    */
@@ -145,7 +152,7 @@ public final class CcToolchainProvider implements TransitiveInfoProvider {
 
   /**
    * Returns the C++ compilation context for the toolchain.
-   */  
+   */
   public CppCompilationContext getCppCompilationContext() {
     return cppCompilationContext;
   }

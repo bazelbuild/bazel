@@ -91,10 +91,10 @@ public class DatabaseDependencyChecker extends ActionCacheChecker implements Dep
   // Note: the listener should only be used for DEPCHECKER events; there's no
   // guarantee it will be available for other events.
   @Override
-  public Token needToExecute(Action action, DepcheckerListener listener) {
+  public Token needToExecute(Action action, EventHandler handler) {
     // Set inputs known flag now, since it may change after we have checked the action cache.
     boolean inputsKnown = action.inputsKnown();
-    Token key = super.needToExecute(action, listener, artifactMetadataCache);
+    Token key = super.needToExecute(action, handler, artifactMetadataCache);
     if (key != null) {
       // The action "knew" its inputs, but might "relearn" them during execution.
       if (inputsKnown && action.discoversInputs()) {

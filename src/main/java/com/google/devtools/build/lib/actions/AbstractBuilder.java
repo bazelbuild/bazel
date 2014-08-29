@@ -18,7 +18,6 @@ import com.google.common.base.Preconditions;
 import com.google.common.collect.ImmutableList;
 import com.google.common.eventbus.EventBus;
 import com.google.devtools.build.lib.actions.Action.MiddlemanType;
-import com.google.devtools.build.lib.actions.ActionCacheChecker.DepcheckerListener;
 import com.google.devtools.build.lib.actions.ActionCacheChecker.Token;
 import com.google.devtools.build.lib.actions.cache.MetadataHandler;
 import com.google.devtools.build.lib.concurrent.ThreadSafety.ConditionallyThreadCompatible;
@@ -41,8 +40,6 @@ import java.util.Stack;
 import java.util.concurrent.atomic.AtomicLong;
 import java.util.logging.Level;
 import java.util.logging.Logger;
-
-import javax.annotation.Nullable;
 
 /**
  * An abstract Builder implementation that takes care of the building of
@@ -68,11 +65,7 @@ abstract class AbstractBuilder implements Builder {
    * A flag that starts false and becomes true if an action fails.
    */
   private boolean hadExecutionError;
-
-  /**
-   * If non-null, DEPCHECKER events should be reported to this listener (see the --explain option).
-   */
-  @Nullable private DepcheckerListener depcheckerListener;
+  private boolean explain;
 
   protected final DependencyChecker dependencyChecker;
 
@@ -215,7 +208,8 @@ abstract class AbstractBuilder implements Builder {
    * To be called before initiating a build.
    */
   private void initBuild(Set<Artifact> artifactSet, DependentActionGraph forwardGraph,
-      ModifiedFileSet modifiedFileSet, Set<Artifact> builtArtifacts) throws InterruptedException {
+      ModifiedFileSet modifiedFileSet, Set<Artifact> builtArtifacts, boolean explain)
+      throws InterruptedException {
     this.forwardGraph = forwardGraph;
     clear();
     Preconditions.checkState(builtArtifacts == null || builtArtifacts.isEmpty());
@@ -226,7 +220,8 @@ abstract class AbstractBuilder implements Builder {
     LOG_FINE = LOG.isLoggable(Level.FINE);
     LOG_FINER = LOG.isLoggable(Level.FINER);
     LOG_FINEST = LOG.isLoggable(Level.FINEST);
-    this.depcheckerListener = DepcheckerListener.createListenerMaybe(reporter);
+
+    this.explain = explain;
     // estimate the work to build the actions
     this.workloadTotal = forwardGraph.estimateTotalWorkload();
     this.workCompleted = new AtomicLong(0);
@@ -256,7 +251,7 @@ abstract class AbstractBuilder implements Builder {
       DependentActionGraph forwardGraph,
       Executor executor,
       ModifiedFileSet modified,
-      Set<Artifact> builtArtifacts)
+      Set<Artifact> builtArtifacts, boolean explain)
           throws BuildFailedException, InterruptedException, TestExecException {
     Preconditions.checkState(artifactSet.size() ==
                              forwardGraph.getTopLevelAction().getUnbuiltInputs(),
@@ -264,7 +259,7 @@ abstract class AbstractBuilder implements Builder {
     Preconditions.checkState(exclusiveTestArtifacts.isEmpty());
     this.executor = executor;
     actionExecutor.setExecutorEngine(executor);
-    initBuild(artifactSet, forwardGraph, modified, builtArtifacts);  // calls clear()
+    initBuild(artifactSet, forwardGraph, modified, builtArtifacts, explain);  // calls clear()
     buildArtifactsHook(artifactSet, forwardGraph, modified, builtArtifacts);
   }
 
@@ -360,7 +355,7 @@ abstract class AbstractBuilder implements Builder {
       }
 
       // Don't pass a reporter to DependencyChecker if no-one's listening.
-      token = dependencyChecker.needToExecute(action, depcheckerListener);
+      token = dependencyChecker.needToExecute(action, explain ? reporter : null);
     } finally {
       profiler.completeTask(ProfilerTask.ACTION_CHECK);
     }

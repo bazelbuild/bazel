@@ -26,8 +26,8 @@ import com.google.devtools.build.lib.collect.nestedset.NestedSetBuilder;
 import com.google.devtools.build.lib.packages.Type;
 import com.google.devtools.build.lib.syntax.ClassObject;
 import com.google.devtools.build.lib.syntax.Label;
-import com.google.devtools.build.lib.syntax.SkylarkBuiltin;
 import com.google.devtools.build.lib.syntax.SkylarkCallable;
+import com.google.devtools.build.lib.syntax.SkylarkModule;
 import com.google.devtools.build.lib.vfs.PathFragment;
 import com.google.devtools.build.lib.view.actions.FileWriteAction;
 
@@ -41,7 +41,7 @@ import java.util.Map.Entry;
  * Provides shared functionality for parameterized command-line launching
  * e.g. {@link com.google.devtools.build.lib.view.genrule.GenRule}
  */
-@SkylarkBuiltin(name = "CommandHelper", doc = "A helper class to create shell commands.")
+@SkylarkModule(name = "CommandHelper", doc = "A helper class to create shell commands.")
 public final class CommandHelper implements ClassObject {
 
   /**

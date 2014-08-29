@@ -25,6 +25,7 @@ import com.google.devtools.build.lib.syntax.SkylarkBuiltin;
 import com.google.devtools.build.lib.syntax.SkylarkBuiltin.Param;
 import com.google.devtools.build.lib.syntax.SkylarkFunction;
 import com.google.devtools.build.lib.syntax.SkylarkFunction.SimpleSkylarkFunction;
+import com.google.devtools.build.lib.syntax.SkylarkModule;
 import com.google.devtools.build.lib.syntax.SkylarkNestedSet;
 import com.google.devtools.build.lib.syntax.SkylarkType;
 import com.google.devtools.build.lib.util.LazyString;
@@ -34,7 +35,8 @@ import java.util.Map;
 /**
  * A Skylark module class to create memory efficient command lines.
  */
-@SkylarkBuiltin(name = "Cmd", doc = "A class to create memory efficient command lines.")
+@SkylarkModule(name = "Cmd", namespace = true,
+    doc = "Module for creating memory efficient command lines.")
 public class SkylarkCommandLine {
 
   @SkylarkBuiltin(name = "join_exec_paths",

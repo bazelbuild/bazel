@@ -22,8 +22,8 @@ import com.google.devtools.build.lib.actions.cache.Digest;
 import com.google.devtools.build.lib.actions.cache.Metadata;
 import com.google.devtools.build.lib.actions.cache.MetadataHandler;
 import com.google.devtools.build.lib.events.Event;
+import com.google.devtools.build.lib.events.EventHandler;
 import com.google.devtools.build.lib.events.EventKind;
-import com.google.devtools.build.lib.events.Reporter;
 import com.google.devtools.build.lib.pkgcache.PackageUpToDateChecker;
 import com.google.devtools.build.lib.vfs.PathFragment;
 
@@ -53,7 +53,6 @@ public class ActionCacheChecker {
   private final Predicate<? super Action> executionFilter;
   private final ArtifactResolver artifactResolver;
   private final PackageUpToDateChecker packageUpToDateChecker;
-
   // True iff --verbose_explanations flag is set.
   private final boolean verboseExplanations;
 
@@ -108,15 +107,15 @@ public class ActionCacheChecker {
     return !Digest.fromMetadata(mdMap).equals(entry.getFileDigest());
   }
 
-  private void reportCommand(DepcheckerListener listener, Action action) {
-    if (listener != null) {
+  private void reportCommand(EventHandler handler, Action action) {
+    if (handler != null) {
       if (verboseExplanations) {
         String keyDescription = action.describeKey();
-        reportRebuild(listener, action,
+        reportRebuild(handler, action,
             keyDescription == null ? "action command has changed" :
             "action command has changed.\nNew action: " + keyDescription);
       } else {
-        reportRebuild(listener, action,
+        reportRebuild(handler, action,
             "action command has changed (try --verbose_explanations for more info)");
       }
     }
@@ -137,9 +136,9 @@ public class ActionCacheChecker {
    * metadataHandler's {@link MetadataHandler#discardMetadata} method must be called, so that it
    * does not serve stale metadata for the action's outputs after the action is executed.
    */
-  // Note: the listener should only be used for DEPCHECKER events; there's no
+  // Note: the handler should only be used for DEPCHECKER events; there's no
   // guarantee it will be available for other events.
-  public Token needToExecute(Action action, DepcheckerListener listener,
+  public Token needToExecute(Action action, EventHandler handler,
       MetadataHandler metadataHandler) {
     // TODO(bazel-team): (2010) For RunfilesAction/SymlinkAction and similar actions that
     // produce only symlinks we should not check whether inputs are valid at all - all that matters
@@ -154,7 +153,7 @@ public class ActionCacheChecker {
       if (middlemanType != MiddlemanType.SCHEDULING_MIDDLEMAN &&
           middlemanType != MiddlemanType.TARGET_COMPLETION_MIDDLEMAN &&
           middlemanType != MiddlemanType.ERROR_PROPAGATING_MIDDLEMAN) {
-        checkMiddlemanAction(action, listener, metadataHandler);
+        checkMiddlemanAction(action, handler, metadataHandler);
       }
       if (middlemanType != MiddlemanType.TARGET_COMPLETION_MIDDLEMAN) {
         return null; // Only target completion middlemen are executed by the builder.
@@ -169,18 +168,18 @@ public class ActionCacheChecker {
       entry = getCacheEntry(action);
       updateActionInputs(action, entry);
     }
-    if (mustExecute(action, entry, listener, metadataHandler)) {
+    if (mustExecute(action, entry, handler, metadataHandler)) {
       return new Token(getKeyString(action));
     }
     return null;
   }
 
   protected boolean mustExecute(Action action, @Nullable ActionCache.Entry entry,
-      DepcheckerListener listener, MetadataHandler metadataHandler) {
+      EventHandler handler, MetadataHandler metadataHandler) {
     // Unconditional execution can be applied only for actions that are allowed to be executed.
     if (unconditionalExecution(action)) {
       Preconditions.checkState(action.isVolatile());
-      reportUnconditionalExecution(listener, action);
+      reportUnconditionalExecution(handler, action);
       return true; // must execute - unconditional execution is requested.
     }
 
@@ -188,18 +187,18 @@ public class ActionCacheChecker {
       entry = getCacheEntry(action);
     }
     if (entry == null) {
-      reportNewAction(listener, action);
+      reportNewAction(handler, action);
       return true; // must execute -- no cache entry (e.g. first build)
     }
 
     if (entry.isCorrupted()) {
-      reportCorruptedCacheEntry(listener, action);
+      reportCorruptedCacheEntry(handler, action);
       return true; // cache entry is corrupted - must execute
     } else if (validateArtifacts(entry, action, metadataHandler, true)) {
-      reportChanged(listener, action);
+      reportChanged(handler, action);
       return true; // files have changed
     } else if (!entry.getActionKey().equals(action.getKey())){
-      reportCommand(listener, action);
+      reportCommand(handler, action);
       return true; // must execute -- action key is different
     }
 
@@ -262,7 +261,7 @@ public class ActionCacheChecker {
    * encounters middleman artifacts as input artifacts for other actions, it
    * consults with the aggregated middleman digest computed here.
    */
-  protected void checkMiddlemanAction(Action action, DepcheckerListener listener,
+  protected void checkMiddlemanAction(Action action, EventHandler handler,
       MetadataHandler metadataHandler) {
     Artifact middleman = action.getPrimaryOutput();
     String cacheKey = middleman.getExecPathString();
@@ -270,14 +269,14 @@ public class ActionCacheChecker {
     boolean changed = false;
     if (entry != null) {
       if (entry.isCorrupted()) {
-        reportCorruptedCacheEntry(listener, action);
+        reportCorruptedCacheEntry(handler, action);
         changed = true;
       } else if (validateArtifacts(entry, action, metadataHandler, false)) {
-        reportChanged(listener, action);
+        reportChanged(handler, action);
         changed = true;
       }
     } else {
-      reportChangedDeps(listener, action);
+      reportChangedDeps(handler, action);
       changed = true;
     }
     if (changed) {
@@ -310,43 +309,34 @@ public class ActionCacheChecker {
    * should be used instead. This is done to avoid cost associated with building
    * the message.
    */
-  private static void reportRebuild(DepcheckerListener listener, Action action, String message) {
+  private static void reportRebuild(@Nullable EventHandler handler, Action action, String message) {
     // For MiddlemanAction, do not report rebuild.
-    if (!action.getActionType().isMiddleman()) {
-      listener.depchecker("Executing " + action.prettyPrint() + ": " + message + ".");
+    if (handler != null && !action.getActionType().isMiddleman()) {
+      handler.handle(new Event(
+          EventKind.DEPCHECKER, null, "Executing " + action.prettyPrint() + ": " + message + "."));
     }
   }
 
   // Called by IncrementalDependencyChecker.
-  protected static void reportUnconditionalExecution(DepcheckerListener listener, Action action) {
-    if (listener != null) {
-      reportRebuild(listener, action, "unconditional execution is requested");
-    }
+  protected static void reportUnconditionalExecution(
+      @Nullable EventHandler handler, Action action) {
+    reportRebuild(handler, action, "unconditional execution is requested");
   }
 
-  private static void reportChanged(DepcheckerListener listener, Action action) {
-    if (listener != null) {
-      reportRebuild(listener, action, "One of the files has changed");
-    }
+  private static void reportChanged(@Nullable EventHandler handler, Action action) {
+    reportRebuild(handler, action, "One of the files has changed");
   }
 
-  private static void reportChangedDeps(DepcheckerListener listener, Action action) {
-    if (listener != null) {
-      reportRebuild(listener, action,
-          "the set of files on which this action depends has changed");
-    }
+  private static void reportChangedDeps(@Nullable EventHandler handler, Action action) {
+    reportRebuild(handler, action, "the set of files on which this action depends has changed");
   }
 
-  private static void reportNewAction(DepcheckerListener listener, Action action) {
-    if (listener != null) {
-      reportRebuild(listener, action, "no entry in the cache (action is new)");
-    }
+  private static void reportNewAction(@Nullable EventHandler handler, Action action) {
+    reportRebuild(handler, action, "no entry in the cache (action is new)");
   }
 
-  private static void reportCorruptedCacheEntry(DepcheckerListener listener, Action action) {
-    if (listener != null) {
-      reportRebuild(listener, action, "cache entry is corrupted");
-    }
+  private static void reportCorruptedCacheEntry(@Nullable EventHandler handler, Action action) {
+    reportRebuild(handler, action, "cache entry is corrupted");
   }
 
   /** Wrapper for all context needed by the ActionCacheChecker to handle a single action. */
@@ -355,30 +345,6 @@ public class ActionCacheChecker {
 
     private Token(String cacheKey) {
       this.cacheKey = Preconditions.checkNotNull(cacheKey);
-    }
-  }
-
-  /** An interface to report DEPCHECKER events to. */
-  public static class DepcheckerListener {
-    private final Reporter reporter;
-
-    private DepcheckerListener(Reporter reporter) {
-      this.reporter = Preconditions.checkNotNull(reporter);
-    }
-
-    /**
-     * Reports a dependency-checking event, which explains why an Action is being rebuilt (or not).
-     */
-    public void depchecker(String message) {
-      reporter.handle(new Event(EventKind.DEPCHECKER, null, message));
-    }
-
-    /** Returns a DepcheckerListener if the reporter handles DEPCHECKER events, null otherwise. */
-    @Nullable public static DepcheckerListener createListenerMaybe(Reporter reporter) {
-      Preconditions.checkNotNull(reporter);
-      return reporter.hasHandlerFor(EventKind.DEPCHECKER)
-          ? new DepcheckerListener(reporter)
-      : null;
     }
   }
 }

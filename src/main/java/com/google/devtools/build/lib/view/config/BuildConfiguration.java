@@ -44,8 +44,8 @@ import com.google.devtools.build.lib.packages.Target;
 import com.google.devtools.build.lib.syntax.ClassObject;
 import com.google.devtools.build.lib.syntax.Label;
 import com.google.devtools.build.lib.syntax.Label.SyntaxException;
-import com.google.devtools.build.lib.syntax.SkylarkBuiltin;
 import com.google.devtools.build.lib.syntax.SkylarkCallable;
+import com.google.devtools.build.lib.syntax.SkylarkModule;
 import com.google.devtools.build.lib.util.Fingerprint;
 import com.google.devtools.build.lib.util.RegexFilter;
 import com.google.devtools.build.lib.util.StringUtilities;
@@ -99,7 +99,7 @@ import javax.annotation.Nullable;
  * <p>Instances of BuildConfiguration are canonical:
  * <pre>c1.equals(c2) <=> c1==c2.</pre>
  */
-@SkylarkBuiltin(name = "Configuration",
+@SkylarkModule(name = "Configuration",
     doc = "Data required for the analysis of a target that comes from targets that "
         + "depend on it and not targets that it depends on.")
 public final class BuildConfiguration implements ClassObject {
@@ -690,6 +690,17 @@ public final class BuildConfiguration implements ClassObject {
         category = "undocumented",
         help = "Shows whether these options are set for host configuration.")
     public boolean isHost;
+
+    @Option(name = "features",
+        allowMultiple = true,
+        defaultValue = "",
+        category = "flags",
+        help = "The given features will be enabled or disabled by default for all packages. "
+          + "Specifying -<feature> will disable the feature globally. "
+          + "Negative features always override positive ones. "
+          + "This flag is used to enable rolling out default feature changes without a "
+          + "Blaze release.")
+    public List<String> defaultFeatures;
 
     @Override
     public FragmentOptions getHost(boolean fallback) {
@@ -1576,7 +1587,7 @@ public final class BuildConfiguration implements ClassObject {
   }
 
   /**
-   * Returns true if provider validation checks should be enabled.
+   * Returns true if extended sanity checks should be enabled.
    */
   public boolean extendedSanityChecks() {
     return options.extendedSanityChecks;
@@ -1867,5 +1878,12 @@ public final class BuildConfiguration implements ClassObject {
    */
   public BuildConfiguration getArtifactOwnerConfiguration() {
     return transitions.getArtifactOwnerConfiguration();
+  }
+
+  /**
+   * @returns the list of default features used for all packages.
+   */
+  public List<String> getDefaultFeatures() {
+    return options.defaultFeatures;
   }
 }

@@ -261,13 +261,9 @@ public class CppConfiguration extends BuildConfiguration.Fragment {
   // TODO(bazel-team): All these labels (except for ccCompilerRuleLabel) can be removed once the
   // transition to the cc_compiler rule is complete.
   private final Label crosstoolLabel;
-  private final Label crosstoolLabelForCompile;
-  private final Label crosstoolLabelForLink;
-  private final Label crosstoolLabelForObjCopy;
   private final Label libcLabel;
   private final Label staticRuntimeLibsLabel;
   private final Label dynamicRuntimeLibsLabel;
-  private final Label dwpLabel;
   private final Label ccCompilerRuleLabel;
 
   private final PathFragment sysroot;
@@ -315,7 +311,6 @@ public class CppConfiguration extends BuildConfiguration.Fragment {
   private final ImmutableMap<String, String> commandLineDefines;
   private final String solibDirectory;
   private final CompilationMode compilationMode;
-  private final ImmutableList<Label> crosstoolTargets;
   private final Path execRoot;
   /**
    *  If true, the ConfiguredTarget is only used to get the necessary cross-referenced
@@ -345,35 +340,19 @@ public class CppConfiguration extends BuildConfiguration.Fragment {
     this.greppedIncludesDirectory = Root.asDerivedRoot(execRoot,
         execRoot.getRelative(IncludeScanningUtil.GREPPED_INCLUDES));
 
-    if (crosstoolTop.startsWith("//")) {
-      try {
-        Label label = Label.parseAbsolute(crosstoolTop);
-        this.crosstoolTopPathFragment = label.getPackageFragment();
-        this.crosstoolLabel = label;
-        this.crosstoolLabelForCompile = label.getRelative("compile-" + targetCpu);
-        this.crosstoolLabelForLink = label.getRelative("link-" + targetCpu);
-        this.crosstoolLabelForObjCopy = label.getRelative("objcopy-" + targetCpu);
-        this.staticRuntimeLibsLabel = label.getRelative(toolchain.hasStaticRuntimesFilegroup() ?
-            toolchain.getStaticRuntimesFilegroup() : "static-runtime-libs-" + targetCpu);
-        this.dynamicRuntimeLibsLabel = label.getRelative(toolchain.hasDynamicRuntimesFilegroup() ?
-            toolchain.getDynamicRuntimesFilegroup() : "dynamic-runtime-libs-" + targetCpu);
-        this.dwpLabel = label.getRelative("dwp-" + targetCpu);
-        this.ccCompilerRuleLabel = label.getRelative("cc-compiler-" + targetCpu);
-      } catch (SyntaxException e) {
-        // All of the above label.getRelative() calls are valid labels, and the crosstool_top
-        // was already checked earlier in the process.
-        throw new AssertionError(e);
-      }
-    } else {
-      this.crosstoolTopPathFragment = new PathFragment(crosstoolTop);
-      this.crosstoolLabel = null;
-      this.crosstoolLabelForCompile = null;
-      this.crosstoolLabelForLink = null;
-      this.crosstoolLabelForObjCopy = null;
-      this.staticRuntimeLibsLabel = null;
-      this.dynamicRuntimeLibsLabel = null;
-      this.dwpLabel = null;
-      this.ccCompilerRuleLabel = null;
+    try {
+      Label label = Label.parseAbsolute(crosstoolTop);
+      this.crosstoolTopPathFragment = label.getPackageFragment();
+      this.crosstoolLabel = label;
+      this.staticRuntimeLibsLabel = label.getRelative(toolchain.hasStaticRuntimesFilegroup() ?
+          toolchain.getStaticRuntimesFilegroup() : "static-runtime-libs-" + targetCpu);
+      this.dynamicRuntimeLibsLabel = label.getRelative(toolchain.hasDynamicRuntimesFilegroup() ?
+          toolchain.getDynamicRuntimesFilegroup() : "dynamic-runtime-libs-" + targetCpu);
+      this.ccCompilerRuleLabel = label.getRelative("cc-compiler-" + targetCpu);
+    } catch (SyntaxException e) {
+      // All of the above label.getRelative() calls are valid labels, and the crosstool_top
+      // was already checked earlier in the process.
+      throw new AssertionError(e);
     }
 
     if (cppOptions.lipoMode == LipoMode.BINARY) {
@@ -660,15 +639,6 @@ public class CppConfiguration extends BuildConfiguration.Fragment {
       makeVariablesBuilder.put("CC_FLAGS", ccFlags);
     }
     this.additionalMakeVariables = ImmutableMap.copyOf(makeVariablesBuilder);
-
-    ImmutableList.Builder<Label> crosstoolTargetsBuilder = ImmutableList.builder();
-    if (isCrosstoolTopALabel()) {
-      crosstoolTargetsBuilder.add(getCrosstoolLabel());
-      crosstoolTargetsBuilder.add(getCrosstoolLabelForCompile());
-      crosstoolTargetsBuilder.add(getCrosstoolLabelForLink());
-      crosstoolTargetsBuilder.add(getCrosstoolLabelForObjCopy());
-    }
-    this.crosstoolTargets = crosstoolTargetsBuilder.build();
   }
 
   private List<OptionalFlag> convertOptionalOptions(
@@ -769,13 +739,6 @@ public class CppConfiguration extends BuildConfiguration.Fragment {
   }
 
   /**
-   * Returns the crosstool targets.
-   */
-  public List<Label> getCrosstoolTargets() {
-    return crosstoolTargets;
-  }
-
-  /**
    * Returns the toolchain identifier, which uniquely identifies the compiler
    * version, target libc version, target cpu, and LIPO linkage.
    */
@@ -866,41 +829,6 @@ public class CppConfiguration extends BuildConfiguration.Fragment {
   }
 
   /**
-   * Returns a label that forms a dependency to the binaries required for
-   * compiling source files to object files with gcc. This label does not
-   * include any header files.
-   *
-   * <p>The returned label is guaranteed to be non-null if and only if {@link
-   * #isCrosstoolTopALabel} returns true.
-   */
-  public Label getCrosstoolLabelForCompile() {
-    return crosstoolLabelForCompile;
-  }
-
-  /**
-   * Returns a label that forms a dependency to the binaries required for
-   * compiling timestamps and linking. This label does not include any header
-   * files.
-   *
-   * <p>The returned label is guaranteed to be non-null if and only if {@link
-   * #isCrosstoolTopALabel} returns true.
-   */
-  public Label getCrosstoolLabelForLink()  {
-    return crosstoolLabelForLink;
-  }
-
-  /**
-   * Returns a label that forms a dependency to the binaries required for
-   * objcopy invocations.
-   *
-   * <p>The returned label is guaranteed to be non-null if and only if {@link
-   * #isCrosstoolTopALabel} returns true.
-   */
-  public Label getCrosstoolLabelForObjCopy()  {
-    return crosstoolLabelForObjCopy;
-  }
-
-  /**
    * Returns a label that forms a dependency to the files required for the
    * sysroot that is used.
    */
@@ -930,17 +858,6 @@ public class CppConfiguration extends BuildConfiguration.Fragment {
    */
   public Label getDynamicRuntimeLibsLabel() {
     return supportsEmbeddedRuntimes() ? dynamicRuntimeLibsLabel : null;
-  }
-
-  /**
-   * Returns a label that references the files needed to run the 'dwp' "C++ debug
-   * packager" tool. See https://gcc.gnu.org/wiki/DebugFission .
-   *
-   * <p>The returned label is guaranteed to be non-null if and only if {@link
-   * #isCrosstoolTopALabel} returns true.
-   */
-  public Label getCrosstoolLabelForDwp() {
-    return dwpLabel;
   }
 
   /**
@@ -1442,16 +1359,6 @@ public class CppConfiguration extends BuildConfiguration.Fragment {
   }
 
   /**
-   * Returns the label for the dwp "debug packager" binary for the target
-   * architecture or {@code null}. See https://gcc.gnu.org/wiki/DebugFission .
-   *
-   * <p>This label is only accessible when --fission is enabled.
-   */
-  public Label getDwpLabel() {
-    return useFission() ? getCrosstoolLabelForDwp() : null;
-  }
-
-  /**
    * Returns true iff this build configuration requires inclusion extraction
    * (for include scanning) in the action graph.
    */
@@ -1615,16 +1522,6 @@ public class CppConfiguration extends BuildConfiguration.Fragment {
   }
 
   /**
-   * Returns the crosstool label for stripping or null.
-   */
-  // TODO(bazel-team): We could theoretically get away with only a subset of
-  // crosstool, because we only need strip, but we would need to figure out
-  // which other files in crosstool strip needs.
-  public Label getCrosstoolLabelForStrip() {
-    return getCrosstoolLabel();
-  }
-
-  /**
    * Returns the GNU System Name
    */
   public String getTargetGnuSystemName() {
@@ -1746,14 +1643,10 @@ public class CppConfiguration extends BuildConfiguration.Fragment {
     if (getLibcLabel() != null) {
       implicitLabels.put("crosstool", getLibcLabel());
     }
-    // The dynamic and static runtime libs labels should probably be in the crosstool targets.
-    if (getDynamicRuntimeLibsLabel() != null) {
-      implicitLabels.put("crosstool", getDynamicRuntimeLibsLabel());
+
+    if (crosstoolLabel != null) {
+      implicitLabels.put("crosstool", crosstoolLabel);
     }
-    if (getStaticRuntimeLibsLabel() != null) {
-      implicitLabels.put("crosstool", getStaticRuntimeLibsLabel());
-    }
-    implicitLabels.putAll("crosstool", getCrosstoolTargets());
   }
 
   @Override

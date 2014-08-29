@@ -116,34 +116,15 @@ public final class Reporter implements EventHandler, ExceptionListener {
   }
 
   /**
-   * Returns true iff this Reporter has an ErrorEventListener that will handle the
-   * specified event kind.  Callers may use this to optimise away unnecessary
-   * calls to the Reporter when no-one is listening.
-   */
-  public boolean hasHandlerFor(EventKind kind) {
-    return mask.contains(kind);
-  }
-
-  /**
    * This method is called by the build system to report an event.
    */
   @Override
   public synchronized void handle(Event e) {
-    if (hasHandlerFor(e.getKind())) {
-      for (EventHandler handler : handlers) {
-        if (handler.getEventMask().contains(e.getKind())) {
-          handler.handle(e);
-        }
+    for (EventHandler handler : handlers) {
+      if (handler.getEventMask().contains(e.getKind())) {
+        handler.handle(e);
       }
     }
-  }
-
-  /**
-   * Reports a subcommand executed by the build tool; a wrapper around
-   * report() with event kind SUBCOMMAND.
-   */
-  public void subcommand(Location location, String message) {
-    handle(new Event(EventKind.SUBCOMMAND, location, message));
   }
 
   /**

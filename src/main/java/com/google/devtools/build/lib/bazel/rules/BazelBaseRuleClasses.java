@@ -23,7 +23,6 @@ import com.google.common.collect.ImmutableSet;
 import com.google.devtools.build.lib.packages.RuleClass;
 import com.google.devtools.build.lib.packages.RuleClass.Builder;
 import com.google.devtools.build.lib.packages.RuleClass.Builder.RuleClassType;
-import com.google.devtools.build.lib.syntax.Label;
 import com.google.devtools.build.lib.view.BaseRuleClasses;
 import com.google.devtools.build.lib.view.BlazeRule;
 import com.google.devtools.build.lib.view.RuleDefinition;
@@ -36,9 +35,6 @@ import com.google.devtools.build.lib.view.RuleDefinitionEnvironment;
  * and prevents users from inadvertently using an attribute that doesn't actually do anything.
  */
 public class BazelBaseRuleClasses {
-  private static final Label LCOV_MERGER_LABEL =
-      Label.parseAbsoluteUnchecked("//tools:coverage/lcov_merger.par");
-
   public static final ImmutableSet<String> ALLOWED_RULE_CLASSES =
       ImmutableSet.of("filegroup", "genrule", "Fileset");
 

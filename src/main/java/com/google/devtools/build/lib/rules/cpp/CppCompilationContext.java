@@ -316,7 +316,7 @@ public final class CppCompilationContext implements TransitiveInfoProvider {
    * compilation.
    *
    * <p>Include scanning is not handled by this method. See
-   * {@link IncludeScannable#getAuxiliaryScannables()} instead.
+   * {@code IncludeScannable#getAuxiliaryScannables()} instead.
    *
    * @param ownerContext the compilation context of the owner binary
    * @param libContext the compilation context of the library

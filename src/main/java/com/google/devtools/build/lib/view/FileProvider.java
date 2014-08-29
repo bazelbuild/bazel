@@ -19,8 +19,8 @@ import com.google.devtools.build.lib.collect.nestedset.NestedSet;
 import com.google.devtools.build.lib.concurrent.ThreadSafety.Immutable;
 import com.google.devtools.build.lib.syntax.ClassObject;
 import com.google.devtools.build.lib.syntax.Label;
-import com.google.devtools.build.lib.syntax.SkylarkBuiltin;
 import com.google.devtools.build.lib.syntax.SkylarkCallable;
+import com.google.devtools.build.lib.syntax.SkylarkModule;
 import com.google.devtools.build.lib.syntax.SkylarkNestedSet;
 
 import javax.annotation.Nullable;
@@ -31,7 +31,7 @@ import javax.annotation.Nullable;
  * <p>Every transitive info collection contains at least this provider.
  */
 @Immutable
-@SkylarkBuiltin(name = "FileProvider", doc = "An interface for rules that provide files.")
+@SkylarkModule(name = "FileProvider", doc = "An interface for rules that provide files.")
 public final class FileProvider implements TransitiveInfoProvider, ClassObject {
 
   @Nullable private final Label label;

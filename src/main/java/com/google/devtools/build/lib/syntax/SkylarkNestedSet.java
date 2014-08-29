@@ -31,7 +31,7 @@ import java.util.Map;
 /**
  * A generic type safe NestedSet wrapper for Skylark.
  */
-@SkylarkBuiltin(name = "NestedSet", doc = "An efficient nested set for Skylark")
+@SkylarkModule(name = "NestedSet", doc = "An efficient nested set for Skylark")
 @Immutable
 public final class SkylarkNestedSet implements Iterable<Object> {
 

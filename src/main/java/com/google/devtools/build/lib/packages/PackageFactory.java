@@ -130,7 +130,6 @@ public final class PackageFactory {
   private static final Logger LOG = Logger.getLogger(PackageFactory.class.getName());
 
   private final RuleFactory ruleFactory;
-  private final SkylarkRuleFactory skylarkRuleFactory;
   private final RuleClassProvider ruleClassProvider;
 
   private final Profiler profiler = Profiler.instance();
@@ -184,7 +183,6 @@ public final class PackageFactory {
       boolean retainAsts) {
     this.platformSetRegexps = platformSetRegexps;
     this.ruleFactory = new RuleFactory(ruleClassProvider);
-    this.skylarkRuleFactory = new SkylarkRuleFactory(ruleClassProvider);
     this.ruleClassProvider = ruleClassProvider;
     this.retainAsts = retainAsts;
     globalEnv = newGlobalEnvironment();
@@ -493,7 +491,7 @@ public final class PackageFactory {
           } catch (Label.SyntaxException e) {
             throw new EvalException(ast.getLocation(),
                 "package group has invalid name: " + name + ": " + e.getMessage());
-          } catch (Package.PackageBuilder.NameConflictException e) {
+          } catch (Package.NameConflictException e) {
             throw new EvalException(ast.getLocation(), e.getMessage());
           }
         }
@@ -587,31 +585,19 @@ public final class PackageFactory {
   }
 
   // Helper function for createRuleFunction.
-  private static Rule addRule(RuleFactory ruleFactory,
-                              SkylarkRuleFactory skylarkRuleFactory,
+  private static void addRule(RuleFactory ruleFactory,
                               String ruleClassName,
-                              Path extensionFile,
                               PackageContext context,
                               Map<String, Object> kwargs,
                               FuncallExpression ast)
-      throws RuleFactory.InvalidRuleException, Package.PackageBuilder.NameConflictException {
-    RuleClass ruleClass = getSkylarkOrBuiltInRuleClass(
-        ruleClassName, extensionFile, ruleFactory, skylarkRuleFactory);
-    Rule rule = RuleFactory.createRule(context.pkgBuilder, ruleClass, kwargs,
-                                       context.eventHandler, ast,
-                                       context.retainASTs,
-                                       ast.getLocation());
-    context.pkgBuilder.addRule(rule);
-    return rule;
+      throws RuleFactory.InvalidRuleException, Package.NameConflictException {
+    RuleClass ruleClass = getBuiltInRuleClass(ruleClassName, ruleFactory);
+    RuleFactory.createAndAddRule(context, ruleClass, kwargs, ast);
   }
 
-  private static RuleClass getSkylarkOrBuiltInRuleClass(String ruleClassName, Path file,
-      RuleFactory ruleFactory, SkylarkRuleFactory skylarkRuleFactory) {
+  private static RuleClass getBuiltInRuleClass(String ruleClassName, RuleFactory ruleFactory) {
     if (ruleFactory.getRuleClassNames().contains(ruleClassName)) {
       return ruleFactory.getRuleClass(ruleClassName);
-    }
-    if (skylarkRuleFactory.hasRuleClass(ruleClassName, file)) {
-      return skylarkRuleFactory.getRuleClass(ruleClassName, file);
     }
     throw new IllegalArgumentException("no such rule class: "  + ruleClassName);
   }
@@ -621,9 +607,7 @@ public final class PackageFactory {
    * specified package context.
    */
   private static Function newRuleFunction(final RuleFactory ruleFactory,
-                                          final SkylarkRuleFactory skylarkRuleFactory,
                                           final String ruleClass,
-                                          final Path extensionFile,
                                           final PackageContext context) {
     return new AbstractFunction(ruleClass) {
       @Override
@@ -636,9 +620,9 @@ public final class PackageFactory {
         }
 
         try {
-          addRule(ruleFactory, skylarkRuleFactory, ruleClass, extensionFile, context, kwargs, ast);
+          addRule(ruleFactory, ruleClass, context, kwargs, ast);
         } catch (
-            RuleFactory.InvalidRuleException | Package.PackageBuilder.NameConflictException e) {
+            RuleFactory.InvalidRuleException | Package.NameConflictException e) {
           throw new EvalException(ast.getLocation(), e.getMessage());
         }
         return 0;
@@ -820,7 +804,7 @@ public final class PackageFactory {
     final EventHandler eventHandler;
     final boolean retainASTs;
 
-    PackageContext(LegacyPackage.LegacyPackageBuilder pkgBuilder, EventHandler eventHandler,
+    public PackageContext(LegacyPackage.LegacyPackageBuilder pkgBuilder, EventHandler eventHandler,
         boolean retainASTs) {
       this.pkgBuilder = pkgBuilder;
       this.eventHandler = eventHandler;
@@ -845,11 +829,12 @@ public final class PackageFactory {
 
   private void buildPkgEnv(Environment pkgEnv, String packageName,
       MakeEnvironment.Builder pkgMakeEnv, PackageContext context, RuleFactory ruleFactory,
-      SkylarkRuleFactory skylarkRuleFactory) {
+      ImmutableList.Builder<Function> nativeRuleFunctions) {
     buildPkgEnv(pkgEnv, packageName, context);
     for (String ruleClass : ruleFactory.getRuleClassNames()) {
-      pkgEnv.update(ruleClass,
-          newRuleFunction(ruleFactory, skylarkRuleFactory, ruleClass, null, context));
+      Function ruleFunction = newRuleFunction(ruleFactory, ruleClass, context);
+      pkgEnv.update(ruleClass, ruleFunction);
+      nativeRuleFunctions.add(ruleFunction);
     }
 
     for (EnvironmentExtension extension : environmentExtensions) {
@@ -859,7 +844,7 @@ public final class PackageFactory {
 
   private Environment loadSkylarkExtension(Path file, CachingPackageLocator locator,
       Path root, PackageContext context, ImmutableList<Path> extensionFileStack,
-      Set<PathFragment> transitiveSkylarkExtensions)
+      Set<PathFragment> transitiveSkylarkExtensions, ImmutableList<Function> nativeRuleFunctions)
           throws InterruptedException {
     BuildFileAST buildFileAST;
     try {
@@ -870,10 +855,11 @@ public final class PackageFactory {
       return null;
     }
 
-    Environment env = skylarkRuleFactory.getSkylarkRuleClassEnvironment();
+    Environment env =
+        ruleClassProvider.getSkylarkRuleClassEnvironment(context, nativeRuleFunctions);
 
     if (!loadAllImports(buildFileAST, root, file, locator, env, context,
-        extensionFileStack, false, transitiveSkylarkExtensions)) {
+        extensionFileStack, transitiveSkylarkExtensions, nativeRuleFunctions)) {
       return null;
     }
 
@@ -887,8 +873,9 @@ public final class PackageFactory {
   // Load all extensions imported in buildFileAST and update the environment.
   private boolean loadAllImports(BuildFileAST buildFileAST, Path root, Path parentFile,
       CachingPackageLocator locator, Environment parentEnv, PackageContext context,
-      ImmutableList<Path> extensionFileStack, boolean updateSkylarkRuleFactory,
-      Set<PathFragment> transitiveSkylarkExtensions)
+      ImmutableList<Path> extensionFileStack,
+      Set<PathFragment> transitiveSkylarkExtensions,
+      ImmutableList<Function> nativeRuleFunctions)
       throws InterruptedException {
     // TODO(bazel-team): We should have a global cache and make sure each
     // imported file is loaded at most once.
@@ -901,26 +888,12 @@ public final class PackageFactory {
         parentEnv.setImportedExtensions(imports);
         return false;
       }
-      if (updateSkylarkRuleFactory) {
-        skylarkRuleFactory.clear(file);
-      }
       Environment extensionEnv = loadSkylarkExtension(file, locator, root, context,
           ImmutableList.<Path>builder().addAll(extensionFileStack).add(file).build(),
-          transitiveSkylarkExtensions);
+          transitiveSkylarkExtensions, nativeRuleFunctions);
       if (extensionEnv == null) {
         parentEnv.setImportedExtensions(imports);
         return false;
-      }
-      if (updateSkylarkRuleFactory) {
-        for (Map.Entry<String, RuleClass.Builder> var :
-                 extensionEnv.getAll(RuleClass.Builder.class).entrySet()) {
-          RuleClass ruleClass = var.getValue().setName(var.getKey()).build();
-          skylarkRuleFactory.addSkylarkRuleClass(ruleClass, file);
-
-          extensionEnv.remove(ruleClass.getName());
-          extensionEnv.update(ruleClass.getName(),
-              newRuleFunction(ruleFactory, skylarkRuleFactory, ruleClass.getName(), file, context));
-        }
       }
       imports.put(imp, extensionEnv);
     }
@@ -980,7 +953,8 @@ public final class PackageFactory {
 
     // Stuff that closes over the package context:
     PackageContext context = new PackageContext(pkgBuilder, eventHandler, retainAsts);
-    buildPkgEnv(pkgEnv, packageName, pkgMakeEnv, context, ruleFactory, skylarkRuleFactory);
+    ImmutableList.Builder<Function> nativeRuleFunctions = ImmutableList.builder();
+    buildPkgEnv(pkgEnv, packageName, pkgMakeEnv, context, ruleFactory, nativeRuleFunctions);
 
     if (containsError) {
       pkgBuilder.setContainsErrors();
@@ -993,7 +967,8 @@ public final class PackageFactory {
     Path root = Package.getSourceRoot(buildFilePath, new PathFragment(packageName));
     Set<PathFragment> transitiveSkylarkExtensions = new HashSet<>();
     if (!loadAllImports(buildFileAST, root, buildFilePath, locator, pkgEnv,
-        context, ImmutableList.<Path>of(buildFilePath), true, transitiveSkylarkExtensions)) {
+        context, ImmutableList.<Path>of(buildFilePath), transitiveSkylarkExtensions,
+        nativeRuleFunctions.build())) {
       pkgBuilder.setContainsErrors();
     }
     pkgBuilder.setSkylarkExtensions(root, transitiveSkylarkExtensions);

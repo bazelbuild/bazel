@@ -54,18 +54,17 @@ public final class TargetMarkerFunction implements SkyFunction {
       if (containingPackageLookupValue == null) {
         return null;
       }
-      PathFragment containingPkg = containingPackageLookupValue.getContainingPackageNameOrNull();
-      if (containingPkg == null) {
-        // This means the label's package doesn't exist. E.g. there is no package 'a/b' and we are
-        // trying to build the target for label 'a/b:foo'.
+      if (!containingPackageLookupValue.hasContainingPackage()) {
+        // This means the label's package doesn't exist. E.g. there is no package 'a' and we are
+        // trying to build the target for label 'a:b/foo'.
         throw new TargetMarkerFunctionException(key,
             new BuildFileNotFoundException(pkgForLabel.getPathString(),
                 "BUILD file not found on package path for '" + pkgForLabel.getPathString() + "'"));
       }
-      if (!containingPkg.equals(pkgForLabel)) {
+      if (!containingPackageLookupValue.getContainingPackageName().equals(pkgForLabel)) {
         throw new TargetMarkerFunctionException(key, new NoSuchTargetException(label,
             String.format("Label '%s' crosses boundary of subpackage '%s'", label,
-                containingPkg)));
+                containingPackageLookupValue.getContainingPackageName())));
       }
     }
 

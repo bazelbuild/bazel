@@ -64,6 +64,15 @@ import java.util.Set;
 public class Package implements Serializable {
 
   /**
+   * Common superclass for all name-conflict exceptions.
+   */
+  public static class NameConflictException extends Exception {
+    protected NameConflictException(String message) {
+      super(message);
+    }
+  }
+
+  /**
    * The name of the package, e.g. "foo/bar".
    */
   protected final String name;
@@ -941,15 +950,6 @@ public class Package implements Serializable {
      */
     <T extends Target> Iterable<T> getTargets(Class<T> targetClass) {
       return Package.getTargets(targets, targetClass);
-    }
-
-    /**
-     * Common superclass for all name-conflict exceptions.
-     */
-    static class NameConflictException extends Exception {
-      protected NameConflictException(String message) {
-        super(message);
-      }
     }
 
     /**

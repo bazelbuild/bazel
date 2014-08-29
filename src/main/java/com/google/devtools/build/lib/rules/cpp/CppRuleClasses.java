@@ -72,14 +72,6 @@ public class CppRuleClasses {
 
 
   /**
-   * Attribute reference for the files needed to run a "dwp" debug packaging command.
-   */
-  // TODO(bazel-team): consider extracting out more labels into constants to remove redundant
-  // string definitions.
-  public static final String DWP_LABEL_NAME = ":dwp_label";
-
-
-  /**
    * Path of the build_interface_so script in the Blaze binary.
    */
   public static final String BUILD_INTERFACE_SO = "build_interface_so";

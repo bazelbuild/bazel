@@ -15,15 +15,16 @@ package com.google.devtools.build.lib.rules;
 
 import com.google.devtools.build.lib.actions.Artifact;
 import com.google.devtools.build.lib.actions.Root;
-import com.google.devtools.build.lib.syntax.SkylarkBuiltin;
 import com.google.devtools.build.lib.syntax.SkylarkCallable;
+import com.google.devtools.build.lib.syntax.SkylarkModule;
 import com.google.devtools.build.lib.vfs.FileSystemUtils;
 import com.google.devtools.build.lib.vfs.PathFragment;
 
 /**
  * A wrapper class for NestedSet of Artifacts in Skylark to ensure type safety.
  */
-@SkylarkBuiltin(name = "Files", doc = "A helper class to extract path from files.")
+@SkylarkModule(name = "Files", namespace = true,
+    doc = "A helper class to extract path from files.")
 public final class SkylarkFileset {
 
   @SkylarkCallable(doc = "Returns the relative path of this file relative to its root.")

@@ -77,9 +77,9 @@ public final class FuncallExpression extends Expression {
    * Returns a map of methods and corresponding SkylarkCallable annotations
    * of the methods of the classObj class reachable from Skylark.
    */
-  public static Map<Method, SkylarkCallable> collectSkylarkMethodsWithAnnotation(
+  public static ImmutableMap<Method, SkylarkCallable> collectSkylarkMethodsWithAnnotation(
       Class<?> classObj) {
-    Map<Method, SkylarkCallable> methodMap = new HashMap<>();
+    ImmutableMap.Builder<Method, SkylarkCallable> methodMap = ImmutableMap.builder();
     for (Method method : classObj.getMethods()) {
       // Synthetic methods lead to false multiple matches
       if (!method.isSynthetic()) {
@@ -89,14 +89,14 @@ public final class FuncallExpression extends Expression {
         }
       }
     }
-    return methodMap;
+    return methodMap.build();
   }
 
   private static SkylarkCallable getAnnotationFromParentClass(Class<?> classObj, Method method) {
     boolean keepLooking = false;
     try {
       Method superMethod = classObj.getMethod(method.getName(), method.getParameterTypes());
-      if (classObj.isAnnotationPresent(SkylarkBuiltin.class)
+      if (classObj.isAnnotationPresent(SkylarkModule.class)
           && superMethod.isAnnotationPresent(SkylarkCallable.class)) {
         return superMethod.getAnnotation(SkylarkCallable.class);
       } else {
@@ -331,6 +331,11 @@ public final class FuncallExpression extends Expression {
     }
   }
 
+  static boolean isNamespace(Class<?> classObject) {
+    return classObject.isAnnotationPresent(SkylarkModule.class)
+        && classObject.getAnnotation(SkylarkModule.class).namespace();
+  }
+
   @Override
   Object eval(Environment env) throws EvalException, InterruptedException {
     List<Object> posargs = new ArrayList<>();
@@ -343,7 +348,9 @@ public final class FuncallExpression extends Expression {
       Function function =
           env.getFunction(EvalUtils.getSkylarkType(objValue.getClass()), func.getName());
       if (function != null) {
-        posargs.add(objValue);
+        if (!isNamespace(objValue.getClass())) {
+          posargs.add(objValue);
+        }
         evalArguments(posargs, kwargs, env);
         return function.call(posargs, kwargs, this, env);
       } else if (env.isSkylarkEnabled()) {

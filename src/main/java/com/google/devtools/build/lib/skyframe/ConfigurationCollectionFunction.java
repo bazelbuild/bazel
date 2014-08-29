@@ -59,7 +59,7 @@ public class ConfigurationCollectionFunction implements SkyFunction {
       BuildConfigurationCollection result =
           configurationFactory.get().getConfigurations(env.getListener(),
           new SkyframePackageLoaderWithValueEnvironment(env),
-          new BuildConfigurationKey(collectionKey.getBuildOptions(), directories, clientEnv.get(), 
+          new BuildConfigurationKey(collectionKey.getBuildOptions(), directories, clientEnv.get(),
               collectionKey.getMultiCpu()));
 
       // BuildConfigurationCollection can be created, but dependencies to some files might be

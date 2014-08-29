@@ -86,7 +86,7 @@ public class CppCompileActionBuilder {
     this.pluginInputsBuilder = NestedSetBuilder.stableOrder();
     this.optionalInputsBuilder = NestedSetBuilder.stableOrder();
 
-    features.addAll(ruleContext.getRule().getFeatures());
+    features.addAll(ruleContext.getFeatures());
   }
 
   /**
@@ -209,9 +209,9 @@ public class CppCompileActionBuilder {
     realMandatoryInputsBuilder.addTransitive(mandatoryInputsBuilder.build());
     if (tempOutputFile == null && configuration != null
         && !configuration.getFragment(CppConfiguration.class).shouldScanIncludes()) {
-      realMandatoryInputsBuilder.addAll(context.getDeclaredIncludeSrcs());
+      realMandatoryInputsBuilder.addTransitive(context.getDeclaredIncludeSrcs());
     }
-    realMandatoryInputsBuilder.addAll(context.getAdditionalInputs());
+    realMandatoryInputsBuilder.addTransitive(context.getAdditionalInputs());
     realMandatoryInputsBuilder.addTransitive(pluginInputsBuilder.build());
     realMandatoryInputsBuilder.add(sourceFile);
     boolean fake = tempOutputFile != null;

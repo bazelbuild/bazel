@@ -18,6 +18,8 @@ import com.google.common.collect.ImmutableMap;
 import com.google.devtools.build.lib.syntax.FuncallExpression;
 import com.google.devtools.build.lib.syntax.SkylarkBuiltin;
 import com.google.devtools.build.lib.syntax.SkylarkCallable;
+import com.google.devtools.build.lib.syntax.SkylarkModule;
+import com.google.devtools.build.lib.util.StringUtilities;
 
 import java.lang.reflect.Method;
 import java.util.HashMap;
@@ -25,9 +27,7 @@ import java.util.HashSet;
 import java.util.LinkedList;
 import java.util.Map;
 import java.util.Set;
-import java.util.TreeSet;
-
-import javax.annotation.Nullable;
+import java.util.TreeMap;
 
 /**
  * A helper class to collect all the Java objects / methods reachable from Skylark.
@@ -38,95 +38,43 @@ public class SkylarkJavaInterfaceExplorer {
    * A class representing a Skylark built-in object with its {@link SkylarkBuiltin} annotation
    * and the {@link SkylarkCallable} methods it might have.
    */
-  static final class SkylarkJavaObject implements Comparable<SkylarkJavaObject> {
+  static final class SkylarkModuleDoc {
 
-    private final SkylarkBuiltin annotation;
-    @Nullable private final SkylarkBuiltin module;
-    private final ImmutableMap<Method, SkylarkCallable> methods;
-    private final ImmutableMap<String, SkylarkCallable> extraMethods;
+    private final SkylarkModule module;
+    private final Class<?> classObject;
+    private final Map<String, SkylarkBuiltin> builtin;
+    private Map<String, Map.Entry<Method, SkylarkCallable>> methods = null;
 
-    private SkylarkJavaObject(SkylarkBuiltin annotation,
-        ImmutableMap<Method, SkylarkCallable> methods,
-        ImmutableMap<String, SkylarkCallable> extraMethods) {
-      this.annotation = Preconditions.checkNotNull(annotation);
+    SkylarkModuleDoc(SkylarkModule module, Class<?> classObject) {
+      this.module = Preconditions.checkNotNull(module,
+          "Class has to be annotated with SkylarkModule: " + classObject);
+      this.classObject = classObject;
+      this.builtin = new TreeMap<>();
+    }
+
+    SkylarkModule getAnnotation() {
+      return module;
+    }
+
+    Class<?> getClassObject() {
+      return classObject;
+    }
+
+    private boolean javaMethodsNotCollected() {
+      return methods == null;
+    }
+
+    private void setJavaMethods(Map<String, Map.Entry<Method, SkylarkCallable>> methods) {
       this.methods = methods;
-      this.extraMethods = extraMethods;
-      if (annotation.objectType().isAnnotationPresent(SkylarkBuiltin.class)) {
-        module = annotation.objectType().getAnnotation(SkylarkBuiltin.class);
-      } else {
-        module = null;
-      }
     }
 
-    /**
-     * Creates a {@link SkylarkJavaObject} from a {@link SkylarkBuiltin} annotation and a map
-     * of java Methods and the corresponding {@link SkylarkCallable} annotations. 
-     */
-    static SkylarkJavaObject ofMethods(
-        SkylarkBuiltin annotation, Map<Method, SkylarkCallable> methods) {
-      return new SkylarkJavaObject(annotation,
-          ImmutableMap.copyOf(methods), ImmutableMap.<String, SkylarkCallable>of());
+    Map<String, SkylarkBuiltin> getBuiltinMethods() {
+      return builtin;
     }
 
-    /**
-     * Creates a {@link SkylarkJavaObject} from a {@link SkylarkBuiltin} annotation and a map
-     * of {@link SkylarkCallable} annotations mapped by the name of the methods they refer to.
-     * These extraMethods don't refer to actual {@link Method} objects, but other types of
-     * Skylark method implementations.
-     */
-    static SkylarkJavaObject ofExtraMethods(
-        SkylarkBuiltin annotation, Map<String, SkylarkCallable> extraMethods) {
-      return new SkylarkJavaObject(annotation,
-          ImmutableMap.<Method, SkylarkCallable>of(), ImmutableMap.copyOf(extraMethods));
-    }
-
-    SkylarkBuiltin getAnnotation() {
-      return annotation;
-    }
-
-    ImmutableMap<Method, SkylarkCallable> getMethods() {
+    Map<String, Map.Entry<Method, SkylarkCallable>> getJavaMethods() {
       return methods;
-    }
-
-    ImmutableMap<String, SkylarkCallable> getExtraMethods() {
-      return extraMethods;
-    }
-
-    @Override
-    public int hashCode() {
-      int hashcode = annotation.hashCode();
-      if (module == null) {
-        hashcode ^= module.hashCode();
-      }
-      return hashcode;
-    }
-
-    @Override
-    public boolean equals(Object obj) {
-      if (!(obj instanceof SkylarkJavaObject)) {
-        return false;
-      }
-      SkylarkJavaObject o = (SkylarkJavaObject) obj;
-      if (this.module != null) {
-        if (!this.module.equals(o.module)) {
-          return false;
-        }
-      } else {
-        if (o.module != null) {
-          return false;
-        }
-      }
-      return annotation.equals(o.annotation);
-    }
-
-    @Override
-    public int compareTo(SkylarkJavaObject o) {
-      return this.name().compareTo(o.name());
-    }
-
-    public String name() {
-      return (module != null ? module.name() + "." : "") + annotation.name();
-    }
+    }    
   }
 
   /**
@@ -137,33 +85,50 @@ public class SkylarkJavaInterfaceExplorer {
    * is also an input parameter, because some top level Skylark built-in objects and methods
    * are not annotated on the class, but on a field referencing them.
    */
-  Set<SkylarkJavaObject> collect(SkylarkBuiltin firstAnnotation, Class<?> firstClassObject) {
-    Set<SkylarkJavaObject> objects = new TreeSet<>();
+  void collect(SkylarkModule firstModule, Class<?> firstClass,
+      Map<String, SkylarkModuleDoc> modules) {
     Set<Class<?>> processedClasses = new HashSet<>();
     LinkedList<Class<?>> classesToProcess = new LinkedList<>();
-    Map<Class<?>, SkylarkBuiltin> annotations = new HashMap<>();
+    Map<Class<?>, SkylarkModule> annotations = new HashMap<>();
 
-    classesToProcess.addLast(firstClassObject);
-    annotations.put(firstClassObject, firstAnnotation);
+    classesToProcess.addLast(firstClass);
+    annotations.put(firstClass, firstModule);
 
     while (!classesToProcess.isEmpty()) {
       Class<?> classObject = classesToProcess.removeFirst();
-      SkylarkBuiltin annotation = annotations.get(classObject);
+      SkylarkModule annotation = annotations.get(classObject);
       processedClasses.add(classObject);
-
-      Map<Method, SkylarkCallable> methods =
-          FuncallExpression.collectSkylarkMethodsWithAnnotation(classObject);
-      for (Map.Entry<Method, SkylarkCallable> method : methods.entrySet()) {
-        Class<?> returnClass = method.getKey().getReturnType();
-        if (returnClass.isAnnotationPresent(SkylarkBuiltin.class)
-            && !processedClasses.contains(returnClass)) {
-          classesToProcess.addLast(returnClass);
-          annotations.put(returnClass, returnClass.getAnnotation(SkylarkBuiltin.class));
-        }
+      if (!modules.containsKey(annotation.name())) {
+        modules.put(annotation.name(), new SkylarkModuleDoc(annotation, classObject));
       }
-      objects.add(SkylarkJavaObject.ofMethods(annotation, methods));
-    }
+      SkylarkModuleDoc module = modules.get(annotation.name());
 
-    return objects;
+      if (module.javaMethodsNotCollected()) {
+        ImmutableMap<Method, SkylarkCallable> methods =
+            FuncallExpression.collectSkylarkMethodsWithAnnotation(classObject);
+        // Order the methods alphabetically
+        Map<String, Map.Entry<Method, SkylarkCallable>> methodMap = new TreeMap<>();
+        for (Map.Entry<Method, SkylarkCallable> entry : methods.entrySet()) {
+          methodMap.put(getName(entry), entry);
+        }
+
+        for (Map.Entry<Method, SkylarkCallable> method : methods.entrySet()) {
+          Class<?> returnClass = method.getKey().getReturnType();
+          if (returnClass.isAnnotationPresent(SkylarkModule.class)
+              && !processedClasses.contains(returnClass)) {
+            classesToProcess.addLast(returnClass);
+            annotations.put(returnClass, returnClass.getAnnotation(SkylarkModule.class));
+          }
+        }
+        module.setJavaMethods(methodMap);
+      }
+    }
   }
+
+  private String getName(Map.Entry<Method, SkylarkCallable> method) {
+    return method.getValue().name().isEmpty()
+        ? StringUtilities.toPythonStyleFunctionName(method.getKey().getName())
+        : method.getValue().name();
+  }
+
 }

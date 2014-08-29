@@ -24,6 +24,7 @@ import com.google.devtools.build.lib.syntax.Function;
 import com.google.devtools.build.lib.syntax.SkylarkBuiltin;
 import com.google.devtools.build.lib.syntax.SkylarkBuiltin.Param;
 import com.google.devtools.build.lib.syntax.SkylarkFunction;
+import com.google.devtools.build.lib.syntax.SkylarkModule;
 import com.google.devtools.build.lib.syntax.SkylarkType;
 import com.google.devtools.build.lib.util.FileTypeSet;
 
@@ -33,7 +34,7 @@ import java.util.Map;
 /**
  * A helper class to provide Attr module in Skylark.
  */
-@SkylarkBuiltin(name = "Attr", doc = "A class to create rule attributes.")
+@SkylarkModule(name = "Attr", namespace = true, doc = "Module for creating new attributes.")
 public final class SkylarkAttr {
   // TODO(bazel-team): Better check the arguments.
 

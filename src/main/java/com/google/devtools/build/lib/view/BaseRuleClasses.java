@@ -150,8 +150,13 @@ public class BaseRuleClasses {
           // Keep this in sync with BinTools.
           .add(attr("$test_tools", LABEL_LIST).cfg(HOST).value(ImmutableList.of(
               env.getLabel("//tools:test_setup_scripts"))))
-          // TODO(bazel-team): TestHelper loads gcov for coverage, so all tests implicitly depend on
-          // crosstool. Ugh!
+          .add(attr("$test_runtime", LABEL_LIST).cfg(HOST).value(ImmutableList.of(
+              env.getLabel("//tools/test:runtime"))))
+
+          // TODO(bazel-team): TestActions may need to be run with coverage, so all tests
+          // implicitly depend on crosstool, which provides gcov.  We could add gcov to
+          // InstrumentedFilesProvider.getInstrumentationMetadataFiles() (or a new method) for
+          // all the test rules that have C++ in their transitive closure. Then this could go.
           .add(attr(":coverage_support", LABEL_LIST).cfg(HOST).value(COVERAGE_SUPPORT))
 
           // The target itself and run_under both run on the same machine. We use the DATA config

@@ -58,7 +58,6 @@ public final class TestActionBuilder {
   private Artifact executable;
   private ExecutionInfoProvider executionRequirements;
   private InstrumentedFilesProvider instrumentedFiles;
-  private ImmutableList<Artifact> filesToRun;
   private int explicitShardCount;
 
   public TestActionBuilder(RuleContext ruleContext) {
@@ -107,12 +106,6 @@ public final class TestActionBuilder {
     Preconditions.checkNotNull(provider.getExecutable());
     this.runfilesSupport = provider.getRunfilesSupport();
     this.executable = provider.getExecutable();
-    return this;
-  }
-
-  public TestActionBuilder setFilesToRun(ImmutableList<Artifact> filesToRun) {
-    Preconditions.checkNotNull(filesToRun);
-    this.filesToRun = filesToRun;
     return this;
   }
 
@@ -200,7 +193,9 @@ public final class TestActionBuilder {
     for (TransitiveInfoCollection dep : ruleContext.getPrerequisites("$test_tools", Mode.HOST)) {
       inputsBuilder.addTransitive(dep.getProvider(FileProvider.class).getFilesToBuild());
     }
-    inputsBuilder.add(env.getEmbeddedToolArtifact(ALARM));
+    for (TransitiveInfoCollection dep : ruleContext.getPrerequisites("$test_runtime", Mode.HOST)) {
+      inputsBuilder.addTransitive(dep.getProvider(FileProvider.class).getFilesToBuild());
+    }
     TestTargetProperties testProperties = new TestTargetProperties(
         ruleContext, executionRequirements);
 

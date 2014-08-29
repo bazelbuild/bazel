@@ -48,6 +48,7 @@ public final class BlazeExecutor implements Executor {
 
   private final Path outputPath;
   private final boolean verboseFailures;
+  private final boolean showSubcommands;
   private final Path execRoot;
   private final Reporter reporter;
   private final EventBus eventBus;
@@ -82,12 +83,14 @@ public final class BlazeExecutor implements Executor {
       Clock clock,
       OptionsClassProvider options,
       boolean verboseFailures,
+      boolean showSubcommands,
       List<ActionContext> contextImplementations,
       Map<String, ActionContext> spawnContextMap,
       Iterable<ActionContextProvider> contextProviders)
       throws ExecutorInitException {
     this.outputPath = outputPath;
     this.verboseFailures = verboseFailures;
+    this.showSubcommands = showSubcommands;
     this.execRoot = execRoot;
     this.reporter = reporter;
     this.eventBus = eventBus;
@@ -143,7 +146,7 @@ public final class BlazeExecutor implements Executor {
 
   @Override
   public boolean reportsSubcommands() {
-    return reporter.hasHandlerFor(EventKind.SUBCOMMAND);
+    return showSubcommands;
   }
 
   /**
@@ -152,7 +155,7 @@ public final class BlazeExecutor implements Executor {
    */
   @Override
   public void reportSubcommand(String reason, String message) {
-    reporter.subcommand(null, "# " + reason + "\n" + message);
+    reporter.handle(new Event(EventKind.SUBCOMMAND, null, "# " + reason + "\n" + message));
   }
 
   /**

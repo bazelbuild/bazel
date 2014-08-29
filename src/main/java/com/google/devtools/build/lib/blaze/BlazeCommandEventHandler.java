@@ -54,13 +54,6 @@ public class BlazeCommandEventHandler implements EventHandler {
 
   public static class Options extends OptionsBase {
 
-    @Option(name = "subcommands",
-            abbrev = 's',
-            defaultValue = "false",
-            category = "verbosity",
-            help = "Display the subcommands executed during a build.")
-    public boolean showSubcommands;
-
     @Option(name = "show_progress",
             defaultValue = "true",
             category = "verbosity",
@@ -158,9 +151,6 @@ public class BlazeCommandEventHandler implements EventHandler {
   public BlazeCommandEventHandler(OutErr outErr, Options eventOptions) {
     this.outErr = outErr;
     this.errPrintStream = new PrintStream(outErr.getErrorStream(), true);
-    if (eventOptions.showSubcommands) {
-      eventMask.add(EventKind.SUBCOMMAND);
-    }
     if (eventOptions.showProgress) {
       eventMask.add(EventKind.PROGRESS);
       eventMask.add(EventKind.START);

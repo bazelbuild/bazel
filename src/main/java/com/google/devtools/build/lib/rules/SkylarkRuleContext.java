@@ -40,8 +40,8 @@ import com.google.devtools.build.lib.syntax.Environment;
 import com.google.devtools.build.lib.syntax.EvalException;
 import com.google.devtools.build.lib.syntax.FuncallExpression.FuncallException;
 import com.google.devtools.build.lib.syntax.Label;
-import com.google.devtools.build.lib.syntax.SkylarkBuiltin;
 import com.google.devtools.build.lib.syntax.SkylarkCallable;
+import com.google.devtools.build.lib.syntax.SkylarkModule;
 import com.google.devtools.build.lib.util.FileType;
 import com.google.devtools.build.lib.util.FileTypeSet;
 import com.google.devtools.build.lib.vfs.PathFragment;
@@ -69,7 +69,7 @@ import javax.annotation.Nullable;
 /**
  * A Skylark API for the ruleContext.
  */
-@SkylarkBuiltin(name = "ctx", doc = "The Skylark rule context.")
+@SkylarkModule(name = "ctx", doc = "The Skylark rule context.")
 public final class SkylarkRuleContext implements ClassObject {
 
   public static final String PROVIDER_CLASS_PREFIX = "com.google.devtools.build.lib.view.";

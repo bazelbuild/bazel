@@ -25,14 +25,17 @@ import com.google.common.collect.ImmutableMap;
 import com.google.devtools.build.lib.graph.Digraph;
 import com.google.devtools.build.lib.graph.Node;
 import com.google.devtools.build.lib.packages.Attribute;
+import com.google.devtools.build.lib.packages.PackageFactory.PackageContext;
 import com.google.devtools.build.lib.packages.Rule;
 import com.google.devtools.build.lib.packages.RuleClass;
 import com.google.devtools.build.lib.packages.RuleClassProvider;
 import com.google.devtools.build.lib.rules.RuleConfiguredTargetFactory;
 import com.google.devtools.build.lib.rules.SkylarkRuleClassFunctions;
 import com.google.devtools.build.lib.rules.SkylarkRuleImplementationFunctions;
+import com.google.devtools.build.lib.syntax.Function;
 import com.google.devtools.build.lib.syntax.Label;
 import com.google.devtools.build.lib.syntax.SkylarkEnvironment;
+import com.google.devtools.build.lib.syntax.SkylarkModule;
 import com.google.devtools.build.lib.syntax.SkylarkType;
 import com.google.devtools.build.lib.syntax.ValidationEnvironment;
 import com.google.devtools.build.lib.view.buildinfo.BuildInfoFactory;
@@ -89,8 +92,7 @@ public class ConfiguredRuleClassProvider implements RuleClassProvider {
         new Digraph<>();
     private ConfigurationCollectionFactory configurationCollectionFactory;
     private PrerequisiteValidator prerequisiteValidator;
-    private ImmutableMap<String, SkylarkType> skylarkAccessibleJavaClasses;
-    private ValidationEnvironment skylarkValidationEnvironment;
+    private ImmutableMap<String, SkylarkType> skylarkAccessibleJavaClasses = ImmutableMap.of();
 
     public Builder setPrerequisiteValidator(PrerequisiteValidator prerequisiteValidator) {
       this.prerequisiteValidator = prerequisiteValidator;
@@ -129,11 +131,6 @@ public class ConfiguredRuleClassProvider implements RuleClassProvider {
 
     public Builder setSkylarkAccessibleJavaClasses(ImmutableMap<String, SkylarkType> objects) {
       this.skylarkAccessibleJavaClasses = objects;
-      return this;
-    }
-
-    public Builder setSkylarkValidationEnvironment(ValidationEnvironment env) {
-      this.skylarkValidationEnvironment = env;
       return this;
     }
 
@@ -207,8 +204,7 @@ public class ConfiguredRuleClassProvider implements RuleClassProvider {
           ImmutableList.copyOf(configurationFragments),
           configurationCollectionFactory,
           prerequisiteValidator,
-          skylarkAccessibleJavaClasses,
-          skylarkValidationEnvironment);
+          skylarkAccessibleJavaClasses);
     }
 
     @Override
@@ -280,8 +276,7 @@ public class ConfiguredRuleClassProvider implements RuleClassProvider {
       ImmutableList<ConfigurationFragmentFactory> configurationFragments,
       ConfigurationCollectionFactory configurationCollectionFactory,
       PrerequisiteValidator prerequisiteValidator,
-      ImmutableMap<String, SkylarkType> skylarkAccessibleJavaClasses,
-      ValidationEnvironment skylarkValidationEnvironment) {
+      ImmutableMap<String, SkylarkType> skylarkAccessibleJavaClasses) {
 
     this.ruleClassMap = ruleClassMap;
     this.configuredClassMap = configuredClassMap;
@@ -292,7 +287,11 @@ public class ConfiguredRuleClassProvider implements RuleClassProvider {
     this.configurationCollectionFactory = configurationCollectionFactory;
     this.prerequisiteValidator = prerequisiteValidator;
     this.skylarkAccessibleJavaClasses = skylarkAccessibleJavaClasses;
-    this.skylarkValidationEnvironment = skylarkValidationEnvironment;
+    this.skylarkValidationEnvironment = SkylarkRuleImplementationFunctions.getValidationEnvironment(
+        ImmutableMap.<String, SkylarkType>builder()
+            .putAll(skylarkAccessibleJavaClasses)
+            .put("Native", SkylarkType.of(NativeModule.class))
+            .build());
   }
 
   public PrerequisiteValidator getPrerequisiteValidator() {
@@ -377,12 +376,23 @@ public class ConfiguredRuleClassProvider implements RuleClassProvider {
     return BuildOptions.of(configurationOptions, optionsProvider);
   }
 
+  @SkylarkModule(name = "Native", namespace = true, doc = "Module for native rules.")
+  private static final class NativeModule {}
+
+  public static final NativeModule nativeModule = new NativeModule();
+
   @Override
-  public SkylarkEnvironment getSkylarkRuleClassEnvironment() {
-    SkylarkEnvironment env = SkylarkRuleClassFunctions.getNewEnvironment();
+  public SkylarkEnvironment getSkylarkRuleClassEnvironment(
+      PackageContext context, ImmutableList<Function> nativeRuleFunctions) {
+    SkylarkEnvironment env = SkylarkRuleClassFunctions.getNewEnvironment(context);
     SkylarkRuleImplementationFunctions.updateEnvironment(env);
     for (Map.Entry<String, SkylarkType> entry : skylarkAccessibleJavaClasses.entrySet()) {
       env.update(entry.getKey(), entry.getValue().getType());
+    }
+    // Adding native rules module for build extensions
+    env.update("Native", nativeModule);
+    for (Function function : nativeRuleFunctions) {
+      env.registerFunction(NativeModule.class, function.getName(), function);
     }
     return env;
   }

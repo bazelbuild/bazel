@@ -293,6 +293,7 @@ public class ExecutionTool {
         runtime.getClock(),
         request,
         request.getOptions(ExecutionOptions.class).verboseFailures,
+        request.getOptions(ExecutionOptions.class).showSubcommands,
         strategies,
         spawnStrategyMap,
         actionContextProviders);
@@ -446,7 +447,8 @@ public class ExecutionTool {
         builder.buildArtifacts(artifactsToBuild,
             analysisResult.getExclusiveTestArtifacts(),
             analysisResult.getDependentActionGraph(),
-            executor, runtime.getModifiedFileSetForSourceFiles(), builtArtifacts);
+            executor, runtime.getModifiedFileSetForSourceFiles(), builtArtifacts,
+            request.getBuildOptions().explanationPath != null);
       } finally {
         if (artifactMTimeCache != null) {
           artifactMTimeCache.afterBuild();
@@ -889,6 +891,7 @@ public class ExecutionTool {
       @Nullable SkyframeExecutor skyframeExecutor) {
     boolean skyframeFull = useSkyframeFull(skyframeExecutor);
     BuildRequest.BuildRequestOptions options = request.getBuildOptions();
+    PathFragment explainPath = options.explanationPath;
     boolean verboseExplanations = options.verboseExplanations;
     boolean keepGoing = request.getViewOptions().keepGoing;
 
@@ -934,7 +937,8 @@ public class ExecutionTool {
           : new DatabaseDependencyChecker(
               actionCache, getView().getArtifactFactory(),
               artifactMetadataCache, packageUpToDateChecker,
-              executionFilter, verboseExplanations, runtime.getAllowedMissingInputs());
+              executionFilter,
+              verboseExplanations, runtime.getAllowedMissingInputs());
 
       return new ParallelBuilder(getReporter(), getEventBus(), dependencyChecker, actualJobs,
           options.progressReportInterval, options.useBuilderStatistics, keepGoing,
@@ -944,10 +948,12 @@ public class ExecutionTool {
       // client.
       fileCache = createBuildSingleFileCache(executor.getExecRoot());
       skyframeExecutor.setActionOutputRoot(actionOutputRoot);
+      boolean explain = request.getBuildOptions().explanationPath != null;
       return new SkyframeBuilder(skyframeExecutor,
           new ActionCacheChecker(actionCache, getView().getArtifactFactory(),
               packageUpToDateChecker, executionFilter, verboseExplanations),
-          keepGoing, actualJobs, fileCache, request.getBuildOptions().progressReportInterval);
+          keepGoing, explain , actualJobs, fileCache,
+          request.getBuildOptions().progressReportInterval);
     }
   }
 

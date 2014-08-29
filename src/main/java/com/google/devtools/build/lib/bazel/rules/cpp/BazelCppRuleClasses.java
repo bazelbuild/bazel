@@ -146,62 +146,6 @@ public class BazelCppRuleClasses {
    */
   public static final String CROSSTOOL_LABEL = "//tools/defaults:crosstool";
 
-  public static final LateBoundLabel<BuildConfiguration> CROSSTOOL =
-      new LateBoundLabel<BuildConfiguration>(CROSSTOOL_LABEL) {
-        @Override
-        public Label getDefault(Rule rule, BuildConfiguration configuration) {
-          return configuration.getFragment(CppConfiguration.class).getCrosstoolLabel();
-        }
-      };
-
-  public static final LateBoundLabel<BuildConfiguration> CROSSTOOL_COMPILE =
-      new LateBoundLabel<BuildConfiguration>(CROSSTOOL_LABEL) {
-        @Override
-        public Label getDefault(Rule rule, BuildConfiguration configuration) {
-          return configuration.getFragment(CppConfiguration.class).getCrosstoolLabelForCompile();
-        }
-      };
-
-  public static final LateBoundLabel<BuildConfiguration> OBJCOPY =
-      new LateBoundLabel<BuildConfiguration>(CROSSTOOL_LABEL) {
-        @Override
-        public Label getDefault(Rule rule, BuildConfiguration configuration) {
-          return configuration.getFragment(CppConfiguration.class).getCrosstoolLabelForObjCopy();
-        }
-      };
-
-  public static final LateBoundLabel<BuildConfiguration> CROSSTOOL_STRIP =
-      new LateBoundLabel<BuildConfiguration>(CROSSTOOL_LABEL) {
-        @Override
-        public Label getDefault(Rule rule, BuildConfiguration configuration) {
-          return configuration.getFragment(CppConfiguration.class).getCrosstoolLabelForStrip();
-        }
-      };
-
-  public static final LateBoundLabel<BuildConfiguration> CROSSTOOL_LINK =
-      new LateBoundLabel<BuildConfiguration>(CROSSTOOL_LABEL) {
-        @Override
-        public Label getDefault(Rule rule, BuildConfiguration configuration) {
-          return configuration.getFragment(CppConfiguration.class).getCrosstoolLabelForLink();
-        }
-      };
-
-  public static final LateBoundLabel<BuildConfiguration> CROSSTOOL_STATIC_RUNTIME_LINK =
-      new LateBoundLabel<BuildConfiguration>(CROSSTOOL_LABEL) {
-        @Override
-        public Label getDefault(Rule rule, BuildConfiguration configuration) {
-          return configuration.getFragment(CppConfiguration.class).getStaticRuntimeLibsLabel();
-        }
-      };
-
-  public static final LateBoundLabel<BuildConfiguration> CROSSTOOL_DYNAMIC_RUNTIME_LINK =
-      new LateBoundLabel<BuildConfiguration>(CROSSTOOL_LABEL) {
-        @Override
-        public Label getDefault(Rule rule, BuildConfiguration configuration) {
-          return configuration.getFragment(CppConfiguration.class).getDynamicRuntimeLibsLabel();
-        }
-      };
-
     public static final LateBoundLabel<BuildConfiguration> LIBC_LINK =
         new LateBoundLabel<BuildConfiguration>() {
           @Override
@@ -239,14 +183,6 @@ public class BazelCppRuleClasses {
           @Override
           public Label getDefault(Rule rule, BuildConfiguration configuration) {
             return getStl(rule, configuration);
-          }
-        };
-
-    public static final LateBoundLabel<BuildConfiguration> DWP_LABEL =
-        new LateBoundLabel<BuildConfiguration>() {
-          @Override
-          public Label getDefault(Rule rule, BuildConfiguration configuration) {
-            return configuration.getFragment(CppConfiguration.class).getDwpLabel();
           }
         };
 
@@ -300,16 +236,7 @@ public class BazelCppRuleClasses {
     @SuppressWarnings("unchecked")
     public RuleClass build(Builder builder, RuleDefinitionEnvironment env) {
       return builder
-          // TODO(bazel-team): Remove :crosstool and :crosstool_link and
-          // :crosstool_dynamic_runtime_link once the transition to the cc_toolchain rule is
-          // complete.
-          .add(attr(":crosstool", LABEL).cfg(HOST).value(CROSSTOOL))
-          .add(attr(":crosstool_link", LABEL).cfg(HOST).value(CROSSTOOL_LINK))
           .add(attr(":libc_link", LABEL).cfg(HOST).value(LIBC_LINK))
-          .add(attr(":crosstool_static_runtime_link", LABEL).cfg(HOST)
-              .value(CROSSTOOL_STATIC_RUNTIME_LINK))
-          .add(attr(":crosstool_dynamic_runtime_link", LABEL).cfg(HOST)
-              .value(CROSSTOOL_DYNAMIC_RUNTIME_LINK))
           .add(attr(":cc_toolchain", LABEL)
               .value(CC_TOOLCHAIN))
           .setPreferredDependencyPredicate(Predicates.<String>or(CPP_SOURCE, C_SOURCE, CPP_HEADER))
@@ -334,9 +261,6 @@ public class BazelCppRuleClasses {
               .allowedRuleClasses("cc_plugin")
               .silentRuleClassFilter()
               .value(CC_PLUGINS))
-          .add(attr(":crosstool_compile", LABEL)
-              .cfg(HOST)
-              .value(CROSSTOOL_COMPILE))
           .add(attr("$stl", LABEL).value(env.getLabel("//tools/cpp:stl")))
           .add(attr(":stl", LABEL).value(STL))
           .build();
@@ -414,8 +338,6 @@ public class BazelCppRuleClasses {
               .allowedRuleClasses("cc_library"))
           .add(attr(":default_malloc", LABEL).value(DEFAULT_MALLOC))
           .add(attr("stamp", TRISTATE).value(TriState.AUTO))
-          .add(attr(":crosstool_strip", LABEL).cfg(HOST)
-            .value(CROSSTOOL_STRIP))
           .build();
     }
   }
@@ -433,8 +355,6 @@ public class BazelCppRuleClasses {
       return builder
           .setImplicitOutputsFunction(CC_BINARY_IMPLICIT_OUTPUTS)
           .add(attr("linkshared", BOOLEAN).nonconfigurable().value(false))
-          .add(attr(CppRuleClasses.DWP_LABEL_NAME, LABEL).cfg(HOST)
-              .value(DWP_LABEL))
           .cfg(LIPO_ON_DEMAND)
           .build();
     }

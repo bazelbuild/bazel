@@ -19,14 +19,18 @@ import java.lang.annotation.RetentionPolicy;
 import java.lang.annotation.Target;
 
 /**
- * A marker interface for Java methods which can be called from Skylark.
+ * An annotation to mark Skylark modules or Skylark accessible Java data types.
+ * A Skylark modules always corresponds to exactly one Java class.
  */
-@Target({ElementType.METHOD})
+@Target({ElementType.TYPE})
 @Retention(RetentionPolicy.RUNTIME)
-public @interface SkylarkCallable {
-  String name() default "";
+public @interface SkylarkModule {
+
+  String name();
 
   String doc();
 
   boolean hidden() default false;
+
+  boolean namespace() default false;
 }

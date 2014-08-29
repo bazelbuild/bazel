@@ -173,4 +173,16 @@ public class SkylarkEnvironment extends Environment {
     Object variable = env.get(varname);
     return variable != null ? EvalUtils.getSkylarkType(variable.getClass()) : null;
   }
+
+  /**
+   * Removes a complete module from the Environment (i.e. the symbol of the module from the
+   * top level Environment and the functions attached to it). The module has to be annotated with
+   * SkylarkModule and naming has to be consistent.
+   */
+  public void removeModule(Object module) {
+    Class<?> moduleClass = module.getClass();
+    String moduleName = moduleClass.getAnnotation(SkylarkModule.class).name();
+    env.remove(moduleName);
+    functions.remove(moduleClass);
+  }
 }

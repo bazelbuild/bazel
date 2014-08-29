@@ -43,6 +43,7 @@ import com.google.devtools.build.lib.syntax.SkylarkType.SkylarkFunctionType;
 import com.google.devtools.build.lib.syntax.ValidationEnvironment;
 import com.google.devtools.build.lib.vfs.PathFragment;
 import com.google.devtools.build.lib.view.CommandHelper;
+import com.google.devtools.build.lib.view.ConfiguredRuleClassProvider;
 import com.google.devtools.build.lib.view.FilesToRunProvider;
 import com.google.devtools.build.lib.view.Runfiles;
 import com.google.devtools.build.lib.view.RunfilesProvider;
@@ -74,9 +75,6 @@ public class SkylarkRuleImplementationFunctions {
   @SkylarkBuiltin(name = "DATA", doc = "The data runfiles collection state.")
   private static final Object dataState = RunfilesProvider.DATA_RUNFILES;
 
-  @SkylarkBuiltin(name = "Cmd", doc = "Module for creating memory efficient command lines.")
-  private static final Object Cmd = SkylarkCommandLine.module;
-
   public static final Map<String, Object> JAVA_OBJECTS_TO_EXPOSE =
       new ImmutableMap.Builder<String, Object>()
           .put("Files", SkylarkFileset.class)
@@ -84,7 +82,7 @@ public class SkylarkRuleImplementationFunctions {
           // also these symbols should be protected from being overwritten.
           .put("DEFAULT", defaultState)
           .put("DATA", dataState)
-          .put("Cmd", Cmd)
+          .put("Cmd", SkylarkCommandLine.module)
           .build();
 
   private static ImmutableList<Function> getBuiltinFunctions() {
@@ -450,6 +448,11 @@ public class SkylarkRuleImplementationFunctions {
         context.getRuleContext().getRule().getRuleClassObject().getRuleDefinitionEnvironment();
     final SkylarkEnvironment env;
     if (ruleDefEnv != null) {
+      // TODO(bazel-team): mark modules / functions with annotations if they should be removed here
+      // and do it automatically.
+      ruleDefEnv.removeModule(SkylarkAttr.module);
+      ruleDefEnv.removeModule(ConfiguredRuleClassProvider.nativeModule);
+      ruleDefEnv.remove("rule");
       env = ruleDefEnv.cloneEnv();
     } else {
       // TODO(bazel-team): This is needed because of the tests. If we separated Skylark from legacy

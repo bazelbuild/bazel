@@ -305,8 +305,8 @@ public final class CcCommon {
   }
 
   private boolean shouldProcessHeaders() {
-    return ruleContext.getRule().getPackage().getFeatures().contains("preprocess_headers")
-        || ruleContext.getRule().getPackage().getFeatures().contains("parse_headers");
+    return ruleContext.getFeatures().contains("preprocess_headers")
+        || ruleContext.getFeatures().contains("parse_headers");
   }
 
   private ImmutableList<Pair<Artifact, Label>> collectCAndCppSources() {
@@ -756,8 +756,7 @@ public final class CcCommon {
         .setNoCopts(getNoCopts(ruleContext))
         .addAdditionalIncludes(additionalIncludes)
         .addPluginTargets(activePlugins)
-        .setEnableModules(
-            ruleContext.getRule().getPackage().getFeatures().contains("layering_check"));
+        .setEnableModules(ruleContext.getFeatures().contains("layering_check"));
   }
 
   /**

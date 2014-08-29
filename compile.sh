@@ -56,12 +56,7 @@ linux)
 esac
 
 # Compile .proto files using protoc
-PROTO_FILES=(
-src/main/protobuf/build.proto
-src/main/protobuf/extra_actions_base.proto
-src/main/protobuf/test_status.proto
-src/main/protobuf/crosstool_config.proto
-)
+PROTO_FILES=(src/main/protobuf/*.proto)
 
 # TODO: CC target architecture needs to match JAVA_HOME.
 
@@ -79,7 +74,7 @@ done
 
 # Compile .java files (incl. generated ones) using javac
 echo "JAVAC src/main/java/**/*.java"
-CLASSPATH=third_party/guava/guava-16.0.1.jar:third_party/jsr305/jsr-305.jar:third_party/protobuf/protobuf-2.5.0.jar:third_party/joda-time/joda-time-2.3.jar
+CLASSPATH=$(find third_party -name "*.jar" | tr '\n' ':')
 find src/main/java -name "*.java" | xargs "${JAVAC}" -classpath ${CLASSPATH} -sourcepath src/main/java:output/src -d output/classes
 
 echo "UNZIP third_party/{guava,joda-time,jsr305,protobuf}/*.jar"

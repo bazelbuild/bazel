@@ -26,7 +26,7 @@ import com.google.devtools.build.lib.packages.License.DistributionType;
 import com.google.devtools.build.lib.packages.License.LicenseParsingException;
 import com.google.devtools.build.lib.packages.Package.AbstractPackageBuilder;
 import com.google.devtools.build.lib.packages.Package.AbstractPackageBuilder.GeneratedLabelConflict;
-import com.google.devtools.build.lib.packages.Package.AbstractPackageBuilder.NameConflictException;
+import com.google.devtools.build.lib.packages.Package.NameConflictException;
 import com.google.devtools.build.lib.packages.Package.PackageBuilder;
 import com.google.devtools.build.lib.packages.RuleClass.ParsedAttributeValue;
 import com.google.devtools.build.lib.query2.proto.proto2api.Build;
@@ -111,7 +111,7 @@ public class PackageDeserializer {
             deserializeLabels(packageGroupPb.getIncludedPackageGroupList()),
             NullEventHandler.INSTANCE,  // TODO(bazel-team): Handle errors properly
             deserializeLocation(packageGroupPb.getParseableLocation()));
-      } catch (Label.SyntaxException | PackageBuilder.NameConflictException e) {
+      } catch (Label.SyntaxException | NameConflictException e) {
         throw new PackageDeserializationException(e);
       }
     }

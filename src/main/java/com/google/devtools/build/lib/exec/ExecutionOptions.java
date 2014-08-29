@@ -51,6 +51,13 @@ public class ExecutionOptions extends OptionsBase {
           help = "If a command fails, print out the full command line.")
   public boolean verboseFailures;
 
+  @Option(name = "subcommands",
+      abbrev = 's',
+      defaultValue = "false",
+      category = "verbosity",
+      help = "Display the subcommands executed during a build.")
+  public boolean showSubcommands;
+
   @Option(name = "check_up_to_date",
           defaultValue = "false",
           category = "what",

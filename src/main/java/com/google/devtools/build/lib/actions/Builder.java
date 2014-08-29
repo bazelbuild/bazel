@@ -69,11 +69,12 @@ public interface Builder {
    */
   @ThreadCompatible
   void buildArtifacts(Set<Artifact> artifacts,
-                      Set<Artifact> exclusiveTestArtifacts,
-                      @Nullable DependentActionGraph forwardGraph,
-                      Executor executor,
-                      ModifiedFileSet modifiedFileSet,
-                      Set<Artifact> builtArtifacts)
+      Set<Artifact> exclusiveTestArtifacts,
+      @Nullable DependentActionGraph forwardGraph,
+      Executor executor,
+      ModifiedFileSet modifiedFileSet,
+      Set<Artifact> builtArtifacts,
+      boolean explain)
       throws BuildFailedException, AbruptExitException, InterruptedException, TestExecException;
 
   /**

@@ -390,13 +390,13 @@ public class IncrementalDependencyChecker extends DatabaseDependencyChecker {
   }
 
   private boolean willBeExecuted(Action action, ActionCache.Entry entry,
-      DepcheckerListener listener) {
+      EventHandler handler) {
     if (unconditionalExecution(action)) {
-      reportUnconditionalExecution(listener, action);
+      reportUnconditionalExecution(handler, action);
       return true;
     }
     return dirtyActions.contains(action) &&
-           super.mustExecute(action, entry, listener, getMetadataHandler());
+           super.mustExecute(action, entry, handler, getMetadataHandler());
   }
 
   @Override
@@ -415,11 +415,11 @@ public class IncrementalDependencyChecker extends DatabaseDependencyChecker {
    */
   @Override
   protected boolean mustExecute(Action action, ActionCache.Entry entry,
-      DepcheckerListener listener, MetadataHandler metadataHandler) {
+      EventHandler handler, MetadataHandler metadataHandler) {
     Preconditions.checkState(initialized);
     Preconditions.checkState(metadataHandler == getMetadataHandler(),
         "%s %s", metadataHandler, getMetadataHandler());
-    boolean mustExec = willBeExecuted(action, entry, listener);
+    boolean mustExec = willBeExecuted(action, entry, handler);
     if (mustExec) {
       markDependentActionsDirty(action);
     }
@@ -427,14 +427,14 @@ public class IncrementalDependencyChecker extends DatabaseDependencyChecker {
   }
 
   @Override
-  protected void checkMiddlemanAction(Action action, DepcheckerListener listener,
+  protected void checkMiddlemanAction(Action action, EventHandler handler,
       MetadataHandler metadataHandler) {
     Preconditions.checkState(initialized);
     Preconditions.checkState(metadataHandler == getMetadataHandler(),
         "%s %s", metadataHandler, getMetadataHandler());
     if (dirtyActions.contains(action)) {
       markDependentActionsDirty(action);
-      super.checkMiddlemanAction(action, listener, metadataHandler);
+      super.checkMiddlemanAction(action, handler, metadataHandler);
     }
   }
 

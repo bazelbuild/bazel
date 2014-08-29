@@ -15,8 +15,8 @@ package com.google.devtools.build.lib.packages;
 
 import com.google.common.annotations.VisibleForTesting;
 import com.google.common.collect.ImmutableList;
-import com.google.devtools.build.lib.syntax.SkylarkBuiltin;
 import com.google.devtools.build.lib.syntax.SkylarkCallable;
+import com.google.devtools.build.lib.syntax.SkylarkModule;
 import com.google.devtools.build.lib.util.FileType;
 import com.google.devtools.build.lib.util.FileType.HasFilename;
 import com.google.devtools.build.lib.util.FileTypeSet;
@@ -24,7 +24,7 @@ import com.google.devtools.build.lib.util.FileTypeSet;
 /**
  * A wrapper class for FileType and FileTypeSet functionality in Skylark.
  */
-@SkylarkBuiltin(name = "SkylarkFileType", doc = "File type for file filtering.")
+@SkylarkModule(name = "SkylarkFileType", doc = "File type for file filtering.")
 public class SkylarkFileType {
 
   private final FileType fileType;

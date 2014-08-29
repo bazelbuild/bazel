@@ -32,7 +32,6 @@ import com.google.devtools.build.lib.packages.Attribute;
 import com.google.devtools.build.lib.packages.PackageGroup;
 import com.google.devtools.build.lib.packages.Rule;
 import com.google.devtools.build.lib.packages.Target;
-import com.google.devtools.build.lib.rules.SkylarkRuleImplementationFunctions;
 import com.google.devtools.build.lib.rules.cpp.CcToolchainRule;
 import com.google.devtools.build.lib.rules.cpp.CppConfigurationLoader;
 import com.google.devtools.build.lib.rules.cpp.CppOptions;
@@ -126,8 +125,6 @@ public class BazelRuleClassProvider {
     builder
         .setConfigurationCollectionFactory(new BazelConfigurationCollection())
         .setPrerequisiteValidator(new BazelPrerequisiteValidator())
-        .setSkylarkValidationEnvironment(
-            SkylarkRuleImplementationFunctions.getValidationEnvironment(skylarkBuiltinJavaObects))
         .setSkylarkAccessibleJavaClasses(skylarkBuiltinJavaObects);
 
     for (Class<? extends FragmentOptions> fragmentOptions : BUILD_OPTIONS) {

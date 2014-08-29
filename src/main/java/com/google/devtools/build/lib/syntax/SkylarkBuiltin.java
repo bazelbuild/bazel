@@ -13,13 +13,16 @@
 // limitations under the License.
 package com.google.devtools.build.lib.syntax;
 
+import java.lang.annotation.ElementType;
 import java.lang.annotation.Retention;
 import java.lang.annotation.RetentionPolicy;
+import java.lang.annotation.Target;
 
 
 /**
- * An annotation to mark objects with Skylark documentation.
+ * An annotation to mark built-in keyword argument methods accessible from Skylark.
  */
+@Target({ElementType.FIELD})
 @Retention(RetentionPolicy.RUNTIME)
 public @interface SkylarkBuiltin {
 

@@ -66,6 +66,21 @@ public abstract class FoundationTestCase extends ChattyAssertsTestCase {
       }
     };
 
+  protected static final EventHandler printHandler = new EventHandler() {
+      @Override
+      public Set<EventKind> getEventMask() {
+        return EventKind.ALL_EVENTS;
+      }
+      @Override
+      public void handle(Event event) {
+        System.out.println(event);
+      }
+      @Override
+      public boolean showOutput(String tag) {
+        return true;
+      }
+    };
+
   @Override
   protected void setUp() throws Exception {
     super.setUp();

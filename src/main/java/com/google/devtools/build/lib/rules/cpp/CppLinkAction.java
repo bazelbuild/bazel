@@ -325,11 +325,6 @@ public final class CppLinkAction extends ConfigurationAction
   }
 
   @Override
-  public void prepare(ActionExecutionContext actionExecutionContext) throws IOException {
-    deleteOutputs();
-  }
-
-  @Override
   @ThreadCompatible
   public void execute(
       ActionExecutionContext actionExecutionContext)

@@ -29,7 +29,7 @@ import com.google.devtools.build.lib.syntax.Function;
 import com.google.devtools.build.lib.syntax.MixedModeFunction;
 import com.google.devtools.build.lib.syntax.PositionalFunction;
 import com.google.devtools.build.lib.syntax.SkylarkBuiltin;
-import com.google.devtools.build.lib.syntax.SkylarkCallable;
+import com.google.devtools.build.lib.syntax.SkylarkModule;
 import com.google.devtools.build.lib.syntax.SkylarkNestedSet;
 import com.google.devtools.build.lib.syntax.SkylarkType;
 import com.google.devtools.build.lib.syntax.SkylarkType.SkylarkFunctionType;
@@ -88,7 +88,7 @@ public class MethodLibrary {
 
     // supported string methods
 
-  @SkylarkCallable(
+  @SkylarkBuiltin(name = "join", objectType = StringModule.class,
       doc = "Returns a string in which the string elements of the argument have been "
           + "joined by this string as a separator.")
   private static Function join = new PositionalFunction("join", 2, 2) {
@@ -107,7 +107,7 @@ public class MethodLibrary {
     }
   };
 
-  @SkylarkCallable(
+  @SkylarkBuiltin(name = "lower", objectType = StringModule.class,
       doc = "Returns the lower case version of this string.")
   private static Function lower = new PositionalFunction("lower", 1, 1) {
     @Override
@@ -117,7 +117,7 @@ public class MethodLibrary {
     }
   };
 
-  @SkylarkCallable(
+  @SkylarkBuiltin(name = "replace", objectType = StringModule.class,
       doc = "Returns a copy of the string in which the occurrences "
           + "of <i>old</i> have been replaced with <i>new</i>, optionally restricting the number "
           + "of replacements to <i>maxsplit</i>.")
@@ -147,7 +147,7 @@ public class MethodLibrary {
     }
   };
 
-  @SkylarkCallable(
+  @SkylarkBuiltin(name = "split", objectType = StringModule.class,
       doc = "Returns a list of all the words in the string, using <i>sep</i>  "
           + "as the separator, optionally limiting the number of splits to <i>maxsplit</i>.")
   private static Function split = new MixedModeFunction("split",
@@ -170,7 +170,7 @@ public class MethodLibrary {
     }
   };
 
-  @SkylarkCallable(
+  @SkylarkBuiltin(name = "rfind", objectType = StringModule.class,
       doc = "Returns the last index where <i>sub</i> is found, "
           + "or -1 if no such index exists, optionally restricting to [<i>start</i>:<i>end</i>], "
           + "<i>start</i> being inclusive and <i>end</i> being exclusive.")
@@ -196,7 +196,7 @@ public class MethodLibrary {
         }
       };
 
-  @SkylarkCallable(
+  @SkylarkBuiltin(name = "find", objectType = StringModule.class,
       doc = "Returns the first index where <i>sub</i> is found, "
           + "or -1 if no such index exists, optionally restricting to [<i>start</i>:<i>end]</i>, "
           + "<i>start</i> being inclusive and <i>end</i> being exclusive.")
@@ -222,7 +222,7 @@ public class MethodLibrary {
         }
       };
 
-  @SkylarkCallable(
+  @SkylarkBuiltin(name = "endswith", objectType = StringModule.class,
       doc = "Returns True if the string ends with <i>sub</i>, "
           + "otherwise False, optionally restricting to [<i>start</i>:<i>end</i>], "
           + "<i>start</i> being inclusive and <i>end</i> being exclusive.")
@@ -247,7 +247,7 @@ public class MethodLibrary {
         }
       };
 
-  @SkylarkCallable(
+  @SkylarkBuiltin(name = "startswith", objectType = StringModule.class,
       doc = "Returns True if the string starts with <i>sub</i>, "
           + "otherwise False, optionally restricting to [<i>start</i>:<i>end</i>], "
           + "<i>start</i> being inclusive and <i>end</i> being exclusive.")
@@ -271,7 +271,7 @@ public class MethodLibrary {
   };
 
   // TODO(bazel-team): Maybe support an argument to tell the type of the whitespace.
-  @SkylarkCallable(
+  @SkylarkBuiltin(name = "strip", objectType = StringModule.class,
       doc = "Returns a copy of the string in which all whitespace characters "
           + "have been stripped from the beginning and the end of the string.")
   private static Function strip =
@@ -286,7 +286,7 @@ public class MethodLibrary {
       };
 
   // substring operator
-  @SkylarkCallable(hidden = true,
+  @SkylarkBuiltin(name = "substring", hidden = true,
       doc = "String[<i>start</i>:<i>end</i>] returns a substring.")
   private static Function substring = new PositionalFunction("$substring", 3, 3) {
     @Override
@@ -299,7 +299,7 @@ public class MethodLibrary {
   };
 
   // supported list methods
-  @SkylarkCallable(hidden = true,
+  @SkylarkBuiltin(name = "append", hidden = true,
       doc = "Adds an item to the end of the list.")
   private static Function append = new PositionalFunction("append", 2, 2) {
     // @SuppressWarnings("unchecked")
@@ -312,7 +312,7 @@ public class MethodLibrary {
     }
   };
 
-  @SkylarkCallable(hidden = true,
+  @SkylarkBuiltin(name = "extend", hidden = true,
       doc = "Adds all items to the end of the list.")
   private static Function extend = new PositionalFunction("extend", 2, 2) {
     // @SuppressWarnings("unchecked")
@@ -362,7 +362,8 @@ public class MethodLibrary {
     }
   };
 
-  @SkylarkCallable(doc = "Return the list of values.")
+  @SkylarkBuiltin(name = "values", objectType = DictModule.class,
+      doc = "Return the list of values.")
   private static Function values = new PositionalFunction("values", 1, 1) {
     @Override
     public Object call(List<Object> args, FuncallExpression ast) throws EvalException,
@@ -372,7 +373,8 @@ public class MethodLibrary {
     }
   };
 
-  @SkylarkCallable(doc = "Return the list of key-value tuples.")
+  @SkylarkBuiltin(name = "items", objectType = DictModule.class,
+      doc = "Return the list of key-value tuples.")
   private static Function items = new PositionalFunction("items", 1, 1) {
     @Override
     public Object call(List<Object> args, FuncallExpression ast) throws EvalException,
@@ -386,7 +388,8 @@ public class MethodLibrary {
     }
   };
 
-  @SkylarkCallable(doc = "Return the list of keys.")
+  @SkylarkBuiltin(name = "keys", objectType = DictModule.class,
+      doc = "Return the list of keys.")
   private static Function keys = new PositionalFunction("keys", 1, 1) {
     @Override
     public Object call(List<Object> args, FuncallExpression ast) throws EvalException,
@@ -483,7 +486,18 @@ public class MethodLibrary {
     }
   };
 
-  @SkylarkBuiltin(name = "String", doc = "")
+  /**
+   * Skylark String module.
+   */
+  @SkylarkModule(name = "String", doc = "")
+  public static final class StringModule {}
+
+  /**
+   * Skylark Dict module.
+   */
+  @SkylarkModule(name = "Dict", doc = "")
+  public static final class DictModule {}
+
   public static final Map<Function, SkylarkType> stringFunctions = ImmutableMap
       .<Function, SkylarkType>builder()
       .put(join, SkylarkType.STRING)
@@ -498,14 +512,12 @@ public class MethodLibrary {
       .put(substring, SkylarkType.STRING)
       .build();
 
-  @SkylarkBuiltin(name = "List", doc = "", hidden = true)
   public static final List<Function> listFunctions = ImmutableList
       .<Function>builder()
       .add(append)
       .add(extend)
       .build();
 
-  @SkylarkBuiltin(name = "Dict", doc = "")
   public static final Map<Function, SkylarkType> dictFunctions = ImmutableMap
       .<Function, SkylarkType>builder()
       .put(items, SkylarkType.of(List.class))

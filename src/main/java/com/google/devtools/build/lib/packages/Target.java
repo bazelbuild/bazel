@@ -17,15 +17,15 @@ package com.google.devtools.build.lib.packages;
 import com.google.devtools.build.lib.events.Location;
 import com.google.devtools.build.lib.packages.License.DistributionType;
 import com.google.devtools.build.lib.syntax.Label;
-import com.google.devtools.build.lib.syntax.SkylarkBuiltin;
 import com.google.devtools.build.lib.syntax.SkylarkCallable;
+import com.google.devtools.build.lib.syntax.SkylarkModule;
 
 import java.util.Set;
 
 /**
  *  A node in the build dependency graph, identified by a Label.
  */
-@SkylarkBuiltin(name = "Target", doc = "A BUILD target.")
+@SkylarkModule(name = "Target", doc = "A BUILD target.")
 public interface Target {
 
   /**

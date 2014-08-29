@@ -13,54 +13,97 @@
 // limitations under the License.
 package com.google.devtools.build.lib.skyframe;
 
+import com.google.devtools.build.lib.vfs.Path;
 import com.google.devtools.build.lib.vfs.PathFragment;
 import com.google.devtools.build.skyframe.SkyKey;
 import com.google.devtools.build.skyframe.SkyValue;
 
-import java.util.Objects;
-
-import javax.annotation.Nullable;
-
 /**
  * A value that represents the result of looking for the existence of a package that owns a
- * specific directory path. Compare with {@link PackageLookupValue}, which deals with existence of a
- * specific package.
- *
- * <p> Containing package lookups will always produce a value, for which
- * {@link #getContainingPackageNameOrNull} returns the name of the containing package, if there is
- * one, or {@code null} if there isn't.
+ * specific directory path. Compare with {@link PackageLookupValue}, which deals with existence of
+ * a specific package.
  */
-public class ContainingPackageLookupValue implements SkyValue {
+abstract class ContainingPackageLookupValue implements SkyValue {
+  /** Returns whether there is a containing package. */
+  abstract boolean hasContainingPackage();
 
-  @Nullable private final PathFragment containingPackage;
+  /** If there is a containing package, returns its name. */
+  abstract PathFragment getContainingPackageName();
 
-  ContainingPackageLookupValue(@Nullable PathFragment containingPackage) {
-    this.containingPackage = containingPackage;
-  }
-
-  @Nullable
-  public PathFragment getContainingPackageNameOrNull() {
-    return containingPackage;
-  }
+  /** If there is a containing package, returns its package root */
+  abstract Path getContainingPackageRoot();
 
   static SkyKey key(PathFragment directory) {
     return new SkyKey(SkyFunctions.CONTAINING_PACKAGE_LOOKUP, directory);
   }
 
-  @Override
-  public int hashCode() {
-    return Objects.hash(containingPackage);
+  static ContainingPackageLookupValue noContainingPackage() {
+    return NoContainingPackage.INSTANCE;
   }
 
-  @Override
-  public boolean equals(Object other) {
-    if (this == other) {
-      return true;
-    }
-    if (!(other instanceof ContainingPackageLookupValue)) {
+  static ContainingPackageLookupValue withContainingPackage(PathFragment pkgName, Path root) {
+    return new ContainingPackage(pkgName, root);
+  }
+
+  private static class NoContainingPackage extends ContainingPackageLookupValue {
+    private static final NoContainingPackage INSTANCE = new NoContainingPackage();
+
+    @Override
+    public boolean hasContainingPackage() {
       return false;
     }
-    ContainingPackageLookupValue otherValue = (ContainingPackageLookupValue) other;
-    return Objects.equals(containingPackage, otherValue.containingPackage);
+
+    @Override
+    public PathFragment getContainingPackageName() {
+      throw new IllegalStateException();
+    }
+
+    @Override
+    public Path getContainingPackageRoot() {
+      throw new IllegalStateException();
+    }
+  }
+
+  private static class ContainingPackage extends ContainingPackageLookupValue {
+    private final PathFragment containingPackage;
+    private final Path containingPackageRoot;
+
+    private ContainingPackage(PathFragment containingPackage, Path containingPackageRoot) {
+      this.containingPackage = containingPackage;
+      this.containingPackageRoot = containingPackageRoot;
+    }
+
+    @Override
+    public boolean hasContainingPackage() {
+      return true;
+    }
+
+    @Override
+    public PathFragment getContainingPackageName() {
+      return containingPackage;
+    }
+
+    @Override
+    public Path getContainingPackageRoot() {
+      return containingPackageRoot;
+    }
+
+    @Override
+    public boolean equals(Object obj) {
+      if (this == obj) {
+        return true;
+      }
+      if (!(obj instanceof ContainingPackage)) {
+        return false;
+      }
+      ContainingPackage other = (ContainingPackage) obj;
+      return containingPackage.equals(other.containingPackage)
+          && containingPackageRoot.equals(other.containingPackageRoot);
+    }
+
+    @Override
+    public int hashCode() {
+      return containingPackage.hashCode();
+    }
   }
 }

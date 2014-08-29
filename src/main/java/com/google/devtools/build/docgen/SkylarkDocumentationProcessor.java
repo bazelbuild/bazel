@@ -19,7 +19,7 @@ import com.google.common.base.Joiner;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.Iterables;
-import com.google.devtools.build.docgen.SkylarkJavaInterfaceExplorer.SkylarkJavaObject;
+import com.google.devtools.build.docgen.SkylarkJavaInterfaceExplorer.SkylarkModuleDoc;
 import com.google.devtools.build.lib.packages.MethodLibrary;
 import com.google.devtools.build.lib.rules.SkylarkAttr;
 import com.google.devtools.build.lib.rules.SkylarkCommandLine;
@@ -31,7 +31,7 @@ import com.google.devtools.build.lib.syntax.EvalUtils;
 import com.google.devtools.build.lib.syntax.SkylarkBuiltin;
 import com.google.devtools.build.lib.syntax.SkylarkBuiltin.Param;
 import com.google.devtools.build.lib.syntax.SkylarkCallable;
-import com.google.devtools.build.lib.util.StringUtilities;
+import com.google.devtools.build.lib.syntax.SkylarkModule;
 
 import java.io.BufferedWriter;
 import java.io.File;
@@ -40,15 +40,22 @@ import java.io.IOException;
 import java.lang.reflect.Field;
 import java.lang.reflect.Method;
 import java.util.HashMap;
-import java.util.List;
 import java.util.Map;
-import java.util.Set;
-import java.util.TreeSet;
+import java.util.Map.Entry;
+import java.util.TreeMap;
 
 /**
  * A class to assemble documentation for Skylark.
  */
 public class SkylarkDocumentationProcessor {
+
+  @SkylarkModule(name = "Top level Skylark items and functions",
+      doc = "Top level Skylark items and functions")
+  private static final class TopLevelModule {}
+
+  static SkylarkModule getTopLevelModule() {
+    return TopLevelModule.class.getAnnotation(SkylarkModule.class);
+  }
 
   /**
    * Generates the Skylark documentation to the given output directory.
@@ -70,73 +77,84 @@ public class SkylarkDocumentationProcessor {
     }
   }
 
-  private String generateAllBuiltinDoc() {
-    Set<SkylarkJavaObject> reachableObjects = new TreeSet<>();
-    StringBuilder sb = new StringBuilder();
+  @VisibleForTesting
+  Map<String, SkylarkModuleDoc> collectModules() {
+    Map<String, SkylarkModuleDoc> modules = new TreeMap<>();
+    Map<String, SkylarkModuleDoc> builtinModules = collectBuiltinModules();
+    Map<SkylarkModule, Class<?>> builtinJavaObjects = collectBuiltinJavaObjects();
 
-    reachableObjects.addAll(collectMethodLibraryDocs());
-
-    Map<SkylarkBuiltin, Class<?>> builtinDoc = collectBuiltinObjects();
+    modules.putAll(builtinModules);
     SkylarkJavaInterfaceExplorer explorer = new SkylarkJavaInterfaceExplorer();
-    for (Map.Entry<SkylarkBuiltin, Class<?>> annotation : builtinDoc.entrySet()) {
-      reachableObjects.addAll(explorer.collect(annotation.getKey(), annotation.getValue()));
+    for (SkylarkModuleDoc builtinObject : builtinModules.values()) {
+      explorer.collect(builtinObject.getAnnotation(), builtinObject.getClassObject(), modules);
     }
+    for (Entry<SkylarkModule, Class<?>> builtinModule : builtinJavaObjects.entrySet()) {
+      explorer.collect(builtinModule.getKey(), builtinModule.getValue(), modules);
+    }
+    return modules;
+  }
 
-    for (SkylarkJavaObject object : reachableObjects) {
-      if (!object.getAnnotation().hidden()) {
-        sb.append(generateBuiltinItemDoc(object));
+  private String generateAllBuiltinDoc() {
+    Map<String, SkylarkModuleDoc> modules = collectModules();
+
+    StringBuilder sb = new StringBuilder();
+    // Generate the top level module first in the doc
+    SkylarkModuleDoc topLevelModule = modules.remove(getTopLevelModule().name());
+    generateModuleDoc(topLevelModule, sb);
+    for (SkylarkModuleDoc module : modules.values()) {
+      if (!module.getAnnotation().hidden()) {
+        generateModuleDoc(module, sb);
       }
     }
     return sb.toString();
   }
 
-  private String getName(SkylarkCallable callable, String javaName) {
-    return callable.name().isEmpty()
-        ? StringUtilities.toPythonStyleFunctionName(javaName)
-        : callable.name();
+  private void generateModuleDoc(SkylarkModuleDoc module, StringBuilder sb) {
+    SkylarkModule annotation = module.getAnnotation();
+    sb.append(String.format("<h3 id=\"modules.%s\">%s</h3>\n",
+          annotation.name(),
+          annotation.name()))
+      .append(annotation.doc())
+      .append("\n");
+    for (Map.Entry<String, Map.Entry<Method, SkylarkCallable>> entry
+        : module.getJavaMethods().entrySet()) {
+      generateDirectJavaMethodDoc(annotation.name(), entry.getKey(), entry.getValue().getKey(),
+          entry.getValue().getValue(), sb);
+    }
+    for (SkylarkBuiltin builtin : module.getBuiltinMethods().values()) {
+      generateBuiltinItemDoc(annotation.name(), builtin, sb);
+    }
   }
 
-  private String generateBuiltinItemDoc(SkylarkJavaObject object) {
-    SkylarkBuiltin annotation = object.getAnnotation();
-    StringBuilder sb = new StringBuilder()
-        .append(String.format("<h3 id=\"objects.%s\">%s</h3>\n",
-            object.name(),
-            object.name()))
-        .append(annotation.doc())
-        .append("\n");
-
-    printParams("Mandatory parameters", annotation.name(), annotation.mandatoryParams(), sb);
-    printParams("Optional parameters", annotation.name(), annotation.optionalParams(), sb);
-
-    for (Map.Entry<Method, SkylarkCallable> method : object.getMethods().entrySet()) {
-      sb.append(generateDirectJavaMethodDoc(
-          annotation.name(), getName(method.getValue(), method.getKey().getName()),
-          method.getKey(), method.getValue()));
-    }
-    for (Map.Entry<String, SkylarkCallable> method : object.getExtraMethods().entrySet()) {
-      sb.append(generateDirectJavaMethodDoc(
-          annotation.name(), getName(method.getValue(), method.getKey()),
-          null, method.getValue()));
-    }
-
-    return sb.toString();
-  }
-
-  private String generateDirectJavaMethodDoc(
-      String objectName, String methodName, Method method, SkylarkCallable annotation) {
+  private void generateBuiltinItemDoc(
+      String moduleName, SkylarkBuiltin annotation, StringBuilder sb) {
     if (annotation.hidden()) {
-      return "";
+      return;
+    }
+    sb.append(String.format("<h4 id=\"modules.%s.%s\">%s</h4>\n",
+          moduleName,
+          annotation.name(),
+          annotation.name()))
+      .append(annotation.doc());
+    printParams(
+        "Mandatory parameters", moduleName, annotation.name(), annotation.mandatoryParams(), sb);
+    printParams(
+        "Optional parameters", moduleName, annotation.name(), annotation.optionalParams(), sb);
+  }
+
+  private void generateDirectJavaMethodDoc(String objectName, String methodName,
+      Method method, SkylarkCallable annotation, StringBuilder sb) {
+    if (annotation.hidden()) {
+      return;
     }
 
-    StringBuilder sb = new StringBuilder();
-    sb.append(String.format("<h4 id=\"objects.%s.%s\">%s</h4>\n%s\n",
+    sb.append(String.format("<h4 id=\"modules.%s.%s\">%s</h4>\n%s\n",
             objectName,
             methodName,
             methodName,
             getSignature(objectName, methodName, method)))
         .append(annotation.doc())
         .append("\n");
-    return sb.toString();
   }
 
   private String getSignature(String objectName, String methodName, Method method) {
@@ -163,13 +181,15 @@ public class SkylarkDocumentationProcessor {
         }));
   }
 
-  private void printParams(String title, String objectName, Param[] params, StringBuilder sb) {
+  private void printParams(String title, String moduleName, String methodName,
+      Param[] params, StringBuilder sb) {
     if (params.length > 0) {
-      sb.append(String.format("<h4>%s</h4>\n", title));
+      sb.append(String.format("<h5>%s</h5>\n", title));
       sb.append("<ul>\n");
       for (Param param : params) {
-        sb.append(String.format("\t<li id=\"objects.%s.%s\"><code>%s</code>: ",
-            objectName,
+        sb.append(String.format("\t<li id=\"modules.%s.%s.%s\"><code>%s</code>: ",
+            moduleName,
+            methodName,
             param.name(),
             param.name()))
           .append(param.doc())
@@ -179,80 +199,58 @@ public class SkylarkDocumentationProcessor {
     }
   }
 
-  @VisibleForTesting
-  Map<SkylarkBuiltin, Class<?>> collectBuiltinObjects() {
-    ImmutableMap.Builder<SkylarkBuiltin, Class<?>> builder = ImmutableMap.builder();
-    collectBuiltinDoc(builder, Environment.class.getDeclaredFields());
-    collectBuiltinDoc(builder, MethodLibrary.class.getDeclaredFields());
-    collectBuiltinDoc(builder, SkylarkRuleClassFunctions.class.getDeclaredFields());
-    collectBuiltinDoc(builder, SkylarkRuleImplementationFunctions.class.getDeclaredFields());
-    collectBuiltinDoc(builder, SkylarkAttr.class.getDeclaredFields());
-    collectBuiltinDoc(builder, SkylarkCommandLine.class.getDeclaredFields());
-    builder.put(
-        SkylarkRuleContext.class.getAnnotation(SkylarkBuiltin.class), SkylarkRuleContext.class);
-    for (Object obj : SkylarkRuleImplementationFunctions.JAVA_OBJECTS_TO_EXPOSE.values()) {
-      if (obj instanceof Class<?>) {
-        Class<?> classObj = (Class<?>) obj;
-        if (classObj.isAnnotationPresent(SkylarkBuiltin.class)) {
-          SkylarkBuiltin skylarkBuiltin = classObj.getAnnotation(SkylarkBuiltin.class);
-          builder.put(skylarkBuiltin, classObj);
-        }
-      }
-    }
-    return builder.build();
+  private Map<String, SkylarkModuleDoc> collectBuiltinModules() {
+    Map<String, SkylarkModuleDoc> modules = new HashMap<>();
+    collectBuiltinDoc(modules, Environment.class.getDeclaredFields());
+    collectBuiltinDoc(modules, MethodLibrary.class.getDeclaredFields());
+    collectBuiltinDoc(modules, SkylarkRuleClassFunctions.class.getDeclaredFields());
+    collectBuiltinDoc(modules, SkylarkRuleImplementationFunctions.class.getDeclaredFields());
+    collectBuiltinDoc(modules, SkylarkAttr.class.getDeclaredFields());
+    collectBuiltinDoc(modules, SkylarkCommandLine.class.getDeclaredFields());
+    return modules;
   }
 
-  private void collectBuiltinDoc(ImmutableMap.Builder<SkylarkBuiltin, Class<?>> builder,
-      Field[] fields) {
+  private Map<SkylarkModule, Class<?>> collectBuiltinJavaObjects() {
+    Map<SkylarkModule, Class<?>> modules = new HashMap<>();
+    collectBuiltinModule(modules, SkylarkRuleContext.class);
+    collectBuiltinModule(modules,
+        SkylarkRuleImplementationFunctions.JAVA_OBJECTS_TO_EXPOSE.values());
+    collectBuiltinModule(modules, SkylarkRuleClassFunctions.JAVA_OBJECTS_TO_EXPOSE.values());
+    return modules;
+  }
+
+  private void collectBuiltinModule(
+      Map<SkylarkModule, Class<?>> modules, Iterable<Object> candidates) {
+    for (Object obj : candidates) {
+      if (obj instanceof Class<?>) {
+        Class<?> classObj = (Class<?>) obj;
+        collectBuiltinModule(modules, classObj);
+      }
+    }
+  }
+
+  private void collectBuiltinModule(
+      Map<SkylarkModule, Class<?>> modules, Class<?> moduleClass) {
+    if (moduleClass.isAnnotationPresent(SkylarkModule.class)) {
+      SkylarkModule skylarkModule = moduleClass.getAnnotation(SkylarkModule.class);
+      modules.put(skylarkModule, moduleClass);
+    }
+  }
+
+  private void collectBuiltinDoc(Map<String, SkylarkModuleDoc> modules, Field[] fields) {
     for (Field field : fields) {
       if (field.isAnnotationPresent(SkylarkBuiltin.class)) {
         SkylarkBuiltin skylarkBuiltin = field.getAnnotation(SkylarkBuiltin.class);
-        builder.put(skylarkBuiltin, field.getClass());
+        Class<?> moduleClass = skylarkBuiltin.objectType();
+        SkylarkModule skylarkModule = moduleClass.equals(Object.class)
+            ? getTopLevelModule()
+            : moduleClass.getAnnotation(SkylarkModule.class);
+        if (!modules.containsKey(skylarkModule.name())) {
+          modules.put(skylarkModule.name(), new SkylarkModuleDoc(skylarkModule, moduleClass));
+        }
+        modules.get(skylarkModule.name()).getBuiltinMethods()
+            .put(skylarkBuiltin.name(), skylarkBuiltin);
       }
     }
-  }
-
-  private List<SkylarkJavaObject> collectMethodLibraryDocs() {
-    return ImmutableList.<SkylarkJavaObject>builder()
-        .add(SkylarkJavaObject.ofExtraMethods(
-            getMethodLibraryAnnotation("stringFunctions"),
-            collectMethodLibraryDoc(MethodLibrary.stringFunctions.keySet())))
-        .add(SkylarkJavaObject.ofExtraMethods(
-            getMethodLibraryAnnotation("dictFunctions"),
-            collectMethodLibraryDoc(MethodLibrary.dictFunctions.keySet())))
-        .build();
-  }
-
-  @VisibleForTesting
-  ImmutableMap<String, SkylarkCallable> collectMethodLibraryDocMap() {
-    return ImmutableMap.<String, SkylarkCallable>builder()
-        .putAll(collectMethodLibraryDoc(MethodLibrary.listFunctions))
-        .putAll(collectMethodLibraryDoc(MethodLibrary.stringFunctions.keySet()))
-        .build();
-  }
-
-  private SkylarkBuiltin getMethodLibraryAnnotation(String fieldName) {
-    try {
-      return MethodLibrary.class.getDeclaredField(fieldName)
-          .getAnnotation(SkylarkBuiltin.class);
-    } catch (NoSuchFieldException | SecurityException e) {
-      throw new RuntimeException(e);
-    }
-  }
-
-  private Map<String, SkylarkCallable> collectMethodLibraryDoc(
-      Iterable<com.google.devtools.build.lib.syntax.Function> functions) {
-    Map<String, SkylarkCallable> methods = new HashMap<>();
-    for (com.google.devtools.build.lib.syntax.Function function : functions) {
-      try {
-        // Replacing the '$' character in the name of hidden methods
-        String functionName = function.getName().replace("$", "");
-        Field field = MethodLibrary.class.getDeclaredField(functionName);
-        methods.put(function.getName(), field.getAnnotation(SkylarkCallable.class));
-      } catch (NoSuchFieldException | SecurityException e) {
-        throw new RuntimeException(e);
-      }
-    }
-    return methods;
   }
 }

@@ -92,6 +92,7 @@ import com.google.devtools.build.skyframe.BuildDriver;
 import com.google.devtools.build.skyframe.CycleInfo;
 import com.google.devtools.build.skyframe.CyclesReporter;
 import com.google.devtools.build.skyframe.Differencer.Diff;
+import com.google.devtools.build.skyframe.ErrorInfo;
 import com.google.devtools.build.skyframe.EvaluationProgressReceiver;
 import com.google.devtools.build.skyframe.EvaluationResult;
 import com.google.devtools.build.skyframe.ImmutableDiff;
@@ -781,6 +782,9 @@ public final class SkyframeExecutor {
   private void handleDiffsWithMissingDiffInformation(
       Set<Pair<Path, ProcessableModifiedFileSet>> pathEntriesWithoutDiffInformation)
       throws InterruptedException {
+    if (pathEntriesWithoutDiffInformation.isEmpty()) {
+      return;
+    }
     // Before running the FilesystemValueChecker, ensure that all values marked for invalidation
     // have actually been invalidated (recall that invalidation happens at the beginning of the
     // next evaluate() call), because checking those is a waste of time.
@@ -1030,13 +1034,14 @@ public final class SkyframeExecutor {
       Executor executor,
       Set<Artifact> artifacts,
       boolean keepGoing,
+      boolean explain, 
       int numJobs,
       ActionCacheChecker actionCacheChecker,
       @Nullable EvaluationProgressReceiver executionProgressReceiver) throws InterruptedException {
     checkActive();
     Preconditions.checkState(actionLogBufferPathGenerator != null);
 
-    skyframeActionExecutor.prepareForExecution(executor, keepGoing, actionCacheChecker);
+    skyframeActionExecutor.prepareForExecution(executor, keepGoing, explain, actionCacheChecker);
 
     resourceManager.resetResourceUsage();
     try {
@@ -1309,18 +1314,20 @@ public final class SkyframeExecutor {
             buildDriver.evaluate(ImmutableList.of(key), false,
                 DEFAULT_THREAD_COUNT, eventHandler);
         if (result.hasError()) {
-          if (!Iterables.isEmpty(result.getError().getCycleInfo())) {
+          ErrorInfo error = result.getError();
+          if (!Iterables.isEmpty(error.getCycleInfo())) {
             reportCycles(result.getError().getCycleInfo(), key);
             // This can only happen if a package is freshly loaded outside of the target parsing
             // or loading phase
             throw new BuildFileContainsErrorsException(pkgName,
                 "Cycle encountered while loading package " + pkgName);
           }
-          Throwable e = result.getError().getException();
+          Throwable e = error.getException();
           // PackageFunction should be catching, swallowing, and rethrowing all transitive
           // errors as NoSuchPackageExceptions.
           Throwables.propagateIfInstanceOf(e, NoSuchPackageException.class);
-          throw new IllegalStateException("Unexpected Exception type from PackageValue.", e);
+          throw new IllegalStateException("Unexpected Exception type from PackageValue for '"
+              + pkgName + "'' with root causes: " + Iterables.toString(error.getRootCauses()), e);
         }
         return result.get(key).getPackage();
       }

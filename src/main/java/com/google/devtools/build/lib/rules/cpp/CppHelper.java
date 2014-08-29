@@ -38,7 +38,6 @@ import com.google.devtools.build.lib.vfs.FileSystemUtils;
 import com.google.devtools.build.lib.vfs.PathFragment;
 import com.google.devtools.build.lib.view.AnalysisEnvironment;
 import com.google.devtools.build.lib.view.AnalysisUtils;
-import com.google.devtools.build.lib.view.CompilationHelper;
 import com.google.devtools.build.lib.view.FileProvider;
 import com.google.devtools.build.lib.view.RuleConfiguredTarget.Mode;
 import com.google.devtools.build.lib.view.RuleContext;
@@ -247,11 +246,8 @@ public class CppHelper {
    * to the set of files necessary to execute an action.
    */
   public static NestedSet<Artifact> getCrosstoolInputs(RuleContext ruleContext) {
-    CcToolchainProvider provider = getCompiler(ruleContext);
     NestedSetBuilder<Artifact> builder = NestedSetBuilder.stableOrder();
-    builder.addTransitive(provider != null
-        ? provider.getCrosstoolMiddleman()
-        : AnalysisUtils.getMiddlemanFor(ruleContext, ":crosstool"));
+    builder.addTransitive(getCompiler(ruleContext).getCrosstoolMiddleman());
     // Use "libc_link" here, because it is functionally identical to the case
     // below. If we introduce separate filegroups for compiling and linking, we
     // need to fix that here.
@@ -269,36 +265,6 @@ public class CppHelper {
   }
 
   /**
-   * Returns every artifact in Crosstool as real artifacts, not hidden behind a middleman.
-   */
-  public static NestedSet<Artifact> getCrosstoolArtifacts(RuleContext ruleContext) {
-    CcToolchainProvider provider = getCompiler(ruleContext);
-    return provider != null
-        ?  provider.getCrosstool()
-        : ruleContext.getPrerequisite(":crosstool", Mode.HOST)
-            .getProvider(FileProvider.class).getFilesToBuild();
-  }
-
-  /**
-   * Returns the artifacts required for strip invocations. These artifacts
-   * are usually middleman artifacts that have to be expanded before being added
-   * to the set of files necessary to execute an action.
-   */
-  public static NestedSet<Artifact> getCrosstoolArtifactsForStripping(RuleContext ruleContext) {
-    CcToolchainProvider provider = getCompiler(ruleContext);
-    return provider != null
-        ? provider.getStrip()
-        : AnalysisUtils.getMiddlemanFor(ruleContext, ":crosstool_strip");
-  }
-
-  public static NestedSet<Artifact> getCrosstoolArtifactsForObjcopy(RuleContext ruleContext) {
-    CcToolchainProvider provider = getCompiler(ruleContext);
-    return provider != null
-        ? provider.getObjcopy()
-        : AnalysisUtils.getMiddlemanFor(ruleContext, ":objcopy");
-  }
-
-  /**
    * Returns the artifacts required for crosstool compilations. These artifacts
    * are usually middleman artifacts that have to be expanded before being added
    * to the set of files necessary to execute an action.
@@ -309,15 +275,9 @@ public class CppHelper {
     // If include scanning is disabled, we need the entire crosstool filegroup, including header
     // files. If it is enabled, we use the filegroup without header files - they are found by
     // include scanning.
-    if (ruleContext.getFragment(CppConfiguration.class).shouldScanIncludes()) {
-      return provider != null
-          ? provider.getCompile()
-          : AnalysisUtils.getMiddlemanFor(ruleContext, ":crosstool_compile");
-    } else {
-      return provider != null
-          ? provider.getCrosstool()
-          : AnalysisUtils.getMiddlemanFor(ruleContext, ":crosstool");
-    }
+    return ruleContext.getFragment(CppConfiguration.class).shouldScanIncludes()
+        ? provider.getCompile()
+        : provider.getCrosstool();
   }
 
   /**
@@ -326,12 +286,8 @@ public class CppHelper {
    * before being added to the set of files necessary to execute an action.
    */
   public static NestedSet<Artifact> getCrosstoolInputsForLink(RuleContext ruleContext) {
-    CcToolchainProvider provider = getCompiler(ruleContext);
-
     NestedSetBuilder<Artifact> builder = NestedSetBuilder.stableOrder();
-    builder.addTransitive(provider != null
-        ? provider.getLink()
-        : AnalysisUtils.getMiddlemanFor(ruleContext, ":crosstool_link"));
+    builder.addTransitive(getCompiler(ruleContext).getLink());
     builder.addTransitive(AnalysisUtils.getMiddlemanFor(ruleContext, ":libc_link"));
     builder.add(ruleContext.getAnalysisEnvironment().getEmbeddedToolArtifact(
         CppRuleClasses.BUILD_INTERFACE_SO));
@@ -349,15 +305,7 @@ public class CppHelper {
       return null;
     }
 
-    CcToolchainProvider provider = getCompiler(ruleContext);
-    if (provider != null) {
-      return provider.getStaticRuntimeLinkMiddleman();
-    }
-    NestedSet<Artifact> middleman = CompilationHelper.getAggregatingMiddleman(
-        ruleContext, "static_runtime_link",
-        ruleContext.getPrerequisite(":crosstool_static_runtime_link", Mode.HOST));
-
-    return middleman.isEmpty() ? null : Iterables.getOnlyElement(middleman);
+    return getCompiler(ruleContext).getStaticRuntimeLinkMiddleman();
   }
 
   /**
@@ -371,16 +319,7 @@ public class CppHelper {
       return NestedSetBuilder.emptySet(Order.STABLE_ORDER);
     }
 
-    CcToolchainProvider provider = getCompiler(ruleContext);
-    if (provider != null) {
-      return provider.getStaticRuntimeLinkInputs();
-    }
-
-    TransitiveInfoCollection dep = ruleContext.getPrerequisite(
-        ":crosstool_static_runtime_link", Mode.HOST);
-    return dep == null
-        ? NestedSetBuilder.<Artifact>emptySet(Order.STABLE_ORDER)
-        : dep.getProvider(FileProvider.class).getFilesToBuild();
+    return getCompiler(ruleContext).getStaticRuntimeLinkInputs();
   }
 
   /**
@@ -394,16 +333,7 @@ public class CppHelper {
       return null;
     }
 
-    CcToolchainProvider provider = getCompiler(ruleContext);
-    if (provider != null) {
-      return provider.getDynamicRuntimeLinkMiddleman();
-    }
-
-    List<Artifact> middleman =
-        getAggregatingMiddlemanForCppRuntimes(ruleContext, "dynamic_runtime_link",
-            ruleContext.getPrerequisite(":crosstool_dynamic_runtime_link", Mode.HOST), null,
-            configuration);
-    return middleman.isEmpty() ? null : Iterables.getOnlyElement(middleman);
+    return getCompiler(ruleContext).getDynamicRuntimeLinkMiddleman();
   }
 
   /**
@@ -417,28 +347,7 @@ public class CppHelper {
       return NestedSetBuilder.emptySet(Order.STABLE_ORDER);
     }
 
-    CcToolchainProvider provider = getCompiler(ruleContext);
-    if (provider != null) {
-      return provider.getDynamicRuntimeLinkInputs();
-    }
-
-    TransitiveInfoCollection dep = ruleContext.getPrerequisite(
-        ":crosstool_dynamic_runtime_link", Mode.HOST);
-    if (dep == null) {
-      return NestedSetBuilder.emptySet(Order.STABLE_ORDER);
-    }
-
-    NestedSetBuilder<Artifact> builder = NestedSetBuilder.stableOrder();
-    for (Artifact artifact : dep.getProvider(FileProvider.class).getFilesToBuild()) {
-      if (SHARED_LIBRARY_FILETYPES.matches(artifact.getFilename())) {
-        artifact = SolibSymlinkAction.getCppRuntimeSymlink(
-            ruleContext, artifact, null, configuration).getArtifact();
-      }
-
-      builder.add(artifact);
-    }
-
-    return builder.build();
+    return getCompiler(ruleContext).getDynamicRuntimeLinkInputs();
   }
 
   /**

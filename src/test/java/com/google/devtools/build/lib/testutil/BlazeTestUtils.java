@@ -41,15 +41,10 @@ public class BlazeTestUtils {
       "build-runfiles",
       "p4_client_info.sh",
       "grep-includes",
-      "alarm",
       "process-wrapper",
       "build_interface_so");
 
   private BlazeTestUtils() {}
-
-  public static boolean sanityChecksEnabled() {
-    return false;
-  }
 
   /** Returns the skyframe mode the test class should be run in. */
   public static SkyframeMode skyframeMode(Class<?> clazz) {
