@@ -14,10 +14,6 @@
 
 package com.google.devtools.build.lib.events;
 
-import com.google.common.collect.ImmutableSet;
-
-import java.util.Set;
-
 /**
  * An ErrorEventListener which does nothing.
  */
@@ -25,13 +21,6 @@ public final class NullEventHandler implements EventHandler {
   public static final EventHandler INSTANCE = new NullEventHandler();
 
   private NullEventHandler() {}  // Prevent instantiation
-
-
-
-  @Override
-  public Set<EventKind> getEventMask() {
-    return ImmutableSet.of();
-  }
 
   @Override
   public void handle(Event e) {

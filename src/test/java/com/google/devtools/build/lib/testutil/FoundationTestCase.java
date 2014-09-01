@@ -29,7 +29,6 @@ import java.io.File;
 import java.io.IOException;
 import java.nio.charset.Charset;
 import java.util.List;
-import java.util.Set;
 
 /**
  * This is a specialization of {@link ChattyAssertsTestCase} that's useful for
@@ -53,12 +52,10 @@ public abstract class FoundationTestCase extends ChattyAssertsTestCase {
   // calling reporter.removeHandler(failFastHandler).
   protected static final EventHandler failFastHandler = new EventHandler() {
       @Override
-      public Set<EventKind> getEventMask() {
-        return EventKind.ERRORS;
-      }
-      @Override
       public void handle(Event event) {
-        fail(event.toString());
+        if (EventKind.ERRORS.contains(event.getKind())) {
+          fail(event.toString());
+        }
       }
       @Override
       public boolean showOutput(String tag) {
@@ -67,10 +64,6 @@ public abstract class FoundationTestCase extends ChattyAssertsTestCase {
     };
 
   protected static final EventHandler printHandler = new EventHandler() {
-      @Override
-      public Set<EventKind> getEventMask() {
-        return EventKind.ALL_EVENTS;
-      }
       @Override
       public void handle(Event event) {
         System.out.println(event);

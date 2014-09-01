@@ -20,6 +20,7 @@ import com.google.common.cache.LoadingCache;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableSet;
 import com.google.common.collect.ImmutableSortedSet;
+import com.google.devtools.build.lib.Constants;
 import com.google.devtools.build.lib.blaze.BlazeCommandEventHandler;
 import com.google.devtools.build.lib.exec.ExecutionOptions;
 import com.google.devtools.build.lib.pkgcache.LoadingPhaseRunner;
@@ -233,7 +234,7 @@ public class BuildRequest implements OptionsClassProvider {
     public boolean announce;
 
     @Option(name = "symlink_prefix",
-        defaultValue = "blaze-",
+        defaultValue = Constants.DEFAULT_SYMLINK_PREFIX,
         category = "misc",
         help = "The prefix that is prepended to any of the convenience symlinks that are created "
             + "after a build. If '/' is passed, then no symlinks are created (not even the "

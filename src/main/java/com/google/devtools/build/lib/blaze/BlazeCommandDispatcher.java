@@ -24,7 +24,6 @@ import com.google.common.collect.Lists;
 import com.google.common.io.Flushables;
 import com.google.devtools.build.lib.events.Event;
 import com.google.devtools.build.lib.events.EventHandler;
-import com.google.devtools.build.lib.events.EventKind;
 import com.google.devtools.build.lib.events.Reporter;
 import com.google.devtools.build.lib.util.AbruptExitException;
 import com.google.devtools.build.lib.util.AnsiStrippingOutputStream;
@@ -230,11 +229,6 @@ public class BlazeCommandDispatcher {
     }
 
     @Override
-    public Set<EventKind> getEventMask() {
-      return EventKind.OUTPUT;
-    }
-
-    @Override
     public boolean showOutput(String tag) {
       return true;
     }
@@ -249,8 +243,6 @@ public class BlazeCommandDispatcher {
           case STDERR:
             outErr.getErrorStream().write(event.getMessageBytes());
             break;
-          default:
-            throw new IllegalStateException();
         }
       } catch (IOException e) {
         // We cannot do too much here -- ErrorEventListener#handle does not provide us with ways to

@@ -82,6 +82,9 @@ public class PrintingEventHandler extends AbstractEventHandler
    */
   @Override
   public void handle(Event event) {
+    if (!getEventMask().contains(event.getKind())) {   
+      return;
+    }
     try {
       switch (event.getKind()) {
         case STDOUT:

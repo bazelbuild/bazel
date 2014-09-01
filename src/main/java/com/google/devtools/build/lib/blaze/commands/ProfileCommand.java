@@ -718,7 +718,7 @@ public final class ProfileCommand implements BlazeCommand {
         prettyPercentage(optimalTime - path.cumulativeDuration, optimalTime));
 
     typeFilter = getTypeFilter(ProfilerTask.REMOTE_EXECUTION, ProfilerTask.PROCESS_TIME,
-        ProfilerTask.REMOTE_PARSE,  ProfilerTask.UPLOAD_TIME,
+        ProfilerTask.LOCAL_PARSE,  ProfilerTask.UPLOAD_TIME,
         ProfilerTask.REMOTE_QUEUE,  ProfilerTask.REMOTE_SETUP, ProfilerTask.FETCH);
     path = info.getCriticalPath(typeFilter);
     out.printf(TWO_COLUMN_FORMAT, "Remote execution (cumulative)",
@@ -744,7 +744,7 @@ public final class ProfileCommand implements BlazeCommand {
     out.printf(TWO_COLUMN_FORMAT, "  remote queueing",
         prettyPercentage(optimalTime - path.cumulativeDuration, optimalTime));
 
-    typeFilter = getTypeFilter(ProfilerTask.REMOTE_PARSE);
+    typeFilter = getTypeFilter(ProfilerTask.LOCAL_PARSE);
     path = info.getCriticalPath(typeFilter);
     out.printf(TWO_COLUMN_FORMAT, "  remote execution parse",
         prettyPercentage(optimalTime - path.cumulativeDuration, optimalTime));

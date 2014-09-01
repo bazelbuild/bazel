@@ -183,6 +183,11 @@ public class JunitTestUtils {
   private static String eventsToString(Iterable<Event> eventCollector) {
     StringBuilder buf = new StringBuilder();
     for (Event event : eventCollector) {
+      for (String ignoredPrefix : TestConstants.IGNORED_MESSAGE_PREFIXES) {
+        if (event.getMessage().startsWith(ignoredPrefix)) {
+          continue;
+        }
+      }
       buf.append('\n').append(event);
     }
     return buf.toString();
@@ -244,7 +249,7 @@ public class JunitTestUtils {
   /**
    * Check to see if each element of expectedMessages is the beginning of a message
    * in eventCollector, in order, as in {@link #containsSublistWithGapsAndEqualityChecker}.
-   * If not, an informative assertion is failed 
+   * If not, an informative assertion is failed
    */
   protected static void assertContainsEventsInOrder(Iterable<Event> eventCollector,
       String... expectedMessages) {

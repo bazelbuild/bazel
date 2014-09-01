@@ -27,6 +27,7 @@ import com.google.devtools.build.lib.actions.Builder;
 import com.google.devtools.build.lib.actions.BuilderUtils;
 import com.google.devtools.build.lib.actions.DependentActionGraph;
 import com.google.devtools.build.lib.actions.Executor;
+import com.google.devtools.build.lib.actions.ResourceManager;
 import com.google.devtools.build.lib.actions.TestExecException;
 import com.google.devtools.build.lib.skyframe.ActionExecutionInactivityWatchdog;
 import com.google.devtools.build.lib.skyframe.ActionExecutionValue;
@@ -89,6 +90,7 @@ class SkyframeBuilder implements Builder {
     // synchronized collection), so unsynchronized access to this variable is unsafe while it runs.
     ExecutionProgressReceiver executionProgressReceiver =
         new ExecutionProgressReceiver(artifacts, builtArtifacts);
+    ResourceManager.instance().setEventBus(skyframeExecutor.getEventBus());
 
     boolean success = false;
     EvaluationResult<ArtifactValue> result = null;
@@ -128,6 +130,7 @@ class SkyframeBuilder implements Builder {
       }
     } finally {
       watchdog.stop();
+      ResourceManager.instance().unsetEventBus();
       skyframeExecutor.setActionExecutionProgressReportingObjects(null, null, null);
       statusReporter.unregisterFromEventBus();
     }

@@ -43,7 +43,6 @@ import com.google.devtools.build.lib.syntax.SkylarkType.SkylarkFunctionType;
 import com.google.devtools.build.lib.syntax.ValidationEnvironment;
 import com.google.devtools.build.lib.vfs.PathFragment;
 import com.google.devtools.build.lib.view.CommandHelper;
-import com.google.devtools.build.lib.view.ConfiguredRuleClassProvider;
 import com.google.devtools.build.lib.view.FilesToRunProvider;
 import com.google.devtools.build.lib.view.Runfiles;
 import com.google.devtools.build.lib.view.RunfilesProvider;
@@ -448,11 +447,6 @@ public class SkylarkRuleImplementationFunctions {
         context.getRuleContext().getRule().getRuleClassObject().getRuleDefinitionEnvironment();
     final SkylarkEnvironment env;
     if (ruleDefEnv != null) {
-      // TODO(bazel-team): mark modules / functions with annotations if they should be removed here
-      // and do it automatically.
-      ruleDefEnv.removeModule(SkylarkAttr.module);
-      ruleDefEnv.removeModule(ConfiguredRuleClassProvider.nativeModule);
-      ruleDefEnv.remove("rule");
       env = ruleDefEnv.cloneEnv();
     } else {
       // TODO(bazel-team): This is needed because of the tests. If we separated Skylark from legacy

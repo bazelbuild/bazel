@@ -115,7 +115,6 @@ import java.io.PrintWriter;
 import java.util.ArrayList;
 import java.util.Collection;
 import java.util.Date;
-import java.util.EnumSet;
 import java.util.HashMap;
 import java.util.HashSet;
 import java.util.LinkedHashSet;
@@ -672,8 +671,6 @@ public class ExecutionTool {
    */
   private static class ExplanationHandler implements EventHandler {
 
-    private static final Set<EventKind> DEPCHECKER = EnumSet.of(EventKind.DEPCHECKER);
-
     private final PrintWriter log;
 
     @Override
@@ -686,14 +683,12 @@ public class ExecutionTool {
       this.log.println("Build options: " + optionsDescription);
     }
 
-    @Override
-    public Set<EventKind> getEventMask() {
-      return DEPCHECKER;
-    }
 
     @Override
     public void handle(Event event) {
-      log.println(event.getMessage());
+      if (event.getKind() == EventKind.DEPCHECKER) {
+        log.println(event.getMessage());
+      }
     }
   }
 

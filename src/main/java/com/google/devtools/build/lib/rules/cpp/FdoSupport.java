@@ -135,8 +135,9 @@ public class FdoSupport {
    * <p>The contents of the multimap are copied verbatim from the .gcda.imports
    * files and not yet checked for validity.
    */
-  private final Multimap<PathFragment, Artifact> imports =
-      LinkedHashMultimap.create();
+  // Non-final because we set it to a new object each build to allow the old object's reserved space
+  // to be garbage-collected.
+  private Multimap<PathFragment, Artifact> imports = LinkedHashMultimap.create();
 
   /**
    * Registered scannables for auxiliary source files.
@@ -193,6 +194,7 @@ public class FdoSupport {
       FileSystemUtils.createDirectoryAndParents(fdoDirPath);
 
       if (useAutoFdo) {
+        imports = LinkedHashMultimap.create();
         Path fdoImports = fdoProfile.getParentDirectory().getRelative(
             fdoProfile.getBaseName() + ".imports");
         if (isLipoEnabled()) {

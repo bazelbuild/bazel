@@ -40,6 +40,8 @@ public @interface SkylarkBuiltin {
 
   Class<?> returnType() default Object.class;
 
+  boolean onlyLoadingPhase() default false;
+
   /**
    * An annotation for parameters of Skylark built-in functions.
    */

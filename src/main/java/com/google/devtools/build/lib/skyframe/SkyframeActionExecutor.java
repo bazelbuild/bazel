@@ -479,6 +479,7 @@ public final class SkyframeActionExecutor extends AbstractActionExecutor {
 
     @Override
     public ActionExecutionValue call() throws ActionExecutionException, InterruptedException {
+      profiler.startTask(ProfilerTask.ACTION, action);
       profiler.startTask(ProfilerTask.ACTION_CHECK, action);
       long actionStartTime = Profiler.nanoTimeMaybe();
 
@@ -509,6 +510,7 @@ public final class SkyframeActionExecutor extends AbstractActionExecutor {
           postEvent(new CachedActionEvent(action, actionStartTime));
         }
 
+        profiler.completeTask(ProfilerTask.ACTION);
         return new ActionExecutionValue(
             graphFileCache.getOutputData(), graphFileCache.getAdditionalOutputData());
       } else if (actionCacheChecker.isActionExecutionProhibited(action)) {
@@ -518,6 +520,7 @@ public final class SkyframeActionExecutor extends AbstractActionExecutor {
           TargetOutOfDateException e = new TargetOutOfDateException(action);
           reporter.handle(Event.error(e.getMessage()));
           recordExecutionError();
+          profiler.completeTask(ProfilerTask.ACTION);
           throw e;
         }
       }
@@ -544,7 +547,7 @@ public final class SkyframeActionExecutor extends AbstractActionExecutor {
                 output.addAll(graphFileCache.expandInputMiddleman(middlemanArtifact));
               }
             }, actionStartTime);
-
+      profiler.completeTask(ProfilerTask.ACTION);
       return new ActionExecutionValue(
           graphFileCache.getOutputData(), graphFileCache.getAdditionalOutputData());
     }
@@ -619,13 +622,13 @@ public final class SkyframeActionExecutor extends AbstractActionExecutor {
     ResourceSet estimate = action.estimateResourceConsumption(executorEngine);
     ActionExecutionStatusReporter statusReporter = statusReporterRef.get();
     try {
-      if (estimate != null) {
-        statusReporter.setScheduling(action);
+      if (estimate == null || estimate == ResourceSet.ZERO) {
+        statusReporter.setRunningFromBuildData(action);
+      } else {
         // If estimated resource consumption is null, action will manually call
         // resource manager when it knows what resources are needed.
         resourceManager.acquireResources(action, estimate);
       }
-      statusReporter.setRunningFromBuildData(action);
       executeActionTask(action, actionExecutionContext);
     } finally {
       if (estimate != null) {

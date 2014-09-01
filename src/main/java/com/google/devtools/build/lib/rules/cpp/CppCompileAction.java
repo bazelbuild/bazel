@@ -549,7 +549,8 @@ public class CppCompileAction extends ConfigurationAction implements IncludeScan
       }
     }
 
-    boolean reportWarnings = shouldShowOutput(eventHandler) || errors.hasProblems();
+    boolean reportWarnings = eventHandler.showOutput(
+        Label.print(getOwner().getLabel())) || errors.hasProblems();
 
     if (warnings.hasProblems() && reportWarnings) {
       eventHandler.handle(

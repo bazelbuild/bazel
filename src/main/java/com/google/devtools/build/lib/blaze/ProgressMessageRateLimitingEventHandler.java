@@ -15,11 +15,8 @@ package com.google.devtools.build.lib.blaze;
 
 import com.google.devtools.build.lib.events.Event;
 import com.google.devtools.build.lib.events.EventHandler;
-import com.google.devtools.build.lib.events.EventKind;
 import com.google.devtools.build.lib.util.BlazeClock;
 import com.google.devtools.build.lib.util.Clock;
-
-import java.util.Set;
 
 /**
  * An event handler that rate limits events.
@@ -59,11 +56,6 @@ public class ProgressMessageRateLimitingEventHandler implements EventHandler {
     clock = BlazeClock.instance();
     outputHandler = delegateTo;
     this.rateLimitation = rateLimitation * 1000;
-  }
-
-  @Override
-  public Set<EventKind> getEventMask() {
-    return outputHandler.getEventMask();
   }
 
   @Override

@@ -218,9 +218,11 @@ public abstract class AbstractActionExecutor {
       action.execute(actionExecutionContext);
 
       // Action terminated fine, now report the output.
-      // The .shouldShowOutput() method is not necessarily a quick check: in its
+      // The .showOutput() method is not necessarily a quick check: in its
       // current implementation it uses regular expression matching.
-      if (outErrBuffer.hasRecordedOutput() && action.shouldShowOutput(reporter)) {
+      if (outErrBuffer.hasRecordedOutput() 
+          && (action.showsOutputUnconditionally() 
+              || reporter.showOutput(Label.print(action.getOwner().getLabel())))) {
         dumpRecordedOutErr(action, outErrBuffer);
       }
       // Defer reporting action success until outputs are checked

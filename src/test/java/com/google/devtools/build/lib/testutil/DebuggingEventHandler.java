@@ -14,13 +14,10 @@
 
 package com.google.devtools.build.lib.testutil;
 
-import com.google.common.collect.ImmutableSet;
 import com.google.devtools.build.lib.events.Event;
 import com.google.devtools.build.lib.events.EventHandler;
-import com.google.devtools.build.lib.events.EventKind;
 
 import java.io.PrintStream;
-import java.util.Set;
 
 /**
  * Prints all errors and warnings to {@link System#out}.
@@ -31,10 +28,6 @@ public class DebuggingEventHandler implements EventHandler {
 
   public DebuggingEventHandler() {
     this.out = System.out;
-  }
-  @Override
-  public Set<EventKind> getEventMask() {
-    return ImmutableSet.of();
   }
 
   @Override

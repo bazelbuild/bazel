@@ -32,7 +32,6 @@ import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.ImmutableSet;
 import com.google.common.collect.Iterables;
-import com.google.common.collect.Sets;
 import com.google.common.testing.GcFinalization;
 import com.google.common.util.concurrent.Uninterruptibles;
 import com.google.devtools.build.lib.events.DelegatingEventHandler;
@@ -2703,50 +2702,6 @@ public class MemoizingEvaluatorTest {
     @Override
     public SkyValue compute(Map<SkyKey, SkyValue> deps, SkyFunction.Environment env) {
       return Preconditions.checkNotNull(deps.get(key));
-    }
-  }
-
-  private static class TrackingInvalidationReceiver implements EvaluationProgressReceiver {
-    public final Set<SkyValue> dirty = Sets.newConcurrentHashSet();
-    public final Set<SkyValue> deleted = Sets.newConcurrentHashSet();
-    public final Set<SkyKey> enqueued = Sets.newConcurrentHashSet();
-    public final Set<SkyKey> evaluated = Sets.newConcurrentHashSet();
-
-    @Override
-    public void invalidated(SkyValue value, InvalidationState state) {
-      switch (state) {
-        case DELETED:
-          dirty.remove(value);
-          deleted.add(value);
-          break;
-        case DIRTY:
-          dirty.add(value);
-          Preconditions.checkState(!deleted.contains(value));
-          break;
-        default:
-          throw new IllegalStateException();
-      }
-    }
-
-    @Override
-    public void enqueueing(SkyKey skyKey) {
-      enqueued.add(skyKey);
-    }
-
-    @Override
-    public void evaluated(SkyKey skyKey, SkyValue value, EvaluationState state) {
-      evaluated.add(skyKey);
-      switch (state) {
-        default:
-          dirty.remove(value);
-          deleted.remove(value);
-          break;
-      }
-    }
-
-    public void clear() {
-      dirty.clear();
-      deleted.clear();
     }
   }
 

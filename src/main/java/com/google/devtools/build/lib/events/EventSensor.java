@@ -52,7 +52,9 @@ public class EventSensor extends AbstractEventHandler {
    */
   @Override
   public void handle(Event event) {
-    triggerCount++;
+    if (getEventMask().contains(event.getKind())) {
+      triggerCount++;
+    }
   }
 
   /**

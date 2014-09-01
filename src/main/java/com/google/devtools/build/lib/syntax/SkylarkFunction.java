@@ -42,6 +42,7 @@ public abstract class SkylarkFunction extends AbstractFunction {
   private int mandatoryParamNum;
   private boolean configured = false;
   private Class<?> objectType;
+  private boolean onlyLoadingPhase;
 
   /**
    * Creates a SkylarkFunction with the given name. 
@@ -68,6 +69,7 @@ public abstract class SkylarkFunction extends AbstractFunction {
     }
     parameters = paramListBuilder.build();
     this.objectType = annotation.objectType().equals(Object.class) ? null : annotation.objectType();
+    this.onlyLoadingPhase = annotation.onlyLoadingPhase();
     configured = true;
   }
 
@@ -81,6 +83,10 @@ public abstract class SkylarkFunction extends AbstractFunction {
   @Override
   public Class<?> getObjectType() {
     return objectType;
+  }
+
+  public boolean isOnlyLoadingPhase() {
+    return onlyLoadingPhase;
   }
 
   @Override

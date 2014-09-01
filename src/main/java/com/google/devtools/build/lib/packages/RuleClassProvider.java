@@ -32,9 +32,9 @@ public interface RuleClassProvider {
   Map<String, RuleClass> getRuleClassMap();
 
   /**
-   * Returns a Skylark Environment for rule creation.
+   * Returns a new Skylark Environment instance for rule creation.
    */
-  SkylarkEnvironment getSkylarkRuleClassEnvironment(
+  SkylarkEnvironment createSkylarkRuleClassEnvironment(
       PackageContext context, ImmutableList<Function> nativeRuleFunctions);
 
   /**

@@ -46,6 +46,7 @@ import com.google.devtools.build.lib.syntax.MixedModeFunction;
 import com.google.devtools.build.lib.syntax.ParserInputSource;
 import com.google.devtools.build.lib.syntax.PositionalFunction;
 import com.google.devtools.build.lib.syntax.SelectorValue;
+import com.google.devtools.build.lib.syntax.SkylarkEnvironment;
 import com.google.devtools.build.lib.syntax.Statement;
 import com.google.devtools.build.lib.util.StringUtil;
 import com.google.devtools.build.lib.vfs.Path;
@@ -53,6 +54,7 @@ import com.google.devtools.build.lib.vfs.PathFragment;
 import com.google.devtools.build.lib.vfs.UnixGlob;
 
 import java.io.IOException;
+import java.util.ArrayList;
 import java.util.Collections;
 import java.util.HashMap;
 import java.util.HashSet;
@@ -844,8 +846,9 @@ public final class PackageFactory {
 
   private Environment loadSkylarkExtension(Path file, CachingPackageLocator locator,
       Path root, PackageContext context, ImmutableList<Path> extensionFileStack,
-      Set<PathFragment> transitiveSkylarkExtensions, ImmutableList<Function> nativeRuleFunctions)
-          throws InterruptedException {
+      Set<PathFragment> transitiveSkylarkExtensions,
+      ImmutableList<Function> nativeRuleFunctions,
+      List<SkylarkEnvironment> skylarkEnvironments) throws InterruptedException {
     BuildFileAST buildFileAST;
     try {
       buildFileAST = BuildFileAST.parseSkylarkFile(file, context.eventHandler, locator,
@@ -855,11 +858,13 @@ public final class PackageFactory {
       return null;
     }
 
-    Environment env =
-        ruleClassProvider.getSkylarkRuleClassEnvironment(context, nativeRuleFunctions);
+    SkylarkEnvironment env =
+        ruleClassProvider.createSkylarkRuleClassEnvironment(context, nativeRuleFunctions);
+    // We store every loading phase SkylarkEnvironment instance exactly once in this list.
+    skylarkEnvironments.add(env);
 
-    if (!loadAllImports(buildFileAST, root, file, locator, env, context,
-        extensionFileStack, transitiveSkylarkExtensions, nativeRuleFunctions)) {
+    if (!loadAllImports(buildFileAST, root, file, locator, env, context, extensionFileStack,
+        transitiveSkylarkExtensions, nativeRuleFunctions, skylarkEnvironments)) {
       return null;
     }
 
@@ -875,7 +880,8 @@ public final class PackageFactory {
       CachingPackageLocator locator, Environment parentEnv, PackageContext context,
       ImmutableList<Path> extensionFileStack,
       Set<PathFragment> transitiveSkylarkExtensions,
-      ImmutableList<Function> nativeRuleFunctions)
+      ImmutableList<Function> nativeRuleFunctions,
+      List<SkylarkEnvironment> skylarkEnvironments)
       throws InterruptedException {
     // TODO(bazel-team): We should have a global cache and make sure each
     // imported file is loaded at most once.
@@ -890,7 +896,7 @@ public final class PackageFactory {
       }
       Environment extensionEnv = loadSkylarkExtension(file, locator, root, context,
           ImmutableList.<Path>builder().addAll(extensionFileStack).add(file).build(),
-          transitiveSkylarkExtensions, nativeRuleFunctions);
+          transitiveSkylarkExtensions, nativeRuleFunctions, skylarkEnvironments);
       if (extensionEnv == null) {
         parentEnv.setImportedExtensions(imports);
         return false;
@@ -966,9 +972,10 @@ public final class PackageFactory {
 
     Path root = Package.getSourceRoot(buildFilePath, new PathFragment(packageName));
     Set<PathFragment> transitiveSkylarkExtensions = new HashSet<>();
+    List<SkylarkEnvironment> skylarkEnvironments = new ArrayList<>();
     if (!loadAllImports(buildFileAST, root, buildFilePath, locator, pkgEnv,
         context, ImmutableList.<Path>of(buildFilePath), transitiveSkylarkExtensions,
-        nativeRuleFunctions.build())) {
+        nativeRuleFunctions.build(), skylarkEnvironments)) {
       pkgBuilder.setContainsErrors();
     }
     pkgBuilder.setSkylarkExtensions(root, transitiveSkylarkExtensions);
@@ -989,6 +996,9 @@ public final class PackageFactory {
       pkgBuilder.setContainsErrors();
     }
 
+    for (SkylarkEnvironment extensionEnv : skylarkEnvironments) {
+      extensionEnv.removeOnlyLoadingPhaseObjects();
+    }
     return pkgBuilder.build(bulkPackageLocator, eventHandler);
   }
 

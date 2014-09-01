@@ -17,9 +17,7 @@ import com.google.devtools.build.lib.util.io.OutErr;
 
 import java.io.PrintStream;
 import java.util.ArrayList;
-import java.util.EnumSet;
 import java.util.List;
-import java.util.Set;
 
 /**
  * The reporter is the primary means of reporting events such as errors,
@@ -38,9 +36,6 @@ import java.util.Set;
 public final class Reporter implements EventHandler, ExceptionListener {
 
   private final List<EventHandler> handlers = new ArrayList<>();
-
-  /** The set of event kinds that we currently have a handler for. */
-  private final Set<EventKind> mask = EnumSet.noneOf(EventKind.class);
 
   /** An OutErr that sends all of its output to this Reporter.
    * Each write will (when flushed) get mapped to an EventKind.STDOUT or EventKind.STDERR event.
@@ -64,7 +59,6 @@ public final class Reporter implements EventHandler, ExceptionListener {
    */
   public Reporter(Reporter template) {
     handlers.addAll(template.handlers);
-    recomputeMask();
   }
 
   /**
@@ -73,15 +67,6 @@ public final class Reporter implements EventHandler, ExceptionListener {
   public Reporter(EventHandler... handlers) {
     for (EventHandler handler: handlers) {
       addHandler(handler);
-    }
-    recomputeMask();
-  }
-
-  private void recomputeMask() {
-    // mask = union of hander.getEventMask()
-    mask.clear();
-    for (EventHandler handler : handlers) {
-      mask.addAll(handler.getEventMask());
     }
   }
 
@@ -98,7 +83,6 @@ public final class Reporter implements EventHandler, ExceptionListener {
    */
   public synchronized void addHandler(EventHandler handler) {
     handlers.add(handler);
-    mask.addAll(handler.getEventMask());
   }
 
   /**
@@ -106,13 +90,7 @@ public final class Reporter implements EventHandler, ExceptionListener {
    */
   public synchronized boolean removeHandler(EventHandler handler) {
     boolean removed = handlers.remove(handler);
-    recomputeMask();
     return removed;
-  }
-
-  @Override
-  public Set<EventKind> getEventMask() {
-    return mask;
   }
 
   /**
@@ -121,9 +99,7 @@ public final class Reporter implements EventHandler, ExceptionListener {
   @Override
   public synchronized void handle(Event e) {
     for (EventHandler handler : handlers) {
-      if (handler.getEventMask().contains(e.getKind())) {
-        handler.handle(e);
-      }
+      handler.handle(e);
     }
   }
 

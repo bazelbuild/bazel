@@ -143,7 +143,7 @@ public class BlazeCommandEventHandler implements EventHandler {
 
   private final PrintStream errPrintStream;
 
-  private final Set<EventKind> eventMask =
+  protected final Set<EventKind> eventMask =
       EnumSet.copyOf(EventKind.ERRORS_WARNINGS_AND_INFO_AND_OUTPUT);
 
   protected final boolean showTimestamp;
@@ -167,12 +167,12 @@ public class BlazeCommandEventHandler implements EventHandler {
   @Override
   public boolean showOutput(String tag) { return true; }
 
-  @Override
-  public Set<EventKind> getEventMask() { return eventMask; }
-
   /** See EventHandler.handle. */
   @Override
   public void handle(Event event) {
+    if (!eventMask.contains(event.getKind())) {
+      return;
+    }
     String prefix;
     switch (event.getKind()) {
       case STDOUT:

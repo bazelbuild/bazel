@@ -253,7 +253,7 @@ public class SkylarkRuleClassFunctions {
 
   // TODO(bazel-team): implement attribute copy and other rule properties
 
-  @SkylarkBuiltin(name = "rule", doc = "Creates a rule class.",
+  @SkylarkBuiltin(name = "rule", doc = "Creates a rule class.", onlyLoadingPhase = true,
       returnType = Rule.class,
       mandatoryParams = {
       @Param(name = "implementation", type = UserDefinedFunction.class,

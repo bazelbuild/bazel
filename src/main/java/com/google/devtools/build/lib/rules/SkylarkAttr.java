@@ -34,7 +34,8 @@ import java.util.Map;
 /**
  * A helper class to provide Attr module in Skylark.
  */
-@SkylarkModule(name = "Attr", namespace = true, doc = "Module for creating new attributes.")
+@SkylarkModule(name = "Attr", namespace = true, onlyLoadingPhase = true,
+    doc = "Module for creating new attributes.")
 public final class SkylarkAttr {
   // TODO(bazel-team): Better check the arguments.
 

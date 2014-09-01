@@ -33,4 +33,6 @@ public @interface SkylarkModule {
   boolean hidden() default false;
 
   boolean namespace() default false;
+
+  boolean onlyLoadingPhase() default false;
 }

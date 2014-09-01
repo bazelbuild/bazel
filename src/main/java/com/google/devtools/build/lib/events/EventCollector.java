@@ -53,7 +53,9 @@ public class EventCollector extends AbstractEventHandler implements Iterable<Eve
    */
   @Override
   public void handle(Event event) {
-    collected.add(event);
+    if (getEventMask().contains(event.getKind())) {
+      collected.add(event);
+    }
   }
 
   /**

@@ -15,9 +15,6 @@
 package com.google.devtools.build.lib.events;
 
 import com.google.common.base.Preconditions;
-import com.google.common.collect.ImmutableSet;
-
-import java.util.Set;
 
 /**
  * An ErrorEventListener which delegates to another ErrorEventListener.
@@ -25,11 +22,6 @@ import java.util.Set;
  */
 public class DelegatingEventHandler implements EventHandler {
   protected final EventHandler delegate;
-
-  @Override
-  public Set<EventKind> getEventMask() {
-    return ImmutableSet.of();
-  }
 
   public DelegatingEventHandler(EventHandler delegate) {
     super();

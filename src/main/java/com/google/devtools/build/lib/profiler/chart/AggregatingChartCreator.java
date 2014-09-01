@@ -31,8 +31,7 @@ import java.util.Set;
  *
  * <p>Profiler tasks are categorized into four categories:
  * <ul>
- * <li>Actions: Contains action related tasks. Only tasks that have no parent
- * are in this category.
+ * <li>Actions: Actions executed.
  * <li>Blaze Internal: This category contains internal blaze tasks, like loading
  * packages, saving the action cache etc.
  * <li>Locks: Contains tasks that indicate that a thread is waiting for
@@ -43,14 +42,8 @@ import java.util.Set;
 public class AggregatingChartCreator implements ChartCreator {
 
   /** The tasks in the 'actions' category. */
-  private static Set<ProfilerTask> ACTION_TASKS =
-      EnumSet.of(ProfilerTask.ACTION, ProfilerTask.ACTION_BUILDER, ProfilerTask.ACTION_SUBMIT,
-          ProfilerTask.ACTION_CHECK, ProfilerTask.ACTION_EXECUTE, ProfilerTask.ACTION_GRAPH,
-          ProfilerTask.ACTION_UPDATE, ProfilerTask.ACTION_COMPLETE, ProfilerTask.ACTION_RELEASE,
-          ProfilerTask.SPAWN, ProfilerTask.REMOTE_EXECUTION, ProfilerTask.LOCAL_EXECUTION,
-          ProfilerTask.SCANNER, ProfilerTask.REMOTE_PARSE,
-          ProfilerTask.UPLOAD_TIME, ProfilerTask.REMOTE_QUEUE, ProfilerTask.REMOTE_SETUP,
-          ProfilerTask.FETCH);
+  private static final Set<ProfilerTask> ACTION_TASKS = EnumSet.of(ProfilerTask.ACTION,
+      ProfilerTask.ACTION_SUBMIT);
 
   /** The tasks in the 'blaze internal' category. */
   private static Set<ProfilerTask> BLAZE_TASKS =
@@ -127,7 +120,7 @@ public class AggregatingChartCreator implements ChartCreator {
     createTypes(chart);
 
     for (ProfileInfo.Task task : info.allTasksById) {
-      if (ACTION_TASKS.contains(task.type) && task.parentId == 0) {
+      if (ACTION_TASKS.contains(task.type)) {
         createBar(chart, task, actionType);
       } else if (LOCK_TASKS.contains(task.type)) {
         createBar(chart, task, lockType);

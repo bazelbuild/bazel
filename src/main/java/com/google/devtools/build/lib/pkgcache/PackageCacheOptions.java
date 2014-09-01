@@ -14,6 +14,7 @@
 
 package com.google.devtools.build.lib.pkgcache;
 
+import com.google.devtools.build.lib.Constants;
 import com.google.devtools.build.lib.packages.ConstantRuleVisibility;
 import com.google.devtools.build.lib.packages.RuleVisibility;
 import com.google.devtools.build.lib.syntax.CommaSeparatedPackageNameListConverter;
@@ -53,7 +54,7 @@ public class PackageCacheOptions extends OptionsBase {
   }
 
   @Option(name = "package_path",
-          defaultValue = "%workspace%",
+          defaultValue = Constants.DEFAULT_PACKAGE_PATH,
           category = "package loading",
           converter = Converters.ColonSeparatedOptionListConverter.class,
           help = "A colon-separated list of where to look for packages. "

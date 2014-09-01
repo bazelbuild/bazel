@@ -191,6 +191,11 @@ public abstract class AbstractAction implements Action {
   }
 
   @Override
+  public boolean showsOutputUnconditionally() {
+    return false;
+  }
+  
+  @Override
   public final String getProgressMessage() {
     String message = getRawProgressMessage();
     if (message == null) {
@@ -274,11 +279,6 @@ public abstract class AbstractAction implements Action {
   }
 
   @Override
-  public boolean shouldShowOutput(EventHandler eventHandler) {
-    return eventHandler.showOutput(Label.print(getOwner().getLabel()));
-  }
-
-  @Override
   public MiddlemanType getActionType() {
     return MiddlemanType.NORMAL;
   }
@@ -289,15 +289,11 @@ public abstract class AbstractAction implements Action {
   protected void checkOutputsForDirectories(EventHandler eventHandler) {
     for (Artifact output : getOutputs()) {
       Path path = output.getPath();
-      String ownerString = getOwner().getLabel() == null
-          ? "unknown provenance" : getOwner().getLabel().toString();
-
-      if (path.isDirectory()) {
-        if (shouldShowOutput(eventHandler)) {
-          eventHandler.handle(Event.warn(getOwner().getLocation(), "output '"
-              + output.prettyPrint() + "' of " + ownerString
-              + " is a directory; dependency checking of directories is unsound"));
-        }
+      String ownerString = Label.print(getOwner().getLabel());
+      if (path.isDirectory() && eventHandler.showOutput(ownerString)) {
+        eventHandler.handle(Event.warn(getOwner().getLocation(), "output '"
+                + output.prettyPrint() + "' of " + ownerString
+                + " is a directory; dependency checking of directories is unsound"));
       }
     }
   }

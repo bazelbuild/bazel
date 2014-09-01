@@ -83,6 +83,10 @@ public class FancyTerminalEventHandler extends BlazeCommandEventHandler {
     if (terminalClosed) {
       return;
     }
+    if (!eventMask.contains(event.getKind())) {
+      return;
+    }
+    
     try {
       boolean previousLineErased = false;
       if (previousLineErasable) {

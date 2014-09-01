@@ -20,7 +20,6 @@ import static com.google.devtools.build.lib.packages.Type.LABEL_LIST;
 import static com.google.devtools.build.lib.packages.Type.OUTPUT_LIST;
 import static com.google.devtools.build.lib.packages.Type.STRING_LIST;
 
-import com.google.devtools.build.lib.bazel.rules.BazelRuleClassProvider;
 import com.google.devtools.build.lib.packages.RuleClass;
 import com.google.devtools.build.lib.packages.RuleClass.Builder;
 import com.google.devtools.build.lib.view.BaseRuleClasses;
@@ -29,12 +28,25 @@ import com.google.devtools.build.lib.view.ConfiguredRuleClassProvider;
 import com.google.devtools.build.lib.view.RuleDefinition;
 import com.google.devtools.build.lib.view.RuleDefinitionEnvironment;
 
+import java.lang.reflect.Method;
+
 /**
  * Helper class to provide Google3RuleClassProvider for tests. This will statically add rule classes
  * that otherwise are loaded as plugins.
  */
 public class TestRuleClassProvider {
   private static ConfiguredRuleClassProvider ruleProvider = null;
+
+  private static void setup(ConfiguredRuleClassProvider.Builder builder) {
+    try {
+      Class<?> providerClass = Class.forName(TestConstants.TEST_RULE_CLASS_PROVIDER);
+      Method setupMethod = providerClass.getMethod("setup",
+          ConfiguredRuleClassProvider.Builder.class);
+      setupMethod.invoke(null, builder);
+    } catch (Exception e) {
+      throw new IllegalStateException(e);
+    }
+  }
 
   /**
    * Return a Google3RuleClassProvider.
@@ -43,7 +55,7 @@ public class TestRuleClassProvider {
     if (ruleProvider == null) {
       ConfiguredRuleClassProvider.Builder builder =
           new ConfiguredRuleClassProvider.Builder();
-      BazelRuleClassProvider.setup(builder);
+      setup(builder);
       builder.addRuleDefinition(TestingDummyRule.class);
       ruleProvider = builder.build();
     }

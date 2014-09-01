@@ -70,7 +70,7 @@ import javax.annotation.Nullable;
 @ConditionallyThreadCompatible
 // ThreadCompatible provided that you don't try
 // to run two builds in the same workspace concurrently.
-public class ParallelBuilder extends AbstractBuilder implements ResourceManager.ResourceListener {
+public class ParallelBuilder extends AbstractBuilder {
 
   /*
    * Signals and Interrupts
@@ -288,7 +288,8 @@ public class ParallelBuilder extends AbstractBuilder implements ResourceManager.
     // marked stale in IncrementalDependencyChecker.
     forwardGraph.markActionsStale(dependencyGraph.getActions());
     resourceManager.resetResourceUsage();
-    resourceManager.addListener(this);
+    resourceManager.setEventBus(eventBus);
+    statusReporter.setExecutor(executor);
 
     if (!fileStack.isEmpty()) {
       throw new AssertionError(fileStack.toString());
@@ -307,7 +308,7 @@ public class ParallelBuilder extends AbstractBuilder implements ResourceManager.
       waitQueueLoop(keepGoing, builtArtifacts); // throws ActionExecutionException,
                                                 //        InterruptedException
     } finally {
-      resourceManager.removeListener(this);
+      resourceManager.unsetEventBus();
       // Release any thread locks that might still exist if the build was aborted.
       resourceManager.resetResourceUsage();
     }
@@ -985,7 +986,7 @@ public class ParallelBuilder extends AbstractBuilder implements ResourceManager.
     ResourceSet resources = action.estimateResourceConsumption(executor);
 
     if (resources == null || resources == ResourceSet.ZERO) {
-      statusReporter.setRunningFromBuildData(action, executor);
+      statusReporter.setRunningFromBuildData(action);
     } else {
       // If estimated resource consumption is null, action will manually call
       // resource manager when it knows what resources are needed.
@@ -1090,19 +1091,6 @@ public class ParallelBuilder extends AbstractBuilder implements ResourceManager.
 
   private boolean isSchedulingMiddlemanAction(@Nullable Action action) {
     return action != null && action.getActionType().isSchedulingMiddleman();
-  }
-
-  @Override
-  public void waiting(ActionMetadata owner) {
-    // This approach assumes that actions acquire resources from a single thread.
-    statusReporter.setScheduling(owner);
-    blockedCount.incrementAndGet();
-  }
-
-  @Override
-  public void acquired(ActionMetadata owner) {
-    statusReporter.setRunningFromBuildData(owner, executor);
-    blockedCount.decrementAndGet();
   }
 
   /**

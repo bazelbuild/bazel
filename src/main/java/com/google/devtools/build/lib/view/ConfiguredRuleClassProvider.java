@@ -376,13 +376,14 @@ public class ConfiguredRuleClassProvider implements RuleClassProvider {
     return BuildOptions.of(configurationOptions, optionsProvider);
   }
 
-  @SkylarkModule(name = "Native", namespace = true, doc = "Module for native rules.")
+  @SkylarkModule(name = "Native", namespace = true, onlyLoadingPhase = true,
+      doc = "Module for native rules.")
   private static final class NativeModule {}
 
   public static final NativeModule nativeModule = new NativeModule();
 
   @Override
-  public SkylarkEnvironment getSkylarkRuleClassEnvironment(
+  public SkylarkEnvironment createSkylarkRuleClassEnvironment(
       PackageContext context, ImmutableList<Function> nativeRuleFunctions) {
     SkylarkEnvironment env = SkylarkRuleClassFunctions.getNewEnvironment(context);
     SkylarkRuleImplementationFunctions.updateEnvironment(env);

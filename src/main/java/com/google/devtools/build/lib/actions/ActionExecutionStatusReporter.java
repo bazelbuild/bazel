@@ -45,13 +45,11 @@ import javax.annotation.Nullable;
  */
 @ThreadSafe
 public final class ActionExecutionStatusReporter {
-  public static final String PREPARING = "Preparing";
-
   // Maximum number of lines to output per each status category before truncation.
   private static final int MAX_LINES = 10;
 
   private final EventHandler eventHandler;
-  private final Executor executor;
+  private Executor executor;
   private final EventBus eventBus;
   private final Clock clock;
 
@@ -100,6 +98,11 @@ public final class ActionExecutionStatusReporter {
     }
   }
 
+  public void setExecutor(Executor executor) {
+    // executor can only be null in tests.
+    this.executor = executor;
+  }
+
   private void setStatus(ActionMetadata action, String message) {
     actionStatus.put(action, Pair.of(message, clock.nanoTime()));
   }
@@ -115,40 +118,25 @@ public final class ActionExecutionStatusReporter {
    * Set "Preparing" status.
    */
   public void setPreparing(Action action) {
-    setStatus(action, PREPARING);
+    updateStatus(ActionStatusMessage.preparingStrategy(action));
   }
 
   public void setRunningFromBuildData(ActionMetadata action) {
-    setRunningFromBuildData(action, executor);
-  }
-
-  /**
-   * Set "Running" status.
-   */
-  void setRunningFromBuildData(ActionMetadata action, Executor executor) {
-    String strategy = action.describeStrategy(executor);
-    if (strategy != null) {
-      setRunningStrategy(action, strategy);
-    }
-  }
-
-  /**
-   * Set running status to a generic strategy-based message.
-   */
-  private void setRunningStrategy(ActionMetadata action, String strategy) {
-    setStatus(action, String.format("Running (%s)", strategy));
+    updateStatus(ActionStatusMessage.runningStrategy(action));
   }
 
   @Subscribe
-  public void updateLocality(ActionLocalityMessage localityMsg) {
-    setStatus(localityMsg.getActionMetadata(), localityMsg.getMessage());
-  }
-
-  /**
-   * Set "Scheduling" status.
-   */
-  public void setScheduling(ActionMetadata action) {
-    setStatus(action, "Scheduling");
+  public void updateStatus(ActionStatusMessage statusMsg) {
+    String message = statusMsg.getMessage();
+    ActionMetadata action = statusMsg.getActionMetadata();
+    if (statusMsg.needsStrategy()) {
+      String strategy = action.describeStrategy(executor);
+      if (strategy == null) {
+        return;
+      }
+      message = String.format(message, strategy);
+    }
+    setStatus(action, message);
   }
 
   public int getCount() {
@@ -238,7 +226,7 @@ public final class ActionExecutionStatusReporter {
     Iterator<ActionMetadata> iterator = statusMap.keySet().iterator();
     while(iterator.hasNext()) {
       // Filter out actions that are not executed yet.
-      if (statusMap.get(iterator.next()).first.equals(PREPARING)) {
+      if (statusMap.get(iterator.next()).first.equals(ActionStatusMessage.PREPARING)) {
         iterator.remove();
       }
     }

@@ -16,14 +16,13 @@ package com.google.devtools.build.lib.actions;
 
 import com.google.common.annotations.VisibleForTesting;
 import com.google.common.base.Preconditions;
-import com.google.common.collect.Sets;
+import com.google.common.eventbus.EventBus;
 import com.google.devtools.build.lib.concurrent.ThreadSafety.ThreadSafe;
 import com.google.devtools.build.lib.profiler.Profiler;
 import com.google.devtools.build.lib.profiler.ProfilerTask;
 import com.google.devtools.build.lib.util.LoggingUtil;
 import com.google.devtools.build.lib.util.Pair;
 
-import java.util.Collection;
 import java.util.Iterator;
 import java.util.LinkedList;
 import java.util.List;
@@ -71,7 +70,7 @@ public class ResourceManager {
   private static final Logger LOG = Logger.getLogger(ResourceManager.class.getName());
   private final boolean FINE;
 
-  private final Collection<ResourceListener> listeners = Sets.newConcurrentHashSet();
+  private EventBus eventBus;
 
   private final ThreadLocal<Boolean> threadLocked = new ThreadLocal<Boolean>() {
     @Override
@@ -284,50 +283,27 @@ public class ResourceManager {
     return threadLocked.get();
   }
 
-  /**
-   * A listener for when resource acquisition becomes blocked and unblocked.
-   */
-  @ThreadSafe
-  public interface ResourceListener {
-
-    /**
-     * Called when the owner attempts to acquire resources.
-     * @param owner the owner.
-     */
-    void waiting(ActionMetadata owner);
-
-    /**
-     * Called when the owner acquires resources, or if
-     * acquisition fails due to an unchecked exception.
-     *
-     * @param owner the owner.
-     */
-    void acquired(ActionMetadata owner);
+  public void setEventBus(EventBus eventBus) {
+    Preconditions.checkState(this.eventBus == null);
+    this.eventBus = Preconditions.checkNotNull(eventBus);
   }
 
-  /**
-   * Add a resource listener.
-   */
-  public void addListener(ResourceListener listener) {
-    listeners.add(listener);
-  }
-
-  /**
-   * Removes a resource listener.
-   */
-  public void removeListener(ResourceListener listener) {
-    listeners.remove(listener);
+  public void unsetEventBus() {
+    Preconditions.checkState(this.eventBus != null);
+    this.eventBus = null;
   }
 
   private void waiting(ActionMetadata owner) {
-    for (ResourceListener l : listeners) { // weakly consistent
-      l.waiting(owner);
+    if (eventBus != null) {
+      // Null only in tests.
+      eventBus.post(ActionStatusMessage.schedulingStrategy(owner));
     }
   }
 
   private void acquired(ActionMetadata owner) {
-    for (ResourceListener l : listeners) { // weakly consistent
-      l.acquired(owner);
+    if (eventBus != null) {
+      // Null only in tests.
+      eventBus.post(ActionStatusMessage.runningStrategy(owner));
     }
   }
 

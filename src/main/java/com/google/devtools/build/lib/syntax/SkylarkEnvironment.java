@@ -17,7 +17,9 @@ import com.google.common.base.Preconditions;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.Iterables;
 
+import java.util.ArrayList;
 import java.util.HashSet;
+import java.util.List;
 import java.util.Map;
 import java.util.Map.Entry;
 import java.util.Set;
@@ -175,14 +177,31 @@ public class SkylarkEnvironment extends Environment {
   }
 
   /**
-   * Removes a complete module from the Environment (i.e. the symbol of the module from the
-   * top level Environment and the functions attached to it). The module has to be annotated with
-   * SkylarkModule and naming has to be consistent.
+   * Removes the functions and the modules (i.e. the symbol of the module from the top level
+   * Environment and the functions attached to it) from the Environment which should be present
+   * only during the loading phase.
    */
-  public void removeModule(Object module) {
-    Class<?> moduleClass = module.getClass();
-    String moduleName = moduleClass.getAnnotation(SkylarkModule.class).name();
-    env.remove(moduleName);
-    functions.remove(moduleClass);
+  public void removeOnlyLoadingPhaseObjects() {
+    List<String> objectsToRemove = new ArrayList<>();
+    List<Class<?>> modulesToRemove = new ArrayList<>();
+    for (Map.Entry<String, Object> entry : env.entrySet()) {
+      Object object = entry.getValue();
+      if (object instanceof SkylarkFunction) {
+        if (((SkylarkFunction) object).isOnlyLoadingPhase()) {
+          objectsToRemove.add(entry.getKey());
+        }
+      } else if (object.getClass().isAnnotationPresent(SkylarkModule.class)) {
+        if (object.getClass().getAnnotation(SkylarkModule.class).onlyLoadingPhase()) {
+          objectsToRemove.add(entry.getKey());
+          modulesToRemove.add(entry.getValue().getClass());
+        }
+      }
+    }
+    for (String symbol : objectsToRemove) {
+      env.remove(symbol);
+    }
+    for (Class<?> moduleClass : modulesToRemove) {
+      functions.remove(moduleClass);
+    }
   }
 }

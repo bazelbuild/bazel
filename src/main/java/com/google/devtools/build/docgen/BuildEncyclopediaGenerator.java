@@ -13,7 +13,11 @@
 // limitations under the License.
 package com.google.devtools.build.docgen;
 
-import com.google.devtools.build.lib.bazel.rules.BazelRuleClassProvider;
+import com.google.devtools.build.lib.Constants;
+import com.google.devtools.build.lib.view.ConfiguredRuleClassProvider;
+
+import java.lang.reflect.InvocationTargetException;
+import java.lang.reflect.Method;
 
 /**
  * The main class for the docgen project. The class checks the input arguments
@@ -39,13 +43,21 @@ public class BuildEncyclopediaGenerator {
     Runtime.getRuntime().exit(1);
   }
 
+  private static ConfiguredRuleClassProvider createRuleClassProvider()
+      throws ClassNotFoundException, NoSuchMethodException, InvocationTargetException,
+      IllegalAccessException {
+    Class<?> providerClass = Class.forName(Constants.MAIN_RULE_CLASS_PROVIDER);
+    Method createMethod = providerClass.getMethod("create");
+    return (ConfiguredRuleClassProvider) createMethod.invoke(null);
+  }
+
   public static void main(String[] args) {
     if (checkArgs(args)) {
       // TODO(bazel-team): use flags
       System.out.println("Generating Build Encyclopedia...");
-      BuildEncyclopediaProcessor processor = new BuildEncyclopediaProcessor(
-          BazelRuleClassProvider.create());
       try {
+        BuildEncyclopediaProcessor processor = new BuildEncyclopediaProcessor(
+            createRuleClassProvider());
         processor.generateDocumentation(args[0].split(","), args.length > 1 ? args[1] : null);
       } catch (BuildEncyclopediaDocException e) {
         fail(e, false);

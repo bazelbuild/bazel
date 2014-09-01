@@ -14,11 +14,9 @@
 package com.google.devtools.build.lib.events;
 
 import com.google.common.collect.ImmutableList;
-import com.google.common.collect.ImmutableSet;
 
 import java.util.ArrayList;
 import java.util.List;
-import java.util.Set;
 
 /**
  * Stores error and warning events, and later replays them. Thread-safe.
@@ -27,11 +25,6 @@ public class StoredEventHandler implements EventHandler {
 
   private final List<Event> events = new ArrayList<>();
   private boolean hasErrors;
-
-  @Override
-  public Set<EventKind> getEventMask() {
-    return ImmutableSet.of();
-  }
 
   public synchronized ImmutableList<Event> getEvents() {
     return ImmutableList.copyOf(events);
