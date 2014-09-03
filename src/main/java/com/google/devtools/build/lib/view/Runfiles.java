@@ -80,12 +80,6 @@ public final class Runfiles {
 
 
   /**
-   * The name of the directory in which the runfiles symlink tree will be rooted.
-   */
-  // TODO(bazel-team): delete from OSS tree
-  public static final String SOURCE_SYMLINK_DIR = "google3";
-
-  /**
    * The artifacts that should *always* be present in the runfiles directory. These are
    * differentiated from the artifacts that may or may not be included by a pruning manifest
    * (see {@link PruningManifest} below).
@@ -288,7 +282,7 @@ public final class Runfiles {
    *         entries, the second of any elements that live outside the source tree.
    */
   public Pair<Map<PathFragment, Artifact>, Map<PathFragment, Artifact>> getRunfilesInputs(
-      PathFragment root, EventHandler eventHandler, Location location)
+      PathFragment root, String workspaceSuffix, EventHandler eventHandler, Location location)
           throws IOException {
     Map<PathFragment, Artifact> manifest = getSymlinksAsMap();
     // Add unconditional artifacts (committed to inclusion on construction of runfiles).
@@ -316,7 +310,7 @@ public final class Runfiles {
 
     manifest = filterListForObscuringSymlinks(eventHandler, location, manifest);
     manifest.putAll(manifestExpander.apply(manifest));
-    PathFragment path = new PathFragment(SOURCE_SYMLINK_DIR);
+    PathFragment path = new PathFragment(workspaceSuffix);
     Map<PathFragment, Artifact> result = new HashMap<>();
     for (Map.Entry<PathFragment, Artifact> entry : manifest.entrySet()) {
       result.put(path.getRelative(entry.getKey()), entry.getValue());

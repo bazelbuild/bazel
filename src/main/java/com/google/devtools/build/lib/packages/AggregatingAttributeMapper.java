@@ -194,6 +194,8 @@ public class AggregatingAttributeMapper extends AbstractAttributeMapper {
       @Override
       public void visitLabels(AcceptsLabelAttribute observer) { owner.visitLabels(observer); }
       @Override
+      public String getPackageDefaultHdrsCheck() { return owner.getPackageDefaultHdrsCheck(); }
+      @Override
       public Boolean getPackageDefaultObsolete() { return owner.getPackageDefaultObsolete(); }
       @Override
       public Boolean getPackageDefaultTestOnly() { return owner.getPackageDefaultTestOnly(); }

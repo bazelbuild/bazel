@@ -105,7 +105,7 @@ public interface Spawn {
   ActionMetadata getResourceOwner();
 
   /**
-   * Returns the amount of resources needed for local fallback.
+   * Returns the amount of resources needed for local execution.
    */
   ResourceSet getLocalResources();
 

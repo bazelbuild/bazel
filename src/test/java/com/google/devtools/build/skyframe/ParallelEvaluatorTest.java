@@ -1966,11 +1966,6 @@ public class ParallelEvaluatorTest {
       public void handle(Event e) {
         throw new IllegalStateException();
       }
-
-      @Override
-      public boolean showOutput(String tag) {
-        throw new IllegalStateException();
-      }
     };
 
     MemoizingEvaluator aug = new InMemoryMemoizingEvaluator(

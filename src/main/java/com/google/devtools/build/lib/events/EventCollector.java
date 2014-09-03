@@ -29,9 +29,6 @@ public class EventCollector extends AbstractEventHandler implements Iterable<Eve
 
   private final Collection<Event> collected;
 
-  @Override
-  public boolean showOutput(String tag) { return true; }
-
   /**
    * This collector will collect all events that match the event mask.
    */

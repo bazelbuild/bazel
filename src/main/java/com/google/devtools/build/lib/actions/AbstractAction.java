@@ -25,6 +25,7 @@ import com.google.devtools.build.lib.concurrent.ThreadSafety.Immutable;
 import com.google.devtools.build.lib.concurrent.ThreadSafety.ThreadSafe;
 import com.google.devtools.build.lib.events.Event;
 import com.google.devtools.build.lib.events.EventHandler;
+import com.google.devtools.build.lib.events.EventKind;
 import com.google.devtools.build.lib.events.Location;
 import com.google.devtools.build.lib.pkgcache.PackageUpToDateChecker;
 import com.google.devtools.build.lib.syntax.Label;
@@ -290,10 +291,11 @@ public abstract class AbstractAction implements Action {
     for (Artifact output : getOutputs()) {
       Path path = output.getPath();
       String ownerString = Label.print(getOwner().getLabel());
-      if (path.isDirectory() && eventHandler.showOutput(ownerString)) {
-        eventHandler.handle(Event.warn(getOwner().getLocation(), "output '"
-                + output.prettyPrint() + "' of " + ownerString
-                + " is a directory; dependency checking of directories is unsound"));
+      if (path.isDirectory()) {
+        eventHandler.handle(new Event(EventKind.WARNING, getOwner().getLocation(), 
+            "output '" + output.prettyPrint() + "' of " + ownerString
+                  + " is a directory; dependency checking of directories is unsound",
+                  ownerString));
       }
     }
   }

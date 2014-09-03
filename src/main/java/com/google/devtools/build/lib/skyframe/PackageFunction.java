@@ -38,6 +38,7 @@ import com.google.devtools.build.lib.packages.RuleVisibility;
 import com.google.devtools.build.lib.skyframe.GlobValue.InvalidGlobPatternException;
 import com.google.devtools.build.lib.syntax.Label;
 import com.google.devtools.build.lib.syntax.ParserInputSource;
+import com.google.devtools.build.lib.syntax.Statement;
 import com.google.devtools.build.lib.util.Clock;
 import com.google.devtools.build.lib.util.JavaClock;
 import com.google.devtools.build.lib.util.Pair;
@@ -75,6 +76,9 @@ public class PackageFunction implements SkyFunction {
   private final AtomicReference<EventBus> eventBus;
   private final AtomicInteger numPackagesLoaded;
 
+  private static final PathFragment PRELUDE_FILE_FRAGMENT =
+      new PathFragment("devtools/blaze/rules/prelude.bzl");
+
   /**
    * A package locator that delegates to the {@link PackageFunction}'s
    * CachingPackageLocator and also tracks the implicit dependencies on existing packages needed by
@@ -83,7 +87,7 @@ public class PackageFunction implements SkyFunction {
   private class SkyframePackageLocator implements CachingPackageLocator,
       BulkPackageLocatorForCrossingSubpackageBoundaries {
 
-    private final Set<SkyKey> deps = Sets.newConcurrentHashSet();
+    private Set<SkyKey> deps = Sets.newConcurrentHashSet();
 
     private SkyframePackageLocator() {}
 
@@ -257,6 +261,7 @@ public class PackageFunction implements SkyFunction {
           RootedPath.toRootedPath(pkg.getSkylarkRoot(), extensionPathFragment));
       skylarkExtensionDepKeys.add(skylarkExtensionSkyKey);
     }
+
     packageShouldBeInError = markFileDepsAndPropagateInconsistentFilesystemExceptions(
         skylarkExtensionDepKeys, env, pkg.containsErrors());
 
@@ -398,8 +403,16 @@ public class PackageFunction implements SkyFunction {
       return null;
     }
 
+    SkyKey astLookupKey = ASTLookupValue.key(PRELUDE_FILE_FRAGMENT);
+    ASTLookupValue astLookupValue;
+    astLookupValue = (ASTLookupValue) env.getValue(astLookupKey);
+    if (astLookupValue == null) {
+      return null;
+    }
+
     LegacyPackage legacyPkg = loadPackage(replacementContents, packageName, buildFilePath,
-        env.getListener(), skyframePackageLocator, defaultVisibility);
+        env.getListener(), skyframePackageLocator, defaultVisibility,
+        astLookupValue.getStatements());
     boolean packageShouldBeConsideredInError = legacyPkg.containsErrors();
     try {
       packageShouldBeConsideredInError =
@@ -443,7 +456,8 @@ public class PackageFunction implements SkyFunction {
   private LegacyPackage loadPackage(@Nullable String replacementContents, String packageName,
       Path buildFilePath, EventHandler eventHandler,
       SkyframePackageLocator skyframePackageLocator,
-      RuleVisibility defaultVisibility) throws InterruptedException {
+      RuleVisibility defaultVisibility,
+      List<Statement> preludeStatements) throws InterruptedException {
     ParserInputSource replacementSource = replacementContents == null ? null
         : ParserInputSource.create(replacementContents, buildFilePath);
 
@@ -455,8 +469,8 @@ public class PackageFunction implements SkyFunction {
 
       Clock clock = new JavaClock();
       long startTime = clock.nanoTime();
-      pkg = packageFactory.createPackage(packageName, buildFilePath, skyframePackageLocator,
-          replacementSource, defaultVisibility, skyframePackageLocator);
+      pkg = packageFactory.createPackage(packageName, buildFilePath, preludeStatements,
+          skyframePackageLocator, replacementSource, defaultVisibility, skyframePackageLocator);
 
       if (eventBus.get() != null) {
         eventBus.get().post(new PackageLoadedEvent(pkg.getName(),
@@ -473,7 +487,7 @@ public class PackageFunction implements SkyFunction {
     return pkg;
   }
 
-  private static class InternalInconsistentFilesystemException extends NoSuchPackageException {
+  static class InternalInconsistentFilesystemException extends NoSuchPackageException {
     public InternalInconsistentFilesystemException(String packageName,
         InconsistentFilesystemException e) {
       super(packageName, e.getMessage(), e);

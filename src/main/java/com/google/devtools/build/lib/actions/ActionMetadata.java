@@ -27,52 +27,7 @@ import javax.annotation.Nullable;
  * <p>The split between {@link Action} and {@link ActionMetadata} is somewhat arbitrary, other than
  * that all methods with side effects must belong to the former.
  */
-public interface ActionMetadata {
-  /**
-   * If this executable can supply verbose information, returns a string that can be used as a
-   * progress message while this executable is running. A return value of {@code null} indicates no
-   * message should be reported.
-   */
-  @Nullable
-  public String getProgressMessage();
-
-  /**
-   * Returns the owner of this executable if this executable can supply verbose information. This is
-   * typically the rule that constructed it; see ActionOwner class comment for details. Returns
-   * {@code null} if no owner can be determined.
-   *
-   * <p>If this executable does not supply verbose information, this function may throw an
-   * IllegalStateException.
-   */
-  public ActionOwner getOwner();
-
-  /**
-   * Returns a mnemonic (string constant) for this kind of action; written into
-   * the master log so that the appropriate parser can be invoked for the output
-   * of the action. Effectively a public method as the value is used by the
-   * extra_action feature to match actions.
-   */
-  String getMnemonic();
-
-  /**
-   * Returns a pretty string representation of this action, suitable for use in
-   * progress messages or error messages.
-   */
-  String prettyPrint();
-
-  /**
-   * Returns a string that can be used to describe the execution strategy.
-   * For example, "local".
-   *
-   * May return null if the action chooses to update its strategy
-   * locality "manually", via ActionLocalityMessage.
-   *
-   * @param executor the application-specific value passed to the
-   *   executor parameter of the top-level call to
-   *   Builder.buildArtifacts().
-   */
-  public String describeStrategy(Executor executor);
-
+public interface ActionMetadata extends ExecutableMetadata {
   /**
    * Returns true iff the getInputs set is known to be complete.
    *
@@ -132,15 +87,6 @@ public interface ActionMetadata {
    * <p>May return null.
    */
   Artifact getPrimaryInput();
-
-  /**
-   * Returns the "primary" output of this action.
-   *
-   * <p>For example, the linked library would be the primary output of a LinkAction.
-   *
-   * <p>Never returns null.
-   */
-  Artifact getPrimaryOutput();
 
   /**
    * Returns an iterable of input Artifacts that MUST exist prior to executing an action. In other

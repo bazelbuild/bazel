@@ -16,15 +16,24 @@ package com.google.devtools.build.lib.exec;
 
 import com.google.common.annotations.VisibleForTesting;
 import com.google.common.io.ByteStreams;
+import com.google.common.io.Closeables;
 import com.google.devtools.build.lib.actions.ActionExecutionContext;
 import com.google.devtools.build.lib.actions.ExecException;
+import com.google.devtools.build.lib.actions.Executor;
+import com.google.devtools.build.lib.events.Event;
+import com.google.devtools.build.lib.profiler.Profiler;
+import com.google.devtools.build.lib.profiler.ProfilerTask;
 import com.google.devtools.build.lib.util.io.FileWatcher;
 import com.google.devtools.build.lib.util.io.OutErr;
+import com.google.devtools.build.lib.vfs.FileStatus;
 import com.google.devtools.build.lib.vfs.Path;
 import com.google.devtools.build.lib.vfs.PathFragment;
+import com.google.devtools.build.lib.view.config.BinTools;
 import com.google.devtools.build.lib.view.config.BuildConfiguration;
 import com.google.devtools.build.lib.view.test.TestActionContext;
+import com.google.devtools.build.lib.view.test.TestResult;
 import com.google.devtools.build.lib.view.test.TestRunnerAction;
+import com.google.devtools.build.lib.view.test.TestTargetExecutionSettings;
 import com.google.devtools.common.options.Converters.RangeConverter;
 import com.google.devtools.common.options.EnumConverter;
 import com.google.devtools.common.options.OptionsClassProvider;
@@ -33,6 +42,8 @@ import com.google.devtools.common.options.OptionsParsingException;
 import java.io.Closeable;
 import java.io.IOException;
 import java.io.InputStream;
+import java.io.OutputStream;
+import java.util.Arrays;
 import java.util.HashMap;
 import java.util.Map;
 
@@ -101,9 +112,11 @@ public abstract class TestStrategy implements TestActionContext {
   private static final String TEST_BRIDGE_TEST_FILTER_ENV = "TESTBRIDGE_TEST_ONLY";
 
   protected final ExecutionOptions executionOptions;
+  protected final BinTools binTools;
 
-  public TestStrategy(OptionsClassProvider options) {
+  public TestStrategy(OptionsClassProvider options, BinTools binTools) {
     this.executionOptions = options.getOptions(ExecutionOptions.class);
+    this.binTools = binTools;
   }
 
   /** The strategy name, preferably suitable for passing to --test_strategy. */
@@ -195,6 +208,14 @@ public abstract class TestStrategy implements TestActionContext {
     return getMapping(variables, config.getClientEnv());
   }
 
+  /*
+   * Finalize test run: persist the result, and post on the event bus.  
+   */
+  protected void postTestResult(Executor executor, TestResult result) throws IOException {
+    result.getTestAction().saveCacheStatus(result.getData());
+    executor.getEventBus().post(result);
+  }
+
   /**
    * For an given environment, returns a subset containing all variables in the given list if they
    * are defined in the given environment.
@@ -209,6 +230,97 @@ public abstract class TestStrategy implements TestActionContext {
       }
     }
     return result;
+  }
+
+  /**
+   * Returns the runfiles directory associated with the test executable,
+   * creating/updating it if necessary and --build_runfile_links is specified.
+   */
+  protected static Path getLocalRunfilesDirectory(TestRunnerAction testAction,
+      ActionExecutionContext actionExecutionContext, BinTools binTools) throws ExecException,
+      InterruptedException {
+    TestTargetExecutionSettings execSettings = testAction.getExecutionSettings();
+
+    // --nobuild_runfile_links disables runfiles generation only for C++ rules.
+    // In that case, getManifest returns the .runfiles_manifest (input) file,
+    // not the MANIFEST output file of the build-runfiles action. So the
+    // extension ".runfiles_manifest" indicates no runfiles tree.
+    if (!execSettings.getManifest().equals(execSettings.getInputManifest())) {
+      return execSettings.getManifest().getPath().getParentDirectory();
+    }
+
+    // We might need to build runfiles tree now, since it was not created yet
+    // local testing is needed.
+    Path program = execSettings.getExecutable().getPath();
+    Path runfilesDir = program.getParentDirectory().getChild(program.getBaseName() + ".runfiles");
+
+    // Synchronize runfiles tree generation on the runfiles manifest artifact.
+    // This is necessary, because we might end up with multiple test runner actions
+    // trying to generate same runfiles tree in case of --runs_per_test > 1 or
+    // local test sharding.
+    long startTime = Profiler.nanoTimeMaybe();
+    synchronized (execSettings.getManifest()) {
+      Profiler.instance().logSimpleTask(startTime, ProfilerTask.WAIT, testAction);
+      updateLocalRunfilesDirectory(testAction, runfilesDir, actionExecutionContext, binTools);
+    }
+
+    return runfilesDir;
+  }
+
+  /**
+   * Ensure the runfiles tree exists and is consistent with the TestAction's manifest
+   * ($0.runfiles_manifest), bringing it into consistency if not. The contents of the output file
+   * $0.runfiles/MANIFEST, if it exists, are used a proxy for the set of existing symlinks, to avoid
+   * the need for recursion.
+   */
+  private static void updateLocalRunfilesDirectory(TestRunnerAction testAction, Path runfilesDir,
+      ActionExecutionContext actionExecutionContext, BinTools binTools) throws ExecException,
+      InterruptedException {
+    Executor executor = actionExecutionContext.getExecutor();
+
+    TestTargetExecutionSettings execSettings = testAction.getExecutionSettings();
+    try {
+      if (Arrays.equals(runfilesDir.getRelative("MANIFEST").getMD5Digest(),
+          execSettings.getManifest().getPath().getMD5Digest())) {
+        return;
+      }
+    } catch (IOException e1) {
+      // Ignore it - we will just try to create runfiles directory.
+    }
+
+    executor.getReporter().handle(Event.progress(
+        "Building runfiles directory for '" + execSettings.getExecutable().prettyPrint() + "'."));
+
+    new SymlinkTreeHelper(execSettings.getManifest().getExecPath(),
+        runfilesDir.relativeTo(executor.getExecRoot()), /* filesetTree= */
+        false).createSymlinks(testAction, actionExecutionContext, binTools);
+
+    executor.getReporter().handle(Event.progress(testAction.getProgressMessage()));
+  }
+
+  /**
+   * In rare cases, we might write something to stderr. Append it to the real test.log.
+   */
+  protected static void appendStderr(Path stdOut, Path stdErr) throws IOException {
+    FileStatus stat = stdErr.statNullable();
+    OutputStream out = null;
+    InputStream in = null;
+    if (stat != null) {
+      try {
+        if (stat.getSize() > 0) {
+          if (stdOut.exists()) {
+            stdOut.setWritable(true);
+          }
+          out = stdOut.getOutputStream(true);
+          in = stdErr.getInputStream();
+          ByteStreams.copy(in, out);
+        }
+      } finally {
+        Closeables.close(out, true);
+        Closeables.close(in, true);
+        stdErr.delete();
+      }
+    }
   }
 
   /**

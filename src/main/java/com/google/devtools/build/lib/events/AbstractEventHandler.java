@@ -33,7 +33,4 @@ public abstract class AbstractEventHandler implements EventHandler {
   public Set<EventKind> getEventMask() {
     return mask;
   }
-
-  @Override
-  public boolean showOutput(String tag) { return true; }
 }

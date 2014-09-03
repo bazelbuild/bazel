@@ -326,4 +326,28 @@ public abstract class LinkerInputs {
   public static LibraryToLink newInputLibrary(Artifact library, Iterable<Artifact> objectFiles) {
     return new CompoundLibraryToLink(library, objectFiles);
   }
+
+  private static final Function<LibraryToLink, Artifact> LIBRARY_TO_NON_SOLIB =
+      new Function<LibraryToLink, Artifact>() {
+        @Override
+        public Artifact apply(LibraryToLink input) {
+          return input.getOriginalLibraryArtifact();
+        }
+      };
+
+  public static Iterable<Artifact> toNonSolibArtifacts(Iterable<LibraryToLink> libraries) {
+    return Iterables.transform(libraries, LIBRARY_TO_NON_SOLIB);
+  }
+
+  /**
+   * Returns the linker input artifacts from a collection of {@link LinkerInput} objects.
+   */
+  public static Iterable<Artifact> toLibraryArtifacts(Iterable<? extends LinkerInput> artifacts) {
+    return Iterables.transform(artifacts, new Function<LinkerInput, Artifact>() {
+      @Override
+      public Artifact apply(LinkerInput input) {
+        return input.getArtifact();
+      }
+    });
+  }
 }

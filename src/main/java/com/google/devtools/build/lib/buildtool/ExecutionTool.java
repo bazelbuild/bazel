@@ -72,6 +72,7 @@ import com.google.devtools.build.lib.exec.FilesetActionContextImpl;
 import com.google.devtools.build.lib.exec.LegacyActionInputFileCache;
 import com.google.devtools.build.lib.exec.OutputService;
 import com.google.devtools.build.lib.exec.SingleBuildFileCache;
+import com.google.devtools.build.lib.exec.SourceManifestActionContextImpl;
 import com.google.devtools.build.lib.exec.SymlinkTreeStrategy;
 import com.google.devtools.build.lib.packages.Rule;
 import com.google.devtools.build.lib.pkgcache.LoadingPhaseRunner.LoadingResult;
@@ -213,6 +214,7 @@ public class ExecutionTool {
 
     actionContextProviders.add(new FilesetActionContextImpl.Provider(runtime.getReporter()));
 
+    strategies.add(new SourceManifestActionContextImpl(runtime.getWorkspaceName()));
     strategies.add(new FileWriteStrategy(request));
     strategies.add(new SymlinkTreeStrategy(runtime.getOutputService(), runtime.getBinTools()));
 
@@ -672,11 +674,6 @@ public class ExecutionTool {
   private static class ExplanationHandler implements EventHandler {
 
     private final PrintWriter log;
-
-    @Override
-    public boolean showOutput(String tag) {
-      return true;
-    }
 
     private ExplanationHandler(OutputStream log, String optionsDescription) {
       this.log = new PrintWriter(log);

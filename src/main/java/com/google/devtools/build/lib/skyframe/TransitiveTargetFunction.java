@@ -157,7 +157,7 @@ public class TransitiveTargetFunction implements SkyFunction {
       NoSuchThingException e, EventHandler eventHandler) {
     if (e instanceof NoSuchTargetException) {
       NoSuchTargetException nste = (NoSuchTargetException) e;
-      if (nste.getLabel().equals(depLabel)) {
+      if (depLabel.equals(nste.getLabel())) {
         eventHandler.handle(Event.error(TargetUtils.getLocationMaybe(target),
             TargetUtils.formatMissingEdge(target, depLabel, e)));
       }

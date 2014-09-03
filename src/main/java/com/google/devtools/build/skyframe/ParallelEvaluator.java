@@ -128,9 +128,7 @@ final class ParallelEvaluator implements Evaluator {
   }
 
   /**
-   * Receives the events from the NestedSet and delegates to the reporter
-   * if {@link EventHandler#showOutput(String)} returns true. Otherwise if
-   * it is not an error it ignores the event.
+   * Receives the events from the NestedSet and delegates to the reporter.
    */
   private static class NestedSetEventReceiver implements NestedSetVisitor.Receiver<TaggedEvents> {
 
@@ -141,14 +139,11 @@ final class ParallelEvaluator implements Evaluator {
       this.reporter = reporter;
       onlyErrorsReporter = new DelegatingOnlyErrorsEventHandler(reporter);
     }
-
     @Override
-    public void accept(TaggedEvents event) {
-      String tag = event.getTag();
-      if (tag == null || reporter.showOutput(tag)) {
-        Event.replayEventsOn(reporter, event.getEvents());
-      } else {
-        Event.replayEventsOn(onlyErrorsReporter, event.getEvents());
+    public void accept(TaggedEvents events) {
+      String tag = events.getTag();
+      for (Event e : events.getEvents()) {
+        reporter.handle(e.withTag(tag));
       }
     }
   }

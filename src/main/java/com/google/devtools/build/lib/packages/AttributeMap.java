@@ -95,6 +95,8 @@ public interface AttributeMap {
   // package-level default values. Instead, we should auto-inherit and remove the computed
   // defaults. If we really need to give access to package-level defaults, we should come up with
   // a more generic interface.
+  String getPackageDefaultHdrsCheck();
+
   Boolean getPackageDefaultObsolete();
 
   Boolean getPackageDefaultTestOnly();

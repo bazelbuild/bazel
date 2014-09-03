@@ -75,4 +75,9 @@ public class CppRuleClasses {
    * Path of the build_interface_so script in the Blaze binary.
    */
   public static final String BUILD_INTERFACE_SO = "build_interface_so";
+
+  /**
+   * A string constant for the layering_check feature.
+   */
+  public static final String LAYERING_CHECK = "layering_check";
 }

@@ -561,7 +561,7 @@ public final class Rule implements Target {
       return visibility;
     }
 
-    if (getRuleClass().equals("$error_rule")) {
+    if (getRuleClassObject().isPublicByDefault()) {
       return ConstantRuleVisibility.PUBLIC;
     }
 

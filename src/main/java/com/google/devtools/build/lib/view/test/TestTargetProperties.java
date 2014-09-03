@@ -58,7 +58,6 @@ public class TestTargetProperties {
   private final boolean isLocal;
   private final boolean isFlaky;
   private final boolean isExternal;
-  private final ResourceSet resources;
   private final String language;
   private final ImmutableMap<String, String> executionInfo;
 
@@ -80,7 +79,6 @@ public class TestTargetProperties {
     isFlaky = ruleContext.attributes().get("flaky", Type.BOOLEAN);
     isExternal = TargetUtils.isExternalTestRule(rule);
 
-
     Map<String, String> executionInfo = Maps.newLinkedHashMap();
     executionInfo.putAll(TargetUtils.getExecutionInfo(rule));
     if (executionRequirements != null) {
@@ -90,7 +88,6 @@ public class TestTargetProperties {
     this.executionInfo = ImmutableMap.copyOf(executionInfo);
 
     language = TargetUtils.getRuleLanguage(rule);
-    resources = TestTargetProperties.getResourceSetFromSize(size);
   }
 
   public TestSize getSize() {
@@ -118,7 +115,7 @@ public class TestTargetProperties {
   }
 
   public ResourceSet getLocalResourceUsage() {
-    return resources;
+    return TestTargetProperties.getResourceSetFromSize(size);
   }
 
   /**

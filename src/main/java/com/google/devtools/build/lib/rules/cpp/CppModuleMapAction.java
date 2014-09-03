@@ -129,10 +129,15 @@ public class CppModuleMapAction extends AbstractAction {
   public ResourceSet estimateResourceConsumption(Executor executor) {
     return new ResourceSet(/*memoryMb=*/0, /*cpuUsage=*/0, /*ioUsage=*/0.02);
   }
-  
+
   @VisibleForTesting
   public Collection<Artifact> getPublicHeaders() {
     return publicHeaders;
+  }
+
+  @VisibleForTesting
+  public Collection<Artifact> getPrivateHeaders() {
+    return privateHeaders;
   }
 
   @VisibleForTesting

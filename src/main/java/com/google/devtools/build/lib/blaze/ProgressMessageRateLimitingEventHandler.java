@@ -28,11 +28,6 @@ public class ProgressMessageRateLimitingEventHandler implements EventHandler {
   private final Clock clock;
   private long lastEvent = -1;
 
-  @Override
-  public boolean showOutput(String tag) {
-    return true;
-  }
-
   /**
    * Creates a new Event handler that rate limits the events of type PROGRESS
    * to one per event "rateLimitation" seconds.

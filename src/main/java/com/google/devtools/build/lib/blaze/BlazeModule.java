@@ -24,6 +24,7 @@ import com.google.devtools.build.lib.exec.OutputService;
 import com.google.devtools.build.lib.packages.MakeEnvironment;
 import com.google.devtools.build.lib.packages.NoSuchThingException;
 import com.google.devtools.build.lib.packages.PackageFactory;
+import com.google.devtools.build.lib.packages.PackageFactory.PackageArgument;
 import com.google.devtools.build.lib.packages.Preprocessor;
 import com.google.devtools.build.lib.query2.engine.QueryEnvironment.QueryFunction;
 import com.google.devtools.build.lib.query2.output.OutputFormatter;
@@ -220,7 +221,7 @@ public abstract class BlazeModule {
   public Iterable<Class<? extends OptionsBase>> getCommandOptions(Command command) {
     return ImmutableList.of();
   }
-  
+
   /**
    * Returns a map of option categories to descriptive strings. This is used by {@code HelpCommand}
    * to show a more readable list of flags.
@@ -333,6 +334,11 @@ public abstract class BlazeModule {
       @Override
       public void update(
           Environment environment, MakeEnvironment.Builder pkgMakeEnv, Label buildFileLabel) {
+      }
+
+      @Override
+      public Iterable<PackageArgument<?>> getPackageArguments() {
+        return ImmutableList.of();
       }
     };
   }

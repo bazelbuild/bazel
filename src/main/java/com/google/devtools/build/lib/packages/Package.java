@@ -19,6 +19,7 @@ import com.google.common.base.Preconditions;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.ImmutableSet;
+import com.google.common.collect.ImmutableSortedSet;
 import com.google.common.collect.Iterables;
 import com.google.common.collect.Lists;
 import com.google.common.collect.Maps;
@@ -286,8 +287,7 @@ public class Package implements Serializable {
     Path current = buildFile.getParentDirectory();
     for (int i = 0, len = nameFragment.segmentCount(); i < len && current != null; i++) {
       current = current.getParentDirectory();
-   }
-
+    }
     return current;
   }
 
@@ -326,7 +326,7 @@ public class Package implements Serializable {
     this.skylarkRoot = builder.skylarkRoot;
     this.defaultLicense = builder.defaultLicense;
     this.defaultDistributionSet = builder.defaultDistributionSet;
-    this.features = ImmutableSet.copyOf(builder.features);
+    this.features = ImmutableSortedSet.copyOf(builder.features);
     this.events = ImmutableList.copyOf(events);
   }
 
@@ -719,7 +719,7 @@ public class Package implements Serializable {
     private RuleVisibility defaultVisibility = null;
     private boolean defaultVisibilitySet;
     private List<String> defaultCopts = null;
-    private List<String> features = ImmutableList.of();
+    private List<String> features = new ArrayList<>();
     private boolean containsErrors = false;
 
     private License defaultLicense = License.NO_LICENSE;
@@ -853,7 +853,7 @@ public class Package implements Serializable {
     /**
      * Sets the default header checking mode.
      */
-    B setDefaultHdrsCheck(String hdrsCheck) {
+    public B setDefaultHdrsCheck(String hdrsCheck) {
       // Note that this setting is propagated directly to the package because
       // other code needs the ability to read this info directly from the
       // under-construction package. See {@link Package#setDefaultHdrsCheck}.
@@ -864,7 +864,7 @@ public class Package implements Serializable {
     /**
      * Sets the default value of copts. Rule-level copts will append to this.
      */
-    B setDefaultCopts(List<String> defaultCopts) {
+    public B setDefaultCopts(List<String> defaultCopts) {
       this.defaultCopts = defaultCopts;
       return self();
     }
@@ -877,11 +877,8 @@ public class Package implements Serializable {
       return self();
     }
 
-    B setFeatures(Iterable<String> features) {
-      List<String> temp = new ArrayList<>();
-      Iterables.addAll(temp, features);
-      Collections.sort(temp);
-      this.features = ImmutableList.copyOf(temp);
+    public B addFeatures(Iterable<String> features) {
+      Iterables.addAll(this.features, features);
       return self();
     }
 
@@ -940,7 +937,7 @@ public class Package implements Serializable {
     }
 
     void setSkylarkExtensions(Path root, Collection<PathFragment> extensions) {
-      this.skylarkRoot = root; 
+      this.skylarkRoot = root;
       this.skylarkExtensions = extensions;
     }
 

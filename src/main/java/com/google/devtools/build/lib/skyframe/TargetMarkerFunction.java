@@ -45,11 +45,17 @@ public final class TargetMarkerFunction implements SkyFunction {
       ContainingPackageLookupValue containingPackageLookupValue = null;
       try {
         containingPackageLookupValue = (ContainingPackageLookupValue) env.getValueOrThrow(
-            ContainingPackageLookupValue.key(containingDirectory),
-            BuildFileNotFoundException.class);
+            ContainingPackageLookupValue.key(containingDirectory), Exception.class);
       } catch (BuildFileNotFoundException e) {
         // Thrown when there are IO errors looking for BUILD files.
         throw new TargetMarkerFunctionException(key, e);
+      } catch (InconsistentFilesystemException e) {
+        throw new TargetMarkerFunctionException(key, new NoSuchTargetException(label,
+            e.getMessage()));
+      } catch (Exception e) {
+        // Can't get here.
+        throw new IllegalStateException(
+            "Not BuildFileNotFoundException or InconsistentFilesystemException", e);
       }
       if (containingPackageLookupValue == null) {
         return null;

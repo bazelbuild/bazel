@@ -18,6 +18,7 @@ import com.google.common.annotations.VisibleForTesting;
 import com.google.common.base.Joiner;
 import com.google.common.base.Preconditions;
 import com.google.common.collect.ImmutableList;
+import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.Iterables;
 import com.google.common.util.concurrent.ThreadFactoryBuilder;
 import com.google.devtools.build.lib.cmdline.LabelValidator;
@@ -48,7 +49,6 @@ import com.google.devtools.build.lib.syntax.PositionalFunction;
 import com.google.devtools.build.lib.syntax.SelectorValue;
 import com.google.devtools.build.lib.syntax.SkylarkEnvironment;
 import com.google.devtools.build.lib.syntax.Statement;
-import com.google.devtools.build.lib.util.StringUtil;
 import com.google.devtools.build.lib.vfs.Path;
 import com.google.devtools.build.lib.vfs.PathFragment;
 import com.google.devtools.build.lib.vfs.UnixGlob;
@@ -81,6 +81,41 @@ import javax.annotation.Nullable;
  */
 public final class PackageFactory {
   /**
+   * An argument to the {@code package()} function.
+   */
+  public abstract static class PackageArgument<T> {
+    private final String name;
+    private final Type<T> type;
+
+    protected PackageArgument(String name, Type<T> type) {
+      this.name = name;
+      this.type = type;
+    }
+
+    public String getName() {
+      return name;
+    }
+
+    private void convertAndProcess(
+        LegacyPackage.LegacyPackageBuilder pkgBuilder, Location location, Object value)
+        throws EvalException, ConversionException {
+      T typedValue = type.convert(value, "'package' argument", pkgBuilder.getBuildFileLabel());
+      process(pkgBuilder, location, typedValue);
+    }
+
+    /**
+     * Process an argument.
+     *
+     * @param pkgBuilder the package builder to be mutated
+     * @param location the location of the {@code package} function for error reporting
+     * @param value the value of the argument. Typically passed to {@link Type#convert}
+     */
+    protected abstract void process(
+        LegacyPackage.LegacyPackageBuilder pkgBuilder, Location location, T value)
+        throws EvalException;
+  }
+
+  /**
    * An extension to the global namespace of the BUILD language.
    */
   public interface EnvironmentExtension {
@@ -89,43 +124,69 @@ public final class PackageFactory {
      */
     void update(Environment environment, MakeEnvironment.Builder pkgMakeEnv,
         Label buildFileLabel);
+
+    Iterable<PackageArgument<?>> getPackageArguments();
   }
 
   private static final int EXCLUDE_DIR_DEFAULT = 1;
 
-  private static final List<String> ALLOWED_HDRS_CHECK_VALUES =
-      ImmutableList.of("loose", "warn", "strict");
-
-  /**
-   * Positional parameters for the 'package' function.
-   */
-  private static enum PackageParams {
-    DEFAULT_HDRS_CHECK("defualt_hdrs_check"),
-    DEFAULT_VISIBILITY("default_visibility"),
-    DEFAULT_COPTS("default_copts"),
-    DEFAULT_OBSOLETE("default_obsolete"),
-    DEFAULT_DEPRECATION("default_deprecation"),
-    DEFAULT_TESTONLY("default_testonly"),
-    FEATURES("features");
-
-    private final String name;
-
-    PackageParams(String name) {
-      this.name = name;
+  private static class DefaultVisibility extends PackageArgument<List<Label>> {
+    private DefaultVisibility() {
+      super("default_visibility", Type.LABEL_LIST);
     }
 
-    public static Iterable<String> getParams() {
-      return params;
+    @Override
+    protected void process(LegacyPackageBuilder pkgBuilder, Location location,
+        List<Label> value) {
+      pkgBuilder.setDefaultVisibility(getVisibility(value));
+    }
+  }
+
+  private static class DefaultObsolete extends PackageArgument<Boolean> {
+    private DefaultObsolete() {
+      super("default_obsolete", Type.BOOLEAN);
     }
 
-    private static final ImmutableList<String> params = getAllParams();
+    @Override
+    protected void process(LegacyPackageBuilder pkgBuilder, Location location,
+        Boolean value) {
+      pkgBuilder.setDefaultObsolete(value);
+    }
+  }
 
-    private static ImmutableList<String> getAllParams() {
-      ImmutableList.Builder<String> builder = ImmutableList.builder();
-      for (PackageParams param : PackageParams.values()) {
-        builder.add(param.name);
-      }
-      return builder.build();
+  private static class DefaultTestOnly extends PackageArgument<Boolean> {
+    private DefaultTestOnly() {
+      super("default_testonly", Type.BOOLEAN);
+    }
+
+    @Override
+    protected void process(LegacyPackageBuilder pkgBuilder, Location location,
+        Boolean value) {
+      pkgBuilder.setDefaultTestonly(value);
+    }
+  }
+
+  private static class DefaultDeprecation extends PackageArgument<String> {
+    private DefaultDeprecation() {
+      super("default_deprecation", Type.STRING);
+    }
+
+    @Override
+    protected void process(LegacyPackageBuilder pkgBuilder, Location location,
+        String value) {
+      pkgBuilder.setDefaultDeprecation(value);
+    }
+  }
+
+  private static class Features extends PackageArgument<List<String>> {
+    private Features() {
+      super("features", Type.STRING_LIST);
+    }
+
+    @Override
+    protected void process(LegacyPackageBuilder pkgBuilder, Location location,
+        List<String> value) {
+      pkgBuilder.addFeatures(value);
     }
   }
 
@@ -295,7 +356,7 @@ public final class PackageFactory {
     } catch (IOException expected) {
       context.eventHandler.handle(Event.error(ast.getLocation(),
               "error globbing [" + Joiner.on(", ").join(includes) + "]: " + expected.getMessage()));
-      context.pkgBuilder.setContainsErrors();
+      context.pkgBuilder.setContainsTemporaryErrors();
       return GlobList.captureResults(includes, excludes, ImmutableList.<String>of());
     } catch (GlobCache.BadGlobException e) {
       throw new EvalException(ast.getLocation(), e.getMessage());
@@ -516,8 +577,9 @@ public final class PackageFactory {
    * Returns a function-value implementing "package" in the specified package
    * context.
    */
-  private static Function newPackageFunction(final PackageContext context) {
-    return new MixedModeFunction("package", PackageParams.getParams(), 0, true) {
+  private static Function newPackageFunction(
+      final PackageContext context, final Map<String, PackageArgument<?>> packageArguments) {
+    return new MixedModeFunction("package", packageArguments.keySet(), 0, true) {
       @Override
       public Object call(Object[] namedArguments,
           List<Object> surplusPositionalArguments,
@@ -535,45 +597,17 @@ public final class PackageFactory {
 
         // Parse params
         boolean foundParameter = false;
-        Label buildFileLabel = pkgBuilder.getBuildFileLabel();
-        for (PackageParams param : PackageParams.values()) {
-          Object arg = namedArguments[param.ordinal()];
+
+        int argNumber = 0;
+        for (Map.Entry<String, PackageArgument<?>> entry : packageArguments.entrySet()) {
+          Object arg = namedArguments[argNumber];
+          argNumber += 1;
           if (arg == null) {
             continue;
           }
+
           foundParameter = true;
-          switch(param) {
-            case DEFAULT_VISIBILITY:
-              pkgBuilder.setDefaultVisibility(getVisibility(
-                  Type.LABEL_LIST.convert(arg, "'package' argument", buildFileLabel)));
-              break;
-            case DEFAULT_COPTS:
-              pkgBuilder.setDefaultCopts(Type.STRING_LIST.convert(arg, "'package' argument"));
-              break;
-            case DEFAULT_DEPRECATION:
-              pkgBuilder.setDefaultDeprecation(Type.STRING.convert(arg, "'package' argument"));
-              break;
-            case DEFAULT_HDRS_CHECK:
-              String hdrsCheck = Type.STRING.convert(arg, "'package' argument", buildFileLabel);
-              if (!ALLOWED_HDRS_CHECK_VALUES.contains(hdrsCheck)) {
-                throw new EvalException(ast.getLocation(),
-                    "default_hdrs_check must be one of: " +
-                    StringUtil.joinEnglishList(ALLOWED_HDRS_CHECK_VALUES, "or"));
-              }
-              pkgBuilder.setDefaultHdrsCheck(hdrsCheck);
-              break;
-            case DEFAULT_OBSOLETE:
-              pkgBuilder.setDefaultObsolete(Type.BOOLEAN.convert(arg, "'package' argument"));
-              break;
-            case DEFAULT_TESTONLY:
-              pkgBuilder.setDefaultTestonly(Type.BOOLEAN.convert(arg, "'package' argument"));
-              break;
-            case FEATURES:
-              pkgBuilder.setFeatures(Type.STRING_LIST.convert(arg, "'package argument"));
-              break;
-            default:
-              throw new IllegalStateException("missing implementation for '" + param + "'");
-          }
+          entry.getValue().convertAndProcess(pkgBuilder, ast.getLocation(), arg);
         }
 
         if (!foundParameter) {
@@ -663,6 +697,7 @@ public final class PackageFactory {
    * @return the newly-created Package instance (which may contain errors)
    */
   public LegacyPackage createPackage(String packageName, Path buildFile,
+      List<Statement> preludeStatements,
       CachingPackageLocator locator, ParserInputSource replacementSource,
       RuleVisibility defaultVisibility,
       @Nullable BulkPackageLocatorForCrossingSubpackageBoundaries bulkPackageLocator)
@@ -686,8 +721,9 @@ public final class PackageFactory {
       if (localReporter.hasErrors()) {
         hasPreprocessorError = true;
       }
-      buildFileAST = BuildFileAST.parseBuildFile(preprocessingResult.result, localReporter,
-                                                 locator, false);
+
+      buildFileAST = BuildFileAST.parseBuildFile(
+          preprocessingResult.result, preludeStatements, localReporter, locator, false);
       // Logged message is used as a testability hook tracing the parsing progress
       LOG.fine("Finished parsing of " + packageName);
 
@@ -703,7 +739,8 @@ public final class PackageFactory {
 
       return evaluateBuildFile(
           packageName, buildFileAST, buildFile, globCache, localReporter.getEvents(),
-          defaultVisibility, hasPreprocessorError, bulkPackageLocator, locator, makeEnv);
+          defaultVisibility, hasPreprocessorError,
+          preprocessingResult.containsTransientErrors, bulkPackageLocator, locator, makeEnv);
     } catch (InterruptedException e) {
       globCache.cancelBackgroundTasks();
       throw e;
@@ -726,8 +763,8 @@ public final class PackageFactory {
       throw new BuildFileNotFoundException(packageName,
           "illegal package name: '" + packageName + "' (" + error + ")");
     }
-    LegacyPackage result = createPackage(packageName, buildFile, locator, null,
-        ConstantRuleVisibility.PUBLIC, LegacyPackage.EMPTY_BULK_PACKAGE_LOCATOR);
+    LegacyPackage result = createPackage(packageName, buildFile, ImmutableList.<Statement>of(),
+        locator, null, ConstantRuleVisibility.PUBLIC, LegacyPackage.EMPTY_BULK_PACKAGE_LOCATOR);
     Event.replayEventsOn(eventHandler, result.getEvents());
     return result;
   }
@@ -814,8 +851,25 @@ public final class PackageFactory {
     }
   }
 
-  private static void buildPkgEnv(
+  private void buildPkgEnv(
       Environment pkgEnv, String packageName, PackageContext context) {
+    ImmutableList.Builder<PackageArgument<?>> arguments =
+        ImmutableList.<PackageArgument<?>>builder()
+           .add(new DefaultVisibility())
+           .add(new DefaultDeprecation())
+           .add(new DefaultObsolete())
+           .add(new DefaultTestOnly())
+           .add(new Features());
+
+
+    for (EnvironmentExtension extension : environmentExtensions) {
+      arguments.addAll(extension.getPackageArguments());
+    }
+
+    ImmutableMap.Builder<String, PackageArgument<?>> packageArguments = ImmutableMap.builder();
+    for (PackageArgument<?> argument : arguments.build()) {
+      packageArguments.put(argument.getName(), argument);
+    }
     pkgEnv.update("distribs", newDistribsFunction(context));
     pkgEnv.update("glob", newGlobFunction(context, /*async=*/false));
     pkgEnv.update("select", newSelectFunction());
@@ -823,7 +877,7 @@ public final class PackageFactory {
     pkgEnv.update("licenses", newLicensesFunction(context));
     pkgEnv.update("exports_files", newExportsFilesFunction(context));
     pkgEnv.update("package_group", newPackageGroupFunction(context));
-    pkgEnv.update("package", newPackageFunction(context));
+    pkgEnv.update("package", newPackageFunction(context, packageArguments.build()));
     pkgEnv.update("subinclude", newSubincludeFunction());
 
     pkgEnv.update("PACKAGE_NAME", packageName);
@@ -935,7 +989,7 @@ public final class PackageFactory {
   @VisibleForTesting // used by PackageFactoryApparatus
   public LegacyPackage evaluateBuildFile(String packageName, BuildFileAST buildFileAST,
       Path buildFilePath, GlobCache globCache, Iterable<Event> pastEvents,
-      RuleVisibility defaultVisibility, boolean containsError,
+      RuleVisibility defaultVisibility, boolean containsError, boolean containsTransientError,
       @Nullable BulkPackageLocatorForCrossingSubpackageBoundaries bulkPackageLocator,
       CachingPackageLocator locator,
       MakeEnvironment.Builder pkgMakeEnv)
@@ -964,6 +1018,10 @@ public final class PackageFactory {
 
     if (containsError) {
       pkgBuilder.setContainsErrors();
+    }
+
+    if (containsTransientError) {
+      pkgBuilder.setContainsTemporaryErrors();
     }
 
     if (!validatePackageName(packageName, buildFileAST.getLocation(), eventHandler)) {

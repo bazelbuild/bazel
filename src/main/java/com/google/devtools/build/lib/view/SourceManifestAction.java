@@ -21,6 +21,7 @@ import com.google.common.collect.ImmutableList;
 import com.google.devtools.build.lib.actions.ActionOwner;
 import com.google.devtools.build.lib.actions.Artifact;
 import com.google.devtools.build.lib.actions.Executor;
+import com.google.devtools.build.lib.actions.Executor.ActionContext;
 import com.google.devtools.build.lib.events.EventHandler;
 import com.google.devtools.build.lib.util.Fingerprint;
 import com.google.devtools.build.lib.util.Pair;
@@ -52,6 +53,12 @@ import javax.annotation.Nullable;
  * memory.
  */
 public class SourceManifestAction extends AbstractFileWriteAction {
+  /**
+   * Action context that tells what workspace suffix we should use.
+   */
+  public interface Context extends ActionContext {
+    String getWorkspaceName();
+  }
 
   private static final String GUID = "07459553-a3d0-4d37-9d78-18ed942470f4";
 
@@ -115,10 +122,17 @@ public class SourceManifestAction extends AbstractFileWriteAction {
     this.root = root;
   }
 
+  @VisibleForTesting
+  public void writeOutputFile(OutputStream out, EventHandler eventHandler, String workspaceSuffix)
+      throws IOException {
+    writeFile(out, runfiles.getRunfilesInputs(
+        root, workspaceSuffix, eventHandler, getOwner().getLocation()));
+  }
+
   @Override
   public void writeOutputFile(OutputStream out, EventHandler eventHandler,
       Executor executor) throws IOException {
-    writeFile(out, runfiles.getRunfilesInputs(root, eventHandler, getOwner().getLocation()));
+    writeOutputFile(out, eventHandler, executor.getContext(Context.class).getWorkspaceName());
   }
 
   /**

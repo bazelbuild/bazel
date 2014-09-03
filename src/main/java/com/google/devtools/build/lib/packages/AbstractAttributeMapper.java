@@ -105,6 +105,11 @@ public abstract class AbstractAttributeMapper implements AttributeMap {
   }
 
   @Override
+  public String getPackageDefaultHdrsCheck() {
+    return pkg.getDefaultHdrsCheck();
+  }
+
+  @Override
   public Boolean getPackageDefaultObsolete() {
     return pkg.getDefaultObsolete();
   }

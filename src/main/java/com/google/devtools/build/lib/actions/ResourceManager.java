@@ -218,7 +218,7 @@ public class ResourceManager {
    * Acquires requested resource set. Will block if resource is not available.
    * NB! This method must be thread-safe!
    */
-  public void acquireResources(ActionMetadata owner, ResourceSet resources)
+  public void acquireResources(ExecutableMetadata owner, ResourceSet resources)
       throws InterruptedException {
     Preconditions.checkArgument(resources != null);
     long startTime = Profiler.nanoTimeMaybe();
@@ -245,7 +245,7 @@ public class ResourceManager {
    * Acquires the given resources if available immediately. Does not block.
    * @return true iff the given resources were locked (all or nothing).
    */
-  public boolean tryAcquire(ActionMetadata owner, ResourceSet resources) {
+  public boolean tryAcquire(ExecutableMetadata owner, ResourceSet resources) {
     boolean acquired = false;
     synchronized (this) {
       if (areResourcesAvailable(resources)) {
@@ -293,14 +293,14 @@ public class ResourceManager {
     this.eventBus = null;
   }
 
-  private void waiting(ActionMetadata owner) {
+  private void waiting(ExecutableMetadata owner) {
     if (eventBus != null) {
       // Null only in tests.
       eventBus.post(ActionStatusMessage.schedulingStrategy(owner));
     }
   }
 
-  private void acquired(ActionMetadata owner) {
+  private void acquired(ExecutableMetadata owner) {
     if (eventBus != null) {
       // Null only in tests.
       eventBus.post(ActionStatusMessage.runningStrategy(owner));
@@ -312,7 +312,7 @@ public class ResourceManager {
    *
    * <p>NB! This method must be thread-safe!
    */
-  public void releaseResources(ActionMetadata owner, ResourceSet resources) {
+  public void releaseResources(ExecutableMetadata owner, ResourceSet resources) {
     boolean isConflict = false;
     long startTime = Profiler.nanoTimeMaybe();
     try {

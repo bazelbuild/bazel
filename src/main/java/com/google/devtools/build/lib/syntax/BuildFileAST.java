@@ -13,6 +13,7 @@
 // limitations under the License.
 package com.google.devtools.build.lib.syntax;
 
+import com.google.common.collect.ImmutableList;
 import com.google.devtools.build.lib.events.Event;
 import com.google.devtools.build.lib.events.EventHandler;
 import com.google.devtools.build.lib.events.Location;
@@ -41,15 +42,18 @@ public class BuildFileAST extends ASTNode {
    */
   private final boolean containsErrors;
 
-  private BuildFileAST(Lexer lexer, Parser.ParseResult result) {
-    this.stmts = result.statements;
+  private BuildFileAST(Lexer lexer, List<Statement> preludeStatements, Parser.ParseResult result) {
+    this.stmts = ImmutableList.<Statement>builder()
+        .addAll(preludeStatements)
+        .addAll(result.statements)
+        .build();
     this.comments = result.comments;
     this.containsErrors = result.containsErrors;
-    this.imports = fetchImports(result.statements);
+    this.imports = fetchImports(this.stmts);
     if (result.statements.size() > 0) {
       setLocation(lexer.createLocation(
-          stmts.get(0).getLocation().getStartOffset(),
-          stmts.get(stmts.size() - 1).getLocation().getEndOffset()));
+          result.statements.get(0).getLocation().getStartOffset(),
+          result.statements.get(result.statements.size() - 1).getLocation().getEndOffset()));
     } else {
       setLocation(Location.fromFile(lexer.getFilename()));
     }
@@ -157,11 +161,21 @@ public class BuildFileAST extends ASTNode {
    * Parse the specified build file, returning its AST. All errors during
    * scanning or parsing will be reported to the reporter.
    */
-  public static BuildFileAST parseBuildFile(ParserInputSource input, EventHandler eventHandler,
-                                            CachingPackageLocator locator, boolean parsePython) {
+  public static BuildFileAST parseBuildFile(ParserInputSource input,
+                                            List<Statement> preludeStatements,
+                                            EventHandler eventHandler,
+                                            CachingPackageLocator locator,
+                                            boolean parsePython) {
     Lexer lexer = new Lexer(input, eventHandler, parsePython);
     Parser.ParseResult result = Parser.parseFile(lexer, eventHandler, locator, parsePython);
-    return new BuildFileAST(lexer, result);
+    return new BuildFileAST(lexer, preludeStatements, result);
+  }
+
+  public static BuildFileAST parseBuildFile(ParserInputSource input, EventHandler eventHandler,
+      CachingPackageLocator locator, boolean parsePython) {
+    Lexer lexer = new Lexer(input, eventHandler, parsePython);
+    Parser.ParseResult result = Parser.parseFile(lexer, eventHandler, locator, parsePython);
+    return new BuildFileAST(lexer, ImmutableList.<Statement>of(), result);
   }
 
   /**
@@ -170,7 +184,7 @@ public class BuildFileAST extends ASTNode {
    */
   public static BuildFileAST parseBuildFile(Lexer lexer, EventHandler eventHandler) {
     Parser.ParseResult result = Parser.parseFile(lexer, eventHandler, null, false);
-    return new BuildFileAST(lexer, result);
+    return new BuildFileAST(lexer, ImmutableList.<Statement>of(), result);
   }
 
   /**
@@ -186,7 +200,7 @@ public class BuildFileAST extends ASTNode {
     Lexer lexer = new Lexer(input, eventHandler, false);
     Parser.ParseResult result =
         Parser.parseFileForSkylark(lexer, eventHandler, locator, validationEnvironment);
-    return new BuildFileAST(lexer, result);
+    return new BuildFileAST(lexer, ImmutableList.<Statement>of(), result);
   }
 
   /**

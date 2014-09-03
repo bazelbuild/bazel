@@ -353,7 +353,7 @@ public class RunCommand implements BlazeCommand  {
     PathFragment runfilesDir = runfilesSupport.getRunfilesDirectoryExecPath();
     Path workingDir = runtime.getExecRoot()
         .getRelative(runfilesDir)
-        .getRelative(runtime.getWorkspaceSuffix());
+        .getRelative(runtime.getWorkspaceName());
 
     // When runfiles are not generated, getManifest() returns the
     // .runfiles_manifest file, otherwise it returns the MANIFEST file. This is

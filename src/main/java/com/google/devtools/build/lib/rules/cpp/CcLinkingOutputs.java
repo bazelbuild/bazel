@@ -19,6 +19,7 @@ import com.google.common.collect.Iterables;
 import com.google.devtools.build.lib.actions.Artifact;
 import com.google.devtools.build.lib.rules.cpp.Link.LinkStaticness;
 import com.google.devtools.build.lib.rules.cpp.LinkerInputs.LibraryToLink;
+import com.google.devtools.build.lib.vfs.FileSystemUtils;
 
 import java.util.ArrayList;
 import java.util.HashSet;
@@ -96,7 +97,7 @@ public class CcLinkingOutputs {
   public Iterable<Artifact> getLibrariesForRunfiles(
       boolean linkingStatically, boolean preferPic) {
     List<LibraryToLink> libraries = getPreferredLibraries(linkingStatically, preferPic, true);
-    return CcCommon.getSharedLibrariesFrom(Link.toLibraryArtifacts(libraries));
+    return CcCommon.getSharedLibrariesFrom(LinkerInputs.toLibraryArtifacts(libraries));
   }
 
   /**
@@ -151,11 +152,28 @@ public class CcLinkingOutputs {
     List<LibraryToLink> libraries = new ArrayList<>();
     Set<String> identifiers = new HashSet<>();
     for (LibraryToLink library : candidates) {
-      if (identifiers.add(Link.libraryIdentifierOf(library.getOriginalLibraryArtifact()))) {
+      if (identifiers.add(libraryIdentifierOf(library.getOriginalLibraryArtifact()))) {
         libraries.add(library);
       }
     }
     return libraries;
+  }
+
+  /**
+   * Returns the library identifier of an artifact: a string that is different for different
+   * libraries, but is the same for the shared, static and pic versions of the same library.
+   */
+  private static String libraryIdentifierOf(Artifact libraryArtifact) {
+    String name = libraryArtifact.getRootRelativePath().getPathString();
+    String basename = FileSystemUtils.removeExtension(name);
+    // Need to special-case file types with double extension.
+    return name.endsWith(".pic.a")
+        ? FileSystemUtils.removeExtension(basename)
+        : name.endsWith(".nopic.a")
+        ? FileSystemUtils.removeExtension(basename)
+        : name.endsWith(".pic.lo")
+        ? FileSystemUtils.removeExtension(basename)
+        : basename;
   }
 
   public static Builder builder() {

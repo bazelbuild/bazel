@@ -94,9 +94,8 @@ public interface Executor {
   void reportSubcommand(String reason, String message);
 
   /**
-   * An event listener to report warnings to; actions should not use this to report errors, instead
-   * they should throw an ActionExecutionException. Calling showOutput on the returned object is
-   * not hermetic.
+   * An event listener to report messages to. Errors that signal a action failure should
+   * use ActionExecutionException.
    */
   EventHandler getReporter();
 

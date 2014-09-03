@@ -145,12 +145,11 @@ public abstract class CcLibrary implements RuleConfiguredTargetFactory {
         collectArtifactsToForce(context, common, compilationOutputs);
 
     NestedSetBuilder<Artifact> filesBuilder = NestedSetBuilder.stableOrder();
+    filesBuilder.addAll(LinkerInputs.toLibraryArtifacts(linkedLibraries.getStaticLibraries()));
+    filesBuilder.addAll(LinkerInputs.toLibraryArtifacts(linkedLibraries.getPicStaticLibraries()));
+    filesBuilder.addAll(LinkerInputs.toNonSolibArtifacts(linkedLibraries.getDynamicLibraries()));
     filesBuilder.addAll(
-        Link.toLibraryArtifacts(linkedLibraries.getStaticLibraries()));
-    filesBuilder.addAll(
-        Link.toLibraryArtifacts(linkedLibraries.getPicStaticLibraries()));
-    filesBuilder.addAll(Link.toNonSolibArtifacts(linkedLibraries.getDynamicLibraries()));
-    filesBuilder.addAll(Link.toNonSolibArtifacts(linkedLibraries.getExecutionDynamicLibraries()));
+        LinkerInputs.toNonSolibArtifacts(linkedLibraries.getExecutionDynamicLibraries()));
 
     /*
      * Add the libraries from srcs, if any. For static/mostly static

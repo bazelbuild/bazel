@@ -229,11 +229,6 @@ public class BlazeCommandDispatcher {
     }
 
     @Override
-    public boolean showOutput(String tag) {
-      return true;
-    }
-
-    @Override
     public void handle(Event event) {
       try {
         switch (event.getKind()) {

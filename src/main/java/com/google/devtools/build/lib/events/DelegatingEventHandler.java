@@ -32,9 +32,4 @@ public class DelegatingEventHandler implements EventHandler {
   public void handle(Event e) {
     delegate.handle(e);
   }
-
-  @Override
-  public boolean showOutput(String tag) {
-    return delegate.showOutput(tag);
-  }
 }

@@ -48,6 +48,12 @@ import javax.annotation.Nullable;
 public class LegacyPackage extends Package implements Serializable {
 
   /**
+   * True iff this package contains errors that were caused by temporary conditions (e.g. an I/O
+   * error). If this is true, {@link #containsErrors} is also true.
+   */
+  private boolean containsTemporaryErrors;
+
+  /**
    * We store the glob patterns directly for now.
    */
   @Nullable
@@ -78,6 +84,14 @@ public class LegacyPackage extends Package implements Serializable {
 
   public void dropLegacyData() {
     this.globPatterns = null;
+  }
+
+  /**
+   * True iff this package contains errors that were caused by temporary conditions (e.g. an I/O
+   * error). If this is true, {@link #containsErrors()} also returns true.
+   */
+  public boolean containsTemporaryErrors() {
+    return containsTemporaryErrors;
   }
 
   /**
@@ -170,6 +184,7 @@ public class LegacyPackage extends Package implements Serializable {
   }
 
   private void finishInit(LegacyPackageBuilder builder) {
+    this.containsTemporaryErrors = builder.containsTemporaryErrors;
     this.globPatterns = builder.globCache.getKeySet();
   }
 
@@ -194,6 +209,7 @@ public class LegacyPackage extends Package implements Serializable {
     private GlobCache globCache = null;
     private Set<Label> targetsCrossingSubpackages = new HashSet<>();
     private Set<PathFragment> subpackagesCuttingOffLabels = new HashSet<>();
+    private boolean containsTemporaryErrors = false;
 
     // Set by #build and used by #beforeBuildInternal.
     private BulkPackageLocatorForCrossingSubpackageBoundaries bulkPackageLocator = null;
@@ -213,6 +229,12 @@ public class LegacyPackage extends Package implements Serializable {
      */
     LegacyPackageBuilder setGlobCache(GlobCache globCache) {
       this.globCache = globCache;
+      return this;
+    }
+
+    LegacyPackageBuilder setContainsTemporaryErrors() {
+      setContainsErrors();
+      containsTemporaryErrors = true;
       return this;
     }
 

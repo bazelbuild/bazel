@@ -38,9 +38,4 @@ public class DebuggingEventHandler implements EventHandler {
       out.println(e.getKind() + " " + e.getMessage());
     }
   }
-
-  @Override
-  public boolean showOutput(String tag) {
-    return true;
-  }
 }

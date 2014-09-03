@@ -21,16 +21,6 @@ package com.google.devtools.build.lib.events;
  */
 public interface EventHandler {
   /**
-   * Returns true iff the given tag matches the output filter.
-   */
-  // This method is used for the --output_filter option. This would be more
-  // cleanly implemented by storing the 'tag' in Event, so this method does not have to
-  // be propagated to all callers, except that test output is treated especially
-  // (--output_filter is ignored for --test_output={errors,streamed}), which
-  // breaks the generality.
-  boolean showOutput(String label);
-
-  /**
    * Handles an event.
    */
   public void handle(Event event);

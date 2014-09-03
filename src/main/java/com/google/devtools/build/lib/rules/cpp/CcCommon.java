@@ -229,7 +229,7 @@ public final class CcCommon {
   private static NestedSet<Artifact> collectExecutionDynamicLibraryArtifacts(
       RuleContext ruleContext,
       List<LibraryToLink> executionDynamicLibraries) {
-    Iterable<Artifact> artifacts = Link.toLibraryArtifacts(executionDynamicLibraries);
+    Iterable<Artifact> artifacts = LinkerInputs.toLibraryArtifacts(executionDynamicLibraries);
     if (!Iterables.isEmpty(artifacts)) {
       return NestedSetBuilder.wrap(Order.STABLE_ORDER, artifacts);
     }
@@ -756,7 +756,7 @@ public final class CcCommon {
         .setNoCopts(getNoCopts(ruleContext))
         .addAdditionalIncludes(additionalIncludes)
         .addPluginTargets(activePlugins)
-        .setEnableModules(ruleContext.getFeatures().contains("layering_check"));
+        .setEnableModules(ruleContext.getFeatures().contains(CppRuleClasses.LAYERING_CHECK));
   }
 
   /**

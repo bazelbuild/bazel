@@ -169,7 +169,7 @@ public final class BlazeRuntime {
   private long commandStartTime;
 
   // Application-specified constants
-  private final String workspaceSuffix;
+  private final String workspaceName;
 
   private final SkyframeExecutor skyframeExecutor;
 
@@ -234,7 +234,7 @@ public final class BlazeRuntime {
       WorkspaceStatusAction.Factory workspaceStatusActionFactory,
       final SkyframeExecutor skyframeExecutor,
       PackageFactory pkgFactory, ConfiguredRuleClassProvider ruleClassProvider,
-      ConfigurationFactory configurationFactory, String workspaceSuffix, Clock clock,
+      ConfigurationFactory configurationFactory, String workspaceName, Clock clock,
       OptionsProvider startupOptionsProvider, Iterable<BlazeModule> blazeModules,
       Map<String, String> clientEnv,
       TimestampGranularityMonitor timestampGranularityMonitor,
@@ -244,7 +244,7 @@ public final class BlazeRuntime {
     this.directories = directories;
     this.workingDirectory = directories.getWorkspace();
     this.reporter = reporter;
-    this.workspaceSuffix = workspaceSuffix;
+    this.workspaceName = workspaceName;
     this.packageFactory = pkgFactory;
     this.binTools = binTools;
     this.allowedMissingInputs = allowedMissingInputs;
@@ -406,12 +406,10 @@ public final class BlazeRuntime {
   }
 
   /**
-   * Returns the workspace suffix for this Blaze application . If the working
-   * directory does not end with this suffix, this process will only run a
-   * restricted set of commands.
+   * Returns the name of the workspace.
    */
-  public String getWorkspaceSuffix() {
-    return workspaceSuffix;
+  public String getWorkspaceName() {
+    return workspaceName;
   }
 
   /**
@@ -1666,14 +1664,14 @@ public final class BlazeRuntime {
       }
 
       return new BlazeRuntime(directories, reporter, workspaceStatusActionFactory, skyframeExecutor,
-          pkgFactory, ruleClassProvider, tempConfigurationFactory, getWorkspaceSuffix(), clock,
+          pkgFactory, ruleClassProvider, tempConfigurationFactory, getWorkspaceName(), clock,
           startupOptionsProvider, ImmutableList.copyOf(blazeModules),
           clientEnv,
           timestampMonitor,
           eventBusExceptionHandler, binTools, allowedMissingInputs);
     }
 
-    public String getWorkspaceSuffix() {
+    public String getWorkspaceName() {
       Path workspace = directories.getWorkspace();
       if (workspace == null) {
         return "";

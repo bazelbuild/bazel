@@ -320,6 +320,7 @@ public final class SkyframeExecutor {
     map.put(SkyFunctions.DIRECTORY_LISTING, new DirectoryListingFunction());
     map.put(SkyFunctions.PACKAGE_LOOKUP, new PackageLookupFunction(pkgLocator, deletedPackages));
     map.put(SkyFunctions.CONTAINING_PACKAGE_LOOKUP, new ContainingPackageLookupFunction());
+    map.put(SkyFunctions.AST_LOOKUP, new ASTFileLookupFunction(pkgLocator));
     map.put(SkyFunctions.GLOB, new GlobFunction());
     map.put(SkyFunctions.TARGET_PATTERN, new TargetPatternFunction(pkgLocator));
     map.put(SkyFunctions.RECURSIVE_PKG, new RecursivePkgFunction());

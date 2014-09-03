@@ -424,7 +424,7 @@ public final class CppCompilationContext implements TransitiveInfoProvider {
     @Override
     public int hashCode() {
       return Objects.hash(compilationPrerequisiteStampFile, declaredIncludeDirs,
-          declaredIncludeWarnDirs, declaredIncludeSrcs);
+          declaredIncludeWarnDirs, declaredIncludeSrcs, auxiliaryInputs);
     }
   }
 

@@ -42,11 +42,6 @@ public class StoredEventHandler implements EventHandler {
     events.add(e);
   }
 
-  @Override
-  public boolean showOutput(String tag) {
-    return true;
-  }
-
   /**
    * Replay all events stored in this object on the given eventHandler, in the same order.
    */

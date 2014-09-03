@@ -80,7 +80,7 @@ public final class CppLinkAction extends ConfigurationAction
   private final LibraryToLink outputLibrary;
   private final LibraryToLink interfaceOutputLibrary;
 
-  private final LinkConfigurationImpl linkConfiguration;
+  private final LinkCommandLine linkCommandLine;
 
   /** True for cc_fake_binary targets. */
   private final boolean fake;
@@ -113,13 +113,13 @@ public final class CppLinkAction extends ConfigurationAction
                         LibraryToLink outputLibrary,
                         LibraryToLink interfaceOutputLibrary,
                         boolean fake,
-                        LinkConfigurationImpl linkConfiguration) {
+                        LinkCommandLine linkCommandLine) {
     super(owner, inputs, outputs, configuration);
     this.outputLibrary = outputLibrary;
     this.interfaceOutputLibrary = interfaceOutputLibrary;
     this.fake = fake;
 
-    this.linkConfiguration = linkConfiguration;
+    this.linkCommandLine = linkCommandLine;
   }
 
   private static Iterable<LinkerInput> filterLinkerInputs(Iterable<LinkerInput> inputs) {
@@ -156,8 +156,8 @@ public final class CppLinkAction extends ConfigurationAction
    * argv.
    */
   @VisibleForTesting
-  public LinkConfiguration getLinkConfiguration() {
-    return linkConfiguration;
+  public LinkCommandLine getLinkCommandLine() {
+    return linkCommandLine;
   }
 
   public LibraryToLink getOutputLibrary() {
@@ -177,12 +177,12 @@ public final class CppLinkAction extends ConfigurationAction
 
   @VisibleForTesting
   public List<String> getRawLinkArgv() {
-    return linkConfiguration.getRawLinkArgv();
+    return linkCommandLine.getRawLinkArgv();
   }
 
   @VisibleForTesting
   public List<String> getArgv() {
-    return linkConfiguration.getArgv();
+    return linkCommandLine.arguments();
   }
 
   /**
@@ -194,12 +194,12 @@ public final class CppLinkAction extends ConfigurationAction
    */
   public final List<String> prepareCommandLine(Path execRoot, List<String> inputFiles)
       throws ExecException {
-    List<String> rawLinkArgv = linkConfiguration.getRawLinkArgv();
+    List<String> rawLinkArgv = linkCommandLine.getRawLinkArgv();
     // Try to shorten the command line by use of a parameter file.
     // This makes the output with --subcommands (et al) more readable.
     List<String> commandlineArgs = compactCommandline(
         execRoot, getOutputFile(), rawLinkArgv, inputFiles);
-    return linkConfiguration.finalizeWithLinkstampCommands(commandlineArgs);
+    return linkCommandLine.finalizeWithLinkstampCommands(commandlineArgs);
   }
 
   /**
@@ -357,11 +357,11 @@ public final class CppLinkAction extends ConfigurationAction
       throws ActionExecutionException {
     // The uses of getLinkConfiguration in this method may not be consistent with the computed key.
     // I.e., this may be incrementally incorrect.
-    final Collection<Artifact> linkstampOutputs = getLinkConfiguration().getLinkstamps().values();
+    final Collection<Artifact> linkstampOutputs = getLinkCommandLine().getLinkstamps().values();
 
     // Prefix all fake output files in the command line with $TEST_TMPDIR/.
     final String outputPrefix = "$TEST_TMPDIR/";
-    List<String> escapedLinkArgv = escapeLinkArgv(linkConfiguration.getRawLinkArgv(),
+    List<String> escapedLinkArgv = escapeLinkArgv(linkCommandLine.getRawLinkArgv(),
         linkstampOutputs, outputPrefix);
     // Write the commands needed to build the real target to the fake target
     // file.
@@ -378,7 +378,7 @@ public final class CppLinkAction extends ConfigurationAction
 
     try {
       // Concatenate all the (fake) .o files into the result.
-      for (LinkerInput linkerInput : getLinkConfiguration().getLinkerInputs()) {
+      for (LinkerInput linkerInput : getLinkCommandLine().getLinkerInputs()) {
         Artifact objectFile = linkerInput.getArtifact();
         if (CppFileTypes.OBJECT_FILE.matches(objectFile.getFilename())
             && linkerInput.isFake()) {
@@ -392,8 +392,8 @@ public final class CppLinkAction extends ConfigurationAction
             linkstamp.getExecPath().getParentDirectory().toString() + " && ");
       }
       Joiner.on(' ').appendTo(s,
-          ShellEscaper.escapeAll(Link.finalizeAlreadyEscapedWithLinkstampCommands(
-              linkConfiguration, escapedLinkArgv, outputPrefix)));
+          ShellEscaper.escapeAll(linkCommandLine.finalizeAlreadyEscapedWithLinkstampCommands(
+              escapedLinkArgv, outputPrefix)));
       s.append('\n');
       if (getOutputFile().exists()) {
         getOutputFile().setWritable(true); // (IOException)
@@ -443,20 +443,20 @@ public final class CppLinkAction extends ConfigurationAction
     // The uses of getLinkConfiguration in this method may not be consistent with the computed key.
     // I.e., this may be incrementally incorrect.
     CppLinkInfo.Builder info = CppLinkInfo.newBuilder();
-    info.addAllInputFile(Artifact.toExecPaths(Link.toLibraryArtifacts(
-        getLinkConfiguration().getLinkerInputs())));
-    info.addAllInputFile(Artifact.toExecPaths(Link.toLibraryArtifacts(
-        getLinkConfiguration().getRuntimeInputs())));
+    info.addAllInputFile(Artifact.toExecPaths(
+        LinkerInputs.toLibraryArtifacts(getLinkCommandLine().getLinkerInputs())));
+    info.addAllInputFile(Artifact.toExecPaths(
+        LinkerInputs.toLibraryArtifacts(getLinkCommandLine().getRuntimeInputs())));
     info.setOutputFile(getPrimaryOutput().getExecPathString());
     if (interfaceOutputLibrary != null) {
       info.setInterfaceOutputFile(interfaceOutputLibrary.getArtifact().getExecPathString());
     }
-    info.setLinkTargetType(getLinkConfiguration().getLinkTargetType().name());
-    info.setLinkStaticness(getLinkConfiguration().getLinkStaticness().name());
-    info.addAllLinkStamp(Artifact.toExecPaths(getLinkConfiguration().getLinkstamps().values()));
+    info.setLinkTargetType(getLinkCommandLine().getLinkTargetType().name());
+    info.setLinkStaticness(getLinkCommandLine().getLinkStaticness().name());
+    info.addAllLinkStamp(Artifact.toExecPaths(getLinkCommandLine().getLinkstamps().values()));
     info.addAllBuildInfoHeaderArtifact(
-        Artifact.toExecPaths(getLinkConfiguration().getBuildInfoHeaderArtifacts()));
-    info.addAllLinkOpt(getLinkConfiguration().getLinkopts());
+        Artifact.toExecPaths(getLinkCommandLine().getBuildInfoHeaderArtifacts()));
+    info.addAllLinkOpt(getLinkCommandLine().getLinkopts());
 
     return super.getExtraActionInfo()
         .setExtension(CppLinkInfo.cppLinkInfo, info.build());
@@ -467,7 +467,7 @@ public final class CppLinkAction extends ConfigurationAction
     Fingerprint f = new Fingerprint();
     f.addString(fake ? FAKE_LINK_GUID : LINK_GUID);
     f.addString(getCppConfiguration().getLdExecutable().getPathString());
-    f.addStrings(linkConfiguration.getArgv());
+    f.addStrings(linkCommandLine.arguments());
     // TODO(bazel-team): For correctness, we need to ensure the invariant that all values accessed
     // during the execution phase are also covered by the key. Above, we add the argv to the key,
     // which covers most cases. Unfortunately, the extra action and fake support methods above also
@@ -475,10 +475,10 @@ public final class CppLinkAction extends ConfigurationAction
     // key. We either need to change the code to cover them in the key computation, or change the
     // LinkConfiguration to disallow the combinations where the value of a setting does not affect
     // the argv.
-    f.addBoolean(linkConfiguration.isNativeDeps());
-    f.addBoolean(linkConfiguration.useExecOrigin());
-    if (linkConfiguration.getRuntimeSolibDir() != null) {
-      f.addPath(linkConfiguration.getRuntimeSolibDir());
+    f.addBoolean(linkCommandLine.isNativeDeps());
+    f.addBoolean(linkCommandLine.useExecOrigin());
+    if (linkCommandLine.getRuntimeSolibDir() != null) {
+      f.addPath(linkCommandLine.getRuntimeSolibDir());
     }
     return f.hexDigest();
   }
@@ -496,7 +496,7 @@ public final class CppLinkAction extends ConfigurationAction
         getCppConfiguration().getLdExecutable().getPathString()));
     message.append('\n');
     // Outputting one argument per line makes it easier to diff the results.
-    for (String argument : ShellEscaper.escapeAll(Link.getArgv(linkConfiguration))) {
+    for (String argument : ShellEscaper.escapeAll(linkCommandLine.arguments())) {
       message.append("  Argument: ");
       message.append(argument);
       message.append('\n');
@@ -523,12 +523,12 @@ public final class CppLinkAction extends ConfigurationAction
   public ResourceSet estimateResourceConsumptionLocal() {
     // It's ok if this behaves differently even if the key is identical.
     ResourceSet minLinkResources =
-        getLinkConfiguration().getLinkStaticness() == Link.LinkStaticness.DYNAMIC
+        getLinkCommandLine().getLinkStaticness() == Link.LinkStaticness.DYNAMIC
         ? MIN_DYNAMIC_LINK_RESOURCES
         : MIN_STATIC_LINK_RESOURCES;
 
-    final int inputSize = Iterables.size(getLinkConfiguration().getLinkerInputs())
-        + Iterables.size(getLinkConfiguration().getRuntimeInputs());
+    final int inputSize = Iterables.size(getLinkCommandLine().getLinkerInputs())
+        + Iterables.size(getLinkCommandLine().getRuntimeInputs());
 
     return new ResourceSet(
       Math.max(inputSize * LINK_RESOURCES_PER_INPUT.getMemoryMb(),
@@ -562,7 +562,7 @@ public final class CppLinkAction extends ConfigurationAction
 
   @Override
   public List<PathFragment> getIncludeScannerSources() {
-    return Artifact.asPathFragments(getLinkConfiguration().getLinkstamps().keySet());
+    return Artifact.asPathFragments(getLinkCommandLine().getLinkstamps().keySet());
   }
 
   @Override
@@ -594,25 +594,25 @@ public final class CppLinkAction extends ConfigurationAction
     private final RuleContext ruleContext;
     private final AnalysisEnvironment analysisEnvironment;
     private final PathFragment outputPath;
-    private PathFragment interfaceOutputPath = null;
-    private PathFragment runtimeSolibDir = null;
-    protected BuildConfiguration configuration = null;
+    private PathFragment interfaceOutputPath;
+    private PathFragment runtimeSolibDir;
+    protected BuildConfiguration configuration;
 
     // Morally equivalent with {@link Context}, except these are mutable.
     // Keep these in sync with {@link Context}.
     private final Set<LinkerInput> nonLibraries = new LinkedHashSet<>();
     private final NestedSetBuilder<LibraryToLink> libraries = NestedSetBuilder.linkOrder();
     private NestedSet<Artifact> crosstoolInputs = NestedSetBuilder.emptySet(Order.STABLE_ORDER);
-    private Artifact runtimeMiddleman = null;
+    private Artifact runtimeMiddleman;
     private NestedSet<Artifact> runtimeInputs = NestedSetBuilder.emptySet(Order.STABLE_ORDER);
     private final NestedSetBuilder<Artifact> compilationInputs = NestedSetBuilder.stableOrder();
     private final Set<Artifact> linkstamps = new LinkedHashSet<>();
     private final List<String> linkopts = new ArrayList<>();
     private LinkTargetType linkType = LinkTargetType.STATIC_LIBRARY;
     private LinkStaticness linkStaticness = LinkStaticness.FULLY_STATIC;
-    private boolean fake = false;
-    private boolean isNativeDeps = false;
-    private boolean useExecOrigin = false;
+    private boolean fake;
+    private boolean isNativeDeps;
+    private boolean useExecOrigin;
 
     /**
      * Creates a builder that builds {@link CppLinkAction} instances.
@@ -721,13 +721,13 @@ public final class CppLinkAction extends ConfigurationAction
 
       Iterable<LibraryToLink> uniqueLibraries = libraries.build();
       final Iterable<Artifact> expandedInputs = Iterables.concat(
-          Link.toLibraryArtifacts(nonLibraries),
-          Link.toLibraryArtifacts(Link.mergeInputsDependencies(uniqueLibraries,
+          LinkerInputs.toLibraryArtifacts(nonLibraries),
+          LinkerInputs.toLibraryArtifacts(Link.mergeInputsDependencies(uniqueLibraries,
               needWholeArchive, cppConfiguration.archiveType())),
           finalInputs);
 
       final Iterable<Artifact> filteredNonLibraryArtifacts = filterLinkerInputArtifacts(
-          Link.toLibraryArtifacts(nonLibraries));
+          LinkerInputs.toLibraryArtifacts(nonLibraries));
       final Iterable<LinkerInput> linkerInputs = Iterables.<LinkerInput>concat(
           filterLinkerInputs(nonLibraries),
           Link.mergeInputsCmdLine(uniqueLibraries,
@@ -763,24 +763,23 @@ public final class CppLinkAction extends ConfigurationAction
       }
       dependencyInputsBuilder.addTransitive(compilationInputs.build());
 
-      LinkConfigurationImpl linkConfiguration =
-          new LinkConfigurationImpl.Builder(configuration, getOwner())
-              .setOutput(outputLibrary.getArtifact())
-              .setInterfaceOutput(interfaceOutput)
-              .setSymbolCountsOutput(symbolCountOutput)
-              .setBuildInfoHeaderArtifacts(buildInfoHeaderArtifacts)
-              .setLinkerInputs(linkerInputs)
-              .setRuntimeInputs(ImmutableList.copyOf(LinkerInputs.simpleLinkerInputs(runtimeInputs)))
-              .setLinkTargetType(linkType)
-              .setLinkStaticness(linkStaticness)
-              .setLinkopts(ImmutableList.copyOf(linkopts))
-              .setFeatures(features)
-              .setLinkstamps(linkstampMap)
-              .setRuntimeSolibDir(linkType.isStaticLibraryLink() ? null : runtimeSolibDir)
-              .setNativeDeps(isNativeDeps)
-              .setUseExecOrigin(useExecOrigin)
-              .setInterfaceSoBuilder(getInterfaceSoBuilder())
-              .build();
+      LinkCommandLine linkCommandLine = new LinkCommandLine.Builder(configuration, getOwner())
+          .setOutput(outputLibrary.getArtifact())
+          .setInterfaceOutput(interfaceOutput)
+          .setSymbolCountsOutput(symbolCountOutput)
+          .setBuildInfoHeaderArtifacts(buildInfoHeaderArtifacts)
+          .setLinkerInputs(linkerInputs)
+          .setRuntimeInputs(ImmutableList.copyOf(LinkerInputs.simpleLinkerInputs(runtimeInputs)))
+          .setLinkTargetType(linkType)
+          .setLinkStaticness(linkStaticness)
+          .setLinkopts(ImmutableList.copyOf(linkopts))
+          .setFeatures(features)
+          .setLinkstamps(linkstampMap)
+          .setRuntimeSolibDir(linkType.isStaticLibraryLink() ? null : runtimeSolibDir)
+          .setNativeDeps(isNativeDeps)
+          .setUseExecOrigin(useExecOrigin)
+          .setInterfaceSoBuilder(getInterfaceSoBuilder())
+          .build();
       return new CppLinkAction(
           getOwner(),
           dependencyInputsBuilder.build(),
@@ -789,7 +788,7 @@ public final class CppLinkAction extends ConfigurationAction
           outputLibrary,
           interfaceOutputLibrary,
           fake,
-          linkConfiguration);
+          linkCommandLine);
     }
 
     private static ImmutableList<Artifact> constructOutputs(Artifact primaryOutput,

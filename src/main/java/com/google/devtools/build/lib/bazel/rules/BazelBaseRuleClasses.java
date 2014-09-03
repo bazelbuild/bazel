@@ -63,7 +63,9 @@ public class BazelBaseRuleClasses {
   public static final class ErrorRule implements RuleDefinition {
     @Override
     public RuleClass build(Builder builder, RuleDefinitionEnvironment env) {
-      return builder.build();
+      return builder
+          .publicByDefault()
+          .build();
     }
   }
 }

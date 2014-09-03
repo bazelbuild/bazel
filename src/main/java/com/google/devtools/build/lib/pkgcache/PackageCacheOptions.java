@@ -30,7 +30,6 @@ import java.util.List;
  * Options for configuring the PackageCache.
  */
 public class PackageCacheOptions extends OptionsBase {
-
   /**
    * Converter for the {@code --default_visibility} option.
    */

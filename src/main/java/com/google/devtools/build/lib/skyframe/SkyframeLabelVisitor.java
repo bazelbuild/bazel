@@ -122,6 +122,8 @@ final class SkyframeLabelVisitor implements TransitivePackageLoader {
       }
       warnAboutLoadingFailure(topLevelLabel, eventHandler);
       for (SkyKey badKey : errorInfo.getRootCauses()) {
+        Preconditions.checkState(badKey.argument() instanceof Label,
+            "%s %s %s", key, errorInfo, badKey);
         rootCauses.put(topLevelLabel, (Label) badKey.argument());
       }
     }

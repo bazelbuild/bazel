@@ -98,6 +98,9 @@ public final class Reporter implements EventHandler, ExceptionListener {
    */
   @Override
   public synchronized void handle(Event e) {
+    if (e.getKind() != EventKind.ERROR && e.getTag() != null && !showOutput(e.getTag())) {
+      return;
+    }
     for (EventHandler handler : handlers) {
       handler.handle(e);
     }
@@ -134,7 +137,6 @@ public final class Reporter implements EventHandler, ExceptionListener {
   /**
    * Returns true iff the given tag matches the output filter.
    */
-  @Override
   public boolean showOutput(String tag) {
     return outputFilter.showOutput(tag);
   }

@@ -351,6 +351,7 @@ public final class RuleClass {
     private final RuleClassType type;
     private final boolean skylark;
     private boolean documented;
+    private boolean publicByDefault = false;
     private boolean binaryOutput = true;
     private ImplicitOutputsFunction implicitOutputsFunction = ImplicitOutputsFunction.NONE;
     private Configurator<?, ?> configurator = NO_CHANGE;
@@ -418,7 +419,7 @@ public final class RuleClass {
           skylark && (type == RuleClassType.NORMAL || type == RuleClassType.TEST);
       Preconditions.checkState(skylarkExecutable == (configuredTargetFunction != null));
       Preconditions.checkState(skylarkExecutable == (ruleDefinitionEnvironment != null));
-      return new RuleClass(name, skylarkExecutable, documented, binaryOutput,
+      return new RuleClass(name, skylarkExecutable, documented, publicByDefault, binaryOutput,
           implicitOutputsFunction, configurator,
           validityPredicate, preferredDependencyPredicate,
           configuredTargetFunction, ruleDefinitionEnvironment,
@@ -436,6 +437,11 @@ public final class RuleClass {
 
     public Builder setUndocumented() {
       documented = false;
+      return this;
+    }
+
+    public Builder publicByDefault() {
+      publicByDefault = true;
       return this;
     }
 
@@ -596,6 +602,7 @@ public final class RuleClass {
 
   private final boolean skylarkExecutable;
   private final boolean documented;
+  private final boolean publicByDefault;
   private final boolean binaryOutput;
 
   /**
@@ -665,7 +672,8 @@ public final class RuleClass {
    * names, if it does not allow all rule classes.
    */
   @VisibleForTesting
-  RuleClass(String name, boolean skylarkExecutable, boolean documented, boolean binaryOutput,
+  RuleClass(String name,
+      boolean skylarkExecutable, boolean documented, boolean publicByDefault, boolean binaryOutput,
       ImplicitOutputsFunction implicitOutputsFunction,
       Configurator<?, ?> configurator,
       PredicateWithMessage<Rule> validityPredicate, Predicate<String> preferredDependencyPredicate,
@@ -675,6 +683,7 @@ public final class RuleClass {
     this.targetKind = name + " rule";
     this.skylarkExecutable = skylarkExecutable;
     this.documented = documented;
+    this.publicByDefault = publicByDefault;
     this.binaryOutput = binaryOutput;
     this.implicitOutputsFunction = implicitOutputsFunction;
     this.configurator = Preconditions.checkNotNull(configurator);
@@ -1189,6 +1198,10 @@ public final class RuleClass {
 
   public boolean isDocumented() {
     return documented;
+  }
+
+  public boolean isPublicByDefault() {
+    return publicByDefault;
   }
 
   /**

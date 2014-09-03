@@ -581,13 +581,6 @@ public class TestRunnerAction extends ConfigurationAction
     }
   }
 
-  /**
-   * Returns estimated local resource usage.
-   */
-  public ResourceSet estimateTestResourceUsage (boolean isRemoteExecution) {
-    return isRemoteExecution ? ResourceSet.ZERO : testProperties.getLocalResourceUsage();
-  }
-
   @Override
   public int estimateWorkload() {
     // Base test workload on 1/5 of timeout (most tests do not run for their entire timeout).

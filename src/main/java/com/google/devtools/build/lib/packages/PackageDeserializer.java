@@ -340,6 +340,10 @@ public class PackageDeserializer {
       builder.setDefaultDeprecation(packagePb.getDefaultDeprecation());
     }
 
+    builder.setDefaultCopts(packagePb.getDefaultCoptList());
+    if (packagePb.hasDefaultHdrsCheck()) {
+      builder.setDefaultHdrsCheck(packagePb.getDefaultHdrsCheck());
+    }
     if (packagePb.hasDefaultLicense()) {
       builder.setDefaultLicense(deserializeLicense(packagePb.getDefaultLicense()));
     }
@@ -385,6 +389,15 @@ public class PackageDeserializer {
     }
   }
 
+  private void deserializeLegacyInternal(Build.Package packagePb,
+      StoredEventHandler eventHandler, LegacyPackageBuilder builder)
+          throws PackageDeserializationException {
+    deserializeInternal(packagePb, eventHandler, builder);
+    if (packagePb.hasContainsTemporaryErrors() && packagePb.getContainsTemporaryErrors()) {
+      builder.setContainsTemporaryErrors();
+    }
+  }
+
   /**
    * Serialize a package to a protocol message. The inverse of
    * {@link PackageDeserializer#deserialize}.
@@ -400,7 +413,7 @@ public class PackageDeserializer {
       throws PackageDeserializationException, InterruptedException {
     LegacyPackageBuilder builder = new LegacyPackageBuilder(packagePb.getName());
     StoredEventHandler eventHandler = new StoredEventHandler();
-    deserializeInternal(packagePb, eventHandler, builder);
+    deserializeLegacyInternal(packagePb, eventHandler, builder);
     return builder.build(LegacyPackage.EMPTY_BULK_PACKAGE_LOCATOR, eventHandler);
   }
 

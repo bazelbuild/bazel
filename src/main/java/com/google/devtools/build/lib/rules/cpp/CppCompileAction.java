@@ -40,6 +40,7 @@ import com.google.devtools.build.lib.collect.nestedset.NestedSetBuilder;
 import com.google.devtools.build.lib.concurrent.ThreadSafety.ThreadCompatible;
 import com.google.devtools.build.lib.events.Event;
 import com.google.devtools.build.lib.events.EventHandler;
+import com.google.devtools.build.lib.events.EventKind;
 import com.google.devtools.build.lib.profiler.Profiler;
 import com.google.devtools.build.lib.profiler.ProfilerTask;
 import com.google.devtools.build.lib.rules.cpp.CppConfiguration.Tool;
@@ -549,12 +550,11 @@ public class CppCompileAction extends ConfigurationAction implements IncludeScan
       }
     }
 
-    boolean reportWarnings = eventHandler.showOutput(
-        Label.print(getOwner().getLabel())) || errors.hasProblems();
-
-    if (warnings.hasProblems() && reportWarnings) {
+    if (warnings.hasProblems()) {
       eventHandler.handle(
-          Event.warn(getOwner().getLocation(), warnings.getMessage(this, getSourceFile())));
+          new Event(EventKind.WARNING, 
+              getOwner().getLocation(), warnings.getMessage(this, getSourceFile()),
+          Label.print(getOwner().getLabel())));
     }
     errors.assertProblemFree(this, getSourceFile());
   }

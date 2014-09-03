@@ -40,18 +40,40 @@ public final class Event {
    */
   private final byte[] messageBytes;
 
+  @Nullable
+  private final String tag;
+
+  public Event withTag(String tag) {
+    if (this.message != null) {
+      return new Event(this.kind, this.location, this.message, tag);
+    } else {
+      return new Event(this.kind, this.location, this.messageBytes, tag);
+    }
+  }
+
   public Event(EventKind kind, @Nullable Location location, String message) {
+    this(kind, location, message, null);
+  }
+
+  public Event(EventKind kind, @Nullable Location location, String message, @Nullable String tag) {
     this.kind = kind;
     this.location = location;
     this.message = Preconditions.checkNotNull(message);
     this.messageBytes = null;
+    this.tag = tag;
   }
 
   public Event(EventKind kind, @Nullable Location location, byte[] messageBytes) {
+    this(kind, location, messageBytes, null);
+  }
+
+  public Event(
+      EventKind kind, @Nullable Location location, byte[] messageBytes, @Nullable String tag) {
     this.kind = kind;
     this.location = location;
     this.message = null;
     this.messageBytes = Preconditions.checkNotNull(messageBytes);
+    this.tag = tag;
   }
 
   public String getMessage() {
@@ -64,6 +86,14 @@ public final class Event {
 
   public EventKind getKind() {
     return kind;
+  }
+
+  /**
+   * the tag is typically the action that generated the event.
+   */
+  @Nullable
+  public String getTag() {
+    return tag;
   }
 
   /**

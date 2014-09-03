@@ -57,20 +57,12 @@ public abstract class FoundationTestCase extends ChattyAssertsTestCase {
           fail(event.toString());
         }
       }
-      @Override
-      public boolean showOutput(String tag) {
-        return true;
-      }
     };
 
   protected static final EventHandler printHandler = new EventHandler() {
       @Override
       public void handle(Event event) {
         System.out.println(event);
-      }
-      @Override
-      public boolean showOutput(String tag) {
-        return true;
       }
     };
 
@@ -80,10 +72,29 @@ public abstract class FoundationTestCase extends ChattyAssertsTestCase {
     scratchDir("/home/jrluser/src-foo/google3");
     outputBase = scratchDir("/usr/local/google/_blaze_jrluser/FAKEMD5/");
     rootDirectory = scratchDir("/google3");
+    copySkylarkFilesIfExist();
     actionOutputBase = scratchDir("/usr/local/google/_blaze_jrluser/FAKEMD5/action_out/");
     eventCollector = new EventCollector(EventKind.ERRORS_AND_WARNINGS);
     reporter = new Reporter(eventCollector);
     reporter.addHandler(failFastHandler);
+  }
+
+  private void copySkylarkFilesIfExist() throws IOException {
+    File rulesDir = new File("devtools/blaze/rules");
+    if (rulesDir.exists() && rulesDir.isDirectory()) {
+      for (String fileName : rulesDir.list()) {
+        File file = new File("devtools/blaze/rules/" + fileName);
+        if (file.isFile() && fileName.endsWith(".bzl")) {
+          String context = loadFile(file);
+          String path = "/google3/devtools/blaze/rules/" + fileName;
+          if (scratchFS().getPath(path).exists()) {
+            overwriteScratchFile(path, context);
+          } else {
+            scratchFile(path, context);
+          }
+        }
+      }
+    }
   }
 
   @Override

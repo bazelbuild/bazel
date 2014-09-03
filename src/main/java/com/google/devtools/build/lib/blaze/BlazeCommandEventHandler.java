@@ -164,9 +164,6 @@ public class BlazeCommandEventHandler implements EventHandler {
     this.showTimestamp = eventOptions.showTimestamp;
   }
 
-  @Override
-  public boolean showOutput(String tag) { return true; }
-
   /** See EventHandler.handle. */
   @Override
   public void handle(Event event) {

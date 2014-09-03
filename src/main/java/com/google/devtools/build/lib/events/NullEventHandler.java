@@ -25,9 +25,4 @@ public final class NullEventHandler implements EventHandler {
   @Override
   public void handle(Event e) {
   }
-
-  @Override
-  public boolean showOutput(String tag) {
-    return false;
-  }
 }
