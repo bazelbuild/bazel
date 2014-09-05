@@ -170,7 +170,7 @@ Java_com_google_devtools_build_lib_unix_LocalSocket_select(JNIEnv *env,
                                                jobjectArray wfds_svr,
                                                jobjectArray efds_svr,
                                                jlong timeoutMillis) {
-  // TODO(sunq): Handle Unix signals, namely SIGTERM.
+  // TODO(bazel-team): Handle Unix signals, namely SIGTERM.
   int max_fd = -1;
   int temp_fd;
   fd_set rfds, wfds, efds;

@@ -1,9 +1,13 @@
 # This is a quick and dirty way to compile Bazel using only genrule.
 # We will need proper proto and java rules.
 
+load('rules/java_library_oss', 'java_library')
+
 # The file assumes there is a directory (or symlink) src/javadir.
 # Use this command to use local java:
 #   ln -s $(which java | sed 's_/bin/java'__) src/javadir
+
+JAVA_HOME = "src/javadir"
 
 platform = "linux"
 
@@ -17,7 +21,7 @@ for i in $(SRCS); do
   fi
 done
 
-# TODO(bazel_team): Remove hard-coded path to Java.
+# TODO(bazel-team): Remove hard-coded path to Java.
 JAVA=$(location :javadir/bin/javac)
 mkdir -p build_output
 """
@@ -78,39 +82,21 @@ genrule(
     tools = [":javadir/bin/javac"],
 )
 
-genrule(
-    name = "manifest",
-    outs = ["MANIFEST.MF"],
-    cmd = "echo 'Main-Class: com.google.devtools.build.lib.bazel.BazelMain' > $@",
-)
-
 # Java
 
-java_bin_command = header + """
-MAIN_FILE=src/main/java/com/google/devtools/build/lib/bazel/BazelMain.java
-
-# Unzip all dependent jar files
-for i in $$(echo $${JARS} | tr ':' ' '); do
-  unzip -qn $$i -d build_output
-done
-
-$${JAVA} -classpath $${JARS} -sourcepath src/main/java -d build_output $${MAIN_FILE}
-jar cmf MANIFEST.MF $@ -C build_output com -C build_output javax -C build_output org
-"""
-
-genrule(
-    name = "server_bin",
-    srcs = glob(["main/**/*.java"]) + [
-        "//third_party",
+java_library(
+    name = "blaze",
+    java_home = JAVA_HOME,
+    srcdir = "src/main/java",
+    main_class = "com.google.devtools.build.lib.bazel.BazelMain",
+    srcs = glob(["main/**/*.java"]),
+    deps = [
+       "//third_party",
         ":proto_build",
         ":proto_crosstool_config",
         ":proto_extra_actions_base",
         ":proto_test_status",
-        "MANIFEST.MF",
     ],
-    outs = ["libblaze.jar"],
-    cmd = java_bin_command,
-    tools = [":javadir/bin/javac"],
 )
 
 # C++

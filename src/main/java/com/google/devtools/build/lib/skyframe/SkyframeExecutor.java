@@ -48,7 +48,6 @@ import com.google.devtools.build.lib.concurrent.ThreadSafety.ThreadCompatible;
 import com.google.devtools.build.lib.events.EventHandler;
 import com.google.devtools.build.lib.events.Reporter;
 import com.google.devtools.build.lib.packages.BuildFileContainsErrorsException;
-import com.google.devtools.build.lib.packages.LegacyPackage;
 import com.google.devtools.build.lib.packages.NoSuchPackageException;
 import com.google.devtools.build.lib.packages.Package;
 import com.google.devtools.build.lib.packages.PackageFactory;
@@ -159,7 +158,7 @@ public final class SkyframeExecutor {
   // to find subincludes and declare value dependencies).
   // TODO(bazel-team): remove this cache once we have skyframe-native package loading
   // [skyframe-loading]
-  private final ConcurrentMap<String, LegacyPackage> packageFunctionCache =
+  private final ConcurrentMap<String, Package.LegacyBuilder> packageFunctionCache =
       Maps.newConcurrentMap();
   private final AtomicInteger numPackagesLoaded = new AtomicInteger(0);
 
@@ -641,6 +640,13 @@ public final class SkyframeExecutor {
     return ImmutableList.of(value.getStableArtifact(), value.getVolatileArtifact());
   }
 
+  @VisibleForTesting
+  public WorkspaceStatusAction getLastWorkspaceStatusActionForTesting() {
+    BuildVariableValue value = (BuildVariableValue) buildDriver.getGraphForTesting()
+        .getExistingValueForTesting(BuildVariableValue.WORKSPACE_STATUS_KEY.getKeyForTesting());
+    return (WorkspaceStatusAction) value.get();
+  }
+
   /**
    * Informs user about number of modified files (source and output files).
    */
@@ -1053,7 +1059,14 @@ public final class SkyframeExecutor {
       progressReceiver.executionProgressReceiver = null;
       // Also releases thread locks.
       resourceManager.resetResourceUsage();
+      skyframeActionExecutor.executionOver();
     }
+  }
+
+  @VisibleForTesting
+  public void prepareBuildingForTestingOnly(Executor executor, boolean keepGoing, boolean explain,
+                                            ActionCacheChecker checker) {
+    skyframeActionExecutor.prepareForExecution(executor, keepGoing, explain, checker);
   }
 
   EvaluationResult<TargetPatternValue> targetPatterns(Iterable<SkyKey> patternSkyKeys,
@@ -1495,15 +1508,18 @@ public final class SkyframeExecutor {
     this.binTools = binTools;
   }
 
-  public void prepareExecution() throws AbruptExitException, InterruptedException {
+  public void prepareExecution(boolean checkOutputFiles) throws AbruptExitException,
+      InterruptedException {
     Preconditions.checkState(skyframeBuild(),
         "Cannot prepare execution phase if not using Skyframe full");
     maybeInjectEmbeddedArtifacts();
 
-    // Detect external modifications in the output tree.
-    FilesystemValueChecker fsnc = new FilesystemValueChecker(memoizingEvaluator, tsgm);
-    recordingDiffer.invalidate(fsnc.getDirtyActionValues(batchStatter));
-    modifiedFiles += fsnc.getNumberOfModifiedOutputFiles();
+    if (checkOutputFiles) {
+      // Detect external modifications in the output tree.
+      FilesystemValueChecker fsnc = new FilesystemValueChecker(memoizingEvaluator, tsgm);
+      recordingDiffer.invalidate(fsnc.getDirtyActionValues(batchStatter));
+      modifiedFiles += fsnc.getNumberOfModifiedOutputFiles();
+    }
   }
 
   @VisibleForTesting void maybeInjectEmbeddedArtifacts() throws AbruptExitException {

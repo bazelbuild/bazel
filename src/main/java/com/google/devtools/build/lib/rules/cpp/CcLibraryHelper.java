@@ -121,6 +121,8 @@ public final class CcLibraryHelper {
 
   private final List<Artifact> publicHeaders = new ArrayList<>();
   private final List<Artifact> sources = new ArrayList<>();
+  private final List<Artifact> objectFiles = new ArrayList<>();
+  private final List<Artifact> picObjectFiles = new ArrayList<>();
   private final List<String> copts = new ArrayList<>();
   private final List<TransitiveInfoCollection> deps = new ArrayList<>();
   private final List<CcPluginInfoProvider> plugins = new ArrayList<>();
@@ -171,6 +173,57 @@ public final class CcLibraryHelper {
    */
   public CcLibraryHelper addSources(Artifact... sources) {
     return addSources(Arrays.asList(sources));
+  }
+
+  /**
+   * Add the corresponding files as linker inputs for non-PIC links. If the corresponding files are
+   * compiled with PIC, the final link may or may not fail. Note that the final link may not happen
+   * here, if {@code --start_end_lib} is enabled, but instead at any binary that transitively
+   * depends on the current rule.
+   */
+  public CcLibraryHelper addObjectFiles(Collection<Artifact> objectFiles) {
+    this.objectFiles.addAll(objectFiles);
+    return this;
+  }
+
+  /**
+   * Add the corresponding files as linker inputs for non-PIC links. If the corresponding files are
+   * compiled with PIC, the final link may or may not fail. Note that the final link may not happen
+   * here, if {@code --start_end_lib} is enabled, but instead at any binary that transitively
+   * depends on the current rule.
+   */
+  public CcLibraryHelper addObjectFiles(Artifact... objectFiles) {
+    return addObjectFiles(Arrays.asList(objectFiles));
+  }
+
+  /**
+   * Add the corresponding files as linker inputs for PIC links. If the corresponding files are not
+   * compiled with PIC, the final link may or may not fail. Note that the final link may not happen
+   * here, if {@code --start_end_lib} is enabled, but instead at any binary that transitively
+   * depends on the current rule.
+   */
+  public CcLibraryHelper addPicObjectFiles(Collection<Artifact> picObjectFiles) {
+    this.picObjectFiles.addAll(picObjectFiles);
+    return this;
+  }
+
+  /**
+   * Add the corresponding files as linker inputs for PIC links. If the corresponding files are not
+   * compiled with PIC, the final link may or may not fail. Note that the final link may not happen
+   * here, if {@code --start_end_lib} is enabled, but instead at any binary that transitively
+   * depends on the current rule.
+   */
+  public CcLibraryHelper addPicObjectFiles(Artifact... picObjectFiles) {
+    return addPicObjectFiles(Arrays.asList(picObjectFiles));
+  }
+
+  /**
+   * Add the corresponding files as linker inputs for both PIC and non-PIC links.
+   */
+  public CcLibraryHelper addPicIndependentObjectFiles(Artifact... objectFiles) {
+    List<Artifact> asList = Arrays.asList(objectFiles);
+    addPicObjectFiles(asList);
+    return addObjectFiles(asList);
   }
 
   /**
@@ -236,6 +289,7 @@ public final class CcLibraryHelper {
 
   /**
    * This adds the {@link CcSpecificLinkParamsProvider} to the providers created by this class.
+   * Otherwise the result will contain an instance of {@link CcLinkParamsProvider}.
    */
   public CcLibraryHelper enableCcSpecificLinkParamsProvider() {
     this.emitCcSpecificLinkParamsProvider = true;
@@ -288,6 +342,13 @@ public final class CcLibraryHelper {
           .setSaveTemps(true)
           .setEnableModules(enableLayeringCheck);
       ccOutputs = model.createCcCompileActions();
+      if (!objectFiles.isEmpty()) {
+        ccOutputs = new CcCompilationOutputs.Builder()
+            .merge(ccOutputs)
+            .addObjectFiles(objectFiles)
+            .addPicObjectFiles(objectFiles)
+            .build();
+      }
       ccLinkingOutputs = model.createCcLinkActions(ccOutputs);
     }
 
@@ -297,9 +358,8 @@ public final class CcLibraryHelper {
             .addAll(deps)
             .build());
 
-    boolean forcePic = ruleContext.getFragment(CppConfiguration.class).forcePic();
-    Runfiles cppStaticRunfiles = collectCppRunfiles(ccLinkingOutputs, true, forcePic);
-    Runfiles cppSharedRunfiles = collectCppRunfiles(ccLinkingOutputs, false, forcePic);
+    Runfiles cppStaticRunfiles = collectCppRunfiles(ccLinkingOutputs, true);
+    Runfiles cppSharedRunfiles = collectCppRunfiles(ccLinkingOutputs, false);
 
     // By very careful when adding new providers here - it can potentially affect a lot of rules.
     // We should consider merging most of these providers into a single provider.
@@ -322,8 +382,12 @@ public final class CcLibraryHelper {
     providers.put(CcExecutionDynamicLibrariesProvider.class,
         collectExecutionDynamicLibraryArtifacts(ccLinkingOutputs.getExecutionDynamicLibraries()));
 
+    boolean forcePic = ruleContext.getFragment(CppConfiguration.class).forcePic();
     if (emitCcSpecificLinkParamsProvider) {
       providers.put(CcSpecificLinkParamsProvider.class, new CcSpecificLinkParamsProvider(
+          createCcLinkParamsStore(ccLinkingOutputs, forcePic)));
+    } else {
+      providers.put(CcLinkParamsProvider.class, new CcLinkParamsProvider(
           createCcLinkParamsStore(ccLinkingOutputs, forcePic)));
     }
     return new Info(providers, ccOutputs, ccLinkingOutputs, cppCompilationContext);
@@ -360,8 +424,8 @@ public final class CcLibraryHelper {
 
     if (emitCppModuleMaps) {
       CppModuleMap cppModuleMap = CppHelper.addCppModuleMapToContext(ruleContext, contextBuilder);
-      // TODO(ulfjack): addCppModuleMapToContext second-guesses whether module maps should actually
-      // be enabled, so we need to double-check here. Who would write code like this?
+      // TODO(bazel-team): addCppModuleMapToContext second-guesses whether module maps should
+      // actually be enabled, so we need to double-check here. Who would write code like this?
       if (cppModuleMap != null) {
         CppModuleMapAction action = new CppModuleMapAction(ruleContext.getActionOwner(),
             cppModuleMap, /*privateHeaders=*/ImmutableList.<Artifact>of(),
@@ -414,12 +478,12 @@ public final class CcLibraryHelper {
   }
 
   private Runfiles collectCppRunfiles(
-      CcLinkingOutputs ccLinkingOutputs, boolean linkingStatically, boolean forcePic) {
+      CcLinkingOutputs ccLinkingOutputs, boolean linkingStatically) {
     Runfiles.Builder builder = new Runfiles.Builder();
     builder.addTargets(deps, RunfilesProvider.DEFAULT_RUNFILES);
     builder.addTargets(deps, CppRunfilesProvider.runfilesFunction(linkingStatically));
     // Add the shared libraries to the runfiles.
-    builder.addArtifacts(ccLinkingOutputs.getLibrariesForRunfiles(linkingStatically, forcePic));
+    builder.addArtifacts(ccLinkingOutputs.getLibrariesForRunfiles(linkingStatically));
     return builder.build();
   }
 
@@ -429,8 +493,8 @@ public final class CcLibraryHelper {
       @Override
       protected void collect(CcLinkParams.Builder builder, boolean linkingStatically,
           boolean linkShared) {
-        builder.addTransitiveLangTargets(deps, CcSpecificLinkParamsProvider.TO_LINK_PARAMS);
-        builder.addTransitiveTargets(deps);
+        builder.addTransitiveTargets(deps,
+            CcLinkParamsProvider.TO_LINK_PARAMS, CcSpecificLinkParamsProvider.TO_LINK_PARAMS);
         builder.addLibraries(ccLinkingOutputs.getPreferredLibraries(linkingStatically,
             /*preferPic=*/linkShared || forcePic));
       }

@@ -368,7 +368,8 @@ public class TestSummary implements Comparable<TestSummary> {
     }
   }
 
-  List<Long> getTestTimes() {
+  public List<Long> getTestTimes() {
+    // The return result is unmodifiable (UnmodifiableList instance)
     return testTimes;
   }
 

@@ -20,21 +20,20 @@ import com.google.common.collect.Iterables;
 import com.google.common.collect.Lists;
 import com.google.common.collect.Sets;
 import com.google.common.eventbus.EventBus;
-import com.google.devtools.build.lib.concurrent.ThreadSafety.ThreadSafe;
 import com.google.devtools.build.lib.events.Event;
 import com.google.devtools.build.lib.events.EventHandler;
+import com.google.devtools.build.lib.events.Location;
 import com.google.devtools.build.lib.events.Reporter;
 import com.google.devtools.build.lib.packages.BuildFileContainsErrorsException;
 import com.google.devtools.build.lib.packages.BuildFileNotFoundException;
-import com.google.devtools.build.lib.packages.BulkPackageLocatorForCrossingSubpackageBoundaries;
 import com.google.devtools.build.lib.packages.CachingPackageLocator;
 import com.google.devtools.build.lib.packages.InvalidPackageNameException;
-import com.google.devtools.build.lib.packages.LegacyPackage;
 import com.google.devtools.build.lib.packages.NoSuchPackageException;
 import com.google.devtools.build.lib.packages.Package;
 import com.google.devtools.build.lib.packages.PackageFactory;
 import com.google.devtools.build.lib.packages.PackageLoadedEvent;
 import com.google.devtools.build.lib.packages.RuleVisibility;
+import com.google.devtools.build.lib.packages.Target;
 import com.google.devtools.build.lib.skyframe.GlobValue.InvalidGlobPatternException;
 import com.google.devtools.build.lib.syntax.Label;
 import com.google.devtools.build.lib.syntax.ParserInputSource;
@@ -52,6 +51,7 @@ import com.google.devtools.build.skyframe.SkyValue;
 import com.google.devtools.build.skyframe.ValueOrException;
 
 import java.io.IOException;
+import java.util.Collection;
 import java.util.List;
 import java.util.Map;
 import java.util.Map.Entry;
@@ -71,7 +71,7 @@ public class PackageFunction implements SkyFunction {
   private final EventHandler reporter;
   private final PackageFactory packageFactory;
   private final CachingPackageLocator packageLocator;
-  private final ConcurrentMap<String, LegacyPackage> packageFunctionCache;
+  private final ConcurrentMap<String, Package.LegacyBuilder> packageFunctionCache;
   private final AtomicBoolean showLoadingProgress;
   private final AtomicReference<EventBus> eventBus;
   private final AtomicInteger numPackagesLoaded;
@@ -79,60 +79,11 @@ public class PackageFunction implements SkyFunction {
   private static final PathFragment PRELUDE_FILE_FRAGMENT =
       new PathFragment("devtools/blaze/rules/prelude.bzl");
 
-  /**
-   * A package locator that delegates to the {@link PackageFunction}'s
-   * CachingPackageLocator and also tracks the implicit dependencies on existing packages needed by
-   * {@link BulkPackageLocatorForCrossingSubpackageBoundaries} for Skyframe's consumption.
-   */
-  private class SkyframePackageLocator implements CachingPackageLocator,
-      BulkPackageLocatorForCrossingSubpackageBoundaries {
-
-    private Set<SkyKey> deps = Sets.newConcurrentHashSet();
-
-    private SkyframePackageLocator() {}
-
-    /**
-     * Returns an immutable copy of the package lookup dependencies recorded since this
-     * SkyframePackageLocator was constructed.
-     */
-    private ImmutableSet<SkyKey> getValues() {
-      return ImmutableSet.copyOf(deps);
-    }
-
-    @Override
-    @ThreadSafe
-    public Path getBuildFileForPackage(String packageName) {
-      return packageLocator.getBuildFileForPackage(packageName);
-    }
-
-    /**
-     * Same specification as
-     * {@link BulkPackageLocatorForCrossingSubpackageBoundaries#getExistingPackages},
-     * but since the state of the package depends on this call, we need to record dependencies.
-     */
-    @Override
-    public Map<PathFragment, Path> getExistingPackages(Set<PathFragment> candidates)
-        throws InterruptedException {
-      ImmutableMap.Builder<PathFragment, Path> result = ImmutableMap.builder();
-      for (PathFragment pkgName : candidates) {
-        // We first add a dependency on the PackageLookupValue for this package. This is important
-        // in case the value of --deleted_packages changes in the future.
-        deps.add(PackageLookupValue.key(pkgName));
-        // Note the call to our wrapper implementation, which handles deleted packages.
-        Path path = getBuildFileForPackage(pkgName.getPathString());
-        if (path != null) {
-          result.put(pkgName, path);
-        }
-      }
-      return result.build();
-    }
-  }
-
   static final String DEFAULTS_PACKAGE_NAME = "tools/defaults";
 
   public PackageFunction(Reporter reporter, PackageFactory packageFactory,
       CachingPackageLocator pkgLocator, AtomicBoolean showLoadingProgress,
-      ConcurrentMap<String, LegacyPackage> packageFunctionCache,
+      ConcurrentMap<String, Package.LegacyBuilder> packageFunctionCache,
       AtomicReference<EventBus> eventBus, AtomicInteger numPackagesLoaded) {
     this.reporter = reporter;
 
@@ -246,13 +197,9 @@ public class PackageFunction implements SkyFunction {
    * inconsistent).
    */
   private static boolean markDependenciesAndPropagateInconsistentFilesystemExceptions(
-      LegacyPackage pkg, Environment env, SkyframePackageLocator skyframePackageLocator)
+      Package pkg, Environment env, Collection<Pair<String, Boolean>> globPatterns)
           throws InconsistentFilesystemException {
     boolean packageShouldBeInError = pkg.containsErrors();
-    // Tell the environment about our dependencies on potential subpackages.
-    getPackageLookupDepsAndPropagateInconsistentFilesystemExceptions(
-        skyframePackageLocator.getValues(), env, pkg.containsErrors());
-
     // TODO(bazel-team): The transitive closure of Skylark modules handled monolithically.
     // This is not efficient. Create Skyframe nodes for every module.
     Set<SkyKey> skylarkExtensionDepKeys = Sets.newHashSet();
@@ -328,7 +275,7 @@ public class PackageFunction implements SkyFunction {
     // adequate performance.
     PathFragment packagePathFragment = pkg.getNameFragment();
     List<SkyKey> globDepKeys = Lists.newArrayList();
-    for (Pair<String, Boolean> globPattern : pkg.getGlobPatterns()) {
+    for (Pair<String, Boolean> globPattern : globPatterns) {
       String pattern = globPattern.getFirst();
       boolean excludeDirs = globPattern.getSecond();
       SkyKey globSkyKey;
@@ -348,10 +295,10 @@ public class PackageFunction implements SkyFunction {
   @Override
   public SkyValue compute(SkyKey key, Environment env) throws PackageFunctionException,
       InterruptedException {
-    PathFragment packagePathFragment = (PathFragment) key.argument();
-    String packageName = packagePathFragment.getPathString();
+    PathFragment packageNameFragment = (PathFragment) key.argument();
+    String packageName = packageNameFragment.getPathString();
 
-    SkyKey packageLookupKey = PackageLookupValue.key(packagePathFragment);
+    SkyKey packageLookupKey = PackageLookupValue.key(packageNameFragment);
     PackageLookupValue packageLookupValue;
     try {
       packageLookupValue = (PackageLookupValue)
@@ -383,12 +330,8 @@ public class PackageFunction implements SkyFunction {
       }
     }
 
-    // If any calls to our implementation of
-    // BulkPackageLocatorForCrossingSubpackageBoundaries#getExistingPackages are needed to
-    // construct this package object, then we should record the dependencies.
-    SkyframePackageLocator skyframePackageLocator = new SkyframePackageLocator();
     Path buildFilePath =
-        packageLookupValue.getRoot().getRelative(packagePathFragment).getChild("BUILD");
+        packageLookupValue.getRoot().getRelative(packageNameFragment).getChild("BUILD");
 
     String replacementContents = null;
     if (packageName.equals(DEFAULTS_PACKAGE_NAME)) {
@@ -410,14 +353,24 @@ public class PackageFunction implements SkyFunction {
       return null;
     }
 
-    LegacyPackage legacyPkg = loadPackage(replacementContents, packageName, buildFilePath,
-        env.getListener(), skyframePackageLocator, defaultVisibility,
-        astLookupValue.getStatements());
-    boolean packageShouldBeConsideredInError = legacyPkg.containsErrors();
+    Package.LegacyBuilder legacyPkgBuilder = loadPackage(replacementContents, packageName,
+        buildFilePath, defaultVisibility, astLookupValue.getStatements());
+    legacyPkgBuilder.buildPartial();
+    handleLabelsCrossingSubpackages(packageLookupValue.getRoot(), packageNameFragment,
+        legacyPkgBuilder, env);
+    if (env.valuesMissing()) {
+      // The package we just loaded will be in the {@code packageFunctionCache} next when this
+      // SkyFunction is called again.
+      return null;
+    }
+    Collection<Pair<String, Boolean>> globPatterns = legacyPkgBuilder.getGlobPatterns();
+    Package pkg = legacyPkgBuilder.finishBuild();
+    Event.replayEventsOn(env.getListener(), pkg.getEvents());
+    boolean packageShouldBeConsideredInError = pkg.containsErrors();
     try {
       packageShouldBeConsideredInError =
-          markDependenciesAndPropagateInconsistentFilesystemExceptions(legacyPkg, env,
-              skyframePackageLocator);
+          markDependenciesAndPropagateInconsistentFilesystemExceptions(pkg, env,
+              globPatterns);
     } catch (InconsistentFilesystemException e) {
       packageFunctionCache.remove(packageName);
       throw new PackageFunctionException(key,
@@ -425,17 +378,11 @@ public class PackageFunction implements SkyFunction {
     }
 
     if (env.valuesMissing()) {
-      // The package we just loaded will be in the {@code packageFunctionCache} next when this
-      // SkyFunction is called again.
       return null;
     }
     // We know this SkyFunction will not be called again, so we can remove the cache entry.
     packageFunctionCache.remove(packageName);
 
-    // This is safe since the LegacyPackage instance is only used at the Package type from here on
-    // out.
-    legacyPkg.dropLegacyData();
-    Package pkg = legacyPkg;
     if (packageShouldBeConsideredInError) {
       throw new PackageFunctionException(key, new BuildFileContainsErrorsException(pkg,
           "Package '" + packageName + "' contains errors"));
@@ -449,42 +396,112 @@ public class PackageFunction implements SkyFunction {
     return null;
   }
 
+  private static void handleLabelsCrossingSubpackages(Path pkgRoot, PathFragment pkgNameFragment,
+      Package.LegacyBuilder pkgBuilder, Environment env) {
+    Set<SkyKey> containingPkgLookupKeys = Sets.newHashSet();
+    for (Target target : pkgBuilder.getTargets()) {
+      PathFragment dir = target.getLabel().toPathFragment().getParentDirectory();
+      if (dir.equals(pkgNameFragment)) {
+        continue;
+      }
+      containingPkgLookupKeys.add(ContainingPackageLookupValue.key(dir));
+    }
+    for (Label subincludeLabel : pkgBuilder.getSubincludeLabels()) {
+      PathFragment dir = subincludeLabel.toPathFragment().getParentDirectory();
+      if (dir.equals(pkgNameFragment)) {
+        continue;
+      }
+      containingPkgLookupKeys.add(ContainingPackageLookupValue.key(dir));
+    }
+    Map<SkyKey, SkyValue> containingPkgLookupValues = env.getValues(containingPkgLookupKeys);
+    for (Target target : ImmutableSet.copyOf(pkgBuilder.getTargets())) {
+      if (maybeAddEventAboutLabelCrossingSubpackage(pkgBuilder, pkgRoot, pkgNameFragment,
+          target.getLabel(), target.getLocation(), containingPkgLookupValues)) {
+        pkgBuilder.removeTarget(target);
+        pkgBuilder.setContainsErrors();
+      }
+    }
+    for (Label subincludeLabel : pkgBuilder.getSubincludeLabels()) {
+      if (maybeAddEventAboutLabelCrossingSubpackage(pkgBuilder, pkgRoot, pkgNameFragment,
+          subincludeLabel, /*location=*/null, containingPkgLookupValues)) {
+        pkgBuilder.setContainsErrors();
+      }
+    }
+  }
+
+  private static boolean maybeAddEventAboutLabelCrossingSubpackage(
+      Package.LegacyBuilder pkgBuilder, Path pkgRoot, PathFragment pkgName, Label label,
+      @Nullable Location location, Map<SkyKey, SkyValue> containingPkgLookupValues) {
+    PathFragment dir = label.toPathFragment().getParentDirectory();
+    ContainingPackageLookupValue containingPkgLookupValue =
+        (ContainingPackageLookupValue) containingPkgLookupValues.get(
+            ContainingPackageLookupValue.key(dir));
+    if (containingPkgLookupValue == null) {
+      return false;
+    }
+    if (!containingPkgLookupValue.hasContainingPackage()) {
+      // The missing package here is a problem, but it's not an error from the perspective of
+      // PackageFunction.
+      return false;
+    }
+    PathFragment containingPkg = containingPkgLookupValue.getContainingPackageName();
+    if (containingPkg.equals(label.getPackageFragment())) {
+      // The label does not cross a subpackage boundary.
+      return false;
+    }
+    PathFragment labelNameFragment = new PathFragment(label.getName());
+    String message = String.format("Label '%s' crosses boundary of subpackage '%s'",
+        label, containingPkg);
+    Path containingRoot = containingPkgLookupValue.getContainingPackageRoot();
+    if (pkgRoot.equals(containingRoot)) {
+      PathFragment labelNameInContainingPackage = labelNameFragment.subFragment(
+          containingPkg.segmentCount() - pkgName.segmentCount(),
+          labelNameFragment.segmentCount());
+      message += " (perhaps you meant to put the colon here: "
+          + "'//" + containingPkg + ":" + labelNameInContainingPackage + "'?)";
+    } else {
+      message += " (have you deleted " + containingPkg + "/BUILD? "
+          + "If so, use the --deleted_packages=" + containingPkg + " option)";
+    }
+    pkgBuilder.addEvent(Event.error(location, message));
+    return true;
+  }
+
   /**
    * Constructs a {@link Package} object for the given package using legacy package loading.
    * Note that the returned package may be in error.
    */
-  private LegacyPackage loadPackage(@Nullable String replacementContents, String packageName,
-      Path buildFilePath, EventHandler eventHandler,
-      SkyframePackageLocator skyframePackageLocator,
-      RuleVisibility defaultVisibility,
+  private Package.LegacyBuilder loadPackage(@Nullable String replacementContents,
+      String packageName, Path buildFilePath, RuleVisibility defaultVisibility,
       List<Statement> preludeStatements) throws InterruptedException {
     ParserInputSource replacementSource = replacementContents == null ? null
         : ParserInputSource.create(replacementContents, buildFilePath);
 
-    LegacyPackage pkg = packageFunctionCache.get(packageName);
-    if (pkg == null) {
+    Package.LegacyBuilder pkgBuilder = packageFunctionCache.get(packageName);
+    if (pkgBuilder == null) {
       if (showLoadingProgress.get()) {
         reporter.handle(Event.progress("Loading package: " + packageName));
       }
 
       Clock clock = new JavaClock();
       long startTime = clock.nanoTime();
-      pkg = packageFactory.createPackage(packageName, buildFilePath, preludeStatements,
-          skyframePackageLocator, replacementSource, defaultVisibility, skyframePackageLocator);
+      pkgBuilder = packageFactory.createPackage(packageName, buildFilePath, preludeStatements,
+          packageLocator, replacementSource, defaultVisibility);
 
       if (eventBus.get() != null) {
-        eventBus.get().post(new PackageLoadedEvent(pkg.getName(),
+        eventBus.get().post(new PackageLoadedEvent(packageName,
             (clock.nanoTime() - startTime) / (1000 * 1000),
             // It's impossible to tell if the package was loaded before, so we always pass false.
             /*reloading=*/false,
-            !pkg.containsErrors()));
+            // This isn't completely correct since we may encounter errors later (e.g. filesystem
+            // inconsistencies)
+            !pkgBuilder.containsErrors()));
       }
 
       numPackagesLoaded.incrementAndGet();
-      packageFunctionCache.put(packageName, pkg);
+      packageFunctionCache.put(packageName, pkgBuilder);
     }
-    Event.replayEventsOn(eventHandler, pkg.getEvents());
-    return pkg;
+    return pkgBuilder;
   }
 
   static class InternalInconsistentFilesystemException extends NoSuchPackageException {

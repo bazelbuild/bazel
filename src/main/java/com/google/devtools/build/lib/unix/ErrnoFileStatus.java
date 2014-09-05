@@ -14,6 +14,8 @@
 
 package com.google.devtools.build.lib.unix;
 
+import com.google.devtools.build.lib.UnixJniLoader;
+
 
 /**
  * A subsclass of FileStatus which contains an errno.

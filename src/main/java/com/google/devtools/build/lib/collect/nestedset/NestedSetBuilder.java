@@ -32,7 +32,7 @@ public final class NestedSetBuilder<E> {
 
   private final Order order;
   private final LinkedHashSet<E> items = new LinkedHashSet<>();
-  private final LinkedHashSet<NestedSet<E>> transitiveSets = new LinkedHashSet<>();
+  private final LinkedHashSet<NestedSet<? extends E>> transitiveSets = new LinkedHashSet<>();
 
   public NestedSetBuilder(Order order) {
     this.order = order;
@@ -97,7 +97,7 @@ public final class NestedSetBuilder<E> {
    *
    * @return the builder.
    */
-  public NestedSetBuilder<E> addTransitive(NestedSet<E> subset) {
+  public NestedSetBuilder<E> addTransitive(NestedSet<? extends E> subset) {
     Preconditions.checkNotNull(subset);
     if (subset.getOrder() != order && order != Order.STABLE_ORDER
             && subset.getOrder() != Order.STABLE_ORDER) {
@@ -120,13 +120,21 @@ public final class NestedSetBuilder<E> {
    * <p>This method may be called multiple times with interleaved {@link #add}, {@link #addAll} and
    * {@link #addTransitive} calls.
    */
+  // Casting from LinkedHashSet<NestedSet<? extends E>> to LinkedHashSet<NestedSet<E>> by way of
+  // LinkedHashSet<?>.
+  @SuppressWarnings("unchecked")
   public NestedSet<E> build() {
     if (isEmpty()) {
       return order.emptySet();
     }
 
-    if (items.isEmpty() && (transitiveSets.size() == 1)) {
-      NestedSet<E> candidate = getOnlyElement(transitiveSets);
+    // This cast is safe because NestedSets are immutable -- we will never try to add an element to
+    // these nested sets, only to retrieve elements from them. Thus, treating them as NestedSet<E>
+    // is safe.
+    LinkedHashSet<NestedSet<E>> transitiveSetsCast =
+        (LinkedHashSet<NestedSet<E>>) (LinkedHashSet<?>) transitiveSets;
+    if (items.isEmpty() && (transitiveSetsCast.size() == 1)) {
+      NestedSet<E> candidate = getOnlyElement(transitiveSetsCast);
       if (candidate.getOrder().equals(order)) {
         return candidate;
       }
@@ -147,25 +155,25 @@ public final class NestedSetBuilder<E> {
       case 1:
         switch (directSize) {
           case 0:
-            return order.factory.onlyOneTransitive(getOnlyElement(transitiveSets));
+            return order.factory.onlyOneTransitive(getOnlyElement(transitiveSetsCast));
           case 1:
             return order.factory.oneDirectOneTransitive(getOnlyElement(items),
-                getOnlyElement(transitiveSets));
+                getOnlyElement(transitiveSetsCast));
           default:
             return order.factory.manyDirectsOneTransitive(items.toArray(),
-                getOnlyElement(transitiveSets));
+                getOnlyElement(transitiveSetsCast));
         }
       default:
         switch (directSize) {
           case 0:
             return order.factory.onlyManyTransitives(
-                transitiveSets.toArray(new NestedSet[transitiveSize]));
+                transitiveSetsCast.toArray(new NestedSet[transitiveSize]));
           case 1:
-            return order.factory.oneDirectManyTransitive(getOnlyElement(items), transitiveSets
+            return order.factory.oneDirectManyTransitive(getOnlyElement(items), transitiveSetsCast
                 .toArray(new NestedSet[transitiveSize]));
           default:
             return order.factory.manyDirectManyTransitive(items.toArray(),
-                transitiveSets.toArray(new NestedSet[transitiveSize]));
+                transitiveSetsCast.toArray(new NestedSet[transitiveSize]));
         }
     }
   }

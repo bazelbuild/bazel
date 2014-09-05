@@ -243,7 +243,7 @@ public final class Command {
     this.processBuilder =
       new ProcessBuilder(maybeAddShell(commandLineElements, useShell));
     if (environmentVariables != null) {
-      // TODO(srowen) remove next line eventually; it is here to mimic old
+      // TODO(bazel-team) remove next line eventually; it is here to mimic old
       // Runtime.exec() behavior
       this.processBuilder.environment().clear();
       this.processBuilder.environment().putAll(environmentVariables);

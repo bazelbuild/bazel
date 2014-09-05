@@ -29,7 +29,6 @@ import com.google.devtools.build.lib.vfs.PathFragment;
 import com.google.devtools.build.lib.view.config.BuildConfiguration;
 import com.google.devtools.build.lib.view.config.BuildConfiguration.LabelConverter;
 import com.google.devtools.build.lib.view.config.CompilationMode;
-import com.google.devtools.build.lib.view.config.DefaultsPackage;
 import com.google.devtools.build.lib.view.config.FragmentOptions;
 import com.google.devtools.build.lib.view.config.PerLabelOptions;
 import com.google.devtools.build.lib.view.config.crosstool.CrosstoolConfig.LipoMode;
@@ -204,13 +203,9 @@ public class CppOptions extends FragmentOptions {
   @Option(name = "crosstool_top",
           defaultValue = CppOptions.DEFAULT_CROSSTOOL_TARGET,
           category = "version",
-          help = "Either an absolute path to a local crosstool top-level "
-                 + "directory, or a label of a crosstool package on the "
-                 + "package path. Remote compilation is supported for "
-                 + "locally installed crosstools, if the crosstool is also "
-                 + "installed on the remote build workers and for all label "
-                 + "settings.")
-  public String crosstoolTop;
+          converter = LabelConverter.class,
+          help = "The label of the crosstool package to be used for compiling C++ code.")
+  public Label crosstoolTop;
 
   @Option(name = "compiler",
           defaultValue = "null",
@@ -272,14 +267,13 @@ public class CppOptions extends FragmentOptions {
   public List<CompilationMode> fissionModes;
 
   @Option(name = "dynamic_mode",
-          defaultValue = "auto",
+          defaultValue = "default",
           converter = DynamicModeConverter.class,
           category = "semantics",
           help = "Determines whether C++ binaries will be linked dynamically.  'default' means "
             + "blaze will choose whether to link dynamically.  'fully' means all libraries "
-            + "will be linked dynamically.  'off' means that all libraries will be linked "
-            + "in mostly static mode.  'auto' translates to a platform-dependent mode; "
-            + "'default' for linux and 'off' for cygwin.")
+            + "will be linked dynamically. 'off' means that all libraries will be linked "
+            + "in mostly static mode.")
   public DynamicModeFlag dynamicMode;
 
   @Option(name = "force_pic",
@@ -473,11 +467,12 @@ public class CppOptions extends FragmentOptions {
 
   @Option(name = "host_crosstool_top",
       defaultValue = "null",
+      converter = LabelConverter.class,
       category = "semantics",
       help = "By default, the --crosstool_top, --glibc, and --compiler options are also used " +
           "for the host configuration. If this flag is provided, Blaze uses the default glibc " +
           "and compiler for the given crosstool_top.")
-  public String hostCrosstoolTop;
+  public Label hostCrosstoolTop;
 
   @Option(name = "host_copt",
       allowMultiple = true,
@@ -589,8 +584,11 @@ public class CppOptions extends FragmentOptions {
 
   @Override
   public void addAllLabels(Multimap<String, Label> labelMap) {
-    addOptionalLabel(labelMap, "crosstool", crosstoolTop);
-    addOptionalLabel(labelMap, "crosstool", hostCrosstoolTop);
+    labelMap.put("crosstool", crosstoolTop);
+    if (hostCrosstoolTop != null) {
+      labelMap.put("crosstool", hostCrosstoolTop);
+    }
+
     if (libcTop != null) {
       Label libcLabel = libcTop.getLabel();
       if (libcLabel != null) {
@@ -615,8 +613,11 @@ public class CppOptions extends FragmentOptions {
   @Override
   public Map<String, Set<Label>> getDefaultsLabels(BuildConfiguration.Options commonOptions) {
     Set<Label> crosstoolLabels = new LinkedHashSet<>();
-    DefaultsPackage.parseAndAdd(crosstoolLabels, crosstoolTop);
-    DefaultsPackage.parseAndAdd(crosstoolLabels, hostCrosstoolTop);
+    crosstoolLabels.add(crosstoolTop);
+    if (hostCrosstoolTop != null) {
+      crosstoolLabels.add(hostCrosstoolTop);
+    }
+
     if (libcTop != null) {
       Label libcLabel = libcTop.getLabel();
       if (libcLabel != null) {

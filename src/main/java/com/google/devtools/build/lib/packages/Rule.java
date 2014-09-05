@@ -450,7 +450,7 @@ public final class Rule implements Target {
    * will retain the relative order in which they were declared.
    */
   void populateOutputFiles(EventHandler eventHandler,
-      Package.AbstractPackageBuilder<?, ?> pkgBuilder) {
+      Package.AbstractBuilder<?, ?> pkgBuilder) {
     Preconditions.checkState(outputFiles == null);
     // Order is important here: implicit before explicit
     outputFiles = Lists.newArrayList();
@@ -486,7 +486,7 @@ public final class Rule implements Target {
    * of the rule's "name", "srcs", and other attributes.
    */
   private void populateImplicitOutputFiles(EventHandler eventHandler,
-      Package.AbstractPackageBuilder<?, ?> pkgBuilder) {
+      Package.AbstractBuilder<?, ?> pkgBuilder) {
     try {
       for (String out : ruleClass.getImplicitOutputsFunction().getImplicitOutputs(attributeMap)) {
         try {

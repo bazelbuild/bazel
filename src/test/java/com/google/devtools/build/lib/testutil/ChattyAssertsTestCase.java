@@ -32,11 +32,6 @@ import java.util.regex.Pattern;
  * class, and then customized to make the error messages a bit more informative.
  */
 public abstract class ChattyAssertsTestCase extends TestCase {
-
-  // TODO(kcooney): Parts of this class may become irrelevant when Google
-  // comletes its move to JUnit 4.5. Revisit the value of these methods post-
-  // migration.
-
   private long currentTestStartTime = -1;
 
   @Override
@@ -71,7 +66,7 @@ public abstract class ChattyAssertsTestCase extends TestCase {
     }
 
   }
-  
+
   /**
    * Asserts that two objects are equal. If they are not
    * an AssertionFailedError is thrown with the given message.

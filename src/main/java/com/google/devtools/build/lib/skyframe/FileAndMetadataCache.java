@@ -418,7 +418,7 @@ class FileAndMetadataCache implements ActionInputFileCache, MetadataHandler {
     FileStateValue realFileStateValue;
     try {
       fileStateValue = FileStateValue.createWithStatNoFollow(rootedPath, statNoFollow, tsgm);
-      // TODO(bazel-devel): consider avoiding a 'stat' here when the symlink target hasn't changed
+      // TODO(bazel-team): consider avoiding a 'stat' here when the symlink target hasn't changed
       // and is a source file (since changes to those are checked separately).
       realFileStateValue = realPath.equals(path) ? fileStateValue
           : FileStateValue.create(realRootedPath, tsgm);

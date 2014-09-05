@@ -66,8 +66,7 @@ public abstract class CcLibrary implements RuleConfiguredTargetFactory {
     // neverlink= true creates a library that will never be linked into any binary that depends on
     // it, but instead be loaded as an extension. So we need the dynamic library for this in the
     // runfiles.
-    builder.addArtifacts(ccLinkingOutputs.getLibrariesForRunfiles(
-        linkingStatically && !neverLink, context.getFragment(CppConfiguration.class).forcePic()));
+    builder.addArtifacts(ccLinkingOutputs.getLibrariesForRunfiles(linkingStatically && !neverLink));
     builder.add(context, CppRunfilesProvider.runfilesFunction(linkingStatically));
     builder.addDataDeps(context);
 

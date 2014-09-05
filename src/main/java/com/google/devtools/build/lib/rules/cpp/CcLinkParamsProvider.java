@@ -14,7 +14,10 @@
 
 package com.google.devtools.build.lib.rules.cpp;
 
+import com.google.common.base.Function;
 import com.google.devtools.build.lib.concurrent.ThreadSafety.Immutable;
+import com.google.devtools.build.lib.rules.cpp.CcLinkParamsStore.CcLinkParamsStoreImpl;
+import com.google.devtools.build.lib.view.TransitiveInfoCollection;
 import com.google.devtools.build.lib.view.TransitiveInfoProvider;
 
 /**
@@ -22,46 +25,26 @@ import com.google.devtools.build.lib.view.TransitiveInfoProvider;
  */
 @Immutable
 public final class CcLinkParamsProvider implements TransitiveInfoProvider {
+  public static final Function<TransitiveInfoCollection, CcLinkParamsStore> TO_LINK_PARAMS =
+      new Function<TransitiveInfoCollection, CcLinkParamsStore>() {
+        @Override
+        public CcLinkParamsStore apply(TransitiveInfoCollection input) {
+          CcLinkParamsProvider provider = input.getProvider(
+              CcLinkParamsProvider.class);
+          return provider == null ? null : provider.store;
+        }
+      };
 
-  private final CcLinkParams staticSharedParams;
-  private final CcLinkParams staticNonSharedParams;
-  private final CcLinkParams nonStaticSharedParams;
-  private final CcLinkParams nonStaticNonSharedParams;
+  private final CcLinkParamsStoreImpl store;
 
-  public CcLinkParamsProvider(CcLinkParamsStore ccLinkParamsStore) {
-    this.staticSharedParams = ccLinkParamsStore.get(true, true);
-    this.staticNonSharedParams = ccLinkParamsStore.get(true, false);
-    this.nonStaticSharedParams = ccLinkParamsStore.get(false, true);
-    this.nonStaticNonSharedParams = ccLinkParamsStore.get(false, false);
-  }
-
-  public CcLinkParamsProvider(
-      CcLinkParams staticSharedParams,
-      CcLinkParams staticNonSharedParams,
-      CcLinkParams nonStaticSharedParams,
-      CcLinkParams nonStaticNonSharedParams) {
-    this.staticSharedParams = staticSharedParams;
-    this.staticNonSharedParams = staticNonSharedParams;
-    this.nonStaticSharedParams = nonStaticSharedParams;
-    this.nonStaticNonSharedParams = nonStaticNonSharedParams;
+  public CcLinkParamsProvider(CcLinkParamsStore store) {
+    this.store = new CcLinkParamsStoreImpl(store);
   }
 
   /**
    * Returns link parameters given static / shared linking settings.
    */
   public CcLinkParams getCcLinkParams(boolean linkingStatically, boolean linkShared) {
-    if (linkingStatically) {
-      if (linkShared) {
-        return staticSharedParams;
-      } else {
-        return staticNonSharedParams;
-      }
-    } else {
-      if (linkShared) {
-        return nonStaticSharedParams;
-      } else {
-        return nonStaticNonSharedParams;
-      }
-    }
+    return store.get(linkingStatically, linkShared);
   }
 }

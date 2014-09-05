@@ -36,7 +36,7 @@ public final class TimeoutKillableObserver implements KillableObserver {
   private SleeperThread sleeperThread;
   private boolean timedOut;
 
-  // TODO(srowen) I'd like to use ThreadPool2, but it doesn't currently
+  // TODO(bazel-team): I'd like to use ThreadPool2, but it doesn't currently
   // provide a way to interrupt a thread
 
   public TimeoutKillableObserver(final long timeoutMS) {
@@ -49,6 +49,7 @@ public final class TimeoutKillableObserver implements KillableObserver {
    *
    * @param killable killable to kill when the timeout period expires
    */
+  @Override
   public synchronized void startObserving(final Killable killable) {
     this.timedOut = false;
     this.killable = killable;
@@ -56,6 +57,7 @@ public final class TimeoutKillableObserver implements KillableObserver {
     this.sleeperThread.start();
   }
 
+  @Override
   public synchronized void stopObserving(final Killable killable) {
     if (!this.killable.equals(killable)) {
       throw new IllegalStateException("start/stopObservering called with " +
@@ -89,7 +91,7 @@ public final class TimeoutKillableObserver implements KillableObserver {
       }
     }
   }
-  
+
   /**
    * Returns true if the observed process was killed by this observer.
    */

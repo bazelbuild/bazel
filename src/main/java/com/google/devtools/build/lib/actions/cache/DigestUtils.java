@@ -99,7 +99,7 @@ public class DigestUtils {
    * to avoid excessive disk seeks.
    */
   public static byte[] getDigestOrFail(Path path, long fileSize) throws IOException {
-    // TODO(bazel-devel): the action cache currently only works with md5 digests but it ought to
+    // TODO(bazel-team): the action cache currently only works with md5 digests but it ought to
     // work with any opaque digest.
     byte[] md5bin = null;
     if (Objects.equals(path.getFastDigestFunctionType(), "MD5")) {

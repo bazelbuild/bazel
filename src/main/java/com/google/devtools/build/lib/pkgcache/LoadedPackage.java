@@ -14,16 +14,15 @@
 package com.google.devtools.build.lib.pkgcache;
 
 import com.google.devtools.build.lib.events.Event;
-import com.google.devtools.build.lib.packages.LegacyPackage;
 
 /**
  * A loaded package that can verify whether it is still up to date.
  */
 interface LoadedPackage {
   /**
-   * Returns the actual loaded {@link LegacyPackage} object.
+   * Returns the actual loaded {@link Package} object.
    */
-  LegacyPackage getPackage();
+  Package getPackage();
 
   /**
    * Returns true iff the entry is still valid.

@@ -47,7 +47,7 @@ public final class DotExpression extends Expression {
     if (objValue instanceof ClassObject) {
       Object result = ((ClassObject) objValue).getValue(field.getName());
       if (result == null) {
-        // TODO(bazel_team): Throw an exception?
+        // TODO(bazel-team): Throw an exception?
         return Environment.NONE;
       }
       return result;
@@ -64,8 +64,8 @@ public final class DotExpression extends Expression {
 
   @Override
   SkylarkType validate(ValidationEnvironment env) throws EvalException {
-    SkylarkType objType = obj.validate(env);
-    // TODO(bazel_team): check existance of field
+    obj.validate(env);
+    // TODO(bazel-team): check existance of field
     return SkylarkType.UNKNOWN;
   }
 }

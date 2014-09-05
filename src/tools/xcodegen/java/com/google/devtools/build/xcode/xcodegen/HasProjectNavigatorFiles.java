@@ -12,13 +12,17 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-package com.google.devtools.build.lib.unix;
+package com.google.devtools.build.xcode.xcodegen;
+
+import com.facebook.buck.apple.xcode.xcodeproj.PBXReference;
 
 /**
- * A class to load JNI dependencies for tests.
+ * An object that knows some references that should be added to the main group so they appear in the
+ * project navigator view in Xcode.
  */
-public class UnixJniLoader {
-  public static void loadJni() {
-    System.loadLibrary("unix");
-  }
+public interface HasProjectNavigatorFiles {
+  /**
+   * Returns all references known by this object that should be added to the main group.
+   */
+  public Iterable<PBXReference> mainGroupReferences();
 }

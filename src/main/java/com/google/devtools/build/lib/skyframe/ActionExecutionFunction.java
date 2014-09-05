@@ -15,6 +15,7 @@ package com.google.devtools.build.lib.skyframe;
 
 import com.google.common.base.Function;
 import com.google.common.base.Predicate;
+import com.google.common.collect.Collections2;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.Iterables;
 import com.google.common.collect.Sets;
@@ -187,8 +188,10 @@ public class ActionExecutionFunction implements SkyFunction {
     // some deps are stilling missing.
     boolean populateInputData = !env.valuesMissing();
     ImmutableList.Builder<Label> rootCauses = ImmutableList.builder();
-    Map<Artifact, FileArtifactValue> inputArtifactData = new HashMap<>(128);
-    Map<Artifact, Collection<Artifact>> expandedMiddlemen = new HashMap<>(128);
+    Map<Artifact, FileArtifactValue> inputArtifactData =
+        new HashMap<>(populateInputData ? inputDeps.size() : 0);
+    Map<Artifact, Collection<Artifact>> expandedMiddlemen =
+        new HashMap<>(populateInputData ? 128 : 0);
 
     ActionExecutionException firstActionExecutionException = null;
     for (Map.Entry<SkyKey, ValueOrException<Exception>> depsEntry : inputDeps.entrySet()) {
@@ -197,15 +200,15 @@ public class ActionExecutionFunction implements SkyFunction {
         ArtifactValue value = (ArtifactValue) depsEntry.getValue().get();
         if (populateInputData && value instanceof AggregatingArtifactValue) {
           AggregatingArtifactValue aggregatingValue = (AggregatingArtifactValue) value;
-          Set<Artifact> expansion = new HashSet<>(256);
           for (Pair<Artifact, FileArtifactValue> entry : aggregatingValue.getInputs()) {
             inputArtifactData.put(entry.first, entry.second);
-            expansion.add(entry.first);
           }
           // We have to cache the "digest" of the aggregating value itself, because the action cache
           // checker may want it.
           inputArtifactData.put(input, aggregatingValue.getSelfData());
-          expandedMiddlemen.put(input, Collections.unmodifiableSet(expansion));
+          expandedMiddlemen.put(input,
+              Collections2.transform(aggregatingValue.getInputs(),
+                  Pair.<Artifact, FileArtifactValue>firstFunction()));
         } else if (populateInputData && value instanceof FileArtifactValue) {
           // TODO(bazel-team): Make sure middleman "virtual" artifact data is properly processed.
           inputArtifactData.put(input, (FileArtifactValue) value);

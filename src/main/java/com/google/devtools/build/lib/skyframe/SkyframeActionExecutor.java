@@ -387,6 +387,12 @@ public final class SkyframeActionExecutor extends AbstractActionExecutor {
     this.explain = explain;
   }
 
+  void executionOver() {
+    // This transitively holds a bunch of heavy objects, so it's important to clear it at the
+    // end of a build.
+    setExecutorEngine(null);
+  }
+
   File getExecRoot() {
     return executorEngine.getExecRoot().getPathFile();
   }

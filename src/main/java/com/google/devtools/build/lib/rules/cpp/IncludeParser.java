@@ -127,8 +127,7 @@ public class IncludeParser {
    * The third column is a point in the local filesystem from which to extract a
    * recursive listing. (This follows symlinks) Backrefs may be used to refer to
    * the regexp or its capturing groups. (This is mostly necessary because
-   * --package_path can cause input paths to carry arbitrary prefixes. Forge
-   * can't distribute input files at absolute paths.)
+   * --package_path can cause input paths to carry arbitrary prefixes.)
    * <p>
    * The fourth column is a regexp applied to each file found by the recursive
    * listing. All matching files are treated as dependencies.

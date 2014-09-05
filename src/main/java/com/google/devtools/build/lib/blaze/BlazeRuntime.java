@@ -31,7 +31,6 @@ import com.google.common.collect.Sets;
 import com.google.common.eventbus.EventBus;
 import com.google.common.eventbus.SubscriberExceptionContext;
 import com.google.common.eventbus.SubscriberExceptionHandler;
-import com.google.common.io.ByteStreams;
 import com.google.devtools.build.lib.actions.cache.ActionCache;
 import com.google.devtools.build.lib.actions.cache.CompactPersistentActionCache;
 import com.google.devtools.build.lib.actions.cache.MetadataCache;
@@ -334,10 +333,10 @@ public final class BlazeRuntime {
         profiledTasks = ProfiledTaskKinds.ALL;
       } else if (options.alwaysProfileSlowOperations) {
         recordFullProfilerData = false;
-        out = ByteStreams.nullOutputStream();
+        out = null;
         profiledTasks = ProfiledTaskKinds.SLOWEST;
       }
-      if (out != null) {
+      if (profiledTasks != ProfiledTaskKinds.NONE) {
         Profiler.instance().start(profiledTasks, out,
             "Blaze profile for " + getOutputBase() + " at " + new Date(),
             recordFullProfilerData, clock, execStartTimeNanos);
@@ -799,7 +798,8 @@ public final class BlazeRuntime {
    * Hook method called by the BlazeCommandDispatcher after the dispatch of each
    * command.
    */
-  void afterCommand(int exitCode) {
+  @VisibleForTesting
+  public void afterCommand(int exitCode) {
     // Remove any filters that the command might have added to the reporter.
     getReporter().setOutputFilter(OutputFilter.OUTPUT_EVERYTHING);
 

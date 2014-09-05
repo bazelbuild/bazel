@@ -227,7 +227,7 @@ public class CppConfiguration extends BuildConfiguration.Fragment {
     }
   }
 
-  private final String crosstoolTop;
+  private final Label crosstoolTop;
   private final String hostSystemName;
   private final String compiler;
   private final String targetCpu;
@@ -260,7 +260,6 @@ public class CppConfiguration extends BuildConfiguration.Fragment {
 
   // TODO(bazel-team): All these labels (except for ccCompilerRuleLabel) can be removed once the
   // transition to the cc_compiler rule is complete.
-  private final Label crosstoolLabel;
   private final Label libcLabel;
   private final Label staticRuntimeLibsLabel;
   private final Label dynamicRuntimeLibsLabel;
@@ -341,14 +340,14 @@ public class CppConfiguration extends BuildConfiguration.Fragment {
         execRoot.getRelative(IncludeScanningUtil.GREPPED_INCLUDES));
 
     try {
-      Label label = Label.parseAbsolute(crosstoolTop);
-      this.crosstoolTopPathFragment = label.getPackageFragment();
-      this.crosstoolLabel = label;
-      this.staticRuntimeLibsLabel = label.getRelative(toolchain.hasStaticRuntimesFilegroup() ?
-          toolchain.getStaticRuntimesFilegroup() : "static-runtime-libs-" + targetCpu);
-      this.dynamicRuntimeLibsLabel = label.getRelative(toolchain.hasDynamicRuntimesFilegroup() ?
-          toolchain.getDynamicRuntimesFilegroup() : "dynamic-runtime-libs-" + targetCpu);
-      this.ccCompilerRuleLabel = label.getRelative("cc-compiler-" + targetCpu);
+      this.crosstoolTopPathFragment = crosstoolTop.getPackageFragment();
+      this.staticRuntimeLibsLabel =
+          crosstoolTop.getRelative(toolchain.hasStaticRuntimesFilegroup() ?
+              toolchain.getStaticRuntimesFilegroup() : "static-runtime-libs-" + targetCpu);
+      this.dynamicRuntimeLibsLabel =
+          crosstoolTop.getRelative(toolchain.hasDynamicRuntimesFilegroup() ?
+              toolchain.getDynamicRuntimesFilegroup() : "dynamic-runtime-libs-" + targetCpu);
+      this.ccCompilerRuleLabel = crosstoolTop.getRelative("cc-compiler-" + targetCpu);
     } catch (SyntaxException e) {
       // All of the above label.getRelative() calls are valid labels, and the crosstool_top
       // was already checked earlier in the process.
@@ -360,15 +359,11 @@ public class CppConfiguration extends BuildConfiguration.Fragment {
       this.dynamicMode = DynamicMode.OFF;
     } else {
       switch (cppOptions.dynamicMode) {
-        case AUTO:
-          this.dynamicMode =
-              targetLibc.equals("cygwin") ? DynamicMode.OFF : DynamicMode.DEFAULT;
-          break;
-
-        case OFF:     this.dynamicMode = DynamicMode.OFF;     break;
-        case DEFAULT: this.dynamicMode = DynamicMode.DEFAULT; break;
-        case FULLY:   this.dynamicMode = DynamicMode.FULLY;   break;
-        default:      throw new IllegalStateException("Invalid dynamicMode.");
+        case DEFAULT:
+          this.dynamicMode = DynamicMode.DEFAULT; break;
+        case OFF: this.dynamicMode = DynamicMode.OFF; break;
+        case FULLY: this.dynamicMode = DynamicMode.FULLY; break;
+        default: throw new IllegalStateException("Invalid dynamicMode.");
       }
     }
 
@@ -749,7 +744,7 @@ public class CppConfiguration extends BuildConfiguration.Fragment {
   /**
    * Returns the crosstool top in the form given by the user.
    */
-  public String getCrosstoolTop() {
+  public Label getCrosstoolTop() {
     return crosstoolTop;
   }
 
@@ -813,19 +808,6 @@ public class CppConfiguration extends BuildConfiguration.Fragment {
    */
   public PathFragment getToolPathFragment(CppConfiguration.Tool tool) {
     return toolPaths.get(tool.getNamePart());
-  }
-
-  /**
-   * Returns a label. Adding this label to the dependencies of an action that
-   * depends on this toolchain is sufficient to ensure that all the required
-   * files are present. Some actions may require only a subset of the labels
-   * returned here, so additional methods may be added in the future.
-   *
-   * <p>The returned label is guaranteed to be non-null if and only if {@link
-   * #isCrosstoolTopALabel} returns true.
-   */
-  public Label getCrosstoolLabel() {
-    return crosstoolLabel;
   }
 
   /**
@@ -1644,9 +1626,7 @@ public class CppConfiguration extends BuildConfiguration.Fragment {
       implicitLabels.put("crosstool", getLibcLabel());
     }
 
-    if (crosstoolLabel != null) {
-      implicitLabels.put("crosstool", crosstoolLabel);
-    }
+    implicitLabels.put("crosstool", crosstoolTop);
   }
 
   @Override
@@ -1689,9 +1669,7 @@ public class CppConfiguration extends BuildConfiguration.Fragment {
     // TODO(bazel-team): Using a gcov-specific crosstool filegroup here could reduce the number of
     // inputs significantly. We'd also need to add logic in tools/coverage/collect_coverage.sh to
     // drop crosstool dependency if metadataFiles does not contain *.gcno artifacts.
-    return isCrosstoolTopALabel()
-        ? ImmutableList.of(getCrosstoolLabel())
-        : ImmutableList.<Label>of();
+    return ImmutableList.of(crosstoolTop);
   }
 
   @Override

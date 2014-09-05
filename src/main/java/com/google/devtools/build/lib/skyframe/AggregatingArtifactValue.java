@@ -13,22 +13,25 @@
 // limitations under the License.
 package com.google.devtools.build.lib.skyframe;
 
+import com.google.common.collect.ImmutableList;
 import com.google.devtools.build.lib.actions.Artifact;
 import com.google.devtools.build.lib.util.Pair;
+
+import java.util.Collection;
 
 /** Value for aggregating artifacts, which must be expanded to a set of other artifacts. */
 class AggregatingArtifactValue extends ArtifactValue {
   private final FileArtifactValue selfData;
-  private final Iterable<Pair<Artifact, FileArtifactValue>> inputs;
+  private final ImmutableList<Pair<Artifact, FileArtifactValue>> inputs;
 
-  AggregatingArtifactValue(Iterable<Pair<Artifact, FileArtifactValue>> inputs,
+  AggregatingArtifactValue(ImmutableList<Pair<Artifact, FileArtifactValue>> inputs,
       FileArtifactValue selfData) {
     this.inputs = inputs;
     this.selfData = selfData;
   }
 
   /** Returns the artifacts that this artifact expands to, together with their data. */
-  Iterable<Pair<Artifact, FileArtifactValue>> getInputs() {
+  Collection<Pair<Artifact, FileArtifactValue>> getInputs() {
     return inputs;
   }
 

@@ -86,6 +86,16 @@ public final class SrcTargetUtil {
     return getTargets(eventHandler, rule, srcAndHdrAttributes, Sets.newHashSet(rule), provider);
   }
 
+  @ThreadSafety.ThreadSafe
+  public static List<FileTarget> getHdrTargets(EventHandler eventHandler, Rule rule,
+                                                     TargetProvider provider)
+      throws NoSuchTargetException, NoSuchPackageException, InterruptedException  {
+    ImmutableSet<String> srcAndHdrAttributes = ImmutableSet.<String>builder()
+        .addAll(HEADER_ATTRIBUTES)
+        .build();
+    return getTargets(eventHandler, rule, srcAndHdrAttributes, Sets.newHashSet(rule), provider);
+  }
+  
   /**
    * @see #getSrcTargets(EventHandler, Rule, TargetProvider)
    */

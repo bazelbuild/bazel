@@ -16,6 +16,7 @@ package com.google.devtools.build.lib.blaze;
 import com.google.common.base.Preconditions;
 import com.google.common.collect.Sets;
 import com.google.common.eventbus.EventBus;
+import com.google.devtools.build.lib.Constants;
 import com.google.devtools.build.lib.actions.Artifact;
 import com.google.devtools.build.lib.blaze.TerminalTestResultNotifier.TestSummaryOptions;
 import com.google.devtools.build.lib.concurrent.ThreadSafety.ThreadCompatible;
@@ -238,15 +239,11 @@ public class TestResultAnalyzer {
     }
 
     List<String> filtered = new ArrayList<>();
-    for (String warning : result.getData().getWarningList()) {
-      if (warning.startsWith("Forge overhead time")) {
-        // TODO(bazel-team): Remove ugly hack ASAP.
-        // If several forge actions request the same file from a single
-        // casnode at the same time, they will often timeout after 30 seconds,
-        // triggering the warning below. When this occurred, this warning was
-        // printed dozens of time. We don't print the warning, but leave it in
-        // the test result protocol buffer for the benefit of log collectors.
-        continue;
+    warningLoop: for (String warning : result.getData().getWarningList()) {
+      for (String ignoredPrefix : Constants.IGNORED_TEST_WARNING_PREFIXES) {
+        if (warning.startsWith(ignoredPrefix)) {
+          continue warningLoop;
+        }
       }
 
       filtered.add(warning);

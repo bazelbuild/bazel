@@ -17,7 +17,9 @@ package com.google.devtools.build.lib.server;
 import com.google.common.base.Preconditions;
 import com.google.devtools.build.lib.util.LoggingUtil;
 import com.google.devtools.build.lib.util.ProcMeminfoParser;
+import com.google.devtools.build.lib.vfs.FileStatus;
 import com.google.devtools.build.lib.vfs.Path;
+import com.google.devtools.build.lib.vfs.Symlinks;
 
 import java.io.IOException;
 import java.util.concurrent.ScheduledThreadPoolExecutor;
@@ -98,7 +100,22 @@ class IdleServerTasks {
    * Called from the main thread, so it should return quickly.
    */
   public boolean continueProcessing(long idleMillis) {
-    return memoryHeuristic(idleMillis) && workspaceDir != null && workspaceDir.isDirectory();
+    if (!memoryHeuristic(idleMillis)) {
+      return false;
+    }
+    if (workspaceDir == null) {
+      return false;
+    }
+
+    FileStatus stat;
+    try {
+      stat = workspaceDir.statIfFound(Symlinks.FOLLOW);
+    } catch (IOException e) {
+      // Do not terminate the server if the workspace is temporarily inaccessible, for example,
+      // if it is on a network filesystem and the connection is down.
+      return true;
+    }
+    return stat != null && stat.isDirectory();
   }
 
   private boolean memoryHeuristic(long idleMillis) {

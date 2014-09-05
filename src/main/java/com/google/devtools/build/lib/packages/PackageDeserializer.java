@@ -21,13 +21,10 @@ import com.google.devtools.build.lib.events.Event;
 import com.google.devtools.build.lib.events.Location;
 import com.google.devtools.build.lib.events.NullEventHandler;
 import com.google.devtools.build.lib.events.StoredEventHandler;
-import com.google.devtools.build.lib.packages.LegacyPackage.LegacyPackageBuilder;
 import com.google.devtools.build.lib.packages.License.DistributionType;
 import com.google.devtools.build.lib.packages.License.LicenseParsingException;
-import com.google.devtools.build.lib.packages.Package.AbstractPackageBuilder;
-import com.google.devtools.build.lib.packages.Package.AbstractPackageBuilder.GeneratedLabelConflict;
+import com.google.devtools.build.lib.packages.Package.AbstractBuilder.GeneratedLabelConflict;
 import com.google.devtools.build.lib.packages.Package.NameConflictException;
-import com.google.devtools.build.lib.packages.Package.PackageBuilder;
 import com.google.devtools.build.lib.packages.RuleClass.ParsedAttributeValue;
 import com.google.devtools.build.lib.query2.proto.proto2api.Build;
 import com.google.devtools.build.lib.query2.proto.proto2api.Build.StringDictUnaryEntry;
@@ -57,10 +54,10 @@ public class PackageDeserializer {
   public static volatile PackageDeserializer.Environment defaultDeserializerEnvironment;
 
   private class Context {
-    private final AbstractPackageBuilder<?, ?> packageBuilder;
+    private final Package.Builder packageBuilder;
     private final Path buildFilePath;
 
-    public Context(Path buildFilePath, AbstractPackageBuilder<?, ?> packageBuilder) {
+    public Context(Path buildFilePath, Package.Builder packageBuilder) {
       this.buildFilePath = buildFilePath;
       this.packageBuilder = packageBuilder;
     }
@@ -111,7 +108,7 @@ public class PackageDeserializer {
             deserializeLabels(packageGroupPb.getIncludedPackageGroupList()),
             NullEventHandler.INSTANCE,  // TODO(bazel-team): Handle errors properly
             deserializeLocation(packageGroupPb.getParseableLocation()));
-      } catch (Label.SyntaxException | NameConflictException e) {
+      } catch (Label.SyntaxException | Package.NameConflictException e) {
         throw new PackageDeserializationException(e);
       }
     }
@@ -315,7 +312,7 @@ public class PackageDeserializer {
    * {@link PackageSerializer#serializePackage}.
    */
   private void deserializeInternal(Build.Package packagePb, StoredEventHandler eventHandler,
-      AbstractPackageBuilder<?, ?> builder) throws PackageDeserializationException {
+      Package.Builder builder) throws PackageDeserializationException {
     Path buildFile = environment.getBuildFile(packagePb.getName());
     Preconditions.checkNotNull(buildFile);
     Context context = new Context(buildFile, builder);
@@ -387,34 +384,22 @@ public class PackageDeserializer {
     if (packagePb.hasContainsErrors() && packagePb.getContainsErrors()) {
       builder.setContainsErrors();
     }
-  }
-
-  private void deserializeLegacyInternal(Build.Package packagePb,
-      StoredEventHandler eventHandler, LegacyPackageBuilder builder)
-          throws PackageDeserializationException {
-    deserializeInternal(packagePb, eventHandler, builder);
     if (packagePb.hasContainsTemporaryErrors() && packagePb.getContainsTemporaryErrors()) {
       builder.setContainsTemporaryErrors();
     }
   }
 
   /**
-   * Serialize a package to a protocol message. The inverse of
-   * {@link PackageDeserializer#deserialize}.
+   * Deserialize a protocol message to a package. The inverse of
+   * {@link PackageSerializer#serializePackage}.
    */
-  public Package deserialize(Build.Package packagePb) throws PackageDeserializationException {
-    PackageBuilder builder = new PackageBuilder(packagePb.getName());
+  public Package deserialize(Build.Package packagePb)
+      throws PackageDeserializationException {
+    Package.Builder builder = new Package.Builder(packagePb.getName());
     StoredEventHandler eventHandler = new StoredEventHandler();
     deserializeInternal(packagePb, eventHandler, builder);
-    return builder.build(eventHandler);
-  }
-
-  public LegacyPackage deserializeLegacy(Build.Package packagePb)
-      throws PackageDeserializationException, InterruptedException {
-    LegacyPackageBuilder builder = new LegacyPackageBuilder(packagePb.getName());
-    StoredEventHandler eventHandler = new StoredEventHandler();
-    deserializeLegacyInternal(packagePb, eventHandler, builder);
-    return builder.build(LegacyPackage.EMPTY_BULK_PACKAGE_LOCATOR, eventHandler);
+    builder.addEvents(eventHandler.getEvents());
+    return builder.build();
   }
 
   private static void deserializeEvent(

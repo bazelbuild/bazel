@@ -149,7 +149,7 @@ public final class TestSuiteBuilder {
   }
 
   private static boolean hasValidConstructor(Class<?> container) {
-    // TODO(kevinb): this is an unsafe typecast.
+    // TODO(bazel-team): this is an unsafe typecast.
     @SuppressWarnings("unchecked") // generic type cast
     Class<TestCase> containerClass = (Class<TestCase>) container;
 

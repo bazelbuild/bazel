@@ -213,7 +213,7 @@ public class AggregatingTestListener {
   @AllowConcurrentEvents
   public void failureReason(ActionNotExecutedEvent event) {
     Label notExecuted = event.getNotExecuted().getOwner().getLabel();
-    // TODO(bazel-devel): This is completely wrong when a top level target is built with multiple
+    // TODO(bazel-team): This is completely wrong when a top level target is built with multiple
     // configurations but at least this is currently a corner case.
     for (BuildConfiguration configuration : labelToConfigurations.get(notExecuted)) {
       // There's a very minor race condition here, e.g. if blaze's main thread gets interrupted

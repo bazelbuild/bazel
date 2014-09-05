@@ -14,6 +14,8 @@
 
 package com.google.devtools.build.lib;
 
+import com.google.common.collect.ImmutableList;
+
 /**
  * Various constants required by Bazel.
  */
@@ -25,4 +27,5 @@ public class Constants {
   public static final String DEFAULT_SYMLINK_PREFIX = "bazel-";
   public static final String MAIN_RULE_CLASS_PROVIDER =
       "com.google.devtools.build.lib.bazel.rules.BazelRuleClassProvider";
+  public static final ImmutableList<String> IGNORED_TEST_WARNING_PREFIXES = ImmutableList.of();
 }

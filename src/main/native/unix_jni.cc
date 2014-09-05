@@ -232,7 +232,7 @@ void PostFileException(JNIEnv *env, int error_number, const char *filename) {
                   + ")");
 }
 
-// TODO(blaze-team): (2009) split out all the FileSystem class's native methods
+// TODO(bazel-team): split out all the FileSystem class's native methods
 // into a separate source file, fsutils.cc.
 
 extern "C" JNIEXPORT jstring JNICALL

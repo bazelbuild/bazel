@@ -35,8 +35,12 @@ import com.google.devtools.build.lib.packages.Target;
 import com.google.devtools.build.lib.rules.cpp.CcToolchainRule;
 import com.google.devtools.build.lib.rules.cpp.CppConfigurationLoader;
 import com.google.devtools.build.lib.rules.cpp.CppOptions;
-import com.google.devtools.build.lib.rules.cpp.CrosstoolConfigurationLoader.CrosstoolResolver;
-import com.google.devtools.build.lib.rules.cpp.PackagePathCrosstoolResolver;
+import com.google.devtools.build.lib.rules.objc.ObjcBinaryRule;
+import com.google.devtools.build.lib.rules.objc.ObjcConfigurationLoader;
+import com.google.devtools.build.lib.rules.objc.ObjcImportRule;
+import com.google.devtools.build.lib.rules.objc.ObjcLibraryRule;
+import com.google.devtools.build.lib.rules.objc.ObjcOptions;
+import com.google.devtools.build.lib.rules.objc.ObjcRuleClasses;
 import com.google.devtools.build.lib.syntax.Label;
 import com.google.devtools.build.lib.syntax.SkylarkType;
 import com.google.devtools.build.lib.view.BaseRuleClasses;
@@ -112,7 +116,8 @@ public class BazelRuleClassProvider {
   public static final ImmutableList<Class<? extends FragmentOptions>> BUILD_OPTIONS =
       ImmutableList.<Class<? extends FragmentOptions>>of(
           BuildConfiguration.Options.class,
-          CppOptions.class
+          CppOptions.class,
+          ObjcOptions.class
       );
 
   /**
@@ -158,12 +163,17 @@ public class BazelRuleClassProvider {
     builder.addRuleDefinition(BazelCppRuleClasses.CcLibraryBaseRule.class);
     builder.addRuleDefinition(BazelCppRuleClasses.CcLibraryRule.class);
 
+    builder.addRuleDefinition(ObjcBinaryRule.class);
+    builder.addRuleDefinition(ObjcImportRule.class);
+    builder.addRuleDefinition(ObjcLibraryRule.class);
+    builder.addRuleDefinition(ObjcRuleClasses.ObjcBaseRule.class);
+
     builder.addRuleDefinition(BazelExtraActionRule.class);
     builder.addRuleDefinition(BazelActionListenerRule.class);
 
-    CrosstoolResolver crosstoolResolver = new PackagePathCrosstoolResolver(
-        Functions.<String>identity());
     builder.addConfigurationFragment(new BazelConfiguration.Loader());
-    builder.addConfigurationFragment(new CppConfigurationLoader(crosstoolResolver));
+    builder.addConfigurationFragment(new CppConfigurationLoader(
+        Functions.<String>identity()));
+    builder.addConfigurationFragment(new ObjcConfigurationLoader());
   }
 }

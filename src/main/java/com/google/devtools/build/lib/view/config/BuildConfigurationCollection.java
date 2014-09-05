@@ -151,7 +151,7 @@ public final class BuildConfigurationCollection {
      */
     private final Map<? extends Transition, ConfigurationHolder> transitionTable;
 
-    // TODO(ulfjack): Consider merging transitionTable into this.
+    // TODO(bazel-team): Consider merging transitionTable into this.
     private final ListMultimap<? super SplitTransition<?>, BuildConfiguration> splitTransitionTable;
 
     public Transitions(BuildConfiguration configuration,

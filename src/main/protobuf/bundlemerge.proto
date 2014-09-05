@@ -1,0 +1,69 @@
+syntax = "proto2";
+
+package devtools.xcode;
+option java_outer_classname = "BundleMergeProtos";
+option java_package = "com.google.devtools.build.xcode.bundlemerge.proto";
+
+// Contains all the arguments necessary to drive the BundleMerge tool,
+// including the path to the output file and extra files to include in the
+// bundle.
+message Control {
+  // Paths to the plist files to merge into the final Plist.info file. These
+  // can be binary, XML, or ASCII format.
+  repeated string source_plist_file = 1;
+
+  // Path to the .ipa file to write. This is the final application bundle.
+  optional string out_file = 2;
+
+  // Which devices the app targets, which corresponds to the UIDeviceFamily
+  // setting. Should be one or more of the symbols in the
+  // com.google.devtools.build.xcode.common.TargetDeviceFamily enum (e.g.
+  // "IPAD", "IPHONE").
+  repeated string target_device_family = 3;
+
+  // One of the symbols in the com.google.devtools.build.xcode.common.Platform
+  // (e.g. "DEVICE", "SIMULATOR").
+  optional string platform = 4;
+
+  // The version of the SDK used to build the app.
+  optional string sdk_version = 5;
+
+  // Earliest iOS version on which the app will run.
+  optional string minimum_os_version = 6;
+
+  // The directory inside which all files are placed in the final bundle.
+  // Generally, this is "Payload/{app_name}.app".
+  optional string bundle_root = 7;
+
+  // All files to put in the bundle besides automatically-generated files such
+  // as Info.plist and PkgInfo. This should include the application binary.
+  repeated BundleFile bundle_file = 8;
+
+  repeated string merge_without_name_prefix_zip = 9 [deprecated=true];
+
+  // Zip files to merge with the final zip. Note that bundle_root is ignored
+  // when merging zips, so to place items in the bundle root, you should do one
+  // of the following:
+  // 1. make the merge_zips have entries that are named "{bundle_root}/foo"
+  //    rather than just "foo"
+  // 2. set the root property on the MergeZip protobuf to {bundle_root}
+  repeated MergeZip merge_zip = 10;
+}
+
+// Represents a zip file to merge with the final zip.
+message MergeZip {
+  // The prefix to prepend to every entry name before putting it in the final
+  // zip. For instance, "Payload/Foo.app/" (notice the final slash).
+  optional string entry_name_prefix = 1 [default = ""];
+
+  // The path to the source file to merge.
+  optional string source_path = 2;
+}
+
+message BundleFile {
+  // The path of the file to put in the bundle.
+  optional string source_file = 1;
+
+  // The path of the file in the bundle, relative to the bundle root.
+  optional string bundle_path = 2;
+}

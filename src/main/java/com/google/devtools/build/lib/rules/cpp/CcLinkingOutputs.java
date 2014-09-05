@@ -94,9 +94,9 @@ public class CcLinkingOutputs {
    * Returns the shared libraries that are linked against and therefore also need to be in the
    * runfiles.
    */
-  public Iterable<Artifact> getLibrariesForRunfiles(
-      boolean linkingStatically, boolean preferPic) {
-    List<LibraryToLink> libraries = getPreferredLibraries(linkingStatically, preferPic, true);
+  public Iterable<Artifact> getLibrariesForRunfiles(boolean linkingStatically) {
+    List<LibraryToLink> libraries =
+        getPreferredLibraries(linkingStatically, /*preferPic*/false, true);
     return CcCommon.getSharedLibrariesFrom(LinkerInputs.toLibraryArtifacts(libraries));
   }
 

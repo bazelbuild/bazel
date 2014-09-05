@@ -14,6 +14,7 @@
 
 package com.google.devtools.build.lib.rules.cpp;
 
+import com.google.common.annotations.VisibleForTesting;
 import com.google.common.base.Joiner;
 import com.google.common.base.Preconditions;
 import com.google.common.base.Predicates;
@@ -30,6 +31,7 @@ import com.google.devtools.build.lib.concurrent.ThreadSafety.Immutable;
 import com.google.devtools.build.lib.rules.cpp.Link.LinkStaticness;
 import com.google.devtools.build.lib.rules.cpp.Link.LinkTargetType;
 import com.google.devtools.build.lib.syntax.Label;
+import com.google.devtools.build.lib.util.Pair;
 import com.google.devtools.build.lib.util.ShellEscaper;
 import com.google.devtools.build.lib.vfs.PathFragment;
 import com.google.devtools.build.lib.view.RuleContext;
@@ -67,6 +69,7 @@ public final class LinkCommandLine extends CommandLine {
   @Nullable private final PathFragment runtimeSolibDir;
   private final boolean nativeDeps;
   private final boolean useExecOrigin;
+  private final boolean needWholeArchive;
   @Nullable private final Artifact interfaceSoBuilder;
 
   private LinkCommandLine(
@@ -86,6 +89,7 @@ public final class LinkCommandLine extends CommandLine {
       @Nullable PathFragment runtimeSolibDir,
       boolean nativeDeps,
       boolean useExecOrigin,
+      boolean needWholeArchive,
       Artifact interfaceSoBuilder) {
     Preconditions.checkArgument(linkTargetType != LinkTargetType.INTERFACE_DYNAMIC_LIBRARY,
         "you can't link an interface dynamic library directly");
@@ -108,6 +112,8 @@ public final class LinkCommandLine extends CommandLine {
           "the exec origin flag must be false for static links");
       Preconditions.checkArgument(!nativeDeps,
           "the native deps flag must be false for static links");
+      Preconditions.checkArgument(!needWholeArchive,
+          "the need whole archive flag must be false for static links");
     }
 
     this.configuration = Preconditions.checkNotNull(configuration);
@@ -129,6 +135,7 @@ public final class LinkCommandLine extends CommandLine {
     this.runtimeSolibDir = runtimeSolibDir;
     this.nativeDeps = nativeDeps;
     this.useExecOrigin = useExecOrigin;
+    this.needWholeArchive = needWholeArchive;
     // For now, silently ignore interfaceSoBuilder if we don't build an interface dynamic library.
     this.interfaceSoBuilder =
         ((linkTargetType == LinkTargetType.DYNAMIC_LIBRARY) && (interfaceOutput != null))
@@ -230,6 +237,102 @@ public final class LinkCommandLine extends CommandLine {
    */
   public boolean useExecOrigin() {
     return useExecOrigin;
+  }
+
+  /**
+   * Splits the link command-line into a part to be written to a parameter file, and the remaining
+   * actual command line to be executed (which references the parameter file). Call {@link
+   * #canBeSplit} first to check if the command-line can be split.
+   *
+   * @throws IllegalStateException if the command-line cannot be split
+   */
+  @VisibleForTesting
+  final Pair<List<String>, List<String>> splitCommandline(PathFragment paramExecPath) {
+    Preconditions.checkState(canBeSplit());
+    List<String> args = getRawLinkArgv();
+    if (linkTargetType.isStaticLibraryLink()) {
+      // Ar link commands can also generate huge command lines.
+      List<String> paramFileArgs = args.subList(1, args.size());
+      List<String> commandlineArgs = new ArrayList<>();
+      commandlineArgs.add(args.get(0));
+
+      commandlineArgs.add("@" + paramExecPath.getPathString());
+      return Pair.of(commandlineArgs, paramFileArgs);
+    } else {
+      // Gcc link commands tend to generate humongous commandlines for some targets, which may
+      // not fit on some remote execution machines. To work around this we will employ the help of
+      // a parameter file and pass any linker options through it.
+      List<String> paramFileArgs = new ArrayList<>();
+      List<String> commandlineArgs = new ArrayList<>();
+      extractArgumentsForParamFile(args, commandlineArgs, paramFileArgs);
+
+      commandlineArgs.add("-Wl,@" + paramExecPath.getPathString());
+      return Pair.of(commandlineArgs, paramFileArgs);
+    }
+  }
+
+  boolean canBeSplit() {
+    switch (linkTargetType) {
+      // We currently can't split dynamic library links if they have interface outputs. That was
+      // probably an unintended side effect of the change that introduced interface outputs.
+      case DYNAMIC_LIBRARY:
+        return interfaceOutput == null;
+      case EXECUTABLE:
+      case STATIC_LIBRARY:
+      case PIC_STATIC_LIBRARY:
+      case ALWAYS_LINK_STATIC_LIBRARY:
+      case ALWAYS_LINK_PIC_STATIC_LIBRARY:
+        return true;
+      default:
+        return false;
+    }
+  }
+
+  private static void extractArgumentsForParamFile(List<String> args, List<String> commandlineArgs,
+      List<String> paramFileArgs) {
+    // Note, that it is not important that all linker arguments are extracted so that
+    // they can be moved into a parameter file, but the vast majority should.
+    commandlineArgs.add(args.get(0));   // gcc command, must not be moved!
+    int argsSize = args.size();
+    for (int i = 1; i < argsSize; i++) {
+      String arg = args.get(i);
+      if (arg.equals("-Wl,-no-whole-archive")) {
+        paramFileArgs.add("-no-whole-archive");
+      } else if (arg.equals("-Wl,-whole-archive")) {
+        paramFileArgs.add("-whole-archive");
+      } else if (arg.equals("-Wl,--start-group")) {
+        paramFileArgs.add("--start-group");
+      } else if (arg.equals("-Wl,--end-group")) {
+        paramFileArgs.add("--end-group");
+      } else if (arg.equals("-Wl,--start-lib")) {
+        paramFileArgs.add("--start-lib");
+      } else if (arg.equals("-Wl,--end-lib")) {
+        paramFileArgs.add("--end-lib");
+      } else if (arg.equals("--incremental-unchanged")) {
+        paramFileArgs.add(arg);
+      } else if (arg.equals("--incremental-changed")) {
+        paramFileArgs.add(arg);
+      } else if (arg.charAt(0) == '-') {
+        if (arg.startsWith("-l")) {
+          paramFileArgs.add(arg);
+        } else {
+          // Anything else starting with a '-' can stay on the commandline.
+          commandlineArgs.add(arg);
+          if (arg.equals("-o")) {
+            // Special case for '-o': add the following argument as well - it is the output file!
+            commandlineArgs.add(args.get(++i));
+          }
+        }
+      } else if (arg.endsWith(".a") || arg.endsWith(".lo") || arg.endsWith(".so")
+          || arg.endsWith(".ifso") || arg.endsWith(".o")
+          || CppFileTypes.VERSIONED_SHARED_LIBRARY.matches(arg)) {
+        // All objects of any kind go into the linker parameters.
+        paramFileArgs.add(arg);
+      } else {
+        // Everything that's left stays conservatively on the commandline.
+        commandlineArgs.add(arg);
+      }
+    }
   }
 
   /**
@@ -493,8 +596,6 @@ public final class LinkCommandLine extends CommandLine {
         linkTargetType == LinkTargetType.DYNAMIC_LIBRARY
         || linkopts.contains("-shared")
         || cppConfig.getLinkOptions().contains("-shared");
-    boolean needWholeArchive = Link.needWholeArchive(linkStaticness, linkTargetType, linkopts,
-        nativeDeps, cppConfig);
 
     if (output != null) {
       argv.add("-o");
@@ -801,6 +902,7 @@ public final class LinkCommandLine extends CommandLine {
     @Nullable private PathFragment runtimeSolibDir;
     private boolean nativeDeps;
     private boolean useExecOrigin;
+    private boolean needWholeArchive;
     @Nullable private Artifact interfaceSoBuilder;
 
     public Builder(BuildConfiguration configuration, ActionOwner owner) {
@@ -816,7 +918,7 @@ public final class LinkCommandLine extends CommandLine {
       return new LinkCommandLine(configuration, owner, output, interfaceOutput,
           symbolCountsOutput, buildInfoHeaderArtifacts, linkerInputs, runtimeInputs, linkTargetType,
           linkStaticness, linkopts, features, linkstamps, runtimeSolibDir, nativeDeps,
-          useExecOrigin, interfaceSoBuilder);
+          useExecOrigin, needWholeArchive, interfaceSoBuilder);
     }
 
     /**
@@ -841,15 +943,16 @@ public final class LinkCommandLine extends CommandLine {
 
     /**
      * Sets a list of linker inputs. These get turned into linker options depending on the
-     * staticness and the target type.
+     * staticness and the target type. This call makes an immutable copy of the inputs, if the
+     * provided Iterable isn't already immutable (see {@link CollectionUtils#makeImmutable}).
      */
     public Builder setLinkerInputs(Iterable<LinkerInput> linkerInputs) {
       this.linkerInputs = CollectionUtils.makeImmutable(linkerInputs);
       return this;
     }
 
-    public Builder setRuntimeInputs(Iterable<LinkerInput> runtimeInputs) {
-      this.runtimeInputs = CollectionUtils.makeImmutable(runtimeInputs);
+    public Builder setRuntimeInputs(ImmutableList<LinkerInput> runtimeInputs) {
+      this.runtimeInputs = runtimeInputs;
       return this;
     }
 
@@ -960,6 +1063,11 @@ public final class LinkCommandLine extends CommandLine {
      */
     public Builder setUseExecOrigin(boolean useExecOrigin) {
       this.useExecOrigin = useExecOrigin;
+      return this;
+    }
+
+    public Builder setNeedWholeArchive(boolean needWholeArchive) {
+      this.needWholeArchive = needWholeArchive;
       return this;
     }
   }

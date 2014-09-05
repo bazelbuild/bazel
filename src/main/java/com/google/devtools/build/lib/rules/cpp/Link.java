@@ -16,10 +16,9 @@ package com.google.devtools.build.lib.rules.cpp;
 
 import com.google.common.collect.ImmutableList;
 import com.google.devtools.build.lib.actions.Artifact;
+import com.google.devtools.build.lib.collect.nestedset.NestedSet;
 import com.google.devtools.build.lib.rules.cpp.LinkerInputs.LibraryToLink;
 import com.google.devtools.build.lib.util.FileTypeSet;
-
-import java.util.Collection;
 
 /**
  * Utility types and methods for generating command lines for the linker, given
@@ -53,7 +52,8 @@ public abstract class Link {
       CppFileTypes.VERSIONED_SHARED_LIBRARY,
       CppFileTypes.INTERFACE_SHARED_LIBRARY);
 
-  /** These need special handling when --thin_archive is true. {@link CppLinkAction} checks that
+  /**
+   * These need special handling when --thin_archive is true. {@link CppLinkAction} checks that
    * these files are never added as non-libraries.
    */
   public static final FileTypeSet ARCHIVE_LIBRARY_FILETYPES = FileTypeSet.of(
@@ -165,18 +165,33 @@ public abstract class Link {
       Artifact input = inputLibrary.getArtifact();
       String name = input.getFilename();
 
-      // True if the linker might use the members of this file.
+      // True if the linker might use the members of this file, i.e., if the file is a thin or
+      // start_end_lib archive (aka static library). Also check if the library contains object files
+      // - otherwise getObjectFiles returns null, which would lead to an NPE in simpleLinkerInputs.
       boolean needMembersForLink = archiveType != ArchiveType.FAT &&
           ARCHIVE_LIBRARY_FILETYPES.matches(name) && inputLibrary.containsObjectFiles();
+
       // True if we will pass the members instead of the original archive.
       boolean passMembersToLinkCmd = needMembersForLink &&
           (globalNeedWholeArchive || LINK_LIBRARY_FILETYPES.matches(name));
 
-      if (passMembersToLinkCmd || (needMembersForLink && deps)) {
+      // If deps is false (when computing the inputs to be passed on the command line), then it's an
+      // if-then-else, i.e., the passMembersToLinkCmd flag decides whether to pass the object files
+      // or the archive itself. This flag in turn is based on whether the archives are fat or not
+      // (thin archives or start_end_lib) - we never expand fat archives, but we do expand non-fat
+      // archives if we need whole-archives for the entire link, or for the specific library (i.e.,
+      // if alwayslink=1).
+      //
+      // If deps is true (when computing the inputs to be passed to the action as inputs), then it
+      // becomes more complicated. We always need to pass the members for thin and start_end_lib
+      // archives (needMembersForLink). And we _also_ need to pass the archive file itself unless
+      // it's a start_end_lib archive (unless it's an alwayslink library).
+
+      if (passMembersToLinkCmd || (deps && needMembersForLink)) {
         builder.addAll(LinkerInputs.simpleLinkerInputs(inputLibrary.getObjectFiles()));
       }
 
-      if (!passMembersToLinkCmd && (!deps || !useStartEndLib(inputLibrary, archiveType))) {
+      if (!(passMembersToLinkCmd || (deps && useStartEndLib(inputLibrary, archiveType)))) {
         builder.add(inputLibrary);
       }
     }
@@ -187,7 +202,7 @@ public abstract class Link {
   /**
    * Replace always used archives with its members. This is used to build the linker cmd line.
    */
-  public static Iterable<LinkerInput> mergeInputsCmdLine(Iterable<LibraryToLink> inputs,
+  public static Iterable<LinkerInput> mergeInputsCmdLine(NestedSet<LibraryToLink> inputs,
       boolean globalNeedWholeArchive, ArchiveType archiveType) {
     return filterMembersForLink(inputs, globalNeedWholeArchive, archiveType, false);
   }
@@ -195,22 +210,8 @@ public abstract class Link {
   /**
    * Add in any object files which are implicitly named as inputs by the linker.
    */
-  public static Iterable<LinkerInput> mergeInputsDependencies(Iterable<LibraryToLink> inputs,
+  public static Iterable<LinkerInput> mergeInputsDependencies(NestedSet<LibraryToLink> inputs,
       boolean globalNeedWholeArchive, ArchiveType archiveType) {
     return filterMembersForLink(inputs, globalNeedWholeArchive, archiveType, true);
-  }
-
-  static boolean needWholeArchive(LinkStaticness staticness,
-      LinkTargetType type, Collection<String> linkopts, boolean isNativeDeps,
-      CppConfiguration cppConfig) {
-    boolean fullyStatic = (staticness == LinkStaticness.FULLY_STATIC);
-    boolean mostlyStatic = (staticness == LinkStaticness.MOSTLY_STATIC);
-    boolean sharedLinkopts =
-        type == LinkTargetType.DYNAMIC_LIBRARY ||
-        linkopts.contains("-shared") ||
-        cppConfig.getLinkOptions().contains("-shared");
-    return (isNativeDeps || cppConfig.legacyWholeArchive()) &&
-        (fullyStatic || mostlyStatic) &&
-        sharedLinkopts;
   }
 }

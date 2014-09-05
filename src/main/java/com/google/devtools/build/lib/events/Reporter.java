@@ -88,9 +88,8 @@ public final class Reporter implements EventHandler, ExceptionListener {
   /**
    * Removes handler from this reporter.
    */
-  public synchronized boolean removeHandler(EventHandler handler) {
-    boolean removed = handlers.remove(handler);
-    return removed;
+  public synchronized void removeHandler(EventHandler handler) {
+     handlers.remove(handler);
   }
 
   /**

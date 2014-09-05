@@ -250,6 +250,13 @@ public class BuildRequest implements OptionsClassProvider {
             help = "This flag allows specifying multiple target CPUs. If this is specified, "
                 + "the --cpu option is ignored.")
     public List<String> multiCpus;
+
+    @Option(name = "experimental_check_output_files",
+            defaultValue = "true",
+            category = "undocumented",
+            help = "Check for modifications made to the output files of a build. Consider setting "
+                + "this flag to false to see the effect on incremental build times.")
+    public boolean checkOutputFiles;
   }
 
   /**

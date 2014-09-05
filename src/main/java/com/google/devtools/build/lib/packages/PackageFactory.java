@@ -27,7 +27,6 @@ import com.google.devtools.build.lib.events.EventHandler;
 import com.google.devtools.build.lib.events.Location;
 import com.google.devtools.build.lib.events.NullEventHandler;
 import com.google.devtools.build.lib.events.StoredEventHandler;
-import com.google.devtools.build.lib.packages.LegacyPackage.LegacyPackageBuilder;
 import com.google.devtools.build.lib.packages.License.DistributionType;
 import com.google.devtools.build.lib.packages.Type.ConversionException;
 import com.google.devtools.build.lib.profiler.Profiler;
@@ -67,8 +66,6 @@ import java.util.concurrent.TimeUnit;
 import java.util.concurrent.atomic.AtomicReference;
 import java.util.logging.Logger;
 
-import javax.annotation.Nullable;
-
 /**
  * The package factory is responsible for constructing Package instances
  * from a BUILD file's abstract syntax tree (AST).  The caller may
@@ -97,7 +94,7 @@ public final class PackageFactory {
     }
 
     private void convertAndProcess(
-        LegacyPackage.LegacyPackageBuilder pkgBuilder, Location location, Object value)
+        Package.LegacyBuilder pkgBuilder, Location location, Object value)
         throws EvalException, ConversionException {
       T typedValue = type.convert(value, "'package' argument", pkgBuilder.getBuildFileLabel());
       process(pkgBuilder, location, typedValue);
@@ -111,7 +108,7 @@ public final class PackageFactory {
      * @param value the value of the argument. Typically passed to {@link Type#convert}
      */
     protected abstract void process(
-        LegacyPackage.LegacyPackageBuilder pkgBuilder, Location location, T value)
+        Package.LegacyBuilder pkgBuilder, Location location, T value)
         throws EvalException;
   }
 
@@ -136,7 +133,7 @@ public final class PackageFactory {
     }
 
     @Override
-    protected void process(LegacyPackageBuilder pkgBuilder, Location location,
+    protected void process(Package.LegacyBuilder pkgBuilder, Location location,
         List<Label> value) {
       pkgBuilder.setDefaultVisibility(getVisibility(value));
     }
@@ -148,7 +145,7 @@ public final class PackageFactory {
     }
 
     @Override
-    protected void process(LegacyPackageBuilder pkgBuilder, Location location,
+    protected void process(Package.LegacyBuilder pkgBuilder, Location location,
         Boolean value) {
       pkgBuilder.setDefaultObsolete(value);
     }
@@ -160,7 +157,7 @@ public final class PackageFactory {
     }
 
     @Override
-    protected void process(LegacyPackageBuilder pkgBuilder, Location location,
+    protected void process(Package.LegacyBuilder pkgBuilder, Location location,
         Boolean value) {
       pkgBuilder.setDefaultTestonly(value);
     }
@@ -172,7 +169,7 @@ public final class PackageFactory {
     }
 
     @Override
-    protected void process(LegacyPackageBuilder pkgBuilder, Location location,
+    protected void process(Package.LegacyBuilder pkgBuilder, Location location,
         String value) {
       pkgBuilder.setDefaultDeprecation(value);
     }
@@ -184,7 +181,7 @@ public final class PackageFactory {
     }
 
     @Override
-    protected void process(LegacyPackageBuilder pkgBuilder, Location location,
+    protected void process(Package.LegacyBuilder pkgBuilder, Location location,
         List<String> value) {
       pkgBuilder.addFeatures(value);
     }
@@ -432,7 +429,7 @@ public final class PackageFactory {
    * package context.
    */
   private static Function newExportsFilesFunction(final PackageContext context) {
-    final LegacyPackageBuilder pkgBuilder = context.pkgBuilder;
+    final Package.LegacyBuilder pkgBuilder = context.pkgBuilder;
     List<String> params = ImmutableList.of("srcs", "visibility", "licenses");
     return new MixedModeFunction("exports_files", params, 1, false) {
       @Override
@@ -479,7 +476,7 @@ public final class PackageFactory {
             }
 
             pkgBuilder.setVisibilityAndLicense(inputFile, visibility, license);
-          } catch (Package.PackageBuilder.GeneratedLabelConflict e) {
+          } catch (Package.Builder.GeneratedLabelConflict e) {
             throw new EvalException(ast.getLocation(), e.getMessage());
           }
         }
@@ -586,7 +583,7 @@ public final class PackageFactory {
           Map<String, Object> surplusKeywordArguments,
           FuncallExpression ast) throws EvalException, ConversionException {
 
-        LegacyPackageBuilder pkgBuilder = context.pkgBuilder;
+        Package.LegacyBuilder pkgBuilder = context.pkgBuilder;
 
         // Validate parameter list
         if (pkgBuilder.isPackageFunctionUsed()) {
@@ -682,8 +679,10 @@ public final class PackageFactory {
 
   /**
    * Loads, scans parses and evaluates the build file at "buildFile", and
-   * creates and returns a new Package instance with name "packageName". Any
-   * errors encountered are reported via "reporter".
+   * creates and returns a Package builder instance capable of building a package with name
+   * "packageName".
+   *
+   * <p>This method returns a builder to allow the caller to do additional work, if necessary.
    *
    * <p>This method assumes "packageName" is a valid package name according to the
    * {@link LabelValidator#validatePackageName} heuristic.
@@ -693,15 +692,11 @@ public final class PackageFactory {
    * contents are loaded from the {@code buildFile}.
    *
    * <p>See {@link #evaluateBuildFile} for information on AST retention.
-   *
-   * @return the newly-created Package instance (which may contain errors)
    */
-  public LegacyPackage createPackage(String packageName, Path buildFile,
+  public Package.LegacyBuilder createPackage(String packageName, Path buildFile,
       List<Statement> preludeStatements,
       CachingPackageLocator locator, ParserInputSource replacementSource,
-      RuleVisibility defaultVisibility,
-      @Nullable BulkPackageLocatorForCrossingSubpackageBoundaries bulkPackageLocator)
-      throws InterruptedException {
+      RuleVisibility defaultVisibility) throws InterruptedException {
     profiler.startTask(ProfilerTask.CREATE_PACKAGE, packageName);
     StoredEventHandler localReporter = new StoredEventHandler();
     GlobCache globCache = createGlobCache(buildFile.getParentDirectory(), packageName, locator);
@@ -739,8 +734,8 @@ public final class PackageFactory {
 
       return evaluateBuildFile(
           packageName, buildFileAST, buildFile, globCache, localReporter.getEvents(),
-          defaultVisibility, hasPreprocessorError,
-          preprocessingResult.containsTransientErrors, bulkPackageLocator, locator, makeEnv);
+          defaultVisibility, hasPreprocessorError, preprocessingResult.containsTransientErrors,
+          locator, makeEnv);
     } catch (InterruptedException e) {
       globCache.cancelBackgroundTasks();
       throw e;
@@ -755,7 +750,7 @@ public final class PackageFactory {
    * throwing a {@link NoSuchPackageException} if the name is invalid.
    */
   @VisibleForTesting
-  public LegacyPackage createPackageForTesting(String packageName, Path buildFile,
+  public Package createPackageForTesting(String packageName, Path buildFile,
       CachingPackageLocator locator, EventHandler eventHandler)
           throws NoSuchPackageException, InterruptedException {
     String error = LabelValidator.validatePackageName(packageName);
@@ -763,8 +758,8 @@ public final class PackageFactory {
       throw new BuildFileNotFoundException(packageName,
           "illegal package name: '" + packageName + "' (" + error + ")");
     }
-    LegacyPackage result = createPackage(packageName, buildFile, ImmutableList.<Statement>of(),
-        locator, null, ConstantRuleVisibility.PUBLIC, LegacyPackage.EMPTY_BULK_PACKAGE_LOCATOR);
+    Package result = createPackage(packageName, buildFile, ImmutableList.<Statement>of(),
+        locator, null, ConstantRuleVisibility.PUBLIC).build();
     Event.replayEventsOn(eventHandler, result.getEvents());
     return result;
   }
@@ -839,11 +834,11 @@ public final class PackageFactory {
    */
   public static class PackageContext {
 
-    final LegacyPackage.LegacyPackageBuilder pkgBuilder;
+    final Package.LegacyBuilder pkgBuilder;
     final EventHandler eventHandler;
     final boolean retainASTs;
 
-    public PackageContext(LegacyPackage.LegacyPackageBuilder pkgBuilder, EventHandler eventHandler,
+    public PackageContext(Package.LegacyBuilder pkgBuilder, EventHandler eventHandler,
         boolean retainASTs) {
       this.pkgBuilder = pkgBuilder;
       this.eventHandler = eventHandler;
@@ -987,18 +982,16 @@ public final class PackageFactory {
    * @see PackageFactory#PackageFactory
    */
   @VisibleForTesting // used by PackageFactoryApparatus
-  public LegacyPackage evaluateBuildFile(String packageName, BuildFileAST buildFileAST,
-      Path buildFilePath, GlobCache globCache, Iterable<Event> pastEvents,
-      RuleVisibility defaultVisibility, boolean containsError, boolean containsTransientError,
-      @Nullable BulkPackageLocatorForCrossingSubpackageBoundaries bulkPackageLocator,
-      CachingPackageLocator locator,
-      MakeEnvironment.Builder pkgMakeEnv)
-      throws InterruptedException {
+  public Package.LegacyBuilder evaluateBuildFile(String packageName,
+      BuildFileAST buildFileAST, Path buildFilePath, GlobCache globCache,
+      Iterable<Event> pastEvents, RuleVisibility defaultVisibility, boolean containsError,
+      boolean containsTransientError, CachingPackageLocator locator,
+      MakeEnvironment.Builder pkgMakeEnv) throws InterruptedException {
     // Important: Environment should be unreachable by the end of this method!
     Environment pkgEnv = new Environment(globalEnv);
 
-    LegacyPackage.LegacyPackageBuilder pkgBuilder =
-        new LegacyPackage.LegacyPackageBuilder(packageName)
+    Package.LegacyBuilder pkgBuilder =
+        new Package.LegacyBuilder(packageName)
         .setFilename(buildFilePath)
         .setAST(retainAsts ? buildFileAST : null)
         .setMakeEnv(pkgMakeEnv)
@@ -1057,7 +1050,8 @@ public final class PackageFactory {
     for (SkylarkEnvironment extensionEnv : skylarkEnvironments) {
       extensionEnv.removeOnlyLoadingPhaseObjects();
     }
-    return pkgBuilder.build(bulkPackageLocator, eventHandler);
+    pkgBuilder.addEvents(eventHandler.getEvents());
+    return pkgBuilder;
   }
 
   /**
@@ -1075,8 +1069,8 @@ public final class PackageFactory {
     // Important: Environment should be unreachable by the end of this method!
     Environment pkgEnv = new Environment();
 
-    LegacyPackage.LegacyPackageBuilder pkgBuilder =
-        new LegacyPackage.LegacyPackageBuilder(packageName)
+    Package.LegacyBuilder pkgBuilder =
+        new Package.LegacyBuilder(packageName)
         .setFilename(buildFilePath)
         .setMakeEnv(pkgMakeEnv)
         .setGlobCache(globCache)

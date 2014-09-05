@@ -109,7 +109,7 @@ bool BlazeStartupOptions::ProcessArg(const string& argstr,
     option_sources["host_jvm_profile"] = rcfile;
   } else if ((value = GetUnaryOption(arg, next_arg,
                                      "--host_javabase")) != NULL) {
-    // TODO(bazel-devel): Consider examining the javabase, and in case of
+    // TODO(bazel-team): Consider examining the javabase, and in case of
     // architecture mismatch, treating this option like --blaze_cpu
     // and re-execing.
     host_javabase = MakeAbsolute(value);

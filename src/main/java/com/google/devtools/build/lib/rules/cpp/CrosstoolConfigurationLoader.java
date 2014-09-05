@@ -19,9 +19,13 @@ import com.google.common.base.Function;
 import com.google.common.cache.Cache;
 import com.google.common.cache.CacheBuilder;
 import com.google.common.io.BaseEncoding;
-import com.google.devtools.build.lib.vfs.FileSystem;
+import com.google.devtools.build.lib.packages.NoSuchThingException;
+import com.google.devtools.build.lib.packages.Package;
+import com.google.devtools.build.lib.syntax.Label;
+import com.google.devtools.build.lib.syntax.Label.SyntaxException;
 import com.google.devtools.build.lib.vfs.FileSystemUtils;
 import com.google.devtools.build.lib.vfs.Path;
+import com.google.devtools.build.lib.view.RedirectChaser;
 import com.google.devtools.build.lib.view.config.BuildOptions;
 import com.google.devtools.build.lib.view.config.ConfigurationEnvironment;
 import com.google.devtools.build.lib.view.config.InvalidConfigurationException;
@@ -39,6 +43,8 @@ import java.util.Collection;
  * instances from them.
  */
 public class CrosstoolConfigurationLoader {
+  private static final String CROSSTOOL_CONFIGURATION_FILENAME = "CROSSTOOL";
+
   /**
    * Cache for storing result of toReleaseConfiguration function based on md5 sum of input file.
    * We can use md5 because result of this function depends only on the file content.
@@ -46,67 +52,16 @@ public class CrosstoolConfigurationLoader {
   private static final Cache<String, CrosstoolConfig.CrosstoolRelease> crosstoolReleaseCache =
       CacheBuilder.newBuilder().concurrencyLevel(4).maximumSize(100).build();
 
-
-  /**
-   * A lookup function from crosstool top to path of the configuration file.
-   */
-  public interface CrosstoolResolver {
-
-    /**
-     * Returns a resolved crosstool top by performing an implementation
-     * specific lookup. This can be used to implement BUILD file level
-     * redirects.
-     *
-     * <p>The return value must not be {@code null}; the simplest valid
-     * implementation is to just return the passed in value.
-     *
-     * @throws NullPointerException implementations should throw this, if
-     *         {@code crosstoolTop} is {@code null}, but they are not required
-     *         to - the passed in value should never be {@code null}
-     * @throws InvalidConfigurationException if the resolution failed in a way that
-     *         implies that no progress is possible; this exception causes an
-     *         error message with the exception message as text and abortion of
-     *         the current command
-     */
-    String resolveCrosstoolTop(ConfigurationEnvironment env, String crosstoolTop)
-        throws InvalidConfigurationException;
-
-    /**
-     * Returns the path to the configuration file determined from the crosstool
-     * top. This method may return {@code null} if no file could be
-     * determined.
-     * @param fileSystem TODO(bazel-team):
-     */
-    Path findConfiguration(ConfigurationEnvironment env, FileSystem fileSystem, String crosstoolTop)
-        throws InvalidConfigurationException;
-
-    /**
-     * Selects a crosstool toolchain corresponding to the given crosstool
-     * configuration options. If all of these options are null, it returns the default
-     * toolchain specified in the crosstool release. If only cpu is non-null, it
-     * returns the default toolchain for that cpu, as specified in the crosstool
-     * release. Otherwise, all values must be non-null, and this method
-     * returns the toolchain which matches all of the values.
-     *
-     * @throws NullPointerException if {@code release} is null
-     * @throws InvalidConfigurationException if no matching toolchain can be found, or
-     *     if the input parameters do not obey the constraints described above
-     */
-    CrosstoolConfig.CToolchain selectToolchain(
-        CrosstoolConfig.CrosstoolRelease release, BuildOptions options)
-            throws InvalidConfigurationException;
-  }
-
   /**
    * A class that holds the results of reading a CROSSTOOL file.
    */
   public static class CrosstoolFile {
-    private final String crosstoolTop;
+    private final Label crosstoolTop;
     private Path crosstoolPath;
     private CrosstoolConfig.CrosstoolRelease crosstool;
     private String md5;
 
-    CrosstoolFile(String crosstoolTop) {
+    CrosstoolFile(Label crosstoolTop) {
       this.crosstoolTop = crosstoolTop;
     }
 
@@ -123,10 +78,9 @@ public class CrosstoolConfigurationLoader {
     }
 
     /**
-     * Returns the crosstool top as resolved by a
-     * {@link CrosstoolConfigurationLoader.CrosstoolResolver}.
+     * Returns the crosstool top as resolved.
      */
-    public String getCrosstoolTop() {
+    public Label getCrosstoolTop() {
       return crosstoolTop;
     }
 
@@ -179,12 +133,22 @@ public class CrosstoolConfigurationLoader {
     }
   }
 
-  private static void findCrosstoolConfiguration(ConfigurationEnvironment env,
-      CrosstoolConfigurationLoader.CrosstoolResolver crosstoolResolver,
+  private static void findCrosstoolConfiguration(
+      ConfigurationEnvironment env,
       CrosstoolConfigurationLoader.CrosstoolFile file)
       throws IOException, InvalidConfigurationException {
-    String crosstoolTop = file.getCrosstoolTop();
-    Path path = crosstoolResolver.findConfiguration(env, null, crosstoolTop);
+    Label crosstoolTop = file.getCrosstoolTop();
+    Path path = null;
+    try {
+      Package containingPackage = env.getTarget(crosstoolTop.getLocalTargetLabel("BUILD"))
+          .getPackage();
+      path = env.getPath(containingPackage, CROSSTOOL_CONFIGURATION_FILENAME);
+    } catch (SyntaxException e) {
+      throw new InvalidConfigurationException(e);
+    } catch (NoSuchThingException e) {
+      // Handled later
+    }
+
     // If we can't find a file, fall back to the provided alternative.
     if (path == null || !path.exists()) {
       throw new InvalidConfigurationException("The crosstool_top you specified was resolved to '" +
@@ -211,14 +175,12 @@ public class CrosstoolConfigurationLoader {
    * Reads a crosstool file.
    */
   public static CrosstoolConfigurationLoader.CrosstoolFile readCrosstool(
-      ConfigurationEnvironment env,
-      CrosstoolConfigurationLoader.CrosstoolResolver crosstoolResolver, String crosstoolTop)
-      throws InvalidConfigurationException {
-    crosstoolTop = crosstoolResolver.resolveCrosstoolTop(env, crosstoolTop);
+      ConfigurationEnvironment env, Label crosstoolTop) throws InvalidConfigurationException {
+    crosstoolTop = RedirectChaser.followRedirects(env, crosstoolTop, "crosstool_top");
     CrosstoolConfigurationLoader.CrosstoolFile file =
         new CrosstoolConfigurationLoader.CrosstoolFile(crosstoolTop);
     try {
-      findCrosstoolConfiguration(env, crosstoolResolver, file);
+      findCrosstoolConfiguration(env, file);
       return file;
     } catch (IOException e) {
       throw new InvalidConfigurationException(e);
@@ -333,12 +295,13 @@ public class CrosstoolConfigurationLoader {
   }
 
   public static CrosstoolConfig.CrosstoolRelease getCrosstoolReleaseProto(
-      ConfigurationEnvironment env, BuildOptions options, CrosstoolResolver crosstoolResolver,
-      String crosstoolTop) throws InvalidConfigurationException {
+      ConfigurationEnvironment env, BuildOptions options,
+      Label crosstoolTop, Function<String, String> cpuTransformer)
+      throws InvalidConfigurationException {
     CrosstoolConfigurationLoader.CrosstoolFile file =
-        readCrosstool(env, crosstoolResolver, crosstoolTop);
+        readCrosstool(env, crosstoolTop);
     // Make sure that we have the requested toolchain in the result. Throw an exception if not.
-    crosstoolResolver.selectToolchain(file.getProto(), options);
+    selectToolchain(file.getProto(), options, cpuTransformer);
     return file.getProto();
   }
 }

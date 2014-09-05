@@ -565,9 +565,12 @@ public class BuildView {
   }
 
   @VisibleForTesting
-  WorkspaceStatusArtifacts getLastWorkspaceStatusArtifactsForTesting() {
-    Preconditions.checkState(skyframeExecutor == null || !skyframeExecutor.skyframeBuild());
-    return lastWorkspaceStatusArtifacts;
+  WorkspaceStatusAction getLastWorkspaceBuildInfoActionForTesting() throws InterruptedException {
+    if (skyframeExecutor.skyframeBuild()) {
+      return skyframeExecutor.getLastWorkspaceStatusActionForTesting();
+    } else {
+      return lastWorkspaceStatusArtifacts.getBuildInfoAction();
+    }
   }
 
   /**

@@ -182,10 +182,10 @@ public class JunitTestUtils {
    */
   private static String eventsToString(Iterable<Event> eventCollector) {
     StringBuilder buf = new StringBuilder();
-    for (Event event : eventCollector) {
+    eventLoop: for (Event event : eventCollector) {
       for (String ignoredPrefix : TestConstants.IGNORED_MESSAGE_PREFIXES) {
         if (event.getMessage().startsWith(ignoredPrefix)) {
-          continue;
+          continue eventLoop;
         }
       }
       buf.append('\n').append(event);

@@ -84,7 +84,7 @@ public class RuleFactory {
    *         reason (e.g. no <code>name</code> attribute is defined)
    * @throws NameConflictException
    */
-  static Rule createAndAddRule(Package.AbstractPackageBuilder<?, ?> pkgBuilder,
+  static Rule createAndAddRule(Package.AbstractBuilder<?, ?> pkgBuilder,
                   RuleClass ruleClass,
                   Map<String, Object> attributeValues,
                   EventHandler eventHandler,

@@ -35,7 +35,7 @@ public class UnknownRuleConfiguredTarget implements RuleConfiguredTargetFactory 
 
   @Override
   public ConfiguredTarget create(RuleContext context)  {
-    // TODO(blaze-team): (2009) why isn't this an error?  It would stop the build more promptly...
+    // TODO(bazel-team): (2009) why isn't this an error?  It would stop the build more promptly...
     context.ruleWarning("cannot build " + context.getRule().getRuleClass() + " rules");
 
     ImmutableList<Artifact> outputArtifacts = context.getOutputArtifacts();

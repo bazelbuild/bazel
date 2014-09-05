@@ -116,7 +116,7 @@ class Parser {
 
   private static final Map<TokenKind, Operator> augmentedAssignmentMethods =
       new ImmutableMap.Builder<TokenKind, Operator>()
-      .put(TokenKind.PLUS_EQUALS, Operator.PLUS) // += // TODO(bazel_team): other similar operators
+      .put(TokenKind.PLUS_EQUALS, Operator.PLUS) // += // TODO(bazel-team): other similar operators
       .build();
 
   /** Highest precedence goes last.

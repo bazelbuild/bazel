@@ -23,11 +23,11 @@ import com.google.common.collect.ImmutableSortedSet;
 import com.google.common.collect.Iterables;
 import com.google.common.collect.Lists;
 import com.google.common.collect.Maps;
+import com.google.common.collect.Sets;
 import com.google.devtools.build.lib.collect.ImmutableSortedKeyMap;
 import com.google.devtools.build.lib.events.Event;
 import com.google.devtools.build.lib.events.EventHandler;
 import com.google.devtools.build.lib.events.Location;
-import com.google.devtools.build.lib.events.StoredEventHandler;
 import com.google.devtools.build.lib.packages.AttributeMap.AcceptsLabelAttribute;
 import com.google.devtools.build.lib.packages.License.DistributionType;
 import com.google.devtools.build.lib.packages.PackageDeserializer.PackageDeserializationException;
@@ -35,6 +35,7 @@ import com.google.devtools.build.lib.syntax.BuildFileAST;
 import com.google.devtools.build.lib.syntax.FuncallExpression;
 import com.google.devtools.build.lib.syntax.Label;
 import com.google.devtools.build.lib.syntax.Label.SyntaxException;
+import com.google.devtools.build.lib.util.Pair;
 import com.google.devtools.build.lib.vfs.Canonicalizer;
 import com.google.devtools.build.lib.vfs.Path;
 import com.google.devtools.build.lib.vfs.PathFragment;
@@ -167,11 +168,17 @@ public class Package implements Serializable {
   private boolean containsErrors;
 
   /**
+   * True iff this package contains errors that were caused by temporary conditions (e.g. an I/O
+   * error). If this is true, {@link #containsErrors} is also true.
+   */
+  private boolean containsTemporaryErrors;
+
+  /**
    * This is a map from the label of every file referred to in a {@code
    * subinclude} in this BUILD file to its absolute path. Required for sound
    * dependency analysis.
    */
-  protected Map<Label, Path> subincludes;
+  private Map<Label, Path> subincludes;
 
   /**
    * The transitive closure of imported skylark extension files.
@@ -204,7 +211,7 @@ public class Package implements Serializable {
    * Package initialization, part 1 of 3: instantiates a new package with the
    * given name.
    *
-   * <p>As part of initialization, {@link PackageBuilder} constructs {@link InputFile}
+   * <p>As part of initialization, {@link Builder} constructs {@link InputFile}
    * and {@link PackageGroup} instances that require a valid Package instance where
    * {@link Package#getNameFragment()} is accessible. That's why these settings are
    * applied here at the start.
@@ -298,7 +305,17 @@ public class Package implements Serializable {
    * <p>Only after this method is called can this package be considered "complete"
    * and be shared publicly.
    */
-  protected void finishInit(AbstractPackageBuilder<?, ?> builder, Iterable<Event> events) {
+  protected void finishInit(AbstractBuilder<?, ?> builder) {
+    // If any error occurred during evaluation of this package, consider all
+    // rules in the package to be "in error" also (even if they were evaluated
+    // prior to the error).  This behaviour is arguably stricter than need be,
+    // but stopping a build only for some errors but not others creates user
+    // confusion.
+    if (builder.containsErrors) {
+      for (Rule rule : builder.getTargets(Rule.class)) {
+        rule.setContainsErrors();
+      }
+    }
     this.ast = builder.ast;
     this.filename = builder.filename;
     this.packageDirectory = filename.getParentDirectory();
@@ -321,13 +338,14 @@ public class Package implements Serializable {
     }
     this.buildFile = builder.buildFile;
     this.containsErrors = builder.containsErrors;
+    this.containsTemporaryErrors = builder.containsTemporaryErrors;
     this.subincludes = builder.subincludes;
     this.skylarkExtensions = builder.skylarkExtensions;
     this.skylarkRoot = builder.skylarkRoot;
     this.defaultLicense = builder.defaultLicense;
     this.defaultDistributionSet = builder.defaultDistributionSet;
     this.features = ImmutableSortedSet.copyOf(builder.features);
-    this.events = ImmutableList.copyOf(events);
+    this.events = ImmutableList.copyOf(builder.events);
   }
 
   /**
@@ -431,16 +449,20 @@ public class Package implements Serializable {
     return containsErrors;
   }
 
+  /**
+   * True iff this package contains errors that were caused by temporary conditions (e.g. an I/O
+   * error). If this is true, {@link #containsErrors()} also returns true.
+   */
+  public boolean containsTemporaryErrors() {
+    return containsTemporaryErrors;
+  }
+
   public List<Event> getEvents() {
     return events;
   }
 
   /**
    * Returns an (immutable, unordered) view of all the targets belonging to this package.
-   *
-   * <p>This method can return targets which would cause PackageCache#getTarget
-   * throw an exception; this is because that
-   * method does a couple of extra checks (e.g. cross-package label checks).
    */
   public Collection<Target> getTargets() {
     return getTargets(targets);
@@ -448,7 +470,7 @@ public class Package implements Serializable {
 
   /**
    * Common getTargets implementation, accessible by both {@link Package} and
-   * {@link Package.AbstractPackageBuilder}.
+   * {@link Package.AbstractBuilder}.
    */
   private static Collection<Target> getTargets(Map<String, Target> targetMap) {
     return Collections.unmodifiableCollection(targetMap.values());
@@ -464,7 +486,7 @@ public class Package implements Serializable {
 
   /**
    * Common getTargets implementation, accessible by both {@link Package} and
-   * {@link Package.AbstractPackageBuilder}.
+   * {@link Package.AbstractBuilder}.
    */
   private static <T extends Target> Iterable<T> getTargets(Map<String, Target> targetMap,
       Class<T> targetClass) {
@@ -688,21 +710,85 @@ public class Package implements Serializable {
   /**
    * Builder class for {@link Package}.
    *
-   * <p>Should only be used by the package loading and the package deserialization machineries,
+   * <p>Should only be used by the package loading and the package deserialization machineries.
    */
-  static class PackageBuilder extends AbstractPackageBuilder<Package, PackageBuilder> {
-    PackageBuilder(String packageName) {
+  static class Builder extends AbstractBuilder<Package, Builder> {
+    Builder(String packageName) {
       super(new Package(packageName));
     }
 
     @Override
-    protected PackageBuilder self() {
+    protected Builder self() {
       return this;
     }
   }
 
-  abstract static class AbstractPackageBuilder<P extends Package,
-      B extends AbstractPackageBuilder<P, B>> {
+  /** Builder class for {@link Package} that does its own globbing. */
+  public static class LegacyBuilder extends AbstractBuilder<Package, LegacyBuilder> {
+
+    private GlobCache globCache = null;
+
+    LegacyBuilder(String packageName) {
+      super(AbstractBuilder.newPackage(packageName));
+    }
+
+    @Override
+    protected LegacyBuilder self() {
+      return this;
+    }
+
+    /**
+     * Sets the cache to use for this package's glob expansions.
+     */
+    LegacyBuilder setGlobCache(GlobCache globCache) {
+      this.globCache = globCache;
+      return this;
+    }
+
+    /**
+     * Evaluate the build language expression "glob(includes, excludes)" in the
+     * context of this package.
+     */
+    List<String> glob(List<String> includes, List<String> excludes, boolean excludeDirs)
+        throws IOException, GlobCache.BadGlobException, InterruptedException {
+      if (globCache == null) {
+        throw new NullPointerException("globCache is null");
+      }
+
+      return globCache.glob(includes, excludes, excludeDirs);
+    }
+
+    /**
+     * Launches the given glob expressions, but does not block on their completion.
+     */
+    void globAsync(List<String> includes, List<String> excludes, boolean excludeDirs)
+        throws GlobCache.BadGlobException {
+      for (String pattern :  Iterables.concat(includes, excludes)) {
+        globCache.getGlobAsync(pattern, excludeDirs);
+      }
+    }
+
+    /**
+     * Removes a target from the {@link Package} under construction. Intended to be used only by
+     * {@link PackageFunction} to remove targets whose labels cross subpackage boundaries.
+     */
+    public void removeTarget(Target target) {
+      if (target.getPackage() == pkg) {
+        this.targets.remove(target.getName());
+      }
+    }
+
+    /**
+     * Returns the glob patterns requested by {@link PackageFactory} during evaluation of this
+     * package's BUILD file. Intended to be used only by {@link PackageFunction} to mark the
+     * appropriate Skyframe dependencies after the fact.
+     */
+    public Collection<Pair<String, Boolean>> getGlobPatterns() {
+      return globCache.getKeySet();
+    }
+  }
+
+  abstract static class AbstractBuilder<P extends Package, B extends AbstractBuilder<P, B>> {
     /**
      * The output instance for this builder. Needs to be instantiated and
      * available with name info throughout initialization. All other settings
@@ -720,7 +806,9 @@ public class Package implements Serializable {
     private boolean defaultVisibilitySet;
     private List<String> defaultCopts = null;
     private List<String> features = new ArrayList<>();
+    private List<Event> events = Lists.newArrayList();
     private boolean containsErrors = false;
+    private boolean containsTemporaryErrors = false;
 
     private License defaultLicense = License.NO_LICENSE;
     private Set<License.DistributionType> defaultDistributionSet = License.DEFAULT_DISTRIB;
@@ -747,11 +835,17 @@ public class Package implements Serializable {
      */
     private Map<String, OutputFile> outputFilePrefixes = new HashMap<>();
 
-    protected AbstractPackageBuilder(P pkg) {
+    private boolean alreadyBuilt = false;
+
+    protected AbstractBuilder(P pkg) {
       this.pkg = pkg;
       if (pkg.getName().startsWith("javatests/")) {
         setDefaultTestonly(true);
       }
+    }
+
+    protected static Package newPackage(String packageName) {
+      return new Package(packageName);
     }
 
     protected abstract B self();
@@ -869,16 +963,38 @@ public class Package implements Serializable {
       return self();
     }
 
+    public B addFeatures(Iterable<String> features) {
+      Iterables.addAll(this.features, features);
+      return self();
+    }
+
     /**
      * Declares that errors were encountering while loading this package.
      */
-    B setContainsErrors() {
+    public B setContainsErrors() {
       containsErrors = true;
       return self();
     }
 
-    public B addFeatures(Iterable<String> features) {
-      Iterables.addAll(this.features, features);
+    public boolean containsErrors() {
+      return containsErrors;
+    }
+
+    B setContainsTemporaryErrors() {
+      setContainsErrors();
+      containsTemporaryErrors = true;
+      return self();
+    }
+
+    B addEvents(Iterable<Event> events) {
+      for (Event event : events) {
+        addEvent(event);
+      }
+      return self();
+    }
+
+    public B addEvent(Event event) {
+      this.events.add(event);
       return self();
     }
 
@@ -936,9 +1052,17 @@ public class Package implements Serializable {
       }
     }
 
+    public Set<Label> getSubincludeLabels() {
+      return subincludes == null ? Sets.<Label>newHashSet() : subincludes.keySet();
+    }
+
     void setSkylarkExtensions(Path root, Collection<PathFragment> extensions) {
       this.skylarkRoot = root;
       this.skylarkExtensions = extensions;
+    }
+
+    public Collection<Target> getTargets() {
+      return Package.getTargets(targets);
     }
 
     /**
@@ -1058,12 +1182,11 @@ public class Package implements Serializable {
       }
     }
 
-    protected void beforeBuildInternal() {
+    private B beforeBuild() {
       Preconditions.checkNotNull(pkg);
       Preconditions.checkNotNull(filename);
       Preconditions.checkNotNull(buildFileLabel);
       Preconditions.checkNotNull(makeEnv);
-
       // Freeze subincludes.
       subincludes = (subincludes == null)
           ? Collections.<Label, Path>emptyMap()
@@ -1107,42 +1230,38 @@ public class Package implements Serializable {
           rule.setAttributeValueByName("$implicit_tests", allTests);
         }
       }
+      return self();
     }
 
-    protected P buildInternal(StoredEventHandler eventHandler) {
+    /** Intended to be used only by {@link PackageFunction}. */
+    public B buildPartial() {
+      if (alreadyBuilt) {
+        return self();
+      }
+      return beforeBuild();
+    }
+
+    /** Intended to be used only by {@link PackageFunction}. */
+    public P finishBuild() {
+      if (alreadyBuilt) {
+        return pkg;
+      }
       // Freeze targets and distributions.
       targets = ImmutableMap.copyOf(targets);
       defaultDistributionSet =
           Collections.unmodifiableSet(defaultDistributionSet);
-
       // Build the package.
-      pkg.finishInit(this, eventHandler.getEvents());
-
-      // Return the package and forget the reference (this builder's job is now done).
-      P returnablePackage = pkg;
-      pkg = null;
-      return returnablePackage;
-    }
-
-    protected void afterBuildInternal() {
-      // If any error occurred during evaluation of this package, consider all
-      // rules in the package to be "in error" also (even if they were evaluated
-      // prior to the error).  This behaviour is arguably stricter than need be,
-      // but stopping a build only for some errors but not others creates user
-      // confusion.
-      List<Rule> rules = Lists.newArrayList(getTargets(Rule.class));
-      if (containsErrors) {
-        for (Rule rule : rules) {
-          rule.setContainsErrors();
-        }
-      }
-    }
-
-    protected P build(StoredEventHandler eventHandler) {
-      beforeBuildInternal();
-      P pkg = buildInternal(eventHandler);
-      afterBuildInternal();
+      pkg.finishInit(this);
+      alreadyBuilt = true;
       return pkg;
+    }
+
+    public P build() {
+      if (alreadyBuilt) {
+        return pkg;
+      }
+      beforeBuild();
+      return finishBuild();
     }
 
     /**

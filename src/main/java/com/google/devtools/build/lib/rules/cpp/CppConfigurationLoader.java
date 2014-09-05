@@ -15,6 +15,7 @@
 package com.google.devtools.build.lib.rules.cpp;
 
 import com.google.common.annotations.VisibleForTesting;
+import com.google.common.base.Function;
 import com.google.devtools.build.lib.blaze.BlazeDirectories;
 import com.google.devtools.build.lib.packages.InputFile;
 import com.google.devtools.build.lib.packages.NoSuchPackageException;
@@ -23,6 +24,7 @@ import com.google.devtools.build.lib.packages.Target;
 import com.google.devtools.build.lib.syntax.Label;
 import com.google.devtools.build.lib.syntax.Label.SyntaxException;
 import com.google.devtools.build.lib.vfs.Path;
+import com.google.devtools.build.lib.view.RedirectChaser;
 import com.google.devtools.build.lib.view.config.BuildConfiguration.Fragment;
 import com.google.devtools.build.lib.view.config.BuildOptions;
 import com.google.devtools.build.lib.view.config.ConfigurationEnvironment;
@@ -39,22 +41,21 @@ public class CppConfigurationLoader implements ConfigurationFragmentFactory {
     return CppConfiguration.class;
   }
 
-  private final CrosstoolConfigurationLoader.CrosstoolResolver crosstoolResolver;
+  private final Function<String, String> cpuTransformer;
 
   /**
    * Creates a new CrosstoolConfigurationLoader instance with the given
    * configuration provider. The configuration provider is used to perform
    * caller-specific configuration file lookup.
    */
-  public CppConfigurationLoader(
-      CrosstoolConfigurationLoader.CrosstoolResolver crosstoolResolver) {
-    this.crosstoolResolver = crosstoolResolver;
+  public CppConfigurationLoader(Function<String, String> cpuTransformer) {
+    this.cpuTransformer = cpuTransformer;
   }
 
   @Override
   public CppConfiguration create(ConfigurationEnvironment env, BlazeDirectories directories,
       BuildOptions options) throws InvalidConfigurationException {
-    CppConfigurationParameters params = createParameters(env, directories, options, null);
+    CppConfigurationParameters params = createParameters(env, directories, options);
     return new CppConfiguration(params);
   }
 
@@ -63,36 +64,36 @@ public class CppConfigurationLoader implements ConfigurationFragmentFactory {
    */
   public static class CppConfigurationParameters {
     protected final CrosstoolConfig.CToolchain toolchain;
-    protected final String crosstoolTop;
     protected final String cacheKeySuffix;
     protected final BuildOptions buildOptions;
+    protected final Label crosstoolTop;
     protected final Path fdoZip;
     protected final Path execRoot;
 
     CppConfigurationParameters(CrosstoolConfig.CToolchain toolchain,
-        String crosstoolTop,
         String cacheKeySuffix,
         BuildOptions buildOptions,
         Path fdoZip,
-        Path execRoot) {
+        Path execRoot,
+        Label crosstoolTop) {
       this.toolchain = toolchain;
-      this.crosstoolTop = crosstoolTop;
       this.cacheKeySuffix = cacheKeySuffix;
       this.buildOptions = buildOptions;
       this.fdoZip = fdoZip;
       this.execRoot = execRoot;
+      this.crosstoolTop = crosstoolTop;
     }
   }
 
   protected CppConfigurationParameters createParameters(
       ConfigurationEnvironment env, BlazeDirectories directories,
-      BuildOptions options, String crosstoolTop) throws InvalidConfigurationException {
+      BuildOptions options) throws InvalidConfigurationException {
+    Label crosstoolTop = RedirectChaser.followRedirects(env,
+        options.get(CppOptions.class).crosstoolTop, "crosstool_top");
     CrosstoolConfigurationLoader.CrosstoolFile file =
-        CrosstoolConfigurationLoader.readCrosstool(env, crosstoolResolver,
-            options.get(CppOptions.class).crosstoolTop);
+        CrosstoolConfigurationLoader.readCrosstool(env, crosstoolTop);
     CrosstoolConfig.CToolchain toolchain =
-        crosstoolResolver.selectToolchain(file.getProto(), options);
-    String actualCrosstoolTop = crosstoolTop != null ? crosstoolTop : file.getCrosstoolTop();
+        CrosstoolConfigurationLoader.selectToolchain(file.getProto(), options, cpuTransformer);
 
     // FDO
     // TODO(bazel-team): move this to CppConfiguration.prepareHook
@@ -119,8 +120,8 @@ public class CppConfigurationLoader implements ConfigurationFragmentFactory {
       fdoZip = directories.getWorkspace().getRelative(cppOptions.fdoOptimize);
     }
 
-    return new CppConfigurationParameters(toolchain, actualCrosstoolTop, file.getMd5(), options,
-        fdoZip, directories.getExecRoot());
+    return new CppConfigurationParameters(toolchain, file.getMd5(), options,
+        fdoZip, directories.getExecRoot(), crosstoolTop);
   }
 
   /**
@@ -129,9 +130,9 @@ public class CppConfigurationLoader implements ConfigurationFragmentFactory {
    */
   @VisibleForTesting
   CppConfiguration create(ConfigurationEnvironment env, BlazeDirectories directories,
-      BuildOptions options, String crosstoolTop)
+      BuildOptions options, Label crosstoolTop)
       throws InvalidConfigurationException {
 
-    return new CppConfiguration(createParameters(env, directories, options, crosstoolTop));
+    return new CppConfiguration(createParameters(env, directories, options));
   }
 }

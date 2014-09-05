@@ -72,7 +72,7 @@ public final class ResourceUsage {
     long elapsedTimeJiffies =
         newMeasurement.getTimeInJiffies() - oldMeasurement.getTimeInJiffies();
     int processors = getAvailableProcessors();
-    // TODO(gwenzel) Sometimes smaller then zero. Not sure why.
+    // TODO(bazel-team): Sometimes smaller then zero. Not sure why.
     double totalUsage = Math.max(0, 1.0D - (double) idleJiffies / elapsedTimeJiffies / processors);
     double usage = Math.max(0, (double) processJiffies / elapsedTimeJiffies / processors);
     return new float[] {(float) totalUsage * 100, (float) usage * 100};

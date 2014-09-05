@@ -15,6 +15,7 @@
 package com.google.devtools.build.lib.unix;
 
 import com.google.common.hash.HashCode;
+import com.google.devtools.build.lib.UnixJniLoader;
 
 import java.io.File;
 import java.io.FileNotFoundException;

@@ -75,7 +75,7 @@ public final class Attribute implements Comparable<Attribute> {
    * simultaneously. Note that the corresponding rule implementations must have special support to
    * handle this.
    */
-  // TODO(ulfjack): Serializability constraints?
+  // TODO(bazel-team): Serializability constraints?
   public interface SplitTransition<T> extends Transition {
     /**
      * Return the list of {@code BuildOptions} after splitting; empty if not applicable.
@@ -95,7 +95,7 @@ public final class Attribute implements Comparable<Attribute> {
     HOST,
 
     /** Transition from the target configuration to the data configuration. */
-    // TODO(ulfjack): Move this elsewhere.
+    // TODO(bazel-team): Move this elsewhere.
     DATA;
 
     @Override

@@ -944,7 +944,7 @@ public class ExecutionTool {
       return new SkyframeBuilder(skyframeExecutor,
           new ActionCacheChecker(actionCache, getView().getArtifactFactory(),
               packageUpToDateChecker, executionFilter, verboseExplanations),
-          keepGoing, explain , actualJobs, fileCache,
+          keepGoing, explain, actualJobs, options.checkOutputFiles, fileCache,
           request.getBuildOptions().progressReportInterval);
     }
   }

@@ -133,6 +133,14 @@ public final class CcLinkParams {
           librariesBuilder.build());
     }
 
+    private boolean add(CcLinkParamsStore store) {
+      if (store != null) {
+        CcLinkParams args = store.get(linkingStatically, linkShared);
+        addTransitiveArgs(args);
+      }
+      return store != null;
+    }
+
     /**
      * Includes link parameters from a collection of dependency targets.
      */
@@ -154,6 +162,27 @@ public final class CcLinkParams {
     }
 
     /**
+     * Includes link parameters from a dependency target. The target is checked for the given
+     * mappings in the order specified, and the first mapping that returns a non-null result is
+     * added.
+     */
+    @SafeVarargs
+    public final Builder addTransitiveTarget(TransitiveInfoCollection target,
+        Function<TransitiveInfoCollection, CcLinkParamsStore> firstMapping,
+        @SuppressWarnings("unchecked") // Java arrays don't preserve generic arguments.
+        Function<TransitiveInfoCollection, CcLinkParamsStore>... remainingMappings) {
+      if (add(firstMapping.apply(target))) {
+        return this;
+      }
+      for (Function<TransitiveInfoCollection, CcLinkParamsStore> mapping : remainingMappings) {
+        if (add(mapping.apply(target))) {
+          return this;
+        }
+      }
+      return this;
+    }
+
+    /**
      * Includes link parameters from a CcLinkParamsProvider provider.
      */
     public Builder addTransitiveProvider(CcLinkParamsProvider provider) {
@@ -167,33 +196,37 @@ public final class CcLinkParams {
     }
 
     /**
-     * Includes link parameters from a collection of dependencies.
-     *
-     * <p>The dependencies for which the function returns null are ignored.
+     * Includes link parameters from the given targets. Each target is checked for the given
+     * mappings in the order specified, and the first mapping that returns a non-null result is
+     * added.
      */
-    public Builder addTransitiveLangTargets(
+    @SafeVarargs
+    public final Builder addTransitiveTargets(
         Iterable<? extends TransitiveInfoCollection> targets,
-        Function<TransitiveInfoCollection, CcLinkParamsStore> mapping) {
+        Function<TransitiveInfoCollection, CcLinkParamsStore> firstMapping,
+        @SuppressWarnings("unchecked")  // Java arrays don't preserve generic arguments.
+        Function<TransitiveInfoCollection, CcLinkParamsStore>... remainingMappings) {
       for (TransitiveInfoCollection target : targets) {
-        addTransitiveLangTarget(target, mapping);
+        addTransitiveTarget(target, firstMapping, remainingMappings);
       }
       return this;
     }
 
     /**
-     * Includes link parameters from a dependency.
+     * Includes link parameters from the given targets. Each target is checked for the given
+     * mappings in the order specified, and the first mapping that returns a non-null result is
+     * added.
      *
-     * <p>If the function returns null, the dependency is ignored.
+     * @deprecated use {@link #addTransitiveTargets} instead
      */
-    public Builder addTransitiveLangTarget(TransitiveInfoCollection target,
-        Function<TransitiveInfoCollection, CcLinkParamsStore> mapping) {
-      CcLinkParamsStore store = mapping.apply(target);
-      if (store != null) {
-        CcLinkParams args = store.get(linkingStatically, linkShared);
-        addTransitiveArgs(args);
-      }
-
-      return this;
+    @Deprecated
+    @SafeVarargs
+    public final Builder addTransitiveLangTargets(
+        Iterable<? extends TransitiveInfoCollection> targets,
+        Function<TransitiveInfoCollection, CcLinkParamsStore> firstMapping,
+        @SuppressWarnings("unchecked") // Java arrays don't preserve generic arguments.
+        Function<TransitiveInfoCollection, CcLinkParamsStore>... remainingMappings) {
+      return addTransitiveTargets(targets, firstMapping, remainingMappings);
     }
 
     /**
@@ -251,10 +284,9 @@ public final class CcLinkParams {
      */
     public Builder addCcLibrary(RuleContext context, CcCommon common, boolean neverlink,
         CcLinkingOutputs linkingOutputs) {
-      addTransitiveTargets(context.getPrerequisites("deps", Mode.TARGET));
-      addTransitiveLangTargets(
+      addTransitiveTargets(
           context.getPrerequisites("deps", Mode.TARGET),
-          CcSpecificLinkParamsProvider.TO_LINK_PARAMS);
+          CcLinkParamsProvider.TO_LINK_PARAMS, CcSpecificLinkParamsProvider.TO_LINK_PARAMS);
 
       if (!neverlink) {
         addLibraries(linkingOutputs.getPreferredLibraries(linkingStatically,

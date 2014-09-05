@@ -61,18 +61,20 @@ class SkyframeBuilder implements Builder {
   private final boolean keepGoing;
   private final boolean explain;
   private final int numJobs;
+  private final boolean checkOutputFiles;
   private final ActionInputFileCache fileCache;
   private final ActionCacheChecker actionCacheChecker;
   private final int progressReportInterval;
 
   SkyframeBuilder(SkyframeExecutor skyframeExecutor, ActionCacheChecker actionCacheChecker,
-      boolean keepGoing, 
-      boolean explain, int numJobs, ActionInputFileCache fileCache, int progressReportInterval) {
+      boolean keepGoing, boolean explain, int numJobs, boolean checkOutputFiles,
+      ActionInputFileCache fileCache, int progressReportInterval) {
     this.skyframeExecutor = skyframeExecutor;
     this.actionCacheChecker = actionCacheChecker;
     this.keepGoing = keepGoing;
     this.explain = explain;
     this.numJobs = numJobs;
+    this.checkOutputFiles = checkOutputFiles;
     this.fileCache = fileCache;
     this.progressReportInterval = progressReportInterval;
   }
@@ -84,7 +86,7 @@ class SkyframeBuilder implements Builder {
       ModifiedFileSet modifiedFileSet, Set<Artifact> builtArtifacts, 
       boolean explain)
       throws BuildFailedException, AbruptExitException, TestExecException, InterruptedException {
-    skyframeExecutor.prepareExecution();
+    skyframeExecutor.prepareExecution(checkOutputFiles);
     skyframeExecutor.setFileCache(fileCache);
     // Note that executionProgressReceiver accesses builtArtifacts concurrently (after wrapping in a
     // synchronized collection), so unsynchronized access to this variable is unsafe while it runs.
