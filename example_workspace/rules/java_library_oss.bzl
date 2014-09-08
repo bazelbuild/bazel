@@ -25,8 +25,8 @@ def java_library_impl(ctx):
   build_output = Files.exec_path(class_jar) + ".build_output"
   java_home = ctx.attr.java_home
   main_class = ctx.attr.main_class
-  srcdir = ctx.attr.srcdir
-  main_file = srcdir + "/" + main_class.replace(".", "/") + ".java"
+  srcdirs = ctx.attr.srcdirs
+  sources = ctx.files("srcs", "TARGET")
 
   ctx.create_action(
     inputs = [],
@@ -36,12 +36,20 @@ def java_library_impl(ctx):
               Files.exec_path(manifest)),
     use_default_shell_env = True)
 
+  sources_param_file = ctx.param_file(
+      ctx.configuration.bin_dir, class_jar, "-2.params")
+  ctx.create_file_action(
+      output = sources_param_file,
+      content = Files.join_exec_paths("\n", sources),
+      executable = False)
+
   # Cleaning build output directory
-  cmd = "rm -rf " + build_output + ";mkdir " + build_output + "\n"
+  cmd = "set -e;rm -rf " + build_output + ";mkdir " + build_output + "\n"
   # Java compilation
   cmd += (java_home + "/bin/javac -classpath " +
          Files.join_exec_paths(":", jars) + " -sourcepath " +
-         srcdir + " -d " + build_output + " " + main_file + "\n")
+         ":".join(srcdirs) + " -d " + build_output + " @" +
+         Files.exec_path(sources_param_file) + "\n")
 
   # TODO(bazel-team): this deploy jar action should be only in binaries
   for jar in jars:
@@ -50,7 +58,7 @@ def java_library_impl(ctx):
          Files.exec_path(class_jar) + " -C " + build_output + " .\n")
 
   ctx.create_action(
-    inputs = jars + [manifest],
+    inputs = jars + [manifest, sources_param_file],
     outputs = [class_jar],
     mnemonic='Javac',
     command=cmd,
@@ -64,7 +72,7 @@ java_library = rule(java_library_impl,
        "srcs": Attr.label_list(file_types=java_filetype),
        "deps": Attr.label_list(file_types=NO_FILE),
        "java_home": Attr.string(),
-       "srcdir": Attr.string(),
+       "srcdirs": Attr.string_list(),
        "main_class": Attr.string(),
    },
    implicit_outputs={

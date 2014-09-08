@@ -178,7 +178,6 @@ public final class ExtraAction extends SpawnAction {
       }
 
       @Override public String getMnemonic() { return ExtraAction.this.getMnemonic(); }
-      @Override public Artifact getPrimaryInput() { return ExtraAction.this.getPrimaryInput(); }
     };
   }
 

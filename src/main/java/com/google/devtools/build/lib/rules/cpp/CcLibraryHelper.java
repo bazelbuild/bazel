@@ -23,6 +23,7 @@ import com.google.devtools.build.lib.actions.Artifact;
 import com.google.devtools.build.lib.collect.nestedset.NestedSet;
 import com.google.devtools.build.lib.collect.nestedset.NestedSetBuilder;
 import com.google.devtools.build.lib.collect.nestedset.Order;
+import com.google.devtools.build.lib.packages.Type;
 import com.google.devtools.build.lib.rules.cpp.CppConfiguration.HeadersCheckingMode;
 import com.google.devtools.build.lib.rules.cpp.Link.LinkTargetType;
 import com.google.devtools.build.lib.rules.cpp.LinkerInputs.LibraryToLink;
@@ -53,8 +54,9 @@ import javax.annotation.Nullable;
  * instead of the lower-level APIs in CppHelper and CppModel.
  *
  * <p>Rules that want to use this class are required to have implicit dependencies on the
- * toolchain, the STL and so on. Optionally, they can also have copts, plugins, and malloc
- * attributes, but note that these require explicit calls to the corresponding setter methods.
+ * toolchain, the STL, the lipo context, and so on. Optionally, they can also have copts, plugins,
+ * and malloc attributes, but note that these require explicit calls to the corresponding setter
+ * methods.
  */
 public final class CcLibraryHelper {
   /** Function for extracting module maps from CppCompilationDependencies. */
@@ -327,6 +329,11 @@ public final class CcLibraryHelper {
    * Create the C++ compile and link actions, and the corresponding C++-related providers.
    */
   public Info build() {
+    // Fail early if there is no lipo context collector on the rule - otherwise we end up failing
+    // in lipo optimization.
+    Preconditions.checkState(
+        ruleContext.getRule().isAttrDefined(":lipo_context_collector", Type.LABEL));
+
     CppCompilationContext cppCompilationContext = initializeCppCompilationContext();
     CcLinkingOutputs ccLinkingOutputs = CcLinkingOutputs.EMPTY;
     CcCompilationOutputs ccOutputs = new CcCompilationOutputs.Builder().build();

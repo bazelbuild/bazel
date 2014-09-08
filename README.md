@@ -6,12 +6,27 @@ Ubuntu. You will need packages for the protobuf-compiler, and for libarchive:
 
     sudo apt-get install protobuf-compiler libarchive-dev
 
-Then run:
+You will also need a JDK installed. Then run:
 
     ./compile.sh
 
 This will create the bazel binary in the output directory. We are working on
 bootstrapping bazel with itself.
+
+Experimental: Building Bazel on OS X
+------------------------------------
+
+You will need Xcode, the Xcode command line tools, and a JDK installed. Bazel's
+compile script assumes you're using MacPorts or Homebrew to install
+dependencies.  To install the prerequisites, run:
+
+    port install protobuf-cpp libarchive
+
+or
+
+    brew install protobuf libarchive
+
+Once the prerequisites are installed, follow the building instructions above.
 
 Running Bazel
 =============

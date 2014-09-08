@@ -26,6 +26,7 @@ import com.google.devtools.build.lib.actions.Executor.ActionContext;
 import com.google.devtools.build.lib.actions.ExecutorInitException;
 import com.google.devtools.build.lib.blaze.BlazeRuntime;
 import com.google.devtools.build.lib.buildtool.BuildRequest;
+import com.google.devtools.build.lib.exec.ExecutionOptions;
 import com.google.devtools.build.lib.exec.StandaloneTestStrategy;
 import com.google.devtools.build.lib.rules.cpp.IncludeScanningContext;
 import com.google.devtools.build.lib.rules.cpp.LocalGccStrategy;
@@ -65,7 +66,9 @@ public class StandaloneContextProvider implements ActionContextProvider {
 
   public StandaloneContextProvider(
       BlazeRuntime runtime, BuildRequest buildRequest) {
-    localSpawnStrategy = new LocalSpawnStrategy();
+    boolean verboseFailures = buildRequest.getOptions(ExecutionOptions.class).verboseFailures;  
+    
+    localSpawnStrategy = new LocalSpawnStrategy(verboseFailures);
     this.runtime = runtime;
     this.strategies = ImmutableList.of(
         localSpawnStrategy,

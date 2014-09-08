@@ -687,12 +687,13 @@ public final class LinkCommandLine extends CommandLine {
         && linkStaticness == LinkStaticness.DYNAMIC));
 
     String rpathRoot = null;
+    List<String> runtimeRpathEntries = new ArrayList<>();
 
     if (output != null) {
       String origin = useExecOrigin ? "$EXEC_ORIGIN/" : "$ORIGIN/";
       rpathRoot = "-Wl,-rpath," + origin;
       if (runtimeRpath) {
-        argv.add("-Wl,-rpath," + origin + runtimeSolibName + "/");
+        runtimeRpathEntries.add("-Wl,-rpath," + origin + runtimeSolibName + "/");
       }
 
       // Calculate the correct relative value for the "-rpath" link option (which sets
@@ -711,7 +712,7 @@ public final class LinkCommandLine extends CommandLine {
         // there's no *one* RPATH setting that fits all targets involved in the sharing.
         rpathRoot += ":" + origin + cppConfig.getSolibDirectory() + "/";
         if (runtimeRpath) {
-          argv.add("-Wl,-rpath," + origin + "../" + runtimeSolibName + "/");
+          runtimeRpathEntries.add("-Wl,-rpath," + origin + "../" + runtimeSolibName + "/");
         }
       } else {
         // For all other links, calculate the relative path from the output file to _solib_[arch]
@@ -719,19 +720,20 @@ public final class LinkCommandLine extends CommandLine {
         // directory. In other words, given blaze-bin/my/package/binary, rpathRoot would be
         // "../../_solib_[arch]".
         if (runtimeRpath) {
-          argv.add("-Wl,-rpath," + origin
+          runtimeRpathEntries.add("-Wl,-rpath," + origin
               + Strings.repeat("../", output.getRootRelativePath().segmentCount() - 1)
               + runtimeSolibName + "/");
         }
 
-        rpathRoot += Strings.repeat("../", output.getRootRelativePath().segmentCount() - 1)
+        rpathRoot = "-Wl,-rpath,"
+            + origin + Strings.repeat("../", output.getRootRelativePath().segmentCount() - 1)
             + cppConfig.getSolibDirectory() + "/";
 
         if (nativeDeps) {
           // We also retain the $ORIGIN/ path to solibs that are in _solib_<arch>, as opposed to
           // the package directory)
           if (runtimeRpath) {
-            argv.add("-Wl,-rpath," + origin + "../" + runtimeSolibName + "/");
+            runtimeRpathEntries.add("-Wl,-rpath," + origin + "../" + runtimeSolibName + "/");
           }
           rpathRoot += ":" + origin;
         }
@@ -739,6 +741,7 @@ public final class LinkCommandLine extends CommandLine {
     }
 
     boolean includeSolibDir = false;
+
     for (LinkerInput input : getLinkerInputs()) {
       if (isDynamicLibrary(input)) {
         PathFragment libDir = input.getArtifact().getExecPath().getParentDirectory();
@@ -754,6 +757,8 @@ public final class LinkCommandLine extends CommandLine {
       }
     }
 
+    boolean includeRuntimeSolibDir = false;
+
     for (LinkerInput input : runtimeInputs) {
       List<String> optionsList = globalNeedWholeArchive
           ? noWholeArchiveInputs
@@ -761,18 +766,17 @@ public final class LinkCommandLine extends CommandLine {
 
       if (isDynamicLibrary(input)) {
         PathFragment libDir = input.getArtifact().getExecPath().getParentDirectory();
-        Preconditions.checkState(
-            libDir.startsWith(solibDir)
-            || (runtimeSolibDir != null && libDir.equals(runtimeSolibDir)),
+        Preconditions.checkState(runtimeSolibDir != null && libDir.equals(runtimeSolibDir),
             "Artifact '%s' is not under directory '%s'.", input.getArtifact(), solibDir);
-        if (libDir.equals(solibDir)
-            || (runtimeSolibDir != null && libDir.equals(runtimeSolibDir))) {
-          includeSolibDir = true;
-        }
+        includeRuntimeSolibDir = true;
         addDynamicInputLinkOptions(input, optionsList, libOpts, solibDir, rpathRoot);
       } else {
         addStaticInputLinkOptions(input, optionsList);
       }
+    }
+
+    if (includeRuntimeSolibDir) {
+      argv.addAll(runtimeRpathEntries);
     }
 
     if (includeSolibDir && rpathRoot != null) {

@@ -14,6 +14,7 @@ platform = "linux"
 # Common code that filters the .jar files from the srcs.
 # Once we move have proper rules, we can use a separate attribute (e.g. deps).
 header = """
+set -e
 JARS=""
 for i in $(SRCS); do
   if echo "$$i" | grep -q '\.jar'; then
@@ -22,7 +23,7 @@ for i in $(SRCS); do
 done
 
 # TODO(bazel-team): Remove hard-coded path to Java.
-JAVA=$(location :javadir/bin/javac)
+JAVA=/usr/bin/javac
 mkdir -p build_output
 """
 
@@ -45,8 +46,7 @@ genrule(
         "//third_party:protobuf",
     ],
     outs = ["libBuild.jar"],
-    cmd = proto_cmd % "src/main/protobuf/build.proto",
-    tools = [":javadir/bin/javac"],
+    cmd = proto_cmd % "$(location main/protobuf/build.proto)",
 )
 
 genrule(
@@ -56,8 +56,7 @@ genrule(
         "//third_party:protobuf",
     ],
     outs = ["libCrosstoolConfig.jar"],
-    cmd = proto_cmd % "src/main/protobuf/crosstool_config.proto",
-    tools = [":javadir/bin/javac"],
+    cmd = proto_cmd % "$(location main/protobuf/crosstool_config.proto)",
 )
 
 genrule(
@@ -67,8 +66,7 @@ genrule(
         "//third_party:protobuf",
     ],
     outs = ["libExtraActionsBase.jar"],
-    cmd = proto_cmd % "src/main/protobuf/extra_actions_base.proto",
-    tools = [":javadir/bin/javac"],
+    cmd = proto_cmd % "$(location main/protobuf/extra_actions_base.proto)",
 )
 
 genrule(
@@ -78,24 +76,60 @@ genrule(
         "//third_party:protobuf",
     ],
     outs = ["libTestStatus.jar"],
-    cmd = proto_cmd % "src/main/protobuf/test_status.proto",
-    tools = [":javadir/bin/javac"],
+    cmd = proto_cmd % "$(location main/protobuf/test_status.proto)",
+)
+
+genrule(
+    name = "proto_bundlemerge",
+    srcs = [
+        "main/protobuf/bundlemerge.proto",
+        "//third_party:protobuf",
+    ],
+    outs = ["libBundleMerge.jar"],
+    cmd = proto_cmd % "$(location main/protobuf/bundlemerge.proto)",
+)
+
+genrule(
+    name = "proto_xcodegen",
+    srcs = [
+        "main/protobuf/xcodegen.proto",
+        "//third_party:protobuf",
+    ],
+    outs = ["libXCodeGen.jar"],
+    cmd = proto_cmd % "$(location main/protobuf/xcodegen.proto)",
 )
 
 # Java
 
+# TODO(bazel-team): Split this into multiple rules.
 java_library(
     name = "blaze",
     java_home = JAVA_HOME,
-    srcdir = "src/main/java",
+    srcdirs = [
+        "src/main/java",
+        "src/tools/singlejar/java",
+        "src/tools/xcode-common/java",
+        "src/tools/xcodegen/java",
+        "src/third_party/buck/java",
+        "src/third_party/dd_plist/java",
+    ],
     main_class = "com.google.devtools.build.lib.bazel.BazelMain",
-    srcs = glob(["main/**/*.java"]),
+    srcs = glob([
+        "main/**/*.java",
+        "tools/singlejar/java/**/*.java",
+        "tools/xcode-common/java/**/*.java",
+        "tools/xcodegen/java/**/*.java",
+        "third_party/buck/**/*.java",
+        "third_party/dd_plist/java/**/*.java",
+    ]),
     deps = [
-       "//third_party",
+        "//third_party",
         ":proto_build",
+        ":proto_bundlemerge",
         ":proto_crosstool_config",
         ":proto_extra_actions_base",
         ":proto_test_status",
+        ":proto_xcodegen",
     ],
 )
 
@@ -110,7 +144,6 @@ cc_binary(
 cc_binary(
     name = "build-runfiles",
     srcs = ["main/tools/build-runfiles.cc"],
-    copts = ["-std=c++0x"],
     linkopts = ["-lstdc++"],
 )
 
@@ -124,7 +157,6 @@ cc_binary(
         "main/native/unix_jni_%s.cc" % platform,
     ],
     copts = [
-        "-std=c++0x",
         "-fPIC",
         "-DBLAZE_JAVA_CPU=\"k8\"",
         "-DBLAZE_OPENSOURCE=1",
@@ -154,7 +186,6 @@ cc_binary(
         "main/cpp/util/strings.cc",
     ],
     copts = [
-        "-std=c++0x",
         "-DBLAZE_JAVA_CPU=\\\"k8\\\"",
         "-DBLAZE_OPENSOURCE=1",
     ],
@@ -184,12 +215,22 @@ genrule(
     executable = 1,
 )
 
+# HACK for Mac: copy libunix.so to libunix.dylib. We'll need to come up with a
+# way to support platform-specific dynamic library extensions.
+genrule(
+    name = "mac-compat",
+    srcs = ["libunix.so"],
+    outs = ["libunix.dylib"],
+    cmd = "cp $< $@",
+)
+
 genrule(
     name = "install_base_key-file",
     srcs = [
         "client",
         "libblaze.jar",
         "libunix.so",
+        "libunix.dylib",
         "build-runfiles",
         "cc-process-wrapper",
         "alarm",

@@ -41,6 +41,7 @@ import com.google.devtools.build.lib.packages.ImplicitOutputsFunction.SkylarkImp
 import com.google.devtools.build.lib.packages.ImplicitOutputsFunction.SkylarkImplicitOutputsFunctionWithMap;
 import com.google.devtools.build.lib.packages.MethodLibrary;
 import com.google.devtools.build.lib.packages.Package.NameConflictException;
+import com.google.devtools.build.lib.packages.PackageFactory;
 import com.google.devtools.build.lib.packages.PackageFactory.PackageContext;
 import com.google.devtools.build.lib.packages.Rule;
 import com.google.devtools.build.lib.packages.RuleClass;
@@ -53,6 +54,7 @@ import com.google.devtools.build.lib.packages.Type;
 import com.google.devtools.build.lib.packages.Type.ConversionException;
 import com.google.devtools.build.lib.syntax.AbstractFunction;
 import com.google.devtools.build.lib.syntax.Environment;
+import com.google.devtools.build.lib.syntax.Environment.NoSuchVariableException;
 import com.google.devtools.build.lib.syntax.EvalException;
 import com.google.devtools.build.lib.syntax.FuncallExpression;
 import com.google.devtools.build.lib.syntax.Function;
@@ -115,7 +117,6 @@ public class SkylarkRuleClassFunctions {
 
   private final RuleClass baseRule;
   private final ImmutableList<Function> builtInFunctions;
-  private final PackageContext pkgContext;
 
   // TODO(bazel-team): Copied from ConfiguredRuleClassProvider for the transition from built-in
   // rules to skylark extensions. Using the same instance would require a large refactoring.
@@ -149,9 +150,8 @@ public class SkylarkRuleClassFunctions {
         }
      };
 
-  private SkylarkRuleClassFunctions(SkylarkEnvironment env, PackageContext pkgContext) {
+  private SkylarkRuleClassFunctions(SkylarkEnvironment env) {
     this.env = Preconditions.checkNotNull(env);
-    this.pkgContext = pkgContext;
     // TODO(bazel-team): we might want to define base rule in Skylark later.
     // Right now we need some default attributes.
     baseRule = new RuleClass.Builder("$base_rule", RuleClassType.ABSTRACT, true)
@@ -167,9 +167,9 @@ public class SkylarkRuleClassFunctions {
     builtInFunctions = builtInFunctionsBuilder.build();
   }
 
-  public static SkylarkEnvironment getNewEnvironment(PackageContext pkgContext) {
+  public static SkylarkEnvironment getNewEnvironment() {
     SkylarkEnvironment env = new SkylarkEnvironment();
-    SkylarkRuleClassFunctions functions = new SkylarkRuleClassFunctions(env, pkgContext);
+    SkylarkRuleClassFunctions functions = new SkylarkRuleClassFunctions(env);
     for (Function builtInFunction : functions.builtInFunctions) {
       env.update(builtInFunction.getName(), builtInFunction);
     }
@@ -328,8 +328,9 @@ public class SkylarkRuleClassFunctions {
       try {
         builder.setName(ast.getFunction().getName());
         RuleClass ruleClass = builder.build();
+        PackageContext pkgContext = (PackageContext) env.lookup(PackageFactory.PKG_CONTEXT);
         return RuleFactory.createAndAddRule(pkgContext, ruleClass, kwargs, ast);
-      } catch (InvalidRuleException | NameConflictException e) {
+      } catch (InvalidRuleException | NameConflictException | NoSuchVariableException e) {
         throw new EvalException(ast.getLocation(), e.getMessage());
       }
     }

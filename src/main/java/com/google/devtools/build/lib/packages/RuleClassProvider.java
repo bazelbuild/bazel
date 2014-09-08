@@ -14,9 +14,6 @@
 
 package com.google.devtools.build.lib.packages;
 
-import com.google.common.collect.ImmutableList;
-import com.google.devtools.build.lib.packages.PackageFactory.PackageContext;
-import com.google.devtools.build.lib.syntax.Function;
 import com.google.devtools.build.lib.syntax.SkylarkEnvironment;
 import com.google.devtools.build.lib.syntax.ValidationEnvironment;
 
@@ -34,12 +31,16 @@ public interface RuleClassProvider {
   /**
    * Returns a new Skylark Environment instance for rule creation.
    */
-  SkylarkEnvironment createSkylarkRuleClassEnvironment(
-      PackageContext context, ImmutableList<Function> nativeRuleFunctions);
+  SkylarkEnvironment createSkylarkRuleClassEnvironment();
 
   /**
    * Returns a validation environment for static analysis of skylark files.
    * The environment has to contain all built-in functions and objects.
    */
   ValidationEnvironment getSkylarkValidationEnvironment();
+
+  /**
+   * Returns the Skylark module to register the native rules with.
+   */
+  Object getNativeModule();
 }

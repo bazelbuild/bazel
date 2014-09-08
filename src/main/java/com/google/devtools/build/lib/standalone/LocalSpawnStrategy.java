@@ -25,6 +25,7 @@ import com.google.devtools.build.lib.shell.CommandException;
 import com.google.devtools.build.lib.shell.KillableObserver;
 import com.google.devtools.build.lib.shell.TimeoutKillableObserver;
 import com.google.devtools.build.lib.syntax.Label;
+import com.google.devtools.build.lib.util.CommandFailureUtils;
 import com.google.devtools.build.lib.util.io.FileOutErr;
 
 import java.io.File;
@@ -34,6 +35,12 @@ import java.io.File;
  */
 @ExecutionStrategy(name = { "standalone" }, contextType = SpawnActionContext.class)
 public class LocalSpawnStrategy implements SpawnActionContext {
+  private final boolean verboseFailures;
+  
+  public LocalSpawnStrategy(boolean verboseFailures) {
+    this.verboseFailures = verboseFailures; 
+  }
+  
   /**
    * Executes the given {@code spawn}.
    */
@@ -47,8 +54,8 @@ public class LocalSpawnStrategy implements SpawnActionContext {
           spawn.asShellCommand(executor.getExecRoot()));
     }
     String[] args = spawn.getArguments().toArray(new String[]{});
-    Command cmd = new Command(args, spawn.getEnvironment(),
-        new File(executor.getExecRoot().getPathString()));
+    String cwd = executor.getExecRoot().getPathString();
+    Command cmd = new Command(args, spawn.getEnvironment(), new File(cwd));
 
     // TODO(bazel-team): figure out how to support test timeouts.
     double timeoutSecs = -1.0;
@@ -65,7 +72,9 @@ public class LocalSpawnStrategy implements SpawnActionContext {
           outErr.getErrorStream(),
           /*killSubprocessOnInterrupt*/ true);
     } catch (CommandException e) {
-      throw new UserExecException(String.format("Command.execute(%s): ", (Object[]) args), e);
+      String message = CommandFailureUtils.describeCommandFailure(
+          verboseFailures, spawn.getArguments(), spawn.getEnvironment(), cwd);
+      throw new UserExecException(String.format("%s: ", message, e));
     }
   }
 

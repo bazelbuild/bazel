@@ -161,6 +161,7 @@ public class BlazeCommandEventHandler implements EventHandler {
     if (eventOptions.showTaskFinish) {
       eventMask.add(EventKind.FINISH);
     }
+    eventMask.add(EventKind.SUBCOMMAND);
     this.showTimestamp = eventOptions.showTimestamp;
   }
 

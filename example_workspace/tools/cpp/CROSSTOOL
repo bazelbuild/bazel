@@ -13,13 +13,13 @@ toolchain {
   compiler: "compiler"
   host_system_name: "local"
   needsPic: true
-  supports_gold_linker: true
-  supports_incremental_linker: true
-  supports_fission: true
-  supports_interface_shared_objects: true
-  supports_normalizing_ar: true
+  supports_gold_linker: false
+  supports_incremental_linker: false
+  supports_fission: false
+  supports_interface_shared_objects: false
+  supports_normalizing_ar: false
   supports_start_end_lib: true
-  supports_thin_archives: true
+  supports_thin_archives: false
   target_libc: "local"
   target_cpu: "local"
   target_system_name: "local"
@@ -34,6 +34,8 @@ toolchain {
   tool_path { name: "dwp" path: "/usr/bin/dwp" }
 
   tool_path { name: "gcc" path: "/usr/bin/gcc" }
+
+  cxx_flag: "-std=c++0x"
 
   compilation_mode_flags {
     mode: FASTBUILD

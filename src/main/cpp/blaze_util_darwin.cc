@@ -81,7 +81,7 @@ bool IsSharedLibrary(string filename) {
 }
 
 string GetDefaultHostJavabase() {
-  FILE *output = popen("/usr/libexec/java_home -v 1.7", "r");
+  FILE *output = popen("/usr/libexec/java_home -v 1.7+", "r");
   if (output == NULL) {
     pdie(blaze_exit_code::LOCAL_ENVIRONMENTAL_ERROR,
          "Could not run /usr/libexec/java_home");

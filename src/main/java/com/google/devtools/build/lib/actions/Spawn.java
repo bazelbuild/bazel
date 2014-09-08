@@ -105,7 +105,7 @@ public interface Spawn {
   ActionMetadata getResourceOwner();
 
   /**
-   * Returns the amount of resources needed for local execution.
+   * Returns the amount of resources needed for local fallback.
    */
   ResourceSet getLocalResources();
 
@@ -118,9 +118,4 @@ public interface Spawn {
    * Returns a mnemonic (string constant) for this kind of spawn.
    */
   String getMnemonic();
-
-  /**
-   * Returns the primary input for the action that corresponds to this spawn. May be null.
-   */
-  Artifact getPrimaryInput();
 }

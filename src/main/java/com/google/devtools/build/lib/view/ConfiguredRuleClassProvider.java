@@ -25,14 +25,12 @@ import com.google.common.collect.ImmutableMap;
 import com.google.devtools.build.lib.graph.Digraph;
 import com.google.devtools.build.lib.graph.Node;
 import com.google.devtools.build.lib.packages.Attribute;
-import com.google.devtools.build.lib.packages.PackageFactory.PackageContext;
 import com.google.devtools.build.lib.packages.Rule;
 import com.google.devtools.build.lib.packages.RuleClass;
 import com.google.devtools.build.lib.packages.RuleClassProvider;
 import com.google.devtools.build.lib.rules.RuleConfiguredTargetFactory;
 import com.google.devtools.build.lib.rules.SkylarkRuleClassFunctions;
 import com.google.devtools.build.lib.rules.SkylarkRuleImplementationFunctions;
-import com.google.devtools.build.lib.syntax.Function;
 import com.google.devtools.build.lib.syntax.Label;
 import com.google.devtools.build.lib.syntax.SkylarkEnvironment;
 import com.google.devtools.build.lib.syntax.SkylarkModule;
@@ -383,17 +381,11 @@ public class ConfiguredRuleClassProvider implements RuleClassProvider {
   public static final NativeModule nativeModule = new NativeModule();
 
   @Override
-  public SkylarkEnvironment createSkylarkRuleClassEnvironment(
-      PackageContext context, ImmutableList<Function> nativeRuleFunctions) {
-    SkylarkEnvironment env = SkylarkRuleClassFunctions.getNewEnvironment(context);
+  public SkylarkEnvironment createSkylarkRuleClassEnvironment() {
+    SkylarkEnvironment env = SkylarkRuleClassFunctions.getNewEnvironment();
     SkylarkRuleImplementationFunctions.updateEnvironment(env);
     for (Map.Entry<String, SkylarkType> entry : skylarkAccessibleJavaClasses.entrySet()) {
       env.update(entry.getKey(), entry.getValue().getType());
-    }
-    // Adding native rules module for build extensions
-    env.update("Native", nativeModule);
-    for (Function function : nativeRuleFunctions) {
-      env.registerFunction(NativeModule.class, function.getName(), function);
     }
     return env;
   }
@@ -401,5 +393,10 @@ public class ConfiguredRuleClassProvider implements RuleClassProvider {
   @Override
   public ValidationEnvironment getSkylarkValidationEnvironment() {
     return skylarkValidationEnvironment;
+  }
+
+  @Override
+  public Object getNativeModule() {
+    return nativeModule;
   }
 }

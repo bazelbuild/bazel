@@ -187,6 +187,8 @@ public final class PackageFactory {
     }
   }
 
+  public static final String PKG_CONTEXT = "$pkg_context";
+
   private static final Logger LOG = Logger.getLogger(PackageFactory.class.getName());
 
   private final RuleFactory ruleFactory;
@@ -907,8 +909,13 @@ public final class PackageFactory {
       return null;
     }
 
-    SkylarkEnvironment env =
-        ruleClassProvider.createSkylarkRuleClassEnvironment(context, nativeRuleFunctions);
+    SkylarkEnvironment env = ruleClassProvider.createSkylarkRuleClassEnvironment();
+    // Adding native rules module for build extensions.
+    env.update("Native", ruleClassProvider.getNativeModule());
+    for (Function function : nativeRuleFunctions) {
+      env.registerFunction(
+          ruleClassProvider.getNativeModule().getClass(), function.getName(), function);
+    }
     // We store every loading phase SkylarkEnvironment instance exactly once in this list.
     skylarkEnvironments.add(env);
 
@@ -1024,6 +1031,7 @@ public final class PackageFactory {
     Path root = Package.getSourceRoot(buildFilePath, new PathFragment(packageName));
     Set<PathFragment> transitiveSkylarkExtensions = new HashSet<>();
     List<SkylarkEnvironment> skylarkEnvironments = new ArrayList<>();
+    pkgEnv.update(PKG_CONTEXT, context);
     if (!loadAllImports(buildFileAST, root, buildFilePath, locator, pkgEnv,
         context, ImmutableList.<Path>of(buildFilePath), transitiveSkylarkExtensions,
         nativeRuleFunctions.build(), skylarkEnvironments)) {

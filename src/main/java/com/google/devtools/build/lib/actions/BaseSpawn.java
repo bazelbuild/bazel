@@ -186,9 +186,6 @@ public class BaseSpawn implements Spawn {
   @Override
   public String getMnemonic() { return action.getMnemonic(); }
 
-  @Override
-  public Artifact getPrimaryInput() { return action.getPrimaryInput(); }
-
   /**
    * Convert a working dir + environment map + arg list into a Bourne shell
    * command.

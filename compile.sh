@@ -44,7 +44,7 @@ darwin)
   DYNAMIC_EXT="dylib"
   REALTIME_LDFLAGS=""
   MD5SUM="md5"
-  JAVA_HOME=${JAVA_HOME:-$(/usr/libexec/java_home -v 1.7)}
+  JAVA_HOME=${JAVA_HOME:-$(/usr/libexec/java_home -v 1.7+)}
   ;;
 linux)
   DYNAMIC_EXT="so"

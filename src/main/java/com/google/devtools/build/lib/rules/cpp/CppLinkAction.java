@@ -656,7 +656,7 @@ public final class CppLinkAction extends ConfigurationAction
       // ruleContext can only be null during testing. This is kind of ugly.
       final ImmutableSet<String> features = (ruleContext == null)
           ? ImmutableSet.<String>of()
-          : ruleContext.getRule().getFeatures();
+          : ruleContext.getFeatures();
 
       final LibraryToLink outputLibrary =
           LinkerInputs.newInputLibrary(output, filteredNonLibraryArtifacts);

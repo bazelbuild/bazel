@@ -103,9 +103,4 @@ public class DelegateSpawn implements Spawn {
   public String getMnemonic() {
     return spawn.getMnemonic();
   }
-
-  @Override
-  public Artifact getPrimaryInput() {
-    return spawn.getPrimaryInput();
-  }
 }

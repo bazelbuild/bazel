@@ -117,7 +117,7 @@ public class CppHelper {
   static List<String> expandMakeVariables(
       RuleContext ruleContext, String attributeName, List<String> input) {
     boolean tokenization =
-        !ruleContext.getTarget().getPackage().getFeatures().contains("no_copts_tokenization");
+        !ruleContext.getFeatures().contains("no_copts_tokenization");
 
     List<String> tokens = new ArrayList<>();
     for (String token : input) {
