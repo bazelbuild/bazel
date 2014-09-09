@@ -46,7 +46,7 @@ def java_library_impl(ctx):
   # Cleaning build output directory
   cmd = "set -e;rm -rf " + build_output + ";mkdir " + build_output + "\n"
   # Java compilation
-  cmd += (java_home + "/bin/javac -classpath " +
+  cmd += ("/usr/bin/javac -classpath " +
          Files.join_exec_paths(":", jars) + " -sourcepath " +
          ":".join(srcdirs) + " -d " + build_output + " @" +
          Files.exec_path(sources_param_file) + "\n")
@@ -54,7 +54,7 @@ def java_library_impl(ctx):
   # TODO(bazel-team): this deploy jar action should be only in binaries
   for jar in jars:
     cmd += "unzip -qn " + Files.exec_path(jar) + " -d " + build_output + "\n"
-  cmd += (java_home + "/bin/jar cmf " + Files.exec_path(manifest) + " " +
+  cmd += ("/usr/bin/jar cmf " + Files.exec_path(manifest) + " " +
          Files.exec_path(class_jar) + " -C " + build_output + " .\n")
 
   ctx.create_action(

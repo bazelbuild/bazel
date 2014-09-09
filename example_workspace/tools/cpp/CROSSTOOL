@@ -3,7 +3,11 @@ minor_version: ""
 default_target_cpu: "k8"
 default_toolchain {
   cpu: "k8"
-  toolchain_identifier: "local"
+  toolchain_identifier: "local_linux"
+}
+default_toolchain {
+  cpu: "darwin"
+  toolchain_identifier: "local_darwin"
 }
 
 toolchain {
@@ -23,57 +27,100 @@ toolchain {
   target_libc: "local"
   target_cpu: "local"
   target_system_name: "local"
-  toolchain_identifier: "local"
+  toolchain_identifier: "local_linux"
 
   tool_path { name: "ar" path: "/usr/bin/ar" }
-
   tool_path { name: "compat-ld" path: "/usr/bin/ld" }
-
   tool_path { name: "cpp" path: "/usr/bin/cpp" }
-
   tool_path { name: "dwp" path: "/usr/bin/dwp" }
-
   tool_path { name: "gcc" path: "/usr/bin/gcc" }
-
   cxx_flag: "-std=c++0x"
-
   compilation_mode_flags {
     mode: FASTBUILD
   }
   compilation_mode_flags {
     mode: DBG
-
   }
   compilation_mode_flags {
     mode: COVERAGE
   }
-
   compilation_mode_flags {
     mode: OPT
-
   }
-
   cxx_builtin_include_directory: "/usr/include"
   cxx_builtin_include_directory: "/usr/lib/gcc"
-
   tool_path { name: "gcov" path: "/usr/bin/gcov" }
-
   tool_path { name: "ld" path: "/usr/bin/ld" }
-
   linking_mode_flags {
     mode: FULLY_STATIC
   }
-
   tool_path { name: "nm" path: "/usr/bin/nm" }
-
   tool_path { name: "objcopy" path: "/usr/bin/objcopy" }
   objcopy_embed_flag: "-I"
   objcopy_embed_flag: "binary"
-
   tool_path { name: "objdump" path: "/usr/bin/objdump" }
-
   tool_path { name: "strip" path: "/usr/bin/strip" }
+  linking_mode_flags {
+    mode: MOSTLY_STATIC
+  }
+  linking_mode_flags {
+    mode: DYNAMIC
+  }
+}
 
+toolchain {
+  abi_version: "local"
+  abi_libc_version: "local"
+  builtin_sysroot: ""
+  compiler: "compiler"
+  host_system_name: "local"
+  needsPic: true
+  supports_gold_linker: false
+  supports_incremental_linker: false
+  supports_fission: false
+  supports_interface_shared_objects: false
+  supports_normalizing_ar: false
+  supports_start_end_lib: true
+  supports_thin_archives: false
+  target_libc: "macosx"
+  target_cpu: "local"
+  target_system_name: "local"
+  toolchain_identifier: "local_darwin"
+
+  tool_path { name: "ar" path: "/usr/bin/ar" }
+  tool_path { name: "compat-ld" path: "/usr/bin/ld" }
+  tool_path { name: "cpp" path: "/usr/bin/cpp" }
+  tool_path { name: "dwp" path: "/usr/bin/dwp" }
+  tool_path { name: "gcc" path: "/usr/bin/gcc" }
+  cxx_flag: "-std=c++0x"
+  compilation_mode_flags {
+    mode: FASTBUILD
+  }
+  compilation_mode_flags {
+    mode: DBG
+  }
+  compilation_mode_flags {
+    mode: COVERAGE
+  }
+  compilation_mode_flags {
+    mode: OPT
+  }
+  cxx_builtin_include_directory: "/usr/include"
+  cxx_builtin_include_directory: "/usr/lib/gcc"
+  cxx_builtin_include_directory: "/Applications/Xcode.app/Contents/Developer/Toolchains/XcodeDefault.xctoolchain/usr/lib/c++/v1/"
+  cxx_builtin_include_directory: "/Applications/Xcode.app/Contents/Developer/Toolchains/XcodeDefault.xctoolchain/usr/lib/clang/5.1/include/"
+  cxx_builtin_include_directory: "/opt/local/include"
+  tool_path { name: "gcov" path: "/usr/bin/gcov" }
+  tool_path { name: "ld" path: "/usr/bin/ld" }
+  linking_mode_flags {
+    mode: FULLY_STATIC
+  }
+  tool_path { name: "nm" path: "/usr/bin/nm" }
+  tool_path { name: "objcopy" path: "/usr/bin/objcopy" }
+  objcopy_embed_flag: "-I"
+  objcopy_embed_flag: "binary"
+  tool_path { name: "objdump" path: "/usr/bin/objdump" }
+  tool_path { name: "strip" path: "/usr/bin/strip" }
   linking_mode_flags {
     mode: MOSTLY_STATIC
   }

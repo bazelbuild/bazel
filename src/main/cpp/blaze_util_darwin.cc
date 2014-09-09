@@ -60,7 +60,7 @@ uint64 MonotonicClock() {
 }
 
 uint64 ProcessClock() {
-  return MonotonicClock();
+  return clock() * (1000000000LL / CLOCKS_PER_SEC);
 }
 
 void SetScheduling(bool batch_cpu_scheduling, int io_nice_level) {

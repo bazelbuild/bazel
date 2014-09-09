@@ -9,7 +9,8 @@ load('rules/java_library_oss', 'java_library')
 
 JAVA_HOME = "src/javadir"
 
-platform = "linux"
+protoc = "protoc"
+protoc_darwin = "/opt/local/bin/protoc"
 
 # Common code that filters the .jar files from the srcs.
 # Once we move have proper rules, we can use a separate attribute (e.g. deps).
@@ -32,7 +33,7 @@ mkdir -p build_output
 # Run protoc on the input (%s expanded), compile the generated source files
 # and package them in a .jar file.
 proto_cmd = header + """
-protoc -Isrc/main/protobuf/ --java_out=. %s
+%s -Isrc/main/protobuf/ --java_out=. %s
 
 JAVA_FILES=$$(find com/ -name '*.java')
 $${JAVA} -classpath $${JARS} $${JAVA_FILES} -d build_output
@@ -46,7 +47,10 @@ genrule(
         "//third_party:protobuf",
     ],
     outs = ["libBuild.jar"],
-    cmd = proto_cmd % "$(location main/protobuf/build.proto)",
+    cmd = select({
+        ":darwin": proto_cmd % (protoc_darwin, "$(location main/protobuf/build.proto)"),
+        "//conditions:default": proto_cmd % (protoc, "$(location main/protobuf/build.proto)"),
+    }),
 )
 
 genrule(
@@ -56,7 +60,10 @@ genrule(
         "//third_party:protobuf",
     ],
     outs = ["libCrosstoolConfig.jar"],
-    cmd = proto_cmd % "$(location main/protobuf/crosstool_config.proto)",
+    cmd = select({
+        ":darwin": proto_cmd % (protoc_darwin, "$(location main/protobuf/crosstool_config.proto)"),
+        "//conditions:default": proto_cmd % (protoc, "$(location main/protobuf/crosstool_config.proto)"),
+    }),
 )
 
 genrule(
@@ -66,7 +73,10 @@ genrule(
         "//third_party:protobuf",
     ],
     outs = ["libExtraActionsBase.jar"],
-    cmd = proto_cmd % "$(location main/protobuf/extra_actions_base.proto)",
+    cmd = select({
+        ":darwin": proto_cmd % (protoc_darwin, "$(location main/protobuf/extra_actions_base.proto)"),
+        "//conditions:default": proto_cmd % (protoc, "$(location main/protobuf/extra_actions_base.proto)"),
+    }),
 )
 
 genrule(
@@ -76,7 +86,10 @@ genrule(
         "//third_party:protobuf",
     ],
     outs = ["libTestStatus.jar"],
-    cmd = proto_cmd % "$(location main/protobuf/test_status.proto)",
+    cmd = select({
+        ":darwin": proto_cmd % (protoc_darwin, "$(location main/protobuf/test_status.proto)"),
+        "//conditions:default": proto_cmd % (protoc, "$(location main/protobuf/test_status.proto)"),
+    }),
 )
 
 genrule(
@@ -86,7 +99,10 @@ genrule(
         "//third_party:protobuf",
     ],
     outs = ["libBundleMerge.jar"],
-    cmd = proto_cmd % "$(location main/protobuf/bundlemerge.proto)",
+    cmd = select({
+        ":darwin": proto_cmd % (protoc_darwin, "$(location main/protobuf/bundlemerge.proto)"),
+        "//conditions:default": proto_cmd % (protoc, "$(location main/protobuf/bundlemerge.proto)"),
+    }),
 )
 
 genrule(
@@ -96,7 +112,10 @@ genrule(
         "//third_party:protobuf",
     ],
     outs = ["libXCodeGen.jar"],
-    cmd = proto_cmd % "$(location main/protobuf/xcodegen.proto)",
+    cmd = select({
+        ":darwin": proto_cmd % (protoc_darwin, "$(location main/protobuf/xcodegen.proto)"),
+        "//conditions:default": proto_cmd % (protoc, "$(location main/protobuf/xcodegen.proto)"),
+    }),
 )
 
 # Java
@@ -147,23 +166,47 @@ cc_binary(
     linkopts = ["-lstdc++"],
 )
 
+link_jni_cmd = "DIR=%s && cp $${DIR}/jni.h $(location jni.h) && cp $${DIR}/%s/jni_md.h $(location jni_md.h)"
+
+genrule(
+    name = "copy_link_jni_headers",
+    srcs = [],
+    outs = ["jni.h", "jni_md.h"],
+    cmd = select({
+        ":darwin": link_jni_cmd % ("/Library/Java/JavaVirtualMachines/jdk1.8.0_20.jdk/Contents/Home/include", "darwin"),
+        "//conditions:default": link_jni_cmd % ("/usr/lib/jvm/java-7-openjdk-amd64/include", "linux"),
+    }),
+)
+
 cc_binary(
     name = "libunix.so",
-    srcs = [
-        "main/cpp/util/md5.cc",
-        "main/native/localsocket.cc",
-        "main/native/process.cc",
-        "main/native/unix_jni.cc",
-        "main/native/unix_jni_%s.cc" % platform,
-    ],
+    srcs = select({
+        ":darwin" : [
+            "main/cpp/util/md5.cc",
+            "main/native/localsocket.cc",
+            "main/native/process.cc",
+            "main/native/unix_jni.cc",
+            "main/native/unix_jni_darwin.cc",
+            "jni.h",
+            "jni_md.h",
+        ],
+        "//conditions:default" : [
+            "main/cpp/util/md5.cc",
+            "main/native/localsocket.cc",
+            "main/native/process.cc",
+            "main/native/unix_jni.cc",
+            "main/native/unix_jni_linux.cc",
+            "jni.h",
+            "jni_md.h",
+        ],
+    }),
     copts = [
         "-fPIC",
         "-DBLAZE_JAVA_CPU=\"k8\"",
         "-DBLAZE_OPENSOURCE=1",
     ],
     includes = [
-        "javadir/include",
-        "javadir/include/%s" % platform,
+        ".",
         "main/cpp",
     ],
     linkopts = ["-lstdc++"],
@@ -172,31 +215,54 @@ cc_binary(
 
 cc_binary(
     name = "client",
-    srcs = [
-        "main/cpp/blaze.cc",
-        "main/cpp/blaze_startup_options.cc",
-        "main/cpp/blaze_startup_options_common.cc",
-        "main/cpp/blaze_util.cc",
-        "main/cpp/blaze_util_%s.cc" % platform,
-        "main/cpp/option_processor.cc",
-        "main/cpp/util/file.cc",
-        "main/cpp/util/md5.cc",
-        "main/cpp/util/numbers.cc",
-        "main/cpp/util/port.cc",
-        "main/cpp/util/strings.cc",
-    ],
+    srcs = select({
+        ":darwin": [
+            "main/cpp/blaze.cc",
+            "main/cpp/blaze_startup_options.cc",
+            "main/cpp/blaze_startup_options_common.cc",
+            "main/cpp/blaze_util.cc",
+            "main/cpp/blaze_util_darwin.cc",
+            "main/cpp/option_processor.cc",
+            "main/cpp/util/file.cc",
+            "main/cpp/util/md5.cc",
+            "main/cpp/util/numbers.cc",
+            "main/cpp/util/port.cc",
+            "main/cpp/util/strings.cc",
+        ],
+        "//conditions:default": [
+            "main/cpp/blaze.cc",
+            "main/cpp/blaze_startup_options.cc",
+            "main/cpp/blaze_startup_options_common.cc",
+            "main/cpp/blaze_util.cc",
+            "main/cpp/blaze_util_linux.cc",
+            "main/cpp/option_processor.cc",
+            "main/cpp/util/file.cc",
+            "main/cpp/util/md5.cc",
+            "main/cpp/util/numbers.cc",
+            "main/cpp/util/port.cc",
+            "main/cpp/util/strings.cc",
+        ],
+    }),
     copts = [
         "-DBLAZE_JAVA_CPU=\\\"k8\\\"",
         "-DBLAZE_OPENSOURCE=1",
+        "-I/opt/local/include"
     ],
     includes = [
         "main/cpp",
     ],
-    linkopts = [
-        "-larchive",
-        "-lstdc++",
-        "-lrt",
-    ],
+    linkopts = select({
+        ":darwin" : [
+            "-larchive",
+            "-lstdc++",
+            "-L/opt/local/lib",
+        ],
+        "//conditions:default" : [
+            "-larchive",
+            "-lstdc++",
+            "-lrt",
+        ],
+    }),
 )
 
 # Packaging
@@ -224,6 +290,8 @@ genrule(
     cmd = "cp $< $@",
 )
 
+md5_cmd = "set -e -o pipefail && cat $(SRCS) | %s | awk '{ print $$1; }' > $@"
+
 genrule(
     name = "install_base_key-file",
     srcs = [
@@ -238,7 +306,10 @@ genrule(
         "main/tools/build_interface_so",
     ],
     outs = ["install_base_key"],
-    cmd = "cat $(SRCS) | md5sum | awk '{ print $$1; }' > $@",
+    cmd = select({
+        ":darwin": md5_cmd % "/sbin/md5",
+        "//conditions:default": md5_cmd % "md5sum",
+    })
 )
 
 genrule(
@@ -246,6 +317,7 @@ genrule(
     srcs = [
         "libblaze.jar",
         "libunix.so",
+        "libunix.dylib",
         "build-runfiles",
         "cc-process-wrapper",
         "alarm",
@@ -267,3 +339,9 @@ genrule(
     cmd = "cat client package-zip > $@ && zip -qA $@",
     executable = 1,
 )
+
+config_setting(
+    name = "darwin",
+    values = { "cpu": "darwin" }
+)
+

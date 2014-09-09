@@ -33,8 +33,8 @@ void WarnFilesystemType(const std::string& output_base);
 // as a uint64 nanoseconds since epoch.
 uint64 MonotonicClock();
 
-// Wrapper around clock_gettime(CLOCK_PROCESS_CPUTIME_ID), as
-// nanoseconds since epoch.
+// Wrapper around clock_gettime(CLOCK_PROCESS_CPUTIME_ID) that returns the
+// nanoseconds consumed by the current process since it started.
 uint64 ProcessClock();
 
 // Set cpu and IO scheduling properties. Note that this can take ~50ms
