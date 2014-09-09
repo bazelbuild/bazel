@@ -415,23 +415,23 @@ public class PackageFunction implements SkyFunction {
     }
     Map<SkyKey, SkyValue> containingPkgLookupValues = env.getValues(containingPkgLookupKeys);
     for (Target target : ImmutableSet.copyOf(pkgBuilder.getTargets())) {
-      if (maybeAddEventAboutLabelCrossingSubpackage(pkgBuilder, pkgRoot, pkgNameFragment,
-          target.getLabel(), target.getLocation(), containingPkgLookupValues)) {
+      if (maybeAddEventAboutLabelCrossingSubpackage(pkgBuilder, pkgRoot, target.getLabel(),
+          target.getLocation(), containingPkgLookupValues)) {
         pkgBuilder.removeTarget(target);
         pkgBuilder.setContainsErrors();
       }
     }
     for (Label subincludeLabel : pkgBuilder.getSubincludeLabels()) {
-      if (maybeAddEventAboutLabelCrossingSubpackage(pkgBuilder, pkgRoot, pkgNameFragment,
-          subincludeLabel, /*location=*/null, containingPkgLookupValues)) {
+      if (maybeAddEventAboutLabelCrossingSubpackage(pkgBuilder, pkgRoot, subincludeLabel,
+          /*location=*/null, containingPkgLookupValues)) {
         pkgBuilder.setContainsErrors();
       }
     }
   }
 
   private static boolean maybeAddEventAboutLabelCrossingSubpackage(
-      Package.LegacyBuilder pkgBuilder, Path pkgRoot, PathFragment pkgName, Label label,
-      @Nullable Location location, Map<SkyKey, SkyValue> containingPkgLookupValues) {
+      Package.LegacyBuilder pkgBuilder, Path pkgRoot, Label label, @Nullable Location location,
+      Map<SkyKey, SkyValue> containingPkgLookupValues) {
     PathFragment dir = label.toPathFragment().getParentDirectory();
     ContainingPackageLookupValue containingPkgLookupValue =
         (ContainingPackageLookupValue) containingPkgLookupValues.get(
@@ -455,7 +455,7 @@ public class PackageFunction implements SkyFunction {
     Path containingRoot = containingPkgLookupValue.getContainingPackageRoot();
     if (pkgRoot.equals(containingRoot)) {
       PathFragment labelNameInContainingPackage = labelNameFragment.subFragment(
-          containingPkg.segmentCount() - pkgName.segmentCount(),
+          containingPkg.segmentCount() - label.getPackageFragment().segmentCount(),
           labelNameFragment.segmentCount());
       message += " (perhaps you meant to put the colon here: "
           + "'//" + containingPkg + ":" + labelNameInContainingPackage + "'?)";

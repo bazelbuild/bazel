@@ -54,7 +54,10 @@ public class SkylarkEnvironment extends Environment {
         .addAll(callerEnv.getStackTrace())
         .add(function.getName())
         .build();
-    return new SkylarkEnvironment(definitionEnv, stackTrace);
+    SkylarkEnvironment childEnv = new SkylarkEnvironment(definitionEnv, stackTrace);
+    childEnv.disabledVariables = callerEnv.disabledVariables;
+    childEnv.disabledNameSpaces = callerEnv.disabledNameSpaces;
+    return childEnv;
   }
 
   private SkylarkEnvironment(SkylarkEnvironment definitionEnv, ImmutableList<String> stackTrace) {
@@ -129,6 +132,9 @@ public class SkylarkEnvironment extends Environment {
    */
   @Override
   public Object lookup(String varname) throws NoSuchVariableException {
+    if (disabledVariables.contains(varname)) {
+      throw new NoSuchVariableException(varname);
+    }
     Object value = env.get(varname);
     if (value == null) {
       if (parent != null && parent.hasVariable(varname)) {
@@ -146,15 +152,7 @@ public class SkylarkEnvironment extends Environment {
    */
   @Override
   public Object lookup(String varname, Object defaultValue) {
-    Object value = env.get(varname);
-    if (value == null) {
-      if (parent != null && parent.hasVariable(varname)) {
-        readGlobalVariables.add(varname);
-        return parent.lookup(varname, defaultValue);
-      }
-      return defaultValue;
-    }
-    return value;
+    throw new UnsupportedOperationException();
   }
 
   /**
@@ -181,7 +179,7 @@ public class SkylarkEnvironment extends Environment {
    * Environment and the functions attached to it) from the Environment which should be present
    * only during the loading phase.
    */
-  public void removeOnlyLoadingPhaseObjects() {
+  public void disableOnlyLoadingPhaseObjects() {
     List<String> objectsToRemove = new ArrayList<>();
     List<Class<?>> modulesToRemove = new ArrayList<>();
     for (Map.Entry<String, Object> entry : env.entrySet()) {
@@ -198,10 +196,10 @@ public class SkylarkEnvironment extends Environment {
       }
     }
     for (String symbol : objectsToRemove) {
-      env.remove(symbol);
+      disabledVariables.add(symbol);
     }
     for (Class<?> moduleClass : modulesToRemove) {
-      functions.remove(moduleClass);
+      disabledNameSpaces.add(moduleClass);
     }
   }
 }

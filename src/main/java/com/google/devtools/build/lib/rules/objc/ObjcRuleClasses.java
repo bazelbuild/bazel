@@ -48,6 +48,8 @@ import com.google.devtools.build.lib.view.RuleDefinition;
 import com.google.devtools.build.lib.view.RuleDefinitionEnvironment;
 import com.google.devtools.build.lib.view.TransitiveInfoProvider;
 
+import java.util.List;
+
 /**
  * Shared utility code for Objective-C rules.
  */
@@ -218,6 +220,31 @@ public class ObjcRuleClasses {
   }
 
   /**
+   * Returns the value of the {@code includes} attribute, where each returned path is under the
+   * path corresponding to the current package, and each entry in the attribute results in three
+   * items in the returned sequence: one is rooted in the actual client, one is rooted in genfiles,
+   * and one is rooted in bin.
+   */
+  static Iterable<PathFragment> includes(RuleContext context) {
+    ImmutableList.Builder<PathFragment> includes = new ImmutableList.Builder<>();
+    if (context.attributes().getAttributeDefinition("includes") != null) {
+      PathFragment packageFragment = context.getLabel().getPackageFragment();
+      List<PathFragment> rootFragments = ImmutableList.of(
+          packageFragment,
+          context.getConfiguration().getGenfilesFragment().getRelative(packageFragment),
+          context.getConfiguration().getBinFragment().getRelative(packageFragment));
+
+      for (String include : context.attributes().get("includes", STRING_LIST)) {
+        // TODO(bazel-team): ignore items that are absolute paths, and report an error for them.
+        for (PathFragment rootFragment : rootFragments) {
+          includes.add(rootFragment.getRelative(include));
+        }
+      }
+    }
+    return includes.build();
+  }
+
+  /**
    * Attributes for {@code objc_*} rules that have compilable sources.
    */
   @BlazeRule(name = "$objc_sources_rule",
@@ -227,8 +254,8 @@ public class ObjcRuleClasses {
     public RuleClass build(Builder builder, RuleDefinitionEnvironment environment) {
       return builder
           /* <!-- #BLAZE_RULE($objc_sources_rule).ATTRIBUTE(srcs) -->
-          The list Objective-C files that are processed to create the library
-          target.
+          The list of Objective-C files that are processed to create the
+          library target.
           <i>(List of <a href="build-ref.html#labels">labels</a>; required)</i>
           These are your checked-in source files, plus any generated files.
           These are compiled into .o files with Clang, so headers should not go
@@ -297,6 +324,18 @@ public class ObjcRuleClasses {
           .add(attr("hdrs", LABEL_LIST)
               .direct_compile_time_input()
               .allowedFileTypes(FileType.of("m"), FileType.of("h")))
+          /* <!-- #BLAZE_RULE($objc_base_rule).ATTRIBUTE(includes) -->
+          List of {@code #include/#import} search paths to add to this target
+          and all depending targets. This is to support third party and
+          open-sourced libraries that do not specify the entire google3 path in
+          their {@code #import/#include} statements.
+          <p>
+          The paths are interpreted relative to the package directory, and the
+          genfiles and bin roots (e.g. {@code blaze-genfiles/pkg/includedir}
+          and {@code blaze-out/pkg/includedir}) are included in addition to the
+          actual client root.
+          <!-- #END_BLAZE_RULE.ATTRIBUTE -->*/
+          .add(attr("includes", Type.STRING_LIST))
           /* <!-- #BLAZE_RULE($objc_base_rule).ATTRIBUTE(asset_catalogs) -->
           Files that comprise the asset catalogs of the final linked binary.
           Each file must have a containing directory named *.xcassets. This

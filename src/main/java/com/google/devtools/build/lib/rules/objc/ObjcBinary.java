@@ -55,6 +55,10 @@ import java.util.List;
 public class ObjcBinary implements RuleConfiguredTargetFactory {
 
   @VisibleForTesting
+  static final String DEVICE_NO_PROVISIONING_PROFILE =
+      "Provisioning profile must be set for device build";
+
+  @VisibleForTesting
   static final String PROVISIONING_PROFILE_BUNDLE_FILE = "embedded.mobileprovision";
 
   @VisibleForTesting
@@ -168,6 +172,8 @@ public class ObjcBinary implements RuleConfiguredTargetFactory {
     List<Artifact> infoplistFiles = ruleContext.getPrerequisiteArtifacts("infoplist", Mode.TARGET);
     Optional<Artifact> provisioningProfile = Optional.fromNullable(
         ruleContext.getPrerequisiteArtifact(ObjcBinaryRule.PROVISIONING_PROFILE_ATTR, Mode.TARGET));
+    Optional<Artifact> entitlements = Optional.fromNullable(
+        ruleContext.getPrerequisiteArtifact("entitlements", Mode.TARGET));
 
     BundleMergeProtos.Control.Builder mergeControl = BundleMergeProtos.Control.newBuilder()
         .addBundleFile(BundleMergeProtos.BundleFile.newBuilder()
@@ -176,13 +182,61 @@ public class ObjcBinary implements RuleConfiguredTargetFactory {
             .build())
         .addAllBundleFile(BundleableFile.toBundleFiles(objcProvider.get(BUNDLE_FILE)))
         .addAllSourcePlistFile(Artifact.toExecPaths(infoplistFiles))
-        .setOutFile(ipaOutput.getExecPathString())
         // TODO(bazel-team): Add rule attributes for specifying targeted device family and minimum
         // OS version.
         .setMinimumOsVersion(MINIMUM_OS_VERSION)
         .setSdkVersion(objcConfiguration.getIosSdkVersion())
         .setPlatform(objcConfiguration.getPlatform().name())
         .setBundleRoot(ObjcBinaryRule.bundleRoot(ruleContext));
+
+    Artifact ipaUnsigned;
+
+    if (objcConfiguration.getPlatform() == Platform.SIMULATOR) {
+      ipaUnsigned = ipaOutput;
+
+      if (ruleContext.attributes().isAttributeValueExplicitlySpecified(
+          ObjcBinaryRule.EXPLICIT_PROVISIONING_PROFILE_ATTR)) {
+        ruleContext.attributeError(ObjcBinaryRule.EXPLICIT_PROVISIONING_PROFILE_ATTR,
+            SIMULATOR_PROVISIONING_PROFILE_ERROR);
+      }
+    } else if (!provisioningProfile.isPresent()) {
+      throw new IllegalStateException(DEVICE_NO_PROVISIONING_PROFILE);
+    } else if (!entitlements.isPresent()) {
+      // TODO(bazel-team): Copy from provisioning profile
+      ipaUnsigned = ipaOutput;
+    } else {
+      ipaUnsigned = ObjcRuleClasses.artifactByAppendingToRootRelativePath(
+          ruleContext, ipaOutput.getExecPath(), ".unsigned");
+      mergeControl.addBundleFile(BundleMergeProtos.BundleFile.newBuilder()
+          .setSourceFile(provisioningProfile.get().getExecPathString())
+          .setBundlePath(PROVISIONING_PROFILE_BUNDLE_FILE)
+          .build());
+
+      // TODO(bazel-team): Support variable substitution
+      ruleContext.getAnalysisEnvironment().registerAction(new SpawnAction.Builder(ruleContext)
+          .setMnemonic("Sign app bundle")
+          .setExecutable(new PathFragment("/bin/bash"))
+          .addArgument("-c")
+          // TODO(bazel-team): Support --resource-rules for resources
+          .addArgument("set -e && "
+              + "t=$(mktemp -d -t signing_intermediate) && "
+              + "unzip -qq " + ipaUnsigned.getExecPathString() + " -d ${t} && "
+              + codesignCommand(
+                  provisioningProfile.get(),
+                  entitlements.get(),
+                  String.format("${t}/Payload/%s.app", ruleContext.getLabel().getName())) + " && "
+              // Using jar not zip because it allows us to specify -C without actually changing
+              // directory
+              // TODO(bazel-team): Junk timestamps
+              + "jar -cMf \"" + ipaOutput.getExecPathString() + "\" -C ${t} .")
+          .addInput(ipaUnsigned)
+          .addInput(provisioningProfile.get())
+          .addInput(entitlements.get())
+          .addOutput(ipaOutput)
+          .setExecutionInfo(ImmutableMap.of(ExecutionRequirements.REQUIRES_DARWIN, ""))
+          .build());
+    }
+
     for (Artifact actoolOutputZip : maybeActoolOutputZip) {
       mergeControl.addMergeZip(MergeZip.newBuilder()
           .setEntryNamePrefix(ObjcBinaryRule.bundleRoot(ruleContext) + "/")
@@ -198,21 +252,8 @@ public class ObjcBinary implements RuleConfiguredTargetFactory {
     for (TargetDeviceFamily targetDeviceFamily : TARGET_DEVICE_FAMILIES) {
       mergeControl.addTargetDeviceFamily(targetDeviceFamily.name());
     }
-    if (objcConfiguration.getPlatform() == Platform.DEVICE) {
-      if (!provisioningProfile.isPresent()) {
-        ruleContext.attributeError(ObjcBinaryRule.PROVISIONING_PROFILE_ATTR,
-            "must specify provisioning profile for device build");
-      } else {
-        mergeControl.addBundleFile(BundleMergeProtos.BundleFile.newBuilder()
-            .setSourceFile(provisioningProfile.get().getExecPathString())
-            .setBundlePath(PROVISIONING_PROFILE_BUNDLE_FILE)
-            .build());
-      }
-    } else if (ruleContext.attributes().isAttributeValueExplicitlySpecified(
-        ObjcBinaryRule.EXPLICIT_PROVISIONING_PROFILE_ATTR)) {
-      ruleContext.attributeError(ObjcBinaryRule.EXPLICIT_PROVISIONING_PROFILE_ATTR,
-          SIMULATOR_PROVISIONING_PROFILE_ERROR);
-    }
+
+    mergeControl.setOutFile(ipaUnsigned.getExecPathString());
 
     Artifact bundleMergeControlArtifact = ObjcRuleClasses.bundleMergeControlArtifact(ruleContext);
     ruleContext.getAnalysisEnvironment().registerAction(new WriteMergeBundleControlFileAction(
@@ -228,11 +269,26 @@ public class ObjcBinary implements RuleConfiguredTargetFactory {
         .addInputs(provisioningProfile.asSet())
         .addInputs(BundleableFile.toBundleMergeInputs(objcProvider.get(BUNDLE_FILE)))
         .addInputs(Xcdatamodel.outputZips(objcProvider.get(XCDATAMODEL)))
-        .addOutput(ipaOutput)
+        .addOutput(ipaUnsigned)
         .build());
 
     ObjcActionsBuilder.registerAll(
         ruleContext, ObjcActionsBuilder.baseActions(ruleContext, objcProvider, xcodeProvider));
+  }
+
+  private static String codesignCommand(
+      Artifact provisioningProfile, Artifact entitlements, String appDir) {
+    String dumpCertCommand =
+        "security cms -D -i " + provisioningProfile.getExecPathString();
+    String fingerprintCommand =
+        "/usr/libexec/PlistBuddy -c \"Print DeveloperCertificates:0\" /dev/stdin <<< "
+        + "$(" + dumpCertCommand + ") | openssl x509 -inform DER -noout -fingerprint | "
+        + "cut -d= -f2 | sed -e 's#:##g'";
+    return String.format(
+        "/usr/bin/codesign --force --sign $(%s) --entitlements %s %s",
+        fingerprintCommand,
+        entitlements.getExecPathString(),
+        appDir);
   }
 
   @Override

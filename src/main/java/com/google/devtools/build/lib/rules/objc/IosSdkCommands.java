@@ -65,4 +65,22 @@ public class IosSdkCommands {
   public static String momcPath(ObjcConfiguration configuration) {
     return platformDir(configuration) + "/Developer/usr/bin/momc";
   }
+
+  public static List<String> compileArgsForClang(ObjcConfiguration configuration) {
+    switch (configuration.getPlatform()) {
+      case DEVICE:
+        return ImmutableList.of();
+      case SIMULATOR:
+        // These are added by Xcode when building, because the simulator is built on OSX
+        // frameworks so we aim compile to match the OSX objc runtime.
+        return ImmutableList.of(
+          "-fexceptions",
+          "-fasm-blocks",
+          "-fobjc-abi-version=2",
+          "-fobjc-legacy-dispatch");
+      default:
+        throw new IllegalStateException("Unknown configuration type: "
+            + configuration.getPlatform());
+    }
+  }
 }

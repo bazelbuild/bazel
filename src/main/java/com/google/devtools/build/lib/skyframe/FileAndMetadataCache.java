@@ -16,6 +16,8 @@ package com.google.devtools.build.lib.skyframe;
 import com.google.common.base.Preconditions;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableSet;
+import com.google.common.collect.Interner;
+import com.google.common.collect.Interners;
 import com.google.common.collect.Sets;
 import com.google.common.io.BaseEncoding;
 import com.google.devtools.build.lib.actions.ActionInput;
@@ -78,6 +80,8 @@ class FileAndMetadataCache implements ActionInputFileCache, MetadataHandler {
   private final ImmutableSet<Artifact> outputs;
   @Nullable private final SkyFunction.Environment env;
   private final TimestampGranularityMonitor tsgm;
+
+  private static final Interner<ByteString> BYTE_INTERNER = Interners.newWeakInterner();
 
   FileAndMetadataCache(Map<Artifact, FileArtifactValue> inputArtifactData,
       Map<Artifact, Collection<Artifact>> expandedInputMiddlemen, File execRoot,
@@ -376,7 +380,7 @@ class FileAndMetadataCache implements ActionInputFileCache, MetadataHandler {
       if (bytes != null) {
         ByteString digest = ByteString.copyFrom(BaseEncoding.base16().lowerCase().encode(bytes)
             .getBytes(StandardCharsets.US_ASCII));
-        reverseMap.put(digest, (Artifact) input);
+        reverseMap.put(BYTE_INTERNER.intern(digest), (Artifact) input);
         return digest;
       }
     }

@@ -41,6 +41,7 @@ import com.google.devtools.build.lib.view.WorkspaceStatusAction.Key;
 
 import java.io.IOException;
 import java.util.Map;
+import java.util.Objects;
 import java.util.UUID;
 
 /**
@@ -75,6 +76,23 @@ public class BazelWorkspaceStatusModule extends BlazeModule {
       } catch (IOException e) {
         throw new ActionExecutionException(e, this, true);
       }
+    }
+
+    // TODO(bazel-team): Add test for equals, add hashCode.
+    @Override
+    public boolean equals(Object o) {
+      if (!(o instanceof BazelWorkspaceStatusAction)) {
+        return false;
+      }
+
+      BazelWorkspaceStatusAction that = (BazelWorkspaceStatusAction) o;
+      return this.stableStatus.equals(that.stableStatus)
+          && this.volatileStatus.equals(that.volatileStatus);
+    }
+
+    @Override
+    public int hashCode() {
+      return Objects.hash(stableStatus, volatileStatus);
     }
 
     @Override

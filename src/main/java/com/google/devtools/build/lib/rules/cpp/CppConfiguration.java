@@ -263,7 +263,7 @@ public class CppConfiguration extends BuildConfiguration.Fragment {
   private final Label libcLabel;
   private final Label staticRuntimeLibsLabel;
   private final Label dynamicRuntimeLibsLabel;
-  private final Label ccCompilerRuleLabel;
+  private final Label ccToolchainLabel;
 
   private final PathFragment sysroot;
   private final PathFragment runtimeSysroot;
@@ -329,6 +329,7 @@ public class CppConfiguration extends BuildConfiguration.Fragment {
     this.targetSystemName = toolchain.getTargetSystemName();
     this.targetLibc = toolchain.getTargetLibc();
     this.crosstoolTop = params.crosstoolTop;
+    this.ccToolchainLabel = params.ccToolchainLabel;
     this.compilationMode =
         params.buildOptions.get(BuildConfiguration.Options.class).compilationMode;
     this.lipoContextCollector = cppOptions.lipoCollector;
@@ -339,15 +340,15 @@ public class CppConfiguration extends BuildConfiguration.Fragment {
     this.greppedIncludesDirectory = Root.asDerivedRoot(execRoot,
         execRoot.getRelative(IncludeScanningUtil.GREPPED_INCLUDES));
 
+    this.crosstoolTopPathFragment = crosstoolTop.getPackageFragment();
+
     try {
-      this.crosstoolTopPathFragment = crosstoolTop.getPackageFragment();
       this.staticRuntimeLibsLabel =
           crosstoolTop.getRelative(toolchain.hasStaticRuntimesFilegroup() ?
               toolchain.getStaticRuntimesFilegroup() : "static-runtime-libs-" + targetCpu);
       this.dynamicRuntimeLibsLabel =
           crosstoolTop.getRelative(toolchain.hasDynamicRuntimesFilegroup() ?
               toolchain.getDynamicRuntimesFilegroup() : "dynamic-runtime-libs-" + targetCpu);
-      this.ccCompilerRuleLabel = crosstoolTop.getRelative("cc-compiler-" + targetCpu);
     } catch (SyntaxException e) {
       // All of the above label.getRelative() calls are valid labels, and the crosstool_top
       // was already checked earlier in the process.
@@ -847,7 +848,7 @@ public class CppConfiguration extends BuildConfiguration.Fragment {
    * exists. Otherwise, returns null.
    */
   public Label getCcToolchainRuleLabel() {
-    return ccCompilerRuleLabel;
+    return ccToolchainLabel;
   }
 
   /**

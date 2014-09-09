@@ -11,35 +11,6 @@
 // WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
 // See the License for the specific language governing permissions and
 // limitations under the License.
-/*
- * Portions Copyright 2005 Google Inc.
- */
-/*
- * (C) 2004 Alan Donovan.
- *
- * Author: Alan Donovan <adonovan@google.com>
- *
- * log -- Directed graph implementation as a 2D matrix.
- *
- * This program is free software; you can redistribute it and/or
- * modify it under the terms of version 2 of the GNU General Public
- * License as published by the Free Software Foundation.
- *
- * This program is distributed in the hope that it will be useful,
- * but WITHOUT ANY WARRANTY; without even the implied warranty of
- * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.
- * See the GNU General Public License for more details.
- * <http://www.gnu.org/copyleft/gpl.html>.
- *
- *
- *
- * Licence is hereby granted by the Author to Google, Inc. to use,
- * modify and redistribute this code without restriction, so long as
- * this copyright section remains completely intact.
- *
- * -- Alan Donovan
- *    April 25, 2005.
- */
 
 package com.google.devtools.build.lib.graph;
 

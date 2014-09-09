@@ -15,10 +15,12 @@
 package com.google.devtools.build.lib.collect;
 
 import com.google.common.base.Joiner;
+import com.google.common.collect.AbstractIterator;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.Iterables;
 
 import java.util.ArrayList;
+import java.util.HashSet;
 import java.util.Iterator;
 import java.util.List;
 
@@ -31,7 +33,7 @@ import java.util.List;
  *
  * @see CollectionUtils#checkImmutable(Iterable)
  */
-public class IterablesChain<T> implements Iterable<T> {
+public final class IterablesChain<T> implements Iterable<T> {
 
   private final Iterable<T> chain;
 
@@ -60,6 +62,7 @@ public class IterablesChain<T> implements Iterable<T> {
    */
   public static class Builder<T> {
     private List<Iterable<T>> iterables = new ArrayList<>();
+    private boolean deduplicate;
 
     private Builder() {
     }
@@ -89,14 +92,68 @@ public class IterablesChain<T> implements Iterable<T> {
      * Returns true if the chain is empty.
      */
     public boolean isEmpty() {
-      return iterables.isEmpty() || Iterables.isEmpty(Iterables.concat(iterables));
+      return iterables.isEmpty();
+    }
+
+    /**
+     * If this is called, the the resulting {@link IterablesChain} object uses a hash set to remove
+     * duplicate elements.
+     */
+    public Builder<T> deduplicate() {
+      this.deduplicate = true;
+      return this;
     }
 
     /**
      * Builds an iterable that iterates through all elements in this chain.
      */
     public IterablesChain<T> build() {
-      return new IterablesChain<>(Iterables.concat(ImmutableList.copyOf(iterables)));
+      if (isEmpty()) {
+        return new IterablesChain<>(ImmutableList.<T>of());
+      }
+      Iterable<T> concat = Iterables.concat(ImmutableList.copyOf(iterables));
+      return new IterablesChain<>(deduplicate ? new Deduper<>(concat) : concat);
+    }
+  }
+
+  /**
+   * An iterable implementation that removes duplicate elements (as determined by equals), using a
+   * hash set.
+   */
+  private static final class Deduper<T> implements Iterable<T> {
+    private final Iterable<T> iterable;
+
+    public Deduper(Iterable<T> iterable) {
+      this.iterable = iterable;
+    }
+
+    @Override
+    public Iterator<T> iterator() {
+      return new DedupingIterator<T>(iterable.iterator());
+    }
+  }
+
+  /**
+   * An iterator implementation that removes duplicate elements (as determined by equals), using a
+   * hash set.
+   */
+  private static final class DedupingIterator<T> extends AbstractIterator<T> {
+    private final HashSet<T> set = new HashSet<>();
+    private final Iterator<T> it;
+
+    public DedupingIterator(Iterator<T> it) {
+      this.it = it;
+    }
+
+    @Override
+    protected T computeNext() {
+      while (it.hasNext()) {
+        T next = it.next();
+        if (set.add(next)) {
+          return next;
+        }
+      }
+      return endOfData();
     }
   }
 }

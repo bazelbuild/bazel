@@ -461,6 +461,7 @@ public class SkylarkRuleImplementationFunctions {
       updateEnvironment(env);
     }
 
+    env.disableOnlyLoadingPhaseObjects();
     return env;
   }
 

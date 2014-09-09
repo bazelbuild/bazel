@@ -58,7 +58,7 @@ def java_library_impl(ctx):
          Files.exec_path(class_jar) + " -C " + build_output + " .\n")
 
   ctx.create_action(
-    inputs = jars + [manifest, sources_param_file],
+    inputs = sources + jars + [manifest, sources_param_file],
     outputs = [class_jar],
     mnemonic='Javac',
     command=cmd,

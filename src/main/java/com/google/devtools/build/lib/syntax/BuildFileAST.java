@@ -13,7 +13,9 @@
 // limitations under the License.
 package com.google.devtools.build.lib.syntax;
 
+import com.google.common.collect.ImmutableCollection;
 import com.google.common.collect.ImmutableList;
+import com.google.common.collect.ImmutableSet;
 import com.google.devtools.build.lib.events.Event;
 import com.google.devtools.build.lib.events.EventHandler;
 import com.google.devtools.build.lib.events.Location;
@@ -22,20 +24,20 @@ import com.google.devtools.build.lib.vfs.Path;
 import com.google.devtools.build.lib.vfs.PathFragment;
 
 import java.io.IOException;
-import java.util.ArrayList;
+import java.util.HashSet;
 import java.util.List;
+import java.util.Set;
 
 /**
  * Abstract syntax node for an entire BUILD file.
  */
-// TODO(bazel-team): Should be final;
-public class BuildFileAST extends ASTNode {
+public final class BuildFileAST extends ASTNode {
 
-  private final List<Statement> stmts;
+  private final ImmutableList<Statement> stmts;
 
-  private final List<Comment> comments;
+  private final ImmutableList<Comment> comments;
 
-  private final List<PathFragment> imports;
+  private final ImmutableSet<PathFragment> imports;
 
   /**
    * Whether any errors were encountered during scanning or parsing.
@@ -47,7 +49,7 @@ public class BuildFileAST extends ASTNode {
         .addAll(preludeStatements)
         .addAll(result.statements)
         .build();
-    this.comments = result.comments;
+    this.comments = ImmutableList.copyOf(result.comments);
     this.containsErrors = result.containsErrors;
     this.imports = fetchImports(this.stmts);
     if (result.statements.size() > 0) {
@@ -59,15 +61,15 @@ public class BuildFileAST extends ASTNode {
     }
   }
 
-  private List<PathFragment> fetchImports(List<Statement> stmts) {
-    List<PathFragment> imports = new ArrayList<>();
+  private ImmutableSet<PathFragment> fetchImports(List<Statement> stmts) {
+    Set<PathFragment> imports = new HashSet<>();
     for (Statement stmt : stmts) {
       if (stmt instanceof LoadStatement) {
         LoadStatement imp = (LoadStatement) stmt;
         imports.add(imp.getImportPath());
       }
     }
-    return imports;
+    return ImmutableSet.copyOf(imports);
   }
 
   /**
@@ -82,21 +84,21 @@ public class BuildFileAST extends ASTNode {
   /**
    * Returns an (immutable, ordered) list of statements in this BUILD file.
    */
-  public List<Statement> getStatements() {
+  public ImmutableList<Statement> getStatements() {
     return stmts;
   }
 
   /**
-   * Returns an (ordered) list of comments in this BUILD file.
+   * Returns an (immutable, ordered) list of comments in this BUILD file.
    */
-  public List<Comment> getComments() {
+  public ImmutableList<Comment> getComments() {
     return comments;
   }
 
   /**
-   * Returns an (ordered) list of imports in this BUILD file.
+   * Returns an (immutable) set of imports in this BUILD file.
    */
-  public List<PathFragment> getImports() {
+  public ImmutableCollection<PathFragment> getImports() {
     return imports;
   }
 

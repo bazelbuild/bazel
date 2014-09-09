@@ -66,7 +66,18 @@ public class Environment {
    * Map from a Skylark extension to an environment, which contains all symbols defined in the
    * extension.
    */
-  protected Map<PathFragment, Environment> importedExtensions;
+  protected Map<PathFragment, ? extends Environment> importedExtensions;
+
+  /**
+   * A set of disable variables propagating through function calling. This is needed because
+   * UserDefinedFunctions lock the definition Environment which should be immutable.
+   */
+  protected Set<String> disabledVariables = new HashSet<>();
+
+  /**
+   * A set of disable namespaces propagating through function calling. See disabledVariables.
+   */
+  protected Set<Class<?>> disabledNameSpaces = new HashSet<>();
 
   /**
    * Constructs an empty root non-Skylark environment.
@@ -111,6 +122,9 @@ public class Environment {
    *
    */
   public Object lookup(String varname) throws NoSuchVariableException {
+    if (disabledVariables.contains(varname)) {
+      throw new NoSuchVariableException(varname);
+    }
     Object value = env.get(varname);
     if (value == null) {
       if (parent != null) {
@@ -246,6 +260,10 @@ public class Environment {
    * Returns the function of the namespace of the given name or null of it does not exists.
    */
   public Function getFunction(Class<?> nameSpace, String name) {
+    if (disabledNameSpaces.contains(nameSpace)
+        || (parent != null && parent.disabledNameSpaces.contains(nameSpace))) {
+      return null;
+    }
     Environment topLevel = this;
     while (topLevel.parent != null) {
       topLevel = topLevel.parent;

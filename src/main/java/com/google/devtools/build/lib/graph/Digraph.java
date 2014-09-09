@@ -11,19 +11,6 @@
 // WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
 // See the License for the specific language governing permissions and
 // limitations under the License.
-/**
- *  Author: Alan Donovan <adonovan@google.com>
- *  Copyright 2005 Google Inc.
- *  All Rights Reserved.
- *
- *  Based in large measure on a GPL implementation by the same author;
- *  all rights to the previous implementation as it applies to this
- *  particular derived work are hereby waived by the author, on
- *  condition that this comment remains intact.
- *
- *  -- Alan Donovan
- *     April 25, 2005.
- */
 
 package com.google.devtools.build.lib.graph;
 

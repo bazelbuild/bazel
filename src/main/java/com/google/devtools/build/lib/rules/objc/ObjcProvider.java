@@ -39,17 +39,22 @@ final class ObjcProvider implements TransitiveInfoProvider {
    * {@link NestedSet}s of type E.
    */
   public static class Key<E> {
-    private Key() {}
+    private final Order order;
+
+    private Key(Order order) {
+      this.order = Preconditions.checkNotNull(order);
+    }
   }
 
-  public static final Key<Artifact> LIBRARY = new Key<>();
-  public static final Key<Artifact> IMPORTED_LIBRARY = new Key<>();
-  public static final Key<Artifact> HEADER = new Key<>();
-  public static final Key<Artifact> ASSET_CATALOG = new Key<>();
-  public static final Key<BundleableFile> BUNDLE_FILE = new Key<>();
-  public static final Key<PathFragment> XCASSETS_DIR = new Key<>();
-  public static final Key<SdkFramework> SDK_FRAMEWORK = new Key<>();
-  public static final Key<Xcdatamodel> XCDATAMODEL = new Key<>();
+  public static final Key<Artifact> LIBRARY = new Key<>(Order.STABLE_ORDER);
+  public static final Key<Artifact> IMPORTED_LIBRARY = new Key<>(Order.STABLE_ORDER);
+  public static final Key<Artifact> HEADER = new Key<>(Order.STABLE_ORDER);
+  public static final Key<PathFragment> INCLUDE = new Key<>(Order.LINK_ORDER);
+  public static final Key<Artifact> ASSET_CATALOG = new Key<>(Order.STABLE_ORDER);
+  public static final Key<BundleableFile> BUNDLE_FILE = new Key<>(Order.STABLE_ORDER);
+  public static final Key<PathFragment> XCASSETS_DIR = new Key<>(Order.STABLE_ORDER);
+  public static final Key<SdkFramework> SDK_FRAMEWORK = new Key<>(Order.STABLE_ORDER);
+  public static final Key<Xcdatamodel> XCDATAMODEL = new Key<>(Order.STABLE_ORDER);
 
   private final ImmutableMap<Key<?>, NestedSet<?>> items;
 
@@ -64,7 +69,7 @@ final class ObjcProvider implements TransitiveInfoProvider {
   public <E> NestedSet<E> get(Key<E> key) {
     Preconditions.checkNotNull(key);
     if (!items.containsKey(key)) {
-      return NestedSetBuilder.emptySet(Order.STABLE_ORDER);
+      return NestedSetBuilder.emptySet(key.order);
     }
     return (NestedSet<E>) items.get(key);
   }
@@ -78,7 +83,7 @@ final class ObjcProvider implements TransitiveInfoProvider {
 
     private void maybeAddEmptyBuilder(Key<?> key) {
       if (!items.containsKey(key)) {
-        items.put(key, NestedSetBuilder.stableOrder());
+        items.put(key, new NestedSetBuilder<>(key.order));
       }
     }
 

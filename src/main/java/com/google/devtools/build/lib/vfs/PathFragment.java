@@ -468,7 +468,8 @@ public final class PathFragment implements Comparable<PathFragment>, Serializabl
   public PathFragment subFragment(int beginIndex, int endIndex) {
     int count = segments.length;
     if ((beginIndex < 0) || (beginIndex > endIndex) || (endIndex > count)) {
-      throw new IndexOutOfBoundsException();
+      throw new IndexOutOfBoundsException(String.format("beginIndex: %d endIndex: %d", beginIndex,
+          endIndex));
     }
     boolean isAbsolute = (beginIndex == 0) && this.isAbsolute;
     return ((beginIndex == 0) && (endIndex == count)) ? this :

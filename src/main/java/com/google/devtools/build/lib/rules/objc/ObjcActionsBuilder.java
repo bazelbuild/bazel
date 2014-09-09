@@ -21,6 +21,7 @@ import static com.google.devtools.build.lib.rules.objc.IosSdkCommands.MINIMUM_OS
 import static com.google.devtools.build.lib.rules.objc.IosSdkCommands.TARGET_DEVICE_FAMILIES;
 import static com.google.devtools.build.lib.rules.objc.ObjcProvider.ASSET_CATALOG;
 import static com.google.devtools.build.lib.rules.objc.ObjcProvider.HEADER;
+import static com.google.devtools.build.lib.rules.objc.ObjcProvider.INCLUDE;
 import static com.google.devtools.build.lib.rules.objc.ObjcProvider.XCASSETS_DIR;
 
 import com.google.common.annotations.VisibleForTesting;
@@ -33,6 +34,7 @@ import com.google.devtools.build.lib.vfs.PathFragment;
 import com.google.devtools.build.lib.view.RuleConfiguredTarget.Mode;
 import com.google.devtools.build.lib.view.RuleContext;
 import com.google.devtools.build.lib.view.actions.SpawnAction;
+import com.google.devtools.build.lib.view.config.BuildConfiguration;
 import com.google.devtools.build.xcode.common.TargetDeviceFamily;
 import com.google.devtools.build.xcode.util.Interspersing;
 import com.google.devtools.build.xcode.xcodegen.proto.XcodeGenProtos;
@@ -73,21 +75,38 @@ public class ObjcActionsBuilder {
         .addInputArgument(deployJarArtifact);
   }
 
+  /**
+   * Returns the -iquote args to use when compiling, including the "-iquote" flag which appears
+   * before each argument.
+   */
+  @VisibleForTesting
+  static Iterable<String> iquoteArgs(BuildConfiguration configuration) {
+    return Interspersing.beforeEach(
+        "-iquote",
+        PathFragment.safePathStrings(
+            ImmutableList.of(
+                new PathFragment("."),
+                configuration.getGenfilesFragment(),
+                configuration.getBinFragment())));
+  }
+
   private static Action compileAction(RuleContext ruleContext, ObjcConfiguration configuration,
-      Artifact sourceFile, Iterable<Artifact> headerFiles, String... otherFlags) {
+      Artifact sourceFile, ObjcProvider provider, String... otherFlags) {
     return spawnOnDarwinActionBuilder(ruleContext)
         .setMnemonic("Compile")
         .setExecutable(new PathFragment(BIN_DIR + "/clang"))
+        .addArguments(IosSdkCommands.compileArgsForClang(configuration))
         .addArguments(IosSdkCommands.commonLinkAndCompileArgsForClang(configuration))
-        .addArgument("-fobjc-abi-version=2")
-        .addArgument("-iquote").addArgument(".")
+        .addArguments(iquoteArgs(ruleContext.getConfiguration()))
         .addArguments(Interspersing.beforeEach(
             "-include", Artifact.asExecPaths(ObjcRuleClasses.pchFile(ruleContext).asSet())))
+        .addArguments(Interspersing.beforeEach(
+            "-I", PathFragment.safePathStrings(provider.get(INCLUDE))))
         .addArguments(otherFlags)
         .addArguments(ObjcRuleClasses.copts(ruleContext))
         .addArgument("-c").addInputArgument(sourceFile)
         .addArgument("-o").addOutputArgument(ObjcRuleClasses.objFile(ruleContext, sourceFile))
-        .addInputs(headerFiles)
+        .addInputs(provider.get(HEADER))
         .addInputs(ObjcRuleClasses.pchFile(ruleContext).asSet())
         .build();
   }
@@ -97,18 +116,16 @@ public class ObjcActionsBuilder {
    * files into a single archive library.
    * @return the {@code Action}s that were created
    */
-  static Iterable<Action> compileAndLinkActions(RuleContext ruleContext,
-      Iterable<Artifact> transitiveHeaderFiles) {
+  static Iterable<Action> compileAndLinkActions(RuleContext ruleContext, ObjcProvider provider) {
     ObjcConfiguration configuration = objcConfiguration(ruleContext);
 
     ImmutableList.Builder<Action> result = new ImmutableList.Builder<>();
     for (Artifact sourceFile : SRCS.get(ruleContext)) {
-      result.add(compileAction(ruleContext, configuration, sourceFile, transitiveHeaderFiles,
-          "-fobjc-arc"));
+      result.add(compileAction(ruleContext, configuration, sourceFile, provider, "-fobjc-arc"));
     }
     for (Artifact nonArcSourceFile : NON_ARC_SRCS.get(ruleContext)) {
-      result.add(compileAction(ruleContext, configuration, nonArcSourceFile, transitiveHeaderFiles,
-          "-fno-objc-arc"));
+      result.add(
+          compileAction(ruleContext, configuration, nonArcSourceFile, provider, "-fno-objc-arc"));
     }
 
     for (Artifact outputAFile : ObjcRuleClasses.outputAFile(ruleContext).asSet()) {
@@ -258,7 +275,7 @@ public class ObjcActionsBuilder {
     // Don't use Iterables.concat(Iterable...) because it introduces an unchecked warning.
     return Iterables.concat(
         Iterables.concat(
-          compileAndLinkActions(ruleContext, provider.get(HEADER)),
+          compileAndLinkActions(ruleContext, provider),
           xcodegenActions(ruleContext, xcodeProvider.getTargets()),
           convertStringsActions(ruleContext),
           convertXibsActions(ruleContext)),

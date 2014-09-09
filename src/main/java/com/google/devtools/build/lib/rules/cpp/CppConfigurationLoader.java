@@ -14,12 +14,13 @@
 
 package com.google.devtools.build.lib.rules.cpp;
 
-import com.google.common.annotations.VisibleForTesting;
 import com.google.common.base.Function;
 import com.google.devtools.build.lib.blaze.BlazeDirectories;
 import com.google.devtools.build.lib.packages.InputFile;
 import com.google.devtools.build.lib.packages.NoSuchPackageException;
 import com.google.devtools.build.lib.packages.NoSuchTargetException;
+import com.google.devtools.build.lib.packages.NoSuchThingException;
+import com.google.devtools.build.lib.packages.Rule;
 import com.google.devtools.build.lib.packages.Target;
 import com.google.devtools.build.lib.syntax.Label;
 import com.google.devtools.build.lib.syntax.Label.SyntaxException;
@@ -67,6 +68,7 @@ public class CppConfigurationLoader implements ConfigurationFragmentFactory {
     protected final String cacheKeySuffix;
     protected final BuildOptions buildOptions;
     protected final Label crosstoolTop;
+    protected final Label ccToolchainLabel;
     protected final Path fdoZip;
     protected final Path execRoot;
 
@@ -75,13 +77,15 @@ public class CppConfigurationLoader implements ConfigurationFragmentFactory {
         BuildOptions buildOptions,
         Path fdoZip,
         Path execRoot,
-        Label crosstoolTop) {
+        Label crosstoolTop,
+        Label ccToolchainLabel) {
       this.toolchain = toolchain;
       this.cacheKeySuffix = cacheKeySuffix;
       this.buildOptions = buildOptions;
       this.fdoZip = fdoZip;
       this.execRoot = execRoot;
       this.crosstoolTop = crosstoolTop;
+      this.ccToolchainLabel = ccToolchainLabel;
     }
   }
 
@@ -120,19 +124,30 @@ public class CppConfigurationLoader implements ConfigurationFragmentFactory {
       fdoZip = directories.getWorkspace().getRelative(cppOptions.fdoOptimize);
     }
 
+    Label ccToolchainLabel;
+    try {
+      ccToolchainLabel = crosstoolTop.getRelative("cc-compiler-" + toolchain.getTargetCpu());
+    } catch (Label.SyntaxException e) {
+      throw new InvalidConfigurationException(String.format(
+          "'%s' is not a valid CPU. It should only consist of characters valid in labels",
+          toolchain.getTargetCpu()));
+    }
+
+    Target ccToolchain;
+    try {
+      ccToolchain = env.getTarget(ccToolchainLabel);
+    } catch (NoSuchThingException e) {
+      throw new InvalidConfigurationException(String.format(
+          "The toolchain rule '%s' does not exist", ccToolchainLabel));
+    }
+
+    if (!(ccToolchain instanceof Rule)
+        || !((Rule) ccToolchain).getRuleClass().equals("cc_toolchain")) {
+      throw new InvalidConfigurationException(String.format(
+          "The label '%s' is not a cc_toolchain rule", ccToolchainLabel));
+    }
+
     return new CppConfigurationParameters(toolchain, file.getMd5(), options,
-        fdoZip, directories.getExecRoot(), crosstoolTop);
-  }
-
-  /**
-   * Permits a user-specified crosstool_top path. This is useful for tests that want to
-   * mock a Crosstool in the workspace even though the CROSSTOOL file is not actually there.
-   */
-  @VisibleForTesting
-  CppConfiguration create(ConfigurationEnvironment env, BlazeDirectories directories,
-      BuildOptions options, Label crosstoolTop)
-      throws InvalidConfigurationException {
-
-    return new CppConfiguration(createParameters(env, directories, options));
+        fdoZip, directories.getExecRoot(), crosstoolTop, ccToolchainLabel);
   }
 }

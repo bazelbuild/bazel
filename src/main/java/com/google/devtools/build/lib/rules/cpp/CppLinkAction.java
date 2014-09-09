@@ -37,6 +37,8 @@ import com.google.devtools.build.lib.actions.ResourceSet;
 import com.google.devtools.build.lib.actions.extra.CppLinkInfo;
 import com.google.devtools.build.lib.actions.extra.ExtraActionInfo;
 import com.google.devtools.build.lib.collect.CollectionUtils;
+import com.google.devtools.build.lib.collect.ImmutableIterable;
+import com.google.devtools.build.lib.collect.IterablesChain;
 import com.google.devtools.build.lib.collect.nestedset.NestedSet;
 import com.google.devtools.build.lib.collect.nestedset.NestedSetBuilder;
 import com.google.devtools.build.lib.collect.nestedset.Order;
@@ -107,7 +109,7 @@ public final class CppLinkAction extends ConfigurationAction
    * {@link Builder#build()}.
    */
   private CppLinkAction(ActionOwner owner,
-                        NestedSet<Artifact> inputs,
+                        Iterable<Artifact> inputs,
                         ImmutableList<Artifact> outputs,
                         BuildConfiguration configuration,
                         LibraryToLink outputLibrary,
@@ -631,27 +633,17 @@ public final class CppLinkAction extends ConfigurationAction
               output.getExecPath().getBaseName() + ".sc"))
           : null;
 
-      final List<Artifact> finalInputs = new ArrayList<>();
-      finalInputs.addAll(buildInfoHeaderArtifacts);
-      finalInputs.addAll(linkstamps);
-
       boolean needWholeArchive = wholeArchive || needWholeArchive(
           linkStaticness, linkType, linkopts, isNativeDeps, cppConfiguration);
 
       NestedSet<LibraryToLink> uniqueLibraries = libraries.build();
-      final Iterable<Artifact> expandedInputs = Iterables.concat(
-          LinkerInputs.toLibraryArtifacts(nonLibraries),
-          LinkerInputs.toLibraryArtifacts(Link.mergeInputsDependencies(uniqueLibraries,
-              needWholeArchive, cppConfiguration.archiveType())),
-          finalInputs);
-
       final Iterable<Artifact> filteredNonLibraryArtifacts = filterLinkerInputArtifacts(
           LinkerInputs.toLibraryArtifacts(nonLibraries));
-      final Iterable<LinkerInput> linkerInputs = Iterables.<LinkerInput>concat(
-          filterLinkerInputs(nonLibraries),
-          Link.mergeInputsCmdLine(
-              uniqueLibraries, needWholeArchive, cppConfiguration.archiveType()),
-          LinkerInputs.simpleLinkerInputs(filterLinkerInputArtifacts(finalInputs)));
+      final Iterable<LinkerInput> linkerInputs = IterablesChain.<LinkerInput>builder()
+          .add(ImmutableList.copyOf(filterLinkerInputs(nonLibraries)))
+          .add(ImmutableIterable.from(Link.mergeInputsCmdLine(
+              uniqueLibraries, needWholeArchive, cppConfiguration.archiveType())))
+          .build();
 
       // ruleContext can only be null during testing. This is kind of ugly.
       final ImmutableSet<String> features = (ruleContext == null)
@@ -672,16 +664,6 @@ public final class CppLinkAction extends ConfigurationAction
           interfaceOutputLibrary == null ? null : interfaceOutputLibrary.getArtifact(),
           symbolCountOutput);
 
-      NestedSetBuilder<Artifact> dependencyInputsBuilder =
-          NestedSetBuilder.stableOrder();
-      dependencyInputsBuilder.addTransitive(
-          NestedSetBuilder.wrap(Order.STABLE_ORDER, expandedInputs));
-      dependencyInputsBuilder.addTransitive(crosstoolInputs);
-      if (runtimeMiddleman != null) {
-        dependencyInputsBuilder.add(runtimeMiddleman);
-      }
-      dependencyInputsBuilder.addTransitive(compilationInputs.build());
-
       LinkCommandLine linkCommandLine = new LinkCommandLine.Builder(configuration, getOwner())
           .setOutput(outputLibrary.getArtifact())
           .setInterfaceOutput(interfaceOutput)
@@ -700,9 +682,32 @@ public final class CppLinkAction extends ConfigurationAction
           .setNeedWholeArchive(needWholeArchive)
           .setInterfaceSoBuilder(getInterfaceSoBuilder())
           .build();
+
+      // Compute the set of inputs - we only need stable order here.
+      NestedSetBuilder<Artifact> dependencyInputsBuilder = NestedSetBuilder.stableOrder();
+      dependencyInputsBuilder.addAll(buildInfoHeaderArtifacts);
+      dependencyInputsBuilder.addAll(linkstamps);
+      dependencyInputsBuilder.addTransitive(crosstoolInputs);
+      if (runtimeMiddleman != null) {
+        dependencyInputsBuilder.add(runtimeMiddleman);
+      }
+      dependencyInputsBuilder.addTransitive(compilationInputs.build());
+
+      Iterable<Artifact> expandedInputs =
+          LinkerInputs.toLibraryArtifacts(Link.mergeInputsDependencies(uniqueLibraries,
+              needWholeArchive, cppConfiguration.archiveType()));
+      // getPrimaryInput returns the first element, and that is a public interface - therefore the
+      // order here is important.
+      Iterable<Artifact> inputs = IterablesChain.<Artifact>builder()
+          .add(ImmutableList.copyOf(LinkerInputs.toLibraryArtifacts(nonLibraries)))
+          .add(dependencyInputsBuilder.build())
+          .add(ImmutableIterable.from(expandedInputs))
+          .deduplicate()
+          .build();
+
       return new CppLinkAction(
           getOwner(),
-          dependencyInputsBuilder.build(),
+          inputs,
           actionOutputs,
           configuration,
           outputLibrary,
@@ -871,7 +876,8 @@ public final class CppLinkAction extends ConfigurationAction
 
     /**
      * Adds a single artifact to the set of inputs. The artifact must be an archive or a shared
-     * library.
+     * library. Note that all directly added libraries are implicitly ordered before all nested
+     * sets added with {@link #addLibraries}, even if added in the opposite order.
      */
     public Builder addLibrary(LibraryToLink input) {
       checkLibrary(input);
@@ -883,10 +889,11 @@ public final class CppLinkAction extends ConfigurationAction
      * Adds multiple artifact to the set of inputs. The artifacts must be archives or shared
      * libraries.
      */
-    public Builder addLibraries(Iterable<LibraryToLink> inputs) {
+    public Builder addLibraries(NestedSet<LibraryToLink> inputs) {
       for (LibraryToLink input : inputs) {
-        addLibrary(input);
+        checkLibrary(input);
       }
+      this.libraries.addTransitive(inputs);
       return this;
     }
 

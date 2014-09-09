@@ -116,6 +116,14 @@ public class ObjcBinaryRule implements RuleDefinition {
         bundle.
         <!-- #END_BLAZE_RULE.ATTRIBUTE -->*/
         .add(attr("launch_image", STRING))
+        /* <!-- #BLAZE_RULE(objc_binary).ATTRIBUTE(entitlements) -->
+        The entitlements file required for device builds of this application. See
+        <a href="https://developer.apple.com/library/mac/documentation/Miscellaneous/Reference/EntitlementKeyReference/Chapters/AboutEntitlements.html">the apple documentation</a>
+        for more information. If absent, the application is simply not signed,
+        but in the very near future, the default entitlements from the
+        provisioning profile will be used.
+        <!-- #END_BLAZE_RULE.ATTRIBUTE -->*/
+        .add(attr("entitlements", LABEL))
         /* <!-- #BLAZE_RULE(objc_binary).ATTRIBUTE(provisioning_profile) -->
         The provisioning profile (.mobileprovision file) to use when bundling
         the application.

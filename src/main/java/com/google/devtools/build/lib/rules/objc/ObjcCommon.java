@@ -21,6 +21,7 @@ import static com.google.devtools.build.lib.rules.objc.ArtifactListAttribute.SRC
 import static com.google.devtools.build.lib.rules.objc.ObjcProvider.BUNDLE_FILE;
 import static com.google.devtools.build.lib.rules.objc.ObjcProvider.HEADER;
 import static com.google.devtools.build.lib.rules.objc.ObjcProvider.IMPORTED_LIBRARY;
+import static com.google.devtools.build.lib.rules.objc.ObjcProvider.INCLUDE;
 import static com.google.devtools.build.lib.rules.objc.ObjcProvider.LIBRARY;
 import static com.google.devtools.build.lib.rules.objc.ObjcProvider.SDK_FRAMEWORK;
 import static com.google.devtools.build.lib.rules.objc.ObjcProvider.XCASSETS_DIR;
@@ -178,6 +179,7 @@ final class ObjcCommon {
 
     ObjcProvider objcProvider = new ObjcProvider.Builder()
         .addAll(HEADER, HDRS.get(context))
+        .addAll(INCLUDE, ObjcRuleClasses.includes(context))
         .add(assetCatalogsInfo)
         .addAll(LIBRARY, ObjcRuleClasses.outputAFile(context).asSet())
         .addAll(IMPORTED_LIBRARY, ARCHIVES.get(context))
