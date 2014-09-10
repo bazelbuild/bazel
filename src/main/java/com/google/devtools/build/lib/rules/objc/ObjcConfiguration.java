@@ -24,10 +24,12 @@ import com.google.devtools.build.xcode.common.Platform;
 public class ObjcConfiguration extends Fragment {
   private final String iosSdkVersion;
   private final String iosCpu;
+  private final String xcodeOptions;
 
-  ObjcConfiguration(ObjcOptions objcOptions) {
+  ObjcConfiguration(ObjcCommandLineOptions objcOptions) {
     this.iosSdkVersion = Preconditions.checkNotNull(objcOptions.iosSdkVersion, "iosSdkVersion");
     this.iosCpu = Preconditions.checkNotNull(objcOptions.iosCpu, "iosCpu");
+    this.xcodeOptions = Preconditions.checkNotNull(objcOptions.xcodeOptions, "xcodeOptions");
   }
 
   public String getIosSdkVersion() {
@@ -40,6 +42,10 @@ public class ObjcConfiguration extends Fragment {
 
   public Platform getPlatform() {
     return Platform.forArch(getIosCpu());
+  }
+
+  public String getXcodeOptions() {
+    return xcodeOptions;
   }
 
   @Override

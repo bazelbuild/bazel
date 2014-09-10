@@ -63,12 +63,9 @@ public class BuildEncyclopediaProcessor {
     File buildEncyclopediaPath = setupDirectories(outputRootDir);
     try {
       bw = new BufferedWriter(new FileWriter(buildEncyclopediaPath));
-      System.out.println(
-          "Build Encyclopedia generated: " + buildEncyclopediaPath.getAbsolutePath());
-
       bw.write(DocgenConsts.HEADER_COMMENT);
 
-      Set<RuleDocumentation> ruleDocEntries = collectAndProcessRuleDocs(inputDirs, true);
+      Set<RuleDocumentation> ruleDocEntries = collectAndProcessRuleDocs(inputDirs, false);
       writeRuleClassDocs(ruleDocEntries, bw);
 
       bw.write(SourceFileReader.readTemplateContents(DocgenConsts.FOOTER_TEMPLATE));

@@ -22,6 +22,7 @@ import com.google.devtools.build.lib.view.config.BuildOptions;
 import com.google.devtools.build.skyframe.SkyKey;
 import com.google.devtools.build.skyframe.SkyValue;
 
+import java.io.Serializable;
 import java.util.Objects;
 
 /**
@@ -47,7 +48,7 @@ public class ConfigurationCollectionValue implements SkyValue {
         new ConfigurationCollectionKey(buildOptions, multiCpu));
   }
 
-  static final class ConfigurationCollectionKey {
+  static final class ConfigurationCollectionKey implements Serializable {
     private final BuildOptions buildOptions;
     private final ImmutableSet<String> multiCpu;
     private final int hashCode;

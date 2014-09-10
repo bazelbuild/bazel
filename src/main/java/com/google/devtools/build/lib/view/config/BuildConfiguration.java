@@ -63,6 +63,7 @@ import com.google.devtools.common.options.OptionsParsingException;
 import com.google.devtools.common.options.TriState;
 
 import java.io.IOException;
+import java.io.Serializable;
 import java.lang.reflect.Field;
 import java.util.ArrayList;
 import java.util.Arrays;
@@ -102,12 +103,12 @@ import javax.annotation.Nullable;
 @SkylarkModule(name = "Configuration",
     doc = "Data required for the analysis of a target that comes from targets that "
         + "depend on it and not targets that it depends on.")
-public final class BuildConfiguration implements ClassObject {
+public final class BuildConfiguration implements ClassObject, Serializable {
 
   /**
    * An interface for language-specific configurations.
    */
-  public abstract static class Fragment {
+  public abstract static class Fragment implements Serializable {
     /**
      * Returns a human-readable name of the configuration fragment.
      */
@@ -810,7 +811,7 @@ public final class BuildConfiguration implements ClassObject {
   /**
    * Helper container for {@link #transitiveOptionsMap} below.
    */
-  private static class OptionDetails {
+  private static class OptionDetails implements Serializable {
     private OptionDetails(Class<? extends OptionsBase> optionsClass, Object value,
         boolean allowsMultiple) {
       this.optionsClass = optionsClass;

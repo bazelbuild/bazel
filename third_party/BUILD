@@ -7,5 +7,10 @@ filegroup(
 
 filegroup(
     name = "third_party",
-    srcs = glob(["**/*.jar"]),
+    srcs = [
+        "guava/guava-16.0.1.jar",
+        "joda-time/joda-time-2.3.jar",
+        "jsr305/jsr-305.jar",
+        "protobuf/protobuf-2.5.0.jar",
+    ],
 )

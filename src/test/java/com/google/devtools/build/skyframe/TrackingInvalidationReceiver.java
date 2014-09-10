@@ -21,7 +21,7 @@ import java.util.Set;
 /**
  * A testing utility to keep track of evaluation.
  */
-class TrackingInvalidationReceiver implements EvaluationProgressReceiver {
+public class TrackingInvalidationReceiver implements EvaluationProgressReceiver {
   public final Set<SkyValue> dirty = Sets.newConcurrentHashSet();
   public final Set<SkyValue> deleted = Sets.newConcurrentHashSet();
   public final Set<SkyKey> enqueued = Sets.newConcurrentHashSet();

@@ -77,7 +77,9 @@ class BlazeStartupOptions {
 
   Architecture GetBlazeArchitecture() const;
 
-  string GetJvm() const;
+  // Returns the path to the JVM. This should be called after parsing
+  // the startup options.
+  string GetJvm();
 
   // Adds JVM tuning flags for Blaze.
   void AddJVMArguments(const string &host_javabase,
@@ -107,8 +109,6 @@ class BlazeStartupOptions {
   bool host_jvm_debug;
 
   string host_jvm_profile;
-
-  string host_javabase;
 
   string host_jvm_args;
 
@@ -168,7 +168,13 @@ class BlazeStartupOptions {
   // Returns the basename for the rc file.
   static string RcBasename();
 
+  // Returns the GetHostJavabase. This should be called after parsing
+  // the --host_javabase option.
+  string GetHostJavabase();
+
  private:
+  string host_javabase;
+
   // Sets default values for members.
   void Init();
 

@@ -54,7 +54,6 @@ public class BuildEncyclopediaGenerator {
   public static void main(String[] args) {
     if (checkArgs(args)) {
       // TODO(bazel-team): use flags
-      System.out.println("Generating Build Encyclopedia...");
       try {
         BuildEncyclopediaProcessor processor = new BuildEncyclopediaProcessor(
             createRuleClassProvider());
@@ -64,7 +63,6 @@ public class BuildEncyclopediaGenerator {
       } catch (Throwable e) {
         fail(e, true);
       }
-      System.out.println("Finished.");
     }
   }
 }

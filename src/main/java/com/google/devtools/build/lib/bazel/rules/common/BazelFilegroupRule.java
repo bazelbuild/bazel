@@ -40,7 +40,7 @@ public final class BazelFilegroupRule implements RuleDefinition {
     return builder
         .add(attr("srcs", LABEL_LIST))
         .add(attr("data", LABEL_LIST).cfg(DATA))
-        .add(attr("output_licenses", LICENSE).nonconfigurable())
+        .add(attr("output_licenses", LICENSE))
         .add(attr("path", STRING))
         .build();
   }

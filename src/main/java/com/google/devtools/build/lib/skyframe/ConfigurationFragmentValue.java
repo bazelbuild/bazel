@@ -22,6 +22,7 @@ import com.google.devtools.build.lib.view.config.BuildOptions;
 import com.google.devtools.build.skyframe.SkyKey;
 import com.google.devtools.build.skyframe.SkyValue;
 
+import java.io.Serializable;
 import java.util.Objects;
 
 import javax.annotation.Nullable;
@@ -50,7 +51,7 @@ public class ConfigurationFragmentValue implements SkyValue {
         new ConfigurationFragmentKey(buildOptions, fragmentType));
   }
   
-  static final class ConfigurationFragmentKey {
+  static final class ConfigurationFragmentKey implements Serializable {
     private final BuildOptions buildOptions;
     private final Class<? extends Fragment> fragmentType;
     

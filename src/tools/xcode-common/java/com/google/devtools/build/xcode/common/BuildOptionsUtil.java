@@ -11,14 +11,15 @@
 // WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
 // See the License for the specific language governing permissions and
 // limitations under the License.
-package com.google.devtools.build.skyframe;
+
+package com.google.devtools.build.xcode.common;
 
 /**
- * A graph that is both Dirtiable (values can be deleted) and Evaluable (values can be added). All
- * methods in this interface (as inherited from super-interfaces) should be thread-safe.
- *
- * <p>This class is not intended for direct use, and is only exposed as public for use in
- * evaluation implementations outside of this package.
+ * Utility code related to build settings (referred to as <em>build configuration</em> within
+ * Xcode).
  */
-public interface ProcessableGraph extends DirtiableGraph, EvaluableGraph {
+public class BuildOptionsUtil {
+  private BuildOptionsUtil() {}
+
+  public static final String DEFAULT_OPTIONS_NAME = "Bazel";
 }

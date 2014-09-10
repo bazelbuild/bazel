@@ -22,6 +22,7 @@ import static com.google.devtools.build.lib.packages.Type.LABEL_LIST;
 import static com.google.devtools.build.lib.packages.Type.STRING_LIST;
 import static com.google.devtools.build.lib.rules.objc.ArtifactListAttribute.NON_ARC_SRCS;
 import static com.google.devtools.build.lib.rules.objc.ArtifactListAttribute.SRCS;
+import static com.google.devtools.build.xcode.common.BuildOptionsUtil.DEFAULT_OPTIONS_NAME;
 
 import com.google.common.annotations.VisibleForTesting;
 import com.google.common.base.Function;
@@ -237,11 +238,49 @@ public class ObjcRuleClasses {
       for (String include : context.attributes().get("includes", STRING_LIST)) {
         // TODO(bazel-team): ignore items that are absolute paths, and report an error for them.
         for (PathFragment rootFragment : rootFragments) {
-          includes.add(rootFragment.getRelative(include));
+          includes.add(rootFragment.getRelative(include).normalize());
         }
       }
     }
     return includes.build();
+  }
+
+  /**
+   * Returns build options information on the given rule, automatically giving the default value if
+   * it is not specified or allowed on this rule type.
+   */
+  static OptionsProvider options(RuleContext context) {
+    OptionsProvider options = null;
+    if (context.attributes().getAttributeDefinition("options") != null) {
+      options = context.getPrerequisite("options", Mode.TARGET, OptionsProvider.class);
+    }
+    if (options == null) {
+      options = new OptionsProvider(DEFAULT_OPTIONS_NAME, ImmutableList.<String>of());
+    }
+    return options;
+  }
+
+  /**
+   * Attributes for {@code objc_*} rules that have compiler (and in the future, possibly linker)
+   * options
+   */
+  @BlazeRule(name = "$objc_opts_rule",
+      type = RuleClassType.ABSTRACT)
+  public static class ObjcOptsRule implements RuleDefinition {
+    @Override
+    public RuleClass build(Builder builder, RuleDefinitionEnvironment environment) {
+      return builder
+          /* <!-- #BLAZE_RULE($objc_opts_rule).ATTRIBUTE(copts) -->
+          Extra flags to pass to the compiler.
+          <i>(List of strings; optional; subject to
+            <a href="#make_variables">"Make variable"</a> substitution and
+            <a href="#sh-tokenization">Bourne shell tokenization</a>)</i>
+          These flags will only apply to this target, and not those upon which
+          it depends, or those which depend on it.
+          <!-- #END_BLAZE_RULE.ATTRIBUTE -->*/
+          .add(attr("copts", STRING_LIST))
+          .build();
+    }
   }
 
   /**
@@ -276,15 +315,6 @@ public class ObjcRuleClasses {
               .direct_compile_time_input()
               // TODO(bazel-team): Get .mm files compiling.
               .allowedFileTypes(FileType.of("m")))
-          /* <!-- #BLAZE_RULE($objc_sources_rule).ATTRIBUTE(copts) -->
-          Extra flags to pass to the compiler.
-          <i>(List of strings; optional; subject to
-            <a href="#make_variables">"Make variable"</a> substitution and
-            <a href="#sh-tokenization">Bourne shell tokenization</a>)</i>
-          These flags will only apply to this target, and not those upon which it depends,
-          or those which depend on it.
-          <!-- #END_BLAZE_RULE.ATTRIBUTE -->*/
-          .add(attr("copts", STRING_LIST))
           /* <!-- #BLAZE_RULE($objc_sources_rule).ATTRIBUTE(pch) -->
           Header file to prepend to every source file being compiled (both arc
           and non-arc). Note that the file will not be precompiled - this is
@@ -293,6 +323,13 @@ public class ObjcRuleClasses {
           .add(attr("pch", LABEL)
               .direct_compile_time_input()
               .allowedFileTypes(FileType.of("pch")))
+          /* <!-- #BLAZE_RULE($objc_sources_rule).ATTRIBUTE(options) -->
+          An {@code objc_options} target which defines an Xcode build
+          configuration profile.
+          <!-- #END_BLAZE_RULE.ATTRIBUTE -->*/
+          .add(attr("options", LABEL)
+              .allowedFileTypes()
+              .allowedRuleClasses("objc_options"))
           .build();
     }
   }

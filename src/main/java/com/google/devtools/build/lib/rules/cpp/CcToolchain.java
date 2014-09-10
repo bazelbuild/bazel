@@ -133,7 +133,7 @@ public class CcToolchain implements RuleConfiguredTargetFactory {
     // but it is sort-of-kind-of a tool, but various parts of it are linked into the output...
     // ...so we trust the judgment of the author of the cc_toolchain rule to figure out what
     // licenses should be propagated to C++ targets.
-    License outputLicense = ruleContext.getRule().getToolOutputLicense();
+    License outputLicense = ruleContext.getRule().getToolOutputLicense(ruleContext.attributes());
     if (outputLicense != null && outputLicense != License.NO_LICENSE) {
       final NestedSet<TargetLicense> license = NestedSetBuilder.create(Order.STABLE_ORDER,
           new TargetLicense(ruleContext.getLabel(), outputLicense));

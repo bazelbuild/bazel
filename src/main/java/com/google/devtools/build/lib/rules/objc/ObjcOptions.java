@@ -14,28 +14,26 @@
 
 package com.google.devtools.build.lib.rules.objc;
 
-import com.google.common.collect.Multimap;
-import com.google.devtools.build.lib.syntax.Label;
-import com.google.devtools.build.lib.view.config.FragmentOptions;
-import com.google.devtools.common.options.Option;
+import com.google.common.collect.ImmutableList;
+import com.google.devtools.build.lib.packages.Type;
+import com.google.devtools.build.lib.rules.RuleConfiguredTargetFactory;
+import com.google.devtools.build.lib.view.ConfiguredTarget;
+import com.google.devtools.build.lib.view.RuleConfiguredTargetBuilder;
+import com.google.devtools.build.lib.view.RuleContext;
+import com.google.devtools.build.lib.view.RunfilesProvider;
 
 /**
- * Command-line options for building Objective-C targets.
+ * Implementation for the {@code objc_options} rule.
  */
-public class ObjcOptions extends FragmentOptions {
-  @Option(name = "ios_sdk_version",
-      defaultValue = "7.1",
-      category = "undocumented",
-      help = "Specifies the version of the iOS SDK to use to build iOS applications."
-      )
-  public String iosSdkVersion;
-
-  @Option(name = "ios_cpu",
-      defaultValue = "i386",
-      category = "undocumented",
-      help = "Specifies to target CPU of iOS compilation.")
-  public String iosCpu;
-
+public class ObjcOptions implements RuleConfiguredTargetFactory {
   @Override
-  public void addAllLabels(Multimap<String, Label> labelMap) {}
+  public ConfiguredTarget create(RuleContext ruleContext) {
+    return new RuleConfiguredTargetBuilder(ruleContext)
+        .add(RunfilesProvider.class, RunfilesProvider.EMPTY)
+        .add(OptionsProvider.class,
+            new OptionsProvider(
+                ruleContext.attributes().get("xcode_name", Type.STRING),
+                ImmutableList.copyOf(ObjcRuleClasses.copts(ruleContext))))
+        .build();
+  }
 }

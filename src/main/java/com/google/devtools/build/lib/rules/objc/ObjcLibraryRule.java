@@ -31,6 +31,7 @@ import com.google.devtools.build.lib.view.RuleDefinitionEnvironment;
 @BlazeRule(name = "objc_library",
     factoryClass = ObjcLibrary.class,
     ancestors = { ObjcRuleClasses.ObjcBaseRule.class,
+                  ObjcRuleClasses.ObjcOptsRule.class,
                   ObjcRuleClasses.ObjcSourcesRule.class })
 public class ObjcLibraryRule implements RuleDefinition {
   /**

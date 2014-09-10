@@ -87,8 +87,11 @@ import javax.annotation.Nullable;
  * used to avoid unnecessary re-evaluation of values. If a node is re-evaluated and found to have
  * the same data as before, its version (mtime) remains the same. If all of a node's children's
  * have the same version as before, its re-evaluation can be skipped.
+ *
+ * <p>This class is not intended for direct use, and is only exposed as public for use in
+ * evaluation implementations outside of this package.
  */
-final class ParallelEvaluator implements Evaluator {
+public final class ParallelEvaluator implements Evaluator {
   private final ProcessableGraph graph;
   private final long graphVersion;
 
@@ -109,7 +112,7 @@ final class ParallelEvaluator implements Evaluator {
 
   private static final Interner<SkyKey> KEY_CANONICALIZER =  Interners.newWeakInterner();
 
-  ParallelEvaluator(ProcessableGraph graph, long graphVersion,
+  public ParallelEvaluator(ProcessableGraph graph, long graphVersion,
                     ImmutableMap<? extends SkyFunctionName, ? extends SkyFunction> skyFunctions,
                     final EventHandler reporter,
                     MemoizingEvaluator.EmittedEventState emittedEventState,

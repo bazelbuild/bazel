@@ -597,10 +597,10 @@ public final class Rule implements Target {
    * Returns the license of the output of the binary created by this rule, or
    * null if it is not specified.
    */
-  public License getToolOutputLicense() {
+  public License getToolOutputLicense(AttributeMap attributes) {
     if (isAttrDefined("output_licenses", Type.LICENSE)
-        && isAttributeValueExplicitlySpecified("output_licenses")) {
-      return NonconfigurableAttributeMapper.of(this).get("output_licenses", Type.LICENSE);
+        && attributes.isAttributeValueExplicitlySpecified("output_licenses")) {
+      return attributes.get("output_licenses", Type.LICENSE);
     } else {
       return null;
     }

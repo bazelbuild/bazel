@@ -34,7 +34,7 @@ void BlazeStartupOptions::Init() {
   output_user_root = output_root + "/_blaze_" + GetUserName();
   block_for_lock = true;
   host_jvm_debug = false;
-  host_javabase = GetDefaultHostJavabase();
+  host_javabase = "";
   use_blaze64 = false;
   batch = false;
   batch_cpu_scheduling = false;
@@ -44,6 +44,13 @@ void BlazeStartupOptions::Init() {
   // 3 hours (but only 5 seconds if used within a test)
   max_idle_secs = testing ? 5 : (3 * 3600);
   watchfs = false;
+}
+
+string BlazeStartupOptions::GetHostJavabase() {
+  if (host_javabase.empty()) {
+    host_javabase = GetDefaultHostJavabase();
+  }
+  return host_javabase;
 }
 
 void BlazeStartupOptions::Copy(

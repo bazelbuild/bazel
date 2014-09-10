@@ -105,7 +105,11 @@ public class CompactPersistentActionCache implements ActionCache {
     @Override
     protected byte[] readValue(DataInputStream in)
         throws IOException {
-      byte[] data = new byte[in.readInt()];
+      int size = in.readInt();
+      if (size < 0) {
+        throw new IOException("found negative array size: " + size);
+      }
+      byte[] data = new byte[size];
       in.readFully(data);
       return data;
     }

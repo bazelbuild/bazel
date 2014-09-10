@@ -38,7 +38,7 @@ public final class CcToolchainRule implements RuleDefinition {
   public RuleClass build(Builder builder, RuleDefinitionEnvironment env) {
     return builder
         .setUndocumented()
-        .add(attr("output_licenses", LICENSE).nonconfigurable())
+        .add(attr("output_licenses", LICENSE))
         .add(attr("cpu", STRING).mandatory())
         .add(attr("all_files", LABEL).cfg(HOST).mandatory())
         .add(attr("compiler_files", LABEL).cfg(HOST).mandatory())

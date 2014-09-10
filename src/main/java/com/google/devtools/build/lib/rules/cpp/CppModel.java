@@ -19,6 +19,7 @@ import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableSet;
 import com.google.common.collect.Iterables;
 import com.google.devtools.build.lib.actions.Artifact;
+import com.google.devtools.build.lib.packages.Type;
 import com.google.devtools.build.lib.rules.cpp.CcCompilationOutputs.Builder;
 import com.google.devtools.build.lib.rules.cpp.Link.LinkStaticness;
 import com.google.devtools.build.lib.rules.cpp.Link.LinkTargetType;
@@ -649,10 +650,12 @@ public final class CppModel {
       //    readable and can lead to unexpected breakage.
       // b) Traversing the transitive closure for each C++ compile action would require more complex
       //    implementation (with caching results of this method) to avoid O(N^2) slowdown.
-      for (TransitiveInfoCollection dep : ruleContext.getPrerequisites("deps", Mode.TARGET)) {
-        if (dep.getProvider(CppCompilationContext.class) != null
-            && filter.isIncluded(dep.getLabel().toString())) {
-          return true;
+      if (ruleContext.getRule().isAttrDefined("deps", Type.LABEL_LIST)) {
+        for (TransitiveInfoCollection dep : ruleContext.getPrerequisites("deps", Mode.TARGET)) {
+          if (dep.getProvider(CppCompilationContext.class) != null
+              && filter.isIncluded(dep.getLabel().toString())) {
+            return true;
+          }
         }
       }
     }

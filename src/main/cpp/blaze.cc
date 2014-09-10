@@ -249,7 +249,7 @@ static vector<string> GetArgumentArray() {
 
   // Add JVM arguments particular to building blaze64 and particular JVM
   // versions.
-  globals->options.AddJVMArguments(globals->options.host_javabase, &result);
+  globals->options.AddJVMArguments(globals->options.GetHostJavabase(), &result);
 
   // We put all directories on the java.library.path that contain .so files.
   string java_library_path = "-Djava.library.path=";

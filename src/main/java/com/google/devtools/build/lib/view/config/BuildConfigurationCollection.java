@@ -29,6 +29,7 @@ import com.google.devtools.build.lib.packages.Rule;
 import com.google.devtools.build.lib.packages.Target;
 
 import java.io.PrintStream;
+import java.io.Serializable;
 import java.util.Collection;
 import java.util.HashMap;
 import java.util.LinkedHashSet;
@@ -51,7 +52,7 @@ import java.util.Set;
  * <p>The "related" configurations are also contained in this class.
  */
 @ThreadSafe
-public final class BuildConfigurationCollection {
+public final class BuildConfigurationCollection implements Serializable {
   private final ImmutableList<BuildConfiguration> targetConfigurations;
 
   public BuildConfigurationCollection(List<BuildConfiguration> targetConfigurations)
@@ -143,7 +144,7 @@ public final class BuildConfigurationCollection {
   /**
    * The outgoing transitions for a build configuration.
    */
-  public static class Transitions {
+  public static class Transitions implements Serializable {
     protected final BuildConfiguration configuration;
 
     /**
@@ -245,7 +246,7 @@ public final class BuildConfigurationCollection {
    * A holder class for {@link BuildConfiguration} instances that allows {@code null} values,
    * because none of the Table implementations allow them.
    */
-  public static final class ConfigurationHolder {
+  public static final class ConfigurationHolder implements Serializable {
     private final BuildConfiguration configuration;
 
     public ConfigurationHolder(BuildConfiguration configuration) {

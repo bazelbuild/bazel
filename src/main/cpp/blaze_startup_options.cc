@@ -42,7 +42,6 @@ BlazeStartupOptions::BlazeStartupOptions(const BlazeStartupOptions &rhs)
       block_for_lock(rhs.block_for_lock),
       host_jvm_debug(rhs.host_jvm_debug),
       host_jvm_profile(rhs.host_jvm_profile),
-      host_javabase(rhs.host_javabase),
       host_jvm_args(rhs.host_jvm_args),
       use_blaze64(rhs.use_blaze64),
       batch(rhs.batch),
@@ -52,8 +51,8 @@ BlazeStartupOptions::BlazeStartupOptions(const BlazeStartupOptions &rhs)
       skyframe(rhs.skyframe),
       watchfs(rhs.watchfs),
       allow_configurable_attributes(rhs.allow_configurable_attributes),
-      option_sources(rhs.option_sources) {
-}
+      option_sources(rhs.option_sources),
+      host_javabase(rhs.host_javabase) {}
 
 BlazeStartupOptions::~BlazeStartupOptions() {
 }
@@ -107,17 +106,17 @@ string BlazeStartupOptions::GetDefaultHostJavabase() const {
   return blaze::GetDefaultHostJavabase();
 }
 
-string BlazeStartupOptions::GetJvm() const {
-  string java_program = host_javabase + "/bin/java";
-  string rt_jar = host_javabase + "/jre/lib/rt.jar";
+string BlazeStartupOptions::GetJvm() {
+  string java_program = GetHostJavabase() + "/bin/java";
+  string rt_jar = GetHostJavabase() + "/jre/lib/rt.jar";
   if (access(rt_jar.c_str(), R_OK) == -1 ||
       access(java_program.c_str(), X_OK) == -1) {
     if (errno == ENOENT) {
       fprintf(stderr, "Couldn't find JDK at '%s'.\n",
-              host_javabase.c_str());
+              GetHostJavabase().c_str());
     } else {
-      fprintf(stderr, "Couldn't access %s: %s\n",
-              host_javabase.c_str(), strerror(errno));
+      fprintf(stderr, "Couldn't access %s: %s\n", GetHostJavabase().c_str(),
+              strerror(errno));
     }
     exit(1);
   }

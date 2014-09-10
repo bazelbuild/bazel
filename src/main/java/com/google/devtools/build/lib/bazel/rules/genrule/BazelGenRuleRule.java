@@ -54,7 +54,7 @@ public final class BazelGenRuleRule implements RuleDefinition {
         .add(attr("output_to_bindir", BOOLEAN).nonconfigurable().value(false))
         .add(attr("local", BOOLEAN).value(false))
         .add(attr("message", STRING))
-        .add(attr("output_licenses", LICENSE).nonconfigurable())
+        .add(attr("output_licenses", LICENSE))
         .add(attr("executable", BOOLEAN).value(false))
         .add(attr("stamp", BOOLEAN).value(false))
         .add(attr("heuristic_label_expansion", BOOLEAN).value(true))

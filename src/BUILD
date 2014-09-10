@@ -124,22 +124,11 @@ genrule(
 java_library(
     name = "blaze",
     java_home = JAVA_HOME,
-    srcdirs = [
-        "src/main/java",
-        "src/tools/singlejar/java",
-        "src/tools/xcode-common/java",
-        "src/tools/xcodegen/java",
-        "src/third_party/buck/java",
-        "src/third_party/dd_plist/java",
-    ],
     main_class = "com.google.devtools.build.lib.bazel.BazelMain",
     srcs = glob([
         "main/**/*.java",
-        "tools/singlejar/java/**/*.java",
-        "tools/xcode-common/java/**/*.java",
-        "tools/xcodegen/java/**/*.java",
-        "third_party/buck/**/*.java",
-        "third_party/dd_plist/java/**/*.java",
+        "tools/xcode-common/java/com/google/devtools/build/xcode/util/*.java",
+        "tools/xcode-common/java/com/google/devtools/build/xcode/common/*.java",
     ]),
     deps = [
         "//third_party",

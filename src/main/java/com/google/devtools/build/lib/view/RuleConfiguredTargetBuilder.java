@@ -123,9 +123,10 @@ public final class RuleConfiguredTargetBuilder {
     NestedSetBuilder<TargetLicense> builder = NestedSetBuilder.linkOrder();
     BuildConfiguration configuration = ruleContext.getConfiguration();
     Rule rule = ruleContext.getRule();
-    if (configuration.isHostConfiguration() && rule.getToolOutputLicense() != null) {
-      if (rule.getToolOutputLicense() != License.NO_LICENSE) {
-        builder.add(new TargetLicense(rule.getLabel(), rule.getToolOutputLicense()));
+    License toolOutputLicense = rule.getToolOutputLicense(ruleContext.attributes());
+    if (configuration.isHostConfiguration() && toolOutputLicense != null) {
+      if (toolOutputLicense != License.NO_LICENSE) {
+        builder.add(new TargetLicense(rule.getLabel(), toolOutputLicense));
       }
     } else {
       if (rule.getLicense() != License.NO_LICENSE) {

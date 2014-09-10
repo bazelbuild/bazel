@@ -43,6 +43,7 @@ import com.google.devtools.build.xcode.common.Platform;
 @BlazeRule(name = "objc_binary",
     factoryClass = ObjcBinary.class,
     ancestors = { ObjcRuleClasses.ObjcBaseRule.class,
+                  ObjcRuleClasses.ObjcOptsRule.class,
                   ObjcRuleClasses.ObjcSourcesRule.class })
 public class ObjcBinaryRule implements RuleDefinition {
   public static final SafeImplicitOutputsFunction IPA = fromTemplates("%{name}.ipa");

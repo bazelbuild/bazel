@@ -30,7 +30,7 @@ public class ObjcConfigurationLoader implements ConfigurationFragmentFactory {
   public ObjcConfiguration create(ConfigurationEnvironment env, BlazeDirectories directories,
       BuildOptions buildOptions)
       throws InvalidConfigurationException {
-    return new ObjcConfiguration(buildOptions.get(ObjcOptions.class));
+    return new ObjcConfiguration(buildOptions.get(ObjcCommandLineOptions.class));
   }
 
   @Override

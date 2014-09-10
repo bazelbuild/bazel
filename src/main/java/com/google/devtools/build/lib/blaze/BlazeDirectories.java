@@ -22,6 +22,8 @@ import com.google.devtools.build.lib.vfs.FileSystem;
 import com.google.devtools.build.lib.vfs.Path;
 import com.google.devtools.build.lib.vfs.PathFragment;
 
+import java.io.Serializable;
+
 import javax.annotation.Nullable;
 
 /**
@@ -43,7 +45,7 @@ import javax.annotation.Nullable;
  * <p>Do not put shortcuts to specific files here!
  */
 @Immutable
-public final class BlazeDirectories {
+public final class BlazeDirectories implements Serializable {
 
   // Output directory name, relative to the execRoot.
   // TODO(bazel-team): (2011) make this private?

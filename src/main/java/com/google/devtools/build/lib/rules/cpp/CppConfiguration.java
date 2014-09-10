@@ -15,6 +15,7 @@
 package com.google.devtools.build.lib.rules.cpp;
 
 import com.google.common.annotations.VisibleForTesting;
+import com.google.common.base.Objects;
 import com.google.common.base.Preconditions;
 import com.google.common.base.Predicate;
 import com.google.common.collect.ArrayListMultimap;
@@ -163,6 +164,24 @@ public class CppConfiguration extends BuildConfiguration.Fragment {
     @Override
     public String toString() {
       return label == null ? sysroot.getPathString() : label.toString();
+    }
+
+    @Override
+    public boolean equals(Object other) {
+      if (this == other) {
+        return true;
+      } else if (other instanceof LibcTop) {
+        LibcTop otherLibcTop = (LibcTop) other;
+        return Objects.equal(label, otherLibcTop.label)
+            && Objects.equal(sysroot, otherLibcTop.sysroot);
+      } else {
+        return false;
+      }
+    }
+
+    @Override
+    public int hashCode() {
+      return Objects.hashCode(label, sysroot);
     }
   }
 

@@ -19,6 +19,7 @@ import com.google.common.base.Preconditions;
 import com.google.devtools.build.lib.vfs.Path;
 import com.google.devtools.build.lib.vfs.PathFragment;
 
+import java.io.Serializable;
 import java.util.Objects;
 
 import javax.annotation.Nullable;
@@ -39,7 +40,7 @@ import javax.annotation.Nullable;
  * <p>The derived roots must have paths that point inside the exec root, i.e. below the directory
  * that is the root of the merged directory tree.
  */
-public final class Root implements Comparable<Root> {
+public final class Root implements Comparable<Root>, Serializable {
 
   /**
    * Returns the given path as a source root. The path may not be {@code null}.

@@ -22,6 +22,7 @@ import com.google.devtools.common.options.OptionsParsingException;
 
 import java.util.ArrayList;
 import java.util.List;
+import java.util.Objects;
 
 /**
  * --run_under options converter.
@@ -67,6 +68,25 @@ public class RunUnderConverter implements Converter<RunUnder> {
     @Override public String getCommand() { return null; }
     @Override public List<String> getOptions() { return runUnderList; }
     @Override public String toString() { return input; }
+
+    @Override
+    public boolean equals(Object other) {
+      if (this == other) {
+        return true;
+      } else if (other instanceof RunUnderLabel) {
+        RunUnderLabel otherRunUnderLabel = (RunUnderLabel) other;
+        return Objects.equals(input, otherRunUnderLabel.input)
+            && Objects.equals(runUnderLabel, otherRunUnderLabel.runUnderLabel)
+            && Objects.equals(runUnderList, otherRunUnderLabel.runUnderList);
+      } else {
+        return false;
+      }
+    }
+
+    @Override
+    public int hashCode() {
+      return Objects.hash(input, runUnderLabel, runUnderList); 
+    }
   }
 
   private static final class RunUnderCommand implements RunUnder {
@@ -85,6 +105,26 @@ public class RunUnderConverter implements Converter<RunUnder> {
     @Override public String getCommand() { return runUnderCommand; }
     @Override public List<String> getOptions() { return runUnderList; }
     @Override public String toString() { return input; }
+    
+
+    @Override
+    public boolean equals(Object other) {
+      if (this == other) {
+        return true;
+      } else if (other instanceof RunUnderCommand) {
+        RunUnderCommand otherRunUnderCommand = (RunUnderCommand) other;
+        return Objects.equals(input, otherRunUnderCommand.input)
+            && Objects.equals(runUnderCommand, otherRunUnderCommand.runUnderCommand)
+            && Objects.equals(runUnderList, otherRunUnderCommand.runUnderList);
+      } else {
+        return false;
+      }
+    }
+
+    @Override
+    public int hashCode() {
+      return Objects.hash(input, runUnderCommand, runUnderList); 
+    }
   }
   @Override
   public String getTypeDescription() {

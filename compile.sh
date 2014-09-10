@@ -90,35 +90,6 @@ echo "JAR libblaze.jar"
 echo "Main-Class: com.google.devtools.build.lib.bazel.BazelMain" > output/MANIFEST.MF
 jar cmf output/MANIFEST.MF output/libblaze.jar -C output/classes com/ -C output/classes javax/ -C output/classes org/
 
-function build_objc_tool() {
-  CLASS=$1
-  EXTRA_DIRS="$2"
-  TOOL=$(echo ${CLASS} | tr '[:upper:]' '[:lower:]')
-
-  mkdir -p output/${TOOL}_classes
-  echo "JAVAC src/tools/${TOOL}/java/**/*.java"
-  CLASSPATH=third_party/guava/guava-16.0.1.jar:third_party/protobuf/protobuf-2.5.0.jar:third_party/jsr305/jsr-305.jar
-  DIRS=$(echo src/tools/{${TOOL},singlejar,xcode-common/java} src/main/java/com/google/devtools/common/options src/third_party/dd_plist/java src/third_party/buck/java ${EXTRA_DIRS})
-  find ${DIRS} -name "*.java" | xargs "${JAVAC}" -classpath ${CLASSPATH} -sourcepath ${DIRS// /:}:output/src -d output/${TOOL}_classes
-
-  echo "UNZIP deps for ${TOOL}"
-  for f in $(echo ${CLASSPATH} | tr ':' ' ') ; do
-    unzip -qn ${f} -d output/${TOOL}_classes
-  done
-
-  echo "JAR ${TOOL}_deploy.jar"
-  mkdir -p output/${TOOL}
-  echo "Main-Class: com.google.devtools.build.xcode.${TOOL}.${CLASS}" > output/${TOOL}/MANIFEST.MF
-  jar cmf output/${TOOL}/MANIFEST.MF output/${TOOL}_deploy.jar -C output/${TOOL}_classes com/
-}
-
-OBJC_TOOLS="ActoolZip MomcZip PlMerge XcodeGen"
-for tool in ${OBJC_TOOLS} ; do
-  build_objc_tool ${tool}
-done
-build_objc_tool BundleMerge src/tools/plmerge/java
-ALL_OBJC_TOOLS="${OBJC_TOOLS} BundleMerge"
-
 echo "JAVAC src/test/java/**/*.java"
 find src/test/java -name "*.java" | xargs "${JAVAC}" -classpath ${CLASSPATH}:third_party/junit/junit-4.11.jar:third_party/truth/truth-0.23.jar:third_party/guava/guava-testlib.jar:output/classes -d output/test_classes
 
@@ -209,7 +180,3 @@ cat output/client output/package.zip > output/bazel
 zip -qA output/bazel
 chmod 755 output/bazel
 
-for t in ${ALL_OBJC_TOOLS}; do
-  tool=$(echo ${t} | tr '[:upper:]' '[:lower:]')
-  cp output/${tool}_deploy.jar example_workspace/tools/objc/
-done

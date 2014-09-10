@@ -41,6 +41,7 @@ import com.google.devtools.build.lib.view.config.crosstool.CrosstoolConfig.LipoM
 
 import java.io.FileNotFoundException;
 import java.io.IOException;
+import java.io.Serializable;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.Map;
@@ -59,7 +60,7 @@ import java.util.zip.ZipException;
  * <p>With respect to thread-safety, the {@link #prepareToBuild} method is not thread-safe, and must
  * not be called concurrently with other methods on this class.
  */
-public class FdoSupport {
+public class FdoSupport implements Serializable {
 
   /**
    * Path within profile data .zip files that is considered the root of the

@@ -38,7 +38,6 @@ import java.util.List;
 public class UnixFileSystem extends AbstractFileSystem {
 
   public static final UnixFileSystem INSTANCE = new UnixFileSystem();
-
   /**
    * Eager implementation of FileStatus for file systems that have an atomic
    * stat(2) syscall. A proxy for {@link com.google.devtools.build.lib.unix.FileStatus}.

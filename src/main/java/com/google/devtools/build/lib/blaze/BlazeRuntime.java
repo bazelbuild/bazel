@@ -1427,6 +1427,7 @@ public final class BlazeRuntime {
     if (fs == null) {
       fs = new UnixFileSystem();
     }
+    Path.setFileSystemForSerialization(fs);
 
     Path installBasePath = fs.getPath(installBase);
     Path outputBasePath = fs.getPath(outputBase);

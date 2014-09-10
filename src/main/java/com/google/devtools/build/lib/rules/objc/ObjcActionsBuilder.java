@@ -34,7 +34,6 @@ import com.google.devtools.build.lib.vfs.PathFragment;
 import com.google.devtools.build.lib.view.RuleConfiguredTarget.Mode;
 import com.google.devtools.build.lib.view.RuleContext;
 import com.google.devtools.build.lib.view.actions.SpawnAction;
-import com.google.devtools.build.lib.view.config.BuildConfiguration;
 import com.google.devtools.build.xcode.common.TargetDeviceFamily;
 import com.google.devtools.build.xcode.util.Interspersing;
 import com.google.devtools.build.xcode.xcodegen.proto.XcodeGenProtos;
@@ -75,35 +74,24 @@ public class ObjcActionsBuilder {
         .addInputArgument(deployJarArtifact);
   }
 
-  /**
-   * Returns the -iquote args to use when compiling, including the "-iquote" flag which appears
-   * before each argument.
-   */
-  @VisibleForTesting
-  static Iterable<String> iquoteArgs(BuildConfiguration configuration) {
-    return Interspersing.beforeEach(
-        "-iquote",
-        PathFragment.safePathStrings(
-            ImmutableList.of(
-                new PathFragment("."),
-                configuration.getGenfilesFragment(),
-                configuration.getBinFragment())));
-  }
-
-  private static Action compileAction(RuleContext ruleContext, ObjcConfiguration configuration,
-      Artifact sourceFile, ObjcProvider provider, String... otherFlags) {
+  private static Action compileAction(RuleContext ruleContext, Artifact sourceFile,
+      ObjcProvider provider, String... otherFlags) {
     return spawnOnDarwinActionBuilder(ruleContext)
         .setMnemonic("Compile")
         .setExecutable(new PathFragment(BIN_DIR + "/clang"))
-        .addArguments(IosSdkCommands.compileArgsForClang(configuration))
-        .addArguments(IosSdkCommands.commonLinkAndCompileArgsForClang(configuration))
-        .addArguments(iquoteArgs(ruleContext.getConfiguration()))
+        .addArguments(IosSdkCommands.compileArgsForClang(objcConfiguration(ruleContext)))
+        .addArguments(
+            IosSdkCommands.commonLinkAndCompileArgsForClang(objcConfiguration(ruleContext)))
+        .addArguments(Interspersing.beforeEach(
+            "-iquote",
+            PathFragment.safePathStrings(
+                ObjcCommon.userHeaderSearchPaths(ruleContext.getConfiguration()))))
         .addArguments(Interspersing.beforeEach(
             "-include", Artifact.asExecPaths(ObjcRuleClasses.pchFile(ruleContext).asSet())))
         .addArguments(Interspersing.beforeEach(
             "-I", PathFragment.safePathStrings(provider.get(INCLUDE))))
         .addArguments(otherFlags)
-        .addArguments(ObjcRuleClasses.copts(ruleContext))
+        .addArguments(ObjcCommon.combinedOptions(ruleContext).getCopts())
         .addArgument("-c").addInputArgument(sourceFile)
         .addArgument("-o").addOutputArgument(ObjcRuleClasses.objFile(ruleContext, sourceFile))
         .addInputs(provider.get(HEADER))
@@ -121,11 +109,10 @@ public class ObjcActionsBuilder {
 
     ImmutableList.Builder<Action> result = new ImmutableList.Builder<>();
     for (Artifact sourceFile : SRCS.get(ruleContext)) {
-      result.add(compileAction(ruleContext, configuration, sourceFile, provider, "-fobjc-arc"));
+      result.add(compileAction(ruleContext, sourceFile, provider, "-fobjc-arc"));
     }
     for (Artifact nonArcSourceFile : NON_ARC_SRCS.get(ruleContext)) {
-      result.add(
-          compileAction(ruleContext, configuration, nonArcSourceFile, provider, "-fno-objc-arc"));
+      result.add(compileAction(ruleContext, nonArcSourceFile, provider, "-fno-objc-arc"));
     }
 
     for (Artifact outputAFile : ObjcRuleClasses.outputAFile(ruleContext).asSet()) {

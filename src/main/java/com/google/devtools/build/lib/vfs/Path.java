@@ -46,6 +46,22 @@ import java.util.Objects;
 @ThreadSafe
 public class Path implements Comparable<Path>, Serializable {
 
+  private static FileSystem fileSystemForSerialization;
+
+  /**
+   * We need to specify used FileSystem. In this case we can save memory during the serialization.
+   */
+  public static void setFileSystemForSerialization(FileSystem fileSystem) {
+    fileSystemForSerialization = fileSystem;
+  }
+
+  /**
+   * Returns FileSystem that we are using.
+   */
+  public static FileSystem getFileSystemForSerialization() {
+    return fileSystemForSerialization;
+  }
+
   // These are basically final, but can't be marked as such in order to support serialization.
   private FileSystem fileSystem;
   private String name;
@@ -110,13 +126,12 @@ public class Path implements Comparable<Path>, Serializable {
   }
 
   private void writeObject(ObjectOutputStream out) throws IOException {
-    // Only UnixFileSystem is supported for now.
-    Preconditions.checkState(fileSystem == UnixFileSystem.INSTANCE, fileSystem);
+    Preconditions.checkState(fileSystem == fileSystemForSerialization, fileSystem);
     out.writeUTF(getPathString());
   }
 
   private void readObject(ObjectInputStream in) throws IOException {
-    fileSystem = UnixFileSystem.INSTANCE;
+    fileSystem = fileSystemForSerialization;
     String p = in.readUTF();
     PathFragment pf = new PathFragment(p);
     PathFragment parentDir = pf.getParentDirectory();

@@ -21,8 +21,8 @@ import com.google.devtools.build.lib.collect.nestedset.NestedSetBuilder;
 import com.google.devtools.build.lib.rules.RuleConfiguredTargetFactory;
 import com.google.devtools.build.lib.view.ConfiguredTarget;
 import com.google.devtools.build.lib.view.RuleContext;
-import com.google.devtools.build.xcode.xcodegen.proto.XcodeGenProtos.BuildSetting;
 import com.google.devtools.build.xcode.xcodegen.proto.XcodeGenProtos.DependencyControl;
+import com.google.devtools.build.xcode.xcodegen.proto.XcodeGenProtos.XcodeprojBuildSetting;
 
 /**
  * Implementation for the {@code objc_library} and {@code objc_import} rules.
@@ -35,7 +35,7 @@ public class ObjcLibrary implements RuleConfiguredTargetFactory {
     info.reportErrors();
     XcodeProvider xcodeProvider = info.xcodeProvider(Optional.<Artifact>absent(),
         ObjcRuleClasses.pchFile(ruleContext),
-        ImmutableList.<DependencyControl>of(), ImmutableList.<BuildSetting>of());
+        ImmutableList.<DependencyControl>of(), ImmutableList.<XcodeprojBuildSetting>of());
     ObjcActionsBuilder.registerAll(
         ruleContext,
         ObjcActionsBuilder.baseActions(ruleContext, info.getObjcProvider(), xcodeProvider));

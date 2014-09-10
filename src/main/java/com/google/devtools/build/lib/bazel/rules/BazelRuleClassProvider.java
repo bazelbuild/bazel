@@ -36,10 +36,11 @@ import com.google.devtools.build.lib.rules.cpp.CcToolchainRule;
 import com.google.devtools.build.lib.rules.cpp.CppConfigurationLoader;
 import com.google.devtools.build.lib.rules.cpp.CppOptions;
 import com.google.devtools.build.lib.rules.objc.ObjcBinaryRule;
+import com.google.devtools.build.lib.rules.objc.ObjcCommandLineOptions;
 import com.google.devtools.build.lib.rules.objc.ObjcConfigurationLoader;
 import com.google.devtools.build.lib.rules.objc.ObjcImportRule;
 import com.google.devtools.build.lib.rules.objc.ObjcLibraryRule;
-import com.google.devtools.build.lib.rules.objc.ObjcOptions;
+import com.google.devtools.build.lib.rules.objc.ObjcOptionsRule;
 import com.google.devtools.build.lib.rules.objc.ObjcRuleClasses;
 import com.google.devtools.build.lib.syntax.Label;
 import com.google.devtools.build.lib.syntax.SkylarkType;
@@ -117,7 +118,7 @@ public class BazelRuleClassProvider {
       ImmutableList.<Class<? extends FragmentOptions>>of(
           BuildConfiguration.Options.class,
           CppOptions.class,
-          ObjcOptions.class
+          ObjcCommandLineOptions.class
       );
 
   /**
@@ -166,6 +167,7 @@ public class BazelRuleClassProvider {
     builder.addRuleDefinition(ObjcBinaryRule.class);
     builder.addRuleDefinition(ObjcImportRule.class);
     builder.addRuleDefinition(ObjcLibraryRule.class);
+    builder.addRuleDefinition(ObjcOptionsRule.class);
     builder.addRuleDefinition(ObjcRuleClasses.ObjcBaseRule.class);
 
     builder.addRuleDefinition(BazelExtraActionRule.class);

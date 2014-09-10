@@ -31,6 +31,7 @@ import com.google.common.annotations.VisibleForTesting;
 import com.google.common.base.Joiner;
 import com.google.common.base.Optional;
 import com.google.common.base.Preconditions;
+import com.google.common.collect.ImmutableList;
 import com.google.common.collect.Iterables;
 import com.google.devtools.build.lib.actions.Artifact;
 import com.google.devtools.build.lib.collect.nestedset.NestedSet;
@@ -41,9 +42,10 @@ import com.google.devtools.build.lib.view.RuleConfiguredTargetBuilder;
 import com.google.devtools.build.lib.view.RuleContext;
 import com.google.devtools.build.lib.view.Runfiles;
 import com.google.devtools.build.lib.view.RunfilesProvider;
-import com.google.devtools.build.xcode.xcodegen.proto.XcodeGenProtos.BuildSetting;
+import com.google.devtools.build.lib.view.config.BuildConfiguration;
 import com.google.devtools.build.xcode.xcodegen.proto.XcodeGenProtos.DependencyControl;
 import com.google.devtools.build.xcode.xcodegen.proto.XcodeGenProtos.TargetControl;
+import com.google.devtools.build.xcode.xcodegen.proto.XcodeGenProtos.XcodeprojBuildSetting;
 
 /**
  * Contains information common to multiple objc_* rules, and provides a unified API for extracting
@@ -127,27 +129,46 @@ final class ObjcCommon {
   }
 
   /**
+   * Similar to {@link ObjcRuleClasses#options(RuleContext)}, but automatically adds the
+   * options specified inline in this rule (e.g. with the {@code copts} attribute) to the options.
+   */
+  static OptionsProvider combinedOptions(RuleContext context) {
+    OptionsProvider options = ObjcRuleClasses.options(context);
+    return new OptionsProvider(
+         options.getXcodeName(),
+         new ImmutableList.Builder<String>()
+             .addAll(ObjcRuleClasses.copts(context))
+             .addAll(options.getCopts())
+             .build());
+  }
+
+  /**
    * Returns an {@code XcodeProvider} for this target.
    * @param maybeInfoplistFile the Info.plist file. Used for applications.
    * @param xcodeDependencies dependencies of the target for this rule in the .xcodeproj file.
-   * @param buildSettings additional build settings of this target.
+   * @param xcodeprojBuildSettings additional build settings of this target.
    */
   public XcodeProvider xcodeProvider(
       Optional<Artifact> maybeInfoplistFile,
       Optional<Artifact> maybePchFile,
       Iterable<DependencyControl> xcodeDependencies,
-      Iterable<BuildSetting> buildSettings) {
+      Iterable<XcodeprojBuildSetting> xcodeprojBuildSettings) {
     // TODO(bazel-team): Add provisioning profile information when Xcodegen supports it.
     TargetControl.Builder targetControl = TargetControl.newBuilder()
         .setName(context.getLabel().getName())
         .setLabel(context.getLabel().toString())
         .addAllImportedLibrary(Artifact.toExecPaths(objcProvider.get(IMPORTED_LIBRARY)))
+        .addAllUserHeaderSearchPath(
+            PathFragment.safePathStrings(userHeaderSearchPaths(context.getConfiguration())))
+        .addAllHeaderSearchPath(
+            PathFragment.safePathStrings(objcProvider.get(INCLUDE)))
         .addAllHeaderFile(Artifact.toExecPaths(HDRS.get(context)))
         .addAllHeaderFile(Artifact.toExecPaths(maybePchFile.asSet()))
         .addAllSourceFile(Artifact.toExecPaths(SRCS.get(context)))
         .addAllNonArcSourceFile(Artifact.toExecPaths(NON_ARC_SRCS.get(context)))
-        .addAllCopt(ObjcRuleClasses.copts(context))
-        .addAllBuildSetting(buildSettings)
+        // TODO(bazel-team): Add all build settings information once Xcodegen supports it.
+        .addAllCopt(ObjcCommon.combinedOptions(context).getCopts())
+        .addAllBuildSetting(xcodeprojBuildSettings)
         .addAllSdkFramework(SdkFramework.names(objcProvider.get(SDK_FRAMEWORK)))
         .addAllXcassetsDir(PathFragment.safePathStrings(objcProvider.get(XCASSETS_DIR)))
         .addAllXcdatamodel(PathFragment.safePathStrings(
@@ -160,12 +181,19 @@ final class ObjcCommon {
       targetControl.setInfoplist(infoplistFile.getExecPathString());
     }
     for (Artifact pchFile : maybePchFile.asSet()) {
-      targetControl.addBuildSetting(BuildSetting.newBuilder()
+      targetControl.addBuildSetting(XcodeprojBuildSetting.newBuilder()
           .setName("GCC_PREFIX_HEADER")
           .setValue(pchFile.getExecPathString())
           .build());
     }
     return xcodeProvider(targetControl.build());
+  }
+
+  static Iterable<PathFragment> userHeaderSearchPaths(BuildConfiguration configuration) {
+    return ImmutableList.of(
+        new PathFragment("."),
+        configuration.getGenfilesFragment(),
+        configuration.getBinFragment());
   }
 
   /**

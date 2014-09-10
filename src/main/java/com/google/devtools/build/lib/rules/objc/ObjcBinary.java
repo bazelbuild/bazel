@@ -43,9 +43,9 @@ import com.google.devtools.build.xcode.bundlemerge.proto.BundleMergeProtos.Merge
 import com.google.devtools.build.xcode.common.Platform;
 import com.google.devtools.build.xcode.common.TargetDeviceFamily;
 import com.google.devtools.build.xcode.util.Interspersing;
-import com.google.devtools.build.xcode.xcodegen.proto.XcodeGenProtos.BuildSetting;
 import com.google.devtools.build.xcode.xcodegen.proto.XcodeGenProtos.DependencyControl;
 import com.google.devtools.build.xcode.xcodegen.proto.XcodeGenProtos.TargetControl;
+import com.google.devtools.build.xcode.xcodegen.proto.XcodeGenProtos.XcodeprojBuildSetting;
 
 import java.util.List;
 
@@ -116,15 +116,15 @@ public class ObjcBinary implements RuleConfiguredTargetFactory {
   }
 
   static XcodeProvider xcodeProvider(RuleContext ruleContext, ObjcCommon info) {
-    ImmutableList.Builder<BuildSetting> buildSettings = new ImmutableList.Builder<>();
+    ImmutableList.Builder<XcodeprojBuildSetting> buildSettings = new ImmutableList.Builder<>();
     for (String appIcon : ObjcBinaryRule.appIcon(ruleContext).asSet()) {
-      buildSettings.add(BuildSetting.newBuilder()
+      buildSettings.add(XcodeprojBuildSetting.newBuilder()
           .setName("ASSETCATALOG_COMPILER_APPICON_NAME")
           .setValue(appIcon)
           .build());
     }
     for (String launchImage : ObjcBinaryRule.launchImage(ruleContext).asSet()) {
-      buildSettings.add(BuildSetting.newBuilder()
+      buildSettings.add(XcodeprojBuildSetting.newBuilder()
           .setName("ASSETCATALOG_COMPILER_LAUNCHIMAGE_NAME")
           .setValue(launchImage)
           .build());

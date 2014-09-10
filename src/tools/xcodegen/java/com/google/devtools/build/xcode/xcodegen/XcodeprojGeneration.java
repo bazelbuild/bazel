@@ -16,6 +16,7 @@ package com.google.devtools.build.xcode.xcodegen;
 
 import static com.google.common.base.Preconditions.checkArgument;
 import static com.google.common.base.Preconditions.checkState;
+import static com.google.devtools.build.xcode.common.BuildOptionsUtil.DEFAULT_OPTIONS_NAME;
 
 import com.google.common.annotations.VisibleForTesting;
 import com.google.common.base.Joiner;
@@ -28,10 +29,10 @@ import com.google.devtools.build.xcode.common.XcodeprojPath;
 import com.google.devtools.build.xcode.util.Equaling;
 import com.google.devtools.build.xcode.util.Mapping;
 import com.google.devtools.build.xcode.xcodegen.SourceFile.BuildType;
-import com.google.devtools.build.xcode.xcodegen.proto.XcodeGenProtos.BuildSetting;
 import com.google.devtools.build.xcode.xcodegen.proto.XcodeGenProtos.Control;
 import com.google.devtools.build.xcode.xcodegen.proto.XcodeGenProtos.DependencyControl;
 import com.google.devtools.build.xcode.xcodegen.proto.XcodeGenProtos.TargetControl;
+import com.google.devtools.build.xcode.xcodegen.proto.XcodeGenProtos.XcodeprojBuildSetting;
 
 import com.dd.plist.NSArray;
 import com.dd.plist.NSDictionary;
@@ -71,8 +72,6 @@ import java.util.concurrent.ExecutionException;
 public class XcodeprojGeneration {
   public static final String FILE_TYPE_ARCHIVE_LIBRARY = "archive.ar";
   public static final String FILE_TYPE_WRAPPER_APPLICATION = "wrapper.application";
-
-  private static final String BUILD_CONFIG_NAME = "Bazel";
 
   @VisibleForTesting
   static final String APP_NEEDS_SOURCE_ERROR =
@@ -137,6 +136,23 @@ public class XcodeprojGeneration {
     return (control.getSourceFileCount() != 0) || (control.getNonArcSourceFileCount() != 0);
   }
 
+  /**
+   * Returns the final header search paths to be placed in a build configuration.
+   * @param sourceRoot path from the client root to the .xcodeproj containing directory
+   * @param paths the header search paths, relative to client root
+   * @param resolvedPaths paths to add as-is to the end of the returned array
+   * @return an {@link NSArray} of the paths, each relative to the source root
+   */
+  private static NSArray headerSearchPaths(Path sourceRoot, Iterable<String> paths,
+      String... resolvedPaths) {
+    ImmutableList.Builder<String> result = new ImmutableList.Builder<>();
+    for (String path : paths) {
+      result.add(sourceRoot.resolve(path).toString());
+    }
+    result.add(resolvedPaths);
+    return (NSArray) NSObject.wrap(result.build());
+  }
+
   /** Generates a project file. */
   public static PBXProject xcodeproj(Path root, Control control, Grouper grouper) {
     checkArgument(control.hasPbxproj(), "Must set pbxproj field on control proto.");
@@ -158,7 +174,6 @@ public class XcodeprojGeneration {
     projBuildConfigMap.put("GCC_WARN_64_TO_32_BIT_CONVERSION", "YES");
     projBuildConfigMap.put("IPHONEOS_DEPLOYMENT_TARGET", "7.0");
     projBuildConfigMap.put("GCC_VERSION", "com.apple.compilers.llvm.clang.1_0");
-    projBuildConfigMap.put("USER_HEADER_SEARCH_PATHS", sourceRoot.toString());
 
     PBXProject project = new PBXProject(outputPath.getProjectName());
     project.getMainGroup().setPath(sourceRoot.toString());
@@ -166,7 +181,7 @@ public class XcodeprojGeneration {
       project
           .getBuildConfigurationList()
           .getBuildConfigurationsByName()
-          .get(BUILD_CONFIG_NAME)
+          .get(DEFAULT_OPTIONS_NAME)
           .setBuildSettings(projBuildConfigMap);
     } catch (ExecutionException e) {
       throw new RuntimeException(e);
@@ -225,6 +240,14 @@ public class XcodeprojGeneration {
       ungroupedProjectNavigatorFiles.add(productReference);
 
       NSDictionary targetBuildConfigMap = new NSDictionary();
+      // TODO(bazel-team): Stop adding the sourceRoot automatically once the
+      // released version of Bazel starts passing it.
+      targetBuildConfigMap.put("USER_HEADER_SEARCH_PATHS",
+          headerSearchPaths(
+              sourceRoot, targetControl.getUserHeaderSearchPathList(), sourceRoot.toString()));
+      targetBuildConfigMap.put("HEADER_SEARCH_PATHS",
+          headerSearchPaths(sourceRoot, targetControl.getHeaderSearchPathList(), "$(inherited)"));
+
       targetBuildConfigMap.put("PRODUCT_NAME", productName);
       if (targetControl.hasInfoplist()) {
         Path relative = RelativePaths.fromString(fileSystem, targetControl.getInfoplist());
@@ -234,7 +257,7 @@ public class XcodeprojGeneration {
       if (targetControl.getCoptCount() > 0) {
         targetBuildConfigMap.put("OTHER_CFLAGS", NSObject.wrap(targetControl.getCoptList()));
       }
-      for (BuildSetting setting : targetControl.getBuildSettingList()) {
+      for (XcodeprojBuildSetting setting : targetControl.getBuildSettingList()) {
         targetBuildConfigMap.put(setting.getName(), setting.getValue());
       }
 
@@ -244,7 +267,7 @@ public class XcodeprojGeneration {
         target
             .getBuildConfigurationList()
             .getBuildConfigurationsByName()
-            .get(BUILD_CONFIG_NAME)
+            .get(DEFAULT_OPTIONS_NAME)
             .setBuildSettings(targetBuildConfigMap);
       } catch (ExecutionException e) {
         throw new RuntimeException(e);

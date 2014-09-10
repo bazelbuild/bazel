@@ -23,6 +23,7 @@ import com.google.devtools.build.lib.blaze.BlazeRuntime;
 import com.google.devtools.build.lib.blaze.BlazeVersionInfo;
 import com.google.devtools.build.lib.blaze.Command;
 import com.google.devtools.build.lib.events.Event;
+import com.google.devtools.build.lib.packages.RuleClass;
 import com.google.devtools.build.lib.util.ExitCode;
 import com.google.devtools.build.lib.util.io.OutErr;
 import com.google.devtools.build.lib.view.ConfiguredRuleClassProvider;
@@ -153,7 +154,8 @@ public final class HelpCommand implements BlazeCommand {
     BlazeCommand command = runtime.getCommandMap().get(helpSubject);
     if (command == null) {
       ConfiguredRuleClassProvider provider = runtime.getRuleClassProvider();
-      if (provider.getRuleClassMap().containsKey(helpSubject)) {
+      RuleClass ruleClass = provider.getRuleClassMap().get(helpSubject);
+      if (ruleClass != null && ruleClass.isDocumented()) {
         // There is a rule with a corresponding name
         outErr.printOut(BlazeRuleHelpPrinter.getRuleDoc(helpSubject, provider));
         return ExitCode.SUCCESS;

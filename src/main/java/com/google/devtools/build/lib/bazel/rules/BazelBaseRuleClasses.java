@@ -48,7 +48,7 @@ public class BazelBaseRuleClasses {
     public RuleClass build(Builder builder, RuleDefinitionEnvironment env) {
       return builder
           .add(attr("args", STRING_LIST).nonconfigurable())
-          .add(attr("output_licenses", LICENSE).nonconfigurable())
+          .add(attr("output_licenses", LICENSE))
           .add(attr("$is_executable", BOOLEAN).nonconfigurable().value(true))
           .build();
     }

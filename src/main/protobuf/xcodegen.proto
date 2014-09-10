@@ -68,8 +68,9 @@ message TargetControl {
   // phase.
   repeated string xcassets_dir = 9;
 
-  // Miscellaneous build settings.
-  repeated BuildSetting build_setting = 10;
+  // Miscellaneous build settings. Each setting is applied to all build
+  // configurations.
+  repeated XcodeprojBuildSetting build_setting = 10;
 
   // Paths to strings or xib files. Xcodegen will determine automatically if
   // they are localized (i.e. are in a directory named *.lproj) or not.
@@ -97,13 +98,29 @@ message TargetControl {
   // libraries. In other words, they are NOT built by Xcode as a dependency
   // before this target is built.
   repeated string imported_library = 14;
+
+  // Path to directories to include as user header search paths. These are non-
+  // recursive. These should be specified here rather than in the build_setting
+  // field because the build_setting field requires paths to be specified
+  // relative to the container of the .xcodeproj directory, while this
+  // attribute is relative to the same path as every other path in the control
+  // file. These paths correspond to the "-iquote" arguments passed to the
+  // compiler.
+  repeated string user_header_search_path = 15;
+
+  // Path to directories to include as header search paths. These are non-
+  // recursive. These should be specified here rather than in the build_setting
+  // field because the build_setting field requires paths to be specified
+  // relative to the container of the .xcodeproj directory, while this
+  // attribute is relative to the same path as every other path in the control
+  // file. These paths correspond to the "-I" arguments passed to the
+  // compiler.
+  repeated string header_search_path = 16;
 }
 
-// Represents a build setting.
-message BuildSetting {
-  // Name of the setting, such as ASSETCATALOG_COMPILER_APPICON_NAME.
+// Represents the mapping of a build setting recognized by Xcode project files,
+// for instance ASSETCATALOG_COMPILER_APPICON_NAME.
+message XcodeprojBuildSetting {
   optional string name = 1;
-
-  // Value of the setting.
   optional string value = 2;
 }
