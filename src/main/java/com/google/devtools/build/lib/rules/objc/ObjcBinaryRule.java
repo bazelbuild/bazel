@@ -97,7 +97,7 @@ public class ObjcBinaryRule implements RuleDefinition {
         .add(attr("infoplist", LABEL)
             .mandatory()
             .direct_compile_time_input()
-            .allowedFileTypes(FileType.of("plist")))
+            .allowedFileTypes(FileType.of(".plist")))
         /* <!-- #BLAZE_RULE(objc_binary).ATTRIBUTE(app_icon) -->
         The name of the application icon, which should be in one of the asset
         catalogs of this target or a (transitive) dependency. In a new project,

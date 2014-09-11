@@ -122,6 +122,8 @@ public final class RuleContext extends TargetContext
     }
   }
 
+  static final String HOST_CONFIGURATION_PROGRESS_TAG = "for host";
+
   private final Rule rule;
   private final ListMultimap<String, ConfiguredTarget> targetMap;
   private final ListMultimap<String, ConfiguredFilesetEntry> filesetEntryMap;
@@ -271,7 +273,7 @@ public final class RuleContext extends TargetContext
 
     @Override
     public String getAdditionalProgressInfo() {
-      return hostConfiguration ? "host" : null;
+      return hostConfiguration ? HOST_CONFIGURATION_PROGRESS_TAG : null;
     }
   }
 

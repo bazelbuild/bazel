@@ -64,6 +64,7 @@ public final class PostInitializationActionOwner implements ActionOwner {
 
   @Override
   public String getAdditionalProgressInfo() {
-    return realOwner.getConfiguration().isHostConfiguration() ? "for host" : null;
+    return realOwner.getConfiguration().isHostConfiguration()
+        ? RuleContext.HOST_CONFIGURATION_PROGRESS_TAG : null;
   }
 }

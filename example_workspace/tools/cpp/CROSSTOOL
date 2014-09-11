@@ -47,13 +47,12 @@ toolchain {
   compilation_mode_flags {
     mode: OPT
   }
-  cxx_builtin_include_directory: "/usr/include/c++/4.6"
-  cxx_builtin_include_directory: "/usr/include/c++/4.6/x86_64-linux-gnu"
-  cxx_builtin_include_directory: "/usr/include/c++/4.6/backward"
-  cxx_builtin_include_directory: "/usr/lib/gcc/x86_64-linux-gnu/4.6/include"
-  cxx_builtin_include_directory: "/usr/lib/gcc/x86_64-linux-gnu/4.8/include"
+  # TODO(bazel-team): In theory, the path here ought to exactly match the path
+  # used by gcc. That works because bazel currently doesn't track files at
+  # absolute locations and has no remote execution, yet. However, this will need
+  # to be fixed, maybe with auto-detection?
+  cxx_builtin_include_directory: "/usr/lib/gcc/"
   cxx_builtin_include_directory: "/usr/local/include"
-  cxx_builtin_include_directory: "/usr/lib/gcc/x86_64-linux-gnu/4.6/include-fixed"
   cxx_builtin_include_directory: "/usr/include"
   tool_path { name: "gcov" path: "/usr/bin/gcov" }
   tool_path { name: "ld" path: "/usr/bin/ld" }

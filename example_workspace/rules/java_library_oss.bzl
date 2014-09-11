@@ -34,7 +34,7 @@ def java_library_impl(ctx):
     command = "echo 'Main-Class: " + main_class + "' > " + manifest.path,
     use_default_shell_env = True)
 
-  sources_param_file = ctx.param_file(
+  sources_param_file = ctx.new_file(
       ctx.configuration.bin_dir, class_jar, "-2.params")
   ctx.file_action(
       output = sources_param_file,

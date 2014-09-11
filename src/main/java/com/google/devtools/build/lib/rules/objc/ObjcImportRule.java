@@ -42,7 +42,7 @@ public class ObjcImportRule implements RuleDefinition {
         .add(attr("archives", LABEL_LIST)
             .mandatory()
             .nonEmpty()
-            .allowedFileTypes(FileType.of("a")))
+            .allowedFileTypes(FileType.of(".a")))
         .removeAttribute("deps")
         .build();
   }

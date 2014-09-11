@@ -17,7 +17,7 @@ import com.google.common.collect.Lists;
 import com.google.devtools.build.lib.cmdline.ResolvedTargets;
 import com.google.devtools.build.lib.cmdline.TargetParsingException;
 import com.google.devtools.build.lib.events.EventHandler;
-import com.google.devtools.build.lib.packages.InputFile;
+import com.google.devtools.build.lib.packages.FileTarget;
 import com.google.devtools.build.lib.packages.NoSuchPackageException;
 import com.google.devtools.build.lib.packages.NoSuchThingException;
 import com.google.devtools.build.lib.packages.Package;
@@ -87,11 +87,11 @@ final class CompileOneDependencyTransformer {
     return orderedList;
   }
 
-  private Target transformCompileOneDependency(EventHandler eventHandler,
-      Target target) throws TargetParsingException {
-    if (!(target instanceof InputFile)) {
+  private Target transformCompileOneDependency(EventHandler eventHandler, Target target)
+      throws TargetParsingException {
+    if (!(target instanceof FileTarget)) {
       throw new TargetParsingException("--compile_one_dependency target '" +
-                                       target.getLabel() + "' must be a source file");
+                                       target.getLabel() + "' must be a file");
     }
 
     Package pkg;
