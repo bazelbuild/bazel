@@ -43,7 +43,7 @@ public final class PackageGroupConfiguredTarget extends AbstractConfiguredTarget
       PackageSpecificationProvider provider = include == null ? null :
           include.getProvider(PackageSpecificationProvider.class);
       if (provider == null) {
-        targetContext.getAnalysisEnvironment().getReporter().handle(Event.error(getTarget().getLocation(),
+        targetContext.getAnalysisEnvironment().getEventHandler().handle(Event.error(getTarget().getLocation(),
             String.format("label '%s' does not refer to a package group", label)));
         continue;
       }

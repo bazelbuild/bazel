@@ -35,7 +35,7 @@ public class ObjcImportRule implements RuleDefinition {
   public RuleClass build(Builder builder, RuleDefinitionEnvironment environment) {
     return builder
         /* <!-- #BLAZE_RULE(objc_import).ATTRIBUTE(archives) -->
-        The list of {@code .a} files provided to Objective-C targets that
+        The list of <code>.a</code> files provided to Objective-C targets that
         depend on this target.
         <i>(List of <a href="build-ref.html#labels">labels</a>; required)</i>
         <!-- #END_BLAZE_RULE.ATTRIBUTE --> */
@@ -53,8 +53,8 @@ public class ObjcImportRule implements RuleDefinition {
 ${ATTRIBUTE_SIGNATURE}
 
 <p>This rule encapsulates an already-compiled static library in the form of an
-{@code .a} file. It also allows exporting headers and resources using the same
-attributes supported by {@code objc_library}.</p>
+<code>.a</code> file. It also allows exporting headers and resources using the same
+attributes supported by <code>objc_library</code>.</p>
 
 ${ATTRIBUTE_DEFINITION}
 

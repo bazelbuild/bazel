@@ -108,9 +108,8 @@ public class SkylarkRuleImplementationFunctions {
    *         register = 1
    *     )
    */
-  @SkylarkBuiltin(name = "create_action",
-      doc = "Creates an action and registers it with the environment (unless <i>register</i> "
-          + "is set to False).",
+  @SkylarkBuiltin(name = "action",
+      doc = "Creates an action that runs an executable or a shell command.",
       objectType = SkylarkRuleContext.class,
       optionalParams = {
       @Param(name = "inputs", type = List.class, doc = "list of the input files of the action"),
@@ -120,14 +119,12 @@ public class SkylarkRuleImplementationFunctions {
       @Param(name = "mnemonic", type = String.class, doc = "mnemonic"),
       @Param(name = "command", doc = "shell command to execute"),
       @Param(name = "command_line", doc = "a command line to execute"),
-      @Param(name = "register", type = Boolean.class,
-          doc = "whether to register the action with the analysis environment"),
       @Param(name = "progress_message", type = String.class, doc = "progress message"),
       @Param(name = "use_default_shell_env", type = Boolean.class,
           doc = "whether the action should use the built in shell environment or not"),
       @Param(name = "env", type = Map.class, doc = "sets the dictionary of environment variables")})
   private static final SkylarkFunction createSpawnAction =
-      new SimpleSkylarkFunction("create_action") {
+      new SimpleSkylarkFunction("action") {
 
     @Override
     public Object call(Map<String, Object> params, Location loc) throws EvalException,
@@ -170,9 +167,6 @@ public class SkylarkRuleImplementationFunctions {
         builder.setMnemonic(
             cast(params.get("mnemonic"), String.class, "mnemonic", loc));
       }
-      if (params.containsKey("register")) {
-        builder.setRegisterSpawnAction(EvalUtils.toBoolean(params.get("register")));
-      }
       if (params.containsKey("env")) {
         builder.setEnvironment(
             toMap(castMap(params.get("env"), String.class, String.class, "env")));
@@ -185,38 +179,44 @@ public class SkylarkRuleImplementationFunctions {
           && EvalUtils.toBoolean(params.get("use_default_shell_env"))) {
         builder.useDefaultShellEnvironment();
       }
+      // Always register the action
+      builder.setRegisterSpawnAction(true);
       return builder.build();
     }
   };
 
   // TODO(bazel-team): improve this method to be more memory friendly
-  @SkylarkBuiltin(name = "create_file_action",
-      doc = "Creates a file write action and registers it with the environment.",
+  @SkylarkBuiltin(name = "file_action",
+      doc = "Creates a file write action.",
       objectType = SkylarkRuleContext.class,
+      optionalParams = {
+        @Param(name = "executable", type = Boolean.class,
+            doc = "whether the output file should be executable (default is False)"),
+      },
       mandatoryParams = {
-      @Param(name = "output", type = Artifact.class, doc = "the output file"),
-      @Param(name = "executable", type = Boolean.class,
-             doc = "whether to change the output file to an executable or not"),
-      @Param(name = "content", type = String.class, doc = "the contents of the file")})
+        @Param(name = "output", type = Artifact.class, doc = "the output file"),
+        @Param(name = "content", type = String.class, doc = "the contents of the file")})
   private static final SkylarkFunction createFileWriteAction =
-    new SimpleSkylarkFunction("create_file_action") {
+    new SimpleSkylarkFunction("file_action") {
 
     @Override
     public Object call(Map<String, Object> params, Location loc) throws EvalException,
         ConversionException {
       SkylarkRuleContext ctx = cast(params.get("self"), SkylarkRuleContext.class, "ctx", loc);
+      boolean executable = params.containsKey("executable")
+          ? cast(params.get("executable"), Boolean.class, "executable", loc) : false;
       FileWriteAction action = new FileWriteAction(
           ctx.getRuleContext().getActionOwner(),
           cast(params.get("output"), Artifact.class, "output", loc),
           cast(params.get("content"), String.class, "content", loc),
-          cast(params.get("executable"), Boolean.class, "executable", loc));
+          executable);
       ctx.getRuleContext().registerAction(action);
       return action;
     }
   };
 
-  @SkylarkBuiltin(name = "create_template_action",
-      doc = "Creates a template expansion action and registers it with the environment.",
+  @SkylarkBuiltin(name = "template_action",
+      doc = "Creates a template expansion action.",
       objectType = SkylarkRuleContext.class,
       mandatoryParams = {
       @Param(name = "template", type = Artifact.class, doc = "the template file"),
@@ -226,7 +226,7 @@ public class SkylarkRuleImplementationFunctions {
       @Param(name = "executable", type = Boolean.class,
              doc = "whether to change the output file to an executable or not")})
   private static final SkylarkFunction createTemplateAction =
-    new SimpleSkylarkFunction("create_template_action") {
+    new SimpleSkylarkFunction("template_action") {
 
     @Override
     public Object call(Map<String, Object> params, Location loc) throws EvalException,
@@ -268,7 +268,7 @@ public class SkylarkRuleImplementationFunctions {
       if (runfiles.isEmpty()) {
         throw new IllegalArgumentException("Cannot use runfiles support with empty runfiles");
       }
-      return RunfilesSupport.withExecutable(ctx.getRuleContext(), runfiles,          
+      return RunfilesSupport.withExecutable(ctx.getRuleContext(), runfiles,
           cast(params.get("executable"), Artifact.class, "executable", loc));
     }
   };
@@ -402,14 +402,14 @@ public class SkylarkRuleImplementationFunctions {
     }
   };
 
-  @SkylarkBuiltin(name = "create_command_helper", doc = "Creates a command helper class.",
+  @SkylarkBuiltin(name = "command_helper", doc = "Creates a command helper class.",
       objectType = SkylarkRuleContext.class,
       mandatoryParams = {
       @Param(name = "tools", type = List.class, doc = "list of tools"),
       @Param(name = "label_dict", type = Map.class,
              doc = "dictionary of resolved labels and the corresponding list of artifacts")})
   private static final SkylarkFunction createCommandHelper =
-      new SimpleSkylarkFunction("create_command_helper") {
+      new SimpleSkylarkFunction("command_helper") {
         @SuppressWarnings("unchecked")
         @Override
         protected Object call(Map<String, Object> params, Location loc)

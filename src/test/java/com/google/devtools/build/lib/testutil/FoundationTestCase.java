@@ -80,10 +80,10 @@ public abstract class FoundationTestCase extends ChattyAssertsTestCase {
   }
 
   private void copySkylarkFilesIfExist() throws IOException {
-    File rulesDir = new File("devtools/blaze/rules");
+    File rulesDir = new File("devtools/blaze/rules/staging");
     if (rulesDir.exists() && rulesDir.isDirectory()) {
       for (String fileName : rulesDir.list()) {
-        File file = new File("devtools/blaze/rules/" + fileName);
+        File file = new File("devtools/blaze/rules/staging/" + fileName);
         if (file.isFile() && fileName.endsWith(".bzl")) {
           String context = loadFile(file);
           String path = "/google3/devtools/blaze/rules/" + fileName;

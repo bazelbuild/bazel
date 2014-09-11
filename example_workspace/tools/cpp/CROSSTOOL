@@ -22,7 +22,7 @@ toolchain {
   supports_fission: false
   supports_interface_shared_objects: false
   supports_normalizing_ar: false
-  supports_start_end_lib: true
+  supports_start_end_lib: false
   supports_thin_archives: false
   target_libc: "local"
   target_cpu: "local"
@@ -47,8 +47,14 @@ toolchain {
   compilation_mode_flags {
     mode: OPT
   }
+  cxx_builtin_include_directory: "/usr/include/c++/4.6"
+  cxx_builtin_include_directory: "/usr/include/c++/4.6/x86_64-linux-gnu"
+  cxx_builtin_include_directory: "/usr/include/c++/4.6/backward"
+  cxx_builtin_include_directory: "/usr/lib/gcc/x86_64-linux-gnu/4.6/include"
+  cxx_builtin_include_directory: "/usr/lib/gcc/x86_64-linux-gnu/4.8/include"
+  cxx_builtin_include_directory: "/usr/local/include"
+  cxx_builtin_include_directory: "/usr/lib/gcc/x86_64-linux-gnu/4.6/include-fixed"
   cxx_builtin_include_directory: "/usr/include"
-  cxx_builtin_include_directory: "/usr/lib/gcc"
   tool_path { name: "gcov" path: "/usr/bin/gcov" }
   tool_path { name: "ld" path: "/usr/bin/ld" }
   linking_mode_flags {

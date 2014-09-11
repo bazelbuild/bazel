@@ -23,13 +23,13 @@ import com.google.devtools.build.lib.concurrent.ThreadSafety.ThreadCompatible;
 import com.google.devtools.build.lib.exec.ExecutionOptions;
 import com.google.devtools.build.lib.packages.TestSize;
 import com.google.devtools.build.lib.packages.TestTimeout;
+import com.google.devtools.build.lib.rules.test.TestProvider;
+import com.google.devtools.build.lib.rules.test.TestResult;
 import com.google.devtools.build.lib.syntax.Label;
 import com.google.devtools.build.lib.vfs.Path;
 import com.google.devtools.build.lib.vfs.PathFragment;
 import com.google.devtools.build.lib.view.ConfiguredTarget;
 import com.google.devtools.build.lib.view.TransitiveInfoCollection;
-import com.google.devtools.build.lib.view.test.TestProvider;
-import com.google.devtools.build.lib.view.test.TestResult;
 import com.google.devtools.build.lib.view.test.TestStatus.BlazeTestStatus;
 
 import java.util.ArrayList;

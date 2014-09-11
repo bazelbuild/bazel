@@ -99,7 +99,6 @@ import com.google.devtools.build.lib.view.config.BuildOptions;
 import com.google.devtools.build.lib.view.config.ConfigurationFactory;
 import com.google.devtools.build.lib.view.config.DefaultsPackage;
 import com.google.devtools.build.lib.view.config.InvalidConfigurationException;
-import com.google.devtools.build.lib.view.config.MachineSpecification;
 import com.google.devtools.common.options.Option;
 import com.google.devtools.common.options.OptionPriority;
 import com.google.devtools.common.options.OptionsBase;
@@ -566,10 +565,6 @@ public final class BlazeRuntime {
    */
   public BuildView getView() {
     return view;
-  }
-
-  public MachineSpecification getHostMachineSpecification() {
-    return configurationFactory.getHostMachineSpecification();
   }
 
   public Iterable<BlazeModule> getBlazeModules() {
@@ -1654,18 +1649,14 @@ public final class BlazeRuntime {
           workspaceStatusActionFactory, ruleClassProvider.getBuildInfoFactories(),
           diffAwarenessFactories, allowedMissingInputs, preprocessorFactorySupplier);
 
-      ConfigurationFactory tempConfigurationFactory;
       if (configurationFactory == null) {
-        tempConfigurationFactory = new ConfigurationFactory(
-            MachineSpecification.getUnixHostSpecification(),
+        configurationFactory = new ConfigurationFactory(
             ruleClassProvider.getConfigurationCollectionFactory(),
             ruleClassProvider.getConfigurationFragments());
-      } else {
-        tempConfigurationFactory = configurationFactory;
       }
 
       return new BlazeRuntime(directories, reporter, workspaceStatusActionFactory, skyframeExecutor,
-          pkgFactory, ruleClassProvider, tempConfigurationFactory, getWorkspaceName(), clock,
+          pkgFactory, ruleClassProvider, configurationFactory, getWorkspaceName(), clock,
           startupOptionsProvider, ImmutableList.copyOf(blazeModules),
           clientEnv,
           timestampMonitor,

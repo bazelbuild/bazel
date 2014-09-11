@@ -359,6 +359,37 @@ public class BazelCppRuleClasses {
           .build();
     }
   }
+  
+  /**
+   * Implementation for the :lipo_context attribute.
+   */
+  private static final LateBoundLabel<BuildConfiguration> LIPO_CONTEXT =
+      new LateBoundLabel<BuildConfiguration>() {
+    @Override
+    public Label getDefault(Rule rule, BuildConfiguration configuration) {
+      Label result = configuration.getFragment(CppConfiguration.class).getLipoContextLabel();
+      return (rule == null || rule.getLabel().equals(result)) ? null : result;
+    }
+  };
+  
+  /**
+   * Rule definition for cc_test rules.
+   */
+  @BlazeRule(name = "cc_test",
+      type = RuleClassType.TEST,
+      ancestors = { CcBinaryBaseRule.class, BaseRuleClasses.TestBaseRule.class },
+      factoryClass = BazelCcTest.class)
+  public static final class CcTestRule implements RuleDefinition {
+    @Override
+    public RuleClass build(Builder builder, RuleDefinitionEnvironment env) {
+      return builder
+          .setImplicitOutputsFunction(CppRuleClasses.CC_BINARY_DEBUG_PACKAGE)
+          .override(attr("linkstatic", BOOLEAN).value(false))
+          .override(attr("stamp", TRISTATE).value(TriState.NO))
+          .add(attr(":lipo_context", LABEL).value(LIPO_CONTEXT))
+          .build();
+    }
+  }
 
   /**
    * Helper rule class.

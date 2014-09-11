@@ -15,6 +15,7 @@
 package com.google.devtools.build.xcode.util;
 
 import com.google.common.base.Function;
+import com.google.common.base.Preconditions;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.Iterables;
 
@@ -29,6 +30,7 @@ public class Interspersing {
    * the length.
    */
   public static <E> Iterable<E> beforeEach(final E what, Iterable<E> sequence) {
+    Preconditions.checkNotNull(what);
     return Iterables.concat(
         Iterables.transform(
             sequence,

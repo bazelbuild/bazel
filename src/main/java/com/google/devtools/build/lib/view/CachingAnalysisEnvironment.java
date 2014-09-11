@@ -174,7 +174,7 @@ public class CachingAnalysisEnvironment implements AnalysisEnvironment {
   }
 
   @Override
-  public EventHandler getReporter() {
+  public EventHandler getEventHandler() {
     return errorEventListener;
   }
 

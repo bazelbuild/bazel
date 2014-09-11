@@ -75,22 +75,16 @@ public final class BinTools {
   }
 
   /**
-   * Creates an instance by symlinking the necessary files from the runfiles tree of a test.
-   *
-   * <p>Used by tests that actually require the embedded binaries, not only a list of them.
-   *
-   * <p> This simulates the extraction usually done by the C++ code which starts up Bazel: We
-   * symlink the embedded_scripts from the proper location in the output directory of the build
-   * tool to the location in the runfiles dir. Why use a symlink? The runfiles dir is shared across
-   * tests methods, but the output directory isn't - so this variant runs much faster.
+   * Populates the _bin directory by symlinking the necessary files from the given
+   * srcDir, and returns the corresponding BinTools.
    */
   @VisibleForTesting
   public static BinTools forIntegrationTesting(
-      BlazeDirectories directories,  String runfilesRoot, Iterable<String> tools)
+      BlazeDirectories directories, String srcDir, Iterable<String> tools)
       throws IOException {
-    Path runfilesRootPath = directories.getOutputBase().getFileSystem().getPath(runfilesRoot);
+    Path srcPath = directories.getOutputBase().getFileSystem().getPath(srcDir);
     for (String embedded : tools) {
-      Path runfilesPath = runfilesRootPath.getRelative(embedded);
+      Path runfilesPath = srcPath.getRelative(embedded);
       if (!runfilesPath.isFile()) {
         // The file isn't there - nothing to symlink!
         //
@@ -99,7 +93,7 @@ public final class BinTools {
         // much point in creating a symlink to a non-existent binary here.
         continue;
       }
-      Path outputPath = directories.getEmbeddedBinariesRoot().getRelative(embedded);
+      Path outputPath = directories.getExecRoot().getChild("_bin").getChild(embedded);
       if (outputPath.exists()) {
         outputPath.delete();
       }

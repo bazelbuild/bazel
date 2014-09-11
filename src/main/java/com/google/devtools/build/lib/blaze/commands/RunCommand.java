@@ -485,14 +485,6 @@ public class RunCommand implements BlazeCommand  {
       return ExitCode.LOCAL_ENVIRONMENTAL_ERROR;
     }
 
-    BuildConfiguration configuration = target.getConfiguration();
-    if (configuration != null && !configuration.canRunOn(runtime.getHostMachineSpecification())) {
-      // We say "may fail", because they might be interpreted programs.
-      runtime.getReporter().handle(Event.warn(
-          "Your system, " + runtime.getHostMachineSpecification() + ", is "
-              + "not known to be capable of running binaries for "
-              + configuration.getMnemonic()));
-    }
     return ExitCode.SUCCESS;
   }
 

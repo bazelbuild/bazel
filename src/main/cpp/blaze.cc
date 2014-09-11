@@ -182,7 +182,7 @@ static string GetInstallBase(const string &root, const string &self_path) {
   int retval = archive_read_open_filename(blaze_zip, self_path.c_str(), 10240);
   if (retval != ARCHIVE_OK) {
     die(blaze_exit_code::LOCAL_ENVIRONMENTAL_ERROR,
-        "\nFailed to open blaze as a zip file\n");
+        "\nFailed to open blaze as a zip file");
   }
 
   struct archive_entry *entry;
@@ -197,11 +197,11 @@ static string GetInstallBase(const string &root, const string &self_path) {
       int bytesRead = archive_read_data(blaze_zip, &buf, size);
       if (bytesRead < 0) {
         die(blaze_exit_code::LOCAL_ENVIRONMENTAL_ERROR,
-            "\nFailed to extract install_base_key\n");
+            "\nFailed to extract install_base_key");
       }
       if (bytesRead < 32) {
         die(blaze_exit_code::LOCAL_ENVIRONMENTAL_ERROR,
-            "\nFailed to extract install_base_key: file too short\n");
+            "\nFailed to extract install_base_key: file too short");
       }
       install_base_key = string(buf, bytesRead);
     }
@@ -209,7 +209,7 @@ static string GetInstallBase(const string &root, const string &self_path) {
   retval = archive_read_free(blaze_zip);
   if (retval != ARCHIVE_OK) {
     die(blaze_exit_code::LOCAL_ENVIRONMENTAL_ERROR,
-        "\nFailed to close install_base_key's containing zip file\n");
+        "\nFailed to close install_base_key's containing zip file");
   }
 
   return root + "/" + install_base_key;
@@ -280,7 +280,8 @@ static vector<string> GetArgumentArray() {
     result.push_back("-Xrunjdwp:transport=dt_socket,server=y,address=5005");
   }
 
-  blaze_util::SplitStringUsing(globals->options.host_jvm_args, ' ', &result);
+  blaze_util::SplitQuotedStringUsing(globals->options.host_jvm_args, ' ',
+                                     &result);
 
   result.push_back("-jar");
   result.push_back(blaze_util::JoinPath(real_install_dir,
@@ -603,7 +604,7 @@ static int ConnectToServer(bool start) {
       }
     }
     die(blaze_exit_code::INTERNAL_ERROR,
-        "\nError: couldn't connect to server at '%s' after 60 seconds.\n",
+        "\nError: couldn't connect to server at '%s' after 60 seconds.",
         socket_file.c_str());
   }
 }
@@ -715,7 +716,7 @@ static void ActuallyExtractData(const string &argv0,
   int retval = archive_read_open_filename(blaze_zip, argv0.c_str(), 10240);
   if (retval != ARCHIVE_OK) {
     die(blaze_exit_code::LOCAL_ENVIRONMENTAL_ERROR,
-        "\nFailed to open blaze as a zip file\n");
+        "\nFailed to open blaze as a zip file");
   }
 
   struct archive_entry *entry;
@@ -730,7 +731,7 @@ static void ActuallyExtractData(const string &argv0,
     int fd = open(path.c_str(), O_CREAT | O_WRONLY, archive_entry_perm(entry));
     if (fd < 0) {
       die(blaze_exit_code::LOCAL_ENVIRONMENTAL_ERROR,
-          "\nFailed to open extraction file: %s\n", strerror(errno));
+          "\nFailed to open extraction file: %s", strerror(errno));
     }
 
     const void *buf;
@@ -742,22 +743,22 @@ static void ActuallyExtractData(const string &argv0,
         break;
       } else if (retval != ARCHIVE_OK) {
         die(blaze_exit_code::LOCAL_ENVIRONMENTAL_ERROR,
-            "\nFailed to extract data from blaze zip\n");
+            "\nFailed to extract data from blaze zip");
       }
       if (write(fd, buf, size) != size) {
         die(blaze_exit_code::LOCAL_ENVIRONMENTAL_ERROR,
-            "\nError writing zipped file to %s\n", path.c_str());
+            "\nError writing zipped file to %s", path.c_str());
       }
     }
     if (close(fd) != 0) {
-        die(blaze_exit_code::LOCAL_ENVIRONMENTAL_ERROR,
-            "\nCould not close file %s\n", path.c_str());
+      die(blaze_exit_code::LOCAL_ENVIRONMENTAL_ERROR,
+          "\nCould not close file %s", path.c_str());
     }
   }
   retval = archive_read_free(blaze_zip);
   if (retval != ARCHIVE_OK) {
     die(blaze_exit_code::LOCAL_ENVIRONMENTAL_ERROR,
-        "\nFailed to close blaze zip\n");
+        "\nFailed to close blaze zip");
   }
 
   const time_t TEN_YEARS_IN_SEC = 3600 * 24 * 365 * 10;
@@ -844,7 +845,7 @@ static void ExtractData(const string &self_path) {
     if (!S_ISDIR(buf.st_mode)) {
       die(blaze_exit_code::LOCAL_ENVIRONMENTAL_ERROR,
           "Error: Install base directory '%s' could not be created. "
-          "It exists but is not a directory.\n",
+          "It exists but is not a directory.",
           globals->options.install_base.c_str());
     }
 
@@ -858,7 +859,7 @@ static void ExtractData(const string &self_path) {
       if (stat(path.c_str(), &buf) == -1) {
         die(blaze_exit_code::LOCAL_ENVIRONMENTAL_ERROR,
             "Error: corrupt installation: file '%s' missing."
-            " Please remove '%s' and try again.\n",
+            " Please remove '%s' and try again.",
             path.c_str(), globals->options.install_base.c_str());
       }
       // Check that the timestamp is in the future. A past timestamp would indicate
@@ -866,7 +867,7 @@ static void ExtractData(const string &self_path) {
       if (buf.st_mtime <= time_now) {
         die(blaze_exit_code::LOCAL_ENVIRONMENTAL_ERROR,
             "Error: corrupt installation: file '%s' "
-            "modified.  Please remove '%s' and try again.\n",
+            "modified.  Please remove '%s' and try again.",
             path.c_str(), globals->options.install_base.c_str());
       }
     }
@@ -1197,7 +1198,7 @@ static void SendServerRequest(void) {
   if (fgets(line, sizeof line, fp) == NULL ||
       !isdigit(line[0])) {
     die(blaze_exit_code::INTERNAL_ERROR,
-        "Error: can't read exit code from server.\n");
+        "Error: can't read exit code from server.");
   }
   int exit_code;
   blaze_util::safe_strto32(line, &exit_code);
@@ -1284,13 +1285,13 @@ static void ComputeBaseDirectories(const string self_path) {
     if (!S_ISDIR(buf.st_mode)) {
       die(blaze_exit_code::LOCAL_ENVIRONMENTAL_ERROR,
           "Error: Output base directory '%s' could not be created. "
-          "It exists but is not a directory.\n",
+          "It exists but is not a directory.",
           globals->options.output_base.c_str());
     }
   }
   if (access(globals->options.output_base.c_str(), R_OK | W_OK | X_OK) != 0) {
     die(blaze_exit_code::LOCAL_ENVIRONMENTAL_ERROR,
-        "Error: Output base directory '%s' must be readable and writable.\n",
+        "Error: Output base directory '%s' must be readable and writable.",
         globals->options.output_base.c_str());
   }
 
@@ -1383,7 +1384,7 @@ static void AcquireLock() {
     }
     if (!globals->options.block_for_lock) {
       die(blaze_exit_code::BAD_ARGV,
-          "Another Blaze command is running (pid=%d). Exiting immediately.\n",
+          "Another Blaze command is running (pid=%d). Exiting immediately.",
           probe.l_pid);
     }
     fprintf(stderr, "Another Blaze command is running (pid = %d).  "
@@ -1562,16 +1563,16 @@ static void CreateSecureOutputRoot() {
     }
   } else {
     if (fileinfo.st_uid != geteuid()) {
-      die(blaze_exit_code::LOCAL_ENVIRONMENTAL_ERROR,
-          "'%s' is not owned by me\n", root);
+      die(blaze_exit_code::LOCAL_ENVIRONMENTAL_ERROR, "'%s' is not owned by me",
+          root);
     }
 
     if ((fileinfo.st_mode & 022) != 0) {
       int new_mode = fileinfo.st_mode & (~022);
       if (chmod(root, new_mode) < 0) {
         die(blaze_exit_code::LOCAL_ENVIRONMENTAL_ERROR,
-            "'%s' has mode %o, chmod to %o failed\n",
-            root, fileinfo.st_mode & 07777, new_mode);
+            "'%s' has mode %o, chmod to %o failed", root,
+            fileinfo.st_mode & 07777, new_mode);
       }
     }
 
@@ -1580,8 +1581,8 @@ static void CreateSecureOutputRoot() {
     }
 
     if (!S_ISDIR(fileinfo.st_mode)) {
-      die(blaze_exit_code::LOCAL_ENVIRONMENTAL_ERROR,
-          "'%s' is not a directory\n", root);
+      die(blaze_exit_code::LOCAL_ENVIRONMENTAL_ERROR, "'%s' is not a directory",
+          root);
     }
   }
 }

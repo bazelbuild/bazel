@@ -14,6 +14,7 @@
 package com.google.devtools.build.lib.vfs;
 
 import com.google.common.base.Function;
+import com.google.common.base.Predicate;
 import com.google.common.collect.Iterables;
 import com.google.devtools.build.lib.concurrent.ThreadSafety.Immutable;
 import com.google.devtools.build.lib.concurrent.ThreadSafety.ThreadSafe;
@@ -49,6 +50,14 @@ public final class PathFragment implements Comparable<PathFragment>, Serializabl
         @Override
         public PathFragment apply(String str) {
           return new PathFragment(str);
+        }
+      };
+
+  public static final Predicate<PathFragment> IS_ABSOLUTE =
+      new Predicate<PathFragment>() {
+        @Override
+        public boolean apply(PathFragment input) {
+          return input.isAbsolute();
         }
       };
 

@@ -97,7 +97,7 @@ public interface Executor {
    * An event listener to report messages to. Errors that signal a action failure should
    * use ActionExecutionException.
    */
-  EventHandler getReporter();
+  EventHandler getEventHandler();
 
   /**
    * Looks up and returns an action context implementation of the given interface type.

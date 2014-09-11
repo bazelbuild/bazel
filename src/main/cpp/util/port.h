@@ -17,7 +17,7 @@
 #include <stddef.h>  // For size_t
 
 // GCC-specific features
-#if (defined(COMPILER_GCC3) || defined(OS_MACOSX)) && !defined(SWIG)
+#if (defined(COMPILER_GCC3) || defined(__APPLE__)) && !defined(SWIG)
 
 //
 // Tell the compiler to do printf format string checking if the

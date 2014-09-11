@@ -16,8 +16,8 @@ package com.google.devtools.build.lib.buildtool.buildevent;
 
 import com.google.common.base.Preconditions;
 import com.google.common.collect.ImmutableList;
+import com.google.devtools.build.lib.rules.test.TestProvider;
 import com.google.devtools.build.lib.view.ConfiguredTarget;
-import com.google.devtools.build.lib.view.test.TestProvider;
 
 import java.util.Collection;
 

@@ -370,22 +370,6 @@ public class BuildTool {
     getEventBus().post(new TestFilteringCompleteEvent(analysisResult.getTargetsToBuild(),
         analysisResult.getTargetsToTest()));
 
-    for (BuildConfiguration targetConfiguration : configurations.getTargetConfigurations()) {
-      if (request.shouldRunTests()) {
-        // If blaze was asked to run tests, check whether we know that the host machine can run
-        // them, and give a warning if not.
-        if (!targetConfiguration.canRunOn(runtime.getHostMachineSpecification())) {
-          // We say "may fail", because they might be interpreted programs.  Still,
-          // not the most sensible use-case.
-          getReporter().handle(
-              Event.warn("Your system, "
-                  + runtime.getHostMachineSpecification() + ", is "
-                  + "not known to be capable of running binaries for "
-                  + targetConfiguration.getMnemonic()));
-        }
-      }
-    }
-
     // Check licenses.
     // We check licenses if the first target configuration has license checking enabled. Right now,
     // it is not possible to have multiple target configurations with different settings for this

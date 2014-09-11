@@ -57,7 +57,8 @@ public abstract class SkylarkFunction extends AbstractFunction {
   @VisibleForTesting
   public void configure(SkylarkBuiltin annotation) {
     Preconditions.checkState(!configured);
-    Preconditions.checkArgument(getName().equals(annotation.name()));
+    Preconditions.checkArgument(getName().equals(annotation.name()),
+                                getName() + " != " + annotation.name());
     mandatoryParamNum = 0;
     ImmutableList.Builder<String> paramListBuilder = ImmutableList.builder();
     for (SkylarkBuiltin.Param param : annotation.mandatoryParams()) {

@@ -137,7 +137,8 @@ bool BlazeStartupOptions::ProcessArg(const string& argstr,
     } else {
       die(blaze_exit_code::BAD_ARGV,
           "Invalid value '%s' for the --blaze_cpu option. "
-          "Must be 'k8' or 'piii'.\n", value);
+          "Must be 'k8' or 'piii'.",
+          value);
     }
     option_sources["blaze_cpu"] = rcfile;
   } else if ((value = GetUnaryOption(arg, next_arg, "--blazerc")) != NULL) {
@@ -181,7 +182,7 @@ bool BlazeStartupOptions::ProcessArg(const string& argstr,
     if (!blaze_util::safe_strto32(value, &io_nice_level) ||
         io_nice_level > 7) {
       die(blaze_exit_code::BAD_ARGV,
-          "Invalid argument to --io_nice_level: '%s'. Must not exceed 7.\n",
+          "Invalid argument to --io_nice_level: '%s'. Must not exceed 7.",
           value);
     }
     option_sources["io_nice_level"] = rcfile;
@@ -190,7 +191,7 @@ bool BlazeStartupOptions::ProcessArg(const string& argstr,
     if (!blaze_util::safe_strto32(value, &max_idle_secs) ||
         max_idle_secs < 0) {
       die(blaze_exit_code::BAD_ARGV,
-          "Invalid argument to --max_idle_secs: '%s'.\n", value);
+          "Invalid argument to --max_idle_secs: '%s'.", value);
     }
     option_sources["max_idle_secs"] = rcfile;
   } else if ((value = GetUnaryOption(arg, next_arg,
@@ -207,7 +208,8 @@ bool BlazeStartupOptions::ProcessArg(const string& argstr,
   } else if (!ProcessArgExtra(arg, next_arg, rcfile, &value)) {
     die(blaze_exit_code::BAD_ARGV,
         "Unknown Blaze startup option: '%s'.\n"
-        "  For more info, run 'blaze help startup_options'.\n", arg);
+        "  For more info, run 'blaze help startup_options'.",
+        arg);
   }
 
   return ((value == next_arg) && (value != NULL));

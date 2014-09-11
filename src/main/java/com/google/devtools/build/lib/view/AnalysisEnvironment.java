@@ -34,8 +34,7 @@ public interface AnalysisEnvironment extends ActionRegistry {
   /**
    * Returns a callback to be used in this build for reporting analysis errors.
    */
-  // TODO(bazel-team): Rename to something better?
-  EventHandler getReporter();
+  EventHandler getEventHandler();
 
   /**
    * Returns whether any errors were reported to this instance.

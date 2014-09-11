@@ -41,6 +41,7 @@ import com.google.devtools.build.lib.packages.PackageGroup;
 import com.google.devtools.build.lib.packages.Rule;
 import com.google.devtools.build.lib.packages.RuleClass;
 import com.google.devtools.build.lib.packages.Target;
+import com.google.devtools.build.lib.rules.test.TestActionBuilder;
 import com.google.devtools.build.lib.syntax.ClassObject;
 import com.google.devtools.build.lib.syntax.Label;
 import com.google.devtools.build.lib.syntax.Label.SyntaxException;
@@ -53,7 +54,6 @@ import com.google.devtools.build.lib.vfs.Path;
 import com.google.devtools.build.lib.vfs.PathFragment;
 import com.google.devtools.build.lib.view.ViewCreationFailedException;
 import com.google.devtools.build.lib.view.config.BuildConfigurationCollection.Transitions;
-import com.google.devtools.build.lib.view.test.TestActionBuilder;
 import com.google.devtools.common.options.Converter;
 import com.google.devtools.common.options.Converters;
 import com.google.devtools.common.options.EnumConverter;
@@ -215,15 +215,6 @@ public final class BuildConfiguration implements ClassObject, Serializable {
      * Return false if incremental build is not possible for some reason.
      */
     public boolean supportsIncrementalBuild() {
-      return true;
-    }
-
-    /**
-     * Returns if the output produced by this configuration fragment can be run on the specified
-     * host system.
-     */
-    @SuppressWarnings("unused")
-    public boolean canRunOn(MachineSpecification host) {
       return true;
     }
 
@@ -1826,15 +1817,6 @@ public final class BuildConfiguration implements ClassObject, Serializable {
   public boolean supportsIncrementalBuild() {
     for (Fragment fragment : fragments.values()) {
       if (!fragment.supportsIncrementalBuild()) {
-        return false;
-      }
-    }
-    return true;
-  }
-
-  public boolean canRunOn(MachineSpecification host) {
-    for (Fragment fragment : fragments.values()) {
-      if (!fragment.canRunOn(host)) {
         return false;
       }
     }

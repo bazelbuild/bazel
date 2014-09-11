@@ -18,7 +18,6 @@ import com.google.devtools.build.lib.view.config.BuildConfiguration;
 import com.google.devtools.build.lib.view.config.BuildOptions;
 import com.google.devtools.build.lib.view.config.ConfigurationFactory;
 import com.google.devtools.build.lib.view.config.InvalidConfigurationException;
-import com.google.devtools.build.lib.view.config.MachineSpecification;
 import com.google.devtools.build.lib.view.config.PackageProviderForConfigurations;
 
 import java.util.Map;
@@ -44,7 +43,6 @@ public interface ConfigurationCollectionFactory {
    */
   public BuildConfiguration createConfigurations(
       ConfigurationFactory configurationFactory,
-      MachineSpecification hostMachineSpecification,
       PackageProviderForConfigurations loadedPackageProvider,
       BuildOptions buildOptions,
       Map<String, String> clientEnv,

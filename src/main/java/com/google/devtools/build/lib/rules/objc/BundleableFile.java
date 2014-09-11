@@ -16,7 +16,9 @@ package com.google.devtools.build.lib.rules.objc;
 
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
+import com.google.common.collect.ImmutableSet;
 import com.google.devtools.build.lib.actions.Artifact;
+import com.google.devtools.build.lib.collect.nestedset.NestedSetBuilder;
 import com.google.devtools.build.lib.vfs.PathFragment;
 import com.google.devtools.build.lib.view.RuleConfiguredTarget.Mode;
 import com.google.devtools.build.lib.view.RuleContext;
@@ -30,6 +32,10 @@ import com.google.devtools.build.xcode.util.Value;
  * files.
  */
 public final class BundleableFile extends Value<BundleableFile> {
+  
+  private static final ImmutableSet<String> ALL_RESOURCE_ATTRS =
+      ImmutableSet.of("resources", "strings", "xibs");
+
   private final Artifact original;
   private final Artifact bundled;
   private final String bundlePath;
@@ -82,6 +88,17 @@ public final class BundleableFile extends Value<BundleableFile> {
       result.add(new BundleableFile(file, file, bundlePath(file)));
     }
     return result.build();
+  }
+
+  /**
+   * Returns all resource inputs to the given rule.
+   */
+  public static Iterable<Artifact> allResourceArtifactsFromRule(RuleContext context) {
+    NestedSetBuilder<Artifact> artifacts = NestedSetBuilder.<Artifact>stableOrder();
+    for (String attr : ALL_RESOURCE_ATTRS) {
+      artifacts.addAll(context.getPrerequisiteArtifacts(attr, Mode.TARGET));
+    }
+    return artifacts.build();
   }
 
   /**

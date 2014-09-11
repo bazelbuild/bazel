@@ -57,7 +57,6 @@ public final class ConfigurationFactory {
    * The machine configuration for the host, which is used to validate host
    * configurations.
    */
-  private final MachineSpecification hostMachineSpecification;
   private final List<ConfigurationFragmentFactory> configurationFragmentFactories;
   private final ConfigurationCollectionFactory configurationCollectionFactory;
 
@@ -68,17 +67,11 @@ public final class ConfigurationFactory {
   private boolean performSanityCheck = true;
 
   public ConfigurationFactory(
-      MachineSpecification hostMachineSpecification,
       ConfigurationCollectionFactory configurationCollectionFactory,
       List<ConfigurationFragmentFactory> fragmentFactories) {
-    this.hostMachineSpecification = hostMachineSpecification;
     this.configurationCollectionFactory =
         Preconditions.checkNotNull(configurationCollectionFactory);
     this.configurationFragmentFactories = fragmentFactories;
-  }
-
-  public MachineSpecification getHostMachineSpecification() {
-    return hostMachineSpecification;
   }
 
   @VisibleForTesting
@@ -94,7 +87,7 @@ public final class ConfigurationFactory {
   @VisibleForTesting
   public BuildConfiguration getTestConfiguration(
       PackageProviderForConfigurations loadedPackageProvider, BuildOptions buildOptions,
-      Map<String, String> clientEnv) throws InvalidConfigurationException {    
+      Map<String, String> clientEnv) throws InvalidConfigurationException {
     return getConfiguration(loadedPackageProvider, buildOptions, clientEnv, false,
         CacheBuilder.newBuilder().<String, BuildConfiguration>build());
   }
@@ -142,7 +135,7 @@ public final class ConfigurationFactory {
     }
 
     BuildConfiguration targetConfig = configurationCollectionFactory.createConfigurations(this,
-        hostMachineSpecification, loadedPackageProvider, buildOptions, key.getClientEnv(),
+        loadedPackageProvider, buildOptions, key.getClientEnv(),
         errorEventListener, performSanityCheck);
     if (targetConfig == null) {
       return null;
@@ -175,7 +168,7 @@ public final class ConfigurationFactory {
       BuildOptions buildOptions, Map<String, String> clientEnv,
       boolean actionsDisabled, Cache<String, BuildConfiguration> cache)
           throws InvalidConfigurationException {
-    
+
     Map<Class<? extends Fragment>, Fragment> fragments = new HashMap<>();
     // Create configuration fragments
     for (ConfigurationFragmentFactory factory : configurationFragmentFactories) {

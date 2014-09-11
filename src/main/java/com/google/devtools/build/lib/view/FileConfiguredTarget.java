@@ -23,10 +23,10 @@ import com.google.devtools.build.lib.collect.nestedset.NestedSet;
 import com.google.devtools.build.lib.collect.nestedset.NestedSetBuilder;
 import com.google.devtools.build.lib.collect.nestedset.Order;
 import com.google.devtools.build.lib.packages.FileTarget;
+import com.google.devtools.build.lib.rules.test.InstrumentedFilesProvider;
 import com.google.devtools.build.lib.syntax.ClassObject;
 import com.google.devtools.build.lib.util.FileType;
 import com.google.devtools.build.lib.view.fileset.FilesetProvider;
-import com.google.devtools.build.lib.view.test.InstrumentedFilesProvider;
 
 /**
  * A ConfiguredTarget for a source FileTarget.  (Generated files use a

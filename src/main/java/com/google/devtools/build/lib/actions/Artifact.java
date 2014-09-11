@@ -23,6 +23,7 @@ import com.google.common.collect.ImmutableList;
 import com.google.common.collect.Iterables;
 import com.google.devtools.build.lib.actions.Action.MiddlemanType;
 import com.google.devtools.build.lib.concurrent.ThreadSafety.Immutable;
+import com.google.devtools.build.lib.syntax.ClassObject;
 import com.google.devtools.build.lib.syntax.Label;
 import com.google.devtools.build.lib.util.FileType;
 import com.google.devtools.build.lib.vfs.Path;
@@ -62,7 +63,8 @@ import javax.annotation.Nullable;
  * {@link SpecialArtifact}.
  */
 @Immutable
-public class Artifact implements FileType.HasFilename, Comparable<Artifact>, ActionInput {
+public class Artifact implements FileType.HasFilename, Comparable<Artifact>, ActionInput,
+                      ClassObject {
 
   /** An object that can expand middleman artifacts. */
   public interface MiddlemanExpander {
@@ -652,6 +654,16 @@ public class Artifact implements FileType.HasFilename, Comparable<Artifact>, Act
       PathFragment rootPrefix = trimTail(execPath, rootRel);
       return rootPrefix.getPathString() + ":" + rootRel.getPathString();
     }
+  }
+
+  @Override
+  public Object getValue(String name) {
+    if (name.equals("path")) {
+      return this.getExecPathString();
+    } else if (name.equals("short_path")) {
+      return this.getRootRelativePath().getPathString();
+    }
+    return null;
   }
 
   /**

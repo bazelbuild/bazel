@@ -56,7 +56,7 @@ public final class FileWriteStrategy implements FileWriteActionContext {
   @Override
   public void exec(Executor executor, AbstractFileWriteAction action,
       FileOutErr outErr) throws ExecException, InterruptedException {
-    EventHandler reporter = executor == null ? null : executor.getReporter();
+    EventHandler reporter = executor == null ? null : executor.getEventHandler();
     try {
       Path outputPath = Iterables.getOnlyElement(action.getOutputs()).getPath();
       OutputStream out = new BufferedOutputStream(outputPath.getOutputStream());

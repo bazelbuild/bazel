@@ -14,13 +14,8 @@
 
 package com.google.devtools.build.lib.rules.objc;
 
-import static com.google.devtools.build.lib.packages.ImplicitOutputsFunction.fromFunctions;
-
-import com.google.devtools.build.lib.packages.AttributeMap;
-import com.google.devtools.build.lib.packages.ImplicitOutputsFunction.SafeImplicitOutputsFunction;
 import com.google.devtools.build.lib.packages.RuleClass;
 import com.google.devtools.build.lib.packages.RuleClass.Builder;
-import com.google.devtools.build.lib.vfs.PathFragment;
 import com.google.devtools.build.lib.view.BlazeRule;
 import com.google.devtools.build.lib.view.RuleDefinition;
 import com.google.devtools.build.lib.view.RuleDefinitionEnvironment;
@@ -34,18 +29,6 @@ import com.google.devtools.build.lib.view.RuleDefinitionEnvironment;
                   ObjcRuleClasses.ObjcOptsRule.class,
                   ObjcRuleClasses.ObjcSourcesRule.class })
 public class ObjcLibraryRule implements RuleDefinition {
-  /**
-   * Output that only exists if there is at least one compilable source encapsulated by this rule.
-   */
-  private static final SafeImplicitOutputsFunction COMPILED_LIBRARY =
-      new SafeImplicitOutputsFunction() {
-        @Override
-        public Iterable<String> getImplicitOutputs(AttributeMap map) {
-          return PathFragment.safePathStrings(
-              ObjcRuleClasses.outputAFilePackageRelativePath(map).asSet());
-        }
-      };
-
   @Override
   public RuleClass build(Builder builder, RuleDefinitionEnvironment env) {
     return builder
@@ -55,8 +38,7 @@ public class ObjcLibraryRule implements RuleDefinition {
              used to develop or build on a Mac.</li>
         </ul>
         <!-- #END_BLAZE_RULE.IMPLICIT_OUTPUTS -->*/
-        .setImplicitOutputsFunction(
-            fromFunctions(COMPILED_LIBRARY, ObjcRuleClasses.PBXPROJ))
+        .setImplicitOutputsFunction(ObjcRuleClasses.PBXPROJ)
         .build();
   }
 }

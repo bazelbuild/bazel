@@ -21,6 +21,10 @@ import com.google.devtools.build.lib.collect.nestedset.NestedSetBuilder;
 import com.google.devtools.build.lib.collect.nestedset.Order;
 import com.google.devtools.build.lib.packages.Type;
 import com.google.devtools.build.lib.rules.RuleConfiguredTargetFactory;
+import com.google.devtools.build.lib.rules.test.InstrumentedFilesCollector;
+import com.google.devtools.build.lib.rules.test.InstrumentedFilesCollector.InstrumentationSpec;
+import com.google.devtools.build.lib.rules.test.InstrumentedFilesProvider;
+import com.google.devtools.build.lib.rules.test.InstrumentedFilesProviderImpl;
 import com.google.devtools.build.lib.util.FileTypeSet;
 import com.google.devtools.build.lib.vfs.PathFragment;
 import com.google.devtools.build.lib.view.CompilationHelper;
@@ -31,10 +35,6 @@ import com.google.devtools.build.lib.view.RuleConfiguredTargetBuilder;
 import com.google.devtools.build.lib.view.RuleContext;
 import com.google.devtools.build.lib.view.Runfiles;
 import com.google.devtools.build.lib.view.RunfilesProvider;
-import com.google.devtools.build.lib.view.test.InstrumentedFilesCollector;
-import com.google.devtools.build.lib.view.test.InstrumentedFilesCollector.InstrumentationSpec;
-import com.google.devtools.build.lib.view.test.InstrumentedFilesProvider;
-import com.google.devtools.build.lib.view.test.InstrumentedFilesProviderImpl;
 
 import java.util.Iterator;
 

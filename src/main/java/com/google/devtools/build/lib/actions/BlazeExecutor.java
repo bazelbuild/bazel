@@ -130,7 +130,7 @@ public final class BlazeExecutor implements Executor {
   }
 
   @Override
-  public Reporter getReporter() {
+  public EventHandler getEventHandler() {
     return reporter;
   }
 
@@ -205,7 +205,8 @@ public final class BlazeExecutor implements Executor {
 
   @Override
   public <T extends ActionContext> T getContext(Class<? extends T> type) {
-    Preconditions.checkArgument(type != SpawnActionContext.class);
+    Preconditions.checkArgument(type != SpawnActionContext.class, 
+        "should use getSpawnActionContext instead");
     return type.cast(contextMap.get(type));
   }
 

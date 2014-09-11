@@ -122,6 +122,40 @@ void SplitStringUsing(
   }
 }
 
+vector<string> SplitQuoted(const string &contents, const char delimeter) {
+  vector<string> result;
+  SplitQuotedStringUsing(contents, delimeter, &result);
+  return result;
+}
+
+void SplitQuotedStringUsing(const string &contents, const char delimeter,
+                            std::vector<string> *output) {
+  size_t len = contents.length();
+  size_t start = 0;
+  size_t quote = string::npos;  // quote position
+
+  for (size_t pos = 0; pos < len; ++pos) {
+    if (start == pos && contents[start] == delimeter) {
+      ++start;
+    } else if (contents[pos] == '\\') {
+      ++pos;
+    } else if (quote != string::npos && contents[pos] == contents[quote]) {
+      quote = string::npos;
+    } else if (quote == string::npos &&
+               (contents[pos] == '"' || contents[pos] == '\'')) {
+      quote = pos;
+    } else if (quote == string::npos && contents[pos] == delimeter) {
+      output->push_back(string(contents, start, pos - start));
+      start = pos + 1;
+    }
+  }
+
+  // A trailing element
+  if (start < len) {
+    output->push_back(string(contents, start));
+  }
+}
+
 void Replace(const string &oldsub, const string &newsub, string *str) {
   size_t start = 0;
   // This is O(n^2) (the complexity of erase() is actually unspecified, but

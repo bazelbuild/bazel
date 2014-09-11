@@ -27,16 +27,6 @@ import com.google.devtools.build.lib.vfs.PathFragment;
     doc = "A helper class to extract path from files.")
 public final class SkylarkFileset {
 
-  @SkylarkCallable(doc = "Returns the relative path of this file relative to its root.")
-  public static String rootRelativePath(Artifact artifact) {
-    return artifact.getRootRelativePath().getPathString();
-  }
-
-  @SkylarkCallable(doc = "Returns the execution path of this file.")
-  public static String execPath(Artifact artifact) {
-    return artifact.getExecPathString();
-  }
-
   @SkylarkCallable(doc = "Returns the joint execution paths of these files using the delimiter.")
   public static String joinExecPaths(String delimiter, Iterable<Artifact> artifacts) {
     return Artifact.joinExecPaths(delimiter, artifacts);

@@ -42,7 +42,6 @@ import com.google.devtools.build.lib.view.config.BuildConfiguration;
 import com.google.devtools.build.lib.view.config.BuildOptions;
 import com.google.devtools.build.lib.view.config.CompilationMode;
 import com.google.devtools.build.lib.view.config.InvalidConfigurationException;
-import com.google.devtools.build.lib.view.config.MachineSpecification;
 import com.google.devtools.build.lib.view.config.PerLabelOptions;
 import com.google.devtools.build.lib.view.config.crosstool.CrosstoolConfig;
 import com.google.devtools.build.lib.view.config.crosstool.CrosstoolConfig.LinkingModeFlags;
@@ -1718,11 +1717,6 @@ public class CppConfiguration extends BuildConfiguration.Fragment {
   @Override
   public boolean supportsIncrementalBuild() {
     return !isLipoOptimization();
-  }
-
-  @Override
-  public boolean canRunOn(MachineSpecification host) {
-    return host.canRun(targetSystemName);
   }
 
   @Override

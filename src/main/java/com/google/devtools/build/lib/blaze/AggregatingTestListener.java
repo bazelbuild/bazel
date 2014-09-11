@@ -34,13 +34,13 @@ import com.google.devtools.build.lib.buildtool.buildevent.BuildInterruptedEvent;
 import com.google.devtools.build.lib.buildtool.buildevent.TestFilteringCompleteEvent;
 import com.google.devtools.build.lib.concurrent.ThreadSafety;
 import com.google.devtools.build.lib.events.ExceptionListener;
+import com.google.devtools.build.lib.rules.test.TestProvider;
+import com.google.devtools.build.lib.rules.test.TestResult;
 import com.google.devtools.build.lib.skyframe.LabelAndConfiguration;
 import com.google.devtools.build.lib.syntax.Label;
 import com.google.devtools.build.lib.view.AnalysisFailureEvent;
 import com.google.devtools.build.lib.view.ConfiguredTarget;
 import com.google.devtools.build.lib.view.config.BuildConfiguration;
-import com.google.devtools.build.lib.view.test.TestProvider;
-import com.google.devtools.build.lib.view.test.TestResult;
 import com.google.devtools.build.lib.view.test.TestStatus.BlazeTestStatus;
 
 import java.util.Collection;

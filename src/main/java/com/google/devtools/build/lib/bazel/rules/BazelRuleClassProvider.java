@@ -160,6 +160,7 @@ public class BazelRuleClassProvider {
     builder.addRuleDefinition(BazelCppRuleClasses.CcRule.class);
     builder.addRuleDefinition(BazelCppRuleClasses.CcBinaryBaseRule.class);
     builder.addRuleDefinition(BazelCppRuleClasses.CcBinaryRule.class);
+    builder.addRuleDefinition(BazelCppRuleClasses.CcTestRule.class);
 
     builder.addRuleDefinition(BazelCppRuleClasses.CcLibraryBaseRule.class);
     builder.addRuleDefinition(BazelCppRuleClasses.CcLibraryRule.class);

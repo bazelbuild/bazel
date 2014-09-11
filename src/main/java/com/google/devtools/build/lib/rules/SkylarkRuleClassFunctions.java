@@ -217,6 +217,11 @@ public class SkylarkRuleClassFunctions {
       builder.setPropertyFlag(flag);
     }
 
+    if (arguments.containsKey("mandatory")
+        && cast(arguments.get("mandatory"), Boolean.class, "mandatory", loc)) {
+      builder.setPropertyFlag("MANDATORY");
+    }
+
     if (arguments.containsKey("file_types")) {
       Object fileTypesObj = arguments.get("file_types");
       if (fileTypesObj == FileTypeSet.ANY_FILE || fileTypesObj == FileTypeSet.NO_FILE) {
@@ -264,7 +269,7 @@ public class SkylarkRuleClassFunctions {
           doc = "list of parent rule classes, this rule class inherits all the attributes and "
               + "the impicit outputs of the parent rule classes"),
       @Param(name = "attr", doc = "dictionary mapping an attribute name to an attribute"),
-      @Param(name = "implicit_outputs", doc = "implicit outputs of this rule")})
+      @Param(name = "outputs", doc = "implicit outputs of this rule")})
   private final SkylarkFunction rule = new SkylarkFunction("rule") {
 
         @Override
@@ -289,8 +294,8 @@ public class SkylarkRuleClassFunctions {
             builder.addOrOverrideAttribute(attrBuilder.build());
           }
 
-          if (arguments.containsKey("implicit_outputs")) {
-            final Object implicitOutputs = arguments.get("implicit_outputs");
+          if (arguments.containsKey("outputs")) {
+            final Object implicitOutputs = arguments.get("outputs");
             if (implicitOutputs instanceof UserDefinedFunction) {
               UserDefinedFunction func = (UserDefinedFunction) implicitOutputs;
               final SkylarkCallbackFunction callback =
@@ -299,7 +304,7 @@ public class SkylarkRuleClassFunctions {
                   new SkylarkImplicitOutputsFunctionWithCallback(callback, loc));
             } else {
               builder.setImplicitOutputsFunction(new SkylarkImplicitOutputsFunctionWithMap(
-                  toMap(castMap(arguments.get("implicit_outputs"), String.class, String.class,
+                  toMap(castMap(arguments.get("outputs"), String.class, String.class,
                   "implicit outputs of the rule class"))));
             }
           }

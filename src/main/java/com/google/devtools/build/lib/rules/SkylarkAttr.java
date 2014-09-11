@@ -54,6 +54,7 @@ public final class SkylarkAttr {
       optionalParams = {
       @Param(name = "default", doc = "the default value of the attribute"),
       @Param(name = "flags", type = List.class, doc = ""),
+      @Param(name = "mandatory", type = Boolean.class, doc = ""),
       @Param(name = "cfg", type = String.class, doc = "configuration of the attribute")})
   private static SkylarkFunction integer = new SkylarkFunction("int") {
       @Override
@@ -69,6 +70,7 @@ public final class SkylarkAttr {
       optionalParams = {
       @Param(name = "default", doc = "the default value of the attribute"),
       @Param(name = "flags", type = List.class, doc = ""),
+      @Param(name = "mandatory", type = Boolean.class, doc = ""),
       @Param(name = "cfg", type = String.class, doc = "configuration of the attribute")})
   private static SkylarkFunction string = new SkylarkFunction("string") {
       @Override
@@ -86,6 +88,7 @@ public final class SkylarkAttr {
       @Param(name = "flags", type = List.class, doc = ""),
       @Param(name = "file_types", type = FileTypeSet.class,
           doc = "allowed file types of the label type attribute"),
+      @Param(name = "mandatory", type = Boolean.class, doc = ""),
       @Param(name = "rule_classes", doc = "allowed rule classes of the label type attribute"),
       @Param(name = "cfg", type = String.class, doc = "configuration of the attribute")})
   private static SkylarkFunction label = new SkylarkFunction("label") {
@@ -102,6 +105,7 @@ public final class SkylarkAttr {
       optionalParams = {
       @Param(name = "default", doc = "the default value of the attribute"),
       @Param(name = "flags", type = List.class, doc = ""),
+      @Param(name = "mandatory", type = Boolean.class, doc = ""),
       @Param(name = "cfg", type = String.class, doc = "configuration of the attribute")})
   private static SkylarkFunction stringList = new SkylarkFunction("string_list") {
       @Override
@@ -119,6 +123,7 @@ public final class SkylarkAttr {
       @Param(name = "flags", type = List.class, doc = ""),
       @Param(name = "file_types", type = FileTypeSet.class,
           doc = "allowed file types of the label type attribute"),
+      @Param(name = "mandatory", type = Boolean.class, doc = ""),
       @Param(name = "rule_classes", doc = "allowed rule classes of the label type attribute"),
       @Param(name = "cfg", type = String.class, doc = "configuration of the attribute")})
   private static SkylarkFunction labelList = new SkylarkFunction("label_list") {
@@ -135,6 +140,7 @@ public final class SkylarkAttr {
       optionalParams = {
       @Param(name = "default", doc = "the default value of the attribute"),
       @Param(name = "flags", type = List.class, doc = ""),
+      @Param(name = "mandatory", type = Boolean.class, doc = ""),
       @Param(name = "cfg", type = String.class, doc = "configuration of the attribute")})
   private static SkylarkFunction bool = new SkylarkFunction("bool") {
       @Override
@@ -150,6 +156,7 @@ public final class SkylarkAttr {
       optionalParams = {
       @Param(name = "default", doc = "the default value of the attribute"),
       @Param(name = "flags", type = List.class, doc = ""),
+      @Param(name = "mandatory", type = Boolean.class, doc = ""),
       @Param(name = "cfg", type = String.class, doc = "configuration of the attribute")})
   private static SkylarkFunction outputList = new SkylarkFunction("output_list") {
       @Override
@@ -165,6 +172,7 @@ public final class SkylarkAttr {
       optionalParams = {
       @Param(name = "default", doc = "the default value of the attribute"),
       @Param(name = "flags", type = List.class, doc = ""),
+      @Param(name = "mandatory", type = Boolean.class, doc = ""),
       @Param(name = "cfg", type = String.class, doc = "configuration of the attribute")})
   private static SkylarkFunction license = new SkylarkFunction("license") {
       @Override

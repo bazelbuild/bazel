@@ -22,22 +22,21 @@ def java_library_impl(ctx):
   class_jar = ctx.outputs["class_jar"]
   manifest = ctx.outputs["manifest"]
   jars = jar_filetype.filter(ctx.files("deps", "TARGET"))
-  build_output = Files.exec_path(class_jar) + ".build_output"
+  build_output = class_jar.path + ".build_output"
   java_home = ctx.attr.java_home
   main_class = ctx.attr.main_class
   sources = ctx.files("srcs", "TARGET")
 
-  ctx.create_action(
+  ctx.action(
     inputs = [],
     outputs = [manifest],
     mnemonic = 'manifest',
-    command = ("echo 'Main-Class: " + main_class + "' > " +
-              Files.exec_path(manifest)),
+    command = "echo 'Main-Class: " + main_class + "' > " + manifest.path,
     use_default_shell_env = True)
 
   sources_param_file = ctx.param_file(
       ctx.configuration.bin_dir, class_jar, "-2.params")
-  ctx.create_file_action(
+  ctx.file_action(
       output = sources_param_file,
       content = Files.join_exec_paths("\n", sources),
       executable = False)
@@ -47,15 +46,15 @@ def java_library_impl(ctx):
   # Java compilation
   cmd += ("/usr/bin/javac -classpath " +
          Files.join_exec_paths(":", jars) + " -d " + build_output + " @" +
-         Files.exec_path(sources_param_file) + "\n")
+         sources_param_file.path + "\n")
 
   # TODO(bazel-team): this deploy jar action should be only in binaries
   for jar in jars:
-    cmd += "unzip -qn " + Files.exec_path(jar) + " -d " + build_output + "\n"
-  cmd += ("/usr/bin/jar cmf " + Files.exec_path(manifest) + " " +
-         Files.exec_path(class_jar) + " -C " + build_output + " .\n")
+    cmd += "unzip -qn " + jar.path + " -d " + build_output + "\n"
+  cmd += ("/usr/bin/jar cmf " + manifest.path + " " +
+         class_jar.path + " -C " + build_output + " .\n")
 
-  ctx.create_action(
+  ctx.action(
     inputs = sources + jars + [manifest, sources_param_file],
     outputs = [class_jar],
     mnemonic='Javac',
@@ -72,7 +71,7 @@ java_library = rule(java_library_impl,
        "java_home": Attr.string(),
        "main_class": Attr.string(),
    },
-   implicit_outputs={
+   outputs={
        "class_jar": "lib%{name}.jar",
        "manifest": "%{name}_MANIFEST.MF"
    }

@@ -166,7 +166,7 @@ public final class ConfiguredTargetFactory {
 
     // Visibility, like all package groups, doesn't have a configuration
     NestedSet<PackageSpecification> visibility = convertVisibility(
-        prerequisiteMap, analysisEnvironment.getReporter(), target, null);
+        prerequisiteMap, analysisEnvironment.getEventHandler(), target, null);
     TargetContext targetContext = new TargetContext(analysisEnvironment, target, config,
         prerequisiteMap.get(null), visibility);
     if (target instanceof OutputFile) {
@@ -208,7 +208,7 @@ public final class ConfiguredTargetFactory {
     // Visibility computation and checking is done for every rule.
     RuleContext ruleContext = new RuleContext.Builder(env, rule, configuration,
         ruleClassProvider.getPrerequisiteValidator())
-        .setVisibility(convertVisibility(prerequisiteMap, env.getReporter(), rule, null))
+        .setVisibility(convertVisibility(prerequisiteMap, env.getEventHandler(), rule, null))
         .setPrerequisites(prerequisiteMap)
         .setConfigConditions(configConditions)
         .build();

@@ -20,7 +20,6 @@ import com.google.common.collect.HashBasedTable;
 import com.google.common.collect.ImmutableSet;
 import com.google.common.collect.Table;
 import com.google.devtools.build.lib.bazel.rules.cpp.BazelCppRuleClasses.CppTransition;
-import com.google.devtools.build.lib.events.Event;
 import com.google.devtools.build.lib.events.EventHandler;
 import com.google.devtools.build.lib.packages.AggregatingAttributeMapper;
 import com.google.devtools.build.lib.packages.Attribute.ConfigurationTransition;
@@ -39,7 +38,6 @@ import com.google.devtools.build.lib.view.config.BuildConfigurationKey;
 import com.google.devtools.build.lib.view.config.BuildOptions;
 import com.google.devtools.build.lib.view.config.ConfigurationFactory;
 import com.google.devtools.build.lib.view.config.InvalidConfigurationException;
-import com.google.devtools.build.lib.view.config.MachineSpecification;
 import com.google.devtools.build.lib.view.config.PackageProviderForConfigurations;
 
 import java.util.Collection;
@@ -59,7 +57,6 @@ public class BazelConfigurationCollection implements ConfigurationCollectionFact
   @Nullable
   public BuildConfiguration createConfigurations(
       ConfigurationFactory configurationFactory,
-      MachineSpecification hostMachineSpecification,
       PackageProviderForConfigurations loadedPackageProvider,
       BuildOptions buildOptions,
       Map<String, String> clientEnv,
@@ -86,8 +83,7 @@ public class BazelConfigurationCollection implements ConfigurationCollectionFact
     // Note that this passes in the dataConfiguration, not the target
     // configuration. This is intentional.
     BuildConfiguration hostConfiguration = getHostConfigurationFromRequest(configurationFactory,
-        loadedPackageProvider, clientEnv, dataConfiguration, buildOptions,
-        errorEventListener, hostMachineSpecification);
+        loadedPackageProvider, clientEnv, dataConfiguration, buildOptions);
     if (hostConfiguration == null) {
       return null;
     }
@@ -137,34 +133,16 @@ public class BazelConfigurationCollection implements ConfigurationCollectionFact
   private BuildConfiguration getHostConfigurationFromRequest(
       ConfigurationFactory configurationFactory,
       PackageProviderForConfigurations loadedPackageProvider, Map<String, String> clientEnv,
-      BuildConfiguration requestConfig, BuildOptions buildOptions,
-      EventHandler errorEventListener, MachineSpecification hostMachineSpecification)
+      BuildConfiguration requestConfig, BuildOptions buildOptions)
       throws InvalidConfigurationException {
     BuildConfiguration.Options commonOptions = buildOptions.get(BuildConfiguration.Options.class);
     if (!commonOptions.useDistinctHostConfiguration) {
-      if (!requestConfig.canRunOn(hostMachineSpecification)) {
-        throw new InvalidConfigurationException("Your machine cannot execute tools built for the "
-            + requestConfig + " configuration; specify --distinct_host_configuration to build the "
-            + "tools in a machine-compatible configuration, or use --cpu=piii");
-      }
       return requestConfig;
     } else {
       BuildConfiguration hostConfig = configurationFactory.getHostConfiguration(
           loadedPackageProvider, clientEnv, buildOptions, /*fallback=*/false);
       if (hostConfig == null) {
         return null;
-      }
-      // Check that the user's inputs are sensible. If they are not, retry with a default value.
-      if (!hostConfig.canRunOn(hostMachineSpecification)) {
-        errorEventListener.handle(
-            Event.warn("The host configuration appears to contain settings that "
-                + "are incompatible with the machine the build is run on."));
-        // TODO(bazel-team): Unfortunately, we don't have distinct options for the host
-        // configuration, so for now we fall back to a known configuration. We need to add a full
-        // set of options to control the host configuration and then remove the fallback and fail
-        // with a meaningful error message.
-        hostConfig = configurationFactory.getHostConfiguration(loadedPackageProvider, clientEnv,
-            buildOptions, /*fallback=*/true);
       }
       return hostConfig;
     }

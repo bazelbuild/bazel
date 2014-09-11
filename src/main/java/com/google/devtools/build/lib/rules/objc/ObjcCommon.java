@@ -31,6 +31,7 @@ import com.google.common.annotations.VisibleForTesting;
 import com.google.common.base.Joiner;
 import com.google.common.base.Optional;
 import com.google.common.base.Preconditions;
+import com.google.common.base.Predicates;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.Iterables;
 import com.google.devtools.build.lib.actions.Artifact;
@@ -46,6 +47,8 @@ import com.google.devtools.build.lib.view.config.BuildConfiguration;
 import com.google.devtools.build.xcode.xcodegen.proto.XcodeGenProtos.DependencyControl;
 import com.google.devtools.build.xcode.xcodegen.proto.XcodeGenProtos.TargetControl;
 import com.google.devtools.build.xcode.xcodegen.proto.XcodeGenProtos.XcodeprojBuildSetting;
+
+import java.util.List;
 
 /**
  * Contains information common to multiple objc_* rules, and provides a unified API for extracting
@@ -65,6 +68,10 @@ final class ObjcCommon {
   @VisibleForTesting
   static final String REQUIRES_AT_LEAST_ONE_LIBRARY_OR_SOURCE_FILE = "At least one library "
       + "dependency or source file is required.";
+
+  @VisibleForTesting
+  static final String ABSOLUTE_INCLUDES_PATH_FORMAT =
+      "The path '%s' is absolute, but only relative paths are allowed.";
 
   private final RuleContext context;
   private final AssetCatalogsInfo assetCatalogsInfo;
@@ -107,6 +114,12 @@ final class ObjcCommon {
           String.format(NOT_IN_XCDATAMODEL_DIR_ERROR_FORMAT,
               Joiner.on(" ")
                   .join(Artifact.toExecPaths(xcdatamodelsInfo.getNotInXcdatamodelDir()))));
+    }
+
+    for (PathFragment absoluteInclude :
+        Iterables.filter(ObjcRuleClasses.includes(context), PathFragment.IS_ABSOLUTE)) {
+      context.attributeError(
+          "includes", String.format(ABSOLUTE_INCLUDES_PATH_FORMAT, absoluteInclude));
     }
 
     // TODO(bazel-team): This requirement doesn't make sense in light of libraries that only export
@@ -192,8 +205,24 @@ final class ObjcCommon {
   static Iterable<PathFragment> userHeaderSearchPaths(BuildConfiguration configuration) {
     return ImmutableList.of(
         new PathFragment("."),
-        configuration.getGenfilesFragment(),
-        configuration.getBinFragment());
+        configuration.getGenfilesFragment());
+  }
+
+  static Iterable<PathFragment> headerSearchPaths(RuleContext context) {
+    ImmutableList.Builder<PathFragment> paths = new ImmutableList.Builder<>();
+    PathFragment packageFragment = context.getLabel().getPackageFragment();
+    List<PathFragment> rootFragments = ImmutableList.of(
+        packageFragment,
+        context.getConfiguration().getGenfilesFragment().getRelative(packageFragment));
+
+    Iterable<PathFragment> relativeIncludes =  Iterables.filter(
+        ObjcRuleClasses.includes(context), Predicates.not(PathFragment.IS_ABSOLUTE));
+    for (PathFragment include : relativeIncludes) {
+      for (PathFragment rootFragment : rootFragments) {
+        paths.add(rootFragment.getRelative(include).normalize());
+      }
+    }
+    return paths.build();
   }
 
   /**
@@ -207,7 +236,7 @@ final class ObjcCommon {
 
     ObjcProvider objcProvider = new ObjcProvider.Builder()
         .addAll(HEADER, HDRS.get(context))
-        .addAll(INCLUDE, ObjcRuleClasses.includes(context))
+        .addAll(INCLUDE, headerSearchPaths(context))
         .add(assetCatalogsInfo)
         .addAll(LIBRARY, ObjcRuleClasses.outputAFile(context).asSet())
         .addAll(IMPORTED_LIBRARY, ARCHIVES.get(context))
@@ -239,6 +268,7 @@ final class ObjcCommon {
         .addAll(SRCS.get(context))
         .addAll(HDRS.get(context))
         .addAll(ARCHIVES.get(context))
+        .addAll(BundleableFile.allResourceArtifactsFromRule(context))
         .build();
 
     return new RuleConfiguredTargetBuilder(context)

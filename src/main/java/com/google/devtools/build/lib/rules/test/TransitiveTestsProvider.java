@@ -12,22 +12,14 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-package com.google.devtools.build.lib.exec;
+package com.google.devtools.build.lib.rules.test;
+
+import com.google.devtools.build.lib.concurrent.ThreadSafety.Immutable;
+import com.google.devtools.build.lib.view.TransitiveInfoProvider;
 
 /**
- * This exception gets thrown if there was a problem with parsing a test.xml
- * file.
+ * Marker transitive info provider for test_suite rules to recognize one another.
  */
-class TestXmlOutputParserException extends Exception {
-  public TestXmlOutputParserException(String message, Throwable cause) {
-    super(message, cause);
-  }
-
-  public TestXmlOutputParserException(Throwable cause) {
-    super(cause);
-  }
-
-  public TestXmlOutputParserException(String message) {
-    super(message);
-  }
+@Immutable
+public final class TransitiveTestsProvider implements TransitiveInfoProvider {
 }

@@ -128,11 +128,11 @@ public class FakeCppCompileAction extends CppCompileAction {
     // listed in the "srcs" of the cc_fake_binary or in the "srcs" of a cc_library that it
     // depends on.
     try {
-      validateInclusions(actionExecutionContext.getMiddlemanExpander(), executor.getReporter());
+      validateInclusions(actionExecutionContext.getMiddlemanExpander(), executor.getEventHandler());
     } catch (ActionExecutionException e) {
       // TODO(bazel-team): (2009) make this into an error, once most of the current warnings
       // are fixed.
-      executor.getReporter().handle(Event.warn(
+      executor.getEventHandler().handle(Event.warn(
           getOwner().getLocation(),
           e.getMessage() + ";\n  this warning may eventually become an error"));
     }

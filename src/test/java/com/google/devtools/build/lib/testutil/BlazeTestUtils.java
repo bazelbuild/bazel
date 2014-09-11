@@ -20,12 +20,13 @@ import com.google.devtools.build.lib.blaze.BlazeDirectories;
 import com.google.devtools.build.lib.util.SkyframeMode;
 import com.google.devtools.build.lib.vfs.FileSystemUtils;
 import com.google.devtools.build.lib.vfs.Path;
-import com.google.devtools.build.lib.vfs.PathFragment;
 import com.google.devtools.build.lib.view.config.BinTools;
 
 import java.io.File;
 import java.io.IOException;
+import java.util.ArrayList;
 import java.util.Collection;
+import java.util.List;
 
 /**
  * Some static utility functions for testing Blaze code. In contrast to {@link TestUtils}, these
@@ -66,37 +67,34 @@ public class BlazeTestUtils {
   }
 
   /**
-   * The Bazel zip dumps all of the bin tools in one directory but the integration tests access
-   * these tools by making them data dependencies. Thus, instead of all being in a top-level
-   * directory, they're (mostly) under runfiles/google3/devtools/blaze.
-   *
-   * This copies the tools over to directories' installBase, which is more like the layout from a
-   * normal Bazel install. Integration tests that want to use embedded binaries should call this
-   * instead of calling BinTools.forIntegrationTests directly.
+   * Populates the _embedded_binaries/ directory, containing all binaries/libraries, by symlinking
+   * directories#getEmbeddedBinariesRoot() to the test's runfiles tree.
    */
   public static BinTools getIntegrationBinTools(BlazeDirectories directories) throws IOException {
-    Path embeddedDir = directories.getInstallBase();
-    Path runfiles = embeddedDir.getParentDirectory().getParentDirectory().getRelative("runfiles");
-    try {
-      // Copy over everything in embedded_scripts.
-      Path embeddedScripts = runfiles.getRelative("google3/devtools/blaze/embedded_scripts");
-      Collection<Path> files = embeddedScripts.getDirectoryEntries();
-      for (Path fromFile : files) {
-        Path toFile = embeddedDir.getRelative(fromFile.getBaseName());
-        FileSystemUtils.copyFile(fromFile, toFile);
-      }
+    Path embeddedDir = directories.getEmbeddedBinariesRoot();
+    FileSystemUtils.createDirectoryAndParents(embeddedDir);
 
-      // Copy over stragglers.
-      PathFragment buildInterface = new PathFragment("google3/util/elf/build_interface_so");
-      FileSystemUtils.copyFile(
-          runfiles.getRelative(buildInterface),
-          embeddedDir.getRelative(buildInterface.getBaseName()));
-    } catch (IOException e) {
-      // It's okay if this fails, some tests use in invalid dirs.
-      System.err.println("Could not copy over runfiles: " + e.getMessage());
+    Path runfiles = directories.getFileSystem().getPath(BlazeTestUtils.runfilesDir());
+    List<String> tools = new ArrayList<>();
+    // Copy over everything in embedded_scripts.
+    Path embeddedScripts = runfiles.getRelative("google3/devtools/blaze/embedded_scripts");
+    Collection<Path> files = new ArrayList<Path>();
+    if (embeddedScripts.exists()) {
+      files.addAll(embeddedScripts.getDirectoryEntries());
+    } else {
+      System.err.println("test does not have " + embeddedScripts);
+    }
+    files.add(runfiles.getRelative("google3/util/elf/build_interface_so"));
+
+    for (Path fromFile : files) {
+      tools.add(fromFile.getBaseName());
+      try {
+        embeddedDir.getChild(fromFile.getBaseName()).createSymbolicLink(fromFile);
+      } catch (IOException e) {
+        System.err.println("Could not symlink: " + e.getMessage());
+      }
     }
 
-    // Note: assumes that the test binary is running in its .runfiles directory.
     return BinTools.forIntegrationTesting(
         directories, embeddedDir.toString(), BlazeTestUtils.EMBEDDED_TOOLS);
   }

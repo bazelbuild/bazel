@@ -888,7 +888,7 @@ public class CppCompileAction extends ConfigurationAction implements IncludeScan
     IncludeScanningContext scanningContext = executor.getContext(IncludeScanningContext.class);
     updateActionInputs(executor.getExecRoot(), scanningContext.getArtifactResolver(), reply);
     reply = null; // Clear in-memory .d files early.
-    validateInclusions(actionExecutionContext.getMiddlemanExpander(), executor.getReporter());
+    validateInclusions(actionExecutionContext.getMiddlemanExpander(), executor.getEventHandler());
   }
 
   /**

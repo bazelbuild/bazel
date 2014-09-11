@@ -202,7 +202,9 @@ public final class SkylarkRuleContext implements ClassObject {
   /**
    * See {@link RuleContext#getPrerequisiteArtifact(String, Mode)}.
    */
-  @SkylarkCallable(doc = "")
+  @SkylarkCallable(doc =
+      "Returns the file for the specified attribute and mode. "
+      + "An error is raised if the attribute refers to 0 or multiple files.")
   public Artifact file(String attributeName, String mode) throws FuncallException {
     return ruleContext.getPrerequisiteArtifact(attributeName, convertMode(mode));
   }
@@ -341,8 +343,8 @@ public final class SkylarkRuleContext implements ClassObject {
     }
   }
 
-  @SkylarkCallable(doc = "")
-  public Artifact file(Root root, List<String> pathFragmentStrings) {
+  @SkylarkCallable(doc = "Creates a new file")
+  public Artifact newFile(Root root, List<String> pathFragmentStrings) {
     PathFragment fragment = ruleContext.getLabel().getPackageFragment();
     for (String pathFragmentString : pathFragmentStrings) {
       fragment = fragment.getRelative(pathFragmentString);
@@ -350,10 +352,11 @@ public final class SkylarkRuleContext implements ClassObject {
     return ruleContext.getAnalysisEnvironment().getDerivedArtifact(fragment, root);
   }
 
-  @SkylarkCallable(doc = "")
-  public Artifact paramFile(Root root, Artifact baseArtifact, String name) {
+  @SkylarkCallable(doc =
+      "Creates a new file, derived from the given file and suffix.")
+  public Artifact newFile(Root root, Artifact baseArtifact, String suffix) {
     PathFragment original = baseArtifact.getRootRelativePath();
-    PathFragment fragment = original.replaceName(original.getBaseName() + name);
+    PathFragment fragment = original.replaceName(original.getBaseName() + suffix);
     return ruleContext.getAnalysisEnvironment().getDerivedArtifact(fragment, root);
   }
 

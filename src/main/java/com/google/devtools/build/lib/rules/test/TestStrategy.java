@@ -12,7 +12,7 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-package com.google.devtools.build.lib.exec;
+package com.google.devtools.build.lib.rules.test;
 
 import com.google.common.annotations.VisibleForTesting;
 import com.google.common.io.ByteStreams;
@@ -21,6 +21,8 @@ import com.google.devtools.build.lib.actions.ActionExecutionContext;
 import com.google.devtools.build.lib.actions.ExecException;
 import com.google.devtools.build.lib.actions.Executor;
 import com.google.devtools.build.lib.events.Event;
+import com.google.devtools.build.lib.exec.ExecutionOptions;
+import com.google.devtools.build.lib.exec.SymlinkTreeHelper;
 import com.google.devtools.build.lib.profiler.Profiler;
 import com.google.devtools.build.lib.profiler.ProfilerTask;
 import com.google.devtools.build.lib.util.io.FileWatcher;
@@ -30,10 +32,7 @@ import com.google.devtools.build.lib.vfs.Path;
 import com.google.devtools.build.lib.vfs.PathFragment;
 import com.google.devtools.build.lib.view.config.BinTools;
 import com.google.devtools.build.lib.view.config.BuildConfiguration;
-import com.google.devtools.build.lib.view.test.TestActionContext;
-import com.google.devtools.build.lib.view.test.TestResult;
-import com.google.devtools.build.lib.view.test.TestRunnerAction;
-import com.google.devtools.build.lib.view.test.TestTargetExecutionSettings;
+import com.google.devtools.build.lib.view.test.TestStatus.FailedTestCaseDetails;
 import com.google.devtools.common.options.Converters.RangeConverter;
 import com.google.devtools.common.options.EnumConverter;
 import com.google.devtools.common.options.OptionsClassProvider;
@@ -46,6 +45,8 @@ import java.io.OutputStream;
 import java.util.Arrays;
 import java.util.HashMap;
 import java.util.Map;
+
+import javax.annotation.Nullable;
 
 /**
  * A strategy for executing a {@link TestRunnerAction}.
@@ -217,11 +218,29 @@ public abstract class TestStrategy implements TestActionContext {
   }
 
   /**
+   * Parse a test result XML file into a FailedTestCaseDetails.
+   */
+  @Nullable
+  protected FailedTestCaseDetails parseTestResult(Path resultFile) {
+    /* xml files. We avoid parsing it unnecessarily, since test results can potentially consume
+       a large amount of memory. */
+    if (executionOptions.testSummary != TestSummaryFormat.DETAILED) {
+      return null;
+    }
+  
+    try (InputStream fileStream = resultFile.getInputStream()) {
+      return new TestXmlOutputParser().parseXmlIntoTestResult(fileStream);
+    } catch (IOException | TestXmlOutputParserException e) {
+      return null;
+    }
+  }
+
+  /**
    * For an given environment, returns a subset containing all variables in the given list if they
    * are defined in the given environment.
    */
   @VisibleForTesting
-  static Map<String, String> getMapping(Iterable<String> variables,
+  public static Map<String, String> getMapping(Iterable<String> variables,
       Map<String, String> environment) {
     Map<String, String> result = new HashMap<>();
     for (String var : variables) {
@@ -288,14 +307,14 @@ public abstract class TestStrategy implements TestActionContext {
       // Ignore it - we will just try to create runfiles directory.
     }
 
-    executor.getReporter().handle(Event.progress(
+    executor.getEventHandler().handle(Event.progress(
         "Building runfiles directory for '" + execSettings.getExecutable().prettyPrint() + "'."));
 
     new SymlinkTreeHelper(execSettings.getManifest().getExecPath(),
         runfilesDir.relativeTo(executor.getExecRoot()), /* filesetTree= */
         false).createSymlinks(testAction, actionExecutionContext, binTools);
 
-    executor.getReporter().handle(Event.progress(testAction.getProgressMessage()));
+    executor.getEventHandler().handle(Event.progress(testAction.getProgressMessage()));
   }
 
   /**

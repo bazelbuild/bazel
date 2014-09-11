@@ -14,6 +14,9 @@
 
 package com.google.devtools.build.lib.rules.objc;
 
+import static com.google.devtools.build.lib.collect.nestedset.Order.LINK_ORDER;
+import static com.google.devtools.build.lib.collect.nestedset.Order.STABLE_ORDER;
+
 import com.google.common.base.Preconditions;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
@@ -46,15 +49,15 @@ final class ObjcProvider implements TransitiveInfoProvider {
     }
   }
 
-  public static final Key<Artifact> LIBRARY = new Key<>(Order.STABLE_ORDER);
-  public static final Key<Artifact> IMPORTED_LIBRARY = new Key<>(Order.STABLE_ORDER);
-  public static final Key<Artifact> HEADER = new Key<>(Order.STABLE_ORDER);
-  public static final Key<PathFragment> INCLUDE = new Key<>(Order.LINK_ORDER);
-  public static final Key<Artifact> ASSET_CATALOG = new Key<>(Order.STABLE_ORDER);
-  public static final Key<BundleableFile> BUNDLE_FILE = new Key<>(Order.STABLE_ORDER);
-  public static final Key<PathFragment> XCASSETS_DIR = new Key<>(Order.STABLE_ORDER);
-  public static final Key<SdkFramework> SDK_FRAMEWORK = new Key<>(Order.STABLE_ORDER);
-  public static final Key<Xcdatamodel> XCDATAMODEL = new Key<>(Order.STABLE_ORDER);
+  public static final Key<Artifact> LIBRARY = new Key<>(LINK_ORDER);
+  public static final Key<Artifact> IMPORTED_LIBRARY = new Key<>(LINK_ORDER);
+  public static final Key<Artifact> HEADER = new Key<>(STABLE_ORDER);
+  public static final Key<PathFragment> INCLUDE = new Key<>(LINK_ORDER);
+  public static final Key<Artifact> ASSET_CATALOG = new Key<>(STABLE_ORDER);
+  public static final Key<BundleableFile> BUNDLE_FILE = new Key<>(STABLE_ORDER);
+  public static final Key<PathFragment> XCASSETS_DIR = new Key<>(STABLE_ORDER);
+  public static final Key<SdkFramework> SDK_FRAMEWORK = new Key<>(STABLE_ORDER);
+  public static final Key<Xcdatamodel> XCDATAMODEL = new Key<>(STABLE_ORDER);
 
   private final ImmutableMap<Key<?>, NestedSet<?>> items;
 

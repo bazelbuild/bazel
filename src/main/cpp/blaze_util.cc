@@ -42,6 +42,7 @@ void die(const int exit_status, const char *format, ...) {
   va_start(ap, format);
   vfprintf(stderr, format, ap);
   va_end(ap);
+  fputc('\n', stderr);
   exit(exit_status);
 }
 
@@ -232,7 +233,7 @@ bool GetNullaryOption(const char *arg, const char *key) {
     return false;
   } else if (value[0] == '=') {
     die(blaze_exit_code::BAD_ARGV,
-        "In argument '%s': option '%s' does not take a value.\n", arg, key);
+        "In argument '%s': option '%s' does not take a value.", arg, key);
   } else if (value[0]) {
     return false;  // trailing garbage in key name
   }
@@ -247,7 +248,7 @@ void CheckValidPortOrDie(const string& str, const string& option) {
   }
 
   die(blaze_exit_code::BAD_ARGV,
-      "Invalid argument to %s: '%s' (must be a valid port number).\n",
+      "Invalid argument to %s: '%s' (must be a valid port number).",
       option.c_str(), str.c_str());
 }
 

@@ -30,9 +30,9 @@ def resolve_command(ctx, command, resolved_srcs, files_to_build):
   variables = {"SRCS": Files.join_exec_paths(" ", resolved_srcs),
                "OUTS": Files.join_exec_paths(" ", files_to_build)}
   if len(resolved_srcs) == 1:
-    variables["<"] = Files.exec_path(resolved_srcs.to_collection()[0])
+    variables["<"] = resolved_srcs.to_collection()[0].path
   if len(files_to_build) == 1:
-    variables["@"] = Files.exec_path(files_to_build.to_collection()[0])
+    variables["@"] = files_to_build.to_collection()[0].path
   return ctx.expand_make_variables("cmd", command, variables)
 
 
@@ -54,7 +54,7 @@ def create(ctx):
     resolved_srcs += files
     label_dict[dep.label] = files
 
-  command_helper = ctx.create_command_helper(
+  command_helper = ctx.command_helper(
       tools=ctx.targets("tools", "HOST", "FilesToRunProvider"),
       label_dict=label_dict)
 
@@ -81,12 +81,12 @@ def create(ctx):
 
   # TODO(bazel_team): Maybe implement stamp attribute?
 
-  ctx.create_action(inputs=resolved_srcs,
-                    outputs=files_to_build,
-                    env=env,
-                    command=argv,
-                    progress_message="%s %s" % (message, ctx),
-                    mnemonic="Genrule")
+  ctx.action(inputs=resolved_srcs,
+             outputs=files_to_build,
+             env=env,
+             command=argv,
+             progress_message="%s %s" % (message, ctx),
+             mnemonic="Genrule")
 
   # TODO(bazel_team): Implement and add Instrumented files collector?
 
@@ -107,8 +107,8 @@ genrule_skylark = rule(implementation=create,
      attr={
          "srcs": Attr.label_list(flags=["DIRECT_COMPILE_TIME_INPUT"]),
          "tools": Attr.label_list(cfg=HOST_CFG),
-         "outs": Attr.output_list(flags=["MANDATORY"]),
-         "cmd": Attr.string(flags=["MANDATORY"]),
+         "outs": Attr.output_list(mandatory=True),
+         "cmd": Attr.string(mandatory=True),
          "message": Attr.string(),
          "output_licenses": Attr.license(),
          "executable": Attr.bool(default=False),

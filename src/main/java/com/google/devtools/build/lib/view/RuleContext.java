@@ -341,11 +341,11 @@ public final class RuleContext extends TargetContext
   }
 
   private void reportError(Location location, String message) {
-    getAnalysisEnvironment().getReporter().handle(Event.error(location, message));
+    getAnalysisEnvironment().getEventHandler().handle(Event.error(location, message));
   }
 
   private void reportWarning(Location location, String message) {
-    getAnalysisEnvironment().getReporter().handle(Event.warn(location, message));
+    getAnalysisEnvironment().getEventHandler().handle(Event.warn(location, message));
   }
 
   /**
@@ -1196,7 +1196,7 @@ public final class RuleContext extends TargetContext
     }
 
     public void reportError(Location location, String message) {
-      env.getReporter().handle(Event.error(location, message));
+      env.getEventHandler().handle(Event.error(location, message));
     }
 
     public void ruleError(String message) {
@@ -1208,11 +1208,11 @@ public final class RuleContext extends TargetContext
     }
 
     public void reportWarning(Location location, String message) {
-      env.getReporter().handle(Event.warn(location, message));
+      env.getEventHandler().handle(Event.warn(location, message));
     }
 
     public void ruleWarning(String message) {
-      env.getReporter().handle(Event.warn(rule.getLocation(), prefixRuleMessage(message)));
+      env.getEventHandler().handle(Event.warn(rule.getLocation(), prefixRuleMessage(message)));
     }
 
     public void attributeWarning(String attrName, String message) {

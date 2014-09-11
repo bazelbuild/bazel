@@ -64,7 +64,7 @@ void OptionProcessor::RcFile::Parse(
   if (!ReadFile(filename, &contents)) {
     // We checked for file readability before, so this is unexpected.
     die(blaze_exit_code::INTERNAL_ERROR,
-        "Unexpected error reading .blazerc file '%s'\n", filename.c_str());
+        "Unexpected error reading .blazerc file '%s'", filename.c_str());
   }
 
   // A '\' at the end of a line continues the line.
@@ -100,7 +100,7 @@ void OptionProcessor::RcFile::Parse(
     if (command == "import") {
       if (words.size() != 2) {
         die(blaze_exit_code::BAD_ARGV,
-            "Invalid import declaration in .blazerc file '%s': '%s'\n",
+            "Invalid import declaration in .blazerc file '%s': '%s'",
             filename.c_str(), lines[line].c_str());
       }
 
@@ -171,7 +171,7 @@ string OptionProcessor::FindUserBlazerc(const char* cmdLineRcFile,
     string rcFile = MakeAbsolute(cmdLineRcFile);
     if (access(rcFile.c_str(), R_OK)) {
       die(blaze_exit_code::BAD_ARGV,
-          "Error: Unable to read .blazerc file '%s'.\n", rcFile.c_str());
+          "Error: Unable to read .blazerc file '%s'.", rcFile.c_str());
     }
     return rcFile;
   }

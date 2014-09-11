@@ -29,9 +29,9 @@ import static com.google.devtools.build.lib.rules.cpp.CppFileTypes.SHARED_LIBRAR
 import static com.google.devtools.build.lib.rules.cpp.CppFileTypes.VERSIONED_SHARED_LIBRARY;
 
 import com.google.devtools.build.lib.packages.ImplicitOutputsFunction.SafeImplicitOutputsFunction;
+import com.google.devtools.build.lib.rules.test.InstrumentedFilesCollector.InstrumentationSpec;
 import com.google.devtools.build.lib.util.FileTypeSet;
 import com.google.devtools.build.lib.view.LanguageDependentFragment.LibraryLanguage;
-import com.google.devtools.build.lib.view.test.InstrumentedFilesCollector.InstrumentationSpec;
 
 /**
  * Rule class definitions for C++ rules.
