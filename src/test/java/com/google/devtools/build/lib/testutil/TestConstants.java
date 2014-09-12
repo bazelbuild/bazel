@@ -23,6 +23,19 @@ public class TestConstants {
   private TestConstants() {
   }
 
+  /**
+   * A list of all embedded binaries that go into the regular Bazel binary.
+   */
+  public static final ImmutableList<String> EMBEDDED_TOOLS = ImmutableList.of(
+      "build-runfiles",
+      "process-wrapper",
+      "build_interface_so");
+
+  /**
+   * Location in the bazel repo where embedded binaries come from.
+   */
+  public static final String EMBEDDED_SCRIPTS_PATH = "DOES-NOT-WORK-YET";
+
   public static final String TEST_RULE_CLASS_PROVIDER =
       "com.google.devtools.build.lib.bazel.rules.BazelRuleClassProvider";
   public static final ImmutableList<String> IGNORED_MESSAGE_PREFIXES = ImmutableList.<String>of();

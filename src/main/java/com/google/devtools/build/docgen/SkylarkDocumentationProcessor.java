@@ -21,11 +21,8 @@ import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.Iterables;
 import com.google.devtools.build.docgen.SkylarkJavaInterfaceExplorer.SkylarkModuleDoc;
 import com.google.devtools.build.lib.packages.MethodLibrary;
-import com.google.devtools.build.lib.rules.SkylarkAttr;
-import com.google.devtools.build.lib.rules.SkylarkCommandLine;
-import com.google.devtools.build.lib.rules.SkylarkRuleClassFunctions;
+import com.google.devtools.build.lib.rules.SkylarkModules;
 import com.google.devtools.build.lib.rules.SkylarkRuleContext;
-import com.google.devtools.build.lib.rules.SkylarkRuleImplementationFunctions;
 import com.google.devtools.build.lib.syntax.Environment;
 import com.google.devtools.build.lib.syntax.EvalUtils;
 import com.google.devtools.build.lib.syntax.SkylarkBuiltin;
@@ -203,30 +200,16 @@ public class SkylarkDocumentationProcessor {
     Map<String, SkylarkModuleDoc> modules = new HashMap<>();
     collectBuiltinDoc(modules, Environment.class.getDeclaredFields());
     collectBuiltinDoc(modules, MethodLibrary.class.getDeclaredFields());
-    collectBuiltinDoc(modules, SkylarkRuleClassFunctions.class.getDeclaredFields());
-    collectBuiltinDoc(modules, SkylarkRuleImplementationFunctions.class.getDeclaredFields());
-    collectBuiltinDoc(modules, SkylarkAttr.class.getDeclaredFields());
-    collectBuiltinDoc(modules, SkylarkCommandLine.class.getDeclaredFields());
+    for (Class<?> moduleClass : SkylarkModules.MODULES) {
+      collectBuiltinDoc(modules, moduleClass.getDeclaredFields());
+    }
     return modules;
   }
 
   private Map<SkylarkModule, Class<?>> collectBuiltinJavaObjects() {
     Map<SkylarkModule, Class<?>> modules = new HashMap<>();
     collectBuiltinModule(modules, SkylarkRuleContext.class);
-    collectBuiltinModule(modules,
-        SkylarkRuleImplementationFunctions.JAVA_OBJECTS_TO_EXPOSE.values());
-    collectBuiltinModule(modules, SkylarkRuleClassFunctions.JAVA_OBJECTS_TO_EXPOSE.values());
     return modules;
-  }
-
-  private void collectBuiltinModule(
-      Map<SkylarkModule, Class<?>> modules, Iterable<Object> candidates) {
-    for (Object obj : candidates) {
-      if (obj instanceof Class<?>) {
-        Class<?> classObj = (Class<?>) obj;
-        collectBuiltinModule(modules, classObj);
-      }
-    }
   }
 
   private void collectBuiltinModule(

@@ -13,6 +13,7 @@
 // limitations under the License.
 package com.google.devtools.build.skyframe;
 
+import com.google.common.annotations.VisibleForTesting;
 import com.google.common.base.Function;
 import com.google.common.base.Preconditions;
 import com.google.common.base.Predicates;
@@ -33,7 +34,8 @@ public class CycleInfo implements Serializable {
   private final ImmutableList<SkyKey> cycle;
   private final ImmutableList<SkyKey> pathToCycle;
 
-  CycleInfo(Iterable<SkyKey> cycle) {
+  @VisibleForTesting
+  public CycleInfo(Iterable<SkyKey> cycle) {
     this(ImmutableList.<SkyKey>of(), cycle);
   }
 

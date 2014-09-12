@@ -22,10 +22,7 @@ import com.google.devtools.build.lib.events.Location;
 import com.google.devtools.build.lib.packages.Type;
 import com.google.devtools.build.lib.packages.Type.ConversionException;
 import com.google.devtools.build.lib.syntax.EvalException.EvalExceptionWithJavaCause;
-import com.google.devtools.build.lib.syntax.SkylarkType.SkylarkFunctionType;
 
-import java.lang.reflect.Field;
-import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.Map.Entry;
@@ -191,71 +188,6 @@ public abstract class SkylarkFunction extends AbstractFunction {
         IllegalStateException,
         ClassCastException,
         ExecutionException;
-  }
-
-  /**
-   * Collects the SkylarkFunctions from the fields of the class of the object parameter
-   * and adds them into the builder.
-   */
-  public static void collectSkylarkFunctionsFromFields(
-      Class<?> type, Object object, ImmutableList.Builder<Function> builder) {
-    for (Field field : type.getDeclaredFields()) {
-      if (SkylarkFunction.class.isAssignableFrom(field.getType())
-          && field.isAnnotationPresent(SkylarkBuiltin.class)) {
-        try {
-          field.setAccessible(true);
-          SkylarkFunction function = (SkylarkFunction) field.get(object);
-          SkylarkBuiltin annotation = field.getAnnotation(SkylarkBuiltin.class);
-          // TODO(bazel-team): we need this because of the static functions. We need
-          // static functions because of the testing. The tests use a mixture of Skylark
-          // and non Skylark rules. this causes the problem. As soon as we have only
-          // Skylark rules in the SkylarkTests we can clean this up.
-          if (!function.isConfigured()) {
-            function.configure(annotation);
-          }
-          builder.add(function);
-        } catch (IllegalArgumentException | IllegalAccessException e) {
-          // This should never happen.
-          throw new RuntimeException(e);
-        }
-      }
-    }
-  }
-
-  /**
-   * Collects the SkylarkFunctions from the fields of the class of the object parameter
-   * and adds their class and their corresponding return value to the builder.
-   */
-  public static void collectSkylarkFunctionReturnTypesFromFields(Class<?> classObject,
-      Map<SkylarkType, Map<String, SkylarkType>> builtIn) {
-    for (Field field : classObject.getDeclaredFields()) {
-      if (SkylarkFunction.class.isAssignableFrom(field.getType())
-          && field.isAnnotationPresent(SkylarkBuiltin.class)) {
-        try {
-          field.setAccessible(true);
-          SkylarkBuiltin annotation = field.getAnnotation(SkylarkBuiltin.class);
-          // TODO(bazel-team): infer the correct types.
-          SkylarkType objectType = annotation.objectType().equals(Object.class)
-              ? SkylarkType.GLOBAL
-              : SkylarkType.of(annotation.objectType());
-          if (!builtIn.containsKey(objectType)) {
-            builtIn.put(objectType, new HashMap<String, SkylarkType>());
-          }
-          // TODO(bazel-team): add parameters to SkylarkFunctionType
-          SkylarkType returnType = getReturnType(annotation);
-          builtIn.get(objectType).put(annotation.name(),
-              SkylarkFunctionType.of(annotation.name(), returnType));
-        } catch (IllegalArgumentException e) {
-          // This should never happen.
-          throw new RuntimeException(e);
-        }
-      }
-    }
-  }
-
-  private static SkylarkType getReturnType(SkylarkBuiltin annotation) {
-    return annotation.returnType().equals(Object.class)
-        ? SkylarkType.UNKNOWN : SkylarkType.of(annotation.returnType());
   }
 
   public static <TYPE> Iterable<TYPE> castList(

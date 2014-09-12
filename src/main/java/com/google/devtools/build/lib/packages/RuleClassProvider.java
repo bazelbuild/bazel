@@ -29,7 +29,8 @@ public interface RuleClassProvider {
   Map<String, RuleClass> getRuleClassMap();
 
   /**
-   * Returns a new Skylark Environment instance for rule creation.
+   * Returns a new Skylark Environment instance for rule creation. Implementations need to be
+   * thread safe.
    */
   SkylarkEnvironment createSkylarkRuleClassEnvironment();
 

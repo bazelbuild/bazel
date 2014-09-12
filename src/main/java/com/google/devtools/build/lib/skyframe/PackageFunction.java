@@ -14,6 +14,8 @@
 package com.google.devtools.build.lib.skyframe;
 
 import com.google.common.base.Preconditions;
+import com.google.common.collect.ImmutableCollection;
+import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.ImmutableSet;
 import com.google.common.collect.Iterables;
@@ -24,6 +26,7 @@ import com.google.devtools.build.lib.events.Event;
 import com.google.devtools.build.lib.events.EventHandler;
 import com.google.devtools.build.lib.events.Location;
 import com.google.devtools.build.lib.events.Reporter;
+import com.google.devtools.build.lib.events.StoredEventHandler;
 import com.google.devtools.build.lib.packages.BuildFileContainsErrorsException;
 import com.google.devtools.build.lib.packages.BuildFileNotFoundException;
 import com.google.devtools.build.lib.packages.CachingPackageLocator;
@@ -35,8 +38,11 @@ import com.google.devtools.build.lib.packages.PackageLoadedEvent;
 import com.google.devtools.build.lib.packages.RuleVisibility;
 import com.google.devtools.build.lib.packages.Target;
 import com.google.devtools.build.lib.skyframe.GlobValue.InvalidGlobPatternException;
+import com.google.devtools.build.lib.skyframe.SkylarkImportLookupFunction.SkylarkImportNotFoundException;
+import com.google.devtools.build.lib.syntax.BuildFileAST;
 import com.google.devtools.build.lib.syntax.Label;
 import com.google.devtools.build.lib.syntax.ParserInputSource;
+import com.google.devtools.build.lib.syntax.SkylarkEnvironment;
 import com.google.devtools.build.lib.syntax.Statement;
 import com.google.devtools.build.lib.util.Clock;
 import com.google.devtools.build.lib.util.JavaClock;
@@ -52,6 +58,7 @@ import com.google.devtools.build.skyframe.ValueOrException;
 
 import java.io.IOException;
 import java.util.Collection;
+import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.Map.Entry;
@@ -200,17 +207,6 @@ public class PackageFunction implements SkyFunction {
       Package pkg, Environment env, Collection<Pair<String, Boolean>> globPatterns)
           throws InconsistentFilesystemException {
     boolean packageShouldBeInError = pkg.containsErrors();
-    // TODO(bazel-team): The transitive closure of Skylark modules handled monolithically.
-    // This is not efficient. Create Skyframe nodes for every module.
-    Set<SkyKey> skylarkExtensionDepKeys = Sets.newHashSet();
-    for (PathFragment extensionPathFragment : pkg.getSkylarkExtensions()) {
-      SkyKey skylarkExtensionSkyKey = FileValue.key(
-          RootedPath.toRootedPath(pkg.getSkylarkRoot(), extensionPathFragment));
-      skylarkExtensionDepKeys.add(skylarkExtensionSkyKey);
-    }
-
-    packageShouldBeInError = markFileDepsAndPropagateInconsistentFilesystemExceptions(
-        skylarkExtensionDepKeys, env, pkg.containsErrors());
 
     // TODO(bazel-team): This means that many packages will have to be preprocessed twice. Ouch!
     // We need a better continuation mechanism to avoid repeating work. [skyframe-loading]
@@ -352,9 +348,33 @@ public class PackageFunction implements SkyFunction {
     if (astLookupValue == null) {
       return null;
     }
+    List<Statement> preludeStatements = astLookupValue == ASTLookupValue.NO_FILE
+        ? ImmutableList.<Statement>of() : astLookupValue.getAST().getStatements();
 
-    Package.LegacyBuilder legacyPkgBuilder = loadPackage(replacementContents, packageName,
-        buildFilePath, defaultVisibility, astLookupValue.getStatements());
+    // Load the BUILD file AST and handle Skylark dependencies. This way BUILD files are
+    // only loaded twice if there are unavailable Skylark or package dependencies or an
+    // IOException occurs. Note that the BUILD files are still parsed two times.
+    ParserInputSource inputSource;
+    try {
+      if (showLoadingProgress.get() && !packageFunctionCache.containsKey(packageName)) {
+        // TODO(bazel-team): don't duplicate the loading message if there are unavailable
+        // Skylark dependencies.
+        reporter.handle(Event.progress("Loading package: " + packageName));
+      }
+      inputSource = ParserInputSource.create(buildFilePath);
+    } catch (IOException e) {
+      env.getListener().handle(Event.error(Location.fromFile(buildFilePath), e.getMessage()));
+      throw new PackageFunctionException(key, new BuildFileContainsErrorsException(
+          packageName, e.getMessage()));
+    }
+    Map<PathFragment, SkylarkEnvironment> imports =
+        loadBuildFileAST(preludeStatements, inputSource, key, packageName, env);
+    if (imports == null) {
+      return null;
+    }
+
+    Package.LegacyBuilder legacyPkgBuilder = loadPackage(inputSource, replacementContents,
+        packageName, buildFilePath, defaultVisibility, preludeStatements, imports);
     legacyPkgBuilder.buildPartial();
     handleLabelsCrossingSubpackages(packageLookupValue.getRoot(), packageNameFragment,
         legacyPkgBuilder, env);
@@ -388,6 +408,41 @@ public class PackageFunction implements SkyFunction {
           "Package '" + packageName + "' contains errors"));
     }
     return new PackageValue(pkg);
+  }
+
+  private Map<PathFragment, SkylarkEnvironment> loadBuildFileAST(
+      List<Statement> preludeStatements, ParserInputSource inputSource,
+      SkyKey key, String packageName, Environment env) throws PackageFunctionException {
+    StoredEventHandler eventHandler = new StoredEventHandler();
+    BuildFileAST buildFileAST = BuildFileAST.parseBuildFile(
+          inputSource, preludeStatements, eventHandler, packageLocator, false);
+
+    if (eventHandler.hasErrors()) {
+      // Ignore error messages here, they will happen again when we load the BUILD file later
+      // in the PackageFactory.
+      return ImmutableMap.<PathFragment, SkylarkEnvironment>of();
+    }
+
+    ImmutableCollection<PathFragment> imports = buildFileAST.getImports();
+    Map<PathFragment, SkylarkEnvironment> importMap = new HashMap<>();
+    try {
+      for (PathFragment importFile : imports) {
+        SkyKey importsLookupKey = SkylarkImportLookupValue.key(importFile);
+        SkylarkImportLookupValue importLookupValue = (SkylarkImportLookupValue)
+            env.getValueOrThrow(importsLookupKey, SkylarkImportNotFoundException.class);
+        if (importLookupValue != null) {
+          importMap.put(importFile, importLookupValue.getImportedEnvironment());
+        }
+      }
+    } catch (SkylarkImportNotFoundException e) {
+      throw new PackageFunctionException(key,
+          new BuildFileContainsErrorsException(packageName, e.getMessage()));
+    }
+    if (env.valuesMissing()) {
+      // There are unavailable Skylark dependencies.
+      return null;
+    }
+    return importMap;
   }
 
   @Nullable
@@ -471,22 +526,19 @@ public class PackageFunction implements SkyFunction {
    * Constructs a {@link Package} object for the given package using legacy package loading.
    * Note that the returned package may be in error.
    */
-  private Package.LegacyBuilder loadPackage(@Nullable String replacementContents,
+  private Package.LegacyBuilder loadPackage(ParserInputSource inputSource,
+      @Nullable String replacementContents,
       String packageName, Path buildFilePath, RuleVisibility defaultVisibility,
-      List<Statement> preludeStatements) throws InterruptedException {
+      List<Statement> preludeStatements, Map<PathFragment, SkylarkEnvironment> imports)
+          throws InterruptedException {
     ParserInputSource replacementSource = replacementContents == null ? null
         : ParserInputSource.create(replacementContents, buildFilePath);
-
     Package.LegacyBuilder pkgBuilder = packageFunctionCache.get(packageName);
     if (pkgBuilder == null) {
-      if (showLoadingProgress.get()) {
-        reporter.handle(Event.progress("Loading package: " + packageName));
-      }
-
       Clock clock = new JavaClock();
       long startTime = clock.nanoTime();
       pkgBuilder = packageFactory.createPackage(packageName, buildFilePath, preludeStatements,
-          packageLocator, replacementSource, defaultVisibility);
+          inputSource, imports, packageLocator, replacementSource, defaultVisibility);
 
       if (eventBus.get() != null) {
         eventBus.get().post(new PackageLoadedEvent(packageName,

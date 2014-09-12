@@ -325,7 +325,8 @@ public final class CcCommon {
     }
     for (FileProvider provider : providers) {
       for (Artifact artifact : FileType.filter(provider.getFilesToBuild(), SOURCE_TYPES)) {
-        if (!processHeaders && CppFileTypes.CPP_HEADER.matches(artifact.getPath())) {
+        if ((CppFileTypes.CPP_HEADER.matches(artifact.getPath()) && !processHeaders)
+            || CppFileTypes.CPP_TEXTUAL_INCLUDE.matches(artifact.getPath())) {
           continue;
         }
         Label oldLabel = map.put(artifact, provider.getLabel());

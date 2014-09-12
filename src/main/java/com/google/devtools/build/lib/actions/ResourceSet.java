@@ -46,7 +46,7 @@ public class ResourceSet {
    * workstation.
    */
   private final double ioUsage;
-
+  
   public ResourceSet(double memoryMb, double cpuUsage, double ioUsage) {
     this.memoryMb = memoryMb;
     this.cpuUsage = cpuUsage;

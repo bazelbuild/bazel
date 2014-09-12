@@ -15,14 +15,11 @@ package com.google.devtools.build.lib.rules;
 
 import static com.google.devtools.build.lib.syntax.SkylarkFunction.cast;
 
-import com.google.common.annotations.VisibleForTesting;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 import com.google.devtools.build.lib.actions.Artifact;
-import com.google.devtools.build.lib.collect.CollectionUtils;
 import com.google.devtools.build.lib.collect.nestedset.NestedSet;
 import com.google.devtools.build.lib.events.Location;
-import com.google.devtools.build.lib.packages.MethodLibrary;
 import com.google.devtools.build.lib.packages.Type.ConversionException;
 import com.google.devtools.build.lib.syntax.AbstractFunction;
 import com.google.devtools.build.lib.syntax.Environment;
@@ -34,13 +31,9 @@ import com.google.devtools.build.lib.syntax.Label;
 import com.google.devtools.build.lib.syntax.PositionalFunction;
 import com.google.devtools.build.lib.syntax.SkylarkBuiltin;
 import com.google.devtools.build.lib.syntax.SkylarkBuiltin.Param;
-import com.google.devtools.build.lib.syntax.SkylarkEnvironment;
 import com.google.devtools.build.lib.syntax.SkylarkFunction;
 import com.google.devtools.build.lib.syntax.SkylarkFunction.SimpleSkylarkFunction;
 import com.google.devtools.build.lib.syntax.SkylarkNestedSet;
-import com.google.devtools.build.lib.syntax.SkylarkType;
-import com.google.devtools.build.lib.syntax.SkylarkType.SkylarkFunctionType;
-import com.google.devtools.build.lib.syntax.ValidationEnvironment;
 import com.google.devtools.build.lib.vfs.PathFragment;
 import com.google.devtools.build.lib.view.CommandHelper;
 import com.google.devtools.build.lib.view.FilesToRunProvider;
@@ -55,7 +48,6 @@ import com.google.devtools.build.lib.view.actions.SpawnAction;
 import com.google.devtools.build.lib.view.actions.TemplateExpansionAction;
 import com.google.devtools.build.lib.view.actions.TemplateExpansionAction.Substitution;
 
-import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.concurrent.ExecutionException;
@@ -73,25 +65,6 @@ public class SkylarkRuleImplementationFunctions {
 
   @SkylarkBuiltin(name = "DATA", doc = "The data runfiles collection state.")
   private static final Object dataState = RunfilesProvider.DATA_RUNFILES;
-
-  public static final Map<String, Object> JAVA_OBJECTS_TO_EXPOSE =
-      new ImmutableMap.Builder<String, Object>()
-          .put("Files", SkylarkFileset.class)
-          // TODO(bazel-team): Check the Skylark environment for duplicate symbols,
-          // also these symbols should be protected from being overwritten.
-          .put("DEFAULT", defaultState)
-          .put("DATA", dataState)
-          .put("Cmd", SkylarkCommandLine.module)
-          .build();
-
-  private static ImmutableList<Function> getBuiltinFunctions() {
-    ImmutableList.Builder<Function> builtInFunctionsBuilder = ImmutableList.<Function>builder()
-        .add(preconditionCheckState)
-        .add(getProvider);
-    SkylarkFunction.collectSkylarkFunctionsFromFields(
-        SkylarkRuleImplementationFunctions.class, null, builtInFunctionsBuilder);
-    return builtInFunctionsBuilder.build();
-  }
 
   // TODO(bazel-team): add all the remaining parameters
   // TODO(bazel-team): merge executable and arguments
@@ -422,76 +395,4 @@ public class SkylarkRuleImplementationFunctions {
               ImmutableMap.copyOf((Map<Label, Iterable<Artifact>>) params.get("label_dict")));
         }
       };
-
-  public static void updateEnvironment(SkylarkEnvironment env) {
-    for (Function function : SkylarkRuleImplementationFunctions.getBuiltinFunctions()) {
-      if (function.getObjectType() != null) {
-        env.registerFunction(function.getObjectType(), function.getName(), function);
-      } else {
-        env.update(function.getName(), function);
-      }
-    }
-    for (Map.Entry<String, Object> entry : JAVA_OBJECTS_TO_EXPOSE.entrySet()) {
-      env.update(entry.getKey(), entry.getValue());
-    }
-  }
-
-  public static SkylarkEnvironment getNewEnvironment(SkylarkRuleContext context) {
-    // The rule definition environment is needed because of the helper functions and constants
-    // defined there. However the rule definition environment is shared between rules
-    // of the same type, so it needs to be cloned to avoid conflicts. Note that Skylark
-    // Environments don't have parents by design.
-    // TODO(bazel-team): Another problem: this provides access to SkylarkRuleClass functions
-    // (e.g. rule, attr) for the rule implementations.
-    SkylarkEnvironment ruleDefEnv =
-        context.getRuleContext().getRule().getRuleClassObject().getRuleDefinitionEnvironment();
-    final SkylarkEnvironment env;
-    if (ruleDefEnv != null) {
-      env = ruleDefEnv.cloneEnv();
-    } else {
-      // TODO(bazel-team): This is needed because of the tests. If we separated Skylark from legacy
-      // Blaze completely (including testing) we can remove this.
-      env = new SkylarkEnvironment();
-      MethodLibrary.setupMethodEnvironment(env);
-      SkylarkCommandLine.registerFunctions(env);
-      for (Map.Entry<String, Object> object
-          : SkylarkRuleClassFunctions.JAVA_OBJECTS_TO_EXPOSE.entrySet()) {
-        env.update(object.getKey(), object.getValue());
-      }
-      updateEnvironment(env);
-    }
-
-    env.disableOnlyLoadingPhaseObjects();
-    return env;
-  }
-
-  public static ValidationEnvironment getValidationEnvironment(
-      ImmutableMap<String, SkylarkType> extraObjects) {
-    Map<SkylarkType, Map<String, SkylarkType>> builtIn = new HashMap<>();
-    Map<String, SkylarkType> global = new HashMap<>();
-    builtIn.put(SkylarkType.GLOBAL, global);
-
-    // TODO(bazel-team): kill check_state, create_object and provider.
-    global.put("check_state", SkylarkFunctionType.of("check_state", SkylarkType.NONE));
-    global.put("create_object", SkylarkFunctionType.of("create_object", SkylarkType.UNKNOWN));
-    global.put("provider", SkylarkFunctionType.of("provider", SkylarkType.UNKNOWN));
-
-    MethodLibrary.setupValidationEnvironment(builtIn);
-    SkylarkAttr.setupValidationEnvironment(builtIn);
-    SkylarkCommandLine.setupValidationEnvironment(builtIn);
-    SkylarkFunction.collectSkylarkFunctionReturnTypesFromFields(
-        SkylarkRuleClassFunctions.class, builtIn);
-    SkylarkFunction.collectSkylarkFunctionReturnTypesFromFields(
-        SkylarkRuleImplementationFunctions.class, builtIn);
-    for (Map.Entry<String, Object> entry : JAVA_OBJECTS_TO_EXPOSE.entrySet()) {
-      global.put(entry.getKey(), SkylarkType.of(entry.getValue().getClass()));
-    }
-    global.putAll(extraObjects);
-    return new ValidationEnvironment(CollectionUtils.toImmutable(builtIn));
-  }
-
-  @VisibleForTesting
-  public static ValidationEnvironment getValidationEnvironment() {
-    return getValidationEnvironment(ImmutableMap.<String, SkylarkType>of());
-  }
 }

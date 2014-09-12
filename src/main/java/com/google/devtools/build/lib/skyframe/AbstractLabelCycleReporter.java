@@ -13,6 +13,7 @@
 // limitations under the License.
 package com.google.devtools.build.lib.skyframe;
 
+import com.google.common.base.Preconditions;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.Iterables;
 import com.google.devtools.build.lib.events.Event;
@@ -24,8 +25,6 @@ import com.google.devtools.build.lib.syntax.Label;
 import com.google.devtools.build.skyframe.CycleInfo;
 import com.google.devtools.build.skyframe.CyclesReporter;
 import com.google.devtools.build.skyframe.SkyKey;
-
-import javax.annotation.Nullable;
 
 /** Reports cycles between skyframe values whose keys contains {@link Label}s. */
 abstract class AbstractLabelCycleReporter implements CyclesReporter.SingleCycleReporter {
@@ -50,13 +49,10 @@ abstract class AbstractLabelCycleReporter implements CyclesReporter.SingleCycleR
 
   @Override
   public boolean maybeReportCycle(SkyKey topLevelKey, CycleInfo cycleInfo,
-      boolean alreadyReported, @Nullable EventHandler eventHandler) {
+      boolean alreadyReported, EventHandler eventHandler) {
+    Preconditions.checkNotNull(eventHandler);
     if (!canReportCycle(topLevelKey, cycleInfo)) {
       return false;
-    }
-
-    if (eventHandler == null) {
-      return true;
     }
 
     if (alreadyReported) {

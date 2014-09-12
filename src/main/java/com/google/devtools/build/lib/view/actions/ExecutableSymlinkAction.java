@@ -19,12 +19,13 @@ import com.google.devtools.build.lib.actions.ActionExecutionContext;
 import com.google.devtools.build.lib.actions.ActionExecutionException;
 import com.google.devtools.build.lib.actions.ActionOwner;
 import com.google.devtools.build.lib.actions.Artifact;
+import com.google.devtools.build.lib.vfs.Path;
 
 import java.io.IOException;
 
 /**
  * Action to create an executable symbolic link. It includes additional
- * validation that symlink target is indeed executable.
+ * validation that symlink target is indeed an executable file.
  */
 public final class ExecutableSymlinkAction extends SymlinkAction {
 
@@ -35,10 +36,16 @@ public final class ExecutableSymlinkAction extends SymlinkAction {
   @Override
   public void execute(ActionExecutionContext actionExecutionContext)
       throws ActionExecutionException {
+    Path inputPath = actionExecutionContext.getExecutor().getExecRoot().getRelative(
+        getInputPath());
     try {
-      // Validate that input path executable bit is set.
-      if (!actionExecutionContext.getExecutor().getExecRoot().getRelative(
-          getInputPath()).isExecutable()) {
+      // Validate that input path is a file with the executable bit is set.
+      if (!inputPath.isFile()) {
+        throw new ActionExecutionException(
+            "'" + Iterables.getOnlyElement(getInputs()).prettyPrint() + "' is not a file", this,
+            false);
+      }
+      if (!inputPath.isExecutable()) {
         throw new ActionExecutionException("failed to create symbolic link '"
             + Iterables.getOnlyElement(getOutputs()).prettyPrint()
             + "': file '" + Iterables.getOnlyElement(getInputs()).prettyPrint()

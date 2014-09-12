@@ -283,17 +283,6 @@ public final class Attribute implements Comparable<Attribute> {
       }
     }
 
-    /**
-     * Set the attribute name, only if the name was empty.
-     * Only meant to use from Skylark, do not use from Java.
-     */
-    public Builder<TYPE> setName(String name) {
-      Preconditions.checkArgument(!name.isEmpty());
-      Preconditions.checkArgument(this.name.isEmpty());
-      this.name = name;
-      return this;
-    }
-
     private Builder<TYPE> setPropertyFlag(PropertyFlag flag, String propertyName) {
       Preconditions.checkState(!propertyFlags.contains(flag),
           propertyName + " flag is already set");
@@ -669,6 +658,17 @@ public final class Attribute implements Comparable<Attribute> {
      * and the default value configured by the builder.
      */
     public Attribute build() {
+      return build(this.name);
+    }
+
+    /**
+     * Creates the attribute. Uses type, optionality, configuration type
+     * and the default value configured by the builder. Use the name
+     * passed as an argument. This function is used by Skylark where the
+     * name is provided only when we build. We don't want to modify the
+     * builder, as it is shared in a multithreaded environment.
+     */
+    public Attribute build(String name) {
       Preconditions.checkState(!name.isEmpty(), "name has not been set");
       Preconditions.checkState(value instanceof LateBoundDefault || !isLateBound(name),
           "The name of late bound attributes has to start with ':'");

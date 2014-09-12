@@ -279,8 +279,8 @@ public class BazelCppRuleClasses {
       return builder
           .add(attr("abi", STRING).value("$(ABI)"))
           .add(attr("abi_deps", LABEL_LIST_DICT))
-          .add(attr("defines", STRING_LIST).nonconfigurable())
-          .add(attr("includes", STRING_LIST).nonconfigurable())
+          .add(attr("defines", STRING_LIST))
+          .add(attr("includes", STRING_LIST))
           .add(attr(":lipo_context_collector", LABEL)
               .cfg(CppTransition.LIPO_COLLECTOR)
               .value(LIPO_CONTEXT_COLLECTOR))
@@ -303,6 +303,7 @@ public class BazelCppRuleClasses {
               .allowedFileTypes(ALLOWED_SRC_FILES))
           .override(attr("deps", LABEL_LIST)
               .allowedRuleClasses(DEPS_ALLOWED_RULES)
+              .allowedFileTypes(FileTypeSet.NO_FILE)
               .skipAnalysisTimeFileTypeCheck())
           .add(attr("linkopts", STRING_LIST))
           .add(attr("nocopts", STRING))

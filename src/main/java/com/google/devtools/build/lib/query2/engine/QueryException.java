@@ -27,7 +27,8 @@ public class QueryException extends Exception {
     }
     return badQuery == toplevel
         ? "Evaluation of query \"" + toplevel + "\" failed: " + e.getMessage()
-        : "Evaluation of subquery \"" +  badQuery + "\" failed: " + e.getMessage();
+        : "Evaluation of subquery \"" + badQuery
+            + "\" failed (did you want to use --keep_going?): " + e.getMessage();
   }
 
   private final QueryExpression expression;

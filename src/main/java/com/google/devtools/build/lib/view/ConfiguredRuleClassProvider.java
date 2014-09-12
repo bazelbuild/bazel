@@ -29,8 +29,7 @@ import com.google.devtools.build.lib.packages.Rule;
 import com.google.devtools.build.lib.packages.RuleClass;
 import com.google.devtools.build.lib.packages.RuleClassProvider;
 import com.google.devtools.build.lib.rules.RuleConfiguredTargetFactory;
-import com.google.devtools.build.lib.rules.SkylarkRuleClassFunctions;
-import com.google.devtools.build.lib.rules.SkylarkRuleImplementationFunctions;
+import com.google.devtools.build.lib.rules.SkylarkModules;
 import com.google.devtools.build.lib.syntax.Label;
 import com.google.devtools.build.lib.syntax.SkylarkEnvironment;
 import com.google.devtools.build.lib.syntax.SkylarkModule;
@@ -285,10 +284,10 @@ public class ConfiguredRuleClassProvider implements RuleClassProvider {
     this.configurationCollectionFactory = configurationCollectionFactory;
     this.prerequisiteValidator = prerequisiteValidator;
     this.skylarkAccessibleJavaClasses = skylarkAccessibleJavaClasses;
-    this.skylarkValidationEnvironment = SkylarkRuleImplementationFunctions.getValidationEnvironment(
+    this.skylarkValidationEnvironment = SkylarkModules.getValidationEnvironment(
         ImmutableMap.<String, SkylarkType>builder()
             .putAll(skylarkAccessibleJavaClasses)
-            .put("Native", SkylarkType.of(NativeModule.class))
+            .put("native", SkylarkType.of(NativeModule.class))
             .build());
   }
 
@@ -382,8 +381,7 @@ public class ConfiguredRuleClassProvider implements RuleClassProvider {
 
   @Override
   public SkylarkEnvironment createSkylarkRuleClassEnvironment() {
-    SkylarkEnvironment env = SkylarkRuleClassFunctions.getNewEnvironment();
-    SkylarkRuleImplementationFunctions.updateEnvironment(env);
+    SkylarkEnvironment env = SkylarkModules.getNewEnvironment();
     for (Map.Entry<String, SkylarkType> entry : skylarkAccessibleJavaClasses.entrySet()) {
       env.update(entry.getKey(), entry.getValue().getType());
     }

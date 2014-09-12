@@ -178,7 +178,7 @@ public final class SkyframeBuildView {
    */
   public Collection<ConfiguredTarget> configureTargets(List<LabelAndConfiguration> values,
       EventBus eventBus, boolean keepGoing)
-  throws InterruptedException, ViewCreationFailedException {
+          throws InterruptedException, ViewCreationFailedException {
     enableAnalysis(true);
     EvaluationResult<ConfiguredTargetValue> result;
     try {
@@ -235,7 +235,7 @@ public final class SkyframeBuildView {
       ErrorInfo errorInfo = error.getValue();
       assertSaneAnalysisError(errorInfo, topLevel);
       skyframeExecutor.getCyclesReporter().reportCycles(errorInfo.getCycleInfo(), topLevel,
-          warningListener);
+          skyframeExecutor.getReporter());
       Throwable cause = errorInfo.getException();
       Preconditions.checkState(cause != null || !Iterables.isEmpty(errorInfo.getCycleInfo()),
           errorInfo);
@@ -253,7 +253,7 @@ public final class SkyframeBuildView {
         assertSaneAnalysisError(errorInfo, errorKey);
 
         skyframeExecutor.getCyclesReporter().reportCycles(errorInfo.getCycleInfo(), errorKey,
-            warningListener);
+            skyframeExecutor.getReporter());
         // We try to get the root cause key first from ErrorInfo rootCauses. If we don't have one
         // we try to use the cycle culprit if the error is a cycle. Otherwise we use the top-level
         // error key.

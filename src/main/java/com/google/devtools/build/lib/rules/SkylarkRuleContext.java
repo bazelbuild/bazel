@@ -22,7 +22,6 @@ import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.ImmutableSet;
 import com.google.common.collect.Iterables;
-import com.google.devtools.build.lib.actions.Action;
 import com.google.devtools.build.lib.actions.Artifact;
 import com.google.devtools.build.lib.actions.Root;
 import com.google.devtools.build.lib.collect.nestedset.NestedSet;
@@ -257,11 +256,6 @@ public final class SkylarkRuleContext implements ClassObject {
       return ruleContext.getConfiguration().getConfiguration(ConfigurationTransition.DATA);
     }
     return null;
-  }
-
-  @SkylarkCallable(doc = "Registers an action, that will be executed at runtime if needed.")
-  public void register(Action action) {
-    ruleContext.getAnalysisEnvironment().registerAction(action);
   }
 
   @SkylarkCallable(doc =

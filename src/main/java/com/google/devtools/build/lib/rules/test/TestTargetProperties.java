@@ -38,9 +38,9 @@ public class TestTargetProperties {
   /**
    * Resources used by local tests of various sizes.
    */
-  private static final ResourceSet SMALL_RESOURCES = new ResourceSet(20, 0.9, 0.05);
+  private static final ResourceSet SMALL_RESOURCES = new ResourceSet(20, 0.9, 0.00);
   private static final ResourceSet MEDIUM_RESOURCES = new ResourceSet(100, 0.9, 0.1);
-  private static final ResourceSet LARGE_RESOURCES = new ResourceSet(300, 0.8, 0.3);
+  private static final ResourceSet LARGE_RESOURCES = new ResourceSet(300, 0.8, 0.1);
   private static final ResourceSet ENORMOUS_RESOURCES = new ResourceSet(800, 0.7, 0.4);
 
   private static ResourceSet getResourceSetFromSize(TestSize size) {

@@ -25,7 +25,8 @@ import java.util.regex.Pattern;
 public final class CppFileTypes {
   public static final FileType CPP_SOURCE = FileType.of(".cc", ".cpp", ".cxx", ".C");
   public static final FileType C_SOURCE = FileType.of(".c");
-  public static final FileType CPP_HEADER = FileType.of(".h", ".hh", ".hpp", ".hxx");
+  public static final FileType CPP_HEADER = FileType.of(".h", ".hh", ".hpp", ".hxx", ".inc");
+  public static final FileType CPP_TEXTUAL_INCLUDE = FileType.of(".inc");
 
   public static final FileType PIC_PREPROCESSED_C = FileType.of(".pic.i");
   public static final FileType PREPROCESSED_C = new FileType() {

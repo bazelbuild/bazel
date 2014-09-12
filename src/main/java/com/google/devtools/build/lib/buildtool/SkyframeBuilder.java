@@ -47,7 +47,10 @@ import com.google.devtools.build.skyframe.SkyFunctionName;
 import com.google.devtools.build.skyframe.SkyKey;
 import com.google.devtools.build.skyframe.SkyValue;
 
+import java.text.NumberFormat;
+
 import java.util.Collections;
+import java.util.Locale;
 import java.util.Map;
 import java.util.Set;
 import java.util.concurrent.atomic.AtomicBoolean;
@@ -183,12 +186,19 @@ class SkyframeBuilder implements Builder {
    */
   private static final class ExecutionProgressReceiver implements EvaluationProgressReceiver,
       SkyframeActionExecutor.ProgressSupplier, SkyframeActionExecutor.ActionCompletedReceiver {
+    private static final NumberFormat PROGRESS_MESSAGE_NUMBER_FORMATTER;
+
     // Must be thread-safe!
     private final Set<Artifact> builtArtifacts;
     private final ImmutableSet<Artifact> artifacts;
     private final Set<SkyKey> enqueuedActions = Sets.newConcurrentHashSet();
     private final Set<Action> completedActions = Sets.newConcurrentHashSet();
     private final Object activityIndicator = new Object();
+
+    static {
+      PROGRESS_MESSAGE_NUMBER_FORMATTER = NumberFormat.getIntegerInstance(Locale.ENGLISH);
+      PROGRESS_MESSAGE_NUMBER_FORMATTER.setGroupingUsed(true);
+    }
 
     /**
      * {@code builtArtifacts} is accessed through a synchronized set, and so no other access to it
@@ -280,7 +290,9 @@ class SkyframeBuilder implements Builder {
 
     @Override
     public String getProgressString() {
-      return String.format("[%d/%d]", completedActions.size(), enqueuedActions.size());
+      return String.format("[%s / %s]",
+          PROGRESS_MESSAGE_NUMBER_FORMATTER.format(completedActions.size()),
+          PROGRESS_MESSAGE_NUMBER_FORMATTER.format(enqueuedActions.size()));
     }
 
     ActionExecutionInactivityWatchdog.InactivityMonitor createInactivityMonitor(

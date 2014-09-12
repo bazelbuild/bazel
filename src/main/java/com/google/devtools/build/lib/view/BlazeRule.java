@@ -43,7 +43,7 @@ public @interface BlazeRule {
 
   /**
    * The {@link RuleConfiguredTargetFactory} class that implements this rule. If the rule is
-   * abstract, this must not be set. Furthermore, only either this or configuredClass may be set.
+   * abstract, this must not be set.
    */
   Class<? extends RuleConfiguredTargetFactory> factoryClass()
       default RuleConfiguredTargetFactory.class;

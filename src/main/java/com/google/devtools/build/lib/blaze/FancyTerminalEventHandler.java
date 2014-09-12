@@ -54,8 +54,8 @@ public class FancyTerminalEventHandler extends BlazeCommandEventHandler {
   private static final Pattern progressPattern = Pattern.compile(
       // Match strings that look like they start with progress info:
       //   [42%] Compiling base/base.cc
-      //   [42/197] Compiling base/base.cc
-      "^\\[(?:(?:\\d\\d?\\d?%)|(?:\\d+/\\d+))\\] ");
+      //   [1,442 / 23,476] Compiling base/base.cc
+      "^\\[(?:(?:\\d\\d?\\d?%)|(?:[\\d+,]+ / [\\d,]+))\\] ");
   private static final Splitter LINEBREAK_SPLITTER = Splitter.on('\n');
 
   private final AnsiTerminal terminal;

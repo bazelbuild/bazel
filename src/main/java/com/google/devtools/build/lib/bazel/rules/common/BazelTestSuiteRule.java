@@ -40,7 +40,8 @@ public final class BazelTestSuiteRule implements RuleDefinition {
         .add(attr("suites", LABEL_LIST).orderIndependent().nonconfigurable())
         // This magic attribute contains all *test rules in the package, iff
         // tests=[] and suites=[]:
-        .add(attr("$implicit_tests", LABEL_LIST).nonconfigurable())
+        .add(attr("$implicit_tests", LABEL_LIST)
+            .nonconfigurable("Accessed in TestTargetUtils without config context"))
         .build();
   }
 }

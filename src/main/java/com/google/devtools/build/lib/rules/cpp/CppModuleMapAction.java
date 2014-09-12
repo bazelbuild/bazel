@@ -67,13 +67,23 @@ public class CppModuleMapAction extends AbstractAction {
 
     content.append("module \"" + cppModuleMap.getName() + "\" {\n");
     for (Artifact artifact : privateHeaders) {
-      content.append("  private header \"" + Strings.repeat("../", segmentsToExecPath)
-          + artifact.getExecPath() + "\"\n");
+      if (!CppFileTypes.CPP_TEXTUAL_INCLUDE.matches(artifact.getExecPath())) {
+        content.append("  private header \"" + Strings.repeat("../", segmentsToExecPath)
+            + artifact.getExecPath() + "\"\n");
+      } else {
+        content.append("  exclude header \"" + Strings.repeat("../", segmentsToExecPath)
+            + artifact.getExecPath() + "\"\n");        
+      }
     }
     for (Artifact artifact : publicHeaders) {
-      content.append("  header \""
-          + Strings.repeat("../", segmentsToExecPath)
-          + artifact.getExecPath() + "\"\n");
+      if (!CppFileTypes.CPP_TEXTUAL_INCLUDE.matches(artifact.getExecPath())) {
+        content.append("  header \""
+            + Strings.repeat("../", segmentsToExecPath)
+            + artifact.getExecPath() + "\"\n");
+      } else {
+        content.append("  exclude header \"" + Strings.repeat("../", segmentsToExecPath)
+            + artifact.getExecPath() + "\"\n");
+      }
     }
     for (CppModuleMap dep : dependencies) {
       content.append("  use \"" + dep.getName() + "\"\n");
@@ -127,7 +137,7 @@ public class CppModuleMapAction extends AbstractAction {
 
   @Override
   public ResourceSet estimateResourceConsumption(Executor executor) {
-    return new ResourceSet(/*memoryMb=*/0, /*cpuUsage=*/0, /*ioUsage=*/0.02);
+    return new ResourceSet(/*memoryMb=*/0, /*cpuUsage=*/0, /*ioUsage=*/0.0);
   }
 
   @VisibleForTesting

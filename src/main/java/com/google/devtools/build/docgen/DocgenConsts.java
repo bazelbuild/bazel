@@ -65,8 +65,7 @@ public class DocgenConsts {
       "<!DOCTYPE html>\n"
       + "<!--\n"
       + " This document is synchronized with Blaze releases.\n"
-      + " Make changes here: //depot/google3/java/google/com/devtools/build/lib/view/*/*.html\n"
-      + " Not here: //depot/eng/howto/google3/build-encyclopedia.html\n"
+      + " To edit, submit changes to the Blaze source code."
       + "-->\n";
 
   public static final String BUILD_ENCYCLOPEDIA_NAME = "build-encyclopedia.html";

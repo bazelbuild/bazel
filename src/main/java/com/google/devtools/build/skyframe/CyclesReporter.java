@@ -17,8 +17,6 @@ import com.google.common.base.Preconditions;
 import com.google.common.collect.ImmutableList;
 import com.google.devtools.build.lib.events.EventHandler;
 
-import javax.annotation.Nullable;
-
 /**
  * An utility for custom reporting of errors from cycles in the the Skyframe graph. This class is
  * stateful in order to differentiate between new cycles and cycles that have already been
@@ -45,7 +43,7 @@ public class CyclesReporter {
      * @param eventHandler the eventHandler to which to report the error
      */
     boolean maybeReportCycle(SkyKey topLevelKey, CycleInfo cycleInfo, boolean alreadyReported,
-        @Nullable EventHandler eventHandler);
+        EventHandler eventHandler);
   }
 
   private final ImmutableList<SingleCycleReporter> cycleReporters;
@@ -67,7 +65,8 @@ public class CyclesReporter {
    * @param eventHandler the eventHandler to which to report the error
    */
   public void reportCycles(Iterable<CycleInfo> cycles, SkyKey topLevelKey,
-      @Nullable EventHandler eventHandler) {
+      EventHandler eventHandler) {
+    Preconditions.checkNotNull(eventHandler);
     for (CycleInfo cycleInfo : cycles) {
       boolean alreadyReported = false;
       if (!cycleDeduper.seen(cycleInfo.getCycle())) {

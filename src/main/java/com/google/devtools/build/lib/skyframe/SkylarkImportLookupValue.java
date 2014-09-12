@@ -11,37 +11,33 @@
 // WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
 // See the License for the specific language governing permissions and
 // limitations under the License.
-
 package com.google.devtools.build.lib.skyframe;
 
-import com.google.devtools.build.lib.syntax.BuildFileAST;
+import com.google.common.base.Preconditions;
+import com.google.devtools.build.lib.syntax.SkylarkEnvironment;
 import com.google.devtools.build.lib.vfs.PathFragment;
 import com.google.devtools.build.skyframe.SkyKey;
 import com.google.devtools.build.skyframe.SkyValue;
 
-import javax.annotation.Nullable;
-
 /**
- * A value that represents an AST file lookup result.
+ * A value that represents a Skylark import lookup result.
  */
-public class ASTLookupValue implements SkyValue {
+public class SkylarkImportLookupValue implements SkyValue {
 
-  static final ASTLookupValue NO_FILE = new ASTLookupValue(null);
+  private final SkylarkEnvironment importedEnvironment;
 
-  @Nullable private final BuildFileAST ast;
-
-  public ASTLookupValue(@Nullable BuildFileAST ast) {
-    this.ast = ast;
+  public SkylarkImportLookupValue(SkylarkEnvironment importedEnvironment) {
+    this.importedEnvironment = Preconditions.checkNotNull(importedEnvironment);
   }
 
   /**
-   * Returns the original AST file.
+   * Returns the imported SkylarkEnvironment.
    */
-  @Nullable public BuildFileAST getAST() {
-    return ast;
+  public SkylarkEnvironment getImportedEnvironment() {
+    return importedEnvironment;
   }
 
-  static SkyKey key(PathFragment directory) {
-    return new SkyKey(SkyFunctions.AST_LOOKUP, directory);
+  static SkyKey key(PathFragment fileToImport) {
+    return new SkyKey(SkyFunctions.SKYLARK_IMPORTS_LOOKUP, fileToImport);
   }
 }

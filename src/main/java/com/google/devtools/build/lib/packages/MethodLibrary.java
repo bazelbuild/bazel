@@ -489,13 +489,13 @@ public class MethodLibrary {
   /**
    * Skylark String module.
    */
-  @SkylarkModule(name = "String", doc = "")
+  @SkylarkModule(name = "string", doc = "")
   public static final class StringModule {}
 
   /**
    * Skylark Dict module.
    */
-  @SkylarkModule(name = "Dict", doc = "")
+  @SkylarkModule(name = "dict", doc = "")
   public static final class DictModule {}
 
   public static final Map<Function, SkylarkType> stringFunctions = ImmutableMap

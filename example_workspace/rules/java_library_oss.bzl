@@ -38,14 +38,14 @@ def java_library_impl(ctx):
       ctx.configuration.bin_dir, class_jar, "-2.params")
   ctx.file_action(
       output = sources_param_file,
-      content = Files.join_exec_paths("\n", sources),
+      content = files.join_exec_paths("\n", sources),
       executable = False)
 
   # Cleaning build output directory
   cmd = "set -e;rm -rf " + build_output + ";mkdir " + build_output + "\n"
   # Java compilation
   cmd += ("/usr/bin/javac -classpath " +
-         Files.join_exec_paths(":", jars) + " -d " + build_output + " @" +
+         files.join_exec_paths(":", jars) + " -d " + build_output + " @" +
          sources_param_file.path + "\n")
 
   # TODO(bazel-team): this deploy jar action should be only in binaries
@@ -66,10 +66,10 @@ def java_library_impl(ctx):
 
 java_library = rule(java_library_impl,
     attr = {
-       "srcs": Attr.label_list(file_types=java_filetype),
-       "deps": Attr.label_list(file_types=NO_FILE),
-       "java_home": Attr.string(),
-       "main_class": Attr.string(),
+       "srcs": attr.label_list(file_types=java_filetype),
+       "deps": attr.label_list(file_types=NO_FILE),
+       "java_home": attr.string(),
+       "main_class": attr.string(),
    },
    outputs={
        "class_jar": "lib%{name}.jar",

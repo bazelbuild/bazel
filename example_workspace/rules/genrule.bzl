@@ -27,8 +27,8 @@ genrule_skylark(
 
 
 def resolve_command(ctx, command, resolved_srcs, files_to_build):
-  variables = {"SRCS": Files.join_exec_paths(" ", resolved_srcs),
-               "OUTS": Files.join_exec_paths(" ", files_to_build)}
+  variables = {"SRCS": files.join_exec_paths(" ", resolved_srcs),
+               "OUTS": files.join_exec_paths(" ", files_to_build)}
   if len(resolved_srcs) == 1:
     variables["<"] = resolved_srcs.to_collection()[0].path
   if len(files_to_build) == 1:
@@ -105,12 +105,12 @@ genrule_skylark = rule(implementation=create,
      # .setDependentTargetConfiguration(PARENT)
      # .setOutputToGenfiles()
      attr={
-         "srcs": Attr.label_list(flags=["DIRECT_COMPILE_TIME_INPUT"]),
-         "tools": Attr.label_list(cfg=HOST_CFG),
-         "outs": Attr.output_list(mandatory=True),
-         "cmd": Attr.string(mandatory=True),
-         "message": Attr.string(),
-         "output_licenses": Attr.license(),
-         "executable": Attr.bool(default=False),
+         "srcs": attr.label_list(flags=["DIRECT_COMPILE_TIME_INPUT"]),
+         "tools": attr.label_list(cfg=HOST_CFG),
+         "outs": attr.output_list(mandatory=True),
+         "cmd": attr.string(mandatory=True),
+         "message": attr.string(),
+         "output_licenses": attr.license(),
+         "executable": attr.bool(default=False),
          },
     )

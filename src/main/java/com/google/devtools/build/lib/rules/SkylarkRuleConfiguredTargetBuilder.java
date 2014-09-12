@@ -18,12 +18,15 @@ import static com.google.devtools.build.lib.syntax.SkylarkFunction.cast;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 import com.google.devtools.build.lib.actions.Artifact;
+import com.google.devtools.build.lib.collect.nestedset.NestedSetBuilder;
+import com.google.devtools.build.lib.collect.nestedset.Order;
 import com.google.devtools.build.lib.events.Location;
 import com.google.devtools.build.lib.packages.Type;
 import com.google.devtools.build.lib.syntax.ClassObject.SkylarkClassObject;
 import com.google.devtools.build.lib.syntax.Environment;
 import com.google.devtools.build.lib.syntax.EvalException;
 import com.google.devtools.build.lib.syntax.Function;
+import com.google.devtools.build.lib.syntax.SkylarkEnvironment;
 import com.google.devtools.build.lib.syntax.SkylarkNestedSet;
 import com.google.devtools.build.lib.view.ConfiguredTarget;
 import com.google.devtools.build.lib.view.RuleConfiguredTargetBuilder;
@@ -45,22 +48,24 @@ public final class SkylarkRuleConfiguredTargetBuilder {
     String expectError = ruleContext.attributes().get("expect_failure", Type.STRING);
     try {
       SkylarkRuleContext skylarkRuleContext = new SkylarkRuleContext(ruleContext);
-      Environment env =
-          SkylarkRuleImplementationFunctions.getNewEnvironment(skylarkRuleContext);
-
+      SkylarkEnvironment env =
+          ruleContext.getRule().getRuleClassObject().getRuleDefinitionEnvironment().cloneEnv();
+      // Collect the symbols to disable statically and pass at the next call, so we don't need to
+      // clone the RuleDefinitionEnvironment.
+      env.disableOnlyLoadingPhaseObjects();
       Object target = ruleImplementation.call(ImmutableList.<Object>of(skylarkRuleContext),
           ImmutableMap.<String, Object>of(), null, env);
 
       if (ruleContext.hasErrors()) {
         return null;
-      } else if (!(target instanceof SkylarkClassObject)) {
+      } else if (!(target instanceof SkylarkClassObject) && target != Environment.NONE) {
         ruleContext.ruleError("Rule implementation doesn't return a struct");
         return null;
       } else if (!expectError.isEmpty()) {
         ruleContext.ruleError("Expected error not found: " + expectError);
         return null;
       }
-      return createTarget(ruleContext, (SkylarkClassObject) target);
+      return createTarget(ruleContext, target);
 
     } catch (InterruptedException e) {
       ruleContext.ruleError(e.getMessage());
@@ -77,34 +82,46 @@ public final class SkylarkRuleConfiguredTargetBuilder {
     }
   }
 
-  private static ConfiguredTarget createTarget(
-      RuleContext ruleContext, SkylarkClassObject struct) throws EvalException {
-    try {
+  private static ConfiguredTarget createTarget(RuleContext ruleContext, Object target)
+  throws EvalException {
       RuleConfiguredTargetBuilder builder = new RuleConfiguredTargetBuilder(ruleContext);
       // Every target needs runfiles provider by default.
       builder.add(RunfilesProvider.class, RunfilesProvider.EMPTY);
-      Location loc = struct.getCreationLoc();
-      for (String key : struct.getKeys()) {
-        if (key.equals("files_to_build")) {
-          builder.setFilesToBuild(cast(struct.getValue("files_to_build"),
-              SkylarkNestedSet.class, "files_to_build", loc).getSet(Artifact.class));
-        } else if (key.equals("runfiles")) {
-          builder.add(RunfilesProvider.class, cast(struct.getValue("runfiles"),
-              RunfilesProvider.class, "runfiles", loc));
-        } else if (key.equals("runfiles_support")) {
-          RunfilesSupport runfilesSupport = cast(struct.getValue("runfiles_support"),
-              RunfilesSupport.class, "runfiles support", loc);
-          builder.setRunfilesSupport(runfilesSupport, runfilesSupport.getExecutable());
-        } else if (key.equals("executable")) {
-          builder.setRunfilesSupport(null,
-              cast(struct.getValue("executable"), Artifact.class, "executable", loc));
-        } else {
-          builder.addSkylarkTransitiveInfo(key, struct.getValue(key));
-        }
-      } 
-      return builder.build();
-    } catch (IllegalArgumentException e) {
-      throw new EvalException(struct.getCreationLoc(), e.getMessage());
+      builder.setFilesToBuild(
+          NestedSetBuilder.<Artifact>wrap(Order.STABLE_ORDER, ruleContext.getOutputArtifacts()));
+      Location loc = null;
+      if (target instanceof SkylarkClassObject) {
+        SkylarkClassObject struct = (SkylarkClassObject) target;
+        loc = struct.getCreationLoc();
+        addStructFields(builder, struct);
+      }
+      try {
+        return builder.build();
+      } catch (IllegalArgumentException e) {
+        throw new EvalException(loc, e.getMessage());
+      }
+  }
+
+  private static void addStructFields(RuleConfiguredTargetBuilder builder,
+      SkylarkClassObject struct) throws EvalException {
+    Location loc = struct.getCreationLoc();
+    for (String key : struct.getKeys()) {
+      if (key.equals("files_to_build")) {
+        builder.setFilesToBuild(cast(struct.getValue("files_to_build"),
+                SkylarkNestedSet.class, "files_to_build", loc).getSet(Artifact.class));
+      } else if (key.equals("runfiles")) {
+        builder.add(RunfilesProvider.class, cast(struct.getValue("runfiles"),
+                RunfilesProvider.class, "runfiles", loc));
+      } else if (key.equals("runfiles_support")) {
+        RunfilesSupport runfilesSupport = cast(struct.getValue("runfiles_support"),
+            RunfilesSupport.class, "runfiles support", loc);
+        builder.setRunfilesSupport(runfilesSupport, runfilesSupport.getExecutable());
+      } else if (key.equals("executable")) {
+        builder.setRunfilesSupport(null,
+            cast(struct.getValue("executable"), Artifact.class, "executable", loc));
+      } else {
+        builder.addSkylarkTransitiveInfo(key, struct.getValue(key));
+      }
     }
   }
 }

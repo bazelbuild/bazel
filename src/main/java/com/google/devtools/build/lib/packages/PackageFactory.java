@@ -35,6 +35,7 @@ import com.google.devtools.build.lib.syntax.AbstractFunction;
 import com.google.devtools.build.lib.syntax.AssignmentStatement;
 import com.google.devtools.build.lib.syntax.BuildFileAST;
 import com.google.devtools.build.lib.syntax.Environment;
+import com.google.devtools.build.lib.syntax.Environment.NoSuchVariableException;
 import com.google.devtools.build.lib.syntax.EvalException;
 import com.google.devtools.build.lib.syntax.Expression;
 import com.google.devtools.build.lib.syntax.FuncallExpression;
@@ -54,8 +55,6 @@ import com.google.devtools.build.lib.vfs.UnixGlob;
 
 import java.io.IOException;
 import java.util.Collections;
-import java.util.HashMap;
-import java.util.HashSet;
 import java.util.List;
 import java.util.Map;
 import java.util.Set;
@@ -64,6 +63,8 @@ import java.util.concurrent.ThreadPoolExecutor;
 import java.util.concurrent.TimeUnit;
 import java.util.concurrent.atomic.AtomicReference;
 import java.util.logging.Logger;
+
+import javax.annotation.Nullable;
 
 /**
  * The package factory is responsible for constructing Package instances
@@ -291,6 +292,13 @@ public final class PackageFactory {
    */
   public RuleClass getRuleClass(String ruleClassName) {
     return ruleFactory.getRuleClass(ruleClassName);
+  }
+
+  /**
+   * Returns the {@link RuleClassProvider} of this {@link PackageFactory}.
+   */
+  public RuleClassProvider getRuleClassProvider() {
+    return ruleClassProvider;
   }
 
   /****************************************************************************
@@ -641,8 +649,7 @@ public final class PackageFactory {
    * specified package context.
    */
   private static Function newRuleFunction(final RuleFactory ruleFactory,
-                                          final String ruleClass,
-                                          final PackageContext context) {
+                                          final String ruleClass) {
     return new AbstractFunction(ruleClass) {
       @Override
       public Object call(List<Object> args, Map<String, Object> kwargs, FuncallExpression ast,
@@ -654,9 +661,10 @@ public final class PackageFactory {
         }
 
         try {
+          PackageContext context = (PackageContext) env.lookup(PKG_CONTEXT);
           addRule(ruleFactory, ruleClass, context, kwargs, ast);
-        } catch (
-            RuleFactory.InvalidRuleException | Package.NameConflictException e) {
+        } catch (RuleFactory.InvalidRuleException | Package.NameConflictException
+            | NoSuchVariableException e) {
           throw new EvalException(ast.getLocation(), e.getMessage());
         }
         return 0;
@@ -695,7 +703,8 @@ public final class PackageFactory {
    * <p>See {@link #evaluateBuildFile} for information on AST retention.
    */
   public Package.LegacyBuilder createPackage(String packageName, Path buildFile,
-      List<Statement> preludeStatements,
+      List<Statement> preludeStatements, ParserInputSource inputSource,
+      Map<PathFragment, SkylarkEnvironment> imports,
       CachingPackageLocator locator, ParserInputSource replacementSource,
       RuleVisibility defaultVisibility) throws InterruptedException {
     profiler.startTask(ProfilerTask.CREATE_PACKAGE, packageName);
@@ -712,7 +721,7 @@ public final class PackageFactory {
       // TODO(bazel-team): It would be nicer to always pass in the right value rather than rely
       // on the null value.
       Preprocessor.Result preprocessingResult = replacementSource == null
-          ? getParserInput(packageName, buildFile, globCache, localReporter)
+          ? getParserInput(packageName, buildFile, inputSource, globCache, localReporter)
           : Preprocessor.Result.success(replacementSource, false);
       if (localReporter.hasErrors()) {
         hasPreprocessorError = true;
@@ -736,7 +745,7 @@ public final class PackageFactory {
       return evaluateBuildFile(
           packageName, buildFileAST, buildFile, globCache, localReporter.getEvents(),
           defaultVisibility, hasPreprocessorError, preprocessingResult.containsTransientErrors,
-          locator, makeEnv);
+          makeEnv, imports);
     } catch (InterruptedException e) {
       globCache.cancelBackgroundTasks();
       throw e;
@@ -759,7 +768,13 @@ public final class PackageFactory {
       throw new BuildFileNotFoundException(packageName,
           "illegal package name: '" + packageName + "' (" + error + ")");
     }
-    Package result = createPackage(packageName, buildFile, ImmutableList.<Statement>of(),
+    ParserInputSource inputSource = getParserInputSource(buildFile, eventHandler);
+    if (inputSource == null) {
+      throw new BuildFileContainsErrorsException(packageName, "IOException occured");
+    }
+    Package result = createPackage(packageName, buildFile,
+        ImmutableList.<Statement>of(), inputSource,
+        ImmutableMap.<PathFragment, SkylarkEnvironment>of(),
         locator, null, ConstantRuleVisibility.PUBLIC).build();
     Event.replayEventsOn(eventHandler, result.getEvents());
     return result;
@@ -781,8 +796,12 @@ public final class PackageFactory {
   public ParserInputSource getParserInput(String packageName, Path buildFile,
       CachingPackageLocator locator, EventHandler eventHandler)
       throws NoSuchPackageException, InterruptedException {
+    ParserInputSource inputSource = getParserInputSource(buildFile, eventHandler);
+    if (inputSource == null) {
+      return Preprocessor.Result.transientError(buildFile).result;
+    }
     return getParserInput(
-        packageName, buildFile,
+        packageName, buildFile, getParserInputSource(buildFile, eventHandler),
         createGlobCache(buildFile.getParentDirectory(), packageName, locator),
         eventHandler).result;
   }
@@ -792,21 +811,26 @@ public final class PackageFactory {
     return new GlobCache(packageDirectory, packageName, locator, syscalls, threadPool);
   }
 
-  /**
-   * Version of #getParserInput(String, Path, GlobCache, Reporter) that allows
-   * to inject a glob cache that gets populated during preprocessing.
-   */
-  private Preprocessor.Result getParserInput(
-      String packageName, Path buildFile, GlobCache globCache, EventHandler eventHandler)
-          throws InterruptedException {
+  @Nullable private ParserInputSource getParserInputSource(
+      Path buildFile, EventHandler eventHandler) {
     ParserInputSource inputSource;
     try {
       inputSource = ParserInputSource.create(buildFile);
     } catch (IOException e) {
       eventHandler.handle(Event.error(Location.fromFile(buildFile), e.getMessage()));
-      return Preprocessor.Result.transientError(buildFile);
+      return null;
     }
+    return inputSource;
+  }
 
+  /**
+   * Version of #getParserInput(String, Path, GlobCache, Reporter) that allows
+   * to inject a glob cache that gets populated during preprocessing.
+   */
+  private Preprocessor.Result getParserInput(
+      String packageName, Path buildFile, ParserInputSource inputSource,
+      GlobCache globCache, EventHandler eventHandler)
+          throws InterruptedException {
     Preprocessor preprocessor = preprocessorFactory.getPreprocessor();
     if (preprocessor == null) {
       return Preprocessor.Result.success(inputSource, false);
@@ -879,84 +903,29 @@ public final class PackageFactory {
     pkgEnv.update("PACKAGE_NAME", packageName);
   }
 
+  /**
+   * Returns the list of native rule functions created using the {@link RuleClassProvider}
+   * of this {@link PackageFactory}.
+   */
+  public ImmutableList<Function> collectNativeRuleFunctions() {
+    ImmutableList.Builder<Function> builder = ImmutableList.builder();
+    for (String ruleClass : ruleFactory.getRuleClassNames()) {
+      builder.add(newRuleFunction(ruleFactory, ruleClass));
+    }
+    return builder.build();
+  }
+
   private void buildPkgEnv(Environment pkgEnv, String packageName,
-      MakeEnvironment.Builder pkgMakeEnv, PackageContext context, RuleFactory ruleFactory,
-      ImmutableList.Builder<Function> nativeRuleFunctions) {
+      MakeEnvironment.Builder pkgMakeEnv, PackageContext context, RuleFactory ruleFactory) {
     buildPkgEnv(pkgEnv, packageName, context);
     for (String ruleClass : ruleFactory.getRuleClassNames()) {
-      Function ruleFunction = newRuleFunction(ruleFactory, ruleClass, context);
+      Function ruleFunction = newRuleFunction(ruleFactory, ruleClass);
       pkgEnv.update(ruleClass, ruleFunction);
-      nativeRuleFunctions.add(ruleFunction);
     }
 
     for (EnvironmentExtension extension : environmentExtensions) {
       extension.update(pkgEnv, pkgMakeEnv, context.pkgBuilder.getBuildFileLabel());
     }
-  }
-
-  private Environment loadSkylarkExtension(Path file, CachingPackageLocator locator,
-      Path root, PackageContext context, ImmutableList<Path> extensionFileStack,
-      Set<PathFragment> transitiveSkylarkExtensions,
-      ImmutableList<Function> nativeRuleFunctions) throws InterruptedException {
-    BuildFileAST buildFileAST;
-    try {
-      buildFileAST = BuildFileAST.parseSkylarkFile(file, context.eventHandler, locator,
-          ruleClassProvider.getSkylarkValidationEnvironment().clone());
-    } catch (IOException e) {
-      context.eventHandler.handle(Event.error(Location.fromFile(file), e.getMessage()));
-      return null;
-    }
-
-    SkylarkEnvironment env = ruleClassProvider.createSkylarkRuleClassEnvironment();
-    // Adding native rules module for build extensions.
-    env.update("Native", ruleClassProvider.getNativeModule());
-    for (Function function : nativeRuleFunctions) {
-      env.registerFunction(
-          ruleClassProvider.getNativeModule().getClass(), function.getName(), function);
-    }
-
-    if (!loadAllImports(buildFileAST, root, file, locator, env, context, extensionFileStack,
-        transitiveSkylarkExtensions, nativeRuleFunctions)) {
-      return null;
-    }
-
-    if (!buildFileAST.exec(env, context.eventHandler)) {
-      return null;
-    }
-
-    return env;
-  }
-
-  // Load all extensions imported in buildFileAST and update the environment.
-  private boolean loadAllImports(BuildFileAST buildFileAST, Path root, Path parentFile,
-      CachingPackageLocator locator, Environment parentEnv, PackageContext context,
-      ImmutableList<Path> extensionFileStack,
-      Set<PathFragment> transitiveSkylarkExtensions,
-      ImmutableList<Function> nativeRuleFunctions)
-      throws InterruptedException {
-    // TODO(bazel-team): We should have a global cache and make sure each
-    // imported file is loaded at most once.
-    Map<PathFragment, Environment> imports = new HashMap<>();
-    for (PathFragment imp : buildFileAST.getImports()) {
-      Path file = root.getRelative(imp);
-      if (extensionFileStack.contains(file)) {
-        context.eventHandler.handle(
-            Event.error(Location.fromFile(parentFile), "Recursive import: " + file));
-        parentEnv.setImportedExtensions(imports);
-        return false;
-      }
-      Environment extensionEnv = loadSkylarkExtension(file, locator, root, context,
-          ImmutableList.<Path>builder().addAll(extensionFileStack).add(file).build(),
-          transitiveSkylarkExtensions, nativeRuleFunctions);
-      if (extensionEnv == null) {
-        parentEnv.setImportedExtensions(imports);
-        return false;
-      }
-      imports.put(imp, extensionEnv);
-    }
-    parentEnv.setImportedExtensions(imports);
-    transitiveSkylarkExtensions.addAll(imports.keySet());
-    return true;
   }
 
   /**
@@ -987,8 +956,8 @@ public final class PackageFactory {
   public Package.LegacyBuilder evaluateBuildFile(String packageName,
       BuildFileAST buildFileAST, Path buildFilePath, GlobCache globCache,
       Iterable<Event> pastEvents, RuleVisibility defaultVisibility, boolean containsError,
-      boolean containsTransientError, CachingPackageLocator locator,
-      MakeEnvironment.Builder pkgMakeEnv) throws InterruptedException {
+      boolean containsTransientError, MakeEnvironment.Builder pkgMakeEnv,
+      Map<PathFragment, SkylarkEnvironment> imports) throws InterruptedException {
     // Important: Environment should be unreachable by the end of this method!
     Environment pkgEnv = new Environment(globalEnv);
 
@@ -1008,8 +977,7 @@ public final class PackageFactory {
 
     // Stuff that closes over the package context:
     PackageContext context = new PackageContext(pkgBuilder, eventHandler, retainAsts);
-    ImmutableList.Builder<Function> nativeRuleFunctions = ImmutableList.builder();
-    buildPkgEnv(pkgEnv, packageName, pkgMakeEnv, context, ruleFactory, nativeRuleFunctions);
+    buildPkgEnv(pkgEnv, packageName, pkgMakeEnv, context, ruleFactory);
 
     if (containsError) {
       pkgBuilder.setContainsErrors();
@@ -1023,15 +991,8 @@ public final class PackageFactory {
       pkgBuilder.setContainsErrors();
     }
 
-    Path root = Package.getSourceRoot(buildFilePath, new PathFragment(packageName));
-    Set<PathFragment> transitiveSkylarkExtensions = new HashSet<>();
-    pkgEnv.update(PKG_CONTEXT, context);
-    if (!loadAllImports(buildFileAST, root, buildFilePath, locator, pkgEnv,
-        context, ImmutableList.<Path>of(buildFilePath), transitiveSkylarkExtensions,
-        nativeRuleFunctions.build())) {
-      pkgBuilder.setContainsErrors();
-    }
-    pkgBuilder.setSkylarkExtensions(root, transitiveSkylarkExtensions);
+    pkgEnv.setImportedExtensions(imports);
+    pkgEnv.updateAndPropagate(PKG_CONTEXT, context);
 
     if (!validateAssignmentStatements(pkgEnv, buildFileAST, eventHandler)) {
       pkgBuilder.setContainsErrors();

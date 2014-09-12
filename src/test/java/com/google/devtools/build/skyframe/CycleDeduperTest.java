@@ -24,7 +24,6 @@ import org.junit.runner.RunWith;
 import org.junit.runners.JUnit4;
 
 /** Simple tests for {@link CycleDeduper}. */
-
 @RunWith(JUnit4.class)
 public class CycleDeduperTest {
 

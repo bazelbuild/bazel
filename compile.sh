@@ -23,7 +23,7 @@ mkdir -p output/native
 
 PLATFORM=$(uname -s | tr 'A-Z' 'a-z')
 ARCHIVE_CFLAGS=""
-ARCHIVE_LDFLAGS=""
+LDFLAGS=""
 
 case ${PLATFORM} in
 darwin)
@@ -31,24 +31,28 @@ darwin)
   if [[ -e /opt/local/include/archive.h ]]; then
     # For use with Macports.
     ARCHIVE_CFLAGS="-I/opt/local/include"
-    ARCHIVE_LDFLAGS="-L/opt/local/lib"
+    # Link libarchive statically
+    LDFLAGS="/opt/local/lib/libarchive.a /opt/local/lib/liblzo2.a \
+             /opt/local/lib/liblzma.a /opt/local/lib/libcharset.a \
+             /opt/local/lib/libbz2.a /opt/local/lib/libxml2.a \
+             /opt/local/lib/libz.a /opt/local/lib/libiconv.a"
   elif [[ -e $homebrew_header ]]; then
     # For use with Homebrew.
     archive_dir=$(dirname $(dirname $homebrew_header))
     ARCHIVE_CFLAGS="-I${archive_dir}/include"
-    ARCHIVE_LDFLAGS="-L${archive_dir}/lib"
+    LDFLAGS="-L${archive_dir}/lib -larchive"
   else
     echo "WARNING: Could not find libarchive installation, proceeding bravely."
   fi
 
   DYNAMIC_EXT="dylib"
-  REALTIME_LDFLAGS=""
   MD5SUM="md5"
   JAVA_HOME=${JAVA_HOME:-$(/usr/libexec/java_home -v 1.7+)}
   ;;
 linux)
+  # Sorry, no static linking on linux for now.
+  LDFLAGS="$(pkg-config libarchive --libs) -lrt"
   DYNAMIC_EXT="so"
-  REALTIME_LDFLAGS="-lrt"
   MD5SUM="md5sum"
   # JAVA_HOME must point to a Java 7 installation.
   JAVA_HOME=${JAVA_HOME:-$(readlink -f $(which javac) | sed "s_/bin/javac__")}
@@ -127,7 +131,7 @@ done
 
 # Link client
 echo "LD client"
-"${CC}" -o output/client output/objs/*.o ${ARCHIVE_LDFLAGS} -larchive -l stdc++ ${REALTIME_LDFLAGS}
+"${CC}" -o output/client output/objs/*.o -l stdc++ ${LDFLAGS}
 
 # Compile native code .cc files.
 NATIVE_CC_FILES=(

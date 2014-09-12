@@ -15,7 +15,6 @@
 package com.google.devtools.build.lib.testutil;
 
 import com.google.common.base.Joiner;
-import com.google.common.collect.ImmutableList;
 import com.google.devtools.build.lib.blaze.BlazeDirectories;
 import com.google.devtools.build.lib.util.SkyframeMode;
 import com.google.devtools.build.lib.vfs.FileSystemUtils;
@@ -33,18 +32,6 @@ import java.util.List;
  * functions are either Blaze- or google3-specific.
  */
 public class BlazeTestUtils {
-  /**
-   * A list of all embedded binaries that go into the regular Blaze binary. This is used to
-   * fake a list of these because the usual method of scanning the directory tree cannot be used,
-   * since we don't have one in tests.
-   */
-  public static final ImmutableList<String> EMBEDDED_TOOLS = ImmutableList.of(
-      "build-runfiles",
-      "p4_client_info.sh",
-      "grep-includes",
-      "process-wrapper",
-      "build_interface_so");
-
   private BlazeTestUtils() {}
 
   /** Returns the skyframe mode the test class should be run in. */
@@ -77,14 +64,13 @@ public class BlazeTestUtils {
     Path runfiles = directories.getFileSystem().getPath(BlazeTestUtils.runfilesDir());
     List<String> tools = new ArrayList<>();
     // Copy over everything in embedded_scripts.
-    Path embeddedScripts = runfiles.getRelative("google3/devtools/blaze/embedded_scripts");
+    Path embeddedScripts = runfiles.getRelative(TestConstants.EMBEDDED_SCRIPTS_PATH);
     Collection<Path> files = new ArrayList<Path>();
     if (embeddedScripts.exists()) {
       files.addAll(embeddedScripts.getDirectoryEntries());
     } else {
       System.err.println("test does not have " + embeddedScripts);
     }
-    files.add(runfiles.getRelative("google3/util/elf/build_interface_so"));
 
     for (Path fromFile : files) {
       tools.add(fromFile.getBaseName());
@@ -96,7 +82,7 @@ public class BlazeTestUtils {
     }
 
     return BinTools.forIntegrationTesting(
-        directories, embeddedDir.toString(), BlazeTestUtils.EMBEDDED_TOOLS);
+        directories, embeddedDir.toString(), TestConstants.EMBEDDED_TOOLS);
   }
 
   /**

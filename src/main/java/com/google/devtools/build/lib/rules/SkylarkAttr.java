@@ -14,18 +14,15 @@
 
 package com.google.devtools.build.lib.rules;
 
-import com.google.common.collect.ImmutableList;
 import com.google.devtools.build.lib.packages.Attribute;
 import com.google.devtools.build.lib.packages.Type.ConversionException;
 import com.google.devtools.build.lib.syntax.Environment;
 import com.google.devtools.build.lib.syntax.EvalException;
 import com.google.devtools.build.lib.syntax.FuncallExpression;
-import com.google.devtools.build.lib.syntax.Function;
 import com.google.devtools.build.lib.syntax.SkylarkBuiltin;
 import com.google.devtools.build.lib.syntax.SkylarkBuiltin.Param;
 import com.google.devtools.build.lib.syntax.SkylarkFunction;
 import com.google.devtools.build.lib.syntax.SkylarkModule;
-import com.google.devtools.build.lib.syntax.SkylarkType;
 import com.google.devtools.build.lib.util.FileTypeSet;
 
 import java.util.List;
@@ -34,7 +31,7 @@ import java.util.Map;
 /**
  * A helper class to provide Attr module in Skylark.
  */
-@SkylarkModule(name = "Attr", namespace = true, onlyLoadingPhase = true,
+@SkylarkModule(name = "attr", namespace = true, onlyLoadingPhase = true,
     doc = "Module for creating new attributes.")
 public final class SkylarkAttr {
   // TODO(bazel-team): Better check the arguments.
@@ -181,21 +178,4 @@ public final class SkylarkAttr {
         return makeAttr(kwargs, "LICENSE", ast, env);
       }
     };
-
-  public static final SkylarkAttr module = new SkylarkAttr();
-
-  public static void registerFunctions(Environment env) {
-    ImmutableList.Builder<Function> attrFunctions = ImmutableList.builder();
-    SkylarkFunction.collectSkylarkFunctionsFromFields(SkylarkAttr.class, null, attrFunctions);
-    for (Function fct : attrFunctions.build()) {
-      env.registerFunction(SkylarkAttr.class, fct.getName(), fct);
-    }
-  }
-
-  public static void setupValidationEnvironment(
-      Map<SkylarkType, Map<String, SkylarkType>> builtIn) {
-    builtIn.get(SkylarkType.GLOBAL).put("Attr", SkylarkType.of(SkylarkAttr.class));
-    SkylarkFunction.collectSkylarkFunctionReturnTypesFromFields(
-        SkylarkAttr.class, builtIn);
-  }
 }

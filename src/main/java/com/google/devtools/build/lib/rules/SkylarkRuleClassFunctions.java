@@ -24,13 +24,10 @@ import static com.google.devtools.build.lib.syntax.SkylarkFunction.cast;
 import static com.google.devtools.build.lib.syntax.SkylarkFunction.castList;
 
 import com.google.common.annotations.VisibleForTesting;
-import com.google.common.base.Preconditions;
 import com.google.common.base.Predicate;
 import com.google.common.cache.CacheBuilder;
 import com.google.common.cache.CacheLoader;
 import com.google.common.cache.LoadingCache;
-import com.google.common.collect.ImmutableList;
-import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.Iterables;
 import com.google.devtools.build.lib.events.Location;
 import com.google.devtools.build.lib.packages.Attribute;
@@ -39,7 +36,6 @@ import com.google.devtools.build.lib.packages.Attribute.SkylarkLateBound;
 import com.google.devtools.build.lib.packages.AttributeMap;
 import com.google.devtools.build.lib.packages.ImplicitOutputsFunction.SkylarkImplicitOutputsFunctionWithCallback;
 import com.google.devtools.build.lib.packages.ImplicitOutputsFunction.SkylarkImplicitOutputsFunctionWithMap;
-import com.google.devtools.build.lib.packages.MethodLibrary;
 import com.google.devtools.build.lib.packages.Package.NameConflictException;
 import com.google.devtools.build.lib.packages.PackageFactory;
 import com.google.devtools.build.lib.packages.PackageFactory.PackageContext;
@@ -57,7 +53,6 @@ import com.google.devtools.build.lib.syntax.Environment;
 import com.google.devtools.build.lib.syntax.Environment.NoSuchVariableException;
 import com.google.devtools.build.lib.syntax.EvalException;
 import com.google.devtools.build.lib.syntax.FuncallExpression;
-import com.google.devtools.build.lib.syntax.Function;
 import com.google.devtools.build.lib.syntax.Label;
 import com.google.devtools.build.lib.syntax.SkylarkBuiltin;
 import com.google.devtools.build.lib.syntax.SkylarkBuiltin.Param;
@@ -101,39 +96,6 @@ public class SkylarkRuleClassFunctions {
   @SkylarkBuiltin(name = "HOST_CFG", doc = "The default runfiles collection state.")
   private static final Object hostTransition = ConfigurationTransition.HOST;
 
-  @VisibleForTesting
-  public static final Map<String, Object> JAVA_OBJECTS_TO_EXPOSE =
-      ImmutableMap.<String, Object>builder()
-          .put("ANY_FILE", ANY_FILE)
-          .put("NO_FILE", NO_FILE)
-          .put("ANY_RULE", ANY_RULE)
-          .put("NO_RULE", NO_RULE)
-          .put("DATA_CFG", dataTransition)
-          .put("HOST_CFG", hostTransition)
-          .put("Attr", SkylarkAttr.module)
-          .build();
-
-  private final SkylarkEnvironment env;
-
-  private final RuleClass baseRule;
-  private final ImmutableList<Function> builtInFunctions;
-
-  // TODO(bazel-team): Copied from ConfiguredRuleClassProvider for the transition from built-in
-  // rules to skylark extensions. Using the same instance would require a large refactoring.
-  // If we don't want to support old built-in rules and Skylark simultaneously
-  // (except for transition phase) it's probably OK.
-  private static LoadingCache<String, Label> labelCache = CacheBuilder.newBuilder().build(
-      new CacheLoader<String, Label>() {
-    @Override
-    public Label load(String from) {
-      try {
-        return Label.parseAbsolute(from);
-      } catch (Label.SyntaxException e) {
-        throw new IllegalArgumentException(from);
-      }
-    }
-  });
-
   private static final Attribute.ComputedDefault deprecationDefault =
       new Attribute.ComputedDefault() {
         @Override
@@ -150,38 +112,30 @@ public class SkylarkRuleClassFunctions {
         }
      };
 
-  private SkylarkRuleClassFunctions(SkylarkEnvironment env) {
-    this.env = Preconditions.checkNotNull(env);
-    // TODO(bazel-team): we might want to define base rule in Skylark later.
-    // Right now we need some default attributes.
-    baseRule = new RuleClass.Builder("$base_rule", RuleClassType.ABSTRACT, true)
-        .add(attr("deprecation", STRING).nonconfigurable().value(deprecationDefault))
-        .add(attr("expect_failure", STRING))
-        .add(attr("tags", STRING_LIST).orderIndependent().nonconfigurable().taggable())
-        .add(attr("testonly", BOOLEAN).nonconfigurable().value(testonlyDefault))
-        .add(attr("visibility", NODEP_LABEL_LIST).orderIndependent().nonconfigurable().cfg(HOST))
-        .build();
+  private static final RuleClass baseRule =
+      new RuleClass.Builder("$base_rule", RuleClassType.ABSTRACT, true)
+          .add(attr("deprecation", STRING).nonconfigurable().value(deprecationDefault))
+          .add(attr("expect_failure", STRING))
+          .add(attr("tags", STRING_LIST).orderIndependent().nonconfigurable().taggable())
+          .add(attr("testonly", BOOLEAN).nonconfigurable().value(testonlyDefault))
+          .add(attr("visibility", NODEP_LABEL_LIST).orderIndependent().nonconfigurable().cfg(HOST))
+          .build();
 
-    ImmutableList.Builder<Function> builtInFunctionsBuilder = ImmutableList.builder();
-    SkylarkFunction.collectSkylarkFunctionsFromFields(getClass(), this, builtInFunctionsBuilder);
-    builtInFunctions = builtInFunctionsBuilder.build();
-  }
-
-  public static SkylarkEnvironment getNewEnvironment() {
-    SkylarkEnvironment env = new SkylarkEnvironment();
-    SkylarkRuleClassFunctions functions = new SkylarkRuleClassFunctions(env);
-    for (Function builtInFunction : functions.builtInFunctions) {
-      env.update(builtInFunction.getName(), builtInFunction);
+  // TODO(bazel-team): Copied from ConfiguredRuleClassProvider for the transition from built-in
+  // rules to skylark extensions. Using the same instance would require a large refactoring.
+  // If we don't want to support old built-in rules and Skylark simultaneously
+  // (except for transition phase) it's probably OK.
+  private static LoadingCache<String, Label> labelCache = CacheBuilder.newBuilder().build(
+      new CacheLoader<String, Label>() {
+    @Override
+    public Label load(String from) {
+      try {
+        return Label.parseAbsolute(from);
+      } catch (Label.SyntaxException e) {
+        throw new IllegalArgumentException(from);
+      }
     }
-
-    for (Map.Entry<String, Object> entry : JAVA_OBJECTS_TO_EXPOSE.entrySet()) {
-      env.update(entry.getKey(), entry.getValue());
-    }
-    SkylarkAttr.registerFunctions(env);
-
-    MethodLibrary.setupMethodEnvironment(env);
-    return env;
-  }
+  });
 
   static Attribute.Builder<?> createAttribute(String strType, Map<String, Object> arguments,
       FuncallExpression ast, Environment funcallEnv)
@@ -270,7 +224,7 @@ public class SkylarkRuleClassFunctions {
               + "the impicit outputs of the parent rule classes"),
       @Param(name = "attr", doc = "dictionary mapping an attribute name to an attribute"),
       @Param(name = "outputs", doc = "implicit outputs of this rule")})
-  private final SkylarkFunction rule = new SkylarkFunction("rule") {
+  private static final SkylarkFunction rule = new SkylarkFunction("rule") {
 
         @Override
         public Object call(Map<String, Object> arguments, FuncallExpression ast,
@@ -290,8 +244,7 @@ public class SkylarkRuleClassFunctions {
                    castMap(arguments.get("attr"), String.class, Attribute.Builder.class, "attr")) {
             String attrName = attr.getKey();
             Attribute.Builder<?> attrBuilder = attr.getValue();
-            attrBuilder.setName(attrName);
-            builder.addOrOverrideAttribute(attrBuilder.build());
+            builder.addOrOverrideAttribute(attrBuilder.build(attrName));
           }
 
           if (arguments.containsKey("outputs")) {
@@ -311,13 +264,13 @@ public class SkylarkRuleClassFunctions {
 
           builder.setConfiguredTargetFunction(cast(arguments.get("implementation"),
               UserDefinedFunction.class, "rule implementation", loc));
-          builder.setRuleDefinitionEnvironment(env);
+          builder.setRuleDefinitionEnvironment((SkylarkEnvironment) funcallEnv);
           return new RuleFunction(builder);
         }
       };
 
   // This class is needed for testing
-  final class RuleFunction extends AbstractFunction {
+  static final class RuleFunction extends AbstractFunction {
     // Note that this means that we can reuse the same builder.
     // This is fine since we change only the name.
     private final RuleClass.Builder builder;
@@ -349,7 +302,7 @@ public class SkylarkRuleClassFunctions {
   @SkylarkBuiltin(name = "label", doc = "Creates a label referring to a BUILD target.",
       returnType = Label.class,
       mandatoryParams = {@Param(name = "label", type = String.class, doc = "the label string")})
-  private final SkylarkFunction label = new SimpleSkylarkFunction("label") {
+  private static final SkylarkFunction label = new SimpleSkylarkFunction("label") {
         @Override
         public Object call(Map<String, Object> arguments, Location loc) throws EvalException,
             ConversionException {
@@ -384,10 +337,5 @@ public class SkylarkRuleClassFunctions {
     } catch (NoSuchFieldException e) {
       throw new EvalException(location, String.format(errorMsg, typeString));
     }
-  }
-
-  @VisibleForTesting
-  public static Iterable<Function> getStaticBuiltInFunctions() {
-    return ImmutableList.of((Function) fileType);
   }
 }

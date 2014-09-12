@@ -15,29 +15,61 @@ package com.google.devtools.build.lib.rules;
 
 import com.google.devtools.build.lib.actions.Artifact;
 import com.google.devtools.build.lib.actions.Root;
-import com.google.devtools.build.lib.syntax.SkylarkCallable;
+import com.google.devtools.build.lib.events.Location;
+import com.google.devtools.build.lib.packages.Type.ConversionException;
+import com.google.devtools.build.lib.syntax.EvalException;
+import com.google.devtools.build.lib.syntax.SkylarkBuiltin;
+import com.google.devtools.build.lib.syntax.SkylarkBuiltin.Param;
+import com.google.devtools.build.lib.syntax.SkylarkFunction;
+import com.google.devtools.build.lib.syntax.SkylarkFunction.SimpleSkylarkFunction;
 import com.google.devtools.build.lib.syntax.SkylarkModule;
 import com.google.devtools.build.lib.vfs.FileSystemUtils;
 import com.google.devtools.build.lib.vfs.PathFragment;
 
+import java.util.List;
+import java.util.Map;
+
 /**
  * A wrapper class for NestedSet of Artifacts in Skylark to ensure type safety.
  */
-@SkylarkModule(name = "Files", namespace = true,
+@SkylarkModule(name = "files", namespace = true,
     doc = "A helper class to extract path from files.")
 public final class SkylarkFileset {
 
-  @SkylarkCallable(doc = "Returns the joint execution paths of these files using the delimiter.")
-  public static String joinExecPaths(String delimiter, Iterable<Artifact> artifacts) {
-    return Artifact.joinExecPaths(delimiter, artifacts);
-  }
+  @SkylarkBuiltin(name = "join_exec_paths", objectType = SkylarkFileset.class,
+      doc = "Returns the joint execution paths of these files using the delimiter.",
+      mandatoryParams = {
+      @Param(name = "delimiter", type = String.class, doc = ""),
+      @Param(name = "files", type = List.class, doc = "")})
+  private static SkylarkFunction joinExecPaths = new SimpleSkylarkFunction("join_exec_paths") {
 
-  @SkylarkCallable(
-      doc = "Returns a working directory for the file using suffix for the directory name")
-  public static PathFragment workDir(Root root, Artifact file, String suffix) {
-    PathFragment path = file.getRootRelativePath();
-    String basename = FileSystemUtils.removeExtension(path.getBaseName()) + suffix;
-    path = path.replaceName(basename);
-    return root.getExecPath().getRelative(path);
-  }
+    @Override
+    protected Object call(Map<String, Object> params, Location loc)
+        throws EvalException, ConversionException {
+      return Artifact.joinExecPaths(
+          cast(params.get("delimiter"), String.class, "delimiter", loc),
+          castList(params.get("files"), Artifact.class, "files")); 
+    }
+  };
+
+  @SkylarkBuiltin(name = "work_dir", objectType = SkylarkFileset.class,
+      doc = "Returns a working directory for the file using suffix for the directory name.",
+      mandatoryParams = {
+      @Param(name = "root", type = Root.class, doc = ""),
+      @Param(name = "file", type = Artifact.class, doc = ""),
+      @Param(name = "suffix", type = String.class, doc = "")})
+  private static SkylarkFunction workDir = new SimpleSkylarkFunction("work_dir") {
+
+    @Override
+    protected Object call(Map<String, Object> params, Location loc)
+        throws EvalException, ConversionException {
+      Artifact file = cast(params.get("file"), Artifact.class, "file", loc);
+      String suffix = cast(params.get("suffix"), String.class, "suffix", loc);
+      Root root = cast(params.get("root"), Root.class, "root", loc);
+      PathFragment path = file.getRootRelativePath();
+      String basename = FileSystemUtils.removeExtension(path.getBaseName()) + suffix;
+      path = path.replaceName(basename);
+      return root.getExecPath().getRelative(path); 
+    }
+  };
 }

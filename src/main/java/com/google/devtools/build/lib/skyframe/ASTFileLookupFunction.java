@@ -14,10 +14,10 @@
 
 package com.google.devtools.build.lib.skyframe;
 
-import com.google.common.collect.ImmutableList;
+import com.google.devtools.build.lib.packages.CachingPackageLocator;
+import com.google.devtools.build.lib.packages.RuleClassProvider;
 import com.google.devtools.build.lib.pkgcache.PathPackageLocator;
 import com.google.devtools.build.lib.syntax.BuildFileAST;
-import com.google.devtools.build.lib.syntax.Statement;
 import com.google.devtools.build.lib.vfs.Path;
 import com.google.devtools.build.lib.vfs.PathFragment;
 import com.google.devtools.build.lib.vfs.RootedPath;
@@ -33,7 +33,8 @@ import javax.annotation.Nullable;
 
 /**
  * A SkyFunction for {@link ASTLookupValue}s. Tries to locate a file and load it as a
- * syntax tree and cache the resulting {@link Statement}s.
+ * syntax tree and cache the resulting {@link BuildFileAST}. If the file doesn't exist
+ * the function doesn't fail but returns a specific NO_FILE ASTLookupValue.
  */
 public class ASTFileLookupFunction implements SkyFunction {
 
@@ -53,9 +54,15 @@ public class ASTFileLookupFunction implements SkyFunction {
   }
 
   private final AtomicReference<PathPackageLocator> pkgLocator;
+  private final RuleClassProvider ruleClassProvider;
+  private final CachingPackageLocator packageManager;
 
-  public ASTFileLookupFunction(AtomicReference<PathPackageLocator> pkgLocator) {
+  public ASTFileLookupFunction(AtomicReference<PathPackageLocator> pkgLocator,
+      CachingPackageLocator packageManager,
+      RuleClassProvider ruleClassProvider) {
     this.pkgLocator = pkgLocator;
+    this.packageManager = packageManager;
+    this.ruleClassProvider = ruleClassProvider;
   }
 
   @Override
@@ -68,21 +75,21 @@ public class ASTFileLookupFunction implements SkyFunction {
       return null;
     }
 
-    ImmutableList<Statement> preludeStatements = ImmutableList.<Statement>of();
-    // TODO(bazel-team): We silently ignore non existent file cases and return an empty list of
-    // Statements. This behaviour should be optional in the future if we use this class to
-    // look up BUILD files.
-    if (lookup.result != FileLookupResultState.NO_FILE) {
+    BuildFileAST ast = null;
+    if (lookup.result == FileLookupResultState.NO_FILE) {
+      // Return the specific NO_FILE ASTLookupValue instance if no file was found.
+      return ASTLookupValue.NO_FILE;
+    } else {
       Path path = lookup.file.realRootedPath().asPath();
       try {
-        preludeStatements = ImmutableList.copyOf(BuildFileAST.parseBuildFile(
-            path, env.getListener(), null, false).getStatements());
+        ast = BuildFileAST.parseSkylarkFile(path, env.getListener(),
+            packageManager, ruleClassProvider.getSkylarkValidationEnvironment().clone());
       } catch (IOException e) {
         throw new ASTLookupFunctionException(skyKey, e);
       }
     }
 
-    return new ASTLookupValue(preludeStatements);
+    return new ASTLookupValue(ast);
   }
 
   private FileLookupResult getASTFile(SkyKey skyKey, Environment env,

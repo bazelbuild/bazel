@@ -22,14 +22,13 @@ import com.google.devtools.build.lib.actions.SpawnActionContext;
 import com.google.devtools.build.lib.actions.UserExecException;
 import com.google.devtools.build.lib.shell.Command;
 import com.google.devtools.build.lib.shell.CommandException;
+import com.google.devtools.build.lib.shell.KillableObserver;
+import com.google.devtools.build.lib.shell.TimeoutKillableObserver;
 import com.google.devtools.build.lib.syntax.Label;
 import com.google.devtools.build.lib.util.CommandFailureUtils;
 import com.google.devtools.build.lib.util.io.FileOutErr;
-import com.google.devtools.build.lib.vfs.Path;
 
 import java.io.File;
-import java.util.ArrayList;
-import java.util.List;
 
 /**
  * Strategy that uses subprocessing to execute a process.
@@ -38,13 +37,10 @@ import java.util.List;
 public class LocalSpawnStrategy implements SpawnActionContext {
   private final boolean verboseFailures;
   
-  private final Path processWrapper;
-
-  public LocalSpawnStrategy(Path execRoot, boolean verboseFailures) {
-    this.verboseFailures = verboseFailures;
-    this.processWrapper = execRoot.getRelative("_bin/process-wrapper");
+  public LocalSpawnStrategy(boolean verboseFailures) {
+    this.verboseFailures = verboseFailures; 
   }
-
+  
   /**
    * Executes the given {@code spawn}.
    */
@@ -57,36 +53,28 @@ public class LocalSpawnStrategy implements SpawnActionContext {
       executor.reportSubcommand(Label.print(spawn.getOwner().getLabel()),
           spawn.asShellCommand(executor.getExecRoot()));
     }
-
-    // We must wrap the subprocess with process-wrapper to kill the process tree.
-    // All actions therefore depend on the process-wrapper file. Since it's embedded, 
-    // we don't bother with declaring it as an input.
-    List<String> args = new ArrayList<>();
-    args.add(processWrapper.getPathString());
-    args.add("-1"); /* timeout */
-    args.add("0");  /* kill delay. */
-
-    // TODO(bazel-team): use process-wrapper redirection so we don't have to
-    // pass test logs through the Java heap.
-    args.add("-");  /* stdout. */
-    args.add("-");  /* stderr. */
-    args.addAll(spawn.getArguments());
-
+    String[] args = spawn.getArguments().toArray(new String[]{});
     String cwd = executor.getExecRoot().getPathString();
-    Command cmd = new Command(args.toArray(new String[]{}), spawn.getEnvironment(), new File(cwd));
+    Command cmd = new Command(args, spawn.getEnvironment(), new File(cwd));
+
+    // TODO(bazel-team): figure out how to support test timeouts.
+    double timeoutSecs = -1.0;
+    KillableObserver observer =
+        (timeoutSecs > 0) ? new TimeoutKillableObserver((long) (timeoutSecs * 1000.0)) :
+        Command.NO_OBSERVER;
 
     FileOutErr outErr = actionExecutionContext.getFileOutErr();
     try {
       cmd.execute(
           /* stdin */ new byte[]{},
-          Command.NO_OBSERVER,
+          observer,
           outErr.getOutputStream(),
           outErr.getErrorStream(),
           /*killSubprocessOnInterrupt*/ true);
     } catch (CommandException e) {
       String message = CommandFailureUtils.describeCommandFailure(
           verboseFailures, spawn.getArguments(), spawn.getEnvironment(), cwd);
-      throw new UserExecException(String.format("%s: %s", message, e));
+      throw new UserExecException(String.format("%s: ", message, e));
     }
   }
 

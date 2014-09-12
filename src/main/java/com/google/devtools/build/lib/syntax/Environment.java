@@ -80,6 +80,12 @@ public class Environment {
   protected Set<Class<?>> disabledNameSpaces = new HashSet<>();
 
   /**
+   * A set of variables propagating through function calling. It's only used to call
+   * native rules from Skylark build extensions.
+   */
+  protected Set<String> propagatingVariables = new HashSet<>();
+
+  /**
    * Constructs an empty root non-Skylark environment.
    * The root environment is also the global environment.
    */
@@ -174,6 +180,16 @@ public class Environment {
   }
 
   /**
+   * Same as {@link #update}, but also marks the variable propagating, meaning it will
+   * be present in the execution environment of a UserDefinedFunction called from this
+   * Environment. Using this method is discouraged.
+   */
+  public void updateAndPropagate(String varname, Object value) {
+    update(varname, value);
+    propagatingVariables.add(varname);
+  }
+
+  /**
    * Remove the variable from the environment, returning
    * any previous mapping (null if there was none).
    */
@@ -234,7 +250,7 @@ public class Environment {
     }
   }
 
-  public void setImportedExtensions(Map<PathFragment, Environment> importedExtensions) {
+  public void setImportedExtensions(Map<PathFragment, ? extends Environment> importedExtensions) {
     this.importedExtensions = importedExtensions;
   }
 

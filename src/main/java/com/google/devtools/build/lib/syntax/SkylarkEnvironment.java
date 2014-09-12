@@ -55,6 +55,14 @@ public class SkylarkEnvironment extends Environment {
         .add(function.getName())
         .build();
     SkylarkEnvironment childEnv = new SkylarkEnvironment(definitionEnv, stackTrace);
+    try {
+      for (String varname : callerEnv.propagatingVariables) {
+        childEnv.updateAndPropagate(varname, callerEnv.lookup(varname));
+      }
+    } catch (NoSuchVariableException e) {
+      // This should never happen.
+      throw new IllegalStateException(e);
+    }
     childEnv.disabledVariables = callerEnv.disabledVariables;
     childEnv.disabledNameSpaces = callerEnv.disabledNameSpaces;
     return childEnv;

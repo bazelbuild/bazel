@@ -68,8 +68,7 @@ public class StandaloneContextProvider implements ActionContextProvider {
       BlazeRuntime runtime, BuildRequest buildRequest) {
     boolean verboseFailures = buildRequest.getOptions(ExecutionOptions.class).verboseFailures;  
     
-    localSpawnStrategy = new LocalSpawnStrategy(
-        runtime.getDirectories().getExecRoot(), verboseFailures);
+    localSpawnStrategy = new LocalSpawnStrategy(verboseFailures);
     this.runtime = runtime;
     this.strategies = ImmutableList.of(
         localSpawnStrategy,

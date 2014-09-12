@@ -181,16 +181,6 @@ public class Package implements Serializable {
   private Map<Label, Path> subincludes;
 
   /**
-   * The transitive closure of imported skylark extension files.
-   */
-  protected Collection<PathFragment> skylarkExtensions;
-
-  /**
-   * The root of the skylark extension files;
-   */
-  protected Path skylarkRoot;
-
-  /**
    * The package's default "licenses" and "distribs" attributes, as specified
    * in calls to licenses() and distribs() in the BUILD file.
    */
@@ -340,8 +330,6 @@ public class Package implements Serializable {
     this.containsErrors = builder.containsErrors;
     this.containsTemporaryErrors = builder.containsTemporaryErrors;
     this.subincludes = builder.subincludes;
-    this.skylarkExtensions = builder.skylarkExtensions;
-    this.skylarkRoot = builder.skylarkRoot;
     this.defaultLicense = builder.defaultLicense;
     this.defaultDistributionSet = builder.defaultDistributionSet;
     this.features = ImmutableSortedSet.copyOf(builder.features);
@@ -355,14 +343,6 @@ public class Package implements Serializable {
    */
   public Map<Label, Path> getSubincludes() {
     return subincludes;
-  }
-
-  public Collection<PathFragment> getSkylarkExtensions() {
-    return skylarkExtensions;
-  }
-
-  public Path getSkylarkRoot() {
-    return skylarkRoot;
   }
 
   /**
@@ -816,8 +796,6 @@ public class Package implements Serializable {
     protected Map<String, Target> targets = new HashMap<>();
 
     protected Map<Label, Path> subincludes = null;
-    protected Path skylarkRoot = null;
-    protected Collection<PathFragment> skylarkExtensions = null;
 
     /**
      * True iff the "package" function has already been called in this package.
@@ -1054,11 +1032,6 @@ public class Package implements Serializable {
 
     public Set<Label> getSubincludeLabels() {
       return subincludes == null ? Sets.<Label>newHashSet() : subincludes.keySet();
-    }
-
-    void setSkylarkExtensions(Path root, Collection<PathFragment> extensions) {
-      this.skylarkRoot = root;
-      this.skylarkExtensions = extensions;
     }
 
     public Collection<Target> getTargets() {
