@@ -21,6 +21,7 @@ import static com.google.devtools.build.lib.packages.Type.STRING;
 
 import com.google.devtools.build.lib.packages.RuleClass;
 import com.google.devtools.build.lib.packages.RuleClass.Builder;
+import com.google.devtools.build.lib.util.FileTypeSet;
 import com.google.devtools.build.lib.view.BaseRuleClasses;
 import com.google.devtools.build.lib.view.BlazeRule;
 import com.google.devtools.build.lib.view.RuleDefinition;
@@ -38,8 +39,8 @@ public final class BazelFilegroupRule implements RuleDefinition {
   public RuleClass build(Builder builder, RuleDefinitionEnvironment env) {
     // filegroup ignores any filtering set with setSrcsAllowedFiles.
     return builder
-        .add(attr("srcs", LABEL_LIST))
-        .add(attr("data", LABEL_LIST).cfg(DATA))
+        .add(attr("srcs", LABEL_LIST).allowedFileTypes(FileTypeSet.ANY_FILE))
+        .add(attr("data", LABEL_LIST).cfg(DATA).allowedFileTypes(FileTypeSet.ANY_FILE))
         .add(attr("output_licenses", LICENSE))
         .add(attr("path", STRING))
         .build();

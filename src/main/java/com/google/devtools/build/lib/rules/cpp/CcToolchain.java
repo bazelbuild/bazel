@@ -13,6 +13,8 @@
 // limitations under the License.
 package com.google.devtools.build.lib.rules.cpp;
 
+import static com.google.devtools.build.lib.packages.Type.BOOLEAN;
+
 import com.google.common.collect.Iterables;
 import com.google.devtools.build.lib.actions.Actions;
 import com.google.devtools.build.lib.actions.Artifact;
@@ -107,6 +109,7 @@ public class CcToolchain implements RuleConfiguredTargetFactory {
       contextBuilder.setCppModuleMap(moduleMap);
     }
     final CppCompilationContext context = contextBuilder.build();
+    boolean supportsParamFiles = ruleContext.attributes().get("supports_param_files", BOOLEAN);
 
     CcToolchainProvider provider = new CcToolchainProvider(
         crosstool,
@@ -121,7 +124,8 @@ public class CcToolchain implements RuleConfiguredTargetFactory {
         dynamicRuntimeLinkInputs,
         dynamicRuntimeLinkMiddleman,
         runtimeSolibDir,
-        context);
+        context,
+        supportsParamFiles);
     RuleConfiguredTargetBuilder builder =
         new RuleConfiguredTargetBuilder(ruleContext)
             .add(CcToolchainProvider.class, provider)

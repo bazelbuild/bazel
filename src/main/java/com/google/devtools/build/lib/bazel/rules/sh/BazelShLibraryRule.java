@@ -55,7 +55,7 @@ public final class BazelShLibraryRule implements RuleDefinition {
         files containing Bourne shell subroutines, loaded via the shell's
         <code>source</code> or <code>.</code> command.
         <!-- #END_BLAZE_RULE.ATTRIBUTE -->*/
-        .override(attr("srcs", LABEL_LIST))
+        .override(attr("srcs", LABEL_LIST).legacyAllowAnyFileType())
         .build();
   }
 }

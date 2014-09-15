@@ -15,6 +15,7 @@ package com.google.devtools.build.lib.rules.cpp;
 
 import static com.google.devtools.build.lib.packages.Attribute.ConfigurationTransition.HOST;
 import static com.google.devtools.build.lib.packages.Attribute.attr;
+import static com.google.devtools.build.lib.packages.Type.BOOLEAN;
 import static com.google.devtools.build.lib.packages.Type.LABEL;
 import static com.google.devtools.build.lib.packages.Type.LABEL_LIST;
 import static com.google.devtools.build.lib.packages.Type.LICENSE;
@@ -40,15 +41,16 @@ public final class CcToolchainRule implements RuleDefinition {
         .setUndocumented()
         .add(attr("output_licenses", LICENSE))
         .add(attr("cpu", STRING).mandatory())
-        .add(attr("all_files", LABEL).cfg(HOST).mandatory())
-        .add(attr("compiler_files", LABEL).cfg(HOST).mandatory())
-        .add(attr("strip_files", LABEL).cfg(HOST).mandatory())
-        .add(attr("objcopy_files", LABEL).cfg(HOST).mandatory())
-        .add(attr("linker_files", LABEL).cfg(HOST).mandatory())
-        .add(attr("dwp_files", LABEL).cfg(HOST).mandatory())
-        .add(attr("static_runtime_libs", LABEL_LIST).mandatory())
-        .add(attr("dynamic_runtime_libs", LABEL_LIST).mandatory())
-        .add(attr("module_map", LABEL).cfg(HOST))
+        .add(attr("all_files", LABEL).legacyAllowAnyFileType().cfg(HOST).mandatory())
+        .add(attr("compiler_files", LABEL).legacyAllowAnyFileType().cfg(HOST).mandatory())
+        .add(attr("strip_files", LABEL).legacyAllowAnyFileType().cfg(HOST).mandatory())
+        .add(attr("objcopy_files", LABEL).legacyAllowAnyFileType().cfg(HOST).mandatory())
+        .add(attr("linker_files", LABEL).legacyAllowAnyFileType().cfg(HOST).mandatory())
+        .add(attr("dwp_files", LABEL).legacyAllowAnyFileType().cfg(HOST).mandatory())
+        .add(attr("static_runtime_libs", LABEL_LIST).legacyAllowAnyFileType().mandatory())
+        .add(attr("dynamic_runtime_libs", LABEL_LIST).legacyAllowAnyFileType().mandatory())
+        .add(attr("module_map", LABEL).legacyAllowAnyFileType().cfg(HOST))
+        .add(attr("supports_param_files", BOOLEAN).value(true))
         .build();
   }
 }

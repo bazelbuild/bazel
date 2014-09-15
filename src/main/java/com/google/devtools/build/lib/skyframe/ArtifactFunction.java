@@ -102,7 +102,7 @@ class ArtifactFunction implements SkyFunction {
     try {
       fileValue = (FileValue) env.getValueOrThrow(fileSkyKey, Exception.class);
     } catch (IOException | InconsistentFilesystemException | FileSymlinkCycleException e) {
-      return missingInputFile(artifact, mandatory, e, env.getListener());
+      throw makeMissingInputFileExn(artifact, mandatory, e, env.getListener());
     } catch (Exception e) {
       // Can't get here.
       throw new IllegalStateException(e);
@@ -120,22 +120,27 @@ class ArtifactFunction implements SkyFunction {
     try {
       return FileArtifactValue.create(artifact, fileValue);
     } catch (IOException e) {
-      return missingInputFile(artifact, mandatory, e, env.getListener());
+      throw makeMissingInputFileExn(artifact, mandatory, e, env.getListener());
     }
   }
 
   private static ArtifactValue missingInputFile(Artifact artifact, boolean mandatory,
-                                               Exception failure,
-                                               EventHandler reporter)
-      throws MissingInputFileException {
+      Exception failure, EventHandler reporter) throws MissingInputFileException {
     if (!mandatory) {
       return FileArtifactValue.MISSING_FILE_MARKER;
     }
+    throw makeMissingInputFileExn(artifact, mandatory, failure, reporter);
+  }
+
+  private static MissingInputFileException makeMissingInputFileExn(Artifact artifact,
+      boolean mandatory, Exception failure, EventHandler reporter) {
     String extraMsg = (failure == null) ? "" : (":" + failure.getMessage());
     MissingInputFileException ex = new MissingInputFileException(
         constructErrorMessage(artifact) + extraMsg, null);
-    reporter.handle(Event.error(ex.getLocation(), ex.getMessage()));
-    throw ex;
+    if (mandatory) {
+      reporter.handle(Event.error(ex.getLocation(), ex.getMessage()));
+    }
+    return ex;
   }
 
   // Non-aggregating artifact -- should contain at most one piece of artifact data.

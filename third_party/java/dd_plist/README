@@ -1,0 +1,33 @@
+URL: http://plist.googlecode.com/svn-history/r105/trunk/
+Version: r105
+License: MIT Style
+License File: LICENSE
+
+Description:
+
+dd-plist
+This library enables Java applications to work with property lists in various
+formats.
+
+You can parse existing property lists (e.g. those created by an iOS application)
+and work with the contents on any operating system.
+
+The library also enables you to create your own property lists from scratch and
+store them in various formats.
+
+The provided API mimics the Cocoa/NeXTSTEP API, granting access to the basic
+functions of classes like NSDictionary, NSData, etc.
+
+dd-plist has full support for the Android operating system. Consequently this
+library can be of great help when it comes to porting iOS apps to Android.
+
+Local Modifications:
+
+NSNumber values now carry around their original string representation, so
+strings that are "helpfully" converted to NSNumber (backed by primitive double)
+will still be preserved. - https://code.google.com/p/plist/issues/detail?id=50
+
+
+Do not throw an exception when creating a String based on the first 8 bytes of a
+plist file when the file is smaller than 8 bytes. -
+https://code.google.com/p/plist/issues/detail?id=49

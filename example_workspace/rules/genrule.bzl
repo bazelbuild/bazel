@@ -105,8 +105,9 @@ genrule_skylark = rule(implementation=create,
      # .setDependentTargetConfiguration(PARENT)
      # .setOutputToGenfiles()
      attr={
-         "srcs": attr.label_list(flags=["DIRECT_COMPILE_TIME_INPUT"]),
-         "tools": attr.label_list(cfg=HOST_CFG),
+         "srcs": attr.label_list(flags=["DIRECT_COMPILE_TIME_INPUT"],
+             file_types=ANY_FILE),
+         "tools": attr.label_list(cfg=HOST_CFG, file_types=ANY_FILE),
          "outs": attr.output_list(mandatory=True),
          "cmd": attr.string(mandatory=True),
          "message": attr.string(),

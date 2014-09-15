@@ -85,8 +85,8 @@ static void OnSignal(int sig) {
 // Set up a signal handler which kills all subprocesses when the
 // given signal is triggered.
 static void InstallSignalHandler(int sig) {
-  struct sigaction sa;
-  memset(&sa, 0, sizeof(sa));
+  struct sigaction sa = {};
+
   sa.sa_handler = OnSignal;
   sigemptyset(&sa.sa_mask);
   CHECK_CALL(sigaction(sig, &sa, NULL));
@@ -94,7 +94,7 @@ static void InstallSignalHandler(int sig) {
 
 // Revert signal handler to default.
 static void UnHandle(int sig) {
-  struct sigaction sa;
+  struct sigaction sa = {};
   sa.sa_handler = SIG_DFL;
   sigemptyset(&sa.sa_mask);
   CHECK_CALL(sigaction(sig, &sa, NULL));
@@ -104,7 +104,7 @@ static void UnHandle(int sig) {
 static void EnableAlarm(double timeout) {
   if (timeout <= 0) return;
 
-  struct itimerval timer;
+  struct itimerval timer = {};
   timer.it_interval.tv_sec = 0;
   timer.it_interval.tv_usec = 0;
 
@@ -124,11 +124,24 @@ static void ClearSignalMask() {
   for (int i = 1; i < NSIG; ++i) {
     if (i == SIGKILL || i == SIGSTOP) continue;
 
-    struct sigaction sa;
+    struct sigaction sa = {};
     sa.sa_handler = SIG_DFL;
     sigemptyset(&sa.sa_mask);
     sigaction(i, &sa, NULL);
   }
+}
+
+static int WaitChild(pid_t pid, const char *name) {
+  int err = 0;
+  int status = 0;
+  do {
+    err = waitpid(pid, &status, 0);
+  } while (err == -1 && errno == EINTR);
+
+  if (err == -1) {
+    DIE("wait on %s (pid %d) failed", name, pid);
+  }
+  return status;
 }
 
 // Usage: process-wrapper
@@ -183,11 +196,8 @@ int main(int argc, char *argv[]) {
       DIE("Could not setsid from child");
     }
     ClearSignalMask();
-    // Force umask to include read and execute for everyone.  We need
-    // to run subprocesses with this umask in order to comply with the
-    // Test Encyclopedia.  Current users either do not have "secret"
-    // outputs, or create the parent directories for our output files,
-    // presumably honoring umask themselves.
+    // Force umask to include read and execute for everyone, to make
+    // output permissions predictable.
     umask(022);
 
     execvp(argv[0], argv);  // Does not return.
@@ -199,19 +209,7 @@ int main(int argc, char *argv[]) {
     InstallSignalHandler(SIGINT);
     EnableAlarm(timeout);
 
-    int status = 0;
-    int err = 0;
-    while (1) {
-      err = wait(&status);
-      if (err >= 0 || errno != EINTR) {
-        break;
-      }
-      errno = 0;
-    }
-
-    if (err == -1) {
-      perror("Unexpected error from wait()");
-    }
+    int status = WaitChild(global_pid, argv[0]);
 
     // The child is done, but may have grandchildren.
     kill(-global_pid, SIGKILL);

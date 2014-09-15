@@ -39,6 +39,7 @@ import com.google.devtools.build.lib.packages.RuleClass.Builder.RuleClassType;
 import com.google.devtools.build.lib.packages.TestSize;
 import com.google.devtools.build.lib.packages.Type;
 import com.google.devtools.build.lib.syntax.Label;
+import com.google.devtools.build.lib.util.FileTypeSet;
 import com.google.devtools.build.lib.view.config.BuildConfiguration;
 import com.google.devtools.build.lib.view.config.RunUnder;
 
@@ -223,8 +224,8 @@ public class BaseRuleClasses {
     @Override
     public RuleClass build(Builder builder, RuleDefinitionEnvironment env) {
       return builder
-          .add(attr("deps", LABEL_LIST))
-          .add(attr("data", LABEL_LIST).cfg(DATA))
+          .add(attr("deps", LABEL_LIST).legacyAllowAnyFileType())
+          .add(attr("data", LABEL_LIST).cfg(DATA).allowedFileTypes(FileTypeSet.ANY_FILE))
           .build();
     }
   }

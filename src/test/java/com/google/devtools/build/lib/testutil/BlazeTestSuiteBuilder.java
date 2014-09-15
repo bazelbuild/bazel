@@ -58,6 +58,16 @@ public class BlazeTestSuiteBuilder {
   public static final Predicate<Class<?>> TEST_IS_SMALL =
       hasSize(Suite.SMALL_TESTS);
 
+  /** A predicate that succeeds only for non-flaky tests. */
+  public static final Predicate<Class<?>> TEST_IS_FLAKY = new Predicate<Class<?>>() {
+    @Override
+    public boolean apply(Class<?> testClass) {
+      return Suite.isFlaky(testClass);
+    }
+  };
+  
+  
+
   /**
    * A predicate that succeeds only for tests that make sense to be run with skyframe loading
    * and analysis.

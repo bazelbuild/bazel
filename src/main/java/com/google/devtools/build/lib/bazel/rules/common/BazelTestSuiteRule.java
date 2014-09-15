@@ -36,8 +36,8 @@ public final class BazelTestSuiteRule implements RuleDefinition {
   public RuleClass build(Builder builder, RuleDefinitionEnvironment env) {
     return builder
         .override(attr("testonly", BOOLEAN).nonconfigurable().value(true))
-        .add(attr("tests", LABEL_LIST).orderIndependent().nonconfigurable())
-        .add(attr("suites", LABEL_LIST).orderIndependent().nonconfigurable())
+        .add(attr("tests", LABEL_LIST).orderIndependent().nonconfigurable().allowedFileTypes())
+        .add(attr("suites", LABEL_LIST).orderIndependent().nonconfigurable().allowedFileTypes())
         // This magic attribute contains all *test rules in the package, iff
         // tests=[] and suites=[]:
         .add(attr("$implicit_tests", LABEL_LIST)

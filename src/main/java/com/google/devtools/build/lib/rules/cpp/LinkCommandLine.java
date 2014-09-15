@@ -70,6 +70,7 @@ public final class LinkCommandLine extends CommandLine {
   private final boolean nativeDeps;
   private final boolean useExecOrigin;
   private final boolean needWholeArchive;
+  private final boolean supportsParamFiles;
   @Nullable private final Artifact interfaceSoBuilder;
 
   private LinkCommandLine(
@@ -90,6 +91,7 @@ public final class LinkCommandLine extends CommandLine {
       boolean nativeDeps,
       boolean useExecOrigin,
       boolean needWholeArchive,
+      boolean supportsParamFiles,
       Artifact interfaceSoBuilder) {
     Preconditions.checkArgument(linkTargetType != LinkTargetType.INTERFACE_DYNAMIC_LIBRARY,
         "you can't link an interface dynamic library directly");
@@ -136,10 +138,12 @@ public final class LinkCommandLine extends CommandLine {
     this.nativeDeps = nativeDeps;
     this.useExecOrigin = useExecOrigin;
     this.needWholeArchive = needWholeArchive;
+    this.supportsParamFiles = supportsParamFiles;
     // For now, silently ignore interfaceSoBuilder if we don't build an interface dynamic library.
     this.interfaceSoBuilder =
         ((linkTargetType == LinkTargetType.DYNAMIC_LIBRARY) && (interfaceOutput != null))
-        ? Preconditions.checkNotNull(interfaceSoBuilder)
+        ? Preconditions.checkNotNull(interfaceSoBuilder,
+            "cannot build interface dynamic library without builder")
         : null;
   }
 
@@ -272,6 +276,9 @@ public final class LinkCommandLine extends CommandLine {
   }
 
   boolean canBeSplit() {
+    if (!supportsParamFiles) {
+      return false;
+    }
     switch (linkTargetType) {
       // We currently can't split dynamic library links if they have interface outputs. That was
       // probably an unintended side effect of the change that introduced interface outputs.
@@ -907,6 +914,7 @@ public final class LinkCommandLine extends CommandLine {
     private boolean nativeDeps;
     private boolean useExecOrigin;
     private boolean needWholeArchive;
+    private boolean supportsParamFiles;
     @Nullable private Artifact interfaceSoBuilder;
 
     public Builder(BuildConfiguration configuration, ActionOwner owner) {
@@ -922,7 +930,7 @@ public final class LinkCommandLine extends CommandLine {
       return new LinkCommandLine(configuration, owner, output, interfaceOutput,
           symbolCountsOutput, buildInfoHeaderArtifacts, linkerInputs, runtimeInputs, linkTargetType,
           linkStaticness, linkopts, features, linkstamps, runtimeSolibDir, nativeDeps,
-          useExecOrigin, needWholeArchive, interfaceSoBuilder);
+          useExecOrigin, needWholeArchive, supportsParamFiles, interfaceSoBuilder);
     }
 
     /**
@@ -1072,6 +1080,11 @@ public final class LinkCommandLine extends CommandLine {
 
     public Builder setNeedWholeArchive(boolean needWholeArchive) {
       this.needWholeArchive = needWholeArchive;
+      return this;
+    }
+
+    public Builder setSupportsParamFiles(boolean supportsParamFiles) {
+      this.supportsParamFiles = supportsParamFiles;
       return this;
     }
   }

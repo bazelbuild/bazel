@@ -94,6 +94,13 @@ public enum Suite {
   }
 
   /**
+   * Given a class, determine if it is flaky.
+   */
+  public static boolean isFlaky(Class<?> clazz) {
+    return getAnnotationElementOrDefault(clazz, "flaky");
+  }
+
+  /**
    * Returns the value of the given element in the {@link TestSpec} annotation of the given class,
    * or the default value of that element if the class doesn't have a {@link TestSpec} annotation.
    */

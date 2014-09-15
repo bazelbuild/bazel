@@ -255,7 +255,8 @@ public class BazelCppRuleClasses {
     public RuleClass build(Builder builder, RuleDefinitionEnvironment env) {
       return builder
           .add(attr("copts", STRING_LIST))
-          .add(attr("plugins", LABEL_LIST).cfg(HOST).allowedRuleClasses("cc_plugin"))
+          .add(attr("plugins", LABEL_LIST).cfg(HOST)
+              .allowedRuleClasses("cc_plugin").allowedFileTypes())
           .add(attr(":cc_plugins", LABEL_LIST)
               .cfg(HOST)
               .allowedRuleClasses("cc_plugin")
@@ -303,7 +304,7 @@ public class BazelCppRuleClasses {
               .allowedFileTypes(ALLOWED_SRC_FILES))
           .override(attr("deps", LABEL_LIST)
               .allowedRuleClasses(DEPS_ALLOWED_RULES)
-              .allowedFileTypes(FileTypeSet.NO_FILE)
+              .allowedFileTypes()
               .skipAnalysisTimeFileTypeCheck())
           .add(attr("linkopts", STRING_LIST))
           .add(attr("nocopts", STRING))
@@ -402,8 +403,9 @@ public class BazelCppRuleClasses {
     @Override
     public RuleClass build(Builder builder, RuleDefinitionEnvironment env) {
       return builder
-          .add(attr("hdrs", LABEL_LIST).orderIndependent().direct_compile_time_input())
-          .add(attr("linkstamp", LABEL))
+          .add(attr("hdrs", LABEL_LIST).orderIndependent().direct_compile_time_input()
+              .allowedFileTypes(CPP_HEADER))
+          .add(attr("linkstamp", LABEL).allowedFileTypes(CPP_SOURCE, C_SOURCE))
           .build();
     }
   }

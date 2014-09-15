@@ -37,6 +37,7 @@ public final class CcToolchainProvider implements TransitiveInfoProvider {
   private final Artifact dynamicRuntimeLinkMiddleman;
   private final PathFragment dynamicRuntimeSolibDir;
   private final CppCompilationContext cppCompilationContext;
+  private final boolean supportsParamFiles;
 
   public CcToolchainProvider(NestedSet<Artifact> crosstool,
       NestedSet<Artifact> crosstoolMiddleman,
@@ -50,7 +51,8 @@ public final class CcToolchainProvider implements TransitiveInfoProvider {
       NestedSet<Artifact> dynamicRuntimeLinkInputs,
       Artifact dynamicRuntimeLinkMiddleman,
       PathFragment dynamicRuntimeSolibDir,
-      CppCompilationContext cppCompilationContext) {
+      CppCompilationContext cppCompilationContext,
+      boolean supportsParamFiles) {
     super();
     this.crosstool = crosstool;
     this.crosstoolMiddleman = crosstoolMiddleman;
@@ -65,6 +67,7 @@ public final class CcToolchainProvider implements TransitiveInfoProvider {
     this.dynamicRuntimeLinkMiddleman = dynamicRuntimeLinkMiddleman;
     this.dynamicRuntimeSolibDir = dynamicRuntimeSolibDir;
     this.cppCompilationContext = cppCompilationContext;
+    this.supportsParamFiles = supportsParamFiles;
   }
 
   /**
@@ -155,5 +158,12 @@ public final class CcToolchainProvider implements TransitiveInfoProvider {
    */
   public CppCompilationContext getCppCompilationContext() {
     return cppCompilationContext;
+  }
+
+  /**
+   * Whether the toolchains supports parameter files.
+   */
+  public boolean supportsParamFiles() {
+    return supportsParamFiles;
   }
 }

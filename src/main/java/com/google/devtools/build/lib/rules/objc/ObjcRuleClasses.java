@@ -358,7 +358,7 @@ public class ObjcRuleClasses {
           linked with any binary that depends directly or indirectly on this
           target.
           <!-- #END_BLAZE_RULE.ATTRIBUTE -->*/
-          .add(attr("asset_catalogs", LABEL_LIST)
+          .add(attr("asset_catalogs", LABEL_LIST).legacyAllowAnyFileType()
               .direct_compile_time_input())
           /* <!-- #BLAZE_RULE($objc_base_rule).ATTRIBUTE(strings) -->
           Files which are plists of strings, often localizable. These files
@@ -368,7 +368,7 @@ public class ObjcRuleClasses {
           directory of that name in the final bundle. This allows for
           localizable strings.
           <!-- #END_BLAZE_RULE.ATTRIBUTE -->*/
-          .add(attr("strings", LABEL_LIST)
+          .add(attr("strings", LABEL_LIST).legacyAllowAnyFileType()
               .direct_compile_time_input())
           /* <!-- #BLAZE_RULE($objc_base_rule).ATTRIBUTE(xibs) -->
           Files which are .xib resources, possibly localizable. These files are
@@ -399,14 +399,14 @@ public class ObjcRuleClasses {
           *.lproj), they will be placed in a directory of the same name in the
           app bundle.
           <!-- #END_BLAZE_RULE.ATTRIBUTE -->*/
-          .add(attr("resources", LABEL_LIST).direct_compile_time_input())
+          .add(attr("resources", LABEL_LIST).legacyAllowAnyFileType().direct_compile_time_input())
           /* <!-- #BLAZE_RULE($objc_base_rule).ATTRIBUTE(datamodels) -->
           Files that comprise the data models of the final linked binary.
           Each file must have a containing directory named *.xcdatamodel, which
           is usually contained by another *.xcdatamodeld (note the added d)
           directory.
           <!-- #END_BLAZE_RULE.ATTRIBUTE -->*/
-          .add(attr("datamodels", LABEL_LIST)
+          .add(attr("datamodels", LABEL_LIST).legacyAllowAnyFileType()
               .direct_compile_time_input())
           .add(attr("$xcodegen", LABEL).cfg(HOST).exec()
               .value(env.getLabel("//tools/objc:xcodegen")))

@@ -46,8 +46,9 @@ public final class BazelGenRuleRule implements RuleDefinition {
     return builder
         .setOutputToGenfiles()
         .add(attr("srcs", LABEL_LIST)
-            .direct_compile_time_input())
-        .add(attr("tools", LABEL_LIST).cfg(HOST))
+            .direct_compile_time_input()
+            .legacyAllowAnyFileType())
+        .add(attr("tools", LABEL_LIST).cfg(HOST).legacyAllowAnyFileType())
         .add(attr("$genrule_setup", LABEL).cfg(HOST).value(env.getLabel(GENRULE_SETUP_LABEL)))
         .add(attr("outs", OUTPUT_LIST).mandatory())
         .add(attr("cmd", STRING).mandatory())

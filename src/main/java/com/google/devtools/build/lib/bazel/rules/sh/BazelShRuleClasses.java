@@ -54,7 +54,7 @@ public final class BazelShRuleClasses {
     @Override
     public RuleClass build(Builder builder, RuleDefinitionEnvironment environment) {
       return builder
-          .add(attr("srcs", LABEL_LIST).mandatory())
+          .add(attr("srcs", LABEL_LIST).mandatory().legacyAllowAnyFileType())
           .override(builder.copy("deps")
               .allowedRuleClasses("sh_library", "proto_library")
               .allowedRuleClassesWithWarning(ALLOWED_RULES_IN_DEPS_WITH_WARNING)

@@ -258,6 +258,7 @@ public final class Attribute implements Comparable<Attribute> {
     private Predicate<RuleClass> allowedRuleClassesForLabels = Predicates.alwaysTrue();
     private Predicate<RuleClass> allowedRuleClassesForLabelsWarning = Predicates.alwaysFalse();
     private Configurator<?, ?> configurator = null;
+    private boolean allowedFileTypesForLabelsSet;
     private FileTypeSet allowedFileTypesForLabels = FileTypeSet.ANY_FILE;
     private ValidityPredicate validityPredicate = ANY_EDGE;
     private Object value;
@@ -540,8 +541,18 @@ public final class Attribute implements Comparable<Attribute> {
       Preconditions.checkState((type == Type.LABEL) || (type == Type.LABEL_LIST),
           "must be a label-valued type");
       propertyFlags.add(PropertyFlag.STRICT_LABEL_CHECKING);
+      allowedFileTypesForLabelsSet = true;
       allowedFileTypesForLabels = allowedFileTypes;
       return this;
+    }
+
+    /**
+     * Allow all files for legacy compatibility. All uses of this method should be audited and then
+     * removed. In some cases, it's correct to allow any file, but mostly the set of files should be
+     * restricted to a reasonable set.
+     */
+    public Builder<TYPE> legacyAllowAnyFileType() {
+      return allowedFileTypes(FileTypeSet.ANY_FILE);
     }
 
     /**
@@ -672,10 +683,21 @@ public final class Attribute implements Comparable<Attribute> {
       Preconditions.checkState(!name.isEmpty(), "name has not been set");
       Preconditions.checkState(value instanceof LateBoundDefault || !isLateBound(name),
           "The name of late bound attributes has to start with ':'");
+      // TODO(bazel-team): Remove this check again, and remove all allowedFileTypes() calls.
+      if ((type == Type.LABEL) || (type == Type.LABEL_LIST)) {
+        if ((name.startsWith("$") || name.startsWith(":")) && !allowedFileTypesForLabelsSet) {
+          allowedFileTypesForLabelsSet = true;
+          allowedFileTypesForLabels = FileTypeSet.ANY_FILE;
+        }
+        if (!allowedFileTypesForLabelsSet) {
+          throw new IllegalStateException(name);
+        }
+      }
       return new Attribute(name, type, Sets.immutableEnumSet(propertyFlags),
           valueSet ? value : type.getDefaultValue(), configTransition, configurator,
           allowedRuleClassesForLabels, allowedRuleClassesForLabelsWarning,
-          allowedFileTypesForLabels, validityPredicate, condition, allowedValues);
+          allowedFileTypesForLabels, allowedFileTypesForLabelsSet, validityPredicate, condition,
+          allowedValues);
     }
   }
 
@@ -912,6 +934,7 @@ public final class Attribute implements Comparable<Attribute> {
    * targets (rather than rules).
    */
   private final FileTypeSet allowedFileTypesForLabels;
+  private final boolean allowedFileTypesForLabelsSet;
 
   /**
    * This predicate-like object checks
@@ -945,6 +968,7 @@ public final class Attribute implements Comparable<Attribute> {
       Predicate<RuleClass> allowedRuleClassesForLabels,
       Predicate<RuleClass> allowedRuleClassesForLabelsWarning,
       FileTypeSet allowedFileTypesForLabels,
+      boolean allowedFileTypesForLabelsSet,
       ValidityPredicate validityPredicate,
       Predicate<AttributeMap> condition,
       PredicateWithMessage<Object> allowedValues) {
@@ -962,6 +986,7 @@ public final class Attribute implements Comparable<Attribute> {
     this.allowedRuleClassesForLabels = allowedRuleClassesForLabels;
     this.allowedRuleClassesForLabelsWarning = allowedRuleClassesForLabelsWarning;
     this.allowedFileTypesForLabels = allowedFileTypesForLabels;
+    this.allowedFileTypesForLabelsSet = allowedFileTypesForLabelsSet;
     this.validityPredicate = validityPredicate;
     this.condition = condition;
     this.allowedValues = allowedValues;
@@ -1227,9 +1252,10 @@ public final class Attribute implements Comparable<Attribute> {
   /**
    * Returns a replica builder of this Attribute.
    */
-   public Attribute.Builder<?> cloneBuilder() {
+  public Attribute.Builder<?> cloneBuilder() {
     Builder<?> builder = new Builder<>(name, this.type);
     builder.allowedFileTypesForLabels = allowedFileTypesForLabels;
+    builder.allowedFileTypesForLabelsSet = allowedFileTypesForLabelsSet;
     builder.allowedRuleClassesForLabels = allowedRuleClassesForLabels;
     builder.allowedRuleClassesForLabelsWarning = allowedRuleClassesForLabelsWarning;
     builder.validityPredicate = validityPredicate;

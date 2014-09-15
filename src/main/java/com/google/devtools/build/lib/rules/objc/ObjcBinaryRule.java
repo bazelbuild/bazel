@@ -23,6 +23,7 @@ import static com.google.devtools.build.lib.packages.Type.STRING;
 
 import com.google.common.base.Optional;
 import com.google.devtools.build.lib.packages.Attribute;
+import com.google.devtools.build.lib.packages.AttributeMap;
 import com.google.devtools.build.lib.packages.ImplicitOutputsFunction.SafeImplicitOutputsFunction;
 import com.google.devtools.build.lib.packages.Rule;
 import com.google.devtools.build.lib.packages.RuleClass;
@@ -120,11 +121,23 @@ public class ObjcBinaryRule implements RuleDefinition {
         /* <!-- #BLAZE_RULE(objc_binary).ATTRIBUTE(entitlements) -->
         The entitlements file required for device builds of this application. See
         <a href="https://developer.apple.com/library/mac/documentation/Miscellaneous/Reference/EntitlementKeyReference/Chapters/AboutEntitlements.html">the apple documentation</a>
-        for more information. If absent, the application is simply not signed,
-        but in the very near future, the default entitlements from the
+        for more information. If absent, the default entitlements from the
         provisioning profile will be used.
         <!-- #END_BLAZE_RULE.ATTRIBUTE -->*/
-        .add(attr("entitlements", LABEL))
+        .add(attr("entitlements", LABEL).legacyAllowAnyFileType())
+        /* <!-- #BLAZE_RULE(objc_binary).ATTRIBUTE(bundle_id) -->
+        The bundle ID (reverse-DNS path followed by app name) of the binary. If none is specified, a
+        junk value will be used.
+        <!-- #END_BLAZE_RULE.ATTRIBUTE -->*/
+        .add(attr("bundle_id", STRING)
+            .value(new Attribute.ComputedDefault() {
+              @Override
+              public Object getDefault(AttributeMap rule) {
+                // For tests and similar, we don't want to force people to explicitly specify
+                // throw-away data.
+                return "example." + rule.getName();
+              }
+            }))
         /* <!-- #BLAZE_RULE(objc_binary).ATTRIBUTE(provisioning_profile) -->
         The provisioning profile (.mobileprovision file) to use when bundling
         the application.

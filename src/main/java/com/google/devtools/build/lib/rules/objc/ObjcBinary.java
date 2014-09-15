@@ -14,6 +14,7 @@
 
 package com.google.devtools.build.lib.rules.objc;
 
+import static com.google.devtools.build.lib.packages.Type.STRING;
 import static com.google.devtools.build.lib.rules.objc.IosSdkCommands.BIN_DIR;
 import static com.google.devtools.build.lib.rules.objc.IosSdkCommands.MINIMUM_OS_VERSION;
 import static com.google.devtools.build.lib.rules.objc.IosSdkCommands.TARGET_DEVICE_FAMILIES;
@@ -33,6 +34,7 @@ import com.google.devtools.build.lib.actions.Action;
 import com.google.devtools.build.lib.actions.Artifact;
 import com.google.devtools.build.lib.collect.nestedset.NestedSetBuilder;
 import com.google.devtools.build.lib.rules.RuleConfiguredTargetFactory;
+import com.google.devtools.build.lib.shell.ShellUtils;
 import com.google.devtools.build.lib.vfs.PathFragment;
 import com.google.devtools.build.lib.view.ConfiguredTarget;
 import com.google.devtools.build.lib.view.RuleConfiguredTarget.Mode;
@@ -201,10 +203,45 @@ public class ObjcBinary implements RuleConfiguredTargetFactory {
       }
     } else if (!provisioningProfile.isPresent()) {
       throw new IllegalStateException(DEVICE_NO_PROVISIONING_PROFILE);
-    } else if (!entitlements.isPresent()) {
-      // TODO(bazel-team): Copy from provisioning profile
-      ipaUnsigned = ipaOutput;
     } else {
+      if (!entitlements.isPresent()) {
+        entitlements = Optional.of(ruleContext.getRelatedArtifact(
+            ruleContext.getUniqueDirectory("entitlements"), ".entitlements"));
+
+        // See http://goo.gl/EkhXOb
+        // An Application Identifier is constructed as: TeamID.BundleID
+        // TeamID is extracted from the provisioning profile.
+        // BundleID consists of a reverse-DNS string to identify the app, where the last component
+        // is the application name, and is specified as an attribute.
+
+        ruleContext.getAnalysisEnvironment().registerAction(new SpawnAction.Builder(ruleContext)
+            .setMnemonic("Extract entitlements")
+            .setExecutable(new PathFragment("/bin/bash"))
+            .addArgument("-c")
+            .addArgument("set -e && "
+                + "PLIST=$(" + extractPlistCommand(provisioningProfile.get()) + ") && "
+
+                // We think PlistBuddy uses PRead internally to seek through the file. Or possibly
+                // mmaps the file. Or something similar.
+                //
+                // Pipe FDs do not support PRead or mmap, though.
+                //
+                // <<< however does something magical like write to a temporary file or something
+                // like that internally, which means that this Just Works.
+                + "PREFIX=$(/usr/libexec/PlistBuddy -c 'Print ApplicationIdentifierPrefix:0' "
+                + "/dev/stdin <<< \"${PLIST}\") && "
+
+                + "/usr/libexec/PlistBuddy -x -c 'Print Entitlements' /dev/stdin <<< \"${PLIST}\""
+                // TODO(bazel-team): Do this substitution for all entitlements files, not just the
+                // default.
+                + "| sed -e \"s#${PREFIX}\\.\\*#${PREFIX}."
+                + ShellUtils.shellEscape(ruleContext.attributes().get("bundle_id", STRING))
+                + "#g\" > " + entitlements.get().getExecPathString())
+            .addInput(provisioningProfile.get())
+            .addOutput(entitlements.get())
+            .setExecutionInfo(ImmutableMap.of(ExecutionRequirements.REQUIRES_DARWIN, ""))
+            .build());
+      }
       ipaUnsigned = ObjcRuleClasses.artifactByAppendingToRootRelativePath(
           ruleContext, ipaOutput.getExecPath(), ".unsigned");
       mergeControl.addBundleFile(BundleMergeProtos.BundleFile.newBuilder()
@@ -228,7 +265,7 @@ public class ObjcBinary implements RuleConfiguredTargetFactory {
               // Using jar not zip because it allows us to specify -C without actually changing
               // directory
               // TODO(bazel-team): Junk timestamps
-              + "jar -cMf \"" + ipaOutput.getExecPathString() + "\" -C ${t} .")
+              + "jar -cMf '" + ipaOutput.getExecPathString() + "' -C ${t} .")
           .addInput(ipaUnsigned)
           .addInput(provisioningProfile.get())
           .addInput(entitlements.get())
@@ -278,17 +315,20 @@ public class ObjcBinary implements RuleConfiguredTargetFactory {
 
   private static String codesignCommand(
       Artifact provisioningProfile, Artifact entitlements, String appDir) {
-    String dumpCertCommand =
-        "security cms -D -i " + provisioningProfile.getExecPathString();
     String fingerprintCommand =
-        "/usr/libexec/PlistBuddy -c \"Print DeveloperCertificates:0\" /dev/stdin <<< "
-        + "$(" + dumpCertCommand + ") | openssl x509 -inform DER -noout -fingerprint | "
+        "/usr/libexec/PlistBuddy -c 'Print DeveloperCertificates:0' /dev/stdin <<< "
+        + "$(" + extractPlistCommand(provisioningProfile) + ") | "
+        + "openssl x509 -inform DER -noout -fingerprint | "
         + "cut -d= -f2 | sed -e 's#:##g'";
     return String.format(
         "/usr/bin/codesign --force --sign $(%s) --entitlements %s %s",
         fingerprintCommand,
         entitlements.getExecPathString(),
         appDir);
+  }
+
+  private static String extractPlistCommand(Artifact provisioningProfile) {
+    return "security cms -D -i " + ShellUtils.shellEscape(provisioningProfile.getExecPathString());
   }
 
   @Override

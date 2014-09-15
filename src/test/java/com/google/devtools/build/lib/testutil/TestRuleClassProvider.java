@@ -22,6 +22,7 @@ import static com.google.devtools.build.lib.packages.Type.STRING_LIST;
 
 import com.google.devtools.build.lib.packages.RuleClass;
 import com.google.devtools.build.lib.packages.RuleClass.Builder;
+import com.google.devtools.build.lib.util.FileTypeSet;
 import com.google.devtools.build.lib.view.BaseRuleClasses;
 import com.google.devtools.build.lib.view.BlazeRule;
 import com.google.devtools.build.lib.view.ConfiguredRuleClassProvider;
@@ -71,7 +72,7 @@ public class TestRuleClassProvider {
     public RuleClass build(Builder builder, RuleDefinitionEnvironment env) {
       return builder
           .setUndocumented()
-          .add(attr("srcs", LABEL_LIST))
+          .add(attr("srcs", LABEL_LIST).allowedFileTypes(FileTypeSet.ANY_FILE))
           .add(attr("outs", OUTPUT_LIST))
           .add(attr("dummystrings", STRING_LIST))
           .add(attr("dummyinteger", INTEGER))

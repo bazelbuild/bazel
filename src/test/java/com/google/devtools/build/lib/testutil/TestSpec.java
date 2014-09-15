@@ -59,4 +59,10 @@ public @interface TestSpec {
    * assumed to be able to run with Skyframe full.
    */
   SkyframeMode skyframeMax() default SkyframeMode.FULL;
+
+  /**
+   * If the test will pass consistently without outside changes.
+   * This should be fixed as soon as possible.
+   */
+  boolean flaky() default false;
 }

@@ -167,11 +167,31 @@ genrule(
     }),
 )
 
+LIBARCHIVE_FILES = [
+    "libarchive.a",
+    "liblzo2.a",
+    "liblzma.a",
+    "libcharset.a",
+    "libbz2.a",
+    "libxml2.a",
+    "libz.a",
+    "libiconv.a",
+]
+
+genrule(
+    name = "copy_static_libarchive",
+    srcs = [],
+    outs = LIBARCHIVE_FILES,
+    cmd = select({
+        ":darwin": "cp " + " ".join(["/opt/local/lib/" + x for x in LIBARCHIVE_FILES]) + " $(@D)",
+        "//conditions:default": "touch $OUTS",
+    }),
+)
+
 cc_binary(
     name = "libunix.so",
     srcs = select({
         ":darwin" : [
-            "main/cpp/util/md5.cc",
             "main/native/localsocket.cc",
             "main/native/process.cc",
             "main/native/unix_jni.cc",
@@ -180,7 +200,6 @@ cc_binary(
             "jni_md.h",
         ],
         "//conditions:default" : [
-            "main/cpp/util/md5.cc",
             "main/native/localsocket.cc",
             "main/native/process.cc",
             "main/native/unix_jni.cc",
@@ -189,17 +208,47 @@ cc_binary(
             "jni_md.h",
         ],
     }),
+    deps = [
+        ":md5",
+    ],
     copts = [
         "-fPIC",
         "-DBLAZE_JAVA_CPU=\"k8\"",
         "-DBLAZE_OPENSOURCE=1",
     ],
     includes = [
-        ".",
+        ".", # for the jni headers
         "main/cpp",
     ],
     linkopts = ["-lstdc++"],
     linkshared = 1,
+)
+
+cc_library(
+    name = "util",
+    hdrs = [
+        "main/cpp/util/numbers.h",
+        "main/cpp/util/port.h",
+        "main/cpp/util/strings.h",
+    ],
+    srcs = [
+        "main/cpp/util/numbers.cc",
+        "main/cpp/util/port.cc",
+        "main/cpp/util/strings.cc",
+    ],
+    includes = [
+        "main/cpp",
+    ],
+    copts = [
+        "-DBLAZE_OPENSOURCE=1",
+    ],
+)
+
+cc_library(
+    name = "md5",
+    srcs = ["main/cpp/util/md5.cc"],
+    hdrs = ["main/cpp/util/md5.h"],
+    includes = ["main/cpp"],
 )
 
 cc_binary(
@@ -213,10 +262,7 @@ cc_binary(
             "main/cpp/blaze_util_darwin.cc",
             "main/cpp/option_processor.cc",
             "main/cpp/util/file.cc",
-            "main/cpp/util/md5.cc",
-            "main/cpp/util/numbers.cc",
-            "main/cpp/util/port.cc",
-            "main/cpp/util/strings.cc",
+            ":copy_static_libarchive"
         ],
         "//conditions:default": [
             "main/cpp/blaze.cc",
@@ -226,12 +272,12 @@ cc_binary(
             "main/cpp/blaze_util_linux.cc",
             "main/cpp/option_processor.cc",
             "main/cpp/util/file.cc",
-            "main/cpp/util/md5.cc",
-            "main/cpp/util/numbers.cc",
-            "main/cpp/util/port.cc",
-            "main/cpp/util/strings.cc",
         ],
     }),
+    deps = [
+        ":util",
+        ":md5",
+    ],
     copts = [
         "-DBLAZE_JAVA_CPU=\\\"k8\\\"",
         "-DBLAZE_OPENSOURCE=1",
@@ -242,9 +288,7 @@ cc_binary(
     ],
     linkopts = select({
         ":darwin" : [
-            "-larchive",
             "-lstdc++",
-            "-L/opt/local/lib",
         ],
         "//conditions:default" : [
             "-larchive",

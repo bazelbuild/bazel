@@ -354,7 +354,7 @@ public class SkylarkRuleImplementationFunctions {
           builder.addRunfiles(ctx.getRuleContext(), RunfilesProvider.DATA_RUNFILES);
         } else if (obj instanceof Artifact) {
           builder.addArtifact((Artifact) obj);
-        } else if (obj instanceof SkylarkFileset) {
+        } else if (obj instanceof SkylarkNestedSet) {
           builder.addTransitiveArtifacts(((SkylarkNestedSet) obj).getSet(Artifact.class));
         } else if (obj instanceof NestedSet) {
           // TODO(bazel-team): This is probably not very safe in general. However it's only possible

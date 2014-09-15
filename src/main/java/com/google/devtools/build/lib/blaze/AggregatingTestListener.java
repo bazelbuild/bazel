@@ -133,9 +133,11 @@ public class AggregatingTestListener {
       TestSummary.Builder summary = summaries.get(targetLabel);
       preconditionHelper.checkNotNull(summary);
       if (!remainingRuns.remove(targetLabel, result.getTestStatusArtifact())) {
-        preconditionHelper.fail("Attempted to remove a nonexistent run for " + targetLabel);
+        // This can happen if a buildCompleteEvent() was processed before this event reached us.
+        // This situation is likely to happen if --notest_keep_going is set with multiple targets.
+        return;
       }
-
+     
       summary = analyzer.incrementalAnalyze(summary, result);
 
       // If all runs are processed, the target is finished and ready to report.

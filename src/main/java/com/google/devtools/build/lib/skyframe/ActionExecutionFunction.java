@@ -248,6 +248,7 @@ public class ActionExecutionFunction implements SkyFunction {
 
   private static void declareAdditionalDependencies(Environment env, Action action) {
     if (action.discoversInputs()) {
+      // TODO(bazel-team): Should this be all inputs, or just source files?
       env.getValues(toKeys(Iterables.filter(action.getInputs(), IS_SOURCE_ARTIFACT),
           action.getMandatoryInputs()));
     }

@@ -533,6 +533,7 @@ public final class CppLinkAction extends ConfigurationAction
     private boolean isNativeDeps;
     private boolean useExecOrigin;
     private boolean wholeArchive;
+    private boolean supportsParamFiles = true;
 
     /**
      * Creates a builder that builds {@link CppLinkAction} instances.
@@ -571,6 +572,15 @@ public final class CppLinkAction extends ConfigurationAction
           CcToolchainProvider provider = dep.getProvider(CcToolchainProvider.class);
           if (provider != null) {
             runtimeSolibDir = provider.getDynamicRuntimeSolibDir();
+          }
+        }
+      }
+      if (ruleContext != null) {
+        TransitiveInfoCollection dep = ruleContext.getPrerequisite(":cc_toolchain", Mode.TARGET);
+        if (dep != null) {
+          CcToolchainProvider provider = dep.getProvider(CcToolchainProvider.class);
+          if (provider != null) {
+            supportsParamFiles = provider.supportsParamFiles();
           }
         }
       }
@@ -681,6 +691,7 @@ public final class CppLinkAction extends ConfigurationAction
           .setUseExecOrigin(useExecOrigin)
           .setNeedWholeArchive(needWholeArchive)
           .setInterfaceSoBuilder(getInterfaceSoBuilder())
+          .setSupportsParamFiles(supportsParamFiles)
           .build();
 
       // Compute the set of inputs - we only need stable order here.
