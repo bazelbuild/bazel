@@ -19,6 +19,8 @@ import static com.google.devtools.build.lib.rules.objc.ArtifactListAttribute.HDR
 import static com.google.devtools.build.lib.rules.objc.ArtifactListAttribute.NON_ARC_SRCS;
 import static com.google.devtools.build.lib.rules.objc.ArtifactListAttribute.SRCS;
 import static com.google.devtools.build.lib.rules.objc.ObjcProvider.BUNDLE_FILE;
+import static com.google.devtools.build.lib.rules.objc.ObjcProvider.FLAG;
+import static com.google.devtools.build.lib.rules.objc.ObjcProvider.Flag.USES_CPP;
 import static com.google.devtools.build.lib.rules.objc.ObjcProvider.HEADER;
 import static com.google.devtools.build.lib.rules.objc.ObjcProvider.IMPORTED_LIBRARY;
 import static com.google.devtools.build.lib.rules.objc.ObjcProvider.INCLUDE;
@@ -234,7 +236,13 @@ final class ObjcCommon {
     AssetCatalogsInfo assetCatalogsInfo = AssetCatalogsInfo.fromRule(context);
     XcdatamodelsInfo xcdatamodelsInfo = XcdatamodelsInfo.fromRule(context);
 
+    boolean usesCpp = false;
+    for (Artifact sourceFile : Iterables.concat(SRCS.get(context), NON_ARC_SRCS.get(context))) {
+      usesCpp = usesCpp || ObjcRuleClasses.CPP_SOURCES.matches(sourceFile.getExecPath());
+    }
+
     ObjcProvider objcProvider = new ObjcProvider.Builder()
+        .addAll(FLAG, usesCpp ? ImmutableList.of(USES_CPP) : ImmutableList.<ObjcProvider.Flag>of())
         .addAll(HEADER, HDRS.get(context))
         .addAll(INCLUDE, headerSearchPaths(context))
         .add(assetCatalogsInfo)

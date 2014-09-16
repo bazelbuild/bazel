@@ -61,6 +61,11 @@ final class CompileOrderNestedSetFactory implements NestedSetFactory {
     return new CompileManyDirectManyTransitive<>(directs, transitives);
   }
 
+  @Override
+  public <E> NestedSet<E> oneDirect(E element) {
+    return new CompileSingleDirectNestedSet<>(element);
+  }
+
   private static class CompileOnlyDirectsNestedSet<E> extends OnlyDirectsNestedSet<E> {
 
     CompileOnlyDirectsNestedSet(Object[] directs) { super(directs); }
@@ -129,11 +134,19 @@ final class CompileOrderNestedSetFactory implements NestedSetFactory {
   private static class CompileOrderImmutableListDirectsNestedSet<E> extends
       ImmutableListDirectsNestedSet<E> {
 
-    public CompileOrderImmutableListDirectsNestedSet(ImmutableList<E> directs) { super(directs); }
+    private CompileOrderImmutableListDirectsNestedSet(ImmutableList<E> directs) { super(directs); }
 
     @Override
     public Order getOrder() {
       return Order.COMPILE_ORDER;
     }
+  }
+
+  private static class CompileSingleDirectNestedSet<E> extends SingleDirectNestedSet<E> {
+
+    private CompileSingleDirectNestedSet(E element) { super(element); }
+
+    @Override
+    public Order getOrder() { return Order.COMPILE_ORDER; }
   }
 }

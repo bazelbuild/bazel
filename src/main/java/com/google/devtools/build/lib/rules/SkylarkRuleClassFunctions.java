@@ -203,6 +203,11 @@ public class SkylarkRuleClassFunctions {
               "allowed rule classes for attribute definition"));
     }
 
+    if (arguments.containsKey("providers")) {
+      builder.mandatoryProviders(castList(arguments.get("providers"),
+          String.class, "mandatory providers for attribute definition"));
+    }
+
     if (arguments.containsKey("cfg")) {
       builder.cfg(
           cast(arguments.get("cfg"), ConfigurationTransition.class, "configuration", loc));

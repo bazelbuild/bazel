@@ -27,7 +27,7 @@ final class LinkOrderNestedSetFactory implements NestedSetFactory {
 
   @Override
   public <E> NestedSet<E> onlyDirects(ImmutableList<E> directs) {
-    return new LinkOrderImmutableListDirectsNestedSet<>(directs);
+    return new LinkImmutableListDirectsNestedSet<>(directs);
   }
 
   @Override
@@ -59,6 +59,11 @@ final class LinkOrderNestedSetFactory implements NestedSetFactory {
   @Override
   public <E> NestedSet<E> manyDirectManyTransitive(Object[] directs, NestedSet[] transitives) {
     return new LinkManyDirectManyTransitive<>(directs, transitives);
+  }
+
+  @Override
+  public <E> NestedSet<E> oneDirect(E element) {
+    return new LinkSingleDirectNestedSet<>(element);
   }
 
   private static class LinkOnlyDirectsNestedSet<E> extends OnlyDirectsNestedSet<E> {
@@ -126,14 +131,22 @@ final class LinkOrderNestedSetFactory implements NestedSetFactory {
     public Order getOrder() { return Order.LINK_ORDER; }
   }
 
-  private static class LinkOrderImmutableListDirectsNestedSet<E> extends
+  private static class LinkImmutableListDirectsNestedSet<E> extends
       ImmutableListDirectsNestedSet<E> {
 
-    public LinkOrderImmutableListDirectsNestedSet(ImmutableList<E> directs) { super(directs); }
+    private LinkImmutableListDirectsNestedSet(ImmutableList<E> directs) { super(directs); }
 
     @Override
     public Order getOrder() {
       return Order.LINK_ORDER;
     }
+  }
+
+  private static class LinkSingleDirectNestedSet<E> extends SingleDirectNestedSet<E> {
+
+    private LinkSingleDirectNestedSet(E element) { super(element); }
+
+    @Override
+    public Order getOrder() { return Order.LINK_ORDER; }
   }
 }

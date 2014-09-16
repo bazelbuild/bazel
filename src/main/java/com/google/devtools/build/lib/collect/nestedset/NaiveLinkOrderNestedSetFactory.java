@@ -61,6 +61,11 @@ final class NaiveLinkOrderNestedSetFactory implements NestedSetFactory {
     return new NaiveLinkManyDirectManyTransitive<>(directs, transitives);
   }
 
+  @Override
+  public <E> NestedSet<E> oneDirect(final E element) {
+    return new NaiveLinkSingleDirectNestedSet<>(element);
+  }
+
   private static class NaiveLinkOnlyDirectsNestedSet<E> extends OnlyDirectsNestedSet<E> {
 
     NaiveLinkOnlyDirectsNestedSet(Object[] directs) { super(directs); }
@@ -130,11 +135,19 @@ final class NaiveLinkOrderNestedSetFactory implements NestedSetFactory {
   private static class NaiveLinkImmutableListDirectsNestedSet<E> extends
       ImmutableListDirectsNestedSet<E> {
 
-    public NaiveLinkImmutableListDirectsNestedSet(ImmutableList<E> directs) { super(directs); }
+    private NaiveLinkImmutableListDirectsNestedSet(ImmutableList<E> directs) { super(directs); }
 
     @Override
     public Order getOrder() {
       return Order.NAIVE_LINK_ORDER;
     }
+  }
+
+  private static class NaiveLinkSingleDirectNestedSet<E> extends SingleDirectNestedSet<E> {
+
+    private NaiveLinkSingleDirectNestedSet(E element) { super(element); }
+
+    @Override
+    public Order getOrder() { return Order.NAIVE_LINK_ORDER; }
   }
 }

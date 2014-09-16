@@ -1341,9 +1341,19 @@ public final class RuleContext extends TargetContext
       }
     }
 
+    private void validateMandatoryProviders(ConfiguredTarget prerequisite, Attribute attribute) {
+      for (String provider : attribute.getMandatoryProviders()) {
+        if (prerequisite.get(provider) == null) {
+          attributeError(attribute.getName(), "'" + prerequisite.getLabel()
+              + "' does not have mandatory provider '" + provider + "'");
+        }
+      }
+    }
+
     private void validateDirectPrerequisite(Attribute attribute, ConfiguredTarget prerequisite) {
       validateDirectPrerequisiteType(prerequisite, attribute);
       validateDirectPrerequisiteFileTypes(prerequisite, attribute);
+      validateMandatoryProviders(prerequisite, attribute);
       prerequisiteValidator.validate(this, prerequisite, attribute);
     }
   }

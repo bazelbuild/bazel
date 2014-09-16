@@ -66,7 +66,9 @@ public abstract class BipartiteVisitor<BLACK, WHITE> {
    *  false is returned.
    */
   public final boolean visitWhiteNode(WHITE whiteNode) {
-    if (whiteNode == null) { throw new NullPointerException(); }
+    if (whiteNode == null) {
+      throw new NullPointerException();
+    }
     if (!visitedWhiteNodes.containsKey(whiteNode)) {
       visitedWhiteNodes.put(whiteNode, nextNodeId++);
       white(whiteNode);

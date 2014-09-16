@@ -2,6 +2,7 @@
 # We will need proper proto and java rules.
 
 load('rules/java_library_oss', 'java_library')
+load('rules/java_binary_oss', 'java_binary')
 
 # The file assumes there is a directory (or symlink) src/javadir.
 # Use this command to use local java:
@@ -122,15 +123,25 @@ genrule(
 
 # TODO(bazel-team): Split this into multiple rules.
 java_library(
-    name = "blaze",
-    java_home = JAVA_HOME,
-    main_class = "com.google.devtools.build.lib.bazel.BazelMain",
+    name = "xcode-common",
     srcs = glob([
-        "main/**/*.java",
         "tools/xcode-common/java/com/google/devtools/build/xcode/util/*.java",
         "tools/xcode-common/java/com/google/devtools/build/xcode/common/*.java",
     ]),
+    jars = [
+        "//third_party"
+    ],
+)
+
+java_library(
+    name = "blaze-core",
+    srcs = glob([
+        "main/**/*.java",
+    ]),
     deps = [
+        ":xcode-common",
+    ],
+    jars = [
         "//third_party",
         ":proto_build",
         ":proto_bundlemerge",
@@ -138,6 +149,14 @@ java_library(
         ":proto_extra_actions_base",
         ":proto_test_status",
         ":proto_xcodegen",
+    ],
+)
+
+java_binary(
+    name = "blaze",
+    main_class = "com.google.devtools.build.lib.bazel.BazelMain",
+    deps = [
+        ":blaze-core",
     ],
 )
 

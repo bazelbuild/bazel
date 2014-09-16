@@ -79,7 +79,7 @@ done
 # Compile .java files (incl. generated ones) using javac
 echo "JAVAC src/main/java/**/*.java"
 CLASSPATH=third_party/guava/guava-16.0.1.jar:third_party/jsr305/jsr-305.jar:third_party/protobuf/protobuf-2.5.0.jar:third_party/joda-time/joda-time-2.3.jar
-DIRS=$(echo src/{main/java,tools/{singlejar,xcode-common}})
+DIRS=$(echo src/{main/java,tools/xcode-common/java/com/google/devtools/build/xcode/{common,util}})
 find ${DIRS} -name "*.java" | xargs "${JAVAC}" -classpath ${CLASSPATH} -sourcepath ${DIRS// /:}:output/src -d output/classes
 
 echo "UNZIP third_party/{guava,joda-time,jsr305,protobuf}/*.jar"
@@ -171,16 +171,12 @@ echo "CC process-wrapper"
 
 cp src/main/tools/build_interface_so output/build_interface_so
 
-touch output/alarm
-chmod 755 output/alarm
-
 touch output/client_info
 chmod 755 output/client_info
 
-TO_ZIP="libblaze.jar libunix.${DYNAMIC_EXT} build-runfiles process-wrapper alarm client_info build_interface_so"
+TO_ZIP="libblaze.jar libunix.${DYNAMIC_EXT} build-runfiles process-wrapper client_info build_interface_so"
 (cd output/ ; cat client ${TO_ZIP} | ${MD5SUM} | awk '{ print $1; }' > install_base_key)
 (cd output/ ; zip package.zip ${TO_ZIP} install_base_key)
 cat output/client output/package.zip > output/bazel
 zip -qA output/bazel
 chmod 755 output/bazel
-

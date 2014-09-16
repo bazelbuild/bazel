@@ -63,6 +63,9 @@ public class ObjcActionsBuilder {
         .setExecutionInfo(ImmutableMap.of(ExecutionRequirements.REQUIRES_DARWIN, ""));
   }
 
+  static final PathFragment CLANG = new PathFragment(BIN_DIR + "/clang");
+  static final PathFragment CLANG_PLUSPLUS = new PathFragment(BIN_DIR + "/clang++");
+
   // TODO(bazel-team): Reference a rule target rather than a jar file when Darwin runfiles work
   // better.
   private static SpawnAction.Builder spawnJavaOnDarwinActionBuilder(
@@ -78,7 +81,7 @@ public class ObjcActionsBuilder {
       ObjcProvider provider, String... otherFlags) {
     return spawnOnDarwinActionBuilder(ruleContext)
         .setMnemonic("Compile")
-        .setExecutable(new PathFragment(BIN_DIR + "/clang"))
+        .setExecutable(CLANG)
         .addArguments(IosSdkCommands.compileArgsForClang(objcConfiguration(ruleContext)))
         .addArguments(
             IosSdkCommands.commonLinkAndCompileArgsForClang(objcConfiguration(ruleContext)))

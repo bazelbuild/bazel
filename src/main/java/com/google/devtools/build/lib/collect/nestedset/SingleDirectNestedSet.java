@@ -27,7 +27,7 @@ import javax.annotation.Nullable;
 /**
  * Memory-efficient implementation for nested sets with one element.
  */
-public class SingleDirectNestedSet<E> extends NestedSet<E> {
+public abstract class SingleDirectNestedSet<E> extends NestedSet<E> {
 
   private static final NestedSet[] EMPTY = new NestedSet[0];
   private final E e;
@@ -36,9 +36,6 @@ public class SingleDirectNestedSet<E> extends NestedSet<E> {
 
   @Override
   public Iterator<E> iterator() { return Iterators.singletonIterator(e); }
-
-  @Override
-  public Order getOrder() { return Order.STABLE_ORDER; }
 
   @Override
   Object[] directMembers() { return new Object[]{e}; }

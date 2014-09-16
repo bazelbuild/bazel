@@ -148,7 +148,7 @@ public final class NestedSetBuilder<E> {
           case 0:
             return order.emptySet();
           case 1:
-            return new SingleDirectNestedSet<>(getOnlyElement(items));
+            return order.factory.oneDirect(getOnlyElement(items));
           default:
             return order.factory.onlyDirects(items.toArray());
         }
@@ -189,7 +189,7 @@ public final class NestedSetBuilder<E> {
     if (wrappedList.isEmpty()) {
       return order.emptySet();
     } else if (wrappedList.size() == 1) {
-      return new SingleDirectNestedSet<>(wrappedItems.iterator().next());
+      return order.factory.oneDirect(getOnlyElement(wrappedItems));
     } else {
       return order.factory.onlyDirects(wrappedList);
     }

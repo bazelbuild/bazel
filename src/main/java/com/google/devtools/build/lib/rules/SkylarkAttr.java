@@ -87,6 +87,8 @@ public final class SkylarkAttr {
           doc = "allowed file types of the label type attribute"),
       @Param(name = "mandatory", type = Boolean.class, doc = ""),
       @Param(name = "rule_classes", doc = "allowed rule classes of the label type attribute"),
+      @Param(name = "providers", type = List.class,
+          doc = "mandatory providers every dependency has to have"),
       @Param(name = "cfg", type = String.class, doc = "configuration of the attribute")})
   private static SkylarkFunction label = new SkylarkFunction("label") {
       @Override
@@ -122,6 +124,8 @@ public final class SkylarkAttr {
           doc = "allowed file types of the label type attribute"),
       @Param(name = "mandatory", type = Boolean.class, doc = ""),
       @Param(name = "rule_classes", doc = "allowed rule classes of the label type attribute"),
+      @Param(name = "providers", type = List.class,
+          doc = "mandatory providers every dependency has to have"),
       @Param(name = "cfg", type = String.class, doc = "configuration of the attribute")})
   private static SkylarkFunction labelList = new SkylarkFunction("label_list") {
       @Override

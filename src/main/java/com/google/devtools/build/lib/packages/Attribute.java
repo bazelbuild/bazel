@@ -266,6 +266,7 @@ public final class Attribute implements Comparable<Attribute> {
     private Predicate<AttributeMap> condition;
     private Set<PropertyFlag> propertyFlags = EnumSet.noneOf(PropertyFlag.class);
     private PredicateWithMessage<Object> allowedValues = null;
+    private ImmutableSet<String> mandatoryProviders = ImmutableSet.<String>of();
 
     /**
      * Creates an attribute builder with given name and type. This attribute is optional, uses
@@ -616,6 +617,18 @@ public final class Attribute implements Comparable<Attribute> {
     }
 
     /**
+     * Sets a set of mandatory Skylark providers. Every configured target occurring in 
+     * this label type attribute has to provide all of these providers, otherwise an
+     * error is produces during the analysis phase for every missing provider.
+     */
+    public Builder<TYPE> mandatoryProviders(Iterable<String> providers) {
+      Preconditions.checkState((type == Type.LABEL) || (type == Type.LABEL_LIST),
+          "must be a label-valued type");
+      this.mandatoryProviders = ImmutableSet.copyOf(providers);
+      return this;
+    }
+
+    /**
      * Sets the predicate-like edge validity checker.
      */
     public Builder<TYPE> validityPredicate(ValidityPredicate validityPredicate) {
@@ -697,7 +710,7 @@ public final class Attribute implements Comparable<Attribute> {
           valueSet ? value : type.getDefaultValue(), configTransition, configurator,
           allowedRuleClassesForLabels, allowedRuleClassesForLabelsWarning,
           allowedFileTypesForLabels, allowedFileTypesForLabelsSet, validityPredicate, condition,
-          allowedValues);
+          allowedValues, mandatoryProviders);
     }
   }
 
@@ -947,6 +960,8 @@ public final class Attribute implements Comparable<Attribute> {
 
   private final PredicateWithMessage<Object> allowedValues;
 
+  private final ImmutableSet<String> mandatoryProviders;
+
   /**
    * Constructs a rule attribute with the specified name, type and default
    * value.
@@ -971,7 +986,8 @@ public final class Attribute implements Comparable<Attribute> {
       boolean allowedFileTypesForLabelsSet,
       ValidityPredicate validityPredicate,
       Predicate<AttributeMap> condition,
-      PredicateWithMessage<Object> allowedValues) {
+      PredicateWithMessage<Object> allowedValues,
+      ImmutableSet<String> mandatoryProviders) {
     Preconditions.checkArgument(
         (configTransition == ConfigurationTransition.NONE && configurator == null)
         || type == Type.LABEL || type == Type.LABEL_LIST
@@ -990,6 +1006,7 @@ public final class Attribute implements Comparable<Attribute> {
     this.validityPredicate = validityPredicate;
     this.condition = condition;
     this.allowedValues = allowedValues;
+    this.mandatoryProviders = mandatoryProviders;
   }
 
   /**
@@ -1137,6 +1154,13 @@ public final class Attribute implements Comparable<Attribute> {
    */
   public Predicate<RuleClass> getAllowedRuleClassesWarningPredicate() {
     return allowedRuleClassesForLabelsWarning;
+  }
+
+  /**
+   * Returns the set of mandatory Skylark providers.
+   */
+  public ImmutableSet<String> getMandatoryProviders() {
+    return mandatoryProviders;
   }
 
   public FileTypeSet getAllowedFileTypesPredicate() {

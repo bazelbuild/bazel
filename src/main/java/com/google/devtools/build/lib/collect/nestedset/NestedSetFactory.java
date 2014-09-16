@@ -26,6 +26,9 @@ import com.google.common.collect.ImmutableList;
  */
 interface NestedSetFactory {
 
+  /** Create a NestedSet with just one direct element and not transitive elements. */
+  <E> NestedSet<E> oneDirect(E element);
+
   /** Create a NestedSet with only direct elements. */
   <E> NestedSet<E> onlyDirects(Object[] directs);
 

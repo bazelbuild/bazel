@@ -15,10 +15,12 @@
 package com.google.devtools.build.lib.rules.objc;
 
 import static com.google.devtools.build.lib.packages.Type.STRING;
-import static com.google.devtools.build.lib.rules.objc.IosSdkCommands.BIN_DIR;
 import static com.google.devtools.build.lib.rules.objc.IosSdkCommands.MINIMUM_OS_VERSION;
 import static com.google.devtools.build.lib.rules.objc.IosSdkCommands.TARGET_DEVICE_FAMILIES;
+import static com.google.devtools.build.lib.rules.objc.ObjcActionsBuilder.CLANG;
+import static com.google.devtools.build.lib.rules.objc.ObjcActionsBuilder.CLANG_PLUSPLUS;
 import static com.google.devtools.build.lib.rules.objc.ObjcProvider.BUNDLE_FILE;
+import static com.google.devtools.build.lib.rules.objc.ObjcProvider.Flag.USES_CPP;
 import static com.google.devtools.build.lib.rules.objc.ObjcProvider.IMPORTED_LIBRARY;
 import static com.google.devtools.build.lib.rules.objc.ObjcProvider.LIBRARY;
 import static com.google.devtools.build.lib.rules.objc.ObjcProvider.SDK_FRAMEWORK;
@@ -144,11 +146,11 @@ public class ObjcBinary implements RuleConfiguredTargetFactory {
     ObjcConfiguration objcConfiguration = ObjcActionsBuilder.objcConfiguration(ruleContext);
     Artifact binaryOutput = ruleContext.getImplicitOutputArtifact(ObjcBinaryRule.BINARY);
 
-    // TODO(bazel-team): See if this can be converted to a direct call to ld. It is possible that
-    // the code will be cleaner or clearer if we do so.
     ruleContext.getAnalysisEnvironment().registerAction(new SpawnAction.Builder(ruleContext)
         .setMnemonic("Link")
-        .setExecutable(new PathFragment(BIN_DIR + "/clang"))
+        .setExecutable(objcProvider.is(USES_CPP) ? CLANG_PLUSPLUS : CLANG)
+        .addArguments(objcProvider.is(USES_CPP)
+            ? ImmutableList.of("-stdlib=libc++") : ImmutableList.<String>of())
         .addArguments(IosSdkCommands.commonLinkAndCompileArgsForClang(objcConfiguration))
         .addArgument("-Xlinker").addArgument("-objc_abi_version")
         .addArgument("-Xlinker").addArgument("2")

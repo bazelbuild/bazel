@@ -37,6 +37,7 @@ import com.google.devtools.build.lib.packages.RuleClass.Builder;
 import com.google.devtools.build.lib.packages.RuleClass.Builder.RuleClassType;
 import com.google.devtools.build.lib.packages.Type;
 import com.google.devtools.build.lib.util.FileType;
+import com.google.devtools.build.lib.util.FileTypeSet;
 import com.google.devtools.build.lib.vfs.FileSystemUtils;
 import com.google.devtools.build.lib.vfs.PathFragment;
 import com.google.devtools.build.lib.view.AnalysisUtils;
@@ -262,6 +263,20 @@ public class ObjcRuleClasses {
   }
 
   /**
+   * Iff a file matches this type, it is considered to use C++.
+   */
+  static final FileType CPP_SOURCES = FileType.of(".cc", ".cpp", ".mm", ".cxx");
+
+  @VisibleForTesting
+  static final FileTypeSet SRCS_TYPE = FileTypeSet.of(FileType.of(".m", ".c"), CPP_SOURCES);
+
+  @VisibleForTesting
+  static final FileTypeSet NON_ARC_SRCS_TYPE = FileTypeSet.of(FileType.of(".m", ".mm"));
+
+  @VisibleForTesting
+  static final FileTypeSet HDRS_TYPE = FileTypeSet.of(FileType.of(".m", ".h", ".hh"));
+
+  /**
    * Attributes for {@code objc_*} rules that have compilable sources.
    */
   @BlazeRule(name = "$objc_sources_rule",
@@ -271,8 +286,8 @@ public class ObjcRuleClasses {
     public RuleClass build(Builder builder, RuleDefinitionEnvironment environment) {
       return builder
           /* <!-- #BLAZE_RULE($objc_sources_rule).ATTRIBUTE(srcs) -->
-          The list of Objective-C files that are processed to create the
-          library target.
+          The list of C, C++, Objective-C, and Objective-C++ files that are
+          processed to create the library target.
           <i>(List of <a href="build-ref.html#labels">labels</a>; required)</i>
           These are your checked-in source files, plus any generated files.
           These are compiled into .o files with Clang, so headers should not go
@@ -280,8 +295,7 @@ public class ObjcRuleClasses {
           <!-- #END_BLAZE_RULE.ATTRIBUTE -->*/
           .add(attr("srcs", LABEL_LIST)
               .direct_compile_time_input()
-              // TODO(bazel-team): Get .mm and .cc file types compiling.
-              .allowedFileTypes(FileType.of("m"), FileType.of("c")))
+              .allowedFileTypes(SRCS_TYPE))
           /* <!-- #BLAZE_RULE($objc_sources_rule).ATTRIBUTE(non_arc_srcs) -->
           The list of Objective-C files that are processed to create the
           library target that DO NOT use ARC.
@@ -291,8 +305,7 @@ public class ObjcRuleClasses {
           <!-- #END_BLAZE_RULE.ATTRIBUTE -->*/
           .add(attr("non_arc_srcs", LABEL_LIST)
               .direct_compile_time_input()
-              // TODO(bazel-team): Get .mm files compiling.
-              .allowedFileTypes(FileType.of("m")))
+              .allowedFileTypes(NON_ARC_SRCS_TYPE))
           /* <!-- #BLAZE_RULE($objc_sources_rule).ATTRIBUTE(pch) -->
           Header file to prepend to every source file being compiled (both arc
           and non-arc). Note that the file will not be precompiled - this is
@@ -300,7 +313,7 @@ public class ObjcRuleClasses {
           <!-- #END_BLAZE_RULE.ATTRIBUTE -->*/
           .add(attr("pch", LABEL)
               .direct_compile_time_input()
-              .allowedFileTypes(FileType.of("pch")))
+              .allowedFileTypes(FileType.of(".pch")))
           /* <!-- #BLAZE_RULE($objc_sources_rule).ATTRIBUTE(options) -->
           An <code>objc_options</code> target which defines an Xcode build
           configuration profile.
@@ -338,7 +351,7 @@ public class ObjcRuleClasses {
           <!-- #END_BLAZE_RULE.ATTRIBUTE -->*/
           .add(attr("hdrs", LABEL_LIST)
               .direct_compile_time_input()
-              .allowedFileTypes(FileType.of("m"), FileType.of("h")))
+              .allowedFileTypes(HDRS_TYPE))
           /* <!-- #BLAZE_RULE($objc_base_rule).ATTRIBUTE(includes) -->
           List of <code>#include/#import</code> search paths to add to this target
           and all depending targets. This is to support third party and
@@ -379,7 +392,7 @@ public class ObjcRuleClasses {
           <!-- #END_BLAZE_RULE.ATTRIBUTE -->*/
           .add(attr("xibs", LABEL_LIST)
               .direct_compile_time_input()
-              .allowedFileTypes(FileType.of("xib")))
+              .allowedFileTypes(FileType.of(".xib")))
           /* <!-- #BLAZE_RULE($objc_base_rule).ATTRIBUTE(sdk_frameworks) -->
           Names of SDK frameworks to link with. For instance, "XCTest" or
           "Cocoa". "UIKit" and "Foundation" are always included and do not mean

@@ -20,19 +20,21 @@ jar_filetype = filetype([".jar"])
 
 def java_library_impl(ctx):
   class_jar = ctx.outputs["class_jar"]
-  manifest = ctx.outputs["manifest"]
-  jars = jar_filetype.filter(ctx.files("deps", "TARGET"))
+  # TODO(bazel-team): use simple set here, no need for nset
+  compile_time_jars = nset("STABLE_ORDER")
+  runtime_jars = nset("LINK_ORDER")
+  for dep in ctx.targets("deps", "TARGET"):
+    compile_time_jars += [dep.compile_time_jar]
+    runtime_jars += dep.runtime_jars
+
+  jars = jar_filetype.filter(ctx.files("jars", "TARGET"))
+  compile_time_jars += jars
+  runtime_jars += jars
+  compile_time_jar_list = compile_time_jars.to_collection()
+
   build_output = class_jar.path + ".build_output"
-  java_home = ctx.attr.java_home
   main_class = ctx.attr.main_class
   sources = ctx.files("srcs", "TARGET")
-
-  ctx.action(
-    inputs = [],
-    outputs = [manifest],
-    mnemonic = 'manifest',
-    command = "echo 'Main-Class: " + main_class + "' > " + manifest.path,
-    use_default_shell_env = True)
 
   sources_param_file = ctx.new_file(
       ctx.configuration.bin_dir, class_jar, "-2.params")
@@ -43,36 +45,33 @@ def java_library_impl(ctx):
 
   # Cleaning build output directory
   cmd = "set -e;rm -rf " + build_output + ";mkdir " + build_output + "\n"
-  # Java compilation
-  cmd += ("/usr/bin/javac -classpath " +
-         files.join_exec_paths(":", jars) + " -d " + build_output + " @" +
-         sources_param_file.path + "\n")
-
-  # TODO(bazel-team): this deploy jar action should be only in binaries
-  for jar in jars:
-    cmd += "unzip -qn " + jar.path + " -d " + build_output + "\n"
-  cmd += ("/usr/bin/jar cmf " + manifest.path + " " +
-         class_jar.path + " -C " + build_output + " .\n")
+  cmd += "/usr/bin/javac"
+  if compile_time_jar_list:
+    cmd += " -classpath " + files.join_exec_paths(":", compile_time_jar_list)
+  cmd += " -d " + build_output + " @" + sources_param_file.path + "\n"
+  cmd += ("/usr/bin/jar cf " + class_jar.path + " -C " + build_output + " .\n" +
+         "touch " + build_output + "\n")
 
   ctx.action(
-    inputs = sources + jars + [manifest, sources_param_file],
+    inputs = sources + compile_time_jar_list + [sources_param_file],
     outputs = [class_jar],
     mnemonic='Javac',
     command=cmd,
     use_default_shell_env=True)
 
-  return struct(files_to_build = nset("STABLE_ORDER", [class_jar, manifest]))
+  return struct(files_to_build = nset("STABLE_ORDER", [class_jar]),
+                compile_time_jar = class_jar,
+                runtime_jars = runtime_jars + [class_jar])
 
 
 java_library = rule(java_library_impl,
     attr = {
        "srcs": attr.label_list(file_types=java_filetype),
-       "deps": attr.label_list(file_types=NO_FILE),
-       "java_home": attr.string(),
-       "main_class": attr.string(),
+       "jars": attr.label_list(file_types=jar_filetype),
+       "deps": attr.label_list(file_types=NO_FILE,
+           providers = ["compile_time_jar", "runtime_jars"]),
    },
    outputs={
        "class_jar": "lib%{name}.jar",
-       "manifest": "%{name}_MANIFEST.MF"
    }
 )

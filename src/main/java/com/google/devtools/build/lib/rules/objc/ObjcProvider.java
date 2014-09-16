@@ -20,6 +20,7 @@ import static com.google.devtools.build.lib.collect.nestedset.Order.STABLE_ORDER
 import com.google.common.base.Preconditions;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
+import com.google.common.collect.Iterables;
 import com.google.devtools.build.lib.actions.Artifact;
 import com.google.devtools.build.lib.collect.nestedset.NestedSet;
 import com.google.devtools.build.lib.collect.nestedset.NestedSetBuilder;
@@ -58,6 +59,19 @@ final class ObjcProvider implements TransitiveInfoProvider {
   public static final Key<PathFragment> XCASSETS_DIR = new Key<>(STABLE_ORDER);
   public static final Key<SdkFramework> SDK_FRAMEWORK = new Key<>(STABLE_ORDER);
   public static final Key<Xcdatamodel> XCDATAMODEL = new Key<>(STABLE_ORDER);
+  public static final Key<Flag> FLAG = new Key<>(STABLE_ORDER);
+
+  /**
+   * Flags that apply to a transitive build dependency tree. Each item in the enum corresponds to a
+   * flag. If the item is included in the key {@link #FLAG}, then the flag is considered set.
+   */
+  public enum Flag {
+    /**
+     * Indicates that C++ (or Objective-C++) is used in any source file. This affects how the linker
+     * is invoked.
+    */
+    USES_CPP;
+  }
 
   private final ImmutableMap<Key<?>, NestedSet<?>> items;
 
@@ -75,6 +89,13 @@ final class ObjcProvider implements TransitiveInfoProvider {
       return NestedSetBuilder.emptySet(key.order);
     }
     return (NestedSet<E>) items.get(key);
+  }
+
+  /**
+   * Indicates whether {@code flag} is set on this provider.
+   */
+  public boolean is(Flag flag) {
+    return Iterables.contains(get(FLAG), flag);
   }
 
   /**

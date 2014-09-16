@@ -504,6 +504,14 @@ public class PackageFunction implements SkyFunction {
       // The label does not cross a subpackage boundary.
       return false;
     }
+    if (!containingPkg.startsWith(label.getPackageFragment())) {
+      // This label is referencing an imaginary package, because the containing package should
+      // extend the label's package: if the label is //a/b:c/d, the containing package could be
+      // //a/b/c or //a/b, but should never be //a. Usually such errors will be caught earlier, but
+      // in some exceptional cases (such as a Python-aware BUILD file catching its own io
+      // exceptions), it reaches here, and we tolerate it.
+      return false;
+    }
     PathFragment labelNameFragment = new PathFragment(label.getName());
     String message = String.format("Label '%s' crosses boundary of subpackage '%s'",
         label, containingPkg);
