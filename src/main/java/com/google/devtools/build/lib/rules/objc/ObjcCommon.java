@@ -15,30 +15,39 @@
 package com.google.devtools.build.lib.rules.objc;
 
 import static com.google.devtools.build.lib.rules.objc.ArtifactListAttribute.ARCHIVES;
+import static com.google.devtools.build.lib.rules.objc.ArtifactListAttribute.BUNDLE_IMPORTS;
+import static com.google.devtools.build.lib.rules.objc.ArtifactListAttribute.DATAMODELS;
 import static com.google.devtools.build.lib.rules.objc.ArtifactListAttribute.HDRS;
 import static com.google.devtools.build.lib.rules.objc.ArtifactListAttribute.NON_ARC_SRCS;
 import static com.google.devtools.build.lib.rules.objc.ArtifactListAttribute.SRCS;
+import static com.google.devtools.build.lib.rules.objc.ObjcProvider.ASSET_CATALOG;
 import static com.google.devtools.build.lib.rules.objc.ObjcProvider.BUNDLE_FILE;
+import static com.google.devtools.build.lib.rules.objc.ObjcProvider.BUNDLE_IMPORT_DIR;
 import static com.google.devtools.build.lib.rules.objc.ObjcProvider.FLAG;
+import static com.google.devtools.build.lib.rules.objc.ObjcProvider.FRAMEWORK_DIR;
+import static com.google.devtools.build.lib.rules.objc.ObjcProvider.FRAMEWORK_FILE;
 import static com.google.devtools.build.lib.rules.objc.ObjcProvider.Flag.USES_CPP;
+import static com.google.devtools.build.lib.rules.objc.ObjcProvider.GENERAL_RESOURCE_FILE;
 import static com.google.devtools.build.lib.rules.objc.ObjcProvider.HEADER;
 import static com.google.devtools.build.lib.rules.objc.ObjcProvider.IMPORTED_LIBRARY;
 import static com.google.devtools.build.lib.rules.objc.ObjcProvider.INCLUDE;
 import static com.google.devtools.build.lib.rules.objc.ObjcProvider.LIBRARY;
+import static com.google.devtools.build.lib.rules.objc.ObjcProvider.SDK_DYLIB;
 import static com.google.devtools.build.lib.rules.objc.ObjcProvider.SDK_FRAMEWORK;
 import static com.google.devtools.build.lib.rules.objc.ObjcProvider.XCASSETS_DIR;
 import static com.google.devtools.build.lib.rules.objc.ObjcProvider.XCDATAMODEL;
 
 import com.google.common.annotations.VisibleForTesting;
-import com.google.common.base.Joiner;
 import com.google.common.base.Optional;
 import com.google.common.base.Preconditions;
 import com.google.common.base.Predicates;
 import com.google.common.collect.ImmutableList;
+import com.google.common.collect.ImmutableSet;
 import com.google.common.collect.Iterables;
 import com.google.devtools.build.lib.actions.Artifact;
 import com.google.devtools.build.lib.collect.nestedset.NestedSet;
 import com.google.devtools.build.lib.collect.nestedset.NestedSetBuilder;
+import com.google.devtools.build.lib.util.FileType;
 import com.google.devtools.build.lib.vfs.PathFragment;
 import com.google.devtools.build.lib.view.ConfiguredTarget;
 import com.google.devtools.build.lib.view.RuleConfiguredTargetBuilder;
@@ -50,50 +59,112 @@ import com.google.devtools.build.xcode.xcodegen.proto.XcodeGenProtos.DependencyC
 import com.google.devtools.build.xcode.xcodegen.proto.XcodeGenProtos.TargetControl;
 import com.google.devtools.build.xcode.xcodegen.proto.XcodeGenProtos.XcodeprojBuildSetting;
 
+import java.util.HashSet;
 import java.util.List;
+import java.util.Set;
 
 /**
  * Contains information common to multiple objc_* rules, and provides a unified API for extracting
  * and accessing it.
  */
 final class ObjcCommon {
-  @VisibleForTesting
-  static final String NOT_IN_ASSETS_DIR_ERROR_FORMAT = "The following files are specified by the "
-      + "asset_catalogs attribute but do not have a parent or ancestor directory named "
-      + "*.xcassets: %s";
+  static class Builder {
+    private RuleContext context;
+    private Iterable<Artifact> assetCatalogs = ImmutableList.of();
+    private Iterable<SdkFramework> extraSdkFrameworks = ImmutableList.of();
+    private Iterable<Artifact> frameworkImports = ImmutableList.of();
+    private Iterable<String> sdkDylibs = ImmutableList.of();
 
-  @VisibleForTesting
-  static final String NOT_IN_XCDATAMODEL_DIR_ERROR_FORMAT = "The following files are specified by "
-      + "the datamodels attribute but do not have a parent or ancestor directory named "
-      + "*.xcdatamodel[d]: %s";
+    /**
+     * TODO(bazel-team): Stop giving {@link RuleContext} to ObjcCommon.
+     */
+    Builder(RuleContext context) {
+      this.context = Preconditions.checkNotNull(context);
+    }
 
-  @VisibleForTesting
-  static final String REQUIRES_AT_LEAST_ONE_LIBRARY_OR_SOURCE_FILE = "At least one library "
-      + "dependency or source file is required.";
+    Builder addAssetCatalogs(Iterable<Artifact> assetCatalogs) {
+      this.assetCatalogs = Iterables.concat(this.assetCatalogs, assetCatalogs);
+      return this;
+    }
+
+    Builder addExtraSdkFrameworks(Iterable<SdkFramework> extraSdkFrameworks) {
+      this.extraSdkFrameworks = Iterables.concat(this.extraSdkFrameworks, extraSdkFrameworks);
+      return this;
+    }
+
+    Builder addFrameworkImports(Iterable<Artifact> frameworkImports) {
+      this.frameworkImports = Iterables.concat(this.frameworkImports, frameworkImports);
+      return this;
+    }
+
+    Builder addSdkDylibs(Iterable<String> sdkDylibs) {
+      this.sdkDylibs = Iterables.concat(this.sdkDylibs, sdkDylibs);
+      return this;
+    }
+
+    ObjcCommon build() {
+      boolean usesCpp = false;
+      for (Artifact sourceFile : Iterables.concat(SRCS.get(context), NON_ARC_SRCS.get(context))) {
+        usesCpp = usesCpp || ObjcRuleClasses.CPP_SOURCES.matches(sourceFile.getExecPath());
+      }
+
+      Iterable<CompiledResourceFile> compiledResources = Iterables.concat(
+          CompiledResourceFile.xibFilesFromRule(context),
+          CompiledResourceFile.stringsFilesFromRule(context));
+      Iterable<BundleableFile> bundleImports = BundleableFile.bundleImportsFromRule(context);
+
+      ObjcProvider objcProvider = new ObjcProvider.Builder()
+          .addAll(FLAG,
+              usesCpp ? ImmutableList.of(USES_CPP) : ImmutableList.<ObjcProvider.Flag>of())
+          .addAll(HEADER, HDRS.get(context))
+          .addAll(INCLUDE, headerSearchPaths(context))
+          .addAll(XCASSETS_DIR, uniqueContainers(assetCatalogs, ASSET_CATALOG_CONTAINER_TYPE))
+          .addAll(ASSET_CATALOG, assetCatalogs)
+          .addAll(LIBRARY, ObjcRuleClasses.outputAFile(context).asSet())
+          .addAll(IMPORTED_LIBRARY, ARCHIVES.get(context))
+          .addAll(GENERAL_RESOURCE_FILE, BundleableFile.generalResourceArtifactsFromRule(context))
+          .addAll(BUNDLE_FILE, BundleableFile.resourceFilesFromRule(context))
+          .addAll(BUNDLE_FILE,
+              Iterables.transform(compiledResources, CompiledResourceFile.TO_BUNDLED))
+          .addAll(BUNDLE_FILE, bundleImports)
+          .addAll(BUNDLE_IMPORT_DIR,
+              uniqueContainers(BundleableFile.toArtifacts(bundleImports), BUNDLE_CONTAINER_TYPE))
+          .addAll(SDK_FRAMEWORK, ObjcRuleClasses.sdkFrameworks(context))
+          .addAll(SDK_FRAMEWORK, extraSdkFrameworks)
+          .addAll(SDK_DYLIB, sdkDylibs)
+          .addAll(XCDATAMODEL, Xcdatamodels.xcdatamodels(context))
+          .addAll(FRAMEWORK_FILE, frameworkImports)
+          .addAll(FRAMEWORK_DIR, uniqueContainers(frameworkImports, FRAMEWORK_CONTAINER_TYPE))
+          .addTransitive(ObjcRuleClasses.deps(context, ObjcProvider.class))
+          .build();
+
+      return new ObjcCommon(context, objcProvider, assetCatalogs, frameworkImports);
+    }
+  }
 
   @VisibleForTesting
   static final String ABSOLUTE_INCLUDES_PATH_FORMAT =
       "The path '%s' is absolute, but only relative paths are allowed.";
 
+  static final FileType BUNDLE_CONTAINER_TYPE = FileType.of(".bundle");
+
+  @VisibleForTesting
+  static final FileType ASSET_CATALOG_CONTAINER_TYPE = FileType.of(".xcassets");
+
+  @VisibleForTesting
+  static final FileType FRAMEWORK_CONTAINER_TYPE = FileType.of(".framework");
+
   private final RuleContext context;
-  private final AssetCatalogsInfo assetCatalogsInfo;
   private final ObjcProvider objcProvider;
-  private final XcdatamodelsInfo xcdatamodelsInfo;
+  private final Iterable<Artifact> assetCatalogs;
+  private final Iterable<Artifact> frameworkImports;
 
-  private ObjcCommon(RuleContext context, AssetCatalogsInfo assetCatalogsInfo,
-      ObjcProvider objcProvider, XcdatamodelsInfo xcdatamodelsInfo) {
+  private ObjcCommon(RuleContext context, ObjcProvider objcProvider,
+      Iterable<Artifact> assetCatalogs, Iterable<Artifact> frameworkImports) {
     this.context = Preconditions.checkNotNull(context);
-    this.assetCatalogsInfo = Preconditions.checkNotNull(assetCatalogsInfo);
     this.objcProvider = Preconditions.checkNotNull(objcProvider);
-    this.xcdatamodelsInfo = Preconditions.checkNotNull(xcdatamodelsInfo);
-  }
-
-  public RuleContext getContext() {
-    return context;
-  }
-
-  public AssetCatalogsInfo getAssetCatalogsInfo() {
-    return assetCatalogsInfo;
+    this.assetCatalogs = Preconditions.checkNotNull(assetCatalogs);
+    this.frameworkImports = Preconditions.checkNotNull(frameworkImports);
   }
 
   public ObjcProvider getObjcProvider() {
@@ -105,17 +176,19 @@ final class ObjcCommon {
    * a target.
    */
   public void reportErrors() {
-    if (!Iterables.isEmpty(assetCatalogsInfo.getNotInXcassetsDir())) {
-      context.attributeError("asset_catalogs",
-          String.format(NOT_IN_ASSETS_DIR_ERROR_FORMAT,
-              Joiner.on(" ").join(Artifact.toExecPaths(assetCatalogsInfo.getNotInXcassetsDir()))));
+    for (String error : notInContainerErrors(assetCatalogs, AssetCatalogs.CONTAINER_TYPE)) {
+      context.ruleError(error);
+    }
+    for (String error : notInContainerErrors(frameworkImports, FRAMEWORK_CONTAINER_TYPE)) {
+      context.ruleError(error);
+    }
+    for (String error :
+        notInContainerErrors(DATAMODELS.get(context), Xcdatamodels.CONTAINER_TYPES)) {
+      context.attributeError(DATAMODELS.attrName(), error);
     }
 
-    if (!xcdatamodelsInfo.getNotInXcdatamodelDir().isEmpty()) {
-      context.attributeError("datamodels",
-          String.format(NOT_IN_XCDATAMODEL_DIR_ERROR_FORMAT,
-              Joiner.on(" ")
-                  .join(Artifact.toExecPaths(xcdatamodelsInfo.getNotInXcdatamodelDir()))));
+    for (String error : notInContainerErrors(BUNDLE_IMPORTS.get(context), BUNDLE_CONTAINER_TYPE)) {
+      context.attributeError(BUNDLE_IMPORTS.attrName(), error);
     }
 
     for (PathFragment absoluteInclude :
@@ -124,11 +197,8 @@ final class ObjcCommon {
           "includes", String.format(ABSOLUTE_INCLUDES_PATH_FORMAT, absoluteInclude));
     }
 
-    // TODO(bazel-team): This requirement doesn't make sense in light of libraries that only export
-    // resources. See what is the most reasonable requirement we can put here is.
-    if (objcProvider.get(LIBRARY).isEmpty() && objcProvider.get(IMPORTED_LIBRARY).isEmpty()) {
-      context.ruleError(REQUIRES_AT_LEAST_ONE_LIBRARY_OR_SOURCE_FILE);
-    }
+    // TODO(bazel-team): Report errors for rules that are not actually useful (i.e. objc_library
+    // without sources or resources, empty objc_bundles)
   }
 
   /**
@@ -144,20 +214,6 @@ final class ObjcCommon {
   }
 
   /**
-   * Similar to {@link ObjcRuleClasses#options(RuleContext)}, but automatically adds the
-   * options specified inline in this rule (e.g. with the {@code copts} attribute) to the options.
-   */
-  static OptionsProvider combinedOptions(RuleContext context) {
-    OptionsProvider options = ObjcRuleClasses.options(context);
-    return new OptionsProvider(
-         options.getXcodeName(),
-         new ImmutableList.Builder<String>()
-             .addAll(ObjcRuleClasses.copts(context))
-             .addAll(options.getCopts())
-             .build());
-  }
-
-  /**
    * Returns an {@code XcodeProvider} for this target.
    * @param maybeInfoplistFile the Info.plist file. Used for applications.
    * @param xcodeDependencies dependencies of the target for this rule in the .xcodeproj file.
@@ -167,8 +223,11 @@ final class ObjcCommon {
       Optional<Artifact> maybeInfoplistFile,
       Optional<Artifact> maybePchFile,
       Iterable<DependencyControl> xcodeDependencies,
-      Iterable<XcodeprojBuildSetting> xcodeprojBuildSettings) {
+      Iterable<XcodeprojBuildSetting> xcodeprojBuildSettings,
+      Iterable<String> copts) {
     // TODO(bazel-team): Add provisioning profile information when Xcodegen supports it.
+    // TODO(bazel-team): Add .framework import information when Xcodegen supports it.
+    // TODO(bazel-team): Add SDK dylib information when Xcodegen supports it.
     TargetControl.Builder targetControl = TargetControl.newBuilder()
         .setName(context.getLabel().getName())
         .setLabel(context.getLabel().toString())
@@ -182,16 +241,16 @@ final class ObjcCommon {
         .addAllSourceFile(Artifact.toExecPaths(SRCS.get(context)))
         .addAllNonArcSourceFile(Artifact.toExecPaths(NON_ARC_SRCS.get(context)))
         // TODO(bazel-team): Add all build settings information once Xcodegen supports it.
-        .addAllCopt(ObjcCommon.combinedOptions(context).getCopts())
+        .addAllCopt(copts)
         .addAllBuildSetting(xcodeprojBuildSettings)
         .addAllSdkFramework(SdkFramework.names(objcProvider.get(SDK_FRAMEWORK)))
         .addAllXcassetsDir(PathFragment.safePathStrings(objcProvider.get(XCASSETS_DIR)))
         .addAllXcdatamodel(PathFragment.safePathStrings(
             Xcdatamodel.xcdatamodelDirs(objcProvider.get(XCDATAMODEL))))
+        .addAllBundleImport(PathFragment.safePathStrings(objcProvider.get(BUNDLE_IMPORT_DIR)))
         .addAllDependency(xcodeDependencies);
-    for (BundleableFile file : objcProvider.get(BUNDLE_FILE)) {
-      targetControl.addGeneralResourceFile(file.getOriginal().getExecPathString());
-    }
+    targetControl.addAllGeneralResourceFile(
+        Artifact.toExecPaths(objcProvider.get(GENERAL_RESOURCE_FILE)));
     for (Artifact infoplistFile : maybeInfoplistFile.asSet()) {
       targetControl.setInfoplist(infoplistFile.getExecPathString());
     }
@@ -228,65 +287,117 @@ final class ObjcCommon {
   }
 
   /**
-   * Returns an instance based on the rule specified by {@code context}. Also registers the extra
-   * {@code SdkFramework}s specified by {@code extraSdkFrameworks}.
+   * Returns the first directory in the sequence of parents of the exec path of the given artifact
+   * that matches {@code type}. For instance, if {@code type} is FileType.of(".foo") and the exec
+   * path of {@code artifact} is {@code a/b/c/bar.foo/d/e}, then the return value is
+   * {@code a/b/c/bar.foo}.
    */
-  public static ObjcCommon fromContext(RuleContext context,
-      Iterable<SdkFramework> extraSdkFrameworks) {
-    AssetCatalogsInfo assetCatalogsInfo = AssetCatalogsInfo.fromRule(context);
-    XcdatamodelsInfo xcdatamodelsInfo = XcdatamodelsInfo.fromRule(context);
+  static Optional<PathFragment> nearestContainerMatching(FileType type, Artifact artifact) {
+    PathFragment container = artifact.getExecPath();
+    do {
+      if (type.matches(container)) {
+        return Optional.of(container);
+      }
+      container = container.getParentDirectory();
+    } while (container != null);
+    return Optional.absent();
+  }
 
-    boolean usesCpp = false;
-    for (Artifact sourceFile : Iterables.concat(SRCS.get(context), NON_ARC_SRCS.get(context))) {
-      usesCpp = usesCpp || ObjcRuleClasses.CPP_SOURCES.matches(sourceFile.getExecPath());
+  /**
+   * Similar to {@link #nearestContainerMatching(FileType, Artifact)}, but tries matching several
+   * file types in {@code types}, and returns a path for the first match in the sequence.
+   */
+  static Optional<PathFragment> nearestContainerMatching(
+      Iterable<FileType> types, Artifact artifact) {
+    for (FileType type : types) {
+      for (PathFragment container : nearestContainerMatching(type, artifact).asSet()) {
+        return Optional.of(container);
+      }
     }
+    return Optional.absent();
+  }
 
-    ObjcProvider objcProvider = new ObjcProvider.Builder()
-        .addAll(FLAG, usesCpp ? ImmutableList.of(USES_CPP) : ImmutableList.<ObjcProvider.Flag>of())
-        .addAll(HEADER, HDRS.get(context))
-        .addAll(INCLUDE, headerSearchPaths(context))
-        .add(assetCatalogsInfo)
-        .addAll(LIBRARY, ObjcRuleClasses.outputAFile(context).asSet())
-        .addAll(IMPORTED_LIBRARY, ARCHIVES.get(context))
-        .addAll(BUNDLE_FILE, BundleableFile.resourceFilesFromRule(context))
-        .addAll(BUNDLE_FILE, BundleableFile.stringsFilesFromRule(context))
-        .addAll(BUNDLE_FILE, BundleableFile.xibFilesFromRule(context))
-        .addAll(SDK_FRAMEWORK, ObjcRuleClasses.sdkFrameworks(context))
-        .addAll(SDK_FRAMEWORK, extraSdkFrameworks)
-        .addAll(XCDATAMODEL, xcdatamodelsInfo.getXcdatamodels())
-        .addTransitive(ObjcRuleClasses.deps(context, ObjcProvider.class))
-        .build();
+  /**
+   * Returns all directories matching {@code containerType} that contain the items in
+   * {@code artifacts}. This function ignores artifacts that are not in any directory matching
+   * {@code containerType}.
+   */
+  static Iterable<PathFragment> uniqueContainers(
+      Iterable<Artifact> artifacts, FileType containerType) {
+    ImmutableSet.Builder<PathFragment> containers = new ImmutableSet.Builder<>();
+    for (Artifact artifact : artifacts) {
+      containers.addAll(ObjcCommon.nearestContainerMatching(containerType, artifact).asSet());
+    }
+    return containers.build();
+  }
 
-    return new ObjcCommon(context, assetCatalogsInfo, objcProvider, xcdatamodelsInfo);
+  /**
+   * Similar to {@link #nearestContainerMatching(FileType, Artifact)}, but returns the container
+   * closest to the root that matches the given type.
+   */
+  static Optional<PathFragment> farthestContainerMatching(FileType type, Artifact artifact) {
+    PathFragment container = artifact.getExecPath();
+    Optional<PathFragment> lastMatch = Optional.absent();
+    do {
+      if (type.matches(container)) {
+        lastMatch = Optional.of(container);
+      }
+      container = container.getParentDirectory();
+    } while (container != null);
+    return lastMatch;
+  }
+
+  static Iterable<String> notInContainerErrors(
+      Iterable<Artifact> artifacts, FileType containerType) {
+    return notInContainerErrors(artifacts, ImmutableList.of(containerType));
+  }
+
+  @VisibleForTesting
+  static final String NOT_IN_CONTAINER_ERROR_FORMAT =
+      "File '%s' is not in a directory of one of these type(s): %s";
+
+  static Iterable<String> notInContainerErrors(
+      Iterable<Artifact> artifacts, Iterable<FileType> containerTypes) {
+    Set<String> errors = new HashSet<>();
+    for (Artifact artifact : artifacts) {
+      boolean inContainer = nearestContainerMatching(containerTypes, artifact).isPresent();
+      if (!inContainer) {
+        errors.add(String.format(NOT_IN_CONTAINER_ERROR_FORMAT,
+            artifact.getExecPath(), Iterables.toString(containerTypes)));
+      }
+    }
+    return errors;
   }
 
   /**
    * @param filesToBuild files to build for this target. These also become the data runfiles.
-   * @param targetProvider the {@code XcodeTargetProvider} for this target
+   * @param maybeTargetProvider the {@code XcodeTargetProvider} for this target
    */
   public ConfiguredTarget configuredTarget(NestedSet<Artifact> filesToBuild,
-      XcodeProvider targetProvider) {
+      Optional<XcodeProvider> maybeTargetProvider) {
     RunfilesProvider runfilesProvider = RunfilesProvider.withData(
         new Runfiles.Builder()
             .addRunfiles(context, RunfilesProvider.DEFAULT_RUNFILES)
             .build(),
         new Runfiles.Builder().addArtifacts(filesToBuild).build());
-    NestedSet<Artifact> allInputs = NestedSetBuilder.<Artifact>stableOrder()
+    NestedSet<Artifact> inputsToLegacyRules = NestedSetBuilder.<Artifact>stableOrder()
         .addAll(NON_ARC_SRCS.get(context))
         .addAll(SRCS.get(context))
         .addAll(HDRS.get(context))
         .addAll(ARCHIVES.get(context))
-        .addAll(BundleableFile.allResourceArtifactsFromRule(context))
+        .addAll(BundleableFile.generalResourceArtifactsFromRule(context))
         .build();
 
-    return new RuleConfiguredTargetBuilder(context)
+    RuleConfiguredTargetBuilder target = new RuleConfiguredTargetBuilder(context)
         .setFilesToBuild(filesToBuild)
         .add(RunfilesProvider.class, runfilesProvider)
         .addProvider(ObjcProvider.class, objcProvider)
-        .addProvider(XcodeProvider.class, targetProvider)
         // TODO(bazel-team): Remove this when legacy dependencies have been removed.
-        .addProvider(
-            LegacyObjcSourceFileProvider.class, new LegacyObjcSourceFileProvider(allInputs))
-        .build();
+        .addProvider(LegacyObjcSourceFileProvider.class,
+            new LegacyObjcSourceFileProvider(inputsToLegacyRules));
+    for (XcodeProvider targetProvider : maybeTargetProvider.asSet()) {
+      target.addProvider(XcodeProvider.class, targetProvider);
+    }
+    return target.build();
   }
 }

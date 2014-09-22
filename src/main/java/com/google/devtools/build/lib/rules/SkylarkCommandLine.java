@@ -40,16 +40,16 @@ public class SkylarkCommandLine {
       objectType = SkylarkCommandLine.class,
       returnType = String.class,
       mandatoryParams = {
-      @Param(name = "separator", doc = "the separator string to join on"),
+      @Param(name = "separator", type = String.class, doc = "the separator string to join on"),
       @Param(name = "files", type = SkylarkNestedSet.class, doc = "the files to concatenate")})
   private static SimpleSkylarkFunction joinExecPaths =
       new SimpleSkylarkFunction("join_exec_paths") {
     @Override
     public Object call(Map<String, Object> params, Location loc)
         throws EvalException {
-      final String separator = cast(params.get("separator"), String.class, "separator", loc);
+      final String separator = (String) params.get("separator");
       final NestedSet<Artifact> artifacts =
-          cast(params.get("files"), SkylarkNestedSet.class, "files", loc).getSet(Artifact.class);
+          ((SkylarkNestedSet) params.get("files")).getSet(Artifact.class);
       return new LazyString() {
         @Override
         public String toString() {

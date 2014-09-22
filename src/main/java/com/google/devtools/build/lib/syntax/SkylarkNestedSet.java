@@ -153,7 +153,6 @@ public final class SkylarkNestedSet implements Iterable<Object> {
     return (Iterator<Object>) set.iterator();
   }
 
-  @SkylarkCallable(doc = "Flattens this nested set of file to a list.")
   public Collection<Object> toCollection() {
     return ImmutableList.copyOf(set.toCollection());
   }

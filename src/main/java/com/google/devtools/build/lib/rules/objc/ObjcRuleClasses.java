@@ -22,7 +22,6 @@ import static com.google.devtools.build.lib.packages.Type.LABEL_LIST;
 import static com.google.devtools.build.lib.packages.Type.STRING_LIST;
 import static com.google.devtools.build.lib.rules.objc.ArtifactListAttribute.NON_ARC_SRCS;
 import static com.google.devtools.build.lib.rules.objc.ArtifactListAttribute.SRCS;
-import static com.google.devtools.build.xcode.common.BuildOptionsUtil.DEFAULT_OPTIONS_NAME;
 
 import com.google.common.annotations.VisibleForTesting;
 import com.google.common.base.Function;
@@ -106,14 +105,6 @@ public class ObjcRuleClasses {
   }
 
   /**
-   * Returns the artifact which is the output of running actool on all the asset catalogs used by
-   * a binary.
-   */
-  static Artifact actoolOutputZip(RuleContext context) {
-    return artifactByAppendingToBaseName(context, ".actool.zip");
-  }
-
-  /**
    * Returns the artifact which is the output of building an entire xcdatamodel[d] made of artifacts
    * specified by a single rule.
    * @param context the rule that specifies the {@code data_models} attribute
@@ -136,18 +127,12 @@ public class ObjcRuleClasses {
   static Iterable<SdkFramework> sdkFrameworks(RuleContext context) {
     ImmutableSet.Builder<SdkFramework> result = new ImmutableSet.Builder<>();
     result.addAll(AUTOMATIC_SDK_FRAMEWORKS);
-    for (String explicit : context.attributes().get("sdk_frameworks", Type.STRING_LIST)) {
-      result.add(new SdkFramework(explicit));
+    if (context.attributes().getAttributeDefinition("sdk_frameworks") != null) {
+      for (String explicit : context.attributes().get("sdk_frameworks", Type.STRING_LIST)) {
+        result.add(new SdkFramework(explicit));
+      }
     }
     return result.build();
-  }
-
-  static Iterable<String> copts(RuleContext context) {
-    if (context.attributes().getAttributeDefinition("copts") == null) {
-      return ImmutableList.of();
-    } else {
-      return context.getTokenizedStringListAttr("copts");
-    }
   }
 
   /**
@@ -225,21 +210,6 @@ public class ObjcRuleClasses {
   }
 
   /**
-   * Returns build options information on the given rule, automatically giving the default value if
-   * it is not specified or allowed on this rule type.
-   */
-  static OptionsProvider options(RuleContext context) {
-    OptionsProvider options = null;
-    if (context.attributes().getAttributeDefinition("options") != null) {
-      options = context.getPrerequisite("options", Mode.TARGET, OptionsProvider.class);
-    }
-    if (options == null) {
-      options = new OptionsProvider(DEFAULT_OPTIONS_NAME, ImmutableList.<String>of());
-    }
-    return options;
-  }
-
-  /**
    * Attributes for {@code objc_*} rules that have compiler (and in the future, possibly linker)
    * options
    */
@@ -251,9 +221,9 @@ public class ObjcRuleClasses {
       return builder
           /* <!-- #BLAZE_RULE($objc_opts_rule).ATTRIBUTE(copts) -->
           Extra flags to pass to the compiler.
-          <i>(List of strings; optional; subject to
-            <a href="#make_variables">"Make variable"</a> substitution and
-            <a href="#sh-tokenization">Bourne shell tokenization</a>)</i>
+          ${SYNOPSIS}
+          Subject to <a href="#make_variables">"Make variable"</a> substitution and
+          <a href="#sh-tokenization">Bourne shell tokenization</a>.
           These flags will only apply to this target, and not those upon which
           it depends, or those which depend on it.
           <!-- #END_BLAZE_RULE.ATTRIBUTE -->*/
@@ -273,8 +243,11 @@ public class ObjcRuleClasses {
   @VisibleForTesting
   static final FileTypeSet NON_ARC_SRCS_TYPE = FileTypeSet.of(FileType.of(".m", ".mm"));
 
+  // TODO(bazel-team): Remove .pch when depot cleanup is done
   @VisibleForTesting
-  static final FileTypeSet HDRS_TYPE = FileTypeSet.of(FileType.of(".m", ".h", ".hh"));
+  static final FileTypeSet HDRS_TYPE = FileTypeSet.of(FileType.of(".m", ".h", ".hh", ".pch"));
+
+  static final FileTypeSet PLIST_TYPE = FileTypeSet.of(FileType.of(".plist"));
 
   /**
    * Attributes for {@code objc_*} rules that have compilable sources.
@@ -288,7 +261,7 @@ public class ObjcRuleClasses {
           /* <!-- #BLAZE_RULE($objc_sources_rule).ATTRIBUTE(srcs) -->
           The list of C, C++, Objective-C, and Objective-C++ files that are
           processed to create the library target.
-          <i>(List of <a href="build-ref.html#labels">labels</a>; required)</i>
+          ${SYNOPSIS}
           These are your checked-in source files, plus any generated files.
           These are compiled into .o files with Clang, so headers should not go
           here (see the hdrs attribute).
@@ -299,7 +272,7 @@ public class ObjcRuleClasses {
           /* <!-- #BLAZE_RULE($objc_sources_rule).ATTRIBUTE(non_arc_srcs) -->
           The list of Objective-C files that are processed to create the
           library target that DO NOT use ARC.
-          <i>(List of <a href="build-ref.html#labels">labels</a>; required)</i>
+          ${SYNOPSIS}
           The files in this attribute are treated very similar to those in the
           srcs attribute, but are compiled without ARC enabled.
           <!-- #END_BLAZE_RULE.ATTRIBUTE -->*/
@@ -326,11 +299,32 @@ public class ObjcRuleClasses {
   }
 
   /**
+   * Common external build tools for {@code objc_*} rules.
+   */
+  @BlazeRule(name = "$objc_uses_tools_rule",
+      type = RuleClassType.ABSTRACT,
+      ancestors = { BaseRuleClasses.RuleBase.class })
+  public static class ObjcUsesToolsRule implements RuleDefinition {
+    @Override
+    public RuleClass build(Builder builder, RuleDefinitionEnvironment env) {
+      return builder
+          .add(attr("$xcodegen", LABEL).cfg(HOST).exec()
+              .value(env.getLabel("//tools/objc:xcodegen")))
+          .add(attr("$plmerge", LABEL).cfg(HOST).exec()
+              .value(env.getLabel("//tools/objc:plmerge")))
+          .add(attr("$momczip_deploy", LABEL).cfg(HOST)
+              .value(env.getLabel("//tools/objc:momczip_deploy.jar")))
+          .build();
+    }
+  }
+
+  /**
    * Common attributes for {@code objc_*} rules.
    */
   @BlazeRule(name = "$objc_base_rule",
       type = RuleClassType.ABSTRACT,
-      ancestors = { BaseRuleClasses.RuleBase.class })
+      ancestors = { BaseRuleClasses.RuleBase.class,
+                    ObjcUsesToolsRule.class })
   public static class ObjcBaseRule implements RuleDefinition {
     @Override
     public RuleClass build(Builder builder, RuleDefinitionEnvironment env) {
@@ -338,16 +332,16 @@ public class ObjcRuleClasses {
           /* <!-- #BLAZE_RULE($objc_base_rule).ATTRIBUTE(deps) -->
           The list of <code>objc_library</code> and <code>objc_import</code>
           targets that are linked together to form the final bundle.
-          <i>(List of <a href="build-ref.html#labels">labels</a>; required)</i>
+          ${SYNOPSIS}
           <!-- #END_BLAZE_RULE.ATTRIBUTE -->*/
           .override(attr("deps", LABEL_LIST)
               .direct_compile_time_input()
-              .allowedRuleClasses("objc_library", "objc_import")
+              .allowedRuleClasses("objc_library", "objc_import", "objc_bundle", "objc_framework")
               .allowedFileTypes())
           /* <!-- #BLAZE_RULE($objc_base_rule).ATTRIBUTE(hdrs) -->
           The list of Objective-C files that are included as headers by source
           files in this rule or by users of this library.
-          <i>(List of <a href="build-ref.html#labels">labels</a>; required)</i>
+          ${SYNOPSIS}
           <!-- #END_BLAZE_RULE.ATTRIBUTE -->*/
           .add(attr("hdrs", LABEL_LIST)
               .direct_compile_time_input()
@@ -403,6 +397,14 @@ public class ObjcRuleClasses {
           used.
           <!-- #END_BLAZE_RULE.ATTRIBUTE -->*/
           .add(attr("sdk_frameworks", STRING_LIST))
+          /* <!-- #BLAZE_RULE($objc_base_rule).ATTRIBUTE(sdk_dylibs) -->
+          Names of SDK .dylib libraries to link with. For instance, "libz" or
+          "libarchive". "libc++" is included automatically if the binary has
+          any C++ or Objective-C++ sources in its dependency tree. When linking
+          a binary, all libraries named in that binary's transitive dependency
+          graph are used.
+          <!-- #END_BLAZE_RULE.ATTRIBUTE -->*/
+          .add(attr("sdk_dylibs", STRING_LIST))
           /* <!-- #BLAZE_RULE($objc_base_rule).ATTRIBUTE(resources) -->
           Files to include in the final application bundle. They are not
           processed or compiled in any way besides the processing done by the
@@ -421,12 +423,6 @@ public class ObjcRuleClasses {
           <!-- #END_BLAZE_RULE.ATTRIBUTE -->*/
           .add(attr("datamodels", LABEL_LIST).legacyAllowAnyFileType()
               .direct_compile_time_input())
-          .add(attr("$xcodegen", LABEL).cfg(HOST).exec()
-              .value(env.getLabel("//tools/objc:xcodegen")))
-          .add(attr("$plmerge", LABEL).cfg(HOST).exec()
-              .value(env.getLabel("//tools/objc:plmerge")))
-          .add(attr("$momczip_deploy", LABEL).cfg(HOST)
-              .value(env.getLabel("//tools/objc:momczip_deploy.jar")))
           .build();
     }
   }

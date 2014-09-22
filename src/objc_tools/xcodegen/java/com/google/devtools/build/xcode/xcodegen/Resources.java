@@ -21,6 +21,7 @@ import com.google.devtools.build.xcode.util.Value;
 import com.google.devtools.build.xcode.xcodegen.proto.XcodeGenProtos.TargetControl;
 
 import com.facebook.buck.apple.xcode.xcodeproj.PBXBuildFile;
+import com.facebook.buck.apple.xcode.xcodeproj.PBXReference.SourceTree;
 import com.facebook.buck.apple.xcode.xcodeproj.PBXResourcesBuildPhase;
 
 import java.nio.file.FileSystem;
@@ -77,22 +78,28 @@ public class Resources extends Value<Resources> {
   }
 
   public static Resources fromTargetControls(
-      FileSystem fileSystem, FileObjects fileObjects, Iterable<TargetControl> targetControls) {
+      FileSystem fileSystem, PBXBuildFiles pbxBuildFiles, Iterable<TargetControl> targetControls) {
     ImmutableSetMultimap.Builder<TargetControl, PBXBuildFile> buildFiles =
         new ImmutableSetMultimap.Builder<>();
 
     for (TargetControl targetControl : targetControls) {
       List<PBXBuildFile> targetBuildFiles = new ArrayList<>();
 
-      // Add .xcassets to the Project Navigator so they can be edited from within Xcode.
-      for (String xcassetsDir : targetControl.getXcassetsDirList()) {
+      Iterable<String> simpleImports =
+          Iterables.concat(targetControl.getXcassetsDirList(), targetControl.getBundleImportList());
+      // Add .bundle, .xcassets directories to the Project Navigator so they are visible from within
+      // Xcode.
+      // Bundle imports are handled very similarly to asset catalogs, so we just add them with the
+      // same logic. Xcode's automatic file type detection logic is smart enough to see it is a
+      // bundle and link it properly, and add the {@code lastKnownFileType} property.
+      for (String simpleImport : simpleImports) {
         targetBuildFiles.add(
-            fileObjects.buildFile(RelativePaths.fromString(fileSystem, xcassetsDir)));
+            pbxBuildFiles.getStandalone(FileReference.of(simpleImport, SourceTree.GROUP)));
       }
 
       Iterables.addAll(
           targetBuildFiles,
-          fileObjects.buildFilesForAggregates(
+          pbxBuildFiles.get(
               AggregateReferenceType.PBXVariantGroup,
               RelativePaths.fromStrings(fileSystem, targetControl.getGeneralResourceFileList())));
 

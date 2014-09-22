@@ -136,10 +136,9 @@ public class BlazeServerStartupOptions extends OptionsBase {
       converter = OptionsUtils.PathFragmentConverter.class,
       help = "The user-specific directory beneath which all build outputs are written; "
           + "by default, this is a function of $USER, but by specifying a constant, build outputs "
-          + "can be shared between collaborating users.  "
-          + "See http://wiki/Main/BlazeOutputDirectoryStructure or the manual for more details.")
+          + "can be shared between collaborating users.")
   public PathFragment outputUserRoot;
-
+  
   @Option(name = "workspace_directory",
       defaultValue = "",
       category = "hidden",

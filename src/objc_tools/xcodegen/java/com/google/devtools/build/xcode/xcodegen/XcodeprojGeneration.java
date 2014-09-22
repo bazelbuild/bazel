@@ -191,11 +191,11 @@ public class XcodeprojGeneration {
 
     PBXFileReferences fileReferences = new PBXFileReferences();
     SdkFrameworkObjects frameworkObjects = new SdkFrameworkObjects(fileReferences);
-    FileObjects fileObjects = new FileObjects(fileReferences);
+    PBXBuildFiles pbxBuildFiles = new PBXBuildFiles(fileReferences);
     Resources resources =
-        Resources.fromTargetControls(fileSystem, fileObjects, control.getTargetList());
+        Resources.fromTargetControls(fileSystem, pbxBuildFiles, control.getTargetList());
     Xcdatamodels xcdatamodels =
-        Xcdatamodels.fromTargetControls(fileSystem, fileObjects, control.getTargetList());
+        Xcdatamodels.fromTargetControls(fileSystem, pbxBuildFiles, control.getTargetList());
     // We use a hash set for the Project Navigator files so that the same PBXFileReference does not
     // get added twice. Because PBXFileReference uses equality-by-identity semantics, this requires
     // the PBXFileReferences cache to properly return the same reference for functionally-equivalent
@@ -308,7 +308,7 @@ public class XcodeprojGeneration {
                       project, target, ProxyType.TARGET_REFERENCE))));
     }
 
-    for (HasProjectNavigatorFiles references : ImmutableList.of(fileObjects, frameworkObjects)) {
+    for (HasProjectNavigatorFiles references : ImmutableList.of(pbxBuildFiles, frameworkObjects)) {
       Iterables.addAll(ungroupedProjectNavigatorFiles, references.mainGroupReferences());
     }
     Iterables.addAll(

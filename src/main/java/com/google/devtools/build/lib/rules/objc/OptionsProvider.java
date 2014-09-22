@@ -14,7 +14,13 @@
 
 package com.google.devtools.build.lib.rules.objc;
 
+import com.google.common.base.Optional;
+import com.google.common.base.Preconditions;
 import com.google.common.collect.ImmutableList;
+import com.google.common.collect.Iterables;
+import com.google.devtools.build.lib.actions.Artifact;
+import com.google.devtools.build.lib.collect.nestedset.NestedSet;
+import com.google.devtools.build.lib.collect.nestedset.NestedSetBuilder;
 import com.google.devtools.build.lib.concurrent.ThreadSafety.Immutable;
 import com.google.devtools.build.lib.view.TransitiveInfoProvider;
 import com.google.devtools.build.xcode.util.Value;
@@ -26,20 +32,56 @@ import com.google.devtools.build.xcode.util.Value;
 final class OptionsProvider
     extends Value<OptionsProvider>
     implements TransitiveInfoProvider {
-  private final String xcodeName;
-  private final ImmutableList<String> copts;
+  static final class Builder {
+    private Iterable<String> copts = ImmutableList.of();
+    private final NestedSetBuilder<Artifact> infoplists = NestedSetBuilder.stableOrder();
 
-  OptionsProvider(String xcodeName, ImmutableList<String> copts) {
-    super(xcodeName, copts);
-    this.xcodeName = xcodeName;
-    this.copts = copts;
+    /**
+     * Adds copts to the end of the copts sequence.
+     */
+    public Builder addCopts(Iterable<String> copts) {
+      this.copts = Iterables.concat(this.copts, copts);
+      return this;
+    }
+
+    public Builder addInfoplists(Iterable<Artifact> infoplists) {
+      this.infoplists.addAll(infoplists);
+      return this;
+    }
+
+    /**
+     * Adds infoplists and copts from the given provider, if present. copts are added to the end of
+     * the sequence.
+     */
+    public Builder addTransitive(Optional<OptionsProvider> maybeProvider) {
+      for (OptionsProvider provider : maybeProvider.asSet()) {
+        this.copts = Iterables.concat(this.copts, provider.copts);
+        this.infoplists.addTransitive(provider.infoplists);
+      }
+      return this;
+    }
+
+    public OptionsProvider build() {
+      return new OptionsProvider(ImmutableList.copyOf(copts), infoplists.build());
+    }
   }
 
-  public String getXcodeName() {
-    return xcodeName;
+  public static final OptionsProvider DEFAULT = new Builder().build();
+
+  private final ImmutableList<String> copts;
+  private final NestedSet<Artifact> infoplists;
+
+  private OptionsProvider(ImmutableList<String> copts, NestedSet<Artifact> infoplists) {
+    super(copts, infoplists);
+    this.copts = Preconditions.checkNotNull(copts);
+    this.infoplists = Preconditions.checkNotNull(infoplists);
   }
 
   public ImmutableList<String> getCopts() {
     return copts;
+  }
+
+  public NestedSet<Artifact> getInfoplists() {
+    return infoplists;
   }
 }

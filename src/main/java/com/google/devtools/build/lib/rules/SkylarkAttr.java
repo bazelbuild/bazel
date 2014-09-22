@@ -15,6 +15,7 @@
 package com.google.devtools.build.lib.rules;
 
 import com.google.devtools.build.lib.packages.Attribute;
+import com.google.devtools.build.lib.packages.Attribute.ConfigurationTransition;
 import com.google.devtools.build.lib.packages.Type.ConversionException;
 import com.google.devtools.build.lib.syntax.Environment;
 import com.google.devtools.build.lib.syntax.EvalException;
@@ -23,7 +24,6 @@ import com.google.devtools.build.lib.syntax.SkylarkBuiltin;
 import com.google.devtools.build.lib.syntax.SkylarkBuiltin.Param;
 import com.google.devtools.build.lib.syntax.SkylarkFunction;
 import com.google.devtools.build.lib.syntax.SkylarkModule;
-import com.google.devtools.build.lib.util.FileTypeSet;
 
 import java.util.List;
 import java.util.Map;
@@ -52,7 +52,8 @@ public final class SkylarkAttr {
       @Param(name = "default", doc = "the default value of the attribute"),
       @Param(name = "flags", type = List.class, doc = ""),
       @Param(name = "mandatory", type = Boolean.class, doc = ""),
-      @Param(name = "cfg", type = String.class, doc = "configuration of the attribute")})
+      @Param(name = "cfg", type = ConfigurationTransition.class,
+          doc = "configuration of the attribute")})
   private static SkylarkFunction integer = new SkylarkFunction("int") {
       @Override
       public Object call(Map<String, Object> kwargs, FuncallExpression ast, Environment env)
@@ -68,7 +69,8 @@ public final class SkylarkAttr {
       @Param(name = "default", doc = "the default value of the attribute"),
       @Param(name = "flags", type = List.class, doc = ""),
       @Param(name = "mandatory", type = Boolean.class, doc = ""),
-      @Param(name = "cfg", type = String.class, doc = "configuration of the attribute")})
+      @Param(name = "cfg", type = ConfigurationTransition.class,
+          doc = "configuration of the attribute")})
   private static SkylarkFunction string = new SkylarkFunction("string") {
       @Override
       public Object call(Map<String, Object> kwargs, FuncallExpression ast, Environment env)
@@ -83,13 +85,14 @@ public final class SkylarkAttr {
       optionalParams = {
       @Param(name = "default", doc = "the default value of the attribute"),
       @Param(name = "flags", type = List.class, doc = ""),
-      @Param(name = "file_types", type = FileTypeSet.class,
+      @Param(name = "file_types",
           doc = "allowed file types of the label type attribute"),
       @Param(name = "mandatory", type = Boolean.class, doc = ""),
       @Param(name = "rule_classes", doc = "allowed rule classes of the label type attribute"),
       @Param(name = "providers", type = List.class,
           doc = "mandatory providers every dependency has to have"),
-      @Param(name = "cfg", type = String.class, doc = "configuration of the attribute")})
+      @Param(name = "cfg", type = ConfigurationTransition.class,
+          doc = "configuration of the attribute")})
   private static SkylarkFunction label = new SkylarkFunction("label") {
       @Override
       public Object call(Map<String, Object> kwargs, FuncallExpression ast, Environment env)
@@ -105,7 +108,8 @@ public final class SkylarkAttr {
       @Param(name = "default", doc = "the default value of the attribute"),
       @Param(name = "flags", type = List.class, doc = ""),
       @Param(name = "mandatory", type = Boolean.class, doc = ""),
-      @Param(name = "cfg", type = String.class, doc = "configuration of the attribute")})
+      @Param(name = "cfg", type = ConfigurationTransition.class,
+          doc = "configuration of the attribute")})
   private static SkylarkFunction stringList = new SkylarkFunction("string_list") {
       @Override
       public Object call(Map<String, Object> kwargs, FuncallExpression ast, Environment env)
@@ -120,13 +124,14 @@ public final class SkylarkAttr {
       optionalParams = {
       @Param(name = "default", doc = "the default value of the attribute"),
       @Param(name = "flags", type = List.class, doc = ""),
-      @Param(name = "file_types", type = FileTypeSet.class,
+      @Param(name = "file_types",
           doc = "allowed file types of the label type attribute"),
       @Param(name = "mandatory", type = Boolean.class, doc = ""),
       @Param(name = "rule_classes", doc = "allowed rule classes of the label type attribute"),
       @Param(name = "providers", type = List.class,
           doc = "mandatory providers every dependency has to have"),
-      @Param(name = "cfg", type = String.class, doc = "configuration of the attribute")})
+      @Param(name = "cfg", type = ConfigurationTransition.class,
+          doc = "configuration of the attribute")})
   private static SkylarkFunction labelList = new SkylarkFunction("label_list") {
       @Override
       public Object call(Map<String, Object> kwargs, FuncallExpression ast, Environment env)
@@ -142,7 +147,8 @@ public final class SkylarkAttr {
       @Param(name = "default", doc = "the default value of the attribute"),
       @Param(name = "flags", type = List.class, doc = ""),
       @Param(name = "mandatory", type = Boolean.class, doc = ""),
-      @Param(name = "cfg", type = String.class, doc = "configuration of the attribute")})
+      @Param(name = "cfg", type = ConfigurationTransition.class,
+          doc = "configuration of the attribute")})
   private static SkylarkFunction bool = new SkylarkFunction("bool") {
       @Override
       public Object call(Map<String, Object> kwargs, FuncallExpression ast, Environment env)
@@ -158,7 +164,8 @@ public final class SkylarkAttr {
       @Param(name = "default", doc = "the default value of the attribute"),
       @Param(name = "flags", type = List.class, doc = ""),
       @Param(name = "mandatory", type = Boolean.class, doc = ""),
-      @Param(name = "cfg", type = String.class, doc = "configuration of the attribute")})
+      @Param(name = "cfg", type = ConfigurationTransition.class,
+          doc = "configuration of the attribute")})
   private static SkylarkFunction outputList = new SkylarkFunction("output_list") {
       @Override
       public Object call(Map<String, Object> kwargs, FuncallExpression ast, Environment env)
@@ -174,7 +181,8 @@ public final class SkylarkAttr {
       @Param(name = "default", doc = "the default value of the attribute"),
       @Param(name = "flags", type = List.class, doc = ""),
       @Param(name = "mandatory", type = Boolean.class, doc = ""),
-      @Param(name = "cfg", type = String.class, doc = "configuration of the attribute")})
+      @Param(name = "cfg", type = ConfigurationTransition.class,
+          doc = "configuration of the attribute")})
   private static SkylarkFunction license = new SkylarkFunction("license") {
       @Override
       public Object call(Map<String, Object> kwargs, FuncallExpression ast, Environment env)

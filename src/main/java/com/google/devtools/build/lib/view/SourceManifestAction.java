@@ -57,7 +57,7 @@ public class SourceManifestAction extends AbstractFileWriteAction {
    * Action context that tells what workspace suffix we should use.
    */
   public interface Context extends ActionContext {
-    String getWorkspaceName();
+    PathFragment getRunfilesPrefix();
   }
 
   private static final String GUID = "07459553-a3d0-4d37-9d78-18ed942470f4";
@@ -132,7 +132,8 @@ public class SourceManifestAction extends AbstractFileWriteAction {
   @Override
   public void writeOutputFile(OutputStream out, EventHandler eventHandler,
       Executor executor) throws IOException {
-    writeOutputFile(out, eventHandler, executor.getContext(Context.class).getWorkspaceName());
+    writeOutputFile(out, eventHandler, 
+        executor.getContext(Context.class).getRunfilesPrefix().toString());
   }
 
   /**

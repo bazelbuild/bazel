@@ -156,7 +156,8 @@ public class SourceFileReader {
           throws BuildEncyclopediaDocException {
         // End of a rule, create RuleDocumentation object
         documentations.put(ruleName, new RuleDocumentation(ruleName, ruleType,
-            ruleFamily, sb.toString(), getLineCnt(), javaSourceFilePath, flags));
+            ruleFamily, sb.toString(), getLineCnt(), javaSourceFilePath, flags,
+            ruleClassProvider));
         sb = new StringBuilder();
         inBlazeRuleDocs = false;
       }

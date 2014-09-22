@@ -19,7 +19,6 @@ import com.google.common.base.Joiner;
 import com.google.common.base.Preconditions;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
-import com.google.common.collect.Iterables;
 import com.google.common.util.concurrent.ThreadFactoryBuilder;
 import com.google.devtools.build.lib.cmdline.LabelValidator;
 import com.google.devtools.build.lib.events.Event;
@@ -46,7 +45,6 @@ import com.google.devtools.build.lib.syntax.Label;
 import com.google.devtools.build.lib.syntax.MixedModeFunction;
 import com.google.devtools.build.lib.syntax.ParserInputSource;
 import com.google.devtools.build.lib.syntax.PositionalFunction;
-import com.google.devtools.build.lib.syntax.SelectorValue;
 import com.google.devtools.build.lib.syntax.SkylarkEnvironment;
 import com.google.devtools.build.lib.syntax.Statement;
 import com.google.devtools.build.lib.vfs.Path;
@@ -367,25 +365,6 @@ public final class PackageFactory {
     } catch (GlobCache.BadGlobException e) {
       throw new EvalException(ast.getLocation(), e.getMessage());
     }
-  }
-
-  /**
-   * Returns a function-value implementing "select" (i.e. configurable attributes)
-   * in the specified package context.
-   */
-  private static Function newSelectFunction() {
-    return new PositionalFunction("select", 1, 1) {
-      @Override
-      public Object call(List<Object> args, FuncallExpression ast)
-          throws EvalException, ConversionException {
-        Object dict = Iterables.getOnlyElement(args);
-        if (!(dict instanceof Map<?, ?>)) {
-          throw new EvalException(ast.getLocation(),
-              "select({...}) argument isn't a dictionary");
-        }
-        return new SelectorValue((Map<?, ?>) dict);
-      }
-    };
   }
 
   /**
@@ -892,7 +871,6 @@ public final class PackageFactory {
     }
     pkgEnv.update("distribs", newDistribsFunction(context));
     pkgEnv.update("glob", newGlobFunction(context, /*async=*/false));
-    pkgEnv.update("select", newSelectFunction());
     pkgEnv.update("mocksubinclude", newMockSubincludeFunction(context));
     pkgEnv.update("licenses", newLicensesFunction(context));
     pkgEnv.update("exports_files", newExportsFilesFunction(context));

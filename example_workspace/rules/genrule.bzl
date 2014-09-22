@@ -30,9 +30,9 @@ def resolve_command(ctx, command, resolved_srcs, files_to_build):
   variables = {"SRCS": files.join_exec_paths(" ", resolved_srcs),
                "OUTS": files.join_exec_paths(" ", files_to_build)}
   if len(resolved_srcs) == 1:
-    variables["<"] = resolved_srcs.to_collection()[0].path
+    variables["<"] = list(resolved_srcs)[0].path
   if len(files_to_build) == 1:
-    variables["@"] = files_to_build.to_collection()[0].path
+    variables["@"] = list(files_to_build)[0].path
   return ctx.expand_make_variables("cmd", command, variables)
 
 
@@ -94,7 +94,7 @@ def create(ctx):
   if ctx.attr.executable:
     return struct(files_to_build=files_to_build,
                   runfiles=ctx.runfiles(data=[files_to_build]),
-                  executable=files_to_build.to_collection()[0])
+                  executable=list(files_to_build)[0])
   else:
     return struct(files_to_build=files_to_build,
                   runfiles=ctx.runfiles(data=[files_to_build]))

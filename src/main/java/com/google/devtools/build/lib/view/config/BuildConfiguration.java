@@ -54,6 +54,8 @@ import com.google.devtools.build.lib.vfs.Path;
 import com.google.devtools.build.lib.vfs.PathFragment;
 import com.google.devtools.build.lib.view.ViewCreationFailedException;
 import com.google.devtools.build.lib.view.config.BuildConfigurationCollection.Transitions;
+import com.google.devtools.build.skyframe.SkyFunction;
+import com.google.devtools.build.skyframe.SkyFunction.Environment;
 import com.google.devtools.common.options.Converter;
 import com.google.devtools.common.options.Converters;
 import com.google.devtools.common.options.EnumConverter;
@@ -256,6 +258,12 @@ public final class BuildConfiguration implements ClassObject, Serializable {
      */
     public Map<String, Object> lateBoundOptionDefaults() {
       return ImmutableMap.of();
+    }
+
+    /**
+     * Declares dependencies on any relevant Skyframe values (for example, relevant FileValues).
+     */
+    public void declareSkyframeDependencies(Environment env) {
     }
   }
 
@@ -1779,6 +1787,15 @@ public final class BuildConfiguration implements ClassObject, Serializable {
       throws ViewCreationFailedException {
     for (Fragment fragment : fragments.values()) {
       fragment.prepareHook(execRoot, artifactFactory, getGenfilesFragment());
+    }
+  }
+
+  /**
+   * Declares dependencies on any relevant Skyframe values (for example, relevant FileValues).
+   */
+  public void declareSkyframeDependencies(SkyFunction.Environment env) {
+    for (Fragment fragment : fragments.values()) {
+      fragment.declareSkyframeDependencies(env);
     }
   }
 

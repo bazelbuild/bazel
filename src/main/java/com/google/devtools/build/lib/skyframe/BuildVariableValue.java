@@ -100,6 +100,10 @@ public class BuildVariableValue implements SkyValue {
     return "<BuildVariable " + value + ">";
   }
 
+  public static final void dependOnBuildId(SkyFunction.Environment env) {
+    BUILD_ID.get(env);
+  }
+
   /**
    * A helper object corresponding to a variable in Skyframe.
    *

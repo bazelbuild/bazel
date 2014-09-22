@@ -181,6 +181,7 @@ public class BlazeCommandEventHandler implements EventHandler {
         return;
       case PASS:
       case FAIL:
+      case TIMEOUT:
       case ERROR:
       case WARNING:
       case DEPCHECKER:

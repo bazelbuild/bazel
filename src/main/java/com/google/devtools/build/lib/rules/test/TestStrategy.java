@@ -120,9 +120,6 @@ public abstract class TestStrategy implements TestActionContext {
     this.binTools = binTools;
   }
 
-  /** The strategy name, preferably suitable for passing to --test_strategy. */
-  public abstract String testStrategyName();
-
   @Override
   public abstract void exec(TestRunnerAction action, ActionExecutionContext actionExecutionContext)
       throws ExecException, InterruptedException;

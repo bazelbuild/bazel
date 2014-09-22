@@ -36,6 +36,7 @@ import java.util.concurrent.ExecutionException;
 public abstract class SkylarkFunction extends AbstractFunction {
 
   private ImmutableList<String> parameters;
+  private ImmutableMap<String, SkylarkBuiltin.Param> parameterTypes;
   private int mandatoryParamNum;
   private boolean configured = false;
   private Class<?> objectType;
@@ -58,14 +59,18 @@ public abstract class SkylarkFunction extends AbstractFunction {
                                 getName() + " != " + annotation.name());
     mandatoryParamNum = 0;
     ImmutableList.Builder<String> paramListBuilder = ImmutableList.builder();
+    ImmutableMap.Builder<String, SkylarkBuiltin.Param> paramTypeBuilder = ImmutableMap.builder();
     for (SkylarkBuiltin.Param param : annotation.mandatoryParams()) {
       paramListBuilder.add(param.name());
+      paramTypeBuilder.put(param.name(), param);
       mandatoryParamNum++;
     }
     for (SkylarkBuiltin.Param param : annotation.optionalParams()) {
       paramListBuilder.add(param.name());
+      paramTypeBuilder.put(param.name(), param);
     }
     parameters = paramListBuilder.build();
+    parameterTypes = paramTypeBuilder.build();
     this.objectType = annotation.objectType().equals(Object.class) ? null : annotation.objectType();
     this.onlyLoadingPhase = annotation.onlyLoadingPhase();
     configured = true;
@@ -116,7 +121,7 @@ public abstract class SkylarkFunction extends AbstractFunction {
       }
 
       for (int i = 0; i < args.size(); i++) {
-        arguments.put(parameters.get(i), args.get(i));
+        checkTypeAndAddArg(parameters.get(i), args.get(i), arguments, ast.getLocation());
       }
 
       for (Entry<String, Object> kwarg : kwargs.entrySet()) {
@@ -129,7 +134,7 @@ public abstract class SkylarkFunction extends AbstractFunction {
           throw new EvalException(ast.getLocation(),
               String.format("ambiguous argument: %s", kwarg.getKey()));
         }
-        arguments.put(kwarg.getKey(), kwarg.getValue());
+        checkTypeAndAddArg(kwarg.getKey(), kwarg.getValue(), arguments, ast.getLocation());
       }
 
       return call(arguments.build(), ast, env);
@@ -142,6 +147,18 @@ public abstract class SkylarkFunction extends AbstractFunction {
         throw new EvalExceptionWithJavaCause(ast.getLocation(), e);
       }
     }
+  }
+
+  private void checkTypeAndAddArg(String paramName, Object value,
+      ImmutableMap.Builder<String, Object> arguments, Location loc) throws EvalException {
+    SkylarkBuiltin.Param param = parameterTypes.get(paramName);
+    if (!(param.type().isAssignableFrom(value.getClass()))) {
+      throw new EvalException(loc, String.format("expected %s for '%s' but got %s instead\n"
+          + "%s.%s: %s",
+          EvalUtils.getDataTypeNameFromClass(param.type()), paramName,
+          EvalUtils.getDatatypeName(value), getName(), paramName, param.doc()));
+    }
+    arguments.put(paramName, value);
   }
 
   /**
@@ -250,6 +267,8 @@ public abstract class SkylarkFunction extends AbstractFunction {
         });
   }
 
+  // TODO(bazel-team): this is only used in SkylarkRuleConfgiuredTargetBuilder, fix typing for
+  // structs then remove this.
   public static <TYPE> TYPE cast(Object elem, Class<TYPE> type, String what, Location loc)
       throws EvalException {
     try {

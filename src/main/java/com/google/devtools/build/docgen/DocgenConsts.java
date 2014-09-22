@@ -48,6 +48,7 @@ public class DocgenConsts {
   public static final String VAR_COMMON_ATTRIBUTE_DEFINITION = "COMMON_ATTRIBUTE_DEFINITION";
   public static final String VAR_TEST_ATTRIBUTE_DEFINITION = "TEST_ATTRIBUTE_DEFINITION";
   public static final String VAR_BINARY_ATTRIBUTE_DEFINITION = "BINARY_ATTRIBUTE_DEFINITION";
+  public static final String VAR_SYNOPSIS = "SYNOPSIS";
 
   public static final String VAR_SECTION_SKYLARK_BUILTIN = "SECTION_BUILTIN";
 

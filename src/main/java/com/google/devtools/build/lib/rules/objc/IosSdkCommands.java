@@ -14,9 +14,14 @@
 
 package com.google.devtools.build.lib.rules.objc;
 
+import static com.google.devtools.build.lib.rules.objc.ObjcProvider.FRAMEWORK_DIR;
+
 import com.google.common.collect.ImmutableList;
+import com.google.common.collect.ImmutableSet;
+import com.google.devtools.build.lib.vfs.PathFragment;
 import com.google.devtools.build.xcode.common.Platform;
 import com.google.devtools.build.xcode.common.TargetDeviceFamily;
+import com.google.devtools.build.xcode.util.Interspersing;
 
 import java.util.List;
 
@@ -48,18 +53,31 @@ public class IosSdkCommands {
         + configuration.getPlatform().getNameInPlist() + configuration.getIosSdkVersion() + ".sdk";
   }
 
-  public static List<String> commonLinkAndCompileArgsForClang(ObjcConfiguration configuration) {
+  private static Iterable<PathFragment> uniqueParentDirectories(Iterable<PathFragment> paths) {
+    ImmutableSet.Builder<PathFragment> parents = new ImmutableSet.Builder<>();
+    for (PathFragment path : paths) {
+      parents.add(path.getParentDirectory());
+    }
+    return parents.build();
+  }
+
+  public static List<String> commonLinkAndCompileArgsForClang(
+      ObjcProvider provider, ObjcConfiguration configuration) {
     ImmutableList.Builder<String> builder = new ImmutableList.Builder<>();
     if (configuration.getPlatform() == Platform.SIMULATOR) {
       builder.add("-mios-simulator-version-min=" + MINIMUM_OS_VERSION);
     }
-    builder.add(
-      "-arch", configuration.getIosCpu(),
-      "-isysroot", sdkDir(configuration),
-      // TODO(bazel-team): Pass framework search paths to Xcodegen.
-      String.format("-F%s/Developer/Library/Frameworks", sdkDir(configuration))
-    );
-    return builder.build();
+    return builder
+        .add("-arch", configuration.getIosCpu())
+        .add("-isysroot", sdkDir(configuration))
+        // TODO(bazel-team): Pass framework search paths to Xcodegen.
+        .add("-F", sdkDir(configuration) + "/Developer/Library/Frameworks")
+        // Add custom (non-SDK) framework search paths. For each framework foo/bar.framework,
+        // include "foo" as a search path.
+        .addAll(Interspersing.beforeEach(
+            "-F",
+            PathFragment.safePathStrings(uniqueParentDirectories(provider.get(FRAMEWORK_DIR)))))
+        .build();
   }
 
   public static String momcPath(ObjcConfiguration configuration) {

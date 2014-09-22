@@ -25,6 +25,8 @@ import com.facebook.buck.apple.xcode.xcodeproj.PBXBuildFile;
 import com.facebook.buck.apple.xcode.xcodeproj.PBXFileReference;
 import com.facebook.buck.apple.xcode.xcodeproj.PBXReference;
 import com.facebook.buck.apple.xcode.xcodeproj.PBXReference.SourceTree;
+import com.facebook.buck.apple.xcode.xcodeproj.PBXVariantGroup;
+import com.facebook.buck.apple.xcode.xcodeproj.XCVersionGroup;
 
 import java.nio.file.Path;
 import java.util.ArrayList;
@@ -70,56 +72,59 @@ import java.util.Map;
  * TODO(bazel-team): Make this an immutable type, of which multiple instances are created as new
  * references and build files are added. The current API is side-effect-based and confusing.
  */
-public class FileObjects implements HasProjectNavigatorFiles {
+final class PBXBuildFiles implements HasProjectNavigatorFiles {
   /**
-   * Map from Paths to the PBXBuildFile that encompasses all and only those Paths. PBXBuildFiles
-   * that encompass multiple files do this by having a PBXReference that is a PBXVariantGroup.
+   * Map from Paths to the PBXBuildFile that encompasses all and only those Paths. Because the
+   * {@link PBXBuildFile}s in this map encompass multiple files, their
+   * {@link PBXBuildFile#getFileRef()} value is a {@link PBXVariantGroup} or {@link XCVersionGroup}.
    * <p>
    * Note that this Map reflects the intention of the API, namely that {"a"} does not map to the
    * same thing as {"a", "b"}, and you cannot get a build file with only one of the corresponding
    * files - you need the whole set.
    */
-  private Map<ImmutableSet<Path>, PBXBuildFile> buildFiles;
+  private Map<ImmutableSet<Path>, PBXBuildFile> aggregateBuildFiles;
+
+  private Map<FileReference, PBXBuildFile> standaloneBuildFiles;
   private PBXFileReferences pbxReferences;
   private List<PBXReference> mainGroupReferences;
 
-  public FileObjects(PBXFileReferences pbxFileReferences) {
-    this.buildFiles = new HashMap<>();
+  public PBXBuildFiles(PBXFileReferences pbxFileReferences) {
+    this.aggregateBuildFiles = new HashMap<>();
+    this.standaloneBuildFiles = new HashMap<>();
     this.pbxReferences = Preconditions.checkNotNull(pbxFileReferences);
     this.mainGroupReferences = new ArrayList<>();
   }
 
-  private PBXBuildFile buildFile(ImmutableSet<Path> paths, PBXReference reference) {
+  private PBXBuildFile aggregateBuildFile(ImmutableSet<Path> paths, PBXReference reference) {
     Preconditions.checkArgument(!paths.isEmpty(), "paths must be non-empty");
-    for (PBXBuildFile cached : Mapping.of(buildFiles, paths).asSet()) {
+    for (PBXBuildFile cached : Mapping.of(aggregateBuildFiles, paths).asSet()) {
       return cached;
     }
     PBXBuildFile buildFile = new PBXBuildFile(reference);
     mainGroupReferences.add(reference);
-    buildFiles.put(paths, buildFile);
+    aggregateBuildFiles.put(paths, buildFile);
     return buildFile;
   }
 
   /**
    * Returns new or cached instances of PBXBuildFiles corresponding to files that may or may not
-   * belong to an aggregate reference (see {@link AggregateReferenceType}. Files specified by the
+   * belong to an aggregate reference (see {@link AggregateReferenceType}). Files specified by the
    * {@code paths} argument are grouped into individual PBXBuildFiles using the given
    * {@link AggregateReferenceType}. Files that are standalone are not put in an aggregate
    * reference, but are put in a standalone PBXBuildFile in the returned sequence.
    */
-  public Iterable<PBXBuildFile> buildFilesForAggregates(
-      AggregateReferenceType type, Iterable<Path> paths) {
+  public Iterable<PBXBuildFile> get(AggregateReferenceType type, Iterable<Path> paths) {
     ImmutableList.Builder<PBXBuildFile> result = new ImmutableList.Builder<>();
     SetMultimap<AggregateKey, Path> keyedPaths = type.aggregates(paths);
     for (Map.Entry<AggregateKey, Collection<Path>> aggregation : keyedPaths.asMap().entrySet()) {
       if (!aggregation.getKey().isStandalone()) {
         ImmutableSet<Path> itemPaths = ImmutableSet.copyOf(aggregation.getValue());
-        result.add(buildFile(
+        result.add(aggregateBuildFile(
             itemPaths, type.create(aggregation.getKey(), fileReferences(itemPaths))));
       }
     }
     for (Path generalResource : keyedPaths.get(AggregateKey.standalone())) {
-      result.add(buildFile(generalResource));
+      result.add(getStandalone(FileReference.of(generalResource.toString(), SourceTree.GROUP)));
     }
 
     return result.build();
@@ -129,8 +134,14 @@ public class FileObjects implements HasProjectNavigatorFiles {
    * Returns a new or cached instance of a PBXBuildFile for a file that is not part of a variant
    * group.
    */
-  public PBXBuildFile buildFile(Path path) {
-    return buildFile(ImmutableSet.of(path), fileReference(path));
+  public PBXBuildFile getStandalone(FileReference file) {
+    for (PBXBuildFile cached : Mapping.of(standaloneBuildFiles, file).asSet()) {
+      return cached;
+    }
+    PBXBuildFile buildFile = new PBXBuildFile(pbxReferences.get(file));
+    mainGroupReferences.add(pbxReferences.get(file));
+    standaloneBuildFiles.put(file, buildFile);
+    return buildFile;
   }
 
   /**

@@ -28,7 +28,7 @@ import com.google.devtools.build.lib.view.RuleDefinitionEnvironment;
  * Rule definition for {@code objc_import}.
  */
 @BlazeRule(name = "objc_import",
-    factoryClass = ObjcLibrary.class,
+    factoryClass = ObjcImport.class,
     ancestors = { ObjcRuleClasses.ObjcBaseRule.class })
 public class ObjcImportRule implements RuleDefinition {
   @Override
@@ -37,7 +37,7 @@ public class ObjcImportRule implements RuleDefinition {
         /* <!-- #BLAZE_RULE(objc_import).ATTRIBUTE(archives) -->
         The list of <code>.a</code> files provided to Objective-C targets that
         depend on this target.
-        <i>(List of <a href="build-ref.html#labels">labels</a>; required)</i>
+        ${SYNOPSIS}
         <!-- #END_BLAZE_RULE.ATTRIBUTE --> */
         .add(attr("archives", LABEL_LIST)
             .mandatory()

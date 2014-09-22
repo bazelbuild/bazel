@@ -17,6 +17,8 @@ import com.google.common.base.Joiner;
 import com.google.common.base.Preconditions;
 import com.google.common.collect.ImmutableSet;
 import com.google.devtools.build.docgen.DocgenConsts.RuleType;
+import com.google.devtools.build.lib.packages.Attribute;
+import com.google.devtools.build.lib.view.ConfiguredRuleClassProvider;
 
 import java.util.HashMap;
 import java.util.HashSet;
@@ -54,13 +56,15 @@ class RuleDocumentation implements Comparable<RuleDocumentation> {
   private final Map<String, String> docVariables = new HashMap<>();
   // Only one attribute per attributeName is allowed
   private final Set<RuleDocumentationAttribute> attributes = new TreeSet<>();
+  private final ConfiguredRuleClassProvider ruleClassProvider;
 
   /**
    * Creates a RuleDocumentation from the rule's name, type, family and raw html documentation
    * (meaning without expanding the variables in the doc).
    */
   RuleDocumentation(String ruleName, String ruleType, String ruleFamily,
-      String htmlDocumentation, int startLineCount, String fileName, ImmutableSet<String> flags)
+      String htmlDocumentation, int startLineCount, String fileName, ImmutableSet<String> flags,
+      ConfiguredRuleClassProvider ruleClassProvider)
           throws BuildEncyclopediaDocException {
     Preconditions.checkNotNull(ruleName);
       this.ruleName = ruleName;
@@ -75,6 +79,7 @@ class RuleDocumentation implements Comparable<RuleDocumentation> {
       this.startLineCount = startLineCount;
       this.fileName = fileName;
       this.flags = flags;
+      this.ruleClassProvider = ruleClassProvider;
   }
 
   /**
@@ -207,10 +212,12 @@ class RuleDocumentation implements Comparable<RuleDocumentation> {
       // either both user defined or built in (of common type).
       if (isCommonType() == attributeDoc.isCommonType()) {
         String attrName = attributeDoc.getAttributeName();
+        Attribute attribute = isCommonType() ? null
+            : ruleClassProvider.getRuleClassMap().get(ruleName).getAttributeByName(attrName);
         sb.append(String.format("<li id=\"%s.%s\"%s><code>%s</code>:\n%s</li>\n",
             ruleName.toLowerCase(), attrName, getDeprecatedString(
                 attributeDoc.hasFlag(DocgenConsts.FLAG_DEPRECATED)),
-            attrName, attributeDoc.getHtmlDocumentation()));
+            attrName, attributeDoc.getHtmlDocumentation(attribute)));
       }
     }
     sb.append("</ul>\n");

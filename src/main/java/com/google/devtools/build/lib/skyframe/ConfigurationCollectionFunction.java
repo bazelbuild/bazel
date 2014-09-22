@@ -63,16 +63,18 @@ public class ConfigurationCollectionFunction implements SkyFunction {
               collectionKey.getMultiCpu()));
 
       // BuildConfigurationCollection can be created, but dependencies to some files might be
-      // missing. In that case we need to build configurationCollection second time.
+      // missing. In that case we need to build configurationCollection again.
       if (env.valuesMissing()) {
         return null;
       }
-      // For non-incremental builds the configuration collection is not going to be cached.
+
       for (BuildConfiguration config : result.getTargetConfigurations()) {
-        if (!config.supportsIncrementalBuild()) {
-          BuildVariableValue.BUILD_ID.get(env);
-        }
+        config.declareSkyframeDependencies(env);
       }
+      if (env.valuesMissing()) {
+        return null;
+      }
+
       return new ConfigurationCollectionValue(result);
     } catch (InvalidConfigurationException e) {
       throw new ConfigurationCollectionFunctionException(skyKey, e);

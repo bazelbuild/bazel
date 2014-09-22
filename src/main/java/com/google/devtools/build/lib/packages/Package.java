@@ -311,8 +311,9 @@ public class Package implements Serializable {
     this.packageDirectory = filename.getParentDirectory();
 
     this.sourceRoot = getSourceRoot(filename, nameFragment);
-    if (sourceRoot == null ||
-        !sourceRoot.getRelative(nameFragment).equals(packageDirectory)) {
+    if ((sourceRoot == null
+        || !sourceRoot.getRelative(nameFragment).equals(packageDirectory))
+        && !filename.getBaseName().equals("WORKSPACE")) {
       throw new IllegalArgumentException(
           "Invalid BUILD file name for package '" + name + "': " + filename);
     }

@@ -214,7 +214,7 @@ public class ExecutionTool {
 
     actionContextProviders.add(new FilesetActionContextImpl.Provider(runtime.getReporter()));
 
-    strategies.add(new SourceManifestActionContextImpl(runtime.getWorkspaceName()));
+    strategies.add(new SourceManifestActionContextImpl(runtime.getRunfilesPrefix()));
     strategies.add(new FileWriteStrategy(request));
     strategies.add(new SymlinkTreeStrategy(runtime.getOutputService(), runtime.getBinTools()));
 

@@ -242,6 +242,22 @@ public final class RuleClass {
       },
 
       /**
+       * Workspace rules can only be instantiated from a WORKSPACE file. Their names obey the
+       * rule for identifiers.
+       */
+      WORKSPACE {
+        @Override
+        public void checkName(String name) {
+          Preconditions.checkArgument(RULE_NAME_PATTERN.matcher(name).matches());
+        }
+
+        @Override
+        public void checkAttributes(Map<String, Attribute> attributes) {
+          // No required attributes.
+        }
+      },
+
+      /**
        * Test rules are instantiable by BUILD files and are handled specially
        * when run with the 'test' command. Their names must obey the rules
        * for identifiers in the BUILD language and {@link
@@ -353,6 +369,7 @@ public final class RuleClass {
     private boolean documented;
     private boolean publicByDefault = false;
     private boolean binaryOutput = true;
+    private boolean workspaceOnly = false;
     private ImplicitOutputsFunction implicitOutputsFunction = ImplicitOutputsFunction.NONE;
     private Configurator<?, ?> configurator = NO_CHANGE;
     private PredicateWithMessage<Rule> validityPredicate =
@@ -413,6 +430,14 @@ public final class RuleClass {
      * @throws IllegalStateException if any of the required attributes is missing
      */
     public RuleClass build() {
+      return build(name);
+    }
+
+    /**
+     * Same as {@link #build} except with setting the name parameter. 
+     */
+    public RuleClass build(String name) {
+      Preconditions.checkArgument(this.name.isEmpty() || this.name.equals(name));
       type.checkName(name);
       type.checkAttributes(attributes);
       boolean skylarkExecutable =
@@ -420,19 +445,10 @@ public final class RuleClass {
       Preconditions.checkState(skylarkExecutable == (configuredTargetFunction != null));
       Preconditions.checkState(skylarkExecutable == (ruleDefinitionEnvironment != null));
       return new RuleClass(name, skylarkExecutable, documented, publicByDefault, binaryOutput,
-          implicitOutputsFunction, configurator,
+          workspaceOnly, implicitOutputsFunction, configurator,
           validityPredicate, preferredDependencyPredicate,
           configuredTargetFunction, ruleDefinitionEnvironment,
           attributes.values().toArray(new Attribute[0]));
-    }
-
-    /**
-     * This function should be used only from Skylark. Skylark passes the empty string to
-     * the constructor and calls setName later.
-     */
-    public Builder setName(String name) {
-      this.name = name;
-      return this;
     }
 
     public Builder setUndocumented() {
@@ -442,6 +458,11 @@ public final class RuleClass {
 
     public Builder publicByDefault() {
       publicByDefault = true;
+      return this;
+    }
+
+    public Builder setWorkspaceOnly() {
+      workspaceOnly = true;
       return this;
     }
 
@@ -604,6 +625,7 @@ public final class RuleClass {
   private final boolean documented;
   private final boolean publicByDefault;
   private final boolean binaryOutput;
+  private final boolean workspaceOnly;
 
   /**
    * A (unordered) mapping from attribute names to small integers indexing into
@@ -670,10 +692,12 @@ public final class RuleClass {
    * <p>The {@code depsAllowedRules} predicate should have a {@code toString}
    * method which returns a plain English enumeration of the allowed rule class
    * names, if it does not allow all rule classes.
+   * @param workspaceOnly
    */
   @VisibleForTesting
   RuleClass(String name,
-      boolean skylarkExecutable, boolean documented, boolean publicByDefault, boolean binaryOutput,
+      boolean skylarkExecutable, boolean documented, boolean publicByDefault,
+      boolean binaryOutput, boolean workspaceOnly,
       ImplicitOutputsFunction implicitOutputsFunction,
       Configurator<?, ?> configurator,
       PredicateWithMessage<Rule> validityPredicate, Predicate<String> preferredDependencyPredicate,
@@ -693,6 +717,7 @@ public final class RuleClass {
     this.ruleDefinitionEnvironment = ruleDefinitionEnvironment;
     // Do not make a defensive copy as builder does that already
     this.attributes = attributes;
+    this.workspaceOnly = workspaceOnly;
 
     // create the index:
     int index = 0;
@@ -733,6 +758,10 @@ public final class RuleClass {
    */
   String getTargetKind() {
     return targetKind;
+  }
+
+  public boolean getWorkspaceOnly() {
+    return workspaceOnly;
   }
 
   /**

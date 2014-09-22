@@ -30,7 +30,7 @@ def java_library_impl(ctx):
   jars = jar_filetype.filter(ctx.files("jars", "TARGET"))
   compile_time_jars += jars
   runtime_jars += jars
-  compile_time_jar_list = compile_time_jars.to_collection()
+  compile_time_jar_list = list(compile_time_jars)
 
   build_output = class_jar.path + ".build_output"
   main_class = ctx.attr.main_class
@@ -59,13 +59,18 @@ def java_library_impl(ctx):
     command=cmd,
     use_default_shell_env=True)
 
+  runfiles = ctx.runfiles([DATA])
+
   return struct(files_to_build = nset("STABLE_ORDER", [class_jar]),
                 compile_time_jar = class_jar,
-                runtime_jars = runtime_jars + [class_jar])
+                runtime_jars = runtime_jars + [class_jar],
+                runfiles = runfiles)
 
 
 java_library = rule(java_library_impl,
     attr = {
+       "data": attr.label_list(file_types=ANY_FILE, rule_classes=NO_RULE,
+          cfg=DATA_CFG),
        "srcs": attr.label_list(file_types=java_filetype),
        "jars": attr.label_list(file_types=jar_filetype),
        "deps": attr.label_list(file_types=NO_FILE,

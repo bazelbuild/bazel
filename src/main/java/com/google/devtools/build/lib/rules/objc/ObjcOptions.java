@@ -14,10 +14,9 @@
 
 package com.google.devtools.build.lib.rules.objc;
 
-import com.google.common.collect.ImmutableList;
-import com.google.devtools.build.lib.packages.Type;
 import com.google.devtools.build.lib.rules.RuleConfiguredTargetFactory;
 import com.google.devtools.build.lib.view.ConfiguredTarget;
+import com.google.devtools.build.lib.view.RuleConfiguredTarget.Mode;
 import com.google.devtools.build.lib.view.RuleConfiguredTargetBuilder;
 import com.google.devtools.build.lib.view.RuleContext;
 import com.google.devtools.build.lib.view.RunfilesProvider;
@@ -31,9 +30,10 @@ public class ObjcOptions implements RuleConfiguredTargetFactory {
     return new RuleConfiguredTargetBuilder(ruleContext)
         .add(RunfilesProvider.class, RunfilesProvider.EMPTY)
         .add(OptionsProvider.class,
-            new OptionsProvider(
-                ruleContext.attributes().get("xcode_name", Type.STRING),
-                ImmutableList.copyOf(ObjcRuleClasses.copts(ruleContext))))
+            new OptionsProvider.Builder()
+                .addCopts(ruleContext.getTokenizedStringListAttr("copts"))
+                .addInfoplists(ruleContext.getPrerequisiteArtifacts("infoplists", Mode.TARGET))
+                .build())
         .build();
   }
 }

@@ -24,7 +24,6 @@ import com.google.devtools.build.lib.actions.MiddlemanFactory;
 import com.google.devtools.build.lib.actions.Root;
 import com.google.devtools.build.lib.collect.nestedset.NestedSet;
 import com.google.devtools.build.lib.collect.nestedset.NestedSetBuilder;
-import com.google.devtools.build.lib.collect.nestedset.Order;
 import com.google.devtools.build.lib.packages.Type;
 import com.google.devtools.build.lib.rules.cpp.CcLinkParams.Linkstamp;
 import com.google.devtools.build.lib.rules.cpp.CppCompilationContext.Builder;
@@ -270,12 +269,17 @@ public class CppHelper {
    * to the set of files necessary to execute an action.
    */
   public static NestedSet<Artifact> getCrosstoolInputsForCompile(RuleContext ruleContext) {
+    return getCrosstoolInputsForCompile(ruleContext, false);
+  }
+
+  public static NestedSet<Artifact> getCrosstoolInputsForCompile(RuleContext ruleContext,
+      boolean forGo) {
     CcToolchainProvider provider = getCompiler(ruleContext);
 
     // If include scanning is disabled, we need the entire crosstool filegroup, including header
     // files. If it is enabled, we use the filegroup without header files - they are found by
-    // include scanning.
-    return ruleContext.getFragment(CppConfiguration.class).shouldScanIncludes()
+    // include scanning. For go, we also don't need the header files.
+    return ruleContext.getFragment(CppConfiguration.class).shouldScanIncludes() && !forGo
         ? provider.getCompile()
         : provider.getCrosstool();
   }
@@ -292,62 +296,6 @@ public class CppHelper {
     builder.add(ruleContext.getAnalysisEnvironment().getEmbeddedToolArtifact(
         CppRuleClasses.BUILD_INTERFACE_SO));
     return builder.build();
-  }
-
-  /**
-   * Return a middleman for the library files needed for statically linking the C++ runtime for
-   * the target architecture. If not linking embedded runtimes (e.g. if dynamically linking against
-   * locally deployed runtime libraries), returns null.
-   */
-  public static Artifact getStaticRuntimeInputMiddlemanForLink(
-      RuleContext ruleContext, BuildConfiguration configuration) {
-    if (!configuration.getFragment(CppConfiguration.class).supportsEmbeddedRuntimes()) {
-      return null;
-    }
-
-    return getCompiler(ruleContext).getStaticRuntimeLinkMiddleman();
-  }
-
-  /**
-   * Returns the library files needed for statically linking the C++ runtime for the target
-   * architecture. If not linking embedded runtimes (e.g. if dynamically linking against locally
-   * deployed runtime libraries), returns an empty list.
-   */
-  public static NestedSet<Artifact> getStaticRuntimeInputsForLink(
-      RuleContext ruleContext, BuildConfiguration configuration) {
-    if (!configuration.getFragment(CppConfiguration.class).supportsEmbeddedRuntimes()) {
-      return NestedSetBuilder.emptySet(Order.STABLE_ORDER);
-    }
-
-    return getCompiler(ruleContext).getStaticRuntimeLinkInputs();
-  }
-
-  /**
-   * Returns a middleman for the the library files needed for dynamically linking the C++ runtime
-   * for the target architecture. If not linking embedded runtimes (i.e. if dynamically linking
-   * against locally deployed runtime libraries), returns null.
-   */
-  public static Artifact getDynamicRuntimeInputMiddlemanForLink(
-      RuleContext ruleContext, BuildConfiguration configuration) {
-    if (!configuration.getFragment(CppConfiguration.class).supportsEmbeddedRuntimes()) {
-      return null;
-    }
-
-    return getCompiler(ruleContext).getDynamicRuntimeLinkMiddleman();
-  }
-
-  /**
-   * Returns the library files needed for dynamically linking the C++ runtime for the target
-   * architecture. If not linking embedded runtimes (e.g. if dynamically linking against locally
-   * deployed runtime libraries), returns an empty list.
-   */
-  public static NestedSet<Artifact> getDynamicRuntimeInputsForLink(
-      RuleContext ruleContext, BuildConfiguration configuration) {
-    if (!configuration.getFragment(CppConfiguration.class).supportsEmbeddedRuntimes()) {
-      return NestedSetBuilder.emptySet(Order.STABLE_ORDER);
-    }
-
-    return getCompiler(ruleContext).getDynamicRuntimeLinkInputs();
   }
 
   /**

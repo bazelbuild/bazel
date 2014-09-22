@@ -29,6 +29,7 @@ import java.io.File;
 import java.io.IOException;
 import java.nio.charset.Charset;
 import java.util.List;
+import java.util.Set;
 
 /**
  * This is a specialization of {@link ChattyAssertsTestCase} that's useful for
@@ -252,6 +253,12 @@ public abstract class FoundationTestCase extends ChattyAssertsTestCase {
   protected Event assertContainsEvent(String expectedMessage) {
     return JunitTestUtils.assertContainsEvent(eventCollector,
                                               expectedMessage);
+  }
+
+  protected Event assertContainsEvent(String expectedMessage, Set<EventKind> kinds) {
+    return JunitTestUtils.assertContainsEvent(eventCollector,
+                                              expectedMessage,
+                                              kinds);
   }
 
   protected void assertContainsEventWithFrequency(String expectedMessage,

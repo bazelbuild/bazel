@@ -20,8 +20,11 @@ import static com.google.devtools.build.lib.packages.ImplicitOutputsFunction.fro
 import static com.google.devtools.build.lib.packages.ImplicitOutputsFunction.fromTemplates;
 import static com.google.devtools.build.lib.packages.Type.LABEL;
 import static com.google.devtools.build.lib.packages.Type.STRING;
+import static com.google.devtools.build.lib.rules.objc.ObjcProvider.ASSET_CATALOG;
+import static com.google.devtools.build.lib.rules.objc.ObjcRuleClasses.PLIST_TYPE;
 
 import com.google.common.base.Optional;
+import com.google.devtools.build.lib.actions.Artifact;
 import com.google.devtools.build.lib.packages.Attribute;
 import com.google.devtools.build.lib.packages.AttributeMap;
 import com.google.devtools.build.lib.packages.ImplicitOutputsFunction.SafeImplicitOutputsFunction;
@@ -30,7 +33,6 @@ import com.google.devtools.build.lib.packages.RuleClass;
 import com.google.devtools.build.lib.packages.RuleClass.Builder;
 import com.google.devtools.build.lib.packages.Type;
 import com.google.devtools.build.lib.syntax.Label;
-import com.google.devtools.build.lib.util.FileType;
 import com.google.devtools.build.lib.view.BlazeRule;
 import com.google.devtools.build.lib.view.RuleContext;
 import com.google.devtools.build.lib.view.RuleDefinition;
@@ -40,6 +42,9 @@ import com.google.devtools.build.xcode.common.Platform;
 
 /**
  * Rule definition for objc_binary.
+ *
+ * <p>TODO(bazel-team): Deprecate and phase-out infoplist attribute in favor of the infoplists
+ * <em>list</em> attribute.
  */
 @BlazeRule(name = "objc_binary",
     factoryClass = ObjcBinary.class,
@@ -78,6 +83,18 @@ public class ObjcBinaryRule implements RuleDefinition {
     return String.format("Payload/%s.app", context.getTarget().getName());
   }
 
+  /**
+   * Returns the artifact which is the output of running actool on all the asset catalogs used by
+   * a binary.
+   */
+  static Optional<Artifact> actoolOutputZip(RuleContext context, ObjcProvider objcProvider) {
+    if (objcProvider.get(ASSET_CATALOG).isEmpty()) {
+      return Optional.absent();
+    } else {
+      return Optional.of(ObjcRuleClasses.artifactByAppendingToBaseName(context, ".actool.zip"));
+    }
+  }
+
   @Override
   public RuleClass build(Builder builder, final RuleDefinitionEnvironment env) {
     return builder
@@ -93,12 +110,10 @@ public class ObjcBinaryRule implements RuleDefinition {
         .setImplicitOutputsFunction(fromFunctions(IPA, BINARY, ObjcRuleClasses.PBXPROJ))
         /* <!-- #BLAZE_RULE(objc_binary).ATTRIBUTE(infoplist) -->
         The infoplist file. This corresponds to <i>appname</i>-Info.plist in Xcode projects.
-        <i>(<a href="build-ref.html#labels">Label</a>; required)</i>
+        ${SYNOPSIS}
         <!-- #END_BLAZE_RULE.ATTRIBUTE -->*/
         .add(attr("infoplist", LABEL)
-            .mandatory()
-            .direct_compile_time_input()
-            .allowedFileTypes(FileType.of(".plist")))
+            .allowedFileTypes(PLIST_TYPE))
         /* <!-- #BLAZE_RULE(objc_binary).ATTRIBUTE(app_icon) -->
         The name of the application icon, which should be in one of the asset
         catalogs of this target or a (transitive) dependency. In a new project,

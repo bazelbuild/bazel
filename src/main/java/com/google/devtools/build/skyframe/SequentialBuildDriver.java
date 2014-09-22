@@ -28,6 +28,7 @@ public class SequentialBuildDriver implements BuildDriver {
     this.curVersion = new IntVersion(0);
   }
 
+  @Override
   public <T extends SkyValue> EvaluationResult<T> evaluate(
       Iterable<SkyKey> roots, boolean keepGoing, int numThreads, EventHandler reporter)
       throws InterruptedException {
@@ -38,6 +39,7 @@ public class SequentialBuildDriver implements BuildDriver {
     }
   }
 
+  @Override
   public MemoizingEvaluator getGraphForTesting() {
     return memoizingEvaluator;
   }

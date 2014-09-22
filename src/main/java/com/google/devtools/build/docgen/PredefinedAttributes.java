@@ -123,7 +123,7 @@ public class PredefinedAttributes {
         + "contained in binaries that are released to production.</p>\n"
         + "<p>Because testonly is enforced at build time, not run time, and propagates\n"
         + "virally through the dependency tree, it should be applied judiciously. For\n"
-        + "example, <a href=\"http://go/tott-test-doubles\">stubs and fakes</a> that\n"
+        + "example, stubs and fakes that\n"
         + "are useful for unit tests may also be useful for integration tests\n"
         + "involving the same binaries that will be released to production, and\n"
         + "therefore should probably not be marked testonly. Conversely, rules that\n"
@@ -141,14 +141,10 @@ public class PredefinedAttributes {
         + "lack any runtime annotation ability.  The use of tags and size elements\n"
         + "gives flexibility in assembling suites of tests based around codebase\n"
         + "check-in policy.\n"
-        + "If you want to see the use of <i>tags</i> in conjunction with test_suites\n"
-        + "take a look\n"
-        + "<a href=\"http://wiki/Main/TestSuiteSupportInBuildFiles\"\n"
-        + "title=\"Test Suites in Google3\">here</a> in the wiki.\n"
         + "<p>\n"
         + "A few tags have special meaning to the build tool, such as\n"
         + "indicating that a particular test cannot be run remotely, for\n"
-        + "example; consult\n"
+        + "example. Consult\n"
         + "the <a href='blaze-user-manual.html#tags_keywords'>Blaze\n"
         + "documentation</a> for details.\n"
         + "</p>"))
@@ -314,13 +310,10 @@ public class PredefinedAttributes {
         + "<i>(String \"enormous\", \"large\" \"medium\" or \"small\",\n"
         + "default is \"medium\")</i><br/>\n"
         + "A classification of the test's \"heaviness\": how much time/resources\n"
-        + "it needs to run.  This is useful when deciding which tests to run.\n"
-        + "Before checking in a change, you might run the small tests.\n"
-        + "Before a big release, you might run the large tests.\n"
-        + "If you wrote a test and want to know how heavy it is, please see the\n"
-        + "<a href=\"http://wiki.corp.google.com/Main/GoogleTestDefinitions\">"
-        + "Google Test Definitions</a>\n"
-        + "wiki. Each test has one size."))
+        + "it needs to run."
+        + "Unittests are considered \"small\", integration tests \"medium\", "
+        + "and end-to-end tests \"large\" or \"enormous\". "
+        + "Blaze uses the size only to determine a default timeout."))
       .put("timeout", RuleDocumentationAttribute.create("timeout", DocgenConsts.TEST_ATTRIBUTES,
           "How long the test is\n"
         + "normally expected to run before returning.\n"
@@ -329,12 +322,8 @@ public class PredefinedAttributes {
         + "While a test's size attribute controls resource estimation, a test's\n"
         + "timeout may be set independently.  If not explicitly specified, the\n"
         + "timeout is based on the test's size (with \"small\" &rArr; \"short\",\n"
-        + "\"medium\" &rArr; \"moderate\", etc...). While size and runtime are generally\n"
-        + "heavily correlated, they are not strictly causal, hence the ability to set\n"
-        + "them independently. Please see the\n"
-        + "<a href=\"http://wiki.corp.google.com/Main/GoogleTestDefinitions\">"
-        + "Google Test Definitions</a>\n"
-        + "wiki."))
+        + "\"medium\" &rArr; \"moderate\", etc...). "
+        + "\"short\" means 1 minute, \"moderate\" 5 minutes, and \"long\" 15 minutes."))
       .put("flaky", RuleDocumentationAttribute.create("flaky", DocgenConsts.TEST_ATTRIBUTES,
           "Marks test as flaky. <i>(Boolean; optional)</i><br/>\n"
         + "If set, executes the test up to 3 times before being declared as failed.\n"
@@ -347,8 +336,7 @@ public class PredefinedAttributes {
         + "to use to run the test. <i>(Non-negative integer less than or equal to 50;\n"
         + "optional)</i><br/>\n"
         + "This value will override any heuristics used to determine the number of\n"
-        + "parallel shards with which to run the test. See\n"
-        + "<a href=\"http://wiki/Main/TestSharding\">TestSharding</a> in the wiki."))
+        + "parallel shards with which to run the test."))
       .put("local", RuleDocumentationAttribute.create("local", DocgenConsts.TEST_ATTRIBUTES,
           "Forces the test to be run locally. <i>(Boolean; optional)</i><br/>\n"
         + "By default this attribute is set to 0 and the default testing strategy is\n"

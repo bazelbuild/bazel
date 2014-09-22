@@ -83,8 +83,7 @@ public abstract class CcLibrary implements RuleConfiguredTargetFactory {
     builder.addDataDeps(context);
 
     if (addDynamicRuntimeInputArtifactsToRunfiles) {
-      builder.addTransitiveArtifacts(
-          CppHelper.getDynamicRuntimeInputsForLink(context, context.getConfiguration()));
+      builder.addTransitiveArtifacts(CppHelper.getCompiler(context).getDynamicRuntimeLinkInputs());
     }
     return builder.build();
   }

@@ -60,6 +60,8 @@ public final class SkyFunctions {
   public static final SkyFunctionName BUILD_INFO_COLLECTION =
       SkyFunctionName.computed("BUILD_INFO_COLLECTION");
   public static final SkyFunctionName BUILD_INFO = SkyFunctionName.computed("BUILD_INFO");
+  public static final SkyFunctionName WORKSPACE_FILE = SkyFunctionName.computed("WORKSPACE_FILE");
+  public static final SkyFunctionName LABEL_BINDING = SkyFunctionName.computed("LABEL_BINDING");
 
   public static Predicate<SkyKey> isSkyFunction(final SkyFunctionName functionName) {
     return new Predicate<SkyKey>() {

@@ -787,12 +787,10 @@ public final class CcCommon {
    * compile actions (which happens if there are no cc sources), they would not
    * otherwise be built.
    */
-  public CppLinkAction.Builder newLinkActionBuilder(
-      PathFragment outputPath, boolean useExecOrigin) {
+  public CppLinkAction.Builder newLinkActionBuilder(PathFragment outputPath) {
     return new CppLinkAction.Builder(ruleContext, outputPath)
         .setCrosstoolInputs(CppHelper.getCrosstoolInputsForLink(ruleContext))
-        .addNonLibraryInputs(createCppCompilationContext().getCompilationPrerequisites())
-        .setUseExecOrigin(useExecOrigin);
+        .addNonLibraryInputs(createCppCompilationContext().getCompilationPrerequisites());
   }
 
   /**

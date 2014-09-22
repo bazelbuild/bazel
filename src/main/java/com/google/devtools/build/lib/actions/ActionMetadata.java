@@ -63,6 +63,7 @@ public interface ActionMetadata extends ExecutableMetadata {
    * AbstractAction, since AbstractAction's implementation of getInputs() returns an immutable
    * iterable.
    */
+  @Override
   Iterable<Artifact> getInputs();
 
   /**
@@ -72,10 +73,7 @@ public interface ActionMetadata extends ExecutableMetadata {
    */
   int getInputCount();
 
-  /**
-   * Returns the (unordered, immutable) set of output Artifacts that
-   * this action generates.  (It would not make sense for this to be empty.)
-   */
+  @Override
   ImmutableSet<Artifact> getOutputs();
 
   /**
@@ -87,6 +85,9 @@ public interface ActionMetadata extends ExecutableMetadata {
    * <p>May return null.
    */
   Artifact getPrimaryInput();
+
+  @Override
+  Artifact getPrimaryOutput();
 
   /**
    * Returns an iterable of input Artifacts that MUST exist prior to executing an action. In other

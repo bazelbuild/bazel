@@ -83,28 +83,34 @@ public final class SkylarkRuleConfiguredTargetBuilder {
   }
 
   private static ConfiguredTarget createTarget(RuleContext ruleContext, Object target)
-  throws EvalException {
-      RuleConfiguredTargetBuilder builder = new RuleConfiguredTargetBuilder(ruleContext);
-      // Every target needs runfiles provider by default.
-      builder.add(RunfilesProvider.class, RunfilesProvider.EMPTY);
-      builder.setFilesToBuild(
-          NestedSetBuilder.<Artifact>wrap(Order.STABLE_ORDER, ruleContext.getOutputArtifacts()));
-      Location loc = null;
-      if (target instanceof SkylarkClassObject) {
-        SkylarkClassObject struct = (SkylarkClassObject) target;
-        loc = struct.getCreationLoc();
-        addStructFields(builder, struct);
-      }
-      try {
-        return builder.build();
-      } catch (IllegalArgumentException e) {
-        throw new EvalException(loc, e.getMessage());
-      }
+      throws EvalException {
+    RuleConfiguredTargetBuilder builder = new RuleConfiguredTargetBuilder(ruleContext);
+    // Every target needs runfiles provider by default.
+    builder.add(RunfilesProvider.class, RunfilesProvider.EMPTY);
+    builder.setFilesToBuild(
+        NestedSetBuilder.<Artifact>wrap(Order.STABLE_ORDER, ruleContext.getOutputArtifacts()));
+    Location loc = null;
+    if (target instanceof SkylarkClassObject) {
+      SkylarkClassObject struct = (SkylarkClassObject) target;
+      loc = struct.getCreationLoc();
+      addStructFields(builder, struct);
+    }
+    try {
+      return builder.build();
+    } catch (IllegalArgumentException e) {
+      throw new EvalException(loc, e.getMessage());
+    }
   }
 
   private static void addStructFields(RuleConfiguredTargetBuilder builder,
       SkylarkClassObject struct) throws EvalException {
     Location loc = struct.getCreationLoc();
+    if (struct.getKeys().contains("executable") && struct.getKeys().contains("runfiles_support")) {
+      // Since they both use the same method on the builder there's no point defining both,
+      // but if we allow it can cause weird errors.
+      throw new EvalException(struct.getCreationLoc(),
+          "Cannot specify both executable and runfiles_support for the same configured target");
+    }
     for (String key : struct.getKeys()) {
       if (key.equals("files_to_build")) {
         builder.setFilesToBuild(cast(struct.getValue("files_to_build"),

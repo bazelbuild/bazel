@@ -86,7 +86,7 @@ class BlazeStartupOptions {
                        std::vector<string> *result) const;
 
   // Blaze's output base.  Everything is relative to this.  See
-  // http://wiki/Main/BlazeOutputDirectoryStructure for details.
+  // the BlazeDirectories Java class for details.
   string output_base;
 
   // Installation base for a specific release installation.
@@ -123,9 +123,7 @@ class BlazeStartupOptions {
   bool batch_cpu_scheduling;
 
   // If negative, don't mess with ionice. Otherwise, set a level from 0-7
-  // for best-effort scheduling. 0 is highest priority, 7 is lowest. The
-  // anticipatory scheduler may only honor up to priority 4. See
-  // http://wiki/Main/UsingIOPriority.
+  // for best-effort scheduling. 0 is highest priority, 7 is lowest.
   int io_nice_level;
 
   int max_idle_secs;

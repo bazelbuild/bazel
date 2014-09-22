@@ -36,8 +36,10 @@ import com.google.devtools.build.lib.rules.cpp.CcToolchainRule;
 import com.google.devtools.build.lib.rules.cpp.CppConfigurationLoader;
 import com.google.devtools.build.lib.rules.cpp.CppOptions;
 import com.google.devtools.build.lib.rules.objc.ObjcBinaryRule;
+import com.google.devtools.build.lib.rules.objc.ObjcBundleRule;
 import com.google.devtools.build.lib.rules.objc.ObjcCommandLineOptions;
 import com.google.devtools.build.lib.rules.objc.ObjcConfigurationLoader;
+import com.google.devtools.build.lib.rules.objc.ObjcFrameworkRule;
 import com.google.devtools.build.lib.rules.objc.ObjcImportRule;
 import com.google.devtools.build.lib.rules.objc.ObjcLibraryRule;
 import com.google.devtools.build.lib.rules.objc.ObjcOptionsRule;
@@ -52,6 +54,7 @@ import com.google.devtools.build.lib.view.RuleContext;
 import com.google.devtools.build.lib.view.config.BuildConfiguration;
 import com.google.devtools.build.lib.view.config.ConfigRuleClasses;
 import com.google.devtools.build.lib.view.config.FragmentOptions;
+import com.google.devtools.build.lib.view.workspace.BindRule;
 
 /**
  * A rule class provider implementing the rules Bazel knows.
@@ -166,13 +169,18 @@ public class BazelRuleClassProvider {
     builder.addRuleDefinition(BazelCppRuleClasses.CcLibraryRule.class);
 
     builder.addRuleDefinition(ObjcBinaryRule.class);
+    builder.addRuleDefinition(ObjcBundleRule.class);
+    builder.addRuleDefinition(ObjcFrameworkRule.class);
     builder.addRuleDefinition(ObjcImportRule.class);
     builder.addRuleDefinition(ObjcLibraryRule.class);
     builder.addRuleDefinition(ObjcOptionsRule.class);
     builder.addRuleDefinition(ObjcRuleClasses.ObjcBaseRule.class);
+    builder.addRuleDefinition(ObjcRuleClasses.ObjcUsesToolsRule.class);
 
     builder.addRuleDefinition(BazelExtraActionRule.class);
     builder.addRuleDefinition(BazelActionListenerRule.class);
+
+    builder.addRuleDefinition(BindRule.class);
 
     builder.addConfigurationFragment(new BazelConfiguration.Loader());
     builder.addConfigurationFragment(new CppConfigurationLoader(

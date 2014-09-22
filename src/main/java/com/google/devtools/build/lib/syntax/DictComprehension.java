@@ -71,8 +71,8 @@ public class DictComprehension extends Expression {
     SkylarkType elementsType = listExpression.validate(env);
     // TODO(bazel-team): GenericType1 should be a SkylarkType.
     Class<?> listElementType = elementsType.getGenericType1();
-    SkylarkType listElementSkylarkType =
-        listElementType == null ? SkylarkType.UNKNOWN : SkylarkType.of(listElementType);
+    SkylarkType listElementSkylarkType = listElementType.equals(Object.class)
+        ? SkylarkType.UNKNOWN : SkylarkType.of(listElementType);
     env.update(loopVar.getName(), listElementSkylarkType, getLocation());
     SkylarkType keyType = keyExpression.validate(env);
     if (!keyType.isSimple()) {

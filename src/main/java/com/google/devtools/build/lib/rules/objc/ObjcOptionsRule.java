@@ -15,9 +15,8 @@
 package com.google.devtools.build.lib.rules.objc;
 
 import static com.google.devtools.build.lib.packages.Attribute.attr;
+import static com.google.devtools.build.lib.rules.objc.ObjcRuleClasses.PLIST_TYPE;
 
-import com.google.devtools.build.lib.packages.Attribute.ComputedDefault;
-import com.google.devtools.build.lib.packages.AttributeMap;
 import com.google.devtools.build.lib.packages.RuleClass;
 import com.google.devtools.build.lib.packages.RuleClass.Builder;
 import com.google.devtools.build.lib.packages.Type;
@@ -37,17 +36,18 @@ public class ObjcOptionsRule implements RuleDefinition {
   @Override
   public RuleClass build(Builder builder, RuleDefinitionEnvironment env) {
     return builder
-        /* <!-- #BLAZE_RULE(objc_options).ATTRIBUTE(xcode_name) -->
-        The name of the build settings as they will appear in the Xcode
-        project, for instance "Release" or "Debug". If omitted, this is set to
-        the rule's name.
+        /* <!-- #BLAZE_RULE(objc_options).ATTRIBUTE(xcode_name)[DEPRECATED] -->
+        This attribute is ignored and will be removed.
         <!-- #END_BLAZE_RULE.ATTRIBUTE -->*/
-        .add(attr("xcode_name", Type.STRING).value(new ComputedDefault() {
-          @Override
-          public Object getDefault(AttributeMap rule) {
-            return rule.getName();
-          }
-        }))
+        .add(attr("xcode_name", Type.STRING))
+        /* <!-- #BLAZE_RULE(objc_options).ATTRIBUTE(infoplists) -->
+        infoplist files to merge with the final binary's infoplist. This
+        corresponds to a single file <i>appname</i>-Info.plist in Xcode
+        projects.
+        <i>(List of <a href="build-ref.html#labels">labels</a>; optional)</i>
+        <!-- #END_BLAZE_RULE.ATTRIBUTE -->*/
+        .add(attr("infoplists", Type.LABEL_LIST)
+            .allowedFileTypes(PLIST_TYPE))
         .build();
   }
 }

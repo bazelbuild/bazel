@@ -69,8 +69,15 @@ class PackageLookupFunction implements SkyFunction {
     // the missing value keys, more dependencies than necessary will be declared. This wart can be
     // fixed once we have nicer continuation support [skyframe-loading]
     for (Path packagePathEntry : pkgLocator.get().getPathEntries()) {
+      PathFragment buildFileFragment = null;
+      if (pkgName.equals("external")) {
+        buildFileFragment = new PathFragment("WORKSPACE");
+      } else {
+        buildFileFragment = pkg.getChild("BUILD");
+      }
       RootedPath buildFileRootedPath = RootedPath.toRootedPath(packagePathEntry,
-          pkg.getChild("BUILD"));
+          buildFileFragment);
+      String basename = buildFileRootedPath.asPath().getBaseName();
       SkyKey fileSkyKey = FileValue.key(buildFileRootedPath);
       FileValue fileValue = null;
       try {
@@ -79,12 +86,12 @@ class PackageLookupFunction implements SkyFunction {
         // TODO(bazel-team): throw an IOException here and let PackageFunction wrap that into a
         // BuildFileNotFoundException.
         throw new PackageLookupFunctionException(skyKey, new BuildFileNotFoundException(pkgName,
-            "IO errors while looking for BUILD file reading " + buildFileRootedPath.asPath()
-            + ": " + e.getMessage(), e));
+            "IO errors while looking for " + basename + " file reading "
+                + buildFileRootedPath.asPath() + ": " + e.getMessage(), e));
       } catch (FileSymlinkCycleException e) {
         throw new PackageLookupFunctionException(skyKey,
             new BuildFileNotFoundException(pkgName, "Symlink cycle detected while trying to find "
-                + "BUILD file " + buildFileRootedPath.asPath()));
+                + basename + " file " + buildFileRootedPath.asPath()));
       } catch (InconsistentFilesystemException e) {
         throw new PackageLookupFunctionException(skyKey, e);
       } catch (Exception e) {

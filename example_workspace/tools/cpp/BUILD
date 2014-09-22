@@ -1,8 +1,17 @@
 package(default_visibility = ["//visibility:public"])
 
-cc_library(name = "malloc")
+# TODO(bazel-team): The MacOS tools give an error if there is no object file on
+# the command line to libtool, so we use an empty .cc file here. We should find
+# a better way to handle this case.
+cc_library(
+    name = "malloc",
+    srcs = ["empty.cc"],
+)
 
-cc_library(name = "stl")
+cc_library(
+    name = "stl",
+    srcs = ["empty.cc"],
+)
 
 filegroup(
     name = "empty",
@@ -35,4 +44,5 @@ cc_toolchain(
     objcopy_files = ":empty",
     static_runtime_libs = [":empty-local"],
     strip_files = ":empty",
+    supports_param_files = 0,
 )

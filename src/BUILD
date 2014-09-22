@@ -1,6 +1,7 @@
 # This is a quick and dirty way to compile Bazel using only genrule.
 # We will need proper proto and java rules.
 
+load('rules/genproto', 'genproto')
 load('rules/java_library_oss', 'java_library')
 load('rules/java_binary_oss', 'java_binary')
 
@@ -13,111 +14,16 @@ JAVA_HOME = "src/javadir"
 protoc = "protoc"
 protoc_darwin = "/opt/local/bin/protoc"
 
-# Common code that filters the .jar files from the srcs.
-# Once we move have proper rules, we can use a separate attribute (e.g. deps).
-header = """
-set -e
-JARS=""
-for i in $(SRCS); do
-  if echo "$$i" | grep -q '\.jar'; then
-    JARS="$${JARS}:$$i"
-  fi
-done
-
-# TODO(bazel-team): Remove hard-coded path to Java.
-JAVA=/usr/bin/javac
-mkdir -p build_output
-"""
-
 # Proto
 
-# Run protoc on the input (%s expanded), compile the generated source files
-# and package them in a .jar file.
-proto_cmd = header + """
-%s -Isrc/main/protobuf/ --java_out=. %s
-
-JAVA_FILES=$$(find com/ -name '*.java')
-$${JAVA} -classpath $${JARS} $${JAVA_FILES} -d build_output
-jar cf $@ -C build_output com
-"""
-
-genrule(
-    name = "proto_build",
-    srcs = [
-        "main/protobuf/build.proto",
-        "//third_party:protobuf",
-    ],
-    outs = ["libBuild.jar"],
-    cmd = select({
-        ":darwin": proto_cmd % (protoc_darwin, "$(location main/protobuf/build.proto)"),
-        "//conditions:default": proto_cmd % (protoc, "$(location main/protobuf/build.proto)"),
-    }),
-)
-
-genrule(
-    name = "proto_crosstool_config",
-    srcs = [
-        "main/protobuf/crosstool_config.proto",
-        "//third_party:protobuf",
-    ],
-    outs = ["libCrosstoolConfig.jar"],
-    cmd = select({
-        ":darwin": proto_cmd % (protoc_darwin, "$(location main/protobuf/crosstool_config.proto)"),
-        "//conditions:default": proto_cmd % (protoc, "$(location main/protobuf/crosstool_config.proto)"),
-    }),
-)
-
-genrule(
-    name = "proto_extra_actions_base",
-    srcs = [
-        "main/protobuf/extra_actions_base.proto",
-        "//third_party:protobuf",
-    ],
-    outs = ["libExtraActionsBase.jar"],
-    cmd = select({
-        ":darwin": proto_cmd % (protoc_darwin, "$(location main/protobuf/extra_actions_base.proto)"),
-        "//conditions:default": proto_cmd % (protoc, "$(location main/protobuf/extra_actions_base.proto)"),
-    }),
-)
-
-genrule(
-    name = "proto_test_status",
-    srcs = [
-        "main/protobuf/test_status.proto",
-        "//third_party:protobuf",
-    ],
-    outs = ["libTestStatus.jar"],
-    cmd = select({
-        ":darwin": proto_cmd % (protoc_darwin, "$(location main/protobuf/test_status.proto)"),
-        "//conditions:default": proto_cmd % (protoc, "$(location main/protobuf/test_status.proto)"),
-    }),
-)
-
-genrule(
-    name = "proto_bundlemerge",
-    srcs = [
-        "main/protobuf/bundlemerge.proto",
-        "//third_party:protobuf",
-    ],
-    outs = ["libBundleMerge.jar"],
-    cmd = select({
-        ":darwin": proto_cmd % (protoc_darwin, "$(location main/protobuf/bundlemerge.proto)"),
-        "//conditions:default": proto_cmd % (protoc, "$(location main/protobuf/bundlemerge.proto)"),
-    }),
-)
-
-genrule(
-    name = "proto_xcodegen",
-    srcs = [
-        "main/protobuf/xcodegen.proto",
-        "//third_party:protobuf",
-    ],
-    outs = ["libXCodeGen.jar"],
-    cmd = select({
-        ":darwin": proto_cmd % (protoc_darwin, "$(location main/protobuf/xcodegen.proto)"),
-        "//conditions:default": proto_cmd % (protoc, "$(location main/protobuf/xcodegen.proto)"),
-    }),
-)
+[genproto(
+    name = "proto_" + proto_file,
+    src = "main/protobuf/" + proto_file + ".proto",
+    proto_compiler = select({
+        ":darwin": protoc_darwin,
+        "//conditions:default": protoc,
+    })) for proto_file in ["build", "crosstool_config", "extra_actions_base",
+                           "test_status", "bundlemerge", "xcodegen"]]
 
 # Java
 
@@ -140,15 +46,15 @@ java_library(
     ]),
     deps = [
         ":xcode-common",
-    ],
-    jars = [
-        "//third_party",
         ":proto_build",
         ":proto_bundlemerge",
         ":proto_crosstool_config",
         ":proto_extra_actions_base",
         ":proto_test_status",
         ":proto_xcodegen",
+    ],
+    jars = [
+        "//third_party",
     ],
 )
 

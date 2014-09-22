@@ -15,6 +15,7 @@
 package com.google.devtools.build.lib.exec;
 
 import com.google.devtools.build.lib.actions.ExecutionStrategy;
+import com.google.devtools.build.lib.vfs.PathFragment;
 import com.google.devtools.build.lib.view.SourceManifestAction;
 
 /**
@@ -23,14 +24,14 @@ import com.google.devtools.build.lib.view.SourceManifestAction;
  */
 @ExecutionStrategy(contextType = SourceManifestAction.Context.class)
 public class SourceManifestActionContextImpl implements SourceManifestAction.Context {
-  private final String workspaceName;
+  private final PathFragment runfilesPrefix;
 
-  public SourceManifestActionContextImpl(String workspaceSuffix) {
-    this.workspaceName = workspaceSuffix;
+  public SourceManifestActionContextImpl(PathFragment runfilesPrefix) {
+    this.runfilesPrefix = runfilesPrefix;
   }
 
   @Override
-  public String getWorkspaceName() {
-    return workspaceName;
+  public PathFragment getRunfilesPrefix() {
+    return runfilesPrefix;
   }
 }

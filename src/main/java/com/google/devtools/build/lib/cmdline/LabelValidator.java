@@ -49,8 +49,40 @@ public final class LabelValidator {
           .or(PUNCTUATION_REQUIRING_QUOTING)
           .or(PUNCTUATION_NOT_REQUIRING_QUOTING);
 
+  private static final String WORKSPACE_NAME_ERROR =
+      "workspace names may contain only A-Z, a-z, 0-9, '-' and '_'";
+
   private static final String PACKAGE_NAME_ERROR =
       "package names may contain only A-Z, a-z, 0-9, '/', '-' and '_'";
+
+  /**
+   * Performs validity checking of the specified repository name.  Returns null on success, an
+   * error message otherwise.
+   */
+  public static String validateWorkspaceName(String workspaceName) {
+    int len = workspaceName.length();
+    if (len == 0) {
+      return "empty workspace name";
+    }
+    char first = workspaceName.charAt(0);
+    if (first != '@') {
+      return "workspace name must start with '@'";
+    } else if (len == 1) {
+      return "empty workspace name";
+    }
+
+    // Check for any character outside of [/0-9A-Z_a-z-]. Try to evaluate the
+    // conditional quickly (by looking in decreasing order of character class
+    // likelihood).
+    for (int i = len - 1; i >= 1; --i) {
+      char c = workspaceName.charAt(i);
+      if ((c < 'a' || c > 'z') && c != '_' && c != '-'
+          && (c < '0' || c > '9') && (c < 'A' || c > 'Z')) {
+        return WORKSPACE_NAME_ERROR;
+      }
+    }
+    return null;
+  }
 
   /**
    * Performs validity checking of the specified package name. Returns null on success or an error

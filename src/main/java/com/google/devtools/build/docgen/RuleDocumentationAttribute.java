@@ -14,7 +14,12 @@
 package com.google.devtools.build.docgen;
 
 import com.google.common.base.Preconditions;
+import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.ImmutableSet;
+import com.google.devtools.build.lib.packages.Attribute;
+import com.google.devtools.build.lib.packages.TriState;
+import com.google.devtools.build.lib.packages.Type;
+import com.google.devtools.build.lib.syntax.Label;
 import com.google.devtools.build.lib.view.BlazeRule;
 import com.google.devtools.build.lib.view.RuleDefinition;
 
@@ -31,6 +36,21 @@ import java.util.Set;
  * <p>Warning, two RuleDocumentationAttribute objects are equal based on only the attributeName.
  */
 class RuleDocumentationAttribute implements Comparable<RuleDocumentationAttribute> {
+
+  private static final Map<Type<?>, String> TYPE_DESC = ImmutableMap.<Type<?>, String>builder()
+      .put(Type.BOOLEAN, "Boolean")
+      .put(Type.INTEGER, "Integer")
+      .put(Type.INTEGER_LIST, "List of Integer")
+      .put(Type.STRING, "String")
+      .put(Type.STRING_LIST, "List of String")
+      .put(Type.TRISTATE, "Integer")
+      .put(Type.LABEL, "<a href=\"build-ref.html#labels\">Label</a>")
+      .put(Type.LABEL_LIST, "List of <a href=\"build-ref.html#labels\">labels</a>")
+      .put(Type.NODEP_LABEL, "<a href=\"build-ref.html#name\">Name</a>")
+      .put(Type.NODEP_LABEL_LIST, "List of <a href=\"build-ref.html#name\">names</a>")
+      .put(Type.OUTPUT, "<a href=\"build-ref.html#filename\">Filename</a>")
+      .put(Type.OUTPUT_LIST, "List of <a href=\"build-ref.html#filename\">filenames</a>")
+      .build();
 
   private final Class<? extends RuleDefinition> definitionClass;
   private final String attributeName;
@@ -82,8 +102,42 @@ class RuleDocumentationAttribute implements Comparable<RuleDocumentationAttribut
   /**
    * Returns the raw html documentation of the rule attribute.
    */
-  String getHtmlDocumentation() {
-    return htmlDocumentation;
+  String getHtmlDocumentation(Attribute attribute) {
+    // TODO(bazel-team): this is needed for common type attributes. Fix those and remove this.
+    if (attribute == null) {
+      return htmlDocumentation;
+    }
+    StringBuilder sb = new StringBuilder()
+        .append("<i>(")
+        .append(TYPE_DESC.get(attribute.getType()))
+        .append("; " + (attribute.isMandatory() ? "required" : "optional"))
+        .append(getDefaultValue(attribute))
+        .append(")</i><br/>\n");
+    return htmlDocumentation.replace("${" + DocgenConsts.VAR_SYNOPSIS + "}", sb.toString());
+  }
+
+  private String getDefaultValue(Attribute attribute) {
+    String prefix = "; default is ";
+    Object value = attribute.getDefaultValueForTesting();
+    if (value instanceof Boolean) {
+      return prefix + ((Boolean) value ? "1" : "0");
+    } else if (value instanceof Integer) {
+      return prefix + String.valueOf(value);
+    } else if (value instanceof String && !(((String) value).isEmpty())) {
+      return prefix + "\"" + value + "\"";
+    } else if (value instanceof TriState) {
+      switch((TriState) value) {
+        case AUTO:
+          return prefix + "-1";
+        case NO:
+          return prefix + "0";
+        case YES:
+          return prefix + "1";
+      }
+    } else if (value instanceof Label) {
+      return prefix + "<code>" + value + "</code>";
+    }
+    return "";
   }
 
   /**

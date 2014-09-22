@@ -15,12 +15,15 @@ package com.google.devtools.build.lib.syntax;
 
 import com.google.common.collect.Lists;
 import com.google.common.collect.Maps;
+import com.google.devtools.build.lib.syntax.ClassObject.SkylarkClassObject;
 
 import java.util.Collection;
 import java.util.Collections;
 import java.util.IllegalFormatException;
+import java.util.LinkedHashSet;
 import java.util.List;
 import java.util.Map;
+import java.util.Set;
 
 /**
  * Syntax node for a binary operator expression.
@@ -136,6 +139,21 @@ public final class BinaryOperatorExpression extends Expression {
           result.putAll(ldict);
           result.putAll(rdict);
           return result;
+        }
+
+        if (env.isSkylarkEnabled() && lval instanceof Set<?> && rval instanceof Collection<?>) {
+          Set<?> lset = (Set<?>) lval;
+          Collection<?> rcollection = (Collection<?>) rval;
+          LinkedHashSet<Object> result = new LinkedHashSet<>(lset.size() + rcollection.size());
+          result.addAll(lset);
+          result.addAll(rcollection);
+          return result;
+        }
+
+        if (env.isSkylarkEnabled()
+            && lval instanceof SkylarkClassObject && rval instanceof SkylarkClassObject) {
+          return SkylarkClassObject.concat(
+              (SkylarkClassObject) lval, (SkylarkClassObject) rval, getLocation());
         }
 
         if (env.isSkylarkEnabled() && lval instanceof SkylarkNestedSet) {
@@ -273,6 +291,16 @@ public final class BinaryOperatorExpression extends Expression {
           return ltype.infer(rtype, "dict concatenation", rhs.getLocation(), lhs.getLocation());
         }
 
+        // struct + struct
+        if (ltype.isStruct() && rtype.isStruct()) {
+          return SkylarkType.of(ClassObject.class);
+        }
+
+        if (ltype.isSet() && rtype.isCollection()) {
+          return ltype.infer(SkylarkType.of(Set.class, rtype.getGenericType1()),
+              "set", rhs.getLocation(), lhs.getLocation());
+        }
+
         if (ltype.isNset()) {
           if (rtype.isNset()) {
             return ltype.infer(rtype, "nested set", rhs.getLocation(), lhs.getLocation());
@@ -329,8 +357,8 @@ public final class BinaryOperatorExpression extends Expression {
           return SkylarkType.BOOL;
         } else {
           if (rtype != SkylarkType.UNKNOWN) {
-            throw new EvalException(getLocation(), String.format(
-                "operand 'in' only works on strings, dictionaries, lists or tuples, not on a(n) %s",
+            throw new EvalException(getLocation(), String.format("operand 'in' only works on "
+                + "strings, dictionaries, lists, sets or tuples, not on a(n) %s",
                 EvalUtils.getDataTypeNameFromClass(rtype.getType())));
           }
         }

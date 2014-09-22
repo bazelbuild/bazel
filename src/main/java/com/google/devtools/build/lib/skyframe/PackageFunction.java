@@ -30,11 +30,16 @@ import com.google.devtools.build.lib.events.StoredEventHandler;
 import com.google.devtools.build.lib.packages.BuildFileContainsErrorsException;
 import com.google.devtools.build.lib.packages.BuildFileNotFoundException;
 import com.google.devtools.build.lib.packages.CachingPackageLocator;
+import com.google.devtools.build.lib.packages.ExternalPackage;
+import com.google.devtools.build.lib.packages.ExternalPackage.ExternalPackageBuilder;
 import com.google.devtools.build.lib.packages.InvalidPackageNameException;
 import com.google.devtools.build.lib.packages.NoSuchPackageException;
 import com.google.devtools.build.lib.packages.Package;
+import com.google.devtools.build.lib.packages.Package.NameConflictException;
 import com.google.devtools.build.lib.packages.PackageFactory;
 import com.google.devtools.build.lib.packages.PackageLoadedEvent;
+import com.google.devtools.build.lib.packages.RuleClass;
+import com.google.devtools.build.lib.packages.RuleFactory.InvalidRuleException;
 import com.google.devtools.build.lib.packages.RuleVisibility;
 import com.google.devtools.build.lib.packages.Target;
 import com.google.devtools.build.lib.skyframe.GlobValue.InvalidGlobPatternException;
@@ -87,6 +92,7 @@ public class PackageFunction implements SkyFunction {
       new PathFragment("devtools/blaze/rules/prelude.bzl");
 
   static final String DEFAULTS_PACKAGE_NAME = "tools/defaults";
+  static final String EXTERNAL_PACKAGE_NAME = "external";
 
   public PackageFunction(Reporter reporter, PackageFactory packageFactory,
       CachingPackageLocator pkgLocator, AtomicBoolean showLoadingProgress,
@@ -288,6 +294,38 @@ public class PackageFunction implements SkyFunction {
     return packageShouldBeInError;
   }
 
+  /**
+   * Adds a dependency on the WORKSPACE file, representing it as a special type of package.
+   * @throws PackageFunctionException if there is an error computing the workspace file or adding
+   * its rules to the //external package.
+   */
+  private SkyValue getExternalPackage(SkyKey key, Environment env, Path workspaceRoot)
+      throws PackageFunctionException {
+    Path workspacePath = workspaceRoot.getRelative("WORKSPACE");
+    SkyKey workspaceKey = WorkspaceFileValue.key(workspacePath);
+    WorkspaceFileValue workspace = null;
+    try {
+      workspace = (WorkspaceFileValue) env.getValueOrThrow(workspaceKey,
+          SkyFunctionException.class);
+    } catch (SkyFunctionException e) {
+      throw new PackageFunctionException(key, e);
+    }
+    if (workspace == null) {
+      return null;
+    }
+
+    ExternalPackageBuilder builder = new ExternalPackageBuilder(workspacePath);
+    RuleClass klass = packageFactory.getRuleClass("bind");
+    for (Entry<Label, ExternalPackage.Binding> binding : workspace.getBindings().entrySet()) {
+      try {
+        builder.addRule(klass, binding);
+      } catch (InvalidRuleException | NameConflictException e) {
+        throw new PackageFunctionException(key, e);
+      }
+    }
+    return new PackageValue(builder.build());
+  }
+
   @Override
   public SkyValue compute(SkyKey key, Environment env) throws PackageFunctionException,
       InterruptedException {
@@ -324,6 +362,10 @@ public class PackageFunction implements SkyFunction {
           // We should never get here.
           Preconditions.checkState(false);
       }
+    }
+
+    if (packageName.equals(EXTERNAL_PACKAGE_NAME)) {
+      return getExternalPackage(key, env, packageLookupValue.getRoot());
     }
 
     Path buildFilePath =
@@ -368,7 +410,8 @@ public class PackageFunction implements SkyFunction {
           packageName, e.getMessage()));
     }
     Map<PathFragment, SkylarkEnvironment> imports =
-        loadBuildFileAST(preludeStatements, inputSource, key, packageName, env);
+        fetchImportsFromBuildFile(buildFilePath, preludeStatements, inputSource, key,
+            packageName, env);
     if (imports == null) {
       return null;
     }
@@ -410,16 +453,17 @@ public class PackageFunction implements SkyFunction {
     return new PackageValue(pkg);
   }
 
-  private Map<PathFragment, SkylarkEnvironment> loadBuildFileAST(
+  private Map<PathFragment, SkylarkEnvironment> fetchImportsFromBuildFile(Path buildFilePath,
       List<Statement> preludeStatements, ParserInputSource inputSource,
       SkyKey key, String packageName, Environment env) throws PackageFunctionException {
     StoredEventHandler eventHandler = new StoredEventHandler();
     BuildFileAST buildFileAST = BuildFileAST.parseBuildFile(
-          inputSource, preludeStatements, eventHandler, packageLocator, false);
+          inputSource, preludeStatements, eventHandler, null, true);
 
     if (eventHandler.hasErrors()) {
-      // Ignore error messages here, they will happen again when we load the BUILD file later
-      // in the PackageFactory.
+      // In case of Python preprocessing, errors have already been reported (see checkSyntax).
+      // In other cases, errors will be reported later.
+      // TODO(bazel-team): maybe we could get rid of checkSyntax and always report errors here?
       return ImmutableMap.<PathFragment, SkylarkEnvironment>of();
     }
 
@@ -435,6 +479,7 @@ public class PackageFunction implements SkyFunction {
         }
       }
     } catch (SkylarkImportNotFoundException e) {
+      env.getListener().handle(Event.error(Location.fromFile(buildFilePath), e.getMessage()));
       throw new PackageFunctionException(key,
           new BuildFileContainsErrorsException(packageName, e.getMessage()));
     }
@@ -576,7 +621,7 @@ public class PackageFunction implements SkyFunction {
    * {@link PackageFunction#compute}.
    */
   private static class PackageFunctionException extends SkyFunctionException {
-    public PackageFunctionException(SkyKey key, NoSuchPackageException e) {
+    public PackageFunctionException(SkyKey key, Exception e) {
       super(key, e);
     }
   }

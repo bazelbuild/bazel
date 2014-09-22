@@ -28,6 +28,7 @@ import com.google.devtools.build.lib.collect.nestedset.Order;
 import com.google.devtools.build.lib.concurrent.ThreadSafety.Immutable;
 import com.google.devtools.build.lib.vfs.PathFragment;
 import com.google.devtools.build.lib.view.TransitiveInfoProvider;
+import com.google.devtools.build.xcode.xcodegen.proto.XcodeGenProtos.TargetControl;
 
 import java.util.HashMap;
 import java.util.Map;
@@ -55,11 +56,43 @@ final class ObjcProvider implements TransitiveInfoProvider {
   public static final Key<Artifact> HEADER = new Key<>(STABLE_ORDER);
   public static final Key<PathFragment> INCLUDE = new Key<>(LINK_ORDER);
   public static final Key<Artifact> ASSET_CATALOG = new Key<>(STABLE_ORDER);
+
+  /**
+   * Added to {@link TargetControl#getGeneralResourceFileList()} when running Xcodegen.
+   */
+  public static final Key<Artifact> GENERAL_RESOURCE_FILE = new Key<>(STABLE_ORDER);
+
+  /**
+   * Exec paths of {@code .bundle} directories corresponding to imported bundles to link.
+   * These are passed to Xcodegen.
+   */
+  public static final Key<PathFragment> BUNDLE_IMPORT_DIR = new Key<>(STABLE_ORDER);
+
+  /**
+   * Files that are plopped into the final bundle at some arbitrary bundle path. Note that these are
+   * not passed to Xcodegen, and these don't include information about where the file originated
+   * from.
+   */
   public static final Key<BundleableFile> BUNDLE_FILE = new Key<>(STABLE_ORDER);
+
   public static final Key<PathFragment> XCASSETS_DIR = new Key<>(STABLE_ORDER);
+  public static final Key<String> SDK_DYLIB = new Key<>(STABLE_ORDER);
   public static final Key<SdkFramework> SDK_FRAMEWORK = new Key<>(STABLE_ORDER);
   public static final Key<Xcdatamodel> XCDATAMODEL = new Key<>(STABLE_ORDER);
   public static final Key<Flag> FLAG = new Key<>(STABLE_ORDER);
+
+  /**
+   * Exec paths of {@code .framework} directories corresponding to frameworks to link. These cause
+   * -F arguments (framework search paths) to be added to each compile action, and -framework (link
+   * framework) arguments to be added to each link action.
+   */
+  public static final Key<PathFragment> FRAMEWORK_DIR = new Key<>(LINK_ORDER);
+
+  /**
+   * Files in {@code .framework} directories that should be included as inputs when compiling and
+   * linking.
+   */
+  public static final Key<Artifact> FRAMEWORK_FILE = new Key<>(STABLE_ORDER);
 
   /**
    * Flags that apply to a transitive build dependency tree. Each item in the enum corresponds to a
@@ -144,12 +177,6 @@ final class ObjcProvider implements TransitiveInfoProvider {
 
     public <E> Builder addAll(Key<E> key, Iterable<? extends E> toAdd) {
       uncheckedAddAll(key, toAdd);
-      return this;
-    }
-
-    public Builder add(AssetCatalogsInfo info) {
-      addAll(XCASSETS_DIR, info.getXcassetsDirs());
-      addAll(ASSET_CATALOG, info.getAllXcassets());
       return this;
     }
 

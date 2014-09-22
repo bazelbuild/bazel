@@ -132,24 +132,20 @@ public class CppOptions extends FragmentOptions {
   public static class LibcTopConverter implements Converter<LibcTop> {
     @Override
     public LibcTop convert(String input) throws OptionsParsingException {
-      if (!input.startsWith("/")) {
-        throw new OptionsParsingException("Not an absolute path or label");
+      if (!input.startsWith("//")) {
+        throw new OptionsParsingException("Not a label");
       }
-      if (input.startsWith("//")) {
-        try {
-          Label label = Label.parseAbsolute(input).getRelative(LIBC_RELATIVE_LABEL);
-          return new LibcTop(label);
-        } catch (SyntaxException e) {
-          throw new OptionsParsingException(e.getMessage());
-        }
-      } else {
-        return new LibcTop(input);
+      try {
+        Label label = Label.parseAbsolute(input).getRelative(LIBC_RELATIVE_LABEL);
+        return new LibcTop(label);
+      } catch (SyntaxException e) {
+        throw new OptionsParsingException(e.getMessage());
       }
     }
 
     @Override
     public String getTypeDescription() {
-      return "an absolute path or label";
+      return "a label";
     }
   }
 
@@ -493,9 +489,8 @@ public class CppOptions extends FragmentOptions {
       defaultValue = "null", // The default value is chosen by the toolchain.
       category = "version",
       converter = LibcTopConverter.class,
-      help = "An absolute path to a libc top-level directory or a label to a checked in libc "
-          + "library. The default value is selected by the crosstool toolchain, and you "
-          + "almost never need to override it.")
+      help = "A label to a checked-in libc library. The default value is selected by the crosstool "
+          + "toolchain, and you almost never need to override it.")
   public LibcTop libcTop;
 
   @Option(name = "host_grte_top",

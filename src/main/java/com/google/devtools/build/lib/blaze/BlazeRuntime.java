@@ -31,6 +31,7 @@ import com.google.common.collect.Sets;
 import com.google.common.eventbus.EventBus;
 import com.google.common.eventbus.SubscriberExceptionContext;
 import com.google.common.eventbus.SubscriberExceptionHandler;
+import com.google.devtools.build.lib.Constants;
 import com.google.devtools.build.lib.actions.cache.ActionCache;
 import com.google.devtools.build.lib.actions.cache.CompactPersistentActionCache;
 import com.google.devtools.build.lib.actions.cache.MetadataCache;
@@ -167,7 +168,7 @@ public final class BlazeRuntime {
   private long commandStartTime;
 
   // Application-specified constants
-  private final String workspaceName;
+  private final PathFragment runfilesPrefix;
 
   private final SkyframeExecutor skyframeExecutor;
 
@@ -232,7 +233,7 @@ public final class BlazeRuntime {
       WorkspaceStatusAction.Factory workspaceStatusActionFactory,
       final SkyframeExecutor skyframeExecutor,
       PackageFactory pkgFactory, ConfiguredRuleClassProvider ruleClassProvider,
-      ConfigurationFactory configurationFactory, String workspaceName, Clock clock,
+      ConfigurationFactory configurationFactory, PathFragment runfilesPrefix, Clock clock,
       OptionsProvider startupOptionsProvider, Iterable<BlazeModule> blazeModules,
       Map<String, String> clientEnv,
       TimestampGranularityMonitor timestampGranularityMonitor,
@@ -242,7 +243,7 @@ public final class BlazeRuntime {
     this.directories = directories;
     this.workingDirectory = directories.getWorkspace();
     this.reporter = reporter;
-    this.workspaceName = workspaceName;
+    this.runfilesPrefix = runfilesPrefix;
     this.packageFactory = pkgFactory;
     this.binTools = binTools;
     this.allowedMissingInputs = allowedMissingInputs;
@@ -404,10 +405,10 @@ public final class BlazeRuntime {
   }
 
   /**
-   * Returns the name of the workspace.
+   * Returns any prefix to be inserted between relative source paths and the runfiles directory.
    */
-  public String getWorkspaceName() {
-    return workspaceName;
+  public PathFragment getRunfilesPrefix() {
+    return runfilesPrefix;
   }
 
   /**
@@ -1453,10 +1454,11 @@ public final class BlazeRuntime {
         // TODO(bazel-team): Make BugReportingExceptionHandler the default.
         // See bug "Make exceptions in EventBus subscribers fatal"
         .setEventBusExceptionHandler(
-            startupOptions.fatalEventBusExceptions
+            startupOptions.fatalEventBusExceptions || !BlazeVersionInfo.instance().isReleasedBlaze()
                 ? new BlazeRuntime.BugReportingExceptionHandler()
                 : new BlazeRuntime.RemoteExceptionHandler());
 
+    runtimeBuilder.setRunfilesPrefix(new PathFragment(Constants.RUNFILES_PREFIX));
     for (BlazeModule blazeModule : blazeModules) {
       runtimeBuilder.addBlazeModule(blazeModule);
     }
@@ -1542,6 +1544,7 @@ public final class BlazeRuntime {
    */
   public static class Builder {
 
+    private PathFragment runfilesPrefix = PathFragment.EMPTY_FRAGMENT;
     private BlazeDirectories directories;
     private Reporter reporter;
     private ConfigurationFactory configurationFactory;
@@ -1656,19 +1659,16 @@ public final class BlazeRuntime {
       }
 
       return new BlazeRuntime(directories, reporter, workspaceStatusActionFactory, skyframeExecutor,
-          pkgFactory, ruleClassProvider, configurationFactory, getWorkspaceName(), clock,
-          startupOptionsProvider, ImmutableList.copyOf(blazeModules),
-          clientEnv,
-          timestampMonitor,
+          pkgFactory, ruleClassProvider, configurationFactory, 
+          runfilesPrefix == null ? PathFragment.EMPTY_FRAGMENT : runfilesPrefix, 
+          clock, startupOptionsProvider, ImmutableList.copyOf(blazeModules),
+          clientEnv, timestampMonitor,
           eventBusExceptionHandler, binTools, allowedMissingInputs);
     }
 
-    public String getWorkspaceName() {
-      Path workspace = directories.getWorkspace();
-      if (workspace == null) {
-        return "";
-      }
-      return workspace.getBaseName();
+    public Builder setRunfilesPrefix(PathFragment prefix) {
+      this.runfilesPrefix = prefix;
+      return this;
     }
 
     public Builder setBinTools(BinTools binTools) {

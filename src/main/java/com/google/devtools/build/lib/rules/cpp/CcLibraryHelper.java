@@ -606,7 +606,7 @@ public final class CcLibraryHelper {
         ccOutputs = new CcCompilationOutputs.Builder()
             .merge(ccOutputs)
             .addObjectFiles(objectFiles)
-            .addPicObjectFiles(objectFiles)
+            .addPicObjectFiles(picObjectFiles)
             .build();
       }
       ccLinkingOutputs = model.createCcLinkActions(ccOutputs);

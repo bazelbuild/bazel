@@ -39,7 +39,7 @@ void BlazeStartupOptions::Init() {
   batch = false;
   batch_cpu_scheduling = false;
   allow_configurable_attributes = false;
-  fatal_event_bus_exceptions = true;
+  fatal_event_bus_exceptions = false;
   io_nice_level = -1;
   // 3 hours (but only 5 seconds if used within a test)
   max_idle_secs = testing ? 5 : (3 * 3600);

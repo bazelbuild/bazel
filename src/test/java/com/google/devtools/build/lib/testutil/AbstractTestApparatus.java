@@ -44,9 +44,6 @@ import com.google.common.annotations.VisibleForTesting;
  * methods is not strictly necessary - it's a way to detect programming errors:
  * Usually, the programmer should better call some accessor to create some
  * state, rather than make assertions on an empty apparatus.
- *
- * The motivation for this scheme is documented at
- * http://wiki.corp.google.com/twiki/bin/view/Main/TestApparatus
  */
 public abstract class AbstractTestApparatus {
 

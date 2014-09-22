@@ -126,6 +126,7 @@ public class FancyTerminalEventHandler extends BlazeCommandEventHandler {
           break;
         case ERROR:
         case FAIL:
+        case TIMEOUT:
           // For errors, scroll the message, so it appears above the status
           // line, and highlight the word "ERROR" or "FAIL" in boldface red.
           errorOrFail(event);

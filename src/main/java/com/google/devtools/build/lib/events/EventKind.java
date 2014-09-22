@@ -76,6 +76,7 @@ public enum EventKind {
    */
   PASS,
   FAIL,
+  TIMEOUT,
 
   /**
    * For the reasoning of the dependency checker (like GNU Make "-d").
@@ -94,13 +95,15 @@ public enum EventKind {
 
   public static final Set<EventKind> ERRORS = EnumSet.of(
       EventKind.ERROR,
-      EventKind.FAIL
+      EventKind.FAIL,
+      EventKind.TIMEOUT
       );
 
   public static final Set<EventKind> ERRORS_AND_WARNINGS = EnumSet.of(
       EventKind.ERROR,
       EventKind.WARNING,
-      EventKind.FAIL
+      EventKind.FAIL,
+      EventKind.TIMEOUT
       );
 
   public static final Set<EventKind> ERRORS_WARNINGS_AND_INFO = EnumSet.of(
@@ -108,12 +111,14 @@ public enum EventKind {
       EventKind.WARNING,
       EventKind.PASS,
       EventKind.FAIL,
+      EventKind.TIMEOUT,
       EventKind.INFO
       );
 
   public static final Set<EventKind> ERRORS_AND_OUTPUT = EnumSet.of(
       EventKind.ERROR,
       EventKind.FAIL,
+      EventKind.TIMEOUT,
       EventKind.STDOUT,
       EventKind.STDERR
       );
@@ -122,6 +127,7 @@ public enum EventKind {
       EventKind.ERROR,
       EventKind.WARNING,
       EventKind.FAIL,
+      EventKind.TIMEOUT,
       EventKind.STDOUT,
       EventKind.STDERR
       );
@@ -131,6 +137,7 @@ public enum EventKind {
       EventKind.WARNING,
       EventKind.PASS,
       EventKind.FAIL,
+      EventKind.TIMEOUT,
       EventKind.INFO,
       EventKind.STDOUT,
       EventKind.STDERR

@@ -14,7 +14,7 @@
 package com.google.devtools.build.lib.blaze;
 
 import com.google.common.base.Preconditions;
-import com.google.devtools.build.lib.actions.Action;
+import com.google.devtools.build.lib.actions.ExecutableMetadata;
 import com.google.devtools.build.lib.concurrent.ThreadSafety.ThreadCompatible;
 
 import javax.annotation.Nullable;
@@ -35,7 +35,7 @@ public class AbstractCriticalPathComponent<C extends AbstractCriticalPathCompone
   private long childAggregatedWallTime = 0;
 
   /** The action for which we are storing the stat. */
-  private final Action action;
+  private final ExecutableMetadata action;
 
   /**
    * Child with the maximum critical path.
@@ -43,7 +43,7 @@ public class AbstractCriticalPathComponent<C extends AbstractCriticalPathCompone
   @Nullable
   private C child;
 
-  public AbstractCriticalPathComponent(Action action, long startTime) {
+  public AbstractCriticalPathComponent(ExecutableMetadata action, long startTime) {
     this.action = action;
     this.startTime = startTime;
   }
@@ -56,7 +56,7 @@ public class AbstractCriticalPathComponent<C extends AbstractCriticalPathCompone
   }
 
   /** The action for which we are storing the stat. */
-  public Action getAction() {
+  public ExecutableMetadata getAction() {
     return action;
   }
 
@@ -114,7 +114,7 @@ public class AbstractCriticalPathComponent<C extends AbstractCriticalPathCompone
     if (!isRunning) {
       currentTime = String.format("%.2f", getActionWallTime() / 1000.0) + "s ";
     }
-    return currentTime + action.describe();
+    return currentTime + action.prettyPrint();
   }
 }
 

@@ -15,6 +15,7 @@ package com.google.devtools.build.lib.rules.cpp;
 
 import static com.google.devtools.build.lib.packages.Type.BOOLEAN;
 
+import com.google.common.base.Preconditions;
 import com.google.common.collect.Iterables;
 import com.google.devtools.build.lib.actions.Actions;
 import com.google.devtools.build.lib.actions.Artifact;
@@ -60,47 +61,76 @@ public class CcToolchain implements RuleConfiguredTargetFactory {
     String runtimeSolibDirBase = "_solib_" + "_" + Actions.escapeLabel(label);
     final PathFragment runtimeSolibDir = ruleContext.getConfiguration()
         .getBinFragment().getRelative(runtimeSolibDirBase);
+
+    // Static runtime inputs.
     TransitiveInfoCollection staticRuntimeLibDep = selectDep(ruleContext, "static_runtime_libs",
         ruleContext.getConfiguration().getFragment(CppConfiguration.class)
             .getStaticRuntimeLibsLabel());
+    final NestedSet<Artifact> staticRuntimeLinkInputs;
+    final Artifact staticRuntimeLinkMiddleman;
+    if (ruleContext.getConfiguration().getFragment(CppConfiguration.class)
+        .supportsEmbeddedRuntimes()) {
+      staticRuntimeLinkInputs = staticRuntimeLibDep
+          .getProvider(FileProvider.class)
+          .getFilesToBuild();
+    } else {
+      staticRuntimeLinkInputs = NestedSetBuilder.emptySet(Order.STABLE_ORDER);
+    }
 
-    final NestedSet<Artifact> staticRuntimeLinkInputs = staticRuntimeLibDep
-        .getProvider(FileProvider.class)
-        .getFilesToBuild();
+    if (!staticRuntimeLinkInputs.isEmpty()) {
+      NestedSet<Artifact> staticRuntimeLinkMiddlemanSet = CompilationHelper.getAggregatingMiddleman(
+          ruleContext,
+          purposePrefix + "static_runtime_link",
+          staticRuntimeLibDep);
+      staticRuntimeLinkMiddleman = staticRuntimeLinkMiddlemanSet.isEmpty()
+          ? null : Iterables.getOnlyElement(staticRuntimeLinkMiddlemanSet);
+    } else {
+      staticRuntimeLinkMiddleman = null;
+    }
 
-    NestedSet<Artifact> staticRuntimeLinkMiddlemanSet = CompilationHelper.getAggregatingMiddleman(
-        ruleContext,
-        purposePrefix + "static_runtime_link",
-        staticRuntimeLibDep);
+    Preconditions.checkState(
+        (staticRuntimeLinkMiddleman == null) == staticRuntimeLinkInputs.isEmpty());
 
+    // Dynamic runtime inputs.
     TransitiveInfoCollection dynamicRuntimeLibDep = selectDep(ruleContext, "dynamic_runtime_libs",
         ruleContext.getConfiguration().getFragment(CppConfiguration.class)
             .getDynamicRuntimeLibsLabel());
-    NestedSetBuilder<Artifact> dynamicRuntimeLinkInputsBuilder = NestedSetBuilder.stableOrder();
-    for (Artifact artifact : dynamicRuntimeLibDep
-        .getProvider(FileProvider.class).getFilesToBuild()) {
-      if (CppHelper.SHARED_LIBRARY_FILETYPES.matches(artifact.getFilename())) {
-        dynamicRuntimeLinkInputsBuilder.add(SolibSymlinkAction.getCppRuntimeSymlink(
-            ruleContext, artifact, runtimeSolibDirBase,
-            ruleContext.getConfiguration()).getArtifact());
-      } else {
-        dynamicRuntimeLinkInputsBuilder.add(artifact);
+    final NestedSet<Artifact> dynamicRuntimeLinkInputs;
+    final Artifact dynamicRuntimeLinkMiddleman;
+    if (ruleContext.getConfiguration().getFragment(CppConfiguration.class)
+        .supportsEmbeddedRuntimes()) {
+      NestedSetBuilder<Artifact> dynamicRuntimeLinkInputsBuilder = NestedSetBuilder.stableOrder();
+      for (Artifact artifact : dynamicRuntimeLibDep
+          .getProvider(FileProvider.class).getFilesToBuild()) {
+        if (CppHelper.SHARED_LIBRARY_FILETYPES.matches(artifact.getFilename())) {
+          dynamicRuntimeLinkInputsBuilder.add(SolibSymlinkAction.getCppRuntimeSymlink(
+              ruleContext, artifact, runtimeSolibDirBase,
+              ruleContext.getConfiguration()).getArtifact());
+        } else {
+          dynamicRuntimeLinkInputsBuilder.add(artifact);
+        }
       }
+      dynamicRuntimeLinkInputs = dynamicRuntimeLinkInputsBuilder.build();
+    } else {
+      dynamicRuntimeLinkInputs = NestedSetBuilder.emptySet(Order.STABLE_ORDER);
     }
 
-    final NestedSet<Artifact> dynamicRuntimeLinkInputs = dynamicRuntimeLinkInputsBuilder.build();
+    if (!dynamicRuntimeLinkInputs.isEmpty()) {
+      List<Artifact> dynamicRuntimeLinkMiddlemanSet =
+          CppHelper.getAggregatingMiddlemanForCppRuntimes(
+              ruleContext,
+              purposePrefix + "dynamic_runtime_link",
+              dynamicRuntimeLibDep,
+              runtimeSolibDirBase,
+              ruleContext.getConfiguration());
+      dynamicRuntimeLinkMiddleman = dynamicRuntimeLinkMiddlemanSet.isEmpty()
+          ? null : Iterables.getOnlyElement(dynamicRuntimeLinkMiddlemanSet);
+    } else {
+      dynamicRuntimeLinkMiddleman = null;
+    }
 
-    List<Artifact> dynamicRuntimeLinkMiddlemanSet =
-        CppHelper.getAggregatingMiddlemanForCppRuntimes(
-            ruleContext,
-            purposePrefix + "dynamic_runtime_link",
-            dynamicRuntimeLibDep,
-            runtimeSolibDirBase,
-            ruleContext.getConfiguration());
-    final Artifact staticRuntimeLinkMiddleman = staticRuntimeLinkMiddlemanSet.isEmpty()
-        ? null : Iterables.getOnlyElement(staticRuntimeLinkMiddlemanSet);
-    final Artifact dynamicRuntimeLinkMiddleman = dynamicRuntimeLinkMiddlemanSet.isEmpty()
-        ? null : Iterables.getOnlyElement(dynamicRuntimeLinkMiddlemanSet);
+    Preconditions.checkState(
+        (dynamicRuntimeLinkMiddleman == null) == dynamicRuntimeLinkInputs.isEmpty());
 
     CppCompilationContext.Builder contextBuilder =
         new CppCompilationContext.Builder(ruleContext);

@@ -305,6 +305,11 @@ static vector<string> GetArgumentArray() {
   if (globals->options.watchfs) {
     result.push_back("--watchfs");
   }
+  if (globals->options.fatal_event_bus_exceptions) {
+    result.push_back("--fatal_event_bus_exceptions");
+  } else {
+    result.push_back("--nofatal_event_bus_exceptions");
+  }
 
   // This is only for Blaze reporting purposes; the real interpretation of the
   // jvm flags occurs when we set up the java command line.

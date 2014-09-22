@@ -18,9 +18,11 @@ import com.google.common.base.Preconditions;
 import com.google.common.base.Predicate;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableListMultimap;
+import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.ImmutableSet;
 import com.google.common.collect.Iterables;
 import com.google.common.collect.ListMultimap;
+import com.google.common.collect.Multimaps;
 import com.google.common.collect.Sets;
 import com.google.devtools.build.lib.actions.Action;
 import com.google.devtools.build.lib.actions.ActionOwner;
@@ -397,29 +399,63 @@ public final class RuleContext extends TargetContext
    * specified attribute. Note that you need to specify the correct mode for the attribute,
    * otherwise an assertion will be raised.
    */
-  public List<? extends TransitiveInfoCollection> getPrerequisites(
-      String attributeName, Mode mode) {
+  public List<? extends TransitiveInfoCollection> getPrerequisites(String attributeName,
+      Mode mode) {
+    Attribute attributeDefinition = getRule().getAttributeDefinition(attributeName);
+    if ((mode == Mode.TARGET)
+        && (attributeDefinition.getConfigurationTransition() instanceof SplitTransition)) {
+      // TODO(bazel-team): If you request a split-configured attribute in the target configuration,
+      // we return only the list of configured targets for the first architecture; this is for
+      // backwards compatibility with existing code in cases where the call to getPrerequisites is
+      // deeply nested and we can't easily inject the behavior we want. However, we should fix all
+      // such call sites.
+      checkAttribute(attributeName, Mode.SPLIT);
+      Map<String, ? extends List<? extends TransitiveInfoCollection>> map =
+          getSplitPrerequisites(attributeName, /*requireSplit=*/false);
+      return map.isEmpty()
+          ? ImmutableList.<TransitiveInfoCollection>of()
+          : map.entrySet().iterator().next().getValue();
+    }
+
     checkAttribute(attributeName, mode);
     return targetMap.get(attributeName);
   }
 
   /**
-   * Returns the a prerequisites keyed by the CPU of their configurations.
+   * Returns the a prerequisites keyed by the CPU of their configurations; this method throws an
+   * exception if the split transition is not active.
    */
-  public Map<String, ? extends Collection<? extends TransitiveInfoCollection>>
+  public Map<String, ? extends List<? extends TransitiveInfoCollection>>
       getSplitPrerequisites(String attributeName) {
-    Attribute attributeDefinition = getRule().getAttributeDefinition(attributeName);
-    if (!(attributeDefinition.getConfigurationTransition() instanceof SplitTransition)) {
-      throw new IllegalStateException(getRule().getLocation() + ": "
-          + getRule().getRuleClass() + " attribute " + attributeName
-          + " is not configured for a split transition");
-    }
+    return getSplitPrerequisites(attributeName, /*requireSplit*/true);
+  }
 
+  private Map<String, ? extends List<? extends TransitiveInfoCollection>>
+      getSplitPrerequisites(String attributeName, boolean requireSplit) {
+    checkAttribute(attributeName, Mode.SPLIT);
+
+    Attribute attributeDefinition = getRule().getAttributeDefinition(attributeName);
     SplitTransition<?> transition =
         (SplitTransition<?>) attributeDefinition.getConfigurationTransition();
+    List<BuildConfiguration> configurations =
+        getConfiguration().getTransitions().getSplitConfigurations(transition);
+    if (configurations.size() == 1) {
+      // There are two cases here:
+      // 1. Splitting is enabled, but only one target cpu.
+      // 2. Splitting is disabled, and no --cpu value was provided on the command line.
+      // In the first case, the cpu value is non-null, but in the second case it is null. We only
+      // allow that to proceed if the caller specified that he is going to ignore the cpu value
+      // anyway.
+      String cpu = configurations.get(0).getCpu();
+      if (cpu == null) {
+        Preconditions.checkState(!requireSplit);
+        cpu = "DO_NOT_USE";
+      }
+      return ImmutableMap.of(cpu, targetMap.get(attributeName));
+    }
+
     Set<String> cpus = new HashSet<>();
-    for (BuildConfiguration config :
-        getConfiguration().getTransitions().getSplitConfigurations(transition)) {
+    for (BuildConfiguration config : configurations) {
       // This method should only be called when the split config is enabled on the command line, in
       // which case this cpu can't be null.
       Preconditions.checkNotNull(config.getCpu());
@@ -433,13 +469,13 @@ public final class RuleContext extends TargetContext
       if (t.getConfiguration() != null) {
         result.put(t.getConfiguration().getCpu(), t);
       } else {
-        // Source files don't have a configuration.
+        // Source files don't have a configuration, so we add them to all architecture entries.
         for (String cpu : cpus) {
           result.put(cpu, t);
         }
       }
     }
-    return result.build().asMap();
+    return Multimaps.asMap(result.build());
   }
 
   /**
@@ -450,12 +486,8 @@ public final class RuleContext extends TargetContext
    */
   public <C extends TransitiveInfoProvider> C getPrerequisite(
       String attributeName, Mode mode, Class<C> provider) {
-    TransitiveInfoCollection prerequisite = internalGetPrerequisite(attributeName, mode);
-    if (prerequisite != null) {
-      return prerequisite.getProvider(provider);
-    } else {
-      return null;
-    }
+    TransitiveInfoCollection prerequisite = getPrerequisite(attributeName, mode);
+    return prerequisite == null ? null : prerequisite.getProvider(provider);
   }
 
   /**
@@ -464,37 +496,13 @@ public final class RuleContext extends TargetContext
    * assertion will be raised. Returns null if the attribute is empty.
    */
   public TransitiveInfoCollection getPrerequisite(String attributeName, Mode mode) {
-    return internalGetPrerequisite(attributeName, mode);
-  }
-
-  private TransitiveInfoCollection internalGetPrerequisite(String attributeName, Mode mode) {
-    Attribute attributeDefinition = rule.getAttributeDefinition(attributeName);
-    if ((attributeDefinition != null) && !(attributeDefinition.getType() == Type.LABEL ||
-        // This function is applicable to LABEL_LIST attributes too, since
-        // there are a lot of rules with LABEL_TYPE srcs attributes which allow only one Artifact.
-        attributeDefinition.getType() == Type.LABEL_LIST)) {
-      throw new IllegalStateException(rule.getRuleClass() + " attribute " + attributeName
-        + " is not a label type attribute");
-    }
-    List<? extends TransitiveInfoCollection> elements =
-        unmodifiablePrerequisites(attributeName, mode);
-    if (Iterables.size(elements) > 1) {
+    checkAttribute(attributeName, mode);
+    List<? extends TransitiveInfoCollection> elements = targetMap.get(attributeName);
+    if (elements.size() > 1) {
       throw new IllegalStateException(rule.getRuleClass() + " attribute " + attributeName
           + " produces more then one prerequisites");
     }
-    return elements.isEmpty() ? null : Iterables.getOnlyElement(elements);
-  }
-
-  /**
-   * For the specified attribute "attributeName" (which must be of type list(label), resolves all
-   * the labels into ConfiguredTargets (for the configuration appropriate to the attribute) and
-   * returns them as an immutable list. If no attribute with that name exists, it returns an empty
-   * list.
-   */
-  private List<? extends TransitiveInfoCollection> unmodifiablePrerequisites(String attributeName,
-                                                                   Mode mode) {
-    checkAttribute(attributeName, mode);
-    return targetMap.get(attributeName);
+    return elements.isEmpty() ? null : elements.get(0);
   }
 
   /**
@@ -504,8 +512,7 @@ public final class RuleContext extends TargetContext
   public <C extends TransitiveInfoProvider> Iterable<C> getPrerequisites(String attributeName,
       Mode mode, final Class<C> classType) {
     AnalysisUtils.checkProvider(classType);
-    checkAttribute(attributeName, mode);
-    return AnalysisUtils.getProviders(targetMap.get(attributeName), classType);
+    return AnalysisUtils.getProviders(getPrerequisites(attributeName, mode), classType);
   }
 
   /**
@@ -515,8 +522,7 @@ public final class RuleContext extends TargetContext
   public <C extends TransitiveInfoProvider> Iterable<? extends TransitiveInfoCollection>
       getPrerequisitesIf(String attributeName, Mode mode, final Class<C> classType) {
     AnalysisUtils.checkProvider(classType);
-    checkAttribute(attributeName, mode);
-    return AnalysisUtils.filterByProvider(targetMap.get(attributeName), classType);
+    return AnalysisUtils.filterByProvider(getPrerequisites(attributeName, mode), classType);
   }
 
   /**
@@ -667,6 +673,11 @@ public final class RuleContext extends TargetContext
     if (attributeDefinition == null) {
       throw new IllegalStateException(getRule().getLocation() + ": " + getRule().getRuleClass()
         + " attribute " + attributeName + " is not defined");
+    }
+    if (!(attributeDefinition.getType() == Type.LABEL
+        || attributeDefinition.getType() == Type.LABEL_LIST)) {
+      throw new IllegalStateException(rule.getRuleClass() + " attribute " + attributeName
+        + " is not a label type attribute");
     }
     if (mode == Mode.HOST) {
       if (attributeDefinition.getConfigurationTransition() != ConfigurationTransition.HOST) {

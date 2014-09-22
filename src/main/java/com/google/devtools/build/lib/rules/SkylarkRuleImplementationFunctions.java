@@ -13,22 +13,15 @@
 // limitations under the License.
 package com.google.devtools.build.lib.rules;
 
-import static com.google.devtools.build.lib.syntax.SkylarkFunction.cast;
-
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 import com.google.devtools.build.lib.actions.Artifact;
 import com.google.devtools.build.lib.collect.nestedset.NestedSet;
 import com.google.devtools.build.lib.events.Location;
 import com.google.devtools.build.lib.packages.Type.ConversionException;
-import com.google.devtools.build.lib.syntax.AbstractFunction;
-import com.google.devtools.build.lib.syntax.Environment;
 import com.google.devtools.build.lib.syntax.EvalException;
 import com.google.devtools.build.lib.syntax.EvalUtils;
-import com.google.devtools.build.lib.syntax.FuncallExpression;
-import com.google.devtools.build.lib.syntax.Function;
 import com.google.devtools.build.lib.syntax.Label;
-import com.google.devtools.build.lib.syntax.PositionalFunction;
 import com.google.devtools.build.lib.syntax.SkylarkBuiltin;
 import com.google.devtools.build.lib.syntax.SkylarkBuiltin.Param;
 import com.google.devtools.build.lib.syntax.SkylarkFunction;
@@ -85,8 +78,8 @@ public class SkylarkRuleImplementationFunctions {
       doc = "Creates an action that runs an executable or a shell command.",
       objectType = SkylarkRuleContext.class,
       optionalParams = {
-      @Param(name = "inputs", type = List.class, doc = "list of the input files of the action"),
-      @Param(name = "outputs", type = List.class, doc = "list of the output files of the action"),
+      @Param(name = "inputs", doc = "list of the input files of the action"),
+      @Param(name = "outputs", doc = "list of the output files of the action"),
       @Param(name = "executable", doc = "the executable to be called by the action"),
       @Param(name = "arguments", type = List.class, doc = "command line arguments of the action"),
       @Param(name = "mnemonic", type = String.class, doc = "mnemonic"),
@@ -102,7 +95,7 @@ public class SkylarkRuleImplementationFunctions {
     @Override
     public Object call(Map<String, Object> params, Location loc) throws EvalException,
         ConversionException {
-      SkylarkRuleContext ctx = cast(params.get("self"), SkylarkRuleContext.class, "ctx", loc);
+      SkylarkRuleContext ctx = (SkylarkRuleContext) params.get("self");
       SpawnAction.Builder builder = new SpawnAction.Builder(ctx.getRuleContext());
       builder.addInputs(castList(params.get("inputs"), Artifact.class, "inputs"));
       builder.addOutputs(castList(params.get("outputs"), Artifact.class, "outputs"));
@@ -111,11 +104,11 @@ public class SkylarkRuleImplementationFunctions {
       if (params.containsKey("executable")) {
         Object exe = params.get("executable");
         if (exe instanceof Artifact) {
-          builder.setExecutable(cast(exe, Artifact.class, "executable", loc));
+          builder.setExecutable((Artifact) exe);
         } else if (exe instanceof FilesToRunProvider) {
-          builder.setExecutable(cast(exe, FilesToRunProvider.class, "executable", loc));
+          builder.setExecutable((FilesToRunProvider) exe);
         } else if (exe instanceof PathFragment) {
-          builder.setExecutable(cast(exe, PathFragment.class, "executable", loc));
+          builder.setExecutable((PathFragment) exe);
         } else {
           throw new EvalException(loc, "expected Artifact, FilesToRunProvider or PathFragment for "
               + "executable but got " + EvalUtils.getDatatypeName(exe) + " instead");
@@ -137,16 +130,14 @@ public class SkylarkRuleImplementationFunctions {
             params.get("command_line"), CharSequence.class, "command line"))));
       }
       if (params.containsKey("mnemonic")) {
-        builder.setMnemonic(
-            cast(params.get("mnemonic"), String.class, "mnemonic", loc));
+        builder.setMnemonic((String) params.get("mnemonic"));
       }
       if (params.containsKey("env")) {
         builder.setEnvironment(
             toMap(castMap(params.get("env"), String.class, String.class, "env")));
       }
       if (params.containsKey("progress_message")) {
-        builder.setProgressMessage(cast(
-            params.get("progress_message"), String.class, "progress_message", loc));
+        builder.setProgressMessage((String) params.get("progress_message"));
       }
       if (params.containsKey("use_default_shell_env")
           && EvalUtils.toBoolean(params.get("use_default_shell_env"))) {
@@ -175,13 +166,13 @@ public class SkylarkRuleImplementationFunctions {
     @Override
     public Object call(Map<String, Object> params, Location loc) throws EvalException,
         ConversionException {
-      SkylarkRuleContext ctx = cast(params.get("self"), SkylarkRuleContext.class, "ctx", loc);
+      SkylarkRuleContext ctx = (SkylarkRuleContext) params.get("self");
       boolean executable = params.containsKey("executable")
-          ? cast(params.get("executable"), Boolean.class, "executable", loc) : false;
+          ? (Boolean) params.get("executable") : false;
       FileWriteAction action = new FileWriteAction(
           ctx.getRuleContext().getActionOwner(),
-          cast(params.get("output"), Artifact.class, "output", loc),
-          cast(params.get("content"), String.class, "content", loc),
+          (Artifact) params.get("output"),
+          (String) params.get("content"),
           executable);
       ctx.getRuleContext().registerAction(action);
       return action;
@@ -204,7 +195,7 @@ public class SkylarkRuleImplementationFunctions {
     @Override
     public Object call(Map<String, Object> params, Location loc) throws EvalException,
         ConversionException {
-      SkylarkRuleContext ctx = cast(params.get("self"), SkylarkRuleContext.class, "ctx", loc);
+      SkylarkRuleContext ctx = (SkylarkRuleContext) params.get("self");
       ImmutableList.Builder<Substitution> substitutions = ImmutableList.builder();
       for (Map.Entry<String, String> substitution
           : castMap(params.get("substitutions"), String.class, String.class, "substitutions")) {
@@ -213,10 +204,10 @@ public class SkylarkRuleImplementationFunctions {
 
       TemplateExpansionAction action = new TemplateExpansionAction(
           ctx.getRuleContext().getActionOwner(),
-          cast(params.get("template"), Artifact.class, "template", loc),
-          cast(params.get("output"), Artifact.class, "output", loc),
+          (Artifact) params.get("template"),
+          (Artifact) params.get("output"),
           substitutions.build(),
-          cast(params.get("executable"), Boolean.class, "executable", loc));
+          (Boolean) params.get("executable"));
       ctx.getRuleContext().registerAction(action);
       return action;
     }
@@ -225,7 +216,7 @@ public class SkylarkRuleImplementationFunctions {
   @SkylarkBuiltin(name = "runfiles_support", doc = "Creates a runfiles support",
       objectType = SkylarkRuleContext.class,
       mandatoryParams = {
-      @Param(name = "runfiles", type = Runfiles.class,
+      @Param(name = "runfiles", type = RunfilesProvider.class,
           doc = "files the output of the rule needs at runtime"),
       @Param(name = "executable", type = Artifact.class,
           doc = "the executable output of the target")})
@@ -235,45 +226,13 @@ public class SkylarkRuleImplementationFunctions {
     @Override
     public Object call(Map<String, Object> params, Location loc)
         throws EvalException, ExecutionException {
-      SkylarkRuleContext ctx = cast(params.get("self"), SkylarkRuleContext.class, "ctx", loc);
-      Runfiles runfiles = cast(
-          params.get("runfiles"), RunfilesProvider.class, "runfiles", loc).getDefaultRunfiles();
+      SkylarkRuleContext ctx = (SkylarkRuleContext) params.get("self");
+      Runfiles runfiles = ((RunfilesProvider) params.get("runfiles")).getDefaultRunfiles();
       if (runfiles.isEmpty()) {
         throw new IllegalArgumentException("Cannot use runfiles support with empty runfiles");
       }
-      return RunfilesSupport.withExecutable(ctx.getRuleContext(), runfiles,
-          cast(params.get("executable"), Artifact.class, "executable", loc));
-    }
-  };
-
-  /**
-   * Throws an error message if the first argument evaluates false. The error message can be
-   * customized via the (optional) second argument.
-   */
-  @SkylarkBuiltin(name = "check_state",
-      doc = "Checks if the first argument is True, if not, stops the execution of the Skylark "
-          + "program signalling an error using the second argument as an error message.")
-  private static final Function preconditionCheckState = new AbstractFunction("check_state") {
-
-    @Override
-    public Object call(List<Object> args, Map<String, Object> kwargs, FuncallExpression ast,
-        Environment env) throws EvalException, InterruptedException {
-      if (args.size() != 1 && args.size() != 2) {
-        throw new EvalException(ast.getLocation(), getName()
-              + " has to be called with 1 or 2 arguments.");
-      }
-      Object condition = args.get(0);
-      if (args.size() == 1) {
-        if (!EvalUtils.toBoolean(condition)) {
-          throw new EvalException(ast.getLocation(), getName() + " failed.");
-        }
-      } else if (args.size() == 2) {
-        Object message = cast(args.get(1), String.class, "second argument", ast.getLocation());
-        if (!EvalUtils.toBoolean(condition)) {
-          throw new EvalException(ast.getLocation(), (String) message);
-        }
-      }
-      return 0;
+      return RunfilesSupport.withExecutable(
+          ctx.getRuleContext(), runfiles, (Artifact) params.get("executable"));
     }
   };
 
@@ -282,22 +241,21 @@ public class SkylarkRuleImplementationFunctions {
    * Transitive info providers of Transitive info collections.
    */
   @SkylarkBuiltin(name = "provider",
-      doc = "Returns the transitive info provider "
-          + "(second argument) of the transitive info collection (first argument).")
-  private static final Function getProvider = new PositionalFunction("provider", 2, 2) {
-
+      doc = "Returns the transitive info provider provided by the target.",
+      mandatoryParams = {
+      @Param(name = "target", type = TransitiveInfoCollection.class,
+          doc = "the configured target which provides the provider"),
+      @Param(name = "type", type = String.class, doc = "the class type of the provider")})
+  private static final SkylarkFunction provider = new SimpleSkylarkFunction("provider") {
     @Override
-    public Object call(List<Object> args, FuncallExpression ast) throws EvalException,
-        ConversionException {
-      Location loc = ast.getLocation();
-      TransitiveInfoCollection collection =
-          cast(args.get(0), TransitiveInfoCollection.class, "first argument", loc);
-      String type = cast(args.get(1), String.class, "second argument", ast.getLocation());
+    public Object call(Map<String, Object> params, Location loc) throws EvalException {
+      TransitiveInfoCollection target = (TransitiveInfoCollection) params.get("target");
+      String type = (String) params.get("type");
       try {
         Class<?> classType = SkylarkRuleContext.classCache.get(type);
         Class<? extends TransitiveInfoProvider> convertedClass =
             classType.asSubclass(TransitiveInfoProvider.class);
-        return collection.getProvider(convertedClass);
+        return target.getProvider(convertedClass);
       } catch (ExecutionException e) {
         throw new EvalException(loc, "Unknown class type " + type);
       } catch (ClassCastException e) {
@@ -319,7 +277,7 @@ public class SkylarkRuleImplementationFunctions {
     @Override
     public Object call(Map<String, Object> params, Location loc) throws EvalException,
         ConversionException {
-      SkylarkRuleContext ctx = cast(params.get("self"), SkylarkRuleContext.class, "ctx", loc);
+      SkylarkRuleContext ctx = (SkylarkRuleContext) params.get("self");
       if (params.size() == 1) {
         return RunfilesProvider.EMPTY;
       } else if (params.containsKey("stateless")) {
@@ -387,7 +345,7 @@ public class SkylarkRuleImplementationFunctions {
         @Override
         protected Object call(Map<String, Object> params, Location loc)
             throws ConversionException, EvalException {
-          SkylarkRuleContext ctx = cast(params.get("self"), SkylarkRuleContext.class, "ctx", loc);
+          SkylarkRuleContext ctx = (SkylarkRuleContext) params.get("self");
           return new CommandHelper(ctx.getRuleContext(),
               castList(params.get("tools"), FilesToRunProvider.class, "tools"),
               // TODO(bazel-team): this cast to Map is unchecked and is not safe.

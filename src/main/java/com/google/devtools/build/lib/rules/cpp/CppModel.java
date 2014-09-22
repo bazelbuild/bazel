@@ -474,9 +474,8 @@ public final class CppModel {
         .addLinkopts(linkopts)
         .addLinkopts(sonameLinkopts)
         .setRuntimeInputs(
-            CppHelper.getDynamicRuntimeInputMiddlemanForLink(
-                ruleContext, ruleContext.getConfiguration()),
-            CppHelper.getDynamicRuntimeInputsForLink(ruleContext, ruleContext.getConfiguration()))
+            CppHelper.getCompiler(ruleContext).getDynamicRuntimeLinkMiddleman(),
+            CppHelper.getCompiler(ruleContext).getDynamicRuntimeLinkInputs())
         .build();
     env.registerAction(action);
 

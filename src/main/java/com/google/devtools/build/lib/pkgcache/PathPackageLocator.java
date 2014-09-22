@@ -105,14 +105,7 @@ public class PathPackageLocator {
    */
   public Path getPackageBuildFileNullable(String packageName,
       AtomicReference<? extends UnixGlob.FilesystemCalls> cache)  {
-    for (Path pathEntry : pathEntries) {
-      Path buildFile = pathEntry.getRelative(packageName).getChild("BUILD");
-      FileStatus stat = cache.get().statNullable(buildFile, Symlinks.FOLLOW);
-      if (stat != null && stat.isFile()) {
-        return buildFile;
-      }
-    }
-    return null;
+    return getFilePath(new PathFragment(packageName).getRelative("BUILD"), cache);
   }
 
 
@@ -175,6 +168,29 @@ public class PathPackageLocator {
       }
     }
     return new PathPackageLocator(resolvedPaths);
+  }
+
+  /**
+   * Returns the path to the WORKSPACE file for this build.
+   *
+   * <p>If there are WORKSPACE files beneath multiple package path entries, the first one always
+   * wins.
+   */
+  public Path getWorkspaceFile() {
+    AtomicReference<? extends UnixGlob.FilesystemCalls> cache = UnixGlob.DEFAULT_SYSCALLS_REF;
+    return getFilePath(new PathFragment("WORKSPACE"), cache);
+  }
+
+  private Path getFilePath(PathFragment suffix,
+      AtomicReference<? extends UnixGlob.FilesystemCalls> cache) {
+    for (Path pathEntry : pathEntries) {
+      Path buildFile = pathEntry.getRelative(suffix);
+      FileStatus stat = cache.get().statNullable(buildFile, Symlinks.FOLLOW);
+      if (stat != null && stat.isFile()) {
+        return buildFile;
+      }
+    }
+    return null;
   }
 
 }

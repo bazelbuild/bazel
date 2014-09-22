@@ -15,7 +15,6 @@
 package com.google.devtools.build.lib.rules.cpp;
 
 import com.google.common.annotations.VisibleForTesting;
-import com.google.common.base.Objects;
 import com.google.common.base.Preconditions;
 import com.google.common.base.Predicate;
 import com.google.common.collect.ArrayListMultimap;
@@ -31,6 +30,7 @@ import com.google.devtools.build.lib.actions.Root;
 import com.google.devtools.build.lib.events.Event;
 import com.google.devtools.build.lib.events.EventHandler;
 import com.google.devtools.build.lib.rules.cpp.CppConfigurationLoader.CppConfigurationParameters;
+import com.google.devtools.build.lib.rules.cpp.FdoSupport.FdoException;
 import com.google.devtools.build.lib.syntax.Label;
 import com.google.devtools.build.lib.syntax.Label.SyntaxException;
 import com.google.devtools.build.lib.util.IncludeScanningUtil;
@@ -46,6 +46,7 @@ import com.google.devtools.build.lib.view.config.PerLabelOptions;
 import com.google.devtools.build.lib.view.config.crosstool.CrosstoolConfig;
 import com.google.devtools.build.lib.view.config.crosstool.CrosstoolConfig.LinkingModeFlags;
 import com.google.devtools.build.lib.view.config.crosstool.CrosstoolConfig.LipoMode;
+import com.google.devtools.build.skyframe.SkyFunction.Environment;
 import com.google.devtools.common.options.OptionsParsingException;
 
 import java.io.IOException;
@@ -132,24 +133,13 @@ public class CppConfiguration extends BuildConfiguration.Fragment {
     }
   }
 
-  /**
-   * Storage for the libc label, if given, and the sysroot.
-   */
+  /** Storage for the libc label, if given. */
   public static class LibcTop implements Serializable {
     private final Label label;
-    private final PathFragment sysroot;
-
-    LibcTop(String absolutePath) {
-      Preconditions.checkArgument(absolutePath != null);
-      this.label = null;
-      // We are lenient in this case and silently normalize the given path.
-      this.sysroot = new PathFragment(absolutePath).normalize();
-    }
 
     LibcTop(Label label) {
       Preconditions.checkArgument(label != null);
       this.label = label;
-      this.sysroot = label.getPackageFragment();
     }
 
     public Label getLabel() {
@@ -157,12 +147,12 @@ public class CppConfiguration extends BuildConfiguration.Fragment {
     }
 
     public PathFragment getSysroot() {
-      return sysroot;
+      return label.getPackageFragment();
     }
 
     @Override
     public String toString() {
-      return label == null ? sysroot.getPathString() : label.toString();
+      return label.toString();
     }
 
     @Override
@@ -170,9 +160,7 @@ public class CppConfiguration extends BuildConfiguration.Fragment {
       if (this == other) {
         return true;
       } else if (other instanceof LibcTop) {
-        LibcTop otherLibcTop = (LibcTop) other;
-        return Objects.equal(label, otherLibcTop.label)
-            && Objects.equal(sysroot, otherLibcTop.sysroot);
+        return label.equals(((LibcTop) other).label);
       } else {
         return false;
       }
@@ -180,7 +168,7 @@ public class CppConfiguration extends BuildConfiguration.Fragment {
 
     @Override
     public int hashCode() {
-      return Objects.hashCode(label, sysroot);
+      return label.hashCode();
     }
   }
 
@@ -557,7 +545,7 @@ public class CppConfiguration extends BuildConfiguration.Fragment {
     runtimeSysroot = defaultSysroot;
 
     String sysrootFlag;
-    if ((libcTop != null) && !libcTop.getSysroot().equals(defaultSysroot)) {
+    if (sysroot != null && !sysroot.equals(defaultSysroot)) {
       // Only specify the --sysroot option if it is different from the built-in one.
       sysrootFlag = "--sysroot=" + sysroot;
     } else {
@@ -1655,9 +1643,14 @@ public class CppConfiguration extends BuildConfiguration.Fragment {
       getFdoSupport().prepareToBuild(execRoot, genfilesPath, artifactFactory);
     } catch (ZipException e) {
       throw new ViewCreationFailedException("Error reading provided FDO zip file", e);
-    } catch (IllegalArgumentException | IOException e) {
+    } catch (FdoException | IOException e) {
       throw new ViewCreationFailedException("Error while initializing FDO support", e);
     }
+  }
+
+  @Override
+  public void declareSkyframeDependencies(Environment env) {
+    getFdoSupport().declareSkyframeDependencies(env, execRoot);
   }
 
   @Override

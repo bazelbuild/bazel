@@ -311,7 +311,8 @@ public class BuildEncyclopediaProcessor {
   private String generateCommonAttributeDocs(Map<String, RuleDocumentationAttribute> attributes,
       String attributeGroupName) throws BuildEncyclopediaDocException {
     RuleDocumentation ruleDoc = new RuleDocumentation(
-        attributeGroupName, "OTHER", null, null, 0, null, ImmutableSet.<String>of());
+        attributeGroupName, "OTHER", null, null, 0, null, ImmutableSet.<String>of(),
+        ruleClassProvider);
     for (RuleDocumentationAttribute attribute : attributes.values()) {
       ruleDoc.addAttribute(attribute);
     }

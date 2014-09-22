@@ -12,7 +12,7 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-package com.google.devtools.build.lib.exec;
+package com.google.devtools.build.lib.rules.test;
 
 import com.google.common.collect.Lists;
 import com.google.devtools.build.lib.actions.ActionExecutionContext;
@@ -25,14 +25,10 @@ import com.google.devtools.build.lib.actions.Spawn;
 import com.google.devtools.build.lib.actions.TestExecException;
 import com.google.devtools.build.lib.events.Event;
 import com.google.devtools.build.lib.events.Reporter;
-import com.google.devtools.build.lib.rules.test.TestActionContext;
-import com.google.devtools.build.lib.rules.test.TestResult;
-import com.google.devtools.build.lib.rules.test.TestRunnerAction;
-import com.google.devtools.build.lib.rules.test.TestStrategy;
-import com.google.devtools.build.lib.rules.test.TestTargetExecutionSettings;
 import com.google.devtools.build.lib.util.io.FileOutErr;
 import com.google.devtools.build.lib.vfs.FileSystemUtils;
 import com.google.devtools.build.lib.vfs.Path;
+import com.google.devtools.build.lib.vfs.PathFragment;
 import com.google.devtools.build.lib.view.config.BinTools;
 import com.google.devtools.build.lib.view.config.BuildConfiguration;
 import com.google.devtools.build.lib.view.test.TestStatus.BlazeTestStatus;
@@ -62,15 +58,13 @@ public class StandaloneTestStrategy extends TestStrategy {
     * parsing XML output.
 
     */
-  protected final String workspaceName;
+  protected final PathFragment runfilesPrefix;
+  
   public StandaloneTestStrategy(OptionsClassProvider options, BinTools binTools,
-      String workspaceName) {
+      PathFragment runfilesPrefix) {
     super(options, binTools);
-    this.workspaceName = workspaceName;
+    this.runfilesPrefix = runfilesPrefix;
   }
-
-  @Override
-  public String testStrategyName() { return "standalone"; }
 
   private static final String TEST_SETUP = "tools/test-setup.sh";
 
@@ -85,7 +79,7 @@ public class StandaloneTestStrategy extends TestStrategy {
       throw new TestExecException(e.getMessage());
     }
 
-    Path workingDirectory = runfilesDir.getChild(workspaceName);
+    Path workingDirectory = runfilesDir.getRelative(runfilesPrefix);
     Map<String, String> env = getEnv(action, runfilesDir);
     Spawn spawn = new BaseSpawn(getArgs(action), env,
         action.getTestProperties().getExecutionInfo(),
@@ -112,7 +106,7 @@ public class StandaloneTestStrategy extends TestStrategy {
 
     vars.putAll(config.getDefaultShellEnvironment());
     vars.putAll(config.getTestEnv());
-    vars.put("TEST_SRCDIR", runfilesDir.getChild(workspaceName).getPathString());
+    vars.put("TEST_SRCDIR", runfilesDir.getRelative(runfilesPrefix).getPathString());
 
     // TODO(bazel-team): set TEST_TMPDIR.
 

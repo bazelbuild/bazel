@@ -13,6 +13,7 @@
 // limitations under the License.
 package com.google.devtools.build.lib.syntax;
 
+import com.google.common.base.Optional;
 import com.google.common.base.Preconditions;
 import com.google.devtools.build.lib.cmdline.LabelValidator;
 import com.google.devtools.build.lib.cmdline.LabelValidator.BadLabelException;
@@ -45,6 +46,30 @@ public final class Label implements Comparable<Label>, Serializable, ClassObject
   public static class SyntaxException extends Exception {
     public SyntaxException(String message) {
       super(message);
+    }
+  }
+
+  /**
+   * Factory for Labels from absolute string form, possibly including a repository name prefix. For
+   * example:
+   * <pre>
+   * //foo/bar
+   * {@literal @}foo//bar
+   * {@literal @}foo//bar:baz
+   * </pre>
+   */
+  public static Label parseWorkspaceLabel(String absName) throws SyntaxException {
+    String repo = null;
+    int packageStartPos = absName.indexOf("//");
+    if (packageStartPos > 0) {
+      repo = absName.substring(0, packageStartPos);
+      absName = absName.substring(packageStartPos);
+    }
+    try {
+      LabelValidator.PackageAndTarget labelParts = LabelValidator.parseAbsoluteLabel(absName);
+      return new Label(repo, labelParts.getPackageName(), labelParts.getTargetName());
+    } catch (BadLabelException e) {
+      throw new SyntaxException(e.getMessage());
     }
   }
 
@@ -131,6 +156,22 @@ public final class Label implements Comparable<Label>, Serializable, ClassObject
   }
 
   /**
+   * Validates the given repository name and returns a canonical String instance if it is valid.
+   * Otherwise throws a SyntaxException.
+   * @throws SyntaxException
+   */
+  private static String canonicalizeWorkspaceName(String workspaceName) throws SyntaxException {
+    String error = LabelValidator.validateWorkspaceName(workspaceName);
+    if (error != null) {
+      error = "invalid workspace name '" + StringUtilities.sanitizeControlChars(workspaceName)
+          + "': " + error;
+      throw new SyntaxException(error);
+    }
+
+    return StringCanonicalizer.intern(workspaceName);
+  }
+
+  /**
    * Validates the given package name and returns a canonical PathFragment instance if it is valid.
    * Otherwise it throws a SyntaxException.
    */
@@ -170,6 +211,9 @@ public final class Label implements Comparable<Label>, Serializable, ClassObject
     return StringCanonicalizer.intern(name);
   }
 
+  /** The name of the workspace. */
+  private Optional<String> workspaceName;
+
   /** The name of the package. Canonical (i.e. x.equals(y) <=> x==y). */
   private PathFragment packageName;
 
@@ -194,6 +238,14 @@ public final class Label implements Comparable<Label>, Serializable, ClassObject
 
     this.packageName = packageName;
     this.name = canonicalizeTargetName(name);
+    this.workspaceName = Optional.absent();
+  }
+
+  private Label(String workspaceName, String packageName, String name) throws SyntaxException {
+    this(packageName, name);
+    if (workspaceName != null) {
+      this.workspaceName = Optional.of(canonicalizeWorkspaceName(workspaceName));
+    }
   }
 
   private Object writeReplace() {
@@ -244,8 +296,8 @@ public final class Label implements Comparable<Label>, Serializable, ClassObject
   }
 
   /**
-   * Returns the name by which this rule was declared (e.g. {@code //file/base:fileutils_test}
-   * returns {@code fileutils_test}).
+   * Returns the name by which this rule was declared (e.g. {@code //foo/bar:baz}
+   * returns {@code baz}).
    */
   public String getName() {
     return name;
@@ -258,7 +310,7 @@ public final class Label implements Comparable<Label>, Serializable, ClassObject
    */
   @Override
   public String toString() {
-    return "//" + packageName + ":" + name;
+    return workspaceName.or("") + "//" + packageName + ":" + name;
   }
 
   /**

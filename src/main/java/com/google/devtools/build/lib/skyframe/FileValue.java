@@ -46,7 +46,7 @@ import javax.annotation.Nullable;
  */
 @Immutable
 @ThreadSafe
-abstract class FileValue implements SkyValue {
+public abstract class FileValue implements SkyValue {
 
   boolean exists() {
     return realFileStateValue().getType() != Type.NONEXISTENT;
@@ -96,12 +96,12 @@ abstract class FileValue implements SkyValue {
    * Returns a key for building a file value for the given root-relative path.
    */
   @ThreadSafe
-  static SkyKey key(RootedPath rootedPath) {
+  public static SkyKey key(RootedPath rootedPath) {
     return new SkyKey(SkyFunctions.FILE, rootedPath);
   }
 
   @ThreadSafe
-  static SkyKey key(Artifact artifact) {
+  public static SkyKey key(Artifact artifact) {
     Path root = artifact.getRoot().getPath();
     return key(RootedPath.toRootedPath(root, artifact.getPath()));
   }

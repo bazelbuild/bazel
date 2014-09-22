@@ -14,7 +14,7 @@
 package com.google.devtools.build.lib.blaze;
 
 import com.google.common.collect.ImmutableList;
-import com.google.devtools.build.lib.actions.Action;
+import com.google.devtools.build.lib.actions.ExecutableMetadata;
 import com.google.devtools.build.lib.util.Clock;
 
 /**
@@ -29,7 +29,8 @@ public class SimpleCriticalPathComputer
   }
 
   @Override
-  public SimpleCriticalPathComponent createComponent(Action action, long startTimeMillis) {
+  public SimpleCriticalPathComponent createComponent(ExecutableMetadata action,
+      long startTimeMillis) {
     return new SimpleCriticalPathComponent(action, startTimeMillis);
   }
 

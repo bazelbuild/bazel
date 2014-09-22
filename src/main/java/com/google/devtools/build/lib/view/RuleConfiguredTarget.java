@@ -126,7 +126,8 @@ public final class RuleConfiguredTarget extends AbstractConfiguredTarget impleme
         Preconditions.checkArgument(
             // Java transitive Info Providers are still accessible from Skylark, e.g.
             // RunfilesProvider. Those are safe.
-            value.getClass().isAnnotationPresent(Immutable.class),
+            isSimpleSkylarkObjectImmutable(value)
+            || value.getClass().isAnnotationPresent(Immutable.class),
             String.format("Transitive Info Provider '%s' is mutable (type of %s)",
                 entry.getKey(), EvalUtils.getDatatypeName(value)));
       }

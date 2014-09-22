@@ -486,76 +486,78 @@ public final class SkyframeActionExecutor extends AbstractActionExecutor {
     @Override
     public ActionExecutionValue call() throws ActionExecutionException, InterruptedException {
       profiler.startTask(ProfilerTask.ACTION, action);
-      profiler.startTask(ProfilerTask.ACTION_CHECK, action);
-      long actionStartTime = Profiler.nanoTimeMaybe();
+      try {
+        profiler.startTask(ProfilerTask.ACTION_CHECK, action);
+        long actionStartTime = Profiler.nanoTimeMaybe();
 
-      MetadataHandler metadataHandler =
-          new UndeclaredInputHandler(graphFileCache, undeclaredInputsMetadata);
-      Token token = actionCacheChecker.needToExecute(
-          action, explain ? reporter : null, metadataHandler);
-      profiler.completeTask(ProfilerTask.ACTION_CHECK);
+        MetadataHandler metadataHandler =
+            new UndeclaredInputHandler(graphFileCache, undeclaredInputsMetadata);
+        Token token = actionCacheChecker.needToExecute(
+            action, explain ? reporter : null, metadataHandler);
+        profiler.completeTask(ProfilerTask.ACTION_CHECK);
 
-      if (token == null) {
-        boolean eventPosted = false;
-        // Notify BlazeRuntimeStatistics about the action middleman 'execution'.
-        if (action.getActionType().isMiddleman()
-            && action.getActionType() != MiddlemanType.TARGET_COMPLETION_MIDDLEMAN) {
-          postEvent(new ActionStartedEvent(action, actionStartTime));
-          postEvent(new ActionCompletionEvent(action, action.describeStrategy(executorEngine)));
-          eventPosted = true;
+        if (token == null) {
+          boolean eventPosted = false;
+          // Notify BlazeRuntimeStatistics about the action middleman 'execution'.
+          if (action.getActionType().isMiddleman()
+              && action.getActionType() != MiddlemanType.TARGET_COMPLETION_MIDDLEMAN) {
+            postEvent(new ActionStartedEvent(action, actionStartTime));
+            postEvent(new ActionCompletionEvent(action, action.describeStrategy(executorEngine)));
+            eventPosted = true;
+          }
+
+          if (action instanceof NotifyOnActionCacheHit) {
+            NotifyOnActionCacheHit notify = (NotifyOnActionCacheHit) action;
+            notify.actionCacheHit(executorEngine);
+          }
+
+          // We still need to check the outputs so that output file data is available to the value.
+          checkOutputs(action, graphFileCache);
+          if (!eventPosted) {
+            postEvent(new CachedActionEvent(action, actionStartTime));
+          }
+
+          return new ActionExecutionValue(
+              graphFileCache.getOutputData(), graphFileCache.getAdditionalOutputData());
+        } else if (actionCacheChecker.isActionExecutionProhibited(action)) {
+          // We can't execute an action (e.g. because --check_???_up_to_date option was used). Fail
+          // the build instead.
+          synchronized (reporter) {
+            TargetOutOfDateException e = new TargetOutOfDateException(action);
+            reporter.handle(Event.error(e.getMessage()));
+            recordExecutionError();
+            throw e;
+          }
         }
 
-        if (action instanceof NotifyOnActionCacheHit) {
-          NotifyOnActionCacheHit notify = (NotifyOnActionCacheHit) action;
-          notify.actionCacheHit(executorEngine);
+        String message = action.getProgressMessage();
+        if (message != null) {
+          reporter.startTask(null, prependExecPhaseStats(message));
         }
+        statusReporterRef.get().setPreparing(action);
 
-        // We still need to check the outputs so that output file data is available to the value.
-        checkOutputs(action, graphFileCache);
-        if (!eventPosted) {
-          postEvent(new CachedActionEvent(action, actionStartTime));
-        }
+        createOutputDirectories(action);
 
-        profiler.completeTask(ProfilerTask.ACTION);
+        prepareScheduleExecuteAndCompleteAction(action, token,
+              new DelegatingPairFileCache(graphFileCache, perBuildFileCache), metadataHandler,
+              new MiddlemanExpander() {
+                @Override
+                public void expand(Artifact middlemanArtifact,
+                    Collection<? super Artifact> output) {
+                  // Legacy code is more permissive regarding "mm" in that it expands any middleman,
+                  // not just inputs of this action. Skyframe doesn't have access to a global action
+                  // graph, therefore this implementation can't expand any middleman, only the
+                  // inputs of this action.
+                  // This is fine though: actions should only hold references to their input
+                  // artifacts, otherwise hermeticity would be violated.
+                  output.addAll(graphFileCache.expandInputMiddleman(middlemanArtifact));
+                }
+              }, actionStartTime);
         return new ActionExecutionValue(
             graphFileCache.getOutputData(), graphFileCache.getAdditionalOutputData());
-      } else if (actionCacheChecker.isActionExecutionProhibited(action)) {
-        // We can't execute an action (e.g. because --check_???_up_to_date option was used). Fail
-        // the build instead.
-        synchronized (reporter) {
-          TargetOutOfDateException e = new TargetOutOfDateException(action);
-          reporter.handle(Event.error(e.getMessage()));
-          recordExecutionError();
-          profiler.completeTask(ProfilerTask.ACTION);
-          throw e;
-        }
+      } finally {
+        profiler.completeTask(ProfilerTask.ACTION);
       }
-
-      String message = action.getProgressMessage();
-      if (message != null) {
-        reporter.startTask(null, prependExecPhaseStats(message));
-      }
-      statusReporterRef.get().setPreparing(action);
-
-      createOutputDirectories(action);
-
-      prepareScheduleExecuteAndCompleteAction(action, token,
-            new DelegatingPairFileCache(graphFileCache, perBuildFileCache), metadataHandler,
-            new MiddlemanExpander() {
-              @Override
-              public void expand(Artifact middlemanArtifact, Collection<? super Artifact> output) {
-                // Legacy code is more permissive regarding "mm" in that it expands any middleman,
-                // not just inputs of this action. Skyframe doesn't have access to a global action
-                // graph, therefore this implementation can't expand any middleman, only the inputs
-                // of this action.
-                // This is fine though: actions should only hold references to their input
-                // artifacts, otherwise hermeticity would be violated.
-                output.addAll(graphFileCache.expandInputMiddleman(middlemanArtifact));
-              }
-            }, actionStartTime);
-      profiler.completeTask(ProfilerTask.ACTION);
-      return new ActionExecutionValue(
-          graphFileCache.getOutputData(), graphFileCache.getAdditionalOutputData());
     }
   }
 

@@ -16,7 +16,6 @@ package com.google.devtools.build.lib.rules.cpp;
 
 import com.google.devtools.build.lib.rules.RuleConfiguredTargetFactory;
 import com.google.devtools.build.lib.view.ConfiguredTarget;
-import com.google.devtools.build.lib.view.RuleConfiguredTargetBuilder;
 import com.google.devtools.build.lib.view.RuleContext;
 
 /**
@@ -32,12 +31,8 @@ public abstract class CcTest implements RuleConfiguredTargetFactory {
 
   @Override
   public ConfiguredTarget create(RuleContext context) throws InterruptedException {
-    RuleConfiguredTargetBuilder builder = new RuleConfiguredTargetBuilder(context);
-    CcBinary.init(semantics, context, builder, /*fake ==*/ false, useExecOrigin(context));
-    return builder.build();
-  }
-
-  private static boolean useExecOrigin(RuleContext context) {
-    return context.getConfiguration().getFragment(CppConfiguration.class).supportsExecOrigin();
+    boolean useExecOrigin =
+        context.getConfiguration().getFragment(CppConfiguration.class).supportsExecOrigin();
+    return CcBinary.init(semantics, context, /*fake ==*/ false, useExecOrigin);
   }
 }

@@ -42,4 +42,30 @@ public class Interspersing {
             }
         ));
   }
+
+  /**
+   * Prepends {@code what} to each string in {@code sequence}, returning a lazy sequence of the 
+   * same length.
+   */
+  public static Iterable<String>
+      prependEach(final String what, Iterable<String> sequence) {
+    Preconditions.checkNotNull(what);
+    return Iterables.transform(
+        sequence,
+        new Function<String, String>() {
+          @Override
+          public String apply(String input) {
+            return what + input;
+          }
+        });
+  }
+
+  /**
+   * Similar to {@link #prependEach(String, Iterable)}, but also converts each item in the sequence
+   * to a string.
+   */
+  public static <E> Iterable<String>
+      prependEach(String what, Iterable<E> sequence, Function<? super E, String> toString) {
+    return prependEach(what, Iterables.transform(sequence, toString));
+  }
 }

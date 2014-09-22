@@ -65,6 +65,16 @@ public interface ExecutableMetadata {
    */
   public String describeStrategy(Executor executor);
 
+  /** Returns the inputs that this executable depends upon. May be empty. */
+  Iterable<? extends ActionInput> getInputs();
+
+
+  /**
+   * Returns the unordered set of outputs that this executable generates. Every executable must
+   * generate at least one output, so this is never empty.
+   */
+  Iterable<? extends ActionInput> getOutputs();
+
   /**
    * Returns the "primary" output of this executable.
    *
@@ -72,5 +82,5 @@ public interface ExecutableMetadata {
    *
    * <p>Never returns null.
    */
-  Artifact getPrimaryOutput();
+  ActionInput getPrimaryOutput();
 }

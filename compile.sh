@@ -28,7 +28,12 @@ LDFLAGS=""
 case ${PLATFORM} in
 darwin)
   homebrew_header=$(ls -1 /usr/local/Cellar/libarchive/*/include/archive.h | head -n1)
-  if [[ -e /opt/local/include/archive.h ]]; then
+  if [[ -e $homebrew_header ]]; then
+    # For use with Homebrew.
+    archive_dir=$(dirname $(dirname $homebrew_header))
+    ARCHIVE_CFLAGS="-I${archive_dir}/include"
+    LDFLAGS="-L${archive_dir}/lib -larchive"
+  elif [[ -e /opt/local/include/archive.h ]]; then
     # For use with Macports.
     ARCHIVE_CFLAGS="-I/opt/local/include"
     # Link libarchive statically
@@ -36,11 +41,6 @@ darwin)
              /opt/local/lib/liblzma.a /opt/local/lib/libcharset.a \
              /opt/local/lib/libbz2.a /opt/local/lib/libxml2.a \
              /opt/local/lib/libz.a /opt/local/lib/libiconv.a"
-  elif [[ -e $homebrew_header ]]; then
-    # For use with Homebrew.
-    archive_dir=$(dirname $(dirname $homebrew_header))
-    ARCHIVE_CFLAGS="-I${archive_dir}/include"
-    LDFLAGS="-L${archive_dir}/lib -larchive"
   else
     echo "WARNING: Could not find libarchive installation, proceeding bravely."
   fi

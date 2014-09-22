@@ -15,11 +15,11 @@
 package com.google.devtools.build.lib.rules.objc;
 
 import com.google.common.base.Function;
-import com.google.common.base.Optional;
 import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.ImmutableSet;
 import com.google.common.collect.Iterables;
 import com.google.devtools.build.lib.actions.Artifact;
+import com.google.devtools.build.lib.util.FileType;
 import com.google.devtools.build.lib.vfs.PathFragment;
 import com.google.devtools.build.xcode.util.Value;
 
@@ -107,31 +107,13 @@ class Xcdatamodel extends Value<Xcdatamodel> {
   }
 
   /**
-   * Returns the first directory in the sequence of parents of the exec path of the given artifact
-   * that ends with the given string. For instance, if {@code suffix} is ".foo" and the exec path of
-   * {@code artifact} is {@code a/b/c/bar.foo/d/e}, then the return value is {@code a/b/c/bar.foo}.
-   */
-  static Optional<PathFragment> nearestContainerEndingWith(String suffix, Artifact artifact) {
-    PathFragment container = artifact.getExecPath();
-    do {
-      if (container.getBaseName().endsWith(suffix)) {
-        return Optional.of(container);
-      }
-      container = container.getParentDirectory();
-    } while (container != null);
-    return Optional.absent();
-  }
-
-  /**
    * Returns a sequence of all unique *.xcdatamodel directories that contain all the artifacts of
    * the given models. Note that this does not return any *.xcdatamodeld directories.
    */
   static Iterable<PathFragment> xcdatamodelDirs(Iterable<Xcdatamodel> models) {
     ImmutableSet.Builder<PathFragment> result = new ImmutableSet.Builder<>();
     for (Xcdatamodel model : models) {
-      for (Artifact artifact : model.getInputs()) {
-        result.addAll(nearestContainerEndingWith(".xcdatamodel", artifact).asSet());
-      }
+      result.addAll(ObjcCommon.uniqueContainers(model.getInputs(), FileType.of(".xcdatamodel")));
     }
     return result.build();
   }

@@ -339,6 +339,8 @@ public final class SkyframeExecutor {
         configurationFactory, clientEnv));
     map.put(SkyFunctions.CONFIGURATION_FRAGMENT, new ConfigurationFragmentFunction(
         configurationFragments));
+    map.put(SkyFunctions.WORKSPACE_FILE, new WorkspaceFileFunction());
+    map.put(SkyFunctions.LABEL_BINDING, new LabelBindingFunction(pkgLocator));
     if (skyframeBuild) {
       map.put(SkyFunctions.TARGET_COMPLETION,
           new TargetCompletionFunction(new BuildViewProvider()));
@@ -668,7 +670,8 @@ public final class SkyframeExecutor {
     return eventBus.get();
   }
 
-  public ImmutableList<Path> getPathEntries() {
+  @VisibleForTesting
+  ImmutableList<Path> getPathEntries() {
     return pkgLocator.get().getPathEntries();
   }
 
@@ -700,7 +703,7 @@ public final class SkyframeExecutor {
     return multimapBuilder.build();
   }
 
-  private Iterable<SkyKey> getSkyKeysPotentiallyAffected(
+  private static Iterable<SkyKey> getSkyKeysPotentiallyAffected(
       Iterable<PathFragment> modifiedSourceFiles, final Path pathEntry) {
     // TODO(bazel-team): change ModifiedFileSet to work with RootedPaths instead of PathFragments.
     Iterable<SkyKey> fileStateSkyKeys = Iterables.transform(modifiedSourceFiles,
@@ -989,7 +992,7 @@ public final class SkyframeExecutor {
     BuildVariableValue.TEST_ENVIRONMENT_VARIABLES.set(recordingDiffer, testEnv);
     BuildVariableValue.BLAZE_DIRECTORIES.set(recordingDiffer, configurationKey.getDirectories());
 
-    SkyKey skyKey = ConfigurationCollectionValue.key(configurationKey.getBuildOptions(), 
+    SkyKey skyKey = ConfigurationCollectionValue.key(configurationKey.getBuildOptions(),
         configurationKey.getMultiCpu());
     setConfigurationSkyKey(skyKey);
     EvaluationResult<ConfigurationCollectionValue> result = buildDriver.evaluate(
@@ -1044,7 +1047,7 @@ public final class SkyframeExecutor {
       Executor executor,
       Set<Artifact> artifacts,
       boolean keepGoing,
-      boolean explain, 
+      boolean explain,
       int numJobs,
       ActionCacheChecker actionCacheChecker,
       @Nullable EvaluationProgressReceiver executionProgressReceiver) throws InterruptedException {

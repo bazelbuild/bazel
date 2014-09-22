@@ -18,32 +18,45 @@ import com.google.common.base.Optional;
 import com.google.common.collect.ImmutableList;
 import com.google.devtools.build.lib.actions.Artifact;
 import com.google.devtools.build.lib.collect.nestedset.NestedSetBuilder;
+import com.google.devtools.build.lib.packages.Type;
 import com.google.devtools.build.lib.rules.RuleConfiguredTargetFactory;
 import com.google.devtools.build.lib.view.ConfiguredTarget;
+import com.google.devtools.build.lib.view.RuleConfiguredTarget.Mode;
 import com.google.devtools.build.lib.view.RuleContext;
 import com.google.devtools.build.xcode.xcodegen.proto.XcodeGenProtos.DependencyControl;
 import com.google.devtools.build.xcode.xcodegen.proto.XcodeGenProtos.XcodeprojBuildSetting;
 
 /**
- * Implementation for the {@code objc_library} and {@code objc_import} rules.
+ * Implementation for {@code objc_library}.
  */
 public class ObjcLibrary implements RuleConfiguredTargetFactory {
   @Override
   public ConfiguredTarget create(RuleContext ruleContext) throws InterruptedException {
-    ObjcCommon info = ObjcCommon.fromContext(
-        ruleContext, ImmutableList.<SdkFramework>of() /* extraSdkFrameworks */);
-    info.reportErrors();
-    XcodeProvider xcodeProvider = info.xcodeProvider(Optional.<Artifact>absent(),
+    ObjcCommon common = new ObjcCommon.Builder(ruleContext)
+        .addAssetCatalogs(ruleContext.getPrerequisiteArtifacts("asset_catalogs", Mode.TARGET))
+        .addSdkDylibs(ruleContext.attributes().get("sdk_dylibs", Type.STRING_LIST))
+        .build();
+    common.reportErrors();
+
+    OptionsProvider optionsProvider = new OptionsProvider.Builder()
+        .addCopts(ruleContext.getTokenizedStringListAttr("copts"))
+        .addTransitive(Optional.fromNullable(
+            ruleContext.getPrerequisite("options", Mode.TARGET, OptionsProvider.class)))
+        .build();
+
+    XcodeProvider xcodeProvider = common.xcodeProvider(Optional.<Artifact>absent(),
         ObjcRuleClasses.pchFile(ruleContext),
-        ImmutableList.<DependencyControl>of(), ImmutableList.<XcodeprojBuildSetting>of());
+        ImmutableList.<DependencyControl>of(), ImmutableList.<XcodeprojBuildSetting>of(),
+        optionsProvider.getCopts());
     ObjcActionsBuilder.registerAll(
         ruleContext,
-        ObjcActionsBuilder.baseActions(ruleContext, info.getObjcProvider(), xcodeProvider));
-    return info.configuredTarget(
+        ObjcActionsBuilder.baseActions(
+            ruleContext, common.getObjcProvider(), xcodeProvider, optionsProvider));
+    return common.configuredTarget(
         NestedSetBuilder.<Artifact>stableOrder()
             .addAll(ObjcRuleClasses.outputAFile(ruleContext).asSet())
             .add(ruleContext.getImplicitOutputArtifact(ObjcRuleClasses.PBXPROJ))
             .build(),
-        xcodeProvider);
+        Optional.of(xcodeProvider));
   }
 }

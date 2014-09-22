@@ -13,9 +13,12 @@
 // limitations under the License.
 package com.google.devtools.build.lib.syntax;
 
+import com.google.common.base.Joiner;
 import com.google.common.base.Preconditions;
 import com.google.common.collect.ImmutableCollection;
 import com.google.common.collect.ImmutableMap;
+import com.google.common.collect.Sets;
+import com.google.common.collect.Sets.SetView;
 import com.google.devtools.build.lib.concurrent.ThreadSafety.Immutable;
 import com.google.devtools.build.lib.events.Location;
 
@@ -68,6 +71,17 @@ public interface ClassObject {
     public Location getCreationLoc() {
       return Preconditions.checkNotNull(creationLoc,
           "This struct was not created in a Skylark code");
+    }
+
+    static SkylarkClassObject concat(
+        SkylarkClassObject lval, SkylarkClassObject rval, Location loc) throws EvalException {
+      SetView<String> commonFields = Sets.intersection(lval.values.keySet(), rval.values.keySet());
+      if (!commonFields.isEmpty()) {
+        throw new EvalException(loc, "Cannot concat structs with common field(s): "
+            + Joiner.on(",").join(commonFields));
+      }
+      return new SkylarkClassObject(ImmutableMap.<String, Object>builder()
+          .putAll(lval.values).putAll(rval.values).build(), loc);
     }
   }
 }

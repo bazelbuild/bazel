@@ -18,6 +18,7 @@ import com.google.common.collect.ImmutableList;
 import com.google.common.collect.Sets;
 import com.google.devtools.build.lib.events.Event;
 import com.google.devtools.build.lib.events.EventCollector;
+import com.google.devtools.build.lib.events.EventKind;
 import com.google.devtools.build.lib.util.Pair;
 
 import junit.framework.Assert;
@@ -119,9 +120,20 @@ public class JunitTestUtils {
    * the matching event is returned.
    */
   public static Event assertContainsEvent(Iterable<Event> eventCollector,
-                                          String expectedEvent) {
+      String expectedEvent) {
+    return assertContainsEvent(eventCollector, expectedEvent, EventKind.ALL_EVENTS);
+  }
+
+  /**
+   * If the specified EventCollector does not contain an event of a kind of 'kinds' which has
+   * 'expectedEvent' as a substring, an informative assertion fails. Otherwise
+   * the matching event is returned.
+   */
+  public static Event assertContainsEvent(Iterable<Event> eventCollector,
+                                          String expectedEvent,
+                                          Set<EventKind> kinds) {
     for (Event event : eventCollector) {
-      if (event.getMessage().contains(expectedEvent)) {
+      if (event.getMessage().contains(expectedEvent) && kinds.contains(event.getKind())) {
         return event;
       }
     }

@@ -14,22 +14,18 @@
 
 package com.google.devtools.build.lib.rules.objc;
 
-import static com.google.devtools.build.lib.packages.Type.LABEL_LIST;
-
 import com.google.common.collect.ImmutableList;
 import com.google.devtools.build.lib.actions.Artifact;
-import com.google.devtools.build.lib.packages.AttributeMap;
-import com.google.devtools.build.lib.syntax.Label;
 import com.google.devtools.build.lib.view.RuleConfiguredTarget.Mode;
 import com.google.devtools.build.lib.view.RuleContext;
 
 import java.util.Locale;
 
 /**
- * Attributes allowed on {@code objc_*} rules that are artifact lists.
+ * Attributes containing one or more labels.
  */
 public enum ArtifactListAttribute {
-  HDRS, SRCS, NON_ARC_SRCS, ARCHIVES;
+  HDRS, SRCS, NON_ARC_SRCS, DATAMODELS, ARCHIVES, BUNDLE_IMPORTS, XIBS, STRINGS, RESOURCES;
 
   public String attrName() {
     return name().toLowerCase(Locale.US);
@@ -45,14 +41,5 @@ public enum ArtifactListAttribute {
     } else {
       return context.getPrerequisiteArtifacts(attrName(), Mode.TARGET);
     }
-  }
-
-  /**
-   * The labels specified by this attribute on the given rule. Returns an empty sequence if the
-   * attribute is omitted or not available on the rule type.
-   */
-  public Iterable<Label> get(AttributeMap map) {
-    return (map.getAttributeDefinition(attrName()) == null)
-        ? ImmutableList.<Label>of() : map.get(attrName(), LABEL_LIST);
   }
 }

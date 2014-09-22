@@ -26,7 +26,6 @@ import com.google.devtools.build.lib.syntax.SkylarkModule;
 import com.google.devtools.build.lib.vfs.FileSystemUtils;
 import com.google.devtools.build.lib.vfs.PathFragment;
 
-import java.util.List;
 import java.util.Map;
 
 /**
@@ -40,14 +39,14 @@ public final class SkylarkFileset {
       doc = "Returns the joint execution paths of these files using the delimiter.",
       mandatoryParams = {
       @Param(name = "delimiter", type = String.class, doc = ""),
-      @Param(name = "files", type = List.class, doc = "")})
+      @Param(name = "files", doc = "")})
   private static SkylarkFunction joinExecPaths = new SimpleSkylarkFunction("join_exec_paths") {
 
     @Override
     protected Object call(Map<String, Object> params, Location loc)
         throws EvalException, ConversionException {
       return Artifact.joinExecPaths(
-          cast(params.get("delimiter"), String.class, "delimiter", loc),
+          (String) params.get("delimiter"),
           castList(params.get("files"), Artifact.class, "files")); 
     }
   };
@@ -63,13 +62,11 @@ public final class SkylarkFileset {
     @Override
     protected Object call(Map<String, Object> params, Location loc)
         throws EvalException, ConversionException {
-      Artifact file = cast(params.get("file"), Artifact.class, "file", loc);
-      String suffix = cast(params.get("suffix"), String.class, "suffix", loc);
-      Root root = cast(params.get("root"), Root.class, "root", loc);
-      PathFragment path = file.getRootRelativePath();
-      String basename = FileSystemUtils.removeExtension(path.getBaseName()) + suffix;
+      PathFragment path = ((Artifact) params.get("file")).getRootRelativePath();
+      String basename = FileSystemUtils.removeExtension(path.getBaseName())
+          + (String) params.get("suffix");
       path = path.replaceName(basename);
-      return root.getExecPath().getRelative(path); 
+      return ((Root) params.get("root")).getExecPath().getRelative(path); 
     }
   };
 }

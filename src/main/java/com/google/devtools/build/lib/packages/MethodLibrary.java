@@ -16,6 +16,7 @@ package com.google.devtools.build.lib.packages;
 
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
+import com.google.common.collect.Iterables;
 import com.google.devtools.build.lib.collect.nestedset.Order;
 import com.google.devtools.build.lib.packages.Type.ConversionException;
 import com.google.devtools.build.lib.syntax.AbstractFunction;
@@ -28,6 +29,7 @@ import com.google.devtools.build.lib.syntax.FuncallExpression;
 import com.google.devtools.build.lib.syntax.Function;
 import com.google.devtools.build.lib.syntax.MixedModeFunction;
 import com.google.devtools.build.lib.syntax.PositionalFunction;
+import com.google.devtools.build.lib.syntax.SelectorValue;
 import com.google.devtools.build.lib.syntax.SkylarkBuiltin;
 import com.google.devtools.build.lib.syntax.SkylarkModule;
 import com.google.devtools.build.lib.syntax.SkylarkNestedSet;
@@ -35,8 +37,8 @@ import com.google.devtools.build.lib.syntax.SkylarkType;
 import com.google.devtools.build.lib.syntax.SkylarkType.SkylarkFunctionType;
 
 import java.util.HashMap;
-import java.util.HashSet;
 import java.util.Iterator;
+import java.util.LinkedHashSet;
 import java.util.List;
 import java.util.Map;
 import java.util.Set;
@@ -415,7 +417,16 @@ public class MethodLibrary {
   private static Function set = new PositionalFunction("set", 0, 0) {
     @Override
     public Object call(List<Object> args, FuncallExpression ast) throws ConversionException {
-      return new HashSet<Object>();
+      // Use LinkedHashSet to keep iteration order
+      return new LinkedHashSet<Object>();
+    }
+  };
+
+  @SkylarkBuiltin(name = "list", doc = "Converts a collection to a list.")
+  private static Function list = new PositionalFunction("list", 1, 1) {
+    @Override
+    public Object call(List<Object> args, FuncallExpression ast) throws EvalException {
+      return EvalUtils.toCollection(args.get(0), ast.getLocation());
     }
   };
 
@@ -487,6 +498,25 @@ public class MethodLibrary {
   };
 
   /**
+   * Returns a function-value implementing "select" (i.e. configurable attributes)
+   * in the specified package context.
+   */
+  @SkylarkBuiltin(name = "select",
+      doc = "Creates a SelectorValue from the dict parameter.")
+  private static final Function select = new PositionalFunction("select", 1, 1) {
+      @Override
+      public Object call(List<Object> args, FuncallExpression ast)
+          throws EvalException, ConversionException {
+        Object dict = Iterables.getOnlyElement(args);
+        if (!(dict instanceof Map<?, ?>)) {
+          throw new EvalException(ast.getLocation(),
+              "select({...}) argument isn't a dictionary");
+        }
+        return new SelectorValue((Map<?, ?>) dict);
+      }
+    };
+
+  /**
    * Skylark String module.
    */
   @SkylarkModule(name = "string", doc = "")
@@ -532,9 +562,11 @@ public class MethodLibrary {
       // should be cleaned up first.
       .put(minus, SkylarkType.INT)
       .put(set, SkylarkType.of(Set.class))
+      .put(list, SkylarkType.of(List.class))
       .put(len, SkylarkType.INT)
       .put(str, SkylarkType.STRING)
       .put(bool, SkylarkType.BOOL)
+      .put(select, SkylarkType.of(SelectorValue.class))
       .build();
 
   private static final Map<Function, SkylarkType> skylarkGlobalFunctions = ImmutableMap

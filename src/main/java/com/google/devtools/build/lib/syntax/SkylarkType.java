@@ -16,6 +16,7 @@ package com.google.devtools.build.lib.syntax;
 import com.google.common.base.Preconditions;
 import com.google.devtools.build.lib.events.Location;
 
+import java.util.Collection;
 import java.util.List;
 import java.util.Map;
 import java.util.Set;
@@ -40,6 +41,7 @@ public class SkylarkType {
   private final Class<?> type;
 
   // TODO(bazel-team): Maybe change this to SkylarkType and allow list of lists etc.
+  // Object.class is used for UNKNOWN.
   private Class<?> generic1;
 
   public static SkylarkType of(Class<?> type, Class<?> generic1) {
@@ -66,7 +68,7 @@ public class SkylarkType {
 
   private SkylarkType(Class<?> type) {
     this.type = Preconditions.checkNotNull(type);
-    this.generic1 = null;
+    this.generic1 = Object.class;
   }
 
   public Class<?> getType() {
@@ -102,10 +104,10 @@ public class SkylarkType {
           EvalUtils.getDataTypeNameFromClass(this.getType()),
           originalLoc));
     }
-    if (generic1 == null) {
+    if (generic1.equals(Object.class)) {
       return o;
     }
-    if (o.generic1 == null) {
+    if (o.generic1.equals(Object.class)) {
       return this;
     }
     if (!generic1.equals(o.generic1)) {
@@ -142,6 +144,10 @@ public class SkylarkType {
 
   boolean isSimple() {
     return !isStruct() && !isDict() && !isList() && !isNset() && !isSet();
+  }
+
+  boolean isCollection() {
+    return Collection.class.isAssignableFrom(type);
   }
 
   @Override

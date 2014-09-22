@@ -20,11 +20,13 @@ import static com.google.devtools.build.lib.rules.objc.IosSdkCommands.BIN_DIR;
 import static com.google.devtools.build.lib.rules.objc.IosSdkCommands.MINIMUM_OS_VERSION;
 import static com.google.devtools.build.lib.rules.objc.IosSdkCommands.TARGET_DEVICE_FAMILIES;
 import static com.google.devtools.build.lib.rules.objc.ObjcProvider.ASSET_CATALOG;
+import static com.google.devtools.build.lib.rules.objc.ObjcProvider.FRAMEWORK_FILE;
 import static com.google.devtools.build.lib.rules.objc.ObjcProvider.HEADER;
 import static com.google.devtools.build.lib.rules.objc.ObjcProvider.INCLUDE;
 import static com.google.devtools.build.lib.rules.objc.ObjcProvider.XCASSETS_DIR;
 
 import com.google.common.annotations.VisibleForTesting;
+import com.google.common.base.Optional;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.Iterables;
@@ -33,6 +35,7 @@ import com.google.devtools.build.lib.actions.Artifact;
 import com.google.devtools.build.lib.vfs.PathFragment;
 import com.google.devtools.build.lib.view.RuleConfiguredTarget.Mode;
 import com.google.devtools.build.lib.view.RuleContext;
+import com.google.devtools.build.lib.view.actions.CommandLine;
 import com.google.devtools.build.lib.view.actions.SpawnAction;
 import com.google.devtools.build.xcode.common.TargetDeviceFamily;
 import com.google.devtools.build.xcode.util.Interspersing;
@@ -43,6 +46,10 @@ import java.util.Locale;
 
 /**
  * Utility code for creating actions used by Objective-C rules.
+ * <p>
+ * This is a static-only class. If you make this into a reference class, the {@link CommandLine}
+ * anonymous inner classes must become static inner classes. The garbage collector will not collect
+ * {@code ObjcActionsBuilder} as long as the anonymous {@link CommandLine} instances are alive.
  */
 public class ObjcActionsBuilder {
   private ObjcActionsBuilder() {
@@ -63,8 +70,11 @@ public class ObjcActionsBuilder {
         .setExecutionInfo(ImmutableMap.of(ExecutionRequirements.REQUIRES_DARWIN, ""));
   }
 
+  static final PathFragment JAVA = new PathFragment("/usr/bin/java");
   static final PathFragment CLANG = new PathFragment(BIN_DIR + "/clang");
   static final PathFragment CLANG_PLUSPLUS = new PathFragment(BIN_DIR + "/clang++");
+  static final PathFragment LIBTOOL = new PathFragment(BIN_DIR + "/libtool");
+  static final PathFragment IBTOOL = new PathFragment("/usr/bin/ibtool");
 
   // TODO(bazel-team): Reference a rule target rather than a jar file when Darwin runfiles work
   // better.
@@ -72,64 +82,91 @@ public class ObjcActionsBuilder {
       RuleContext ruleContext, String deployJarAttribute) {
     Artifact deployJarArtifact = ruleContext.getPrerequisiteArtifact(deployJarAttribute, Mode.HOST);
     return spawnOnDarwinActionBuilder(ruleContext)
-        .setExecutable(new PathFragment("/usr/bin/java"))
-        .addArgument("-jar")
-        .addInputArgument(deployJarArtifact);
+        .setExecutable(JAVA)
+        .addExecutableArguments("-jar", deployJarArtifact.getExecPathString())
+        .addInput(deployJarArtifact);
   }
 
-  private static Action compileAction(RuleContext ruleContext, Artifact sourceFile,
-      ObjcProvider provider, String... otherFlags) {
+  private static Action compileAction(final RuleContext ruleContext, final Artifact sourceFile,
+      final ObjcProvider provider, final Iterable<String> otherFlags,
+      final OptionsProvider optionsProvider) {
+    final Artifact objFile = ObjcRuleClasses.objFile(ruleContext, sourceFile);
     return spawnOnDarwinActionBuilder(ruleContext)
         .setMnemonic("Compile")
         .setExecutable(CLANG)
-        .addArguments(IosSdkCommands.compileArgsForClang(objcConfiguration(ruleContext)))
-        .addArguments(
-            IosSdkCommands.commonLinkAndCompileArgsForClang(objcConfiguration(ruleContext)))
-        .addArguments(Interspersing.beforeEach(
-            "-iquote",
-            PathFragment.safePathStrings(
-                ObjcCommon.userHeaderSearchPaths(ruleContext.getConfiguration()))))
-        .addArguments(Interspersing.beforeEach(
-            "-include", Artifact.asExecPaths(ObjcRuleClasses.pchFile(ruleContext).asSet())))
-        .addArguments(Interspersing.beforeEach(
-            "-I", PathFragment.safePathStrings(provider.get(INCLUDE))))
-        .addArguments(otherFlags)
-        .addArguments(ObjcCommon.combinedOptions(ruleContext).getCopts())
-        .addArgument("-c").addInputArgument(sourceFile)
-        .addArgument("-o").addOutputArgument(ObjcRuleClasses.objFile(ruleContext, sourceFile))
-        .addInputs(provider.get(HEADER))
+        .setCommandLine(new CommandLine() {
+          @Override
+          public Iterable<String> arguments() {
+            return new ImmutableList.Builder<String>()
+                .addAll(IosSdkCommands.compileArgsForClang(objcConfiguration(ruleContext)))
+                .addAll(IosSdkCommands.commonLinkAndCompileArgsForClang(
+                    provider, objcConfiguration(ruleContext)))
+                .addAll(Interspersing.beforeEach(
+                    "-iquote",
+                    PathFragment.safePathStrings(
+                        ObjcCommon.userHeaderSearchPaths(ruleContext.getConfiguration()))))
+                .addAll(Interspersing.beforeEach(
+                    "-include", Artifact.asExecPaths(ObjcRuleClasses.pchFile(ruleContext).asSet())))
+                .addAll(Interspersing.beforeEach(
+                    "-I", PathFragment.safePathStrings(provider.get(INCLUDE))))
+                .addAll(otherFlags)
+                .addAll(optionsProvider.getCopts())
+                .add("-c").add(sourceFile.getExecPathString())
+                .add("-o").add(objFile.getExecPathString())
+                .build();
+          }
+        })
+        .addInput(sourceFile)
+        .addOutput(objFile)
+        .addTransitiveInputs(provider.get(HEADER))
+        .addTransitiveInputs(provider.get(FRAMEWORK_FILE))
         .addInputs(ObjcRuleClasses.pchFile(ruleContext).asSet())
         .build();
   }
+
+  private static final ImmutableList<String> ARC_ARGS = ImmutableList.of("-fobjc-arc");
+  private static final ImmutableList<String> NON_ARC_ARGS = ImmutableList.of("-fno-objc-arc");
 
   /**
    * Creates actions to compile each source file individually, and link all the compiled object
    * files into a single archive library.
    * @return the {@code Action}s that were created
    */
-  static Iterable<Action> compileAndLinkActions(RuleContext ruleContext, ObjcProvider provider) {
-    ObjcConfiguration configuration = objcConfiguration(ruleContext);
-
+  static Iterable<Action> compileAndLinkActions(
+      final RuleContext ruleContext, ObjcProvider provider, OptionsProvider optionsProvider) {
     ImmutableList.Builder<Action> result = new ImmutableList.Builder<>();
     for (Artifact sourceFile : SRCS.get(ruleContext)) {
-      result.add(compileAction(ruleContext, sourceFile, provider, "-fobjc-arc"));
+      result.add(compileAction(ruleContext, sourceFile, provider, ARC_ARGS, optionsProvider));
     }
     for (Artifact nonArcSourceFile : NON_ARC_SRCS.get(ruleContext)) {
-      result.add(compileAction(ruleContext, nonArcSourceFile, provider, "-fno-objc-arc"));
+      result.add(
+          compileAction(ruleContext, nonArcSourceFile, provider, NON_ARC_ARGS, optionsProvider));
     }
 
     for (Artifact outputAFile : ObjcRuleClasses.outputAFile(ruleContext).asSet()) {
-      Iterable<Artifact> objFiles = ObjcRuleClasses.objFiles(ruleContext,
-          Iterables.concat(SRCS.get(ruleContext), NON_ARC_SRCS.get(ruleContext)));
+      final Iterable<Artifact> objFiles = ImmutableList.copyOf(
+          ObjcRuleClasses.objFiles(ruleContext,
+              Iterables.concat(SRCS.get(ruleContext), NON_ARC_SRCS.get(ruleContext))));
+      final String outputAFileExecPath = outputAFile.getExecPathString();
 
       result.add(spawnOnDarwinActionBuilder(ruleContext)
           .setMnemonic("Link")
-          .setExecutable(new PathFragment(BIN_DIR + "/libtool"))
-          .addArgument("-static")
-          .addInputArguments(objFiles)
-          .addArguments("-arch_only", configuration.getIosCpu())
-          .addArguments("-syslibroot", IosSdkCommands.sdkDir(configuration))
-          .addArgument("-o").addOutputArgument(outputAFile)
+          .setExecutable(LIBTOOL)
+          .setCommandLine(new CommandLine() {
+            @Override
+            public Iterable<String> arguments() {
+              ObjcConfiguration configuration = objcConfiguration(ruleContext);
+              return new ImmutableList.Builder<String>()
+                  .add("-static")
+                  .addAll(Artifact.toExecPaths(objFiles))
+                  .add("-arch_only").add(configuration.getIosCpu())
+                  .add("-syslibroot").add(IosSdkCommands.sdkDir(configuration))
+                  .add("-o").add(outputAFileExecPath)
+                  .build();
+            }
+          })
+          .addInputs(objFiles)
+          .addOutput(outputAFile)
           .build());
     }
 
@@ -173,12 +210,22 @@ public class ObjcActionsBuilder {
    */
   static Iterable<Action> convertStringsActions(RuleContext ruleContext) {
     ImmutableList.Builder<Action> result = new ImmutableList.Builder<>();
-    for (BundleableFile stringsFile : BundleableFile.stringsFilesFromRule(ruleContext)) {
+    for (CompiledResourceFile stringsFile :
+        CompiledResourceFile.stringsFilesFromRule(ruleContext)) {
+      final Artifact original = stringsFile.getOriginal();
+      final Artifact bundled = stringsFile.getBundled().getBundled();
       result.add(spawnActionBuilder(ruleContext)
           .setMnemonic("Convert plist to binary")
           .setExecutable(ruleContext.getExecutablePrerequisite("$plmerge", Mode.HOST))
-          .addArgument("--source_file").addInputArgument(stringsFile.getOriginal())
-          .addArgument("--out_file").addOutputArgument(stringsFile.getBundled())
+          .setCommandLine(new CommandLine() {
+            @Override
+            public Iterable<String> arguments() {
+              return ImmutableList.of("--source_file", original.getExecPathString(),
+                  "--out_file", bundled.getExecPathString());
+            }
+          })
+          .addInput(original)
+          .addOutput(bundled)
           .build());
     }
     return result.build();
@@ -189,47 +236,69 @@ public class ObjcActionsBuilder {
    */
   static Iterable<Action> convertXibsActions(RuleContext ruleContext) {
     ImmutableList.Builder<Action> result = new ImmutableList.Builder<>();
-    for (BundleableFile xibFile : BundleableFile.xibFilesFromRule(ruleContext)) {
+    for (CompiledResourceFile xibFile : CompiledResourceFile.xibFilesFromRule(ruleContext)) {
+      final Artifact bundled = xibFile.getBundled().getBundled();
+      final Artifact original = xibFile.getOriginal();
       result.add(spawnOnDarwinActionBuilder(ruleContext)
           .setMnemonic("Compile xib")
-          .setExecutable(new PathFragment("/usr/bin/ibtool"))
-          .addArguments("--minimum-deployment-target", MINIMUM_OS_VERSION)
-          .addArgument("--compile").addOutputArgument(xibFile.getBundled())
-          .addInputArgument(xibFile.getOriginal())
+          .setExecutable(IBTOOL)
+          .setCommandLine(new CommandLine() {
+            @Override
+            public Iterable<String> arguments() {
+              return ImmutableList.of(
+                  "--minimum-deployment-target", MINIMUM_OS_VERSION,
+                  "--compile", bundled.getExecPathString(),
+                  original.getExecPathString());
+            }
+          })
+          .addOutput(bundled)
+          .addInput(original)
           .build());
     }
     return result.build();
   }
 
-  static Action actoolzipAction(RuleContext ruleContext, ObjcProvider provider) {
-    Artifact actoolOutputZip = ObjcRuleClasses.actoolOutputZip(ruleContext);
+  static Optional<Action> actoolzipAction(
+      final RuleContext ruleContext, final ObjcProvider provider) {
+    final Optional<Artifact> actoolOutputZip =
+        ObjcBinaryRule.actoolOutputZip(ruleContext, provider);
+    if (!actoolOutputZip.isPresent()) {
+      return Optional.absent();
+    }
+
     // TODO(bazel-team): Do not use the deploy jar explicitly here. There is currently a bug where
     // we cannot .setExecutable({java_binary target}) and set REQUIRES_DARWIN in the execution info.
     // Note that below we set the archive root to the empty string. This means that the generated
     // zip file will be rooted at the bundle root, and we have to prepend the bundle root to each
     // entry when merging it with the final .ipa file.
-    SpawnAction.Builder actionBuilder =
-        spawnJavaOnDarwinActionBuilder(ruleContext, "$actoolzip_deploy")
-            .setMnemonic("Compile asset catalogs")
-            .addInputs(provider.get(ASSET_CATALOG))
-            // The next three arguments are positional, i.e. they don't have flags before them.
-            .addOutputArgument(actoolOutputZip)
-            .addArgument("") // archive root
-            .addArgument(IosSdkCommands.ACTOOL_PATH)
-            .addArguments("--platform",
-                objcConfiguration(ruleContext).getPlatform().getLowerCaseNameInPlist())
-            .addArguments("--minimum-deployment-target", MINIMUM_OS_VERSION);
-    for (TargetDeviceFamily targetDeviceFamily : TARGET_DEVICE_FAMILIES) {
-      actionBuilder.addArguments(
-          "--target-device", targetDeviceFamily.name().toLowerCase(Locale.US));
-    }
-    return actionBuilder
-        .addArguments(PathFragment.safePathStrings(provider.get(XCASSETS_DIR)))
-        .addArguments(Interspersing.beforeEach(
-            "--app-icon", ObjcBinaryRule.appIcon(ruleContext).asSet()))
-        .addArguments(Interspersing.beforeEach(
-            "--launch-image", ObjcBinaryRule.launchImage(ruleContext).asSet()))
-        .build();
+    return Optional.<Action>of(spawnJavaOnDarwinActionBuilder(ruleContext, "$actoolzip_deploy")
+        .setMnemonic("Compile asset catalogs")
+        .addTransitiveInputs(provider.get(ASSET_CATALOG))
+        .addOutput(actoolOutputZip.get())
+        .setCommandLine(new CommandLine() {
+          @Override
+          public Iterable<String> arguments() {
+            ImmutableList.Builder<String> args = new ImmutableList.Builder<String>()
+                // The next three arguments are positional, i.e. they don't have flags before them.
+                .add(actoolOutputZip.get().getExecPathString())
+                .add("") // archive root
+                .add(IosSdkCommands.ACTOOL_PATH)
+                .add("--platform")
+                .add(objcConfiguration(ruleContext).getPlatform().getLowerCaseNameInPlist())
+                .add("--minimum-deployment-target").add(MINIMUM_OS_VERSION);
+            for (TargetDeviceFamily targetDeviceFamily : TARGET_DEVICE_FAMILIES) {
+              args.add("--target-device").add(targetDeviceFamily.name().toLowerCase(Locale.US));
+            }
+            return args
+                .addAll(PathFragment.safePathStrings(provider.get(XCASSETS_DIR)))
+                .addAll(Interspersing.beforeEach(
+                    "--app-icon", ObjcBinaryRule.appIcon(ruleContext).asSet()))
+                .addAll(Interspersing.beforeEach(
+                    "--launch-image", ObjcBinaryRule.launchImage(ruleContext).asSet()))
+                .build();
+          }
+        })
+        .build());
   }
 
   @VisibleForTesting
@@ -242,16 +311,27 @@ public class ObjcActionsBuilder {
   }
 
   static Iterable<Action> momczipActions(RuleContext ruleContext) {
-    ObjcConfiguration configuration = objcConfiguration(ruleContext);
+    final ObjcConfiguration configuration = objcConfiguration(ruleContext);
     ImmutableList.Builder<Action> result = new ImmutableList.Builder<>();
-    for (Xcdatamodel datamodel : XcdatamodelsInfo.fromRule(ruleContext).getXcdatamodels()) {
+    for (Xcdatamodel datamodel : Xcdatamodels.xcdatamodels(ruleContext)) {
+      final Artifact outputZip = datamodel.getOutputZip();
+      final String archiveRoot = datamodel.archiveRootForMomczip();
+      final String container = datamodel.getContainer().getSafePathString();
       result.add(spawnJavaOnDarwinActionBuilder(ruleContext, "$momczip_deploy")
-          .addOutputArgument(datamodel.getOutputZip())
-          .addArgument(datamodel.archiveRootForMomczip())
-          .addArgument(IosSdkCommands.momcPath(configuration))
-          .addArguments(commonMomczipArguments(configuration))
-          .addArgument(datamodel.getContainer().getPathString())
+          .addOutput(outputZip)
           .addInputs(datamodel.getInputs())
+          .setCommandLine(new CommandLine() {
+            @Override
+            public Iterable<String> arguments() {
+              return new ImmutableList.Builder<String>()
+                  .add(outputZip.getExecPathString())
+                  .add(archiveRoot)
+                  .add(IosSdkCommands.momcPath(configuration))
+                  .addAll(commonMomczipArguments(configuration))
+                  .add(container)
+                  .build();
+            }
+          })
           .build());
     }
     return result.build();
@@ -261,11 +341,11 @@ public class ObjcActionsBuilder {
    * Creates actions that are common to objc_binary and objc_library rules.
    */
   static Iterable<Action> baseActions(RuleContext ruleContext, ObjcProvider provider,
-      XcodeProvider xcodeProvider) {
+      XcodeProvider xcodeProvider, OptionsProvider optionsProvider) {
     // Don't use Iterables.concat(Iterable...) because it introduces an unchecked warning.
     return Iterables.concat(
         Iterables.concat(
-          compileAndLinkActions(ruleContext, provider),
+          compileAndLinkActions(ruleContext, provider, optionsProvider),
           xcodegenActions(ruleContext, xcodeProvider.getTargets()),
           convertStringsActions(ruleContext),
           convertXibsActions(ruleContext)),

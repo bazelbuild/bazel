@@ -116,6 +116,12 @@ message TargetControl {
   // file. These paths correspond to the "-I" arguments passed to the
   // compiler.
   repeated string header_search_path = 16;
+
+  // Path to .bundle directories this target depends on. For static library
+  // targets, this only causes the bundle to appear in the Project Navigator.
+  // For application target, this also causes the bundle to be linked with the
+  // application.
+  repeated string bundle_import = 17;
 }
 
 // Represents the mapping of a build setting recognized by Xcode project files,

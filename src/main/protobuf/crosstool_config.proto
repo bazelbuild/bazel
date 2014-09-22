@@ -162,13 +162,13 @@ message CToolchain {
   // This overrides the commandline flag.
   optional bool python_preload_swigdeps = 42;
 
-  // The default GRTE to use. This should be an absolute path or a label, and
-  // gets the same treatment from Blaze as the --grte_top option. This setting
-  // is only used in the absence of an explicit --grte_top option. If unset,
-  // Blaze will not pass -sysroot by default. If this is a label, the local part
-  // must be 'everything', i.e., '//some/label:everything'. There can only be
-  // one GRTE library per package, because the compiler expects the directory as
-  // a parameter of the -sysroot option.
+  // The default GRTE to use. This should be a label, and gets the same
+  // treatment from Blaze as the --grte_top option. This setting is only used in
+  // the absence of an explicit --grte_top option. If unset, Blaze will not pass
+  // -sysroot by default. The local part must be 'everything', i.e.,
+  // '//some/label:everything'. There can only be one GRTE library per package,
+  // because the compiler expects the directory as a parameter of the -sysroot
+  // option.
   // This may only be set to a non-empty value if builtin_sysroot is also set!
   optional string default_grte_top = 31;
 

@@ -13,7 +13,7 @@
 // limitations under the License.
 package com.google.devtools.build.lib.blaze;
 
-import com.google.devtools.build.lib.actions.Action;
+import com.google.devtools.build.lib.actions.ExecutableMetadata;
 
 /**
  * This class records the critical path for the graph of actions executed.
@@ -21,6 +21,8 @@ import com.google.devtools.build.lib.actions.Action;
 public class SimpleCriticalPathComponent
     extends AbstractCriticalPathComponent<SimpleCriticalPathComponent> {
 
-  public SimpleCriticalPathComponent(Action action, long startTime) { super(action, startTime); }
+  public SimpleCriticalPathComponent(ExecutableMetadata action, long startTime) {
+    super(action, startTime);
+  }
 }
 

@@ -43,12 +43,12 @@ public class Xcdatamodels extends Value<Xcdatamodels> {
   }
 
   public static Xcdatamodels fromTargetControls(
-      FileSystem fileSystem, FileObjects fileObjects, Iterable<TargetControl> targetControls) {
+      FileSystem fileSystem, PBXBuildFiles pbxBuildFiles, Iterable<TargetControl> targetControls) {
     ImmutableSetMultimap.Builder<TargetControl, PBXBuildFile> targetLabelToBuildFiles =
         new ImmutableSetMultimap.Builder<>();
     for (TargetControl targetControl : targetControls) {
       Iterable<PBXBuildFile> targetBuildFiles =
-          fileObjects.buildFilesForAggregates(
+          pbxBuildFiles.get(
               AggregateReferenceType.XCVersionGroup,
               RelativePaths.fromStrings(fileSystem, targetControl.getXcdatamodelList()));
 
