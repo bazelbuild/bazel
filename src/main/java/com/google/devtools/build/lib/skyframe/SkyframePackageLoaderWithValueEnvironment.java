@@ -21,7 +21,7 @@ import com.google.devtools.build.lib.packages.NoSuchPackageException;
 import com.google.devtools.build.lib.packages.NoSuchTargetException;
 import com.google.devtools.build.lib.packages.Package;
 import com.google.devtools.build.lib.packages.Target;
-import com.google.devtools.build.lib.skyframe.SkyframeExecutor.SkyframePackageLoader;
+import com.google.devtools.build.lib.skyframe.SequencedSkyframeExecutor.SkyframePackageLoader;
 import com.google.devtools.build.lib.syntax.Label;
 import com.google.devtools.build.lib.syntax.Label.SyntaxException;
 import com.google.devtools.build.lib.vfs.Path;

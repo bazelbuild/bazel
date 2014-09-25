@@ -122,7 +122,7 @@ public class XcodeprojGeneration {
     }
   }
 
-  private static String google3labelToXcodeTargetName(String label) {
+  private static String labelToXcodeTargetName(String label) {
     return label.replace("//", "").replace("/", "_").replace(":", "_");
   }
 
@@ -262,7 +262,7 @@ public class XcodeprojGeneration {
       }
 
       PBXNativeTarget target =
-          new PBXNativeTarget(google3labelToXcodeTargetName(targetControl.getLabel()));
+          new PBXNativeTarget(labelToXcodeTargetName(targetControl.getLabel()));
       try {
         target
             .getBuildConfigurationList()

@@ -38,7 +38,7 @@ import java.io.Serializable;
  */
 @SkylarkModule(name = "Label", doc = "A BUILD target identifier.")
 @Immutable @ThreadSafe
-public final class Label implements Comparable<Label>, Serializable, ClassObject {
+public final class Label implements Comparable<Label>, Serializable {
 
   /**
    * Thrown by the parsing methods to indicate a bad label.
@@ -260,6 +260,9 @@ public final class Label implements Comparable<Label>, Serializable, ClassObject
    * Returns the name of the package in which this rule was declared (e.g. {@code
    * //file/base:fileutils_test} returns {@code file/base}).
    */
+  @SkylarkCallable(name = "package", structField = true,
+      doc = "The package part of this label. "
+      + "For instance, label('//pkg/foo:abc').package == 'pkg/foo'")
   public String getPackageName() {
     return packageName.getPathString();
   }
@@ -287,18 +290,13 @@ public final class Label implements Comparable<Label>, Serializable, ClassObject
     return packageName.getRelative(name);
   }
 
-  @Override
-  public Object getValue(String name) {
-    if (name.equals("name")) {
-      return this.name;
-    }
-    return null;
-  }
-
   /**
    * Returns the name by which this rule was declared (e.g. {@code //foo/bar:baz}
    * returns {@code baz}).
    */
+  @SkylarkCallable(name = "name", structField = true,
+      doc = "The name of this label within the package. "
+      + "For instance, label('//pkg/foo:abc').name == 'abc'")
   public String getName() {
     return name;
   }

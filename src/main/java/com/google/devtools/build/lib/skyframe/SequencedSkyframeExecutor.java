@@ -130,8 +130,11 @@ import javax.annotation.Nullable;
  * <p>This object is mostly used to inject external state, such as the executor engine or
  * some additional artifacts (workspace status and build info artifacts) into SkyFunctions
  * for use during the build.
+ *
+ * <p>This class implicitly assumes that builds can be done incrementally from the most recent
+ * build, IOW builds are "sequenced".
  */
-public final class SkyframeExecutor {
+public final class SequencedSkyframeExecutor {
   private final EvaluatorSupplier evaluatorSupplier;
   private MemoizingEvaluator memoizingEvaluator;
   private final MemoizingEvaluator.EmittedEventState emittedEventState =
@@ -151,7 +154,7 @@ public final class SkyframeExecutor {
   @VisibleForTesting
   public static final int DEFAULT_THREAD_COUNT = 200;
 
-  private static final Logger LOG = Logger.getLogger(SkyframeExecutor.class.getName());
+  private static final Logger LOG = Logger.getLogger(SequencedSkyframeExecutor.class.getName());
 
   // Stores Packages between reruns of the PackageFunction (because of missing dependencies,
   // within the same evaluate() run) to avoid loading the same package twice (first time loading
@@ -222,7 +225,7 @@ public final class SkyframeExecutor {
   private final AtomicReference<ActionExecutionStatusReporter> statusReporterRef =
       new AtomicReference<>();
   private SkyframeActionExecutor skyframeActionExecutor;
-  private SkyframeExecutor.SkyframeProgressReceiver progressReceiver;
+  private SequencedSkyframeExecutor.SkyframeProgressReceiver progressReceiver;
   private AtomicReference<CyclesReporter> cyclesReporter = new AtomicReference<>();
 
   private BinTools binTools = null;
@@ -240,17 +243,17 @@ public final class SkyframeExecutor {
   private SkyKey configurationSkyKey = null;
 
   @VisibleForTesting
-  public SkyframeExecutor(Reporter reporter, PackageFactory pkgFactory,
-                          TimestampGranularityMonitor tsgm, BlazeDirectories directories,
-                          WorkspaceStatusAction.Factory workspaceStatusActionFactory,
-                          ImmutableList<BuildInfoFactory> buildInfoFactories,
-                          Iterable<? extends DiffAwareness.Factory> diffAwarenessFactories) {
+  public SequencedSkyframeExecutor(Reporter reporter, PackageFactory pkgFactory,
+     TimestampGranularityMonitor tsgm, BlazeDirectories directories,
+     WorkspaceStatusAction.Factory workspaceStatusActionFactory,
+     ImmutableList<BuildInfoFactory> buildInfoFactories,
+     Iterable<? extends DiffAwareness.Factory> diffAwarenessFactories) {
     this(reporter, pkgFactory, true, tsgm, directories, workspaceStatusActionFactory,
         buildInfoFactories, diffAwarenessFactories, Predicates.<PathFragment>alwaysFalse(),
         Preprocessor.Factory.Supplier.NullSupplier.INSTANCE);
   }
 
-  public SkyframeExecutor(
+  public SequencedSkyframeExecutor(
       Reporter reporter,
       PackageFactory pkgFactory,
       boolean skyframeBuild,
@@ -266,7 +269,7 @@ public final class SkyframeExecutor {
         allowedMissingInputs, preprocessorFactorySupplier);
   }
 
-  public SkyframeExecutor(
+  public SequencedSkyframeExecutor(
       Reporter reporter,
       EvaluatorSupplier evaluatorSupplier,
       PackageFactory pkgFactory,
@@ -1458,8 +1461,8 @@ public final class SkyframeExecutor {
     // Make a copy to avoid nesting SetView objects. It also computes size(), which we need below.
     Set<PathFragment> union = ImmutableSet.copyOf(Sets.union(allLoadedPackages, loadedPackages));
 
-    if (union.size() < valueCacheEvictionLimit ||
-        isBuildSubsetOrSupersetOfPreviousBuild(allLoadedPackages, loadedPackages)) {
+    if (union.size() < valueCacheEvictionLimit
+        || isBuildSubsetOrSupersetOfPreviousBuild(allLoadedPackages, loadedPackages)) {
       allLoadedPackages = union;
     } else {
       dropConfiguredTargets();
@@ -1506,8 +1509,8 @@ public final class SkyframeExecutor {
   }
 
   /**
-   * This should be called at most once in the lifetime of the SkyframeExecutor (except for tests),
-   * and it should be called before the execution phase.
+   * This should be called at most once in the lifetime of the SequencedSkyframeExecutor (except for
+   * tests), and it should be called before the execution phase.
    */
   void setArtifactFactoryAndBinTools(ArtifactFactory artifactFactory, BinTools binTools) {
     this.artifactFactory.val = artifactFactory;

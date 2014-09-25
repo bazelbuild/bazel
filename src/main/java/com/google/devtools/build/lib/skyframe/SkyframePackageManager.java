@@ -24,7 +24,7 @@ import com.google.devtools.build.lib.pkgcache.PackageManager;
 import com.google.devtools.build.lib.pkgcache.PathPackageLocator;
 import com.google.devtools.build.lib.pkgcache.TargetPatternEvaluator;
 import com.google.devtools.build.lib.pkgcache.TransitivePackageLoader;
-import com.google.devtools.build.lib.skyframe.SkyframeExecutor.SkyframePackageLoader;
+import com.google.devtools.build.lib.skyframe.SequencedSkyframeExecutor.SkyframePackageLoader;
 import com.google.devtools.build.lib.syntax.Label;
 import com.google.devtools.build.lib.vfs.Path;
 import com.google.devtools.build.lib.vfs.UnixGlob;
@@ -43,22 +43,22 @@ import java.util.concurrent.atomic.AtomicReference;
 class SkyframePackageManager implements PackageManager {
 
   private final SkyframePackageLoader packageLoader;
-  private final SkyframeExecutor.SkyframeTransitivePackageLoader transitiveLoader;
+  private final SequencedSkyframeExecutor.SkyframeTransitivePackageLoader transitiveLoader;
   private final TargetPatternEvaluator patternEvaluator;
   private final AtomicReference<UnixGlob.FilesystemCalls> syscalls;
   private final AtomicReference<CyclesReporter> skyframeCyclesReporter;
   private final AtomicReference<PathPackageLocator> pkgLocator;
   private final AtomicInteger numPackagesLoaded;
-  private final SkyframeExecutor skyframeExecutor;
+  private final SequencedSkyframeExecutor skyframeExecutor;
 
   public SkyframePackageManager(SkyframePackageLoader packageLoader,
-                                SkyframeExecutor.SkyframeTransitivePackageLoader transitiveLoader,
-                                TargetPatternEvaluator patternEvaluator,
-                                AtomicReference<UnixGlob.FilesystemCalls> syscalls,
-                                AtomicReference<CyclesReporter> skyframeCyclesReporter,
-                                AtomicReference<PathPackageLocator> pkgLocator,
-                                AtomicInteger numPackagesLoaded,
-                                SkyframeExecutor skyframeExecutor) {
+      SequencedSkyframeExecutor.SkyframeTransitivePackageLoader transitiveLoader,
+      TargetPatternEvaluator patternEvaluator,
+      AtomicReference<UnixGlob.FilesystemCalls> syscalls,
+      AtomicReference<CyclesReporter> skyframeCyclesReporter,
+      AtomicReference<PathPackageLocator> pkgLocator,
+      AtomicInteger numPackagesLoaded,
+      SequencedSkyframeExecutor skyframeExecutor) {
     this.packageLoader = packageLoader;
     this.transitiveLoader = transitiveLoader;
     this.patternEvaluator = patternEvaluator;

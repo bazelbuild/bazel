@@ -86,7 +86,7 @@ public class NodeEntryTest {
     MoreAsserts.assertEmpty(setValue(entry, new SkyValue() {},
         /*errorInfo=*/null, /*graphVersion=*/0L));
     assertTrue(entry.isDone());
-    assertEquals(0L, entry.getVersion());
+    assertEquals(new IntVersion(0L), entry.getVersion());
     MoreAsserts.assertContentsAnyOrder(entry.getDirectDeps(), dep1, dep2, dep3);
   }
 
@@ -220,7 +220,7 @@ public class NodeEntryTest {
     assertThat(entry.getTemporaryDirectDeps()).isEmpty();
     MoreAsserts.assertContentsAnyOrder(setValue(entry, new SkyValue() {}, /*errorInfo=*/null,
         /*graphVersion=*/1L), parent);
-    assertEquals(1L, entry.getVersion());
+    assertEquals(new IntVersion(1L), entry.getVersion());
   }
 
   @Test
@@ -380,11 +380,11 @@ public class NodeEntryTest {
     assertEquals(BuildingState.DirtyState.CHECK_DEPENDENCIES, entry.getDirtyState());
     MoreAsserts.assertContentsInOrder(entry.getNextDirtyDirectDeps(), dep);
     addTemporaryDirectDep(entry, dep);
-    entry.signalDep(/*version=*/0L);
+    entry.signalDep(new IntVersion(0L));
     assertEquals(BuildingState.DirtyState.VERIFIED_CLEAN, entry.getDirtyState());
     MoreAsserts.assertContentsAnyOrder(entry.markClean(), parent);
     assertTrue(entry.isDone());
-    assertEquals(0L, entry.getVersion());
+    assertEquals(new IntVersion(0L), entry.getVersion());
   }
 
   private static class IntegerValue implements SkyValue {
@@ -419,12 +419,12 @@ public class NodeEntryTest {
     entry.addReverseDepAndCheckIfDone(null); // Start evaluation.
     MoreAsserts.assertContentsInOrder(entry.getNextDirtyDirectDeps(), dep);
     addTemporaryDirectDep(entry, dep);
-    entry.signalDep(/*version=*/1L);
+    entry.signalDep(new IntVersion(1L));
     assertEquals(BuildingState.DirtyState.REBUILDING, entry.getDirtyState());
     MoreAsserts.assertContentsAnyOrder(entry.getTemporaryDirectDeps(), dep);
     setValue(entry, new IntegerValue(5), /*errorInfo=*/null, /*graphVersion=*/1L);
     assertTrue(entry.isDone());
-    assertEquals(0L, entry.getVersion());
+    assertEquals(new IntVersion(0L), entry.getVersion());
   }
 
 
@@ -448,14 +448,14 @@ public class NodeEntryTest {
     assertEquals(BuildingState.DirtyState.CHECK_DEPENDENCIES, entry.getDirtyState());
     MoreAsserts.assertContentsInOrder(entry.getNextDirtyDirectDeps(), dep);
     addTemporaryDirectDep(entry, dep);
-    entry.signalDep(/*version=*/1L);
+    entry.signalDep(new IntVersion(1L));
     assertEquals(BuildingState.DirtyState.REBUILDING, entry.getDirtyState());
     MoreAsserts.assertContentsAnyOrder(entry.getTemporaryDirectDeps(), dep);
     GenericFunctionException exception =
         new GenericFunctionException(key("cause"), new Exception());
     setValue(entry, new IntegerValue(5), new ErrorInfo(exception), /*graphVersion=*/1L);
     assertTrue(entry.isDone());
-    assertEquals("Version increments when setValue changes", 1, entry.getVersion());
+    assertEquals("Version increments when setValue changes", new IntVersion(1), entry.getVersion());
   }
 
   @Test
@@ -474,12 +474,12 @@ public class NodeEntryTest {
     assertEquals(BuildingState.DirtyState.CHECK_DEPENDENCIES, entry.getDirtyState());
     MoreAsserts.assertContentsInOrder(entry.getNextDirtyDirectDeps(), dep);
     addTemporaryDirectDep(entry, dep);
-    entry.signalDep(/*version=*/1L);
+    entry.signalDep(new IntVersion(1L));
     assertEquals(BuildingState.DirtyState.REBUILDING, entry.getDirtyState());
     MoreAsserts.assertContentsAnyOrder(entry.getTemporaryDirectDeps(), dep);
     setValue(entry, /*value=*/null, errorInfo, /*graphVersion=*/1L);
     assertTrue(entry.isDone());
-    assertEquals(0L, entry.getVersion());
+    assertEquals(new IntVersion(0L), entry.getVersion());
   }
 
   @Test
@@ -500,8 +500,8 @@ public class NodeEntryTest {
     assertEquals(BuildingState.DirtyState.CHECK_DEPENDENCIES, entry.getDirtyState());
     MoreAsserts.assertContentsInOrder(entry.getNextDirtyDirectDeps(), dep, dep2);
     addTemporaryDirectDeps(entry, dep, dep2);
-    entry.signalDep(/*version=*/0L);
-    entry.signalDep(/*version=*/0L);
+    entry.signalDep(new IntVersion(0L));
+    entry.signalDep(new IntVersion(0L));
     assertEquals(BuildingState.DirtyState.CHECK_DEPENDENCIES, entry.getDirtyState());
     MoreAsserts.assertContentsInOrder(entry.getNextDirtyDirectDeps(), dep3);
   }
@@ -529,7 +529,7 @@ public class NodeEntryTest {
     assertEquals(BuildingState.DirtyState.CHECK_DEPENDENCIES, entry.getDirtyState());
     MoreAsserts.assertContentsInOrder(entry.getNextDirtyDirectDeps(), dep);
     addTemporaryDirectDep(entry, dep);
-    entry.signalDep(/*version=*/0L);
+    entry.signalDep(new IntVersion(0L));
     assertEquals(BuildingState.DirtyState.CHECK_DEPENDENCIES, entry.getDirtyState());
     MoreAsserts.assertContentsInOrder(entry.getNextDirtyDirectDeps(), dep4);
   }
@@ -547,14 +547,14 @@ public class NodeEntryTest {
     assertEquals(BuildingState.DirtyState.CHECK_DEPENDENCIES, entry.getDirtyState());
     MoreAsserts.assertContentsInOrder(entry.getNextDirtyDirectDeps(), dep);
     addTemporaryDirectDep(entry, dep);
-    assertTrue(entry.signalDep(/*version=*/1L));
+    assertTrue(entry.signalDep(new IntVersion(1L)));
     assertEquals(BuildingState.DirtyState.REBUILDING, entry.getDirtyState());
     MoreAsserts.assertContentsAnyOrder(entry.getTemporaryDirectDeps(), dep);
     addTemporaryDirectDep(entry, key("dep2"));
-    assertTrue(entry.signalDep(/*version=*/1L));
+    assertTrue(entry.signalDep(new IntVersion(1L)));
     setValue(entry, new IntegerValue(5), /*errorInfo=*/null, /*graphVersion=*/1L);
     assertTrue(entry.isDone());
-    assertEquals("Version increments when deps change", 1, entry.getVersion());
+    assertEquals("Version increments when deps change", new IntVersion(1L), entry.getVersion());
   }
 
   @Test
@@ -575,7 +575,7 @@ public class NodeEntryTest {
     for (int ii = 0; ii < 10; ii++) {
       MoreAsserts.assertContentsInOrder(entry.getNextDirtyDirectDeps(), deps.get(ii));
       addTemporaryDirectDep(entry, deps.get(ii));
-      assertTrue(entry.signalDep(/*graphVersion=*/0L));
+      assertTrue(entry.signalDep(new IntVersion(0L)));
       if (ii < 9) {
         assertEquals(BuildingState.DirtyState.CHECK_DEPENDENCIES, entry.getDirtyState());
       } else {
@@ -600,7 +600,8 @@ public class NodeEntryTest {
 
   private static Set<SkyKey> setValue(NodeEntry entry, SkyValue value,
       @Nullable ErrorInfo errorInfo, long graphVersion) {
-    return entry.setValue(ValueWithMetadata.normal(value, errorInfo, NO_EVENTS), graphVersion);
+    return entry.setValue(ValueWithMetadata.normal(value, errorInfo, NO_EVENTS),
+        new IntVersion(graphVersion));
   }
 
   private static void addTemporaryDirectDep(NodeEntry entry, SkyKey key) {

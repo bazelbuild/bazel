@@ -17,9 +17,11 @@ package com.google.devtools.build.lib.syntax;
 import com.google.common.cache.CacheBuilder;
 import com.google.common.cache.CacheLoader;
 import com.google.common.cache.LoadingCache;
+import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.Lists;
 import com.google.devtools.build.lib.collect.nestedset.NestedSet;
+import com.google.devtools.build.lib.events.Location;
 import com.google.devtools.build.lib.syntax.EvalException.EvalExceptionWithJavaCause;
 import com.google.devtools.build.lib.util.StringUtilities;
 
@@ -39,15 +41,40 @@ import java.util.concurrent.ExecutionException;
  */
 public final class FuncallExpression extends Expression {
 
-  private static final LoadingCache<Class<?>, Map<String, List<Method>>> methodCache =
+  /**
+   * A value class to store Methods with their corresponding SkylarkCallable annotations.
+   * This is needed because the annotation is sometimes in a superclass.
+   */
+  public static final class MethodDescriptor {
+    private final Method method;
+    private final SkylarkCallable annotation;
+
+    private MethodDescriptor(Method method, SkylarkCallable annotation) {
+      this.method = method;
+      this.annotation = annotation;
+    }
+
+    Method getMethod() {
+      return method;
+    }
+
+    /**
+     * Returns the SkylarkCallable annotation corresponding to this method.
+     */
+    public SkylarkCallable getAnnotation() {
+      return annotation;
+    }
+  }
+
+  private static final LoadingCache<Class<?>, Map<String, List<MethodDescriptor>>> methodCache =
       CacheBuilder.newBuilder()
       .initialCapacity(10)
       .maximumSize(100)
-      .build(new CacheLoader<Class<?>, Map<String, List<Method>>>() {
+      .build(new CacheLoader<Class<?>, Map<String, List<MethodDescriptor>>>() {
 
         @Override
-        public Map<String, List<Method>> load(Class<?> key) throws Exception {
-          Map<String, List<Method>> methodMap = new HashMap<>();
+        public Map<String, List<MethodDescriptor>> load(Class<?> key) throws Exception {
+          Map<String, List<MethodDescriptor>> methodMap = new HashMap<>();
           for (Method method : key.getMethods()) {
             // Synthetic methods lead to false multiple matches
             if (method.isSynthetic()) {
@@ -64,9 +91,9 @@ public final class FuncallExpression extends Expression {
             }
             String signature = name + "#" + method.getParameterTypes().length;
             if (methodMap.containsKey(signature)) {
-              methodMap.get(signature).add(method);
+              methodMap.get(signature).add(new MethodDescriptor(method, callable));
             } else {
-              methodMap.put(signature, Lists.newArrayList(method));
+              methodMap.put(signature, Lists.newArrayList(new MethodDescriptor(method, callable)));
             }
           }
           return ImmutableMap.copyOf(methodMap);
@@ -217,6 +244,54 @@ public final class FuncallExpression extends Expression {
     return func + "(" + args + ")";
   }
 
+  /**
+   * Returns the list of Skylark callable Methods of objClass with the given name
+   * and argument number.
+   */
+  public static List<MethodDescriptor> getMethods(Class<?> objClass, String methodName, int argNum)
+      throws ExecutionException {
+    return methodCache.get(objClass).get(methodName + "#" + argNum);
+  }
+
+  static Object callMethod(MethodDescriptor methodDescriptor, String methodName, Object obj,
+      Object[] args, Location loc) throws EvalException, IllegalAccessException,
+      IllegalArgumentException, InvocationTargetException {
+    Method method = methodDescriptor.getMethod();
+    if (obj == null && !Modifier.isStatic(method.getModifiers())) {
+      throw new EvalException(loc, "Method '" + methodName + "' is not static");
+    }
+    // This happens when the interface is public but the implementation classes
+    // have reduced visibility.
+    method.setAccessible(true);
+    Object result = method.invoke(obj, args);
+    if (method.getReturnType().equals(Void.TYPE)) {
+      return Environment.NONE;
+    }
+    if (result == null) {
+      if (methodDescriptor.getAnnotation().allowReturnNones()) {
+        return Environment.NONE;
+      } else {
+        throw new EvalException(loc,
+            "Method invocation returned None, please contact Skylark developers: " + methodName
+          + "(" + EvalUtils.prettyPrintValues(", ", ImmutableList.copyOf(args))  + ")");
+      }
+    }
+    if (result != null && !EvalUtils.isSkylarkImmutable(result.getClass())) {
+      throw new EvalException(loc, "Method '" + methodName
+          + "' returns a mutable object (type of " + EvalUtils.getDatatypeName(result) + ")");
+    }
+    if (result instanceof NestedSet<?>) {
+      // This is probably the most terrible hack ever written. However this is the last place
+      // where we can infer generic type information, so SkylarkNestedSets can remain safe.
+      // Eventually we should cache these info too like we cache Methods, and probably do
+      // something with Lists and Maps too.
+      ParameterizedType t = (ParameterizedType) method.getGenericReturnType();
+      return new SkylarkNestedSet((Class<?>) t.getActualTypeArguments()[0],
+          (NestedSet<?>) result);
+    }
+    return result;
+  }
+
   // TODO(bazel-team): If there's exactly one usable method, this works. If there are multiple
   // matching methods, it still can be a problem. Figure out how the Java compiler does it
   // exactly and copy that behaviour.
@@ -224,11 +299,11 @@ public final class FuncallExpression extends Expression {
   private Object invokeJavaMethod(
       Object obj, Class<?> objClass, String methodName, List<Object> args) throws EvalException {
     try {
-      Method matchingMethod = null;
-      List<Method> methods = methodCache.get(objClass).get(methodName + "#" + args.size());
+      MethodDescriptor matchingMethod = null;
+      List<MethodDescriptor> methods = getMethods(objClass, methodName, args.size());
       if (methods != null) {
-        for (Method method : methods) {
-          Class<?>[] params = method.getParameterTypes();
+        for (MethodDescriptor method : methods) {
+          Class<?>[] params = method.getMethod().getParameterTypes();
           int i = 0;
           boolean matching = true;
           for (Class<?> param : params) {
@@ -244,36 +319,17 @@ public final class FuncallExpression extends Expression {
             } else {
               throw new EvalException(func.getLocation(),
                   "Multiple matching methods for " + formatMethod(methodName, args) +
-                  " in " + getClassName(objClass));
+                  " in " + EvalUtils.getDataTypeNameFromClass(objClass));
             }
           }
         }
       }
-      if (matchingMethod != null) {
-        if (obj == null && !Modifier.isStatic(matchingMethod.getModifiers())) {
-          throw new EvalException(getLocation(), "Method '" + methodName + "' is not static.");
-        }
-        // This happens when the interface is public but the implementation classes
-        // have reduced visibility.
-        matchingMethod.setAccessible(true);
-        Object result = matchingMethod.invoke(obj, args.toArray());
-        if (result != null && !EvalUtils.isSkylarkImmutable(result.getClass())) {
-          throw new EvalException(getLocation(), "Method '" + methodName
-              + "' returns a mutable object (type of " + EvalUtils.getDatatypeName(result) + ").");
-        }
-        if (result instanceof NestedSet<?>) {
-          // This is probably the most terrible hack ever written. However this is the last place
-          // where we can infer generic type information, so SkylarkNestedSets can remain safe.
-          // Eventually we should cache these info too like we cache Methods, and probably do
-          // something with Lists and Maps too.
-          ParameterizedType t = (ParameterizedType) matchingMethod.getGenericReturnType();
-          return new SkylarkNestedSet((Class<?>) t.getActualTypeArguments()[0],
-              (NestedSet<?>) result);
-        }
-        return result;
+      if (matchingMethod != null && !matchingMethod.getAnnotation().structField()) {
+        return callMethod(matchingMethod, methodName, obj, args.toArray(), getLocation());
       } else {
         throw new EvalException(getLocation(), "No matching method found for "
-            + formatMethod(methodName, args) + " in " + getClassName(objClass));
+            + formatMethod(methodName, args) + " in "
+            + EvalUtils.getDataTypeNameFromClass(objClass));
       }
     } catch (IllegalAccessException e) {
       // TODO(bazel-team): Print a nice error message. Maybe the method exists
@@ -290,14 +346,6 @@ public final class FuncallExpression extends Expression {
       }
     } catch (ExecutionException e) {
       throw new EvalException(getLocation(), "Method invocation failed: " + e);
-    }
-  }
-
-  private String getClassName(Class<?> classObject) {
-    if (classObject.getSimpleName().isEmpty()) {
-      return classObject.getName();
-    } else {
-      return classObject.getSimpleName();
     }
   }
 
@@ -352,7 +400,7 @@ public final class FuncallExpression extends Expression {
           posargs.add(objValue);
         }
         evalArguments(posargs, kwargs, env);
-        return function.call(posargs, kwargs, this, env);
+        return EvalUtils.checkNotNull(this, function.call(posargs, kwargs, this, env));
       } else if (env.isSkylarkEnabled()) {
 
         // When calling a Java method, the name is not in the Environment, so
@@ -384,7 +432,7 @@ public final class FuncallExpression extends Expression {
     }
     Function function = (Function) funcValue;
     evalArguments(posargs, kwargs, env);
-    return function.call(posargs, kwargs, this, env);
+    return EvalUtils.checkNotNull(this, function.call(posargs, kwargs, this, env));
   }
 
   @Override

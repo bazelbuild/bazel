@@ -13,7 +13,6 @@
 // limitations under the License.
 package com.google.devtools.build.lib.view.config;
 
-import com.google.devtools.build.lib.blaze.BlazeDirectories;
 import com.google.devtools.build.lib.view.config.BuildConfiguration.Fragment;
 
 /**
@@ -27,8 +26,7 @@ public interface ConfigurationFragmentFactory {
    * @param buildOptions command-line options (see {@link FragmentOptions})
    * @return the configuration fragment.
    */
-  BuildConfiguration.Fragment create(ConfigurationEnvironment env, BlazeDirectories directories,
-      BuildOptions buildOptions)
+  BuildConfiguration.Fragment create(ConfigurationEnvironment env, BuildOptions buildOptions)
       throws InvalidConfigurationException;
 
   /**

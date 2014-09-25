@@ -18,6 +18,7 @@ import com.google.common.annotations.VisibleForTesting;
 import com.google.common.base.Preconditions;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
+import com.google.devtools.build.lib.concurrent.ThreadSafety.Immutable;
 import com.google.devtools.build.lib.vfs.PathFragment;
 
 import java.util.ArrayList;
@@ -42,6 +43,7 @@ public class Environment {
   /**
    * There should be only one instance of this type to allow "== None" tests.
    */
+  @Immutable
   public static final class NoneType {
     @Override
     public String toString() { return "None"; }

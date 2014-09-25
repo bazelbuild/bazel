@@ -20,7 +20,7 @@ proto_filetype = filetype([".proto"])
 def genproto_impl(ctx):
   src = ctx.file("src", "TARGET")
   proto_dep = ctx.file("$proto_dep", "TARGET")
-  class_jar = ctx.outputs["java"]
+  class_jar = ctx.outputs.java
   proto_output = class_jar.path + ".proto_output"
   build_output = class_jar.path + ".build_output"
 

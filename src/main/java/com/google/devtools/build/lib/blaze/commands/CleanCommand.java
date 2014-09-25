@@ -16,6 +16,7 @@ package com.google.devtools.build.lib.blaze.commands;
 import com.google.devtools.build.lib.actions.ExecException;
 import com.google.devtools.build.lib.blaze.BlazeCommand;
 import com.google.devtools.build.lib.blaze.BlazeCommandDispatcher.ShutdownBlazeServerException;
+import com.google.devtools.build.lib.blaze.BlazeDirectories;
 import com.google.devtools.build.lib.blaze.BlazeRuntime;
 import com.google.devtools.build.lib.blaze.Command;
 import com.google.devtools.build.lib.buildtool.BuildRequest;
@@ -80,9 +81,6 @@ public final class CleanCommand implements BlazeCommand {
   }
 
   private static Logger LOG = Logger.getLogger(CleanCommand.class.getName());
-
-  // The known "cleanable" sub directories of outputBase
-  private static final String[] SUBDIRECTORIES = { "google3", "blaze-out" };
 
   @Override
   public ExitCode exec(BlazeRuntime runtime, OptionsProvider options)
@@ -164,7 +162,8 @@ public final class CleanCommand implements BlazeCommand {
     } else {
       LOG.info("Output cleaning...");
       runtime.clearCaches();
-      for (String directory : SUBDIRECTORIES) {
+      for (String directory : new String[] {
+          BlazeDirectories.RELATIVE_OUTPUT_PATH, runtime.getWorkspaceName() }) {
         Path child = outputBase.getChild(directory);
         if (child.exists()) {
           LOG.finest("Cleaning " + child);
@@ -173,8 +172,8 @@ public final class CleanCommand implements BlazeCommand {
       }
     }
     // remove convenience links
-    OutputDirectoryLinksUtils.removeOutputDirectoryLinks(runtime.getWorkspace(),
-        runtime.getReporter(), symlinkPrefix);
+    OutputDirectoryLinksUtils.removeOutputDirectoryLinks(
+        runtime.getWorkspaceName(), runtime.getWorkspace(), runtime.getReporter(), symlinkPrefix);
     // shutdown on expunge cleans
     if (cleanOptions.expunge || cleanOptions.expunge_async) {
       throw new ShutdownBlazeServerException(0);

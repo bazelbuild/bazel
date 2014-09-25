@@ -70,13 +70,21 @@ class NodeEntry {
   /** Actual data stored in this entry when it is done. */
   private SkyValue value = null;
 
+  private static class MinimalVersion implements Version {
+    static final MinimalVersion INSTANCE = new MinimalVersion();
+    @Override
+    public boolean atMost(Version other) {
+      return true;
+    }
+  }
+
   /**
    * The last version of the graph at which this node entry was changed. In {@link #setValue} it
    * may be determined that the data being written to the graph at a given version is the same as
    * the already-stored data. In that case, the version will remain the same. The version can be
    * thought of as the latest timestamp at which this entry was changed.
    */
-  private long version = -1L;
+  private Version version = MinimalVersion.INSTANCE;
 
   /**
    * This object represents a {@link GroupedList}<SkyKey> in a memory-efficient way. It stores the
@@ -264,10 +272,11 @@ class NodeEntry {
    * current version. Callers can query that version to see if the node considers its value to have
    * changed.
    */
-  synchronized Set<SkyKey> setValue(SkyValue value, long version) {
+  synchronized Set<SkyKey> setValue(SkyValue value, Version version) {
     Preconditions.checkState(isReady(), "%s %s", this, value);
-    Preconditions.checkState(version >= 0L, "%s %s %s", this, version, value);
-    Preconditions.checkState(this.version <= version, "%s %s %s", this, version, value);
+    // This check may need to be removed when we move to a non-linear versioning sequence.
+    Preconditions.checkState(this.version.atMost(version),
+        "%s %s %s", this, version, value);
 
     if (isDirty() && buildingState.unchangedFromLastBuild(value)) {
       // If the value is the same as before, just use the old value. Note that we don't use the new
@@ -359,22 +368,22 @@ class NodeEntry {
    * {@link Long#MAX_VALUE} will force it to re-evaluate.
    */
   synchronized boolean signalDep() {
-    return signalDep(/*childVersion=*/Long.MAX_VALUE);
+    return signalDep(/*childVersion=*/new IntVersion(Long.MAX_VALUE));
   }
 
   /**
    * Tell this entry that one of its dependencies is now done. Callers must check the return value,
    * and if true, they must re-schedule this node for evaluation.
    *
-   * @param childVersion If this entry {@link #isDirty()} and {@code childVersion} is greater than
+   * @param childVersion If this entry {@link #isDirty()} and {@code childVersion} is not at most
    * {@link #getVersion()}, then this entry records that one of its children has changed since it
    * was last evaluated (namely, it was last evaluated at version {@link #getVersion()} and the
    * child was last evaluated at {@code childVersion}. Thus, the next call to
    * {@link #getDirtyState()} will return {@link BuildingState.DirtyState#REBUILDING}.
    */
-  synchronized boolean signalDep(long childVersion) {
+  synchronized boolean signalDep(Version childVersion) {
     Preconditions.checkState(!isDone(), "Value must not be done in signalDep %s", this);
-    return buildingState.signalDep(/*childChanged=*/childVersion > getVersion());
+    return buildingState.signalDep(/*childChanged=*/!childVersion.atMost(getVersion()));
   }
 
   /**
@@ -467,7 +476,7 @@ class NodeEntry {
   /**
    * Gets the current version of this entry.
    */
-  synchronized long getVersion() {
+  synchronized Version getVersion() {
     return version;
   }
 

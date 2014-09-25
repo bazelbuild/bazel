@@ -225,6 +225,10 @@ public class SkylarkRuleClassFunctions {
       builder.setPropertyFlag("MANDATORY");
     }
 
+    if (arguments.containsKey("executable") && (Boolean) arguments.get("executable")) {
+      builder.setPropertyFlag("EXECUTABLE");
+    }
+
     if (arguments.containsKey("file_types")) {
       Object fileTypesObj = arguments.get("file_types");
       if (fileTypesObj == FileTypeSet.ANY_FILE || fileTypesObj == FileTypeSet.NO_FILE) {
@@ -278,7 +282,13 @@ public class SkylarkRuleClassFunctions {
           doc = "list of parent rule classes, this rule class inherits all the attributes and "
               + "the impicit outputs of the parent rule classes"),
       @Param(name = "attr", doc = "dictionary mapping an attribute name to an attribute"),
-      @Param(name = "outputs", doc = "implicit outputs of this rule")})
+      @Param(name = "outputs", doc = "outputs of this rule. "
+          + "It is a dictionary mapping from string to a template name. For example: "
+          + "{\"ext\": \"${name}.ext\"}<br>"
+          + "It may also be a function (which receives ctx.attr as argument) returning "
+          + "such a dictionary."),
+      @Param(name = "executable", type = Boolean.class,
+          doc = "whether this rule always outputs an executable of the same name or not")})
   private static final SkylarkFunction rule = new SkylarkFunction("rule") {
 
         @Override
@@ -301,6 +311,11 @@ public class SkylarkRuleClassFunctions {
             String attrName = attr.getKey();
             Attribute.Builder<?> attrBuilder = attr.getValue();
             builder.addOrOverrideAttribute(attrBuilder.build(attrName));
+          }
+          if (arguments.containsKey("executable") && (Boolean) arguments.get("executable")) {
+            builder.addOrOverrideAttribute(
+                attr("$is_executable", BOOLEAN).nonconfigurable().value(true).build());
+            builder.setOutputsDefaultExecutable();
           }
 
           if (arguments.containsKey("outputs")) {
@@ -372,7 +387,8 @@ public class SkylarkRuleClassFunctions {
         }
       };
 
-  @SkylarkBuiltin(name = "filetype", doc = "Creates a file filter from a list of strings.",
+  @SkylarkBuiltin(name = "filetype",
+      doc = "Creates a file filter from a list of strings, e.g. filetype([\".cc\", \".cpp\"])",
       returnType = SkylarkFileType.class,
       mandatoryParams = {
       @Param(name = "types", doc = "a list of the accepted file extensions")})

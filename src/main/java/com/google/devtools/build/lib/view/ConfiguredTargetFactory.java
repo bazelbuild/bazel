@@ -35,6 +35,7 @@ import com.google.devtools.build.lib.packages.PackageGroup;
 import com.google.devtools.build.lib.packages.PackageGroupsRuleVisibility;
 import com.google.devtools.build.lib.packages.PackageSpecification;
 import com.google.devtools.build.lib.packages.Rule;
+import com.google.devtools.build.lib.packages.RuleClass;
 import com.google.devtools.build.lib.packages.RuleVisibility;
 import com.google.devtools.build.lib.packages.Target;
 import com.google.devtools.build.lib.rules.SkylarkRuleConfiguredTargetBuilder;
@@ -220,7 +221,10 @@ public final class ConfiguredTargetFactory {
       return SkylarkRuleConfiguredTargetBuilder.buildRule(
           ruleContext, rule.getRuleClassObject().getConfiguredTargetFunction());
     } else {
-      return ruleClassProvider.createConfiguredTarget(rule, ruleContext);
+      RuleClass.ConfiguredTargetFactory<ConfiguredTarget, RuleContext> factory =
+          rule.getRuleClassObject().<ConfiguredTarget, RuleContext>getConfiguredTargetFactory();
+      Preconditions.checkNotNull(factory, rule.getRuleClassObject());
+      return factory.create(ruleContext);
     }
   }
 }

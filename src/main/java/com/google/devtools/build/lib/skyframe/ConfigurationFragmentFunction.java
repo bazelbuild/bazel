@@ -52,12 +52,6 @@ public class ConfigurationFragmentFunction implements SkyFunction {
   @Override
   public SkyValue compute(SkyKey skyKey, Environment env) throws InterruptedException,
       ConfigurationFragmentFunctionException {
-    
-    BlazeDirectories blazeDirectories = BuildVariableValue.BLAZE_DIRECTORIES.get(env);    
-    if (env.valuesMissing()) {
-      return null;
-    }
-
     ConfigurationFragmentKey configurationFragmentKey = 
         (ConfigurationFragmentKey) skyKey.argument();
     BuildOptions buildOptions = configurationFragmentKey.getBuildOptions();
@@ -66,7 +60,7 @@ public class ConfigurationFragmentFunction implements SkyFunction {
       PackageProviderForConfigurations loadedPackageProvider = 
           new SkyframePackageLoaderWithValueEnvironment(env);
       ConfigurationEnvironment confEnv = new ConfigurationBuilderEnvironment(loadedPackageProvider);
-      Fragment fragment = factory.create(confEnv, blazeDirectories, buildOptions);
+      Fragment fragment = factory.create(confEnv, buildOptions);
       
       if (env.valuesMissing()) {
         return null;
@@ -123,6 +117,11 @@ public class ConfigurationFragmentFunction implements SkyFunction {
     public <T extends Fragment> T getFragment(BuildOptions buildOptions, Class<T> fragmentType) 
         throws InvalidConfigurationException {
       return loadedPackageProvider.getFragment(buildOptions, fragmentType);
+    }
+
+    @Override
+    public BlazeDirectories getBlazeDirectories() {
+      return loadedPackageProvider.getDirectories();
     }
   }
 

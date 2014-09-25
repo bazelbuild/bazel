@@ -43,7 +43,7 @@ import com.google.devtools.build.lib.pkgcache.LoadingPhaseRunner.Callback;
 import com.google.devtools.build.lib.pkgcache.LoadingPhaseRunner.LoadingResult;
 import com.google.devtools.build.lib.profiler.ProfilePhase;
 import com.google.devtools.build.lib.profiler.Profiler;
-import com.google.devtools.build.lib.skyframe.SkyframeExecutor;
+import com.google.devtools.build.lib.skyframe.SequencedSkyframeExecutor;
 import com.google.devtools.build.lib.util.AbruptExitException;
 import com.google.devtools.build.lib.util.ExitCode;
 import com.google.devtools.build.lib.vfs.PathFragment;
@@ -297,7 +297,7 @@ public class BuildTool {
   protected final BuildConfigurationCollection getConfigurations(
       BuildConfigurationKey key, boolean keepGoing)
       throws InvalidConfigurationException, InterruptedException {
-    SkyframeExecutor executor = runtime.getSkyframeExecutor();
+    SequencedSkyframeExecutor executor = runtime.getSkyframeExecutor();
     // TODO(bazel-team): consider a possibility of moving ConfigurationFactory construction into
     // skyframe.
     return executor.createConfigurations(keepGoing, runtime.getConfigurationFactory(), key);

@@ -42,7 +42,6 @@ import com.google.devtools.build.lib.packages.Rule;
 import com.google.devtools.build.lib.packages.RuleClass;
 import com.google.devtools.build.lib.packages.Target;
 import com.google.devtools.build.lib.rules.test.TestActionBuilder;
-import com.google.devtools.build.lib.syntax.ClassObject;
 import com.google.devtools.build.lib.syntax.Label;
 import com.google.devtools.build.lib.syntax.Label.SyntaxException;
 import com.google.devtools.build.lib.syntax.SkylarkCallable;
@@ -105,7 +104,7 @@ import javax.annotation.Nullable;
 @SkylarkModule(name = "Configuration",
     doc = "Data required for the analysis of a target that comes from targets that "
         + "depend on it and not targets that it depends on.")
-public final class BuildConfiguration implements ClassObject, Serializable {
+public final class BuildConfiguration implements Serializable {
 
   /**
    * An interface for language-specific configurations.
@@ -1188,8 +1187,7 @@ public final class BuildConfiguration implements ClassObject, Serializable {
         if (associatedRule != null) {
           @SuppressWarnings("unchecked")
           RuleClass.Configurator<BuildConfiguration, Rule> func =
-              (RuleClass.Configurator<BuildConfiguration, Rule>)
-              associatedRule.getRuleClassObject().getConfigurator();
+              associatedRule.getRuleClassObject().<BuildConfiguration, Rule>getConfigurator();
           actual = func.apply(associatedRule, actual);
         }
 
@@ -1303,26 +1301,11 @@ public final class BuildConfiguration implements ClassObject, Serializable {
     return outputDirectory;
   }
 
-  @Override
-  public Object getValue(String name) {
-    if (name.equals("bin_dir")) {
-      return binDirectory;
-    } else if (name.equals("genfiles_dir")) {
-      return genfilesDirectory;
-    } else if (name.equals("genfiles_fragment")) {
-      return genfilesFragment;
-    } else if (name.equals("host_path_separator")) {
-      return getHostPathSeparator();
-    } else if (name.equals("default_shell_env")) {
-      return defaultShellEnvironment;
-    } else {
-      return null;
-    }
-  }
-
   /**
    * Returns the bin directory for this build configuration.
    */
+  @SkylarkCallable(name = "bin_dir", structField = true,
+      doc = "The root corresponding to bin directory.")
   public Root getBinDirectory() {
     return binDirectory;
   }
@@ -1344,6 +1327,8 @@ public final class BuildConfiguration implements ClassObject, Serializable {
   /**
    * Returns the genfiles directory for this build configuration.
    */
+  @SkylarkCallable(name = "genfiles_dir", structField = true,
+      doc = "The root corresponding to genfiles directory.")
   public Root getGenfilesDirectory() {
     return genfilesDirectory;
   }
@@ -1375,6 +1360,7 @@ public final class BuildConfiguration implements ClassObject, Serializable {
   /**
    * Returns a relative path to the genfiles directory at execution time.
    */
+  @SkylarkCallable(name = "genfiles_fragment", doc = "", structField = true)
   public PathFragment getGenfilesFragment() {
     return genfilesFragment;
   }
@@ -1385,6 +1371,8 @@ public final class BuildConfiguration implements ClassObject, Serializable {
    * not match the host platform. You should only use this when invoking tools that are known to use
    * the native path separator, i.e., the path separator for the machine that they run on.
    */
+  @SkylarkCallable(name = "host_path_separator", structField = true,
+      doc = "Returns the separator for PATH variable, which is ':' on Unix.")
   public String getHostPathSeparator() {
     // TODO(bazel-team): This needs to change when we support Windows.
     return ":";
@@ -1477,6 +1465,9 @@ public final class BuildConfiguration implements ClassObject, Serializable {
   /**
    * Returns the default shell environment
    */
+  @SkylarkCallable(name = "default_shell_env", structField = true,
+      doc = "A dictionary representing the default environment. It maps variables "
+      + "to their values (strings).")
   public ImmutableMap<String, String> getDefaultShellEnvironment() {
     return defaultShellEnvironment;
   }

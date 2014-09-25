@@ -81,7 +81,7 @@ import com.google.devtools.build.lib.profiler.ProfilePhase;
 import com.google.devtools.build.lib.profiler.Profiler;
 import com.google.devtools.build.lib.profiler.ProfilerTask;
 import com.google.devtools.build.lib.rules.test.TestActionContext;
-import com.google.devtools.build.lib.skyframe.SkyframeExecutor;
+import com.google.devtools.build.lib.skyframe.SequencedSkyframeExecutor;
 import com.google.devtools.build.lib.syntax.Label;
 import com.google.devtools.build.lib.util.AbruptExitException;
 import com.google.devtools.build.lib.util.BlazeClock;
@@ -212,7 +212,8 @@ public class ExecutionTool {
       }
     }
 
-    actionContextProviders.add(new FilesetActionContextImpl.Provider(runtime.getReporter()));
+    actionContextProviders.add(new FilesetActionContextImpl.Provider(
+        runtime.getReporter(), runtime.getWorkspaceName()));
 
     strategies.add(new SourceManifestActionContextImpl(runtime.getRunfilesPrefix()));
     strategies.add(new FileWriteStrategy(request));
@@ -322,7 +323,7 @@ public class ExecutionTool {
    * @param skyframeExecutor the skyframe executor (if any)
    */
   void executeBuild(LoadingResult loadingResult, AnalysisResult analysisResult,
-      BuildResult buildResult, @Nullable SkyframeExecutor skyframeExecutor,
+      BuildResult buildResult, @Nullable SequencedSkyframeExecutor skyframeExecutor,
       BuildConfigurationCollection configurations)
       throws BuildFailedException, InterruptedException, AbruptExitException, TestExecException,
       ViewCreationFailedException {
@@ -364,7 +365,8 @@ public class ExecutionTool {
       // there's only a single configuration, but we don't create any symlinks in the multi-config
       // case. Can we do better? [multi-config]
       if (targetConfigurations.size() == 1) {
-        OutputDirectoryLinksUtils.createOutputDirectoryLinks(getWorkspace(), getExecRoot(),
+        OutputDirectoryLinksUtils.createOutputDirectoryLinks(
+            runtime.getWorkspaceName(), getWorkspace(), getExecRoot(),
             runtime.getOutputPath(), getReporter(), targetConfigurations.get(0),
             request.getSymlinkPrefix());
       }
@@ -588,8 +590,8 @@ public class ExecutionTool {
           getReporter().handle(Event.info(
               null,
               "Dumping " + dumper.getName() + " to "
-                  + OutputDirectoryLinksUtils.getPrettyPath(
-                      filename, getWorkspace(), request.getSymlinkPrefix())));
+                  + OutputDirectoryLinksUtils.getPrettyPath(filename,
+                      runtime.getWorkspaceName(), getWorkspace(), request.getSymlinkPrefix())));
         }
         dumper.dump(out);
       } catch (IOException e) {
@@ -791,8 +793,8 @@ public class ExecutionTool {
             headerFlag = false;
           }
           outErr.printErrLn("  " +
-              OutputDirectoryLinksUtils.getPrettyPath(
-                  artifact.getPath(), getWorkspace(), request.getSymlinkPrefix()));
+              OutputDirectoryLinksUtils.getPrettyPath(artifact.getPath(),
+                  runtime.getWorkspaceName(), getWorkspace(), request.getSymlinkPrefix()));
         }
       }
       if (headerFlag) {
@@ -811,8 +813,8 @@ public class ExecutionTool {
         for (Artifact temp : tempsProvider.getTemps()) {
           if (temp.getPath().exists()) {
             outErr.printErrLn("  See temp at " +
-                OutputDirectoryLinksUtils.getPrettyPath(
-                    temp.getPath(), getWorkspace(), request.getSymlinkPrefix()));
+                OutputDirectoryLinksUtils.getPrettyPath(temp.getPath(),
+                    runtime.getWorkspaceName(), getWorkspace(), request.getSymlinkPrefix()));
           }
         }
       }
@@ -872,7 +874,7 @@ public class ExecutionTool {
     }
   }
 
-  private static boolean useSkyframeFull(SkyframeExecutor skyframeExecutor) {
+  private static boolean useSkyframeFull(SequencedSkyframeExecutor skyframeExecutor) {
     return skyframeExecutor != null && skyframeExecutor.skyframeBuild();
   }
 
@@ -880,7 +882,7 @@ public class ExecutionTool {
       Executor executor,
       ActionCache actionCache, @Nullable MetadataCache metadataCache,
       @Nullable ArtifactMTimeCache artifactMTimeCache, boolean buildIsIncremental,
-      @Nullable SkyframeExecutor skyframeExecutor) {
+      @Nullable SequencedSkyframeExecutor skyframeExecutor) {
     boolean skyframeFull = useSkyframeFull(skyframeExecutor);
     BuildRequest.BuildRequestOptions options = request.getBuildOptions();
     PathFragment explainPath = options.explanationPath;

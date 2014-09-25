@@ -17,11 +17,9 @@ package com.google.devtools.build.lib.view;
 import com.google.devtools.build.lib.actions.Artifact;
 import com.google.devtools.build.lib.collect.nestedset.NestedSet;
 import com.google.devtools.build.lib.concurrent.ThreadSafety.Immutable;
-import com.google.devtools.build.lib.syntax.ClassObject;
 import com.google.devtools.build.lib.syntax.Label;
 import com.google.devtools.build.lib.syntax.SkylarkCallable;
 import com.google.devtools.build.lib.syntax.SkylarkModule;
-import com.google.devtools.build.lib.syntax.SkylarkNestedSet;
 
 import javax.annotation.Nullable;
 
@@ -32,7 +30,7 @@ import javax.annotation.Nullable;
  */
 @Immutable
 @SkylarkModule(name = "FileProvider", doc = "An interface for rules that provide files.")
-public final class FileProvider implements TransitiveInfoProvider, ClassObject {
+public final class FileProvider implements TransitiveInfoProvider {
 
   @Nullable private final Label label;
   private final NestedSet<Artifact> filesToBuild;
@@ -47,23 +45,12 @@ public final class FileProvider implements TransitiveInfoProvider, ClassObject {
    *
    * <p>This is usually the label of the target that provides the information.
    */
-  @SkylarkCallable(name = "label", doc = "")
+  @SkylarkCallable(name = "label", doc = "", structField = true)
   public Label getLabel() {
     if (label == null) {
       throw new UnsupportedOperationException();
     }
     return label;
-  }
-
-  @Override
-  public Object getValue(String name) {
-    if (name.equals("label")) {
-      return getLabel();
-    } else if (name.equals("files_to_build")) {
-      return SkylarkNestedSet.of(Artifact.class, filesToBuild);
-    } else {
-      return null;
-    }
   }
 
   /**
@@ -82,7 +69,7 @@ public final class FileProvider implements TransitiveInfoProvider, ClassObject {
    * <p>Also, some rules may generate artifacts that are not listed here by way of defining other
    * implicit targets, for example, deploy jars.
    */
-  @SkylarkCallable(name = "files_to_build", doc = "")
+  @SkylarkCallable(name = "files_to_build", doc = "", structField = true)
   public NestedSet<Artifact> getFilesToBuild() {
     return filesToBuild;
   }

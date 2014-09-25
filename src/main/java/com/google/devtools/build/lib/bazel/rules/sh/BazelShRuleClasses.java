@@ -74,10 +74,10 @@ public final class BazelShRuleClasses {
    * by BASH_BINARY_BINDINGS.
    */
   static class BashBinaryBinding {
-    public final String google3label;
+    public final String label;
     public final String execPath;
-    public BashBinaryBinding(@Nullable String google3label, @Nullable String execPath) {
-      this.google3label = google3label;
+    public BashBinaryBinding(@Nullable String label, @Nullable String execPath) {
+      this.label = label;
       this.execPath = execPath;
     }
   }

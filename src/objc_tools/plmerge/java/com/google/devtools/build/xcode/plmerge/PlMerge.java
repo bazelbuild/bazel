@@ -72,7 +72,8 @@ public class PlMerge {
       sourceFilePaths.add(fileSystem.getPath(sourceFile));
     }
 
-    PlistMerging merging = PlistMerging.from(sourceFilePaths, ImmutableMap.<String, NSObject>of());
+    PlistMerging merging = PlistMerging.from(sourceFilePaths, ImmutableMap.<String, NSObject>of(),
+        ImmutableMap.<String, String>of());
     merging.writePlist(fileSystem.getPath(options.outFile));
   }
 

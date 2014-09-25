@@ -87,7 +87,7 @@ public class ParallelEvaluatorTest {
 
   private ParallelEvaluator makeEvaluator(ProcessableGraph graph,
       ImmutableMap<SkyFunctionName, ? extends SkyFunction> builders, boolean keepGoing) {
-    return new ParallelEvaluator(graph, /*graphVersion=*/0L,
+    return new ParallelEvaluator(graph, new IntVersion(0L),
         builders, reporter,  new MemoizingEvaluator.EmittedEventState(), keepGoing,
         150, revalidationReceiver);
   }

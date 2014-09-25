@@ -62,7 +62,7 @@ public class EagerInvalidatorTest {
   protected InvalidationState state = newInvalidationState();
   protected AtomicReference<InvalidatingNodeVisitor> visitor = new AtomicReference<>();
 
-  private int graphVersion = 0;
+  private IntVersion graphVersion = new IntVersion(0);
 
   // The following three methods should be abstract, but junit4 does not allow us to run inner
   // classes in an abstract outer class. Thus, we provide implementations. These methods will never
@@ -123,9 +123,10 @@ public class EagerInvalidatorTest {
   protected <T extends SkyValue> EvaluationResult<T> eval(boolean keepGoing, SkyKey... keys)
     throws InterruptedException {
     Reporter reporter = new Reporter();
-    ParallelEvaluator evaluator = new ParallelEvaluator(graph, graphVersion++,
+    ParallelEvaluator evaluator = new ParallelEvaluator(graph, graphVersion,
         ImmutableMap.of(GraphTester.NODE_TYPE, tester.createDelegatingFunction()),
         reporter, new MemoizingEvaluator.EmittedEventState(), keepGoing, 200, null);
+    graphVersion = graphVersion.next();
     return evaluator.eval(ImmutableList.copyOf(keys));
   }
 

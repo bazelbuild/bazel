@@ -92,7 +92,7 @@ public class WorkspaceFileFunction implements SkyFunction {
           throw new EvalException(ast.getLocation(), errorMessage);
         }
         builder.setWorkspaceName(name);
-        return null;
+        return com.google.devtools.build.lib.syntax.Environment.NONE;
       }
     };
   }
@@ -116,7 +116,7 @@ public class WorkspaceFileFunction implements SkyFunction {
           throw new EvalException(ast.getLocation(), e.getMessage());
         }
 
-        return null;
+        return com.google.devtools.build.lib.syntax.Environment.NONE;
       }
     };
   }

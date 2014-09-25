@@ -14,6 +14,7 @@
 package com.google.devtools.build.lib.buildtool;
 
 import com.google.common.base.Joiner;
+import com.google.devtools.build.lib.Constants;
 import com.google.devtools.build.lib.events.Event;
 import com.google.devtools.build.lib.events.EventHandler;
 import com.google.devtools.build.lib.vfs.FileSystemUtils;
@@ -30,23 +31,24 @@ import java.util.List;
  * Static utilities for managing output directory symlinks.
  */
 public class OutputDirectoryLinksUtils {
-  public static final String OUTPUT_SYMLINK_NAME = "blaze-out";
-  public static final String GOOGLE3_SYMLINK_NAME = "blaze-google3"; // points to getExecRoot().
+  public static final String OUTPUT_SYMLINK_NAME = Constants.PRODUCT_NAME + "-out";
 
   // Used in getPrettyPath() method below.
   private static final String[] LINKS = { "bin", "genfiles", "includes" };
-  private static final String[] NO_PREFIX_LINKS = {
-    OUTPUT_SYMLINK_NAME, GOOGLE3_SYMLINK_NAME, "." };
 
   private static final String NO_CREATE_SYMLINKS_PREFIX = "/";
 
+  private static String execRootSymlink(String workspaceName) {
+    return Constants.PRODUCT_NAME + "-" + workspaceName;
+  }
   /**
    * Attempts to create convenience symlinks in the workspaceDirectory and in
    * execRoot to the output area and to the configuration-specific output
    * directories. Issues a warning if it fails, e.g. because workspaceDirectory
    * is readonly.
    */
-  public static void createOutputDirectoryLinks(Path workspace, Path execRoot, Path outputPath,
+  public static void createOutputDirectoryLinks(String workspaceName,
+      Path workspace, Path execRoot, Path outputPath,
       EventHandler eventHandler, BuildConfiguration targetConfig, String symlinkPrefix) {
     if (NO_CREATE_SYMLINKS_PREFIX.equals(symlinkPrefix)) {
       return;
@@ -57,7 +59,9 @@ public class OutputDirectoryLinksUtils {
     // and the configuration-specific links in both the workspace and the execution root dirs.
     // NB!  Keep in sync with removeOutputDirectoryLinks below.
     createLink(workspace, OUTPUT_SYMLINK_NAME, outputPath, failures);
-    createLink(workspace, GOOGLE3_SYMLINK_NAME, execRoot, failures);
+
+    // Points to execroot
+    createLink(workspace, execRootSymlink(workspaceName), execRoot, failures);
     createLink(workspace, symlinkPrefix + "bin", targetConfig.getBinDirectory().getPath(),
         failures);
     createLink(workspace, symlinkPrefix + "testlogs", targetConfig.getTestLogsDirectory().getPath(),
@@ -79,20 +83,25 @@ public class OutputDirectoryLinksUtils {
    * <p>This method must be called after the symlinks are created at the end of a build. If called
    * before, the pretty path may be incorrect if the symlinks end up pointing somewhere new.
    */
-  public static PathFragment getPrettyPath(Path file, Path workspaceDirectory,
-      String symlinkPrefix) {
+  public static PathFragment getPrettyPath(Path file, String workspaceName,
+      Path workspaceDirectory, String symlinkPrefix) {
     for (String link : LINKS) {
       PathFragment result = relativize(file, workspaceDirectory, symlinkPrefix + link);
       if (result != null) {
         return result;
       }
     }
-    for (String link : NO_PREFIX_LINKS) {
-      PathFragment result = relativize(file, workspaceDirectory, link);
-      if (result != null) {
-        return result;
-      }
+
+    PathFragment result = relativize(file, workspaceDirectory, execRootSymlink(workspaceName));
+    if (result != null) {
+      return result;
     }
+
+    result = relativize(file, workspaceDirectory, OUTPUT_SYMLINK_NAME);
+    if (result != null) {
+      return result;
+    }
+
     return file.asFragment();
   }
 
@@ -123,15 +132,15 @@ public class OutputDirectoryLinksUtils {
    * @param eventHandler the error eventHandler
    * @param symlinkPrefix the symlink prefix which should be removed
    */
-  public static void removeOutputDirectoryLinks(Path workspace, EventHandler eventHandler,
-      String symlinkPrefix) {
+  public static void removeOutputDirectoryLinks(String workspaceName, Path workspace,
+      EventHandler eventHandler, String symlinkPrefix) {
     if (NO_CREATE_SYMLINKS_PREFIX.equals(symlinkPrefix)) {
       return;
     }
     List<String> failures = new ArrayList<>();
 
     removeLink(workspace, OUTPUT_SYMLINK_NAME, failures);
-    removeLink(workspace, GOOGLE3_SYMLINK_NAME, failures);
+    removeLink(workspace, execRootSymlink(workspaceName), failures);
     removeLink(workspace, symlinkPrefix + "bin", failures);
     removeLink(workspace, symlinkPrefix + "testlogs", failures);
     removeLink(workspace, symlinkPrefix + "genfiles", failures);

@@ -18,7 +18,6 @@ import com.google.common.collect.HashMultimap;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.ImmutableSet;
-import com.google.common.collect.Lists;
 import com.google.common.collect.Multimap;
 import com.google.devtools.build.lib.actions.Action;
 import com.google.devtools.build.lib.actions.Artifact;
@@ -38,12 +37,12 @@ import com.google.devtools.build.lib.syntax.Label;
 import com.google.devtools.build.lib.view.ExtraActionArtifactsProvider.ExtraArtifactSet;
 import com.google.devtools.build.lib.view.LicensesProvider.TargetLicense;
 import com.google.devtools.build.lib.view.RuleConfiguredTarget.Mode;
-import com.google.devtools.build.lib.view.RuleConfiguredTarget.TransitiveInfo;
 import com.google.devtools.build.lib.view.config.BuildConfiguration;
 import com.google.devtools.build.lib.view.extra.ExtraActionMapProvider;
 import com.google.devtools.build.lib.view.extra.ExtraActionSpec;
 
 import java.util.Collection;
+import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.Map.Entry;
@@ -53,7 +52,8 @@ import java.util.Map.Entry;
  */
 public final class RuleConfiguredTargetBuilder {
   private final RuleContext ruleContext;
-  private final List<TransitiveInfo> infos = Lists.newArrayList();
+  private final Map<Class<? extends TransitiveInfoProvider>, TransitiveInfoProvider> providers =
+      new LinkedHashMap<>();
   private final ImmutableMap.Builder<String, Object> skylarkProviders = ImmutableMap.builder();
 
   /** These are supported by all configured targets and need to be specially handled. */
@@ -89,8 +89,7 @@ public final class RuleConfiguredTargetBuilder {
     }
     add(ExtraActionArtifactsProvider.class, initializeExtraActions());
     return new RuleConfiguredTarget(
-        ruleContext, mandatoryStampFiles, skylarkProviders.build(),
-        infos.toArray(new TransitiveInfo[0]));
+        ruleContext, mandatoryStampFiles, skylarkProviders.build(), providers);
   }
 
   private TestProvider initializeTestProvider(FilesToRunProvider filesToRunProvider) {
@@ -227,21 +226,14 @@ public final class RuleConfiguredTargetBuilder {
   }
 
   private <T extends TransitiveInfoProvider> T findProvider(Class<T> clazz) {
-    for (TransitiveInfo info : infos) {
-      if (info.key.equals(clazz)) {
-        return clazz.cast(info.value);
-      }
-    }
-    return null;
+    return clazz.cast(providers.get(clazz));
   }
 
   /**
    * Add a specific provider with a given value.
    */
   public <T extends TransitiveInfoProvider> RuleConfiguredTargetBuilder add(Class<T> key, T value) {
-    AnalysisUtils.checkProvider(key);
-    infos.add(new TransitiveInfo(key, value));
-    return this;
+    return addProvider(key, value);
   }
 
   /**
@@ -249,8 +241,10 @@ public final class RuleConfiguredTargetBuilder {
    */
   public RuleConfiguredTargetBuilder addProvider(
       Class<? extends TransitiveInfoProvider> key, TransitiveInfoProvider value) {
+    Preconditions.checkNotNull(key);
+    Preconditions.checkNotNull(value);
     AnalysisUtils.checkProvider(key);
-    infos.add(new TransitiveInfo(key, value));
+    providers.put(key, value);
     return this;
   }
 

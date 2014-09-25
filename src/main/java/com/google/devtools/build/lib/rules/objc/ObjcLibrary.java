@@ -32,9 +32,22 @@ import com.google.devtools.build.xcode.xcodegen.proto.XcodeGenProtos.XcodeprojBu
 public class ObjcLibrary implements RuleConfiguredTargetFactory {
   @Override
   public ConfiguredTarget create(RuleContext ruleContext) throws InterruptedException {
+    IntermediateArtifacts intermediateArtifacts = new IntermediateArtifacts(
+        ruleContext.getAnalysisEnvironment(), ruleContext.getBinOrGenfilesDirectory(),
+        ruleContext.getLabel());
+
+    CompilationArtifacts compilationArtifacts = new CompilationArtifacts.Builder()
+        .addSrcs(ruleContext.getPrerequisiteArtifacts("srcs", Mode.TARGET))
+        .addNonArcSrcs(ruleContext.getPrerequisiteArtifacts("non_arc_srcs", Mode.TARGET))
+        .setIntermediateArtifacts(intermediateArtifacts)
+        .setPchFile(Optional.fromNullable(ruleContext.getPrerequisiteArtifact("pch", Mode.TARGET)))
+        .build();
+
     ObjcCommon common = new ObjcCommon.Builder(ruleContext)
         .addAssetCatalogs(ruleContext.getPrerequisiteArtifacts("asset_catalogs", Mode.TARGET))
         .addSdkDylibs(ruleContext.attributes().get("sdk_dylibs", Type.STRING_LIST))
+        .setCompilationArtifacts(compilationArtifacts)
+        .addHdrs(ruleContext.getPrerequisiteArtifacts("hdrs", Mode.TARGET))
         .build();
     common.reportErrors();
 
@@ -45,16 +58,16 @@ public class ObjcLibrary implements RuleConfiguredTargetFactory {
         .build();
 
     XcodeProvider xcodeProvider = common.xcodeProvider(Optional.<Artifact>absent(),
-        ObjcRuleClasses.pchFile(ruleContext),
         ImmutableList.<DependencyControl>of(), ImmutableList.<XcodeprojBuildSetting>of(),
         optionsProvider.getCopts());
     ObjcActionsBuilder.registerAll(
         ruleContext,
         ObjcActionsBuilder.baseActions(
-            ruleContext, common.getObjcProvider(), xcodeProvider, optionsProvider));
+            ruleContext, Optional.of(compilationArtifacts), common.getObjcProvider(), xcodeProvider,
+            optionsProvider));
     return common.configuredTarget(
         NestedSetBuilder.<Artifact>stableOrder()
-            .addAll(ObjcRuleClasses.outputAFile(ruleContext).asSet())
+            .addAll(compilationArtifacts.getArchive().asSet())
             .add(ruleContext.getImplicitOutputArtifact(ObjcRuleClasses.PBXPROJ))
             .build(),
         Optional.of(xcodeProvider));

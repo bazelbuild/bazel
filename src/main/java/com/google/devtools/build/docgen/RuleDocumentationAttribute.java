@@ -32,7 +32,7 @@ import java.util.Set;
  * A class storing a rule attribute documentation along with some meta information.
  * The class provides functionality to compute the ancestry level of this attribute's
  * generator rule definition class compared to other rule definition classes.
- * 
+ *
  * <p>Warning, two RuleDocumentationAttribute objects are equal based on only the attributeName.
  */
 class RuleDocumentationAttribute implements Comparable<RuleDocumentationAttribute> {
@@ -171,8 +171,8 @@ class RuleDocumentationAttribute implements Comparable<RuleDocumentationAttribut
 
   /**
    * Returns the length of a shortest path from usingClass to the definitionClass of this
-   * RuleDocumentationAttribute in the Google3RuleDefinition ancestry graph. Returns -1
-   * if definitionClass is not the ancestor (transitively) of usingClass. 
+   * RuleDocumentationAttribute in the rule definition ancestry graph. Returns -1
+   * if definitionClass is not the ancestor (transitively) of usingClass.
    */
   int getDefinitionClassAncestryLevel(Class<? extends RuleDefinition> usingClass) {
     if (usingClass.equals(definitionClass)) {
@@ -183,7 +183,7 @@ class RuleDocumentationAttribute implements Comparable<RuleDocumentationAttribut
     LinkedList<Class<? extends RuleDefinition>> toVisit = new LinkedList<>();
     visited.put(usingClass, 0);
     toVisit.add(usingClass);
-    // Searching the shortest path from usingClass to this.definitionClass using BFS 
+    // Searching the shortest path from usingClass to this.definitionClass using BFS
     do {
       Class<? extends RuleDefinition> ancestor = toVisit.removeFirst();
       visitAncestor(ancestor, visited, toVisit);

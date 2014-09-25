@@ -72,8 +72,8 @@ import com.google.devtools.build.lib.query2.output.OutputFormatter;
 import com.google.devtools.build.lib.rules.test.TestProvider;
 import com.google.devtools.build.lib.rules.test.TestRunnerAction;
 import com.google.devtools.build.lib.skyframe.LabelAndConfiguration;
+import com.google.devtools.build.lib.skyframe.SequencedSkyframeExecutor;
 import com.google.devtools.build.lib.skyframe.SkyframeBuildView;
-import com.google.devtools.build.lib.skyframe.SkyframeExecutor;
 import com.google.devtools.build.lib.skyframe.TargetCompletionKey;
 import com.google.devtools.build.lib.syntax.Label;
 import com.google.devtools.build.lib.util.LoggingUtil;
@@ -225,7 +225,7 @@ public class BuildView {
 
   private EventHandler reporter;
 
-  private final SkyframeExecutor skyframeExecutor;
+  private final SequencedSkyframeExecutor skyframeExecutor;
   private final SkyframeBuildView skyframeBuildView;
 
   private final PackageManager packageManager;
@@ -296,7 +296,8 @@ public class BuildView {
   }
 
   public BuildView(BlazeDirectories directories, PackageManager packageManager,
-      ConfiguredRuleClassProvider ruleClassProvider, @Nullable SkyframeExecutor skyframeExecutor,
+      ConfiguredRuleClassProvider ruleClassProvider,
+      @Nullable SequencedSkyframeExecutor skyframeExecutor,
       ImmutableList<OutputFormatter> outputFormatters, BinTools binTools,
       WorkspaceStatusAction.Factory workspaceStatusActionFactory) {
     this.workspaceStatusActionFactory = workspaceStatusActionFactory;
@@ -421,7 +422,7 @@ public class BuildView {
    */
   private Multimap<ConfiguredTarget, Artifact> createTargetCompletionMiddlemen(
       Iterable<ConfiguredTarget> targets, TopLevelArtifactContext options,
-      SkyframeExecutor skyframeExecutor) {
+      SequencedSkyframeExecutor skyframeExecutor) {
     if (skyframeExecutor.skyframeBuild()) {
       Preconditions.checkState(lastTargetCompletionMiddlemen.isEmpty());
       skyframeExecutor.injectTopLevelContext(options);

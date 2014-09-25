@@ -24,7 +24,6 @@ import com.google.devtools.build.lib.actions.Artifact;
 import com.google.devtools.build.lib.actions.BaseSpawn;
 import com.google.devtools.build.lib.collect.nestedset.NestedSetBuilder;
 import com.google.devtools.build.lib.packages.Type;
-import com.google.devtools.build.lib.syntax.ClassObject;
 import com.google.devtools.build.lib.syntax.Label;
 import com.google.devtools.build.lib.syntax.SkylarkCallable;
 import com.google.devtools.build.lib.syntax.SkylarkModule;
@@ -42,7 +41,7 @@ import java.util.Map.Entry;
  * e.g. {@link com.google.devtools.build.lib.view.genrule.GenRule}
  */
 @SkylarkModule(name = "CommandHelper", doc = "A helper class to create shell commands.")
-public final class CommandHelper implements ClassObject {
+public final class CommandHelper {
 
   /**
    * Maximum total command-line length, in bytes, not counting "/bin/bash -c ".
@@ -128,15 +127,7 @@ public final class CommandHelper implements ClassObject {
     this.labelMap = labelMapBuilder.build();
   }
 
-  @Override
-  public Object getValue(String name) {
-    if (name.equals("resolved_tools")) {
-      return resolvedTools;
-    } else {
-      return null;
-    }
-  }
-
+  @SkylarkCallable(name = "resolved_tools", doc = "", structField = true)
   public List<Artifact> getResolvedTools() {
     return resolvedTools;
   }

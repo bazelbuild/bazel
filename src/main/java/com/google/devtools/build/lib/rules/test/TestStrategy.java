@@ -20,6 +20,7 @@ import com.google.common.io.Closeables;
 import com.google.devtools.build.lib.actions.ActionExecutionContext;
 import com.google.devtools.build.lib.actions.ExecException;
 import com.google.devtools.build.lib.actions.Executor;
+import com.google.devtools.build.lib.blaze.BlazeServerStartupOptions;
 import com.google.devtools.build.lib.events.Event;
 import com.google.devtools.build.lib.exec.ExecutionOptions;
 import com.google.devtools.build.lib.exec.SymlinkTreeHelper;
@@ -32,7 +33,6 @@ import com.google.devtools.build.lib.vfs.Path;
 import com.google.devtools.build.lib.vfs.PathFragment;
 import com.google.devtools.build.lib.view.config.BinTools;
 import com.google.devtools.build.lib.view.config.BuildConfiguration;
-import com.google.devtools.build.lib.view.test.TestStatus.FailedTestCaseDetails;
 import com.google.devtools.common.options.Converters.RangeConverter;
 import com.google.devtools.common.options.EnumConverter;
 import com.google.devtools.common.options.OptionsClassProvider;
@@ -112,12 +112,17 @@ public abstract class TestStrategy implements TestActionContext {
   // Used for selecting subset of testcase / testmethods.
   private static final String TEST_BRIDGE_TEST_FILTER_ENV = "TESTBRIDGE_TEST_ONLY";
 
+  private final boolean statusServerRunning;
   protected final ExecutionOptions executionOptions;
   protected final BinTools binTools;
 
-  public TestStrategy(OptionsClassProvider options, BinTools binTools) {
-    this.executionOptions = options.getOptions(ExecutionOptions.class);
+  public TestStrategy(OptionsClassProvider requestOptionsProvider,
+      OptionsClassProvider startupOptionsProvider, BinTools binTools) {
+    this.executionOptions = requestOptionsProvider.getOptions(ExecutionOptions.class);
     this.binTools = binTools;
+    BlazeServerStartupOptions startupOptions =
+        startupOptionsProvider.getOptions(BlazeServerStartupOptions.class);
+    statusServerRunning = startupOptions != null && startupOptions.useWebStatusServer > 0;
   }
 
   @Override
@@ -207,7 +212,7 @@ public abstract class TestStrategy implements TestActionContext {
   }
 
   /*
-   * Finalize test run: persist the result, and post on the event bus.  
+   * Finalize test run: persist the result, and post on the event bus.
    */
   protected void postTestResult(Executor executor, TestResult result) throws IOException {
     result.getTestAction().saveCacheStatus(result.getData());
@@ -218,13 +223,13 @@ public abstract class TestStrategy implements TestActionContext {
    * Parse a test result XML file into a FailedTestCaseDetails.
    */
   @Nullable
-  protected FailedTestCaseDetails parseTestResult(Path resultFile) {
+  protected HierarchicalTestResult parseTestResult(Path resultFile) {
     /* xml files. We avoid parsing it unnecessarily, since test results can potentially consume
        a large amount of memory. */
-    if (executionOptions.testSummary != TestSummaryFormat.DETAILED) {
+    if (executionOptions.testSummary != TestSummaryFormat.DETAILED && !statusServerRunning) {
       return null;
     }
-  
+
     try (InputStream fileStream = resultFile.getInputStream()) {
       return new TestXmlOutputParser().parseXmlIntoTestResult(fileStream);
     } catch (IOException | TestXmlOutputParserException e) {

@@ -35,22 +35,23 @@ public class ObjcImport implements RuleConfiguredTargetFactory {
     ObjcCommon common = new ObjcCommon.Builder(ruleContext)
         .addAssetCatalogs(ruleContext.getPrerequisiteArtifacts("asset_catalogs", Mode.TARGET))
         .addSdkDylibs(ruleContext.attributes().get("sdk_dylibs", Type.STRING_LIST))
+        .addHdrs(ruleContext.getPrerequisiteArtifacts("hdrs", Mode.TARGET))
         .build();
     common.reportErrors();
 
     OptionsProvider optionsProvider = OptionsProvider.DEFAULT;
-    XcodeProvider xcodeProvider = common.xcodeProvider(Optional.<Artifact>absent(),
-        ObjcRuleClasses.pchFile(ruleContext),
+    XcodeProvider xcodeProvider = common.xcodeProvider(
+        /*maybeInfoplistFile=*/Optional.<Artifact>absent(),
         ImmutableList.<DependencyControl>of(),
         ImmutableList.<XcodeprojBuildSetting>of(),
         optionsProvider.getCopts());
     ObjcActionsBuilder.registerAll(
         ruleContext,
         ObjcActionsBuilder.baseActions(
-            ruleContext, common.getObjcProvider(), xcodeProvider, optionsProvider));
+            ruleContext, Optional.<CompilationArtifacts>absent(),
+            common.getObjcProvider(), xcodeProvider, optionsProvider));
     return common.configuredTarget(
         NestedSetBuilder.<Artifact>stableOrder()
-            .addAll(ObjcRuleClasses.outputAFile(ruleContext).asSet())
             .add(ruleContext.getImplicitOutputArtifact(ObjcRuleClasses.PBXPROJ))
             .build(),
         Optional.of(xcodeProvider));

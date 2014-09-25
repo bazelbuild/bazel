@@ -68,9 +68,7 @@ public final class IfStatement extends Statement {
     void validate(ValidationEnvironment env) throws EvalException {
       // EvalUtils.toBoolean() evaluates everything so we don't need type check here.
       condition.validate(env);
-      for (Statement stmt : stmts) {
-        stmt.validate(env);
-      }
+      validateStmts(env, stmts);
     }
   }
 
@@ -122,11 +120,19 @@ public final class IfStatement extends Statement {
 
   @Override
   void validate(ValidationEnvironment env) throws EvalException {
+    env.startTemporarilyDisableReadonlyCheckSession();
     for (ConditionalStatements stmts : thenBlocks) {
       stmts.validate(env);
     }
-    for (Statement stmt : elseBlock) {
+    validateStmts(env, elseBlock);
+    env.finishTemporarilyDisableReadonlyCheckSession();
+  }
+
+  private static void validateStmts(ValidationEnvironment env, List<Statement> stmts)
+      throws EvalException {
+    for (Statement stmt : stmts) {
       stmt.validate(env);
     }
+    env.finishTemporarilyDisableReadonlyCheckBranch();
   }
 }

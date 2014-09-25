@@ -17,9 +17,6 @@ package com.google.devtools.build.lib.rules.objc;
 import static com.google.devtools.build.lib.rules.objc.ArtifactListAttribute.ARCHIVES;
 import static com.google.devtools.build.lib.rules.objc.ArtifactListAttribute.BUNDLE_IMPORTS;
 import static com.google.devtools.build.lib.rules.objc.ArtifactListAttribute.DATAMODELS;
-import static com.google.devtools.build.lib.rules.objc.ArtifactListAttribute.HDRS;
-import static com.google.devtools.build.lib.rules.objc.ArtifactListAttribute.NON_ARC_SRCS;
-import static com.google.devtools.build.lib.rules.objc.ArtifactListAttribute.SRCS;
 import static com.google.devtools.build.lib.rules.objc.ObjcProvider.ASSET_CATALOG;
 import static com.google.devtools.build.lib.rules.objc.ObjcProvider.BUNDLE_FILE;
 import static com.google.devtools.build.lib.rules.objc.ObjcProvider.BUNDLE_IMPORT_DIR;
@@ -74,10 +71,9 @@ final class ObjcCommon {
     private Iterable<SdkFramework> extraSdkFrameworks = ImmutableList.of();
     private Iterable<Artifact> frameworkImports = ImmutableList.of();
     private Iterable<String> sdkDylibs = ImmutableList.of();
+    private Iterable<Artifact> hdrs = ImmutableList.of();
+    private Optional<CompilationArtifacts> compilationArtifacts = Optional.absent();
 
-    /**
-     * TODO(bazel-team): Stop giving {@link RuleContext} to ObjcCommon.
-     */
     Builder(RuleContext context) {
       this.context = Preconditions.checkNotNull(context);
     }
@@ -102,25 +98,29 @@ final class ObjcCommon {
       return this;
     }
 
-    ObjcCommon build() {
-      boolean usesCpp = false;
-      for (Artifact sourceFile : Iterables.concat(SRCS.get(context), NON_ARC_SRCS.get(context))) {
-        usesCpp = usesCpp || ObjcRuleClasses.CPP_SOURCES.matches(sourceFile.getExecPath());
-      }
+    Builder addHdrs(Iterable<Artifact> hdrs) {
+      this.hdrs = Iterables.concat(this.hdrs, hdrs);
+      return this;
+    }
 
+    Builder setCompilationArtifacts(CompilationArtifacts compilationArtifacts) {
+      Preconditions.checkState(!this.compilationArtifacts.isPresent(),
+          "compilationArtifacts is already set to: %s", this.compilationArtifacts);
+      this.compilationArtifacts = Optional.of(compilationArtifacts);
+      return this;
+    }
+
+    ObjcCommon build() {
       Iterable<CompiledResourceFile> compiledResources = Iterables.concat(
           CompiledResourceFile.xibFilesFromRule(context),
           CompiledResourceFile.stringsFilesFromRule(context));
       Iterable<BundleableFile> bundleImports = BundleableFile.bundleImportsFromRule(context);
 
-      ObjcProvider objcProvider = new ObjcProvider.Builder()
-          .addAll(FLAG,
-              usesCpp ? ImmutableList.of(USES_CPP) : ImmutableList.<ObjcProvider.Flag>of())
-          .addAll(HEADER, HDRS.get(context))
+      ObjcProvider.Builder objcProvider = new ObjcProvider.Builder()
+          .addAll(HEADER, hdrs)
           .addAll(INCLUDE, headerSearchPaths(context))
           .addAll(XCASSETS_DIR, uniqueContainers(assetCatalogs, ASSET_CATALOG_CONTAINER_TYPE))
           .addAll(ASSET_CATALOG, assetCatalogs)
-          .addAll(LIBRARY, ObjcRuleClasses.outputAFile(context).asSet())
           .addAll(IMPORTED_LIBRARY, ARCHIVES.get(context))
           .addAll(GENERAL_RESOURCE_FILE, BundleableFile.generalResourceArtifactsFromRule(context))
           .addAll(BUNDLE_FILE, BundleableFile.resourceFilesFromRule(context))
@@ -135,10 +135,23 @@ final class ObjcCommon {
           .addAll(XCDATAMODEL, Xcdatamodels.xcdatamodels(context))
           .addAll(FRAMEWORK_FILE, frameworkImports)
           .addAll(FRAMEWORK_DIR, uniqueContainers(frameworkImports, FRAMEWORK_CONTAINER_TYPE))
-          .addTransitive(ObjcRuleClasses.deps(context, ObjcProvider.class))
-          .build();
+          .addTransitive(ObjcRuleClasses.deps(context, ObjcProvider.class));
 
-      return new ObjcCommon(context, objcProvider, assetCatalogs, frameworkImports);
+      for (CompilationArtifacts artifacts : compilationArtifacts.asSet()) {
+        objcProvider.addAll(LIBRARY, artifacts.getArchive().asSet());
+
+        boolean usesCpp = false;
+        for (Artifact sourceFile :
+            Iterables.concat(artifacts.getSrcs(), artifacts.getNonArcSrcs())) {
+          usesCpp = usesCpp || ObjcRuleClasses.CPP_SOURCES.matches(sourceFile.getExecPath());
+        }
+        if (usesCpp) {
+          objcProvider.add(FLAG, USES_CPP);
+        }
+      }
+
+      return new ObjcCommon(context, objcProvider.build(), assetCatalogs, frameworkImports, hdrs,
+          compilationArtifacts);
     }
   }
 
@@ -158,17 +171,30 @@ final class ObjcCommon {
   private final ObjcProvider objcProvider;
   private final Iterable<Artifact> assetCatalogs;
   private final Iterable<Artifact> frameworkImports;
+  private final Iterable<Artifact> hdrs;
+  private final Optional<CompilationArtifacts> compilationArtifacts;
 
   private ObjcCommon(RuleContext context, ObjcProvider objcProvider,
-      Iterable<Artifact> assetCatalogs, Iterable<Artifact> frameworkImports) {
+      Iterable<Artifact> assetCatalogs, Iterable<Artifact> frameworkImports,
+      Iterable<Artifact> hdrs, Optional<CompilationArtifacts> compilationArtifacts) {
     this.context = Preconditions.checkNotNull(context);
     this.objcProvider = Preconditions.checkNotNull(objcProvider);
     this.assetCatalogs = Preconditions.checkNotNull(assetCatalogs);
     this.frameworkImports = Preconditions.checkNotNull(frameworkImports);
+    this.hdrs = Preconditions.checkNotNull(hdrs);
+    this.compilationArtifacts = Preconditions.checkNotNull(compilationArtifacts);
   }
 
   public ObjcProvider getObjcProvider() {
     return objcProvider;
+  }
+
+  public Iterable<Artifact> getHdrs() {
+    return hdrs;
+  }
+
+  public Optional<CompilationArtifacts> getCompilationArtifacts() {
+    return compilationArtifacts;
   }
 
   /**
@@ -221,7 +247,6 @@ final class ObjcCommon {
    */
   public XcodeProvider xcodeProvider(
       Optional<Artifact> maybeInfoplistFile,
-      Optional<Artifact> maybePchFile,
       Iterable<DependencyControl> xcodeDependencies,
       Iterable<XcodeprojBuildSetting> xcodeprojBuildSettings,
       Iterable<String> copts) {
@@ -236,10 +261,7 @@ final class ObjcCommon {
             PathFragment.safePathStrings(userHeaderSearchPaths(context.getConfiguration())))
         .addAllHeaderSearchPath(
             PathFragment.safePathStrings(objcProvider.get(INCLUDE)))
-        .addAllHeaderFile(Artifact.toExecPaths(HDRS.get(context)))
-        .addAllHeaderFile(Artifact.toExecPaths(maybePchFile.asSet()))
-        .addAllSourceFile(Artifact.toExecPaths(SRCS.get(context)))
-        .addAllNonArcSourceFile(Artifact.toExecPaths(NON_ARC_SRCS.get(context)))
+        .addAllHeaderFile(Artifact.toExecPaths(hdrs))
         // TODO(bazel-team): Add all build settings information once Xcodegen supports it.
         .addAllCopt(copts)
         .addAllBuildSetting(xcodeprojBuildSettings)
@@ -254,11 +276,20 @@ final class ObjcCommon {
     for (Artifact infoplistFile : maybeInfoplistFile.asSet()) {
       targetControl.setInfoplist(infoplistFile.getExecPathString());
     }
-    for (Artifact pchFile : maybePchFile.asSet()) {
-      targetControl.addBuildSetting(XcodeprojBuildSetting.newBuilder()
-          .setName("GCC_PREFIX_HEADER")
-          .setValue(pchFile.getExecPathString())
-          .build());
+
+    for (CompilationArtifacts artifacts : compilationArtifacts.asSet()) {
+      targetControl
+          .addAllSourceFile(Artifact.toExecPaths(artifacts.getSrcs()))
+          .addAllNonArcSourceFile(Artifact.toExecPaths(artifacts.getNonArcSrcs()));
+
+      for (Artifact pchFile : artifacts.getPchFile().asSet()) {
+        targetControl
+            .addBuildSetting(XcodeprojBuildSetting.newBuilder()
+                .setName("GCC_PREFIX_HEADER")
+                .setValue(pchFile.getExecPathString())
+                .build())
+            .addHeaderFile(pchFile.getExecPathString());
+      }
     }
     return xcodeProvider(targetControl.build());
   }
@@ -369,6 +400,22 @@ final class ObjcCommon {
     return errors;
   }
 
+  private NestedSet<Artifact> inputsToLegacyRules() {
+    NestedSetBuilder<Artifact> inputs = NestedSetBuilder.<Artifact>stableOrder()
+        .addAll(hdrs)
+        .addAll(ARCHIVES.get(context))
+        .addAll(BundleableFile.generalResourceArtifactsFromRule(context));
+
+    for (CompilationArtifacts artifacts : compilationArtifacts.asSet()) {
+      inputs
+          .addAll(artifacts.getNonArcSrcs())
+          .addAll(artifacts.getSrcs())
+          .addAll(artifacts.getPchFile().asSet());
+    }
+
+    return inputs.build();
+  }
+
   /**
    * @param filesToBuild files to build for this target. These also become the data runfiles.
    * @param maybeTargetProvider the {@code XcodeTargetProvider} for this target
@@ -380,13 +427,6 @@ final class ObjcCommon {
             .addRunfiles(context, RunfilesProvider.DEFAULT_RUNFILES)
             .build(),
         new Runfiles.Builder().addArtifacts(filesToBuild).build());
-    NestedSet<Artifact> inputsToLegacyRules = NestedSetBuilder.<Artifact>stableOrder()
-        .addAll(NON_ARC_SRCS.get(context))
-        .addAll(SRCS.get(context))
-        .addAll(HDRS.get(context))
-        .addAll(ARCHIVES.get(context))
-        .addAll(BundleableFile.generalResourceArtifactsFromRule(context))
-        .build();
 
     RuleConfiguredTargetBuilder target = new RuleConfiguredTargetBuilder(context)
         .setFilesToBuild(filesToBuild)
@@ -394,7 +434,7 @@ final class ObjcCommon {
         .addProvider(ObjcProvider.class, objcProvider)
         // TODO(bazel-team): Remove this when legacy dependencies have been removed.
         .addProvider(LegacyObjcSourceFileProvider.class,
-            new LegacyObjcSourceFileProvider(inputsToLegacyRules));
+            new LegacyObjcSourceFileProvider(inputsToLegacyRules()));
     for (XcodeProvider targetProvider : maybeTargetProvider.asSet()) {
       target.addProvider(XcodeProvider.class, targetProvider);
     }

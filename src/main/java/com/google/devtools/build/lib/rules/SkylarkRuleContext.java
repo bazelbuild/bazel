@@ -22,6 +22,7 @@ import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.ImmutableSet;
 import com.google.common.collect.Iterables;
+import com.google.devtools.build.lib.actions.ActionOwner;
 import com.google.devtools.build.lib.actions.Artifact;
 import com.google.devtools.build.lib.actions.Root;
 import com.google.devtools.build.lib.collect.nestedset.NestedSet;
@@ -34,7 +35,7 @@ import com.google.devtools.build.lib.packages.RawAttributeMapper;
 import com.google.devtools.build.lib.packages.Type;
 import com.google.devtools.build.lib.shell.ShellUtils;
 import com.google.devtools.build.lib.shell.ShellUtils.TokenizationException;
-import com.google.devtools.build.lib.syntax.ClassObject;
+import com.google.devtools.build.lib.syntax.ClassObject.SkylarkClassObject;
 import com.google.devtools.build.lib.syntax.Environment;
 import com.google.devtools.build.lib.syntax.EvalException;
 import com.google.devtools.build.lib.syntax.FuncallExpression.FuncallException;
@@ -46,7 +47,6 @@ import com.google.devtools.build.lib.util.FileTypeSet;
 import com.google.devtools.build.lib.vfs.PathFragment;
 import com.google.devtools.build.lib.view.AnalysisUtils;
 import com.google.devtools.build.lib.view.ConfigurationMakeVariableContext;
-import com.google.devtools.build.lib.view.FilesToRunProvider;
 import com.google.devtools.build.lib.view.LabelExpander;
 import com.google.devtools.build.lib.view.LabelExpander.NotUniqueExpansionException;
 import com.google.devtools.build.lib.view.MakeVariableExpander.ExpansionException;
@@ -54,9 +54,11 @@ import com.google.devtools.build.lib.view.RuleConfiguredTarget.Mode;
 import com.google.devtools.build.lib.view.RuleContext;
 import com.google.devtools.build.lib.view.TransitiveInfoCollection;
 import com.google.devtools.build.lib.view.TransitiveInfoProvider;
+import com.google.devtools.build.lib.view.config.BuildConfiguration;
 
 import java.util.ArrayList;
 import java.util.Collection;
+import java.util.HashMap;
 import java.util.LinkedList;
 import java.util.List;
 import java.util.Map;
@@ -69,7 +71,7 @@ import javax.annotation.Nullable;
  * A Skylark API for the ruleContext.
  */
 @SkylarkModule(name = "ctx", doc = "The Skylark rule context.")
-public final class SkylarkRuleContext implements ClassObject {
+public final class SkylarkRuleContext {
 
   public static final String PROVIDER_CLASS_PREFIX = "com.google.devtools.build.lib.view.";
 
@@ -88,10 +90,11 @@ public final class SkylarkRuleContext implements ClassObject {
   private final RuleContext ruleContext;
 
   // TODO(bazel-team): support configurable attributes.
-  private final ClassObject attrObject;
+  private final SkylarkClassObject attrObject;
 
-  private final ImmutableMap<String, Artifact> implicitOutputs;
+  private final SkylarkClassObject outputsObject;
 
+  // TODO(bazel-team): we only need this because of the css_binary rule.
   private final ImmutableMap<String, ImmutableMap<Label, Artifact>> explicitOutputs;
 
   /**
@@ -107,32 +110,56 @@ public final class SkylarkRuleContext implements ClassObject {
     }
     attrObject = new SkylarkClassObject(builder.build());
 
+    HashMap<String, Object> outputsBuilder = new HashMap<>();
+    if (ruleContext.getRule().getRuleClassObject().outputsDefaultExecutable()) {
+      addOutput(outputsBuilder, "executable", ruleContext.createOutputArtifact());
+    }
     ImplicitOutputsFunction implicitOutputsFunction =
         ruleContext.getRule().getRuleClassObject().getImplicitOutputsFunction();
-    ImmutableMap.Builder<String, Artifact> implicitOutputsBuilder = ImmutableMap.builder();
+
     if (implicitOutputsFunction instanceof SkylarkImplicitOutputsFunction) {
       SkylarkImplicitOutputsFunction func = (SkylarkImplicitOutputsFunction)
           ruleContext.getRule().getRuleClassObject().getImplicitOutputsFunction();
       for (Map.Entry<String, String> entry : func.calculateOutputs(
           RawAttributeMapper.of(ruleContext.getRule())).entrySet()) {
-        implicitOutputsBuilder.put(
-            entry.getKey(), ruleContext.getImplicitOutputArtifact(entry.getValue()));
+        addOutput(outputsBuilder, entry.getKey(),
+            ruleContext.getImplicitOutputArtifact(entry.getValue()));
       }
     }
-    implicitOutputs = implicitOutputsBuilder.build();
 
     ImmutableMap.Builder<String, ImmutableMap<Label, Artifact>> explicitOutputsBuilder =
         ImmutableMap.builder();
     for (Map.Entry<String, Collection<OutputFile>> entry
         : ruleContext.getRule().getOutputFileMap().asMap().entrySet()) {
+      String attrName = entry.getKey();
       ImmutableMap.Builder<Label, Artifact> labelArtifactBuilder = ImmutableMap.builder();
       for (OutputFile outputFile : entry.getValue()) {
         Artifact artifact = ruleContext.createOutputArtifact(outputFile);
         labelArtifactBuilder.put(outputFile.getLabel(), artifact);
       }
-      explicitOutputsBuilder.put(entry.getKey(), labelArtifactBuilder.build());
+      ImmutableMap<Label, Artifact> labelArtifact = labelArtifactBuilder.build();
+      explicitOutputsBuilder.put(attrName, labelArtifact);
+
+      Type<?> attrType = ruleContext.attributes().getAttributeDefinition(attrName).getType();
+      if (attrType == Type.OUTPUT) {
+        addOutput(outputsBuilder, attrName, Iterables.getOnlyElement(labelArtifact.values()));
+      } else if (attrType == Type.OUTPUT_LIST) {
+        addOutput(outputsBuilder, attrName, ImmutableList.copyOf(labelArtifact.values()));
+      } else {
+        throw new IllegalArgumentException(
+            "Type of " + attrName + "(" + attrType + ") is not output type ");
+      }
     }
     explicitOutputs = explicitOutputsBuilder.build();
+    outputsObject = new SkylarkClassObject(outputsBuilder);
+  }
+
+  private void addOutput(HashMap<String, Object> outputsBuilder, String key, Object value)
+      throws EvalException {
+    if (outputsBuilder.containsKey(key)) {
+      throw new EvalException(null, "Multiple outputs with the same key: " + key);
+    }
+    outputsBuilder.put(key, value);
   }
 
   /**
@@ -201,9 +228,8 @@ public final class SkylarkRuleContext implements ClassObject {
   /**
    * See {@link RuleContext#getPrerequisiteArtifact(String, Mode)}.
    */
-  @SkylarkCallable(doc =
-      "Returns the file for the specified attribute and mode. "
-      + "An error is raised if the attribute refers to 0 or multiple files.")
+  @SkylarkCallable(allowReturnNones = true, doc =
+      "Returns the file for the specified attribute and mode if exists. ")
   public Artifact file(String attributeName, String mode) throws FuncallException {
     return ruleContext.getPrerequisiteArtifact(attributeName, convertMode(mode));
   }
@@ -212,9 +238,9 @@ public final class SkylarkRuleContext implements ClassObject {
    * <p>See {@link RuleContext#getExecutablePrerequisite(String, Mode)}.
    */
   @SkylarkCallable(doc = "")
-  public FilesToRunProvider executable(String attributeName, String mode)
+  public Artifact executable(String attributeName, String mode)
       throws FuncallException {
-    return ruleContext.getExecutablePrerequisite(attributeName, convertMode(mode));
+    return ruleContext.getExecutablePrerequisite(attributeName, convertMode(mode)).getExecutable();
   }
 
   private Mode convertMode(String mode) throws FuncallException {
@@ -234,28 +260,40 @@ public final class SkylarkRuleContext implements ClassObject {
     + "the \"compiler\" attribute is not set to the default value.<br> "
     + "If argument is true, print a warning if the value for the \"compiler\" attribute "
     + "is set to something other than the default")
-  public FilesToRunProvider compiler(Boolean warnIfNotDefault) {
-    return ruleContext.getCompiler(warnIfNotDefault);
+  public Artifact compiler(Boolean warnIfNotDefault) {
+    return ruleContext.getCompiler(warnIfNotDefault).getExecutable();
   }
 
-  @Override
-  public Object getValue(String name) {
-    if (name.equals("attr")) {
-      return attrObject;
-    } else if (name.equals("label")) {
-      return ruleContext.getLabel();
-    } else if (name.equals("action_owner")) {
-      return ruleContext.getActionOwner();
-    } else if (name.equals("outputs")) {
-      return implicitOutputs;
-    } else if (name.equals("configuration")) {
-      return ruleContext.getConfiguration();
-    } else if (name.equals("host_configuration")) {
-      return ruleContext.getHostConfiguration();
-    } else if (name.equals("data_configuration")) {
-      return ruleContext.getConfiguration().getConfiguration(ConfigurationTransition.DATA);
-    }
-    return null;
+  @SkylarkCallable(name = "attr", structField = true,
+      doc = "a struct to access the values of the attributes. The values are provided by "
+      + "the user (if not, a default value is used).")
+  public SkylarkClassObject getAttr() {
+    return attrObject;
+  }
+
+  @SkylarkCallable(name = "action_owner", structField = true, doc = "deprecated, to be removed")
+  public ActionOwner getActionOwner() {
+    return ruleContext.getActionOwner();
+  }
+
+  @SkylarkCallable(name = "label", structField = true, doc = "the label of this rule")
+  public Label getLabel() {
+    return ruleContext.getLabel();
+  }
+
+  @SkylarkCallable(name = "configuration", structField = true, doc = "")
+  public BuildConfiguration getConfiguration() {
+    return ruleContext.getConfiguration();
+  }
+
+  @SkylarkCallable(name = "host_configuration", structField = true, doc = "")
+  public BuildConfiguration getHostConfiguration() {
+    return ruleContext.getHostConfiguration();
+  }
+
+  @SkylarkCallable(name = "data_configuration", structField = true, doc = "")
+  public BuildConfiguration getDataConfiguration() {
+    return ruleContext.getConfiguration().getConfiguration(ConfigurationTransition.DATA);
   }
 
   @SkylarkCallable(doc =
@@ -280,9 +318,9 @@ public final class SkylarkRuleContext implements ClassObject {
     ruleContext.attributeWarning(attrName, message);
   }
 
-  @SkylarkCallable(doc = "Returns the implicit output map.")
-  public ImmutableMap<String, Artifact> outputs() {
-    return implicitOutputs;
+  @SkylarkCallable(doc = "a struct containing all the outputs", structField = true)
+  public SkylarkClassObject outputs() {
+    return outputsObject;
   }
 
   @SkylarkCallable(

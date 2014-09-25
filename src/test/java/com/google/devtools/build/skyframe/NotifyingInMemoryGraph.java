@@ -90,7 +90,7 @@ public class NotifyingInMemoryGraph extends InMemoryGraph {
     }
 
     @Override
-    boolean signalDep(long childVersion) {
+    boolean signalDep(Version childVersion) {
       graphListener.accept(myKey, EventType.SIGNAL, Order.BEFORE, childVersion);
       boolean result = super.signalDep(childVersion);
       graphListener.accept(myKey, EventType.SIGNAL, Order.AFTER, childVersion);
@@ -98,7 +98,7 @@ public class NotifyingInMemoryGraph extends InMemoryGraph {
     }
 
     @Override
-    Set<SkyKey> setValue(SkyValue value, long version) {
+    Set<SkyKey> setValue(SkyValue value, Version version) {
       graphListener.accept(myKey, EventType.SET_VALUE, Order.BEFORE, value);
       return super.setValue(value, version);
     }

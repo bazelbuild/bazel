@@ -23,8 +23,9 @@ import com.google.common.collect.ImmutableList;
 import com.google.common.collect.Iterables;
 import com.google.devtools.build.lib.actions.Action.MiddlemanType;
 import com.google.devtools.build.lib.concurrent.ThreadSafety.Immutable;
-import com.google.devtools.build.lib.syntax.ClassObject;
 import com.google.devtools.build.lib.syntax.Label;
+import com.google.devtools.build.lib.syntax.SkylarkCallable;
+import com.google.devtools.build.lib.syntax.SkylarkModule;
 import com.google.devtools.build.lib.util.FileType;
 import com.google.devtools.build.lib.vfs.Path;
 import com.google.devtools.build.lib.vfs.PathFragment;
@@ -63,8 +64,8 @@ import javax.annotation.Nullable;
  * {@link SpecialArtifact}.
  */
 @Immutable
-public class Artifact implements FileType.HasFilename, Comparable<Artifact>, ActionInput,
-                      ClassObject {
+@SkylarkModule(name = "file", doc = "")
+public class Artifact implements FileType.HasFilename, Comparable<Artifact>, ActionInput {
 
   /** An object that can expand middleman artifacts. */
   public interface MiddlemanExpander {
@@ -338,8 +339,16 @@ public class Artifact implements FileType.HasFilename, Comparable<Artifact>, Act
    * Returns this.getExecPath().getPathString().
    */
   @Override
+  @SkylarkCallable(name = "path", structField = true,
+      doc = "the execution path of this file, relative to the execution directory")
   public final String getExecPathString() {
     return getExecPath().getPathString();
+  }
+
+  @SkylarkCallable(name = "short_path", structField = true,
+      doc = "the path of this file relative to its root")
+  public final String getRootRelativePathString() {
+    return getRootRelativePath().getPathString();
   }
 
   /**
@@ -654,16 +663,6 @@ public class Artifact implements FileType.HasFilename, Comparable<Artifact>, Act
       PathFragment rootPrefix = trimTail(execPath, rootRel);
       return rootPrefix.getPathString() + ":" + rootRel.getPathString();
     }
-  }
-
-  @Override
-  public Object getValue(String name) {
-    if (name.equals("path")) {
-      return this.getExecPathString();
-    } else if (name.equals("short_path")) {
-      return this.getRootRelativePath().getPathString();
-    }
-    return null;
   }
 
   /**

@@ -30,6 +30,7 @@ import com.google.devtools.build.lib.util.BinaryPredicate;
 import com.google.devtools.build.lib.util.Pair;
 import com.google.devtools.common.options.EnumConverter;
 
+import java.io.IOException;
 import java.io.PrintStream;
 import java.util.ArrayList;
 import java.util.Collections;
@@ -132,7 +133,8 @@ public abstract class OutputFormatter {
    * Format the result (a set of target nodes implicitly ordered according to
    * the graph maintained by the QueryEnvironment), and print it to "out".
    */
-  public abstract void output(QueryOptions options, Digraph<Target> result, PrintStream out);
+  public abstract void output(QueryOptions options, Digraph<Target> result, PrintStream out)
+      throws IOException;
 
   /**
    * Returns the user-visible name of the output formatter.

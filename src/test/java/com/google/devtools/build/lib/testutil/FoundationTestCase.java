@@ -70,9 +70,8 @@ public abstract class FoundationTestCase extends ChattyAssertsTestCase {
   @Override
   protected void setUp() throws Exception {
     super.setUp();
-    scratchDir("/home/jrluser/src-foo/google3");
     outputBase = scratchDir("/usr/local/google/_blaze_jrluser/FAKEMD5/");
-    rootDirectory = scratchDir("/google3");
+    rootDirectory = scratchDir("/" + TestConstants.TEST_WORKSPACE_DIRECTORY);
     copySkylarkFilesIfExist();
     actionOutputBase = scratchDir("/usr/local/google/_blaze_jrluser/FAKEMD5/action_out/");
     eventCollector = new EventCollector(EventKind.ERRORS_AND_WARNINGS);
@@ -87,11 +86,11 @@ public abstract class FoundationTestCase extends ChattyAssertsTestCase {
         File file = new File("devtools/blaze/rules/staging/" + fileName);
         if (file.isFile() && fileName.endsWith(".bzl")) {
           String context = loadFile(file);
-          String path = "/google3/devtools/blaze/rules/" + fileName;
-          if (scratchFS().getPath(path).exists()) {
-            overwriteScratchFile(path, context);
+          Path path = rootDirectory.getRelative("devtools/blaze/rules/" + fileName);
+          if (path.exists()) {
+            overwriteScratchFile(path.getPathString(), context);
           } else {
-            scratchFile(path, context);
+            scratchFile(path.getPathString(), context);
           }
         }
       }

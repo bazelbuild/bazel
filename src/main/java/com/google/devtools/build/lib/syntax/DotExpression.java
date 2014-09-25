@@ -13,6 +13,13 @@
 // limitations under the License.
 package com.google.devtools.build.lib.syntax;
 
+import com.google.common.collect.Iterables;
+import com.google.devtools.build.lib.syntax.FuncallExpression.MethodDescriptor;
+
+import java.lang.reflect.InvocationTargetException;
+import java.util.List;
+import java.util.concurrent.ExecutionException;
+
 /**
  * Syntax node for a dot expression.
  * e.g.  obj.field, but not obj.method()
@@ -44,18 +51,31 @@ public final class DotExpression extends Expression {
   @Override
   Object eval(Environment env) throws EvalException, InterruptedException {
     Object objValue = obj.eval(env);
+    String name = field.getName();
+    Object result = null;
     if (objValue instanceof ClassObject) {
-      Object result = ((ClassObject) objValue).getValue(field.getName());
-      if (result == null) {
-        // TODO(bazel-team): Throw an exception?
-        return Environment.NONE;
+      result = ((ClassObject) objValue).getValue(name);
+    } else {
+      try {
+        List<MethodDescriptor> methods = FuncallExpression.getMethods(objValue.getClass(), name, 0);
+        if (methods != null && methods.size() > 0) {
+          MethodDescriptor method = Iterables.getOnlyElement(methods);
+          if (method.getAnnotation().structField()) {
+            result = FuncallExpression.callMethod(
+                method, name, objValue, new Object[] {}, getLocation());
+          }
+        }
+      } catch (ExecutionException | IllegalAccessException | InvocationTargetException e) {
+        throw new EvalException(getLocation(), "Method invocation failed: " + e);
       }
-      return result;
     }
 
-    throw new EvalException(getLocation(), "Object of type '"
-        + EvalUtils.getDatatypeName(objValue) + "' has no field '" + field + "'");
- }
+    if (result == null) {
+      throw new EvalException(getLocation(), "Object of type '"
+          + EvalUtils.getDatatypeName(objValue) + "' has no field '" + field + "'");
+    }
+    return result;
+  }
 
   @Override
   public void accept(SyntaxTreeVisitor visitor) {

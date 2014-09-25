@@ -33,9 +33,9 @@ import com.google.devtools.build.lib.skyframe.ActionExecutionInactivityWatchdog;
 import com.google.devtools.build.lib.skyframe.ActionExecutionValue;
 import com.google.devtools.build.lib.skyframe.ArtifactValue;
 import com.google.devtools.build.lib.skyframe.ArtifactValue.OwnedArtifact;
+import com.google.devtools.build.lib.skyframe.SequencedSkyframeExecutor;
 import com.google.devtools.build.lib.skyframe.SkyFunctions;
 import com.google.devtools.build.lib.skyframe.SkyframeActionExecutor;
-import com.google.devtools.build.lib.skyframe.SkyframeExecutor;
 import com.google.devtools.build.lib.util.AbruptExitException;
 import com.google.devtools.build.lib.util.BlazeClock;
 import com.google.devtools.build.lib.vfs.ModifiedFileSet;
@@ -48,7 +48,6 @@ import com.google.devtools.build.skyframe.SkyKey;
 import com.google.devtools.build.skyframe.SkyValue;
 
 import java.text.NumberFormat;
-
 import java.util.Collections;
 import java.util.Locale;
 import java.util.Map;
@@ -60,7 +59,7 @@ import java.util.concurrent.atomic.AtomicBoolean;
  */
 class SkyframeBuilder implements Builder {
 
-  private final SkyframeExecutor skyframeExecutor;
+  private final SequencedSkyframeExecutor skyframeExecutor;
   private final boolean keepGoing;
   private final boolean explain;
   private final int numJobs;
@@ -69,7 +68,7 @@ class SkyframeBuilder implements Builder {
   private final ActionCacheChecker actionCacheChecker;
   private final int progressReportInterval;
 
-  SkyframeBuilder(SkyframeExecutor skyframeExecutor, ActionCacheChecker actionCacheChecker,
+  SkyframeBuilder(SequencedSkyframeExecutor skyframeExecutor, ActionCacheChecker actionCacheChecker,
       boolean keepGoing, boolean explain, int numJobs, boolean checkOutputFiles,
       ActionInputFileCache fileCache, int progressReportInterval) {
     this.skyframeExecutor = skyframeExecutor;
@@ -94,7 +93,7 @@ class SkyframeBuilder implements Builder {
     // Note that executionProgressReceiver accesses builtArtifacts concurrently (after wrapping in a
     // synchronized collection), so unsynchronized access to this variable is unsafe while it runs.
     ExecutionProgressReceiver executionProgressReceiver =
-        new ExecutionProgressReceiver(artifacts, builtArtifacts);
+        new ExecutionProgressReceiver(artifacts, builtArtifacts, exclusiveTestArtifacts.size());
     ResourceManager.instance().setEventBus(skyframeExecutor.getEventBus());
 
     boolean success = false;
@@ -113,7 +112,7 @@ class SkyframeBuilder implements Builder {
         executionProgressReceiver, statusReporter);
     watchdog.start();
 
-    // TODO(bazel-team): Put this call inside SkyframeExecutor#handleDiffs() when legacy
+    // TODO(bazel-team): Put this call inside SequencedSkyframeExecutor#handleDiffs() when legacy
     // codepath is no longer used. [skyframe-execution]
     skyframeExecutor.informAboutNumberOfModifiedFiles();
     try {
@@ -152,7 +151,7 @@ class SkyframeBuilder implements Builder {
    * Throws on fail-fast failures.
    */
   private static boolean processResult(EvaluationResult<?> result, boolean keepGoing,
-      SkyframeExecutor skyframeExecutor) throws BuildFailedException, TestExecException {
+      SequencedSkyframeExecutor skyframeExecutor) throws BuildFailedException, TestExecException {
     if (result.hasError()) {
       boolean hasCycles = false;
       for (Map.Entry<SkyKey, ErrorInfo> entry : result.errorMap().entrySet()) {
@@ -194,6 +193,8 @@ class SkyframeBuilder implements Builder {
     private final Set<SkyKey> enqueuedActions = Sets.newConcurrentHashSet();
     private final Set<Action> completedActions = Sets.newConcurrentHashSet();
     private final Object activityIndicator = new Object();
+    /** Number of exclusive tests. To be accounted for in progress messages. */ 
+    private final int exclusiveTestsCount;
 
     static {
       PROGRESS_MESSAGE_NUMBER_FORMATTER = NumberFormat.getIntegerInstance(Locale.ENGLISH);
@@ -204,9 +205,11 @@ class SkyframeBuilder implements Builder {
      * {@code builtArtifacts} is accessed through a synchronized set, and so no other access to it
      * is permitted while this receiver is active.
      */
-    ExecutionProgressReceiver(Set<Artifact> artifacts, Set<Artifact> builtArtifacts) {
+    ExecutionProgressReceiver(Set<Artifact> artifacts, Set<Artifact> builtArtifacts,
+        int exclusiveTestsCount) {
       this.artifacts = ImmutableSet.copyOf(artifacts);
       this.builtArtifacts = Collections.synchronizedSet(builtArtifacts);
+      this.exclusiveTestsCount = exclusiveTestsCount;
     }
 
     @Override
@@ -292,7 +295,7 @@ class SkyframeBuilder implements Builder {
     public String getProgressString() {
       return String.format("[%s / %s]",
           PROGRESS_MESSAGE_NUMBER_FORMATTER.format(completedActions.size()),
-          PROGRESS_MESSAGE_NUMBER_FORMATTER.format(enqueuedActions.size()));
+          PROGRESS_MESSAGE_NUMBER_FORMATTER.format(exclusiveTestsCount + enqueuedActions.size()));
     }
 
     ActionExecutionInactivityWatchdog.InactivityMonitor createInactivityMonitor(

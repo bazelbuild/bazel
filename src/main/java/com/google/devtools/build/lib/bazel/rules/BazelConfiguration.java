@@ -15,7 +15,6 @@
 package com.google.devtools.build.lib.bazel.rules;
 
 import com.google.common.collect.ImmutableMap;
-import com.google.devtools.build.lib.blaze.BlazeDirectories;
 import com.google.devtools.build.lib.vfs.PathFragment;
 import com.google.devtools.build.lib.view.config.BuildConfiguration.Fragment;
 import com.google.devtools.build.lib.view.config.BuildOptions;
@@ -32,8 +31,7 @@ public class BazelConfiguration extends Fragment {
    */
   public static class Loader implements ConfigurationFragmentFactory {
     @Override
-    public Fragment create(ConfigurationEnvironment env, BlazeDirectories directories,
-        BuildOptions buildOptions)
+    public Fragment create(ConfigurationEnvironment env, BuildOptions buildOptions)
         throws InvalidConfigurationException {
       return new BazelConfiguration();
     }

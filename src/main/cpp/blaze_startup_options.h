@@ -166,6 +166,9 @@ class BlazeStartupOptions {
   // Returns the basename for the rc file.
   static string RcBasename();
 
+  // Returns the search paths for the RC file in the workspace.
+  static void WorkspaceRcFileSearchPath(std::vector<string>* candidates);
+
   // Returns the GetHostJavabase. This should be called after parsing
   // the --host_javabase option.
   string GetHostJavabase();

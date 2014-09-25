@@ -15,6 +15,7 @@
 package com.google.devtools.build.lib.testutil;
 
 import com.google.common.base.Joiner;
+import com.google.common.base.Preconditions;
 import com.google.devtools.build.lib.blaze.BlazeDirectories;
 import com.google.devtools.build.lib.util.SkyframeMode;
 import com.google.devtools.build.lib.vfs.FileSystemUtils;
@@ -29,7 +30,7 @@ import java.util.List;
 
 /**
  * Some static utility functions for testing Blaze code. In contrast to {@link TestUtils}, these
- * functions are either Blaze- or google3-specific.
+ * functions are Blaze-specific.
  */
 public class BlazeTestUtils {
   private BlazeTestUtils() {}
@@ -109,36 +110,10 @@ public class BlazeTestUtils {
     return TestUtils.tmpDirFile();
   }
 
-  public static String srcDir() {
-    return runfilesDir();
-  }
-
   public static String runfilesDir() {
-    File runfilesDir;
-
     String runfilesDirStr = TestUtils.getUserValue("TEST_SRCDIR");
-    if (runfilesDirStr != null && runfilesDirStr.length() > 0) {
-      runfilesDir = new File(runfilesDirStr);
-    } else {
-      // Goal is to find the google3 directory, so we check current
-      // directory, then keep backing up until we see google3.
-      File dir = new File("");
-      while (dir != null) {
-        dir = dir.getAbsoluteFile();
-
-        File google3 = new File(dir, "google3");
-        if (google3.exists()) {
-          return dir.getAbsolutePath();
-        }
-
-        dir = dir.getParentFile();
-      }
-
-      // Fallback default $CWD/.. works if CWD is //depot/google3
-      runfilesDir = new File("").getAbsoluteFile().getParentFile();
-    }
-
-    return runfilesDir.getAbsolutePath();
+    Preconditions.checkState(runfilesDirStr != null && runfilesDirStr.length() > 0);
+    return new File(runfilesDirStr).getAbsolutePath();
   }
 
   /** Creates an empty file, along with all its parent directories. */

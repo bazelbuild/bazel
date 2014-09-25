@@ -115,13 +115,13 @@ public final class InMemoryMemoizingEvaluator implements MemoizingEvaluator {
   @Override
   public void deleteDirty(long versionAgeLimit) {
     Preconditions.checkArgument(versionAgeLimit >= 0);
-    final long threshold = lastGraphVersion.getVal() - versionAgeLimit;
+    final Version threshold = new IntVersion(lastGraphVersion.getVal() - versionAgeLimit);
 
     valuesToDelete.addAll(
         Maps.filterEntries(graph.getAllValues(), new Predicate<Entry<SkyKey, NodeEntry>>() {
           @Override
           public boolean apply(Entry<SkyKey, NodeEntry> input) {
-            return input.getValue().isDirty() && input.getValue().getVersion() <= threshold;
+            return input.getValue().isDirty() && input.getValue().getVersion().atMost(threshold);
           }
         }).keySet());
   }
@@ -151,7 +151,7 @@ public final class InMemoryMemoizingEvaluator implements MemoizingEvaluator {
       performInvalidation(progressReceiver);
       injectValues(intVersion);
 
-      ParallelEvaluator evaluator = new ParallelEvaluator(graph, intVersion.getVal(),
+      ParallelEvaluator evaluator = new ParallelEvaluator(graph, intVersion,
           skyFunctions, eventHandler, emittedEventState, keepGoing, numThreads, progressReceiver);
       return evaluator.eval(roots);
     } finally {
@@ -210,7 +210,7 @@ public final class InMemoryMemoizingEvaluator implements MemoizingEvaluator {
         Preconditions.checkState(prevEntry.noDepsLastBuild(),
             "existing entry for %s has deps: %s", key, prevEntry);
       }
-      prevEntry.setValue(entry.getValue(), version.getVal());
+      prevEntry.setValue(entry.getValue(), version);
     }
     // Start with a new map to avoid bloat since clear() does not downsize the map.
     valuesToInject = new HashMap<>();

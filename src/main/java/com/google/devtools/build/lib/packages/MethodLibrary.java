@@ -14,6 +14,8 @@
 
 package com.google.devtools.build.lib.packages;
 
+import static com.google.devtools.build.lib.syntax.SkylarkFunction.cast;
+
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.Iterables;
@@ -26,6 +28,7 @@ import com.google.devtools.build.lib.syntax.Environment;
 import com.google.devtools.build.lib.syntax.EvalException;
 import com.google.devtools.build.lib.syntax.EvalUtils;
 import com.google.devtools.build.lib.syntax.FuncallExpression;
+import com.google.devtools.build.lib.syntax.FuncallExpression.MethodDescriptor;
 import com.google.devtools.build.lib.syntax.Function;
 import com.google.devtools.build.lib.syntax.MixedModeFunction;
 import com.google.devtools.build.lib.syntax.PositionalFunction;
@@ -42,6 +45,7 @@ import java.util.LinkedHashSet;
 import java.util.List;
 import java.util.Map;
 import java.util.Set;
+import java.util.concurrent.ExecutionException;
 import java.util.regex.Matcher;
 import java.util.regex.Pattern;
 
@@ -310,7 +314,7 @@ public class MethodLibrary {
         ConversionException {
       List<Object> thiz = Type.OBJECT_LIST.convert(args.get(0), "'append' operand");
       thiz.add(args.get(1));
-      return 0;
+      return Environment.NONE;
     }
   };
 
@@ -324,7 +328,7 @@ public class MethodLibrary {
       List<Object> thiz = Type.OBJECT_LIST.convert(args.get(0), "'extend' operand");
       List<Object> l = Type.OBJECT_LIST.convert(args.get(1), "'extend' argument");
       thiz.addAll(l);
-      return 0;
+      return Environment.NONE;
     }
   };
 
@@ -475,7 +479,9 @@ public class MethodLibrary {
 
   @SkylarkBuiltin(name = "nset",
       doc = "Creates a nested set from the <i>items</i>. "
-          + "The nesting is applied to other nested sets among <i>items</i>.")
+          + "The nesting is applied to other nested sets among <i>items</i>. "
+          + "Ordering can be: STABLE_ORDER, COMPILE_ORDER or LINK_ORDER.<br>"
+          + "Example: nset(\"STABLE_ORDER\", [1, 2, 3])")
   private static final Function nset = new PositionalFunction("nset", 1, 2) {
 
     @Override
@@ -515,6 +521,32 @@ public class MethodLibrary {
         return new SelectorValue((Map<?, ?>) dict);
       }
     };
+
+  /**
+   * Returns true if the struct has a field of the given name, otherwise false.
+   */
+  @SkylarkBuiltin(name = "hasattr",
+      doc = "Returns true if the struct has a field of the given name, otherwise false.")
+  private static final Function hasattr = new PositionalFunction("hasattr", 2, 2) {
+    @Override
+    public Object call(List<Object> args, FuncallExpression ast) throws EvalException,
+        ConversionException {
+      Object obj = args.get(0);
+      String name = cast(args.get(1), String.class, "second param", ast.getLocation());
+      if (obj instanceof ClassObject) {
+        return ((ClassObject) obj).getValue(name) != null;
+      } else {
+        try {
+          List<MethodDescriptor> methods = FuncallExpression.getMethods(obj.getClass(), name, 0);
+          return methods != null && methods.size() > 0 && Iterables.getOnlyElement(methods)
+              .getAnnotation().structField();
+        } catch (ExecutionException e) {
+          // This shouldn't happen
+          throw new EvalException(ast.getLocation(), e.getMessage());
+        }
+      }
+    }
+  };
 
   /**
    * Skylark String module.
@@ -573,6 +605,7 @@ public class MethodLibrary {
       .<Function, SkylarkType>builder()
       .putAll(pureGlobalFunctions)
       .put(struct, SkylarkType.of(ClassObject.class))
+      .put(hasattr, SkylarkType.BOOL)
       .put(nset, SkylarkType.of(SkylarkNestedSet.class))
       .build();
 

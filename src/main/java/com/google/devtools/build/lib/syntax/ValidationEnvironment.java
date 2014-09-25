@@ -24,6 +24,7 @@ import java.util.HashMap;
 import java.util.HashSet;
 import java.util.Map;
 import java.util.Set;
+import java.util.Stack;
 
 /**
  * An Environment for the semantic checking of Skylark files.
@@ -40,6 +41,10 @@ public class ValidationEnvironment {
   private Map<String, Location> variableLocations = new HashMap<>();
 
   private Set<String> readOnlyVariables = new HashSet<>();
+
+  // A stack of variable-sets which are read only but can be assigned in different
+  // branches of if-else statements.
+  private Stack<Set<String>> futureReadOnlyVariables = new Stack<>();
 
   // The function we are currently validating.
   private SkylarkFunctionType currentFunction;
@@ -80,6 +85,13 @@ public class ValidationEnvironment {
   }
 
   /**
+   * Returns true if this ValidationEnvironment is top level i.e. has no parent.
+   */
+  public boolean isTopLevel() {
+    return parent == null;
+  }
+
+  /**
    * Updates the variable type if the new type is "stronger" then the old one.
    * The old and the new vartype has to be compatible, otherwise an EvalException is thrown.
    * The new type is stronger if the old one doesn't exist or unknown.
@@ -89,6 +101,10 @@ public class ValidationEnvironment {
     checkReadonly(varname, location);
     if (parent == null) {  // top-level values are immutable
       readOnlyVariables.add(varname);
+      if (!futureReadOnlyVariables.isEmpty()) {
+        // Currently validating an if-else statement
+        futureReadOnlyVariables.peek().add(varname);
+      }
     }
     SkylarkType oldVartype = variableTypes.get(SkylarkType.GLOBAL).get(varname);
     if (oldVartype != null) {
@@ -186,6 +202,36 @@ public class ValidationEnvironment {
       throw new EvalException(loc, "function " + name + " already exists");
     }
     variableTypes.get(SkylarkType.GLOBAL).put(name, type);
+    clonable = false;
+  }
+
+  /**
+   * Starts a session with temporarily disabled readonly checking for variables between branches.
+   * This is useful to validate control flows like if-else when we know that certain parts of the
+   * code cannot both be executed. 
+   */
+  public void startTemporarilyDisableReadonlyCheckSession() {
+    futureReadOnlyVariables.add(new HashSet<String>());
+    clonable = false;
+  }
+
+  /**
+   * Finishes the session with temporarily disabled readonly checking.
+   */
+  public void finishTemporarilyDisableReadonlyCheckSession() {
+    Set<String> variables = futureReadOnlyVariables.pop();
+    readOnlyVariables.addAll(variables);
+    if (!futureReadOnlyVariables.isEmpty()) {
+      futureReadOnlyVariables.peek().addAll(variables);
+    }
+    clonable = false;
+  }
+
+  /**
+   * Finishes a branch of temporarily disabled readonly checking.
+   */
+  public void finishTemporarilyDisableReadonlyCheckBranch() {
+    readOnlyVariables.removeAll(futureReadOnlyVariables.peek());
     clonable = false;
   }
 }

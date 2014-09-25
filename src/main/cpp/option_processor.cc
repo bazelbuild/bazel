@@ -146,17 +146,16 @@ OptionProcessor::OptionProcessor()
 string OptionProcessor::FindDepotBlazerc(const string& workspace) {
   // Package semantics are ignored here, but that's acceptable because
   // blaze.blazerc is a configuration file.
-  string blazerc = blaze_util::JoinPath(workspace, "tools/blaze.blazerc");
-  if (access(blazerc.c_str(), R_OK)) {
-    // tools/ is probably not mapped in the client, so we peek into ../READONLY.
-    // It's a little ugly, but it works.
-    blazerc = blaze_util::JoinPath(
-        workspace, "../READONLY/google3/tools/blaze.blazerc");
+  vector<string> candidates;
+  BlazeStartupOptions::WorkspaceRcFileSearchPath(&candidates);
+  for (const auto& candidate : candidates) {
+    string blazerc = blaze_util::JoinPath(workspace, candidate);
+    if (!access(blazerc.c_str(), R_OK)) {
+      return blazerc;
+    }
   }
-  if (access(blazerc.c_str(), R_OK)) {
-    blazerc = "";
-  }
-  return blazerc;
+
+  return "";
 }
 
 // Return the path the the user rc file.  If cmdLineRcFile != NULL,

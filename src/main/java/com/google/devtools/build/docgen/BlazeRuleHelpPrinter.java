@@ -55,7 +55,6 @@ public class BlazeRuleHelpPrinter {
     Preconditions.checkState(ruleDocMap.containsKey(ruleName), String.format(
         "ERROR: Documentation of rule %s does not exist.", ruleName));
     return "Rule " + ruleName + ":"
-        + ruleDocMap.get(ruleName).getCommandLineDocumentation()
-        + "For full docs see go/be#" + ruleName + ".\n";
+        + ruleDocMap.get(ruleName).getCommandLineDocumentation() + "\n";
   }
 }

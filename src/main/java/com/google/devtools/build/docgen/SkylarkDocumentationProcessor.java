@@ -151,18 +151,23 @@ public class SkylarkDocumentationProcessor {
             methodName,
             getSignature(objectName, methodName, method)))
         .append(annotation.doc())
+        .append(getReturnTypeExtraMessage(method, annotation))
         .append("\n");
   }
 
-  private String getSignature(String objectName, String methodName, Method method) {
-    if (method == null) {
-      return "";
+  private String getReturnTypeExtraMessage(Method method, SkylarkCallable annotation) {
+    if (method.getReturnType().equals(Void.TYPE)) {
+      return " Always returns <code>None</code>.\n";
     }
+    if (annotation.allowReturnNones()) {
+      return " May return <code>None</code>.\n";
+    }
+    return "";
+  }
 
-    String args = getParameterString(method);
-    if (!args.isEmpty()) {
-      args = "(" + args + ")";
-    }
+  private String getSignature(String objectName, String methodName, Method method) {
+    String args = method.getAnnotation(SkylarkCallable.class).structField()
+        ? "" : "(" + getParameterString(method) + ")";
 
     return String.format("<code>%s %s.%s%s</code><br>",
         EvalUtils.getDataTypeNameFromClass(method.getReturnType()), objectName, methodName, args);

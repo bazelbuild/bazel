@@ -138,4 +138,9 @@ string BlazeStartupOptions::RcBasename() {
   return ".bazelrc";
 }
 
+void BlazeStartupOptions::WorkspaceRcFileSearchPath(
+    vector<string>* candidates) {
+  candidates->push_back("tools/bazel.rc");
+}
+
 }  // namespace blaze

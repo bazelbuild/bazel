@@ -33,6 +33,14 @@ public final class IntVersion implements Version {
   }
 
   @Override
+  public boolean atMost(Version other) {
+    if (!(other instanceof IntVersion)) {
+      return false;
+    }
+    return val <= ((IntVersion) other).val;
+  }
+
+  @Override
   public int hashCode() {
     return Long.valueOf(val).hashCode();
   }

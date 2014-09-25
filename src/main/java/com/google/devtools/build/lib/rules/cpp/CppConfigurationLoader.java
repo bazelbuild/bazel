@@ -54,9 +54,12 @@ public class CppConfigurationLoader implements ConfigurationFragmentFactory {
   }
 
   @Override
-  public CppConfiguration create(ConfigurationEnvironment env, BlazeDirectories directories,
-      BuildOptions options) throws InvalidConfigurationException {
-    CppConfigurationParameters params = createParameters(env, directories, options);
+  public CppConfiguration create(ConfigurationEnvironment env, BuildOptions options)
+      throws InvalidConfigurationException {
+    CppConfigurationParameters params = createParameters(env, options);
+    if (params == null) {
+      return null;
+    }
     return new CppConfiguration(params);
   }
 
@@ -90,8 +93,11 @@ public class CppConfigurationLoader implements ConfigurationFragmentFactory {
   }
 
   protected CppConfigurationParameters createParameters(
-      ConfigurationEnvironment env, BlazeDirectories directories,
-      BuildOptions options) throws InvalidConfigurationException {
+      ConfigurationEnvironment env, BuildOptions options) throws InvalidConfigurationException {
+    BlazeDirectories directories = env.getBlazeDirectories();
+    if (directories == null) {
+      return null;
+    }
     Label crosstoolTop = RedirectChaser.followRedirects(env,
         options.get(CppOptions.class).crosstoolTop, "crosstool_top");
     CrosstoolConfigurationLoader.CrosstoolFile file =

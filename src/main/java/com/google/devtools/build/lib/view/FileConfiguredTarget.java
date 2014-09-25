@@ -24,7 +24,9 @@ import com.google.devtools.build.lib.collect.nestedset.NestedSetBuilder;
 import com.google.devtools.build.lib.collect.nestedset.Order;
 import com.google.devtools.build.lib.packages.FileTarget;
 import com.google.devtools.build.lib.rules.test.InstrumentedFilesProvider;
-import com.google.devtools.build.lib.syntax.ClassObject;
+import com.google.devtools.build.lib.syntax.Label;
+import com.google.devtools.build.lib.syntax.SkylarkCallable;
+import com.google.devtools.build.lib.syntax.SkylarkModule;
 import com.google.devtools.build.lib.util.FileType;
 import com.google.devtools.build.lib.view.fileset.FilesetProvider;
 
@@ -32,8 +34,9 @@ import com.google.devtools.build.lib.view.fileset.FilesetProvider;
  * A ConfiguredTarget for a source FileTarget.  (Generated files use a
  * subclass, OutputFileConfiguredTarget.)
  */
+@SkylarkModule(name = "FileConfiguredTarget", doc = "")
 public abstract class FileConfiguredTarget extends AbstractConfiguredTarget
-    implements FileType.HasFilename, LicensesProvider, ClassObject {
+    implements FileType.HasFilename, LicensesProvider {
 
   private final Artifact artifact;
   private final ImmutableMap<Class<? extends TransitiveInfoProvider>, TransitiveInfoProvider>
@@ -88,15 +91,13 @@ public abstract class FileConfiguredTarget extends AbstractConfiguredTarget
   }
 
   @Override
-  public Object getValue(String name) {
-    if (name.equals("label")) {
-      return getLabel();
-    }
-    return null;
+  public UnmodifiableIterator<TransitiveInfoProvider> iterator() {
+    return providers.values().iterator();
   }
 
   @Override
-  public UnmodifiableIterator<TransitiveInfoProvider> iterator() {
-    return providers.values().iterator();
+  @SkylarkCallable(name = "label", doc = "", structField = true)
+  public Label getLabel() {
+    return super.getLabel();
   }
 }

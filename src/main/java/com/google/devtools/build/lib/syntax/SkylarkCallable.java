@@ -29,4 +29,8 @@ public @interface SkylarkCallable {
   String doc();
 
   boolean hidden() default false;
+
+  boolean structField() default false;
+
+  boolean allowReturnNones() default false;
 }

@@ -107,6 +107,7 @@ public class SkylarkModules {
     Map<SkylarkType, Map<String, SkylarkType>> builtIn = new HashMap<>();
     Map<String, SkylarkType> global = new HashMap<>();
     builtIn.put(SkylarkType.GLOBAL, global);
+    collectSkylarkTypesFromFields(Environment.class, builtIn);
     for (Class<?> moduleClass : MODULES) {
       if (moduleClass.isAnnotationPresent(SkylarkModule.class)) {
         global.put(moduleClass.getAnnotation(SkylarkModule.class).name(),

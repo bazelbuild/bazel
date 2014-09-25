@@ -16,8 +16,8 @@
 # production ready.
 
 def java_binary_impl(ctx):
-  deploy_jar = ctx.outputs["deploy_jar"]
-  manifest = ctx.outputs["manifest"]
+  deploy_jar = ctx.outputs.deploy_jar
+  manifest = ctx.outputs.manifest
   build_output = deploy_jar.path + ".build_output"
   main_class = ctx.attr.main_class
   runtime_jars = nset("LINK_ORDER")
@@ -46,7 +46,7 @@ def java_binary_impl(ctx):
     use_default_shell_env=True)
 
   # Write the wrapper.
-  executable = ctx.outputs["executable"]
+  executable = ctx.outputs.executable
   ctx.file_action(
     output = executable,
     content = '\n'.join([
@@ -72,31 +72,30 @@ def java_binary_impl(ctx):
     executable = True)
 
   runfiles = ctx.runfiles([DATA, deploy_jar, executable])
-  runfiles_support = ctx.runfiles_support(runfiles, executable)
 
   return struct(
       files_to_build = nset("STABLE_ORDER", [deploy_jar, manifest, executable]),
-      runfiles=runfiles,
-      runfiles_support=runfiles_support)
+      runfiles=runfiles)
 
 java_binary_attrs = {
     "deps": attr.label_list(
         file_types=NO_FILE, providers = ["runtime_jars"]),
-    "main_class": attr.string(),
+    "main_class": attr.string()
 }
 
 java_binary_outputs = {
     "deploy_jar": "lib%{name}.jar",
-    "manifest": "%{name}_MANIFEST.MF",
-    "executable": "%{name}",
+    "manifest": "%{name}_MANIFEST.MF"
 }
 
 java_binary = rule(java_binary_impl,
+   executable = True,
    attr = java_binary_attrs,
    outputs = java_binary_outputs,
 )
 
 java_test = rule(java_binary_impl,
+   executable = True,
    attr = java_binary_attrs,
    outputs = java_binary_outputs,
    test = True,

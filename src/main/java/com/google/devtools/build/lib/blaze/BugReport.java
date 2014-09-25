@@ -99,7 +99,7 @@ public abstract class BugReport {
   public static void printBug(OutErr outErr, Throwable e) {
     if (e instanceof OutOfMemoryError) {
       outErr.printErr(e.getMessage() + "\n\n" +
-          "Blaze ran out of memory and crashed. See http://goto/blaze-oom for advice.\n");
+          "Blaze ran out of memory and crashed.\n");
     } else {
       printThrowableTo(outErr, e);
     }

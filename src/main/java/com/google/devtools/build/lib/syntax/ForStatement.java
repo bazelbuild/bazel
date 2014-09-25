@@ -83,6 +83,10 @@ public final class ForStatement extends Statement {
 
   @Override
   void validate(ValidationEnvironment env) throws EvalException {
+    if (env.isTopLevel()) {
+      throw new EvalException(getLocation(),
+          "'For' is not allowed as a the top level statement");
+    }
     // TODO(bazel-team): validate variable. Maybe make it temporarily readonly.
     SkylarkType type = collection.validate(env);
     env.checkIterable(type, getLocation());

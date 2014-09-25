@@ -93,7 +93,7 @@ import javax.annotation.Nullable;
  */
 public final class ParallelEvaluator implements Evaluator {
   private final ProcessableGraph graph;
-  private final long graphVersion;
+  private final Version graphVersion;
 
   private final Predicate<SkyKey> nodeEntryIsDone = new Predicate<SkyKey>() {
     @Override
@@ -112,7 +112,7 @@ public final class ParallelEvaluator implements Evaluator {
 
   private static final Interner<SkyKey> KEY_CANONICALIZER =  Interners.newWeakInterner();
 
-  public ParallelEvaluator(ProcessableGraph graph, long graphVersion,
+  public ParallelEvaluator(ProcessableGraph graph, Version graphVersion,
                     ImmutableMap<? extends SkyFunctionName, ? extends SkyFunction> skyFunctions,
                     final EventHandler reporter,
                     MemoizingEvaluator.EmittedEventState emittedEventState,
@@ -120,7 +120,6 @@ public final class ParallelEvaluator implements Evaluator {
                     @Nullable EvaluationProgressReceiver progressReceiver) {
     this.graph = graph;
     this.skyFunctions = skyFunctions;
-    Preconditions.checkState(graphVersion >= 0L, graphVersion);
     this.graphVersion = graphVersion;
     this.reporter = Preconditions.checkNotNull(reporter);
     this.keepGoing = keepGoing;
@@ -441,7 +440,7 @@ public final class ParallelEvaluator implements Evaluator {
         // We must be enqueueing parents if we have a value.
         Preconditions.checkState(enqueueParents, "%s %s", skyKey, primaryEntry);
         Set<SkyKey> reverseDeps;
-        long valueVersion;
+        Version valueVersion;
         // If this entry is dirty, setValue may not actually change it, if it determines that
         // the data being written now is the same as the data already present in the entry.
         // We could consider using max(childVersions) here instead of graphVersion. When full
@@ -452,12 +451,17 @@ public final class ParallelEvaluator implements Evaluator {
         // Note that if this update didn't actually change the value entry, this version may not
         // be the graph version.
         valueVersion = primaryEntry.getVersion();
+        Preconditions.checkState(valueVersion.atMost(graphVersion),
+            "%s should be at most %s in the version partial ordering",
+            valueVersion, graphVersion);
         if (progressReceiver != null) {
-          // Tell the receiver that this value was built. If valueVersion < graphVersion, it was not
-          // actually changed this run -- when it was written above, its version stayed below this
-          // update's version, so its value remains the same as before.
+          // Tell the receiver that this value was built. If valueVersion.equals(graphVersion), it
+          // was evaluated this run, and so was changed. Otherwise, it is less than graphVersion,
+          // by the Preconditions check above, and was not actually changed this run -- when it was
+          // written above, its version stayed below this update's version, so its value remains the
+          // same as before.
           progressReceiver.evaluated(skyKey, value,
-              valueVersion < graphVersion ? EvaluationState.CLEAN : EvaluationState.BUILT);
+              valueVersion.equals(graphVersion) ? EvaluationState.BUILT : EvaluationState.CLEAN);
         }
         signalValuesAndEnqueueIfReady(visitor, reverseDeps, valueVersion);
       }
@@ -608,7 +612,7 @@ public final class ParallelEvaluator implements Evaluator {
     private boolean invalidatedByErrorTransience(Collection<SkyKey> depGroup, NodeEntry entry) {
       return depGroup.size() == 1
           && depGroup.contains(ErrorTransienceValue.key())
-          && graph.get(ErrorTransienceValue.key()).getVersion() > entry.getVersion();
+          && !graph.get(ErrorTransienceValue.key()).getVersion().atMost(entry.getVersion());
     }
 
     @Override
@@ -781,7 +785,7 @@ public final class ParallelEvaluator implements Evaluator {
    * cycles).
    */
   private void signalValuesAndEnqueueIfReady(@Nullable ValueVisitor visitor, Iterable<SkyKey> keys,
-      long version) {
+      Version version) {
     if (visitor != null) {
       for (SkyKey key : keys) {
         if (graph.get(key).signalDep(version)) {
@@ -844,12 +848,17 @@ public final class ParallelEvaluator implements Evaluator {
       Preconditions.checkState(entry.isDone(), entry);
       SkyValue value = entry.getValue();
       if (value != null) {
+        Version valueVersion = entry.getVersion();
+        Preconditions.checkState(valueVersion.atMost(graphVersion),
+            "%s should be at most %s in the version partial ordering", valueVersion, graphVersion);
         // Nodes with errors will have no value. Don't inform the receiver in that case.
         // For most nodes we do not inform the progress receiver if they were already done
         // when we retrieve them, but top-level nodes are presumably of more interest.
-        progressReceiver.evaluated(key, value, entry.getVersion() < graphVersion
-            ? EvaluationState.CLEAN
-            : EvaluationState.BUILT);
+        // If valueVersion is not equal to graphVersion, it must be less than it (by the
+        // Preconditions check above), and so the node is clean.
+        progressReceiver.evaluated(key, value, valueVersion.equals(graphVersion)
+            ? EvaluationState.BUILT
+            : EvaluationState.CLEAN);
       }
     }
   }

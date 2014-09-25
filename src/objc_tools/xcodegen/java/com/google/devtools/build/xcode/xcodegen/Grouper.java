@@ -29,8 +29,8 @@ public interface Grouper {
    * Takes self-contained references that could be placed in the main group, and groups them into
    * one or more references that can also be placed in the main group.
    * <p>
-   * The on-disk path of the main group is assumed to point to google3 root. This is important when
-   * the {@code sourceRoot} property of the references in the input or output arguments are
+   * The on-disk path of the main group is assumed to point to workspace root. This is important
+   * when the {@code sourceRoot} property of the references in the input or output arguments are
    * {@link SourceTree#GROUP}.
    */
   Iterable<PBXReference> group(Iterable<PBXReference> references);

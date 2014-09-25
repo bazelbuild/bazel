@@ -19,23 +19,25 @@ import static com.google.devtools.build.lib.rules.objc.IosSdkCommands.TARGET_DEV
 import static com.google.devtools.build.lib.rules.objc.ObjcProvider.BUNDLE_FILE;
 import static com.google.devtools.build.lib.rules.objc.ObjcProvider.XCDATAMODEL;
 
-import com.google.common.base.Optional;
 import com.google.common.base.Preconditions;
 import com.google.common.collect.ImmutableList;
+import com.google.devtools.build.lib.actions.Action;
+import com.google.devtools.build.lib.actions.ActionOwner;
 import com.google.devtools.build.lib.actions.Artifact;
 import com.google.devtools.build.lib.actions.ExecException;
 import com.google.devtools.build.lib.actions.Executor;
 import com.google.devtools.build.lib.events.EventHandler;
 import com.google.devtools.build.lib.util.Fingerprint;
-import com.google.devtools.build.lib.view.RuleContext;
 import com.google.devtools.build.lib.view.actions.AbstractFileWriteAction;
 import com.google.devtools.build.xcode.bundlemerge.proto.BundleMergeProtos;
 import com.google.devtools.build.xcode.bundlemerge.proto.BundleMergeProtos.Control;
 import com.google.devtools.build.xcode.bundlemerge.proto.BundleMergeProtos.MergeZip;
+import com.google.devtools.build.xcode.bundlemerge.proto.BundleMergeProtos.VariableSubstitution;
 import com.google.devtools.build.xcode.common.TargetDeviceFamily;
 
 import java.io.IOException;
 import java.io.OutputStream;
+import java.util.Map;
 
 /**
  * An action that can be used to generate a control file for the tool:
@@ -43,62 +45,52 @@ import java.io.OutputStream;
  * file on-the-fly rather than eagerly. This is to prevent a copy of the bundle files and
  * .xcdatamodels from being stored for each {@code objc_binary} (or any bundle) being built.
  *
- * <p>TODO(bazel-team): Stop subclassing Action classes. Add a class to the core which lets us
- * create the control file on-the-fly and write it to a file. This may be doable by creating an
- * Action subclass in core which accepts something that generates a byte array.
+ * <p>TODO(bazel-team): Stop subclassing {@link Action} classes. Add a class to the core which lets
+ * us create the control file on-the-fly and write it to a file. This may be doable by creating an
+ * {@link Action} subclass in core which accepts something that generates a byte array.
  */
 public class WriteMergeBundleControlFileAction extends AbstractFileWriteAction {
+  private final Bundling bundling;
   private final Artifact mergedIpa;
-  private final ObjcProvider objcProvider;
-  private final String bundleRoot;
-
-  /**
-   * Extra files to add to the bundle besides those provided by {@link ObjcProvider#BUNDLE_FILE}.
-   */
-  private final Iterable<BundleMergeProtos.BundleFile> extraBundleFiles;
-
-  private final Artifact infoplist;
   private final ObjcConfiguration objcConfiguration;
-  private final Optional<Artifact> maybeActoolOutputZip;
+  private final Map<String, String> variableSubstitutions;
 
-  public WriteMergeBundleControlFileAction(RuleContext ruleContext,
-      Artifact mergedIpa, ObjcProvider objcProvider,
-      Iterable<BundleMergeProtos.BundleFile> extraBundleFiles,
-      InfoplistMerging infoplistMerging) {
-    super(ruleContext.getActionOwner(), ImmutableList.<Artifact>of(),
-        /*output=*/ObjcRuleClasses.bundleMergeControlArtifact(ruleContext),
+  public WriteMergeBundleControlFileAction(ActionOwner actionOwner, Bundling bundling,
+      Artifact mergedIpa, Artifact controlFile, ObjcConfiguration objcConfiguration,
+      Map<String, String> variableSubstitutions) {
+    super(actionOwner, /*inputs=*/ImmutableList.<Artifact>of(), controlFile,
         /*makeExecutable=*/false);
+    this.bundling = Preconditions.checkNotNull(bundling);
     this.mergedIpa = Preconditions.checkNotNull(mergedIpa);
-    this.objcProvider = Preconditions.checkNotNull(objcProvider);
-    this.bundleRoot = ObjcBinaryRule.bundleRoot(ruleContext);
-    this.extraBundleFiles = Preconditions.checkNotNull(extraBundleFiles);
-    this.infoplist = infoplistMerging.getPlistWithEverything();
-    this.objcConfiguration = ObjcActionsBuilder.objcConfiguration(ruleContext);
-    this.maybeActoolOutputZip = ObjcBinaryRule.actoolOutputZip(ruleContext, objcProvider);
+    this.objcConfiguration = Preconditions.checkNotNull(objcConfiguration);
+    this.variableSubstitutions = Preconditions.checkNotNull(variableSubstitutions);
   }
 
   public Control control() {
+    ObjcProvider objcProvider = bundling.getObjcProvider();
+
     BundleMergeProtos.Control.Builder control = BundleMergeProtos.Control.newBuilder()
-        .addAllBundleFile(extraBundleFiles)
+        .addAllBundleFile(BundleableFile.toBundleFiles(bundling.getExtraBundleFiles()))
         .addAllBundleFile(BundleableFile.toBundleFiles(objcProvider.get(BUNDLE_FILE)))
-        .addSourcePlistFile(infoplist.getExecPathString())
+        .addAllSourcePlistFile(Artifact.toExecPaths(
+            bundling.getInfoplistMerging().getPlistWithEverything().asSet()))
         // TODO(bazel-team): Add rule attributes for specifying targeted device family and minimum
         // OS version.
         .setMinimumOsVersion(MINIMUM_OS_VERSION)
         .setSdkVersion(objcConfiguration.getIosSdkVersion())
         .setPlatform(objcConfiguration.getPlatform().name())
-        .setBundleRoot(bundleRoot);
+        .setBundleRoot(bundling.getBundleRoot());
 
-    for (Artifact actoolOutputZip : maybeActoolOutputZip.asSet()) {
+    for (Artifact actoolzipOutput : bundling.getActoolzipOutput().asSet()) {
       control.addMergeZip(MergeZip.newBuilder()
-          .setEntryNamePrefix(bundleRoot + "/")
-          .setSourcePath(actoolOutputZip.getExecPathString())
+          .setEntryNamePrefix(bundling.getBundleRoot() + "/")
+          .setSourcePath(actoolzipOutput.getExecPathString())
           .build());
     }
 
     for (Xcdatamodel datamodel : objcProvider.get(XCDATAMODEL)) {
       control.addMergeZip(MergeZip.newBuilder()
-          .setEntryNamePrefix(bundleRoot + "/")
+          .setEntryNamePrefix(bundling.getBundleRoot() + "/")
           .setSourcePath(datamodel.getOutputZip().getExecPathString())
           .build());
     }
@@ -106,7 +98,19 @@ public class WriteMergeBundleControlFileAction extends AbstractFileWriteAction {
       control.addTargetDeviceFamily(targetDeviceFamily.name());
     }
 
+    for (String variable : variableSubstitutions.keySet()) {
+      control.addVariableSubstitution(VariableSubstitution.newBuilder()
+          .setName(variable)
+          .setValue(variableSubstitutions.get(variable))
+          .build());
+    }
+
     control.setOutFile(mergedIpa.getExecPathString());
+
+    control.addBundleFile(BundleMergeProtos.BundleFile.newBuilder()
+        .setSourceFile(bundling.getLinkedBinary().getExecPathString())
+        .setBundlePath(bundling.getName())
+        .build());
 
     return control.build();
   }

@@ -34,17 +34,18 @@ public class ObjcBundle implements RuleConfiguredTargetFactory {
     common.reportErrors();
 
     OptionsProvider optionsProvider = OptionsProvider.DEFAULT;
-    XcodeProvider xcodeProvider = common.xcodeProvider(Optional.<Artifact>absent(),
-        ObjcRuleClasses.pchFile(ruleContext),
-        ImmutableList.<DependencyControl>of(), ImmutableList.<XcodeprojBuildSetting>of(),
+    XcodeProvider xcodeProvider = common.xcodeProvider(
+        /*maybeInfoplistFile=*/Optional.<Artifact>absent(),
+        ImmutableList.<DependencyControl>of(),
+        ImmutableList.<XcodeprojBuildSetting>of(),
         optionsProvider.getCopts());
     ObjcActionsBuilder.registerAll(
         ruleContext,
         ObjcActionsBuilder.baseActions(
-            ruleContext, common.getObjcProvider(), xcodeProvider, optionsProvider));
+            ruleContext, Optional.<CompilationArtifacts>absent(),
+            common.getObjcProvider(), xcodeProvider, optionsProvider));
     return common.configuredTarget(
         NestedSetBuilder.<Artifact>stableOrder()
-            .addAll(ObjcRuleClasses.outputAFile(ruleContext).asSet())
             .add(ruleContext.getImplicitOutputArtifact(ObjcRuleClasses.PBXPROJ))
             .build(),
         Optional.<XcodeProvider>absent());

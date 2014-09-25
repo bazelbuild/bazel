@@ -14,6 +14,7 @@
 
 package com.google.devtools.build.lib.view.config;
 
+import com.google.devtools.build.lib.blaze.BlazeDirectories;
 import com.google.devtools.build.lib.packages.NoSuchPackageException;
 import com.google.devtools.build.lib.packages.NoSuchTargetException;
 import com.google.devtools.build.lib.packages.Package;
@@ -24,6 +25,8 @@ import com.google.devtools.build.lib.pkgcache.TargetProvider;
 import com.google.devtools.build.lib.syntax.Label;
 import com.google.devtools.build.lib.vfs.Path;
 import com.google.devtools.build.lib.view.config.BuildConfiguration.Fragment;
+
+import javax.annotation.Nullable;
 
 /**
  * An environment to support creating BuildConfiguration instances in a hermetic fashion; all
@@ -44,8 +47,12 @@ public interface ConfigurationEnvironment {
   Path getPath(Package pkg, String fileName);
   
   /** Returns fragment based on fragment class and build options. */
-  public <T extends Fragment> T getFragment(BuildOptions buildOptions, Class<T> fragmentType) 
+  <T extends Fragment> T getFragment(BuildOptions buildOptions, Class<T> fragmentType) 
       throws InvalidConfigurationException;
+
+  /** Returns global value of BlazeDirectories. */
+  @Nullable
+  BlazeDirectories getBlazeDirectories();
 
   /**
    * An implementation backed by a {@link PackageProvider} instance.
@@ -53,9 +60,17 @@ public interface ConfigurationEnvironment {
   public static final class TargetProviderEnvironment implements ConfigurationEnvironment {
 
     private final LoadedPackageProvider loadedPackageProvider;
+    private final BlazeDirectories blazeDirectories;
+
+    public TargetProviderEnvironment(LoadedPackageProvider loadedPackageProvider,
+        BlazeDirectories blazeDirectories) {
+      this.loadedPackageProvider = loadedPackageProvider;
+      this.blazeDirectories = blazeDirectories;
+    }
 
     public TargetProviderEnvironment(LoadedPackageProvider loadedPackageProvider) {
       this.loadedPackageProvider = loadedPackageProvider;
+      this.blazeDirectories = null;
     }
 
     @Override
@@ -71,6 +86,11 @@ public interface ConfigurationEnvironment {
     @Override
     public <T extends Fragment> T getFragment(BuildOptions buildOptions, Class<T> fragmentType) {
       throw new UnsupportedOperationException();
+    }
+
+    @Override
+    public BlazeDirectories getBlazeDirectories() {
+      return blazeDirectories;
     }
   }
 }

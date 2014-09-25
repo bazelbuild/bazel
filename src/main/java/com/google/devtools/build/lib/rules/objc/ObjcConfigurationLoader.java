@@ -14,7 +14,6 @@
 
 package com.google.devtools.build.lib.rules.objc;
 
-import com.google.devtools.build.lib.blaze.BlazeDirectories;
 import com.google.devtools.build.lib.view.config.BuildConfiguration.Fragment;
 import com.google.devtools.build.lib.view.config.BuildOptions;
 import com.google.devtools.build.lib.view.config.ConfigurationEnvironment;
@@ -27,8 +26,7 @@ import com.google.devtools.build.lib.view.config.InvalidConfigurationException;
  */
 public class ObjcConfigurationLoader implements ConfigurationFragmentFactory {
   @Override
-  public ObjcConfiguration create(ConfigurationEnvironment env, BlazeDirectories directories,
-      BuildOptions buildOptions)
+  public ObjcConfiguration create(ConfigurationEnvironment env, BuildOptions buildOptions)
       throws InvalidConfigurationException {
     return new ObjcConfiguration(buildOptions.get(ObjcCommandLineOptions.class));
   }

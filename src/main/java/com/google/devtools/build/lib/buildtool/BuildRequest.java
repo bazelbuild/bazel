@@ -31,11 +31,13 @@ import com.google.devtools.build.lib.vfs.PathFragment;
 import com.google.devtools.build.lib.view.BuildView;
 import com.google.devtools.build.lib.view.TopLevelArtifactContext;
 import com.google.devtools.build.lib.view.config.InvalidConfigurationException;
+import com.google.devtools.common.options.Converter;
 import com.google.devtools.common.options.Converters;
 import com.google.devtools.common.options.Converters.RangeConverter;
 import com.google.devtools.common.options.Option;
 import com.google.devtools.common.options.OptionsBase;
 import com.google.devtools.common.options.OptionsClassProvider;
+import com.google.devtools.common.options.OptionsParsingException;
 import com.google.devtools.common.options.OptionsProvider;
 
 import java.util.ArrayList;
@@ -50,6 +52,27 @@ import java.util.concurrent.ExecutionException;
  * as --keep_going, --jobs, etc.
  */
 public class BuildRequest implements OptionsClassProvider {
+  private static final String DEFAULT_SYMLINK_PREFIX_MARKER = "...---:::@@@DEFAULT@@@:::--...";
+
+  /**
+   * A converter for symlink prefixes that defaults to {@code Constants.PRODUCT_NAME} and a
+   * minus sign if the option is not given.
+   *
+   * <p>Required because you cannot specify a non-constant value in annotation attributes.
+   */
+  public static class SymlinkPrefixConverter implements Converter<String> {
+    @Override
+    public String convert(String input) throws OptionsParsingException {
+      return input.equals(DEFAULT_SYMLINK_PREFIX_MARKER)
+          ? Constants.PRODUCT_NAME + "-"
+          : input;
+    }
+
+    @Override
+    public String getTypeDescription() {
+      return "a string";
+    }
+  }
 
   /**
    * Options interface--can be used to parse command-line arguments.
@@ -234,11 +257,12 @@ public class BuildRequest implements OptionsClassProvider {
     public boolean announce;
 
     @Option(name = "symlink_prefix",
-        defaultValue = Constants.DEFAULT_SYMLINK_PREFIX,
+        defaultValue = DEFAULT_SYMLINK_PREFIX_MARKER,
+        converter = SymlinkPrefixConverter.class,
         category = "misc",
         help = "The prefix that is prepended to any of the convenience symlinks that are created "
-            + "after a build. If '/' is passed, then no symlinks are created (not even the "
-            + "blaze-out and blaze-google3 symlinks), and no warning is emitted."
+            + "after a build. If '/' is passed, then no symlinks are created and no warning is "
+            + "emitted."
         )
     public String symlinkPrefix;
 

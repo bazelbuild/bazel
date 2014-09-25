@@ -16,7 +16,6 @@ package com.google.devtools.build.lib.rules.objc;
 
 import static com.google.devtools.build.lib.rules.objc.ObjcActionsBuilder.CLANG;
 import static com.google.devtools.build.lib.rules.objc.ObjcActionsBuilder.CLANG_PLUSPLUS;
-import static com.google.devtools.build.lib.rules.objc.ObjcProvider.BUNDLE_FILE;
 import static com.google.devtools.build.lib.rules.objc.ObjcProvider.FRAMEWORK_DIR;
 import static com.google.devtools.build.lib.rules.objc.ObjcProvider.FRAMEWORK_FILE;
 import static com.google.devtools.build.lib.rules.objc.ObjcProvider.Flag.USES_CPP;
@@ -25,7 +24,6 @@ import static com.google.devtools.build.lib.rules.objc.ObjcProvider.LIBRARY;
 import static com.google.devtools.build.lib.rules.objc.ObjcProvider.SDK_DYLIB;
 import static com.google.devtools.build.lib.rules.objc.ObjcProvider.SDK_FRAMEWORK;
 import static com.google.devtools.build.lib.rules.objc.ObjcProvider.XCASSETS_DIR;
-import static com.google.devtools.build.lib.rules.objc.ObjcProvider.XCDATAMODEL;
 
 import com.google.common.annotations.VisibleForTesting;
 import com.google.common.base.Optional;
@@ -45,7 +43,6 @@ import com.google.devtools.build.lib.view.RuleConfiguredTarget.Mode;
 import com.google.devtools.build.lib.view.RuleContext;
 import com.google.devtools.build.lib.view.actions.CommandLine;
 import com.google.devtools.build.lib.view.actions.SpawnAction;
-import com.google.devtools.build.xcode.bundlemerge.proto.BundleMergeProtos;
 import com.google.devtools.build.xcode.common.Platform;
 import com.google.devtools.build.xcode.util.Interspersing;
 import com.google.devtools.build.xcode.xcodegen.proto.XcodeGenProtos.DependencyControl;
@@ -54,6 +51,7 @@ import com.google.devtools.build.xcode.xcodegen.proto.XcodeGenProtos.XcodeprojBu
 
 import java.util.ArrayList;
 import java.util.List;
+import java.util.Map;
 
 /**
  * Implementation for the "objc_binary" rule.
@@ -147,8 +145,7 @@ public class ObjcBinary implements RuleConfiguredTargetFactory {
     }
 
     return common.xcodeProvider(
-        Optional.of(infoplistMerging.getPlistWithEverything()),
-        ObjcRuleClasses.pchFile(ruleContext),
+        infoplistMerging.getPlistWithEverything(),
         targetDependenciesTransitive(ObjcRuleClasses.deps(ruleContext, XcodeProvider.class)),
         buildSettings.build(),
         optionsProvider.getCopts());
@@ -159,20 +156,14 @@ public class ObjcBinary implements RuleConfiguredTargetFactory {
         context.getPrerequisiteArtifact(ObjcBinaryRule.PROVISIONING_PROFILE_ATTR, Mode.TARGET));
   }
 
-  static Iterable<BundleMergeProtos.BundleFile> extraBundleFiles(RuleContext context) {
-    ImmutableList.Builder<BundleMergeProtos.BundleFile> files = new ImmutableList.Builder<>();
+  static ImmutableList<BundleableFile> extraBundleFiles(RuleContext context) {
+    ImmutableList.Builder<BundleableFile> files = new ImmutableList.Builder<>();
 
     ObjcConfiguration objcConfiguration = ObjcActionsBuilder.objcConfiguration(context);
     if (objcConfiguration.getPlatform() == Platform.DEVICE) {
-      files.add(BundleMergeProtos.BundleFile.newBuilder()
-          .setSourceFile(provisioningProfile(context).get().getExecPathString())
-          .setBundlePath(PROVISIONING_PROFILE_BUNDLE_FILE)
-              .build());
+      files.add(new BundleableFile(
+          provisioningProfile(context).get(), PROVISIONING_PROFILE_BUNDLE_FILE));
     }
-    files.add(BundleMergeProtos.BundleFile.newBuilder()
-        .setSourceFile(binaryOutput(context).getExecPathString())
-        .setBundlePath(context.getTarget().getName())
-        .build());
 
     return files.build();
   }
@@ -201,21 +192,17 @@ public class ObjcBinary implements RuleConfiguredTargetFactory {
     return names;
   }
 
-  private static Artifact binaryOutput(RuleContext ruleContext) {
-    return ruleContext.getImplicitOutputArtifact(ObjcBinaryRule.BINARY);
-  }
-
   static final class LinkCommandLine extends CommandLine {
     private final ObjcProvider objcProvider;
     private final ObjcConfiguration objcConfiguration;
     private final Artifact binaryOutput;
     private final Iterable<String> extraLinkArgs;
 
-    LinkCommandLine(RuleContext ruleContext, ObjcProvider objcProvider,
-        Iterable<String> extraLinkArgs) {
-      this.objcConfiguration = ObjcActionsBuilder.objcConfiguration(ruleContext);
-      this.objcProvider = objcProvider;
-      this.binaryOutput = binaryOutput(ruleContext);
+    LinkCommandLine(ObjcConfiguration objcConfiguration, Iterable<String> extraLinkArgs,
+        Bundling bundling) {
+      this.objcConfiguration = objcConfiguration;
+      this.objcProvider = bundling.getObjcProvider();
+      this.binaryOutput = bundling.getLinkedBinary();
       this.extraLinkArgs = extraLinkArgs;
     }
 
@@ -248,27 +235,31 @@ public class ObjcBinary implements RuleConfiguredTargetFactory {
     }
   }
 
-  static void registerActions(RuleContext ruleContext, ObjcProvider objcProvider,
+  static void registerActions(RuleContext ruleContext, ObjcCommon common,
       XcodeProvider xcodeProvider, Iterable<String> extraLinkArgs,
-      InfoplistMerging infoplistMerging, OptionsProvider optionsProvider) {
+      OptionsProvider optionsProvider, Bundling bundling) {
     ObjcConfiguration objcConfiguration = ObjcActionsBuilder.objcConfiguration(ruleContext);
+    ObjcProvider objcProvider = common.getObjcProvider();
+    InfoplistMerging infoplistMerging = bundling.getInfoplistMerging();
 
     ruleContext.getAnalysisEnvironment().registerAction(new SpawnAction.Builder(ruleContext)
         .setMnemonic("Link")
         .setExecutable(objcProvider.is(USES_CPP) ? CLANG_PLUSPLUS : CLANG)
-        .setCommandLine(new LinkCommandLine(ruleContext, objcProvider, extraLinkArgs))
-        .addOutput(binaryOutput(ruleContext))
+        .setCommandLine(new LinkCommandLine(objcConfiguration, extraLinkArgs, bundling))
+        .addOutput(bundling.getLinkedBinary())
         .addTransitiveInputs(objcProvider.get(LIBRARY))
         .addTransitiveInputs(objcProvider.get(IMPORTED_LIBRARY))
         .addTransitiveInputs(objcProvider.get(FRAMEWORK_FILE))
         .setExecutionInfo(ImmutableMap.of(ExecutionRequirements.REQUIRES_DARWIN, ""))
         .build());
 
-    ObjcActionsBuilder.registerAll(
-        ruleContext, ObjcActionsBuilder.actoolzipAction(ruleContext, objcProvider).asSet());
+    for (Artifact actoolzipOutput : bundling.getActoolzipOutput().asSet()) {
+      ruleContext.registerAction(
+          ObjcActionsBuilder.actoolzipAction(ruleContext, objcProvider, actoolzipOutput));
+    }
 
     Artifact ipaOutput = ruleContext.getImplicitOutputArtifact(ObjcBinaryRule.IPA);
-    ruleContext.registerAction(infoplistMerging.getMergeAction());
+    ObjcActionsBuilder.registerAll(ruleContext, infoplistMerging.getMergeAction().asSet());
 
     Optional<Artifact> entitlements = Optional.fromNullable(
         ruleContext.getPrerequisiteArtifact("entitlements", Mode.TARGET));
@@ -352,24 +343,26 @@ public class ObjcBinary implements RuleConfiguredTargetFactory {
           .build());
     }
 
-    ruleContext.getAnalysisEnvironment().registerAction(new WriteMergeBundleControlFileAction(
-        ruleContext, ipaUnsigned, objcProvider, extraBundleFiles(ruleContext), infoplistMerging));
+    Artifact bundleMergeControlArtifact =
+        ObjcRuleClasses.artifactByAppendingToBaseName(ruleContext, ".ipa-control");
+    ruleContext.getAnalysisEnvironment().registerAction(
+        new WriteMergeBundleControlFileAction(
+            ruleContext.getActionOwner(), bundling, ipaUnsigned, bundleMergeControlArtifact,
+            objcConfiguration, variableSubstitutionsInBundleMerge(ruleContext)));
+
     ruleContext.getAnalysisEnvironment().registerAction(new SpawnAction.Builder(ruleContext)
         .setMnemonic("Generate app bundle")
         .setExecutable(ruleContext.getExecutablePrerequisite("$bundlemerge", Mode.HOST))
-        .addInputArgument(ObjcRuleClasses.bundleMergeControlArtifact(ruleContext))
-        .addInput(binaryOutput(ruleContext))
-        .addInput(infoplistMerging.getPlistWithEverything())
-        .addInputs(ObjcBinaryRule.actoolOutputZip(ruleContext, objcProvider).asSet())
-        .addInputs(provisioningProfile(ruleContext).asSet())
-        .addInputs(BundleableFile.toArtifacts(objcProvider.get(BUNDLE_FILE)))
-        .addInputs(Xcdatamodel.outputZips(objcProvider.get(XCDATAMODEL)))
+        .addInputArgument(bundleMergeControlArtifact)
+        .addTransitiveInputs(bundling.getBundleContentArtifacts())
         .addOutput(ipaUnsigned)
         .build());
 
     ObjcActionsBuilder.registerAll(
         ruleContext,
-        ObjcActionsBuilder.baseActions(ruleContext, objcProvider, xcodeProvider, optionsProvider));
+        ObjcActionsBuilder.baseActions(
+            ruleContext, common.getCompilationArtifacts(), objcProvider, xcodeProvider,
+            optionsProvider));
   }
 
   private static String codesignCommand(
@@ -390,11 +383,30 @@ public class ObjcBinary implements RuleConfiguredTargetFactory {
     return "security cms -D -i " + ShellUtils.shellEscape(provisioningProfile.getExecPathString());
   }
 
+  private static Map<String, String> variableSubstitutionsInBundleMerge(RuleContext ruleContext) {
+    return ImmutableMap.of(
+        "EXECUTABLE_NAME", ruleContext.getLabel().getName(),
+        "BUNDLE_NAME", ruleContext.getLabel().getName() + ".app");
+  }
+
   @Override
   public ConfiguredTarget create(RuleContext ruleContext) throws InterruptedException {
+    IntermediateArtifacts intermediateArtifacts = new IntermediateArtifacts(
+        ruleContext.getAnalysisEnvironment(), ruleContext.getBinOrGenfilesDirectory(),
+        ruleContext.getLabel());
+
+    CompilationArtifacts compilationArtifacts = new CompilationArtifacts.Builder()
+        .addSrcs(ruleContext.getPrerequisiteArtifacts("srcs", Mode.TARGET))
+        .addNonArcSrcs(ruleContext.getPrerequisiteArtifacts("non_arc_srcs", Mode.TARGET))
+        .setIntermediateArtifacts(intermediateArtifacts)
+        .setPchFile(Optional.fromNullable(ruleContext.getPrerequisiteArtifact("pch", Mode.TARGET)))
+        .build();
+
     ObjcCommon common = new ObjcCommon.Builder(ruleContext)
         .addAssetCatalogs(ruleContext.getPrerequisiteArtifacts("asset_catalogs", Mode.TARGET))
         .addSdkDylibs(ruleContext.attributes().get("sdk_dylibs", Type.STRING_LIST))
+        .setCompilationArtifacts(compilationArtifacts)
+        .addHdrs(ruleContext.getPrerequisiteArtifacts("hdrs", Mode.TARGET))
         .build();
 
     OptionsProvider optionsProvider = new OptionsProvider.Builder()
@@ -405,19 +417,26 @@ public class ObjcBinary implements RuleConfiguredTargetFactory {
         .build();
 
     InfoplistMerging infoplistMerging = new InfoplistMerging.Builder(ruleContext)
-        .setMergedInfoplist(
-            ObjcRuleClasses.artifactByAppendingToBaseName(ruleContext, "-MergedInfo.plist"))
+        .setIntermediateArtifacts(intermediateArtifacts)
         .setInputPlists(optionsProvider.getInfoplists())
         .setPlmerge(ruleContext.getExecutablePrerequisite("$plmerge", Mode.HOST))
         .build();
 
+    Bundling bundling = new Bundling.Builder()
+        .setName(ruleContext.getLabel().getName())
+        .setLinkedBinary(ruleContext.getImplicitOutputArtifact(ObjcBinaryRule.BINARY))
+        .setExtraBundleFiles(extraBundleFiles(ruleContext))
+        .setObjcProvider(common.getObjcProvider())
+        .setInfoplistMerging(infoplistMerging)
+        .setIntermediateArtifacts(intermediateArtifacts)
+        .build();
+
     checkAttributes(ruleContext, common, infoplistMerging);
-    ObjcProvider objcProvider = common.getObjcProvider();
     XcodeProvider xcodeProvider =
         xcodeProvider(ruleContext, common, infoplistMerging, optionsProvider);
 
-    registerActions(ruleContext, objcProvider, xcodeProvider,
-        ImmutableList.<String>of() /* extraLinkArgs */, infoplistMerging, optionsProvider);
+    registerActions(ruleContext, common, xcodeProvider,
+        /*extraLinkArgs=*/ImmutableList.<String>of(), optionsProvider, bundling);
 
     return common.configuredTarget(
         NestedSetBuilder.<Artifact>stableOrder()

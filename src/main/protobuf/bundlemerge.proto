@@ -48,6 +48,10 @@ message Control {
   //    rather than just "foo"
   // 2. set the root property on the MergeZip protobuf to {bundle_root}
   repeated MergeZip merge_zip = 10;
+
+  // Variable substitutions to perform on property values in the merged
+  // .plist file.
+  repeated VariableSubstitution variable_substitution = 11;
 }
 
 // Represents a zip file to merge with the final zip.
@@ -66,4 +70,12 @@ message BundleFile {
 
   // The path of the file in the bundle, relative to the bundle root.
   optional string bundle_path = 2;
+}
+
+message VariableSubstitution {
+  // The name of the varaible to substitute.
+  required string name = 1;
+
+  // The substitution value.
+  required string value = 2;
 }

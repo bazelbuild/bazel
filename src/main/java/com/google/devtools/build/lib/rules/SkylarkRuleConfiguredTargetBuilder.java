@@ -15,12 +15,16 @@ package com.google.devtools.build.lib.rules;
 
 import static com.google.devtools.build.lib.syntax.SkylarkFunction.cast;
 
+import com.google.common.base.Joiner;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
+import com.google.common.collect.ImmutableSet;
+import com.google.common.collect.Iterables;
 import com.google.devtools.build.lib.actions.Artifact;
 import com.google.devtools.build.lib.collect.nestedset.NestedSetBuilder;
 import com.google.devtools.build.lib.collect.nestedset.Order;
 import com.google.devtools.build.lib.events.Location;
+import com.google.devtools.build.lib.packages.TargetUtils;
 import com.google.devtools.build.lib.packages.Type;
 import com.google.devtools.build.lib.syntax.ClassObject.SkylarkClassObject;
 import com.google.devtools.build.lib.syntax.Environment;
@@ -31,6 +35,7 @@ import com.google.devtools.build.lib.syntax.SkylarkNestedSet;
 import com.google.devtools.build.lib.view.ConfiguredTarget;
 import com.google.devtools.build.lib.view.RuleConfiguredTargetBuilder;
 import com.google.devtools.build.lib.view.RuleContext;
+import com.google.devtools.build.lib.view.Runfiles;
 import com.google.devtools.build.lib.view.RunfilesProvider;
 import com.google.devtools.build.lib.view.RunfilesSupport;
 
@@ -65,7 +70,9 @@ public final class SkylarkRuleConfiguredTargetBuilder {
         ruleContext.ruleError("Expected error not found: " + expectError);
         return null;
       }
-      return createTarget(ruleContext, target);
+      ConfiguredTarget configuredTarget = createTarget(ruleContext, target);
+      checkOrphanArtifacts(ruleContext);
+      return configuredTarget;
 
     } catch (InterruptedException e) {
       ruleContext.ruleError(e.getMessage());
@@ -82,6 +89,21 @@ public final class SkylarkRuleConfiguredTargetBuilder {
     }
   }
 
+  private static void checkOrphanArtifacts(RuleContext ruleContext) throws EvalException {
+    ImmutableSet<Artifact> orphanArtifacts =
+        ruleContext.getAnalysisEnvironment().getOrphanArtifacts();
+    if (!orphanArtifacts.isEmpty()) {
+      throw new EvalException(null, "The following files have no generating action:\n"
+          + Joiner.on("\n").join(Iterables.transform(orphanArtifacts,
+          new com.google.common.base.Function<Artifact, String>() {
+            @Override
+            public String apply(Artifact artifact) {
+              return artifact.getRootRelativePathString();
+            }
+          })));
+    }
+  }
+
   private static ConfiguredTarget createTarget(RuleContext ruleContext, Object target)
       throws EvalException {
     RuleConfiguredTargetBuilder builder = new RuleConfiguredTargetBuilder(ruleContext);
@@ -93,7 +115,7 @@ public final class SkylarkRuleConfiguredTargetBuilder {
     if (target instanceof SkylarkClassObject) {
       SkylarkClassObject struct = (SkylarkClassObject) target;
       loc = struct.getCreationLoc();
-      addStructFields(builder, struct);
+      addStructFields(ruleContext, builder, struct);
     }
     try {
       return builder.build();
@@ -102,32 +124,39 @@ public final class SkylarkRuleConfiguredTargetBuilder {
     }
   }
 
-  private static void addStructFields(RuleConfiguredTargetBuilder builder,
+  private static void addStructFields(RuleContext ruleContext, RuleConfiguredTargetBuilder builder,
       SkylarkClassObject struct) throws EvalException {
     Location loc = struct.getCreationLoc();
-    if (struct.getKeys().contains("executable") && struct.getKeys().contains("runfiles_support")) {
-      // Since they both use the same method on the builder there's no point defining both,
-      // but if we allow it can cause weird errors.
-      throw new EvalException(struct.getCreationLoc(),
-          "Cannot specify both executable and runfiles_support for the same configured target");
-    }
+    Runfiles defaultRunfiles = Runfiles.EMPTY;
+    Artifact executable = ruleContext.getRule().getRuleClassObject().outputsDefaultExecutable()
+        // This doesn't actually create a new Artifact just returns the one
+        // created in SkylarkruleContext.
+        ? ruleContext.createOutputArtifact() : null;
     for (String key : struct.getKeys()) {
       if (key.equals("files_to_build")) {
         builder.setFilesToBuild(cast(struct.getValue("files_to_build"),
                 SkylarkNestedSet.class, "files_to_build", loc).getSet(Artifact.class));
       } else if (key.equals("runfiles")) {
-        builder.add(RunfilesProvider.class, cast(struct.getValue("runfiles"),
-                RunfilesProvider.class, "runfiles", loc));
-      } else if (key.equals("runfiles_support")) {
-        RunfilesSupport runfilesSupport = cast(struct.getValue("runfiles_support"),
-            RunfilesSupport.class, "runfiles support", loc);
-        builder.setRunfilesSupport(runfilesSupport, runfilesSupport.getExecutable());
+        RunfilesProvider runfilesProvider =
+            cast(struct.getValue("runfiles"), RunfilesProvider.class, "runfiles", loc);
+        builder.add(RunfilesProvider.class, runfilesProvider);
+        defaultRunfiles = runfilesProvider.getDefaultRunfiles();
       } else if (key.equals("executable")) {
-        builder.setRunfilesSupport(null,
-            cast(struct.getValue("executable"), Artifact.class, "executable", loc));
+        // We need this because of genrule.bzl. This overrides the default executable.
+        executable = cast(struct.getValue("executable"), Artifact.class, "executable", loc);
       } else {
         builder.addSkylarkTransitiveInfo(key, struct.getValue(key));
       }
+    }
+    // This works because we only allowed to call a rule *_test iff it's a test type rule.
+    boolean testRule = TargetUtils.isTestRuleName(ruleContext.getRule().getRuleClass());
+    if (testRule && defaultRunfiles.isEmpty()) {
+      throw new EvalException(loc, "Test rules have to define runfiles");
+    }
+    if (executable != null || testRule) {
+      RunfilesSupport runfilesSupport = defaultRunfiles.isEmpty()
+          ? null : RunfilesSupport.withExecutable(ruleContext, defaultRunfiles, executable);
+      builder.setRunfilesSupport(runfilesSupport, executable);
     }
   }
 }

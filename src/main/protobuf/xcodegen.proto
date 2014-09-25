@@ -54,7 +54,7 @@ message TargetControl {
   // application.
   optional string infoplist = 5;
 
-  // Google3 label corresponding to the target. This is needed to determine a
+  // Label corresponding to the target. This is needed to determine a
   // unique name for the target in the project.
   optional string label = 7;
 

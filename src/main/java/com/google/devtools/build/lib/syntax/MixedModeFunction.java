@@ -14,6 +14,8 @@
 package com.google.devtools.build.lib.syntax;
 
 import com.google.common.collect.ImmutableList;
+import com.google.common.collect.ImmutableMap;
+import com.google.devtools.build.lib.events.Location;
 import com.google.devtools.build.lib.packages.Type.ConversionException;
 
 import java.util.List;
@@ -39,6 +41,8 @@ public abstract class MixedModeFunction extends AbstractFunction {
   // True if this function requires all arguments to be named
   private final boolean onlyNamedArguments;
 
+  // Location of the function definition, or null for builtin functions.
+  protected final Location location;
 
   /**
    * Constructs an instance of Function that supports Python-style mixed-mode
@@ -53,10 +57,19 @@ public abstract class MixedModeFunction extends AbstractFunction {
                            Iterable<String> parameters,
                            int numMandatoryParameters,
                            boolean onlyNamedArguments) {
+    this(name, parameters, numMandatoryParameters, onlyNamedArguments, null);
+  }
+
+  protected MixedModeFunction(String name,
+                              Iterable<String> parameters,
+                              int numMandatoryParameters,
+                              boolean onlyNamedArguments,
+                              Location location) {
     super(name);
     this.parameters = ImmutableList.copyOf(parameters);
     this.numMandatoryParameters = numMandatoryParameters;
     this.onlyNamedArguments = onlyNamedArguments;
+    this.location = location;
   }
 
   @Override
@@ -66,9 +79,15 @@ public abstract class MixedModeFunction extends AbstractFunction {
                      Environment env)
       throws EvalException, InterruptedException {
 
+    // ast is null when called from Java (as there's no Skylark call site).
+    Location loc = ast == null ? location : ast.getLocation();
     if (onlyNamedArguments && args.size() > 0) {
-      throw new EvalException(ast.getLocation(),
+      throw new EvalException(loc,
           getSignature() + " does not accept positional arguments");
+    }
+
+    if (kwargs == null) {
+      kwargs = ImmutableMap.<String, Object>of();
     }
 
     int numParams = parameters.size();
@@ -77,7 +96,7 @@ public abstract class MixedModeFunction extends AbstractFunction {
 
     // first, positional arguments:
     if (numArgs > numParams) {
-      throw new EvalException(ast.getLocation(),
+      throw new EvalException(loc,
           "too many arguments in call to " + getSignature());
     }
     for (int ii = 0; ii < numArgs && ii < numParams; ++ii) {
@@ -89,12 +108,12 @@ public abstract class MixedModeFunction extends AbstractFunction {
       String keyword = entry.getKey();
       int pos = parameters.indexOf(keyword);
       if (pos == -1) {
-        throw new EvalException(ast.getLocation(),
+        throw new EvalException(loc,
                                 "unexpected keyword '" + keyword
                                 + "' in call to " + getSignature());
       } else {
         if (namedArguments[pos] != null) {
-          throw new EvalException(ast.getLocation(), getSignature()
+          throw new EvalException(loc, getSignature()
               + " got multiple values for keyword argument '" + keyword + "'");
         }
         namedArguments[pos] = kwargs.get(keyword);
@@ -104,20 +123,17 @@ public abstract class MixedModeFunction extends AbstractFunction {
     // third, defaults:
     for (int ii = 0; ii < numMandatoryParameters; ++ii) {
       if (namedArguments[ii] == null) {
-        throw new EvalException(ast.getLocation(),
+        throw new EvalException(loc,
             getSignature() + " received insufficient arguments");
       }
     }
     // (defaults are always null so nothing extra to do here.)
 
     try {
-      return call(namedArguments,
-                  null,
-                  null,
-                  ast);
+      return call(namedArguments, null, null, ast, env);
     } catch (ConversionException | IllegalArgumentException | IllegalStateException
         | ClassCastException e) {
-      throw new EvalException(ast.getLocation(), e.getMessage());
+      throw new EvalException(loc, e.getMessage());
     }
   }
 
@@ -133,11 +149,26 @@ public abstract class MixedModeFunction extends AbstractFunction {
    * @param keywordArguments a dictionary of surplus keyword arguments
    *        (if this function supports it; otherwise null)
    */
-  public abstract Object call(Object[] namedArguments,
-                              List<Object> positionalArguments,
-                              Map<String, Object> keywordArguments,
-                              FuncallExpression ast)
-      throws EvalException, ConversionException, InterruptedException;
+  protected Object call(Object[] namedArguments,
+                        List<Object> positionalArguments,
+                        Map<String, Object> keywordArguments,
+                        FuncallExpression ast)
+      throws EvalException, ConversionException, InterruptedException {
+    throw new UnsupportedOperationException("Method not overridden");
+  }
+
+  /**
+   * Override this method instead of the one above, if you need to access
+   * the environment.
+   */
+  public Object call(Object[] namedArguments,
+      List<Object> positionalArguments,
+      Map<String, Object> keywordArguments,
+      FuncallExpression ast,
+      Environment env)
+      throws EvalException, ConversionException, InterruptedException {
+    return call(namedArguments, positionalArguments, keywordArguments, ast);
+  }
 
   /**
    * Render this object in the form of an equivalent Python function signature.

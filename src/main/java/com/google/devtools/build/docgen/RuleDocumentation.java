@@ -30,14 +30,14 @@ import java.util.TreeSet;
 /**
  * A class representing the documentation of a rule along with some meta-data. The sole ruleName
  * field is used as a key for comparison, equals and hashcode.
- * 
+ *
  * <p> The class contains meta information about the rule:
  * <ul>
  * <li> Rule type: categorizes the rule based on it's general (language independent) purpose,
  * see {@link RuleType}.
  * <li> Rule family: categorizes the rule based on language.
  * </ul>
- * 
+ *
  * <p> The class also contains physical information about the documentation,
  * such as declaring file name and the first line of the raw documentation. This can be useful for
  * proper error signaling during documentation processing.
@@ -106,7 +106,7 @@ class RuleDocumentation implements Comparable<RuleDocumentation> {
   }
 
   /**
-   * Returns the number of first line of the rule documentation in its declaration file. 
+   * Returns the number of first line of the rule documentation in its declaration file.
    */
   int getStartLineCount() {
     return startLineCount;
@@ -118,11 +118,11 @@ class RuleDocumentation implements Comparable<RuleDocumentation> {
   boolean hasFlag(String flag) {
     return flags.contains(flag);
   }
-  
+
   /**
    * Returns true if this rule applies to a specific programming language (e.g. java_library),
    * returns false if it is a generic action (e.g. genrule, filegroup).
-   * 
+   *
    * A rule is considered to be specific to a programming language by default. Generic rules have
    * to be marked with the flag GENERIC_RULE in their #BLAZE_RULE definition.
    */
@@ -131,7 +131,7 @@ class RuleDocumentation implements Comparable<RuleDocumentation> {
   }
 
   /**
-   * Adds a variable name - value pair to the documentation to be substituted. 
+   * Adds a variable name - value pair to the documentation to be substituted.
    */
   void addDocVariable(String varName, String value) {
     docVariables.put(varName, value);
@@ -169,8 +169,6 @@ class RuleDocumentation implements Comparable<RuleDocumentation> {
   String getCommandLineDocumentation() {
     // Replace html <br> tags with line breaks
     String cmdDoc = "\n" + htmlDocumentation.replaceAll("(<br>|<br[\\s]*/>)", "\n") + "\n";
-    // Replace anchor links <a href="#.*">s with human readable links
-    cmdDoc = cmdDoc.replaceAll("\\<a href=\"#([^\"]+)\">[^\\<]*\\</a\\>", "go/be#$1");
     // Replace other links <a href=".*">s with human readable links
     cmdDoc = cmdDoc.replaceAll("\\<a href=\"([^\"]+)\">[^\\<]*\\</a\\>", "$1");
     // Delete other html tags
@@ -195,7 +193,7 @@ class RuleDocumentation implements Comparable<RuleDocumentation> {
 
   private String generateAttributeDefinitions(boolean generateNameAndHeader) {
     StringBuilder sb = new StringBuilder();
-    if (generateNameAndHeader){ 
+    if (generateNameAndHeader){
       String nameExtraHtmlDoc = docVariables.containsKey(DocgenConsts.VAR_NAME)
           ? docVariables.get(DocgenConsts.VAR_NAME) : "";
       sb.append(String.format(Joiner.on('\n').join(new String[] {
@@ -264,7 +262,7 @@ class RuleDocumentation implements Comparable<RuleDocumentation> {
 
   /**
    * Returns a set of examples based on markups which can be used as BUILD file
-   * contents for testing. 
+   * contents for testing.
    */
   Set<String> extractExamples() throws BuildEncyclopediaDocException {
     String[] lines = htmlDocumentation.split(DocgenConsts.LS);
@@ -299,7 +297,7 @@ class RuleDocumentation implements Comparable<RuleDocumentation> {
   }
 
   /**
-   * Return true if the rule doesn't belong to a specific rule family. 
+   * Return true if the rule doesn't belong to a specific rule family.
    */
   private boolean isCommonType() {
     return ruleFamily == null;

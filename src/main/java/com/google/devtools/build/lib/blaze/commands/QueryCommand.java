@@ -37,7 +37,9 @@ import com.google.devtools.build.lib.util.ExitCode;
 import com.google.devtools.common.options.OptionsParser;
 import com.google.devtools.common.options.OptionsProvider;
 
+import java.io.IOException;
 import java.io.PrintStream;
+import java.nio.channels.ClosedByInterruptException;
 import java.util.Set;
 
 /**
@@ -127,6 +129,12 @@ public final class QueryCommand implements BlazeCommand {
     PrintStream output = new PrintStream(runtime.getReporter().getOutErr().getOutputStream());
     try {
       formatter.output(queryOptions, graph, output);
+    } catch (ClosedByInterruptException e) {
+      runtime.getReporter().handle(Event.error("query interrupted"));
+      return ExitCode.INTERRUPTED;
+    } catch (IOException e) {
+      runtime.getReporter().handle(Event.error("I/O error: " + e.getMessage()));
+      return ExitCode.LOCAL_ENVIRONMENTAL_ERROR;
     } finally {
       output.flush();
     }

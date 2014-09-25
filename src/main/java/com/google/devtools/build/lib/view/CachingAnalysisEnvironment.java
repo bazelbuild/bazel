@@ -16,6 +16,7 @@ package com.google.devtools.build.lib.view;
 import com.google.common.base.Joiner;
 import com.google.common.base.Preconditions;
 import com.google.common.collect.ImmutableList;
+import com.google.common.collect.ImmutableSet;
 import com.google.common.collect.Lists;
 import com.google.common.collect.Maps;
 import com.google.common.collect.Sets;
@@ -137,23 +138,8 @@ public class CachingAnalysisEnvironment implements AnalysisEnvironment {
    * @param target for error reporting
    */
   public void verifyGeneratedArtifactHaveActions(Target target) {
-    // Construct this set to avoid poor performance under large --runs_per_test.
-    Set<Artifact> artifactsWithActions = Sets.newHashSet();
-    for (Action action : actions) {
-      // Don't bother checking that every Artifact only appears once; that test is performed
-      // elsewhere (see #testNonUniqueOutputs in ActionListenerIntegrationTest).
-      artifactsWithActions.addAll(action.getOutputs());
-    }
-    List<String> orphanArtifacts = Lists.newArrayListWithCapacity(artifacts.size());
+    Collection<String> orphanArtifacts = getOrphanArtifactMap().values();
     List<String> checkedActions = null;
-    for (Map.Entry<Artifact, String> entry : artifacts.entrySet()) {
-      Artifact a = entry.getKey();
-      if (!a.isSourceArtifact() && !artifactsWithActions.contains(a)) {
-        orphanArtifacts.add(String.format("%s\n%s",
-            a.getExecPathString(),  // uncovered artifact
-            entry.getValue()));  // origin of creation
-      }
-    }
     if (!orphanArtifacts.isEmpty()) {
       checkedActions = Lists.newArrayListWithCapacity(actions.size());
       for (Action action : actions) {
@@ -171,6 +157,31 @@ public class CachingAnalysisEnvironment implements AnalysisEnvironment {
               target.getTargetKind(), target.getLabel(),
               Joiner.on('\n').join(orphanArtifacts), Joiner.on('\n').join(checkedActions)));
     }
+  }
+
+  @Override
+  public ImmutableSet<Artifact> getOrphanArtifacts() {
+    return ImmutableSet.copyOf(getOrphanArtifactMap().keySet());
+  }
+
+  private Map<Artifact, String> getOrphanArtifactMap() {
+    // Construct this set to avoid poor performance under large --runs_per_test.
+    Set<Artifact> artifactsWithActions = Sets.newHashSet();
+    for (Action action : actions) {
+      // Don't bother checking that every Artifact only appears once; that test is performed
+      // elsewhere (see #testNonUniqueOutputs in ActionListenerIntegrationTest).
+      artifactsWithActions.addAll(action.getOutputs());
+    }
+    Map<Artifact, String> orphanArtifacts = Maps.newHashMapWithExpectedSize(artifacts.size());
+    for (Map.Entry<Artifact, String> entry : artifacts.entrySet()) {
+      Artifact a = entry.getKey();
+      if (!a.isSourceArtifact() && !artifactsWithActions.contains(a)) {
+        orphanArtifacts.put(a, String.format("%s\n%s",
+            a.getExecPathString(),  // uncovered artifact
+            entry.getValue()));  // origin of creation
+      }
+    }
+    return orphanArtifacts;
   }
 
   @Override

@@ -43,10 +43,10 @@ public final class FilesetActionContextImpl implements FilesetActionContext {
     private final Reporter reporter;
     private final ThreadPoolExecutor filesetPool;
 
-    public Provider(Reporter reporter) {
+    public Provider(Reporter reporter, String workspaceName) {
       this.reporter = reporter;
       this.filesetPool = newFilesetPool(100);
-      this.impl = new FilesetActionContextImpl(filesetPool);
+      this.impl = new FilesetActionContextImpl(filesetPool, workspaceName);
     }
 
     private static ThreadPoolExecutor newFilesetPool(int threads) {
@@ -79,13 +79,20 @@ public final class FilesetActionContextImpl implements FilesetActionContext {
   }
 
   private final ThreadPoolExecutor filesetPool;
+  private final String workspaceName;
 
-  private FilesetActionContextImpl(ThreadPoolExecutor filesetPool) {
+  private FilesetActionContextImpl(ThreadPoolExecutor filesetPool, String workspaceName) {
     this.filesetPool = filesetPool;
+    this.workspaceName = workspaceName;
   }
 
   @Override
   public ThreadPoolExecutor getFilesetPool() {
     return filesetPool;
+  }
+
+  @Override
+  public String getWorkspaceName() {
+    return workspaceName;
   }
 }

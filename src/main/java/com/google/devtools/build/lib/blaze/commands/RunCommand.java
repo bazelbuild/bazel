@@ -244,7 +244,8 @@ public class RunCommand implements BlazeCommand  {
     // we'll actually run, and a prettier one with the long absolute path to the executable
     // replaced with a shorter relative path that uses the symlinks in the workspace.
     PathFragment prettyExecutablePath =
-        OutputDirectoryLinksUtils.getPrettyPath(executablePath, runtime.getWorkspace(),
+        OutputDirectoryLinksUtils.getPrettyPath(executablePath,
+            runtime.getWorkspaceName(), runtime.getWorkspace(),
             options.getOptions(BuildRequestOptions.class).symlinkPrefix);
     List<String> cmdLine = new ArrayList<>();
     if (runOptions.scriptPath == null) {

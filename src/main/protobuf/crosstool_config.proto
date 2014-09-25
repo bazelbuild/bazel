@@ -173,7 +173,7 @@ message CToolchain {
   optional string default_grte_top = 31;
 
   // Additional dependencies for Blaze-built .deb packages. All Debian packages
-  // that contain C++ google3 binaries need to have the correct runtime
+  // that contain C++ binaries need to have the correct runtime
   // libraries installed, and those depend on the crosstool version, which is
   // why they are recorded here.
   repeated string debian_extra_requires = 33;
@@ -260,4 +260,3 @@ message CrosstoolRelease {
   // All the toolchains in this release.
   repeated CToolchain toolchain = 5;
 }
-

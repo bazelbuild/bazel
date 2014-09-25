@@ -192,13 +192,17 @@ public final class CppModel {
   }
 
   /**
-   * Adds the given linkopts.
+   * Adds the given linkopts to the optional dynamic library link command.
    */
   public CppModel addLinkopts(Collection<String> linkopts) {
     this.linkopts.addAll(linkopts);
     return this;
   }
 
+  /**
+   * Sets the link type used for the link actions. Note that only static links are supported at this
+   * time.
+   */
   public CppModel setLinkTargetType(LinkTargetType linkType) {
     this.linkType = linkType;
     return this;
@@ -389,6 +393,10 @@ public final class CppModel {
    * this behavior.
    */
   public CcLinkingOutputs createCcLinkActions(CcCompilationOutputs ccOutputs) {
+    // For now only handle static links. Note that the dynamic library link below ignores linkType.
+    // TODO(bazel-team): Either support non-static links or move this check to setLinkType().
+    Preconditions.checkState(linkType.isStaticLibraryLink(), "can only handle static links");
+
     CcLinkingOutputs.Builder result = new CcLinkingOutputs.Builder();
     if (cppConfiguration.isLipoContextCollector()) {
       // Don't try to create LIPO link actions in collector mode,
@@ -419,7 +427,6 @@ public final class CppModel {
         .addNonLibraryInputs(ccOutputs.getHeaderTokenFiles())
         .setLinkType(linkType)
         .setLinkStaticness(LinkStaticness.FULLY_STATIC)
-        .addLinkopts(linkopts)
         .build();
     env.registerAction(maybePicAction);
     result.addStaticLibrary(maybePicAction.getOutputLibrary());
@@ -438,7 +445,6 @@ public final class CppModel {
           .addNonLibraryInputs(ccOutputs.getHeaderTokenFiles())
           .setLinkType(picLinkType)
           .setLinkStaticness(LinkStaticness.FULLY_STATIC)
-          .addLinkopts(linkopts)
           .build();
       env.registerAction(picAction);
       result.addPicStaticLibrary(picAction.getOutputLibrary());

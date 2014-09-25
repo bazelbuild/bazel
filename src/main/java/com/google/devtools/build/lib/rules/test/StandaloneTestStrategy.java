@@ -52,17 +52,17 @@ public class StandaloneTestStrategy extends TestStrategy {
     TODO(bazel-team):
 
     * tests
-    * --test_output streamed is implemented by forcing an "exclusive" test strategy.
     * It would be nice to get rid of (cd $TEST_SRCDIR) in the test-setup script.
     * test timeouts.
     * parsing XML output.
 
     */
   protected final PathFragment runfilesPrefix;
-  
-  public StandaloneTestStrategy(OptionsClassProvider options, BinTools binTools,
-      PathFragment runfilesPrefix) {
-    super(options, binTools);
+
+  public StandaloneTestStrategy(OptionsClassProvider requestOptions,
+      OptionsClassProvider startupOptions, BinTools binTools, PathFragment runfilesPrefix) {
+    super(requestOptions, startupOptions, binTools);
+
     this.runfilesPrefix = runfilesPrefix;
   }
 
@@ -146,9 +146,12 @@ public class StandaloneTestStrategy extends TestStrategy {
         }
       }
 
-      FailedTestCaseDetails details = parseTestResult(action.getXmlOutputPath());
+      HierarchicalTestResult details = parseTestResult(action.getXmlOutputPath());
       if (details != null) {
-        builder.setFailedTestCaseDetails(details);
+        FailedTestCaseDetails failedDetails = details.collectFailedTestCases();
+        if (failedDetails != null) {
+          builder.setFailedTestCaseDetails(failedDetails);
+        }
       }
 
       return builder.build();

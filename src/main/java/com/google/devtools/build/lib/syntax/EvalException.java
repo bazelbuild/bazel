@@ -97,9 +97,9 @@ public class EvalException extends Exception {
   }
 
   /**
-   * Returns the error message with location info.
+   * Returns the error message with location info if exists.
    */
   public String print() {
-    return getLocation().print() + ": " + getMessage();
+    return getLocation() == null ? getMessage() : getLocation().print() + ": " + getMessage();
   }
 }

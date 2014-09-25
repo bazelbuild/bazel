@@ -19,6 +19,7 @@ import com.google.devtools.build.lib.actions.Artifact;
 import com.google.devtools.build.lib.collect.nestedset.NestedSet;
 import com.google.devtools.build.lib.events.Location;
 import com.google.devtools.build.lib.packages.Type.ConversionException;
+import com.google.devtools.build.lib.syntax.Environment;
 import com.google.devtools.build.lib.syntax.EvalException;
 import com.google.devtools.build.lib.syntax.EvalUtils;
 import com.google.devtools.build.lib.syntax.Label;
@@ -32,7 +33,6 @@ import com.google.devtools.build.lib.view.CommandHelper;
 import com.google.devtools.build.lib.view.FilesToRunProvider;
 import com.google.devtools.build.lib.view.Runfiles;
 import com.google.devtools.build.lib.view.RunfilesProvider;
-import com.google.devtools.build.lib.view.RunfilesSupport;
 import com.google.devtools.build.lib.view.TransitiveInfoCollection;
 import com.google.devtools.build.lib.view.TransitiveInfoProvider;
 import com.google.devtools.build.lib.view.actions.CommandLine;
@@ -85,7 +85,8 @@ public class SkylarkRuleImplementationFunctions {
       @Param(name = "mnemonic", type = String.class, doc = "mnemonic"),
       @Param(name = "command", doc = "shell command to execute"),
       @Param(name = "command_line", doc = "a command line to execute"),
-      @Param(name = "progress_message", type = String.class, doc = "progress message"),
+      @Param(name = "progress_message", type = String.class,
+          doc = "progress message to show to the user during the build"),
       @Param(name = "use_default_shell_env", type = Boolean.class,
           doc = "whether the action should use the built in shell environment or not"),
       @Param(name = "env", type = Map.class, doc = "sets the dictionary of environment variables")})
@@ -105,12 +106,10 @@ public class SkylarkRuleImplementationFunctions {
         Object exe = params.get("executable");
         if (exe instanceof Artifact) {
           builder.setExecutable((Artifact) exe);
-        } else if (exe instanceof FilesToRunProvider) {
-          builder.setExecutable((FilesToRunProvider) exe);
         } else if (exe instanceof PathFragment) {
           builder.setExecutable((PathFragment) exe);
         } else {
-          throw new EvalException(loc, "expected Artifact, FilesToRunProvider or PathFragment for "
+          throw new EvalException(loc, "expected file or PathFragment for "
               + "executable but got " + EvalUtils.getDatatypeName(exe) + " instead");
         }
       }
@@ -213,29 +212,6 @@ public class SkylarkRuleImplementationFunctions {
     }
   };
 
-  @SkylarkBuiltin(name = "runfiles_support", doc = "Creates a runfiles support",
-      objectType = SkylarkRuleContext.class,
-      mandatoryParams = {
-      @Param(name = "runfiles", type = RunfilesProvider.class,
-          doc = "files the output of the rule needs at runtime"),
-      @Param(name = "executable", type = Artifact.class,
-          doc = "the executable output of the target")})
-  private static final SkylarkFunction runfilesSupport =
-      new SimpleSkylarkFunction("runfiles_support") {
-
-    @Override
-    public Object call(Map<String, Object> params, Location loc)
-        throws EvalException, ExecutionException {
-      SkylarkRuleContext ctx = (SkylarkRuleContext) params.get("self");
-      Runfiles runfiles = ((RunfilesProvider) params.get("runfiles")).getDefaultRunfiles();
-      if (runfiles.isEmpty()) {
-        throw new IllegalArgumentException("Cannot use runfiles support with empty runfiles");
-      }
-      return RunfilesSupport.withExecutable(
-          ctx.getRuleContext(), runfiles, (Artifact) params.get("executable"));
-    }
-  };
-
   /**
    * A built in Skylark helper function to access the
    * Transitive info providers of Transitive info collections.
@@ -255,7 +231,8 @@ public class SkylarkRuleImplementationFunctions {
         Class<?> classType = SkylarkRuleContext.classCache.get(type);
         Class<? extends TransitiveInfoProvider> convertedClass =
             classType.asSubclass(TransitiveInfoProvider.class);
-        return target.getProvider(convertedClass);
+        Object result = target.getProvider(convertedClass);
+        return result == null ? Environment.NONE : result;
       } catch (ExecutionException e) {
         throw new EvalException(loc, "Unknown class type " + type);
       } catch (ClassCastException e) {

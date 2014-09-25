@@ -32,8 +32,7 @@ import com.google.devtools.build.lib.view.RuleDefinitionEnvironment;
 import java.lang.reflect.Method;
 
 /**
- * Helper class to provide Google3RuleClassProvider for tests. This will statically add rule classes
- * that otherwise are loaded as plugins.
+ * Helper class to provide a RuleClassProvider for tests.
  */
 public class TestRuleClassProvider {
   private static ConfiguredRuleClassProvider ruleProvider = null;
@@ -50,7 +49,7 @@ public class TestRuleClassProvider {
   }
 
   /**
-   * Return a Google3RuleClassProvider.
+   * Return a rule class provider.
    */
   public static ConfiguredRuleClassProvider getRuleClassProvider() {
     if (ruleProvider == null) {

@@ -60,8 +60,7 @@ public interface ClassObject {
 
     @Override
     public Object getValue(String name) {
-      Object object = values.get(name); 
-      return object != null ? object : Environment.NONE;
+      return values.get(name);
     }
 
     public ImmutableCollection<String> getKeys() {

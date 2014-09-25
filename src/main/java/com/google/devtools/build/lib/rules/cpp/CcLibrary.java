@@ -80,6 +80,12 @@ public abstract class CcLibrary implements RuleConfiguredTargetFactory {
     // runfiles.
     builder.addArtifacts(ccLinkingOutputs.getLibrariesForRunfiles(linkingStatically && !neverLink));
     builder.add(context, CppRunfilesProvider.runfilesFunction(linkingStatically));
+    if (context.getRule().isAttrDefined("implements", Type.LABEL_LIST)) {
+      builder.addTargets(
+          context.getPrerequisites("implements", Mode.TARGET), RunfilesProvider.DEFAULT_RUNFILES);
+      builder.addTargets(context.getPrerequisites("implements", Mode.TARGET),
+          CppRunfilesProvider.runfilesFunction(linkingStatically));
+    }
     builder.addDataDeps(context);
 
     if (addDynamicRuntimeInputArtifactsToRunfiles) {

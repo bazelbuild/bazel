@@ -288,7 +288,7 @@ final class BuildingState {
    * child to be checked (as determined by {@link #dirtyDirectDepIterator} == null, isReady(), and
    * a flag set in {@link #getNextDirtyDirectDeps}).
    *
-   * @see NodeEntry#signalDep(long)
+   * @see NodeEntry#signalDep(Version)
    */
   boolean signalDep(boolean childChanged) {
     signaledDeps++;

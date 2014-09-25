@@ -30,7 +30,9 @@ import com.google.devtools.build.lib.exec.ExecutionOptions;
 import com.google.devtools.build.lib.rules.cpp.IncludeScanningContext;
 import com.google.devtools.build.lib.rules.cpp.LocalGccStrategy;
 import com.google.devtools.build.lib.rules.cpp.LocalLinkStrategy;
+import com.google.devtools.build.lib.rules.test.ExclusiveTestStrategy;
 import com.google.devtools.build.lib.rules.test.StandaloneTestStrategy;
+import com.google.devtools.build.lib.rules.test.TestActionContext;
 import com.google.devtools.build.lib.vfs.FileSystemUtils;
 
 import java.io.IOException;
@@ -66,17 +68,20 @@ public class StandaloneContextProvider implements ActionContextProvider {
 
   public StandaloneContextProvider(
       BlazeRuntime runtime, BuildRequest buildRequest) {
-    boolean verboseFailures = buildRequest.getOptions(ExecutionOptions.class).verboseFailures;  
-    
+    boolean verboseFailures = buildRequest.getOptions(ExecutionOptions.class).verboseFailures;
+
     localSpawnStrategy = new LocalSpawnStrategy(
         runtime.getDirectories().getExecRoot(), verboseFailures);
     this.runtime = runtime;
+
+    TestActionContext testStrategy = new StandaloneTestStrategy(buildRequest,
+        runtime.getStartupOptionsProvider(), runtime.getBinTools(), runtime.getRunfilesPrefix());
     this.strategies = ImmutableList.of(
         localSpawnStrategy,
         new DummyIncludeScanningContext(),
         new LocalLinkStrategy(),
-        new StandaloneTestStrategy(
-            buildRequest, runtime.getBinTools(), runtime.getRunfilesPrefix()),
+        testStrategy,
+        new ExclusiveTestStrategy(testStrategy),
         new LocalGccStrategy(buildRequest));
   }
 
@@ -99,3 +104,4 @@ public class StandaloneContextProvider implements ActionContextProvider {
   @Override
   public void executionPhaseEnding()  {}
 }
+

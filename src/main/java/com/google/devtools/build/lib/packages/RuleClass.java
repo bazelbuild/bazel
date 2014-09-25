@@ -153,6 +153,16 @@ public final class RuleClass {
   }
 
   /**
+   * A factory or builder class for rule implementations.
+   */
+  public interface ConfiguredTargetFactory<TConfiguredTarget, TContext> {
+    /**
+     * Returns a fully initialized configured target instance using the given context.
+     */
+    TConfiguredTarget create(TContext ruleContext) throws InterruptedException;
+  }
+
+  /**
    * Default rule configurator, it doesn't change the assigned configuration.
    */
   public static final RuleClass.Configurator<Object, Object> NO_CHANGE =
@@ -370,8 +380,10 @@ public final class RuleClass {
     private boolean publicByDefault = false;
     private boolean binaryOutput = true;
     private boolean workspaceOnly = false;
+    private boolean outputsDefaultExecutable = false;
     private ImplicitOutputsFunction implicitOutputsFunction = ImplicitOutputsFunction.NONE;
     private Configurator<?, ?> configurator = NO_CHANGE;
+    private ConfiguredTargetFactory<?, ?> configuredTargetFactory = null;
     private PredicateWithMessage<Rule> validityPredicate =
         PredicatesWithMessage.<Rule>alwaysTrue();
     private Predicate<String> preferredDependencyPredicate = Predicates.alwaysFalse();
@@ -434,7 +446,7 @@ public final class RuleClass {
     }
 
     /**
-     * Same as {@link #build} except with setting the name parameter. 
+     * Same as {@link #build} except with setting the name parameter.
      */
     public RuleClass build(String name) {
       Preconditions.checkArgument(this.name.isEmpty() || this.name.equals(name));
@@ -442,11 +454,14 @@ public final class RuleClass {
       type.checkAttributes(attributes);
       boolean skylarkExecutable =
           skylark && (type == RuleClassType.NORMAL || type == RuleClassType.TEST);
+      Preconditions.checkState(
+          (type == RuleClassType.ABSTRACT)
+          == (configuredTargetFactory == null && configuredTargetFunction == null));
       Preconditions.checkState(skylarkExecutable == (configuredTargetFunction != null));
       Preconditions.checkState(skylarkExecutable == (ruleDefinitionEnvironment != null));
       return new RuleClass(name, skylarkExecutable, documented, publicByDefault, binaryOutput,
-          workspaceOnly, implicitOutputsFunction, configurator,
-          validityPredicate, preferredDependencyPredicate,
+          workspaceOnly, outputsDefaultExecutable, implicitOutputsFunction, configurator,
+          configuredTargetFactory, validityPredicate, preferredDependencyPredicate,
           configuredTargetFunction, ruleDefinitionEnvironment,
           attributes.values().toArray(new Attribute[0]));
     }
@@ -505,6 +520,11 @@ public final class RuleClass {
       Preconditions.checkState(type != RuleClassType.ABSTRACT,
           "Setting not inherited property (cfg) of abstract rule class '%s'", name);
       this.configurator = configurator;
+      return this;
+    }
+
+    public Builder factory(ConfiguredTargetFactory<?, ?> factory) {
+      this.configuredTargetFactory = factory;
       return this;
     }
 
@@ -599,6 +619,15 @@ public final class RuleClass {
     }
 
     /**
+     * This rule class outputs a default executable for every rule with the same name as
+     * the rules's. Only works for Skylark.
+     */
+    public <TYPE> Builder setOutputsDefaultExecutable() {
+      this.outputsDefaultExecutable = true;
+      return this;
+    }
+
+    /**
      * Returns an Attribute.Builder object which contains a replica of the
      * same attribute in the parent rule if exists.
      *
@@ -626,6 +655,7 @@ public final class RuleClass {
   private final boolean publicByDefault;
   private final boolean binaryOutput;
   private final boolean workspaceOnly;
+  private final boolean outputsDefaultExecutable;
 
   /**
    * A (unordered) mapping from attribute names to small integers indexing into
@@ -650,6 +680,11 @@ public final class RuleClass {
    * of that rule.
    */
   private final Configurator<?, ?> configurator;
+
+  /**
+   * The factory that creates configured targets from this rule.
+   */
+  private final ConfiguredTargetFactory<?, ?> configuredTargetFactory;
 
   /**
    * The constraint the package name of the rule instance must fulfill
@@ -697,9 +732,10 @@ public final class RuleClass {
   @VisibleForTesting
   RuleClass(String name,
       boolean skylarkExecutable, boolean documented, boolean publicByDefault,
-      boolean binaryOutput, boolean workspaceOnly,
+      boolean binaryOutput, boolean workspaceOnly, boolean outputsDefaultExecutable,
       ImplicitOutputsFunction implicitOutputsFunction,
       Configurator<?, ?> configurator,
+      ConfiguredTargetFactory<?, ?> configuredTargetFactory,
       PredicateWithMessage<Rule> validityPredicate, Predicate<String> preferredDependencyPredicate,
       @Nullable UserDefinedFunction configuredTargetFunction,
       @Nullable SkylarkEnvironment ruleDefinitionEnvironment, Attribute... attributes) {
@@ -711,6 +747,7 @@ public final class RuleClass {
     this.binaryOutput = binaryOutput;
     this.implicitOutputsFunction = implicitOutputsFunction;
     this.configurator = Preconditions.checkNotNull(configurator);
+    this.configuredTargetFactory = configuredTargetFactory;
     this.validityPredicate = validityPredicate;
     this.preferredDependencyPredicate = preferredDependencyPredicate;
     this.configuredTargetFunction = configuredTargetFunction;
@@ -718,6 +755,7 @@ public final class RuleClass {
     // Do not make a defensive copy as builder does that already
     this.attributes = attributes;
     this.workspaceOnly = workspaceOnly;
+    this.outputsDefaultExecutable = outputsDefaultExecutable;
 
     // create the index:
     int index = 0;
@@ -742,8 +780,14 @@ public final class RuleClass {
     return implicitOutputsFunction;
   }
 
-  public Configurator<?, ?> getConfigurator() {
-    return configurator;
+  @SuppressWarnings("unchecked")
+  public <C, R> Configurator<C, R> getConfigurator() {
+    return (Configurator<C, R>) configurator;
+  }
+
+  @SuppressWarnings("unchecked")
+  public <CT, RC> ConfiguredTargetFactory<CT, RC> getConfiguredTargetFactory() {
+    return (ConfiguredTargetFactory<CT, RC>) configuredTargetFactory;
   }
 
   /**
@@ -1264,5 +1308,12 @@ public final class RuleClass {
    */
   public boolean isSkylarkExecutable() {
     return skylarkExecutable;
+  }
+
+  /**
+   * Returns true if this rule class outputs a default executable for every rule.
+   */
+  public boolean outputsDefaultExecutable() {
+    return outputsDefaultExecutable;
   }
 }

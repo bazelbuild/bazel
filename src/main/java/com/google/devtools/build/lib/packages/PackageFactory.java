@@ -468,7 +468,7 @@ public final class PackageFactory {
             throw new EvalException(ast.getLocation(), e.getMessage());
           }
         }
-        return 0;
+        return Environment.NONE;
       }
     };
   }
@@ -488,7 +488,7 @@ public final class PackageFactory {
             context.eventHandler.handle(Event.error(ast.getLocation(), e.getMessage()));
             context.pkgBuilder.setContainsErrors();
           }
-          return null;
+          return Environment.NONE;
         }
       };
   }
@@ -509,7 +509,7 @@ public final class PackageFactory {
             context.eventHandler.handle(Event.error(ast.getLocation(), e.getMessage()));
             context.pkgBuilder.setContainsErrors();
           }
-          return null;
+          return Environment.NONE;
         }
       };
   }
@@ -535,7 +535,7 @@ public final class PackageFactory {
           try {
             context.pkgBuilder.addPackageGroup(name, packages, includes, context.eventHandler,
                 ast.getLocation());
-            return null;
+            return Environment.NONE;
           } catch (Label.SyntaxException e) {
             throw new EvalException(ast.getLocation(),
                 "package group has invalid name: " + name + ": " + e.getMessage());
@@ -600,7 +600,7 @@ public final class PackageFactory {
               "at least one argument must be given to the 'package' function");
         }
 
-        return null;
+        return Environment.NONE;
       }
     };
   }

@@ -13,17 +13,13 @@
 // limitations under the License.
 package com.google.devtools.build.lib.rules;
 
+import com.google.devtools.build.lib.packages.RuleClass;
 import com.google.devtools.build.lib.view.ConfiguredTarget;
 import com.google.devtools.build.lib.view.RuleContext;
 
 /**
- * A factory or builder class for rule implementations.
+ * A shortcut class to the appropriate specialization of {@code RuleClass.ConfiguredTargetFactory}.
  */
-public interface RuleConfiguredTargetFactory {
-
-  /**
-   * Returns a fully initialized configured target instance using the given context.
-   */
-  // TODO(bazel-team): The InterruptedException declaration is only used by GenQuery.
-  ConfiguredTarget create(RuleContext ruleContext) throws InterruptedException;
+public interface RuleConfiguredTargetFactory
+    extends RuleClass.ConfiguredTargetFactory<ConfiguredTarget, RuleContext> {
 }

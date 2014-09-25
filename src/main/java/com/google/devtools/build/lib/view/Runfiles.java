@@ -100,9 +100,9 @@ public final class Runfiles {
   private final NestedSet<Map.Entry<PathFragment, Artifact>> symlinks;
 
   /**
-   * A map of symlinks that should be present above the runfiles directory. Strictly speaking these
-   * are "outside" the scope of google3, but are useful for certain rule types like AppEngine apps
-   * which have root level config files outside of the regular source tree.
+   * A map of symlinks that should be present above the runfiles directory. These are useful for
+   * certain rule types like AppEngine apps which have root level config files outside of the
+   * regular source tree.
    */
   private final NestedSet<Map.Entry<PathFragment, Artifact>> rootSymlinks;
 

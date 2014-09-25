@@ -61,6 +61,25 @@ enum BlazeTestStatus {
   BLAZE_HALTED_BEFORE_TESTING = 8;
 };
 
+// TestCase contains detailed data about all tests (cases/suites/decorators)
+// ran, structured in a tree. This data will be later used to present the tests
+// by the web status server.
+message TestCase {
+  enum Type {
+    TEST_CASE = 0;
+    TEST_SUITE = 1;
+    TEST_DECORATOR = 2;
+  }
+
+  repeated TestCase child = 1;
+  required string name = 2;
+  optional string class_name = 3;
+  optional bool was_run = 4 [default=true];
+  required int64 run_duration_milis = 5;
+  optional BlazeTestStatus status = 6;
+  optional Type type = 7;
+};
+
 // TestResultData holds the outcome data for a single test action (A
 // single test rule can result in multiple actions due to sharding and
 // runs_per_test settings.)
@@ -95,4 +114,7 @@ message TestResultData {
 
   // Total time in ms.
   optional int64 run_duration_millis = 13;
+
+  // Additional build info
+  optional TestCase test_case = 14;
 };

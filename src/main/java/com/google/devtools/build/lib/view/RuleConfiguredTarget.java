@@ -17,7 +17,6 @@ import com.google.common.base.Preconditions;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.Lists;
-import com.google.common.collect.Maps;
 import com.google.common.collect.UnmodifiableIterator;
 import com.google.devtools.build.lib.actions.Artifact;
 import com.google.devtools.build.lib.concurrent.ThreadSafety.Immutable;
@@ -29,6 +28,7 @@ import com.google.devtools.build.lib.syntax.Label;
 import com.google.devtools.build.lib.view.config.ConfigMatchingProvider;
 import com.google.devtools.build.lib.view.config.RunUnder;
 
+import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.Set;
@@ -58,14 +58,12 @@ public final class RuleConfiguredTarget extends AbstractConfiguredTarget impleme
   RuleConfiguredTarget(RuleContext ruleContext,
       ImmutableList<Artifact> mandatoryStampFiles,
       ImmutableMap<String, Object> skylarkProviders,
-      TransitiveInfo... infos) {
+      Map<Class<? extends TransitiveInfoProvider>, TransitiveInfoProvider> providers) {
     super(ruleContext);
     // We don't use ImmutableMap.Builder here to allow augmenting the initial list of 'default'
     // providers by passing them in.
-    Map<Class<? extends TransitiveInfoProvider>, Object> providerBuilder = Maps.newHashMap();
-    for (TransitiveInfo info : infos) {
-      providerBuilder.put(info.key, info.value);
-    }
+    Map<Class<? extends TransitiveInfoProvider>, Object> providerBuilder = new LinkedHashMap<>();
+    providerBuilder.putAll(providers);
     Preconditions.checkState(providerBuilder.containsKey(RunfilesProvider.class));
     Preconditions.checkState(providerBuilder.containsKey(FileProvider.class));
     Preconditions.checkState(providerBuilder.containsKey(FilesToRunProvider.class));
@@ -166,18 +164,6 @@ public final class RuleConfiguredTarget extends AbstractConfiguredTarget impleme
   @Override
   public final Rule getTarget() {
     return (Rule) super.getTarget();
-  }
-
-  static final class TransitiveInfo {
-    final Class<? extends TransitiveInfoProvider> key;
-    final TransitiveInfoProvider value;
-
-    public TransitiveInfo(Class<? extends TransitiveInfoProvider> key,
-        TransitiveInfoProvider value) {
-      Preconditions.checkState(key.isAssignableFrom(value.getClass()));
-      this.key = key;
-      this.value = value;
-    }
   }
 
   /**

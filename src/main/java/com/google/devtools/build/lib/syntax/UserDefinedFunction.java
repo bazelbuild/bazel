@@ -13,7 +13,9 @@
 // limitations under the License.
 package com.google.devtools.build.lib.syntax;
 
+import com.google.common.base.Function;
 import com.google.common.collect.ImmutableList;
+import com.google.common.collect.Lists;
 import com.google.devtools.build.lib.events.Location;
 
 import java.util.List;
@@ -23,17 +25,26 @@ import java.util.Map;
  * The actual function registered in the environment. This function is defined in the
  * parsed code using {@link FunctionDefStatement}.
  */
-public class UserDefinedFunction extends AbstractFunction {
+public class UserDefinedFunction extends MixedModeFunction {
 
   private final ImmutableList<Ident> listArgNames;
   private final ImmutableList<Statement> statements;
-  private final Location location;
   private final SkylarkEnvironment definitionEnv;
+
+  private static ImmutableList<String> identToStringList(ImmutableList<Ident> listArgNames) {
+    Function<Ident, String> function = new Function<Ident, String>() {
+      @Override
+      public String apply(Ident id) {
+        return id.getName();
+      }
+    };
+    return ImmutableList.copyOf(Lists.transform(listArgNames, function));
+  }
 
   protected UserDefinedFunction(Ident function, ImmutableList<Ident> listArgNames,
       ImmutableList<Statement> statements, SkylarkEnvironment definitionEnv) {
-    super(function.getName());
-    this.location = function.getLocation();
+    super(function.getName(), identToStringList(listArgNames), listArgNames.size(), false,
+        function.getLocation());
     this.listArgNames = listArgNames;
     this.statements = statements;
     this.definitionEnv = definitionEnv;
@@ -52,24 +63,16 @@ public class UserDefinedFunction extends AbstractFunction {
   }
 
   @Override
-  public Object call(List<Object> args, Map<String, Object> kwargs,
-      FuncallExpression ast, Environment env)
+  public Object call(Object[] namedArguments, List<Object> positionalArguments,
+      Map<String, Object> keywordArguments, FuncallExpression ast, Environment env)
       throws EvalException, InterruptedException {
-    if (args.size() != listArgNames.size()) {
-      // ast is null when called from Java (as there's no Skylark call site).
-      Location loc = ast == null ? getLocation() : ast.getLocation();
-      throw new EvalException(loc, String.format(
-          "Invalid number of arguments for function '%s', got %s instead of %s",
-          getName(), args.size(), listArgNames.size()));
-    }
-    // Creating an environment from this functions arguments and the global environment
+    // TODO(bazel-team): support default values
     SkylarkEnvironment functionEnv = SkylarkEnvironment.createEnvironmentForFunctionCalling(
         env, definitionEnv, this);
-    int i = 0;
-    // TODO(bazel-team): support kwargs
 
     // Registering the functions's arguments as variables in the local Environment
-    for (Object arg : args) {
+    int i = 0;
+    for (Object arg : namedArguments) {
       functionEnv.update(listArgNames.get(i++).getName(), arg);
     }
 

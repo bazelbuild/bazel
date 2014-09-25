@@ -31,10 +31,16 @@ public class TestConstants {
       "process-wrapper",
       "build_interface_so");
 
+
   /**
    * Location in the bazel repo where embedded binaries come from.
    */
   public static final String EMBEDDED_SCRIPTS_PATH = "DOES-NOT-WORK-YET";
+
+  /**
+   * The directory in InMemoryFileSystem where workspaces created during unit tests reside.
+   */
+  public static final String TEST_WORKSPACE_DIRECTORY = "bazel";
 
   public static final String TEST_RULE_CLASS_PROVIDER =
       "com.google.devtools.build.lib.bazel.rules.BazelRuleClassProvider";

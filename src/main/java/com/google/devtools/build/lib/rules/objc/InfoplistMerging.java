@@ -14,19 +14,19 @@
 
 package com.google.devtools.build.lib.rules.objc;
 
+import com.google.common.base.Optional;
 import com.google.common.base.Preconditions;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.Iterables;
 import com.google.devtools.build.lib.actions.Action;
 import com.google.devtools.build.lib.actions.Artifact;
 import com.google.devtools.build.lib.collect.nestedset.NestedSet;
+import com.google.devtools.build.lib.packages.RuleClass.Builder;
 import com.google.devtools.build.lib.view.FilesToRunProvider;
 import com.google.devtools.build.lib.view.actions.ActionConstructionContext;
 import com.google.devtools.build.lib.view.actions.CommandLine;
 import com.google.devtools.build.lib.view.actions.SpawnAction;
 import com.google.devtools.build.xcode.util.Interspersing;
-
-import javax.annotation.Nullable;
 
 /**
  * Supplies information regarding Infoplist merging for a particular binary. This includes:
@@ -41,9 +41,9 @@ import javax.annotation.Nullable;
 class InfoplistMerging {
   static class Builder {
     private final ActionConstructionContext context;
-    @Nullable private NestedSet<Artifact> inputPlists;
-    @Nullable private Artifact mergedInfoplist;
-    @Nullable private FilesToRunProvider plmerge;
+    private NestedSet<Artifact> inputPlists;
+    private FilesToRunProvider plmerge;
+    private IntermediateArtifacts intermediateArtifacts;
 
     public Builder(ActionConstructionContext context) {
       this.context = Preconditions.checkNotNull(context);
@@ -55,19 +55,14 @@ class InfoplistMerging {
       return this;
     }
 
-    /**
-     * Sets the Artifact corresponding to the merged info plist. Note that this is returned by
-     * {@link InfoplistMerging#getPlistWithEverything()} iff there is more than one source.
-     */
-    public Builder setMergedInfoplist(Artifact mergedInfoplist) {
-      Preconditions.checkState(this.mergedInfoplist == null);
-      this.mergedInfoplist = mergedInfoplist;
-      return this;
-    }
-
     public Builder setPlmerge(FilesToRunProvider plmerge) {
       Preconditions.checkState(this.plmerge == null);
       this.plmerge = plmerge;
+      return this;
+    }
+
+    public Builder setIntermediateArtifacts(IntermediateArtifacts intermediateArtifacts) {
+      this.intermediateArtifacts = intermediateArtifacts;
       return this;
     }
 
@@ -75,43 +70,53 @@ class InfoplistMerging {
      * This static factory method prevents retention of the outer {@link Builder} class reference by
      * the anonymous {@link CommandLine} instance.
      */
-    private static CommandLine mergeCommandLine(final Builder builder) {
+    private static CommandLine mergeCommandLine(
+        final NestedSet<Artifact> inputPlists, final Artifact mergedInfoplist) {
       return new CommandLine() {
         @Override
         public Iterable<String> arguments() {
           return new ImmutableList.Builder<String>()
               .addAll(Interspersing.beforeEach(
-                  "--source_file", Artifact.toExecPaths(builder.inputPlists)))
-              .add("--out_file", builder.mergedInfoplist.getExecPathString())
+                  "--source_file", Artifact.toExecPaths(inputPlists)))
+              .add("--out_file", mergedInfoplist.getExecPathString())
               .build();
         }
       };
     }
 
     public InfoplistMerging build() {
-      Preconditions.checkState(mergedInfoplist != null && plmerge != null,
-          "mergedInfoplist (%s) and/or plmerge (%s) is null");
-      Action mergeAction = new SpawnAction.Builder(context)
-          .setRegisterSpawnAction(false)
-          .setMnemonic("Merge Info.plist files")
-          .setExecutable(plmerge)
-          .setCommandLine(mergeCommandLine(this))
-          .addTransitiveInputs(inputPlists)
-          .addOutput(mergedInfoplist)
-          .build();
-      return new InfoplistMerging(
-          Iterables.size(inputPlists) == 1
-              ? Iterables.getOnlyElement(inputPlists) : mergedInfoplist,
-          mergeAction, inputPlists);
+      Preconditions.checkNotNull(intermediateArtifacts, "intermediateArtifacts");
+
+      Optional<Artifact> plistWithEverything = Optional.absent();
+      Optional<Action> mergeAction = Optional.absent();
+
+      int inputs = Iterables.size(inputPlists);
+      if (inputs == 1) {
+        plistWithEverything = Optional.of(Iterables.getOnlyElement(inputPlists));
+      } else if (inputs > 1) {
+        Artifact merged = intermediateArtifacts.mergedInfoplist();
+
+        plistWithEverything = Optional.of(merged);
+        mergeAction = Optional.<Action>of(new SpawnAction.Builder(context)
+            .setRegisterSpawnAction(false)
+            .setMnemonic("Merge Info.plist files")
+            .setExecutable(plmerge)
+            .setCommandLine(mergeCommandLine(inputPlists, merged))
+            .addTransitiveInputs(inputPlists)
+            .addOutput(merged)
+            .build());
+      }
+
+      return new InfoplistMerging(plistWithEverything, mergeAction, inputPlists);
     }
   }
 
-  private final Artifact plistWithEverything;
-  private final Action mergeAction;
+  private final Optional<Artifact> plistWithEverything;
+  private final Optional<Action> mergeAction;
   private final NestedSet<Artifact> inputPlists;
 
-  private InfoplistMerging(
-      Artifact plistWithEverything, Action mergeAction, NestedSet<Artifact> inputPlists) {
+  private InfoplistMerging(Optional<Artifact> plistWithEverything, Optional<Action> mergeAction,
+      NestedSet<Artifact> inputPlists) {
     this.plistWithEverything = plistWithEverything;
     this.mergeAction = mergeAction;
     this.inputPlists = inputPlists;
@@ -121,11 +126,15 @@ class InfoplistMerging {
    * Creates action to merge multiple Info.plist files of a binary into a single Info.plist. No
    * action is necessary if there is only one source.
    */
-  public Action getMergeAction() {
+  public Optional<Action> getMergeAction() {
     return mergeAction;
   }
 
-  public Artifact getPlistWithEverything() {
+  /**
+   * An {@link Optional} with the merged infoplist, or {@link Optional#absent()} if there are no
+   * merge inputs and it should not be included in the bundle.
+   */
+  public Optional<Artifact> getPlistWithEverything() {
     return plistWithEverything;
   }
 

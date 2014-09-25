@@ -20,11 +20,13 @@ import static com.google.devtools.build.singlejar.ZipCombiner.OutputMode.FORCE_D
 import com.google.common.annotations.VisibleForTesting;
 import com.google.common.base.Preconditions;
 import com.google.common.collect.ImmutableList;
+import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.ImmutableSet;
 import com.google.devtools.build.singlejar.ZipCombiner;
 import com.google.devtools.build.xcode.bundlemerge.proto.BundleMergeProtos.BundleFile;
 import com.google.devtools.build.xcode.bundlemerge.proto.BundleMergeProtos.Control;
 import com.google.devtools.build.xcode.bundlemerge.proto.BundleMergeProtos.MergeZip;
+import com.google.devtools.build.xcode.bundlemerge.proto.BundleMergeProtos.VariableSubstitution;
 import com.google.devtools.build.xcode.common.Platform;
 import com.google.devtools.build.xcode.common.TargetDeviceFamily;
 import com.google.devtools.build.xcode.plmerge.PlistMerging;
@@ -85,6 +87,10 @@ public final class BundleMerging {
     for (String targetDeviceFamily : control.getTargetDeviceFamilyList()) {
       targetDeviceFamiliesBuilder.add(TargetDeviceFamily.valueOf(targetDeviceFamily));
     }
+    ImmutableMap.Builder<String, String> substitutionMap = ImmutableMap.builder();
+    for (VariableSubstitution substitution : control.getVariableSubstitutionList()) {
+      substitutionMap.put(substitution.getName(), substitution.getValue());
+    }
     PlistMerging
         .from(
             sourcePlistFiles,
@@ -92,7 +98,8 @@ public final class BundleMerging {
                 targetDeviceFamiliesBuilder.build(),
                 Platform.valueOf(control.getPlatform()),
                 control.getSdkVersion(),
-                control.getMinimumOsVersion()))
+                control.getMinimumOsVersion()),
+            substitutionMap.build())
         .write(tempMergedPlist, tempPkgInfo);
 
     // Generate zip configuration which creates the final application bundle.

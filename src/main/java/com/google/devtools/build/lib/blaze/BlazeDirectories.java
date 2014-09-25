@@ -15,6 +15,7 @@
 package com.google.devtools.build.lib.blaze;
 
 import com.google.common.base.Preconditions;
+import com.google.devtools.build.lib.Constants;
 import com.google.devtools.build.lib.actions.Root;
 import com.google.devtools.build.lib.concurrent.ThreadSafety.Immutable;
 import com.google.devtools.build.lib.util.StringCanonicalizer;
@@ -49,7 +50,8 @@ public final class BlazeDirectories implements Serializable {
 
   // Output directory name, relative to the execRoot.
   // TODO(bazel-team): (2011) make this private?
-  public static final String RELATIVE_OUTPUT_PATH = StringCanonicalizer.intern("blaze-out");
+  public static final String RELATIVE_OUTPUT_PATH = StringCanonicalizer.intern(
+      Constants.PRODUCT_NAME + "-out");
 
   // Include directory name, relative to execRoot/blaze-out/configuration.
   public static final String RELATIVE_INCLUDE_DIR = StringCanonicalizer.intern("include");

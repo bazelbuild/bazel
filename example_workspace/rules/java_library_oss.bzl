@@ -19,7 +19,7 @@ jar_filetype = filetype([".jar"])
 # production ready.
 
 def java_library_impl(ctx):
-  class_jar = ctx.outputs["class_jar"]
+  class_jar = ctx.outputs.class_jar
   # TODO(bazel-team): use simple set here, no need for nset
   compile_time_jars = nset("STABLE_ORDER")
   runtime_jars = nset("LINK_ORDER")
@@ -33,7 +33,6 @@ def java_library_impl(ctx):
   compile_time_jar_list = list(compile_time_jars)
 
   build_output = class_jar.path + ".build_output"
-  main_class = ctx.attr.main_class
   sources = ctx.files("srcs", "TARGET")
 
   sources_param_file = ctx.new_file(

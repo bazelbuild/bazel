@@ -41,9 +41,9 @@ import javax.annotation.Nullable;
 
 final class TargetCompletionFunction implements SkyFunction {
 
-  private final SkyframeExecutor.BuildViewProvider buildViewProvider;
+  private final SequencedSkyframeExecutor.BuildViewProvider buildViewProvider;
 
-  TargetCompletionFunction(SkyframeExecutor.BuildViewProvider buildViewProvider) {
+  TargetCompletionFunction(SequencedSkyframeExecutor.BuildViewProvider buildViewProvider) {
     this.buildViewProvider = buildViewProvider;
   }
 

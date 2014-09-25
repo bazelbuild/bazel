@@ -20,11 +20,9 @@ import static com.google.devtools.build.lib.packages.ImplicitOutputsFunction.fro
 import static com.google.devtools.build.lib.packages.ImplicitOutputsFunction.fromTemplates;
 import static com.google.devtools.build.lib.packages.Type.LABEL;
 import static com.google.devtools.build.lib.packages.Type.STRING;
-import static com.google.devtools.build.lib.rules.objc.ObjcProvider.ASSET_CATALOG;
 import static com.google.devtools.build.lib.rules.objc.ObjcRuleClasses.PLIST_TYPE;
 
 import com.google.common.base.Optional;
-import com.google.devtools.build.lib.actions.Artifact;
 import com.google.devtools.build.lib.packages.Attribute;
 import com.google.devtools.build.lib.packages.AttributeMap;
 import com.google.devtools.build.lib.packages.ImplicitOutputsFunction.SafeImplicitOutputsFunction;
@@ -77,22 +75,6 @@ public class ObjcBinaryRule implements RuleDefinition {
    */
   public static Optional<String> launchImage(RuleContext context) {
     return stringAttribute(context, "launch_image");
-  }
-
-  public static String bundleRoot(RuleContext context) {
-    return String.format("Payload/%s.app", context.getTarget().getName());
-  }
-
-  /**
-   * Returns the artifact which is the output of running actool on all the asset catalogs used by
-   * a binary.
-   */
-  static Optional<Artifact> actoolOutputZip(RuleContext context, ObjcProvider objcProvider) {
-    if (objcProvider.get(ASSET_CATALOG).isEmpty()) {
-      return Optional.absent();
-    } else {
-      return Optional.of(ObjcRuleClasses.artifactByAppendingToBaseName(context, ".actool.zip"));
-    }
   }
 
   @Override

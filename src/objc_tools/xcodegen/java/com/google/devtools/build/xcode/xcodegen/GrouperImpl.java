@@ -42,7 +42,7 @@ import java.util.Map;
  *   <li>BUILT_PRODUCTS_DIR - a group containing items in the SourceRoot of this name
  *   <li>SDKROOT - a group containing items that are part of the Xcode install, such as SDK
  *       frameworks
- *   <li>google3 - a group containing items within the google3 directory of the client
+ *   <li>workspace_root - a group containing items within the root of the workspace of the client
  *   <li>miscellaneous - anything that does not belong in one of the above groups is placed directly
  *       in the main group.
  * </ul>
@@ -138,7 +138,7 @@ public class GrouperImpl implements Grouper {
   @Override
   public Iterable<PBXReference> group(Iterable<PBXReference> references) {
     Map<SourceTree, Groups> groupsBySourceTree = ImmutableMap.of(
-        SourceTree.GROUP, new Groups("google3", SourceTree.GROUP),
+        SourceTree.GROUP, new Groups("workspace_root", SourceTree.GROUP),
         SourceTree.SDKROOT, new Groups("SDKROOT", SourceTree.SDKROOT),
         SourceTree.BUILT_PRODUCTS_DIR,
             new Groups("BUILT_PRODUCTS_DIR", SourceTree.BUILT_PRODUCTS_DIR));

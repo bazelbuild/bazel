@@ -88,9 +88,9 @@ public class FilesetManifestAction extends AbstractFileWriteAction {
     // TODO(bazel-team): factor out common code from RunfilesManifestAction.
     Writer manifest = new BufferedWriter(new OutputStreamWriter(out, ISO_8859_1));
     FilesetLinks links = new FilesetLinks();
+    FilesetActionContext context = executor.getContext(FilesetActionContext.class);
     try {
-      ThreadPoolExecutor filesetPool =
-          executor.getContext(FilesetActionContext.class).getFilesetPool();
+      ThreadPoolExecutor filesetPool = context.getFilesetPool();
       traversal.addSymlinks(eventHandler, links, filesetPool);
     } catch (BadSubpackageException e) {
       throw new UserExecException(""); // Error was already reported.
@@ -107,7 +107,10 @@ public class FilesetManifestAction extends AbstractFileWriteAction {
       checkForSpace(link);
       checkForSpace(target);
 
-      manifest.append("google3/");
+      if (!context.getWorkspaceName().isEmpty()) {
+        manifest.append(context.getWorkspaceName() + "/");
+      }
+
       manifest.append(link.getPathString());
       manifest.append(' ');
 

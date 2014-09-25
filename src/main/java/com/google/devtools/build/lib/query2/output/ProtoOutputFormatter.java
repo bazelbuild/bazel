@@ -84,19 +84,16 @@ public class ProtoOutputFormatter extends OutputFormatter {
   }
 
   @Override
-  public void output(QueryOptions options, Digraph<Target> result, PrintStream out) {
+  public void output(QueryOptions options, Digraph<Target> result, PrintStream out)
+      throws IOException {
     setDependencyFilter(options);
 
     Build.QueryResult.Builder queryResult = Build.QueryResult.newBuilder();
-    try {
-      for (Target target : result.getLabels()) {
-        addTarget(queryResult, target);
-      }
-
-      queryResult.build().writeTo(out);
-    } catch (IOException e) {
-      throw new IllegalStateException("ProtocolBuffer output failed",  e);
+    for (Target target : result.getLabels()) {
+      addTarget(queryResult, target);
     }
+
+    queryResult.build().writeTo(out);
   }
 
   /**

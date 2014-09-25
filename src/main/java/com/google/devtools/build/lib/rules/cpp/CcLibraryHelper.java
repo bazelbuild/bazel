@@ -455,7 +455,8 @@ public final class CcLibraryHelper {
   }
 
   /**
-   * Directly set the link type. This can be used instead of {@link #setAlwayslink}.
+   * Directly set the link type. This can be used instead of {@link #setAlwayslink}. Setting
+   * anything other than a static link causes this class to skip the link action creation.
    */
   public CcLibraryHelper setLinkType(LinkTargetType linkType) {
     this.linkType = Preconditions.checkNotNull(linkType);
@@ -678,20 +679,11 @@ public final class CcLibraryHelper {
   private CppCompilationContext initializeCppCompilationContext() {
     CppCompilationContext.Builder contextBuilder =
         new CppCompilationContext.Builder(ruleContext);
-    contextBuilder.mergeDependentContexts(
-        AnalysisUtils.getProviders(deps, CppCompilationContext.class));
-    CppHelper.mergeToolchainDependentContext(ruleContext, contextBuilder);
-    contextBuilder.addDefines(defines);
 
-    contextBuilder.addDeclaredIncludeSrcs(publicHeaders);
-    contextBuilder.addDeclaredIncludeSrcs(privateHeaders);
-    contextBuilder.addPregreppedHeaderMap(
-        CppHelper.createExtractInclusions(ruleContext, publicHeaders));
-    contextBuilder.addPregreppedHeaderMap(
-        CppHelper.createExtractInclusions(ruleContext, privateHeaders));
-    contextBuilder.addCompilationPrerequisites(prerequisites);
+    // Setup the include path; local include directories come before those inherited from deps or
+    // from the toolchain; in case of aliasing (same include file found on different entries),
+    // prefer the local include rather than the inherited one.
 
-    // This is the default include path.
     // Add in the roots for well-formed include names for source files and
     // generated files. It is important that the execRoot (EMPTY_FRAGMENT) comes
     // before the genfilesFragment to preferably pick up source files. Otherwise
@@ -705,6 +697,22 @@ public final class CcLibraryHelper {
     for (PathFragment includeDir : includeDirs) {
       contextBuilder.addIncludeDir(includeDir);
     }
+
+    contextBuilder.mergeDependentContexts(
+        AnalysisUtils.getProviders(deps, CppCompilationContext.class));
+    CppHelper.mergeToolchainDependentContext(ruleContext, contextBuilder);
+
+    // But defines come after those inherited from deps.
+    contextBuilder.addDefines(defines);
+
+    // There are no ordering constraints for declared include dirs/srcs, or the pregrepped headers.
+    contextBuilder.addDeclaredIncludeSrcs(publicHeaders);
+    contextBuilder.addDeclaredIncludeSrcs(privateHeaders);
+    contextBuilder.addPregreppedHeaderMap(
+        CppHelper.createExtractInclusions(ruleContext, publicHeaders));
+    contextBuilder.addPregreppedHeaderMap(
+        CppHelper.createExtractInclusions(ruleContext, privateHeaders));
+    contextBuilder.addCompilationPrerequisites(prerequisites);
 
     // Add this package's dir to declaredIncludeDirs, & this rule's headers to declaredIncludeSrcs
     // Note: no include dir for STRICT mode.

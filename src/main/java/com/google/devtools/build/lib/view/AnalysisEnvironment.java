@@ -15,6 +15,7 @@
 package com.google.devtools.build.lib.view;
 
 import com.google.common.collect.ImmutableList;
+import com.google.common.collect.ImmutableSet;
 import com.google.devtools.build.lib.actions.Action;
 import com.google.devtools.build.lib.actions.ActionRegistry;
 import com.google.devtools.build.lib.actions.Artifact;
@@ -124,4 +125,10 @@ public interface AnalysisEnvironment extends ActionRegistry {
    *        configuration
    */
   ImmutableList<Artifact> getBuildInfo(RuleContext ruleContext, BuildInfoKey key);
+
+  /**
+   * Returns the set of orphan Artifacts (i.e. Artifacts without generating action). Should only be
+   * called after the ConfiguredTarget is created.
+   */
+  ImmutableSet<Artifact> getOrphanArtifacts();
 }

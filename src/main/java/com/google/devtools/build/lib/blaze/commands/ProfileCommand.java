@@ -13,6 +13,8 @@
 // limitations under the License.
 package com.google.devtools.build.lib.blaze.commands;
 
+import com.google.common.base.Function;
+import com.google.common.base.Functions;
 import com.google.common.base.Preconditions;
 import com.google.common.collect.Maps;
 import com.google.common.collect.Ordering;
@@ -116,6 +118,8 @@ public final class ProfileCommand implements BlazeCommand {
     public int vfsStatsLimit;
   }
 
+  private Function<String, String> currentPathMapping = Functions.<String>identity();
+
   private InfoListener getInfoListener(final BlazeRuntime runtime) {
     return new InfoListener() {
       private final EventHandler reporter = runtime.getReporter();
@@ -136,13 +140,24 @@ public final class ProfileCommand implements BlazeCommand {
   public void editOptions(BlazeRuntime runtime, OptionsParser optionsParser) {}
 
   @Override
-  public ExitCode exec(BlazeRuntime runtime, OptionsProvider options) {
+  public ExitCode exec(final BlazeRuntime runtime, OptionsProvider options) {
     ProfileOptions opts =
         options.getOptions(ProfileOptions.class);
 
     if (!opts.vfsStats) {
       opts.vfsStatsLimit = 0;
     }
+
+    currentPathMapping = new Function<String, String>() {
+      @Override
+      public String apply(String input) {
+        if (runtime.getWorkspaceName().isEmpty()) {
+          return input;
+        } else {
+          return input.substring(input.lastIndexOf("/" + runtime.getWorkspaceName()) + 1);
+        }
+      }
+    };
 
     PrintStream out = new PrintStream(runtime.getReporter().getOutErr().getOutputStream());
     try {
@@ -512,8 +527,7 @@ public final class ProfileCommand implements BlazeCommand {
         stats.put(task.type, statsForType);
       }
 
-      String path = task.getDescription();
-      path = path.substring(path.lastIndexOf("/google3") + 1);
+      String path = currentPathMapping.apply(task.getDescription());
 
       Stat stat = statsForType.get(path);
       if (stat == null) {

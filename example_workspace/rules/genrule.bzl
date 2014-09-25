@@ -38,9 +38,9 @@ def resolve_command(ctx, command, resolved_srcs, files_to_build):
 
 def create(ctx):
   resolved_srcs = nset("STABLE_ORDER")
-  files_to_build = nset("STABLE_ORDER", ctx.outputs("outs"))
-  if not files_to_build:
+  if not hasattr(ctx.outputs, "outs"):
     ctx.error("outs", "genrules without outputs don't make sense")
+  files_to_build = nset("STABLE_ORDER", ctx.outputs.outs)
 
   if ctx.attr.executable and len(files_to_build) > 1:
     ctx.error("executable",

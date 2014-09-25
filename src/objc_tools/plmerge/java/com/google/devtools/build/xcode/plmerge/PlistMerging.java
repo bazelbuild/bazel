@@ -151,8 +151,8 @@ public class PlistMerging extends Value<PlistMerging> {
    * Generates final merged Plist file and PkgInfo file in the specified locations, and includes the
    * "automatic" entries in the Plist.
    */
-  public static PlistMerging from(List<Path> sourceFiles, Map<String, NSObject> automaticEntries)
-      throws IOException {
+  public static PlistMerging from(List<Path> sourceFiles, Map<String, NSObject> automaticEntries,
+      Map<String, String> substitutions) throws IOException {
     NSDictionary merged = PlistMerging.merge(sourceFiles);
 
     Set<String> conflictingEntries = Intersection.of(automaticEntries.keySet(), merged.keySet());
@@ -161,6 +161,27 @@ public class PlistMerging extends Value<PlistMerging> {
         + "input lists: %s", conflictingEntries);
     merged.putAll(automaticEntries);
 
+    for (String key : merged.keySet()) {
+      NSObject entry = merged.get(key);
+      if (entry.toJavaObject() instanceof String) {
+        String newValue = substituteEnvironmentVariable(
+            substitutions, (String) entry.toJavaObject());
+        merged.put(key, newValue);
+      }
+    }
+
     return new PlistMerging(merged);
+  }
+
+  private static String substituteEnvironmentVariable(
+      Map<String, String> substitutions, String string) {
+    // The substitution is *not* performed recursively.
+    for (String variableName : substitutions.keySet()) {
+      string = string
+          .replace("${" + variableName + "}", substitutions.get(variableName))
+          .replace("$(" + variableName + ")", substitutions.get(variableName));
+    }
+
+    return string;
   }
 }

@@ -26,8 +26,7 @@ import java.util.Comparator;
 import java.util.List;
 
 /**
- * A renderer for usage messages. For now this is very simple and just formats
- * a string that roughly mimics google3 flags.
+ * A renderer for usage messages. For now this is very simple.
  */
 class OptionsUsage {
 

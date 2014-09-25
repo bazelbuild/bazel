@@ -25,7 +25,6 @@ import com.google.common.collect.ImmutableMap;
 import com.google.devtools.build.lib.graph.Digraph;
 import com.google.devtools.build.lib.graph.Node;
 import com.google.devtools.build.lib.packages.Attribute;
-import com.google.devtools.build.lib.packages.Rule;
 import com.google.devtools.build.lib.packages.RuleClass;
 import com.google.devtools.build.lib.packages.RuleClassProvider;
 import com.google.devtools.build.lib.rules.RuleConfiguredTargetFactory;
@@ -83,7 +82,6 @@ public class ConfiguredRuleClassProvider implements RuleClassProvider {
     private final Map<String, RuleClass> ruleClassMap = new HashMap<>();
     private final  Map<String, Class<? extends RuleDefinition>> ruleDefinitionMap =
         new HashMap<>();
-    private final Map<RuleClass, RuleConfiguredTargetFactory> configuredClassMap = new HashMap<>();
     private final Map<Class<? extends RuleDefinition>, RuleClass> ruleMap = new HashMap<>();
     private final Digraph<Class<? extends RuleDefinition>> dependencyGraph =
         new Digraph<>();
@@ -170,18 +168,18 @@ public class ConfiguredRuleClassProvider implements RuleClassProvider {
         }
       }
 
+      RuleConfiguredTargetFactory factory = null;
+      if (annotation.type() != ABSTRACT) {
+        factory = createFactory(annotation.factoryClass());
+      }
+
       RuleClass.Builder builder = new RuleClass.Builder(
           annotation.name(), annotation.type(), false, ancestorClasses);
+      builder.factory(factory);
       RuleClass ruleClass = instance.build(builder, this);
       ruleMap.put(definitionClass, ruleClass);
       ruleClassMap.put(ruleClass.getName(), ruleClass);
       ruleDefinitionMap.put(ruleClass.getName(), definitionClass);
-
-      RuleConfiguredTargetFactory factory;
-      if (annotation.type() != ABSTRACT) {
-        factory = createFactory(annotation.factoryClass());
-        configuredClassMap.put(ruleClass, factory);
-      }
 
       return ruleClass;
     }
@@ -194,7 +192,6 @@ public class ConfiguredRuleClassProvider implements RuleClassProvider {
 
       return new ConfiguredRuleClassProvider(
           ImmutableMap.copyOf(ruleClassMap),
-          ImmutableMap.copyOf(configuredClassMap),
           ImmutableMap.copyOf(ruleDefinitionMap),
           ImmutableList.copyOf(buildInfoFactories),
           ImmutableList.copyOf(configurationOptions),
@@ -237,11 +234,6 @@ public class ConfiguredRuleClassProvider implements RuleClassProvider {
   private final ImmutableMap<String, Class<? extends RuleDefinition>> ruleDefinitionMap;
 
   /**
-   * Maps rule class objects to the corresponding configured classes.
-   */
-  private final ImmutableMap<RuleClass, RuleConfiguredTargetFactory> configuredClassMap;
-
-  /**
    * The configuration options that affect the behavior of the rules.
    */
   private final ImmutableList<Class<? extends FragmentOptions>> configurationOptions;
@@ -266,7 +258,6 @@ public class ConfiguredRuleClassProvider implements RuleClassProvider {
 
   public ConfiguredRuleClassProvider(
       ImmutableMap<String, RuleClass> ruleClassMap,
-      ImmutableMap<RuleClass, RuleConfiguredTargetFactory> configuredClassMap,
       ImmutableMap<String, Class<? extends RuleDefinition>> ruleDefinitionMap,
       ImmutableList<BuildInfoFactory> buildInfoFactories,
       ImmutableList<Class<? extends FragmentOptions>> configurationOptions,
@@ -276,7 +267,6 @@ public class ConfiguredRuleClassProvider implements RuleClassProvider {
       ImmutableMap<String, SkylarkType> skylarkAccessibleJavaClasses) {
 
     this.ruleClassMap = ruleClassMap;
-    this.configuredClassMap = configuredClassMap;
     this.ruleDefinitionMap = ruleDefinitionMap;
     this.buildInfoFactories = buildInfoFactories;
     this.configurationOptions = configurationOptions;
@@ -298,22 +288,6 @@ public class ConfiguredRuleClassProvider implements RuleClassProvider {
   @Override
   public Map<String, RuleClass> getRuleClassMap() {
     return ruleClassMap;
-  }
-
-  /**
-   * Creates a configured target object for the specified rule and initializes it if necessary.
-   *
-   * @param rule the rule for which to instantiate the configured target class
-   * @param ruleContext information about the transitive closure of the rule that is needed for
-   *     constructing the configured target class
-   * @return the configured target instance
-   * @throws IllegalStateException if the configured class for the specified rule cannot be found
-   */
-  public ConfiguredTarget createConfiguredTarget(Rule rule, RuleContext ruleContext)
-      throws InterruptedException {
-    RuleConfiguredTargetFactory factory = configuredClassMap.get(rule.getRuleClassObject());
-    Preconditions.checkArgument(factory != null, rule.getRuleClassObject());
-    return factory.create(ruleContext);
   }
 
   /**
