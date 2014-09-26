@@ -17,25 +17,27 @@ package com.google.devtools.build.lib.actions;
  * This event is fired during the build, when an action is started.
  */
 public class ActionStartedEvent {
-  private final ExecutableMetadata executableMetadata;
+  private final Action action;
   private final long nanoTimeStart;
 
   /**
    * Create an event for action that has been started.
    *
-   * @param executableMetadata the started action.
+   * @param action the started action.
    * @param nanoTimeStart the time when the action was started. This allow us to
    * record more accurately the time spend by the action, since we execute some code before
    * deciding if we execute the action or not.
    */
-  public ActionStartedEvent(ExecutableMetadata executableMetadata, long nanoTimeStart) {
-    this.executableMetadata = executableMetadata;
+  public ActionStartedEvent(Action action, long nanoTimeStart) {
+    this.action = action;
     this.nanoTimeStart = nanoTimeStart;
   }
 
-  /** Returns the associated executable metadata. */
-  public ExecutableMetadata getExecutableMetadata() {
-    return executableMetadata;
+  /**
+   * Returns the associated action.
+   */
+  public Action getAction() {
+    return action;
   }
 
   public long getNanoTimeStart() {

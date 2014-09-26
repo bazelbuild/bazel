@@ -67,4 +67,12 @@ public class PBXFileReference extends PBXReference {
       s.addField("lastKnownFileType", lastKnownFileType.get());
     }
   }
+
+  @Override
+  public String toString() {
+    return String.format(
+        "%s explicitFileType=%s",
+        super.toString(),
+        getExplicitFileType());
+  }
 }

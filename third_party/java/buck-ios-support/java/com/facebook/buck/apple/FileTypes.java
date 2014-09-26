@@ -35,6 +35,7 @@ public final class FileTypes {
       ImmutableMap.<String, String>builder()
           .put("a", "archive.ar")
           .put("app", "wrapper.application")
+          .put("appex", "wrapper.app-extension")
           .put("bdic", "file")
           .put("bin", "archive.macbinary")
           .put("bmp", "image.bmp")

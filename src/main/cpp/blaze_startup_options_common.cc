@@ -14,6 +14,7 @@
 #include "blaze_startup_options.h"
 
 #include <cassert>
+#include <cstdlib>
 
 #include "blaze_exit_code.h"
 #include "blaze_util_platform.h"

@@ -18,7 +18,6 @@ import com.google.common.collect.Lists;
 import com.google.common.collect.Maps;
 
 import java.util.ArrayList;
-import java.util.Collection;
 import java.util.List;
 import java.util.Map;
 
@@ -42,24 +41,32 @@ public final class ListComprehension extends Expression {
   @Override
   Object eval(Environment env) throws EvalException, InterruptedException {
     if (lists.size() == 0) {
-      return new ArrayList<>();
+      return convert(new ArrayList<>(), env);
     }
 
     List<Map.Entry<Ident, Iterable<?>>> listValues = Lists.newArrayListWithCapacity(lists.size());
     int size = 1;
     for (Map.Entry<Ident, Expression> list : lists) {
       Object listValueObject = list.getValue().eval(env);
-      final Collection<?> listValue = EvalUtils.toCollection(listValueObject, getLocation());
-      int listSize = listValue.size();
+      final Iterable<?> listValue = EvalUtils.toIterable(listValueObject, getLocation());
+      int listSize = EvalUtils.size(listValue);
       if (listSize == 0) {
-        return new ArrayList<>();
+        return convert(new ArrayList<>(), env);
       }
       size *= listSize;
       listValues.add(Maps.<Ident, Iterable<?>>immutableEntry(list.getKey(), listValue));
     }
     List<Object> resultList = Lists.newArrayListWithCapacity(size);
     evalLists(env, listValues, resultList);
-    return resultList;
+    return convert(resultList, env);
+  }
+
+  private Object convert(List<Object> list, Environment env) {
+    if (env.isSkylarkEnabled()) {
+      return SkylarkList.list(list);
+    } else {
+      return list;
+    }
   }
 
   @Override
@@ -125,6 +132,6 @@ public final class ListComprehension extends Expression {
       env.update(list.getKey().getName(), SkylarkType.UNKNOWN, getLocation());
     }
     elementExpression.validate(env);
-    return SkylarkType.of(List.class);
+    return SkylarkType.of(SkylarkList.class);
   }
 }

@@ -16,7 +16,6 @@ package com.google.devtools.build.lib.rules;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 import com.google.devtools.build.lib.actions.Artifact;
-import com.google.devtools.build.lib.collect.nestedset.NestedSet;
 import com.google.devtools.build.lib.events.Location;
 import com.google.devtools.build.lib.packages.Type.ConversionException;
 import com.google.devtools.build.lib.syntax.Environment;
@@ -27,6 +26,7 @@ import com.google.devtools.build.lib.syntax.SkylarkBuiltin;
 import com.google.devtools.build.lib.syntax.SkylarkBuiltin.Param;
 import com.google.devtools.build.lib.syntax.SkylarkFunction;
 import com.google.devtools.build.lib.syntax.SkylarkFunction.SimpleSkylarkFunction;
+import com.google.devtools.build.lib.syntax.SkylarkList;
 import com.google.devtools.build.lib.syntax.SkylarkNestedSet;
 import com.google.devtools.build.lib.vfs.PathFragment;
 import com.google.devtools.build.lib.view.CommandHelper;
@@ -41,7 +41,6 @@ import com.google.devtools.build.lib.view.actions.SpawnAction;
 import com.google.devtools.build.lib.view.actions.TemplateExpansionAction;
 import com.google.devtools.build.lib.view.actions.TemplateExpansionAction.Substitution;
 
-import java.util.List;
 import java.util.Map;
 import java.util.concurrent.ExecutionException;
 
@@ -52,12 +51,6 @@ import java.util.concurrent.ExecutionException;
  * and hide the original Java API. This is experimental code.
  */
 public class SkylarkRuleImplementationFunctions {
-
-  @SkylarkBuiltin(name = "DEFAULT", doc = "The default runfiles collection state.")
-  private static final Object defaultState = RunfilesProvider.DEFAULT_RUNFILES;
-
-  @SkylarkBuiltin(name = "DATA", doc = "The data runfiles collection state.")
-  private static final Object dataState = RunfilesProvider.DATA_RUNFILES;
 
   // TODO(bazel-team): add all the remaining parameters
   // TODO(bazel-team): merge executable and arguments
@@ -81,7 +74,8 @@ public class SkylarkRuleImplementationFunctions {
       @Param(name = "inputs", doc = "list of the input files of the action"),
       @Param(name = "outputs", doc = "list of the output files of the action"),
       @Param(name = "executable", doc = "the executable to be called by the action"),
-      @Param(name = "arguments", type = List.class, doc = "command line arguments of the action"),
+      @Param(name = "arguments", type = SkylarkList.class,
+          doc = "command line arguments of the action"),
       @Param(name = "mnemonic", type = String.class, doc = "mnemonic"),
       @Param(name = "command", doc = "shell command to execute"),
       @Param(name = "command_line", doc = "a command line to execute"),
@@ -117,7 +111,7 @@ public class SkylarkRuleImplementationFunctions {
         Object command = params.get("command");
         if (command instanceof String) {
           builder.setShellCommand((String) command);
-        } else if (command instanceof List) {
+        } else if (command instanceof SkylarkList) {
           builder.setShellCommand(castList(command, String.class, "command"));
         } else {
           throw new EvalException(loc, "expected string or list of strings for "
@@ -245,66 +239,32 @@ public class SkylarkRuleImplementationFunctions {
   @SkylarkBuiltin(name = "runfiles",
       doc = "Creates a runfiles provider creating runfiles for every specified runfile state.",
       objectType = SkylarkRuleContext.class,
-      optionalParams = {
-      @Param(name = "stateless",
-          doc = "list of the runfile items; cannot be specified together with other attributes"),
-      @Param(name = "default", doc = "default runfile items"),
-      @Param(name = "data", doc = "data runfile items")})
+      returnType = Runfiles.class,
+          optionalParams = {
+      @Param(name = "files", type = SkylarkList.class, doc = ""),
+      // TODO(bazel-team): If we have a memory efficient support for lazy list containing NestedSets
+      // we can remove this and just use files = [file] + list(set)
+      @Param(name = "transitive_files", type = SkylarkNestedSet.class, doc = ""),
+      @Param(name = "collect_data", type = Boolean.class, doc = ""),
+      @Param(name = "collect_default", type = Boolean.class, doc = "")})
   private static final SkylarkFunction runfiles = new SimpleSkylarkFunction("runfiles") {
     @Override
     public Object call(Map<String, Object> params, Location loc) throws EvalException,
         ConversionException {
       SkylarkRuleContext ctx = (SkylarkRuleContext) params.get("self");
-      if (params.size() == 1) {
-        return RunfilesProvider.EMPTY;
-      } else if (params.containsKey("stateless")) {
-        if (params.size() == 2) {
-          return RunfilesProvider.simple(handleRunfiles(ctx, "stateless", params, loc));
-        } else {
-          throw new EvalException(loc,
-              "runfiles('stateless') does not take any extra args");
-        }
-      } else {
-        Runfiles defaultRunfiles = Runfiles.EMPTY;
-        Runfiles dataRunfiles = Runfiles.EMPTY;
-        if (params.containsKey("default")) {
-          defaultRunfiles = handleRunfiles(ctx, "default", params, loc);
-        }
-        if (params.containsKey("data")) {
-          dataRunfiles = handleRunfiles(ctx, "data", params, loc);
-        }
-        return RunfilesProvider.withData(defaultRunfiles, dataRunfiles);
-      }
-    }
-
-    @SuppressWarnings("unchecked")
-    private Runfiles handleRunfiles(
-        SkylarkRuleContext ctx, String attr, Map<String, Object> params, Location loc)
-        throws ConversionException, EvalException {
       Runfiles.Builder builder = new Runfiles.Builder();
-      for (Object obj : castList(params.get(attr), Object.class, "runfiles artifacts")) {
-        if (obj == RunfilesProvider.DEFAULT_RUNFILES) {
-          builder.addRunfiles(ctx.getRuleContext(), RunfilesProvider.DEFAULT_RUNFILES);
-        } else if (obj == RunfilesProvider.DATA_RUNFILES) {
-          builder.addRunfiles(ctx.getRuleContext(), RunfilesProvider.DATA_RUNFILES);
-        } else if (obj instanceof Artifact) {
-          builder.addArtifact((Artifact) obj);
-        } else if (obj instanceof SkylarkNestedSet) {
-          builder.addTransitiveArtifacts(((SkylarkNestedSet) obj).getSet(Artifact.class));
-        } else if (obj instanceof NestedSet) {
-          // TODO(bazel-team): This is probably not very safe in general. However it's only possible
-          // to create NestedSets of Artifacts in Skylark. Remove this when we have only
-          // SkylarkFileset.
-          builder.addTransitiveArtifacts((NestedSet<Artifact>) obj);
-        } else if (obj instanceof Iterable) {
-          // This will throw a ClassCastException if the elements of the Iterable are
-          // not Artifacts which will be converted to an EvalException
-          builder.addArtifacts((Iterable<Artifact>) obj);
-        } else {
-          throw new EvalException(loc, String.format("expected an artifact, a collection of "
-              + "artifacts or a runfiles state for runfiles artifacts but got '%s'",
-              EvalUtils.getDatatypeName(obj)));
-        }
+      if (params.containsKey("collect_data") && (Boolean) params.get("collect_data")) {
+        builder.addRunfiles(ctx.getRuleContext(), RunfilesProvider.DATA_RUNFILES);
+      }
+      if (params.containsKey("collect_default") && (Boolean) params.get("collect_default")) {
+        builder.addRunfiles(ctx.getRuleContext(), RunfilesProvider.DEFAULT_RUNFILES);
+      }
+      if (params.containsKey("files")) {
+        builder.addArtifacts(castList(params.get("files"), Artifact.class, "files"));
+      }
+      if (params.containsKey("transitive_files")) {
+        builder.addTransitiveArtifacts(cast(params.get("transitive_files"),
+            SkylarkNestedSet.class, "files", loc).getSet(Artifact.class));
       }
       return builder.build();
     }
@@ -313,7 +273,7 @@ public class SkylarkRuleImplementationFunctions {
   @SkylarkBuiltin(name = "command_helper", doc = "Creates a command helper class.",
       objectType = SkylarkRuleContext.class,
       mandatoryParams = {
-      @Param(name = "tools", type = List.class, doc = "list of tools"),
+      @Param(name = "tools", type = SkylarkList.class, doc = "list of tools"),
       @Param(name = "label_dict", type = Map.class,
              doc = "dictionary of resolved labels and the corresponding list of artifacts")})
   private static final SkylarkFunction createCommandHelper =

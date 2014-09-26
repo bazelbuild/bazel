@@ -22,6 +22,7 @@ import com.google.common.collect.Iterables;
 import com.google.devtools.build.lib.collect.nestedset.Order;
 import com.google.devtools.build.lib.packages.Type.ConversionException;
 import com.google.devtools.build.lib.syntax.AbstractFunction;
+import com.google.devtools.build.lib.syntax.AbstractFunction.NoArgFunction;
 import com.google.devtools.build.lib.syntax.ClassObject;
 import com.google.devtools.build.lib.syntax.ClassObject.SkylarkClassObject;
 import com.google.devtools.build.lib.syntax.Environment;
@@ -34,6 +35,7 @@ import com.google.devtools.build.lib.syntax.MixedModeFunction;
 import com.google.devtools.build.lib.syntax.PositionalFunction;
 import com.google.devtools.build.lib.syntax.SelectorValue;
 import com.google.devtools.build.lib.syntax.SkylarkBuiltin;
+import com.google.devtools.build.lib.syntax.SkylarkList;
 import com.google.devtools.build.lib.syntax.SkylarkModule;
 import com.google.devtools.build.lib.syntax.SkylarkNestedSet;
 import com.google.devtools.build.lib.syntax.SkylarkType;
@@ -78,16 +80,16 @@ public class MethodLibrary {
     }
   }
 
-  public static int getListIndex(Object key, List<?> list, FuncallExpression ast)
+  public static int getListIndex(Object key, int listSize, FuncallExpression ast)
       throws ConversionException, EvalException {
     // Get the nth element in the list
     int index = Type.INTEGER.convert(key, "index operand");
     if (index < 0) {
-      index += list.size();
+      index += listSize;
     }
-    if (index < 0 || index >= list.size()) {
+    if (index < 0 || index >= listSize) {
       throw new EvalException(ast.getLocation(), "List index out of range (index is "
-          + index + ", but list has " + list.size() + " elements)");
+          + index + ", but list has " + listSize + " elements)");
     }
     return index;
   }
@@ -354,7 +356,16 @@ public class MethodLibrary {
         List<Object> list = Type.OBJECT_LIST.convert(collectionCandidate, "index operand");
 
         if (!list.isEmpty()) {
-          int index = getListIndex(key, list, ast);
+          int index = getListIndex(key, list.size(), ast);
+          return list.get(index);
+        }
+
+        throw new EvalException(ast.getLocation(), "List is empty");
+      } else if (collectionCandidate instanceof SkylarkList) {
+        SkylarkList list = (SkylarkList) collectionCandidate;
+
+        if (!list.isEmpty()) {
+          int index = getListIndex(key, list.size(), ast);
           return list.get(index);
         }
 
@@ -370,40 +381,47 @@ public class MethodLibrary {
 
   @SkylarkBuiltin(name = "values", objectType = DictModule.class,
       doc = "Return the list of values.")
-  private static Function values = new PositionalFunction("values", 1, 1) {
+  private static Function values = new NoArgFunction("values") {
     @Override
-    public Object call(List<Object> args, FuncallExpression ast) throws EvalException,
-        ConversionException {
-      Map<?, ?> dict = (Map<?, ?>) args.get(0);
-      return ImmutableList.copyOf(dict.values());
+    public Object call(Object self, FuncallExpression ast, Environment env)
+        throws EvalException, InterruptedException {
+      Map<?, ?> dict = (Map<?, ?>) self;
+      return convert(ImmutableList.copyOf(dict.values()), env);
     }
   };
 
   @SkylarkBuiltin(name = "items", objectType = DictModule.class,
       doc = "Return the list of key-value tuples.")
-  private static Function items = new PositionalFunction("items", 1, 1) {
+  private static Function items = new NoArgFunction("items") {
     @Override
-    public Object call(List<Object> args, FuncallExpression ast) throws EvalException,
-        ConversionException {
-      Map<?, ?> dict = (Map<?, ?>) args.get(0);
+    public Object call(Object self, FuncallExpression ast, Environment env)
+        throws EvalException, InterruptedException {
+      Map<?, ?> dict = (Map<?, ?>) self;
       ImmutableList.Builder<List<Object>> builder = ImmutableList.builder();
       for (Map.Entry<?, ?> entries : dict.entrySet()) {
         builder.add(ImmutableList.of(entries.getKey(), entries.getValue()));
       }
-      return builder.build();
+      return convert(builder.build(), env);
     }
   };
 
   @SkylarkBuiltin(name = "keys", objectType = DictModule.class,
       doc = "Return the list of keys.")
-  private static Function keys = new PositionalFunction("keys", 1, 1) {
+  private static Function keys = new NoArgFunction("keys") {
     @Override
-    public Object call(List<Object> args, FuncallExpression ast) throws EvalException,
-        ConversionException {
-      Map<?, ?> dict = (Map<?, ?>) args.get(0);
-      return ImmutableList.copyOf(dict.keySet());
+    public Object call(Object self, FuncallExpression ast, Environment env)
+        throws EvalException, InterruptedException {
+      Map<?, ?> dict = (Map<?, ?>) self;
+      return convert(ImmutableList.copyOf(dict.keySet()), env);
     }
   };
+
+  private static Object convert(List<?> list, Environment env) {
+    if (env.isSkylarkEnabled()) {
+      return SkylarkList.list(list);
+    }
+    return list;
+  }
 
   // unary minus
   @SkylarkBuiltin(name = "-", hidden = true, doc = "Unary minus operator.")
@@ -430,7 +448,7 @@ public class MethodLibrary {
   private static Function list = new PositionalFunction("list", 1, 1) {
     @Override
     public Object call(List<Object> args, FuncallExpression ast) throws EvalException {
-      return EvalUtils.toCollection(args.get(0), ast.getLocation());
+      return SkylarkList.list(EvalUtils.toCollection(args.get(0), ast.getLocation()));
     }
   };
 
@@ -488,7 +506,7 @@ public class MethodLibrary {
     public Object call(List<Object> args, FuncallExpression ast) throws EvalException,
         ConversionException {
       // TODO(bazel-team): Investigate if enums or constants can be used here in the argument.
-      String orderString = Type.STRING.cast(args.get(0));
+      String orderString = cast(args.get(0), String.class, "nested set order", ast.getLocation());
       Order order;
       try {
         order = Order.valueOf(orderString);
@@ -498,7 +516,7 @@ public class MethodLibrary {
       if (args.size() == 2) {
         return new SkylarkNestedSet(order, args.get(1), ast.getLocation());
       } else {
-        return new SkylarkNestedSet(order, ImmutableList.of(), ast.getLocation());
+        return new SkylarkNestedSet(order, SkylarkList.EMTPY_LIST, ast.getLocation());
       }
     }
   };
@@ -593,17 +611,17 @@ public class MethodLibrary {
       // a lot of cases when they are used as global functions in the depot. Those
       // should be cleaned up first.
       .put(minus, SkylarkType.INT)
-      .put(set, SkylarkType.of(Set.class))
-      .put(list, SkylarkType.of(List.class))
+      .put(select, SkylarkType.of(SelectorValue.class))
       .put(len, SkylarkType.INT)
       .put(str, SkylarkType.STRING)
       .put(bool, SkylarkType.BOOL)
-      .put(select, SkylarkType.of(SelectorValue.class))
       .build();
 
   private static final Map<Function, SkylarkType> skylarkGlobalFunctions = ImmutableMap
       .<Function, SkylarkType>builder()
       .putAll(pureGlobalFunctions)
+      .put(set, SkylarkType.of(Set.class))
+      .put(list, SkylarkType.of(SkylarkList.class))
       .put(struct, SkylarkType.of(ClassObject.class))
       .put(hasattr, SkylarkType.BOOL)
       .put(nset, SkylarkType.of(SkylarkNestedSet.class))
@@ -613,14 +631,15 @@ public class MethodLibrary {
    * Set up a given environment for supported class methods.
    */
   public static void setupMethodEnvironment(Environment env) {
-    env.registerFunction(List.class, index.getName(), index);
-    env.registerFunction(ImmutableList.class, index.getName(), index);
     env.registerFunction(Map.class, index.getName(), index);
     setupMethodEnvironment(env, Map.class, dictFunctions.keySet());
     setupMethodEnvironment(env, String.class, stringFunctions.keySet());
     if (env.isSkylarkEnabled()) {
+      env.registerFunction(SkylarkList.class, index.getName(), index);
       setupMethodEnvironment(env, skylarkGlobalFunctions.keySet());
     } else {
+      env.registerFunction(List.class, index.getName(), index);
+      env.registerFunction(ImmutableList.class, index.getName(), index);
       // TODO(bazel-team): listFunctions are not allowed in Skylark extensions (use += instead).
       // It is allowed in BUILD files only for backward-compatibility.
       setupMethodEnvironment(env, List.class, listFunctions);

@@ -15,7 +15,6 @@ package com.google.devtools.build.lib.syntax;
 
 import com.google.common.collect.ImmutableMap;
 
-import java.util.Collection;
 import java.util.LinkedHashMap;
 import java.util.Map;
 
@@ -57,7 +56,7 @@ public class DictComprehension extends Expression {
   Object eval(Environment env) throws EvalException, InterruptedException {
     // We want to keep the iteration order
     LinkedHashMap<Object, Object> map = new LinkedHashMap<>();
-    Collection<?> elements = EvalUtils.toCollection(listExpression.eval(env), getLocation());
+    Iterable<?> elements = EvalUtils.toIterable(listExpression.eval(env), getLocation());
     for (Object element : elements) {
       env.update(loopVar.getName(), element);
       Object key = keyExpression.eval(env);

@@ -278,11 +278,6 @@ public class CppCompileActionBuilder {
     return this;
   }
 
-  public CppCompileActionBuilder addMandatoryInput(Artifact artifact) {
-    mandatoryInputsBuilder.add(artifact);
-    return this;
-  }
-
   public CppCompileActionBuilder addMandatoryInputs(Iterable<Artifact> artifacts) {
     mandatoryInputsBuilder.addAll(artifacts);
     return this;

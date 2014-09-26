@@ -15,7 +15,6 @@ package com.google.devtools.build.lib.rules.cpp;
 
 import com.google.common.collect.ImmutableList;
 import com.google.devtools.build.lib.actions.ActionExecutionContext;
-import com.google.devtools.build.lib.actions.ActionMetadata;
 import com.google.devtools.build.lib.actions.BaseSpawn;
 import com.google.devtools.build.lib.actions.ExecException;
 import com.google.devtools.build.lib.actions.ExecutionStrategy;
@@ -67,8 +66,7 @@ public class LocalGccStrategy implements CppCompileActionContext {
 
   @Override
   public Collection<String> getScannedIncludeFiles(
-      CppCompileAction action, ActionExecutionContext actionExecutionContext,
-      ActionMetadata extraActionMetaData) {
+      CppCompileAction action, ActionExecutionContext actionExecutionContext) {
     return ImmutableList.of();
   }
 

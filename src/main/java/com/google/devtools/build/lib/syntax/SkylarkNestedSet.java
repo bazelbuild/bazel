@@ -61,9 +61,9 @@ public final class SkylarkNestedSet implements Iterable<Object> {
         genericType = checkType(genericType, nestedSet.genericType, loc);
         transitiveItems.add((NestedSet<Object>) nestedSet.set);
       }
-    } else if (item instanceof List) {
+    } else if (item instanceof SkylarkList) {
       // TODO(bazel-team): we should check ImmutableList here but it screws up genrule at line 43
-      for (Object object : (List<?>) item) {
+      for (Object object : (SkylarkList) item) {
         genericType = checkType(genericType, object.getClass(), loc);
         items.add(object);
       }
@@ -109,7 +109,7 @@ public final class SkylarkNestedSet implements Iterable<Object> {
 
   private static Class<?> checkType(Class<?> builderType, Class<?> itemType, Location loc)
       throws EvalException {
-    if (Map.class.isAssignableFrom(itemType) || List.class.isAssignableFrom(itemType)) {
+    if (Map.class.isAssignableFrom(itemType) || SkylarkList.class.isAssignableFrom(itemType)) {
       throw new EvalException(loc, String.format("nested set item is a collection (type of %s)",
           EvalUtils.getDataTypeNameFromClass(itemType)));
     }

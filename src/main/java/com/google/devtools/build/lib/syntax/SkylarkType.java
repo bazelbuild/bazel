@@ -14,9 +14,11 @@
 package com.google.devtools.build.lib.syntax;
 
 import com.google.common.base.Preconditions;
+import com.google.devtools.build.lib.collect.nestedset.NestedSet;
 import com.google.devtools.build.lib.events.Location;
 
-import java.util.Collection;
+import java.lang.reflect.Method;
+import java.lang.reflect.ParameterizedType;
 import java.util.List;
 import java.util.Map;
 import java.util.Set;
@@ -125,7 +127,7 @@ public class SkylarkType {
   }
 
   boolean isList() {
-    return List.class.isAssignableFrom(type);
+    return SkylarkList.class.isAssignableFrom(type);
   }
 
   boolean isDict() {
@@ -144,10 +146,6 @@ public class SkylarkType {
 
   boolean isSimple() {
     return !isStruct() && !isDict() && !isList() && !isNset() && !isSet();
-  }
-
-  boolean isCollection() {
-    return Collection.class.isAssignableFrom(type);
   }
 
   @Override
@@ -217,5 +215,62 @@ public class SkylarkType {
         }
       }
     }
+  }
+
+  private static boolean isTypeAllowedInSkylark(Object object) {
+    if (object instanceof NestedSet<?>) {
+      return false;
+    } else if (object instanceof List<?>) {
+      return false;
+    }
+    return true;
+  }
+
+  /**
+   * Throws EvalException if the type of the object is not allowed to be present in Skylark.
+   */
+  static void checkTypeAllowedInSkylark(Object object, Location loc) throws EvalException {
+    if (!isTypeAllowedInSkylark(object)) {
+      throw new EvalException(loc,
+          "Type is not allowed in Skylark: "
+          + object.getClass().getSimpleName());
+    }
+  }
+
+  /**
+   * Converts an object retrieved from a Java method to a Skylark-compatible type.
+   */
+  static Object convertToSkylark(Object object, Method method) {
+    if (object instanceof NestedSet<?>) {
+      // This is where we can infer generic type information, so SkylarkNestedSets can be
+      // created in a safe way. Eventually we should probably do something with Lists and Maps too.
+      ParameterizedType t = (ParameterizedType) method.getGenericReturnType();
+      return new SkylarkNestedSet((Class<?>) t.getActualTypeArguments()[0],
+          (NestedSet<?>) object);
+    } else if (object instanceof List<?>) {
+      return SkylarkList.list((List<?>) object);
+    }
+    return object;
+  }
+
+  /**
+   * Converts an object to a Skylark-compatible type if possible.
+   */
+  public static Object convertToSkylark(Object object) {
+    if (object instanceof List<?>) {
+      // TODO(bazel-team): check the type of every element
+      return SkylarkList.list((List<?>) object);
+    }
+    return object;
+  }
+
+  /**
+   * Converts object from a Skylark-compatible wrapper type to its original type.
+   */
+  public static Object convertFromSkylark(Object value) {
+    if (value instanceof SkylarkList) {
+      return ((SkylarkList) value).toList();
+    }
+    return value;
   }
 }

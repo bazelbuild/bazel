@@ -462,19 +462,6 @@ final class LabelVisitor implements TransitivePackageLoader {
     }
 
     /**
-     * Visit the specified label and follow the transitive closure of its outbound
-     * dependencies. This method will shutdown the underlying threadpool as a
-     * side effect.
-     *
-     * @param target the target to visit
-     */
-    @ThreadSafe
-    public void visitTarget(Target target) throws InterruptedException {
-      visit(null, null, target, 0, 0);
-      work(true);
-    }
-
-    /**
      * Visit the specified labels and follow the transitive closure of their
      * outbound dependencies.
      *

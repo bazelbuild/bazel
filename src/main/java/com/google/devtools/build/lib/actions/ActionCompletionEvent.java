@@ -18,19 +18,19 @@ package com.google.devtools.build.lib.actions;
  */
 public final class ActionCompletionEvent {
 
-  private final ExecutableMetadata executableMetadata;
+  private final ActionMetadata actionMetadata;
   private final String strategyDescription;
 
-  public ActionCompletionEvent(ExecutableMetadata executableMetadata, String strategyDescription) {
-    this.executableMetadata = executableMetadata;
+  public ActionCompletionEvent(ActionMetadata actionMetadata, String strategyDescription) {
+    this.actionMetadata = actionMetadata;
     this.strategyDescription = strategyDescription;
   }
 
   /**
    * Returns the action metadata.
    */
-  public ExecutableMetadata getExecutableMetadata() {
-    return executableMetadata;
+  public ActionMetadata getActionMetadata() {
+    return actionMetadata;
   }
 
   /**

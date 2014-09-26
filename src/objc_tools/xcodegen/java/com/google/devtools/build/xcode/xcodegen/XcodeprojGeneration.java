@@ -261,8 +261,9 @@ public class XcodeprojGeneration {
         targetBuildConfigMap.put(setting.getName(), setting.getValue());
       }
 
-      PBXNativeTarget target =
-          new PBXNativeTarget(labelToXcodeTargetName(targetControl.getLabel()));
+      PBXNativeTarget target = new PBXNativeTarget(
+          labelToXcodeTargetName(targetControl.getLabel()),
+          isApp ? ProductType.APPLICATION : ProductType.STATIC_LIBRARY);
       try {
         target
             .getBuildConfigurationList()
@@ -272,7 +273,6 @@ public class XcodeprojGeneration {
       } catch (ExecutionException e) {
         throw new RuntimeException(e);
       }
-      target.setProductType(isApp ? ProductType.IOS_BINARY : ProductType.IOS_LIBRARY);
       target.setProductReference(productReference);
 
       PBXFrameworksBuildPhase frameworksPhase =

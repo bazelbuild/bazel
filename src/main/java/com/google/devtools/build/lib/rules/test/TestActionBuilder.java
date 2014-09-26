@@ -14,7 +14,6 @@
 
 package com.google.devtools.build.lib.rules.test;
 
-import com.google.common.annotations.VisibleForTesting;
 import com.google.common.base.Preconditions;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.Lists;
@@ -47,11 +46,6 @@ import javax.annotation.Nullable;
  * Helper class to create test actions.
  */
 public final class TestActionBuilder {
-  /**
-   * The alarm script is added to $PATH, for use by tests, in particular, shell-scripts.
-   */
-  @VisibleForTesting
-  static final String ALARM = "alarm";
 
   private final RuleContext ruleContext;
   private RunfilesSupport runfilesSupport;

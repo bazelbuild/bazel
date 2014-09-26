@@ -16,7 +16,6 @@ package com.google.devtools.build.lib.syntax;
 import com.google.common.base.Preconditions;
 import com.google.common.collect.ImmutableList;
 
-import java.util.Collection;
 import java.util.List;
 
 /**
@@ -59,7 +58,7 @@ public final class ForStatement extends Statement {
   @Override
   void exec(Environment env) throws EvalException, InterruptedException {
     Object o = collection.eval(env);
-    Collection<?> col = EvalUtils.toCollection(o, getLocation());
+    Iterable<?> col = EvalUtils.toIterable(o, getLocation());
 
     int i = 0;
     for (Object it : ImmutableList.copyOf(col)) {

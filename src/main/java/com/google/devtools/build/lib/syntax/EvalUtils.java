@@ -36,6 +36,7 @@ import java.util.IllegalFormatException;
 import java.util.List;
 import java.util.Map;
 import java.util.MissingFormatWidthException;
+import java.util.Set;
 
 /**
  * Utilities used by the evaluator.
@@ -100,7 +101,7 @@ public abstract class EvalUtils {
     if (c.isAnnotationPresent(Immutable.class)) {
       return true;
     } else if (c.equals(String.class) || c.equals(Integer.class) || c.equals(Boolean.class)
-        || ImmutableList.class.isAssignableFrom(c) || ImmutableMap.class.isAssignableFrom(c)
+        || SkylarkList.class.isAssignableFrom(c) || ImmutableMap.class.isAssignableFrom(c)
         || NestedSet.class.isAssignableFrom(c)) {
       return true;
     } else {
@@ -122,11 +123,15 @@ public abstract class EvalUtils {
       return ImmutableList.class;
     } else if (List.class.isAssignableFrom(c)) {
       return List.class;
+    } else if (SkylarkList.class.isAssignableFrom(c)) {
+      return SkylarkList.class;
     } else if (Map.class.isAssignableFrom(c)) {
       return Map.class;
     } else if (NestedSet.class.isAssignableFrom(c)) {
       // This could be removed probably
       return NestedSet.class;
+    } else if (Set.class.isAssignableFrom(c)) {
+      return Set.class;
     }
     return c;
   }
@@ -136,6 +141,9 @@ public abstract class EvalUtils {
    */
   public static String getDatatypeName(Object o) {
     Preconditions.checkNotNull(o);
+    if (o instanceof SkylarkList) {
+      return ((SkylarkList) o).isTuple() ? "tuple" : "list";
+    }
     return getDataTypeNameFromClass(o.getClass());
   }
 
@@ -165,8 +173,13 @@ public abstract class EvalUtils {
       return NestedSet.class.getSimpleName();
     } else if (SkylarkClassObject.class.isAssignableFrom(c)) {
       return "struct";
+    } else if (SkylarkList.class.isAssignableFrom(c)) {
+      // TODO(bazel-team): this is not entirely correct, it can also be a tuple.
+      return "list";
     } else if (c.isAnnotationPresent(SkylarkModule.class)) {
-      return c.getAnnotation(SkylarkModule.class).name();
+      SkylarkModule module = c.getAnnotation(SkylarkModule.class);
+      return c.getAnnotation(SkylarkModule.class).name()
+          + (module.namespace() ? " (a language module)" : "");
     } else {
       if (c.getSimpleName().isEmpty()) {
         return c.getName();
@@ -499,6 +512,19 @@ public abstract class EvalUtils {
     }
   }
 
+  @SuppressWarnings("unchecked")
+  public static Iterable<Object> toIterable(Object o, Location loc) throws EvalException {
+    if (o instanceof Iterable) {
+      return (Iterable<Object>) o;
+    } else if (o instanceof Map<?, ?>) {
+      // For dictionaries we iterate through the keys only
+      return ((Map<Object, Object>) o).keySet();
+    } else {
+      throw new EvalException(loc,
+          "type '" + EvalUtils.getDatatypeName(o) + "' is not an iterable");
+    }
+  }
+
   /**
    * Returns the size of the Skylark object or -1 in case the object doesn't have a size.
    */
@@ -507,6 +533,8 @@ public abstract class EvalUtils {
       return ((String) arg).length();
     } else if (arg instanceof Map) {
       return ((Map<?, ?>) arg).size();
+    } else if (arg instanceof SkylarkList) {
+      return ((SkylarkList) arg).size();
     } else if (arg instanceof Iterable) {
       // Iterables.size() checks if arg is a Collection so it's efficient in that sense.
       return Iterables.size((Iterable<?>) arg);

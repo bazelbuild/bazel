@@ -27,6 +27,8 @@ import java.util.Collections;
 import java.util.Comparator;
 import java.util.List;
 
+import javax.annotation.Nullable;
+
 /**
  * A collection of files in Xcode's virtual filesystem hierarchy.
  */
@@ -58,7 +60,7 @@ public class PBXGroup extends PBXReference {
   private final LoadingCache<SourceTreePath, PBXFileReference> fileReferencesBySourceTreePath;
   private final LoadingCache<SourceTreePath, XCVersionGroup> childVersionGroupsBySourceTreePath;
 
-  public PBXGroup(String name, String path, SourceTree sourceTree) {
+  public PBXGroup(String name, @Nullable String path, SourceTree sourceTree) {
     super(name, path, sourceTree);
 
     sortPolicy = SortPolicy.BY_NAME;

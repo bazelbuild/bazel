@@ -250,16 +250,6 @@ public final class CcLibraryHelper {
   }
 
   /**
-   * Add the corresponding files as linker inputs for non-PIC links. If the corresponding files are
-   * compiled with PIC, the final link may or may not fail. Note that the final link may not happen
-   * here, if {@code --start_end_lib} is enabled, but instead at any binary that transitively
-   * depends on the current rule.
-   */
-  public CcLibraryHelper addObjectFiles(Artifact... objectFiles) {
-    return addObjectFiles(Arrays.asList(objectFiles));
-  }
-
-  /**
    * Add the corresponding files as linker inputs for PIC links. If the corresponding files are not
    * compiled with PIC, the final link may or may not fail. Note that the final link may not happen
    * here, if {@code --start_end_lib} is enabled, but instead at any binary that transitively
@@ -268,16 +258,6 @@ public final class CcLibraryHelper {
   public CcLibraryHelper addPicObjectFiles(Iterable<Artifact> picObjectFiles) {
     Iterables.addAll(this.picObjectFiles, picObjectFiles);
     return this;
-  }
-
-  /**
-   * Add the corresponding files as linker inputs for PIC links. If the corresponding files are not
-   * compiled with PIC, the final link may or may not fail. Note that the final link may not happen
-   * here, if {@code --start_end_lib} is enabled, but instead at any binary that transitively
-   * depends on the current rule.
-   */
-  public CcLibraryHelper addPicObjectFiles(Artifact... picObjectFiles) {
-    return addPicObjectFiles(Arrays.asList(picObjectFiles));
   }
 
   /**
@@ -362,14 +342,6 @@ public final class CcLibraryHelper {
   public CcLibraryHelper addDeps(Iterable<? extends TransitiveInfoCollection> deps) {
     Iterables.addAll(this.deps, deps);
     return this;
-  }
-
-  /**
-   * Adds the given targets as dependencies - this can include explicit dependencies on other
-   * rules (like from a "deps" attribute) and also implicit dependencies on runtime libraries.
-   */
-  public CcLibraryHelper addDeps(TransitiveInfoCollection... deps) {
-    return addDeps(Arrays.asList(deps));
   }
 
   /**
@@ -602,7 +574,7 @@ public final class CcLibraryHelper {
           .setDynamicLibraryPath(dynamicLibraryPath)
           .addLinkopts(linkopts);
       ccOutputs = model.createCcCompileActions();
-      if (!objectFiles.isEmpty()) {
+      if (!objectFiles.isEmpty() || !picObjectFiles.isEmpty()) {
         // Merge the pre-compiled object files into the compiler outputs.
         ccOutputs = new CcCompilationOutputs.Builder()
             .merge(ccOutputs)

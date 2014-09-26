@@ -11,19 +11,13 @@ load('rules/java_binary_oss', 'java_binary')
 
 JAVA_HOME = "src/javadir"
 
-protoc = "protoc"
-protoc_darwin = "/opt/local/bin/protoc"
-
 # Proto
 
 [genproto(
     name = "proto_" + proto_file,
     src = "main/protobuf/" + proto_file + ".proto",
-    proto_compiler = select({
-        ":darwin": protoc_darwin,
-        "//conditions:default": protoc,
-    })) for proto_file in ["build", "crosstool_config", "extra_actions_base",
-                           "test_status", "bundlemerge", "xcodegen"]]
+    ) for proto_file in ["build", "crosstool_config", "extra_actions_base",
+                         "test_status", "bundlemerge", "xcodegen"]]
 
 # Java
 

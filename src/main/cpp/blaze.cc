@@ -182,7 +182,8 @@ static string GetInstallBase(const string &root, const string &self_path) {
   int retval = archive_read_open_filename(blaze_zip, self_path.c_str(), 10240);
   if (retval != ARCHIVE_OK) {
     die(blaze_exit_code::LOCAL_ENVIRONMENTAL_ERROR,
-        "\nFailed to open blaze as a zip file");
+        "\nFailed to open blaze as a zip file: (%d) %s",
+         archive_errno(blaze_zip), archive_error_string(blaze_zip));
   }
 
   struct archive_entry *entry;
@@ -197,7 +198,8 @@ static string GetInstallBase(const string &root, const string &self_path) {
       int bytesRead = archive_read_data(blaze_zip, &buf, size);
       if (bytesRead < 0) {
         die(blaze_exit_code::LOCAL_ENVIRONMENTAL_ERROR,
-            "\nFailed to extract install_base_key");
+            "\nFailed to extract install_base_key: (%d) %s",
+            archive_errno(blaze_zip), archive_error_string(blaze_zip));
       }
       if (bytesRead < 32) {
         die(blaze_exit_code::LOCAL_ENVIRONMENTAL_ERROR,
@@ -748,7 +750,8 @@ static void ActuallyExtractData(const string &argv0,
         break;
       } else if (retval != ARCHIVE_OK) {
         die(blaze_exit_code::LOCAL_ENVIRONMENTAL_ERROR,
-            "\nFailed to extract data from blaze zip");
+            "\nFailed to extract data from blaze zip: (%d) %s",
+            archive_errno(blaze_zip), archive_error_string(blaze_zip));
       }
       if (write(fd, buf, size) != size) {
         die(blaze_exit_code::LOCAL_ENVIRONMENTAL_ERROR,

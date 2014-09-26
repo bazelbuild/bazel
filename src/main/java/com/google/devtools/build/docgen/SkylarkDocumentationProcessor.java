@@ -19,6 +19,7 @@ import com.google.common.base.Joiner;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.Iterables;
+import com.google.devtools.build.docgen.SkylarkJavaInterfaceExplorer.SkylarkMethod;
 import com.google.devtools.build.docgen.SkylarkJavaInterfaceExplorer.SkylarkModuleDoc;
 import com.google.devtools.build.lib.packages.MethodLibrary;
 import com.google.devtools.build.lib.rules.SkylarkModules;
@@ -113,10 +114,9 @@ public class SkylarkDocumentationProcessor {
           annotation.name()))
       .append(annotation.doc())
       .append("\n");
-    for (Map.Entry<String, Map.Entry<Method, SkylarkCallable>> entry
-        : module.getJavaMethods().entrySet()) {
-      generateDirectJavaMethodDoc(annotation.name(), entry.getKey(), entry.getValue().getKey(),
-          entry.getValue().getValue(), sb);
+    for (SkylarkMethod method : module.getJavaMethods()) {
+      generateDirectJavaMethodDoc(annotation.name(), method.name, method.method,
+          method.callable, sb);
     }
     for (SkylarkBuiltin builtin : module.getBuiltinMethods().values()) {
       generateBuiltinItemDoc(annotation.name(), builtin, sb);

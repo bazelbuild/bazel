@@ -33,6 +33,7 @@ import com.google.devtools.build.lib.packages.PackageGroup;
 import com.google.devtools.build.lib.packages.Rule;
 import com.google.devtools.build.lib.packages.Target;
 import com.google.devtools.build.lib.rules.cpp.CcToolchainRule;
+import com.google.devtools.build.lib.rules.cpp.CppConfiguration;
 import com.google.devtools.build.lib.rules.cpp.CppConfigurationLoader;
 import com.google.devtools.build.lib.rules.cpp.CppOptions;
 import com.google.devtools.build.lib.rules.objc.ObjcBinaryRule;
@@ -103,13 +104,6 @@ public class BazelRuleClassProvider {
     }
   }
 
-  public static ConfiguredRuleClassProvider create() {
-    ConfiguredRuleClassProvider.Builder builder =
-        new ConfiguredRuleClassProvider.Builder();
-    setup(builder);
-    return builder.build();
-  }
-
   /**
    * List of all build option classes in Blaze.
    */
@@ -128,7 +122,8 @@ public class BazelRuleClassProvider {
    * Java objects accessible from Skylark rule implementations using this module.
    */
   private static final ImmutableMap<String, SkylarkType> skylarkBuiltinJavaObects =
-      ImmutableMap.<String, SkylarkType>of();
+      ImmutableMap.<String, SkylarkType>of(
+          "cpp", SkylarkType.of(CppConfiguration.class));
 
   public static void setup(ConfiguredRuleClassProvider.Builder builder) {
     builder

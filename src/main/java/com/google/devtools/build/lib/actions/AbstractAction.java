@@ -348,14 +348,12 @@ public abstract class AbstractAction implements Action {
    * this method from a different thread than the one this action is executed on.
    *
    * @param actionExecutionContext Services in the scope of the action, like the Out/Err streams.
-   * @param extraActionMetaData The ExtraAction's ActionMetaData for capturing statistics.
-   *
    * @throws ActionExecutionException only when code called from this method
    *     throws that execption.
    * @throws InterruptedException
    */
   public Collection<String> getAdditionalFilesForExtraAction(
-      ActionExecutionContext actionExecutionContext, ActionMetadata extraActionMetaData)
+      ActionExecutionContext actionExecutionContext)
       throws ActionExecutionException, InterruptedException {
     return Collections.emptyList();
   }

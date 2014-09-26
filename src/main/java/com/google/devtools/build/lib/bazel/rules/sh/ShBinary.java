@@ -17,7 +17,6 @@ import com.google.common.collect.ImmutableList;
 import com.google.devtools.build.lib.actions.Artifact;
 import com.google.devtools.build.lib.collect.nestedset.NestedSet;
 import com.google.devtools.build.lib.collect.nestedset.NestedSetBuilder;
-import com.google.devtools.build.lib.packages.Type;
 import com.google.devtools.build.lib.rules.RuleConfiguredTargetFactory;
 import com.google.devtools.build.lib.view.ConfiguredTarget;
 import com.google.devtools.build.lib.view.RuleConfiguredTarget.Mode;
@@ -27,8 +26,6 @@ import com.google.devtools.build.lib.view.Runfiles;
 import com.google.devtools.build.lib.view.RunfilesProvider;
 import com.google.devtools.build.lib.view.RunfilesSupport;
 import com.google.devtools.build.lib.view.actions.ExecutableSymlinkAction;
-
-import java.util.Collection;
 
 /**
  * Implementation for the sh_binary rule.
@@ -81,21 +78,5 @@ public class ShBinary implements RuleConfiguredTargetFactory {
    */
   protected Artifact getExecutableScript(RuleContext ruleContext, Artifact src) {
     return src;
-  }
-
-  /**
-   * Checks that the given string attribute has a valid value. Returns true if valid
-   * or undefined, false otherwise.
-   */
-  private boolean validateStringInput(RuleContext ruleContext, String attribute,
-      Collection<String> validValues) {
-    if (ruleContext.getRule().isAttrDefined(attribute, Type.STRING)) {
-      String s = ruleContext.attributes().get(attribute, Type.STRING);
-      if (!validValues.contains(s)) {
-        ruleContext.attributeError(attribute, "invalid '" + attribute + "' value: " + s);
-        return false;
-      }
-    }
-    return true;
   }
 }

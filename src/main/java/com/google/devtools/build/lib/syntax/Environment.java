@@ -260,7 +260,11 @@ public class Environment {
     if (!importedExtensions.containsKey(extension)) {
       throw new NoSuchVariableException(extension.toString());
     }
-    update(symbol, importedExtensions.get(extension).lookup(symbol));
+    Object value = importedExtensions.get(extension).lookup(symbol);
+    if (!isSkylarkEnabled()) {
+      value = SkylarkType.convertFromSkylark(value);
+    }
+    update(symbol, value);
   }
 
   /**

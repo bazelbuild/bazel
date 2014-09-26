@@ -68,6 +68,7 @@ import com.google.devtools.build.lib.syntax.SkylarkCallbackFunction;
 import com.google.devtools.build.lib.syntax.SkylarkEnvironment;
 import com.google.devtools.build.lib.syntax.SkylarkFunction;
 import com.google.devtools.build.lib.syntax.SkylarkFunction.SimpleSkylarkFunction;
+import com.google.devtools.build.lib.syntax.SkylarkList;
 import com.google.devtools.build.lib.syntax.UserDefinedFunction;
 import com.google.devtools.build.lib.util.FileType;
 import com.google.devtools.build.lib.util.FileTypeSet;
@@ -229,6 +230,10 @@ public class SkylarkRuleClassFunctions {
       builder.setPropertyFlag("EXECUTABLE");
     }
 
+    if (arguments.containsKey("single_file") && (Boolean) arguments.get("single_file")) {
+      builder.setPropertyFlag("SINGLE_ARTIFACT");
+    }
+
     if (arguments.containsKey("file_types")) {
       Object fileTypesObj = arguments.get("file_types");
       if (fileTypesObj == FileTypeSet.ANY_FILE || fileTypesObj == FileTypeSet.NO_FILE) {
@@ -278,7 +283,7 @@ public class SkylarkRuleClassFunctions {
           doc = "the function implementing this rule, has to have exactly one parameter: 'ctx'")},
       optionalParams = {
       @Param(name = "test", type = Boolean.class, doc = "Whether this rule is a test rule."),
-      @Param(name = "parents", type = List.class,
+      @Param(name = "parents", type = SkylarkList.class,
           doc = "list of parent rule classes, this rule class inherits all the attributes and "
               + "the impicit outputs of the parent rule classes"),
       @Param(name = "attr", doc = "dictionary mapping an attribute name to an attribute"),

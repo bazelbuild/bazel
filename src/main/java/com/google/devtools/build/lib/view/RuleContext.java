@@ -707,6 +707,34 @@ public final class RuleContext extends TargetContext
   }
 
   /**
+   * Returns the Mode for which the attribute is configured.
+   * This is intended for Skylark, where the Mode is implicitly chosen.
+   */
+  public Mode getAttributeMode(String attributeName) {
+    Attribute attributeDefinition = getRule().getAttributeDefinition(attributeName);
+    if (attributeDefinition == null) {
+      throw new IllegalStateException(getRule().getLocation() + ": " + getRule().getRuleClass()
+        + " attribute " + attributeName + " is not defined");
+    }
+    if (!(attributeDefinition.getType() == Type.LABEL
+        || attributeDefinition.getType() == Type.LABEL_LIST)) {
+      throw new IllegalStateException(rule.getRuleClass() + " attribute " + attributeName
+        + " is not a label type attribute");
+    }
+    if (attributeDefinition.getConfigurationTransition() == ConfigurationTransition.HOST) {
+      return Mode.HOST;
+    } else if (attributeDefinition.getConfigurationTransition() == ConfigurationTransition.NONE) {
+      return Mode.TARGET;
+    } else if (attributeDefinition.getConfigurationTransition() == ConfigurationTransition.DATA) {
+      return Mode.DATA;
+    } else if (attributeDefinition.getConfigurationTransition() instanceof SplitTransition) {
+      return Mode.SPLIT;
+    }
+    throw new IllegalStateException(getRule().getLocation() + ": "
+        + getRule().getRuleClass() + " attribute " + attributeName + " is not configured");
+  }
+
+  /**
    * For the specified attribute "attributeName" (which must be of type
    * list(label)), resolve all the labels into ConfiguredTargets (for the
    * configuration appropriate to the attribute) and return their build

@@ -23,12 +23,14 @@ import com.google.common.cache.LoadingCache;
 
 import java.util.Objects;
 
+import javax.annotation.Nullable;
+
 public class PBXVariantGroup extends PBXGroup {
 
   private final LoadingCache<VirtualNameAndSourceTreePath, PBXFileReference>
       variantFileReferencesByNameAndSourceTreePath;
 
-  public PBXVariantGroup(String name, String path, SourceTree sourceTree) {
+  public PBXVariantGroup(String name, @Nullable String path, SourceTree sourceTree) {
     super(name, path, sourceTree);
 
     variantFileReferencesByNameAndSourceTreePath = CacheBuilder.newBuilder().build(

@@ -18,25 +18,33 @@
 proto_filetype = filetype([".proto"])
 
 def genproto_impl(ctx):
-  src = ctx.file("src", "TARGET")
-  proto_dep = ctx.file("$proto_dep", "TARGET")
+  src = ctx.files("src")[0]
+  proto_compiler = ctx.files("$proto_compiler")[0]
+  proto_dep = ctx.file("$proto_dep")
   class_jar = ctx.outputs.java
   proto_output = class_jar.path + ".proto_output"
   build_output = class_jar.path + ".build_output"
+
+  if ctx.configuration.fragment(cpp).cpu == "darwin":
+    inputs = [src, proto_dep]
+    proto_compiler_path = "/opt/local/bin/protoc"
+  else:
+    inputs = [src, proto_dep, proto_compiler]
+    proto_compiler_path = proto_compiler.path
 
   cmd = ("set -e;" +
          "rm -rf " + proto_output + ";" +
          "mkdir " + proto_output + ";" +
          "rm -rf " + build_output + ";" +
          "mkdir " + build_output + "\n" +
-         ctx.attr.proto_compiler + " --java_out=" +
+         proto_compiler_path + " --java_out=" +
          proto_output +" " + src.path + "\n" +
          "JAVA_FILES=$(find " + proto_output + " -name '*.java')\n" +
          "/usr/bin/javac" + " -classpath " + proto_dep.path +
          " ${JAVA_FILES} -d " + build_output + "\n" +
          "/usr/bin/jar cf " + class_jar.path + "  -C " + build_output + " .\n")
   ctx.action(
-      inputs = [src, proto_dep],
+      inputs = inputs,
       outputs = [class_jar],
       mnemonic = 'Proto compilation',
       command = cmd,
@@ -53,7 +61,7 @@ genproto = rule(genproto_impl,
        "src": attr.label(file_types=proto_filetype),
        # TODO(bazel-team): this should be a hidden attribute with a default
        # value, but Skylark needs to support select first.
-       "proto_compiler": attr.string(),
+       "$proto_compiler": attr.label(default=label("//third_party:protoc")),
        "$proto_dep": attr.label(default=label("//third_party:protobuf")),
    },
    outputs = {"java": "lib%{name}.jar"},

@@ -27,12 +27,15 @@ import com.google.common.collect.Maps;
 import com.google.common.collect.Multimap;
 import com.google.devtools.build.lib.actions.ArtifactFactory;
 import com.google.devtools.build.lib.actions.Root;
+import com.google.devtools.build.lib.concurrent.ThreadSafety.Immutable;
 import com.google.devtools.build.lib.events.Event;
 import com.google.devtools.build.lib.events.EventHandler;
 import com.google.devtools.build.lib.rules.cpp.CppConfigurationLoader.CppConfigurationParameters;
 import com.google.devtools.build.lib.rules.cpp.FdoSupport.FdoException;
 import com.google.devtools.build.lib.syntax.Label;
 import com.google.devtools.build.lib.syntax.Label.SyntaxException;
+import com.google.devtools.build.lib.syntax.SkylarkCallable;
+import com.google.devtools.build.lib.syntax.SkylarkModule;
 import com.google.devtools.build.lib.util.IncludeScanningUtil;
 import com.google.devtools.build.lib.vfs.FileSystemUtils;
 import com.google.devtools.build.lib.vfs.Path;
@@ -66,6 +69,8 @@ import java.util.zip.ZipException;
  * a standard library version. It has information about the tools locations and
  * the flags required for compiling.
  */
+@SkylarkModule(name = "Cpp", doc = "A configuration fragment for C++")
+@Immutable
 public class CppConfiguration extends BuildConfiguration.Fragment {
   /**
    * An enumeration of all the tools that comprise a toolchain.
@@ -802,6 +807,7 @@ public class CppConfiguration extends BuildConfiguration.Fragment {
    * Returns the target architecture using blaze-specific constants (e.g.
    * "piii").
    */
+  @SkylarkCallable(name = "cpu", structField = true, doc = "Target CPU of the C++ toolchain.")
   public String getTargetCpu() {
     return targetCpu;
   }

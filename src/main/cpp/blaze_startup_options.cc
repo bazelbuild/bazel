@@ -18,6 +18,8 @@
 #include <stdlib.h>  // getenv, exit
 #include <unistd.h>  // access
 
+#include <cstdio>
+
 #include "blaze_exit_code.h"
 #include "blaze_util_platform.h"
 #include "blaze_util.h"

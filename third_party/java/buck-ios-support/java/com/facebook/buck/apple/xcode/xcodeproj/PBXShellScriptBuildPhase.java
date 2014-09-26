@@ -23,14 +23,16 @@ import com.google.common.collect.Lists;
 
 import java.util.List;
 
+import javax.annotation.Nullable;
+
 /**
  * Build phase which represents running a shell script.
  */
 public class PBXShellScriptBuildPhase extends PBXBuildPhase {
   private List<String> inputPaths;
   private List<String> outputPaths;
-  private String shellPath;
-  private String shellScript;
+  @Nullable private String shellPath;
+  @Nullable private String shellScript;
 
   private static final NSString DEFAULT_SHELL_PATH = new NSString("/bin/sh");
   private static final NSString DEFAULT_SHELL_SCRIPT = new NSString("");
@@ -65,6 +67,7 @@ public class PBXShellScriptBuildPhase extends PBXBuildPhase {
    * Returns the path to the shell under which the script is to be executed.
    * Defaults to "/bin/sh".
    */
+  @Nullable
   public String getShellPath() {
     return shellPath;
   }
@@ -80,6 +83,7 @@ public class PBXShellScriptBuildPhase extends PBXBuildPhase {
    * Gets the contents of the shell script to execute under the shell
    * returned by {@link #getShellPath()}.
    */
+  @Nullable
   public String getShellScript() {
     return shellScript;
   }

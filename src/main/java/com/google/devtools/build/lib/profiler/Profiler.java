@@ -756,27 +756,6 @@ public final class Profiler {
    * subtasks). Depending on the minDuration attribute of the task type, task
    * may be just aggregated into the parent task and not stored directly.
    *
-   * <p>Constructs the debug string using the given format and values. May be
-   * useful in performance-critical code to avoid building the debug string
-   * unnecessarily.
-   *
-   * @param startTime task start time (obtained through {@link
-   *        Profiler#nanoTimeMaybe()})
-   * @param type task type
-   * @param format a format string
-   * @param vals the param values to the format string
-   */
-  public void logSimpleTask(long startTime, ProfilerTask type, String format, Object... vals) {
-    if (isActive() && isProfiling(type)) {
-      logTask(startTime, clock.nanoTime() - startTime, type, String.format(format, vals));
-    }
-  }
-
-  /**
-   * Used externally to submit simple task (one that does not have any
-   * subtasks). Depending on the minDuration attribute of the task type, task
-   * may be just aggregated into the parent task and not stored directly.
-   *
    * @param startTime task start time (obtained through {@link
    *        Profiler#nanoTimeMaybe()})
    * @param duration the duration of the task

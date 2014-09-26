@@ -23,17 +23,17 @@ def java_library_impl(ctx):
   # TODO(bazel-team): use simple set here, no need for nset
   compile_time_jars = nset("STABLE_ORDER")
   runtime_jars = nset("LINK_ORDER")
-  for dep in ctx.targets("deps", "TARGET"):
+  for dep in ctx.targets("deps"):
     compile_time_jars += [dep.compile_time_jar]
     runtime_jars += dep.runtime_jars
 
-  jars = jar_filetype.filter(ctx.files("jars", "TARGET"))
+  jars = jar_filetype.filter(ctx.files("jars"))
   compile_time_jars += jars
   runtime_jars += jars
   compile_time_jar_list = list(compile_time_jars)
 
   build_output = class_jar.path + ".build_output"
-  sources = ctx.files("srcs", "TARGET")
+  sources = ctx.files("srcs")
 
   sources_param_file = ctx.new_file(
       ctx.configuration.bin_dir, class_jar, "-2.params")
@@ -58,7 +58,7 @@ def java_library_impl(ctx):
     command=cmd,
     use_default_shell_env=True)
 
-  runfiles = ctx.runfiles([DATA])
+  runfiles = ctx.runfiles(collect_data = True)
 
   return struct(files_to_build = nset("STABLE_ORDER", [class_jar]),
                 compile_time_jar = class_jar,

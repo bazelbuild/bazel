@@ -25,7 +25,6 @@ import java.util.Collection;
 public class ExecutionPhaseCompleteEvent {
 
   private final Collection<TransitiveInfoCollection> targets;
-  private final boolean keepGoing;
   private final long timeInMs;
 
   /**
@@ -35,10 +34,9 @@ public class ExecutionPhaseCompleteEvent {
    * @param timeInMs time for execution phase in milliseconds.
    */
   public ExecutionPhaseCompleteEvent(Collection<? extends TransitiveInfoCollection> targets,
-      boolean keepGoing, long timeInMs) {
+      long timeInMs) {
     this.timeInMs = timeInMs;
     this.targets = ImmutableList.copyOf(targets);
-    this.keepGoing = keepGoing;
   }
 
   /**
@@ -47,13 +45,6 @@ public class ExecutionPhaseCompleteEvent {
    */
   public Collection<TransitiveInfoCollection> getTargets() {
     return targets;
-  }
-
-  /**
-   * @return The value of the keepGoing flag.
-   */
-  public boolean keepGoing() {
-    return keepGoing;
   }
 
   public long getTimeInMs() {

@@ -97,10 +97,6 @@ public class ParameterFile {
     return execRoot.getRelative(execPath);
   }
 
-  public PathFragment getExecPath() {
-    return execPath;
-  }
-
   /**
    * Writes the arguments from the list into the parameter file according to
    * the style selected in the constructor.

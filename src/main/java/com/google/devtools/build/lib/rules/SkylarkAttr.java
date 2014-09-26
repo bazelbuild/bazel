@@ -23,9 +23,9 @@ import com.google.devtools.build.lib.syntax.FuncallExpression;
 import com.google.devtools.build.lib.syntax.SkylarkBuiltin;
 import com.google.devtools.build.lib.syntax.SkylarkBuiltin.Param;
 import com.google.devtools.build.lib.syntax.SkylarkFunction;
+import com.google.devtools.build.lib.syntax.SkylarkList;
 import com.google.devtools.build.lib.syntax.SkylarkModule;
 
-import java.util.List;
 import java.util.Map;
 
 /**
@@ -75,7 +75,7 @@ public final class SkylarkAttr {
       returnType = Attribute.class,
       optionalParams = {
       @Param(name = "default", doc = DEFAULT_DOC),
-      @Param(name = "flags", type = List.class, doc = FLAGS_DOC),
+      @Param(name = "flags", type = SkylarkList.class, doc = FLAGS_DOC),
       @Param(name = "mandatory", type = Boolean.class, doc = MANDATORY_DOC),
       @Param(name = "cfg", type = ConfigurationTransition.class, doc = CONFIGURATION_DOC)})
   private static SkylarkFunction integer = new SkylarkFunction("int") {
@@ -91,7 +91,7 @@ public final class SkylarkAttr {
       returnType = Attribute.class,
       optionalParams = {
       @Param(name = "default", doc = DEFAULT_DOC),
-      @Param(name = "flags", type = List.class, doc = FLAGS_DOC),
+      @Param(name = "flags", type = SkylarkList.class, doc = FLAGS_DOC),
       @Param(name = "mandatory", type = Boolean.class, doc = MANDATORY_DOC),
       @Param(name = "cfg", type = ConfigurationTransition.class, doc = CONFIGURATION_DOC)})
   private static SkylarkFunction string = new SkylarkFunction("string") {
@@ -108,12 +108,15 @@ public final class SkylarkAttr {
       optionalParams = {
       @Param(name = "default", doc = DEFAULT_DOC),
       @Param(name = "executable", type = Boolean.class, doc = EXECUTABLE_DOC),
-      @Param(name = "flags", type = List.class, doc = FLAGS_DOC),
+      @Param(name = "flags", type = SkylarkList.class, doc = FLAGS_DOC),
       @Param(name = "file_types", doc = FILE_TYPES_DOC),
       @Param(name = "mandatory", type = Boolean.class, doc = MANDATORY_DOC),
-      @Param(name = "rule_classes", doc = RULE_CLASSES_DOC),
-      @Param(name = "providers", type = List.class,
+      @Param(name = "providers", type = SkylarkList.class,
           doc = "mandatory providers every dependency has to have"),
+      @Param(name = "rule_classes", doc = RULE_CLASSES_DOC),
+      @Param(name = "single_file", doc =
+          "if true, the label must correspond to a single file. "
+          + "Access it through ctx.file.<attribute_name>."),
       @Param(name = "cfg", type = ConfigurationTransition.class, doc = CONFIGURATION_DOC)})
   private static SkylarkFunction label = new SkylarkFunction("label") {
       @Override
@@ -128,7 +131,7 @@ public final class SkylarkAttr {
       returnType = Attribute.class,
       optionalParams = {
       @Param(name = "default", doc = DEFAULT_DOC),
-      @Param(name = "flags", type = List.class, doc = FLAGS_DOC),
+      @Param(name = "flags", type = SkylarkList.class, doc = FLAGS_DOC),
       @Param(name = "mandatory", type = Boolean.class, doc = MANDATORY_DOC),
       @Param(name = "cfg", type = ConfigurationTransition.class,
           doc = CONFIGURATION_DOC)})
@@ -146,11 +149,11 @@ public final class SkylarkAttr {
       optionalParams = {
       @Param(name = "default", doc = DEFAULT_DOC),
       @Param(name = "executable", type = Boolean.class, doc = EXECUTABLE_DOC),
-      @Param(name = "flags", type = List.class, doc = FLAGS_DOC),
+      @Param(name = "flags", type = SkylarkList.class, doc = FLAGS_DOC),
       @Param(name = "file_types", doc = FILE_TYPES_DOC),
       @Param(name = "mandatory", type = Boolean.class, doc = MANDATORY_DOC),
       @Param(name = "rule_classes", doc = RULE_CLASSES_DOC),
-      @Param(name = "providers", type = List.class,
+      @Param(name = "providers", type = SkylarkList.class,
           doc = "mandatory providers every dependency has to have"),
       @Param(name = "cfg", type = ConfigurationTransition.class, doc = CONFIGURATION_DOC)})
   private static SkylarkFunction labelList = new SkylarkFunction("label_list") {
@@ -166,7 +169,7 @@ public final class SkylarkAttr {
       returnType = Attribute.class,
       optionalParams = {
       @Param(name = "default", doc = DEFAULT_DOC),
-      @Param(name = "flags", type = List.class, doc = FLAGS_DOC),
+      @Param(name = "flags", type = SkylarkList.class, doc = FLAGS_DOC),
       @Param(name = "mandatory", type = Boolean.class, doc = MANDATORY_DOC),
       @Param(name = "cfg", type = ConfigurationTransition.class, doc = CONFIGURATION_DOC)})
   private static SkylarkFunction bool = new SkylarkFunction("bool") {
@@ -182,7 +185,7 @@ public final class SkylarkAttr {
       returnType = Attribute.class,
       optionalParams = {
       @Param(name = "default", doc = DEFAULT_DOC),
-      @Param(name = "flags", type = List.class, doc = FLAGS_DOC),
+      @Param(name = "flags", type = SkylarkList.class, doc = FLAGS_DOC),
       @Param(name = "mandatory", type = Boolean.class, doc = MANDATORY_DOC),
       @Param(name = "cfg", type = ConfigurationTransition.class, doc = CONFIGURATION_DOC)})
   private static SkylarkFunction output = new SkylarkFunction("output") {
@@ -198,7 +201,7 @@ public final class SkylarkAttr {
       returnType = Attribute.class,
       optionalParams = {
       @Param(name = "default", doc = DEFAULT_DOC),
-      @Param(name = "flags", type = List.class, doc = FLAGS_DOC),
+      @Param(name = "flags", type = SkylarkList.class, doc = FLAGS_DOC),
       @Param(name = "mandatory", type = Boolean.class, doc = MANDATORY_DOC),
       @Param(name = "cfg", type = ConfigurationTransition.class, doc = CONFIGURATION_DOC)})
   private static SkylarkFunction outputList = new SkylarkFunction("output_list") {
@@ -214,7 +217,7 @@ public final class SkylarkAttr {
       returnType = Attribute.class,
       optionalParams = {
       @Param(name = "default", doc = DEFAULT_DOC),
-      @Param(name = "flags", type = List.class, doc = FLAGS_DOC),
+      @Param(name = "flags", type = SkylarkList.class, doc = FLAGS_DOC),
       @Param(name = "mandatory", type = Boolean.class, doc = MANDATORY_DOC),
       @Param(name = "cfg", type = ConfigurationTransition.class, doc = CONFIGURATION_DOC)})
   private static SkylarkFunction license = new SkylarkFunction("license") {

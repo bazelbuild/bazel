@@ -13,6 +13,7 @@
 // limitations under the License.
 package com.google.devtools.build.lib.syntax;
 
+import com.google.common.collect.ImmutableSet;
 import com.google.common.collect.Lists;
 import com.google.common.collect.Maps;
 import com.google.devtools.build.lib.syntax.ClassObject.SkylarkClassObject;
@@ -20,7 +21,6 @@ import com.google.devtools.build.lib.syntax.ClassObject.SkylarkClassObject;
 import java.util.Collection;
 import java.util.Collections;
 import java.util.IllegalFormatException;
-import java.util.LinkedHashSet;
 import java.util.List;
 import java.util.Map;
 import java.util.Set;
@@ -115,8 +115,7 @@ public final class BinaryOperatorExpression extends Expression {
         if (lval instanceof List<?> && rval instanceof List<?>) {
           List<?> llist = (List<?>) lval;
           List<?> rlist = (List<?>) rval;
-          if (!env.isSkylarkEnabled()
-              && EvalUtils.isImmutable(llist) != EvalUtils.isImmutable(rlist)) {
+          if (EvalUtils.isImmutable(llist) != EvalUtils.isImmutable(rlist)) {
             throw new EvalException(getLocation(), "can only concatenate "
                 + EvalUtils.getDatatypeName(rlist) + " (not \""
                 + EvalUtils.getDatatypeName(llist) + "\") to "
@@ -132,6 +131,10 @@ public final class BinaryOperatorExpression extends Expression {
           }
         }
 
+        if (lval instanceof SkylarkList && rval instanceof SkylarkList) {
+          return SkylarkList.list((SkylarkList) lval, (SkylarkList) rval);
+        }
+
         if (env.isSkylarkEnabled() && lval instanceof Map<?, ?> && rval instanceof Map<?, ?>) {
           Map<?, ?> ldict = (Map<?, ?>) lval;
           Map<?, ?> rdict = (Map<?, ?>) rval;
@@ -141,13 +144,13 @@ public final class BinaryOperatorExpression extends Expression {
           return result;
         }
 
-        if (env.isSkylarkEnabled() && lval instanceof Set<?> && rval instanceof Collection<?>) {
+        if (env.isSkylarkEnabled() && lval instanceof Set<?> && rval instanceof SkylarkList) {
           Set<?> lset = (Set<?>) lval;
-          Collection<?> rcollection = (Collection<?>) rval;
-          LinkedHashSet<Object> result = new LinkedHashSet<>(lset.size() + rcollection.size());
+          SkylarkList rlist = (SkylarkList) rval;
+          ImmutableSet.Builder<Object> result = new ImmutableSet.Builder<>();
           result.addAll(lset);
-          result.addAll(rcollection);
-          return result;
+          result.addAll(rlist);
+          return result.build();
         }
 
         if (env.isSkylarkEnabled()
@@ -186,6 +189,12 @@ public final class BinaryOperatorExpression extends Expression {
               }
               /* string % list: fall thru */
             }
+            if (rval instanceof SkylarkList) {
+              SkylarkList rlist = (SkylarkList) rval;
+              if (rlist.isTuple()) {
+                return EvalUtils.formatString(pattern, rlist.toList());
+              }
+            }
 
             return EvalUtils.formatString(pattern,
                                           Collections.singletonList(rval));
@@ -221,7 +230,14 @@ public final class BinaryOperatorExpression extends Expression {
       }
 
       case IN: {
-        if (rval instanceof Collection<?>) {
+        if (rval instanceof SkylarkList) {
+          for (Object obj : (SkylarkList) rval) {
+            if (obj.equals(lval)) {
+              return true;
+            }
+          }
+          return false;
+        } else if (rval instanceof Collection<?>) {
           return ((Collection<?>) rval).contains(lval);
         } else if (rval instanceof Map<?, ?>) {
           return ((Map<?, ?>) rval).containsKey(lval);
@@ -296,7 +312,7 @@ public final class BinaryOperatorExpression extends Expression {
           return SkylarkType.of(ClassObject.class);
         }
 
-        if (ltype.isSet() && rtype.isCollection()) {
+        if (ltype.isSet() && rtype.isList()) {
           return ltype.infer(SkylarkType.of(Set.class, rtype.getGenericType1()),
               "set", rhs.getLocation(), lhs.getLocation());
         }
@@ -351,7 +367,8 @@ public final class BinaryOperatorExpression extends Expression {
       }
 
       case IN: {
-        if (Collection.class.isAssignableFrom(rtype.getType())
+        if (rtype.isList()
+            || rtype.isSet()
             || rtype.isDict()
             || rtype == SkylarkType.STRING) {
           return SkylarkType.BOOL;

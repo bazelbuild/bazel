@@ -221,7 +221,8 @@ public abstract class SkylarkFunction extends AbstractFunction {
             } catch (ClassCastException e) {
               throw new IllegalArgumentException(String.format(
                   "expected %s type for '%s' but got %s instead",
-                  type.getSimpleName(), what, EvalUtils.getDatatypeName(input)));
+                  EvalUtils.getDataTypeNameFromClass(type), what,
+                  EvalUtils.getDatatypeName(input)));
             }
           }
     });

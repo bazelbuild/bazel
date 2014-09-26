@@ -21,6 +21,7 @@ import com.google.devtools.build.lib.util.Pair;
 import com.google.devtools.build.lib.util.StringUtilities;
 import com.google.devtools.build.lib.vfs.Path;
 
+import java.io.Serializable;
 import java.util.List;
 import java.util.regex.Matcher;
 import java.util.regex.Pattern;
@@ -30,7 +31,7 @@ import java.util.regex.Pattern;
  * their buffer using {@link #create}. The client can then ask for the line and column given a
  * position using ({@link #getLineAndColumn(int)}).
  */
-abstract class LineNumberTable {
+abstract class LineNumberTable implements Serializable {
 
   /**
    * Returns the (line, column) pair for the specified offset.
@@ -156,7 +157,7 @@ abstract class LineNumberTable {
     /**
      * Represents a "#line" directive
      */
-    private static class SingleHashLine {
+    private static class SingleHashLine implements Serializable {
       final private int offset;
       final private int line;
       final private Path path;

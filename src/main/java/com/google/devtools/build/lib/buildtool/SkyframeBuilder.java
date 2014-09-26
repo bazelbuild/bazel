@@ -61,7 +61,6 @@ class SkyframeBuilder implements Builder {
 
   private final SequencedSkyframeExecutor skyframeExecutor;
   private final boolean keepGoing;
-  private final boolean explain;
   private final int numJobs;
   private final boolean checkOutputFiles;
   private final ActionInputFileCache fileCache;
@@ -74,7 +73,6 @@ class SkyframeBuilder implements Builder {
     this.skyframeExecutor = skyframeExecutor;
     this.actionCacheChecker = actionCacheChecker;
     this.keepGoing = keepGoing;
-    this.explain = explain;
     this.numJobs = numJobs;
     this.checkOutputFiles = checkOutputFiles;
     this.fileCache = fileCache;
@@ -85,7 +83,7 @@ class SkyframeBuilder implements Builder {
   public void buildArtifacts(Set<Artifact> artifacts,
       Set<Artifact> exclusiveTestArtifacts,
       DependentActionGraph forwardGraph, Executor executor,
-      ModifiedFileSet modifiedFileSet, Set<Artifact> builtArtifacts, 
+      ModifiedFileSet modifiedFileSet, Set<Artifact> builtArtifacts,
       boolean explain)
       throws BuildFailedException, AbruptExitException, TestExecException, InterruptedException {
     skyframeExecutor.prepareExecution(checkOutputFiles);
@@ -173,12 +171,6 @@ class SkyframeBuilder implements Builder {
     return true;
   }
 
-  @Override
-  public int getPercentageCached() {
-    // TODO(bazel-team): In the future this could be provided by the evaluator.
-    return 0;
-  }
-
   /**
    * Listener for executed actions and built artifacts. We use a listener so that we have an
    * accurate set of successfully run actions and built artifacts, even if the build is interrupted.
@@ -193,7 +185,7 @@ class SkyframeBuilder implements Builder {
     private final Set<SkyKey> enqueuedActions = Sets.newConcurrentHashSet();
     private final Set<Action> completedActions = Sets.newConcurrentHashSet();
     private final Object activityIndicator = new Object();
-    /** Number of exclusive tests. To be accounted for in progress messages. */ 
+    /** Number of exclusive tests. To be accounted for in progress messages. */
     private final int exclusiveTestsCount;
 
     static {

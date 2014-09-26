@@ -469,7 +469,6 @@ public class ExecutionTool {
         request.getOutErr().printErrLn("blaze: Leaving directory `" + getExecRoot() + "/'");
       }
       getReporter().handle(Event.progress("Building complete."));
-      buildResult.setIncrementality(builder.getPercentageCached());
 
       // Transfer over source file "last save time" stats so the remote logger can find them.
       runtime.getEventBus().post(
@@ -712,8 +711,7 @@ public class ExecutionTool {
       }
     }
     getEventBus().post(new ExecutionPhaseCompleteEvent(
-        successfulTargets, request.getViewOptions().keepGoing,
-        timer.stop().elapsed(TimeUnit.MILLISECONDS)));
+        successfulTargets, timer.stop().elapsed(TimeUnit.MILLISECONDS)));
     result.setSuccessfulTargets(successfulTargets);
   }
 
@@ -885,7 +883,6 @@ public class ExecutionTool {
       @Nullable SequencedSkyframeExecutor skyframeExecutor) {
     boolean skyframeFull = useSkyframeFull(skyframeExecutor);
     BuildRequest.BuildRequestOptions options = request.getBuildOptions();
-    PathFragment explainPath = options.explanationPath;
     boolean verboseExplanations = options.verboseExplanations;
     boolean keepGoing = request.getViewOptions().keepGoing;
 

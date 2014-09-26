@@ -25,6 +25,7 @@ import com.google.devtools.build.lib.packages.Rule;
 import com.google.devtools.build.lib.syntax.ClassObject;
 import com.google.devtools.build.lib.syntax.EvalUtils;
 import com.google.devtools.build.lib.syntax.Label;
+import com.google.devtools.build.lib.syntax.SkylarkList;
 import com.google.devtools.build.lib.view.config.ConfigMatchingProvider;
 import com.google.devtools.build.lib.view.config.RunUnder;
 
@@ -111,7 +112,7 @@ public final class RuleConfiguredTarget extends AbstractConfiguredTarget impleme
   private void checkSkylarkProviders(ImmutableMap<String, Object> providers) {
     for (Map.Entry<String, Object> entry : providers.entrySet()) {
       Object value = entry.getValue();
-      if (value instanceof ImmutableList) {
+      if (value instanceof SkylarkList) {
         // TODO(bazel-team): it is not efficient to iterate through the list.
         // We will have to come up with a way to have generic type information here,
         // but first we need to enforce type safety in Skylark.

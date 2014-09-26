@@ -20,7 +20,6 @@ import com.google.common.collect.Iterables;
 import com.google.common.collect.Lists;
 import com.google.common.collect.Sets;
 import com.google.devtools.build.lib.actions.ActionExecutionContext;
-import com.google.devtools.build.lib.actions.ActionMetadata;
 import com.google.devtools.build.lib.actions.EnvironmentalExecException;
 import com.google.devtools.build.lib.actions.ExecException;
 import com.google.devtools.build.lib.actions.Executor;
@@ -52,7 +51,7 @@ public interface IncludeScanner {
    */
   public void process(Path source, Map<Path, Path> legalOutputPaths,
       List<String> cmdlineIncludes, Set<Path> includes,
-      ActionExecutionContext actionExecutionContext, ActionMetadata owner)
+      ActionExecutionContext actionExecutionContext)
       throws IOException, ExecException, InterruptedException;
 
   /** Supplies IncludeScanners upon request. */
@@ -73,16 +72,15 @@ public interface IncludeScanner {
      * Returns the files transitively included by the source files of the given IncludeScannable.
      *
      * @param action IncludeScannable whose sources' transitive includes will be returned.
-     * @param includeScannerSupplier supplies IncludeScanners to actually do the transitive scanning
-     *                               (and caching results) for a given source file.
+     * @param includeScannerSupplier supplies IncludeScanners to actually do the transitive
+     *                               scanning (and caching results) for a given source file.
      * @param actionExecutionContext the context for {@code action}.
      * @param profilerTaskName what the {@link Profiler} should record this call for.
-     * @param ownerActionMetadata the owner to be associated with this scan.
      */
     public static List<String> scanForIncludedInputs(IncludeScannable action,
         IncludeScannerSupplier includeScannerSupplier,
         ActionExecutionContext actionExecutionContext,
-        String profilerTaskName, ActionMetadata ownerActionMetadata)
+        String profilerTaskName)
             throws ExecException, InterruptedException {
 
       Set<Path> includes = Sets.newConcurrentHashSet();
@@ -132,8 +130,7 @@ public interface IncludeScanner {
             // TODO(bazel-team):  Remove this once relative paths are used during analysis.
             Path sourcePath = execRoot.getRelative(sourcePathFragment);
             scanner.process(sourcePath, legalOutputPaths, cmdlineIncludes, includes,
-                actionExecutionContext,
-                ownerActionMetadata);
+                actionExecutionContext);
           }
         }
       } catch (IOException e) {

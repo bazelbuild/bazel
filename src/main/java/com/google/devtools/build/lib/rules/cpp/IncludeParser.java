@@ -27,7 +27,6 @@ import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.Sets;
 import com.google.common.io.CharStreams;
 import com.google.devtools.build.lib.actions.ActionExecutionContext;
-import com.google.devtools.build.lib.actions.ActionMetadata;
 import com.google.devtools.build.lib.rules.cpp.IncludeParser.Inclusion.Kind;
 import com.google.devtools.build.lib.rules.cpp.RemoteIncludeExtractor.RemoteParseData;
 import com.google.devtools.build.lib.vfs.FileSystemUtils;
@@ -609,11 +608,10 @@ public class IncludeParser {
    * @param greppedFile if non-null, this file has the already-grepped include lines of file.
    * @param actionExecutionContext Services in the scope of the action, like the stream to which
    *     scanning messages are printed
-   * @param owner the owner to be associated with this extraction
    * @return a new set of inclusions, normalized to the cache
    */
   public Collection<Inclusion> extractInclusions(Path file, @Nullable Path greppedFile,
-      ActionExecutionContext actionExecutionContext, ActionMetadata owner)
+      ActionExecutionContext actionExecutionContext)
           throws IOException, InterruptedException {
     Collection<Inclusion> inclusions;
     if (greppedFile != null) {
@@ -625,7 +623,7 @@ public class IncludeParser {
       if (remoteParseData != null && remoteParseData.shouldParseRemotely()) {
         inclusions =
             remoteExtractor.extractInclusions(file, inMemoryIncludes, actionExecutionContext,
-                owner, remoteParseData);
+                remoteParseData);
       } else {
         inclusions = extractInclusions(FileSystemUtils.readContentAsLatin1(file));
       }

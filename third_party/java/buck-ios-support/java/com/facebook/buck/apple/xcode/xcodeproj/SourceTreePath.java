@@ -59,7 +59,7 @@ public class SourceTreePath {
     }
 
     SourceTreePath that = (SourceTreePath) other;
-    return Objects.equals(this.sourceTree, that.sourceTree) ||
+    return Objects.equals(this.sourceTree, that.sourceTree) &&
         Objects.equals(this.path, that.path);
   }
 }

@@ -18,6 +18,8 @@ import com.google.devtools.build.lib.concurrent.ThreadSafety.Immutable;
 import com.google.devtools.build.lib.vfs.Path;
 import com.google.devtools.build.lib.vfs.PathFragment;
 
+import java.io.Serializable;
+
 /**
  * A Location is a range of characters within a file.
  *
@@ -29,7 +31,7 @@ import com.google.devtools.build.lib.vfs.PathFragment;
  * not speed of attribute access, as far more Locations are created during
  * parsing than are ever used to display error messages.
  */
-public abstract class Location {
+public abstract class Location implements Serializable {
 
   @Immutable
   private static final class LocationWithPathAndStartColumn extends Location {

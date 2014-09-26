@@ -15,7 +15,6 @@ package com.google.devtools.build.lib.concurrent;
 
 import com.google.common.base.Preconditions;
 
-import java.util.concurrent.Callable;
 import java.util.concurrent.atomic.AtomicReference;
 import java.util.logging.Level;
 import java.util.logging.Logger;
@@ -52,21 +51,6 @@ public class ThrowableRecordingRunnableWrapper {
         } catch (Throwable error) {
           errorRef.compareAndSet(null, error);
           LOG.log(Level.SEVERE, "Error thrown by runnable in " + name, error);
-        }
-      }
-    };
-  }
-
-  public <T> Callable<T> wrap(final Callable<T> callable) {
-    return new Callable<T>() {
-      @Override
-      public T call() {
-        try {
-          return callable.call();
-        } catch (Throwable error) {
-          errorRef.compareAndSet(null, error);
-          LOG.log(Level.SEVERE, "Error thrown by callable in " + name, error);
-          return null;
         }
       }
     };

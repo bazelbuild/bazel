@@ -24,7 +24,6 @@ import com.google.common.collect.Iterables;
 import com.google.common.collect.Sets;
 import com.google.devtools.build.lib.actions.ActionExecutionContext;
 import com.google.devtools.build.lib.actions.ActionExecutionException;
-import com.google.devtools.build.lib.actions.ActionMetadata;
 import com.google.devtools.build.lib.actions.ActionOwner;
 import com.google.devtools.build.lib.actions.Artifact;
 import com.google.devtools.build.lib.actions.Artifact.MiddlemanExpander;
@@ -918,10 +917,10 @@ public class CppCompileAction extends ConfigurationAction implements IncludeScan
    */
   @Override
   public Collection<String> getAdditionalFilesForExtraAction(
-      ActionExecutionContext actionExecutionContext, ActionMetadata extraActionMetaData)
+      ActionExecutionContext actionExecutionContext)
       throws ActionExecutionException, InterruptedException {
     return actionExecutionContext.getExecutor().getContext(actionContext)
-        .getScannedIncludeFiles(this, actionExecutionContext, extraActionMetaData);
+        .getScannedIncludeFiles(this, actionExecutionContext);
   }
 
   @Override

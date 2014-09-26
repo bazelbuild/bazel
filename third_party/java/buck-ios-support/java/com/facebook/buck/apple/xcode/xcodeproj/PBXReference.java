@@ -110,6 +110,8 @@ public class PBXReference extends PBXContainerItem {
   public String getName() {
     return name;
   }
+
+  @Nullable
   public String getPath() {
     return path;
   }
@@ -138,7 +140,19 @@ public class PBXReference extends PBXContainerItem {
     super.serializeInto(s);
 
     s.addField("name", name);
-    s.addField("path", path);
+    if (path != null) {
+      s.addField("path", path);
+    }
     s.addField("sourceTree", sourceTree.toString());
+  }
+
+  @Override
+  public String toString() {
+    return String.format(
+        "%s name=%s path=%s sourceTree=%s",
+        super.toString(),
+        getName(),
+        getPath(),
+        getSourceTree());
   }
 }

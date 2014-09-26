@@ -70,6 +70,10 @@ public final class SrcTargetUtil {
   // Attributes referring to "headers".
   private static final ImmutableSet<String> HEADER_ATTRIBUTES =
       ImmutableSet.of("hdrs");
+  
+  // The attribute to search in filegroups.
+  private static final ImmutableSet<String> FILEGROUP_ATTRIBUTES =
+      ImmutableSet.of("srcs");
 
   /**
    * Same as {@link #getSrcTargets}, but for both source and headers (i.e. also traversing
@@ -131,8 +135,8 @@ public final class SrcTargetUtil {
         if (srcRule != null && !visitedRules.contains(srcRule)) {
           visitedRules.add(srcRule);
           if ("filegroup".equals(srcRule.getRuleClass())) {
-            srcTargets.addAll(
-                getTargets(eventHandler, srcRule, attributes, visitedRules, targetProvider));
+            srcTargets.addAll(getTargets(eventHandler, srcRule, FILEGROUP_ATTRIBUTES, visitedRules,
+                targetProvider));
           } else {
             srcTargets.addAll(srcRule.getOutputFiles());
           }

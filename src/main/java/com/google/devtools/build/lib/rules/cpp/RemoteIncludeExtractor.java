@@ -15,7 +15,6 @@
 package com.google.devtools.build.lib.rules.cpp;
 
 import com.google.devtools.build.lib.actions.ActionExecutionContext;
-import com.google.devtools.build.lib.actions.ActionMetadata;
 import com.google.devtools.build.lib.actions.Executor.ActionContext;
 import com.google.devtools.build.lib.rules.cpp.IncludeParser.Inclusion;
 import com.google.devtools.build.lib.vfs.Path;
@@ -44,15 +43,11 @@ public interface RemoteIncludeExtractor extends ActionContext {
                            of to the given Path.
    * @param actionExecutionContext services in the scope of the action. Like the Err/Out stream
    *                               outputs.
-   * @param owner the owner to be associated with this extraction. It's safe to pass NULL, but if
-   *              you want proper master log reporting you should pass the action for which
-   *              inclusions are being extracted.
    * @param remoteParseData the returned value of {@link #shouldParseRemotely}.
    * @return a collection of inclusions, normalized to the cache
    */
-  public Collection<Inclusion> extractInclusions(Path file,
-      boolean inMemoryOutput, ActionExecutionContext actionExecutionContext, ActionMetadata owner,
-      RemoteParseData remoteParseData)
+  public Collection<Inclusion> extractInclusions(Path file, boolean inMemoryOutput,
+      ActionExecutionContext actionExecutionContext, RemoteParseData remoteParseData)
   throws IOException, InterruptedException;
 
 }

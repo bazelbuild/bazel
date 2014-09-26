@@ -72,4 +72,9 @@ public class PBXBuildFile extends PBXProjectItem {
       s.addField("settings", settings.get());
     }
   }
+
+  @Override
+  public String toString() {
+    return String.format("%s fileRef=%s settings=%s", super.toString(), fileRef, settings);
+  }
 }

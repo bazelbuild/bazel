@@ -49,13 +49,13 @@ def create(ctx):
           + "genrule into genrules producing single outputs")
 
   label_dict = {}
-  for dep in ctx.targets("srcs", "TARGET"):
+  for dep in ctx.targets.srcs:
     files = provider(dep, "FileProvider").files_to_build
     resolved_srcs += files
     label_dict[dep.label] = files
 
   command_helper = ctx.command_helper(
-      tools=ctx.targets("tools", "HOST", "FilesToRunProvider"),
+      tools=ctx.targets("tools", "FilesToRunProvider"),
       label_dict=label_dict)
 
   # TODO(bazel_team): Implement heuristic label expansion
@@ -93,11 +93,11 @@ def create(ctx):
   # Executable has to be specified explicitly
   if ctx.attr.executable:
     return struct(files_to_build=files_to_build,
-                  runfiles=ctx.runfiles(data=[files_to_build]),
+                  data_runfiles=ctx.runfiles(transitive_files=files_to_build),
                   executable=list(files_to_build)[0])
   else:
     return struct(files_to_build=files_to_build,
-                  runfiles=ctx.runfiles(data=[files_to_build]))
+                  data_runfiles=ctx.runfiles(transitive_files=files_to_build))
 
 
 genrule_skylark = rule(implementation=create,

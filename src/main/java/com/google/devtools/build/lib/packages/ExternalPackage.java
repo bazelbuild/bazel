@@ -47,10 +47,6 @@ public class ExternalPackage extends Package {
     public Label getActual() {
       return actual;
     }
-
-    public Location getLocation() {
-      return location;
-    }
   }
 
   /**

@@ -127,7 +127,9 @@ public final class SkylarkRuleConfiguredTargetBuilder {
   private static void addStructFields(RuleContext ruleContext, RuleConfiguredTargetBuilder builder,
       SkylarkClassObject struct) throws EvalException {
     Location loc = struct.getCreationLoc();
-    Runfiles defaultRunfiles = Runfiles.EMPTY;
+    Runfiles statelessRunfiles = null;
+    Runfiles dataRunfiles = null;
+    Runfiles defaultRunfiles = null;
     Artifact executable = ruleContext.getRule().getRuleClassObject().outputsDefaultExecutable()
         // This doesn't actually create a new Artifact just returns the one
         // created in SkylarkruleContext.
@@ -137,10 +139,12 @@ public final class SkylarkRuleConfiguredTargetBuilder {
         builder.setFilesToBuild(cast(struct.getValue("files_to_build"),
                 SkylarkNestedSet.class, "files_to_build", loc).getSet(Artifact.class));
       } else if (key.equals("runfiles")) {
-        RunfilesProvider runfilesProvider =
-            cast(struct.getValue("runfiles"), RunfilesProvider.class, "runfiles", loc);
-        builder.add(RunfilesProvider.class, runfilesProvider);
-        defaultRunfiles = runfilesProvider.getDefaultRunfiles();
+        statelessRunfiles = cast(struct.getValue("runfiles"), Runfiles.class, "runfiles", loc);
+      } else if (key.equals("data_runfiles")) {
+        dataRunfiles = cast(struct.getValue("data_runfiles"), Runfiles.class, "data_runfiles", loc);
+      } else if (key.equals("default_runfiles")) {
+        defaultRunfiles =
+            cast(struct.getValue("default_runfiles"), Runfiles.class, "default_runfiles", loc);
       } else if (key.equals("executable")) {
         // We need this because of genrule.bzl. This overrides the default executable.
         executable = cast(struct.getValue("executable"), Artifact.class, "executable", loc);
@@ -148,14 +152,27 @@ public final class SkylarkRuleConfiguredTargetBuilder {
         builder.addSkylarkTransitiveInfo(key, struct.getValue(key));
       }
     }
+    if ((statelessRunfiles != null) && (dataRunfiles != null || defaultRunfiles != null)) {
+      throw new EvalException(loc, "Cannot specify the provider 'runfiles' "
+          + "together with 'data_runfiles' or 'default_runfiles'");
+    }
+
+    RunfilesProvider runfilesProvider = statelessRunfiles != null
+        ? RunfilesProvider.simple(statelessRunfiles)
+        : RunfilesProvider.withData(
+            defaultRunfiles != null ? defaultRunfiles : Runfiles.EMPTY,
+                dataRunfiles != null ? dataRunfiles : Runfiles.EMPTY);
+    builder.addProvider(RunfilesProvider.class, runfilesProvider);
+
+    Runfiles computedDefaultRunfiles = runfilesProvider.getDefaultRunfiles();
     // This works because we only allowed to call a rule *_test iff it's a test type rule.
     boolean testRule = TargetUtils.isTestRuleName(ruleContext.getRule().getRuleClass());
-    if (testRule && defaultRunfiles.isEmpty()) {
+    if (testRule && computedDefaultRunfiles.isEmpty()) {
       throw new EvalException(loc, "Test rules have to define runfiles");
     }
     if (executable != null || testRule) {
-      RunfilesSupport runfilesSupport = defaultRunfiles.isEmpty()
-          ? null : RunfilesSupport.withExecutable(ruleContext, defaultRunfiles, executable);
+      RunfilesSupport runfilesSupport = computedDefaultRunfiles.isEmpty()
+          ? null : RunfilesSupport.withExecutable(ruleContext, computedDefaultRunfiles, executable);
       builder.setRunfilesSupport(runfilesSupport, executable);
     }
   }

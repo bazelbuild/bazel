@@ -20,8 +20,8 @@ package com.facebook.buck.apple.xcode.xcodeproj;
  * Target backed by shell scripts or nothing (only specifying dependencies).
  */
 public class PBXAggregateTarget extends PBXTarget {
-  public PBXAggregateTarget(String name) {
-    super(name);
+  public PBXAggregateTarget(String name, ProductType productType) {
+    super(name, productType);
   }
 
   @Override

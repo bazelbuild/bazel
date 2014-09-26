@@ -20,7 +20,6 @@ import com.google.common.cache.LoadingCache;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.Lists;
-import com.google.devtools.build.lib.collect.nestedset.NestedSet;
 import com.google.devtools.build.lib.events.Location;
 import com.google.devtools.build.lib.syntax.EvalException.EvalExceptionWithJavaCause;
 import com.google.devtools.build.lib.util.StringUtilities;
@@ -28,7 +27,6 @@ import com.google.devtools.build.lib.util.StringUtilities;
 import java.lang.reflect.InvocationTargetException;
 import java.lang.reflect.Method;
 import java.lang.reflect.Modifier;
-import java.lang.reflect.ParameterizedType;
 import java.util.ArrayList;
 import java.util.Collections;
 import java.util.HashMap;
@@ -40,6 +38,12 @@ import java.util.concurrent.ExecutionException;
  * Syntax node for a function call expression.
  */
 public final class FuncallExpression extends Expression {
+
+  private static enum ArgConversion {
+    FROM_SKYLARK,
+    TO_SKYLARK,
+    NO_CONVERSION
+  }
 
   /**
    * A value class to store Methods with their corresponding SkylarkCallable annotations.
@@ -276,18 +280,10 @@ public final class FuncallExpression extends Expression {
           + "(" + EvalUtils.prettyPrintValues(", ", ImmutableList.copyOf(args))  + ")");
       }
     }
+    result = SkylarkType.convertToSkylark(result, method);
     if (result != null && !EvalUtils.isSkylarkImmutable(result.getClass())) {
       throw new EvalException(loc, "Method '" + methodName
           + "' returns a mutable object (type of " + EvalUtils.getDatatypeName(result) + ")");
-    }
-    if (result instanceof NestedSet<?>) {
-      // This is probably the most terrible hack ever written. However this is the last place
-      // where we can infer generic type information, so SkylarkNestedSets can remain safe.
-      // Eventually we should cache these info too like we cache Methods, and probably do
-      // something with Lists and Maps too.
-      ParameterizedType t = (ParameterizedType) method.getGenericReturnType();
-      return new SkylarkNestedSet((Class<?>) t.getActualTypeArguments()[0],
-          (NestedSet<?>) result);
     }
     return result;
   }
@@ -363,10 +359,18 @@ public final class FuncallExpression extends Expression {
     return sb.append(")").toString();
   }
 
-  private void evalArguments(List<Object> posargs, Map<String, Object> kwargs, Environment env)
-      throws EvalException, InterruptedException {
+  private void evalArguments(List<Object> posargs, Map<String, Object> kwargs,
+      Environment env, ArgConversion conversion) throws EvalException, InterruptedException {
     for (Argument arg : args) {
       Object value = arg.getValue().eval(env);
+      if (conversion == ArgConversion.FROM_SKYLARK) {
+        value = SkylarkType.convertFromSkylark(value);
+      } else if (conversion == ArgConversion.TO_SKYLARK) {
+        // We try to auto convert the type if we can.
+        value = SkylarkType.convertToSkylark(value);
+        // We call into Skylark so we need to be sure that the caller uses the appropriate types.
+        SkylarkType.checkTypeAllowedInSkylark(value, getLocation());
+      }
       if (arg.isPositional()) {
         posargs.add(value);
       } else {
@@ -399,14 +403,14 @@ public final class FuncallExpression extends Expression {
         if (!isNamespace(objValue.getClass())) {
           posargs.add(objValue);
         }
-        evalArguments(posargs, kwargs, env);
+        evalArguments(posargs, kwargs, env, getArgConversion(function));
         return EvalUtils.checkNotNull(this, function.call(posargs, kwargs, this, env));
       } else if (env.isSkylarkEnabled()) {
 
         // When calling a Java method, the name is not in the Environment, so
         // evaluating 'func' would fail.
 
-        evalArguments(posargs, kwargs, env);
+        evalArguments(posargs, kwargs, env, ArgConversion.FROM_SKYLARK);
         if (!kwargs.isEmpty()) {
           throw new EvalException(func.getLocation(),
               "Keyword arguments are not allowed when calling a java method");
@@ -431,8 +435,16 @@ public final class FuncallExpression extends Expression {
                               + "' object is not callable");
     }
     Function function = (Function) funcValue;
-    evalArguments(posargs, kwargs, env);
+    evalArguments(posargs, kwargs, env, getArgConversion(function));
     return EvalUtils.checkNotNull(this, function.call(posargs, kwargs, this, env));
+  }
+
+  private ArgConversion getArgConversion(Function function) {
+    // If we call a UserDefinedFunction we call into Skylark. If we call from Skylark
+    // the argument conversion is invariant, but if we call from the BUILD language
+    // we might need an auto conversion.
+    return function instanceof UserDefinedFunction
+        ? ArgConversion.TO_SKYLARK : ArgConversion.NO_CONVERSION;
   }
 
   @Override

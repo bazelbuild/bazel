@@ -230,7 +230,6 @@ abstract class AbstractBuilder implements Builder {
     badActions = forwardGraph.checkActionGraph(artifactSet);
     dependencyChecker.init(artifactSet, builtArtifacts, forwardGraph,
         executor, modifiedFileSet, reporter);
-    eventBus.post(new ActionGraphInfoEvent(forwardGraph.getNumRealActions()));
   }
 
   /**
@@ -481,24 +480,6 @@ abstract class AbstractBuilder implements Builder {
         ? 100 :
         (int) ((100L * realWorkCompleted) / realWorkLeft);
     return "[" + percentOfRealWork + "%] ";
-  }
-
-  /**
-   * Returns an estimate of the "incrementality" of the build.
-   * This is the percentage of the build workload that did not
-   * need to be built because it was already in the action cache
-   * or it was preemptively culled by the dependency checker.
-   * A 100% incremental build is also known as a NOP build:
-   * everything was already in the action cache.
-   * A 0% incremental build is also known as a full build:
-   * nothing was in the action cache.
-   */
-  @Override
-  public int getPercentageCached() {
-    return workloadTotal == 0L
-        ? 100
-        : (int) (100L * (workSavedByActionCache.longValue() + getWorkSkippedByBuilder())
-            / workloadTotal);
   }
 
   @Override

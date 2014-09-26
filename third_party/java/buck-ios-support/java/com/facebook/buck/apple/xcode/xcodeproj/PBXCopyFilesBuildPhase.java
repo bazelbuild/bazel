@@ -26,9 +26,15 @@ public class PBXCopyFilesBuildPhase extends PBXBuildPhase {
    */
   public enum Destination {
     ABSOLUTE(0),
+    WRAPPER(1),
+    EXECUTABLES(6),
     RESOURCES(7),
-    PRODUCTS(16),
     FRAMEWORKS(10),
+    SHARED_FRAMEWORKS(11),
+    SHARED_SUPPORT(12),
+    PLUGINS(13),
+    JAVA_RESOURCES(15),
+    PRODUCTS(16),
     ;
 
     private int value;

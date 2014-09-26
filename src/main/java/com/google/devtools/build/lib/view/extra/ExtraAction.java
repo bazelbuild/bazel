@@ -117,7 +117,7 @@ public final class ExtraAction extends SpawnAction {
       if (shadowedAction instanceof AbstractAction) {
         AbstractAction abstractShadowedAction = (AbstractAction) shadowedAction;
         extraFiles.addAll(abstractShadowedAction.getAdditionalFilesForExtraAction(
-            actionExecutionContext, this));
+            actionExecutionContext));
       }
       extraFiles.add(extraActionInfoFile.getExecPathString());
       try {

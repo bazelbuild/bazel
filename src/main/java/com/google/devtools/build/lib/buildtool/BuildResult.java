@@ -32,12 +32,6 @@ public final class BuildResult {
   private long startTimeMillis = 0; // milliseconds since UNIX epoch.
   private long stopTimeMillis = 0;
 
-  /**
-   * Estimate of how "incremental" the build is.
-   * The percentage of the build workload that was satisfied by the action cache.
-   */
-  private int percentageCached = -1;
-
   private Throwable crash = null;
   private boolean catastrophe = false;
   private ExitCode exitCondition = ExitCode.BLAZE_INTERNAL_ERROR;
@@ -74,26 +68,6 @@ public final class BuildResult {
       throw new IllegalStateException("BuildRequest has not been serviced");
     }
     return (stopTimeMillis - startTimeMillis) / 1000.0;
-  }
-
-  /**
-   * Record an estimate of the percentage of the build workload that was
-   * satisfied by the action cache.
-   */
-  public void setIncrementality(int percentageCached) {
-    if (percentageCached < 0 || percentageCached > 100) {
-      throw new IllegalArgumentException("Incrementality percentage must be in the range [0..100]");
-    }
-    this.percentageCached = percentageCached;
-  }
-
-  /**
-   * Return an estimate of the percentage of the build workload that was
-   * satisfied by the action cache.
-   * Returns -1 if the incrementality hasn't been set yet.
-   */
-  public int getIncrementality() {
-    return percentageCached;
   }
 
   public void setExitCondition(ExitCode exitCondition) {
@@ -211,7 +185,6 @@ public final class BuildResult {
     return Objects.toStringHelper(this)
         .add("startTimeMillis", startTimeMillis)
         .add("stopTimeMillis", stopTimeMillis)
-        .add("percentageCached", percentageCached)
         .add("crash", crash)
         .add("catastrophe", catastrophe)
         .add("exitCondition", exitCondition)

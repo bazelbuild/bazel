@@ -59,9 +59,6 @@ public class BuildSummaryStatsModule extends BlazeModule {
       // We might want to make this conditional on a flag; it can sometimes be a bit of a nuisance.
       List<String> items = new ArrayList<>();
       items.add(String.format("Elapsed time: %.3fs", event.getResult().getElapsedSeconds()));
-      if (event.getResult().getIncrementality() != -1) {
-        items.add(String.format("Incrementality: %d%%", event.getResult().getIncrementality()));
-      }
 
       if (criticalPathComputer != null) {
         Profiler.instance().startTask(ProfilerTask.CRITICAL_PATH, "Critical path");

@@ -76,13 +76,4 @@ public interface Builder {
       Set<Artifact> builtArtifacts,
       boolean explain)
       throws BuildFailedException, AbruptExitException, InterruptedException, TestExecException;
-
-  /**
-   * Returns an estimate of the "incrementality" of the build.
-   * The incrementality is the percentage of the build workload that was
-   * satisfied by hits in the action cache.
-   * Note that this estimate will change during the build.
-   * Normally this should be called only at the end of the build.
-   */
-  int getPercentageCached();
 }

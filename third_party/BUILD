@@ -1,6 +1,10 @@
 package(default_visibility = ["//visibility:public"])
 
 filegroup(
+    name = "protoc",
+    srcs = ["protobuf/protoc.amd64"])
+
+filegroup(
     name = "protobuf",
     srcs = ["protobuf/protobuf-2.5.0.jar"],
 )

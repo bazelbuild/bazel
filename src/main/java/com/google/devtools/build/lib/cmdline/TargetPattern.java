@@ -326,10 +326,6 @@ public abstract class TargetPattern {
       this.relativeDirectory = relativeDirectory;
     }
 
-    public String getRelativeDirectory() {
-      return relativeDirectory;
-    }
-
     /**
      * Parses the given pattern, and throws an exception if the pattern is invalid.
      *

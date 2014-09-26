@@ -16,7 +16,6 @@ package com.google.devtools.build.lib.rules.cpp;
 import com.google.devtools.build.lib.actions.ActionContextMarker;
 import com.google.devtools.build.lib.actions.ActionExecutionContext;
 import com.google.devtools.build.lib.actions.ActionExecutionException;
-import com.google.devtools.build.lib.actions.ActionMetadata;
 import com.google.devtools.build.lib.actions.ExecException;
 import com.google.devtools.build.lib.actions.Executor.ActionContext;
 import com.google.devtools.build.lib.actions.ResourceSet;
@@ -73,6 +72,6 @@ public interface CppCompileActionContext extends ActionContext {
    * were declared.
    */
   Collection<String> getScannedIncludeFiles(
-      CppCompileAction action, ActionExecutionContext actionExecutionContext,
-      ActionMetadata extraActionMetaData) throws ActionExecutionException, InterruptedException;
+      CppCompileAction action, ActionExecutionContext actionExecutionContext)
+          throws ActionExecutionException, InterruptedException;
 }

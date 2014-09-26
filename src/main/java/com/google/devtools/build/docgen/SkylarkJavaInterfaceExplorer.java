@@ -22,6 +22,8 @@ import com.google.devtools.build.lib.syntax.SkylarkModule;
 import com.google.devtools.build.lib.util.StringUtilities;
 
 import java.lang.reflect.Method;
+import java.util.ArrayList;
+import java.util.Collections;
 import java.util.HashMap;
 import java.util.HashSet;
 import java.util.LinkedList;
@@ -33,6 +35,35 @@ import java.util.TreeMap;
  * A helper class to collect all the Java objects / methods reachable from Skylark.
  */
 public class SkylarkJavaInterfaceExplorer {
+  /**
+   * A class representing a Skylark method with annotation.
+   */
+  static final class SkylarkMethod implements Comparable<SkylarkMethod> {
+    public final String name;
+    public final Method method;
+    public final SkylarkCallable callable;
+
+    private String getName(Method method, SkylarkCallable callable) {
+      return callable.name().isEmpty()
+          ? StringUtilities.toPythonStyleFunctionName(method.getName())
+          : callable.name();
+    }
+
+    SkylarkMethod(Method method, SkylarkCallable callable) {
+      this.name = getName(method, callable);
+      this.method = method;
+      this.callable = callable;
+    }
+
+    @Override
+    public int compareTo(SkylarkMethod other) {
+      int i = this.name.compareTo(other.name);
+      if (i != 0) {
+        return i;
+      }
+      return method.getParameterTypes().length - other.method.getParameterTypes().length;
+    }
+  }
 
   /**
    * A class representing a Skylark built-in object with its {@link SkylarkBuiltin} annotation
@@ -43,7 +74,7 @@ public class SkylarkJavaInterfaceExplorer {
     private final SkylarkModule module;
     private final Class<?> classObject;
     private final Map<String, SkylarkBuiltin> builtin;
-    private Map<String, Map.Entry<Method, SkylarkCallable>> methods = null;
+    private ArrayList<SkylarkMethod> methods = null;
 
     SkylarkModuleDoc(SkylarkModule module, Class<?> classObject) {
       this.module = Preconditions.checkNotNull(module,
@@ -64,7 +95,7 @@ public class SkylarkJavaInterfaceExplorer {
       return methods == null;
     }
 
-    private void setJavaMethods(Map<String, Map.Entry<Method, SkylarkCallable>> methods) {
+    private void setJavaMethods(ArrayList<SkylarkMethod> methods) {
       this.methods = methods;
     }
 
@@ -72,9 +103,9 @@ public class SkylarkJavaInterfaceExplorer {
       return builtin;
     }
 
-    Map<String, Map.Entry<Method, SkylarkCallable>> getJavaMethods() {
+    ArrayList<SkylarkMethod> getJavaMethods() {
       return methods;
-    }    
+    }
   }
 
   /**
@@ -106,11 +137,12 @@ public class SkylarkJavaInterfaceExplorer {
       if (module.javaMethodsNotCollected()) {
         ImmutableMap<Method, SkylarkCallable> methods =
             FuncallExpression.collectSkylarkMethodsWithAnnotation(classObject);
-        // Order the methods alphabetically
-        Map<String, Map.Entry<Method, SkylarkCallable>> methodMap = new TreeMap<>();
+        ArrayList<SkylarkMethod> methodList = new ArrayList();
         for (Map.Entry<Method, SkylarkCallable> entry : methods.entrySet()) {
-          methodMap.put(getName(entry), entry);
+          methodList.add(new SkylarkMethod(entry.getKey(), entry.getValue()));
         }
+        Collections.sort(methodList);
+        module.setJavaMethods(methodList);
 
         for (Map.Entry<Method, SkylarkCallable> method : methods.entrySet()) {
           Class<?> returnClass = method.getKey().getReturnType();
@@ -120,15 +152,7 @@ public class SkylarkJavaInterfaceExplorer {
             annotations.put(returnClass, returnClass.getAnnotation(SkylarkModule.class));
           }
         }
-        module.setJavaMethods(methodMap);
       }
     }
   }
-
-  private String getName(Map.Entry<Method, SkylarkCallable> method) {
-    return method.getValue().name().isEmpty()
-        ? StringUtilities.toPythonStyleFunctionName(method.getKey().getName())
-        : method.getValue().name();
-  }
-
 }

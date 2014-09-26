@@ -58,20 +58,6 @@ public class ExecutorShutdownUtil {
   }
 
   /**
-   * Shutdown the executor. If an interrupt occurs, invoke shutdownNow(),
-   * but still block on the eventual termination of the pool.
-   *
-   * @param executor the executor service.
-   * @throws InterruptedException iff interrupted.
-   */
-  public static void throwingInterruptibleShutdown(ExecutorService executor)
-      throws InterruptedException {
-    if (interruptibleShutdown(executor)) {
-      throw new InterruptedException();
-    }
-  }
-
-  /**
    * Create a "slack" thread pool which has the following properties:
    * 1. the worker count shrinks as the threads go unused
    * 2. the rejection policy is caller-runs

@@ -177,10 +177,5 @@ public class CcCompilationOutputs {
       headerTokenFiles.add(artifact);
       return this;
     }
-
-    public Builder addHeaderTokenFiles(Iterable<Artifact> artifacts) {
-      Iterables.addAll(headerTokenFiles, artifacts);
-      return this;
-    }
   }
 }

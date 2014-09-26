@@ -21,9 +21,8 @@ package com.facebook.buck.apple.xcode.xcodeproj;
  * system.
  */
 public class PBXNativeTarget extends PBXTarget {
-  public PBXNativeTarget(String name) {
-    super(name);
-    this.setBuildConfigurationList(new XCConfigurationList());
+  public PBXNativeTarget(String name, ProductType productType) {
+    super(name, productType);
   }
 
   @Override

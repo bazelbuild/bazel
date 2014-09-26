@@ -645,12 +645,6 @@ public class BuildView {
     return target.getGeneratingRule();
   }
 
-  @Deprecated
-  public Iterable<ConfiguredTarget> getAllConfiguredTargets() {
-    // TODO(bazel-team): Re-enable this if needed for dump command.
-    throw new UnsupportedOperationException();
-  }
-
   @Override
   public int hashCode() {
     throw new UnsupportedOperationException();  // avoid nondeterminism

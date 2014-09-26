@@ -101,7 +101,11 @@ public final class ListLiteral extends Expression {
       }
       result.add(expr.eval(env));
     }
-    return EvalUtils.makeSequence(result, isTuple());
+    if (env.isSkylarkEnabled()) {
+      return isTuple() ? SkylarkList.tuple(result) : SkylarkList.list(result);
+    } else {
+      return EvalUtils.makeSequence(result, isTuple());
+    }
   }
 
   @Override
@@ -120,6 +124,6 @@ public final class ListLiteral extends Expression {
       }
       type = type.infer(nextType, "list literal", expr.getLocation(), getLocation());
     }
-    return SkylarkType.of(List.class, type.getType());
+    return SkylarkType.of(SkylarkList.class, type.getType());
   }
 }

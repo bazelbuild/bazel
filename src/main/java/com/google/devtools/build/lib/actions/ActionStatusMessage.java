@@ -20,16 +20,16 @@ package com.google.devtools.build.lib.actions;
  * used to notify any interested parties.
  */
 public class ActionStatusMessage {
-  private final ExecutableMetadata action;
+  private final ActionMetadata action;
   private final String message;
   public static final String PREPARING = "Preparing";
 
-  public ActionStatusMessage(ExecutableMetadata action, String message) {
+  public ActionStatusMessage(ActionMetadata action, String message) {
     this.action = action;
     this.message = message;
   }
 
-  public ExecutableMetadata getActionMetadata() {
+  public ActionMetadata getActionMetadata() {
     return action;
   }
 
@@ -43,23 +43,23 @@ public class ActionStatusMessage {
   }
 
   /** Creates "Analyzing" status message. */
-  public static ActionStatusMessage analysisStrategy(ExecutableMetadata action) {
+  public static ActionStatusMessage analysisStrategy(ActionMetadata action) {
     return new ActionStatusMessage(action, "Analyzing");
   }
 
   /** Creates "Preparing" status message. */
-  public static ActionStatusMessage preparingStrategy(ExecutableMetadata action) {
+  public static ActionStatusMessage preparingStrategy(ActionMetadata action) {
     return new ActionStatusMessage(action, PREPARING);
   }
 
   /** Creates "Scheduling" status message. */
-  public static ActionStatusMessage schedulingStrategy(ExecutableMetadata resourceOwner) {
-    return new ActionStatusMessage(resourceOwner, "Scheduling");
+  public static ActionStatusMessage schedulingStrategy(ActionMetadata action) {
+    return new ActionStatusMessage(action, "Scheduling");
   }
 
   /** Creates "Running (%s)" status message (needs strategy interpolated). */
-  public static ActionStatusMessage runningStrategy(ExecutableMetadata resourceOwner) {
-    return new ActionStatusMessage(resourceOwner, "Running (%s)") {
+  public static ActionStatusMessage runningStrategy(ActionMetadata action) {
+    return new ActionStatusMessage(action, "Running (%s)") {
       @Override
       public boolean needsStrategy() {
         return true;

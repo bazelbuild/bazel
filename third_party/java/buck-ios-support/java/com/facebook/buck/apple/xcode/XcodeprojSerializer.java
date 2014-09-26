@@ -20,6 +20,7 @@ import com.dd.plist.NSArray;
 import com.dd.plist.NSDictionary;
 import com.dd.plist.NSObject;
 import com.dd.plist.NSString;
+import com.facebook.buck.log.Logger;
 import com.facebook.buck.apple.xcode.xcodeproj.PBXObject;
 import com.facebook.buck.apple.xcode.xcodeproj.PBXProject;
 
@@ -37,6 +38,8 @@ import javax.annotation.concurrent.NotThreadSafe;
  */
 @NotThreadSafe
 public class XcodeprojSerializer {
+  private static final Logger LOG = Logger.get(XcodeprojSerializer.class);
+
   private final PBXProject rootObject;
   private final NSDictionary objects;
   private final GidGenerator gidGenerator;
@@ -74,11 +77,15 @@ public class XcodeprojSerializer {
   private String serializeObject(PBXObject obj) {
     if (obj.getGlobalID() == null) {
       obj.setGlobalID(obj.generateGid(gidGenerator));
+      LOG.verbose("Set new object GID: %s", obj);
     } else {
       // Check that the object has already been serialized.
       NSObject object = objects.get(obj.getGlobalID());
       if (object != null) {
+        LOG.verbose("Object %s found, returning existing object %s", obj, object);
         return obj.getGlobalID();
+      } else {
+        LOG.verbose("Object already had GID set: %s", obj);
       }
     }
 

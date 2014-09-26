@@ -25,6 +25,7 @@ public abstract class PBXObject {
   @Nullable
   private String globalID;
 
+  @Nullable
   public String getGlobalID() {
     return globalID;
   }
@@ -50,6 +51,11 @@ public abstract class PBXObject {
    */
   public int stableHash() {
     return 0;
+  }
+
+  @Override
+  public String toString() {
+    return String.format("%s isa=%s gid=%s", super.toString(), isa(), getGlobalID());
   }
 
   /**
