@@ -22,8 +22,8 @@ import com.google.devtools.build.lib.util.io.AnsiTerminalPrinter;
 import com.google.devtools.build.lib.util.io.AnsiTerminalPrinter.Mode;
 import com.google.devtools.build.lib.vfs.Path;
 import com.google.devtools.build.lib.view.test.TestStatus.BlazeTestStatus;
-import com.google.devtools.build.lib.view.test.TestStatus.FailedTestCaseDetails;
-import com.google.devtools.build.lib.view.test.TestStatus.TestCaseDetail;
+import com.google.devtools.build.lib.view.test.TestStatus.FailedTestCasesStatus;
+import com.google.devtools.build.lib.view.test.TestStatus.TestCase;
 
 import java.io.IOException;
 import java.util.ArrayList;
@@ -104,18 +104,18 @@ public class TestSummaryPrinter {
         + (verboseSummary ? getAttemptSummary(summary) + getTimeSummary(summary) : "") + "\n");
 
     if (printFailedTestCases && summary.getStatus() == BlazeTestStatus.FAILED) {
-      if (summary.getFailedTestCases().getStatus() == FailedTestCaseDetails.Status.NOT_AVAILABLE) {
+      if (summary.getFailedTestCasesStatus() == FailedTestCasesStatus.NOT_AVAILABLE) {
         terminalPrinter.print(
             Mode.WARNING + "    (individual test case information not available) "
             + Mode.DEFAULT + "\n");
       } else {
-        for (TestCaseDetail testCase : summary.getFailedTestCases().getDetailList()) {
-          if (testCase.getStatus() != TestCaseDetail.Status.PASSED) {
+        for (TestCase testCase : summary.getFailedTestCases()) {
+          if (testCase.getStatus() != TestCase.Status.PASSED) {
             TestSummaryPrinter.printTestCase(terminalPrinter, testCase);
           }
         }
 
-        if (summary.getFailedTestCases().getStatus() != FailedTestCaseDetails.Status.FULL) {
+        if (summary.getFailedTestCasesStatus() != FailedTestCasesStatus.FULL) {
           terminalPrinter.print(
               Mode.WARNING
               + "    (some shards did not report details, list of failed test"
@@ -163,7 +163,7 @@ public class TestSummaryPrinter {
    * passed, since passed test cases are not reported.
    */
   static void printTestCase(
-      AnsiTerminalPrinter terminalPrinter, TestCaseDetail testCase) {
+      AnsiTerminalPrinter terminalPrinter, TestCase testCase) {
     String timeSummary;
     if (testCase.hasRunDurationMillis()) {
       timeSummary = " ("
@@ -178,6 +178,8 @@ public class TestSummaryPrinter {
         + Mode.ERROR
         + Strings.padEnd(testCase.getStatus().toString(), 8, ' ')
         + Mode.DEFAULT
+        + testCase.getClassName()
+        + "."
         + testCase.getName()
         + timeSummary
         + "\n");

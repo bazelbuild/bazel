@@ -18,6 +18,9 @@ import com.google.common.collect.ImmutableList;
 
 /**
  * Various constants required by Bazel.
+ *
+ * <p>The extra {@code .toString()} calls are there so that javac doesn't inline these constants
+ * so that we can replace this class file in the .jar after Bazel was built.
  */
 public class Constants {
   private Constants() {

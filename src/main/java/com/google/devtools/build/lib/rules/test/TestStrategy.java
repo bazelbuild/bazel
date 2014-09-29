@@ -33,6 +33,7 @@ import com.google.devtools.build.lib.vfs.Path;
 import com.google.devtools.build.lib.vfs.PathFragment;
 import com.google.devtools.build.lib.view.config.BinTools;
 import com.google.devtools.build.lib.view.config.BuildConfiguration;
+import com.google.devtools.build.lib.view.test.TestStatus.TestCase;
 import com.google.devtools.common.options.Converters.RangeConverter;
 import com.google.devtools.common.options.EnumConverter;
 import com.google.devtools.common.options.OptionsClassProvider;
@@ -220,10 +221,10 @@ public abstract class TestStrategy implements TestActionContext {
   }
 
   /**
-   * Parse a test result XML file into a FailedTestCaseDetails.
+   * Parse a test result XML file into a {@link TestCase}.
    */
   @Nullable
-  protected HierarchicalTestResult parseTestResult(Path resultFile) {
+  protected TestCase parseTestResult(Path resultFile) {
     /* xml files. We avoid parsing it unnecessarily, since test results can potentially consume
        a large amount of memory. */
     if (executionOptions.testSummary != TestSummaryFormat.DETAILED && !statusServerRunning) {

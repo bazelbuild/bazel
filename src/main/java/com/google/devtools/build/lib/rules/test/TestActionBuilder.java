@@ -184,9 +184,6 @@ public final class TestActionBuilder {
     NestedSetBuilder<Artifact> inputsBuilder = NestedSetBuilder.stableOrder();
     inputsBuilder.addTransitive(
         NestedSetBuilder.create(Order.STABLE_ORDER, runfilesSupport.getRunfilesMiddleman()));
-    for (TransitiveInfoCollection dep : ruleContext.getPrerequisites("$test_tools", Mode.HOST)) {
-      inputsBuilder.addTransitive(dep.getProvider(FileProvider.class).getFilesToBuild());
-    }
     for (TransitiveInfoCollection dep : ruleContext.getPrerequisites("$test_runtime", Mode.HOST)) {
       inputsBuilder.addTransitive(dep.getProvider(FileProvider.class).getFilesToBuild());
     }

@@ -31,12 +31,13 @@ CC=${CC:-g++}
 
 PLATFORM="$(uname -s | tr 'A-Z' 'a-z')"
 JNIPLATFORM="${PLATFORM}"
-ARCHIVE_CFLAGS=""
+ARCHIVE_CFLAGS=${ARCHIVE_CFLAGS:-""}
+LDFLAGS=${LDFLAGS:-""}
 # Extension for executables (.exe on Windows).
 EXE_EXT=""
 
 PROTO_FILES=$(ls src/main/protobuf/*.proto)
-LIBRARY_JARS="third_party/guava/guava-16.0.1.jar third_party/jsr305/jsr-305.jar third_party/protobuf/protobuf-2.5.0.jar third_party/joda-time/joda-time-2.3.jar"
+LIBRARY_JARS="third_party/gson/gson-2.2.4.jar third_party/guava/guava-16.0.1.jar third_party/jsr305/jsr-305.jar third_party/protobuf/protobuf-2.5.0.jar third_party/joda-time/joda-time-2.3.jar"
 TEST_LIBRARY_JARS="$LIBRARY_JARS third_party/junit/junit-4.11.jar third_party/truth/truth-0.23.jar third_party/guava/guava-testlib.jar output/classes"
 DIRS=$(echo src/{main/java,tools/xcode-common/java/com/google/devtools/build/xcode/{common,util}})
 JAVA_SRCDIRS="src/main/java src/tools/xcode-common/java output/src"
@@ -86,6 +87,7 @@ darwin)
 msys*|mingw*)
   # Use a simplified platform string.
   PLATFORM="mingw"
+  LDFLAGS="-larchive ${LDFLAGS}"
   JNIPLATFORM=win32
   MD5SUM="md5sum"
   EXE_EXT=".exe"
@@ -193,7 +195,7 @@ done
 
 # Link client
 echo "Linking client..."
-"${CC}" -o output/client output/objs/*.o -lstdc++ -larchive ${LDFLAGS}
+"${CC}" -o output/client output/objs/*.o -lstdc++ ${LDFLAGS}
 
 echo "Compiling JNI libraries..."
 for FILE in "${NATIVE_CC_FILES[@]}"; do

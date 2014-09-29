@@ -19,7 +19,9 @@ import static com.google.devtools.build.lib.syntax.SkylarkFunction.cast;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.Iterables;
+import com.google.common.collect.Lists;
 import com.google.devtools.build.lib.collect.nestedset.Order;
+import com.google.devtools.build.lib.events.Location;
 import com.google.devtools.build.lib.packages.Type.ConversionException;
 import com.google.devtools.build.lib.syntax.AbstractFunction;
 import com.google.devtools.build.lib.syntax.AbstractFunction.NoArgFunction;
@@ -41,9 +43,9 @@ import com.google.devtools.build.lib.syntax.SkylarkNestedSet;
 import com.google.devtools.build.lib.syntax.SkylarkType;
 import com.google.devtools.build.lib.syntax.SkylarkType.SkylarkFunctionType;
 
+import java.util.Collection;
 import java.util.HashMap;
 import java.util.Iterator;
-import java.util.LinkedHashSet;
 import java.util.List;
 import java.util.Map;
 import java.util.Set;
@@ -386,7 +388,7 @@ public class MethodLibrary {
     public Object call(Object self, FuncallExpression ast, Environment env)
         throws EvalException, InterruptedException {
       Map<?, ?> dict = (Map<?, ?>) self;
-      return convert(ImmutableList.copyOf(dict.values()), env);
+      return convert(dict.values(), env, ast.getLocation());
     }
   };
 
@@ -397,11 +399,12 @@ public class MethodLibrary {
     public Object call(Object self, FuncallExpression ast, Environment env)
         throws EvalException, InterruptedException {
       Map<?, ?> dict = (Map<?, ?>) self;
-      ImmutableList.Builder<List<Object>> builder = ImmutableList.builder();
+      List<Object> list = Lists.newArrayListWithCapacity(dict.size());
       for (Map.Entry<?, ?> entries : dict.entrySet()) {
-        builder.add(ImmutableList.of(entries.getKey(), entries.getValue()));
+        List<?> item = ImmutableList.of(entries.getKey(), entries.getValue());
+        list.add(env.isSkylarkEnabled() ? SkylarkList.tuple(item) : item);
       }
-      return convert(builder.build(), env);
+      return convert(list, env, ast.getLocation());
     }
   };
 
@@ -412,15 +415,18 @@ public class MethodLibrary {
     public Object call(Object self, FuncallExpression ast, Environment env)
         throws EvalException, InterruptedException {
       Map<?, ?> dict = (Map<?, ?>) self;
-      return convert(ImmutableList.copyOf(dict.keySet()), env);
+      return convert(dict.keySet(), env, ast.getLocation());
     }
   };
 
-  private static Object convert(List<?> list, Environment env) {
+  @SuppressWarnings("unchecked")
+  private static Iterable<Object> convert(Collection<?> list, Environment env, Location loc)
+      throws EvalException {
     if (env.isSkylarkEnabled()) {
-      return SkylarkList.list(list);
+      return SkylarkList.list(list, loc);
+    } else {
+      return Lists.newArrayList(list);
     }
-    return list;
   }
 
   // unary minus
@@ -433,22 +439,12 @@ public class MethodLibrary {
     }
   };
 
-  // TODO(bazel-team): support sets properly
-  // creates an empty set
-  @SkylarkBuiltin(name = "set", doc = "Creates an empty set.")
-  private static Function set = new PositionalFunction("set", 0, 0) {
-    @Override
-    public Object call(List<Object> args, FuncallExpression ast) throws ConversionException {
-      // Use LinkedHashSet to keep iteration order
-      return new LinkedHashSet<Object>();
-    }
-  };
-
   @SkylarkBuiltin(name = "list", doc = "Converts a collection to a list.")
   private static Function list = new PositionalFunction("list", 1, 1) {
     @Override
     public Object call(List<Object> args, FuncallExpression ast) throws EvalException {
-      return SkylarkList.list(EvalUtils.toCollection(args.get(0), ast.getLocation()));
+      Location loc = ast.getLocation();
+      return SkylarkList.list(EvalUtils.toCollection(args.get(0), loc), loc);
     }
   };
 
@@ -495,29 +491,34 @@ public class MethodLibrary {
     }
   };
 
-  @SkylarkBuiltin(name = "nset",
+  @SkylarkBuiltin(name = "set",
       doc = "Creates a nested set from the <i>items</i>. "
           + "The nesting is applied to other nested sets among <i>items</i>. "
-          + "Ordering can be: STABLE_ORDER, COMPILE_ORDER or LINK_ORDER.<br>"
-          + "Example: nset(\"STABLE_ORDER\", [1, 2, 3])")
-  private static final Function nset = new PositionalFunction("nset", 1, 2) {
-
+          + "Ordering can be: 'stable' (default), 'compile', 'link' or 'naive_link'.<br>"
+          + "Example: nset([1, 2, 3], order=\"compile\")")
+  private static final Function set =
+    new MixedModeFunction("set", ImmutableList.of("items", "order"), 0, false) {
     @Override
-    public Object call(List<Object> args, FuncallExpression ast) throws EvalException,
+    public Object call(Object[] namedArguments, List<Object> positionalArguments,
+        Map<String, Object> keywordArguments, FuncallExpression ast) throws EvalException,
         ConversionException {
-      // TODO(bazel-team): Investigate if enums or constants can be used here in the argument.
-      String orderString = cast(args.get(0), String.class, "nested set order", ast.getLocation());
       Order order;
-      try {
-        order = Order.valueOf(orderString);
-      } catch (IllegalArgumentException e) {
-        throw new EvalException(ast.getLocation(), "Invalid order " + orderString);
-      }
-      if (args.size() == 2) {
-        return new SkylarkNestedSet(order, args.get(1), ast.getLocation());
+      if (namedArguments[1] == null || namedArguments[1].equals("stable")) {
+        order = Order.STABLE_ORDER;
+      } else if (namedArguments[1].equals("compile")) {
+        order = Order.COMPILE_ORDER;
+      } else if (namedArguments[1].equals("link")) {
+        order = Order.LINK_ORDER;
+      } else if (namedArguments[1].equals("naive_link")) {
+        order = Order.NAIVE_LINK_ORDER;
       } else {
-        return new SkylarkNestedSet(order, SkylarkList.EMTPY_LIST, ast.getLocation());
+        throw new EvalException(ast.getLocation(), "Invalid order: " + namedArguments[1]);
       }
+
+      if (namedArguments[0] == null) {
+        return new SkylarkNestedSet(order, SkylarkList.EMPTY_LIST, ast.getLocation());
+      }
+      return new SkylarkNestedSet(order, namedArguments[0], ast.getLocation());
     }
   };
 
@@ -569,13 +570,13 @@ public class MethodLibrary {
   /**
    * Skylark String module.
    */
-  @SkylarkModule(name = "string", doc = "")
+  @SkylarkModule(name = "string", doc = "A language built-in type to support strings.")
   public static final class StringModule {}
 
   /**
    * Skylark Dict module.
    */
-  @SkylarkModule(name = "dict", doc = "")
+  @SkylarkModule(name = "dict", doc = "A language built-in type to support dicts.")
   public static final class DictModule {}
 
   public static final Map<Function, SkylarkType> stringFunctions = ImmutableMap
@@ -620,11 +621,10 @@ public class MethodLibrary {
   private static final Map<Function, SkylarkType> skylarkGlobalFunctions = ImmutableMap
       .<Function, SkylarkType>builder()
       .putAll(pureGlobalFunctions)
-      .put(set, SkylarkType.of(Set.class))
       .put(list, SkylarkType.of(SkylarkList.class))
       .put(struct, SkylarkType.of(ClassObject.class))
       .put(hasattr, SkylarkType.BOOL)
-      .put(nset, SkylarkType.of(SkylarkNestedSet.class))
+      .put(set, SkylarkType.of(SkylarkNestedSet.class))
       .build();
 
   /**
@@ -671,7 +671,7 @@ public class MethodLibrary {
 
   public static void setupValidationEnvironment(
       Map<SkylarkType, Map<String, SkylarkType>> builtIn) {
-    Map<String, SkylarkType> global = builtIn.get(SkylarkType.GLOBAL); 
+    Map<String, SkylarkType> global = builtIn.get(SkylarkType.GLOBAL);
     setupValidationEnvironment(skylarkGlobalFunctions, global);
 
     Map<String, SkylarkType> dict = new HashMap<>();

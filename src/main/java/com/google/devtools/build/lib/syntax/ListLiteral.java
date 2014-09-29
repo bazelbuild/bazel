@@ -102,7 +102,8 @@ public final class ListLiteral extends Expression {
       result.add(expr.eval(env));
     }
     if (env.isSkylarkEnabled()) {
-      return isTuple() ? SkylarkList.tuple(result) : SkylarkList.list(result);
+      return isTuple()
+          ? SkylarkList.tuple(result) : SkylarkList.list(result, getLocation());
     } else {
       return EvalUtils.makeSequence(result, isTuple());
     }
@@ -116,13 +117,15 @@ public final class ListLiteral extends Expression {
   @Override
   SkylarkType validate(ValidationEnvironment env) throws EvalException {
     SkylarkType type = SkylarkType.UNKNOWN;
-    for (Expression expr : exprs) {
-      SkylarkType nextType = expr.validate(env);
-      if (!nextType.isSimple()) {
-        throw new EvalException(getLocation(),
-            String.format("List cannot contain composite type '%s'", nextType));
+    if (!isTuple()) {
+      for (Expression expr : exprs) {
+        SkylarkType nextType = expr.validate(env);
+        if (!nextType.isSimple()) {
+          throw new EvalException(getLocation(),
+              String.format("List cannot contain composite type '%s'", nextType));
+        }
+        type = type.infer(nextType, "list literal", expr.getLocation(), getLocation());
       }
-      type = type.infer(nextType, "list literal", expr.getLocation(), getLocation());
     }
     return SkylarkType.of(SkylarkList.class, type.getType());
   }

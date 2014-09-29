@@ -14,17 +14,29 @@
 
 package com.google.devtools.build.lib.rules;
 
+import static com.google.devtools.build.lib.syntax.SkylarkFunction.castList;
+
+import com.google.common.base.Predicate;
+import com.google.devtools.build.lib.events.Location;
 import com.google.devtools.build.lib.packages.Attribute;
 import com.google.devtools.build.lib.packages.Attribute.ConfigurationTransition;
+import com.google.devtools.build.lib.packages.Attribute.SkylarkLateBound;
+import com.google.devtools.build.lib.packages.RuleClass;
+import com.google.devtools.build.lib.packages.SkylarkFileType;
+import com.google.devtools.build.lib.packages.Type;
 import com.google.devtools.build.lib.packages.Type.ConversionException;
 import com.google.devtools.build.lib.syntax.Environment;
 import com.google.devtools.build.lib.syntax.EvalException;
 import com.google.devtools.build.lib.syntax.FuncallExpression;
 import com.google.devtools.build.lib.syntax.SkylarkBuiltin;
 import com.google.devtools.build.lib.syntax.SkylarkBuiltin.Param;
+import com.google.devtools.build.lib.syntax.SkylarkCallbackFunction;
+import com.google.devtools.build.lib.syntax.SkylarkEnvironment;
 import com.google.devtools.build.lib.syntax.SkylarkFunction;
 import com.google.devtools.build.lib.syntax.SkylarkList;
 import com.google.devtools.build.lib.syntax.SkylarkModule;
+import com.google.devtools.build.lib.syntax.UserDefinedFunction;
+import com.google.devtools.build.lib.util.FileTypeSet;
 
 import java.util.Map;
 
@@ -40,9 +52,9 @@ public final class SkylarkAttr {
   private static final String MANDATORY_DOC =
       "set to true if users have to explicitely specify the value";
 
-  private static final String FILE_TYPES_DOC =
-      "allowed file types of the label type attribute. "
-      + "For example, use ANY_FILE, NO_FILE, or the filetype function.";
+  private static final String ALLOW_FILES_DOC =
+      "whether file targets are allowed. Can be True, False (default), or "
+      + "a filetype filter.";
 
   private static final String RULE_CLASSES_DOC =
       "allowed rule classes of the label type attribute. "
@@ -59,13 +71,90 @@ public final class SkylarkAttr {
       + "For example, use DATA_CFG or HOST_CFG.";
 
   private static final String EXECUTABLE_DOC =
-      "set to true if the labels have to be executable";
+      "set to True if the labels have to be executable";
 
-  private static Object makeAttr(Map<String, Object> kwargs, String type,
+  private static Attribute.Builder<?> createAttribute(Type<?> type, Map<String, Object> arguments,
+      FuncallExpression ast, SkylarkEnvironment env) throws EvalException, ConversionException {
+    final Location loc = ast.getLocation();
+    // We use an empty name now so that we can set it later.
+    // This trick makes sense only in the context of Skylark (builtin rules should not use it).
+    Attribute.Builder<?> builder = Attribute.attr("", type);
+
+    Object defaultValue = arguments.get("default");
+    if (defaultValue != null) {
+      if (defaultValue instanceof UserDefinedFunction) {
+        // Late bound attribute
+        UserDefinedFunction func = (UserDefinedFunction) defaultValue;
+        final SkylarkCallbackFunction callback = new SkylarkCallbackFunction(func, ast, env);
+        final SkylarkLateBound computedValue;
+        if (type.equals(Type.LABEL) || type.equals(Type.LABEL_LIST)) {
+          computedValue = new SkylarkLateBound(false, callback);
+        } else {
+          throw new EvalException(loc, "Only label type attributes can be late bound");
+        }
+        builder.value(computedValue);
+      } else {
+        builder.defaultValue(defaultValue);
+      }
+    }
+
+    for (String flag :
+             castList(arguments.get("flags"), String.class, "flags for attribute definition")) {
+      builder.setPropertyFlag(flag);
+    }
+
+    if (arguments.containsKey("mandatory") && (Boolean) arguments.get("mandatory")) {
+      builder.setPropertyFlag("MANDATORY");
+    }
+
+    if (arguments.containsKey("executable") && (Boolean) arguments.get("executable")) {
+      builder.setPropertyFlag("EXECUTABLE");
+    }
+
+    if (arguments.containsKey("single_file") && (Boolean) arguments.get("single_file")) {
+      builder.setPropertyFlag("SINGLE_ARTIFACT");
+    }
+
+    if (arguments.containsKey("allow_files")) {
+      Object fileTypesObj = arguments.get("allow_files");
+      if (fileTypesObj == Boolean.TRUE) {
+        builder.allowedFileTypes(FileTypeSet.ANY_FILE);
+      } else if (fileTypesObj == Boolean.FALSE) {
+        builder.allowedFileTypes(FileTypeSet.NO_FILE);
+      } else if (fileTypesObj instanceof SkylarkFileType) {
+        builder.allowedFileTypes(((SkylarkFileType) fileTypesObj).getFileTypeSet());
+      } else {
+        throw new EvalException(loc, "allow_files should be a boolean or a filetype object.");
+      }
+    } else if (type.equals(Type.LABEL) || type.equals(Type.LABEL_LIST)) {
+      builder.allowedFileTypes(FileTypeSet.NO_FILE);
+    }
+
+    Object ruleClassesObj = arguments.get("rule_classes");
+    if (ruleClassesObj == Attribute.ANY_RULE || ruleClassesObj == Attribute.NO_RULE) {
+      // This causes an unchecked warning but it's fine because of the surrounding if.
+      builder.allowedRuleClasses((Predicate<RuleClass>) ruleClassesObj);
+    } else if (ruleClassesObj != null) {
+      builder.allowedRuleClasses(castList(ruleClassesObj, String.class,
+              "allowed rule classes for attribute definition"));
+    }
+
+    if (arguments.containsKey("providers")) {
+      builder.mandatoryProviders(castList(arguments.get("providers"),
+          String.class, "mandatory providers for attribute definition"));
+    }
+
+    if (arguments.containsKey("cfg")) {
+      builder.cfg((ConfigurationTransition) arguments.get("cfg"));
+    }
+    return builder;
+  }
+
+  private static Object createAttribute(Map<String, Object> kwargs, Type<?> type,
       FuncallExpression ast, Environment env) throws EvalException {
     try {
-      return SkylarkRuleClassFunctions.createAttribute(type, kwargs, ast, env);
-    } catch (IllegalStateException | IllegalArgumentException | ConversionException e) {
+      return createAttribute(type, kwargs, ast, (SkylarkEnvironment) env);
+    } catch (ConversionException e) {
       throw new EvalException(ast.getLocation(), e.getMessage());
     }
   }
@@ -82,7 +171,7 @@ public final class SkylarkAttr {
       @Override
       public Object call(Map<String, Object> kwargs, FuncallExpression ast, Environment env)
           throws EvalException {
-        return makeAttr(kwargs, "INTEGER", ast, env);
+        return createAttribute(kwargs, Type.INTEGER, ast, env);
       }
     };
 
@@ -98,7 +187,7 @@ public final class SkylarkAttr {
       @Override
       public Object call(Map<String, Object> kwargs, FuncallExpression ast, Environment env)
           throws EvalException {
-        return makeAttr(kwargs, "STRING", ast, env);
+        return createAttribute(kwargs, Type.STRING, ast, env);
       }
     };
 
@@ -109,7 +198,7 @@ public final class SkylarkAttr {
       @Param(name = "default", doc = DEFAULT_DOC),
       @Param(name = "executable", type = Boolean.class, doc = EXECUTABLE_DOC),
       @Param(name = "flags", type = SkylarkList.class, doc = FLAGS_DOC),
-      @Param(name = "file_types", doc = FILE_TYPES_DOC),
+      @Param(name = "allow_files", doc = ALLOW_FILES_DOC),
       @Param(name = "mandatory", type = Boolean.class, doc = MANDATORY_DOC),
       @Param(name = "providers", type = SkylarkList.class,
           doc = "mandatory providers every dependency has to have"),
@@ -122,7 +211,7 @@ public final class SkylarkAttr {
       @Override
       public Object call(Map<String, Object> kwargs, FuncallExpression ast, Environment env)
           throws EvalException {
-        return makeAttr(kwargs, "LABEL", ast, env);
+        return createAttribute(kwargs, Type.LABEL, ast, env);
       }
     };
 
@@ -139,7 +228,7 @@ public final class SkylarkAttr {
       @Override
       public Object call(Map<String, Object> kwargs, FuncallExpression ast, Environment env)
           throws EvalException {
-        return makeAttr(kwargs, "STRING_LIST", ast, env);
+        return createAttribute(kwargs, Type.STRING_LIST, ast, env);
       }
     };
 
@@ -150,7 +239,7 @@ public final class SkylarkAttr {
       @Param(name = "default", doc = DEFAULT_DOC),
       @Param(name = "executable", type = Boolean.class, doc = EXECUTABLE_DOC),
       @Param(name = "flags", type = SkylarkList.class, doc = FLAGS_DOC),
-      @Param(name = "file_types", doc = FILE_TYPES_DOC),
+      @Param(name = "allow_files", doc = ALLOW_FILES_DOC),
       @Param(name = "mandatory", type = Boolean.class, doc = MANDATORY_DOC),
       @Param(name = "rule_classes", doc = RULE_CLASSES_DOC),
       @Param(name = "providers", type = SkylarkList.class,
@@ -160,7 +249,7 @@ public final class SkylarkAttr {
       @Override
       public Object call(Map<String, Object> kwargs, FuncallExpression ast, Environment env)
           throws EvalException {
-        return makeAttr(kwargs, "LABEL_LIST", ast, env);
+        return createAttribute(kwargs, Type.LABEL_LIST, ast, env);
       }
     };
 
@@ -176,7 +265,7 @@ public final class SkylarkAttr {
       @Override
       public Object call(Map<String, Object> kwargs, FuncallExpression ast, Environment env)
           throws EvalException {
-        return makeAttr(kwargs, "BOOLEAN", ast, env);
+        return createAttribute(kwargs, Type.BOOLEAN, ast, env);
       }
     };
 
@@ -192,7 +281,7 @@ public final class SkylarkAttr {
       @Override
       public Object call(Map<String, Object> kwargs, FuncallExpression ast, Environment env)
           throws EvalException {
-        return makeAttr(kwargs, "OUTPUT", ast, env);
+        return createAttribute(kwargs, Type.OUTPUT, ast, env);
       }
     };
 
@@ -208,7 +297,7 @@ public final class SkylarkAttr {
       @Override
       public Object call(Map<String, Object> kwargs, FuncallExpression ast, Environment env)
           throws EvalException {
-        return makeAttr(kwargs, "OUTPUT_LIST", ast, env);
+        return createAttribute(kwargs, Type.OUTPUT_LIST, ast, env);
       }
     };
 
@@ -224,7 +313,7 @@ public final class SkylarkAttr {
       @Override
       public Object call(Map<String, Object> kwargs, FuncallExpression ast, Environment env)
           throws EvalException {
-        return makeAttr(kwargs, "LICENSE", ast, env);
+        return createAttribute(kwargs, Type.LICENSE, ast, env);
       }
     };
 }

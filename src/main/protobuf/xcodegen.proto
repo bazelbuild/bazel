@@ -50,8 +50,8 @@ message TargetControl {
   // objc_library.
   repeated DependencyControl dependency = 4;
 
-  // (Used for objc_binary targets) path to the -Info.plist file for the
-  // application.
+  // (Used for objc_binary and objc_bundle_library targets) path to the
+  // -Info.plist file for the application.
   optional string infoplist = 5;
 
   // Label corresponding to the target. This is needed to determine a
@@ -122,6 +122,19 @@ message TargetControl {
   // For application target, this also causes the bundle to be linked with the
   // application.
   repeated string bundle_import = 17;
+
+  // The product type, for instance "com.apple.product-type.bundle". If
+  // omitted, the presence of the infoplist field indicates the type:
+  // has infoplist: "com.apple.product-type.application"
+  // does not have infoplist: "com.apple.product-type.library.static"
+  optional string product_type = 18;
+
+  // SDK .dylib files to link with this target. Each name should not include the
+  // the path or the .dylib extension, e.g. "libz" to link in
+  // "SDKROOT/usr/lib/libz.dylib". For all targets, this causes the library to
+  // appear in the Project Navigator. For binary targets, this causes the
+  // library to be linked with the final binary.
+  repeated string sdk_dylib = 19;
 }
 
 // Represents the mapping of a build setting recognized by Xcode project files,

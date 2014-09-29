@@ -167,20 +167,7 @@ class RuleDocumentation implements Comparable<RuleDocumentation> {
    * Returns the documentation of the rule in a form which is printable on the command line.
    */
   String getCommandLineDocumentation() {
-    // Replace html <br> tags with line breaks
-    String cmdDoc = "\n" + htmlDocumentation.replaceAll("(<br>|<br[\\s]*/>)", "\n") + "\n";
-    // Replace other links <a href=".*">s with human readable links
-    cmdDoc = cmdDoc.replaceAll("\\<a href=\"([^\"]+)\">[^\\<]*\\</a\\>", "$1");
-    // Delete other html tags
-    cmdDoc = cmdDoc.replaceAll("\\<[/]?[^\\>]+\\>", "");
-    // Delete docgen variables
-    cmdDoc = cmdDoc.replaceAll("\\$\\{[\\w_]+\\}", "");
-    // Substitute more than 2 line breaks in a row with 2 line breaks
-    cmdDoc = cmdDoc.replaceAll("[\\n]{2,}", "\n\n");
-    // Ensure that the doc starts and ends with exactly two line breaks
-    cmdDoc = cmdDoc.replaceAll("^[\\n]+", "\n\n");
-    cmdDoc = cmdDoc.replaceAll("[\\n]+$", "\n\n");
-    return cmdDoc;
+    return "\n" + DocgenConsts.toCommandLineFormat(htmlDocumentation);
   }
 
   /**

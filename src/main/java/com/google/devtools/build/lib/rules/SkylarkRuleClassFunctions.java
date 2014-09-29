@@ -32,12 +32,10 @@ import com.google.common.cache.CacheBuilder;
 import com.google.common.cache.CacheLoader;
 import com.google.common.cache.LoadingCache;
 import com.google.common.collect.ImmutableList;
-import com.google.common.collect.Iterables;
 import com.google.devtools.build.lib.events.Location;
 import com.google.devtools.build.lib.packages.Attribute;
 import com.google.devtools.build.lib.packages.Attribute.ConfigurationTransition;
 import com.google.devtools.build.lib.packages.Attribute.LateBoundLabel;
-import com.google.devtools.build.lib.packages.Attribute.SkylarkLateBound;
 import com.google.devtools.build.lib.packages.AttributeMap;
 import com.google.devtools.build.lib.packages.ImplicitOutputsFunction.SkylarkImplicitOutputsFunctionWithCallback;
 import com.google.devtools.build.lib.packages.ImplicitOutputsFunction.SkylarkImplicitOutputsFunctionWithMap;
@@ -70,13 +68,9 @@ import com.google.devtools.build.lib.syntax.SkylarkFunction;
 import com.google.devtools.build.lib.syntax.SkylarkFunction.SimpleSkylarkFunction;
 import com.google.devtools.build.lib.syntax.SkylarkList;
 import com.google.devtools.build.lib.syntax.UserDefinedFunction;
-import com.google.devtools.build.lib.util.FileType;
-import com.google.devtools.build.lib.util.FileTypeSet;
 import com.google.devtools.build.lib.view.config.BuildConfiguration;
 import com.google.devtools.build.lib.view.config.RunUnder;
 
-import java.lang.reflect.Field;
-import java.lang.reflect.Modifier;
 import java.util.List;
 import java.util.Map;
 
@@ -85,12 +79,6 @@ import java.util.Map;
  * This is experimental code.
  */
 public class SkylarkRuleClassFunctions {
-
-  @SkylarkBuiltin(name = "ANY_FILE", doc = "A file filter allowing any kind of file.")
-  private static final FileTypeSet ANY_FILE = FileTypeSet.ANY_FILE;
-
-  @SkylarkBuiltin(name = "NO_FILE", doc = "A file filter allowing no file at all.")
-  private static final FileTypeSet NO_FILE = FileTypeSet.NO_FILE;
 
   @SkylarkBuiltin(name = "ANY_RULE",
       doc = "A rule class filter allowing any kind of rule class.")
@@ -182,96 +170,20 @@ public class SkylarkRuleClassFunctions {
           .add(attr("env", STRING_LIST).value(ImmutableList.of("corp"))
                .undocumented("Deprecated").taggable().nonconfigurable())
           .add(attr("local", BOOLEAN).value(false).taggable().nonconfigurable())
-          .add(attr("$test_tools", LABEL_LIST).cfg(HOST).value(ImmutableList.of(
-              labelCache.getUnchecked("//tools:test_setup_scripts"))))
           .add(attr("$test_runtime", LABEL_LIST).cfg(HOST).value(ImmutableList.of(
               labelCache.getUnchecked("//tools/test:runtime"))))
           .add(attr(":run_under", LABEL).cfg(DATA).value(RUN_UNDER))
           .build();
 
-  static Attribute.Builder<?> createAttribute(String strType, Map<String, Object> arguments,
-      FuncallExpression ast, Environment funcallEnv)
-      throws EvalException, ConversionException {
-    final Location loc = ast.getLocation();
-    Type<?> type = createTypeFromString(strType, loc, "invalid attribute type %s");
-    // We use an empty name now so that we can set it later.
-    // This trick makes sense only in the context of Skylark (builtin rules should not use it).
-    Attribute.Builder<?> builder = Attribute.attr("", type);
-
-    Object defaultValue = arguments.get("default");
-    if (defaultValue != null) {
-      if (defaultValue instanceof UserDefinedFunction) {
-        // Late bound attribute
-        UserDefinedFunction func = (UserDefinedFunction) defaultValue;
-        final SkylarkCallbackFunction callback =
-            new SkylarkCallbackFunction(func, ast, (SkylarkEnvironment) funcallEnv);
-        final SkylarkLateBound computedValue;
-        if (type.equals(Type.LABEL) || type.equals(Type.LABEL_LIST)) {
-          computedValue = new SkylarkLateBound(false, callback);
-        } else {
-          throw new EvalException(loc, "Only label type attributes can be late bound");
-        }
-        builder.value(computedValue);
-      } else {
-        builder.defaultValue(defaultValue);
-      }
+  /**
+   * In native code, private values start with $.
+   * In Skylark, private values start with _, because of the grammar.
+   */
+  private static String attributeToNative(String oldName) {
+    if (!oldName.isEmpty() && oldName.charAt(0) == '_') {
+      return "$" + oldName.substring(1);
     }
-
-    for (String flag :
-             castList(arguments.get("flags"), String.class, "flags for attribute definition")) {
-      builder.setPropertyFlag(flag);
-    }
-
-    if (arguments.containsKey("mandatory") && (Boolean) arguments.get("mandatory")) {
-      builder.setPropertyFlag("MANDATORY");
-    }
-
-    if (arguments.containsKey("executable") && (Boolean) arguments.get("executable")) {
-      builder.setPropertyFlag("EXECUTABLE");
-    }
-
-    if (arguments.containsKey("single_file") && (Boolean) arguments.get("single_file")) {
-      builder.setPropertyFlag("SINGLE_ARTIFACT");
-    }
-
-    if (arguments.containsKey("file_types")) {
-      Object fileTypesObj = arguments.get("file_types");
-      if (fileTypesObj == FileTypeSet.ANY_FILE || fileTypesObj == FileTypeSet.NO_FILE) {
-        builder.allowedFileTypes((FileTypeSet) fileTypesObj);
-      } else if (fileTypesObj instanceof SkylarkFileType) {
-        builder.allowedFileTypes(((SkylarkFileType) fileTypesObj).getFileTypeSet());
-      } else {
-        builder.allowedFileTypes(FileTypeSet.of(Iterables.transform(
-            castList(fileTypesObj, String.class, "allowed file types for attribute definition"),
-            new com.google.common.base.Function<String, FileType>() {
-              @Override
-                public FileType apply(String input) {
-                return FileType.of(input);
-              }
-            })));
-      }
-    } else if (type.equals(Type.LABEL) || type.equals(Type.LABEL_LIST)) {
-      builder.allowedFileTypes(FileTypeSet.NO_FILE);
-    }
-
-    Object ruleClassesObj = arguments.get("rule_classes");
-    if (ruleClassesObj == Attribute.ANY_RULE || ruleClassesObj == Attribute.NO_RULE) {
-      // This causes an unchecked warning but it's fine because of the surrounding if.
-      builder.allowedRuleClasses((Predicate<RuleClass>) ruleClassesObj);
-    } else if (ruleClassesObj != null) {
-      builder.allowedRuleClasses(castList(ruleClassesObj, String.class,
-              "allowed rule classes for attribute definition"));
-    }
-
-    if (arguments.containsKey("providers")) {
-      builder.mandatoryProviders(castList(arguments.get("providers"),
-          String.class, "mandatory providers for attribute definition"));
-    }
-
-    if (arguments.containsKey("cfg")) {
-      builder.cfg((ConfigurationTransition) arguments.get("cfg"));
-    }
-    return builder;
+    return oldName;
   }
 
   // TODO(bazel-team): implement attribute copy and other rule properties
@@ -313,7 +225,7 @@ public class SkylarkRuleClassFunctions {
 
           for (Map.Entry<String, Attribute.Builder> attr :
                    castMap(arguments.get("attr"), String.class, Attribute.Builder.class, "attr")) {
-            String attrName = attr.getKey();
+            String attrName = attributeToNative(attr.getKey());
             Attribute.Builder<?> attrBuilder = attr.getValue();
             builder.addOrOverrideAttribute(attrBuilder.build(attrName));
           }
@@ -404,20 +316,4 @@ public class SkylarkRuleClassFunctions {
           return SkylarkFileType.of(castList(arguments.get("types"), String.class, "file types"));
         }
       };
-
-  private static Type<?> createTypeFromString(
-      String typeString, Location location, String errorMsg) throws EvalException {
-    try {
-      Field field = Type.class.getField(typeString);
-      if (Type.class.isAssignableFrom(field.getType()) && Modifier.isPublic(field.getModifiers())) {
-        return (Type<?>) field.get(null);
-      } else {
-        throw new EvalException(location, String.format(errorMsg, typeString));
-      }
-    } catch (IllegalArgumentException | SecurityException | IllegalAccessException e) {
-      throw new EvalException(location, e.getMessage());
-    } catch (NoSuchFieldException e) {
-      throw new EvalException(location, String.format(errorMsg, typeString));
-    }
-  }
 }

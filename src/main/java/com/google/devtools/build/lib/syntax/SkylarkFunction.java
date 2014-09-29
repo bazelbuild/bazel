@@ -109,10 +109,14 @@ public abstract class SkylarkFunction extends AbstractFunction {
       int maxParamNum = parameters.size();
       int paramNum = args.size() + kwargs.size();
 
-      if (paramNum < mandatoryParamNum || paramNum > maxParamNum) {
+      if (paramNum < mandatoryParamNum) {
         throw new EvalException(ast.getLocation(),
-            String.format("incorrect number of arguments %s (expected %s - %s)",
-                paramNum, mandatoryParamNum, maxParamNum));
+            String.format("incorrect number of arguments (got %s, expected at least %s)",
+                paramNum, mandatoryParamNum));
+      } else if (paramNum > maxParamNum) {
+        throw new EvalException(ast.getLocation(),
+            String.format("incorrect number of arguments (got %s, expected at most %s)",
+                paramNum, maxParamNum));
       }
 
       for (int i = 0; i < mandatoryParamNum; i++) {

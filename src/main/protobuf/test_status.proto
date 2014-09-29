@@ -18,34 +18,16 @@ package blaze;
 
 option java_package = "com.google.devtools.build.lib.view.test";
 
-// TestCaseDetail has data on a single test method/test case.
-message TestCaseDetail {
-  optional string name = 1;
-
-  enum Status {
-    PASSED = 1;
-    FAILED = 2;
-    ERROR = 3;
-  };
-  optional Status status = 2;
-  optional int64 run_duration_millis = 3;
-};
-
-// Aggregates the per case/method data.
-message FailedTestCaseDetails {
-  enum Status {
-    /** Information about every test case is available. */
-    FULL = 1;
-    /** Information about some test cases may be missing. */
-    PARTIAL = 2;
-    /** No information about individual test cases. */
-    NOT_AVAILABLE = 3;
-    /** This is an empty object still without data. */
-    EMPTY = 4;
-  };
-
-  repeated TestCaseDetail detail = 1;
-  optional Status status = 2;
+// Status data of test cases which failed (used only for printing test summary)
+enum FailedTestCasesStatus {
+   /** Information about every test case is available. */
+   FULL = 1;
+   /** Information about some test cases may be missing. */
+   PARTIAL = 2;
+   /** No information about individual test cases. */
+   NOT_AVAILABLE = 3;
+   /** This is an empty object still without data. */
+   EMPTY = 4;
 };
 
 // Detailed status data for a TestRunnerAction execution.
@@ -69,15 +51,22 @@ message TestCase {
     TEST_CASE = 0;
     TEST_SUITE = 1;
     TEST_DECORATOR = 2;
+    UNKNOWN = 3;
+  }
+
+  enum Status {
+    PASSED = 0;
+    FAILED = 1;
+    ERROR = 2;
   }
 
   repeated TestCase child = 1;
   required string name = 2;
   optional string class_name = 3;
-  optional bool was_run = 4 [default=true];
-  required int64 run_duration_milis = 5;
-  optional BlazeTestStatus status = 6;
-  optional Type type = 7;
+  required int64 run_duration_millis = 4;
+  optional string result = 5;
+  optional Type type = 6;
+  optional Status status = 7;
 };
 
 // TestResultData holds the outcome data for a single test action (A
@@ -93,28 +82,28 @@ message TestResultData {
   // Following data is informational.
   optional BlazeTestStatus status = 3 [default = NO_STATUS];
   repeated string failed_logs = 4;
-  optional FailedTestCaseDetails failed_test_case_details = 5;
-  repeated string warning = 6;
-  optional bool has_coverage = 7;
+  repeated string warning = 5;
+  optional bool has_coverage = 6;
 
   // Returns if this was cached in remote execution.
-  optional bool remotely_cached = 8;
+  optional bool remotely_cached = 7;
 
   // Returns true if this was executed remotely
-  optional bool is_remote_strategy = 9;
+  optional bool is_remote_strategy = 8;
 
   // All associated test times (in ms).
-  repeated int64 test_times = 10;
+  repeated int64 test_times = 9;
 
   // Passed log paths. Set if the test passed.
-  optional string passed_log = 11;
+  optional string passed_log = 10;
 
   // Test times, without remote execution overhead (in ms).
-  repeated int64 test_process_times = 12;
+  repeated int64 test_process_times = 11;
 
   // Total time in ms.
-  optional int64 run_duration_millis = 13;
+  optional int64 run_duration_millis = 12;
 
   // Additional build info
-  optional TestCase test_case = 14;
+  optional TestCase test_case = 13;
+  optional FailedTestCasesStatus failed_status = 14;
 };

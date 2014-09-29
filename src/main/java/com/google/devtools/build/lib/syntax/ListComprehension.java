@@ -61,9 +61,9 @@ public final class ListComprehension extends Expression {
     return convert(resultList, env);
   }
 
-  private Object convert(List<Object> list, Environment env) {
+  private Object convert(List<Object> list, Environment env) throws EvalException {
     if (env.isSkylarkEnabled()) {
-      return SkylarkList.list(list);
+      return SkylarkList.list(list, getLocation());
     } else {
       return list;
     }

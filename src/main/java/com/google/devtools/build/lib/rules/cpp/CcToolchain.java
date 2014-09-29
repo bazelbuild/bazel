@@ -26,6 +26,7 @@ import com.google.devtools.build.lib.packages.License;
 import com.google.devtools.build.lib.rules.RuleConfiguredTargetFactory;
 import com.google.devtools.build.lib.syntax.Label;
 import com.google.devtools.build.lib.vfs.PathFragment;
+import com.google.devtools.build.lib.view.AnalysisUtils;
 import com.google.devtools.build.lib.view.CompilationHelper;
 import com.google.devtools.build.lib.view.ConfiguredTarget;
 import com.google.devtools.build.lib.view.FileProvider;
@@ -57,6 +58,7 @@ public class CcToolchain implements RuleConfiguredTargetFactory {
     final NestedSet<Artifact> objcopy = getFiles(ruleContext, "objcopy_files");
     final NestedSet<Artifact> link = getFiles(ruleContext, "linker_files");
     final NestedSet<Artifact> dwp = getFiles(ruleContext, "dwp_files");
+    final NestedSet<Artifact> libcLink = inputsForLibcLink(ruleContext);
     String purposePrefix = Actions.escapeLabel(label) + "_";
     String runtimeSolibDirBase = "_solib_" + "_" + Actions.escapeLabel(label);
     final PathFragment runtimeSolibDir = ruleContext.getConfiguration()
@@ -143,12 +145,13 @@ public class CcToolchain implements RuleConfiguredTargetFactory {
 
     CcToolchainProvider provider = new CcToolchainProvider(
         crosstool,
-        crosstoolMiddleman,
+        fullInputsForCrosstool(ruleContext, crosstoolMiddleman),
         compile,
         strip,
         objcopy,
-        link,
+        fullInputsForLink(ruleContext, link),
         dwp,
+        libcLink,
         staticRuntimeLinkInputs,
         staticRuntimeLinkMiddleman,
         dynamicRuntimeLinkInputs,
@@ -182,6 +185,33 @@ public class CcToolchain implements RuleConfiguredTargetFactory {
     }
 
     return builder.build();
+  }
+
+  private NestedSet<Artifact> inputsForLibcLink(RuleContext ruleContext) {
+    TransitiveInfoCollection libcLink = ruleContext.getPrerequisite(":libc_link", Mode.HOST);
+    return libcLink != null
+        ? libcLink.getProvider(FileProvider.class).getFilesToBuild()
+        : NestedSetBuilder.<Artifact>emptySet(Order.STABLE_ORDER);
+  }
+
+  private NestedSet<Artifact> fullInputsForCrosstool(RuleContext ruleContext,
+      NestedSet<Artifact> crosstoolMiddleman) {
+    return NestedSetBuilder.<Artifact>stableOrder()
+        .addTransitive(crosstoolMiddleman)
+        // Use "libc_link" here, because it is functionally identical to the case
+        // below. If we introduce separate filegroups for compiling and linking, we
+        // need to fix that here.
+        .addTransitive(AnalysisUtils.getMiddlemanFor(ruleContext, ":libc_link"))
+        .build();
+  }
+
+  private NestedSet<Artifact> fullInputsForLink(RuleContext ruleContext, NestedSet<Artifact> link) {
+    return NestedSetBuilder.<Artifact>stableOrder()
+        .addTransitive(link)
+        .addTransitive(AnalysisUtils.getMiddlemanFor(ruleContext, ":libc_link"))
+        .add(ruleContext.getAnalysisEnvironment().getEmbeddedToolArtifact(
+            CppRuleClasses.BUILD_INTERFACE_SO))
+        .build();
   }
 
   private CppModuleMap createCrosstoolModuleMap(RuleContext ruleContext) {

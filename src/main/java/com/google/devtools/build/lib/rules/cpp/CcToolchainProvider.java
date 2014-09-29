@@ -13,17 +13,42 @@
 // limitations under the License.
 package com.google.devtools.build.lib.rules.cpp;
 
+import com.google.common.base.Preconditions;
 import com.google.devtools.build.lib.actions.Artifact;
 import com.google.devtools.build.lib.collect.nestedset.NestedSet;
+import com.google.devtools.build.lib.collect.nestedset.NestedSetBuilder;
+import com.google.devtools.build.lib.collect.nestedset.Order;
 import com.google.devtools.build.lib.concurrent.ThreadSafety.Immutable;
 import com.google.devtools.build.lib.vfs.PathFragment;
 import com.google.devtools.build.lib.view.TransitiveInfoProvider;
+
+import javax.annotation.Nullable;
 
 /**
  * Information about a C++ compiler used by the <code>cc_*</code> rules.
  */
 @Immutable
 public final class CcToolchainProvider implements TransitiveInfoProvider {
+  /**
+   * An empty toolchain to be returned in the error case (instead of null).
+   */
+  public static final CcToolchainProvider EMPTY_TOOLCHAIN_IS_ERROR = new CcToolchainProvider(
+      NestedSetBuilder.<Artifact>emptySet(Order.STABLE_ORDER),
+      NestedSetBuilder.<Artifact>emptySet(Order.STABLE_ORDER),
+      NestedSetBuilder.<Artifact>emptySet(Order.STABLE_ORDER),
+      NestedSetBuilder.<Artifact>emptySet(Order.STABLE_ORDER),
+      NestedSetBuilder.<Artifact>emptySet(Order.STABLE_ORDER),
+      NestedSetBuilder.<Artifact>emptySet(Order.STABLE_ORDER),
+      NestedSetBuilder.<Artifact>emptySet(Order.STABLE_ORDER),
+      NestedSetBuilder.<Artifact>emptySet(Order.STABLE_ORDER),
+      NestedSetBuilder.<Artifact>emptySet(Order.STABLE_ORDER),
+      null,
+      NestedSetBuilder.<Artifact>emptySet(Order.STABLE_ORDER),
+      null,
+      PathFragment.EMPTY_FRAGMENT,
+      CppCompilationContext.EMPTY,
+      false);
+
   private final NestedSet<Artifact> crosstool;
   private final NestedSet<Artifact> crosstoolMiddleman;
   private final NestedSet<Artifact> compile;
@@ -31,42 +56,45 @@ public final class CcToolchainProvider implements TransitiveInfoProvider {
   private final NestedSet<Artifact> objCopy;
   private final NestedSet<Artifact> link;
   private final NestedSet<Artifact> dwp;
+  private final NestedSet<Artifact> libcLink;
   private final NestedSet<Artifact> staticRuntimeLinkInputs;
-  private final Artifact staticRuntimeLinkMiddleman;
+  @Nullable private final Artifact staticRuntimeLinkMiddleman;
   private final NestedSet<Artifact> dynamicRuntimeLinkInputs;
-  private final Artifact dynamicRuntimeLinkMiddleman;
+  @Nullable private final Artifact dynamicRuntimeLinkMiddleman;
   private final PathFragment dynamicRuntimeSolibDir;
   private final CppCompilationContext cppCompilationContext;
   private final boolean supportsParamFiles;
 
-  public CcToolchainProvider(NestedSet<Artifact> crosstool,
+  public CcToolchainProvider(
+      NestedSet<Artifact> crosstool,
       NestedSet<Artifact> crosstoolMiddleman,
       NestedSet<Artifact> compile,
       NestedSet<Artifact> strip,
       NestedSet<Artifact> objCopy,
       NestedSet<Artifact> link,
       NestedSet<Artifact> dwp,
+      NestedSet<Artifact> libcLink,
       NestedSet<Artifact> staticRuntimeLinkInputs,
-      Artifact staticRuntimeLinkMiddleman,
+      @Nullable Artifact staticRuntimeLinkMiddleman,
       NestedSet<Artifact> dynamicRuntimeLinkInputs,
-      Artifact dynamicRuntimeLinkMiddleman,
+      @Nullable Artifact dynamicRuntimeLinkMiddleman,
       PathFragment dynamicRuntimeSolibDir,
       CppCompilationContext cppCompilationContext,
       boolean supportsParamFiles) {
-    super();
-    this.crosstool = crosstool;
-    this.crosstoolMiddleman = crosstoolMiddleman;
-    this.compile = compile;
-    this.strip = strip;
-    this.objCopy = objCopy;
-    this.link = link;
-    this.dwp = dwp;
-    this.staticRuntimeLinkInputs = staticRuntimeLinkInputs;
+    this.crosstool = Preconditions.checkNotNull(crosstool);
+    this.crosstoolMiddleman = Preconditions.checkNotNull(crosstoolMiddleman);
+    this.compile = Preconditions.checkNotNull(compile);
+    this.strip = Preconditions.checkNotNull(strip);
+    this.objCopy = Preconditions.checkNotNull(objCopy);
+    this.link = Preconditions.checkNotNull(link);
+    this.dwp = Preconditions.checkNotNull(dwp);
+    this.libcLink = Preconditions.checkNotNull(libcLink);
+    this.staticRuntimeLinkInputs = Preconditions.checkNotNull(staticRuntimeLinkInputs);
     this.staticRuntimeLinkMiddleman = staticRuntimeLinkMiddleman;
-    this.dynamicRuntimeLinkInputs = dynamicRuntimeLinkInputs;
+    this.dynamicRuntimeLinkInputs = Preconditions.checkNotNull(dynamicRuntimeLinkInputs);
     this.dynamicRuntimeLinkMiddleman = dynamicRuntimeLinkMiddleman;
-    this.dynamicRuntimeSolibDir = dynamicRuntimeSolibDir;
-    this.cppCompilationContext = cppCompilationContext;
+    this.dynamicRuntimeSolibDir = Preconditions.checkNotNull(dynamicRuntimeSolibDir);
+    this.cppCompilationContext = Preconditions.checkNotNull(cppCompilationContext);
     this.supportsParamFiles = supportsParamFiles;
   }
 
@@ -106,7 +134,7 @@ public final class CcToolchainProvider implements TransitiveInfoProvider {
   }
 
   /**
-   * Returns the files necessary for linking.
+   * Returns the files necessary for linking, including the files needed for libc.
    */
   public NestedSet<Artifact> getLink() {
     return link;
@@ -114,6 +142,10 @@ public final class CcToolchainProvider implements TransitiveInfoProvider {
 
   public NestedSet<Artifact> getDwp() {
     return dwp;
+  }
+
+  public NestedSet<Artifact> getLibcLink() {
+    return libcLink;
   }
 
   /**
@@ -126,7 +158,7 @@ public final class CcToolchainProvider implements TransitiveInfoProvider {
   /**
    * Returns an aggregating middleman that represents the static runtime libraries.
    */
-  public Artifact getStaticRuntimeLinkMiddleman() {
+  @Nullable public Artifact getStaticRuntimeLinkMiddleman() {
     return staticRuntimeLinkMiddleman;
   }
 
@@ -140,7 +172,7 @@ public final class CcToolchainProvider implements TransitiveInfoProvider {
   /**
    * Returns an aggregating middleman that represents the dynamic runtime libraries.
    */
-  public Artifact getDynamicRuntimeLinkMiddleman() {
+  @Nullable public Artifact getDynamicRuntimeLinkMiddleman() {
     return dynamicRuntimeLinkMiddleman;
   }
 

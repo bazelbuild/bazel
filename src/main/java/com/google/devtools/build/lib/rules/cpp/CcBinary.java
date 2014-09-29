@@ -40,7 +40,6 @@ import com.google.devtools.build.lib.vfs.FileSystemUtils;
 import com.google.devtools.build.lib.vfs.PathFragment;
 import com.google.devtools.build.lib.view.AnalysisEnvironment;
 import com.google.devtools.build.lib.view.ConfiguredTarget;
-import com.google.devtools.build.lib.view.FileProvider;
 import com.google.devtools.build.lib.view.RuleConfiguredTarget.Mode;
 import com.google.devtools.build.lib.view.RuleConfiguredTargetBuilder;
 import com.google.devtools.build.lib.view.RuleContext;
@@ -105,9 +104,10 @@ public abstract class CcBinary implements RuleConfiguredTargetFactory {
     builder.addArtifacts(linkingOutputs.getLibrariesForRunfiles(true));
     builder.addRunfiles(context, RunfilesProvider.DEFAULT_RUNFILES);
     builder.add(context, runfilesMapping);
+    CcToolchainProvider toolchain = CppHelper.getToolchain(context);
     // Add the C++ runtime libraries if linking them dynamically.
     if (linkStaticness == LinkStaticness.DYNAMIC) {
-      builder.addTransitiveArtifacts(CppHelper.getCompiler(context).getDynamicRuntimeLinkInputs());
+      builder.addTransitiveArtifacts(toolchain.getDynamicRuntimeLinkInputs());
     }
     // For cc_binary and cc_test rules, there is an implicit dependency on
     // the malloc library package, which is specified by the "malloc" attribute.
@@ -126,11 +126,8 @@ public abstract class CcBinary implements RuleConfiguredTargetFactory {
       // The crosstool inputs for the link action are not sufficient; we also need the crosstool
       // inputs for compilation. Node that these cannot be middlemen because Runfiles does not
       // know how to expand them.
-      builder.addTransitiveArtifacts(CppHelper.getCompiler(context).getCrosstool());
-      TransitiveInfoCollection libcLink = context.getPrerequisite(":libc_link", Mode.HOST);
-      if (libcLink != null) {
-        builder.addTransitiveArtifacts(libcLink.getProvider(FileProvider.class).getFilesToBuild());
-      }
+      builder.addTransitiveArtifacts(toolchain.getCrosstool());
+      builder.addTransitiveArtifacts(toolchain.getLibcLink());
       // Add the sources files that are used to compile the object files.
       // We add the headers in the transitive closure and our own sources in the srcs
       // attribute. We do not provide the auxiliary inputs, because they are only used when we
@@ -177,7 +174,7 @@ public abstract class CcBinary implements RuleConfiguredTargetFactory {
     final Artifact runtimeMiddleman;
     final NestedSet<Artifact> runtimeInputs;
 
-    CcToolchainProvider ccToolchain = CppHelper.getCompiler(ruleContext);
+    CcToolchainProvider ccToolchain = CppHelper.getToolchain(ruleContext);
     LinkStaticness linkStaticness = getLinkStaticness(ruleContext, common, cppConfiguration);
     if (linkStaticness == LinkStaticness.DYNAMIC) {
       runtimeMiddleman = ccToolchain.getDynamicRuntimeLinkMiddleman();
@@ -288,7 +285,7 @@ public abstract class CcBinary implements RuleConfiguredTargetFactory {
       CppConfiguration cppConfiguration, Artifact input, Artifact output) {
     new SpawnAction.Builder(context)
         .addInput(input)
-        .addTransitiveInputs(CppHelper.getCompiler(context).getStrip())
+        .addTransitiveInputs(CppHelper.getToolchain(context).getStrip())
         .addOutput(output)
         .useDefaultShellEnvironment()
         .setExecutable(cppConfiguration.getStripExecutable())
@@ -474,7 +471,7 @@ public abstract class CcBinary implements RuleConfiguredTargetFactory {
     }
 
     // Get the tool inputs necessary to run the dwp command.
-    NestedSet<Artifact> dwpTools = CppHelper.getCompiler(context).getDwp();
+    NestedSet<Artifact> dwpTools = CppHelper.getToolchain(context).getDwp();
     Preconditions.checkState(!dwpTools.isEmpty());
 
     // We apply a hierarchical action structure to limit the maximum number of inputs to any

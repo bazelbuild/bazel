@@ -66,15 +66,36 @@ public final class BundleMerging {
   }
 
   /**
-   * Returns a zipper configuration that can be executed to create the application bundle.
+   * Joins two paths to be used in a zip file. The {@code right} part of the path must be relative.
+   * The {@code left} part could or could not have a trailing slash. These paths are used in .ipa
+   * (.zip) files, which must use forward slashes, so they are hard-coded here.
+   * <p>
+   * TODO(bazel-team): This is messy. See if we can use some common joining function that handles
+   * empty paths and doesn't automatically inherit the path conventions of the host platform.
    */
-  @CheckReturnValue
-  @VisibleForTesting
-  static BundleMerging merging(Path tempDir, FileSystem fileSystem, Control control)
-      throws IOException {
-    Path output = fileSystem.getPath(control.getOutFile());
-    Path tempMergedPlist = Files.createTempFile(tempDir, null, "Info.plist");
-    Path tempPkgInfo = Files.createTempFile(tempDir, null, "PkgInfo");
+  private static String joinPath(String left, String right) {
+    Preconditions.checkArgument(!right.startsWith("/"), "'right' must be relative: %s", right);
+    if (left.isEmpty() || right.isEmpty() || left.endsWith("/")) {
+      return left + right;
+    } else {
+      return left + "/" + right;
+    }
+  }
+
+  private static final String INFOPLIST_FILENAME = "Info.plist";
+  private static final String PKGINFO_FILENAME = "PkgInfo";
+
+  /**
+   * Adds merge artifacts from the given {@code control} into builders that collect merge zips and
+   * individual files. {@code bundleRoot} is prepended to each path, except the paths in the merge
+   * zips.
+   */
+  private static void mergeInto(
+      Path tempDir, FileSystem fileSystem, Control control, String bundleRoot,
+      ImmutableList.Builder<ZipInputEntry> packagedFilesBuilder,
+      ImmutableList.Builder<MergeZip> mergeZipsBuilder) throws IOException {
+    Path tempMergedPlist = Files.createTempFile(tempDir, null, INFOPLIST_FILENAME);
+    Path tempPkgInfo = Files.createTempFile(tempDir, null, PKGINFO_FILENAME);
 
     // Generate the Info.plist and PkgInfo files to include in the app bundle.
     ImmutableList.Builder<Path> sourcePlistFilesBuilder = new ImmutableList.Builder<>();
@@ -102,29 +123,46 @@ public final class BundleMerging {
             substitutionMap.build())
         .write(tempMergedPlist, tempPkgInfo);
 
-    // Generate zip configuration which creates the final application bundle.
-    String bundleRootSlash = control.getBundleRoot();
-    if (!bundleRootSlash.endsWith("/")) {
-      bundleRootSlash = bundleRootSlash + "/";
-    }
-    ImmutableList.Builder<ZipInputEntry> packagedFilesBuilder =
-        new ImmutableList.Builder<ZipInputEntry>()
-            .add(new ZipInputEntry(tempMergedPlist, bundleRootSlash + "Info.plist"))
-            .add(new ZipInputEntry(tempPkgInfo, bundleRootSlash + "PkgInfo"));
+    bundleRoot = joinPath(bundleRoot, control.getBundleRoot());
+
+    // Add files to zip configuration which creates the final application bundle.
+    packagedFilesBuilder
+        .add(new ZipInputEntry(tempMergedPlist, joinPath(bundleRoot, INFOPLIST_FILENAME)))
+        .add(new ZipInputEntry(tempPkgInfo, joinPath(bundleRoot, PKGINFO_FILENAME)));
     for (BundleFile bundleFile : control.getBundleFileList()) {
       packagedFilesBuilder.add(new ZipInputEntry(fileSystem.getPath(bundleFile.getSourceFile()),
-          bundleRootSlash + bundleFile.getBundlePath()));
+          joinPath(bundleRoot, bundleFile.getBundlePath())));
     }
 
-    ImmutableList.Builder<MergeZip> mergeZipsBuilder = new ImmutableList.Builder<>();
     for (String mergeZip : control.getMergeWithoutNamePrefixZipList()) {
       mergeZipsBuilder.add(MergeZip.newBuilder()
           .setSourcePath(mergeZip)
           .build());
     }
     mergeZipsBuilder.addAll(control.getMergeZipList());
-    return new BundleMerging(
-        fileSystem, output, packagedFilesBuilder.build(), mergeZipsBuilder.build());
+
+    for (Control nestedControl : control.getNestedBundleList()) {
+      mergeInto(tempDir, fileSystem, nestedControl, bundleRoot, packagedFilesBuilder,
+          mergeZipsBuilder);
+    }
+  }
+
+  /**
+   * Returns a zipper configuration that can be executed to create the application bundle.
+   */
+  @CheckReturnValue
+  @VisibleForTesting
+  static BundleMerging merging(Path tempDir, FileSystem fileSystem, Control control)
+      throws IOException {
+    ImmutableList.Builder<MergeZip> mergeZipsBuilder = new ImmutableList.Builder<>();
+    ImmutableList.Builder<ZipInputEntry> packagedFilesBuilder =
+        new ImmutableList.Builder<ZipInputEntry>();
+
+    mergeInto(
+        tempDir, fileSystem, control, /*bundleRoot=*/"", packagedFilesBuilder, mergeZipsBuilder);
+
+    return new BundleMerging(fileSystem, fileSystem.getPath(control.getOutFile()),
+        packagedFilesBuilder.build(), mergeZipsBuilder.build());
   }
 
   /**

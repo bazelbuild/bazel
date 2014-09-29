@@ -15,10 +15,12 @@
 package com.google.devtools.build.xcode.xcodegen;
 
 import com.google.common.collect.ImmutableSetMultimap;
+import com.google.devtools.build.xcode.util.Equaling;
 import com.google.devtools.build.xcode.util.Value;
 import com.google.devtools.build.xcode.xcodegen.proto.XcodeGenProtos.TargetControl;
 
 import com.facebook.buck.apple.xcode.xcodeproj.PBXBuildFile;
+import com.facebook.buck.apple.xcode.xcodeproj.PBXTarget.ProductType;
 
 import java.nio.file.FileSystem;
 
@@ -52,9 +54,11 @@ public class Xcdatamodels extends Value<Xcdatamodels> {
               AggregateReferenceType.XCVersionGroup,
               RelativePaths.fromStrings(fileSystem, targetControl.getXcdatamodelList()));
 
-      // If this target is an app, save the build files. Otherwise, we don't need them. The file
-      // references we generated with fileObjects will be added to the main group later.
-      if (XcodeprojGeneration.isApp(targetControl)) {
+      // If this target is not a static library, save the build files. If it's a static lib, we
+      // don't need them. The file references we generated with fileObjects will be added to the
+      // main group later.
+      if (!Equaling.of(
+          ProductType.STATIC_LIBRARY, XcodeprojGeneration.productType(targetControl))) {
         targetLabelToBuildFiles.putAll(targetControl, targetBuildFiles);
       }
     }

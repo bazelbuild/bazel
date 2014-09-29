@@ -69,14 +69,14 @@ def go_library_impl(ctx):
       mnemonic = "GoCompile",
       command = go_compile_cmd(ctx, sources, out_lib))
 
-  out_nset = nset("STABLE_ORDER", [out_lib])
+  out_nset = set([out_lib])
   return struct(
     files_to_build= out_nset,
     go_library_object = out_nset)
 
 
 def go_link_action(ctx, lib, executable):
-  cmd = ctx.file("go_tool").path + " tool 6l "
+  cmd = ctx.executable.go_tool.path + " tool 6l "
 
   # Link search path.
   cmd += " -L " + str(ctx.configuration.bin_dir)[:-9]
@@ -97,7 +97,7 @@ def go_binary_impl(ctx):
   go_link_action(ctx, lib_out, executable)
   return struct(
       files_to_build = (
-          nset("STABLE_ORDER", [executable]) + lib_result.files_to_build))
+          set([executable]) + lib_result.files_to_build))
 
 
 def go_test_impl(ctx):
@@ -106,7 +106,7 @@ def go_test_impl(ctx):
 
   go_import = ctx.label.package + "/"  + ctx.label.name
 
-  generator = ctx.executable("test_generator")
+  generator = ctx.executable.test_generator
   main_cmd = generator.path
 
   # Would be nice to use transitive info provider to get at sources of
@@ -138,16 +138,14 @@ def go_test_impl(ctx):
 
 go_library_attrs = {
     "data":  attr.label_list(
-        file_types=ANY_FILE, rule_classes=NO_RULE,
+        allow_files=True, rule_classes=NO_RULE,
         cfg=DATA_CFG),
-    "srcs": attr.label_list(
-        file_types=go_filetype),
+    "srcs": attr.label_list(allow_files=go_filetype),
     "deps": attr.label_list(
-        file_types=NO_FILE,
         providers=["go_library_object"]),
     "go_tool": attr.label(
         default=label("//tools/go:go"),
-        file_types=ANY_FILE,
+        allow_files=True,
         cfg=HOST_CFG, executable=True),
     }
 

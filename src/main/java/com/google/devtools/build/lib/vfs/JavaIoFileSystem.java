@@ -21,32 +21,26 @@ import com.google.devtools.build.lib.unix.FileAccessException;
 import java.io.File;
 import java.io.FileNotFoundException;
 import java.io.IOException;
+import java.nio.file.Files;
+import java.nio.file.LinkOption;
+import java.nio.file.attribute.BasicFileAttributes;
 import java.util.ArrayList;
 import java.util.Collection;
 
 /**
- * A FileSystem that does not use any JNI and hence, does not require a shared
- * library be present at execution.
+ * A FileSystem that does not use any JNI and hence, does not require a shared library be present at
+ * execution.
  *
- * <p>JavaIoFileSystem does not support the following:
- * <ul>
- * <li>{@link #createSymbolicLink(Path, PathFragment)}
- * <li>{@link #getFileSize(Path, boolean)}
- *   where {@code followSymlinks=false}
- * <li>{@link #getLastModifiedTime(Path, boolean)}
- *   where {@code followSymlinks=false}
- * <li>{@link #readSymbolicLink(Path)}
- *   where the link points to a non-existent file
- * </ul>
- * <p>The above calls will result in an {@link UnsupportedOperationException}.
- * <p>
- * Note: Blaze profiler tasks are defined on the system call level - thus we do
- * not distinguish (from profiling perspective) between different methods on
- * this class that end up doing stat() system call - they all are associated
- * with the VFS_STAT task.
+ * <p>Note: Blaze profiler tasks are defined on the system call level - thus we do not distinguish
+ * (from profiling perspective) between different methods on this class that end up doing stat()
+ * system call - they all are associated with the VFS_STAT task.
  */
 @ThreadSafe
 public class JavaIoFileSystem extends AbstractFileSystem {
+  private static final LinkOption[] NO_LINK_OPTION = new LinkOption[0];
+  // This isn't generally safe; we rely on the file system APIs not modifying the array.
+  private static final LinkOption[] NOFOLLOW_LINKS_OPTION =
+      new LinkOption[] { LinkOption.NOFOLLOW_LINKS };
 
   protected static final String ERR_IS_DIRECTORY = " (Is a directory)";
   protected static final String ERR_DIRECTORY_NOT_EMPTY = " (Directory not empty)";
@@ -56,6 +50,10 @@ public class JavaIoFileSystem extends AbstractFileSystem {
 
   protected File getIoFile(Path path) {
     return new File(path.toString());
+  }
+
+  private LinkOption[] linkOpts(boolean followSymlinks) {
+    return followSymlinks ? NO_LINK_OPTION : NOFOLLOW_LINKS_OPTION;
   }
 
   @Override
@@ -89,17 +87,10 @@ public class JavaIoFileSystem extends AbstractFileSystem {
     File file = getIoFile(path);
     long startTime = Profiler.nanoTimeMaybe();
     try {
-      if (!followSymlinks && fileIsSymbolicLink(file)) {
-        return true;
-      }
-      return file.exists();
+      return Files.exists(file.toPath(), linkOpts(followSymlinks));
     } finally {
       profiler.logSimpleTask(startTime, ProfilerTask.VFS_STAT, path.toString());
     }
-  }
-
-  private void notSupported() throws UnsupportedOperationException {
-    throw new UnsupportedOperationException("JavaIoFileSystem does not support this operation");
   }
 
   @Override
@@ -210,7 +201,7 @@ public class JavaIoFileSystem extends AbstractFileSystem {
 
   @Override
   public boolean supportsSymbolicLinks() {
-    return false;
+    return true;
   }
 
   @Override
@@ -265,7 +256,7 @@ public class JavaIoFileSystem extends AbstractFileSystem {
     if (filenames == null) {
       return false;
     }
-    for (String name: filenames) {
+    for (String name : filenames) {
       if (name.equals(shortName)) {
         return true;
       }
@@ -273,11 +264,19 @@ public class JavaIoFileSystem extends AbstractFileSystem {
     return false;
   }
 
-  @SuppressWarnings("unused")
   @Override
   protected void createSymbolicLink(Path linkPath, PathFragment targetFragment)
       throws IOException {
-    notSupported();
+    File file = getIoFile(linkPath);
+    try {
+      Files.createSymbolicLink(file.toPath(), new File(targetFragment.getPathString()).toPath());
+    } catch (java.nio.file.FileAlreadyExistsException e) {
+      throw new IOException(linkPath + ERR_FILE_EXISTS);
+    } catch (java.nio.file.AccessDeniedException e) {
+      throw new IOException(linkPath + ERR_PERMISSION_DENIED);
+    } catch (java.nio.file.NoSuchFileException e) {
+      throw new FileNotFoundException(linkPath + ERR_NO_SUCH_FILE_OR_DIR);
+    }
   }
 
   @Override
@@ -285,18 +284,12 @@ public class JavaIoFileSystem extends AbstractFileSystem {
     File file = getIoFile(path);
     long startTime = Profiler.nanoTimeMaybe();
     try {
-      if (!fileIsSymbolicLink(file)) {
-        if (getIoFile(path).exists()) {
-          throw new NotASymlinkException(path);
-        } else {
-          throw new FileNotFoundException(path + ERR_NO_SUCH_FILE_OR_DIR);
-        }
-      }
-      if (fileIsSymbolicLink(file) && !file.exists()) {
-        throw new UnsupportedOperationException(
-            "cannot read symbolic link if pointed to File does not exist");
-      }
-      return new PathFragment(file.getCanonicalPath());
+      String link = Files.readSymbolicLink(file.toPath()).toString();
+      return new PathFragment(link);
+    } catch (java.nio.file.NotLinkException e) {
+      throw new NotASymlinkException(path);
+    } catch (java.nio.file.NoSuchFileException e) {
+      throw new FileNotFoundException(path + ERR_NO_SUCH_FILE_OR_DIR);
     } finally {
       profiler.logSimpleTask(startTime, ProfilerTask.VFS_LINK, file.getPath());
     }
@@ -330,19 +323,11 @@ public class JavaIoFileSystem extends AbstractFileSystem {
 
   @Override
   protected long getFileSize(Path path, boolean followSymlinks) throws IOException {
-    if (!followSymlinks) {
-      notSupported();
-    }
-    File file = getIoFile(path);
     long startTime = Profiler.nanoTimeMaybe();
     try {
-      long length = file.length();
-      if (length == 0L && !file.exists()) {
-        throw new FileNotFoundException(path + ERR_NO_SUCH_FILE_OR_DIR);
-      }
-      return length;
+      return stat(path, followSymlinks).getSize();
     } finally {
-      profiler.logSimpleTask(startTime, ProfilerTask.VFS_STAT, file.getPath());
+      profiler.logSimpleTask(startTime, ProfilerTask.VFS_STAT, path);
     }
   }
 
@@ -371,17 +356,10 @@ public class JavaIoFileSystem extends AbstractFileSystem {
 
   @Override
   protected long getLastModifiedTime(Path path, boolean followSymlinks) throws IOException {
-    if (!followSymlinks) {
-      notSupported();
-    }
     File file = getIoFile(path);
     long startTime = Profiler.nanoTimeMaybe();
     try {
-      long lastMod = file.lastModified();
-      if (lastMod == 0L && !file.exists()) {
-        throw new FileNotFoundException(path + ERR_NO_SUCH_FILE_OR_DIR);
-      }
-      return lastMod;
+      return stat(path, followSymlinks).getLastModifiedTime();
     } finally {
       profiler.logSimpleTask(startTime, ProfilerTask.VFS_STAT, file.getPath());
     }
@@ -399,30 +377,7 @@ public class JavaIoFileSystem extends AbstractFileSystem {
   }
 
   private boolean fileIsSymbolicLink(File file) {
-    try {
-      File parent = file.getParentFile();
-      if (parent == null) {
-        return false;
-      }
-      // If canonical path of parent + name != canonical path, then symlink
-      File file1 = new File(parent.getCanonicalFile(), file.getName());
-      File fileCanonical = file1.getCanonicalFile();
-      if (!fileCanonical.equals(file1)) {
-        return true;
-      }
-      if (!file.exists() && linkExists(file)) {
-        // !file.exists, but the name entry is in the parent directory
-        // this is a symlink pointing to an non-exitant file
-        return true;
-      } else {
-        return false;
-      }
-    } catch (IOException e) {
-      // TODO(bazel-team): the semantics are wrong -- one needs to know the
-      // difference between network down and not a symbolic link --
-      // but we need this to pass the tests as NativeFileSystem does this.
-      return (linkExists(file));
-    }
+    return Files.isSymbolicLink(file.toPath());
   }
 
   @Override
@@ -450,6 +405,65 @@ public class JavaIoFileSystem extends AbstractFileSystem {
     }
   }
 
+  /**
+   * Returns the status of a file. See {@link Path#stat(Symlinks)} for
+   * specification.
+   *
+   * <p>The default implementation of this method is a "lazy" one, based on
+   * other accessor methods such as {@link #isFile}, etc. Subclasses may provide
+   * more efficient specializations. However, we still try to follow Unix-like
+   * semantics of failing fast in case of non-existent files (or in case of
+   * permission issues).
+   */
+  @Override
+  protected FileStatus stat(final Path path, final boolean followSymlinks) throws IOException {
+    File file = getIoFile(path);
+    final BasicFileAttributes attributes;
+    try {
+      attributes = Files.readAttributes(
+          file.toPath(), BasicFileAttributes.class, linkOpts(followSymlinks));
+    } catch (java.nio.file.FileSystemException e) {
+      throw new FileNotFoundException(path + ERR_NO_SUCH_FILE_OR_DIR);
+    }
+    FileStatus status =  new FileStatus() {
+      @Override
+      public boolean isFile() {
+        return attributes.isRegularFile();
+      }
+
+      @Override
+      public boolean isDirectory() {
+        return attributes.isDirectory();
+      }
+
+      @Override
+      public boolean isSymbolicLink() {
+        return attributes.isSymbolicLink();
+      }
+
+      @Override
+      public long getSize() throws IOException {
+        return attributes.size();
+      }
+
+      @Override
+      public long getLastModifiedTime() throws IOException {
+        return attributes.lastModifiedTime().toMillis();
+      }
+
+      @Override
+      public long getLastChangeTime() {
+        throw new UnsupportedOperationException();
+      }
+
+      @Override
+      public long getNodeId() {
+        throw new UnsupportedOperationException();
+      }
+    };
+    return status;
+  }
+
   @Override
   protected FileStatus statIfFound(Path path, boolean followSymlinks) {
     try {
@@ -466,6 +480,4 @@ public class JavaIoFileSystem extends AbstractFileSystem {
       throw new IllegalStateException(e);
     }
   }
-
-
 }

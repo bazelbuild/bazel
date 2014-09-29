@@ -146,84 +146,76 @@ public class BazelCppRuleClasses {
    */
   public static final String CROSSTOOL_LABEL = "//tools/defaults:crosstool";
 
-    public static final LateBoundLabel<BuildConfiguration> LIBC_LINK =
-        new LateBoundLabel<BuildConfiguration>() {
-          @Override
-          public Label getDefault(Rule rule, BuildConfiguration configuration) {
-            return configuration.getFragment(CppConfiguration.class).getLibcLabel();
-          }
-        };
-
-    public static final LateBoundLabel<BuildConfiguration> CC_TOOLCHAIN =
-        new LateBoundLabel<BuildConfiguration>(CROSSTOOL_LABEL) {
-          @Override
-          public Label getDefault(Rule rule, BuildConfiguration configuration) {
-            return configuration.getFragment(CppConfiguration.class).getCcToolchainRuleLabel();
-          }
-        };
-
-    public static final LateBoundLabelList<BuildConfiguration> CC_PLUGINS =
-        new LateBoundLabelList<BuildConfiguration>() {
-          @Override
-          public List<Label> getDefault(Rule rule, BuildConfiguration configuration) {
-            return ImmutableList.copyOf(configuration.getPlugins());
-          }
-        };
-
-    public static final LateBoundLabel<BuildConfiguration> DEFAULT_MALLOC =
-        new LateBoundLabel<BuildConfiguration>() {
-          @Override
-          public Label getDefault(Rule rule, BuildConfiguration configuration) {
-            return configuration.getFragment(CppConfiguration.class).customMalloc();
-          }
-        };
-
-    public static final LateBoundLabel<BuildConfiguration> STL =
-        new LateBoundLabel<BuildConfiguration>() {
-          @Override
-          public Label getDefault(Rule rule, BuildConfiguration configuration) {
-            return getStl(rule, configuration);
-          }
-        };
-
-    /**
-     * Implementation for the :lipo_context_collector attribute.
-     */
-    public static final LateBoundLabel<BuildConfiguration> LIPO_CONTEXT_COLLECTOR =
-        new LateBoundLabel<BuildConfiguration>() {
-      @Override
-      public Label getDefault(Rule rule, BuildConfiguration configuration) {
-        // This attribute connects a target to the LIPO context target configured with the
-        // lipo input collector configuration.
-        CppConfiguration cppConfiguration = configuration.getFragment(CppConfiguration.class);
-        return !cppConfiguration.isLipoContextCollector()
-            && (cppConfiguration.getLipoMode() == LipoMode.BINARY)
-            ? cppConfiguration.getLipoContextLabel()
-            : null;
-      }
-    };
-
-    /**
-     * Returns the STL prerequisite of the rule.
-     *
-     * <p>If rule has an implicit $stl attribute returns STL version set on the
-     * command line or if not set, the value of the $stl attribute. Returns
-     * {@code null} otherwise.
-     */
-    private static Label getStl(Rule rule, BuildConfiguration original) {
-      Label stl = null;
-      if (rule.getRuleClassObject().hasAttr("$stl", Type.LABEL)) {
-        Label stlConfigLabel = original.getFragment(CppConfiguration.class).getStl();
-        Label stlRuleLabel = RawAttributeMapper.of(rule).get("$stl", Type.LABEL);
-        if (stlConfigLabel == null) {
-          stl = stlRuleLabel;
-        } else if (!stlConfigLabel.equals(rule.getLabel()) && stlRuleLabel != null) {
-          // prevents self-reference and a cycle through standard STL in the dependency graph
-          stl = stlConfigLabel;
+  public static final LateBoundLabel<BuildConfiguration> CC_TOOLCHAIN =
+      new LateBoundLabel<BuildConfiguration>(CROSSTOOL_LABEL) {
+        @Override
+        public Label getDefault(Rule rule, BuildConfiguration configuration) {
+          return configuration.getFragment(CppConfiguration.class).getCcToolchainRuleLabel();
         }
-      }
-      return stl;
+      };
+
+  public static final LateBoundLabelList<BuildConfiguration> CC_PLUGINS =
+      new LateBoundLabelList<BuildConfiguration>() {
+        @Override
+        public List<Label> getDefault(Rule rule, BuildConfiguration configuration) {
+          return ImmutableList.copyOf(configuration.getPlugins());
+        }
+      };
+
+  public static final LateBoundLabel<BuildConfiguration> DEFAULT_MALLOC =
+      new LateBoundLabel<BuildConfiguration>() {
+        @Override
+        public Label getDefault(Rule rule, BuildConfiguration configuration) {
+          return configuration.getFragment(CppConfiguration.class).customMalloc();
+        }
+      };
+
+  public static final LateBoundLabel<BuildConfiguration> STL =
+      new LateBoundLabel<BuildConfiguration>() {
+        @Override
+        public Label getDefault(Rule rule, BuildConfiguration configuration) {
+          return getStl(rule, configuration);
+        }
+      };
+
+  /**
+   * Implementation for the :lipo_context_collector attribute.
+   */
+  public static final LateBoundLabel<BuildConfiguration> LIPO_CONTEXT_COLLECTOR =
+      new LateBoundLabel<BuildConfiguration>() {
+    @Override
+    public Label getDefault(Rule rule, BuildConfiguration configuration) {
+      // This attribute connects a target to the LIPO context target configured with the
+      // lipo input collector configuration.
+      CppConfiguration cppConfiguration = configuration.getFragment(CppConfiguration.class);
+      return !cppConfiguration.isLipoContextCollector()
+          && (cppConfiguration.getLipoMode() == LipoMode.BINARY)
+          ? cppConfiguration.getLipoContextLabel()
+          : null;
     }
+  };
+
+  /**
+   * Returns the STL prerequisite of the rule.
+   *
+   * <p>If rule has an implicit $stl attribute returns STL version set on the
+   * command line or if not set, the value of the $stl attribute. Returns
+   * {@code null} otherwise.
+   */
+  private static Label getStl(Rule rule, BuildConfiguration original) {
+    Label stl = null;
+    if (rule.getRuleClassObject().hasAttr("$stl", Type.LABEL)) {
+      Label stlConfigLabel = original.getFragment(CppConfiguration.class).getStl();
+      Label stlRuleLabel = RawAttributeMapper.of(rule).get("$stl", Type.LABEL);
+      if (stlConfigLabel == null) {
+        stl = stlRuleLabel;
+      } else if (!stlConfigLabel.equals(rule.getLabel()) && stlRuleLabel != null) {
+        // prevents self-reference and a cycle through standard STL in the dependency graph
+        stl = stlConfigLabel;
+      }
+    }
+    return stl;
+  }
 
   /**
    * Common attributes for all rules that create C++ links. This may
@@ -236,9 +228,7 @@ public class BazelCppRuleClasses {
     @SuppressWarnings("unchecked")
     public RuleClass build(Builder builder, RuleDefinitionEnvironment env) {
       return builder
-          .add(attr(":libc_link", LABEL).cfg(HOST).value(LIBC_LINK))
-          .add(attr(":cc_toolchain", LABEL)
-              .value(CC_TOOLCHAIN))
+          .add(attr(":cc_toolchain", LABEL).value(CC_TOOLCHAIN))
           .setPreferredDependencyPredicate(Predicates.<String>or(CPP_SOURCE, C_SOURCE, CPP_HEADER))
           .build();
     }

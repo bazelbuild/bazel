@@ -21,19 +21,19 @@ jar_filetype = filetype([".jar"])
 def java_library_impl(ctx):
   class_jar = ctx.outputs.class_jar
   # TODO(bazel-team): use simple set here, no need for nset
-  compile_time_jars = nset("STABLE_ORDER")
-  runtime_jars = nset("LINK_ORDER")
-  for dep in ctx.targets("deps"):
+  compile_time_jars = set()
+  runtime_jars = set(order="link")
+  for dep in ctx.targets.deps:
     compile_time_jars += [dep.compile_time_jar]
     runtime_jars += dep.runtime_jars
 
-  jars = jar_filetype.filter(ctx.files("jars"))
+  jars = jar_filetype.filter(ctx.files.jars)
   compile_time_jars += jars
   runtime_jars += jars
   compile_time_jar_list = list(compile_time_jars)
 
   build_output = class_jar.path + ".build_output"
-  sources = ctx.files("srcs")
+  sources = ctx.files.srcs
 
   sources_param_file = ctx.new_file(
       ctx.configuration.bin_dir, class_jar, "-2.params")
@@ -60,7 +60,7 @@ def java_library_impl(ctx):
 
   runfiles = ctx.runfiles(collect_data = True)
 
-  return struct(files_to_build = nset("STABLE_ORDER", [class_jar]),
+  return struct(files_to_build = set([class_jar]),
                 compile_time_jar = class_jar,
                 runtime_jars = runtime_jars + [class_jar],
                 runfiles = runfiles)
@@ -68,11 +68,11 @@ def java_library_impl(ctx):
 
 java_library = rule(java_library_impl,
     attr = {
-       "data": attr.label_list(file_types=ANY_FILE, rule_classes=NO_RULE,
+       "data": attr.label_list(allow_files=True, rule_classes=NO_RULE,
           cfg=DATA_CFG),
-       "srcs": attr.label_list(file_types=java_filetype),
-       "jars": attr.label_list(file_types=jar_filetype),
-       "deps": attr.label_list(file_types=NO_FILE,
+       "srcs": attr.label_list(allow_files=java_filetype),
+       "jars": attr.label_list(allow_files=jar_filetype),
+       "deps": attr.label_list(
            providers = ["compile_time_jar", "runtime_jars"]),
    },
    outputs={

@@ -45,7 +45,7 @@ public class TestResult {
    */
   public TestResult(TestRunnerAction testAction, TestResultData data, boolean cached) {
     this.testAction = Preconditions.checkNotNull(testAction);
-    this.data  = data;
+    this.data = data;
     this.cached = cached;
   }
 

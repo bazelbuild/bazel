@@ -659,6 +659,8 @@ static bool KillRunningServerIfAny() {
 // Calls fsync() on the file (or directory) specified in 'file_path'.
 // pdie()'s if syncing fails.
 static void SyncFile(const char *file_path) {
+  // fsync always fails on Cygwin with "Permission denied" for some reason.
+#ifndef __CYGWIN__
   int fd = open(file_path, O_RDONLY);
   if (fd < 0) {
     pdie(blaze_exit_code::LOCAL_ENVIRONMENTAL_ERROR,
@@ -669,6 +671,7 @@ static void SyncFile(const char *file_path) {
          "failed to sync '%s'", file_path);
   }
   close(fd);
+#endif
 }
 
 // Walks the temporary directory recursively and collects full file paths.

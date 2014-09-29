@@ -24,8 +24,8 @@ import com.google.devtools.build.lib.vfs.Path;
 import com.google.devtools.build.lib.view.ConfiguredTarget;
 import com.google.devtools.build.lib.view.FilesToRunProvider;
 import com.google.devtools.build.lib.view.test.TestStatus.BlazeTestStatus;
-import com.google.devtools.build.lib.view.test.TestStatus.FailedTestCaseDetails;
-import com.google.devtools.build.lib.view.test.TestStatus.TestCaseDetail;
+import com.google.devtools.build.lib.view.test.TestStatus.FailedTestCasesStatus;
+import com.google.devtools.build.lib.view.test.TestStatus.TestCase;
 
 import java.util.ArrayList;
 import java.util.Collections;
@@ -64,8 +64,9 @@ public class TestSummary implements Comparable<TestSummary> {
       addPassedLogs(existingSummary.passedLogs);
       addFailedLogs(existingSummary.failedLogs);
 
-      if (existingSummary.failedTestCases != null) {
-        addFailedTestCases(existingSummary.failedTestCases);
+      if (existingSummary.failedTestCasesStatus != null) {
+        addFailedTestCases(existingSummary.getFailedTestCases(),
+            existingSummary.getFailedTestCasesStatus());
       }
 
       addTestTimes(existingSummary.testTimes);
@@ -125,37 +126,70 @@ public class TestSummary implements Comparable<TestSummary> {
       return this;
     }
 
-    public Builder addFailedTestCases(FailedTestCaseDetails failedTestCases) {
-      checkMutation(failedTestCases);
-      if (failedTestCases.getStatus() == FailedTestCaseDetails.Status.EMPTY) {
+    public Builder collectFailedTests(TestCase testCase) {
+      if (testCase == null) {
+        summary.failedTestCasesStatus = FailedTestCasesStatus.NOT_AVAILABLE;
+        return this;
+      }
+      summary.failedTestCasesStatus = FailedTestCasesStatus.FULL;
+      return collectFailedTestCases(testCase);
+    }
+
+    private Builder collectFailedTestCases(TestCase testCase) {
+      if (testCase.getChildCount() > 0) {
+        // This is a non-leaf result. Traverse its children, but do not add its
+        // name to the output list. It should not contain any 'failure' or
+        // 'error' tags, but we want to be lax here, because the syntax of the
+        // test.xml file is also lax.
+        for (TestCase child : testCase.getChildList()) {
+          collectFailedTestCases(child);
+        }
+      } else {
+        // This is a leaf result. If it passed, don't add it.
+        if (testCase.getStatus() == TestCase.Status.PASSED) {
+          return this;
+        }
+
+        String name = testCase.getName();
+        String className = testCase.getClassName();
+        if (name == null || className == null) {
+          // A test case detail is not really interesting if we cannot tell which
+          // one it is.
+          this.summary.failedTestCasesStatus = FailedTestCasesStatus.PARTIAL;
+          return this;
+        }
+
+        this.summary.failedTestCases.add(testCase);
+      }
+      return this;
+    }
+
+    public Builder addFailedTestCases(List<TestCase> testCases, FailedTestCasesStatus status) {
+      checkMutation(status);
+      checkMutation(testCases);
+
+      if (summary.failedTestCasesStatus == null) {
+        summary.failedTestCasesStatus = status;
+      } else if (summary.failedTestCasesStatus != status) {
+        summary.failedTestCasesStatus = FailedTestCasesStatus.PARTIAL;
+      }
+
+      if (testCases.isEmpty()) {
         return this;
       }
 
-      FailedTestCaseDetails.Builder builder = FailedTestCaseDetails.newBuilder();
-
-      Map<String, TestCaseDetail> cases = new TreeMap<>();
+      // union of summary.failedTestCases, testCases
+      Map<String, TestCase> allCases = new TreeMap<>();
       if (summary.failedTestCases != null) {
-        for (TestCaseDetail detail : summary.failedTestCases.getDetailList()) {
-          cases.put(detail.getName(), detail);
+        for (TestCase detail : summary.failedTestCases) {
+          allCases.put(detail.getClassName() + "." + detail.getName(), detail);
         }
       }
-      for (TestCaseDetail detail : failedTestCases.getDetailList()) {
-        cases.put(detail.getName(), detail);
+      for (TestCase detail : testCases) {
+        allCases.put(detail.getClassName() + "." + detail.getName(), detail);
       }
 
-
-      if (summary.failedTestCases == null) {
-        builder.setStatus(failedTestCases.getStatus());
-      } else if (summary.failedTestCases.getStatus() == FailedTestCaseDetails.Status.EMPTY) {
-        builder.setStatus(failedTestCases.getStatus());
-      } else if (summary.failedTestCases.getStatus() != failedTestCases.getStatus()) {
-        builder.setStatus(FailedTestCaseDetails.Status.PARTIAL);
-      }
-
-      for (TestCaseDetail detail : cases.values()) {
-         builder.addDetail(detail);
-      }
-      summary.failedTestCases = builder.build();
+      summary.failedTestCases = new ArrayList<TestCase>(allCases.values());
       return this;
     }
 
@@ -224,7 +258,6 @@ public class TestSummary implements Comparable<TestSummary> {
         makeSummaryImmutable();
         // else: it is already immutable.
       }
-
       Preconditions.checkState(built, "Built flag was not set");
       return summary;
     }
@@ -260,12 +293,13 @@ public class TestSummary implements Comparable<TestSummary> {
   private boolean actionRan;
   private boolean ranRemotely;
   private boolean wasUnreportedWrongSize;
-  private FailedTestCaseDetails failedTestCases;
+  private List<TestCase> failedTestCases = new ArrayList<>();
   private List<Path> passedLogs = new ArrayList<>();
   private List<Path> failedLogs = new ArrayList<>();
   private List<String> warnings = new ArrayList<>();
   private List<Path> coverageFiles = new ArrayList<>();
   private List<Long> testTimes = new ArrayList<>();
+  private FailedTestCasesStatus failedTestCasesStatus = null;
 
   // Don't allow public instantiation; go through the Builder.
   private TestSummary() {
@@ -327,9 +361,10 @@ public class TestSummary implements Comparable<TestSummary> {
     return wasUnreportedWrongSize;
   }
 
-  public FailedTestCaseDetails getFailedTestCases() {
+  public List<TestCase> getFailedTestCases() {
     return failedTestCases;
   }
+
   public List<Path> getCoverageFiles() {
     return coverageFiles;
   }
@@ -340,6 +375,10 @@ public class TestSummary implements Comparable<TestSummary> {
 
   public List<Path> getFailedLogs() {
     return failedLogs;
+  }
+
+  public FailedTestCasesStatus getFailedTestCasesStatus() {
+    return failedTestCasesStatus;
   }
 
   /**

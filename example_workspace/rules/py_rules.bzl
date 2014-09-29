@@ -18,11 +18,11 @@ py_file_types = filetype([".py"])
 
 
 def collect_transitive_sources(ctx):
-  source_files = nset("COMPILE_ORDER")
-  for dep in ctx.targets("deps", "TARGET"):
+  source_files = set(order="compile")
+  for dep in ctx.targets.deps:
     source_files += dep.transitive_py_files
 
-  source_files += py_file_types.filter(ctx.files("srcs", "TARGET"))
+  source_files += py_file_types.filter(ctx.files.srcs)
 
   return source_files
 
@@ -31,7 +31,7 @@ def py_library_impl(ctx):
   transitive_sources = collect_transitive_sources(ctx)
 
   return struct(
-      files_to_build = nset("STABLE_ORDER", []),
+      files_to_build = set(),
       transitive_py_files = transitive_sources)
 
 
@@ -65,14 +65,14 @@ def py_binary_impl(ctx):
           "/usr/bin/python " + main_file.path]),
       executable = True)
 
-  runfiles_files = nset("STABLE_ORDER")
+  runfiles_files = set()
   runfiles_files += transitive_sources
   runfiles_files += [executable]
 
   runfiles = ctx.runfiles(transitive_files = runfiles_files,
                           collect_default = True)
 
-  files_to_build = nset("STABLE_ORDER")
+  files_to_build = set()
   files_to_build += [deploy_zip, executable]
   return struct(
       files_to_build = files_to_build,

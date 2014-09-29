@@ -17,18 +17,19 @@ package com.google.devtools.build.xcode.xcodegen;
 import com.google.common.base.Optional;
 import com.google.common.collect.ImmutableSetMultimap;
 import com.google.common.collect.Iterables;
+import com.google.devtools.build.xcode.util.Equaling;
 import com.google.devtools.build.xcode.util.Value;
 import com.google.devtools.build.xcode.xcodegen.proto.XcodeGenProtos.TargetControl;
 
 import com.facebook.buck.apple.xcode.xcodeproj.PBXBuildFile;
 import com.facebook.buck.apple.xcode.xcodeproj.PBXReference.SourceTree;
 import com.facebook.buck.apple.xcode.xcodeproj.PBXResourcesBuildPhase;
+import com.facebook.buck.apple.xcode.xcodeproj.PBXTarget.ProductType;
 
 import java.nio.file.FileSystem;
 import java.nio.file.Path;
 import java.util.ArrayList;
 import java.util.List;
-import java.util.Set;
 
 /**
  * Contains information about resources in an Xcode project.
@@ -53,14 +54,10 @@ public class Resources extends Value<Resources> {
    * Returns the PBXResourcesBuildPhase for the given target, if applicable. It will return an
    * absent {@code Optional} if the target is a library or there are no resources to compile.
    */
-  public Optional<PBXResourcesBuildPhase> resourcesBuildPhase(TargetControl targetControl) {
-    Set<PBXBuildFile> buildFiles = buildFiles().get(targetControl);
-    if (buildFiles.isEmpty()) {
-      return Optional.absent();
-    }
+  public PBXResourcesBuildPhase resourcesBuildPhase(TargetControl targetControl) {
     PBXResourcesBuildPhase resourcesPhase = new PBXResourcesBuildPhase();
-    resourcesPhase.getFiles().addAll(buildFiles);
-    return Optional.of(resourcesPhase);
+    resourcesPhase.getFiles().addAll(buildFiles().get(targetControl));
+    return resourcesPhase;
   }
 
   public static Optional<String> languageOfLprojDir(Path child) {
@@ -103,9 +100,10 @@ public class Resources extends Value<Resources> {
               AggregateReferenceType.PBXVariantGroup,
               RelativePaths.fromStrings(fileSystem, targetControl.getGeneralResourceFileList())));
 
-      // If this target is an app, save the build files. Otherwise, we don't need them. The file
+      // If this target is a binary, save the build files. Otherwise, we don't need them. The file
       // references we generated with fileObjects will be added to the main group later.
-      if (XcodeprojGeneration.isApp(targetControl)) {
+      if (!Equaling.of(
+          ProductType.STATIC_LIBRARY, XcodeprojGeneration.productType(targetControl))) {
         buildFiles.putAll(targetControl, targetBuildFiles);
       }
     }

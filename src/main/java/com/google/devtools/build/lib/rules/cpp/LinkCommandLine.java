@@ -44,6 +44,8 @@ import java.util.LinkedHashSet;
 import java.util.List;
 import java.util.Map;
 import java.util.Set;
+import java.util.regex.Matcher;
+import java.util.regex.Pattern;
 
 import javax.annotation.Nullable;
 
@@ -66,6 +68,7 @@ public final class LinkCommandLine extends CommandLine {
   private final ImmutableList<String> linkopts;
   private final ImmutableSet<String> features;
   private final ImmutableMap<Artifact, Artifact> linkstamps;
+  private final ImmutableList<String> linkstampCompileOptions;
   @Nullable private final PathFragment runtimeSolibDir;
   private final boolean nativeDeps;
   private final boolean useExecOrigin;
@@ -87,6 +90,7 @@ public final class LinkCommandLine extends CommandLine {
       ImmutableList<String> linkopts,
       ImmutableSet<String> features,
       ImmutableMap<Artifact, Artifact> linkstamps,
+      ImmutableList<String> linkstampCompileOptions,
       @Nullable PathFragment runtimeSolibDir,
       boolean nativeDeps,
       boolean useExecOrigin,
@@ -134,6 +138,7 @@ public final class LinkCommandLine extends CommandLine {
         : Preconditions.checkNotNull(linkopts);
     this.features = Preconditions.checkNotNull(features);
     this.linkstamps = Preconditions.checkNotNull(linkstamps);
+    this.linkstampCompileOptions = linkstampCompileOptions;
     this.runtimeSolibDir = runtimeSolibDir;
     this.nativeDeps = nativeDeps;
     this.useExecOrigin = useExecOrigin;
@@ -514,23 +519,15 @@ public final class LinkCommandLine extends CommandLine {
         optionList.add(header.getExecPathString());
       }
 
-      // G3_VERSION_INFO and G3_TARGET_NAME are C string literals that normally
-      // contain the label of the target being linked.  However, they are set
-      // differently when using shared native deps. In that case, a single .so file
-      // is shared by multiple targets, and its contents cannot depend on which
-      // target(s) were specified on the command line.  So in that case we have
-      // to use the (obscure) name of the .so file instead, or more precisely
-      // the path of the .so file relative to the workspace root.
-      String targetLabel = isSharedNativeLibrary()
-          ? output.getExecPathString()
-          : Label.print(owner.getLabel());
-      optionList.add("-DG3_VERSION_INFO=\"" + targetLabel + "\"");
-      optionList.add("-DG3_TARGET_NAME=\"" + targetLabel + "\"");
-
-      // G3_BUILD_TARGET is a C string literal containing the output of this
-      // link.  (An undocumented and untested invariant is that G3_BUILD_TARGET is the location of
-      // the executable, either absolutely, or relative to the directory part of BUILD_INFO.)
-      optionList.add("-DG3_BUILD_TARGET=\"" + output.getExecPathString() + "\"");
+      String labelReplacement = Matcher.quoteReplacement(
+          isSharedNativeLibrary() ? output.getExecPathString() : Label.print(owner.getLabel()));
+      String outputPathReplacement = Matcher.quoteReplacement(
+          output.getExecPathString());
+      for (String option : linkstampCompileOptions) {
+        optionList.add(option
+            .replaceAll(Pattern.quote("${LABEL}"), labelReplacement)
+            .replaceAll(Pattern.quote("${OUTPUT_PATH}"), outputPathReplacement));
+      }
 
       optionList.add("-DGPLATFORM=\"" + cppConfig + "\"");
 
@@ -897,6 +894,23 @@ public final class LinkCommandLine extends CommandLine {
    * A builder for a {@link LinkCommandLine}.
    */
   public static final class Builder {
+    // TODO(bazel-team): Pass this in instead of having it here. Maybe move to cc_toolchain.
+    private static final ImmutableList<String> DEFAULT_LINKSTAMP_OPTIONS = ImmutableList.of(
+        // G3_VERSION_INFO and G3_TARGET_NAME are C string literals that normally
+        // contain the label of the target being linked.  However, they are set
+        // differently when using shared native deps. In that case, a single .so file
+        // is shared by multiple targets, and its contents cannot depend on which
+        // target(s) were specified on the command line.  So in that case we have
+        // to use the (obscure) name of the .so file instead, or more precisely
+        // the path of the .so file relative to the workspace root.
+        "-DG3_VERSION_INFO=\"${LABEL}\"",
+        "-DG3_TARGET_NAME=\"${LABEL}\"",
+
+        // G3_BUILD_TARGET is a C string literal containing the output of this
+        // link.  (An undocumented and untested invariant is that G3_BUILD_TARGET is the location of
+        // the executable, either absolutely, or relative to the directory part of BUILD_INFO.)
+        "-DG3_BUILD_TARGET=\"${OUTPUT_PATH}\"");
+
     private BuildConfiguration configuration;
     private ActionOwner owner;
     @Nullable private Artifact output;
@@ -910,6 +924,7 @@ public final class LinkCommandLine extends CommandLine {
     private ImmutableList<String> linkopts = ImmutableList.of();
     private ImmutableSet<String> features = ImmutableSet.of();
     private ImmutableMap<Artifact, Artifact> linkstamps = ImmutableMap.of();
+    private List<String> linkstampCompileOptions = new ArrayList<>();
     @Nullable private PathFragment runtimeSolibDir;
     private boolean nativeDeps;
     private boolean useExecOrigin;
@@ -927,10 +942,18 @@ public final class LinkCommandLine extends CommandLine {
     }
 
     public LinkCommandLine build() {
+      ImmutableList<String> actualLinkstampCompileOptions;
+      if (linkstampCompileOptions.isEmpty()) {
+        actualLinkstampCompileOptions = DEFAULT_LINKSTAMP_OPTIONS;
+      } else {
+        actualLinkstampCompileOptions = ImmutableList.copyOf(
+            Iterables.concat(DEFAULT_LINKSTAMP_OPTIONS, linkstampCompileOptions));
+      }
       return new LinkCommandLine(configuration, owner, output, interfaceOutput,
           symbolCountsOutput, buildInfoHeaderArtifacts, linkerInputs, runtimeInputs, linkTargetType,
-          linkStaticness, linkopts, features, linkstamps, runtimeSolibDir, nativeDeps,
-          useExecOrigin, needWholeArchive, supportsParamFiles, interfaceSoBuilder);
+          linkStaticness, linkopts, features, linkstamps, actualLinkstampCompileOptions,
+          runtimeSolibDir, nativeDeps, useExecOrigin, needWholeArchive, supportsParamFiles,
+          interfaceSoBuilder);
     }
 
     /**
@@ -1027,6 +1050,15 @@ public final class LinkCommandLine extends CommandLine {
      */
     public Builder setLinkstamps(ImmutableMap<Artifact, Artifact> linkstamps) {
       this.linkstamps = linkstamps;
+      return this;
+    }
+
+    /**
+     * Adds the given C++ compiler options to the list of options passed to the linkstamp
+     * compilation.
+     */
+    public Builder addLinkstampCompileOptions(List<String> linkstampCompileOptions) {
+      this.linkstampCompileOptions.addAll(linkstampCompileOptions);
       return this;
     }
 

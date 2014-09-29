@@ -15,10 +15,13 @@
 package com.google.devtools.build.lib.rules.test;
 
 import com.google.common.collect.ImmutableSet;
+import com.google.devtools.build.lib.view.test.TestStatus.TestCase;
+import com.google.devtools.build.lib.view.test.TestStatus.TestCase.Type;
 import com.google.protobuf.UninitializedMessageException;
 
 import java.io.InputStream;
 import java.util.Collection;
+
 import javax.xml.stream.XMLInputFactory;
 import javax.xml.stream.XMLStreamConstants;
 import javax.xml.stream.XMLStreamException;
@@ -34,10 +37,9 @@ class TestXmlOutputParser {
   private static final Collection<String> TOPLEVEL_ELEMENT_NAMES =
       ImmutableSet.of("testsuites", "testsuite");
 
-  public HierarchicalTestResult parseXmlIntoTestResult(InputStream xmlStream)
+  public TestCase parseXmlIntoTestResult(InputStream xmlStream)
       throws TestXmlOutputParserException {
-    HierarchicalTestResult result = parseXmlToTree(xmlStream);
-    return result;
+    return parseXmlToTree(xmlStream);
   }
 
   /**
@@ -48,7 +50,7 @@ class TestXmlOutputParser {
    *
    * @throws TestXmlOutputParserException when the XML file cannot be parsed
    */
-  private HierarchicalTestResult parseXmlToTree(InputStream xmlStream)
+  private TestCase parseXmlToTree(InputStream xmlStream)
       throws TestXmlOutputParserException {
     XMLStreamReader parser = null;
 
@@ -65,7 +67,7 @@ class TestXmlOutputParser {
         if (event == XMLStreamConstants.START_ELEMENT) {
           String elementName = parser.getLocalName();
           if (TOPLEVEL_ELEMENT_NAMES.contains(elementName)) {
-            HierarchicalTestResult result = parseTestSuite(parser, elementName);
+            TestCase result = parseTestSuite(parser, elementName);
             return result;
           }
         }
@@ -135,10 +137,10 @@ class TestXmlOutputParser {
    * @throws NumberFormatException if one of the numeric fields does not contain
    *         a valid number
    */
-  private HierarchicalTestResult parseTestSuite(XMLStreamReader parser, String elementName)
+  private TestCase parseTestSuite(XMLStreamReader parser, String elementName)
       throws XMLStreamException, TestXmlOutputParserException {
-    HierarchicalTestResult.Builder builder = HierarchicalTestResult.newBuilder();
-
+    TestCase.Builder builder = TestCase.newBuilder();
+    builder.setType(Type.TEST_SUITE);
     for (int i = 0; i < parser.getAttributeCount(); i++) {
       String name = parser.getAttributeLocalName(i).intern();
       String value = parser.getAttributeValue(i);
@@ -180,10 +182,10 @@ class TestXmlOutputParser {
    * @throws NumberFormatException if one of the numeric fields does not contain
    *         a valid number
    */
-  private HierarchicalTestResult parseTestDecorator(XMLStreamReader parser)
+  private TestCase parseTestDecorator(XMLStreamReader parser)
       throws XMLStreamException, TestXmlOutputParserException {
-    HierarchicalTestResult.Builder builder = HierarchicalTestResult.newBuilder();
-
+    TestCase.Builder builder = TestCase.newBuilder();
+    builder.setType(Type.TEST_DECORATOR);
     for (int i = 0; i < parser.getAttributeCount(); i++) {
       String name = parser.getAttributeLocalName(i);
       String value = parser.getAttributeValue(i);
@@ -212,8 +214,11 @@ class TestXmlOutputParser {
    *         a valid number
    */
   private void parseContainedElements(
-      XMLStreamReader parser, String elementName, HierarchicalTestResult.Builder builder)
+      XMLStreamReader parser, String elementName, TestCase.Builder builder)
       throws XMLStreamException, TestXmlOutputParserException {
+    int failures = 0;
+    int errors = 0;
+
     while (true) {
       int event = parser.next();
       switch (event) {
@@ -230,10 +235,10 @@ class TestXmlOutputParser {
           } else if (childElementName.equals("testcase")) {
             builder.addChild(parseTestCase(parser));
           } else if (childElementName.equals("failure")) {
-            builder.incrementFailures();
+            failures += 1;
             skipCompleteElement(parser);
           } else if (childElementName.equals("error")) {
-            builder.incrementErrors();
+            errors += 1;
             skipCompleteElement(parser);
           } else if (childElementName.equals("testdecorator")) {
             builder.addChild(parseTestDecorator(parser));
@@ -247,7 +252,13 @@ class TestXmlOutputParser {
           break;
 
         case XMLStreamConstants.END_ELEMENT:
-
+          if (errors > 0) {
+            builder.setStatus(TestCase.Status.ERROR);
+          } else if (failures > 0) {
+            builder.setStatus(TestCase.Status.FAILED);
+          } else {
+            builder.setStatus(TestCase.Status.PASSED);
+          }
           // This is the end tag of the element we are supposed to parse.
           // Hooray, tell our superiors that our mission is complete.
           if (!parser.getLocalName().equals(elementName)) {
@@ -267,10 +278,10 @@ class TestXmlOutputParser {
    * @throws NumberFormatException if the time field does not contain a valid
    *         number
    */
-  private HierarchicalTestResult parseTestCase(XMLStreamReader parser)
+  private TestCase parseTestCase(XMLStreamReader parser)
       throws XMLStreamException, TestXmlOutputParserException {
-    HierarchicalTestResult.Builder builder = HierarchicalTestResult.newBuilder();
-
+    TestCase.Builder builder = TestCase.newBuilder();
+    builder.setType(Type.TEST_CASE);
     for (int i = 0; i < parser.getAttributeCount(); i++) {
       String name = parser.getAttributeLocalName(i).intern();
       String value = parser.getAttributeValue(i);
@@ -281,6 +292,8 @@ class TestXmlOutputParser {
         builder.setClassName(value);
       } else if (name.equals("time")) {
         builder.setRunDurationMillis(parseTime(value));
+      } else if (name.equals("result")) {
+        builder.setResult(value);
       }
     }
 

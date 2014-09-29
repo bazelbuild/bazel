@@ -13,7 +13,6 @@
 // limitations under the License.
 package com.google.devtools.build.lib.rules;
 
-import com.google.common.base.Function;
 import com.google.common.base.Preconditions;
 import com.google.common.cache.CacheBuilder;
 import com.google.common.cache.CacheLoader;
@@ -44,8 +43,6 @@ import com.google.devtools.build.lib.syntax.SkylarkCallable;
 import com.google.devtools.build.lib.syntax.SkylarkList;
 import com.google.devtools.build.lib.syntax.SkylarkModule;
 import com.google.devtools.build.lib.syntax.SkylarkType;
-import com.google.devtools.build.lib.util.FileType;
-import com.google.devtools.build.lib.util.FileTypeSet;
 import com.google.devtools.build.lib.vfs.PathFragment;
 import com.google.devtools.build.lib.view.AnalysisUtils;
 import com.google.devtools.build.lib.view.ConfigurationMakeVariableContext;
@@ -109,6 +106,17 @@ public final class SkylarkRuleContext {
   private final ImmutableMap<String, ImmutableMap<Label, Artifact>> explicitOutputs;
 
   /**
+   * In native code, private values start with $.
+   * In Skylark, private values start with _, because of the grammar.
+   */
+  private String attributeToSkylark(String oldName) {
+    if (!oldName.isEmpty() && oldName.charAt(0) == '$') {
+      return "_" + oldName.substring(1);
+    }
+    return oldName;
+  }
+
+  /**
    * Creates a new SkylarkRuleContext using ruleContext.
    */
   public SkylarkRuleContext(RuleContext ruleContext) throws EvalException {
@@ -117,7 +125,9 @@ public final class SkylarkRuleContext {
     ImmutableMap.Builder<String, Object> builder = new ImmutableMap.Builder<>();
     for (Attribute a : ruleContext.getRule().getAttributes()) {
       Object val = ruleContext.attributes().get(a.getName(), a.getType());
-      builder.put(a.getName(), val == null ? Environment.NONE : SkylarkType.convertToSkylark(val));
+      builder.put(attributeToSkylark(a.getName()), val == null ? Environment.NONE
+          // Attribute values should be type safe
+          : SkylarkType.convertToSkylark(val, null));
     }
     attrObject = new SkylarkClassObject(builder.build());
 
@@ -155,7 +165,8 @@ public final class SkylarkRuleContext {
       if (attrType == Type.OUTPUT) {
         addOutput(outputsBuilder, attrName, Iterables.getOnlyElement(labelArtifact.values()));
       } else if (attrType == Type.OUTPUT_LIST) {
-        addOutput(outputsBuilder, attrName, SkylarkList.list(labelArtifact.values()));
+        addOutput(outputsBuilder, attrName,
+            SkylarkList.list(labelArtifact.values(), Artifact.class));
       } else {
         throw new IllegalArgumentException(
             "Type of " + attrName + "(" + attrType + ") is not output type ");
@@ -169,23 +180,24 @@ public final class SkylarkRuleContext {
     ImmutableMap.Builder<String, Object> filesBuilder = new ImmutableMap.Builder<>();
     ImmutableMap.Builder<String, Object> targetsBuilder = new ImmutableMap.Builder<>();
     for (Attribute a : ruleContext.getRule().getAttributes()) {
-      Type type = a.getType();
+      Type<?> type = a.getType();
       if (type != Type.LABEL && type != Type.LABEL_LIST) {
         continue;
       }
-      String name = a.getName();
-      Mode mode = getMode(name);
+      String skyname = attributeToSkylark(a.getName());
+      Mode mode = getMode(a.getName());
       if (a.isExecutable()) {
-        FilesToRunProvider provider = ruleContext.getExecutablePrerequisite(name, mode);
+        FilesToRunProvider provider = ruleContext.getExecutablePrerequisite(a.getName(), mode);
         if (provider != null && provider.getExecutable() != null) {
-          executableBuilder.put(name, provider.getExecutable());
+          executableBuilder.put(skyname, provider.getExecutable());
         }
       }
       if (a.isSingleArtifact()) {
-        fileBuilder.put(name, ruleContext.getPrerequisiteArtifact(name, mode));
+        fileBuilder.put(skyname, ruleContext.getPrerequisiteArtifact(a.getName(), mode));
       }
-      filesBuilder.put(name, ruleContext.getPrerequisiteArtifacts(name, mode));
-      targetsBuilder.put(name, ruleContext.getPrerequisites(name, mode));
+      filesBuilder.put(skyname, ruleContext.getPrerequisiteArtifacts(a.getName(), mode));
+      targetsBuilder.put(skyname, SkylarkList.list(
+          ruleContext.getPrerequisites(a.getName(), mode), TransitiveInfoCollection.class));
     }
     executableObject = new SkylarkClassObject(executableBuilder.build());
     fileObject = new SkylarkClassObject(fileBuilder.build());
@@ -206,44 +218,6 @@ public final class SkylarkRuleContext {
    */
   public RuleContext getRuleContext() {
     return ruleContext;
-  }
-
-  /**
-   * See {@link RuleContext#getPrerequisiteArtifacts(String, Mode)}.
-   */
-  @SkylarkCallable(
-      doc = "Returns the list of files for the specified attribute.")
-  public ImmutableList<Artifact> files(String attributeName)
-      throws FuncallException {
-    return ruleContext.getPrerequisiteArtifacts(attributeName, getMode(attributeName));
-  }
-
-  /**
-   * See {@link RuleContext#getPrerequisiteArtifacts(String, Mode, FileTypeSet)}.
-   */
-  @SkylarkCallable(doc =
-      "Returns the list of files for the specified attribute that match the file filter.")
-  public ImmutableList<Artifact> files(String attributeName, List<?> fileTypes)
-      throws FuncallException {
-    return ruleContext.getPrerequisiteArtifacts(attributeName, getMode(attributeName),
-        FileTypeSet.of(
-          Iterables.transform(fileTypes, new Function<Object, FileType>() {
-            @Override
-            public FileType apply(Object input) {
-              Preconditions.checkArgument(input instanceof String,
-                  "File types have to be strings");
-              return FileType.of((String) input);
-            }
-          })));
-  }
-
-  /**
-   * See {@link RuleContext#getPrerequisites(String, Mode)}.
-   */
-  @SkylarkCallable(doc = "")
-  public Iterable<? extends TransitiveInfoCollection> targets(String attributeName)
-      throws FuncallException {
-    return ruleContext.getPrerequisites(attributeName, getMode(attributeName));
   }
 
   // TODO(bazel-team): of course this is a temporary solution. Eventually the Transitive
@@ -267,31 +241,6 @@ public final class SkylarkRuleContext {
     }
   }
 
-  /**
-   * See {@link RuleContext#getPrerequisiteArtifact(String, Mode)}.
-   */
-  @SkylarkCallable(allowReturnNones = true, doc =
-      "Returns the file for the specified attribute, or None if the label is not specified. "
-      + "It throws an error if the label corresponds to 0 or multiple files. ")
-  public Artifact file(String attributeName) throws FuncallException {
-    return ruleContext.getPrerequisiteArtifact(attributeName, getMode(attributeName));
-  }
-
-  /**
-   * <p>See {@link RuleContext#getExecutablePrerequisite(String, Mode)}.
-   */
-  @SkylarkCallable(allowReturnNones = true,
-      doc = "Same as ctx.file, but throws an error if the file is not executable.")
-  public Artifact executable(String attributeName)
-      throws FuncallException {
-    FilesToRunProvider provider =
-        ruleContext.getExecutablePrerequisite(attributeName, getMode(attributeName));
-    if (provider == null) {
-      return null;
-    }
-    return provider.getExecutable();
-  }
-
   private Mode getMode(String attributeName) {
     return ruleContext.getAttributeMode(attributeName);
   }
@@ -303,32 +252,49 @@ public final class SkylarkRuleContext {
     return attrObject;
   }
 
-  @SkylarkCallable(name = "executable", structField = true, doc = "")
+  /**
+   * <p>See {@link RuleContext#getExecutablePrerequisite(String, Mode)}.
+   */
+  @SkylarkCallable(name = "executable", structField = true,
+      doc = "Return the executable file corresponding to the attribute. "
+      + "Requires executable=True.")
   public SkylarkClassObject getExecutable() {
     return executableObject;
   }
 
-  @SkylarkCallable(name = "file", structField = true, doc = "")
+  /**
+   * See {@link RuleContext#getPrerequisiteArtifact(String, Mode)}.
+   */
+  @SkylarkCallable(name = "file", structField = true,
+      doc = "Returns the file for the specified attribute, or None if the label is not specified. "
+      + "Requires single_file=True.")
   public SkylarkClassObject getFile() {
     return fileObject;
   }
 
-  @SkylarkCallable(name = "files", structField = true, doc = "")
+  /**
+   * See {@link RuleContext#getPrerequisiteArtifacts(String, Mode)}.
+   */
+  @SkylarkCallable(name = "files", structField = true,
+      doc = "Returns the list of files for the specified attribute.")
   public SkylarkClassObject getFiles() {
     return filesObject;
   }
 
+  /**
+   * See {@link RuleContext#getPrerequisites(String, Mode)}.
+   */
   @SkylarkCallable(name = "targets", structField = true, doc = "")
   public SkylarkClassObject getTargets() {
     return targetsObject;
   }
 
-  @SkylarkCallable(name = "action_owner", structField = true, doc = "deprecated, to be removed")
+  @SkylarkCallable(name = "action_owner", structField = true, doc = "Deprecated, to be removed")
   public ActionOwner getActionOwner() {
     return ruleContext.getActionOwner();
   }
 
-  @SkylarkCallable(name = "label", structField = true, doc = "the label of this rule")
+  @SkylarkCallable(name = "label", structField = true, doc = "The label of this rule")
   public Label getLabel() {
     return ruleContext.getLabel();
   }
@@ -390,13 +356,6 @@ public final class SkylarkRuleContext {
       return ImmutableMap.<Label, Artifact>of();
     }
     return map;
-  }
-
-  @SkylarkCallable(doc = "Returns the list of output files of the output type attribute \"attr\".")
-  public ImmutableList<Artifact> outputs(String attr) throws FuncallException {
-    // We need to convert to ImmutableList from ImmutableCollection because Skylark doesn't
-    // handle collections well.
-    return ImmutableList.copyOf(outputsWithLabel(attr).values());
   }
 
   @Override

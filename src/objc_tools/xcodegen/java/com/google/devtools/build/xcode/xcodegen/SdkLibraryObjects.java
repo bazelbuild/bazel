@@ -14,10 +14,10 @@
 
 package com.google.devtools.build.xcode.xcodegen;
 
-import com.google.common.annotations.VisibleForTesting;
 import com.google.common.base.Optional;
 import com.google.common.base.Preconditions;
 import com.google.devtools.build.xcode.util.Mapping;
+import com.google.devtools.build.xcode.util.Value;
 
 import com.facebook.buck.apple.xcode.xcodeproj.PBXBuildFile;
 import com.facebook.buck.apple.xcode.xcodeproj.PBXFileReference;
@@ -32,30 +32,58 @@ import java.util.Map;
 
 /**
  * A kind of cache which makes it easier to manage PBXFileReference and PBXBuildFile references for
- * frameworks. A framework is something that is linked with the final binary, some examples being
- * "XCTest.framework" and "Foundation.framework".
+ * frameworks and dylibs that are bundled with the SDK. These are things that are linked with the
+ * final binary, some examples being "XCTest.framework", "Foundation.framework", and
+ * "libz.dylib".
  */
-public final class SdkFrameworkObjects implements HasProjectNavigatorFiles {
-  private final Map<String, PBXBuildFile> buildFiles;
+public final class SdkLibraryObjects implements HasProjectNavigatorFiles {
+  private final Map<SdkLibrary, PBXBuildFile> buildFiles;
   private final PBXFileReferences fileReferences;
   private final List<PBXReference> mainGroupReferences;
 
-  public SdkFrameworkObjects(PBXFileReferences fileReferences) {
+  /**
+   * Represents a single framework or dylib. Contains all information needed to make a corresponding
+   * {@link PBXFileReference}.
+   */
+  public static final class SdkLibrary extends Value<SdkLibrary> {
+    private final String pathFromSdkRoot;
+    private final String fileType;
+
+    SdkLibrary(String pathFromSdkRoot, String fileType) {
+      super(pathFromSdkRoot);
+      this.pathFromSdkRoot = pathFromSdkRoot;
+      this.fileType = fileType;
+    }
+
+    public String getPathFromSdkRoot() {
+      return pathFromSdkRoot;
+    }
+
+    public String getFileType() {
+      return fileType;
+    }
+  }
+
+  public static SdkLibrary dylib(String name) {
+    return new SdkLibrary(String.format("usr/lib/%s.dylib", name), "compiled.mach-o.dylib");
+  }
+
+  public static SdkLibrary framework(String name) {
+    return new SdkLibrary(
+        String.format("System/Library/Frameworks/%s.framework", name), "wrapper.framework");
+  }
+
+  public SdkLibraryObjects(PBXFileReferences fileReferences) {
     this.buildFiles = new HashMap<>();
     this.fileReferences = Preconditions.checkNotNull(fileReferences);
     this.mainGroupReferences = new ArrayList<>();
   }
 
-  @VisibleForTesting
-  static String pathFromSdkRoot(String name) {
-    return String.format("System/Library/Frameworks/%s.framework", name);
-  }
-
-  private PBXFileReference sdkFramework(String name) {
+  private PBXFileReference fileReference(SdkLibrary library) {
     PBXFileReference result = fileReferences.get(FileReference.of(
-        pathFromSdkRoot(name),
+        library.getPathFromSdkRoot(),
         SourceTree.SDKROOT));
-    result.setExplicitFileType(Optional.of("wrapper.framework"));
+    result.setExplicitFileType(Optional.of(library.getFileType()));
     return result;
   }
 
@@ -63,14 +91,14 @@ public final class SdkFrameworkObjects implements HasProjectNavigatorFiles {
    * Returns a build file, creating a new one if it doesn't exist, for the given SDK framework. The
    * SDK framework should not include the ".framework" extension.
    */
-  public PBXBuildFile buildFile(String sdkFrameworkName) {
-    for (PBXBuildFile existing : Mapping.of(buildFiles, sdkFrameworkName).asSet()) {
+  public PBXBuildFile buildFile(SdkLibrary library) {
+    for (PBXBuildFile existing : Mapping.of(buildFiles, library).asSet()) {
       return existing;
     }
-    PBXFileReference fileRef = sdkFramework(sdkFrameworkName);
+    PBXFileReference fileRef = fileReference(library);
     mainGroupReferences.add(fileRef);
     PBXBuildFile newBuildFile = new PBXBuildFile(fileRef);
-    buildFiles.put(sdkFrameworkName, newBuildFile);
+    buildFiles.put(library, newBuildFile);
     return newBuildFile;
   }
 
@@ -78,10 +106,10 @@ public final class SdkFrameworkObjects implements HasProjectNavigatorFiles {
    * Returns a new build phase (in other words, not from a cache) containing the given SDK
    * frameworks. The PBXBuildFile objects <em>are</em> taken from and/or put in the cache.
    */
-  public PBXFrameworksBuildPhase newBuildPhase(Iterable<String> sdkFrameworkNames) {
+  public PBXFrameworksBuildPhase newBuildPhase(Iterable<SdkLibrary> libraries) {
     PBXFrameworksBuildPhase buildPhase = new PBXFrameworksBuildPhase();
-    for (String sdkFrameworkName : sdkFrameworkNames) {
-      buildPhase.getFiles().add(buildFile(sdkFrameworkName));
+    for (SdkLibrary library : libraries) {
+      buildPhase.getFiles().add(buildFile(library));
     }
     return buildPhase;
   }

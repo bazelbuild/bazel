@@ -55,7 +55,7 @@ public final class DotExpression extends Expression {
     Object result = null;
     if (objValue instanceof ClassObject) {
       result = ((ClassObject) objValue).getValue(name);
-      result = SkylarkType.convertToSkylark(result);
+      result = SkylarkType.convertToSkylark(result, getLocation());
       // If we access NestedSets using ClassObject.getValue() we won't know the generic type,
       // so we have to disable it. This should not happen.
       SkylarkType.checkTypeAllowedInSkylark(result, getLocation());

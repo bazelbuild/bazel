@@ -509,6 +509,22 @@ public final class CppLinkAction extends ConfigurationAction
    * Builder class to construct {@link CppLinkAction}s.
    */
   public static class Builder {
+    static final ImmutableList<String> DEFAULT_LINKSTAMP_OPTIONS = ImmutableList.of(
+        // G3_VERSION_INFO and G3_TARGET_NAME are C string literals that normally
+        // contain the label of the target being linked.  However, they are set
+        // differently when using shared native deps. In that case, a single .so file
+        // is shared by multiple targets, and its contents cannot depend on which
+        // target(s) were specified on the command line.  So in that case we have
+        // to use the (obscure) name of the .so file instead, or more precisely
+        // the path of the .so file relative to the workspace root.
+        "-DG3_VERSION_INFO=\"${LABEL}\"",
+        "-DG3_TARGET_NAME=\"${LABEL}\"",
+
+        // G3_BUILD_TARGET is a C string literal containing the output of this
+        // link.  (An undocumented and untested invariant is that G3_BUILD_TARGET is the location of
+        // the executable, either absolutely, or relative to the directory part of BUILD_INFO.)
+        "-DG3_BUILD_TARGET=\"${OUTPUT_PATH}\"");
+
     // Builder-only
     private final RuleContext ruleContext;
     private final AnalysisEnvironment analysisEnvironment;
@@ -526,6 +542,7 @@ public final class CppLinkAction extends ConfigurationAction
     private NestedSet<Artifact> runtimeInputs = NestedSetBuilder.emptySet(Order.STABLE_ORDER);
     private final NestedSetBuilder<Artifact> compilationInputs = NestedSetBuilder.stableOrder();
     private final Set<Artifact> linkstamps = new LinkedHashSet<>();
+    private List<String> linkstampOptions = new ArrayList<>();
     private final List<String> linkopts = new ArrayList<>();
     private LinkTargetType linkType = LinkTargetType.STATIC_LIBRARY;
     private LinkStaticness linkStaticness = LinkStaticness.FULLY_STATIC;
@@ -686,6 +703,7 @@ public final class CppLinkAction extends ConfigurationAction
           .setLinkopts(ImmutableList.copyOf(linkopts))
           .setFeatures(features)
           .setLinkstamps(linkstampMap)
+          .addLinkstampCompileOptions(linkstampOptions)
           .setRuntimeSolibDir(linkType.isStaticLibraryLink() ? null : runtimeSolibDir)
           .setNativeDeps(isNativeDeps)
           .setUseExecOrigin(useExecOrigin)
@@ -937,6 +955,11 @@ public final class CppLinkAction extends ConfigurationAction
      */
     public Builder addLinkstamps(Collection<Artifact> linkstamps) {
       this.linkstamps.addAll(linkstamps);
+      return this;
+    }
+
+    public Builder addLinkstampCompilerOptions(ImmutableList<String> linkstampOptions) {
+      this.linkstampOptions = linkstampOptions;
       return this;
     }
 

@@ -148,9 +148,6 @@ public class BaseRuleClasses {
                .undocumented("Deprecated").taggable().nonconfigurable())
           .add(attr("local", BOOLEAN).value(false).taggable().nonconfigurable())
           .add(attr("args", STRING_LIST).nonconfigurable())
-          // Keep this in sync with BinTools.
-          .add(attr("$test_tools", LABEL_LIST).cfg(HOST).value(ImmutableList.of(
-              env.getLabel("//tools:test_setup_scripts"))))
           .add(attr("$test_runtime", LABEL_LIST).cfg(HOST).value(ImmutableList.of(
               env.getLabel("//tools/test:runtime"))))
 

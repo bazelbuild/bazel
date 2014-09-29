@@ -37,10 +37,10 @@ def resolve_command(ctx, command, resolved_srcs, files_to_build):
 
 
 def create(ctx):
-  resolved_srcs = nset("STABLE_ORDER")
+  resolved_srcs = set()
   if not hasattr(ctx.outputs, "outs"):
     ctx.error("outs", "genrules without outputs don't make sense")
-  files_to_build = nset("STABLE_ORDER", ctx.outputs.outs)
+  files_to_build = set(ctx.outputs.outs)
 
   if ctx.attr.executable and len(files_to_build) > 1:
     ctx.error("executable",
@@ -64,7 +64,7 @@ def create(ctx):
   # TODO(bazel_team): Improve resolve_command method
   command = resolve_command(ctx,
                             command,
-                            nset("STABLE_ORDER", resolved_srcs),
+                            set(resolved_srcs),
                             files_to_build)
 
   message = ctx.attr.message or "Executing genrule"
@@ -106,8 +106,8 @@ genrule_skylark = rule(implementation=create,
      # .setOutputToGenfiles()
      attr={
          "srcs": attr.label_list(flags=["DIRECT_COMPILE_TIME_INPUT"],
-             file_types=ANY_FILE),
-         "tools": attr.label_list(cfg=HOST_CFG, file_types=ANY_FILE),
+             allow_files=True),
+         "tools": attr.label_list(cfg=HOST_CFG, allow_files=True),
          "outs": attr.output_list(mandatory=True),
          "cmd": attr.string(mandatory=True),
          "message": attr.string(),

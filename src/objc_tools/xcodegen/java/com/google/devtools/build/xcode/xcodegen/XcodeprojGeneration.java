@@ -48,6 +48,7 @@ import com.facebook.buck.apple.xcode.xcodeproj.PBXNativeTarget;
 import com.facebook.buck.apple.xcode.xcodeproj.PBXProject;
 import com.facebook.buck.apple.xcode.xcodeproj.PBXReference;
 import com.facebook.buck.apple.xcode.xcodeproj.PBXReference.SourceTree;
+import com.facebook.buck.apple.xcode.xcodeproj.PBXResourcesBuildPhase;
 import com.facebook.buck.apple.xcode.xcodeproj.PBXSourcesBuildPhase;
 import com.facebook.buck.apple.xcode.xcodeproj.PBXTarget.ProductType;
 import com.facebook.buck.apple.xcode.xcodeproj.PBXTargetDependency;
@@ -72,6 +73,7 @@ import java.util.concurrent.ExecutionException;
 public class XcodeprojGeneration {
   public static final String FILE_TYPE_ARCHIVE_LIBRARY = "archive.ar";
   public static final String FILE_TYPE_WRAPPER_APPLICATION = "wrapper.application";
+  public static final String FILE_TYPE_WRAPPER_BUNDLE = "wrapper.cfbundle";
 
   @VisibleForTesting
   static final String APP_NEEDS_SOURCE_ERROR =
@@ -98,27 +100,88 @@ public class XcodeprojGeneration {
     outWriter.flush();
   }
 
-  public static boolean isApp(TargetControl targetControl) {
-    return targetControl.hasInfoplist();
+  private static final ImmutableList<ProductType> SUPPORTED_PRODUCT_TYPES = ImmutableList.of(
+      ProductType.STATIC_LIBRARY, ProductType.APPLICATION, ProductType.BUNDLE);
+
+  /**
+   * Detects the product type of the given target based on multiple fields in {@code targetControl}.
+   * {@code productType} is set as a field on {@code PBXNativeTarget} objects in Xcode project
+   * files, and we support three values: {@link ProductType#APPLICATION},
+   * {@link ProductType#STATIC_LIBRARY}, and {@link ProductType#BUNDLE}. The product type is not
+   * only what xcodegen sets the {@code productType} field to - it also dictates what can be built
+   * with this target (e.g. a library cannot be built with resources), what build phase it should be
+   * added to of its dependers, and the name and shape of its build output.
+   */
+  public static ProductType productType(TargetControl targetControl) {
+    if (targetControl.hasProductType()) {
+      for (ProductType supportedType : SUPPORTED_PRODUCT_TYPES) {
+        if (targetControl.getProductType().equals(supportedType.identifier)) {
+          return supportedType;
+        }
+      }
+      throw new IllegalArgumentException(
+          "Unsupported product type: " + targetControl.getProductType());
+    }
+
+    return targetControl.hasInfoplist() ? ProductType.APPLICATION : ProductType.STATIC_LIBRARY;
+  }
+
+  /**
+   * Returns the file reference corresponding to the {@code productReference} of the given target.
+   * The {@code productReference} is the build output of a target, and its name and file type
+   * (stored in the {@link FileReference}) change based on the product type.
+   */
+  private static FileReference productReference(ProductType type, String productName) {
+    switch (type) {
+      case APPLICATION:
+        return FileReference.of(String.format("%s.app", productName), SourceTree.BUILT_PRODUCTS_DIR)
+            .withExplicitFileType(FILE_TYPE_WRAPPER_APPLICATION);
+      case STATIC_LIBRARY:
+        return FileReference.of(
+            String.format("lib%s.a", productName), SourceTree.BUILT_PRODUCTS_DIR)
+                .withExplicitFileType(FILE_TYPE_ARCHIVE_LIBRARY);
+      case BUNDLE:
+        return FileReference.of(
+            String.format("%s.bundle", productName), SourceTree.BUILT_PRODUCTS_DIR)
+                .withExplicitFileType(FILE_TYPE_WRAPPER_BUNDLE);
+      default:
+        throw new IllegalArgumentException("unknown: " + type);
+    }
   }
 
   private static class TargetInfo {
     final TargetControl control;
     final PBXNativeTarget nativeTarget;
     final PBXFrameworksBuildPhase frameworksPhase;
+    final PBXResourcesBuildPhase resourcesPhase;
     final PBXBuildFile productBuildFile;
     final PBXTargetDependency targetDependency;
 
     TargetInfo(TargetControl control,
         PBXNativeTarget nativeTarget,
         PBXFrameworksBuildPhase frameworksPhase,
+        PBXResourcesBuildPhase resourcesPhase,
         PBXBuildFile productBuildFile,
         PBXTargetDependency targetDependency) {
       this.control = control;
       this.nativeTarget = nativeTarget;
       this.frameworksPhase = frameworksPhase;
+      this.resourcesPhase = resourcesPhase;
       this.productBuildFile = productBuildFile;
       this.targetDependency = targetDependency;
+    }
+
+    /**
+     * Adds the given dependency to the list of dependencies, and the
+     * appropriate build phase, of this target.
+     */
+    void addDependencyInfo(TargetInfo dependencyInfo) {
+      if (productType(dependencyInfo.control) == ProductType.BUNDLE) {
+        resourcesPhase.getFiles().add(dependencyInfo.productBuildFile);
+      } else {
+        frameworksPhase.getFiles().add(dependencyInfo.productBuildFile);
+      }
+      nativeTarget.getDependencies().add(dependencyInfo.targetDependency);
     }
   }
 
@@ -151,6 +214,17 @@ public class XcodeprojGeneration {
     }
     result.add(resolvedPaths);
     return (NSArray) NSObject.wrap(result.build());
+  }
+
+  private static ImmutableList<SdkLibraryObjects.SdkLibrary> sdkLibraries(TargetControl target) {
+    ImmutableList.Builder<SdkLibraryObjects.SdkLibrary> libraries = new ImmutableList.Builder<>();
+    for (String dylib : target.getSdkDylibList()) {
+      libraries.add(SdkLibraryObjects.dylib(dylib));
+    }
+    for (String framework : target.getSdkFrameworkList()) {
+      libraries.add(SdkLibraryObjects.framework(framework));
+    }
+    return libraries.build();
   }
 
   /** Generates a project file. */
@@ -190,7 +264,7 @@ public class XcodeprojGeneration {
     Map<String, TargetInfo> targetInfoByLabel = new HashMap<>();
 
     PBXFileReferences fileReferences = new PBXFileReferences();
-    SdkFrameworkObjects frameworkObjects = new SdkFrameworkObjects(fileReferences);
+    SdkLibraryObjects sdkLibraryObjects = new SdkLibraryObjects(fileReferences);
     PBXBuildFiles pbxBuildFiles = new PBXBuildFiles(fileReferences);
     Resources resources =
         Resources.fromTargetControls(fileSystem, pbxBuildFiles, control.getTargetList());
@@ -207,8 +281,9 @@ public class XcodeprojGeneration {
 
       String productName = targetControl.getName();
 
-      boolean isApp = isApp(targetControl);
-      Preconditions.checkArgument(!isApp || hasAtLeastOneCompilableSource(targetControl),
+      ProductType productType = productType(targetControl);
+      Preconditions.checkArgument(
+          (productType != ProductType.APPLICATION) || hasAtLeastOneCompilableSource(targetControl),
           APP_NEEDS_SOURCE_ERROR);
       PBXSourcesBuildPhase sourcesBuildPhase = new PBXSourcesBuildPhase();
 
@@ -227,16 +302,8 @@ public class XcodeprojGeneration {
       }
       sourcesBuildPhase.getFiles().addAll(xcdatamodels.buildFiles().get(targetControl));
 
-      PBXFileReference productReference;
-      if (isApp) {
-        productReference = fileReferences.get(
-            FileReference.of(String.format("%s.app", productName), SourceTree.BUILT_PRODUCTS_DIR)
-                .withExplicitFileType(FILE_TYPE_WRAPPER_APPLICATION));
-      } else {
-        productReference = fileReferences.get(
-            FileReference.of(String.format("lib%s.a", productName), SourceTree.BUILT_PRODUCTS_DIR)
-                .withExplicitFileType(FILE_TYPE_ARCHIVE_LIBRARY));
-      }
+      PBXFileReference productReference =
+          fileReferences.get(productReference(productType, productName));
       ungroupedProjectNavigatorFiles.add(productReference);
 
       NSDictionary targetBuildConfigMap = new NSDictionary();
@@ -262,8 +329,7 @@ public class XcodeprojGeneration {
       }
 
       PBXNativeTarget target = new PBXNativeTarget(
-          labelToXcodeTargetName(targetControl.getLabel()),
-          isApp ? ProductType.APPLICATION : ProductType.STATIC_LIBRARY);
+          labelToXcodeTargetName(targetControl.getLabel()), productType);
       try {
         target
             .getBuildConfigurationList()
@@ -276,13 +342,15 @@ public class XcodeprojGeneration {
       target.setProductReference(productReference);
 
       PBXFrameworksBuildPhase frameworksPhase =
-          frameworkObjects.newBuildPhase(targetControl.getSdkFrameworkList());
+          sdkLibraryObjects.newBuildPhase(sdkLibraries(targetControl));
+      PBXResourcesBuildPhase resourcesPhase = resources.resourcesBuildPhase(targetControl);
+
       for (String importedArchive : targetControl.getImportedLibraryList()) {
         PBXFileReference fileReference = fileReferences.get(
             FileReference.of(importedArchive, SourceTree.GROUP)
                 .withExplicitFileType(FILE_TYPE_ARCHIVE_LIBRARY));
         ungroupedProjectNavigatorFiles.add(fileReference);
-        if (isApp) {
+        if (!Equaling.of(ProductType.STATIC_LIBRARY, productType)) {
           frameworksPhase.getFiles().add(new PBXBuildFile(fileReference));
         }
       }
@@ -291,7 +359,7 @@ public class XcodeprojGeneration {
 
       target.getBuildPhases().add(frameworksPhase);
       target.getBuildPhases().add(sourcesBuildPhase);
-      target.getBuildPhases().addAll(resources.resourcesBuildPhase(targetControl).asSet());
+      target.getBuildPhases().add(resourcesPhase);
 
       checkState(!Mapping.of(targetInfoByLabel, targetControl.getLabel()).isPresent(),
           "Mapping already exists for target with label %s in map: %s",
@@ -302,13 +370,14 @@ public class XcodeprojGeneration {
               targetControl,
               target,
               frameworksPhase,
+              resourcesPhase,
               new PBXBuildFile(productReference),
               new LocalPBXTargetDependency(
                   new LocalPBXContainerItemProxy(
                       project, target, ProxyType.TARGET_REFERENCE))));
     }
 
-    for (HasProjectNavigatorFiles references : ImmutableList.of(pbxBuildFiles, frameworkObjects)) {
+    for (HasProjectNavigatorFiles references : ImmutableList.of(pbxBuildFiles, sdkLibraryObjects)) {
       Iterables.addAll(ungroupedProjectNavigatorFiles, references.mainGroupReferences());
     }
     Iterables.addAll(
@@ -318,8 +387,7 @@ public class XcodeprojGeneration {
       for (DependencyControl dependency : targetInfo.control.getDependencyList()) {
         TargetInfo dependencyInfo =
             Mapping.of(targetInfoByLabel, dependency.getTargetLabel()).get();
-        targetInfo.frameworksPhase.getFiles().add(dependencyInfo.productBuildFile);
-        targetInfo.nativeTarget.getDependencies().add(dependencyInfo.targetDependency);
+        targetInfo.addDependencyInfo(dependencyInfo);
       }
     }
 

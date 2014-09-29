@@ -14,9 +14,11 @@
 
 package com.google.devtools.build.lib.syntax;
 
+import com.google.common.annotations.VisibleForTesting;
 import com.google.common.base.Preconditions;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.Lists;
+import com.google.devtools.build.lib.events.Location;
 
 import java.util.Collection;
 import java.util.Iterator;
@@ -28,10 +30,11 @@ import java.util.List;
 public abstract class SkylarkList implements Iterable<Object> {
 
   private final boolean tuple;
-  // TODO(bazel-team): add type info here
+  private final Class<?> genericType;
 
-  private SkylarkList(boolean tuple) {
+  private SkylarkList(boolean tuple, Class<?> genericType) {
     this.tuple = tuple;
+    this.genericType = genericType;
   }
 
   /**
@@ -40,7 +43,7 @@ public abstract class SkylarkList implements Iterable<Object> {
   public abstract int size();
 
   /**
-   * Returns true if the list is emtpy.
+   * Returns true if the list is empty.
    */
   public abstract boolean isEmpty();
 
@@ -56,6 +59,11 @@ public abstract class SkylarkList implements Iterable<Object> {
     return tuple;
   }
 
+  @VisibleForTesting
+  public Class<?> getGenericType() {
+    return genericType;
+  }
+
   /**
    * Converts this Skylark list to a Java list.
    */
@@ -63,7 +71,7 @@ public abstract class SkylarkList implements Iterable<Object> {
 
   private static final class EmptySkylarkList extends SkylarkList {
     private EmptySkylarkList(boolean tuple) {
-      super(tuple);
+      super(tuple, Object.class);
     }
 
     @Override
@@ -100,13 +108,13 @@ public abstract class SkylarkList implements Iterable<Object> {
   /**
    * An empty Skylark list.
    */
-  public static final SkylarkList EMTPY_LIST = new EmptySkylarkList(true);
+  public static final SkylarkList EMPTY_LIST = new EmptySkylarkList(false);
 
   private static final class SimpleSkylarkList extends SkylarkList {
     private final ImmutableList<Object> list;
 
-    private SimpleSkylarkList(ImmutableList<Object> list, boolean tuple) {
-      super(tuple);
+    private SimpleSkylarkList(ImmutableList<Object> list, boolean tuple, Class<?> genericType) {
+      super(tuple, genericType);
       this.list = Preconditions.checkNotNull(list);
     }
 
@@ -159,28 +167,73 @@ public abstract class SkylarkList implements Iterable<Object> {
   }
 
   /**
-   * Returns a Skylark list containing elements.
+   * Returns a Skylark list containing elements without a type check. Only use if all elements
+   * are of the same type.
    */
-  public static SkylarkList list(Collection<?> elements) {
+  public static SkylarkList list(Collection<?> elements, Class<?> genericType) {
     if (elements.isEmpty()) {
-      return EMTPY_LIST;
+      return EMPTY_LIST;
     }
-    return new SimpleSkylarkList(ImmutableList.copyOf(elements), false);
+    return new SimpleSkylarkList(ImmutableList.copyOf(elements), false, genericType);
   }
 
   /**
-   * Returns a Skylark list created from Skylark lists left and right..
+   * Returns a Skylark list containing elements. Performs type check and throws an exception
+   * in case the list contains elements of different type.
    */
-  public static SkylarkList list(SkylarkList left, SkylarkList right) {
+  public static SkylarkList list(Collection<?> elements, Location loc) throws EvalException {
+    if (elements.isEmpty()) {
+      return EMPTY_LIST;
+    }
+    return new SimpleSkylarkList(
+        ImmutableList.copyOf(elements), false, getGenericType(elements, loc));
+  }
+
+  private static Class<?> getGenericType(Collection<?> elements, Location loc)
+      throws EvalException {
+    Class<?> genericType = elements.iterator().next().getClass();
+    for (Object element : elements) {
+      Class<?> type = element.getClass();
+      if (!EvalUtils.getSkylarkType(genericType).equals(EvalUtils.getSkylarkType(type))) {
+        throw new EvalException(loc, String.format(
+            "Incompatible types in list: found a %s but the first element is a %s",
+            EvalUtils.getDataTypeNameFromClass(type),
+            EvalUtils.getDataTypeNameFromClass(genericType)));
+      }
+    }
+    return genericType;
+  }
+
+  /**
+   * Returns a Skylark list created from Skylark lists left and right. Throws an exception
+   * if they are not of the same generic type.
+   */
+  public static SkylarkList concat(SkylarkList left, SkylarkList right, Location loc)
+      throws EvalException {
+    if (left.isTuple() != right.isTuple()) {
+      throw new EvalException(loc, "cannot concatenate lists and tuples");
+    }
+    if (left == EMPTY_LIST) {
+      return right;
+    }
+    if (right == EMPTY_LIST) {
+      return left;
+    }
+    if (!left.genericType.equals(right.genericType)) {
+      throw new EvalException(loc, String.format("cannot concatenate list of %s with list of %s",
+          EvalUtils.getDataTypeNameFromClass(left.genericType),
+          EvalUtils.getDataTypeNameFromClass(right.genericType)));
+    }
     // TODO(bazel-team): implement a more effective concatenation
     return new SimpleSkylarkList(
-        ImmutableList.builder().addAll(left).addAll(right).build(), false);
+        ImmutableList.builder().addAll(left).addAll(right).build(), false, left.genericType);
   }
 
   /**
    * Returns a Skylark tuple containing elements.
    */
   public static SkylarkList tuple(List<?> elements) {
-    return new SimpleSkylarkList(ImmutableList.copyOf(elements), true);
+    // Tuple elements do not have to have the same type.
+    return new SimpleSkylarkList(ImmutableList.copyOf(elements), true, Object.class);
   }
 }

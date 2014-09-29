@@ -44,6 +44,7 @@ import com.google.devtools.build.lib.blaze.commands.ProfileCommand;
 import com.google.devtools.build.lib.blaze.commands.QueryCommand;
 import com.google.devtools.build.lib.blaze.commands.RunCommand;
 import com.google.devtools.build.lib.blaze.commands.ShutdownCommand;
+import com.google.devtools.build.lib.blaze.commands.SkylarkCommand;
 import com.google.devtools.build.lib.blaze.commands.TestCommand;
 import com.google.devtools.build.lib.blaze.commands.VersionCommand;
 import com.google.devtools.build.lib.buildtool.BuildTool;
@@ -1532,6 +1533,7 @@ public final class BlazeRuntime {
         new CanonicalizeCommand(),
         new CleanCommand(),
         new HelpCommand(),
+        new SkylarkCommand(),
         new InfoCommand(),
         new ProfileCommand(),
         new QueryCommand(),

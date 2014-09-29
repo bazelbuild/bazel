@@ -12,15 +12,20 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
-# This is a quick and dirty rule to make Bazel compile itself. It's not
-# production ready.
+# This is a quick and dirty rule to make Bazel compile itself.  It
+# only supports Java.
+
+
+# TODO(bazel-team): unify the OSS Java rules and load from another
+# file.
+jar_filetype = filetype([".jar"])
 
 proto_filetype = filetype([".proto"])
 
 def genproto_impl(ctx):
-  src = ctx.files("src")[0]
-  proto_compiler = ctx.files("$proto_compiler")[0]
-  proto_dep = ctx.file("$proto_dep")
+  src = ctx.file.src
+  proto_compiler = ctx.file._proto_compiler
+  proto_dep = ctx.file._proto_dep
   class_jar = ctx.outputs.java
   proto_output = class_jar.path + ".proto_output"
   build_output = class_jar.path + ".build_output"
@@ -51,18 +56,25 @@ def genproto_impl(ctx):
       use_default_shell_env = True)
 
   return struct(compile_time_jar = class_jar,
-                runtime_jars = nset("LINK_ORDER", [class_jar, proto_dep]))
+                runtime_jars = set([class_jar, proto_dep], order="link"))
 
 
 genproto = rule(genproto_impl,
    # There should be a flag like gen_java, and only generate the jar if it's
    # set. Skylark needs a bit of improvement first (concat structs).
    attr = {
-       "src": attr.label(file_types=proto_filetype),
+       "src": attr.label(allow_files=proto_filetype, single_file=True),
        # TODO(bazel-team): this should be a hidden attribute with a default
        # value, but Skylark needs to support select first.
-       "$proto_compiler": attr.label(default=label("//third_party:protoc")),
-       "$proto_dep": attr.label(default=label("//third_party:protobuf")),
+       "_proto_compiler": attr.label(
+           default=label("//third_party:protoc"),
+           allow_files=True,
+           single_file=True),
+       "_proto_dep": attr.label(
+           default=label("//third_party:protobuf"),
+           single_file=True,
+           allow_files=jar_filetype,
+           ),
    },
    outputs = {"java": "lib%{name}.jar"},
 )

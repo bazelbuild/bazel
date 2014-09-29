@@ -24,6 +24,7 @@ import com.google.common.collect.Multimap;
 import com.google.common.collect.Ordering;
 import com.google.common.collect.Table;
 import com.google.common.eventbus.EventBus;
+import com.google.devtools.build.lib.Constants;
 import com.google.devtools.build.lib.actions.Action;
 import com.google.devtools.build.lib.actions.ActionCacheChecker;
 import com.google.devtools.build.lib.actions.ActionContextConsumer;
@@ -535,7 +536,7 @@ public class ExecutionTool {
       BuildConfigurationCollection configurations) throws ViewCreationFailedException {
     try {
       FileSystemUtils.deleteTreesBelowNotPrefixed(getExecRoot(),
-          new String[] { ".", "_", "blaze-"});
+          new String[] { ".", "_", Constants.PRODUCT_NAME + "-"});
       // Delete the build configuration's temporary directories
       for (BuildConfiguration configuration : configurations.getTargetConfigurations()) {
         configuration.prepareForExecutionPhase();

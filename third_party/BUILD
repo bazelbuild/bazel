@@ -2,7 +2,8 @@ package(default_visibility = ["//visibility:public"])
 
 filegroup(
     name = "protoc",
-    srcs = ["protobuf/protoc.amd64"])
+    srcs = ["protobuf/protoc.amd64"],
+)
 
 filegroup(
     name = "protobuf",
@@ -12,6 +13,7 @@ filegroup(
 filegroup(
     name = "third_party",
     srcs = [
+        "gson/gson-2.2.4.jar",
         "guava/guava-16.0.1.jar",
         "joda-time/joda-time-2.3.jar",
         "jsr305/jsr-305.jar",

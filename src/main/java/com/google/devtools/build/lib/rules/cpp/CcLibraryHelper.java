@@ -725,7 +725,7 @@ public final class CcLibraryHelper {
       result.add(stl.getCppModuleMap());
     }
 
-    CcToolchainProvider toolchain = CppHelper.getCompiler(ruleContext);
+    CcToolchainProvider toolchain = CppHelper.getToolchain(ruleContext);
     if (toolchain != null) {
       result.add(toolchain.getCppCompilationContext().getCppModuleMap());
     }

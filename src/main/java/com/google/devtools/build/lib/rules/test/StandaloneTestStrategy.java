@@ -32,7 +32,7 @@ import com.google.devtools.build.lib.vfs.PathFragment;
 import com.google.devtools.build.lib.view.config.BinTools;
 import com.google.devtools.build.lib.view.config.BuildConfiguration;
 import com.google.devtools.build.lib.view.test.TestStatus.BlazeTestStatus;
-import com.google.devtools.build.lib.view.test.TestStatus.FailedTestCaseDetails;
+import com.google.devtools.build.lib.view.test.TestStatus.TestCase;
 import com.google.devtools.build.lib.view.test.TestStatus.TestResultData;
 import com.google.devtools.common.options.OptionsClassProvider;
 
@@ -47,7 +47,6 @@ import java.util.Map;
 @ExecutionStrategy(contextType = TestActionContext.class,
           name = { "standalone" })
 public class StandaloneTestStrategy extends TestStrategy {
-
   /*
     TODO(bazel-team):
 
@@ -66,7 +65,7 @@ public class StandaloneTestStrategy extends TestStrategy {
     this.runfilesPrefix = runfilesPrefix;
   }
 
-  private static final String TEST_SETUP = "tools/test-setup.sh";
+  private static final String TEST_SETUP = "tools/test/test-setup.sh";
 
   @Override
   public void exec(TestRunnerAction action, ActionExecutionContext actionExecutionContext)
@@ -146,12 +145,9 @@ public class StandaloneTestStrategy extends TestStrategy {
         }
       }
 
-      HierarchicalTestResult details = parseTestResult(action.getXmlOutputPath());
+      TestCase details = parseTestResult(action.getXmlOutputPath());
       if (details != null) {
-        FailedTestCaseDetails failedDetails = details.collectFailedTestCases();
-        if (failedDetails != null) {
-          builder.setFailedTestCaseDetails(failedDetails);
-        }
+        builder.setTestCase(details);
       }
 
       return builder.build();
@@ -161,7 +157,7 @@ public class StandaloneTestStrategy extends TestStrategy {
   }
 
   protected final void finalizeTest(Executor executor, TestRunnerAction action,
-      TestResultData data,  FileOutErr outErr) throws IOException, ExecException {
+      TestResultData data, FileOutErr outErr) throws IOException, ExecException {
     TestResult result = new TestResult(action, data, false);
     postTestResult(executor, result);
 

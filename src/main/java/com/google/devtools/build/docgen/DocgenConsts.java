@@ -146,4 +146,21 @@ public class DocgenConsts {
       .put("outs", -91)
       .put("hdrs", -90)
       .build();
+
+  static String toCommandLineFormat(String cmdDoc) {
+    // Replace html <br> tags with line breaks
+    cmdDoc = cmdDoc.replaceAll("(<br>|<br[\\s]*/>)", "\n") + "\n";
+    // Replace other links <a href=".*">s with human readable links
+    cmdDoc = cmdDoc.replaceAll("\\<a href=\"([^\"]+)\">[^\\<]*\\</a\\>", "$1");
+    // Delete other html tags
+    cmdDoc = cmdDoc.replaceAll("\\<[/]?[^\\>]+\\>", "");
+    // Delete docgen variables
+    cmdDoc = cmdDoc.replaceAll("\\$\\{[\\w_]+\\}", "");
+    // Substitute more than 2 line breaks in a row with 2 line breaks
+    cmdDoc = cmdDoc.replaceAll("[\\n]{2,}", "\n\n");
+    // Ensure that the doc starts and ends with exactly two line breaks
+    cmdDoc = cmdDoc.replaceAll("^[\\n]+", "\n\n");
+    cmdDoc = cmdDoc.replaceAll("[\\n]+$", "\n\n");
+    return cmdDoc;
+  }
 }

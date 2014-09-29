@@ -19,6 +19,8 @@ import com.google.devtools.build.lib.events.Location;
 
 import java.lang.reflect.Method;
 import java.lang.reflect.ParameterizedType;
+import java.lang.reflect.Type;
+import java.lang.reflect.WildcardType;
 import java.util.List;
 import java.util.Map;
 import java.util.Set;
@@ -237,18 +239,35 @@ public class SkylarkType {
     }
   }
 
+  private static Class<?> getGenericTypeFromMethod(Method method) {
+    // This is where we can infer generic type information, so SkylarkNestedSets can be
+    // created in a safe way. Eventually we should probably do something with Lists and Maps too.
+    ParameterizedType t = (ParameterizedType) method.getGenericReturnType();
+    Type type = t.getActualTypeArguments()[0];
+    if (type instanceof Class) {
+      return (Class<?>) type;
+    }
+    if (type instanceof WildcardType) {
+      WildcardType wildcard = (WildcardType) type;
+      Type upperBound = wildcard.getUpperBounds()[0];
+      if (upperBound instanceof Class) {
+        // i.e. List<? extends SuperClass>
+        return (Class<?>) upperBound;
+      }
+    }
+    // It means someone annotated a method with @SkylarkCallable with no specific generic type info.
+    // We shouldn't annotate methods which return List<?> or List<T>.
+    throw new IllegalStateException("Cannot infer type from method signature " + method);
+  }
+
   /**
    * Converts an object retrieved from a Java method to a Skylark-compatible type.
    */
   static Object convertToSkylark(Object object, Method method) {
     if (object instanceof NestedSet<?>) {
-      // This is where we can infer generic type information, so SkylarkNestedSets can be
-      // created in a safe way. Eventually we should probably do something with Lists and Maps too.
-      ParameterizedType t = (ParameterizedType) method.getGenericReturnType();
-      return new SkylarkNestedSet((Class<?>) t.getActualTypeArguments()[0],
-          (NestedSet<?>) object);
+      return new SkylarkNestedSet(getGenericTypeFromMethod(method), (NestedSet<?>) object);
     } else if (object instanceof List<?>) {
-      return SkylarkList.list((List<?>) object);
+      return SkylarkList.list((List<?>) object, getGenericTypeFromMethod(method));
     }
     return object;
   }
@@ -256,10 +275,9 @@ public class SkylarkType {
   /**
    * Converts an object to a Skylark-compatible type if possible.
    */
-  public static Object convertToSkylark(Object object) {
+  public static Object convertToSkylark(Object object, Location loc) throws EvalException {
     if (object instanceof List<?>) {
-      // TODO(bazel-team): check the type of every element
-      return SkylarkList.list((List<?>) object);
+      return SkylarkList.list((List<?>) object, loc);
     }
     return object;
   }

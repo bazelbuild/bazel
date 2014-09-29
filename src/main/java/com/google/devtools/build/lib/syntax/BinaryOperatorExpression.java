@@ -13,7 +13,6 @@
 // limitations under the License.
 package com.google.devtools.build.lib.syntax;
 
-import com.google.common.collect.ImmutableSet;
 import com.google.common.collect.Lists;
 import com.google.common.collect.Maps;
 import com.google.devtools.build.lib.syntax.ClassObject.SkylarkClassObject;
@@ -23,7 +22,6 @@ import java.util.Collections;
 import java.util.IllegalFormatException;
 import java.util.List;
 import java.util.Map;
-import java.util.Set;
 
 /**
  * Syntax node for a binary operator expression.
@@ -132,7 +130,7 @@ public final class BinaryOperatorExpression extends Expression {
         }
 
         if (lval instanceof SkylarkList && rval instanceof SkylarkList) {
-          return SkylarkList.list((SkylarkList) lval, (SkylarkList) rval);
+          return SkylarkList.concat((SkylarkList) lval, (SkylarkList) rval, getLocation());
         }
 
         if (env.isSkylarkEnabled() && lval instanceof Map<?, ?> && rval instanceof Map<?, ?>) {
@@ -142,15 +140,6 @@ public final class BinaryOperatorExpression extends Expression {
           result.putAll(ldict);
           result.putAll(rdict);
           return result;
-        }
-
-        if (env.isSkylarkEnabled() && lval instanceof Set<?> && rval instanceof SkylarkList) {
-          Set<?> lset = (Set<?>) lval;
-          SkylarkList rlist = (SkylarkList) rval;
-          ImmutableSet.Builder<Object> result = new ImmutableSet.Builder<>();
-          result.addAll(lset);
-          result.addAll(rlist);
-          return result.build();
         }
 
         if (env.isSkylarkEnabled()
@@ -310,11 +299,6 @@ public final class BinaryOperatorExpression extends Expression {
         // struct + struct
         if (ltype.isStruct() && rtype.isStruct()) {
           return SkylarkType.of(ClassObject.class);
-        }
-
-        if (ltype.isSet() && rtype.isList()) {
-          return ltype.infer(SkylarkType.of(Set.class, rtype.getGenericType1()),
-              "set", rhs.getLocation(), lhs.getLocation());
         }
 
         if (ltype.isNset()) {

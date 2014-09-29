@@ -20,8 +20,8 @@ def java_binary_impl(ctx):
   manifest = ctx.outputs.manifest
   build_output = deploy_jar.path + ".build_output"
   main_class = ctx.attr.main_class
-  runtime_jars = nset("LINK_ORDER")
-  for dep in ctx.targets("deps"):
+  runtime_jars = set(order="link")
+  for dep in ctx.targets.deps:
     runtime_jars += dep.runtime_jars
 
   jars = list(runtime_jars)
@@ -74,12 +74,11 @@ def java_binary_impl(ctx):
   runfiles = ctx.runfiles(files = [deploy_jar, executable], collect_data = True)
 
   return struct(
-      files_to_build = nset("STABLE_ORDER", [deploy_jar, manifest, executable]),
+      files_to_build = set([deploy_jar, manifest, executable]),
       runfiles=runfiles)
 
 java_binary_attrs = {
-    "deps": attr.label_list(
-        file_types=NO_FILE, providers = ["runtime_jars"]),
+    "deps": attr.label_list(providers = ["runtime_jars"]),
     "main_class": attr.string()
 }
 

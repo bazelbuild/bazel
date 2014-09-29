@@ -480,8 +480,8 @@ public final class CppModel {
         .addLinkopts(linkopts)
         .addLinkopts(sonameLinkopts)
         .setRuntimeInputs(
-            CppHelper.getCompiler(ruleContext).getDynamicRuntimeLinkMiddleman(),
-            CppHelper.getCompiler(ruleContext).getDynamicRuntimeLinkInputs())
+            CppHelper.getToolchain(ruleContext).getDynamicRuntimeLinkMiddleman(),
+            CppHelper.getToolchain(ruleContext).getDynamicRuntimeLinkInputs())
         .build();
     env.registerAction(action);
 
@@ -512,7 +512,7 @@ public final class CppModel {
 
   private CppLinkAction.Builder newLinkActionBuilder(PathFragment outputPath) {
     return new CppLinkAction.Builder(ruleContext, outputPath)
-        .setCrosstoolInputs(CppHelper.getCrosstoolInputsForLink(ruleContext))
+        .setCrosstoolInputs(CppHelper.getToolchain(ruleContext).getLink())
         .addNonLibraryInputs(context.getCompilationPrerequisites());
   }
 

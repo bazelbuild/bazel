@@ -789,7 +789,7 @@ public final class CcCommon {
    */
   public CppLinkAction.Builder newLinkActionBuilder(PathFragment outputPath) {
     return new CppLinkAction.Builder(ruleContext, outputPath)
-        .setCrosstoolInputs(CppHelper.getCrosstoolInputsForLink(ruleContext))
+        .setCrosstoolInputs(CppHelper.getToolchain(ruleContext).getLink())
         .addNonLibraryInputs(createCppCompilationContext().getCompilationPrerequisites());
   }
 
@@ -875,7 +875,7 @@ public final class CcCommon {
         depsBuilder.add(stl.getCppModuleMap());
       }
 
-      CcToolchainProvider toolchain = CppHelper.getCompiler(ruleContext);
+      CcToolchainProvider toolchain = CppHelper.getToolchain(ruleContext);
       if (toolchain != null) {
         CppModuleMap crosstoolModuleMap = toolchain.getCppCompilationContext().getCppModuleMap();
         if (crosstoolModuleMap != null) {

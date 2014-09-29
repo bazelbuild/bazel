@@ -14,6 +14,12 @@ java_binary(
     deps = [":hello-lib"],
 )
 
+java_binary(
+    name = "hello-main",
+    main_class = "test.Greeter",
+    deps = [":hello-lib"],
+)
+
 # Testing.
 
 java_library(

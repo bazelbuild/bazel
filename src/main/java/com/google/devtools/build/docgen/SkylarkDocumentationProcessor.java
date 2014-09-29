@@ -217,6 +217,27 @@ public class SkylarkDocumentationProcessor {
     return modules;
   }
 
+  /**
+   * Returns the top level modules and functions with their documentation in a command-line
+   * printable format.
+   */
+  public Map<String, String> collectTopLevelModules() {
+    Map<String, String> modules = new TreeMap<>();
+    for (SkylarkModuleDoc doc : collectBuiltinModules().values()) {
+      if (doc.getAnnotation() == getTopLevelModule()) {
+        for (Map.Entry<String, SkylarkBuiltin> entry : doc.getBuiltinMethods().entrySet()) {
+          if (!entry.getValue().hidden()) {
+            modules.put(entry.getKey(), DocgenConsts.toCommandLineFormat(entry.getValue().doc()));
+          }
+        }
+      } else {
+        modules.put(doc.getAnnotation().name(),
+            DocgenConsts.toCommandLineFormat(doc.getAnnotation().doc()));
+      }
+    }
+    return modules;
+  }
+
   private void collectBuiltinModule(
       Map<SkylarkModule, Class<?>> modules, Class<?> moduleClass) {
     if (moduleClass.isAnnotationPresent(SkylarkModule.class)) {

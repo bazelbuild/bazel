@@ -84,7 +84,7 @@ public class CppHelper {
       contextBuilder.addSystemIncludeDir(stl.getLabel().getPackageFragment().getRelative("gcc3"));
       contextBuilder.mergeDependentContext(stl.getProvider(CppCompilationContext.class));
     }
-    CcToolchainProvider toolchain = getCompiler(ruleContext);
+    CcToolchainProvider toolchain = getToolchain(ruleContext);
     if (toolchain != null) {
       contextBuilder.mergeDependentContext(toolchain.getCppCompilationContext());
     }
@@ -239,28 +239,17 @@ public class CppHelper {
     return false;
   }
 
-  /**
-   * Returns the artifacts required for crosstool invocations. These artifacts
-   * are usually middleman artifacts that have to be expanded before being added
-   * to the set of files necessary to execute an action.
-   */
-  public static NestedSet<Artifact> getCrosstoolInputs(RuleContext ruleContext) {
-    NestedSetBuilder<Artifact> builder = NestedSetBuilder.stableOrder();
-    builder.addTransitive(getCompiler(ruleContext).getCrosstoolMiddleman());
-    // Use "libc_link" here, because it is functionally identical to the case
-    // below. If we introduce separate filegroups for compiling and linking, we
-    // need to fix that here.
-    builder.addTransitive(AnalysisUtils.getMiddlemanFor(ruleContext, ":libc_link"));
-    return builder.build();
-  }
-
-  public static CcToolchainProvider getCompiler(RuleContext ruleContext) {
+  public static CcToolchainProvider getToolchain(RuleContext ruleContext) {
     if (ruleContext.attributes().getAttributeDefinition(":cc_toolchain") == null) {
+      // TODO(bazel-team): Report an error or throw an exception in this case.
       return null;
     }
     TransitiveInfoCollection dep = ruleContext.getPrerequisite(":cc_toolchain", Mode.TARGET);
-    return dep == null ? null
-        : dep.getProvider(CcToolchainProvider.class);
+    if ((dep == null) || (dep.getProvider(CcToolchainProvider.class) == null)) {
+      ruleContext.ruleError("The selected C++ toolchain is not a cc_toolchain rule");
+      return CcToolchainProvider.EMPTY_TOOLCHAIN_IS_ERROR;
+    }
+    return dep.getProvider(CcToolchainProvider.class);
   }
 
   /**
@@ -274,7 +263,7 @@ public class CppHelper {
 
   public static NestedSet<Artifact> getCrosstoolInputsForCompile(RuleContext ruleContext,
       boolean forGo) {
-    CcToolchainProvider provider = getCompiler(ruleContext);
+    CcToolchainProvider provider = getToolchain(ruleContext);
 
     // If include scanning is disabled, we need the entire crosstool filegroup, including header
     // files. If it is enabled, we use the filegroup without header files - they are found by
@@ -282,20 +271,6 @@ public class CppHelper {
     return ruleContext.getFragment(CppConfiguration.class).shouldScanIncludes() && !forGo
         ? provider.getCompile()
         : provider.getCrosstool();
-  }
-
-  /**
-   * Returns the artifacts required for crosstool links, including libc.
-   * These artifacts are usually middleman artifacts that have to be expanded
-   * before being added to the set of files necessary to execute an action.
-   */
-  public static NestedSet<Artifact> getCrosstoolInputsForLink(RuleContext ruleContext) {
-    NestedSetBuilder<Artifact> builder = NestedSetBuilder.stableOrder();
-    builder.addTransitive(getCompiler(ruleContext).getLink());
-    builder.addTransitive(AnalysisUtils.getMiddlemanFor(ruleContext, ":libc_link"));
-    builder.add(ruleContext.getAnalysisEnvironment().getEmbeddedToolArtifact(
-        CppRuleClasses.BUILD_INTERFACE_SO));
-    return builder.build();
   }
 
   /**
@@ -486,6 +461,9 @@ public class CppHelper {
   public static CppModuleMap addCppModuleMapToContext(RuleContext ruleContext,
       CppCompilationContext.Builder contextBuilder) {
     if (!ruleContext.getFragment(CppConfiguration.class).createCppModuleMaps()) {
+      return null;
+    }
+    if (getToolchain(ruleContext).getCppCompilationContext().getCppModuleMap() == null) {
       return null;
     }
     // Create the module map artifact as a genfile.

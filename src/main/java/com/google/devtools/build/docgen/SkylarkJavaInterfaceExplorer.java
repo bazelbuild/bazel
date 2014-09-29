@@ -137,7 +137,7 @@ public class SkylarkJavaInterfaceExplorer {
       if (module.javaMethodsNotCollected()) {
         ImmutableMap<Method, SkylarkCallable> methods =
             FuncallExpression.collectSkylarkMethodsWithAnnotation(classObject);
-        ArrayList<SkylarkMethod> methodList = new ArrayList();
+        ArrayList<SkylarkMethod> methodList = new ArrayList<>();
         for (Map.Entry<Method, SkylarkCallable> entry : methods.entrySet()) {
           methodList.add(new SkylarkMethod(entry.getKey(), entry.getValue()));
         }

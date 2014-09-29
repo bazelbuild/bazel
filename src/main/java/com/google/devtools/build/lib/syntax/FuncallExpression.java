@@ -367,7 +367,7 @@ public final class FuncallExpression extends Expression {
         value = SkylarkType.convertFromSkylark(value);
       } else if (conversion == ArgConversion.TO_SKYLARK) {
         // We try to auto convert the type if we can.
-        value = SkylarkType.convertToSkylark(value);
+        value = SkylarkType.convertToSkylark(value, getLocation());
         // We call into Skylark so we need to be sure that the caller uses the appropriate types.
         SkylarkType.checkTypeAllowedInSkylark(value, getLocation());
       }

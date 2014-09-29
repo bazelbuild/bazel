@@ -12,7 +12,8 @@ message Control {
   // can be binary, XML, or ASCII format.
   repeated string source_plist_file = 1;
 
-  // Path to the .ipa file to write. This is the final application bundle.
+  // Path to the .ipa file to write. This is the final application bundle. Note
+  // this is ignored for nested bundles.
   optional string out_file = 2;
 
   // Which devices the app targets, which corresponds to the UIDeviceFamily
@@ -32,7 +33,9 @@ message Control {
   optional string minimum_os_version = 6;
 
   // The directory inside which all files are placed in the final bundle.
-  // Generally, this is "Payload/{app_name}.app".
+  // For the top-most bundle, this is generally "Payload/{app_name}.app". If
+  // this bundle is nested, then this bundle_root is relative to to the parent's
+  // bundle_root.
   optional string bundle_root = 7;
 
   // All files to put in the bundle besides automatically-generated files such
@@ -47,11 +50,17 @@ message Control {
   // 1. make the merge_zips have entries that are named "{bundle_root}/foo"
   //    rather than just "foo"
   // 2. set the root property on the MergeZip protobuf to {bundle_root}
+  // Note that the paths of these zips are always relative to the zip file root
+  // - they are not relative to the containing bundle.
   repeated MergeZip merge_zip = 10;
 
   // Variable substitutions to perform on property values in the merged
   // .plist file.
   repeated VariableSubstitution variable_substitution = 11;
+
+  // Bundles that are nested within this one. bundle_root in these bundles is
+  // relative to the containing bundle's bundle_root.
+  repeated Control nested_bundle = 12;
 }
 
 // Represents a zip file to merge with the final zip.
