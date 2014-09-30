@@ -18,6 +18,7 @@ import com.google.common.annotations.VisibleForTesting;
 import com.google.common.base.Preconditions;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
+import com.google.common.collect.ImmutableSet;
 import com.google.devtools.build.lib.concurrent.ThreadSafety.Immutable;
 import com.google.devtools.build.lib.vfs.PathFragment;
 
@@ -278,10 +279,7 @@ public class Environment {
     functions.get(nameSpace).put(name, function);
   }
 
-  /**
-   * Returns the function of the namespace of the given name or null of it does not exists.
-   */
-  public Function getFunction(Class<?> nameSpace, String name) {
+  private Map<String, Function> getNamespaceFunctions(Class<?> nameSpace) {
     if (disabledNameSpaces.contains(nameSpace)
         || (parent != null && parent.disabledNameSpaces.contains(nameSpace))) {
       return null;
@@ -290,8 +288,23 @@ public class Environment {
     while (topLevel.parent != null) {
       topLevel = topLevel.parent;
     }
-    Map<String, Function> nameSpaceFunctions = topLevel.functions.get(nameSpace);
+    return topLevel.functions.get(nameSpace);
+  }
+
+  /**
+   * Returns the function of the namespace of the given name or null of it does not exists.
+   */
+  public Function getFunction(Class<?> nameSpace, String name) {
+    Map<String, Function> nameSpaceFunctions = getNamespaceFunctions(nameSpace);
     return nameSpaceFunctions != null ? nameSpaceFunctions.get(name) : null;
+  }
+
+  /**
+   * Returns the function names registered with the namespace.
+   */
+  public Set<String> getFunctionNames(Class<?> nameSpace) {
+    Map<String, Function> nameSpaceFunctions = getNamespaceFunctions(nameSpace);
+    return nameSpaceFunctions != null ? nameSpaceFunctions.keySet() : ImmutableSet.<String>of();
   }
 
   /**

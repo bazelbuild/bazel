@@ -58,7 +58,7 @@ public abstract class PositionalFunction extends AbstractFunction {
       throw new EvalException(ast.getLocation(), message);
     }
     try {
-      return call(args, ast);
+      return call(args, ast, env);
     } catch (ConversionException e) {
       throw new EvalException(ast.getLocation(), e.getMessage());
     }
@@ -68,6 +68,28 @@ public abstract class PositionalFunction extends AbstractFunction {
    * Like Function.call, but with an empty set of keyword parameters, and the
    * length of args is guaranteed to be in range [minArgs, maxArgs].
    */
-  public abstract Object call(List<Object> args, FuncallExpression ast)
+  public abstract Object call(List<Object> args, FuncallExpression ast, Environment env)
       throws EvalException, ConversionException;
+
+  /**
+   * Same as {@link PositionalFunction} except its call method doesn't pass the Environment.
+   */
+  public abstract static class SimplePositionalFunction extends PositionalFunction {
+
+    public SimplePositionalFunction(String name, int minArgs, int maxArgs) {
+      super(name, minArgs, maxArgs);
+    }
+
+    @Override
+    public Object call(List<Object> args, FuncallExpression ast, Environment env)
+        throws ConversionException, EvalException {
+      return call(args, ast);
+    }
+
+    /**
+     * Same as {@link PositionalFunction#call} except with no Environment.
+     */
+    public abstract Object call(List<Object> args, FuncallExpression ast)
+        throws ConversionException, EvalException;
+  }
 }

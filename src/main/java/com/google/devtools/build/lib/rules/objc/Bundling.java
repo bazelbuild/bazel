@@ -16,23 +16,31 @@ package com.google.devtools.build.lib.rules.objc;
 
 import static com.google.devtools.build.lib.rules.objc.ObjcProvider.ASSET_CATALOG;
 import static com.google.devtools.build.lib.rules.objc.ObjcProvider.BUNDLE_FILE;
+import static com.google.devtools.build.lib.rules.objc.ObjcProvider.IMPORTED_LIBRARY;
+import static com.google.devtools.build.lib.rules.objc.ObjcProvider.LIBRARY;
+import static com.google.devtools.build.lib.rules.objc.ObjcProvider.NESTED_BUNDLE;
 import static com.google.devtools.build.lib.rules.objc.ObjcProvider.XCDATAMODEL;
 
 import com.google.common.base.Optional;
 import com.google.common.base.Preconditions;
 import com.google.common.collect.ImmutableList;
+import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.Iterables;
 import com.google.devtools.build.lib.actions.Artifact;
 import com.google.devtools.build.lib.collect.nestedset.NestedSet;
 import com.google.devtools.build.lib.collect.nestedset.NestedSetBuilder;
+import com.google.devtools.build.lib.concurrent.ThreadSafety.Immutable;
 import com.google.devtools.build.lib.packages.RuleClass.Builder;
+import com.google.devtools.build.xcode.util.Value;
 
 /**
  * Contains information regarding the creation of an iOS bundle.
  */
-final class Bundling {
+@Immutable
+final class Bundling extends Value<Bundling> {
   static final class Builder {
     private String name;
+    private String bundleDirSuffix;
     private Artifact linkedBinary;
     private ImmutableList<BundleableFile> extraBundleFiles;
     private ObjcProvider objcProvider;
@@ -41,6 +49,11 @@ final class Bundling {
 
     public Builder setName(String name) {
       this.name = name;
+      return this;
+    }
+
+    public Builder setBundleDirSuffix(String bundleDirSuffix) {
+      this.bundleDirSuffix = bundleDirSuffix;
       return this;
     }
 
@@ -69,6 +82,14 @@ final class Bundling {
       return this;
     }
 
+    private static NestedSet<Artifact> nestedBundleContentArtifacts(Iterable<Bundling> bundles) {
+      NestedSetBuilder<Artifact> artifacts = NestedSetBuilder.<Artifact>stableOrder();
+      for (Bundling bundle : bundles) {
+        artifacts.addTransitive(bundle.getBundleContentArtifacts());
+      }
+      return artifacts.build();
+    }
+
     public Bundling build() {
       Preconditions.checkNotNull(intermediateArtifacts, "intermediateArtifacts");
 
@@ -77,8 +98,15 @@ final class Bundling {
         actoolzipOutput = Optional.of(intermediateArtifacts.actoolzipOutput());
       }
 
+      Optional<Artifact> linkedBinary = Optional.absent();
+      if (!Iterables.isEmpty(objcProvider.get(LIBRARY))
+          || !Iterables.isEmpty(objcProvider.get(IMPORTED_LIBRARY))) {
+        linkedBinary = Optional.of(intermediateArtifacts.linkedBinary(bundleDirSuffix));
+      }
+
       NestedSet<Artifact> bundleContentArtifacts = NestedSetBuilder.<Artifact>stableOrder()
-          .add(linkedBinary)
+          .addTransitive(nestedBundleContentArtifacts(objcProvider.get(NESTED_BUNDLE)))
+          .addAll(linkedBinary.asSet())
           .addAll(infoplistMerging.getPlistWithEverything().asSet())
           .addAll(actoolzipOutput.asSet())
           .addAll(BundleableFile.toArtifacts(extraBundleFiles))
@@ -86,40 +114,59 @@ final class Bundling {
           .addAll(Xcdatamodel.outputZips(objcProvider.get(XCDATAMODEL)))
           .build();
 
-      return new Bundling(name, linkedBinary, extraBundleFiles, objcProvider,
+      return new Bundling(name, bundleDirSuffix, linkedBinary, extraBundleFiles, objcProvider,
           infoplistMerging, actoolzipOutput, bundleContentArtifacts);
     }
   }
 
   private final String name;
-  private final Artifact linkedBinary;
+  private final String bundleDirSuffix;
+  private final Optional<Artifact> linkedBinary;
   private final ImmutableList<BundleableFile> extraBundleFiles;
   private final ObjcProvider objcProvider;
   private final InfoplistMerging infoplistMerging;
   private final Optional<Artifact> actoolzipOutput;
   private final NestedSet<Artifact> bundleContentArtifacts;
 
-  private Bundling(String name, Artifact linkedBinary,
+  private Bundling(String name, String bundleDirSuffix, Optional<Artifact> linkedBinary,
       ImmutableList<BundleableFile> extraBundleFiles, ObjcProvider objcProvider,
       InfoplistMerging infoplistMerging, Optional<Artifact> actoolzipOutput,
       NestedSet<Artifact> bundleContentArtifacts) {
-    this.name = Preconditions.checkNotNull(name);
-    this.linkedBinary = Preconditions.checkNotNull(linkedBinary);
-    this.extraBundleFiles = Preconditions.checkNotNull(extraBundleFiles);
-    this.objcProvider = Preconditions.checkNotNull(objcProvider);
-    this.infoplistMerging = Preconditions.checkNotNull(infoplistMerging);
-    this.actoolzipOutput = Preconditions.checkNotNull(actoolzipOutput);
-    this.bundleContentArtifacts = Preconditions.checkNotNull(bundleContentArtifacts);
+    super(new ImmutableMap.Builder<String, Object>()
+        .put("name", name)
+        .put("bundleDirSuffix", bundleDirSuffix)
+        .put("linkedBinary", linkedBinary)
+        .put("extraBundleFiles", extraBundleFiles)
+        .put("objcProvider", objcProvider)
+        .put("infoplistMerging", infoplistMerging)
+        .put("actoolzipOutput", actoolzipOutput)
+        .put("bundleContentArtifacts", bundleContentArtifacts)
+        .build());
+    this.name = name;
+    this.bundleDirSuffix = bundleDirSuffix;
+    this.linkedBinary = linkedBinary;
+    this.extraBundleFiles = extraBundleFiles;
+    this.objcProvider = objcProvider;
+    this.infoplistMerging = infoplistMerging;
+    this.actoolzipOutput = actoolzipOutput;
+    this.bundleContentArtifacts = bundleContentArtifacts;
   }
 
   /**
-   * The bundle root. This is the directory in the bundle zip archive in which every file is found
-   * including the linked binary, nested bundles, and everything returned by
-   * {@link #getExtraBundleFiles()}. In an application bundle, for instance, this function returns
-   * {@code "Payload/(name).app"}.
+   * The bundle directory. For apps, {@code "Payload/" + bundleDir} is the directory in the bundle
+   * zip archive in which every file is found including the linked binary, nested bundles, and
+   * everything returned by {@link #getExtraBundleFiles()}. In an application bundle, for instance,
+   * this function returns {@code "(name).app"}.
    */
-  public String getBundleRoot() {
-    return String.format("Payload/%s.app", name);
+  public String getBundleDir() {
+    return name + bundleDirSuffix;
+  }
+
+  /**
+   * The suffix of the bundle directory, e.g. {@code .app} for an application bundle.
+   */
+  public String getBundleDirSuffix() {
+    return bundleDirSuffix;
   }
 
   /**
@@ -131,9 +178,10 @@ final class Bundling {
   }
 
   /**
-   * The artifact for the linked binary.
+   * An {@link Optional} with the linked binary artifact, or {@link Optional#absent()} if it is
+   * empty and should not be included in the bundle.
    */
-  public Artifact getLinkedBinary() {
+  public Optional<Artifact> getLinkedBinary() {
     return linkedBinary;
   }
 

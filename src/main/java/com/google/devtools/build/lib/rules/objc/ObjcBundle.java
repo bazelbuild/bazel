@@ -48,6 +48,7 @@ public class ObjcBundle implements RuleConfiguredTargetFactory {
         NestedSetBuilder.<Artifact>stableOrder()
             .add(ruleContext.getImplicitOutputArtifact(ObjcRuleClasses.PBXPROJ))
             .build(),
-        Optional.<XcodeProvider>absent());
+        Optional.<XcodeProvider>absent(),
+        Optional.of(common.getObjcProvider()));
   }
 }

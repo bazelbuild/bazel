@@ -16,11 +16,13 @@ package com.google.devtools.build.lib.skyframe;
 import com.google.common.base.Function;
 import com.google.common.base.Preconditions;
 import com.google.common.collect.ImmutableMap;
+import com.google.common.collect.ImmutableSet;
 import com.google.common.collect.Iterables;
 import com.google.devtools.build.lib.actions.Action;
 import com.google.devtools.build.lib.syntax.Label;
 import com.google.devtools.build.lib.view.ConfiguredTarget;
 import com.google.devtools.build.lib.view.TargetAndConfiguration;
+import com.google.devtools.build.lib.view.config.ConfigMatchingProvider;
 import com.google.devtools.build.skyframe.SkyFunction;
 import com.google.devtools.build.skyframe.SkyFunctionException;
 import com.google.devtools.build.skyframe.SkyKey;
@@ -70,7 +72,11 @@ public class PostConfiguredTargetFunction implements SkyFunction {
     TargetAndConfiguration ctgValue =
         new TargetAndConfiguration(ct.getTarget(), ct.getConfiguration());
 
-    env.getValues(Iterables.transform(resolver.dependentNodeMap(ctgValue).values(), TO_KEYS));
+    env.getValues(Iterables.transform(
+        // TODO(bazel-team): fill in proper ConfigMatchingProvider instances.
+        // See BuildView.getDirectPrerequisites for an example.
+        resolver.dependentNodeMap(ctgValue, ImmutableSet.<ConfigMatchingProvider>of()).values(),
+        TO_KEYS));
     if (env.valuesMissing()) {
       return null;
     }

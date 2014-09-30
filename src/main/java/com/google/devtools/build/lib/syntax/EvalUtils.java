@@ -151,13 +151,15 @@ public abstract class EvalUtils {
    * Returns a pretty name for the datatype equivalent of class 'c' in the Build language.
    */
   public static String getDataTypeNameFromClass(Class<?> c) {
-    if (c.equals(String.class)) {
+    if (c.equals(Object.class)) {
+      return "unknown";
+    } else if (c.equals(String.class)) {
       return "string";
     } else if (c.equals(Integer.class)) {
       return "int";
     } else if (c.equals(Boolean.class)) {
       return "bool";
-    } else if (c.equals(Environment.NoneType.class)) {
+    } else if (c.equals(Void.TYPE) || c.equals(Environment.NoneType.class)) {
       return "None";
     } else if (List.class.isAssignableFrom(c)) {
       return isTuple(c) ? "tuple" : "list";
@@ -169,8 +171,8 @@ public abstract class EvalUtils {
       return "function";
     } else if (c.equals(FilesetEntry.class)) {
       return "FilesetEntry";
-    } else if (NestedSet.class.isAssignableFrom(c)) {
-      return NestedSet.class.getSimpleName();
+    } else if (NestedSet.class.isAssignableFrom(c) || SkylarkNestedSet.class.isAssignableFrom(c)) {
+      return "set";
     } else if (SkylarkClassObject.class.isAssignableFrom(c)) {
       return "struct";
     } else if (SkylarkList.class.isAssignableFrom(c)) {

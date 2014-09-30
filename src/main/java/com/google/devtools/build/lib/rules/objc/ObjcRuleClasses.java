@@ -299,7 +299,8 @@ public class ObjcRuleClasses {
           <!-- #END_BLAZE_RULE.ATTRIBUTE -->*/
           .override(attr("deps", LABEL_LIST)
               .direct_compile_time_input()
-              .allowedRuleClasses("objc_library", "objc_import", "objc_bundle", "objc_framework")
+              .allowedRuleClasses("objc_library", "objc_import", "objc_bundle", "objc_framework",
+                  "objc_bundle_library")
               .allowedFileTypes())
           /* <!-- #BLAZE_RULE($objc_base_rule).ATTRIBUTE(hdrs) -->
           The list of Objective-C files that are included as headers by source

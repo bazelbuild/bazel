@@ -70,7 +70,10 @@ import javax.annotation.Nullable;
 /**
  * A Skylark API for the ruleContext.
  */
-@SkylarkModule(name = "ctx", doc = "The Skylark rule context.")
+@SkylarkModule(name = "ctx", doc = "The context of the rule containing helper functions and "
+    + "information about attributes, depending targets and outputs. "
+    + "You get a ctx object as an argument to the <code>implementation</code> function when "
+    + "you create a rule.")
 public final class SkylarkRuleContext {
 
   public static final String PROVIDER_CLASS_PREFIX = "com.google.devtools.build.lib.view.";
@@ -246,7 +249,7 @@ public final class SkylarkRuleContext {
   }
 
   @SkylarkCallable(name = "attr", structField = true,
-      doc = "a struct to access the values of the attributes. The values are provided by "
+      doc = "A struct to access the values of the attributes. The values are provided by "
       + "the user (if not, a default value is used).")
   public SkylarkClassObject getAttr() {
     return attrObject;
@@ -257,7 +260,7 @@ public final class SkylarkRuleContext {
    */
   @SkylarkCallable(name = "executable", structField = true,
       doc = "Return the executable file corresponding to the attribute. "
-      + "Requires executable=True.")
+      + "Requires <code>executable=True</code>.")
   public SkylarkClassObject getExecutable() {
     return executableObject;
   }
@@ -267,7 +270,7 @@ public final class SkylarkRuleContext {
    */
   @SkylarkCallable(name = "file", structField = true,
       doc = "Returns the file for the specified attribute, or None if the label is not specified. "
-      + "Requires single_file=True.")
+      + "Requires <code>single_file=True</code>.")
   public SkylarkClassObject getFile() {
     return fileObject;
   }
@@ -289,12 +292,12 @@ public final class SkylarkRuleContext {
     return targetsObject;
   }
 
-  @SkylarkCallable(name = "action_owner", structField = true, doc = "Deprecated, to be removed")
+  @SkylarkCallable(name = "action_owner", structField = true, doc = "Deprecated, to be removed.")
   public ActionOwner getActionOwner() {
     return ruleContext.getActionOwner();
   }
 
-  @SkylarkCallable(name = "label", structField = true, doc = "The label of this rule")
+  @SkylarkCallable(name = "label", structField = true, doc = "The label of this rule.")
   public Label getLabel() {
     return ruleContext.getLabel();
   }
@@ -315,13 +318,16 @@ public final class SkylarkRuleContext {
   }
 
   @SkylarkCallable(doc =
-      "Signals a rule error with the given message. This function does not return.")
+      "Signals a rule error with the given message. This function does not return "
+      + "(execution stops).")
   public void error(String message) throws FuncallException {
     throw new FuncallException(message);
   }
 
   @SkylarkCallable(doc =
-      "Signals an attribute error with the given attribute and message.")
+      "Signals an attribute error with the given attribute and message. "
+      + "This function does not return (execution stops). Example:<br>"
+      + "<pre class=code>ctx.error(\"srcs\", \"Expected exactly two source files.\")</pre>")
   public void error(String attrName, String message) throws FuncallException {
     throw new FuncallException("attribute " + attrName + ": " + message);
   }
@@ -386,7 +392,10 @@ public final class SkylarkRuleContext {
     }
   }
 
-  @SkylarkCallable(doc = "Creates a new file")
+  @SkylarkCallable(doc =
+      "Creates a temporary file. You must create an action that generates "
+      + "the file. If the file should be publicly visible, declare a rule "
+      + "output instead.")
   public Artifact newFile(Root root, List<String> pathFragmentStrings) {
     PathFragment fragment = ruleContext.getLabel().getPackageFragment();
     for (String pathFragmentString : pathFragmentStrings) {
@@ -396,7 +405,10 @@ public final class SkylarkRuleContext {
   }
 
   @SkylarkCallable(doc =
-      "Creates a new file, derived from the given file and suffix.")
+      "Creates a new file, derived from the given file and suffix. "
+      + "You must create an action that generates "
+      + "the file. If the file should be publicly visible, declare a rule "
+      + "output instead.")
   public Artifact newFile(Root root, Artifact baseArtifact, String suffix) {
     PathFragment original = baseArtifact.getRootRelativePath();
     PathFragment fragment = original.replaceName(original.getBaseName() + suffix);

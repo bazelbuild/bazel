@@ -10,7 +10,7 @@ cp -f bazel-genfiles/src/bazel $BOOTSTRAP
 chmod +x $BOOTSTRAP
 
 $BOOTSTRAP clean
-$BOOTSTRAP build //src:bazel
+$BOOTSTRAP build //src:bazel //src:tests
 
 bazel-genfiles/src/bazel >/dev/null  # check that execution succeeds
 

@@ -24,10 +24,8 @@ import static com.google.devtools.build.lib.packages.Type.LABEL_LIST;
 import static com.google.devtools.build.lib.packages.Type.NODEP_LABEL_LIST;
 import static com.google.devtools.build.lib.packages.Type.STRING;
 import static com.google.devtools.build.lib.packages.Type.STRING_LIST;
-import static com.google.devtools.build.lib.syntax.SkylarkFunction.castList;
 
 import com.google.common.annotations.VisibleForTesting;
-import com.google.common.base.Predicate;
 import com.google.common.cache.CacheBuilder;
 import com.google.common.cache.CacheLoader;
 import com.google.common.cache.LoadingCache;
@@ -59,6 +57,7 @@ import com.google.devtools.build.lib.syntax.Environment.NoSuchVariableException;
 import com.google.devtools.build.lib.syntax.EvalException;
 import com.google.devtools.build.lib.syntax.EvalUtils;
 import com.google.devtools.build.lib.syntax.FuncallExpression;
+import com.google.devtools.build.lib.syntax.Function;
 import com.google.devtools.build.lib.syntax.Label;
 import com.google.devtools.build.lib.syntax.SkylarkBuiltin;
 import com.google.devtools.build.lib.syntax.SkylarkBuiltin.Param;
@@ -66,7 +65,6 @@ import com.google.devtools.build.lib.syntax.SkylarkCallbackFunction;
 import com.google.devtools.build.lib.syntax.SkylarkEnvironment;
 import com.google.devtools.build.lib.syntax.SkylarkFunction;
 import com.google.devtools.build.lib.syntax.SkylarkFunction.SimpleSkylarkFunction;
-import com.google.devtools.build.lib.syntax.SkylarkList;
 import com.google.devtools.build.lib.syntax.UserDefinedFunction;
 import com.google.devtools.build.lib.view.config.BuildConfiguration;
 import com.google.devtools.build.lib.view.config.RunUnder;
@@ -79,14 +77,6 @@ import java.util.Map;
  * This is experimental code.
  */
 public class SkylarkRuleClassFunctions {
-
-  @SkylarkBuiltin(name = "ANY_RULE",
-      doc = "A rule class filter allowing any kind of rule class.")
-  private static final Predicate<RuleClass> ANY_RULE = Attribute.ANY_RULE;
-
-  @SkylarkBuiltin(name = "NO_RULE",
-      doc = "A rule class filter allowing no rule class at all.")
-  private static final Predicate<RuleClass> NO_RULE = Attribute.NO_RULE;
 
   //TODO(bazel-team): proper enum support
   @SkylarkBuiltin(name = "DATA_CFG", doc = "The default runfiles collection state.")
@@ -188,24 +178,34 @@ public class SkylarkRuleClassFunctions {
 
   // TODO(bazel-team): implement attribute copy and other rule properties
 
-  @SkylarkBuiltin(name = "rule", doc = "Creates a rule class.", onlyLoadingPhase = true,
-      returnType = Rule.class,
+  @SkylarkBuiltin(name = "rule", doc =
+      "Creates a new rule. Store it in a global value, so that it can be loaded and called "
+      + "from BUILD files.",
+      onlyLoadingPhase = true,
+      returnType = Function.class,
       mandatoryParams = {
       @Param(name = "implementation", type = UserDefinedFunction.class,
-          doc = "the function implementing this rule, has to have exactly one parameter: 'ctx'")},
+          doc = "the function implementing this rule, has to have exactly one parameter: "
+             + "<code>ctx</code>. The function is called during analysis phase for each "
+             + "instance of the rule. It can access the attributes provided by the user. "
+             + "It must create actions to generate all the declared outputs.")
+      },
       optionalParams = {
-      @Param(name = "test", type = Boolean.class, doc = "Whether this rule is a test rule."),
-      @Param(name = "parents", type = SkylarkList.class,
-          doc = "list of parent rule classes, this rule class inherits all the attributes and "
-              + "the impicit outputs of the parent rule classes"),
-      @Param(name = "attr", doc = "dictionary mapping an attribute name to an attribute"),
+      @Param(name = "test", type = Boolean.class, doc = "Whether this rule is a test rule. "
+             + "If True, the rule must end with <code>_test</code> (otherwise it cannot)."),
+      @Param(name = "attr", doc =
+          "dictionary to declare all the attributes of the rule. It maps from an attribute name "
+          + "to an attribute object (see 'attr' module). Attributes starting with <code>_</code> "
+          + "are private, and can be used to add an implicit dependency on a label."),
       @Param(name = "outputs", doc = "outputs of this rule. "
           + "It is a dictionary mapping from string to a template name. For example: "
-          + "{\"ext\": \"${name}.ext\"}<br>"
-          + "It may also be a function (which receives ctx.attr as argument) returning "
-          + "such a dictionary."),
+          + "<code>{\"ext\": \"${name}.ext\"}</code>. <br>"
+          // TODO(bazel-team): Make doc more clear, wrt late-bound attributes.
+          + "It may also be a function (which receives <code>ctx.attr</code> as argument) "
+          + "returning such a dictionary."),
       @Param(name = "executable", type = Boolean.class,
-          doc = "whether this rule always outputs an executable of the same name or not")})
+          doc = "whether this rule always outputs an executable of the same name or not. If True, "
+          + "there must be an action that generates <code>ctx.outputs.executable</code>.")})
   private static final SkylarkFunction rule = new SkylarkFunction("rule") {
 
         @Override
@@ -293,7 +293,9 @@ public class SkylarkRuleClassFunctions {
     }
   }
 
-  @SkylarkBuiltin(name = "label", doc = "Creates a label referring to a BUILD target.",
+  @SkylarkBuiltin(name = "label", doc = "Creates a label referring to a BUILD target. Use "
+      + "this function only when you want to give a default value for the label attributes. "
+      + "Example: <br><pre class=code>label(\"//tools:default\")</pre>",
       returnType = Label.class,
       mandatoryParams = {@Param(name = "label", type = String.class, doc = "the label string")})
   private static final SkylarkFunction label = new SimpleSkylarkFunction("label") {
@@ -305,7 +307,8 @@ public class SkylarkRuleClassFunctions {
       };
 
   @SkylarkBuiltin(name = "filetype",
-      doc = "Creates a file filter from a list of strings, e.g. filetype([\".cc\", \".cpp\"])",
+      doc = "Creates a file filter from a list of strings. For example, to match files ending "
+      + "with .cc or .cpp, use: <pre class=code>filetype([\".cc\", \".cpp\"])</pre>",
       returnType = SkylarkFileType.class,
       mandatoryParams = {
       @Param(name = "types", doc = "a list of the accepted file extensions")})

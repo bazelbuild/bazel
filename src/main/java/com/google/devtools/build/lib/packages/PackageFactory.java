@@ -44,7 +44,7 @@ import com.google.devtools.build.lib.syntax.Ident;
 import com.google.devtools.build.lib.syntax.Label;
 import com.google.devtools.build.lib.syntax.MixedModeFunction;
 import com.google.devtools.build.lib.syntax.ParserInputSource;
-import com.google.devtools.build.lib.syntax.PositionalFunction;
+import com.google.devtools.build.lib.syntax.PositionalFunction.SimplePositionalFunction;
 import com.google.devtools.build.lib.syntax.SkylarkEnvironment;
 import com.google.devtools.build.lib.syntax.Statement;
 import com.google.devtools.build.lib.vfs.Path;
@@ -375,9 +375,10 @@ public final class PackageFactory {
    * preprocessing.)
    */
   private static Function newMockSubincludeFunction(final PackageContext context) {
-    return new PositionalFunction("mocksubinclude", 2, 2) {
+    return new SimplePositionalFunction("mocksubinclude", 2, 2) {
         @Override
-        public Object call(List<Object> args, FuncallExpression ast) throws ConversionException {
+        public Object call(List<Object> args, FuncallExpression ast)
+            throws ConversionException {
           Label label = Type.LABEL.convert(args.get(0), "'mocksubinclude' argument",
                                            context.pkgBuilder.getBuildFileLabel());
           String pathString = Type.STRING.convert(args.get(1), "'mocksubinclude' argument");
@@ -404,7 +405,7 @@ public final class PackageFactory {
    * They will disappear after the Python preprocessing.
    */
   private static Function newSubincludeFunction() {
-    return new PositionalFunction("subinclude", 1, 1) {
+    return new SimplePositionalFunction("subinclude", 1, 1) {
         @Override
         public Object call(List<Object> args, FuncallExpression ast) {
           return 0;
@@ -478,7 +479,7 @@ public final class PackageFactory {
    * context.
    */
   private static Function newLicensesFunction(final PackageContext context) {
-    return new PositionalFunction("licenses", 1, 1) {
+    return new SimplePositionalFunction("licenses", 1, 1) {
         @Override
         public Object call(List<Object> args, FuncallExpression ast) {
           try {
@@ -498,7 +499,7 @@ public final class PackageFactory {
    * context.
    */
   private static Function newDistribsFunction(final PackageContext context) {
-    return new PositionalFunction("distribs", 1, 1) {
+    return new SimplePositionalFunction("distribs", 1, 1) {
         @Override
         public Object call(List<Object> args, FuncallExpression ast) {
           try {

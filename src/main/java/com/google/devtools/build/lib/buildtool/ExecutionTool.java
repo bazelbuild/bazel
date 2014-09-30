@@ -469,7 +469,9 @@ public class ExecutionTool {
       if (request.isRunningInEmacs()) {
         request.getOutErr().printErrLn("blaze: Leaving directory `" + getExecRoot() + "/'");
       }
-      getReporter().handle(Event.progress("Building complete."));
+      if (!interrupted) {
+        getReporter().handle(Event.progress("Building complete."));
+      }
 
       // Transfer over source file "last save time" stats so the remote logger can find them.
       runtime.getEventBus().post(

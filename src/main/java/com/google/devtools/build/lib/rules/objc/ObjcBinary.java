@@ -14,20 +14,10 @@
 
 package com.google.devtools.build.lib.rules.objc;
 
-import static com.google.devtools.build.lib.rules.objc.ObjcActionsBuilder.CLANG;
-import static com.google.devtools.build.lib.rules.objc.ObjcActionsBuilder.CLANG_PLUSPLUS;
-import static com.google.devtools.build.lib.rules.objc.ObjcProvider.FRAMEWORK_DIR;
-import static com.google.devtools.build.lib.rules.objc.ObjcProvider.FRAMEWORK_FILE;
-import static com.google.devtools.build.lib.rules.objc.ObjcProvider.Flag.USES_CPP;
-import static com.google.devtools.build.lib.rules.objc.ObjcProvider.IMPORTED_LIBRARY;
-import static com.google.devtools.build.lib.rules.objc.ObjcProvider.LIBRARY;
-import static com.google.devtools.build.lib.rules.objc.ObjcProvider.SDK_DYLIB;
-import static com.google.devtools.build.lib.rules.objc.ObjcProvider.SDK_FRAMEWORK;
 import static com.google.devtools.build.lib.rules.objc.ObjcProvider.XCASSETS_DIR;
 
 import com.google.common.annotations.VisibleForTesting;
 import com.google.common.base.Optional;
-import com.google.common.base.Preconditions;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.ImmutableSet;
@@ -36,12 +26,13 @@ import com.google.devtools.build.lib.actions.Artifact;
 import com.google.devtools.build.lib.collect.nestedset.NestedSetBuilder;
 import com.google.devtools.build.lib.packages.Type;
 import com.google.devtools.build.lib.rules.RuleConfiguredTargetFactory;
+import com.google.devtools.build.lib.rules.objc.ObjcActionsBuilder.ExtraActoolArgs;
+import com.google.devtools.build.lib.rules.objc.ObjcActionsBuilder.ExtraLinkArgs;
 import com.google.devtools.build.lib.shell.ShellUtils;
 import com.google.devtools.build.lib.vfs.PathFragment;
 import com.google.devtools.build.lib.view.ConfiguredTarget;
 import com.google.devtools.build.lib.view.RuleConfiguredTarget.Mode;
 import com.google.devtools.build.lib.view.RuleContext;
-import com.google.devtools.build.lib.view.actions.CommandLine;
 import com.google.devtools.build.lib.view.actions.SpawnAction;
 import com.google.devtools.build.xcode.common.Platform;
 import com.google.devtools.build.xcode.util.Interspersing;
@@ -49,8 +40,6 @@ import com.google.devtools.build.xcode.xcodegen.proto.XcodeGenProtos.DependencyC
 import com.google.devtools.build.xcode.xcodegen.proto.XcodeGenProtos.TargetControl;
 import com.google.devtools.build.xcode.xcodegen.proto.XcodeGenProtos.XcodeprojBuildSetting;
 
-import java.util.ArrayList;
-import java.util.List;
 import java.util.Map;
 
 /**
@@ -100,15 +89,13 @@ public class ObjcBinary implements RuleConfiguredTargetFactory {
     return result.build();
   }
 
-  static void checkAttributes(RuleContext ruleContext, ObjcCommon info,
-      InfoplistMerging infoplistMerging) {
-    if (infoplistMerging.getInputPlists().isEmpty()) {
+  static void checkAttributes(RuleContext ruleContext, ObjcCommon common, Bundling bundling) {
+    if (bundling.getInfoplistMerging().getInputPlists().isEmpty()) {
       ruleContext.ruleError(NO_INFOPLIST_ERROR);
     }
 
-    info.reportErrors();
-    ObjcProvider objcProvider = info.getObjcProvider();
-    if (objcProvider.get(LIBRARY).isEmpty() && objcProvider.get(IMPORTED_LIBRARY).isEmpty()) {
+    common.reportErrors();
+    if (!bundling.getLinkedBinary().isPresent()) {
       ruleContext.ruleError(REQUIRES_AT_LEAST_ONE_LIBRARY_OR_SOURCE_FILE);
     }
 
@@ -116,7 +103,7 @@ public class ObjcBinary implements RuleConfiguredTargetFactory {
     // launch_image attributes, since they must not exist. However, we don't
     // run actool in this case, which means it does not do validity checks,
     // and we MUST raise our own error somehow...
-    if (info.getObjcProvider().get(XCASSETS_DIR).isEmpty()) {
+    if (common.getObjcProvider().get(XCASSETS_DIR).isEmpty()) {
       for (String appIcon : ObjcBinaryRule.appIcon(ruleContext).asSet()) {
         ruleContext.attributeError("app_icon",
             String.format(NO_ASSET_CATALOG_ERROR_FORMAT, appIcon));
@@ -168,98 +155,23 @@ public class ObjcBinary implements RuleConfiguredTargetFactory {
     return files.build();
   }
 
-  private static final String FRAMEWORK_SUFFIX = ".framework";
-
-  /**
-   * All framework names to pass to the linker using {@code -framework} flags. For a framework in
-   * the directory foo/bar.framework, the name is "bar". Each framework is found without using the
-   * full path by means of the framework search paths. The search paths are added by
-   * {@link IosSdkCommands#commonLinkAndCompileArgsForClang(ObjcProvider, ObjcConfiguration)}).
-   *
-   * <p>It's awful that we can't pass the full path to the framework and avoid framework search
-   * paths, but this is imposed on us by clang. clang does not support passing the full path to the
-   * framework, so Bazel cannot do it either.
-   */
-  private static Iterable<String> frameworkNames(ObjcProvider provider) {
-    List<String> names = new ArrayList<>();
-    Iterables.addAll(names, SdkFramework.names(provider.get(SDK_FRAMEWORK)));
-    for (PathFragment frameworkDir : provider.get(FRAMEWORK_DIR)) {
-      String segment = frameworkDir.getBaseName();
-      Preconditions.checkState(segment.endsWith(FRAMEWORK_SUFFIX),
-          "expect %s to end with %s, but it does not", segment, FRAMEWORK_SUFFIX);
-      names.add(segment.substring(0, segment.length() - FRAMEWORK_SUFFIX.length()));
-    }
-    return names;
-  }
-
-  static final class LinkCommandLine extends CommandLine {
-    private final ObjcProvider objcProvider;
-    private final ObjcConfiguration objcConfiguration;
-    private final Artifact binaryOutput;
-    private final Iterable<String> extraLinkArgs;
-
-    LinkCommandLine(ObjcConfiguration objcConfiguration, Iterable<String> extraLinkArgs,
-        Bundling bundling) {
-      this.objcConfiguration = objcConfiguration;
-      this.objcProvider = bundling.getObjcProvider();
-      this.binaryOutput = bundling.getLinkedBinary();
-      this.extraLinkArgs = extraLinkArgs;
-    }
-
-    Iterable<String> dylibPaths() {
-      ImmutableList.Builder<String> args = new ImmutableList.Builder<>();
-      for (String dylib : objcProvider.get(SDK_DYLIB)) {
-        args.add(String.format(
-            "%s/usr/lib/%s.dylib", IosSdkCommands.sdkDir(objcConfiguration), dylib));
-      }
-      return args.build();
-    }
-
-    @Override
-    public Iterable<String> arguments() {
-      return new ImmutableList.Builder<String>()
-          .addAll(objcProvider.is(USES_CPP)
-              ? ImmutableList.of("-stdlib=libc++") : ImmutableList.<String>of())
-          .addAll(IosSdkCommands.commonLinkAndCompileArgsForClang(objcProvider, objcConfiguration))
-          .add("-Xlinker", "-objc_abi_version")
-          .add("-Xlinker", "2")
-          .add("-fobjc-link-runtime")
-          .add("-ObjC")
-          .addAll(Interspersing.beforeEach("-framework", frameworkNames(objcProvider)))
-          .add("-o", binaryOutput.getExecPathString())
-          .addAll(Artifact.toExecPaths(objcProvider.get(LIBRARY)))
-          .addAll(Artifact.toExecPaths(objcProvider.get(IMPORTED_LIBRARY)))
-          .addAll(dylibPaths())
-          .addAll(extraLinkArgs)
-          .build();
-    }
-  }
-
   static void registerActions(RuleContext ruleContext, ObjcCommon common,
-      XcodeProvider xcodeProvider, Iterable<String> extraLinkArgs,
+      XcodeProvider xcodeProvider, ExtraLinkArgs extraLinkArgs,
       OptionsProvider optionsProvider, Bundling bundling) {
     ObjcConfiguration objcConfiguration = ObjcActionsBuilder.objcConfiguration(ruleContext);
     ObjcProvider objcProvider = common.getObjcProvider();
-    InfoplistMerging infoplistMerging = bundling.getInfoplistMerging();
 
-    ruleContext.getAnalysisEnvironment().registerAction(new SpawnAction.Builder(ruleContext)
-        .setMnemonic("Link")
-        .setExecutable(objcProvider.is(USES_CPP) ? CLANG_PLUSPLUS : CLANG)
-        .setCommandLine(new LinkCommandLine(objcConfiguration, extraLinkArgs, bundling))
-        .addOutput(bundling.getLinkedBinary())
-        .addTransitiveInputs(objcProvider.get(LIBRARY))
-        .addTransitiveInputs(objcProvider.get(IMPORTED_LIBRARY))
-        .addTransitiveInputs(objcProvider.get(FRAMEWORK_FILE))
-        .setExecutionInfo(ImmutableMap.of(ExecutionRequirements.REQUIRES_DARWIN, ""))
-        .build());
+    ExtraActoolArgs extraActoolArgs = new ExtraActoolArgs(
+        Iterables.concat(
+            Interspersing.beforeEach(
+                "--app-icon", ObjcBinaryRule.appIcon(ruleContext).asSet()),
+            Interspersing.beforeEach(
+                "--launch-image", ObjcBinaryRule.launchImage(ruleContext).asSet())));
 
-    for (Artifact actoolzipOutput : bundling.getActoolzipOutput().asSet()) {
-      ruleContext.registerAction(
-          ObjcActionsBuilder.actoolzipAction(ruleContext, objcProvider, actoolzipOutput));
-    }
+    ObjcBundleLibrary.registerActions(ruleContext, bundling, common, xcodeProvider, optionsProvider,
+        extraLinkArgs, extraActoolArgs);
 
     Artifact ipaOutput = ruleContext.getImplicitOutputArtifact(ObjcBinaryRule.IPA);
-    ObjcActionsBuilder.registerAll(ruleContext, infoplistMerging.getMergeAction().asSet());
 
     Optional<Artifact> entitlements = Optional.fromNullable(
         ruleContext.getPrerequisiteArtifact("entitlements", Mode.TARGET));
@@ -357,12 +269,6 @@ public class ObjcBinary implements RuleConfiguredTargetFactory {
         .addTransitiveInputs(bundling.getBundleContentArtifacts())
         .addOutput(ipaUnsigned)
         .build());
-
-    ObjcActionsBuilder.registerAll(
-        ruleContext,
-        ObjcActionsBuilder.baseActions(
-            ruleContext, common.getCompilationArtifacts(), objcProvider, xcodeProvider,
-            optionsProvider));
   }
 
   private static String codesignCommand(
@@ -424,25 +330,26 @@ public class ObjcBinary implements RuleConfiguredTargetFactory {
 
     Bundling bundling = new Bundling.Builder()
         .setName(ruleContext.getLabel().getName())
-        .setLinkedBinary(ruleContext.getImplicitOutputArtifact(ObjcBinaryRule.BINARY))
+        .setBundleDirSuffix(".app")
         .setExtraBundleFiles(extraBundleFiles(ruleContext))
         .setObjcProvider(common.getObjcProvider())
         .setInfoplistMerging(infoplistMerging)
         .setIntermediateArtifacts(intermediateArtifacts)
         .build();
 
-    checkAttributes(ruleContext, common, infoplistMerging);
+    checkAttributes(ruleContext, common, bundling);
     XcodeProvider xcodeProvider =
         xcodeProvider(ruleContext, common, infoplistMerging, optionsProvider);
 
-    registerActions(ruleContext, common, xcodeProvider,
-        /*extraLinkArgs=*/ImmutableList.<String>of(), optionsProvider, bundling);
+    registerActions(
+        ruleContext, common, xcodeProvider, new ExtraLinkArgs(), optionsProvider, bundling);
 
     return common.configuredTarget(
         NestedSetBuilder.<Artifact>stableOrder()
             .add(ruleContext.getImplicitOutputArtifact(ObjcBinaryRule.IPA))
             .add(ruleContext.getImplicitOutputArtifact(ObjcRuleClasses.PBXPROJ))
             .build(),
-        Optional.of(xcodeProvider));
+        Optional.of(xcodeProvider),
+        Optional.<ObjcProvider>absent());
   }
 }

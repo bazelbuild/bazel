@@ -95,6 +95,11 @@ final class ObjcProvider implements TransitiveInfoProvider {
   public static final Key<Artifact> FRAMEWORK_FILE = new Key<>(STABLE_ORDER);
 
   /**
+   * Bundles which should be linked in as a nested bundle to the final application.
+   */
+  public static final Key<Bundling> NESTED_BUNDLE = new Key<>(STABLE_ORDER);
+
+  /**
    * Flags that apply to a transitive build dependency tree. Each item in the enum corresponds to a
    * flag. If the item is included in the key {@link #FLAG}, then the flag is considered set.
    */
@@ -167,6 +172,11 @@ final class ObjcProvider implements TransitiveInfoProvider {
       for (ObjcProvider provider : providers) {
         addTransitive(provider);
       }
+      return this;
+    }
+
+    public <E> Builder addTransitive(Key<E> key, NestedSet<E> items) {
+      uncheckedAddTransitive(key, items);
       return this;
     }
 

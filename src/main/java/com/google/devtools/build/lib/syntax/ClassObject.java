@@ -40,6 +40,11 @@ public interface ClassObject {
   Object getValue(String name);
 
   /**
+   * Returns the fields of this struct.
+   */
+  ImmutableCollection<String> getKeys();
+
+  /**
    * An implementation class of ClassObject for structs created in Skylark code.
    */
   @Immutable
@@ -63,6 +68,7 @@ public interface ClassObject {
       return values.get(name);
     }
 
+    @Override
     public ImmutableCollection<String> getKeys() {
       return values.keySet();
     }

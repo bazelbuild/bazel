@@ -17,6 +17,7 @@ package com.google.devtools.build.lib.rules.objc;
 import static com.google.devtools.build.lib.rules.objc.IosSdkCommands.MINIMUM_OS_VERSION;
 import static com.google.devtools.build.lib.rules.objc.IosSdkCommands.TARGET_DEVICE_FAMILIES;
 import static com.google.devtools.build.lib.rules.objc.ObjcProvider.BUNDLE_FILE;
+import static com.google.devtools.build.lib.rules.objc.ObjcProvider.NESTED_BUNDLE;
 import static com.google.devtools.build.lib.rules.objc.ObjcProvider.XCDATAMODEL;
 
 import com.google.common.base.Preconditions;
@@ -50,24 +51,30 @@ import java.util.Map;
  * {@link Action} subclass in core which accepts something that generates a byte array.
  */
 public class WriteMergeBundleControlFileAction extends AbstractFileWriteAction {
-  private final Bundling bundling;
+  private final Bundling rootBundling;
   private final Artifact mergedIpa;
   private final ObjcConfiguration objcConfiguration;
   private final Map<String, String> variableSubstitutions;
 
-  public WriteMergeBundleControlFileAction(ActionOwner actionOwner, Bundling bundling,
+  public WriteMergeBundleControlFileAction(ActionOwner actionOwner, Bundling rootBundling,
       Artifact mergedIpa, Artifact controlFile, ObjcConfiguration objcConfiguration,
       Map<String, String> variableSubstitutions) {
     super(actionOwner, /*inputs=*/ImmutableList.<Artifact>of(), controlFile,
         /*makeExecutable=*/false);
-    this.bundling = Preconditions.checkNotNull(bundling);
+    this.rootBundling = Preconditions.checkNotNull(rootBundling);
     this.mergedIpa = Preconditions.checkNotNull(mergedIpa);
     this.objcConfiguration = Preconditions.checkNotNull(objcConfiguration);
     this.variableSubstitutions = Preconditions.checkNotNull(variableSubstitutions);
   }
 
   public Control control() {
+    return control("Payload/", "Payload/", rootBundling);
+  }
+
+  private Control control(String mergeZipPrefix, String bundleDirPrefix, Bundling bundling) {
     ObjcProvider objcProvider = bundling.getObjcProvider();
+    String bundleDir = bundleDirPrefix + bundling.getBundleDir();
+    mergeZipPrefix += bundling.getBundleDir() + "/";
 
     BundleMergeProtos.Control.Builder control = BundleMergeProtos.Control.newBuilder()
         .addAllBundleFile(BundleableFile.toBundleFiles(bundling.getExtraBundleFiles()))
@@ -79,18 +86,18 @@ public class WriteMergeBundleControlFileAction extends AbstractFileWriteAction {
         .setMinimumOsVersion(MINIMUM_OS_VERSION)
         .setSdkVersion(objcConfiguration.getIosSdkVersion())
         .setPlatform(objcConfiguration.getPlatform().name())
-        .setBundleRoot(bundling.getBundleRoot());
+        .setBundleRoot(bundleDir);
 
     for (Artifact actoolzipOutput : bundling.getActoolzipOutput().asSet()) {
       control.addMergeZip(MergeZip.newBuilder()
-          .setEntryNamePrefix(bundling.getBundleRoot() + "/")
+          .setEntryNamePrefix(mergeZipPrefix)
           .setSourcePath(actoolzipOutput.getExecPathString())
           .build());
     }
 
     for (Xcdatamodel datamodel : objcProvider.get(XCDATAMODEL)) {
       control.addMergeZip(MergeZip.newBuilder()
-          .setEntryNamePrefix(bundling.getBundleRoot() + "/")
+          .setEntryNamePrefix(mergeZipPrefix)
           .setSourcePath(datamodel.getOutputZip().getExecPathString())
           .build());
     }
@@ -98,6 +105,7 @@ public class WriteMergeBundleControlFileAction extends AbstractFileWriteAction {
       control.addTargetDeviceFamily(targetDeviceFamily.name());
     }
 
+    // TODO(bazel-team): Should we use different variable substitutions for nested bundles?
     for (String variable : variableSubstitutions.keySet()) {
       control.addVariableSubstitution(VariableSubstitution.newBuilder()
           .setName(variable)
@@ -107,10 +115,16 @@ public class WriteMergeBundleControlFileAction extends AbstractFileWriteAction {
 
     control.setOutFile(mergedIpa.getExecPathString());
 
-    control.addBundleFile(BundleMergeProtos.BundleFile.newBuilder()
-        .setSourceFile(bundling.getLinkedBinary().getExecPathString())
-        .setBundlePath(bundling.getName())
-        .build());
+    for (Artifact linkedBinary : bundling.getLinkedBinary().asSet()) {
+      control.addBundleFile(BundleMergeProtos.BundleFile.newBuilder()
+          .setSourceFile(linkedBinary.getExecPathString())
+          .setBundlePath(bundling.getName())
+          .build());
+    }
+
+    for (Bundling nestedBundling : bundling.getObjcProvider().get(NESTED_BUNDLE)) {
+      control.addNestedBundle(control(mergeZipPrefix, "", nestedBundling));
+    }
 
     return control.build();
   }

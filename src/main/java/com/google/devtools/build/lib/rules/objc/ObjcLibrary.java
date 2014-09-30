@@ -70,6 +70,7 @@ public class ObjcLibrary implements RuleConfiguredTargetFactory {
             .addAll(compilationArtifacts.getArchive().asSet())
             .add(ruleContext.getImplicitOutputArtifact(ObjcRuleClasses.PBXPROJ))
             .build(),
-        Optional.of(xcodeProvider));
+        Optional.of(xcodeProvider),
+        Optional.of(common.getObjcProvider()));
   }
 }

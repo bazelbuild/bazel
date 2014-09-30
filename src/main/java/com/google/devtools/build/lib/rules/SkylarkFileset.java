@@ -22,6 +22,7 @@ import com.google.devtools.build.lib.syntax.SkylarkBuiltin;
 import com.google.devtools.build.lib.syntax.SkylarkBuiltin.Param;
 import com.google.devtools.build.lib.syntax.SkylarkFunction;
 import com.google.devtools.build.lib.syntax.SkylarkFunction.SimpleSkylarkFunction;
+import com.google.devtools.build.lib.syntax.SkylarkList;
 import com.google.devtools.build.lib.syntax.SkylarkModule;
 import com.google.devtools.build.lib.vfs.FileSystemUtils;
 import com.google.devtools.build.lib.vfs.PathFragment;
@@ -35,11 +36,14 @@ import java.util.Map;
     doc = "A helper class to extract path from files.")
 public final class SkylarkFileset {
 
-  @SkylarkBuiltin(name = "join_exec_paths", objectType = SkylarkFileset.class,
+  @SkylarkBuiltin(name = "join_exec_paths",
+      objectType = SkylarkFileset.class, returnType = String.class,
       doc = "Returns the joint execution paths of these files using the delimiter.",
       mandatoryParams = {
-      @Param(name = "delimiter", type = String.class, doc = ""),
-      @Param(name = "files", doc = "")})
+      @Param(name = "delimiter", type = String.class,
+          doc = "The delimiter string to join the files on."),
+      @Param(name = "files", type = SkylarkList.class,
+          doc = "The list of files to join.")})
   private static SkylarkFunction joinExecPaths = new SimpleSkylarkFunction("join_exec_paths") {
 
     @Override
@@ -51,12 +55,15 @@ public final class SkylarkFileset {
     }
   };
 
-  @SkylarkBuiltin(name = "work_dir", objectType = SkylarkFileset.class,
-      doc = "Returns a working directory for the file using suffix for the directory name.",
+  @SkylarkBuiltin(name = "work_dir",
+      objectType = SkylarkFileset.class, returnType = String.class,
+      doc = "Returns a working directory path for the file using suffix for the directory name.",
       mandatoryParams = {
-      @Param(name = "root", type = Root.class, doc = ""),
-      @Param(name = "file", type = Artifact.class, doc = ""),
-      @Param(name = "suffix", type = String.class, doc = "")})
+      @Param(name = "root", type = Root.class, doc = "The root of the work dir."),
+      @Param(name = "file", type = Artifact.class,
+          doc = "The file whose name is used to create the work dir."),
+      @Param(name = "suffix", type = String.class,
+          doc = "The suffix to be used instead of the extension of the file.")})
   private static SkylarkFunction workDir = new SimpleSkylarkFunction("work_dir") {
 
     @Override
@@ -66,7 +73,7 @@ public final class SkylarkFileset {
       String basename = FileSystemUtils.removeExtension(path.getBaseName())
           + (String) params.get("suffix");
       path = path.replaceName(basename);
-      return ((Root) params.get("root")).getExecPath().getRelative(path); 
+      return ((Root) params.get("root")).getExecPath().getRelative(path).toString(); 
     }
   };
 }

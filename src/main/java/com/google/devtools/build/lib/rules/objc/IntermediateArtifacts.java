@@ -63,6 +63,11 @@ final class IntermediateArtifacts {
     return appendExtension("-MergedInfo.plist");
   }
 
+  public Artifact linkedBinary(String bundleDirSuffix) {
+    String baseName = ownerLabel.toPathFragment().getBaseName();
+    return appendExtension(bundleDirSuffix + "/" + baseName);
+  }
+
   /**
    * The {@code .a} file which contains all the compiled sources for a rule.
    */

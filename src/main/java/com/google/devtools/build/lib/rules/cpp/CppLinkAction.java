@@ -55,9 +55,7 @@ import com.google.devtools.build.lib.vfs.FileSystemUtils;
 import com.google.devtools.build.lib.vfs.Path;
 import com.google.devtools.build.lib.vfs.PathFragment;
 import com.google.devtools.build.lib.view.AnalysisEnvironment;
-import com.google.devtools.build.lib.view.RuleConfiguredTarget.Mode;
 import com.google.devtools.build.lib.view.RuleContext;
-import com.google.devtools.build.lib.view.TransitiveInfoCollection;
 import com.google.devtools.build.lib.view.TransitiveInfoProvider;
 import com.google.devtools.build.lib.view.actions.ConfigurationAction;
 import com.google.devtools.build.lib.view.config.BuildConfiguration;
@@ -561,7 +559,7 @@ public final class CppLinkAction extends ConfigurationAction
      */
     public Builder(RuleContext ruleContext, PathFragment outputPath) {
       this(ruleContext, outputPath, ruleContext.getConfiguration(),
-          ruleContext.getAnalysisEnvironment());
+          ruleContext.getAnalysisEnvironment(), CppHelper.getToolchain(ruleContext));
     }
 
     /**
@@ -574,7 +572,8 @@ public final class CppLinkAction extends ConfigurationAction
      *        and the default link options
      */
     private Builder(RuleContext ruleContext, PathFragment outputPath,
-        BuildConfiguration configuration, AnalysisEnvironment analysisEnvironment) {
+        BuildConfiguration configuration, AnalysisEnvironment analysisEnvironment,
+        CcToolchainProvider toolchain) {
       this.ruleContext = ruleContext;
       this.analysisEnvironment = analysisEnvironment;
       this.outputPath = outputPath;
@@ -582,24 +581,11 @@ public final class CppLinkAction extends ConfigurationAction
 
       // The ruleContext != null is here for CppLinkAction.createTestBuilder(). Meh.
       if (configuration.getFragment(CppConfiguration.class).supportsEmbeddedRuntimes()
-          && ruleContext != null) {
-        TransitiveInfoCollection dep = ruleContext
-            .getPrerequisite(":cc_toolchain", Mode.TARGET);
-        if (dep != null) {
-          CcToolchainProvider provider = dep.getProvider(CcToolchainProvider.class);
-          if (provider != null) {
-            runtimeSolibDir = provider.getDynamicRuntimeSolibDir();
-          }
-        }
+          && toolchain != null) {
+        runtimeSolibDir = toolchain.getDynamicRuntimeSolibDir();
       }
-      if (ruleContext != null) {
-        TransitiveInfoCollection dep = ruleContext.getPrerequisite(":cc_toolchain", Mode.TARGET);
-        if (dep != null) {
-          CcToolchainProvider provider = dep.getProvider(CcToolchainProvider.class);
-          if (provider != null) {
-            supportsParamFiles = provider.supportsParamFiles();
-          }
-        }
+      if (toolchain != null) {
+        supportsParamFiles = toolchain.supportsParamFiles();
       }
     }
 
@@ -615,7 +601,8 @@ public final class CppLinkAction extends ConfigurationAction
         BuildConfiguration configuration) {
       // These Builder-only fields get set in the constructor:
       //   ruleContext, analysisEnvironment, outputPath, configuration, runtimeSolibDir
-      this(ruleContext, outputPath, configuration, ruleContext.getAnalysisEnvironment());
+      this(ruleContext, outputPath, configuration, ruleContext.getAnalysisEnvironment(),
+          CppHelper.getToolchain(ruleContext));
       Preconditions.checkNotNull(linkContext);
 
       // All linkContext fields should be transferred to this Builder.
@@ -1053,7 +1040,7 @@ public final class CppLinkAction extends ConfigurationAction
     public static Builder createTestBuilder(
         final ActionOwner owner, final AnalysisEnvironment analysisEnvironment,
         final PathFragment outputPath, BuildConfiguration config) {
-      return new Builder(null, outputPath, config, analysisEnvironment) {
+      return new Builder(null, outputPath, config, analysisEnvironment, null) {
         @Override
         protected Artifact createArtifact(PathFragment path) {
           return new Artifact(configuration.getBinDirectory().getPath().getRelative(path),

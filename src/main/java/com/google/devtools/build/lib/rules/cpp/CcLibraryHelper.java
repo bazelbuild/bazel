@@ -162,6 +162,7 @@ public final class CcLibraryHelper {
   private LinkTargetType linkType = LinkTargetType.STATIC_LIBRARY;
   private HeadersCheckingMode headersCheckingMode = HeadersCheckingMode.LOOSE;
   private boolean neverlink;
+  private boolean fake;
 
   private final List<LibraryToLink> staticLibraries = new ArrayList<>();
   private final List<LibraryToLink> picStaticLibraries = new ArrayList<>();
@@ -453,6 +454,17 @@ public final class CcLibraryHelper {
   }
 
   /**
+   * Marks the resulting code as fake, i.e., the code will not actually be compiled or linked, but
+   * instead, the compile command is written to a file and added to the runfiles. This is currently
+   * used for non-compilation tests. Unfortunately, the design is problematic, so please don't add
+   * any further uses.
+   */
+  public CcLibraryHelper setFake(boolean fake) {
+    this.fake = fake;
+    return this;
+  }
+
+  /**
    * This adds the {@link CcNativeLibraryProvider} to the providers created by this class.
    */
   public CcLibraryHelper enableCcNativeLibrariesProvider() {
@@ -564,6 +576,7 @@ public final class CcLibraryHelper {
           .setContext(cppCompilationContext)
           .setLinkTargetType(linkType)
           .setNeverLink(neverlink)
+          .setFake(fake)
           .setAllowInterfaceSharedObjects(emitInterfaceSharedObjects)
           .setCreateDynamicLibrary(emitDynamicLibrary)
           // Note: this doesn't actually save the temps, it just makes the CppModel use the
@@ -582,7 +595,10 @@ public final class CcLibraryHelper {
             .addPicObjectFiles(picObjectFiles)
             .build();
       }
-      ccLinkingOutputs = model.createCcLinkActions(ccOutputs);
+      if (linkType.isStaticLibraryLink()) {
+        // TODO(bazel-team): This can't create the link action for a cc_binary yet.
+        ccLinkingOutputs = model.createCcLinkActions(ccOutputs);
+      }
     }
     CcLinkingOutputs originalLinkingOutputs = ccLinkingOutputs;
     if (!(

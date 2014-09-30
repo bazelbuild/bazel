@@ -20,3 +20,12 @@ filegroup(
         "protobuf/protobuf-2.5.0.jar",
     ],
 )
+
+filegroup(
+    name = "third_party_test_utils",
+    srcs = [
+        "guava/guava-testlib.jar",
+        "junit/junit-4.11.jar",
+        "truth/truth-0.23.jar",
+    ],
+)

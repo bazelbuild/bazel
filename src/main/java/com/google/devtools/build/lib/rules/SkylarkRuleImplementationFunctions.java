@@ -70,10 +70,13 @@ public class SkylarkRuleImplementationFunctions {
   @SkylarkBuiltin(name = "action",
       doc = "Creates an action that runs an executable or a shell command.",
       objectType = SkylarkRuleContext.class,
+      returnType = Environment.NoneType.class,
       optionalParams = {
-      @Param(name = "inputs", doc = "list of the input files of the action"),
-      @Param(name = "outputs", doc = "list of the output files of the action"),
-      @Param(name = "executable", doc = "the executable to be called by the action"),
+      @Param(name = "inputs", type = SkylarkList.class,
+          doc = "list of the input files of the action"),
+      @Param(name = "outputs", type = SkylarkList.class,
+          doc = "list of the output files of the action"),
+      @Param(name = "executable", doc = "the executable file to be called by the action"),
       @Param(name = "arguments", type = SkylarkList.class,
           doc = "command line arguments of the action"),
       @Param(name = "mnemonic", type = String.class, doc = "mnemonic"),
@@ -138,7 +141,8 @@ public class SkylarkRuleImplementationFunctions {
       }
       // Always register the action
       builder.setRegisterSpawnAction(true);
-      return builder.build();
+      builder.build();
+      return Environment.NONE;
     }
   };
 
@@ -146,6 +150,7 @@ public class SkylarkRuleImplementationFunctions {
   @SkylarkBuiltin(name = "file_action",
       doc = "Creates a file write action.",
       objectType = SkylarkRuleContext.class,
+      returnType = Environment.NoneType.class,
       optionalParams = {
         @Param(name = "executable", type = Boolean.class,
             doc = "whether the output file should be executable (default is False)"),
@@ -175,6 +180,7 @@ public class SkylarkRuleImplementationFunctions {
   @SkylarkBuiltin(name = "template_action",
       doc = "Creates a template expansion action.",
       objectType = SkylarkRuleContext.class,
+      returnType = Environment.NoneType.class,
       mandatoryParams = {
       @Param(name = "template", type = Artifact.class, doc = "the template file"),
       @Param(name = "output", type = Artifact.class, doc = "the output file"),
@@ -237,16 +243,20 @@ public class SkylarkRuleImplementationFunctions {
 
   // TODO(bazel-team): Remove runfile states from Skylark.
   @SkylarkBuiltin(name = "runfiles",
-      doc = "Creates a runfiles provider creating runfiles for every specified runfile state.",
+      doc = "Creates a runfiles object.",
       objectType = SkylarkRuleContext.class,
       returnType = Runfiles.class,
           optionalParams = {
-      @Param(name = "files", type = SkylarkList.class, doc = ""),
+      @Param(name = "files", type = SkylarkList.class,
+          doc = "The list of files to be added to the runfiles."),
       // TODO(bazel-team): If we have a memory efficient support for lazy list containing NestedSets
       // we can remove this and just use files = [file] + list(set)
-      @Param(name = "transitive_files", type = SkylarkNestedSet.class, doc = ""),
-      @Param(name = "collect_data", type = Boolean.class, doc = ""),
-      @Param(name = "collect_default", type = Boolean.class, doc = "")})
+      @Param(name = "transitive_files", type = SkylarkNestedSet.class,
+          doc = "The (transitive) set of files to be added to the runfiles."),
+      @Param(name = "collect_data", type = Boolean.class, doc = "Whether to collect the data "
+          + "runfiles from the dependencies in srcs, data and deps attributes."),
+      @Param(name = "collect_default", type = Boolean.class, doc = "Whether to collect the default "
+          + "runfiles from the dependencies in srcs, data and deps attributes.")})
   private static final SkylarkFunction runfiles = new SimpleSkylarkFunction("runfiles") {
     @Override
     public Object call(Map<String, Object> params, Location loc) throws EvalException,
@@ -272,6 +282,7 @@ public class SkylarkRuleImplementationFunctions {
 
   @SkylarkBuiltin(name = "command_helper", doc = "Creates a command helper class.",
       objectType = SkylarkRuleContext.class,
+      returnType = CommandHelper.class,
       mandatoryParams = {
       @Param(name = "tools", type = SkylarkList.class, doc = "list of tools"),
       @Param(name = "label_dict", type = Map.class,

@@ -230,6 +230,8 @@ class OptionsParserImpl {
       Lists.newArrayList();
 
   private final List<String> warnings = Lists.newArrayList();
+  
+  private boolean allowSingleDashLongOptions = false;
 
   /**
    * Create a new parser object
@@ -238,6 +240,14 @@ class OptionsParserImpl {
     this.optionsData = optionsData;
   }
 
+  /**
+   * Indicates whether or not the parser will allow long options with a
+   * single-dash, instead of the usual double-dash, too, eg. -example instead of just --example.
+   */
+  void setAllowSingleDashLongOptions(boolean allowSingleDashLongOptions) {
+    this.allowSingleDashLongOptions = allowSingleDashLongOptions;
+  }
+  
   /**
    * The implementation of {@link OptionsBase#asMap}.
    */
@@ -490,9 +500,20 @@ class OptionsParserImpl {
       Field field;
       boolean booleanValue = true;
 
-      if (arg.startsWith("--")) { // --long_option
+      if (arg.length() == 2) { // -l  (may be nullary or unary)
+        field = optionsData.getFieldForAbbrev(arg.charAt(1));
+        booleanValue = true;
+
+      } else if (arg.length() == 3 && arg.charAt(2) == '-') { // -l-  (boolean)
+        field = optionsData.getFieldForAbbrev(arg.charAt(1));
+        booleanValue = false;
+
+      } else if (allowSingleDashLongOptions // -long_option
+          || arg.startsWith("--")) { // or --long_option
         int equalsAt = arg.indexOf('=');
-        String name = equalsAt == -1 ? arg.substring(2) : arg.substring(2, equalsAt);
+        int nameStartsAt = arg.startsWith("--") ? 2 : 1;
+        String name =
+            equalsAt == -1 ? arg.substring(nameStartsAt) : arg.substring(nameStartsAt, equalsAt);
         if (name.trim().equals("")) {
           throw new OptionsParsingException("Invalid options syntax: " + arg, arg);
         }
@@ -520,14 +541,6 @@ class OptionsParserImpl {
           }
         }
 
-      } else if (arg.length() == 2) { // -l  (may be nullary or unary)
-        field = optionsData.getFieldForAbbrev(arg.charAt(1));
-        booleanValue = true;
-
-      } else if (arg.length() == 3 && arg.charAt(2) == '-') { // -l-  (boolean)
-        field = optionsData.getFieldForAbbrev(arg.charAt(1));
-        booleanValue = false;
-
       } else {
         throw new OptionsParsingException("Invalid options syntax: " + arg, arg);
       }
@@ -535,6 +548,7 @@ class OptionsParserImpl {
       if (field == null) {
         throw new OptionsParsingException("Unrecognized option: " + arg, arg);
       }
+      
       if (value == null) {
         // special case boolean to supply value based on presence of "no" prefix
         if (OptionsParserImpl.isBooleanField(field)) {

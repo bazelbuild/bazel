@@ -19,17 +19,11 @@ filegroup(
 )
 
 filegroup(
-    name = "empty-local",
-    srcs = [],
-)
-
-filegroup(
     name = "toolchain",
     srcs = [
         ":cc-compiler-local",
-        ":compile-local",
-        ":link-local",
-        ":objcopy-local",
+        ":cc-compiler-darwin",
+        ":empty",
     ],
 )
 
@@ -39,10 +33,24 @@ cc_toolchain(
     compiler_files = ":empty",
     cpu = "local",
     dwp_files = ":empty",
-    dynamic_runtime_libs = [":empty-local"],
+    dynamic_runtime_libs = [":empty"],
     linker_files = ":empty",
     objcopy_files = ":empty",
-    static_runtime_libs = [":empty-local"],
+    static_runtime_libs = [":empty"],
+    strip_files = ":empty",
+    supports_param_files = 0,
+)
+
+cc_toolchain(
+    name = "cc-compiler-darwin",
+    all_files = ":empty",
+    compiler_files = ":empty",
+    cpu = "darwin",
+    dwp_files = ":empty",
+    dynamic_runtime_libs = [":empty"],
+    linker_files = ":empty",
+    objcopy_files = ":empty",
+    static_runtime_libs = [":empty"],
     strip_files = ":empty",
     supports_param_files = 0,
 )

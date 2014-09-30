@@ -63,9 +63,11 @@ import com.google.devtools.build.lib.packages.NoSuchPackageException;
 import com.google.devtools.build.lib.packages.NoSuchTargetException;
 import com.google.devtools.build.lib.packages.NoSuchThingException;
 import com.google.devtools.build.lib.packages.PackageSpecification;
+import com.google.devtools.build.lib.packages.RawAttributeMapper;
 import com.google.devtools.build.lib.packages.Rule;
 import com.google.devtools.build.lib.packages.Target;
 import com.google.devtools.build.lib.packages.TargetUtils;
+import com.google.devtools.build.lib.packages.Type;
 import com.google.devtools.build.lib.pkgcache.LoadingPhaseRunner.LoadingResult;
 import com.google.devtools.build.lib.pkgcache.PackageManager;
 import com.google.devtools.build.lib.query2.output.OutputFormatter;
@@ -638,7 +640,42 @@ public class BuildView {
     DependencyResolver dependencyResolver = new SilentDependencyResolver();
     TargetAndConfiguration ctgNode =
         new TargetAndConfiguration(ct.getTarget(), ct.getConfiguration());
-    return getExistingConfiguredTargets(dependencyResolver.dependentNodeMap(ctgNode).values());
+    return getExistingConfiguredTargets(dependencyResolver.dependentNodeMap(ctgNode,
+        getConfigurableAttributeKeys(ctgNode)).values());
+  }
+
+  /**
+   * Returns ConfigMatchingProvider instances corresponding to the configurable attribute keys
+   * present in this rule's attributes.
+   */
+  private Set<ConfigMatchingProvider> getConfigurableAttributeKeys(TargetAndConfiguration ctg) {
+    if (!(ctg.getTarget() instanceof Rule)) {
+      return ImmutableSet.of();
+    }
+    Rule rule = (Rule) ctg.getTarget();
+    ImmutableSet.Builder<ConfigMatchingProvider> keys = ImmutableSet.builder();
+    RawAttributeMapper mapper = RawAttributeMapper.of(rule);
+    for (Attribute attribute : rule.getAttributes()) {
+      for (Label label : mapper.getConfigurabilityKeys(attribute.getName(), attribute.getType())) {
+        if (Type.Selector.isReservedLabel(label)) {
+          continue;
+        }
+        try {
+          ConfiguredTarget ct = getConfiguredTarget(label, ctg.getConfiguration());
+          keys.add(Preconditions.checkNotNull(ct.getProvider(ConfigMatchingProvider.class)));
+        } catch (NoSuchPackageException e) {
+          // All lookups should succeed because we should not be looking up any targets in error.
+          throw new IllegalStateException(e);
+        } catch (NoSuchTargetException e) {
+          // All lookups should succeed because we should not be looking up any targets in error.
+          throw new IllegalStateException(e);
+        } catch (NoSuchConfiguredTargetException e) {
+          // All lookups should succeed because we should not be looking up any targets in error.
+          throw new IllegalStateException(e);
+        }
+      }
+    }
+    return keys.build();
   }
 
   public TransitiveInfoCollection getGeneratingRule(OutputFileConfiguredTarget target) {
@@ -1116,7 +1153,7 @@ public class BuildView {
     };
     TargetAndConfiguration ctNode = new TargetAndConfiguration(target);
     for (Map.Entry<Attribute, TargetAndConfiguration> entry :
-        resolver.dependentNodeMap(ctNode).entries()) {
+        resolver.dependentNodeMap(ctNode, getConfigurableAttributeKeys(ctNode)).entries()) {
       prerequisiteMap.put(entry.getKey(), getExistingConfiguredTarget(entry.getValue()));
     }
 

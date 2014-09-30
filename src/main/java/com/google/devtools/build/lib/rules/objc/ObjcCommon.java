@@ -421,7 +421,7 @@ final class ObjcCommon {
    * @param maybeTargetProvider the {@code XcodeTargetProvider} for this target
    */
   public ConfiguredTarget configuredTarget(NestedSet<Artifact> filesToBuild,
-      Optional<XcodeProvider> maybeTargetProvider) {
+      Optional<XcodeProvider> maybeTargetProvider, Optional<ObjcProvider> maybeExportedProvider) {
     RunfilesProvider runfilesProvider = RunfilesProvider.withData(
         new Runfiles.Builder()
             .addRunfiles(context, RunfilesProvider.DEFAULT_RUNFILES)
@@ -431,10 +431,12 @@ final class ObjcCommon {
     RuleConfiguredTargetBuilder target = new RuleConfiguredTargetBuilder(context)
         .setFilesToBuild(filesToBuild)
         .add(RunfilesProvider.class, runfilesProvider)
-        .addProvider(ObjcProvider.class, objcProvider)
         // TODO(bazel-team): Remove this when legacy dependencies have been removed.
         .addProvider(LegacyObjcSourceFileProvider.class,
             new LegacyObjcSourceFileProvider(inputsToLegacyRules()));
+    for (ObjcProvider exportedProvider : maybeExportedProvider.asSet()) {
+      target.addProvider(ObjcProvider.class, exportedProvider);
+    }
     for (XcodeProvider targetProvider : maybeTargetProvider.asSet()) {
       target.addProvider(XcodeProvider.class, targetProvider);
     }

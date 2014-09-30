@@ -37,6 +37,7 @@ import com.google.devtools.build.lib.rules.cpp.CppConfiguration;
 import com.google.devtools.build.lib.rules.cpp.CppConfigurationLoader;
 import com.google.devtools.build.lib.rules.cpp.CppOptions;
 import com.google.devtools.build.lib.rules.objc.ObjcBinaryRule;
+import com.google.devtools.build.lib.rules.objc.ObjcBundleLibraryRule;
 import com.google.devtools.build.lib.rules.objc.ObjcBundleRule;
 import com.google.devtools.build.lib.rules.objc.ObjcCommandLineOptions;
 import com.google.devtools.build.lib.rules.objc.ObjcConfigurationLoader;
@@ -165,6 +166,7 @@ public class BazelRuleClassProvider {
 
     builder.addRuleDefinition(ObjcBinaryRule.class);
     builder.addRuleDefinition(ObjcBundleRule.class);
+    builder.addRuleDefinition(ObjcBundleLibraryRule.class);
     builder.addRuleDefinition(ObjcFrameworkRule.class);
     builder.addRuleDefinition(ObjcImportRule.class);
     builder.addRuleDefinition(ObjcLibraryRule.class);

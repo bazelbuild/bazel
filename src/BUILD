@@ -52,6 +52,27 @@ java_library(
     ],
 )
 
+java_library(
+    name = "tests",
+    srcs = glob([
+        "test/**/*.java",
+    ]),
+    deps = [
+        ":blaze-core",
+        ":xcode-common",
+        ":proto_build",
+        ":proto_bundlemerge",
+        ":proto_crosstool_config",
+        ":proto_extra_actions_base",
+        ":proto_test_status",
+        ":proto_xcodegen",
+    ],
+    jars = [
+        "//third_party",
+        "//third_party:third_party_test_utils",
+    ],
+)
+
 java_binary(
     name = "blaze",
     main_class = "com.google.devtools.build.lib.bazel.BazelMain",
@@ -63,7 +84,7 @@ java_binary(
 # C++
 
 cc_binary(
-    name = "cc-process-wrapper",
+    name = "process-wrapper",
     srcs = ["main/tools/process-wrapper.c"],
     copts = ["-std=c99"],
 )
@@ -220,13 +241,6 @@ cc_binary(
 # Packaging
 
 genrule(
-    name = "alarm-file",
-    outs = ["alarm"],
-    cmd = "touch $@",
-    executable = 1,
-)
-
-genrule(
     name = "client-info-file",
     outs = ["client_info"],
     cmd = "touch $@",
@@ -252,8 +266,7 @@ genrule(
         "libunix.so",
         "libunix.dylib",
         "build-runfiles",
-        "cc-process-wrapper",
-        "alarm",
+        "process-wrapper",
         "client_info",
         "main/tools/build_interface_so",
     ],
@@ -271,8 +284,7 @@ genrule(
         "libunix.so",
         "libunix.dylib",
         "build-runfiles",
-        "cc-process-wrapper",
-        "alarm",
+        "process-wrapper",
         "client_info",
         "main/tools/build_interface_so",
         "install_base_key",

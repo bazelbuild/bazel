@@ -151,6 +151,14 @@ public class OptionsParser implements OptionsProvider {
     this.allowResidue = allowResidue;
   }
 
+  /**
+   * Indicates whether or not the parser will allow long options with a
+   * single-dash, instead of the usual double-dash, too, eg. -example instead of just --example.
+   */
+  public void setAllowSingleDashLongOptions(boolean allowSingleDashLongOptions) {
+    this.impl.setAllowSingleDashLongOptions(allowSingleDashLongOptions);
+  }
+
   public void parseAndExitUponError(String[] args) {
     parseAndExitUponError(OptionPriority.COMMAND_LINE, "unknown", args);
   }

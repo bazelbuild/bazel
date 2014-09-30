@@ -149,39 +149,6 @@ public class CppHelper {
     return ImmutableList.copyOf(expandMakeVariables(ruleContext, attr, unexpanded));
   }
 
-  private static final String DEFINES_ATTRIBUTE = "defines";
-
-  /**
-   * Returns a list of define tokens from "defines" attribute.
-   *
-   * <p>We tokenize the "defines" attribute, to ensure that the handling of
-   * quotes and backslash escapes is consistent Bazel's treatment of the "copts" attribute.
-   *
-   * <p>But we require that the "defines" attribute consists of a single token.
-   */
-  public static List<String> processDefines(RuleContext ruleContext) {
-    List<String> defines = new ArrayList<>();
-    for (String define :
-      ruleContext.attributes().get(DEFINES_ATTRIBUTE, Type.STRING_LIST)) {
-      List<String> tokens = new ArrayList<>();
-      try {
-        ShellUtils.tokenize(tokens, ruleContext.expandMakeVariables(DEFINES_ATTRIBUTE, define));
-        if (tokens.size() == 1) {
-          defines.add(tokens.get(0));
-        } else if (tokens.size() == 0) {
-          ruleContext.attributeError(DEFINES_ATTRIBUTE, "empty definition not allowed");
-        } else {
-          ruleContext.attributeError(DEFINES_ATTRIBUTE,
-              "definition contains too many tokens (found " + tokens.size()
-              + ", expecting exactly one)");
-        }
-      } catch (ShellUtils.TokenizationException e) {
-        ruleContext.attributeError(DEFINES_ATTRIBUTE, e.getMessage());
-      }
-    }
-    return defines;
-  }
-
   /**
    * Expands attribute value either using label expansion
    * (if attemptLabelExpansion == {@code true} and it does not look like make

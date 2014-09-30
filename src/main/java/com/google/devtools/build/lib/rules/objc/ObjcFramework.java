@@ -36,6 +36,7 @@ public class ObjcFramework implements RuleConfiguredTargetFactory {
     common.reportErrors();
     return common.configuredTarget(
         NestedSetBuilder.<Artifact>emptySet(STABLE_ORDER) /* filesToBuild */,
-        Optional.<XcodeProvider>absent());
+        Optional.<XcodeProvider>absent(),
+        Optional.of(common.getObjcProvider()));
   }
 }

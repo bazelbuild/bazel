@@ -14,6 +14,7 @@
 package com.google.devtools.build.lib.view;
 
 import com.google.common.base.Preconditions;
+import com.google.common.collect.ImmutableCollection;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.Lists;
@@ -185,6 +186,12 @@ public final class RuleConfiguredTarget extends AbstractConfiguredTarget impleme
       return getLabel();
     }
     return get(name);
+  }
+
+  @Override
+  public ImmutableCollection<String> getKeys() {
+    return ImmutableList.<String>builder().add("label")
+        .addAll(getProvider(SkylarkProviders.class).skylarkProviders.keySet()).build();
   }
 
   @Override

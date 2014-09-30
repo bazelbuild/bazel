@@ -110,6 +110,23 @@ public class OptionsParserTest extends TestCase {
     }
     assertEquals(Collections.<String>emptyList(), parser.getResidue());
   }
+  
+  public void testParserWithSingleDashOption() throws OptionsParsingException {
+    OptionsParser parser = newOptionsParser(ExampleFoo.class, ExampleBaz.class);
+    try {
+      parser.parse("-baz=oops", "-bar", "17");
+      fail();
+    } catch (OptionsParsingException expected) {}
+
+    parser = newOptionsParser(ExampleFoo.class, ExampleBaz.class);
+    parser.setAllowSingleDashLongOptions(true);
+    parser.parse("-baz=oops", "-bar", "17");
+    ExampleFoo foo = parser.getOptions(ExampleFoo.class);
+    assertEquals("defaultFoo", foo.foo);
+    assertEquals(17, foo.bar);
+    ExampleBaz baz = parser.getOptions(ExampleBaz.class);
+    assertEquals("oops", baz.baz);
+  }
 
   public void testParsingFailsWithUnknownOptions() {
     OptionsParser parser = newOptionsParser(ExampleFoo.class, ExampleBaz.class);

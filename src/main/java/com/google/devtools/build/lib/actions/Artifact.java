@@ -340,13 +340,13 @@ public class Artifact implements FileType.HasFilename, Comparable<Artifact>, Act
    */
   @Override
   @SkylarkCallable(name = "path", structField = true,
-      doc = "the execution path of this file, relative to the execution directory")
+      doc = "The execution path of this file, relative to the execution directory.")
   public final String getExecPathString() {
     return getExecPath().getPathString();
   }
 
   @SkylarkCallable(name = "short_path", structField = true,
-      doc = "the path of this file relative to its root")
+      doc = "The path of this file relative to its root.")
   public final String getRootRelativePathString() {
     return getRootRelativePath().getPathString();
   }

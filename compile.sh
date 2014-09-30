@@ -167,13 +167,6 @@ if [ -z "${BAZEL_SKIP_JAVA_COMPILATION}" ]; then
   echo "Main-Class: com.google.devtools.build.lib.bazel.BazelMain" > output/MANIFEST.MF
   "$JAR" cmf output/MANIFEST.MF output/libblaze.jar \
       -C output/classes com/ -C output/classes javax/ -C output/classes org/
-
-  echo "Compiling Bazel tests..."
-  find src/test/java -name "*.java" > "$paramfile"
-  "${JAVAC}" -classpath "${CLASSPATH_TESTS}" \
-      -d "output/test_classes" "@${paramfile}" &> "$errfile" ||
-      { cat "$errfile" ; rm -f "$paramfile" "$errfile" ; exit 1 ; }
-  rm "$paramfile" "$errfile"
 fi
 
 echo "Compiling client .cc files..."

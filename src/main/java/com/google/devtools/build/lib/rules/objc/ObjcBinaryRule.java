@@ -20,7 +20,6 @@ import static com.google.devtools.build.lib.packages.ImplicitOutputsFunction.fro
 import static com.google.devtools.build.lib.packages.ImplicitOutputsFunction.fromTemplates;
 import static com.google.devtools.build.lib.packages.Type.LABEL;
 import static com.google.devtools.build.lib.packages.Type.STRING;
-import static com.google.devtools.build.lib.rules.objc.ObjcRuleClasses.PLIST_TYPE;
 
 import com.google.common.base.Optional;
 import com.google.devtools.build.lib.packages.Attribute;
@@ -46,12 +45,9 @@ import com.google.devtools.build.xcode.common.Platform;
  */
 @BlazeRule(name = "objc_binary",
     factoryClass = ObjcBinary.class,
-    ancestors = { ObjcRuleClasses.ObjcBaseRule.class,
-                  ObjcRuleClasses.ObjcOptsRule.class,
-                  ObjcRuleClasses.ObjcSourcesRule.class })
+    ancestors = { ObjcBundleLibraryRule.class })
 public class ObjcBinaryRule implements RuleDefinition {
   public static final SafeImplicitOutputsFunction IPA = fromTemplates("%{name}.ipa");
-  public static final SafeImplicitOutputsFunction BINARY = fromTemplates("%{name}.app/%{basename}");
 
   static final String PROVISIONING_PROFILE_ATTR = ":provisioning_profile";
   static final String EXPLICIT_PROVISIONING_PROFILE_ATTR = "provisioning_profile";
@@ -84,18 +80,11 @@ public class ObjcBinaryRule implements RuleDefinition {
         <ul>
          <li><code><var>name</var>.ipa</code>: the application bundle as an <code>.ipa</code>
              file</li>
-         <li><code><var>name</var>.app/<var>name</var>: The application binary in the bundle</li>
          <li><code><var>name</var>.xcodeproj/project.pbxproj: An Xcode project file which can be
              used to develop or build on a Mac.</li>
         </ul>
         <!-- #END_BLAZE_RULE.IMPLICIT_OUTPUTS -->*/
-        .setImplicitOutputsFunction(fromFunctions(IPA, BINARY, ObjcRuleClasses.PBXPROJ))
-        /* <!-- #BLAZE_RULE(objc_binary).ATTRIBUTE(infoplist) -->
-        The infoplist file. This corresponds to <i>appname</i>-Info.plist in Xcode projects.
-        ${SYNOPSIS}
-        <!-- #END_BLAZE_RULE.ATTRIBUTE -->*/
-        .add(attr("infoplist", LABEL)
-            .allowedFileTypes(PLIST_TYPE))
+        .setImplicitOutputsFunction(fromFunctions(IPA, ObjcRuleClasses.PBXPROJ))
         /* <!-- #BLAZE_RULE(objc_binary).ATTRIBUTE(app_icon) -->
         The name of the application icon, which should be in one of the asset
         catalogs of this target or a (transitive) dependency. In a new project,
@@ -152,14 +141,11 @@ public class ObjcBinaryRule implements RuleDefinition {
                 (String) rule.getAttributeContainer().getAttr("provisioning_profile"));
           }
         }))
-        // TODO(bazel-team): Support the app_image and launch_icon attributes.
         // TODO(bazel-team): Consider ways to trim dependencies so that changes to deps of these
         // tools don't trigger all objc_* targets. Right now we check-in deploy jars, but we need a
         // less painful and error-prone way.
         .add(attr("$bundlemerge", LABEL).cfg(HOST).exec()
             .value(env.getLabel("//tools/objc:bundlemerge")))
-        .add(attr("$actoolzip_deploy", LABEL).cfg(HOST)
-            .value(env.getLabel("//tools/objc:actoolzip_deploy.jar")))
         .build();
   }
 }

@@ -126,7 +126,7 @@ public abstract class CcLibrary implements RuleConfiguredTargetFactory {
         .addCopts(common.getCopts())
         .setNoCopts(common.getNoCopts())
         .addLinkopts(common.getLinkopts())
-        .addDefines(CppHelper.processDefines(ruleContext))
+        .addDefines(common.getDefines())
         .addCompilationPrerequisites(common.getSharedLibrariesFromSrcs())
         .addCompilationPrerequisites(common.getStaticLibrariesFromSrcs())
         .addSources(common.getCAndCppSources())

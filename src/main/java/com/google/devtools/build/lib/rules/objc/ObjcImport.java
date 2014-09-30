@@ -54,6 +54,7 @@ public class ObjcImport implements RuleConfiguredTargetFactory {
         NestedSetBuilder.<Artifact>stableOrder()
             .add(ruleContext.getImplicitOutputArtifact(ObjcRuleClasses.PBXPROJ))
             .build(),
-        Optional.of(xcodeProvider));
+        Optional.of(xcodeProvider),
+        Optional.of(common.getObjcProvider()));
   }
 }

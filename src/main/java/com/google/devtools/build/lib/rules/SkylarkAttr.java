@@ -16,12 +16,10 @@ package com.google.devtools.build.lib.rules;
 
 import static com.google.devtools.build.lib.syntax.SkylarkFunction.castList;
 
-import com.google.common.base.Predicate;
 import com.google.devtools.build.lib.events.Location;
 import com.google.devtools.build.lib.packages.Attribute;
 import com.google.devtools.build.lib.packages.Attribute.ConfigurationTransition;
 import com.google.devtools.build.lib.packages.Attribute.SkylarkLateBound;
-import com.google.devtools.build.lib.packages.RuleClass;
 import com.google.devtools.build.lib.packages.SkylarkFileType;
 import com.google.devtools.build.lib.packages.Type;
 import com.google.devtools.build.lib.packages.Type.ConversionException;
@@ -45,9 +43,8 @@ import java.util.Map;
  */
 @SkylarkModule(name = "attr", namespace = true, onlyLoadingPhase = true,
     doc = "Module for creating new attributes. "
-    + "They are only for use with the <i>rule</i> function.")
+    + "They are only for use with the <code>rule</code> function.")
 public final class SkylarkAttr {
-  // TODO(bazel-team): Better check the arguments.
 
   private static final String MANDATORY_DOC =
       "set to true if users have to explicitely specify the value";
@@ -56,22 +53,23 @@ public final class SkylarkAttr {
       "whether file targets are allowed. Can be True, False (default), or "
       + "a filetype filter.";
 
-  private static final String RULE_CLASSES_DOC =
-      "allowed rule classes of the label type attribute. "
-      + "For example, use ANY_RULE, NO_RULE, or a list of strings.";
+  private static final String ALLOW_RULES_DOC =
+      "whether rule targets are allowed. Can be True (default), False, "
+      + "or a list of strings (names of the classes to allow).";
 
   private static final String FLAGS_DOC =
       "deprecated, will be removed";
 
   private static final String DEFAULT_DOC =
-      "the default value of the attribute";
+      "sets the default value of the attribute. ";
 
   private static final String CONFIGURATION_DOC =
       "configuration of the attribute. "
       + "For example, use DATA_CFG or HOST_CFG.";
 
   private static final String EXECUTABLE_DOC =
-      "set to True if the labels have to be executable";
+      "set to True if the labels have to be executable. Access the labels with "
+      + "ctx.executable.<attribute_name>";
 
   private static Attribute.Builder<?> createAttribute(Type<?> type, Map<String, Object> arguments,
       FuncallExpression ast, SkylarkEnvironment env) throws EvalException, ConversionException {
@@ -130,10 +128,11 @@ public final class SkylarkAttr {
       builder.allowedFileTypes(FileTypeSet.NO_FILE);
     }
 
-    Object ruleClassesObj = arguments.get("rule_classes");
-    if (ruleClassesObj == Attribute.ANY_RULE || ruleClassesObj == Attribute.NO_RULE) {
-      // This causes an unchecked warning but it's fine because of the surrounding if.
-      builder.allowedRuleClasses((Predicate<RuleClass>) ruleClassesObj);
+    Object ruleClassesObj = arguments.get("allow_rules");
+    if (ruleClassesObj == Boolean.TRUE) {
+      builder.allowedRuleClasses(Attribute.ANY_RULE);
+    } else if (ruleClassesObj == Boolean.FALSE) {
+      builder.allowedRuleClasses(Attribute.NO_RULE);
     } else if (ruleClassesObj != null) {
       builder.allowedRuleClasses(castList(ruleClassesObj, String.class,
               "allowed rule classes for attribute definition"));
@@ -159,11 +158,12 @@ public final class SkylarkAttr {
     }
   }
 
-  @SkylarkBuiltin(name = "int", doc = "Creates a rule string class attribute.",
+  @SkylarkBuiltin(name = "int", doc =
+      "Creates an attribute of type int.",
       objectType = SkylarkAttr.class,
       returnType = Attribute.class,
       optionalParams = {
-      @Param(name = "default", doc = DEFAULT_DOC),
+      @Param(name = "default", doc = DEFAULT_DOC + "If not specified, default is 0."),
       @Param(name = "flags", type = SkylarkList.class, doc = FLAGS_DOC),
       @Param(name = "mandatory", type = Boolean.class, doc = MANDATORY_DOC),
       @Param(name = "cfg", type = ConfigurationTransition.class, doc = CONFIGURATION_DOC)})
@@ -175,11 +175,12 @@ public final class SkylarkAttr {
       }
     };
 
-  @SkylarkBuiltin(name = "string", doc = "Creates a rule string class attribute.",
+  @SkylarkBuiltin(name = "string", doc =
+      "Creates an attribute of type string.",
       objectType = SkylarkAttr.class,
       returnType = Attribute.class,
       optionalParams = {
-      @Param(name = "default", doc = DEFAULT_DOC),
+      @Param(name = "default", doc = DEFAULT_DOC + "If not specified, default is \"\"."),
       @Param(name = "flags", type = SkylarkList.class, doc = FLAGS_DOC),
       @Param(name = "mandatory", type = Boolean.class, doc = MANDATORY_DOC),
       @Param(name = "cfg", type = ConfigurationTransition.class, doc = CONFIGURATION_DOC)})
@@ -191,18 +192,23 @@ public final class SkylarkAttr {
       }
     };
 
-  @SkylarkBuiltin(name = "label", doc = "Creates a rule string class attribute.",
+  @SkylarkBuiltin(name = "label", doc =
+      "Creates an attribute of type label. "
+      + "It is the only way to specify a dependency to another target. "
+      + "If you need a dependency that the user cannot overwrite, make the attribute "
+      + "private (starts with <code>_</code>).",
       objectType = SkylarkAttr.class,
       returnType = Attribute.class,
       optionalParams = {
-      @Param(name = "default", doc = DEFAULT_DOC),
+      @Param(name = "default", doc = DEFAULT_DOC + "If not specified, default is None. "
+          + "Use the <code>label</code> function to specify a default value."),
       @Param(name = "executable", type = Boolean.class, doc = EXECUTABLE_DOC),
       @Param(name = "flags", type = SkylarkList.class, doc = FLAGS_DOC),
       @Param(name = "allow_files", doc = ALLOW_FILES_DOC),
       @Param(name = "mandatory", type = Boolean.class, doc = MANDATORY_DOC),
       @Param(name = "providers", type = SkylarkList.class,
           doc = "mandatory providers every dependency has to have"),
-      @Param(name = "rule_classes", doc = RULE_CLASSES_DOC),
+      @Param(name = "allow_rules", doc = ALLOW_RULES_DOC),
       @Param(name = "single_file", doc =
           "if true, the label must correspond to a single file. "
           + "Access it through ctx.file.<attribute_name>."),
@@ -215,11 +221,12 @@ public final class SkylarkAttr {
       }
     };
 
-  @SkylarkBuiltin(name = "string_list", doc = "Creates a rule string_list class attribute.",
+  @SkylarkBuiltin(name = "string_list", doc =
+      "Creates an attribute of type list of strings",
       objectType = SkylarkAttr.class,
       returnType = Attribute.class,
       optionalParams = {
-      @Param(name = "default", doc = DEFAULT_DOC),
+      @Param(name = "default", doc = DEFAULT_DOC + "If not specified, default is []."),
       @Param(name = "flags", type = SkylarkList.class, doc = FLAGS_DOC),
       @Param(name = "mandatory", type = Boolean.class, doc = MANDATORY_DOC),
       @Param(name = "cfg", type = ConfigurationTransition.class,
@@ -232,16 +239,19 @@ public final class SkylarkAttr {
       }
     };
 
-  @SkylarkBuiltin(name = "label_list", doc = "Creates a rule label_list class attribute.",
+  @SkylarkBuiltin(name = "label_list", doc =
+      "Creates an attribute of type list of labels. "
+      + "See <code>label</code> for more information.",
       objectType = SkylarkAttr.class,
       returnType = Attribute.class,
       optionalParams = {
-      @Param(name = "default", doc = DEFAULT_DOC),
+      @Param(name = "default", doc = DEFAULT_DOC + "If not specified, default is []. "
+          + "Use the <code>label</code> function to specify a default value."),
       @Param(name = "executable", type = Boolean.class, doc = EXECUTABLE_DOC),
       @Param(name = "flags", type = SkylarkList.class, doc = FLAGS_DOC),
       @Param(name = "allow_files", doc = ALLOW_FILES_DOC),
       @Param(name = "mandatory", type = Boolean.class, doc = MANDATORY_DOC),
-      @Param(name = "rule_classes", doc = RULE_CLASSES_DOC),
+      @Param(name = "allow_rules", doc = ALLOW_RULES_DOC),
       @Param(name = "providers", type = SkylarkList.class,
           doc = "mandatory providers every dependency has to have"),
       @Param(name = "cfg", type = ConfigurationTransition.class, doc = CONFIGURATION_DOC)})
@@ -253,7 +263,8 @@ public final class SkylarkAttr {
       }
     };
 
-  @SkylarkBuiltin(name = "bool", doc = "Creates a rule bool class attribute.",
+  @SkylarkBuiltin(name = "bool", doc =
+      "Creates an attribute of type bool. Its default value is False.",
       objectType = SkylarkAttr.class,
       returnType = Attribute.class,
       optionalParams = {
@@ -269,7 +280,10 @@ public final class SkylarkAttr {
       }
     };
 
-  @SkylarkBuiltin(name = "output", doc = "Creates a rule output class attribute.",
+  @SkylarkBuiltin(name = "output", doc =
+      "Creates an attribute of type output. Its default value is None. "
+      + "The user provides a file name (string) and the rule must create an action that"
+      + "generates the file.",
       objectType = SkylarkAttr.class,
       returnType = Attribute.class,
       optionalParams = {
@@ -285,7 +299,9 @@ public final class SkylarkAttr {
       }
     };
 
-  @SkylarkBuiltin(name = "output_list", doc = "Creates a rule output_list class attribute.",
+  @SkylarkBuiltin(name = "output_list", doc =
+      "Creates an attribute of type list of outputs. Its default value is []. "
+      + "See <code>output</code> above for more information.",
       objectType = SkylarkAttr.class,
       returnType = Attribute.class,
       optionalParams = {
@@ -301,7 +317,9 @@ public final class SkylarkAttr {
       }
     };
 
-  @SkylarkBuiltin(name = "license", doc = "Creates a rule license class attribute.",
+  @SkylarkBuiltin(name = "license", doc =
+      "Creates an attribute of type license. Its default value is NO_LICENSE.",
+      // TODO(bazel-team): Do we have proper support for licenses?
       objectType = SkylarkAttr.class,
       returnType = Attribute.class,
       optionalParams = {

@@ -27,8 +27,8 @@ genrule_skylark(
 
 
 def resolve_command(ctx, command, resolved_srcs, files_to_build):
-  variables = {"SRCS": files.join_exec_paths(" ", resolved_srcs),
-               "OUTS": files.join_exec_paths(" ", files_to_build)}
+  variables = {"SRCS": files.join_exec_paths(" ", list(resolved_srcs)),
+               "OUTS": files.join_exec_paths(" ", list(files_to_build))}
   if len(resolved_srcs) == 1:
     variables["<"] = list(resolved_srcs)[0].path
   if len(files_to_build) == 1:
@@ -81,8 +81,8 @@ def create(ctx):
 
   # TODO(bazel_team): Maybe implement stamp attribute?
 
-  ctx.action(inputs=resolved_srcs,
-             outputs=files_to_build,
+  ctx.action(inputs=list(resolved_srcs),
+             outputs=list(files_to_build),
              env=env,
              command=argv,
              progress_message="%s %s" % (message, ctx),

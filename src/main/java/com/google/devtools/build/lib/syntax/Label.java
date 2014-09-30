@@ -262,7 +262,8 @@ public final class Label implements Comparable<Label>, Serializable {
    */
   @SkylarkCallable(name = "package", structField = true,
       doc = "The package part of this label. "
-      + "For instance, label('//pkg/foo:abc').package == 'pkg/foo'")
+      + "For instance:<br>"
+      + "<pre class=code>label(\"//pkg/foo:abc\").package == \"pkg/foo\"</pre>")
   public String getPackageName() {
     return packageName.getPathString();
   }
@@ -296,7 +297,8 @@ public final class Label implements Comparable<Label>, Serializable {
    */
   @SkylarkCallable(name = "name", structField = true,
       doc = "The name of this label within the package. "
-      + "For instance, label('//pkg/foo:abc').name == 'abc'")
+      + "For instance:<br>"
+      + "<pre class=code>label(\"//pkg/foo:abc\").name == \"abc\"</pre>")
   public String getName() {
     return name;
   }

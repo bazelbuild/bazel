@@ -163,4 +163,8 @@ public class DocgenConsts {
     cmdDoc = cmdDoc.replaceAll("[\\n]+$", "\n\n");
     return cmdDoc;
   }
+
+  static String removeDuplicatedNewLines(String doc) {
+    return doc.replaceAll("[\\n][\\s]*[\\n]", "\n");
+  }
 }

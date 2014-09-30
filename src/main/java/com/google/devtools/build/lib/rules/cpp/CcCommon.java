@@ -165,7 +165,7 @@ public final class CcCommon {
     initGeneratedHeadersAndTransitiveIncludeDirs(contextBuilder);
 
     semantics.setupCompilationContext(ruleContext, contextBuilder);
-    initDefines(contextBuilder);
+    contextBuilder.addDefines(getDefines());
     if (initExtraPrerequisites) {
       // Add libraries mentioned in "srcs" as prerequisites, in order to verify they exist.
       contextBuilder.addCompilationPrerequisites(getSharedLibrariesFromSrcs());
@@ -602,8 +602,37 @@ public final class CcCommon {
     return nocopts == null ? false : nocopts.matcher(option).matches();
   }
 
-  private void initDefines(CppCompilationContext.Builder contextBuilder) {
-    contextBuilder.addDefines(CppHelper.processDefines(ruleContext));
+  private static final String DEFINES_ATTRIBUTE = "defines";
+
+  /**
+   * Returns a list of define tokens from "defines" attribute.
+   *
+   * <p>We tokenize the "defines" attribute, to ensure that the handling of
+   * quotes and backslash escapes is consistent Bazel's treatment of the "copts" attribute.
+   *
+   * <p>But we require that the "defines" attribute consists of a single token.
+   */
+  public List<String> getDefines() {
+    List<String> defines = new ArrayList<>();
+    for (String define :
+      ruleContext.attributes().get(DEFINES_ATTRIBUTE, Type.STRING_LIST)) {
+      List<String> tokens = new ArrayList<>();
+      try {
+        ShellUtils.tokenize(tokens, ruleContext.expandMakeVariables(DEFINES_ATTRIBUTE, define));
+        if (tokens.size() == 1) {
+          defines.add(tokens.get(0));
+        } else if (tokens.size() == 0) {
+          ruleContext.attributeError(DEFINES_ATTRIBUTE, "empty definition not allowed");
+        } else {
+          ruleContext.attributeError(DEFINES_ATTRIBUTE,
+              "definition contains too many tokens (found " + tokens.size()
+              + ", expecting exactly one)");
+        }
+      } catch (ShellUtils.TokenizationException e) {
+        ruleContext.attributeError(DEFINES_ATTRIBUTE, e.getMessage());
+      }
+    }
+    return defines;
   }
 
   /**
@@ -744,10 +773,6 @@ public final class CcCommon {
    * create .i (preprocessed C), .ii (preprocessed C++) and .s (assembly) files.
    */
   public CcCompilationOutputs createCompileActions(boolean fake) {
-    return createCompileModel(fake).createCcCompileActions();
-  }
-
-  private CppModel createCompileModel(boolean fake) {
     return new CppModel(ruleContext, semantics)
         .addSources(getCAndCppSources())
         .setFake(fake)
@@ -757,7 +782,8 @@ public final class CcCommon {
         .setNoCopts(getNoCopts(ruleContext))
         .addAdditionalIncludes(additionalIncludes)
         .addPluginTargets(activePlugins)
-        .setEnableModules(ruleContext.getFeatures().contains(CppRuleClasses.LAYERING_CHECK));
+        .setEnableModules(ruleContext.getFeatures().contains(CppRuleClasses.LAYERING_CHECK))
+        .createCcCompileActions();
   }
 
   /**
@@ -775,7 +801,7 @@ public final class CcCommon {
    * @return mangled symlink artifact.
    */
   public LibraryToLink getDynamicLibrarySymlink(Artifact library, boolean preserveName) {
-    return  SolibSymlinkAction.getDynamicLibrarySymlink(
+    return SolibSymlinkAction.getDynamicLibrarySymlink(
         ruleContext, library, preserveName, true, ruleContext.getConfiguration());
   }
 
@@ -897,20 +923,26 @@ public final class CcCommon {
     return transitiveLipoInfo;
   }
 
-  public CppCompilationContext getCppCompilationContext() {
-    return createCppCompilationContext();
+  public void addTransitiveInfoProviders(RuleConfiguredTargetBuilder builder,
+      NestedSet<Artifact> filesToBuild,
+      CcCompilationOutputs ccCompilationOutputs,
+      CcLinkingOutputs linkingOutputs,
+      DwoArtifactsCollector dwoArtifacts) {
+    addTransitiveInfoProviders(builder, filesToBuild, ccCompilationOutputs,
+        createCppCompilationContext(), linkingOutputs, dwoArtifacts);
   }
 
   public void addTransitiveInfoProviders(RuleConfiguredTargetBuilder builder,
       NestedSet<Artifact> filesToBuild,
       CcCompilationOutputs ccCompilationOutputs,
+      CppCompilationContext cppCompilationContext,
       CcLinkingOutputs linkingOutputs,
       DwoArtifactsCollector dwoArtifacts) {
      Iterable<Artifact> objectFiles = ccCompilationOutputs.getObjectFiles(
          CppHelper.usePic(ruleContext, false));
      builder
          .setFilesToBuild(filesToBuild)
-         .add(CppCompilationContext.class, createCppCompilationContext())
+         .add(CppCompilationContext.class, cppCompilationContext)
          .add(FdoProfilingInfoProvider.class, new FdoProfilingInfoProvider(transitiveLipoInfo))
          .add(CcExecutionDynamicLibrariesProvider.class,
              new CcExecutionDynamicLibrariesProvider(collectExecutionDynamicLibraryArtifacts(
@@ -918,12 +950,11 @@ public final class CcCommon {
          .add(CcNativeLibraryProvider.class, new CcNativeLibraryProvider(
              collectTransitiveCcNativeLibraries(ruleContext, linkingOutputs.getDynamicLibraries())))
          .add(InstrumentedFilesProvider.class, new InstrumentedFilesProviderImpl(
-             getInstrumentedFiles(objectFiles),
-             getInstrumentationMetadataFiles(objectFiles)))
+             getInstrumentedFiles(objectFiles), getInstrumentationMetadataFiles(objectFiles)))
          .add(FilesToCompileProvider.class, new FilesToCompileProvider(
              getFilesToCompile(ccCompilationOutputs)))
          .add(CompilationPrerequisitesProvider.class,
-             collectCompilationPrerequisites(ruleContext, createCppCompilationContext()))
+             collectCompilationPrerequisites(ruleContext, cppCompilationContext))
          .add(TempsProvider.class, new TempsProvider(getTemps(ccCompilationOutputs)))
          .add(CppDebugFileProvider.class, new CppDebugFileProvider(
              dwoArtifacts.getDwoArtifacts(),

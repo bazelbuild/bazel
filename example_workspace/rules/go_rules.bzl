@@ -138,7 +138,7 @@ def go_test_impl(ctx):
 
 go_library_attrs = {
     "data":  attr.label_list(
-        allow_files=True, rule_classes=NO_RULE,
+        allow_files=True, allow_rules=False,
         cfg=DATA_CFG),
     "srcs": attr.label_list(allow_files=go_filetype),
     "deps": attr.label_list(

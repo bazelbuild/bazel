@@ -35,6 +35,7 @@ import com.google.devtools.build.lib.syntax.FuncallExpression.MethodDescriptor;
 import com.google.devtools.build.lib.syntax.Function;
 import com.google.devtools.build.lib.syntax.MixedModeFunction;
 import com.google.devtools.build.lib.syntax.PositionalFunction;
+import com.google.devtools.build.lib.syntax.PositionalFunction.SimplePositionalFunction;
 import com.google.devtools.build.lib.syntax.SelectorValue;
 import com.google.devtools.build.lib.syntax.SkylarkBuiltin;
 import com.google.devtools.build.lib.syntax.SkylarkList;
@@ -49,6 +50,7 @@ import java.util.Iterator;
 import java.util.List;
 import java.util.Map;
 import java.util.Set;
+import java.util.TreeSet;
 import java.util.concurrent.ExecutionException;
 import java.util.regex.Matcher;
 import java.util.regex.Pattern;
@@ -100,8 +102,9 @@ public class MethodLibrary {
 
   @SkylarkBuiltin(name = "join", objectType = StringModule.class,
       doc = "Returns a string in which the string elements of the argument have been "
-          + "joined by this string as a separator.")
-  private static Function join = new PositionalFunction("join", 2, 2) {
+          + "joined by this string as a separator. Example:<br>"
+          + "<pre class=code>\"|\".join([\"a\", \"b\", \"c\"]) == \"a|b|c\"</pre>")
+  private static Function join = new SimplePositionalFunction("join", 2, 2) {
     @Override
     public Object call(List<Object> args, FuncallExpression ast) throws ConversionException {
       String thiz = Type.STRING.convert(args.get(0), "'join' operand");
@@ -119,7 +122,7 @@ public class MethodLibrary {
 
   @SkylarkBuiltin(name = "lower", objectType = StringModule.class,
       doc = "Returns the lower case version of this string.")
-  private static Function lower = new PositionalFunction("lower", 1, 1) {
+  private static Function lower = new SimplePositionalFunction("lower", 1, 1) {
     @Override
     public Object call(List<Object> args, FuncallExpression ast) throws ConversionException {
       String thiz = Type.STRING.convert(args.get(0), "'lower' operand");
@@ -129,8 +132,8 @@ public class MethodLibrary {
 
   @SkylarkBuiltin(name = "replace", objectType = StringModule.class,
       doc = "Returns a copy of the string in which the occurrences "
-          + "of <i>old</i> have been replaced with <i>new</i>, optionally restricting the number "
-          + "of replacements to <i>maxsplit</i>.")
+          + "of <code>old</code> have been replaced with <code>new</code>, optionally restricting "
+          + "the number of replacements to <code>maxsplit</code>.")
   private static Function replace =
     new MixedModeFunction("replace", ImmutableList.of("this", "old", "new", "maxsplit"), 3, false) {
     @Override
@@ -158,8 +161,8 @@ public class MethodLibrary {
   };
 
   @SkylarkBuiltin(name = "split", objectType = StringModule.class,
-      doc = "Returns a list of all the words in the string, using <i>sep</i>  "
-          + "as the separator, optionally limiting the number of splits to <i>maxsplit</i>.")
+      doc = "Returns a list of all the words in the string, using <code>sep</code>  "
+          + "as the separator, optionally limiting the number of splits to <code>maxsplit</code>.")
   private static Function split = new MixedModeFunction("split",
       ImmutableList.of("this", "sep", "maxsplit"), 1, false) {
     @Override
@@ -181,9 +184,10 @@ public class MethodLibrary {
   };
 
   @SkylarkBuiltin(name = "rfind", objectType = StringModule.class,
-      doc = "Returns the last index where <i>sub</i> is found, "
-          + "or -1 if no such index exists, optionally restricting to [<i>start</i>:<i>end</i>], "
-          + "<i>start</i> being inclusive and <i>end</i> being exclusive.")
+      doc = "Returns the last index where <code>sub</code> is found, "
+          + "or -1 if no such index exists, optionally restricting to "
+          + "[<code>start</code>:<code>end</code>], "
+          + "<code>start</code> being inclusive and <code>end</code> being exclusive.")
   private static Function rfind =
       new MixedModeFunction("rfind", ImmutableList.of("this", "sub", "start", "end"), 2, false) {
         @Override
@@ -207,9 +211,10 @@ public class MethodLibrary {
       };
 
   @SkylarkBuiltin(name = "find", objectType = StringModule.class,
-      doc = "Returns the first index where <i>sub</i> is found, "
-          + "or -1 if no such index exists, optionally restricting to [<i>start</i>:<i>end]</i>, "
-          + "<i>start</i> being inclusive and <i>end</i> being exclusive.")
+      doc = "Returns the first index where <code>sub</code> is found, "
+          + "or -1 if no such index exists, optionally restricting to "
+          + "[<code>start</code>:<code>end]</code>, "
+          + "<code>start</code> being inclusive and <code>end</code> being exclusive.")
   private static Function find =
       new MixedModeFunction("find", ImmutableList.of("this", "sub", "start", "end"), 2, false) {
         @Override
@@ -233,9 +238,9 @@ public class MethodLibrary {
       };
 
   @SkylarkBuiltin(name = "endswith", objectType = StringModule.class,
-      doc = "Returns True if the string ends with <i>sub</i>, "
-          + "otherwise False, optionally restricting to [<i>start</i>:<i>end</i>], "
-          + "<i>start</i> being inclusive and <i>end</i> being exclusive.")
+      doc = "Returns True if the string ends with <code>sub</code>, "
+          + "otherwise False, optionally restricting to [<code>start</code>:<code>end</code>], "
+          + "<code>start</code> being inclusive and <code>end</code> being exclusive.")
   private static Function endswith =
       new MixedModeFunction("endswith", ImmutableList.of("this", "sub", "start", "end"), 2, false) {
         @Override
@@ -258,9 +263,9 @@ public class MethodLibrary {
       };
 
   @SkylarkBuiltin(name = "startswith", objectType = StringModule.class,
-      doc = "Returns True if the string starts with <i>sub</i>, "
-          + "otherwise False, optionally restricting to [<i>start</i>:<i>end</i>], "
-          + "<i>start</i> being inclusive and <i>end</i> being exclusive.")
+      doc = "Returns True if the string starts with <code>sub</code>, "
+          + "otherwise False, optionally restricting to [<code>start</code>:<code>end</code>], "
+          + "<code>start</code> being inclusive and <code>end</code> being exclusive.")
   private static Function startswith =
     new MixedModeFunction("startswith", ImmutableList.of("this", "sub", "start", "end"), 2, false) {
     @Override
@@ -297,8 +302,8 @@ public class MethodLibrary {
 
   // substring operator
   @SkylarkBuiltin(name = "substring", hidden = true,
-      doc = "String[<i>start</i>:<i>end</i>] returns a substring.")
-  private static Function substring = new PositionalFunction("$substring", 3, 3) {
+      doc = "String[<code>start</code>:<code>end</code>] returns a substring.")
+  private static Function substring = new SimplePositionalFunction("$substring", 3, 3) {
     @Override
     public Object call(List<Object> args, FuncallExpression ast) throws ConversionException {
       String thiz = Type.STRING.convert(args.get(0), "substring operand");
@@ -311,7 +316,7 @@ public class MethodLibrary {
   // supported list methods
   @SkylarkBuiltin(name = "append", hidden = true,
       doc = "Adds an item to the end of the list.")
-  private static Function append = new PositionalFunction("append", 2, 2) {
+  private static Function append = new SimplePositionalFunction("append", 2, 2) {
     // @SuppressWarnings("unchecked")
     @Override
     public Object call(List<Object> args, FuncallExpression ast) throws EvalException,
@@ -324,7 +329,7 @@ public class MethodLibrary {
 
   @SkylarkBuiltin(name = "extend", hidden = true,
       doc = "Adds all items to the end of the list.")
-  private static Function extend = new PositionalFunction("extend", 2, 2) {
+  private static Function extend = new SimplePositionalFunction("extend", 2, 2) {
     // @SuppressWarnings("unchecked")
     @Override
     public Object call(List<Object> args, FuncallExpression ast) throws EvalException,
@@ -340,7 +345,7 @@ public class MethodLibrary {
   @SkylarkBuiltin(name = "$index", hidden = true,
       doc = "Returns the nth element of a list or string, "
           + "or looks up a value in a dictionary.")
-  private static Function index = new PositionalFunction("$index", 2, 2) {
+  private static Function index = new SimplePositionalFunction("$index", 2, 2) {
     @Override
     public Object call(List<Object> args, FuncallExpression ast) throws EvalException,
         ConversionException {
@@ -431,7 +436,7 @@ public class MethodLibrary {
 
   // unary minus
   @SkylarkBuiltin(name = "-", hidden = true, doc = "Unary minus operator.")
-  private static Function minus = new PositionalFunction("-", 1, 1) {
+  private static Function minus = new SimplePositionalFunction("-", 1, 1) {
     @Override
     public Object call(List<Object> args, FuncallExpression ast) throws ConversionException {
       int num = Type.INTEGER.convert(args.get(0), "'unary minus' argument");
@@ -439,8 +444,8 @@ public class MethodLibrary {
     }
   };
 
-  @SkylarkBuiltin(name = "list", doc = "Converts a collection to a list.")
-  private static Function list = new PositionalFunction("list", 1, 1) {
+  @SkylarkBuiltin(name = "list", doc = "Converts a collection (e.g. set or dictionary) to a list.")
+  private static Function list = new SimplePositionalFunction("list", 1, 1) {
     @Override
     public Object call(List<Object> args, FuncallExpression ast) throws EvalException {
       Location loc = ast.getLocation();
@@ -448,8 +453,10 @@ public class MethodLibrary {
     }
   };
 
-  @SkylarkBuiltin(name = "len", doc = "Returns the length of a string, list, tuple or dictionary.")
-  private static Function len = new PositionalFunction("len", 1, 1) {
+  @SkylarkBuiltin(name = "len", doc =
+      "Returns the length of a string, list, tuple, set, or dictionary.")
+  private static Function len = new SimplePositionalFunction("len", 1, 1) {
+
     @Override
     public Object call(List<Object> args, FuncallExpression ast) throws EvalException {
       Object arg = args.get(0);
@@ -462,23 +469,30 @@ public class MethodLibrary {
     }
   };
 
-  @SkylarkBuiltin(name = "str", doc = "Converts an object to string")
-  private static Function str = new PositionalFunction("str", 1, 1) {
+  @SkylarkBuiltin(name = "str", doc =
+      "Converts any object to string. This is useful for debugging.")
+  private static Function str = new SimplePositionalFunction("str", 1, 1) {
     @Override
     public Object call(List<Object> args, FuncallExpression ast) throws EvalException {
       return EvalUtils.printValue(args.get(0));
     }
   };
 
-  @SkylarkBuiltin(name = "bool", doc = "Converts an object to boolean")
-  private static Function bool = new PositionalFunction("bool", 1, 1) {
+  @SkylarkBuiltin(name = "bool", doc = "Converts an object to boolean. "
+      + "It returns False if the object is None, False, an empty string, the number 0, or an "
+      + "empty collection. Otherwise, it returns True.")
+  private static Function bool = new SimplePositionalFunction("bool", 1, 1) {
     @Override
     public Object call(List<Object> args, FuncallExpression ast) throws EvalException {
       return EvalUtils.toBoolean(args.get(0));
     }
   };
 
-  @SkylarkBuiltin(name = "struct", doc = "Creates a struct using the keyword arguments as fields.")
+  @SkylarkBuiltin(name = "struct", doc =
+      "Creates an immutable struct using the keyword arguments as fields. It is used to group "
+      + "multiple values together.Example:<br>"
+      + "<pre class=code>s = struct(x = 2, y = 3)\n"
+      + "return s.x + s.y  # returns 5</pre>")
   private static Function struct = new AbstractFunction("struct") {
 
     @Override
@@ -492,10 +506,13 @@ public class MethodLibrary {
   };
 
   @SkylarkBuiltin(name = "set",
-      doc = "Creates a nested set from the <i>items</i>. "
-          + "The nesting is applied to other nested sets among <i>items</i>. "
-          + "Ordering can be: 'stable' (default), 'compile', 'link' or 'naive_link'.<br>"
-          + "Example: nset([1, 2, 3], order=\"compile\")")
+      doc = "Creates a set from the <code>items</code>, that supports nesting. "
+          + "The nesting is applied to other nested sets among <code>items</code>. "
+          + "Ordering can be: <code>stable</code> (default), <code>compile</code>, "
+          + "<code>link</code> or <code>naive_link</code>.<br>"
+          + "Examples:<br>"
+          + "<pre class=code>set([1, set([2, 3]), 2])\n"
+          + "set([1, 2, 3], order=\"compile\")</pre>")
   private static final Function set =
     new MixedModeFunction("set", ImmutableList.of("items", "order"), 0, false) {
     @Override
@@ -528,7 +545,7 @@ public class MethodLibrary {
    */
   @SkylarkBuiltin(name = "select",
       doc = "Creates a SelectorValue from the dict parameter.")
-  private static final Function select = new PositionalFunction("select", 1, 1) {
+  private static final Function select = new SimplePositionalFunction("select", 1, 1) {
       @Override
       public Object call(List<Object> args, FuncallExpression ast)
           throws EvalException, ConversionException {
@@ -545,8 +562,10 @@ public class MethodLibrary {
    * Returns true if the struct has a field of the given name, otherwise false.
    */
   @SkylarkBuiltin(name = "hasattr",
-      doc = "Returns true if the struct has a field of the given name, otherwise false.")
-  private static final Function hasattr = new PositionalFunction("hasattr", 2, 2) {
+      doc = "Returns True if the struct has a field of the given name, otherwise False. "
+      + "Example:<br>"
+      + "<pre class=code>hasattr(ctx.attr, \"myattr\")</pre>")
+  private static final Function hasattr = new SimplePositionalFunction("hasattr", 2, 2) {
     @Override
     public Object call(List<Object> args, FuncallExpression ast) throws EvalException,
         ConversionException {
@@ -567,16 +586,47 @@ public class MethodLibrary {
     }
   };
 
+  @SkylarkBuiltin(name = "dir",
+      doc = "Returns the list of fields and methods of the parameter object.")
+  private static final Function dir = new PositionalFunction("dir", 1, 1) {
+    @Override
+    public Object call(List<Object> args, FuncallExpression ast, Environment env)
+        throws EvalException {
+      Object obj = args.get(0);
+      // Order the fields alphabetically.
+      Set<String> fields = new TreeSet<>();
+      if (obj instanceof ClassObject) {
+        fields.addAll(((ClassObject) obj).getKeys());
+      }
+      fields.addAll(env.getFunctionNames(obj.getClass()));
+      try {
+        fields.addAll(FuncallExpression.getMethodNames(obj.getClass()));
+      } catch (ExecutionException e) {
+        // This shouldn't happen
+        throw new EvalException(ast.getLocation(), e.getMessage());
+      }
+      return SkylarkList.list(fields, String.class);
+    }
+  };
+
   /**
    * Skylark String module.
    */
-  @SkylarkModule(name = "string", doc = "A language built-in type to support strings.")
+  @SkylarkModule(name = "string", doc =
+      "A language built-in type to support strings. "
+      + "Example of string literals:<br>"
+      + "<pre class=code>a = 'abc\\ndef'\n"
+      + "b = \"ab'cd\"\n"
+      + "c = \"\"\"multiline string\"\"\"</pre>")
   public static final class StringModule {}
 
   /**
    * Skylark Dict module.
    */
-  @SkylarkModule(name = "dict", doc = "A language built-in type to support dicts.")
+  @SkylarkModule(name = "dict", doc =
+      "A language built-in type to support dicts. "
+      + "Example of dict literal:<br>"
+      + "<pre class=code>d = {\"a\": 2, \"b\": 5}</pre>")
   public static final class DictModule {}
 
   public static final Map<Function, SkylarkType> stringFunctions = ImmutableMap
@@ -625,6 +675,7 @@ public class MethodLibrary {
       .put(struct, SkylarkType.of(ClassObject.class))
       .put(hasattr, SkylarkType.BOOL)
       .put(set, SkylarkType.of(SkylarkNestedSet.class))
+      .put(dir, SkylarkType.of(SkylarkList.class, String.class))
       .build();
 
   /**

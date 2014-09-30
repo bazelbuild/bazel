@@ -68,7 +68,7 @@ def java_library_impl(ctx):
 
 java_library = rule(java_library_impl,
     attr = {
-       "data": attr.label_list(allow_files=True, rule_classes=NO_RULE,
+       "data": attr.label_list(allow_files=True, allow_rules=False,
           cfg=DATA_CFG),
        "srcs": attr.label_list(allow_files=java_filetype),
        "jars": attr.label_list(allow_files=jar_filetype),

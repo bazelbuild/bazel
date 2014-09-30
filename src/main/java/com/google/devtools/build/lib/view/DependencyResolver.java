@@ -15,7 +15,6 @@ package com.google.devtools.build.lib.view;
 
 import com.google.common.base.Preconditions;
 import com.google.common.collect.ArrayListMultimap;
-import com.google.common.collect.ImmutableSet;
 import com.google.common.collect.ListMultimap;
 import com.google.devtools.build.lib.packages.Attribute;
 import com.google.devtools.build.lib.packages.InputFile;
@@ -31,6 +30,7 @@ import com.google.devtools.build.lib.view.config.ConfigMatchingProvider;
 
 import java.util.Collection;
 import java.util.Map;
+import java.util.Set;
 
 import javax.annotation.Nullable;
 
@@ -89,12 +89,12 @@ public abstract class DependencyResolver {
    * <p>TODO(bazel-team): Remove this version when non-SkyFrame code is stripped out.
    */
   public final ListMultimap<Attribute, TargetAndConfiguration> dependentNodeMap(
-      TargetAndConfiguration node) {
+      TargetAndConfiguration node, Set<ConfigMatchingProvider> configConditions) {
     ListMultimap<Attribute, Label> labelMap = null;
     if (node.getTarget() instanceof Rule) {
       try {
         labelMap = new LateBoundAttributeHelper((Rule) node.getTarget(), node.getConfiguration(),
-            ImmutableSet.<ConfigMatchingProvider>of()).createAttributeMap();
+            configConditions).createAttributeMap();
       } catch (EvalException e) {
         throw new IllegalStateException(e);
       }

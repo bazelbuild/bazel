@@ -257,6 +257,25 @@ public final class FuncallExpression extends Expression {
     return methodCache.get(objClass).get(methodName + "#" + argNum);
   }
 
+  /**
+   * Returns the list of the Skylark name of all Skylark callable methods.
+   */
+  public static List<String> getMethodNames(Class<?> objClass)
+      throws ExecutionException {
+    List<String> names = new ArrayList<>();
+    for (List<MethodDescriptor> methods : methodCache.get(objClass).values()) {
+      for (MethodDescriptor method : methods) {
+        // TODO(bazel-team): store the Skylark name in the MethodDescriptor. 
+        String name = method.annotation.name();
+        if (name.isEmpty()) {
+          name = StringUtilities.toPythonStyleFunctionName(method.method.getName());
+        }
+        names.add(name);
+      }
+    }
+    return names;
+  }
+
   static Object callMethod(MethodDescriptor methodDescriptor, String methodName, Object obj,
       Object[] args, Location loc) throws EvalException, IllegalAccessException,
       IllegalArgumentException, InvocationTargetException {

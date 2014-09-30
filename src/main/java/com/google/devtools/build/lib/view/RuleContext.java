@@ -1071,7 +1071,8 @@ public final class RuleContext extends TargetContext
       Preconditions.checkNotNull(configConditions);
       Preconditions.checkNotNull(visibility);
       ListMultimap<String, ConfiguredTarget> targetMap = createTargetMap();
-      ListMultimap<String, ConfiguredFilesetEntry> filesetEntryMap = createFilesetEntryMap(rule);
+      ListMultimap<String, ConfiguredFilesetEntry> filesetEntryMap =
+          createFilesetEntryMap(rule, configConditions);
       return new RuleContext(this, targetMap, filesetEntryMap, configConditions,
           getEnabledFeatures());
     }
@@ -1147,7 +1148,7 @@ public final class RuleContext extends TargetContext
      * on a PrerequisiteMap instance.
      */
     private ListMultimap<String, ConfiguredFilesetEntry> createFilesetEntryMap(
-        final Rule rule) {
+        final Rule rule, Set<ConfigMatchingProvider> configConditions) {
       final ImmutableSortedKeyListMultimap.Builder<String, ConfiguredFilesetEntry> mapBuilder =
           ImmutableSortedKeyListMultimap.builder();
       for (Attribute attr : rule.getAttributes()) {
@@ -1159,8 +1160,7 @@ public final class RuleContext extends TargetContext
         for (ConfiguredTarget prerequisite : prerequisiteMap.get(attr)) {
           ctMap.put(prerequisite.getLabel(), prerequisite);
         }
-        List<FilesetEntry> entries = ConfiguredAttributeMapper.of(rule,
-            ImmutableSet.<ConfigMatchingProvider>of())
+        List<FilesetEntry> entries = ConfiguredAttributeMapper.of(rule, configConditions)
             .get(attributeName, Type.FILESET_ENTRY_LIST);
         for (FilesetEntry entry : entries) {
           if (entry.getFiles() == null) {
