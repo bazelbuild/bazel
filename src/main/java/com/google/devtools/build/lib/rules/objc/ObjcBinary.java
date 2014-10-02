@@ -20,7 +20,6 @@ import static com.google.devtools.build.lib.rules.objc.XcodeProductType.APPLICAT
 
 import com.google.common.annotations.VisibleForTesting;
 import com.google.common.base.Optional;
-import com.google.common.base.StringUtil;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.Iterables;
@@ -146,6 +145,10 @@ public class ObjcBinary implements RuleConfiguredTargetFactory {
         ruleContext, ".app", extraBundleFiles, objcProvider, optionsProvider);
   }
 
+  private static String stripSuffix(String str, String suffix) {
+    return str.endsWith(suffix) ? str.substring(0, str.length() - suffix.length()) : null;
+  }
+
   static void registerActions(RuleContext ruleContext, ObjcCommon common,
       XcodeProvider xcodeProvider, ExtraLinkArgs extraLinkArgs,
       OptionsProvider optionsProvider, final Bundling bundling) {
@@ -192,8 +195,7 @@ public class ObjcBinary implements RuleConfiguredTargetFactory {
               return new ImmutableList.Builder<String>()
                   .add(dSym.getExecPathString())
                   .add("-d")
-                  .add(StringUtil.stripSuffix(dSym.getExecPathString(), TMP_DSYM_BUNDLE_SUFFIX)
-                      + ".app.dSYM")
+                  .add(stripSuffix(dSym.getExecPathString(), TMP_DSYM_BUNDLE_SUFFIX) + ".app.dSYM")
                  .build();
              }
           })
