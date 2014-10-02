@@ -317,6 +317,24 @@ public final class SkylarkAttr {
       }
     };
 
+  @SkylarkBuiltin(name = "string_dict", doc =
+      "Creates an attribute of type dictionary, mapping from string to string. "
+      + "Its default value is {}.",
+      objectType = SkylarkAttr.class,
+      returnType = Attribute.class,
+      optionalParams = {
+      @Param(name = "default", doc = DEFAULT_DOC),
+      @Param(name = "flags", type = SkylarkList.class, doc = FLAGS_DOC),
+      @Param(name = "mandatory", type = Boolean.class, doc = MANDATORY_DOC),
+      @Param(name = "cfg", type = ConfigurationTransition.class, doc = CONFIGURATION_DOC)})
+  private static SkylarkFunction stringDict = new SkylarkFunction("string_dict") {
+      @Override
+      public Object call(Map<String, Object> kwargs, FuncallExpression ast, Environment env)
+          throws EvalException {
+        return createAttribute(kwargs, Type.STRING_DICT, ast, env);
+      }
+    };
+
   @SkylarkBuiltin(name = "license", doc =
       "Creates an attribute of type license. Its default value is NO_LICENSE.",
       // TODO(bazel-team): Do we have proper support for licenses?

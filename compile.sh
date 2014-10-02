@@ -222,7 +222,7 @@ log "Compiling build-runfiles..."
 "${CPP}" -o output/build-runfiles -std=c++0x -l stdc++ src/main/tools/build-runfiles.cc
 
 log "Compiling process-wrapper..."
-"${CC}" -o output/process-wrapper src/main/tools/process-wrapper.c
+"${CC}" -o output/process-wrapper -std=c99 src/main/tools/process-wrapper.c
 
 cp src/main/tools/build_interface_so output/build_interface_so
 

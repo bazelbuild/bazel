@@ -19,7 +19,6 @@ import com.google.devtools.build.lib.syntax.Label;
 import com.google.devtools.build.lib.view.test.TestStatus.BlazeTestStatus;
 import com.google.devtools.build.lib.view.test.TestStatus.TestCase;
 import com.google.gson.Gson;
-import com.google.gson.JsonArray;
 import com.google.gson.JsonElement;
 import com.google.gson.JsonObject;
 
@@ -104,23 +103,59 @@ public class WebStatusBuildLog {
     }
   }
 
-  public JsonObject serializeTestCases(TestCase testCase) {
-    JsonObject result = new JsonObject();
-    JsonArray children = new JsonArray();
-    result.addProperty("name", testCase.getName());
-    result.addProperty("className", testCase.getClassName());
-    result.addProperty("result", testCase.getResult());
-    result.addProperty("time", testCase.getRunDurationMillis());
-    for (TestCase child : testCase.getChildList()) {
-      children.add(serializeTestCases(child));
+  private JsonObject createTestCaseEmptyJsonNode(String fullName, TestCase testCase) {
+    JsonObject currentNode = new JsonObject();
+    currentNode.addProperty("name", testCase.getName());
+    currentNode.addProperty("className", testCase.getClassName());
+    currentNode.addProperty("fullName", fullName);
+    currentNode.add("results", new JsonObject());
+    currentNode.add("times", new JsonObject());
+    currentNode.add("children", new JsonObject());
+    currentNode.add("failures", new JsonObject());
+    currentNode.add("errors", new JsonObject());
+    return currentNode;
+  }
+
+  private JsonObject mergeTestCases(JsonObject currentNode, String fullName, TestCase testCase,
+      int shardNumber) {
+    if (currentNode == null) {
+      currentNode = createTestCaseEmptyJsonNode(fullName, testCase);
     }
-    result.add("children", children);
-    return result;
+
+    if (testCase.getRun()) {
+      JsonObject results = (JsonObject) currentNode.get("results");
+      JsonObject times = (JsonObject) currentNode.get("times");
+
+      if (testCase.hasResult()) {
+        results.addProperty(Integer.toString(shardNumber), testCase.getResult());
+      }
+
+      if (testCase.hasStatus()) {
+        results.addProperty(Integer.toString(shardNumber), testCase.getStatus().toString());
+      }
+
+      if (testCase.hasRunDurationMillis()) {
+        times.addProperty(Integer.toString(shardNumber), testCase.getRunDurationMillis());
+      }
+    }
+    JsonObject children = (JsonObject) currentNode.get("children");
+
+    for (TestCase child : testCase.getChildList()) {
+      String fullChildName = child.getClassName() + "." + child.getName();
+      JsonObject childNode = mergeTestCases((JsonObject) children.get(fullChildName), fullChildName,
+          child, shardNumber);
+      if (!children.has(fullChildName)) {
+        children.add(fullChildName, childNode);
+      }
+    }
+    return currentNode;
   }
 
   public void addTestResult(Label label, TestCase testCase, int shardNumber) {
-    // For now ignore the shard number and just merge all the data
-    LOG.info(serializeTestCases(testCase).toString());
-    testCases.put(label.toShorthandString() + " " + shardNumber, serializeTestCases(testCase));
+    String testResultFullName = label.toShorthandString();
+    if (!testCases.containsKey(testResultFullName)) {
+      testCases.put(testResultFullName, createTestCaseEmptyJsonNode(testResultFullName, testCase));
+    }
+    mergeTestCases(testCases.get(testResultFullName), testResultFullName, testCase, shardNumber);
   }
 }

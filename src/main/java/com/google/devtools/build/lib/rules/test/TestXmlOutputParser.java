@@ -294,6 +294,12 @@ class TestXmlOutputParser {
         builder.setRunDurationMillis(parseTime(value));
       } else if (name.equals("result")) {
         builder.setResult(value);
+      } else if (name.equals("status")) {
+        if (value.equals("notrun")) {
+          builder.setRun(false);
+        } else if (value.equals("run")) {
+          builder.setRun(true);
+        }
       }
     }
 

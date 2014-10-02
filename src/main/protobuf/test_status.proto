@@ -67,6 +67,7 @@ message TestCase {
   optional string result = 5;
   optional Type type = 6;
   optional Status status = 7;
+  optional bool run = 8 [default = true];
 };
 
 // TestResultData holds the outcome data for a single test action (A

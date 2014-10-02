@@ -24,10 +24,10 @@ load("foo/bar/baz/maprule", "maprule")
 maprule(
     name = "extract_js_deps",
     srcs = [":header_gen"],
-    outs = [
-        "prov:$(src)_provides.js",
-        "req:$(src)_requires.js",
-    ],
+    outs = {
+        "prov": "$(src)_provides.js",
+        "req": "$(src)_requires.js",
+    },
     cmd = " ; ".join([
         "(cat $(SRCS)",
         "echo '// Generated from $(src)'",
@@ -103,14 +103,10 @@ def get_outs_templates(ctx):
 
   result = {}
   values = {}  # set of values; "in" operator only works on dicts
-  for definition in outs_templ:
-    tokens = definition.split(":")
-    if len(tokens) != 2:
-      ctx.error("outs", "invalid template '%s';" % definition +
-          " must contain exactly one ':'")
-
-    key = tokens[0]
-    value = tokens[1]
+  # TODO(bazel-team): outs_templ should be a dict instead of a list of pairs
+  for i in outs_templ:
+    key = list(i)[0]
+    value = list(i)[1]
     if len(value.split("$(src)")) != 2:
       ctx.error("outs", "invalid template '%s'; " % definition +
           "must contain the placeholder $(src) exactly once")
@@ -222,7 +218,7 @@ maprule = rule(implementation=create,
          # resolve to the name of that particular output. The template must
          # contain the placeholder $(src) exactly once which will be replaced
          # with the path of the particular input file.
-         "outs": attr.string_list(mandatory=True),
+         "outs": attr.string_dict(mandatory=True),
 
          # String; required.
          # The shell command to execute for each file of the "foreach_srcs" that

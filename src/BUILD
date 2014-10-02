@@ -2,8 +2,7 @@
 # We will need proper proto and java rules.
 
 load('rules/genproto', 'genproto')
-load('rules/java_library_oss', 'java_library')
-load('rules/java_binary_oss', 'java_binary')
+load('rules/java_rules_oss', 'java_library', 'java_binary')
 
 # The file assumes there is a directory (or symlink) src/javadir.
 # Use this command to use local java:
