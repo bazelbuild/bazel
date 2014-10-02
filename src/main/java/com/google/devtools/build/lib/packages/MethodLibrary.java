@@ -712,6 +712,17 @@ public class MethodLibrary {
     }
   };
 
+  @SkylarkBuiltin(name = "type",
+      doc = "Returns the type (string) of its argument.")
+  private static final Function type = new PositionalFunction("type", 1, 1) {
+    @Override
+    public Object call(List<Object> args, FuncallExpression ast, Environment env)
+        throws EvalException {
+      // There is no 'type' type in Skylark, so we return a string with the type name.
+      return EvalUtils.getDatatypeName(args.get(0));
+    }
+  };
+
   /**
    * Skylark String module.
    */
@@ -781,6 +792,7 @@ public class MethodLibrary {
       .put(set, SkylarkType.of(SkylarkNestedSet.class))
       .put(dir, SkylarkType.of(SkylarkList.class, String.class))
       .put(range, SkylarkType.of(SkylarkList.class, Integer.class))
+      .put(type, SkylarkType.of(String.class))
       .build();
 
   /**

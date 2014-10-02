@@ -33,7 +33,7 @@ java_library(
 )
 
 java_library(
-    name = "blaze-core",
+    name = "bazel-core",
     srcs = glob([
         "main/**/*.java",
     ]),
@@ -57,7 +57,7 @@ java_library(
         "test/**/*.java",
     ]),
     deps = [
-        ":blaze-core",
+        ":bazel-core",
         ":xcode-common",
         ":proto_build",
         ":proto_bundlemerge",
@@ -73,10 +73,10 @@ java_library(
 )
 
 java_binary(
-    name = "blaze",
+    name = "bazel-main",
     main_class = "com.google.devtools.build.lib.bazel.BazelMain",
     deps = [
-        ":blaze-core",
+        ":bazel-core",
     ],
 )
 
@@ -240,6 +240,14 @@ genrule(
     outs = ["client_info"],
     cmd = "touch $@",
     executable = 1,
+)
+
+# TODO: The jar file name in the client needs to match this. Can we automate that?
+genrule(
+    name = "rename-bazel-jar",
+    srcs = ["bazel-main_deploy.jar"],
+    outs = ["libblaze.jar"],
+    cmd = "cp $< $@",
 )
 
 # HACK for Mac: copy libunix.so to libunix.dylib. We'll need to come up with a
