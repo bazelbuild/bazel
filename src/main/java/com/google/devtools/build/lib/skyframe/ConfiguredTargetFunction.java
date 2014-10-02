@@ -36,7 +36,7 @@ import com.google.devtools.build.lib.packages.Rule;
 import com.google.devtools.build.lib.packages.Target;
 import com.google.devtools.build.lib.packages.TargetUtils;
 import com.google.devtools.build.lib.packages.Type;
-import com.google.devtools.build.lib.skyframe.SequencedSkyframeExecutor.BuildViewProvider;
+import com.google.devtools.build.lib.skyframe.SkyframeExecutor.BuildViewProvider;
 import com.google.devtools.build.lib.syntax.EvalException;
 import com.google.devtools.build.lib.syntax.Label;
 import com.google.devtools.build.lib.view.CachingAnalysisEnvironment;

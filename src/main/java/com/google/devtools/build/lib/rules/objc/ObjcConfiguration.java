@@ -25,11 +25,13 @@ public class ObjcConfiguration extends Fragment {
   private final String iosSdkVersion;
   private final String iosCpu;
   private final String xcodeOptions;
+  private final boolean generateDebugSymbols;
 
   ObjcConfiguration(ObjcCommandLineOptions objcOptions) {
     this.iosSdkVersion = Preconditions.checkNotNull(objcOptions.iosSdkVersion, "iosSdkVersion");
     this.iosCpu = Preconditions.checkNotNull(objcOptions.iosCpu, "iosCpu");
     this.xcodeOptions = Preconditions.checkNotNull(objcOptions.xcodeOptions, "xcodeOptions");
+    this.generateDebugSymbols = objcOptions.generateDebugSymbols;
   }
 
   public String getIosSdkVersion() {
@@ -46,6 +48,10 @@ public class ObjcConfiguration extends Fragment {
 
   public String getXcodeOptions() {
     return xcodeOptions;
+  }
+
+  public boolean generateDebugSymbols() {
+    return generateDebugSymbols;
   }
 
   @Override

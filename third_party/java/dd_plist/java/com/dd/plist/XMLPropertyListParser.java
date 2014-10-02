@@ -1,6 +1,6 @@
 /*
  * plist - An open source library to parse and generate property lists
- * Copyright (C) 2013 Daniel Dreibrodt
+ * Copyright (C) 2014 Daniel Dreibrodt
  *
  * Permission is hereby granted, free of charge, to any person obtaining a copy
  * of this software and associated documentation files (the "Software"), to deal
@@ -25,13 +25,16 @@ package com.dd.plist;
 import org.w3c.dom.*;
 import org.xml.sax.EntityResolver;
 import org.xml.sax.InputSource;
+import org.xml.sax.SAXException;
 
 import javax.xml.parsers.DocumentBuilder;
 import javax.xml.parsers.DocumentBuilderFactory;
 import javax.xml.parsers.ParserConfigurationException;
 import java.io.ByteArrayInputStream;
 import java.io.File;
+import java.io.IOException;
 import java.io.InputStream;
+import java.text.ParseException;
 import java.util.ArrayList;
 import java.util.List;
 
@@ -54,10 +57,8 @@ public class XMLPropertyListParser {
     /**
      * Initialize the document builder factory so that it can be reuused and does not need to
      * be reinitialized for each new parsing.
-     *
-     * @throws ParserConfigurationException If the parser configuration is not supported on your system.
      */
-    private static synchronized void initDocBuilderFactory() throws ParserConfigurationException {
+    private static synchronized void initDocBuilderFactory() {
         docBuilderFactory = DocumentBuilderFactory.newInstance();
         docBuilderFactory.setIgnoringComments(true);
         docBuilderFactory.setCoalescing(true);
@@ -95,7 +96,7 @@ public class XMLPropertyListParser {
      * @throws Exception When an error occurs during parsing.
      * @see javax.xml.parsers.DocumentBuilder#parse(java.io.File)
      */
-    public static NSObject parse(File f) throws Exception {
+    public static NSObject parse(File f) throws ParseException, IOException, PropertyListFormatException, SAXException, ParserConfigurationException {
         DocumentBuilder docBuilder = getDocBuilder();
 
         Document doc = docBuilder.parse(f);
@@ -110,7 +111,7 @@ public class XMLPropertyListParser {
      * @return The root object of the property list. This is usally a NSDictionary but can also be a NSArray.
      * @throws Exception When an error occurs during parsing.
      */
-    public static NSObject parse(final byte[] bytes) throws Exception {
+    public static NSObject parse(final byte[] bytes) throws ParserConfigurationException, ParseException, SAXException, PropertyListFormatException, IOException {
         ByteArrayInputStream bis = new ByteArrayInputStream(bytes);
         return parse(bis);
     }
@@ -123,7 +124,7 @@ public class XMLPropertyListParser {
      * @throws Exception When an error occurs during parsing.
      * @see javax.xml.parsers.DocumentBuilder#parse(java.io.InputStream)
      */
-    public static NSObject parse(InputStream is) throws Exception {
+    public static NSObject parse(InputStream is) throws ParserConfigurationException, IOException, SAXException, PropertyListFormatException, ParseException {
         DocumentBuilder docBuilder = getDocBuilder();
 
         Document doc = docBuilder.parse(is);
@@ -138,7 +139,7 @@ public class XMLPropertyListParser {
      * @return The root NSObject of the property list contained in the XML document.
      * @throws Exception If an error occured during parsing.
      */
-    private static NSObject parseDocument(Document doc) throws Exception {
+    private static NSObject parseDocument(Document doc) throws PropertyListFormatException, IOException, ParseException {
         DocumentType docType = doc.getDoctype();
         if (docType == null) {
             if (!doc.getDocumentElement().getNodeName().equals("plist")) {
@@ -148,17 +149,17 @@ public class XMLPropertyListParser {
             throw new UnsupportedOperationException("The given XML document is not a property list.");
         }
 
-        Node rootNode = null;
+        Node rootNode;
 
         if (doc.getDocumentElement().getNodeName().equals("plist")) {
             //Root element wrapped in plist tag
             List<Node> rootNodes = filterElementNodes(doc.getDocumentElement().getChildNodes());
             if (rootNodes.isEmpty()) {
-                throw new Exception("The given property list has no root element!");
+                throw new PropertyListFormatException("The given XML property list has no root element!");
             } else if (rootNodes.size() == 1) {
                 rootNode = rootNodes.get(0);
             } else {
-                throw new Exception("The given property list has more than one root element!");
+                throw new PropertyListFormatException("The given XML property list has more than one root element!");
             }
         } else {
             //Root NSObject not wrapped in plist-tag
@@ -175,7 +176,7 @@ public class XMLPropertyListParser {
      * @return The corresponding NSObject.
      * @throws Exception If an error occured during parsing the node.
      */
-    private static NSObject parseObject(Node n) throws Exception {
+    private static NSObject parseObject(Node n) throws ParseException, IOException {
         String type = n.getNodeName();
         if (type.equals("dict")) {
             NSDictionary dict = new NSDictionary();

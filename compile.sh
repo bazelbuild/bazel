@@ -27,7 +27,8 @@ LDFLAGS="$LDFLAGS"
 ZIPOPTS="$ZIPOPTS"
 
 # TODO: CC target architecture needs to match JAVA_HOME.
-CC=${CC:-g++}
+CC=${CC:-gcc}
+CPP=${CPP:-g++}
 
 PLATFORM="$(uname -s | tr 'A-Z' 'a-z')"
 JNIPLATFORM="${PLATFORM}"
@@ -49,6 +50,12 @@ function fail() {
   exit 1
 }
 
+function log() {
+  if [[ -z "${QUIETMODE}" ]]; then
+    echo "$1" >&2
+  fi
+}
+
 case "${PLATFORM}" in
 linux)
   # Sorry, no static linking on linux for now.
@@ -60,7 +67,7 @@ linux)
   PROTOC=${PROTOC:-third_party/protobuf/protoc.amd64}
   ;;
 darwin)
-  homebrew_header=$(ls -1 /usr/local/Cellar/libarchive/*/include/archive.h | head -n1)
+  homebrew_header=$(ls -1 /usr/local/Cellar/libarchive/*/include/archive.h 2>/dev/null | head -n1)
   if [[ -e $homebrew_header ]]; then
     # For use with Homebrew.
     archive_dir=$(dirname $(dirname $homebrew_header))
@@ -76,7 +83,7 @@ darwin)
              /opt/local/lib/libz.a /opt/local/lib/libiconv.a \
              $LDFLAGS"
   else
-    echo "WARNING: Could not find libarchive installation, proceeding bravely."
+    echo >&2 "WARNING: Could not find libarchive installation, proceeding bravely."
   fi
 
   JNILIB="libunix.dylib"
@@ -137,7 +144,7 @@ src/main/native/unix_jni_${PLATFORM}.cc
 )
 
 if [ -z "${BAZEL_SKIP_JAVA_COMPILATION}" ]; then
-  echo "Compiling Java stubs for protocol buffers..."
+  log "Compiling Java stubs for protocol buffers..."
   for f in $PROTO_FILES ; do
     "${PROTOC}" -Isrc/main/protobuf/ --java_out=output/src "$f"
   done
@@ -147,14 +154,14 @@ if [ -z "${BAZEL_SKIP_JAVA_COMPILATION}" ]; then
   errfile="${tmp}.err"
 
   # Compile .java files (incl. generated ones) using javac
-  echo "Compiling Bazel Java code..."
+  log "Compiling Bazel Java code..."
   find ${DIRS} -name "*.java" > "$paramfile"
   "${JAVAC}" -classpath "${CLASSPATH}" -sourcepath "$SOURCEPATH" \
       -d "output/classes" "@${paramfile}" &> "$errfile" ||
       { cat "$errfile" ; rm -f "$paramfile" "$errfile" ; exit 1 ; }
   rm "$paramfile" "$errfile"
 
-  echo "Extracting helper classes..."
+  log "Extracting helper classes..."
   for f in $LIBRARY_JARS ; do
     unzip -qn ${f} -d output/classes
   done
@@ -163,17 +170,17 @@ if [ -z "${BAZEL_SKIP_JAVA_COMPILATION}" ]; then
   cp src/main/java/com/google/devtools/build/lib/blaze/commands/*.txt \
       output/classes/com/google/devtools/build/lib/blaze/commands/
 
-  echo "Creating libblaze.jar..."
+  log "Creating libblaze.jar..."
   echo "Main-Class: com.google.devtools.build.lib.bazel.BazelMain" > output/MANIFEST.MF
   "$JAR" cmf output/MANIFEST.MF output/libblaze.jar \
       -C output/classes com/ -C output/classes javax/ -C output/classes org/
 fi
 
-echo "Compiling client .cc files..."
+log "Compiling client .cc files..."
 for FILE in "${BLAZE_CC_FILES[@]}"; do
   if [[ ! "${FILE}" =~ ^-.*$ ]]; then
     OUT=$(basename "${FILE}").o
-    "${CC}" \
+    "${CPP}" \
         -I src/main/cpp/ \
         ${ARCHIVE_CFLAGS} \
         ${CFLAGS} \
@@ -186,14 +193,13 @@ for FILE in "${BLAZE_CC_FILES[@]}"; do
   fi
 done
 
-# Link client
-echo "Linking client..."
-"${CC}" -o output/client output/objs/*.o -lstdc++ ${LDFLAGS}
+log "Linking client..."
+"${CPP}" -o output/client output/objs/*.o -lstdc++ ${LDFLAGS}
 
-echo "Compiling JNI libraries..."
+log "Compiling JNI libraries..."
 for FILE in "${NATIVE_CC_FILES[@]}"; do
   OUT=$(basename "${FILE}").o
-  "${CC}" \
+  "${CPP}" \
       -I src/main/cpp/ \
       -I src/main/native/ \
       -I "${JAVA_HOME}/include/" \
@@ -208,14 +214,14 @@ for FILE in "${NATIVE_CC_FILES[@]}"; do
       "${FILE}"
 done
 
-echo "Linking ${JNILIB}..."
-"${CC}" -o output/${JNILIB} $JNI_LD_ARGS -shared output/native/*.o -l stdc++
+log "Linking ${JNILIB}..."
+"${CPP}" -o output/${JNILIB} $JNI_LD_ARGS -shared output/native/*.o -l stdc++
 
-echo "Compiling build-runfiles..."
+log "Compiling build-runfiles..."
 # Clang on Linux requires libstdc++
-"${CC}" -o output/build-runfiles -std=c++0x -l stdc++ src/main/tools/build-runfiles.cc
+"${CPP}" -o output/build-runfiles -std=c++0x -l stdc++ src/main/tools/build-runfiles.cc
 
-echo "Compiling process-wrapper..."
+log "Compiling process-wrapper..."
 "${CC}" -o output/process-wrapper src/main/tools/process-wrapper.c
 
 cp src/main/tools/build_interface_so output/build_interface_so
@@ -223,7 +229,7 @@ cp src/main/tools/build_interface_so output/build_interface_so
 touch output/client_info
 chmod 755 output/client_info
 
-echo "Creating Bazel self-extracting archive..."
+log "Creating Bazel self-extracting archive..."
 TO_ZIP="libblaze.jar ${JNILIB} build-runfiles${EXE_EXT} process-wrapper${EXE_EXT} client_info build_interface_so"
 (cd output/ ; cat client ${TO_ZIP} | ${MD5SUM} | awk '{ print $1; }' > install_base_key)
 (cd output/ ; zip $ZIPOPTS -q package.zip ${TO_ZIP} install_base_key)
@@ -231,4 +237,4 @@ cat output/client output/package.zip > output/bazel
 zip -qA output/bazel || true  # Not all zip implementations provide -qA, and this step is optional anyway.
 
 chmod 755 output/bazel
-echo "Build successful!"
+log "Build successful!"

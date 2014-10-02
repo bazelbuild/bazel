@@ -38,6 +38,7 @@ import com.google.devtools.build.lib.syntax.PositionalFunction;
 import com.google.devtools.build.lib.syntax.PositionalFunction.SimplePositionalFunction;
 import com.google.devtools.build.lib.syntax.SelectorValue;
 import com.google.devtools.build.lib.syntax.SkylarkBuiltin;
+import com.google.devtools.build.lib.syntax.SkylarkBuiltin.Param;
 import com.google.devtools.build.lib.syntax.SkylarkList;
 import com.google.devtools.build.lib.syntax.SkylarkModule;
 import com.google.devtools.build.lib.syntax.SkylarkNestedSet;
@@ -130,10 +131,25 @@ public class MethodLibrary {
     }
   };
 
-  @SkylarkBuiltin(name = "replace", objectType = StringModule.class,
+  @SkylarkBuiltin(name = "upper", objectType = StringModule.class,
+      doc = "Returns the upper case version of this string.")
+  private static Function upper = new SimplePositionalFunction("upper", 1, 1) {
+    @Override
+    public Object call(List<Object> args, FuncallExpression ast) throws ConversionException {
+      String thiz = Type.STRING.convert(args.get(0), "'upper' operand");
+      return thiz.toUpperCase();
+    }
+  };
+
+  @SkylarkBuiltin(name = "replace", objectType = StringModule.class, returnType = String.class,
       doc = "Returns a copy of the string in which the occurrences "
           + "of <code>old</code> have been replaced with <code>new</code>, optionally restricting "
-          + "the number of replacements to <code>maxsplit</code>.")
+          + "the number of replacements to <code>maxsplit</code>.",
+      mandatoryParams = {
+      @Param(name = "old", type = String.class, doc = "The string to be replaced."),
+      @Param(name = "new", type = String.class, doc = "The string to replace with.")},
+      optionalParams = {
+      @Param(name = "maxsplit", type = Integer.class, doc = "The maximum number of replacements.")})
   private static Function replace =
     new MixedModeFunction("replace", ImmutableList.of("this", "old", "new", "maxsplit"), 3, false) {
     @Override
@@ -160,16 +176,21 @@ public class MethodLibrary {
     }
   };
 
-  @SkylarkBuiltin(name = "split", objectType = StringModule.class,
+  @SkylarkBuiltin(name = "split", objectType = StringModule.class, returnType = SkylarkList.class,
       doc = "Returns a list of all the words in the string, using <code>sep</code>  "
-          + "as the separator, optionally limiting the number of splits to <code>maxsplit</code>.")
+          + "as the separator, optionally limiting the number of splits to <code>maxsplit</code>.",
+      optionalParams = {
+      @Param(name = "sep", type = String.class,
+          doc = "The string to split on, default is space (\" \")."),
+      @Param(name = "maxsplit", type = Integer.class, doc = "The maximum number of splits.")})
   private static Function split = new MixedModeFunction("split",
       ImmutableList.of("this", "sep", "maxsplit"), 1, false) {
     @Override
     public Object call(Object[] namedArguments,
         List<Object> positionalArguments,
         Map<String, Object> keywordArguments,
-        FuncallExpression ast) throws ConversionException {
+        FuncallExpression ast,
+        Environment env) throws ConversionException {
       String thiz = Type.STRING.convert(namedArguments[0], "'split' operand");
       String sep = namedArguments[1] != null
           ? Type.STRING.convert(namedArguments[1], "'split' argument")
@@ -179,15 +200,21 @@ public class MethodLibrary {
           : -1;
       String[] ss = Pattern.compile(sep, Pattern.LITERAL).split(thiz,
                                                                 maxsplit);
-      return java.util.Arrays.asList(ss);
+      List<String> result = java.util.Arrays.asList(ss);
+      return env.isSkylarkEnabled() ? SkylarkList.list(result, String.class) : result;
     }
   };
 
-  @SkylarkBuiltin(name = "rfind", objectType = StringModule.class,
+  @SkylarkBuiltin(name = "rfind", objectType = StringModule.class, returnType = Integer.class,
       doc = "Returns the last index where <code>sub</code> is found, "
           + "or -1 if no such index exists, optionally restricting to "
           + "[<code>start</code>:<code>end</code>], "
-          + "<code>start</code> being inclusive and <code>end</code> being exclusive.")
+          + "<code>start</code> being inclusive and <code>end</code> being exclusive.",
+      mandatoryParams = {
+      @Param(name = "sub", type = String.class, doc = "The substring to find.")},
+      optionalParams = {
+      @Param(name = "start", type = Integer.class, doc = "Restrict to search from this position."),
+      @Param(name = "end", type = Integer.class, doc = "Restrict to search before this position.")})
   private static Function rfind =
       new MixedModeFunction("rfind", ImmutableList.of("this", "sub", "start", "end"), 2, false) {
         @Override
@@ -210,11 +237,16 @@ public class MethodLibrary {
         }
       };
 
-  @SkylarkBuiltin(name = "find", objectType = StringModule.class,
+  @SkylarkBuiltin(name = "find", objectType = StringModule.class, returnType = Integer.class,
       doc = "Returns the first index where <code>sub</code> is found, "
           + "or -1 if no such index exists, optionally restricting to "
           + "[<code>start</code>:<code>end]</code>, "
-          + "<code>start</code> being inclusive and <code>end</code> being exclusive.")
+          + "<code>start</code> being inclusive and <code>end</code> being exclusive.",
+      mandatoryParams = {
+      @Param(name = "sub", type = String.class, doc = "The substring to find.")},
+      optionalParams = {
+      @Param(name = "start", type = Integer.class, doc = "Restrict to search from this position."),
+      @Param(name = "end", type = Integer.class, doc = "Restrict to search before this position.")})
   private static Function find =
       new MixedModeFunction("find", ImmutableList.of("this", "sub", "start", "end"), 2, false) {
         @Override
@@ -237,10 +269,15 @@ public class MethodLibrary {
         }
       };
 
-  @SkylarkBuiltin(name = "endswith", objectType = StringModule.class,
+  @SkylarkBuiltin(name = "endswith", objectType = StringModule.class, returnType = Boolean.class,
       doc = "Returns True if the string ends with <code>sub</code>, "
           + "otherwise False, optionally restricting to [<code>start</code>:<code>end</code>], "
-          + "<code>start</code> being inclusive and <code>end</code> being exclusive.")
+          + "<code>start</code> being inclusive and <code>end</code> being exclusive.",
+      mandatoryParams = {
+      @Param(name = "sub", type = String.class, doc = "The substring to check.")},
+      optionalParams = {
+      @Param(name = "start", type = Integer.class, doc = "Test beginning at this position."),
+      @Param(name = "end", type = Integer.class, doc = "Stop comparing at this position.")})
   private static Function endswith =
       new MixedModeFunction("endswith", ImmutableList.of("this", "sub", "start", "end"), 2, false) {
         @Override
@@ -262,10 +299,15 @@ public class MethodLibrary {
         }
       };
 
-  @SkylarkBuiltin(name = "startswith", objectType = StringModule.class,
+  @SkylarkBuiltin(name = "startswith", objectType = StringModule.class, returnType = Boolean.class,
       doc = "Returns True if the string starts with <code>sub</code>, "
           + "otherwise False, optionally restricting to [<code>start</code>:<code>end</code>], "
-          + "<code>start</code> being inclusive and <code>end</code> being exclusive.")
+          + "<code>start</code> being inclusive and <code>end</code> being exclusive.",
+      mandatoryParams = {
+      @Param(name = "sub", type = String.class, doc = "The substring to check.")},
+      optionalParams = {
+      @Param(name = "start", type = Integer.class, doc = "Test beginning at this position."),
+      @Param(name = "end", type = Integer.class, doc = "Stop comparing at this position.")})
   private static Function startswith =
     new MixedModeFunction("startswith", ImmutableList.of("this", "sub", "start", "end"), 2, false) {
     @Override
@@ -377,6 +419,11 @@ public class MethodLibrary {
         }
 
         throw new EvalException(ast.getLocation(), "List is empty");
+      } else if (collectionCandidate instanceof String) {
+        String str = (String) collectionCandidate;
+        int index = getListIndex(key, str.length(), ast);
+        return str.substring(index, index + 1);
+
       } else {
         // TODO(bazel-team): This is dead code, get rid of it.
         throw new EvalException(ast.getLocation(), String.format(
@@ -505,14 +552,19 @@ public class MethodLibrary {
     }
   };
 
-  @SkylarkBuiltin(name = "set",
+  @SkylarkBuiltin(name = "set", returnType = SkylarkNestedSet.class,
       doc = "Creates a set from the <code>items</code>, that supports nesting. "
-          + "The nesting is applied to other nested sets among <code>items</code>. "
-          + "Ordering can be: <code>stable</code> (default), <code>compile</code>, "
-          + "<code>link</code> or <code>naive_link</code>.<br>"
+          + "The nesting is applied to other nested sets among <code>items</code>.<br>"
           + "Examples:<br>"
           + "<pre class=code>set([1, set([2, 3]), 2])\n"
-          + "set([1, 2, 3], order=\"compile\")</pre>")
+          + "set([1, 2, 3], order=\"compile\")</pre>",
+      optionalParams = {
+      @Param(name = "items", type = SkylarkList.class,
+          doc = "The items to initialize the set with."),
+      @Param(name = "order", type = String.class,
+          doc = "The ordering strategy for the set if it's nested, "
+              + "possible values are: <code>stable</code> (default), <code>compile</code>, "
+              + "<code>link</code> or <code>naive_link</code>.")})
   private static final Function set =
     new MixedModeFunction("set", ImmutableList.of("items", "order"), 0, false) {
     @Override
@@ -536,6 +588,57 @@ public class MethodLibrary {
         return new SkylarkNestedSet(order, SkylarkList.EMPTY_LIST, ast.getLocation());
       }
       return new SkylarkNestedSet(order, namedArguments[0], ast.getLocation());
+    }
+  };
+
+  @SkylarkBuiltin(name = "range", returnType = SkylarkList.class,
+      doc = "Creates a list where items go from <code>start</code> to <end>, using a "
+          + "<code>step</code> increment. If a single argument is provided, items will "
+          + "range from 0 to that element."
+          + "<pre class=code>range(4) == [0, 1, 2, 3]\n"
+          + "range(3, 9, 2) == [3, 5, 7]\n"
+          + "range(3, 0, -1) == [3, 2, 1]</pre>",
+      mandatoryParams = {
+      @Param(name = "start", type = Integer.class,
+          doc = "Value of the first element"),
+      },
+      optionalParams = {
+      @Param(name = "end", type = SkylarkList.class,
+          doc = "Generation of the list stops before <code>end</code> is reached."),
+      @Param(name = "step", type = String.class,
+          doc = "The increment (default is 1). It may be negative.")})
+  private static final Function range =
+    new MixedModeFunction("range", ImmutableList.of("start", "stop", "step"), 1, false) {
+    @Override
+    public Object call(Object[] namedArguments, List<Object> positionalArguments,
+        Map<String, Object> keywordArguments, FuncallExpression ast) throws EvalException,
+        ConversionException {
+      int start;
+      int stop;
+      if (namedArguments[1] == null) {
+        start = 0;
+        stop = Type.INTEGER.convert(namedArguments[0], "stop");
+      } else {
+        start = Type.INTEGER.convert(namedArguments[0], "start");
+        stop = Type.INTEGER.convert(namedArguments[1], "stop");
+      }
+      int step = namedArguments[2] == null ? 1 : Type.INTEGER.convert(namedArguments[2], "step");
+      if (step == 0) {
+        throw new EvalException(ast.getLocation(), "step cannot be 0");
+      }
+      List<Integer> result = Lists.newArrayList();
+      if (step > 0) {
+        while (start < stop) {
+          result.add(start);
+          start += step;
+        }
+      } else {
+        while (start > stop) {
+          result.add(start);
+          start += step;
+        }
+      }
+      return SkylarkList.list(result, Integer.class);
     }
   };
 
@@ -633,6 +736,7 @@ public class MethodLibrary {
       .<Function, SkylarkType>builder()
       .put(join, SkylarkType.STRING)
       .put(lower, SkylarkType.STRING)
+      .put(upper, SkylarkType.STRING)
       .put(replace, SkylarkType.STRING)
       .put(split, SkylarkType.of(List.class, String.class))
       .put(rfind, SkylarkType.INT)
@@ -676,6 +780,7 @@ public class MethodLibrary {
       .put(hasattr, SkylarkType.BOOL)
       .put(set, SkylarkType.of(SkylarkNestedSet.class))
       .put(dir, SkylarkType.of(SkylarkList.class, String.class))
+      .put(range, SkylarkType.of(SkylarkList.class, Integer.class))
       .build();
 
   /**
@@ -684,6 +789,7 @@ public class MethodLibrary {
   public static void setupMethodEnvironment(Environment env) {
     env.registerFunction(Map.class, index.getName(), index);
     setupMethodEnvironment(env, Map.class, dictFunctions.keySet());
+    env.registerFunction(String.class, index.getName(), index);
     setupMethodEnvironment(env, String.class, stringFunctions.keySet());
     if (env.isSkylarkEnabled()) {
       env.registerFunction(SkylarkList.class, index.getName(), index);

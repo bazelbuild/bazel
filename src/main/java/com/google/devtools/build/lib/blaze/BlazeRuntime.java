@@ -74,6 +74,7 @@ import com.google.devtools.build.lib.server.ServerCommand;
 import com.google.devtools.build.lib.server.signal.InterruptSignalHandler;
 import com.google.devtools.build.lib.skyframe.DiffAwareness;
 import com.google.devtools.build.lib.skyframe.SequencedSkyframeExecutor;
+import com.google.devtools.build.lib.skyframe.SkyframeExecutor;
 import com.google.devtools.build.lib.syntax.Label;
 import com.google.devtools.build.lib.util.AbruptExitException;
 import com.google.devtools.build.lib.util.BlazeClock;
@@ -171,7 +172,7 @@ public final class BlazeRuntime {
   // Application-specified constants
   private final PathFragment runfilesPrefix;
 
-  private final SequencedSkyframeExecutor skyframeExecutor;
+  private final SkyframeExecutor skyframeExecutor;
 
   private final Reporter reporter;
   private EventBus eventBus;
@@ -232,7 +233,7 @@ public final class BlazeRuntime {
 
   private BlazeRuntime(BlazeDirectories directories, Reporter reporter,
       WorkspaceStatusAction.Factory workspaceStatusActionFactory,
-      final SequencedSkyframeExecutor skyframeExecutor,
+      final SkyframeExecutor skyframeExecutor,
       PackageFactory pkgFactory, ConfiguredRuleClassProvider ruleClassProvider,
       ConfigurationFactory configurationFactory, PathFragment runfilesPrefix, Clock clock,
       OptionsProvider startupOptionsProvider, Iterable<BlazeModule> blazeModules,
@@ -512,7 +513,7 @@ public final class BlazeRuntime {
   /**
    * Returns the skyframe executor.
    */
-  public SequencedSkyframeExecutor getSkyframeExecutor() {
+  public SkyframeExecutor getSkyframeExecutor() {
     return skyframeExecutor;
   }
 
@@ -1657,11 +1658,12 @@ public final class BlazeRuntime {
 
       final PackageFactory pkgFactory =
           new PackageFactory(ruleClassProvider, platformRegexps, extensions);
-      SequencedSkyframeExecutor skyframeExecutor =
+      SkyframeExecutor skyframeExecutor =
           new SequencedSkyframeExecutor(reporter, pkgFactory,
               skyframe == SkyframeMode.FULL, timestampMonitor, directories,
               workspaceStatusActionFactory, ruleClassProvider.getBuildInfoFactories(),
-              diffAwarenessFactories, allowedMissingInputs, preprocessorFactorySupplier);
+              diffAwarenessFactories, allowedMissingInputs, preprocessorFactorySupplier,
+              clock);
 
       if (configurationFactory == null) {
         configurationFactory = new ConfigurationFactory(

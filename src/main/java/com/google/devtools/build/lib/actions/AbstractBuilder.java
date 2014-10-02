@@ -27,6 +27,7 @@ import com.google.devtools.build.lib.events.Reporter;
 import com.google.devtools.build.lib.profiler.Profiler;
 import com.google.devtools.build.lib.profiler.ProfilerTask;
 import com.google.devtools.build.lib.syntax.Label;
+import com.google.devtools.build.lib.util.Clock;
 import com.google.devtools.build.lib.util.StringUtilities;
 import com.google.devtools.build.lib.util.io.FileOutErr;
 import com.google.devtools.build.lib.vfs.ModifiedFileSet;
@@ -50,6 +51,7 @@ abstract class AbstractBuilder implements Builder {
 
   private static Logger LOG = Logger.getLogger(AbstractBuilder.class.getName());
   private final ActionInputFileCache fileCache;
+  private final Clock clock;
 
   // Cache the log-level in these booleans to avoid unnecessary calls to
   // logging code on critical path.
@@ -111,7 +113,7 @@ abstract class AbstractBuilder implements Builder {
   protected AbstractBuilder(Reporter reporter, EventBus eventBus,
       DependencyChecker dependencyChecker,
       boolean keepGoing,
-      Path outputRoot, ActionInputFileCache fileCache) {
+      Path outputRoot, ActionInputFileCache fileCache, Clock clock) {
     this.fileCache = fileCache;
     this.reporter = Preconditions.checkNotNull(reporter);
     this.eventBus = Preconditions.checkNotNull(eventBus);
@@ -120,6 +122,7 @@ abstract class AbstractBuilder implements Builder {
     this.actionLogBufferPathGenerator = new ActionLogBufferPathGenerator(outputRoot);
     this.actionExecutor = new ActionExecutor(reporter);
     actionExecutor.setActionLogBufferPathGenerator(actionLogBufferPathGenerator);
+    this.clock = clock;
   }
 
   protected class ActionExecutor extends AbstractActionExecutor {
@@ -333,7 +336,7 @@ abstract class AbstractBuilder implements Builder {
     }
 
     profiler.startTask(ProfilerTask.ACTION_CHECK, action);
-    long actionStartTime = Profiler.nanoTimeMaybe();
+    long actionStartTime = clock.nanoTime();
     try {
       Collection<Artifact> missingInputs = dependencyChecker.getMissingInputs(action);
       if (!missingInputs.isEmpty()) {

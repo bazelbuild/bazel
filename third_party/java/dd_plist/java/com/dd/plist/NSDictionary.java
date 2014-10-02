@@ -1,6 +1,6 @@
 /*
  * plist - An open source library to parse and generate property lists
- * Copyright (C) 2012 Daniel Dreibrodt
+ * Copyright (C) 2014 Daniel Dreibrodt
  *
  * Permission is hereby granted, free of charge, to any person obtaining a copy
  * of this software and associated documentation files (the "Software"), to deal
@@ -77,16 +77,6 @@ public class NSDictionary extends NSObject  implements Map<String, NSObject> {
         return dict.get(key);
     }
 
-    /**
-     * Puts a new key-value pair into this dictionary.
-     *
-     * @param key The key.
-     * @param obj The value.
-     */
-    public void put(String key, Object obj) {
-        dict.put(key, NSObject.wrap(obj));
-    }
-
     /*
 	 * (non-Javadoc)
 	 *
@@ -120,6 +110,8 @@ public class NSDictionary extends NSObject  implements Map<String, NSObject> {
 	 * @see java.util.Map#containsValue(java.lang.Object)
 	 */
     public boolean containsValue(Object value) {
+        if(value == null)
+            return false;
         NSObject wrap = NSObject.wrap(value);
         return dict.containsValue(wrap);
     }
@@ -148,6 +140,7 @@ public class NSDictionary extends NSObject  implements Map<String, NSObject> {
 
     /**
      * Puts a new key-value pair into this dictionary.
+     * If the value is null, no operation will be performed on the dictionary.
      *
      * @param key The key.
      * @param obj The value.
@@ -155,18 +148,24 @@ public class NSDictionary extends NSObject  implements Map<String, NSObject> {
      *         or null, if no value was associated to it.
      */
     public NSObject put(String key, NSObject obj) {
+        if(obj == null)
+            return dict.get(key);
         return dict.put(key, obj);
     }
 
-
     /**
      * Puts a new key-value pair into this dictionary.
+     * If the value is null, no operation will be performed on the dictionary.
      *
      * @param key The key.
-     * @param obj The value.
+     * @param obj The value. Supported object types are numbers, byte-arrays, dates, strings and arrays or sets of those.
+     * @return The value previously associated to the given key,
+     *         or null, if no value was associated to it.
      */
-    public NSObject put(String key, String obj) {
-        return put(key, new NSString(obj));
+    public NSObject put(String key, Object obj) {
+        if(obj == null)
+            return dict.get(key);
+        return put(key, NSObject.wrap(obj));
     }
 
     /**
@@ -197,26 +196,6 @@ public class NSDictionary extends NSObject  implements Map<String, NSObject> {
      */
     public NSObject put(String key, boolean obj) {
         return put(key, new NSNumber(obj));
-    }
-
-    /**
-     * Puts a new key-value pair into this dictionary.
-     *
-     * @param key The key.
-     * @param obj The value.
-     */
-    public NSObject put(String key, Date obj) {
-        return put(key, new NSDate(obj));
-    }
-
-    /**
-     * Puts a new key-value pair into this dictionary.
-     *
-     * @param key The key.
-     * @param obj The value.
-     */
-    public NSObject put(String key, byte[] obj) {
-        return put(key, new NSData(obj));
     }
 
     /**
@@ -290,7 +269,7 @@ public class NSDictionary extends NSObject  implements Map<String, NSObject> {
      * @return Whether the key is contained in this dictionary.
      */
     public boolean containsValue(NSObject val) {
-        return dict.containsValue(val);
+        return val != null && dict.containsValue(val);
     }
 
     /**
@@ -415,7 +394,7 @@ public class NSDictionary extends NSObject  implements Map<String, NSObject> {
      * @return The list of all keys used in this NSDictionary.
      */
     public String[] allKeys() {
-        return dict.keySet().toArray(new String[0]);
+        return dict.keySet().toArray(new String[count()]);
     }
 
     @Override
@@ -509,9 +488,8 @@ public class NSDictionary extends NSObject  implements Map<String, NSObject> {
         indent(ascii, level);
         ascii.append(ASCIIPropertyListParser.DICTIONARY_BEGIN_TOKEN);
         ascii.append(NEWLINE);
-        String[] keys = dict.keySet().toArray(new String[0]);
-        for (int i = 0; i < keys.length; i++) {
-            String key = keys[i];
+        String[] keys = allKeys();
+        for (String key : keys) {
             NSObject val = objectForKey(key);
             indent(ascii, level + 1);
             ascii.append("\"");
@@ -537,9 +515,8 @@ public class NSDictionary extends NSObject  implements Map<String, NSObject> {
         indent(ascii, level);
         ascii.append(ASCIIPropertyListParser.DICTIONARY_BEGIN_TOKEN);
         ascii.append(NEWLINE);
-        String[] keys = dict.keySet().toArray(new String[0]);
-        for (int i = 0; i < keys.length; i++) {
-            String key = keys[i];
+        String[] keys = dict.keySet().toArray(new String[dict.size()]);
+        for (String key : keys) {
             NSObject val = objectForKey(key);
             indent(ascii, level + 1);
             ascii.append("\"");

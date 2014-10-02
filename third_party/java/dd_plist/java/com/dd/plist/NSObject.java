@@ -1,6 +1,6 @@
 /*
  * plist - An open source library to parse and generate property lists
- * Copyright (C) 2012 Daniel Dreibrodt
+ * Copyright (C) 2014 Daniel Dreibrodt
  *
 * Permission is hereby granted, free of charge, to any person obtaining a copy
  * of this software and associated documentation files (the "Software"), to deal
@@ -136,16 +136,6 @@ public abstract class NSObject {
      * @param value The value to represent as a NSObject.
      * @return A NSObject representing the given value.
      */
-    public static NSString wrap(String value) {
-        return new NSString(value);
-    }
-
-    /**
-     * Wraps the given value inside a NSObject.
-     *
-     * @param value The value to represent as a NSObject.
-     * @return A NSObject representing the given value.
-     */
     public static NSNumber wrap(long value) {
         return new NSNumber(value);
     }
@@ -168,16 +158,6 @@ public abstract class NSObject {
      */
     public static NSNumber wrap(boolean value) {
         return new NSNumber(value);
-    }
-
-    /**
-     * Wraps the given value inside a NSObject.
-     *
-     * @param value The value to represent as a NSObject.
-     * @return A NSObject representing the given value.
-     */
-    public static NSDate wrap(Date value) {
-        return new NSDate(value);
     }
 
     /**
@@ -253,44 +233,89 @@ public abstract class NSObject {
      */
     public static NSObject wrap(Object o) {
         if(o == null)
-            return null;
+            throw new NullPointerException("A null object cannot be wrapped as a NSObject");
 
         if(o instanceof NSObject)
             return (NSObject)o;
 
-        Class<? extends Object> c = o.getClass();
-        if (Boolean.class.isAssignableFrom(c)) {
+        Class<?> c = o.getClass();
+        if (Boolean.class.equals(c)) {
             return wrap((boolean) (Boolean) o);
         }
-        if (Integer.class.isAssignableFrom(c)) {
+        if (Byte.class.equals(c)) {
+            return wrap((int) (Byte) o);
+        }
+        if (Short.class.equals(c)) {
+            return wrap((int) (Short) o);
+        }
+        if (Integer.class.equals(c)) {
             return wrap((int) (Integer) o);
         }
         if (Long.class.isAssignableFrom(c)) {
             return wrap((long) (Long) o);
         }
-        if (Short.class.isAssignableFrom(c)) {
-            return wrap((int) (Short) o);
-        }
-        if (Byte.class.isAssignableFrom(c)) {
-            return wrap((int) (Byte) o);
-        }
-        if (Float.class.isAssignableFrom(c)) {
+        if (Float.class.equals(c)) {
             return wrap((double) (Float) o);
         }
         if (Double.class.isAssignableFrom(c)) {
             return wrap((double) (Double) o);
         }
         if (String.class.equals(c)) {
-            return wrap((String) o);
+            return new NSString((String)o);
         }
         if (Date.class.equals(c)) {
-            return wrap((Date)o);
+            return new NSDate((Date)o);
         }
-        if (byte[].class.equals(c)) {
-            return wrap((byte[]) o);
-        }
-        if (Object[].class.isAssignableFrom(c)) {
-            return wrap((Object[]) o);
+        if(c.isArray()) {
+            Class<?> cc = c.getComponentType();
+            if (cc.equals(byte.class)) {
+                return wrap((byte[]) o);
+            }
+            else if(cc.equals(boolean.class)) {
+                boolean[] array = (boolean[])o;
+                NSArray nsa = new NSArray(array.length);
+                for(int i=0;i<array.length;i++)
+                    nsa.setValue(i, wrap(array[i]));
+                return nsa;
+            }
+            else if(float.class.equals(cc)) {
+                float[] array = (float[])o;
+                NSArray nsa = new NSArray(array.length);
+                for(int i=0;i<array.length;i++)
+                    nsa.setValue(i, wrap(array[i]));
+                return nsa;
+            }
+            else if(double.class.equals(cc)) {
+                double[] array = (double[])o;
+                NSArray nsa = new NSArray(array.length);
+                for(int i=0;i<array.length;i++)
+                    nsa.setValue(i, wrap(array[i]));
+                return nsa;
+            }
+            else if(short.class.equals(cc)) {
+                short[] array = (short[])o;
+                NSArray nsa = new NSArray(array.length);
+                for(int i=0;i<array.length;i++)
+                    nsa.setValue(i, wrap(array[i]));
+                return nsa;
+            }
+            else if(int.class.equals(cc)) {
+                int[] array = (int[])o;
+                NSArray nsa = new NSArray(array.length);
+                for(int i=0;i<array.length;i++)
+                    nsa.setValue(i, wrap(array[i]));
+                return nsa;
+            }
+            else if(long.class.equals(cc)) {
+                long[] array = (long[])o;
+                NSArray nsa = new NSArray(array.length);
+                for(int i=0;i<array.length;i++)
+                    nsa.setValue(i, wrap(array[i]));
+                return nsa;
+            }
+            else {
+                return wrap((Object[]) o);
+            }
         }
         if (Map.class.isAssignableFrom(c)) {
             Map map = (Map)o;

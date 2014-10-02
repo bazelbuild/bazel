@@ -253,14 +253,21 @@ public abstract class CcBinary implements RuleConfiguredTargetFactory {
     NestedSet<Artifact> filesToBuild = NestedSetBuilder.create(Order.STABLE_ORDER, executable);
 
     // Create the stripped binary, but don't add it to filesToBuild; it's only built when requested.
-    Artifact output = ruleContext.getImplicitOutputArtifact(CppRuleClasses.CC_BINARY_STRIPPED);
-    createStripAction(ruleContext, cppConfiguration, executable, output);
+    Artifact strippedFile = ruleContext.getImplicitOutputArtifact(
+        CppRuleClasses.CC_BINARY_STRIPPED);
+    createStripAction(ruleContext, cppConfiguration, executable, strippedFile);
 
     DwoArtifactsCollector dwoArtifacts =
         collectTransitiveDwoArtifacts(ruleContext, common, cppConfiguration, ccCompilationOutputs);
     Artifact dwpFile =
         ruleContext.getImplicitOutputArtifact(CppRuleClasses.CC_BINARY_DEBUG_PACKAGE);
     createDebugPackagerActions(ruleContext, cppConfiguration, dwpFile, dwoArtifacts);
+
+    // The debug package should include the dwp file only if it was explicitly requested.
+    Artifact explicitDwpFile = dwpFile;
+    if (!cppConfiguration.useFission()) {
+      explicitDwpFile = null;
+    }
 
     // TODO(bazel-team): Do we need to put original shared libraries (along with
     // mangled symlinks) into the RunfilesSupport object? It does not seem
@@ -279,6 +286,9 @@ public abstract class CcBinary implements RuleConfiguredTargetFactory {
 
     return ruleBuilder
         .add(RunfilesProvider.class, RunfilesProvider.simple(runfiles))
+        .add(
+            CppDebugPackageProvider.class,
+            new CppDebugPackageProvider(strippedFile, executable, explicitDwpFile))
         .setRunfilesSupport(runfilesSupport, executable)
         .setBaselineCoverageArtifacts(createBaselineCoverageArtifacts(
             ruleContext, common, ccCompilationOutputs, fake))

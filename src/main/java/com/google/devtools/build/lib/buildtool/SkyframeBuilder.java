@@ -33,9 +33,9 @@ import com.google.devtools.build.lib.skyframe.ActionExecutionInactivityWatchdog;
 import com.google.devtools.build.lib.skyframe.ActionExecutionValue;
 import com.google.devtools.build.lib.skyframe.ArtifactValue;
 import com.google.devtools.build.lib.skyframe.ArtifactValue.OwnedArtifact;
-import com.google.devtools.build.lib.skyframe.SequencedSkyframeExecutor;
 import com.google.devtools.build.lib.skyframe.SkyFunctions;
 import com.google.devtools.build.lib.skyframe.SkyframeActionExecutor;
+import com.google.devtools.build.lib.skyframe.SkyframeExecutor;
 import com.google.devtools.build.lib.util.AbruptExitException;
 import com.google.devtools.build.lib.util.BlazeClock;
 import com.google.devtools.build.lib.vfs.ModifiedFileSet;
@@ -59,7 +59,7 @@ import java.util.concurrent.atomic.AtomicBoolean;
  */
 class SkyframeBuilder implements Builder {
 
-  private final SequencedSkyframeExecutor skyframeExecutor;
+  private final SkyframeExecutor skyframeExecutor;
   private final boolean keepGoing;
   private final int numJobs;
   private final boolean checkOutputFiles;
@@ -67,7 +67,7 @@ class SkyframeBuilder implements Builder {
   private final ActionCacheChecker actionCacheChecker;
   private final int progressReportInterval;
 
-  SkyframeBuilder(SequencedSkyframeExecutor skyframeExecutor, ActionCacheChecker actionCacheChecker,
+  SkyframeBuilder(SkyframeExecutor skyframeExecutor, ActionCacheChecker actionCacheChecker,
       boolean keepGoing, boolean explain, int numJobs, boolean checkOutputFiles,
       ActionInputFileCache fileCache, int progressReportInterval) {
     this.skyframeExecutor = skyframeExecutor;
@@ -110,8 +110,8 @@ class SkyframeBuilder implements Builder {
         executionProgressReceiver, statusReporter);
     watchdog.start();
 
-    // TODO(bazel-team): Put this call inside SequencedSkyframeExecutor#handleDiffs() when legacy
-    // codepath is no longer used. [skyframe-execution]
+    // TODO(bazel-team): Put this call inside SkyframeExecutor#handleDiffs() when legacy codepath is
+    // no longer used. [skyframe-execution]
     skyframeExecutor.informAboutNumberOfModifiedFiles();
     try {
       result = skyframeExecutor.buildArtifacts(executor, artifacts, keepGoing, explain, numJobs,
@@ -149,7 +149,7 @@ class SkyframeBuilder implements Builder {
    * Throws on fail-fast failures.
    */
   private static boolean processResult(EvaluationResult<?> result, boolean keepGoing,
-      SequencedSkyframeExecutor skyframeExecutor) throws BuildFailedException, TestExecException {
+      SkyframeExecutor skyframeExecutor) throws BuildFailedException, TestExecException {
     if (result.hasError()) {
       boolean hasCycles = false;
       for (Map.Entry<SkyKey, ErrorInfo> entry : result.errorMap().entrySet()) {

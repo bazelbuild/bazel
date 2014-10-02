@@ -40,10 +40,10 @@ import java.util.Map;
  * Skyframe-based target pattern parsing.
  */
 final class SkyframeTargetPatternEvaluator implements TargetPatternEvaluator {
-  private final SequencedSkyframeExecutor skyframeExecutor;
+  private final SkyframeExecutor skyframeExecutor;
   private String offset = "";
 
-  SkyframeTargetPatternEvaluator(SequencedSkyframeExecutor skyframeExecutor) {
+  SkyframeTargetPatternEvaluator(SkyframeExecutor skyframeExecutor) {
     this.skyframeExecutor = skyframeExecutor;
   }
 

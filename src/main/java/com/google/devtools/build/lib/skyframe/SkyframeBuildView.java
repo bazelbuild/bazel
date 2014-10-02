@@ -75,7 +75,7 @@ public final class SkyframeBuildView {
   private final ConfiguredTargetFactory factory;
   private final ArtifactFactory artifactFactory;
   @Nullable private EventHandler warningListener;
-  private final SequencedSkyframeExecutor skyframeExecutor;
+  private final SkyframeExecutor skyframeExecutor;
   private final Runnable legacyDataCleaner;
   private final BinTools binTools;
   private boolean enableAnalysis = false;
@@ -116,7 +116,7 @@ public final class SkyframeBuildView {
 
   public SkyframeBuildView(MutableActionGraph actionGraph, ConfiguredTargetFactory factory,
       ArtifactFactory artifactFactory, @Nullable EventHandler warningListener,
-      SequencedSkyframeExecutor skyframeExecutor, Runnable legacyDataCleaner,
+      SkyframeExecutor skyframeExecutor, Runnable legacyDataCleaner,
       ImmutableList<OutputFormatter> outputFormatters, BinTools binTools) {
     this.actionGraph = actionGraph;
     this.factory = factory;
@@ -452,7 +452,7 @@ public final class SkyframeBuildView {
   }
 
   /**
-   * Called from SequencedSkyframeExecutor to see whether the graph needs to be checked for artifact
+   * Called from SkyframeExecutor to see whether the graph needs to be checked for artifact
    * conflicts. Returns true if some configured target has been evaluated since the last time the
    * graph was checked for artifact conflicts (with that last time marked by a call to
    * {@link #resetEvaluatedConfiguredTargetFlag()}).
@@ -463,7 +463,7 @@ public final class SkyframeBuildView {
   }
 
   /**
-   * Called from SequencedSkyframeExecutor after the graph is checked for artifact conflicts so that
+   * Called from SkyframeExecutor after the graph is checked for artifact conflicts so that
    * the next time {@link #isSomeConfiguredTargetEvaluated} is called, it will return true only if
    * some configured target has been evaluated since the last check for artifact conflicts.
    */

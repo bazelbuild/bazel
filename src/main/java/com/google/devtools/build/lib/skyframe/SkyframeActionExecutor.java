@@ -57,6 +57,7 @@ import com.google.devtools.build.lib.events.Event;
 import com.google.devtools.build.lib.events.Reporter;
 import com.google.devtools.build.lib.profiler.Profiler;
 import com.google.devtools.build.lib.profiler.ProfilerTask;
+import com.google.devtools.build.lib.util.Clock;
 import com.google.devtools.build.lib.util.Pair;
 import com.google.devtools.build.lib.util.io.FileOutErr;
 import com.google.devtools.build.lib.vfs.FileStatus;
@@ -119,14 +120,17 @@ public final class SkyframeActionExecutor extends AbstractActionExecutor {
   private ProgressSupplier progressSupplier;
   private ActionCompletedReceiver completionReceiver;
   private final AtomicReference<ActionExecutionStatusReporter> statusReporterRef;
+  private final Clock clock;
 
   SkyframeActionExecutor(Reporter reporter, ResourceManager resourceManager,
       AtomicReference<EventBus> eventBus,
-      AtomicReference<ActionExecutionStatusReporter> statusReporterRef) {
+      AtomicReference<ActionExecutionStatusReporter> statusReporterRef,
+      Clock clock) {
     super(reporter);
     this.resourceManager = resourceManager;
     this.eventBus = eventBus;
     this.statusReporterRef = statusReporterRef;
+    this.clock = clock;
   }
 
   /**
@@ -488,7 +492,7 @@ public final class SkyframeActionExecutor extends AbstractActionExecutor {
       profiler.startTask(ProfilerTask.ACTION, action);
       try {
         profiler.startTask(ProfilerTask.ACTION_CHECK, action);
-        long actionStartTime = Profiler.nanoTimeMaybe();
+        long actionStartTime = clock.nanoTime();
 
         MetadataHandler metadataHandler =
             new UndeclaredInputHandler(graphFileCache, undeclaredInputsMetadata);

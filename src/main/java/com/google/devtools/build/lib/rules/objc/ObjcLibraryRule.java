@@ -14,8 +14,15 @@
 
 package com.google.devtools.build.lib.rules.objc;
 
+import static com.google.devtools.build.lib.packages.Attribute.attr;
+import static com.google.devtools.build.lib.packages.Type.LABEL;
+import static com.google.devtools.build.lib.packages.Type.LABEL_LIST;
+import static com.google.devtools.build.lib.rules.objc.ObjcRuleClasses.NON_ARC_SRCS_TYPE;
+import static com.google.devtools.build.lib.rules.objc.ObjcRuleClasses.SRCS_TYPE;
+
 import com.google.devtools.build.lib.packages.RuleClass;
 import com.google.devtools.build.lib.packages.RuleClass.Builder;
+import com.google.devtools.build.lib.util.FileType;
 import com.google.devtools.build.lib.view.BlazeRule;
 import com.google.devtools.build.lib.view.RuleDefinition;
 import com.google.devtools.build.lib.view.RuleDefinitionEnvironment;
@@ -26,8 +33,7 @@ import com.google.devtools.build.lib.view.RuleDefinitionEnvironment;
 @BlazeRule(name = "objc_library",
     factoryClass = ObjcLibrary.class,
     ancestors = { ObjcRuleClasses.ObjcBaseRule.class,
-                  ObjcRuleClasses.ObjcOptsRule.class,
-                  ObjcRuleClasses.ObjcSourcesRule.class })
+                  ObjcRuleClasses.ObjcOptsRule.class })
 public class ObjcLibraryRule implements RuleDefinition {
   @Override
   public RuleClass build(Builder builder, RuleDefinitionEnvironment env) {
@@ -39,6 +45,42 @@ public class ObjcLibraryRule implements RuleDefinition {
         </ul>
         <!-- #END_BLAZE_RULE.IMPLICIT_OUTPUTS -->*/
         .setImplicitOutputsFunction(ObjcRuleClasses.PBXPROJ)
+        /* <!-- #BLAZE_RULE(objc_library).ATTRIBUTE(srcs) -->
+        The list of C, C++, Objective-C, and Objective-C++ files that are
+        processed to create the library target.
+        ${SYNOPSIS}
+        These are your checked-in source files, plus any generated files.
+        These are compiled into .o files with Clang, so headers should not go
+        here (see the hdrs attribute).
+        <!-- #END_BLAZE_RULE.ATTRIBUTE -->*/
+        .add(attr("srcs", LABEL_LIST)
+            .direct_compile_time_input()
+            .allowedFileTypes(SRCS_TYPE))
+        /* <!-- #BLAZE_RULE(objc_library).ATTRIBUTE(non_arc_srcs) -->
+        The list of Objective-C files that are processed to create the
+        library target that DO NOT use ARC.
+        ${SYNOPSIS}
+        The files in this attribute are treated very similar to those in the
+        srcs attribute, but are compiled without ARC enabled.
+        <!-- #END_BLAZE_RULE.ATTRIBUTE -->*/
+        .add(attr("non_arc_srcs", LABEL_LIST)
+            .direct_compile_time_input()
+            .allowedFileTypes(NON_ARC_SRCS_TYPE))
+        /* <!-- #BLAZE_RULE(objc_library).ATTRIBUTE(pch) -->
+        Header file to prepend to every source file being compiled (both arc
+        and non-arc). Note that the file will not be precompiled - this is
+        simply a convenience, not a build-speed enhancement.
+        <!-- #END_BLAZE_RULE.ATTRIBUTE -->*/
+        .add(attr("pch", LABEL)
+            .direct_compile_time_input()
+            .allowedFileTypes(FileType.of(".pch")))
+        /* <!-- #BLAZE_RULE(objc_library).ATTRIBUTE(options) -->
+        An <code>objc_options</code> target which defines an Xcode build
+        configuration profile.
+        <!-- #END_BLAZE_RULE.ATTRIBUTE -->*/
+        .add(attr("options", LABEL)
+            .allowedFileTypes()
+            .allowedRuleClasses("objc_options"))
         .build();
   }
 }

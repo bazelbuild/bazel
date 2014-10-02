@@ -45,7 +45,7 @@ public enum ProfilerTask {
   // 30 is a good number because the slowest items are stored in a heap, with temporarily
   // one more element, and with 31 items, a heap becomes a complete binary tree
   LOCAL_PARSE("Local parse to prepare for remote execution", 50000000, 0x6699CC, 30),
-  UPLOAD_TIME("Remove execution upload time", 50000000, 0x6699CC, 0),
+  UPLOAD_TIME("Remote execution upload time", 50000000, 0x6699CC, 0),
   PROCESS_TIME("Remote execution process wall time", 50000000, 0xF999CC, 0),
   REMOTE_QUEUE("Remote execution queuing time", 50000000, 0xCC6600, 0),
   REMOTE_SETUP("Remote execution setup", 50000000, 0xA999CC, 0),

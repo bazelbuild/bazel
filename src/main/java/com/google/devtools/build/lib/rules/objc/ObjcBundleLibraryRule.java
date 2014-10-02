@@ -19,6 +19,7 @@ import static com.google.devtools.build.lib.packages.Attribute.attr;
 import static com.google.devtools.build.lib.packages.Type.LABEL;
 import static com.google.devtools.build.lib.rules.objc.ObjcRuleClasses.PLIST_TYPE;
 
+import com.google.devtools.build.lib.packages.ImplicitOutputsFunction;
 import com.google.devtools.build.lib.packages.RuleClass;
 import com.google.devtools.build.lib.packages.RuleClass.Builder;
 import com.google.devtools.build.lib.view.BlazeRule;
@@ -35,6 +36,13 @@ public class ObjcBundleLibraryRule implements RuleDefinition {
   @Override
   public RuleClass build(Builder builder, RuleDefinitionEnvironment env) {
     return builder
+        /*<!-- #BLAZE_RULE(objc_bundle_library).IMPLICIT_OUTPUTS -->
+        <ul>
+         <li><code><var>name</var>.xcodeproj/project.pbxproj: An Xcode project file which can be
+             used to develop or build on a Mac.</li>
+        </ul>
+        <!-- #END_BLAZE_RULE.IMPLICIT_OUTPUTS -->*/
+        .setImplicitOutputsFunction(ImplicitOutputsFunction.fromFunctions(ObjcRuleClasses.PBXPROJ))
         /* <!-- #BLAZE_RULE(objc_bundle_library).ATTRIBUTE(infoplist) -->
         The infoplist file. This corresponds to <i>appname</i>-Info.plist in Xcode projects.
         ${SYNOPSIS}

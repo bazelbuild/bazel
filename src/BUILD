@@ -92,7 +92,6 @@ cc_binary(
 cc_binary(
     name = "build-runfiles",
     srcs = ["main/tools/build-runfiles.cc"],
-    linkopts = ["-lstdc++"],
 )
 
 link_jni_cmd = "DIR=%s && cp $${DIR}/jni.h $(location jni.h) && cp $${DIR}/%s/jni_md.h $(location jni_md.h)"
@@ -124,7 +123,7 @@ genrule(
     outs = LIBARCHIVE_FILES,
     cmd = select({
         ":darwin": "cp " + " ".join(["/opt/local/lib/" + x for x in LIBARCHIVE_FILES]) + " $(@D)",
-        "//conditions:default": "touch $OUTS",
+        "//conditions:default": "touch $(OUTS)",
     }),
 )
 
@@ -160,7 +159,6 @@ cc_binary(
         ".", # for the jni headers
         "main/cpp",
     ],
-    linkopts = ["-lstdc++"],
     linkshared = 1,
 )
 
@@ -228,11 +226,9 @@ cc_binary(
     ],
     linkopts = select({
         ":darwin" : [
-            "-lstdc++",
         ],
         "//conditions:default" : [
             "-larchive",
-            "-lstdc++",
             "-lrt",
         ],
     }),

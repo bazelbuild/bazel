@@ -42,7 +42,7 @@ import java.util.Map;
  */
 public class BinaryPropertyListWriter {
 
-    public static final int VERSION_00 = 00;
+    public static final int VERSION_00 = 0;
     public static final int VERSION_10 = 10;
     public static final int VERSION_15 = 15;
     public static final int VERSION_20 = 20;
@@ -146,8 +146,8 @@ public class BinaryPropertyListWriter {
     /**
      * Creates a new binary property list writer
      *
-     * @param outStr
-     * @throws IOException
+     * @param outStr The output stream into which the binary property list will be written
+     * @throws IOException If an error occured while writing to the stream
      */
     BinaryPropertyListWriter(OutputStream outStr) throws IOException {
         out = new BufferedOutputStream(outStr);

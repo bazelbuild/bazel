@@ -51,8 +51,8 @@ public class SkylarkDocumentationProcessor {
 
   private static final String TOP_LEVEL_ID = "_top_level";
 
-  @SkylarkModule(name = "Top level Skylark items and functions",
-      doc = "Top level Skylark items and functions")
+  @SkylarkModule(name = "Global objects, functions and modules",
+      doc = "Objects, functions and modules registered in the global environment.")
   private static final class TopLevelModule {}
 
   static SkylarkModule getTopLevelModule() {
@@ -151,15 +151,18 @@ public class SkylarkDocumentationProcessor {
       sb.append(getSignature(moduleId, annotation));
     }
 
-    sb.append(annotation.doc()).append("<br>\n");
+    sb.append(annotation.doc());
     printParams(moduleId, annotation, sb);
   }
 
   private void printParams(String moduleId, SkylarkBuiltin annotation, StringBuilder sb) {
-    printParams(
-        "Mandatory parameters", moduleId, annotation.name(), annotation.mandatoryParams(), sb);
-    printParams(
-        "Optional parameters", moduleId, annotation.name(), annotation.optionalParams(), sb);
+    if (annotation.mandatoryParams().length + annotation.optionalParams().length > 0) {
+      sb.append("<h5>Parameters</h5>\n");
+      printParams(moduleId, annotation.name(), annotation.mandatoryParams(), sb);
+      printParams(moduleId, annotation.name(), annotation.optionalParams(), sb);
+    } else {
+      sb.append("<br/>\n");
+    }
   }
 
   private void generateDirectJavaMethodDoc(String objectName, String methodName,
@@ -174,11 +177,11 @@ public class SkylarkDocumentationProcessor {
             methodName,
             getSignature(objectName, methodName, method)))
         .append(annotation.doc())
-        .append(getReturnTypeExtraMessage(method, annotation))
+        .append(getReturnTypeExtraMessage(annotation))
         .append("\n");
   }
 
-  private String getReturnTypeExtraMessage(Method method, SkylarkCallable annotation) {
+  private String getReturnTypeExtraMessage(SkylarkCallable annotation) {
     if (annotation.allowReturnNones()) {
       return " May return <code>None</code>.\n";
     }
@@ -221,10 +224,9 @@ public class SkylarkDocumentationProcessor {
         }));
   }
 
-  private void printParams(String title, String moduleId, String methodName,
+  private void printParams(String moduleId, String methodName,
       Param[] params, StringBuilder sb) {
     if (params.length > 0) {
-      sb.append(String.format("<h5>%s</h5>\n", title));
       sb.append("<ul>\n");
       for (Param param : params) {
         sb.append(String.format("\t<li id=\"modules.%s.%s.%s\"><code>%s%s</code>: ",

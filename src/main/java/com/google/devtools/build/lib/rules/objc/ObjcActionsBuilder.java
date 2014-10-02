@@ -52,7 +52,6 @@ import com.google.devtools.build.xcode.xcodegen.proto.XcodeGenProtos;
 import com.google.devtools.build.xcode.xcodegen.proto.XcodeGenProtos.TargetControl;
 
 import java.util.ArrayList;
-import java.util.Iterator;
 import java.util.List;
 import java.util.Locale;
 
@@ -91,6 +90,7 @@ public class ObjcActionsBuilder {
   static final PathFragment CLANG_PLUSPLUS = new PathFragment(BIN_DIR + "/clang++");
   static final PathFragment LIBTOOL = new PathFragment(BIN_DIR + "/libtool");
   static final PathFragment IBTOOL = new PathFragment("/usr/bin/ibtool");
+  static final PathFragment DSYMUTIL = new PathFragment(BIN_DIR + "/dsymutil");
 
   // TODO(bazel-team): Reference a rule target rather than a jar file when Darwin runfiles work
   // better.
@@ -283,27 +283,7 @@ public class ObjcActionsBuilder {
     return result.build();
   }
 
-  /**
-   * Base class for tiny container types that encapsulate extra arguments to be used in an action.
-   */
-  abstract static class ExtraArgs implements Iterable<String> {
-    private final Iterable<String> args;
-
-    ExtraArgs(Iterable<String> args) {
-      this.args = Preconditions.checkNotNull(args);
-    }
-
-    ExtraArgs(String... args) {
-      this.args = ImmutableList.copyOf(args);
-    }
-
-    @Override
-    public Iterator<String> iterator() {
-      return args.iterator();
-    }
-  }
-
-  static final class ExtraActoolArgs extends ExtraArgs {
+  static final class ExtraActoolArgs extends IterableWrapper<String> {
     ExtraActoolArgs(Iterable<String> args) {
       super(args);
     }
@@ -409,7 +389,7 @@ public class ObjcActionsBuilder {
     return names;
   }
 
-  static final class ExtraLinkArgs extends ExtraArgs {
+  static final class ExtraLinkArgs extends IterableWrapper<String> {
     ExtraLinkArgs(Iterable<String> args) {
       super(args);
     }

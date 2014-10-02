@@ -14,6 +14,8 @@
 
 package com.google.devtools.build.lib.rules.objc;
 
+import static com.google.devtools.build.lib.rules.objc.XcodeProductType.LIBRARY_STATIC;
+
 import com.google.common.base.Optional;
 import com.google.common.collect.ImmutableList;
 import com.google.devtools.build.lib.actions.Artifact;
@@ -44,7 +46,10 @@ public class ObjcImport implements RuleConfiguredTargetFactory {
         /*maybeInfoplistFile=*/Optional.<Artifact>absent(),
         ImmutableList.<DependencyControl>of(),
         ImmutableList.<XcodeprojBuildSetting>of(),
-        optionsProvider.getCopts());
+        optionsProvider.getCopts(),
+        LIBRARY_STATIC,
+        ImmutableList.<XcodeProvider>of());
+
     ObjcActionsBuilder.registerAll(
         ruleContext,
         ObjcActionsBuilder.baseActions(

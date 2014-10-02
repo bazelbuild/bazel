@@ -82,7 +82,7 @@ import com.google.devtools.build.lib.profiler.ProfilePhase;
 import com.google.devtools.build.lib.profiler.Profiler;
 import com.google.devtools.build.lib.profiler.ProfilerTask;
 import com.google.devtools.build.lib.rules.test.TestActionContext;
-import com.google.devtools.build.lib.skyframe.SequencedSkyframeExecutor;
+import com.google.devtools.build.lib.skyframe.SkyframeExecutor;
 import com.google.devtools.build.lib.syntax.Label;
 import com.google.devtools.build.lib.util.AbruptExitException;
 import com.google.devtools.build.lib.util.BlazeClock;
@@ -324,7 +324,7 @@ public class ExecutionTool {
    * @param skyframeExecutor the skyframe executor (if any)
    */
   void executeBuild(LoadingResult loadingResult, AnalysisResult analysisResult,
-      BuildResult buildResult, @Nullable SequencedSkyframeExecutor skyframeExecutor,
+      BuildResult buildResult, @Nullable SkyframeExecutor skyframeExecutor,
       BuildConfigurationCollection configurations)
       throws BuildFailedException, InterruptedException, AbruptExitException, TestExecException,
       ViewCreationFailedException {
@@ -875,7 +875,7 @@ public class ExecutionTool {
     }
   }
 
-  private static boolean useSkyframeFull(SequencedSkyframeExecutor skyframeExecutor) {
+  private static boolean useSkyframeFull(SkyframeExecutor skyframeExecutor) {
     return skyframeExecutor != null && skyframeExecutor.skyframeBuild();
   }
 
@@ -883,7 +883,7 @@ public class ExecutionTool {
       Executor executor,
       ActionCache actionCache, @Nullable MetadataCache metadataCache,
       @Nullable ArtifactMTimeCache artifactMTimeCache, boolean buildIsIncremental,
-      @Nullable SequencedSkyframeExecutor skyframeExecutor) {
+      @Nullable SkyframeExecutor skyframeExecutor) {
     boolean skyframeFull = useSkyframeFull(skyframeExecutor);
     BuildRequest.BuildRequestOptions options = request.getBuildOptions();
     boolean verboseExplanations = options.verboseExplanations;
@@ -936,7 +936,7 @@ public class ExecutionTool {
 
       return new ParallelBuilder(getReporter(), getEventBus(), dependencyChecker, actualJobs,
           options.progressReportInterval, options.useBuilderStatistics, keepGoing,
-          actionOutputRoot, fileCache, runtime.getAllowedMissingInputs());
+          actionOutputRoot, fileCache, runtime.getAllowedMissingInputs(), runtime.getClock());
     } else {
       // Unfortunately, the exec root cache is not shared with caches in the remote execution
       // client.

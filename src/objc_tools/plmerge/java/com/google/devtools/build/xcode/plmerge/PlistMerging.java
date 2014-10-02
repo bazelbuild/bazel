@@ -18,6 +18,7 @@ import com.google.common.annotations.VisibleForTesting;
 import com.google.common.base.Preconditions;
 import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.ImmutableSet;
+import com.google.common.io.ByteSource;
 import com.google.devtools.build.xcode.common.Platform;
 import com.google.devtools.build.xcode.common.TargetDeviceFamily;
 import com.google.devtools.build.xcode.util.Intersection;
@@ -28,7 +29,10 @@ import com.dd.plist.BinaryPropertyListWriter;
 import com.dd.plist.NSArray;
 import com.dd.plist.NSDictionary;
 import com.dd.plist.NSObject;
+import com.dd.plist.PropertyListFormatException;
 import com.dd.plist.PropertyListParser;
+
+import org.xml.sax.SAXException;
 
 import java.io.IOException;
 import java.io.InputStream;
@@ -36,9 +40,11 @@ import java.io.OutputStream;
 import java.nio.charset.StandardCharsets;
 import java.nio.file.Files;
 import java.nio.file.Path;
+import java.text.ParseException;
 import java.util.List;
 import java.util.Map;
 import java.util.Set;
+import javax.xml.parsers.ParserConfigurationException;
 
 /**
  * Utility code for merging project files.
@@ -66,22 +72,32 @@ public class PlistMerging extends Value<PlistMerging> {
   }
 
   @VisibleForTesting
-  public static NSDictionary readPlistFile(Path sourceFilePath) throws IOException {
-    try (InputStream in = Files.newInputStream(sourceFilePath)) {
-      NSObject sourceObject;
-      try {
-        sourceObject = PropertyListParser.parse(in);
-      } catch (IOException | RuntimeException e) {
-        throw e;
-      } catch (Exception e) {
-        // This is horrible, but necessary because PropertyListParser.parse throws Exception
-        throw new RuntimeException(e);
+  public static NSDictionary readPlistFile(final Path sourceFilePath) throws IOException {
+    ByteSource rawBytes = new ByteSource() {
+      @Override
+      public InputStream openStream() throws IOException {
+        return Files.newInputStream(sourceFilePath);
       }
-      if (!(sourceObject instanceof NSDictionary)) {
-        throw new IOException(String.format("%s stores a %s but expected an NSDictionary",
-            sourceFilePath, sourceObject.getClass()));
+    };
+
+    try {
+      try (InputStream in = rawBytes.openStream()) {
+        return (NSDictionary) PropertyListParser.parse(in);
+      } catch (PropertyListFormatException | ParseException e) {
+        // If we failed to parse, the plist may implicitly be a map. To handle this, wrap the plist
+        // with {}.
+        // TODO(bazel-team): Do this in a cleaner way.
+        ByteSource concatenated = ByteSource.concat(
+            ByteSource.wrap(new byte[] {'{'}),
+            rawBytes,
+            ByteSource.wrap(new byte[] {'}'}));
+        try (InputStream in = concatenated.openStream()) {
+          return (NSDictionary) PropertyListParser.parse(in);
+        }
       }
-      return (NSDictionary) sourceObject;
+    } catch (PropertyListFormatException | ParseException | ParserConfigurationException
+        | SAXException e) {
+      throw new IOException(e);
     }
   }
 

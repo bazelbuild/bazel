@@ -71,11 +71,12 @@ public class SkylarkRuleImplementationFunctions {
       doc = "Creates an action that runs an executable or a shell command.",
       objectType = SkylarkRuleContext.class,
       returnType = Environment.NoneType.class,
+      mandatoryParams = {
+      @Param(name = "outputs", type = SkylarkList.class,
+          doc = "list of the output files of the action")},
       optionalParams = {
       @Param(name = "inputs", type = SkylarkList.class,
           doc = "list of the input files of the action"),
-      @Param(name = "outputs", type = SkylarkList.class,
-          doc = "list of the output files of the action"),
       @Param(name = "executable", doc = "the executable file to be called by the action"),
       @Param(name = "arguments", type = SkylarkList.class,
           doc = "command line arguments of the action"),
@@ -102,6 +103,7 @@ public class SkylarkRuleImplementationFunctions {
       if (params.containsKey("executable")) {
         Object exe = params.get("executable");
         if (exe instanceof Artifact) {
+          builder.addInput((Artifact) exe);
           builder.setExecutable((Artifact) exe);
         } else if (exe instanceof PathFragment) {
           builder.setExecutable((PathFragment) exe);
@@ -109,6 +111,9 @@ public class SkylarkRuleImplementationFunctions {
           throw new EvalException(loc, "expected file or PathFragment for "
               + "executable but got " + EvalUtils.getDatatypeName(exe) + " instead");
         }
+      }
+      if (params.containsKey("command") == params.containsKey("executable")) {
+        throw new EvalException(loc, "You must specify either 'command' or 'executable' argument");
       }
       if (params.containsKey("command")) {
         Object command = params.get("command");
@@ -185,9 +190,10 @@ public class SkylarkRuleImplementationFunctions {
       @Param(name = "template", type = Artifact.class, doc = "the template file"),
       @Param(name = "output", type = Artifact.class, doc = "the output file"),
       @Param(name = "substitutions", type = Map.class,
-             doc = "substitutions to make when expanding the template"),
+             doc = "substitutions to make when expanding the template")},
+      optionalParams = {
       @Param(name = "executable", type = Boolean.class,
-             doc = "whether to change the output file to an executable or not")})
+          doc = "whether the output file should be executable (default is False)")})
   private static final SkylarkFunction createTemplateAction =
     new SimpleSkylarkFunction("template_action") {
 
@@ -201,12 +207,14 @@ public class SkylarkRuleImplementationFunctions {
         substitutions.add(Substitution.of(substitution.getKey(), substitution.getValue()));
       }
 
+      boolean executable = params.containsKey("executable")
+          ? (Boolean) params.get("executable") : false;
       TemplateExpansionAction action = new TemplateExpansionAction(
           ctx.getRuleContext().getActionOwner(),
           (Artifact) params.get("template"),
           (Artifact) params.get("output"),
           substitutions.build(),
-          (Boolean) params.get("executable"));
+          executable);
       ctx.getRuleContext().registerAction(action);
       return action;
     }

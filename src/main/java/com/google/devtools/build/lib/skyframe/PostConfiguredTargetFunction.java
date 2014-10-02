@@ -43,10 +43,10 @@ public class PostConfiguredTargetFunction implements SkyFunction {
     }
   };
 
-  private final SequencedSkyframeExecutor.BuildViewProvider buildViewProvider;
+  private final SkyframeExecutor.BuildViewProvider buildViewProvider;
 
   public PostConfiguredTargetFunction(
-      SequencedSkyframeExecutor.BuildViewProvider buildViewProvider) {
+      SkyframeExecutor.BuildViewProvider buildViewProvider) {
     this.buildViewProvider = Preconditions.checkNotNull(buildViewProvider);
   }
 

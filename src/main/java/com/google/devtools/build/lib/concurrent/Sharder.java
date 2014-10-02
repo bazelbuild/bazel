@@ -14,6 +14,8 @@
 package com.google.devtools.build.lib.concurrent;
 
 import com.google.common.base.Preconditions;
+import com.google.common.base.Predicate;
+import com.google.common.collect.Iterables;
 import com.google.common.collect.Lists;
 
 import java.util.Collections;
@@ -31,10 +33,10 @@ public final class Sharder<T> implements Iterable<List<T>> {
   private final List<List<T>> shards;
   private int nextShard = 0;
 
-  public Sharder(int numShards, int expectedTotalSize) {
-    Preconditions.checkArgument(numShards > 0);
+  public Sharder(int maxNumShards, int expectedTotalSize) {
+    Preconditions.checkArgument(maxNumShards > 0);
     Preconditions.checkArgument(expectedTotalSize >= 0);
-    this.shards = immutableListOfLists(numShards, expectedTotalSize / numShards);
+    this.shards = immutableListOfLists(maxNumShards, expectedTotalSize / maxNumShards);
   }
 
   public void add(T item) {
@@ -59,6 +61,11 @@ public final class Sharder<T> implements Iterable<List<T>> {
 
   @Override
   public Iterator<List<T>> iterator() {
-    return shards.iterator();
+    return Iterables.filter(shards, new Predicate<List<T>>() {
+      @Override
+      public boolean apply(List<T> list) {
+        return !list.isEmpty();
+      }
+    }).iterator();
   }
 }

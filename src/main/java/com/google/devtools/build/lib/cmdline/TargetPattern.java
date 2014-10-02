@@ -406,10 +406,11 @@ public abstract class TargetPattern {
       // just eliminate it.
       int slashIndex = pattern.indexOf('/');
       if (slashIndex < 0) {
-        throw new TargetParsingException("ambiguous target pattern: '" + pattern + "' is the name "
-            + "of a package; use '" + pattern + ":all' to mean \"all rules in this package\", '"
-            + pattern + "/...' to mean \"all rules recursively beneath this package\", or '//"
-            + pattern + "' to mean \"the default rule in this package\"");
+        throw new TargetParsingException("ambiguous target pattern: '" + pattern + "' could "
+            + "potentially be the name of a package; use '" + pattern + ":all' to mean \"all "
+            + "rules in this package\", '" + pattern + "/...' to mean \"all rules recursively "
+            + "beneath this package\", or '//" + pattern + "' to mean \"the default rule in this "
+            + "package\"");
       }
       String errorMessage = LabelValidator.validatePackageName(pattern.substring(0, slashIndex));
       if (errorMessage != null) {

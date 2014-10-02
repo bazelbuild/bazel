@@ -136,6 +136,20 @@ final class ObjcProvider implements TransitiveInfoProvider {
     return Iterables.contains(get(FLAG), flag);
   }
 
+  // This exists only to support objc_filegroup - it is horribly hacky and should be removed when
+  // objc_filegroup is.
+  NestedSet<Artifact> allArtifactsForObjcFilegroup() {
+    NestedSetBuilder<Artifact> artifacts = NestedSetBuilder.<Artifact>stableOrder();
+    for (Map.Entry<?, NestedSet<?>> entry : items.entrySet()) {
+      for (Object o : entry.getValue()) {
+        if (o instanceof Artifact) {
+          artifacts.add((Artifact) o);
+        }
+      }
+    }
+    return artifacts.build();
+  }
+
   /**
    * A builder for this context with an API that is optimized for collecting information from
    * several transitive dependencies.

@@ -221,10 +221,7 @@ public class NSSet extends NSObject {
             return false;
         }
         final NSSet other = (NSSet) obj;
-        if (this.set != other.set && (this.set == null || !this.set.equals(other.set))) {
-            return false;
-        }
-        return true;
+        return !(this.set != other.set && (this.set == null || !this.set.equals(other.set)));
     }
 
     /**
@@ -283,8 +280,8 @@ public class NSSet extends NSObject {
      * There is no official ASCII representation for sets.
      * In this implementation sets are represented as arrays.
      *
-     * @param ascii
-     * @param level
+     * @param ascii The ASCII file string builder
+     * @param level The indentation level
      */
     @Override
     protected void toASCII(StringBuilder ascii, int level) {
@@ -321,8 +318,8 @@ public class NSSet extends NSObject {
      * There is no official ASCII representation for sets.
      * In this implementation sets are represented as arrays.
      *
-     * @param ascii
-     * @param level
+     * @param ascii The ASCII file string builder
+     * @param level The indentation level
      */
     @Override
     protected void toASCIIGnuStep(StringBuilder ascii, int level) {

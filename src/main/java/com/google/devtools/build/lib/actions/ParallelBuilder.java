@@ -32,6 +32,7 @@ import com.google.devtools.build.lib.events.Reporter;
 import com.google.devtools.build.lib.profiler.ProfilerTask;
 import com.google.devtools.build.lib.syntax.Label;
 import com.google.devtools.build.lib.util.BlazeClock;
+import com.google.devtools.build.lib.util.Clock;
 import com.google.devtools.build.lib.util.Pair;
 import com.google.devtools.build.lib.vfs.ModifiedFileSet;
 import com.google.devtools.build.lib.vfs.Path;
@@ -258,16 +259,17 @@ public class ParallelBuilder extends AbstractBuilder {
    * @param dependencyChecker Specifies how to determine whether actions need
    *                          to be (re-)executed.
    * @param numWorkerThreads  Specifies the number of worker threads to use.
- *                          -1 means no limit; in this case a new worker
- *                          thread will be created whenever a new task
+   *                          -1 means no limit; in this case a new worker
+   *                          thread will be created whenever a new task
    * @param fileCache per-build action-input-metadata file cache.
+   * @param clock The clock of the system.
    */
   public ParallelBuilder(Reporter reporter, EventBus eventBus,
       DependencyChecker dependencyChecker, int numWorkerThreads,
       int progressReportInterval, boolean showBuilderStats, boolean keepGoing,
       Path outputRoot, ActionInputFileCache fileCache,
-      Predicate<PathFragment> allowedMissingInputs) {
-    super(reporter, eventBus, dependencyChecker, keepGoing, outputRoot, fileCache);
+      Predicate<PathFragment> allowedMissingInputs, Clock clock) {
+    super(reporter, eventBus, dependencyChecker, keepGoing, outputRoot, fileCache, clock);
 
     this.dependencyGraph = null;
     this.numWorkerThreads = numWorkerThreads;

@@ -14,6 +14,8 @@
 
 package com.google.devtools.build.lib.rules.objc;
 
+import static com.google.devtools.build.lib.rules.objc.XcodeProductType.LIBRARY_STATIC;
+
 import com.google.common.base.Optional;
 import com.google.common.collect.ImmutableList;
 import com.google.devtools.build.lib.actions.Artifact;
@@ -30,44 +32,78 @@ import com.google.devtools.build.xcode.xcodegen.proto.XcodeGenProtos.XcodeprojBu
  * Implementation for {@code objc_library}.
  */
 public class ObjcLibrary implements RuleConfiguredTargetFactory {
-  @Override
-  public ConfiguredTarget create(RuleContext ruleContext) throws InterruptedException {
-    IntermediateArtifacts intermediateArtifacts = new IntermediateArtifacts(
+  static final class InfoplistsFromRule extends IterableWrapper<Artifact> {
+    InfoplistsFromRule(Iterable<Artifact> infoplists) {
+      super(infoplists);
+    }
+
+    InfoplistsFromRule(Artifact... infoplists) {
+      super(infoplists);
+    }
+  }
+
+  static OptionsProvider optionsProvider(
+      RuleContext ruleContext, InfoplistsFromRule infoplistsFromRule) {
+    return new OptionsProvider.Builder()
+        .addCopts(ruleContext.getTokenizedStringListAttr("copts"))
+        .addInfoplists(infoplistsFromRule)
+        .addTransitive(Optional.fromNullable(
+            ruleContext.getPrerequisite("options", Mode.TARGET, OptionsProvider.class)))
+        .build();
+  }
+
+  static IntermediateArtifacts intermediateArtifacts(RuleContext ruleContext) {
+    return new IntermediateArtifacts(
         ruleContext.getAnalysisEnvironment(), ruleContext.getBinOrGenfilesDirectory(),
         ruleContext.getLabel());
+  }
 
+  /**
+   * Constructs an {@link ObjcCommon} instance based on the attributes of the given rule. The rule
+   * should inherit from {@link ObjcLibraryRule}. This method automatically calls
+   * {@link ObjcCommon#reportErrors()}.
+   */
+  static ObjcCommon common(RuleContext ruleContext, Iterable<SdkFramework> extraSdkFrameworks) {
     CompilationArtifacts compilationArtifacts = new CompilationArtifacts.Builder()
         .addSrcs(ruleContext.getPrerequisiteArtifacts("srcs", Mode.TARGET))
         .addNonArcSrcs(ruleContext.getPrerequisiteArtifacts("non_arc_srcs", Mode.TARGET))
-        .setIntermediateArtifacts(intermediateArtifacts)
+        .setIntermediateArtifacts(intermediateArtifacts(ruleContext))
         .setPchFile(Optional.fromNullable(ruleContext.getPrerequisiteArtifact("pch", Mode.TARGET)))
         .build();
 
     ObjcCommon common = new ObjcCommon.Builder(ruleContext)
+        .addExtraSdkFrameworks(extraSdkFrameworks)
         .addAssetCatalogs(ruleContext.getPrerequisiteArtifacts("asset_catalogs", Mode.TARGET))
         .addSdkDylibs(ruleContext.attributes().get("sdk_dylibs", Type.STRING_LIST))
         .setCompilationArtifacts(compilationArtifacts)
         .addHdrs(ruleContext.getPrerequisiteArtifacts("hdrs", Mode.TARGET))
+        .addDepObjcProviders(ruleContext.getPrerequisites("deps", Mode.TARGET, ObjcProvider.class))
         .build();
     common.reportErrors();
 
-    OptionsProvider optionsProvider = new OptionsProvider.Builder()
-        .addCopts(ruleContext.getTokenizedStringListAttr("copts"))
-        .addTransitive(Optional.fromNullable(
-            ruleContext.getPrerequisite("options", Mode.TARGET, OptionsProvider.class)))
-        .build();
+    return common;
+  }
 
+  @Override
+  public ConfiguredTarget create(RuleContext ruleContext) throws InterruptedException {
+    ObjcCommon common = common(ruleContext, ImmutableList.<SdkFramework>of());
+    OptionsProvider optionsProvider = optionsProvider(ruleContext, new InfoplistsFromRule());
+
+    Iterable<XcodeProvider> depXcodeProviders =
+        ruleContext.getPrerequisites("deps", Mode.TARGET, XcodeProvider.class);
     XcodeProvider xcodeProvider = common.xcodeProvider(Optional.<Artifact>absent(),
         ImmutableList.<DependencyControl>of(), ImmutableList.<XcodeprojBuildSetting>of(),
-        optionsProvider.getCopts());
+        optionsProvider.getCopts(),
+        LIBRARY_STATIC,
+        depXcodeProviders);
     ObjcActionsBuilder.registerAll(
         ruleContext,
         ObjcActionsBuilder.baseActions(
-            ruleContext, Optional.of(compilationArtifacts), common.getObjcProvider(), xcodeProvider,
+            ruleContext, common.getCompilationArtifacts(), common.getObjcProvider(), xcodeProvider,
             optionsProvider));
     return common.configuredTarget(
         NestedSetBuilder.<Artifact>stableOrder()
-            .addAll(compilationArtifacts.getArchive().asSet())
+            .addAll(common.getCompiledArchive().asSet())
             .add(ruleContext.getImplicitOutputArtifact(ObjcRuleClasses.PBXPROJ))
             .build(),
         Optional.of(xcodeProvider),

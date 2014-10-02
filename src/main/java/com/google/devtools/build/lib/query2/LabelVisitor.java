@@ -15,14 +15,10 @@
 package com.google.devtools.build.lib.query2;
 
 import com.google.common.annotations.VisibleForTesting;
-import com.google.common.base.Preconditions;
 import com.google.common.base.Throwables;
 import com.google.common.collect.HashMultimap;
 import com.google.common.collect.ImmutableList;
-import com.google.common.collect.ImmutableSet;
-import com.google.common.collect.Iterables;
 import com.google.common.collect.MapMaker;
-import com.google.common.collect.Multimap;
 import com.google.common.collect.Multimaps;
 import com.google.common.collect.SetMultimap;
 import com.google.common.util.concurrent.ThreadFactoryBuilder;
@@ -43,21 +39,16 @@ import com.google.devtools.build.lib.packages.Rule;
 import com.google.devtools.build.lib.packages.Target;
 import com.google.devtools.build.lib.pkgcache.PackageProvider;
 import com.google.devtools.build.lib.pkgcache.TargetEdgeObserver;
-import com.google.devtools.build.lib.pkgcache.TransitivePackageLoader;
-import com.google.devtools.build.lib.pkgcache.TransitivelyErrorFreeTargetEdgeObserver;
 import com.google.devtools.build.lib.syntax.Label;
 import com.google.devtools.build.lib.util.BinaryPredicate;
-import com.google.devtools.build.lib.vfs.PathFragment;
 
 import java.util.Collection;
 import java.util.Collections;
 import java.util.List;
 import java.util.Set;
-import java.util.concurrent.BlockingQueue;
 import java.util.concurrent.ConcurrentMap;
 import java.util.concurrent.ExecutorService;
 import java.util.concurrent.Executors;
-import java.util.concurrent.LinkedBlockingQueue;
 import java.util.concurrent.TimeUnit;
 import java.util.concurrent.atomic.AtomicBoolean;
 import java.util.concurrent.atomic.AtomicInteger;
@@ -92,7 +83,7 @@ import java.util.concurrent.atomic.AtomicReference;
  * ({@link #getVisitedTargets} and similar must not be called until the concurrent phase
  * is over, i.e. all external calls to visit() methods have completed.
  */
-final class LabelVisitor implements TransitivePackageLoader {
+final class LabelVisitor {
 
   /**
    * Attributes of a visitation which determine whether it is up-to-date or not.
@@ -207,22 +198,12 @@ final class LabelVisitor implements TransitivePackageLoader {
       Multimaps.synchronizedSetMultimap(HashMultimap.<Package, Target>create());
   private final ConcurrentMap<Label, Integer> visitedTargets = new MapMaker().makeMap();
 
-  private TransitivelyErrorFreeTargetEdgeObserver transitivelyErrorFreeTargetEdgeObserver;
   private VisitationAttributes lastVisitation;
 
   /**
    * Constant for limiting the permitted depth of recursion.
    */
   private static final int RECURSION_LIMIT = 100;
-
-  /**
-   * Construct a LabelVisitor.
-   *
-   * @param packageProvider how to resolve labels to targets.
-   */
-  public LabelVisitor(PackageProvider packageProvider) {
-    this(packageProvider, Rule.ALL_DEPS);
-  }
 
   /**
    * Construct a LabelVisitor.
@@ -235,17 +216,6 @@ final class LabelVisitor implements TransitivePackageLoader {
     this.packageProvider = packageProvider;
     this.lastVisitation = new VisitationAttributes();
     this.edgeFilter = edgeFilter;
-  }
-
-  @Override
-  public boolean sync(EventHandler eventHandler,
-                      Set<Target> targetsToVisit,
-                      Set<Label> labelsToVisit,
-                      boolean keepGoing,
-                      int parallelThreads,
-                      int maxDepth) throws InterruptedException {
-    return syncWithVisitor(eventHandler, targetsToVisit, labelsToVisit, keepGoing, parallelThreads,
-                           maxDepth, new ErrorPrintingTargetEdgeErrorObserver(eventHandler));
   }
 
   public boolean syncWithVisitor(EventHandler eventHandler,
@@ -385,37 +355,8 @@ final class LabelVisitor implements TransitivePackageLoader {
     return result;
   }
 
-  @Override
   public Set<Label> getVisitedTargets() {
     return Collections.unmodifiableSet(visitedTargets.keySet());
-  }
-
-  @Override
-  public Set<PathFragment> getVisitedPackageNames() {
-    return ImmutableSet.copyOf(
-        Iterables.transform(visitedTargets.keySet(), Label.PACKAGE_FRAGMENT));
-  }
-
-  @Override
-  public Set<Package> getErrorFreeVisitedPackages() {
-    ImmutableSet.Builder<Package> builder = ImmutableSet.builder();
-    for (Package pkg : visitedMap.keySet()) {
-      if (!pkg.containsErrors()) {
-        builder.add(pkg);
-      }
-    }
-    return builder.build();
-  }
-
-  @Override
-  public Multimap<Label, Label> getRootCauses(Collection<Label> targetsToLoad) {
-    Preconditions.checkState(lastVisitation.keepGoing);
-    return transitivelyErrorFreeTargetEdgeObserver.getRootCauses(targetsToLoad);
-  }
-
-  @Override
-  public void trimErrorTracking() {
-    transitivelyErrorFreeTargetEdgeObserver = null;
   }
 
   @VisibleForTesting class Visitor extends AbstractQueueVisitor {
@@ -441,24 +382,13 @@ final class LabelVisitor implements TransitivePackageLoader {
       this.eventHandler = eventHandler;
       this.maxDepth = maxDepth;
       this.errorObserver = new TargetEdgeErrorObserver();
-      transitivelyErrorFreeTargetEdgeObserver = keepGoing
-          ? new TransitivelyErrorFreeTargetEdgeObserver()
-          : null;
       ImmutableList.Builder<TargetEdgeObserver> builder = ImmutableList.builder();
       for (TargetEdgeObserver observer : observers) {
         builder.add(observer);
       }
-      if (keepGoing) {
-        builder.add(transitivelyErrorFreeTargetEdgeObserver);
-      }
       builder.add(errorObserver);
       this.observers = builder.build();
       this.keepGoing = keepGoing;
-    }
-
-    @Override
-    protected BlockingQueue<Runnable> getWorkQueue() {
-      return new LinkedBlockingQueue<>();
     }
 
     /**

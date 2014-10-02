@@ -44,6 +44,12 @@ public class ObjcCommandLineOptions extends FragmentOptions {
       help = "Specifies the name of the build settings to use.")
   public String xcodeOptions;
 
+  @Option(name = "objc_generate_debug_symbols",
+      defaultValue = "false",
+      category = "undocumented",
+      help = "Specifies whether to generate debug symbol(.dSYM) file.")
+  public boolean generateDebugSymbols;
+
   @Override
   public void addAllLabels(Multimap<String, Label> labelMap) {}
 }

@@ -137,8 +137,7 @@ public class PackageCacheOptions extends OptionsBase {
       // [4] this means the number of unique packages loaded by builds, including the current one,
       //     since the last CT node eviction [5]
       // [5] "CT node eviction" means clearing those nodes from the Skyframe graph that correspond
-      //     to ConfiguredTargets; this is done using
-      //     SequencedSkyframeExecutor.resetConfiguredTargets
+      //     to ConfiguredTargets; this is done using SkyframeExecutor.resetConfiguredTargets
       category = "undocumented",
       help = "Threshold for number of loaded packages before skyframe-m1 cache eviction kicks in")
   public int minLoadedPkgCountForCtNodeEviction;

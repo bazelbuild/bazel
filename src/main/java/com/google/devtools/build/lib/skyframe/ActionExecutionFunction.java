@@ -118,7 +118,7 @@ public class ActionExecutionFunction implements SkyFunction {
     } catch (ActionExecutionException e) {
       skyframeActionExecutor.reportActionExecutionFailure(action);
       // In this case we do not report the error to the action reporter because we have already
-      // done it in SequencedSkyframeExecutor.reportErrorIfNotAbortingMode() method. That method
+      // done it in SkyframeExecutor.reportErrorIfNotAbortingMode() method. That method
       // prints the error in the top-level reporter and also dumps the recorded StdErr for the
       // action. Label can be null in the case of, e.g., the SystemActionOwner (for build-info.txt).
       skyframeActionExecutor.postActionNotExecutedEvents(action, e.getRootCauses());

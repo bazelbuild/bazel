@@ -1,6 +1,6 @@
 /*
  * plist - An open source library to parse and generate property lists
- * Copyright (C) 2012 Daniel Dreibrodt
+ * Copyright (C) 2014 Daniel Dreibrodt
  *
  * Permission is hereby granted, free of charge, to any person obtaining a copy
  * of this software and associated documentation files (the "Software"), to deal
@@ -87,8 +87,10 @@ public class NSArray extends NSObject {
      * @param key   The index where to store the object.
      * @param value The object.
      */
-    public void setValue(int key, NSObject value) {
-        array[key] = value;
+    public void setValue(int key, Object value) {
+        if(value == null)
+            throw new NullPointerException("Cannot add null values to an NSArray!");
+        array[key] = NSObject.wrap(value);
     }
 
     /**
@@ -118,9 +120,10 @@ public class NSArray extends NSObject {
      * @return <code>true</code>, when the object could be found. <code>false</code> otherwise.
      * @see Object#equals(java.lang.Object)
      */
-    public boolean containsObject(NSObject obj) {
-        for (NSObject o : array) {
-            if (o.equals(obj)) {
+    public boolean containsObject(Object obj) {
+        NSObject nso = NSObject.wrap(obj);
+        for (NSObject elem : array) {
+            if (elem.equals(nso)) {
                 return true;
             }
         }
@@ -135,11 +138,12 @@ public class NSArray extends NSObject {
      * @param obj The object to look for.
      * @return The index of the object, if it was found. -1 otherwise.
      * @see Object#equals(java.lang.Object)
-     * @see #indexOfIdenticalObject(com.dd.plist.NSObject)
+     * @see #indexOfIdenticalObject(Object)
      */
-    public int indexOfObject(NSObject obj) {
+    public int indexOfObject(Object obj) {
+        NSObject nso = NSObject.wrap(obj);
         for (int i = 0; i < array.length; i++) {
-            if (array[i].equals(obj)) {
+            if (array[i].equals(nso)) {
                 return i;
             }
         }
@@ -154,11 +158,12 @@ public class NSArray extends NSObject {
      *
      * @param obj The object to look for.
      * @return The index of the object, if it was found. -1 otherwise.
-     * @see #indexOfObject(com.dd.plist.NSObject)
+     * @see #indexOfObject(Object)
      */
-    public int indexOfIdenticalObject(NSObject obj) {
+    public int indexOfIdenticalObject(Object obj) {
+        NSObject nso = NSObject.wrap(obj);
         for (int i = 0; i < array.length; i++) {
-            if (array[i] == obj) {
+            if (array[i] == nso) {
                 return i;
             }
         }
@@ -192,7 +197,15 @@ public class NSArray extends NSObject {
 
     @Override
     public boolean equals(Object obj) {
-        return obj.getClass().equals(this.getClass()) && Arrays.equals(((NSArray) obj).getArray(), this.array);
+        if(obj.getClass().equals(NSArray.class)) {
+            return Arrays.equals(((NSArray) obj).getArray(), this.array);
+        } else {
+            NSObject nso = NSObject.wrap(obj);
+            if(nso.getClass().equals(NSArray.class)) {
+                return Arrays.equals(((NSArray) nso).getArray(), this.array);
+            }
+        }
+        return false;
     }
 
     @Override

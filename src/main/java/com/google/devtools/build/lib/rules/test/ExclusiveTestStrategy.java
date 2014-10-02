@@ -23,7 +23,7 @@ import java.io.IOException;
 /**
  * Test strategy wrapper called 'exclusive'. It should delegate to a test strategy for local
  * execution. The name 'exclusive' triggers behavior it triggers behavior in
- * SequencedSkyframeExecutor to schedule test execution sequentially after non-test actions. This
+ * SkyframeExecutor to schedule test execution sequentially after non-test actions. This
  * ensures streamed test output is not polluted by other action output.
  */
 @ExecutionStrategy(contextType = TestActionContext.class,

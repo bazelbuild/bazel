@@ -67,7 +67,7 @@ public class NSData extends NSObject {
      * @throws FileNotFoundException If the file could not be found.
      * @throws IOException           If the file could not be read.
      */
-    public NSData(File file) throws FileNotFoundException, IOException {
+    public NSData(File file) throws IOException {
         bytes = new byte[(int) file.length()];
         RandomAccessFile raf = new RandomAccessFile(file, "r");
         raf.read(bytes);

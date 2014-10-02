@@ -70,7 +70,7 @@ package com.dd.plist;
  * <li>v2.3.5 - Fixed bug in {@link #encodeFromFile} where estimated buffer size
  * was wrong for files of size 31, 34, and 37 bytes.</li>
  * <li>v2.3.4 - Fixed bug when working with gzipped streams whereby flushing
- * the Base64.OutputStream closed the Base64 encoding (by padding with equals
+ * the Base64.B64OutputStream closed the Base64 encoding (by padding with equals
  * signs) too soon. Also added an option to suppress the automatic decoding
  * of gzipped streams. Also added experimental support for specifying a
  * class loader when using the
@@ -151,7 +151,7 @@ package com.dd.plist;
  * This helps when using GZIP streams.
  * Added the ability to GZip-compress objects before encoding them.</li>
  * <li>v1.4 - Added helper methods to read/write files.</li>
- * <li>v1.3.6 - Fixed OutputStream.flush() so that 'position' is reset.</li>
+ * <li>v1.3.6 - Fixed B64OutputStream.flush() so that 'position' is reset.</li>
  * <li>v1.3.5 - Added flag to turn on and off line breaks. Fixed bug in input stream
  * where last buffer being read, if not completely full, was not returned.</li>
  * <li>v1.3.4 - Fixed when "improperly padded stream" error was thrown at the wrong time.</li>
@@ -453,7 +453,7 @@ public class Base64 {
      * in which case one of them will be picked, though there is
      * no guarantee as to which one will be picked.
      */
-    private final static byte[] getAlphabet(int options) {
+    private static byte[] getAlphabet(int options) {
         if ((options & URL_SAFE) == URL_SAFE) {
             return _URL_SAFE_ALPHABET;
         } else if ((options & ORDERED) == ORDERED) {
@@ -471,7 +471,7 @@ public class Base64 {
      * in which case one of them will be picked, though there is
      * no guarantee as to which one will be picked.
      */
-    private final static byte[] getDecodabet(int options) {
+    private static byte[] getDecodabet(int options) {
         if ((options & URL_SAFE) == URL_SAFE) {
             return _URL_SAFE_DECODABET;
         } else if ((options & ORDERED) == ORDERED) {
@@ -707,7 +707,7 @@ public class Base64 {
         try {
             // ObjectOutputStream -> (GZIP) -> Base64 -> ByteArrayOutputStream
             baos = new java.io.ByteArrayOutputStream();
-            b64os = new Base64.OutputStream(baos, ENCODE | options);
+            b64os = new B64OutputStream(baos, ENCODE | options);
             if ((options & GZIP) != 0) {
                 // Gzip
                 gzos = new java.util.zip.GZIPOutputStream(b64os);
@@ -950,12 +950,12 @@ public class Base64 {
         if ((options & GZIP) != 0) {
             java.io.ByteArrayOutputStream baos = null;
             java.util.zip.GZIPOutputStream gzos = null;
-            Base64.OutputStream b64os = null;
+            B64OutputStream b64os = null;
 
             try {
                 // GZip -> Base64 -> ByteArray
                 baos = new java.io.ByteArrayOutputStream();
-                b64os = new Base64.OutputStream(baos, ENCODE | options);
+                b64os = new B64OutputStream(baos, ENCODE | options);
                 gzos = new java.util.zip.GZIPOutputStream(b64os);
 
                 gzos.write(source, off, len);
@@ -1463,9 +1463,9 @@ public class Base64 {
             throw new NullPointerException("Data to encode was null.");
         }   // end iff
 
-        Base64.OutputStream bos = null;
+        B64OutputStream bos = null;
         try {
-            bos = new Base64.OutputStream(
+            bos = new B64OutputStream(
                     new java.io.FileOutputStream(filename), Base64.ENCODE);
             bos.write(dataToEncode);
         }   // end try
@@ -1498,9 +1498,9 @@ public class Base64 {
     public static void decodeToFile(String dataToDecode, String filename)
             throws java.io.IOException {
 
-        Base64.OutputStream bos = null;
+        B64OutputStream bos = null;
         try {
-            bos = new Base64.OutputStream(
+            bos = new B64OutputStream(
                     new java.io.FileOutputStream(filename), Base64.DECODE);
             bos.write(dataToDecode.getBytes(PREFERRED_ENCODING));
         }   // end try
@@ -1535,7 +1535,7 @@ public class Base64 {
             throws java.io.IOException {
 
         byte[] decodedData = null;
-        Base64.InputStream bis = null;
+        B64InputStream bis = null;
         try {
             // Set up some useful variables
             java.io.File file = new java.io.File(filename);
@@ -1550,7 +1550,7 @@ public class Base64 {
             buffer = new byte[(int) file.length()];
 
             // Open a stream
-            bis = new Base64.InputStream(
+            bis = new B64InputStream(
                     new java.io.BufferedInputStream(
                             new java.io.FileInputStream(file)), Base64.DECODE);
 
@@ -1596,7 +1596,7 @@ public class Base64 {
             throws java.io.IOException {
 
         String encodedData = null;
-        Base64.InputStream bis = null;
+        B64InputStream bis = null;
         try {
             // Set up some useful variables
             java.io.File file = new java.io.File(filename);
@@ -1605,7 +1605,7 @@ public class Base64 {
             int numBytes = 0;
 
             // Open a stream
-            bis = new Base64.InputStream(
+            bis = new B64InputStream(
                     new java.io.BufferedInputStream(
                             new java.io.FileInputStream(file)), Base64.ENCODE);
 
@@ -1695,14 +1695,14 @@ public class Base64 {
 
 
     /**
-     * A {@link Base64.InputStream} will read data from another
+     * A {@link com.dd.plist.Base64.B64InputStream} will read data from another
      * <tt>java.io.InputStream</tt>, given in the constructor,
      * and encode/decode to/from Base64 notation on the fly.
      *
      * @see Base64
      * @since 1.3
      */
-    public static class InputStream extends java.io.FilterInputStream {
+    public static class B64InputStream extends java.io.FilterInputStream {
 
         private boolean encode;         // Encoding or decoding
         private int position;       // Current position in the buffer
@@ -1716,18 +1716,18 @@ public class Base64 {
 
 
         /**
-         * Constructs a {@link Base64.InputStream} in DECODE mode.
+         * Constructs a {@link com.dd.plist.Base64.B64InputStream} in DECODE mode.
          *
          * @param in the <tt>java.io.InputStream</tt> from which to read data.
          * @since 1.3
          */
-        public InputStream(java.io.InputStream in) {
+        public B64InputStream(java.io.InputStream in) {
             this(in, DECODE);
         }   // end constructor
 
 
         /**
-         * Constructs a {@link Base64.InputStream} in
+         * Constructs a {@link com.dd.plist.Base64.B64InputStream} in
          * either ENCODE or DECODE mode.
          * <p/>
          * Valid options:<pre>
@@ -1736,7 +1736,7 @@ public class Base64 {
          *     (only meaningful when encoding)</i>
          * </pre>
          * <p/>
-         * Example: <code>new Base64.InputStream( in, Base64.DECODE )</code>
+         * Example: <code>new Base64.B64InputStream( in, Base64.DECODE )</code>
          *
          * @param in      the <tt>java.io.InputStream</tt> from which to read data.
          * @param options Specified options
@@ -1745,7 +1745,7 @@ public class Base64 {
          * @see Base64#DO_BREAK_LINES
          * @since 2.0
          */
-        public InputStream(java.io.InputStream in, int options) {
+        public B64InputStream(java.io.InputStream in, int options) {
 
             super(in);
             this.options = options; // Record for later
@@ -1895,7 +1895,7 @@ public class Base64 {
             return i;
         }   // end read
 
-    }   // end inner class InputStream
+    }   // end inner class B64InputStream
 
 
 
@@ -1906,14 +1906,14 @@ public class Base64 {
 
 
     /**
-     * A {@link Base64.OutputStream} will write data to another
+     * A {@link com.dd.plist.Base64.B64OutputStream} will write data to another
      * <tt>java.io.OutputStream</tt>, given in the constructor,
      * and encode/decode to/from Base64 notation on the fly.
      *
      * @see Base64
      * @since 1.3
      */
-    public static class OutputStream extends java.io.FilterOutputStream {
+    public static class B64OutputStream extends java.io.FilterOutputStream {
 
         private boolean encode;
         private int position;
@@ -1927,18 +1927,18 @@ public class Base64 {
         private byte[] decodabet;  // Local copies to avoid extra method calls
 
         /**
-         * Constructs a {@link Base64.OutputStream} in ENCODE mode.
+         * Constructs a {@link com.dd.plist.Base64.B64OutputStream} in ENCODE mode.
          *
          * @param out the <tt>java.io.OutputStream</tt> to which data will be written.
          * @since 1.3
          */
-        public OutputStream(java.io.OutputStream out) {
+        public B64OutputStream(java.io.OutputStream out) {
             this(out, ENCODE);
         }   // end constructor
 
 
         /**
-         * Constructs a {@link Base64.OutputStream} in
+         * Constructs a {@link com.dd.plist.Base64.B64OutputStream} in
          * either ENCODE or DECODE mode.
          * <p/>
          * Valid options:<pre>
@@ -1947,16 +1947,16 @@ public class Base64 {
          *     (only meaningful when encoding)</i>
          * </pre>
          * <p/>
-         * Example: <code>new Base64.OutputStream( out, Base64.ENCODE )</code>
+         * Example: <code>new Base64.B64OutputStream( out, Base64.ENCODE )</code>
          *
-         * @param out     the <tt>java.io.OutputStream</tt> to which data will be written.
+         * @param out     the <tt>java.io.B64OutputStream</tt> to which data will be written.
          * @param options Specified options.
          * @see Base64#ENCODE
          * @see Base64#DECODE
          * @see Base64#DO_BREAK_LINES
          * @since 1.3
          */
-        public OutputStream(java.io.OutputStream out, int options) {
+        public B64OutputStream(java.io.OutputStream out, int options) {
             super(out);
             this.breakLines = (options & DO_BREAK_LINES) != 0;
             this.encode = (options & ENCODE) != 0;
@@ -2118,7 +2118,7 @@ public class Base64 {
         }   // end resumeEncoding
 
 
-    }   // end inner class OutputStream
+    }   // end inner class B64OutputStream
 
 
 }   // end class Base64

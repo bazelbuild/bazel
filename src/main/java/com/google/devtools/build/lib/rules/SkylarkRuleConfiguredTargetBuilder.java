@@ -22,7 +22,6 @@ import com.google.common.collect.ImmutableSet;
 import com.google.common.collect.Iterables;
 import com.google.devtools.build.lib.actions.Artifact;
 import com.google.devtools.build.lib.collect.nestedset.NestedSetBuilder;
-import com.google.devtools.build.lib.collect.nestedset.Order;
 import com.google.devtools.build.lib.events.Location;
 import com.google.devtools.build.lib.packages.TargetUtils;
 import com.google.devtools.build.lib.packages.Type;
@@ -104,18 +103,26 @@ public final class SkylarkRuleConfiguredTargetBuilder {
     }
   }
 
+  // TODO(bazel-team): this whole defaulting - overriding executable, runfiles and files_to_build
+  // is getting out of hand. Clean this whole mess up.
   private static ConfiguredTarget createTarget(RuleContext ruleContext, Object target)
       throws EvalException {
+    Artifact executable = getExecutable(ruleContext, target);
     RuleConfiguredTargetBuilder builder = new RuleConfiguredTargetBuilder(ruleContext);
     // Every target needs runfiles provider by default.
     builder.add(RunfilesProvider.class, RunfilesProvider.EMPTY);
-    builder.setFilesToBuild(
-        NestedSetBuilder.<Artifact>wrap(Order.STABLE_ORDER, ruleContext.getOutputArtifacts()));
+    // Set the default files to build.
+    NestedSetBuilder<Artifact> filesToBuild = NestedSetBuilder.<Artifact>stableOrder()
+        .addAll(ruleContext.getOutputArtifacts());
+    if (executable != null) {
+      filesToBuild.add(executable);
+    }
+    builder.setFilesToBuild(filesToBuild.build());
     Location loc = null;
     if (target instanceof SkylarkClassObject) {
       SkylarkClassObject struct = (SkylarkClassObject) target;
       loc = struct.getCreationLoc();
-      addStructFields(ruleContext, builder, struct);
+      addStructFields(ruleContext, builder, struct, executable);
     }
     try {
       return builder.build();
@@ -124,18 +131,32 @@ public final class SkylarkRuleConfiguredTargetBuilder {
     }
   }
 
-  private static void addStructFields(RuleContext ruleContext, RuleConfiguredTargetBuilder builder,
-      SkylarkClassObject struct) throws EvalException {
-    Location loc = struct.getCreationLoc();
-    Runfiles statelessRunfiles = null;
-    Runfiles dataRunfiles = null;
-    Runfiles defaultRunfiles = null;
+  private static Artifact getExecutable(RuleContext ruleContext, Object target)
+      throws EvalException {
     Artifact executable = ruleContext.getRule().getRuleClassObject().outputsDefaultExecutable()
         // This doesn't actually create a new Artifact just returns the one
         // created in SkylarkruleContext.
         ? ruleContext.createOutputArtifact() : null;
+    if (target instanceof SkylarkClassObject) {
+      SkylarkClassObject struct = (SkylarkClassObject) target;
+      if (struct.getValue("executable") != null) {
+        // We need this because of genrule.bzl. This overrides the default executable.
+        executable = cast(
+            struct.getValue("executable"), Artifact.class, "executable", struct.getCreationLoc());
+      }
+    }
+    return executable;
+  }
+
+  private static void addStructFields(RuleContext ruleContext, RuleConfiguredTargetBuilder builder,
+      SkylarkClassObject struct, Artifact executable) throws EvalException {
+    Location loc = struct.getCreationLoc();
+    Runfiles statelessRunfiles = null;
+    Runfiles dataRunfiles = null;
+    Runfiles defaultRunfiles = null;
     for (String key : struct.getKeys()) {
       if (key.equals("files_to_build")) {
+        // If we specify files_to_build we don't have the executable in it by default.
         builder.setFilesToBuild(cast(struct.getValue("files_to_build"),
                 SkylarkNestedSet.class, "files_to_build", loc).getSet(Artifact.class));
       } else if (key.equals("runfiles")) {
@@ -145,23 +166,24 @@ public final class SkylarkRuleConfiguredTargetBuilder {
       } else if (key.equals("default_runfiles")) {
         defaultRunfiles =
             cast(struct.getValue("default_runfiles"), Runfiles.class, "default_runfiles", loc);
-      } else if (key.equals("executable")) {
-        // We need this because of genrule.bzl. This overrides the default executable.
-        executable = cast(struct.getValue("executable"), Artifact.class, "executable", loc);
-      } else {
+      } else if (!key.equals("executable")) {
+        // We handled executable already.
         builder.addSkylarkTransitiveInfo(key, struct.getValue(key));
       }
     }
+
     if ((statelessRunfiles != null) && (dataRunfiles != null || defaultRunfiles != null)) {
       throw new EvalException(loc, "Cannot specify the provider 'runfiles' "
           + "together with 'data_runfiles' or 'default_runfiles'");
     }
 
     RunfilesProvider runfilesProvider = statelessRunfiles != null
-        ? RunfilesProvider.simple(statelessRunfiles)
+        ? RunfilesProvider.simple(merge(statelessRunfiles, executable))
         : RunfilesProvider.withData(
+            // The executable doesn't get into the default runfiles if we have runfiles states.
+            // This is to keep skylark genrule consistent with the original genrule.
             defaultRunfiles != null ? defaultRunfiles : Runfiles.EMPTY,
-                dataRunfiles != null ? dataRunfiles : Runfiles.EMPTY);
+            dataRunfiles != null ? dataRunfiles : Runfiles.EMPTY);
     builder.addProvider(RunfilesProvider.class, runfilesProvider);
 
     Runfiles computedDefaultRunfiles = runfilesProvider.getDefaultRunfiles();
@@ -175,5 +197,12 @@ public final class SkylarkRuleConfiguredTargetBuilder {
           ? null : RunfilesSupport.withExecutable(ruleContext, computedDefaultRunfiles, executable);
       builder.setRunfilesSupport(runfilesSupport, executable);
     }
+  }
+
+  private static Runfiles merge(Runfiles runfiles, Artifact executable) {
+    if (executable == null) {
+      return runfiles;
+    }
+    return new Runfiles.Builder().addArtifact(executable).merge(runfiles).build();
   }
 }

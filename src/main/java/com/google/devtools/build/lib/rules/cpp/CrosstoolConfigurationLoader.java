@@ -16,13 +16,15 @@ package com.google.devtools.build.lib.rules.cpp;
 
 import com.google.common.annotations.VisibleForTesting;
 import com.google.common.base.Function;
-import com.google.common.cache.Cache;
 import com.google.common.cache.CacheBuilder;
+import com.google.common.cache.CacheLoader;
+import com.google.common.cache.LoadingCache;
 import com.google.common.io.BaseEncoding;
 import com.google.devtools.build.lib.packages.NoSuchThingException;
 import com.google.devtools.build.lib.packages.Package;
 import com.google.devtools.build.lib.syntax.Label;
 import com.google.devtools.build.lib.syntax.Label.SyntaxException;
+import com.google.devtools.build.lib.util.Pair;
 import com.google.devtools.build.lib.vfs.FileSystemUtils;
 import com.google.devtools.build.lib.vfs.Path;
 import com.google.devtools.build.lib.view.RedirectChaser;
@@ -37,6 +39,7 @@ import com.google.protobuf.UninitializedMessageException;
 import java.io.IOException;
 import java.util.ArrayList;
 import java.util.Collection;
+import java.util.concurrent.ExecutionException;
 
 /**
  * A loader that reads Crosstool configuration files and creates CToolchain
@@ -46,11 +49,18 @@ public class CrosstoolConfigurationLoader {
   private static final String CROSSTOOL_CONFIGURATION_FILENAME = "CROSSTOOL";
 
   /**
-   * Cache for storing result of toReleaseConfiguration function based on md5 sum of input file.
-   * We can use md5 because result of this function depends only on the file content.
+   * Cache for storing result of toReleaseConfiguration function based on path and md5 sum of
+   * input file. We can use md5 because result of this function depends only on the file content.
    */
-  private static final Cache<String, CrosstoolConfig.CrosstoolRelease> crosstoolReleaseCache =
-      CacheBuilder.newBuilder().concurrencyLevel(4).maximumSize(100).build();
+  private static final LoadingCache<Pair<Path, String>, CrosstoolConfig.CrosstoolRelease> 
+      crosstoolReleaseCache = CacheBuilder.newBuilder().concurrencyLevel(4).maximumSize(100).build(
+        new CacheLoader<Pair<Path, String>, CrosstoolConfig.CrosstoolRelease>() {
+          @Override
+          public CrosstoolConfig.CrosstoolRelease load(Pair<Path, String> key) throws IOException {
+            char[] data = FileSystemUtils.readContentAsLatin1(key.first);
+            return toReleaseConfiguration(key.first.getPathString(), new String(data));
+          }
+        });
 
   /**
    * A class that holds the results of reading a CROSSTOOL file.
@@ -160,14 +170,14 @@ public class CrosstoolConfigurationLoader {
       // is faster if the file comes from a file system with md5 support.
       file.setCrosstoolPath(path);
       String md5 = BaseEncoding.base16().lowerCase().encode(path.getMD5Digest());
-      CrosstoolConfig.CrosstoolRelease release = crosstoolReleaseCache.getIfPresent(md5);
-      if (release == null) {
-        char[] data = FileSystemUtils.readContentAsLatin1(path);
-        release = toReleaseConfiguration(path.getPathString(), new String(data));
-        crosstoolReleaseCache.put(md5, release);
+      CrosstoolConfig.CrosstoolRelease release;
+      try {
+        release = crosstoolReleaseCache.get(new Pair<Path, String>(path, md5));
+        file.setCrosstool(release);
+        file.setMd5(md5);
+      } catch (ExecutionException e) {
+        throw new InvalidConfigurationException(e);
       }
-      file.setCrosstool(release);
-      file.setMd5(md5);
     }
   }
 

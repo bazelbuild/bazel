@@ -57,7 +57,6 @@ public class NSNumber extends NSObject implements Comparable<Object> {
     private long longValue;
     private double doubleValue;
     private boolean boolValue;
-    private String originalString;
 
     /**
      * Parses integers and real numbers from their binary representation.
@@ -96,7 +95,6 @@ public class NSNumber extends NSObject implements Comparable<Object> {
      * @see Double#parseDouble(java.lang.String)
      */
     public NSNumber(String text) {
-        this.originalString = text;
         if (text == null)
             throw new IllegalArgumentException("The given string is null and cannot be parsed as number.");
         try {
@@ -256,17 +254,6 @@ public class NSNumber extends NSObject implements Comparable<Object> {
     }
 
     /**
-     * The number's original string representation, if it was constructed from
-     * a String.
-     *
-     * @return The value of the number as a string, or {@code null} if it was
-     *     not constructed from a string.
-     */
-    public String originalString() {
-        return originalString;
-    }
-
-    /**
      * Checks whether the other object is a NSNumber of the same value.
      *
      * @param obj The object to compare to.
@@ -369,11 +356,6 @@ public class NSNumber extends NSObject implements Comparable<Object> {
 
     @Override
     protected void toASCII(StringBuilder ascii, int level) {
-        //Although Apple's documentation does not explicitly say so, unqouted
-        //strings are also allowed in ASCII property lists
-        //Use this to represent numbers which anyhow contain now spaces, so
-        //that a clearer distinction between numbers and strings is made
-        //Also booleans are represented as YES and NO as in GnuStep
         indent(ascii, level);
         if (type == BOOLEAN) {
             ascii.append(boolValue ? "YES" : "NO");

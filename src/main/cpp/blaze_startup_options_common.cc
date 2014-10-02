@@ -197,12 +197,15 @@ bool BlazeStartupOptions::ProcessArg(const string& argstr,
     option_sources["max_idle_secs"] = rcfile;
   } else if ((value = GetUnaryOption(arg, next_arg,
               "--skyframe")) != NULL) {
+    fprintf(stderr, "WARNING: The --skyframe startup option is now ignored "
+            "and will be removed in a future release\n");
+  } else if ((value = GetUnaryOption(arg, next_arg,
+              "--deprecated_skyframe_for_testing_only")) != NULL) {
     skyframe = value;
     option_sources["skyframe"] = rcfile;
   } else if (GetNullaryOption(arg, "-x")) {
-    // -x is an alias for --skyframe=loading_and_analysis.
-    skyframe = "loading_and_analysis";
-    option_sources["skyframe"] = rcfile;
+    fprintf(stderr, "WARNING: The -x startup option is now ignored "
+            "and will be removed in a future release\n");
   } else if (GetNullaryOption(arg, "--watchfs")) {
     watchfs = true;
     option_sources["watchfs"] = rcfile;

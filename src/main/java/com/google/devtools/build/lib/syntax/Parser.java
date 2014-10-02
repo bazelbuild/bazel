@@ -531,8 +531,8 @@ class Parser {
   }
 
   //  primary ::= INTEGER
-  //            | STRING+
-  //            | STRING+ '.' IDENTIFIER funcall_suffix
+  //            | STRING
+  //            | STRING '.' IDENTIFIER funcall_suffix
   //            | IDENTIFIER
   //            | IDENTIFIER funcall_suffix
   //            | IDENTIFIER '.' selector_suffix
@@ -556,6 +556,10 @@ class Parser {
         int end = token.right;
         char quoteChar = lexer.charAt(start);
         nextToken();
+        if (token.kind == TokenKind.STRING) {
+          reportError(lexer.createLocation(end, token.left),
+              "Implicit string concatenation is forbidden, use the + operator");
+        }
         StringLiteral literal = new StringLiteral(value, quoteChar);
         setLocation(literal, start, end);
         return literal;

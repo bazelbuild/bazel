@@ -48,6 +48,10 @@ import com.google.devtools.build.xcode.common.Platform;
     ancestors = { ObjcBundleLibraryRule.class })
 public class ObjcBinaryRule implements RuleDefinition {
   public static final SafeImplicitOutputsFunction IPA = fromTemplates("%{name}.ipa");
+  public static final SafeImplicitOutputsFunction DSYM_PLIST =
+      fromTemplates("%{name}.app.dSYM/Contents/Info.plist");
+  public static final SafeImplicitOutputsFunction DSYM_SYMBOL =
+      fromTemplates("%{name}.app.dSYM/Contents/Resources/DWARF/%{name}");
 
   static final String PROVISIONING_PROFILE_ATTR = ":provisioning_profile";
   static final String EXPLICIT_PROVISIONING_PROFILE_ATTR = "provisioning_profile";
@@ -82,6 +86,12 @@ public class ObjcBinaryRule implements RuleDefinition {
              file</li>
          <li><code><var>name</var>.xcodeproj/project.pbxproj: An Xcode project file which can be
              used to develop or build on a Mac.</li>
+         <li><code><var>name</var>.app.dSYM/Contents/Info.plist</code>: The plist file in the
+             unzipped dSYM bundle of the application binary
+              (only built if Blaze flag "--objc_generate_debug_symbols" is specified).</li>
+         <li><code><var>name</var>.app.dSYM/Contents/Resources/DWARF/<var>name</var></code>:
+             The debug symbol file in the unzipped dSYM bundle of the application binary
+              (only built if Blaze flag "--objc_generate_debug_symbols" is specified).</li>
         </ul>
         <!-- #END_BLAZE_RULE.IMPLICIT_OUTPUTS -->*/
         .setImplicitOutputsFunction(fromFunctions(IPA, ObjcRuleClasses.PBXPROJ))
@@ -146,6 +156,9 @@ public class ObjcBinaryRule implements RuleDefinition {
         // less painful and error-prone way.
         .add(attr("$bundlemerge", LABEL).cfg(HOST).exec()
             .value(env.getLabel("//tools/objc:bundlemerge")))
+        // Used to unzip dSYM bundle.
+        .add(attr("$unzip", LABEL).cfg(HOST).exec()
+            .value(env.getLabel("//third_party/unzip:unzip")))
         .build();
   }
 }

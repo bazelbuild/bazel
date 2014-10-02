@@ -39,11 +39,9 @@ import com.google.devtools.build.lib.vfs.PathFragment;
 import com.google.devtools.build.lib.view.AnalysisUtils;
 import com.google.devtools.build.lib.view.BaseRuleClasses;
 import com.google.devtools.build.lib.view.BlazeRule;
-import com.google.devtools.build.lib.view.RuleConfiguredTarget.Mode;
 import com.google.devtools.build.lib.view.RuleContext;
 import com.google.devtools.build.lib.view.RuleDefinition;
 import com.google.devtools.build.lib.view.RuleDefinitionEnvironment;
-import com.google.devtools.build.lib.view.TransitiveInfoProvider;
 
 /**
  * Shared utility code for Objective-C rules.
@@ -145,19 +143,6 @@ public class ObjcRuleClasses {
   }
 
   /**
-   * Gets the providers for the {@code deps} of the given rule, or an empty sequence if the rule
-   * or rule type does not have a {@code deps} attribute.
-   */
-  static <P extends TransitiveInfoProvider>
-      Iterable<P> deps(RuleContext context, Class<P> providerClass) {
-    if (context.attributes().getAttributeDefinition("deps") == null) {
-      return ImmutableList.of();
-    } else {
-      return context.getPrerequisites("deps", Mode.TARGET, providerClass);
-    }
-  }
-
-  /**
    * Returns the value of the {@code includes} attribute, where each returned path is under the
    * path corresponding to the current package, and each entry in the attribute results in three
    * items in the returned sequence: one is rooted in the actual client, one is rooted in genfiles,
@@ -211,55 +196,6 @@ public class ObjcRuleClasses {
   static final FileTypeSet HDRS_TYPE = FileTypeSet.of(FileType.of(".m", ".h", ".hh", ".pch"));
 
   static final FileTypeSet PLIST_TYPE = FileTypeSet.of(FileType.of(".plist"));
-
-  /**
-   * Attributes for {@code objc_*} rules that have compilable sources.
-   */
-  @BlazeRule(name = "$objc_sources_rule",
-      type = RuleClassType.ABSTRACT)
-  public static class ObjcSourcesRule implements RuleDefinition {
-    @Override
-    public RuleClass build(Builder builder, RuleDefinitionEnvironment environment) {
-      return builder
-          /* <!-- #BLAZE_RULE($objc_sources_rule).ATTRIBUTE(srcs) -->
-          The list of C, C++, Objective-C, and Objective-C++ files that are
-          processed to create the library target.
-          ${SYNOPSIS}
-          These are your checked-in source files, plus any generated files.
-          These are compiled into .o files with Clang, so headers should not go
-          here (see the hdrs attribute).
-          <!-- #END_BLAZE_RULE.ATTRIBUTE -->*/
-          .add(attr("srcs", LABEL_LIST)
-              .direct_compile_time_input()
-              .allowedFileTypes(SRCS_TYPE))
-          /* <!-- #BLAZE_RULE($objc_sources_rule).ATTRIBUTE(non_arc_srcs) -->
-          The list of Objective-C files that are processed to create the
-          library target that DO NOT use ARC.
-          ${SYNOPSIS}
-          The files in this attribute are treated very similar to those in the
-          srcs attribute, but are compiled without ARC enabled.
-          <!-- #END_BLAZE_RULE.ATTRIBUTE -->*/
-          .add(attr("non_arc_srcs", LABEL_LIST)
-              .direct_compile_time_input()
-              .allowedFileTypes(NON_ARC_SRCS_TYPE))
-          /* <!-- #BLAZE_RULE($objc_sources_rule).ATTRIBUTE(pch) -->
-          Header file to prepend to every source file being compiled (both arc
-          and non-arc). Note that the file will not be precompiled - this is
-          simply a convenience, not a build-speed enhancement.
-          <!-- #END_BLAZE_RULE.ATTRIBUTE -->*/
-          .add(attr("pch", LABEL)
-              .direct_compile_time_input()
-              .allowedFileTypes(FileType.of(".pch")))
-          /* <!-- #BLAZE_RULE($objc_sources_rule).ATTRIBUTE(options) -->
-          An <code>objc_options</code> target which defines an Xcode build
-          configuration profile.
-          <!-- #END_BLAZE_RULE.ATTRIBUTE -->*/
-          .add(attr("options", LABEL)
-              .allowedFileTypes()
-              .allowedRuleClasses("objc_options"))
-          .build();
-    }
-  }
 
   /**
    * Common external build tools for {@code objc_*} rules.

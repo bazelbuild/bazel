@@ -17,25 +17,48 @@ package com.google.devtools.build.lib.rules.objc;
 import static com.google.devtools.build.lib.rules.objc.ObjcProvider.HEADER;
 import static com.google.devtools.build.lib.rules.objc.ObjcProvider.INCLUDE;
 import static com.google.devtools.build.lib.rules.objc.ObjcProvider.NESTED_BUNDLE;
+import static com.google.devtools.build.lib.rules.objc.XcodeProductType.BUNDLE;
 
 import com.google.common.base.Optional;
 import com.google.common.collect.ImmutableList;
+import com.google.common.collect.ImmutableSet;
 import com.google.devtools.build.lib.actions.Artifact;
 import com.google.devtools.build.lib.collect.nestedset.NestedSetBuilder;
-import com.google.devtools.build.lib.packages.Type;
 import com.google.devtools.build.lib.rules.RuleConfiguredTargetFactory;
 import com.google.devtools.build.lib.rules.objc.ObjcActionsBuilder.ExtraActoolArgs;
 import com.google.devtools.build.lib.rules.objc.ObjcActionsBuilder.ExtraLinkArgs;
+import com.google.devtools.build.lib.rules.objc.ObjcLibrary.InfoplistsFromRule;
 import com.google.devtools.build.lib.view.ConfiguredTarget;
 import com.google.devtools.build.lib.view.RuleConfiguredTarget.Mode;
 import com.google.devtools.build.lib.view.RuleContext;
 import com.google.devtools.build.xcode.xcodegen.proto.XcodeGenProtos.DependencyControl;
+import com.google.devtools.build.xcode.xcodegen.proto.XcodeGenProtos.TargetControl;
 import com.google.devtools.build.xcode.xcodegen.proto.XcodeGenProtos.XcodeprojBuildSetting;
 
 /**
  * Implementation for {@code objc_bundle_library}.
  */
 public class ObjcBundleLibrary implements RuleConfiguredTargetFactory {
+  static Iterable<DependencyControl> targetDependenciesTransitive(
+      Iterable<XcodeProvider> depXcodeProviders) {
+    ImmutableSet.Builder<DependencyControl> result = new ImmutableSet.Builder<>();
+    for (XcodeProvider provider : depXcodeProviders) {
+      for (TargetControl targetDependency : provider.getTargets()) {
+        // Only add a target to a binary's dependencies if it has source files to compile. Xcode
+        // cannot build targets without a source file in the PBXSourceFilesBuildPhase, so if such a
+        // target is present in the control file, it is only to get Xcodegen to put headers and
+        // resources not used by the final binary in the Project Navigator.
+        if (!targetDependency.getSourceFileList().isEmpty()
+            || !targetDependency.getNonArcSourceFileList().isEmpty()) {
+          result.add(DependencyControl.newBuilder()
+              .setTargetLabel(targetDependency.getLabel())
+              .build());
+        }
+      }
+    }
+    return result.build();
+  }
+
   static void registerActions(
       RuleContext ruleContext, Bundling bundling,
       ObjcCommon common, XcodeProvider xcodeProvider, OptionsProvider optionsProvider,
@@ -68,57 +91,42 @@ public class ObjcBundleLibrary implements RuleConfiguredTargetFactory {
             optionsProvider));
   }
 
-  // TODO(bazel-team): Factor out the logic this method has in common with ObjcLibrary.create into
-  // shared methods.
-  @Override
-  public ConfiguredTarget create(RuleContext ruleContext) throws InterruptedException {
-    IntermediateArtifacts intermediateArtifacts = new IntermediateArtifacts(
-        ruleContext.getAnalysisEnvironment(), ruleContext.getBinOrGenfilesDirectory(),
-        ruleContext.getLabel());
-
-    CompilationArtifacts compilationArtifacts = new CompilationArtifacts.Builder()
-        .addSrcs(ruleContext.getPrerequisiteArtifacts("srcs", Mode.TARGET))
-        .addNonArcSrcs(ruleContext.getPrerequisiteArtifacts("non_arc_srcs", Mode.TARGET))
-        .setIntermediateArtifacts(intermediateArtifacts)
-        .setPchFile(Optional.fromNullable(ruleContext.getPrerequisiteArtifact("pch", Mode.TARGET)))
-        .build();
-
-    ObjcCommon common = new ObjcCommon.Builder(ruleContext)
-        .addAssetCatalogs(ruleContext.getPrerequisiteArtifacts("asset_catalogs", Mode.TARGET))
-        .addSdkDylibs(ruleContext.attributes().get("sdk_dylibs", Type.STRING_LIST))
-        .setCompilationArtifacts(compilationArtifacts)
-        .addHdrs(ruleContext.getPrerequisiteArtifacts("hdrs", Mode.TARGET))
-        .build();
-    common.reportErrors();
-
-    OptionsProvider optionsProvider = new OptionsProvider.Builder()
-        .addCopts(ruleContext.getTokenizedStringListAttr("copts"))
-        .addInfoplists(ruleContext.getPrerequisiteArtifacts("infoplist", Mode.TARGET))
-        .addTransitive(Optional.fromNullable(
-            ruleContext.getPrerequisite("options", Mode.TARGET, OptionsProvider.class)))
-        .build();
-
+  static Bundling bundling(RuleContext ruleContext, String bundleDirSuffix,
+      Iterable<BundleableFile> extraBundleFiles, ObjcProvider objcProvider,
+      OptionsProvider optionsProvider) {
+    IntermediateArtifacts intermediateArtifacts = ObjcLibrary.intermediateArtifacts(ruleContext);
     InfoplistMerging infoplistMerging = new InfoplistMerging.Builder(ruleContext)
         .setIntermediateArtifacts(intermediateArtifacts)
         .setInputPlists(optionsProvider.getInfoplists())
         .setPlmerge(ruleContext.getExecutablePrerequisite("$plmerge", Mode.HOST))
         .build();
-
-    Bundling bundling = new Bundling.Builder()
+    return new Bundling.Builder()
         .setName(ruleContext.getLabel().getName())
-        .setBundleDirSuffix(".bundle")
-        .setExtraBundleFiles(ImmutableList.<BundleableFile>of())
-        .setObjcProvider(common.getObjcProvider())
+        .setBundleDirSuffix(bundleDirSuffix)
+        .setExtraBundleFiles(ImmutableList.copyOf(extraBundleFiles))
+        .setObjcProvider(objcProvider)
         .setInfoplistMerging(infoplistMerging)
         .setIntermediateArtifacts(intermediateArtifacts)
         .build();
+  }
 
-    // TODO(bazel-team): Add support to xcodegen for objc_bundle_library targets.
+  @Override
+  public ConfiguredTarget create(RuleContext ruleContext) throws InterruptedException {
+    ObjcCommon common = ObjcLibrary.common(ruleContext, ImmutableList.<SdkFramework>of());
+    OptionsProvider optionsProvider = ObjcLibrary.optionsProvider(ruleContext,
+        new InfoplistsFromRule(ruleContext.getPrerequisiteArtifacts("infoplist", Mode.TARGET)));
+    Bundling bundling = bundling(ruleContext, ".bundle", ImmutableList.<BundleableFile>of(),
+        common.getObjcProvider(), optionsProvider);
+
+    Iterable<XcodeProvider> depXcodeProviders =
+        ruleContext.getPrerequisites("deps", Mode.TARGET, XcodeProvider.class);
     XcodeProvider xcodeProvider = common.xcodeProvider(
-        infoplistMerging.getPlistWithEverything(),
-        ImmutableList.<DependencyControl>of(),
+        bundling.getInfoplistMerging().getPlistWithEverything(),
+        targetDependenciesTransitive(depXcodeProviders),
         ImmutableList.<XcodeprojBuildSetting>of(),
-        optionsProvider.getCopts());
+        optionsProvider.getCopts(),
+        BUNDLE,
+        depXcodeProviders);
 
     ObjcProvider nestedBundleProvider = new ObjcProvider.Builder()
         .add(NESTED_BUNDLE, bundling)

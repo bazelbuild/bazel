@@ -73,6 +73,7 @@ final class ObjcCommon {
     private Iterable<String> sdkDylibs = ImmutableList.of();
     private Iterable<Artifact> hdrs = ImmutableList.of();
     private Optional<CompilationArtifacts> compilationArtifacts = Optional.absent();
+    private Iterable<ObjcProvider> depObjcProviders = ImmutableList.of();
 
     Builder(RuleContext context) {
       this.context = Preconditions.checkNotNull(context);
@@ -110,6 +111,11 @@ final class ObjcCommon {
       return this;
     }
 
+    Builder addDepObjcProviders(Iterable<ObjcProvider> depObjcProviders) {
+      this.depObjcProviders = Iterables.concat(this.depObjcProviders, depObjcProviders);
+      return this;
+    }
+
     ObjcCommon build() {
       Iterable<CompiledResourceFile> compiledResources = Iterables.concat(
           CompiledResourceFile.xibFilesFromRule(context),
@@ -135,7 +141,7 @@ final class ObjcCommon {
           .addAll(XCDATAMODEL, Xcdatamodels.xcdatamodels(context))
           .addAll(FRAMEWORK_FILE, frameworkImports)
           .addAll(FRAMEWORK_DIR, uniqueContainers(frameworkImports, FRAMEWORK_CONTAINER_TYPE))
-          .addTransitive(ObjcRuleClasses.deps(context, ObjcProvider.class));
+          .addTransitive(depObjcProviders);
 
       for (CompilationArtifacts artifacts : compilationArtifacts.asSet()) {
         objcProvider.addAll(LIBRARY, artifacts.getArchive().asSet());
@@ -198,6 +204,18 @@ final class ObjcCommon {
   }
 
   /**
+   * Returns an {@link Optional} containing the compiled {@code .a} file, or
+   * {@link Optional#absent()} if this object contains no {@link CompilationArtifacts} or the
+   * compilation information has no sources.
+   */
+  public Optional<Artifact> getCompiledArchive() {
+    for (CompilationArtifacts justCompilationArtifacts : compilationArtifacts.asSet()) {
+      return justCompilationArtifacts.getArchive();
+    }
+    return Optional.absent();
+  }
+
+  /**
    * Reports any known errors to the {@link RuleContext}. This should be called exactly once for
    * a target.
    */
@@ -231,9 +249,10 @@ final class ObjcCommon {
    * Builds an {@code XcodeProvider} which supplies the targets of all transitive dependencies and
    * one Xcode target corresponding to this one.
    */
-  private XcodeProvider xcodeProvider(TargetControl thisTarget) {
+  private XcodeProvider xcodeProvider(
+      TargetControl thisTarget, Iterable<XcodeProvider> depXcodeProviders) {
     NestedSetBuilder<TargetControl> result = NestedSetBuilder.stableOrder();
-    for (XcodeProvider depProvider : ObjcRuleClasses.deps(context, XcodeProvider.class)) {
+    for (XcodeProvider depProvider : depXcodeProviders) {
       result.addTransitive(depProvider.getTargets());
     }
     return new XcodeProvider(result.add(thisTarget).build());
@@ -244,18 +263,23 @@ final class ObjcCommon {
    * @param maybeInfoplistFile the Info.plist file. Used for applications.
    * @param xcodeDependencies dependencies of the target for this rule in the .xcodeproj file.
    * @param xcodeprojBuildSettings additional build settings of this target.
+   * @param copts copts to use when compiling the Xcode target.
+   * @param productType the product type for the PBXTarget in the .xcodeproj file.
+   * @param depXcodeProviders the {@link XcodeProvider}s of the direct dependencies of this target.
    */
   public XcodeProvider xcodeProvider(
       Optional<Artifact> maybeInfoplistFile,
       Iterable<DependencyControl> xcodeDependencies,
       Iterable<XcodeprojBuildSetting> xcodeprojBuildSettings,
-      Iterable<String> copts) {
+      Iterable<String> copts,
+      XcodeProductType productType,
+      Iterable<XcodeProvider> depXcodeProviders) {
     // TODO(bazel-team): Add provisioning profile information when Xcodegen supports it.
     // TODO(bazel-team): Add .framework import information when Xcodegen supports it.
-    // TODO(bazel-team): Add SDK dylib information when Xcodegen supports it.
     TargetControl.Builder targetControl = TargetControl.newBuilder()
         .setName(context.getLabel().getName())
         .setLabel(context.getLabel().toString())
+        .setProductType(productType.getIdentifier())
         .addAllImportedLibrary(Artifact.toExecPaths(objcProvider.get(IMPORTED_LIBRARY)))
         .addAllUserHeaderSearchPath(
             PathFragment.safePathStrings(userHeaderSearchPaths(context.getConfiguration())))
@@ -270,7 +294,9 @@ final class ObjcCommon {
         .addAllXcdatamodel(PathFragment.safePathStrings(
             Xcdatamodel.xcdatamodelDirs(objcProvider.get(XCDATAMODEL))))
         .addAllBundleImport(PathFragment.safePathStrings(objcProvider.get(BUNDLE_IMPORT_DIR)))
-        .addAllDependency(xcodeDependencies);
+        .addAllDependency(xcodeDependencies)
+        .addAllSdkDylib(objcProvider.get(SDK_DYLIB));
+
     targetControl.addAllGeneralResourceFile(
         Artifact.toExecPaths(objcProvider.get(GENERAL_RESOURCE_FILE)));
     for (Artifact infoplistFile : maybeInfoplistFile.asSet()) {
@@ -291,7 +317,7 @@ final class ObjcCommon {
             .addHeaderFile(pchFile.getExecPathString());
       }
     }
-    return xcodeProvider(targetControl.build());
+    return xcodeProvider(targetControl.build(), depXcodeProviders);
   }
 
   static Iterable<PathFragment> userHeaderSearchPaths(BuildConfiguration configuration) {
@@ -402,9 +428,7 @@ final class ObjcCommon {
 
   private NestedSet<Artifact> inputsToLegacyRules() {
     NestedSetBuilder<Artifact> inputs = NestedSetBuilder.<Artifact>stableOrder()
-        .addAll(hdrs)
-        .addAll(ARCHIVES.get(context))
-        .addAll(BundleableFile.generalResourceArtifactsFromRule(context));
+        .addAll(objcProvider.allArtifactsForObjcFilegroup());
 
     for (CompilationArtifacts artifacts : compilationArtifacts.asSet()) {
       inputs

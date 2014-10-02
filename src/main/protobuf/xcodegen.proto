@@ -46,8 +46,6 @@ message TargetControl {
   repeated string header_file = 3;
 
   // Dependencies this target has on other targets.
-  // Currently, this only makes sense for a dependency of objc_binary on
-  // objc_library.
   repeated DependencyControl dependency = 4;
 
   // (Used for objc_binary and objc_bundle_library targets) path to the

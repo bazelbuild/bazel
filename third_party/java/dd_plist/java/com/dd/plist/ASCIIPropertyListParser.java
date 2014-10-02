@@ -1,6 +1,6 @@
 /*
  * plist - An open source library to parse and generate property lists
- * Copyright (C) 2012 Daniel Dreibrodt
+ * Copyright (C) 2014 Daniel Dreibrodt
  *
  * Permission is hereby granted, free of charge, to any person obtaining a copy
  * of this software and associated documentation files (the "Software"), to deal
@@ -24,9 +24,11 @@ package com.dd.plist;
 
 import java.io.File;
 import java.io.FileInputStream;
+import java.io.IOException;
 import java.io.InputStream;
 import java.io.UnsupportedEncodingException;
 import java.nio.CharBuffer;
+import java.nio.charset.CharacterCodingException;
 import java.nio.charset.Charset;
 import java.nio.charset.CharsetEncoder;
 import java.text.ParseException;
@@ -60,7 +62,7 @@ public class ASCIIPropertyListParser {
      * @return The root object of the property list. This is usally a NSDictionary but can also be a NSArray.
      * @throws Exception When an error occurs during parsing.
      */
-    public static NSObject parse(File f) throws Exception {
+    public static NSObject parse(File f) throws IOException, ParseException {
         return parse(new FileInputStream(f));
     }
 
@@ -71,8 +73,8 @@ public class ASCIIPropertyListParser {
      * @return The root object of the property list. This is usally a NSDictionary but can also be a NSArray.
      * @throws Exception When an error occurs during parsing.
      */
-    public static NSObject parse(InputStream in) throws Exception {
-        byte[] buf = PropertyListParser.readAll(in, Integer.MAX_VALUE);
+    public static NSObject parse(InputStream in) throws ParseException, IOException {
+        byte[] buf = PropertyListParser.readAll(in);
         in.close();
         return parse(buf);
     }
@@ -84,7 +86,7 @@ public class ASCIIPropertyListParser {
      * @return The root object of the property list. This is usally a NSDictionary but can also be a NSArray.
      * @throws Exception When an error occurs during parsing.
      */
-    public static NSObject parse(byte[] bytes) throws Exception {
+    public static NSObject parse(byte[] bytes) throws ParseException {
         ASCIIPropertyListParser parser = new ASCIIPropertyListParser(bytes);
         return parser.parse();
     }
@@ -356,8 +358,7 @@ public class ASCIIPropertyListParser {
                 //apple dates are quoted strings of length 20 and after the 4 year digits a dash is found
                 if (quotedString.length() == 20 && quotedString.charAt(4) == DATE_DATE_FIELD_DELIMITER) {
                     try {
-                        NSDate date = new NSDate(quotedString);
-                        return date;
+                        return new NSDate(quotedString);
                     } catch (Exception ex) {
                         //not a date? --> return string
                         return new NSString(quotedString);
@@ -369,18 +370,12 @@ public class ASCIIPropertyListParser {
             default: {
                 //0-9
                 if (data[index] > 0x2F && data[index] < 0x3A) {
-                    //could be int, real or date or an unqu oted string starting with a number
-                    return parseNumerical();
+                    //could be a date or just a string
+                    return parseDateString();
                 } else {
                     //non-numerical -> string or boolean
                     String parsedString = parseString();
-                    if (parsedString.equals("YES")) {
-                        return new NSNumber(true);
-                    } else if (parsedString.equals("NO")) {
-                        return new NSNumber(false);
-                    } else {
-                        return new NSString(parsedString);
-                    }
+                    return new NSString(parsedString);
                 }
             }
         }
@@ -449,7 +444,7 @@ public class ASCIIPropertyListParser {
     }
 
     /**
-     * Parses a data object from th current parsing position.
+     * Parses a data object from the current parsing position.
      * This can either be a NSData object or a GnuStep NSNumber or NSDate.
      * The prerequisite for calling this method is, that a data begin token has been read.
      *
@@ -463,8 +458,8 @@ public class ASCIIPropertyListParser {
             skip();
             expect(DATA_GSBOOL_BEGIN_TOKEN, DATA_GSDATE_BEGIN_TOKEN, DATA_GSINT_BEGIN_TOKEN, DATA_GSREAL_BEGIN_TOKEN);
             if (accept(DATA_GSBOOL_BEGIN_TOKEN)) {
+                //Boolean
                 skip();
-                NSNumber bool;
                 expect(DATA_GSBOOL_TRUE_TOKEN, DATA_GSBOOL_FALSE_TOKEN);
                 if (accept(DATA_GSBOOL_TRUE_TOKEN)) {
                     obj = new NSNumber(true);
@@ -474,10 +469,12 @@ public class ASCIIPropertyListParser {
                 //Skip the parsed boolean token
                 skip();
             } else if (accept(DATA_GSDATE_BEGIN_TOKEN)) {
+                //Date
                 skip();
                 String dateString = readInputUntil(DATA_END_TOKEN);
                 obj = new NSDate(dateString);
             } else if (accept(DATA_GSINT_BEGIN_TOKEN, DATA_GSREAL_BEGIN_TOKEN)) {
+                //Number
                 skip();
                 String numberString = readInputUntil(DATA_END_TOKEN);
                 obj = new NSNumber(numberString);
@@ -505,24 +502,20 @@ public class ASCIIPropertyListParser {
     }
 
     /**
-     * Attempts to parse a plain string as a number or date.
+     * Attempts to parse a plain string as a date if possible.
      *
-     * @return A NSNumber or NSDate if the string represents such an object. Otherwise a NSString is returned.
+     * @return A NSDate if the string represents such an object. Otherwise a NSString is returned.
      */
-    private NSObject parseNumerical() {
+    private NSObject parseDateString() {
         String numericalString = parseString();
-        try {
-            //GnuStep Date strings have a - after the 4 year digits
-            if (numericalString.length() > 4 && numericalString.charAt(4) == DATE_DATE_FIELD_DELIMITER) {
-                //date
+        if (numericalString.length() > 4 && numericalString.charAt(4) == DATE_DATE_FIELD_DELIMITER) {
+            try {
                 return new NSDate(numericalString);
-            } else {
-                //real or int
-                return new NSNumber(numericalString);
+            } catch(Exception ex) {
+                //An exception occurs if the string is not a date but just a string
             }
-        } catch (Exception ex) {
-            return new NSString(numericalString);
         }
+        return new NSString(numericalString);
     }
 
     /**
@@ -532,9 +525,8 @@ public class ASCIIPropertyListParser {
      * @return The string found at the current parsing position.
      */
     private String parseString() {
-        String parsedString = readInputUntil(WHITESPACE_SPACE, WHITESPACE_TAB, WHITESPACE_NEWLINE, WHITESPACE_CARRIAGE_RETURN,
+        return readInputUntil(WHITESPACE_SPACE, WHITESPACE_TAB, WHITESPACE_NEWLINE, WHITESPACE_CARRIAGE_RETURN,
                 ARRAY_ITEM_DELIMITER_TOKEN, DICTIONARY_ITEM_DELIMITER_TOKEN, DICTIONARY_ASSIGN_TOKEN, ARRAY_END_TOKEN);
-        return parsedString;
     }
 
     /**
@@ -549,13 +541,11 @@ public class ASCIIPropertyListParser {
         skip();
         String quotedString = "";
         boolean unescapedBackslash = true;
+        //Read from opening quotation marks to closing quotation marks and skip escaped quotation marks
         while (data[index] != QUOTEDSTRING_END_TOKEN || (data[index - 1] == QUOTEDSTRING_ESCAPE_TOKEN && unescapedBackslash)) {
             quotedString += (char) data[index];
             if (accept(QUOTEDSTRING_ESCAPE_TOKEN)) {
-                if (data[index - 1] == QUOTEDSTRING_ESCAPE_TOKEN && unescapedBackslash)
-                    unescapedBackslash = false;
-                else
-                    unescapedBackslash = true;
+                unescapedBackslash = !(data[index - 1] == QUOTEDSTRING_ESCAPE_TOKEN && unescapedBackslash);
             }
             skip();
         }
@@ -583,7 +573,7 @@ public class ASCIIPropertyListParser {
      * @return The unescaped string in UTF-8 or ASCII format, depending on the contained characters.
      * @throws Exception If the string could not be properly parsed.
      */
-    public static synchronized String parseQuotedString(String s) throws Exception {
+    public static synchronized String parseQuotedString(String s) throws UnsupportedEncodingException, CharacterCodingException {
         List<Byte> strBytes = new LinkedList<Byte>();
         StringCharacterIterator iterator = new StringCharacterIterator(s);
         char c = iterator.current();
