@@ -314,8 +314,8 @@ public abstract class TestStrategy implements TestActionContext {
         "Building runfiles directory for '" + execSettings.getExecutable().prettyPrint() + "'."));
 
     new SymlinkTreeHelper(execSettings.getManifest().getExecPath(),
-        runfilesDir.relativeTo(executor.getExecRoot()), /* filesetTree= */
-        false).createSymlinks(testAction, actionExecutionContext, binTools);
+        runfilesDir.relativeTo(executor.getExecRoot()), /* filesetTree= */ false)
+        .createSymlinks(testAction, actionExecutionContext, binTools);
 
     executor.getEventHandler().handle(Event.progress(testAction.getProgressMessage()));
   }

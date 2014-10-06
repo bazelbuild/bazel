@@ -36,12 +36,8 @@ def py_library_impl(ctx):
 
 
 def py_binary_impl(ctx):
-  main_file = py_file_types.filter(ctx.files("srcs", "TARGET"))[0]
-
+  main_file = py_file_types.filter(ctx.files.srcs)[0]
   transitive_sources = collect_transitive_sources(ctx)
-  for s in list(transitive_sources):
-    ctx.warning(s.path)
-
   deploy_zip = ctx.outputs.deploy_zip
 
   # This is not very scalable, because we just construct a huge string instead
@@ -50,7 +46,7 @@ def py_binary_impl(ctx):
   # argument list (instead of just a single command)
   command = ZIP_PATH +" -q " + deploy_zip.path + " " + " ".join([f.path for f in transitive_sources])
   ctx.action(
-      inputs = transitive_sources,
+      inputs = list(transitive_sources),
       outputs = [ deploy_zip ],
       mnemonic = "PyZip",
       command = command,
@@ -82,11 +78,11 @@ def py_binary_impl(ctx):
 
 py_srcs_attr = attr.label_list(
     flags=["DIRECT_COMPILE_TIME_INPUT"],
-    file_types = py_file_types)
+    allow_files = py_file_types)
 
 py_deps_attr = attr.label_list(
     providers = [ "transitive_py_files" ],
-    file_types = NO_FILE)
+    allow_files = False)
 
 py_attrs = {
     "srcs": py_srcs_attr,

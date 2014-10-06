@@ -131,9 +131,8 @@ public class GenRule implements RuleConfiguredTargetFactory {
     }
 
     ruleContext.getAnalysisEnvironment().registerAction(new GenRuleAction(
-        ruleContext.getActionOwner(), inputs.build(), filesToBuild, ruleContext.getConfiguration(),
-        argv, env, ImmutableMap.copyOf(executionInfo),
-        commandHelper.getRemoteRunfileManifestMap(),
+        ruleContext.getActionOwner(), inputs.build(), filesToBuild, argv, env,
+        ImmutableMap.copyOf(executionInfo), commandHelper.getRemoteRunfileManifestMap(),
         message + ' ' + ruleContext.getLabel()));
 
     RunfilesProvider runfilesProvider = withData(

@@ -22,6 +22,7 @@ import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.ImmutableSet;
 import com.google.common.collect.Iterables;
 import com.google.common.collect.Sets;
+import com.google.devtools.build.lib.actions.AbstractAction;
 import com.google.devtools.build.lib.actions.ActionExecutionContext;
 import com.google.devtools.build.lib.actions.ActionExecutionException;
 import com.google.devtools.build.lib.actions.ActionOwner;
@@ -52,7 +53,6 @@ import com.google.devtools.build.lib.util.ShellEscaper;
 import com.google.devtools.build.lib.vfs.FileSystemUtils;
 import com.google.devtools.build.lib.vfs.Path;
 import com.google.devtools.build.lib.vfs.PathFragment;
-import com.google.devtools.build.lib.view.actions.ConfigurationAction;
 import com.google.devtools.build.lib.view.config.BuildConfiguration;
 import com.google.devtools.build.lib.view.config.PerLabelOptions;
 
@@ -75,7 +75,7 @@ import javax.annotation.Nullable;
  * Action that represents some kind of C++ compilation step.
  */
 @ThreadCompatible
-public class CppCompileAction extends ConfigurationAction implements IncludeScannable {
+public class CppCompileAction extends AbstractAction implements IncludeScannable {
   /**
    * Represents logic that determines which artifacts, if any, should be added to the actual inputs
    * for each included file (in addition to the included file itself)
@@ -99,6 +99,7 @@ public class CppCompileAction extends ConfigurationAction implements IncludeScan
   private static final int VALIDATION_DEBUG = 0;  // 0==none, 1==warns/errors, 2==all
   private static final boolean VALIDATION_DEBUG_WARN = VALIDATION_DEBUG >= 1;
 
+  private final BuildConfiguration configuration;
   protected final Artifact outputFile;
   private final Label sourceLabel;
   private final Artifact dwoFile;
@@ -174,8 +175,8 @@ public class CppCompileAction extends ConfigurationAction implements IncludeScan
     super(owner,
           Artifact.NO_ARTIFACTS,
           CollectionUtils.asListWithoutNulls(outputFile, dotdFile.artifact(),
-              gcnoFile, dwoFile),
-          configuration);
+              gcnoFile, dwoFile));
+    this.configuration = configuration;
     this.sourceLabel = sourceLabel;
     this.outputFile = Preconditions.checkNotNull(outputFile);
     this.dwoFile = dwoFile;
@@ -209,6 +210,10 @@ public class CppCompileAction extends ConfigurationAction implements IncludeScan
     builder.addAll(prerequisites);
     builder.addTransitive(mandatoryInputs);
     return builder.build();
+  }
+
+  public boolean shouldScanIncludes() {
+    return cppConfiguration.shouldScanIncludes();
   }
 
   @Override
@@ -379,8 +384,7 @@ public class CppCompileAction extends ConfigurationAction implements IncludeScan
         CppFileTypes.C_SOURCE, CppFileTypes.CPP_SOURCE,
         CppFileTypes.ASSEMBLER_WITH_C_PREPROCESSOR))) {
       if (!source.equals(getSourceFile().getExecPath())) {
-        IncludeScannable scanTask =
-            configuration.getFragment(CppConfiguration.class).getFdoSupport().getScannable(source);
+        IncludeScannable scanTask = cppConfiguration.getFdoSupport().getScannable(source);
         if (scanTask != null) {
           tasks.add(scanTask);
         }

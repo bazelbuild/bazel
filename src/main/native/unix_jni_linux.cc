@@ -34,7 +34,7 @@ int portable_fstatat(int dirfd, char *name, struct stat *statbuf, int flags) {
   return fstatat(dirfd, name, statbuf, flags);
 }
 
-int StatSeconds(const struct stat64 &statbuf, StatTimes t) {
+int StatSeconds(const struct stat &statbuf, StatTimes t) {
   switch (t) {
     case STAT_ATIME:
       return statbuf.st_atim.tv_sec;
@@ -48,7 +48,7 @@ int StatSeconds(const struct stat64 &statbuf, StatTimes t) {
   return 0;
 }
 
-int StatNanoSeconds(const struct stat64 &statbuf, StatTimes t) {
+int StatNanoSeconds(const struct stat &statbuf, StatTimes t) {
   switch (t) {
     case STAT_ATIME:
       return statbuf.st_atim.tv_nsec;

@@ -92,7 +92,7 @@ public class StandaloneTestStrategy extends TestStrategy {
       TestResultData data = execute(
           actionExecutionContext.withFileOutErr(fileOutErr), spawn, action);
       appendStderr(fileOutErr.getOutputFile(), fileOutErr.getErrorFile());
-      finalizeTest(executor, action, data, fileOutErr);
+      finalizeTest(executor, action, data);
     } catch (IOException e) {
       executor.getEventHandler().handle(Event.error("Caught I/O exception: " + e));
       throw new EnvironmentalExecException("unexpected I/O exception", e);
@@ -156,8 +156,8 @@ public class StandaloneTestStrategy extends TestStrategy {
     }
   }
 
-  protected final void finalizeTest(Executor executor, TestRunnerAction action,
-      TestResultData data, FileOutErr outErr) throws IOException, ExecException {
+  private final void finalizeTest(Executor executor, TestRunnerAction action,
+      TestResultData data) throws IOException, ExecException {
     TestResult result = new TestResult(action, data, false);
     postTestResult(executor, result);
 

@@ -299,7 +299,7 @@ public class RunfilesSupport {
     Artifact outputManifest = context.getAnalysisEnvironment().getDerivedArtifact(
         outputManifestPath, config.getBinDirectory());
     context.getAnalysisEnvironment().registerAction(new SymlinkTreeAction(
-        context.getActionOwner(), inputManifest, outputManifest, config, /*filesetTree=*/false));
+        context.getActionOwner(), inputManifest, outputManifest, /*filesetTree=*/false));
     return outputManifest;
   }
 

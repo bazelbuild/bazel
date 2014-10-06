@@ -1557,8 +1557,7 @@ public class CppConfiguration extends BuildConfiguration.Fragment {
   }
 
   @Override
-  public void reportInvalidOptions(EventHandler reporter, BuildOptions buildOptions,
-      BuildConfiguration hostConfiguration) {
+  public void reportInvalidOptions(EventHandler reporter, BuildOptions buildOptions) {
     CppOptions cppOptions = buildOptions.get(CppOptions.class);
     if (stripBinaries) {
       boolean warn = cppOptions.coptList.contains("-g");

@@ -123,7 +123,6 @@ public final class ExtraActionSpec implements TransitiveInfoProvider {
         extraActionInfoFile,
         extraActionOutputs,
         actionToShadow,
-        owningRule.getConfiguration(),
         createDummyOutput,
         CommandLine.of(argv, false),
         env,

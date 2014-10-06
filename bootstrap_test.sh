@@ -5,7 +5,7 @@ set -e
 [ -x "output/bazel" ] || ./compile.sh
 
 output/bazel build //src:bazel
-BOOTSTRAP=$(mktemp)
+BOOTSTRAP=$(mktemp /tmp/bootstrap.XXXXXXXXXX)
 cp -f bazel-genfiles/src/bazel $BOOTSTRAP
 chmod +x $BOOTSTRAP
 

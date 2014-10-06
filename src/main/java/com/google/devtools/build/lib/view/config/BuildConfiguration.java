@@ -121,8 +121,7 @@ public final class BuildConfiguration implements Serializable {
      * that conflict.
      */
     @SuppressWarnings("unused")
-    public void reportInvalidOptions(EventHandler reporter, BuildOptions buildOptions,
-        BuildConfiguration hostConfiguration) {
+    public void reportInvalidOptions(EventHandler reporter, BuildOptions buildOptions) {
     }
 
     /**
@@ -849,10 +848,9 @@ public final class BuildConfiguration implements Serializable {
    * use of deprecated options, and warnings or errors for any option settings
    * that conflict.
    */
-  public void reportInvalidOptions(
-      EventHandler reporter, BuildConfiguration hostConfiguration) {
+  public void reportInvalidOptions(EventHandler reporter) {
     for (Fragment fragment : fragments.values()) {
-      fragment.reportInvalidOptions(reporter, this.buildOptions, hostConfiguration);
+      fragment.reportInvalidOptions(reporter, this.buildOptions);
     }
 
     Set<String> plugins = new HashSet<>();

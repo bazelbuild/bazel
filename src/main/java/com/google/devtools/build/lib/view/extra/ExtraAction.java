@@ -37,7 +37,6 @@ import com.google.devtools.build.lib.vfs.FileSystemUtils;
 import com.google.devtools.build.lib.vfs.PathFragment;
 import com.google.devtools.build.lib.view.actions.CommandLine;
 import com.google.devtools.build.lib.view.actions.SpawnAction;
-import com.google.devtools.build.lib.view.config.BuildConfiguration;
 
 import java.io.IOException;
 import java.io.OutputStream;
@@ -62,13 +61,12 @@ public final class ExtraAction extends SpawnAction {
       Artifact extraActionInfoFile,
       Collection<Artifact> outputs,
       Action shadowedAction,
-      BuildConfiguration configuration,
       boolean createDummyOutput,
       CommandLine argv,
       Map<String, String> environment,
       String progressMessage,
       String mnemonic) {
-    super(owner, inputs, outputs, configuration, AbstractAction.DEFAULT_RESOURCE_SET,
+    super(owner, inputs, outputs, AbstractAction.DEFAULT_RESOURCE_SET,
         argv, environment, progressMessage, mnemonic);
     this.extraActionInfoFile = extraActionInfoFile;
     this.shadowedAction = shadowedAction;

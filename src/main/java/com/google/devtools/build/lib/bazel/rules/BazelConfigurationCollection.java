@@ -108,7 +108,7 @@ public class BazelConfigurationCollection implements ConfigurationCollectionFact
 
     BuildConfiguration result = setupTransitions(
         targetConfiguration, dataConfiguration, hostConfiguration);
-    result.reportInvalidOptions(errorEventListener, hostConfiguration);
+    result.reportInvalidOptions(errorEventListener);
     return result;
   }
 

@@ -293,7 +293,7 @@ Java_com_google_devtools_build_lib_unix_FilesystemUtils_symlink(JNIEnv *env,
 }
 
 static jobject NewFileStatus(JNIEnv *env,
-                             struct stat64 &stat_ref) {
+                             const struct stat &stat_ref) {
   static jclass file_status_class = NULL;
   if (file_status_class == NULL) {  // note: harmless race condition
     jclass local = env->FindClass("com/google/devtools/build/lib/unix/FileStatus");
@@ -318,7 +318,7 @@ static jobject NewFileStatus(JNIEnv *env,
 
 static jobject NewErrnoFileStatus(JNIEnv *env,
                                   int saved_errno,
-                                  struct stat64 &stat_ref) {
+                                  const struct stat &stat_ref) {
   static jclass errno_file_status_class = NULL;
   if (errno_file_status_class == NULL) {  // note: harmless race condition
     jclass local = env->FindClass("com/google/devtools/build/lib/unix/ErrnoFileStatus");
@@ -374,9 +374,9 @@ Java_com_google_devtools_build_lib_unix_ErrnoFileStatus_00024ErrnoConstants_init
 
 static jobject StatCommon(JNIEnv *env,
                           jstring path,
-                          int (*stat_function)(const char *, struct stat64 *),
+                          int (*stat_function)(const char *, struct stat *),
                           bool should_throw) {
-  struct stat64 statbuf;
+  struct stat statbuf;
   const char *path_chars = GetStringLatin1Chars(env, path);
   int r;
   int saved_errno = 0;
@@ -414,7 +414,7 @@ extern "C" JNIEXPORT jobject JNICALL
 Java_com_google_devtools_build_lib_unix_FilesystemUtils_stat(JNIEnv *env,
                                                  jclass clazz,
                                                  jstring path) {
-  return ::StatCommon(env, path, ::stat64, true);
+  return ::StatCommon(env, path, ::stat, true);
 }
 
 /*
@@ -427,7 +427,7 @@ extern "C" JNIEXPORT jobject JNICALL
 Java_com_google_devtools_build_lib_unix_FilesystemUtils_lstat(JNIEnv *env,
                                                   jclass clazz,
                                                   jstring path) {
-  return ::StatCommon(env, path, ::lstat64, true);
+  return ::StatCommon(env, path, ::lstat, true);
 }
 
 /*
@@ -439,7 +439,7 @@ extern "C" JNIEXPORT jobject JNICALL
 Java_com_google_devtools_build_lib_unix_FilesystemUtils_errnoStat(JNIEnv *env,
                                                       jclass clazz,
                                                       jstring path) {
-  return ::StatCommon(env, path, ::stat64, false);
+  return ::StatCommon(env, path, ::stat, false);
 }
 
 /*
@@ -451,7 +451,7 @@ extern "C" JNIEXPORT jobject JNICALL
 Java_com_google_devtools_build_lib_unix_FilesystemUtils_errnoLstat(JNIEnv *env,
                                                        jclass clazz,
                                                        jstring path) {
-  return ::StatCommon(env, path, ::lstat64, false);
+  return ::StatCommon(env, path, ::lstat, false);
 }
 
 /*

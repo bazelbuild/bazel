@@ -15,6 +15,7 @@ package com.google.devtools.build.lib.view;
 
 import com.google.common.base.Preconditions;
 import com.google.common.collect.ImmutableList;
+import com.google.devtools.build.lib.actions.AbstractAction;
 import com.google.devtools.build.lib.actions.ActionExecutionContext;
 import com.google.devtools.build.lib.actions.ActionExecutionException;
 import com.google.devtools.build.lib.actions.ActionOwner;
@@ -22,14 +23,12 @@ import com.google.devtools.build.lib.actions.Artifact;
 import com.google.devtools.build.lib.actions.Executor;
 import com.google.devtools.build.lib.actions.ResourceSet;
 import com.google.devtools.build.lib.util.Fingerprint;
-import com.google.devtools.build.lib.view.actions.ConfigurationAction;
-import com.google.devtools.build.lib.view.config.BuildConfiguration;
 
 /**
  * Action responsible for the symlink tree creation.
  * Used to generate runfiles and fileset symlink farms.
  */
-public class SymlinkTreeAction extends ConfigurationAction {
+public class SymlinkTreeAction extends AbstractAction {
 
   private static final String GUID = "63412bda-4026-4c8e-a3ad-7deb397728d4";
 
@@ -45,14 +44,12 @@ public class SymlinkTreeAction extends ConfigurationAction {
    * @param outputManifest exec path to the generated symlink tree manifest
    *                       (must have "MANIFEST" base name). Symlink tree root
    *                       will be set to the artifact's parent directory.
-   * @param configuration build configuration instance
    * @param filesetTree true if this is fileset symlink tree,
    *                    false if this is a runfiles symlink tree.
    */
   public SymlinkTreeAction(ActionOwner owner, Artifact inputManifest, Artifact outputManifest,
-      BuildConfiguration configuration, boolean filesetTree) {
-    super(owner, ImmutableList.of(inputManifest), ImmutableList.of(outputManifest),
-        configuration);
+      boolean filesetTree) {
+    super(owner, ImmutableList.of(inputManifest), ImmutableList.of(outputManifest));
     Preconditions.checkArgument(outputManifest.getPath().getBaseName().equals("MANIFEST"));
     this.inputManifest = inputManifest;
     this.outputManifest = outputManifest;

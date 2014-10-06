@@ -57,10 +57,10 @@ enum StatTimes {
 };
 
 // Returns seconds from a stat buffer.
-int StatSeconds(const struct stat64 &statbuf, StatTimes t);
+int StatSeconds(const struct stat &statbuf, StatTimes t);
 
 // Returns nanoseconds from a stat buffer.
-int StatNanoSeconds(const struct stat64 &statbuf, StatTimes t);
+int StatNanoSeconds(const struct stat &statbuf, StatTimes t);
 
 // Runs getxattr(2), if available. If not, sets errno to ENOSYS.
 ssize_t portable_getxattr(const char *path, const char *name, void *value,

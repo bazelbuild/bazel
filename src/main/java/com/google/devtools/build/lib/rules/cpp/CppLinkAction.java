@@ -24,6 +24,7 @@ import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.ImmutableSet;
 import com.google.common.collect.Iterables;
+import com.google.devtools.build.lib.actions.AbstractAction;
 import com.google.devtools.build.lib.actions.ActionExecutionContext;
 import com.google.devtools.build.lib.actions.ActionExecutionException;
 import com.google.devtools.build.lib.actions.ActionOwner;
@@ -57,7 +58,6 @@ import com.google.devtools.build.lib.vfs.PathFragment;
 import com.google.devtools.build.lib.view.AnalysisEnvironment;
 import com.google.devtools.build.lib.view.RuleContext;
 import com.google.devtools.build.lib.view.TransitiveInfoProvider;
-import com.google.devtools.build.lib.view.actions.ConfigurationAction;
 import com.google.devtools.build.lib.view.config.BuildConfiguration;
 
 import java.io.IOException;
@@ -72,11 +72,11 @@ import java.util.Set;
  * Action that represents an ELF linking step.
  */
 @ThreadCompatible
-public final class CppLinkAction extends ConfigurationAction
-    implements IncludeScannable {
+public final class CppLinkAction extends AbstractAction implements IncludeScannable {
   private static final String LINK_GUID = "58ec78bd-1176-4e36-8143-439f656b181d";
   private static final String FAKE_LINK_GUID = "da36f819-5a15-43a9-8a45-e01b60e10c8b";
 
+  private final CppConfiguration cppConfiguration;
   private final LibraryToLink outputLibrary;
   private final LibraryToLink interfaceOutputLibrary;
 
@@ -109,12 +109,13 @@ public final class CppLinkAction extends ConfigurationAction
   private CppLinkAction(ActionOwner owner,
                         Iterable<Artifact> inputs,
                         ImmutableList<Artifact> outputs,
-                        BuildConfiguration configuration,
+                        CppConfiguration cppConfiguration,
                         LibraryToLink outputLibrary,
                         LibraryToLink interfaceOutputLibrary,
                         boolean fake,
                         LinkCommandLine linkCommandLine) {
-    super(owner, inputs, outputs, configuration);
+    super(owner, inputs, outputs);
+    this.cppConfiguration = cppConfiguration;
     this.outputLibrary = outputLibrary;
     this.interfaceOutputLibrary = interfaceOutputLibrary;
     this.fake = fake;
@@ -146,7 +147,16 @@ public final class CppLinkAction extends ConfigurationAction
   }
 
   private CppConfiguration getCppConfiguration() {
-    return configuration.getFragment(CppConfiguration.class);
+    return cppConfiguration;
+  }
+
+  public boolean shouldScanIncludes() {
+    return getCppConfiguration().shouldScanIncludes();
+  }
+
+  @VisibleForTesting
+  public String getTargetCpu() {
+    return getCppConfiguration().getTargetCpu();
   }
 
   /**
@@ -725,7 +735,7 @@ public final class CppLinkAction extends ConfigurationAction
           getOwner(),
           inputs,
           actionOutputs,
-          configuration,
+          cppConfiguration,
           outputLibrary,
           interfaceOutputLibrary,
           fake,

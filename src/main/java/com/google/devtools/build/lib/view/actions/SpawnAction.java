@@ -61,7 +61,7 @@ import java.util.Map;
 /**
  * An Action representing an arbitrary subprocess to be forked and exec'd.
  */
-public class SpawnAction extends ConfigurationAction {
+public class SpawnAction extends AbstractAction {
   private static class ExtraActionInfoSupplier<T> {
     private final GeneratedExtension<ExtraActionInfo, T> extension;
     private final T value;
@@ -102,7 +102,6 @@ public class SpawnAction extends ConfigurationAction {
    *        not be subsequently modified.
    * @param outputs the set of all files written by this action; must not be
    *        subsequently modified.
-   * @param configuration the BuildConfiguration used to setup this action
    * @param resourceSet the resources consumed by executing this Action
    * @param environment the map of environment variables.
    * @param argv the command line to execute. This is merely a list of options
@@ -114,13 +113,12 @@ public class SpawnAction extends ConfigurationAction {
    */
   public SpawnAction(ActionOwner owner,
       Iterable<Artifact> inputs, Iterable<Artifact> outputs,
-      BuildConfiguration configuration,
       ResourceSet resourceSet,
       CommandLine argv,
       Map<String, String> environment,
       String progressMessage,
       String mnemonic) {
-    this(owner, inputs, outputs, configuration,
+    this(owner, inputs, outputs,
         resourceSet, argv, ImmutableMap.copyOf(environment),
         ImmutableMap.<String, String>of(), progressMessage,
         ImmutableMap.<PathFragment, Artifact>of(), mnemonic, null);
@@ -136,7 +134,6 @@ public class SpawnAction extends ConfigurationAction {
    *        not be subsequently modified.
    * @param outputs the set of all files written by this action; must not be
    *        subsequently modified.
-   * @param configuration the BuildConfiguration used to setup this action
    * @param resourceSet the resources consumed by executing this Action
    * @param environment the map of environment variables.
    * @param executionInfo out-of-band information for scheduling the spawn.
@@ -152,7 +149,6 @@ public class SpawnAction extends ConfigurationAction {
    */
   public SpawnAction(ActionOwner owner,
       Iterable<Artifact> inputs, Iterable<Artifact> outputs,
-      BuildConfiguration configuration,
       ResourceSet resourceSet,
       CommandLine argv,
       ImmutableMap<String, String> environment,
@@ -160,8 +156,8 @@ public class SpawnAction extends ConfigurationAction {
       String progressMessage,
       ImmutableMap<PathFragment, Artifact> inputManifests,
       String mnemonic,
-      ExtraActionInfoSupplier extraActionInfoSupplier) {
-    super(owner, inputs, outputs, configuration);
+      ExtraActionInfoSupplier<?> extraActionInfoSupplier) {
+    super(owner, inputs, outputs);
     this.resourceSet = resourceSet;
     this.executionInfo = executionInfo;
     this.environment = environment;
@@ -489,12 +485,8 @@ public class SpawnAction extends ConfigurationAction {
       Iterable<Artifact> actualInputs = collectActualInputs(paramsFile);
 
       SpawnAction action = new SpawnAction(owner, actualInputs, ImmutableList.copyOf(outputs),
-          configuration, resourceSet, actualCommandLine,
-          environment, executionInfo,
-          progressMessage,
-          ImmutableMap.copyOf(inputManifests),
-          mnemonic,
-          extraActionInfoSupplier);
+          resourceSet, actualCommandLine, environment, executionInfo, progressMessage,
+          ImmutableMap.copyOf(inputManifests), mnemonic, extraActionInfoSupplier);
 
       if (registerSpawnAction) {
         analysisEnvironment.registerAction(action);

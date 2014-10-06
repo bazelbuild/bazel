@@ -17,6 +17,7 @@ package com.google.devtools.build.lib.rules.test;
 import com.google.common.base.Preconditions;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.Iterables;
+import com.google.devtools.build.lib.actions.AbstractAction;
 import com.google.devtools.build.lib.actions.Action;
 import com.google.devtools.build.lib.actions.ActionExecutionContext;
 import com.google.devtools.build.lib.actions.ActionExecutionException;
@@ -39,7 +40,6 @@ import com.google.devtools.build.lib.util.Pair;
 import com.google.devtools.build.lib.vfs.FileSystemUtils;
 import com.google.devtools.build.lib.vfs.Path;
 import com.google.devtools.build.lib.vfs.PathFragment;
-import com.google.devtools.build.lib.view.actions.ConfigurationAction;
 import com.google.devtools.build.lib.view.config.BuildConfiguration;
 import com.google.devtools.build.lib.view.config.RunUnder;
 import com.google.devtools.build.lib.view.test.TestStatus.TestResultData;
@@ -59,11 +59,12 @@ import javax.annotation.Nullable;
  * runfiles artifacts and produces test result and test status artifacts.
  */
 // Not final so that we can mock it in tests.
-public class TestRunnerAction extends ConfigurationAction
+public class TestRunnerAction extends AbstractAction
     implements NotifyOnActionCacheHit, SuppressNoBuildAttemptError, MayStream {
 
   private static final String GUID = "94857c93-f11c-4cbc-8c1b-e0a281633f9e";
 
+  private final BuildConfiguration configuration;
   private final Artifact testLog;
   private final Artifact cacheStatus;
   private final Path testWarningsPath;
@@ -113,18 +114,16 @@ public class TestRunnerAction extends ConfigurationAction
       int shardNum,
       int runNumber,
       BuildConfiguration configuration) {
-    super(owner, inputs,
-        ImmutableList.of(testLog, cacheStatus), configuration);
-    Preconditions.checkNotNull(testProperties);
-    Preconditions.checkNotNull(executionSettings);
+    super(owner, inputs, ImmutableList.of(testLog, cacheStatus));
+    this.configuration = Preconditions.checkNotNull(configuration);
     this.testLog = testLog;
     this.cacheStatus = cacheStatus;
     this.coverageData = coverageData;
     this.microCoverageData = microCoverageData;
     this.shardNum = shardNum;
     this.runNumber = runNumber;
-    this.testProperties = testProperties;
-    this.executionSettings = executionSettings;
+    this.testProperties = Preconditions.checkNotNull(testProperties);
+    this.executionSettings = Preconditions.checkNotNull(executionSettings);
 
     this.baseDir = configuration.getExecRoot().getRelative(cacheStatus.getExecPath())
         .getParentDirectory();
@@ -150,6 +149,10 @@ public class TestRunnerAction extends ConfigurationAction
     this.undeclaredOutputsManifestPath = undeclaredOutputsAnnotationsDir.getChild("MANIFEST");
     this.undeclaredOutputsAnnotationsPath = undeclaredOutputsAnnotationsDir.getChild("ANNOTATIONS");
     this.testInfrastructureFailure = baseDir.getChild(namePrefix + ".infrastructure_failure");
+  }
+
+  public BuildConfiguration getConfiguration() {
+    return configuration;
   }
 
   public final Path getBaseDir() {

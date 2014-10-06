@@ -13,7 +13,9 @@
 // limitations under the License.
 package com.google.devtools.build.lib.exec;
 
+import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.Lists;
+import com.google.devtools.build.lib.actions.AbstractAction;
 import com.google.devtools.build.lib.actions.ActionExecutionContext;
 import com.google.devtools.build.lib.actions.BaseSpawn;
 import com.google.devtools.build.lib.actions.ExecException;
@@ -23,7 +25,6 @@ import com.google.devtools.build.lib.shell.CommandException;
 import com.google.devtools.build.lib.util.CommandBuilder;
 import com.google.devtools.build.lib.vfs.Path;
 import com.google.devtools.build.lib.vfs.PathFragment;
-import com.google.devtools.build.lib.view.actions.ConfigurationAction;
 import com.google.devtools.build.lib.view.config.BinTools;
 import com.google.devtools.build.lib.view.config.BuildConfiguration;
 
@@ -100,11 +101,19 @@ public final class SymlinkTreeHelper {
    * @param action action instance that requested symlink tree creation
    * @param actionExecutionContext Services that are in the scope of the action.
    */
-  public void createSymlinks(ConfigurationAction action,
-      ActionExecutionContext actionExecutionContext, BinTools binTools)
-      throws ExecException, InterruptedException {
+  public void createSymlinks(AbstractAction action, ActionExecutionContext actionExecutionContext,
+      BinTools binTools) throws ExecException, InterruptedException {
     // TODO(bazel-team): (2010) Add support for RPC-based symlink tree creation.
-    createSymlinksUsingSpawn(action, actionExecutionContext, binTools);
+    List<String> args = getSpawnArgumentList(
+        actionExecutionContext.getExecutor().getExecRoot(), binTools);
+    try {
+      ResourceManager.instance().acquireResources(action, RESOURCE_SET);
+      actionExecutionContext.getExecutor().getSpawnActionContext(action.getMnemonic()).exec(
+          new BaseSpawn.Local(args, ImmutableMap.<String, String>of(), action),
+          actionExecutionContext);
+    } finally {
+      ResourceManager.instance().releaseResources(action, RESOURCE_SET);
+    }
   }
 
   /**
@@ -124,25 +133,5 @@ public final class SymlinkTreeHelper {
     args.add(symlinkTreeRoot.getPathString());
 
     return args;
-  }
-
-  /**
-   * Implements symlink tree creation using build-runfiles helper executable.
-   */
-  private void createSymlinksUsingSpawn(ConfigurationAction action,
-      ActionExecutionContext actionExecutionContext, BinTools binTools)
-          throws ExecException, InterruptedException {
-    BuildConfiguration config = action.getConfiguration();
-    List<String> args = getSpawnArgumentList(
-        actionExecutionContext.getExecutor().getExecRoot(), binTools);
-    try {
-      ResourceManager.instance().acquireResources(action, RESOURCE_SET);
-      actionExecutionContext.getExecutor().getSpawnActionContext(action.getMnemonic()).exec(
-          new BaseSpawn.Local(args, config.getDefaultShellEnvironment(),
-              action),
-          actionExecutionContext);
-    } finally {
-      ResourceManager.instance().releaseResources(action, RESOURCE_SET);
-    }
   }
 }
