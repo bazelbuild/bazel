@@ -393,7 +393,7 @@ public final class CppLinkAction extends ConfigurationAction
     // LinkConfiguration to disallow the combinations where the value of a setting does not affect
     // the argv.
     f.addBoolean(linkCommandLine.isNativeDeps());
-    f.addBoolean(linkCommandLine.useExecOrigin());
+    f.addBoolean(linkCommandLine.useTestOnlyFlags());
     if (linkCommandLine.getRuntimeSolibDir() != null) {
       f.addPath(linkCommandLine.getRuntimeSolibDir());
     }
@@ -546,7 +546,7 @@ public final class CppLinkAction extends ConfigurationAction
     private LinkStaticness linkStaticness = LinkStaticness.FULLY_STATIC;
     private boolean fake;
     private boolean isNativeDeps;
-    private boolean useExecOrigin;
+    private boolean useTestOnlyFlags;
     private boolean wholeArchive;
     private boolean supportsParamFiles = true;
 
@@ -618,7 +618,7 @@ public final class CppLinkAction extends ConfigurationAction
       this.linkStaticness = linkContext.linkStaticness;
       this.fake = linkContext.fake;
       this.isNativeDeps = linkContext.isNativeDeps;
-      this.useExecOrigin = linkContext.useExecOrigin;
+      this.useTestOnlyFlags = linkContext.useTestOnlyFlags;
     }
 
     /**
@@ -693,7 +693,7 @@ public final class CppLinkAction extends ConfigurationAction
           .addLinkstampCompileOptions(linkstampOptions)
           .setRuntimeSolibDir(linkType.isStaticLibraryLink() ? null : runtimeSolibDir)
           .setNativeDeps(isNativeDeps)
-          .setUseExecOrigin(useExecOrigin)
+          .setUseTestOnlyFlags(useTestOnlyFlags)
           .setNeedWholeArchive(needWholeArchive)
           .setInterfaceSoBuilder(getInterfaceSoBuilder())
           .setSupportsParamFiles(supportsParamFiles)
@@ -1013,11 +1013,11 @@ public final class CppLinkAction extends ConfigurationAction
     }
 
     /**
-     * Sets whether this link action should use $EXEC_ORIGIN instead of $ORIGIN
-     * for the solib search path; false by default.
+     * Sets whether this link action should use test-specific flags (e.g. $EXEC_ORIGIN instead of
+     * $ORIGIN for the solib search path or lazy binding);  false by default.
      */
-    public Builder setUseExecOrigin(boolean useExecOrigin) {
-      this.useExecOrigin = useExecOrigin;
+    public Builder setUseTestOnlyFlags(boolean useTestOnlyFlags) {
+      this.useTestOnlyFlags = useTestOnlyFlags;
       return this;
     }
 
@@ -1074,7 +1074,7 @@ public final class CppLinkAction extends ConfigurationAction
     private final LinkStaticness linkStaticness;
     private final boolean fake;
     private final boolean isNativeDeps;
-    private final boolean useExecOrigin;
+    private final boolean useTestOnlyFlags;
 
     /**
      * Given a {@link Builder}, creates a {@code Context} to pass to another target.
@@ -1098,7 +1098,7 @@ public final class CppLinkAction extends ConfigurationAction
       this.linkStaticness = builder.linkStaticness;
       this.fake = builder.fake;
       this.isNativeDeps = builder.isNativeDeps;
-      this.useExecOrigin = builder.useExecOrigin;
+      this.useTestOnlyFlags = builder.useTestOnlyFlags;
     }
   }
 }

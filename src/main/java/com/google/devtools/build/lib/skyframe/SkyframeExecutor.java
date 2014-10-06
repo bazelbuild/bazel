@@ -24,11 +24,9 @@ import com.google.common.base.Throwables;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.ImmutableSet;
-import com.google.common.collect.ImmutableSetMultimap;
 import com.google.common.collect.Iterables;
 import com.google.common.collect.Lists;
 import com.google.common.collect.Maps;
-import com.google.common.collect.Multimap;
 import com.google.common.collect.Sets;
 import com.google.common.eventbus.EventBus;
 import com.google.devtools.build.lib.actions.Action;
@@ -58,14 +56,12 @@ import com.google.devtools.build.lib.pkgcache.PackageCacheOptions;
 import com.google.devtools.build.lib.pkgcache.PackageManager;
 import com.google.devtools.build.lib.pkgcache.PathPackageLocator;
 import com.google.devtools.build.lib.pkgcache.TransitivePackageLoader;
-import com.google.devtools.build.lib.skyframe.DiffAwarenessManager.ProcessableModifiedFileSet;
 import com.google.devtools.build.lib.skyframe.SkyframeActionExecutor.ActionCompletedReceiver;
 import com.google.devtools.build.lib.skyframe.SkyframeActionExecutor.ProgressSupplier;
 import com.google.devtools.build.lib.syntax.Label;
 import com.google.devtools.build.lib.util.AbruptExitException;
 import com.google.devtools.build.lib.util.Clock;
 import com.google.devtools.build.lib.util.ExitCode;
-import com.google.devtools.build.lib.util.Pair;
 import com.google.devtools.build.lib.util.ResourceUsage;
 import com.google.devtools.build.lib.util.io.TimestampGranularityMonitor;
 import com.google.devtools.build.lib.vfs.BatchStat;
@@ -95,11 +91,9 @@ import com.google.devtools.build.skyframe.Differencer.Diff;
 import com.google.devtools.build.skyframe.ErrorInfo;
 import com.google.devtools.build.skyframe.EvaluationProgressReceiver;
 import com.google.devtools.build.skyframe.EvaluationResult;
-import com.google.devtools.build.skyframe.ImmutableDiff;
 import com.google.devtools.build.skyframe.MemoizingEvaluator;
 import com.google.devtools.build.skyframe.MemoizingEvaluator.EvaluatorSupplier;
 import com.google.devtools.build.skyframe.RecordingDifferencer;
-import com.google.devtools.build.skyframe.SequentialBuildDriver;
 import com.google.devtools.build.skyframe.SkyFunction;
 import com.google.devtools.build.skyframe.SkyFunctionName;
 import com.google.devtools.build.skyframe.SkyKey;
@@ -151,8 +145,6 @@ public abstract class SkyframeExecutor {
   @VisibleForTesting
   public static final int DEFAULT_THREAD_COUNT = 200;
 
-  private static final Logger LOG = Logger.getLogger(SkyframeExecutor.class.getName());
-
   // Stores Packages between reruns of the PackageFunction (because of missing dependencies,
   // within the same evaluate() run) to avoid loading the same package twice (first time loading
   // to find subincludes and declare value dependencies).
@@ -166,16 +158,14 @@ public abstract class SkyframeExecutor {
   private EventHandler errorEventListener;
   private ActionLogBufferPathGenerator actionLogBufferPathGenerator;
 
-  private RecordingDifferencer recordingDiffer;
+  protected RecordingDifferencer recordingDiffer;
   protected BuildDriver buildDriver;
-
-  private final DiffAwarenessManager diffAwarenessManager;
 
   // AtomicReferences are used here as mutable boxes shared with value builders.
   private final AtomicBoolean showLoadingProgress = new AtomicBoolean();
   private final AtomicReference<UnixGlob.FilesystemCalls> syscalls =
       new AtomicReference<>(UnixGlob.DEFAULT_SYSCALLS);
-  private final AtomicReference<PathPackageLocator> pkgLocator =
+  protected final AtomicReference<PathPackageLocator> pkgLocator =
       new AtomicReference<>();
   private final AtomicReference<ImmutableSet<String>> deletedPackages =
       new AtomicReference<>(ImmutableSet.<String>of());
@@ -202,7 +192,7 @@ public abstract class SkyframeExecutor {
   // TODO(bazel-team): Remove when legacy codepath is no longer used. [skyframe-execution]
   protected final boolean skyframeBuild;
 
-  private final TimestampGranularityMonitor tsgm;
+  protected final TimestampGranularityMonitor tsgm;
 
   private final ResourceManager resourceManager;
 
@@ -216,10 +206,10 @@ public abstract class SkyframeExecutor {
 
   private BinTools binTools = null;
   private boolean needToInjectEmbeddedArtifacts = true;
-  private int modifiedFiles;
+  protected int modifiedFiles;
   private final Predicate<PathFragment> allowedMissingInputs;
 
-  private SkyframeIncrementalBuildMonitor incrementalBuildMonitor =
+  protected SkyframeIncrementalBuildMonitor incrementalBuildMonitor =
       new SkyframeIncrementalBuildMonitor();
 
   private MutableSupplier<ConfigurationFactory> configurationFactory = new MutableSupplier<>();
@@ -227,6 +217,8 @@ public abstract class SkyframeExecutor {
   private MutableSupplier<ImmutableList<ConfigurationFragmentFactory>> configurationFragments =
       new MutableSupplier<>();
   private SkyKey configurationSkyKey = null;
+
+  private static final Logger LOG = Logger.getLogger(SkyframeExecutor.class.getName());
 
   protected SkyframeExecutor(
       Reporter reporter,
@@ -259,7 +251,6 @@ public abstract class SkyframeExecutor {
         statusReporterRef, clock);
     this.directories = Preconditions.checkNotNull(directories);
     this.buildInfoFactories = buildInfoFactories;
-    this.diffAwarenessManager = new DiffAwarenessManager(diffAwarenessFactories, reporter);
     this.allowedMissingInputs = allowedMissingInputs;
     this.preprocessorFactorySupplier = preprocessorFactorySupplier;
     this.preprocessorFactory = preprocessorFactorySupplier.getFactory(packageManager);
@@ -388,13 +379,14 @@ public abstract class SkyframeExecutor {
     memoizingEvaluator = evaluatorSupplier.create(
         skyFunctions, recordingDiffer, progressReceiver, emittedEventState,
         bootstrapping || hasIncrementalState());
-    buildDriver = new SequentialBuildDriver(memoizingEvaluator);
-    diffAwarenessManager.reset();
+    buildDriver = newBuildDriver();
     if (skyframeBuildView != null) {
       skyframeBuildView.clearLegacyData();
     }
     reinjectConstantValues();
   }
+
+  protected abstract BuildDriver newBuildDriver();
 
   /**
    * Values whose values are known at startup and guaranteed constant are still wiped from the
@@ -522,7 +514,7 @@ public abstract class SkyframeExecutor {
    * Informs user about number of modified files (source and output files).
    */
   // Note, that number of modified files in some cases can be bigger than actual number of
-  // modified files for targets in current request. Skyframe checks for modification all files
+  // modified files for targets in current request. Skyframe may check for modification all files
   // from previous requests.
   public void informAboutNumberOfModifiedFiles() {
     LOG.info(String.format("Found %d modified files from last build", modifiedFiles));
@@ -545,31 +537,7 @@ public abstract class SkyframeExecutor {
     recordingDiffer.invalidate(Iterables.filter(memoizingEvaluator.getValues().keySet(), pred));
   }
 
-  /**
-   * Partitions the given filesystem values based on which package path root they are under.
-   * Returns a {@link Multimap} {@code m} such that {@code m.containsEntry(k, pe)} is true for
-   * each filesystem valuekey {@code k} under a package path root {@code pe}. Note that values not
-   * under a package path root are not present in the returned {@link Multimap}; these values are
-   * unconditionally checked for changes on each incremental build.
-   */
-  private static Multimap<Path, SkyKey> partitionSkyKeysByPackagePathEntry(
-      Set<Path> pkgRoots, Iterable<SkyKey> filesystemSkyKeys) {
-    ImmutableSetMultimap.Builder<Path, SkyKey> multimapBuilder =
-        ImmutableSetMultimap.builder();
-    for (SkyKey key : filesystemSkyKeys) {
-      Preconditions.checkState(key.functionName() == SkyFunctions.FILE_STATE
-          || key.functionName() == SkyFunctions.DIRECTORY_LISTING_STATE, key);
-      Path root = ((RootedPath) key.argument()).getRoot();
-      if (pkgRoots.contains(root)) {
-        multimapBuilder.put(root, key);
-      }
-      // We don't need to worry about FileStateValues for external files because they have a
-      // dependency on the build_id and so they get invalidated each build.
-    }
-    return multimapBuilder.build();
-  }
-
-  private static Iterable<SkyKey> getSkyKeysPotentiallyAffected(
+  protected static Iterable<SkyKey> getSkyKeysPotentiallyAffected(
       Iterable<PathFragment> modifiedSourceFiles, final Path pathEntry) {
     // TODO(bazel-team): change ModifiedFileSet to work with RootedPaths instead of PathFragments.
     Iterable<SkyKey> fileStateSkyKeys = Iterables.transform(modifiedSourceFiles,
@@ -595,106 +563,6 @@ public abstract class SkyframeExecutor {
           }
         });
     return Iterables.concat(fileStateSkyKeys, dirListingStateSkyKeys);
-  }
-
-  private static int getNumberOfModifiedFiles(Iterable<SkyKey> modifiedValues) {
-    // We are searching only for changed files, DirectoryListingValues don't depend on
-    // child values, that's why they are invalidated separately
-    return Iterables.size(Iterables.filter(modifiedValues,
-        SkyFunctionName.functionIs(SkyFunctions.FILE_STATE)));
-  }
-
-  /**
-   * Uses diff awareness on all the package paths to invalidate changed files.
-   */
-  @VisibleForTesting
-  public void handleDiffs() throws InterruptedException {
-    modifiedFiles = 0;
-    Map<Path, ProcessableModifiedFileSet> modifiedFilesByPathEntry =
-        Maps.newHashMap();
-    Set<Pair<Path, ProcessableModifiedFileSet>> pathEntriesWithoutDiffInformation =
-        Sets.newHashSet();
-    for (Path pathEntry : pkgLocator.get().getPathEntries()) {
-      ProcessableModifiedFileSet modifiedFileSet = diffAwarenessManager.getDiff(pathEntry);
-      if (modifiedFileSet.getModifiedFileSet().treatEverythingAsModified()) {
-        pathEntriesWithoutDiffInformation.add(Pair.of(pathEntry, modifiedFileSet));
-      } else {
-        modifiedFilesByPathEntry.put(pathEntry, modifiedFileSet);
-      }
-    }
-    handleDiffsWithCompleteDiffInformation(modifiedFilesByPathEntry);
-    handleDiffsWithMissingDiffInformation(pathEntriesWithoutDiffInformation);
-  }
-
-  /**
-   * Invalidates files under path entries whose corresponding {@link DiffAwareness} gave an exact
-   * diff. Removes entries from the given map as they are processed. All of the files need to be
-   * invalidated, so the map should be empty upon completion of this function.
-   */
-  private void handleDiffsWithCompleteDiffInformation(
-      Map<Path, ProcessableModifiedFileSet> modifiedFilesByPathEntry) {
-    // It's important that the below code be uninterruptible, since we already promised to
-    // invalidate these files.
-    for (Path pathEntry : ImmutableSet.copyOf(modifiedFilesByPathEntry.keySet())) {
-      ProcessableModifiedFileSet processableModifiedFileSet =
-          modifiedFilesByPathEntry.get(pathEntry);
-      ModifiedFileSet modifiedFileSet = processableModifiedFileSet.getModifiedFileSet();
-      Preconditions.checkState(!modifiedFileSet.treatEverythingAsModified(), pathEntry);
-      Iterable<SkyKey> dirtyValues = getSkyKeysPotentiallyAffected(
-          modifiedFileSet.modifiedSourceFiles(), pathEntry);
-      handleChangedFiles(new ImmutableDiff(dirtyValues, ImmutableMap.<SkyKey, SkyValue>of()));
-      processableModifiedFileSet.markProcessed();
-    }
-  }
-
-  /**
-   * Finds and invalidates changed files under path entries whose corresponding
-   * {@link DiffAwareness} said all files may have been modified.
-   */
-  private void handleDiffsWithMissingDiffInformation(
-      Set<Pair<Path, ProcessableModifiedFileSet>> pathEntriesWithoutDiffInformation)
-      throws InterruptedException {
-    if (pathEntriesWithoutDiffInformation.isEmpty()) {
-      return;
-    }
-    // Before running the FilesystemValueChecker, ensure that all values marked for invalidation
-    // have actually been invalidated (recall that invalidation happens at the beginning of the
-    // next evaluate() call), because checking those is a waste of time.
-    buildDriver.evaluate(ImmutableList.<SkyKey>of(), false,
-        DEFAULT_THREAD_COUNT, reporter);
-    FilesystemValueChecker fsnc = new FilesystemValueChecker(memoizingEvaluator, tsgm);
-    // We need to manually check for changes to known files. This entails finding all dirty file
-    // system values under package roots for which we don't have diff information. If at least
-    // one path entry doesn't have diff information, then we're going to have to iterate over
-    // the skyframe values at least once no matter what so we might as well do so now and avoid
-    // doing so more than once.
-    Iterable<SkyKey> filesystemSkyKeys = fsnc.getFilesystemSkyKeys();
-    // Partition by package path entry.
-    Multimap<Path, SkyKey> skyKeysByPathEntry = partitionSkyKeysByPackagePathEntry(
-        ImmutableSet.copyOf(pkgLocator.get().getPathEntries()), filesystemSkyKeys);
-    // Contains all file system values that we need to check for dirtiness.
-    List<Iterable<SkyKey>> valuesToCheckManually = Lists.newArrayList();
-    for (Pair<Path, ProcessableModifiedFileSet> pair : pathEntriesWithoutDiffInformation) {
-      Path pathEntry = pair.getFirst();
-      valuesToCheckManually.add(skyKeysByPathEntry.get(pathEntry));
-    }
-    Diff diff = fsnc.getDirtyFilesystemValues(Iterables.concat(valuesToCheckManually));
-    handleChangedFiles(diff);
-    for (Pair<Path, ProcessableModifiedFileSet> pair : pathEntriesWithoutDiffInformation) {
-      ProcessableModifiedFileSet processableModifiedFileSet = pair.getSecond();
-      processableModifiedFileSet.markProcessed();
-    }
-  }
-
-  private void handleChangedFiles(Diff diff) {
-    recordingDiffer.invalidate(diff.changedKeysWithoutNewValues());
-    recordingDiffer.inject(diff.changedKeysWithNewValues());
-    modifiedFiles += getNumberOfModifiedFiles(diff.changedKeysWithoutNewValues());
-    modifiedFiles += getNumberOfModifiedFiles(diff.changedKeysWithNewValues().keySet());
-    if (skyframeBuild()) {
-      incrementalBuildMonitor.accrue(diff.changedKeysWithoutNewValues());
-      incrementalBuildMonitor.accrue(diff.changedKeysWithNewValues().keySet());
-    }
   }
 
   private void invalidateDeletedPackages(Iterable<String> deletedPackages) {
@@ -769,10 +637,12 @@ public abstract class SkyframeExecutor {
       // We need to take additional steps to keep the corresponding data structures in sync.
       // (Some of the additional steps are carried out by ConfiguredTargetValueInvalidationListener,
       // and some by BuildView#buildHasIncompatiblePackageRoots and #updateSkyframe.)
-
-      diffAwarenessManager.setPathEntries(pkgLocator.getPathEntries());
+      onNewPackageLocator(oldLocator, pkgLocator);
     }
   }
+
+  protected abstract void onNewPackageLocator(PathPackageLocator oldLocator,
+                                              PathPackageLocator pkgLocator);
 
   private void checkPreprocessorFactory() {
     if (!preprocessorFactory.isStillValid()) {
@@ -1307,7 +1177,6 @@ public abstract class SkyframeExecutor {
 
     incrementalBuildMonitor = new SkyframeIncrementalBuildMonitor();
     invalidateErrors();
-    handleDiffs();
   }
 
   private CyclesReporter createCyclesReporter() {

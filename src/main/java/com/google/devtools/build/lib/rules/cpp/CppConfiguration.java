@@ -300,6 +300,7 @@ public class CppConfiguration extends BuildConfiguration.Fragment {
   private FlagList mostlyStaticSharedLinkFlags;
   private FlagList dynamicLinkFlags;
   private FlagList dynamicLibraryLinkFlags;
+  private final List<String> testOnlyLinkFlags;
 
   private final List<String> linkOptions;
 
@@ -631,6 +632,7 @@ public class CppConfiguration extends BuildConfiguration.Fragment {
                                ldExecutable, stripBinaries),
         convertOptionalOptions(toolchain.getOptionalLinkerFlagList()),
         Collections.<String>emptyList());
+    testOnlyLinkFlags = ImmutableList.copyOf(toolchain.getTestOnlyLinkerFlagList());
 
     Map<String, String> makeVariablesBuilder = new HashMap<>();
     // The following are to be used to allow some build rules to avoid the limits on stack frame
@@ -1129,6 +1131,15 @@ public class CppConfiguration extends BuildConfiguration.Fragment {
         .addAll(dynamicLibraryLinkFlags.evaluate(features))
         .build();
   }
+
+  /**
+   * Returns test-only link options such that certain test-specific features can be configured
+   * separately (e.g. lazy binding).
+   */
+  public List<String> getTestOnlyLinkOptions() {
+    return testOnlyLinkFlags;
+  }
+
 
   /**
    * Returns the list of options to be used with 'objcopy' when converting

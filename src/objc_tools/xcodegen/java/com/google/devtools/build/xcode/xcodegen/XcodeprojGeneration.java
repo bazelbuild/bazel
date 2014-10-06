@@ -315,6 +315,12 @@ public class XcodeprojGeneration {
       targetBuildConfigMap.put("HEADER_SEARCH_PATHS",
           headerSearchPaths(sourceRoot, targetControl.getHeaderSearchPathList(), "$(inherited)"));
 
+      if (targetControl.hasPchPath()) {
+        Path pchExecPath = RelativePaths.fromString(fileSystem, targetControl.getPchPath());
+        targetBuildConfigMap.put("GCC_PREFIX_HEADER",
+            outputPath.getXcodeprojDirectory().relativize(pchExecPath).toString());
+      }
+
       targetBuildConfigMap.put("PRODUCT_NAME", productName);
       if (targetControl.hasInfoplist()) {
         Path relative = RelativePaths.fromString(fileSystem, targetControl.getInfoplist());

@@ -14,17 +14,14 @@
 
 package com.google.devtools.build.lib.rules.objc;
 
-import static com.google.devtools.build.lib.rules.objc.XcodeProductType.LIBRARY_STATIC;
+import static com.google.devtools.build.lib.collect.nestedset.Order.STABLE_ORDER;
 
 import com.google.common.base.Optional;
-import com.google.common.collect.ImmutableList;
 import com.google.devtools.build.lib.actions.Artifact;
 import com.google.devtools.build.lib.collect.nestedset.NestedSetBuilder;
 import com.google.devtools.build.lib.rules.RuleConfiguredTargetFactory;
 import com.google.devtools.build.lib.view.ConfiguredTarget;
 import com.google.devtools.build.lib.view.RuleContext;
-import com.google.devtools.build.xcode.xcodegen.proto.XcodeGenProtos.DependencyControl;
-import com.google.devtools.build.xcode.xcodegen.proto.XcodeGenProtos.XcodeprojBuildSetting;
 
 /**
  * Implementation for {@code objc_bundle}.
@@ -35,24 +32,8 @@ public class ObjcBundle implements RuleConfiguredTargetFactory {
     ObjcCommon common = new ObjcCommon.Builder(ruleContext).build();
     common.reportErrors();
 
-    OptionsProvider optionsProvider = OptionsProvider.DEFAULT;
-    XcodeProvider xcodeProvider = common.xcodeProvider(
-        /*maybeInfoplistFile=*/Optional.<Artifact>absent(),
-        ImmutableList.<DependencyControl>of(),
-        ImmutableList.<XcodeprojBuildSetting>of(),
-        optionsProvider.getCopts(),
-        LIBRARY_STATIC,
-        ImmutableList.<XcodeProvider>of());
-
-    ObjcActionsBuilder.registerAll(
-        ruleContext,
-        ObjcActionsBuilder.baseActions(
-            ruleContext, Optional.<CompilationArtifacts>absent(),
-            common.getObjcProvider(), xcodeProvider, optionsProvider));
     return common.configuredTarget(
-        NestedSetBuilder.<Artifact>stableOrder()
-            .add(ruleContext.getImplicitOutputArtifact(ObjcRuleClasses.PBXPROJ))
-            .build(),
+        /*filesToBuild=*/NestedSetBuilder.<Artifact>emptySet(STABLE_ORDER),
         Optional.<XcodeProvider>absent(),
         Optional.of(common.getObjcProvider()));
   }

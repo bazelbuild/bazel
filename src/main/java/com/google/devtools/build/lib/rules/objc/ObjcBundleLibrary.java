@@ -22,6 +22,7 @@ import static com.google.devtools.build.lib.rules.objc.XcodeProductType.BUNDLE;
 import com.google.common.base.Optional;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableSet;
+import com.google.devtools.build.lib.actions.Action;
 import com.google.devtools.build.lib.actions.Artifact;
 import com.google.devtools.build.lib.collect.nestedset.NestedSetBuilder;
 import com.google.devtools.build.lib.rules.RuleConfiguredTargetFactory;
@@ -63,14 +64,13 @@ public class ObjcBundleLibrary implements RuleConfiguredTargetFactory {
       RuleContext ruleContext, Bundling bundling,
       ObjcCommon common, XcodeProvider xcodeProvider, OptionsProvider optionsProvider,
       ExtraLinkArgs extraLinkArgs, ExtraActoolArgs extraActoolArgs) {
-    ObjcConfiguration objcConfiguration = ObjcActionsBuilder.objcConfiguration(ruleContext);
+    ObjcConfiguration objcConfiguration = ObjcBase.objcConfiguration(ruleContext);
     InfoplistMerging infoplistMerging = bundling.getInfoplistMerging();
     ObjcProvider objcProvider = common.getObjcProvider();
 
     for (Artifact linkedBinary : bundling.getLinkedBinary().asSet()) {
-      ruleContext.getAnalysisEnvironment().registerAction(
-          ObjcActionsBuilder.linkAction(
-              ruleContext, linkedBinary, objcConfiguration, objcProvider, extraLinkArgs));
+      ObjcBase.actionsBuilder(ruleContext)
+          .registerLinkAction(ruleContext, linkedBinary, objcProvider, extraLinkArgs);
     }
 
     for (Artifact actoolzipOutput : bundling.getActoolzipOutput().asSet()) {
@@ -82,19 +82,17 @@ public class ObjcBundleLibrary implements RuleConfiguredTargetFactory {
               extraActoolArgs));
     }
 
-    ObjcActionsBuilder.registerAll(ruleContext, infoplistMerging.getMergeAction().asSet());
+    for (Action mergeInfoplistAction : infoplistMerging.getMergeAction().asSet()) {
+      ruleContext.registerAction(mergeInfoplistAction);
+    }
 
-    ObjcActionsBuilder.registerAll(
-        ruleContext,
-        ObjcActionsBuilder.baseActions(
-            ruleContext, common.getCompilationArtifacts(), objcProvider, xcodeProvider,
-            optionsProvider));
+    ObjcLibrary.registerActions(ruleContext, common, xcodeProvider, optionsProvider);
   }
 
   static Bundling bundling(RuleContext ruleContext, String bundleDirSuffix,
       Iterable<BundleableFile> extraBundleFiles, ObjcProvider objcProvider,
       OptionsProvider optionsProvider) {
-    IntermediateArtifacts intermediateArtifacts = ObjcLibrary.intermediateArtifacts(ruleContext);
+    IntermediateArtifacts intermediateArtifacts = ObjcBase.intermediateArtifacts(ruleContext);
     InfoplistMerging infoplistMerging = new InfoplistMerging.Builder(ruleContext)
         .setIntermediateArtifacts(intermediateArtifacts)
         .setInputPlists(optionsProvider.getInfoplists())

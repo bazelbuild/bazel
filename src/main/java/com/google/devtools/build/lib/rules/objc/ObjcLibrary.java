@@ -52,12 +52,6 @@ public class ObjcLibrary implements RuleConfiguredTargetFactory {
         .build();
   }
 
-  static IntermediateArtifacts intermediateArtifacts(RuleContext ruleContext) {
-    return new IntermediateArtifacts(
-        ruleContext.getAnalysisEnvironment(), ruleContext.getBinOrGenfilesDirectory(),
-        ruleContext.getLabel());
-  }
-
   /**
    * Constructs an {@link ObjcCommon} instance based on the attributes of the given rule. The rule
    * should inherit from {@link ObjcLibraryRule}. This method automatically calls
@@ -67,7 +61,7 @@ public class ObjcLibrary implements RuleConfiguredTargetFactory {
     CompilationArtifacts compilationArtifacts = new CompilationArtifacts.Builder()
         .addSrcs(ruleContext.getPrerequisiteArtifacts("srcs", Mode.TARGET))
         .addNonArcSrcs(ruleContext.getPrerequisiteArtifacts("non_arc_srcs", Mode.TARGET))
-        .setIntermediateArtifacts(intermediateArtifacts(ruleContext))
+        .setIntermediateArtifacts(ObjcBase.intermediateArtifacts(ruleContext))
         .setPchFile(Optional.fromNullable(ruleContext.getPrerequisiteArtifact("pch", Mode.TARGET)))
         .build();
 
@@ -84,6 +78,16 @@ public class ObjcLibrary implements RuleConfiguredTargetFactory {
     return common;
   }
 
+  static void registerActions(RuleContext ruleContext, ObjcCommon common,
+      XcodeProvider xcodeProvider, OptionsProvider optionsProvider) {
+    for (CompilationArtifacts compilationArtifacts : common.getCompilationArtifacts().asSet()) {
+      ObjcBase.actionsBuilder(ruleContext)
+          .registerCompileAndArchiveActions(
+              compilationArtifacts, common.getObjcProvider(), optionsProvider);
+    }
+    ObjcBase.registerActions(ruleContext, xcodeProvider);
+  }
+
   @Override
   public ConfiguredTarget create(RuleContext ruleContext) throws InterruptedException {
     ObjcCommon common = common(ruleContext, ImmutableList.<SdkFramework>of());
@@ -96,11 +100,7 @@ public class ObjcLibrary implements RuleConfiguredTargetFactory {
         optionsProvider.getCopts(),
         LIBRARY_STATIC,
         depXcodeProviders);
-    ObjcActionsBuilder.registerAll(
-        ruleContext,
-        ObjcActionsBuilder.baseActions(
-            ruleContext, common.getCompilationArtifacts(), common.getObjcProvider(), xcodeProvider,
-            optionsProvider));
+    registerActions(ruleContext, common, xcodeProvider, optionsProvider);
     return common.configuredTarget(
         NestedSetBuilder.<Artifact>stableOrder()
             .addAll(common.getCompiledArchive().asSet())

@@ -31,8 +31,6 @@ public abstract class CcTest implements RuleConfiguredTargetFactory {
 
   @Override
   public ConfiguredTarget create(RuleContext context) throws InterruptedException {
-    boolean useExecOrigin =
-        context.getConfiguration().getFragment(CppConfiguration.class).supportsExecOrigin();
-    return CcBinary.init(semantics, context, /*fake ==*/ false, useExecOrigin);
+    return CcBinary.init(semantics, context, /*fake =*/ false, /*useTestOnlyFlags =*/ true);
   }
 }

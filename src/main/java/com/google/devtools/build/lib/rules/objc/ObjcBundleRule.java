@@ -19,7 +19,6 @@ import static com.google.devtools.build.lib.packages.Type.LABEL_LIST;
 
 import com.google.devtools.build.lib.packages.RuleClass;
 import com.google.devtools.build.lib.packages.RuleClass.Builder;
-import com.google.devtools.build.lib.rules.objc.ObjcRuleClasses.ObjcUsesToolsRule;
 import com.google.devtools.build.lib.util.FileTypeSet;
 import com.google.devtools.build.lib.view.BaseRuleClasses;
 import com.google.devtools.build.lib.view.BlazeRule;
@@ -31,8 +30,7 @@ import com.google.devtools.build.lib.view.RuleDefinitionEnvironment;
  */
 @BlazeRule(name = "objc_bundle",
     factoryClass = ObjcBundle.class,
-    ancestors = { BaseRuleClasses.BaseRule.class,
-                  ObjcUsesToolsRule.class})
+    ancestors = { BaseRuleClasses.BaseRule.class })
 public class ObjcBundleRule implements RuleDefinition {
   @Override
   public RuleClass build(Builder builder, RuleDefinitionEnvironment environment) {

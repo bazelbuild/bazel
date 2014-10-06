@@ -310,10 +310,7 @@ final class ObjcCommon {
 
       for (Artifact pchFile : artifacts.getPchFile().asSet()) {
         targetControl
-            .addBuildSetting(XcodeprojBuildSetting.newBuilder()
-                .setName("GCC_PREFIX_HEADER")
-                .setValue(pchFile.getExecPathString())
-                .build())
+            .setPchPath(pchFile.getExecPathString())
             .addHeaderFile(pchFile.getExecPathString());
       }
     }

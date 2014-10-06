@@ -27,7 +27,6 @@ import com.google.devtools.build.lib.packages.PackageGroup;
 import com.google.devtools.build.lib.packages.Rule;
 import com.google.devtools.build.lib.packages.Target;
 import com.google.devtools.build.lib.packages.TargetUtils;
-import com.google.devtools.build.lib.skyframe.WorkspaceFileValue.NoSuchBindingException;
 import com.google.devtools.build.lib.syntax.Label;
 import com.google.devtools.build.lib.vfs.PathFragment;
 import com.google.devtools.build.skyframe.SkyFunction;
@@ -229,13 +228,6 @@ public class TransitiveTargetFunction implements SkyFunction {
      * (we proceed with transitive loading on targets that contain errors).
      */
     public TransitiveTargetFunctionException(SkyKey key, NoSuchTargetException e) {
-      super(key, e);
-    }
-
-    /**
-     * Used to propagate a binding error from a dependency.
-     */
-    public TransitiveTargetFunctionException(SkyKey key, NoSuchBindingException e) {
       super(key, e);
     }
   }

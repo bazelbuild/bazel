@@ -71,7 +71,7 @@ public final class LinkCommandLine extends CommandLine {
   private final ImmutableList<String> linkstampCompileOptions;
   @Nullable private final PathFragment runtimeSolibDir;
   private final boolean nativeDeps;
-  private final boolean useExecOrigin;
+  private final boolean useTestOnlyFlags;
   private final boolean needWholeArchive;
   private final boolean supportsParamFiles;
   @Nullable private final Artifact interfaceSoBuilder;
@@ -93,7 +93,7 @@ public final class LinkCommandLine extends CommandLine {
       ImmutableList<String> linkstampCompileOptions,
       @Nullable PathFragment runtimeSolibDir,
       boolean nativeDeps,
-      boolean useExecOrigin,
+      boolean useTestOnlyFlags,
       boolean needWholeArchive,
       boolean supportsParamFiles,
       Artifact interfaceSoBuilder) {
@@ -114,8 +114,6 @@ public final class LinkCommandLine extends CommandLine {
           "the symbol counts output must be null for static links");
       Preconditions.checkArgument(runtimeSolibDir == null,
           "the runtime solib directory must be null for static links");
-      Preconditions.checkArgument(!useExecOrigin,
-          "the exec origin flag must be false for static links");
       Preconditions.checkArgument(!nativeDeps,
           "the native deps flag must be false for static links");
       Preconditions.checkArgument(!needWholeArchive,
@@ -141,7 +139,7 @@ public final class LinkCommandLine extends CommandLine {
     this.linkstampCompileOptions = linkstampCompileOptions;
     this.runtimeSolibDir = runtimeSolibDir;
     this.nativeDeps = nativeDeps;
-    this.useExecOrigin = useExecOrigin;
+    this.useTestOnlyFlags = useTestOnlyFlags;
     this.needWholeArchive = needWholeArchive;
     this.supportsParamFiles = supportsParamFiles;
     // For now, silently ignore interfaceSoBuilder if we don't build an interface dynamic library.
@@ -240,12 +238,12 @@ public final class LinkCommandLine extends CommandLine {
   }
 
   /**
-   * Returns true if this link should use $EXEC_ORIGIN as the root for finding shared libraries,
-   * false if it should use $ORIGIN. See bug "Please use $EXEC_ORIGIN instead of $ORIGIN when
-   * linking cc_tests" for further context.
+   * Returns true if this link should use test-specific flags (e.g. $EXEC_ORIGIN as the root for
+   * finding shared libraries or lazy binding);  false by default.  See bug "Please use
+   * $EXEC_ORIGIN instead of $ORIGIN when linking cc_tests" for further context.
    */
-  public boolean useExecOrigin() {
-    return useExecOrigin;
+  public boolean useTestOnlyFlags() {
+    return useTestOnlyFlags;
   }
 
   /**
@@ -625,6 +623,11 @@ public final class LinkCommandLine extends CommandLine {
       argv.addAll(cppConfig.getDynamicLinkOptions(features, sharedLinkopts));
     }
 
+    // Extra test-specific link options.
+    if (useTestOnlyFlags) {
+      argv.addAll(cppConfig.getTestOnlyLinkOptions());
+    }
+
     if (configuration.isCodeCoverageEnabled()) {
       // Note we apply the same logic independently in GoCompilationHelper (using "--coverage").
       // Keep this in mind if this ever gets moved out to CROSSTOOL or a centralized place
@@ -694,7 +697,8 @@ public final class LinkCommandLine extends CommandLine {
     List<String> runtimeRpathEntries = new ArrayList<>();
 
     if (output != null) {
-      String origin = useExecOrigin ? "$EXEC_ORIGIN/" : "$ORIGIN/";
+      String origin =
+          useTestOnlyFlags && cppConfig.supportsExecOrigin() ? "$EXEC_ORIGIN/" : "$ORIGIN/";
       rpathRoot = "-Wl,-rpath," + origin;
       if (runtimeRpath) {
         runtimeRpathEntries.add("-Wl,-rpath," + origin + runtimeSolibName + "/");
@@ -927,7 +931,7 @@ public final class LinkCommandLine extends CommandLine {
     private List<String> linkstampCompileOptions = new ArrayList<>();
     @Nullable private PathFragment runtimeSolibDir;
     private boolean nativeDeps;
-    private boolean useExecOrigin;
+    private boolean useTestOnlyFlags;
     private boolean needWholeArchive;
     private boolean supportsParamFiles;
     @Nullable private Artifact interfaceSoBuilder;
@@ -952,7 +956,7 @@ public final class LinkCommandLine extends CommandLine {
       return new LinkCommandLine(configuration, owner, output, interfaceOutput,
           symbolCountsOutput, buildInfoHeaderArtifacts, linkerInputs, runtimeInputs, linkTargetType,
           linkStaticness, linkopts, features, linkstamps, actualLinkstampCompileOptions,
-          runtimeSolibDir, nativeDeps, useExecOrigin, needWholeArchive, supportsParamFiles,
+          runtimeSolibDir, nativeDeps, useTestOnlyFlags, needWholeArchive, supportsParamFiles,
           interfaceSoBuilder);
     }
 
@@ -1101,12 +1105,11 @@ public final class LinkCommandLine extends CommandLine {
     }
 
     /**
-     * Sets whether to use {@code $EXEC_ORIGIN} instead of {@code $ORIGIN} in the rpath. This
-     * requires a dynamic linker that support this feature. The {@link #build} method throws an
-     * exception if this is true for a static link (see {@link LinkTargetType#isStaticLibraryLink}).
+     * Sets whether to use test-specific linker flags, e.g. {@code $EXEC_ORIGIN} instead of
+     * {@code $ORIGIN} in the rpath or lazy binding.
      */
-    public Builder setUseExecOrigin(boolean useExecOrigin) {
-      this.useExecOrigin = useExecOrigin;
+    public Builder setUseTestOnlyFlags(boolean useTestOnlyFlags) {
+      this.useTestOnlyFlags = useTestOnlyFlags;
       return this;
     }
 

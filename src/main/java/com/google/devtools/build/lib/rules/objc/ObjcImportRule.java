@@ -34,6 +34,13 @@ public class ObjcImportRule implements RuleDefinition {
   @Override
   public RuleClass build(Builder builder, RuleDefinitionEnvironment environment) {
     return builder
+        /*<!-- #BLAZE_RULE(objc_import).IMPLICIT_OUTPUTS -->
+        <ul>
+         <li><code><var>name</var>.xcodeproj/project.pbxproj: An Xcode project file which can be
+             used to develop or build on a Mac.</li>
+        </ul>
+        <!-- #END_BLAZE_RULE.IMPLICIT_OUTPUTS -->*/
+        .setImplicitOutputsFunction(ObjcRuleClasses.PBXPROJ)
         /* <!-- #BLAZE_RULE(objc_import).ATTRIBUTE(archives) -->
         The list of <code>.a</code> files provided to Objective-C targets that
         depend on this target.

@@ -100,6 +100,8 @@ message CToolchain {
   // Additional linker flags when linking dynamic libraries.
   repeated string dynamic_library_linker_flag = 27;
   repeated OptionalFlag optional_dynamic_library_linker_flag = 39;
+  // Additional test-only linker flags.
+  repeated string test_only_linker_flag = 49;
   // Objcopy flags for embedding files into binaries.
   repeated string objcopy_embed_flag = 16;
   // Ld flags for embedding files into binaries. This is used by filewrapper
@@ -178,7 +180,7 @@ message CToolchain {
   // why they are recorded here.
   repeated string debian_extra_requires = 33;
 
-  // Next free id: 49
+  // Next free id: 50
 }
 
 message ToolPath {

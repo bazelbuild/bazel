@@ -14,6 +14,7 @@
 
 package com.google.devtools.build.lib.rules.objc;
 
+import com.google.common.base.Preconditions;
 import com.google.common.collect.ImmutableList;
 import com.google.devtools.build.lib.actions.ActionOwner;
 import com.google.devtools.build.lib.actions.Artifact;
@@ -22,6 +23,7 @@ import com.google.devtools.build.lib.actions.Executor;
 import com.google.devtools.build.lib.events.EventHandler;
 import com.google.devtools.build.lib.util.Fingerprint;
 import com.google.devtools.build.lib.view.actions.AbstractFileWriteAction;
+import com.google.devtools.build.xcode.xcodegen.proto.XcodeGenProtos;
 import com.google.devtools.build.xcode.xcodegen.proto.XcodeGenProtos.Control;
 
 import java.io.IOException;
@@ -32,27 +34,33 @@ import java.io.OutputStream;
  * {@link com.google.devtools.build.xcode.xcodegen.XcodeGen}.
  */
 public class WriteXcodeGenControlFileAction extends AbstractFileWriteAction {
-  private final Control control;
+  private final XcodeProvider xcodeProvider;
+  private final Artifact pbxproj;
 
-  public WriteXcodeGenControlFileAction(ActionOwner owner, Artifact output, Control control) {
-    super(owner, ImmutableList.<Artifact>of(), output, false /* makeExecutable */);
-    this.control = control;
+  public WriteXcodeGenControlFileAction(ActionOwner owner, Artifact output,
+      XcodeProvider xcodeProvider, Artifact pbxproj) {
+    super(owner, ImmutableList.<Artifact>of(), output, /*makeExecutable=*/false);
+    this.xcodeProvider = Preconditions.checkNotNull(xcodeProvider);
+    this.pbxproj = Preconditions.checkNotNull(pbxproj);
   }
 
-  public Control getControl() {
-    return control;
+  public Control control() {
+    return XcodeGenProtos.Control.newBuilder()
+        .setPbxproj(pbxproj.getExecPathString())
+        .addAllTarget(xcodeProvider.getTargets())
+        .build();
   }
 
   @Override
   public void writeOutputFile(OutputStream out, EventHandler eventHandler, Executor executor)
       throws IOException, InterruptedException, ExecException {
-    control.writeTo(out);
+    control().writeTo(out);
   }
 
   @Override
   protected String computeKey() {
     return new Fingerprint()
-        .addString(control.toString())
+        .addString(control().toString())
         .hexDigest();
   }
 }

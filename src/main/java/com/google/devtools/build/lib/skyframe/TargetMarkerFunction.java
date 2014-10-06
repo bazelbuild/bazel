@@ -18,7 +18,6 @@ import com.google.devtools.build.lib.packages.NoSuchPackageException;
 import com.google.devtools.build.lib.packages.NoSuchTargetException;
 import com.google.devtools.build.lib.packages.Package;
 import com.google.devtools.build.lib.packages.Target;
-import com.google.devtools.build.lib.skyframe.WorkspaceFileValue.NoSuchBindingException;
 import com.google.devtools.build.lib.syntax.Label;
 import com.google.devtools.build.lib.vfs.PathFragment;
 import com.google.devtools.build.skyframe.SkyFunction;
@@ -128,10 +127,6 @@ public final class TargetMarkerFunction implements SkyFunction {
     }
 
     public TargetMarkerFunctionException(SkyKey key, NoSuchPackageException e) {
-      super(key, e);
-    }
-
-    public TargetMarkerFunctionException(SkyKey key, NoSuchBindingException e) {
       super(key, e);
     }
   }

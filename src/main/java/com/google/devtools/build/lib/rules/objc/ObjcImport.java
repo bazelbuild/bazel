@@ -49,12 +49,8 @@ public class ObjcImport implements RuleConfiguredTargetFactory {
         optionsProvider.getCopts(),
         LIBRARY_STATIC,
         ImmutableList.<XcodeProvider>of());
+    ObjcBase.registerActions(ruleContext, xcodeProvider);
 
-    ObjcActionsBuilder.registerAll(
-        ruleContext,
-        ObjcActionsBuilder.baseActions(
-            ruleContext, Optional.<CompilationArtifacts>absent(),
-            common.getObjcProvider(), xcodeProvider, optionsProvider));
     return common.configuredTarget(
         NestedSetBuilder.<Artifact>stableOrder()
             .add(ruleContext.getImplicitOutputArtifact(ObjcRuleClasses.PBXPROJ))

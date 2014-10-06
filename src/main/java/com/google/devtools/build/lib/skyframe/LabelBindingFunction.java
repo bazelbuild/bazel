@@ -41,11 +41,9 @@ public class LabelBindingFunction implements SkyFunction {
    * Looks up the associated "real" target for the SkyKey's virtual target.
    */
   @Override
-  public SkyValue compute(SkyKey skyKey, Environment env) throws SkyFunctionException,
-      InterruptedException {
+  public SkyValue compute(SkyKey skyKey, Environment env) throws LabelBindingFunctionException {
     SkyKey workspaceKey = WorkspaceFileValue.key(pkgLocator.get().getWorkspaceFile());
-    WorkspaceFileValue workspaceFile = (WorkspaceFileValue) env.getValueOrThrow(
-        workspaceKey, SkyFunctionException.class);
+    WorkspaceFileValue workspaceFile = (WorkspaceFileValue) env.getValue(workspaceKey);
     if (workspaceFile == null) {
       return null;
     }
@@ -68,8 +66,8 @@ public class LabelBindingFunction implements SkyFunction {
   }
 
   private class LabelBindingFunctionException extends SkyFunctionException {
-    public LabelBindingFunctionException(SkyKey rootCause, Throwable cause) {
-      super(rootCause, cause);
+    public LabelBindingFunctionException(SkyKey rootCause, NoSuchBindingException e) {
+      super(rootCause, e);
     }
   }
 }

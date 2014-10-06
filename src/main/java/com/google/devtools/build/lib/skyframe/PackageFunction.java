@@ -44,8 +44,10 @@ import com.google.devtools.build.lib.packages.RuleVisibility;
 import com.google.devtools.build.lib.packages.Target;
 import com.google.devtools.build.lib.skyframe.GlobValue.InvalidGlobPatternException;
 import com.google.devtools.build.lib.skyframe.SkylarkImportLookupFunction.SkylarkImportNotFoundException;
+import com.google.devtools.build.lib.skyframe.WorkspaceFileValue.NoSuchBindingException;
 import com.google.devtools.build.lib.syntax.BuildFileAST;
 import com.google.devtools.build.lib.syntax.Label;
+import com.google.devtools.build.lib.syntax.Label.SyntaxException;
 import com.google.devtools.build.lib.syntax.ParserInputSource;
 import com.google.devtools.build.lib.syntax.SkylarkEnvironment;
 import com.google.devtools.build.lib.syntax.Statement;
@@ -305,10 +307,11 @@ public class PackageFunction implements SkyFunction {
     SkyKey workspaceKey = WorkspaceFileValue.key(workspacePath);
     WorkspaceFileValue workspace = null;
     try {
-      workspace = (WorkspaceFileValue) env.getValueOrThrow(workspaceKey,
-          SkyFunctionException.class);
-    } catch (SkyFunctionException e) {
-      throw new PackageFunctionException(key, e);
+      workspace = (WorkspaceFileValue) env.getValueOrThrow(workspaceKey, Exception.class);
+    } catch (IOException | SyntaxException | NoSuchBindingException e) {
+      throw new PackageFunctionException(key, new BadWorkspaceFileException(e.getMessage()));
+    } catch (Exception e) {
+      throw new IllegalStateException("Unexpected Exception type from WorkspaceFileValue.", e);
     }
     if (workspace == null) {
       return null;
@@ -320,7 +323,7 @@ public class PackageFunction implements SkyFunction {
       try {
         builder.addRule(klass, binding);
       } catch (InvalidRuleException | NameConflictException e) {
-        throw new PackageFunctionException(key, e);
+        throw new PackageFunctionException(key, new BadWorkspaceFileException(e.getMessage()));
       }
     }
     return new PackageValue(builder.build());
@@ -616,12 +619,18 @@ public class PackageFunction implements SkyFunction {
     }
   }
 
+  private static class BadWorkspaceFileException extends NoSuchPackageException {
+    private BadWorkspaceFileException(String message) {
+      super("external", "Error encountered while dealing with the WORKSPACE file: " + message);
+    }
+  }
+
   /**
    * Used to declare all the exception types that can be wrapped in the exception thrown by
    * {@link PackageFunction#compute}.
    */
   private static class PackageFunctionException extends SkyFunctionException {
-    public PackageFunctionException(SkyKey key, Exception e) {
+    public PackageFunctionException(SkyKey key, NoSuchPackageException e) {
       super(key, e);
     }
   }

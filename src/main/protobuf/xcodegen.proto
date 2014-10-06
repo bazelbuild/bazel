@@ -26,6 +26,7 @@ message DependencyControl {
 }
 
 // Contains information specific to a single target in the project file.
+// Next ID: 21
 message TargetControl {
   // 'Name' of the target in the project file. This corresponds to the product
   // name, and does not have to be unique.
@@ -114,6 +115,13 @@ message TargetControl {
   // file. These paths correspond to the "-I" arguments passed to the
   // compiler.
   repeated string header_search_path = 16;
+
+  // GCC_PREFIX_HEADER path. Needs to be be specified here rather than in the
+  // build_setting field because the build_setting field requires paths to be
+  // specified relative to the container of the .xcodeproj directory, while
+  // this attribute is relative to the same path as every other path in the
+  // control file.
+  optional string pch_path = 20;
 
   // Path to .bundle directories this target depends on. For static library
   // targets, this only causes the bundle to appear in the Project Navigator.

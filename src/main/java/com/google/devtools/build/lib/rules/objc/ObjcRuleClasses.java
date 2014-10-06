@@ -22,7 +22,6 @@ import static com.google.devtools.build.lib.packages.Type.LABEL_LIST;
 import static com.google.devtools.build.lib.packages.Type.STRING_LIST;
 
 import com.google.common.annotations.VisibleForTesting;
-import com.google.common.base.Function;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableSet;
 import com.google.common.collect.Iterables;
@@ -36,7 +35,6 @@ import com.google.devtools.build.lib.util.FileType;
 import com.google.devtools.build.lib.util.FileTypeSet;
 import com.google.devtools.build.lib.vfs.FileSystemUtils;
 import com.google.devtools.build.lib.vfs.PathFragment;
-import com.google.devtools.build.lib.view.AnalysisUtils;
 import com.google.devtools.build.lib.view.BaseRuleClasses;
 import com.google.devtools.build.lib.view.BlazeRule;
 import com.google.devtools.build.lib.view.RuleContext;
@@ -55,18 +53,6 @@ public class ObjcRuleClasses {
   }
 
   /**
-   * Returns the artifact corresponding to the pbxproj file for an objc_binary or objc_library
-   * target.
-   */
-  static Artifact pbxprojArtifact(RuleContext context) {
-    PathFragment labelPath = context.getLabel().toPathFragment();
-    return context.getAnalysisEnvironment().getDerivedArtifact(
-        labelPath.replaceName(labelPath.getBaseName() + ".xcodeproj")
-            .getRelative("project.pbxproj"),
-        context.getBinOrGenfilesDirectory());
-  }
-
-  /**
    * Returns a derived Artifact by appending a String to a root-relative path. This is similar to
    * {@link RuleContext#getRelatedArtifact(PathFragment, String)}, except the existing extension is
    * not removed.
@@ -81,14 +67,6 @@ public class ObjcRuleClasses {
   static Artifact artifactByAppendingToBaseName(RuleContext context, String suffix) {
     return artifactByAppendingToRootRelativePath(
         context, context.getLabel().toPathFragment(), suffix);
-  }
-
-  /**
-   * Returns the artifact corresponding to the pbxproj control file, which specifies the information
-   * required to generate the Xcode project file.
-   */
-  static Artifact pbxprojControlArtifact(RuleContext context) {
-    return artifactByAppendingToBaseName(context, ".xcodeproj-control");
   }
 
   /**
@@ -120,26 +98,6 @@ public class ObjcRuleClasses {
       }
     }
     return result.build();
-  }
-
-  /**
-   * The artifact for the .o file that should be generated when compiling the {@code source}
-   * artifact.
-   */
-  static Artifact objFile(RuleContext context, Artifact source) {
-    return context.getRelatedArtifact(
-        AnalysisUtils.getUniqueDirectory(context.getLabel(), new PathFragment("_objcs"))
-            .getRelative(source.getRootRelativePath()), ".o");
-  }
-
-  static Iterable<Artifact> objFiles(final RuleContext context, Iterable<Artifact> sources) {
-    return Iterables.transform(sources,
-        new Function<Artifact, Artifact>() {
-          @Override
-          public Artifact apply(Artifact source) {
-            return objFile(context, source);
-          }
-        });
   }
 
   /**
@@ -198,32 +156,11 @@ public class ObjcRuleClasses {
   static final FileTypeSet PLIST_TYPE = FileTypeSet.of(FileType.of(".plist"));
 
   /**
-   * Common external build tools for {@code objc_*} rules.
-   */
-  @BlazeRule(name = "$objc_uses_tools_rule",
-      type = RuleClassType.ABSTRACT,
-      ancestors = { BaseRuleClasses.RuleBase.class })
-  public static class ObjcUsesToolsRule implements RuleDefinition {
-    @Override
-    public RuleClass build(Builder builder, RuleDefinitionEnvironment env) {
-      return builder
-          .add(attr("$xcodegen", LABEL).cfg(HOST).exec()
-              .value(env.getLabel("//tools/objc:xcodegen")))
-          .add(attr("$plmerge", LABEL).cfg(HOST).exec()
-              .value(env.getLabel("//tools/objc:plmerge")))
-          .add(attr("$momczip_deploy", LABEL).cfg(HOST)
-              .value(env.getLabel("//tools/objc:momczip_deploy.jar")))
-          .build();
-    }
-  }
-
-  /**
    * Common attributes for {@code objc_*} rules.
    */
   @BlazeRule(name = "$objc_base_rule",
       type = RuleClassType.ABSTRACT,
-      ancestors = { BaseRuleClasses.RuleBase.class,
-                    ObjcUsesToolsRule.class })
+      ancestors = { BaseRuleClasses.RuleBase.class })
   public static class ObjcBaseRule implements RuleDefinition {
     @Override
     public RuleClass build(Builder builder, RuleDefinitionEnvironment env) {
@@ -323,6 +260,12 @@ public class ObjcRuleClasses {
           <!-- #END_BLAZE_RULE.ATTRIBUTE -->*/
           .add(attr("datamodels", LABEL_LIST).legacyAllowAnyFileType()
               .direct_compile_time_input())
+          .add(attr("$xcodegen", LABEL).cfg(HOST).exec()
+              .value(env.getLabel("//tools/objc:xcodegen")))
+          .add(attr("$plmerge", LABEL).cfg(HOST).exec()
+              .value(env.getLabel("//tools/objc:plmerge")))
+          .add(attr("$momczip_deploy", LABEL).cfg(HOST)
+              .value(env.getLabel("//tools/objc:momczip_deploy.jar")))
           .build();
     }
   }

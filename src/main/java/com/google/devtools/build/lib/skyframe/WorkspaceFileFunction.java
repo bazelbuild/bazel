@@ -45,8 +45,9 @@ import java.util.Map;
 public class WorkspaceFileFunction implements SkyFunction {
 
   @Override
-  public SkyValue compute(SkyKey skyKey, Environment env) throws SkyFunctionException,
+  public SkyValue compute(SkyKey skyKey, Environment env) throws WorkspaceFileFunctionException,
       InterruptedException {
+    // TODO(bazel-team): correctness in the presence of changes to the WORKSPACE file.
     Path workspaceFilePath = (Path) skyKey.argument();
     StoredEventHandler localReporter = new StoredEventHandler();
     BuildFileAST buildFileAST;
@@ -58,14 +59,14 @@ public class WorkspaceFileFunction implements SkyFunction {
     }
     buildFileAST = BuildFileAST.parseBuildFile(inputSource, localReporter, null, false);
     if (buildFileAST.containsErrors()) {
-      throw WorkspaceFileFunctionException.syntaxError(skyKey,
-          "WORKSPACE file could not be parsed into an AST");
+      throw new WorkspaceFileFunctionException(skyKey,
+          new SyntaxException("WORKSPACE file could not be parsed into an AST"));
     }
 
     WorkspaceFileValueBuilder builder = new WorkspaceFileValueBuilder();
     if (!evaluateWorkspaceFile(buildFileAST, builder)) {
-      throw WorkspaceFileFunctionException.syntaxError(skyKey,
-          "Error evaluating WORKSPACE file " + workspaceFilePath);
+      throw new WorkspaceFileFunctionException(skyKey,
+          new SyntaxException("Error evaluating WORKSPACE file " + workspaceFilePath));
     }
     try {
       return builder.build();
@@ -134,12 +135,16 @@ public class WorkspaceFileFunction implements SkyFunction {
   }
 
   private static final class WorkspaceFileFunctionException extends SkyFunctionException {
-    public WorkspaceFileFunctionException(SkyKey key, Throwable cause) {
-      super(key, cause);
+    public WorkspaceFileFunctionException(SkyKey key, IOException e) {
+      super(key, e);
     }
 
-    public static WorkspaceFileFunctionException syntaxError(SkyKey key, String message) {
-      return new WorkspaceFileFunctionException(key, new SyntaxException(message));
+    public WorkspaceFileFunctionException(SkyKey key, SyntaxException e) {
+      super(key, e);
+    }
+
+    public WorkspaceFileFunctionException(SkyKey key, NoSuchBindingException e) {
+      super(key, e);
     }
   }
 }

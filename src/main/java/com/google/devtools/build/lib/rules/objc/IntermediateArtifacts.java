@@ -21,6 +21,7 @@ import com.google.devtools.build.lib.syntax.Label;
 import com.google.devtools.build.lib.vfs.FileSystemUtils;
 import com.google.devtools.build.lib.vfs.PathFragment;
 import com.google.devtools.build.lib.view.AnalysisEnvironment;
+import com.google.devtools.build.lib.view.AnalysisUtils;
 
 /**
  * Factory class for generating artifacts which are used as intermediate output.
@@ -78,5 +79,26 @@ final class IntermediateArtifacts {
             .getParentDirectory()
             .getRelative(String.format("lib%s.a", labelPath.getBaseName()));
     return analysisEnvironment.getDerivedArtifact(rootRelative, binDirectory);
+  }
+
+  /**
+   * The artifact for the .o file that should be generated when compiling the {@code source}
+   * artifact.
+   */
+  public Artifact objFile(Artifact source) {
+    return analysisEnvironment.getDerivedArtifact(
+        FileSystemUtils.replaceExtension(
+            AnalysisUtils.getUniqueDirectory(ownerLabel, new PathFragment("_objs"))
+                .getRelative(source.getRootRelativePath()),
+            ".o"),
+        binDirectory);
+  }
+
+  /**
+   * Returns the artifact corresponding to the pbxproj control file, which specifies the information
+   * required to generate the Xcode project file.
+   */
+  public Artifact pbxprojControlArtifact() {
+    return appendExtension(".xcodeproj-control");
   }
 }

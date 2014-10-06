@@ -144,11 +144,11 @@ public abstract class CcBinary implements RuleConfiguredTargetFactory {
 
   @Override
   public ConfiguredTarget create(RuleContext context) {
-    return CcBinary.init(semantics, context, /*fake =*/ false, /*useExecOrigin =*/ false);
+    return CcBinary.init(semantics, context, /*fake =*/ false, /*useTestOnlyFlags =*/ false);
   }
 
   public static ConfiguredTarget init(CppSemantics semantics, RuleContext ruleContext, boolean fake,
-      boolean useExecOrigin) {
+      boolean useTestOnlyFlags) {
     ruleContext.checkSrcsSamePackage(true);
     CcCommon common = new CcCommon(ruleContext, semantics, /*initExtraPrerequisites =*/ false);
     CppConfiguration cppConfiguration = ruleContext.getFragment(CppConfiguration.class);
@@ -200,7 +200,7 @@ public abstract class CcBinary implements RuleConfiguredTargetFactory {
     CppLinkAction.Builder linkActionBuilder = determineLinkerArguments(
         ruleContext, common, cppConfiguration, ccCompilationOutputs,
         cppCompilationContext.getCompilationPrerequisites(), fake, executableName);
-    linkActionBuilder.setUseExecOrigin(useExecOrigin);
+    linkActionBuilder.setUseTestOnlyFlags(useTestOnlyFlags);
     linkActionBuilder.addNonLibraryInputs(ccCompilationOutputs.getHeaderTokenFiles());
 
     CcToolchainProvider ccToolchain = CppHelper.getToolchain(ruleContext);

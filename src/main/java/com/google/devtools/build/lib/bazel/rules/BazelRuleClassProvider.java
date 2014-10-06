@@ -172,7 +172,6 @@ public class BazelRuleClassProvider {
     builder.addRuleDefinition(ObjcLibraryRule.class);
     builder.addRuleDefinition(ObjcOptionsRule.class);
     builder.addRuleDefinition(ObjcRuleClasses.ObjcBaseRule.class);
-    builder.addRuleDefinition(ObjcRuleClasses.ObjcUsesToolsRule.class);
 
     builder.addRuleDefinition(BazelExtraActionRule.class);
     builder.addRuleDefinition(BazelActionListenerRule.class);
