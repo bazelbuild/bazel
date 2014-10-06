@@ -67,7 +67,7 @@ linux)
   PROTOC=${PROTOC:-third_party/protobuf/protoc.amd64}
   ;;
 darwin)
-  homebrew_header=$(ls -1 /usr/local/Cellar/libarchive/*/include/archive.h 2>/dev/null | head -n1)
+  homebrew_header=$(ls -1 `brew --prefix 2>/dev/null`/Cellar/libarchive/*/include/archive.h 2>/dev/null | head -n1)
   if [[ -e $homebrew_header ]]; then
     # For use with Homebrew.
     archive_dir=$(dirname $(dirname $homebrew_header))
