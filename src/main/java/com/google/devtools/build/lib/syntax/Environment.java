@@ -41,6 +41,17 @@ public class Environment {
   @SkylarkBuiltin(name = "False", doc = "Literal for the boolean false.")
   private static final boolean FALSE = false;
 
+  @SkylarkBuiltin(name = "PACKAGE_NAME",
+      doc = "The name of the package the rule or build extension is called from. "
+          + "This variable is special, because its value comes from outside of the extension "
+          + "module (it comes from the BUILD file), so it can only be accessed in functions "
+          + "(transitively) called from BUILD files. For example:<br>"
+          + "<pre class=code>def extension():\n"
+          + "  return PACKAGE_NAME</pre>"
+          + "In this case calling <code>extension()</code> works from the BUILD file (if the "
+          + "function is loaded), but not as a top level function call in the extension module.")
+  public static final String PKG_NAME = "PACKAGE_NAME";
+
   /**
    * There should be only one instance of this type to allow "== None" tests.
    */

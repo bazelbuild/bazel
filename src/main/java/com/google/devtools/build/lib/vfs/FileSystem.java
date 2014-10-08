@@ -358,7 +358,7 @@ public abstract class FileSystem {
    * permission issues).
    */
   protected FileStatus stat(final Path path, final boolean followSymlinks) throws IOException {
-    FileStatus status =  new FileStatus() {
+    FileStatus status = new FileStatus() {
       volatile Boolean isFile;
       volatile Boolean isDirectory;
       volatile Boolean isSymbolicLink;

@@ -25,6 +25,7 @@ import java.io.InvalidObjectException;
 import java.io.ObjectInputStream;
 import java.io.Serializable;
 import java.util.Arrays;
+import java.util.Locale;
 import java.util.Set;
 
 /**
@@ -33,6 +34,11 @@ import java.util.Set;
  *
  * <p>This class is independent from other VFS classes, especially anything requiring native code.
  * It is safe to use in places that need simple segmented string path functionality.
+ *
+ * <p>There is some limited support for Windows-style paths. Most importantly, drive identifiers
+ * in front of a path (c:/abc) are supported and such paths are correctly recognized as absolute.
+ * However, Windows-style backslash separators (C:\\foo\\bar) are explicitly not supported, same
+ * with advanced features like \\\\network\\paths and \\\\?\\unc\\paths.
  */
 @Immutable @ThreadSafe
 public final class PathFragment implements Comparable<PathFragment>, Serializable {
@@ -70,17 +76,25 @@ public final class PathFragment implements Comparable<PathFragment>, Serializabl
       };
 
   private final String[] segments;
+  // True both for UNIX-style absolute paths ("/foo") and Windows-style ("C:/foo").
   private final boolean isAbsolute;
+  // Windows volume name (for example, "C:"), if any. Empty string otherwise. Always in uppercase.
+  private final String windowsVolume;
   // hashCode and path are lazily initialized but semantically immutable.
   private int hashCode;
   private String path;
 
   /**
-   * Construct a PathFragment from a string, which is an absolute or relative UNIX path.
+   * Construct a PathFragment from a string, which is an absolute or relative UNIX or Windows path.
    */
   public PathFragment(String path) {
+    this.windowsVolume = getWindowsVolumeName(path);
+    if (!windowsVolume.isEmpty()) {
+      path = path.substring(windowsVolume.length());
+      // TODO(bazel-team): Decide what to do about non-absolute paths with a volume name, e.g. C:x.
+    }
     this.isAbsolute = path.startsWith(ROOT_DIR);
-    this.segments = segment(path, this.isAbsolute ? ROOT_DIR.length() : 0);
+    this.segments = segment(path, isAbsolute ? ROOT_DIR.length() : 0);
   }
 
   /**
@@ -96,9 +110,10 @@ public final class PathFragment implements Comparable<PathFragment>, Serializabl
    * because it does not perform a defensive clone of the segments array. Used
    * here in PathFragment, and by Path.asFragment() and Path.relativeTo().
    */
-  PathFragment(boolean isAbsolute, String[] segments) {
-    this.segments = segments;
+  PathFragment(String windowsVolume, boolean isAbsolute, String[] segments) {
+    this.windowsVolume = windowsVolume;
     this.isAbsolute = isAbsolute;
+    this.segments = segments;
   }
 
   /**
@@ -114,7 +129,8 @@ public final class PathFragment implements Comparable<PathFragment>, Serializabl
     for (PathFragment fragment : more) {
       offset += addSegments(offset, fragment);
     }
-    this.isAbsolute = first.isAbsolute();
+    this.isAbsolute = first.isAbsolute;
+    this.windowsVolume = first.windowsVolume;
   }
 
   private int addSegments(int offset, PathFragment fragment) {
@@ -229,20 +245,23 @@ public final class PathFragment implements Comparable<PathFragment>, Serializabl
 
   private String joinSegments(char separatorChar) {
     if (segments.length == 0 && isAbsolute) {
-      return ROOT_DIR;
+      return windowsVolume + ROOT_DIR;
     }
 
     // Profile driven optimization:
     // Preallocate a size determined by the number of segments, so that
     // we do not have to expand the capacity of the StringBuilder.
     // Heuristically, this estimate is right for about 99% of the time.
-    int estimateSize = segments.length == 0 ? 0 : (segments.length + 1) * 20;
+    int estimateSize = windowsVolume.length()
+        + segments.length == 0 ? 0 : (segments.length + 1) * 20;
     StringBuilder result = new StringBuilder(estimateSize);
-
+    result.append(windowsVolume);
+    boolean initialSegment = true;
     for (String segment : segments) {
-      if (result.length() > 0 || isAbsolute) {
+      if (!initialSegment || isAbsolute) {
         result.append(separatorChar);
       }
+      initialSegment = false;
       result.append(segment);
     }
     return result.toString();
@@ -277,7 +296,7 @@ public final class PathFragment implements Comparable<PathFragment>, Serializabl
           // Remove the last segment, if there is one and it is not "..". This
           // means that the resulting PathFragment can still contain ".."
           // segments at the beginning.
-            segmentCount--;
+          segmentCount--;
         } else {
           scratchSegments[segmentCount++] = segment;
         }
@@ -291,7 +310,8 @@ public final class PathFragment implements Comparable<PathFragment>, Serializabl
       return this;
     }
 
-    return new PathFragment(isAbsolute, subarray(scratchSegments, 0, segmentCount));
+    return new PathFragment(windowsVolume, isAbsolute,
+        subarray(scratchSegments, 0, segmentCount));
   }
 
   /**
@@ -337,7 +357,7 @@ public final class PathFragment implements Comparable<PathFragment>, Serializabl
     String[] newSegments = new String[segments.length + 1];
     System.arraycopy(segments, 0, newSegments, 0, segments.length);
     newSegments[newSegments.length - 1] = baseName;
-    return new PathFragment(isAbsolute, newSegments);
+    return new PathFragment(windowsVolume, isAbsolute, newSegments);
   }
 
   /**
@@ -361,8 +381,8 @@ public final class PathFragment implements Comparable<PathFragment>, Serializabl
     String[] ancestorSegments = ancestorDirectory.segments();
     int ancestorLength = ancestorSegments.length;
 
-    if (isAbsolute != ancestorDirectory.isAbsolute() ||
-        segments.length < ancestorLength) {
+    if (isAbsolute != ancestorDirectory.isAbsolute()
+        || segments.length < ancestorLength) {
       throw new IllegalArgumentException("PathFragment " + this
           + " is not beneath " + ancestorDirectory);
     }
@@ -376,7 +396,7 @@ public final class PathFragment implements Comparable<PathFragment>, Serializabl
 
     int length = segments.length - ancestorLength;
     String[] resultSegments = subarray(segments, ancestorLength, length);
-    return new PathFragment(false, resultSegments);
+    return new PathFragment("", false, resultSegments);
   }
 
   /**
@@ -395,9 +415,7 @@ public final class PathFragment implements Comparable<PathFragment>, Serializabl
    * {@link #getRelative(String)}.
    */
   public PathFragment replaceName(String newName) {
-    return (segments.length == 0)
-        ? null
-        : getParentDirectory().getRelative(newName);
+    return segments.length == 0 ? null : getParentDirectory().getRelative(newName);
   }
 
   /**
@@ -407,7 +425,7 @@ public final class PathFragment implements Comparable<PathFragment>, Serializabl
    * <p>Note: This method DOES NOT normalize ".."  and "." path segments.
    */
   public PathFragment getParentDirectory() {
-    return (segments.length == 0) ? null : subFragment(0, segments.length - 1);
+    return segments.length == 0 ? null : subFragment(0, segments.length - 1);
   }
 
   /**
@@ -420,7 +438,8 @@ public final class PathFragment implements Comparable<PathFragment>, Serializabl
    */
   public boolean startsWith(PathFragment prefix) {
     if (this.isAbsolute != prefix.isAbsolute ||
-        this.segments.length < prefix.segments.length) {
+        this.segments.length < prefix.segments.length ||
+        !this.windowsVolume.equals(prefix.windowsVolume)) {
       return false;
     }
     for (int i = 0, len = prefix.segments.length; i < len; i++) {
@@ -482,8 +501,8 @@ public final class PathFragment implements Comparable<PathFragment>, Serializabl
     }
     boolean isAbsolute = (beginIndex == 0) && this.isAbsolute;
     return ((beginIndex == 0) && (endIndex == count)) ? this :
-        new PathFragment(isAbsolute,
-                         subarray(segments, beginIndex, endIndex - beginIndex));
+        new PathFragment(windowsVolume, isAbsolute,
+            subarray(segments, beginIndex, endIndex - beginIndex));
   }
 
   /**
@@ -499,6 +518,10 @@ public final class PathFragment implements Comparable<PathFragment>, Serializabl
    */
   String[] segments() {
     return segments;
+  }
+
+  public String windowsVolume() {
+    return windowsVolume;
   }
 
   /**
@@ -539,6 +562,17 @@ public final class PathFragment implements Comparable<PathFragment>, Serializabl
       }
     }
     return false;
+  }
+
+  /**
+   * Given a path, returns a Windows volume name ("X:"), or an empty string if no volume name
+   * was specified.
+   */
+  static String getWindowsVolumeName(String path) {
+    if (path.length() >= 2 && path.charAt(1) == ':' && Character.isLetter(path.charAt(0))) {
+      return StringCanonicalizer.intern(path.substring(0, 2).toUpperCase(Locale.US));
+    }
+    return "";
   }
 
   @Override

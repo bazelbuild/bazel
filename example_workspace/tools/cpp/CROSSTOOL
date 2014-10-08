@@ -45,21 +45,12 @@ toolchain {
   cxx_builtin_include_directory: "/usr/include"
   tool_path { name: "gcov" path: "/usr/bin/gcov" }
   tool_path { name: "ld" path: "/usr/bin/ld" }
-  linking_mode_flags {
-    mode: FULLY_STATIC
-  }
   tool_path { name: "nm" path: "/usr/bin/nm" }
   tool_path { name: "objcopy" path: "/usr/bin/objcopy" }
   objcopy_embed_flag: "-I"
   objcopy_embed_flag: "binary"
   tool_path { name: "objdump" path: "/usr/bin/objdump" }
   tool_path { name: "strip" path: "/usr/bin/strip" }
-  linking_mode_flags {
-    mode: MOSTLY_STATIC
-  }
-  linking_mode_flags {
-    mode: DYNAMIC
-  }
 }
 
 toolchain {
@@ -89,21 +80,12 @@ toolchain {
   cxx_builtin_include_directory: "/opt/local/include"
   tool_path { name: "gcov" path: "/usr/bin/gcov" }
   tool_path { name: "ld" path: "/usr/bin/ld" }
-  linking_mode_flags {
-    mode: FULLY_STATIC
-  }
   tool_path { name: "nm" path: "/usr/bin/nm" }
   tool_path { name: "objcopy" path: "/usr/bin/objcopy" }
   objcopy_embed_flag: "-I"
   objcopy_embed_flag: "binary"
   tool_path { name: "objdump" path: "/usr/bin/objdump" }
   tool_path { name: "strip" path: "/usr/bin/strip" }
-  linking_mode_flags {
-    mode: MOSTLY_STATIC
-  }
-  linking_mode_flags {
-    mode: DYNAMIC
-  }
 }
 
 toolchain {
@@ -124,18 +106,6 @@ toolchain {
   tool_path { name: "dwp" path: "c:/mingw/bin/dwp" }
   tool_path { name: "gcc" path: "c:/mingw/bin/gcc" }
   cxx_flag: "-std=c++0x"
-  compilation_mode_flags {
-    mode: FASTBUILD
-  }
-  compilation_mode_flags {
-    mode: DBG
-  }
-  compilation_mode_flags {
-    mode: COVERAGE
-  }
-  compilation_mode_flags {
-    mode: OPT
-  }
   # TODO(bazel-team): In theory, the path here ought to exactly match the path
   # used by gcc. That works because bazel currently doesn't track files at
   # absolute locations and has no remote execution, yet. However, this will need
@@ -145,21 +115,12 @@ toolchain {
   cxx_builtin_include_directory: "/usr/include"
   tool_path { name: "gcov" path: "c:/mingw/bin/gcov" }
   tool_path { name: "ld" path: "c:/mingw/bin/ld" }
-  linking_mode_flags {
-    mode: FULLY_STATIC
-  }
   tool_path { name: "nm" path: "c:/mingw/bin/nm" }
   tool_path { name: "objcopy" path: "c:/mingw/bin/objcopy" }
   objcopy_embed_flag: "-I"
   objcopy_embed_flag: "binary"
   tool_path { name: "objdump" path: "c:/mingw/bin/objdump" }
   tool_path { name: "strip" path: "c:/mingw/bin/strip" }
-  linking_mode_flags {
-    mode: MOSTLY_STATIC
-  }
-  linking_mode_flags {
-    mode: DYNAMIC
-  }
 }
 
 toolchain {
@@ -180,18 +141,6 @@ toolchain {
   tool_path { name: "dwp" path: "c:/msys64/mingw64/bin/dwp" }
   tool_path { name: "gcc" path: "c:/msys64/mingw64/bin/gcc" }
   cxx_flag: "-std=c++0x"
-  compilation_mode_flags {
-    mode: FASTBUILD
-  }
-  compilation_mode_flags {
-    mode: DBG
-  }
-  compilation_mode_flags {
-    mode: COVERAGE
-  }
-  compilation_mode_flags {
-    mode: OPT
-  }
   # TODO(bazel-team): In theory, the path here ought to exactly match the path
   # used by gcc. That works because bazel currently doesn't track files at
   # absolute locations and has no remote execution, yet. However, this will need
@@ -201,21 +150,12 @@ toolchain {
   cxx_builtin_include_directory: "/usr/include"
   tool_path { name: "gcov" path: "c:/msys64/mingw64/bin/gcov" }
   tool_path { name: "ld" path: "c:/msys64/mingw64/bin/ld" }
-  linking_mode_flags {
-    mode: FULLY_STATIC
-  }
   tool_path { name: "nm" path: "c:/msys64/mingw64/bin/nm" }
   tool_path { name: "objcopy" path: "c:/msys64/mingw64/bin/objcopy" }
   objcopy_embed_flag: "-I"
   objcopy_embed_flag: "binary"
   tool_path { name: "objdump" path: "c:/msys64/mingw64/bin/objdump" }
   tool_path { name: "strip" path: "c:/msys64/mingw64/bin/strip" }
-  linking_mode_flags {
-    mode: MOSTLY_STATIC
-  }
-  linking_mode_flags {
-    mode: DYNAMIC
-  }
 }
 
 toolchain {
@@ -236,18 +176,6 @@ toolchain {
   tool_path { name: "dwp" path: "c:/Program Files (x86)/LLVM/bin/dwp" }
   tool_path { name: "gcc" path: "c:/Program Files (x86)/LLVM/bin/clang" }
   cxx_flag: "-std=c++0x"
-  compilation_mode_flags {
-    mode: FASTBUILD
-  }
-  compilation_mode_flags {
-    mode: DBG
-  }
-  compilation_mode_flags {
-    mode: COVERAGE
-  }
-  compilation_mode_flags {
-    mode: OPT
-  }
   # TODO(bazel-team): In theory, the path here ought to exactly match the path
   # used by gcc. That works because bazel currently doesn't track files at
   # absolute locations and has no remote execution, yet. However, this will need
@@ -257,19 +185,10 @@ toolchain {
   cxx_builtin_include_directory: "/usr/include"
   tool_path { name: "gcov" path: "c:/Program Files (x86)/LLVM/bin/gcov" }
   tool_path { name: "ld" path: "c:/Program Files (x86)/LLVM/bin/ld" }
-  linking_mode_flags {
-    mode: FULLY_STATIC
-  }
   tool_path { name: "nm" path: "c:/Program Files (x86)/LLVM/bin/nm" }
   tool_path { name: "objcopy" path: "c:/Program Files (x86)/LLVM/bin/objcopy" }
   objcopy_embed_flag: "-I"
   objcopy_embed_flag: "binary"
   tool_path { name: "objdump" path: "c:/Program Files (x86)/LLVM/bin/objdump" }
   tool_path { name: "strip" path: "c:/Program Files (x86)/LLVM/bin/strip" }
-  linking_mode_flags {
-    mode: MOSTLY_STATIC
-  }
-  linking_mode_flags {
-    mode: DYNAMIC
-  }
 }

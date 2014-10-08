@@ -30,16 +30,22 @@ import java.io.OutputStream;
 import java.io.Serializable;
 import java.lang.ref.Reference;
 import java.lang.ref.WeakReference;
+import java.util.Arrays;
 import java.util.Collection;
 import java.util.IdentityHashMap;
 import java.util.Objects;
 
 /**
- * <p>Instances of this class represent UNIX pathnames, forming a tree
+ * <p>Instances of this class represent pathnames, forming a tree
  * structure to implement sharing of common prefixes (parent directory names).
  * A node in these trees is something like foo, bar, .., ., or /. If the
  * instance is not a root path, it will have a parent path. A path can also
  * have children, which are indexed by name in a map.
+ *
+ * <p>There is some limited support for Windows-style paths. Most importantly, drive identifiers
+ * in front of a path (c:/abc) are supported. However, Windows-style backslash separators
+ * (C:\\foo\\bar) and drive-relative paths ("C:foo") are explicitly not supported, same with
+ * advanced features like \\\\network\\paths and \\\\?\\unc\\paths.
  *
  * <p>{@link FileSystem} implementations maintain pointers into this graph.
  */
@@ -231,12 +237,26 @@ public class Path implements Comparable<Path>, Serializable {
     if (isRootDirectory()) {
       result.append('/');
     } else {
-      parent.buildPathString(result);
+      if (parent.isWindowsVolumeName()) {
+        result.append(parent.name);
+      } else {
+        parent.buildPathString(result);
+      }
       if (!parent.isRootDirectory()) {
         result.append('/');
       }
       result.append(name);
     }
+  }
+
+  /**
+   * Returns true if the current path represents a Windows volume name (such as "c:" or "d:").
+   *
+   * <p>Paths such as '\\\\vol\\foo' are not supported.
+   */
+  private boolean isWindowsVolumeName() {
+    return parent != null && parent.isRootDirectory() && name.length() == 2
+        && !PathFragment.getWindowsVolumeName(name).isEmpty();
   }
 
   /**
@@ -490,7 +510,7 @@ public class Path implements Comparable<Path>, Serializable {
       return this; // that's a noop
     } else if (segment.equals("..")) {
       // root's parent is root, when canonicalising:
-      return parent == null ? this : parent;
+      return parent == null || isWindowsVolumeName() ? this : parent;
     } else {
       return getCachedChildPath(segment);
     }
@@ -523,6 +543,9 @@ public class Path implements Comparable<Path>, Serializable {
    */
   public Path getRelative(PathFragment suffix) {
     Path result = suffix.isAbsolute() ? fileSystem.getRootDirectory() : this;
+    if (!suffix.windowsVolume().isEmpty()) {
+      result = result.getCanonicalPath(suffix.windowsVolume());
+    }
     for (String segment : suffix.segments()) {
       result = result.getCanonicalPath(segment);
     }
@@ -546,7 +569,7 @@ public class Path implements Comparable<Path>, Serializable {
       return this;
     } else if (path.equals("..")) {
       return parent == null ? this : parent;
-    } else if ((path.indexOf('/') != -1) || (path.indexOf('\\') != -1)) {
+    } else if ((path.indexOf('/') != -1)) {
       return getRelative(new PathFragment(path));
     } else {
       return getCachedChildPath(path);
@@ -563,7 +586,17 @@ public class Path implements Comparable<Path>, Serializable {
       resultSegments[pos] = currentPath.getBaseName();
       currentPath = currentPath.getParentDirectory();
     }
-    return new PathFragment(true, resultSegments);
+
+    String volumeName = "";
+    if (resultSegments.length > 0) {
+      volumeName = PathFragment.getWindowsVolumeName(resultSegments[0]);
+      if (!volumeName.isEmpty()) {
+        // Strip off the first segment that contains the volume name.
+        resultSegments = Arrays.copyOfRange(resultSegments, 1, resultSegments.length);
+      }
+    }
+
+    return new PathFragment(volumeName, true, resultSegments);
   }
 
 
@@ -595,7 +628,7 @@ public class Path implements Comparable<Path>, Serializable {
         currentPath = currentPath.getParentDirectory();
       }
       if (ancestorPath.equals(currentPath)) {
-        return new PathFragment(false, resultSegments);
+        return new PathFragment("", false, resultSegments);
       }
     }
 

@@ -16,7 +16,6 @@ package com.google.devtools.build.lib.view.actions;
 import com.google.devtools.build.lib.actions.ExecException;
 import com.google.devtools.build.lib.actions.Executor;
 import com.google.devtools.build.lib.actions.Executor.ActionContext;
-import com.google.devtools.build.lib.actions.ResourceSet;
 import com.google.devtools.build.lib.util.io.FileOutErr;
 
 /**
@@ -30,10 +29,4 @@ public interface FileWriteActionContext extends ActionContext {
    */
   void exec(Executor executor, AbstractFileWriteAction action, FileOutErr outErr)
       throws ExecException, InterruptedException;
-
-  /**
-   * Estimates the resources needed for this action.
-   */
-  // TODO(bazel-team): Remove this!
-  ResourceSet estimateResourceConsumption(AbstractFileWriteAction action);
 }

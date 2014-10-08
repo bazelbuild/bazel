@@ -264,7 +264,7 @@ public class SourceManifestAction extends AbstractFileWriteAction {
 
       @Override
       public String getRawProgressMessage() {
-        return "Creating source symlink tree";
+        return "Creating source manifest";
       }
     },
 
@@ -284,7 +284,6 @@ public class SourceManifestAction extends AbstractFileWriteAction {
         manifestWriter.append(rootRelativePath.getPathString());
         manifestWriter.append('\n');
         manifestWriter.flush();
-
       }
 
       @Override

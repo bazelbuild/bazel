@@ -972,6 +972,7 @@ public final class PackageFactory {
 
     pkgEnv.setImportedExtensions(imports);
     pkgEnv.updateAndPropagate(PKG_CONTEXT, context);
+    pkgEnv.updateAndPropagate(Environment.PKG_NAME, packageName);
 
     if (!validateAssignmentStatements(pkgEnv, buildFileAST, eventHandler)) {
       pkgBuilder.setContainsErrors();

@@ -21,6 +21,7 @@ import com.google.devtools.build.lib.actions.Artifact;
 import com.google.devtools.build.lib.actions.EnvironmentalExecException;
 import com.google.devtools.build.lib.actions.ExecException;
 import com.google.devtools.build.lib.actions.Executor;
+import com.google.devtools.build.lib.actions.ResourceSet;
 import com.google.devtools.build.lib.actions.UserExecException;
 import com.google.devtools.build.lib.collect.nestedset.NestedSet;
 import com.google.devtools.build.lib.events.EventHandler;
@@ -149,4 +150,14 @@ public class FilesetManifestAction extends AbstractFileWriteAction {
   public boolean isVolatile() {
     return traversal.isVolatile();
   }
+  
+  // Can consume a lot of CPU, but several concurrent FilesetManifestAction instances will play
+  // nicely together, as they consume a shared thread pool.
+  private static final ResourceSet FILESET_MANIFEST_ACTION_RESOURCE_SET =
+      new ResourceSet(/*memoryMb=*/100, /*cpuUsage=*/.2, /*ioUsage=*/0.1);
+
+  @Override
+  public ResourceSet estimateResourceConsumption(Executor executor) {
+    return FILESET_MANIFEST_ACTION_RESOURCE_SET;
+  }  
 }
