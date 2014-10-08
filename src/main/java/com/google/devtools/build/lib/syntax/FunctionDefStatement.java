@@ -13,7 +13,9 @@
 // limitations under the License.
 package com.google.devtools.build.lib.syntax;
 
+import com.google.common.base.Preconditions;
 import com.google.common.collect.ImmutableList;
+import com.google.common.collect.ImmutableMap;
 import com.google.devtools.build.lib.syntax.SkylarkType.SkylarkFunctionType;
 
 import java.util.Collection;
@@ -24,25 +26,34 @@ import java.util.Collection;
 public class FunctionDefStatement extends Statement {
 
   private final Ident ident;
-  private final ImmutableList<Ident> arg;
+  private final ImmutableList<Argument> args;
   private final ImmutableList<Statement> statements;
 
-  public FunctionDefStatement(Ident ident, Collection<Ident> arg,
+  public FunctionDefStatement(Ident ident, Collection<Argument> args,
       Collection<Statement> statements) {
+    for (Argument arg : args) {
+      Preconditions.checkArgument(arg.isNamed());
+    }
     this.ident = ident;
-    this.arg = ImmutableList.copyOf(arg);
+    this.args = ImmutableList.copyOf(args);
     this.statements = ImmutableList.copyOf(statements);
   }
 
   @Override
   void exec(Environment env) throws EvalException, InterruptedException {
+    ImmutableMap.Builder<String, Object> defaultValues = ImmutableMap.builder();
+    for (Argument arg : args) {
+      if (arg.hasValue()) {
+        defaultValues.put(arg.getArgName(), arg.getValue().eval(env));
+      }
+    }
     env.update(ident.getName(), new UserDefinedFunction(
-        ident, arg, statements, (SkylarkEnvironment) env));
+        ident, args, defaultValues.build(), statements, (SkylarkEnvironment) env));
   }
 
   @Override
   public String toString() {
-    return "def " + ident + "(" + arg + "):\n";
+    return "def " + ident + "(" + args + "):\n";
   }
 
   public Ident getIdent() {
@@ -53,8 +64,8 @@ public class FunctionDefStatement extends Statement {
     return statements;
   }
 
-  public ImmutableList<Ident> getArg() {
-    return arg;
+  public ImmutableList<Argument> getArgs() {
+    return args;
   }
 
   @Override
@@ -66,8 +77,8 @@ public class FunctionDefStatement extends Statement {
   void validate(ValidationEnvironment env) throws EvalException {
     SkylarkFunctionType type = SkylarkFunctionType.of(ident.getName());
     ValidationEnvironment localEnv = new ValidationEnvironment(env, type);
-    for (Ident i : arg) {
-      localEnv.update(i.getName(), SkylarkType.UNKNOWN, getLocation());
+    for (Argument i : args) {
+      localEnv.update(i.getArgName(), SkylarkType.UNKNOWN, getLocation());
     }
     for (Statement stmts : statements) {
       stmts.validate(localEnv);

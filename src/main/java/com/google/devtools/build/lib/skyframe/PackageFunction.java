@@ -30,21 +30,15 @@ import com.google.devtools.build.lib.events.StoredEventHandler;
 import com.google.devtools.build.lib.packages.BuildFileContainsErrorsException;
 import com.google.devtools.build.lib.packages.BuildFileNotFoundException;
 import com.google.devtools.build.lib.packages.CachingPackageLocator;
-import com.google.devtools.build.lib.packages.ExternalPackage;
-import com.google.devtools.build.lib.packages.ExternalPackage.ExternalPackageBuilder;
 import com.google.devtools.build.lib.packages.InvalidPackageNameException;
 import com.google.devtools.build.lib.packages.NoSuchPackageException;
 import com.google.devtools.build.lib.packages.Package;
-import com.google.devtools.build.lib.packages.Package.NameConflictException;
 import com.google.devtools.build.lib.packages.PackageFactory;
 import com.google.devtools.build.lib.packages.PackageLoadedEvent;
-import com.google.devtools.build.lib.packages.RuleClass;
-import com.google.devtools.build.lib.packages.RuleFactory.InvalidRuleException;
 import com.google.devtools.build.lib.packages.RuleVisibility;
 import com.google.devtools.build.lib.packages.Target;
 import com.google.devtools.build.lib.skyframe.GlobValue.InvalidGlobPatternException;
 import com.google.devtools.build.lib.skyframe.SkylarkImportLookupFunction.SkylarkImportNotFoundException;
-import com.google.devtools.build.lib.skyframe.WorkspaceFileValue.NoSuchBindingException;
 import com.google.devtools.build.lib.syntax.BuildFileAST;
 import com.google.devtools.build.lib.syntax.Label;
 import com.google.devtools.build.lib.syntax.Label.SyntaxException;
@@ -308,7 +302,7 @@ public class PackageFunction implements SkyFunction {
     WorkspaceFileValue workspace = null;
     try {
       workspace = (WorkspaceFileValue) env.getValueOrThrow(workspaceKey, Exception.class);
-    } catch (IOException | SyntaxException | NoSuchBindingException e) {
+    } catch (IOException | SyntaxException e) {
       throw new PackageFunctionException(key, new BadWorkspaceFileException(e.getMessage()));
     } catch (Exception e) {
       throw new IllegalStateException("Unexpected Exception type from WorkspaceFileValue.", e);
@@ -317,16 +311,13 @@ public class PackageFunction implements SkyFunction {
       return null;
     }
 
-    ExternalPackageBuilder builder = new ExternalPackageBuilder(workspacePath);
-    RuleClass klass = packageFactory.getRuleClass("bind");
-    for (Entry<Label, ExternalPackage.Binding> binding : workspace.getBindings().entrySet()) {
-      try {
-        builder.addRule(klass, binding);
-      } catch (InvalidRuleException | NameConflictException e) {
-        throw new PackageFunctionException(key, new BadWorkspaceFileException(e.getMessage()));
-      }
+    Package pkg = workspace.getPackage();
+    if (pkg.containsErrors()) {
+      throw new PackageFunctionException(key, new BuildFileContainsErrorsException("external",
+          "Package 'external' contains errors"));
     }
-    return new PackageValue(builder.build());
+
+    return new PackageValue(pkg);
   }
 
   @Override

@@ -128,7 +128,8 @@ public class ValidationEnvironment {
       return;
     }
     if (!Iterable.class.isAssignableFrom(type.getType())
-        && !Map.class.isAssignableFrom(type.getType())) {
+        && !Map.class.isAssignableFrom(type.getType())
+        && !String.class.equals(type.getType())) {
       throw new EvalException(loc,
           "type '" + EvalUtils.getDataTypeNameFromClass(type.getType()) + "' is not iterable");
     }

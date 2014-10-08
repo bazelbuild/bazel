@@ -16,7 +16,8 @@ package com.google.devtools.build.lib.syntax;
 /**
  * Syntax node for a function argument. This can be a key/value pair such as
  * appears as a keyword argument to a function call or just an expression that
- * is used as a positional argument.
+ * is used as a positional argument. It also can be used for function definitions
+ * to identify the name (and optionally the default value) of the argument.
  */
 public final class Argument extends ASTNode {
 
@@ -29,8 +30,20 @@ public final class Argument extends ASTNode {
     this.value = value;
   }
 
+  /**
+   * Creates an Argument with null as name. It can be used as positional arguments
+   * of function calls.
+   */
   public Argument(Expression value) {
     this(null, value);
+  }
+
+  /**
+   * Creates an Argument with null as value. It can be used as a mandatory keyword argument
+   * of a function definition.
+   */
+  public Argument(Ident name) {
+    this(name, null);
   }
 
   /**
@@ -39,6 +52,13 @@ public final class Argument extends ASTNode {
    */
   public Ident getName() {
     return name;
+  }
+
+  /**
+   * Returns the String value of the Ident of this argument. Shortcut for arg.getName().getName().
+   */
+  public String getArgName() {
+    return name.getName();
   }
 
   /**
@@ -60,6 +80,13 @@ public final class Argument extends ASTNode {
    */
   public boolean isNamed() {
     return name != null;
+  }
+
+  /**
+   * Returns true if this argument has value.
+   */
+  public boolean hasValue() {
+    return value != null;
   }
 
   @Override

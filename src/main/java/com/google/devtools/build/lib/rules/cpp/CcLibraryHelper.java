@@ -42,6 +42,7 @@ import com.google.devtools.build.lib.view.RunfilesProvider;
 import com.google.devtools.build.lib.view.TempsProvider;
 import com.google.devtools.build.lib.view.TransitiveInfoCollection;
 import com.google.devtools.build.lib.view.TransitiveInfoProvider;
+import com.google.devtools.build.lib.view.config.BuildConfiguration;
 
 import java.util.ArrayList;
 import java.util.Arrays;
@@ -140,6 +141,7 @@ public final class CcLibraryHelper {
   }
 
   private final RuleContext ruleContext;
+  private final BuildConfiguration configuration;
   private final CppSemantics semantics;
 
   private final List<Artifact> publicHeaders = new ArrayList<>();
@@ -153,7 +155,7 @@ public final class CcLibraryHelper {
   private final Set<String> defines = new LinkedHashSet<>();
   private final List<TransitiveInfoCollection> deps = new ArrayList<>();
   private final List<CcPluginInfoProvider> plugins = new ArrayList<>();
-  private final List<TransitiveInfoCollection> linkstamps = new ArrayList<>();
+  private final List<Artifact> linkstamps = new ArrayList<>();
   private final List<Artifact> prerequisites = new ArrayList<>();
   private final List<PathFragment> looseIncludeDirs = new ArrayList<>();
   private final List<PathFragment> systemIncludeDirs = new ArrayList<>();
@@ -180,6 +182,7 @@ public final class CcLibraryHelper {
 
   public CcLibraryHelper(RuleContext ruleContext, CppSemantics semantics) {
     this.ruleContext = Preconditions.checkNotNull(ruleContext);
+    this.configuration = ruleContext.getConfiguration();
     this.semantics = Preconditions.checkNotNull(semantics);
   }
 
@@ -341,7 +344,11 @@ public final class CcLibraryHelper {
    * rules (like from a "deps" attribute) and also implicit dependencies on runtime libraries.
    */
   public CcLibraryHelper addDeps(Iterable<? extends TransitiveInfoCollection> deps) {
-    Iterables.addAll(this.deps, deps);
+    for (TransitiveInfoCollection dep : deps) {
+      Preconditions.checkArgument(dep.getConfiguration() == null
+          || dep.getConfiguration().equals(configuration));
+      this.deps.add(dep);
+    }
     return this;
   }
 
@@ -358,7 +365,10 @@ public final class CcLibraryHelper {
    * but only in the dependent binary rules.
    */
   public CcLibraryHelper addLinkstamps(Iterable<? extends TransitiveInfoCollection> linkstamps) {
-    Iterables.addAll(this.linkstamps, linkstamps);
+    for (TransitiveInfoCollection linkstamp : linkstamps) {
+      Iterables.addAll(this.linkstamps,
+          linkstamp.getProvider(FileProvider.class).getFilesToBuild());
+    }
     return this;
   }
 
@@ -788,10 +798,7 @@ public final class CcLibraryHelper {
       @Override
       protected void collect(CcLinkParams.Builder builder, boolean linkingStatically,
           boolean linkShared) {
-        for (TransitiveInfoCollection linkstamp : linkstamps) {
-          builder.addLinkstamps(
-              linkstamp.getProvider(FileProvider.class).getFilesToBuild(), cppCompilationContext);
-        }
+        builder.addLinkstamps(linkstamps, cppCompilationContext);
         builder.addTransitiveTargets(deps,
             CcLinkParamsProvider.TO_LINK_PARAMS, CcSpecificLinkParamsProvider.TO_LINK_PARAMS);
         if (!neverlink) {

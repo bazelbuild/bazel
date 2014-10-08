@@ -27,6 +27,7 @@ import com.google.devtools.build.lib.syntax.AbstractFunction;
 import com.google.devtools.build.lib.syntax.AbstractFunction.NoArgFunction;
 import com.google.devtools.build.lib.syntax.ClassObject;
 import com.google.devtools.build.lib.syntax.ClassObject.SkylarkClassObject;
+import com.google.devtools.build.lib.syntax.DotExpression;
 import com.google.devtools.build.lib.syntax.Environment;
 import com.google.devtools.build.lib.syntax.EvalException;
 import com.google.devtools.build.lib.syntax.EvalUtils;
@@ -266,6 +267,45 @@ public class MethodLibrary {
           int subpos = getPythonSubstring(thiz, start, end).indexOf(sub);
           start = getPythonStringIndex(start, thiz.length());
           return subpos < 0 ? subpos : subpos + start;
+        }
+      };
+
+  @SkylarkBuiltin(name = "count", objectType = StringModule.class, returnType = Integer.class,
+      doc = "Returns the number of (non-overlapping) occurrences of substring <code>sub</code> in "
+          + "string, optionally restricting to [<code>start</code>:<code>end</code>], "
+          + "<code>start</code> being inclusive and <code>end</code> being exclusive.",
+      mandatoryParams = { 
+      @Param(name = "sub", type = String.class, doc = "The substring to count.")},
+      optionalParams = {
+      @Param(name = "start", type = Integer.class, doc = "Restrict to search from this position."),
+      @Param(name = "end", type = Integer.class, doc = "Restrict to search before this position.")})
+  private static Function count =
+      new MixedModeFunction("count", ImmutableList.of("this", "sub", "start", "end"), 2, false) {
+        @Override
+        public Object call(Object[] namedArguments, List<Object> positionalArguments,
+            Map<String, Object> keywordArguments, FuncallExpression ast)
+            throws ConversionException {
+          String thiz = Type.STRING.convert(namedArguments[0], "'count' operand");
+          String sub = Type.STRING.convert(namedArguments[1], "'count' argument");
+          int start = 0;
+          if (namedArguments[2] != null) {
+            start = Type.INTEGER.convert(namedArguments[2], "'count' argument");
+          }
+          int end = thiz.length();
+          if (namedArguments[3] != null) {
+            end = Type.INTEGER.convert(namedArguments[3], "'count' argument");
+          }
+          String str = getPythonSubstring(thiz, start, end);
+          if (sub.equals("")) {
+            return str.length() + 1; 
+          }
+          int count = 0;
+          int index = -1;
+          while ((index = str.indexOf(sub)) >= 0) {
+            count++;
+            str = str.substring(index + sub.length());
+          }
+          return count;
         }
       };
 
@@ -666,8 +706,8 @@ public class MethodLibrary {
    */
   @SkylarkBuiltin(name = "hasattr",
       doc = "Returns True if the struct has a field of the given name, otherwise False. "
-      + "Example:<br>"
-      + "<pre class=code>hasattr(ctx.attr, \"myattr\")</pre>")
+          + "Example:<br>"
+          + "<pre class=code>hasattr(ctx.attr, \"myattr\")</pre>")
   private static final Function hasattr = new SimplePositionalFunction("hasattr", 2, 2) {
     @Override
     public Object call(List<Object> args, FuncallExpression ast) throws EvalException,
@@ -686,6 +726,43 @@ public class MethodLibrary {
           throw new EvalException(ast.getLocation(), e.getMessage());
         }
       }
+    }
+  };
+
+  /**
+   * Returns true if the struct has a field of the given name, otherwise false.
+   */
+  @SkylarkBuiltin(name = "getattr",
+      doc = "Returns the struct's field of the given name if exists, otherwise <code>default</code>"
+          + " if specified, otherwise rasies an error. For example, <code>getattr(x, \"foobar\")"
+          + "</code> is equivalent to <code>x.foobar</code>."
+          + "Example:<br>"
+          + "<pre class=code>getattr(ctx.attr, \"myattr\")\n"
+          + "getattr(ctx.attr, \"myattr\", \"mydefault\")</pre>",
+     mandatoryParams = {
+     @Param(name = "object", doc = "The struct which's field is accessed."), 
+     @Param(name = "name", doc = "The name of the struct field.")},
+     optionalParams = {
+     @Param(name = "default", doc = "The default value to return in case the struct "
+                                  + "doesn't have a field of the given name.")})
+  private static final Function getattr = new MixedModeFunction(
+      "getattr", ImmutableList.of("object", "name", "default"), 2, false) {
+    @Override
+    public Object call(Object[] namedArguments, List<Object> positionalArguments,
+        Map<String, Object> keywordArguments, FuncallExpression ast, Environment env)
+        throws EvalException {
+      Object obj = namedArguments[0];
+      String name = cast(namedArguments[1], String.class, "name", ast.getLocation());
+      Object result = DotExpression.eval(obj, name, ast.getLocation());
+      if (result == null) {
+        if (namedArguments[2] != null) {
+          return namedArguments[2];
+        } else {
+          throw new EvalException(ast.getLocation(), "Object of type '"
+              + EvalUtils.getDatatypeName(obj) + "' has no field '" + name + "'");
+        }
+      }
+      return result;
     }
   };
 
@@ -731,7 +808,12 @@ public class MethodLibrary {
       + "Example of string literals:<br>"
       + "<pre class=code>a = 'abc\\ndef'\n"
       + "b = \"ab'cd\"\n"
-      + "c = \"\"\"multiline string\"\"\"</pre>")
+      + "c = \"\"\"multiline string\"\"\"</pre>"
+      + "Strings are iterable and support the <code>in</code> operator. Examples:<br>"
+      + "<pre class=code>\"a\" in \"abc\"   # evaluates as True\n"
+      + "l = []\n"
+      + "for s in \"abc\":\n"
+      + "  l += [s]     # l == [\"a\", \"b\", \"c\"]</pre>")
   public static final class StringModule {}
 
   /**
@@ -740,7 +822,21 @@ public class MethodLibrary {
   @SkylarkModule(name = "dict", doc =
       "A language built-in type to support dicts. "
       + "Example of dict literal:<br>"
-      + "<pre class=code>d = {\"a\": 2, \"b\": 5}</pre>")
+      + "<pre class=code>d = {\"a\": 2, \"b\": 5}</pre>"
+      + "Accessing elements works just like in Python:<br>"
+      + "<pre class=code>e = d[\"a\"]   # e == 2</pre>"
+      + "Dicts support the <code>+</code> operator to concatenate two dicts. In case of multiple "
+      + "keys the second one overrides the first one. Examples:<br>"
+      + "<pre class=code>"
+      + "d = {\"a\" : 1} + {\"b\" : 2}   # d == {\"a\" : 1, \"b\" : 2}\n"
+      + "d += {\"c\" : 3}              # d == {\"a\" : 1, \"b\" : 2, \"c\" : 3}\n"
+      + "d = d + {\"c\" : 5}           # d == {\"a\" : 1, \"b\" : 2, \"c\" : 5}</pre>"
+      + "Since the language doesn't have mutable objects <code>d[\"a\"] = 5</code> automatically "
+      + "translates to <code>d = d + {\"a\" : 5}</code>.<br>"
+      + "Dicts are iterable, the iteration works on their keyset.<br>"
+      + "Dicts support the <code>in</code> operator, testing membership in the keyset of the dict. "
+      + "Example:<br>"
+      + "<pre class=code>\"a\" in {\"a\" : 2, \"b\" : 5}   # evaluates as True</pre>")
   public static final class DictModule {}
 
   public static final Map<Function, SkylarkType> stringFunctions = ImmutableMap
@@ -756,6 +852,7 @@ public class MethodLibrary {
       .put(startswith, SkylarkType.BOOL)
       .put(strip, SkylarkType.STRING)
       .put(substring, SkylarkType.STRING)
+      .put(count, SkylarkType.INT)
       .build();
 
   public static final List<Function> listFunctions = ImmutableList
@@ -789,6 +886,7 @@ public class MethodLibrary {
       .put(list, SkylarkType.of(SkylarkList.class))
       .put(struct, SkylarkType.of(ClassObject.class))
       .put(hasattr, SkylarkType.BOOL)
+      .put(getattr, SkylarkType.UNKNOWN)
       .put(set, SkylarkType.of(SkylarkNestedSet.class))
       .put(dir, SkylarkType.of(SkylarkList.class, String.class))
       .put(range, SkylarkType.of(SkylarkList.class, Integer.class))

@@ -14,87 +14,39 @@
 
 package com.google.devtools.build.lib.skyframe;
 
-import com.google.common.base.Preconditions;
-import com.google.devtools.build.lib.packages.ExternalPackage.Binding;
-import com.google.devtools.build.lib.packages.NoSuchThingException;
-import com.google.devtools.build.lib.syntax.Label;
+import com.google.devtools.build.lib.packages.ExternalPackage;
 import com.google.devtools.build.lib.vfs.Path;
 import com.google.devtools.build.skyframe.SkyKey;
 import com.google.devtools.build.skyframe.SkyValue;
 
-import java.util.Map;
-import java.util.Map.Entry;
+import javax.annotation.Nullable;
 
 /**
- * The contents of a WORKSPACE file, as label-to-label mappings.
+ * Holds the contents of a WORKSPACE file as the //external package.
  */
 public class WorkspaceFileValue implements SkyValue {
 
-  private String workspaceName;
-  private Map<Label, Binding> bindMap;
+  private final String workspace;
+  private final ExternalPackage pkg;
 
-  WorkspaceFileValue(String workspaceName, Map<Label, Binding> labelMap)
-      throws NoSuchBindingException {
-    Preconditions.checkNotNull(labelMap);
-    this.workspaceName = workspaceName;
-    this.bindMap = labelMap;
-    resolveLabels();
-  }
-
-  private void resolveLabels() throws NoSuchBindingException {
-    for (Entry<Label, Binding> entry : bindMap.entrySet()) {
-      resolveLabel(entry.getKey(), entry.getValue());
-    }
-  }
-
-  // Uses tortoise and the hare algorithm to detect cycles.
-  private void resolveLabel(final Label virtual, Binding binding)
-      throws NoSuchBindingException {
-    Label actual = binding.getActual();
-    Label tortoise = virtual;
-    Label hare = actual;
-    boolean moveTortoise = true;
-    while (LabelBindingValue.isBoundLabel(actual)) {
-      if (tortoise == hare) {
-        throw new NoSuchBindingException("cycle detected resolving " + virtual + " binding");
-      }
-
-      Label previous = actual; // For the exception.
-      binding = bindMap.get(actual);
-      if (binding == null) {
-        throw new NoSuchBindingException("no binding found for target " + previous + " (via "
-            + virtual + ")");
-      }
-      actual = binding.getActual();
-      hare = actual;
-      moveTortoise = !moveTortoise;
-      if (moveTortoise) {
-        tortoise = bindMap.get(tortoise).getActual();
-      }
-    }
-    bindMap.put(virtual, binding);
+  public WorkspaceFileValue(String workspace, ExternalPackage pkg) {
+    this.workspace = workspace;
+    this.pkg = pkg;
   }
 
   /**
-   * Returns the name of the repository or 'default' if none is set.
+   * Returns the name of this workspace (or null for the default workspace).
    */
+  @Nullable
   public String getWorkspace() {
-    return workspaceName;
+    return workspace;
   }
 
   /**
-   * Returns the label virtual is bound to.  Throws NoSuchBindingException if there is no matching
-   * binding.
+   * Returns the //external package.
    */
-  public Label getActualLabel(Label virtual) throws NoSuchBindingException {
-    if (!bindMap.containsKey(virtual)) {
-      throw new NoSuchBindingException("no binding found for target " + virtual);
-    }
-    return bindMap.get(virtual).getActual();
-  }
-
-  public Map<Label, Binding> getBindings() {
-    return bindMap;
+  public ExternalPackage getPackage() {
+    return pkg;
   }
 
   /**
@@ -102,16 +54,6 @@ public class WorkspaceFileValue implements SkyValue {
    */
   public static SkyKey key(Path workspacePath) {
     return new SkyKey(SkyFunctions.WORKSPACE_FILE, workspacePath);
-  }
-
-  /**
-   * This is used when a binding is invalid, either because one of the targets is malformed, refers
-   * to a package that does not exist, or creates a circular dependency.
-   */
-  public class NoSuchBindingException extends NoSuchThingException {
-    public NoSuchBindingException(String message) {
-      super(message);
-    }
   }
 
 }

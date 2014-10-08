@@ -21,54 +21,42 @@ import static com.google.devtools.build.lib.rules.objc.ObjcProvider.NESTED_BUNDL
 import static com.google.devtools.build.lib.rules.objc.ObjcProvider.XCDATAMODEL;
 
 import com.google.common.base.Preconditions;
-import com.google.common.collect.ImmutableList;
-import com.google.devtools.build.lib.actions.Action;
-import com.google.devtools.build.lib.actions.ActionOwner;
+import com.google.common.io.ByteSource;
 import com.google.devtools.build.lib.actions.Artifact;
-import com.google.devtools.build.lib.actions.ExecException;
-import com.google.devtools.build.lib.actions.Executor;
-import com.google.devtools.build.lib.events.EventHandler;
-import com.google.devtools.build.lib.util.Fingerprint;
-import com.google.devtools.build.lib.view.actions.AbstractFileWriteAction;
 import com.google.devtools.build.xcode.bundlemerge.proto.BundleMergeProtos;
 import com.google.devtools.build.xcode.bundlemerge.proto.BundleMergeProtos.Control;
 import com.google.devtools.build.xcode.bundlemerge.proto.BundleMergeProtos.MergeZip;
 import com.google.devtools.build.xcode.bundlemerge.proto.BundleMergeProtos.VariableSubstitution;
 import com.google.devtools.build.xcode.common.TargetDeviceFamily;
 
-import java.io.IOException;
-import java.io.OutputStream;
+import java.io.InputStream;
 import java.util.Map;
 
 /**
- * An action that can be used to generate a control file for the tool:
+ * A byte source that can be used to generate a control file for the tool:
  * {@code //java/com/google/devtools/build/xcode/bundlemerge}. Note that this generates the control
- * file on-the-fly rather than eagerly. This is to prevent a copy of the bundle files and
+ * proto and bytes on-the-fly rather than eagerly. This is to prevent a copy of the bundle files and
  * .xcdatamodels from being stored for each {@code objc_binary} (or any bundle) being built.
- *
- * <p>TODO(bazel-team): Stop subclassing {@link Action} classes. Add a class to the core which lets
- * us create the control file on-the-fly and write it to a file. This may be doable by creating an
- * {@link Action} subclass in core which accepts something that generates a byte array.
  */
-public class WriteMergeBundleControlFileAction extends AbstractFileWriteAction {
+final class BundleMergeControlBytes extends ByteSource {
   private final Bundling rootBundling;
   private final Artifact mergedIpa;
   private final ObjcConfiguration objcConfiguration;
   private final Map<String, String> variableSubstitutions;
 
-  public WriteMergeBundleControlFileAction(ActionOwner actionOwner, Bundling rootBundling,
-      Artifact mergedIpa, Artifact controlFile, ObjcConfiguration objcConfiguration,
-      Map<String, String> variableSubstitutions) {
-    super(actionOwner, /*inputs=*/ImmutableList.<Artifact>of(), controlFile,
-        /*makeExecutable=*/false);
+  public BundleMergeControlBytes(Bundling rootBundling, Artifact mergedIpa,
+      ObjcConfiguration objcConfiguration, Map<String, String> variableSubstitutions) {
     this.rootBundling = Preconditions.checkNotNull(rootBundling);
     this.mergedIpa = Preconditions.checkNotNull(mergedIpa);
     this.objcConfiguration = Preconditions.checkNotNull(objcConfiguration);
     this.variableSubstitutions = Preconditions.checkNotNull(variableSubstitutions);
   }
 
-  public Control control() {
-    return control("Payload/", "Payload/", rootBundling);
+  @Override
+  public InputStream openStream() {
+    return control("Payload/", "Payload/", rootBundling)
+        .toByteString()
+        .newInput();
   }
 
   private Control control(String mergeZipPrefix, String bundleDirPrefix, Bundling bundling) {
@@ -127,18 +115,5 @@ public class WriteMergeBundleControlFileAction extends AbstractFileWriteAction {
     }
 
     return control.build();
-  }
-
-  @Override
-  public void writeOutputFile(OutputStream out, EventHandler eventHandler, Executor executor)
-      throws IOException, InterruptedException, ExecException {
-    control().writeTo(out);
-  }
-
-  @Override
-  protected String computeKey() {
-    return new Fingerprint()
-        .addString(control().toString())
-        .hexDigest();
   }
 }

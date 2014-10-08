@@ -43,11 +43,11 @@ public final class FileWriteStrategy implements FileWriteActionContext {
   // Can consume a lot of CPU, but several concurrent FilesetManifestAction instances will play
   // nicely together, as they consume a shared thread pool.
   private static final ResourceSet FILESET_MANIFEST_ACTION_RESOURCE_SET =
-      new ResourceSet(/*memoryMb=*/100, /*cpuUsage=*/.2, /*ioUsage=*/0.0);
+      new ResourceSet(/*memoryMb=*/100, /*cpuUsage=*/.2, /*ioUsage=*/0.1);
 
   // We're mainly doing I/O, so estimate very low CPU usage, e.g. 1%. Just a guess.
   private static final ResourceSet DEFAULT_FILEWRITE_ACTION_RESOURCE_SET =
-      new ResourceSet(/*memoryMb=*/0.0, /*cpuUsage=*/0.01, /*ioUsage=*/0.0);
+      new ResourceSet(/*memoryMb=*/0.0, /*cpuUsage=*/0.01, /*ioUsage=*/0.2);
 
   public FileWriteStrategy(OptionsClassProvider options) {
   }

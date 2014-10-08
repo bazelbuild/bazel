@@ -13,6 +13,7 @@
 // limitations under the License.
 package com.google.devtools.build.lib.skyframe;
 
+import com.google.common.base.Function;
 import com.google.common.base.Preconditions;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.Iterables;
@@ -70,24 +71,12 @@ abstract class AbstractLabelCycleReporter implements CyclesReporter.SingleCycleR
         cycleMessage.append(prettyPrint(value));
       }
 
-      Iterable<SkyKey> valuesToPrint = cycle.size() > 1
-          ? Iterables.concat(cycle, ImmutableList.of(cycle.get(0))) : cycle;
-      SkyKey cycleValue = null;
-      for (SkyKey value : valuesToPrint) {
-        if (cycleValue == null) {
-          cycleValue = value;
+      SkyKey cycleValue = printCycle(cycle, cycleMessage, new Function<SkyKey, String>() {
+        @Override
+        public String apply(SkyKey input) {
+          return prettyPrint(input);
         }
-        if (value == cycleValue) {
-          cycleMessage.append("\n  * ");
-        } else {
-          cycleMessage.append("\n    ");
-        }
-        cycleMessage.append(prettyPrint(value));
-      }
-
-      if (cycle.size() == 1) {
-        cycleMessage.append(" [self-edge]");
-      }
+      });
 
       cycleMessage.append(getAdditionalMessageAboutCycle(topLevelKey, cycleInfo));
 
@@ -99,6 +88,33 @@ abstract class AbstractLabelCycleReporter implements CyclesReporter.SingleCycleR
     }
 
     return true;
+  }
+
+  /**
+   * Prints the SkyKey-s in cycle into cycleMessage using the print function.
+   */
+  static SkyKey printCycle(ImmutableList<SkyKey> cycle, StringBuilder cycleMessage,
+      Function<SkyKey, String> printFunction) {
+    Iterable<SkyKey> valuesToPrint = cycle.size() > 1
+        ? Iterables.concat(cycle, ImmutableList.of(cycle.get(0))) : cycle;
+    SkyKey cycleValue = null;
+    for (SkyKey value : valuesToPrint) {
+      if (cycleValue == null) {
+        cycleValue = value;
+      }
+      if (value == cycleValue) {
+        cycleMessage.append("\n  * ");
+      } else {
+        cycleMessage.append("\n    ");
+      }
+      cycleMessage.append(printFunction.apply(value));
+    }
+
+    if (cycle.size() == 1) {
+      cycleMessage.append(" [self-edge]");
+    }
+
+    return cycleValue;
   }
 
   protected final Target getTargetForLabel(Label label) {

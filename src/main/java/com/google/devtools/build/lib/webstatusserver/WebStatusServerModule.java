@@ -42,6 +42,7 @@ import java.util.logging.Logger;
  * Web server for monitoring blaze commands status.
  */
 public class WebStatusServerModule extends BlazeModule {
+  private static final String LAST_TEST_URI = "/tests/last";
   private HttpServer server;
   private boolean running = false;
   private BlazeServerStartupOptions serverOptions;
@@ -100,7 +101,9 @@ public class WebStatusServerModule extends BlazeModule {
 
     // TODO(marcinf): store the tests and cleanup handlers that are not needed anymore (eg. keep
     // only last 100 tests)
-    new TestStatusHandler(server, commandsRun, currentBuild);
+    TestStatusHandler lastTest = new TestStatusHandler(server, commandsRun, currentBuild);
+    lastTest.overrideURI(LAST_TEST_URI);
+    
     commandsRun += 1;
   }
 
@@ -126,10 +129,14 @@ public class WebStatusServerModule extends BlazeModule {
     StaticResourceHandler jquery = StaticResourceHandler.createFromAbsolutePath(
         "/third_party/javascript/jquery/v2_0_3/jquery_uncompressed.jslib",
         "application/javascript");
+    StaticResourceHandler testFrontend =
+        StaticResourceHandler.createFromRelativePath("static/test.html", "text/html");
+
     server.createContext("/", index);
     server.createContext("/js/test.js", testjs);
     server.createContext("/js/lib/d3.js", d3);
     server.createContext("/js/lib/jquery.js", jquery);
+    server.createContext(LAST_TEST_URI, testFrontend);
   }
 
   /**

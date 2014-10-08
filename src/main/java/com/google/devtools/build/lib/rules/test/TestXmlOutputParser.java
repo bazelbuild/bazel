@@ -252,6 +252,16 @@ class TestXmlOutputParser {
           break;
 
         case XMLStreamConstants.END_ELEMENT:
+          // Propagate errors/failures from children up to the current case
+          for (int i = 0; i < builder.getChildCount(); i += 1) {
+            if (builder.getChild(i).getStatus() == TestCase.Status.ERROR) {
+              errors += 1;
+            }
+            if (builder.getChild(i).getStatus() == TestCase.Status.FAILED) {
+              failures += 1;
+            }
+          }
+
           if (errors > 0) {
             builder.setStatus(TestCase.Status.ERROR);
           } else if (failures > 0) {

@@ -64,7 +64,9 @@ import javax.annotation.Nullable;
  * {@link SpecialArtifact}.
  */
 @Immutable
-@SkylarkModule(name = "file", doc = "")
+@SkylarkModule(name = "file",
+    doc = "This type represents a file used by the build system. It can be "
+        + "either a source file or a derived file produced by a rule.")
 public class Artifact implements FileType.HasFilename, Comparable<Artifact>, ActionInput {
 
   /** An object that can expand middleman artifacts. */

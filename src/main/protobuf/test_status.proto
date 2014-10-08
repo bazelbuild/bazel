@@ -63,7 +63,7 @@ message TestCase {
   repeated TestCase child = 1;
   required string name = 2;
   optional string class_name = 3;
-  required int64 run_duration_millis = 4;
+  optional int64 run_duration_millis = 4;
   optional string result = 5;
   optional Type type = 6;
   optional Status status = 7;

@@ -229,7 +229,6 @@ public abstract class SkyframeExecutor {
       BlazeDirectories directories,
       WorkspaceStatusAction.Factory workspaceStatusActionFactory,
       ImmutableList<BuildInfoFactory> buildInfoFactories,
-      Iterable<? extends DiffAwareness.Factory> diffAwarenessFactories,
       Predicate<PathFragment> allowedMissingInputs,
       Preprocessor.Factory.Supplier preprocessorFactorySupplier, Clock clock) {
     // Strictly speaking, these arguments are not required for initialization, but all current
@@ -292,8 +291,7 @@ public abstract class SkyframeExecutor {
         configurationFactory, clientEnv));
     map.put(SkyFunctions.CONFIGURATION_FRAGMENT, new ConfigurationFragmentFunction(
         configurationFragments));
-    map.put(SkyFunctions.WORKSPACE_FILE, new WorkspaceFileFunction());
-    map.put(SkyFunctions.LABEL_BINDING, new LabelBindingFunction(pkgLocator));
+    map.put(SkyFunctions.WORKSPACE_FILE, new WorkspaceFileFunction(pkgFactory));
     if (skyframeBuild) {
       map.put(SkyFunctions.TARGET_COMPLETION,
           new TargetCompletionFunction(new BuildViewProvider()));
@@ -1180,8 +1178,11 @@ public abstract class SkyframeExecutor {
   }
 
   private CyclesReporter createCyclesReporter() {
-    return new CyclesReporter(new TransitiveTargetCycleReporter(packageManager),
-        new ConfiguredTargetCycleReporter(packageManager));
+    return new CyclesReporter(
+        new TransitiveTargetCycleReporter(packageManager),
+        new ConfiguredTargetCycleReporter(packageManager),
+        new ActionArtifactCycleReporter(packageManager),
+        new SkylarkModuleCycleReporter());
   }
 
   CyclesReporter getCyclesReporter() {

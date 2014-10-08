@@ -368,7 +368,7 @@ class Parser {
 
   // arg ::= IDENTIFIER '=' expr
   //       | expr
-  private Argument parseArgument() {
+  private Argument parseFunctionCallArgument() {
     int start = token.left;
     if (token.kind == TokenKind.IDENTIFIER) {
       Token identToken = token;
@@ -388,6 +388,22 @@ class Parser {
     return setLocation(new Argument(expr), start, expr);
   }
 
+  // arg ::= IDENTIFIER '=' expr
+  //       | IDENTIFIER
+  private Argument parseFunctionDefArgument(boolean onlyOptional) {
+    int start = token.left;
+    Ident ident = parseIdent();
+    if (token.kind == TokenKind.EQUALS) { // there's a default value
+      nextToken();
+      Expression expr = parseExpression();
+      return setLocation(new Argument(ident, expr), start, expr);
+    } else if (onlyOptional) {
+      reportError(ident.getLocation(),
+          "Optional arguments are only allowed at the end of the argument list.");
+    }
+    return setLocation(new Argument(ident), start, ident);
+  }
+
   // funcall_suffix ::= '(' arg_list? ')'
   private Expression parseFuncallSuffix(int start, Expression receiver,
                                         Ident function) {
@@ -398,7 +414,7 @@ class Parser {
       end = token.right;
       nextToken(); // RPAREN
     } else {
-      args = parseArglist(); // (includes optional trailing comma)
+      args = parseFunctionCallArguments(); // (includes optional trailing comma)
       end = token.right;
       expect(TokenKind.RPAREN);
     }
@@ -424,7 +440,7 @@ class Parser {
   }
 
   // arg_list ::= ( (arg ',')* arg ','? )?
-  private List<Argument> parseArglist() {
+  private List<Argument> parseFunctionCallArguments() {
     List<Argument> args = new ArrayList<>();
     //  terminating tokens for an arg list
     while (token.kind != TokenKind.RPAREN) {
@@ -432,7 +448,7 @@ class Parser {
         syntaxError(token);
         break;
       }
-      args.add(parseArgument());
+      args.add(parseFunctionCallArgument());
       if (token.kind == TokenKind.COMMA) {
         nextToken();
       } else {
@@ -1092,7 +1108,7 @@ class Parser {
     expect(TokenKind.LPAREN);
     // parsing the function arguments, at this point only identifiers
     // TODO(bazel-team): support proper arguments with default values and kwargs
-    List<Ident> args = parseFunctionDefArguments();
+    List<Argument> args = parseFunctionDefArguments();
     expect(TokenKind.RPAREN);
     expect(TokenKind.COLON);
     List<Statement> block = new ArrayList<>();
@@ -1101,17 +1117,21 @@ class Parser {
     list.add(setLocation(stmt, start, token.right));
   }
 
-  private List<Ident> parseFunctionDefArguments() {
-    List<Ident> args = new ArrayList<>();
+  private List<Argument> parseFunctionDefArguments() {
+    List<Argument> args = new ArrayList<>();
     Set<String> argNames = new HashSet<>();
+    boolean onlyOptional = false;
     while (token.kind != TokenKind.RPAREN) {
-      Ident argIdent = parseIdent();
-      args.add(argIdent);
-      if (argNames.contains(argIdent.getName())) {
+      Argument arg = parseFunctionDefArgument(onlyOptional);
+      if (arg.hasValue()) {
+        onlyOptional = true;
+      }
+      args.add(arg);
+      if (argNames.contains(arg.getArgName())) {
         reportError(lexer.createLocation(token.left, token.right),
             "duplicate argument name in function definition");
       }
-      argNames.add(argIdent.getName());
+      argNames.add(arg.getArgName());
       if (token.kind == TokenKind.COMMA) {
         nextToken();
       } else {

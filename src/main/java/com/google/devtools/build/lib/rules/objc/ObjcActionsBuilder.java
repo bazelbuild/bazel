@@ -19,6 +19,7 @@ import static com.google.devtools.build.lib.rules.objc.IosSdkCommands.MINIMUM_OS
 import static com.google.devtools.build.lib.rules.objc.IosSdkCommands.TARGET_DEVICE_FAMILIES;
 import static com.google.devtools.build.lib.rules.objc.ObjcActionsBuilder.CLANG;
 import static com.google.devtools.build.lib.rules.objc.ObjcActionsBuilder.CLANG_PLUSPLUS;
+import static com.google.devtools.build.lib.rules.objc.ObjcActionsBuilder.DSYMUTIL;
 import static com.google.devtools.build.lib.rules.objc.ObjcProvider.ASSET_CATALOG;
 import static com.google.devtools.build.lib.rules.objc.ObjcProvider.FRAMEWORK_DIR;
 import static com.google.devtools.build.lib.rules.objc.ObjcProvider.FRAMEWORK_FILE;
@@ -37,17 +38,24 @@ import com.google.common.base.Preconditions;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.Iterables;
+import com.google.common.io.ByteSource;
 import com.google.devtools.build.lib.actions.Action;
 import com.google.devtools.build.lib.actions.ActionRegistry;
 import com.google.devtools.build.lib.actions.Artifact;
+import com.google.devtools.build.lib.packages.RuleClass.Builder;
+import com.google.devtools.build.lib.rules.objc.ObjcActionsBuilder.ExtraActoolArgs;
+import com.google.devtools.build.lib.rules.objc.ObjcActionsBuilder.ExtraLinkArgs;
 import com.google.devtools.build.lib.vfs.PathFragment;
 import com.google.devtools.build.lib.view.actions.ActionConstructionContext;
+import com.google.devtools.build.lib.view.actions.BinaryFileWriteAction;
 import com.google.devtools.build.lib.view.actions.CommandLine;
 import com.google.devtools.build.lib.view.actions.SpawnAction;
 import com.google.devtools.build.lib.view.config.BuildConfiguration;
 import com.google.devtools.build.xcode.common.TargetDeviceFamily;
 import com.google.devtools.build.xcode.util.Interspersing;
+import com.google.devtools.build.xcode.xcodegen.proto.XcodeGenProtos;
 
+import java.io.InputStream;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.Locale;
@@ -203,14 +211,32 @@ final class ObjcActionsBuilder {
     }
   }
 
+  private static ByteSource xcodegenControlFileBytes(
+      final Artifact pbxproj, final XcodeProvider xcodeProvider) {
+    return new ByteSource() {
+      @Override
+      public InputStream openStream() {
+        return XcodeGenProtos.Control.newBuilder()
+            .setPbxproj(pbxproj.getExecPathString())
+            .addAllTarget(xcodeProvider.getTargets())
+            .build()
+            .toByteString()
+            .newInput();
+      }
+    };
+  }
+
   /**
    * Generates actions needed to create an Xcode project file.
    */
   void registerXcodegenActions(
       ObjcBase.Tools baseTools, Artifact pbxproj, XcodeProvider xcodeProvider) {
     Artifact controlFile = intermediateArtifacts.pbxprojControlArtifact();
-    register(new WriteXcodeGenControlFileAction(
-        context.getActionOwner(), controlFile, xcodeProvider, pbxproj));
+    register(new BinaryFileWriteAction(
+        context.getActionOwner(),
+        controlFile,
+        xcodegenControlFileBytes(pbxproj, xcodeProvider),
+        /*makeExecutable=*/false));
     register(new SpawnAction.Builder(context)
         .setMnemonic("Generate project")
         .setExecutable(baseTools.xcodegen())

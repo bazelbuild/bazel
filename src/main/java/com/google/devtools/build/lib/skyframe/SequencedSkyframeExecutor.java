@@ -89,7 +89,7 @@ public final class SequencedSkyframeExecutor extends SkyframeExecutor {
       Predicate<PathFragment> allowedMissingInputs,
       Preprocessor.Factory.Supplier preprocessorFactorySupplier, Clock clock) {
     super(reporter, InMemoryMemoizingEvaluator.SUPPLIER, pkgFactory, skyframeBuild, tsgm,
-        directories, workspaceStatusActionFactory, buildInfoFactories, diffAwarenessFactories,
+        directories, workspaceStatusActionFactory, buildInfoFactories,
         allowedMissingInputs, preprocessorFactorySupplier, clock);
     this.diffAwarenessManager = new DiffAwarenessManager(diffAwarenessFactories, reporter);
     this.diffAwarenessManager.reset();
@@ -124,6 +124,7 @@ public final class SequencedSkyframeExecutor extends SkyframeExecutor {
     }
   }
 
+  @Override
   public void sync(PackageCacheOptions packageCacheOptions, Path workingDirectory,
                    String defaultsPackageContents, UUID commandId) throws InterruptedException {
     this.valueCacheEvictionLimit = packageCacheOptions.minLoadedPkgCountForCtNodeEviction;

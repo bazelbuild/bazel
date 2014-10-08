@@ -106,7 +106,7 @@ public final class SkylarkRuleContext {
   private final SkylarkClassObject targetsObject;
 
   // TODO(bazel-team): we only need this because of the css_binary rule.
-  private final ImmutableMap<String, ImmutableMap<Label, Artifact>> explicitOutputs;
+  private final ImmutableMap<Artifact, Label> artifactLabelMap;
 
   /**
    * In native code, private values start with $.
@@ -151,31 +151,31 @@ public final class SkylarkRuleContext {
       }
     }
 
-    ImmutableMap.Builder<String, ImmutableMap<Label, Artifact>> explicitOutputsBuilder =
+    ImmutableMap.Builder<Artifact, Label> artifactLabelMapBuilder =
         ImmutableMap.builder();
     for (Map.Entry<String, Collection<OutputFile>> entry
         : ruleContext.getRule().getOutputFileMap().asMap().entrySet()) {
       String attrName = entry.getKey();
-      ImmutableMap.Builder<Label, Artifact> labelArtifactBuilder = ImmutableMap.builder();
+      ImmutableList.Builder<Artifact> artifactsBuilder = ImmutableList.builder();
       for (OutputFile outputFile : entry.getValue()) {
         Artifact artifact = ruleContext.createOutputArtifact(outputFile);
-        labelArtifactBuilder.put(outputFile.getLabel(), artifact);
+        artifactsBuilder.add(artifact);
+        artifactLabelMapBuilder.put(artifact, outputFile.getLabel());
       }
-      ImmutableMap<Label, Artifact> labelArtifact = labelArtifactBuilder.build();
-      explicitOutputsBuilder.put(attrName, labelArtifact);
+      ImmutableList<Artifact> artifacts = artifactsBuilder.build();
 
       Type<?> attrType = ruleContext.attributes().getAttributeDefinition(attrName).getType();
       if (attrType == Type.OUTPUT) {
-        addOutput(outputsBuilder, attrName, Iterables.getOnlyElement(labelArtifact.values()));
+        addOutput(outputsBuilder, attrName, Iterables.getOnlyElement(artifacts));
       } else if (attrType == Type.OUTPUT_LIST) {
         addOutput(outputsBuilder, attrName,
-            SkylarkList.list(labelArtifact.values(), Artifact.class));
+            SkylarkList.list(artifacts, Artifact.class));
       } else {
         throw new IllegalArgumentException(
             "Type of " + attrName + "(" + attrType + ") is not output type ");
       }
     }
-    explicitOutputs = explicitOutputsBuilder.build();
+    artifactLabelMap = artifactLabelMapBuilder.build();
     outputsObject = new SkylarkClassObject(outputsBuilder);
 
     ImmutableMap.Builder<String, Object> executableBuilder = new ImmutableMap.Builder<>();
@@ -347,23 +347,6 @@ public final class SkylarkRuleContext {
     return outputsObject;
   }
 
-  @SkylarkCallable(
-      doc = "Returns the dict of labels and the corresponding output files of "
-          + "the output type attribute \"attr\".")
-  public ImmutableMap<Label, Artifact> outputsWithLabel(String attr) throws FuncallException {
-    if  (ruleContext.attributes().getAttributeType(attr) != Type.OUTPUT
-        && ruleContext.attributes().getAttributeType(attr) != Type.OUTPUT_LIST) {
-      throw new FuncallException("Attribute " + attr + " is not of output type");
-    }
-    ImmutableMap<Label, Artifact> map = explicitOutputs.get(attr);
-    if (map == null) {
-      // The attribute is output type but it\'s not in the map which means it's empty,
-      // i.e. not defined or defined with an empty list.
-      return ImmutableMap.<Label, Artifact>of();
-    }
-    return map;
-  }
-
   @Override
   public String toString() {
     return ruleContext.getLabel().toString();
@@ -381,11 +364,15 @@ public final class SkylarkRuleContext {
   }
 
   @SkylarkCallable(doc =
-      "Expands all references to labels embedded within a string using the "
-    + "provided expansion mapping from labels to files.")
-  public <T extends Iterable<Artifact>> String expand(@Nullable String expression,
-      Map<Label, T> labelMap, Label labelResolver) throws FuncallException {
+      "Expands all references to labels embedded within a string for all files using a mapping "
+    + "from definition labels (i.e. the label in the output type attribute) to files.")
+  public String expand(@Nullable String expression,
+      List<Artifact> artifacts, Label labelResolver) throws FuncallException {
     try {
+      Map<Label, Iterable<Artifact>> labelMap = new HashMap<>();
+      for (Artifact artifact : artifacts) {
+        labelMap.put(artifactLabelMap.get(artifact), ImmutableList.of(artifact));
+      }
       return LabelExpander.expand(expression, labelMap, labelResolver);
     } catch (NotUniqueExpansionException e) {
       throw new FuncallException(e.getMessage() + " while expanding '" + expression + "'");

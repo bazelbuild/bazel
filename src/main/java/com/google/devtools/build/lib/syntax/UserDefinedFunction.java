@@ -15,6 +15,7 @@ package com.google.devtools.build.lib.syntax;
 
 import com.google.common.base.Function;
 import com.google.common.collect.ImmutableList;
+import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.Lists;
 import com.google.devtools.build.lib.events.Location;
 
@@ -27,31 +28,48 @@ import java.util.Map;
  */
 public class UserDefinedFunction extends MixedModeFunction {
 
-  private final ImmutableList<Ident> listArgNames;
+  private final ImmutableList<Argument> args;
+  private final ImmutableMap<String, Object> defaultValues;
   private final ImmutableList<Statement> statements;
   private final SkylarkEnvironment definitionEnv;
 
-  private static ImmutableList<String> identToStringList(ImmutableList<Ident> listArgNames) {
-    Function<Ident, String> function = new Function<Ident, String>() {
+  private static ImmutableList<String> argumentToStringList(ImmutableList<Argument> args) {
+    Function<Argument, String> function = new Function<Argument, String>() {
       @Override
-      public String apply(Ident id) {
-        return id.getName();
+      public String apply(Argument id) {
+        return id.getArgName();
       }
     };
-    return ImmutableList.copyOf(Lists.transform(listArgNames, function));
+    return ImmutableList.copyOf(Lists.transform(args, function));
   }
 
-  protected UserDefinedFunction(Ident function, ImmutableList<Ident> listArgNames,
+  private static int mandatoryArgNum(ImmutableList<Argument> args) {
+    int mandatoryArgNum = 0;
+    for (Argument arg : args) {
+      if (!arg.hasValue()) {
+        mandatoryArgNum++;
+      }
+    }
+    return mandatoryArgNum;
+  }
+
+  UserDefinedFunction(Ident function, ImmutableList<Argument> args,
+      ImmutableMap<String, Object> defaultValues,
       ImmutableList<Statement> statements, SkylarkEnvironment definitionEnv) {
-    super(function.getName(), identToStringList(listArgNames), listArgNames.size(), false,
+    super(function.getName(), argumentToStringList(args), mandatoryArgNum(args), false,
         function.getLocation());
-    this.listArgNames = listArgNames;
+    this.args = args;
     this.statements = statements;
     this.definitionEnv = definitionEnv;
+    this.defaultValues = defaultValues;
   }
 
-  public ImmutableList<Ident> getListArgNames() {
-    return listArgNames;
+  public ImmutableList<Argument> getArgs() {
+    return args;
+  }
+
+  ImmutableMap<String, Object> getDefaultValues() {
+    return defaultValues;
   }
 
   ImmutableList<Statement> getStatements() {
@@ -73,7 +91,7 @@ public class UserDefinedFunction extends MixedModeFunction {
     // Registering the functions's arguments as variables in the local Environment
     int i = 0;
     for (Object arg : namedArguments) {
-      functionEnv.update(listArgNames.get(i++).getName(), arg);
+      functionEnv.update(args.get(i++).getArgName(), arg);
     }
 
     try {

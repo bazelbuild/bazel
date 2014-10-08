@@ -35,6 +35,7 @@ import com.google.devtools.build.lib.vfs.PathFragment;
 import com.google.devtools.build.lib.view.ConfiguredTarget;
 import com.google.devtools.build.lib.view.RuleConfiguredTarget.Mode;
 import com.google.devtools.build.lib.view.RuleContext;
+import com.google.devtools.build.lib.view.actions.BinaryFileWriteAction;
 import com.google.devtools.build.lib.view.actions.CommandLine;
 import com.google.devtools.build.lib.view.actions.SpawnAction;
 import com.google.devtools.build.xcode.common.Platform;
@@ -289,9 +290,12 @@ public class ObjcBinary implements RuleConfiguredTargetFactory {
     Artifact bundleMergeControlArtifact =
         ObjcRuleClasses.artifactByAppendingToBaseName(ruleContext, ".ipa-control");
     ruleContext.getAnalysisEnvironment().registerAction(
-        new WriteMergeBundleControlFileAction(
-            ruleContext.getActionOwner(), bundling, ipaUnsigned, bundleMergeControlArtifact,
-            objcConfiguration, variableSubstitutionsInBundleMerge(ruleContext)));
+        new BinaryFileWriteAction(
+            ruleContext.getActionOwner(), bundleMergeControlArtifact,
+            new BundleMergeControlBytes(
+                bundling, ipaUnsigned,
+                objcConfiguration, variableSubstitutionsInBundleMerge(ruleContext)),
+            /*makeExecutable=*/false));
 
     ruleContext.getAnalysisEnvironment().registerAction(new SpawnAction.Builder(ruleContext)
         .setMnemonic("Generate app bundle")

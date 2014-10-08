@@ -14,6 +14,7 @@
 package com.google.devtools.build.lib.syntax;
 
 import com.google.common.collect.Iterables;
+import com.google.devtools.build.lib.events.Location;
 import com.google.devtools.build.lib.syntax.FuncallExpression.MethodDescriptor;
 
 import java.lang.reflect.InvocationTargetException;
@@ -52,13 +53,25 @@ public final class DotExpression extends Expression {
   Object eval(Environment env) throws EvalException, InterruptedException {
     Object objValue = obj.eval(env);
     String name = field.getName();
+    Object result = eval(objValue, name, getLocation());
+    if (result == null) {
+      throw new EvalException(getLocation(), "Object of type '"
+          + EvalUtils.getDatatypeName(objValue) + "' has no field '" + name + "'");
+    }
+    return result;
+  }
+
+  /**
+   * Returns the field of the given name of the struct objValue, or null if no such field exists.
+   */
+  public static Object eval(Object objValue, String name, Location loc) throws EvalException {
     Object result = null;
     if (objValue instanceof ClassObject) {
       result = ((ClassObject) objValue).getValue(name);
-      result = SkylarkType.convertToSkylark(result, getLocation());
+      result = SkylarkType.convertToSkylark(result, loc);
       // If we access NestedSets using ClassObject.getValue() we won't know the generic type,
       // so we have to disable it. This should not happen.
-      SkylarkType.checkTypeAllowedInSkylark(result, getLocation());
+      SkylarkType.checkTypeAllowedInSkylark(result, loc);
     } else {
       try {
         List<MethodDescriptor> methods = FuncallExpression.getMethods(objValue.getClass(), name, 0);
@@ -66,18 +79,14 @@ public final class DotExpression extends Expression {
           MethodDescriptor method = Iterables.getOnlyElement(methods);
           if (method.getAnnotation().structField()) {
             result = FuncallExpression.callMethod(
-                method, name, objValue, new Object[] {}, getLocation());
+                method, name, objValue, new Object[] {}, loc);
           }
         }
       } catch (ExecutionException | IllegalAccessException | InvocationTargetException e) {
-        throw new EvalException(getLocation(), "Method invocation failed: " + e);
+        throw new EvalException(loc, "Method invocation failed: " + e);
       }
     }
 
-    if (result == null) {
-      throw new EvalException(getLocation(), "Object of type '"
-          + EvalUtils.getDatatypeName(objValue) + "' has no field '" + field + "'");
-    }
     return result;
   }
 

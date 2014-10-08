@@ -29,6 +29,8 @@ import java.util.Collection;
 
 /**
  * Action to write to a file.
+ * <p>TODO(bazel-team): Choose a better name to distinguish this class from
+ * {@link BinaryFileWriteAction}.
  */
 public class FileWriteAction extends AbstractFileWriteAction {
 

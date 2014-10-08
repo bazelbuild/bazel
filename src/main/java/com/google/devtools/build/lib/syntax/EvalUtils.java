@@ -28,6 +28,7 @@ import com.google.devtools.build.lib.vfs.PathFragment;
 
 import java.io.IOException;
 import java.util.ArrayList;
+import java.util.Arrays;
 import java.util.Collection;
 import java.util.Collections;
 import java.util.Formattable;
@@ -516,7 +517,12 @@ public abstract class EvalUtils {
 
   @SuppressWarnings("unchecked")
   public static Iterable<Object> toIterable(Object o, Location loc) throws EvalException {
-    if (o instanceof Iterable) {
+    if (o instanceof String) {
+      // This is not as efficient as special casing String in for and dict and list comprehension
+      // statements. However this is a more unified way.
+      String[] items = ((String) o).split("");
+      return ImmutableList.<Object>copyOf(Arrays.copyOfRange(items, 1, items.length));
+    } else if (o instanceof Iterable) {
       return (Iterable<Object>) o;
     } else if (o instanceof Map<?, ?>) {
       // For dictionaries we iterate through the keys only

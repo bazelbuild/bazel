@@ -14,6 +14,7 @@
 
 package com.google.devtools.build.lib.syntax;
 
+import com.google.common.base.Preconditions;
 import com.google.common.cache.CacheBuilder;
 import com.google.common.cache.CacheLoader;
 import com.google.common.cache.LoadingCache;
@@ -181,6 +182,9 @@ public final class FuncallExpression extends Expression {
    */
   public FuncallExpression(Expression obj, Ident func,
                            List<Argument> args) {
+    for (Argument arg : args) {
+      Preconditions.checkArgument(arg.hasValue());
+    }
     this.obj = obj;
     this.func = func;
     this.args = args;
@@ -379,7 +383,9 @@ public final class FuncallExpression extends Expression {
   }
 
   private void evalArguments(List<Object> posargs, Map<String, Object> kwargs,
-      Environment env, ArgConversion conversion) throws EvalException, InterruptedException {
+      Environment env, Function function)
+          throws EvalException, InterruptedException {
+    ArgConversion conversion = getArgConversion(function);
     for (Argument arg : args) {
       Object value = arg.getValue().eval(env);
       if (conversion == ArgConversion.FROM_SKYLARK) {
@@ -393,10 +399,21 @@ public final class FuncallExpression extends Expression {
       if (arg.isPositional()) {
         posargs.add(value);
       } else {
-        String name = arg.getName().getName();
+        String name = arg.getArgName();
         if (kwargs.put(name, value) != null) {
           throw new EvalException(getLocation(),
               "duplicate keyword '" + name + "' in call to '" + func + "'");
+        }
+      }
+    }
+    if (function instanceof UserDefinedFunction) {
+      // Adding the default values for a UserDefinedFunction if needed.
+      UserDefinedFunction func = (UserDefinedFunction) function;
+      if (args.size() < func.getArgs().size()) {
+        for (Map.Entry<String, Object> entry : func.getDefaultValues().entrySet()) {
+          if (!kwargs.containsKey(entry.getKey())) {
+            kwargs.put(entry.getKey(), entry.getValue());
+          }
         }
       }
     }
@@ -422,14 +439,15 @@ public final class FuncallExpression extends Expression {
         if (!isNamespace(objValue.getClass())) {
           posargs.add(objValue);
         }
-        evalArguments(posargs, kwargs, env, getArgConversion(function));
+        evalArguments(posargs, kwargs, env, function);
         return EvalUtils.checkNotNull(this, function.call(posargs, kwargs, this, env));
       } else if (env.isSkylarkEnabled()) {
 
         // When calling a Java method, the name is not in the Environment, so
-        // evaluating 'func' would fail.
+        // evaluating 'func' would fail. For arguments we don't need to consider the default
+        // arguments since the Java function doesn't have any.
 
-        evalArguments(posargs, kwargs, env, ArgConversion.FROM_SKYLARK);
+        evalArguments(posargs, kwargs, env, null);
         if (!kwargs.isEmpty()) {
           throw new EvalException(func.getLocation(),
               "Keyword arguments are not allowed when calling a java method");
@@ -454,11 +472,15 @@ public final class FuncallExpression extends Expression {
                               + "' object is not callable");
     }
     Function function = (Function) funcValue;
-    evalArguments(posargs, kwargs, env, getArgConversion(function));
+    evalArguments(posargs, kwargs, env, function);
     return EvalUtils.checkNotNull(this, function.call(posargs, kwargs, this, env));
   }
 
   private ArgConversion getArgConversion(Function function) {
+    if (function == null) {
+      // It means we try to call a Java function.
+      return ArgConversion.FROM_SKYLARK;
+    }
     // If we call a UserDefinedFunction we call into Skylark. If we call from Skylark
     // the argument conversion is invariant, but if we call from the BUILD language
     // we might need an auto conversion.

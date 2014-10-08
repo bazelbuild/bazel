@@ -43,9 +43,7 @@ import com.google.devtools.build.lib.syntax.Label;
 import com.google.devtools.build.lib.util.BinaryPredicate;
 
 import java.util.Collection;
-import java.util.Collections;
 import java.util.List;
-import java.util.Set;
 import java.util.concurrent.ConcurrentMap;
 import java.util.concurrent.ExecutorService;
 import java.util.concurrent.Executors;
@@ -80,7 +78,7 @@ import java.util.concurrent.atomic.AtomicReference;
  * <h4>Concurrency</h4>
  *
  * <p>The sync() methods of this class is thread-compatible. The accessor
- * ({@link #getVisitedTargets} and similar must not be called until the concurrent phase
+ * ({@link #hasVisited} and similar must not be called until the concurrent phase
  * is over, i.e. all external calls to visit() methods have completed.
  */
 final class LabelVisitor {
@@ -90,18 +88,15 @@ final class LabelVisitor {
    */
   private class VisitationAttributes {
     private Collection<Target> targetsToVisit;
-    private Collection<Label> labelsToVisit;
     private boolean success = false;
     private boolean visitSubincludes = true;
     private int maxDepth = 0;
-    private boolean keepGoing;
 
     /**
      * Returns true if and only if this visitation attribute is still up-to-date.
      */
     boolean current() {
       return targetsToVisit.equals(lastVisitation.targetsToVisit)
-          && labelsToVisit.equals(lastVisitation.labelsToVisit)
           && maxDepth <= lastVisitation.maxDepth
           && visitSubincludes == lastVisitation.visitSubincludes;
     }
@@ -218,18 +213,12 @@ final class LabelVisitor {
     this.edgeFilter = edgeFilter;
   }
 
-  public boolean syncWithVisitor(EventHandler eventHandler,
-                                 Collection<Target> targetsToVisit,
-                                 Collection<Label> labelsToVisit,
-                                 boolean keepGoing,
-                                 int parallelThreads,
-                                 int maxDepth,
-                                 TargetEdgeObserver... observers) throws InterruptedException {
+  boolean syncWithVisitor(EventHandler eventHandler, Collection<Target> targetsToVisit,
+      boolean keepGoing, int parallelThreads, int maxDepth, TargetEdgeObserver... observers)
+          throws InterruptedException {
     VisitationAttributes nextVisitation = new VisitationAttributes();
     nextVisitation.targetsToVisit = targetsToVisit;
-    nextVisitation.labelsToVisit = labelsToVisit;
     nextVisitation.maxDepth = maxDepth;
-    nextVisitation.keepGoing = keepGoing;
 
     if (!lastVisitation.success || !nextVisitation.current() ||
         !upToDate(eventHandler, parallelThreads)) {
@@ -310,10 +299,7 @@ final class LabelVisitor {
               failure.set(true);
               return;
             }
-          } catch (NoSuchPackageException e) {
-            failure.set(true);
-            return;
-          } catch (InterruptedException e) {
+          } catch (NoSuchPackageException | InterruptedException e) {
             failure.set(true);
             return;
           } catch (RuntimeException e) {
@@ -343,7 +329,6 @@ final class LabelVisitor {
     boolean result;
     try {
       visitor.visitTargets(visitation.targetsToVisit);
-      visitor.visitLabels(visitation.labelsToVisit);
     } catch (Throwable t) {
       visitor.stopNewActions();
       uncaught = t;
@@ -355,8 +340,8 @@ final class LabelVisitor {
     return result;
   }
 
-  public Set<Label> getVisitedTargets() {
-    return Collections.unmodifiableSet(visitedTargets.keySet());
+  boolean hasVisited(Label target) {
+    return visitedTargets.containsKey(target);
   }
 
   @VisibleForTesting class Visitor extends AbstractQueueVisitor {
@@ -401,19 +386,6 @@ final class LabelVisitor {
     public void visitTargets(Iterable<Target> targets) {
       for (Target target : targets) {
         visit(null, null, target, 0, 0);
-      }
-    }
-
-    /**
-     * Visit the specified labels and follow the transitive closure of their
-     * outbound dependencies.
-     *
-     * @param labels the labels to visit
-     */
-    @ThreadSafe
-    public void visitLabels(Iterable<Label> labels) {
-      for (Label label : labels) {
-        enqueue(newVisitRunnable(null, null, label, -1, 0));
       }
     }
 

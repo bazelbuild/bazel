@@ -740,13 +740,8 @@ public class ExecutionTool {
     for (ConfiguredTarget target : configuredTargets) {
       // TODO(bazel-team): this is quite ugly. Add a marker provider for this check.
       if (target instanceof InputFileConfiguredTarget) {
-        // Suppress display of source files and filegroups (because we do no
-        // work to build them).
+        // Suppress display of source files (because we do no work to build them).
         continue;
-      } else if (target.getTarget() instanceof Rule) {
-        if (((Rule) target.getTarget()).getRuleClass().equals("filegroup")) {
-          continue;
-        }
       }
       if (target.getTarget() instanceof Rule) {
         Rule rule = (Rule) target.getTarget();

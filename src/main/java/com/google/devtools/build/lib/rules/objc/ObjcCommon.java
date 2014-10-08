@@ -220,7 +220,7 @@ final class ObjcCommon {
    * a target.
    */
   public void reportErrors() {
-    for (String error : notInContainerErrors(assetCatalogs, AssetCatalogs.CONTAINER_TYPE)) {
+    for (String error : notInContainerErrors(assetCatalogs, ASSET_CATALOG_CONTAINER_TYPE)) {
       context.ruleError(error);
     }
     for (String error : notInContainerErrors(frameworkImports, FRAMEWORK_CONTAINER_TYPE)) {

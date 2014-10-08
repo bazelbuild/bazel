@@ -19,7 +19,6 @@ import static com.google.devtools.build.lib.packages.Type.TRISTATE;
 import com.google.common.base.Preconditions;
 import com.google.common.base.Predicate;
 import com.google.common.collect.ImmutableList;
-import com.google.common.collect.ImmutableSet;
 import com.google.common.collect.Sets;
 import com.google.devtools.build.lib.cmdline.ResolvedTargets;
 import com.google.devtools.build.lib.cmdline.TargetParsingException;
@@ -330,7 +329,7 @@ public class BlazeQueryEnvironment implements QueryEnvironment<Target> {
    */
   private void checkBuilt(Target targetNode) {
     Preconditions.checkState(
-        labelVisitor.getVisitedTargets().contains(targetNode.getLabel()),
+        labelVisitor.hasVisited(targetNode.getLabel()),
         "getTransitiveClosure(%s) called without prior call to buildTransitiveClosure()",
         targetNode);
   }
@@ -346,7 +345,7 @@ public class BlazeQueryEnvironment implements QueryEnvironment<Target> {
     preloadTransitiveClosure(targets, maxDepth);
 
     try {
-      labelVisitor.syncWithVisitor(eventHandler, targets, ImmutableSet.<Label>of(), keepGoing,
+      labelVisitor.syncWithVisitor(eventHandler, targets, keepGoing,
           loadingPhaseThreads, maxDepth, errorObserver, new GraphBuildingObserver());
     } catch (InterruptedException e) {
       throw new QueryException(caller, "transitive closure computation was interrupted");

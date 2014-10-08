@@ -25,6 +25,7 @@ import com.google.devtools.build.lib.packages.MethodLibrary;
 import com.google.devtools.build.lib.rules.SkylarkModules;
 import com.google.devtools.build.lib.rules.SkylarkRuleContext;
 import com.google.devtools.build.lib.syntax.Environment;
+import com.google.devtools.build.lib.syntax.Environment.NoneType;
 import com.google.devtools.build.lib.syntax.EvalUtils;
 import com.google.devtools.build.lib.syntax.SkylarkBuiltin;
 import com.google.devtools.build.lib.syntax.SkylarkBuiltin.Param;
@@ -193,7 +194,7 @@ public class SkylarkDocumentationProcessor {
         ? "" : "(" + getParameterString(method) + ")";
 
     return String.format("<code>%s %s.%s%s</code><br>",
-        EvalUtils.getDataTypeNameFromClass(method.getReturnType()), objectName, methodName, args);
+        getTypeAnchor(method.getReturnType()), objectName, methodName, args);
   }
 
   private String getSignature(String objectName, SkylarkBuiltin method) {
@@ -207,10 +208,27 @@ public class SkylarkDocumentationProcessor {
     String args = "(" + Joiner.on(", ").join(argList) + ")";
     if (!objectName.equals(TOP_LEVEL_ID)) {
       return String.format("<code>%s %s.%s%s</code><br>\n",
-          EvalUtils.getDataTypeNameFromClass(method.returnType()), objectName, method.name(), args);
+          getTypeAnchor(method.returnType()), objectName, method.name(), args);
     } else {
       return String.format("<code>%s %s%s</code><br>\n",
-          EvalUtils.getDataTypeNameFromClass(method.returnType()), method.name(), args);
+          getTypeAnchor(method.returnType()), method.name(), args);
+    }
+  }
+
+  private String getTypeAnchor(Class<?> returnType) {
+    if (returnType.equals(String.class)) {
+      return "<a class=\"anchor\" href=\"#modules.string\">string</a>";
+    } else if (Map.class.isAssignableFrom(returnType)) {
+      return "<a class=\"anchor\" href=\"#modules.dict\">dict</a>";
+    } else if (returnType.equals(Void.TYPE) || returnType.equals(NoneType.class)) {
+      return "<a class=\"anchor\" href=\"#modules." + TOP_LEVEL_ID + ".None\">None</a>";
+    } else if (returnType.isAnnotationPresent(SkylarkModule.class)) {
+      // TODO(bazel-team): this can produce dead links for types don't show up in the doc.
+      // The correct fix is to generate those types (e.g. SkylarkFileType) too.
+      String module = returnType.getAnnotation(SkylarkModule.class).name();
+      return "<a class=\"anchor\" href=\"#modules." + module + "\">" + module + "</a>";
+    } else {
+      return EvalUtils.getDataTypeNameFromClass(returnType);
     }
   }
 
@@ -219,7 +237,7 @@ public class SkylarkDocumentationProcessor {
         ImmutableList.copyOf(method.getParameterTypes()), new Function<Class<?>, String>() {
           @Override
           public String apply(Class<?> input) {
-            return EvalUtils.getDataTypeNameFromClass(input);
+            return getTypeAnchor(input);
           }
         }));
   }
@@ -235,7 +253,7 @@ public class SkylarkDocumentationProcessor {
             param.name(),
             param.name(),
             param.type().equals(Object.class) ? ""
-                : " (" + EvalUtils.getDataTypeNameFromClass(param.type()) + ")"))
+                : " (" + getTypeAnchor(param.type()) + ")"))
           .append(param.doc())
           .append("\n\t</li>\n");
       }

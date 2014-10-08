@@ -16,6 +16,9 @@ package com.google.devtools.build.lib.view;
 
 import com.google.common.collect.UnmodifiableIterator;
 import com.google.devtools.build.lib.syntax.Label;
+import com.google.devtools.build.lib.view.config.BuildConfiguration;
+
+import javax.annotation.Nullable;
 
 /**
  * Objects that implement this interface bundle multiple {@link TransitiveInfoProvider} interfaces.
@@ -84,7 +87,7 @@ public interface TransitiveInfoCollection extends Iterable<TransitiveInfoProvide
    * Returns the transitive information provider requested, or null if the provider is not found.
    * The provider has to be a TransitiveInfoProvider Java class.
    */
-  <P extends TransitiveInfoProvider> P getProvider(Class<P> provider);
+  @Nullable <P extends TransitiveInfoProvider> P getProvider(Class<P> provider);
 
   /**
    * Returns the label associated with this prerequisite.
@@ -92,10 +95,18 @@ public interface TransitiveInfoCollection extends Iterable<TransitiveInfoProvide
   Label getLabel();
 
   /**
+   * <p>Returns the {@link BuildConfiguration} for which this transitive info collection is defined.
+   * Configuration is defined for all configured targets with exception of {@link
+   * InputFileConfiguredTarget} and {@link PackageGroupConfiguredTarget} for which it is always
+   * <b>null</b>.</p>
+   */
+  @Nullable BuildConfiguration getConfiguration();
+
+  /**
    * Returns the transitive information requested or null, if the information is not found.
    * The transitive information has to have been added using the Skylark framework.
    */
-  Object get(String providerKey);
+  @Nullable Object get(String providerKey);
 
   /**
    * Returns an unmodifiable iterator over the transitive info providers in the collections.

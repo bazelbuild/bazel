@@ -17,6 +17,8 @@ package com.google.devtools.build.lib.view;
 import com.google.devtools.build.lib.packages.Target;
 import com.google.devtools.build.lib.view.config.BuildConfiguration;
 
+import javax.annotation.Nullable;
+
 /**
  * A {@link ConfiguredTarget} is conceptually a {@link TransitiveInfoCollection} coupled
  * with the {@link Target} and {@link BuildConfiguration} objects it was created from.
@@ -39,5 +41,7 @@ public interface ConfiguredTarget extends TransitiveInfoCollection {
    * of the {@link InputFileConfiguredTarget} for which it is always
    * <b>null</b>.</p>
    */
+  @Override
+  @Nullable
   BuildConfiguration getConfiguration();
 }

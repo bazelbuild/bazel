@@ -463,9 +463,9 @@ public final class RuleContext extends TargetContext
     }
 
     // Use an ImmutableListMultimap.Builder here to preserve ordering.
-    ImmutableListMultimap.Builder<String, ConfiguredTarget> result =
+    ImmutableListMultimap.Builder<String, TransitiveInfoCollection> result =
         ImmutableListMultimap.builder();
-    for (ConfiguredTarget t : targetMap.get(attributeName)) {
+    for (TransitiveInfoCollection t : targetMap.get(attributeName)) {
       if (t.getConfiguration() != null) {
         result.put(t.getConfiguration().getCpu(), t);
       } else {

@@ -37,9 +37,11 @@ class TestStatusHandler {
   private StaticResourceHandler frontendHandler;
   private WebStatusBuildLog buildLog;
   private HttpHandler detailsHandler;
+  private HttpServer server;
 
   public TestStatusHandler(HttpServer server, int commandId, WebStatusBuildLog buildLog) {
     this.buildLog = buildLog;
+    this.server = server;
     summaryHandler = new TestStatusSummaryJsonData(this);
     detailsHandler = new TestStatusResultJsonData(this);
     frontendHandler = StaticResourceHandler.createFromRelativePath("static/test.html", "text/html");
@@ -84,30 +86,48 @@ class TestStatusHandler {
     }
   }
 
- /**
-  * Serves JSON objects containing test cases, which will be rendered by frontend.
-  */
- private class TestStatusResultJsonData implements HttpHandler {
-   private TestStatusHandler testStatusHandler;
+  /**
+   * Serves JSON objects containing test cases, which will be rendered by frontend.
+   */
+  private class TestStatusResultJsonData implements HttpHandler {
+    private TestStatusHandler testStatusHandler;
 
-   public TestStatusResultJsonData(TestStatusHandler testStatusHandler) {
-     this.testStatusHandler = testStatusHandler;
-   }
+    public TestStatusResultJsonData(TestStatusHandler testStatusHandler) {
+      this.testStatusHandler = testStatusHandler;
+    }
 
-   @Override
-   public void handle(HttpExchange exchange) throws IOException {
-     Map<String, JsonObject> testInfo = testStatusHandler.buildLog.getTestCases();
-     exchange.getResponseHeaders().put("Content-Type", ImmutableList.of("application/json"));
-     JsonObject response = new JsonObject();
-     for (Entry<String, JsonObject> testCase : testInfo.entrySet()) {
-       response.add(testCase.getKey(), testCase.getValue());
-     }
+    @Override
+    public void handle(HttpExchange exchange) throws IOException {
+      Map<String, JsonObject> testInfo = testStatusHandler.buildLog.getTestCases();
+      exchange.getResponseHeaders().put("Content-Type", ImmutableList.of("application/json"));
+      JsonObject response = new JsonObject();
+      for (Entry<String, JsonObject> testCase : testInfo.entrySet()) {
+        response.add(testCase.getKey(), testCase.getValue());
+      }
 
-     String serializedResponse = response.toString();
-     exchange.sendResponseHeaders(200, serializedResponse.length());
-     OutputStream os = exchange.getResponseBody();
-     os.write(serializedResponse.getBytes());
-     os.close();
-   }
- }
+      String serializedResponse = response.toString();
+      exchange.sendResponseHeaders(200, serializedResponse.length());
+      OutputStream os = exchange.getResponseBody();
+      os.write(serializedResponse.getBytes());
+      os.close();
+    }
+  }
+
+  /**
+   * Adds another URI for existing test data. If specified URI is already used by some other 
+   * handler, the previous handler will be removed.
+   */
+  public void overrideURI(String uri) {
+    String detailsPath = uri + "/details";
+    String summaryPath = uri + "/data";
+    try {
+      this.server.removeContext(detailsPath);
+      this.server.removeContext(summaryPath);
+    } catch (IllegalArgumentException e) {
+      // There was nothing to remove, so proceed with creation (unfortunately the server api doesn't
+      // have "hasContext" method)
+    }
+    this.server.createContext(detailsPath, this.detailsHandler);
+    this.server.createContext(summaryPath, this.summaryHandler);   
+  }
 }

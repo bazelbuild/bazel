@@ -41,7 +41,9 @@ public class SyntaxTreeVisitor {
     if (node.isNamed()) {
       visit(node.getName());
     }
-    visit(node.getValue());
+    if (node.hasValue()) {
+      visit(node.getValue());
+    }
   }
 
   public void visit(BuildFileAST node) {
@@ -114,8 +116,8 @@ public class SyntaxTreeVisitor {
 
   public void visit(FunctionDefStatement node) {
     visit(node.getIdent());
-    for (Ident ident : node.getArg()) {
-      visit(ident);
+    for (Argument arg : node.getArgs()) {
+      visit(arg);
     }
     for (Statement stmt : node.getStatements()) {
       visit(stmt);

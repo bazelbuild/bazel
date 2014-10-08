@@ -29,9 +29,9 @@ ZIPOPTS="$ZIPOPTS"
 # TODO: CC target architecture needs to match JAVA_HOME.
 CC=${CC:-gcc}
 CPP=${CPP:-g++}
+CPPSTD="c++0x"
 
 PLATFORM="$(uname -s | tr 'A-Z' 'a-z')"
-JNIPLATFORM="${PLATFORM}"
 ARCHIVE_CFLAGS=${ARCHIVE_CFLAGS:-""}
 LDFLAGS=${LDFLAGS:-""}
 # Extension for executables (.exe on Windows).
@@ -67,7 +67,7 @@ linux)
   PROTOC=${PROTOC:-third_party/protobuf/protoc.amd64}
   ;;
 darwin)
-  homebrew_header=$(ls -1 /usr/local/Cellar/libarchive/*/include/archive.h 2>/dev/null | head -n1)
+  homebrew_header=$(ls -1 $(brew --prefix 2>/dev/null)/Cellar/libarchive/*/include/archive.h 2>/dev/null | head -n1)
   if [[ -e $homebrew_header ]]; then
     # For use with Homebrew.
     archive_dir=$(dirname $(dirname $homebrew_header))
@@ -94,22 +94,27 @@ darwin)
 msys*|mingw*)
   # Use a simplified platform string.
   PLATFORM="mingw"
+  # Workaround for msys issue which causes omission of std::to_string.
+  CFLAGS="$CFLAGS -D_GLIBCXX_USE_C99 -D_GLIBCXX_USE_C99_DYNAMIC"
   LDFLAGS="-larchive ${LDFLAGS}"
-  JNIPLATFORM=win32
   MD5SUM="md5sum"
   EXE_EXT=".exe"
   PATHSEP=";"
   # Find the latest available version of the SDK.
   JAVA_HOME="${JAVA_HOME:-$(ls -d /c/Program\ Files/Java/jdk* | sort | tail -n 1)}"
-  # Export all symbols undecorated ("func" instead of "func@num"). Another option
-  # is to use --add-stdcall-alias, which exports both versions.
-  JNI_LD_ARGS="-Wl,--kill-at"
-  JNILIB="unix.dll"
+  # We do not use the JNI library on Windows.
+  JNILIB=""
   PROTOC=${PROTOC:-protoc}
+
+  # The newer version of GCC on msys is stricter and removes some important function
+  # declarations from the environment if using c++0x / c++11.
+  CPPSTD="gnu++11"
 
   # Ensure that we are using the cygwin gcc, not the mingw64 gcc.
   ${CC} -v 2>&1 | grep "Target: .*mingw.*" > /dev/null &&
-    fail "mingw gcc detected. Please set CC to point to the Cygwin gcc."
+    fail "mingw gcc detected. Please set CC to point to the msys/Cygwin gcc."
+  ${CPP} -v 2>&1 | grep "Target: .*mingw.*" > /dev/null &&
+    fail "mingw g++ detected. Please set CPP to point to the msys/Cygwin g++."
 esac
 
 test -z "$JAVA_HOME" && fail "JDK not found, please set $$JAVA_HOME."
@@ -184,7 +189,7 @@ for FILE in "${BLAZE_CC_FILES[@]}"; do
         -I src/main/cpp/ \
         ${ARCHIVE_CFLAGS} \
         ${CFLAGS} \
-        -std=c++0x \
+        -std=$CPPSTD \
         -c \
         -DBLAZE_JAVA_CPU=\"k8\" \
         -DBLAZE_OPENSOURCE=1 \
@@ -196,15 +201,16 @@ done
 log "Linking client..."
 "${CPP}" -o output/client output/objs/*.o -lstdc++ ${LDFLAGS}
 
-log "Compiling JNI libraries..."
-for FILE in "${NATIVE_CC_FILES[@]}"; do
-  OUT=$(basename "${FILE}").o
-  "${CPP}" \
+if [ ! -z "$JNILIB" ] ; then
+  log "Compiling JNI libraries..."
+  for FILE in "${NATIVE_CC_FILES[@]}"; do
+    OUT=$(basename "${FILE}").o
+    "${CPP}" \
       -I src/main/cpp/ \
       -I src/main/native/ \
       -I "${JAVA_HOME}/include/" \
-      -I "${JAVA_HOME}/include/${JNIPLATFORM}" \
-      -std=c++0x \
+      -I "${JAVA_HOME}/include/${PLATFORM}" \
+      -std=$CPPSTD \
       -fPIC \
       -c \
       -D_JNI_IMPLEMENTATION_ \
@@ -212,10 +218,11 @@ for FILE in "${NATIVE_CC_FILES[@]}"; do
       -DBLAZE_OPENSOURCE=1 \
       -o "output/native/${OUT}" \
       "${FILE}"
-done
+  done
 
-log "Linking ${JNILIB}..."
-"${CPP}" -o output/${JNILIB} $JNI_LD_ARGS -shared output/native/*.o -l stdc++
+  log "Linking ${JNILIB}..."
+  "${CPP}" -o output/${JNILIB} $JNI_LD_ARGS -shared output/native/*.o -l stdc++
+fi
 
 log "Compiling build-runfiles..."
 # Clang on Linux requires libstdc++
@@ -234,7 +241,8 @@ TO_ZIP="libblaze.jar ${JNILIB} build-runfiles${EXE_EXT} process-wrapper${EXE_EXT
 (cd output/ ; cat client ${TO_ZIP} | ${MD5SUM} | awk '{ print $1; }' > install_base_key)
 (cd output/ ; zip $ZIPOPTS -q package.zip ${TO_ZIP} install_base_key)
 cat output/client output/package.zip > output/bazel
-zip -qA output/bazel || true  # Not all zip implementations provide -qA, and this step is optional anyway.
+zip -qA output/bazel \
+  || echo "(Non-critical error, ignore.)"
 
 chmod 755 output/bazel
 log "Build successful!"
