@@ -32,7 +32,7 @@ class Greeter {
 
   public static void main(String []args) throws Exception {
     Greeter g = new Greeter();
-    String obj = args.length > 1 ? args[1] : "world";
+    String obj = args.length > 0 ? args[0] : "world";
     g.hello(obj);
   }
 };

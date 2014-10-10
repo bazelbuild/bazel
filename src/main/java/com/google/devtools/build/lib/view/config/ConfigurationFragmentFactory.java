@@ -15,6 +15,8 @@ package com.google.devtools.build.lib.view.config;
 
 import com.google.devtools.build.lib.view.config.BuildConfiguration.Fragment;
 
+import javax.annotation.Nullable;
+
 /**
  * A factory that creates configuration fragments.
  */
@@ -24,8 +26,9 @@ public interface ConfigurationFragmentFactory {
    *
    * @param env the ConfigurationEnvironment for querying targets and paths
    * @param buildOptions command-line options (see {@link FragmentOptions})
-   * @return the configuration fragment.
+   * @return the configuration fragment or null if some required dependencies are missing.
    */
+  @Nullable
   BuildConfiguration.Fragment create(ConfigurationEnvironment env, BuildOptions buildOptions)
       throws InvalidConfigurationException;
 

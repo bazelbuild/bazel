@@ -13,6 +13,7 @@
 // limitations under the License.
 package com.google.devtools.build.lib.syntax;
 
+import com.google.common.base.Strings;
 import com.google.common.collect.Lists;
 import com.google.common.collect.Maps;
 import com.google.devtools.build.lib.syntax.ClassObject.SkylarkClassObject;
@@ -157,6 +158,24 @@ public final class BinaryOperatorExpression extends Expression {
       case MINUS: {
         if (lval instanceof Integer && rval instanceof Integer) {
           return ((Integer) lval).intValue() - ((Integer) rval).intValue();
+        }
+        break;
+      }
+
+      case MULT: {
+        // int * int
+        if (lval instanceof Integer && rval instanceof Integer) {
+          return ((Integer) lval).intValue() * ((Integer) rval).intValue();
+        }
+
+        // string * int
+        if (lval instanceof String && rval instanceof Integer) {
+          return Strings.repeat((String) lval, ((Integer) rval).intValue());
+        }
+
+        // int * string
+        if (lval instanceof Integer && rval instanceof String) {
+          return Strings.repeat((String) rval, ((Integer) lval).intValue());
         }
         break;
       }
@@ -314,6 +333,24 @@ public final class BinaryOperatorExpression extends Expression {
           }
         }
 
+        break;
+      }
+
+      case MULT: {
+        // int * int
+        if (ltype == SkylarkType.INT && rtype == SkylarkType.INT) {
+          return SkylarkType.INT;
+        }
+
+        // string * int
+        if (ltype == SkylarkType.STRING && rtype == SkylarkType.INT) {
+          return SkylarkType.STRING;
+        }
+
+        // int * string
+        if (ltype == SkylarkType.INT && rtype == SkylarkType.STRING) {
+          return SkylarkType.STRING;
+        }
         break;
       }
 

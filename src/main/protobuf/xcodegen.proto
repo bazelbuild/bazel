@@ -26,7 +26,7 @@ message DependencyControl {
 }
 
 // Contains information specific to a single target in the project file.
-// Next ID: 21
+// Next ID: 22
 message TargetControl {
   // 'Name' of the target in the project file. This corresponds to the product
   // name, and does not have to be unique.
@@ -77,14 +77,16 @@ message TargetControl {
   // list of which can be used to specify all resources.
   repeated string general_resource_file = 11;
 
-  // SDK frameworks to link with this target. This is ignored for library
-  // targets, which cannot link frameworks. This should be every framework
+  // SDK frameworks to link with this target. This should be every framework
   // required by the targets in the transitive dependency tree. Xcodegen does
   // not find these transitive dependencies automatically; they must be added
   // to this repeated field.
-  // TODO(bazel-team): Do not link any frameworks for library targets. They are
-  // only required for application targets.
   repeated string sdk_framework = 12;
+
+  // Paths to non-SDK frameworks to link with this target, relative to the
+  // same path as every other path in the control file. This should be every
+  // framework required by the targets in the transitive dependency tree.
+  repeated string framework = 21;
 
   // Path to all .xcdatamodel directories required. All directories inside
   // a .xcdatamodeld directory are grouped into XCVersionGroups by the path of

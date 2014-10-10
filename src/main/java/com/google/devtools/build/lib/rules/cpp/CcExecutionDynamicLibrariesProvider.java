@@ -13,7 +13,6 @@
 // limitations under the License.
 package com.google.devtools.build.lib.rules.cpp;
 
-import com.google.devtools.build.lib.actions.Artifact;
 import com.google.devtools.build.lib.collect.nestedset.NestedSet;
 import com.google.devtools.build.lib.collect.nestedset.NestedSetBuilder;
 import com.google.devtools.build.lib.collect.nestedset.Order;
@@ -27,11 +26,12 @@ import com.google.devtools.build.lib.view.TransitiveInfoProvider;
 public final class CcExecutionDynamicLibrariesProvider implements TransitiveInfoProvider {
   public static final CcExecutionDynamicLibrariesProvider EMPTY =
       new CcExecutionDynamicLibrariesProvider(
-          NestedSetBuilder.<Artifact>emptySet(Order.STABLE_ORDER));
+          NestedSetBuilder.<LinkerInput>emptySet(Order.STABLE_ORDER));
 
-  private final NestedSet<Artifact> ccExecutionDynamicLibraries;
+  private final NestedSet<? extends LinkerInput> ccExecutionDynamicLibraries;
 
-  public CcExecutionDynamicLibrariesProvider(NestedSet<Artifact> ccExecutionDynamicLibraries) {
+  public CcExecutionDynamicLibrariesProvider(
+      NestedSet<? extends LinkerInput> ccExecutionDynamicLibraries) {
     this.ccExecutionDynamicLibraries = ccExecutionDynamicLibraries;
   }
 
@@ -40,10 +40,10 @@ public final class CcExecutionDynamicLibrariesProvider implements TransitiveInfo
    *
    *  <p>This normally returns the dynamic library created by the rule itself. However, if the rule
    * does not create any dynamic libraries, then it returns the combined results of calling
-   * getExecutionDynamicLibraryArtifacts on all the rule's deps. This behaviour is so that this
+   * getExecutionDynamicLibraryInputs on all the rule's deps. This behaviour is so that this
    * method is useful for a cc_library with deps but no srcs.
    */
-  public NestedSet<Artifact> getExecutionDynamicLibraryArtifacts() {
+  public NestedSet<? extends LinkerInput> getExecutionDynamicLibraryInputs() {
     return ccExecutionDynamicLibraries;
   }
 }

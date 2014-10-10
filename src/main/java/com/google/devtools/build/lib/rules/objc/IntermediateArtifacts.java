@@ -56,14 +56,27 @@ final class IntermediateArtifacts {
         binDirectory);
   }
 
+  /**
+   * The output of {@code actoolzip} for a given bundle which is merged under the {@code .app} or
+   * {@code .bundle} directory root.
+   */
   public Artifact actoolzipOutput() {
     return appendExtension(".actool.zip");
   }
 
+  /**
+   * The Info.plist file for a bundle which is comprised of more than one originating plist file.
+   * This is not needed for a bundle which has no source Info.plist files, or only one Info.plist
+   * file, since no merging occurs in that case.
+   */
   public Artifact mergedInfoplist() {
     return appendExtension("-MergedInfo.plist");
   }
 
+  /**
+   * The artifact which is the binary (or library) which is comprised of one or more .a files linked
+   * together. There is either 0 or 1 such binary in a given bundle.
+   */
   public Artifact linkedBinary(String bundleDirSuffix) {
     String baseName = ownerLabel.toPathFragment().getBaseName();
     return appendExtension(bundleDirSuffix + "/" + baseName);
@@ -100,5 +113,13 @@ final class IntermediateArtifacts {
    */
   public Artifact pbxprojControlArtifact() {
     return appendExtension(".xcodeproj-control");
+  }
+
+  /**
+   * The artifact which contains the zipped-up results of compiling the storyboard. This is merged
+   * into the final bundle under the {@code .app} or {@code .bundle} directory root.
+   */
+  public Artifact compiledStoryboardZip(Artifact input) {
+    return appendExtension("/" + BundleableFile.bundlePath(input) + ".zip");
   }
 }

@@ -31,7 +31,16 @@ import java.util.Map;
 /**
  * A generic type safe NestedSet wrapper for Skylark.
  */
-@SkylarkModule(name = "NestedSet", doc = "An efficient nested set for Skylark")
+@SkylarkModule(name = "set",
+    doc = "A language built-in type to supports (nested) sets. "
+        + "Sets can be created using the global <code>set</code> function, and they "
+        + "support the <code>+</code> operator to extends and nest sets. Examples:<br>"
+        + "<pre class=code>s = set([1, 2])\n"
+        + "s += [3]           # s == {1, 2, 3}\n"
+        + "s += set([4, 5])   # s == {1, 2, 3, {4, 5}}</pre>"
+        + "Note that in these examples <code>{..}</code> is not a valid literal to create sets. "
+        + "Sets have a fixed generic type, so <code>set([1]) + [\"a\"]</code> or "
+        + "<code>set([1]) + set([\"a\"])</code> results in an error.")
 @Immutable
 public final class SkylarkNestedSet implements Iterable<Object> {
 
@@ -157,13 +166,12 @@ public final class SkylarkNestedSet implements Iterable<Object> {
     return ImmutableList.copyOf(set.toCollection());
   }
 
-  @SkylarkCallable(doc = "Returns true if this file set is empty.")
   public boolean isEmpty() {
     return genericType == null;
   }
 
   @VisibleForTesting
-  public Class<?> getGenericTypeInfo() {
+  public Class<?> getGenericType() {
     return genericType;
   }
 }

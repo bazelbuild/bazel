@@ -17,7 +17,9 @@ package com.google.devtools.build.lib.syntax;
 import com.google.common.annotations.VisibleForTesting;
 import com.google.common.base.Preconditions;
 import com.google.common.collect.ImmutableList;
+import com.google.common.collect.Iterables;
 import com.google.common.collect.Lists;
+import com.google.devtools.build.lib.concurrent.ThreadSafety.Immutable;
 import com.google.devtools.build.lib.events.Location;
 
 import java.util.Collection;
@@ -27,6 +29,18 @@ import java.util.List;
 /**
  * A class to handle lists and tuples in Skylark.
  */
+@SkylarkModule(name = "list",
+    doc = "A language built-in type to support lists. Example of list literal:<br>"
+        + "<pre class=code>l = [1, 2, 3]</pre>"
+        + "Accessing elements is possible using indexing (starts from <code>0</code>):<br>"
+        + "<pre class=code>e = l[1]   # e == 2</pre>"
+        + "Lists support the <code>+</code> operator to concatenate two lists. Example:<br>"
+        + "<pre class=code>l = [1, 2] + [3, 4]   # l == [1, 2, 3, 4]\n"
+        + "l = [\"a\", \"b\"]\n"
+        + "l += [\"c\"]            # l == [\"a\", \"b\", \"c\"]</pre>"
+        + "List elements have to be of the same type, <code>[1, 2, \"c\"]</code> results in an "
+        + "error. Lists - just like everything - are immutable, therefore <code>l[1] = \"a\""
+        + "</code> is not supported.")
 public abstract class SkylarkList implements Iterable<Object> {
 
   private final boolean tuple;
@@ -64,10 +78,18 @@ public abstract class SkylarkList implements Iterable<Object> {
     return genericType;
   }
 
+  // TODO(bazel-team): we should be very careful using this method. Check and remove
+  // auto conversions on the Java-Skylark interface if possible.
   /**
    * Converts this Skylark list to a Java list.
    */
   public abstract List<?> toList();
+
+  @SuppressWarnings("unchecked")
+  public <T> Iterable<T> to(Class<T> type) {
+    Preconditions.checkArgument(this == EMPTY_LIST || type.isAssignableFrom(genericType));
+    return (Iterable<T>) this;
+  }
 
   private static final class EmptySkylarkList extends SkylarkList {
     private EmptySkylarkList(boolean tuple) {
@@ -167,6 +189,106 @@ public abstract class SkylarkList implements Iterable<Object> {
   }
 
   /**
+   * A Skylark list to support lazy iteration (i.e. we only call iterator on the object this
+   * list masks when it's absolutely necessary). This is useful if iteration is expensive
+   * (e.g. NestedSet-s). Size(), get() and isEmpty() are expensive operations but
+   * concatenation is quick.
+   */
+  private static final class LazySkylarkList extends SkylarkList {
+    private final Iterable<Object> iterable;
+    private ImmutableList<Object> list = null;
+
+    private LazySkylarkList(Iterable<Object> iterable, boolean tuple, Class<?> genericType) {
+      super(tuple, genericType);
+      this.iterable = Preconditions.checkNotNull(iterable);
+      Preconditions.checkArgument(iterable.getClass().isAnnotationPresent(Immutable.class),
+          "Cannot create lazy lists from mutable iterables.");
+    }
+
+    @Override
+    public Iterator<Object> iterator() {
+      return iterable.iterator();
+    }
+
+    @Override
+    public int size() {
+      return Iterables.size(iterable);
+    }
+
+    @Override
+    public boolean isEmpty() {
+      return Iterables.isEmpty(iterable);
+    }
+
+    @Override
+    public Object get(int i) {
+      return getList().get(i);
+    }
+
+    @Override
+    public List<?> toList() {
+      return getList();
+    }
+
+    private ImmutableList<Object> getList() {
+      if (list == null) {
+        list = ImmutableList.copyOf(iterable);
+      }
+      return list;
+    }
+  }
+
+  /**
+   * A Skylark list to support quick concatenation of lists. Concatenation is O(1),
+   * size(), isEmpty() is O(n), get() is O(h).
+   */
+  private static final class ConcatenatedSkylarkList extends SkylarkList {
+    private final SkylarkList left;
+    private final SkylarkList right;
+
+    private ConcatenatedSkylarkList(
+        SkylarkList left, SkylarkList right, boolean tuple, Class<?> genericType) {
+      super(tuple, genericType);
+      this.left = Preconditions.checkNotNull(left);
+      this.right = Preconditions.checkNotNull(right);
+    }
+
+    @Override
+    public Iterator<Object> iterator() {
+      return Iterables.concat(left, right).iterator();
+    }
+
+    @Override
+    public int size() {
+      // We shouldn't evaluate the size function until it's necessary, because it can be expensive
+      // for lazy lists (e.g. lists containing a NestedSet).
+      // TODO(bazel-team): make this class more clever to store the size and empty parameters
+      // for every non-LazySkylarkList member.
+      return left.size() + right.size();
+    }
+
+    @Override
+    public boolean isEmpty() {
+      return left.isEmpty() && right.isEmpty();
+    }
+
+    @Override
+    public Object get(int i) {
+      int leftSize = left.size();
+      if (i < leftSize) {
+        return left.get(i);
+      } else {
+        return right.get(i - leftSize);
+      }
+    }
+
+    @Override
+    public List<?> toList() {
+      return ImmutableList.<Object>builder().addAll(left).addAll(right).build();
+    }
+  }
+
+  /**
    * Returns a Skylark list containing elements without a type check. Only use if all elements
    * are of the same type.
    */
@@ -175,6 +297,17 @@ public abstract class SkylarkList implements Iterable<Object> {
       return EMPTY_LIST;
     }
     return new SimpleSkylarkList(ImmutableList.copyOf(elements), false, genericType);
+  }
+
+  /**
+   * Returns a Skylark list containing elements without a type check and without creating
+   * an immutable copy. Therefore the iterable containing elements must be immutable. This way
+   * it's possibly to create a SkylarkList without requesting the original iterator. This
+   * can be useful for nested set - list conversions.
+   */
+  @SuppressWarnings("unchecked")
+  public static SkylarkList lazyList(Iterable<?> elements, Class<?> genericType) {
+    return new LazySkylarkList((Iterable<Object>) elements, false, genericType);
   }
 
   /**
@@ -224,9 +357,7 @@ public abstract class SkylarkList implements Iterable<Object> {
           EvalUtils.getDataTypeNameFromClass(left.genericType),
           EvalUtils.getDataTypeNameFromClass(right.genericType)));
     }
-    // TODO(bazel-team): implement a more effective concatenation
-    return new SimpleSkylarkList(
-        ImmutableList.builder().addAll(left).addAll(right).build(), false, left.genericType);
+    return new ConcatenatedSkylarkList(left, right, left.isTuple(), left.genericType);
   }
 
   /**

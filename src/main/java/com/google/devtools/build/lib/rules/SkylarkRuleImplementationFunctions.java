@@ -29,6 +29,7 @@ import com.google.devtools.build.lib.syntax.SkylarkFunction.SimpleSkylarkFunctio
 import com.google.devtools.build.lib.syntax.SkylarkList;
 import com.google.devtools.build.lib.syntax.SkylarkNestedSet;
 import com.google.devtools.build.lib.vfs.PathFragment;
+import com.google.devtools.build.lib.view.AnalysisUtils;
 import com.google.devtools.build.lib.view.CommandHelper;
 import com.google.devtools.build.lib.view.FilesToRunProvider;
 import com.google.devtools.build.lib.view.Runfiles;
@@ -72,13 +73,13 @@ public class SkylarkRuleImplementationFunctions {
       objectType = SkylarkRuleContext.class,
       returnType = Environment.NoneType.class,
       mandatoryParams = {
-      @Param(name = "outputs", type = SkylarkList.class,
+      @Param(name = "outputs", type = SkylarkList.class, generic1 = Artifact.class,
           doc = "list of the output files of the action")},
       optionalParams = {
-      @Param(name = "inputs", type = SkylarkList.class,
+      @Param(name = "inputs", type = SkylarkList.class, generic1 = Artifact.class,
           doc = "list of the input files of the action"),
       @Param(name = "executable", doc = "the executable file to be called by the action"),
-      @Param(name = "arguments", type = SkylarkList.class,
+      @Param(name = "arguments", type = SkylarkList.class, generic1 = String.class,
           doc = "command line arguments of the action"),
       @Param(name = "mnemonic", type = String.class, doc = "mnemonic"),
       @Param(name = "command", doc = "shell command to execute"),
@@ -96,15 +97,21 @@ public class SkylarkRuleImplementationFunctions {
         ConversionException {
       SkylarkRuleContext ctx = (SkylarkRuleContext) params.get("self");
       SpawnAction.Builder builder = new SpawnAction.Builder(ctx.getRuleContext());
-      builder.addInputs(castList(params.get("inputs"), Artifact.class, "inputs"));
-      builder.addOutputs(castList(params.get("outputs"), Artifact.class, "outputs"));
-      builder.addArguments(
-          castList(params.get("arguments"), String.class, "arguments"));
+      // TODO(bazel-team): builder still makes unnecessary copies of inputs, outputs and args. 
+      builder.addInputs(castList(params.get("inputs"), Artifact.class));
+      builder.addOutputs(castList(params.get("outputs"), Artifact.class));
+      builder.addArguments(castList(params.get("arguments"), String.class));
       if (params.containsKey("executable")) {
         Object exe = params.get("executable");
         if (exe instanceof Artifact) {
-          builder.addInput((Artifact) exe);
-          builder.setExecutable((Artifact) exe);
+          Artifact executable = (Artifact) exe;
+          builder.addInput(executable);
+          FilesToRunProvider provider = ctx.getExecutableRunfiles(executable);
+          if (provider == null) {
+            builder.setExecutable((Artifact) exe);
+          } else {
+            builder.setExecutable(provider);
+          }
         } else if (exe instanceof PathFragment) {
           builder.setExecutable((PathFragment) exe);
         } else {
@@ -292,9 +299,10 @@ public class SkylarkRuleImplementationFunctions {
       objectType = SkylarkRuleContext.class,
       returnType = CommandHelper.class,
       mandatoryParams = {
-      @Param(name = "tools", type = SkylarkList.class, doc = "list of tools"),
+      @Param(name = "tools", type = SkylarkList.class, doc = "list of tools (list of targets)"),
       @Param(name = "label_dict", type = Map.class,
-             doc = "dictionary of resolved labels and the corresponding list of artifacts")})
+             doc = "dictionary of resolved labels and the corresponding list of artifacts "
+                 + "(a dict of Label : list of files)")})
   private static final SkylarkFunction createCommandHelper =
       new SimpleSkylarkFunction("command_helper") {
         @SuppressWarnings("unchecked")
@@ -303,7 +311,9 @@ public class SkylarkRuleImplementationFunctions {
             throws ConversionException, EvalException {
           SkylarkRuleContext ctx = (SkylarkRuleContext) params.get("self");
           return new CommandHelper(ctx.getRuleContext(),
-              castList(params.get("tools"), FilesToRunProvider.class, "tools"),
+              AnalysisUtils.getProviders(
+                  castList(params.get("tools"), TransitiveInfoCollection.class, "tools"),
+                  FilesToRunProvider.class),
               // TODO(bazel-team): this cast to Map is unchecked and is not safe.
               // The best way to fix this probably is to convert CommandHelper to Skylark.
               ImmutableMap.copyOf((Map<Label, Iterable<Artifact>>) params.get("label_dict")));

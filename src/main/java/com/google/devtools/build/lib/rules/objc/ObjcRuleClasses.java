@@ -155,6 +155,8 @@ public class ObjcRuleClasses {
 
   static final FileTypeSet PLIST_TYPE = FileTypeSet.of(FileType.of(".plist"));
 
+  static final FileTypeSet STORYBOARD_TYPE = FileTypeSet.of(FileType.of(".storyboard"));
+
   /**
    * Common attributes for {@code objc_*} rules.
    */
@@ -208,9 +210,9 @@ public class ObjcRuleClasses {
           Files which are plists of strings, often localizable. These files
           are converted to binary plists (if they are not already) and placed
           in the bundle root of the final package. If this file's immediate
-          containing directory is named *.lproj, it will be placed under a
-          directory of that name in the final bundle. This allows for
-          localizable strings.
+          containing directory is named *.lproj (e.g. en.lproj, Base.lproj), it
+          will be placed under a directory of that name in the final bundle.
+          This allows for localizable strings.
           <!-- #END_BLAZE_RULE.ATTRIBUTE -->*/
           .add(attr("strings", LABEL_LIST).legacyAllowAnyFileType()
               .direct_compile_time_input())
@@ -218,12 +220,23 @@ public class ObjcRuleClasses {
           Files which are .xib resources, possibly localizable. These files are
           compiled to .nib files and placed the bundle root of the final
           package. If this file's immediate containing directory is named
-          *.lproj, it will be placed under a directory of that name in the
-          final bundle. This allows for localizable UI.
+          *.lproj (e.g. en.lproj, Base.lproj), it will be placed under a
+          directory of that name in the final bundle. This allows for
+          localizable UI.
           <!-- #END_BLAZE_RULE.ATTRIBUTE -->*/
           .add(attr("xibs", LABEL_LIST)
               .direct_compile_time_input()
               .allowedFileTypes(FileType.of(".xib")))
+          /* <!-- #BLAZE_RULE($objc_base_rule).ATTRIBUTE(storyboards) -->
+          Files which are .storyboard resources, possibly localizable. These
+          files are compiled to .storyboardc directories, which are placed in
+          the bundle root of the final package. If the storyboards's immediate
+          containing directory is named *.lproj (e.g. en.lproj, Base.lproj), it
+          will be placed under a directory of that name in the final bundle.
+          This allows for localizable UI.
+          <!-- #END_BLAZE_RULE.ATTRIBUTE -->*/
+          .add(attr("storyboards", LABEL_LIST)
+              .allowedFileTypes(STORYBOARD_TYPE))
           /* <!-- #BLAZE_RULE($objc_base_rule).ATTRIBUTE(sdk_frameworks) -->
           Names of SDK frameworks to link with. For instance, "XCTest" or
           "Cocoa". "UIKit" and "Foundation" are always included and do not mean
@@ -266,6 +279,8 @@ public class ObjcRuleClasses {
               .value(env.getLabel("//tools/objc:plmerge")))
           .add(attr("$momczip_deploy", LABEL).cfg(HOST)
               .value(env.getLabel("//tools/objc:momczip_deploy.jar")))
+          .add(attr("$actoolzip_deploy", LABEL).cfg(HOST)
+              .value(env.getLabel("//tools/objc:actoolzip_deploy.jar")))
           .build();
     }
   }

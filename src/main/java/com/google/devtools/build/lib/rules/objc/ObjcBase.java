@@ -37,6 +37,10 @@ final class ObjcBase {
       this.ruleContext = Preconditions.checkNotNull(ruleContext);
     }
 
+    Artifact actoolzipDeployJar() {
+      return ruleContext.getPrerequisiteArtifact("$actoolzip_deploy", Mode.HOST);
+    }
+
     Artifact momczipDeployJar() {
       return ruleContext.getPrerequisiteArtifact("$momczip_deploy", Mode.HOST);
     }
@@ -65,7 +69,8 @@ final class ObjcBase {
     return ruleContext.getConfiguration().getFragment(ObjcConfiguration.class);
   }
 
-  static void registerActions(RuleContext ruleContext, XcodeProvider xcodeProvider) {
+  static void registerActions(
+      RuleContext ruleContext, XcodeProvider xcodeProvider, Iterable<Storyboard> storyboards) {
     ObjcActionsBuilder actionsBuilder = actionsBuilder(ruleContext);
     Tools tools = new Tools(ruleContext);
     actionsBuilder.registerResourceActions(
@@ -77,5 +82,8 @@ final class ObjcBase {
         tools,
         ruleContext.getImplicitOutputArtifact(ObjcRuleClasses.PBXPROJ),
         xcodeProvider);
+    for (Storyboard storyboard : storyboards) {
+      actionsBuilder.registerIbtoolzipAction(tools, storyboard);
+    }
   }
 }

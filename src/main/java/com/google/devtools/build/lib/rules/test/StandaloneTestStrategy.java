@@ -24,6 +24,7 @@ import com.google.devtools.build.lib.actions.Executor;
 import com.google.devtools.build.lib.actions.Spawn;
 import com.google.devtools.build.lib.actions.TestExecException;
 import com.google.devtools.build.lib.events.Event;
+import com.google.devtools.build.lib.events.EventKind;
 import com.google.devtools.build.lib.events.Reporter;
 import com.google.devtools.build.lib.util.io.FileOutErr;
 import com.google.devtools.build.lib.vfs.FileSystemUtils;
@@ -92,7 +93,7 @@ public class StandaloneTestStrategy extends TestStrategy {
       TestResultData data = execute(
           actionExecutionContext.withFileOutErr(fileOutErr), spawn, action);
       appendStderr(fileOutErr.getOutputFile(), fileOutErr.getErrorFile());
-      finalizeTest(executor, action, data);
+      finalizeTest(actionExecutionContext, action, data);
     } catch (IOException e) {
       executor.getEventHandler().handle(Event.error("Caught I/O exception: " + e));
       throw new EnvironmentalExecException("unexpected I/O exception", e);
@@ -111,7 +112,7 @@ public class StandaloneTestStrategy extends TestStrategy {
 
     return vars;
   }
-
+  
   private TestResultData execute(
       ActionExecutionContext actionExecutionContext, Spawn spawn, TestRunnerAction action)
       throws TestExecException, InterruptedException {
@@ -156,11 +157,42 @@ public class StandaloneTestStrategy extends TestStrategy {
     }
   }
 
-  private final void finalizeTest(Executor executor, TestRunnerAction action,
-      TestResultData data) throws IOException, ExecException {
+  /**
+   * Outputs test result to the stdout after test has finished (e.g. for --test_output=all or
+   * --test_output=errors). Will also try to group output lines together (up to 10000 lines) so
+   * parallel test outputs will not get interleaved.
+   */
+  protected void processTestOutput(Executor executor, FileOutErr outErr, TestResult result)
+      throws IOException {
+    Path testOutput = executor.getExecRoot().getRelative(result.getTestLogPath().asFragment());
+    boolean isPassed = result.getData().getTestPassed();
+    try {
+      if (TestLogHelper.shouldOutputTestLog(executionOptions.testOutput, isPassed)) {
+        TestLogHelper.writeTestLog(testOutput, result.getTestName(), outErr.getOutputStream());
+      }
+    } finally {
+      if (isPassed) {
+        executor.getEventHandler().handle(new Event(EventKind.PASS, null, result.getTestName()));
+      } else {
+        if (result.getData().getStatus() == BlazeTestStatus.TIMEOUT) {
+          executor.getEventHandler().handle(
+              new Event(EventKind.TIMEOUT, null, result.getTestName() 
+                  + " (see " + testOutput + ")"));
+        } else {
+          executor.getEventHandler().handle(
+              new Event(EventKind.FAIL, null, result.getTestName() + " (see " + testOutput + ")"));
+        }
+      }
+    }
+  }
+  
+  private final void finalizeTest(ActionExecutionContext actionExecutionContext, 
+      TestRunnerAction action, TestResultData data) throws IOException, ExecException {
     TestResult result = new TestResult(action, data, false);
-    postTestResult(executor, result);
+    postTestResult(actionExecutionContext.getExecutor(), result);
 
+    processTestOutput(actionExecutionContext.getExecutor(), 
+        actionExecutionContext.getFileOutErr(), result);
     // TODO(bazel-team): handle --test_output=errors, --test_output=all.
 
     if (!executionOptions.testKeepGoing && data.getStatus() != BlazeTestStatus.PASSED) {

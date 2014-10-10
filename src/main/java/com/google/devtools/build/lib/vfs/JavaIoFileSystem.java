@@ -453,14 +453,17 @@ public class JavaIoFileSystem extends AbstractFileSystem {
 
       @Override
       public long getLastChangeTime() {
-        throw new UnsupportedOperationException();
+        // This is the best we can do with Java NIO...
+        return attributes.lastModifiedTime().toMillis();
       }
 
       @Override
       public long getNodeId() {
-        throw new UnsupportedOperationException();
+        // TODO(bazel-team): Consider making use of attributes.fileKey().
+        return -1;
       }
     };
+
     return status;
   }
 

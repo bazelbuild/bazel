@@ -56,6 +56,7 @@ import javax.annotation.Nullable;
 @Immutable
 public final class LinkCommandLine extends CommandLine {
   private final BuildConfiguration configuration;
+  private final CppConfiguration cppConfiguration;
   private final ActionOwner owner;
   private final Artifact output;
   @Nullable private final Artifact interfaceOutput;
@@ -121,6 +122,7 @@ public final class LinkCommandLine extends CommandLine {
     }
 
     this.configuration = Preconditions.checkNotNull(configuration);
+    this.cppConfiguration = configuration.getFragment(CppConfiguration.class);
     this.owner = Preconditions.checkNotNull(owner);
     this.output = Preconditions.checkNotNull(output);
     this.interfaceOutput = interfaceOutput;
@@ -353,8 +355,6 @@ public final class LinkCommandLine extends CommandLine {
    * @return raw link command line.
    */
   public List<String> getRawLinkArgv() {
-    CppConfiguration cppConfig = configuration.getFragment(CppConfiguration.class);
-
     List<String> argv = new ArrayList<>();
     switch (linkTargetType) {
       case EXECUTABLE:
@@ -386,8 +386,9 @@ public final class LinkCommandLine extends CommandLine {
       case ALWAYS_LINK_PIC_STATIC_LIBRARY:
         // The static library link command follows this template:
         // ar <cmd> <output_archive> <input_files...>
-        argv.add(cppConfig.getArExecutable().getPathString());
-        argv.addAll(cppConfig.getArFlags(cppConfig.archiveType() == Link.ArchiveType.THIN));
+        argv.add(cppConfiguration.getArExecutable().getPathString());
+        argv.addAll(
+            cppConfiguration.getArFlags(cppConfiguration.archiveType() == Link.ArchiveType.THIN));
         argv.add(output.getExecPathString());
         addInputFileLinkOptions(argv, /*needWholeArchive=*/false,
             /*includeLinkopts=*/false);
@@ -398,7 +399,7 @@ public final class LinkCommandLine extends CommandLine {
     }
 
     // Fission mode: debug info is in .dwo files instead of .o files. Inform the linker of this.
-    if (!linkTargetType.isStaticLibraryLink() && cppConfig.useFission()) {
+    if (!linkTargetType.isStaticLibraryLink() && cppConfiguration.useFission()) {
       argv.add("-Wl,--gdb-index");
     }
 
@@ -504,8 +505,7 @@ public final class LinkCommandLine extends CommandLine {
       return ImmutableList.of();
     }
 
-    CppConfiguration cppConfig = configuration.getFragment(CppConfiguration.class);
-    String compilerCommand = cppConfig.getCppExecutable().getPathString();
+    String compilerCommand = cppConfiguration.getCppExecutable().getPathString();
     List<String> commands = Lists.newArrayListWithCapacity(linkstamps.size());
 
     for (Map.Entry<Artifact, Artifact> linkstamp : linkstamps.entrySet()) {
@@ -527,29 +527,30 @@ public final class LinkCommandLine extends CommandLine {
             .replaceAll(Pattern.quote("${OUTPUT_PATH}"), outputPathReplacement));
       }
 
-      optionList.add("-DGPLATFORM=\"" + cppConfig + "\"");
+      optionList.add("-DGPLATFORM=\"" + cppConfiguration + "\"");
 
       // Needed to find headers included from linkstamps.
       optionList.add("-I.");
 
       // Add sysroot.
-      PathFragment sysroot = cppConfig.getSysroot();
+      PathFragment sysroot = cppConfiguration.getSysroot();
       if (sysroot != null) {
         optionList.add("--sysroot=" + sysroot.getPathString());
       }
 
       // Add toolchain compiler options.
-      optionList.addAll(cppConfig.getCompilerOptions(features));
-      optionList.addAll(cppConfig.getCOptions());
-      optionList.addAll(cppConfig.getUnfilteredCompilerOptions(features));
+      optionList.addAll(cppConfiguration.getCompilerOptions(features));
+      optionList.addAll(cppConfiguration.getCOptions());
+      optionList.addAll(cppConfiguration.getUnfilteredCompilerOptions(features));
 
       // For dynamic libraries, produce position independent code.
-      if (linkTargetType == LinkTargetType.DYNAMIC_LIBRARY && cppConfig.toolchainNeedsPic()) {
+      if (linkTargetType == LinkTargetType.DYNAMIC_LIBRARY
+          && cppConfiguration.toolchainNeedsPic()) {
         optionList.add("-fPIC");
       }
 
       // Stamp FDO builds with FDO subtype string
-      String fdoBuildStamp = CppHelper.getFdoBuildStamp(cppConfig);
+      String fdoBuildStamp = CppHelper.getFdoBuildStamp(cppConfiguration);
       if (fdoBuildStamp != null) {
         optionList.add("-D" + CppConfiguration.FDO_STAMP_MACRO + "=\"" + fdoBuildStamp + "\"");
       }
@@ -574,9 +575,7 @@ public final class LinkCommandLine extends CommandLine {
    * Add them to the {@code argv} parameter.
    */
   private void addCppArgv(List<String> argv) {
-    CppConfiguration cppConfig = configuration.getFragment(CppConfiguration.class);
-
-    argv.add(cppConfig.getCppExecutable().getPathString());
+    argv.add(cppConfiguration.getCppExecutable().getPathString());
 
     // When using gold to link an executable, output the number of used and unused symbols.
     if (symbolCountsOutput != null) {
@@ -597,14 +596,14 @@ public final class LinkCommandLine extends CommandLine {
     boolean sharedLinkopts =
         linkTargetType == LinkTargetType.DYNAMIC_LIBRARY
         || linkopts.contains("-shared")
-        || cppConfig.getLinkOptions().contains("-shared");
+        || cppConfiguration.getLinkOptions().contains("-shared");
 
     if (output != null) {
       argv.add("-o");
       String execpath = output.getExecPathString();
       if (mostlyStatic
           && linkTargetType == LinkTargetType.EXECUTABLE
-          && cppConfig.skipStaticOutputs()) {
+          && cppConfiguration.skipStaticOutputs()) {
         // Linked binary goes to /dev/null; bogus dependency info in its place.
         Collections.addAll(argv, "/dev/null", "-MMD", "-MF", execpath);  // thanks Ambrose
       } else {
@@ -616,16 +615,16 @@ public final class LinkCommandLine extends CommandLine {
 
     // Extra toolchain link options based on the output's link staticness.
     if (fullyStatic) {
-      argv.addAll(cppConfig.getFullyStaticLinkOptions(features, sharedLinkopts));
+      argv.addAll(cppConfiguration.getFullyStaticLinkOptions(features, sharedLinkopts));
     } else if (mostlyStatic) {
-      argv.addAll(cppConfig.getMostlyStaticLinkOptions(features, sharedLinkopts));
+      argv.addAll(cppConfiguration.getMostlyStaticLinkOptions(features, sharedLinkopts));
     } else {
-      argv.addAll(cppConfig.getDynamicLinkOptions(features, sharedLinkopts));
+      argv.addAll(cppConfiguration.getDynamicLinkOptions(features, sharedLinkopts));
     }
 
     // Extra test-specific link options.
     if (useTestOnlyFlags) {
-      argv.addAll(cppConfig.getTestOnlyLinkOptions());
+      argv.addAll(cppConfiguration.getTestOnlyLinkOptions());
     }
 
     if (configuration.isCodeCoverageEnabled()) {
@@ -635,12 +634,12 @@ public final class LinkCommandLine extends CommandLine {
       argv.add("-lgcov");
     }
 
-    if (linkTargetType == LinkTargetType.EXECUTABLE && cppConfig.forcePic()) {
+    if (linkTargetType == LinkTargetType.EXECUTABLE && cppConfiguration.forcePic()) {
       argv.add("-pie");
     }
 
-    argv.addAll(cppConfig.getLinkOptions());
-    argv.addAll(cppConfig.getFdoSupport().getLinkOptions());
+    argv.addAll(cppConfiguration.getLinkOptions());
+    argv.addAll(cppConfiguration.getFdoSupport().getLinkOptions());
   }
 
   private static boolean isDynamicLibrary(LinkerInput linkInput) {
@@ -650,7 +649,7 @@ public final class LinkCommandLine extends CommandLine {
   }
 
   private boolean isSharedNativeLibrary() {
-    return nativeDeps && configuration.getFragment(CppConfiguration.class).shareNativeDeps();
+    return nativeDeps && cppConfiguration.shareNativeDeps();
   }
 
   /**
@@ -669,8 +668,7 @@ public final class LinkCommandLine extends CommandLine {
     // that affects all subsequent files, and -noall_load is simply ignored.
     // TODO(bazel-team): Not sure what the implications of this are, other than
     // bloated binaries.
-    CppConfiguration cppConfig = configuration.getFragment(CppConfiguration.class);
-    boolean macosx = cppConfig.getTargetLibc().equals("macosx");
+    boolean macosx = cppConfiguration.getTargetLibc().equals("macosx");
     if (globalNeedWholeArchive) {
       argv.add(macosx ? "-Wl,-all_load" : "-Wl,-whole-archive");
     }
@@ -686,7 +684,7 @@ public final class LinkCommandLine extends CommandLine {
     List<String> noWholeArchiveInputs = new ArrayList<>();
 
     PathFragment solibDir = configuration.getBinDirectory().getExecPath()
-        .getRelative(cppConfig.getSolibDirectory());
+        .getRelative(cppConfiguration.getSolibDirectory());
     String runtimeSolibName = runtimeSolibDir != null ? runtimeSolibDir.getBaseName() : null;
     boolean runtimeRpath = runtimeSolibDir != null
         && (linkTargetType == LinkTargetType.DYNAMIC_LIBRARY
@@ -698,7 +696,7 @@ public final class LinkCommandLine extends CommandLine {
 
     if (output != null) {
       String origin =
-          useTestOnlyFlags && cppConfig.supportsExecOrigin() ? "$EXEC_ORIGIN/" : "$ORIGIN/";
+          useTestOnlyFlags && cppConfiguration.supportsExecOrigin() ? "$EXEC_ORIGIN/" : "$ORIGIN/";
       rpathRoot = "-Wl,-rpath," + origin;
       if (runtimeRpath) {
         runtimeRpathEntries.add("-Wl,-rpath," + origin + runtimeSolibName + "/");
@@ -718,7 +716,7 @@ public final class LinkCommandLine extends CommandLine {
         // and the second could use $ORIGIN/../_solib_[arch]. But since this is a shared
         // artifact, both are symlinks to the same place, so
         // there's no *one* RPATH setting that fits all targets involved in the sharing.
-        rpathRoot += ":" + origin + cppConfig.getSolibDirectory() + "/";
+        rpathRoot += ":" + origin + cppConfiguration.getSolibDirectory() + "/";
         if (runtimeRpath) {
           runtimeRpathEntries.add("-Wl,-rpath," + origin + "../" + runtimeSolibName + "/");
         }
@@ -735,7 +733,7 @@ public final class LinkCommandLine extends CommandLine {
 
         rpathRoot = "-Wl,-rpath,"
             + origin + Strings.repeat("../", output.getRootRelativePath().segmentCount() - 1)
-            + cppConfig.getSolibDirectory() + "/";
+            + cppConfiguration.getSolibDirectory() + "/";
 
         if (nativeDeps) {
           // We also retain the $ORIGIN/ path to solibs that are in _solib_<arch>, as opposed to
@@ -833,7 +831,7 @@ public final class LinkCommandLine extends CommandLine {
       Set<String> libOpts, PathFragment solibDir, String rpathRoot) {
     Preconditions.checkState(isDynamicLibrary(input));
     Preconditions.checkState(
-        !Link.useStartEndLib(input, CppHelper.archiveType(configuration)));
+        !Link.useStartEndLib(input, cppConfiguration.archiveType()));
 
     Artifact inputArtifact = input.getArtifact();
     PathFragment libDir = inputArtifact.getExecPath().getParentDirectory();
@@ -873,8 +871,7 @@ public final class LinkCommandLine extends CommandLine {
     Preconditions.checkState(!isDynamicLibrary(input));
 
     // start-lib/end-lib library: adds its input object files.
-    if (Link.useStartEndLib(
-        input, configuration.getFragment(CppConfiguration.class).archiveType())) {
+    if (Link.useStartEndLib(input, cppConfiguration.archiveType())) {
       Iterable<Artifact> archiveMembers = input.getObjectFiles();
       if (!Iterables.isEmpty(archiveMembers)) {
         options.add("-Wl,--start-lib");

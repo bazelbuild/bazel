@@ -55,6 +55,12 @@ public final class DotExpression extends Expression {
     String name = field.getName();
     Object result = eval(objValue, name, getLocation());
     if (result == null) {
+      if (objValue instanceof ClassObject) {
+        String customErrorMessage = ((ClassObject) objValue).errorMessage(name);
+        if (customErrorMessage != null) {
+          throw new EvalException(getLocation(), customErrorMessage);
+        }
+      }
       throw new EvalException(getLocation(), "Object of type '"
           + EvalUtils.getDatatypeName(objValue) + "' has no field '" + name + "'");
     }

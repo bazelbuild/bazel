@@ -89,7 +89,7 @@ final class ObjcActionsBuilder {
   static final PathFragment CLANG = new PathFragment(BIN_DIR + "/clang");
   static final PathFragment CLANG_PLUSPLUS = new PathFragment(BIN_DIR + "/clang++");
   static final PathFragment LIBTOOL = new PathFragment(BIN_DIR + "/libtool");
-  static final PathFragment IBTOOL = new PathFragment("/usr/bin/ibtool");
+  static final PathFragment IBTOOL = new PathFragment(IosSdkCommands.IBTOOL_PATH);
   static final PathFragment DSYMUTIL = new PathFragment(BIN_DIR + "/dsymutil");
 
   // TODO(bazel-team): Reference a rule target rather than a jar file when Darwin runfiles work
@@ -310,40 +310,62 @@ final class ObjcActionsBuilder {
     }
   }
 
-  static Action actoolzipAction(ActionConstructionContext context,
-      final ObjcConfiguration objcConfiguration, Artifact actoolzipDeploy,
-      final ObjcProvider provider, final Artifact actoolzipOutput,
-      final ExtraActoolArgs extraActoolArgs) {
+  void registerActoolzipAction(
+      ObjcBase.Tools tools,
+      ObjcProvider provider,
+      Artifact actoolzipOutput,
+      ExtraActoolArgs extraActoolArgs) {
     // TODO(bazel-team): Do not use the deploy jar explicitly here. There is currently a bug where
     // we cannot .setExecutable({java_binary target}) and set REQUIRES_DARWIN in the execution info.
     // Note that below we set the archive root to the empty string. This means that the generated
     // zip file will be rooted at the bundle root, and we have to prepend the bundle root to each
     // entry when merging it with the final .ipa file.
-    return spawnJavaOnDarwinActionBuilder(context, actoolzipDeploy)
+    register(spawnJavaOnDarwinActionBuilder(context, tools.actoolzipDeployJar())
         .setMnemonic("Compile asset catalogs")
         .addTransitiveInputs(provider.get(ASSET_CATALOG))
         .addOutput(actoolzipOutput)
-        .setCommandLine(new CommandLine() {
-          @Override
-          public Iterable<String> arguments() {
-            ImmutableList.Builder<String> args = new ImmutableList.Builder<String>()
-                // The next three arguments are positional, i.e. they don't have flags before them.
-                .add(actoolzipOutput.getExecPathString())
-                .add("") // archive root
-                .add(IosSdkCommands.ACTOOL_PATH)
-                .add("--platform")
-                .add(objcConfiguration.getPlatform().getLowerCaseNameInPlist())
-                .add("--minimum-deployment-target").add(MINIMUM_OS_VERSION);
-            for (TargetDeviceFamily targetDeviceFamily : TARGET_DEVICE_FAMILIES) {
-              args.add("--target-device").add(targetDeviceFamily.name().toLowerCase(Locale.US));
-            }
-            return args
-                .addAll(PathFragment.safePathStrings(provider.get(XCASSETS_DIR)))
-                .addAll(extraActoolArgs)
-                .build();
-          }
-        })
-        .build();
+        .setCommandLine(actoolzipCommandLine(
+            objcConfiguration,
+            provider,
+            actoolzipOutput,
+            extraActoolArgs))
+        .build());
+  }
+
+  private static CommandLine actoolzipCommandLine(
+      final ObjcConfiguration objcConfiguration,
+      final ObjcProvider provider,
+      final Artifact output,
+      final ExtraActoolArgs extraActoolArgs) {
+    return new CommandLine() {
+      @Override
+      public Iterable<String> arguments() {
+        ImmutableList.Builder<String> args = new ImmutableList.Builder<String>()
+            // The next three arguments are positional, i.e. they don't have flags before them.
+            .add(output.getExecPathString())
+            .add("") // archive root
+            .add(IosSdkCommands.ACTOOL_PATH)
+            .add("--platform")
+            .add(objcConfiguration.getPlatform().getLowerCaseNameInPlist())
+            .add("--minimum-deployment-target").add(MINIMUM_OS_VERSION);
+        for (TargetDeviceFamily targetDeviceFamily : TARGET_DEVICE_FAMILIES) {
+          args.add("--target-device").add(targetDeviceFamily.name().toLowerCase(Locale.US));
+        }
+        return args
+            .addAll(PathFragment.safePathStrings(provider.get(XCASSETS_DIR)))
+            .addAll(extraActoolArgs)
+            .build();
+      }
+    };
+  }
+
+  void registerIbtoolzipAction(ObjcBase.Tools tools, Storyboard storyboard) {
+    register(spawnJavaOnDarwinActionBuilder(context, tools.actoolzipDeployJar())
+        .setMnemonic("Compile storyboard")
+        .addInput(storyboard.getInput())
+        .addOutput(storyboard.getOutputZip())
+        .setCommandLine(storyboard.ibtoolzipCommandLine())
+        .build());
   }
 
   @VisibleForTesting

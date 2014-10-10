@@ -19,6 +19,7 @@ import com.google.common.base.Joiner;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.Iterables;
+import com.google.devtools.build.docgen.SkylarkJavaInterfaceExplorer.SkylarkBuiltinMethod;
 import com.google.devtools.build.docgen.SkylarkJavaInterfaceExplorer.SkylarkMethod;
 import com.google.devtools.build.docgen.SkylarkJavaInterfaceExplorer.SkylarkModuleDoc;
 import com.google.devtools.build.lib.packages.MethodLibrary;
@@ -89,6 +90,13 @@ public class SkylarkDocumentationProcessor {
     modules.putAll(builtinModules);
     SkylarkJavaInterfaceExplorer explorer = new SkylarkJavaInterfaceExplorer();
     for (SkylarkModuleDoc builtinObject : builtinModules.values()) {
+      // Check the return type for built-in functions, it can be a module previously not added.
+      for (SkylarkBuiltinMethod builtinMethod : builtinObject.getBuiltinMethods().values()) {
+        Class<?> type = builtinMethod.annotation.returnType(); 
+        if (type.isAnnotationPresent(SkylarkModule.class)) {
+          explorer.collect(type.getAnnotation(SkylarkModule.class), type, modules);
+        }
+      }
       explorer.collect(builtinObject.getAnnotation(), builtinObject.getClassObject(), modules);
     }
     for (Entry<SkylarkModule, Class<?>> builtinModule : builtinJavaObjects.entrySet()) {
@@ -123,7 +131,7 @@ public class SkylarkDocumentationProcessor {
       generateDirectJavaMethodDoc(annotation.name(), method.name, method.method,
           method.callable, sb);
     }
-    for (SkylarkBuiltin builtin : module.getBuiltinMethods().values()) {
+    for (SkylarkBuiltinMethod builtin : module.getBuiltinMethods().values()) {
       generateBuiltinItemDoc(getModuleId(annotation), builtin, sb);
     }
   }
@@ -137,7 +145,8 @@ public class SkylarkDocumentationProcessor {
   }
 
   private void generateBuiltinItemDoc(
-      String moduleId, SkylarkBuiltin annotation, StringBuilder sb) {
+      String moduleId, SkylarkBuiltinMethod method, StringBuilder sb) {
+    SkylarkBuiltin annotation = method.annotation;
     if (annotation.hidden()) {
       return;
     }
@@ -146,10 +155,12 @@ public class SkylarkDocumentationProcessor {
           annotation.name(),
           annotation.name()));
 
-    if (annotation.optionalParams().length + annotation.mandatoryParams().length > 0) {
-      // TODO(bazel-team): If the built-in has params it is a function. This is not the best way
-      // to check it and it doesn't work for MethodLibrary methods.
+    if (com.google.devtools.build.lib.syntax.Function.class.isAssignableFrom(method.fieldClass)) {
       sb.append(getSignature(moduleId, annotation));
+    } else {
+      if (!annotation.returnType().equals(Object.class)) {
+        sb.append("<code>" + getTypeAnchor(annotation.returnType()) + "</code><br>");
+      }
     }
 
     sb.append(annotation.doc());
@@ -215,6 +226,10 @@ public class SkylarkDocumentationProcessor {
     }
   }
 
+  private String getTypeAnchor(Class<?> returnType, Class<?> generic1) {
+    return getTypeAnchor(returnType) + " of " + getTypeAnchor(generic1) + "s";
+  }
+
   private String getTypeAnchor(Class<?> returnType) {
     if (returnType.equals(String.class)) {
       return "<a class=\"anchor\" href=\"#modules.string\">string</a>";
@@ -247,13 +262,16 @@ public class SkylarkDocumentationProcessor {
     if (params.length > 0) {
       sb.append("<ul>\n");
       for (Param param : params) {
+        String paramType = param.type().equals(Object.class) ? ""
+            : (param.generic1().equals(Object.class)
+                ? " (" + getTypeAnchor(param.type()) + ")"
+                : " (" + getTypeAnchor(param.type(), param.generic1()) + ")");
         sb.append(String.format("\t<li id=\"modules.%s.%s.%s\"><code>%s%s</code>: ",
             moduleId,
             methodName,
             param.name(),
             param.name(),
-            param.type().equals(Object.class) ? ""
-                : " (" + getTypeAnchor(param.type()) + ")"))
+            paramType))
           .append(param.doc())
           .append("\n\t</li>\n");
       }
@@ -285,9 +303,10 @@ public class SkylarkDocumentationProcessor {
     Map<String, String> modules = new TreeMap<>();
     for (SkylarkModuleDoc doc : collectBuiltinModules().values()) {
       if (doc.getAnnotation() == getTopLevelModule()) {
-        for (Map.Entry<String, SkylarkBuiltin> entry : doc.getBuiltinMethods().entrySet()) {
-          if (!entry.getValue().hidden()) {
-            modules.put(entry.getKey(), DocgenConsts.toCommandLineFormat(entry.getValue().doc()));
+        for (Map.Entry<String, SkylarkBuiltinMethod> entry : doc.getBuiltinMethods().entrySet()) {
+          if (!entry.getValue().annotation.hidden()) {
+            modules.put(entry.getKey(),
+                DocgenConsts.toCommandLineFormat(entry.getValue().annotation.doc()));
           }
         }
       } else {
@@ -315,8 +334,8 @@ public class SkylarkDocumentationProcessor {
         StringBuilder sb = new StringBuilder();
         sb.append(moduleName).append("\n\t").append(module.getAnnotation().doc()).append("\n");
         // Print the signature of all built-in methods
-        for (SkylarkBuiltin annotation : module.getBuiltinMethods().values()) {
-          printBuiltinFunctionDoc(moduleName, annotation, sb);
+        for (SkylarkBuiltinMethod method : module.getBuiltinMethods().values()) {
+          printBuiltinFunctionDoc(moduleName, method.annotation, sb);
         }
         // Print all Java methods
         for (SkylarkMethod method : module.getJavaMethods()) {
@@ -336,10 +355,10 @@ public class SkylarkDocumentationProcessor {
   private String getFunctionDoc(String moduleName, String methodName, SkylarkModuleDoc module) {
     if (module.getBuiltinMethods().containsKey(methodName)) {
       // Create the doc for the built-in function
-      SkylarkBuiltin annotation = module.getBuiltinMethods().get(methodName);
+      SkylarkBuiltinMethod method = module.getBuiltinMethods().get(methodName);
       StringBuilder sb = new StringBuilder();
-      printBuiltinFunctionDoc(moduleName, annotation, sb);
-      printParams(moduleName, annotation, sb);
+      printBuiltinFunctionDoc(moduleName, method.annotation, sb);
+      printParams(moduleName, method.annotation, sb);
       return DocgenConsts.removeDuplicatedNewLines(DocgenConsts.toCommandLineFormat(sb.toString()));
     } else {
       // Search if there are matching Java functions
@@ -391,7 +410,7 @@ public class SkylarkDocumentationProcessor {
           modules.put(skylarkModule.name(), new SkylarkModuleDoc(skylarkModule, moduleClass));
         }
         modules.get(skylarkModule.name()).getBuiltinMethods()
-            .put(skylarkBuiltin.name(), skylarkBuiltin);
+            .put(skylarkBuiltin.name(), new SkylarkBuiltinMethod(skylarkBuiltin, field.getType()));
       }
     }
   }

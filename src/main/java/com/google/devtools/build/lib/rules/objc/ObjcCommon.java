@@ -31,6 +31,7 @@ import static com.google.devtools.build.lib.rules.objc.ObjcProvider.INCLUDE;
 import static com.google.devtools.build.lib.rules.objc.ObjcProvider.LIBRARY;
 import static com.google.devtools.build.lib.rules.objc.ObjcProvider.SDK_DYLIB;
 import static com.google.devtools.build.lib.rules.objc.ObjcProvider.SDK_FRAMEWORK;
+import static com.google.devtools.build.lib.rules.objc.ObjcProvider.STORYBOARD;
 import static com.google.devtools.build.lib.rules.objc.ObjcProvider.XCASSETS_DIR;
 import static com.google.devtools.build.lib.rules.objc.ObjcProvider.XCDATAMODEL;
 
@@ -44,6 +45,7 @@ import com.google.common.collect.Iterables;
 import com.google.devtools.build.lib.actions.Artifact;
 import com.google.devtools.build.lib.collect.nestedset.NestedSet;
 import com.google.devtools.build.lib.collect.nestedset.NestedSetBuilder;
+import com.google.devtools.build.lib.packages.RuleClass.Builder;
 import com.google.devtools.build.lib.util.FileType;
 import com.google.devtools.build.lib.vfs.PathFragment;
 import com.google.devtools.build.lib.view.ConfiguredTarget;
@@ -68,12 +70,14 @@ final class ObjcCommon {
   static class Builder {
     private RuleContext context;
     private Iterable<Artifact> assetCatalogs = ImmutableList.of();
+    private Iterable<Artifact> storyboards = ImmutableList.of();
     private Iterable<SdkFramework> extraSdkFrameworks = ImmutableList.of();
     private Iterable<Artifact> frameworkImports = ImmutableList.of();
     private Iterable<String> sdkDylibs = ImmutableList.of();
     private Iterable<Artifact> hdrs = ImmutableList.of();
     private Optional<CompilationArtifacts> compilationArtifacts = Optional.absent();
     private Iterable<ObjcProvider> depObjcProviders = ImmutableList.of();
+    private IntermediateArtifacts intermediateArtifacts;
 
     Builder(RuleContext context) {
       this.context = Preconditions.checkNotNull(context);
@@ -81,6 +85,11 @@ final class ObjcCommon {
 
     Builder addAssetCatalogs(Iterable<Artifact> assetCatalogs) {
       this.assetCatalogs = Iterables.concat(this.assetCatalogs, assetCatalogs);
+      return this;
+    }
+
+    Builder addStoryboards(Iterable<Artifact> storyboards) {
+      this.storyboards = Iterables.concat(this.storyboards, storyboards);
       return this;
     }
 
@@ -116,17 +125,28 @@ final class ObjcCommon {
       return this;
     }
 
+    Builder setIntermediateArtifacts(IntermediateArtifacts intermediateArtifacts) {
+      this.intermediateArtifacts = intermediateArtifacts;
+      return this;
+    }
+
     ObjcCommon build() {
       Iterable<CompiledResourceFile> compiledResources = Iterables.concat(
           CompiledResourceFile.xibFilesFromRule(context),
           CompiledResourceFile.stringsFilesFromRule(context));
       Iterable<BundleableFile> bundleImports = BundleableFile.bundleImportsFromRule(context);
+      NestedSet<Storyboard> storyboardSet =
+          Storyboard.storyboards(storyboards, intermediateArtifacts);
 
       ObjcProvider.Builder objcProvider = new ObjcProvider.Builder()
           .addAll(HEADER, hdrs)
           .addAll(INCLUDE, headerSearchPaths(context))
           .addAll(XCASSETS_DIR, uniqueContainers(assetCatalogs, ASSET_CATALOG_CONTAINER_TYPE))
           .addAll(ASSET_CATALOG, assetCatalogs)
+          // The storyboardSet NestedSet is only one level deep, but we add the set transitively
+          // here to prevent storing the full sequence twice: once in ObjcCommon and once in
+          // ObjcProvider. It is not to compute a full closure.
+          .addTransitive(STORYBOARD, storyboardSet)
           .addAll(IMPORTED_LIBRARY, ARCHIVES.get(context))
           .addAll(GENERAL_RESOURCE_FILE, BundleableFile.generalResourceArtifactsFromRule(context))
           .addAll(BUNDLE_FILE, BundleableFile.resourceFilesFromRule(context))
@@ -156,8 +176,12 @@ final class ObjcCommon {
         }
       }
 
-      return new ObjcCommon(context, objcProvider.build(), assetCatalogs, frameworkImports, hdrs,
-          compilationArtifacts);
+      Iterable<String> ruleErrors = Iterables.concat(
+          notInContainerErrors(assetCatalogs, ASSET_CATALOG_CONTAINER_TYPE),
+          notInContainerErrors(frameworkImports, FRAMEWORK_CONTAINER_TYPE));
+
+      return new ObjcCommon(
+          context, objcProvider.build(), storyboardSet, hdrs, compilationArtifacts, ruleErrors);
     }
   }
 
@@ -175,20 +199,24 @@ final class ObjcCommon {
 
   private final RuleContext context;
   private final ObjcProvider objcProvider;
-  private final Iterable<Artifact> assetCatalogs;
-  private final Iterable<Artifact> frameworkImports;
+  private final Iterable<Storyboard> storyboards;
   private final Iterable<Artifact> hdrs;
   private final Optional<CompilationArtifacts> compilationArtifacts;
+  private final Iterable<String> ruleErrors;
 
-  private ObjcCommon(RuleContext context, ObjcProvider objcProvider,
-      Iterable<Artifact> assetCatalogs, Iterable<Artifact> frameworkImports,
-      Iterable<Artifact> hdrs, Optional<CompilationArtifacts> compilationArtifacts) {
+  private ObjcCommon(
+      RuleContext context,
+      ObjcProvider objcProvider,
+      Iterable<Storyboard> storyboards,
+      Iterable<Artifact> hdrs,
+      Optional<CompilationArtifacts> compilationArtifacts,
+      Iterable<String> ruleErrors) {
     this.context = Preconditions.checkNotNull(context);
     this.objcProvider = Preconditions.checkNotNull(objcProvider);
-    this.assetCatalogs = Preconditions.checkNotNull(assetCatalogs);
-    this.frameworkImports = Preconditions.checkNotNull(frameworkImports);
+    this.storyboards = Preconditions.checkNotNull(storyboards);
     this.hdrs = Preconditions.checkNotNull(hdrs);
     this.compilationArtifacts = Preconditions.checkNotNull(compilationArtifacts);
+    this.ruleErrors = Preconditions.checkNotNull(ruleErrors);
   }
 
   public ObjcProvider getObjcProvider() {
@@ -201,6 +229,14 @@ final class ObjcCommon {
 
   public Optional<CompilationArtifacts> getCompilationArtifacts() {
     return compilationArtifacts;
+  }
+
+  /**
+   * Returns all storyboards declared in this rule (not including others in the transitive
+   * dependency tree).
+   */
+  public Iterable<Storyboard> getStoryboards() {
+    return storyboards;
   }
 
   /**
@@ -220,12 +256,10 @@ final class ObjcCommon {
    * a target.
    */
   public void reportErrors() {
-    for (String error : notInContainerErrors(assetCatalogs, ASSET_CATALOG_CONTAINER_TYPE)) {
+    for (String error : ruleErrors) {
       context.ruleError(error);
     }
-    for (String error : notInContainerErrors(frameworkImports, FRAMEWORK_CONTAINER_TYPE)) {
-      context.ruleError(error);
-    }
+
     for (String error :
         notInContainerErrors(DATAMODELS.get(context), Xcdatamodels.CONTAINER_TYPES)) {
       context.attributeError(DATAMODELS.attrName(), error);
@@ -276,6 +310,7 @@ final class ObjcCommon {
       Iterable<XcodeProvider> depXcodeProviders) {
     // TODO(bazel-team): Add provisioning profile information when Xcodegen supports it.
     // TODO(bazel-team): Add .framework import information when Xcodegen supports it.
+    // TODO(bazel-team): Add .storyboard information when Xcodegen supports it.
     TargetControl.Builder targetControl = TargetControl.newBuilder()
         .setName(context.getLabel().getName())
         .setLabel(context.getLabel().toString())
@@ -283,13 +318,13 @@ final class ObjcCommon {
         .addAllImportedLibrary(Artifact.toExecPaths(objcProvider.get(IMPORTED_LIBRARY)))
         .addAllUserHeaderSearchPath(
             PathFragment.safePathStrings(userHeaderSearchPaths(context.getConfiguration())))
-        .addAllHeaderSearchPath(
-            PathFragment.safePathStrings(objcProvider.get(INCLUDE)))
+        .addAllHeaderSearchPath(PathFragment.safePathStrings(objcProvider.get(INCLUDE)))
         .addAllHeaderFile(Artifact.toExecPaths(hdrs))
         // TODO(bazel-team): Add all build settings information once Xcodegen supports it.
         .addAllCopt(copts)
         .addAllBuildSetting(xcodeprojBuildSettings)
         .addAllSdkFramework(SdkFramework.names(objcProvider.get(SDK_FRAMEWORK)))
+        .addAllFramework(PathFragment.safePathStrings(objcProvider.get(FRAMEWORK_DIR)))
         .addAllXcassetsDir(PathFragment.safePathStrings(objcProvider.get(XCASSETS_DIR)))
         .addAllXcdatamodel(PathFragment.safePathStrings(
             Xcdatamodel.xcdatamodelDirs(objcProvider.get(XCDATAMODEL))))
@@ -438,19 +473,28 @@ final class ObjcCommon {
   }
 
   /**
-   * @param filesToBuild files to build for this target. These also become the data runfiles.
-   * @param maybeTargetProvider the {@code XcodeTargetProvider} for this target
+   * @param filesToBuild files to build for this target. These also become the data runfiles. Note
+   *     that this method may add more files to create the complete list of files to build for this
+   *     target.
+   * @param maybeTargetProvider the {@link XcodeTargetProvider} for this target.
+   * @param maybeExportedProvider the {@link ObjcProvider} for this target. This should generally be
+   *     present whenever {@code objc_} rules may depend on this target.
    */
   public ConfiguredTarget configuredTarget(NestedSet<Artifact> filesToBuild,
       Optional<XcodeProvider> maybeTargetProvider, Optional<ObjcProvider> maybeExportedProvider) {
+    NestedSet<Artifact> allFilesToBuild = NestedSetBuilder.<Artifact>stableOrder()
+        .addTransitive(filesToBuild)
+        .addAll(Storyboard.outputZips(storyboards))
+        .build();
+
     RunfilesProvider runfilesProvider = RunfilesProvider.withData(
         new Runfiles.Builder()
             .addRunfiles(context, RunfilesProvider.DEFAULT_RUNFILES)
             .build(),
-        new Runfiles.Builder().addArtifacts(filesToBuild).build());
+        new Runfiles.Builder().addArtifacts(allFilesToBuild).build());
 
     RuleConfiguredTargetBuilder target = new RuleConfiguredTargetBuilder(context)
-        .setFilesToBuild(filesToBuild)
+        .setFilesToBuild(allFilesToBuild)
         .add(RunfilesProvider.class, runfilesProvider)
         // TODO(bazel-team): Remove this when legacy dependencies have been removed.
         .addProvider(LegacyObjcSourceFileProvider.class,

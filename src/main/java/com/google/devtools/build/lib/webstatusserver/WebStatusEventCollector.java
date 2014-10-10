@@ -53,14 +53,14 @@ public class WebStatusEventCollector {
   public void buildStarted(BuildStartingEvent startingEvent) {
     BuildRequest request = startingEvent.getRequest();
     BlazeVersionInfo versionInfo = BlazeVersionInfo.instance();
+    currentBuild.addStartTime(request.getStartTime());
+    currentBuild.addTargetList(request.getTargets());
     currentBuild.addInfo("version", versionInfo)
         .addInfo("commandName", request.getCommandName())
-        .addInfo("startTime", request.getStartTime())
         .addInfo("outputFs", startingEvent.getOutputFileSystem())
         .addInfo("symlinkPrefix", request.getSymlinkPrefix())
         .addInfo("optionsDescription", request.getOptionsDescription())
-        .addInfo("viewOptions", request.getViewOptions())
-        .addInfo("targetList", request.getTargets());
+        .addInfo("viewOptions", request.getViewOptions());
   }
 
   @Subscribe
@@ -101,6 +101,7 @@ public class WebStatusEventCollector {
 
   @Subscribe
   public void targetComplete(TargetCompleteEvent event) {
-    currentBuild.addTargetComplete(event.getTarget().getTarget().getLabel());
+    // TODO(bazel-team): would getting more details about failure be useful?
+    currentBuild.addTargetBuilt(event.getTarget().getTarget().getLabel(), event.failed());
   }
- }
+}

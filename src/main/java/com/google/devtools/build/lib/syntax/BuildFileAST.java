@@ -125,12 +125,22 @@ public class BuildFileAST extends ASTNode {
       try {
         stmt.exec(env);
       } catch (EvalException e) {
+        ok = false;
         // Do not report errors caused by a previous parsing error, as it has already been
         // reported.
-        if (!e.isDueToIncompleteAST()) {
+        if (e.isDueToIncompleteAST()) {
+          continue;
+        }
+        // When the exception is raised from another file, report first the location in the
+        // BUILD file (as it is the most probable cause for the error).
+        Location exnLoc = e.getLocation();
+        Location nodeLoc = stmt.getLocation();
+        if (!nodeLoc.getPath().equals(exnLoc.getPath())) {
+          eventHandler.handle(Event.error(nodeLoc,
+                  e.getMessage() + " (raised from " + exnLoc + ")"));
+        } else {
           eventHandler.handle(Event.error(e.getLocation(), e.getMessage()));
         }
-        ok = false;
       }
     }
     return ok;

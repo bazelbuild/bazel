@@ -64,22 +64,18 @@ public class ObjcBundleLibrary implements RuleConfiguredTargetFactory {
       RuleContext ruleContext, Bundling bundling,
       ObjcCommon common, XcodeProvider xcodeProvider, OptionsProvider optionsProvider,
       ExtraLinkArgs extraLinkArgs, ExtraActoolArgs extraActoolArgs) {
-    ObjcConfiguration objcConfiguration = ObjcBase.objcConfiguration(ruleContext);
     InfoplistMerging infoplistMerging = bundling.getInfoplistMerging();
     ObjcProvider objcProvider = common.getObjcProvider();
+    ObjcActionsBuilder actionsBuilder = ObjcBase.actionsBuilder(ruleContext);
 
     for (Artifact linkedBinary : bundling.getLinkedBinary().asSet()) {
-      ObjcBase.actionsBuilder(ruleContext)
-          .registerLinkAction(ruleContext, linkedBinary, objcProvider, extraLinkArgs);
+      actionsBuilder.registerLinkAction(ruleContext, linkedBinary, objcProvider, extraLinkArgs);
     }
 
     for (Artifact actoolzipOutput : bundling.getActoolzipOutput().asSet()) {
-      ruleContext.registerAction(
-          ObjcActionsBuilder.actoolzipAction(
-              ruleContext, objcConfiguration,
-              ruleContext.getPrerequisiteArtifact("$actoolzip_deploy", Mode.HOST),
-              common.getObjcProvider(), actoolzipOutput,
-              extraActoolArgs));
+      actionsBuilder.registerActoolzipAction(
+          new ObjcBase.Tools(ruleContext),
+          common.getObjcProvider(), actoolzipOutput, extraActoolArgs);
     }
 
     for (Action mergeInfoplistAction : infoplistMerging.getMergeAction().asSet()) {

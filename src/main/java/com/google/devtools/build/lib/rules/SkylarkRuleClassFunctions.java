@@ -79,10 +79,12 @@ import java.util.Map;
 public class SkylarkRuleClassFunctions {
 
   //TODO(bazel-team): proper enum support
-  @SkylarkBuiltin(name = "DATA_CFG", doc = "The default runfiles collection state.")
+  @SkylarkBuiltin(name = "DATA_CFG", returnType = ConfigurationTransition.class,
+      doc = "The default runfiles collection state.")
   private static final Object dataTransition = ConfigurationTransition.DATA;
 
-  @SkylarkBuiltin(name = "HOST_CFG", doc = "The default runfiles collection state.")
+  @SkylarkBuiltin(name = "HOST_CFG", returnType = ConfigurationTransition.class,
+      doc = "The default runfiles collection state.")
   private static final Object hostTransition = ConfigurationTransition.HOST;
 
   private static final Attribute.ComputedDefault DEPRECATION =
@@ -193,7 +195,7 @@ public class SkylarkRuleClassFunctions {
       optionalParams = {
       @Param(name = "test", type = Boolean.class, doc = "Whether this rule is a test rule. "
              + "If True, the rule must end with <code>_test</code> (otherwise it cannot)."),
-      @Param(name = "attr", doc =
+      @Param(name = "attrs", doc =
           "dictionary to declare all the attributes of the rule. It maps from an attribute name "
           + "to an attribute object (see 'attr' module). Attributes starting with <code>_</code> "
           + "are private, and can be used to add an implicit dependency on a label."),
@@ -223,8 +225,8 @@ public class SkylarkRuleClassFunctions {
               ? new RuleClass.Builder("", type, true, testBaseRule)
               : new RuleClass.Builder("", type, true, baseRule);
 
-          for (Map.Entry<String, Attribute.Builder> attr :
-                   castMap(arguments.get("attr"), String.class, Attribute.Builder.class, "attr")) {
+          for (Map.Entry<String, Attribute.Builder> attr : castMap(
+              arguments.get("attrs"), String.class, Attribute.Builder.class, "attrs")) {
             String attrName = attributeToNative(attr.getKey());
             Attribute.Builder<?> attrBuilder = attr.getValue();
             builder.addOrOverrideAttribute(attrBuilder.build(attrName));

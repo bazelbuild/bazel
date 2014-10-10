@@ -11,37 +11,41 @@
 // WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
 // See the License for the specific language governing permissions and
 // limitations under the License.
-package com.google.devtools.build.lib.syntax;
+
+package com.google.devtools.build.lib.actions.cache;
+
+import java.io.IOException;
+import java.io.PrintStream;
 
 /**
- * Infix operators supported by the build language.
+ * A no-op action cache that never caches anything.
  */
-public enum Operator {
+public final class NullActionCache implements ActionCache {
 
-  AND("and"),
-  EQUALS_EQUALS("=="),
-  GREATER(">"),
-  GREATER_EQUALS(">="),
-  IN("in"),
-  LESS("<"),
-  LESS_EQUALS("<="),
-  MINUS("-"),
-  MULT("*"),
-  NOT("not"),
-  NOT_EQUALS("!="),
-  OR("or"),
-  PERCENT("%"),
-  PLUS("+");
-
-  private final String name;
-
-  private Operator(String name) {
-    this.name = name;
+  @Override
+  public void put(String key, Entry entry) {
   }
 
   @Override
-  public String toString() {
-    return name;
+  public Entry get(String key) {
+    return null;
   }
 
+  @Override
+  public void remove(String key) {
+  }
+
+  @Override
+  public Entry createEntry(String key) {
+    return new ActionCache.Entry(key);
+  }
+
+  @Override
+  public long save() throws IOException {
+    return 0;
+  }
+
+  @Override
+  public void dump(PrintStream out) {
+  }
 }

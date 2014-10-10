@@ -37,6 +37,7 @@ import com.google.devtools.build.lib.rules.test.BaselineCoverageAction;
 import com.google.devtools.build.lib.syntax.Label;
 import com.google.devtools.build.lib.util.FileType;
 import com.google.devtools.build.lib.util.FileTypeSet;
+import com.google.devtools.build.lib.util.OsUtils;
 import com.google.devtools.build.lib.util.Pair;
 import com.google.devtools.build.lib.vfs.FileSystemUtils;
 import com.google.devtools.build.lib.vfs.PathFragment;
@@ -196,7 +197,8 @@ public abstract class CcBinary implements RuleConfiguredTargetFactory {
     // linkopt "-shared", which causes the result of linking to be a shared
     // library. In this case, the name of the executable target should end
     // in ".so".
-    PathFragment executableName = Util.getWorkspaceRelativePath(ruleContext.getTarget());
+    PathFragment executableName = Util.getWorkspaceRelativePath(
+        ruleContext.getTarget(), "", OsUtils.executableExtension());
     CppLinkAction.Builder linkActionBuilder = determineLinkerArguments(
         ruleContext, common, cppConfiguration, ccCompilationOutputs,
         cppCompilationContext.getCompilationPrerequisites(), fake, executableName);

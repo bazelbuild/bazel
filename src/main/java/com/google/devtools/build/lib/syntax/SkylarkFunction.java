@@ -162,7 +162,25 @@ public abstract class SkylarkFunction extends AbstractFunction {
           EvalUtils.getDataTypeNameFromClass(param.type()), paramName,
           EvalUtils.getDatatypeName(value), getName(), paramName, param.doc()));
     }
+    if (param.type().equals(SkylarkList.class)) {
+      checkGeneric(paramName, param, value, ((SkylarkList) value).getGenericType(), loc);
+    } else if (param.type().equals(SkylarkNestedSet.class)) {
+      checkGeneric(paramName, param, value, ((SkylarkNestedSet) value).getGenericType(), loc);
+    }
     arguments.put(paramName, value);
+  }
+
+  private void checkGeneric(String paramName, SkylarkBuiltin.Param param, Object value,
+      Class<?> genericType, Location loc) throws EvalException {
+    if (!genericType.equals(Object.class) && !param.generic1().isAssignableFrom(genericType)) {
+      String mainType = EvalUtils.getDataTypeNameFromClass(param.type());
+      throw new EvalException(loc, String.format(
+          "expected %s of %ss for '%s' but got %s of %ss instead\n%s.%s: %s",
+        mainType, EvalUtils.getDataTypeNameFromClass(param.generic1()),
+        paramName,
+        EvalUtils.getDatatypeName(value), EvalUtils.getDataTypeNameFromClass(genericType),
+        getName(), paramName, param.doc()));
+    }
   }
 
   /**
@@ -209,6 +227,13 @@ public abstract class SkylarkFunction extends AbstractFunction {
         IllegalStateException,
         ClassCastException,
         ExecutionException;
+  }
+
+  public static <TYPE> Iterable<TYPE> castList(Object obj, final Class<TYPE> type) {
+    if (obj == null) {
+      return ImmutableList.of();
+    }
+    return ((SkylarkList) obj).to(type);
   }
 
   public static <TYPE> Iterable<TYPE> castList(

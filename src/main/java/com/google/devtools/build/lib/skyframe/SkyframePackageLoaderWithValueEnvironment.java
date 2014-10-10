@@ -13,7 +13,6 @@
 // limitations under the License.
 package com.google.devtools.build.lib.skyframe;
 
-import com.google.common.base.Preconditions;
 import com.google.devtools.build.lib.actions.Artifact;
 import com.google.devtools.build.lib.actions.Root;
 import com.google.devtools.build.lib.blaze.BlazeDirectories;
@@ -52,8 +51,7 @@ class SkyframePackageLoaderWithValueEnvironment implements
   private Package getPackage(String packageName) throws NoSuchPackageException{
     SkyKey key = PackageValue.key(new PathFragment(packageName));
     PackageValue value = (PackageValue) env.getValueOrThrow(key, NoSuchPackageException.class);
-    Preconditions.checkNotNull(value, "Package was not loaded");
-    return value.getPackage();
+    return value == null ? null : value.getPackage();
   }
 
   @Override
@@ -71,7 +69,8 @@ class SkyframePackageLoaderWithValueEnvironment implements
   @Override
   public Target getLoadedTarget(Label label) throws NoSuchPackageException,
       NoSuchTargetException {
-    return getLoadedPackage(label.getPackageName()).getTarget(label.getName());
+    Package pkg = getLoadedPackage(label.getPackageName());
+    return pkg == null ? null : pkg.getTarget(label.getName());
   }
 
   @Override

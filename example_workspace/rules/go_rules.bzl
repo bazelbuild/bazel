@@ -155,20 +155,20 @@ go_library_outputs = {
 
 go_library = rule(
     go_library_impl,
-    attr = go_library_attrs,
+    attrs = go_library_attrs,
     outputs =go_library_outputs)
 
 go_binary = rule(
     go_binary_impl,
     executable = True,
-    attr = go_library_attrs,
+    attrs = go_library_attrs,
     outputs = go_library_outputs)
 
 go_test = rule(
     go_test_impl,
     executable = True,
     test = True,
-    attr = go_library_attrs + {
+    attrs = go_library_attrs + {
       "test_generator": attr.label(
           default=label("//tools/go:generate_test_main"),
           cfg=HOST_CFG, flags=["EXECUTABLE"])

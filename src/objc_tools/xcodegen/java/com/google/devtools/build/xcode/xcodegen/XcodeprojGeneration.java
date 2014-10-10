@@ -28,6 +28,7 @@ import com.google.common.collect.Iterables;
 import com.google.devtools.build.xcode.common.XcodeprojPath;
 import com.google.devtools.build.xcode.util.Equaling;
 import com.google.devtools.build.xcode.util.Mapping;
+import com.google.devtools.build.xcode.xcodegen.LibraryObjects.BuildPhaseBuilder;
 import com.google.devtools.build.xcode.xcodegen.SourceFile.BuildType;
 import com.google.devtools.build.xcode.xcodegen.proto.XcodeGenProtos.Control;
 import com.google.devtools.build.xcode.xcodegen.proto.XcodeGenProtos.DependencyControl;
@@ -216,15 +217,19 @@ public class XcodeprojGeneration {
     return (NSArray) NSObject.wrap(result.build());
   }
 
-  private static ImmutableList<SdkLibraryObjects.SdkLibrary> sdkLibraries(TargetControl target) {
-    ImmutableList.Builder<SdkLibraryObjects.SdkLibrary> libraries = new ImmutableList.Builder<>();
+  private static PBXFrameworksBuildPhase buildLibraryInfo(
+      LibraryObjects libraryObjects, TargetControl target) {
+    BuildPhaseBuilder builder = libraryObjects.newBuildPhase();
     for (String dylib : target.getSdkDylibList()) {
-      libraries.add(SdkLibraryObjects.dylib(dylib));
+      builder.addDylib(dylib);
     }
-    for (String framework : target.getSdkFrameworkList()) {
-      libraries.add(SdkLibraryObjects.framework(framework));
+    for (String sdkFramework : target.getSdkFrameworkList()) {
+      builder.addSdkFramework(sdkFramework);
     }
-    return libraries.build();
+    for (String framework : target.getFrameworkList()) {
+      builder.addFramework(framework);
+    }
+    return builder.build();
   }
 
   /** Generates a project file. */
@@ -240,14 +245,14 @@ public class XcodeprojGeneration {
         .on('/')
         .join(Collections.nCopies(levelsToExecRoot, "..")));
 
-    NSDictionary projBuildConfigMap = new NSDictionary();
-    projBuildConfigMap.put("ARCHS", new NSArray(
-        new NSString("arm7"), new NSString("arm7s"), new NSString("arm64")));
-    projBuildConfigMap.put("CLANG_ENABLE_OBJC_ARC", "YES");
-    projBuildConfigMap.put("SDKROOT", "iphoneos");
-    projBuildConfigMap.put("GCC_WARN_64_TO_32_BIT_CONVERSION", "YES");
-    projBuildConfigMap.put("IPHONEOS_DEPLOYMENT_TARGET", "7.0");
-    projBuildConfigMap.put("GCC_VERSION", "com.apple.compilers.llvm.clang.1_0");
+      NSDictionary projBuildConfigMap = new NSDictionary();
+      projBuildConfigMap.put("ARCHS", new NSArray(
+          new NSString("arm7"), new NSString("arm7s"), new NSString("arm64")));
+      projBuildConfigMap.put("CLANG_ENABLE_OBJC_ARC", "YES");
+      projBuildConfigMap.put("SDKROOT", "iphoneos");
+      projBuildConfigMap.put("GCC_WARN_64_TO_32_BIT_CONVERSION", "YES");
+      projBuildConfigMap.put("IPHONEOS_DEPLOYMENT_TARGET", "7.0");
+      projBuildConfigMap.put("GCC_VERSION", "com.apple.compilers.llvm.clang.1_0");
 
     PBXProject project = new PBXProject(outputPath.getProjectName());
     project.getMainGroup().setPath(sourceRoot.toString());
@@ -264,7 +269,7 @@ public class XcodeprojGeneration {
     Map<String, TargetInfo> targetInfoByLabel = new HashMap<>();
 
     PBXFileReferences fileReferences = new PBXFileReferences();
-    SdkLibraryObjects sdkLibraryObjects = new SdkLibraryObjects(fileReferences);
+    LibraryObjects libraryObjects = new LibraryObjects(fileReferences);
     PBXBuildFiles pbxBuildFiles = new PBXBuildFiles(fileReferences);
     Resources resources =
         Resources.fromTargetControls(fileSystem, pbxBuildFiles, control.getTargetList());
@@ -347,8 +352,7 @@ public class XcodeprojGeneration {
       }
       target.setProductReference(productReference);
 
-      PBXFrameworksBuildPhase frameworksPhase =
-          sdkLibraryObjects.newBuildPhase(sdkLibraries(targetControl));
+      PBXFrameworksBuildPhase frameworksPhase = buildLibraryInfo(libraryObjects, targetControl);
       PBXResourcesBuildPhase resourcesPhase = resources.resourcesBuildPhase(targetControl);
 
       for (String importedArchive : targetControl.getImportedLibraryList()) {
@@ -383,7 +387,7 @@ public class XcodeprojGeneration {
                       project, target, ProxyType.TARGET_REFERENCE))));
     }
 
-    for (HasProjectNavigatorFiles references : ImmutableList.of(pbxBuildFiles, sdkLibraryObjects)) {
+    for (HasProjectNavigatorFiles references : ImmutableList.of(pbxBuildFiles, libraryObjects)) {
       Iterables.addAll(ungroupedProjectNavigatorFiles, references.mainGroupReferences());
     }
     Iterables.addAll(

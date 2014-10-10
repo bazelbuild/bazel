@@ -90,11 +90,11 @@ py_attrs = {
 
 py_library = rule(
     py_library_impl,
-    attr = py_attrs)
+    attrs = py_attrs)
 
 py_binary = rule(
     py_binary_impl,
     executable = True,
-    attr = py_attrs,
+    attrs = py_attrs,
     outputs = {
         "deploy_zip": "%{name}.zip"})

@@ -1,8 +1,9 @@
 # This is a quick and dirty way to compile Bazel using only genrule.
 # We will need proper proto and java rules.
 
-load('rules/genproto', 'genproto')
-load('rules/java_rules_oss', 'java_library', 'java_binary')
+load("rules/genproto", "genproto")
+
+load("rules/java_rules_oss", "java_library", "java_binary", "java_test")
 
 # The file assumes there is a directory (or symlink) src/javadir.
 # Use this command to use local java:
@@ -15,8 +16,14 @@ JAVA_HOME = "src/javadir"
 [genproto(
     name = "proto_" + proto_file,
     src = "main/protobuf/" + proto_file + ".proto",
-    ) for proto_file in ["build", "crosstool_config", "extra_actions_base",
-                         "test_status", "bundlemerge", "xcodegen"]]
+) for proto_file in [
+    "build",
+    "crosstool_config",
+    "extra_actions_base",
+    "test_status",
+    "bundlemerge",
+    "xcodegen",
+]]
 
 # Java
 
@@ -28,7 +35,7 @@ java_library(
         "tools/xcode-common/java/com/google/devtools/build/xcode/common/*.java",
     ]),
     jars = [
-        "//third_party"
+        "//third_party",
     ],
 )
 
@@ -37,38 +44,17 @@ java_library(
     srcs = glob([
         "main/**/*.java",
     ]),
+    jars = [
+        "//third_party",
+    ],
     deps = [
-        ":xcode-common",
         ":proto_build",
         ":proto_bundlemerge",
         ":proto_crosstool_config",
         ":proto_extra_actions_base",
         ":proto_test_status",
         ":proto_xcodegen",
-    ],
-    jars = [
-        "//third_party",
-    ],
-)
-
-java_library(
-    name = "tests",
-    srcs = glob([
-        "test/**/*.java",
-    ]),
-    deps = [
-        ":bazel-core",
         ":xcode-common",
-        ":proto_build",
-        ":proto_bundlemerge",
-        ":proto_crosstool_config",
-        ":proto_extra_actions_base",
-        ":proto_test_status",
-        ":proto_xcodegen",
-    ],
-    jars = [
-        "//third_party",
-        "//third_party:third_party_test_utils",
     ],
 )
 
@@ -98,7 +84,10 @@ link_jni_cmd = "DIR=%s && cp $${DIR}/jni.h $(location jni.h) && cp $${DIR}/%s/jn
 genrule(
     name = "copy_link_jni_headers",
     srcs = [],
-    outs = ["jni.h", "jni_md.h"],
+    outs = [
+        "jni.h",
+        "jni_md.h",
+    ],
     cmd = select({
         ":darwin": link_jni_cmd % ("/Library/Java/JavaVirtualMachines/jdk1.8.0_20.jdk/Contents/Home/include", "darwin"),
         "//conditions:default": link_jni_cmd % ("/usr/lib/jvm/java-7-openjdk-amd64/include", "linux"),
@@ -129,7 +118,7 @@ genrule(
 cc_binary(
     name = "libunix.so",
     srcs = select({
-        ":darwin" : [
+        ":darwin": [
             "main/native/localsocket.cc",
             "main/native/process.cc",
             "main/native/unix_jni.cc",
@@ -137,7 +126,7 @@ cc_binary(
             "jni.h",
             "jni_md.h",
         ],
-        "//conditions:default" : [
+        "//conditions:default": [
             "main/native/localsocket.cc",
             "main/native/process.cc",
             "main/native/unix_jni.cc",
@@ -146,38 +135,38 @@ cc_binary(
             "jni_md.h",
         ],
     }),
-    deps = [
-        ":md5",
-    ],
     copts = [
         "-fPIC",
         "-DBLAZE_JAVA_CPU=\"k8\"",
         "-DBLAZE_OPENSOURCE=1",
     ],
     includes = [
-        ".", # for the jni headers
+        ".",  # for the jni headers
         "main/cpp",
     ],
     linkshared = 1,
+    deps = [
+        ":md5",
+    ],
 )
 
 cc_library(
     name = "util",
-    hdrs = [
-        "main/cpp/util/numbers.h",
-        "main/cpp/util/port.h",
-        "main/cpp/util/strings.h",
-    ],
     srcs = [
         "main/cpp/util/numbers.cc",
         "main/cpp/util/port.cc",
         "main/cpp/util/strings.cc",
     ],
-    includes = [
-        "main/cpp",
+    hdrs = [
+        "main/cpp/util/numbers.h",
+        "main/cpp/util/port.h",
+        "main/cpp/util/strings.h",
     ],
     copts = [
         "-DBLAZE_OPENSOURCE=1",
+    ],
+    includes = [
+        "main/cpp",
     ],
 )
 
@@ -199,7 +188,7 @@ cc_binary(
             "main/cpp/blaze_util_darwin.cc",
             "main/cpp/option_processor.cc",
             "main/cpp/util/file.cc",
-            ":copy_static_libarchive"
+            ":copy_static_libarchive",
         ],
         "//conditions:default": [
             "main/cpp/blaze.cc",
@@ -211,26 +200,26 @@ cc_binary(
             "main/cpp/util/file.cc",
         ],
     }),
-    deps = [
-        ":util",
-        ":md5",
-    ],
     copts = [
         "-DBLAZE_JAVA_CPU=\\\"k8\\\"",
         "-DBLAZE_OPENSOURCE=1",
-        "-I/opt/local/include"
+        "-I/opt/local/include",
     ],
     includes = [
         "main/cpp",
     ],
     linkopts = select({
-        ":darwin" : [
+        ":darwin": [
         ],
-        "//conditions:default" : [
+        "//conditions:default": [
             "-larchive",
             "-lrt",
         ],
     }),
+    deps = [
+        ":md5",
+        ":util",
+    ],
 )
 
 # Packaging
@@ -277,7 +266,7 @@ genrule(
     cmd = select({
         ":darwin": md5_cmd % "/sbin/md5",
         "//conditions:default": md5_cmd % "md5sum",
-    })
+    }),
 )
 
 genrule(
@@ -309,6 +298,35 @@ genrule(
 
 config_setting(
     name = "darwin",
-    values = { "cpu": "darwin" }
+    values = {"cpu": "darwin"},
 )
 
+# Tests
+
+java_library(
+    name = "testutil",
+    srcs = glob([
+        "test/java/com/google/devtools/build/lib/testutil/*.java",
+    ]),
+    jars = [
+        ":bazel-core",
+        "//third_party",
+        "//third_party:third_party_test_utils",
+    ],
+)
+
+java_test(
+    name = "skyframe_test",
+    srcs = glob([
+        "test/java/com/google/devtools/build/skyframe/*.java",
+    ]),
+    args = ["com.google.devtools.build.skyframe.AllTests"],
+    jars = [
+        "//third_party",
+        "//third_party:third_party_test_utils",
+    ],
+    deps = [
+        ":bazel-core",
+        ":testutil",
+    ],
+)

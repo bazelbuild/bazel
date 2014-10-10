@@ -58,10 +58,11 @@ public class ObjcLibrary implements RuleConfiguredTargetFactory {
    * {@link ObjcCommon#reportErrors()}.
    */
   static ObjcCommon common(RuleContext ruleContext, Iterable<SdkFramework> extraSdkFrameworks) {
+    IntermediateArtifacts intermediateArtifacts = ObjcBase.intermediateArtifacts(ruleContext);
     CompilationArtifacts compilationArtifacts = new CompilationArtifacts.Builder()
         .addSrcs(ruleContext.getPrerequisiteArtifacts("srcs", Mode.TARGET))
         .addNonArcSrcs(ruleContext.getPrerequisiteArtifacts("non_arc_srcs", Mode.TARGET))
-        .setIntermediateArtifacts(ObjcBase.intermediateArtifacts(ruleContext))
+        .setIntermediateArtifacts(intermediateArtifacts)
         .setPchFile(Optional.fromNullable(ruleContext.getPrerequisiteArtifact("pch", Mode.TARGET)))
         .build();
 
@@ -72,6 +73,8 @@ public class ObjcLibrary implements RuleConfiguredTargetFactory {
         .setCompilationArtifacts(compilationArtifacts)
         .addHdrs(ruleContext.getPrerequisiteArtifacts("hdrs", Mode.TARGET))
         .addDepObjcProviders(ruleContext.getPrerequisites("deps", Mode.TARGET, ObjcProvider.class))
+        .addStoryboards(ruleContext.getPrerequisiteArtifacts("storyboards", Mode.TARGET))
+        .setIntermediateArtifacts(intermediateArtifacts)
         .build();
     common.reportErrors();
 
@@ -85,7 +88,7 @@ public class ObjcLibrary implements RuleConfiguredTargetFactory {
           .registerCompileAndArchiveActions(
               compilationArtifacts, common.getObjcProvider(), optionsProvider);
     }
-    ObjcBase.registerActions(ruleContext, xcodeProvider);
+    ObjcBase.registerActions(ruleContext, xcodeProvider, common.getStoryboards());
   }
 
   @Override

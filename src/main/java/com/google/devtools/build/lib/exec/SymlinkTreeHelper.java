@@ -23,6 +23,7 @@ import com.google.devtools.build.lib.actions.ResourceManager;
 import com.google.devtools.build.lib.actions.ResourceSet;
 import com.google.devtools.build.lib.shell.CommandException;
 import com.google.devtools.build.lib.util.CommandBuilder;
+import com.google.devtools.build.lib.util.OsUtils;
 import com.google.devtools.build.lib.vfs.Path;
 import com.google.devtools.build.lib.vfs.PathFragment;
 import com.google.devtools.build.lib.view.config.BinTools;
@@ -36,7 +37,7 @@ import java.util.List;
  */
 public final class SymlinkTreeHelper {
 
-  private static final String BUILD_RUNFILES = "build-runfiles";
+  private static final String BUILD_RUNFILES = "build-runfiles" + OsUtils.executableExtension();
 
   /**
    * These actions run faster overall when serialized, because most of their
@@ -103,7 +104,6 @@ public final class SymlinkTreeHelper {
    */
   public void createSymlinks(AbstractAction action, ActionExecutionContext actionExecutionContext,
       BinTools binTools) throws ExecException, InterruptedException {
-    // TODO(bazel-team): (2010) Add support for RPC-based symlink tree creation.
     List<String> args = getSpawnArgumentList(
         actionExecutionContext.getExecutor().getExecRoot(), binTools);
     try {

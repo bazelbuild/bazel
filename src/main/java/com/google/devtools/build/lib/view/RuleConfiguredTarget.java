@@ -189,6 +189,12 @@ public final class RuleConfiguredTarget extends AbstractConfiguredTarget impleme
   }
 
   @Override
+  public String errorMessage(String name) {
+    return String.format("target (rule class of '%s') doesn't have provider '%s'.",
+        getTarget().getRuleClass(), name);
+  }
+
+  @Override
   public ImmutableCollection<String> getKeys() {
     return ImmutableList.<String>builder().add("label")
         .addAll(getProvider(SkylarkProviders.class).skylarkProviders.keySet()).build();

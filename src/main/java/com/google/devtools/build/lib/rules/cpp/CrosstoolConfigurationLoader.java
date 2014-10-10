@@ -41,6 +41,8 @@ import java.util.ArrayList;
 import java.util.Collection;
 import java.util.concurrent.ExecutionException;
 
+import javax.annotation.Nullable;
+
 /**
  * A loader that reads Crosstool configuration files and creates CToolchain
  * instances from them.
@@ -143,7 +145,7 @@ public class CrosstoolConfigurationLoader {
     }
   }
 
-  private static void findCrosstoolConfiguration(
+  private static boolean findCrosstoolConfiguration(
       ConfigurationEnvironment env,
       CrosstoolConfigurationLoader.CrosstoolFile file)
       throws IOException, InvalidConfigurationException {
@@ -152,6 +154,9 @@ public class CrosstoolConfigurationLoader {
     try {
       Package containingPackage = env.getTarget(crosstoolTop.getLocalTargetLabel("BUILD"))
           .getPackage();
+      if (containingPackage == null) {
+        return false;
+      }
       path = env.getPath(containingPackage, CROSSTOOL_CONFIGURATION_FILENAME);
     } catch (SyntaxException e) {
       throw new InvalidConfigurationException(e);
@@ -179,19 +184,24 @@ public class CrosstoolConfigurationLoader {
         throw new InvalidConfigurationException(e);
       }
     }
+    return true;
   }
 
   /**
    * Reads a crosstool file.
    */
+  @Nullable
   public static CrosstoolConfigurationLoader.CrosstoolFile readCrosstool(
       ConfigurationEnvironment env, Label crosstoolTop) throws InvalidConfigurationException {
     crosstoolTop = RedirectChaser.followRedirects(env, crosstoolTop, "crosstool_top");
+    if (crosstoolTop == null) {
+      return null;
+    }
     CrosstoolConfigurationLoader.CrosstoolFile file =
         new CrosstoolConfigurationLoader.CrosstoolFile(crosstoolTop);
     try {
-      findCrosstoolConfiguration(env, file);
-      return file;
+      boolean allDependenciesPresent = findCrosstoolConfiguration(env, file);
+      return allDependenciesPresent ? file : null;
     } catch (IOException e) {
       throw new InvalidConfigurationException(e);
     }

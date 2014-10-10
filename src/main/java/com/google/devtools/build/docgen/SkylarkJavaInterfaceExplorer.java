@@ -36,7 +36,7 @@ import java.util.TreeMap;
  */
 public class SkylarkJavaInterfaceExplorer {
   /**
-   * A class representing a Skylark method with annotation.
+   * A class representing a Java method callable from Skylark with annotation.
    */
   static final class SkylarkMethod implements Comparable<SkylarkMethod> {
     public final String name;
@@ -66,6 +66,19 @@ public class SkylarkJavaInterfaceExplorer {
   }
 
   /**
+   * A class representing a Skylark built-in object or method.
+   */
+  static final class SkylarkBuiltinMethod {
+    public final SkylarkBuiltin annotation;
+    public final Class<?> fieldClass;
+
+    public SkylarkBuiltinMethod(SkylarkBuiltin annotation, Class<?> fieldClass) {
+      this.annotation = annotation;
+      this.fieldClass = fieldClass;
+    }
+  }
+
+  /**
    * A class representing a Skylark built-in object with its {@link SkylarkBuiltin} annotation
    * and the {@link SkylarkCallable} methods it might have.
    */
@@ -73,7 +86,7 @@ public class SkylarkJavaInterfaceExplorer {
 
     private final SkylarkModule module;
     private final Class<?> classObject;
-    private final Map<String, SkylarkBuiltin> builtin;
+    private final Map<String, SkylarkBuiltinMethod> builtin;
     private ArrayList<SkylarkMethod> methods = null;
 
     SkylarkModuleDoc(SkylarkModule module, Class<?> classObject) {
@@ -99,7 +112,7 @@ public class SkylarkJavaInterfaceExplorer {
       this.methods = methods;
     }
 
-    Map<String, SkylarkBuiltin> getBuiltinMethods() {
+    Map<String, SkylarkBuiltinMethod> getBuiltinMethods() {
       return builtin;
     }
 

@@ -35,6 +35,7 @@ import com.google.devtools.build.lib.Constants;
 import com.google.devtools.build.lib.actions.cache.ActionCache;
 import com.google.devtools.build.lib.actions.cache.CompactPersistentActionCache;
 import com.google.devtools.build.lib.actions.cache.MetadataCache;
+import com.google.devtools.build.lib.actions.cache.NullActionCache;
 import com.google.devtools.build.lib.blaze.commands.BuildCommand;
 import com.google.devtools.build.lib.blaze.commands.CanonicalizeCommand;
 import com.google.devtools.build.lib.blaze.commands.CleanCommand;
@@ -81,12 +82,13 @@ import com.google.devtools.build.lib.util.BlazeClock;
 import com.google.devtools.build.lib.util.Clock;
 import com.google.devtools.build.lib.util.ExitCode;
 import com.google.devtools.build.lib.util.LoggingUtil;
-import com.google.devtools.build.lib.util.ProcessUtils;
+import com.google.devtools.build.lib.util.OsUtils;
 import com.google.devtools.build.lib.util.SkyframeMode;
 import com.google.devtools.build.lib.util.io.OutErr;
 import com.google.devtools.build.lib.util.io.TimestampGranularityMonitor;
 import com.google.devtools.build.lib.vfs.FileSystem;
 import com.google.devtools.build.lib.vfs.FileSystemUtils;
+import com.google.devtools.build.lib.vfs.JavaIoFileSystem;
 import com.google.devtools.build.lib.vfs.ModifiedFileSet;
 import com.google.devtools.build.lib.vfs.Path;
 import com.google.devtools.build.lib.vfs.PathFragment;
@@ -611,6 +613,11 @@ public final class BlazeRuntime {
    */
   public ActionCache getPersistentActionCache() throws IOException {
     if (actionCache == null) {
+      if (OsUtils.isWindows()) {
+        // TODO(bazel-team): Add support for a persistent action cache on Windows.
+        actionCache = new NullActionCache();
+        return actionCache;
+      }
       long startTime = Profiler.nanoTimeMaybe();
       try {
         actionCache = new CompactPersistentActionCache(getCacheDirectory(), clock);
@@ -1273,17 +1280,9 @@ public final class BlazeRuntime {
     }
   }
 
-  // Force JNI linking at a moment when we have 'installBase' handy, and print
-  // an informative error if it fails.
-  private static void forceJNI(PathFragment installBase) {
-    try {
-      ProcessUtils.getpid(); // force JNI initialization
-    } catch (UnsatisfiedLinkError t) {
-      System.err.println("JNI initialization failed: " + t.getMessage() + ".  "
-          + "Possibly your installation has been corrupted; "
-          + "if this problem persists, try 'rm -fr " + installBase + "'.");
-      throw t;
-    }
+  private static FileSystem fileSystemImplementation() {
+    // The JNI-based UnixFileSystem is faster, but on Windows it is not available.
+    return OsUtils.isWindows() ? new JavaIoFileSystem() : new UnixFileSystem();
   }
 
   /**
@@ -1406,7 +1405,8 @@ public final class BlazeRuntime {
     PathFragment workspaceDirectory = startupOptions.workspaceDirectory;
     PathFragment installBase = startupOptions.installBase;
     PathFragment outputBase = startupOptions.outputBase;
-    forceJNI(installBase); // Must be before first use of JNI.
+
+    OsUtils.maybeForceJNI(installBase);  // Must be before first use of JNI.
 
     // From the point of view of the Java program --install_base and --output_base
     // are mandatory options, despite the comment in their declarations.
@@ -1431,7 +1431,7 @@ public final class BlazeRuntime {
     }
 
     if (fs == null) {
-      fs = new UnixFileSystem();
+      fs = fileSystemImplementation();
     }
     Path.setFileSystemForSerialization(fs);
 

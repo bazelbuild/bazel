@@ -28,6 +28,8 @@ import java.util.HashSet;
 import java.util.List;
 import java.util.Set;
 
+import javax.annotation.Nullable;
+
 /**
  * Tool for chasing filegroup redirects. This is mainly intended to be used during
  * BuildConfiguration creation.
@@ -74,6 +76,7 @@ public final class RedirectChaser {
    * @return the label which cannot be further resolved
    * @throws InvalidConfigurationException if something goes wrong
    */
+  @Nullable
   public static Label followRedirects(ConfigurationEnvironment env, Label label, String name)
       throws InvalidConfigurationException {
     Set<Label> visitedLabels = new HashSet<>();
@@ -81,6 +84,9 @@ public final class RedirectChaser {
     try {
       while (true) {
         Target possibleRedirect = env.getTarget(label);
+        if (possibleRedirect == null) {
+          return null;
+        }
         if ((possibleRedirect instanceof Rule) &&
             "filegroup".equals(((Rule) possibleRedirect).getRuleClass())) {
           List<Label> labels = new StaticValuedAttributeMapper((Rule) possibleRedirect)
@@ -100,8 +106,7 @@ public final class RedirectChaser {
                 + "recursively includes itself. The label " + label + " is part of the loop");
           }
         } else {
-          throw new InvalidConfigurationException("The label " + label + " does not indicate a "
-              + "filegroup");
+          return label;
         }
       }
     } catch (NoSuchPackageException e) {

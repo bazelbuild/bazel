@@ -112,6 +112,7 @@ class Parser {
           .put(TokenKind.OR, Operator.OR)
           .put(TokenKind.PERCENT, Operator.PERCENT)
           .put(TokenKind.PLUS, Operator.PLUS)
+          .put(TokenKind.STAR, Operator.MULT)
           .build();
 
   private static final Map<TokenKind, Operator> augmentedAssignmentMethods =
@@ -129,7 +130,7 @@ class Parser {
       EnumSet.of(Operator.EQUALS_EQUALS, Operator.NOT_EQUALS, Operator.LESS, Operator.LESS_EQUALS,
           Operator.GREATER, Operator.GREATER_EQUALS, Operator.IN),
       EnumSet.of(Operator.MINUS, Operator.PLUS),
-      EnumSet.of(Operator.PERCENT));
+      EnumSet.of(Operator.MULT, Operator.PERCENT));
 
   private Iterator<Token> tokens = null;
   private int errorsCount;

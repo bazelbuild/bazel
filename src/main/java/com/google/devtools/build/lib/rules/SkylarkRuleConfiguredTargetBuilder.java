@@ -109,8 +109,6 @@ public final class SkylarkRuleConfiguredTargetBuilder {
       throws EvalException {
     Artifact executable = getExecutable(ruleContext, target);
     RuleConfiguredTargetBuilder builder = new RuleConfiguredTargetBuilder(ruleContext);
-    // Every target needs runfiles provider by default.
-    builder.add(RunfilesProvider.class, RunfilesProvider.EMPTY);
     // Set the default files to build.
     NestedSetBuilder<Artifact> filesToBuild = NestedSetBuilder.<Artifact>stableOrder()
         .addAll(ruleContext.getOutputArtifacts());
@@ -118,17 +116,7 @@ public final class SkylarkRuleConfiguredTargetBuilder {
       filesToBuild.add(executable);
     }
     builder.setFilesToBuild(filesToBuild.build());
-    Location loc = null;
-    if (target instanceof SkylarkClassObject) {
-      SkylarkClassObject struct = (SkylarkClassObject) target;
-      loc = struct.getCreationLoc();
-      addStructFields(ruleContext, builder, struct, executable);
-    }
-    try {
-      return builder.build();
-    } catch (IllegalArgumentException e) {
-      throw new EvalException(loc, e.getMessage());
-    }
+    return addStructFields(ruleContext, builder, target, executable);
   }
 
   private static Artifact getExecutable(RuleContext ruleContext, Object target)
@@ -148,33 +136,44 @@ public final class SkylarkRuleConfiguredTargetBuilder {
     return executable;
   }
 
-  private static void addStructFields(RuleContext ruleContext, RuleConfiguredTargetBuilder builder,
-      SkylarkClassObject struct, Artifact executable) throws EvalException {
-    Location loc = struct.getCreationLoc();
+  private static ConfiguredTarget addStructFields(RuleContext ruleContext,
+      RuleConfiguredTargetBuilder builder, Object target, Artifact executable)
+          throws EvalException {
+    Location loc = null;
     Runfiles statelessRunfiles = null;
     Runfiles dataRunfiles = null;
     Runfiles defaultRunfiles = null;
-    for (String key : struct.getKeys()) {
-      if (key.equals("files_to_build")) {
-        // If we specify files_to_build we don't have the executable in it by default.
-        builder.setFilesToBuild(cast(struct.getValue("files_to_build"),
-                SkylarkNestedSet.class, "files_to_build", loc).getSet(Artifact.class));
-      } else if (key.equals("runfiles")) {
-        statelessRunfiles = cast(struct.getValue("runfiles"), Runfiles.class, "runfiles", loc);
-      } else if (key.equals("data_runfiles")) {
-        dataRunfiles = cast(struct.getValue("data_runfiles"), Runfiles.class, "data_runfiles", loc);
-      } else if (key.equals("default_runfiles")) {
-        defaultRunfiles =
-            cast(struct.getValue("default_runfiles"), Runfiles.class, "default_runfiles", loc);
-      } else if (!key.equals("executable")) {
-        // We handled executable already.
-        builder.addSkylarkTransitiveInfo(key, struct.getValue(key));
+    if (target instanceof SkylarkClassObject) {
+      SkylarkClassObject struct = (SkylarkClassObject) target;
+      loc = struct.getCreationLoc();
+      for (String key : struct.getKeys()) {
+        if (key.equals("files_to_build")) {
+          // If we specify files_to_build we don't have the executable in it by default.
+          builder.setFilesToBuild(cast(struct.getValue("files_to_build"),
+                  SkylarkNestedSet.class, "files_to_build", loc).getSet(Artifact.class));
+        } else if (key.equals("runfiles")) {
+          statelessRunfiles = cast(struct.getValue("runfiles"), Runfiles.class, "runfiles", loc);
+        } else if (key.equals("data_runfiles")) {
+          dataRunfiles =
+              cast(struct.getValue("data_runfiles"), Runfiles.class, "data_runfiles", loc);
+        } else if (key.equals("default_runfiles")) {
+          defaultRunfiles =
+              cast(struct.getValue("default_runfiles"), Runfiles.class, "default_runfiles", loc);
+        } else if (!key.equals("executable")) {
+          // We handled executable already.
+          builder.addSkylarkTransitiveInfo(key, struct.getValue(key));
+        }
       }
     }
 
     if ((statelessRunfiles != null) && (dataRunfiles != null || defaultRunfiles != null)) {
       throw new EvalException(loc, "Cannot specify the provider 'runfiles' "
           + "together with 'data_runfiles' or 'default_runfiles'");
+    }
+
+    if (statelessRunfiles == null && dataRunfiles == null && defaultRunfiles == null) {
+      // No runfiles specified, set default
+      statelessRunfiles = Runfiles.EMPTY;
     }
 
     RunfilesProvider runfilesProvider = statelessRunfiles != null
@@ -196,6 +195,11 @@ public final class SkylarkRuleConfiguredTargetBuilder {
       RunfilesSupport runfilesSupport = computedDefaultRunfiles.isEmpty()
           ? null : RunfilesSupport.withExecutable(ruleContext, computedDefaultRunfiles, executable);
       builder.setRunfilesSupport(runfilesSupport, executable);
+    }
+    try {
+      return builder.build();
+    } catch (IllegalArgumentException e) {
+      throw new EvalException(loc, e.getMessage());
     }
   }
 

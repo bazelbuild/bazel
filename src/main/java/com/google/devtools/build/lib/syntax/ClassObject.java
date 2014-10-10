@@ -45,6 +45,12 @@ public interface ClassObject {
   ImmutableCollection<String> getKeys();
 
   /**
+   * Returns a customized error message to print if the name is not a valid struct field
+   * of this struct, or returns null to use the default error message.
+   */
+  @Nullable String errorMessage(String name);
+
+  /**
    * An implementation class of ClassObject for structs created in Skylark code.
    */
   @Immutable
@@ -52,15 +58,22 @@ public interface ClassObject {
 
     private final ImmutableMap<String, Object> values;
     private final Location creationLoc;
+    private final String errorMessage;
 
-    public SkylarkClassObject(Map<String, Object> values) {
+    /**
+     * Creates a built-in struct (i.e. without creation loc). The errorMessage has to have
+     * exactly one '%s' parameter to substitute the struct field name.
+     */
+    public SkylarkClassObject(Map<String, Object> values, String errorMessage) {
       this.values = ImmutableMap.copyOf(values);
       this.creationLoc = null;
+      this.errorMessage = errorMessage;
     }
 
     public SkylarkClassObject(Map<String, Object> values, Location creationLoc) {
       this.values = ImmutableMap.copyOf(values);
       this.creationLoc = Preconditions.checkNotNull(creationLoc);
+      this.errorMessage = null;
     }
 
     @Override
@@ -87,6 +100,11 @@ public interface ClassObject {
       }
       return new SkylarkClassObject(ImmutableMap.<String, Object>builder()
           .putAll(lval.values).putAll(rval.values).build(), loc);
+    }
+
+    @Override
+    public String errorMessage(String name) {
+      return errorMessage != null ? String.format(errorMessage, name) : null;
     }
   }
 }

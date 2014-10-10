@@ -50,6 +50,7 @@ import com.google.devtools.build.skyframe.BuildDriver;
 import com.google.devtools.build.skyframe.Differencer;
 import com.google.devtools.build.skyframe.ImmutableDiff;
 import com.google.devtools.build.skyframe.InMemoryMemoizingEvaluator;
+import com.google.devtools.build.skyframe.MemoizingEvaluator.EvaluatorSupplier;
 import com.google.devtools.build.skyframe.SequentialBuildDriver;
 import com.google.devtools.build.skyframe.SkyFunctionName;
 import com.google.devtools.build.skyframe.SkyKey;
@@ -81,6 +82,21 @@ public final class SequencedSkyframeExecutor extends SkyframeExecutor {
 
   private final DiffAwarenessManager diffAwarenessManager;
 
+  public SequencedSkyframeExecutor(Reporter reporter, EvaluatorSupplier evaluatorSupplier,
+      PackageFactory pkgFactory, boolean skyframeBuild, TimestampGranularityMonitor tsgm,
+      BlazeDirectories directories, WorkspaceStatusAction.Factory workspaceStatusActionFactory,
+      ImmutableList<BuildInfoFactory> buildInfoFactories,
+      Iterable<? extends DiffAwareness.Factory> diffAwarenessFactories,
+      Predicate<PathFragment> allowedMissingInputs,
+      Preprocessor.Factory.Supplier preprocessorFactorySupplier,
+      Clock clock) {
+    super(reporter, evaluatorSupplier, pkgFactory, skyframeBuild, tsgm, directories,
+        workspaceStatusActionFactory, buildInfoFactories,
+        allowedMissingInputs, preprocessorFactorySupplier, clock);
+    this.diffAwarenessManager = new DiffAwarenessManager(diffAwarenessFactories, reporter);
+    this.diffAwarenessManager.reset();
+  }
+
   public SequencedSkyframeExecutor(Reporter reporter, PackageFactory pkgFactory,
       boolean skyframeBuild, TimestampGranularityMonitor tsgm, BlazeDirectories directories,
       WorkspaceStatusAction.Factory workspaceStatusActionFactory,
@@ -88,11 +104,9 @@ public final class SequencedSkyframeExecutor extends SkyframeExecutor {
       Iterable<? extends DiffAwareness.Factory> diffAwarenessFactories,
       Predicate<PathFragment> allowedMissingInputs,
       Preprocessor.Factory.Supplier preprocessorFactorySupplier, Clock clock) {
-    super(reporter, InMemoryMemoizingEvaluator.SUPPLIER, pkgFactory, skyframeBuild, tsgm,
+    this(reporter, InMemoryMemoizingEvaluator.SUPPLIER, pkgFactory, skyframeBuild, tsgm,
         directories, workspaceStatusActionFactory, buildInfoFactories,
-        allowedMissingInputs, preprocessorFactorySupplier, clock);
-    this.diffAwarenessManager = new DiffAwarenessManager(diffAwarenessFactories, reporter);
-    this.diffAwarenessManager.reset();
+        diffAwarenessFactories, allowedMissingInputs, preprocessorFactorySupplier, clock);
   }
 
   @VisibleForTesting

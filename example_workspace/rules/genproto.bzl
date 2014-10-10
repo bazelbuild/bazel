@@ -62,7 +62,7 @@ def genproto_impl(ctx):
 genproto = rule(genproto_impl,
    # There should be a flag like gen_java, and only generate the jar if it's
    # set. Skylark needs a bit of improvement first (concat structs).
-   attr = {
+   attrs = {
        "src": attr.label(allow_files=proto_filetype, single_file=True),
        # TODO(bazel-team): this should be a hidden attribute with a default
        # value, but Skylark needs to support select first.

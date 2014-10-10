@@ -37,7 +37,7 @@ import com.google.devtools.build.lib.query2.proto.proto2api.Build.BuildLanguage;
 import com.google.devtools.build.lib.query2.proto.proto2api.Build.RuleDefinition;
 import com.google.devtools.build.lib.util.AbruptExitException;
 import com.google.devtools.build.lib.util.ExitCode;
-import com.google.devtools.build.lib.util.ProcessUtils;
+import com.google.devtools.build.lib.util.OsUtils;
 import com.google.devtools.build.lib.util.StringUtilities;
 import com.google.devtools.build.lib.util.io.OutErr;
 import com.google.devtools.build.lib.view.config.BuildConfiguration;
@@ -295,7 +295,7 @@ public class InfoCommand implements BlazeCommand {
 
       // misc
       case RELEASE : return BlazeVersionInfo.instance().getReleaseName();
-      case SERVER_PID : return ProcessUtils.getpid();
+      case SERVER_PID : return OsUtils.getpid();
       case PACKAGE_PATH : return getPackagePath(options);
 
       // memory statistics

@@ -39,14 +39,14 @@ def resolve_command(ctx, command, resolved_srcs, files_to_build):
 def create(ctx):
   resolved_srcs = set()
   if not hasattr(ctx.outputs, "outs"):
-    ctx.error("outs", "genrules without outputs don't make sense")
+    fail("genrules without outputs don't make sense", attr="outs")
   files_to_build = set(ctx.outputs.outs)
 
   if ctx.attr.executable and len(files_to_build) > 1:
-    ctx.error("executable",
-          "if genrules produce executables, they are allowed only one output. "
+    fail("if genrules produce executables, they are allowed only one output. "
           + "If you need the executable=1 argument, then you should split this "
-          + "genrule into genrules producing single outputs")
+          + "genrule into genrules producing single outputs",
+         attr="executable")
 
   label_dict = {}
   for dep in ctx.targets.srcs:
@@ -55,7 +55,7 @@ def create(ctx):
     label_dict[dep.label] = files
 
   command_helper = ctx.command_helper(
-      tools=ctx.targets("tools", "FilesToRunProvider"),
+      tools=ctx.targets.tools,
       label_dict=label_dict)
 
   # TODO(bazel_team): Implement heuristic label expansion
@@ -104,7 +104,7 @@ genrule_skylark = rule(implementation=create,
      # TODO(bazel_team): Do we need these for now?
      # .setDependentTargetConfiguration(PARENT)
      # .setOutputToGenfiles()
-     attr={
+     attrs={
          "srcs": attr.label_list(flags=["DIRECT_COMPILE_TIME_INPUT"],
              allow_files=True),
          "tools": attr.label_list(cfg=HOST_CFG, allow_files=True),

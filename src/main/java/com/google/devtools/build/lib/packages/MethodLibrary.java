@@ -102,10 +102,12 @@ public class MethodLibrary {
 
     // supported string methods
 
-  @SkylarkBuiltin(name = "join", objectType = StringModule.class,
+  @SkylarkBuiltin(name = "join", objectType = StringModule.class, returnType = String.class,
       doc = "Returns a string in which the string elements of the argument have been "
           + "joined by this string as a separator. Example:<br>"
-          + "<pre class=code>\"|\".join([\"a\", \"b\", \"c\"]) == \"a|b|c\"</pre>")
+          + "<pre class=code>\"|\".join([\"a\", \"b\", \"c\"]) == \"a|b|c\"</pre>",
+      mandatoryParams = {
+      @Param(name = "elements", type = SkylarkList.class, doc = "The objects to join.")})
   private static Function join = new SimplePositionalFunction("join", 2, 2) {
     @Override
     public Object call(List<Object> args, FuncallExpression ast) throws ConversionException {
@@ -122,7 +124,7 @@ public class MethodLibrary {
     }
   };
 
-  @SkylarkBuiltin(name = "lower", objectType = StringModule.class,
+  @SkylarkBuiltin(name = "lower", objectType = StringModule.class, returnType = String.class,
       doc = "Returns the lower case version of this string.")
   private static Function lower = new SimplePositionalFunction("lower", 1, 1) {
     @Override
@@ -132,7 +134,7 @@ public class MethodLibrary {
     }
   };
 
-  @SkylarkBuiltin(name = "upper", objectType = StringModule.class,
+  @SkylarkBuiltin(name = "upper", objectType = StringModule.class, returnType = String.class,
       doc = "Returns the upper case version of this string.")
   private static Function upper = new SimplePositionalFunction("upper", 1, 1) {
     @Override
@@ -274,7 +276,7 @@ public class MethodLibrary {
       doc = "Returns the number of (non-overlapping) occurrences of substring <code>sub</code> in "
           + "string, optionally restricting to [<code>start</code>:<code>end</code>], "
           + "<code>start</code> being inclusive and <code>end</code> being exclusive.",
-      mandatoryParams = { 
+      mandatoryParams = {
       @Param(name = "sub", type = String.class, doc = "The substring to count.")},
       optionalParams = {
       @Param(name = "start", type = Integer.class, doc = "Restrict to search from this position."),
@@ -297,7 +299,7 @@ public class MethodLibrary {
           }
           String str = getPythonSubstring(thiz, start, end);
           if (sub.equals("")) {
-            return str.length() + 1; 
+            return str.length() + 1;
           }
           int count = 0;
           int index = -1;
@@ -368,7 +370,7 @@ public class MethodLibrary {
   };
 
   // TODO(bazel-team): Maybe support an argument to tell the type of the whitespace.
-  @SkylarkBuiltin(name = "strip", objectType = StringModule.class,
+  @SkylarkBuiltin(name = "strip", objectType = StringModule.class, returnType = String.class,
       doc = "Returns a copy of the string in which all whitespace characters "
           + "have been stripped from the beginning and the end of the string.")
   private static Function strip =
@@ -473,7 +475,7 @@ public class MethodLibrary {
     }
   };
 
-  @SkylarkBuiltin(name = "values", objectType = DictModule.class,
+  @SkylarkBuiltin(name = "values", objectType = DictModule.class, returnType = SkylarkList.class,
       doc = "Return the list of values.")
   private static Function values = new NoArgFunction("values") {
     @Override
@@ -484,7 +486,7 @@ public class MethodLibrary {
     }
   };
 
-  @SkylarkBuiltin(name = "items", objectType = DictModule.class,
+  @SkylarkBuiltin(name = "items", objectType = DictModule.class, returnType = SkylarkList.class,
       doc = "Return the list of key-value tuples.")
   private static Function items = new NoArgFunction("items") {
     @Override
@@ -500,7 +502,7 @@ public class MethodLibrary {
     }
   };
 
-  @SkylarkBuiltin(name = "keys", objectType = DictModule.class,
+  @SkylarkBuiltin(name = "keys", objectType = DictModule.class, returnType = SkylarkList.class,
       doc = "Return the list of keys.")
   private static Function keys = new NoArgFunction("keys") {
     @Override
@@ -531,7 +533,9 @@ public class MethodLibrary {
     }
   };
 
-  @SkylarkBuiltin(name = "list", doc = "Converts a collection (e.g. set or dictionary) to a list.")
+  @SkylarkBuiltin(name = "list", returnType = SkylarkList.class,
+      doc = "Converts a collection (e.g. set or dictionary) to a list.",
+      mandatoryParams = {@Param(name = "x", doc = "The object to convert.")})
   private static Function list = new SimplePositionalFunction("list", 1, 1) {
     @Override
     public Object call(List<Object> args, FuncallExpression ast) throws EvalException {
@@ -540,8 +544,9 @@ public class MethodLibrary {
     }
   };
 
-  @SkylarkBuiltin(name = "len", doc =
-      "Returns the length of a string, list, tuple, set, or dictionary.")
+  @SkylarkBuiltin(name = "len", returnType = Integer.class, doc =
+      "Returns the length of a string, list, tuple, set, or dictionary.",
+      mandatoryParams = {@Param(name = "x", doc = "The object to check length of.")})
   private static Function len = new SimplePositionalFunction("len", 1, 1) {
 
     @Override
@@ -556,8 +561,9 @@ public class MethodLibrary {
     }
   };
 
-  @SkylarkBuiltin(name = "str", doc =
-      "Converts any object to string. This is useful for debugging.")
+  @SkylarkBuiltin(name = "str", returnType = String.class, doc =
+      "Converts any object to string. This is useful for debugging.",
+      mandatoryParams = {@Param(name = "x", doc = "The object to convert.")})
   private static Function str = new SimplePositionalFunction("str", 1, 1) {
     @Override
     public Object call(List<Object> args, FuncallExpression ast) throws EvalException {
@@ -565,9 +571,10 @@ public class MethodLibrary {
     }
   };
 
-  @SkylarkBuiltin(name = "bool", doc = "Converts an object to boolean. "
+  @SkylarkBuiltin(name = "bool", returnType = Boolean.class, doc = "Converts an object to boolean. "
       + "It returns False if the object is None, False, an empty string, the number 0, or an "
-      + "empty collection. Otherwise, it returns True.")
+      + "empty collection. Otherwise, it returns True.",
+      mandatoryParams = {@Param(name = "x", doc = "The variable to convert.")})
   private static Function bool = new SimplePositionalFunction("bool", 1, 1) {
     @Override
     public Object call(List<Object> args, FuncallExpression ast) throws EvalException {
@@ -687,7 +694,8 @@ public class MethodLibrary {
    * in the specified package context.
    */
   @SkylarkBuiltin(name = "select",
-      doc = "Creates a SelectorValue from the dict parameter.")
+      doc = "Creates a SelectorValue from the dict parameter.",
+      mandatoryParams = {@Param(name = "x", type = Map.class, doc = "The parameter to convert.")})
   private static final Function select = new SimplePositionalFunction("select", 1, 1) {
       @Override
       public Object call(List<Object> args, FuncallExpression ast)
@@ -704,10 +712,13 @@ public class MethodLibrary {
   /**
    * Returns true if the struct has a field of the given name, otherwise false.
    */
-  @SkylarkBuiltin(name = "hasattr",
-      doc = "Returns True if the struct has a field of the given name, otherwise False. "
-          + "Example:<br>"
-          + "<pre class=code>hasattr(ctx.attr, \"myattr\")</pre>")
+  @SkylarkBuiltin(name = "hasattr", returnType = Boolean.class,
+      doc = "Returns True if the struct <code>x</code> has a field of the given <code>name</code>, "
+          + "otherwise False. Example:<br>"
+          + "<pre class=code>hasattr(ctx.attr, \"myattr\")</pre>",
+      mandatoryParams = {
+      @Param(name = "x", doc = "The object to check."),
+      @Param(name = "name", type = String.class, doc = "The name of the field.")})
   private static final Function hasattr = new SimplePositionalFunction("hasattr", 2, 2) {
     @Override
     public Object call(List<Object> args, FuncallExpression ast) throws EvalException,
@@ -740,7 +751,7 @@ public class MethodLibrary {
           + "<pre class=code>getattr(ctx.attr, \"myattr\")\n"
           + "getattr(ctx.attr, \"myattr\", \"mydefault\")</pre>",
      mandatoryParams = {
-     @Param(name = "object", doc = "The struct which's field is accessed."), 
+     @Param(name = "object", doc = "The struct which's field is accessed."),
      @Param(name = "name", doc = "The name of the struct field.")},
      optionalParams = {
      @Param(name = "default", doc = "The default value to return in case the struct "
@@ -766,8 +777,10 @@ public class MethodLibrary {
     }
   };
 
-  @SkylarkBuiltin(name = "dir",
-      doc = "Returns the list of fields and methods of the parameter object.")
+  @SkylarkBuiltin(name = "dir", returnType = SkylarkList.class,
+      doc = "Returns the list of the names (list of strings) of the fields and "
+          + "methods of the parameter object.",
+      mandatoryParams = {@Param(name = "x", doc = "The object to check.")})
   private static final Function dir = new PositionalFunction("dir", 1, 1) {
     @Override
     public Object call(List<Object> args, FuncallExpression ast, Environment env)
@@ -789,14 +802,46 @@ public class MethodLibrary {
     }
   };
 
-  @SkylarkBuiltin(name = "type",
-      doc = "Returns the type (string) of its argument.")
+  @SkylarkBuiltin(name = "type", returnType = String.class,
+      doc = "Returns the type name of its argument.",
+      mandatoryParams = {@Param(name = "x", doc = "The object to check type of.")})
   private static final Function type = new PositionalFunction("type", 1, 1) {
     @Override
     public Object call(List<Object> args, FuncallExpression ast, Environment env)
         throws EvalException {
       // There is no 'type' type in Skylark, so we return a string with the type name.
       return EvalUtils.getDatatypeName(args.get(0));
+    }
+  };
+
+  @SkylarkBuiltin(name = "fail",
+      doc = "Raises an error (the execution stops), except if the <code>when</code> condition "
+      + "is False.",
+      returnType = Environment.NoneType.class,
+      mandatoryParams = {
+        @Param(name = "msg", type = String.class, doc = "Error message to display for the user")},
+      optionalParams = {
+        @Param(name = "attr", type = String.class,
+            doc = "The name of the attribute that caused the error"),
+        @Param(name = "when", type = Boolean.class,
+            doc = "When False, the function does nothing. Default is True.")})
+  private static final Function fail = new MixedModeFunction(
+      "fail", ImmutableList.of("msg", "attr", "when"), 1, false) {
+    @Override
+    public Object call(Object[] namedArguments, List<Object> positionalArguments,
+        Map<String, Object> keywordArguments, FuncallExpression ast, Environment env)
+        throws EvalException {
+      if (namedArguments[2] != null) {
+        if (!EvalUtils.toBoolean(namedArguments[2])) {
+          return Environment.NONE;
+        }
+      }
+      String msg = cast(namedArguments[0], String.class, "msg", ast.getLocation());
+      if (namedArguments[1] != null) {
+        msg = "attribute " + cast(namedArguments[1], String.class, "attr", ast.getLocation())
+            + ": " + msg;
+      }
+      throw new EvalException(ast.getLocation(), msg);
     }
   };
 
@@ -891,6 +936,7 @@ public class MethodLibrary {
       .put(dir, SkylarkType.of(SkylarkList.class, String.class))
       .put(range, SkylarkType.of(SkylarkList.class, Integer.class))
       .put(type, SkylarkType.of(String.class))
+      .put(fail, SkylarkType.NONE)
       .build();
 
   /**

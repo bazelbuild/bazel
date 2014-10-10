@@ -14,6 +14,8 @@
 
 package com.google.devtools.build.lib.webstatusserver;
 
+import com.google.common.annotations.VisibleForTesting;
+import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 import com.google.devtools.build.lib.syntax.Label;
 import com.google.devtools.build.lib.view.test.TestStatus.BlazeTestStatus;
@@ -33,9 +35,8 @@ import java.util.logging.Logger;
  *
  * <p> The information is grouped into following structures:
  * <ul>
- * <li> {@link #options} contain information about the build known when it starts but before
+ * <li> {@link #commandInfo} contain information about the build known when it starts but before
  *      anything is actually compiled/run
- * <li> {@link #testRules} contain summaries about test rules that already completed
  * <li> {@link #testCases} contain detailed information about each test case ran, for now they're
  *
  * </ul>
@@ -45,34 +46,36 @@ public class WebStatusBuildLog {
   private boolean complete = false;
   private static final Logger LOG =
       Logger.getLogger(WebStatusEventCollector.class.getCanonicalName());
-  private Map<String, JsonElement> options = new HashMap<String, JsonElement>();
-  private Map<Label, JsonObject> testRules = new HashMap<Label, JsonObject>();
+  private Map<String, JsonElement> commandInfo = new HashMap<String, JsonElement>();
   private Map<String, JsonObject> testCases = new HashMap<String, JsonObject>();
+  private long startTime;
+  private ImmutableList<String> targetList;
 
   public WebStatusBuildLog addInfo(String key, Object value) {
-    options.put(key, gson.toJsonTree(value));
+    commandInfo.put(key, gson.toJsonTree(value));
     return this;
   }
 
+  public void addStartTime(long startTime) {
+    this.startTime = startTime;
+  }
+
+  public void addTargetList(List<String> targets) {
+    this.targetList = ImmutableList.copyOf(targets);
+  }
+
   public void finish() {
-    options = ImmutableMap.copyOf(options);
+    commandInfo = ImmutableMap.copyOf(commandInfo);
     complete = true;
   }
 
-  public Map<String, JsonElement> getOptions() {
-    return ImmutableMap.copyOf(options);
-  }
-
-  public Map<Label, JsonObject> getTestSummaries() {
-    // TODO(marcinf): immutability
-    // The result is not really immutable - addProperty can be called on values to modify them.
-    // however, this behaviour is not intended, but there is no good fix for now (other than
-    // deepcopying everything)
-    return ImmutableMap.copyOf(testRules);
+  public Map<String, JsonElement> getCommandInfo() {
+    return commandInfo;
   }
 
   public ImmutableMap<String, JsonObject> getTestCases() {
-    // See comment for {@link #getTestSummaries}
+    // TODO(bazel-team): not really immutable, since one can do addProperty on
+    // values (unfortunately gson doesn't support immutable JsonObjects)
     return ImmutableMap.copyOf(testCases);
   }
 
@@ -80,39 +83,65 @@ public class WebStatusBuildLog {
     return complete;
   }
 
+  public List<String> getTargetList() {
+    return targetList;
+  }
+
+  public long getStartTime() {
+    return startTime;
+  }
+
   public void addTestTarget(Label label) {
-    if (!testRules.containsKey(label)) {
-      testRules.put(label, new JsonObject());
+    String targetName = label.toShorthandString();
+    if (!testCases.containsKey(targetName)) {
+      JsonObject summary = createTestCaseEmptyJsonNode(targetName);
+      summary.addProperty("finished", false);
+      summary.addProperty("status", "started");
+      testCases.put(targetName, summary);
     } else {
-      // TODO(marcinf): figure out if there are any situations it can happen
+      // TODO(bazel-team): figure out if there are any situations it can happen
     }
   }
 
   public void addTestSummary(Label label, BlazeTestStatus status, List<Long> testTimes,
       boolean isCached) {
-    testRules.get(label).addProperty("status", status.toString());
-    testRules.get(label).add("times", gson.toJsonTree(testTimes));
-    testRules.get(label).addProperty("cached", isCached);
+    JsonObject testCase = testCases.get(label.toShorthandString());
+    testCase.addProperty("status", status.toString());
+    testCase.add("times", gson.toJsonTree(testTimes));
+    testCase.addProperty("cached", isCached);
+    testCase.addProperty("finished", true);
   }
 
-  public void addTargetComplete(Label label) {
-    if (testRules.containsKey(label)) {
-      testRules.get(label).addProperty("status", "built");
+  public void addTargetBuilt(Label label, boolean success) {
+    if (testCases.containsKey(label.toShorthandString())) {
+      if (success) {
+        testCases.get(label.toShorthandString()).addProperty("status", "built");
+      } else {
+        testCases.get(label.toShorthandString()).addProperty("status", "build failure");
+      }
     } else {
       LOG.info("Unhandled target: " + label);
     }
   }
 
-  private JsonObject createTestCaseEmptyJsonNode(String fullName, TestCase testCase) {
+  @VisibleForTesting
+  static JsonObject createTestCaseEmptyJsonNode(String fullName) {
     JsonObject currentNode = new JsonObject();
-    currentNode.addProperty("name", testCase.getName());
-    currentNode.addProperty("className", testCase.getClassName());
     currentNode.addProperty("fullName", fullName);
+    currentNode.addProperty("name", "");
+    currentNode.addProperty("className", "");
     currentNode.add("results", new JsonObject());
     currentNode.add("times", new JsonObject());
     currentNode.add("children", new JsonObject());
     currentNode.add("failures", new JsonObject());
     currentNode.add("errors", new JsonObject());
+    return currentNode;
+  }
+
+  private static JsonObject createTestCaseEmptyJsonNode(String fullName, TestCase testCase) {
+    JsonObject currentNode = createTestCaseEmptyJsonNode(fullName);
+    currentNode.addProperty("name", testCase.getName());
+    currentNode.addProperty("className", testCase.getClassName());
     return currentNode;
   }
 

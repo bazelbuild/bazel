@@ -38,6 +38,8 @@ public class ObjcImport implements RuleConfiguredTargetFactory {
         .addAssetCatalogs(ruleContext.getPrerequisiteArtifacts("asset_catalogs", Mode.TARGET))
         .addSdkDylibs(ruleContext.attributes().get("sdk_dylibs", Type.STRING_LIST))
         .addHdrs(ruleContext.getPrerequisiteArtifacts("hdrs", Mode.TARGET))
+        .addStoryboards(ruleContext.getPrerequisiteArtifacts("storyboards", Mode.TARGET))
+        .setIntermediateArtifacts(ObjcBase.intermediateArtifacts(ruleContext))
         .build();
     common.reportErrors();
 
@@ -49,7 +51,7 @@ public class ObjcImport implements RuleConfiguredTargetFactory {
         optionsProvider.getCopts(),
         LIBRARY_STATIC,
         ImmutableList.<XcodeProvider>of());
-    ObjcBase.registerActions(ruleContext, xcodeProvider);
+    ObjcBase.registerActions(ruleContext, xcodeProvider, common.getStoryboards());
 
     return common.configuredTarget(
         NestedSetBuilder.<Artifact>stableOrder()

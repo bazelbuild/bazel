@@ -657,7 +657,7 @@ public final class CcLibraryHelper {
           new CcNativeLibraryProvider(collectNativeCcLibraries(ccLinkingOutputs)));
     }
     providers.put(CcExecutionDynamicLibrariesProvider.class,
-        collectExecutionDynamicLibraryArtifacts(ccLinkingOutputs.getExecutionDynamicLibraries()));
+        collectExecutionDynamicLibraryInputs(ccLinkingOutputs.getExecutionDynamicLibraries()));
 
     boolean forcePic = ruleContext.getFragment(CppConfiguration.class).forcePic();
     if (emitCcSpecificLinkParamsProvider) {
@@ -821,18 +821,17 @@ public final class CcLibraryHelper {
     return result.build();
   }
 
-  private CcExecutionDynamicLibrariesProvider collectExecutionDynamicLibraryArtifacts(
+  private CcExecutionDynamicLibrariesProvider collectExecutionDynamicLibraryInputs(
       List<LibraryToLink> executionDynamicLibraries) {
-    Iterable<Artifact> artifacts = LinkerInputs.toLibraryArtifacts(executionDynamicLibraries);
-    if (!Iterables.isEmpty(artifacts)) {
+    if (!Iterables.isEmpty(executionDynamicLibraries)) {
       return new CcExecutionDynamicLibrariesProvider(
-          NestedSetBuilder.wrap(Order.STABLE_ORDER, artifacts));
+          NestedSetBuilder.wrap(Order.STABLE_ORDER, executionDynamicLibraries));
     }
 
-    NestedSetBuilder<Artifact> builder = NestedSetBuilder.stableOrder();
+    NestedSetBuilder<LinkerInput> builder = NestedSetBuilder.stableOrder();
     for (CcExecutionDynamicLibrariesProvider dep :
         AnalysisUtils.getProviders(deps, CcExecutionDynamicLibrariesProvider.class)) {
-      builder.addTransitive(dep.getExecutionDynamicLibraryArtifacts());
+      builder.addTransitive(dep.getExecutionDynamicLibraryInputs());
     }
     return builder.isEmpty()
         ? CcExecutionDynamicLibrariesProvider.EMPTY

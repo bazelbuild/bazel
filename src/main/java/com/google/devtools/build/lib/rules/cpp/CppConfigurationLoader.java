@@ -33,6 +33,8 @@ import com.google.devtools.build.lib.view.config.ConfigurationFragmentFactory;
 import com.google.devtools.build.lib.view.config.InvalidConfigurationException;
 import com.google.devtools.build.lib.view.config.crosstool.CrosstoolConfig;
 
+import javax.annotation.Nullable;
+
 /**
  * Loader for C++ configurations.
  */
@@ -92,6 +94,7 @@ public class CppConfigurationLoader implements ConfigurationFragmentFactory {
     }
   }
 
+  @Nullable
   protected CppConfigurationParameters createParameters(
       ConfigurationEnvironment env, BuildOptions options) throws InvalidConfigurationException {
     BlazeDirectories directories = env.getBlazeDirectories();
@@ -100,8 +103,14 @@ public class CppConfigurationLoader implements ConfigurationFragmentFactory {
     }
     Label crosstoolTop = RedirectChaser.followRedirects(env,
         options.get(CppOptions.class).crosstoolTop, "crosstool_top");
+    if (crosstoolTop == null) {
+      return null;
+    }
     CrosstoolConfigurationLoader.CrosstoolFile file =
         CrosstoolConfigurationLoader.readCrosstool(env, crosstoolTop);
+    if (file == null) {
+      return null;
+    }
     CrosstoolConfig.CToolchain toolchain =
         CrosstoolConfigurationLoader.selectToolchain(file.getProto(), options, cpuTransformer);
 
@@ -114,6 +123,9 @@ public class CppConfigurationLoader implements ConfigurationFragmentFactory {
     } else if (cppOptions.fdoOptimize.startsWith("//")) {
       try {
         Target target = env.getTarget(Label.parseAbsolute(cppOptions.fdoOptimize));
+        if (target == null) {
+          return null;
+        }
         if (!(target instanceof InputFile)) {
           throw new InvalidConfigurationException(
               "--fdo_optimize cannot accept targets that do not refer to input files");
@@ -142,6 +154,9 @@ public class CppConfigurationLoader implements ConfigurationFragmentFactory {
     Target ccToolchain;
     try {
       ccToolchain = env.getTarget(ccToolchainLabel);
+      if (ccToolchain == null) {
+        return null;
+      }
     } catch (NoSuchThingException e) {
       throw new InvalidConfigurationException(String.format(
           "The toolchain rule '%s' does not exist", ccToolchainLabel));

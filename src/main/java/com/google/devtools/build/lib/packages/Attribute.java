@@ -898,7 +898,8 @@ public final class Attribute implements Comparable<Attribute> {
           }
         }
       }
-      ClassObject attrs = new SkylarkClassObject(attrValues);
+      ClassObject attrs = new SkylarkClassObject(attrValues,
+          "No such regular (non late-bound) attribute '%s'.");
       return callback.call(attrs, o);
     }
   }

@@ -62,9 +62,8 @@ def create_common_make_vars(srcs):
 def add_make_var(ctx, var_dict, name, value, attr_name):
   """Helper function to add new Make variables."""
   if name in var_dict:
-    ctx.error(attr_name, "duplicate Make Variable '%s'" % name)
-  else:
-    return {name: value}
+    fail("duplicate Make Variable \"%s\"" % name, attr=attr_name)
+  return {name: value}
 
 
 def resolve_command(ctx, common_vars, command, srcs, foreach_src,
@@ -99,7 +98,7 @@ def get_outs_templates(ctx):
   """Returns a dict of the output templates + checks them and reports errors."""
   outs_templ = ctx.attr.outs
   if not outs_templ:
-    ctx.error("outs", "must not be empty")
+    fail("must not be empty", attr="outs")
 
   result = {}
   values = {}  # set of values; "in" operator only works on dicts
@@ -107,18 +106,19 @@ def get_outs_templates(ctx):
   for i in outs_templ:
     key = list(i)[0]
     value = list(i)[1]
+    error_prefix = "in template declaration (\"%s\": \"%s\") - " % (key, value)
     if len(value.split("$(src)")) != 2:
-      ctx.error("outs", "invalid template '%s'; " % definition +
-          "must contain the placeholder $(src) exactly once")
+      fail(error_prefix + "must contain the placeholder $(src) exactly once",
+           attr="outs")
     if value == '$(src)':
-      ctx.error("outs", "invalid template '%s'; " % definition +
-          "must be more than just a mere placeholder")
+      fail(error_prefix + "must be more than just a mere placeholder",
+           attr="outs")
     if key in result:
-      ctx.error("outs", "duplicate Make Variable name '%s'" % key +
-          " in template '%s'" % definition)
+      fail(error_prefix + "duplicate Make Variable name \"%s\"" % key,
+           attr="outs")
     if value in values:
-      ctx.error("outs", "duplicate output name '%s'" % value +
-          " in template '%s'" % definition)
+      fail(error_prefix + "duplicate output name \"%s\"" % value,
+           attr="outs")
     result[key] = value
     values[value] = None  # dict is used as a set
   return result
@@ -131,7 +131,8 @@ def fill_outs_templates(ctx, foreach_srcs, templates):
     outs = {}
     for key in templates:
       templ = templates[key].replace("$(src)", src.short_path)
-      output = ctx.new_file(ctx.configuration.genfiles_dir, templ.split("/"))
+      output = ctx.new_file(ctx.configuration.genfiles_dir,
+          [ctx.label.name + ".outputs"] + templ.split("/"))
       outs[key] = output
     result[src] = outs
   return result
@@ -142,7 +143,7 @@ def create(ctx):
   common_srcs = get_files_to_build(ctx.targets.srcs)
   foreach_srcs = get_files_to_build(ctx.targets.foreach_srcs)
   if not foreach_srcs:
-    ctx.error("foreach_srcs", "must not be empty")
+    fail("must not be empty", attr="foreach_srcs")
 
   # Create a dict for the output templates.
   # Key: Make Variable name of the output; Value: template
@@ -152,7 +153,7 @@ def create(ctx):
   foreach_src_outs_dict = fill_outs_templates(ctx, foreach_srcs, templates)
 
   command_helper = ctx.command_helper(
-      tools=ctx.targets("tools", "FilesToRunProvider"),
+      tools=ctx.targets.tools,
       label_dict={})  # TODO(bazel-team): labels we pass here are not used
 
   command = command_helper.resolve_command_and_expand_labels(False, False)
@@ -187,7 +188,7 @@ maprule = rule(implementation=create,
      # TODO(bazel_team): Do we need these for now?
      # .setDependentTargetConfiguration(PARENT)
      # .setOutputToGenfiles()
-     attr={
+     attrs={
          # List of labels; optional.
          # Defines the set of sources that are available to all actions created
          # by this rule.
@@ -211,13 +212,15 @@ maprule = rule(implementation=create,
          # Tools used by the command in "cmd". Similar to genrule.tools
          "tools": attr.label_list(cfg=HOST_CFG, allow_files=True),
 
-         # List of key:value pair strings; required.
-         # The templates for the outputs generated for each file in the
-         # "foreach_srcs". Each entry must define a pair of <Make Variable> and
-         # <template> pair. The Make Variable can be used in the "cmd" and will
-         # resolve to the name of that particular output. The template must
-         # contain the placeholder $(src) exactly once which will be replaced
-         # with the path of the particular input file.
+         # Dict of output templates; required.
+         # Defines the templates for the outputs generated for each file in the
+         # "foreach_srcs". Each key in this dict defines a Make Variable which
+         # stands for the output template, the value under the key. The Make
+         # Variable can be used in the "cmd" and will resolve to the name of
+         # that particular output. The template must contain the placeholder
+         # $(src) exactly once which will be replaced with the path of the
+         # particular input file. If this dictionary contains only one entry,
+         # the $(@) Make Variable can also be used to identify the output.
          "outs": attr.string_dict(mandatory=True),
 
          # String; required.

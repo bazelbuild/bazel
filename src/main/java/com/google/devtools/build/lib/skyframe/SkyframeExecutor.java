@@ -522,6 +522,10 @@ public abstract class SkyframeExecutor {
     return reporter;
   }
 
+  public BlazeDirectories getBlazeDirectories() {
+    return directories;
+  }
+
   public EventBus getEventBus() {
     return eventBus.get();
   }

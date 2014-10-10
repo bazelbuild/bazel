@@ -48,6 +48,7 @@ import com.google.devtools.build.lib.syntax.Label;
 import com.google.devtools.build.lib.util.DependencySet;
 import com.google.devtools.build.lib.util.FileType;
 import com.google.devtools.build.lib.util.Fingerprint;
+import com.google.devtools.build.lib.util.OsUtils;
 import com.google.devtools.build.lib.util.Pair;
 import com.google.devtools.build.lib.util.ShellEscaper;
 import com.google.devtools.build.lib.vfs.FileSystemUtils;
@@ -412,6 +413,16 @@ public class CppCompileAction extends AbstractAction implements IncludeScannable
     if (configuration.isCodeCoverageEnabled()) {
       environment.put("PWD", "/proc/self/cwd");
     }
+    if (OsUtils.isWindows()) {
+      // TODO(bazel-team): Both GCC and clang rely on their execution directories being on
+      // PATH, otherwise they fail to find dependent DLLs (and they fail silently...). On
+      // the other hand, Windows documentation says that the directory of the executable
+      // is always searched for DLLs first. Not sure what to make of it.
+      // Other options are to forward the system path (brittle), or to add a PATH field to
+      // the crosstool file.
+      environment.put("PATH", cppConfiguration.getToolPathFragment(Tool.GCC).getParentDirectory()
+          .getPathString());
+   }
     return ImmutableMap.copyOf(environment);
   }
 
@@ -555,7 +566,7 @@ public class CppCompileAction extends AbstractAction implements IncludeScannable
 
     if (warnings.hasProblems()) {
       eventHandler.handle(
-          new Event(EventKind.WARNING, 
+          new Event(EventKind.WARNING,
               getOwner().getLocation(), warnings.getMessage(this, getSourceFile()),
           Label.print(getOwner().getLabel())));
     }

@@ -35,13 +35,14 @@ import java.util.Set;
  */
 public class Environment {
 
-  @SkylarkBuiltin(name = "True", doc = "Literal for the boolean true.")
+  @SkylarkBuiltin(name = "True", returnType = Boolean.class, doc = "Literal for the boolean true.")
   private static final boolean TRUE = true;
 
-  @SkylarkBuiltin(name = "False", doc = "Literal for the boolean false.")
+  @SkylarkBuiltin(name = "False", returnType = Boolean.class,
+      doc = "Literal for the boolean false.")
   private static final boolean FALSE = false;
 
-  @SkylarkBuiltin(name = "PACKAGE_NAME",
+  @SkylarkBuiltin(name = "PACKAGE_NAME", returnType = String.class,
       doc = "The name of the package the rule or build extension is called from. "
           + "This variable is special, because its value comes from outside of the extension "
           + "module (it comes from the BUILD file), so it can only be accessed in functions "
@@ -62,7 +63,7 @@ public class Environment {
     private NoneType() {}
   }
 
-  @SkylarkBuiltin(name = "None", doc = "Literal for the None value.")
+  @SkylarkBuiltin(name = "None", returnType = NoneType.class, doc = "Literal for the None value.")
   public static final NoneType NONE = new NoneType();
 
   protected final Map<String, Object> env = new HashMap<>();

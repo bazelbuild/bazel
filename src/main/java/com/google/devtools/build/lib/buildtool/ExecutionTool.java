@@ -68,8 +68,6 @@ import com.google.devtools.build.lib.events.EventKind;
 import com.google.devtools.build.lib.events.Reporter;
 import com.google.devtools.build.lib.exec.CheckUpToDateFilter;
 import com.google.devtools.build.lib.exec.ExecutionOptions;
-import com.google.devtools.build.lib.exec.FileWriteStrategy;
-import com.google.devtools.build.lib.exec.FilesetActionContextImpl;
 import com.google.devtools.build.lib.exec.LegacyActionInputFileCache;
 import com.google.devtools.build.lib.exec.OutputService;
 import com.google.devtools.build.lib.exec.SingleBuildFileCache;
@@ -109,6 +107,7 @@ import com.google.devtools.build.lib.view.WorkspaceStatusAction;
 import com.google.devtools.build.lib.view.config.BuildConfiguration;
 import com.google.devtools.build.lib.view.config.BuildConfigurationCollection;
 import com.google.devtools.build.lib.view.fileset.FilesetActionContext;
+import com.google.devtools.build.lib.view.fileset.FilesetActionContextImpl;
 
 import java.io.IOException;
 import java.io.OutputStream;
@@ -217,7 +216,6 @@ public class ExecutionTool {
         runtime.getReporter(), runtime.getWorkspaceName()));
 
     strategies.add(new SourceManifestActionContextImpl(runtime.getRunfilesPrefix()));
-    strategies.add(new FileWriteStrategy(request));
     strategies.add(new SymlinkTreeStrategy(runtime.getOutputService(), runtime.getBinTools()));
 
     StrategyConverter strategyConverter = new StrategyConverter(actionContextProviders);

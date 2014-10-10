@@ -15,9 +15,6 @@
 package com.google.devtools.build.lib.webstatusserver;
 
 import com.google.common.collect.ImmutableList;
-import com.google.devtools.build.lib.syntax.Label;
-import com.google.gson.JsonArray;
-import com.google.gson.JsonElement;
 import com.google.gson.JsonObject;
 
 import com.sun.net.httpserver.HttpExchange;
@@ -33,7 +30,6 @@ import java.util.Map.Entry;
  * Collection of handlers for displaying the test data.
  */
 class TestStatusHandler {
-  private TestStatusSummaryJsonData summaryHandler;
   private StaticResourceHandler frontendHandler;
   private WebStatusBuildLog buildLog;
   private HttpHandler detailsHandler;
@@ -42,48 +38,10 @@ class TestStatusHandler {
   public TestStatusHandler(HttpServer server, int commandId, WebStatusBuildLog buildLog) {
     this.buildLog = buildLog;
     this.server = server;
-    summaryHandler = new TestStatusSummaryJsonData(this);
     detailsHandler = new TestStatusResultJsonData(this);
     frontendHandler = StaticResourceHandler.createFromRelativePath("static/test.html", "text/html");
     server.createContext("/tests/" + commandId + "/details", detailsHandler);
-    server.createContext("/tests/" + commandId + "/data", summaryHandler);
     server.createContext("/tests/" + commandId, frontendHandler);
-  }
-
-  /**
-   *
-   * Serves JSON objects containing test summaries, which will be rendered by frontend.
-   */
-  private class TestStatusSummaryJsonData implements HttpHandler {
-    private TestStatusHandler testStatusHandler;
-
-    public TestStatusSummaryJsonData(TestStatusHandler testStatusHandler) {
-      this.testStatusHandler = testStatusHandler;
-    }
-
-    @Override
-    public void handle(HttpExchange exchange) throws IOException {
-      Map<Label, JsonObject> testInfo = testStatusHandler.buildLog.getTestSummaries();
-      exchange.getResponseHeaders().put("Content-Type", ImmutableList.of("application/json"));
-      JsonArray response = new JsonArray();
-      for (Entry<Label, JsonObject> testSummary : testInfo.entrySet()) {
-        JsonObject serialized = new JsonObject();
-
-        // Copy over to avoid messing the original data
-        // TODO(marcinf): make buildLog.getTests() return a fresh copy of data
-        for (Entry<String, JsonElement> entry : testSummary.getValue().entrySet()) {
-          serialized.add(entry.getKey(), entry.getValue());
-        }
-
-        serialized.addProperty("name", testSummary.getKey().toShorthandString());
-        response.add(serialized);
-      }
-      String serializedResponse = response.toString();
-      exchange.sendResponseHeaders(200, serializedResponse.length());
-      OutputStream os = exchange.getResponseBody();
-      os.write(serializedResponse.getBytes());
-      os.close();
-    }
   }
 
   /**
@@ -127,7 +85,6 @@ class TestStatusHandler {
       // There was nothing to remove, so proceed with creation (unfortunately the server api doesn't
       // have "hasContext" method)
     }
-    this.server.createContext(detailsPath, this.detailsHandler);
-    this.server.createContext(summaryPath, this.summaryHandler);   
+    this.server.createContext(detailsPath, this.detailsHandler);   
   }
 }

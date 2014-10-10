@@ -25,6 +25,7 @@ filegroup(
     name = "third_party_test_utils",
     srcs = [
         "guava/guava-testlib.jar",
+        "hamcrest/hamcrest-core-1.3.jar",
         "junit/junit-4.11.jar",
         "truth/truth-0.23.jar",
     ],

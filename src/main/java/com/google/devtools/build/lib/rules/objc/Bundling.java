@@ -19,6 +19,7 @@ import static com.google.devtools.build.lib.rules.objc.ObjcProvider.BUNDLE_FILE;
 import static com.google.devtools.build.lib.rules.objc.ObjcProvider.IMPORTED_LIBRARY;
 import static com.google.devtools.build.lib.rules.objc.ObjcProvider.LIBRARY;
 import static com.google.devtools.build.lib.rules.objc.ObjcProvider.NESTED_BUNDLE;
+import static com.google.devtools.build.lib.rules.objc.ObjcProvider.STORYBOARD;
 import static com.google.devtools.build.lib.rules.objc.ObjcProvider.XCDATAMODEL;
 
 import com.google.common.base.Optional;
@@ -109,6 +110,7 @@ final class Bundling extends Value<Bundling> {
           .addAll(linkedBinary.asSet())
           .addAll(infoplistMerging.getPlistWithEverything().asSet())
           .addAll(actoolzipOutput.asSet())
+          .addAll(Storyboard.outputZips(objcProvider.get(STORYBOARD)))
           .addAll(BundleableFile.toArtifacts(extraBundleFiles))
           .addAll(BundleableFile.toArtifacts(objcProvider.get(BUNDLE_FILE)))
           .addAll(Xcdatamodel.outputZips(objcProvider.get(XCDATAMODEL)))
@@ -216,6 +218,21 @@ final class Bundling extends Value<Bundling> {
    */
   public Optional<Artifact> getActoolzipOutput() {
     return actoolzipOutput;
+  }
+
+  /**
+   * Returns all zip files whose contents should be merged into this bundle under the main bundle
+   * directory. For instance, if a merge zip contains files a/b and c/d, then the resulting bundling
+   * would have additional files at:
+   * <ul>
+   *   <li>{bundleDir}/a/b
+   *   <li>{bundleDir}/c/d
+   * </ul>
+   */
+  public Iterable<Artifact> getMergeZips() {
+    return Iterables.concat(
+        getActoolzipOutput().asSet(),
+        Storyboard.outputZips(objcProvider.get(STORYBOARD)));
   }
 
   /**

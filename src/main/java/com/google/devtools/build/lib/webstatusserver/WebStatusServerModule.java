@@ -35,6 +35,8 @@ import org.joda.time.DateTime;
 import java.io.IOException;
 import java.io.OutputStream;
 import java.net.InetSocketAddress;
+import java.util.ArrayList;
+import java.util.List;
 import java.util.UUID;
 import java.util.logging.Logger;
 
@@ -50,10 +52,14 @@ public class WebStatusServerModule extends BlazeModule {
   private static final Logger LOG =
       Logger.getLogger(WebStatusServerModule.class.getCanonicalName());
   private int port;
-  // TODO(marcinf): store more than only the last build
+  // TODO(bazel-team): this list will grow infinitely; at some point old tests should be removed
+  // (similarly, old TestStatusHandler should get deregistered from the server at some point)
+  private List<WebStatusBuildLog> testsRun = new ArrayList<>();
   private WebStatusBuildLog currentBuild;
   @SuppressWarnings("unused")
   private WebStatusEventCollector collector;
+  @SuppressWarnings("unused")
+  private IndexPageHandler indexHandler;
   private int commandsRun = 0;
   @Override
   public Iterable<Class<? extends OptionsBase>> getStartupOptions() {
@@ -76,10 +82,11 @@ public class WebStatusServerModule extends BlazeModule {
       server.createContext("/last", lastCommandHandler);
       server.setExecutor(null);
       server.start();
+      indexHandler = new IndexPageHandler(server, this.testsRun);
       running = true;
       LOG.info("Running web status server on port " + port);
     } catch (IOException e) {
-      // TODO(marcinf): Display information about why it failed
+      // TODO(bazel-team): Display information about why it failed
       running = false;
       LOG.warning("Unable to run web status server on port " + port);
     }
@@ -99,11 +106,11 @@ public class WebStatusServerModule extends BlazeModule {
     lastCommandHandler.command = command;
     lastCommandHandler.startTime = currentTime;
 
-    // TODO(marcinf): store the tests and cleanup handlers that are not needed anymore (eg. keep
-    // only last 100 tests)
+    // TODO(bazel-team): store the tests and cleanup handlers that are not needed anymore (eg. keep
+    // only last 1000 tests)
     TestStatusHandler lastTest = new TestStatusHandler(server, commandsRun, currentBuild);
     lastTest.overrideURI(LAST_TEST_URI);
-    
+    testsRun.add(currentBuild);
     commandsRun += 1;
   }
 
@@ -120,10 +127,10 @@ public class WebStatusServerModule extends BlazeModule {
   }
 
   private void serveStaticContent() {
-    StaticResourceHandler index =
-        StaticResourceHandler.createFromRelativePath("static/index.html", "text/html");
     StaticResourceHandler testjs =
         StaticResourceHandler.createFromRelativePath("static/test.js", "application/javascript");
+    StaticResourceHandler indexjs =
+        StaticResourceHandler.createFromRelativePath("static/index.js", "application/javascript");
     StaticResourceHandler d3 = StaticResourceHandler.createFromAbsolutePath(
         "/third_party/javascript/d3/d3-js.js", "application/javascript");
     StaticResourceHandler jquery = StaticResourceHandler.createFromAbsolutePath(
@@ -132,8 +139,8 @@ public class WebStatusServerModule extends BlazeModule {
     StaticResourceHandler testFrontend =
         StaticResourceHandler.createFromRelativePath("static/test.html", "text/html");
 
-    server.createContext("/", index);
     server.createContext("/js/test.js", testjs);
+    server.createContext("/js/index.js", indexjs);
     server.createContext("/js/lib/d3.js", d3);
     server.createContext("/js/lib/jquery.js", jquery);
     server.createContext(LAST_TEST_URI, testFrontend);
@@ -164,8 +171,7 @@ public class WebStatusServerModule extends BlazeModule {
         builder.append(command.toString());
       }
       if (buildLog != null) {
-        builder.append(buildLog.getOptions().toString());
-        builder.append(buildLog.getTestSummaries().toString());
+        builder.append(buildLog.getCommandInfo().toString());
       }
       if (endTime != null) {
         builder.append(endTime.toString());

@@ -247,7 +247,6 @@ public final class SkylarkAttr {
       optionalParams = {
       @Param(name = "default", doc = DEFAULT_DOC + "If not specified, default is []. "
           + "Use the <code>label</code> function to specify a default value."),
-      @Param(name = "executable", type = Boolean.class, doc = EXECUTABLE_DOC),
       @Param(name = "flags", type = SkylarkList.class, doc = FLAGS_DOC),
       @Param(name = "allow_files", doc = ALLOW_FILES_DOC),
       @Param(name = "mandatory", type = Boolean.class, doc = MANDATORY_DOC),
@@ -282,7 +281,7 @@ public final class SkylarkAttr {
 
   @SkylarkBuiltin(name = "output", doc =
       "Creates an attribute of type output. Its default value is None. "
-      + "The user provides a file name (string) and the rule must create an action that"
+      + "The user provides a file name (string) and the rule must create an action that "
       + "generates the file.",
       objectType = SkylarkAttr.class,
       returnType = Attribute.class,

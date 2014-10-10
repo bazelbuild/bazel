@@ -226,20 +226,19 @@ public final class CcCommon {
     }
   }
 
-  private static NestedSet<Artifact> collectExecutionDynamicLibraryArtifacts(
+  private static NestedSet<? extends LinkerInput> collectExecutionDynamicLibraryInputs(
       RuleContext ruleContext,
-      List<LibraryToLink> executionDynamicLibraries) {
-    Iterable<Artifact> artifacts = LinkerInputs.toLibraryArtifacts(executionDynamicLibraries);
-    if (!Iterables.isEmpty(artifacts)) {
-      return NestedSetBuilder.wrap(Order.STABLE_ORDER, artifacts);
+      List<? extends LinkerInput> executionDynamicLibraries) {
+    if (!Iterables.isEmpty(executionDynamicLibraries)) {
+      return NestedSetBuilder.wrap(Order.STABLE_ORDER, executionDynamicLibraries);
     }
 
     Iterable<CcExecutionDynamicLibrariesProvider> deps = ruleContext
         .getPrerequisites("deps", Mode.TARGET, CcExecutionDynamicLibrariesProvider.class);
 
-    NestedSetBuilder<Artifact> builder = NestedSetBuilder.stableOrder();
+    NestedSetBuilder<LinkerInput> builder = NestedSetBuilder.stableOrder();
     for (CcExecutionDynamicLibrariesProvider dep : deps) {
-      builder.addTransitive(dep.getExecutionDynamicLibraryArtifacts());
+      builder.addTransitive(dep.getExecutionDynamicLibraryInputs());
     }
     return builder.build();
   }
@@ -945,7 +944,7 @@ public final class CcCommon {
          .add(CppCompilationContext.class, cppCompilationContext)
          .add(FdoProfilingInfoProvider.class, new FdoProfilingInfoProvider(transitiveLipoInfo))
          .add(CcExecutionDynamicLibrariesProvider.class,
-             new CcExecutionDynamicLibrariesProvider(collectExecutionDynamicLibraryArtifacts(
+             new CcExecutionDynamicLibrariesProvider(collectExecutionDynamicLibraryInputs(
                      ruleContext, linkingOutputs.getExecutionDynamicLibraries())))
          .add(CcNativeLibraryProvider.class, new CcNativeLibraryProvider(
              collectTransitiveCcNativeLibraries(ruleContext, linkingOutputs.getDynamicLibraries())))

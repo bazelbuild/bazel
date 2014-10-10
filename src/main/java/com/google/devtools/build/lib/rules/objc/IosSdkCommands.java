@@ -38,6 +38,7 @@ public class IosSdkCommands {
   public static final String BIN_DIR =
       DEVELOPER_DIR + "/Toolchains/XcodeDefault.xctoolchain/usr/bin";
   public static final String ACTOOL_PATH = DEVELOPER_DIR + "/usr/bin/actool";
+  public static final String IBTOOL_PATH = DEVELOPER_DIR + "/usr/bin/ibtool";
 
   private IosSdkCommands() {
     throw new UnsupportedOperationException("static-only");

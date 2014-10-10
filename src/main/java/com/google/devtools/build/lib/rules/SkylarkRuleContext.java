@@ -108,6 +108,8 @@ public final class SkylarkRuleContext {
   // TODO(bazel-team): we only need this because of the css_binary rule.
   private final ImmutableMap<Artifact, Label> artifactLabelMap;
 
+  private final ImmutableMap<Artifact, FilesToRunProvider> executableRunfilesMap;
+
   /**
    * In native code, private values start with $.
    * In Skylark, private values start with _, because of the grammar.
@@ -132,7 +134,7 @@ public final class SkylarkRuleContext {
           // Attribute values should be type safe
           : SkylarkType.convertToSkylark(val, null));
     }
-    attrObject = new SkylarkClassObject(builder.build());
+    attrObject = new SkylarkClassObject(builder.build(), "No such attribute '%s'.");
 
     HashMap<String, Object> outputsBuilder = new HashMap<>();
     if (ruleContext.getRule().getRuleClassObject().outputsDefaultExecutable()) {
@@ -176,9 +178,11 @@ public final class SkylarkRuleContext {
       }
     }
     artifactLabelMap = artifactLabelMapBuilder.build();
-    outputsObject = new SkylarkClassObject(outputsBuilder);
+    outputsObject = new SkylarkClassObject(outputsBuilder, "No such output '%s'.");
 
     ImmutableMap.Builder<String, Object> executableBuilder = new ImmutableMap.Builder<>();
+    ImmutableMap.Builder<Artifact, FilesToRunProvider> executableRunfilesbuilder =
+        new ImmutableMap.Builder<>();
     ImmutableMap.Builder<String, Object> fileBuilder = new ImmutableMap.Builder<>();
     ImmutableMap.Builder<String, Object> filesBuilder = new ImmutableMap.Builder<>();
     ImmutableMap.Builder<String, Object> targetsBuilder = new ImmutableMap.Builder<>();
@@ -192,7 +196,9 @@ public final class SkylarkRuleContext {
       if (a.isExecutable()) {
         FilesToRunProvider provider = ruleContext.getExecutablePrerequisite(a.getName(), mode);
         if (provider != null && provider.getExecutable() != null) {
-          executableBuilder.put(skyname, provider.getExecutable());
+          Artifact executable = provider.getExecutable();
+          executableBuilder.put(skyname, executable);
+          executableRunfilesbuilder.put(executable, provider);
         }
       }
       if (a.isSingleArtifact()) {
@@ -202,10 +208,15 @@ public final class SkylarkRuleContext {
       targetsBuilder.put(skyname, SkylarkList.list(
           ruleContext.getPrerequisites(a.getName(), mode), TransitiveInfoCollection.class));
     }
-    executableObject = new SkylarkClassObject(executableBuilder.build());
-    fileObject = new SkylarkClassObject(fileBuilder.build());
-    filesObject = new SkylarkClassObject(filesBuilder.build());
-    targetsObject = new SkylarkClassObject(targetsBuilder.build());
+    executableObject = new SkylarkClassObject(executableBuilder.build(), "No such executable. "
+        + "Make sure there is a '%s' label type attribute marked as 'executable'.");
+    fileObject = new SkylarkClassObject(fileBuilder.build(),
+        "No such file. Make sure there is a '%s' label type attribute marked as 'single_file'.");
+    filesObject = new SkylarkClassObject(filesBuilder.build(),
+        "No such files. Make sure there is a '%s' label or label_list type attribute.");
+    targetsObject = new SkylarkClassObject(targetsBuilder.build(),
+        "No such targets. Make sure there is a '%s' label or label_list type attribute.");
+    executableRunfilesMap = executableRunfilesbuilder.build();
   }
 
   private void addOutput(HashMap<String, Object> outputsBuilder, String key, Object value)
@@ -317,21 +328,6 @@ public final class SkylarkRuleContext {
     return ruleContext.getConfiguration().getConfiguration(ConfigurationTransition.DATA);
   }
 
-  @SkylarkCallable(doc =
-      "Signals a rule error with the given message. This function does not return "
-      + "(execution stops).")
-  public void error(String message) throws FuncallException {
-    throw new FuncallException(message);
-  }
-
-  @SkylarkCallable(doc =
-      "Signals an attribute error with the given attribute and message. "
-      + "This function does not return (execution stops). Example:<br>"
-      + "<pre class=code>ctx.error(\"srcs\", \"Expected exactly two source files.\")</pre>")
-  public void error(String attrName, String message) throws FuncallException {
-    throw new FuncallException("attribute " + attrName + ": " + message);
-  }
-
   @SkylarkCallable(doc = "Signals a warning error with the given message.")
   public void warning(String message) {
     ruleContext.ruleWarning(message);
@@ -436,4 +432,8 @@ public final class SkylarkRuleContext {
           }
         });
   }
+
+  FilesToRunProvider getExecutableRunfiles(Artifact executable) {
+    return executableRunfilesMap.get(executable);
+  }  
 }

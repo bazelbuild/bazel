@@ -122,8 +122,8 @@ def java_binary_impl(ctx):
         "  fi",
         "fi",
         "",
-        ("exec java -jar $(dirname $self)/$(basename %s) %s \"$@\"" %
-         (deploy_jar.path, main_class)),
+        ("exec java -jar $(dirname $self)/$(basename %s) \"$@\"" %
+         deploy_jar.path),
         ""]),
     executable = True)
 
@@ -149,12 +149,12 @@ java_library_attrs = {
     }
 
 java_binary_attrs = {
-    "main_class": attr.string()
+    "main_class": attr.string(mandatory=True)
 } + java_library_attrs
 
 java_library = rule(
     java_library_impl,
-    attr = java_library_attrs,
+    attrs = java_library_attrs,
     outputs = {
         "class_jar": "lib%{name}.jar",
     })
@@ -167,12 +167,18 @@ java_binary_outputs = {
 
 java_binary = rule(java_binary_impl,
    executable = True,
-   attr = java_binary_attrs,
+   attrs = java_binary_attrs,
    outputs = java_binary_outputs)
 
 java_test = rule(java_binary_impl,
    executable = True,
-   attr = java_binary_attrs,
+   attrs = java_library_attrs + {
+       "main_class": attr.string(default="org.junit.runner.JUnitCore"),
+       # TODO(bazel-team): it would be better if we could offer a
+       # test_class attribute instead, but this attribute is hard
+       # coded in the bazel infrastructure.
+       "args": attr.string_list(),
+   },
    outputs = java_binary_outputs,
    test = True,
 )

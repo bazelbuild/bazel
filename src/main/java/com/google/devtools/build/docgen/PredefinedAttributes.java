@@ -336,7 +336,9 @@ public class PredefinedAttributes {
         + "to use to run the test. <i>(Non-negative integer less than or equal to 50;\n"
         + "optional)</i><br/>\n"
         + "This value will override any heuristics used to determine the number of\n"
-        + "parallel shards with which to run the test."))
+        + "parallel shards with which to run the test. Note that for some test\n"
+        + "rules, this parameter may be required to enable sharding\n"
+        + "in the first place. Also see --test_sharding_strategy."))
       .put("local", RuleDocumentationAttribute.create("local", DocgenConsts.TEST_ATTRIBUTES,
           "Forces the test to be run locally. <i>(Boolean; optional)</i><br/>\n"
         + "By default this attribute is set to 0 and the default testing strategy is\n"

@@ -76,10 +76,10 @@ final class BundleMergeControlBytes extends ByteSource {
         .setPlatform(objcConfiguration.getPlatform().name())
         .setBundleRoot(bundleDir);
 
-    for (Artifact actoolzipOutput : bundling.getActoolzipOutput().asSet()) {
+    for (Artifact mergeZip : bundling.getMergeZips()) {
       control.addMergeZip(MergeZip.newBuilder()
           .setEntryNamePrefix(mergeZipPrefix)
-          .setSourcePath(actoolzipOutput.getExecPathString())
+          .setSourcePath(mergeZip.getExecPathString())
           .build());
     }
 

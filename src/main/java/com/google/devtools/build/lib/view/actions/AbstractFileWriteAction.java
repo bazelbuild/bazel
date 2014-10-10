@@ -21,12 +21,15 @@ import com.google.devtools.build.lib.actions.ActionExecutionContext;
 import com.google.devtools.build.lib.actions.ActionExecutionException;
 import com.google.devtools.build.lib.actions.ActionOwner;
 import com.google.devtools.build.lib.actions.Artifact;
+import com.google.devtools.build.lib.actions.EnvironmentalExecException;
 import com.google.devtools.build.lib.actions.ExecException;
 import com.google.devtools.build.lib.actions.Executor;
 import com.google.devtools.build.lib.actions.ResourceSet;
 import com.google.devtools.build.lib.events.EventHandler;
 import com.google.devtools.build.lib.syntax.Label;
+import com.google.devtools.build.lib.vfs.Path;
 
+import java.io.BufferedOutputStream;
 import java.io.IOException;
 import java.io.OutputStream;
 
@@ -60,9 +63,24 @@ public abstract class AbstractFileWriteAction extends AbstractAction {
   @Override
   public void execute(ActionExecutionContext actionExecutionContext)
       throws ActionExecutionException, InterruptedException {
+    EventHandler reporter = actionExecutionContext.getExecutor().getEventHandler();
     try {
-      getStrategy(actionExecutionContext.getExecutor()).exec(actionExecutionContext.getExecutor(),
-          this, actionExecutionContext.getFileOutErr());
+      try {
+        Path outputPath = Iterables.getOnlyElement(getOutputs()).getPath();
+        OutputStream out = new BufferedOutputStream(outputPath.getOutputStream());
+        try {
+          writeOutputFile(out, reporter, actionExecutionContext.getExecutor());
+        } finally {
+          out.close();
+        }
+        if (makeExecutable()) {
+          outputPath.setExecutable(true);
+        }
+      } catch (IOException e) {
+        throw new EnvironmentalExecException("failed to create file '"
+            + Iterables.getOnlyElement(getOutputs()).prettyPrint()
+            + "' due to I/O error: " + e.getMessage(), e);
+      }
     } catch (ExecException e) {
       throw e.toActionExecutionException(
           "Writing file for rule '" + Label.print(getOwner().getLabel()) + "'",
@@ -106,9 +124,5 @@ public abstract class AbstractFileWriteAction extends AbstractAction {
   @Override
   public final String describeStrategy(Executor executor) {
     return "local";
-  }
-
-  private FileWriteActionContext getStrategy(Executor executor) {
-    return executor.getContext(FileWriteActionContext.class);
   }
 }
