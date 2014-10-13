@@ -57,7 +57,7 @@ public final class SkyframeDependencyResolver extends DependencyResolver {
     if (env.getValue(TargetMarkerValue.key(label)) == null) {
       return null;
     }
-    SkyKey key = PackageValue.key(label.getPackageFragment());
+    SkyKey key = PackageValue.key(label.getPackageIdentifier());
     SkyValue value = env.getValue(key);
     if (value == null) {
       return null;

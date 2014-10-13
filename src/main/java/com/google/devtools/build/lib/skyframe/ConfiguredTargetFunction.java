@@ -88,7 +88,7 @@ final class ConfiguredTargetFunction implements SkyFunction {
 
     BuildConfiguration configuration = lc.getConfiguration();
 
-    SkyKey packageSkyKey = PackageValue.key(lc.getLabel().getPackageFragment());
+    SkyKey packageSkyKey = PackageValue.key(lc.getLabel().getPackageIdentifier());
     PackageValue packageValue = (PackageValue) env.getValue(packageSkyKey);
     if (packageValue == null) {
       return null;
@@ -233,7 +233,7 @@ final class ConfiguredTargetFunction implements SkyFunction {
   private Map<SkyKey, ConfiguredTargetValue> resolveDependencies(Environment env,
       ListMultimap<Attribute, TargetAndConfiguration> depValueNames, SkyKey packageSkyKey,
       Target target
-      ) throws ConfiguredTargetFunctionException, InterruptedException{
+      ) throws ConfiguredTargetFunctionException, InterruptedException {
     boolean ok = !env.valuesMissing();
     String message = null;
     Iterable<SkyKey> depKeys = Iterables.transform(depValueNames.values(), TO_KEYS);

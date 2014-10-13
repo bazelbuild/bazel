@@ -49,6 +49,7 @@ import com.google.devtools.build.lib.packages.BuildFileContainsErrorsException;
 import com.google.devtools.build.lib.packages.NoSuchPackageException;
 import com.google.devtools.build.lib.packages.Package;
 import com.google.devtools.build.lib.packages.PackageFactory;
+import com.google.devtools.build.lib.packages.PackageIdentifier;
 import com.google.devtools.build.lib.packages.Preprocessor;
 import com.google.devtools.build.lib.packages.RuleVisibility;
 import com.google.devtools.build.lib.packages.Target;
@@ -1060,10 +1061,10 @@ public abstract class SkyframeExecutor {
      * <p>Note that this method needs to be synchronized since InMemoryMemoizingEvaluator.evaluate()
      * method does not support concurrent calls.
      */
-    Package getPackage(EventHandler eventHandler, String pkgName) throws InterruptedException,
-        NoSuchPackageException {
+    Package getPackage(EventHandler eventHandler, PackageIdentifier pkgName)
+        throws InterruptedException, NoSuchPackageException {
       synchronized (valueLookupLock) {
-        SkyKey key = PackageValue.key(new PathFragment(pkgName));
+        SkyKey key = PackageValue.key(pkgName);
         EvaluationResult<PackageValue> result =
             buildDriver.evaluate(ImmutableList.of(key), false,
                 DEFAULT_THREAD_COUNT, eventHandler);
@@ -1073,7 +1074,7 @@ public abstract class SkyframeExecutor {
             reportCycles(result.getError().getCycleInfo(), key);
             // This can only happen if a package is freshly loaded outside of the target parsing
             // or loading phase
-            throw new BuildFileContainsErrorsException(pkgName,
+            throw new BuildFileContainsErrorsException(pkgName.toString(),
                 "Cycle encountered while loading package " + pkgName);
           }
           Throwable e = error.getException();
@@ -1087,7 +1088,7 @@ public abstract class SkyframeExecutor {
       }
     }
 
-    Package getLoadedPackage(final String pkgName) throws NoSuchPackageException {
+    Package getLoadedPackage(final PackageIdentifier pkgName) throws NoSuchPackageException {
       // Note that in Skyframe there is no way to tell if the package has been loaded before or not,
       // so this will never throw for packages that are not loaded. However, no code currently
       // relies on having the exception thrown.

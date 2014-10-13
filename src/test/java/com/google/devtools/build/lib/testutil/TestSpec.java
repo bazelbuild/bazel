@@ -43,12 +43,6 @@ public @interface TestSpec {
   String suite() default "";
 
   /**
-   * The platform the specified test can run on. By default it will be able to
-   * run on both Linux and Windows.
-   */
-  Suite platform() default Suite.ALL_PLATFORM_TESTS;
-
-  /**
    * The minimum skyframe mode the specified test makes sense to run with. By default the test is
    * assumed to be able to run with Skyframe loading and analysis.
    */

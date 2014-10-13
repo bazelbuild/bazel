@@ -21,7 +21,6 @@ import static com.google.devtools.build.lib.rules.objc.XcodeProductType.BUNDLE;
 
 import com.google.common.base.Optional;
 import com.google.common.collect.ImmutableList;
-import com.google.common.collect.ImmutableSet;
 import com.google.devtools.build.lib.actions.Action;
 import com.google.devtools.build.lib.actions.Artifact;
 import com.google.devtools.build.lib.collect.nestedset.NestedSetBuilder;
@@ -32,34 +31,11 @@ import com.google.devtools.build.lib.rules.objc.ObjcLibrary.InfoplistsFromRule;
 import com.google.devtools.build.lib.view.ConfiguredTarget;
 import com.google.devtools.build.lib.view.RuleConfiguredTarget.Mode;
 import com.google.devtools.build.lib.view.RuleContext;
-import com.google.devtools.build.xcode.xcodegen.proto.XcodeGenProtos.DependencyControl;
-import com.google.devtools.build.xcode.xcodegen.proto.XcodeGenProtos.TargetControl;
-import com.google.devtools.build.xcode.xcodegen.proto.XcodeGenProtos.XcodeprojBuildSetting;
 
 /**
  * Implementation for {@code objc_bundle_library}.
  */
 public class ObjcBundleLibrary implements RuleConfiguredTargetFactory {
-  static Iterable<DependencyControl> targetDependenciesTransitive(
-      Iterable<XcodeProvider> depXcodeProviders) {
-    ImmutableSet.Builder<DependencyControl> result = new ImmutableSet.Builder<>();
-    for (XcodeProvider provider : depXcodeProviders) {
-      for (TargetControl targetDependency : provider.getTargets()) {
-        // Only add a target to a binary's dependencies if it has source files to compile. Xcode
-        // cannot build targets without a source file in the PBXSourceFilesBuildPhase, so if such a
-        // target is present in the control file, it is only to get Xcodegen to put headers and
-        // resources not used by the final binary in the Project Navigator.
-        if (!targetDependency.getSourceFileList().isEmpty()
-            || !targetDependency.getNonArcSourceFileList().isEmpty()) {
-          result.add(DependencyControl.newBuilder()
-              .setTargetLabel(targetDependency.getLabel())
-              .build());
-        }
-      }
-    }
-    return result.build();
-  }
-
   static void registerActions(
       RuleContext ruleContext, Bundling bundling,
       ObjcCommon common, XcodeProvider xcodeProvider, OptionsProvider optionsProvider,
@@ -112,15 +88,17 @@ public class ObjcBundleLibrary implements RuleConfiguredTargetFactory {
     Bundling bundling = bundling(ruleContext, ".bundle", ImmutableList.<BundleableFile>of(),
         common.getObjcProvider(), optionsProvider);
 
-    Iterable<XcodeProvider> depXcodeProviders =
-        ruleContext.getPrerequisites("deps", Mode.TARGET, XcodeProvider.class);
-    XcodeProvider xcodeProvider = common.xcodeProvider(
-        bundling.getInfoplistMerging().getPlistWithEverything(),
-        targetDependenciesTransitive(depXcodeProviders),
-        ImmutableList.<XcodeprojBuildSetting>of(),
-        optionsProvider.getCopts(),
-        BUNDLE,
-        depXcodeProviders);
+    XcodeProvider xcodeProvider = new XcodeProvider.Builder()
+        .setLabel(ruleContext.getLabel())
+        .addUserHeaderSearchPaths(ObjcCommon.userHeaderSearchPaths(ruleContext.getConfiguration()))
+        .setInfoplistMerging(bundling.getInfoplistMerging())
+        .addDependencies(ruleContext.getPrerequisites("deps", Mode.TARGET, XcodeProvider.class))
+        .addCopts(optionsProvider.getCopts())
+        .setProductType(BUNDLE)
+        .addHeaders(common.getHdrs())
+        .setCompilationArtifacts(common.getCompilationArtifacts().get())
+        .setObjcProvider(common.getObjcProvider())
+        .build();
 
     ObjcProvider nestedBundleProvider = new ObjcProvider.Builder()
         .add(NESTED_BUNDLE, bundling)

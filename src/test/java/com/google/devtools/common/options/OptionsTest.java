@@ -16,8 +16,15 @@ package com.google.devtools.common.options;
 
 import static com.google.common.truth.Truth.assertThat;
 import static java.util.Arrays.asList;
+import static org.junit.Assert.assertEquals;
+import static org.junit.Assert.assertFalse;
+import static org.junit.Assert.assertNull;
+import static org.junit.Assert.assertTrue;
+import static org.junit.Assert.fail;
 
-import junit.framework.TestCase;
+import org.junit.Test;
+import org.junit.runner.RunWith;
+import org.junit.runners.JUnit4;
 
 import java.net.MalformedURLException;
 import java.net.URL;
@@ -25,7 +32,8 @@ import java.net.URL;
 /**
  * Test for {@link Options}.
  */
-public class OptionsTest extends TestCase {
+@RunWith(JUnit4.class)
+public class OptionsTest {
 
   private static final String[] NO_ARGS = {};
 
@@ -60,7 +68,8 @@ public class OptionsTest extends TestCase {
     public Void special;
   }
 
-  public void testParagraphFill() throws Exception {
+  @Test
+  public void paragraphFill() throws Exception {
     // TODO(bazel-team): don't include trailing space after last word in line.
     String input = "The quick brown fox jumps over the lazy dog.";
 
@@ -75,7 +84,8 @@ public class OptionsTest extends TestCase {
                  OptionsUsage.paragraphFill(input2, 2, 23));
   }
 
-  public void testGetsDefaults() throws OptionsParsingException {
+  @Test
+  public void getsDefaults() throws OptionsParsingException {
     Options<HttpOptions> options = Options.parse(HttpOptions.class, NO_ARGS);
     String[] remainingArgs = options.getRemainingArgs();
     HttpOptions webFlags = options.getOptions();
@@ -87,7 +97,8 @@ public class OptionsTest extends TestCase {
     assertEquals(0, remainingArgs.length);
   }
 
-  public void testObjectMethods() throws OptionsParsingException {
+  @Test
+  public void objectMethods() throws OptionsParsingException {
     String[] args = { "--host", "foo", "--port", "80" };
     HttpOptions left =
         Options.parse(HttpOptions.class, args).getOptions();
@@ -123,7 +134,8 @@ public class OptionsTest extends TestCase {
     assertFalse(left.hashCode() == right.hashCode());
   }
 
-  public void testEquals() throws OptionsParsingException {
+  @Test
+  public void equals() throws OptionsParsingException {
     String[] args = { "--host", "foo", "--port", "80" };
     HttpOptions options1 =  Options.parse(HttpOptions.class, args).getOptions();
 
@@ -139,7 +151,8 @@ public class OptionsTest extends TestCase {
         .isNotEqualTo(Options.parse(HttpOptions.class).getOptions());
   }
 
-  public void testGetsFlagsProvidedInArguments()
+  @Test
+  public void getsFlagsProvidedInArguments()
       throws OptionsParsingException {
     String[] args = {"--host", "google.com",
                      "-p", "8080",  // short form
@@ -154,7 +167,8 @@ public class OptionsTest extends TestCase {
     assertEquals(0, remainingArgs.length);
   }
 
-  public void testGetsFlagsProvidedWithEquals() throws OptionsParsingException {
+  @Test
+  public void getsFlagsProvidedWithEquals() throws OptionsParsingException {
     String[] args = {"--host=google.com",
                      "--port=8080",
                      "--debug"};
@@ -168,7 +182,8 @@ public class OptionsTest extends TestCase {
     assertEquals(0, remainingArgs.length);
   }
 
-  public void testBooleanNo() throws OptionsParsingException {
+  @Test
+  public void booleanNo() throws OptionsParsingException {
     Options<HttpOptions> options =
         Options.parse(HttpOptions.class, new String[]{"--nodebug", "--notristate"});
     HttpOptions webFlags = options.getOptions();
@@ -176,7 +191,8 @@ public class OptionsTest extends TestCase {
     assertEquals(TriState.NO, webFlags.triState);
   }
 
-  public void testBooleanNoUnderscore() throws OptionsParsingException {
+  @Test
+  public void booleanNoUnderscore() throws OptionsParsingException {
     Options<HttpOptions> options =
         Options.parse(HttpOptions.class, new String[]{"--no_debug", "--no_tristate"});
     HttpOptions webFlags = options.getOptions();
@@ -184,7 +200,8 @@ public class OptionsTest extends TestCase {
     assertEquals(TriState.NO, webFlags.triState);
   }
 
-  public void testBooleanAbbrevMinus() throws OptionsParsingException {
+  @Test
+  public void booleanAbbrevMinus() throws OptionsParsingException {
     Options<HttpOptions> options =
         Options.parse(HttpOptions.class, new String[]{"-d-", "-t-"});
     HttpOptions webFlags = options.getOptions();
@@ -192,7 +209,8 @@ public class OptionsTest extends TestCase {
     assertEquals(TriState.NO, webFlags.triState);
   }
 
-  public void testBoolean0() throws OptionsParsingException {
+  @Test
+  public void boolean0() throws OptionsParsingException {
     Options<HttpOptions> options =
         Options.parse(HttpOptions.class, new String[]{"--debug=0", "--tristate=0"});
     HttpOptions webFlags = options.getOptions();
@@ -200,7 +218,8 @@ public class OptionsTest extends TestCase {
     assertEquals(TriState.NO, webFlags.triState);
   }
 
-  public void testBoolean1() throws OptionsParsingException {
+  @Test
+  public void boolean1() throws OptionsParsingException {
     Options<HttpOptions> options =
         Options.parse(HttpOptions.class, new String[]{"--debug=1", "--tristate=1"});
     HttpOptions webFlags = options.getOptions();
@@ -208,14 +227,16 @@ public class OptionsTest extends TestCase {
     assertEquals(TriState.YES, webFlags.triState);
   }
 
-  public void testRetainsStuffThatsNotOptions() throws OptionsParsingException {
+  @Test
+  public void retainsStuffThatsNotOptions() throws OptionsParsingException {
     String[] args = {"these", "aint", "options"};
     Options<HttpOptions> options = Options.parse(HttpOptions.class, args);
     String[] remainingArgs = options.getRemainingArgs();
     assertEquals(asList(args), asList(remainingArgs));
   }
 
-  public void testRetainsStuffThatsNotComplexOptions()
+  @Test
+  public void retainsStuffThatsNotComplexOptions()
       throws OptionsParsingException {
     String[] args = {"--host", "google.com",
                      "notta",
@@ -228,7 +249,8 @@ public class OptionsTest extends TestCase {
     assertEquals(asList(notoptions), asList(remainingArgs));
   }
 
-  public void testWontParseUnknownOptions() {
+  @Test
+  public void wontParseUnknownOptions() {
     String [] args = { "--unknown", "--other=23", "--options" };
     try {
       Options.parse(HttpOptions.class, args);
@@ -238,7 +260,8 @@ public class OptionsTest extends TestCase {
     }
   }
 
-  public void testRequiresOptionValue() {
+  @Test
+  public void requiresOptionValue() {
     String[] args = {"--port"};
     try {
       Options.parse(HttpOptions.class, args);
@@ -248,27 +271,31 @@ public class OptionsTest extends TestCase {
     }
   }
 
-  public void testHandlesDuplicateOptions_full() throws Exception {
+  @Test
+  public void handlesDuplicateOptions_full() throws Exception {
     String[] args = {"--port=80", "--port", "81"};
     Options<HttpOptions> options = Options.parse(HttpOptions.class, args);
     HttpOptions webFlags = options.getOptions();
     assertEquals(81, webFlags.port);
   }
 
-  public void testHandlesDuplicateOptions_abbrev() throws Exception {
+  @Test
+  public void handlesDuplicateOptions_abbrev() throws Exception {
     String[] args = {"--port=80", "-p", "81"};
     Options<HttpOptions> options = Options.parse(HttpOptions.class, args);
     HttpOptions webFlags = options.getOptions();
     assertEquals(81, webFlags.port);
   }
 
-  public void testDuplicateOptionsOkWithSameValues() throws Exception {
+  @Test
+  public void duplicateOptionsOkWithSameValues() throws Exception {
     // These would throw OptionsParsingException if they failed.
     Options.parse(HttpOptions.class,"--port=80", "--port", "80");
     Options.parse(HttpOptions.class, "--port=80", "-p", "80");
   }
 
-  public void testIsPickyAboutBooleanValues() {
+  @Test
+  public void isPickyAboutBooleanValues() {
     try {
       Options.parse(HttpOptions.class, new String[]{"--debug=not_a_boolean"});
       fail();
@@ -278,7 +305,8 @@ public class OptionsTest extends TestCase {
     }
   }
 
-  public void testIsPickyAboutBooleanNos() {
+  @Test
+  public void isPickyAboutBooleanNos() {
     try {
       Options.parse(HttpOptions.class, new String[]{"--nodebug=1"});
       fail();
@@ -287,7 +315,8 @@ public class OptionsTest extends TestCase {
     }
   }
 
-  public void testUsageForBuiltinTypes() {
+  @Test
+  public void usageForBuiltinTypes() {
     String usage = Options.getUsage(HttpOptions.class);
     // We can't rely on the option ordering.
     assertTrue(usage.contains(
@@ -320,7 +349,8 @@ public class OptionsTest extends TestCase {
     public Void none;
   }
 
-  public void testUsageForNullDefault() {
+  @Test
+  public void usageForNullDefault() {
     String usage = Options.getUsage(NullTestOptions.class);
     assertTrue(usage.contains(
             "  --host (a string; default: see description)\n" +
@@ -359,14 +389,16 @@ public class OptionsTest extends TestCase {
 
   }
 
-  public void testCustomConverter() throws Exception {
+  @Test
+  public void customConverter() throws Exception {
     Options<UsesCustomConverter> options =
       Options.parse(UsesCustomConverter.class, new String[0]);
     URL expected = new URL("http://www.google.com/");
     assertEquals(expected, options.getOptions().url);
   }
 
-  public void testCustomConverterThrowsException() throws Exception {
+  @Test
+  public void customConverterThrowsException() throws Exception {
     String[] args = {"--url=a_malformed:url"};
     try {
       Options.parse(UsesCustomConverter.class, args);
@@ -378,13 +410,15 @@ public class OptionsTest extends TestCase {
     }
   }
 
-  public void testUsageWithCustomConverter() {
+  @Test
+  public void usageWithCustomConverter() {
     assertEquals(
         "  --url (a url; default: \"http://www.google.com/\")\n",
         Options.getUsage(UsesCustomConverter.class));
   }
 
-  public void testUnknownBooleanOption() {
+  @Test
+  public void unknownBooleanOption() {
     try {
       Options.parse(HttpOptions.class, new String[]{"--no-debug"});
       fail();
@@ -397,7 +431,8 @@ public class OptionsTest extends TestCase {
     @Option(name = "j", defaultValue = "null")
     public String string;
   }
-  public void testNullDefaultForReferenceTypeOption() throws Exception {
+  @Test
+  public void nullDefaultForReferenceTypeOption() throws Exception {
     J options = Options.parse(J.class, NO_ARGS).getOptions();
     assertNull(options.string);
   }
@@ -406,7 +441,8 @@ public class OptionsTest extends TestCase {
     @Option(name = "1", defaultValue = "null")
     public int int1;
   }
-  public void testNullDefaultForPrimitiveTypeOption() throws Exception {
+  @Test
+  public void nullDefaultForPrimitiveTypeOption() throws Exception {
     // defaultValue() = "null" is not treated specially for primitive types, so
     // we get an NumberFormatException from the converter (not a
     // ClassCastException from casting null to int), just as we would for any
@@ -421,7 +457,8 @@ public class OptionsTest extends TestCase {
     }
   }
 
-  public void testNullIsntInterpretedSpeciallyExceptAsADefaultValue()
+  @Test
+  public void nullIsntInterpretedSpeciallyExceptAsADefaultValue()
       throws Exception {
     HttpOptions options =
         Options.parse(HttpOptions.class,
@@ -429,27 +466,31 @@ public class OptionsTest extends TestCase {
     assertEquals("null", options.host);
   }
 
-  public void testNonDecimalRadicesForIntegerOptions() throws Exception {
+  @Test
+  public void nonDecimalRadicesForIntegerOptions() throws Exception {
     Options<HttpOptions> options =
         Options.parse(HttpOptions.class, new String[] { "--port", "0x51"});
     assertEquals(81, options.getOptions().port);
   }
 
-  public void testExpansionOptionSimple() throws Exception {
+  @Test
+  public void expansionOptionSimple() throws Exception {
     Options<HttpOptions> options =
       Options.parse(HttpOptions.class, new String[] {"--special"});
     assertEquals("special.google.com", options.getOptions().host);
     assertEquals(8080, options.getOptions().port);
   }
 
-  public void testExpansionOptionOverride() throws Exception {
+  @Test
+  public void expansionOptionOverride() throws Exception {
     Options<HttpOptions> options =
       Options.parse(HttpOptions.class, new String[] {"--port=90", "--special", "--host=foo"});
     assertEquals("foo", options.getOptions().host);
     assertEquals(8080, options.getOptions().port);
   }
 
-  public void testExpansionOptionEquals() throws Exception {
+  @Test
+  public void expansionOptionEquals() throws Exception {
     Options<HttpOptions> options1 =
       Options.parse(HttpOptions.class, new String[] { "--host=special.google.com", "--port=8080"});
     Options<HttpOptions> options2 =

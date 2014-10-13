@@ -13,27 +13,35 @@
 // limitations under the License.
 package com.google.devtools.common.options;
 
+import static org.junit.Assert.assertEquals;
+import static org.junit.Assert.fail;
+
 import com.google.devtools.common.options.Converters.LogLevelConverter;
 
-import junit.framework.TestCase;
+import org.junit.Test;
+import org.junit.runner.RunWith;
+import org.junit.runners.JUnit4;
 
 import java.util.logging.Level;
 
 /**
  * A test for {@link LogLevelConverter}.
  */
-public class LogLevelConverterTest extends TestCase {
+@RunWith(JUnit4.class)
+public class LogLevelConverterTest {
 
   private LogLevelConverter converter = new LogLevelConverter();
 
-  public void testConvertsIntsToLevels() throws OptionsParsingException {
+  @Test
+  public void convertsIntsToLevels() throws OptionsParsingException {
     int levelId = 0;
     for (Level level : LogLevelConverter.LEVELS) {
       assertEquals(level, converter.convert(Integer.toString(levelId++)));
     }
   }
 
-  public void testThrowsExceptionWhenInputIsNotANumber() {
+  @Test
+  public void throwsExceptionWhenInputIsNotANumber() {
     try {
       converter.convert("oops - not a number.");
       fail();
@@ -42,7 +50,8 @@ public class LogLevelConverterTest extends TestCase {
     }
   }
 
-  public void testThrowsExceptionWhenInputIsInvalidInteger() {
+  @Test
+  public void throwsExceptionWhenInputIsInvalidInteger() {
     for (int example : new int[] {-1, 100, 50000}) {
       try {
         converter.convert(Integer.toString(example));

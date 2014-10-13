@@ -74,7 +74,7 @@ public final class TargetMarkerFunction implements SkyFunction {
       }
     }
 
-    SkyKey pkgSkyKey = PackageValue.key(pkgForLabel);
+    SkyKey pkgSkyKey = PackageValue.key(label.getPackageIdentifier());
     NoSuchPackageException nspe = null;
     Package pkg;
     try {

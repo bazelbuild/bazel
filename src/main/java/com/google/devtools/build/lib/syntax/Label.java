@@ -13,12 +13,13 @@
 // limitations under the License.
 package com.google.devtools.build.lib.syntax;
 
-import com.google.common.base.Optional;
 import com.google.common.base.Preconditions;
+import com.google.common.collect.ComparisonChain;
 import com.google.devtools.build.lib.cmdline.LabelValidator;
 import com.google.devtools.build.lib.cmdline.LabelValidator.BadLabelException;
 import com.google.devtools.build.lib.concurrent.ThreadSafety.Immutable;
 import com.google.devtools.build.lib.concurrent.ThreadSafety.ThreadSafe;
+import com.google.devtools.build.lib.packages.PackageIdentifier;
 import com.google.devtools.build.lib.util.StringCanonicalizer;
 import com.google.devtools.build.lib.util.StringUtilities;
 import com.google.devtools.build.lib.vfs.Canonicalizer;
@@ -58,8 +59,8 @@ public final class Label implements Comparable<Label>, Serializable {
    * {@literal @}foo//bar:baz
    * </pre>
    */
-  public static Label parseWorkspaceLabel(String absName) throws SyntaxException {
-    String repo = null;
+  public static Label parseRepositoryLabel(String absName) throws SyntaxException {
+    String repo = PackageIdentifier.DEFAULT_REPOSITORY;
     int packageStartPos = absName.indexOf("//");
     if (packageStartPos > 0) {
       repo = absName.substring(0, packageStartPos);
@@ -67,7 +68,8 @@ public final class Label implements Comparable<Label>, Serializable {
     }
     try {
       LabelValidator.PackageAndTarget labelParts = LabelValidator.parseAbsoluteLabel(absName);
-      return new Label(repo, labelParts.getPackageName(), labelParts.getTargetName());
+      return new Label(
+          repo, new PathFragment(labelParts.getPackageName()), labelParts.getTargetName());
     } catch (BadLabelException e) {
       throw new SyntaxException(e.getMessage());
     }
@@ -156,19 +158,22 @@ public final class Label implements Comparable<Label>, Serializable {
   }
 
   /**
-   * Validates the given repository name and returns a canonical String instance if it is valid.
-   * Otherwise throws a SyntaxException.
-   * @throws SyntaxException
+   * Validates the given target name and returns a canonical String instance if it is valid.
+   * Otherwise it throws a SyntaxException.
    */
-  private static String canonicalizeWorkspaceName(String workspaceName) throws SyntaxException {
-    String error = LabelValidator.validateWorkspaceName(workspaceName);
+  private static String canonicalizeTargetName(String name) throws SyntaxException {
+    String error = LabelValidator.validateTargetName(name);
     if (error != null) {
-      error = "invalid workspace name '" + StringUtilities.sanitizeControlChars(workspaceName)
-          + "': " + error;
+      error = "invalid target name '" + StringUtilities.sanitizeControlChars(name) + "': " + error;
       throw new SyntaxException(error);
     }
 
-    return StringCanonicalizer.intern(workspaceName);
+    // TODO(bazel-team): This should be an error, but we can't make it one for legacy reasons.
+    if (name.endsWith("/.")) {
+      name = name.substring(0, name.length() - 2);
+    }
+
+    return StringCanonicalizer.intern(name);
   }
 
   /**
@@ -191,31 +196,8 @@ public final class Label implements Comparable<Label>, Serializable {
     return Canonicalizer.fragments().intern(new PathFragment(packageName));
   }
 
-  /**
-   * Validates the given target name and returns a canonical String instance if it is valid.
-   * Otherwise it throws a SyntaxException.
-   */
-  private static String canonicalizeTargetName(String name) throws SyntaxException {
-    String error = LabelValidator.validateTargetName(name);
-    if (error != null) {
-      error = "invalid target name '" + StringUtilities.sanitizeControlChars(name) + "': " + error;
-      throw new SyntaxException(error);
-    }
-
-    // TODO(bazel-team): This should be an error, but we turn out to have around ~300 instances of
-    // this in the depot.
-    if (name.endsWith("/.")) {
-      name = name.substring(0, name.length() - 2);
-    }
-
-    return StringCanonicalizer.intern(name);
-  }
-
-  /** The name of the workspace. */
-  private Optional<String> workspaceName;
-
-  /** The name of the package. Canonical (i.e. x.equals(y) <=> x==y). */
-  private PathFragment packageName;
+  /** The name and repository of the package. */
+  private PackageIdentifier packageIdentifier;
 
   /** The name of the target within the package. Canonical. */
   private String name;
@@ -233,18 +215,26 @@ public final class Label implements Comparable<Label>, Serializable {
    * name is checked for validity and a SyntaxException is throw if it isn't.
    */
   private Label(PathFragment packageName, String name) throws SyntaxException {
+    this(PackageIdentifier.DEFAULT_REPOSITORY, packageName, name);
+  }
+
+  private Label(String repositoryName, PathFragment packageName, String name)
+      throws SyntaxException {
+    Preconditions.checkNotNull(repositoryName);
     Preconditions.checkNotNull(packageName);
     Preconditions.checkNotNull(name);
 
-    this.packageName = packageName;
-    this.name = canonicalizeTargetName(name);
-    this.workspaceName = Optional.absent();
-  }
-
-  private Label(String workspaceName, String packageName, String name) throws SyntaxException {
-    this(packageName, name);
-    if (workspaceName != null) {
-      this.workspaceName = Optional.of(canonicalizeWorkspaceName(workspaceName));
+    try {
+      this.packageIdentifier = new PackageIdentifier(repositoryName, packageName);
+      this.name = canonicalizeTargetName(name);
+    } catch (SyntaxException e) {
+      // This check is just for a more helpful error message
+      // i.e. valid target name, invalid package name, colon-free label form
+      // used => probably they meant "//foo:bar.c" not "//foo/bar.c".
+      if (packageName.getPathString().endsWith("/" + name)) {
+        throw new SyntaxException(e.getMessage() + " (perhaps you meant \":" + name + "\"?)");
+      }
+      throw e;
     }
   }
 
@@ -256,6 +246,10 @@ public final class Label implements Comparable<Label>, Serializable {
     throw new InvalidObjectException("Serialization is allowed only by proxy");
   }
 
+  public PackageIdentifier getPackageIdentifier() {
+    return packageIdentifier;
+  }
+
   /**
    * Returns the name of the package in which this rule was declared (e.g. {@code
    * //file/base:fileutils_test} returns {@code file/base}).
@@ -265,7 +259,7 @@ public final class Label implements Comparable<Label>, Serializable {
       + "For instance:<br>"
       + "<pre class=code>label(\"//pkg/foo:abc\").package == \"pkg/foo\"</pre>")
   public String getPackageName() {
-    return packageName.getPathString();
+    return packageIdentifier.getPackageFragment().getPathString();
   }
 
   /**
@@ -273,7 +267,7 @@ public final class Label implements Comparable<Label>, Serializable {
    * //file/base:fileutils_test} returns {@code file/base}).
    */
   public PathFragment getPackageFragment() {
-    return packageName;
+    return packageIdentifier.getPackageFragment();
   }
 
   public static final com.google.common.base.Function<Label, PathFragment> PACKAGE_FRAGMENT =
@@ -288,7 +282,7 @@ public final class Label implements Comparable<Label>, Serializable {
    * Returns the label as a path fragment, using the package and the label name.
    */
   public PathFragment toPathFragment() {
-    return packageName.getRelative(name);
+    return packageIdentifier.getPackageFragment().getRelative(name);
   }
 
   /**
@@ -310,7 +304,7 @@ public final class Label implements Comparable<Label>, Serializable {
    */
   @Override
   public String toString() {
-    return workspaceName.or("") + "//" + packageName + ":" + name;
+    return packageIdentifier + ":" + name;
   }
 
   /**
@@ -320,8 +314,8 @@ public final class Label implements Comparable<Label>, Serializable {
    * All other labels have identical shorthand and canonical forms.
    */
   public String toShorthandString() {
-    return packageName.getBaseName().equals(name)
-        ? "//" + packageName
+    return getPackageFragment().getBaseName().equals(name)
+        ? "//" + getPackageFragment()
         : toString();
   }
 
@@ -331,7 +325,7 @@ public final class Label implements Comparable<Label>, Serializable {
    * @throws SyntaxException if {@code targetName} is not a valid target name
    */
   public Label getLocalTargetLabel(String targetName) throws SyntaxException {
-    return new Label(packageName, targetName);
+    return new Label(getPackageName(), targetName);
   }
 
   /**
@@ -361,7 +355,7 @@ public final class Label implements Comparable<Label>, Serializable {
 
   @Override
   public int hashCode() {
-    return name.hashCode() ^ packageName.hashCode();
+    return name.hashCode() ^ packageIdentifier.hashCode();
   }
 
   /**
@@ -374,7 +368,7 @@ public final class Label implements Comparable<Label>, Serializable {
     }
     Label otherLabel = (Label) other;
     return name.equals(otherLabel.name) // least likely one first
-        && packageName.equals(otherLabel.packageName);
+        && packageIdentifier.equals(otherLabel.packageIdentifier);
   }
 
   /**
@@ -386,9 +380,10 @@ public final class Label implements Comparable<Label>, Serializable {
    */
   @Override
   public int compareTo(Label other) {
-    return packageName == other.packageName
-        ? name.compareTo(other.name)
-        : packageName.compareTo(other.packageName);
+    return ComparisonChain.start()
+        .compare(packageIdentifier, other.packageIdentifier)
+        .compare(name, other.name)
+        .result();
   }
 
   /**

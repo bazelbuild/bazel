@@ -388,7 +388,7 @@ public abstract class CcBinary implements RuleConfiguredTargetFactory {
     NestedSet<LibraryToLink> librariesInDepsClosure =
         findLibrariesToLinkInDepsClosure(context, common, cppConfiguration, linkopts, linkstamps);
     builder.addLinkopts(linkopts);
-    CppHelper.addLinkstamps(context, builder, linkstamps);
+    builder.addLinkstamps(linkstamps);
 
     builder.addLibraries(librariesInDepsClosure);
     return builder;

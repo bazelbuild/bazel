@@ -330,3 +330,19 @@ java_test(
         ":testutil",
     ],
 )
+
+java_test(
+    name = "options_test",
+    srcs = glob([
+        "test/java/com/google/devtools/common/options/*.java",
+    ]),
+    args = ["com.google.devtools.common.options.AllTests"],
+    jars = [
+        "//third_party",
+        "//third_party:third_party_test_utils",
+    ],
+    deps = [
+        ":bazel-core",
+        ":testutil",
+    ],
+)

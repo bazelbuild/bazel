@@ -147,10 +147,10 @@ public final class SkylarkRuleConfiguredTargetBuilder {
       SkylarkClassObject struct = (SkylarkClassObject) target;
       loc = struct.getCreationLoc();
       for (String key : struct.getKeys()) {
-        if (key.equals("files_to_build")) {
+        if (key.equals("files")) {
           // If we specify files_to_build we don't have the executable in it by default.
-          builder.setFilesToBuild(cast(struct.getValue("files_to_build"),
-                  SkylarkNestedSet.class, "files_to_build", loc).getSet(Artifact.class));
+          builder.setFilesToBuild(cast(struct.getValue("files"),
+                  SkylarkNestedSet.class, "files", loc).getSet(Artifact.class));
         } else if (key.equals("runfiles")) {
           statelessRunfiles = cast(struct.getValue("runfiles"), Runfiles.class, "runfiles", loc);
         } else if (key.equals("data_runfiles")) {

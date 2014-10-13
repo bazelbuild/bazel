@@ -19,6 +19,7 @@ import com.google.devtools.build.lib.events.EventHandler;
 import com.google.devtools.build.lib.packages.NoSuchPackageException;
 import com.google.devtools.build.lib.packages.NoSuchTargetException;
 import com.google.devtools.build.lib.packages.Package;
+import com.google.devtools.build.lib.packages.PackageIdentifier;
 import com.google.devtools.build.lib.packages.Target;
 import com.google.devtools.build.lib.pkgcache.PackageManager;
 import com.google.devtools.build.lib.pkgcache.PathPackageLocator;
@@ -70,16 +71,16 @@ class SkyframePackageManager implements PackageManager {
   }
 
   @Override
-  public Package getLoadedPackage(String packageName) throws NoSuchPackageException {
-    return packageLoader.getLoadedPackage(packageName);
+  public Package getLoadedPackage(PackageIdentifier pkgIdentifier) throws NoSuchPackageException {
+    return packageLoader.getLoadedPackage(pkgIdentifier);
   }
 
   @ThreadSafe
   @Override
-  public Package getPackage(EventHandler eventHandler, String packageName)
+  public Package getPackage(EventHandler eventHandler, PackageIdentifier packageIdentifier)
       throws NoSuchPackageException, InterruptedException {
     try {
-      return packageLoader.getPackage(eventHandler, packageName);
+      return packageLoader.getPackage(eventHandler, packageIdentifier);
     } catch (NoSuchPackageException e) {
       if (e.getPackage() != null) {
         return e.getPackage();
@@ -90,20 +91,20 @@ class SkyframePackageManager implements PackageManager {
 
   @Override
   public Target getLoadedTarget(Label label) throws NoSuchPackageException, NoSuchTargetException {
-    return getLoadedPackage(label.getPackageName()).getTarget(label.getName());
+    return getLoadedPackage(label.getPackageIdentifier()).getTarget(label.getName());
   }
 
   @Override
   public Target getTarget(EventHandler eventHandler, Label label)
       throws NoSuchPackageException, NoSuchTargetException, InterruptedException {
-    return getPackage(eventHandler, label.getPackageName()).getTarget(label.getName());
+    return getPackage(eventHandler, label.getPackageIdentifier()).getTarget(label.getName());
   }
 
   @Override
   public boolean isTargetCurrent(Target target) {
     Package pkg = target.getPackage();
     try {
-      return getLoadedPackage(pkg.getName()) == pkg;
+      return getLoadedPackage(target.getLabel().getPackageIdentifier()) == pkg;
     } catch (NoSuchPackageException e) {
       return false;
     }

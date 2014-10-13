@@ -56,7 +56,7 @@ genrule(
 
 def create_common_make_vars(srcs):
   """Returns a dict with Make Variables common to all per-source actions."""
-  return {"SRCS": files.join_exec_paths(" ", list(srcs))}
+  return {"SRCS": file_helper.join_exec_paths(" ", list(srcs))}
 
 
 def add_make_var(ctx, var_dict, name, value, attr_name):
@@ -89,7 +89,7 @@ def get_files_to_build(targets):
   """Returns all files built by targets in 'targets'."""
   result = set()
   for dep in targets:
-    files = provider(dep, "FileProvider").files_to_build
+    files = dep.files
     result += files
   return result
 
@@ -180,7 +180,7 @@ def create(ctx):
         mnemonic="Maprule")
 
   files_to_build = set(foreach_src_outs)
-  return struct(files_to_build=files_to_build,
+  return struct(files=files_to_build,
       data_runfiles=ctx.runfiles(transitive_files=files_to_build))
 
 

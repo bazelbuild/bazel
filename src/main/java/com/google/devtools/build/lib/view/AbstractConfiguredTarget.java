@@ -14,12 +14,17 @@
 
 package com.google.devtools.build.lib.view;
 
+import com.google.common.collect.ImmutableCollection;
+import com.google.common.collect.ImmutableList;
+import com.google.devtools.build.lib.actions.Artifact;
 import com.google.devtools.build.lib.collect.nestedset.NestedSet;
 import com.google.devtools.build.lib.collect.nestedset.NestedSetBuilder;
 import com.google.devtools.build.lib.collect.nestedset.Order;
 import com.google.devtools.build.lib.packages.PackageSpecification;
 import com.google.devtools.build.lib.packages.Target;
+import com.google.devtools.build.lib.syntax.ClassObject;
 import com.google.devtools.build.lib.syntax.Label;
+import com.google.devtools.build.lib.syntax.SkylarkNestedSet;
 import com.google.devtools.build.lib.view.config.BuildConfiguration;
 
 /**
@@ -27,7 +32,7 @@ import com.google.devtools.build.lib.view.config.BuildConfiguration;
  * assigned trivial default values.
  */
 public abstract class AbstractConfiguredTarget
-    implements ConfiguredTarget, VisibilityProvider {
+    implements ConfiguredTarget, VisibilityProvider, ClassObject {
   private final Target target;
   private final BuildConfiguration configuration;
 
@@ -79,5 +84,28 @@ public abstract class AbstractConfiguredTarget
     } else {
       return null;
     }
+  }
+
+  @Override
+  public Object getValue(String name) {
+    if (name.equals("label")) {
+      return getLabel();
+    } else if (name.equals("files")) {
+      // A shortcut for files to build in Skylark. FileConfiguredTarget and RunleConfiguredTarget
+      // always has FileProvider and Error- and PackageGroupConfiguredTarget-s shouldn't be
+      // accessible in Skylark.
+      return SkylarkNestedSet.of(Artifact.class, getProvider(FileProvider.class).getFilesToBuild());
+    }
+    return get(name);
+  }
+
+  @Override
+  public String errorMessage(String name) {
+    return null;
+  }
+
+  @Override
+  public ImmutableCollection<String> getKeys() {
+    return ImmutableList.<String>builder().add("label").add("files").build();
   }
 }

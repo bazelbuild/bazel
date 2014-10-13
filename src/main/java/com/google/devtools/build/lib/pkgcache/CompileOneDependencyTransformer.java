@@ -96,7 +96,7 @@ final class CompileOneDependencyTransformer {
 
     Package pkg;
     try {
-      pkg = pkgManager.getLoadedPackage(target.getLabel().getPackageName());
+      pkg = pkgManager.getLoadedPackage(target.getLabel().getPackageIdentifier());
     } catch (NoSuchPackageException e) {
       throw new IllegalStateException(e);
     }

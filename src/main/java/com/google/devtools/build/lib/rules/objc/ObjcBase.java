@@ -14,6 +14,7 @@
 
 package com.google.devtools.build.lib.rules.objc;
 
+
 import com.google.common.base.Preconditions;
 import com.google.devtools.build.lib.actions.Artifact;
 import com.google.devtools.build.lib.view.FilesToRunProvider;
@@ -70,8 +71,9 @@ final class ObjcBase {
   }
 
   static void registerActions(
-      RuleContext ruleContext, XcodeProvider xcodeProvider, Iterable<Storyboard> storyboards) {
+      RuleContext ruleContext, XcodeProvider xcodeProvider, Storyboards storyboards) {
     ObjcActionsBuilder actionsBuilder = actionsBuilder(ruleContext);
+    IntermediateArtifacts intermediateArtifacts = intermediateArtifacts(ruleContext);
     Tools tools = new Tools(ruleContext);
     actionsBuilder.registerResourceActions(
         tools,
@@ -82,8 +84,9 @@ final class ObjcBase {
         tools,
         ruleContext.getImplicitOutputArtifact(ObjcRuleClasses.PBXPROJ),
         xcodeProvider);
-    for (Storyboard storyboard : storyboards) {
-      actionsBuilder.registerIbtoolzipAction(tools, storyboard);
+    for (Artifact storyboardInput : storyboards.getInputs()) {
+      actionsBuilder.registerIbtoolzipAction(
+          tools, storyboardInput, intermediateArtifacts.compiledStoryboardZip(storyboardInput));
     }
   }
 }

@@ -62,7 +62,7 @@ public final class LabelValidator {
   public static String validateWorkspaceName(String workspaceName) {
     int len = workspaceName.length();
     if (len == 0) {
-      return "empty workspace name";
+      return null;
     }
     char first = workspaceName.charAt(0);
     if (first != '@') {

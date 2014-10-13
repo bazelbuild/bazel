@@ -17,6 +17,7 @@ import com.google.common.base.Preconditions;
 import com.google.devtools.build.lib.concurrent.ThreadSafety.Immutable;
 import com.google.devtools.build.lib.concurrent.ThreadSafety.ThreadSafe;
 import com.google.devtools.build.lib.packages.Package;
+import com.google.devtools.build.lib.packages.PackageIdentifier;
 import com.google.devtools.build.lib.vfs.PathFragment;
 import com.google.devtools.build.skyframe.SkyKey;
 import com.google.devtools.build.skyframe.SkyValue;
@@ -45,6 +46,10 @@ public class PackageValue implements SkyValue {
 
   @ThreadSafe
   public static SkyKey key(PathFragment pkgName) {
-    return new SkyKey(SkyFunctions.PACKAGE, pkgName);
+    return key(PackageIdentifier.createInDefaultRepo(pkgName));
+  }
+
+  public static SkyKey key(PackageIdentifier pkgIdentifier) {
+    return new SkyKey(SkyFunctions.PACKAGE, pkgIdentifier);
   }
 }

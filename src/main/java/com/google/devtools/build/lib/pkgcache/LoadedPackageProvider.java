@@ -16,6 +16,7 @@ package com.google.devtools.build.lib.pkgcache;
 import com.google.devtools.build.lib.packages.NoSuchPackageException;
 import com.google.devtools.build.lib.packages.NoSuchTargetException;
 import com.google.devtools.build.lib.packages.Package;
+import com.google.devtools.build.lib.packages.PackageIdentifier;
 import com.google.devtools.build.lib.packages.Target;
 import com.google.devtools.build.lib.syntax.Label;
 
@@ -32,7 +33,7 @@ public interface LoadedPackageProvider {
    * Returns a package if it was recently loaded, i.e., since the most recent cache sync. This
    * throws an exception if the package was not loaded, even if it exists on disk.
    */
-  Package getLoadedPackage(String packageName) throws NoSuchPackageException;
+  Package getLoadedPackage(PackageIdentifier packageIdentifier) throws NoSuchPackageException;
 
   /**
    * Returns a target if it was recently loaded, i.e., since the most recent cache sync. This

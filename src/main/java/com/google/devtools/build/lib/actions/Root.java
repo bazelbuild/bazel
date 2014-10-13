@@ -16,6 +16,8 @@ package com.google.devtools.build.lib.actions;
 
 import com.google.common.annotations.VisibleForTesting;
 import com.google.common.base.Preconditions;
+import com.google.devtools.build.lib.syntax.SkylarkCallable;
+import com.google.devtools.build.lib.syntax.SkylarkModule;
 import com.google.devtools.build.lib.vfs.Path;
 import com.google.devtools.build.lib.vfs.PathFragment;
 
@@ -40,6 +42,9 @@ import javax.annotation.Nullable;
  * <p>The derived roots must have paths that point inside the exec root, i.e. below the directory
  * that is the root of the merged directory tree.
  */
+@SkylarkModule(name = "root",
+    doc = "A root for files. The roots are the directories containing files, and they are mapped "
+        + "together into a single directory tree to form the execution environment.")
 public final class Root implements Comparable<Root>, Serializable {
 
   /**
@@ -113,6 +118,12 @@ public final class Root implements Comparable<Root>, Serializable {
    */
   public PathFragment getExecPath() {
     return isSourceRoot() ? PathFragment.EMPTY_FRAGMENT : path.relativeTo(execRoot);
+  }
+
+  @SkylarkCallable(name = "path", structField = true,
+      doc = "Returns the relative path from the exec root to the actual root.")
+  public String getExecPathString() {
+    return getExecPath().getPathString();
   }
 
   public boolean isSourceRoot() {

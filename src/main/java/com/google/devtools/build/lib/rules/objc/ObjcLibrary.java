@@ -25,8 +25,6 @@ import com.google.devtools.build.lib.rules.RuleConfiguredTargetFactory;
 import com.google.devtools.build.lib.view.ConfiguredTarget;
 import com.google.devtools.build.lib.view.RuleConfiguredTarget.Mode;
 import com.google.devtools.build.lib.view.RuleContext;
-import com.google.devtools.build.xcode.xcodegen.proto.XcodeGenProtos.DependencyControl;
-import com.google.devtools.build.xcode.xcodegen.proto.XcodeGenProtos.XcodeprojBuildSetting;
 
 /**
  * Implementation for {@code objc_library}.
@@ -73,7 +71,7 @@ public class ObjcLibrary implements RuleConfiguredTargetFactory {
         .setCompilationArtifacts(compilationArtifacts)
         .addHdrs(ruleContext.getPrerequisiteArtifacts("hdrs", Mode.TARGET))
         .addDepObjcProviders(ruleContext.getPrerequisites("deps", Mode.TARGET, ObjcProvider.class))
-        .addStoryboards(ruleContext.getPrerequisiteArtifacts("storyboards", Mode.TARGET))
+        .addStoryboardInputs(ruleContext.getPrerequisiteArtifacts("storyboards", Mode.TARGET))
         .setIntermediateArtifacts(intermediateArtifacts)
         .build();
     common.reportErrors();
@@ -96,13 +94,17 @@ public class ObjcLibrary implements RuleConfiguredTargetFactory {
     ObjcCommon common = common(ruleContext, ImmutableList.<SdkFramework>of());
     OptionsProvider optionsProvider = optionsProvider(ruleContext, new InfoplistsFromRule());
 
-    Iterable<XcodeProvider> depXcodeProviders =
-        ruleContext.getPrerequisites("deps", Mode.TARGET, XcodeProvider.class);
-    XcodeProvider xcodeProvider = common.xcodeProvider(Optional.<Artifact>absent(),
-        ImmutableList.<DependencyControl>of(), ImmutableList.<XcodeprojBuildSetting>of(),
-        optionsProvider.getCopts(),
-        LIBRARY_STATIC,
-        depXcodeProviders);
+    XcodeProvider xcodeProvider = new XcodeProvider.Builder()
+        .setLabel(ruleContext.getLabel())
+        .addUserHeaderSearchPaths(ObjcCommon.userHeaderSearchPaths(ruleContext.getConfiguration()))
+        .addDependencies(ruleContext.getPrerequisites("deps", Mode.TARGET, XcodeProvider.class))
+        .addCopts(optionsProvider.getCopts())
+        .setProductType(LIBRARY_STATIC)
+        .addHeaders(common.getHdrs())
+        .setCompilationArtifacts(common.getCompilationArtifacts().get())
+        .setObjcProvider(common.getObjcProvider())
+        .build();
+
     registerActions(ruleContext, common, xcodeProvider, optionsProvider);
     return common.configuredTarget(
         NestedSetBuilder.<Artifact>stableOrder()

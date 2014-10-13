@@ -31,7 +31,7 @@ def py_library_impl(ctx):
   transitive_sources = collect_transitive_sources(ctx)
 
   return struct(
-      files_to_build = set(),
+      files = set(),
       transitive_py_files = transitive_sources)
 
 
@@ -71,7 +71,7 @@ def py_binary_impl(ctx):
   files_to_build = set()
   files_to_build += [deploy_zip, executable]
   return struct(
-      files_to_build = files_to_build,
+      files = files_to_build,
       runfiles = runfiles,
       )
 

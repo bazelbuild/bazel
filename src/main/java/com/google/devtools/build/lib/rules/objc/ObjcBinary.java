@@ -99,8 +99,7 @@ public class ObjcBinary implements RuleConfiguredTargetFactory {
     }
   }
 
-  static XcodeProvider xcodeProvider(RuleContext ruleContext, ObjcCommon common,
-      InfoplistMerging infoplistMerging, OptionsProvider optionsProvider) {
+  static Iterable<XcodeprojBuildSetting> assetCatalogBuildSettings(RuleContext ruleContext) {
     ImmutableList.Builder<XcodeprojBuildSetting> buildSettings = new ImmutableList.Builder<>();
     for (String appIcon : ObjcBinaryRule.appIcon(ruleContext).asSet()) {
       buildSettings.add(XcodeprojBuildSetting.newBuilder()
@@ -114,16 +113,7 @@ public class ObjcBinary implements RuleConfiguredTargetFactory {
           .setValue(launchImage)
           .build());
     }
-
-    Iterable<XcodeProvider> depXcodeProviders =
-        ruleContext.getPrerequisites("deps", Mode.TARGET, XcodeProvider.class);
-    return common.xcodeProvider(
-        infoplistMerging.getPlistWithEverything(),
-        ObjcBundleLibrary.targetDependenciesTransitive(depXcodeProviders),
-        buildSettings.build(),
-        optionsProvider.getCopts(),
-        APPLICATION,
-        depXcodeProviders);
+    return buildSettings.build();
   }
 
   private static Optional<Artifact> provisioningProfile(RuleContext context) {
@@ -338,8 +328,18 @@ public class ObjcBinary implements RuleConfiguredTargetFactory {
     Bundling bundling = bundling(ruleContext, common.getObjcProvider(),  optionsProvider);
 
     checkAttributes(ruleContext, common, bundling);
-    XcodeProvider xcodeProvider =
-        xcodeProvider(ruleContext, common, bundling.getInfoplistMerging(), optionsProvider);
+    XcodeProvider xcodeProvider = new XcodeProvider.Builder()
+        .setLabel(ruleContext.getLabel())
+        .addUserHeaderSearchPaths(ObjcCommon.userHeaderSearchPaths(ruleContext.getConfiguration()))
+        .setInfoplistMerging(bundling.getInfoplistMerging())
+        .addDependencies(ruleContext.getPrerequisites("deps", Mode.TARGET, XcodeProvider.class))
+        .addXcodeprojBuildSettings(assetCatalogBuildSettings(ruleContext))
+        .addCopts(optionsProvider.getCopts())
+        .setProductType(APPLICATION)
+        .addHeaders(common.getHdrs())
+        .setCompilationArtifacts(common.getCompilationArtifacts().get())
+        .setObjcProvider(common.getObjcProvider())
+        .build();
 
     registerActions(
         ruleContext, common, xcodeProvider, new ExtraLinkArgs(), optionsProvider, bundling);

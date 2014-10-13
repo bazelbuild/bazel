@@ -49,7 +49,7 @@ public class TransitiveTargetFunction implements SkyFunction {
   @Override
   public SkyValue compute(SkyKey key, Environment env) throws TransitiveTargetFunctionException {
     Label label = (Label) key.argument();
-    SkyKey packageKey = PackageValue.key(label.getPackageFragment());
+    SkyKey packageKey = PackageValue.key(label.getPackageIdentifier());
     SkyKey targetKey = TargetMarkerValue.key(label);
     Target target;
     boolean packageLoadedSuccessfully;

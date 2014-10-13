@@ -39,7 +39,7 @@ def java_library_impl(ctx):
       ctx.configuration.bin_dir, class_jar, "-2.params")
   ctx.file_action(
       output = sources_param_file,
-      content = files.join_exec_paths("\n", sources),
+      content = file_helper.join_exec_paths("\n", sources),
       executable = False)
 
   # Cleaning build output directory
@@ -47,7 +47,8 @@ def java_library_impl(ctx):
   if ctx.files.srcs:
     cmd += "/usr/bin/javac"
     if compile_time_jar_list:
-      cmd += " -classpath " + files.join_exec_paths(":", compile_time_jar_list)
+      cmd += " -classpath " + file_helper.join_exec_paths(":",
+                                                          compile_time_jar_list)
     cmd += " -d " + build_output + " @" + sources_param_file.path + "\n"
   cmd += ("/usr/bin/jar cf " + class_jar.path + " -C " + build_output + " .\n" +
          "touch " + build_output + "\n")
@@ -61,7 +62,7 @@ def java_library_impl(ctx):
 
   runfiles = ctx.runfiles(collect_data = True)
 
-  return struct(files_to_build = set([class_jar]),
+  return struct(files = set([class_jar]),
                 compile_time_jar = class_jar,
                 runtime_jars = runtime_jars + [class_jar],
                 runfiles = runfiles)
@@ -129,10 +130,10 @@ def java_binary_impl(ctx):
 
   runfiles = ctx.runfiles(files = [deploy_jar, executable], collect_data = True)
   files_to_build = set([deploy_jar, manifest, executable])
-  files_to_build += library_result.files_to_build
+  files_to_build += library_result.files
 
   return struct(
-      files_to_build = files_to_build,
+      files = files_to_build,
       runfiles = runfiles)
 
 

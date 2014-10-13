@@ -22,6 +22,7 @@ import com.google.devtools.build.lib.events.Event;
 import com.google.devtools.build.lib.packages.NoSuchPackageException;
 import com.google.devtools.build.lib.packages.NoSuchThingException;
 import com.google.devtools.build.lib.packages.Package;
+import com.google.devtools.build.lib.packages.PackageIdentifier;
 import com.google.devtools.build.lib.packages.Target;
 import com.google.devtools.build.lib.pkgcache.FilteringPolicies;
 import com.google.devtools.build.lib.pkgcache.FilteringPolicy;
@@ -88,7 +89,6 @@ public class TargetPatternFunction implements SkyFunction {
       this.policy = policy;
       this.env = env;
       this.pkgPath = pkgPath;
-
     }
 
     @Override
@@ -99,9 +99,9 @@ public class TargetPatternFunction implements SkyFunction {
     /**
      * Gets a Package via the Skyframe env. May return a Package that has errors.
      */
-    private Package getPackage(PathFragment pkgName)
+    private Package getPackage(PackageIdentifier pkgIdentifier)
         throws MissingDepException, NoSuchThingException {
-      SkyKey pkgKey = PackageValue.key(pkgName);
+      SkyKey pkgKey = PackageValue.key(pkgIdentifier);
       Package pkg;
       try {
         PackageValue pkgValue =
@@ -127,7 +127,7 @@ public class TargetPatternFunction implements SkyFunction {
         if (!isPackage(label.getPackageName())) {
           return null;
         }
-        Package pkg = getPackage(label.getPackageFragment());
+        Package pkg = getPackage(label.getPackageIdentifier());
         return pkg.getTarget(label.getName());
       } catch (Label.SyntaxException | NoSuchThingException e) {
         return null;
@@ -139,7 +139,7 @@ public class TargetPatternFunction implements SkyFunction {
         throws TargetParsingException, InterruptedException, MissingDepException {
       Label label = TargetPatternResolverUtil.label(targetName);
       try {
-        Package pkg = getPackage(label.getPackageFragment());
+        Package pkg = getPackage(label.getPackageIdentifier());
         Target target = pkg.getTarget(label.getName());
         return  policy.shouldRetain(target, true)
             ? ResolvedTargets.of(target)
@@ -183,7 +183,8 @@ public class TargetPatternFunction implements SkyFunction {
       }
 
       try {
-        Package pkg = getPackage(packageNameFragment);
+        Package pkg = getPackage(
+            PackageIdentifier.createInDefaultRepo(packageNameFragment.toString()));
         return TargetPatternResolverUtil.resolvePackageTargets(pkg, policy);
       } catch (NoSuchThingException e) {
         String message = TargetPatternResolverUtil.getParsingErrorMessage(
@@ -194,7 +195,8 @@ public class TargetPatternFunction implements SkyFunction {
 
     @Override
     public boolean isPackage(String packageName) throws MissingDepException {
-      SkyKey packageLookupKey = PackageLookupValue.key(new PathFragment(packageName));
+      SkyKey packageLookupKey;
+      packageLookupKey = PackageLookupValue.key(new PathFragment(packageName));
       PackageLookupValue packageLookupValue = (PackageLookupValue) env.getValue(packageLookupKey);
       if (packageLookupValue == null) {
         throw new MissingDepException();

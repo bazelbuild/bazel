@@ -24,9 +24,6 @@ import com.google.devtools.build.lib.collect.nestedset.NestedSetBuilder;
 import com.google.devtools.build.lib.collect.nestedset.Order;
 import com.google.devtools.build.lib.packages.FileTarget;
 import com.google.devtools.build.lib.rules.test.InstrumentedFilesProvider;
-import com.google.devtools.build.lib.syntax.Label;
-import com.google.devtools.build.lib.syntax.SkylarkCallable;
-import com.google.devtools.build.lib.syntax.SkylarkModule;
 import com.google.devtools.build.lib.util.FileType;
 import com.google.devtools.build.lib.view.fileset.FilesetProvider;
 
@@ -34,7 +31,6 @@ import com.google.devtools.build.lib.view.fileset.FilesetProvider;
  * A ConfiguredTarget for a source FileTarget.  (Generated files use a
  * subclass, OutputFileConfiguredTarget.)
  */
-@SkylarkModule(name = "FileConfiguredTarget", doc = "")
 public abstract class FileConfiguredTarget extends AbstractConfiguredTarget
     implements FileType.HasFilename, LicensesProvider {
 
@@ -93,11 +89,5 @@ public abstract class FileConfiguredTarget extends AbstractConfiguredTarget
   @Override
   public UnmodifiableIterator<TransitiveInfoProvider> iterator() {
     return providers.values().iterator();
-  }
-
-  @Override
-  @SkylarkCallable(name = "label", doc = "", structField = true)
-  public Label getLabel() {
-    return super.getLabel();
   }
 }

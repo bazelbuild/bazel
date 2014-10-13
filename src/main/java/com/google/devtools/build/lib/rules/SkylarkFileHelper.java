@@ -32,17 +32,17 @@ import java.util.Map;
 /**
  * A wrapper class for NestedSet of Artifacts in Skylark to ensure type safety.
  */
-@SkylarkModule(name = "files", namespace = true,
+@SkylarkModule(name = "file_helper", namespace = true,
     doc = "A helper class to extract path from files.")
-public final class SkylarkFileset {
+public final class SkylarkFileHelper {
 
   @SkylarkBuiltin(name = "join_exec_paths",
-      objectType = SkylarkFileset.class, returnType = String.class,
+      objectType = SkylarkFileHelper.class, returnType = String.class,
       doc = "Returns the joint execution paths of these files using the delimiter.",
       mandatoryParams = {
       @Param(name = "delimiter", type = String.class,
           doc = "The delimiter string to join the files on."),
-      @Param(name = "files", type = SkylarkList.class,
+      @Param(name = "files", type = SkylarkList.class, generic1 = Artifact.class,
           doc = "The list of files to join.")})
   private static SkylarkFunction joinExecPaths = new SimpleSkylarkFunction("join_exec_paths") {
 
@@ -50,13 +50,12 @@ public final class SkylarkFileset {
     protected Object call(Map<String, Object> params, Location loc)
         throws EvalException, ConversionException {
       return Artifact.joinExecPaths(
-          (String) params.get("delimiter"),
-          castList(params.get("files"), Artifact.class, "files")); 
+          (String) params.get("delimiter"), castList(params.get("files"), Artifact.class)); 
     }
   };
 
   @SkylarkBuiltin(name = "work_dir",
-      objectType = SkylarkFileset.class, returnType = String.class,
+      objectType = SkylarkFileHelper.class, returnType = String.class,
       doc = "Returns a working directory path for the file using suffix for the directory name.",
       mandatoryParams = {
       @Param(name = "root", type = Root.class, doc = "The root of the work dir."),

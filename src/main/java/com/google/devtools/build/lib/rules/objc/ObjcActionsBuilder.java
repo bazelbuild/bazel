@@ -218,7 +218,7 @@ final class ObjcActionsBuilder {
       public InputStream openStream() {
         return XcodeGenProtos.Control.newBuilder()
             .setPbxproj(pbxproj.getExecPathString())
-            .addAllTarget(xcodeProvider.getTargets())
+            .addAllTarget(xcodeProvider.targets())
             .build()
             .toByteString()
             .newInput();
@@ -359,12 +359,12 @@ final class ObjcActionsBuilder {
     };
   }
 
-  void registerIbtoolzipAction(ObjcBase.Tools tools, Storyboard storyboard) {
+  void registerIbtoolzipAction(ObjcBase.Tools tools, Artifact input, Artifact outputZip) {
     register(spawnJavaOnDarwinActionBuilder(context, tools.actoolzipDeployJar())
         .setMnemonic("Compile storyboard")
-        .addInput(storyboard.getInput())
-        .addOutput(storyboard.getOutputZip())
-        .setCommandLine(storyboard.ibtoolzipCommandLine())
+        .addInput(input)
+        .addOutput(outputZip)
+        .setCommandLine(Storyboards.ibtoolzipCommandLine(input, outputZip))
         .build());
   }
 

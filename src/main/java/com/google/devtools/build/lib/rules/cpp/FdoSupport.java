@@ -39,7 +39,6 @@ import com.google.devtools.build.lib.vfs.RootedPath;
 import com.google.devtools.build.lib.vfs.ZipFileSystem;
 import com.google.devtools.build.lib.view.AnalysisEnvironment;
 import com.google.devtools.build.lib.view.RuleContext;
-import com.google.devtools.build.lib.view.config.BuildConfiguration;
 import com.google.devtools.build.lib.view.config.crosstool.CrosstoolConfig.LipoMode;
 import com.google.devtools.build.skyframe.SkyFunction;
 
@@ -57,7 +56,7 @@ import java.util.zip.ZipException;
  * Support class for FDO (feedback directed optimization) and LIPO (lightweight inter-procedural
  * optimization).
  *
- * <p>There is a 1:1 relationship between {@link BuildConfiguration} objects and {@code FdoSupport}
+ * <p>There is a 1:1 relationship between {@link CppConfiguration} objects and {@code FdoSupport}
  * objects. The FDO support of a build configuration can be retrieved using {@link
  * CppConfiguration#getFdoSupport()}.
  *

@@ -43,8 +43,7 @@ public class BazelCppSemantics implements CppSemantics {
       RuleContext ruleContext, CppCompileActionBuilder actionBuilder) {
     actionBuilder.setCppConfiguration(ruleContext.getFragment(CppConfiguration.class));
     actionBuilder.setActionContext(CppCompileActionContext.class);
-    actionBuilder.addTransitiveMandatoryInputs(
-        CppHelper.getCrosstoolInputsForCompile(ruleContext));
+    actionBuilder.addTransitiveMandatoryInputs(CppHelper.getToolchain(ruleContext).getCompile());
   }
 
   @Override

@@ -13,6 +13,7 @@
 // limitations under the License.
 package com.google.devtools.build.lib.skyframe;
 
+import com.google.devtools.build.lib.packages.PackageIdentifier;
 import com.google.devtools.build.lib.vfs.Path;
 import com.google.devtools.build.lib.vfs.PathFragment;
 import com.google.devtools.build.skyframe.SkyKey;
@@ -84,7 +85,11 @@ abstract class PackageLookupValue implements SkyValue {
   abstract String getErrorMsg();
 
   static SkyKey key(PathFragment directory) {
-    return new SkyKey(SkyFunctions.PACKAGE_LOOKUP, directory);
+    return key(PackageIdentifier.createInDefaultRepo(directory));
+  }
+
+  static SkyKey key(PackageIdentifier pkgIdentifier) {
+    return new SkyKey(SkyFunctions.PACKAGE_LOOKUP, pkgIdentifier);
   }
 
   private static class SuccessfulPackageLookupValue extends PackageLookupValue {
@@ -113,6 +118,20 @@ abstract class PackageLookupValue implements SkyValue {
     @Override
     String getErrorMsg() {
       throw new IllegalStateException();
+    }
+
+    @Override
+    public boolean equals(Object obj) {
+      if (!(obj instanceof SuccessfulPackageLookupValue)) {
+        return false;
+      }
+      SuccessfulPackageLookupValue other = (SuccessfulPackageLookupValue) obj;
+      return root.equals(other.root);
+    }
+
+    @Override
+    public int hashCode() {
+      return root.hashCode();
     }
   }
 

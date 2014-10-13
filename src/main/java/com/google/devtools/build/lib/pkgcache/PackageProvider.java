@@ -17,6 +17,7 @@ package com.google.devtools.build.lib.pkgcache;
 import com.google.devtools.build.lib.events.EventHandler;
 import com.google.devtools.build.lib.packages.NoSuchPackageException;
 import com.google.devtools.build.lib.packages.Package;
+import com.google.devtools.build.lib.packages.PackageIdentifier;
 
 /**
  * API for retrieving packages. Implementations generally load packages to fulfill requests.
@@ -40,8 +41,8 @@ public interface PackageProvider extends TargetProvider {
    * @throws NoSuchPackageException if the package could not be found.
    * @throws InterruptedException if the package loading was interrupted.
    */
-  Package getPackage(EventHandler eventHandler, String packageName) throws NoSuchPackageException,
-      InterruptedException;
+  Package getPackage(EventHandler eventHandler, PackageIdentifier packageName)
+      throws NoSuchPackageException, InterruptedException;
 
   /**
    * Returns whether a package with the given name exists. That is, returns whether all the

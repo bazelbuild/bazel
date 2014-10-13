@@ -537,9 +537,11 @@ public final class CppLinkAction extends AbstractAction implements IncludeScanna
     private final RuleContext ruleContext;
     private final AnalysisEnvironment analysisEnvironment;
     private final PathFragment outputPath;
+    private final CcToolchainProvider toolchain;
     private PathFragment interfaceOutputPath;
     private PathFragment runtimeSolibDir;
-    protected BuildConfiguration configuration;
+    protected final BuildConfiguration configuration;
+    private final CppConfiguration cppConfiguration;
 
     // Morally equivalent with {@link Context}, except these are mutable.
     // Keep these in sync with {@link Context}.
@@ -573,6 +575,19 @@ public final class CppLinkAction extends AbstractAction implements IncludeScanna
     }
 
     /**
+     * Creates a builder that builds {@link CppLinkAction} instances.
+     *
+     * @param ruleContext the rule that owns the action
+     * @param outputPath the path of the ELF file to be created, relative to the
+     *        'bin' directory
+     */
+    public Builder(RuleContext ruleContext, PathFragment outputPath,
+        BuildConfiguration configuration, CcToolchainProvider toolchain) {
+      this(ruleContext, outputPath, configuration,
+          ruleContext.getAnalysisEnvironment(), toolchain);
+    }
+
+    /**
      * Creates a builder that builds {@link CppLinkAction}s.
      *
      * @param ruleContext the rule that owns the action
@@ -585,13 +600,14 @@ public final class CppLinkAction extends AbstractAction implements IncludeScanna
         BuildConfiguration configuration, AnalysisEnvironment analysisEnvironment,
         CcToolchainProvider toolchain) {
       this.ruleContext = ruleContext;
-      this.analysisEnvironment = analysisEnvironment;
-      this.outputPath = outputPath;
-      this.configuration = configuration;
+      this.analysisEnvironment = Preconditions.checkNotNull(analysisEnvironment);
+      this.outputPath = Preconditions.checkNotNull(outputPath);
+      this.configuration = Preconditions.checkNotNull(configuration);
+      this.cppConfiguration = configuration.getFragment(CppConfiguration.class);
+      this.toolchain = toolchain;
 
-      // The ruleContext != null is here for CppLinkAction.createTestBuilder(). Meh.
-      if (configuration.getFragment(CppConfiguration.class).supportsEmbeddedRuntimes()
-          && toolchain != null) {
+      // The toolchain != null is here for CppLinkAction.createTestBuilder(). Meh.
+      if (cppConfiguration.supportsEmbeddedRuntimes() && toolchain != null) {
         runtimeSolibDir = toolchain.getDynamicRuntimeSolibDir();
       }
       if (toolchain != null) {
@@ -646,7 +662,6 @@ public final class CppLinkAction extends AbstractAction implements IncludeScanna
       final Artifact interfaceOutput = (interfaceOutputPath != null)
           ? createArtifact(interfaceOutputPath)
           : null;
-      CppConfiguration cppConfiguration = configuration.getFragment(CppConfiguration.class);
 
       final ImmutableList<Artifact> buildInfoHeaderArtifacts = !linkstamps.isEmpty()
           ? ruleContext.getAnalysisEnvironment().getBuildInfo(ruleContext, CppBuildInfo.KEY)
@@ -950,8 +965,16 @@ public final class CppLinkAction extends AbstractAction implements IncludeScanna
      *
      * <p>Link stamps are also automatically added to the inputs.
      */
-    public Builder addLinkstamps(Collection<Artifact> linkstamps) {
-      this.linkstamps.addAll(linkstamps);
+    public Builder addLinkstamps(Map<Artifact, ImmutableList<Artifact>> linkstamps) {
+      this.linkstamps.addAll(linkstamps.keySet());
+      // Add inputs for linkstamping.
+      if (!linkstamps.isEmpty()
+          && !getConfiguration().getFragment(CppConfiguration.class).shouldScanIncludes()) {
+        addTransitiveCompilationInputs(toolchain.getCompile());
+        for (Map.Entry<Artifact, ImmutableList<Artifact>> entry : linkstamps.entrySet()) {
+          addCompilationInputs(entry.getValue());
+        }
+      }
       return this;
     }
 
@@ -975,16 +998,6 @@ public final class CppLinkAction extends AbstractAction implements IncludeScanna
      */
     public Builder addLinkopts(Collection<String> linkopts) {
       this.linkopts.addAll(linkopts);
-      return this;
-    }
-
-    /**
-     * Sets the configuration used to determine the tool chain and the default
-     * link options. If not specified, the configuration from the
-     * {@link RuleContext} passed to the constructor will be used.
-     */
-    public Builder setConfiguration(BuildConfiguration configuration) {
-      this.configuration = configuration;
       return this;
     }
 

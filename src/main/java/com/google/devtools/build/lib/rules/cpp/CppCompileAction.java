@@ -385,7 +385,10 @@ public class CppCompileAction extends AbstractAction implements IncludeScannable
         CppFileTypes.C_SOURCE, CppFileTypes.CPP_SOURCE,
         CppFileTypes.ASSEMBLER_WITH_C_PREPROCESSOR))) {
       if (!source.equals(getSourceFile().getExecPath())) {
-        IncludeScannable scanTask = cppConfiguration.getFdoSupport().getScannable(source);
+        // Note: we must use the FdoSupport from the configuration, not the one from the
+        // cppConfiguration, which may have been overridden in the builder.
+        IncludeScannable scanTask =
+            configuration.getFragment(CppConfiguration.class).getFdoSupport().getScannable(source);
         if (scanTask != null) {
           tasks.add(scanTask);
         }

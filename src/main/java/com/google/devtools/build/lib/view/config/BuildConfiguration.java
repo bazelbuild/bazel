@@ -1358,7 +1358,6 @@ public final class BuildConfiguration implements Serializable {
   /**
    * Returns a relative path to the genfiles directory at execution time.
    */
-  @SkylarkCallable(name = "genfiles_fragment", doc = "", structField = true)
   public PathFragment getGenfilesFragment() {
     return genfilesFragment;
   }

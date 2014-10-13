@@ -35,6 +35,7 @@ import com.google.devtools.build.lib.syntax.Label.SyntaxException;
 import com.google.devtools.build.lib.syntax.MixedModeFunction;
 import com.google.devtools.build.lib.syntax.ParserInputSource;
 import com.google.devtools.build.lib.vfs.Path;
+import com.google.devtools.build.lib.vfs.RootedPath;
 import com.google.devtools.build.skyframe.SkyFunction;
 import com.google.devtools.build.skyframe.SkyFunctionException;
 import com.google.devtools.build.skyframe.SkyKey;
@@ -60,13 +61,18 @@ public class WorkspaceFileFunction implements SkyFunction {
   @Override
   public SkyValue compute(SkyKey skyKey, Environment env) throws WorkspaceFileFunctionException,
       InterruptedException {
-    // TODO(bazel-team): correctness in the presence of changes to the WORKSPACE file.
-    Path workspaceFilePath = (Path) skyKey.argument();
+    RootedPath workspaceRoot = (RootedPath) skyKey.argument();
+    // Explicitly make skyframe load this file.
+    if (env.getValue(FileValue.key(workspaceRoot)) == null) {
+      return null;
+    }
+    Path workspaceFilePath = workspaceRoot.getRoot().getRelative(workspaceRoot.getRelativePath());
     WorkspaceNameHolder holder = new WorkspaceNameHolder();
     ExternalPackageBuilder builder = new ExternalPackageBuilder(workspaceFilePath);
     StoredEventHandler localReporter = new StoredEventHandler();
     BuildFileAST buildFileAST;
     ParserInputSource inputSource = null;
+
     try {
       inputSource = ParserInputSource.create(workspaceFilePath);
     } catch (IOException e) {
@@ -127,7 +133,7 @@ public class WorkspaceFileFunction implements SkyFunction {
         try {
           nameLabel = Label.parseAbsolute("//external:" + name);
           builder.addBinding(
-              nameLabel, new Binding(Label.parseWorkspaceLabel(actual), ast.getLocation()));
+              nameLabel, new Binding(Label.parseRepositoryLabel(actual), ast.getLocation()));
         } catch (SyntaxException e) {
           throw new EvalException(ast.getLocation(), e.getMessage());
         }

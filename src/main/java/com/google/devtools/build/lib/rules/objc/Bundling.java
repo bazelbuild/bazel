@@ -19,7 +19,7 @@ import static com.google.devtools.build.lib.rules.objc.ObjcProvider.BUNDLE_FILE;
 import static com.google.devtools.build.lib.rules.objc.ObjcProvider.IMPORTED_LIBRARY;
 import static com.google.devtools.build.lib.rules.objc.ObjcProvider.LIBRARY;
 import static com.google.devtools.build.lib.rules.objc.ObjcProvider.NESTED_BUNDLE;
-import static com.google.devtools.build.lib.rules.objc.ObjcProvider.STORYBOARD;
+import static com.google.devtools.build.lib.rules.objc.ObjcProvider.STORYBOARD_OUTPUT_ZIP;
 import static com.google.devtools.build.lib.rules.objc.ObjcProvider.XCDATAMODEL;
 
 import com.google.common.base.Optional;
@@ -42,7 +42,6 @@ final class Bundling extends Value<Bundling> {
   static final class Builder {
     private String name;
     private String bundleDirSuffix;
-    private Artifact linkedBinary;
     private ImmutableList<BundleableFile> extraBundleFiles;
     private ObjcProvider objcProvider;
     private InfoplistMerging infoplistMerging;
@@ -55,11 +54,6 @@ final class Bundling extends Value<Bundling> {
 
     public Builder setBundleDirSuffix(String bundleDirSuffix) {
       this.bundleDirSuffix = bundleDirSuffix;
-      return this;
-    }
-
-    public Builder setLinkedBinary(Artifact linkedBinary) {
-      this.linkedBinary = linkedBinary;
       return this;
     }
 
@@ -105,19 +99,22 @@ final class Bundling extends Value<Bundling> {
         linkedBinary = Optional.of(intermediateArtifacts.linkedBinary(bundleDirSuffix));
       }
 
+      NestedSet<Artifact> mergeZips = NestedSetBuilder.<Artifact>stableOrder()
+          .addAll(actoolzipOutput.asSet())
+          .addTransitive(objcProvider.get(STORYBOARD_OUTPUT_ZIP))
+          .build();
       NestedSet<Artifact> bundleContentArtifacts = NestedSetBuilder.<Artifact>stableOrder()
           .addTransitive(nestedBundleContentArtifacts(objcProvider.get(NESTED_BUNDLE)))
           .addAll(linkedBinary.asSet())
           .addAll(infoplistMerging.getPlistWithEverything().asSet())
-          .addAll(actoolzipOutput.asSet())
-          .addAll(Storyboard.outputZips(objcProvider.get(STORYBOARD)))
+          .addTransitive(mergeZips)
           .addAll(BundleableFile.toArtifacts(extraBundleFiles))
           .addAll(BundleableFile.toArtifacts(objcProvider.get(BUNDLE_FILE)))
           .addAll(Xcdatamodel.outputZips(objcProvider.get(XCDATAMODEL)))
           .build();
 
       return new Bundling(name, bundleDirSuffix, linkedBinary, extraBundleFiles, objcProvider,
-          infoplistMerging, actoolzipOutput, bundleContentArtifacts);
+          infoplistMerging, actoolzipOutput, bundleContentArtifacts, mergeZips);
     }
   }
 
@@ -129,11 +126,18 @@ final class Bundling extends Value<Bundling> {
   private final InfoplistMerging infoplistMerging;
   private final Optional<Artifact> actoolzipOutput;
   private final NestedSet<Artifact> bundleContentArtifacts;
+  private final NestedSet<Artifact> mergeZips;
 
-  private Bundling(String name, String bundleDirSuffix, Optional<Artifact> linkedBinary,
-      ImmutableList<BundleableFile> extraBundleFiles, ObjcProvider objcProvider,
-      InfoplistMerging infoplistMerging, Optional<Artifact> actoolzipOutput,
-      NestedSet<Artifact> bundleContentArtifacts) {
+  private Bundling(
+      String name,
+      String bundleDirSuffix,
+      Optional<Artifact> linkedBinary,
+      ImmutableList<BundleableFile> extraBundleFiles,
+      ObjcProvider objcProvider,
+      InfoplistMerging infoplistMerging,
+      Optional<Artifact> actoolzipOutput,
+      NestedSet<Artifact> bundleContentArtifacts,
+      NestedSet<Artifact> mergeZips) {
     super(new ImmutableMap.Builder<String, Object>()
         .put("name", name)
         .put("bundleDirSuffix", bundleDirSuffix)
@@ -143,6 +147,7 @@ final class Bundling extends Value<Bundling> {
         .put("infoplistMerging", infoplistMerging)
         .put("actoolzipOutput", actoolzipOutput)
         .put("bundleContentArtifacts", bundleContentArtifacts)
+        .put("mergeZips", mergeZips)
         .build());
     this.name = name;
     this.bundleDirSuffix = bundleDirSuffix;
@@ -152,6 +157,7 @@ final class Bundling extends Value<Bundling> {
     this.infoplistMerging = infoplistMerging;
     this.actoolzipOutput = actoolzipOutput;
     this.bundleContentArtifacts = bundleContentArtifacts;
+    this.mergeZips = mergeZips;
   }
 
   /**
@@ -229,10 +235,8 @@ final class Bundling extends Value<Bundling> {
    *   <li>{bundleDir}/c/d
    * </ul>
    */
-  public Iterable<Artifact> getMergeZips() {
-    return Iterables.concat(
-        getActoolzipOutput().asSet(),
-        Storyboard.outputZips(objcProvider.get(STORYBOARD)));
+  public NestedSet<Artifact> getMergeZips() {
+    return mergeZips;
   }
 
   /**

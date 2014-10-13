@@ -19,6 +19,7 @@ import com.google.common.base.Predicate;
 import com.google.common.collect.Iterables;
 import com.google.devtools.build.lib.events.Event;
 import com.google.devtools.build.lib.events.EventHandler;
+import com.google.devtools.build.lib.packages.PackageIdentifier;
 import com.google.devtools.build.lib.vfs.PathFragment;
 import com.google.devtools.build.skyframe.CycleInfo;
 import com.google.devtools.build.skyframe.CyclesReporter;
@@ -45,7 +46,7 @@ public class SkylarkModuleCycleReporter implements CyclesReporter.SingleCycleRep
         // The last element of the path to the cycle has to be a PackageFunction.
         && IS_PACKAGE_SKY_KEY.apply(lastPathElement)) {
       StringBuilder cycleMessage = new StringBuilder()
-          .append(((PathFragment) lastPathElement.argument()).getPathString() + "/BUILD: ")
+          .append(((PackageIdentifier) lastPathElement.argument()).toString() + "/BUILD: ")
           .append("cycle in referenced extension files: ");
 
       AbstractLabelCycleReporter.printCycle(cycleInfo.getCycle(), cycleMessage,

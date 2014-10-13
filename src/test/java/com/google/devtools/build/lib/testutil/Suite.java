@@ -46,30 +46,13 @@ public enum Suite {
    * These tests take a long time. They should only ever be run manually and probably from their
    * own Blaze test target.
    */
-  ENORMOUS_TESTS,
-
-  /**
-   * Tests that can only be run on Unix.
-   */
-  UNIX_TESTS,
-
-  /**
-   * Tests that can run both on Windows and Unix.
-   */
-  ALL_PLATFORM_TESTS;
+  ENORMOUS_TESTS;
 
   /**
    * Given a class, determine the test size.
    */
   public static Suite getSize(Class<?> clazz) {
     return getAnnotationElementOrDefault(clazz, "size");
-  }
-
-  /**
-   * Given a class, determine the platforms where it can run.
-   */
-  public static Suite getPlatform(Class<?> clazz) {
-    return getAnnotationElementOrDefault(clazz, "platform");
   }
 
   /**

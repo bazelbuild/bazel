@@ -26,6 +26,7 @@ import com.google.devtools.build.lib.packages.NoSuchPackageException;
 import com.google.devtools.build.lib.packages.NoSuchTargetException;
 import com.google.devtools.build.lib.packages.NoSuchThingException;
 import com.google.devtools.build.lib.packages.Package;
+import com.google.devtools.build.lib.packages.PackageIdentifier;
 import com.google.devtools.build.lib.packages.Target;
 import com.google.devtools.build.lib.syntax.Label;
 import com.google.devtools.build.lib.vfs.PathFragment;
@@ -142,7 +143,8 @@ final class PackageCacheBackedTargetPatternResolver implements TargetPatternReso
     }
     Package pkg;
     try {
-      pkg = packageProvider.getPackage(eventHandler, packageName);
+      pkg = packageProvider.getPackage(
+          eventHandler, PackageIdentifier.createInDefaultRepo(packageName));
     } catch (NoSuchPackageException e) {
       return handleParsingError(eventHandler, originalPattern, new TargetParsingException(
           TargetPatternResolverUtil.getParsingErrorMessage(

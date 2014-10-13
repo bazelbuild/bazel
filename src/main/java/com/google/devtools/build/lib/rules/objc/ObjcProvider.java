@@ -81,10 +81,8 @@ final class ObjcProvider implements TransitiveInfoProvider {
   public static final Key<Xcdatamodel> XCDATAMODEL = new Key<>(STABLE_ORDER);
   public static final Key<Flag> FLAG = new Key<>(STABLE_ORDER);
 
-  // TODO(bazel-team): ObjcProvider should provide the storyboard input artifacts and output zips as
-  // two separate nested sets to avoid duplicating the transitive closure of storyboard zips when
-  // storing the inputs of each bundle merge action.
-  public static final Key<Storyboard> STORYBOARD = new Key<>(STABLE_ORDER);
+  public static final Key<Artifact> STORYBOARD_INPUT = new Key<>(STABLE_ORDER);
+  public static final Key<Artifact> STORYBOARD_OUTPUT_ZIP = new Key<>(STABLE_ORDER);
 
   /**
    * Exec paths of {@code .framework} directories corresponding to frameworks to link. These cause

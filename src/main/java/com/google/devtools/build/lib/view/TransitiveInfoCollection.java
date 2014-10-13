@@ -16,6 +16,7 @@ package com.google.devtools.build.lib.view;
 
 import com.google.common.collect.UnmodifiableIterator;
 import com.google.devtools.build.lib.syntax.Label;
+import com.google.devtools.build.lib.syntax.SkylarkModule;
 import com.google.devtools.build.lib.view.config.BuildConfiguration;
 
 import javax.annotation.Nullable;
@@ -81,6 +82,7 @@ import javax.annotation.Nullable;
  *
  * @see TransitiveInfoProvider
  */
+@SkylarkModule(name = "target", doc = "A BUILD target.")
 public interface TransitiveInfoCollection extends Iterable<TransitiveInfoProvider> {
 
   /**

@@ -13,7 +13,12 @@
 // limitations under the License.
 package com.google.devtools.common.options;
 
-import junit.framework.TestCase;
+import static org.junit.Assert.assertEquals;
+import static org.junit.Assert.fail;
+
+import org.junit.Test;
+import org.junit.runner.RunWith;
+import org.junit.runners.JUnit4;
 
 import java.util.Arrays;
 import java.util.Collections;
@@ -22,45 +27,53 @@ import java.util.List;
 /**
  * A test for {@link Converters.CommaSeparatedOptionListConverter}.
  */
-public class CommaSeparatedOptionListConverterTest
-    extends TestCase {
+@RunWith(JUnit4.class)
+public class CommaSeparatedOptionListConverterTest {
 
   private Converter<List<String>> converter =
       new Converters.CommaSeparatedOptionListConverter();
 
-  public void testEmptyStringYieldsEmptyList() throws Exception {
+  @Test
+  public void emptyStringYieldsEmptyList() throws Exception {
     assertEquals(Collections.emptyList(), converter.convert(""));
   }
 
-  public void testCommaTwoEmptyStrings() throws Exception {
+  @Test
+  public void commaTwoEmptyStrings() throws Exception {
     assertEquals(Arrays.asList("", ""), converter.convert(","));
   }
 
-  public void testLeadingCommaYieldsLeadingSpace() throws Exception {
+  @Test
+  public void leadingCommaYieldsLeadingSpace() throws Exception {
     assertEquals(Arrays.asList("", "leading", "comma"),
                  converter.convert(",leading,comma"));
   }
 
-  public void testTrailingCommaYieldsTrailingSpace() throws Exception {
+  @Test
+  public void trailingCommaYieldsTrailingSpace() throws Exception {
     assertEquals(Arrays.asList("trailing", "comma", ""),
                  converter.convert("trailing,comma,"));
   }
 
-  public void testSingleWord() throws Exception {
+  @Test
+  public void singleWord() throws Exception {
     assertEquals(Arrays.asList("lonely"), converter.convert("lonely"));
   }
 
-  public void testMultiWords() throws Exception {
+  @Test
+  public void multiWords() throws Exception {
     assertEquals(Arrays.asList("one", "two", "three"),
                  converter.convert("one,two,three"));
   }
 
-  public void testSpaceIsIgnored() throws Exception {
+  @Test
+  public void spaceIsIgnored() throws Exception {
     assertEquals(Arrays.asList("one two three"),
                  converter.convert("one two three"));
   }
 
-  public void testValueisUnmodifiable() throws Exception {
+  @Test
+  public void valueisUnmodifiable() throws Exception {
     try {
       converter.convert("value").add("other");
       fail("could modify value");

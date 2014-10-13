@@ -23,7 +23,6 @@ import com.google.devtools.build.lib.actions.Artifact;
 import com.google.devtools.build.lib.concurrent.ThreadSafety.Immutable;
 import com.google.devtools.build.lib.packages.OutputFile;
 import com.google.devtools.build.lib.packages.Rule;
-import com.google.devtools.build.lib.syntax.ClassObject;
 import com.google.devtools.build.lib.syntax.EvalUtils;
 import com.google.devtools.build.lib.syntax.Label;
 import com.google.devtools.build.lib.syntax.SkylarkList;
@@ -39,7 +38,7 @@ import java.util.Set;
  * A generic implementation of RuleConfiguredTarget. Do not use directly. Use {@link
  * RuleConfiguredTargetBuilder} instead.
  */
-public final class RuleConfiguredTarget extends AbstractConfiguredTarget implements ClassObject {
+public final class RuleConfiguredTarget extends AbstractConfiguredTarget {
 
   /**
    * The configuration transition for an attribute through which a prerequisite
@@ -181,11 +180,12 @@ public final class RuleConfiguredTarget extends AbstractConfiguredTarget impleme
   }
 
   @Override
-  public Object getValue(String name) {
-    if (name.equals("label")) {
-      return getLabel();
+  public UnmodifiableIterator<TransitiveInfoProvider> iterator() {
+    List<TransitiveInfoProvider> tip = Lists.newArrayList();
+    for (Map.Entry<Class<? extends TransitiveInfoProvider>, Object> entry : providers.entrySet()) {
+      tip.add(entry.getKey().cast(entry.getValue()));
     }
-    return get(name);
+    return ImmutableList.copyOf(tip).iterator();
   }
 
   @Override
@@ -196,16 +196,7 @@ public final class RuleConfiguredTarget extends AbstractConfiguredTarget impleme
 
   @Override
   public ImmutableCollection<String> getKeys() {
-    return ImmutableList.<String>builder().add("label")
+    return ImmutableList.<String>builder().addAll(super.getKeys())
         .addAll(getProvider(SkylarkProviders.class).skylarkProviders.keySet()).build();
-  }
-
-  @Override
-  public UnmodifiableIterator<TransitiveInfoProvider> iterator() {
-    List<TransitiveInfoProvider> tip = Lists.newArrayList();
-    for (Map.Entry<Class<? extends TransitiveInfoProvider>, Object> entry : providers.entrySet()) {
-      tip.add(entry.getKey().cast(entry.getValue()));
-    }
-    return ImmutableList.copyOf(tip).iterator();
   }
 }

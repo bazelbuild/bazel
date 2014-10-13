@@ -16,6 +16,7 @@ package com.google.devtools.build.lib.skyframe;
 import com.google.common.collect.ImmutableSet;
 import com.google.devtools.build.lib.cmdline.LabelValidator;
 import com.google.devtools.build.lib.packages.BuildFileNotFoundException;
+import com.google.devtools.build.lib.packages.PackageIdentifier;
 import com.google.devtools.build.lib.pkgcache.PathPackageLocator;
 import com.google.devtools.build.lib.vfs.Path;
 import com.google.devtools.build.lib.vfs.PathFragment;
@@ -46,7 +47,8 @@ class PackageLookupFunction implements SkyFunction {
 
   @Override
   public SkyValue compute(SkyKey skyKey, Environment env) throws PackageLookupFunctionException {
-    PathFragment pkg = (PathFragment) skyKey.argument();
+    PackageIdentifier packageKey = (PackageIdentifier) skyKey.argument();
+    PathFragment pkg = packageKey.getPackageFragment();
 
     // This represents a package lookup at the package root.
     if (pkg.equals(PathFragment.EMPTY_FRAGMENT)) {

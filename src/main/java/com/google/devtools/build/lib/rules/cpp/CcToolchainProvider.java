@@ -33,6 +33,7 @@ public final class CcToolchainProvider implements TransitiveInfoProvider {
    * An empty toolchain to be returned in the error case (instead of null).
    */
   public static final CcToolchainProvider EMPTY_TOOLCHAIN_IS_ERROR = new CcToolchainProvider(
+      null,
       NestedSetBuilder.<Artifact>emptySet(Order.STABLE_ORDER),
       NestedSetBuilder.<Artifact>emptySet(Order.STABLE_ORDER),
       NestedSetBuilder.<Artifact>emptySet(Order.STABLE_ORDER),
@@ -49,6 +50,7 @@ public final class CcToolchainProvider implements TransitiveInfoProvider {
       CppCompilationContext.EMPTY,
       false);
 
+  @Nullable private final CppConfiguration cppConfiguration;
   private final NestedSet<Artifact> crosstool;
   private final NestedSet<Artifact> crosstoolMiddleman;
   private final NestedSet<Artifact> compile;
@@ -66,6 +68,7 @@ public final class CcToolchainProvider implements TransitiveInfoProvider {
   private final boolean supportsParamFiles;
 
   public CcToolchainProvider(
+      @Nullable CppConfiguration cppConfiguration,
       NestedSet<Artifact> crosstool,
       NestedSet<Artifact> crosstoolMiddleman,
       NestedSet<Artifact> compile,
@@ -81,6 +84,7 @@ public final class CcToolchainProvider implements TransitiveInfoProvider {
       PathFragment dynamicRuntimeSolibDir,
       CppCompilationContext cppCompilationContext,
       boolean supportsParamFiles) {
+    this.cppConfiguration = cppConfiguration;
     this.crosstool = Preconditions.checkNotNull(crosstool);
     this.crosstoolMiddleman = Preconditions.checkNotNull(crosstoolMiddleman);
     this.compile = Preconditions.checkNotNull(compile);
@@ -116,7 +120,10 @@ public final class CcToolchainProvider implements TransitiveInfoProvider {
    * Returns the files necessary for compilation.
    */
   public NestedSet<Artifact> getCompile() {
-    return compile;
+    // If include scanning is disabled, we need the entire crosstool filegroup, including header
+    // files. If it is enabled, we use the filegroup without header files - they are found by
+    // include scanning. For go, we also don't need the header files.
+    return cppConfiguration != null && cppConfiguration.shouldScanIncludes() ? compile : crosstool;
   }
 
   /**

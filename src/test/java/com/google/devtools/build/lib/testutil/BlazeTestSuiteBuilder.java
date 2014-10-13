@@ -15,7 +15,6 @@ package com.google.devtools.build.lib.testutil;
 
 import com.google.common.base.Preconditions;
 import com.google.common.base.Predicate;
-import com.google.common.base.Predicates;
 import com.google.devtools.build.lib.util.SkyframeMode;
 
 import java.util.Arrays;
@@ -38,14 +37,6 @@ public class BlazeTestSuiteBuilder {
         .addPackageRecursive("com.google.devtools.build.lib");
   }
 
-  /** A predicate that succeeds only for UNIX tests. */
-  public static final Predicate<Class<?>> TEST_IS_UNIX =
-      hasPlatform(Suite.UNIX_TESTS);
-
-  /** A predicate that succeeds for everything but UNIX tests. */
-  public static Predicate<Class<?>> NOT_UNIX =
-    Predicates.not(BlazeTestSuiteBuilder.TEST_IS_UNIX);
-
   /** A predicate that succeeds only for LARGE tests. */
   public static final Predicate<Class<?>> TEST_IS_LARGE =
       hasSize(Suite.LARGE_TESTS);
@@ -65,8 +56,6 @@ public class BlazeTestSuiteBuilder {
       return Suite.isFlaky(testClass);
     }
   };
-  
-  
 
   /**
    * A predicate that succeeds only for tests that make sense to be run with skyframe loading
@@ -84,15 +73,6 @@ public class BlazeTestSuiteBuilder {
       @Override
       public boolean apply(Class<?> testClass) {
         return Suite.getSize(testClass) == size;
-      }
-    };
-  }
-
-  private static Predicate<Class<?>> hasPlatform(final Suite platform) {
-    return new Predicate<Class<?>>() {
-      @Override
-      public boolean apply(Class<?> testClass) {
-        return Suite.getPlatform(testClass) == platform;
       }
     };
   }

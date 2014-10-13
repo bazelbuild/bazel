@@ -14,6 +14,7 @@
 
 package com.google.devtools.build.lib.util;
 
+import com.google.devtools.build.lib.Constants;
 import com.google.devtools.build.lib.vfs.PathFragment;
 
 /**
@@ -25,7 +26,7 @@ public class IncludeScanningUtil {
 
   private static final String INCLUDES_SUFFIX = ".includes";
   public static final PathFragment GREPPED_INCLUDES =
-      new PathFragment("blaze-out/_grepped_includes");
+      new PathFragment(Constants.PRODUCT_NAME + "-out/_grepped_includes");
 
   /**
    * Returns the exec-root relative output path for grepped includes.

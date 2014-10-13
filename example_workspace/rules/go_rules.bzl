@@ -55,7 +55,7 @@ def go_compile_cmd(ctx, sources, out_lib):
 
   # Set -p to the import path of the library, ie.
   # (ctx.label.package + "/" ctx.label.name)  for now.
-  cmd += " " + files.join_exec_paths(" ", sources)
+  cmd += " " + file_helper.join_exec_paths(" ", sources)
   return cmd
 
 def go_library_impl(ctx):
@@ -71,7 +71,7 @@ def go_library_impl(ctx):
 
   out_nset = set([out_lib])
   return struct(
-    files_to_build= out_nset,
+    files = out_nset,
     go_library_object = out_nset)
 
 
@@ -95,9 +95,7 @@ def go_binary_impl(ctx):
   lib_out = ctx.outputs.lib
 
   go_link_action(ctx, lib_out, executable)
-  return struct(
-      files_to_build = (
-          set([executable]) + lib_result.files_to_build))
+  return struct(files = set([executable]) + lib_result.files)
 
 
 def go_test_impl(ctx):
@@ -114,7 +112,7 @@ def go_test_impl(ctx):
   sources = ctx.files.srcs
   main_cmd += " --package " + go_import
   main_cmd += " --output " + ctx.outputs.main_go.path
-  main_cmd += " " + files.join_exec_paths(" ", sources)
+  main_cmd += " " + file_helper.join_exec_paths(" ", sources)
 
   ctx.action(
       # confusing message if you do [sources] + (something else).

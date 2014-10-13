@@ -15,15 +15,22 @@
 package com.google.devtools.common.options;
 
 import static com.google.devtools.common.options.OptionsParser.newOptionsParser;
+import static org.junit.Assert.assertEquals;
+import static org.junit.Assert.assertNotNull;
+import static org.junit.Assert.assertSame;
+import static org.junit.Assert.fail;
 
-import junit.framework.TestCase;
+import org.junit.Test;
+import org.junit.runner.RunWith;
+import org.junit.runners.JUnit4;
 
 import java.util.List;
 
 /**
  * A test for {@link EnumConverter}.
  */
-public class EnumConverterTest extends TestCase {
+@RunWith(JUnit4.class)
+public class EnumConverterTest {
 
   private enum CompilationMode {
     DBG, OPT
@@ -37,7 +44,8 @@ public class EnumConverterTest extends TestCase {
     }
   }
 
-  public void testConverterForEnumWithTwoValues() throws Exception {
+  @Test
+  public void converterForEnumWithTwoValues() throws Exception {
     CompilationModeConverter converter = new CompilationModeConverter();
     assertEquals(converter.convert("dbg"), CompilationMode.DBG);
     assertEquals(converter.convert("opt"), CompilationMode.OPT);
@@ -62,14 +70,16 @@ public class EnumConverterTest extends TestCase {
     }
   }
 
-  public void testTypeDescriptionForEnumWithThreeValues() throws Exception {
+  @Test
+  public void typeDescriptionForEnumWithThreeValues() throws Exception {
     FruitConverter converter = new FruitConverter();
     // We always use lowercase in the user-visible messages:
     assertEquals("apple, banana or cherry",
                  converter.getTypeDescription());
   }
 
-  public void testConverterIsCaseInsensitive() throws Exception {
+  @Test
+  public void converterIsCaseInsensitive() throws Exception {
     FruitConverter converter = new FruitConverter();
     assertSame(Fruit.Banana, converter.convert("bAnANa"));
   }
@@ -93,7 +103,8 @@ public class EnumConverterTest extends TestCase {
     public List<AlphabetEnum> goo;
   }
 
-  public void testEnumList() throws OptionsParsingException {
+  @Test
+  public void enumList() throws OptionsParsingException {
     OptionsParser parser = newOptionsParser(EnumListTestOptions.class);
     parser.parse("--goo=ALPHA", "--goo=BRAVO");
     EnumListTestOptions options = parser.getOptions(EnumListTestOptions.class);

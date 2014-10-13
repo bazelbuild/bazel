@@ -65,6 +65,7 @@ import com.google.devtools.build.lib.syntax.SkylarkCallbackFunction;
 import com.google.devtools.build.lib.syntax.SkylarkEnvironment;
 import com.google.devtools.build.lib.syntax.SkylarkFunction;
 import com.google.devtools.build.lib.syntax.SkylarkFunction.SimpleSkylarkFunction;
+import com.google.devtools.build.lib.syntax.SkylarkList;
 import com.google.devtools.build.lib.syntax.UserDefinedFunction;
 import com.google.devtools.build.lib.view.config.BuildConfiguration;
 import com.google.devtools.build.lib.view.config.RunUnder;
@@ -313,12 +314,13 @@ public class SkylarkRuleClassFunctions {
       + "with .cc or .cpp, use: <pre class=code>filetype([\".cc\", \".cpp\"])</pre>",
       returnType = SkylarkFileType.class,
       mandatoryParams = {
-      @Param(name = "types", doc = "a list of the accepted file extensions")})
+      @Param(name = "types", type = SkylarkList.class, generic1 = String.class,
+          doc = "a list of the accepted file extensions")})
   private static final SkylarkFunction fileType = new SimpleSkylarkFunction("filetype") {
         @Override
         public Object call(Map<String, Object> arguments, Location loc) throws EvalException,
             ConversionException {
-          return SkylarkFileType.of(castList(arguments.get("types"), String.class, "file types"));
+          return SkylarkFileType.of(castList(arguments.get("types"), String.class));
         }
       };
 }

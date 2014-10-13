@@ -262,11 +262,11 @@ public class SkylarkRuleImplementationFunctions {
       objectType = SkylarkRuleContext.class,
       returnType = Runfiles.class,
           optionalParams = {
-      @Param(name = "files", type = SkylarkList.class,
+      @Param(name = "files", type = SkylarkList.class, generic1 = Artifact.class,
           doc = "The list of files to be added to the runfiles."),
       // TODO(bazel-team): If we have a memory efficient support for lazy list containing NestedSets
       // we can remove this and just use files = [file] + list(set)
-      @Param(name = "transitive_files", type = SkylarkNestedSet.class,
+      @Param(name = "transitive_files", type = SkylarkNestedSet.class, generic1 = Artifact.class,
           doc = "The (transitive) set of files to be added to the runfiles."),
       @Param(name = "collect_data", type = Boolean.class, doc = "Whether to collect the data "
           + "runfiles from the dependencies in srcs, data and deps attributes."),
@@ -285,7 +285,7 @@ public class SkylarkRuleImplementationFunctions {
         builder.addRunfiles(ctx.getRuleContext(), RunfilesProvider.DEFAULT_RUNFILES);
       }
       if (params.containsKey("files")) {
-        builder.addArtifacts(castList(params.get("files"), Artifact.class, "files"));
+        builder.addArtifacts(castList(params.get("files"), Artifact.class));
       }
       if (params.containsKey("transitive_files")) {
         builder.addTransitiveArtifacts(cast(params.get("transitive_files"),
@@ -299,7 +299,8 @@ public class SkylarkRuleImplementationFunctions {
       objectType = SkylarkRuleContext.class,
       returnType = CommandHelper.class,
       mandatoryParams = {
-      @Param(name = "tools", type = SkylarkList.class, doc = "list of tools (list of targets)"),
+      @Param(name = "tools", type = SkylarkList.class, generic1 = TransitiveInfoCollection.class,
+             doc = "list of tools (list of targets)"),
       @Param(name = "label_dict", type = Map.class,
              doc = "dictionary of resolved labels and the corresponding list of artifacts "
                  + "(a dict of Label : list of files)")})
@@ -312,7 +313,7 @@ public class SkylarkRuleImplementationFunctions {
           SkylarkRuleContext ctx = (SkylarkRuleContext) params.get("self");
           return new CommandHelper(ctx.getRuleContext(),
               AnalysisUtils.getProviders(
-                  castList(params.get("tools"), TransitiveInfoCollection.class, "tools"),
+                  castList(params.get("tools"), TransitiveInfoCollection.class),
                   FilesToRunProvider.class),
               // TODO(bazel-team): this cast to Map is unchecked and is not safe.
               // The best way to fix this probably is to convert CommandHelper to Skylark.

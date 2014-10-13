@@ -31,7 +31,8 @@ import static com.google.devtools.build.lib.rules.objc.ObjcProvider.INCLUDE;
 import static com.google.devtools.build.lib.rules.objc.ObjcProvider.LIBRARY;
 import static com.google.devtools.build.lib.rules.objc.ObjcProvider.SDK_DYLIB;
 import static com.google.devtools.build.lib.rules.objc.ObjcProvider.SDK_FRAMEWORK;
-import static com.google.devtools.build.lib.rules.objc.ObjcProvider.STORYBOARD;
+import static com.google.devtools.build.lib.rules.objc.ObjcProvider.STORYBOARD_INPUT;
+import static com.google.devtools.build.lib.rules.objc.ObjcProvider.STORYBOARD_OUTPUT_ZIP;
 import static com.google.devtools.build.lib.rules.objc.ObjcProvider.XCASSETS_DIR;
 import static com.google.devtools.build.lib.rules.objc.ObjcProvider.XCDATAMODEL;
 
@@ -54,9 +55,6 @@ import com.google.devtools.build.lib.view.RuleContext;
 import com.google.devtools.build.lib.view.Runfiles;
 import com.google.devtools.build.lib.view.RunfilesProvider;
 import com.google.devtools.build.lib.view.config.BuildConfiguration;
-import com.google.devtools.build.xcode.xcodegen.proto.XcodeGenProtos.DependencyControl;
-import com.google.devtools.build.xcode.xcodegen.proto.XcodeGenProtos.TargetControl;
-import com.google.devtools.build.xcode.xcodegen.proto.XcodeGenProtos.XcodeprojBuildSetting;
 
 import java.util.HashSet;
 import java.util.List;
@@ -70,7 +68,7 @@ final class ObjcCommon {
   static class Builder {
     private RuleContext context;
     private Iterable<Artifact> assetCatalogs = ImmutableList.of();
-    private Iterable<Artifact> storyboards = ImmutableList.of();
+    private Iterable<Artifact> storyboardInputs = ImmutableList.of();
     private Iterable<SdkFramework> extraSdkFrameworks = ImmutableList.of();
     private Iterable<Artifact> frameworkImports = ImmutableList.of();
     private Iterable<String> sdkDylibs = ImmutableList.of();
@@ -88,8 +86,8 @@ final class ObjcCommon {
       return this;
     }
 
-    Builder addStoryboards(Iterable<Artifact> storyboards) {
-      this.storyboards = Iterables.concat(this.storyboards, storyboards);
+    Builder addStoryboardInputs(Iterable<Artifact> storyboardInputs) {
+      this.storyboardInputs = Iterables.concat(this.storyboardInputs, storyboardInputs);
       return this;
     }
 
@@ -135,18 +133,15 @@ final class ObjcCommon {
           CompiledResourceFile.xibFilesFromRule(context),
           CompiledResourceFile.stringsFilesFromRule(context));
       Iterable<BundleableFile> bundleImports = BundleableFile.bundleImportsFromRule(context);
-      NestedSet<Storyboard> storyboardSet =
-          Storyboard.storyboards(storyboards, intermediateArtifacts);
+      Storyboards storyboards = Storyboards.fromInputs(storyboardInputs, intermediateArtifacts);
 
       ObjcProvider.Builder objcProvider = new ObjcProvider.Builder()
           .addAll(HEADER, hdrs)
           .addAll(INCLUDE, headerSearchPaths(context))
           .addAll(XCASSETS_DIR, uniqueContainers(assetCatalogs, ASSET_CATALOG_CONTAINER_TYPE))
           .addAll(ASSET_CATALOG, assetCatalogs)
-          // The storyboardSet NestedSet is only one level deep, but we add the set transitively
-          // here to prevent storing the full sequence twice: once in ObjcCommon and once in
-          // ObjcProvider. It is not to compute a full closure.
-          .addTransitive(STORYBOARD, storyboardSet)
+          .addTransitive(STORYBOARD_INPUT, storyboards.getInputs())
+          .addTransitive(STORYBOARD_OUTPUT_ZIP, storyboards.getOutputZips())
           .addAll(IMPORTED_LIBRARY, ARCHIVES.get(context))
           .addAll(GENERAL_RESOURCE_FILE, BundleableFile.generalResourceArtifactsFromRule(context))
           .addAll(BUNDLE_FILE, BundleableFile.resourceFilesFromRule(context))
@@ -181,7 +176,7 @@ final class ObjcCommon {
           notInContainerErrors(frameworkImports, FRAMEWORK_CONTAINER_TYPE));
 
       return new ObjcCommon(
-          context, objcProvider.build(), storyboardSet, hdrs, compilationArtifacts, ruleErrors);
+          context, objcProvider.build(), storyboards, hdrs, compilationArtifacts, ruleErrors);
     }
   }
 
@@ -199,7 +194,7 @@ final class ObjcCommon {
 
   private final RuleContext context;
   private final ObjcProvider objcProvider;
-  private final Iterable<Storyboard> storyboards;
+  private final Storyboards storyboards;
   private final Iterable<Artifact> hdrs;
   private final Optional<CompilationArtifacts> compilationArtifacts;
   private final Iterable<String> ruleErrors;
@@ -207,7 +202,7 @@ final class ObjcCommon {
   private ObjcCommon(
       RuleContext context,
       ObjcProvider objcProvider,
-      Iterable<Storyboard> storyboards,
+      Storyboards storyboards,
       Iterable<Artifact> hdrs,
       Optional<CompilationArtifacts> compilationArtifacts,
       Iterable<String> ruleErrors) {
@@ -235,7 +230,7 @@ final class ObjcCommon {
    * Returns all storyboards declared in this rule (not including others in the transitive
    * dependency tree).
    */
-  public Iterable<Storyboard> getStoryboards() {
+  public Storyboards getStoryboards() {
     return storyboards;
   }
 
@@ -279,80 +274,7 @@ final class ObjcCommon {
     // without sources or resources, empty objc_bundles)
   }
 
-  /**
-   * Builds an {@code XcodeProvider} which supplies the targets of all transitive dependencies and
-   * one Xcode target corresponding to this one.
-   */
-  private XcodeProvider xcodeProvider(
-      TargetControl thisTarget, Iterable<XcodeProvider> depXcodeProviders) {
-    NestedSetBuilder<TargetControl> result = NestedSetBuilder.stableOrder();
-    for (XcodeProvider depProvider : depXcodeProviders) {
-      result.addTransitive(depProvider.getTargets());
-    }
-    return new XcodeProvider(result.add(thisTarget).build());
-  }
-
-  /**
-   * Returns an {@code XcodeProvider} for this target.
-   * @param maybeInfoplistFile the Info.plist file. Used for applications.
-   * @param xcodeDependencies dependencies of the target for this rule in the .xcodeproj file.
-   * @param xcodeprojBuildSettings additional build settings of this target.
-   * @param copts copts to use when compiling the Xcode target.
-   * @param productType the product type for the PBXTarget in the .xcodeproj file.
-   * @param depXcodeProviders the {@link XcodeProvider}s of the direct dependencies of this target.
-   */
-  public XcodeProvider xcodeProvider(
-      Optional<Artifact> maybeInfoplistFile,
-      Iterable<DependencyControl> xcodeDependencies,
-      Iterable<XcodeprojBuildSetting> xcodeprojBuildSettings,
-      Iterable<String> copts,
-      XcodeProductType productType,
-      Iterable<XcodeProvider> depXcodeProviders) {
-    // TODO(bazel-team): Add provisioning profile information when Xcodegen supports it.
-    // TODO(bazel-team): Add .framework import information when Xcodegen supports it.
-    // TODO(bazel-team): Add .storyboard information when Xcodegen supports it.
-    TargetControl.Builder targetControl = TargetControl.newBuilder()
-        .setName(context.getLabel().getName())
-        .setLabel(context.getLabel().toString())
-        .setProductType(productType.getIdentifier())
-        .addAllImportedLibrary(Artifact.toExecPaths(objcProvider.get(IMPORTED_LIBRARY)))
-        .addAllUserHeaderSearchPath(
-            PathFragment.safePathStrings(userHeaderSearchPaths(context.getConfiguration())))
-        .addAllHeaderSearchPath(PathFragment.safePathStrings(objcProvider.get(INCLUDE)))
-        .addAllHeaderFile(Artifact.toExecPaths(hdrs))
-        // TODO(bazel-team): Add all build settings information once Xcodegen supports it.
-        .addAllCopt(copts)
-        .addAllBuildSetting(xcodeprojBuildSettings)
-        .addAllSdkFramework(SdkFramework.names(objcProvider.get(SDK_FRAMEWORK)))
-        .addAllFramework(PathFragment.safePathStrings(objcProvider.get(FRAMEWORK_DIR)))
-        .addAllXcassetsDir(PathFragment.safePathStrings(objcProvider.get(XCASSETS_DIR)))
-        .addAllXcdatamodel(PathFragment.safePathStrings(
-            Xcdatamodel.xcdatamodelDirs(objcProvider.get(XCDATAMODEL))))
-        .addAllBundleImport(PathFragment.safePathStrings(objcProvider.get(BUNDLE_IMPORT_DIR)))
-        .addAllDependency(xcodeDependencies)
-        .addAllSdkDylib(objcProvider.get(SDK_DYLIB));
-
-    targetControl.addAllGeneralResourceFile(
-        Artifact.toExecPaths(objcProvider.get(GENERAL_RESOURCE_FILE)));
-    for (Artifact infoplistFile : maybeInfoplistFile.asSet()) {
-      targetControl.setInfoplist(infoplistFile.getExecPathString());
-    }
-
-    for (CompilationArtifacts artifacts : compilationArtifacts.asSet()) {
-      targetControl
-          .addAllSourceFile(Artifact.toExecPaths(artifacts.getSrcs()))
-          .addAllNonArcSourceFile(Artifact.toExecPaths(artifacts.getNonArcSrcs()));
-
-      for (Artifact pchFile : artifacts.getPchFile().asSet()) {
-        targetControl
-            .setPchPath(pchFile.getExecPathString())
-            .addHeaderFile(pchFile.getExecPathString());
-      }
-    }
-    return xcodeProvider(targetControl.build(), depXcodeProviders);
-  }
-
-  static Iterable<PathFragment> userHeaderSearchPaths(BuildConfiguration configuration) {
+  static ImmutableList<PathFragment> userHeaderSearchPaths(BuildConfiguration configuration) {
     return ImmutableList.of(
         new PathFragment("."),
         configuration.getGenfilesFragment());
@@ -484,7 +406,7 @@ final class ObjcCommon {
       Optional<XcodeProvider> maybeTargetProvider, Optional<ObjcProvider> maybeExportedProvider) {
     NestedSet<Artifact> allFilesToBuild = NestedSetBuilder.<Artifact>stableOrder()
         .addTransitive(filesToBuild)
-        .addAll(Storyboard.outputZips(storyboards))
+        .addTransitive(storyboards.getOutputZips())
         .build();
 
     RunfilesProvider runfilesProvider = RunfilesProvider.withData(

@@ -27,8 +27,8 @@ genrule_skylark(
 
 
 def resolve_command(ctx, command, resolved_srcs, files_to_build):
-  variables = {"SRCS": files.join_exec_paths(" ", list(resolved_srcs)),
-               "OUTS": files.join_exec_paths(" ", list(files_to_build))}
+  variables = {"SRCS": file_helper.join_exec_paths(" ", list(resolved_srcs)),
+               "OUTS": file_helper.join_exec_paths(" ", list(files_to_build))}
   if len(resolved_srcs) == 1:
     variables["<"] = list(resolved_srcs)[0].path
   if len(files_to_build) == 1:
@@ -50,9 +50,8 @@ def create(ctx):
 
   label_dict = {}
   for dep in ctx.targets.srcs:
-    files = provider(dep, "FileProvider").files_to_build
-    resolved_srcs += files
-    label_dict[dep.label] = files
+    resolved_srcs += dep.files
+    label_dict[dep.label] = dep.files
 
   command_helper = ctx.command_helper(
       tools=ctx.targets.tools,
@@ -92,11 +91,11 @@ def create(ctx):
 
   # Executable has to be specified explicitly
   if ctx.attr.executable:
-    return struct(files_to_build=files_to_build,
+    return struct(files=files_to_build,
                   data_runfiles=ctx.runfiles(transitive_files=files_to_build),
                   executable=list(files_to_build)[0])
   else:
-    return struct(files_to_build=files_to_build,
+    return struct(files=files_to_build,
                   data_runfiles=ctx.runfiles(transitive_files=files_to_build))
 
 

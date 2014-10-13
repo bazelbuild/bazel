@@ -91,10 +91,6 @@ public final class RedirectChaser {
             "filegroup".equals(((Rule) possibleRedirect).getRuleClass())) {
           List<Label> labels = new StaticValuedAttributeMapper((Rule) possibleRedirect)
               .getAndValidate("srcs", Type.LABEL_LIST);
-          if (labels.isEmpty()) {
-            throw new InvalidConfigurationException("The " + name
-                + " points to an empty filegroup");
-          }
           if (labels.size() != 1) {
             // We can't distinguish redirects from the final filegroup, so we assume this must be
             // the final one.

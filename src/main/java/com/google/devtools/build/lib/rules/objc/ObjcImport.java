@@ -17,7 +17,6 @@ package com.google.devtools.build.lib.rules.objc;
 import static com.google.devtools.build.lib.rules.objc.XcodeProductType.LIBRARY_STATIC;
 
 import com.google.common.base.Optional;
-import com.google.common.collect.ImmutableList;
 import com.google.devtools.build.lib.actions.Artifact;
 import com.google.devtools.build.lib.collect.nestedset.NestedSetBuilder;
 import com.google.devtools.build.lib.packages.Type;
@@ -25,8 +24,6 @@ import com.google.devtools.build.lib.rules.RuleConfiguredTargetFactory;
 import com.google.devtools.build.lib.view.ConfiguredTarget;
 import com.google.devtools.build.lib.view.RuleConfiguredTarget.Mode;
 import com.google.devtools.build.lib.view.RuleContext;
-import com.google.devtools.build.xcode.xcodegen.proto.XcodeGenProtos.DependencyControl;
-import com.google.devtools.build.xcode.xcodegen.proto.XcodeGenProtos.XcodeprojBuildSetting;
 
 /**
  * Implementation for {@code objc_import}.
@@ -38,19 +35,21 @@ public class ObjcImport implements RuleConfiguredTargetFactory {
         .addAssetCatalogs(ruleContext.getPrerequisiteArtifacts("asset_catalogs", Mode.TARGET))
         .addSdkDylibs(ruleContext.attributes().get("sdk_dylibs", Type.STRING_LIST))
         .addHdrs(ruleContext.getPrerequisiteArtifacts("hdrs", Mode.TARGET))
-        .addStoryboards(ruleContext.getPrerequisiteArtifacts("storyboards", Mode.TARGET))
+        .addStoryboardInputs(ruleContext.getPrerequisiteArtifacts("storyboards", Mode.TARGET))
         .setIntermediateArtifacts(ObjcBase.intermediateArtifacts(ruleContext))
         .build();
     common.reportErrors();
 
     OptionsProvider optionsProvider = OptionsProvider.DEFAULT;
-    XcodeProvider xcodeProvider = common.xcodeProvider(
-        /*maybeInfoplistFile=*/Optional.<Artifact>absent(),
-        ImmutableList.<DependencyControl>of(),
-        ImmutableList.<XcodeprojBuildSetting>of(),
-        optionsProvider.getCopts(),
-        LIBRARY_STATIC,
-        ImmutableList.<XcodeProvider>of());
+    XcodeProvider xcodeProvider = new XcodeProvider.Builder()
+        .setLabel(ruleContext.getLabel())
+        .addUserHeaderSearchPaths(ObjcCommon.userHeaderSearchPaths(ruleContext.getConfiguration()))
+        .addCopts(optionsProvider.getCopts())
+        .setProductType(LIBRARY_STATIC)
+        .addHeaders(common.getHdrs())
+        .setObjcProvider(common.getObjcProvider())
+        .build();
+
     ObjcBase.registerActions(ruleContext, xcodeProvider, common.getStoryboards());
 
     return common.configuredTarget(

@@ -14,9 +14,15 @@
 
 package com.google.devtools.common.options;
 
+import static org.junit.Assert.assertEquals;
+import static org.junit.Assert.fail;
+
 import com.google.common.collect.Maps;
 
-import junit.framework.TestCase;
+import org.junit.Before;
+import org.junit.Test;
+import org.junit.runner.RunWith;
+import org.junit.runners.JUnit4;
 
 import java.util.Map;
 
@@ -24,7 +30,7 @@ import java.util.Map;
  * Test for {@link Converters.AssignmentConverter} and
  * {@link Converters.OptionalAssignmentConverter}.
  */
-public abstract class AssignmentConverterTest extends TestCase {
+public abstract class AssignmentConverterTest {
 
   protected Converter<Map.Entry<String, String>> converter = null;
 
@@ -34,19 +40,20 @@ public abstract class AssignmentConverterTest extends TestCase {
     return converter.convert(input);
   }
 
-  @Override
-  protected void setUp() throws Exception {
-    super.setUp();
+  @Before
+  public void setUp() throws Exception {
     setConverter();
   }
 
-  public void testAssignment() throws Exception {
+  @Test
+  public void assignment() throws Exception {
     assertEquals(Maps.immutableEntry("A", "1"), convert("A=1"));
     assertEquals(Maps.immutableEntry("A", "ABC"), convert("A=ABC"));
     assertEquals(Maps.immutableEntry("A", ""), convert("A="));
   }
 
-  public void testMissingName() throws Exception {
+  @Test
+  public void missingName() throws Exception {
     try {
       convert("=VALUE");
       fail();
@@ -55,7 +62,8 @@ public abstract class AssignmentConverterTest extends TestCase {
     }
   }
 
-  public void testEmptyString() throws Exception {
+  @Test
+  public void emptyString() throws Exception {
     try {
       convert("");
       fail();
@@ -64,8 +72,8 @@ public abstract class AssignmentConverterTest extends TestCase {
     }
   }
 
-  abstract public void testMissingValue() throws Exception;
 
+  @RunWith(JUnit4.class)
   public static class MandatoryAssignmentConverterTest extends AssignmentConverterTest {
 
     @Override
@@ -73,8 +81,8 @@ public abstract class AssignmentConverterTest extends TestCase {
       converter = new Converters.AssignmentConverter();
     }
 
-    @Override
-    public void testMissingValue() throws Exception {
+    @Test
+    public void missingValue() throws Exception {
       try {
         convert("NAME");
         fail();
@@ -84,6 +92,7 @@ public abstract class AssignmentConverterTest extends TestCase {
     }
   }
 
+  @RunWith(JUnit4.class)
   public static class OptionalAssignmentConverterTest extends AssignmentConverterTest {
 
     @Override
@@ -91,8 +100,8 @@ public abstract class AssignmentConverterTest extends TestCase {
       converter = new Converters.OptionalAssignmentConverter();
     }
 
-    @Override
-    public void testMissingValue() throws Exception {
+    @Test
+    public void missingValue() throws Exception {
       assertEquals(Maps.immutableEntry("NAME", null), convert("NAME"));
     }
   }

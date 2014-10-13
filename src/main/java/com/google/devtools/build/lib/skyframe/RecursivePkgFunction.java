@@ -18,6 +18,7 @@ import com.google.devtools.build.lib.collect.nestedset.NestedSetBuilder;
 import com.google.devtools.build.lib.collect.nestedset.Order;
 import com.google.devtools.build.lib.events.Event;
 import com.google.devtools.build.lib.packages.NoSuchPackageException;
+import com.google.devtools.build.lib.packages.PackageIdentifier;
 import com.google.devtools.build.lib.pkgcache.PathPackageLocator;
 import com.google.devtools.build.lib.vfs.Dirent;
 import com.google.devtools.build.lib.vfs.Dirent.Type;
@@ -66,8 +67,10 @@ public class RecursivePkgFunction implements SkyFunction {
       return new RecursivePkgValue(NestedSetBuilder.<String>emptySet(ORDER));
     }
 
+    PackageIdentifier packageId = PackageIdentifier.createInDefaultRepo(
+        rootRelativePath.getPathString());
     PackageLookupValue pkgLookupValue =
-        (PackageLookupValue) env.getValue(PackageLookupValue.key(rootRelativePath));
+        (PackageLookupValue) env.getValue(PackageLookupValue.key(packageId));
     if (pkgLookupValue == null) {
       return null;
     }
@@ -78,7 +81,7 @@ public class RecursivePkgFunction implements SkyFunction {
       if (pkgLookupValue.getRoot().equals(root)) {
         try {
           PackageValue pkgValue = (PackageValue)
-              env.getValueOrThrow(PackageValue.key(rootRelativePath),
+              env.getValueOrThrow(PackageValue.key(packageId),
                   NoSuchPackageException.class);
           if (pkgValue == null) {
             return null;

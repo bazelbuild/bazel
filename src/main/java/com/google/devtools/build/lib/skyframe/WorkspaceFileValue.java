@@ -15,7 +15,7 @@
 package com.google.devtools.build.lib.skyframe;
 
 import com.google.devtools.build.lib.packages.ExternalPackage;
-import com.google.devtools.build.lib.vfs.Path;
+import com.google.devtools.build.lib.vfs.RootedPath;
 import com.google.devtools.build.skyframe.SkyKey;
 import com.google.devtools.build.skyframe.SkyValue;
 
@@ -52,7 +52,7 @@ public class WorkspaceFileValue implements SkyValue {
   /**
    * Generates a SkyKey based on the path to the WORKSPACE file.
    */
-  public static SkyKey key(Path workspacePath) {
+  public static SkyKey key(RootedPath workspacePath) {
     return new SkyKey(SkyFunctions.WORKSPACE_FILE, workspacePath);
   }
 

@@ -30,7 +30,7 @@ import java.util.Map;
 /**
  * A Skylark module class to create memory efficient command lines.
  */
-@SkylarkModule(name = "cmd", namespace = true,
+@SkylarkModule(name = "cmd_helper", namespace = true,
     doc = "Module for creating memory efficient command lines.")
 public class SkylarkCommandLine {
 
@@ -41,7 +41,8 @@ public class SkylarkCommandLine {
       returnType = String.class,
       mandatoryParams = {
       @Param(name = "separator", type = String.class, doc = "the separator string to join on"),
-      @Param(name = "files", type = SkylarkNestedSet.class, doc = "the files to concatenate")})
+      @Param(name = "files", type = SkylarkNestedSet.class, generic1 = Artifact.class,
+             doc = "the files to concatenate")})
   private static SimpleSkylarkFunction joinExecPaths =
       new SimpleSkylarkFunction("join_exec_paths") {
     @Override

@@ -35,6 +35,7 @@ import com.google.devtools.build.lib.packages.NoSuchThingException;
 import com.google.devtools.build.lib.packages.OutputFile;
 import com.google.devtools.build.lib.packages.Package;
 import com.google.devtools.build.lib.packages.PackageGroup;
+import com.google.devtools.build.lib.packages.PackageIdentifier;
 import com.google.devtools.build.lib.packages.Rule;
 import com.google.devtools.build.lib.packages.Target;
 import com.google.devtools.build.lib.pkgcache.PackageProvider;
@@ -295,7 +296,8 @@ final class LabelVisitor {
         for (int n = counter.getAndIncrement(); n < size; n = counter.getAndIncrement()) {
           try {
             Package p = packages.get(n);
-            if (p != packageProvider.getPackage(eventHandler, p.getName())) {
+            if (p != packageProvider.getPackage(
+                eventHandler, PackageIdentifier.createInDefaultRepo(p.getName()))) {
               failure.set(true);
               return;
             }

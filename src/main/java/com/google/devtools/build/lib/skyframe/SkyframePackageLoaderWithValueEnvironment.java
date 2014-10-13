@@ -19,12 +19,12 @@ import com.google.devtools.build.lib.blaze.BlazeDirectories;
 import com.google.devtools.build.lib.packages.NoSuchPackageException;
 import com.google.devtools.build.lib.packages.NoSuchTargetException;
 import com.google.devtools.build.lib.packages.Package;
+import com.google.devtools.build.lib.packages.PackageIdentifier;
 import com.google.devtools.build.lib.packages.Target;
 import com.google.devtools.build.lib.skyframe.SkyframeExecutor.SkyframePackageLoader;
 import com.google.devtools.build.lib.syntax.Label;
 import com.google.devtools.build.lib.syntax.Label.SyntaxException;
 import com.google.devtools.build.lib.vfs.Path;
-import com.google.devtools.build.lib.vfs.PathFragment;
 import com.google.devtools.build.lib.view.config.BuildConfiguration.Fragment;
 import com.google.devtools.build.lib.view.config.BuildOptions;
 import com.google.devtools.build.lib.view.config.InvalidConfigurationException;
@@ -48,16 +48,17 @@ class SkyframePackageLoaderWithValueEnvironment implements
     this.env = env;
   }
 
-  private Package getPackage(String packageName) throws NoSuchPackageException{
-    SkyKey key = PackageValue.key(new PathFragment(packageName));
+  private Package getPackage(PackageIdentifier pkgIdentifier) throws NoSuchPackageException{
+    SkyKey key = PackageValue.key(pkgIdentifier);
     PackageValue value = (PackageValue) env.getValueOrThrow(key, NoSuchPackageException.class);
     return value == null ? null : value.getPackage();
   }
 
   @Override
-  public Package getLoadedPackage(final String packageName) throws NoSuchPackageException {
+  public Package getLoadedPackage(final PackageIdentifier pkgIdentifier)
+      throws NoSuchPackageException {
     try {
-      return getPackage(packageName);
+      return getPackage(pkgIdentifier);
     } catch (NoSuchPackageException e) {
       if (e.getPackage() != null) {
         return e.getPackage();
@@ -69,7 +70,7 @@ class SkyframePackageLoaderWithValueEnvironment implements
   @Override
   public Target getLoadedTarget(Label label) throws NoSuchPackageException,
       NoSuchTargetException {
-    Package pkg = getLoadedPackage(label.getPackageName());
+    Package pkg = getLoadedPackage(label.getPackageIdentifier());
     return pkg == null ? null : pkg.getTarget(label.getName());
   }
 

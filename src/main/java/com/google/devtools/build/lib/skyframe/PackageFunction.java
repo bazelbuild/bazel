@@ -34,6 +34,7 @@ import com.google.devtools.build.lib.packages.InvalidPackageNameException;
 import com.google.devtools.build.lib.packages.NoSuchPackageException;
 import com.google.devtools.build.lib.packages.Package;
 import com.google.devtools.build.lib.packages.PackageFactory;
+import com.google.devtools.build.lib.packages.PackageIdentifier;
 import com.google.devtools.build.lib.packages.PackageLoadedEvent;
 import com.google.devtools.build.lib.packages.RuleVisibility;
 import com.google.devtools.build.lib.packages.Target;
@@ -41,7 +42,6 @@ import com.google.devtools.build.lib.skyframe.GlobValue.InvalidGlobPatternExcept
 import com.google.devtools.build.lib.skyframe.SkylarkImportLookupFunction.SkylarkImportNotFoundException;
 import com.google.devtools.build.lib.syntax.BuildFileAST;
 import com.google.devtools.build.lib.syntax.Label;
-import com.google.devtools.build.lib.syntax.Label.SyntaxException;
 import com.google.devtools.build.lib.syntax.ParserInputSource;
 import com.google.devtools.build.lib.syntax.SkylarkEnvironment;
 import com.google.devtools.build.lib.syntax.Statement;
@@ -129,7 +129,7 @@ public class PackageFunction implements SkyFunction {
     ImmutableMap.Builder<PathFragment, PackageLookupValue> builder = ImmutableMap.builder();
     for (Map.Entry<SkyKey, ValueOrException<Exception>> entry :
         env.getValuesOrThrow(depKeys, Exception.class).entrySet()) {
-      PathFragment pkgName = (PathFragment) entry.getKey().argument();
+      PathFragment pkgName = ((PackageIdentifier) entry.getKey().argument()).getPackageFragment();
       try {
         PackageLookupValue value = (PackageLookupValue) entry.getValue().get();
         if (value != null) {
@@ -295,14 +295,16 @@ public class PackageFunction implements SkyFunction {
    * @throws PackageFunctionException if there is an error computing the workspace file or adding
    * its rules to the //external package.
    */
-  private SkyValue getExternalPackage(SkyKey key, Environment env, Path workspaceRoot)
-      throws PackageFunctionException {
-    Path workspacePath = workspaceRoot.getRelative("WORKSPACE");
+  private SkyValue getExternalPackage(SkyKey key, Environment env,
+      Path packageLookupPath) throws PackageFunctionException {
+    RootedPath workspacePath = RootedPath.toRootedPath(
+        packageLookupPath, new PathFragment("WORKSPACE"));
     SkyKey workspaceKey = WorkspaceFileValue.key(workspacePath);
     WorkspaceFileValue workspace = null;
     try {
       workspace = (WorkspaceFileValue) env.getValueOrThrow(workspaceKey, Exception.class);
-    } catch (IOException | SyntaxException e) {
+    } catch (IOException | SkyFunctionException | FileSymlinkCycleException |
+        InconsistentFilesystemException e) {
       throw new PackageFunctionException(key, new BadWorkspaceFileException(e.getMessage()));
     } catch (Exception e) {
       throw new IllegalStateException("Unexpected Exception type from WorkspaceFileValue.", e);
@@ -323,10 +325,11 @@ public class PackageFunction implements SkyFunction {
   @Override
   public SkyValue compute(SkyKey key, Environment env) throws PackageFunctionException,
       InterruptedException {
-    PathFragment packageNameFragment = (PathFragment) key.argument();
+    PackageIdentifier packageKey = (PackageIdentifier) key.argument();
+    PathFragment packageNameFragment = packageKey.getPackageFragment();
     String packageName = packageNameFragment.getPathString();
 
-    SkyKey packageLookupKey = PackageLookupValue.key(packageNameFragment);
+    SkyKey packageLookupKey = PackageLookupValue.key(packageKey);
     PackageLookupValue packageLookupValue;
     try {
       packageLookupValue = (PackageLookupValue)
@@ -362,8 +365,21 @@ public class PackageFunction implements SkyFunction {
       return getExternalPackage(key, env, packageLookupValue.getRoot());
     }
 
-    Path buildFilePath =
-        packageLookupValue.getRoot().getRelative(packageNameFragment).getChild("BUILD");
+    RootedPath buildFileRootedPath = RootedPath.toRootedPath(packageLookupValue.getRoot(),
+        packageNameFragment.getChild("BUILD"));
+    FileValue buildFileValue;
+    try {
+      buildFileValue = (FileValue) env.getValueOrThrow(FileValue.key(buildFileRootedPath),
+          Exception.class);
+    } catch (IOException | FileSymlinkCycleException | InconsistentFilesystemException e) {
+      throw new IllegalStateException("Package lookup succeeded but encountered error when "
+          + "getting FileValue for BUILD file directly.", e);
+    } catch (Exception e) {
+      throw new IllegalStateException("Unexpected Exception type from FileValue.", e);
+    }
+    Preconditions.checkState(buildFileValue.exists(),
+        "Package lookup succeeded but BUILD file doesn't exist");
+    Path buildFilePath = buildFileRootedPath.asPath();
 
     String replacementContents = null;
     if (packageName.equals(DEFAULTS_PACKAGE_NAME)) {

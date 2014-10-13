@@ -78,10 +78,6 @@ public final class ConfiguredTargetValue extends ActionLookupValue {
     return key(new LabelAndConfiguration(label, configuration));
   }
 
-  static SkyKey key(ConfiguredTarget ct) {
-    return key(ct.getLabel(), ct.getConfiguration());
-  }
-
   static ImmutableList<SkyKey> keys(Iterable<LabelAndConfiguration> lacs) {
     ImmutableList.Builder<SkyKey> keys = ImmutableList.builder();
     for (LabelAndConfiguration lac : lacs) {

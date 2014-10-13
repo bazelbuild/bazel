@@ -18,7 +18,6 @@ import com.google.common.collect.Sets;
 import com.google.devtools.build.lib.util.BlazeClock;
 import com.google.devtools.build.lib.util.ExitCode;
 
-import junit.framework.AssertionFailedError;
 import junit.framework.ComparisonFailure;
 import junit.framework.TestCase;
 
@@ -48,25 +47,6 @@ public abstract class ChattyAssertsTestCase extends TestCase {
     super.tearDown();
   }
 
-  private static class ChattyComparisonFailure extends AssertionFailedError {
-
-    private final String expected;
-    private final String actual;
-
-    public ChattyComparisonFailure(String message, String expected,
-        String actual) {
-      super(message);
-      this.expected = expected;
-      this.actual = actual;
-    }
-
-    @Override
-    public String getMessage() {
-      return chattyFormat(super.getMessage(), expected, actual);
-    }
-
-  }
-
   /**
    * Asserts that two objects are equal. If they are not
    * an AssertionFailedError is thrown with the given message.
@@ -87,13 +67,6 @@ public abstract class ChattyAssertsTestCase extends TestCase {
     assertEquals(null, expected, actual);
   }
 
-  static boolean CHATTY_FAILURES = false;
-  static {
-    if (System.getenv().containsKey("CHATTY_COMPARISON_FAILURES")) {
-      CHATTY_FAILURES = true;
-    }
-  }
-
   /**
    * Asserts that two Strings are equal.
    */
@@ -108,9 +81,6 @@ public abstract class ChattyAssertsTestCase extends TestCase {
    * Report two Strings as different.
    */
   public static void comparisonFailure(String message, String expected, String actual) {
-    if (CHATTY_FAILURES) {
-      throw new ChattyComparisonFailure(message, expected, actual);
-    }
     throw new ComparisonFailure(message, expected, actual);
   }
 

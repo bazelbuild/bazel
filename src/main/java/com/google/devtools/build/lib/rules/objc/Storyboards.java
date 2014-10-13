@@ -18,17 +18,16 @@ import static com.google.devtools.build.lib.rules.objc.IosSdkCommands.IBTOOL_PAT
 import static com.google.devtools.build.lib.rules.objc.IosSdkCommands.MINIMUM_OS_VERSION;
 
 import com.google.common.collect.ImmutableList;
-import com.google.common.collect.ImmutableMap;
-import com.google.common.collect.ImmutableSet;
 import com.google.devtools.build.lib.actions.Artifact;
 import com.google.devtools.build.lib.collect.nestedset.NestedSet;
 import com.google.devtools.build.lib.collect.nestedset.NestedSetBuilder;
+import com.google.devtools.build.lib.collect.nestedset.Order;
 import com.google.devtools.build.lib.packages.RuleClass.Builder;
 import com.google.devtools.build.lib.view.actions.CommandLine;
-import com.google.devtools.build.xcode.util.Value;
 
 /**
- * Represents a {@code .storyboard} artifact. A storyboard:
+ * Contains information about storyboards for a single target. This does not include information
+ * about the transitive closure. A storyboard:
  * <ul>
  *   <li>Is a single file with an extension of {@code .storyboard} in its uncompiled, checked-in
  *       form.
@@ -39,25 +38,28 @@ import com.google.devtools.build.xcode.util.Value;
  * <p>Because {@code ibtool}'s arguments are very similar to {@code actool}, we use
  * {@code actoolzip} to invoke it, with the argument which is usually the path to {@code actool}
  * replaced with the path to {@code ibtool}.
+ *
+ * <p>The {@link NestedSet}s stored in this class are only one level deep, and do not include the
+ * storyboards in the transitive closure. This is to facilitate structural sharing between copies
+ * of the sequences - the output zips can be added transitively to the inputs of the merge bundle
+ * action, as well as to the files to build set, and only one instance of the sequence exists for
+ * each set.
  */
-final class Storyboard extends Value<Storyboard> {
-  private final Artifact outputZip;
-  private final Artifact input;
+final class Storyboards {
+  private final NestedSet<Artifact> outputZips;
+  private final NestedSet<Artifact> inputs;
 
-  Storyboard(Artifact outputZip, Artifact input) {
-    super(ImmutableMap.of(
-        "outputZip", outputZip,
-        "input", input));
-    this.outputZip = outputZip;
-    this.input = input;
+  private Storyboards(NestedSet<Artifact> outputZips, NestedSet<Artifact> inputs) {
+    this.outputZips = outputZips;
+    this.inputs = inputs;
   }
 
-  public Artifact getOutputZip() {
-    return outputZip;
+  public NestedSet<Artifact> getOutputZips() {
+    return outputZips;
   }
 
-  public Artifact getInput() {
-    return input;
+  public NestedSet<Artifact> getInputs() {
+    return inputs;
   }
 
   /**
@@ -65,28 +67,19 @@ final class Storyboard extends Value<Storyboard> {
    * @param inputs the {@code .storyboard} files.
    * @param intermediateArtifacts the object used to determine the output zip {@link Artifact}s.
    */
-  static NestedSet<Storyboard> storyboards(
+  static Storyboards fromInputs(
       Iterable<Artifact> inputs, IntermediateArtifacts intermediateArtifacts) {
-    NestedSetBuilder<Storyboard> result = NestedSetBuilder.stableOrder();
+    NestedSetBuilder<Artifact> outputZips = NestedSetBuilder.stableOrder();
     for (Artifact input : inputs) {
-      Artifact outputZip = intermediateArtifacts.compiledStoryboardZip(input);
-      result.add(new Storyboard(outputZip, input));
+      outputZips.add(intermediateArtifacts.compiledStoryboardZip(input));
     }
-    return result.build();
-  }
-
-  static ImmutableSet<Artifact> outputZips(Iterable<Storyboard> storyboards) {
-    ImmutableSet.Builder<Artifact> outputZips = new ImmutableSet.Builder<>();
-    for (Storyboard storyboard : storyboards) {
-      outputZips.add(storyboard.getOutputZip());
-    }
-    return outputZips.build();
+    return new Storyboards(outputZips.build(), NestedSetBuilder.wrap(Order.STABLE_ORDER, inputs));
   }
 
   /**
-   * Returns the command line that can be used to compile this storyboard and zip the results.
+   * Returns the command line that can be used to compile a storyboard and zip the results.
    */
-  CommandLine ibtoolzipCommandLine() {
+  static CommandLine ibtoolzipCommandLine(final Artifact input, final Artifact outputZip) {
     return new CommandLine() {
       @Override
       public Iterable<String> arguments() {

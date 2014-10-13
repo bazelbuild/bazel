@@ -22,7 +22,6 @@ import com.google.devtools.build.lib.actions.ActionOwner;
 import com.google.devtools.build.lib.actions.Artifact;
 import com.google.devtools.build.lib.actions.MiddlemanFactory;
 import com.google.devtools.build.lib.actions.Root;
-import com.google.devtools.build.lib.collect.nestedset.NestedSet;
 import com.google.devtools.build.lib.collect.nestedset.NestedSetBuilder;
 import com.google.devtools.build.lib.packages.Type;
 import com.google.devtools.build.lib.rules.cpp.CcLinkParams.Linkstamp;
@@ -220,27 +219,6 @@ public class CppHelper {
   }
 
   /**
-   * Returns the artifacts required for crosstool compilations. These artifacts
-   * are usually middleman artifacts that have to be expanded before being added
-   * to the set of files necessary to execute an action.
-   */
-  public static NestedSet<Artifact> getCrosstoolInputsForCompile(RuleContext ruleContext) {
-    return getCrosstoolInputsForCompile(ruleContext, false);
-  }
-
-  public static NestedSet<Artifact> getCrosstoolInputsForCompile(RuleContext ruleContext,
-      boolean forGo) {
-    CcToolchainProvider provider = getToolchain(ruleContext);
-
-    // If include scanning is disabled, we need the entire crosstool filegroup, including header
-    // files. If it is enabled, we use the filegroup without header files - they are found by
-    // include scanning. For go, we also don't need the header files.
-    return ruleContext.getFragment(CppConfiguration.class).shouldScanIncludes() && !forGo
-        ? provider.getCompile()
-        : provider.getCrosstool();
-  }
-
-  /**
    * Returns the directory where object files are created.
    */
   public static PathFragment getObjDirectory(Label ruleLabel) {
@@ -328,34 +306,6 @@ public class CppHelper {
       result.put(artifact, pair.getDeclaredIncludeSrcs());
     }
     return result;
-  }
-
-  /**
-   * Add the linkstamps to the given builder. If include scanning is disabled, the method also adds
-   * the source files from the context of each linkstamp, and the crosstool compile inputs (for the
-   * header files shipped with the compiler).
-   */
-  public static void addLinkstamps(RuleContext ruleContext, CppLinkAction.Builder builder,
-      Map<Artifact, ImmutableList<Artifact>> linkstamps) {
-    builder.addLinkstamps(linkstamps.keySet());
-    // Add inputs for linkstamping.
-    if (!linkstamps.isEmpty() &&
-        !builder.getConfiguration().getFragment(CppConfiguration.class).shouldScanIncludes()) {
-      builder.addTransitiveCompilationInputs(
-          CppHelper.getCrosstoolInputsForCompile(ruleContext));
-      for (Map.Entry<Artifact, ImmutableList<Artifact>> entry : linkstamps.entrySet()) {
-        builder.addCompilationInputs(entry.getValue());
-      }
-    }
-  }
-
-  /**
-   * Convenience method to do {@code addLinkstamps(ruleContext, builder,
-   * resolveLinkstamps(ruleContext, linkParams))}.
-   */
-  public static void addLinkstamps(RuleContext ruleContext, CppLinkAction.Builder builder,
-      CcLinkParams linkParams) {
-    addLinkstamps(ruleContext, builder, resolveLinkstamps(ruleContext, linkParams));
   }
 
   public static void addTransitiveLipoInfoForCommonAttributes(

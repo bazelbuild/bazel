@@ -14,12 +14,17 @@
 
 package com.google.devtools.common.options;
 
-import junit.framework.TestCase;
+import static org.junit.Assert.assertEquals;
+
+import org.junit.Test;
+import org.junit.runner.RunWith;
+import org.junit.runners.JUnit4;
 
 /**
  * Tests {@link GenericTypeHelper}.
  */
-public class GenericTypeHelperTest extends TestCase {
+@RunWith(JUnit4.class)
+public class GenericTypeHelperTest {
 
   private static interface DoSomething<T> {
     T doIt();
@@ -52,15 +57,18 @@ public class GenericTypeHelperTest extends TestCase {
             implementingClass.getMethod("doIt")));
   }
 
-  public void testGetConverterType() throws Exception {
+  @Test
+  public void getConverterType() throws Exception {
     assertDoIt(String.class, StringSomething.class);
   }
 
-  public void testGetConverterTypeForGenericExtension() throws Exception {
+  @Test
+  public void getConverterTypeForGenericExtension() throws Exception {
     assertDoIt(String.class, AlphabetSomething.class);
   }
 
-  public void testGetConverterTypeForGenericExtensionSecondGrade() throws Exception {
+  @Test
+  public void getConverterTypeForGenericExtensionSecondGrade() throws Exception {
     assertDoIt(String.class, AlphabetTwoSomething.class);
   }
 }

@@ -144,6 +144,7 @@ public class CcToolchain implements RuleConfiguredTargetFactory {
     boolean supportsParamFiles = ruleContext.attributes().get("supports_param_files", BOOLEAN);
 
     CcToolchainProvider provider = new CcToolchainProvider(
+        Preconditions.checkNotNull(ruleContext.getFragment(CppConfiguration.class)),
         crosstool,
         fullInputsForCrosstool(ruleContext, crosstoolMiddleman),
         compile,

@@ -13,18 +13,13 @@
 // limitations under the License.
 package com.google.devtools.common.options;
 
-import com.google.devtools.build.lib.testutil.TestSuiteBuilder;
+import com.google.devtools.build.lib.testutil.ClasspathSuite;
 
-import junit.framework.Test;
+import org.junit.runner.RunWith;
 
 /**
  * Test suite for options parsing framework.
  */
+@RunWith(ClasspathSuite.class)
 public class AllTests {
-  public static Test suite() {
-    return new TestSuiteBuilder()
-        .withClassPath()
-        .withName("AllTests")
-        .addPackageRecursive("com.google.devtools.common.options").create();
-  }
 }
