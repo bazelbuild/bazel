@@ -310,33 +310,37 @@ public class CppHelper {
 
   public static void addTransitiveLipoInfoForCommonAttributes(
       RuleContext ruleContext,
-      NestedSetBuilder<Label> builder) {
+      CcCompilationOutputs outputs,
+      NestedSetBuilder<IncludeScannable> scannableBuilder) {
 
-    FdoProfilingInfoProvider stl = null;
+    TransitiveLipoInfoProvider stl = null;
     if (ruleContext.getRule().getAttributeDefinition(":stl") != null &&
         ruleContext.getPrerequisite(":stl", Mode.TARGET) != null) {
       // If the attribute is defined, it is never null.
       stl = ruleContext.getPrerequisite(":stl", Mode.TARGET)
-          .getProvider(FdoProfilingInfoProvider.class);
+          .getProvider(TransitiveLipoInfoProvider.class);
     }
     if (stl != null) {
-      builder.addTransitive(stl.getTransitiveLipoLabels());
+      scannableBuilder.addTransitive(stl.getTransitiveIncludeScannables());
     }
 
-    for (FdoProfilingInfoProvider dep :
-        ruleContext.getPrerequisites("deps", Mode.TARGET, FdoProfilingInfoProvider.class)) {
-      builder.addTransitive(dep.getTransitiveLipoLabels());
+    for (TransitiveLipoInfoProvider dep :
+        ruleContext.getPrerequisites("deps", Mode.TARGET, TransitiveLipoInfoProvider.class)) {
+      scannableBuilder.addTransitive(dep.getTransitiveIncludeScannables());
     }
 
     if (ruleContext.getRule().getRuleClassObject().hasAttr("malloc", Type.LABEL)) {
       TransitiveInfoCollection malloc = mallocForTarget(ruleContext);
-      FdoProfilingInfoProvider provider = malloc.getProvider(FdoProfilingInfoProvider.class);
+      TransitiveLipoInfoProvider provider = malloc.getProvider(TransitiveLipoInfoProvider.class);
       if (provider != null) {
-        builder.addTransitive(provider.getTransitiveLipoLabels());
+        scannableBuilder.addTransitive(provider.getTransitiveIncludeScannables());
       }
     }
 
-    builder.add(ruleContext.getLabel());
+    for (IncludeScannable scannable : outputs.getLipoScannables()) {
+      Preconditions.checkState(scannable.getIncludeScannerSources().size() == 1);
+      scannableBuilder.add(scannable);
+    }
   }
 
   // TODO(bazel-team): figure out a way to merge these 2 methods. See the Todo in

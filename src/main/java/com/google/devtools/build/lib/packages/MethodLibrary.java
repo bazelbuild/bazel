@@ -385,7 +385,7 @@ public class MethodLibrary {
       };
 
   // substring operator
-  @SkylarkBuiltin(name = "substring", hidden = true,
+  @SkylarkBuiltin(name = "$substring", hidden = true,
       doc = "String[<code>start</code>:<code>end</code>] returns a substring.")
   private static Function substring = new SimplePositionalFunction("$substring", 3, 3) {
     @Override

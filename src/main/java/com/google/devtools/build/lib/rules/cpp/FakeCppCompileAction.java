@@ -88,6 +88,7 @@ public class FakeCppCompileAction extends CppCompileAction {
         // time, so they can't depend on the contents of the ".d" file.)
         CppCompilationContext.disallowUndeclaredHeaders(context), null, copts, pluginOpts, nocopts,
         extraSystemIncludePrefixes, enableModules, fdoBuildStamp, VOID_INCLUDE_RESOLVER,
+        ImmutableList.<IncludeScannable>of(),
         GUID);
     this.tempOutputFile = Preconditions.checkNotNull(tempOutputFile);
   }

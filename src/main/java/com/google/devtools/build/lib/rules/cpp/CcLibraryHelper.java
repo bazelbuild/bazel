@@ -641,7 +641,7 @@ public final class CcLibraryHelper {
     providers.put(CppCompilationContext.class, cppCompilationContext);
     providers.put(CppDebugFileProvider.class, new CppDebugFileProvider(
         dwoArtifacts.getDwoArtifacts(), dwoArtifacts.getPicDwoArtifacts()));
-    providers.put(FdoProfilingInfoProvider.class, collectTransitiveLipoInfo());
+    providers.put(TransitiveLipoInfoProvider.class, collectTransitiveLipoInfo(ccOutputs));
     providers.put(TempsProvider.class, getTemps(ccOutputs));
     if (emitCompileProviders) {
       providers.put(FilesToCompileProvider.class, new FilesToCompileProvider(
@@ -758,27 +758,30 @@ public final class CcLibraryHelper {
     return Iterables.filter(result, Predicates.<CppModuleMap>notNull());
   }
 
-  private FdoProfilingInfoProvider collectTransitiveLipoInfo() {
+  private TransitiveLipoInfoProvider collectTransitiveLipoInfo(CcCompilationOutputs outputs) {
     if (ruleContext.getFragment(CppConfiguration.class).getFdoSupport().getFdoRoot() == null) {
-      return FdoProfilingInfoProvider.EMPTY;
+      return TransitiveLipoInfoProvider.EMPTY;
     }
-    NestedSetBuilder<Label> builder = NestedSetBuilder.stableOrder();
+    NestedSetBuilder<IncludeScannable> scannableBuilder = NestedSetBuilder.stableOrder();
     // TODO(bazel-team): Only fetch the STL prerequisite in one place.
     TransitiveInfoCollection stl = ruleContext.getPrerequisite(":stl", Mode.TARGET);
     if (stl != null) {
-      FdoProfilingInfoProvider provider = stl.getProvider(FdoProfilingInfoProvider.class);
+      TransitiveLipoInfoProvider provider = stl.getProvider(TransitiveLipoInfoProvider.class);
       if (provider != null) {
-        builder.addTransitive(provider.getTransitiveLipoLabels());
+        scannableBuilder.addTransitive(provider.getTransitiveIncludeScannables());
       }
     }
 
-    for (FdoProfilingInfoProvider dep :
-        AnalysisUtils.getProviders(deps, FdoProfilingInfoProvider.class)) {
-      builder.addTransitive(dep.getTransitiveLipoLabels());
+    for (TransitiveLipoInfoProvider dep :
+        AnalysisUtils.getProviders(deps, TransitiveLipoInfoProvider.class)) {
+      scannableBuilder.addTransitive(dep.getTransitiveIncludeScannables());
     }
 
-    builder.add(ruleContext.getLabel());
-    return new FdoProfilingInfoProvider(builder.build());
+    for (IncludeScannable scannable : outputs.getLipoScannables()) {
+      Preconditions.checkState(scannable.getIncludeScannerSources().size() == 1);
+      scannableBuilder.add(scannable);
+    }
+    return new TransitiveLipoInfoProvider(scannableBuilder.build());
   }
 
   private Runfiles collectCppRunfiles(

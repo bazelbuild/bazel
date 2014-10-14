@@ -17,6 +17,9 @@ package com.google.devtools.build.lib.rules.objc;
 import static com.google.devtools.build.lib.rules.objc.ArtifactListAttribute.ARCHIVES;
 import static com.google.devtools.build.lib.rules.objc.ArtifactListAttribute.BUNDLE_IMPORTS;
 import static com.google.devtools.build.lib.rules.objc.ArtifactListAttribute.DATAMODELS;
+import static com.google.devtools.build.lib.rules.objc.ArtifactListAttribute.RESOURCES;
+import static com.google.devtools.build.lib.rules.objc.ArtifactListAttribute.STRINGS;
+import static com.google.devtools.build.lib.rules.objc.ArtifactListAttribute.XIBS;
 import static com.google.devtools.build.lib.rules.objc.ObjcProvider.ASSET_CATALOG;
 import static com.google.devtools.build.lib.rules.objc.ObjcProvider.BUNDLE_FILE;
 import static com.google.devtools.build.lib.rules.objc.ObjcProvider.BUNDLE_IMPORT_DIR;
@@ -31,7 +34,6 @@ import static com.google.devtools.build.lib.rules.objc.ObjcProvider.INCLUDE;
 import static com.google.devtools.build.lib.rules.objc.ObjcProvider.LIBRARY;
 import static com.google.devtools.build.lib.rules.objc.ObjcProvider.SDK_DYLIB;
 import static com.google.devtools.build.lib.rules.objc.ObjcProvider.SDK_FRAMEWORK;
-import static com.google.devtools.build.lib.rules.objc.ObjcProvider.STORYBOARD_INPUT;
 import static com.google.devtools.build.lib.rules.objc.ObjcProvider.STORYBOARD_OUTPUT_ZIP;
 import static com.google.devtools.build.lib.rules.objc.ObjcProvider.XCASSETS_DIR;
 import static com.google.devtools.build.lib.rules.objc.ObjcProvider.XCDATAMODEL;
@@ -140,10 +142,12 @@ final class ObjcCommon {
           .addAll(INCLUDE, headerSearchPaths(context))
           .addAll(XCASSETS_DIR, uniqueContainers(assetCatalogs, ASSET_CATALOG_CONTAINER_TYPE))
           .addAll(ASSET_CATALOG, assetCatalogs)
-          .addTransitive(STORYBOARD_INPUT, storyboards.getInputs())
+          .addTransitive(GENERAL_RESOURCE_FILE, storyboards.getInputs())
           .addTransitive(STORYBOARD_OUTPUT_ZIP, storyboards.getOutputZips())
           .addAll(IMPORTED_LIBRARY, ARCHIVES.get(context))
-          .addAll(GENERAL_RESOURCE_FILE, BundleableFile.generalResourceArtifactsFromRule(context))
+          .addAll(GENERAL_RESOURCE_FILE, RESOURCES.get(context))
+          .addAll(GENERAL_RESOURCE_FILE, STRINGS.get(context))
+          .addAll(GENERAL_RESOURCE_FILE, XIBS.get(context))
           .addAll(BUNDLE_FILE, BundleableFile.resourceFilesFromRule(context))
           .addAll(BUNDLE_FILE,
               Iterables.transform(compiledResources, CompiledResourceFile.TO_BUNDLED))

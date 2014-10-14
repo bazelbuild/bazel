@@ -80,8 +80,6 @@ final class ObjcProvider implements TransitiveInfoProvider {
   public static final Key<SdkFramework> SDK_FRAMEWORK = new Key<>(STABLE_ORDER);
   public static final Key<Xcdatamodel> XCDATAMODEL = new Key<>(STABLE_ORDER);
   public static final Key<Flag> FLAG = new Key<>(STABLE_ORDER);
-
-  public static final Key<Artifact> STORYBOARD_INPUT = new Key<>(STABLE_ORDER);
   public static final Key<Artifact> STORYBOARD_OUTPUT_ZIP = new Key<>(STABLE_ORDER);
 
   /**

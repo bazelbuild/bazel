@@ -13,18 +13,17 @@
 // limitations under the License.
 package com.google.devtools.build.lib.testutil;
 
-import com.google.common.base.Joiner;
+import static org.junit.Assert.fail;
+
 import com.google.common.collect.Sets;
 import com.google.devtools.build.lib.util.BlazeClock;
 import com.google.devtools.build.lib.util.ExitCode;
 
-import junit.framework.ComparisonFailure;
 import junit.framework.TestCase;
 
 import java.util.Arrays;
 import java.util.Objects;
 import java.util.Set;
-import java.util.regex.Pattern;
 
 /**
  * Most of this stuff is copied from junit's {@link junit.framework.Assert}
@@ -71,17 +70,7 @@ public abstract class ChattyAssertsTestCase extends TestCase {
    * Asserts that two Strings are equal.
    */
   public static void assertEquals(String message, String expected, String actual) {
-    if (Objects.equals(expected, actual)) {
-      return;
-    }
-    comparisonFailure(message, expected, actual);
-  }
-
-  /**
-   * Report two Strings as different.
-   */
-  public static void comparisonFailure(String message, String expected, String actual) {
-    throw new ComparisonFailure(message, expected, actual);
+    MoreAsserts.assertEquals(message, expected, actual);
   }
 
   /**
@@ -96,15 +85,12 @@ public abstract class ChattyAssertsTestCase extends TestCase {
    * independently of the operating system.
    */
   public static void assertEqualsUnifyingLineEnds(String expected, String actual) {
-    if (actual != null) {
-      actual = actual.replaceAll(System.getProperty("line.separator"), "\n");
-    }
-    assertEquals(expected, actual);
+    MoreAsserts.assertEqualsUnifyingLineEnds(expected, actual);
   }
 
   private static void chattyFailNotEquals(String message, Object expected,
       Object actual) {
-    fail(chattyFormat(message, expected, actual));
+    fail(MoreAsserts.chattyFormat(message, expected, actual));
   }
 
   /**
@@ -122,17 +108,11 @@ public abstract class ChattyAssertsTestCase extends TestCase {
    */
   public static void assertContainsWordsWithQuotes(String message,
                                                    String... strings) {
-    for (String string : strings) {
-      assertTrue(message + " should contain '" + string + "' (with quotes)",
-          message.contains("'" + string + "'"));
-    }
+    MoreAsserts.assertContainsWordsWithQuotes(message, strings);
   }
 
   public static void assertNonZeroExitCode(int exitCode, String stdout, String stderr) {
-    if (exitCode == 0) {
-      fail("expected non-zero exit code but exit code was 0 and stdout was <"
-          + stdout + "> and stderr was <" + stderr + ">");
-    }
+    MoreAsserts.assertNonZeroExitCode(exitCode, stdout, stderr);
   }
 
   public static void assertZeroExitCode(int exitCode, String stdout, String stderr) {
@@ -144,63 +124,35 @@ public abstract class ChattyAssertsTestCase extends TestCase {
     int expectedExitCodeValue = expectedExitCode.getNumericExitCode();
     if (exitCode != expectedExitCodeValue) {
       fail(String.format("expected exit code '%s' <%d> but exit code was <%d> and stdout was <%s> "
-          + "and stderr was <%s>",
-          expectedExitCode.name(), expectedExitCodeValue, exitCode, stdout, stderr));
+              + "and stderr was <%s>",
+              expectedExitCode.name(), expectedExitCodeValue, exitCode, stdout, stderr));
     }
   }
 
   public static void assertExitCode(int expectedExitCode,
       int exitCode, String stdout, String stderr) {
-    if (exitCode != expectedExitCode) {
-      fail(String.format("expected exit code <%d> but exit code was <%d> and stdout was <%s> "
-          + "and stderr was <%s>", expectedExitCode, exitCode, stdout, stderr));
-    }
+    MoreAsserts.assertExitCode(expectedExitCode, exitCode,  stdout, stderr);
   }
 
   public static void assertStdoutContainsString(String expected, String stdout, String stderr) {
-    if (!stdout.contains(expected)) {
-      fail("expected stdout to contain string <" + expected + "> but stdout was <"
-          + stdout + "> and stderr was <" + stderr + ">");
-    }
+    MoreAsserts.assertStdoutContainsString(expected, stdout, stderr);
   }
 
   public static void assertStderrContainsString(String expected, String stdout, String stderr) {
-    if (!stderr.contains(expected)) {
-      fail("expected stderr to contain string <" + expected + "> but stdout was <"
-          + stdout + "> and stderr was <" + stderr + ">");
-    }
+    MoreAsserts.assertStderrContainsString(expected, stdout, stderr);
   }
 
   public static void assertStdoutContainsRegex(String expectedRegex,
       String stdout, String stderr) {
-    if (!Pattern.compile(expectedRegex).matcher(stdout).find()) {
-      fail("expected stdout to contain regex <" + expectedRegex + "> but stdout was <"
-          + stdout + "> and stderr was <" + stderr + ">");
-    }
+    MoreAsserts.assertStdoutContainsRegex(expectedRegex, stdout, stderr);
   }
 
   public static void assertStderrContainsRegex(String expectedRegex,
       String stdout, String stderr) {
-    if (!Pattern.compile(expectedRegex).matcher(stderr).find()) {
-      fail("expected stderr to contain regex <" + expectedRegex + "> but stdout was <"
-          + stdout + "> and stderr was <" + stderr + ">");
-    }
+    MoreAsserts.assertStderrContainsRegex(expectedRegex, stdout, stderr);
   }
 
-  private static String getClassDescription(Object object) {
-    return object == null
-        ? "null"
-        : ("instance of " + object.getClass().getName());
-  }
 
-  static String chattyFormat(String message, Object expected, Object actual) {
-    String expectedClass = getClassDescription(expected);
-    String actualClass = getClassDescription(actual);
-
-    return Joiner.on('\n').join((message != null) ? ("\n" + message) : "",
-        "  expected " + expectedClass + ": <" + expected + ">",
-        "  but was " + actualClass + ": <" + actual + ">");
-  }
 
   /********************************************************************
    *                                                                  *
@@ -240,11 +192,7 @@ public abstract class ChattyAssertsTestCase extends TestCase {
    * Returns the arguments given as varargs as a set of sorted Strings.
    */
   protected static Set<String> asStringSet(Iterable<?> collection) {
-    Set<String> set = Sets.newTreeSet();
-    for (Object o : collection) {
-      set.add("\"" + String.valueOf(o) + "\"");
-    }
-    return set;
+    return MoreAsserts.asStringSet(collection);
   }
 
   /**
@@ -255,10 +203,7 @@ public abstract class ChattyAssertsTestCase extends TestCase {
    */
   protected static <T> void
       assertSameContents(Iterable<? extends T> expected, Iterable<? extends T> actual) {
-    if (!asSet(expected).equals(asSet(actual))) {
-      comparisonFailure("different contents",
-          asStringSet(expected).toString(), asStringSet(actual).toString());
-    }
+    MoreAsserts.assertSameContents(expected, actual);
   }
 
   /**
@@ -301,4 +246,5 @@ public abstract class ChattyAssertsTestCase extends TestCase {
       this.presence = presence;
     }
   }
+
 }

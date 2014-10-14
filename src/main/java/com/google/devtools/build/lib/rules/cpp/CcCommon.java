@@ -112,8 +112,6 @@ public final class CcCommon {
    */
   private final ImmutableList<String> linkopts;
 
-  private final NestedSet<Label> transitiveLipoInfo;
-
   private final InstrumentedFilesCollector instrumentedFilesCollector;
 
   private final RuleContext ruleContext;
@@ -149,8 +147,6 @@ public final class CcCommon {
     activePlugins = collectPluginInfo();
     copts = initCopts();
     linkopts = initLinkopts();
-
-    transitiveLipoInfo = collectTransitiveLipoLabels();
   }
 
   private CppCompilationContext createCppCompilationContext() {
@@ -266,20 +262,23 @@ public final class CcCommon {
         : DwoArtifactsCollector.transitiveCollector(compilationOutputs, deps.build());
   }
 
-  private NestedSet<Label> collectTransitiveLipoLabels() {
-    if (cppConfiguration.getFdoSupport().getFdoRoot() == null) {
-      return NestedSetBuilder.emptySet(Order.STABLE_ORDER);
+  public TransitiveLipoInfoProvider collectTransitiveLipoLabels(CcCompilationOutputs outputs) {
+    if (cppConfiguration.getFdoSupport().getFdoRoot() == null
+        || !cppConfiguration.isLipoContextCollector()) {
+      return TransitiveLipoInfoProvider.EMPTY;
     }
-    NestedSetBuilder<Label> builder = NestedSetBuilder.stableOrder();
-    CppHelper.addTransitiveLipoInfoForCommonAttributes(ruleContext, builder);
+
+    NestedSetBuilder<IncludeScannable> scannableBuilder = NestedSetBuilder.stableOrder();
+    CppHelper.addTransitiveLipoInfoForCommonAttributes(ruleContext, outputs, scannableBuilder);
     if (hasAttribute("implementation", Type.LABEL_LIST)) {
-      for (FdoProfilingInfoProvider impl : AnalysisUtils.getProviders(
+      for (TransitiveLipoInfoProvider impl : AnalysisUtils.getProviders(
           ruleContext.getPrerequisites("implementation", Mode.TARGET),
-          FdoProfilingInfoProvider.class)) {
-        builder.addTransitive(impl.getTransitiveLipoLabels());
+          TransitiveLipoInfoProvider.class)) {
+        scannableBuilder.addTransitive(impl.getTransitiveIncludeScannables());
       }
     }
-    return builder.build();
+
+    return new TransitiveLipoInfoProvider(scannableBuilder.build());
   }
 
   private NestedSet<LinkerInput> collectTransitiveCcNativeLibraries(
@@ -918,17 +917,14 @@ public final class CcCommon {
     }
   }
 
-  NestedSet<Label> getTransitiveLipoLabels() {
-    return transitiveLipoInfo;
-  }
-
   public void addTransitiveInfoProviders(RuleConfiguredTargetBuilder builder,
       NestedSet<Artifact> filesToBuild,
       CcCompilationOutputs ccCompilationOutputs,
       CcLinkingOutputs linkingOutputs,
-      DwoArtifactsCollector dwoArtifacts) {
+      DwoArtifactsCollector dwoArtifacts,
+      TransitiveLipoInfoProvider transitiveLipoInfo) {
     addTransitiveInfoProviders(builder, filesToBuild, ccCompilationOutputs,
-        createCppCompilationContext(), linkingOutputs, dwoArtifacts);
+        createCppCompilationContext(), linkingOutputs, dwoArtifacts, transitiveLipoInfo);
   }
 
   public void addTransitiveInfoProviders(RuleConfiguredTargetBuilder builder,
@@ -936,13 +932,14 @@ public final class CcCommon {
       CcCompilationOutputs ccCompilationOutputs,
       CppCompilationContext cppCompilationContext,
       CcLinkingOutputs linkingOutputs,
-      DwoArtifactsCollector dwoArtifacts) {
+      DwoArtifactsCollector dwoArtifacts,
+      TransitiveLipoInfoProvider transitiveLipoInfo) {
      Iterable<Artifact> objectFiles = ccCompilationOutputs.getObjectFiles(
          CppHelper.usePic(ruleContext, false));
      builder
          .setFilesToBuild(filesToBuild)
          .add(CppCompilationContext.class, cppCompilationContext)
-         .add(FdoProfilingInfoProvider.class, new FdoProfilingInfoProvider(transitiveLipoInfo))
+         .add(TransitiveLipoInfoProvider.class, transitiveLipoInfo)
          .add(CcExecutionDynamicLibrariesProvider.class,
              new CcExecutionDynamicLibrariesProvider(collectExecutionDynamicLibraryInputs(
                      ruleContext, linkingOutputs.getExecutionDynamicLibraries())))

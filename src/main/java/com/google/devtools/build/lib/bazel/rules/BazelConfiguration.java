@@ -15,6 +15,7 @@
 package com.google.devtools.build.lib.bazel.rules;
 
 import com.google.common.collect.ImmutableMap;
+import com.google.devtools.build.lib.util.OsUtils;
 import com.google.devtools.build.lib.vfs.PathFragment;
 import com.google.devtools.build.lib.view.config.BuildConfiguration.Fragment;
 import com.google.devtools.build.lib.view.config.BuildOptions;
@@ -57,6 +58,13 @@ public class BazelConfiguration extends Fragment {
 
   @Override
   public void defineExecutables(ImmutableMap.Builder<String, PathFragment> builder) {
+    if (OsUtils.isWindows()) {
+      String path = System.getenv("BAZEL_SH");
+      if (path != null) {
+        builder.put("sh", new PathFragment(path));
+        return;
+      }
+    }
     builder.put("sh", new PathFragment("/bin/bash"));
   }
 }

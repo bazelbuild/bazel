@@ -377,6 +377,9 @@ public class PackageFunction implements SkyFunction {
     } catch (Exception e) {
       throw new IllegalStateException("Unexpected Exception type from FileValue.", e);
     }
+    if (buildFileValue == null) {
+      return null;
+    }
     Preconditions.checkState(buildFileValue.exists(),
         "Package lookup succeeded but BUILD file doesn't exist");
     Path buildFilePath = buildFileRootedPath.asPath();

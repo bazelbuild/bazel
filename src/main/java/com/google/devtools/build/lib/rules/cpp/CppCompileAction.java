@@ -108,6 +108,7 @@ public class CppCompileAction extends AbstractAction implements IncludeScannable
   private final NestedSet<Artifact> mandatoryInputs;
   private final CppCompilationContext context;
   private final Collection<PathFragment> extraSystemIncludePrefixes;
+  private final Iterable<IncludeScannable> lipoScannables;
   private final CppCompileCommandLine cppCompileCommandLine;
   private final boolean enableModules;
 
@@ -170,6 +171,7 @@ public class CppCompileAction extends AbstractAction implements IncludeScannable
       boolean enableModules,
       @Nullable String fdoBuildStamp,
       IncludeResolver includeResolver,
+      Iterable<IncludeScannable> lipoScannables,
       UUID actionClassId) {
     // getInputs() method is overridden in this class so we pass a dummy empty
     // list to the AbstractAction constructor in place of a real input collection.
@@ -194,6 +196,7 @@ public class CppCompileAction extends AbstractAction implements IncludeScannable
         context.getCppModuleMap(), copts, coptsFilter, pluginOpts,
         (gcnoFile != null), features, fdoBuildStamp);
     this.actionContext = actionContext;
+    this.lipoScannables = lipoScannables;
     this.actionClassId = actionClassId;
 
     // We do not need to include the middleman artifact since it is a generated
@@ -376,25 +379,8 @@ public class CppCompileAction extends AbstractAction implements IncludeScannable
   }
 
   @Override
-  public List<IncludeScannable> getAuxiliaryScannables() {
-    // It is not always enough to scan the main source file.
-    // We also need to scan all auxiliary source files.
-
-    ImmutableList.Builder<IncludeScannable> tasks = ImmutableList.builder();
-    for (PathFragment source : Artifact.asPathFragments(FileType.filter(getMandatoryInputs(),
-        CppFileTypes.C_SOURCE, CppFileTypes.CPP_SOURCE,
-        CppFileTypes.ASSEMBLER_WITH_C_PREPROCESSOR))) {
-      if (!source.equals(getSourceFile().getExecPath())) {
-        // Note: we must use the FdoSupport from the configuration, not the one from the
-        // cppConfiguration, which may have been overridden in the builder.
-        IncludeScannable scanTask =
-            configuration.getFragment(CppConfiguration.class).getFdoSupport().getScannable(source);
-        if (scanTask != null) {
-          tasks.add(scanTask);
-        }
-      }
-    }
-    return tasks.build();
+  public Iterable<IncludeScannable> getAuxiliaryScannables() {
+    return lipoScannables;
   }
 
   /**

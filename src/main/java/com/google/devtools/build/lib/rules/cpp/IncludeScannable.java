@@ -75,7 +75,7 @@ public interface IncludeScannable {
    * Returns additional scannables that need also be scanned when scanning this
    * scannable. May be empty but not null. This is not evaluated recursively.
    */
-  List<IncludeScannable> getAuxiliaryScannables();
+  Iterable<IncludeScannable> getAuxiliaryScannables();
 
   /**
    * Returns a map of generated files:files grepped for headers which may be reached during include

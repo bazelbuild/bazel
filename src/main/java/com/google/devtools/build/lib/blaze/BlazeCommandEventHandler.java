@@ -69,9 +69,8 @@ public class BlazeCommandEventHandler implements EventHandler {
     @Option(name = "show_progress_rate_limit",
             defaultValue = "-1",
             category = "verbosity",
-            help = "Imposes a rate limit on progress messages in number of seconds in which at "
-            + "most one event will be shown in the output.")
-    public int showProgressRateLimit;
+            help = "Minimum number of seconds between progress messages in the output.")
+    public double showProgressRateLimit;
 
     @Option(name = "color",
             defaultValue = "auto",

@@ -240,12 +240,6 @@ public final class CppModel {
    */
   public CcCompilationOutputs createCcCompileActions() {
     CcCompilationOutputs.Builder result = new CcCompilationOutputs.Builder();
-    if (cppConfiguration.isLipoContextCollector()) {
-      // Don't try to create LIPO compile actions in collector mode,
-      // because it needs some data that's not available at this point.
-      return result.build();
-    }
-
     Preconditions.checkNotNull(context);
     AnalysisEnvironment env = ruleContext.getAnalysisEnvironment();
     PathFragment objectDir = CppHelper.getObjDirectory(ruleContext.getLabel());
@@ -374,9 +368,8 @@ public final class CppModel {
           // Host targets don't produce .dwo files.
           result.addDwoFile(compileAction.getDwoFile());
         }
-        if (cppConfiguration.isLipoOptimization()) {
-          cppConfiguration.getFdoSupport().registerScannable(
-              sourceArtifact.getExecPath(), compileAction);
+        if (cppConfiguration.isLipoContextCollector()) {
+          result.addLipoScannable(compileAction);
         }
       }
     }

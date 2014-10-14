@@ -94,7 +94,7 @@ public abstract class ImplicitOutputsFunction {
           attrValues.put(attrName, value);
         }
       }
-      ClassObject attrs = new SkylarkClassObject(attrValues, "No such attribute '%s'.");
+      ClassObject attrs = new SkylarkClassObject(attrValues, "No such attribute '%s'");
       try {
         ImmutableMap.Builder<String, String> builder = ImmutableMap.builder();
         for (Map.Entry<String, String> entry : castMap(callback.call(attrs),

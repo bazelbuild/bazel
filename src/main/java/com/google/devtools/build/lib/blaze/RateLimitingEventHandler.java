@@ -21,36 +21,34 @@ import com.google.devtools.build.lib.util.Clock;
 /**
  * An event handler that rate limits events.
  */
-public class ProgressMessageRateLimitingEventHandler implements EventHandler {
+public class RateLimitingEventHandler implements EventHandler {
 
   private final EventHandler outputHandler;
-  private final int rateLimitation;
+  private final double intervalMillis;
   private final Clock clock;
-  private long lastEvent = -1;
+  private long lastEventMillis = -1;
 
   /**
    * Creates a new Event handler that rate limits the events of type PROGRESS
-   * to one per event "rateLimitation" seconds.
-   * All events that remain after rate limiting are forwarded to the handler "delegateTo".
+   * to one per event "rateLimitation" seconds.  Events that arrive too quickly are dropped;
+   * all others are are forwarded to the handler "delegateTo".
    *
    * @param delegateTo  The event handler that ultimately handles the events
-   * @param rateLimitation The number of seconds in which at most one event of any kind
-   *                    in limitEvents will be forwarded to the delegateTo-handler.
-   *                    If -1, all events will be forwarded.
+   * @param rateLimitation The minimum number of seconds between events that will be forwarded
+   *                    to the delegateTo-handler.
+   *                    If less than zero (or NaN), all events will be forwarded.
    */
-  public static EventHandler createRateLimitingEventHandler(EventHandler delegateTo,
-      int rateLimitation) {
-    if (rateLimitation == -1) {
+  public static EventHandler create(EventHandler delegateTo, double rateLimitation) {
+    if (rateLimitation < 0.0 || Double.isNaN(rateLimitation)) {
       return delegateTo;
     }
-    return new ProgressMessageRateLimitingEventHandler(delegateTo, rateLimitation);
+    return new RateLimitingEventHandler(delegateTo, rateLimitation);
   }
 
-  private ProgressMessageRateLimitingEventHandler(EventHandler delegateTo,
-      int rateLimitation) {
+  private RateLimitingEventHandler(EventHandler delegateTo, double rateLimitation) {
     clock = BlazeClock.instance();
     outputHandler = delegateTo;
-    this.rateLimitation = rateLimitation * 1000;
+    this.intervalMillis = rateLimitation * 1000;
   }
 
   @Override
@@ -60,8 +58,8 @@ public class ProgressMessageRateLimitingEventHandler implements EventHandler {
       case START:
       case FINISH:
         long currentTime = clock.currentTimeMillis();
-        if (lastEvent + rateLimitation <= currentTime) {
-          lastEvent = currentTime;
+        if (lastEventMillis + intervalMillis <= currentTime) {
+          lastEventMillis = currentTime;
           outputHandler.handle(event);
         }
         break;

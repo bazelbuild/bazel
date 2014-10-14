@@ -92,13 +92,13 @@ toolchain {
   abi_version: "local"
   abi_libc_version: "local"
   builtin_sysroot: ""
-  compiler: "compiler"
+  compiler: "windows_mingw"
   host_system_name: "local"
-  needsPic: true
+  needsPic: false
   target_libc: "local"
-  target_cpu: "local"
+  target_cpu: "k8"
   target_system_name: "local"
-  toolchain_identifier: "local_win_mingw"
+  toolchain_identifier: "local_windows_mingw"
 
   tool_path { name: "ar" path: "c:/mingw/bin/ar" }
   tool_path { name: "compat-ld" path: "c:/mingw/bin/ld" }
@@ -127,13 +127,13 @@ toolchain {
   abi_version: "local"
   abi_libc_version: "local"
   builtin_sysroot: ""
-  compiler: "compiler"
+  compiler: "windows_msys64_mingw64"
   host_system_name: "local"
-  needsPic: true
+  needsPic: false
   target_libc: "local"
-  target_cpu: "local"
+  target_cpu: "k8"
   target_system_name: "local"
-  toolchain_identifier: "local_win_msys_mingw"
+  toolchain_identifier: "local_windows_msys64_mingw64"
 
   tool_path { name: "ar" path: "c:/msys64/mingw64/bin/ar" }
   tool_path { name: "compat-ld" path: "c:/msys64/mingw64/bin/ld" }
@@ -160,13 +160,13 @@ toolchain {
   abi_version: "local"
   abi_libc_version: "local"
   builtin_sysroot: ""
-  compiler: "compiler"
+  compiler: "windows_clang"
   host_system_name: "local"
-  needsPic: true
+  needsPic: false
   target_libc: "local"
-  target_cpu: "local"
+  target_cpu: "k8"
   target_system_name: "local"
-  toolchain_identifier: "local_win_clang"
+  toolchain_identifier: "local_windows_clang"
 
   tool_path { name: "ar" path: "c:/mingw/bin/ar" }
   tool_path { name: "compat-ld" path: "c:/Program Files (x86)/LLVM/bin/ld" }

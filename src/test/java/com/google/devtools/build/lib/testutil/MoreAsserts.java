@@ -17,18 +17,25 @@ import static com.google.common.truth.Truth.assertThat;
 import static com.google.common.truth.Truth.assert_;
 import static org.junit.Assert.assertFalse;
 import static org.junit.Assert.assertTrue;
+import static org.junit.Assert.fail;
 
+import com.google.common.base.Joiner;
 import com.google.common.base.Predicate;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.Iterables;
 import com.google.common.collect.Lists;
 import com.google.common.collect.Maps;
+import com.google.common.collect.Sets;
+
+import junit.framework.ComparisonFailure;
 
 import java.lang.ref.Reference;
 import java.lang.reflect.Field;
 import java.util.Comparator;
 import java.util.Map;
+import java.util.Objects;
 import java.util.Queue;
+import java.util.Set;
 import java.util.regex.Matcher;
 import java.util.regex.Pattern;
 
@@ -111,6 +118,16 @@ public class MoreAsserts {
 
   public static void assertNotEmpty(Map<?, ?> map) {
     assertThat(map).isNotEmpty();
+  }
+
+  /**
+   * Asserts that two Strings are equal.
+   */
+  public static void assertEquals(String message, String expected, String actual) {
+    if (Objects.equals(expected, actual)) {
+      return;
+    }
+    throw new ComparisonFailure(message, expected, actual);
   }
 
   public static void assertNotEqual(Object expected, Object actual) {
@@ -373,5 +390,113 @@ public class MoreAsserts {
       }
     }
     return false;
+  }
+
+  private static String getClassDescription(Object object) {
+    return object == null
+        ? "null"
+        : ("instance of " + object.getClass().getName());
+  }
+
+  public static String chattyFormat(String message, Object expected, Object actual) {
+    String expectedClass = getClassDescription(expected);
+    String actualClass = getClassDescription(actual);
+  
+    return Joiner.on('\n').join((message != null) ? ("\n" + message) : "",
+        "  expected " + expectedClass + ": <" + expected + ">",
+        "  but was " + actualClass + ": <" + actual + ">");
+  }
+
+  public static void assertEqualsUnifyingLineEnds(String expected, String actual) {
+    if (actual != null) {
+      actual = actual.replaceAll(System.getProperty("line.separator"), "\n");
+    }
+    assertEquals(null, expected, actual);
+  }
+
+  public static void assertContainsWordsWithQuotes(String message,
+                                                   String... strings) {
+    for (String string : strings) {
+      assertTrue(message + " should contain '" + string + "' (with quotes)",
+          message.contains("'" + string + "'"));
+    }
+  }
+
+  public static void assertNonZeroExitCode(int exitCode, String stdout, String stderr) {
+    if (exitCode == 0) {
+      fail("expected non-zero exit code but exit code was 0 and stdout was <"
+          + stdout + "> and stderr was <" + stderr + ">");
+    }
+  }
+
+  public static void assertExitCode(int expectedExitCode,
+      int exitCode, String stdout, String stderr) {
+    if (exitCode != expectedExitCode) {
+      fail(String.format("expected exit code <%d> but exit code was <%d> and stdout was <%s> "
+          + "and stderr was <%s>", expectedExitCode, exitCode, stdout, stderr));
+    }
+  }
+
+  public static void assertStdoutContainsString(String expected, String stdout, String stderr) {
+    if (!stdout.contains(expected)) {
+      fail("expected stdout to contain string <" + expected + "> but stdout was <"
+          + stdout + "> and stderr was <" + stderr + ">");
+    }
+  }
+
+  public static void assertStderrContainsString(String expected, String stdout, String stderr) {
+    if (!stderr.contains(expected)) {
+      fail("expected stderr to contain string <" + expected + "> but stdout was <"
+          + stdout + "> and stderr was <" + stderr + ">");
+    }
+  }
+
+  public static void assertStdoutContainsRegex(String expectedRegex,
+      String stdout, String stderr) {
+    if (!Pattern.compile(expectedRegex).matcher(stdout).find()) {
+      fail("expected stdout to contain regex <" + expectedRegex + "> but stdout was <"
+          + stdout + "> and stderr was <" + stderr + ">");
+    }
+  }
+
+  public static void assertStderrContainsRegex(String expectedRegex,
+      String stdout, String stderr) {
+    if (!Pattern.compile(expectedRegex).matcher(stderr).find()) {
+      fail("expected stderr to contain regex <" + expectedRegex + "> but stdout was <"
+          + stdout + "> and stderr was <" + stderr + ">");
+    }
+  }
+
+  /**
+   * Returns the elements from the given collection in a set.
+   */
+  private static <T> Set<T> asSet(Iterable<T> collection) {
+    // TODO(bazel-team): inline and drop method.
+    return Sets.newHashSet(collection);
+  }
+
+  /**
+   * Returns the arguments given as varargs as a set.
+   */
+  @SuppressWarnings({"unchecked", "varargs"})
+  private static <T> Set<T> asSet(T... elements) {
+    // TODO(bazel-team): inline and drop method.
+    return Sets.newHashSet(elements);
+  }
+
+  public static Set<String> asStringSet(Iterable<?> collection) {
+    Set<String> set = Sets.newTreeSet();
+    for (Object o : collection) {
+      set.add("\"" + String.valueOf(o) + "\"");
+    }
+    return set;
+  }
+
+  public static <T> void
+      assertSameContents(Iterable<? extends T> expected, Iterable<? extends T> actual) {
+    if (!asSet(expected).equals(asSet(actual))) {
+      fail("got string set: " + asStringSet(actual).toString()
+          + "want: " + asStringSet(expected).toString());
+    }
   }
 }

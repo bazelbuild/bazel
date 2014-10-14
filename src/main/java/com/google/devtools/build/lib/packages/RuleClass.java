@@ -28,6 +28,7 @@ import com.google.devtools.build.lib.collect.CollectionUtils;
 import com.google.devtools.build.lib.events.EventHandler;
 import com.google.devtools.build.lib.events.Location;
 import com.google.devtools.build.lib.syntax.Argument;
+import com.google.devtools.build.lib.syntax.Environment;
 import com.google.devtools.build.lib.syntax.FuncallExpression;
 import com.google.devtools.build.lib.syntax.GlobList;
 import com.google.devtools.build.lib.syntax.Ident;
@@ -979,6 +980,9 @@ public final class RuleClass {
     for (Map.Entry<String, Object> entry : attributeValues.entrySet()) {
       String attributeName = entry.getKey();
       Object attributeValue = entry.getValue();
+      if (attributeValue == Environment.NONE) {  // Ignore all None values.
+        continue;
+      }
       Integer attrIndex = setRuleAttributeValue(rule, eventHandler, attributeName, attributeValue);
       if (attrIndex != null) {
         definedAttrs.set(attrIndex);

@@ -134,7 +134,7 @@ public final class SkylarkRuleContext {
           // Attribute values should be type safe
           : SkylarkType.convertToSkylark(val, null));
     }
-    attrObject = new SkylarkClassObject(builder.build(), "No such attribute '%s'.");
+    attrObject = new SkylarkClassObject(builder.build(), "No such attribute '%s'");
 
     HashMap<String, Object> outputsBuilder = new HashMap<>();
     if (ruleContext.getRule().getRuleClassObject().outputsDefaultExecutable()) {
@@ -178,7 +178,7 @@ public final class SkylarkRuleContext {
       }
     }
     artifactLabelMap = artifactLabelMapBuilder.build();
-    outputsObject = new SkylarkClassObject(outputsBuilder, "No such output '%s'.");
+    outputsObject = new SkylarkClassObject(outputsBuilder, "No such output '%s'");
 
     ImmutableMap.Builder<String, Object> executableBuilder = new ImmutableMap.Builder<>();
     ImmutableMap.Builder<Artifact, FilesToRunProvider> executableRunfilesbuilder =
@@ -209,13 +209,13 @@ public final class SkylarkRuleContext {
           ruleContext.getPrerequisites(a.getName(), mode), TransitiveInfoCollection.class));
     }
     executableObject = new SkylarkClassObject(executableBuilder.build(), "No such executable. "
-        + "Make sure there is a '%s' label type attribute marked as 'executable'.");
+        + "Make sure there is a '%s' label type attribute marked as 'executable'");
     fileObject = new SkylarkClassObject(fileBuilder.build(),
-        "No such file. Make sure there is a '%s' label type attribute marked as 'single_file'.");
+        "No such file. Make sure there is a '%s' label type attribute marked as 'single_file'");
     filesObject = new SkylarkClassObject(filesBuilder.build(),
-        "No such files. Make sure there is a '%s' label or label_list type attribute.");
+        "No such files. Make sure there is a '%s' label or label_list type attribute");
     targetsObject = new SkylarkClassObject(targetsBuilder.build(),
-        "No such targets. Make sure there is a '%s' label or label_list type attribute.");
+        "No such targets. Make sure there is a '%s' label or label_list type attribute");
     executableRunfilesMap = executableRunfilesbuilder.build();
   }
 

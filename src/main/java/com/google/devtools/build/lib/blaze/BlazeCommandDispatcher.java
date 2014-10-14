@@ -651,11 +651,7 @@ public class BlazeCommandDispatcher {
       eventHandler = new BlazeCommandEventHandler(outErr, eventOptions);
     }
 
-    if (eventOptions.showProgressRateLimit != -1) {
-      eventHandler = ProgressMessageRateLimitingEventHandler.createRateLimitingEventHandler(
-          eventHandler, eventOptions.showProgressRateLimit);
-    }
-    return eventHandler;
+    return RateLimitingEventHandler.create(eventHandler, eventOptions.showProgressRateLimit);
   }
 
   /**

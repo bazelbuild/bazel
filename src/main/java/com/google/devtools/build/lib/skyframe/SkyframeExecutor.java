@@ -628,7 +628,8 @@ public abstract class SkyframeExecutor {
           SkyFunctions.FILE,
           SkyFunctions.DIRECTORY_LISTING_STATE,
           SkyFunctions.PACKAGE_LOOKUP,
-          SkyFunctions.TARGET_PATTERN);
+          SkyFunctions.TARGET_PATTERN,
+          SkyFunctions.WORKSPACE_FILE);
 
   @SuppressWarnings("unchecked")
   private void setPackageLocator(PathPackageLocator pkgLocator) {

@@ -17,10 +17,9 @@ import com.google.common.annotations.VisibleForTesting;
 import com.google.common.base.Function;
 import com.google.common.base.Preconditions;
 import com.google.common.collect.ImmutableList;
+import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.ImmutableSet;
-import com.google.common.collect.ImmutableSortedMap;
 import com.google.common.collect.Iterables;
-import com.google.common.collect.Maps;
 import com.google.devtools.build.lib.actions.Artifact;
 import com.google.devtools.build.lib.actions.ParameterFile;
 import com.google.devtools.build.lib.collect.nestedset.NestedSet;
@@ -58,7 +57,6 @@ import java.util.ArrayList;
 import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
-import java.util.NavigableMap;
 
 /**
  * A ConfiguredTarget for <code>cc_binary</code> rules.
@@ -153,13 +151,6 @@ public abstract class CcBinary implements RuleConfiguredTargetFactory {
     ruleContext.checkSrcsSamePackage(true);
     CcCommon common = new CcCommon(ruleContext, semantics, /*initExtraPrerequisites =*/ false);
     CppConfiguration cppConfiguration = ruleContext.getFragment(CppConfiguration.class);
-
-    ImmutableSortedMap<PathFragment, Label> pathsToTargets;
-    if (cppConfiguration.isLipoContextCollector()) {
-      pathsToTargets = initializeLipoContext(ruleContext, common);
-    } else {
-      pathsToTargets = ImmutableSortedMap.of();
-    }
 
     LinkTargetType linkType =
         isLinkShared(ruleContext) ? LinkTargetType.DYNAMIC_LIBRARY : LinkTargetType.EXECUTABLE;
@@ -281,10 +272,27 @@ public abstract class CcBinary implements RuleConfiguredTargetFactory {
     RunfilesSupport runfilesSupport = RunfilesSupport.withExecutable(
         ruleContext, runfiles, executable, ruleContext.getConfiguration().buildRunfiles());
 
+    TransitiveLipoInfoProvider transitiveLipoInfo;
+    if (cppConfiguration.isLipoContextCollector()) {
+      transitiveLipoInfo = common.collectTransitiveLipoLabels(ccCompilationOutputs);
+    } else {
+      transitiveLipoInfo = TransitiveLipoInfoProvider.EMPTY;
+    }
+
     RuleConfiguredTargetBuilder ruleBuilder = new RuleConfiguredTargetBuilder(ruleContext);
     common.addTransitiveInfoProviders(
         ruleBuilder, filesToBuild, ccCompilationOutputs, cppCompilationContext, linkingOutputs,
-        dwoArtifacts);
+        dwoArtifacts, transitiveLipoInfo);
+
+    Map<PathFragment, IncludeScannable> scannableMap = new LinkedHashMap<>();
+    if (cppConfiguration.isLipoContextCollector()) {
+      for (IncludeScannable scannable : transitiveLipoInfo.getTransitiveIncludeScannables()) {
+        // These should all be CppCompileActions, which should have only one source file.
+        // This is also checked when they are put into the nested set.
+        PathFragment source = Iterables.getOnlyElement(scannable.getIncludeScannerSources());
+        scannableMap.put(source, scannable);
+      }
+    }
 
     return ruleBuilder
         .add(RunfilesProvider.class, RunfilesProvider.simple(runfiles))
@@ -295,26 +303,9 @@ public abstract class CcBinary implements RuleConfiguredTargetFactory {
         .setBaselineCoverageArtifacts(createBaselineCoverageArtifacts(
             ruleContext, common, ccCompilationOutputs, fake))
         .addProvider(LipoContextProvider.class, new LipoContextProvider(
-            cppCompilationContext, pathsToTargets))
+            cppCompilationContext, ImmutableMap.copyOf(scannableMap)))
         .addProvider(CppLinkAction.Context.class, linkContext)
         .build();
-  }
-
-  /*
-   * This function collects data for the LipoContextProvider interface. It's only invoked if the
-   * cc_binary is the same as the "--lipo_context". Overridden by cc_tests, because they don't
-   * need to provide this information, although they extend CcBinaryConfiguredTarget.
-   */
-  private static ImmutableSortedMap<PathFragment, Label> initializeLipoContext(
-      RuleContext context, CcCommon common) {
-    // GCDA path to label mapping. Only one instance is created, and that's owned
-    // by the lipo_context cc_binary.
-    NavigableMap<PathFragment, Label> pathsToTargets = Maps.newTreeMap();
-    PathFragment binPath = context.getConfiguration().getBinFragment();
-    for (Label label : common.getTransitiveLipoLabels()) {
-      pathsToTargets.put(binPath.getRelative(CppHelper.getObjDirectory(label)), label);
-    }
-    return ImmutableSortedMap.copyOf(pathsToTargets);
   }
 
   /**

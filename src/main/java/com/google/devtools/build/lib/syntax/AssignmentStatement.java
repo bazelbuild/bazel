@@ -14,7 +14,7 @@
 
 package com.google.devtools.build.lib.syntax;
 
-
+import com.google.common.base.Preconditions;
 
 /**
  * Syntax node for an assignment statement.
@@ -54,37 +54,36 @@ public final class AssignmentStatement extends Statement {
 
   @Override
   void exec(Environment env) throws EvalException, InterruptedException {
-    if (lvalue instanceof Ident) {
-      Ident ident = (Ident) lvalue;
-      Object result = expression.eval(env);
-      if (result == null) {
-        // This can happen during direct Java calls.
-        throw new EvalException(getLocation(), "Assigning null variable.");
-      }
-      if (env.isSkylarkEnabled()) {
-        // The variable may have been referenced successfully if a global variable
-        // with the same name exists. In this case an Exception needs to be thrown.
-        SkylarkEnvironment skylarkEnv = (SkylarkEnvironment) env;
-        if (skylarkEnv.hasBeenReadGlobalVariable(ident.getName())) {
-          throw new EvalException(getLocation(), "Variable '" + ident.getName()
-              + "' is referenced before assignment."
-              + "The variable is defined in the global scope.");
-        }
-        Class<?> variableType = skylarkEnv.getVariableType(ident.getName());
-        Class<?> resultType = EvalUtils.getSkylarkType(result.getClass());
-        if (variableType != null && !variableType.equals(resultType)) {
-          throw new EvalException(getLocation(), String.format("Incompatible variable types, "
-              + "trying to assign %s (type of %s) to variable %s which is already %s",
-              EvalUtils.prettyPrintValue(result),
-              EvalUtils.getDatatypeName(result),
-              ident.getName(),
-              EvalUtils.getDataTypeNameFromClass(variableType)));
-        }
-      }
-      env.update(ident.getName(), result);
-    } else {
-      throw new EvalException(getLocation(), "'" + lvalue + "' is not a valid lvalue");
+    if (!(lvalue instanceof Ident)) {
+      throw new EvalException(getLocation(),
+          "can only assign to variables, not to '" + lvalue + "'");
     }
+
+    Ident ident = (Ident) lvalue;
+    Object result = expression.eval(env);
+    Preconditions.checkNotNull(result, "result of " + expression + " is null");
+
+    if (env.isSkylarkEnabled()) {
+      // The variable may have been referenced successfully if a global variable
+      // with the same name exists. In this case an Exception needs to be thrown.
+      SkylarkEnvironment skylarkEnv = (SkylarkEnvironment) env;
+      if (skylarkEnv.hasBeenReadGlobalVariable(ident.getName())) {
+        throw new EvalException(getLocation(), "Variable '" + ident.getName()
+            + "' is referenced before assignment."
+            + "The variable is defined in the global scope.");
+      }
+      Class<?> variableType = skylarkEnv.getVariableType(ident.getName());
+      Class<?> resultType = EvalUtils.getSkylarkType(result.getClass());
+      if (variableType != null && !variableType.equals(resultType)) {
+        throw new EvalException(getLocation(), String.format("Incompatible variable types, "
+            + "trying to assign %s (type of %s) to variable %s which is already %s",
+            EvalUtils.prettyPrintValue(result),
+            EvalUtils.getDatatypeName(result),
+            ident.getName(),
+            EvalUtils.getDataTypeNameFromClass(variableType)));
+      }
+    }
+    env.update(ident.getName(), result);
   }
 
   @Override
@@ -100,14 +99,8 @@ public final class AssignmentStatement extends Statement {
       SkylarkType resultType = expression.validate(env);
       env.update(ident.getName(), resultType, getLocation());
     } else {
-      if (lvalue instanceof FuncallExpression) {
-        FuncallExpression func = (FuncallExpression) lvalue;
-        SkylarkType resultType = func.getObject().validate(env);
-        if (resultType.isStruct()) {
-          throw new EvalException(getLocation(), "structs are immutable");
-        }
-      }
-      throw new EvalException(getLocation(), "'" + lvalue + "' is not a valid lvalue");
+      throw new EvalException(getLocation(),
+          "can only assign to variables, not to '" + lvalue + "'");
     }
   }
 }

@@ -794,6 +794,7 @@ public class CppConfiguration extends BuildConfiguration.Fragment {
   /**
    * Returns the compiler version string (e.g. "gcc-4.1.1").
    */
+  @SkylarkCallable(name = "compiler", structField = true, doc = "C++ compiler.")
   public String getCompiler() {
     return compiler;
   }
@@ -1251,7 +1252,8 @@ public class CppConfiguration extends BuildConfiguration.Fragment {
   }
 
   public boolean isLipoOptimization() {
-    return cppOptions.isLipoOptimization();
+    // The LIPO optimization bits are set in the LIPO context collector configuration, too.
+    return cppOptions.isLipoOptimization() && !isLipoContextCollector();
   }
 
   public boolean isLipoOptimizationOrInstrumentation() {

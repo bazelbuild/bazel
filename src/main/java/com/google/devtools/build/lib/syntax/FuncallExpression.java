@@ -249,6 +249,15 @@ public final class FuncallExpression extends Expression {
 
   @Override
   public String toString() {
+    if (func.getName().equals("$substring")) {
+      return obj + "[" + args.get(0) + ":" + args.get(1) + "]";
+    }
+    if (func.getName().equals("$index")) {
+      return obj + "[" + args.get(0) + "]";
+    }
+    if (obj != null) {
+      return obj + "." + func + "(" + args + ")";
+    }
     return func + "(" + args + ")";
   }
 

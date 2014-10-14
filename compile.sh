@@ -15,6 +15,9 @@
 # limitations under the License.
 
 set -o errexit
+
+cd "$(dirname "$0")"
+
 mkdir -p output/classes
 mkdir -p output/test_classes
 mkdir -p output/src

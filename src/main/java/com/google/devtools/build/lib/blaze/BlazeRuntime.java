@@ -322,7 +322,8 @@ public final class BlazeRuntime {
   /**
    * Conditionally enable profiling.
    */
-  private final boolean initProfiler(CommonCommandOptions options, long execStartTimeNanos) {
+  private final boolean initProfiler(CommonCommandOptions options, 
+      UUID buildID, long execStartTimeNanos) {
     OutputStream out = null;
     boolean recordFullProfilerData = false;
     ProfiledTaskKinds profiledTasks = ProfiledTaskKinds.NONE;
@@ -342,7 +343,8 @@ public final class BlazeRuntime {
       }
       if (profiledTasks != ProfiledTaskKinds.NONE) {
         Profiler.instance().start(profiledTasks, out,
-            "Blaze profile for " + getOutputBase() + " at " + new Date(),
+            "Blaze profile for " + getOutputBase() + " at " + new Date()
+            + ", build ID: " + buildID,
             recordFullProfilerData, clock, execStartTimeNanos);
         return true;
       }
@@ -749,7 +751,7 @@ public final class BlazeRuntime {
     // Conditionally enable profiling
     // We need to compensate for launchTimeNanos (measurements taken outside of the jvm).
     long startupTimeNanos = options.startupTime * 1000000L;
-    if (initProfiler(options, execStartTimeNanos - startupTimeNanos)) {
+    if (initProfiler(options, this.getCommandId(), execStartTimeNanos - startupTimeNanos)) {
       Profiler profiler = Profiler.instance();
 
       // Instead of logEvent() we're calling the low level function to pass the timings we took in

@@ -15,9 +15,11 @@
 package com.google.devtools.build.lib.rules.cpp;
 
 import com.google.common.annotations.VisibleForTesting;
+import com.google.common.base.Functions;
 import com.google.common.base.Predicate;
 import com.google.common.base.Predicates;
 import com.google.common.collect.ImmutableList;
+import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.Iterables;
 import com.google.devtools.build.lib.actions.ActionOwner;
 import com.google.devtools.build.lib.actions.Artifact;
@@ -27,9 +29,11 @@ import com.google.devtools.build.lib.collect.nestedset.NestedSetBuilder;
 import com.google.devtools.build.lib.rules.cpp.CppCompileAction.DotdFile;
 import com.google.devtools.build.lib.rules.cpp.CppCompileAction.IncludeResolver;
 import com.google.devtools.build.lib.syntax.Label;
+import com.google.devtools.build.lib.util.FileType;
 import com.google.devtools.build.lib.vfs.FileSystemUtils;
 import com.google.devtools.build.lib.vfs.PathFragment;
 import com.google.devtools.build.lib.view.AnalysisEnvironment;
+import com.google.devtools.build.lib.view.RuleConfiguredTarget.Mode;
 import com.google.devtools.build.lib.view.RuleContext;
 import com.google.devtools.build.lib.view.config.BuildConfiguration;
 
@@ -69,6 +73,7 @@ public class CppCompileActionBuilder {
   private UUID actionClassId = GUID;
   private Class<? extends CppCompileActionContext> actionContext;
   private CppConfiguration cppConfiguration;
+  private ImmutableMap<PathFragment, IncludeScannable> lipoScannableMap;
 
   /**
    * Creates a builder from a rule. This also uses the configuration and
@@ -85,8 +90,20 @@ public class CppCompileActionBuilder {
     this.mandatoryInputsBuilder = NestedSetBuilder.stableOrder();
     this.pluginInputsBuilder = NestedSetBuilder.stableOrder();
     this.optionalInputsBuilder = NestedSetBuilder.stableOrder();
+    this.lipoScannableMap = getLipoScannableMap(ruleContext);
 
     features.addAll(ruleContext.getFeatures());
+  }
+
+  private static ImmutableMap<PathFragment, IncludeScannable> getLipoScannableMap(
+      RuleContext ruleContext) {
+    if (!ruleContext.getFragment(CppConfiguration.class).isLipoOptimization()) {
+      return null;
+    }
+
+    LipoContextProvider provider = ruleContext.getPrerequisite(
+        ":lipo_context_collector", Mode.DONT_CHECK, LipoContextProvider.class);
+    return provider.getIncludeScannables();
   }
 
   /**
@@ -105,6 +122,7 @@ public class CppCompileActionBuilder {
     this.mandatoryInputsBuilder = NestedSetBuilder.stableOrder();
     this.pluginInputsBuilder = NestedSetBuilder.stableOrder();
     this.optionalInputsBuilder = NestedSetBuilder.stableOrder();
+    this.lipoScannableMap = ImmutableMap.of();
   }
 
   /**
@@ -137,6 +155,7 @@ public class CppCompileActionBuilder {
     this.actionClassId = other.actionClassId;
     this.actionContext = other.actionContext;
     this.cppConfiguration = other.cppConfiguration;
+    this.lipoScannableMap = other.lipoScannableMap;
   }
 
   public PathFragment getTempOutputFile() {
@@ -196,6 +215,19 @@ public class CppCompileActionBuilder {
     }
   }
 
+  private Iterable<IncludeScannable> getLipoScannables(NestedSet<Artifact> realMandatoryInputs) {
+    return lipoScannableMap == null ? ImmutableList.<IncludeScannable>of() : Iterables.filter(
+        Iterables.transform(
+            Iterables.filter(
+                Artifact.asPathFragments(FileType.filter(
+                    realMandatoryInputs,
+                    CppFileTypes.C_SOURCE, CppFileTypes.CPP_SOURCE,
+                    CppFileTypes.ASSEMBLER_WITH_C_PREPROCESSOR)),
+                Predicates.not(Predicates.equalTo(getSourceFile().getExecPath()))),
+            Functions.forMap(lipoScannableMap, null)),
+        Predicates.notNull());
+  }
+
   /**
    * Builds the Action as configured and returns the to be generated Artifact.
    *
@@ -224,15 +256,18 @@ public class CppCompileActionBuilder {
           ImmutableList.copyOf(pluginOpts), getNocoptPredicate(nocopts),
           extraSystemIncludePrefixes, enableModules, fdoBuildStamp);
     } else {
+      NestedSet<Artifact> realMandatoryInputs = realMandatoryInputsBuilder.build();
+      PathFragment sourceExecPath = getSourceFile().getExecPath();
+
       return new CppCompileAction(owner, ImmutableList.copyOf(features),
-          sourceFile, sourceLabel, realMandatoryInputsBuilder.build(), outputFile, dotdFile,
+          sourceFile, sourceLabel, realMandatoryInputs, outputFile, dotdFile,
           gcnoFile, getDwoFile(outputFile, analysisEnvironment, cppConfiguration),
           optionalInputsBuilder.build(), configuration, cppConfiguration, context,
           actionContext, ImmutableList.copyOf(copts),
           ImmutableList.copyOf(pluginOpts),
           getNocoptPredicate(nocopts),
           extraSystemIncludePrefixes, enableModules, fdoBuildStamp,
-          includeResolver, actionClassId);
+          includeResolver, getLipoScannables(realMandatoryInputs), actionClassId);
     }
   }
 

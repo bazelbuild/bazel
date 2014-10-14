@@ -395,7 +395,7 @@ public final class PackageFactory {
           }
 
           context.pkgBuilder.addSubinclude(label, path);
-          return 0;
+          return Environment.NONE;
         }
       };
   }
@@ -408,7 +408,7 @@ public final class PackageFactory {
     return new SimplePositionalFunction("subinclude", 1, 1) {
         @Override
         public Object call(List<Object> args, FuncallExpression ast) {
-          return 0;
+          return Environment.NONE;
         }
       };
   }
@@ -647,7 +647,7 @@ public final class PackageFactory {
             | NoSuchVariableException e) {
           throw new EvalException(ast.getLocation(), e.getMessage());
         }
-        return 0;
+        return Environment.NONE;
       }
     };
   }

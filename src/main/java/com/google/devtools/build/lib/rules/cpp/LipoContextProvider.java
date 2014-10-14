@@ -13,30 +13,32 @@
 // limitations under the License.
 package com.google.devtools.build.lib.rules.cpp;
 
-import com.google.common.collect.ImmutableSortedMap;
+import com.google.common.collect.ImmutableMap;
 import com.google.devtools.build.lib.concurrent.ThreadSafety.Immutable;
-import com.google.devtools.build.lib.syntax.Label;
 import com.google.devtools.build.lib.vfs.PathFragment;
 import com.google.devtools.build.lib.view.TransitiveInfoProvider;
 
-import java.util.NavigableMap;
+import java.util.Map;
 
 /**
- * Provides LIPO context information. It's implemented by the cc_binary ConfiguredTarget
- * that's specified at command-line as '--lipo_context=...', which is the same cc_binary
- * that generated the LIPO/FDO profile.
+ * Provides LIPO context information to the LIPO-enabled target configuration.
+ *
+ * <p>This is a rollup of the data collected in the LIPO context collector configuration.
+ * Each target in the LIPO context collector configuration has a {@link TransitiveLipoInfoProvider}
+ * which is used to transitively collect the data, then the {@code cc_binary} that is referred to
+ * in {@code --lipo_context} puts the collected data into {@link LipoContextProvider}, of which
+ * there is only one in any given build.
  */
 @Immutable
 public final class LipoContextProvider implements TransitiveInfoProvider {
 
   private final CppCompilationContext cppCompilationContext;
 
-  private final ImmutableSortedMap<PathFragment, Label> pathsToLabels;
-
+  private final ImmutableMap<PathFragment, IncludeScannable> includeScannables;
   public LipoContextProvider(CppCompilationContext cppCompilationContext,
-      NavigableMap<PathFragment, Label> pathsToLabels) {
+      Map<PathFragment, IncludeScannable> scannables) {
     this.cppCompilationContext = cppCompilationContext;
-    this.pathsToLabels = ImmutableSortedMap.copyOf(pathsToLabels);
+    this.includeScannables = ImmutableMap.copyOf(scannables);
   }
 
   /**
@@ -47,9 +49,10 @@ public final class LipoContextProvider implements TransitiveInfoProvider {
   }
 
   /**
-   * Returns a map of target directories to LipoInfos (targets)
+   * Returns the map from source path fragment to the include scannable object representing
+   * the corresponding FDO source input file.
    */
-  public ImmutableSortedMap<PathFragment, Label> getPathsToLabels() {
-    return pathsToLabels;
+  public ImmutableMap<PathFragment, IncludeScannable> getIncludeScannables() {
+    return includeScannables;
   }
 }

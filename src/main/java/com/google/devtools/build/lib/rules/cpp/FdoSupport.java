@@ -22,13 +22,11 @@ import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMultimap;
 import com.google.common.collect.ImmutableSet;
 import com.google.common.collect.Iterables;
-import com.google.common.collect.Maps;
 import com.google.devtools.build.lib.actions.Artifact;
 import com.google.devtools.build.lib.actions.ArtifactFactory;
 import com.google.devtools.build.lib.actions.Root;
 import com.google.devtools.build.lib.concurrent.ThreadSafety.ThreadHostile;
 import com.google.devtools.build.lib.concurrent.ThreadSafety.ThreadSafe;
-import com.google.devtools.build.lib.packages.NoSuchTargetException;
 import com.google.devtools.build.lib.skyframe.BuildVariableValue;
 import com.google.devtools.build.lib.skyframe.FileValue;
 import com.google.devtools.build.lib.syntax.Label;
@@ -42,13 +40,10 @@ import com.google.devtools.build.lib.view.RuleContext;
 import com.google.devtools.build.lib.view.config.crosstool.CrosstoolConfig.LipoMode;
 import com.google.devtools.build.skyframe.SkyFunction;
 
-import java.io.FileNotFoundException;
 import java.io.IOException;
 import java.io.Serializable;
 import java.util.ArrayList;
 import java.util.List;
-import java.util.Map;
-import java.util.concurrent.ConcurrentMap;
 import java.util.regex.Pattern;
 import java.util.zip.ZipException;
 
@@ -62,6 +57,60 @@ import java.util.zip.ZipException;
  *
  * <p>With respect to thread-safety, the {@link #prepareToBuild} method is not thread-safe, and must
  * not be called concurrently with other methods on this class.
+ *
+ * <p>Here follows a quick run-down of how FDO/LIPO builds work (for non-FDO/LIPO builds, none
+ * of this applies):
+ *
+ * <p>{@link CppConfiguration#prepareHook} is called before the analysis phase, which calls
+ * {@link #prepareToBuild}, which extracts the FDO .zip (in case we work with an explicitly
+ * generated FDO profile file) or analyzes the .afdo.imports file next to the .afdo file (if
+ * AutoFDO is in effect).
+ *
+ * <p>.afdo.imports files contain one import a line. A line is two paths separated by a colon,
+ * with functions in the second path being referenced by functions in the first path. These are
+ * then put into the imports map. If we do AutoFDO, we don't handle individual .gcda files, so
+ * gcdaFiles will be empty.
+ *
+ * <p>Regular .fdo zip files contain .gcda files (which are added to gcdaFiles) and
+ * .gcda.imports files. There is one .gcda.imports file for every source file and it contains one
+ * path in every line, which can either be a path to a source file that contains a function
+ * referenced by the original source file or the .gcda file for such a referenced file. They
+ * both are added to the imports map.
+ *
+ * <p>If we do LIPO, we create an extra configuration that is called the "LIPO context collector",
+ * whose job it is to collect information that every configured target compiled with LIPO needs.
+ * The top-level target of this configuration is the LIPO context (always a cc_binary) and is an
+ * implicit dependency of every cc_* rule through their :lipo_context_collector attribute. The
+ * collected information is encapsulated in {@link LipoContextProvider}.
+ *
+ * <p>For each C++ compile action in the target configuration, {@link #configureCompilation} is
+ * called, which adds command line options and input files required for the build. There are
+ * three cases:
+ *
+ * <ul>
+ * <li>If we do AutoFDO, the .afdo file and the source files containing the functions imported
+ * by the original source file (as determined from the inputs map) are added.
+ * <li>If we do FDO, the .gcda file corresponding to the source file is added.
+ * <li>If we do LIPO, in addition to the .gcda file corresponding to the source file
+ * (like for FDO) the source files that contain the functions referenced by the source file and
+ * their .gcda files are added, too.
+ * </ul>
+ *
+ * <p>If we do LIPO, the actual C++ compilation context for LIPO compilation actions is pieced
+ * together from the CppCompileContext in LipoContextProvider and that of the rule being compiled.
+ * (see {@link CppCompilationContext#mergeForLipo}) This is so that the include files for the
+ * extra LIPO sources are found and is, strictly speaking, incorrect, since it also changes the
+ * declared include directories of the main source file, which in theory can result in the
+ * compilation passing even though it should fail with undeclared inclusion errors.
+ *
+ * <p>During the actual execution of the C++ compile action, the extra sources also need to be
+ * include scanned, which is the reason why they are {@link IncludeScannable} objects and not
+ * simple artifacts. We currently create these {@link IncludeScannable} objects by creating actual
+ * C++ compile actions in the LIPO context collector configuration which are then never executed.
+ * In fact, these C++ compile actions are never even registered with Skyframe. For this we
+ * propagate a bit from {@code BuildConfiguration.isActionsEnabled} to
+ * {@code CachingAnalysisEnvironment.allowRegisteringActions}, which causes actions to be silently
+ * discarded after configured targets are created.
  */
 public class FdoSupport implements Serializable {
 
@@ -144,11 +193,6 @@ public class FdoSupport implements Serializable {
    * <p>Set only in {@link #prepareToBuild}.
    */
   private ImmutableMultimap<PathFragment, Artifact> imports;
-
-  /**
-   * Registered scannables for auxiliary source files.
-   */
-  private final ConcurrentMap<PathFragment, IncludeScannable> scannables = Maps.newConcurrentMap();
 
   /**
    * Creates an FDO support object.
@@ -471,13 +515,14 @@ public class FdoSupport implements Serializable {
         for (Artifact importedFile : getImports(
             getNonLipoObjDir(ruleContext, lipoLabel), objectName)) {
           if (CppFileTypes.COVERAGE_DATA.matches(importedFile.getFilename())) {
-            try {
-              auxiliaryInputs.addAll(getGcdaArtifactsForGcdaPath(
-                  ruleContext, env, importedFile.getExecPath(), lipoContextProvider));
-            } catch (FileNotFoundException e) {
-              ruleContext.ruleError(e.getMessage());
-            } catch (NoSuchTargetException e) {
-              ruleContext.ruleError(e.getMessage());
+            Artifact gcdaArtifact = getGcdaArtifactsForGcdaPath(
+                ruleContext, env, importedFile.getExecPath());
+            if (gcdaArtifact == null) {
+              ruleContext.ruleError(String.format(
+                  ".gcda file %s is not in the FDO zip (referenced by source file %s)",
+                  importedFile.getExecPath(), sourceName));
+            } else {
+              auxiliaryInputs.add(gcdaArtifact);
             }
           } else {
             auxiliaryInputs.add(importedFile);
@@ -490,40 +535,18 @@ public class FdoSupport implements Serializable {
   }
 
   /**
-   * Returns a list of .gcda file artifacts for a .gcda path from the
-   * .gcda.imports file.
-   *
-   * <p>The resulting set contains either one or two artifacts (the file itself
-   * and a symlink to it).
-   *
-   * @throws FileNotFoundException if no .gcda file could be found
-   * @throws NoSuchTargetException if the target for {@code gcdaPath} could not
-   *         be determined
+   * Returns the .gcda file artifacts for a .gcda path from the .gcda.imports file or null if the
+   * referenced .gcda file is not in the FDO zip.
    */
-  private ImmutableList<Artifact> getGcdaArtifactsForGcdaPath(RuleContext ruleContext,
-      AnalysisEnvironment env, PathFragment gcdaPath, LipoContextProvider lipoContextProvider)
-      throws FileNotFoundException, NoSuchTargetException {
-    Map.Entry<PathFragment, Label> entry =
-        lipoContextProvider.getPathsToLabels().floorEntry(gcdaPath);
-
-    if (entry == null || !gcdaPath.startsWith(entry.getKey())) {
-      throw new NoSuchTargetException("Target not found for .gcda file: " + gcdaPath);
+  private Artifact getGcdaArtifactsForGcdaPath(RuleContext ruleContext,
+      AnalysisEnvironment env, PathFragment gcdaPath) {
+    if (!gcdaFiles.contains(gcdaPath)) {
+      return null;
     }
 
-    // The label of the target which owns the .gcda file
-    Label lipoLabel = entry.getValue();
-
-    PathFragment sourceName = gcdaPath.relativeTo(getNonLipoObjDir(ruleContext, lipoLabel));
-    ImmutableList<Artifact> result =
-        getGcdaArtifactsForObjectFileName(ruleContext, env, sourceName, lipoLabel);
-
-    if (result.isEmpty()) {
-      // Here we know that there should be .gcda file. If the returned set is
-      // empty something went wrong.
-      throw new FileNotFoundException("Auxiliary LIPO input not found: " + gcdaPath);
-    }
-
-    return result;
+    Artifact artifact = env.getDerivedArtifact(fdoPath.getRelative(gcdaPath), fdoRoot);
+    env.registerAction(new FdoStubAction(ruleContext.getActionOwner(), artifact));
+    return artifact;
   }
 
   private PathFragment getNonLipoObjDir(RuleContext ruleContext, Label label) {
@@ -627,30 +650,6 @@ public class FdoSupport implements Serializable {
   @ThreadSafe
   public PathFragment getFdoInstrument() {
     return fdoInstrument;
-  }
-
-  /**
-   * Registers a scannable that needs to be scanned when using a source file as
-   * auxiliary source.
-   *
-   * @param source exec path of the source file
-   * @param scannable the scannable to scan
-   */
-  @ThreadSafe
-  public void registerScannable(PathFragment source, IncludeScannable scannable) {
-    scannables.put(source, scannable);
-  }
-
-  /**
-   * Gets the scannable for a source file. May return null if no scannable has
-   * been registered with
-   * {@link #registerScannable(PathFragment, IncludeScannable)}.
-   *
-   * @param source exec path of the source file
-   */
-  @ThreadSafe
-  public IncludeScannable getScannable(PathFragment source) {
-    return scannables.get(source);
   }
 
   @VisibleForTesting

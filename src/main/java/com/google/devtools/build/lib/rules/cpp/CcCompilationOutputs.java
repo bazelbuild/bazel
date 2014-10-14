@@ -18,7 +18,9 @@ import com.google.common.collect.ImmutableList;
 import com.google.common.collect.Iterables;
 import com.google.devtools.build.lib.actions.Artifact;
 
+import java.util.ArrayList;
 import java.util.LinkedHashSet;
+import java.util.List;
 import java.util.Set;
 
 /**
@@ -49,22 +51,26 @@ public class CcCompilationOutputs {
    * All artifacts that are created if "--save_temps" is true.
    */
   private final ImmutableList<Artifact> temps;
-  
+
   /**
    * All token .h.processed files created when preprocessing or parsing headers.
    */
   private final ImmutableList<Artifact> headerTokenFiles;
 
+  private final List<IncludeScannable> lipoScannables;
+
   private CcCompilationOutputs(ImmutableList<Artifact> objectFiles,
       ImmutableList<Artifact> picObjectFiles, ImmutableList<Artifact> dwoFiles,
       ImmutableList<Artifact> picDwoFiles, ImmutableList<Artifact> temps,
-      ImmutableList<Artifact> headerTokenFiles) {
+      ImmutableList<Artifact> headerTokenFiles,
+      ImmutableList<IncludeScannable> lipoScannables) {
     this.objectFiles = objectFiles;
     this.picObjectFiles = picObjectFiles;
     this.dwoFiles = dwoFiles;
     this.picDwoFiles = picDwoFiles;
     this.temps = temps;
     this.headerTokenFiles = headerTokenFiles;
+    this.lipoScannables = lipoScannables;
   }
 
   /**
@@ -104,6 +110,14 @@ public class CcCompilationOutputs {
     return headerTokenFiles;
   }
 
+  /**
+   * Returns the {@link IncludeScannable} objects this C++ compile action contributes to a
+   * LIPO context collector.
+   */
+  public List<IncludeScannable> getLipoScannables() {
+    return lipoScannables;
+  }
+
   public static final class Builder {
     private final Set<Artifact> objectFiles = new LinkedHashSet<>();
     private final Set<Artifact> picObjectFiles = new LinkedHashSet<>();
@@ -111,12 +125,14 @@ public class CcCompilationOutputs {
     private final Set<Artifact> picDwoFiles = new LinkedHashSet<>();
     private final Set<Artifact> temps = new LinkedHashSet<>();
     private final Set<Artifact> headerTokenFiles = new LinkedHashSet<>();
+    private final List<IncludeScannable> lipoScannables = new ArrayList<>();
 
     public CcCompilationOutputs build() {
       return new CcCompilationOutputs(ImmutableList.copyOf(objectFiles),
           ImmutableList.copyOf(picObjectFiles), ImmutableList.copyOf(dwoFiles),
           ImmutableList.copyOf(picDwoFiles), ImmutableList.copyOf(temps),
-          ImmutableList.copyOf(headerTokenFiles));
+          ImmutableList.copyOf(headerTokenFiles),
+          ImmutableList.copyOf(lipoScannables));
     }
 
     public Builder merge(CcCompilationOutputs outputs) {
@@ -126,6 +142,7 @@ public class CcCompilationOutputs {
       this.picDwoFiles.addAll(outputs.picDwoFiles);
       this.temps.addAll(outputs.temps);
       this.headerTokenFiles.addAll(outputs.headerTokenFiles);
+      this.lipoScannables.addAll(outputs.lipoScannables);
       return this;
     }
 
@@ -172,9 +189,18 @@ public class CcCompilationOutputs {
       Iterables.addAll(temps, artifacts);
       return this;
     }
-    
+
     public Builder addHeaderTokenFile(Artifact artifact) {
       headerTokenFiles.add(artifact);
+      return this;
+    }
+
+    /**
+     * Adds an {@link IncludeScannable} that this compilation output object contributes to a
+     * LIPO context collector.
+     */
+    public Builder addLipoScannable(IncludeScannable scannable) {
+      lipoScannables.add(scannable);
       return this;
     }
   }

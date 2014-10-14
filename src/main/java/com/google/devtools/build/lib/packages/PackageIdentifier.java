@@ -23,6 +23,8 @@ import com.google.devtools.build.lib.util.StringCanonicalizer;
 import com.google.devtools.build.lib.util.StringUtilities;
 import com.google.devtools.build.lib.vfs.PathFragment;
 
+import java.io.Serializable;
+
 import javax.annotation.concurrent.Immutable;
 
 /**
@@ -33,7 +35,7 @@ import javax.annotation.concurrent.Immutable;
  * workspaces are prefixed by {@literal @}.</p>
  */
 @Immutable
-public final class PackageIdentifier implements Comparable<PackageIdentifier> {
+public final class PackageIdentifier implements Comparable<PackageIdentifier>, Serializable {
   public static final String DEFAULT_REPOSITORY = "";
 
   /**

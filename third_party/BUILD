@@ -2,12 +2,7 @@ package(default_visibility = ["//visibility:public"])
 
 filegroup(
     name = "protoc",
-    srcs = select({
-        ":windows_mingw": ["protobuf/protoc.exe"],
-        ":windows_msys64_mingw64": ["protobuf/protoc.exe"],
-        ":windows_clang": ["protobuf/protoc.exe"],
-        "//conditions:default": ["protobuf/protoc.amd64"],
-    }),
+    srcs = ["protobuf/protoc.amd64"],
 )
 
 filegroup(
@@ -34,17 +29,4 @@ filegroup(
         "junit/junit-4.11.jar",
         "truth/truth-0.23.jar",
     ],
-)
-
-config_setting(
-    name = "windows_mingw",
-    values = { "compiler": "windows_mingw" }
-)
-config_setting(
-    name = "windows_msys64_mingw64",
-    values = { "compiler": "windows_msys64_mingw64" }
-)
-config_setting(
-    name = "windows_clang",
-    values = { "compiler": "windows_clang" }
 )

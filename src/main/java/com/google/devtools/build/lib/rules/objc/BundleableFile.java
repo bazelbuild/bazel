@@ -16,15 +16,11 @@ package com.google.devtools.build.lib.rules.objc;
 
 import static com.google.devtools.build.lib.rules.objc.ArtifactListAttribute.BUNDLE_IMPORTS;
 import static com.google.devtools.build.lib.rules.objc.ArtifactListAttribute.RESOURCES;
-import static com.google.devtools.build.lib.rules.objc.ArtifactListAttribute.STRINGS;
-import static com.google.devtools.build.lib.rules.objc.ArtifactListAttribute.XIBS;
 import static com.google.devtools.build.lib.rules.objc.ObjcCommon.BUNDLE_CONTAINER_TYPE;
 
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
-import com.google.common.collect.ImmutableSet;
 import com.google.devtools.build.lib.actions.Artifact;
-import com.google.devtools.build.lib.collect.nestedset.NestedSetBuilder;
 import com.google.devtools.build.lib.vfs.PathFragment;
 import com.google.devtools.build.lib.view.RuleContext;
 import com.google.devtools.build.xcode.bundlemerge.proto.BundleMergeProtos.BundleFile;
@@ -37,9 +33,6 @@ import com.google.devtools.build.xcode.util.Value;
  * files.
  */
 public final class BundleableFile extends Value<BundleableFile> {
-
-  private static final ImmutableSet<ArtifactListAttribute> GENERAL_RESOURCE_ATTRS =
-      ImmutableSet.of(RESOURCES, STRINGS, XIBS);
 
   private final Artifact bundled;
   private final String bundlePath;
@@ -69,17 +62,6 @@ public final class BundleableFile extends Value<BundleableFile> {
       result.add(new BundleableFile(file, bundlePath(file)));
     }
     return result.build();
-  }
-
-  /**
-   * Returns all resource inputs to the given rule.
-   */
-  public static Iterable<Artifact> generalResourceArtifactsFromRule(RuleContext context) {
-    NestedSetBuilder<Artifact> artifacts = NestedSetBuilder.<Artifact>stableOrder();
-    for (ArtifactListAttribute attr : GENERAL_RESOURCE_ATTRS) {
-      artifacts.addAll(attr.get(context));
-    }
-    return artifacts.build();
   }
 
   /**
