@@ -782,10 +782,6 @@ public final class CppLinkAction extends AbstractAction implements IncludeScanna
           .build();
     }
 
-    public BuildConfiguration getConfiguration() {
-      return configuration;
-    }
-
     /**
      * Translates a collection of linkstamp source files to an immutable
      * mapping from source files to object files. In other words, given a
@@ -968,8 +964,7 @@ public final class CppLinkAction extends AbstractAction implements IncludeScanna
     public Builder addLinkstamps(Map<Artifact, ImmutableList<Artifact>> linkstamps) {
       this.linkstamps.addAll(linkstamps.keySet());
       // Add inputs for linkstamping.
-      if (!linkstamps.isEmpty()
-          && !getConfiguration().getFragment(CppConfiguration.class).shouldScanIncludes()) {
+      if (!linkstamps.isEmpty() && !cppConfiguration.shouldScanIncludes()) {
         addTransitiveCompilationInputs(toolchain.getCompile());
         for (Map.Entry<Artifact, ImmutableList<Artifact>> entry : linkstamps.entrySet()) {
           addCompilationInputs(entry.getValue());

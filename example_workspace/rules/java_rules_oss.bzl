@@ -42,15 +42,20 @@ def java_library_impl(ctx):
       content = file_helper.join_exec_paths("\n", sources),
       executable = False)
 
+  javapath = "/usr/bin/"
+  pathsep = ":"
+  if ctx.configuration.fragment(cpp).compiler.startswith("windows_"):
+    javapath = "c:/program\ files/java/jdk1.8.0_20/bin/"
+    pathsep = ";"
+
   # Cleaning build output directory
   cmd = "set -e;rm -rf " + build_output + ";mkdir " + build_output + "\n"
   if ctx.files.srcs:
-    cmd += "/usr/bin/javac"
+    cmd += javapath + "javac"
     if compile_time_jar_list:
-      cmd += " -classpath " + file_helper.join_exec_paths(":",
-                                                          compile_time_jar_list)
+      cmd += " -classpath '" + file_helper.join_exec_paths(pathsep, compile_time_jar_list) + "'"
     cmd += " -d " + build_output + " @" + sources_param_file.path + "\n"
-  cmd += ("/usr/bin/jar cf " + class_jar.path + " -C " + build_output + " .\n" +
+  cmd += (javapath + "jar cf " + class_jar.path + " -C " + build_output + " .\n" +
          "touch " + build_output + "\n")
 
   ctx.action(

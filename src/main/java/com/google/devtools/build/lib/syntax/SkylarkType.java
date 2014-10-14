@@ -95,10 +95,10 @@ public class SkylarkType {
     if (this == o) {
       return this;
     }
-    if (this == UNKNOWN) {
+    if (this == UNKNOWN || this.equals(SkylarkType.NONE)) {
       return o;
     }
-    if (o == UNKNOWN) {
+    if (o == UNKNOWN || o.equals(SkylarkType.NONE)) {
       return this;
     }
     if (!type.equals(o.type)) {

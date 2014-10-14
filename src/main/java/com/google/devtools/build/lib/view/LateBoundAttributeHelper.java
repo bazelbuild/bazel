@@ -37,10 +37,7 @@ import java.util.regex.PatternSyntaxException;
  * A helper class that takes a Rule and creates a map from attributes to labels, resolving any
  * late-bound attributes using the configuration. This can only be done during the analysis phase.
  */
-public final class LateBoundAttributeHelper {
-  // This class is not meant to be outside of the analysis phase machinery and is only public
-  // in order to be accessible from the .view.skyframe package.
-
+final class LateBoundAttributeHelper {
   private final Rule rule;
   private final BuildConfiguration configuration;
   private final Set<ConfigMatchingProvider> configConditions;

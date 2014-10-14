@@ -37,6 +37,10 @@ def genproto_impl(ctx):
     inputs = [src, proto_dep, proto_compiler]
     proto_compiler_path = proto_compiler.path
 
+  javapath = "/usr/bin/"
+  if ctx.configuration.fragment(cpp).compiler.startswith("windows_"):
+    javapath = "c:/program\ files/java/jdk1.8.0_20/bin/"
+
   cmd = ("set -e;" +
          "rm -rf " + proto_output + ";" +
          "mkdir " + proto_output + ";" +
@@ -45,9 +49,9 @@ def genproto_impl(ctx):
          proto_compiler_path + " --java_out=" +
          proto_output +" " + src.path + "\n" +
          "JAVA_FILES=$(find " + proto_output + " -name '*.java')\n" +
-         "/usr/bin/javac" + " -classpath " + proto_dep.path +
+         javapath + "javac" + " -classpath " + proto_dep.path +
          " ${JAVA_FILES} -d " + build_output + "\n" +
-         "/usr/bin/jar cf " + class_jar.path + "  -C " + build_output + " .\n")
+         javapath + "jar cf " + class_jar.path + "  -C " + build_output + " .\n")
   ctx.action(
       inputs = inputs,
       outputs = [class_jar],

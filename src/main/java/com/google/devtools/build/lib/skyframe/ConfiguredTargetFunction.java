@@ -41,7 +41,6 @@ import com.google.devtools.build.lib.syntax.EvalException;
 import com.google.devtools.build.lib.syntax.Label;
 import com.google.devtools.build.lib.view.CachingAnalysisEnvironment;
 import com.google.devtools.build.lib.view.ConfiguredTarget;
-import com.google.devtools.build.lib.view.LateBoundAttributeHelper;
 import com.google.devtools.build.lib.view.TargetAndConfiguration;
 import com.google.devtools.build.lib.view.config.BuildConfiguration;
 import com.google.devtools.build.lib.view.config.ConfigMatchingProvider;
@@ -128,31 +127,24 @@ final class ConfiguredTargetFunction implements SkyFunction {
       return null;
     }
 
-    // 2. Get the map from attributes to labels.
-    ListMultimap<Attribute, Label> labelMap = null;
-    if (target instanceof Rule) {
-      try {
-        labelMap = new LateBoundAttributeHelper((Rule) target, configuration, configConditions)
-            .createAttributeMap();
-      } catch (EvalException e) {
-        env.getListener().handle(Event.error(e.getLocation(), e.getMessage()));
-        throw new ConfiguredTargetFunctionException(packageSkyKey,
-            new ConfiguredValueCreationException(e.print()));
-      }
+    // 2. Create the map from attributes to list of (target, configuration) pairs.
+    ListMultimap<Attribute, TargetAndConfiguration> depValueNames;
+    try {
+      depValueNames = resolver.dependentNodeMap(ctgValue, configConditions);
+    } catch (EvalException e) {
+      env.getListener().handle(Event.error(e.getLocation(), e.getMessage()));
+      throw new ConfiguredTargetFunctionException(packageSkyKey,
+          new ConfiguredValueCreationException(e.print()));
     }
 
-    // 3. Convert each label to a (target, configuration) pair.
-    ListMultimap<Attribute, TargetAndConfiguration> depValueNames =
-        resolver.dependentNodeMap(ctgValue, labelMap);
-
-    // 4. Resolve dependencies and handle errors.
+    // 3. Resolve dependencies and handle errors.
     Map<SkyKey, ConfiguredTargetValue> depValues =
         resolveDependencies(env, depValueNames, packageSkyKey, target);
     if (depValues == null) {
       return null;
     }
 
-    // 5. Convert each (target, configuration) pair to a ConfiguredTarget instance.
+    // 4. Convert each (target, configuration) pair to a ConfiguredTarget instance.
     ListMultimap<Attribute, ConfiguredTarget> depValueMap = ArrayListMultimap.create();
     for (Map.Entry<Attribute, TargetAndConfiguration> entry : depValueNames.entries()) {
       ConfiguredTargetValue value = depValues.get(TO_KEYS.apply(entry.getValue()));
@@ -160,7 +152,7 @@ final class ConfiguredTargetFunction implements SkyFunction {
       depValueMap.put(entry.getKey(), value.getConfiguredTarget());
     }
 
-    // 6. Create the ConfiguredTarget for the present value.
+    // 5. Create the ConfiguredTarget for the present value.
     return createConfiguredTarget(view, env, target, configuration, depValueMap, configConditions);
   }
 

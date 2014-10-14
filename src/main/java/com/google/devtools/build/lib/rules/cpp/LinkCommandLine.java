@@ -912,8 +912,9 @@ public final class LinkCommandLine extends CommandLine {
         // the executable, either absolutely, or relative to the directory part of BUILD_INFO.)
         "-DG3_BUILD_TARGET=\"${OUTPUT_PATH}\"");
 
-    private BuildConfiguration configuration;
-    private ActionOwner owner;
+    private final BuildConfiguration configuration;
+    private final ActionOwner owner;
+
     @Nullable private Artifact output;
     @Nullable private Artifact interfaceOutput;
     @Nullable private Artifact symbolCountsOutput;

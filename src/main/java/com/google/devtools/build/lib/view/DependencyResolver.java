@@ -47,16 +47,8 @@ public abstract class DependencyResolver {
   /**
    * Returns ids for dependent nodes of a given node, sorted by attribute. Note that some
    * dependencies do not have a corresponding attribute here, and we use the null attribute to
-   * represent those edges.
-   */
-  public final ListMultimap<Attribute, TargetAndConfiguration> dependentNodeMap(
-      TargetAndConfiguration node, ListMultimap<Attribute, Label> labelMap) {
-    return dependentNodeMap(node, labelMap, /*visitVisibility=*/true);
-  }
-
-  /**
-   * Variation that lets the caller choose whether to visit visibility labels in
-   * addition to what's explicitly requested.
+   * represent those edges. Visibility attributes are only visited if {@code visitVisibility} is
+   * {@code true}.
    */
   public final ListMultimap<Attribute, TargetAndConfiguration> dependentNodeMap(
       TargetAndConfiguration node, ListMultimap<Attribute, Label> labelMap,
@@ -85,21 +77,31 @@ public abstract class DependencyResolver {
   /**
    * Variation that computes the rule's (Attribute --> Label) map internally. This should be
    * avoided if the caller has reasonable access to somewhere where this has already been computed.
-   *
-   * <p>TODO(bazel-team): Remove this version when non-SkyFrame code is stripped out.
    */
   public final ListMultimap<Attribute, TargetAndConfiguration> dependentNodeMap(
-      TargetAndConfiguration node, Set<ConfigMatchingProvider> configConditions) {
+      TargetAndConfiguration node, Set<ConfigMatchingProvider> configConditions)
+      throws EvalException {
     ListMultimap<Attribute, Label> labelMap = null;
     if (node.getTarget() instanceof Rule) {
-      try {
-        labelMap = new LateBoundAttributeHelper((Rule) node.getTarget(), node.getConfiguration(),
-            configConditions).createAttributeMap();
-      } catch (EvalException e) {
-        throw new IllegalStateException(e);
-      }
+      labelMap = new LateBoundAttributeHelper((Rule) node.getTarget(), node.getConfiguration(),
+          configConditions).createAttributeMap();
     }
-    return dependentNodeMap(node, labelMap);
+    return dependentNodeMap(node, labelMap, /*visitVisibility=*/true);
+  }
+
+  /**
+   * Variation that computes the rule's (Attribute --> Label) map internally. This should be
+   * avoided if the caller has reasonable access to somewhere where this has already been computed.
+   * This variant converts any internally thrown {@link EvalException} instances into {@link
+   * IllegalStateException}.
+   */
+  public final Collection<TargetAndConfiguration> dependentNodes(
+      TargetAndConfiguration node, Set<ConfigMatchingProvider> configConditions) {
+    try {
+      return dependentNodeMap(node, configConditions).values();
+    } catch (EvalException e) {
+      throw new IllegalStateException(e);
+    }
   }
 
   private void visitPackageGroup(TargetAndConfiguration node, PackageGroup packageGroup,

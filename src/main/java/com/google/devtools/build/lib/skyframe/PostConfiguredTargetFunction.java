@@ -28,6 +28,8 @@ import com.google.devtools.build.skyframe.SkyFunctionException;
 import com.google.devtools.build.skyframe.SkyKey;
 import com.google.devtools.build.skyframe.SkyValue;
 
+import java.util.Collection;
+
 import javax.annotation.Nullable;
 
 /**
@@ -72,11 +74,11 @@ public class PostConfiguredTargetFunction implements SkyFunction {
     TargetAndConfiguration ctgValue =
         new TargetAndConfiguration(ct.getTarget(), ct.getConfiguration());
 
-    env.getValues(Iterables.transform(
-        // TODO(bazel-team): fill in proper ConfigMatchingProvider instances.
-        // See BuildView.getDirectPrerequisites for an example.
-        resolver.dependentNodeMap(ctgValue, ImmutableSet.<ConfigMatchingProvider>of()).values(),
-        TO_KEYS));
+    // TODO(bazel-team): fill in proper ConfigMatchingProvider instances.
+    // See BuildView.getDirectPrerequisites for an example.
+    Collection<TargetAndConfiguration> deps =
+        resolver.dependentNodes(ctgValue, ImmutableSet.<ConfigMatchingProvider>of());
+    env.getValues(Iterables.transform(deps, TO_KEYS));
     if (env.valuesMissing()) {
       return null;
     }

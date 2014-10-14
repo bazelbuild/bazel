@@ -77,6 +77,7 @@ import com.google.devtools.build.lib.skyframe.LabelAndConfiguration;
 import com.google.devtools.build.lib.skyframe.SkyframeBuildView;
 import com.google.devtools.build.lib.skyframe.SkyframeExecutor;
 import com.google.devtools.build.lib.skyframe.TargetCompletionKey;
+import com.google.devtools.build.lib.syntax.EvalException;
 import com.google.devtools.build.lib.syntax.Label;
 import com.google.devtools.build.lib.util.LoggingUtil;
 import com.google.devtools.build.lib.util.Pair;
@@ -568,7 +569,7 @@ public class BuildView {
   }
 
   @VisibleForTesting
-  WorkspaceStatusAction getLastWorkspaceBuildInfoActionForTesting() throws InterruptedException {
+  WorkspaceStatusAction getLastWorkspaceBuildInfoActionForTesting() {
     if (skyframeExecutor.skyframeBuild()) {
       return skyframeExecutor.getLastWorkspaceStatusActionForTesting();
     } else {
@@ -640,8 +641,9 @@ public class BuildView {
     DependencyResolver dependencyResolver = new SilentDependencyResolver();
     TargetAndConfiguration ctgNode =
         new TargetAndConfiguration(ct.getTarget(), ct.getConfiguration());
-    return getExistingConfiguredTargets(dependencyResolver.dependentNodeMap(ctgNode,
-        getConfigurableAttributeKeys(ctgNode)).values());
+    Collection<TargetAndConfiguration> deps =
+        dependencyResolver.dependentNodes(ctgNode, getConfigurableAttributeKeys(ctgNode));
+    return getExistingConfiguredTargets(deps);
   }
 
   /**
@@ -1152,9 +1154,13 @@ public class BuildView {
       }
     };
     TargetAndConfiguration ctNode = new TargetAndConfiguration(target);
-    for (Map.Entry<Attribute, TargetAndConfiguration> entry :
-        resolver.dependentNodeMap(ctNode, getConfigurableAttributeKeys(ctNode)).entries()) {
-      prerequisiteMap.put(entry.getKey(), getExistingConfiguredTarget(entry.getValue()));
+    try {
+      for (Map.Entry<Attribute, TargetAndConfiguration> entry :
+          resolver.dependentNodeMap(ctNode, getConfigurableAttributeKeys(ctNode)).entries()) {
+        prerequisiteMap.put(entry.getKey(), getExistingConfiguredTarget(entry.getValue()));
+      }
+    } catch (EvalException e) {
+      throw new IllegalStateException(e);
     }
 
     return prerequisiteMap;
