@@ -26,8 +26,6 @@ import java.util.Collection;
 import java.util.Collections;
 import java.util.HashSet;
 import java.util.Set;
-import java.util.regex.Matcher;
-import java.util.regex.Pattern;
 
 /**
  * Representation of a set of file dependencies for a given output file. There
@@ -114,10 +112,6 @@ public final class DependencySet {
     return missing;
   }
 
-  // regex has 3 groups: token, optional colon, optional spaces
-  private static final Pattern DOTD_PATTERN =
-      Pattern.compile("([^\\s:\\\\]+)(?:\\s*+)(:?)(\\s*(?:\\\\\\n)*\\s*)");
-
   /**
    * Reads a dotd file into this DependencySet instance.
    * <pre>
@@ -135,12 +129,26 @@ public final class DependencySet {
    * Like read(), but accepts the contents of the dotd file.
    */
   public DependencySet process(String contents) {
-    Matcher m = DOTD_PATTERN.matcher(contents);
-    while (m.find()) {
-      String dependency = m.group(1);
-      String colon = m.group(2);
-      if (colon.length() == 0) {
-        dependencies.add(new PathFragment(dependency).normalize());
+    for (String line : contents.split("\\r?\\n")) {
+      if (line.endsWith("\\")) {
+        // Chomp off trailing backslashes, we do not care about those.
+        line = line.substring(0, line.length() - 1);
+      }
+      line = line.trim();
+      if (line.isEmpty() || line.endsWith(":")) {
+        // No interesting dependencies on this line.
+        continue;
+      }
+      if (line.contains(": ")) {
+        // Drop the leading reference to an object file.
+        line = line.split(": ", 2)[1];
+      }
+      for (String token : line.trim().split("\\s+")) {
+        // Convert Windows-style paths to mixed-style used internally.
+        if (token.contains("\\")) {
+          token = token.replace('\\', '/');
+        }
+        dependencies.add(new PathFragment(token).normalize());
       }
     }
     return this;
