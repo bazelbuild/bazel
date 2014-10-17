@@ -244,6 +244,8 @@ final class LabelVisitor {
    * @return true on success.
    * @throws InterruptedException if the check was interrupted.
    */
+  // TODO(bazel-team): Remove this code - it can never fail because we don't reuse the LabelVisitor
+  // between query invocations.
   private boolean upToDate(EventHandler eventHandler, int parallelThreads)
       throws InterruptedException {
     // Correctness sketch: Note that this method is entered only when the

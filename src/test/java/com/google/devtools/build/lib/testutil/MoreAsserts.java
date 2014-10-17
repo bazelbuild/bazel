@@ -243,15 +243,6 @@ public class MoreAsserts {
     assertTrue(i == Iterables.size(actual));
   }
 
-  public static void assertContainsNoDuplicates(Iterable<?> iterable) {
-    ImmutableList<?> list = ImmutableList.copyOf(iterable);
-    for (int i = 0; i < list.size(); i++) {
-      for (int j = i + 1; j < list.size(); j++) {
-        assertNotEqual(list.get(i), list.get(j));
-      }
-    }
-  }
-
   public static void assertGreaterThanOrEqual(long target, long actual) {
     assertTrue(target <= actual);
   }
@@ -401,7 +392,7 @@ public class MoreAsserts {
   public static String chattyFormat(String message, Object expected, Object actual) {
     String expectedClass = getClassDescription(expected);
     String actualClass = getClassDescription(actual);
-  
+
     return Joiner.on('\n').join((message != null) ? ("\n" + message) : "",
         "  expected " + expectedClass + ": <" + expected + ">",
         "  but was " + actualClass + ": <" + actual + ">");
@@ -467,23 +458,6 @@ public class MoreAsserts {
     }
   }
 
-  /**
-   * Returns the elements from the given collection in a set.
-   */
-  private static <T> Set<T> asSet(Iterable<T> collection) {
-    // TODO(bazel-team): inline and drop method.
-    return Sets.newHashSet(collection);
-  }
-
-  /**
-   * Returns the arguments given as varargs as a set.
-   */
-  @SuppressWarnings({"unchecked", "varargs"})
-  private static <T> Set<T> asSet(T... elements) {
-    // TODO(bazel-team): inline and drop method.
-    return Sets.newHashSet(elements);
-  }
-
   public static Set<String> asStringSet(Iterable<?> collection) {
     Set<String> set = Sets.newTreeSet();
     for (Object o : collection) {
@@ -494,9 +468,9 @@ public class MoreAsserts {
 
   public static <T> void
       assertSameContents(Iterable<? extends T> expected, Iterable<? extends T> actual) {
-    if (!asSet(expected).equals(asSet(actual))) {
+    if (!Sets.newHashSet(expected).equals(Sets.newHashSet(actual))) {
       fail("got string set: " + asStringSet(actual).toString()
-          + "want: " + asStringSet(expected).toString());
+          + "\nwant: " + asStringSet(expected).toString());
     }
   }
 }

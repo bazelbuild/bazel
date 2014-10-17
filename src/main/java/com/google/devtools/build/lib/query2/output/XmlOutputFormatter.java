@@ -37,6 +37,7 @@ import org.w3c.dom.Element;
 import java.io.PrintStream;
 import java.util.Collection;
 import java.util.HashSet;
+import java.util.Map;
 import java.util.Set;
 
 import javax.xml.parsers.DocumentBuilderFactory;
@@ -244,12 +245,7 @@ class XmlOutputFormatter extends OutputFormatter {
     final boolean hasMultipleValues = Iterables.size(values) > 1;
     com.google.devtools.build.lib.packages.Type<?> elemType = type.getListElementType();
     if (elemType != null) { // it's a list (includes "distribs")
-      if (type == LABEL_LIST_DICT) {
-        // Use a different name so that it's easy to recognize dicts.
-        elem = doc.createElement("dict");
-      } else {
-        elem = doc.createElement("list");
-      }
+      elem = doc.createElement("list");
       // TODO(bazel-team): support better de-duping for dictionaries.
       Set<Object> visitedValues = new HashSet<>();
       for (Object value : values) {
@@ -259,15 +255,20 @@ class XmlOutputFormatter extends OutputFormatter {
           }
         }
       }
-
-    } else if (type instanceof com.google.devtools.build.lib.packages.Type.PairType<?, ?>) {
-      com.google.devtools.build.lib.packages.Type.PairType<?, ?> pairType =
-          (com.google.devtools.build.lib.packages.Type.PairType<?, ?>) type;
-      elem = createSingleValueElement(doc, "pair", hasMultipleValues);
-      if (!hasMultipleValues) {
-        Pair<?, ?> pair = (Pair<?, ?>) Iterables.getOnlyElement(values);
-        elem.appendChild(createValueElement(doc, pairType.getFirstType(), pair.first));
-        elem.appendChild(createValueElement(doc, pairType.getSecondType(), pair.second));
+    } else if (type == LABEL_LIST_DICT) {
+      Set<Object> visitedValues = new HashSet<>();
+      elem = doc.createElement("dict");
+      for (Object value : values) {
+        for (Map.Entry<?, ?> entry : ((Map<?, ?>) value).entrySet()) {
+          if (visitedValues.add(entry.getKey())) {
+            Element pairElem = doc.createElement("pair");
+            elem.appendChild(pairElem);
+            pairElem.appendChild(createValueElement(doc,
+                com.google.devtools.build.lib.packages.Type.STRING, entry.getKey()));
+            pairElem.appendChild(createValueElement(doc,
+                com.google.devtools.build.lib.packages.Type.LABEL_LIST, entry.getValue()));
+          }
+        }
       }
     } else if (type == LICENSE) {
       elem = createSingleValueElement(doc, "license", hasMultipleValues);

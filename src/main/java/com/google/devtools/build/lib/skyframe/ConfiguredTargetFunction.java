@@ -87,8 +87,8 @@ final class ConfiguredTargetFunction implements SkyFunction {
 
     BuildConfiguration configuration = lc.getConfiguration();
 
-    SkyKey packageSkyKey = PackageValue.key(lc.getLabel().getPackageIdentifier());
-    PackageValue packageValue = (PackageValue) env.getValue(packageSkyKey);
+    PackageValue packageValue =
+        (PackageValue) env.getValue(PackageValue.key(lc.getLabel().getPackageIdentifier()));
     if (packageValue == null) {
       return null;
     }
@@ -97,7 +97,7 @@ final class ConfiguredTargetFunction implements SkyFunction {
     try {
       target = packageValue.getPackage().getTarget(lc.getLabel().getName());
     } catch (NoSuchTargetException e1) {
-      throw new ConfiguredTargetFunctionException(packageSkyKey,
+      throw new ConfiguredTargetFunctionException(key,
           new NoSuchTargetException(lc.getLabel(), "No such target"));
     }
     // TODO(bazel-team): This is problematic - we create the right key, but then end up with a value
@@ -121,7 +121,7 @@ final class ConfiguredTargetFunction implements SkyFunction {
 
     // 1. Get the configuration targets that trigger this rule's configurable attributes.
     Set<ConfigMatchingProvider> configConditions =
-        getConfigConditions(target, env, resolver, ctgValue, packageSkyKey);
+        getConfigConditions(target, env, resolver, ctgValue, key);
     if (configConditions == null) {
       // Those targets haven't yet been resolved.
       return null;
@@ -133,13 +133,13 @@ final class ConfiguredTargetFunction implements SkyFunction {
       depValueNames = resolver.dependentNodeMap(ctgValue, configConditions);
     } catch (EvalException e) {
       env.getListener().handle(Event.error(e.getLocation(), e.getMessage()));
-      throw new ConfiguredTargetFunctionException(packageSkyKey,
+      throw new ConfiguredTargetFunctionException(key,
           new ConfiguredValueCreationException(e.print()));
     }
 
     // 3. Resolve dependencies and handle errors.
     Map<SkyKey, ConfiguredTargetValue> depValues =
-        resolveDependencies(env, depValueNames, packageSkyKey, target);
+        resolveDependencies(env, depValueNames, key, target);
     if (depValues == null) {
       return null;
     }
@@ -164,8 +164,8 @@ final class ConfiguredTargetFunction implements SkyFunction {
    * dependency resolver, returns null.
    */
   private Set<ConfigMatchingProvider> getConfigConditions(Target target, Environment env,
-      SkyframeDependencyResolver resolver, TargetAndConfiguration ctgValue, SkyKey packageSkyKey)
-      throws ConfiguredTargetFunctionException, InterruptedException {
+      SkyframeDependencyResolver resolver, TargetAndConfiguration ctgValue, SkyKey skyKey)
+      throws ConfiguredTargetFunctionException {
     if (!(target instanceof Rule)) {
       return ImmutableSet.of();
     }
@@ -182,13 +182,16 @@ final class ConfiguredTargetFunction implements SkyFunction {
         }
       }
     }
+    if (configLabelMap.isEmpty()) {
+      return ImmutableSet.of();
+    }
 
     // Collect the corresponding Skyframe configured target values. Abort early if they haven't
     // been computed yet.
     ListMultimap<Attribute, TargetAndConfiguration> configValueNames =
-        resolver.dependentNodeMap(ctgValue, configLabelMap, /*visitVisibility=*/false);
+        resolver.resolveRuleLabels(ctgValue, configLabelMap);
     Map<SkyKey, ConfiguredTargetValue> configValues =
-        resolveDependencies(env, configValueNames, packageSkyKey, target);
+        resolveDependencies(env, configValueNames, skyKey, target);
     if (configValues == null) {
       return null;
     }
@@ -207,7 +210,7 @@ final class ConfiguredTargetFunction implements SkyFunction {
         String message = badTarget + " is not a valid configuration key for "
             + target.getLabel().toString();
         env.getListener().handle(Event.error(TargetUtils.getLocationMaybe(badTarget), message));
-        throw new ConfiguredTargetFunctionException(packageSkyKey,
+        throw new ConfiguredTargetFunctionException(skyKey,
             new ConfiguredValueCreationException(message));
       }
     }
@@ -223,9 +226,8 @@ final class ConfiguredTargetFunction implements SkyFunction {
    *
    */
   private Map<SkyKey, ConfiguredTargetValue> resolveDependencies(Environment env,
-      ListMultimap<Attribute, TargetAndConfiguration> depValueNames, SkyKey packageSkyKey,
-      Target target
-      ) throws ConfiguredTargetFunctionException, InterruptedException {
+      ListMultimap<Attribute, TargetAndConfiguration> depValueNames, SkyKey skyKey,
+      Target target) throws ConfiguredTargetFunctionException {
     boolean ok = !env.valuesMissing();
     String message = null;
     Iterable<SkyKey> depKeys = Iterables.transform(depValueNames.values(), TO_KEYS);
@@ -271,8 +273,7 @@ final class ConfiguredTargetFunction implements SkyFunction {
       }
     }
     if (message != null) {
-      throw new ConfiguredTargetFunctionException(packageSkyKey,
-          new NoSuchTargetException(message));
+      throw new ConfiguredTargetFunctionException(skyKey, new NoSuchTargetException(message));
     }
     if (!ok) {
       return null;

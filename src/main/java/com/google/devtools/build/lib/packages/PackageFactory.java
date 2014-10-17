@@ -44,7 +44,6 @@ import com.google.devtools.build.lib.syntax.Ident;
 import com.google.devtools.build.lib.syntax.Label;
 import com.google.devtools.build.lib.syntax.MixedModeFunction;
 import com.google.devtools.build.lib.syntax.ParserInputSource;
-import com.google.devtools.build.lib.syntax.PositionalFunction.SimplePositionalFunction;
 import com.google.devtools.build.lib.syntax.SkylarkEnvironment;
 import com.google.devtools.build.lib.syntax.Statement;
 import com.google.devtools.build.lib.vfs.Path;
@@ -310,15 +309,28 @@ public final class PackageFactory {
    * @param async if true, start globs in the background but don't block on their completion.
    *        Only use this for heuristic preloading.
    */
-  private static Function newGlobFunction(final PackageContext context, final boolean async) {
+  private static Function newGlobFunction(
+      final PackageContext originalContext, final boolean async) {
     List<String> params = ImmutableList.of("include", "exclude", "exclude_directories");
     return new MixedModeFunction("glob", params, 1, false) {
         @Override
-        public Object call(Object[] namedArguments,
-            List<Object> surplusPositionalArguments,
-            Map<String, Object> surplusKeywordArguments,
-            FuncallExpression ast)
+        public Object call(Object[] namedArguments, FuncallExpression ast, Environment env)
                 throws EvalException, ConversionException, InterruptedException {
+
+          // Skylark build extensions need to get the PackageContext from the Environment;
+          // async glob functions cannot do the same because the Environment is not thread safe.
+          PackageContext context;
+          if (originalContext == null) {
+            Preconditions.checkArgument(!async);
+            try {
+              context = (PackageContext) env.lookup(PKG_CONTEXT);
+            } catch (NoSuchVariableException e) {
+              throw new EvalException(ast.getLocation(), e.getMessage());
+            }
+          } else {
+            context = originalContext;
+          }
+
           List<String> includes = Type.STRING_LIST.convert(namedArguments[0], "'glob' argument");
           List<String> excludes = namedArguments[1] == null
               ? Collections.<String>emptyList()
@@ -375,13 +387,13 @@ public final class PackageFactory {
    * preprocessing.)
    */
   private static Function newMockSubincludeFunction(final PackageContext context) {
-    return new SimplePositionalFunction("mocksubinclude", 2, 2) {
+    return new MixedModeFunction("mocksubinclude", ImmutableList.of("label", "path"), 2, false) {
         @Override
-        public Object call(List<Object> args, FuncallExpression ast)
+        public Object call(Object[] args, FuncallExpression ast)
             throws ConversionException {
-          Label label = Type.LABEL.convert(args.get(0), "'mocksubinclude' argument",
+          Label label = Type.LABEL.convert(args[0], "'mocksubinclude' argument",
                                            context.pkgBuilder.getBuildFileLabel());
-          String pathString = Type.STRING.convert(args.get(1), "'mocksubinclude' argument");
+          String pathString = Type.STRING.convert(args[1], "'mocksubinclude' argument");
           Path path = pathString.isEmpty()
               ? null
               : context.pkgBuilder.getFilename().getRelative(pathString);
@@ -405,9 +417,9 @@ public final class PackageFactory {
    * They will disappear after the Python preprocessing.
    */
   private static Function newSubincludeFunction() {
-    return new SimplePositionalFunction("subinclude", 1, 1) {
+    return new MixedModeFunction("subinclude", ImmutableList.of("file"), 1, false) {
         @Override
-        public Object call(List<Object> args, FuncallExpression ast) {
+        public Object call(Object[] args, FuncallExpression ast) {
           return Environment.NONE;
         }
       };
@@ -422,9 +434,8 @@ public final class PackageFactory {
     List<String> params = ImmutableList.of("srcs", "visibility", "licenses");
     return new MixedModeFunction("exports_files", params, 1, false) {
       @Override
-      public Object call(Object[] namedArgs, List<Object> surplusPositionalArguments,
-          Map<String, Object> surplusKeywordArguments, FuncallExpression ast)
-              throws EvalException, ConversionException {
+      public Object call(Object[] namedArgs, FuncallExpression ast)
+          throws EvalException, ConversionException {
 
         List<String> files = Type.STRING_LIST.convert(namedArgs[0], "'exports_files' operand");
 
@@ -479,11 +490,11 @@ public final class PackageFactory {
    * context.
    */
   private static Function newLicensesFunction(final PackageContext context) {
-    return new SimplePositionalFunction("licenses", 1, 1) {
+    return new MixedModeFunction("licenses", ImmutableList.of("object"), 1, false) {
         @Override
-        public Object call(List<Object> args, FuncallExpression ast) {
+        public Object call(Object[] args, FuncallExpression ast) {
           try {
-            License license = Type.LICENSE.convert(args.get(0), "'licenses' operand");
+            License license = Type.LICENSE.convert(args[0], "'licenses' operand");
             context.pkgBuilder.setDefaultLicense(license);
           } catch (ConversionException e) {
             context.eventHandler.handle(Event.error(ast.getLocation(), e.getMessage()));
@@ -499,11 +510,11 @@ public final class PackageFactory {
    * context.
    */
   private static Function newDistribsFunction(final PackageContext context) {
-    return new SimplePositionalFunction("distribs", 1, 1) {
+    return new MixedModeFunction("distribs", ImmutableList.of("object"), 1, false) {
         @Override
-        public Object call(List<Object> args, FuncallExpression ast) {
+        public Object call(Object[] args, FuncallExpression ast) {
           try {
-            Set<DistributionType> distribs = Type.DISTRIBUTIONS.convert(args.get(0),
+            Set<DistributionType> distribs = Type.DISTRIBUTIONS.convert(args[0],
                 "'distribs' operand");
             context.pkgBuilder.setDefaultDistribs(distribs);
           } catch (ConversionException e) {
@@ -519,10 +530,8 @@ public final class PackageFactory {
     List<String> params = ImmutableList.of("name", "packages", "includes");
     return new MixedModeFunction("package_group", params, 1, true) {
         @Override
-        public Object call(Object[] namedArgs,
-            List<Object> surplusPositionalArguments,
-            Map<String, Object> surplusKeywordArguments,
-            FuncallExpression ast) throws EvalException, ConversionException {
+        public Object call(Object[] namedArgs, FuncallExpression ast)
+            throws EvalException, ConversionException {
           Preconditions.checkState(namedArgs[0] != null);
           String name = Type.STRING.convert(namedArgs[0], "'package_group' argument");
           List<String> packages = namedArgs[1] == null
@@ -567,10 +576,8 @@ public final class PackageFactory {
       final PackageContext context, final Map<String, PackageArgument<?>> packageArguments) {
     return new MixedModeFunction("package", packageArguments.keySet(), 0, true) {
       @Override
-      public Object call(Object[] namedArguments,
-          List<Object> surplusPositionalArguments,
-          Map<String, Object> surplusKeywordArguments,
-          FuncallExpression ast) throws EvalException, ConversionException {
+      public Object call(Object[] namedArguments, FuncallExpression ast)
+          throws EvalException, ConversionException {
 
         Package.LegacyBuilder pkgBuilder = context.pkgBuilder;
 
@@ -891,6 +898,7 @@ public final class PackageFactory {
     for (String ruleClass : ruleFactory.getRuleClassNames()) {
       builder.add(newRuleFunction(ruleFactory, ruleClass));
     }
+    builder.add(newGlobFunction(null, false));
     return builder.build();
   }
 

@@ -97,7 +97,8 @@ class ArtifactFunction implements SkyFunction {
 
   private ArtifactValue createSourceValue(Artifact artifact, boolean mandatory, Environment env)
       throws MissingInputFileException {
-    SkyKey fileSkyKey = FileValue.key(artifact);
+    SkyKey fileSkyKey = FileValue.key(RootedPath.toRootedPath(artifact.getRoot().getPath(),
+        artifact.getPath()));
     FileValue fileValue;
     try {
       fileValue = (FileValue) env.getValueOrThrow(fileSkyKey, Exception.class);

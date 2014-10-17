@@ -14,8 +14,6 @@
 
 package com.google.devtools.build.lib.rules.objc;
 
-import static com.google.devtools.build.lib.rules.objc.ArtifactListAttribute.DATAMODELS;
-
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableSet;
 import com.google.common.collect.ImmutableSetMultimap;
@@ -23,7 +21,6 @@ import com.google.common.collect.Multimap;
 import com.google.devtools.build.lib.actions.Artifact;
 import com.google.devtools.build.lib.util.FileType;
 import com.google.devtools.build.lib.vfs.PathFragment;
-import com.google.devtools.build.lib.view.RuleContext;
 
 import java.util.Collection;
 import java.util.Map;
@@ -37,14 +34,15 @@ class Xcdatamodels {
   static final ImmutableList<FileType> CONTAINER_TYPES =
       ImmutableList.of(FileType.of(".xcdatamodeld"), FileType.of(".xcdatamodel"));
 
-  static Iterable<Xcdatamodel> xcdatamodels(RuleContext context) {
+  static Iterable<Xcdatamodel> xcdatamodels(
+      IntermediateArtifacts intermediateArtifacts, Iterable<Artifact> xcdatamodels) {
     ImmutableSet.Builder<Xcdatamodel> result = new ImmutableSet.Builder<>();
-    Multimap<PathFragment, Artifact> artifactsByContainer = byContainer(DATAMODELS.get(context));
+    Multimap<PathFragment, Artifact> artifactsByContainer = byContainer(xcdatamodels);
 
     for (Map.Entry<PathFragment, Collection<Artifact>> modelDirEntry :
         artifactsByContainer.asMap().entrySet()) {
       PathFragment container = modelDirEntry.getKey();
-      Artifact outputZip = ObjcRuleClasses.compiledMomZipArtifact(context, container);
+      Artifact outputZip = intermediateArtifacts.compiledMomZipArtifact(container);
       result.add(
           new Xcdatamodel(outputZip, ImmutableSet.copyOf(modelDirEntry.getValue()), container));
     }

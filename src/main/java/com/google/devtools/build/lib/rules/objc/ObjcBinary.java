@@ -60,10 +60,6 @@ public class ObjcBinary implements RuleConfiguredTargetFactory {
   static final String PROVISIONING_PROFILE_BUNDLE_FILE = "embedded.mobileprovision";
 
   @VisibleForTesting
-  static final String SIMULATOR_PROVISIONING_PROFILE_ERROR =
-      "must not specify provisioning profile for simulator build";
-
-  @VisibleForTesting
   static final String NO_ASSET_CATALOG_ERROR_FORMAT =
       "a value was specified (%s), but this app does not have any asset catalogs";
 
@@ -202,12 +198,6 @@ public class ObjcBinary implements RuleConfiguredTargetFactory {
 
     if (objcConfiguration.getPlatform() == Platform.SIMULATOR) {
       ipaUnsigned = ipaOutput;
-
-      if (ruleContext.attributes().isAttributeValueExplicitlySpecified(
-          ObjcBinaryRule.EXPLICIT_PROVISIONING_PROFILE_ATTR)) {
-        ruleContext.attributeError(ObjcBinaryRule.EXPLICIT_PROVISIONING_PROFILE_ATTR,
-            SIMULATOR_PROVISIONING_PROFILE_ERROR);
-      }
     } else if (!provisioningProfile(ruleContext).isPresent()) {
       throw new IllegalStateException(DEVICE_NO_PROVISIONING_PROFILE);
     } else {

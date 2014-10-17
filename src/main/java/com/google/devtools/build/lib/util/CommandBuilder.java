@@ -19,13 +19,11 @@ import com.google.common.base.CharMatcher;
 import com.google.common.base.Joiner;
 import com.google.common.base.Preconditions;
 import com.google.common.base.Splitter;
-import com.google.common.base.Strings;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.Iterables;
 import com.google.common.collect.Lists;
 import com.google.devtools.build.lib.shell.Command;
 import com.google.devtools.build.lib.vfs.Path;
-import com.google.devtools.build.lib.vfs.PathFragment;
 
 import java.io.File;
 import java.util.ArrayList;
@@ -47,10 +45,6 @@ import java.util.Map;
  */
 public final class CommandBuilder {
 
-  private static final String WINDOWS_PYTHON_PROPERTY_NOT_SET =
-      "blaze.windows.python.dir property has not been set and is required to run Python " +
-      "scripts on Windows.";
-
   private static final List<String> SHELLS = ImmutableList.of("/bin/sh", "/bin/bash");
 
   // The operating system we are running on.
@@ -63,17 +57,6 @@ public final class CommandBuilder {
       "Windows XP".equals(System.getProperty("os.name")) ? OS.WINDOWS : (
       "Windows 7".equals(System.getProperty("os.name")) ? OS.WINDOWS : OS.UNKNOWN)));
 
-  // On Windows, there is no standard Python interpreter, so we will need to
-  // find one - e.g. the one bundled with g4. Blaze startup script would locate it
-  // and set property below to the location of the python installation directory.
-  private static final String DEFAULT_WINDOWS_PYTHON_DIR =
-      System.getProperty("blaze.windows.python.dir");
-
-  private static final String DEFAULT_LINUX_PYTHON_DIR =
-      "/usr/grte/v3/k8-linux/bin/python2.7";
-  private static final String DEFAULT_DARWIN_PYTHON_DIR =
-      "/usr/bin/python2.6";
-
   private static final Splitter ARGV_SPLITTER = Splitter.on(CharMatcher.anyOf(" \t"));
 
   private final OS system;
@@ -81,7 +64,6 @@ public final class CommandBuilder {
   private final Map<String, String> env = new HashMap<>();
   private File workingDir = null;
   private boolean useShell = false;
-  private String windowsPythonExePath;
 
   static OS getHostSystem() {
     return HOST_SYSTEM;
@@ -94,15 +76,6 @@ public final class CommandBuilder {
   @VisibleForTesting
   CommandBuilder(OS system) {
     this.system = system;
-    // It is very important not to set windowsPythonExePath to just "python.exe". If only
-    // basename without path is used, Windows can use registry entry under
-    // "HKLM\Software\Microsoft\Windows\CurrentVersion\App Paths" (if present) to select
-    // executable from the predefined path - which would work even with sanitized PATH.
-    // So we ensure that Blaze receives location of the python installation directory when
-    // running on Windows.
-    this.windowsPythonExePath = Strings.isNullOrEmpty(DEFAULT_WINDOWS_PYTHON_DIR)
-        ? null // disable Python support on Windows.
-        : DEFAULT_WINDOWS_PYTHON_DIR + PathFragment.SEPARATOR_CHAR + "python.exe";
   }
 
   public CommandBuilder addArg(String arg) {
@@ -119,11 +92,6 @@ public final class CommandBuilder {
 
   public CommandBuilder addArgs(String... args) {
     return addArgs(Arrays.asList(args));
-  }
-
-  public CommandBuilder addPythonExecutable() {
-    this.env.put("PYTHONHASHSEED", "0");
-    return addArgs(getPythonExecutable());
   }
 
   public CommandBuilder addEnv(Map<String, String> env) {
@@ -159,32 +127,6 @@ public final class CommandBuilder {
     return this;
   }
 
-  @VisibleForTesting
-  CommandBuilder setWindowsPythonExecutable(String pythonInterpreter) {
-    Preconditions.checkState(system == OS.WINDOWS, "This method can be used only on Windows");
-    Preconditions.checkNotNull(pythonInterpreter);
-    Preconditions.checkState(!"python.exe".equalsIgnoreCase(pythonInterpreter),
-        "Python interpreter must not be set to 'python.exe' to prevent Windows to select it's "
-        + "location using registry entry");
-    this.windowsPythonExePath = pythonInterpreter;
-    return this;
-  }
-
-  private String getPythonExecutable() {
-    switch (HOST_SYSTEM) {
-      case WINDOWS:
-        Preconditions.checkNotNull(windowsPythonExePath, WINDOWS_PYTHON_PROPERTY_NOT_SET);
-        return windowsPythonExePath;
-      case LINUX:
-        return DEFAULT_LINUX_PYTHON_DIR;
-      case DARWIN:
-        return DEFAULT_DARWIN_PYTHON_DIR;
-      default:
-        Preconditions.checkState(false, "Unknown OS %s", HOST_SYSTEM);
-        return null; // To keep the compiler happy - won't ever get here.
-    }
-  }
-
   private boolean argvStartsWithSh() {
     return argv.size() >= 2 && SHELLS.contains(argv.get(0)) && "-c".equals(argv.get(1));
   }
@@ -213,12 +155,7 @@ public final class CommandBuilder {
       // args can contain whitespace, so figure out the first word
       String argv0 = modifiedArgv.get(0);
       String command = ARGV_SPLITTER.split(argv0).iterator().next();
-      // For python programs, prepend python executable.
-      if (command.endsWith(".py") || command.endsWith(".pyc")) {
-        Preconditions.checkNotNull(windowsPythonExePath, WINDOWS_PYTHON_PROPERTY_NOT_SET);
-        modifiedArgv.add(0, windowsPythonExePath);
-        command = windowsPythonExePath;
-      }
+      
       // Automatically enable CMD.EXE use if we are executing something else besides "*.exe" file.
       if (!command.toLowerCase().endsWith(".exe")) {
         useShell = true;

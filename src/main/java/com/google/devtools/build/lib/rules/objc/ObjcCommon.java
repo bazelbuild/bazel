@@ -16,10 +16,6 @@ package com.google.devtools.build.lib.rules.objc;
 
 import static com.google.devtools.build.lib.rules.objc.ArtifactListAttribute.ARCHIVES;
 import static com.google.devtools.build.lib.rules.objc.ArtifactListAttribute.BUNDLE_IMPORTS;
-import static com.google.devtools.build.lib.rules.objc.ArtifactListAttribute.DATAMODELS;
-import static com.google.devtools.build.lib.rules.objc.ArtifactListAttribute.RESOURCES;
-import static com.google.devtools.build.lib.rules.objc.ArtifactListAttribute.STRINGS;
-import static com.google.devtools.build.lib.rules.objc.ArtifactListAttribute.XIBS;
 import static com.google.devtools.build.lib.rules.objc.ObjcProvider.ASSET_CATALOG;
 import static com.google.devtools.build.lib.rules.objc.ObjcProvider.BUNDLE_FILE;
 import static com.google.devtools.build.lib.rules.objc.ObjcProvider.BUNDLE_IMPORT_DIR;
@@ -41,7 +37,6 @@ import static com.google.devtools.build.lib.rules.objc.ObjcProvider.XCDATAMODEL;
 import com.google.common.annotations.VisibleForTesting;
 import com.google.common.base.Optional;
 import com.google.common.base.Preconditions;
-import com.google.common.base.Predicates;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableSet;
 import com.google.common.collect.Iterables;
@@ -59,7 +54,6 @@ import com.google.devtools.build.lib.view.RunfilesProvider;
 import com.google.devtools.build.lib.view.config.BuildConfiguration;
 
 import java.util.HashSet;
-import java.util.List;
 import java.util.Set;
 
 /**
@@ -69,12 +63,9 @@ import java.util.Set;
 final class ObjcCommon {
   static class Builder {
     private RuleContext context;
-    private Iterable<Artifact> assetCatalogs = ImmutableList.of();
-    private Iterable<Artifact> storyboardInputs = ImmutableList.of();
+    private Optional<ObjcBase.Attributes> baseAttributes = Optional.absent();
     private Iterable<SdkFramework> extraSdkFrameworks = ImmutableList.of();
     private Iterable<Artifact> frameworkImports = ImmutableList.of();
-    private Iterable<String> sdkDylibs = ImmutableList.of();
-    private Iterable<Artifact> hdrs = ImmutableList.of();
     private Optional<CompilationArtifacts> compilationArtifacts = Optional.absent();
     private Iterable<ObjcProvider> depObjcProviders = ImmutableList.of();
     private IntermediateArtifacts intermediateArtifacts;
@@ -83,13 +74,10 @@ final class ObjcCommon {
       this.context = Preconditions.checkNotNull(context);
     }
 
-    Builder addAssetCatalogs(Iterable<Artifact> assetCatalogs) {
-      this.assetCatalogs = Iterables.concat(this.assetCatalogs, assetCatalogs);
-      return this;
-    }
-
-    Builder addStoryboardInputs(Iterable<Artifact> storyboardInputs) {
-      this.storyboardInputs = Iterables.concat(this.storyboardInputs, storyboardInputs);
+    public Builder setBaseAttributes(ObjcBase.Attributes baseAttributes) {
+      Preconditions.checkState(!this.baseAttributes.isPresent(),
+          "baseAttributes is already set to: %s", this.baseAttributes);
+      this.baseAttributes = Optional.of(baseAttributes);
       return this;
     }
 
@@ -100,16 +88,6 @@ final class ObjcCommon {
 
     Builder addFrameworkImports(Iterable<Artifact> frameworkImports) {
       this.frameworkImports = Iterables.concat(this.frameworkImports, frameworkImports);
-      return this;
-    }
-
-    Builder addSdkDylibs(Iterable<String> sdkDylibs) {
-      this.sdkDylibs = Iterables.concat(this.sdkDylibs, sdkDylibs);
-      return this;
-    }
-
-    Builder addHdrs(Iterable<Artifact> hdrs) {
-      this.hdrs = Iterables.concat(this.hdrs, hdrs);
       return this;
     }
 
@@ -131,36 +109,47 @@ final class ObjcCommon {
     }
 
     ObjcCommon build() {
-      Iterable<CompiledResourceFile> compiledResources = Iterables.concat(
-          CompiledResourceFile.xibFilesFromRule(context),
-          CompiledResourceFile.stringsFilesFromRule(context));
       Iterable<BundleableFile> bundleImports = BundleableFile.bundleImportsFromRule(context);
-      Storyboards storyboards = Storyboards.fromInputs(storyboardInputs, intermediateArtifacts);
 
       ObjcProvider.Builder objcProvider = new ObjcProvider.Builder()
-          .addAll(HEADER, hdrs)
-          .addAll(INCLUDE, headerSearchPaths(context))
-          .addAll(XCASSETS_DIR, uniqueContainers(assetCatalogs, ASSET_CATALOG_CONTAINER_TYPE))
-          .addAll(ASSET_CATALOG, assetCatalogs)
-          .addTransitive(GENERAL_RESOURCE_FILE, storyboards.getInputs())
-          .addTransitive(STORYBOARD_OUTPUT_ZIP, storyboards.getOutputZips())
           .addAll(IMPORTED_LIBRARY, ARCHIVES.get(context))
-          .addAll(GENERAL_RESOURCE_FILE, RESOURCES.get(context))
-          .addAll(GENERAL_RESOURCE_FILE, STRINGS.get(context))
-          .addAll(GENERAL_RESOURCE_FILE, XIBS.get(context))
-          .addAll(BUNDLE_FILE, BundleableFile.resourceFilesFromRule(context))
-          .addAll(BUNDLE_FILE,
-              Iterables.transform(compiledResources, CompiledResourceFile.TO_BUNDLED))
           .addAll(BUNDLE_FILE, bundleImports)
           .addAll(BUNDLE_IMPORT_DIR,
               uniqueContainers(BundleableFile.toArtifacts(bundleImports), BUNDLE_CONTAINER_TYPE))
-          .addAll(SDK_FRAMEWORK, ObjcRuleClasses.sdkFrameworks(context))
           .addAll(SDK_FRAMEWORK, extraSdkFrameworks)
-          .addAll(SDK_DYLIB, sdkDylibs)
-          .addAll(XCDATAMODEL, Xcdatamodels.xcdatamodels(context))
           .addAll(FRAMEWORK_FILE, frameworkImports)
           .addAll(FRAMEWORK_DIR, uniqueContainers(frameworkImports, FRAMEWORK_CONTAINER_TYPE))
           .addTransitive(depObjcProviders);
+
+      Storyboards storyboards;
+      if (baseAttributes.isPresent()) {
+        ObjcBase.Attributes attributes = baseAttributes.get();
+        storyboards = Storyboards.fromInputs(attributes.storyboards(), intermediateArtifacts);
+        Iterable<CompiledResourceFile> compiledResources = Iterables.concat(
+            CompiledResourceFile.fromXibFiles(intermediateArtifacts, attributes.xibs()),
+            CompiledResourceFile.fromStringsFiles(intermediateArtifacts, attributes.strings()));
+
+        objcProvider
+            .addAll(HEADER, attributes.hdrs())
+            .addAll(INCLUDE, attributes.headerSearchPaths())
+            .addAll(XCASSETS_DIR,
+                uniqueContainers(attributes.assetCatalogs(), ASSET_CATALOG_CONTAINER_TYPE))
+            .addAll(ASSET_CATALOG, attributes.assetCatalogs())
+            .addTransitive(STORYBOARD_OUTPUT_ZIP, storyboards.getOutputZips())
+            .addAll(GENERAL_RESOURCE_FILE, storyboards.getInputs())
+            .addAll(GENERAL_RESOURCE_FILE, attributes.resources())
+            .addAll(GENERAL_RESOURCE_FILE, attributes.strings())
+            .addAll(GENERAL_RESOURCE_FILE, attributes.xibs())
+            .addAll(BUNDLE_FILE, BundleableFile.nonCompiledResourceFiles(attributes.resources()))
+            .addAll(BUNDLE_FILE,
+                Iterables.transform(compiledResources, CompiledResourceFile.TO_BUNDLED))
+            .addAll(SDK_FRAMEWORK, attributes.sdkFrameworks())
+            .addAll(SDK_DYLIB, attributes.sdkDylibs())
+            .addAll(XCDATAMODEL,
+                Xcdatamodels.xcdatamodels(intermediateArtifacts, attributes.datamodels()));
+      } else {
+        storyboards = Storyboards.empty();
+      }
 
       for (CompilationArtifacts artifacts : compilationArtifacts.asSet()) {
         objcProvider.addAll(LIBRARY, artifacts.getArchive().asSet());
@@ -175,12 +164,11 @@ final class ObjcCommon {
         }
       }
 
-      Iterable<String> ruleErrors = Iterables.concat(
-          notInContainerErrors(assetCatalogs, ASSET_CATALOG_CONTAINER_TYPE),
-          notInContainerErrors(frameworkImports, FRAMEWORK_CONTAINER_TYPE));
+      Iterable<String> ruleErrors =
+          notInContainerErrors(frameworkImports, FRAMEWORK_CONTAINER_TYPE);
 
-      return new ObjcCommon(
-          context, objcProvider.build(), storyboards, hdrs, compilationArtifacts, ruleErrors);
+      return new ObjcCommon(context, objcProvider.build(), storyboards, baseAttributes,
+          compilationArtifacts, ruleErrors);
     }
   }
 
@@ -199,7 +187,7 @@ final class ObjcCommon {
   private final RuleContext context;
   private final ObjcProvider objcProvider;
   private final Storyboards storyboards;
-  private final Iterable<Artifact> hdrs;
+  private final Optional<ObjcBase.Attributes> baseAttributes;
   private final Optional<CompilationArtifacts> compilationArtifacts;
   private final Iterable<String> ruleErrors;
 
@@ -207,13 +195,13 @@ final class ObjcCommon {
       RuleContext context,
       ObjcProvider objcProvider,
       Storyboards storyboards,
-      Iterable<Artifact> hdrs,
+      Optional<ObjcBase.Attributes> baseAttributes,
       Optional<CompilationArtifacts> compilationArtifacts,
       Iterable<String> ruleErrors) {
     this.context = Preconditions.checkNotNull(context);
     this.objcProvider = Preconditions.checkNotNull(objcProvider);
     this.storyboards = Preconditions.checkNotNull(storyboards);
-    this.hdrs = Preconditions.checkNotNull(hdrs);
+    this.baseAttributes = Preconditions.checkNotNull(baseAttributes);
     this.compilationArtifacts = Preconditions.checkNotNull(compilationArtifacts);
     this.ruleErrors = Preconditions.checkNotNull(ruleErrors);
   }
@@ -223,7 +211,7 @@ final class ObjcCommon {
   }
 
   public Iterable<Artifact> getHdrs() {
-    return hdrs;
+    return baseAttributes.isPresent() ? baseAttributes.get().hdrs() : ImmutableList.<Artifact>of();
   }
 
   public Optional<CompilationArtifacts> getCompilationArtifacts() {
@@ -259,19 +247,26 @@ final class ObjcCommon {
       context.ruleError(error);
     }
 
-    for (String error :
-        notInContainerErrors(DATAMODELS.get(context), Xcdatamodels.CONTAINER_TYPES)) {
-      context.attributeError(DATAMODELS.attrName(), error);
-    }
-
     for (String error : notInContainerErrors(BUNDLE_IMPORTS.get(context), BUNDLE_CONTAINER_TYPE)) {
       context.attributeError(BUNDLE_IMPORTS.attrName(), error);
     }
 
-    for (PathFragment absoluteInclude :
-        Iterables.filter(ObjcRuleClasses.includes(context), PathFragment.IS_ABSOLUTE)) {
-      context.attributeError(
-          "includes", String.format(ABSOLUTE_INCLUDES_PATH_FORMAT, absoluteInclude));
+    for (ObjcBase.Attributes attributes : baseAttributes.asSet()) {
+      for (String error :
+          notInContainerErrors(attributes.datamodels(), Xcdatamodels.CONTAINER_TYPES)) {
+        context.attributeError("datamodels", error);
+      }
+
+      for (String error :
+          notInContainerErrors(attributes.assetCatalogs(), ASSET_CATALOG_CONTAINER_TYPE)) {
+        context.attributeError("asset_catalogs", error);
+      }
+
+      for (PathFragment absoluteInclude :
+          Iterables.filter(attributes.includes(), PathFragment.IS_ABSOLUTE)) {
+        context.attributeError(
+            "includes", String.format(ABSOLUTE_INCLUDES_PATH_FORMAT, absoluteInclude));
+      }
     }
 
     // TODO(bazel-team): Report errors for rules that are not actually useful (i.e. objc_library
@@ -282,23 +277,6 @@ final class ObjcCommon {
     return ImmutableList.of(
         new PathFragment("."),
         configuration.getGenfilesFragment());
-  }
-
-  static Iterable<PathFragment> headerSearchPaths(RuleContext context) {
-    ImmutableList.Builder<PathFragment> paths = new ImmutableList.Builder<>();
-    PathFragment packageFragment = context.getLabel().getPackageFragment();
-    List<PathFragment> rootFragments = ImmutableList.of(
-        packageFragment,
-        context.getConfiguration().getGenfilesFragment().getRelative(packageFragment));
-
-    Iterable<PathFragment> relativeIncludes =  Iterables.filter(
-        ObjcRuleClasses.includes(context), Predicates.not(PathFragment.IS_ABSOLUTE));
-    for (PathFragment include : relativeIncludes) {
-      for (PathFragment rootFragment : rootFragments) {
-        paths.add(rootFragment.getRelative(include).normalize());
-      }
-    }
-    return paths.build();
   }
 
   /**

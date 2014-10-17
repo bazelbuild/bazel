@@ -14,7 +14,6 @@
 
 package com.google.devtools.build.lib.packages;
 
-import com.google.common.base.Objects;
 import com.google.common.base.Preconditions;
 import com.google.common.collect.ComparisonChain;
 import com.google.devtools.build.lib.cmdline.LabelValidator;
@@ -24,6 +23,7 @@ import com.google.devtools.build.lib.util.StringUtilities;
 import com.google.devtools.build.lib.vfs.PathFragment;
 
 import java.io.Serializable;
+import java.util.Objects;
 
 import javax.annotation.concurrent.Immutable;
 
@@ -113,7 +113,9 @@ public final class PackageIdentifier implements Comparable<PackageIdentifier>, S
 
   @Override
   public int hashCode() {
-    return Objects.hashCode(repository, pkgName);
+    // TODO(bazel-team): we should be able to just use Objects.hash, but this causes the genquery
+    // determinism tests to flake for unknown reasons.
+    return repository.isEmpty() ? pkgName.hashCode() : Objects.hash(repository, pkgName);
   }
 
   @Override

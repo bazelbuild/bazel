@@ -28,7 +28,6 @@ import com.google.devtools.build.lib.syntax.GlobList;
 import com.google.devtools.build.lib.syntax.Label;
 import com.google.devtools.build.lib.syntax.SelectorValue;
 import com.google.devtools.build.lib.util.LoggingUtil;
-import com.google.devtools.build.lib.util.Pair;
 import com.google.devtools.build.lib.util.StringCanonicalizer;
 
 import java.util.ArrayList;
@@ -254,37 +253,10 @@ public abstract class Type<T> {
    */
   public static final ListType<Integer> INTEGER_LIST = ListType.create(INTEGER);
 
-  // TODO(bazel-team): should we introduce a Map type here? Or should we keep converting?
   /**
    *  The type of a dictionary of {@linkplain #STRING strings}.
    */
-  public static final ListType<List<String>> STRING_DICT =
-    new ListType<List<String>>(STRING_LIST) {
-    @Override
-    public List<List<String>> convert(Object x, String what,
-        Label currentRule) throws ConversionException {
-      if (!(x instanceof Map<?, ?>)) {
-        throw new ConversionException(String.format(
-            "Expected a map for dictionary but got a %s", x.getClass().getName())); 
-      }
-      List<List<String>> result = new ArrayList<>();
-      Map<?, ?> o = (Map<?, ?>) x;
-      for (Entry<?, ?> elem : o.entrySet()) {
-        if (!(elem.getKey() instanceof String)) {
-          throw new ConversionException(String.format(
-              "Key (%s) in string dictionary is not a string but a %s",
-              elem.getKey(), elem.getKey().getClass().getName()));
-        }
-        if (!(elem.getValue() instanceof String)) {
-          throw new ConversionException(String.format(
-              "Value (%s) in string dictionary is not a string but a %s",
-              elem.getValue(), elem.getValue().getClass().getName()));
-        }
-        result.add(ImmutableList.of((String) elem.getKey(), (String) elem.getValue()));
-      }
-      return result;
-    }
-  };
+  public static final DictType<String, String> STRING_DICT = DictType.create(STRING, STRING);
 
   /**
    *  The type of a list of {@linkplain #OUTPUT outputs}.
@@ -305,88 +277,20 @@ public abstract class Type<T> {
   /**
    * The type of a dictionary of {@linkplain #STRING_LIST label lists}.
    */
-  public static final ListType<Pair<String, List<String>>> STRING_LIST_DICT =
-      new ListType<Pair<String, List<String>>>(PairType.create(STRING, STRING_LIST)) {
-    @Override
-    public List<Pair<String, List<String>>> convert(Object x, String what,
-        Label currentRule) throws ConversionException {
-      if (!(x instanceof Map<?, ?>)) {
-        throw new ConversionException(String.format(
-            "Expected a map for dictionary but got a %s", x.getClass().getName())); 
-      }
-      List<Pair<String, List<String>>> result = new ArrayList<>();
-      Map<?, ?> o = (Map<?, ?>) x;
-      for (Entry<?, ?> elem : o.entrySet()) {
-        if (!(elem.getKey() instanceof String)) {
-          throw new ConversionException(String.format(
-              "Key (%s) in string list dictionary is not a string but a %s",
-              elem.getKey(), elem.getKey().getClass().getName()));
-        }
-        result.add(Pair.of((String) elem.getKey(),
-            STRING_LIST.convert(elem.getValue(), what, currentRule)));
-      }
-      return result;
-    }
-  };
+  public static final DictType<String, List<String>> STRING_LIST_DICT =
+      DictType.create(STRING, STRING_LIST);
 
   /**
    * The type of a dictionary of {@linkplain #STRING strings}, where each entry
    * maps to a single string value.
    */
-  public static final ListType<Pair<String, String>> STRING_DICT_UNARY =
-      new ListType<Pair<String, String>>(PairType.create(STRING, STRING)) {
-    @Override
-    public List<Pair<String, String>> convert(Object x, String what,
-        Label currentRule) throws ConversionException {
-      if (!(x instanceof Map<?, ?>)) {
-        throw new ConversionException(String.format(
-            "Expected a map for dictionary but got a %s", x.getClass().getName())); 
-      }
-      List<Pair<String, String>> result = new ArrayList<>();
-      Map<?, ?> o = (Map<?, ?>) x;
-      for (Entry<?, ?> elem : o.entrySet()) {
-        if (!(elem.getKey() instanceof String)) {
-          throw new ConversionException(String.format(
-              "Key (%s) in string dictionary is not a string but a %s",
-              elem.getKey(), elem.getKey().getClass().getName()));
-        }
-        if (!(elem.getValue() instanceof String)) {
-          throw new ConversionException(String.format(
-              "Value (%s) in string dictionary is not a string but a %s",
-              elem.getValue(), elem.getValue().getClass().getName()));
-        }
-        result.add(Pair.of((String) elem.getKey(), (String) elem.getValue()));
-      }
-      return result;
-    }
-  };
+  public static final DictType<String, String> STRING_DICT_UNARY = DictType.create(STRING, STRING);
 
   /**
    * The type of a dictionary of {@linkplain #LABEL_LIST label lists}.
    */
-  public static final ListType<Pair<String, List<Label>>> LABEL_LIST_DICT =
-      new ListType<Pair<String, List<Label>>>(PairType.create(STRING, LABEL_LIST)) {
-    @Override
-    public List<Pair<String, List<Label>>> convert(Object x, String what,
-        Label currentRule) throws ConversionException {
-      if (!(x instanceof Map<?, ?>)) {
-        throw new ConversionException(String.format(
-            "Expected a map for dictionary but got a %s", x.getClass().getName())); 
-      }
-      List<Pair<String, List<Label>>> result = new ArrayList<>();
-      Map<?, ?> o = (Map<?, ?>) x;
-      for (Entry<?, ?> elem : o.entrySet()) {
-        if (!(elem.getKey() instanceof String)) {
-          throw new ConversionException(String.format(
-              "Key (%s) in label list dictionary is not a string but a %s",
-              elem.getKey(), elem.getKey().getClass().getName()));
-        }
-        result.add(Pair.of((String) elem.getKey(),
-            LABEL_LIST.convert(elem.getValue(), what, currentRule)));
-      }
-      return result;
-    }
-  };
+  public static final DictType<String, List<Label>> LABEL_LIST_DICT =
+      DictType.create(STRING, LABEL_LIST);
 
   /**
    * The type of a list of {@linkplain #FILESET_ENTRY FilesetEntries}.
@@ -838,6 +742,70 @@ public abstract class Type<T> {
     }
   }
 
+  /**
+   * A type to support dictionary attributes.
+   */
+  public static class DictType<KEY, VALUE> extends Type<Map<KEY, VALUE>> {
+
+    private final Type<KEY> keyType;
+    private final Type<VALUE> valueType;
+
+    private final Map<KEY, VALUE> empty = ImmutableMap.of();
+
+    private static <KEY, VALUE> DictType<KEY, VALUE> create(
+        Type<KEY> keyType, Type<VALUE> valueType) {
+      return new DictType<>(keyType, valueType);
+    }
+
+    private DictType(Type<KEY> keyType, Type<VALUE> valueType) {
+      this.keyType = keyType;
+      this.valueType = valueType;
+    }
+
+    @SuppressWarnings("unchecked")
+    @Override
+    public Map<KEY, VALUE> cast(Object value) {
+      return (Map<KEY, VALUE>) value;
+    }
+
+    @Override
+    public String toString() {
+      return "dict(" + keyType + ", " + valueType + ")";
+    }
+
+    @Override
+    public Map<KEY, VALUE> convert(Object x, String what, Label currentRule)
+        throws ConversionException {
+      if (!(x instanceof Map<?, ?>)) {
+        throw new ConversionException(String.format(
+            "Expected a map for dictionary but got a %s", x.getClass().getName())); 
+      }
+      ImmutableMap.Builder<KEY, VALUE> result = ImmutableMap.builder();
+      Map<?, ?> o = (Map<?, ?>) x;
+      for (Entry<?, ?> elem : o.entrySet()) {
+        result.put(
+            keyType.convert(elem.getKey(), "dict key element", currentRule),
+            valueType.convert(elem.getValue(), "dict value element", currentRule));
+      }
+      return result.build();
+    }
+
+    @Override
+    public Map<KEY, VALUE> getDefaultValue() {
+      return empty;
+    }
+
+    @Override
+    public Iterable<Label> getLabels(Object value) {
+      ImmutableList.Builder<Label> labels = ImmutableList.builder();
+      for (Map.Entry<KEY, VALUE> entry : cast(value).entrySet()) {
+        labels.addAll(keyType.getLabels(entry.getKey()));
+        labels.addAll(valueType.getLabels(entry.getValue()));
+      }
+      return labels.build();
+    }
+  }
+
   public static class ListType<ELEM> extends Type<List<ELEM>> {
 
     private final Type<ELEM> elemType;
@@ -949,79 +917,6 @@ public abstract class Type<T> {
       } else {
         throw new ConversionException(this, x, what);
       }
-    }
-  }
-
-  /**
-   * Defines a Type symbol for a pair of types.
-   * This will typically look like:  'foo': 'bar', which is interpreted as a List.
-   */
-  @VisibleForTesting
-  public static class PairType<FIRST, SECOND> extends Type<Pair<FIRST, SECOND>> {
-    private final Type<FIRST> firstType;
-    private final Type<SECOND> secondType;
-
-    public static <FIRST, SECOND> PairType<FIRST, SECOND> create(Type<FIRST> firstType,
-                                                                 Type<SECOND> secondType) {
-      return new PairType<>(firstType, secondType);
-    }
-
-    private PairType(Type<FIRST> firstType, Type<SECOND> secondType) {
-      this.firstType = firstType;
-      this.secondType = secondType;
-    }
-
-    @SuppressWarnings("unchecked")
-    @Override
-    public Pair<FIRST, SECOND> cast(Object value) {
-      return (Pair<FIRST, SECOND>) value;
-    }
-
-    @Override
-    public Pair<FIRST, SECOND> getDefaultValue() {
-      return null;
-    }
-
-    @Override
-    public Iterable<Label> getLabels(Object value) {
-      return ImmutableList.<Label>builder()
-          .addAll(firstType.getLabels(cast(value).first))
-          .addAll(secondType.getLabels(cast(value).second))
-          .build();
-    }
-
-    /**
-     * Returns the type of the first member of the pair (the key).
-     */
-    public Type<FIRST> getFirstType() {
-      return firstType;
-    }
-
-    /**
-     * Returns the type of the second member of the pair (the value).
-     */
-    public Type<SECOND> getSecondType() {
-      return secondType;
-    }
-
-    @Override
-    public String toString() {
-      return "pair(" + firstType + "," + secondType + ")";
-    }
-
-    @Override
-    public Pair<FIRST, SECOND> convert(Object x, String what, Label currentRule)
-        throws ConversionException {
-      if (!(x instanceof List<?>)) {
-        throw new ConversionException(this, x, what);
-      }
-      List<?> list = (List<?>) x;
-      if (list.size() != 2) {
-        throw new ConversionException("dictionary element is not a pair");
-      }
-      FIRST first = firstType.convert(list.get(0), "element 0 of " + what, currentRule);
-      SECOND second = secondType.convert(list.get(1), "element 1 of " + what, currentRule);
-      return new Pair<>(first, second);
     }
   }
 

@@ -130,29 +130,21 @@ public abstract class MixedModeFunction extends AbstractFunction {
     // (defaults are always null so nothing extra to do here.)
 
     try {
-      return call(namedArguments, null, null, ast, env);
+      return call(namedArguments, ast, env);
     } catch (ConversionException | IllegalArgumentException | IllegalStateException
         | ClassCastException e) {
       throw new EvalException(loc, e.getMessage());
     }
   }
 
-  // TODO(bazel-team): Clean up positionalArguments and keywordArguments.
   /**
    * Like Function.call, but generalised to support Python-style mixed-mode
    * keyword and positional parameter passing.
    *
-   * @param namedArguments an array of argument values corresponding to the list
+   * @param args an array of argument values corresponding to the list
    *        of named parameters passed to the constructor.
-   * @param positionalArguments a list of surplus positional arguments
-   *        (if this function supports it, otherwise null).
-   * @param keywordArguments a dictionary of surplus keyword arguments
-   *        (if this function supports it; otherwise null)
    */
-  protected Object call(Object[] namedArguments,
-                        List<Object> positionalArguments,
-                        Map<String, Object> keywordArguments,
-                        FuncallExpression ast)
+  protected Object call(Object[] args, FuncallExpression ast)
       throws EvalException, ConversionException, InterruptedException {
     throw new UnsupportedOperationException("Method not overridden");
   }
@@ -161,13 +153,9 @@ public abstract class MixedModeFunction extends AbstractFunction {
    * Override this method instead of the one above, if you need to access
    * the environment.
    */
-  public Object call(Object[] namedArguments,
-      List<Object> positionalArguments,
-      Map<String, Object> keywordArguments,
-      FuncallExpression ast,
-      Environment env)
+  protected Object call(Object[] args, FuncallExpression ast, Environment env)
       throws EvalException, ConversionException, InterruptedException {
-    return call(namedArguments, positionalArguments, keywordArguments, ast);
+    return call(args, ast);
   }
 
   /**

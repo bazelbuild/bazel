@@ -52,6 +52,8 @@ import com.google.devtools.build.lib.packages.TestSize;
 import com.google.devtools.build.lib.packages.Type;
 import com.google.devtools.build.lib.packages.Type.ConversionException;
 import com.google.devtools.build.lib.syntax.AbstractFunction;
+import com.google.devtools.build.lib.syntax.ClassObject;
+import com.google.devtools.build.lib.syntax.ClassObject.SkylarkClassObject;
 import com.google.devtools.build.lib.syntax.Environment;
 import com.google.devtools.build.lib.syntax.Environment.NoSuchVariableException;
 import com.google.devtools.build.lib.syntax.EvalException;
@@ -323,4 +325,80 @@ public class SkylarkRuleClassFunctions {
           return SkylarkFileType.of(castList(arguments.get("types"), String.class));
         }
       };
+
+  @SkylarkBuiltin(name = "to_proto",
+      doc = "Creates a text message from the struct parameter. This method only works if all "
+          + "struct elements (recursively) are strings, ints, other structs or a list of these "
+          + "types. Quotes and new lines in strings are escaped. "
+          + "Examples:<br><pre class=code>"
+          + "struct(key=123).to_proto()\n# key: 123\n\n"
+          + "struct(key=[1, 2, 3]).to_proto()\n# key: 1\n# key: 2\n# key: 3\n\n"
+          + "struct(key='text').to_proto()\n# key: \"text\"\n\n"
+          + "struct(key=struct(inner_key='text')).to_proto()\n"
+          + "# key {\n#   inner_key: \"text\"\n# }\n\n"
+          + "struct(key=[struct(inner_key=1), struct(inner_key=2)]).to_proto()\n"
+          + "# key {\n#   inner_key: 1\n# }\n# key {\n#   inner_key: 2\n# }\n\n"
+          + "struct(key=struct(inner_key=struct(inner_inner_key='text'))).to_proto()\n"
+          + "# key {\n#    inner_key {\n#     inner_inner_key: \"text\"\n#   }\n# }\n</pre>",
+      objectType = SkylarkClassObject.class, returnType = String.class)
+  private static final SkylarkFunction textMessage = new SimpleSkylarkFunction("to_proto") {
+    @Override
+    public Object call(Map<String, Object> arguments, Location loc) throws EvalException,
+        ConversionException {
+      ClassObject object = (ClassObject) arguments.get("self");
+      StringBuilder sb = new StringBuilder();
+      printTextMessage(object, sb, 0, loc);
+      return sb.toString();
+    }
+
+    private void printTextMessage(ClassObject object, StringBuilder sb,
+        int indent, Location loc) throws EvalException {
+      for (String key : object.getKeys()) {
+        printTextMessage(key, object.getValue(key), sb, indent, loc);
+      }
+    }
+
+    private void printSimpleTextMessage(String key, Object value, StringBuilder sb,
+        int indent, Location loc, String container) throws EvalException {
+      if (value instanceof ClassObject) {
+        print(sb, key + " {", indent);
+        printTextMessage((ClassObject) value, sb, indent + 1, loc);
+        print(sb, "}", indent);
+      } else if (value instanceof String) {
+        print(sb, key + ": \"" + escape((String) value) + "\"", indent);
+      } else if (value instanceof Integer) {
+        print(sb, key + ": " + value, indent);
+      } else {
+        throw new EvalException(loc,
+            "Invalid text format, expected a struct, a string or an int but got a "
+            + EvalUtils.getDatatypeName(value) + " for " + container + " '" + key + "'");
+      }
+    }
+
+    private void printTextMessage(String key, Object value, StringBuilder sb,
+        int indent, Location loc) throws EvalException {
+      if (value instanceof SkylarkList) {
+        for (Object item : ((SkylarkList) value)) {
+          // TODO(bazel-team): There should be some constraint on the fields of the structs
+          // in the same list but we ignore that for now.
+          printSimpleTextMessage(key, item, sb, indent, loc, "list element in struct field");
+        }
+      } else {
+        printSimpleTextMessage(key, value, sb, indent, loc, "struct field");
+      }
+    }
+
+    private String escape(String string) {
+      // TODO(bazel-team): use guava's SourceCodeEscapers when it's released.
+      return string.replace("\"", "\\\"").replace("\n", "\\n");
+    }
+
+    private void print(StringBuilder sb, String text, int indent) {
+      for (int i = 0; i < indent; i++) {
+        sb.append("  ");
+      }
+      sb.append(text);
+      sb.append("\n");
+    }
+  };
 }

@@ -195,6 +195,11 @@ final class OptionsData {
         Class<? extends Converter> converter = annotation.converter();
         if (converter == Converter.class) {
           Converter<?> actualConverter = OptionsParserImpl.DEFAULT_CONVERTERS.get(fieldType);
+          if (actualConverter == null) {
+            throw new AssertionError("Cannot find converter for field of type "
+                + field.getType() + " named " + field.getName()
+                + " in class " + field.getDeclaringClass().getName());
+          }
           converter = actualConverter.getClass();
         }
         if (Modifier.isAbstract(converter.getModifiers())) {

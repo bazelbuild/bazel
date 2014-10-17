@@ -29,6 +29,8 @@ import com.google.devtools.build.lib.packages.Preprocessor;
 import com.google.devtools.build.lib.query2.engine.QueryEnvironment.QueryFunction;
 import com.google.devtools.build.lib.query2.output.OutputFormatter;
 import com.google.devtools.build.lib.skyframe.DiffAwareness;
+import com.google.devtools.build.lib.skyframe.SkyframeExecutor;
+import com.google.devtools.build.lib.skyframe.SkyframeExecutorFactory;
 import com.google.devtools.build.lib.syntax.Environment;
 import com.google.devtools.build.lib.syntax.Label;
 import com.google.devtools.build.lib.util.AbruptExitException;
@@ -341,5 +343,14 @@ public abstract class BlazeModule {
         return ImmutableList.of();
       }
     };
+  }
+
+  /**
+   * Returns a factory for creating {@link SkyframeExecutor} objects. If the module does not
+   * provide any SkyframeExecutorFactory, it returns null. Note that only one factory per
+   * Bazel/Blaze runtime is allowed.
+   */
+  public SkyframeExecutorFactory getSkyframeExecutorFactory() {
+    return null;
   }
 }

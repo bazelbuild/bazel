@@ -38,6 +38,11 @@ public class TestConstants {
   public static final String EMBEDDED_SCRIPTS_PATH = "DOES-NOT-WORK-YET";
 
   /**
+   * Directory where we can find bazel's Java tests, relative to a test's runfiles directory.
+   */
+  public static final String JAVATESTS_ROOT = "src/test/java/";
+
+  /**
    * The directory in InMemoryFileSystem where workspaces created during unit tests reside.
    */
   public static final String TEST_WORKSPACE_DIRECTORY = "bazel";

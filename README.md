@@ -32,12 +32,12 @@ Running Bazel
 =============
 
 Bazel requires certain files to exist in certain places. To get your workspace
-set up correctly, copy `example_workspace/` to wherever you want to do your
-builds.
+set up correctly, start by copying `base_workspace/` to wherever you want to do
+your builds and make your project a subdirectory of `base_workspace/`.
 
-Create your own project with a BUILD file in a subdirectory, for example:
+Create a BUILD file in a subdirectory of `base_workspace`, for example:
 
-    $ cd example_workspace
+    $ cd base_workspace
     $ mkdir hello
     $ echo 'genrule(name = "world", outs = ["hi"], cmd = "touch $@")' > hello/BUILD
 
@@ -45,4 +45,4 @@ Now run Bazel, e.g.,
 
     $ bazel build //hello:world
 
-You should be able to find the file "hi" in blaze-genfiles/hello/.
+You should be able to find the file "hi" in bazel-genfiles/hello/.

@@ -71,8 +71,6 @@ public class DocgenConsts {
 
   public static final String BUILD_ENCYCLOPEDIA_NAME = "build-encyclopedia.html";
 
-  public static final String SKYLARK_DOC_NAME = "skylark-documentation.html";
-
   public static final FileTypeSet JAVA_SOURCE_FILE_SUFFIX = FileTypeSet.of(FileType.of(".java"));
 
   public static final String META_KEY_NAME = "NAME";

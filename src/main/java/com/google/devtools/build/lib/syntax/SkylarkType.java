@@ -44,7 +44,7 @@ public class SkylarkType {
 
   private final Class<?> type;
 
-  // TODO(bazel-team): Maybe change this to SkylarkType and allow list of lists etc.
+  // TODO(bazel-team): Change this to SkylarkType and check generics of generics etc.
   // Object.class is used for UNKNOWN.
   private Class<?> generic1;
 

@@ -16,6 +16,7 @@ package com.google.devtools.build.lib.packages;
 import com.google.common.base.Preconditions;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableList.Builder;
+import com.google.common.collect.ImmutableMap;
 import com.google.devtools.build.lib.concurrent.ThreadSafety.Immutable;
 import com.google.devtools.build.lib.events.Event;
 import com.google.devtools.build.lib.events.Location;
@@ -32,7 +33,6 @@ import com.google.devtools.build.lib.syntax.FilesetEntry;
 import com.google.devtools.build.lib.syntax.GlobCriteria;
 import com.google.devtools.build.lib.syntax.GlobList;
 import com.google.devtools.build.lib.syntax.Label;
-import com.google.devtools.build.lib.util.Pair;
 import com.google.devtools.build.lib.vfs.Path;
 import com.google.devtools.build.lib.vfs.PathFragment;
 
@@ -479,17 +479,17 @@ public class PackageDeserializer {
         return deserializeLicense(attrPb.getLicense());
 
       case STRING_DICT: {
-        ImmutableList.Builder<List<String>> builder = ImmutableList.builder();
+        ImmutableMap.Builder<String, String> builder = ImmutableMap.builder();
         for (Build.StringDictEntry entry : attrPb.getStringDictValueList()) {
-          builder.add(ImmutableList.of(entry.getKey(), entry.getValue()));
+          builder.put(entry.getKey(), entry.getValue());
         }
         return builder.build();
       }
 
       case STRING_DICT_UNARY: {
-        ImmutableList.Builder<Pair<String, String>> builder = ImmutableList.builder();
+        ImmutableMap.Builder<String, String> builder = ImmutableMap.builder();
         for (StringDictUnaryEntry entry : attrPb.getStringDictUnaryValueList()) {
-          builder.add(new Pair<>(entry.getKey(), entry.getValue()));
+          builder.put(entry.getKey(), entry.getValue());
         }
         return builder.build();
       }
@@ -498,19 +498,17 @@ public class PackageDeserializer {
         return deserializeFilesetEntries(attrPb.getFilesetListValueList());
 
       case LABEL_LIST_DICT: {
-        ImmutableList.Builder<Object> builder = ImmutableList.builder();
+        ImmutableMap.Builder<String, List<Label>> builder = ImmutableMap.builder();
         for (Build.LabelListDictEntry entry : attrPb.getLabelListDictValueList()) {
-          builder.add(Pair.of(
-              entry.getKey(), deserializeLabels(entry.getValueList())));
+          builder.put(entry.getKey(), deserializeLabels(entry.getValueList()));
         }
         return builder.build();
       }
 
       case STRING_LIST_DICT: {
-       ImmutableList.Builder<Object> builder = ImmutableList.builder();
+        ImmutableMap.Builder<String, List<String>> builder = ImmutableMap.builder();
         for (Build.StringListDictEntry entry : attrPb.getStringListDictValueList()) {
-          builder.add(Pair.of(
-              entry.getKey(), ImmutableList.copyOf(entry.getValueList())));
+          builder.put(entry.getKey(), ImmutableList.copyOf(entry.getValueList()));
         }
         return builder.build();
       }

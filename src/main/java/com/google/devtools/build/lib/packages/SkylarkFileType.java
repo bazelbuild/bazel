@@ -24,7 +24,7 @@ import com.google.devtools.build.lib.util.FileTypeSet;
 /**
  * A wrapper class for FileType and FileTypeSet functionality in Skylark.
  */
-@SkylarkModule(name = "FileType", doc = "File type for file filtering.")
+@SkylarkModule(name = "file_type", doc = "File type for file filtering.")
 public class SkylarkFileType {
 
   private final FileType fileType;

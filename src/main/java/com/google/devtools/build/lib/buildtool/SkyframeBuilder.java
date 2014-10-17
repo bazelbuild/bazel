@@ -13,6 +13,7 @@
 // limitations under the License.
 package com.google.devtools.build.lib.buildtool;
 
+import com.google.common.annotations.VisibleForTesting;
 import com.google.common.base.Preconditions;
 import com.google.common.collect.ImmutableSet;
 import com.google.common.collect.Iterables;
@@ -57,7 +58,8 @@ import java.util.concurrent.atomic.AtomicBoolean;
 /**
  * A {@link Builder} implementation driven by Skyframe.
  */
-class SkyframeBuilder implements Builder {
+@VisibleForTesting
+public class SkyframeBuilder implements Builder {
 
   private final SkyframeExecutor skyframeExecutor;
   private final boolean keepGoing;
@@ -67,7 +69,8 @@ class SkyframeBuilder implements Builder {
   private final ActionCacheChecker actionCacheChecker;
   private final int progressReportInterval;
 
-  SkyframeBuilder(SkyframeExecutor skyframeExecutor, ActionCacheChecker actionCacheChecker,
+  @VisibleForTesting
+  public SkyframeBuilder(SkyframeExecutor skyframeExecutor, ActionCacheChecker actionCacheChecker,
       boolean keepGoing, boolean explain, int numJobs, boolean checkOutputFiles,
       ActionInputFileCache fileCache, int progressReportInterval) {
     this.skyframeExecutor = skyframeExecutor;
@@ -119,6 +122,8 @@ class SkyframeBuilder implements Builder {
       // progressReceiver is finished, so unsynchronized access to builtArtifacts is now safe.
       builtArtifacts.addAll(ArtifactValue.artifacts(result.<OwnedArtifact>keyNames()));
       success = processResult(result, keepGoing, skyframeExecutor);
+      Preconditions.checkState(!success || result.keyNames().size() == artifacts.size(),
+          "Build reported as successful but not all artifacts built: %s, %s", result, artifacts);
 
       // Run exclusive tests: either tagged as "exclusive" or is run in an invocation with
       // --test_output=streamed.
@@ -128,7 +133,11 @@ class SkyframeBuilder implements Builder {
         // built and then the build being interrupted.
         result = skyframeExecutor.buildArtifacts(executor, ImmutableSet.of(exclusiveArtifact),
             keepGoing, explain, numJobs, actionCacheChecker, null);
-        success = processResult(result, keepGoing, skyframeExecutor) && success;
+        boolean exclusiveSuccess = processResult(result, keepGoing, skyframeExecutor);
+        Preconditions.checkState(!exclusiveSuccess || !result.keyNames().isEmpty(),
+            "Build reported as successful but artifact %s not built: %s",
+            exclusiveArtifact, result);
+        success &= exclusiveSuccess;
       }
     } finally {
       watchdog.stop();
@@ -140,6 +149,16 @@ class SkyframeBuilder implements Builder {
     if (!success) {
       throw new BuildFailedException();
     }
+  }
+
+  private static boolean resultHasCatastrophicError(EvaluationResult<?> result) {
+    for (ErrorInfo errorInfo : result.errorMap().values()) {
+      if (errorInfo.isCatastrophic()) {
+        return true;
+      }
+    }
+    // An unreported catastrophe manifests with hasError() being true but no errors visible.
+    return result.hasError() && result.errorMap().isEmpty();
   }
 
   /**
@@ -157,10 +176,11 @@ class SkyframeBuilder implements Builder {
         skyframeExecutor.reportCycles(cycles, entry.getKey());
         hasCycles |= !Iterables.isEmpty(cycles);
       }
-      if (keepGoing) {
+      if (keepGoing && !resultHasCatastrophicError(result)) {
         return false;
       }
-      if (hasCycles) {
+      if (hasCycles || result.errorMap().isEmpty()) {
+        // error map may be empty in the case of a catastrophe.
         throw new BuildFailedException();
       } else {
         // Need to wrap exception for rethrowCause.

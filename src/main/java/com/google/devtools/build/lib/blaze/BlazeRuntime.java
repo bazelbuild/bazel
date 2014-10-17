@@ -74,8 +74,9 @@ import com.google.devtools.build.lib.server.RPCServer;
 import com.google.devtools.build.lib.server.ServerCommand;
 import com.google.devtools.build.lib.server.signal.InterruptSignalHandler;
 import com.google.devtools.build.lib.skyframe.DiffAwareness;
-import com.google.devtools.build.lib.skyframe.SequencedSkyframeExecutor;
+import com.google.devtools.build.lib.skyframe.SequencedSkyframeExecutorFactory;
 import com.google.devtools.build.lib.skyframe.SkyframeExecutor;
+import com.google.devtools.build.lib.skyframe.SkyframeExecutorFactory;
 import com.google.devtools.build.lib.syntax.Label;
 import com.google.devtools.build.lib.util.AbruptExitException;
 import com.google.devtools.build.lib.util.BlazeClock;
@@ -971,9 +972,7 @@ public final class BlazeRuntime {
     if (loadedPackageProvider == null) {
       throw new InvalidConfigurationException("Configuration creation failed");
     }
-    return skyframeExecutor.createConfigurations(
-        optionsProvider.getOptions(BuildView.Options.class).keepGoing, configurationFactory,
-        configurationKey);
+    return skyframeExecutor.createConfigurations(configurationFactory, configurationKey);
   }
 
   /**
@@ -1584,6 +1583,7 @@ public final class BlazeRuntime {
       TimestampGranularityMonitor timestampMonitor = new TimestampGranularityMonitor(clock);
 
       Preprocessor.Factory.Supplier preprocessorFactorySupplier = null;
+      SkyframeExecutorFactory skyframeExecutorFactory = null;
       for (BlazeModule module : blazeModules) {
         module.blazeStartup(startupOptionsProvider,
             BlazeVersionInfo.instance(), instanceId, directories, clock);
@@ -1594,6 +1594,16 @@ public final class BlazeRuntime {
               "more than one module defines a preprocessor factory supplier");
           preprocessorFactorySupplier = modulePreprocessorFactorySupplier;
         }
+        SkyframeExecutorFactory skyFactory = module.getSkyframeExecutorFactory();
+        if (skyFactory != null) {
+          Preconditions.checkState(skyframeExecutorFactory == null,
+              "At most one skyframe factory supported. But found two: %s and %s", skyFactory,
+              skyframeExecutorFactory);
+          skyframeExecutorFactory = skyFactory;
+        }
+      }
+      if (skyframeExecutorFactory == null) {
+        skyframeExecutorFactory = new SequencedSkyframeExecutorFactory();
       }
       if (preprocessorFactorySupplier == null) {
         preprocessorFactorySupplier = Preprocessor.Factory.Supplier.NullSupplier.INSTANCE;
@@ -1660,12 +1670,11 @@ public final class BlazeRuntime {
 
       final PackageFactory pkgFactory =
           new PackageFactory(ruleClassProvider, platformRegexps, extensions);
-      SkyframeExecutor skyframeExecutor =
-          new SequencedSkyframeExecutor(reporter, pkgFactory,
-              skyframe == SkyframeMode.FULL, timestampMonitor, directories,
-              workspaceStatusActionFactory, ruleClassProvider.getBuildInfoFactories(),
-              diffAwarenessFactories, allowedMissingInputs, preprocessorFactorySupplier,
-              clock);
+      SkyframeExecutor skyframeExecutor = skyframeExecutorFactory.create(reporter, pkgFactory,
+          skyframe == SkyframeMode.FULL, timestampMonitor, directories,
+          workspaceStatusActionFactory, ruleClassProvider.getBuildInfoFactories(),
+          diffAwarenessFactories, allowedMissingInputs, preprocessorFactorySupplier,
+          clock);
 
       if (configurationFactory == null) {
         configurationFactory = new ConfigurationFactory(

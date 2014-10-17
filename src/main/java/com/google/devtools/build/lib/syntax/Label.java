@@ -37,7 +37,7 @@ import java.io.Serializable;
  *
  * <p>Parsing is robust against bad input, for example, from the command line.
  */
-@SkylarkModule(name = "Label", doc = "A BUILD target identifier.")
+@SkylarkModule(name = "label", doc = "A BUILD target identifier.")
 @Immutable @ThreadSafe
 public final class Label implements Comparable<Label>, Serializable {
 

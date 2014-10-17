@@ -14,12 +14,19 @@
 
 package com.google.devtools.build.lib.rules.objc;
 
-
 import com.google.common.base.Preconditions;
+import com.google.common.base.Predicates;
+import com.google.common.collect.ImmutableList;
+import com.google.common.collect.ImmutableSet;
+import com.google.common.collect.Iterables;
 import com.google.devtools.build.lib.actions.Artifact;
+import com.google.devtools.build.lib.packages.Type;
+import com.google.devtools.build.lib.vfs.PathFragment;
 import com.google.devtools.build.lib.view.FilesToRunProvider;
 import com.google.devtools.build.lib.view.RuleConfiguredTarget.Mode;
 import com.google.devtools.build.lib.view.RuleContext;
+
+import java.util.List;
 
 /**
  * Utility code for all rules that inherit from {@link ObjcRuleClasses.ObjcBaseRule}.
@@ -38,8 +45,8 @@ final class ObjcBase {
       this.ruleContext = Preconditions.checkNotNull(ruleContext);
     }
 
-    Artifact actoolzipDeployJar() {
-      return ruleContext.getPrerequisiteArtifact("$actoolzip_deploy", Mode.HOST);
+    Artifact actooloribtoolzipDeployJar() {
+      return ruleContext.getPrerequisiteArtifact("$actooloribtoolzip_deploy", Mode.HOST);
     }
 
     Artifact momczipDeployJar() {
@@ -52,6 +59,90 @@ final class ObjcBase {
 
     FilesToRunProvider plmerge() {
       return ruleContext.getExecutablePrerequisite("$plmerge", Mode.HOST);
+    }
+  }
+
+  /**
+   * Provides a way to access attributes that are common to all rules that inherit from
+   * {@link ObjcRuleClasses.ObjcBaseRule}.
+   */
+  static final class Attributes {
+    private final RuleContext ruleContext;
+
+    Attributes(RuleContext ruleContext) {
+      this.ruleContext = Preconditions.checkNotNull(ruleContext);
+    }
+
+    ImmutableList<Artifact> hdrs() {
+      return ruleContext.getPrerequisiteArtifacts("hdrs", Mode.TARGET);
+    }
+
+    Iterable<PathFragment> includes() {
+      return Iterables.transform(
+          ruleContext.attributes().get("includes", Type.STRING_LIST),
+          PathFragment.TO_PATH_FRAGMENT);
+    }
+
+    ImmutableList<Artifact> assetCatalogs() {
+      return ruleContext.getPrerequisiteArtifacts("asset_catalogs", Mode.TARGET);
+    }
+
+    ImmutableList<Artifact> strings() {
+      return ruleContext.getPrerequisiteArtifacts("strings", Mode.TARGET);
+    }
+
+    ImmutableList<Artifact> xibs() {
+      return ruleContext.getPrerequisiteArtifacts("xibs", Mode.TARGET);
+    }
+
+    ImmutableList<Artifact> storyboards() {
+      return ruleContext.getPrerequisiteArtifacts("storyboards", Mode.TARGET);
+    }
+
+    /**
+     * Returns the value of the sdk_frameworks attribute plus frameworks that are included
+     * automatically.
+     */
+    ImmutableSet<SdkFramework> sdkFrameworks() {
+      ImmutableSet.Builder<SdkFramework> result = new ImmutableSet.Builder<>();
+      result.addAll(ObjcRuleClasses.AUTOMATIC_SDK_FRAMEWORKS);
+      for (String explicit : ruleContext.attributes().get("sdk_frameworks", Type.STRING_LIST)) {
+        result.add(new SdkFramework(explicit));
+      }
+      return result.build();
+    }
+
+    ImmutableSet<String> sdkDylibs() {
+      return ImmutableSet.copyOf(ruleContext.attributes().get("sdk_dylibs", Type.STRING_LIST));
+    }
+
+    ImmutableList<Artifact> resources() {
+      return ruleContext.getPrerequisiteArtifacts("resources", Mode.TARGET);
+    }
+
+    ImmutableList<Artifact> datamodels() {
+      return ruleContext.getPrerequisiteArtifacts("datamodels", Mode.TARGET);
+    }
+
+    /**
+     * Returns the exec paths of all header search paths that should be added to this target and
+     * dependers on this target, obtained from the {@code includes} attribute.
+     */
+    ImmutableList<PathFragment> headerSearchPaths() {
+      ImmutableList.Builder<PathFragment> paths = new ImmutableList.Builder<>();
+      PathFragment packageFragment = ruleContext.getLabel().getPackageFragment();
+      List<PathFragment> rootFragments = ImmutableList.of(
+          packageFragment,
+          ruleContext.getConfiguration().getGenfilesFragment().getRelative(packageFragment));
+
+      Iterable<PathFragment> relativeIncludes =
+          Iterables.filter(includes(), Predicates.not(PathFragment.IS_ABSOLUTE));
+      for (PathFragment include : relativeIncludes) {
+        for (PathFragment rootFragment : rootFragments) {
+          paths.add(rootFragment.getRelative(include).normalize());
+        }
+      }
+      return paths.build();
     }
   }
 
@@ -74,12 +165,16 @@ final class ObjcBase {
       RuleContext ruleContext, XcodeProvider xcodeProvider, Storyboards storyboards) {
     ObjcActionsBuilder actionsBuilder = actionsBuilder(ruleContext);
     IntermediateArtifacts intermediateArtifacts = intermediateArtifacts(ruleContext);
+    Attributes attributes = new Attributes(ruleContext);
+
     Tools tools = new Tools(ruleContext);
     actionsBuilder.registerResourceActions(
         tools,
-        new ObjcActionsBuilder.StringsFiles(CompiledResourceFile.stringsFilesFromRule(ruleContext)),
-        new ObjcActionsBuilder.XibFiles(CompiledResourceFile.xibFilesFromRule(ruleContext)),
-        Xcdatamodels.xcdatamodels(ruleContext));
+        new ObjcActionsBuilder.StringsFiles(
+            CompiledResourceFile.fromStringsFiles(intermediateArtifacts, attributes.strings())),
+        new ObjcActionsBuilder.XibFiles(
+            CompiledResourceFile.fromXibFiles(intermediateArtifacts, attributes.xibs())),
+        Xcdatamodels.xcdatamodels(intermediateArtifacts, attributes.datamodels()));
     actionsBuilder.registerXcodegenActions(
         tools,
         ruleContext.getImplicitOutputArtifact(ObjcRuleClasses.PBXPROJ),

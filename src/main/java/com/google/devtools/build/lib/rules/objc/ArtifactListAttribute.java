@@ -25,7 +25,7 @@ import java.util.Locale;
  * Attributes containing one or more labels.
  */
 public enum ArtifactListAttribute {
-  DATAMODELS, ARCHIVES, BUNDLE_IMPORTS, XIBS, STRINGS, RESOURCES;
+  ARCHIVES, BUNDLE_IMPORTS;
 
   public String attrName() {
     return name().toLowerCase(Locale.US);

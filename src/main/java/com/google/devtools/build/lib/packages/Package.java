@@ -247,6 +247,11 @@ public class Package implements Serializable {
     throw new IllegalStateException();
   }
 
+  /** Returns this packages' identifier. */
+  public PackageIdentifier getPackageIdentifier() {
+    return getBuildFileLabel().getPackageIdentifier();
+  }
+
   /**
    * Package initialization: part 2 of 3: sets this package's default header
    * strictness checking.

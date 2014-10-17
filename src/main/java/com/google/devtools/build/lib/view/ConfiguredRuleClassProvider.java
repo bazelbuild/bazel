@@ -347,7 +347,7 @@ public class ConfiguredRuleClassProvider implements RuleClassProvider {
     return BuildOptions.of(configurationOptions, optionsProvider);
   }
 
-  @SkylarkModule(name = "Native", namespace = true, onlyLoadingPhase = true,
+  @SkylarkModule(name = "native", namespace = true, onlyLoadingPhase = true,
       doc = "Module for native rules.")
   private static final class NativeModule {}
 

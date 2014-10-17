@@ -81,6 +81,16 @@ public class ObjcLibraryRule implements RuleDefinition {
         .add(attr("options", LABEL)
             .allowedFileTypes()
             .allowedRuleClasses("objc_options"))
+        /* <!-- #BLAZE_RULE(objc_library).ATTRIBUTE(deps) -->
+        The list of <code>objc_*</code> targets that are linked together to
+        form the final bundle.
+        ${SYNOPSIS}
+        <!-- #END_BLAZE_RULE.ATTRIBUTE -->*/
+        .override(attr("deps", LABEL_LIST)
+            .direct_compile_time_input()
+            .allowedRuleClasses("objc_library", "objc_import", "objc_bundle", "objc_framework",
+                "objc_bundle_library")
+            .allowedFileTypes())
         .build();
   }
 }

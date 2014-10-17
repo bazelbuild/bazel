@@ -18,7 +18,6 @@ import static com.google.devtools.build.lib.syntax.SkylarkFunction.cast;
 
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
-import com.google.common.collect.Iterables;
 import com.google.common.collect.Lists;
 import com.google.devtools.build.lib.collect.nestedset.Order;
 import com.google.devtools.build.lib.events.Location;
@@ -32,11 +31,8 @@ import com.google.devtools.build.lib.syntax.Environment;
 import com.google.devtools.build.lib.syntax.EvalException;
 import com.google.devtools.build.lib.syntax.EvalUtils;
 import com.google.devtools.build.lib.syntax.FuncallExpression;
-import com.google.devtools.build.lib.syntax.FuncallExpression.MethodDescriptor;
 import com.google.devtools.build.lib.syntax.Function;
 import com.google.devtools.build.lib.syntax.MixedModeFunction;
-import com.google.devtools.build.lib.syntax.PositionalFunction;
-import com.google.devtools.build.lib.syntax.PositionalFunction.SimplePositionalFunction;
 import com.google.devtools.build.lib.syntax.SelectorValue;
 import com.google.devtools.build.lib.syntax.SkylarkBuiltin;
 import com.google.devtools.build.lib.syntax.SkylarkBuiltin.Param;
@@ -108,11 +104,12 @@ public class MethodLibrary {
           + "<pre class=code>\"|\".join([\"a\", \"b\", \"c\"]) == \"a|b|c\"</pre>",
       mandatoryParams = {
       @Param(name = "elements", type = SkylarkList.class, doc = "The objects to join.")})
-  private static Function join = new SimplePositionalFunction("join", 2, 2) {
+  private static Function join = new MixedModeFunction("join",
+      ImmutableList.of("this", "elements"), 2, false) {
     @Override
-    public Object call(List<Object> args, FuncallExpression ast) throws ConversionException {
-      String thiz = Type.STRING.convert(args.get(0), "'join' operand");
-      List<?> seq = Type.OBJECT_LIST.convert(args.get(1), "'join' argument");
+    public Object call(Object[] args, FuncallExpression ast) throws ConversionException {
+      String thiz = Type.STRING.convert(args[0], "'join' operand");
+      List<?> seq = Type.OBJECT_LIST.convert(args[1], "'join' argument");
       StringBuilder sb = new StringBuilder();
       for (Iterator<?> i = seq.iterator(); i.hasNext();) {
         sb.append(i.next().toString());
@@ -126,20 +123,22 @@ public class MethodLibrary {
 
   @SkylarkBuiltin(name = "lower", objectType = StringModule.class, returnType = String.class,
       doc = "Returns the lower case version of this string.")
-  private static Function lower = new SimplePositionalFunction("lower", 1, 1) {
+      private static Function lower = new MixedModeFunction("lower",
+          ImmutableList.of("this"), 1, false) {
     @Override
-    public Object call(List<Object> args, FuncallExpression ast) throws ConversionException {
-      String thiz = Type.STRING.convert(args.get(0), "'lower' operand");
+    public Object call(Object[] args, FuncallExpression ast) throws ConversionException {
+      String thiz = Type.STRING.convert(args[0], "'lower' operand");
       return thiz.toLowerCase();
     }
   };
 
   @SkylarkBuiltin(name = "upper", objectType = StringModule.class, returnType = String.class,
       doc = "Returns the upper case version of this string.")
-  private static Function upper = new SimplePositionalFunction("upper", 1, 1) {
+    private static Function upper = new MixedModeFunction("upper",
+        ImmutableList.of("this"), 1, false) {
     @Override
-    public Object call(List<Object> args, FuncallExpression ast) throws ConversionException {
-      String thiz = Type.STRING.convert(args.get(0), "'upper' operand");
+    public Object call(Object[] args, FuncallExpression ast) throws ConversionException {
+      String thiz = Type.STRING.convert(args[0], "'upper' operand");
       return thiz.toUpperCase();
     }
   };
@@ -156,14 +155,13 @@ public class MethodLibrary {
   private static Function replace =
     new MixedModeFunction("replace", ImmutableList.of("this", "old", "new", "maxsplit"), 3, false) {
     @Override
-    public Object call(Object[] namedArguments, List<Object> positionalArguments,
-        Map<String, Object> keywordArguments, FuncallExpression ast) throws EvalException,
+    public Object call(Object[] args, FuncallExpression ast) throws EvalException,
         ConversionException {
-      String thiz = Type.STRING.convert(namedArguments[0], "'replace' operand");
-      String old = Type.STRING.convert(namedArguments[1], "'replace' argument");
-      String neww = Type.STRING.convert(namedArguments[2], "'replace' argument");
+      String thiz = Type.STRING.convert(args[0], "'replace' operand");
+      String old = Type.STRING.convert(args[1], "'replace' argument");
+      String neww = Type.STRING.convert(args[2], "'replace' argument");
       int maxsplit =
-          namedArguments[3] != null ? Type.INTEGER.convert(namedArguments[3], "'replace' argument")
+          args[3] != null ? Type.INTEGER.convert(args[3], "'replace' argument")
               : Integer.MAX_VALUE;
       StringBuffer sb = new StringBuffer();
       try {
@@ -189,17 +187,14 @@ public class MethodLibrary {
   private static Function split = new MixedModeFunction("split",
       ImmutableList.of("this", "sep", "maxsplit"), 1, false) {
     @Override
-    public Object call(Object[] namedArguments,
-        List<Object> positionalArguments,
-        Map<String, Object> keywordArguments,
-        FuncallExpression ast,
-        Environment env) throws ConversionException {
-      String thiz = Type.STRING.convert(namedArguments[0], "'split' operand");
-      String sep = namedArguments[1] != null
-          ? Type.STRING.convert(namedArguments[1], "'split' argument")
+    public Object call(Object[] args, FuncallExpression ast, Environment env)
+        throws ConversionException {
+      String thiz = Type.STRING.convert(args[0], "'split' operand");
+      String sep = args[1] != null
+          ? Type.STRING.convert(args[1], "'split' argument")
           : " ";
-      int maxsplit = namedArguments[2] != null
-          ? Type.INTEGER.convert(namedArguments[2], "'split' argument") + 1 // last is remainder
+      int maxsplit = args[2] != null
+          ? Type.INTEGER.convert(args[2], "'split' argument") + 1 // last is remainder
           : -1;
       String[] ss = Pattern.compile(sep, Pattern.LITERAL).split(thiz,
                                                                 maxsplit);
@@ -221,18 +216,17 @@ public class MethodLibrary {
   private static Function rfind =
       new MixedModeFunction("rfind", ImmutableList.of("this", "sub", "start", "end"), 2, false) {
         @Override
-        public Object call(Object[] namedArguments, List<Object> positionalArguments,
-            Map<String, Object> keywordArguments, FuncallExpression ast)
+        public Object call(Object[] args, FuncallExpression ast)
             throws ConversionException {
-          String thiz = Type.STRING.convert(namedArguments[0], "'rfind' operand");
-          String sub = Type.STRING.convert(namedArguments[1], "'rfind' argument");
+          String thiz = Type.STRING.convert(args[0], "'rfind' operand");
+          String sub = Type.STRING.convert(args[1], "'rfind' argument");
           int start = 0;
-          if (namedArguments[2] != null) {
-            start = Type.INTEGER.convert(namedArguments[2], "'rfind' argument");
+          if (args[2] != null) {
+            start = Type.INTEGER.convert(args[2], "'rfind' argument");
           }
           int end = thiz.length();
-          if (namedArguments[3] != null) {
-            end = Type.INTEGER.convert(namedArguments[3], "'rfind' argument");
+          if (args[3] != null) {
+            end = Type.INTEGER.convert(args[3], "'rfind' argument");
           }
           int subpos = getPythonSubstring(thiz, start, end).lastIndexOf(sub);
           start = getPythonStringIndex(start, thiz.length());
@@ -253,18 +247,17 @@ public class MethodLibrary {
   private static Function find =
       new MixedModeFunction("find", ImmutableList.of("this", "sub", "start", "end"), 2, false) {
         @Override
-        public Object call(Object[] namedArguments, List<Object> positionalArguments,
-            Map<String, Object> keywordArguments, FuncallExpression ast)
+        public Object call(Object[] args, FuncallExpression ast)
             throws ConversionException {
-          String thiz = Type.STRING.convert(namedArguments[0], "'find' operand");
-          String sub = Type.STRING.convert(namedArguments[1], "'find' argument");
+          String thiz = Type.STRING.convert(args[0], "'find' operand");
+          String sub = Type.STRING.convert(args[1], "'find' argument");
           int start = 0;
-          if (namedArguments[2] != null) {
-            start = Type.INTEGER.convert(namedArguments[2], "'find' argument");
+          if (args[2] != null) {
+            start = Type.INTEGER.convert(args[2], "'find' argument");
           }
           int end = thiz.length();
-          if (namedArguments[3] != null) {
-            end = Type.INTEGER.convert(namedArguments[3], "'find' argument");
+          if (args[3] != null) {
+            end = Type.INTEGER.convert(args[3], "'find' argument");
           }
           int subpos = getPythonSubstring(thiz, start, end).indexOf(sub);
           start = getPythonStringIndex(start, thiz.length());
@@ -284,18 +277,17 @@ public class MethodLibrary {
   private static Function count =
       new MixedModeFunction("count", ImmutableList.of("this", "sub", "start", "end"), 2, false) {
         @Override
-        public Object call(Object[] namedArguments, List<Object> positionalArguments,
-            Map<String, Object> keywordArguments, FuncallExpression ast)
+        public Object call(Object[] args, FuncallExpression ast)
             throws ConversionException {
-          String thiz = Type.STRING.convert(namedArguments[0], "'count' operand");
-          String sub = Type.STRING.convert(namedArguments[1], "'count' argument");
+          String thiz = Type.STRING.convert(args[0], "'count' operand");
+          String sub = Type.STRING.convert(args[1], "'count' argument");
           int start = 0;
-          if (namedArguments[2] != null) {
-            start = Type.INTEGER.convert(namedArguments[2], "'count' argument");
+          if (args[2] != null) {
+            start = Type.INTEGER.convert(args[2], "'count' argument");
           }
           int end = thiz.length();
-          if (namedArguments[3] != null) {
-            end = Type.INTEGER.convert(namedArguments[3], "'count' argument");
+          if (args[3] != null) {
+            end = Type.INTEGER.convert(args[3], "'count' argument");
           }
           String str = getPythonSubstring(thiz, start, end);
           if (sub.equals("")) {
@@ -323,18 +315,17 @@ public class MethodLibrary {
   private static Function endswith =
       new MixedModeFunction("endswith", ImmutableList.of("this", "sub", "start", "end"), 2, false) {
         @Override
-        public Object call(Object[] namedArguments, List<Object> positionalArguments,
-            Map<String, Object> keywordArguments, FuncallExpression ast)
+        public Object call(Object[] args, FuncallExpression ast)
             throws ConversionException {
-          String thiz = Type.STRING.convert(namedArguments[0], "'endswith' operand");
-          String sub = Type.STRING.convert(namedArguments[1], "'endswith' argument");
+          String thiz = Type.STRING.convert(args[0], "'endswith' operand");
+          String sub = Type.STRING.convert(args[1], "'endswith' argument");
           int start = 0;
-          if (namedArguments[2] != null) {
-            start = Type.INTEGER.convert(namedArguments[2], "'endswith' argument");
+          if (args[2] != null) {
+            start = Type.INTEGER.convert(args[2], "'endswith' argument");
           }
           int end = thiz.length();
-          if (namedArguments[3] != null) {
-            end = Type.INTEGER.convert(namedArguments[3], "");
+          if (args[3] != null) {
+            end = Type.INTEGER.convert(args[3], "");
           }
 
           return getPythonSubstring(thiz, start, end).endsWith(sub);
@@ -353,17 +344,16 @@ public class MethodLibrary {
   private static Function startswith =
     new MixedModeFunction("startswith", ImmutableList.of("this", "sub", "start", "end"), 2, false) {
     @Override
-    public Object call(Object[] namedArguments, List<Object> positionalArguments,
-        Map<String, Object> keywordArguments, FuncallExpression ast) throws ConversionException {
-      String thiz = Type.STRING.convert(namedArguments[0], "'startswith' operand");
-      String sub = Type.STRING.convert(namedArguments[1], "'startswith' argument");
+    public Object call(Object[] args, FuncallExpression ast) throws ConversionException {
+      String thiz = Type.STRING.convert(args[0], "'startswith' operand");
+      String sub = Type.STRING.convert(args[1], "'startswith' argument");
       int start = 0;
-      if (namedArguments[2] != null) {
-        start = Type.INTEGER.convert(namedArguments[2], "'startswith' argument");
+      if (args[2] != null) {
+        start = Type.INTEGER.convert(args[2], "'startswith' argument");
       }
       int end = thiz.length();
-      if (namedArguments[3] != null) {
-        end = Type.INTEGER.convert(namedArguments[3], "'startswith' argument");
+      if (args[3] != null) {
+        end = Type.INTEGER.convert(args[3], "'startswith' argument");
       }
       return getPythonSubstring(thiz, start, end).startsWith(sub);
     }
@@ -376,10 +366,9 @@ public class MethodLibrary {
   private static Function strip =
       new MixedModeFunction("strip", ImmutableList.of("this"), 1, false) {
         @Override
-        public Object call(Object[] namedArguments, List<Object> positionalArguments,
-            Map<String, Object> keywordArguments, FuncallExpression ast)
+        public Object call(Object[] args, FuncallExpression ast)
             throws ConversionException {
-          String operand = Type.STRING.convert(namedArguments[0], "'strip' operand");
+          String operand = Type.STRING.convert(args[0], "'strip' operand");
           return operand.trim();
         }
       };
@@ -387,12 +376,13 @@ public class MethodLibrary {
   // substring operator
   @SkylarkBuiltin(name = "$substring", hidden = true,
       doc = "String[<code>start</code>:<code>end</code>] returns a substring.")
-  private static Function substring = new SimplePositionalFunction("$substring", 3, 3) {
+  private static Function substring = new MixedModeFunction("$substring",
+      ImmutableList.of("this", "start", "end"), 3, false) {
     @Override
-    public Object call(List<Object> args, FuncallExpression ast) throws ConversionException {
-      String thiz = Type.STRING.convert(args.get(0), "substring operand");
-      int left = Type.INTEGER.convert(args.get(1), "substring operand");
-      int right = Type.INTEGER.convert(args.get(2), "substring operand");
+    public Object call(Object[] args, FuncallExpression ast) throws ConversionException {
+      String thiz = Type.STRING.convert(args[0], "substring operand");
+      int left = Type.INTEGER.convert(args[1], "substring operand");
+      int right = Type.INTEGER.convert(args[2], "substring operand");
       return getPythonSubstring(thiz, left, right);
     }
   };
@@ -400,26 +390,26 @@ public class MethodLibrary {
   // supported list methods
   @SkylarkBuiltin(name = "append", hidden = true,
       doc = "Adds an item to the end of the list.")
-  private static Function append = new SimplePositionalFunction("append", 2, 2) {
-    // @SuppressWarnings("unchecked")
+      private static Function append = new MixedModeFunction("append",
+          ImmutableList.of("this", "x"), 2, false) {
     @Override
-    public Object call(List<Object> args, FuncallExpression ast) throws EvalException,
+    public Object call(Object[] args, FuncallExpression ast) throws EvalException,
         ConversionException {
-      List<Object> thiz = Type.OBJECT_LIST.convert(args.get(0), "'append' operand");
-      thiz.add(args.get(1));
+      List<Object> thiz = Type.OBJECT_LIST.convert(args[0], "'append' operand");
+      thiz.add(args[1]);
       return Environment.NONE;
     }
   };
 
   @SkylarkBuiltin(name = "extend", hidden = true,
       doc = "Adds all items to the end of the list.")
-  private static Function extend = new SimplePositionalFunction("extend", 2, 2) {
-    // @SuppressWarnings("unchecked")
+  private static Function extend = new MixedModeFunction("extend",
+          ImmutableList.of("this", "x"), 2, false) {
     @Override
-    public Object call(List<Object> args, FuncallExpression ast) throws EvalException,
+    public Object call(Object[] args, FuncallExpression ast) throws EvalException,
         ConversionException {
-      List<Object> thiz = Type.OBJECT_LIST.convert(args.get(0), "'extend' operand");
-      List<Object> l = Type.OBJECT_LIST.convert(args.get(1), "'extend' argument");
+      List<Object> thiz = Type.OBJECT_LIST.convert(args[0], "'extend' operand");
+      List<Object> l = Type.OBJECT_LIST.convert(args[1], "'extend' argument");
       thiz.addAll(l);
       return Environment.NONE;
     }
@@ -429,12 +419,13 @@ public class MethodLibrary {
   @SkylarkBuiltin(name = "$index", hidden = true,
       doc = "Returns the nth element of a list or string, "
           + "or looks up a value in a dictionary.")
-  private static Function index = new SimplePositionalFunction("$index", 2, 2) {
+  private static Function index = new MixedModeFunction("$index",
+      ImmutableList.of("this", "index"), 2, false) {
     @Override
-    public Object call(List<Object> args, FuncallExpression ast) throws EvalException,
+    public Object call(Object[] args, FuncallExpression ast) throws EvalException,
         ConversionException {
-      Object collectionCandidate = args.get(0);
-      Object key = args.get(1);
+      Object collectionCandidate = args[0];
+      Object key = args[1];
 
       if (collectionCandidate instanceof Map<?, ?>) {
         Map<?, ?> dictionary = (Map<?, ?>) collectionCandidate;
@@ -525,10 +516,10 @@ public class MethodLibrary {
 
   // unary minus
   @SkylarkBuiltin(name = "-", hidden = true, doc = "Unary minus operator.")
-  private static Function minus = new SimplePositionalFunction("-", 1, 1) {
+  private static Function minus = new MixedModeFunction("-", ImmutableList.of("this"), 1, false) {
     @Override
-    public Object call(List<Object> args, FuncallExpression ast) throws ConversionException {
-      int num = Type.INTEGER.convert(args.get(0), "'unary minus' argument");
+    public Object call(Object[] args, FuncallExpression ast) throws ConversionException {
+      int num = Type.INTEGER.convert(args[0], "'unary minus' argument");
       return -num;
     }
   };
@@ -536,22 +527,24 @@ public class MethodLibrary {
   @SkylarkBuiltin(name = "list", returnType = SkylarkList.class,
       doc = "Converts a collection (e.g. set or dictionary) to a list.",
       mandatoryParams = {@Param(name = "x", doc = "The object to convert.")})
-  private static Function list = new SimplePositionalFunction("list", 1, 1) {
+    private static Function list = new MixedModeFunction("list",
+        ImmutableList.of("list"), 1, false) {
     @Override
-    public Object call(List<Object> args, FuncallExpression ast) throws EvalException {
+    public Object call(Object[] args, FuncallExpression ast) throws EvalException {
       Location loc = ast.getLocation();
-      return SkylarkList.list(EvalUtils.toCollection(args.get(0), loc), loc);
+      return SkylarkList.list(EvalUtils.toCollection(args[0], loc), loc);
     }
   };
 
   @SkylarkBuiltin(name = "len", returnType = Integer.class, doc =
       "Returns the length of a string, list, tuple, set, or dictionary.",
       mandatoryParams = {@Param(name = "x", doc = "The object to check length of.")})
-  private static Function len = new SimplePositionalFunction("len", 1, 1) {
+  private static Function len = new MixedModeFunction("len",
+        ImmutableList.of("list"), 1, false) {
 
     @Override
-    public Object call(List<Object> args, FuncallExpression ast) throws EvalException {
-      Object arg = args.get(0);
+    public Object call(Object[] args, FuncallExpression ast) throws EvalException {
+      Object arg = args[0];
       int l = EvalUtils.size(arg);
       if (l == -1) {
         throw new EvalException(ast.getLocation(),
@@ -564,10 +557,10 @@ public class MethodLibrary {
   @SkylarkBuiltin(name = "str", returnType = String.class, doc =
       "Converts any object to string. This is useful for debugging.",
       mandatoryParams = {@Param(name = "x", doc = "The object to convert.")})
-  private static Function str = new SimplePositionalFunction("str", 1, 1) {
+    private static Function str = new MixedModeFunction("str", ImmutableList.of("this"), 1, false) {
     @Override
-    public Object call(List<Object> args, FuncallExpression ast) throws EvalException {
-      return EvalUtils.printValue(args.get(0));
+    public Object call(Object[] args, FuncallExpression ast) throws EvalException {
+      return EvalUtils.printValue(args[0]);
     }
   };
 
@@ -575,14 +568,15 @@ public class MethodLibrary {
       + "It returns False if the object is None, False, an empty string, the number 0, or an "
       + "empty collection. Otherwise, it returns True.",
       mandatoryParams = {@Param(name = "x", doc = "The variable to convert.")})
-  private static Function bool = new SimplePositionalFunction("bool", 1, 1) {
+      private static Function bool = new MixedModeFunction("bool",
+          ImmutableList.of("this"), 1, false) {
     @Override
-    public Object call(List<Object> args, FuncallExpression ast) throws EvalException {
-      return EvalUtils.toBoolean(args.get(0));
+    public Object call(Object[] args, FuncallExpression ast) throws EvalException {
+      return EvalUtils.toBoolean(args[0]);
     }
   };
 
-  @SkylarkBuiltin(name = "struct", doc =
+  @SkylarkBuiltin(name = "struct", returnType = SkylarkClassObject.class, doc =
       "Creates an immutable struct using the keyword arguments as fields. It is used to group "
       + "multiple values together.Example:<br>"
       + "<pre class=code>s = struct(x = 2, y = 3)\n"
@@ -615,26 +609,25 @@ public class MethodLibrary {
   private static final Function set =
     new MixedModeFunction("set", ImmutableList.of("items", "order"), 0, false) {
     @Override
-    public Object call(Object[] namedArguments, List<Object> positionalArguments,
-        Map<String, Object> keywordArguments, FuncallExpression ast) throws EvalException,
+    public Object call(Object[] args, FuncallExpression ast) throws EvalException,
         ConversionException {
       Order order;
-      if (namedArguments[1] == null || namedArguments[1].equals("stable")) {
+      if (args[1] == null || args[1].equals("stable")) {
         order = Order.STABLE_ORDER;
-      } else if (namedArguments[1].equals("compile")) {
+      } else if (args[1].equals("compile")) {
         order = Order.COMPILE_ORDER;
-      } else if (namedArguments[1].equals("link")) {
+      } else if (args[1].equals("link")) {
         order = Order.LINK_ORDER;
-      } else if (namedArguments[1].equals("naive_link")) {
+      } else if (args[1].equals("naive_link")) {
         order = Order.NAIVE_LINK_ORDER;
       } else {
-        throw new EvalException(ast.getLocation(), "Invalid order: " + namedArguments[1]);
+        throw new EvalException(ast.getLocation(), "Invalid order: " + args[1]);
       }
 
-      if (namedArguments[0] == null) {
+      if (args[0] == null) {
         return new SkylarkNestedSet(order, SkylarkList.EMPTY_LIST, ast.getLocation());
       }
-      return new SkylarkNestedSet(order, namedArguments[0], ast.getLocation());
+      return new SkylarkNestedSet(order, args[0], ast.getLocation());
     }
   };
 
@@ -657,19 +650,18 @@ public class MethodLibrary {
   private static final Function range =
     new MixedModeFunction("range", ImmutableList.of("start", "stop", "step"), 1, false) {
     @Override
-    public Object call(Object[] namedArguments, List<Object> positionalArguments,
-        Map<String, Object> keywordArguments, FuncallExpression ast) throws EvalException,
+    public Object call(Object[] args, FuncallExpression ast) throws EvalException,
         ConversionException {
       int start;
       int stop;
-      if (namedArguments[1] == null) {
+      if (args[1] == null) {
         start = 0;
-        stop = Type.INTEGER.convert(namedArguments[0], "stop");
+        stop = Type.INTEGER.convert(args[0], "stop");
       } else {
-        start = Type.INTEGER.convert(namedArguments[0], "start");
-        stop = Type.INTEGER.convert(namedArguments[1], "stop");
+        start = Type.INTEGER.convert(args[0], "start");
+        stop = Type.INTEGER.convert(args[1], "stop");
       }
-      int step = namedArguments[2] == null ? 1 : Type.INTEGER.convert(namedArguments[2], "step");
+      int step = args[2] == null ? 1 : Type.INTEGER.convert(args[2], "step");
       if (step == 0) {
         throw new EvalException(ast.getLocation(), "step cannot be 0");
       }
@@ -696,11 +688,12 @@ public class MethodLibrary {
   @SkylarkBuiltin(name = "select",
       doc = "Creates a SelectorValue from the dict parameter.",
       mandatoryParams = {@Param(name = "x", type = Map.class, doc = "The parameter to convert.")})
-  private static final Function select = new SimplePositionalFunction("select", 1, 1) {
+  private static final Function select = new MixedModeFunction("select",
+      ImmutableList.of("x"), 1, false) {
       @Override
-      public Object call(List<Object> args, FuncallExpression ast)
+      public Object call(Object[] args, FuncallExpression ast)
           throws EvalException, ConversionException {
-        Object dict = Iterables.getOnlyElement(args);
+        Object dict = args[0];
         if (!(dict instanceof Map<?, ?>)) {
           throw new EvalException(ast.getLocation(),
               "select({...}) argument isn't a dictionary");
@@ -710,39 +703,41 @@ public class MethodLibrary {
     };
 
   /**
-   * Returns true if the struct has a field of the given name, otherwise false.
+   * Returns true if the object has a field of the given name, otherwise false.
    */
   @SkylarkBuiltin(name = "hasattr", returnType = Boolean.class,
-      doc = "Returns True if the struct <code>x</code> has a field of the given <code>name</code>, "
+      doc = "Returns True if the object <code>x</code> has a field of the given <code>name</code>, "
           + "otherwise False. Example:<br>"
           + "<pre class=code>hasattr(ctx.attr, \"myattr\")</pre>",
       mandatoryParams = {
-      @Param(name = "x", doc = "The object to check."),
+      @Param(name = "object", doc = "The object to check."),
       @Param(name = "name", type = String.class, doc = "The name of the field.")})
-  private static final Function hasattr = new SimplePositionalFunction("hasattr", 2, 2) {
+  private static final Function hasattr =
+      new MixedModeFunction("hasattr", ImmutableList.of("object", "name"), 2, false) {
+
     @Override
-    public Object call(List<Object> args, FuncallExpression ast) throws EvalException,
-        ConversionException {
-      Object obj = args.get(0);
-      String name = cast(args.get(1), String.class, "second param", ast.getLocation());
-      if (obj instanceof ClassObject) {
-        return ((ClassObject) obj).getValue(name) != null;
-      } else {
-        try {
-          List<MethodDescriptor> methods = FuncallExpression.getMethods(obj.getClass(), name, 0);
-          return methods != null && methods.size() > 0 && Iterables.getOnlyElement(methods)
-              .getAnnotation().structField();
-        } catch (ExecutionException e) {
-          // This shouldn't happen
-          throw new EvalException(ast.getLocation(), e.getMessage());
-        }
+    public Object call(Object[] args, FuncallExpression ast, Environment env)
+        throws EvalException, ConversionException {
+      Object obj = args[0];
+      String name = cast(args[1], String.class, "name", ast.getLocation());
+
+      if (obj instanceof ClassObject && ((ClassObject) obj).getValue(name) != null) {
+        return true;
+      }
+
+      if (env.getFunctionNames(obj.getClass()).contains(name)) {
+        return true;
+      }
+
+      try {
+        return FuncallExpression.getMethodNames(obj.getClass()).contains(name);
+      } catch (ExecutionException e) {
+        // This shouldn't happen
+        throw new EvalException(ast.getLocation(), e.getMessage());
       }
     }
   };
 
-  /**
-   * Returns true if the struct has a field of the given name, otherwise false.
-   */
   @SkylarkBuiltin(name = "getattr",
       doc = "Returns the struct's field of the given name if exists, otherwise <code>default</code>"
           + " if specified, otherwise rasies an error. For example, <code>getattr(x, \"foobar\")"
@@ -759,15 +754,14 @@ public class MethodLibrary {
   private static final Function getattr = new MixedModeFunction(
       "getattr", ImmutableList.of("object", "name", "default"), 2, false) {
     @Override
-    public Object call(Object[] namedArguments, List<Object> positionalArguments,
-        Map<String, Object> keywordArguments, FuncallExpression ast, Environment env)
+    public Object call(Object[] args, FuncallExpression ast, Environment env)
         throws EvalException {
-      Object obj = namedArguments[0];
-      String name = cast(namedArguments[1], String.class, "name", ast.getLocation());
+      Object obj = args[0];
+      String name = cast(args[1], String.class, "name", ast.getLocation());
       Object result = DotExpression.eval(obj, name, ast.getLocation());
       if (result == null) {
-        if (namedArguments[2] != null) {
-          return namedArguments[2];
+        if (args[2] != null) {
+          return args[2];
         } else {
           throw new EvalException(ast.getLocation(), "Object of type '"
               + EvalUtils.getDatatypeName(obj) + "' has no field '" + name + "'");
@@ -780,12 +774,13 @@ public class MethodLibrary {
   @SkylarkBuiltin(name = "dir", returnType = SkylarkList.class,
       doc = "Returns the list of the names (list of strings) of the fields and "
           + "methods of the parameter object.",
-      mandatoryParams = {@Param(name = "x", doc = "The object to check.")})
-  private static final Function dir = new PositionalFunction("dir", 1, 1) {
+      mandatoryParams = {@Param(name = "object", doc = "The object to check.")})
+  private static final Function dir = new MixedModeFunction(
+      "dir", ImmutableList.of("object"), 1, false) {
     @Override
-    public Object call(List<Object> args, FuncallExpression ast, Environment env)
+    public Object call(Object[] args, FuncallExpression ast, Environment env)
         throws EvalException {
-      Object obj = args.get(0);
+      Object obj = args[0];
       // Order the fields alphabetically.
       Set<String> fields = new TreeSet<>();
       if (obj instanceof ClassObject) {
@@ -804,13 +799,13 @@ public class MethodLibrary {
 
   @SkylarkBuiltin(name = "type", returnType = String.class,
       doc = "Returns the type name of its argument.",
-      mandatoryParams = {@Param(name = "x", doc = "The object to check type of.")})
-  private static final Function type = new PositionalFunction("type", 1, 1) {
+      mandatoryParams = {@Param(name = "object", doc = "The object to check type of.")})
+  private static final Function type = new MixedModeFunction("type",
+      ImmutableList.of("object"), 1, false) {
     @Override
-    public Object call(List<Object> args, FuncallExpression ast, Environment env)
-        throws EvalException {
+    public Object call(Object[] args, FuncallExpression ast) throws EvalException {
       // There is no 'type' type in Skylark, so we return a string with the type name.
-      return EvalUtils.getDatatypeName(args.get(0));
+      return EvalUtils.getDatatypeName(args[0]);
     }
   };
 
@@ -828,17 +823,16 @@ public class MethodLibrary {
   private static final Function fail = new MixedModeFunction(
       "fail", ImmutableList.of("msg", "attr", "when"), 1, false) {
     @Override
-    public Object call(Object[] namedArguments, List<Object> positionalArguments,
-        Map<String, Object> keywordArguments, FuncallExpression ast, Environment env)
+    public Object call(Object[] args, FuncallExpression ast, Environment env)
         throws EvalException {
-      if (namedArguments[2] != null) {
-        if (!EvalUtils.toBoolean(namedArguments[2])) {
+      if (args[2] != null) {
+        if (!EvalUtils.toBoolean(args[2])) {
           return Environment.NONE;
         }
       }
-      String msg = cast(namedArguments[0], String.class, "msg", ast.getLocation());
-      if (namedArguments[1] != null) {
-        msg = "attribute " + cast(namedArguments[1], String.class, "attr", ast.getLocation())
+      String msg = cast(args[0], String.class, "msg", ast.getLocation());
+      if (args[1] != null) {
+        msg = "attribute " + cast(args[1], String.class, "attr", ast.getLocation())
             + ": " + msg;
       }
       throw new EvalException(ast.getLocation(), msg);

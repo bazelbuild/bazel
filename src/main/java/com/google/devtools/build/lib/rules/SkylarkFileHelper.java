@@ -14,7 +14,6 @@
 package com.google.devtools.build.lib.rules;
 
 import com.google.devtools.build.lib.actions.Artifact;
-import com.google.devtools.build.lib.actions.Root;
 import com.google.devtools.build.lib.events.Location;
 import com.google.devtools.build.lib.packages.Type.ConversionException;
 import com.google.devtools.build.lib.syntax.EvalException;
@@ -24,8 +23,6 @@ import com.google.devtools.build.lib.syntax.SkylarkFunction;
 import com.google.devtools.build.lib.syntax.SkylarkFunction.SimpleSkylarkFunction;
 import com.google.devtools.build.lib.syntax.SkylarkList;
 import com.google.devtools.build.lib.syntax.SkylarkModule;
-import com.google.devtools.build.lib.vfs.FileSystemUtils;
-import com.google.devtools.build.lib.vfs.PathFragment;
 
 import java.util.Map;
 
@@ -51,28 +48,6 @@ public final class SkylarkFileHelper {
         throws EvalException, ConversionException {
       return Artifact.joinExecPaths(
           (String) params.get("delimiter"), castList(params.get("files"), Artifact.class)); 
-    }
-  };
-
-  @SkylarkBuiltin(name = "work_dir",
-      objectType = SkylarkFileHelper.class, returnType = String.class,
-      doc = "Returns a working directory path for the file using suffix for the directory name.",
-      mandatoryParams = {
-      @Param(name = "root", type = Root.class, doc = "The root of the work dir."),
-      @Param(name = "file", type = Artifact.class,
-          doc = "The file whose name is used to create the work dir."),
-      @Param(name = "suffix", type = String.class,
-          doc = "The suffix to be used instead of the extension of the file.")})
-  private static SkylarkFunction workDir = new SimpleSkylarkFunction("work_dir") {
-
-    @Override
-    protected Object call(Map<String, Object> params, Location loc)
-        throws EvalException, ConversionException {
-      PathFragment path = ((Artifact) params.get("file")).getRootRelativePath();
-      String basename = FileSystemUtils.removeExtension(path.getBaseName())
-          + (String) params.get("suffix");
-      path = path.replaceName(basename);
-      return ((Root) params.get("root")).getExecPath().getRelative(path).toString(); 
     }
   };
 }

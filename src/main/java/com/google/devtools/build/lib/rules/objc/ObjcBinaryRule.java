@@ -25,17 +25,14 @@ import com.google.common.base.Optional;
 import com.google.devtools.build.lib.packages.Attribute;
 import com.google.devtools.build.lib.packages.AttributeMap;
 import com.google.devtools.build.lib.packages.ImplicitOutputsFunction.SafeImplicitOutputsFunction;
-import com.google.devtools.build.lib.packages.Rule;
 import com.google.devtools.build.lib.packages.RuleClass;
 import com.google.devtools.build.lib.packages.RuleClass.Builder;
 import com.google.devtools.build.lib.packages.Type;
-import com.google.devtools.build.lib.syntax.Label;
+import com.google.devtools.build.lib.util.FileType;
 import com.google.devtools.build.lib.view.BlazeRule;
 import com.google.devtools.build.lib.view.RuleContext;
 import com.google.devtools.build.lib.view.RuleDefinition;
 import com.google.devtools.build.lib.view.RuleDefinitionEnvironment;
-import com.google.devtools.build.lib.view.config.BuildConfiguration;
-import com.google.devtools.build.xcode.common.Platform;
 
 /**
  * Rule definition for objc_binary.
@@ -53,8 +50,7 @@ public class ObjcBinaryRule implements RuleDefinition {
   public static final SafeImplicitOutputsFunction DSYM_SYMBOL =
       fromTemplates("%{name}.app.dSYM/Contents/Resources/DWARF/%{name}");
 
-  static final String PROVISIONING_PROFILE_ATTR = ":provisioning_profile";
-  static final String EXPLICIT_PROVISIONING_PROFILE_ATTR = "provisioning_profile";
+  static final String PROVISIONING_PROFILE_ATTR = "provisioning_profile";
   
   private static Optional<String> stringAttribute(RuleContext context, String attribute) {
     String value = context.attributes().get(attribute, Type.STRING);
@@ -140,17 +136,9 @@ public class ObjcBinaryRule implements RuleDefinition {
         <p>
         This is only used for non-simulator builds.
         <!-- #END_BLAZE_RULE.ATTRIBUTE -->*/
-        .add(attr(EXPLICIT_PROVISIONING_PROFILE_ATTR, STRING)
-            .value("//tools/objc:default_provisioning_profile"))
-        .add(attr(PROVISIONING_PROFILE_ATTR, LABEL).value(
-            new Attribute.LateBoundLabel<BuildConfiguration>() {
-          @Override
-          public Label getDefault(Rule rule, BuildConfiguration configuration) {
-            Platform platform = configuration.getFragment(ObjcConfiguration.class).getPlatform();
-            return platform == Platform.SIMULATOR ? null : env.getLabel(
-                (String) rule.getAttributeContainer().getAttr("provisioning_profile"));
-          }
-        }))
+        .add(attr(PROVISIONING_PROFILE_ATTR, LABEL)
+            .value(env.getLabel("//tools/objc:default_provisioning_profile"))
+            .allowedFileTypes(FileType.of(".mobileprovision")))
         // TODO(bazel-team): Consider ways to trim dependencies so that changes to deps of these
         // tools don't trigger all objc_* targets. Right now we check-in deploy jars, but we need a
         // less painful and error-prone way.

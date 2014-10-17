@@ -946,8 +946,16 @@ public final class ParallelEvaluator implements Evaluator {
       // ErrorInfo could only be null if SchedulerException wrapped an InterruptedException, but
       // that should have been propagated.
       ErrorInfo errorInfo = Preconditions.checkNotNull(e.getErrorInfo(), errorKey);
-      bubbleErrorInfo = bubbleErrorUp(errorInfo, errorKey, skyKeys, visitor);
       catastrophe = errorInfo.isCatastrophic();
+      if (!catastrophe || !keepGoing) {
+        bubbleErrorInfo = bubbleErrorUp(errorInfo, errorKey, skyKeys, visitor);
+      } else {
+        // Bubbling the error up requires that graph edges are present for done nodes. This is not
+        // always the case in a keepGoing evaluation, since it is assumed that done nodes do not
+        // need to be traversed. In this case, we hope the caller is tolerant of a possibly empty
+        // result, and return prematurely.
+        bubbleErrorInfo = ImmutableMap.of(errorKey, graph.get(errorKey).getValueWithMetadata());
+      }
     }
 
     // Successful evaluation, either because keepGoing or because we actually did succeed.
@@ -1131,8 +1139,9 @@ public final class ParallelEvaluator implements Evaluator {
       Preconditions.checkState(visitor != null, skyKeys);
       checkForCycles(cycleRoots, result, visitor, keepGoing);
     }
-    Preconditions.checkState(bubbleErrorInfo == null || hasError,
-        "If an error bubbled up, some top-level node must be in error", bubbleErrorInfo, skyKeys);
+    Preconditions.checkState(bubbleErrorInfo == null || catastrophe || hasError,
+        "If a non-catastrophic error bubbled up, some top-level node must be in error: %s %s",
+        bubbleErrorInfo, skyKeys);
     result.setHasError(hasError);
     return result.build();
   }

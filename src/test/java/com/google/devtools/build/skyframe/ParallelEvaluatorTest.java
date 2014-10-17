@@ -489,17 +489,22 @@ public class ParallelEvaluatorTest {
   }
 
   @Test
-  public void catastropheHaltsKeepGoingBuild() throws Exception {
-    catastrophicBuild(true);
+  public void catastropheHaltsBuild_KeepGoing_KeepEdges() throws Exception {
+    catastrophicBuild(true, true);
   }
 
   @Test
-  public void catastropheInFailFastBuild() throws Exception {
-    catastrophicBuild(false);
+  public void catastropheHaltsBuild_KeepGoing_NoKeepEdges() throws Exception {
+    catastrophicBuild(true, false);
   }
 
-  private void catastrophicBuild(boolean keepGoing) throws Exception {
-    graph = new InMemoryGraph();
+  @Test
+  public void catastropheInBuild_NoKeepGoing_KeepEdges() throws Exception {
+    catastrophicBuild(false, true);
+  }
+
+  private void catastrophicBuild(boolean keepGoing, boolean keepEdges) throws Exception {
+    graph = new InMemoryGraph(keepEdges);
 
     SkyKey catastropheKey = GraphTester.toSkyKey("catastrophe");
     SkyKey otherKey = GraphTester.toSkyKey("someKey");
@@ -537,9 +542,17 @@ public class ParallelEvaluatorTest {
         return null;
       }
     });
-    EvaluationResult<StringValue> result = eval(keepGoing, catastropheKey, otherKey);
-    ErrorInfo error = result.getError(catastropheKey);
-    MoreAsserts.assertContentsAnyOrder(error.getRootCauses(), catastropheKey);
+
+    SkyKey topKey = GraphTester.toSkyKey("top");
+    tester.getOrCreate(topKey).addDependency(catastropheKey).setComputedValue(CONCATENATE);
+    EvaluationResult<StringValue> result = eval(keepGoing, topKey, otherKey);
+    if (!keepGoing) {
+      ErrorInfo error = result.getError(topKey);
+      MoreAsserts.assertContentsAnyOrder(error.getRootCauses(), catastropheKey);
+    } else {
+      assertTrue(result.hasError());
+      assertThat(result.errorMap()).isEmpty();
+    }
   }
 
   @Test

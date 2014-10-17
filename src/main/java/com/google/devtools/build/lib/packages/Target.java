@@ -25,7 +25,7 @@ import java.util.Set;
 /**
  *  A node in the build dependency graph, identified by a Label.
  */
-@SkylarkModule(name = "Target", doc = "A BUILD target.")
+@SkylarkModule(name = "target", doc = "A BUILD target.")
 public interface Target {
 
   /**

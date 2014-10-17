@@ -13,8 +13,6 @@
 // limitations under the License.
 package com.google.devtools.build.lib.skyframe;
 
-import com.google.devtools.build.lib.actions.Artifact;
-import com.google.devtools.build.lib.actions.Root;
 import com.google.devtools.build.lib.blaze.BlazeDirectories;
 import com.google.devtools.build.lib.packages.NoSuchPackageException;
 import com.google.devtools.build.lib.packages.NoSuchTargetException;
@@ -24,7 +22,7 @@ import com.google.devtools.build.lib.packages.Target;
 import com.google.devtools.build.lib.skyframe.SkyframeExecutor.SkyframePackageLoader;
 import com.google.devtools.build.lib.syntax.Label;
 import com.google.devtools.build.lib.syntax.Label.SyntaxException;
-import com.google.devtools.build.lib.vfs.Path;
+import com.google.devtools.build.lib.vfs.RootedPath;
 import com.google.devtools.build.lib.view.config.BuildConfiguration.Fragment;
 import com.google.devtools.build.lib.view.config.BuildOptions;
 import com.google.devtools.build.lib.view.config.InvalidConfigurationException;
@@ -81,15 +79,9 @@ class SkyframePackageLoaderWithValueEnvironment implements
 
   @Override
   public void addDependency(Package pkg, String fileName) throws SyntaxException, IOException {
-    Label label = Label.create(pkg.getName(), fileName);
-    LabelAndConfiguration lac = new LabelAndConfiguration(label, null);
-    Path pathToArtifact = pkg.getPackageDirectory().getRelative(fileName);
-    Artifact artifact = new Artifact(pathToArtifact,
-        Root.asSourceRoot(pkg.getSourceRoot()),
-        pkg.getNameFragment().getRelative(fileName),
-        lac);
-
-    FileValue result = (FileValue) env.getValue(FileValue.key(artifact));
+    RootedPath fileRootedPath = RootedPath.toRootedPath(pkg.getSourceRoot(),
+        pkg.getNameFragment().getRelative(fileName));
+    FileValue result = (FileValue) env.getValue(FileValue.key(fileRootedPath));
     if (result != null && !result.exists()) {
       throw new IOException();
     }

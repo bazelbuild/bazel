@@ -43,7 +43,6 @@ import com.google.devtools.build.skyframe.SkyValue;
 
 import java.io.IOException;
 import java.util.List;
-import java.util.Map;
 
 /**
  * A SkyFunction to parse WORKSPACE files.
@@ -105,8 +104,7 @@ public class WorkspaceFileFunction implements SkyFunction {
     List<String> params = ImmutableList.of("name");
     return new MixedModeFunction("workspace", params, 1, true) {
       @Override
-      public Object call(Object[] namedArgs, List<Object> surplusPositionalArguments,
-          Map<String, Object> surplusKeywordArguments, FuncallExpression ast) throws EvalException,
+      public Object call(Object[] namedArgs, FuncallExpression ast) throws EvalException,
           ConversionException, InterruptedException {
         String name = Type.STRING.convert(namedArgs[0], "'name' argument");
         String errorMessage = LabelValidator.validateTargetName(name);
@@ -123,8 +121,7 @@ public class WorkspaceFileFunction implements SkyFunction {
     List<String> params = ImmutableList.of("name", "actual");
     return new MixedModeFunction(BIND, params, 2, true) {
       @Override
-      public Object call(Object[] namedArgs, List<Object> surplusPositionalArguments,
-          Map<String, Object> surplusKeywordArguments, FuncallExpression ast)
+      public Object call(Object[] namedArgs, FuncallExpression ast)
               throws EvalException, ConversionException {
         String name = Type.STRING.convert(namedArgs[0], "'name' argument");
         String actual = Type.STRING.convert(namedArgs[1], "'actual' argument");

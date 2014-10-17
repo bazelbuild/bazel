@@ -29,7 +29,7 @@ import javax.annotation.Nullable;
  * <p>Every transitive info collection contains at least this provider.
  */
 @Immutable
-@SkylarkModule(name = "FileProvider", doc = "An interface for rules that provide files.")
+@SkylarkModule(name = "file_provider", doc = "An interface for rules that provide files.")
 public final class FileProvider implements TransitiveInfoProvider {
 
   @Nullable private final Label label;

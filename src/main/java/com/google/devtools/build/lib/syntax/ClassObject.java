@@ -54,6 +54,9 @@ public interface ClassObject {
    * An implementation class of ClassObject for structs created in Skylark code.
    */
   @Immutable
+  @SkylarkModule(name = "struct",
+      doc = "A special language element to support structs (i.e. simple value objects). "
+          + "See the global <code>struct</code> method for more details.")
   public class SkylarkClassObject implements ClassObject {
 
     private final ImmutableMap<String, Object> values;

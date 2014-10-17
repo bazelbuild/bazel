@@ -78,7 +78,11 @@ public class FunctionDefStatement extends Statement {
     SkylarkFunctionType type = SkylarkFunctionType.of(ident.getName());
     ValidationEnvironment localEnv = new ValidationEnvironment(env, type);
     for (Argument i : args) {
-      localEnv.update(i.getArgName(), SkylarkType.UNKNOWN, getLocation());
+      SkylarkType argType = SkylarkType.UNKNOWN;
+      if (i.hasValue()) {
+        argType = i.getValue().validate(env);
+      }
+      localEnv.update(i.getArgName(), argType, getLocation());
     }
     for (Statement stmts : statements) {
       stmts.validate(localEnv);

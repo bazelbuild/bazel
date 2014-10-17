@@ -19,7 +19,6 @@ import com.google.common.base.Preconditions;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.Iterables;
 import com.google.common.collect.Lists;
-import com.google.devtools.build.lib.concurrent.ThreadSafety.Immutable;
 import com.google.devtools.build.lib.events.Location;
 
 import java.util.Collection;
@@ -201,8 +200,6 @@ public abstract class SkylarkList implements Iterable<Object> {
     private LazySkylarkList(Iterable<Object> iterable, boolean tuple, Class<?> genericType) {
       super(tuple, genericType);
       this.iterable = Preconditions.checkNotNull(iterable);
-      Preconditions.checkArgument(iterable.getClass().isAnnotationPresent(Immutable.class),
-          "Cannot create lazy lists from mutable iterables.");
     }
 
     @Override
@@ -301,7 +298,8 @@ public abstract class SkylarkList implements Iterable<Object> {
 
   /**
    * Returns a Skylark list containing elements without a type check and without creating
-   * an immutable copy. Therefore the iterable containing elements must be immutable. This way
+   * an immutable copy. Therefore the iterable containing elements must be immutable
+   * (which is not checked here so callers must be extra careful). This way
    * it's possibly to create a SkylarkList without requesting the original iterator. This
    * can be useful for nested set - list conversions.
    */

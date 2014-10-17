@@ -101,7 +101,7 @@ import javax.annotation.Nullable;
  * <p>Instances of BuildConfiguration are canonical:
  * <pre>c1.equals(c2) <=> c1==c2.</pre>
  */
-@SkylarkModule(name = "Configuration",
+@SkylarkModule(name = "configuration",
     doc = "Data required for the analysis of a target that comes from targets that "
         + "depend on it and not targets that it depends on.")
 public final class BuildConfiguration implements Serializable {

@@ -301,6 +301,9 @@ static vector<string> GetArgumentArray() {
   if (!globals->options.skyframe.empty()) {
     result.push_back("--skyframe=" + globals->options.skyframe);
   }
+  if (!globals->options.skygraph.empty()) {
+    result.push_back("--skygraph=" + globals->options.skygraph);
+  }
   if (globals->options.allow_configurable_attributes) {
     result.push_back("--allow_configurable_attributes");
   }

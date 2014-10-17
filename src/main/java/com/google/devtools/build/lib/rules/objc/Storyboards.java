@@ -35,9 +35,6 @@ import com.google.devtools.build.lib.view.actions.CommandLine;
  *   <li>Compiles with {@code ibtool} to a directory with extension {@code .storyboardc} (note the
  *       added "c")
  * </ul>
- * <p>Because {@code ibtool}'s arguments are very similar to {@code actool}, we use
- * {@code actoolzip} to invoke it, with the argument which is usually the path to {@code actool}
- * replaced with the path to {@code ibtool}.
  *
  * <p>The {@link NestedSet}s stored in this class are only one level deep, and do not include the
  * storyboards in the transitive closure. This is to facilitate structural sharing between copies
@@ -60,6 +57,12 @@ final class Storyboards {
 
   public NestedSet<Artifact> getInputs() {
     return inputs;
+  }
+
+  static Storyboards empty() {
+    return new Storyboards(
+        NestedSetBuilder.<Artifact>emptySet(Order.STABLE_ORDER),
+        NestedSetBuilder.<Artifact>emptySet(Order.STABLE_ORDER));
   }
 
   /**

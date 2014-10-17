@@ -210,7 +210,7 @@ public final class InMemoryMemoizingEvaluator implements MemoizingEvaluator {
         Preconditions.checkState(prevEntry.noDepsLastBuild(),
             "existing entry for %s has deps: %s", key, prevEntry);
       }
-      prevEntry.setValue(entry.getValue(), version);
+      prevEntry.setValue(value, version);
     }
     // Start with a new map to avoid bloat since clear() does not downsize the map.
     valuesToInject = new HashMap<>();

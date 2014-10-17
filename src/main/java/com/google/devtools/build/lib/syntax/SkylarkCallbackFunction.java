@@ -14,7 +14,6 @@
 package com.google.devtools.build.lib.syntax;
 
 import com.google.common.collect.ImmutableList;
-import com.google.devtools.build.lib.events.Location;
 
 
 /**
@@ -41,9 +40,5 @@ public class SkylarkCallbackFunction {
         | IllegalArgumentException e) {
       throw new EvalException(ast.getLocation(), e.getMessage());
     }
-  }
-
-  public Location getLocation() {
-    return ast.getLocation();
   }
 }

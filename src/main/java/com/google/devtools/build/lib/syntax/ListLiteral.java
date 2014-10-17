@@ -120,10 +120,6 @@ public final class ListLiteral extends Expression {
     if (!isTuple()) {
       for (Expression expr : exprs) {
         SkylarkType nextType = expr.validate(env);
-        if (!nextType.isSimple()) {
-          throw new EvalException(getLocation(),
-              String.format("List cannot contain composite type '%s'", nextType));
-        }
         type = type.infer(nextType, "list literal", expr.getLocation(), getLocation());
       }
     }

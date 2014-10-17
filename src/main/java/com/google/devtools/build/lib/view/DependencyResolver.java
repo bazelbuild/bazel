@@ -16,21 +16,29 @@ package com.google.devtools.build.lib.view;
 import com.google.common.base.Preconditions;
 import com.google.common.collect.ArrayListMultimap;
 import com.google.common.collect.ListMultimap;
+import com.google.devtools.build.lib.collect.ImmutableSortedKeyListMultimap;
 import com.google.devtools.build.lib.packages.Attribute;
+import com.google.devtools.build.lib.packages.Attribute.ConfigurationTransition;
+import com.google.devtools.build.lib.packages.Attribute.LateBoundDefault;
+import com.google.devtools.build.lib.packages.AttributeMap;
 import com.google.devtools.build.lib.packages.InputFile;
 import com.google.devtools.build.lib.packages.NoSuchThingException;
 import com.google.devtools.build.lib.packages.OutputFile;
 import com.google.devtools.build.lib.packages.PackageGroup;
 import com.google.devtools.build.lib.packages.Rule;
 import com.google.devtools.build.lib.packages.Target;
+import com.google.devtools.build.lib.packages.Type;
 import com.google.devtools.build.lib.syntax.EvalException;
 import com.google.devtools.build.lib.syntax.Label;
 import com.google.devtools.build.lib.view.config.BuildConfiguration;
 import com.google.devtools.build.lib.view.config.ConfigMatchingProvider;
 
 import java.util.Collection;
+import java.util.List;
 import java.util.Map;
 import java.util.Set;
+import java.util.regex.Pattern;
+import java.util.regex.PatternSyntaxException;
 
 import javax.annotation.Nullable;
 
@@ -51,21 +59,22 @@ public abstract class DependencyResolver {
    * {@code true}.
    */
   public final ListMultimap<Attribute, TargetAndConfiguration> dependentNodeMap(
-      TargetAndConfiguration node, ListMultimap<Attribute, Label> labelMap,
-      boolean visitVisibility) {
+      TargetAndConfiguration node, Set<ConfigMatchingProvider> configConditions)
+      throws EvalException {
     Target target = node.getTarget();
     ListMultimap<Attribute, TargetAndConfiguration> outgoingEdges = ArrayListMultimap.create();
     if (target instanceof OutputFile) {
       Rule rule = ((OutputFile) target).getGeneratingRule();
-      addEdge(rule, node.getConfiguration(), outgoingEdges.get(null));
+      outgoingEdges.get(null).add(new TargetAndConfiguration(rule, node.getConfiguration()));
       visitTargetVisibility(node, outgoingEdges.get(null));
     } else if (target instanceof InputFile) {
       visitTargetVisibility(node, outgoingEdges.get(null));
     } else if (target instanceof Rule) {
-      if (visitVisibility) {
-        visitTargetVisibility(node, outgoingEdges.get(null));
-      }
-      visitRule(node, (Rule) target, labelMap, outgoingEdges);
+      Rule rule = (Rule) target;
+      ListMultimap<Attribute, Label> labelMap = resolveLateBoundAttributes(
+          rule, node.getConfiguration(), configConditions);
+      visitTargetVisibility(node, outgoingEdges.get(null));
+      visitRule(node, rule, labelMap, outgoingEdges);
     } else if (target instanceof PackageGroup) {
       visitPackageGroup(node, (PackageGroup) target, outgoingEdges.get(null));
     } else {
@@ -74,25 +83,103 @@ public abstract class DependencyResolver {
     return outgoingEdges;
   }
 
-  /**
-   * Variation that computes the rule's (Attribute --> Label) map internally. This should be
-   * avoided if the caller has reasonable access to somewhere where this has already been computed.
-   */
-  public final ListMultimap<Attribute, TargetAndConfiguration> dependentNodeMap(
-      TargetAndConfiguration node, Set<ConfigMatchingProvider> configConditions)
+  private ListMultimap<Attribute, Label> resolveLateBoundAttributes(Rule rule,
+      BuildConfiguration configuration, Set<ConfigMatchingProvider> configConditions)
       throws EvalException {
-    ListMultimap<Attribute, Label> labelMap = null;
-    if (node.getTarget() instanceof Rule) {
-      labelMap = new LateBoundAttributeHelper((Rule) node.getTarget(), node.getConfiguration(),
-          configConditions).createAttributeMap();
+    final ImmutableSortedKeyListMultimap.Builder<Attribute, Label> builder =
+        ImmutableSortedKeyListMultimap.builder();
+    ConfiguredAttributeMapper attributes = ConfiguredAttributeMapper.of(rule, configConditions);
+
+    attributes.validateAttributes();
+    attributes.visitLabels(
+        new AttributeMap.AcceptsLabelAttribute() {
+          @Override
+          public void acceptLabelAttribute(Label label, Attribute attribute) {
+            String attributeName = attribute.getName();
+            if (attributeName.equals("abi_deps")) {
+              // abi_deps is handled specially: we visit only the branch that
+              // needs to be taken based on the configuration.
+              return;
+            }
+
+            if (attribute.getType() == Type.NODEP_LABEL) {
+              return;
+            }
+
+            if (Attribute.isLateBound(attributeName)) {
+              // Late-binding attributes are handled specially.
+              return;
+            }
+
+            builder.put(attribute, label);
+          }
+        });
+
+    // TODO(bazel-team): Remove this in favor of the new configurable attributes.
+    if (attributes.getAttributeDefinition("abi_deps") != null) {
+      Attribute depsAttribute = attributes.getAttributeDefinition("deps");
+      MakeVariableExpander.Context context = new ConfigurationMakeVariableContext(
+          rule.getPackage(), configuration);
+      String abi = null;
+      try {
+        abi = MakeVariableExpander.expand(attributes.get("abi", Type.STRING), context);
+      } catch (MakeVariableExpander.ExpansionException e) {
+        // Ignore this. It will be handled during the analysis phase.
+      }
+
+      if (abi != null) {
+        for (Map.Entry<String, List<Label>> entry
+            : attributes.get("abi_deps", Type.LABEL_LIST_DICT).entrySet()) {
+          try {
+            if (Pattern.matches(entry.getKey(), abi)) {
+              for (Label label : entry.getValue()) {
+                builder.put(depsAttribute, label);
+              }
+            }
+          } catch (PatternSyntaxException e) {
+            // Ignore this. It will be handled during the analysis phase.
+          }
+        }
+      }
     }
-    return dependentNodeMap(node, labelMap, /*visitVisibility=*/true);
+
+    // Handle late-bound attributes.
+    for (Attribute attribute : rule.getAttributes()) {
+      String attributeName = attribute.getName();
+      if (Attribute.isLateBound(attributeName) && attribute.getCondition().apply(attributes)) {
+        @SuppressWarnings("unchecked")
+        LateBoundDefault<BuildConfiguration> lateBoundDefault =
+            (LateBoundDefault<BuildConfiguration>) attribute.getLateBoundDefault();
+        BuildConfiguration actualConfig = configuration;
+        if (lateBoundDefault != null && lateBoundDefault.useHostConfiguration()) {
+          actualConfig =
+              configuration.getConfiguration(ConfigurationTransition.HOST);
+        }
+
+        if (attribute.getType() == Type.LABEL) {
+          Label label;
+          label = Type.LABEL.cast(lateBoundDefault.getDefault(rule, actualConfig));
+          if (label != null) {
+            builder.put(attribute, label);
+          }
+        } else if (attribute.getType() == Type.LABEL_LIST) {
+          builder.putAll(attribute, Type.LABEL_LIST.cast(
+              lateBoundDefault.getDefault(rule, actualConfig)));
+        } else {
+          throw new AssertionError("Unknown attribute: '" + attributeName + "'");
+        }
+      }
+    }
+
+    // Handle visibility
+    builder.putAll(rule.getRuleClassObject().getAttributeByName("visibility"),
+        rule.getVisibility().getDependencyLabels());
+    return builder.build();
   }
 
   /**
-   * Variation that computes the rule's (Attribute --> Label) map internally. This should be
-   * avoided if the caller has reasonable access to somewhere where this has already been computed.
-   * This variant converts any internally thrown {@link EvalException} instances into {@link
+   * A variant of {@link #dependentNodeMap} that only returns the values of the resulting map, and
+   * also converts any internally thrown {@link EvalException} instances into {@link
    * IllegalStateException}.
    */
   public final Collection<TargetAndConfiguration> dependentNodes(
@@ -102,6 +189,21 @@ public abstract class DependencyResolver {
     } catch (EvalException e) {
       throw new IllegalStateException(e);
     }
+  }
+
+  /**
+   * Converts the given multi map of attributes to labels into a multi map of attributes to
+   * (target, configuration) pairs using the proper configuration transition for each attribute.
+   *
+   * @throws IllegalArgumentException if the {@code node} does not refer to a {@link Rule} instance
+   */
+  public final ListMultimap<Attribute, TargetAndConfiguration> resolveRuleLabels(
+      TargetAndConfiguration node, ListMultimap<Attribute, Label> labelMap) {
+    Preconditions.checkArgument(node.getTarget() instanceof Rule);
+    Rule rule = (Rule) node.getTarget();
+    ListMultimap<Attribute, TargetAndConfiguration> outgoingEdges = ArrayListMultimap.create();
+    visitRule(node, rule, labelMap, outgoingEdges);
+    return outgoingEdges;
   }
 
   private void visitPackageGroup(TargetAndConfiguration node, PackageGroup packageGroup,
@@ -120,16 +222,11 @@ public abstract class DependencyResolver {
           continue;
         }
 
-        addEdge(target, node.getConfiguration(), outgoingEdges);
+        outgoingEdges.add(new TargetAndConfiguration(target, node.getConfiguration()));
       } catch (NoSuchThingException e) {
         // Don't visit targets that don't exist (--keep_going)
       }
     }
-  }
-
-  private void addEdge(Target toTarget, BuildConfiguration configuration,
-      Collection<TargetAndConfiguration> outgoingEdges) {
-    outgoingEdges.add(new TargetAndConfiguration(toTarget, configuration));
   }
 
   private void visitLabelInAttribute(TargetAndConfiguration from, Rule fromRule, Label to,
@@ -150,7 +247,7 @@ public abstract class DependencyResolver {
     Iterable<BuildConfiguration> toConfigurations = from.getConfiguration().evaluateTransition(
         fromRule, attribute, toTarget);
     for (BuildConfiguration toConfiguration : toConfigurations) {
-      addEdge(toTarget, toConfiguration, outgoingEdges);
+      outgoingEdges.add(new TargetAndConfiguration(toTarget, toConfiguration));
     }
   }
 
@@ -184,7 +281,7 @@ public abstract class DependencyResolver {
         }
 
         // Visibility always has null configuration
-        addEdge(visibilityTarget, null, outgoingEdges);
+        outgoingEdges.add(new TargetAndConfiguration(visibilityTarget, null));
       } catch (NoSuchThingException e) {
         // Don't visit targets that don't exist (--keep_going)
       }

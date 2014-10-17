@@ -67,7 +67,7 @@ public class BlazeCommandEventHandler implements EventHandler {
     public boolean showTaskFinish;
 
     @Option(name = "show_progress_rate_limit",
-            defaultValue = "-1",
+            defaultValue = "0.03",  // A nice middle ground; snappy but not too spammy in logs.
             category = "verbosity",
             help = "Minimum number of seconds between progress messages in the output.")
     public double showProgressRateLimit;

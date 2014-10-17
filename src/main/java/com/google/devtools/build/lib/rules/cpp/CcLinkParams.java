@@ -217,7 +217,9 @@ public final class CcLinkParams {
      * mappings in the order specified, and the first mapping that returns a non-null result is
      * added.
      *
-     * @deprecated use {@link #addTransitiveTargets} instead
+     * @deprecated don't add any new uses; all existing uses need to be audited and possibly merged
+     *             into a single call - some of them may introduce semantic changes which need to be
+     *             carefully vetted
      */
     @Deprecated
     @SafeVarargs

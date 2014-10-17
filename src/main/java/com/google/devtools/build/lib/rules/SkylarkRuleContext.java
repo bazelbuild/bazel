@@ -202,7 +202,10 @@ public final class SkylarkRuleContext {
         }
       }
       if (a.isSingleArtifact()) {
-        fileBuilder.put(skyname, ruleContext.getPrerequisiteArtifact(a.getName(), mode));
+        Artifact artifact = ruleContext.getPrerequisiteArtifact(a.getName(), mode);
+        if (artifact != null) {
+          fileBuilder.put(skyname, artifact);
+        }
       }
       filesBuilder.put(skyname, ruleContext.getPrerequisiteArtifacts(a.getName(), mode));
       targetsBuilder.put(skyname, SkylarkList.list(
@@ -214,6 +217,8 @@ public final class SkylarkRuleContext {
         "No such file. Make sure there is a '%s' label type attribute marked as 'single_file'");
     filesObject = new SkylarkClassObject(filesBuilder.build(),
         "No such files. Make sure there is a '%s' label or label_list type attribute");
+    // TODO(bazel-team): we don't have a targetObject, but it seems to be a valid use case since
+    // we have label attributes.
     targetsObject = new SkylarkClassObject(targetsBuilder.build(),
         "No such targets. Make sure there is a '%s' label or label_list type attribute");
     executableRunfilesMap = executableRunfilesbuilder.build();

@@ -15,7 +15,6 @@
 package com.google.devtools.build.lib.rules.objc;
 
 import static com.google.devtools.build.lib.rules.objc.ArtifactListAttribute.BUNDLE_IMPORTS;
-import static com.google.devtools.build.lib.rules.objc.ArtifactListAttribute.RESOURCES;
 import static com.google.devtools.build.lib.rules.objc.ObjcCommon.BUNDLE_CONTAINER_TYPE;
 
 import com.google.common.collect.ImmutableList;
@@ -53,12 +52,16 @@ public final class BundleableFile extends Value<BundleableFile> {
   }
 
   /**
-   * Returns an instance for every file, if any, specified by the {@code resources} attribute of the
-   * given rule.
+   * Given a sequence of non-compiled resource files, returns a sequence of the same length of
+   * instances of this class. Non-compiled resource files are resources which are not processed
+   * before placing them in the final bundle. This is different from (for example) {@code .strings}
+   * and {@code .xib} files, which must be converted to binary plist form or compiled.
+   *
+   * @param files a sequence of artifacts corresponding to non-compiled resource files
    */
-  public static Iterable<BundleableFile> resourceFilesFromRule(RuleContext context) {
+  public static Iterable<BundleableFile> nonCompiledResourceFiles(Iterable<Artifact> files) {
     ImmutableList.Builder<BundleableFile> result = new ImmutableList.Builder<>();
-    for (Artifact file : RESOURCES.get(context)) {
+    for (Artifact file : files) {
       result.add(new BundleableFile(file, bundlePath(file)));
     }
     return result.build();

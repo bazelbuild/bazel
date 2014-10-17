@@ -22,7 +22,7 @@ public class SkylarkDocumentationGenerator {
   private static boolean checkArgs(String[] args) {
     if (args.length < 1) {
       System.err.println("There has to be one input parameter\n"
-          + " - an output directory.");
+          + " - an output file.");
       return false;
     }
     return true;

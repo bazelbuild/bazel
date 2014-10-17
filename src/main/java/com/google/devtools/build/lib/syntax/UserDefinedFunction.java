@@ -19,9 +19,6 @@ import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.Lists;
 import com.google.devtools.build.lib.events.Location;
 
-import java.util.List;
-import java.util.Map;
-
 /**
  * The actual function registered in the environment. This function is defined in the
  * parsed code using {@link FunctionDefStatement}.
@@ -81,10 +78,8 @@ public class UserDefinedFunction extends MixedModeFunction {
   }
 
   @Override
-  public Object call(Object[] namedArguments, List<Object> positionalArguments,
-      Map<String, Object> keywordArguments, FuncallExpression ast, Environment env)
+  public Object call(Object[] namedArguments, FuncallExpression ast, Environment env)
       throws EvalException, InterruptedException {
-    // TODO(bazel-team): support default values
     SkylarkEnvironment functionEnv = SkylarkEnvironment.createEnvironmentForFunctionCalling(
         env, definitionEnv, this);
 

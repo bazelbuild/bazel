@@ -14,14 +14,10 @@
 
 package com.google.devtools.build.lib.rules.objc;
 
-import static com.google.devtools.build.lib.rules.objc.ArtifactListAttribute.STRINGS;
-import static com.google.devtools.build.lib.rules.objc.ArtifactListAttribute.XIBS;
-
 import com.google.common.base.Function;
 import com.google.common.base.Preconditions;
 import com.google.common.collect.ImmutableList;
 import com.google.devtools.build.lib.actions.Artifact;
-import com.google.devtools.build.lib.view.RuleContext;
 
 /**
  * Represents a strings or {@code .xib} file.
@@ -55,15 +51,15 @@ public class CompiledResourceFile {
       };
 
   /**
-   * Returns an instance for every file, if any, specified by the {@code strings} attribute of the
-   * given rule. The value returned by {@link #getBundled()} will be the plist file in
-   * binary form.
+   * Given a sequence of artifacts corresponding to {@code .strings} files, returns a sequence of
+   * the same length of instances of this class. The value returned by {@link #getBundled()} of each
+   * instance will be the plist file in binary form.
    */
-  public static Iterable<CompiledResourceFile> stringsFilesFromRule(RuleContext context) {
+  public static Iterable<CompiledResourceFile> fromStringsFiles(
+      IntermediateArtifacts intermediateArtifacts, Iterable<Artifact> strings) {
     ImmutableList.Builder<CompiledResourceFile> result = new ImmutableList.Builder<>();
-    for (Artifact originalFile : STRINGS.get(context)) {
-      Artifact binaryFile = ObjcRuleClasses.artifactByAppendingToRootRelativePath(
-          context, originalFile.getRootRelativePath(), ".binary");
+    for (Artifact originalFile : strings) {
+      Artifact binaryFile = intermediateArtifacts.convertedStringsFile(originalFile);
       result.add(new CompiledResourceFile(
           originalFile, new BundleableFile(binaryFile, BundleableFile.bundlePath(originalFile))));
     }
@@ -71,14 +67,18 @@ public class CompiledResourceFile {
   }
 
   /**
-   * Returns an instance for every file, if any, specified by the {@code xibs} attribute of the
-   * given rule.
+   * Given a sequence of artifacts corresponding to {@code .xib} files, returns a sequence of the
+   * same length of new instances of this class.
    */
-  public static Iterable<CompiledResourceFile> xibFilesFromRule(RuleContext context) {
+  public static Iterable<CompiledResourceFile> fromXibFiles(
+      IntermediateArtifacts intermediateArtifacts, Iterable<Artifact> xibs) {
     ImmutableList.Builder<CompiledResourceFile> result = new ImmutableList.Builder<>();
-    for (Artifact originalFile : XIBS.get(context)) {
+    for (Artifact originalFile : xibs) {
+      Preconditions.checkArgument(ObjcRuleClasses.XIB_TYPE.matches(originalFile.getExecPath()),
+          "Expect file of type %s, but got: %s", ObjcRuleClasses.XIB_TYPE, originalFile);
+
       // Each .xib file is compiled to a single .nib file.
-      Artifact nibFile = context.getRelatedArtifact(originalFile.getExecPath(), ".nib");
+      Artifact nibFile = intermediateArtifacts.compiledXibFile(originalFile);
       result.add(new CompiledResourceFile(
           originalFile, new BundleableFile(nibFile, BundleableFile.bundlePath(nibFile))));
     }

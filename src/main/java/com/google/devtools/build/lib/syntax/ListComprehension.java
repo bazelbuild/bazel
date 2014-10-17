@@ -84,10 +84,6 @@ public final class ListComprehension extends Expression {
     return elementExpression;
   }
 
-  public Expression getLastListExpression() {
-    return lists.get(lists.size() - 1).getValue();
-  }
-
   public void add(Ident ident, Expression listExpression) {
     lists.add(Maps.immutableEntry(ident, listExpression));
   }

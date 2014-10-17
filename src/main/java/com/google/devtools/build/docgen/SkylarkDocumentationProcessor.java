@@ -53,6 +53,8 @@ public class SkylarkDocumentationProcessor {
 
   private static final String TOP_LEVEL_ID = "_top_level";
 
+  private static final boolean USE_TEMPLATE = false;
+
   @SkylarkModule(name = "Global objects, functions and modules",
       doc = "Objects, functions and modules registered in the global environment.")
   private static final class TopLevelModule {}
@@ -64,15 +66,19 @@ public class SkylarkDocumentationProcessor {
   /**
    * Generates the Skylark documentation to the given output directory.
    */
-  public void generateDocumentation(String outputRootDir) throws IOException,
+  public void generateDocumentation(String outputPath) throws IOException,
       BuildEncyclopediaDocException {
     BufferedWriter bw = null;
-    File skylarkDocPath = new File(outputRootDir + File.separator + DocgenConsts.SKYLARK_DOC_NAME);
+    File skylarkDocPath = new File(outputPath);
     try {
       bw = new BufferedWriter(new FileWriter(skylarkDocPath));
-      bw.write(SourceFileReader.readTemplateContents(DocgenConsts.SKYLARK_BODY_TEMPLATE,
-          ImmutableMap.<String, String>of(
-              DocgenConsts.VAR_SECTION_SKYLARK_BUILTIN, generateAllBuiltinDoc())));
+      if (USE_TEMPLATE) {
+        bw.write(SourceFileReader.readTemplateContents(DocgenConsts.SKYLARK_BODY_TEMPLATE,
+            ImmutableMap.<String, String>of(
+                DocgenConsts.VAR_SECTION_SKYLARK_BUILTIN, generateAllBuiltinDoc())));
+      } else {
+        bw.write(generateAllBuiltinDoc());
+      }
       System.out.println("Skylark documentation generated: " + skylarkDocPath.getAbsolutePath());
     } finally {
       if (bw != null) {
@@ -114,6 +120,7 @@ public class SkylarkDocumentationProcessor {
     generateModuleDoc(topLevelModule, sb);
     for (SkylarkModuleDoc module : modules.values()) {
       if (!module.getAnnotation().hidden()) {
+        sb.append("<hr>");
         generateModuleDoc(module, sb);
       }
     }
@@ -122,11 +129,12 @@ public class SkylarkDocumentationProcessor {
 
   private void generateModuleDoc(SkylarkModuleDoc module, StringBuilder sb) {
     SkylarkModule annotation = module.getAnnotation();
-    sb.append(String.format("<h3 id=\"modules.%s\">%s</h3>\n",
+    sb.append(String.format("<h2 id=\"modules.%s\">%s</h2>\n",
           getModuleId(annotation),
           annotation.name()))
       .append(annotation.doc())
       .append("\n");
+    sb.append("<ul>");
     for (SkylarkMethod method : module.getJavaMethods()) {
       generateDirectJavaMethodDoc(annotation.name(), method.name, method.method,
           method.callable, sb);
@@ -134,6 +142,7 @@ public class SkylarkDocumentationProcessor {
     for (SkylarkBuiltinMethod builtin : module.getBuiltinMethods().values()) {
       generateBuiltinItemDoc(getModuleId(annotation), builtin, sb);
     }
+    sb.append("</ul>");
   }
 
   private String getModuleId(SkylarkModule annotation) {
@@ -150,7 +159,7 @@ public class SkylarkDocumentationProcessor {
     if (annotation.hidden()) {
       return;
     }
-    sb.append(String.format("<h4 id=\"modules.%s.%s\">%s</h4>\n",
+    sb.append(String.format("<li><h3 id=\"modules.%s.%s\">%s</h3>\n",
           moduleId,
           annotation.name(),
           annotation.name()));
@@ -163,13 +172,13 @@ public class SkylarkDocumentationProcessor {
       }
     }
 
-    sb.append(annotation.doc());
+    sb.append(annotation.doc() + "\n");
     printParams(moduleId, annotation, sb);
   }
 
   private void printParams(String moduleId, SkylarkBuiltin annotation, StringBuilder sb) {
     if (annotation.mandatoryParams().length + annotation.optionalParams().length > 0) {
-      sb.append("<h5>Parameters</h5>\n");
+      sb.append("<h4>Parameters</h4>\n");
       printParams(moduleId, annotation.name(), annotation.mandatoryParams(), sb);
       printParams(moduleId, annotation.name(), annotation.optionalParams(), sb);
     } else {
@@ -183,7 +192,7 @@ public class SkylarkDocumentationProcessor {
       return;
     }
 
-    sb.append(String.format("<h4 id=\"modules.%s.%s\">%s</h4>\n%s\n",
+    sb.append(String.format("<li><h3 id=\"modules.%s.%s\">%s</h3>\n%s\n",
             objectName,
             methodName,
             methodName,

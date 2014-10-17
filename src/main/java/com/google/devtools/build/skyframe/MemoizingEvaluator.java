@@ -39,6 +39,11 @@ public interface MemoizingEvaluator {
   /**
    * Computes the transitive closure of a given set of values at the given {@link Version}. See
    * {@link EagerInvalidator#invalidate}.
+   *
+   * <p>The returned EvaluationResult is guaranteed to contain a result for at least one root if
+   * keepGoing is false. It will contain a result for every root if keepGoing is true, <i>unless</i>
+   * the evaluation failed with a "catastrophic" error. In that case, some or all results may be
+   * missing.
    */
   <T extends SkyValue> EvaluationResult<T> evaluate(
       Iterable<SkyKey> roots,

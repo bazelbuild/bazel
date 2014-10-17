@@ -73,6 +73,7 @@ void BlazeStartupOptions::Copy(
   lhs->io_nice_level = rhs.io_nice_level;
   lhs->max_idle_secs = rhs.max_idle_secs;
   lhs->skyframe = rhs.skyframe;
+  lhs->skygraph = rhs.skygraph;
   lhs->watchfs = rhs.watchfs;
   lhs->allow_configurable_attributes = rhs.allow_configurable_attributes;
   lhs->fatal_event_bus_exceptions = rhs.fatal_event_bus_exceptions;
@@ -203,6 +204,12 @@ bool BlazeStartupOptions::ProcessArg(const string& argstr,
               "--deprecated_skyframe_for_testing_only")) != NULL) {
     skyframe = value;
     option_sources["skyframe"] = rcfile;
+  } else if ((value = GetUnaryOption(arg, next_arg,
+              "--skygraph")) != NULL) {
+    fprintf(stderr, "WARNING: The --skygraph startup option is an internal "
+            "flag and will be removed in a future release\n");
+    skygraph = value;
+    option_sources["skygraph"] = rcfile;
   } else if (GetNullaryOption(arg, "-x")) {
     fprintf(stderr, "WARNING: The -x startup option is now ignored "
             "and will be removed in a future release\n");

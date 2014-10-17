@@ -14,11 +14,9 @@
 package com.google.devtools.build.lib.skyframe;
 
 import com.google.common.base.Preconditions;
-import com.google.devtools.build.lib.actions.Artifact;
 import com.google.devtools.build.lib.concurrent.ThreadSafety.Immutable;
 import com.google.devtools.build.lib.concurrent.ThreadSafety.ThreadSafe;
 import com.google.devtools.build.lib.skyframe.FileStateValue.Type;
-import com.google.devtools.build.lib.vfs.Path;
 import com.google.devtools.build.lib.vfs.RootedPath;
 import com.google.devtools.build.skyframe.SkyKey;
 import com.google.devtools.build.skyframe.SkyValue;
@@ -43,6 +41,9 @@ import javax.annotation.Nullable;
  * This class contains the relevant metadata for a file, although not the contents. Note that
  * since a FileValue doesn't store its corresponding SkyKey, it's possible for the FileValues for
  * two different paths to be the same.
+ *
+ * <p>
+ * This should not be used for build outputs; use {@link ArtifactValue} for those.
  */
 @Immutable
 @ThreadSafe
@@ -98,12 +99,6 @@ public abstract class FileValue implements SkyValue {
   @ThreadSafe
   public static SkyKey key(RootedPath rootedPath) {
     return new SkyKey(SkyFunctions.FILE, rootedPath);
-  }
-
-  @ThreadSafe
-  public static SkyKey key(Artifact artifact) {
-    Path root = artifact.getRoot().getPath();
-    return key(RootedPath.toRootedPath(root, artifact.getPath()));
   }
 
   /**

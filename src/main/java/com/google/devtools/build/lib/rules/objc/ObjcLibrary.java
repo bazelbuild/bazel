@@ -20,7 +20,6 @@ import com.google.common.base.Optional;
 import com.google.common.collect.ImmutableList;
 import com.google.devtools.build.lib.actions.Artifact;
 import com.google.devtools.build.lib.collect.nestedset.NestedSetBuilder;
-import com.google.devtools.build.lib.packages.Type;
 import com.google.devtools.build.lib.rules.RuleConfiguredTargetFactory;
 import com.google.devtools.build.lib.view.ConfiguredTarget;
 import com.google.devtools.build.lib.view.RuleConfiguredTarget.Mode;
@@ -65,13 +64,10 @@ public class ObjcLibrary implements RuleConfiguredTargetFactory {
         .build();
 
     ObjcCommon common = new ObjcCommon.Builder(ruleContext)
+        .setBaseAttributes(new ObjcBase.Attributes(ruleContext))
         .addExtraSdkFrameworks(extraSdkFrameworks)
-        .addAssetCatalogs(ruleContext.getPrerequisiteArtifacts("asset_catalogs", Mode.TARGET))
-        .addSdkDylibs(ruleContext.attributes().get("sdk_dylibs", Type.STRING_LIST))
         .setCompilationArtifacts(compilationArtifacts)
-        .addHdrs(ruleContext.getPrerequisiteArtifacts("hdrs", Mode.TARGET))
         .addDepObjcProviders(ruleContext.getPrerequisites("deps", Mode.TARGET, ObjcProvider.class))
-        .addStoryboardInputs(ruleContext.getPrerequisiteArtifacts("storyboards", Mode.TARGET))
         .setIntermediateArtifacts(intermediateArtifacts)
         .build();
     common.reportErrors();

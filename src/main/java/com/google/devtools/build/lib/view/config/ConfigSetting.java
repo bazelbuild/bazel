@@ -49,7 +49,7 @@ public class ConfigSetting implements RuleConfiguredTargetFactory {
   @Override
   public ConfiguredTarget create(RuleContext ruleContext) throws InterruptedException {
     // Get the required flag=value settings for this rule.
-    List<List<String>> settings = NonconfigurableAttributeMapper.of(ruleContext.getRule())
+    Map<String, String> settings = NonconfigurableAttributeMapper.of(ruleContext.getRule())
         .get(ConfigRuleClasses.ConfigSettingRule.SETTINGS_ATTRIBUTE, Type.STRING_DICT);
     if (settings.isEmpty()) {
       ruleContext.attributeError(ConfigRuleClasses.ConfigSettingRule.SETTINGS_ATTRIBUTE,
@@ -81,11 +81,11 @@ public class ConfigSetting implements RuleConfiguredTargetFactory {
    * Given a list of [flagName, flagValue] pairs, returns true if flagName == flagValue for
    * every item in the list under this configuration, false otherwise.
    */
-  private boolean matchesConfig(List<List<String>> expectedSettings, BuildConfiguration config)
+  private boolean matchesConfig(Map<String, String> expectedSettings, BuildConfiguration config)
       throws OptionsParsingException {
-    for (List<String> setting : expectedSettings) {
-      String optionName = setting.get(0);
-      String expectedRawValue = setting.get(1);
+    for (Map.Entry<String, String> setting : expectedSettings.entrySet()) {
+      String optionName = setting.getKey();
+      String expectedRawValue = setting.getValue();
 
       Class<? extends OptionsBase> optionClass = config.getOptionClass(optionName);
       if (optionClass == null) {

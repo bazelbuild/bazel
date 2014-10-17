@@ -43,7 +43,6 @@ import com.google.devtools.build.lib.syntax.FilesetEntry;
 import com.google.devtools.build.lib.syntax.GlobCriteria;
 import com.google.devtools.build.lib.syntax.GlobList;
 import com.google.devtools.build.lib.syntax.Label;
-import com.google.devtools.build.lib.util.Pair;
 
 import java.util.ArrayList;
 import java.util.Collection;
@@ -356,39 +355,39 @@ public class PackageSerializer {
       }
       attrPb.setLicense(licensePb);
     } else if (type == STRING_DICT) {
-      List<List<String>> dict = (List<List<String>>) value;
-      for (List<String> keyValueList : dict) {
+      Map<String, String> dict = (Map<String, String>) value;
+      for (Map.Entry<String, String> dictEntry : dict.entrySet()) {
         Build.StringDictEntry entry = Build.StringDictEntry.newBuilder()
-            .setKey(keyValueList.get(0))
-            .setValue(keyValueList.get(1))
+            .setKey(dictEntry.getKey())
+            .setValue(dictEntry.getValue())
             .build();
         attrPb.addStringDictValue(entry);
       }
     } else if (type == STRING_DICT_UNARY) {
-      List<Pair<String, String>> dict = (List<Pair<String, String>>) value;
-      for (Pair<String, String> dictEntry : dict) {
+      Map<String, String> dict = (Map<String, String>) value;
+      for (Map.Entry<String, String> dictEntry : dict.entrySet()) {
         Build.StringDictUnaryEntry entry = Build.StringDictUnaryEntry.newBuilder()
-            .setKey(dictEntry.first)
-            .setValue(dictEntry.second)
+            .setKey(dictEntry.getKey())
+            .setValue(dictEntry.getValue())
             .build();
         attrPb.addStringDictUnaryValue(entry);
       }
     } else if (type == STRING_LIST_DICT) {
-      List<Pair<String, List<?>>> dict = (List<Pair<String, List<?>>>) value;
-      for (Pair<String, List<?>> dictEntry : dict) {
+      Map<String, List<String>> dict = (Map<String, List<String>>) value;
+      for (Map.Entry<String, List<String>> dictEntry : dict.entrySet()) {
         Build.StringListDictEntry.Builder entry = Build.StringListDictEntry.newBuilder()
-            .setKey(dictEntry.first);
-        for (Object dictEntryValue : dictEntry.second) {
+            .setKey(dictEntry.getKey());
+        for (Object dictEntryValue : dictEntry.getValue()) {
           entry.addValue(dictEntryValue.toString());
         }
         attrPb.addStringListDictValue(entry);
       }
     } else if (type == LABEL_LIST_DICT) {
-      List<Pair<String, List<?>>> dict = (List<Pair<String, List<?>>>) value;
-      for (Pair<String, List<?>> dictEntry : dict) {
+      Map<String, List<Label>> dict = (Map<String, List<Label>>) value;
+      for (Map.Entry<String, List<Label>> dictEntry : dict.entrySet()) {
         Build.LabelListDictEntry.Builder entry = Build.LabelListDictEntry.newBuilder()
-            .setKey(dictEntry.first);
-        for (Object dictEntryValue : dictEntry.second) {
+            .setKey(dictEntry.getKey());
+        for (Object dictEntryValue : dictEntry.getValue()) {
           entry.addValue(dictEntryValue.toString());
         }
         attrPb.addLabelListDictValue(entry);

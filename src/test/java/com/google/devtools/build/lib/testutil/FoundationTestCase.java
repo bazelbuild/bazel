@@ -47,7 +47,7 @@ public abstract class FoundationTestCase extends ChattyAssertsTestCase {
   protected Reporter reporter;
   protected EventCollector eventCollector;
 
-  private FileSystem fileSystem = null;
+  private FileSystem fileSystem;
 
   // Individual tests can opt-out of this handler if they expect an error, by
   // calling reporter.removeHandler(failFastHandler).
@@ -70,6 +70,7 @@ public abstract class FoundationTestCase extends ChattyAssertsTestCase {
   @Override
   protected void setUp() throws Exception {
     super.setUp();
+    fileSystem = createFileSystem();
     outputBase = scratchDir("/usr/local/google/_blaze_jrluser/FAKEMD5/");
     rootDirectory = scratchDir("/" + TestConstants.TEST_WORKSPACE_DIRECTORY);
     copySkylarkFilesIfExist();
@@ -78,6 +79,14 @@ public abstract class FoundationTestCase extends ChattyAssertsTestCase {
     reporter = new Reporter(eventCollector);
     reporter.addHandler(failFastHandler);
   }
+
+  /*
+   * Creates the file system; override to inject FS behavior. 
+   */
+  protected FileSystem createFileSystem() {
+     return new InMemoryFileSystem(BlazeClock.instance());
+  }
+    
 
   private void copySkylarkFilesIfExist() throws IOException {
     File rulesDir = new File("devtools/blaze/rules/staging");
@@ -111,17 +120,7 @@ public abstract class FoundationTestCase extends ChattyAssertsTestCase {
    * each testFoo method in junit sees a fresh filesystem.
    */
   protected FileSystem scratchFS() {
-    if (fileSystem == null) {
-      fileSystem = createFileSystem();
-    }
     return fileSystem;
-  }
-
-  /**
-   * Creates a new in-memory filesystem.
-   */
-  protected FileSystem createFileSystem() {
-    return new InMemoryFileSystem(BlazeClock.instance());
   }
 
   /**

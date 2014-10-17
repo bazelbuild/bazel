@@ -50,15 +50,26 @@ final class IntermediateArtifacts {
     return ownerLabel;
   }
 
-  private Artifact appendExtension(String extension) {
+  /**
+   * Returns a derived artifact in the bin directory obtained by appending some extension to the end
+   * of the given {@link PathFragment}.
+   */
+  private Artifact appendExtension(PathFragment original, String extension) {
     return analysisEnvironment.getDerivedArtifact(
-        FileSystemUtils.appendExtension(ownerLabel.toPathFragment(), extension),
-        binDirectory);
+        FileSystemUtils.appendExtension(original, extension), binDirectory);
   }
 
   /**
-   * The output of {@code actoolzip} for a given bundle which is merged under the {@code .app} or
-   * {@code .bundle} directory root.
+   * Returns a derived artifact in the bin directory obtained by appending some extension to the end
+   * of the {@link PathFragment} corresponding to the owner {@link Label}.
+   */
+  private Artifact appendExtension(String extension) {
+    return appendExtension(ownerLabel.toPathFragment(), extension);
+  }
+
+  /**
+   * The output of using {@code actooloribtoolzip} to run {@code actool} for a given bundle which is
+   * merged under the {@code .app} or {@code .bundle} directory root.
    */
   public Artifact actoolzipOutput() {
     return appendExtension(".actool.zip");
@@ -71,6 +82,14 @@ final class IntermediateArtifacts {
    */
   public Artifact mergedInfoplist() {
     return appendExtension("-MergedInfo.plist");
+  }
+
+  /**
+   * The .objlist file, which contains a list of paths of object files to archive  and is read by
+   * libtool in the archive action.
+   */
+  public Artifact objList() {
+    return appendExtension(".objlist");
   }
 
   /**
@@ -121,5 +140,34 @@ final class IntermediateArtifacts {
    */
   public Artifact compiledStoryboardZip(Artifact input) {
     return appendExtension("/" + BundleableFile.bundlePath(input) + ".zip");
+  }
+
+  /**
+   * Returns the artifact which is the output of building an entire xcdatamodel[d] made of artifacts
+   * specified by a single rule.
+   *
+   * @param containerDir the containing *.xcdatamodeld or *.xcdatamodel directory
+   * @return the artifact for the zipped up compilation results.
+   */
+  public Artifact compiledMomZipArtifact(PathFragment containerDir) {
+    return appendExtension(
+        "/" + FileSystemUtils.replaceExtension(containerDir, ".zip").getBaseName());
+  }
+
+  /**
+   * Returns the compiled (i.e. converted to binary plist format) artifact corresponding to the
+   * given {@code .strings} file.
+   */
+  public Artifact convertedStringsFile(Artifact originalFile) {
+    return appendExtension(originalFile.getExecPath(), ".binary");
+  }
+
+  /**
+   * Returns the artifact corresponding to the compiled form of the given {@code .xib} file.
+   */
+  public Artifact compiledXibFile(Artifact originalFile) {
+    return analysisEnvironment.getDerivedArtifact(
+        FileSystemUtils.replaceExtension(originalFile.getExecPath(), ".nib"),
+        binDirectory);
   }
 }

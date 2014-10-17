@@ -40,7 +40,7 @@ import java.util.Map.Entry;
  * Provides shared functionality for parameterized command-line launching
  * e.g. {@link com.google.devtools.build.lib.view.genrule.GenRule}
  */
-@SkylarkModule(name = "CommandHelper", doc = "A helper class to create shell commands.")
+@SkylarkModule(name = "command_helper", doc = "A helper class to create shell commands.")
 public final class CommandHelper {
 
   /**

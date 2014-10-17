@@ -43,12 +43,12 @@ import com.google.devtools.build.lib.actions.Action;
 import com.google.devtools.build.lib.actions.ActionRegistry;
 import com.google.devtools.build.lib.actions.Artifact;
 import com.google.devtools.build.lib.packages.RuleClass.Builder;
-import com.google.devtools.build.lib.rules.objc.ObjcActionsBuilder.ExtraActoolArgs;
-import com.google.devtools.build.lib.rules.objc.ObjcActionsBuilder.ExtraLinkArgs;
+import com.google.devtools.build.lib.util.LazyString;
 import com.google.devtools.build.lib.vfs.PathFragment;
 import com.google.devtools.build.lib.view.actions.ActionConstructionContext;
 import com.google.devtools.build.lib.view.actions.BinaryFileWriteAction;
 import com.google.devtools.build.lib.view.actions.CommandLine;
+import com.google.devtools.build.lib.view.actions.FileWriteAction;
 import com.google.devtools.build.lib.view.actions.SpawnAction;
 import com.google.devtools.build.lib.view.config.BuildConfiguration;
 import com.google.devtools.build.xcode.common.TargetDeviceFamily;
@@ -172,16 +172,30 @@ final class ObjcActionsBuilder {
               objcConfiguration, buildConfiguration));
     }
     for (Artifact archive : compilationArtifacts.getArchive().asSet()) {
-      register(archiveAction(context, objFiles.build(), archive, objcConfiguration));
+      registerAll(archiveActions(context, objFiles.build(), archive, objcConfiguration,
+          intermediateArtifacts.objList()));
     }
   }
 
-  private static Action archiveAction(
+  private static Iterable<Action> archiveActions(
       ActionConstructionContext context,
       final Iterable<Artifact> objFiles,
       final Artifact archive,
-      final ObjcConfiguration objcConfiguration) {
-    return spawnOnDarwinActionBuilder(context)
+      final ObjcConfiguration objcConfiguration,
+      final Artifact objList) {
+    LazyString objListContent = new LazyString() {
+      @Override
+      public String toString() {
+        return Artifact.joinExecPaths("\n", objFiles);
+      }
+    };
+
+    ImmutableList.Builder<Action> actions = new ImmutableList.Builder<>();
+
+    actions.add(new FileWriteAction(
+        context.getActionOwner(), objList, objListContent, /*makeExecutable=*/ false));
+
+    actions.add(spawnOnDarwinActionBuilder(context)
         .setMnemonic("Link")
         .setExecutable(LIBTOOL)
         .setCommandLine(new CommandLine() {
@@ -189,7 +203,7 @@ final class ObjcActionsBuilder {
             public Iterable<String> arguments() {
               return new ImmutableList.Builder<String>()
                   .add("-static")
-                  .addAll(Artifact.toExecPaths(objFiles))
+                  .add("-filelist").add(objList.getExecPathString())
                   .add("-arch_only").add(objcConfiguration.getIosCpu())
                   .add("-syslibroot").add(IosSdkCommands.sdkDir(objcConfiguration))
                   .add("-o").add(archive.getExecPathString())
@@ -197,8 +211,11 @@ final class ObjcActionsBuilder {
             }
           })
         .addInputs(objFiles)
+        .addInput(objList)
         .addOutput(archive)
-        .build();
+        .build());
+
+    return actions.build();
   }
 
   private void register(Action action) {
@@ -320,7 +337,7 @@ final class ObjcActionsBuilder {
     // Note that below we set the archive root to the empty string. This means that the generated
     // zip file will be rooted at the bundle root, and we have to prepend the bundle root to each
     // entry when merging it with the final .ipa file.
-    register(spawnJavaOnDarwinActionBuilder(context, tools.actoolzipDeployJar())
+    register(spawnJavaOnDarwinActionBuilder(context, tools.actooloribtoolzipDeployJar())
         .setMnemonic("Compile asset catalogs")
         .addTransitiveInputs(provider.get(ASSET_CATALOG))
         .addOutput(actoolzipOutput)
@@ -360,7 +377,7 @@ final class ObjcActionsBuilder {
   }
 
   void registerIbtoolzipAction(ObjcBase.Tools tools, Artifact input, Artifact outputZip) {
-    register(spawnJavaOnDarwinActionBuilder(context, tools.actoolzipDeployJar())
+    register(spawnJavaOnDarwinActionBuilder(context, tools.actooloribtoolzipDeployJar())
         .setMnemonic("Compile storyboard")
         .addInput(input)
         .addOutput(outputZip)

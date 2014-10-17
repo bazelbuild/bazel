@@ -716,7 +716,7 @@ public abstract class SkyframeExecutor {
    * returns result. Also invalidates {@link BuildVariableValue#TEST_ENVIRONMENT_VARIABLES} and
    * {@link BuildVariableValue#BLAZE_DIRECTORIES} if they have changed.
    */
-  public BuildConfigurationCollection createConfigurations(boolean keepGoing,
+  public BuildConfigurationCollection createConfigurations(
       ConfigurationFactory configurationFactory, BuildConfigurationKey configurationKey)
       throws InvalidConfigurationException, InterruptedException {
 
@@ -737,8 +737,10 @@ public abstract class SkyframeExecutor {
     SkyKey skyKey = ConfigurationCollectionValue.key(configurationKey.getBuildOptions(),
         configurationKey.getMultiCpu());
     setConfigurationSkyKey(skyKey);
+    // In case of error we should stop creation of BuildConfigurationCollection,
+    // that's why keep_going is false.
     EvaluationResult<ConfigurationCollectionValue> result = buildDriver.evaluate(
-            Arrays.asList(skyKey), keepGoing, DEFAULT_THREAD_COUNT, errorEventListener);
+            Arrays.asList(skyKey), /*keep_going=*/false, DEFAULT_THREAD_COUNT, errorEventListener);
     if (result.hasError()) {
       Throwable e = result.getError(skyKey).getException();
       Throwables.propagateIfInstanceOf(e, InvalidConfigurationException.class);

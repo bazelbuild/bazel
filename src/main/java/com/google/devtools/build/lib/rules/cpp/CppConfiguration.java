@@ -69,7 +69,7 @@ import java.util.zip.ZipException;
  * a standard library version. It has information about the tools locations and
  * the flags required for compiling.
  */
-@SkylarkModule(name = "Cpp", doc = "A configuration fragment for C++")
+@SkylarkModule(name = "cpp", doc = "A configuration fragment for C++")
 @Immutable
 public class CppConfiguration extends BuildConfiguration.Fragment {
   /**

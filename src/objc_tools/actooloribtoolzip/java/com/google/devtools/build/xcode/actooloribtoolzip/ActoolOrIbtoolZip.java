@@ -12,7 +12,7 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-package com.google.devtools.build.xcode.actoolzip;
+package com.google.devtools.build.xcode.actooloribtoolzip;
 
 import com.google.common.collect.ImmutableList;
 import com.google.devtools.build.xcode.zippingoutput.Arguments;
@@ -22,18 +22,18 @@ import com.google.devtools.build.xcode.zippingoutput.Wrappers;
 import java.io.IOException;
 
 /**
- * A tool which wraps actool, by running actool and zipping its output. See the JavaDoc for
- * {@link Wrapper} for more information.
+ * A tool which wraps actool or ibtool, by running actool/ibtool and zipping its output. See the
+ * JavaDoc for {@link Wrapper} for more information.
  */
-public class ActoolZip implements Wrapper {
+public class ActoolOrIbtoolZip implements Wrapper {
   @Override
   public String name() {
-    return "ActoolZip";
+    return "ActoolOrIbtoolZip";
   }
 
   @Override
   public String subtoolName() {
-    return "actool";
+    return "actool/ibtool";
   }
 
   @Override
@@ -47,7 +47,7 @@ public class ActoolZip implements Wrapper {
   }
 
   public static void main(String[] args) throws IOException, InterruptedException {
-    Wrappers.execute(args, new ActoolZip());
+    Wrappers.execute(args, new ActoolOrIbtoolZip());
   }
 
   @Override

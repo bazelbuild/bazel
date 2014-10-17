@@ -23,8 +23,6 @@ import static com.google.devtools.build.lib.packages.Type.STRING_LIST;
 
 import com.google.common.annotations.VisibleForTesting;
 import com.google.common.collect.ImmutableList;
-import com.google.common.collect.ImmutableSet;
-import com.google.common.collect.Iterables;
 import com.google.devtools.build.lib.actions.Artifact;
 import com.google.devtools.build.lib.packages.ImplicitOutputsFunction.SafeImplicitOutputsFunction;
 import com.google.devtools.build.lib.packages.RuleClass;
@@ -33,7 +31,6 @@ import com.google.devtools.build.lib.packages.RuleClass.Builder.RuleClassType;
 import com.google.devtools.build.lib.packages.Type;
 import com.google.devtools.build.lib.util.FileType;
 import com.google.devtools.build.lib.util.FileTypeSet;
-import com.google.devtools.build.lib.vfs.FileSystemUtils;
 import com.google.devtools.build.lib.vfs.PathFragment;
 import com.google.devtools.build.lib.view.BaseRuleClasses;
 import com.google.devtools.build.lib.view.BlazeRule;
@@ -69,51 +66,9 @@ public class ObjcRuleClasses {
         context, context.getLabel().toPathFragment(), suffix);
   }
 
-  /**
-   * Returns the artifact which is the output of building an entire xcdatamodel[d] made of artifacts
-   * specified by a single rule.
-   * @param context the rule that specifies the {@code data_models} attribute
-   * @param containerDir the containing *.xcdatamodeld or *.xcdatamodel directory
-   * @return the artifact for the zipped up compilation results.
-   */
-  static Artifact compiledMomZipArtifact(RuleContext context, PathFragment containerDir) {
-    return artifactByAppendingToBaseName(context,
-        "/" + FileSystemUtils.replaceExtension(containerDir, ".zip").getBaseName());
-  }
-
   @VisibleForTesting
   static final Iterable<SdkFramework> AUTOMATIC_SDK_FRAMEWORKS = ImmutableList.of(
       new SdkFramework("Foundation"), new SdkFramework("UIKit"));
-
-  /**
-   * Returns the value of the sdk_frameworks attribute plus frameworks that are included
-   * automatically.
-   */
-  static Iterable<SdkFramework> sdkFrameworks(RuleContext context) {
-    ImmutableSet.Builder<SdkFramework> result = new ImmutableSet.Builder<>();
-    result.addAll(AUTOMATIC_SDK_FRAMEWORKS);
-    if (context.attributes().getAttributeDefinition("sdk_frameworks") != null) {
-      for (String explicit : context.attributes().get("sdk_frameworks", Type.STRING_LIST)) {
-        result.add(new SdkFramework(explicit));
-      }
-    }
-    return result.build();
-  }
-
-  /**
-   * Returns the value of the {@code includes} attribute, where each returned path is under the
-   * path corresponding to the current package, and each entry in the attribute results in three
-   * items in the returned sequence: one is rooted in the actual client, one is rooted in genfiles,
-   * and one is rooted in bin.
-   */
-  static Iterable<PathFragment> includes(RuleContext context) {
-    if (context.attributes().getAttributeDefinition("includes") == null) {
-      return ImmutableList.of();
-    } else {
-      return Iterables.transform(
-          context.attributes().get("includes", STRING_LIST), PathFragment.TO_PATH_FRAGMENT);
-    }
-  }
 
   /**
    * Attributes for {@code objc_*} rules that have compiler (and in the future, possibly linker)
@@ -157,6 +112,8 @@ public class ObjcRuleClasses {
 
   static final FileTypeSet STORYBOARD_TYPE = FileTypeSet.of(FileType.of(".storyboard"));
 
+  static final FileType XIB_TYPE = FileType.of(".xib");
+
   /**
    * Common attributes for {@code objc_*} rules.
    */
@@ -167,16 +124,6 @@ public class ObjcRuleClasses {
     @Override
     public RuleClass build(Builder builder, RuleDefinitionEnvironment env) {
       return builder
-          /* <!-- #BLAZE_RULE($objc_base_rule).ATTRIBUTE(deps) -->
-          The list of <code>objc_library</code> and <code>objc_import</code>
-          targets that are linked together to form the final bundle.
-          ${SYNOPSIS}
-          <!-- #END_BLAZE_RULE.ATTRIBUTE -->*/
-          .override(attr("deps", LABEL_LIST)
-              .direct_compile_time_input()
-              .allowedRuleClasses("objc_library", "objc_import", "objc_bundle", "objc_framework",
-                  "objc_bundle_library")
-              .allowedFileTypes())
           /* <!-- #BLAZE_RULE($objc_base_rule).ATTRIBUTE(hdrs) -->
           The list of Objective-C files that are included as headers by source
           files in this rule or by users of this library.
@@ -226,7 +173,7 @@ public class ObjcRuleClasses {
           <!-- #END_BLAZE_RULE.ATTRIBUTE -->*/
           .add(attr("xibs", LABEL_LIST)
               .direct_compile_time_input()
-              .allowedFileTypes(FileType.of(".xib")))
+              .allowedFileTypes(XIB_TYPE))
           /* <!-- #BLAZE_RULE($objc_base_rule).ATTRIBUTE(storyboards) -->
           Files which are .storyboard resources, possibly localizable. These
           files are compiled to .storyboardc directories, which are placed in
@@ -279,8 +226,8 @@ public class ObjcRuleClasses {
               .value(env.getLabel("//tools/objc:plmerge")))
           .add(attr("$momczip_deploy", LABEL).cfg(HOST)
               .value(env.getLabel("//tools/objc:momczip_deploy.jar")))
-          .add(attr("$actoolzip_deploy", LABEL).cfg(HOST)
-              .value(env.getLabel("//tools/objc:actoolzip_deploy.jar")))
+          .add(attr("$actooloribtoolzip_deploy", LABEL).cfg(HOST)
+              .value(env.getLabel("//tools/objc:actooloribtoolzip_deploy.jar")))
           .build();
     }
   }

@@ -14,6 +14,8 @@
 
 package com.google.devtools.build.lib.rules;
 
+import com.google.common.base.Function;
+import com.google.common.collect.Iterables;
 import com.google.devtools.build.lib.actions.Artifact;
 import com.google.devtools.build.lib.collect.nestedset.NestedSet;
 import com.google.devtools.build.lib.events.Location;
@@ -21,6 +23,7 @@ import com.google.devtools.build.lib.syntax.EvalException;
 import com.google.devtools.build.lib.syntax.SkylarkBuiltin;
 import com.google.devtools.build.lib.syntax.SkylarkBuiltin.Param;
 import com.google.devtools.build.lib.syntax.SkylarkFunction.SimpleSkylarkFunction;
+import com.google.devtools.build.lib.syntax.SkylarkList;
 import com.google.devtools.build.lib.syntax.SkylarkModule;
 import com.google.devtools.build.lib.syntax.SkylarkNestedSet;
 import com.google.devtools.build.lib.util.LazyString;
@@ -57,6 +60,35 @@ public class SkylarkCommandLine {
           return Artifact.joinExecPaths(separator, artifacts);
         }
       };
+    }
+  };
+
+  // TODO(bazel-team): this method should support sets of objects and substitute all struct fields.
+  @SkylarkBuiltin(name = "template",
+      doc = "Transforms a set of files to a list of strings using the template string.",
+      objectType = SkylarkCommandLine.class,
+      returnType = SkylarkList.class,
+      mandatoryParams = {
+      @Param(name = "items", type = SkylarkNestedSet.class, generic1 = Artifact.class,
+          doc = "The set of structs to transform."),
+      @Param(name = "template", type = String.class,
+          doc = "The template to use for the transformation, %{path} and %{short_path} "
+              + "being substituted with the corresponding fields of each file.")})
+  private static SimpleSkylarkFunction template = new SimpleSkylarkFunction("template") {
+    @Override
+    public Object call(Map<String, Object> params, Location loc)
+        throws EvalException {
+      final String template = (String) params.get("template");
+      SkylarkNestedSet items = (SkylarkNestedSet) params.get("items");
+      return SkylarkList.lazyList(Iterables.transform(items, new Function<Object, String>() {
+        @Override
+        public String apply(Object input) {
+          Artifact artifact = (Artifact) input;
+          return template
+              .replace("%{path}", artifact.getExecPathString())
+              .replace("%{short_path}", artifact.getRootRelativePathString());
+        }
+      }), String.class);
     }
   };
 }

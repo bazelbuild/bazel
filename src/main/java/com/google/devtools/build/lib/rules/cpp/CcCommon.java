@@ -222,19 +222,20 @@ public final class CcCommon {
     }
   }
 
-  private static NestedSet<? extends LinkerInput> collectExecutionDynamicLibraryInputs(
+  private static NestedSet<Artifact> collectExecutionDynamicLibraryArtifacts(
       RuleContext ruleContext,
-      List<? extends LinkerInput> executionDynamicLibraries) {
-    if (!Iterables.isEmpty(executionDynamicLibraries)) {
-      return NestedSetBuilder.wrap(Order.STABLE_ORDER, executionDynamicLibraries);
+      List<LibraryToLink> executionDynamicLibraries) {
+    Iterable<Artifact> artifacts = LinkerInputs.toLibraryArtifacts(executionDynamicLibraries);
+    if (!Iterables.isEmpty(artifacts)) {
+      return NestedSetBuilder.wrap(Order.STABLE_ORDER, artifacts);
     }
 
     Iterable<CcExecutionDynamicLibrariesProvider> deps = ruleContext
         .getPrerequisites("deps", Mode.TARGET, CcExecutionDynamicLibrariesProvider.class);
 
-    NestedSetBuilder<LinkerInput> builder = NestedSetBuilder.stableOrder();
+    NestedSetBuilder<Artifact> builder = NestedSetBuilder.stableOrder();
     for (CcExecutionDynamicLibrariesProvider dep : deps) {
-      builder.addTransitive(dep.getExecutionDynamicLibraryInputs());
+      builder.addTransitive(dep.getExecutionDynamicLibraryArtifacts());
     }
     return builder.build();
   }
@@ -941,7 +942,7 @@ public final class CcCommon {
          .add(CppCompilationContext.class, cppCompilationContext)
          .add(TransitiveLipoInfoProvider.class, transitiveLipoInfo)
          .add(CcExecutionDynamicLibrariesProvider.class,
-             new CcExecutionDynamicLibrariesProvider(collectExecutionDynamicLibraryInputs(
+             new CcExecutionDynamicLibrariesProvider(collectExecutionDynamicLibraryArtifacts(
                      ruleContext, linkingOutputs.getExecutionDynamicLibraries())))
          .add(CcNativeLibraryProvider.class, new CcNativeLibraryProvider(
              collectTransitiveCcNativeLibraries(ruleContext, linkingOutputs.getDynamicLibraries())))

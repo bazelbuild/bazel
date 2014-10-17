@@ -17,7 +17,6 @@ package com.google.devtools.build.lib.syntax;
 import com.google.common.annotations.VisibleForTesting;
 import com.google.common.base.Preconditions;
 import com.google.common.collect.ImmutableList;
-import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.ImmutableSet;
 import com.google.devtools.build.lib.concurrent.ThreadSafety.Immutable;
 import com.google.devtools.build.lib.vfs.PathFragment;
@@ -170,19 +169,6 @@ public class Environment {
       return defaultValue;
     }
     return value;
-  }
-
-  /**
-   * Returns all variables in the environment of the given type.
-   */
-  public <T> Map<String, T> getAll(Class<T> type) {
-    ImmutableMap.Builder<String, T> builder = ImmutableMap.builder();
-    for (Map.Entry<String, Object> var : env.entrySet()) {
-      if (type.isAssignableFrom(var.getValue().getClass())) {
-        builder.put(var.getKey(), type.cast(var.getValue()));
-      }
-    }
-    return builder.build();
   }
 
   /**
