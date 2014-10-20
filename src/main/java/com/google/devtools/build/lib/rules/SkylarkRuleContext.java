@@ -21,7 +21,6 @@ import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.ImmutableSet;
 import com.google.common.collect.Iterables;
-import com.google.devtools.build.lib.actions.ActionOwner;
 import com.google.devtools.build.lib.actions.Artifact;
 import com.google.devtools.build.lib.actions.Root;
 import com.google.devtools.build.lib.collect.nestedset.NestedSet;
@@ -308,11 +307,6 @@ public final class SkylarkRuleContext {
     return targetsObject;
   }
 
-  @SkylarkCallable(name = "action_owner", structField = true, doc = "Deprecated, to be removed.")
-  public ActionOwner getActionOwner() {
-    return ruleContext.getActionOwner();
-  }
-
   @SkylarkCallable(name = "label", structField = true, doc = "The label of this rule.")
   public Label getLabel() {
     return ruleContext.getLabel();
@@ -366,7 +360,8 @@ public final class SkylarkRuleContext {
 
   @SkylarkCallable(doc =
       "Expands all references to labels embedded within a string for all files using a mapping "
-    + "from definition labels (i.e. the label in the output type attribute) to files.")
+    + "from definition labels (i.e. the label in the output type attribute) to files. Deprecated.",
+      hidden = true)
   public String expand(@Nullable String expression,
       List<Artifact> artifacts, Label labelResolver) throws FuncallException {
     try {

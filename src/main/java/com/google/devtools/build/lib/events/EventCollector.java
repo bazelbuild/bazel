@@ -13,7 +13,6 @@
 // limitations under the License.
 package com.google.devtools.build.lib.events;
 
-import java.beans.EventHandler;
 import java.util.ArrayList;
 import java.util.Collection;
 import java.util.Iterator;

@@ -1,6 +1,3 @@
-# This is a quick and dirty way to compile Bazel using only genrule.
-# We will need proper proto and java rules.
-
 load("rules/genproto", "genproto")
 
 load("rules/java_rules_oss", "java_library", "java_binary", "java_test")
@@ -337,6 +334,56 @@ java_test(
         "test/java/com/google/devtools/common/options/*.java",
     ]),
     args = ["com.google.devtools.common.options.AllTests"],
+    jars = [
+        "//third_party",
+        "//third_party:third_party_test_utils",
+    ],
+    deps = [
+        ":bazel-core",
+        ":testutil",
+    ],
+)
+
+# unfortunately, this needs to load libunix.so, which is not supported
+# by java_rules_oss, so no proper test yet.  Workaround:
+
+"""
+B=$(pwd)/bazel-genfiles/src/bazel
+$B build -s src:foundations_test
+
+BIN=$($B info blaze-bin)/src
+export TEST_SRCDIR=$BIN/foundations_test.runfiles
+(cd $TEST_SRCDIR &&  java -Djava.library.path=$BIN/
+  -jar $BIN/foundations_test_deploy.jar
+  "com.google.devtools.build.lib.AllTests"; )
+"""
+
+test_prefix = "test/java/com/google/devtools/build/lib"
+
+java_test(
+    name = "foundations_test",
+    srcs = glob(
+        ["%s/%s" % (test_prefix, p) for p in [
+            "concurrent/*.java",
+            "collect/*.java",
+            "collect/nestedset/*.java",
+            "events/*.java",
+            "testutiltests/*.java",
+            "unix/*.java",
+            "util/*.java",
+            "util/io/*.java",
+            "vfs/*.java",
+            "vfs/util/*.java",
+            "vfs/inmemoryfs/*.java",
+            "AllTests.java",
+        ]],
+        # java_rules_oss doesn't support resource loading.
+        exclude = [test_prefix + "/util/ResourceFileLoaderTest.java"],
+    ),
+    args = ["com.google.devtools.build.lib.AllTests"],
+    data = glob([
+        test_prefix + "/vfs/*.zip",
+    ]),
     jars = [
         "//third_party",
         "//third_party:third_party_test_utils",

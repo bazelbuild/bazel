@@ -26,7 +26,7 @@ import java.util.Map;
  * A simple Differencer which just records the invalidated values it's been given.
  */
 @ThreadSafety.ThreadCompatible
-public class RecordingDifferencer implements Differencer {
+public class RecordingDifferencer implements Differencer, Injectable {
 
   private List<SkyKey> valuesToInvalidate;
   private Map<SkyKey, SkyValue> valuesToInject;
@@ -69,6 +69,7 @@ public class RecordingDifferencer implements Differencer {
   /**
    * Store the given values for injection.
    */
+  @Override
   public void inject(Map<SkyKey, ? extends SkyValue> values) {
     valuesToInject.putAll(values);
   }

@@ -23,7 +23,7 @@ import com.google.devtools.build.lib.view.TopLevelArtifactContext;
 import com.google.devtools.build.lib.view.WorkspaceStatusAction;
 import com.google.devtools.build.lib.view.buildinfo.BuildInfoFactory;
 import com.google.devtools.build.lib.view.buildinfo.BuildInfoFactory.BuildInfoKey;
-import com.google.devtools.build.skyframe.RecordingDifferencer;
+import com.google.devtools.build.skyframe.Injectable;
 import com.google.devtools.build.skyframe.SkyFunction;
 import com.google.devtools.build.skyframe.SkyKey;
 import com.google.devtools.build.skyframe.SkyValue;
@@ -139,7 +139,7 @@ public class BuildVariableValue implements SkyValue {
     /**
      * Injects a new variable value.
      */
-    void set(RecordingDifferencer differencer, T value) {
+    void set(Injectable differencer, T value) {
       differencer.inject(ImmutableMap.of(key, (SkyValue) new BuildVariableValue(value)));
     }
   }

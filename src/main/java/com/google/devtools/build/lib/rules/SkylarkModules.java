@@ -41,8 +41,7 @@ public class SkylarkModules {
       SkylarkAttr.class,
       SkylarkCommandLine.class,
       SkylarkRuleClassFunctions.class,
-      SkylarkRuleImplementationFunctions.class,
-      SkylarkFileHelper.class);
+      SkylarkRuleImplementationFunctions.class);
 
   private static final ImmutableMap<Class<?>, ImmutableList<Function>> FUNCTION_MAP;
   private static final ImmutableMap<String, Object> OBJECTS;

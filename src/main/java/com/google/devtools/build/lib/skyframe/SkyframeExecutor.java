@@ -25,7 +25,6 @@ import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.ImmutableSet;
 import com.google.common.collect.Iterables;
-import com.google.common.collect.Lists;
 import com.google.common.collect.Maps;
 import com.google.common.collect.Sets;
 import com.google.common.eventbus.EventBus;
@@ -88,13 +87,13 @@ import com.google.devtools.build.lib.view.config.InvalidConfigurationException;
 import com.google.devtools.build.skyframe.BuildDriver;
 import com.google.devtools.build.skyframe.CycleInfo;
 import com.google.devtools.build.skyframe.CyclesReporter;
-import com.google.devtools.build.skyframe.Differencer.Diff;
+import com.google.devtools.build.skyframe.Differencer;
 import com.google.devtools.build.skyframe.ErrorInfo;
 import com.google.devtools.build.skyframe.EvaluationProgressReceiver;
 import com.google.devtools.build.skyframe.EvaluationResult;
+import com.google.devtools.build.skyframe.Injectable;
 import com.google.devtools.build.skyframe.MemoizingEvaluator;
 import com.google.devtools.build.skyframe.MemoizingEvaluator.EvaluatorSupplier;
-import com.google.devtools.build.skyframe.RecordingDifferencer;
 import com.google.devtools.build.skyframe.SkyFunction;
 import com.google.devtools.build.skyframe.SkyFunctionName;
 import com.google.devtools.build.skyframe.SkyKey;
@@ -159,16 +158,15 @@ public abstract class SkyframeExecutor {
   private EventHandler errorEventListener;
   private ActionLogBufferPathGenerator actionLogBufferPathGenerator;
 
-  protected RecordingDifferencer recordingDiffer;
   protected BuildDriver buildDriver;
 
   // AtomicReferences are used here as mutable boxes shared with value builders.
   private final AtomicBoolean showLoadingProgress = new AtomicBoolean();
-  private final AtomicReference<UnixGlob.FilesystemCalls> syscalls =
+  protected final AtomicReference<UnixGlob.FilesystemCalls> syscalls =
       new AtomicReference<>(UnixGlob.DEFAULT_SYSCALLS);
   protected final AtomicReference<PathPackageLocator> pkgLocator =
       new AtomicReference<>();
-  private final AtomicReference<ImmutableSet<String>> deletedPackages =
+  protected final AtomicReference<ImmutableSet<String>> deletedPackages =
       new AtomicReference<>(ImmutableSet.<String>of());
   private final AtomicReference<EventBus> eventBus = new AtomicReference<>();
 
@@ -311,7 +309,7 @@ public abstract class SkyframeExecutor {
     this.active = active;
   }
 
-  private void checkActive() {
+  protected void checkActive() {
     Preconditions.checkState(active);
   }
 
@@ -371,12 +369,11 @@ public abstract class SkyframeExecutor {
   @ThreadCompatible
   protected void resetEvaluatorInternal(boolean bootstrapping) {
     emittedEventState.clear();
-    recordingDiffer = new RecordingDifferencer();
     progressReceiver = new SkyframeProgressReceiver();
     Map<SkyFunctionName, SkyFunction> skyFunctions = skyFunctions(
         directories.getBuildDataDirectory(), pkgFactory, allowedMissingInputs);
     memoizingEvaluator = evaluatorSupplier.create(
-        skyFunctions, recordingDiffer, progressReceiver, emittedEventState,
+        skyFunctions, evaluatorDiffer(), progressReceiver, emittedEventState,
         bootstrapping || hasIncrementalState());
     buildDriver = newBuildDriver();
     if (skyframeBuildView != null) {
@@ -384,6 +381,8 @@ public abstract class SkyframeExecutor {
     }
     reinjectConstantValues();
   }
+
+  protected abstract Differencer evaluatorDiffer();
 
   protected abstract BuildDriver newBuildDriver();
 
@@ -432,6 +431,8 @@ public abstract class SkyframeExecutor {
     return true;
   }
 
+  protected abstract Injectable injectable();
+
   /**
    * Saves memory by clearing analysis objects from Skyframe. If using legacy execution, actually
    * deletes the relevant values. If using Skyframe execution, clears their data without deleting
@@ -444,7 +445,7 @@ public abstract class SkyframeExecutor {
    */
   @VisibleForTesting
   public void setupDefaultPackage(String defaultsPackageContents) {
-    BuildVariableValue.DEFAULTS_PACKAGE_CONTENTS.set(recordingDiffer, defaultsPackageContents);
+    BuildVariableValue.DEFAULTS_PACKAGE_CONTENTS.set(injectable(), defaultsPackageContents);
   }
 
   /**
@@ -452,11 +453,11 @@ public abstract class SkyframeExecutor {
    */
   public void injectTopLevelContext(TopLevelArtifactContext options) {
     Preconditions.checkState(skyframeBuild(), "Only inject top-level context in Skyframe full");
-    BuildVariableValue.TOP_LEVEL_CONTEXT.set(recordingDiffer, options);
+    BuildVariableValue.TOP_LEVEL_CONTEXT.set(injectable(), options);
   }
 
   public void injectWorkspaceStatusData() {
-    BuildVariableValue.WORKSPACE_STATUS_KEY.set(recordingDiffer,
+    BuildVariableValue.WORKSPACE_STATUS_KEY.set(injectable(),
         workspaceStatusActionFactory.createWorkspaceStatusAction(
             artifactFactory.get(), WorkspaceStatusValue.ARTIFACT_OWNER, buildId));
   }
@@ -465,7 +466,7 @@ public abstract class SkyframeExecutor {
    * Sets the default visibility.
    */
   private void setDefaultVisibility(RuleVisibility defaultVisibility) {
-    BuildVariableValue.DEFAULT_VISIBILITY.set(recordingDiffer, defaultVisibility);
+    BuildVariableValue.DEFAULT_VISIBILITY.set(injectable(), defaultVisibility);
   }
 
   /**
@@ -479,7 +480,7 @@ public abstract class SkyframeExecutor {
     for (BuildInfoFactory factory : buildInfoFactories) {
       factoryMapBuilder.put(factory.getKey(), factory);
     }
-    BuildVariableValue.BUILD_INFO_FACTORIES.set(recordingDiffer, factoryMapBuilder.build());
+    BuildVariableValue.BUILD_INFO_FACTORIES.set(injectable(), factoryMapBuilder.build());
   }
 
   private void setShowLoadingProgress(boolean showLoadingProgressValue) {
@@ -488,7 +489,7 @@ public abstract class SkyframeExecutor {
 
   @VisibleForTesting
   public void setCommandId(UUID commandId) {
-    BuildVariableValue.BUILD_ID.set(recordingDiffer, commandId);
+    BuildVariableValue.BUILD_ID.set(injectable(), commandId);
     buildId.val = commandId;
   }
 
@@ -536,9 +537,7 @@ public abstract class SkyframeExecutor {
     return pkgLocator.get().getPathEntries();
   }
 
-  private void invalidate(Predicate<SkyKey> pred) {
-    recordingDiffer.invalidate(Iterables.filter(memoizingEvaluator.getValues().keySet(), pred));
-  }
+  protected abstract void invalidate(Predicate<SkyKey> pred);
 
   protected static Iterable<SkyKey> getSkyKeysPotentiallyAffected(
       Iterable<PathFragment> modifiedSourceFiles, final Path pathEntry) {
@@ -568,26 +567,11 @@ public abstract class SkyframeExecutor {
     return Iterables.concat(fileStateSkyKeys, dirListingStateSkyKeys);
   }
 
-  private void invalidateDeletedPackages(Iterable<String> deletedPackages) {
-    ArrayList<SkyKey> packagesToInvalidate = Lists.newArrayList();
-    for (String deletedPackage : deletedPackages) {
-      PathFragment pathFragment = new PathFragment(deletedPackage);
-      packagesToInvalidate.add(PackageLookupValue.key(pathFragment));
-    }
-    recordingDiffer.invalidate(packagesToInvalidate);
-  }
-
   /**
    * Sets the packages that should be treated as deleted and ignored.
    */
   @VisibleForTesting  // productionVisibility = Visibility.PRIVATE
-  public void setDeletedPackages(Iterable<String> pkgs) {
-    // Invalidate the old deletedPackages as they may exist now.
-    invalidateDeletedPackages(deletedPackages.get());
-    deletedPackages.set(ImmutableSet.copyOf(pkgs));
-    // Invalidate the new deletedPackages as we need to pretend that they don't exist now.
-    invalidateDeletedPackages(deletedPackages.get());
-  }
+  public abstract void setDeletedPackages(Iterable<String> pkgs);
 
   /**
    * Prepares the evaluator for loading.
@@ -634,7 +618,10 @@ public abstract class SkyframeExecutor {
   @SuppressWarnings("unchecked")
   private void setPackageLocator(PathPackageLocator pkgLocator) {
     PathPackageLocator oldLocator = this.pkgLocator.getAndSet(pkgLocator);
-    if ((oldLocator == null || !oldLocator.getPathEntries().equals(pkgLocator.getPathEntries()))) {
+
+    if (oldLocator == null) {
+      onNewPackageLocator(oldLocator, pkgLocator);
+    } else if (!oldLocator.getPathEntries().equals(pkgLocator.getPathEntries())) {
       invalidate(SkyFunctionName.functionIsIn(PACKAGE_LOCATOR_DEPENDENT_VALUES));
 
       // The package path is read not only by SkyFunctions but also by some other code paths.
@@ -706,7 +693,7 @@ public abstract class SkyframeExecutor {
       BlazeDirectories directories, ConfigurationFactory configurationFactory) {
     SkyKey skyKey = ConfigurationCollectionValue.key(options, ImmutableSet.<String>of());
     setConfigurationSkyKey(skyKey);
-    BuildVariableValue.BLAZE_DIRECTORIES.set(recordingDiffer, directories);
+    BuildVariableValue.BLAZE_DIRECTORIES.set(injectable(), directories);
     this.configurationFactory.val = configurationFactory;
     this.configurationFragments.val = ImmutableList.copyOf(configurationFactory.getFactories());
   }
@@ -731,8 +718,8 @@ public abstract class SkyframeExecutor {
     // TestEnvironmentVariables and BlazeDirectories. There is a problem only with
     // TestEnvironmentVariables because BuildConfigurationKey stores client environment variables
     // and we don't want to rebuild everything when any variable changes.
-    BuildVariableValue.TEST_ENVIRONMENT_VARIABLES.set(recordingDiffer, testEnv);
-    BuildVariableValue.BLAZE_DIRECTORIES.set(recordingDiffer, configurationKey.getDirectories());
+    BuildVariableValue.TEST_ENVIRONMENT_VARIABLES.set(injectable(), testEnv);
+    BuildVariableValue.BLAZE_DIRECTORIES.set(injectable(), configurationKey.getDirectories());
 
     SkyKey skyKey = ConfigurationCollectionValue.key(configurationKey.getBuildOptions(),
         configurationKey.getMultiCpu());
@@ -893,30 +880,14 @@ public abstract class SkyframeExecutor {
    * <p>May throw an {@link InterruptedException}, which means that no values have been invalidated.
    */
   @VisibleForTesting
-  public void invalidateFilesUnderPathForTesting(ModifiedFileSet modifiedFileSet, Path pathEntry)
-      throws InterruptedException {
-    Iterable<SkyKey> keys;
-    if (modifiedFileSet.treatEverythingAsModified()) {
-      Diff diff = new FilesystemValueChecker(memoizingEvaluator, tsgm).getDirtyFilesystemSkyKeys();
-      keys = diff.changedKeysWithoutNewValues();
-      recordingDiffer.inject(diff.changedKeysWithNewValues());
-    } else {
-      keys = getSkyKeysPotentiallyAffected(modifiedFileSet.modifiedSourceFiles(), pathEntry);
-    }
-    syscalls.set(new PerBuildSyscallCache());
-    recordingDiffer.invalidate(keys);
-    // Blaze invalidates (transient) errors on every build.
-    invalidateErrors();
-  }
+  public abstract void invalidateFilesUnderPathForTesting(ModifiedFileSet modifiedFileSet,
+      Path pathEntry) throws InterruptedException;
 
   /**
    * Invalidates SkyFrame values that may have failed for transient reasons.
    */
   @VisibleForTesting  // productionVisibility = Visibility.PRIVATE
-  public void invalidateErrors() {
-    checkActive();
-    recordingDiffer.invalidateErrors();
-  }
+  public abstract void invalidateErrors();
 
   @VisibleForTesting
   public TimestampGranularityMonitor getTimestampGranularityMonitorForTesting() {
@@ -943,7 +914,7 @@ public abstract class SkyframeExecutor {
       List<LabelAndConfiguration> values, boolean keepGoing,
       ImmutableMap<Action, Exception> badActions) throws InterruptedException {
     checkActive();
-    BuildVariableValue.BAD_ACTIONS.set(recordingDiffer, badActions);
+    BuildVariableValue.BAD_ACTIONS.set(injectable(), badActions);
     // Make sure to not run too many analysis threads. This can cause memory thrashing.
     EvaluationResult<PostConfiguredTargetValue> result =
         buildDriver.evaluate(PostConfiguredTargetValue.keys(values), keepGoing,
@@ -1156,11 +1127,6 @@ public abstract class SkyframeExecutor {
     return memoizingEvaluator;
   }
 
-  @VisibleForTesting
-  public RecordingDifferencer getDifferencerForTesting() {
-    return recordingDiffer;
-  }
-
   /**
    * Stores the set of loaded packages and, if needed, evicts ConfiguredTarget values.
    *
@@ -1227,10 +1193,12 @@ public abstract class SkyframeExecutor {
     if (checkOutputFiles) {
       // Detect external modifications in the output tree.
       FilesystemValueChecker fsnc = new FilesystemValueChecker(memoizingEvaluator, tsgm);
-      recordingDiffer.invalidate(fsnc.getDirtyActionValues(batchStatter));
+      invalidateDirtyActions(fsnc.getDirtyActionValues(batchStatter));
       modifiedFiles += fsnc.getNumberOfModifiedOutputFiles();
     }
   }
+
+  protected abstract void invalidateDirtyActions(Iterable<SkyKey> dirtyActionValues);
 
   @VisibleForTesting void maybeInjectEmbeddedArtifacts() throws AbruptExitException {
     // The blaze client already ensures that the contents of the embedded binaries never change,
@@ -1246,7 +1214,7 @@ public abstract class SkyframeExecutor {
     Map<SkyKey, SkyValue> values = Maps.newHashMap();
     // Blaze separately handles the symlinks that target these binaries. See BinTools#setupTool.
     for (Artifact artifact : binTools.getAllEmbeddedArtifacts(artifactFactory.get())) {
-      FileArtifactValue fileArtifactValue = null;
+      FileArtifactValue fileArtifactValue;
       try {
         fileArtifactValue = FileArtifactValue.create(artifact);
       } catch (IOException e) {
@@ -1257,7 +1225,7 @@ public abstract class SkyframeExecutor {
       }
       values.put(ArtifactValue.key(artifact, /*isMandatory=*/true), fileArtifactValue);
     }
-    recordingDiffer.inject(values);
+    injectable().inject(values);
     needToInjectEmbeddedArtifacts = false;
   }
 

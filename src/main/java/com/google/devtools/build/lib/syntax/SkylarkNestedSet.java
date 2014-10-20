@@ -50,7 +50,8 @@ public final class SkylarkNestedSet implements Iterable<Object> {
   private final NestedSet<?> set;
 
   public SkylarkNestedSet(Order order, Object item, Location loc) throws EvalException {
-    this(order, null, item, loc, new ArrayList<Object>(), new ArrayList<NestedSet<Object>>());
+    this(order, Object.class, item, loc, new ArrayList<Object>(),
+        new ArrayList<NestedSet<Object>>());
   }
 
   public SkylarkNestedSet(SkylarkNestedSet left, Object right, Location loc) throws EvalException {
@@ -80,7 +81,7 @@ public final class SkylarkNestedSet implements Iterable<Object> {
       throw new EvalException(loc,
           String.format("cannot add '%s'-s to nested sets", EvalUtils.getDatatypeName(item)));
     }
-    this.genericType = genericType;
+    this.genericType = Preconditions.checkNotNull(genericType, "type cannot be null");
 
     // Initializing the real nested set
     NestedSetBuilder<Object> builder = new NestedSetBuilder<Object>(order);
@@ -126,7 +127,7 @@ public final class SkylarkNestedSet implements Iterable<Object> {
       throw new EvalException(loc, String.format("nested set item is not immutable (type of %s)",
           EvalUtils.getDataTypeNameFromClass(itemType)));
     }
-    if (builderType == null) {
+    if (builderType.equals(Object.class)) {
       return itemType;
     }
     if (!builderType.equals(itemType)) {
@@ -167,7 +168,7 @@ public final class SkylarkNestedSet implements Iterable<Object> {
   }
 
   public boolean isEmpty() {
-    return genericType == null;
+    return set.isEmpty();
   }
 
   @VisibleForTesting

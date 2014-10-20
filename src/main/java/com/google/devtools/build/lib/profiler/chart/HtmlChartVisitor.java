@@ -16,7 +16,6 @@ package com.google.devtools.build.lib.profiler.chart;
 
 import com.google.devtools.build.lib.profiler.ProfilePhaseStatistics;
 
-import java.awt.Color;
 import java.io.PrintStream;
 import java.util.List;
 

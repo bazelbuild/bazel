@@ -20,7 +20,6 @@ import com.google.devtools.build.lib.profiler.ProfileInfo.Task;
 import com.google.devtools.build.lib.profiler.ProfilePhaseStatistics;
 import com.google.devtools.build.lib.profiler.ProfilerTask;
 
-import java.awt.Color;
 import java.util.EnumSet;
 import java.util.List;
 

@@ -26,7 +26,6 @@ import com.google.devtools.build.lib.syntax.SkylarkFunction.SimpleSkylarkFunctio
 import com.google.devtools.build.lib.syntax.SkylarkList;
 import com.google.devtools.build.lib.syntax.SkylarkModule;
 import com.google.devtools.build.lib.syntax.SkylarkNestedSet;
-import com.google.devtools.build.lib.util.LazyString;
 
 import java.util.Map;
 
@@ -37,8 +36,8 @@ import java.util.Map;
     doc = "Module for creating memory efficient command lines.")
 public class SkylarkCommandLine {
 
-  @SkylarkBuiltin(name = "join_exec_paths",
-      doc = "Creates a single command line argument joining the execution paths of a nested set "
+  @SkylarkBuiltin(name = "join_paths",
+      doc = "Creates a single command line argument joining the paths of a set "
           + "of files on the separator string.",
       objectType = SkylarkCommandLine.class,
       returnType = String.class,
@@ -46,20 +45,16 @@ public class SkylarkCommandLine {
       @Param(name = "separator", type = String.class, doc = "the separator string to join on"),
       @Param(name = "files", type = SkylarkNestedSet.class, generic1 = Artifact.class,
              doc = "the files to concatenate")})
-  private static SimpleSkylarkFunction joinExecPaths =
-      new SimpleSkylarkFunction("join_exec_paths") {
+  private static SimpleSkylarkFunction joinPaths =
+      new SimpleSkylarkFunction("join_paths") {
     @Override
     public Object call(Map<String, Object> params, Location loc)
         throws EvalException {
       final String separator = (String) params.get("separator");
       final NestedSet<Artifact> artifacts =
           ((SkylarkNestedSet) params.get("files")).getSet(Artifact.class);
-      return new LazyString() {
-        @Override
-        public String toString() {
-          return Artifact.joinExecPaths(separator, artifacts);
-        }
-      };
+      // TODO(bazel-team): lazy evaluate
+      return Artifact.joinExecPaths(separator, artifacts);
     }
   };
 

@@ -21,7 +21,6 @@ import com.google.devtools.build.lib.util.ExitCode;
 
 import junit.framework.TestCase;
 
-import java.util.Arrays;
 import java.util.Objects;
 import java.util.Set;
 
@@ -159,19 +158,6 @@ public abstract class ChattyAssertsTestCase extends TestCase {
    *       Other testing utilities (unrelated to "chattiness")        *
    *                                                                  *
    ********************************************************************/
-
-  /**
-   * Returns the varargs as an iterable. This is useful for writing loops like
-   * <code>
-   *    for (String name :in ("foo", "bar", "baz")) {
-   *       System.out.println("name = " + name);
-   *    }
-   * </code>
-   */
-  @SuppressWarnings({"unchecked", "varargs"})
-  protected static <T> Iterable<T> in(T... elements) {
-    return Arrays.asList(elements);
-  }
 
   /**
    * Returns the elements from the given collection in a set.

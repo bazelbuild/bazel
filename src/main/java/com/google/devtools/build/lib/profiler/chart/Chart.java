@@ -17,7 +17,6 @@ package com.google.devtools.build.lib.profiler.chart;
 import com.google.common.base.Preconditions;
 import com.google.devtools.build.lib.profiler.ProfilePhaseStatistics;
 
-import java.awt.Color;
 import java.util.ArrayList;
 import java.util.Collections;
 import java.util.HashMap;

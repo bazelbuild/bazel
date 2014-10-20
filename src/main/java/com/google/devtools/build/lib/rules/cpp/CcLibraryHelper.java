@@ -565,7 +565,9 @@ public final class CcLibraryHelper {
     // Fail early if there is no lipo context collector on the rule - otherwise we end up failing
     // in lipo optimization.
     Preconditions.checkState(
-        ruleContext.getRule().isAttrDefined(":lipo_context_collector", Type.LABEL));
+        // 'cc_inc_library' rules do not compile, and thus are not affected by LIPO.
+        ruleContext.getRule().getRuleClass().equals("cc_inc_library")
+        || ruleContext.getRule().isAttrDefined(":lipo_context_collector", Type.LABEL));
 
     if (checkDepsGenerateCpp) {
       for (LanguageDependentFragment dep :

@@ -50,13 +50,16 @@ import com.google.devtools.build.skyframe.BuildDriver;
 import com.google.devtools.build.skyframe.Differencer;
 import com.google.devtools.build.skyframe.ImmutableDiff;
 import com.google.devtools.build.skyframe.InMemoryMemoizingEvaluator;
+import com.google.devtools.build.skyframe.Injectable;
 import com.google.devtools.build.skyframe.MemoizingEvaluator.EvaluatorSupplier;
+import com.google.devtools.build.skyframe.RecordingDifferencer;
 import com.google.devtools.build.skyframe.SequentialBuildDriver;
 import com.google.devtools.build.skyframe.SkyFunctionName;
 import com.google.devtools.build.skyframe.SkyKey;
 import com.google.devtools.build.skyframe.SkyValue;
 
 import java.io.PrintStream;
+import java.util.ArrayList;
 import java.util.Collection;
 import java.util.List;
 import java.util.Map;
@@ -80,6 +83,7 @@ public final class SequencedSkyframeExecutor extends SkyframeExecutor {
   // store edges, saving memory but making incremental builds impossible.
   private boolean keepGraphEdges = true;
 
+  private RecordingDifferencer recordingDiffer;
   private final DiffAwarenessManager diffAwarenessManager;
 
   public SequencedSkyframeExecutor(Reporter reporter, EvaluatorSupplier evaluatorSupplier,
@@ -132,10 +136,26 @@ public final class SequencedSkyframeExecutor extends SkyframeExecutor {
 
   @Override
   protected void resetEvaluatorInternal(boolean bootstrapping) {
+    recordingDiffer = new RecordingDifferencer();
     super.resetEvaluatorInternal(bootstrapping);
     if (!bootstrapping) {
       diffAwarenessManager.reset();
     }
+  }
+
+  @Override
+  protected Differencer evaluatorDiffer() {
+    return recordingDiffer;
+  }
+
+  @Override
+  protected Injectable injectable() {
+    return recordingDiffer;
+  }
+
+  @VisibleForTesting
+  public RecordingDifferencer getDifferencerForTesting() {
+    return recordingDiffer;
   }
 
   @Override
@@ -149,6 +169,32 @@ public final class SequencedSkyframeExecutor extends SkyframeExecutor {
   @Override
   protected void onNewPackageLocator(PathPackageLocator oldLocator, PathPackageLocator pkgLocator) {
     diffAwarenessManager.setPathEntries(pkgLocator.getPathEntries());
+  }
+
+  @Override
+  protected void invalidate(Predicate<SkyKey> pred) {
+    recordingDiffer.invalidate(Iterables.filter(memoizingEvaluator.getValues().keySet(), pred));
+  }
+
+  private void invalidateDeletedPackages(Iterable<String> deletedPackages) {
+    ArrayList<SkyKey> packagesToInvalidate = Lists.newArrayList();
+    for (String deletedPackage : deletedPackages) {
+      PathFragment pathFragment = new PathFragment(deletedPackage);
+      packagesToInvalidate.add(PackageLookupValue.key(pathFragment));
+    }
+    recordingDiffer.invalidate(packagesToInvalidate);
+  }
+
+  /**
+   * Sets the packages that should be treated as deleted and ignored.
+   */
+  @VisibleForTesting  // productionVisibility = Visibility.PRIVATE
+  public void setDeletedPackages(Iterable<String> pkgs) {
+    // Invalidate the old deletedPackages as they may exist now.
+    invalidateDeletedPackages(deletedPackages.get());
+    deletedPackages.set(ImmutableSet.copyOf(pkgs));
+    // Invalidate the new deletedPackages as we need to pretend that they don't exist now.
+    invalidateDeletedPackages(deletedPackages.get());
   }
 
   /**
@@ -314,7 +360,30 @@ public final class SequencedSkyframeExecutor extends SkyframeExecutor {
       dropConfiguredTargetsNow();
       lastAnalysisDiscarded = false;
     }
-    super.invalidateFilesUnderPathForTesting(modifiedFileSet, pathEntry);
+    Iterable<SkyKey> keys;
+    if (modifiedFileSet.treatEverythingAsModified()) {
+      Differencer.Diff diff =
+          new FilesystemValueChecker(memoizingEvaluator, tsgm).getDirtyFilesystemSkyKeys();
+      keys = diff.changedKeysWithoutNewValues();
+      recordingDiffer.inject(diff.changedKeysWithNewValues());
+    } else {
+      keys = getSkyKeysPotentiallyAffected(modifiedFileSet.modifiedSourceFiles(), pathEntry);
+    }
+    syscalls.set(new PerBuildSyscallCache());
+    recordingDiffer.invalidate(keys);
+    // Blaze invalidates (transient) errors on every build.
+    invalidateErrors();
+  }
+
+  @Override
+  public void invalidateErrors() {
+    checkActive();
+    recordingDiffer.invalidateErrors();
+  }
+
+  @Override
+  protected void invalidateDirtyActions(Iterable<SkyKey> dirtyActionValues) {
+    recordingDiffer.invalidate(dirtyActionValues);
   }
 
   /**
