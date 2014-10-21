@@ -81,7 +81,7 @@ public class TestResult {
    */
   public PathFragment getCoverageData() {
     if (data.getHasCoverage()) {
-      return testAction.getCoverageData();
+      return testAction.getCoverageData().getExecPath();
     }
     return null;
   }

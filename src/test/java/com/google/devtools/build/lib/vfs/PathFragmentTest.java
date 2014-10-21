@@ -81,6 +81,12 @@ public class PathFragmentTest {
   }
 
   @Test
+  public void testWindowsSeparator() {
+    assertEquals("bar/baz", new PathFragment("bar\\baz").toString());
+    assertEquals("C:/bar/baz", new PathFragment("c:\\bar\\baz").toString());
+  }
+
+  @Test
   public void testRelativeTo() {
     assertPath("bar/baz", new PathFragment("foo/bar/baz").relativeTo("foo"));
     assertPath("bar/baz", new PathFragment("/foo/bar/baz").relativeTo("/foo"));
@@ -123,16 +129,10 @@ public class PathFragmentTest {
 
   @Test
   public void testIsAbsoluteWindowsBackslash() {
-    // We deliberately standardize on forward slashes within the core for now. Backslashes are
-    // not supported for the time being.
-    assertFalse(new PathFragment(new File("C:\\blah")).isAbsolute());
-    assertFalse(new PathFragment(new File("C:\\")).isAbsolute());
-  }
-
-  @Test
-  public void testIsAbsoluteWindowsUnc() {
-    // UNC paths are not supported.
-    assertFalse(new PathFragment(new File("\\\\?\\C:\\blah")).isAbsolute());
+    assertTrue(new PathFragment(new File("C:\\blah")).isAbsolute());
+    assertTrue(new PathFragment(new File("C:\\")).isAbsolute());
+    assertTrue(new PathFragment(new File("\\blah")).isAbsolute());
+    assertTrue(new PathFragment(new File("\\")).isAbsolute());
   }
 
   @Test

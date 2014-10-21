@@ -56,7 +56,7 @@ public class SkylarkImportLookupFunction implements SkyFunction {
     if (astLookupValue == ASTLookupValue.NO_FILE) {
       // Skylark import files have to exist.
       throw new SkylarkImportLookupFunctionException(skyKey,
-          new SkylarkImportNotFoundException(file));
+          new SkylarkImportFailedException(file, true));
     }
 
     Map<PathFragment, SkylarkEnvironment> importMap = new HashMap<>();
@@ -73,6 +73,11 @@ public class SkylarkImportLookupFunction implements SkyFunction {
     if (env.valuesMissing()) {
       // This means some imports are unavailable.
       return null;
+    }
+
+    if (ast.containsErrors()) {
+      throw new SkylarkImportLookupFunctionException(skyKey,
+          new SkylarkImportFailedException(file, false));
     }
 
     SkylarkEnvironment extensionEnv = createEnv(ast, importMap, env);
@@ -110,14 +115,16 @@ public class SkylarkImportLookupFunction implements SkyFunction {
     return null;
   }
 
-  static final class SkylarkImportNotFoundException extends Exception {
-    private SkylarkImportNotFoundException(PathFragment file) {
-      super(String.format("Skylark import file not found: '%s'", file));
+  static final class SkylarkImportFailedException extends Exception {
+    private SkylarkImportFailedException(PathFragment file, boolean found) {
+      super(found
+          ? String.format("Extension file not found: '%s'", file)
+          : String.format("Extension '%s' has errors", file));
     }
   }
 
   private static final class SkylarkImportLookupFunctionException extends SkyFunctionException {
-    private SkylarkImportLookupFunctionException(SkyKey key, SkylarkImportNotFoundException cause) {
+    private SkylarkImportLookupFunctionException(SkyKey key, SkylarkImportFailedException cause) {
       super(key, cause);
     }
   }

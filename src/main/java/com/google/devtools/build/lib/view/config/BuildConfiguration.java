@@ -1159,7 +1159,7 @@ public final class BuildConfiguration implements Serializable {
     List<BuildConfiguration> toConfigurations;
     if (attribute.getConfigurationTransition() instanceof SplitTransition) {
       toConfigurations = getSplitConfigurations(
-          (SplitTransition) attribute.getConfigurationTransition());
+          (SplitTransition<?>) attribute.getConfigurationTransition());
     } else {
       // III. Attributes determine configurations. The configuration of a prerequisite is determined
       // by the attribute.

@@ -34,12 +34,12 @@ import java.util.List;
  *
  */
 public class IndexPageHandler {
-  private List<WebStatusBuildLog> buildLogs = new ArrayList<>();
+  private List<TestStatusHandler> testHandlers = new ArrayList<>();
   private IndexPageJsonData dataHandler;
   private StaticResourceHandler frontendHandler;
 
-  public IndexPageHandler(HttpServer server, List<WebStatusBuildLog> buildLogs) {
-    this.buildLogs = buildLogs;
+  public IndexPageHandler(HttpServer server, List<TestStatusHandler> testHandlers) {
+    this.testHandlers = testHandlers;
     this.dataHandler = new IndexPageJsonData(this);
     this.frontendHandler =
         StaticResourceHandler.createFromRelativePath("static/index.html", "text/html");
@@ -62,12 +62,13 @@ public class IndexPageHandler {
     public void handle(HttpExchange exchange) throws IOException {
       exchange.getResponseHeaders().put("Content-Type", ImmutableList.of("application/json"));
       JsonArray response = new JsonArray();
-      for (int i = 0; i < this.pageHandler.buildLogs.size(); i++) {
-        WebStatusBuildLog buildLog = this.pageHandler.buildLogs.get(i);
+      for (TestStatusHandler handler : this.pageHandler.testHandlers) {  
+        WebStatusBuildLog buildLog = handler.getBuildLog();
         JsonObject test = new JsonObject();
         test.add("targets",  gson.toJsonTree(buildLog.getTargetList()));
         test.addProperty("startTime", buildLog.getStartTime());
         test.addProperty("finished", buildLog.finished());
+        test.addProperty("uri", handler.getUri());
         response.add(test);
       }
       String serializedResponse = response.toString();

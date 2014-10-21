@@ -128,7 +128,7 @@ def fill_outs_templates(ctx, foreach_srcs, templates):
     for key in templates:
       templ = templates[key].replace("$(src)", src.short_path)
       output = ctx.new_file(ctx.configuration.genfiles_dir,
-          [ctx.label.name + ".outputs"] + templ.split("/"))
+          ctx.label.name + ".outputs/" + templ)
       outs[key] = output
     result[src] = outs
   return result

@@ -42,16 +42,21 @@ public class ErrorInfo implements Serializable {
    * taken from here.
    */
   @Nullable private final Throwable exception;
+  @Nullable private final SkyKey rootCauseOfException;
 
   private final Iterable<CycleInfo> cycles;
 
   private final boolean isTransient;
   private final boolean isCatastrophic;
 
-  public ErrorInfo(SkyFunctionException builderException) {
+  public ErrorInfo(SkyFunctionException builderException, SkyKey skyKey) {
     this.rootCauses = NestedSetBuilder.create(Order.STABLE_ORDER,
         Preconditions.checkNotNull(builderException.getRootCauseSkyKey(), builderException));
     this.exception = Preconditions.checkNotNull(builderException.getCause(), builderException);
+    // Note that SkyFunctions can put an arbitrary SkyKey in their thrown SkyFunctionException.
+    // TODO(bazel-team): Clean up SkyFunctionException's notion of "root cause" so we can start
+    // trusting that.
+    this.rootCauseOfException = skyKey;
     this.cycles = ImmutableList.of();
     this.isTransient = builderException.isTransient();
     this.isCatastrophic = builderException.isCatastrophic();
@@ -60,6 +65,7 @@ public class ErrorInfo implements Serializable {
   ErrorInfo(CycleInfo cycleInfo) {
     this.rootCauses = NestedSetBuilder.emptySet(Order.STABLE_ORDER);
     this.exception = null;
+    this.rootCauseOfException = null;
     this.cycles = ImmutableList.of(cycleInfo);
     this.isTransient = false;
     this.isCatastrophic = false;
@@ -72,11 +78,14 @@ public class ErrorInfo implements Serializable {
     NestedSetBuilder<SkyKey> builder = NestedSetBuilder.stableOrder();
     ImmutableList.Builder<CycleInfo> cycleBuilder = ImmutableList.builder();
     Throwable firstException = null;
+    SkyKey firstChildKey = null;
     boolean isTransient = false;
     boolean isCatastrophic = false;
+    // Arbitrarily pick the first error.
     for (ErrorInfo child : childErrors) {
       if (firstException == null) {
         firstException = child.getException();
+        firstChildKey = child.getRootCauseOfException();
       }
       builder.addTransitive(child.rootCauses);
       cycleBuilder.addAll(CycleInfo.prepareCycles(currentValue, child.cycles));
@@ -85,6 +94,7 @@ public class ErrorInfo implements Serializable {
     }
     this.rootCauses = builder.build();
     this.exception = firstException;
+    this.rootCauseOfException = firstChildKey;
     this.cycles = cycleBuilder.build();
     this.isTransient = isTransient;
     this.isCatastrophic = isCatastrophic;
@@ -112,6 +122,10 @@ public class ErrorInfo implements Serializable {
    */
   @Nullable public Throwable getException() {
     return exception;
+  }
+
+  public SkyKey getRootCauseOfException() {
+    return rootCauseOfException;
   }
 
   /**

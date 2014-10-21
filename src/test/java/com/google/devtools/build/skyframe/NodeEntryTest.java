@@ -113,7 +113,7 @@ public class NodeEntryTest {
     entry.addReverseDepAndCheckIfDone(null); // Start evaluation.
     GenericFunctionException exception =
         new GenericFunctionException(key("cause"), new Exception());
-    ErrorInfo errorInfo = new ErrorInfo(exception);
+    ErrorInfo errorInfo = new ErrorInfo(exception, key("cause"));
     MoreAsserts.assertEmpty(setValue(entry, /*value=*/null, errorInfo, /*graphVersion=*/0L));
     assertTrue(entry.isDone());
     assertNull(entry.getValue());
@@ -126,7 +126,7 @@ public class NodeEntryTest {
     entry.addReverseDepAndCheckIfDone(null); // Start evaluation.
     GenericFunctionException exception =
         new GenericFunctionException(key("cause"), new Exception());
-    ErrorInfo errorInfo = new ErrorInfo(exception);
+    ErrorInfo errorInfo = new ErrorInfo(exception, key("cause"));
     setValue(entry, new SkyValue() {}, errorInfo, /*graphVersion=*/0L);
     assertTrue(entry.isDone());
     assertEquals(errorInfo, entry.getErrorInfo());
@@ -453,7 +453,8 @@ public class NodeEntryTest {
     MoreAsserts.assertContentsAnyOrder(entry.getTemporaryDirectDeps(), dep);
     GenericFunctionException exception =
         new GenericFunctionException(key("cause"), new Exception());
-    setValue(entry, new IntegerValue(5), new ErrorInfo(exception), /*graphVersion=*/1L);
+    setValue(entry, new IntegerValue(5), new ErrorInfo(exception, key("cause")),
+        /*graphVersion=*/1L);
     assertTrue(entry.isDone());
     assertEquals("Version increments when setValue changes", new IntVersion(1), entry.getVersion());
   }
@@ -467,7 +468,7 @@ public class NodeEntryTest {
     entry.signalDep();
     GenericFunctionException exception =
         new GenericFunctionException(key("cause"), new Exception());
-    ErrorInfo errorInfo = new ErrorInfo(exception);
+    ErrorInfo errorInfo = new ErrorInfo(exception, key("cause"));
     setValue(entry, /*value=*/null, errorInfo, /*graphVersion=*/0L);
     entry.markDirty(/*isChanged=*/false);
     entry.addReverseDepAndCheckIfDone(null); // Restart evaluation.
@@ -523,7 +524,7 @@ public class NodeEntryTest {
     // Oops! Evaluation terminated with an error, but we're going to set this entry's value anyway.
     entry.removeUnfinishedDeps(ImmutableSet.of(dep2, dep3, dep5));
     setValue(entry, null,
-        new ErrorInfo(new GenericFunctionException(key("key"), new Exception())), 0L);
+        new ErrorInfo(new GenericFunctionException(key("key"), new Exception()), key("key")), 0L);
     entry.markDirty(/*isChanged=*/false);
     entry.addReverseDepAndCheckIfDone(null); // Restart evaluation.
     assertEquals(BuildingState.DirtyState.CHECK_DEPENDENCIES, entry.getDirtyState());

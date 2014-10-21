@@ -92,8 +92,6 @@ public class Artifact implements FileType.HasFilename, Comparable<Artifact>, Act
     }
   };
 
-  private static final boolean DETAILED_PRETTY = false;
-
   private final Path path;
   private final Root root;
   private final PathFragment execPath;
@@ -361,13 +359,9 @@ public class Artifact implements FileType.HasFilename, Comparable<Artifact>, Act
    * <p>(The toString method is intended for developer messages since its more informative.)
    */
   public final String prettyPrint() {
-    // TODO(bazel-team): the following would probably be more useful to users:
-    // But lots of tests rely on the current values.
-    if (DETAILED_PRETTY) {
-      return toDetailString();
-    } else {
-      return rootRelativePath.toString();
-    }
+    // toDetailString would probably be more useful to users, but lots of tests rely on the
+    // current values.
+    return rootRelativePath.toString();
   }
 
   @Override

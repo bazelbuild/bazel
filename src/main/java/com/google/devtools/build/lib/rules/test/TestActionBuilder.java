@@ -241,19 +241,22 @@ public final class TestActionBuilder {
         Artifact cacheStatus = env.getDerivedArtifact(
             targetName.getChild("test" + suffix + ".cache_status"), root);
 
-        PathFragment coverageData = collectCodeCoverage
-            ? root.getExecPath().getRelative(
-                targetName.getChild("coverage" + suffix + ".dat"))
-            : null;
+        Artifact coverageArtifact = null;
+        if (collectCodeCoverage) {
+          coverageArtifact =
+              env.getDerivedArtifact(targetName.getChild("coverage" + suffix + ".dat"), root);
+        }
 
-        PathFragment microCoverageData = collectCodeCoverage && config.isMicroCoverageEnabled()
-            ? root.getExecPath().getRelative(
-                targetName.getChild("coverage" + suffix + ".micro.dat"))
-            : null;
+        Artifact microCoverageArtifact = null;
+        if (collectCodeCoverage && config.isMicroCoverageEnabled()) {
+          microCoverageArtifact =
+              env.getDerivedArtifact(targetName.getChild("coverage" + suffix + ".micro.dat"), root);
+        }
 
         env.registerAction(new TestRunnerAction(
             ruleContext.getActionOwner(), inputs,
-            testLog, cacheStatus, coverageData, microCoverageData,
+            testLog, cacheStatus,
+            coverageArtifact, microCoverageArtifact,
             testProperties, executionSettings,
             shard, run, config));
         results.add(cacheStatus);

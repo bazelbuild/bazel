@@ -541,8 +541,10 @@ public abstract class SkyframeExecutor {
 
   protected static Iterable<SkyKey> getSkyKeysPotentiallyAffected(
       Iterable<PathFragment> modifiedSourceFiles, final Path pathEntry) {
+    Iterable<PathFragment> validModifiedSourceFiles =
+        Iterables.filter(modifiedSourceFiles, Predicates.not(PathFragment.IS_ABSOLUTE));
     // TODO(bazel-team): change ModifiedFileSet to work with RootedPaths instead of PathFragments.
-    Iterable<SkyKey> fileStateSkyKeys = Iterables.transform(modifiedSourceFiles,
+    Iterable<SkyKey> fileStateSkyKeys = Iterables.transform(validModifiedSourceFiles,
         new Function<PathFragment, SkyKey>() {
           @Override
           public SkyKey apply(PathFragment pathFragment) {
@@ -556,7 +558,8 @@ public abstract class SkyframeExecutor {
     // TODO(bazel-team): Even if we don't have that information, we could avoid invalidating
     // directories when the state of a file does not change by statting them and comparing
     // the new filetype (nonexistent/file/symlink/directory) with the old one.
-    Iterable<SkyKey> dirListingStateSkyKeys = Iterables.transform(modifiedSourceFiles,
+    Iterable<SkyKey> dirListingStateSkyKeys = Iterables.transform(
+        validModifiedSourceFiles,
         new Function<PathFragment, SkyKey>() {
           @Override
           public SkyKey apply(PathFragment pathFragment) {

@@ -1563,7 +1563,7 @@ public final class BlazeRuntime {
     private Clock clock;
     private OptionsProvider startupOptionsProvider;
     private final List<BlazeModule> blazeModules = Lists.newArrayList();
-    private SkyframeMode skyframe;
+    private final SkyframeMode skyframe = SkyframeMode.FULL;
     private SubscriberExceptionHandler eventBusExceptionHandler =
         new RemoteExceptionHandler();
     private BinTools binTools;
@@ -1726,7 +1726,7 @@ public final class BlazeRuntime {
     }
 
     public Builder setSkyframe(SkyframeMode skyframe) {
-      this.skyframe = skyframe;
+      // No-op: delete once all callers are gone.
       return this;
     }
 

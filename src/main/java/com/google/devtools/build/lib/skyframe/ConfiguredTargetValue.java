@@ -55,7 +55,8 @@ public final class ConfiguredTargetValue extends ActionLookupValue {
     return configuredTarget;
   }
 
-  Iterable<Action> getActions() {
+  @VisibleForTesting
+  public Iterable<Action> getActions() {
     return Preconditions.checkNotNull(actions, configuredTarget);
   }
 

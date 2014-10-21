@@ -14,9 +14,12 @@
 
 package com.google.devtools.build.lib.webstatusserver;
 
+import com.google.common.base.Preconditions;
 import com.google.common.collect.ImmutableList;
+import com.google.common.collect.ImmutableList.Builder;
 import com.google.gson.JsonObject;
 
+import com.sun.net.httpserver.HttpContext;
 import com.sun.net.httpserver.HttpExchange;
 import com.sun.net.httpserver.HttpHandler;
 import com.sun.net.httpserver.HttpServer;
@@ -34,14 +37,25 @@ class TestStatusHandler {
   private WebStatusBuildLog buildLog;
   private HttpHandler detailsHandler;
   private HttpServer server;
-
+  private ImmutableList<HttpContext> contexts;
+  private String uri;
+  
   public TestStatusHandler(HttpServer server, int commandId, WebStatusBuildLog buildLog) {
+    Builder<HttpContext> builder = ImmutableList.builder();
     this.buildLog = buildLog;
     this.server = server;
+    Preconditions.checkArgument(commandId >= 0, "Command id was %s but expected nonnegative.",
+        commandId);
+    this.uri = Integer.toString(commandId);
     detailsHandler = new TestStatusResultJsonData(this);
     frontendHandler = StaticResourceHandler.createFromRelativePath("static/test.html", "text/html");
-    server.createContext("/tests/" + commandId + "/details", detailsHandler);
-    server.createContext("/tests/" + commandId, frontendHandler);
+    builder.add(server.createContext("/tests/" + uri + "/details", detailsHandler));
+    builder.add(server.createContext("/tests/" + uri, frontendHandler));
+    contexts = builder.build();
+  }
+
+  public WebStatusBuildLog getBuildLog() {
+    return buildLog;
   }
 
   /**
@@ -86,5 +100,18 @@ class TestStatusHandler {
       // have "hasContext" method)
     }
     this.server.createContext(detailsPath, this.detailsHandler);   
+  }
+
+  public String getUri() {
+    return this.uri;
+  }
+  
+  /**
+   * Deregisters all the handlers associated with the test.
+   */
+  public void deregister() {
+    for (HttpContext c : this.contexts) {
+      this.server.removeContext(c);
+    }
   }
 }

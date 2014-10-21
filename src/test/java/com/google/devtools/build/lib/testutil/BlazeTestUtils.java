@@ -112,7 +112,8 @@ public class BlazeTestUtils {
 
   public static String runfilesDir() {
     String runfilesDirStr = TestUtils.getUserValue("TEST_SRCDIR");
-    Preconditions.checkState(runfilesDirStr != null && runfilesDirStr.length() > 0);
+    Preconditions.checkState(runfilesDirStr != null && runfilesDirStr.length() > 0,
+        "TEST_SRCDIR unset or empty");
     return new File(runfilesDirStr).getAbsolutePath();
   }
 

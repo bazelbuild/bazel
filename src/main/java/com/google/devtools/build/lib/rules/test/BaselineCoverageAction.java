@@ -42,7 +42,7 @@ public class BaselineCoverageAction extends AbstractFileWriteAction
   // TODO(bazel-team): Remove this list of languages by separately collecting offline and online
   // instrumented files.
   private static final List<String> OFFLINE_INSTRUMENTATION_SUFFIXES = ImmutableList.of(
-      ".c", ".cc", ".cpp", ".go", ".h", ".java", ".py");
+      ".c", ".cc", ".cpp", ".dart", ".go", ".h", ".java", ".py");
   private final Iterable<Artifact> instrumentedFiles;
 
   private BaselineCoverageAction(

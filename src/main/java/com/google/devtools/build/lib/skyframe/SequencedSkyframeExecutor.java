@@ -188,6 +188,7 @@ public final class SequencedSkyframeExecutor extends SkyframeExecutor {
   /**
    * Sets the packages that should be treated as deleted and ignored.
    */
+  @Override
   @VisibleForTesting  // productionVisibility = Visibility.PRIVATE
   public void setDeletedPackages(Iterable<String> pkgs) {
     // Invalidate the old deletedPackages as they may exist now.

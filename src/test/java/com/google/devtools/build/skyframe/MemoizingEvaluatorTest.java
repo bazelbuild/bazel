@@ -1262,8 +1262,12 @@ public class MemoizingEvaluatorTest {
     tester.getOrCreate(topKey).setBuilder(new NoExtractorFunction() {
       @Override
       public SkyValue compute(SkyKey skyKey, Environment env) throws SkyFunctionException {
-        String nextDep = ((StringValue) env.getValues(ImmutableList.of(groupDepA, groupDepB))
-            .get(groupDepA)).getValue();
+        StringValue val = ((StringValue) env.getValues(
+            ImmutableList.of(groupDepA, groupDepB)).get(groupDepA));
+        if (env.valuesMissing()) {
+          return null;
+        }
+        String nextDep = val.getValue();
         try {
           env.getValueOrThrow(GraphTester.toSkyKey(nextDep), SomeErrorException.class);
         } catch (SomeErrorException e) {
@@ -1317,7 +1321,7 @@ public class MemoizingEvaluatorTest {
    * the principle is the same. We control the timing by blocking "top"'s registering itself on its
    * deps.
    */
-  private void dirtyChildEnqueuesParentDuringCheckDependencies(boolean throwError)
+  private void dirtyChildEnqueuesParentDuringCheckDependencies(final boolean throwError)
       throws Exception {
     // Value to be built. It will be signaled to rebuild before it has finished checking its deps.
     final SkyKey top = GraphTester.toSkyKey("top");
@@ -1358,15 +1362,17 @@ public class MemoizingEvaluatorTest {
     final SkyKey firstKey = GraphTester.skyKey("first");
     tester.set(firstKey, new StringValue("biding"));
     tester.set(slowAddingDep, new StringValue("dep"));
-    // top's builder just requests both deps in a group.
+    final AtomicInteger numTopInvocations = new AtomicInteger(0);
     tester.getOrCreate(top).setBuilder(new NoExtractorFunction() {
       @Override
       public SkyValue compute(SkyKey key, SkyFunction.Environment env) {
+        numTopInvocations.incrementAndGet();
         if (delayTopSignaling.get()) {
           // The reporter will be given firstKey's warning to emit when it is requested as a dep
           // below, if firstKey is already built, so we release the reporter's latch beforehand.
           topRestartedBuild.countDown();
         }
+        // top's builder just requests both deps in a group.
         env.getValuesOrThrow(ImmutableList.of(firstKey, slowAddingDep), Exception.class);
         return env.valuesMissing() ? null : new StringValue("top");
       }
@@ -1376,8 +1382,10 @@ public class MemoizingEvaluatorTest {
       public void handle(Event e) {
         super.handle(e);
         if (e.getKind() == EventKind.WARNING) {
-          trackingAwaiter.awaitLatchAndTrackExceptions(topRestartedBuild,
-              "top's builder did not start in time");
+          if (!throwError) {
+            trackingAwaiter.awaitLatchAndTrackExceptions(topRestartedBuild,
+                "top's builder did not start in time");
+          }
         }
       }
     };
@@ -1385,6 +1393,7 @@ public class MemoizingEvaluatorTest {
     EvaluationResult<StringValue> result = tester.eval(/*keepGoing=*/false, top);
     assertFalse(result.hasError());
     assertEquals(new StringValue("top"), result.get(top));
+    assertEquals(2, numTopInvocations.get());
     // Now dirty the graph, and maybe have firstKey throw an error.
     String warningText = "warning text";
     tester.getOrCreate(firstKey, /*markAsModified=*/true).setHasError(throwError)
@@ -1398,9 +1407,13 @@ public class MemoizingEvaluatorTest {
       assertThat(result.keyNames()).isEmpty(); // No successfully evaluated values.
       ErrorInfo errorInfo = result.getError(top);
       MoreAsserts.assertContentsAnyOrder(errorInfo.getRootCauses(), firstKey);
+      assertEquals("on the incremental build, top's builder should have only been used in error "
+          + "bubbling", 3, numTopInvocations.get());
     } else {
       assertEquals(new StringValue("top"), result.get(top));
       assertFalse(result.hasError());
+      assertEquals("on the incremental build, top's builder should have only been executed once in "
+          + "normal evaluation", 3, numTopInvocations.get());
     }
     JunitTestUtils.assertContainsEvent(eventCollector, warningText);
     assertEquals(0, topSignaled.getCount());
@@ -1408,7 +1421,8 @@ public class MemoizingEvaluatorTest {
   }
 
   @Test
-  public void dirtyChildEnqueuesParentDuringCheckDependencies_Throw() throws Exception {
+  public void dirtyChildEnqueuesParentDuringCheckDependencies_ThrowDoesntEnqueue()
+      throws Exception {
     dirtyChildEnqueuesParentDuringCheckDependencies(/*throwError=*/true);
   }
 

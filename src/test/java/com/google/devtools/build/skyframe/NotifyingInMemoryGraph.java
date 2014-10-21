@@ -100,7 +100,9 @@ public class NotifyingInMemoryGraph extends InMemoryGraph {
     @Override
     Set<SkyKey> setValue(SkyValue value, Version version) {
       graphListener.accept(myKey, EventType.SET_VALUE, Order.BEFORE, value);
-      return super.setValue(value, version);
+      Set<SkyKey> result = super.setValue(value, version);
+      graphListener.accept(myKey, EventType.SET_VALUE, Order.AFTER, value);
+      return result;
     }
 
     @Override

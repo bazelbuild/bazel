@@ -59,7 +59,8 @@ enum InfoKey {
   // These keys print multi-line messages and thus don't play well with grep. We don't print them
   // unless explicitly requested
   DEFAULTS_PACKAGE("defaults-package", "Default packages used as implicit dependencies", true),
-  BUILD_LANGUAGE("build-language", "A protobuffer with the build language structure", true);
+  BUILD_LANGUAGE("build-language", "A protobuffer with the build language structure", true),
+  DEFAULT_PACKAGE_PATH("default-package-path", "The default package path", true);
 
   private final String name;
   private final String description;

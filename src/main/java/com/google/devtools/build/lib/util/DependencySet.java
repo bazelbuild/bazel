@@ -144,10 +144,6 @@ public final class DependencySet {
         line = line.split(": ", 2)[1];
       }
       for (String token : line.trim().split("\\s+")) {
-        // Convert Windows-style paths to mixed-style used internally.
-        if (token.contains("\\")) {
-          token = token.replace('\\', '/');
-        }
         dependencies.add(new PathFragment(token).normalize());
       }
     }

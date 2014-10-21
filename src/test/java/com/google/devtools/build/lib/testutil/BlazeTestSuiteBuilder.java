@@ -57,13 +57,6 @@ public class BlazeTestSuiteBuilder {
     }
   };
 
-  /**
-   * A predicate that succeeds only for tests that make sense to be run with skyframe loading
-   * and analysis.
-   */
-  public static final Predicate<Class<?>> TEST_SHOULD_RUN_ON_SKYFRAME_LA =
-      canRunOnSkyframe(SkyframeMode.LOADING_AND_ANALYSIS);
-
   /** A predicate that succeeds only for tests that make sense to be run with full skyframe. */
   public static final Predicate<Class<?>> TEST_SHOULD_RUN_ON_SKYFRAME_FULL =
       canRunOnSkyframe(SkyframeMode.FULL);
@@ -151,14 +144,11 @@ public class BlazeTestSuiteBuilder {
     final String skyframeProperty = System.getProperty("blaze.skyframe");
     Preconditions.checkNotNull(skyframeProperty, "blaze.skyframe property not found");
     switch (skyframeProperty) {
-      case "LOADING_AND_ANALYSIS":
-        return TEST_SHOULD_RUN_ON_SKYFRAME_LA;
       case "FULL":
         return TEST_SHOULD_RUN_ON_SKYFRAME_FULL;
       default:
         throw new IllegalArgumentException(
-            "blaze.skyframe property not one of LOADING_AND_ANALYSIS, or FULL: "
-            + skyframeProperty);
+            "blaze.skyframe property not FULL: " + skyframeProperty);
     }
   }
 }

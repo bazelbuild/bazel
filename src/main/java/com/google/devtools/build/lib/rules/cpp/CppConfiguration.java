@@ -727,8 +727,6 @@ public class CppConfiguration extends BuildConfiguration.Fragment {
     return greppedIncludesDirectory;
   }
 
-
-
   @VisibleForTesting
   List<String> configureLinkerOptions(
       CompilationMode compilationMode, LipoMode lipoMode, LinkingMode linkingMode,
@@ -753,30 +751,6 @@ public class CppConfiguration extends BuildConfiguration.Fragment {
    */
   public String getToolchainIdentifier() {
     return toolchainIdentifier;
-  }
-
-  /**
-   * Returns the crosstool top in the form given by the user.
-   */
-  public Label getCrosstoolTop() {
-    return crosstoolTop;
-  }
-
-  /**
-   * Returns whether this toolchain is looked up on the package path.
-   */
-  public boolean isCrosstoolTopALabel() {
-    return !crosstoolTopPathFragment.isAbsolute();
-  }
-
-  /**
-   * Returns a path fragment that is either absolute or relative to the
-   * execution root, which determines the path to the installation directory.
-   */
-  // TODO(bazel-team): Get rid of this method. It just encourages users to construct their own file
-  // paths.
-  public PathFragment getCrosstoolTopPathFragment() {
-    return crosstoolTopPathFragment;
   }
 
   /**
@@ -807,8 +781,7 @@ public class CppConfiguration extends BuildConfiguration.Fragment {
   }
 
   /**
-   * Returns the target architecture using blaze-specific constants (e.g.
-   * "piii").
+   * Returns the target architecture using blaze-specific constants (e.g. "piii").
    */
   @SkylarkCallable(name = "cpu", structField = true, doc = "Target CPU of the C++ toolchain.")
   public String getTargetCpu() {
@@ -838,9 +811,6 @@ public class CppConfiguration extends BuildConfiguration.Fragment {
    * Returns a label that references the library files needed to statically
    * link the C++ runtime (i.e. libgcc.a, libgcc_eh.a, libstdc++.a) for the
    * target architecture.
-   *
-   * <p>The returned label is guaranteed to be non-null if and only if {@link
-   * #isCrosstoolTopALabel} returns true.
    */
   public Label getStaticRuntimeLibsLabel() {
     return supportsEmbeddedRuntimes() ? staticRuntimeLibsLabel : null;
@@ -850,17 +820,13 @@ public class CppConfiguration extends BuildConfiguration.Fragment {
    * Returns a label that references the library files needed to dynamically
    * link the C++ runtime (i.e. libgcc_s.so, libstdc++.so) for the target
    * architecture.
-   *
-   * <p>The returned label is guaranteed to be non-null if and only if {@link
-   * #isCrosstoolTopALabel} returns true.
    */
   public Label getDynamicRuntimeLibsLabel() {
     return supportsEmbeddedRuntimes() ? dynamicRuntimeLibsLabel : null;
   }
 
   /**
-   * Returns the label of the <code>cc_compiler</code> rule for the C++ configuration, if it
-   * exists. Otherwise, returns null.
+   * Returns the label of the <code>cc_compiler</code> rule for the C++ configuration.
    */
   public Label getCcToolchainRuleLabel() {
     return ccToolchainLabel;
@@ -1635,7 +1601,7 @@ public class CppConfiguration extends BuildConfiguration.Fragment {
     // TODO(bazel-team): (2009) These variables are so rarely used we should try to eliminate
     // them entirely.  see: "cs -f=BUILD -noi GNU_TARGET" and "cs -f=build_defs -noi
     // GNU_TARGET"
-    globalMakeEnvBuilder.put("CROSSTOOLTOP", getCrosstoolTopPathFragment().getPathString());
+    globalMakeEnvBuilder.put("CROSSTOOLTOP", crosstoolTopPathFragment.getPathString());
     globalMakeEnvBuilder.put("GLIBC", getTargetLibc());
     globalMakeEnvBuilder.put("GNU_TARGET", targetSystemName);
 
@@ -1762,5 +1728,4 @@ public class CppConfiguration extends BuildConfiguration.Fragment {
     // by the "default_target_cpu" crosstool parameter.
     return ImmutableMap.<String, Object>of("cpu", getTargetCpu());
   }
-
 }

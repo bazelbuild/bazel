@@ -18,6 +18,7 @@ import com.google.common.base.Predicate;
 import com.google.common.base.Predicates;
 import com.google.common.base.Supplier;
 import com.google.common.collect.Iterables;
+import com.google.devtools.build.lib.Constants;
 import com.google.devtools.build.lib.blaze.BlazeCommand;
 import com.google.devtools.build.lib.blaze.BlazeCommandDispatcher;
 import com.google.devtools.build.lib.blaze.BlazeModule;
@@ -332,6 +333,9 @@ public class InfoCommand implements BlazeCommand {
 
       case BUILD_LANGUAGE:
         return getBuildLanguageDefinition(runtime.getRuleClassProvider());
+
+      case DEFAULT_PACKAGE_PATH:
+        return Joiner.on(":").join(Constants.DEFAULT_PACKAGE_PATH);
 
       default:
         throw new IllegalArgumentException("missing implementation for " + key);

@@ -30,8 +30,6 @@ import java.util.List;
  * Options for configuring the PackageCache.
  */
 public class PackageCacheOptions extends OptionsBase {
-  private static final String DEFAULT_PACKAGE_PATH_MARKER = "...---:::@@@DEFAULT@@@:::--...";
-
   /**
    * A converter for package path that defaults to {@code Constants.DEFAULT_PACKAGE_PATH} if the
    * option is not given.
@@ -41,7 +39,7 @@ public class PackageCacheOptions extends OptionsBase {
   public static class PackagePathConverter implements Converter<List<String>> {
     @Override
     public List<String> convert(String input) throws OptionsParsingException {
-      return input.equals(DEFAULT_PACKAGE_PATH_MARKER)
+      return input.isEmpty()
           ? Constants.DEFAULT_PACKAGE_PATH
           : new Converters.ColonSeparatedOptionListConverter().convert(input);
     }
@@ -75,13 +73,13 @@ public class PackageCacheOptions extends OptionsBase {
   }
 
   @Option(name = "package_path",
-          defaultValue = DEFAULT_PACKAGE_PATH_MARKER,
+          defaultValue = "",
           category = "package loading",
           converter = PackagePathConverter.class,
           help = "A colon-separated list of where to look for packages. "
           +  "Elements beginning with '%workspace%' are relative to the enclosing "
-          +  "workspace.  Otherwise, relative paths are relative to Blaze's "
-          +  "working directory.")
+          +  "workspace. If omitted or empty, the default is the output of "
+          +  "'blaze info default-package-path'.")
   public List<String> packagePath;
 
   @Option(name = "show_package_location",

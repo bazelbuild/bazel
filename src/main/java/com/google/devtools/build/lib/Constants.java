@@ -32,4 +32,6 @@ public class Constants {
       "com.google.devtools.build.lib.bazel.rules.BazelRuleClassProvider".toString();
   public static final ImmutableList<String> IGNORED_TEST_WARNING_PREFIXES = ImmutableList.of();
   public static final String RUNFILES_PREFIX = "".toString();
+
+  public static final ImmutableList<String> WATCHFS_BLACKLIST = ImmutableList.of();
 }

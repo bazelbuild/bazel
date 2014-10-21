@@ -46,6 +46,7 @@ public final class PathFragment implements Comparable<PathFragment>, Serializabl
   public static final int INVALID_SEGMENT = -1;
 
   public static final char SEPARATOR_CHAR = '/';
+  public static final char WINDOWS_SEPARATOR_CHAR = '\\';
   public static final String ROOT_DIR = "/";
 
   /** An empty path fragment. */
@@ -93,8 +94,12 @@ public final class PathFragment implements Comparable<PathFragment>, Serializabl
       path = path.substring(windowsVolume.length());
       // TODO(bazel-team): Decide what to do about non-absolute paths with a volume name, e.g. C:x.
     }
-    this.isAbsolute = path.startsWith(ROOT_DIR);
-    this.segments = segment(path, isAbsolute ? ROOT_DIR.length() : 0);
+    this.isAbsolute = path.length() > 0 && isSeparator(path.charAt(0));
+    this.segments = segment(path, isAbsolute ? 1 : 0);
+  }
+
+  private static boolean isSeparator(char c) {
+    return c == SEPARATOR_CHAR || c == WINDOWS_SEPARATOR_CHAR;
   }
 
   /**
@@ -169,7 +174,7 @@ public final class PathFragment implements Comparable<PathFragment>, Serializabl
     int seg = 0;
     int start = offset;
     for (int i = offset; i < length; i++) {
-      if (chars[i] == SEPARATOR_CHAR) {
+      if (isSeparator(chars[i])) {
         if (i > start) {  // to skip repeated separators
           seg++;
         }
@@ -183,7 +188,7 @@ public final class PathFragment implements Comparable<PathFragment>, Serializabl
     seg = 0;
     start = offset;
     for (int i = offset; i < length; i++) {
-      if (chars[i] == SEPARATOR_CHAR) {
+      if (isSeparator(chars[i])) {
         if (i > start) {  // to skip repeated separators
           // Make a copy of the String here to allow the interning to save memory. String.substring
           // does not make a copy, but refers to the original char array, preventing garbage

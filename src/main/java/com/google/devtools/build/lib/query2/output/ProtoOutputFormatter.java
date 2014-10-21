@@ -50,6 +50,7 @@ import com.google.devtools.build.lib.packages.Rule;
 import com.google.devtools.build.lib.packages.Target;
 import com.google.devtools.build.lib.packages.TriState;
 import com.google.devtools.build.lib.query2.FakeSubincludeTarget;
+import com.google.devtools.build.lib.query2.output.OutputFormatter.UnorderedFormatter;
 import com.google.devtools.build.lib.query2.proto.proto2api.Build;
 import com.google.devtools.build.lib.syntax.FilesetEntry;
 import com.google.devtools.build.lib.syntax.GlobCriteria;
@@ -71,7 +72,7 @@ import java.util.Set;
  * By taking the bytes and calling {@code mergeFrom()} on a
  * {@code Build.QueryResult} object the full result can be reconstructed.
  */
-public class ProtoOutputFormatter extends OutputFormatter {
+public class ProtoOutputFormatter extends OutputFormatter implements UnorderedFormatter {
   private BinaryPredicate<Rule, Attribute> dependencyFilter;
 
   protected void setDependencyFilter(QueryOptions options) {
@@ -84,16 +85,22 @@ public class ProtoOutputFormatter extends OutputFormatter {
   }
 
   @Override
-  public void output(QueryOptions options, Digraph<Target> result, PrintStream out)
+  public void outputUnordered(QueryOptions options, Iterable<Target> result, PrintStream out)
       throws IOException {
     setDependencyFilter(options);
 
     Build.QueryResult.Builder queryResult = Build.QueryResult.newBuilder();
-    for (Target target : result.getLabels()) {
+    for (Target target : result) {
       addTarget(queryResult, target);
     }
 
     queryResult.build().writeTo(out);
+  }
+
+  @Override
+  public void output(QueryOptions options, Digraph<Target> result, PrintStream out)
+      throws IOException {
+    outputUnordered(options, result.getLabels(), out);
   }
 
   /**

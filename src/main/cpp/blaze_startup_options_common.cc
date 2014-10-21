@@ -201,10 +201,6 @@ bool BlazeStartupOptions::ProcessArg(const string& argstr,
     fprintf(stderr, "WARNING: The --skyframe startup option is now ignored "
             "and will be removed in a future release\n");
   } else if ((value = GetUnaryOption(arg, next_arg,
-              "--deprecated_skyframe_for_testing_only")) != NULL) {
-    skyframe = value;
-    option_sources["skyframe"] = rcfile;
-  } else if ((value = GetUnaryOption(arg, next_arg,
               "--skygraph")) != NULL) {
     fprintf(stderr, "WARNING: The --skygraph startup option is an internal "
             "flag and will be removed in a future release\n");

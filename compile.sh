@@ -86,7 +86,7 @@ darwin)
              /opt/local/lib/libz.a /opt/local/lib/libiconv.a \
              $LDFLAGS"
   else
-    echo >&2 "WARNING: Could not find libarchive installation, proceeding bravely."
+    log "WARNING: Could not find libarchive installation, proceeding bravely."
   fi
 
   JNILIB="libunix.dylib"

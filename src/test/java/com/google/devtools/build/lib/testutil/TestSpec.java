@@ -43,14 +43,14 @@ public @interface TestSpec {
   String suite() default "";
 
   /**
-   * The minimum skyframe mode the specified test makes sense to run with. By default the test is
-   * assumed to be able to run with Skyframe loading and analysis.
+   * The minimum skyframe mode the specified test makes sense to run with. All tests can be run with
+   * Skyframe full.
    */
-  SkyframeMode skyframeMin() default SkyframeMode.LOADING_AND_ANALYSIS;
+  SkyframeMode skyframeMin() default SkyframeMode.FULL;
 
   /**
-   * The maximum skyframe mode the specified test makes sense to run with. By default the test is
-   * assumed to be able to run with Skyframe full.
+   * The maximum skyframe mode the specified test makes sense to run with. All tests can be run with
+   * Skyframe full.
    */
   SkyframeMode skyframeMax() default SkyframeMode.FULL;
 

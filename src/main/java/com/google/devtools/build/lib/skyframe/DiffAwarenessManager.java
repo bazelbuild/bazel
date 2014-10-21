@@ -52,7 +52,7 @@ public final class DiffAwarenessManager {
     }
   }
 
-  /** Reset internal {@link DiffAwareness} state */
+  /** Reset internal {@link DiffAwareness} state. */
   public void reset() {
     for (DiffAwareness diffAwareness : currentDiffAwarenesses.values()) {
       diffAwareness.close();
@@ -98,15 +98,18 @@ public final class DiffAwarenessManager {
     return result;
   }
 
+  /**
+   * Returns the current diff awareness for the given path entry, or a fresh one if there is no
+   * current one, or otherwise {@link null} if no factory could make a fresh one.
+   */
   @Nullable
   private DiffAwareness maybeGetDiffAwareness(Path pathEntry) {
     DiffAwareness currentDiffAwareness = currentDiffAwarenesses.get(pathEntry);
     if (currentDiffAwareness != null) {
       return currentDiffAwareness;
     }
-    DiffAwareness newDiffAwareness = null;
     for (DiffAwareness.Factory factory : diffAwarenessFactories) {
-      newDiffAwareness = factory.maybeCreate(pathEntry, pathEntries);
+      DiffAwareness newDiffAwareness = factory.maybeCreate(pathEntry, pathEntries);
       if (newDiffAwareness != null) {
         currentDiffAwarenesses.put(pathEntry, newDiffAwareness);
         return newDiffAwareness;

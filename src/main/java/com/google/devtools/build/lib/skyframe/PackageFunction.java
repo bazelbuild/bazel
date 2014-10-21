@@ -39,7 +39,7 @@ import com.google.devtools.build.lib.packages.PackageLoadedEvent;
 import com.google.devtools.build.lib.packages.RuleVisibility;
 import com.google.devtools.build.lib.packages.Target;
 import com.google.devtools.build.lib.skyframe.GlobValue.InvalidGlobPatternException;
-import com.google.devtools.build.lib.skyframe.SkylarkImportLookupFunction.SkylarkImportNotFoundException;
+import com.google.devtools.build.lib.skyframe.SkylarkImportLookupFunction.SkylarkImportFailedException;
 import com.google.devtools.build.lib.syntax.BuildFileAST;
 import com.google.devtools.build.lib.syntax.Label;
 import com.google.devtools.build.lib.syntax.ParserInputSource;
@@ -486,12 +486,12 @@ public class PackageFunction implements SkyFunction {
       for (PathFragment importFile : imports) {
         SkyKey importsLookupKey = SkylarkImportLookupValue.key(importFile);
         SkylarkImportLookupValue importLookupValue = (SkylarkImportLookupValue)
-            env.getValueOrThrow(importsLookupKey, SkylarkImportNotFoundException.class);
+            env.getValueOrThrow(importsLookupKey, SkylarkImportFailedException.class);
         if (importLookupValue != null) {
           importMap.put(importFile, importLookupValue.getImportedEnvironment());
         }
       }
-    } catch (SkylarkImportNotFoundException e) {
+    } catch (SkylarkImportFailedException e) {
       env.getListener().handle(Event.error(Location.fromFile(buildFilePath), e.getMessage()));
       throw new PackageFunctionException(key,
           new BuildFileContainsErrorsException(packageName, e.getMessage()));

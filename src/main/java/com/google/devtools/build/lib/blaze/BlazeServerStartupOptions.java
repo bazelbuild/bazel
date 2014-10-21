@@ -225,10 +225,8 @@ public class BlazeServerStartupOptions extends OptionsBase {
   @Option(name = "skyframe",
       converter = SkyframeModeConverter.class,
       defaultValue = "full",
-      category = "server startup",
-      help = "Use Skyframe to drive the build. --skyframe=full will use skyframe for "
-          + "all phases of the build, while --skyframe=loading_and_analysis will use "
-          + "skyframe just for loading and analysis, and the legacy codepath for execution.")
+      category = "undocumented",
+      help = "Use Skyframe to drive the build. Always 'full'.")
   public SkyframeMode skyframe;
 
   @Option(name = "fatal_event_bus_exceptions",

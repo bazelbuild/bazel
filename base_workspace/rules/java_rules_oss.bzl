@@ -85,6 +85,7 @@ def java_binary_impl(ctx):
     runtime_jars += dep.runtime_jars
 
   runtime_jars += [library_result.compile_time_jar]
+  runtime_jars += jar_filetype.filter(ctx.files.jars)
 
   jars = list(runtime_jars)
   ctx.file_action(

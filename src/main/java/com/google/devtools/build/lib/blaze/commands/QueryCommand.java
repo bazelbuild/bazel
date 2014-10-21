@@ -21,7 +21,6 @@ import com.google.devtools.build.lib.blaze.BlazeModule;
 import com.google.devtools.build.lib.blaze.BlazeRuntime;
 import com.google.devtools.build.lib.blaze.Command;
 import com.google.devtools.build.lib.events.Event;
-import com.google.devtools.build.lib.graph.Digraph;
 import com.google.devtools.build.lib.packages.Target;
 import com.google.devtools.build.lib.pkgcache.PackageCacheOptions;
 import com.google.devtools.build.lib.query2.BlazeQueryEnvironment;
@@ -32,6 +31,7 @@ import com.google.devtools.build.lib.query2.engine.QueryEvalResult;
 import com.google.devtools.build.lib.query2.engine.QueryException;
 import com.google.devtools.build.lib.query2.engine.QueryExpression;
 import com.google.devtools.build.lib.query2.output.OutputFormatter;
+import com.google.devtools.build.lib.query2.output.OutputFormatter.UnorderedFormatter;
 import com.google.devtools.build.lib.query2.output.QueryOptions;
 import com.google.devtools.build.lib.util.ExitCode;
 import com.google.devtools.common.options.OptionsParser;
@@ -125,10 +125,18 @@ public final class QueryCommand implements BlazeCommand {
     }
 
     // 3. Output results:
-    Digraph<Target> graph = result.getResultGraph();
+    OutputFormatter.UnorderedFormatter unorderedFormatter = null;
+    if (!queryOptions.orderResults && formatter instanceof UnorderedFormatter) {
+      unorderedFormatter = (UnorderedFormatter) formatter;
+    }
+
     PrintStream output = new PrintStream(runtime.getReporter().getOutErr().getOutputStream());
     try {
-      formatter.output(queryOptions, graph, output);
+      if (unorderedFormatter != null) {
+        unorderedFormatter.outputUnordered(queryOptions, result.getResultSet(), output);
+      } else {
+        formatter.output(queryOptions, result.getResultGraph(), output);
+      }
     } catch (ClosedByInterruptException e) {
       runtime.getReporter().handle(Event.error("query interrupted"));
       return ExitCode.INTERRUPTED;
@@ -138,7 +146,7 @@ public final class QueryCommand implements BlazeCommand {
     } finally {
       output.flush();
     }
-    if (graph.getLabels().isEmpty()) {
+    if (result.getResultSet().isEmpty()) {
       runtime.getReporter().handle(Event.info("Empty results"));
     }
 

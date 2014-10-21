@@ -35,6 +35,7 @@ public abstract class SkyFunctionException extends Exception {
 
   public SkyFunctionException(SkyKey rootCause, Throwable cause) {
     super(Preconditions.checkNotNull(cause));
+    // TODO(bazel-team): Consider getting rid of custom root causes since they can't be trusted.
     this.rootCause = Preconditions.checkNotNull(rootCause, cause);
     // TODO(bazel-team): We may want to switch the default to false at some point.
     this.isTransient = true;

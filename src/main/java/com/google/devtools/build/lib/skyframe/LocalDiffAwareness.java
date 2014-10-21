@@ -18,6 +18,7 @@ import com.google.common.base.Function;
 import com.google.common.base.Preconditions;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.Iterables;
+import com.google.devtools.build.lib.Constants;
 import com.google.devtools.build.lib.vfs.ModifiedFileSet;
 import com.google.devtools.build.lib.vfs.PathFragment;
 
@@ -49,9 +50,6 @@ public class LocalDiffAwareness implements DiffAwareness {
 
   /** Factory for creating {@link LocalDiffAwareness} instances. */
   public static class Factory implements DiffAwareness.Factory {
-
-    private static final PathFragment LOCALFS_PREFIX = new PathFragment("/usr/local/");
-
     @Override
     public DiffAwareness maybeCreate(com.google.devtools.build.lib.vfs.Path pathEntry,
         ImmutableList<com.google.devtools.build.lib.vfs.Path> pathEntries) {
@@ -62,9 +60,12 @@ public class LocalDiffAwareness implements DiffAwareness {
         return null;
       }
       PathFragment resolvedPathEntryFragment = resolvedPathEntry.asFragment();
-      // TODO(bazel-team): rely on file system stats to check whether the path is a local file
-      if (!resolvedPathEntryFragment.startsWith(LOCALFS_PREFIX)) {
-        return null;
+      // There's no good way to automatically detect network file systems. We rely on a blacklist
+      // for now (and maybe add a command-line option in the future?).
+      for (String prefix : Constants.WATCHFS_BLACKLIST) {
+        if (resolvedPathEntryFragment.startsWith(new PathFragment(prefix))) {
+          return null;
+        }
       }
 
       LocalDiffAwareness awareness = new LocalDiffAwareness(resolvedPathEntryFragment.toString());

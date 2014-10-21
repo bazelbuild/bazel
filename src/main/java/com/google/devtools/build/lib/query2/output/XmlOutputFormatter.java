@@ -16,7 +16,6 @@ package com.google.devtools.build.lib.query2.output;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.Iterables;
 import com.google.devtools.build.lib.graph.Digraph;
-import com.google.devtools.build.lib.graph.Node;
 import com.google.devtools.build.lib.packages.Attribute;
 import com.google.devtools.build.lib.packages.InputFile;
 import com.google.devtools.build.lib.packages.License;
@@ -53,7 +52,7 @@ import javax.xml.transform.stream.StreamResult;
 /**
  * An output formatter that prints the result as XML.
  */
-class XmlOutputFormatter extends OutputFormatter {
+class XmlOutputFormatter extends OutputFormatter implements OutputFormatter.UnorderedFormatter {
 
   private boolean xmlLineNumbers;
   private boolean showDefaultValues;
@@ -65,7 +64,7 @@ class XmlOutputFormatter extends OutputFormatter {
   }
 
   @Override
-  public void output(QueryOptions options, Digraph<Target> result, PrintStream out) {
+  public void outputUnordered(QueryOptions options, Iterable<Target> result, PrintStream out) {
     this.xmlLineNumbers = options.xmlLineNumbers;
     this.showDefaultValues = options.xmlShowDefaultValues;
     this.dependencyFilter = OutputFormatter.getDependencyFilter(options);
@@ -82,8 +81,7 @@ class XmlOutputFormatter extends OutputFormatter {
     Element queryElem = doc.createElement("query");
     queryElem.setAttribute("version", "2");
     doc.appendChild(queryElem);
-    for (Node<Target> node : result.getTopologicalOrder(new TargetOrdering())) {
-      Target target = node.getLabel();
+    for (Target target : result) {
       queryElem.appendChild(createTargetElement(doc, target));
     }
     try {
@@ -94,6 +92,13 @@ class XmlOutputFormatter extends OutputFormatter {
       // This shouldn't be possible: all the configuration is hard-coded.
       throw new IllegalStateException("XML output failed",  e);
     }
+  }
+
+  @Override
+  public void output(QueryOptions options, Digraph<Target> result, PrintStream out) {
+    Iterable<Target> ordered = Iterables.transform(
+        result.getTopologicalOrder(new TargetOrdering()), OutputFormatter.EXTRACT_NODE_LABEL);
+    outputUnordered(options, ordered, out);
   }
 
   /**

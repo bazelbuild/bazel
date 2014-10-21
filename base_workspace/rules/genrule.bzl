@@ -38,7 +38,7 @@ def resolve_command(ctx, command, resolved_srcs, files_to_build):
 
 def create(ctx):
   resolved_srcs = set()
-  if not hasattr(ctx.outputs, "outs"):
+  if not ctx.outputs.outs:
     fail("genrules without outputs don't make sense", attr="outs")
   files_to_build = set(ctx.outputs.outs)
 

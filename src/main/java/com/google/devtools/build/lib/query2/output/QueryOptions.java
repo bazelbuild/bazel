@@ -33,6 +33,14 @@ public class QueryOptions extends OptionsBase {
           + " xml, proto, record.")
   public String outputFormat;
 
+  @Option(name = "order_results",
+      defaultValue = "true",
+      category = "query",
+      help = "Output the results in dependency-ordered (default) or unordered fashion. The"
+          + " unordered output is faster but only supported when --output is one of label,"
+          + " label_kind, location, package, proto, record, xml.")
+  public boolean orderResults;
+
   @Option(name = "keep_going",
       abbrev = 'k',
       defaultValue = "false",

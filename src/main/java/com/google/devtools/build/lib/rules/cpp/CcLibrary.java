@@ -81,11 +81,18 @@ public abstract class CcLibrary implements RuleConfiguredTargetFactory {
     builder.addArtifacts(ccLinkingOutputs.getLibrariesForRunfiles(linkingStatically && !neverLink));
     builder.add(context, CppRunfilesProvider.runfilesFunction(linkingStatically));
     if (context.getRule().isAttrDefined("implements", Type.LABEL_LIST)) {
-      builder.addTargets(
-          context.getPrerequisites("implements", Mode.TARGET), RunfilesProvider.DEFAULT_RUNFILES);
+      builder.addTargets(context.getPrerequisites("implements", Mode.TARGET),
+          RunfilesProvider.DEFAULT_RUNFILES);
       builder.addTargets(context.getPrerequisites("implements", Mode.TARGET),
           CppRunfilesProvider.runfilesFunction(linkingStatically));
     }
+    if (context.getRule().isAttrDefined("implementation", Type.LABEL_LIST)) {
+      builder.addTargets(context.getPrerequisites("implementation", Mode.TARGET),
+          RunfilesProvider.DEFAULT_RUNFILES);
+      builder.addTargets(context.getPrerequisites("implementation", Mode.TARGET),
+          CppRunfilesProvider.runfilesFunction(linkingStatically));
+    }
+
     builder.addDataDeps(context);
 
     if (addDynamicRuntimeInputArtifactsToRunfiles) {
@@ -130,9 +137,6 @@ public abstract class CcLibrary implements RuleConfiguredTargetFactory {
         .addCompilationPrerequisites(common.getSharedLibrariesFromSrcs())
         .addCompilationPrerequisites(common.getStaticLibrariesFromSrcs())
         .addSources(common.getCAndCppSources())
-        .addPrivateHeaders(FileType.filter(
-            ruleContext.getPrerequisiteArtifacts("srcs", Mode.TARGET),
-            CppFileTypes.CPP_HEADER))
         .addPublicHeaders(common.getHeaders())
         .addObjectFiles(common.getObjectFilesFromSrcs(false))
         .addPicObjectFiles(common.getObjectFilesFromSrcs(true))
@@ -143,7 +147,7 @@ public abstract class CcLibrary implements RuleConfiguredTargetFactory {
         .addSystemIncludeDirs(common.getSystemIncludeDirs())
         .addIncludeDirs(common.getIncludeDirs())
         .addLooseIncludeDirs(common.getLooseIncludeDirs());
-
+    
     if (collectLinkstamp) {
       helper.addLinkstamps(ruleContext.getPrerequisites("linkstamp", Mode.TARGET));
     }
@@ -170,7 +174,12 @@ public abstract class CcLibrary implements RuleConfiguredTargetFactory {
       }
     }
 
-    ruleContext.checkSrcsSamePackage(true);
+    if (ruleContext.getRule().isAttrDefined("srcs", Type.LABEL_LIST)) {
+      helper.addPrivateHeaders(FileType.filter(
+          ruleContext.getPrerequisiteArtifacts("srcs", Mode.TARGET),
+          CppFileTypes.CPP_HEADER));
+      ruleContext.checkSrcsSamePackage(true);
+    }
 
     if (common.getLinkopts().contains("-static")) {
       ruleContext.attributeWarning("linkopts", "Using '-static' here won't work. "

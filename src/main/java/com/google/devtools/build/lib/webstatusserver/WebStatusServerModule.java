@@ -35,8 +35,7 @@ import org.joda.time.DateTime;
 import java.io.IOException;
 import java.io.OutputStream;
 import java.net.InetSocketAddress;
-import java.util.ArrayList;
-import java.util.List;
+import java.util.LinkedList;
 import java.util.UUID;
 import java.util.logging.Logger;
 
@@ -45,6 +44,10 @@ import java.util.logging.Logger;
  */
 public class WebStatusServerModule extends BlazeModule {
   private static final String LAST_TEST_URI = "/tests/last";
+  // 100 is an arbitrary limit; it seems like a reasonable size for history and it's okay to change 
+  // it
+  private static final int MAX_TESTS_STORED = 100;  
+
   private HttpServer server;
   private boolean running = false;
   private BlazeServerStartupOptions serverOptions;
@@ -52,15 +55,13 @@ public class WebStatusServerModule extends BlazeModule {
   private static final Logger LOG =
       Logger.getLogger(WebStatusServerModule.class.getCanonicalName());
   private int port;
-  // TODO(bazel-team): this list will grow infinitely; at some point old tests should be removed
-  // (similarly, old TestStatusHandler should get deregistered from the server at some point)
-  private List<WebStatusBuildLog> testsRun = new ArrayList<>();
-  private WebStatusBuildLog currentBuild;
+  private LinkedList<TestStatusHandler> testsRan = new LinkedList<>();
   @SuppressWarnings("unused")
   private WebStatusEventCollector collector;
   @SuppressWarnings("unused")
   private IndexPageHandler indexHandler;
   private int commandsRun = 0;
+
   @Override
   public Iterable<Class<? extends OptionsBase>> getStartupOptions() {
     return ImmutableList.<Class<? extends OptionsBase>>of(BlazeServerStartupOptions.class);
@@ -82,7 +83,7 @@ public class WebStatusServerModule extends BlazeModule {
       server.createContext("/last", lastCommandHandler);
       server.setExecutor(null);
       server.start();
-      indexHandler = new IndexPageHandler(server, this.testsRun);
+      indexHandler = new IndexPageHandler(server, this.testsRan);
       running = true;
       LOG.info("Running web status server on port " + port);
     } catch (IOException e) {
@@ -98,7 +99,7 @@ public class WebStatusServerModule extends BlazeModule {
       return;
     }
 
-    currentBuild = new WebStatusBuildLog();
+    WebStatusBuildLog currentBuild = new WebStatusBuildLog();
     collector = new WebStatusEventCollector(blazeRuntime.getEventBus(), currentBuild);
     DateTime currentTime = new DateTime();
     lastCommandHandler.response = "Starting command...\n";
@@ -106,11 +107,15 @@ public class WebStatusServerModule extends BlazeModule {
     lastCommandHandler.command = command;
     lastCommandHandler.startTime = currentTime;
 
-    // TODO(bazel-team): store the tests and cleanup handlers that are not needed anymore (eg. keep
-    // only last 1000 tests)
+    if (testsRan.size() == MAX_TESTS_STORED) {
+      TestStatusHandler oldestTest = testsRan.removeLast();
+      oldestTest.deregister();
+    }
+    
     TestStatusHandler lastTest = new TestStatusHandler(server, commandsRun, currentBuild);
     lastTest.overrideURI(LAST_TEST_URI);
-    testsRun.add(currentBuild);
+    testsRan.addFirst(lastTest);
+
     commandsRun += 1;
   }
 
@@ -122,8 +127,6 @@ public class WebStatusServerModule extends BlazeModule {
     DateTime currentTime = new DateTime();
     lastCommandHandler.response = "Command finished...\n";
     lastCommandHandler.endTime = currentTime;
-
-    currentBuild = null;
   }
 
   private void serveStaticContent() {

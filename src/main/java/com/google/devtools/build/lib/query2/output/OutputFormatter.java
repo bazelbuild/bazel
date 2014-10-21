@@ -74,6 +74,14 @@ public abstract class OutputFormatter {
     DEFAULT   // Rule class default
   }
 
+  public static final Function<Node<Target>, Target> EXTRACT_NODE_LABEL =
+      new Function<Node<Target>, Target>() {
+        @Override
+        public Target apply(Node<Target> input) {
+          return input.getLabel();
+        }
+      };
+
   /**
    * Converter from strings to OutputFormatter.Type.
    */
@@ -137,6 +145,20 @@ public abstract class OutputFormatter {
       throws IOException;
 
   /**
+   * Unordered output formatter (wrt. dependency ordering).
+   *
+   * <p>Formatters that support unordered output may be used when only the set of query results is
+   * requested but their ordering is irrelevant.
+   *
+   * <p>The benefit of using a unordered formatter is that we can save the potentially expensive
+   * subgraph extraction step before presenting the query results.
+   */
+  public interface UnorderedFormatter {
+    void outputUnordered(QueryOptions options, Iterable<Target> result, PrintStream out)
+        throws IOException;
+  }
+
+  /**
    * Returns the user-visible name of the output formatter.
    */
   public abstract String getName();
@@ -145,7 +167,7 @@ public abstract class OutputFormatter {
    * An output formatter that prints the labels of the resulting target set in
    * topological order, optionally with the target's kind.
    */
-  private static class LabelOutputFormatter extends OutputFormatter {
+  private static class LabelOutputFormatter extends OutputFormatter implements UnorderedFormatter{
 
     private final boolean showKind;
 
@@ -159,15 +181,21 @@ public abstract class OutputFormatter {
     }
 
     @Override
-    public void output(QueryOptions options, Digraph<Target> result, PrintStream out) {
-      for (Node<Target> node : result.getTopologicalOrder(new TargetOrdering())) {
-        Target target = node.getLabel();
+    public void outputUnordered(QueryOptions options, Iterable<Target> result, PrintStream out) {
+      for (Target target : result) {
         if (showKind) {
           out.print(target.getTargetKind());
           out.print(' ');
         }
         out.println(target.getLabel());
       }
+    }
+
+    @Override
+    public void output(QueryOptions options, Digraph<Target> result, PrintStream out) {
+      Iterable<Target> ordered = Iterables.transform(
+          result.getTopologicalOrder(new TargetOrdering()), EXTRACT_NODE_LABEL);
+      outputUnordered(options, ordered, out);
     }
   }
 
@@ -185,23 +213,30 @@ public abstract class OutputFormatter {
    * An output formatter that prints the names of the packages of the target
    * set, in lexicographical order without duplicates.
    */
-  private static class PackageOutputFormatter extends OutputFormatter {
+  private static class PackageOutputFormatter extends OutputFormatter implements
+      UnorderedFormatter {
     @Override
     public String getName() {
       return "package";
     }
 
     @Override
-    public void output(QueryOptions options, Digraph<Target> result, PrintStream out) {
+    public void outputUnordered(QueryOptions options, Iterable<Target> result, PrintStream out) {
       Set<String> packageNames = Sets.newTreeSet();
-      for (Node<Target> node : result.getTopologicalOrder(new TargetOrdering())) {
-        packageNames.add(node.getLabel().getLabel().getPackageName());
+      for (Target target : result) {
+        packageNames.add(target.getLabel().getPackageName());
       }
       for (String packageName : packageNames) {
         out.println(packageName);
       }
     }
 
+    @Override
+    public void output(QueryOptions options, Digraph<Target> result, PrintStream out) {
+      Iterable<Target> ordered = Iterables.transform(
+          result.getTopologicalOrder(new TargetOrdering()), EXTRACT_NODE_LABEL);
+      outputUnordered(options, ordered, out);
+    }
   }
 
   /**
@@ -210,21 +245,27 @@ public abstract class OutputFormatter {
    * location of the generating rule is given; for input files, the location of
    * line 1 is given.
    */
-  private static class LocationOutputFormatter extends OutputFormatter {
+  private static class LocationOutputFormatter extends OutputFormatter implements
+      UnorderedFormatter {
     @Override
     public String getName() {
       return "location";
     }
 
     @Override
-    public void output(QueryOptions options, Digraph<Target> result, PrintStream out) {
-      for (Node<Target> node : result.getTopologicalOrder(new TargetOrdering())) {
-        Target target = node.getLabel();
+    public void outputUnordered(QueryOptions options, Iterable<Target> result, PrintStream out) {
+      for (Target target : result) {
         Location location = target.getLocation();
         out.println(location.print()  + ": " + target.getTargetKind() + " " + target.getLabel());
       }
     }
 
+    @Override
+    public void output(QueryOptions options, Digraph<Target> result, PrintStream out) {
+      Iterable<Target> ordered = Iterables.transform(
+          result.getTopologicalOrder(new TargetOrdering()), EXTRACT_NODE_LABEL);
+      outputUnordered(options, ordered, out);
+    }
   }
 
   /**

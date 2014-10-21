@@ -39,7 +39,6 @@ import com.google.devtools.build.lib.util.LoggingUtil;
 import com.google.devtools.build.lib.util.Pair;
 import com.google.devtools.build.lib.vfs.FileSystemUtils;
 import com.google.devtools.build.lib.vfs.Path;
-import com.google.devtools.build.lib.vfs.PathFragment;
 import com.google.devtools.build.lib.view.config.BuildConfiguration;
 import com.google.devtools.build.lib.view.config.RunUnder;
 import com.google.devtools.build.lib.view.test.TestStatus.TestResultData;
@@ -82,8 +81,8 @@ public class TestRunnerAction extends AbstractAction
   private final Path testInfrastructureFailure;
   private final Path baseDir;
   private final String namePrefix;
-  private final PathFragment coverageData;
-  private final PathFragment microCoverageData;
+  private final Artifact coverageData;
+  private final Artifact microCoverageData;
   private final TestTargetProperties testProperties;
   private final TestTargetExecutionSettings executionSettings;
   private final int shardNum;
@@ -94,6 +93,16 @@ public class TestRunnerAction extends AbstractAction
   // Mutable state related to test caching.
   private boolean checkedCaching = false;
   private boolean unconditionalExecution = false;
+
+  private static ImmutableList<Artifact> list(Artifact... artifacts) {
+    ImmutableList.Builder<Artifact> builder = ImmutableList.builder();
+    for (Artifact artifact : artifacts) {
+      if (artifact != null) {
+        builder.add(artifact);
+      }
+    }
+    return builder.build();
+  }
 
   /**
    * Create new TestRunnerAction instance. Should not be called directly.
@@ -107,19 +116,19 @@ public class TestRunnerAction extends AbstractAction
       Iterable<Artifact> inputs,
       Artifact testLog,
       Artifact cacheStatus,
-      PathFragment coverageData,
-      PathFragment microCoverageData,
+      Artifact coverageArtifact,
+      Artifact microCoverageArtifact,
       TestTargetProperties testProperties,
       TestTargetExecutionSettings executionSettings,
       int shardNum,
       int runNumber,
       BuildConfiguration configuration) {
-    super(owner, inputs, ImmutableList.of(testLog, cacheStatus));
+    super(owner, inputs, list(testLog, cacheStatus, coverageArtifact, microCoverageArtifact));
     this.configuration = Preconditions.checkNotNull(configuration);
     this.testLog = testLog;
     this.cacheStatus = cacheStatus;
-    this.coverageData = coverageData;
-    this.microCoverageData = microCoverageData;
+    this.coverageData = coverageArtifact;
+    this.microCoverageData = microCoverageArtifact;
     this.shardNum = shardNum;
     this.runNumber = runNumber;
     this.testProperties = Preconditions.checkNotNull(testProperties);
@@ -522,14 +531,14 @@ public class TestRunnerAction extends AbstractAction
   /**
    * @return coverage data artifact or null if code coverage was not requested.
    */
-  public PathFragment getCoverageData() {
+  @Nullable public Artifact getCoverageData() {
     return coverageData;
   }
 
   /**
    * @return microcoverage data artifact or null if code coverage was not requested.
    */
-  public PathFragment getMicroCoverageData() {
+  @Nullable public Artifact getMicroCoverageData() {
     return microCoverageData;
   }
 
