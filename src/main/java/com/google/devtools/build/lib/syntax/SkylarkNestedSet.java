@@ -131,7 +131,7 @@ public final class SkylarkNestedSet implements Iterable<Object> {
     if (builderType.equals(Object.class)) {
       return itemType;
     }
-    if (!builderType.equals(itemType)) {
+    if (!EvalUtils.getSkylarkType(builderType).equals(EvalUtils.getSkylarkType(itemType))) {
       throw new EvalException(loc, String.format(
           "nested set item is type of %s but the nested set accepts only %s-s",
           EvalUtils.getDataTypeNameFromClass(itemType),

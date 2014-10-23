@@ -13,6 +13,7 @@
 // limitations under the License.
 package com.google.devtools.build.lib.syntax;
 
+import com.google.common.annotations.VisibleForTesting;
 import com.google.common.base.Joiner;
 import com.google.common.base.Preconditions;
 import com.google.common.collect.ImmutableList;
@@ -116,6 +117,31 @@ public abstract class EvalUtils {
   }
 
   /**
+   * Returns a transitive superclass or interface implemented by c which is annotated
+   * with SkylarkModule. Returns null if no such class or interface exists.
+   */
+  @VisibleForTesting
+  static Class<?> getParentWithSkylarkModule(Class<?> c) {
+    if (c == null) {
+      return null;
+    }
+    if (c.isAnnotationPresent(SkylarkModule.class)) {
+      return c;
+    }
+    Class<?> parent = getParentWithSkylarkModule(c.getSuperclass());
+    if (parent != null) {
+      return parent;
+    }
+    for (Class<?> ifparent : c.getInterfaces()) {
+      ifparent = getParentWithSkylarkModule(ifparent);
+      if (ifparent != null) {
+        return ifparent;
+      }
+    }
+    return null;
+  }
+
+  /**
    * Returns the Skylark equivalent type of the parameter. Note that the Skylark
    * language doesn't have inheritance. 
    */
@@ -133,6 +159,13 @@ public abstract class EvalUtils {
       return NestedSet.class;
     } else if (Set.class.isAssignableFrom(c)) {
       return Set.class;
+    } else {
+      // Check if one of the superclasses or implemented interfaces has the SkylarkModule
+      // annotation. If yes return that class. 
+      Class<?> parent = getParentWithSkylarkModule(c);
+      if (parent != null) {
+        return parent;
+      }
     }
     return c;
   }

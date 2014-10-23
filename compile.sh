@@ -46,6 +46,7 @@ TEST_LIBRARY_JARS="$LIBRARY_JARS third_party/junit/junit-4.11.jar third_party/tr
 DIRS=$(echo src/{main/java,tools/xcode-common/java/com/google/devtools/build/xcode/{common,util}})
 JAVA_SRCDIRS="src/main/java src/tools/xcode-common/java output/src"
 
+MSYS_DLLS=""
 PATHSEP=":"
 
 function fail() {
@@ -118,6 +119,11 @@ msys*|mingw*)
     fail "mingw gcc detected. Please set CC to point to the msys/Cygwin gcc."
   ${CPP} -v 2>&1 | grep "Target: .*mingw.*" > /dev/null &&
     fail "mingw g++ detected. Please set CPP to point to the msys/Cygwin g++."
+
+  MSYS_DLLS="msys-2.0.dll msys-gcc_s-seh-1.dll msys-stdc++-6.dll"
+  for dll in $MSYS_DLLS ; do
+    cp "/usr/bin/$dll" "output/$dll"
+  done
 esac
 
 test -z "$JAVA_HOME" && fail "JDK not found, please set $$JAVA_HOME."
@@ -240,7 +246,7 @@ touch output/client_info
 chmod 755 output/client_info
 
 log "Creating Bazel self-extracting archive..."
-TO_ZIP="libblaze.jar ${JNILIB} build-runfiles${EXE_EXT} process-wrapper${EXE_EXT} client_info build_interface_so"
+TO_ZIP="libblaze.jar ${JNILIB} build-runfiles${EXE_EXT} process-wrapper${EXE_EXT} client_info build_interface_so ${MSYS_DLLS}"
 (cd output/ ; cat client ${TO_ZIP} | ${MD5SUM} | awk '{ print $1; }' > install_base_key)
 (cd output/ ; zip $ZIPOPTS -q package.zip ${TO_ZIP} install_base_key)
 cat output/client output/package.zip > output/bazel

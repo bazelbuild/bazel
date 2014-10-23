@@ -344,20 +344,6 @@ java_test(
     ],
 )
 
-# unfortunately, this needs to load libunix.so, which is not supported
-# by java_rules_oss, so no proper test yet.  Workaround:
-
-"""
-B=$(pwd)/bazel-genfiles/src/bazel
-$B build -s src:foundations_test
-
-BIN=$($B info blaze-bin)/src
-export TEST_SRCDIR=$BIN/foundations_test.runfiles
-(cd $TEST_SRCDIR &&  java -Djava.library.path=$BIN/
-  -jar $BIN/foundations_test_deploy.jar
-  "com.google.devtools.build.lib.AllTests"; )
-"""
-
 test_prefix = "test/java/com/google/devtools/build/lib"
 
 java_test(
@@ -377,7 +363,8 @@ java_test(
             "vfs/inmemoryfs/*.java",
             "AllTests.java",
         ]],
-        # java_rules_oss doesn't support resource loading.
+        # java_rules_oss doesn't support resource loading with
+        # qualified paths.
         exclude = [test_prefix + "/util/ResourceFileLoaderTest.java"],
     ),
     args = ["com.google.devtools.build.lib.AllTests"],
@@ -387,6 +374,9 @@ java_test(
     jars = [
         "//third_party",
         "//third_party:third_party_test_utils",
+    ],
+    resources = [
+        ":libunix.so",
     ],
     deps = [
         ":bazel-core",

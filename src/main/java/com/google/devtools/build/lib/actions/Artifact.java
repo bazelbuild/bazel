@@ -303,7 +303,8 @@ public class Artifact implements FileType.HasFilename, Comparable<Artifact>, Act
    * to keep around the attribute for the rest we save some memory.
    */
   @Immutable
-  static final class SpecialArtifact extends Artifact {
+  @VisibleForTesting
+  public static final class SpecialArtifact extends Artifact {
     private final SpecialArtifactType type;
 
     SpecialArtifact(Path path, Root root, PathFragment execPath, ArtifactOwner owner,

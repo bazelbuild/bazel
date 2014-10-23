@@ -52,8 +52,9 @@ public final class SkylarkRuleConfiguredTargetBuilder {
     String expectError = ruleContext.attributes().get("expect_failure", Type.STRING);
     try {
       SkylarkRuleContext skylarkRuleContext = new SkylarkRuleContext(ruleContext);
-      SkylarkEnvironment env =
-          ruleContext.getRule().getRuleClassObject().getRuleDefinitionEnvironment().cloneEnv();
+      SkylarkEnvironment env = ruleContext.getRule().getRuleClassObject()
+          .getRuleDefinitionEnvironment().cloneEnv(
+              ruleContext.getAnalysisEnvironment().getEventHandler());
       // Collect the symbols to disable statically and pass at the next call, so we don't need to
       // clone the RuleDefinitionEnvironment.
       env.disableOnlyLoadingPhaseObjects();

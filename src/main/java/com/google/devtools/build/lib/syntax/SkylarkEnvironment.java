@@ -16,6 +16,8 @@ package com.google.devtools.build.lib.syntax;
 import com.google.common.base.Preconditions;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.Iterables;
+import com.google.devtools.build.lib.events.Event;
+import com.google.devtools.build.lib.events.EventHandler;
 
 import java.util.ArrayList;
 import java.util.HashSet;
@@ -39,6 +41,8 @@ public class SkylarkEnvironment extends Environment {
 
   private ImmutableList<String> stackTrace;
 
+  private EventHandler eventHandler;
+
   /**
    * Creates a Skylark Environment for function calling, from the global Environment of the
    * caller Environment (which must be a Skylark Environment).
@@ -54,7 +58,12 @@ public class SkylarkEnvironment extends Environment {
         .addAll(callerEnv.getStackTrace())
         .add(function.getName())
         .build();
-    SkylarkEnvironment childEnv = new SkylarkEnvironment(definitionEnv, stackTrace);
+    SkylarkEnvironment childEnv = new SkylarkEnvironment(definitionEnv, stackTrace,
+        callerEnv.isSkylarkEnabled()
+            ? ((SkylarkEnvironment) callerEnv).eventHandler
+            // Calling from a BUILD file, which means it's still loading phase. In this case it's
+            // OK to use the caller's EventHandler, it's still valid.
+            : definitionEnv.eventHandler);
     try {
       for (String varname : callerEnv.propagatingVariables) {
         childEnv.updateAndPropagate(varname, callerEnv.lookup(varname));
@@ -68,22 +77,26 @@ public class SkylarkEnvironment extends Environment {
     return childEnv;
   }
 
-  private SkylarkEnvironment(SkylarkEnvironment definitionEnv, ImmutableList<String> stackTrace) {
+  private SkylarkEnvironment(SkylarkEnvironment definitionEnv, ImmutableList<String> stackTrace,
+      EventHandler eventHandler) {
     super(definitionEnv.getGlobalEnvironment());
     this.stackTrace = stackTrace;
+    this.eventHandler = eventHandler;
   }
 
   /**
    * Creates a global SkylarkEnvironment.
    */
-  public SkylarkEnvironment() {
+  public SkylarkEnvironment(EventHandler eventHandler) {
     super();
     stackTrace = ImmutableList.of();
+    this.eventHandler = eventHandler;
   }
 
   public SkylarkEnvironment(SkylarkEnvironment globalEnv) {
     super(globalEnv);
     stackTrace = ImmutableList.of();
+    this.eventHandler = globalEnv.eventHandler;
   }
 
   @Override
@@ -94,9 +107,9 @@ public class SkylarkEnvironment extends Environment {
   /**
    * Clones this Skylark global environment.
    */
-  public SkylarkEnvironment cloneEnv() {
+  public SkylarkEnvironment cloneEnv(EventHandler eventHandler) {
     Preconditions.checkArgument(isGlobalEnvironment());
-    SkylarkEnvironment newEnv = new SkylarkEnvironment();
+    SkylarkEnvironment newEnv = new SkylarkEnvironment(eventHandler);
     for (Entry<String, Object> entry : env.entrySet()) {
       newEnv.env.put(entry.getKey(), entry.getValue());
     }
@@ -209,5 +222,9 @@ public class SkylarkEnvironment extends Environment {
     for (Class<?> moduleClass : modulesToRemove) {
       disabledNameSpaces.add(moduleClass);
     }
+  }
+
+  public void handleEvent(Event event) {
+    eventHandler.handle(event);
   }
 }

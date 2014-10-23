@@ -94,7 +94,9 @@ public class SkylarkImportLookupFunction implements SkyFunction {
   private SkylarkEnvironment createEnv(BuildFileAST ast,
       Map<PathFragment, SkylarkEnvironment> importMap, Environment env)
           throws InterruptedException {
-    SkylarkEnvironment extensionEnv = ruleClassProvider.createSkylarkRuleClassEnvironment();
+    StoredEventHandler eventHandler = new StoredEventHandler();
+    SkylarkEnvironment extensionEnv =
+        ruleClassProvider.createSkylarkRuleClassEnvironment(eventHandler);
     // Adding native rules module for build extensions.
     // TODO(bazel-team): this might not be the best place to do this.
     extensionEnv.update("native", ruleClassProvider.getNativeModule());
@@ -103,7 +105,6 @@ public class SkylarkImportLookupFunction implements SkyFunction {
             ruleClassProvider.getNativeModule().getClass(), function.getName(), function);
     }
     extensionEnv.setImportedExtensions(importMap);
-    StoredEventHandler eventHandler = new StoredEventHandler();
     ast.exec(extensionEnv, eventHandler);
     // Don't fail just replay the events so the original package lookup can fail.
     Event.replayEventsOn(env.getListener(), eventHandler.getEvents());

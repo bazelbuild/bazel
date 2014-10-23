@@ -16,6 +16,24 @@
 java_filetype = filetype([".java"])
 jar_filetype = filetype([".jar"])
 
+UNIX_JAVA_PATH = "/usr/bin/"
+WINDOWS_JAVA_PATH = "C:/Program\ Files/Java/jdk1.8.0_20/bin/"
+
+def is_windows(config):
+  return config.fragment(cpp).compiler.startswith("windows_")
+
+def java_path(ctx):
+  if is_windows(ctx.configuration):
+    return WINDOWS_JAVA_PATH
+  else:
+    return UNIX_JAVA_PATH
+
+def path_separator(ctx):
+  if is_windows(ctx.configuration):
+    return ";"
+  else:
+    return ":"
+
 # This is a quick and dirty rule to make Bazel compile itself. It's not
 # production ready.
 
@@ -42,24 +60,25 @@ def java_library_impl(ctx):
       content = cmd_helper.join_paths("\n", set(sources)),
       executable = False)
 
-  javapath = "/usr/bin/"
-  pathsep = ":"
-  if ctx.configuration.fragment(cpp).compiler.startswith("windows_"):
-    javapath = "c:/program\ files/java/jdk1.8.0_20/bin/"
-    pathsep = ";"
+  javapath = java_path(ctx)
 
   # Cleaning build output directory
   cmd = "set -e;rm -rf " + build_output + ";mkdir " + build_output + "\n"
   if ctx.files.srcs:
     cmd += javapath + "javac"
     if compile_time_jars:
-      cmd += " -classpath '" + cmd_helper.join_paths(pathsep, compile_time_jars) + "'"
+      cmd += " -classpath '" + cmd_helper.join_paths(path_separator(ctx), compile_time_jars) + "'"
     cmd += " -d " + build_output + " @" + sources_param_file.path + "\n"
+
+  # We haven't got a good story for where these should end up, so
+  # stick them in the root of the jar.
+  for r in ctx.files.resources:
+    cmd += "cp %s %s\n" % (r.path, build_output)
   cmd += (javapath + "jar cf " + class_jar.path + " -C " + build_output + " .\n" +
          "touch " + build_output + "\n")
-
   ctx.action(
-    inputs = sources + compile_time_jar_list + [sources_param_file],
+    inputs = (sources + compile_time_jar_list + [sources_param_file] +
+              ctx.files.resources),
     outputs = [class_jar],
     mnemonic='Javac',
     command=cmd,
@@ -80,30 +99,24 @@ def java_binary_impl(ctx):
   manifest = ctx.outputs.manifest
   build_output = deploy_jar.path + ".build_output"
   main_class = ctx.attr.main_class
-  runtime_jars = set(order="link")
-  for dep in ctx.targets.deps:
-    runtime_jars += dep.runtime_jars
-
-  runtime_jars += [library_result.compile_time_jar]
-  runtime_jars += jar_filetype.filter(ctx.files.jars)
-
-  jars = list(runtime_jars)
   ctx.file_action(
     output = manifest,
     content = "Main-Class: " + main_class + "\n",
     executable = False)
 
+  javapath = java_path(ctx)
+
   # Cleaning build output directory
   cmd = "set -e;rm -rf " + build_output + ";mkdir " + build_output + "\n"
-  for jar in jars:
+  for jar in library_result.runtime_jars:
     cmd += "unzip -qn " + jar.path + " -d " + build_output + "\n"
-  cmd += ("/usr/bin/jar cmf " + manifest.path + " " +
+  cmd += (javapath + "jar cmf " + manifest.path + " " +
          deploy_jar.path + " -C " + build_output + " .\n" +
          "touch " + build_output + "\n")
 
   ctx.action(
-    inputs = jars + [manifest],
-    outputs = [deploy_jar],
+    inputs=list(library_result.runtime_jars) + [manifest],
+    outputs=[deploy_jar],
     mnemonic='Deployjar',
     command=cmd,
     use_default_shell_env=True)
@@ -129,9 +142,19 @@ def java_binary_impl(ctx):
         "  fi",
         "fi",
         "",
-        ("exec java -jar $(dirname $self)/$(basename %s) \"$@\"" %
-         deploy_jar.path),
-        ""]),
+
+        # We extract the .so into a temp dir. If only we could mmap
+        # directly from the zip file.
+        "DEPLOY=$(dirname $self)/$(basename %s)" % deploy_jar.path,
+        "SO_DIR=$(mktemp -d)",
+        "function cleanup() {",
+        "  rm -rf ${SO_DIR}",
+        "}",
+        "trap cleanup EXIT",
+        "unzip -q -d ${SO_DIR} ${DEPLOY} \"*.so\" \"*.dll\" \"*.dylib\" >& /dev/null",
+        "java -Djava.library.path=${SO_DIR} -jar $DEPLOY \"$@\"",
+        "",
+        ]),
     executable = True)
 
   runfiles = ctx.runfiles(files = [deploy_jar, executable], collect_data = True)
@@ -146,6 +169,7 @@ java_library_attrs = {
         allow_files=True,
         allow_rules=False,
         cfg=DATA_CFG),
+    "resources": attr.label_list(allow_files=True),
     "srcs": attr.label_list(allow_files=java_filetype),
     "jars": attr.label_list(allow_files=jar_filetype),
     "deps": attr.label_list(

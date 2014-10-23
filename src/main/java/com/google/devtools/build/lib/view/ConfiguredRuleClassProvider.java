@@ -22,6 +22,7 @@ import com.google.common.cache.CacheLoader;
 import com.google.common.cache.LoadingCache;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
+import com.google.devtools.build.lib.events.EventHandler;
 import com.google.devtools.build.lib.graph.Digraph;
 import com.google.devtools.build.lib.graph.Node;
 import com.google.devtools.build.lib.packages.Attribute;
@@ -354,8 +355,8 @@ public class ConfiguredRuleClassProvider implements RuleClassProvider {
   public static final NativeModule nativeModule = new NativeModule();
 
   @Override
-  public SkylarkEnvironment createSkylarkRuleClassEnvironment() {
-    SkylarkEnvironment env = SkylarkModules.getNewEnvironment();
+  public SkylarkEnvironment createSkylarkRuleClassEnvironment(EventHandler eventHandler) {
+    SkylarkEnvironment env = SkylarkModules.getNewEnvironment(eventHandler);
     for (Map.Entry<String, SkylarkType> entry : skylarkAccessibleJavaClasses.entrySet()) {
       env.update(entry.getKey(), entry.getValue().getType());
     }

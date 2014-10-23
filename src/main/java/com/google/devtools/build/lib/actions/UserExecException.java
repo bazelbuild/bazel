@@ -31,12 +31,11 @@ public class UserExecException extends ExecException {
   @Override
   public ActionExecutionException toActionExecutionException(String messagePrefix,
         boolean verboseFailures, Action action) {
+    String message = messagePrefix + " failed: " + getMessage();
     if (verboseFailures) {
-      return new ActionExecutionException(messagePrefix + " failed" + getMessage(), this, action,
-          isCatastrophic());
+      return new ActionExecutionException(message, this, action, isCatastrophic());
     } else {
-      return new ActionExecutionException(messagePrefix + " failed" + getMessage(), action,
-          isCatastrophic());
+      return new ActionExecutionException(message, action, isCatastrophic());
     }
   }
 }

@@ -17,6 +17,7 @@ package com.google.devtools.build.lib.rules;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 import com.google.devtools.build.lib.collect.CollectionUtils;
+import com.google.devtools.build.lib.events.EventHandler;
 import com.google.devtools.build.lib.packages.MethodLibrary;
 import com.google.devtools.build.lib.syntax.Environment;
 import com.google.devtools.build.lib.syntax.Function;
@@ -69,8 +70,8 @@ public class SkylarkModules {
   /**
    * Returns a new SkylarkEnvironment with the elements of the Skylark modules.
    */
-  public static SkylarkEnvironment getNewEnvironment() {
-    SkylarkEnvironment env = new SkylarkEnvironment();
+  public static SkylarkEnvironment getNewEnvironment(EventHandler eventHandler) {
+    SkylarkEnvironment env = new SkylarkEnvironment(eventHandler);
     setupEnvironment(env);
     return env;
   }

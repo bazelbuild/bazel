@@ -16,10 +16,13 @@ package com.google.devtools.build.lib.packages;
 
 import static com.google.devtools.build.lib.syntax.SkylarkFunction.cast;
 
+import com.google.common.base.Joiner;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
+import com.google.common.collect.Iterables;
 import com.google.common.collect.Lists;
 import com.google.devtools.build.lib.collect.nestedset.Order;
+import com.google.devtools.build.lib.events.Event;
 import com.google.devtools.build.lib.events.Location;
 import com.google.devtools.build.lib.packages.Type.ConversionException;
 import com.google.devtools.build.lib.syntax.AbstractFunction;
@@ -36,6 +39,7 @@ import com.google.devtools.build.lib.syntax.MixedModeFunction;
 import com.google.devtools.build.lib.syntax.SelectorValue;
 import com.google.devtools.build.lib.syntax.SkylarkBuiltin;
 import com.google.devtools.build.lib.syntax.SkylarkBuiltin.Param;
+import com.google.devtools.build.lib.syntax.SkylarkEnvironment;
 import com.google.devtools.build.lib.syntax.SkylarkList;
 import com.google.devtools.build.lib.syntax.SkylarkModule;
 import com.google.devtools.build.lib.syntax.SkylarkNestedSet;
@@ -839,6 +843,37 @@ public class MethodLibrary {
     }
   };
 
+  @SkylarkBuiltin(name = "print", returnType = Environment.NoneType.class,
+      doc = "Prints <code>msg</code> to the console.",
+      mandatoryParams = {
+      @Param(name = "*args", doc = "The objects to print.")},
+      optionalParams = {
+      @Param(name = "sep", type = String.class,
+          doc = "The separator string between the objects, default is space (\" \").")})
+  private static final Function print = new AbstractFunction("print") {
+    @Override
+    public Object call(List<Object> args, Map<String, Object> kwargs, FuncallExpression ast,
+        Environment env) throws EvalException, InterruptedException {
+      String sep = " ";
+      if (kwargs.containsKey("sep")) {
+        sep = cast(kwargs.remove("sep"), String.class, "sep", ast.getLocation());
+      }
+      if (kwargs.size() > 0) {
+        throw new EvalException(ast.getLocation(),
+            "unexpected keywords: '" + kwargs.keySet() + "'");
+      }
+      String msg = Joiner.on(sep).join(Iterables.transform(args,
+          new com.google.common.base.Function<Object, String>() {
+        @Override
+        public String apply(Object input) {
+          return EvalUtils.printValue(input);
+        }
+      }));
+      ((SkylarkEnvironment) env).handleEvent(Event.warn(ast.getLocation(), msg));
+      return Environment.NONE;
+    }
+  };
+
   /**
    * Skylark String module.
    */
@@ -931,6 +966,7 @@ public class MethodLibrary {
       .put(range, SkylarkType.of(SkylarkList.class, Integer.class))
       .put(type, SkylarkType.of(String.class))
       .put(fail, SkylarkType.NONE)
+      .put(print, SkylarkType.NONE)
       .build();
 
   /**

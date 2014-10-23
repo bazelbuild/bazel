@@ -197,10 +197,10 @@ public final class Label implements Comparable<Label>, Serializable {
   }
 
   /** The name and repository of the package. */
-  private PackageIdentifier packageIdentifier;
+  private final PackageIdentifier packageIdentifier;
 
   /** The name of the target within the package. Canonical. */
-  private String name;
+  private final String name;
 
   /**
    * Constructor from a package name, target name. Both are checked for validity

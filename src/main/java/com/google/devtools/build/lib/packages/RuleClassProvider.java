@@ -14,6 +14,7 @@
 
 package com.google.devtools.build.lib.packages;
 
+import com.google.devtools.build.lib.events.EventHandler;
 import com.google.devtools.build.lib.syntax.SkylarkEnvironment;
 import com.google.devtools.build.lib.syntax.ValidationEnvironment;
 
@@ -32,7 +33,7 @@ public interface RuleClassProvider {
    * Returns a new Skylark Environment instance for rule creation. Implementations need to be
    * thread safe.
    */
-  SkylarkEnvironment createSkylarkRuleClassEnvironment();
+  SkylarkEnvironment createSkylarkRuleClassEnvironment(EventHandler eventHandler);
 
   /**
    * Returns a validation environment for static analysis of skylark files.

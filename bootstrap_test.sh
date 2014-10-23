@@ -14,7 +14,7 @@ $BOOTSTRAP build //src:bazel
 
 bazel-genfiles/src/bazel >/dev/null  # check that execution succeeds
 
-$BOOTSTRAP test --test_output=errors //src:all
+$BOOTSTRAP test -k --test_output=errors //src:all
 
 rm -f $BOOTSTRAP
 echo "Bootstrap test succeeded"
