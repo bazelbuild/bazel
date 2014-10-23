@@ -265,7 +265,7 @@ public final class BlazeRuntime {
     this.configurationFactory = configurationFactory;
     this.view = new BuildView(
         directories, getPackageManager(), ruleClassProvider, skyframeExecutor,
-        getQueryOutputFormatters(), binTools, workspaceStatusActionFactory);
+        getQueryOutputFormatters(), binTools);
     this.clock = clock;
     this.timestampGranularityMonitor = Preconditions.checkNotNull(timestampGranularityMonitor);
     this.startupOptionsProvider = startupOptionsProvider;

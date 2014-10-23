@@ -34,43 +34,42 @@ import java.util.UUID;
 import javax.annotation.Nullable;
 
 /**
- * A value that represents a global build variable.
- *
- * <p>This is basically a box for "miscellaneous" auxiliary build-global values that do not merit
- * their own value builder.
+ * A value that represents something computed outside of the skyframe framework. These values are
+ * "precomputed" from skyframe's perspective and so the graph needs to be prepopulated with them
+ * (e.g. via injection).
  */
-public class BuildVariableValue implements SkyValue {
+public class PrecomputedValue implements SkyValue {
 
-  static final BuildVariable<String> DEFAULTS_PACKAGE_CONTENTS =
-      new BuildVariable<>(new SkyKey(SkyFunctions.BUILD_VARIABLE, "default_pkg"));
+  static final Precomputed<String> DEFAULTS_PACKAGE_CONTENTS =
+      new Precomputed<>(new SkyKey(SkyFunctions.PRECOMPUTED, "default_pkg"));
 
-  static final BuildVariable<RuleVisibility> DEFAULT_VISIBILITY =
-      new BuildVariable<>(new SkyKey(SkyFunctions.BUILD_VARIABLE, "default_visibility"));
+  static final Precomputed<RuleVisibility> DEFAULT_VISIBILITY =
+      new Precomputed<>(new SkyKey(SkyFunctions.PRECOMPUTED, "default_visibility"));
 
-  static final BuildVariable<UUID> BUILD_ID =
-      new BuildVariable<>(new SkyKey(SkyFunctions.BUILD_VARIABLE, "build_id"));
+  static final Precomputed<UUID> BUILD_ID =
+      new Precomputed<>(new SkyKey(SkyFunctions.PRECOMPUTED, "build_id"));
 
-  static final BuildVariable<WorkspaceStatusAction> WORKSPACE_STATUS_KEY =
-      new BuildVariable<>(new SkyKey(SkyFunctions.BUILD_VARIABLE, "workspace_status_action"));
+  static final Precomputed<WorkspaceStatusAction> WORKSPACE_STATUS_KEY =
+      new Precomputed<>(new SkyKey(SkyFunctions.PRECOMPUTED, "workspace_status_action"));
 
-  static final BuildVariable<TopLevelArtifactContext> TOP_LEVEL_CONTEXT =
-      new BuildVariable<>(new SkyKey(SkyFunctions.BUILD_VARIABLE, "top_level_context"));
+  static final Precomputed<TopLevelArtifactContext> TOP_LEVEL_CONTEXT =
+      new Precomputed<>(new SkyKey(SkyFunctions.PRECOMPUTED, "top_level_context"));
 
-  static final BuildVariable<Map<BuildInfoKey, BuildInfoFactory>> BUILD_INFO_FACTORIES =
-      new BuildVariable<>(new SkyKey(SkyFunctions.BUILD_VARIABLE, "build_info_factories"));
+  static final Precomputed<Map<BuildInfoKey, BuildInfoFactory>> BUILD_INFO_FACTORIES =
+      new Precomputed<>(new SkyKey(SkyFunctions.PRECOMPUTED, "build_info_factories"));
 
-  static final BuildVariable<Map<String, String>> TEST_ENVIRONMENT_VARIABLES =
-      new BuildVariable<>(new SkyKey(SkyFunctions.BUILD_VARIABLE, "test_environment"));
+  static final Precomputed<Map<String, String>> TEST_ENVIRONMENT_VARIABLES =
+      new Precomputed<>(new SkyKey(SkyFunctions.PRECOMPUTED, "test_environment"));
 
-  static final BuildVariable<BlazeDirectories> BLAZE_DIRECTORIES =
-      new BuildVariable<>(new SkyKey(SkyFunctions.BUILD_VARIABLE, "blaze_directories"));
+  static final Precomputed<BlazeDirectories> BLAZE_DIRECTORIES =
+      new Precomputed<>(new SkyKey(SkyFunctions.PRECOMPUTED, "blaze_directories"));
 
-  static final BuildVariable<ImmutableMap<Action, Exception>> BAD_ACTIONS =
-      new BuildVariable<>(new SkyKey(SkyFunctions.BUILD_VARIABLE, "bad_actions"));
+  static final Precomputed<ImmutableMap<Action, Exception>> BAD_ACTIONS =
+      new Precomputed<>(new SkyKey(SkyFunctions.PRECOMPUTED, "bad_actions"));
 
   private final Object value;
 
-  public BuildVariableValue(Object value) {
+  public PrecomputedValue(Object value) {
     this.value = Preconditions.checkNotNull(value);
   }
 
@@ -88,10 +87,10 @@ public class BuildVariableValue implements SkyValue {
 
   @Override
   public boolean equals(Object obj) {
-    if (!(obj instanceof BuildVariableValue)) {
+    if (!(obj instanceof PrecomputedValue)) {
       return false;
     }
-    BuildVariableValue other = (BuildVariableValue) obj;
+    PrecomputedValue other = (PrecomputedValue) obj;
     return value.equals(other.value);
   }
 
@@ -109,10 +108,10 @@ public class BuildVariableValue implements SkyValue {
    *
    * <p>Instances do not have internal state.
    */
-  static final class BuildVariable<T> {
+  static final class Precomputed<T> {
     private final SkyKey key;
 
-    private BuildVariable(SkyKey key) {
+    private Precomputed(SkyKey key) {
       this.key = key;
     }
 
@@ -129,7 +128,7 @@ public class BuildVariableValue implements SkyValue {
     @Nullable
     @SuppressWarnings("unchecked")
     T get(SkyFunction.Environment env) {
-      BuildVariableValue value = (BuildVariableValue) env.getValue(key);
+      PrecomputedValue value = (PrecomputedValue) env.getValue(key);
       if (value == null) {
         return null;
       }
@@ -140,7 +139,7 @@ public class BuildVariableValue implements SkyValue {
      * Injects a new variable value.
      */
     void set(Injectable differencer, T value) {
-      differencer.inject(ImmutableMap.of(key, (SkyValue) new BuildVariableValue(value)));
+      differencer.inject(ImmutableMap.of(key, (SkyValue) new PrecomputedValue(value)));
     }
   }
 }

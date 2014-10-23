@@ -302,6 +302,7 @@ public class Artifact implements FileType.HasFilename, Comparable<Artifact>, Act
    * to save memory. The proportion of artifacts that are special is very small, and by not having
    * to keep around the attribute for the rest we save some memory.
    */
+  @Immutable
   static final class SpecialArtifact extends Artifact {
     private final SpecialArtifactType type;
 

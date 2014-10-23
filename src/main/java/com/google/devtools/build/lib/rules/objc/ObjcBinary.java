@@ -174,7 +174,7 @@ public class ObjcBinary implements RuleConfiguredTargetFactory {
 
       ruleContext.getAnalysisEnvironment().registerAction(new SpawnAction.Builder(ruleContext)
           .setMnemonic("Unzipping dSYM file")
-          .setExecutable(ruleContext.getExecutablePrerequisite("$unzip", Mode.HOST))
+          .setExecutable(new PathFragment("/usr/bin/unzip"))
           .addInput(dSym)
           .setCommandLine(new CommandLine() {
             @Override

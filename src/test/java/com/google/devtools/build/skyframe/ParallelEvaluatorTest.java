@@ -784,9 +784,8 @@ public class ParallelEvaluatorTest {
     // With keepGoing=false, the eval call will terminate with exactly one error (the first one
     // thrown). But the first one thrown here is non-deterministic since we synchronize the
     // builders so that they run at roughly the same time.
-    ImmutableSet<SkyKey> actual = ImmutableSet.<SkyKey>of(firstError, secondError);
-    SkyKey expected = Iterables.<SkyKey>getOnlyElement(result.errorMap().keySet());
-    assertTrue(actual.contains(expected));
+    assertThat(ImmutableSet.of(firstError, secondError)).contains(
+        Iterables.getOnlyElement(result.errorMap().keySet()));
   }
 
   @Test
@@ -1974,7 +1973,6 @@ public class ParallelEvaluatorTest {
       @Override
       public void accept(SkyKey key, EventType type, Order order, Object context) {
         if (key.equals(errorKey) && type == EventType.SET_VALUE && order == Order.AFTER) {
-          assertEquals(1, numOtherInvocations.get());
           errorCommitted.countDown();
           trackingAwaiterForOther.awaitLatchAndTrackExceptions(otherDone,
               "otherKey's SkyFunction didn't finish in time");

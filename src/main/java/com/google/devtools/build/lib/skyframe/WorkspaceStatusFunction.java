@@ -29,7 +29,7 @@ public class WorkspaceStatusFunction implements SkyFunction {
     Preconditions.checkState(
         WorkspaceStatusValue.SKY_KEY.equals(skyKey), WorkspaceStatusValue.SKY_KEY);
 
-    WorkspaceStatusAction action = BuildVariableValue.WORKSPACE_STATUS_KEY.get(env);
+    WorkspaceStatusAction action = PrecomputedValue.WORKSPACE_STATUS_KEY.get(env);
     if (action == null) {
       return null;
     }

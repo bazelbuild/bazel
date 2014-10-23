@@ -48,7 +48,7 @@ public class ExitCode {
   public static final ExitCode INTERRUPTED = ExitCode.create(8, "INTERRUPTED");
   public static final ExitCode OOM_ERROR = ExitCode.createInfrastructureFailure(33, "OOM_ERROR");
   public static final ExitCode LOCAL_ENVIRONMENTAL_ERROR =
-      ExitCode.createInfrastructureFailure(36, "LOCAL_ENIVRONMENTAL_ERROR");
+      ExitCode.createInfrastructureFailure(36, "LOCAL_ENVIRONMENTAL_ERROR");
   public static final ExitCode BLAZE_INTERNAL_ERROR =
       ExitCode.createInfrastructureFailure(37, "BLAZE_INTERNAL_ERROR");
   public static final ExitCode RESERVED = ExitCode.createInfrastructureFailure(40, "RESERVED");

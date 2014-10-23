@@ -500,4 +500,18 @@ public final class SkylarkRuleContext {
   FilesToRunProvider getExecutableRunfiles(Artifact executable) {
     return executableRunfilesMap.get(executable);
   }
+
+  @SkylarkCallable(name = "info_file", structField = true, hidden = true,
+      doc = "Returns the file that is used to hold the non-volatile workspace status for the " 
+          + "current build request.")
+  public Artifact getStableWorkspaceStatus() {
+    return ruleContext.getAnalysisEnvironment().getStableWorkspaceStatusArtifact();
+  }
+
+  @SkylarkCallable(name = "version_file", structField = true, hidden = true,
+      doc = "Returns the file that is used to hold the volatile workspace status for the "
+          + "current build request.")
+  public Artifact getVolatileWorkspaceStatus() {
+    return ruleContext.getAnalysisEnvironment().getVolatileWorkspaceStatusArtifact();
+  }
 }

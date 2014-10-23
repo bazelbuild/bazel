@@ -224,7 +224,7 @@ public final class ActionExecutionStatusReporter {
       return;
     }
     Iterator<ActionMetadata> iterator = statusMap.keySet().iterator();
-    while(iterator.hasNext()) {
+    while (iterator.hasNext()) {
       // Filter out actions that are not executed yet.
       if (statusMap.get(iterator.next()).first.equals(ActionStatusMessage.PREPARING)) {
         iterator.remove();

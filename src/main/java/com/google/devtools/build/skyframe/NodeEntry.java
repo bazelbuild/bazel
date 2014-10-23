@@ -45,8 +45,10 @@ import javax.annotation.Nullable;
  * {@link BuildingState} methods.
  *
  * <p>This class is non-final only for testing purposes.
+ * <p>This class is public only for the benefit of alternative graph implementations outside of the
+ * package.
  */
-class NodeEntry {
+public class NodeEntry {
   /**
    * Return code for {@link #addReverseDepAndCheckIfDone(SkyKey)}.
    */
@@ -272,7 +274,7 @@ class NodeEntry {
    * current version. Callers can query that version to see if the node considers its value to have
    * changed.
    */
-  synchronized Set<SkyKey> setValue(SkyValue value, Version version) {
+  public synchronized Set<SkyKey> setValue(SkyValue value, Version version) {
     Preconditions.checkState(isReady(), "%s %s", this, value);
     // This check may need to be removed when we move to a non-linear versioning sequence.
     Preconditions.checkState(this.version.atMost(version),
@@ -390,7 +392,7 @@ class NodeEntry {
    * Returns true if the entry is marked dirty, meaning that at least one of its transitive
    * dependencies is marked changed.
    */
-  synchronized boolean isDirty() {
+  public synchronized boolean isDirty() {
     return !isDone() && buildingState.isDirty();
   }
 

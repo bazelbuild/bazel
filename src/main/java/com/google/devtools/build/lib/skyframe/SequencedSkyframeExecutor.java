@@ -87,14 +87,14 @@ public final class SequencedSkyframeExecutor extends SkyframeExecutor {
   private final DiffAwarenessManager diffAwarenessManager;
 
   public SequencedSkyframeExecutor(Reporter reporter, EvaluatorSupplier evaluatorSupplier,
-      PackageFactory pkgFactory, boolean skyframeBuild, TimestampGranularityMonitor tsgm,
+      PackageFactory pkgFactory, TimestampGranularityMonitor tsgm,
       BlazeDirectories directories, WorkspaceStatusAction.Factory workspaceStatusActionFactory,
       ImmutableList<BuildInfoFactory> buildInfoFactories,
       Iterable<? extends DiffAwareness.Factory> diffAwarenessFactories,
       Predicate<PathFragment> allowedMissingInputs,
       Preprocessor.Factory.Supplier preprocessorFactorySupplier,
       Clock clock) {
-    super(reporter, evaluatorSupplier, pkgFactory, skyframeBuild, tsgm, directories,
+    super(reporter, evaluatorSupplier, pkgFactory, tsgm, directories,
         workspaceStatusActionFactory, buildInfoFactories,
         allowedMissingInputs, preprocessorFactorySupplier, clock);
     this.diffAwarenessManager = new DiffAwarenessManager(diffAwarenessFactories, reporter);
@@ -102,13 +102,13 @@ public final class SequencedSkyframeExecutor extends SkyframeExecutor {
   }
 
   public SequencedSkyframeExecutor(Reporter reporter, PackageFactory pkgFactory,
-      boolean skyframeBuild, TimestampGranularityMonitor tsgm, BlazeDirectories directories,
+      TimestampGranularityMonitor tsgm, BlazeDirectories directories,
       WorkspaceStatusAction.Factory workspaceStatusActionFactory,
       ImmutableList<BuildInfoFactory> buildInfoFactories,
       Iterable<? extends DiffAwareness.Factory> diffAwarenessFactories,
       Predicate<PathFragment> allowedMissingInputs,
       Preprocessor.Factory.Supplier preprocessorFactorySupplier, Clock clock) {
-    this(reporter, InMemoryMemoizingEvaluator.SUPPLIER, pkgFactory, skyframeBuild, tsgm,
+    this(reporter, InMemoryMemoizingEvaluator.SUPPLIER, pkgFactory, tsgm,
         directories, workspaceStatusActionFactory, buildInfoFactories,
         diffAwarenessFactories, allowedMissingInputs, preprocessorFactorySupplier, clock);
   }
@@ -119,7 +119,7 @@ public final class SequencedSkyframeExecutor extends SkyframeExecutor {
       WorkspaceStatusAction.Factory workspaceStatusActionFactory,
       ImmutableList<BuildInfoFactory> buildInfoFactories,
       Iterable<? extends DiffAwareness.Factory> diffAwarenessFactories) {
-    this(reporter, pkgFactory, true, tsgm, directories, workspaceStatusActionFactory,
+    this(reporter, pkgFactory, tsgm, directories, workspaceStatusActionFactory,
         buildInfoFactories, diffAwarenessFactories, Predicates.<PathFragment>alwaysFalse(),
         Preprocessor.Factory.Supplier.NullSupplier.INSTANCE, BlazeClock.instance());
   }
@@ -166,9 +166,21 @@ public final class SequencedSkyframeExecutor extends SkyframeExecutor {
     handleDiffs();
   }
 
+  /**
+   * The value types whose builders have direct access to the package locator. They need to be
+   * invalidated if the package locator changes.
+   */
+  private static final Set<SkyFunctionName> PACKAGE_LOCATOR_DEPENDENT_VALUES = ImmutableSet.of(
+          SkyFunctions.FILE_STATE,
+          SkyFunctions.FILE,
+          SkyFunctions.DIRECTORY_LISTING_STATE,
+          SkyFunctions.PACKAGE_LOOKUP,
+          SkyFunctions.TARGET_PATTERN,
+          SkyFunctions.WORKSPACE_FILE);
+
   @Override
   protected void onNewPackageLocator(PathPackageLocator oldLocator, PathPackageLocator pkgLocator) {
-    diffAwarenessManager.setPathEntries(pkgLocator.getPathEntries());
+    invalidate(SkyFunctionName.functionIsIn(PACKAGE_LOCATOR_DEPENDENT_VALUES));
   }
 
   @Override
@@ -318,10 +330,8 @@ public final class SequencedSkyframeExecutor extends SkyframeExecutor {
     recordingDiffer.inject(diff.changedKeysWithNewValues());
     modifiedFiles += getNumberOfModifiedFiles(diff.changedKeysWithoutNewValues());
     modifiedFiles += getNumberOfModifiedFiles(diff.changedKeysWithNewValues().keySet());
-    if (skyframeBuild()) {
-      incrementalBuildMonitor.accrue(diff.changedKeysWithoutNewValues());
-      incrementalBuildMonitor.accrue(diff.changedKeysWithNewValues().keySet());
-    }
+    incrementalBuildMonitor.accrue(diff.changedKeysWithoutNewValues());
+    incrementalBuildMonitor.accrue(diff.changedKeysWithNewValues().keySet());
   }
 
   private static int getNumberOfModifiedFiles(Iterable<SkyKey> modifiedValues) {
@@ -338,7 +348,7 @@ public final class SequencedSkyframeExecutor extends SkyframeExecutor {
       // Some blaze commands don't include the view options. Don't bother with them.
       return;
     }
-    if (skyframeBuild && batch && viewOptions.keepGoing && viewOptions.discardAnalysisCache) {
+    if (batch && viewOptions.keepGoing && viewOptions.discardAnalysisCache) {
       Preconditions.checkState(keepGraphEdges, "May only be called once if successful");
       keepGraphEdges = false;
       // Graph will be recreated on next sync.
@@ -413,11 +423,7 @@ public final class SequencedSkyframeExecutor extends SkyframeExecutor {
 
   @Override
   public void clearAnalysisCache(Collection<ConfiguredTarget> topLevelTargets) {
-    if (!skyframeBuild()) {
-      dropConfiguredTargetsNow();
-    } else {
-      discardAnalysisCache(topLevelTargets);
-    }
+    discardAnalysisCache(topLevelTargets);
   }
 
   @Override

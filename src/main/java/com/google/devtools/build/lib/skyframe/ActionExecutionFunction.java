@@ -89,7 +89,7 @@ public class ActionExecutionFunction implements SkyFunction {
     if (action.isVolatile() || action instanceof NotifyOnActionCacheHit) {
       // Volatile build actions may need to execute even if none of their known inputs have changed.
       // Depending on the buildID ensure that these actions have a chance to execute.
-      BuildVariableValue.BUILD_ID.get(env);
+      PrecomputedValue.BUILD_ID.get(env);
     }
     if (env.valuesMissing()) {
       return null;

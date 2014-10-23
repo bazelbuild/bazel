@@ -15,6 +15,7 @@ package com.google.devtools.build.lib.skyframe;
 
 import com.google.common.base.Supplier;
 import com.google.devtools.build.lib.blaze.BlazeDirectories;
+import com.google.devtools.build.lib.packages.Package;
 import com.google.devtools.build.lib.skyframe.ConfigurationCollectionValue.ConfigurationCollectionKey;
 import com.google.devtools.build.lib.view.config.BuildConfiguration;
 import com.google.devtools.build.lib.view.config.BuildConfigurationCollection;
@@ -27,6 +28,7 @@ import com.google.devtools.build.skyframe.SkyKey;
 import com.google.devtools.build.skyframe.SkyValue;
 
 import java.util.Map;
+import java.util.Set;
 
 /**
  * A builder for {@link ConfigurationCollectionValue}s.
@@ -35,12 +37,15 @@ public class ConfigurationCollectionFunction implements SkyFunction {
 
   private final Supplier<ConfigurationFactory> configurationFactory;
   private final Supplier<Map<String, String>> clientEnv;
+  private final Supplier<Set<Package>> configurationPackages;
 
   public ConfigurationCollectionFunction(
       Supplier<ConfigurationFactory> configurationFactory,
-      Supplier<Map<String, String>> clientEnv) {
+      Supplier<Map<String, String>> clientEnv,
+      Supplier<Set<Package>> configurationPackages) {
     this.configurationFactory = configurationFactory;
     this.clientEnv = clientEnv;
+    this.configurationPackages = configurationPackages;
   }
 
   @Override
@@ -50,15 +55,15 @@ public class ConfigurationCollectionFunction implements SkyFunction {
     try {
       // We are not using this value, because test_environment can be created from clientEnv. But
       // we want ConfigurationCollection to be recomputed each time when test_environment changes.
-      BuildVariableValue.TEST_ENVIRONMENT_VARIABLES.get(env);
-      BlazeDirectories directories = BuildVariableValue.BLAZE_DIRECTORIES.get(env);
+      PrecomputedValue.TEST_ENVIRONMENT_VARIABLES.get(env);
+      BlazeDirectories directories = PrecomputedValue.BLAZE_DIRECTORIES.get(env);
       if (env.valuesMissing()) {
         return null;
       }
 
       BuildConfigurationCollection result =
           configurationFactory.get().getConfigurations(env.getListener(),
-          new SkyframePackageLoaderWithValueEnvironment(env),
+          new SkyframePackageLoaderWithValueEnvironment(env, configurationPackages.get()),
           new BuildConfigurationKey(collectionKey.getBuildOptions(), directories, clientEnv.get(),
               collectionKey.getMultiCpu()));
 
@@ -74,8 +79,7 @@ public class ConfigurationCollectionFunction implements SkyFunction {
       if (env.valuesMissing()) {
         return null;
       }
-
-      return new ConfigurationCollectionValue(result);
+      return new ConfigurationCollectionValue(result, configurationPackages.get());
     } catch (InvalidConfigurationException e) {
       throw new ConfigurationCollectionFunctionException(skyKey, e);
     }

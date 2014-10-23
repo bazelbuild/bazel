@@ -27,8 +27,8 @@ import com.google.devtools.build.lib.actions.ArtifactFactory;
 import com.google.devtools.build.lib.actions.Root;
 import com.google.devtools.build.lib.concurrent.ThreadSafety.ThreadHostile;
 import com.google.devtools.build.lib.concurrent.ThreadSafety.ThreadSafe;
-import com.google.devtools.build.lib.skyframe.BuildVariableValue;
 import com.google.devtools.build.lib.skyframe.FileValue;
+import com.google.devtools.build.lib.skyframe.PrecomputedValue;
 import com.google.devtools.build.lib.syntax.Label;
 import com.google.devtools.build.lib.vfs.FileSystemUtils;
 import com.google.devtools.build.lib.vfs.Path;
@@ -229,7 +229,7 @@ public class FdoSupport implements Serializable {
         // Incrementality is not supported for LIPO builds, see FdoSupport#scannables.
         // Ensure that the Skyframe value containing the configuration will not be reused to avoid
         // incrementality issues.
-        BuildVariableValue.dependOnBuildId(env);
+        PrecomputedValue.dependOnBuildId(env);
         return;
       }
 

@@ -13,7 +13,6 @@
 // limitations under the License.
 package com.google.devtools.build.lib.skyframe;
 
-import com.google.common.collect.ImmutableList;
 import com.google.devtools.build.lib.vfs.ModifiedFileSet;
 import com.google.devtools.build.lib.vfs.Path;
 
@@ -42,7 +41,7 @@ public interface DiffAwareness extends Closeable {
      * per package path entry using one of the factories that returns a non-null value.
      */
     @Nullable
-    DiffAwareness maybeCreate(Path pathEntry, ImmutableList<Path> pathEntries);
+    DiffAwareness maybeCreate(Path pathEntry);
   }
 
   /**

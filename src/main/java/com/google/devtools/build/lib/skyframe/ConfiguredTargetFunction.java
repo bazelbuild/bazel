@@ -20,9 +20,6 @@ import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableSet;
 import com.google.common.collect.Iterables;
 import com.google.common.collect.ListMultimap;
-import com.google.common.collect.Lists;
-import com.google.devtools.build.lib.actions.Action;
-import com.google.devtools.build.lib.actions.MutableActionGraph.ActionConflictException;
 import com.google.devtools.build.lib.events.Event;
 import com.google.devtools.build.lib.events.StoredEventHandler;
 import com.google.devtools.build.lib.packages.Attribute;
@@ -50,7 +47,6 @@ import com.google.devtools.build.skyframe.SkyKey;
 import com.google.devtools.build.skyframe.SkyValue;
 import com.google.devtools.build.skyframe.ValueOrException;
 
-import java.util.Collection;
 import java.util.HashMap;
 import java.util.Map;
 import java.util.Set;
@@ -71,11 +67,9 @@ final class ConfiguredTargetFunction implements SkyFunction {
   };
 
   private final BuildViewProvider buildViewProvider;
-  private final boolean skyframeFull;
 
-  ConfiguredTargetFunction(BuildViewProvider buildViewProvider, boolean skyframeFull) {
+  ConfiguredTargetFunction(BuildViewProvider buildViewProvider) {
     this.buildViewProvider = buildViewProvider;
-    this.skyframeFull = skyframeFull;
   }
 
   @Override
@@ -300,8 +294,7 @@ final class ConfiguredTargetFunction implements SkyFunction {
     StoredEventHandler events = new StoredEventHandler();
     BuildConfiguration ownerConfig = (configuration == null)
         ? null : configuration.getArtifactOwnerConfiguration();
-    boolean allowRegisteringActions = (configuration == null)
-        ? true : configuration.isActionsEnabled();
+    boolean allowRegisteringActions = configuration == null || configuration.isActionsEnabled();
     CachingAnalysisEnvironment analysisEnvironment = view.createAnalysisEnvironment(
         new LabelAndConfiguration(target.getLabel(), ownerConfig), false,
         extendedSanityChecks, events, env, allowRegisteringActions);
@@ -328,40 +321,8 @@ final class ConfiguredTargetFunction implements SkyFunction {
     analysisEnvironment.disable(target);
     Preconditions.checkNotNull(configuredTarget, target);
 
-    Collection<Action> actions = ImmutableList.copyOf(analysisEnvironment.getRegisteredActions());
-
-    // Record actions and check duplicates.
-    // It's a bit awkward that non-ActionOwner configured targets can have actions, but that's
-    // how BUILD file analysis works right now.
-    Collection<Action> registeredActions = Lists.newArrayListWithCapacity(actions.size());
-
-    if (skyframeFull) {
-      registeredActions.addAll(actions);
-    } else {
-      // TODO(bazel-team): Delete this code as part of m2.5 cleanup. [skyframe-execution]
-      for (Action action : actions) {
-        try {
-          // Invalidate all pending actions before proceeding. This is needed because we could
-          // have pending invalidated actions that would conflict with this registration. We delay
-          // the unregistration until we try to create a new action to avoid a shared actions issue
-          // (see SkyframeBuildView.pendingInvalidatedActions).
-          view.unregisterPendingActions();
-          view.getActionGraph().registerAction(action);
-        } catch (ActionConflictException e) {
-          e.reportTo(env.getListener());
-          // Unregister all actions registered before to keep the legacy action graph in sync.
-          for (Action a : registeredActions) {
-            view.getActionGraph().unregisterAction(a);
-          }
-          throw new ConfiguredTargetFunctionException(ConfiguredTargetValue.key(target.getLabel(),
-              configuration), new ConfiguredValueCreationException(
-              "Analysis of target '" + target.getLabel() + "' failed; build aborted"));
-        }
-        registeredActions.add(action);
-      }
-    }
-
-    return new ConfiguredTargetValue(configuredTarget, actions);
+    return new ConfiguredTargetValue(configuredTarget,
+        ImmutableList.copyOf(analysisEnvironment.getRegisteredActions()));
   }
 
   /**
@@ -385,10 +346,6 @@ final class ConfiguredTargetFunction implements SkyFunction {
     }
 
     public ConfiguredTargetFunctionException(SkyKey key, ConfiguredValueCreationException e) {
-      super(key, e);
-    }
-
-    public ConfiguredTargetFunctionException(SkyKey key, EvalException e) {
       super(key, e);
     }
   }

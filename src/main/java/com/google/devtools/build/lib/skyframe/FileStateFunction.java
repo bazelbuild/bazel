@@ -60,7 +60,7 @@ public class FileStateFunction implements SkyFunction {
       // - The only way external source files get into the skyframe graph in the first place is
       // through symlinks outside the package roots, which we neither want to encourage nor
       // optimize for since it is not common. So the set of external files is small.
-      UUID buildId = BuildVariableValue.BUILD_ID.get(env);
+      UUID buildId = PrecomputedValue.BUILD_ID.get(env);
       if (buildId == null) {
         return null;
       }

@@ -24,7 +24,7 @@ import com.google.devtools.build.skyframe.SkyKey;
  * only one of these values in the graph at any time.
  */
 // TODO(bazel-team): This seems to be superfluous now, but it cannot be removed without making
-// BuildVariableValue public instead of package-private
+// PrecomputedValue public instead of package-private
 public class WorkspaceStatusValue extends ActionLookupValue {
   private final Artifact stableArtifact;
   private final Artifact volatileArtifact;

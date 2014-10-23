@@ -27,30 +27,18 @@ import com.google.common.collect.ImmutableSet;
 import com.google.common.collect.Iterables;
 import com.google.common.collect.ListMultimap;
 import com.google.common.collect.Lists;
-import com.google.common.collect.Maps;
 import com.google.common.collect.Multimap;
 import com.google.common.collect.Sets;
 import com.google.common.eventbus.EventBus;
 import com.google.devtools.build.lib.actions.Action;
 import com.google.devtools.build.lib.actions.ActionGraph;
-import com.google.devtools.build.lib.actions.ActionOwner;
-import com.google.devtools.build.lib.actions.ActionRegistry;
 import com.google.devtools.build.lib.actions.Artifact;
 import com.google.devtools.build.lib.actions.ArtifactFactory;
-import com.google.devtools.build.lib.actions.ArtifactMTimeCache;
-import com.google.devtools.build.lib.actions.ArtifactOwner;
-import com.google.devtools.build.lib.actions.DependentActionGraph;
-import com.google.devtools.build.lib.actions.MapBasedActionGraph;
-import com.google.devtools.build.lib.actions.MiddlemanFactory;
-import com.google.devtools.build.lib.actions.MutableActionGraph;
-import com.google.devtools.build.lib.actions.MutableActionGraph.ActionConflictException;
 import com.google.devtools.build.lib.actions.Root;
-import com.google.devtools.build.lib.actions.TestMiddlemanObserver;
 import com.google.devtools.build.lib.blaze.BlazeDirectories;
 import com.google.devtools.build.lib.collect.nestedset.NestedSetBuilder;
 import com.google.devtools.build.lib.collect.nestedset.Order;
 import com.google.devtools.build.lib.concurrent.ThreadSafety.ThreadCompatible;
-import com.google.devtools.build.lib.concurrent.ThreadSafety.ThreadHostile;
 import com.google.devtools.build.lib.concurrent.ThreadSafety.ThreadSafe;
 import com.google.devtools.build.lib.events.DelegatingEventHandler;
 import com.google.devtools.build.lib.events.Event;
@@ -72,20 +60,16 @@ import com.google.devtools.build.lib.pkgcache.LoadingPhaseRunner.LoadingResult;
 import com.google.devtools.build.lib.pkgcache.PackageManager;
 import com.google.devtools.build.lib.query2.output.OutputFormatter;
 import com.google.devtools.build.lib.rules.test.TestProvider;
-import com.google.devtools.build.lib.rules.test.TestRunnerAction;
 import com.google.devtools.build.lib.skyframe.LabelAndConfiguration;
 import com.google.devtools.build.lib.skyframe.SkyframeBuildView;
 import com.google.devtools.build.lib.skyframe.SkyframeExecutor;
 import com.google.devtools.build.lib.skyframe.TargetCompletionKey;
 import com.google.devtools.build.lib.syntax.EvalException;
 import com.google.devtools.build.lib.syntax.Label;
-import com.google.devtools.build.lib.util.LoggingUtil;
-import com.google.devtools.build.lib.util.Pair;
 import com.google.devtools.build.lib.util.RegexFilter;
 import com.google.devtools.build.lib.vfs.Path;
 import com.google.devtools.build.lib.vfs.PathFragment;
 import com.google.devtools.build.lib.view.ExtraActionArtifactsProvider.ExtraArtifactSet;
-import com.google.devtools.build.lib.view.actions.TargetCompletionMiddlemanAction;
 import com.google.devtools.build.lib.view.config.BinTools;
 import com.google.devtools.build.lib.view.config.BuildConfiguration;
 import com.google.devtools.build.lib.view.config.BuildConfigurationCollection;
@@ -94,20 +78,14 @@ import com.google.devtools.build.skyframe.SkyKey;
 import com.google.devtools.common.options.Option;
 import com.google.devtools.common.options.OptionsBase;
 
-import java.io.PrintStream;
-import java.util.ArrayList;
 import java.util.Collection;
-import java.util.Collections;
-import java.util.Comparator;
 import java.util.HashMap;
 import java.util.HashSet;
 import java.util.LinkedHashSet;
 import java.util.List;
 import java.util.Map;
 import java.util.Set;
-import java.util.UUID;
 import java.util.concurrent.ExecutionException;
-import java.util.logging.Level;
 import java.util.logging.Logger;
 
 import javax.annotation.Nullable;
@@ -226,28 +204,18 @@ public class BuildView {
 
   private final ImmutableList<OutputFormatter> outputFormatters;
 
-  private EventHandler reporter;
-
   private final SkyframeExecutor skyframeExecutor;
   private final SkyframeBuildView skyframeBuildView;
 
   private final PackageManager packageManager;
 
-  private final WorkspaceStatusAction.Factory workspaceStatusActionFactory;
-
   private final BinTools binTools;
-
-  @Nullable
-  /** Not used in Skyframe full. */
-  private final ArtifactMTimeCache artifactMTimeCache;
 
   private BuildConfigurationCollection configurations = new BuildConfigurationCollection();
 
   private BuildConfigurationCollection lastConfigurations = null;
 
   private ConfiguredRuleClassProvider ruleClassProvider;
-
-  private final ConfiguredTargetFactory factory;
 
   private final ArtifactFactory artifactFactory;
 
@@ -256,16 +224,6 @@ public class BuildView {
    * changes of package roots between incremental analysis instances.
    */
   private final Map<PathFragment, Path> cumulativePackageRoots = new HashMap<>();
-  private final ForwardGraphCache forwardGraphCache;
-
-  private final MutableActionGraph legacyActionGraph;
-
-  private WorkspaceStatusArtifacts lastWorkspaceStatusArtifacts = null;
-
-  // This is not accessed on multiple threads
-  private final Set<Action> lastTargetCompletionMiddlemen = new HashSet<>();
-
-  private final List<Action> lastExclusiveSchedulingMiddlemen = new ArrayList<>();
 
   /**
    * Used only for testing that we clear Skyframe caches correctly.
@@ -300,24 +258,18 @@ public class BuildView {
 
   public BuildView(BlazeDirectories directories, PackageManager packageManager,
       ConfiguredRuleClassProvider ruleClassProvider,
-      @Nullable SkyframeExecutor skyframeExecutor,
-      ImmutableList<OutputFormatter> outputFormatters, BinTools binTools,
-      WorkspaceStatusAction.Factory workspaceStatusActionFactory) {
-    this.workspaceStatusActionFactory = workspaceStatusActionFactory;
+      SkyframeExecutor skyframeExecutor,
+      ImmutableList<OutputFormatter> outputFormatters, BinTools binTools) {
     this.directories = directories;
     this.packageManager = packageManager;
     this.binTools = binTools;
     this.artifactFactory = new ArtifactFactory(directories.getExecRoot());
     this.ruleClassProvider = ruleClassProvider;
-    this.factory = new ConfiguredTargetFactory(ruleClassProvider);
     this.skyframeExecutor = Preconditions.checkNotNull(skyframeExecutor);
-    boolean skyframeFull = skyframeExecutor.skyframeBuild();
-    this.artifactMTimeCache = skyframeFull ? null : new ArtifactMTimeCache();
-    this.forwardGraphCache =  skyframeFull ? null : new ForwardGraphCache();
     this.outputFormatters = outputFormatters;
-    this.legacyActionGraph = skyframeFull ? null : new MapBasedActionGraph();
-    this.skyframeBuildView = new SkyframeBuildView(legacyActionGraph, factory, artifactFactory,
-        null, skyframeExecutor, new Runnable() {
+    this.skyframeBuildView =
+        new SkyframeBuildView(new ConfiguredTargetFactory(ruleClassProvider), artifactFactory,
+            skyframeExecutor, new Runnable() {
       @Override
       public void run() {
         clear();
@@ -328,16 +280,12 @@ public class BuildView {
 
   /** Returns the action graph. */
   public ActionGraph getActionGraph() {
-    if (skyframeExecutor.skyframeBuild()) {
-      return new ActionGraph() {
+    return new ActionGraph() {
         @Override
         public Action getGeneratingAction(Artifact artifact) {
           return skyframeExecutor.getGeneratingAction(artifact);
         }
       };
-    } else {
-      return legacyActionGraph;
-    }
   }
 
   /**
@@ -364,14 +312,6 @@ public class BuildView {
     return configurations;
   }
 
-  private void clearActionGraph() {
-    lastTargetCompletionMiddlemen.clear();
-    lastExclusiveSchedulingMiddlemen.clear();
-
-    lastWorkspaceStatusArtifacts = null;
-    legacyActionGraph.clear();
-  }
-
   /**
    * Clear the graphs of ConfiguredTargets and Artifacts.
    */
@@ -379,39 +319,10 @@ public class BuildView {
   public void clear() {
     cumulativePackageRoots.clear();
     artifactFactory.clear();
-    if (forwardGraphCache != null) {
-      forwardGraphCache.clear();
-    }
-    if (artifactMTimeCache != null) {
-      artifactMTimeCache.clear();
-    }
-    if (!skyframeExecutor.skyframeBuild()) {
-      clearActionGraph();
-    }
   }
 
   public ArtifactFactory getArtifactFactory() {
     return artifactFactory;
-  }
-
-  /**
-   * Returns the artifact mtime cache associated with this {@link BuildView} instance.
-   */
-  @Nullable
-  public ArtifactMTimeCache getArtifactMTimeCache() {
-    return artifactMTimeCache;
-  }
-
-  private void removeFromForwardGraphMaybe(Action action) {
-    if (forwardGraphCache != null) {
-      forwardGraphCache.removeAction(action);
-    }
-  }
-
-  private void addToForwardGraphMaybe(Action action) {
-    if (forwardGraphCache != null) {
-      forwardGraphCache.addAction(action);
-    }
   }
 
   /**
@@ -426,155 +337,25 @@ public class BuildView {
   private Multimap<ConfiguredTarget, Artifact> createTargetCompletionMiddlemen(
       Iterable<ConfiguredTarget> targets, TopLevelArtifactContext options,
       SkyframeExecutor skyframeExecutor) {
-    if (skyframeExecutor.skyframeBuild()) {
-      Preconditions.checkState(lastTargetCompletionMiddlemen.isEmpty());
-      skyframeExecutor.injectTopLevelContext(options);
-
-      Multimap<ConfiguredTarget, Artifact> result = ArrayListMultimap.create();
-      for (ConfiguredTarget target : targets) {
-        result.putAll(target, TopLevelArtifactHelper.getAllArtifactsToBuild(target, options));
-        if (!(target.getTarget() instanceof Rule)) {
-          continue;
-        }
-        result.put(target, artifactFactory.getDerivedArtifact(
-            TopLevelArtifactHelper.getMiddlemanRelativePath(target.getLabel()),
-            target.getConfiguration().getMiddlemanDirectory(),
-            new TargetCompletionKey(target.getLabel(), target.getConfiguration())));
-      }
-      return result;
-    }
-
-    // First remove the old middlemen from the action graphs
-    for (Action oldAction : lastTargetCompletionMiddlemen) {
-      removeFromForwardGraphMaybe(oldAction);
-      legacyActionGraph.unregisterAction(oldAction);
-    }
-
-    lastTargetCompletionMiddlemen.clear();
+    skyframeExecutor.injectTopLevelContext(options);
 
     Multimap<ConfiguredTarget, Artifact> result = ArrayListMultimap.create();
     for (ConfiguredTarget target : targets) {
-      // TODO(bazel-team): Adding the target completion middleman to artifactsToBuild should
-      // suffice.
-      // TODO(bazel-team): use NestedSet for targetOutputs
-      Iterable<Artifact> targetOutputs =
-          TopLevelArtifactHelper.getAllArtifactsToBuild(target, options);
-      result.putAll(target, targetOutputs);
+      result.putAll(target, TopLevelArtifactHelper.getAllArtifactsToBuild(target, options));
       if (!(target.getTarget() instanceof Rule)) {
         continue;
       }
-
-      ActionOwner actionOwner = new PostInitializationActionOwner(target);
-      BuildConfiguration configuration = target.getConfiguration();
-      Preconditions.checkState(configuration != null);
-
-      // These actions serve similar roles to middlemen, but, unlike middlemen,
-      // are expected to execute.
-      Artifact middleman = artifactFactory.getDerivedArtifact(
+      result.put(target, artifactFactory.getDerivedArtifact(
           TopLevelArtifactHelper.getMiddlemanRelativePath(target.getLabel()),
-          configuration.getMiddlemanDirectory(),
-          // Null owner because this artifact's generating action is currently retrieved from the
-          // skyframe executor, not from the configured target.
-          ArtifactOwner.NULL_OWNER);
-      middleman = artifactFactory.getDerivedArtifact(
-          TopLevelArtifactHelper.getMiddlemanRelativePath(target.getLabel()),
-          configuration.getMiddlemanDirectory(),
-          ArtifactOwner.NULL_OWNER);
-      Action newAction = new TargetCompletionMiddlemanAction(target, actionOwner,
-          targetOutputs, middleman);
-
-      // Register the new action in the set of target completion middleman actions and in the
-      // two action graphs
-      registerAction(newAction);
-      lastTargetCompletionMiddlemen.add(newAction);
-      addToForwardGraphMaybe(newAction);
-      result.put(target, middleman);
+          target.getConfiguration().getMiddlemanDirectory(),
+          new TargetCompletionKey(target.getLabel(), target.getConfiguration())));
     }
     return result;
   }
 
-  /**
-   * Create the workspace status artifacts (i.e. the ones containing the build info).
-   *
-   * <p>This method should not be called during the multithreaded portion of the analysis phase.
-   *
-   * <p>This is complicated, so a little explanation is in order.
-   *
-   * <p>By the end of this method, the action graph and the dependent action graph should be in a
-   * consistent state (both alone and with each other). There are the following cases:
-   *
-   * <ul>
-   * <li>Analysis state was not reused. In this case, <code>lastBuildInfoAction</code> will be null
-   * and neither the action graph nor the dependent action graph will contain a build info action,
-   * so we create it register it in both graphs.
-   * <li>Analysis state was reused in a non-incremental build. <code>lastBuildInfoAction</code>,
-   * the action graph and the dependent action graph will all be consistent. In this case, the
-   * action will be removed from both of the action graphs, and a new instance will be added to
-   * them.
-   * <li>Incremental analysis was in effect. In this case, the dependent action graph will contain
-   * <code>lastBuildInfoAction</code>, but the action graph will not. We remove it from the
-   * dependent action graph, create a new one, and add it to both action graphs.
-   * </ul>
-   */
-  @ThreadHostile  // Mutates lastBuildInfoAction and changes the forward graph
-  @VisibleForTesting  // productionVisibility = Visibility.PRIVATE
-  void createWorkspaceStatusArtifacts(UUID buildId)
-      throws ViewCreationFailedException {
-    // If we re-created the header actions, too, they would always be executed which would be bad
-    // for incrementality and increase yet another state for an action in the already too
-    // complicated action graph scheme. Therefore, what we do is that we only re-create the actual
-    // build info action.
-    //
-    // This would be incorrect if we ever changed the configurations without clearing the action
-    // graph (since the header actions depend on the set of configurations we have), but we
-    // currently don't do that, so it's fine.
-    boolean createHeaderActions = lastWorkspaceStatusArtifacts == null;
-    if (lastWorkspaceStatusArtifacts != null) {
-      Action oldAction = lastWorkspaceStatusArtifacts.getBuildInfoAction();
-      removeFromForwardGraphMaybe(oldAction);
-      legacyActionGraph.unregisterAction(oldAction);
-      lastWorkspaceStatusArtifacts = null;
-    }
-
-    lastWorkspaceStatusArtifacts = WorkspaceStatusUtils.createWorkspaceStatusArtifacts(
-        directories.getBuildDataDirectory(),
-        factory.getBuildInfoFactories(), artifactFactory, configurations, buildId,
-        workspaceStatusActionFactory);
-
-    skyframeBuildView.setWorkspaceStatusArtifacts(lastWorkspaceStatusArtifacts);
-    try {
-      // .addAction() always puts the actions in the forward graph, thus, they will always be
-      // executed. But that is almost completely okay, since the build info action needs to be
-      // executed always anyway and .addAction() is only called on header actions when the graph
-      // is cleared (when a lot of actions are executed anyway, so a few extra does not count)
-
-      if (createHeaderActions) {
-        for (Action action : lastWorkspaceStatusArtifacts.getActions()) {
-          registerAction(action);
-          addToForwardGraphMaybe(action);
-        }
-      }
-
-      Action buildInfoAction = lastWorkspaceStatusArtifacts.getBuildInfoAction();
-      registerAction(buildInfoAction);
-      addToForwardGraphMaybe(buildInfoAction);
-    } catch (ActionConflictException e) {
-      // This should never happen. With the old action graph, new actions are always ignored. With
-      // the new action graph, there should never be a conflict, because we always start with an
-      // empty map, and we only call this method once per build.
-      LoggingUtil.logToRemote(Level.SEVERE, "Unexpected duplicate build info action", e);
-      throw new ViewCreationFailedException("Unexpected duplicate build info action: "
-          + e.getMessage());
-    }
-  }
-
   @VisibleForTesting
   WorkspaceStatusAction getLastWorkspaceBuildInfoActionForTesting() {
-    if (skyframeExecutor.skyframeBuild()) {
-      return skyframeExecutor.getLastWorkspaceStatusActionForTesting();
-    } else {
-      return lastWorkspaceStatusArtifacts.getBuildInfoAction();
-    }
+    return skyframeExecutor.getLastWorkspaceStatusActionForTesting();
   }
 
   /**
@@ -695,7 +476,7 @@ public class BuildView {
   public static final class AnalysisResult {
 
     public static final AnalysisResult EMPTY = new AnalysisResult(
-        ImmutableList.<ConfiguredTarget>of(), null, null, null, null,
+        ImmutableList.<ConfiguredTarget>of(), null, null, null,
         ImmutableMultimap.<ConfiguredTarget, Artifact>of(), ImmutableList.<Artifact>of(),
         ImmutableList.<Artifact>of());
 
@@ -703,7 +484,6 @@ public class BuildView {
     @Nullable private final ImmutableList<ConfiguredTarget> targetsToTest;
     @Nullable private final String error;
     private final ActionGraph actionGraph;
-    private final DependentActionGraph dependentActionGraph;
     private final ImmutableMultimap<ConfiguredTarget, Artifact> targetCompletionMap;
     private final ImmutableSet<Artifact> artifactsToBuild;
     private final ImmutableSet<Artifact> exclusiveTestArtifacts;
@@ -711,7 +491,6 @@ public class BuildView {
     private AnalysisResult(
         Collection<ConfiguredTarget> targetsToBuild, Collection<ConfiguredTarget> targetsToTest,
         @Nullable String error, ActionGraph actionGraph,
-        DependentActionGraph dependentActionGraph,
         Multimap<ConfiguredTarget, Artifact> targetCompletionMap,
         Collection<Artifact> artifactsToBuild,
         Collection<Artifact> exclusiveTestArtifacts) {
@@ -719,7 +498,6 @@ public class BuildView {
       this.targetsToTest = targetsToTest == null ? null : ImmutableList.copyOf(targetsToTest);
       this.error = error;
       this.actionGraph = actionGraph;
-      this.dependentActionGraph = dependentActionGraph;
       this.targetCompletionMap = ImmutableMultimap.copyOf(targetCompletionMap);
       this.artifactsToBuild = ImmutableSet.copyOf(artifactsToBuild);
       this.exclusiveTestArtifacts = ImmutableSet.copyOf(exclusiveTestArtifacts);
@@ -766,19 +544,6 @@ public class BuildView {
     public ActionGraph getActionGraph() {
       return actionGraph;
     }
-
-    /**
-     * Returns the forward action graph, which is only present for legacy builds.
-     */
-    @Nullable public DependentActionGraph getDependentActionGraph() {
-      return dependentActionGraph;
-    }
-
-    public boolean hasStaleActionData() {
-      return dependentActionGraph != null
-          ? dependentActionGraph.hasStaleActionDataAndInit()
-          : false;
-    }
   }
 
 
@@ -805,8 +570,8 @@ public class BuildView {
   }
 
   @ThreadCompatible
-  public AnalysisResult update(@Nullable UUID buildId, LoadingResult loadingResult,
-      BuildConfigurationCollection configurations, BuildView.Options viewOptions,
+  public AnalysisResult update(LoadingResult loadingResult,
+      BuildConfigurationCollection configurations, Options viewOptions,
       TopLevelArtifactContext topLevelOptions, EventHandler eventHandler, EventBus eventBus)
           throws ViewCreationFailedException, InterruptedException {
 
@@ -834,9 +599,8 @@ public class BuildView {
       eventHandler = warningsHandler = new WarningsAsErrorsEventHandler(eventHandler);
     }
 
-    this.reporter = eventHandler;
-    skyframeBuildView.setWarningListener(reporter);
-    skyframeExecutor.setErrorEventListener(reporter);
+    skyframeBuildView.setWarningListener(eventHandler);
+    skyframeExecutor.setErrorEventListener(eventHandler);
 
     LOG.info("Starting analysis");
     pollInterruptedStatus();
@@ -893,31 +657,13 @@ public class BuildView {
 
     prepareToBuild();
     skyframeBuildView.setWarningListener(warningsHandler);
-    if (skyframeExecutor.skyframeBuild()) {
-      skyframeExecutor.injectWorkspaceStatusData();
-    } else {
-      createWorkspaceStatusArtifacts(buildId);
-    }
+    skyframeExecutor.injectWorkspaceStatusData();
     Collection<ConfiguredTarget> configuredTargets;
     try {
       configuredTargets = skyframeBuildView.configureTargets(
           targetSpecs, eventBus, viewOptions.keepGoing);
     } finally {
-      // if skyframeCacheWasInvalidated then we have already invalidated everything.
-      // In case of an interrupted exception, if we had invalidated some configured targets we
-      // also clear legacy data.
-      if (!skyframeCacheWasInvalidated && skyframeBuildView.isSomeConfiguredTargetInvalidated()
-          && artifactMTimeCache != null) {
-        // ConfiguredTargets have changed. We cannot reuse forwardGraphCache and artifactMTimeCache
-        // in Skyframe. ForwardGraphCache should go away once we have full Skyframe. It is not worth
-        // it to optimize it now.
-        forwardGraphCache.clear();
-        artifactMTimeCache.clear();
-      }
       skyframeBuildView.clearInvalidatedConfiguredTargets();
-      // We also shrink the set of pending actions to avoid clear() being expensive in the nexts
-      // builds.
-      skyframeBuildView.unregisterPendingActionsAndShrink();
     }
 
     int numTargetsToAnalyze = nodes.size();
@@ -926,7 +672,7 @@ public class BuildView {
     if (0 < numSuccessful && numSuccessful < numTargetsToAnalyze) {
       String msg = String.format("Analysis succeeded for only %d of %d top-level targets",
                                     numSuccessful, numTargetsToAnalyze);
-      reporter.handle(Event.info(msg));
+      eventHandler.handle(Event.info(msg));
       LOG.info(msg);
     }
 
@@ -935,7 +681,6 @@ public class BuildView {
     AnalysisResult result = createResult(loadingResult, topLevelOptions,
         viewOptions, configuredTargets, analysisSuccessful);
     LOG.info("Finished analysis");
-    this.reporter = null;
     return result;
   }
 
@@ -992,14 +737,7 @@ public class BuildView {
     Set<Artifact> artifactsToBuild = new HashSet<>();
     Set<Artifact> exclusiveTestArtifacts = new HashSet<>();
     Collection<Artifact> buildInfoArtifacts;
-    if (!skyframeExecutor.skyframeBuild()) {
-      buildInfoArtifacts = ImmutableList.<Artifact>of(
-          lastWorkspaceStatusArtifacts.getStableStatus(),
-          lastWorkspaceStatusArtifacts.getVolatileStatus());
-    } else {
-      Preconditions.checkState(lastWorkspaceStatusArtifacts == null, lastWorkspaceStatusArtifacts);
-      buildInfoArtifacts = skyframeExecutor.getWorkspaceStatusArtifacts();
-    }
+    buildInfoArtifacts = skyframeExecutor.getWorkspaceStatusArtifacts();
     // build-info and build-changelist.
     Preconditions.checkState(buildInfoArtifacts.size() == 2, buildInfoArtifacts);
     artifactsToBuild.addAll(buildInfoArtifacts);
@@ -1010,19 +748,13 @@ public class BuildView {
     scheduleTestsIfRequested(artifactsToBuild, exclusiveTestArtifacts,
         topLevelOptions, configuredTargets, targetsToTest);
 
-    DependentActionGraph dependentActionGraph = null;
-    if (!skyframeExecutor.skyframeBuild()) {
-      dependentActionGraph = forwardGraphCache.get(artifactsToBuild, legacyActionGraph,
-          viewOptions.keepForwardGraph);
-    }
-
     String error = !loadingResult.hasLoadingError()
           ? (analysisSuccessful
             ? null
             : "execution phase succeeded, but not all targets were analyzed")
           : "execution phase succeeded, but there were loading phase errors";
     return new AnalysisResult(configuredTargets, targetsToTest, error, getActionGraph(),
-        dependentActionGraph, targetCompletionMap, artifactsToBuild, exclusiveTestArtifacts);
+        targetCompletionMap, artifactsToBuild, exclusiveTestArtifacts);
   }
 
   private void addExtraActionsIfRequested(BuildView.Options viewOptions,
@@ -1170,7 +902,6 @@ public class BuildView {
                                      Set<Artifact> exclusiveTestArtifacts,
                                      Collection<ConfiguredTarget> testTargets,
                                      boolean isExclusive) {
-    Preconditions.checkState(lastExclusiveSchedulingMiddlemen.isEmpty());
     for (ConfiguredTarget target : testTargets) {
       if (target.getTarget() instanceof Rule) {
         boolean exclusive =
@@ -1189,92 +920,7 @@ public class BuildView {
                              Set<Artifact> exclusiveTestArtifacts,
                              Collection<ConfiguredTarget> testTargets,
                              boolean isExclusive) {
-    if (skyframeExecutor.skyframeBuild()) {
-      scheduleTestsSkyframe(artifactsToBuild, exclusiveTestArtifacts, testTargets, isExclusive);
-      return;
-    }
-    Set<Artifact> artifactsToTest = new LinkedHashSet<>();
-    MiddlemanFactory middlemanFactory = new MiddlemanFactory(artifactFactory, ActionRegistry.NOP);
-
-    for (Action oldAction : lastExclusiveSchedulingMiddlemen) {
-      forwardGraphCache.removeAction(oldAction);
-      legacyActionGraph.unregisterAction(oldAction);
-    }
-
-    lastExclusiveSchedulingMiddlemen.clear();
-
-    // First process non-exclusive tests.
-    if (!isExclusive) {
-      for (ConfiguredTarget target : testTargets) {
-        if (!(target.getTarget() instanceof Rule)) {
-          continue;
-        }
-
-        if (!TargetUtils.isExclusiveTestRule((Rule) target.getTarget())) {
-          // Non-exclusive tests do not have any scheduling dependencies and
-          // can be executed as soon as "normal" prerequisites are built.
-          // We need to explicitly set them to null, because of possibility that
-          // previous blaze invocation used --test_strategy=exclusive and the
-          // current one used analysis caching.
-          for (Artifact artifact : TestProvider.getTestStatusArtifacts(target)) {
-            TestRunnerAction action = (TestRunnerAction)
-                legacyActionGraph.getGeneratingAction(artifact);
-            Pair<Artifact, Action> middlemanAndStamp = action.setSchedulingDependencies(
-                getArtifactFactory(), middlemanFactory, null, forwardGraphCache);
-            if (middlemanAndStamp != null) {
-              lastExclusiveSchedulingMiddlemen.add(middlemanAndStamp.getSecond());
-              registerAction(middlemanAndStamp.getSecond());
-              forwardGraphCache.add(action, middlemanAndStamp.getFirst());
-            }
-            artifactsToTest.add(artifact);
-          }
-        }
-      }
-    }
-
-    // Rest of test targets are exclusive. First of them must depend on the
-    // the scheduling middleman covering all generated artifacts and all
-    // non-exclusive tests, so it will run only after all other activities are
-    // completed. Subsequent exclusive tests will depend on each other, forming
-    // sequential dependency.
-    List<Artifact> nonExclusiveArtifacts = new ArrayList<>(artifactsToTest);
-    for (Artifact buildArtifact : artifactsToBuild) {
-      if (!buildArtifact.isSourceArtifact()) {
-        nonExclusiveArtifacts.add(buildArtifact);
-      }
-    }
-    Collection<Artifact> dependencies = nonExclusiveArtifacts;
-
-    for (ConfiguredTarget target : testTargets) {
-      for (Artifact artifact : TestProvider.getTestStatusArtifacts(target)) {
-        // If artifact is already in the artifactsToTest set, then target was
-        // already processed as a non-exclusive test and should be skipped.
-        if (!artifactsToTest.contains(artifact)) {
-          TestRunnerAction action = (TestRunnerAction)
-              legacyActionGraph.getGeneratingAction(artifact);
-          // This is the heart of the exclusive test scheduling.
-          // Test action inputs are then modified to include single additional
-          // input (see {@link TestRunnerAction#getInputs} and
-          // {@link TestRunnerAction#setSchedulingDependencies} methods), which
-          // is a scheduling middleman.
-          // While current implementation breaks the implicit rule that whole
-          // graph is constructed within BuildView.update() method,  it has been agreed upon as
-          // an interim solution. This method is still called prior to the
-          // execution phase, so technically it is still considered to be part of
-          // the analysis phase.
-          Pair<Artifact, Action> middlemanAndStamp = action.setSchedulingDependencies(
-              getArtifactFactory(), middlemanFactory, dependencies, forwardGraphCache);
-          if (middlemanAndStamp != null) {
-            lastExclusiveSchedulingMiddlemen.add(middlemanAndStamp.getSecond());
-            registerAction(middlemanAndStamp.getSecond());
-            forwardGraphCache.add(action, middlemanAndStamp.getFirst());
-          }
-          dependencies = Collections.singleton(artifact);
-          artifactsToTest.add(artifact);
-        }
-      }
-    }
-    artifactsToBuild.addAll(artifactsToTest);
+    scheduleTestsSkyframe(artifactsToBuild, exclusiveTestArtifacts, testTargets, isExclusive);
   }
 
   /**
@@ -1342,7 +988,7 @@ public class BuildView {
     CachingAnalysisEnvironment analysisEnvironment =
         new CachingAnalysisEnvironment(artifactFactory,
             new LabelAndConfiguration(target.getLabel(), config),
-            lastWorkspaceStatusArtifacts, /*isSystemEnv=*/false, config.extendedSanityChecks(),
+            null, /*isSystemEnv=*/false, config.extendedSanityChecks(),
             eventHandler,
             /*skyframeEnv=*/null, config.isActionsEnabled(), outputFormatters, binTools);
     RuleContext ruleContext = new RuleContext.Builder(analysisEnvironment,
@@ -1366,19 +1012,6 @@ public class BuildView {
   }
 
   /**
-   * Returns a newIdentityHashMap with artifacts stored in the artifact factory.
-   * Used to validate and dump internal data structures.
-   */
-  @VisibleForTesting
-  Map<Artifact, Boolean> getArtifactReferences() {
-    Map<Artifact, Boolean> artifactMap = Maps.newIdentityHashMap();
-    for (Artifact artifact : artifactFactory.getSourceArtifacts()) {
-      artifactMap.put(artifact, Boolean.FALSE);
-    }
-    return artifactMap;
-  }
-
-  /**
    * Drops the analysis cache. If building with Skyframe, targets in {@code topLevelTargets} may
    * remain in the cache for use during the execution phase.
    *
@@ -1395,152 +1028,6 @@ public class BuildView {
    *                  'blaze dump' related functions                  *
    *                                                                  *
    ********************************************************************/
-
-  /**
-   * Returns developer-friendly artifact name used for dumps.
-   */
-  private static String dumpArtifact(Artifact artifact) {
-    return (artifact.getExecPath() != null ? artifact.getExecPathString() : artifact.prettyPrint())
-        + ", " + System.identityHashCode(artifact);
-  }
-
-  /**
-   * Returns developer-friendly action name used for dumps.
-   */
-  private static String dumpAction(Action action) {
-    return action != null ? action.prettyPrint() + ", " + System.identityHashCode(action) : "";
-  }
-
-  /**
-   * Dumps state of the artifact factory and referenced actions.
-   */
-  public void dumpArtifacts(PrintStream out) {
-    // Map below associates every artifact with the Boolean.FALSE value. During
-    // traversal, values for visited artifacts will be set to the Boolean.TRUE.
-    // Any artifacts associated with Boolean.FALSE value will then be reported
-    // as not referenced.
-    Map<Artifact, Boolean> artifactReferenceMap = getArtifactReferences();
-    Map<String, Action> actionMap = new HashMap<>();
-    out.println("Artifact factory (" + artifactReferenceMap.size() + " artifacts)");
-
-    List<Artifact> artifacts = new ArrayList<>(artifactReferenceMap.keySet());
-    Collections.sort(artifacts, new Comparator<Artifact> () {
-      @Override
-      public int compare(Artifact o1, Artifact o2) {
-        return o1.getPath().compareTo(o2.getPath());
-      }
-    });
-    for (Artifact artifact : artifacts) {
-      out.println(dumpArtifact(artifact));
-      Action action = legacyActionGraph.getGeneratingAction(artifact);
-      if (action != null) {
-        out.println("  " + dumpAction(action));
-        if (action.getOutputs() == null || action.getOutputs().size() == 0) {
-          out.println("    !!! action does not have an output !!!");
-        } else {
-          // Action annotation is defined in AbstractAction constructor and is
-          // used by the profiler. It is assumed to be unique for each action.
-          String annotation = action.getClass().getSimpleName()
-              + action.getPrimaryOutput();
-          Action identicalAction = actionMap.put(annotation, action);
-          if (identicalAction != null && identicalAction != action) {
-            out.println ("    !!! " + dumpAction(action) + " HAS IDENTICAL ANNOTATION !!!");
-          }
-        }
-        for (Artifact input : action.getInputs()) {
-          out.println("    input " + dumpArtifact(input));
-          if (artifactReferenceMap.put(input, Boolean.TRUE) == null) {
-            artifactReferenceMap.remove(input);
-          }
-        }
-        boolean found = false;
-        for (Artifact output : action.getOutputs()) {
-          if (output.equals(artifact)) {
-            found = true;
-          }
-          out.println("    output " + dumpArtifact(output));
-          if (artifactReferenceMap.put(output, Boolean.TRUE) == null) {
-            artifactReferenceMap.remove(output);
-          }
-        }
-        if (!found) {
-          out.println("  !!! ACTION DOES NOT HAVE PARENT ARTIFACT AS AN OUTPUT !!!");
-        }
-      }
-    }
-    out.println();
-    out.println("The following artifacts were NEVER referenced by actions:");
-    for (Artifact artifact : artifacts) {
-      if (!artifactReferenceMap.get(artifact)) {
-        out.println("  " + dumpArtifact(artifact));
-        if (!artifact.isSourceArtifact()) {
-          out.println("    " + dumpAction(legacyActionGraph.getGeneratingAction(artifact)));
-        }
-      }
-    }
-  }
-
-  void registerAction(Action action) {
-    legacyActionGraph.registerAction(action);
-  }
-
-  /**
-   * A cache of the forward action graph.
-   */
-  private static final class ForwardGraphCache implements TestMiddlemanObserver {
-    private Set<Artifact> topLevelArtifacts;
-    private DependentActionGraph graph;
-
-    public DependentActionGraph get(Set<Artifact> topLevelArtifacts, ActionGraph actionGraph,
-        boolean stable) {
-      Preconditions.checkNotNull(topLevelArtifacts);
-      if (!stable) {
-        clear();
-        return DependentActionGraph.newGraph(topLevelArtifacts, actionGraph, false);
-      }
-
-      if (topLevelArtifacts.equals(this.topLevelArtifacts)) {
-        graph.sync();
-        return graph;
-      }
-
-      // TODO(bazel-team): raw reference copy seems dangerous here, however the argument is a
-      // LinkedHashSet; ImmutableSet.copyOf of that would screw up ordering.
-      this.topLevelArtifacts = topLevelArtifacts;
-      this.graph = DependentActionGraph.newGraph(topLevelArtifacts, actionGraph, true);
-      return graph;
-    }
-
-    public void clear() {
-      topLevelArtifacts = null;
-      graph = null;
-    }
-
-    @Override
-    public void remove(Action action, Artifact middleman, Action middlemanAction) {
-      if (graph != null) {
-        graph.clearMiddleman(action, middleman, middlemanAction);
-      }
-    }
-
-    public void add(Action action, Artifact middleman) {
-      if (graph != null) {
-        graph.addMiddleman(action, middleman);
-      }
-    }
-
-    public void addAction(Action action) {
-      if (graph != null) {
-        graph.addAction(action);
-      }
-    }
-
-    public void removeAction(Action action) {
-      if (graph != null) {
-        graph.removeAction(action);
-      }
-    }
-  }
 
   /**
    * Collects and stores error events while also forwarding them to another eventHandler.

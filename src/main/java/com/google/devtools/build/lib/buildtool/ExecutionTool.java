@@ -34,27 +34,21 @@ import com.google.devtools.build.lib.actions.ActionGraph;
 import com.google.devtools.build.lib.actions.ActionGraphDumper;
 import com.google.devtools.build.lib.actions.ActionInputFileCache;
 import com.google.devtools.build.lib.actions.Artifact;
-import com.google.devtools.build.lib.actions.ArtifactMTimeCache;
 import com.google.devtools.build.lib.actions.BlazeExecutor;
 import com.google.devtools.build.lib.actions.BuildFailedException;
 import com.google.devtools.build.lib.actions.Builder;
-import com.google.devtools.build.lib.actions.DatabaseDependencyChecker;
-import com.google.devtools.build.lib.actions.DependencyChecker;
 import com.google.devtools.build.lib.actions.Dumper;
 import com.google.devtools.build.lib.actions.ExecException;
 import com.google.devtools.build.lib.actions.ExecutionStrategy;
 import com.google.devtools.build.lib.actions.Executor;
 import com.google.devtools.build.lib.actions.Executor.ActionContext;
 import com.google.devtools.build.lib.actions.ExecutorInitException;
-import com.google.devtools.build.lib.actions.IncrementalDependencyChecker;
 import com.google.devtools.build.lib.actions.LocalHostCapacity;
 import com.google.devtools.build.lib.actions.MakefileDumper;
-import com.google.devtools.build.lib.actions.ParallelBuilder;
 import com.google.devtools.build.lib.actions.ResourceManager;
 import com.google.devtools.build.lib.actions.SpawnActionContext;
 import com.google.devtools.build.lib.actions.TestExecException;
 import com.google.devtools.build.lib.actions.cache.ActionCache;
-import com.google.devtools.build.lib.actions.cache.ArtifactMetadataCache;
 import com.google.devtools.build.lib.actions.cache.MetadataCache;
 import com.google.devtools.build.lib.blaze.BlazeModule;
 import com.google.devtools.build.lib.blaze.BlazeRuntime;
@@ -68,13 +62,11 @@ import com.google.devtools.build.lib.events.EventKind;
 import com.google.devtools.build.lib.events.Reporter;
 import com.google.devtools.build.lib.exec.CheckUpToDateFilter;
 import com.google.devtools.build.lib.exec.ExecutionOptions;
-import com.google.devtools.build.lib.exec.LegacyActionInputFileCache;
 import com.google.devtools.build.lib.exec.OutputService;
 import com.google.devtools.build.lib.exec.SingleBuildFileCache;
 import com.google.devtools.build.lib.exec.SourceManifestActionContextImpl;
 import com.google.devtools.build.lib.exec.SymlinkTreeStrategy;
 import com.google.devtools.build.lib.packages.Rule;
-import com.google.devtools.build.lib.pkgcache.LoadingPhaseRunner.LoadingResult;
 import com.google.devtools.build.lib.pkgcache.PackageUpToDateChecker;
 import com.google.devtools.build.lib.profiler.ProfilePhase;
 import com.google.devtools.build.lib.profiler.Profiler;
@@ -87,7 +79,6 @@ import com.google.devtools.build.lib.util.BlazeClock;
 import com.google.devtools.build.lib.util.ExitCode;
 import com.google.devtools.build.lib.util.LoggingUtil;
 import com.google.devtools.build.lib.util.io.OutErr;
-import com.google.devtools.build.lib.vfs.BatchStat;
 import com.google.devtools.build.lib.vfs.FileSystem;
 import com.google.devtools.build.lib.vfs.FileSystemUtils;
 import com.google.devtools.build.lib.vfs.Path;
@@ -316,18 +307,19 @@ public class ExecutionTool {
    * is applied to the action graph to bring the targets up to date. (This
    * function will return prior to execution-proper if --nobuild was specified.)
    *
-   * @param loadingResult the loading phase output
    * @param analysisResult the analysis phase output
    * @param buildResult the mutable build result
    * @param skyframeExecutor the skyframe executor (if any)
+   * @param packageRoots package roots collected from loading phase and BuildConfigutaionCollection 
+   * creation
    */
-  void executeBuild(LoadingResult loadingResult, AnalysisResult analysisResult,
+  void executeBuild(AnalysisResult analysisResult,
       BuildResult buildResult, @Nullable SkyframeExecutor skyframeExecutor,
-      BuildConfigurationCollection configurations)
+      BuildConfigurationCollection configurations, ImmutableMap<PathFragment, Path> packageRoots)
       throws BuildFailedException, InterruptedException, AbruptExitException, TestExecException,
       ViewCreationFailedException {
     Stopwatch timer = Stopwatch.createStarted();
-    prepare(loadingResult, configurations);
+    prepare(packageRoots, configurations);
 
     ActionGraph actionGraph = analysisResult.getActionGraph();
     if (!useSkyframeFull(skyframeExecutor)) {
@@ -382,14 +374,8 @@ public class ExecutionTool {
     MetadataCache metadataCache = useSkyframeFull(skyframeExecutor)
         ? null
         : runtime.getPersistentMetadataCache();
-    ArtifactMTimeCache artifactMTimeCache = getView().getArtifactMTimeCache();
-    String workspace = (outputService != null) ? outputService.getWorkspace() : null;
-    boolean buildIsIncremental = !useSkyframeFull(skyframeExecutor) &&
-        artifactMTimeCache.isApplicableToBuild(
-            request.getBuildOptions().useIncrementalDependencyChecker,
-            artifactsToBuild, metadataCache, workspace, analysisResult.hasStaleActionData());
     Builder builder = createBuilder(request, executor, actionCache, metadataCache,
-        artifactMTimeCache, buildIsIncremental, skyframeExecutor);
+        skyframeExecutor);
 
     //
     // Execution proper.  All statements below are logically nested in
@@ -438,27 +424,15 @@ public class ExecutionTool {
 
       Profiler.instance().markPhase(ProfilePhase.EXECUTE);
 
-      try {
-        if (artifactMTimeCache != null) {
-          artifactMTimeCache.beforeBuild();
-        }
-        // This probably does not work with Skyframe, because then the modified file set
-        // returned by the runtime is not right (since it is updated in PackageCache). This also
-        // fails to work when the order of commands is build-query-build (because changes during
-        // between the first build command and the query command get lost).
-        builder.buildArtifacts(artifactsToBuild,
-            analysisResult.getExclusiveTestArtifacts(),
-            analysisResult.getDependentActionGraph(),
-            executor, runtime.getModifiedFileSetForSourceFiles(), builtArtifacts,
-            request.getBuildOptions().explanationPath != null);
-      } finally {
-        if (artifactMTimeCache != null) {
-          artifactMTimeCache.afterBuild();
-        }
-      }
-      if (artifactMTimeCache != null) {
-        artifactMTimeCache.markBuildSuccessful(artifactsToBuild);
-      }
+      // This probably does not work with Skyframe, because then the modified file set
+      // returned by the runtime is not right (since it is updated in PackageCache). This also
+      // fails to work when the order of commands is build-query-build (because changes during
+      // between the first build command and the query command get lost).
+      builder.buildArtifacts(artifactsToBuild,
+          analysisResult.getExclusiveTestArtifacts(),
+          null,
+          executor, runtime.getModifiedFileSetForSourceFiles(), builtArtifacts,
+          request.getBuildOptions().explanationPath != null);
 
     } catch (InterruptedException e) {
       interrupted = true;
@@ -511,7 +485,8 @@ public class ExecutionTool {
     }
   }
 
-  private void prepare(LoadingResult loadingResult, BuildConfigurationCollection configurations)
+  private void prepare(ImmutableMap<PathFragment, Path> packageRoots,
+      BuildConfigurationCollection configurations)
       throws ViewCreationFailedException {
     // Prepare for build.
     Profiler.instance().markPhase(ProfilePhase.PREPARE);
@@ -520,7 +495,7 @@ public class ExecutionTool {
     createActionLogDirectory();
 
     // Plant the symlink forest.
-    plantSymlinkForest(loadingResult, configurations);
+    plantSymlinkForest(packageRoots, configurations);
   }
 
   private void createToolsSymlinks() throws ExecutorInitException {
@@ -532,7 +507,7 @@ public class ExecutionTool {
     }
   }
 
-  private void plantSymlinkForest(LoadingResult loadingResult,
+  private void plantSymlinkForest(ImmutableMap<PathFragment, Path> packageRoots,
       BuildConfigurationCollection configurations) throws ViewCreationFailedException {
     try {
       FileSystemUtils.deleteTreesBelowNotPrefixed(getExecRoot(),
@@ -541,7 +516,7 @@ public class ExecutionTool {
       for (BuildConfiguration configuration : configurations.getTargetConfigurations()) {
         configuration.prepareForExecutionPhase();
       }
-      FileSystemUtils.plantLinkForest(loadingResult.getPackageRoots(), getExecRoot());
+      FileSystemUtils.plantLinkForest(packageRoots, getExecRoot());
     } catch (IOException e) {
       throw new ViewCreationFailedException("Source forest creation failed: " + e.getMessage()
           + "; build aborted", e);
@@ -869,15 +844,13 @@ public class ExecutionTool {
   }
 
   private static boolean useSkyframeFull(SkyframeExecutor skyframeExecutor) {
-    return skyframeExecutor != null && skyframeExecutor.skyframeBuild();
+    return true;
   }
 
   private Builder createBuilder(BuildRequest request,
       Executor executor,
       ActionCache actionCache, @Nullable MetadataCache metadataCache,
-      @Nullable ArtifactMTimeCache artifactMTimeCache, boolean buildIsIncremental,
       @Nullable SkyframeExecutor skyframeExecutor) {
-    boolean skyframeFull = useSkyframeFull(skyframeExecutor);
     BuildRequest.BuildRequestOptions options = request.getBuildOptions();
     boolean verboseExplanations = options.verboseExplanations;
     boolean keepGoing = request.getViewOptions().keepGoing;
@@ -894,54 +867,17 @@ public class ExecutionTool {
     // jobs should have been verified in BuildRequest#validateOptions().
     Preconditions.checkState(options.jobs >= -1);
     int actualJobs = options.jobs == 0 ? 1 : options.jobs;  // Treat 0 jobs as a single task.
-    if (!skyframeFull) {
-      BatchStat batchStat = null;
-      if (runtime.getOutputService() != null) {
-        batchStat = runtime.getOutputService().getBatchStatter();
-      }
 
-      Preconditions.checkState(!runtime.getSkyframeExecutor().skyframeBuild());
-      ArtifactMetadataCache result = new ArtifactMetadataCache(
-          metadataCache, runtime.getTimestampGranularityMonitor(), batchStat,
-          packageUpToDateChecker);
-
-      ArtifactMetadataCache artifactMetadataCache = buildIsIncremental
-          ? artifactMTimeCache.getArtifactMetadataCache()
-          : result;
-      artifactMTimeCache.setArtifactMetadataCache(artifactMetadataCache);
-      ActionInputFileCache buildSingleFileCache = createBuildSingleFileCache(
-          executor.getExecRoot());
-      fileCache = new LegacyActionInputFileCache(artifactMetadataCache,
-          buildSingleFileCache, executor.getExecRoot().getPathFile());
-
-      DependencyChecker dependencyChecker = buildIsIncremental
-          ? new IncrementalDependencyChecker(
-              actionCache, getView().getArtifactFactory(),
-              artifactMetadataCache, artifactMTimeCache, packageUpToDateChecker,
-              executionFilter, getEventBus(),
-              verboseExplanations, enableIncrementalGraphPruning(),
-              runtime.getAllowedMissingInputs())
-          : new DatabaseDependencyChecker(
-              actionCache, getView().getArtifactFactory(),
-              artifactMetadataCache, packageUpToDateChecker,
-              executionFilter,
-              verboseExplanations, runtime.getAllowedMissingInputs());
-
-      return new ParallelBuilder(getReporter(), getEventBus(), dependencyChecker, actualJobs,
-          options.progressReportInterval, options.useBuilderStatistics, keepGoing,
-          actionOutputRoot, fileCache, runtime.getAllowedMissingInputs(), runtime.getClock());
-    } else {
-      // Unfortunately, the exec root cache is not shared with caches in the remote execution
-      // client.
-      fileCache = createBuildSingleFileCache(executor.getExecRoot());
-      skyframeExecutor.setActionOutputRoot(actionOutputRoot);
-      boolean explain = request.getBuildOptions().explanationPath != null;
-      return new SkyframeBuilder(skyframeExecutor,
-          new ActionCacheChecker(actionCache, getView().getArtifactFactory(),
-              packageUpToDateChecker, executionFilter, verboseExplanations),
-          keepGoing, explain, actualJobs, options.checkOutputFiles, fileCache,
-          request.getBuildOptions().progressReportInterval);
-    }
+    // Unfortunately, the exec root cache is not shared with caches in the remote execution
+    // client.
+    fileCache = createBuildSingleFileCache(executor.getExecRoot());
+    skyframeExecutor.setActionOutputRoot(actionOutputRoot);
+    boolean explain = request.getBuildOptions().explanationPath != null;
+    return new SkyframeBuilder(skyframeExecutor,
+        new ActionCacheChecker(actionCache, getView().getArtifactFactory(),
+            packageUpToDateChecker, executionFilter, verboseExplanations),
+        keepGoing, explain, actualJobs, options.checkOutputFiles, fileCache,
+        request.getBuildOptions().progressReportInterval);
   }
 
   private void configureResourceManager(BuildRequest request) {

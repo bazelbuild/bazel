@@ -187,10 +187,6 @@ public abstract class SkyframeExecutor {
   private final Preprocessor.Factory.Supplier preprocessorFactorySupplier;
   private Preprocessor.Factory preprocessorFactory;
 
-  // Use skyframe for execution? Alternative is to use legacy execution codepath.
-  // TODO(bazel-team): Remove when legacy codepath is no longer used. [skyframe-execution]
-  protected final boolean skyframeBuild;
-
   protected final TimestampGranularityMonitor tsgm;
 
   private final ResourceManager resourceManager;
@@ -205,6 +201,7 @@ public abstract class SkyframeExecutor {
 
   private BinTools binTools = null;
   private boolean needToInjectEmbeddedArtifacts = true;
+  private boolean needToInjectBuildInfoFactories = true;
   protected int modifiedFiles;
   private final Predicate<PathFragment> allowedMissingInputs;
 
@@ -215,6 +212,7 @@ public abstract class SkyframeExecutor {
   private MutableSupplier<Map<String, String>> clientEnv = new MutableSupplier<>();
   private MutableSupplier<ImmutableList<ConfigurationFragmentFactory>> configurationFragments =
       new MutableSupplier<>();
+  private MutableSupplier<Set<Package>> configurationPackages = new MutableSupplier<>();
   private SkyKey configurationSkyKey = null;
 
   private static final Logger LOG = Logger.getLogger(SkyframeExecutor.class.getName());
@@ -223,7 +221,6 @@ public abstract class SkyframeExecutor {
       Reporter reporter,
       EvaluatorSupplier evaluatorSupplier,
       PackageFactory pkgFactory,
-      boolean skyframeBuild,
       TimestampGranularityMonitor tsgm,
       BlazeDirectories directories,
       WorkspaceStatusAction.Factory workspaceStatusActionFactory,
@@ -242,7 +239,6 @@ public abstract class SkyframeExecutor {
         new SkyframePackageLoader(), new SkyframeTransitivePackageLoader(),
         new SkyframeTargetPatternEvaluator(this), syscalls, cyclesReporter, pkgLocator,
         numPackagesLoaded, this);
-    this.skyframeBuild = skyframeBuild;
     this.errorEventListener = this.reporter;
     this.resourceManager = ResourceManager.instance();
     this.skyframeActionExecutor = new SkyframeActionExecutor(reporter, resourceManager, eventBus,
@@ -251,8 +247,6 @@ public abstract class SkyframeExecutor {
     this.buildInfoFactories = buildInfoFactories;
     this.allowedMissingInputs = allowedMissingInputs;
     this.preprocessorFactorySupplier = preprocessorFactorySupplier;
-    this.preprocessorFactory = preprocessorFactorySupplier.getFactory(packageManager);
-    pkgFactory.setPreprocessorFactory(preprocessorFactory);
     resetEvaluatorInternal(/*bootstrapping=*/true);
   }
 
@@ -261,7 +255,7 @@ public abstract class SkyframeExecutor {
       PackageFactory pkgFactory,
       Predicate<PathFragment> allowedMissingInputs) {
     Map<SkyFunctionName, SkyFunction> map = new HashMap<>();
-    map.put(SkyFunctions.BUILD_VARIABLE, new BuildVariableFunction());
+    map.put(SkyFunctions.PRECOMPUTED, new PrecomputedFunction());
     map.put(SkyFunctions.FILE_STATE, new FileStateFunction(tsgm, pkgLocator));
     map.put(SkyFunctions.DIRECTORY_LISTING_STATE, new DirectoryListingStateFunction(pkgLocator));
     map.put(SkyFunctions.FILE_SYMLINK_CYCLE_UNIQUENESS,
@@ -283,24 +277,22 @@ public abstract class SkyframeExecutor {
     map.put(SkyFunctions.TARGET_MARKER, new TargetMarkerFunction());
     map.put(SkyFunctions.TRANSITIVE_TARGET, new TransitiveTargetFunction());
     map.put(SkyFunctions.CONFIGURED_TARGET,
-        new ConfiguredTargetFunction(new BuildViewProvider(), skyframeBuild));
+        new ConfiguredTargetFunction(new BuildViewProvider()));
     map.put(SkyFunctions.POST_CONFIGURED_TARGET,
         new PostConfiguredTargetFunction(new BuildViewProvider()));
     map.put(SkyFunctions.CONFIGURATION_COLLECTION, new ConfigurationCollectionFunction(
-        configurationFactory, clientEnv));
+        configurationFactory, clientEnv, configurationPackages));
     map.put(SkyFunctions.CONFIGURATION_FRAGMENT, new ConfigurationFragmentFunction(
-        configurationFragments));
+        configurationFragments, configurationPackages));
     map.put(SkyFunctions.WORKSPACE_FILE, new WorkspaceFileFunction(pkgFactory));
-    if (skyframeBuild) {
-      map.put(SkyFunctions.TARGET_COMPLETION,
-          new TargetCompletionFunction(new BuildViewProvider()));
-      map.put(SkyFunctions.ARTIFACT, new ArtifactFunction(eventBus, allowedMissingInputs));
-      map.put(SkyFunctions.BUILD_INFO_COLLECTION, new BuildInfoCollectionFunction(artifactFactory,
-          buildDataDirectory));
-      map.put(SkyFunctions.BUILD_INFO, new WorkspaceStatusFunction());
-      map.put(SkyFunctions.ACTION_EXECUTION,
-          new ActionExecutionFunction(skyframeActionExecutor, tsgm));
-    }
+    map.put(SkyFunctions.TARGET_COMPLETION,
+        new TargetCompletionFunction(new BuildViewProvider()));
+    map.put(SkyFunctions.ARTIFACT, new ArtifactFunction(eventBus, allowedMissingInputs));
+    map.put(SkyFunctions.BUILD_INFO_COLLECTION, new BuildInfoCollectionFunction(artifactFactory,
+        buildDataDirectory));
+    map.put(SkyFunctions.BUILD_INFO, new WorkspaceStatusFunction());
+    map.put(SkyFunctions.ACTION_EXECUTION,
+        new ActionExecutionFunction(skyframeActionExecutor, tsgm));
     return ImmutableMap.copyOf(map);
   }
 
@@ -311,14 +303,6 @@ public abstract class SkyframeExecutor {
 
   protected void checkActive() {
     Preconditions.checkState(active);
-  }
-
-  /**
-   * If true, use Skyframe for execution phase. Alternative is to use legacy execution codepath.
-   * TODO(bazel-team): Remove this when legacy execution is no longer used. [skyframe-execution]
-   */
-  public boolean skyframeBuild() {
-    return skyframeBuild;
   }
 
   public void setFileCache(ActionInputFileCache fileCache) {
@@ -363,8 +347,8 @@ public abstract class SkyframeExecutor {
    * Reinitializes the Skyframe evaluator, dropping all previously computed values.
    *
    * <p>Be careful with this method as it also deletes all injected values. You need to make sure
-   * that any necessary build variables are reinjected before the next build. Constants can be put
-   * in {@link #reinjectConstantValues}.
+   * that any necessary precomputed values are reinjected before the next build. Constants can be
+   * put in {@link #reinjectConstantValuesLazily}.
    */
   @ThreadCompatible
   protected void resetEvaluatorInternal(boolean bootstrapping) {
@@ -379,7 +363,7 @@ public abstract class SkyframeExecutor {
     if (skyframeBuildView != null) {
       skyframeBuildView.clearLegacyData();
     }
-    reinjectConstantValues();
+    reinjectConstantValuesLazily();
   }
 
   protected abstract Differencer evaluatorDiffer();
@@ -391,9 +375,9 @@ public abstract class SkyframeExecutor {
    * evaluator when we create a new one, so they must be re-injected each time we create a new
    * evaluator.
    */
-  private void reinjectConstantValues() {
-    injectBuildInfoFactories();
+  private void reinjectConstantValuesLazily() {
     needToInjectEmbeddedArtifacts = true;
+    needToInjectBuildInfoFactories = true;
   }
 
   /**
@@ -445,19 +429,18 @@ public abstract class SkyframeExecutor {
    */
   @VisibleForTesting
   public void setupDefaultPackage(String defaultsPackageContents) {
-    BuildVariableValue.DEFAULTS_PACKAGE_CONTENTS.set(injectable(), defaultsPackageContents);
+    PrecomputedValue.DEFAULTS_PACKAGE_CONTENTS.set(injectable(), defaultsPackageContents);
   }
 
   /**
    * Injects the top-level artifact options.
    */
   public void injectTopLevelContext(TopLevelArtifactContext options) {
-    Preconditions.checkState(skyframeBuild(), "Only inject top-level context in Skyframe full");
-    BuildVariableValue.TOP_LEVEL_CONTEXT.set(injectable(), options);
+    PrecomputedValue.TOP_LEVEL_CONTEXT.set(injectable(), options);
   }
 
   public void injectWorkspaceStatusData() {
-    BuildVariableValue.WORKSPACE_STATUS_KEY.set(injectable(),
+    PrecomputedValue.WORKSPACE_STATUS_KEY.set(injectable(),
         workspaceStatusActionFactory.createWorkspaceStatusAction(
             artifactFactory.get(), WorkspaceStatusValue.ARTIFACT_OWNER, buildId));
   }
@@ -466,9 +449,15 @@ public abstract class SkyframeExecutor {
    * Sets the default visibility.
    */
   private void setDefaultVisibility(RuleVisibility defaultVisibility) {
-    BuildVariableValue.DEFAULT_VISIBILITY.set(injectable(), defaultVisibility);
+    PrecomputedValue.DEFAULT_VISIBILITY.set(injectable(), defaultVisibility);
   }
 
+  private void maybeInjectBuildInfoFactories() {
+    if (needToInjectBuildInfoFactories) {
+      injectBuildInfoFactories();
+      needToInjectBuildInfoFactories = false;
+    }
+  }
   /**
    * Injects the build info factory map that will be used when constructing build info
    * actions/artifacts. Unchanged across the life of the Blaze server, although it must be injected
@@ -480,7 +469,7 @@ public abstract class SkyframeExecutor {
     for (BuildInfoFactory factory : buildInfoFactories) {
       factoryMapBuilder.put(factory.getKey(), factory);
     }
-    BuildVariableValue.BUILD_INFO_FACTORIES.set(injectable(), factoryMapBuilder.build());
+    PrecomputedValue.BUILD_INFO_FACTORIES.set(injectable(), factoryMapBuilder.build());
   }
 
   private void setShowLoadingProgress(boolean showLoadingProgressValue) {
@@ -489,7 +478,7 @@ public abstract class SkyframeExecutor {
 
   @VisibleForTesting
   public void setCommandId(UUID commandId) {
-    BuildVariableValue.BUILD_ID.set(injectable(), commandId);
+    PrecomputedValue.BUILD_ID.set(injectable(), commandId);
     buildId.val = commandId;
   }
 
@@ -505,8 +494,8 @@ public abstract class SkyframeExecutor {
 
   @VisibleForTesting
   public WorkspaceStatusAction getLastWorkspaceStatusActionForTesting() {
-    BuildVariableValue value = (BuildVariableValue) buildDriver.getGraphForTesting()
-        .getExistingValueForTesting(BuildVariableValue.WORKSPACE_STATUS_KEY.getKeyForTesting());
+    PrecomputedValue value = (PrecomputedValue) buildDriver.getGraphForTesting()
+        .getExistingValueForTesting(PrecomputedValue.WORKSPACE_STATUS_KEY.getKeyForTesting());
     return (WorkspaceStatusAction) value.get();
   }
 
@@ -530,6 +519,19 @@ public abstract class SkyframeExecutor {
 
   public EventBus getEventBus() {
     return eventBus.get();
+  }
+
+  /**
+   * The map from package names to the package root where each package was found; this is used to
+   * set up the symlink tree.
+   */
+  public ImmutableMap<PathFragment, Path> getPackageRoots() {
+    // Make a map of the package names to their root paths.
+    ImmutableMap.Builder<PathFragment, Path> packageRoots = ImmutableMap.builder();
+    for (Package pkg : configurationPackages.val) {
+      packageRoots.put(pkg.getNameFragment(), pkg.getSourceRoot());
+    }
+    return packageRoots.build();
   }
 
   @VisibleForTesting
@@ -588,6 +590,7 @@ public abstract class SkyframeExecutor {
     Preconditions.checkNotNull(pkgLocator);
     setActive(true);
 
+    maybeInjectBuildInfoFactories();
     setCommandId(commandId);
     setShowLoadingProgress(showLoadingProgress);
     setDefaultVisibility(defaultVisibility);
@@ -606,27 +609,11 @@ public abstract class SkyframeExecutor {
     cyclesReporter.set(createCyclesReporter());
   }
 
-  /**
-   * The value types whose builders have direct access to the package locator. They need to be
-   * invalidated if the package locator changes.
-   */
-  private static final Set<SkyFunctionName> PACKAGE_LOCATOR_DEPENDENT_VALUES = ImmutableSet.of(
-          SkyFunctions.FILE_STATE,
-          SkyFunctions.FILE,
-          SkyFunctions.DIRECTORY_LISTING_STATE,
-          SkyFunctions.PACKAGE_LOOKUP,
-          SkyFunctions.TARGET_PATTERN,
-          SkyFunctions.WORKSPACE_FILE);
-
   @SuppressWarnings("unchecked")
   private void setPackageLocator(PathPackageLocator pkgLocator) {
     PathPackageLocator oldLocator = this.pkgLocator.getAndSet(pkgLocator);
 
-    if (oldLocator == null) {
-      onNewPackageLocator(oldLocator, pkgLocator);
-    } else if (!oldLocator.getPathEntries().equals(pkgLocator.getPathEntries())) {
-      invalidate(SkyFunctionName.functionIsIn(PACKAGE_LOCATOR_DEPENDENT_VALUES));
-
+    if (oldLocator == null || !oldLocator.getPathEntries().equals(pkgLocator.getPathEntries())) {
       // The package path is read not only by SkyFunctions but also by some other code paths.
       // We need to take additional steps to keep the corresponding data structures in sync.
       // (Some of the additional steps are carried out by ConfiguredTargetValueInvalidationListener,
@@ -639,7 +626,12 @@ public abstract class SkyframeExecutor {
                                               PathPackageLocator pkgLocator);
 
   private void checkPreprocessorFactory() {
-    if (!preprocessorFactory.isStillValid()) {
+    if (preprocessorFactory == null) {
+      Preprocessor.Factory newPreprocessorFactory = preprocessorFactorySupplier.getFactory(
+          packageManager);
+      pkgFactory.setPreprocessorFactory(newPreprocessorFactory);
+      preprocessorFactory = newPreprocessorFactory;
+    } else if (!preprocessorFactory.isStillValid()) {
       Preprocessor.Factory newPreprocessorFactory = preprocessorFactorySupplier.getFactory(
           packageManager);
       invalidate(SkyFunctionName.functionIs(SkyFunctions.PACKAGE));
@@ -696,20 +688,22 @@ public abstract class SkyframeExecutor {
       BlazeDirectories directories, ConfigurationFactory configurationFactory) {
     SkyKey skyKey = ConfigurationCollectionValue.key(options, ImmutableSet.<String>of());
     setConfigurationSkyKey(skyKey);
-    BuildVariableValue.BLAZE_DIRECTORIES.set(injectable(), directories);
+    PrecomputedValue.BLAZE_DIRECTORIES.set(injectable(), directories);
     this.configurationFactory.val = configurationFactory;
     this.configurationFragments.val = ImmutableList.copyOf(configurationFactory.getFactories());
+    this.configurationPackages.val = Sets.newConcurrentHashSet();
   }
 
   /**
    * Asks the Skyframe evaluator to build the value for BuildConfigurationCollection and
-   * returns result. Also invalidates {@link BuildVariableValue#TEST_ENVIRONMENT_VARIABLES} and
-   * {@link BuildVariableValue#BLAZE_DIRECTORIES} if they have changed.
+   * returns result. Also invalidates {@link PrecomputedValue#TEST_ENVIRONMENT_VARIABLES} and
+   * {@link PrecomputedValue#BLAZE_DIRECTORIES} if they have changed.
    */
   public BuildConfigurationCollection createConfigurations(
       ConfigurationFactory configurationFactory, BuildConfigurationKey configurationKey)
       throws InvalidConfigurationException, InterruptedException {
 
+    this.configurationPackages.val = Sets.newConcurrentHashSet();
     this.clientEnv.val = configurationKey.getClientEnv();
     this.configurationFactory.val = configurationFactory;
     this.configurationFragments.val = ImmutableList.copyOf(configurationFactory.getFactories());
@@ -721,8 +715,8 @@ public abstract class SkyframeExecutor {
     // TestEnvironmentVariables and BlazeDirectories. There is a problem only with
     // TestEnvironmentVariables because BuildConfigurationKey stores client environment variables
     // and we don't want to rebuild everything when any variable changes.
-    BuildVariableValue.TEST_ENVIRONMENT_VARIABLES.set(injectable(), testEnv);
-    BuildVariableValue.BLAZE_DIRECTORIES.set(injectable(), configurationKey.getDirectories());
+    PrecomputedValue.TEST_ENVIRONMENT_VARIABLES.set(injectable(), testEnv);
+    PrecomputedValue.BLAZE_DIRECTORIES.set(injectable(), configurationKey.getDirectories());
 
     SkyKey skyKey = ConfigurationCollectionValue.key(configurationKey.getBuildOptions(),
         configurationKey.getMultiCpu());
@@ -739,7 +733,11 @@ public abstract class SkyframeExecutor {
     }
     Preconditions.checkState(result.values().size() == 1,
         "Result of evaluate() must contain exactly one value " + result);
-    return Iterables.getOnlyElement(result.values()).getConfigurationCollection();
+    ConfigurationCollectionValue configurationValue = 
+        Iterables.getOnlyElement(result.values());
+    this.configurationPackages.val =
+        Sets.newConcurrentHashSet(configurationValue.getConfigurationPackages());
+    return configurationValue.getConfigurationCollection();
   }
 
   private Iterable<ActionLookupValue> getActionLookupValues() {
@@ -759,7 +757,6 @@ public abstract class SkyframeExecutor {
    * conflicts found will only be reported during execution.
    */
   ImmutableMap<Action, Exception> findArtifactConflicts() throws InterruptedException {
-    Preconditions.checkState(skyframeBuild);
     if (skyframeBuildView.isSomeConfiguredTargetEvaluated()
         || skyframeBuildView.isSomeConfiguredTargetInvalidated()) {
       // This operation is somewhat expensive, so we only do it if the graph might have changed in
@@ -869,7 +866,7 @@ public abstract class SkyframeExecutor {
   public ConfiguredTarget getConfiguredTargetForTesting(
       Label label, BuildConfiguration configuration) {
     if (memoizingEvaluator.getExistingValueForTesting(
-        BuildVariableValue.WORKSPACE_STATUS_KEY.getKeyForTesting()) == null) {
+        PrecomputedValue.WORKSPACE_STATUS_KEY.getKeyForTesting()) == null) {
       injectWorkspaceStatusData();
     }
     return Iterables.getFirst(getConfiguredTargets(ImmutableList.of(
@@ -917,7 +914,7 @@ public abstract class SkyframeExecutor {
       List<LabelAndConfiguration> values, boolean keepGoing,
       ImmutableMap<Action, Exception> badActions) throws InterruptedException {
     checkActive();
-    BuildVariableValue.BAD_ACTIONS.set(injectable(), badActions);
+    PrecomputedValue.BAD_ACTIONS.set(injectable(), badActions);
     // Make sure to not run too many analysis threads. This can cause memory thrashing.
     EvaluationResult<PostConfiguredTargetValue> result =
         buildDriver.evaluate(PostConfiguredTargetValue.keys(values), keepGoing,
@@ -1189,8 +1186,6 @@ public abstract class SkyframeExecutor {
 
   public void prepareExecution(boolean checkOutputFiles) throws AbruptExitException,
       InterruptedException {
-    Preconditions.checkState(skyframeBuild(),
-        "Cannot prepare execution phase if not using Skyframe full");
     maybeInjectEmbeddedArtifacts();
 
     if (checkOutputFiles) {

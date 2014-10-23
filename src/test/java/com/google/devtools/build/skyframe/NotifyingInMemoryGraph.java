@@ -98,7 +98,7 @@ public class NotifyingInMemoryGraph extends InMemoryGraph {
     }
 
     @Override
-    Set<SkyKey> setValue(SkyValue value, Version version) {
+    public Set<SkyKey> setValue(SkyValue value, Version version) {
       graphListener.accept(myKey, EventType.SET_VALUE, Order.BEFORE, value);
       Set<SkyKey> result = super.setValue(value, version);
       graphListener.accept(myKey, EventType.SET_VALUE, Order.AFTER, value);
@@ -120,7 +120,7 @@ public class NotifyingInMemoryGraph extends InMemoryGraph {
     }
 
     @Override
-    boolean isDirty() {
+    public boolean isDirty() {
       graphListener.accept(myKey, EventType.IS_DIRTY, Order.BEFORE, this);
       return super.isDirty();
     }

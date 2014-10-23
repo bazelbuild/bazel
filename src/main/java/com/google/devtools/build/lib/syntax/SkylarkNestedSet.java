@@ -119,8 +119,9 @@ public final class SkylarkNestedSet implements Iterable<Object> {
 
   private static Class<?> checkType(Class<?> builderType, Class<?> itemType, Location loc)
       throws EvalException {
-    if (Map.class.isAssignableFrom(itemType) || SkylarkList.class.isAssignableFrom(itemType)) {
-      throw new EvalException(loc, String.format("nested set item is a collection (type of %s)",
+    if (Map.class.isAssignableFrom(itemType) || SkylarkList.class.isAssignableFrom(itemType)
+        || ClassObject.class.isAssignableFrom(itemType)) {
+      throw new EvalException(loc, String.format("nested set item is composite (type of %s)",
           EvalUtils.getDataTypeNameFromClass(itemType)));
     }
     if (!EvalUtils.isSkylarkImmutable(itemType)) {

@@ -146,7 +146,9 @@ public abstract class CcLibrary implements RuleConfiguredTargetFactory {
         .setEnableLayeringCheck(ruleContext.getFeatures().contains("layering_check"))
         .addSystemIncludeDirs(common.getSystemIncludeDirs())
         .addIncludeDirs(common.getIncludeDirs())
-        .addLooseIncludeDirs(common.getLooseIncludeDirs());
+        .addLooseIncludeDirs(common.getLooseIncludeDirs())
+        .setEmitHeaderTargetModuleMaps(
+            ruleContext.getRule().getRuleClass().equals("cc_public_library"));
     
     if (collectLinkstamp) {
       helper.addLinkstamps(ruleContext.getPrerequisites("linkstamp", Mode.TARGET));
@@ -241,7 +243,7 @@ public abstract class CcLibrary implements RuleConfiguredTargetFactory {
 
     CcLinkingOutputs linkingOutputs = info.getCcLinkingOutputs();
     warnAboutEmptyLibraries(
-        ruleContext, info.getCcCompilationOutputs().getObjectFiles(false), linkType, linkStatic);
+        ruleContext, info.getCcCompilationOutputs(), linkType, linkStatic);
     NestedSet<Artifact> filesToBuild = filesBuilder.build();
 
     Runfiles staticRunfiles = collectRunfiles(ruleContext,
@@ -291,14 +293,16 @@ public abstract class CcLibrary implements RuleConfiguredTargetFactory {
   }
 
   private static void warnAboutEmptyLibraries(RuleContext ruleContext,
-      List<Artifact> linkerInputs, LinkTargetType linkType, boolean linkstaticAttribute) {
+      CcCompilationOutputs ccCompilationOutputs, LinkTargetType linkType,
+      boolean linkstaticAttribute) {
     if (ruleContext.getFragment(CppConfiguration.class).isLipoContextCollector()) {
       // Do not signal warnings in the lipo context collector configuration. These will be duly
       // signaled in the target configuration, and there can be spurious warnings since targets in
       // the LIPO context collector configuration do not compile anything.
       return;
     }
-    if (linkerInputs.isEmpty()) {
+    if (ccCompilationOutputs.getObjectFiles(false).isEmpty()
+        && ccCompilationOutputs.getObjectFiles(true).isEmpty()) {
       if (linkType == LinkTargetType.ALWAYS_LINK_STATIC_LIBRARY
           || linkType == LinkTargetType.ALWAYS_LINK_PIC_STATIC_LIBRARY) {
         ruleContext.attributeWarning("alwayslink",
@@ -310,10 +314,13 @@ public abstract class CcLibrary implements RuleConfiguredTargetFactory {
       }
     } else {
       if (!linkstaticAttribute && appearsToHaveNoObjectFiles(ruleContext.attributes())) {
+        Artifact element = ccCompilationOutputs.getObjectFiles(false).isEmpty()
+            ? ccCompilationOutputs.getObjectFiles(true).iterator().next()
+            : ccCompilationOutputs.getObjectFiles(false).iterator().next();
         ruleContext.attributeWarning("srcs",
              "this library appears at first glance to have no object files, "
              + "but on closer inspection it does have something to link, e.g. "
-             + linkerInputs.iterator().next().prettyPrint() + ". "
+             + element.prettyPrint() + ". "
              + "(You may have used some very confusing rule names in srcs? "
              + "Or the library consists entirely of a linker script?) "
              + "Bazel assumed linkstatic=1, but this may be inappropriate. "

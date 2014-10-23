@@ -648,16 +648,11 @@ public class CppCompileAction extends AbstractAction implements IncludeScannable
       throws IOException {
     DependencySet depSet = new DependencySet(execRoot);
 
-    if (getDotdFile().artifact() != null) {
-      return depSet.read(getDotdFile().getPath());
-    }
-
     // artifact() is null if we are not using in-memory .d files. We also want to prepare for the
     // case where we expected an in-memory .d file, but we did not get an appropriate response.
     // Perhaps we produced the file locally.
-    if (reply == null) {
-      return depSet.process(new String(
-          FileSystemUtils.readContentAsLatin1(getDotdFile().getPath())));
+    if (getDotdFile().artifact() != null || reply == null) {
+      return depSet.read(getDotdFile().getPath());
     } else {
       // This is an in-memory .d file.
       return depSet.process(reply.getContents());

@@ -144,9 +144,6 @@ public class ObjcBinaryRule implements RuleDefinition {
         // less painful and error-prone way.
         .add(attr("$bundlemerge", LABEL).cfg(HOST).exec()
             .value(env.getLabel("//tools/objc:bundlemerge")))
-        // Used to unzip dSYM bundle.
-        .add(attr("$unzip", LABEL).cfg(HOST).exec()
-            .value(env.getLabel("//third_party/unzip:unzip")))
         .build();
   }
 }

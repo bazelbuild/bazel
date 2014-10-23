@@ -161,7 +161,7 @@ public final class SkylarkRuleConfiguredTargetBuilder {
               cast(struct.getValue("default_runfiles"), Runfiles.class, "default_runfiles", loc);
         } else if (!key.equals("executable")) {
           // We handled executable already.
-          builder.addSkylarkTransitiveInfo(key, struct.getValue(key));
+          builder.addSkylarkTransitiveInfo(key, struct.getValue(key), loc);
         }
       }
     }

@@ -37,7 +37,7 @@ public interface CppCompileActionContext extends ActionContext {
     /**
      * Returns the contents of the .d file.
      */
-    String getContents() throws IOException;
+    byte[] getContents() throws IOException;
   }
 
   /**

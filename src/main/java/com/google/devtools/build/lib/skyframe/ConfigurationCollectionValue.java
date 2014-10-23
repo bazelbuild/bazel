@@ -17,6 +17,7 @@ import com.google.common.base.Preconditions;
 import com.google.common.collect.ImmutableSet;
 import com.google.devtools.build.lib.concurrent.ThreadSafety.Immutable;
 import com.google.devtools.build.lib.concurrent.ThreadSafety.ThreadSafe;
+import com.google.devtools.build.lib.packages.Package;
 import com.google.devtools.build.lib.view.config.BuildConfigurationCollection;
 import com.google.devtools.build.lib.view.config.BuildOptions;
 import com.google.devtools.build.skyframe.SkyKey;
@@ -24,6 +25,7 @@ import com.google.devtools.build.skyframe.SkyValue;
 
 import java.io.Serializable;
 import java.util.Objects;
+import java.util.Set;
 
 /**
  * A Skyframe value representing a build configuration collection.
@@ -33,13 +35,23 @@ import java.util.Objects;
 public class ConfigurationCollectionValue implements SkyValue {
 
   private final BuildConfigurationCollection configurationCollection;
+  private final ImmutableSet<Package> configurationPackages;
 
-  ConfigurationCollectionValue(BuildConfigurationCollection configurationCollection) {
+  ConfigurationCollectionValue(BuildConfigurationCollection configurationCollection,
+      Set<Package> configurationPackages) {
     this.configurationCollection = Preconditions.checkNotNull(configurationCollection);
+    this.configurationPackages = ImmutableSet.copyOf(configurationPackages);
   }
 
   public BuildConfigurationCollection getConfigurationCollection() {
     return configurationCollection;
+  }
+
+  /**
+   * Returns set of packages required for configuration.
+   */
+  public Set<Package> getConfigurationPackages() {
+    return configurationPackages;
   }
 
   @ThreadSafe

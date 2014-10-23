@@ -57,7 +57,7 @@ final class TargetCompletionFunction implements SkyFunction {
       return null;
     }
 
-    TopLevelArtifactContext topLevelContext = BuildVariableValue.TOP_LEVEL_CONTEXT.get(env);
+    TopLevelArtifactContext topLevelContext = PrecomputedValue.TOP_LEVEL_CONTEXT.get(env);
     if (topLevelContext == null) {
       return null;
     }

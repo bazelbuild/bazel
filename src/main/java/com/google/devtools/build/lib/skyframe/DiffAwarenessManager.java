@@ -13,9 +13,6 @@
 // limitations under the License.
 package com.google.devtools.build.lib.skyframe;
 
-import com.google.common.base.Objects;
-import com.google.common.base.Preconditions;
-import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableSet;
 import com.google.common.collect.Maps;
 import com.google.devtools.build.lib.events.Event;
@@ -23,7 +20,6 @@ import com.google.devtools.build.lib.events.Reporter;
 import com.google.devtools.build.lib.vfs.ModifiedFileSet;
 import com.google.devtools.build.lib.vfs.Path;
 
-import java.util.List;
 import java.util.Map;
 
 import javax.annotation.Nullable;
@@ -32,8 +28,6 @@ import javax.annotation.Nullable;
 public final class DiffAwarenessManager {
 
   private final ImmutableSet<? extends DiffAwareness.Factory> diffAwarenessFactories;
-  @Nullable
-  private ImmutableList<Path> pathEntries = null;
   private Map<Path, DiffAwareness> currentDiffAwarenesses = Maps.newHashMap();
   private Map<Path, ProcessableModifiedFileSet> unprocessedDiffs = Maps.newHashMap();
   private final Reporter reporter;
@@ -42,14 +36,6 @@ public final class DiffAwarenessManager {
       Reporter reporter) {
     this.diffAwarenessFactories = ImmutableSet.copyOf(diffAwarenessFactories);
     this.reporter = reporter;
-  }
-
-  /** Must be called at least once, and whenever --package_path changes. */
-  public void setPathEntries(List<Path> pathEntries) {
-    if (!Objects.equal(this.pathEntries, pathEntries)) {
-      reset();
-      this.pathEntries = ImmutableList.copyOf(pathEntries);
-    }
   }
 
   /** Reset internal {@link DiffAwareness} state. */
@@ -74,7 +60,6 @@ public final class DiffAwarenessManager {
 
   /** Gets the set of changed files since the last call with this path entry. */
   public ProcessableModifiedFileSet getDiff(Path pathEntry) {
-    Preconditions.checkNotNull(pathEntries, "Must call setPathEntries before getDiff");
     DiffAwareness diffAwareness = maybeGetDiffAwareness(pathEntry);
     if (diffAwareness == null) {
       return BrokenProcessableModifiedFileSet.INSTANCE;
@@ -100,7 +85,7 @@ public final class DiffAwarenessManager {
 
   /**
    * Returns the current diff awareness for the given path entry, or a fresh one if there is no
-   * current one, or otherwise {@link null} if no factory could make a fresh one.
+   * current one, or otherwise {@code null} if no factory could make a fresh one.
    */
   @Nullable
   private DiffAwareness maybeGetDiffAwareness(Path pathEntry) {
@@ -109,7 +94,7 @@ public final class DiffAwarenessManager {
       return currentDiffAwareness;
     }
     for (DiffAwareness.Factory factory : diffAwarenessFactories) {
-      DiffAwareness newDiffAwareness = factory.maybeCreate(pathEntry, pathEntries);
+      DiffAwareness newDiffAwareness = factory.maybeCreate(pathEntry);
       if (newDiffAwareness != null) {
         currentDiffAwarenesses.put(pathEntry, newDiffAwareness);
         return newDiffAwareness;

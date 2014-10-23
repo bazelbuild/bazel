@@ -386,13 +386,13 @@ public class PackageFunction implements SkyFunction {
 
     String replacementContents = null;
     if (packageName.equals(DEFAULTS_PACKAGE_NAME)) {
-      replacementContents = BuildVariableValue.DEFAULTS_PACKAGE_CONTENTS.get(env);
+      replacementContents = PrecomputedValue.DEFAULTS_PACKAGE_CONTENTS.get(env);
       if (replacementContents == null) {
         return null;
       }
     }
 
-    RuleVisibility defaultVisibility = BuildVariableValue.DEFAULT_VISIBILITY.get(env);
+    RuleVisibility defaultVisibility = PrecomputedValue.DEFAULT_VISIBILITY.get(env);
     if (defaultVisibility == null) {
       return null;
     }

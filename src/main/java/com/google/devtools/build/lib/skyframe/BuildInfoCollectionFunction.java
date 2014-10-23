@@ -31,7 +31,7 @@ import java.util.Map;
 
 /**
  * Creates a {@link BuildInfoCollectionValue}. Only depends on the unique
- * {@link WorkspaceStatusValue} and the constant {@link BuildVariableValue#BUILD_INFO_FACTORIES}
+ * {@link WorkspaceStatusValue} and the constant {@link PrecomputedValue#BUILD_INFO_FACTORIES}
  * injected value.
  */
 public class BuildInfoCollectionFunction implements SkyFunction {
@@ -54,7 +54,7 @@ public class BuildInfoCollectionFunction implements SkyFunction {
       return null;
     }
     Map<BuildInfoKey, BuildInfoFactory> buildInfoFactories =
-        BuildVariableValue.BUILD_INFO_FACTORIES.get(env);
+        PrecomputedValue.BUILD_INFO_FACTORIES.get(env);
     if (buildInfoFactories == null) {
       return null;
     }

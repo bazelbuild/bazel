@@ -69,7 +69,7 @@ import javax.annotation.Nullable;
  */
 public final class CcLibraryHelper {
   /** Function for extracting module maps from CppCompilationDependencies. */
-  private static final Function<TransitiveInfoCollection, CppModuleMap> CPP_DEPS_TO_MODULES =
+  public static final Function<TransitiveInfoCollection, CppModuleMap> CPP_DEPS_TO_MODULES =
     new Function<TransitiveInfoCollection, CppModuleMap>() {
       @Override
       @Nullable
@@ -179,6 +179,7 @@ public final class CcLibraryHelper {
   private boolean emitDynamicLibrary = true;
   private boolean checkDepsGenerateCpp = true;
   private boolean emitCompileProviders;
+  private boolean emitHeaderTargetModuleMaps = false;
 
   public CcLibraryHelper(RuleContext ruleContext, CppSemantics semantics) {
     this.ruleContext = Preconditions.checkNotNull(ruleContext);
@@ -557,6 +558,14 @@ public final class CcLibraryHelper {
     this.emitCompileProviders = true;
     return this;
   }
+  
+  /**
+   * Sets whether to emit the transitive module map references of a public library headers target.
+   */
+  public CcLibraryHelper setEmitHeaderTargetModuleMaps(boolean emitHeaderTargetModuleMaps) {
+    this.emitHeaderTargetModuleMaps = emitHeaderTargetModuleMaps;
+    return this;
+  }
 
   /**
    * Create the C++ compile and link actions, and the corresponding C++-related providers.
@@ -757,6 +766,14 @@ public final class CcLibraryHelper {
     if (toolchain != null) {
       result.add(toolchain.getCppCompilationContext().getCppModuleMap());
     }
+    
+    if (emitHeaderTargetModuleMaps) {
+      for (HeaderTargetModuleMapProvider provider : AnalysisUtils.getProviders(
+          deps, HeaderTargetModuleMapProvider.class)) {
+        Iterables.addAll(result, provider.getCppModuleMaps());
+      }
+    }
+    
     return Iterables.filter(result, Predicates.<CppModuleMap>notNull());
   }
 

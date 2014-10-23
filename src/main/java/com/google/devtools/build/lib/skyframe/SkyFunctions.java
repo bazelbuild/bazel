@@ -21,7 +21,7 @@ import com.google.devtools.build.skyframe.SkyKey;
  * Value types in Skyframe.
  */
 public final class SkyFunctions {
-  public static final SkyFunctionName BUILD_VARIABLE = new SkyFunctionName("BUILD_VARIABLE", false);
+  public static final SkyFunctionName PRECOMPUTED = new SkyFunctionName("PRECOMPUTED", false);
   public static final SkyFunctionName FILE_STATE = new SkyFunctionName("FILE_STATE", false);
   public static final SkyFunctionName DIRECTORY_LISTING_STATE =
       new SkyFunctionName("DIRECTORY_LISTING_STATE", false);

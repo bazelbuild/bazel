@@ -1,48 +1,82 @@
-Building Bazel
-==============
+# README
 
-We currently only support building on Ubuntu, and the binaries only run on
-Ubuntu. You will need packages for the protobuf-compiler, and for libarchive:
+This README file contains instructions for building and running Bazel.
 
-    sudo apt-get install protobuf-compiler libarchive-dev
+## System Requirements
 
-You will also need a JDK installed. Then run:
+Supported platforms:
 
-    ./compile.sh
+* Ubuntu Linux
+* Mac OS X (experimental only)
 
-This will create the bazel binary in the output directory. We are working on
-bootstrapping bazel with itself.
+Java:
 
-Experimental: Building Bazel on OS X
-------------------------------------
+* Java JDK 7 or later
 
-You will need Xcode, the Xcode command line tools, and a JDK installed. Bazel's
-compile script assumes you're using MacPorts or Homebrew to install
-dependencies.  To install the prerequisites, run:
+## Getting Bazel
 
-    port install protobuf-cpp libarchive
+1. Clone the Bazel repo from GitHub:
 
-or
+        $ cd $HOME
+        $ git clone https://github.com/google/bazel/
 
-    brew install protobuf libarchive
+## Building Bazel
 
-Once the prerequisites are installed, follow the building instructions above.
+### Building Bazel on Ubuntu
 
-Running Bazel
-=============
+To build Bazel on Ubuntu:
 
-Bazel requires certain files to exist in certain places. To get your workspace
-set up correctly, start by copying `base_workspace/` to wherever you want to do
-your builds and make your project a subdirectory of `base_workspace/`.
+1. Install required package:
 
-Create a BUILD file in a subdirectory of `base_workspace`, for example:
+        $ sudo apt-get install libarchive-dev
 
-    $ cd base_workspace
-    $ mkdir hello
-    $ echo 'genrule(name = "world", outs = ["hi"], cmd = "touch $@")' > hello/BUILD
+2. Build Bazel:
 
-Now run Bazel, e.g.,
+        $ cd bazel
+        $ ./compile.sh
 
-    $ bazel build //hello:world
+### Building Bazel on OS X (experimental)
 
-You should be able to find the file "hi" in bazel-genfiles/hello/.
+Using Bazel on Mac OS X requires:
+
+* Xcode and Xcode command line tools
+* MacPorts or Homebrew for installing required packages
+
+To build Bazel on Mac OS X:
+
+1. Install required packages:
+
+        $ port install protobuf-cpp libarchive
+
+   or
+
+        $ brew install protobuf libarchive
+
+2. Build Bazel:
+
+        $ cd bazel
+        $ ./compile.sh
+
+## Running Bazel
+
+The Bazel executable is located at `<bazel_home>/output/bazel`.
+
+You must run Bazel from within a _workspace directory_. Bazel provides a default
+workspace directory with sample `BUILD` files and source code in
+`<bazel_home>/base_workspace`. The default workspace contains files and
+directories that must be present in order for Bazel to work. If you want to
+build from source outside the default workspace directory, copy the entire
+`base_workspace` directory to the new location before adding your `BUILD` and
+source files.
+
+Build a sample Java application:
+
+        $ cp -R $HOME/bazel/base_workspace $HOME/my_workspace
+        $ cd $HOME/my_workspace
+        $ $HOME/bazel/output/bazel build //examples/java:hello-world
+
+The build output is located in `$HOME/my_workspace/bazel-bin/examples/java/`.
+
+Run the sample application:
+
+    $ $HOME/my_workspace/bazel-bin/examples/java/hello-world

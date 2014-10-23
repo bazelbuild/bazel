@@ -44,7 +44,7 @@ public class DirectoryListingStateFunction implements SkyFunction {
     RootedPath dirRootedPath = (RootedPath) skyKey.argument();
     // See the note about external files in FileStateFunction.
     if (!pkgLocator.get().getPathEntries().contains(dirRootedPath.getRoot())) {
-      UUID buildId = BuildVariableValue.BUILD_ID.get(env);
+      UUID buildId = PrecomputedValue.BUILD_ID.get(env);
       if (buildId == null) {
         return null;
       }

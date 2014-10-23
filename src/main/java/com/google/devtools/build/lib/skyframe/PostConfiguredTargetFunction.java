@@ -55,7 +55,7 @@ public class PostConfiguredTargetFunction implements SkyFunction {
   @Nullable
   @Override
   public SkyValue compute(SkyKey skyKey, Environment env) throws SkyFunctionException {
-    ImmutableMap<Action, Exception> badActions = BuildVariableValue.BAD_ACTIONS.get(env);
+    ImmutableMap<Action, Exception> badActions = PrecomputedValue.BAD_ACTIONS.get(env);
     ConfiguredTargetValue ctValue = (ConfiguredTargetValue)
         env.getValue(ConfiguredTargetValue.key((LabelAndConfiguration) skyKey.argument()));
     SkyframeDependencyResolver resolver =

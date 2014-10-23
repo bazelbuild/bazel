@@ -37,7 +37,7 @@ public class SequencedSkyframeExecutorFactory implements SkyframeExecutorFactory
       Iterable<? extends DiffAwareness.Factory> diffAwarenessFactories,
       Predicate<PathFragment> allowedMissingInputs, Supplier preprocessorFactorySupplier,
       Clock clock) {
-    return new SequencedSkyframeExecutor(reporter, pkgFactory, skyframeBuild, tsgm, directories,
+    return new SequencedSkyframeExecutor(reporter, pkgFactory, tsgm, directories,
         workspaceStatusActionFactory, buildInfoFactories, diffAwarenessFactories,
         allowedMissingInputs, preprocessorFactorySupplier, clock);
   }

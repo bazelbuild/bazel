@@ -23,9 +23,6 @@ import com.google.devtools.build.lib.actions.Artifact;
 import com.google.devtools.build.lib.concurrent.ThreadSafety.Immutable;
 import com.google.devtools.build.lib.packages.OutputFile;
 import com.google.devtools.build.lib.packages.Rule;
-import com.google.devtools.build.lib.syntax.EvalUtils;
-import com.google.devtools.build.lib.syntax.Label;
-import com.google.devtools.build.lib.syntax.SkylarkList;
 import com.google.devtools.build.lib.view.config.ConfigMatchingProvider;
 import com.google.devtools.build.lib.view.config.RunUnder;
 
@@ -69,7 +66,6 @@ public final class RuleConfiguredTarget extends AbstractConfiguredTarget {
     Preconditions.checkState(providerBuilder.containsKey(FileProvider.class));
     Preconditions.checkState(providerBuilder.containsKey(FilesToRunProvider.class));
 
-    checkSkylarkProviders(skylarkProviders);
     providerBuilder.put(SkylarkProviders.class, new SkylarkProviders(skylarkProviders));
 
     this.providers = ImmutableMap.copyOf(providerBuilder);
@@ -100,48 +96,6 @@ public final class RuleConfiguredTarget extends AbstractConfiguredTarget {
    */
   Set<ConfigMatchingProvider> getConfigConditions() {
     return configConditions;
-  }
-
-  /**
-   * This is an extra safety check. All objects passed in the providers have to be
-   * immutable in Skylark.
-   */
-  // TODO(bazel-team): Skylark will support only immutable objects. We will still need this check
-  // here but we don't have to worry about nice error messages to Skylark users. Also this method
-  // is going to be extended as we migrate more and more Transitive Info Providers.
-  private void checkSkylarkProviders(ImmutableMap<String, Object> providers) {
-    for (Map.Entry<String, Object> entry : providers.entrySet()) {
-      Object value = entry.getValue();
-      if (value instanceof SkylarkList) {
-        // TODO(bazel-team): it is not efficient to iterate through the list.
-        // We will have to come up with a way to have generic type information here,
-        // but first we need to enforce type safety in Skylark.
-        for (Object nestedSetValue : ((Iterable<?>) value)) {
-          Preconditions.checkArgument(isSimpleSkylarkObjectImmutable(nestedSetValue),
-              String.format("Transitive Info Provider '%s' contains mutable objects",
-                  entry.getKey()));
-        }
-      } else {
-        Preconditions.checkArgument(
-            // Java transitive Info Providers are still accessible from Skylark, e.g.
-            // RunfilesProvider. Those are safe.
-            isSimpleSkylarkObjectImmutable(value)
-            || value.getClass().isAnnotationPresent(Immutable.class),
-            String.format("Transitive Info Provider '%s' is mutable (type of %s)",
-                entry.getKey(), EvalUtils.getDatatypeName(value)));
-      }
-    }
-  }
-
-  private static boolean isSimpleSkylarkObjectImmutable(Object object) {
-    if (object instanceof String
-        || object instanceof Integer
-        || object instanceof Label
-        || object instanceof Artifact) {
-      return true;
-    } else {
-      return false;
-    }
   }
 
   @Override

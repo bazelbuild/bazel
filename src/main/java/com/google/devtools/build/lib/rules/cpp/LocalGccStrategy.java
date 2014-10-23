@@ -31,7 +31,7 @@ import java.util.Collection;
 public class LocalGccStrategy implements CppCompileActionContext {
   private static final Reply CANNED_REPLY = new Reply() {
     @Override
-    public String getContents() {
+    public byte[] getContents() {
       throw new IllegalStateException("Remotely computed data requested for local action");
     }
   };

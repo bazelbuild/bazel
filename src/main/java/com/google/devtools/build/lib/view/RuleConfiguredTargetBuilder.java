@@ -24,6 +24,7 @@ import com.google.devtools.build.lib.actions.Artifact;
 import com.google.devtools.build.lib.collect.nestedset.NestedSet;
 import com.google.devtools.build.lib.collect.nestedset.NestedSetBuilder;
 import com.google.devtools.build.lib.collect.nestedset.Order;
+import com.google.devtools.build.lib.events.Location;
 import com.google.devtools.build.lib.packages.License;
 import com.google.devtools.build.lib.packages.Rule;
 import com.google.devtools.build.lib.packages.TargetUtils;
@@ -33,7 +34,13 @@ import com.google.devtools.build.lib.rules.test.InstrumentedFilesProvider;
 import com.google.devtools.build.lib.rules.test.TestActionBuilder;
 import com.google.devtools.build.lib.rules.test.TestProvider;
 import com.google.devtools.build.lib.rules.test.TestProvider.TestParams;
+import com.google.devtools.build.lib.syntax.ClassObject;
+import com.google.devtools.build.lib.syntax.Environment;
+import com.google.devtools.build.lib.syntax.EvalException;
+import com.google.devtools.build.lib.syntax.EvalUtils;
 import com.google.devtools.build.lib.syntax.Label;
+import com.google.devtools.build.lib.syntax.SkylarkList;
+import com.google.devtools.build.lib.syntax.SkylarkNestedSet;
 import com.google.devtools.build.lib.view.ExtraActionArtifactsProvider.ExtraArtifactSet;
 import com.google.devtools.build.lib.view.LicensesProvider.TargetLicense;
 import com.google.devtools.build.lib.view.RuleConfiguredTarget.Mode;
@@ -261,11 +268,87 @@ public final class RuleConfiguredTargetBuilder {
   }
 
   /**
-   * Add a Skylark transitive info. The provider value must be immutable.
+   * Add a Skylark transitive info. The provider value must be safe (i.e. a String, a Boolean,
+   * an Integer, an Artifact, a Label, None, a Java TransitiveInfoProvider or something composed
+   * from these in Skylark using lists, sets, structs or dicts). Otherwise an EvalException is
+   * thrown.
    */
-  public RuleConfiguredTargetBuilder addSkylarkTransitiveInfo(String name, Object value) {
+  public RuleConfiguredTargetBuilder addSkylarkTransitiveInfo(
+      String name, Object value, Location loc) throws EvalException {
+    try {
+      checkSkylarkObjectSafe(value);
+    } catch (IllegalArgumentException e) {
+      throw new EvalException(loc, String.format("Value of provider '%s' is of an illegal type: %s",
+          name, e.getMessage()));
+    }
     skylarkProviders.put(name, value);
     return this;
+  }
+
+  /**
+   * Add a Skylark transitive info. The provider value must be safe.
+   */
+  public RuleConfiguredTargetBuilder addSkylarkTransitiveInfo(
+      String name, Object value) {
+    checkSkylarkObjectSafe(value);
+    skylarkProviders.put(name, value);
+    return this;
+  }
+
+  /**
+   * Check if the value provided by a Skylark provider is safe (i.e. can be a
+   * TransitiveInfoProvider value).
+   */
+  private void checkSkylarkObjectSafe(Object value) {
+    if (!isSimpleSkylarkObjectSafe(value.getClass())
+        // Java transitive Info Providers are accessible from Skylark.
+        || value instanceof TransitiveInfoProvider) {
+      checkCompositeSkylarkObjectSafe(value);
+    }
+  }
+
+  private void checkCompositeSkylarkObjectSafe(Object object) {
+    if (object instanceof SkylarkList) {
+      SkylarkList list = (SkylarkList) object;
+      if (list == SkylarkList.EMPTY_LIST || isSimpleSkylarkObjectSafe(list.getGenericType())) {
+        // Try not to iterate over the list if avoidable.
+        return;
+      }
+      // The list can be a tuple or a list of composite items.
+      for (Object listItem : list) {
+        checkSkylarkObjectSafe(listItem);
+      }
+      return;
+    } else if (object instanceof SkylarkNestedSet) {
+      // SkylarkNestedSets cannot have composite items.
+      Class<?> genericType = ((SkylarkNestedSet) object).getGenericType();
+      if (!genericType.equals(Object.class) && !isSimpleSkylarkObjectSafe(genericType)) {
+        throw new IllegalArgumentException(EvalUtils.getDatatypeName(genericType));
+      }
+      return;
+    } else if (object instanceof Map<?, ?>) {
+      for (Map.Entry<?, ?> entry : ((Map<?, ?>) object).entrySet()) {
+        checkSkylarkObjectSafe(entry.getKey());
+        checkSkylarkObjectSafe(entry.getValue());
+      }
+      return;
+    } else if (object instanceof ClassObject) {
+      ClassObject struct = (ClassObject) object;
+      for (String key : struct.getKeys()) {
+        checkSkylarkObjectSafe(struct.getValue(key));
+      }
+      return;
+    }
+    throw new IllegalArgumentException(EvalUtils.getDatatypeName(object));
+  }
+
+  private boolean isSimpleSkylarkObjectSafe(Class<?> type) {
+    return type.equals(String.class)
+        || type.equals(Integer.class)
+        || type.equals(Boolean.class)
+        || Artifact.class.isAssignableFrom(type)
+        || type.equals(Label.class)
+        || type.equals(Environment.NoneType.class);
   }
 
   /**

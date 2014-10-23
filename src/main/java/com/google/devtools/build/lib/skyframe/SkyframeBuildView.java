@@ -26,7 +26,6 @@ import com.google.devtools.build.lib.actions.Action;
 import com.google.devtools.build.lib.actions.Artifact;
 import com.google.devtools.build.lib.actions.ArtifactFactory;
 import com.google.devtools.build.lib.actions.MutableActionGraph;
-import com.google.devtools.build.lib.concurrent.ThreadSafety.ThreadHostile;
 import com.google.devtools.build.lib.events.Event;
 import com.google.devtools.build.lib.events.EventHandler;
 import com.google.devtools.build.lib.packages.Attribute;
@@ -71,7 +70,6 @@ import javax.annotation.Nullable;
  */
 public final class SkyframeBuildView {
 
-  private final MutableActionGraph actionGraph;
   private final ConfiguredTargetFactory factory;
   private final ArtifactFactory artifactFactory;
   @Nullable private EventHandler warningListener;
@@ -80,24 +78,9 @@ public final class SkyframeBuildView {
   private final BinTools binTools;
   private boolean enableAnalysis = false;
 
-  /**
-   * Because of change pruning, we keep the set of actions to be unregistered instead of eagerly
-   * unregistering them (they might later on be re-validated). This avoids re-registering the wrong
-   * shared action in the action graph while keeping the original action in the forward graph.
-   *
-   * <p>We only unregister the actions in the set in the following situations: <li> After
-   * Skyframe analysis update has been executed, the remaining actions in the set are
-   * unregistered.
-   *
-   * <li> When we are about to register a new action in {@code ConfiguredTargetFunction}. At
-   * that moment we know that we are going to throw away the forward graph, so we do not care
-   * about preserving the registration order of shared actions anymore.
-   */
-  private Set<Action> pendingInvalidatedActions = Sets.newConcurrentHashSet();
-  private final Object registrationLock = new Object();
-
-  // This hack allows us to connect legacy Blaze with Skyframe by listening to events of Skyframe.
-  // TODO(bazel-team): Remove this hack. [skyframe-execution]
+  // This hack allows us to see when a configured target has been invalidated, and thus when the set
+  // of artifact conflicts needs to be recomputed (whenever a configured target has been invalidated
+  // or newly evaluated).
   private final EvaluationProgressReceiver invalidationReceiver =
       new ConfiguredTargetValueInvalidationReceiver();
   private final Set<SkyKey> evaluatedConfiguredTargets = Sets.newConcurrentHashSet();
@@ -114,24 +97,17 @@ public final class SkyframeBuildView {
   private WorkspaceStatusArtifacts workspaceStatusArtifacts = null;
   private SkyKey configurationKey = null;
 
-  public SkyframeBuildView(MutableActionGraph actionGraph, ConfiguredTargetFactory factory,
-      ArtifactFactory artifactFactory, @Nullable EventHandler warningListener,
+  public SkyframeBuildView(ConfiguredTargetFactory factory,
+      ArtifactFactory artifactFactory,
       SkyframeExecutor skyframeExecutor, Runnable legacyDataCleaner,
       ImmutableList<OutputFormatter> outputFormatters, BinTools binTools) {
-    this.actionGraph = actionGraph;
     this.factory = factory;
     this.artifactFactory = artifactFactory;
-    this.warningListener = warningListener;
     this.skyframeExecutor = skyframeExecutor;
     this.legacyDataCleaner = legacyDataCleaner;
     this.outputFormatters = outputFormatters;
     this.binTools = binTools;
     skyframeExecutor.setArtifactFactoryAndBinTools(artifactFactory, binTools);
-  }
-
-  public void setWorkspaceStatusArtifacts(WorkspaceStatusArtifacts buildInfoArtifacts) {
-    Preconditions.checkState(!skyframeExecutor.skyframeBuild());
-    this.workspaceStatusArtifacts = buildInfoArtifacts;
   }
 
   public void setWarningListener(@Nullable EventHandler warningListener) {
@@ -188,9 +164,7 @@ public final class SkyframeBuildView {
     }
     // For Skyframe m1, note that we already reported action conflicts during action registration
     // in the legacy action graph.
-    ImmutableMap<Action, Exception> badActions = skyframeExecutor.skyframeBuild()
-        ? skyframeExecutor.findArtifactConflicts()
-        : ImmutableMap.<Action, Exception>of();
+    ImmutableMap<Action, Exception> badActions = skyframeExecutor.findArtifactConflicts();
 
     // Filter out all CTs that have a bad action and convert to a list of configured targets. This
     // code ensures that the resulting list of configured targets has the same order as the incoming
@@ -205,9 +179,7 @@ public final class SkyframeBuildView {
     }
 
     if (!result.hasError() && badActions.isEmpty()) {
-      if (skyframeExecutor.skyframeBuild()) {
-        setDeserializedArtifactOwners();
-      }
+      setDeserializedArtifactOwners();
       return goodCts;
     }
 
@@ -306,9 +278,7 @@ public final class SkyframeBuildView {
         }
       }
     }
-    if (skyframeExecutor.skyframeBuild()) {
-      setDeserializedArtifactOwners();
-    }
+    setDeserializedArtifactOwners();
     return goodCts;
   }
 
@@ -336,10 +306,6 @@ public final class SkyframeBuildView {
     }
   }
 
-  MutableActionGraph getActionGraph() {
-    return actionGraph;
-  }
-
   ArtifactFactory getArtifactFactory() {
     return artifactFactory;
   }
@@ -358,7 +324,7 @@ public final class SkyframeBuildView {
   private boolean getWorkspaceStatusValues(Environment env) {
     env.getValue(WorkspaceStatusValue.SKY_KEY);
     Map<BuildInfoKey, BuildInfoFactory> buildInfoFactories =
-        BuildVariableValue.BUILD_INFO_FACTORIES.get(env);
+        PrecomputedValue.BUILD_INFO_FACTORIES.get(env);
     if (buildInfoFactories == null) {
       return false;
     }
@@ -383,7 +349,7 @@ public final class SkyframeBuildView {
   CachingAnalysisEnvironment createAnalysisEnvironment(LabelAndConfiguration owner,
       boolean isSystemEnv, boolean extendedSanityChecks, EventHandler eventHandler,
       Environment env, boolean allowRegisteringActions) {
-    if (skyframeExecutor.skyframeBuild() && !getWorkspaceStatusValues(env)) {
+    if (!getWorkspaceStatusValues(env)) {
       return null;
     }
     return new CachingAnalysisEnvironment(
@@ -481,40 +447,6 @@ public final class SkyframeBuildView {
     this.enableAnalysis = enable;
   }
 
-  /**
-   * Execute the un-registration of all the invalidated actions. It is correct to unregister
-   * unrelated actions because on re-validation we register again the action if not found in
-   * pendingInvalidatedActions. At this point it does not matter that we register a different
-   * shared action since we are going to recreate the forward graph.
-   */
-  void unregisterPendingActions() {
-    synchronized (registrationLock) {
-      if (pendingInvalidatedActions.isEmpty()) {
-        return;
-      }
-      if (actionGraph != null) {
-        for (Action action : pendingInvalidatedActions) {
-          actionGraph.unregisterAction(action);
-        }
-      }
-      pendingInvalidatedActions.clear();
-    }
-  }
-
-  /**
-   * Unregister all pending actions from the action graph and shrink the set of invalidated actions
-   * so that further clear() calls are less expensive.
-   *
-   * <p>Note that this method should not be called when other threads are updating the Skyframe
-   * graph since we are creating a new instance of pendingInvalidatedActions and we also
-   * synchronize on that object.
-   */
-  @ThreadHostile
-  public void unregisterPendingActionsAndShrink() {
-    unregisterPendingActions();
-    pendingInvalidatedActions = Sets.newConcurrentHashSet();
-  }
-
   private class ConfiguredTargetValueInvalidationReceiver implements EvaluationProgressReceiver {
     @Override
     public void invalidated(SkyValue value, InvalidationState state) {
@@ -527,13 +459,6 @@ public final class SkyframeBuildView {
             anyConfiguredTargetDeleted = true;
           } else {
             dirtyConfiguredTargets.add(ctValue);
-          }
-          for (Action action : ctValue.getActions()) {
-            // Delay the invalidation until a new configured target is created (forward graph will
-            // be invalidated) or after the analysis update is executed. This does not need to
-            // use registrationLock because all invalidations happen before all the other
-            // code paths.
-            pendingInvalidatedActions.add(action);
           }
         }
       }
@@ -553,19 +478,6 @@ public final class SkyframeBuildView {
         Preconditions.checkNotNull(value, "%s %s", skyKey, state);
         ConfiguredTargetValue ctValue = (ConfiguredTargetValue) value;
         dirtyConfiguredTargets.remove(ctValue);
-        for (Action action : ctValue.getActions()) {
-          // If we are not present in pendingInvalidatedActions that means that we cannot assume
-          // that we are already registered in the action graph.
-          // We need to synchronize because the removal and registration has to be atomic and
-          // exclusive with unregisterPendingActions code.
-          boolean removed;
-          synchronized (registrationLock) {
-            removed = pendingInvalidatedActions.remove(action);
-          }
-          if (!removed && actionGraph != null) {
-            actionGraph.registerAction(action);
-          }
-        }
       }
     }
   }

@@ -99,9 +99,10 @@ public final class CppModel {
   }
 
   /**
-   * If set, the CppModel only creates either the PIC or the non-PIC outputs, but not both.
-   * Otherwise it always creates non-PIC outputs, and PIC additionally if the configuration requires
-   * it. Defaults to false.
+   * If set, the CppModel only creates a single .o output that can be linked into a dynamic library,
+   * i.e., it never generates both PIC and non-PIC outputs. Otherwise it creates outputs that can be
+   * linked into both static binaries and dynamic libraries (if both require PIC or both require
+   * non-PIC, then it still only creates a single output). Defaults to false.
    */
   public CppModel setOnlySingleOutput(boolean onlySingleOutput) {
     this.onlySingleOutput = onlySingleOutput;
@@ -313,11 +314,21 @@ public final class CppModel {
       env.registerAction(action);
       result.addObjectFile(action.getOutputFile());
     } else {
+      boolean generatePicAction = CppHelper.usePic(ruleContext, false);
+      // If we always need pic for everything, then don't bother to create a no-pic action.
+      boolean generateNoPicAction =
+          !CppHelper.usePic(ruleContext, true) || !CppHelper.usePic(ruleContext, false);
+      // onlySingleOutput guarantees that the code is only ever linked into a dynamic library - so
+      // we don't need a no-pic action even if linking into a binary would require it.
+      if (onlySingleOutput && generatePicAction) {
+        generateNoPicAction = false;
+      }
+      Preconditions.checkState(generatePicAction || generateNoPicAction);
+
       // Create PIC compile actions (same as non-PIC, but use -fPIC and
       // generate .pic.o, .pic.d, .pic.gcno instead of .o, .d, .gcno.)
-      if (CppHelper.usePic(ruleContext, false)) {
+      if (generatePicAction) {
         CppCompileActionBuilder picBuilder = copyAsPicBuilder(builder, outputName);
-
         cppConfiguration.getFdoSupport().configureCompilation(picBuilder, ruleContext, env,
             ruleContext.getLabel(), ccRelativeName, nocopts, /*usePic=*/true,
             lipoProvider);
@@ -339,9 +350,12 @@ public final class CppModel {
           // Host targets don't produce .dwo files.
           result.addPicDwoFile(picAction.getDwoFile());
         }
+        if (cppConfiguration.isLipoContextCollector() && !generateNoPicAction) {
+          result.addLipoScannable(picAction);
+        }
       }
 
-      if (!onlySingleOutput || !CppHelper.usePic(ruleContext, false)) {
+      if (generateNoPicAction) {
         builder
             .setOutputFile(ruleContext.getRelatedArtifact(outputName, ".o"))
             .setDotdFile(outputName, ".d", ruleContext);

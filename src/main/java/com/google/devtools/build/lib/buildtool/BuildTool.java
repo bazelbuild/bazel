@@ -17,6 +17,7 @@ import com.google.common.annotations.VisibleForTesting;
 import com.google.common.base.Preconditions;
 import com.google.common.base.Stopwatch;
 import com.google.common.base.Throwables;
+import com.google.common.collect.ImmutableMap;
 import com.google.common.eventbus.EventBus;
 import com.google.devtools.build.lib.actions.BuildFailedException;
 import com.google.devtools.build.lib.actions.ExecutorInitException;
@@ -46,6 +47,7 @@ import com.google.devtools.build.lib.profiler.Profiler;
 import com.google.devtools.build.lib.skyframe.SkyframeExecutor;
 import com.google.devtools.build.lib.util.AbruptExitException;
 import com.google.devtools.build.lib.util.ExitCode;
+import com.google.devtools.build.lib.vfs.Path;
 import com.google.devtools.build.lib.vfs.PathFragment;
 import com.google.devtools.build.lib.view.AnalysisPhaseCompleteEvent;
 import com.google.devtools.build.lib.view.BuildInfoEvent;
@@ -67,6 +69,7 @@ import com.google.devtools.build.lib.view.config.DefaultsPackage;
 import com.google.devtools.build.lib.view.config.InvalidConfigurationException;
 
 import java.util.Collection;
+import java.util.Map;
 import java.util.Set;
 import java.util.concurrent.TimeUnit;
 import java.util.logging.Logger;
@@ -184,8 +187,9 @@ public class BuildTool {
 
       // Execution phase.
       if (needsExecutionPhase(request.getBuildOptions())) {
-        executionTool.executeBuild(loadingResult, analysisResult, result,
-            runtime.getSkyframeExecutor(), configurations);
+        executionTool.executeBuild(analysisResult, result, runtime.getSkyframeExecutor(),
+            configurations, mergePackageRoots(loadingResult.getPackageRoots(), 
+            runtime.getSkyframeExecutor().getPackageRoots()));
       }
 
       String delayedErrorMsg = analysisResult.getError();
@@ -220,6 +224,20 @@ public class BuildTool {
       throw new BuildFailedException("execution phase successful, but there were errors " +
                                      "parsing the target pattern");
     }
+  }
+
+  private ImmutableMap<PathFragment, Path> mergePackageRoots(ImmutableMap<PathFragment, Path> first,
+      ImmutableMap<PathFragment, Path> second) {
+    ImmutableMap.Builder<PathFragment, Path> builder = new ImmutableMap.Builder<>();
+    builder.putAll(first);
+    for (Map.Entry<PathFragment, Path> entry : second.entrySet()) {
+      if (first.containsKey(entry.getKey())) {
+        Preconditions.checkState(first.get(entry.getKey()).equals(entry.getValue()));
+      } else {
+        builder.put(entry);
+      }
+    }
+    return builder.build();
   }
 
   private void reportExceptionError(Exception e) {
@@ -358,7 +376,7 @@ public class BuildTool {
     getReporter().handle(Event.progress("Loading complete.  Analyzing..."));
     Profiler.instance().markPhase(ProfilePhase.ANALYZE);
 
-    AnalysisResult analysisResult = getView().update(request.getId(), loadingResult, configurations,
+    AnalysisResult analysisResult = getView().update(loadingResult, configurations,
         request.getViewOptions(), request.getTopLevelArtifactContext(), getReporter(),
         getEventBus());
 
