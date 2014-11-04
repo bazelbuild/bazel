@@ -330,7 +330,7 @@ public final class CcCommon {
           continue;
         }
         Label oldLabel = map.put(artifact, provider.getLabel());
-        // TODO(klimek): We currently do not warn for duplicate headers with
+        // TODO(bazel-team): We currently do not warn for duplicate headers with
         // different labels, as that would require cleaning up the code base
         // without significant benefit; we should eventually make this
         // consistent one way or the other.
