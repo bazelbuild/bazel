@@ -147,7 +147,7 @@ public class PackageSerializer {
 
   private static Build.License serializeLicense(License license) {
     Build.License.Builder result = Build.License.newBuilder();
-    
+
     for (License.LicenseType licenseType : license.getLicenseTypes()) {
       result.addLicenseType(licenseType.toString());
     }
@@ -164,9 +164,9 @@ public class PackageSerializer {
     if (event.getLocation() != null) {
       result.setLocation(serializeLocation(event.getLocation()));
     }
-    
+
     Build.Event.EventKind kind;
-    
+
     switch (event.getKind()) {
       case ERROR:
         kind = Build.Event.EventKind.ERROR;
@@ -182,13 +182,14 @@ public class PackageSerializer {
         break;
       default: throw new IllegalStateException();
     }
-    
+
     result.setKind(kind);
     return result.build();
   }
-  
+
   private static void serializePackageInternal(Package pkg, Build.Package.Builder builder) {
     builder.setName(pkg.getName());
+    builder.setRepository(pkg.getPackageIdentifier().getRepository());
     // The extra bit is needed to handle the corner case when the default visibility is [], i.e.
     // zero labels.
     builder.setDefaultVisibilitySet(pkg.isDefaultVisibilitySet());

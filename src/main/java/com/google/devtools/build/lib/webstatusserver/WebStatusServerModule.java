@@ -43,7 +43,7 @@ import java.util.logging.Logger;
  * Web server for monitoring blaze commands status.
  */
 public class WebStatusServerModule extends BlazeModule {
-  private static final String LAST_TEST_URI = "/tests/last";
+  static final String LAST_TEST_URI = "/tests/last";
   // 100 is an arbitrary limit; it seems like a reasonable size for history and it's okay to change 
   // it
   private static final int MAX_TESTS_STORED = 100;  
@@ -60,7 +60,6 @@ public class WebStatusServerModule extends BlazeModule {
   private WebStatusEventCollector collector;
   @SuppressWarnings("unused")
   private IndexPageHandler indexHandler;
-  private int commandsRun = 0;
 
   @Override
   public Iterable<Class<? extends OptionsBase>> getStartupOptions() {
@@ -98,27 +97,24 @@ public class WebStatusServerModule extends BlazeModule {
     if (!running) {
       return;
     }
-
-    WebStatusBuildLog currentBuild = new WebStatusBuildLog();
-    collector = new WebStatusEventCollector(blazeRuntime.getEventBus(), currentBuild);
-    DateTime currentTime = new DateTime();
-    lastCommandHandler.response = "Starting command...\n";
-    lastCommandHandler.buildLog = currentBuild;
-    lastCommandHandler.command = command;
-    lastCommandHandler.startTime = currentTime;
+    collector =
+        new WebStatusEventCollector(blazeRuntime.getEventBus(), blazeRuntime.getReporter(), this);
+  }
+  
+  public void commandStarted() {
+    WebStatusBuildLog currentBuild = collector.getBuildLog();
 
     if (testsRan.size() == MAX_TESTS_STORED) {
       TestStatusHandler oldestTest = testsRan.removeLast();
       oldestTest.deregister();
     }
-    
-    TestStatusHandler lastTest = new TestStatusHandler(server, commandsRun, currentBuild);
+
+    TestStatusHandler lastTest = new TestStatusHandler(server, currentBuild);
+    testsRan.add(lastTest);
+
     lastTest.overrideURI(LAST_TEST_URI);
-    testsRan.addFirst(lastTest);
-
-    commandsRun += 1;
   }
-
+  
   @Override
   public void afterCommand() {
     if (!running) {
@@ -186,4 +182,9 @@ public class WebStatusServerModule extends BlazeModule {
       os.close();
     }
   }
+
+  public int getPort() {
+    return port;
+  }
 }
+

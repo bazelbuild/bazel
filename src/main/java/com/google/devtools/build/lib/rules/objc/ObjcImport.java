@@ -31,7 +31,7 @@ public class ObjcImport implements RuleConfiguredTargetFactory {
   public ConfiguredTarget create(RuleContext ruleContext) throws InterruptedException {
     ObjcCommon common = new ObjcCommon.Builder(ruleContext)
         .setBaseAttributes(new ObjcBase.Attributes(ruleContext))
-        .setIntermediateArtifacts(ObjcBase.intermediateArtifacts(ruleContext))
+        .setIntermediateArtifacts(ObjcRuleClasses.intermediateArtifacts(ruleContext))
         .build();
     common.reportErrors();
 

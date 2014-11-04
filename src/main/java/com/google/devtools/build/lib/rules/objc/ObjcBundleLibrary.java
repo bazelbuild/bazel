@@ -42,7 +42,7 @@ public class ObjcBundleLibrary implements RuleConfiguredTargetFactory {
       ExtraLinkArgs extraLinkArgs, ExtraActoolArgs extraActoolArgs) {
     InfoplistMerging infoplistMerging = bundling.getInfoplistMerging();
     ObjcProvider objcProvider = common.getObjcProvider();
-    ObjcActionsBuilder actionsBuilder = ObjcBase.actionsBuilder(ruleContext);
+    ObjcActionsBuilder actionsBuilder = ObjcRuleClasses.actionsBuilder(ruleContext);
 
     for (Artifact linkedBinary : bundling.getLinkedBinary().asSet()) {
       actionsBuilder.registerLinkAction(ruleContext, linkedBinary, objcProvider, extraLinkArgs);
@@ -50,7 +50,7 @@ public class ObjcBundleLibrary implements RuleConfiguredTargetFactory {
 
     for (Artifact actoolzipOutput : bundling.getActoolzipOutput().asSet()) {
       actionsBuilder.registerActoolzipAction(
-          new ObjcBase.Tools(ruleContext),
+          new ObjcRuleClasses.Tools(ruleContext),
           common.getObjcProvider(), actoolzipOutput, extraActoolArgs);
     }
 
@@ -64,7 +64,8 @@ public class ObjcBundleLibrary implements RuleConfiguredTargetFactory {
   static Bundling bundling(RuleContext ruleContext, String bundleDirSuffix,
       Iterable<BundleableFile> extraBundleFiles, ObjcProvider objcProvider,
       OptionsProvider optionsProvider) {
-    IntermediateArtifacts intermediateArtifacts = ObjcBase.intermediateArtifacts(ruleContext);
+    IntermediateArtifacts intermediateArtifacts =
+        ObjcRuleClasses.intermediateArtifacts(ruleContext);
     InfoplistMerging infoplistMerging = new InfoplistMerging.Builder(ruleContext)
         .setIntermediateArtifacts(intermediateArtifacts)
         .setInputPlists(optionsProvider.getInfoplists())

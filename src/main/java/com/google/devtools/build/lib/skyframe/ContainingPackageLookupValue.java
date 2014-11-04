@@ -23,17 +23,17 @@ import com.google.devtools.build.skyframe.SkyValue;
  * specific directory path. Compare with {@link PackageLookupValue}, which deals with existence of
  * a specific package.
  */
-abstract class ContainingPackageLookupValue implements SkyValue {
+public abstract class ContainingPackageLookupValue implements SkyValue {
   /** Returns whether there is a containing package. */
-  abstract boolean hasContainingPackage();
+  public abstract boolean hasContainingPackage();
 
   /** If there is a containing package, returns its name. */
   abstract PathFragment getContainingPackageName();
 
   /** If there is a containing package, returns its package root */
-  abstract Path getContainingPackageRoot();
+  public abstract Path getContainingPackageRoot();
 
-  static SkyKey key(PathFragment directory) {
+  public static SkyKey key(PathFragment directory) {
     return new SkyKey(SkyFunctions.CONTAINING_PACKAGE_LOOKUP, directory);
   }
 

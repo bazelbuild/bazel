@@ -120,7 +120,7 @@ public class ObjcBinary implements RuleConfiguredTargetFactory {
   static Bundling bundling(
       RuleContext ruleContext, ObjcProvider objcProvider, OptionsProvider optionsProvider) {
     ImmutableList<BundleableFile> extraBundleFiles;
-    ObjcConfiguration objcConfiguration = ObjcBase.objcConfiguration(ruleContext);
+    ObjcConfiguration objcConfiguration = ObjcRuleClasses.objcConfiguration(ruleContext);
     if (objcConfiguration.getPlatform() == Platform.DEVICE) {
       extraBundleFiles = ImmutableList.of(new BundleableFile(
           provisioningProfile(ruleContext).get(), PROVISIONING_PROFILE_BUNDLE_FILE));
@@ -139,7 +139,7 @@ public class ObjcBinary implements RuleConfiguredTargetFactory {
   static void registerActions(RuleContext ruleContext, ObjcCommon common,
       XcodeProvider xcodeProvider, ExtraLinkArgs extraLinkArgs,
       OptionsProvider optionsProvider, final Bundling bundling) {
-    ObjcConfiguration objcConfiguration = ObjcBase.objcConfiguration(ruleContext);
+    ObjcConfiguration objcConfiguration = ObjcRuleClasses.objcConfiguration(ruleContext);
 
     ExtraActoolArgs extraActoolArgs = new ExtraActoolArgs(
         Iterables.concat(
@@ -351,7 +351,7 @@ public class ObjcBinary implements RuleConfiguredTargetFactory {
   }
 
   private static boolean shouldGenerateDebugSymbols(RuleContext ruleContext, Bundling bundling) {
-    return ObjcBase.objcConfiguration(ruleContext).generateDebugSymbols()
+    return ObjcRuleClasses.objcConfiguration(ruleContext).generateDebugSymbols()
         && bundling.getLinkedBinary().isPresent();
   }
 }

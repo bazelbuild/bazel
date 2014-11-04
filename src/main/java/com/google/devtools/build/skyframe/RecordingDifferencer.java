@@ -55,13 +55,13 @@ public class RecordingDifferencer implements Differencer, Injectable {
   }
 
   /**
-   * Invalidates the cached values of any values in error.
+   * Invalidates the cached values of any values in error transiently.
    *
    * <p>If a future call to {@link MemoizingEvaluator#evaluate} requests a value that transitively
    * depends on any value that was in an error state (or is one of these), they will be re-computed.
    */
-  public void invalidateErrors() {
-    // All error values have a dependency on the single global ERROR_TRANSIENCE value,
+  public void invalidateTransientErrors() {
+    // All transient error values have a dependency on the single global ERROR_TRANSIENCE value,
     // so we only have to invalidate that one value to catch everything.
     invalidate(ImmutableList.of(ErrorTransienceValue.key()));
   }

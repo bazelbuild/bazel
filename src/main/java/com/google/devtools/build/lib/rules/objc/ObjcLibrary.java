@@ -55,7 +55,8 @@ public class ObjcLibrary implements RuleConfiguredTargetFactory {
    * {@link ObjcCommon#reportErrors()}.
    */
   static ObjcCommon common(RuleContext ruleContext, Iterable<SdkFramework> extraSdkFrameworks) {
-    IntermediateArtifacts intermediateArtifacts = ObjcBase.intermediateArtifacts(ruleContext);
+    IntermediateArtifacts intermediateArtifacts =
+        ObjcRuleClasses.intermediateArtifacts(ruleContext);
     CompilationArtifacts compilationArtifacts = new CompilationArtifacts.Builder()
         .addSrcs(ruleContext.getPrerequisiteArtifacts("srcs", Mode.TARGET))
         .addNonArcSrcs(ruleContext.getPrerequisiteArtifacts("non_arc_srcs", Mode.TARGET))
@@ -78,7 +79,7 @@ public class ObjcLibrary implements RuleConfiguredTargetFactory {
   static void registerActions(RuleContext ruleContext, ObjcCommon common,
       XcodeProvider xcodeProvider, OptionsProvider optionsProvider) {
     for (CompilationArtifacts compilationArtifacts : common.getCompilationArtifacts().asSet()) {
-      ObjcBase.actionsBuilder(ruleContext)
+      ObjcRuleClasses.actionsBuilder(ruleContext)
           .registerCompileAndArchiveActions(
               compilationArtifacts, common.getObjcProvider(), optionsProvider);
     }

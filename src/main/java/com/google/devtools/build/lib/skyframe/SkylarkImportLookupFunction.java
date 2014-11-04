@@ -124,9 +124,9 @@ public class SkylarkImportLookupFunction implements SkyFunction {
     }
   }
 
-  private static final class SkylarkImportLookupFunctionException extends SkyFunctionException {
+  private static final class SkylarkImportLookupFunctionException extends SkyFunctionException {    
     private SkylarkImportLookupFunctionException(SkyKey key, SkylarkImportFailedException cause) {
-      super(key, cause);
+      super(key, cause, Transience.PERSISTENT);
     }
   }
 }

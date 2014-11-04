@@ -49,7 +49,6 @@ import com.google.devtools.build.lib.actions.ResourceManager;
 import com.google.devtools.build.lib.actions.SpawnActionContext;
 import com.google.devtools.build.lib.actions.TestExecException;
 import com.google.devtools.build.lib.actions.cache.ActionCache;
-import com.google.devtools.build.lib.actions.cache.MetadataCache;
 import com.google.devtools.build.lib.blaze.BlazeModule;
 import com.google.devtools.build.lib.blaze.BlazeRuntime;
 import com.google.devtools.build.lib.buildtool.BuildRequest.BuildRequestOptions;
@@ -62,12 +61,12 @@ import com.google.devtools.build.lib.events.EventKind;
 import com.google.devtools.build.lib.events.Reporter;
 import com.google.devtools.build.lib.exec.CheckUpToDateFilter;
 import com.google.devtools.build.lib.exec.ExecutionOptions;
+import com.google.devtools.build.lib.exec.FileWriteStrategy;
 import com.google.devtools.build.lib.exec.OutputService;
 import com.google.devtools.build.lib.exec.SingleBuildFileCache;
 import com.google.devtools.build.lib.exec.SourceManifestActionContextImpl;
 import com.google.devtools.build.lib.exec.SymlinkTreeStrategy;
 import com.google.devtools.build.lib.packages.Rule;
-import com.google.devtools.build.lib.pkgcache.PackageUpToDateChecker;
 import com.google.devtools.build.lib.profiler.ProfilePhase;
 import com.google.devtools.build.lib.profiler.Profiler;
 import com.google.devtools.build.lib.profiler.ProfilerTask;
@@ -106,7 +105,6 @@ import java.io.PrintStream;
 import java.io.PrintWriter;
 import java.util.ArrayList;
 import java.util.Collection;
-import java.util.Date;
 import java.util.HashMap;
 import java.util.HashSet;
 import java.util.LinkedHashSet;
@@ -207,6 +205,7 @@ public class ExecutionTool {
         runtime.getReporter(), runtime.getWorkspaceName()));
 
     strategies.add(new SourceManifestActionContextImpl(runtime.getRunfilesPrefix()));
+    strategies.add(new FileWriteStrategy(request));
     strategies.add(new SymlinkTreeStrategy(runtime.getOutputService(), runtime.getBinTools()));
 
     StrategyConverter strategyConverter = new StrategyConverter(actionContextProviders);
@@ -322,10 +321,6 @@ public class ExecutionTool {
     prepare(packageRoots, configurations);
 
     ActionGraph actionGraph = analysisResult.getActionGraph();
-    if (!useSkyframeFull(skyframeExecutor)) {
-      // Skyframe execution does not use a global action graph.
-      executor.setActionGraph(actionGraph);
-    }
 
     // Get top-level artifacts.
     ImmutableSet<Artifact> artifactsToBuild = analysisResult.getArtifactsToBuild();
@@ -371,10 +366,7 @@ public class ExecutionTool {
     }
 
     ActionCache actionCache = getActionCache();
-    MetadataCache metadataCache = useSkyframeFull(skyframeExecutor)
-        ? null
-        : runtime.getPersistentMetadataCache();
-    Builder builder = createBuilder(request, executor, actionCache, metadataCache,
+    Builder builder = createBuilder(request, executor, actionCache,
         skyframeExecutor);
 
     //
@@ -406,18 +398,14 @@ public class ExecutionTool {
             artifactsToBuild);
       }
       executor.executionPhaseStarting();
-      if (useSkyframeFull(skyframeExecutor)) {
-        skyframeExecutor.drainChangedFiles();
-      }
+      skyframeExecutor.drainChangedFiles();
 
       if (request.getViewOptions().discardAnalysisCache) {
         // Free memory by removing cache entries that aren't going to be needed. Note that in
         // skyframe full, this destroys the action graph as well, so we can only do it after the
         // action graph is no longer needed.
         getView().clearAnalysisCache(analysisResult.getTargetsToBuild());
-        if (useSkyframeFull(skyframeExecutor)) {
-          actionGraph = null;
-        }
+        actionGraph = null;
       }
 
       configureResourceManager(request);
@@ -430,8 +418,7 @@ public class ExecutionTool {
       // between the first build command and the query command get lost).
       builder.buildArtifacts(artifactsToBuild,
           analysisResult.getExclusiveTestArtifacts(),
-          null,
-          executor, runtime.getModifiedFileSetForSourceFiles(), builtArtifacts,
+          executor, builtArtifacts,
           request.getBuildOptions().explanationPath != null);
 
     } catch (InterruptedException e) {
@@ -446,12 +433,7 @@ public class ExecutionTool {
       }
 
       // Transfer over source file "last save time" stats so the remote logger can find them.
-      runtime.getEventBus().post(
-          new ExecutionFinishedEvent(
-              metadataCache == null
-                  ? ImmutableMap.<String, Long> of()
-                  : metadataCache.getChangedFileSaveTimes(),
-              metadataCache == null ? 0 : metadataCache.getLastFileSaveTime()));
+      runtime.getEventBus().post(new ExecutionFinishedEvent(ImmutableMap.<String, Long> of(), 0));
 
       // Disable system load polling (noop if it was not enabled).
       ResourceManager.instance().setAutoSensing(false);
@@ -463,7 +445,7 @@ public class ExecutionTool {
       Profiler.instance().markPhase(ProfilePhase.FINISH);
 
       if (!interrupted) {
-        saveCaches(actionCache, metadataCache);
+        saveCaches(actionCache);
       }
 
       long startTime = Profiler.nanoTimeMaybe();
@@ -843,24 +825,15 @@ public class ExecutionTool {
     }
   }
 
-  private static boolean useSkyframeFull(SkyframeExecutor skyframeExecutor) {
-    return true;
-  }
-
   private Builder createBuilder(BuildRequest request,
       Executor executor,
-      ActionCache actionCache, @Nullable MetadataCache metadataCache,
-      @Nullable SkyframeExecutor skyframeExecutor) {
+      ActionCache actionCache,
+      SkyframeExecutor skyframeExecutor) {
     BuildRequest.BuildRequestOptions options = request.getBuildOptions();
     boolean verboseExplanations = options.verboseExplanations;
     boolean keepGoing = request.getViewOptions().keepGoing;
 
-    if (metadataCache != null) {
-      metadataCache.setInvocationStartTime(new Date().getTime());
-    }
-
     Path actionOutputRoot = runtime.getDirectories().getActionConsoleOutputDirectory();
-    PackageUpToDateChecker packageUpToDateChecker = runtime.getPackageUpToDateChecker();
     Predicate<Action> executionFilter = CheckUpToDateFilter.fromOptions(
         request.getOptions(ExecutionOptions.class));
 
@@ -874,8 +847,8 @@ public class ExecutionTool {
     skyframeExecutor.setActionOutputRoot(actionOutputRoot);
     boolean explain = request.getBuildOptions().explanationPath != null;
     return new SkyframeBuilder(skyframeExecutor,
-        new ActionCacheChecker(actionCache, getView().getArtifactFactory(),
-            packageUpToDateChecker, executionFilter, verboseExplanations),
+        new ActionCacheChecker(actionCache, getView().getArtifactFactory(), executionFilter,
+            verboseExplanations),
         keepGoing, explain, actualJobs, options.checkOutputFiles, fileCache,
         request.getBuildOptions().progressReportInterval);
   }
@@ -901,11 +874,9 @@ public class ExecutionTool {
    * Writes the cache files to disk, reporting any errors that occurred during
    * writing.
    */
-  private void saveCaches(ActionCache actionCache, @Nullable MetadataCache metadataCache) {
+  private void saveCaches(ActionCache actionCache) {
     long actionCacheSizeInBytes = 0;
-    long metadataCacheSizeInBytes = 0;
     long actionCacheSaveTime;
-    long metadataCacheSaveTime = 0;
 
     long startTime = BlazeClock.nanoTime();
     try {
@@ -922,26 +893,7 @@ public class ExecutionTool {
                                         ProfilerTask.INFO, "Saving action cache");
     }
 
-    if (metadataCache != null) {
-      startTime = BlazeClock.nanoTime();
-      try {
-        LOG.info("saving metadata cache...");
-        metadataCacheSizeInBytes = metadataCache.save();
-        LOG.info("metadata cache saved");
-      } catch (IOException e) {
-        getReporter().handle(
-            Event.error("I/O error while writing metadata cache: " + e.getMessage()));
-      } finally {
-        long stopTime = BlazeClock.nanoTime();
-        metadataCacheSaveTime =
-            TimeUnit.MILLISECONDS.convert(stopTime - startTime, TimeUnit.NANOSECONDS);
-        Profiler.instance().logSimpleTask(startTime, stopTime,
-            ProfilerTask.INFO, "Saving metadata cache");
-      }
-    }
-
     runtime.getEventBus().post(new CachesSavedEvent(
-        metadataCacheSaveTime, metadataCacheSizeInBytes,
         actionCacheSaveTime, actionCacheSizeInBytes));
   }
 
@@ -962,11 +914,6 @@ public class ExecutionTool {
       cache = new SingleBuildFileCache(cwd, fs);
     }
     return cache;
-  }
-
-  private boolean enableIncrementalGraphPruning() {
-    String envVar = runtime.getClientEnv().get("BLAZE_INTERNAL_USE_INCREMENTAL_GRAPH_PRUNING");
-    return envVar == null || !envVar.equals("0");
   }
 
   private Reporter getReporter() {

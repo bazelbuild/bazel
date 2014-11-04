@@ -44,6 +44,7 @@ import com.google.devtools.build.skyframe.GraphTester.StringValue;
 import com.google.devtools.build.skyframe.NotifyingInMemoryGraph.EventType;
 import com.google.devtools.build.skyframe.NotifyingInMemoryGraph.Listener;
 import com.google.devtools.build.skyframe.NotifyingInMemoryGraph.Order;
+import com.google.devtools.build.skyframe.SkyFunctionException.Transience;
 
 import org.junit.Assert;
 import org.junit.Before;
@@ -515,7 +516,7 @@ public class ParallelEvaluatorTest {
       @Nullable
       @Override
       public SkyValue compute(SkyKey skyKey, Environment env) throws SkyFunctionException {
-        throw new SkyFunctionException(skyKey, new Exception()) {
+        throw new SkyFunctionException(skyKey, new Exception(), Transience.PERSISTENT) {
           @Override
           public boolean isCatastrophic() {
             return true;
@@ -1535,7 +1536,7 @@ public class ParallelEvaluatorTest {
     tester.getOrCreate(errorKey).setBuilder(new SkyFunction() {
       @Override
       public SkyValue compute(SkyKey skyKey, Environment env) throws GenericFunctionException {
-        throw new GenericFunctionException(skyKey, exception);
+        throw new GenericFunctionException(skyKey, exception, Transience.PERSISTENT);
       }
 
       @Override
@@ -1576,7 +1577,7 @@ public class ParallelEvaluatorTest {
     tester.getOrCreate(errorKey).setBuilder(new SkyFunction() {
       @Override
       public SkyValue compute(SkyKey skyKey, Environment env) throws GenericFunctionException {
-        throw new GenericFunctionException(skyKey, exception);
+        throw new GenericFunctionException(skyKey, exception, Transience.PERSISTENT);
       }
 
       @Override
@@ -1600,7 +1601,7 @@ public class ParallelEvaluatorTest {
         if (keepGoing) {
           return topValue;
         } else {
-          throw new GenericFunctionException(skyKey, topException);
+          throw new GenericFunctionException(skyKey, topException, Transience.PERSISTENT);
         }
       }
       @Override
@@ -1737,7 +1738,7 @@ public class ParallelEvaluatorTest {
     tester.getOrCreate(errorDep).setBuilder(new SkyFunction() {
       @Override
       public SkyValue compute(SkyKey skyKey, Environment env) throws SkyFunctionException {
-        throw new GenericFunctionException(skyKey, childExn);
+        throw new GenericFunctionException(skyKey, childExn, Transience.PERSISTENT);
       }
 
       @Override
@@ -1767,7 +1768,7 @@ public class ParallelEvaluatorTest {
         if (env.valuesMissing()) {
           return null;
         }
-        throw new GenericFunctionException(skyKey, parentExn);
+        throw new GenericFunctionException(skyKey, parentExn, Transience.PERSISTENT);
       }
 
       @Override
@@ -1883,11 +1884,12 @@ public class ParallelEvaluatorTest {
     MoreAsserts.assertContentsAnyOrder(evaluatedValues, GraphTester.toSkyKeys("top1"));
   }
 
-  public void runDepOnErrorHaltsNoKeepGoingBuildEagerly(boolean childErrorCached) throws Exception {
+  public void runDepOnErrorHaltsNoKeepGoingBuildEagerly(boolean childErrorCached,
+      final boolean handleChildError) throws Exception {
     graph = new InMemoryGraph();
     SkyKey parentKey = GraphTester.toSkyKey("parent");
     final SkyKey childKey = GraphTester.toSkyKey("child");
-    tester.getOrCreate(childKey).setHasNonTransientError(/*hasError=*/true);
+    tester.getOrCreate(childKey).setHasError(/*hasError=*/true);
     // The parent should be built exactly twice: once during normal evaluation and once
     // during error bubbling.
     final AtomicInteger numParentInvocations = new AtomicInteger(0);
@@ -1895,17 +1897,34 @@ public class ParallelEvaluatorTest {
       @Override
       public SkyValue compute(SkyKey skyKey, Environment env) throws SkyFunctionException {
         int invocations = numParentInvocations.incrementAndGet();
-        try {
-          SkyValue value = env.getValueOrThrow(childKey, SomeErrorException.class);
-          // On the first invocation, either the child error should already be cached and not
-          // propagated, or it should be computed freshly and not propagated. On the second build
-          // (error bubbling), the child error should be propagated.
-          assertTrue("bogus non-null value " + value, value == null);
-          assertEquals("child error not propagated during error bubbling", 1, invocations);
-          return value;
-        } catch (SomeErrorException e) {
-          assertEquals("child error propagated during normal evaluation", 2, invocations);
-          return null;
+        if (handleChildError) {
+          try {
+            SkyValue value = env.getValueOrThrow(childKey, SomeErrorException.class);
+            // On the first invocation, either the child error should already be cached and not
+            // propagated, or it should be computed freshly and not propagated. On the second build
+            // (error bubbling), the child error should be propagated.
+            assertTrue("bogus non-null value " + value, value == null);
+            assertEquals("parent incorrectly re-computed during normal evaluation", 1, invocations);
+            assertFalse("child error not propagated during error bubbling",
+                env.inErrorBubblingForTesting());
+            return value;
+          } catch (SomeErrorException e) {
+            assertTrue("child error propagated during normal evaluation",
+                env.inErrorBubblingForTesting());
+            assertEquals(2, invocations);
+            return null;
+          }
+        } else {
+          if (invocations == 1) {
+            assertFalse("parent's first computation should be during normal evaluation",
+                env.inErrorBubblingForTesting());
+            return env.getValue(childKey);
+          } else {
+            assertEquals(2, invocations);
+            assertTrue("parent incorrectly re-computed during normal evaluation",
+                env.inErrorBubblingForTesting());
+            return env.getValue(childKey);
+          }
         }
       }
 
@@ -1925,13 +1944,30 @@ public class ParallelEvaluatorTest {
   }
 
   @Test
-  public void depOnErrorHaltsNoKeepGoingBuildEagerly_ChildErrorCached() throws Exception {
-    runDepOnErrorHaltsNoKeepGoingBuildEagerly(/*childErrorCached=*/true);
+  public void depOnErrorHaltsNoKeepGoingBuildEagerly_ChildErrorCachedAndHandled()
+      throws Exception {
+    runDepOnErrorHaltsNoKeepGoingBuildEagerly(/*childErrorCached=*/true,
+        /*handleChildError=*/true);
   }
 
   @Test
-  public void depOnErrorHaltsNoKeepGoingBuildEagerly_ChildErrorFresh() throws Exception {
-    runDepOnErrorHaltsNoKeepGoingBuildEagerly(/*childErrorCached=*/false);
+  public void depOnErrorHaltsNoKeepGoingBuildEagerly_ChildErrorCachedAndNotHandled()
+      throws Exception {
+    runDepOnErrorHaltsNoKeepGoingBuildEagerly(/*childErrorCached=*/true,
+        /*handleChildError=*/false);
+  }
+
+  @Test
+  public void depOnErrorHaltsNoKeepGoingBuildEagerly_ChildErrorFreshAndHandled() throws Exception {
+    runDepOnErrorHaltsNoKeepGoingBuildEagerly(/*childErrorCached=*/false,
+        /*handleChildError=*/true);
+  }
+
+  @Test
+  public void depOnErrorHaltsNoKeepGoingBuildEagerly_ChildErrorFreshAndNotHandled()
+      throws Exception {
+    runDepOnErrorHaltsNoKeepGoingBuildEagerly(/*childErrorCached=*/false,
+        /*handleChildError=*/false);
   }
 
   @Test
@@ -1957,7 +1993,8 @@ public class ParallelEvaluatorTest {
           assertTrue("bogus non-null value " + value, value == null);
           assertEquals(1, invocations);
           otherDone.countDown();
-          throw new GenericFunctionException(skyKey, new SomeErrorException("other"));
+          throw new GenericFunctionException(skyKey, new SomeErrorException("other"),
+              Transience.PERSISTENT);
         } catch (SomeErrorException e) {
           assertEquals(2, invocations);
           return null;
@@ -2032,7 +2069,8 @@ public class ParallelEvaluatorTest {
       public SkyValue compute(SkyKey skyKey, Environment env) throws SkyFunctionException {
         trackingAwaiterForOther.awaitLatchAndTrackExceptions(otherStarted,
             "other didn't start in time");
-        throw new GenericFunctionException(skyKey, new SomeErrorException("error"));
+        throw new GenericFunctionException(skyKey, new SomeErrorException("error"),
+            Transience.PERSISTENT);
       }
 
       @Override
@@ -2049,14 +2087,14 @@ public class ParallelEvaluatorTest {
           assertTrue("bogus non-null value " + value, value == null);
           if (invocations == 1) {
             return null;
-          } else if (invocations == 2) {
-            fail("RACE CONDITION: errorParentKey was restarted!");
-            return null;
           } else {
-            fail("errorKey's error should have been propagated during error bubbling");
+            assertFalse(env.inErrorBubblingForTesting());
+            fail("RACE CONDITION: errorParentKey was restarted!");
             return null;
           }
         } catch (SomeErrorException e) {
+          assertTrue("child error propagated during normal evaluation",
+              env.inErrorBubblingForTesting());
           assertEquals(2, invocations);
           return null;
         }

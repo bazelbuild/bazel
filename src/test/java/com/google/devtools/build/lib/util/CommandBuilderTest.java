@@ -32,11 +32,11 @@ import java.util.Arrays;
 public class CommandBuilderTest {
 
   private CommandBuilder linuxBuilder() {
-    return new CommandBuilder(CommandBuilder.OS.LINUX).useTempDir();
+    return new CommandBuilder(OS.LINUX).useTempDir();
   }
 
   private CommandBuilder winBuilder() {
-    return new CommandBuilder(CommandBuilder.OS.WINDOWS).useTempDir();
+    return new CommandBuilder(OS.WINDOWS).useTempDir();
   }
 
   private void assertArgv(CommandBuilder builder, String... expected) {
@@ -96,9 +96,9 @@ public class CommandBuilderTest {
   @Test
   public void failureScenarios() {
     assertFailure(linuxBuilder(), "At least one argument is expected");
-    assertFailure(new CommandBuilder(CommandBuilder.OS.UNKNOWN).useTempDir().addArg("a"),
+    assertFailure(new CommandBuilder(OS.UNKNOWN).useTempDir().addArg("a"),
         "Unidentified operating system");
-    assertFailure(new CommandBuilder(CommandBuilder.OS.LINUX).addArg("a"),
+    assertFailure(new CommandBuilder(OS.LINUX).addArg("a"),
         "Working directory must be set");
   }
 

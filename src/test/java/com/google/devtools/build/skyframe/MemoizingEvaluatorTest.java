@@ -50,6 +50,7 @@ import com.google.devtools.build.skyframe.GraphTester.ValueComputer;
 import com.google.devtools.build.skyframe.NotifyingInMemoryGraph.EventType;
 import com.google.devtools.build.skyframe.NotifyingInMemoryGraph.Listener;
 import com.google.devtools.build.skyframe.NotifyingInMemoryGraph.Order;
+import com.google.devtools.build.skyframe.SkyFunctionException.Transience;
 
 import org.junit.Assert;
 import org.junit.Before;
@@ -368,16 +369,18 @@ public class MemoizingEvaluatorTest {
   }
 
   @Test
-  public void errorValueInvalidation() throws Exception {
-    // Verify that invalidating errors causes all error values to be rerun.
-    tester.getOrCreate("error-value").setHasError(true).setProgress("just letting you know");
+  public void transientErrorValueInvalidation() throws Exception {
+    // Verify that invalidating errors causes all transient error values to be rerun.
+    tester.getOrCreate("error-value").setHasTransientError(true).setProgress(
+        "just letting you know");
 
     tester.evalAndGetError("error-value");
     JunitTestUtils.assertContainsEvent(eventCollector, "just letting you know");
     JunitTestUtils.assertEventCount(1, eventCollector);
 
     // Change the progress message.
-    tester.getOrCreate("error-value").setHasError(true).setProgress("letting you know more");
+    tester.getOrCreate("error-value").setHasTransientError(true).setProgress(
+        "letting you know more");
 
     // Without invalidating errors, we shouldn't show the new progress message.
     for (int i = 0; i < 2; i++) {
@@ -388,7 +391,7 @@ public class MemoizingEvaluatorTest {
 
     // When invalidating errors, we should show the new progress message.
     initializeReporter();
-    tester.invalidateErrors();
+    tester.invalidateTransientErrors();
     tester.evalAndGetError("error-value");
     JunitTestUtils.assertContainsEvent(eventCollector, "letting you know more");
     JunitTestUtils.assertEventCount(1, eventCollector);
@@ -500,12 +503,12 @@ public class MemoizingEvaluatorTest {
     tester.getOrCreate(cycle).addDependency(cycle);
     tester.getOrCreate(top).addDependency(leaf).addDependency(cycle);
     tester.eval(/*keepGoing=*/true, top);
-    assertThat(tester.invalidationReceiver.evaluated).iteratesAs(leaf);
+    assertThat(tester.invalidationReceiver.evaluated).containsExactly(leaf).inOrder();
     tester.invalidationReceiver.clear();
     tester.getOrCreate(leaf, /*markAsModified=*/true);
     tester.invalidate();
     tester.eval(/*keepGoing=*/true, top);
-    assertThat(tester.invalidationReceiver.evaluated).iteratesAs(leaf);
+    assertThat(tester.invalidationReceiver.evaluated).containsExactly(leaf).inOrder();
   }
 
   @Test
@@ -924,7 +927,7 @@ public class MemoizingEvaluatorTest {
         .setConstantValue(new StringValue("slow"));
     // Put midKey into the graph. It won't have a reverse dependence on topKey.
     tester.evalAndGet(/*keepGoing=*/false, midKey);
-    tester.invalidateErrors();
+    tester.differencer.invalidate(ImmutableList.of(errorKey));
     // topKey should not access midKey as if it were already registered as a dependency.
     tester.eval(/*keepGoing=*/false, topKey);
   }
@@ -1105,21 +1108,22 @@ public class MemoizingEvaluatorTest {
     MoreAsserts.assertContentsAnyOrder(tester.evalAndGetError(errorKey).getRootCauses(), errorKey);
     EvaluationResult<StringValue> result = tester.eval(/*keepGoing=*/false, parentKey);
     // Request the parent.
-    assertThat(result.getError(parentKey).getRootCauses()).iteratesAs(parentKey);
+    assertThat(result.getError(parentKey).getRootCauses()).containsExactly(parentKey).inOrder();
     // Change the error value to no longer throw.
     tester.set(errorKey, new StringValue("reformed")).setHasError(false);
     tester.getOrCreate(parentKey, /*markAsModified=*/false).setHasError(false)
         .setComputedValue(COPY);
+    tester.differencer.invalidate(ImmutableList.of(errorKey));
     tester.invalidate();
     // Request the parent again. This time it should succeed.
     result = tester.eval(/*keepGoing=*/false, parentKey);
     assertThat(result.errorMap()).isEmpty();
     assertEquals("reformed", result.get(parentKey).getValue());
     // Confirm that the parent no longer depends on the error transience value -- make it
-    // unbuildable again, but without invalidating it, and invalidate errors. The parent should not
-    // be rebuilt.
+    // unbuildable again, but without invalidating it, and invalidate transient errors. The parent
+    // should not be rebuilt.
     tester.getOrCreate(parentKey, /*markAsModified=*/false).setHasError(true);
-    tester.invalidateErrors();
+    tester.invalidateTransientErrors();
     result = tester.eval(/*keepGoing=*/false, parentKey);
     assertThat(result.errorMap()).isEmpty();
     assertEquals("reformed", result.get(parentKey).getValue());
@@ -1141,20 +1145,21 @@ public class MemoizingEvaluatorTest {
     SkyKey topKey = GraphTester.toSkyKey("top");
     tester.getOrCreate(topKey).addDependency(leafKey).setHasError(true);
     // Build top -- it has an error.
-    assertThat(tester.evalAndGetError(topKey).getRootCauses()).iteratesAs(topKey);
+    assertThat(tester.evalAndGetError(topKey).getRootCauses()).containsExactly(topKey).inOrder();
     // Invalidate top via leaf, and rebuild.
     tester.set(leafKey, new StringValue("leaf2"));
     tester.invalidate();
-    assertThat(tester.evalAndGetError(topKey).getRootCauses()).iteratesAs(topKey);
+    assertThat(tester.evalAndGetError(topKey).getRootCauses()).containsExactly(topKey).inOrder();
   }
 
+  /** Regression test for crash bug. */
   @Test
   public void errorTransienceDepCleared() throws Exception {
     initializeTester();
     final SkyKey top = GraphTester.toSkyKey("top");
     SkyKey leaf = GraphTester.toSkyKey("leaf");
     tester.set(leaf, new StringValue("leaf"));
-    tester.getOrCreate(top).addDependency(leaf).setHasError(true);
+    tester.getOrCreate(top).addDependency(leaf).setHasTransientError(true);
     EvaluationResult<StringValue> result = tester.eval(/*keepGoing=*/false, top);
     assertTrue(result.toString(), result.hasError());
     tester.getOrCreate(leaf, /*markAsModified=*/true);
@@ -1162,7 +1167,7 @@ public class MemoizingEvaluatorTest {
     SkyKey irrelevant = GraphTester.toSkyKey("irrelevant");
     tester.set(irrelevant, new StringValue("irrelevant"));
     tester.eval(/*keepGoing=*/true, irrelevant);
-    tester.invalidateErrors();
+    tester.invalidateTransientErrors();
     result = tester.eval(/*keepGoing=*/true, top);
     assertTrue(result.toString(), result.hasError());
   }
@@ -1271,7 +1276,7 @@ public class MemoizingEvaluatorTest {
         try {
           env.getValueOrThrow(GraphTester.toSkyKey(nextDep), SomeErrorException.class);
         } catch (SomeErrorException e) {
-          throw new GenericFunctionException(skyKey, e);
+          throw new GenericFunctionException(skyKey, e, Transience.PERSISTENT);
         }
         return env.valuesMissing() ? null : new StringValue("top");
       }
@@ -1281,10 +1286,10 @@ public class MemoizingEvaluatorTest {
         /*keepGoing=*/true, groupDepA, depC);
     assertTrue(evaluationResult.hasError());
     assertEquals("depC", evaluationResult.get(groupDepA).getValue());
-    assertThat(evaluationResult.getError(depC).getRootCauses()).iteratesAs(depC);
+    assertThat(evaluationResult.getError(depC).getRootCauses()).containsExactly(depC).inOrder();
     evaluationResult = tester.eval(/*keepGoing=*/false, topKey);
     assertTrue(evaluationResult.hasError());
-    assertThat(evaluationResult.getError(topKey).getRootCauses()).iteratesAs(topKey);
+    assertThat(evaluationResult.getError(topKey).getRootCauses()).containsExactly(topKey).inOrder();
 
     tester.set(groupDepA, new StringValue("groupDepB"));
     tester.getOrCreate(depC, /*markAsModified=*/true);
@@ -2206,7 +2211,7 @@ public class MemoizingEvaluatorTest {
     SkyKey error = GraphTester.toSkyKey("error");
     tester.getOrCreate(error).setHasError(true);
     assertNotNull(tester.evalAndGetError(error));
-    tester.invalidateErrors();
+    tester.invalidateTransientErrors();
     SkyKey secondError = GraphTester.toSkyKey("secondError");
     tester.getOrCreate(secondError).setHasError(true);
     // secondError declares a new dependence on ErrorTransienceValue, but not until it has already
@@ -2223,9 +2228,6 @@ public class MemoizingEvaluatorTest {
     tester.getOrCreate(topKey).addDependency(error).setComputedValue(COPY);
     EvaluationResult<StringValue> result = tester.eval(/*keepGoing=*/false, topKey);
     MoreAsserts.assertContentsAnyOrder(result.getError(topKey).getRootCauses(), error);
-    tester.invalidateErrors();
-    result = tester.eval(/*keepGoing=*/false, topKey);
-    MoreAsserts.assertContentsAnyOrder(result.getError(topKey).getRootCauses(), error);
     tester.getOrCreate(error).setHasError(false);
     StringValue val = new StringValue("reformed");
     tester.set(error, val);
@@ -2235,22 +2237,22 @@ public class MemoizingEvaluatorTest {
     assertFalse(result.hasError());
   }
 
+  /** Regression test for crash bug. */
   @Test
-  public void dirtyWithOwnErrorDependsOnErrorTurningGood() throws Exception {
+  public void dirtyWithOwnErrorDependsOnTransientErrorTurningGood() throws Exception {
     initializeTester();
     final SkyKey error = GraphTester.toSkyKey("error");
-    tester.getOrCreate(error).setHasError(true);
+    tester.getOrCreate(error).setHasTransientError(true);
     SkyKey topKey = GraphTester.toSkyKey("top");
-    final AtomicBoolean firstTime = new AtomicBoolean(true);
     SkyFunction errorFunction = new SkyFunction() {
       @Override
       public SkyValue compute(SkyKey skyKey, Environment env) throws GenericFunctionException,
           InterruptedException {
-        env.getValue(error);
-        if (firstTime.getAndSet(false)) {
-          return null;
+        try {
+          return env.getValueOrThrow(error, SomeErrorException.class);
+        } catch (SomeErrorException e) {
+          throw new GenericFunctionException(skyKey, e, Transience.PERSISTENT);
         }
-        throw new GenericFunctionException(skyKey, new Exception());
       }
 
       @Override
@@ -2260,16 +2262,14 @@ public class MemoizingEvaluatorTest {
     };
     tester.getOrCreate(topKey).setBuilder(errorFunction);
     EvaluationResult<StringValue> result = tester.eval(/*keepGoing=*/false, topKey);
+    tester.invalidateTransientErrors();
     MoreAsserts.assertContentsAnyOrder(result.getError(topKey).getRootCauses(), topKey);
-    tester.invalidateErrors();
-    firstTime.set(true);
-    result = tester.eval(/*keepGoing=*/false, topKey);
-    MoreAsserts.assertContentsAnyOrder(result.getError(topKey).getRootCauses(), topKey);
-    tester.getOrCreate(error).setHasError(false);
+    tester.getOrCreate(error).setHasTransientError(false);
     StringValue reformed = new StringValue("reformed");
     tester.set(error, reformed);
     tester.getOrCreate(topKey).setBuilder(null).addDependency(error).setComputedValue(COPY);
     tester.invalidate();
+    tester.invalidateTransientErrors();
     result = tester.eval(/*keepGoing=*/false, topKey);
     assertEquals(reformed, result.get(topKey));
     assertFalse(result.hasError());
@@ -2346,7 +2346,7 @@ public class MemoizingEvaluatorTest {
         try {
           env.getValueOrThrow(error, SomeErrorException.class);
         } catch (SomeErrorException e) {
-          throw new GenericFunctionException(skyKey, e);
+          throw new GenericFunctionException(skyKey, e, Transience.PERSISTENT);
         }
         return null;
       }
@@ -2358,9 +2358,6 @@ public class MemoizingEvaluatorTest {
     };
     tester.getOrCreate(topKey).setBuilder(recoveryErrorFunction);
     EvaluationResult<StringValue> result = tester.eval(/*keepGoing=*/false, topKey);
-    MoreAsserts.assertContentsAnyOrder(result.getError(topKey).getRootCauses(), topKey);
-    tester.invalidateErrors();
-    result = tester.eval(/*keepGoing=*/false, topKey);
     MoreAsserts.assertContentsAnyOrder(result.getError(topKey).getRootCauses(), topKey);
     tester.getOrCreate(error).setHasError(false);
     StringValue reformed = new StringValue("reformed");
@@ -2394,11 +2391,11 @@ public class MemoizingEvaluatorTest {
   // Tests that we have a sane implementation of error transience.
   @Test
   public void errorTransienceBug() throws Exception {
-    tester.getOrCreate("key").setHasError(true);
+    tester.getOrCreate("key").setHasTransientError(true);
     assertNotNull(tester.evalAndGetError("key").getException());
     StringValue value = new StringValue("hi");
-    tester.getOrCreate("key").setHasError(false).setConstantValue(value);
-    tester.invalidateErrors();
+    tester.getOrCreate("key").setHasTransientError(false).setConstantValue(value);
+    tester.invalidateTransientErrors();
     assertEquals(value, tester.evalAndGet("key"));
     // This works because the version of the ValueEntry for the ErrorTransience value is always
     // increased on each InMemoryMemoizingEvaluator#evaluate call. But that's not the only way to
@@ -2411,24 +2408,24 @@ public class MemoizingEvaluatorTest {
   public void transientErrorTurningGoodHasNoError() throws Exception {
     initializeTester();
     SkyKey errorKey = GraphTester.toSkyKey("my_error_value");
-    tester.getOrCreate(errorKey).setHasError(true);
+    tester.getOrCreate(errorKey).setHasTransientError(true);
     ErrorInfo errorInfo = tester.evalAndGetError(errorKey);
     assertNotNull(errorInfo);
     MoreAsserts.assertContentsAnyOrder(errorInfo.getRootCauses(), errorKey);
     // Re-evaluates to same thing when errors are invalidated
-    tester.invalidateErrors();
+    tester.invalidateTransientErrors();
     errorInfo = tester.evalAndGetError(errorKey);
     assertNotNull(errorInfo);
     StringValue value = new StringValue("reformed");
     MoreAsserts.assertContentsAnyOrder(errorInfo.getRootCauses(), errorKey);
-    tester.getOrCreate(errorKey, /*markAsModified=*/false).setHasError(false)
+    tester.getOrCreate(errorKey, /*markAsModified=*/false).setHasTransientError(false)
         .setConstantValue(value);
-    tester.invalidateErrors();
+    tester.invalidateTransientErrors();
     StringValue stringValue = (StringValue) tester.evalAndGet(/*keepGoing=*/true, errorKey);
     assertSame(stringValue, value);
     // Value builder will now throw, but we should never get to it because it isn't dirty.
-    tester.getOrCreate(errorKey, /*markAsModified=*/false).setHasError(true);
-    tester.invalidateErrors();
+    tester.getOrCreate(errorKey, /*markAsModified=*/false).setHasTransientError(true);
+    tester.invalidateTransientErrors();
     stringValue = (StringValue) tester.evalAndGet(/*keepGoing=*/true, errorKey);
     assertSame(stringValue, value);
   }
@@ -2497,7 +2494,8 @@ public class MemoizingEvaluatorTest {
         EvaluationResult<StringValue> result = tester.eval(
             /*keep_going=*/false, lastLeft, lastRight);
         assertTrue(result.hasError());
-        tester.invalidateErrors();
+        tester.differencer.invalidate(ImmutableList.of(leftValues[i]));
+        tester.invalidate();
         result = tester.eval(/*keep_going=*/false, lastLeft, lastRight);
         assertTrue(result.hasError());
         tester.getOrCreate(leftValues[i], /*markAsModified=*/true).setHasError(false);
@@ -2636,7 +2634,7 @@ public class MemoizingEvaluatorTest {
     SkyKey key = GraphTester.toSkyKey("value");
     SkyValue val = new StringValue("val");
 
-    tester.getOrCreate(key).setHasNonTransientError(true);
+    tester.getOrCreate(key).setHasError(true);
     tester.evalAndGetError(key);
 
     tester.differencer.inject(ImmutableMap.of(key, val));
@@ -2701,6 +2699,35 @@ public class MemoizingEvaluatorTest {
     assertEquals(val, newVal);
   }
 
+  @Test
+  public void persistentErrorsNotRerun() throws Exception {
+    SkyKey topKey = GraphTester.toSkyKey("top");
+    SkyKey transientErrorKey = GraphTester.toSkyKey("transientError");
+    SkyKey persistentErrorKey1 = GraphTester.toSkyKey("persistentError1");
+    SkyKey persistentErrorKey2 = GraphTester.toSkyKey("persistentError2");
+
+    tester.getOrCreate(topKey)
+          .addErrorDependency(transientErrorKey, new StringValue("doesn't matter"))
+          .addErrorDependency(persistentErrorKey1, new StringValue("doesn't matter"))
+          .setHasError(true);
+    tester.getOrCreate(persistentErrorKey1).setHasError(true);
+    tester.getOrCreate(transientErrorKey)
+          .addErrorDependency(persistentErrorKey2, new StringValue("doesn't matter"))
+          .setHasTransientError(true);
+    tester.getOrCreate(persistentErrorKey2).setHasError(true);
+
+    tester.evalAndGetError(topKey);
+    MoreAsserts.assertContentsAnyOrder(
+        ImmutableList.of(topKey, transientErrorKey, persistentErrorKey1, persistentErrorKey2),
+        tester.getEnqueuedValues());
+    tester.invalidate();
+    tester.invalidateTransientErrors();
+    tester.evalAndGetError(topKey);
+    // TODO(bazel-team): We can do better here once we implement change pruning for errors.
+    MoreAsserts.assertContentsAnyOrder(ImmutableList.of(topKey, transientErrorKey),
+        tester.getEnqueuedValues());
+  }
+
   private void setGraphForTesting(NotifyingInMemoryGraph notifyingInMemoryGraph) {
     InMemoryMemoizingEvaluator memoizingEvaluator = (InMemoryMemoizingEvaluator) tester.graph;
     memoizingEvaluator.setGraphForTesting(notifyingInMemoryGraph);
@@ -2747,8 +2774,8 @@ public class MemoizingEvaluatorTest {
       invalidationReceiver.clear();
     }
 
-    public void invalidateErrors() {
-      differencer.invalidateErrors();
+    public void invalidateTransientErrors() {
+      differencer.invalidateTransientErrors();
     }
 
     public void delete(String key) {

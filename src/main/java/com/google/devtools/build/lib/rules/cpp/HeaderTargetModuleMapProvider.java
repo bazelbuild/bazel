@@ -14,12 +14,10 @@
 
 package com.google.devtools.build.lib.rules.cpp;
 
-import com.google.common.collect.Iterables;
+import com.google.common.collect.ImmutableList;
 import com.google.devtools.build.lib.concurrent.ThreadSafety.Immutable;
 import com.google.devtools.build.lib.view.TransitiveInfoProvider;
 
-import java.util.ArrayList;
-import java.util.Collections;
 import java.util.List;
 
 /**
@@ -29,17 +27,19 @@ import java.util.List;
 @Immutable
 public final class HeaderTargetModuleMapProvider implements TransitiveInfoProvider {
 
-  private final List<CppModuleMap> cppModuleMaps;
+  private final ImmutableList<CppModuleMap> cppModuleMaps;
 
   public HeaderTargetModuleMapProvider(Iterable<CppModuleMap> cppModuleMaps) {
-    ArrayList<CppModuleMap> cppModulesMapsAsList = new ArrayList<>();
-    Iterables.addAll(cppModulesMapsAsList, cppModuleMaps);
-    this.cppModuleMaps = Collections.unmodifiableList(cppModulesMapsAsList);
+    for (CppModuleMap map : cppModuleMaps) {
+      if (map == null) {
+        System.out.println(cppModuleMaps.toString());
+      }
+    }
+    this.cppModuleMaps = ImmutableList.copyOf(cppModuleMaps);
   }
 
   /**
-   * Returns the module maps referenced by cc_public_library's headers target. The list might
-   * contain null elements.
+   * Returns the module maps referenced by cc_public_library's headers target.
    */
   public List<CppModuleMap> getCppModuleMaps() {
     return cppModuleMaps;

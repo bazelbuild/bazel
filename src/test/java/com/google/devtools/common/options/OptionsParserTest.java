@@ -208,7 +208,7 @@ public class OptionsParserTest {
   public void multipleOccuringOption() throws OptionsParsingException {
     OptionsParser parser = newOptionsParser(ExampleFoo.class);
     parser.parse("--bing", "abcdef", "--foo", "foo1", "--bing", "123456" );
-    assertThat(parser.getOptions(ExampleFoo.class).bing).has().exactly("abcdef", "123456");
+    assertThat(parser.getOptions(ExampleFoo.class).bing).containsExactly("abcdef", "123456");
   }
 
   @Test
@@ -217,7 +217,7 @@ public class OptionsParserTest {
     // This test also tests option values with embedded commas and spaces.
     OptionsParser parser = newOptionsParser(ExampleFoo.class);
     parser.parse("--bang", "abc,def ghi", "--foo", "foo1", "--bang", "123456" );
-    assertThat(parser.getOptions(ExampleFoo.class).bang).has().exactly("abc,def ghi", "123456");
+    assertThat(parser.getOptions(ExampleFoo.class).bang).containsExactly("abc,def ghi", "123456");
   }
 
   @Test
@@ -516,8 +516,9 @@ public class OptionsParserTest {
   public void warningForImplicitOverridingExplicitOption() throws Exception {
     OptionsParser parser = OptionsParser.newOptionsParser(ImplicitDependencyWarningOptions.class);
     parser.parse("--second=second", "--first=first");
-    assertThat(parser.getWarnings()).has().exactly("Option 'second' is implicitly defined by "
-        + "option 'first'; the implicitly set value overrides the previous one");
+    assertThat(parser.getWarnings())
+        .containsExactly("Option 'second' is implicitly defined by "
+                         + "option 'first'; the implicitly set value overrides the previous one");
   }
 
   @Test
@@ -526,16 +527,18 @@ public class OptionsParserTest {
     parser.parse("--first=first");
     assertThat(parser.getWarnings()).isEmpty();
     parser.parse("--second=second");
-    assertThat(parser.getWarnings()).has().exactly("A new value for option 'second' overrides a"
-        + " previous implicit setting of that option by option 'first'");
+    assertThat(parser.getWarnings())
+        .containsExactly("A new value for option 'second' overrides a"
+                         + " previous implicit setting of that option by option 'first'");
   }
 
   @Test
   public void warningForExplicitOverridingImplicitOptionInSameCall() throws Exception {
     OptionsParser parser = OptionsParser.newOptionsParser(ImplicitDependencyWarningOptions.class);
     parser.parse("--first=first", "--second=second");
-    assertThat(parser.getWarnings()).has().exactly("Option 'second' is implicitly defined by "
-        + "option 'first'; the implicitly set value overrides the previous one");
+    assertThat(parser.getWarnings())
+        .containsExactly("Option 'second' is implicitly defined by "
+                         + "option 'first'; the implicitly set value overrides the previous one");
   }
 
   @Test
@@ -544,8 +547,9 @@ public class OptionsParserTest {
     parser.parse("--first=first");
     assertThat(parser.getWarnings()).isEmpty();
     parser.parse("--third=third");
-    assertThat(parser.getWarnings()).has().exactly("Option 'second' is implicitly defined by both "
-        + "option 'first' and option 'third'");
+    assertThat(parser.getWarnings())
+        .containsExactly("Option 'second' is implicitly defined by both "
+                         + "option 'first' and option 'third'");
   }
 
   public static class WarningOptions extends OptionsBase {
@@ -664,9 +668,9 @@ public class OptionsParserTest {
   public void warningForExpansionOverridingExplicitOption() throws Exception {
     OptionsParser parser = OptionsParser.newOptionsParser(ExpansionWarningOptions.class);
     parser.parse("--second=second", "--first");
-    assertThat(parser.getWarnings()).has().exactly(
-        "The option 'first' was expanded and now overrides a " +
-        "previous explicitly specified option 'second'");
+    assertThat(parser.getWarnings())
+        .containsExactly("The option 'first' was expanded and now overrides a "
+                         + "previous explicitly specified option 'second'");
   }
 
   public static class InvalidOptionConverter extends OptionsBase {

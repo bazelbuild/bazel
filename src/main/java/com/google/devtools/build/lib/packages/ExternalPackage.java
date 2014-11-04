@@ -14,6 +14,8 @@
 
 package com.google.devtools.build.lib.packages;
 
+import com.google.common.base.Preconditions;
+import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.Maps;
 import com.google.devtools.build.lib.events.Event;
 import com.google.devtools.build.lib.events.EventKind;
@@ -26,13 +28,26 @@ import com.google.devtools.build.lib.vfs.Path;
 import java.util.Map;
 import java.util.Map.Entry;
 
+import javax.annotation.Nullable;
+
 /**
  * This creates the //external package, where targets not homed in this repository can be bound.
  */
 public class ExternalPackage extends Package {
 
+  private Map<String, Path> repositoryMap;
+
   ExternalPackage() {
-    super("external");
+    super(PackageIdentifier.createInDefaultRepo("external"));
+  }
+
+  /**
+   * Returns a path to repository with the given name, or null if there's no such repository.
+   */
+  @Nullable
+  public Path getRepositoryPath(String repositoryName) {
+    Preconditions.checkNotNull(repositoryMap);
+    return repositoryMap.get(repositoryName);
   }
 
   /**
@@ -69,12 +84,14 @@ public class ExternalPackage extends Package {
   public static class ExternalPackageBuilder
   extends AbstractBuilder<ExternalPackage, ExternalPackageBuilder> {
     private Map<Label, Binding> bindMap;
+    private Map<String, Path> repositoryMap;
 
     public ExternalPackageBuilder(Path workspacePath) {
       super(new ExternalPackage());
       setFilename(workspacePath);
       setMakeEnv(new MakeEnvironment.Builder());
       bindMap = Maps.newHashMap();
+      repositoryMap = Maps.newHashMap();
     }
 
     @Override
@@ -91,6 +108,12 @@ public class ExternalPackage extends Package {
         }
       }
       return super.addEvents(events);
+    }
+
+    @Override
+    public ExternalPackage build() {
+      pkg.repositoryMap = ImmutableMap.copyOf(repositoryMap);
+      return super.build();
     }
 
     public void addBinding(Label label, Binding binding) {
@@ -151,6 +174,14 @@ public class ExternalPackage extends Package {
       Rule rule = RuleFactory.createAndAddRule(this, klass, attributes, handler, null, false,
           location);
       rule.setVisibility(ConstantRuleVisibility.PUBLIC);
+    }
+
+    /**
+     * Adds a mapping from a repository name to a path.
+     */
+    public ExternalPackageBuilder addLocalRepository(String name, Path path) {
+      repositoryMap.put(name, path);
+      return this;
     }
 
     /**

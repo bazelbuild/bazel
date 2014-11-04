@@ -33,6 +33,7 @@ import com.google.devtools.build.lib.syntax.FilesetEntry;
 import com.google.devtools.build.lib.syntax.GlobCriteria;
 import com.google.devtools.build.lib.syntax.GlobList;
 import com.google.devtools.build.lib.syntax.Label;
+import com.google.devtools.build.lib.syntax.Label.SyntaxException;
 import com.google.devtools.build.lib.vfs.Path;
 import com.google.devtools.build.lib.vfs.PathFragment;
 
@@ -395,7 +396,13 @@ public class PackageDeserializer {
    */
   public Package deserialize(Build.Package packagePb)
       throws PackageDeserializationException {
-    Package.Builder builder = new Package.Builder(packagePb.getName());
+    Package.Builder builder;
+    try {
+      builder = new Package.Builder(
+          new PackageIdentifier(packagePb.getRepository(), new PathFragment(packagePb.getName())));
+    } catch (SyntaxException e) {
+      throw new PackageDeserializationException(e);
+    }
     StoredEventHandler eventHandler = new StoredEventHandler();
     deserializeInternal(packagePb, eventHandler, builder);
     builder.addEvents(eventHandler.getEvents());

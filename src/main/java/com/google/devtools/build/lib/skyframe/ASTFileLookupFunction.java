@@ -23,6 +23,7 @@ import com.google.devtools.build.lib.vfs.PathFragment;
 import com.google.devtools.build.lib.vfs.RootedPath;
 import com.google.devtools.build.skyframe.SkyFunction;
 import com.google.devtools.build.skyframe.SkyFunctionException;
+import com.google.devtools.build.skyframe.SkyFunctionException.Transience;
 import com.google.devtools.build.skyframe.SkyKey;
 import com.google.devtools.build.skyframe.SkyValue;
 
@@ -85,7 +86,7 @@ public class ASTFileLookupFunction implements SkyFunction {
         ast = BuildFileAST.parseSkylarkFile(path, env.getListener(),
             packageManager, ruleClassProvider.getSkylarkValidationEnvironment().clone());
       } catch (IOException e) {
-        throw new ASTLookupFunctionException(skyKey, e);
+        throw new ASTLookupFunctionException(skyKey, e, Transience.TRANSIENT);
       }
     }
 
@@ -101,7 +102,7 @@ public class ASTFileLookupFunction implements SkyFunction {
       try {
         fileValue = (FileValue) env.getValueOrThrow(fileSkyKey, Exception.class);
       } catch (IOException e) {
-        throw new ASTLookupFunctionException(skyKey, e);
+        throw new ASTLookupFunctionException(skyKey, e, Transience.PERSISTENT);
       } catch (Exception e) {
         throw new IllegalStateException("Exception when loading AST file", e);
       }
@@ -122,8 +123,8 @@ public class ASTFileLookupFunction implements SkyFunction {
   }
 
   private static final class ASTLookupFunctionException extends SkyFunctionException {
-    private ASTLookupFunctionException(SkyKey key, IOException e) {
-      super(key, e);
+    private ASTLookupFunctionException(SkyKey key, IOException e, Transience transience) {
+      super(key, e, transience);
     }
   }
 }

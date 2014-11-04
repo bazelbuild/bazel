@@ -41,6 +41,8 @@ import com.google.devtools.build.lib.vfs.PathFragment;
 import com.google.devtools.build.lib.view.ConfiguredRuleClassProvider;
 import com.google.devtools.build.lib.view.WorkspaceStatusAction;
 import com.google.devtools.build.lib.view.config.BuildConfiguration;
+import com.google.devtools.build.skyframe.SkyFunction;
+import com.google.devtools.build.skyframe.SkyFunctionName;
 import com.google.devtools.common.options.OptionsBase;
 import com.google.devtools.common.options.OptionsProvider;
 
@@ -352,5 +354,10 @@ public abstract class BlazeModule {
    */
   public SkyframeExecutorFactory getSkyframeExecutorFactory() {
     return null;
+  }
+
+  /** Returns a map of "extra" SkyFunctions for SkyValues that this module may want to build. */
+  public ImmutableMap<SkyFunctionName, SkyFunction> getSkyFunctions(BlazeDirectories directories) {
+    return ImmutableMap.of();
   }
 }

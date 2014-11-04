@@ -24,7 +24,6 @@ import com.google.devtools.build.lib.actions.cache.MetadataHandler;
 import com.google.devtools.build.lib.events.Event;
 import com.google.devtools.build.lib.events.EventHandler;
 import com.google.devtools.build.lib.events.EventKind;
-import com.google.devtools.build.lib.pkgcache.PackageUpToDateChecker;
 import com.google.devtools.build.lib.vfs.PathFragment;
 
 import java.io.IOException;
@@ -52,17 +51,14 @@ public class ActionCacheChecker {
   private final ActionCache actionCache;
   private final Predicate<? super Action> executionFilter;
   private final ArtifactResolver artifactResolver;
-  private final PackageUpToDateChecker packageUpToDateChecker;
   // True iff --verbose_explanations flag is set.
   private final boolean verboseExplanations;
 
   public ActionCacheChecker(ActionCache actionCache, ArtifactResolver artifactResolver,
-      PackageUpToDateChecker packageUpToDateChecker, Predicate<? super Action> executionFilter,
-      boolean verboseExplanations) {
+      Predicate<? super Action> executionFilter, boolean verboseExplanations) {
     this.actionCache = actionCache;
     this.executionFilter = executionFilter;
     this.artifactResolver = artifactResolver;
-    this.packageUpToDateChecker = packageUpToDateChecker;
     this.verboseExplanations = verboseExplanations;
   }
 
@@ -122,9 +118,7 @@ public class ActionCacheChecker {
   }
 
   protected boolean unconditionalExecution(Action action) {
-    // TODO(bazel-team): Remove PackageUpToDateChecker.
-    return !isActionExecutionProhibited(action)
-        && action.executeUnconditionally(packageUpToDateChecker);
+    return !isActionExecutionProhibited(action) && action.executeUnconditionally();
   }
 
   /**
@@ -150,8 +144,7 @@ public class ActionCacheChecker {
     if (middlemanType.isMiddleman()) {
       // Some types of middlemen are not checked because they should not
       // propagate invalidation of their inputs.
-      if (middlemanType != MiddlemanType.SCHEDULING_MIDDLEMAN &&
-          middlemanType != MiddlemanType.TARGET_COMPLETION_MIDDLEMAN &&
+      if (middlemanType != MiddlemanType.TARGET_COMPLETION_MIDDLEMAN &&
           middlemanType != MiddlemanType.ERROR_PROPAGATING_MIDDLEMAN) {
         checkMiddlemanAction(action, handler, metadataHandler);
       }

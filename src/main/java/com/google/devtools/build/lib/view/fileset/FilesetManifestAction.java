@@ -25,7 +25,6 @@ import com.google.devtools.build.lib.actions.ResourceSet;
 import com.google.devtools.build.lib.actions.UserExecException;
 import com.google.devtools.build.lib.collect.nestedset.NestedSet;
 import com.google.devtools.build.lib.events.EventHandler;
-import com.google.devtools.build.lib.pkgcache.PackageUpToDateChecker;
 import com.google.devtools.build.lib.util.Fingerprint;
 import com.google.devtools.build.lib.vfs.PathFragment;
 import com.google.devtools.build.lib.view.actions.AbstractFileWriteAction;
@@ -140,10 +139,10 @@ public class FilesetManifestAction extends AbstractFileWriteAction {
   }
 
   @Override
-  public boolean executeUnconditionally(PackageUpToDateChecker upToDateChecker) {
+  public boolean executeUnconditionally() {
     // Note: isVolatile must return true if executeUnconditionally can ever return true
     // for this instance.
-    return traversal.executeUnconditionally(upToDateChecker);
+    return traversal.executeUnconditionally();
   }
 
   @Override

@@ -31,6 +31,7 @@ import com.google.devtools.build.lib.events.Reporter;
 import com.google.devtools.build.lib.packages.Package;
 import com.google.devtools.build.lib.packages.PackageFactory;
 import com.google.devtools.build.lib.packages.Preprocessor;
+import com.google.devtools.build.lib.packages.Preprocessor.Factory.Supplier;
 import com.google.devtools.build.lib.pkgcache.PackageCacheOptions;
 import com.google.devtools.build.lib.pkgcache.PathPackageLocator;
 import com.google.devtools.build.lib.util.BlazeClock;
@@ -45,6 +46,7 @@ import com.google.devtools.build.lib.vfs.RootedPath;
 import com.google.devtools.build.lib.view.BuildView;
 import com.google.devtools.build.lib.view.ConfiguredTarget;
 import com.google.devtools.build.lib.view.WorkspaceStatusAction;
+import com.google.devtools.build.lib.view.WorkspaceStatusAction.Factory;
 import com.google.devtools.build.lib.view.buildinfo.BuildInfoFactory;
 import com.google.devtools.build.skyframe.BuildDriver;
 import com.google.devtools.build.skyframe.Differencer;
@@ -54,6 +56,7 @@ import com.google.devtools.build.skyframe.Injectable;
 import com.google.devtools.build.skyframe.MemoizingEvaluator.EvaluatorSupplier;
 import com.google.devtools.build.skyframe.RecordingDifferencer;
 import com.google.devtools.build.skyframe.SequentialBuildDriver;
+import com.google.devtools.build.skyframe.SkyFunction;
 import com.google.devtools.build.skyframe.SkyFunctionName;
 import com.google.devtools.build.skyframe.SkyKey;
 import com.google.devtools.build.skyframe.SkyValue;
@@ -88,29 +91,33 @@ public final class SequencedSkyframeExecutor extends SkyframeExecutor {
 
   public SequencedSkyframeExecutor(Reporter reporter, EvaluatorSupplier evaluatorSupplier,
       PackageFactory pkgFactory, TimestampGranularityMonitor tsgm,
-      BlazeDirectories directories, WorkspaceStatusAction.Factory workspaceStatusActionFactory,
+      BlazeDirectories directories, Factory workspaceStatusActionFactory,
       ImmutableList<BuildInfoFactory> buildInfoFactories,
       Iterable<? extends DiffAwareness.Factory> diffAwarenessFactories,
       Predicate<PathFragment> allowedMissingInputs,
-      Preprocessor.Factory.Supplier preprocessorFactorySupplier,
-      Clock clock) {
+      Supplier preprocessorFactorySupplier,
+      ImmutableMap<SkyFunctionName, SkyFunction> extraSkyFunctions, Clock clock) {
     super(reporter, evaluatorSupplier, pkgFactory, tsgm, directories,
         workspaceStatusActionFactory, buildInfoFactories,
-        allowedMissingInputs, preprocessorFactorySupplier, clock);
+        allowedMissingInputs, preprocessorFactorySupplier,
+        extraSkyFunctions, clock);
     this.diffAwarenessManager = new DiffAwarenessManager(diffAwarenessFactories, reporter);
     this.diffAwarenessManager.reset();
   }
 
   public SequencedSkyframeExecutor(Reporter reporter, PackageFactory pkgFactory,
       TimestampGranularityMonitor tsgm, BlazeDirectories directories,
-      WorkspaceStatusAction.Factory workspaceStatusActionFactory,
+      Factory workspaceStatusActionFactory,
       ImmutableList<BuildInfoFactory> buildInfoFactories,
       Iterable<? extends DiffAwareness.Factory> diffAwarenessFactories,
       Predicate<PathFragment> allowedMissingInputs,
-      Preprocessor.Factory.Supplier preprocessorFactorySupplier, Clock clock) {
+      Supplier preprocessorFactorySupplier,
+      ImmutableMap<SkyFunctionName, SkyFunction> extraSkyFunctions,
+      Clock clock) {
     this(reporter, InMemoryMemoizingEvaluator.SUPPLIER, pkgFactory, tsgm,
         directories, workspaceStatusActionFactory, buildInfoFactories,
-        diffAwarenessFactories, allowedMissingInputs, preprocessorFactorySupplier, clock);
+        diffAwarenessFactories, allowedMissingInputs, preprocessorFactorySupplier,
+        extraSkyFunctions, clock);
   }
 
   @VisibleForTesting
@@ -121,7 +128,9 @@ public final class SequencedSkyframeExecutor extends SkyframeExecutor {
       Iterable<? extends DiffAwareness.Factory> diffAwarenessFactories) {
     this(reporter, pkgFactory, tsgm, directories, workspaceStatusActionFactory,
         buildInfoFactories, diffAwarenessFactories, Predicates.<PathFragment>alwaysFalse(),
-        Preprocessor.Factory.Supplier.NullSupplier.INSTANCE, BlazeClock.instance());
+        Preprocessor.Factory.Supplier.NullSupplier.INSTANCE,
+        ImmutableMap.<SkyFunctionName, SkyFunction>of(), BlazeClock.instance()
+    );
   }
 
   @Override
@@ -382,14 +391,14 @@ public final class SequencedSkyframeExecutor extends SkyframeExecutor {
     }
     syscalls.set(new PerBuildSyscallCache());
     recordingDiffer.invalidate(keys);
-    // Blaze invalidates (transient) errors on every build.
-    invalidateErrors();
+    // Blaze invalidates transient errors on every build.
+    invalidateTransientErrors();
   }
 
   @Override
-  public void invalidateErrors() {
+  public void invalidateTransientErrors() {
     checkActive();
-    recordingDiffer.invalidateErrors();
+    recordingDiffer.invalidateTransientErrors();
   }
 
   @Override

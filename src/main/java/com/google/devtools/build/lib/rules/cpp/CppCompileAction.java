@@ -48,7 +48,7 @@ import com.google.devtools.build.lib.syntax.Label;
 import com.google.devtools.build.lib.util.DependencySet;
 import com.google.devtools.build.lib.util.FileType;
 import com.google.devtools.build.lib.util.Fingerprint;
-import com.google.devtools.build.lib.util.OsUtils;
+import com.google.devtools.build.lib.util.OS;
 import com.google.devtools.build.lib.util.Pair;
 import com.google.devtools.build.lib.util.ShellEscaper;
 import com.google.devtools.build.lib.vfs.FileSystemUtils;
@@ -402,7 +402,7 @@ public class CppCompileAction extends AbstractAction implements IncludeScannable
     if (configuration.isCodeCoverageEnabled()) {
       environment.put("PWD", "/proc/self/cwd");
     }
-    if (OsUtils.isWindows()) {
+    if (OS.getCurrent() == OS.WINDOWS) {
       // TODO(bazel-team): Both GCC and clang rely on their execution directories being on
       // PATH, otherwise they fail to find dependent DLLs (and they fail silently...). On
       // the other hand, Windows documentation says that the directory of the executable

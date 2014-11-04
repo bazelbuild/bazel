@@ -68,6 +68,8 @@ final class ObjcCommon {
     private Iterable<Artifact> frameworkImports = ImmutableList.of();
     private Optional<CompilationArtifacts> compilationArtifacts = Optional.absent();
     private Iterable<ObjcProvider> depObjcProviders = ImmutableList.of();
+    private Iterable<PathFragment> userHeaderSearchPaths = ImmutableList.of();
+    private Iterable<Artifact> headers = ImmutableList.of();
     private IntermediateArtifacts intermediateArtifacts;
 
     Builder(RuleContext context) {
@@ -103,6 +105,17 @@ final class ObjcCommon {
       return this;
     }
 
+    public Builder addUserHeaderSearchPaths(Iterable<PathFragment> userHeaderSearchPaths) {
+      this.userHeaderSearchPaths =
+          Iterables.concat(this.userHeaderSearchPaths, userHeaderSearchPaths);
+      return this;
+    }
+
+    public Builder addHeaders(Iterable<Artifact> headers) {
+      this.headers = Iterables.concat(this.headers, headers);
+      return this;
+    }
+
     Builder setIntermediateArtifacts(IntermediateArtifacts intermediateArtifacts) {
       this.intermediateArtifacts = intermediateArtifacts;
       return this;
@@ -119,6 +132,8 @@ final class ObjcCommon {
           .addAll(SDK_FRAMEWORK, extraSdkFrameworks)
           .addAll(FRAMEWORK_FILE, frameworkImports)
           .addAll(FRAMEWORK_DIR, uniqueContainers(frameworkImports, FRAMEWORK_CONTAINER_TYPE))
+          .addAll(INCLUDE, userHeaderSearchPaths)
+          .addAll(HEADER, headers)
           .addTransitive(depObjcProviders);
 
       Storyboards storyboards;

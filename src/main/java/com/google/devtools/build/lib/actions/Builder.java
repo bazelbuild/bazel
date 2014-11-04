@@ -16,11 +16,8 @@ package com.google.devtools.build.lib.actions;
 
 import com.google.devtools.build.lib.concurrent.ThreadSafety.ThreadCompatible;
 import com.google.devtools.build.lib.util.AbruptExitException;
-import com.google.devtools.build.lib.vfs.ModifiedFileSet;
 
 import java.util.Set;
-
-import javax.annotation.Nullable;
 
 /**
  * A Builder consumes an Action graph, and executes it in some topological
@@ -48,12 +45,9 @@ public interface Builder {
    *
    * @param artifacts the set of Artifacts to build
    * @param exclusiveTestArtifacts artifacts to build one at a time after all others have been built
-   * @param forwardGraph The forward action graph corresponding to artifacts. This is non-null only
-   *        for legacy builds.
    * @param executor an opaque application-specific value that will be
    *        passed down to the execute() method of any Action executed during
    *        this call.
-   * @param modifiedFileSet the modified source files.
    * @param builtArtifacts (out) set of successfully built artifacts. Can be
    *        <i>null</i>, in which case it is ignored. Set is populated
    *        immediately upon confirmation that artifact is built so it will be
@@ -70,9 +64,7 @@ public interface Builder {
   @ThreadCompatible
   void buildArtifacts(Set<Artifact> artifacts,
       Set<Artifact> exclusiveTestArtifacts,
-      @Nullable DependentActionGraph forwardGraph,
       Executor executor,
-      ModifiedFileSet modifiedFileSet,
       Set<Artifact> builtArtifacts,
       boolean explain)
       throws BuildFailedException, AbruptExitException, InterruptedException, TestExecException;

@@ -45,55 +45,62 @@ import java.util.regex.Pattern;
 public class MoreAsserts {
 
   public static void assertContentsAnyOrderOf(Iterable<?> actual, Object... expected) {
-    assertThat(ImmutableList.copyOf(actual)).has().exactlyAs(ImmutableList.copyOf(expected));
+    assertThat(ImmutableList.copyOf(actual))
+        .containsExactlyElementsIn(ImmutableList.copyOf(expected));
   }
 
   @SafeVarargs
   public static <T> void assertContentsAnyOrder(Iterable<T> actual, T... expected) {
-    assertThat(ImmutableList.copyOf(actual)).has().exactlyAs(ImmutableList.copyOf(expected));
+    assertThat(ImmutableList.copyOf(actual))
+        .containsExactlyElementsIn(ImmutableList.copyOf(expected));
   }
 
   @SafeVarargs
   public static <T> void assertContentsAnyOrder(String msg, Iterable<T> actual, T... expected) {
-    assertThat(ImmutableList.copyOf(actual)).named(msg).has()
-        .exactlyAs(ImmutableList.copyOf(expected));
+    assertThat(ImmutableList.copyOf(actual))
+        .named(msg)
+        .containsExactlyElementsIn(ImmutableList.copyOf(expected));
   }
 
   public static <T> void assertContentsAnyOrder(Iterable<T> expected, Iterable<T> actual) {
-    assertThat(ImmutableList.copyOf(actual)).has().exactlyAs(ImmutableList.copyOf(expected));
+    assertThat(ImmutableList.copyOf(actual))
+        .containsExactlyElementsIn(ImmutableList.copyOf(expected));
   }
 
   public static <T> void assertContentsAnyOrder(
       String msg, Iterable<T> expected, Iterable<T> actual) {
-    assertThat(ImmutableList.copyOf(actual)).named(msg).has()
-        .exactlyAs(ImmutableList.copyOf(expected));
+    assertThat(ImmutableList.copyOf(actual))
+        .named(msg)
+        .containsExactlyElementsIn(ImmutableList.copyOf(expected));
   }
 
   @SafeVarargs
   public static <T> void assertContentsInOrder(Iterable<T> actual, T... expected) {
-    assertThat(ImmutableList.copyOf(actual)).has()
-        .exactlyAs(ImmutableList.copyOf(expected)).inOrder();
+    assertThat(ImmutableList.copyOf(actual))
+        .containsExactlyElementsIn(ImmutableList.copyOf(expected))
+        .inOrder();
   }
 
   @SafeVarargs
   public static <T> void assertContentsInOrder(String msg, Iterable<T> actual, T... expected) {
     assertThat(ImmutableList.copyOf(actual))
         .named(msg)
-        .has()
-        .exactlyAs(ImmutableList.copyOf(expected)).inOrder();
+        .containsExactlyElementsIn(ImmutableList.copyOf(expected))
+        .inOrder();
   }
 
   public static <T> void assertContentsInOrder(
       String msg, Iterable<T> expected, Iterable<T> actual) {
     assertThat(ImmutableList.copyOf(actual))
         .named(msg)
-        .has()
-        .exactlyAs(ImmutableList.copyOf(expected)).inOrder();
+        .containsExactlyElementsIn(ImmutableList.copyOf(expected))
+        .inOrder();
   }
 
   public static <T> void assertContentsInOrder(Iterable<T> expected, Iterable<T> actual) {
-    assertThat(ImmutableList.copyOf(actual)).has()
-        .exactlyAs(ImmutableList.copyOf(expected)).inOrder();
+    assertThat(ImmutableList.copyOf(actual))
+        .containsExactlyElementsIn(ImmutableList.copyOf(expected))
+        .inOrder();
   }
 
   public static void assertEmpty(Iterable<?> items) {

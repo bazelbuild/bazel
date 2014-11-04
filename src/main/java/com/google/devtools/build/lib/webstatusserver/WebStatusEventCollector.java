@@ -4,7 +4,7 @@
 // you may not use this file except in compliance with the License.
 // You may obtain a copy of the License at
 //
-//    http://www.apache.org/licenses/LICENSE-2.0
+// http://www.apache.org/licenses/LICENSE-2.0
 //
 // Unless required by applicable law or agreed to in writing, software
 // distributed under the License is distributed on an "AS IS" BASIS,
@@ -21,10 +21,13 @@ import com.google.common.eventbus.EventBus;
 import com.google.common.eventbus.Subscribe;
 import com.google.devtools.build.lib.blaze.BlazeVersionInfo;
 import com.google.devtools.build.lib.blaze.CommandCompleteEvent;
+import com.google.devtools.build.lib.blaze.CommandStartEvent;
 import com.google.devtools.build.lib.blaze.TestSummary;
 import com.google.devtools.build.lib.buildtool.BuildRequest;
 import com.google.devtools.build.lib.buildtool.buildevent.BuildStartingEvent;
 import com.google.devtools.build.lib.buildtool.buildevent.TestFilteringCompleteEvent;
+import com.google.devtools.build.lib.events.Event;
+import com.google.devtools.build.lib.events.Reporter;
 import com.google.devtools.build.lib.rules.test.TestResult;
 import com.google.devtools.build.lib.syntax.Label;
 import com.google.devtools.build.lib.view.ConfiguredTarget;
@@ -40,12 +43,18 @@ public class WebStatusEventCollector {
   private static final Logger LOG =
       Logger.getLogger(WebStatusEventCollector.class.getCanonicalName());
   private final EventBus eventBus;
+  private final Reporter reporter;
+  private final int port;
   private WebStatusBuildLog currentBuild;
+  private WebStatusServerModule serverModule;
 
-  public WebStatusEventCollector(EventBus eventBus, WebStatusBuildLog currentBuild) {
+  public WebStatusEventCollector(EventBus eventBus, Reporter reporter,
+      WebStatusServerModule webStatusServerModule) {
     this.eventBus = eventBus;
     this.eventBus.register(this);
-    this.currentBuild = currentBuild;
+    this.reporter = reporter;
+    this.port = webStatusServerModule.getPort();
+    this.serverModule = webStatusServerModule;
     LOG.info("Created new status collector");
   }
 
@@ -55,7 +64,8 @@ public class WebStatusEventCollector {
     BlazeVersionInfo versionInfo = BlazeVersionInfo.instance();
     currentBuild.addStartTime(request.getStartTime());
     currentBuild.addTargetList(request.getTargets());
-    currentBuild.addInfo("version", versionInfo)
+    currentBuild
+        .addInfo("version", versionInfo)
         .addInfo("commandName", request.getCommandName())
         .addInfo("outputFs", startingEvent.getOutputFileSystem())
         .addInfo("symlinkPrefix", request.getSymlinkPrefix())
@@ -67,6 +77,17 @@ public class WebStatusEventCollector {
   @SuppressWarnings("unused")
   public void commandComplete(CommandCompleteEvent completeEvent) {
     currentBuild.finish();
+  }
+
+  @Subscribe
+  @SuppressWarnings("unused")
+  public void commandStarted(CommandStartEvent event) {
+    this.currentBuild = new WebStatusBuildLog(event.getCommandId());
+    this.serverModule.commandStarted();
+    String webStatusServerUrl = "http://localhost:" + port;
+    this.reporter.handle(Event.info("Status page: " + webStatusServerUrl + "/tests/"
+        + this.currentBuild.getCommandId() + " (alternative link: " + webStatusServerUrl
+        + WebStatusServerModule.LAST_TEST_URI + " )"));
   }
 
   @Subscribe
@@ -82,7 +103,7 @@ public class WebStatusEventCollector {
 
   @VisibleForTesting
   public void doneTestFiltering(Iterable<Label> testLabels) {
-    for (Label label : testLabels){
+    for (Label label : testLabels) {
       currentBuild.addTestTarget(label);
     }
   }
@@ -90,7 +111,7 @@ public class WebStatusEventCollector {
   @Subscribe
   public void testTargetComplete(TestSummary summary) {
     currentBuild.addTestSummary(summary.getTarget().getLabel(), summary.getStatus(),
-                                summary.getTestTimes(), summary.isCached());
+        summary.getTestTimes(), summary.isCached());
   }
 
   @Subscribe
@@ -103,5 +124,9 @@ public class WebStatusEventCollector {
   public void targetComplete(TargetCompleteEvent event) {
     // TODO(bazel-team): would getting more details about failure be useful?
     currentBuild.addTargetBuilt(event.getTarget().getTarget().getLabel(), event.failed());
+  }
+
+  public WebStatusBuildLog getBuildLog() {
+    return this.currentBuild;
   }
 }

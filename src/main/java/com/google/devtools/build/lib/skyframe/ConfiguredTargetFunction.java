@@ -342,11 +342,11 @@ final class ConfiguredTargetFunction implements SkyFunction {
    */
   private static final class ConfiguredTargetFunctionException extends SkyFunctionException {
     public ConfiguredTargetFunctionException(SkyKey key, NoSuchTargetException e) {
-      super(key, e);
+      super(key, e, Transience.PERSISTENT);
     }
 
     public ConfiguredTargetFunctionException(SkyKey key, ConfiguredValueCreationException e) {
-      super(key, e);
+      super(key, e, Transience.PERSISTENT);
     }
   }
 }

@@ -39,14 +39,12 @@ public interface RemoteIncludeExtractor extends ActionContext {
    * Extracts all inclusions from a given source file, possibly using a remote service.
    *
    * @param file the file from which to parse and extract inclusions.
-   * @param inMemoryOutput if true, return the contents of the output in the return value instead
-                           of to the given Path.
    * @param actionExecutionContext services in the scope of the action. Like the Err/Out stream
    *                               outputs.
    * @param remoteParseData the returned value of {@link #shouldParseRemotely}.
    * @return a collection of inclusions, normalized to the cache
    */
-  public Collection<Inclusion> extractInclusions(Path file, boolean inMemoryOutput,
+  public Collection<Inclusion> extractInclusions(Path file,
       ActionExecutionContext actionExecutionContext, RemoteParseData remoteParseData)
   throws IOException, InterruptedException;
 

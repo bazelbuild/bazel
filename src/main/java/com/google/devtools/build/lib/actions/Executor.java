@@ -52,14 +52,6 @@ public interface Executor {
   Path getExecRoot();
 
   /**
-   * Returns the action graph.
-   *
-   * <p>Using this is non-hermetic, so please only do it with good reason. The only current use is
-   * handling C++ includes.
-   */
-  ActionGraph getActionGraph();
-
-  /**
    * Returns a clock. This is not hermetic, and should only be used for build info actions or
    * performance measurements / reporting.
    */

@@ -27,7 +27,6 @@ import com.google.devtools.build.lib.events.Event;
 import com.google.devtools.build.lib.events.EventHandler;
 import com.google.devtools.build.lib.events.EventKind;
 import com.google.devtools.build.lib.events.Location;
-import com.google.devtools.build.lib.pkgcache.PackageUpToDateChecker;
 import com.google.devtools.build.lib.syntax.Label;
 import com.google.devtools.build.lib.vfs.FileSystemUtils;
 import com.google.devtools.build.lib.vfs.Path;
@@ -182,7 +181,7 @@ public abstract class AbstractAction implements Action {
   }
 
   @Override
-  public boolean executeUnconditionally(PackageUpToDateChecker upToDateChecker) {
+  public boolean executeUnconditionally() {
     return false;
   }
 

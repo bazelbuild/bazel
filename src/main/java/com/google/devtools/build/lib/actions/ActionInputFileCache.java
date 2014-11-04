@@ -27,7 +27,24 @@ import javax.annotation.concurrent.ThreadSafe;
  * NOTE: Implementations must be thread safe.
  */
 @ThreadSafe
-public interface ActionInputFileCache extends ArtifactMetadataRetriever {
+public interface ActionInputFileCache {
+  /**
+   * Returns digest for the given artifact. This digest is current as of some time t >= the start of
+   * the present build. If the artifact is an output of an action that already executed at time p,
+   * then t >= p. Aside from these properties, t can be any value and may vary arbitrarily across
+   * calls.
+   *
+   * @param input the input to retrieve the digest for
+   * @return the artifact's digest or null if digest cannot be obtained (due to artifact
+   *         non-existence, lookup errors, or any other reason)
+   *
+   * @throws DigestOfDirectoryException in case {@code input} is a directory.
+   * @throws IOException If the file cannot be digested.
+   *
+   */
+  @Nullable
+  ByteString getDigest(ActionInput input) throws IOException;
+
   /**
    * Retrieve the size of the file at the given path. Will usually return 0 on failure instead of
    * throwing an IOException. Returns 0 for files inaccessible to user, but available to the

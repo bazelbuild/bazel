@@ -17,11 +17,7 @@ package com.google.devtools.build.skyframe;
  * A {@link SkyFunctionException} wrapping a generic {@link Exception}.
  */
 public final class GenericFunctionException extends SkyFunctionException {
-  public GenericFunctionException(SkyKey key, Exception e) {
-    super(key, e);
-  }
-
-  public GenericFunctionException(SkyKey key, Exception e, boolean isTransient) {
-    super(key, e, isTransient);
+  public GenericFunctionException(SkyKey key, Exception e, Transience transience) {
+    super(key, e, transience);
   }
 }

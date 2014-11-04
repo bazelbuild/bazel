@@ -17,6 +17,7 @@ import com.google.common.base.Preconditions;
 import com.google.common.collect.Iterables;
 import com.google.devtools.build.lib.events.Event;
 import com.google.devtools.build.lib.util.Pair;
+import com.google.devtools.build.skyframe.SkyFunctionException.Transience;
 
 import java.util.Collection;
 import java.util.HashMap;
@@ -118,11 +119,13 @@ public class GraphTester {
           return null;
         }
 
-        if (builder.hasError) {
-          throw new GenericFunctionException(key, new SomeErrorException(key.toString()));
+        if (builder.hasTransientError) {
+          throw new GenericFunctionException(key, new SomeErrorException(key.toString()),
+              Transience.TRANSIENT);
         }
-        if (builder.hasNonTransientError) {
-          throw new GenericFunctionException(key, new SomeErrorException(key.toString()), false);
+        if (builder.hasError) {
+          throw new GenericFunctionException(key, new SomeErrorException(key.toString()),
+              Transience.PERSISTENT);
         }
 
         if (builder.value != null) {
@@ -164,8 +167,8 @@ public class GraphTester {
     private ValueComputer computer;
     private SkyFunction builder = null;
 
+    private boolean hasTransientError;
     private boolean hasError;
-    private boolean hasNonTransientError;
 
     private String warning;
     private String progress;
@@ -215,22 +218,22 @@ public class GraphTester {
       Preconditions.checkState(this.value == null);
       Preconditions.checkState(this.computer == null);
       Preconditions.checkState(deps.isEmpty());
+      Preconditions.checkState(!hasTransientError);
       Preconditions.checkState(!hasError);
-      Preconditions.checkState(!hasNonTransientError);
       Preconditions.checkState(warning == null);
       Preconditions.checkState(progress == null);
       this.builder = builder;
       return this;
     }
 
-    public TestFunction setHasError(boolean hasError) {
-      this.hasError = hasError;
+    public TestFunction setHasTransientError(boolean hasError) {
+      this.hasTransientError = hasError;
       return this;
     }
 
-    public TestFunction setHasNonTransientError(boolean hasError) {
+    public TestFunction setHasError(boolean hasError) {
       // TODO(bazel-team): switch to an enum for hasError.
-      this.hasNonTransientError = hasError;
+      this.hasError = hasError;
       return this;
     }
 

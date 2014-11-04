@@ -15,6 +15,7 @@ package com.google.devtools.build.lib.skyframe;
 
 import com.google.common.base.Predicate;
 import com.google.common.collect.ImmutableList;
+import com.google.common.collect.ImmutableMap;
 import com.google.devtools.build.lib.blaze.BlazeDirectories;
 import com.google.devtools.build.lib.events.Reporter;
 import com.google.devtools.build.lib.packages.PackageFactory;
@@ -24,6 +25,8 @@ import com.google.devtools.build.lib.util.io.TimestampGranularityMonitor;
 import com.google.devtools.build.lib.vfs.PathFragment;
 import com.google.devtools.build.lib.view.WorkspaceStatusAction.Factory;
 import com.google.devtools.build.lib.view.buildinfo.BuildInfoFactory;
+import com.google.devtools.build.skyframe.SkyFunction;
+import com.google.devtools.build.skyframe.SkyFunctionName;
 
 /**
  * A factory of SkyframeExecutors that returns SequencedSkyframeExecutor.
@@ -36,9 +39,10 @@ public class SequencedSkyframeExecutorFactory implements SkyframeExecutorFactory
       Factory workspaceStatusActionFactory, ImmutableList<BuildInfoFactory> buildInfoFactories,
       Iterable<? extends DiffAwareness.Factory> diffAwarenessFactories,
       Predicate<PathFragment> allowedMissingInputs, Supplier preprocessorFactorySupplier,
-      Clock clock) {
+      ImmutableMap<SkyFunctionName, SkyFunction> extraSkyFunctions, Clock clock) {
     return new SequencedSkyframeExecutor(reporter, pkgFactory, tsgm, directories,
         workspaceStatusActionFactory, buildInfoFactories, diffAwarenessFactories,
-        allowedMissingInputs, preprocessorFactorySupplier, clock);
+        allowedMissingInputs, preprocessorFactorySupplier,
+        extraSkyFunctions, clock);
   }
 }

@@ -49,7 +49,7 @@ public final class ActionExecutionStatusReporter {
   private static final int MAX_LINES = 10;
 
   private final EventHandler eventHandler;
-  private Executor executor;
+  private final Executor executor;
   private final EventBus eventBus;
   private final Clock clock;
 
@@ -96,11 +96,6 @@ public final class ActionExecutionStatusReporter {
     if (eventBus != null) {
       eventBus.unregister(this);
     }
-  }
-
-  public void setExecutor(Executor executor) {
-    // executor can only be null in tests.
-    this.executor = executor;
   }
 
   private void setStatus(ActionMetadata action, String message) {

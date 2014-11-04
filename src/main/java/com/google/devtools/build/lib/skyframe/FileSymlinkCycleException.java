@@ -16,7 +16,8 @@ package com.google.devtools.build.lib.skyframe;
 import com.google.common.collect.ImmutableList;
 import com.google.devtools.build.lib.vfs.RootedPath;
 
-class FileSymlinkCycleException extends Exception {
+/** Exception indicating that a cycle was found in the filesystem. */
+public class FileSymlinkCycleException extends Exception {
 
   private final ImmutableList<RootedPath> pathToCycle;
   private final ImmutableList<RootedPath> cycle;

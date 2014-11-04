@@ -23,7 +23,7 @@ import java.io.PrintStream;
  * related functionality: Recursive package finding, loaded package checking, etc.
  */
 public interface PackageManager extends PackageProvider, CachingPackageLocator,
-    PackageUpToDateChecker, LoadedPackageProvider {
+    LoadedPackageProvider {
 
   /**
    * Returns the package cache statistics.

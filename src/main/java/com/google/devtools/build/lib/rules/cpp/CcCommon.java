@@ -324,12 +324,17 @@ public final class CcCommon {
     }
     for (FileProvider provider : providers) {
       for (Artifact artifact : FileType.filter(provider.getFilesToBuild(), SOURCE_TYPES)) {
-        if ((CppFileTypes.CPP_HEADER.matches(artifact.getPath()) && !processHeaders)
+        boolean isHeader = CppFileTypes.CPP_HEADER.matches(artifact.getPath());
+        if ((isHeader && !processHeaders)
             || CppFileTypes.CPP_TEXTUAL_INCLUDE.matches(artifact.getPath())) {
           continue;
         }
         Label oldLabel = map.put(artifact, provider.getLabel());
-        if (oldLabel != null && !oldLabel.equals(provider.getLabel())) {
+        // TODO(klimek): We currently do not warn for duplicate headers with
+        // different labels, as that would require cleaning up the code base
+        // without significant benefit; we should eventually make this
+        // consistent one way or the other.
+        if (!isHeader && oldLabel != null && !oldLabel.equals(provider.getLabel())) {
           ruleContext.attributeError("srcs", String.format(
               "Artifact '%s' is duplicated (through '%s' and '%s')",
               artifact.getExecPathString(), oldLabel, provider.getLabel()));

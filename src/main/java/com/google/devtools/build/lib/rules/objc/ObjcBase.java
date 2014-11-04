@@ -22,7 +22,6 @@ import com.google.common.collect.Iterables;
 import com.google.devtools.build.lib.actions.Artifact;
 import com.google.devtools.build.lib.packages.Type;
 import com.google.devtools.build.lib.vfs.PathFragment;
-import com.google.devtools.build.lib.view.FilesToRunProvider;
 import com.google.devtools.build.lib.view.RuleConfiguredTarget.Mode;
 import com.google.devtools.build.lib.view.RuleContext;
 
@@ -33,34 +32,6 @@ import java.util.List;
  */
 final class ObjcBase {
   private ObjcBase() {}
-
-  /**
-   * Object that supplies tools used by rules that inherit from
-   * {@link ObjcRuleClasses.ObjcBaseRule}.
-   */
-  static final class Tools {
-    private final RuleContext ruleContext;
-
-    Tools(RuleContext ruleContext) {
-      this.ruleContext = Preconditions.checkNotNull(ruleContext);
-    }
-
-    Artifact actooloribtoolzipDeployJar() {
-      return ruleContext.getPrerequisiteArtifact("$actooloribtoolzip_deploy", Mode.HOST);
-    }
-
-    Artifact momczipDeployJar() {
-      return ruleContext.getPrerequisiteArtifact("$momczip_deploy", Mode.HOST);
-    }
-
-    FilesToRunProvider xcodegen() {
-      return ruleContext.getExecutablePrerequisite("$xcodegen", Mode.HOST);
-    }
-
-    FilesToRunProvider plmerge() {
-      return ruleContext.getExecutablePrerequisite("$plmerge", Mode.HOST);
-    }
-  }
 
   /**
    * Provides a way to access attributes that are common to all rules that inherit from
@@ -146,28 +117,14 @@ final class ObjcBase {
     }
   }
 
-  static IntermediateArtifacts intermediateArtifacts(RuleContext ruleContext) {
-    return new IntermediateArtifacts(
-        ruleContext.getAnalysisEnvironment(), ruleContext.getBinOrGenfilesDirectory(),
-        ruleContext.getLabel());
-  }
-
-  static ObjcActionsBuilder actionsBuilder(RuleContext ruleContext) {
-    return new ObjcActionsBuilder(ruleContext, intermediateArtifacts(ruleContext),
-        objcConfiguration(ruleContext), ruleContext.getConfiguration(), ruleContext);
-  }
-
-  static ObjcConfiguration objcConfiguration(RuleContext ruleContext) {
-    return ruleContext.getConfiguration().getFragment(ObjcConfiguration.class);
-  }
-
   static void registerActions(
       RuleContext ruleContext, XcodeProvider xcodeProvider, Storyboards storyboards) {
-    ObjcActionsBuilder actionsBuilder = actionsBuilder(ruleContext);
-    IntermediateArtifacts intermediateArtifacts = intermediateArtifacts(ruleContext);
+    ObjcActionsBuilder actionsBuilder = ObjcRuleClasses.actionsBuilder(ruleContext);
+    IntermediateArtifacts intermediateArtifacts =
+        ObjcRuleClasses.intermediateArtifacts(ruleContext);
     Attributes attributes = new Attributes(ruleContext);
 
-    Tools tools = new Tools(ruleContext);
+    ObjcRuleClasses.Tools tools = new ObjcRuleClasses.Tools(ruleContext);
     actionsBuilder.registerResourceActions(
         tools,
         new ObjcActionsBuilder.StringsFiles(

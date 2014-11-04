@@ -54,7 +54,6 @@ public final class BlazeExecutor implements Executor {
   private final EventBus eventBus;
   private final Clock clock;
   private final OptionsClassProvider options;
-  private ActionGraph actionGraph;
   private AtomicBoolean inExecutionPhase;
 
   private final Map<String, SpawnActionContext> spawnActionContextMap;
@@ -219,21 +218,6 @@ public final class BlazeExecutor implements Executor {
      SpawnActionContext context = spawnActionContextMap.get(mnemonic);
      return context == null ? spawnActionContextMap.get("") : context;
    }
-
-  /**
-   * Set the action graph.
-   *
-   * <p>Unfortunately the action graph can not be set in the constructor, because the executor
-   * is constructed preemptively and the action graph is not yet available at that time.
-   */
-  public void setActionGraph(ActionGraph actionGraph) {
-    this.actionGraph = actionGraph;
-  }
-
-  @Override
-  public ActionGraph getActionGraph() {
-    return Preconditions.checkNotNull(actionGraph);
-  }
 
   /** Returns true iff the --verbose_failures option was enabled. */
   @Override

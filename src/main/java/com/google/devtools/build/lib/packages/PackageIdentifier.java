@@ -94,9 +94,16 @@ public final class PackageIdentifier implements Comparable<PackageIdentifier>, S
     return pkgName;
   }
 
+  /**
+   * Returns the name of this package.
+   *
+   * <p>There are certain places that expect the path fragment as the package name ('foo/bar') as a
+   * package identifier. This isn't specific enough for packages in other repositories, so their
+   * stringified version is '@baz//foo/bar'.</p>
+   */
   @Override
   public String toString() {
-    return repository + "//" + pkgName;
+    return (repository.isEmpty() ? "" : repository + "//") + pkgName;
   }
 
   @Override

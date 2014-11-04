@@ -136,14 +136,6 @@ class SkyframePackageManager implements PackageManager {
   }
 
   @Override
-  public boolean loadedTargetMayHaveChanged(Label label) {
-    // TODO(bazel-team): Be smarter here. In Skyframe, we have the means to declare explicit
-    // dependencies on directories contained in filesets, so it is actually possible to do
-    // correct incremental builds. [skyframe-analysis]
-    return true;
-  }
-
-  @Override
   public boolean isPackage(String packageName) {
     return getBuildFileForPackage(packageName) != null;
   }

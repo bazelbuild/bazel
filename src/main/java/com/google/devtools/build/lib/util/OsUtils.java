@@ -21,18 +21,10 @@ import com.google.devtools.build.lib.vfs.PathFragment;
  */
 public final class OsUtils {
 
-  private static final boolean IS_WINDOWS = System.getProperty("os.name").startsWith("Windows");
-  private static final String EXECUTABLE_EXTENSION = IS_WINDOWS ? ".exe" : "";
+  private static final String EXECUTABLE_EXTENSION = OS.getCurrent() == OS.WINDOWS ? ".exe" : "";
 
   // Utility class.
   private OsUtils() {
-  }
-
-  /**
-   * Returns true if running on Windows.
-   */
-  public static boolean isWindows() {
-    return IS_WINDOWS;
   }
 
   /**
@@ -54,7 +46,7 @@ public final class OsUtils {
 
   private static boolean jniLibsAvailable() {
     // JNI libraries work fine on Windows, but at the moment we are not using any.
-    return !IS_WINDOWS;
+    return OS.getCurrent() != OS.WINDOWS;
   }
 
   // Force JNI linking at a moment when we have 'installBase' handy, and print

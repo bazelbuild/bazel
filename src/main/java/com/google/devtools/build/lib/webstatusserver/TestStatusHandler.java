@@ -14,7 +14,6 @@
 
 package com.google.devtools.build.lib.webstatusserver;
 
-import com.google.common.base.Preconditions;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableList.Builder;
 import com.google.gson.JsonObject;
@@ -38,19 +37,16 @@ class TestStatusHandler {
   private HttpHandler detailsHandler;
   private HttpServer server;
   private ImmutableList<HttpContext> contexts;
-  private String uri;
-  
-  public TestStatusHandler(HttpServer server, int commandId, WebStatusBuildLog buildLog) {
+
+  public TestStatusHandler(HttpServer server, WebStatusBuildLog buildLog) {
     Builder<HttpContext> builder = ImmutableList.builder();
     this.buildLog = buildLog;
     this.server = server;
-    Preconditions.checkArgument(commandId >= 0, "Command id was %s but expected nonnegative.",
-        commandId);
-    this.uri = Integer.toString(commandId);
     detailsHandler = new TestStatusResultJsonData(this);
     frontendHandler = StaticResourceHandler.createFromRelativePath("static/test.html", "text/html");
-    builder.add(server.createContext("/tests/" + uri + "/details", detailsHandler));
-    builder.add(server.createContext("/tests/" + uri, frontendHandler));
+    builder.add(
+        server.createContext("/tests/" + buildLog.getCommandId() + "/details", detailsHandler));
+    builder.add(server.createContext("/tests/" + buildLog.getCommandId(), frontendHandler));
     contexts = builder.build();
   }
 
@@ -101,10 +97,6 @@ class TestStatusHandler {
     }
     this.server.createContext(detailsPath, this.detailsHandler);   
   }
-
-  public String getUri() {
-    return this.uri;
-  }
   
   /**
    * Deregisters all the handlers associated with the test.
@@ -115,3 +107,4 @@ class TestStatusHandler {
     }
   }
 }
+

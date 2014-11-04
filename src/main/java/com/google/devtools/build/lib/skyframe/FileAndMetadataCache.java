@@ -13,6 +13,7 @@
 // limitations under the License.
 package com.google.devtools.build.lib.skyframe;
 
+import com.google.common.annotations.VisibleForTesting;
 import com.google.common.base.Preconditions;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableSet;
@@ -66,7 +67,8 @@ import javax.annotation.Nullable;
  * modifications. Because all these use cases are slightly different, we must occasionally store two
  * versions of the data for a value (see {@link #getAdditionalOutputData} for more.
  */
-class FileAndMetadataCache implements ActionInputFileCache, MetadataHandler {
+@VisibleForTesting
+public class FileAndMetadataCache implements ActionInputFileCache, MetadataHandler {
   private final Map<Artifact, FileArtifactValue> inputArtifactData;
   private final Map<Artifact, Collection<Artifact>> expandedInputMiddlemen;
   private final File execRoot;
@@ -83,7 +85,7 @@ class FileAndMetadataCache implements ActionInputFileCache, MetadataHandler {
 
   private static final Interner<ByteString> BYTE_INTERNER = Interners.newWeakInterner();
 
-  FileAndMetadataCache(Map<Artifact, FileArtifactValue> inputArtifactData,
+  public FileAndMetadataCache(Map<Artifact, FileArtifactValue> inputArtifactData,
       Map<Artifact, Collection<Artifact>> expandedInputMiddlemen, File execRoot,
       Iterable<Artifact> outputs, @Nullable SkyFunction.Environment env,
       TimestampGranularityMonitor tsgm) {

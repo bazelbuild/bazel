@@ -21,7 +21,6 @@ import com.google.devtools.build.lib.actions.Executor;
 import com.google.devtools.build.lib.actions.MiddlemanAction;
 import com.google.devtools.build.lib.actions.NotifyOnActionCacheHit;
 import com.google.devtools.build.lib.actions.ResourceSet;
-import com.google.devtools.build.lib.actions.SuppressNoBuildAttemptError;
 import com.google.devtools.build.lib.util.Fingerprint;
 import com.google.devtools.build.lib.view.ConfiguredTarget;
 import com.google.devtools.build.lib.view.TargetCompleteEvent;
@@ -36,7 +35,7 @@ import com.google.devtools.build.lib.view.TargetCompleteEvent;
  * execute something after a target completes.
  */
 public final class TargetCompletionMiddlemanAction extends MiddlemanAction
-    implements SuppressNoBuildAttemptError, NotifyOnActionCacheHit {
+    implements NotifyOnActionCacheHit {
 
   private static final String GUID = "6633f0ab-9685-406e-be8a-f19dc46498e6";
 

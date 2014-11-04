@@ -15,15 +15,18 @@ package com.google.devtools.build.lib.skyframe;
 
 import com.google.common.base.Predicate;
 import com.google.common.collect.ImmutableList;
+import com.google.common.collect.ImmutableMap;
 import com.google.devtools.build.lib.blaze.BlazeDirectories;
 import com.google.devtools.build.lib.events.Reporter;
 import com.google.devtools.build.lib.packages.PackageFactory;
-import com.google.devtools.build.lib.packages.Preprocessor;
+import com.google.devtools.build.lib.packages.Preprocessor.Factory.Supplier;
 import com.google.devtools.build.lib.util.Clock;
 import com.google.devtools.build.lib.util.io.TimestampGranularityMonitor;
 import com.google.devtools.build.lib.vfs.PathFragment;
-import com.google.devtools.build.lib.view.WorkspaceStatusAction;
+import com.google.devtools.build.lib.view.WorkspaceStatusAction.Factory;
 import com.google.devtools.build.lib.view.buildinfo.BuildInfoFactory;
+import com.google.devtools.build.skyframe.SkyFunction;
+import com.google.devtools.build.skyframe.SkyFunctionName;
 
 /**
 * A factory that creates instances of SkyframeExecutor.
@@ -44,16 +47,17 @@ public interface SkyframeExecutorFactory {
    * @param diffAwarenessFactories
    * @param allowedMissingInputs
    * @param preprocessorFactorySupplier
+   * @param extraSkyFunctions
    * @param clock
    * @return an instance of the SkyframeExecutor
    */
   SkyframeExecutor create(Reporter reporter, PackageFactory pkgFactory,
       boolean skyframeBuild, TimestampGranularityMonitor tsgm,
       BlazeDirectories directories,
-      WorkspaceStatusAction.Factory workspaceStatusActionFactory,
+      Factory workspaceStatusActionFactory,
       ImmutableList<BuildInfoFactory> buildInfoFactories,
       Iterable<? extends DiffAwareness.Factory> diffAwarenessFactories,
       Predicate<PathFragment> allowedMissingInputs,
-      Preprocessor.Factory.Supplier preprocessorFactorySupplier,
-      Clock clock);
+      Supplier preprocessorFactorySupplier,
+      ImmutableMap<SkyFunctionName, SkyFunction> extraSkyFunctions, Clock clock);
 }

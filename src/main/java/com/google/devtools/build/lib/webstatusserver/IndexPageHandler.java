@@ -68,7 +68,7 @@ public class IndexPageHandler {
         test.add("targets",  gson.toJsonTree(buildLog.getTargetList()));
         test.addProperty("startTime", buildLog.getStartTime());
         test.addProperty("finished", buildLog.finished());
-        test.addProperty("uri", handler.getUri());
+        test.addProperty("uuid", buildLog.getCommandId().toString());
         response.add(test);
       }
       String serializedResponse = response.toString();
@@ -79,3 +79,4 @@ public class IndexPageHandler {
     }
   }
 }
+

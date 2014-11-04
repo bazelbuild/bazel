@@ -47,6 +47,7 @@ import com.google.devtools.build.lib.syntax.Label.SyntaxException;
 import com.google.devtools.build.lib.syntax.SkylarkCallable;
 import com.google.devtools.build.lib.syntax.SkylarkModule;
 import com.google.devtools.build.lib.util.Fingerprint;
+import com.google.devtools.build.lib.util.OS;
 import com.google.devtools.build.lib.util.RegexFilter;
 import com.google.devtools.build.lib.util.StringUtilities;
 import com.google.devtools.build.lib.vfs.Path;
@@ -474,7 +475,7 @@ public final class BuildConfiguration implements Serializable {
     public boolean showCachedAnalysisResults;
 
     @Option(name = "host_cpu",
-        defaultValue = "k8",
+        defaultValue = "null",
         category = "semantics",
         help = "The host CPU.")
     public String hostCpu;
@@ -712,9 +713,9 @@ public final class BuildConfiguration implements Serializable {
         // In the fallback case, we have already tried the target options and they didn't work, so
         // now we try the default options; the hostCpu field has the default value, because we use
         // getDefault() above.
-        host.cpu = host.hostCpu;
+        host.cpu = computeHostCpu(host.hostCpu);
       } else {
-        host.cpu = hostCpu;
+        host.cpu = computeHostCpu(hostCpu);
       }
 
       // === Runfiles ===
@@ -735,6 +736,18 @@ public final class BuildConfiguration implements Serializable {
       host.checkLicenses = checkLicenses;
 
       return host;
+    }
+
+    private static String computeHostCpu(String explicitHostCpu) {
+      if (explicitHostCpu != null) {
+        return explicitHostCpu;
+      }
+      switch (OS.getCurrent()) {
+        case DARWIN:
+          return "darwin";
+        default:
+          return "k8";
+      }
     }
 
     @Override

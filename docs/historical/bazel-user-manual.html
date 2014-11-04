@@ -1533,22 +1533,6 @@ cores directly from system configuration and will assume 1.0 I/O resource.
   cost of each build step.)
 </p>
 
-<h4 id='flag--incremental_builder'>
-    <code class='flag'>--[no]incremental_builder</code>
-</h4>
-<p>
-  This option is intended to make highly incremental rebuilds faster.
-  Otherwise, there should be no effect on build outputs. This
-  optimization has the greatest effect on null builds (no source or
-  intermediate files have changed since the last build).
-</p>
-<p>
-  By introducing a phase in which we check for modified files, we can
-  effectively prune subtrees of the build graph which are known to be
-  unchanged.
-</p>
-
-
 <h3 id='output-selection-options'>Output selection options</h3>
 <p>
   These options determine what to build or test.

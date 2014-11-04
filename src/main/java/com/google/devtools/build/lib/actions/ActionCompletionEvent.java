@@ -32,11 +32,4 @@ public final class ActionCompletionEvent {
   public ActionMetadata getActionMetadata() {
     return actionMetadata;
   }
-
-  /**
-   * Returns the action locality as returned by {@code action#describeStrategy}.
-   */
-  public String getStrategyDescription() {
-    return strategyDescription;
-  }
 }

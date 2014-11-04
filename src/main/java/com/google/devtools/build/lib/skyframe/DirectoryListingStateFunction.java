@@ -68,7 +68,7 @@ public class DirectoryListingStateFunction implements SkyFunction {
   private static final class DirectoryListingStateFunctionException
       extends SkyFunctionException {
     public DirectoryListingStateFunctionException(SkyKey key, IOException e) {
-      super(key, e);
+      super(key, e, Transience.TRANSIENT);
     }
   }
 }

@@ -103,31 +103,6 @@ public final class MiddlemanFactory {
   }
 
   /**
-   * Returns <code>null</code> iff inputs is empty. Otherwise, returns a
-   * middleman action with schedulingOnly attribute set to true. This will force
-   * dependency checker to ignore any changes for this middleman. In other
-   * words, scheduling middleman will still affect action scheduling order but
-   * will never cause action to be rebuilt. In particular, this is useful to
-   * ensure specific ordering of test actions.
-   *
-   * @param owner the owner of the action that will be created. May not be null.
-   * @param purpose the purpose for which this middleman is created. This should
-   *        be a string which is suitable for use as a filename. A single rule
-   *        may have many middlemen with distinct purposes.
-   * @param inputs the set of artifacts for which the created artifact is to be
-   *        the middleman.
-   * @param middlemanDir the directory in which to place the middleman.
-   * @return the middleman action and the stamp artifact
-   */
-  public Pair<Artifact, Action> createSchedulingMiddleman(
-      ActionOwner owner, String middlemanName, String purpose, Iterable<Artifact> inputs,
-      Root middlemanDir) {
-    // We must always create this middleman even if there is only one input.
-    return createMiddleman(owner, middlemanName, purpose, inputs, middlemanDir,
-        MiddlemanType.SCHEDULING_MIDDLEMAN);
-  }
-
-  /**
    * Creates a {@link MiddlemanType#ERROR_PROPAGATING_MIDDLEMAN error-propagating} middleman.
    *
    * @param owner the owner of the action that will be created. May not be null.

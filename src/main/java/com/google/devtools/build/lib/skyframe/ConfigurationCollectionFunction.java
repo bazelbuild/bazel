@@ -96,9 +96,8 @@ public class ConfigurationCollectionFunction implements SkyFunction {
    */
   private static final class ConfigurationCollectionFunctionException extends
       SkyFunctionException {
-    public ConfigurationCollectionFunctionException(SkyKey key,
-        InvalidConfigurationException e) {
-      super(key, e);
+    public ConfigurationCollectionFunctionException(SkyKey key, InvalidConfigurationException e) {
+      super(key, e, Transience.PERSISTENT);
     }
   }
 }

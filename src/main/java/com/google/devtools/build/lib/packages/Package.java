@@ -75,6 +75,11 @@ public class Package implements Serializable {
   }
 
   /**
+   * The repository identifier for this package.
+   */
+  private final PackageIdentifier packageIdentifier;
+
+  /**
    * The name of the package, e.g. "foo/bar".
    */
   protected final String name;
@@ -209,9 +214,10 @@ public class Package implements Serializable {
    * @precondition {@code name} must be a suffix of
    * {@code filename.getParentDirectory())}.
    */
-  protected Package(String name) {
-    this.name = name;
-    this.nameFragment = Canonicalizer.fragments().intern(new PathFragment(name));
+  protected Package(PackageIdentifier packageId) {
+    this.packageIdentifier = packageId;
+    this.nameFragment = Canonicalizer.fragments().intern(packageId.getPackageFragment());
+    this.name = nameFragment.getPathString();
   }
 
   private void writeObject(ObjectOutputStream out) {
@@ -249,7 +255,7 @@ public class Package implements Serializable {
 
   /** Returns this packages' identifier. */
   public PackageIdentifier getPackageIdentifier() {
-    return getBuildFileLabel().getPackageIdentifier();
+    return packageIdentifier;
   }
 
   /**
@@ -699,8 +705,8 @@ public class Package implements Serializable {
    * <p>Should only be used by the package loading and the package deserialization machineries.
    */
   static class Builder extends AbstractBuilder<Package, Builder> {
-    Builder(String packageName) {
-      super(new Package(packageName));
+    Builder(PackageIdentifier packageId) {
+      super(new Package(packageId));
     }
 
     @Override
@@ -714,8 +720,8 @@ public class Package implements Serializable {
 
     private GlobCache globCache = null;
 
-    LegacyBuilder(String packageName) {
-      super(AbstractBuilder.newPackage(packageName));
+    LegacyBuilder(PackageIdentifier packageId) {
+      super(AbstractBuilder.newPackage(packageId));
     }
 
     @Override
@@ -828,8 +834,8 @@ public class Package implements Serializable {
       }
     }
 
-    protected static Package newPackage(String packageName) {
-      return new Package(packageName);
+    protected static Package newPackage(PackageIdentifier packageId) {
+      return new Package(packageId);
     }
 
     protected abstract B self();

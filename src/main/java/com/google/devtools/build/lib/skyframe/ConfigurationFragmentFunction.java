@@ -135,7 +135,7 @@ public class ConfigurationFragmentFunction implements SkyFunction {
    */
   private static final class ConfigurationFragmentFunctionException extends SkyFunctionException {
     public ConfigurationFragmentFunctionException(SkyKey key, InvalidConfigurationException e) {
-      super(key, e);
+      super(key, e, Transience.PERSISTENT);
     }
   }
 }

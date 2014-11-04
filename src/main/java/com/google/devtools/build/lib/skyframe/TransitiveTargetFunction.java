@@ -217,7 +217,7 @@ public class TransitiveTargetFunction implements SkyFunction {
      * target that depended on it.
      */
     public TransitiveTargetFunctionException(SkyKey key, NoSuchPackageException e) {
-      super(key, e);
+      super(key, e, Transience.PERSISTENT);
     }
 
     /**
@@ -228,7 +228,7 @@ public class TransitiveTargetFunction implements SkyFunction {
      * (we proceed with transitive loading on targets that contain errors).
      */
     public TransitiveTargetFunctionException(SkyKey key, NoSuchTargetException e) {
-      super(key, e);
+      super(key, e, Transience.PERSISTENT);
     }
   }
 }

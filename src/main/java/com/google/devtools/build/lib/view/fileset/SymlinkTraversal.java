@@ -15,7 +15,6 @@
 package com.google.devtools.build.lib.view.fileset;
 
 import com.google.devtools.build.lib.events.EventHandler;
-import com.google.devtools.build.lib.pkgcache.PackageUpToDateChecker;
 import com.google.devtools.build.lib.util.Fingerprint;
 
 import java.io.IOException;
@@ -44,7 +43,7 @@ interface SymlinkTraversal {
   /**
    * @return true iff this traversal must be executed unconditionally.
    */
-  boolean executeUnconditionally(PackageUpToDateChecker upToDateChecker);
+  boolean executeUnconditionally();
 
   /**
    * Returns true if it's ever possible that {@link #executeUnconditionally}

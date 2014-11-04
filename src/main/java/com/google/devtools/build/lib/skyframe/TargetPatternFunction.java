@@ -272,7 +272,7 @@ public class TargetPatternFunction implements SkyFunction {
    */
   private static final class TargetPatternFunctionException extends SkyFunctionException {
     public TargetPatternFunctionException(SkyKey key, TargetParsingException e) {
-      super(key, e);
+      super(key, e, Transience.PERSISTENT);
     }
   }
 }

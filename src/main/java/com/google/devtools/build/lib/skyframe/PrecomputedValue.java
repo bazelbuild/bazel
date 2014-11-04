@@ -67,6 +67,9 @@ public class PrecomputedValue implements SkyValue {
   static final Precomputed<ImmutableMap<Action, Exception>> BAD_ACTIONS =
       new Precomputed<>(new SkyKey(SkyFunctions.PRECOMPUTED, "bad_actions"));
 
+  static final Precomputed<String> PRELUDE_FILE =
+      new Precomputed<>(new SkyKey(SkyFunctions.PRECOMPUTED, "prelude_file"));
+
   private final Object value;
 
   public PrecomputedValue(Object value) {

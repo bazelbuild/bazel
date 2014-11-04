@@ -983,7 +983,7 @@ class Parser {
       }
       pushToken(identToken); // push the ident back to parse it as a statement
     }
-    parseStatement(list);
+    parseStatement(list, true);
   }
 
   // simple_stmt ::= small_stmt (';' small_stmt)* ';'? NEWLINE
@@ -1154,7 +1154,7 @@ class Parser {
       }
       expect(TokenKind.INDENT);
       while (token.kind != TokenKind.OUTDENT && token.kind != TokenKind.EOF) {
-        parseStatement(list);
+        parseStatement(list, false);
       }
       expect(TokenKind.OUTDENT);
     } else {
@@ -1201,12 +1201,20 @@ class Parser {
 
   // stmt ::= simple_stmt
   //        | compound_stmt
-  private void parseStatement(List<Statement> list) {
+  private void parseStatement(List<Statement> list, boolean isTopLevel) {
     if (token.kind == TokenKind.DEF && skylarkMode) {
+      if (!isTopLevel) {
+        reportError(lexer.createLocation(token.left, token.right),
+            "nested functions are not allowed. Move the function to top-level");
+      }
       parseFunctionDefStatement(list);
     } else if (token.kind == TokenKind.IF && skylarkMode) {
       parseIfStatement(list);
     } else if (token.kind == TokenKind.FOR && skylarkMode) {
+      if (isTopLevel) {
+        reportError(lexer.createLocation(token.left, token.right),
+            "for loops are not allowed on top-level. Put it into a function");
+      }
       parseForStatement(list);
     } else if (token.kind == TokenKind.IF
         || token.kind == TokenKind.ELSE

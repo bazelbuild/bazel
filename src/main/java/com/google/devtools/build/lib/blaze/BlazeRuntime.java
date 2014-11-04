@@ -34,7 +34,6 @@ import com.google.common.eventbus.SubscriberExceptionHandler;
 import com.google.devtools.build.lib.Constants;
 import com.google.devtools.build.lib.actions.cache.ActionCache;
 import com.google.devtools.build.lib.actions.cache.CompactPersistentActionCache;
-import com.google.devtools.build.lib.actions.cache.MetadataCache;
 import com.google.devtools.build.lib.actions.cache.NullActionCache;
 import com.google.devtools.build.lib.blaze.commands.BuildCommand;
 import com.google.devtools.build.lib.blaze.commands.CanonicalizeCommand;
@@ -62,7 +61,6 @@ import com.google.devtools.build.lib.pkgcache.LoadedPackageProvider;
 import com.google.devtools.build.lib.pkgcache.LoadingPhaseRunner;
 import com.google.devtools.build.lib.pkgcache.PackageCacheOptions;
 import com.google.devtools.build.lib.pkgcache.PackageManager;
-import com.google.devtools.build.lib.pkgcache.PackageUpToDateChecker;
 import com.google.devtools.build.lib.pkgcache.TargetPatternEvaluator;
 import com.google.devtools.build.lib.profiler.MemoryProfiler;
 import com.google.devtools.build.lib.profiler.ProfilePhase;
@@ -83,6 +81,7 @@ import com.google.devtools.build.lib.util.BlazeClock;
 import com.google.devtools.build.lib.util.Clock;
 import com.google.devtools.build.lib.util.ExitCode;
 import com.google.devtools.build.lib.util.LoggingUtil;
+import com.google.devtools.build.lib.util.OS;
 import com.google.devtools.build.lib.util.OsUtils;
 import com.google.devtools.build.lib.util.SkyframeMode;
 import com.google.devtools.build.lib.util.io.OutErr;
@@ -90,7 +89,6 @@ import com.google.devtools.build.lib.util.io.TimestampGranularityMonitor;
 import com.google.devtools.build.lib.vfs.FileSystem;
 import com.google.devtools.build.lib.vfs.FileSystemUtils;
 import com.google.devtools.build.lib.vfs.JavaIoFileSystem;
-import com.google.devtools.build.lib.vfs.ModifiedFileSet;
 import com.google.devtools.build.lib.vfs.Path;
 import com.google.devtools.build.lib.vfs.PathFragment;
 import com.google.devtools.build.lib.vfs.UnixFileSystem;
@@ -105,6 +103,8 @@ import com.google.devtools.build.lib.view.config.BuildOptions;
 import com.google.devtools.build.lib.view.config.ConfigurationFactory;
 import com.google.devtools.build.lib.view.config.DefaultsPackage;
 import com.google.devtools.build.lib.view.config.InvalidConfigurationException;
+import com.google.devtools.build.skyframe.SkyFunction;
+import com.google.devtools.build.skyframe.SkyFunctionName;
 import com.google.devtools.common.options.Option;
 import com.google.devtools.common.options.OptionPriority;
 import com.google.devtools.common.options.OptionsBase;
@@ -185,7 +185,6 @@ public final class BlazeRuntime {
   private final ConfiguredRuleClassProvider ruleClassProvider;
   private final BuildView view;
   private ActionCache actionCache;
-  private MetadataCache metadataCache;
   private final TimestampGranularityMonitor timestampGranularityMonitor;
   private final Clock clock;
   private final BuildTool buildTool;
@@ -561,10 +560,6 @@ public final class BlazeRuntime {
     return blazeModuleEnvironment;
   }
 
-  public PackageUpToDateChecker getPackageUpToDateChecker() {
-    return getPackageManager();
-  }
-
   /**
    * Returns the rule class provider.
    */
@@ -616,7 +611,7 @@ public final class BlazeRuntime {
    */
   public ActionCache getPersistentActionCache() throws IOException {
     if (actionCache == null) {
-      if (OsUtils.isWindows()) {
+      if (OS.getCurrent() == OS.WINDOWS) {
         // TODO(bazel-team): Add support for a persistent action cache on Windows.
         actionCache = new NullActionCache();
         return actionCache;
@@ -646,7 +641,6 @@ public final class BlazeRuntime {
   public void clearCaches() throws IOException {
     clearSkyframeRelevantCaches();
     actionCache = null;
-    metadataCache = null;
     FileSystemUtils.deleteTree(getCacheDirectory());
   }
 
@@ -654,25 +648,6 @@ public final class BlazeRuntime {
   private void clearSkyframeRelevantCaches() {
     skyframeExecutor.resetEvaluator();
     view.clear();
-  }
-
-  /**
-   * Returns reference to the lazily instantiated persistent metadata cache
-   * instance. Note, that method may recreate instance between different build
-   * requests, so return value should not be cached.
-   */
-  public MetadataCache getPersistentMetadataCache() {
-    if (metadataCache == null) {
-      long startTime = Profiler.nanoTimeMaybe();
-      try {
-        metadataCache =
-            MetadataCache.getPersistentCache(getCacheDirectory(), clock,
-                getTimestampGranularityMonitor());
-      } finally {
-        Profiler.instance().logSimpleTask(startTime, ProfilerTask.INFO, "Loading metadata cache");
-      }
-    }
-    return metadataCache;
   }
 
   /**
@@ -890,14 +865,12 @@ public final class BlazeRuntime {
 
   /**
    * An array of String values useful if Blaze crashes.
-   * For now, just returns the size of the action cache and metadata
-   * cache.
+   * For now, just returns the size of the action cache and the build id.
    */
   public String[] getCrashData() {
     return new String[]{
         getFileSizeString(CompactPersistentActionCache.cacheFile(getCacheDirectory()),
                           "action cache"),
-        getFileSizeString(MetadataCache.cacheFile(getCacheDirectory()), "metadata cache"),
         commandIdString(),
     };
   }
@@ -973,17 +946,6 @@ public final class BlazeRuntime {
       throw new InvalidConfigurationException("Configuration creation failed");
     }
     return skyframeExecutor.createConfigurations(configurationFactory, configurationKey);
-  }
-
-  /**
-   * Returns the complete set of modified source files (which must include all changes files, even
-   * changes to symlinked files outside package roots), or
-   * {@link ModifiedFileSet#EVERYTHING_MODIFIED}, if perfect diff information isn't available.
-   * This should only deal with source files, not output files. The legacy execution phase uses
-   * this to determine which source files have changes since the last build.
-   */
-  public ModifiedFileSet getModifiedFileSetForSourceFiles() {
-    return ModifiedFileSet.EVERYTHING_MODIFIED;
   }
 
   /**
@@ -1283,7 +1245,7 @@ public final class BlazeRuntime {
 
   private static FileSystem fileSystemImplementation() {
     // The JNI-based UnixFileSystem is faster, but on Windows it is not available.
-    return OsUtils.isWindows() ? new JavaIoFileSystem() : new UnixFileSystem();
+    return OS.getCurrent() == OS.WINDOWS ? new JavaIoFileSystem() : new UnixFileSystem();
   }
 
   /**
@@ -1668,13 +1630,19 @@ public final class BlazeRuntime {
         extensions.add(module.getPackageEnvironmentExtension());
       }
 
+      // We use an immutable map builder for the nice side effect that it throws if a duplicate key
+      // is inserted.
+      ImmutableMap.Builder<SkyFunctionName, SkyFunction> skyFunctions = ImmutableMap.builder();
+      for (BlazeModule module : blazeModules) {
+        skyFunctions.putAll(module.getSkyFunctions(directories));
+      }
       final PackageFactory pkgFactory =
           new PackageFactory(ruleClassProvider, platformRegexps, extensions);
       SkyframeExecutor skyframeExecutor = skyframeExecutorFactory.create(reporter, pkgFactory,
           skyframe == SkyframeMode.FULL, timestampMonitor, directories,
           workspaceStatusActionFactory, ruleClassProvider.getBuildInfoFactories(),
           diffAwarenessFactories, allowedMissingInputs, preprocessorFactorySupplier,
-          clock);
+          skyFunctions.build(), clock);
 
       if (configurationFactory == null) {
         configurationFactory = new ConfigurationFactory(

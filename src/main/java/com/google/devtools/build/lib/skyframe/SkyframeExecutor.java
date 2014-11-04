@@ -15,11 +15,9 @@ package com.google.devtools.build.lib.skyframe;
 
 import com.google.common.annotations.VisibleForTesting;
 import com.google.common.base.Function;
-import com.google.common.base.Objects;
 import com.google.common.base.Preconditions;
 import com.google.common.base.Predicate;
 import com.google.common.base.Predicates;
-import com.google.common.base.Supplier;
 import com.google.common.base.Throwables;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
@@ -46,6 +44,7 @@ import com.google.devtools.build.lib.events.EventHandler;
 import com.google.devtools.build.lib.events.Reporter;
 import com.google.devtools.build.lib.packages.BuildFileContainsErrorsException;
 import com.google.devtools.build.lib.packages.NoSuchPackageException;
+import com.google.devtools.build.lib.packages.NoSuchThingException;
 import com.google.devtools.build.lib.packages.Package;
 import com.google.devtools.build.lib.packages.PackageFactory;
 import com.google.devtools.build.lib.packages.PackageIdentifier;
@@ -74,6 +73,7 @@ import com.google.devtools.build.lib.view.BuildView.Options;
 import com.google.devtools.build.lib.view.ConfiguredTarget;
 import com.google.devtools.build.lib.view.TopLevelArtifactContext;
 import com.google.devtools.build.lib.view.WorkspaceStatusAction;
+import com.google.devtools.build.lib.view.WorkspaceStatusAction.Factory;
 import com.google.devtools.build.lib.view.buildinfo.BuildInfoFactory;
 import com.google.devtools.build.lib.view.buildinfo.BuildInfoFactory.BuildInfoKey;
 import com.google.devtools.build.lib.view.config.BinTools;
@@ -104,7 +104,6 @@ import java.io.PrintStream;
 import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.Collection;
-import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.Set;
@@ -150,7 +149,7 @@ public abstract class SkyframeExecutor {
   // to find subincludes and declare value dependencies).
   // TODO(bazel-team): remove this cache once we have skyframe-native package loading
   // [skyframe-loading]
-  private final ConcurrentMap<String, Package.LegacyBuilder> packageFunctionCache =
+  private final ConcurrentMap<PackageIdentifier, Package.LegacyBuilder> packageFunctionCache =
       Maps.newConcurrentMap();
   private final AtomicInteger numPackagesLoaded = new AtomicInteger(0);
 
@@ -196,7 +195,7 @@ public abstract class SkyframeExecutor {
   private final AtomicReference<ActionExecutionStatusReporter> statusReporterRef =
       new AtomicReference<>();
   private SkyframeActionExecutor skyframeActionExecutor;
-  protected SkyframeExecutor.SkyframeProgressReceiver progressReceiver;
+  protected SkyframeProgressReceiver progressReceiver;
   private AtomicReference<CyclesReporter> cyclesReporter = new AtomicReference<>();
 
   private BinTools binTools = null;
@@ -204,6 +203,8 @@ public abstract class SkyframeExecutor {
   private boolean needToInjectBuildInfoFactories = true;
   protected int modifiedFiles;
   private final Predicate<PathFragment> allowedMissingInputs;
+
+  private final ImmutableMap<SkyFunctionName, SkyFunction> extraSkyFunctions;
 
   protected SkyframeIncrementalBuildMonitor incrementalBuildMonitor =
       new SkyframeIncrementalBuildMonitor();
@@ -223,10 +224,11 @@ public abstract class SkyframeExecutor {
       PackageFactory pkgFactory,
       TimestampGranularityMonitor tsgm,
       BlazeDirectories directories,
-      WorkspaceStatusAction.Factory workspaceStatusActionFactory,
+      Factory workspaceStatusActionFactory,
       ImmutableList<BuildInfoFactory> buildInfoFactories,
       Predicate<PathFragment> allowedMissingInputs,
-      Preprocessor.Factory.Supplier preprocessorFactorySupplier, Clock clock) {
+      Preprocessor.Factory.Supplier preprocessorFactorySupplier,
+      ImmutableMap<SkyFunctionName, SkyFunction> extraSkyFunctions, Clock clock) {
     // Strictly speaking, these arguments are not required for initialization, but all current
     // callsites have them at hand, so we might as well set them during construction.
     this.reporter = Preconditions.checkNotNull(reporter);
@@ -247,6 +249,7 @@ public abstract class SkyframeExecutor {
     this.buildInfoFactories = buildInfoFactories;
     this.allowedMissingInputs = allowedMissingInputs;
     this.preprocessorFactorySupplier = preprocessorFactorySupplier;
+    this.extraSkyFunctions = extraSkyFunctions;
     resetEvaluatorInternal(/*bootstrapping=*/true);
   }
 
@@ -254,7 +257,9 @@ public abstract class SkyframeExecutor {
       Root buildDataDirectory,
       PackageFactory pkgFactory,
       Predicate<PathFragment> allowedMissingInputs) {
-    Map<SkyFunctionName, SkyFunction> map = new HashMap<>();
+    // We use an immutable map builder for the nice side effect that it throws if a duplicate key
+    // is inserted.
+    ImmutableMap.Builder<SkyFunctionName, SkyFunction> map = ImmutableMap.builder();
     map.put(SkyFunctions.PRECOMPUTED, new PrecomputedFunction());
     map.put(SkyFunctions.FILE_STATE, new FileStateFunction(tsgm, pkgLocator));
     map.put(SkyFunctions.DIRECTORY_LISTING_STATE, new DirectoryListingStateFunction(pkgLocator));
@@ -293,7 +298,8 @@ public abstract class SkyframeExecutor {
     map.put(SkyFunctions.BUILD_INFO, new WorkspaceStatusFunction());
     map.put(SkyFunctions.ACTION_EXECUTION,
         new ActionExecutionFunction(skyframeActionExecutor, tsgm));
-    return ImmutableMap.copyOf(map);
+    map.putAll(extraSkyFunctions);
+    return map.build();
   }
 
   @ThreadCompatible
@@ -330,6 +336,39 @@ public abstract class SkyframeExecutor {
   @VisibleForTesting
   public BuildDriver getDriverForTesting() {
     return buildDriver;
+  }
+
+  /**
+   * This method exists only to allow a module to make a top-level Skyframe call during the
+   * transition to making it fully Skyframe-compatible. Do not add additional callers!
+   */
+  public <E extends Exception> SkyValue evaluateSkyKeyForCodeMigration(final SkyKey key,
+      final Class<E> clazz) throws E {
+    try {
+      return callUninterruptibly(new Callable<SkyValue>() {
+        @Override
+        public SkyValue call() throws E, InterruptedException {
+          synchronized (valueLookupLock) {
+            EvaluationResult<ActionLookupValue> result = buildDriver.evaluate(
+                ImmutableList.of(key), false, ResourceUsage.getAvailableProcessors(),
+                errorEventListener);
+            if (!result.hasError()) {
+              return Preconditions.checkNotNull(result.get(key), "%s %s", result, key);
+            }
+            ErrorInfo errorInfo = Preconditions.checkNotNull(result.getError(key),
+                "%s %s", key, result);
+            Throwables.propagateIfPossible(errorInfo.getException(), clazz);
+            if (errorInfo.getException() != null) {
+              throw new IllegalStateException(errorInfo.getException());
+            }
+            throw new IllegalStateException(errorInfo.toString());
+          }
+        }
+      });
+    } catch (Exception e) {
+      Throwables.propagateIfPossible(e, clazz);
+      throw new IllegalStateException(e);
+    }
   }
 
   class BuildViewProvider {
@@ -452,6 +491,10 @@ public abstract class SkyframeExecutor {
     PrecomputedValue.DEFAULT_VISIBILITY.set(injectable(), defaultVisibility);
   }
 
+  private void setupPreludeFile(String preludeFile) {
+    PrecomputedValue.PRELUDE_FILE.set(injectable(), preludeFile);
+  }
+
   private void maybeInjectBuildInfoFactories() {
     if (needToInjectBuildInfoFactories) {
       injectBuildInfoFactories();
@@ -479,7 +522,7 @@ public abstract class SkyframeExecutor {
   @VisibleForTesting
   public void setCommandId(UUID commandId) {
     PrecomputedValue.BUILD_ID.set(injectable(), commandId);
-    buildId.val = commandId;
+    buildId.set(commandId);
   }
 
   /** Returns the build-info.txt and build-changelist.txt artifacts. */
@@ -528,7 +571,7 @@ public abstract class SkyframeExecutor {
   public ImmutableMap<PathFragment, Path> getPackageRoots() {
     // Make a map of the package names to their root paths.
     ImmutableMap.Builder<PathFragment, Path> packageRoots = ImmutableMap.builder();
-    for (Package pkg : configurationPackages.val) {
+    for (Package pkg : configurationPackages.get()) {
       packageRoots.put(pkg.getNameFragment(), pkg.getSourceRoot());
     }
     return packageRoots.build();
@@ -578,15 +621,23 @@ public abstract class SkyframeExecutor {
   @VisibleForTesting  // productionVisibility = Visibility.PRIVATE
   public abstract void setDeletedPackages(Iterable<String> pkgs);
 
+  @VisibleForTesting  // productionVisibility = Visibility.PRIVATE
+  public void preparePackageLoading(PathPackageLocator pkgLocator, RuleVisibility defaultVisibility,
+      boolean showLoadingProgress,
+      String defaultsPackageContents, UUID commandId) {
+    preparePackageLoading(pkgLocator, defaultVisibility, showLoadingProgress,
+        defaultsPackageContents, commandId, PackageCacheOptions.DEFAULT_PRELUDE_FILE);
+  }
+
   /**
    * Prepares the evaluator for loading.
    *
    * <p>MUST be run before every incremental build.
    */
-  @VisibleForTesting  // productionVisibility = Visibility.PRIVATE
-  public void preparePackageLoading(PathPackageLocator pkgLocator, RuleVisibility defaultVisibility,
+  private void preparePackageLoading(
+      PathPackageLocator pkgLocator, RuleVisibility defaultVisibility,
       boolean showLoadingProgress,
-      String defaultsPackageContents, UUID commandId) {
+      String defaultsPackageContents, UUID commandId, String preludeFile) {
     Preconditions.checkNotNull(pkgLocator);
     setActive(true);
 
@@ -596,6 +647,7 @@ public abstract class SkyframeExecutor {
     setDefaultVisibility(defaultVisibility);
     setupDefaultPackage(defaultsPackageContents);
     setPackageLocator(pkgLocator);
+    setupPreludeFile(preludeFile);
 
     syscalls.set(new PerBuildSyscallCache());
     checkPreprocessorFactory();
@@ -647,7 +699,7 @@ public abstract class SkyframeExecutor {
   public void setSkyframeBuildView(SkyframeBuildView skyframeBuildView) {
     this.skyframeBuildView = skyframeBuildView;
     setConfigurationSkyKey(configurationSkyKey);
-    this.artifactFactory.val = skyframeBuildView.getArtifactFactory();
+    this.artifactFactory.set(skyframeBuildView.getArtifactFactory());
     if (skyframeBuildView.getWarningListener() != null) {
       setErrorEventListener(skyframeBuildView.getWarningListener());
     }
@@ -689,9 +741,9 @@ public abstract class SkyframeExecutor {
     SkyKey skyKey = ConfigurationCollectionValue.key(options, ImmutableSet.<String>of());
     setConfigurationSkyKey(skyKey);
     PrecomputedValue.BLAZE_DIRECTORIES.set(injectable(), directories);
-    this.configurationFactory.val = configurationFactory;
-    this.configurationFragments.val = ImmutableList.copyOf(configurationFactory.getFactories());
-    this.configurationPackages.val = Sets.newConcurrentHashSet();
+    this.configurationFactory.set(configurationFactory);
+    this.configurationFragments.set(ImmutableList.copyOf(configurationFactory.getFactories()));
+    this.configurationPackages.set(Sets.<Package>newConcurrentHashSet());
   }
 
   /**
@@ -703,10 +755,10 @@ public abstract class SkyframeExecutor {
       ConfigurationFactory configurationFactory, BuildConfigurationKey configurationKey)
       throws InvalidConfigurationException, InterruptedException {
 
-    this.configurationPackages.val = Sets.newConcurrentHashSet();
-    this.clientEnv.val = configurationKey.getClientEnv();
-    this.configurationFactory.val = configurationFactory;
-    this.configurationFragments.val = ImmutableList.copyOf(configurationFactory.getFactories());
+    this.configurationPackages.set(Sets.<Package>newConcurrentHashSet());
+    this.clientEnv.set(configurationKey.getClientEnv());
+    this.configurationFactory.set(configurationFactory);
+    this.configurationFragments.set(ImmutableList.copyOf(configurationFactory.getFactories()));
     BuildOptions buildOptions = configurationKey.getBuildOptions();
     Map<String, String> testEnv = BuildConfiguration.getTestEnv(
         buildOptions.get(BuildConfiguration.Options.class).testEnvironment,
@@ -727,16 +779,20 @@ public abstract class SkyframeExecutor {
             Arrays.asList(skyKey), /*keep_going=*/false, DEFAULT_THREAD_COUNT, errorEventListener);
     if (result.hasError()) {
       Throwable e = result.getError(skyKey).getException();
+      // Wrap loading failed exceptions
+      if (e instanceof NoSuchThingException) {
+        e = new InvalidConfigurationException(e);
+      }
       Throwables.propagateIfInstanceOf(e, InvalidConfigurationException.class);
       throw new IllegalStateException(
           "Unknown error during ConfigurationCollectionValue evaluation", e);
     }
     Preconditions.checkState(result.values().size() == 1,
         "Result of evaluate() must contain exactly one value " + result);
-    ConfigurationCollectionValue configurationValue = 
+    ConfigurationCollectionValue configurationValue =
         Iterables.getOnlyElement(result.values());
-    this.configurationPackages.val =
-        Sets.newConcurrentHashSet(configurationValue.getConfigurationPackages());
+    this.configurationPackages.set(
+        Sets.newConcurrentHashSet(configurationValue.getConfigurationPackages()));
     return configurationValue.getConfigurationCollection();
   }
 
@@ -886,8 +942,7 @@ public abstract class SkyframeExecutor {
   /**
    * Invalidates SkyFrame values that may have failed for transient reasons.
    */
-  @VisibleForTesting  // productionVisibility = Visibility.PRIVATE
-  public abstract void invalidateErrors();
+  public abstract void invalidateTransientErrors();
 
   @VisibleForTesting
   public TimestampGranularityMonitor getTimestampGranularityMonitorForTesting() {
@@ -1144,11 +1199,11 @@ public abstract class SkyframeExecutor {
 
     preparePackageLoading(packageLocator,
         packageCacheOptions.defaultVisibility, packageCacheOptions.showLoadingProgress,
-        defaultsPackageContents, commandId);
+        defaultsPackageContents, commandId, packageCacheOptions.preludeFile);
     setDeletedPackages(ImmutableSet.copyOf(packageCacheOptions.deletedPackages));
 
     incrementalBuildMonitor = new SkyframeIncrementalBuildMonitor();
-    invalidateErrors();
+    invalidateTransientErrors();
   }
 
   private CyclesReporter createCyclesReporter() {
@@ -1180,7 +1235,7 @@ public abstract class SkyframeExecutor {
    * tests), and it should be called before the execution phase.
    */
   void setArtifactFactoryAndBinTools(ArtifactFactory artifactFactory, BinTools binTools) {
-    this.artifactFactory.val = artifactFactory;
+    this.artifactFactory.set(artifactFactory);
     this.binTools = binTools;
   }
 
@@ -1286,25 +1341,4 @@ public abstract class SkyframeExecutor {
     }
   }
 
-  /**
-   * Supplier whose value can be changed by its "owner" (outer class). Unlike an {@link
-   * AtomicReference}, clients cannot change its value.
-   *
-   * <p>This class must remain an inner class to allow only its outer class to modify its value.
-   */
-  private static class MutableSupplier<T> implements Supplier<T> {
-    private T val;
-
-    @Override
-    public T get() {
-      return val;
-    }
-
-    @SuppressWarnings("deprecation")  // MoreObjects.toStringHelper() is not in Guava
-    @Override
-    public String toString() {
-      return Objects.toStringHelper(getClass())
-          .add("val", val).toString();
-    }
-  }
 }

@@ -18,25 +18,17 @@ import com.google.common.base.Preconditions;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.Iterables;
 import com.google.devtools.build.lib.actions.AbstractAction;
-import com.google.devtools.build.lib.actions.Action;
 import com.google.devtools.build.lib.actions.ActionExecutionContext;
 import com.google.devtools.build.lib.actions.ActionExecutionException;
 import com.google.devtools.build.lib.actions.ActionOwner;
 import com.google.devtools.build.lib.actions.Artifact;
-import com.google.devtools.build.lib.actions.ArtifactFactory;
 import com.google.devtools.build.lib.actions.ExecException;
 import com.google.devtools.build.lib.actions.Executor;
-import com.google.devtools.build.lib.actions.MayStream;
-import com.google.devtools.build.lib.actions.MiddlemanFactory;
 import com.google.devtools.build.lib.actions.NotifyOnActionCacheHit;
 import com.google.devtools.build.lib.actions.ResourceSet;
-import com.google.devtools.build.lib.actions.SuppressNoBuildAttemptError;
-import com.google.devtools.build.lib.actions.TestMiddlemanObserver;
-import com.google.devtools.build.lib.pkgcache.PackageUpToDateChecker;
 import com.google.devtools.build.lib.syntax.Label;
 import com.google.devtools.build.lib.util.Fingerprint;
 import com.google.devtools.build.lib.util.LoggingUtil;
-import com.google.devtools.build.lib.util.Pair;
 import com.google.devtools.build.lib.vfs.FileSystemUtils;
 import com.google.devtools.build.lib.vfs.Path;
 import com.google.devtools.build.lib.view.config.BuildConfiguration;
@@ -47,7 +39,6 @@ import com.google.devtools.common.options.TriState;
 import java.io.IOException;
 import java.io.InputStream;
 import java.io.OutputStream;
-import java.util.Collection;
 import java.util.logging.Level;
 
 import javax.annotation.Nullable;
@@ -58,8 +49,7 @@ import javax.annotation.Nullable;
  * runfiles artifacts and produces test result and test status artifacts.
  */
 // Not final so that we can mock it in tests.
-public class TestRunnerAction extends AbstractAction
-    implements NotifyOnActionCacheHit, SuppressNoBuildAttemptError, MayStream {
+public class TestRunnerAction extends AbstractAction implements NotifyOnActionCacheHit {
 
   private static final String GUID = "94857c93-f11c-4cbc-8c1b-e0a281633f9e";
 
@@ -87,8 +77,6 @@ public class TestRunnerAction extends AbstractAction
   private final TestTargetExecutionSettings executionSettings;
   private final int shardNum;
   private final int runNumber;
-  private Artifact schedulingMiddleman = null;
-  private Action schedulingMiddlemanAction = null;
 
   // Mutable state related to test caching.
   private boolean checkedCaching = false;
@@ -172,63 +160,6 @@ public class TestRunnerAction extends AbstractAction
     return namePrefix;
   }
 
-  /**
-   * Sets scheduling dependencies, if any. Used to enforce execution
-   * order for exclusive tests (or when exclusive test strategy is used).
-   *
-   * @param artifactFactory reference to the artifact factory
-   * @param middlemanFactory reference to the middleman factory
-   * @param dependencies collection of artifacts that must be scheduled prior to
-   *                     this action. Can be empty or null.
-   * @param observer this method must notify the observer about updates to the
-   *                 test scheduling middleman.
-   *
-   * @return An artifact-action pair so that the build view can patch up the action graph by
-   * linking up the generated artifact and action.
-   */
-  public Pair<Artifact, Action> setSchedulingDependencies(
-      ArtifactFactory artifactFactory,
-      MiddlemanFactory middlemanFactory,
-      Collection<Artifact> dependencies,
-      TestMiddlemanObserver observer) {
-    if (schedulingMiddleman != null) {
-      // Remove old exclusive test scheduling middleman from the factory since
-      // it is no longer used.
-      // Removing the scheduling middleman from the forward graph (via the observer) will lead
-      // to a mis-count of this action's inputs unless we reset the schedulingMiddleman first.
-      Artifact oldSchedulingMiddleman = schedulingMiddleman;
-      schedulingMiddleman = null;
-      // In this call, the forward graph removes the artifact oldSchedulingMiddleman from the set
-      // of inputs to the current object, the TestRunnerAction. As part of that process, the
-      // DependentAction associated to this TestRunnerAction must be reset(), since the inputs to
-      // this TestRunnerAction are changing. However, the inputs to this TestRunnerAction don't
-      // officially change until schedulingMiddleman is set to null, which is why
-      // it is done above.
-      observer.remove(this, oldSchedulingMiddleman, schedulingMiddlemanAction);
-      schedulingMiddlemanAction = null;
-    }
-    if (dependencies != null && !dependencies.isEmpty()) {
-      Pair<Artifact, Action> result = middlemanFactory.createSchedulingMiddleman(
-          getOwner(), executionSettings.getExecutable().getExecPathString(),
-          "exclusive_test_" + runNumber + "_" + shardNum, dependencies,
-          getConfiguration().getMiddlemanDirectory());
-      schedulingMiddleman = result.getFirst();
-      schedulingMiddlemanAction = result.getSecond();
-      return result;
-    } else {
-      return null;
-    }
-  }
-
-  @Override
-  public Iterable<Artifact> getInputs() {
-    if (schedulingMiddleman != null) {
-      return Iterables.concat(super.getInputs(), ImmutableList.of(schedulingMiddleman));
-    } else {
-      return super.getInputs();
-    }
-  }
-
   @Override
   public boolean showsOutputUnconditionally() {
     return true;
@@ -261,7 +192,7 @@ public class TestRunnerAction extends AbstractAction
   }
 
   @Override
-  public boolean executeUnconditionally(PackageUpToDateChecker upToDateChecker) {
+  public boolean executeUnconditionally() {
     // Note: isVolatile must return true if executeUnconditionally can ever return true
     // for this instance.
     unconditionalExecution = updateExecuteUnconditionallyFromTestStatus();
@@ -568,10 +499,6 @@ public class TestRunnerAction extends AbstractAction
    */
   public int getRunNumber() {
     return runNumber;
-  }
-
-  public boolean isExclusive() {
-    return this.schedulingMiddleman != null;
   }
 
   @Override

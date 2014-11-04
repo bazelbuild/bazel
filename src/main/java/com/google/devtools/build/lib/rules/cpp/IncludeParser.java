@@ -19,6 +19,8 @@ import static java.nio.charset.StandardCharsets.ISO_8859_1;
 import com.google.common.annotations.VisibleForTesting;
 import com.google.common.base.Preconditions;
 import com.google.common.base.Predicate;
+import com.google.common.base.Supplier;
+import com.google.common.base.Suppliers;
 import com.google.common.cache.CacheBuilder;
 import com.google.common.cache.CacheLoader;
 import com.google.common.cache.LoadingCache;
@@ -32,6 +34,7 @@ import com.google.devtools.build.lib.rules.cpp.RemoteIncludeExtractor.RemotePars
 import com.google.devtools.build.lib.vfs.FileSystemUtils;
 import com.google.devtools.build.lib.vfs.Path;
 import com.google.devtools.build.lib.vfs.PathFragment;
+import com.google.devtools.build.skyframe.SkyValue;
 
 import java.io.IOException;
 import java.io.InputStream;
@@ -53,7 +56,7 @@ import javax.annotation.Nullable;
  * repeated requests to the same file will result in repeated scans. Clients should implement a
  * caching layer in order to avoid unnecessary disk access when requesting an already scanned file.
  */
-public class IncludeParser {
+public class IncludeParser implements SkyValue {
   private static final Logger LOG = Logger.getLogger(IncludeParser.class.getName());
   private static final boolean LOG_FINE = LOG.isLoggable(Level.FINE);
   private static final boolean LOG_FINER = LOG.isLoggable(Level.FINER);
@@ -131,7 +134,7 @@ public class IncludeParser {
    * The fourth column is a regexp applied to each file found by the recursive
    * listing. All matching files are treated as dependencies.
    */
-  public static class Hints {
+  public static class Hints implements SkyValue {
 
     private static final Pattern WS_PAT = Pattern.compile("\\s+");
 
@@ -359,25 +362,28 @@ public class IncludeParser {
    * A scanner that extracts includes from an individual files remotely, used when scanning files
    * generated remotely.
    */
-  private final RemoteIncludeExtractor remoteExtractor;
-
-  private final boolean inMemoryIncludes;
+  private final Supplier<? extends RemoteIncludeExtractor> remoteExtractor;
 
   /**
    * Constructs a new FileParser.
-   *
    * @param remoteExtractor a processor that extracts includes from an individual file remotely.
    * @param hints regexps for converting computed includes into simple strings
-   * @param inMemoryIncludes where possible, avoid writing temporary files used in include scanning
-   *                         to disk
    */
-  public IncludeParser(
-      @Nullable RemoteIncludeExtractor remoteExtractor,
-      Hints hints,
-      boolean inMemoryIncludes) {
+  public IncludeParser(@Nullable RemoteIncludeExtractor remoteExtractor, Hints hints) {
     this.hints = hints;
-    this.remoteExtractor = remoteExtractor;
-    this.inMemoryIncludes = inMemoryIncludes;
+    this.remoteExtractor = Suppliers.ofInstance(remoteExtractor);
+  }
+
+  /**
+   * Constructs a new FileParser.
+   * @param remoteExtractorSupplier a supplier of a processor that extracts includes from an
+   *        individual file remotely.
+   * @param hints regexps for converting computed includes into simple strings
+   */
+  public IncludeParser(Supplier<? extends RemoteIncludeExtractor> remoteExtractorSupplier,
+      Hints hints) {
+    this.hints = hints;
+    this.remoteExtractor = remoteExtractorSupplier;
   }
 
   /**
@@ -617,12 +623,12 @@ public class IncludeParser {
     if (greppedFile != null) {
       inclusions = processIncludes(greppedFile, greppedFile.getInputStream());
     } else {
-      RemoteParseData remoteParseData = remoteExtractor == null
+      RemoteParseData remoteParseData = remoteExtractor.get() == null
           ? null
-          : remoteExtractor.shouldParseRemotely(file, actionExecutionContext);
+          : remoteExtractor.get().shouldParseRemotely(file, actionExecutionContext);
       if (remoteParseData != null && remoteParseData.shouldParseRemotely()) {
         inclusions =
-            remoteExtractor.extractInclusions(file, inMemoryIncludes, actionExecutionContext,
+            remoteExtractor.get().extractInclusions(file, actionExecutionContext,
                 remoteParseData);
       } else {
         inclusions = extractInclusions(FileSystemUtils.readContentAsLatin1(file));

@@ -22,7 +22,6 @@ import com.google.common.collect.Iterables;
 import com.google.devtools.build.lib.actions.Artifact;
 import com.google.devtools.build.lib.actions.Executor;
 import com.google.devtools.build.lib.events.EventHandler;
-import com.google.devtools.build.lib.pkgcache.PackageUpToDateChecker;
 import com.google.devtools.build.lib.util.Fingerprint;
 import com.google.devtools.build.lib.view.BuildInfoHelper;
 import com.google.devtools.build.lib.view.WorkspaceStatusAction;
@@ -141,7 +140,7 @@ public final class WriteBuildInfoHeaderAction extends AbstractFileWriteAction {
   }
 
   @Override
-  public boolean executeUnconditionally(PackageUpToDateChecker upToDateChecker) {
+  public boolean executeUnconditionally() {
     // Note: isVolatile must return true if executeUnconditionally can ever return true
     // for this instance.
     return isUnconditional();
@@ -153,7 +152,7 @@ public final class WriteBuildInfoHeaderAction extends AbstractFileWriteAction {
   }
 
   private boolean isUnconditional() {
-    // Because of special handling in the MetadataCache, changed volatile build
+    // Because of special handling in the MetadataHandler, changed volatile build
     // information does not trigger relinking of all libraries that have
     // linkstamps. But we do want to regenerate the header in case libraries are
     // relinked because of other reasons.

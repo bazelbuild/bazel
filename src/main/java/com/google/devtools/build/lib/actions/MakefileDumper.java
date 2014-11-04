@@ -107,8 +107,8 @@ public class MakefileDumper implements Dumper {
     private void printMakefileRule(Action action) {
       out.println(prettyArtifacts(sort(action.getOutputs()), " \\\n") + " : \\");
       if (!action.getOutputs().isEmpty()) {
-        // TODO(bazel-team): (2011) We should skip Artifacts that are marked as constant
-        // in MetadataCache.
+        // TODO(bazel-team): (2011) We should skip Artifacts that are marked having constant
+        // metadata.
         // We skip checking dependencies for the volatile build changelist file
         // in the dependency checker.
         out.println("  " + prettyArtifacts(action.getInputs(), " \\\n  "));

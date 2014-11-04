@@ -19,28 +19,14 @@ package com.google.devtools.build.lib.buildtool;
  */
 public class CachesSavedEvent {
   /** Cache serialization statistics. */
-  private final long metadataCacheSaveTimeInMillis;
-  private final long metadataCacheSizeInBytes;
   private final long actionCacheSaveTimeInMillis;
   private final long actionCacheSizeInBytes;
 
   public CachesSavedEvent(
-      long metadataCacheSaveTimeInMillis,
-      long metadataCacheSizeInBytes,
       long actionCacheSaveTimeInMillis,
       long actionCacheSizeInBytes) {
-    this.metadataCacheSaveTimeInMillis = metadataCacheSaveTimeInMillis;
-    this.metadataCacheSizeInBytes = metadataCacheSizeInBytes;
     this.actionCacheSaveTimeInMillis = actionCacheSaveTimeInMillis;
     this.actionCacheSizeInBytes = actionCacheSizeInBytes;
-  }
-
-  public long getMetadataCacheSaveTimeInMillis() {
-    return metadataCacheSaveTimeInMillis;
-  }
-
-  public long getMetadataCacheSizeInBytes() {
-    return metadataCacheSizeInBytes;
   }
 
   public long getActionCacheSaveTimeInMillis() {

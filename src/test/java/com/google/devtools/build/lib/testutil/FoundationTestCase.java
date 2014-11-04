@@ -81,21 +81,26 @@ public abstract class FoundationTestCase extends ChattyAssertsTestCase {
   }
 
   /*
-   * Creates the file system; override to inject FS behavior. 
+   * Creates the file system; override to inject FS behavior.
    */
   protected FileSystem createFileSystem() {
      return new InMemoryFileSystem(BlazeClock.instance());
   }
-    
+
 
   private void copySkylarkFilesIfExist() throws IOException {
-    File rulesDir = new File("devtools/blaze/rules/staging");
+    copySkylarkFilesIfExist("devtools/blaze/rules/staging", "devtools/blaze/rules");
+    copySkylarkFilesIfExist("devtools/blaze/bazel/base_workspace/rules", "rules");
+  }
+
+  private void copySkylarkFilesIfExist(String from, String to) throws IOException {
+    File rulesDir = new File(from);
     if (rulesDir.exists() && rulesDir.isDirectory()) {
       for (String fileName : rulesDir.list()) {
-        File file = new File("devtools/blaze/rules/staging/" + fileName);
+        File file = new File(from + "/" + fileName);
         if (file.isFile() && fileName.endsWith(".bzl")) {
           String context = loadFile(file);
-          Path path = rootDirectory.getRelative("devtools/blaze/rules/" + fileName);
+          Path path = rootDirectory.getRelative(to + "/" + fileName);
           if (path.exists()) {
             overwriteScratchFile(path.getPathString(), context);
           } else {

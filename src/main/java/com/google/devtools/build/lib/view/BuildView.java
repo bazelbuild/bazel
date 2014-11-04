@@ -168,6 +168,8 @@ public class BuildView {
     public boolean discardAnalysisCache;
 
     @Option(name = "keep_forward_graph",
+            deprecationWarning = "keep_forward_graph is now a no-op and will be removed in an "
+            + "upcoming Blaze release",
             defaultValue = "false",
             category = "undocumented",
             help = "Cache the forward action graph across builds for faster "

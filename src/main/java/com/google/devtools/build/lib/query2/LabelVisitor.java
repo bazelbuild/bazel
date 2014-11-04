@@ -21,21 +21,17 @@ import com.google.common.collect.ImmutableList;
 import com.google.common.collect.MapMaker;
 import com.google.common.collect.Multimaps;
 import com.google.common.collect.SetMultimap;
-import com.google.common.util.concurrent.ThreadFactoryBuilder;
 import com.google.devtools.build.lib.concurrent.AbstractQueueVisitor;
-import com.google.devtools.build.lib.concurrent.ExecutorShutdownUtil;
 import com.google.devtools.build.lib.concurrent.ThreadSafety.ThreadSafe;
 import com.google.devtools.build.lib.events.EventHandler;
 import com.google.devtools.build.lib.packages.AggregatingAttributeMapper;
 import com.google.devtools.build.lib.packages.Attribute;
 import com.google.devtools.build.lib.packages.AttributeMap;
 import com.google.devtools.build.lib.packages.InputFile;
-import com.google.devtools.build.lib.packages.NoSuchPackageException;
 import com.google.devtools.build.lib.packages.NoSuchThingException;
 import com.google.devtools.build.lib.packages.OutputFile;
 import com.google.devtools.build.lib.packages.Package;
 import com.google.devtools.build.lib.packages.PackageGroup;
-import com.google.devtools.build.lib.packages.PackageIdentifier;
 import com.google.devtools.build.lib.packages.Rule;
 import com.google.devtools.build.lib.packages.Target;
 import com.google.devtools.build.lib.pkgcache.PackageProvider;
@@ -44,14 +40,9 @@ import com.google.devtools.build.lib.syntax.Label;
 import com.google.devtools.build.lib.util.BinaryPredicate;
 
 import java.util.Collection;
-import java.util.List;
 import java.util.concurrent.ConcurrentMap;
-import java.util.concurrent.ExecutorService;
-import java.util.concurrent.Executors;
 import java.util.concurrent.TimeUnit;
 import java.util.concurrent.atomic.AtomicBoolean;
-import java.util.concurrent.atomic.AtomicInteger;
-import java.util.concurrent.atomic.AtomicReference;
 
 /**
  * <p>Visit the transitive closure of a label. Primarily used to "fault in"
@@ -221,10 +212,7 @@ final class LabelVisitor {
     nextVisitation.targetsToVisit = targetsToVisit;
     nextVisitation.maxDepth = maxDepth;
 
-    if (!lastVisitation.success || !nextVisitation.current() ||
-        !upToDate(eventHandler, parallelThreads)) {
-      // If the up-to-date check finds something has been changed, it
-      // fails-fast and we fall back on normal visitation.
+    if (!lastVisitation.success || !nextVisitation.current()) {
       try {
         nextVisitation.success = redoVisitation(eventHandler, nextVisitation, keepGoing,
             parallelThreads, maxDepth, observers);
@@ -235,85 +223,6 @@ final class LabelVisitor {
     } else {
       return true;
     }
-  }
-
-  /**
-   * Fast up-to-date check: Use the previous set of visited targets to verify
-   * they are all up-to-date.
-   *
-   * @return true on success.
-   * @throws InterruptedException if the check was interrupted.
-   */
-  // TODO(bazel-team): Remove this code - it can never fail because we don't reuse the LabelVisitor
-  // between query invocations.
-  private boolean upToDate(EventHandler eventHandler, int parallelThreads)
-      throws InterruptedException {
-    // Correctness sketch: Note that this method is entered only when the
-    // previous visitation was successful and we are visiting the same
-    // top-level targets. Other important factors may have changed since then,
-    // however, including the package path, files on disk, etc.
-    // Since the top-level targets are always visited, they will be in
-    // vistedTargets. If any of them have changed, we will detect that and fall
-    // back on the regular visitor. If not, then we will also visit all
-    // first-level dependencies of the top-level set. By induction, we will check
-    // all of the transitive closure.
-    ExecutorService executorService = Executors.newFixedThreadPool(parallelThreads,
-        new ThreadFactoryBuilder().setNameFormat("LabelVisitor upToDate %d").build());
-    final AtomicBoolean failure = new AtomicBoolean(false);
-
-    // Copy the targets to a hash-multimap for iteration order stability.
-    final List<Package> pkgs = ImmutableList.copyOf(visitedMap.keySet());
-    final int size = pkgs.size();
-
-    AtomicReference<Throwable> uncaught = new AtomicReference<>();
-    AtomicInteger counter = new AtomicInteger();
-
-    for (int t = 0; t < parallelThreads; t++) {
-      executorService.execute(
-          upToDateClosure(eventHandler, counter, size, failure, pkgs, uncaught));
-    }
-
-    boolean interrupted = ExecutorShutdownUtil.interruptibleShutdown(executorService);
-    Throwables.propagateIfPossible(uncaught.get());
-    if (interrupted) {
-      throw new InterruptedException();
-    }
-
-    boolean success = !failure.get();
-    lastVisitation.success = success;
-    return success;
-  }
-
-  /**
-   * Create the runnable for the up-to-date-check on a single thread.
-   *
-   * <p>If anything is out of date, fail-fast by setting failure and exiting the thread.
-   */
-  private Runnable upToDateClosure(final EventHandler eventHandler, final AtomicInteger counter,
-      final int size, final AtomicBoolean failure, final List<Package> packages,
-      final AtomicReference<Throwable> exception) {
-    return new Runnable() {
-      @Override
-      public void run() {
-        for (int n = counter.getAndIncrement(); n < size; n = counter.getAndIncrement()) {
-          try {
-            Package p = packages.get(n);
-            if (p != packageProvider.getPackage(
-                eventHandler, PackageIdentifier.createInDefaultRepo(p.getName()))) {
-              failure.set(true);
-              return;
-            }
-          } catch (NoSuchPackageException | InterruptedException e) {
-            failure.set(true);
-            return;
-          } catch (RuntimeException e) {
-            failure.set(true);
-            exception.set(e);
-            return;
-          }
-        }
-      }
-    };
   }
 
   // Does a bounded transitive visitation starting at the given top-level targets.

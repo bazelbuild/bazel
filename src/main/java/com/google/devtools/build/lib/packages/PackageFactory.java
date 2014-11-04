@@ -675,12 +675,12 @@ public final class PackageFactory {
 
   /**
    * Loads, scans parses and evaluates the build file at "buildFile", and
-   * creates and returns a Package builder instance capable of building a package with name
-   * "packageName".
+   * creates and returns a Package builder instance capable of building a package identified by
+   * "packageId".
    *
    * <p>This method returns a builder to allow the caller to do additional work, if necessary.
    *
-   * <p>This method assumes "packageName" is a valid package name according to the
+   * <p>This method assumes "packageId" is a valid package name according to the
    * {@link LabelValidator#validatePackageName} heuristic.
    *
    * <p>This method allows the caller to inject build file contents by
@@ -689,26 +689,26 @@ public final class PackageFactory {
    *
    * <p>See {@link #evaluateBuildFile} for information on AST retention.
    */
-  public Package.LegacyBuilder createPackage(String packageName, Path buildFile,
+  public Package.LegacyBuilder createPackage(PackageIdentifier packageId, Path buildFile,
       List<Statement> preludeStatements, ParserInputSource inputSource,
       Map<PathFragment, SkylarkEnvironment> imports,
       CachingPackageLocator locator, ParserInputSource replacementSource,
       RuleVisibility defaultVisibility) throws InterruptedException {
-    profiler.startTask(ProfilerTask.CREATE_PACKAGE, packageName);
+    profiler.startTask(ProfilerTask.CREATE_PACKAGE, packageId.toString());
     StoredEventHandler localReporter = new StoredEventHandler();
-    GlobCache globCache = createGlobCache(buildFile.getParentDirectory(), packageName, locator);
+    GlobCache globCache = createGlobCache(buildFile.getParentDirectory(), packageId, locator);
     try {
       // Run the lexer and parser with a local reporter, so that errors from other threads do not
       // show up below. Merge the local and global reporters afterwards.
       // Logged message is used as a testability hook tracing the parsing progress
-      LOG.fine("Starting to parse " + packageName);
+      LOG.fine("Starting to parse " + packageId);
 
       BuildFileAST buildFileAST;
       boolean hasPreprocessorError = false;
       // TODO(bazel-team): It would be nicer to always pass in the right value rather than rely
       // on the null value.
       Preprocessor.Result preprocessingResult = replacementSource == null
-          ? getParserInput(packageName, buildFile, inputSource, globCache, localReporter)
+          ? getParserInput(packageId, buildFile, inputSource, globCache, localReporter)
           : Preprocessor.Result.success(replacementSource, false);
       if (localReporter.hasErrors()) {
         hasPreprocessorError = true;
@@ -717,7 +717,7 @@ public final class PackageFactory {
       buildFileAST = BuildFileAST.parseBuildFile(
           preprocessingResult.result, preludeStatements, localReporter, locator, false);
       // Logged message is used as a testability hook tracing the parsing progress
-      LOG.fine("Finished parsing of " + packageName);
+      LOG.fine("Finished parsing of " + packageId);
 
       MakeEnvironment.Builder makeEnv = new MakeEnvironment.Builder();
       if (platformSetRegexps != null) {
@@ -726,11 +726,11 @@ public final class PackageFactory {
 
       // At this point the package is guaranteed to exist.  It may have parse or
       // evaluation errors, resulting in a diminished number of rules.
-      prefetchGlobs(packageName, buildFileAST, preprocessingResult.preprocessed,
+      prefetchGlobs(packageId, buildFileAST, preprocessingResult.preprocessed,
           buildFile, globCache, defaultVisibility, makeEnv);
 
       return evaluateBuildFile(
-          packageName, buildFileAST, buildFile, globCache, localReporter.getEvents(),
+          packageId, buildFileAST, buildFile, globCache, localReporter.getEvents(),
           defaultVisibility, hasPreprocessorError, preprocessingResult.containsTransientErrors,
           makeEnv, imports);
     } catch (InterruptedException e) {
@@ -747,19 +747,20 @@ public final class PackageFactory {
    * throwing a {@link NoSuchPackageException} if the name is invalid.
    */
   @VisibleForTesting
-  public Package createPackageForTesting(String packageName, Path buildFile,
+  public Package createPackageForTesting(PackageIdentifier packageId, Path buildFile,
       CachingPackageLocator locator, EventHandler eventHandler)
           throws NoSuchPackageException, InterruptedException {
-    String error = LabelValidator.validatePackageName(packageName);
+    String error = LabelValidator.validatePackageName(
+        packageId.getPackageFragment().getPathString());
     if (error != null) {
-      throw new BuildFileNotFoundException(packageName,
-          "illegal package name: '" + packageName + "' (" + error + ")");
+      throw new BuildFileNotFoundException(packageId.toString(),
+          "illegal package name: '" + packageId.toString() + "' (" + error + ")");
     }
     ParserInputSource inputSource = getParserInputSource(buildFile, eventHandler);
     if (inputSource == null) {
-      throw new BuildFileContainsErrorsException(packageName, "IOException occured");
+      throw new BuildFileContainsErrorsException(packageId.toString(), "IOException occured");
     }
-    Package result = createPackage(packageName, buildFile,
+    Package result = createPackage(packageId, buildFile,
         ImmutableList.<Statement>of(), inputSource,
         ImmutableMap.<PathFragment, SkylarkEnvironment>of(),
         locator, null, ConstantRuleVisibility.PUBLIC).build();
@@ -771,7 +772,7 @@ public final class PackageFactory {
    * Returns the parser input (with preprocessing already applied, if
    * applicable) for the specified package and build file.
    *
-   * @param packageName the name of the package; used for error messages
+   * @param packageId the identifier for the package; used for error messages
    * @param buildFile the path of the BUILD file to read
    * @param locator package locator used in recursive globbing
    * @param eventHandler the eventHandler on which preprocessing errors/warnings are to
@@ -780,7 +781,7 @@ public final class PackageFactory {
    * @return the preprocessed input, as seen by Blaze's parser
    */
   // Used externally!
-  public ParserInputSource getParserInput(String packageName, Path buildFile,
+  public ParserInputSource getParserInput(PackageIdentifier packageId, Path buildFile,
       CachingPackageLocator locator, EventHandler eventHandler)
       throws NoSuchPackageException, InterruptedException {
     ParserInputSource inputSource = getParserInputSource(buildFile, eventHandler);
@@ -788,14 +789,14 @@ public final class PackageFactory {
       return Preprocessor.Result.transientError(buildFile).result;
     }
     return getParserInput(
-        packageName, buildFile, getParserInputSource(buildFile, eventHandler),
-        createGlobCache(buildFile.getParentDirectory(), packageName, locator),
+        packageId, buildFile, getParserInputSource(buildFile, eventHandler),
+        createGlobCache(buildFile.getParentDirectory(), packageId, locator),
         eventHandler).result;
   }
 
-  private GlobCache createGlobCache(Path packageDirectory, String packageName,
+  private GlobCache createGlobCache(Path packageDirectory, PackageIdentifier packageId,
       CachingPackageLocator locator) {
-    return new GlobCache(packageDirectory, packageName, locator, syscalls, threadPool);
+    return new GlobCache(packageDirectory, packageId, locator, syscalls, threadPool);
   }
 
   @Nullable private ParserInputSource getParserInputSource(
@@ -815,7 +816,7 @@ public final class PackageFactory {
    * to inject a glob cache that gets populated during preprocessing.
    */
   private Preprocessor.Result getParserInput(
-      String packageName, Path buildFile, ParserInputSource inputSource,
+      PackageIdentifier packageId, Path buildFile, ParserInputSource inputSource,
       GlobCache globCache, EventHandler eventHandler)
           throws InterruptedException {
     Preprocessor preprocessor = preprocessorFactory.getPreprocessor();
@@ -824,8 +825,8 @@ public final class PackageFactory {
     }
 
     try {
-      return preprocessor.preprocess(inputSource, packageName, globCache, eventHandler,
-                                            globalEnv, ruleFactory.getRuleClassNames());
+      return preprocessor.preprocess(inputSource, packageId.toString(), globCache, eventHandler,
+          globalEnv, ruleFactory.getRuleClassNames());
     } catch (IOException e) {
       eventHandler.handle(Event.error(Location.fromFile(buildFile),
                      "preprocessing failed: " + e.getMessage()));
@@ -940,7 +941,7 @@ public final class PackageFactory {
    * @see PackageFactory#PackageFactory
    */
   @VisibleForTesting // used by PackageFactoryApparatus
-  public Package.LegacyBuilder evaluateBuildFile(String packageName,
+  public Package.LegacyBuilder evaluateBuildFile(PackageIdentifier packageId,
       BuildFileAST buildFileAST, Path buildFilePath, GlobCache globCache,
       Iterable<Event> pastEvents, RuleVisibility defaultVisibility, boolean containsError,
       boolean containsTransientError, MakeEnvironment.Builder pkgMakeEnv,
@@ -949,7 +950,7 @@ public final class PackageFactory {
     Environment pkgEnv = new Environment(globalEnv);
 
     Package.LegacyBuilder pkgBuilder =
-        new Package.LegacyBuilder(packageName)
+        new Package.LegacyBuilder(packageId)
         .setFilename(buildFilePath)
         .setAST(retainAsts ? buildFileAST : null)
         .setMakeEnv(pkgMakeEnv)
@@ -964,7 +965,7 @@ public final class PackageFactory {
 
     // Stuff that closes over the package context:
     PackageContext context = new PackageContext(pkgBuilder, eventHandler, retainAsts);
-    buildPkgEnv(pkgEnv, packageName, pkgMakeEnv, context, ruleFactory);
+    buildPkgEnv(pkgEnv, packageId.toString(), pkgMakeEnv, context, ruleFactory);
 
     if (containsError) {
       pkgBuilder.setContainsErrors();
@@ -974,13 +975,13 @@ public final class PackageFactory {
       pkgBuilder.setContainsTemporaryErrors();
     }
 
-    if (!validatePackageName(packageName, buildFileAST.getLocation(), eventHandler)) {
+    if (!validatePackageIdentifier(packageId, buildFileAST.getLocation(), eventHandler)) {
       pkgBuilder.setContainsErrors();
     }
 
     pkgEnv.setImportedExtensions(imports);
     pkgEnv.updateAndPropagate(PKG_CONTEXT, context);
-    pkgEnv.updateAndPropagate(Environment.PKG_NAME, packageName);
+    pkgEnv.updateAndPropagate(Environment.PKG_NAME, packageId.toString());
 
     if (!validateAssignmentStatements(pkgEnv, buildFileAST, eventHandler)) {
       pkgBuilder.setContainsErrors();
@@ -1005,7 +1006,7 @@ public final class PackageFactory {
   /**
    * Visit all targets and expand the globs in parallel.
    */
-  private void prefetchGlobs(String packageName, BuildFileAST buildFileAST,
+  private void prefetchGlobs(PackageIdentifier packageId, BuildFileAST buildFileAST,
       boolean wasPreprocessed, Path buildFilePath, GlobCache globCache,
       RuleVisibility defaultVisibility, MakeEnvironment.Builder pkgMakeEnv)
       throws InterruptedException {
@@ -1018,7 +1019,7 @@ public final class PackageFactory {
     Environment pkgEnv = new Environment();
 
     Package.LegacyBuilder pkgBuilder =
-        new Package.LegacyBuilder(packageName)
+        new Package.LegacyBuilder(packageId)
         .setFilename(buildFilePath)
         .setMakeEnv(pkgMakeEnv)
         .setGlobCache(globCache)
@@ -1029,7 +1030,7 @@ public final class PackageFactory {
 
     // Stuff that closes over the package context:
     PackageContext context = new PackageContext(pkgBuilder, NullEventHandler.INSTANCE, false);
-    buildPkgEnv(pkgEnv, packageName, context);
+    buildPkgEnv(pkgEnv, packageId.toString(), context);
     pkgEnv.update("glob", newGlobFunction(context, /*async=*/true));
     // The Fileset function is heavyweight in that it can run glob(). Avoid this during the
     // preloading phase.
@@ -1070,10 +1071,15 @@ public final class PackageFactory {
     return true;
   }
 
-  // Reports an error and returns false iff package name was illegal.
-  private static boolean validatePackageName(String name, Location location,
+  // Reports an error and returns false iff package identifier was illegal.
+  private static boolean validatePackageIdentifier(PackageIdentifier packageId, Location location,
       EventHandler eventHandler) {
-    String error = LabelValidator.validatePackageName(name);
+    String error = LabelValidator.validateWorkspaceName(packageId.getRepository());
+    if (error != null) {
+      eventHandler.handle(Event.error(location, error));
+      return false; // Invalid package repo '@foo'
+    }
+    error = LabelValidator.validatePackageName(packageId.getPackageFragment().toString());
     if (error != null) {
       eventHandler.handle(Event.error(location, error));
       return false; // Invalid package name 'foo'

@@ -85,11 +85,11 @@ public class FileStateFunction implements SkyFunction {
    */
   private static final class FileStateFunctionException extends SkyFunctionException {
     public FileStateFunctionException(SkyKey key, IOException e) {
-      super(key, e);
+      super(key, e, Transience.TRANSIENT);
     }
 
     public FileStateFunctionException(SkyKey key, InconsistentFilesystemException e) {
-      super(key, e);
+      super(key, e, Transience.TRANSIENT);
     }
   }
 }

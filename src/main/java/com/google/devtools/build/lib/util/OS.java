@@ -11,12 +11,28 @@
 // WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
 // See the License for the specific language governing permissions and
 // limitations under the License.
-
-package com.google.devtools.build.lib.actions;
+package com.google.devtools.build.lib.util;
 
 /**
- * An interface defined for actions which may stream output directly to stderr
- * instead of writing to an intermediate file.
+ * An operating system.
  */
-public interface MayStream {
+public enum OS {
+  DARWIN,
+  LINUX,
+  WINDOWS,
+  UNKNOWN;
+
+  /**
+   * The current operating system.
+   */
+  public static OS getCurrent() {
+    return HOST_SYSTEM;
+  }
+
+  private static final OS HOST_SYSTEM =
+      "Mac OS X".equals(System.getProperty("os.name")) ? OS.DARWIN : (
+      "Linux".equals(System.getProperty("os.name")) ? OS.LINUX : (
+      "Windows XP".equals(System.getProperty("os.name")) ? OS.WINDOWS : (
+      "Windows 7".equals(System.getProperty("os.name")) ? OS.WINDOWS : OS.UNKNOWN)));
 }
+

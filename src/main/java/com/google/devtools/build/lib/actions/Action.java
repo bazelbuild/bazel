@@ -16,7 +16,6 @@ package com.google.devtools.build.lib.actions;
 
 import com.google.devtools.build.lib.actions.extra.ExtraActionInfo;
 import com.google.devtools.build.lib.concurrent.ThreadSafety.ConditionallyThreadCompatible;
-import com.google.devtools.build.lib.pkgcache.PackageUpToDateChecker;
 import com.google.devtools.build.lib.profiler.Describable;
 import com.google.devtools.build.lib.vfs.PathFragment;
 
@@ -88,7 +87,7 @@ public interface Action extends ActionMetadata, Describable {
    * definition of this method, so be sure to consider both methods together
    * when making changes.
    */
-  boolean executeUnconditionally(PackageUpToDateChecker upToDateChecker);
+  boolean executeUnconditionally();
 
   /**
    * Returns true if it's ever possible that {@link #executeUnconditionally}
@@ -174,12 +173,6 @@ public interface Action extends ActionMetadata, Describable {
     AGGREGATING_MIDDLEMAN,
 
     /**
-     * A scheduling middleman, which is not validated by the dependency checker, but used to enforce
-     * action ordering.
-     */
-    SCHEDULING_MIDDLEMAN,
-
-    /**
      * A scheduling middleman used for target completion. These are handled specially in some cases.
      */
     TARGET_COMPLETION_MIDDLEMAN,
@@ -199,10 +192,6 @@ public interface Action extends ActionMetadata, Describable {
 
     public boolean isMiddleman() {
       return this != NORMAL;
-    }
-
-    public boolean isSchedulingMiddleman() {
-      return (this == SCHEDULING_MIDDLEMAN) || (this == TARGET_COMPLETION_MIDDLEMAN);
     }
   }
 }

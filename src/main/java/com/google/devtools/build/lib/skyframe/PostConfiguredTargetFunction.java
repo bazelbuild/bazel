@@ -94,7 +94,7 @@ public class PostConfiguredTargetFunction implements SkyFunction {
 
   private static class ActionConflictFunctionException extends SkyFunctionException {
     public ActionConflictFunctionException(SkyKey skyKey, Throwable cause) {
-      super(skyKey, cause);
+      super(skyKey, cause, Transience.PERSISTENT);
     }
   }
 }

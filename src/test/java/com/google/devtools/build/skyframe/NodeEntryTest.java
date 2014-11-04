@@ -28,6 +28,7 @@ import com.google.devtools.build.lib.collect.nestedset.Order;
 import com.google.devtools.build.lib.testutil.MoreAsserts;
 import com.google.devtools.build.lib.util.GroupedList.GroupedListHelper;
 import com.google.devtools.build.skyframe.NodeEntry.DependencyState;
+import com.google.devtools.build.skyframe.SkyFunctionException.Transience;
 
 import org.junit.Test;
 import org.junit.runner.RunWith;
@@ -112,7 +113,7 @@ public class NodeEntryTest {
     NodeEntry entry = new NodeEntry();
     entry.addReverseDepAndCheckIfDone(null); // Start evaluation.
     GenericFunctionException exception =
-        new GenericFunctionException(key("cause"), new Exception());
+        new GenericFunctionException(key("cause"), new Exception(), Transience.PERSISTENT);
     ErrorInfo errorInfo = new ErrorInfo(exception, key("cause"));
     MoreAsserts.assertEmpty(setValue(entry, /*value=*/null, errorInfo, /*graphVersion=*/0L));
     assertTrue(entry.isDone());
@@ -125,7 +126,7 @@ public class NodeEntryTest {
     NodeEntry entry = new NodeEntry();
     entry.addReverseDepAndCheckIfDone(null); // Start evaluation.
     GenericFunctionException exception =
-        new GenericFunctionException(key("cause"), new Exception());
+        new GenericFunctionException(key("cause"), new Exception(), Transience.PERSISTENT);
     ErrorInfo errorInfo = new ErrorInfo(exception, key("cause"));
     setValue(entry, new SkyValue() {}, errorInfo, /*graphVersion=*/0L);
     assertTrue(entry.isDone());
@@ -452,7 +453,7 @@ public class NodeEntryTest {
     assertEquals(BuildingState.DirtyState.REBUILDING, entry.getDirtyState());
     MoreAsserts.assertContentsAnyOrder(entry.getTemporaryDirectDeps(), dep);
     GenericFunctionException exception =
-        new GenericFunctionException(key("cause"), new Exception());
+        new GenericFunctionException(key("cause"), new Exception(), Transience.PERSISTENT);
     setValue(entry, new IntegerValue(5), new ErrorInfo(exception, key("cause")),
         /*graphVersion=*/1L);
     assertTrue(entry.isDone());
@@ -467,7 +468,7 @@ public class NodeEntryTest {
     addTemporaryDirectDep(entry, dep);
     entry.signalDep();
     GenericFunctionException exception =
-        new GenericFunctionException(key("cause"), new Exception());
+        new GenericFunctionException(key("cause"), new Exception(), Transience.PERSISTENT);
     ErrorInfo errorInfo = new ErrorInfo(exception, key("cause"));
     setValue(entry, /*value=*/null, errorInfo, /*graphVersion=*/0L);
     entry.markDirty(/*isChanged=*/false);
@@ -524,7 +525,8 @@ public class NodeEntryTest {
     // Oops! Evaluation terminated with an error, but we're going to set this entry's value anyway.
     entry.removeUnfinishedDeps(ImmutableSet.of(dep2, dep3, dep5));
     setValue(entry, null,
-        new ErrorInfo(new GenericFunctionException(key("key"), new Exception()), key("key")), 0L);
+        new ErrorInfo(new GenericFunctionException(key("key"), new Exception(),
+            Transience.PERSISTENT), key("key")), 0L);
     entry.markDirty(/*isChanged=*/false);
     entry.addReverseDepAndCheckIfDone(null); // Restart evaluation.
     assertEquals(BuildingState.DirtyState.CHECK_DEPENDENCIES, entry.getDirtyState());

@@ -22,6 +22,7 @@ import static com.google.devtools.build.lib.packages.Type.LABEL_LIST;
 import static com.google.devtools.build.lib.packages.Type.STRING_LIST;
 
 import com.google.common.annotations.VisibleForTesting;
+import com.google.common.base.Preconditions;
 import com.google.common.collect.ImmutableList;
 import com.google.devtools.build.lib.actions.Artifact;
 import com.google.devtools.build.lib.packages.ImplicitOutputsFunction.SafeImplicitOutputsFunction;
@@ -34,6 +35,8 @@ import com.google.devtools.build.lib.util.FileTypeSet;
 import com.google.devtools.build.lib.vfs.PathFragment;
 import com.google.devtools.build.lib.view.BaseRuleClasses;
 import com.google.devtools.build.lib.view.BlazeRule;
+import com.google.devtools.build.lib.view.FilesToRunProvider;
+import com.google.devtools.build.lib.view.RuleConfiguredTarget.Mode;
 import com.google.devtools.build.lib.view.RuleContext;
 import com.google.devtools.build.lib.view.RuleDefinition;
 import com.google.devtools.build.lib.view.RuleDefinitionEnvironment;
@@ -61,9 +64,28 @@ public class ObjcRuleClasses {
         ruleContext.getBinOrGenfilesDirectory());
   }
 
+  static IntermediateArtifacts intermediateArtifacts(RuleContext ruleContext) {
+    return new IntermediateArtifacts(
+        ruleContext.getAnalysisEnvironment(), ruleContext.getBinOrGenfilesDirectory(),
+        ruleContext.getLabel());
+  }
+
   static Artifact artifactByAppendingToBaseName(RuleContext context, String suffix) {
     return artifactByAppendingToRootRelativePath(
         context, context.getLabel().toPathFragment(), suffix);
+  }
+
+  static ObjcActionsBuilder actionsBuilder(RuleContext ruleContext) {
+    return new ObjcActionsBuilder(
+        ruleContext,
+        intermediateArtifacts(ruleContext),
+        ObjcRuleClasses.objcConfiguration(ruleContext),
+        ruleContext.getConfiguration(),
+        ruleContext);
+  }
+
+  static ObjcConfiguration objcConfiguration(RuleContext ruleContext) {
+    return ruleContext.getConfiguration().getFragment(ObjcConfiguration.class);
   }
 
   @VisibleForTesting
@@ -229,6 +251,34 @@ public class ObjcRuleClasses {
           .add(attr("$actooloribtoolzip_deploy", LABEL).cfg(HOST)
               .value(env.getLabel("//tools/objc:actooloribtoolzip_deploy.jar")))
           .build();
+    }
+  }
+
+  /**
+   * Object that supplies tools used by all rules which have the helper tools common to most rule
+   * implementations.
+   */
+  static final class Tools {
+    private final RuleContext ruleContext;
+  
+    Tools(RuleContext ruleContext) {
+      this.ruleContext = Preconditions.checkNotNull(ruleContext);
+    }
+  
+    Artifact actooloribtoolzipDeployJar() {
+      return ruleContext.getPrerequisiteArtifact("$actooloribtoolzip_deploy", Mode.HOST);
+    }
+  
+    Artifact momczipDeployJar() {
+      return ruleContext.getPrerequisiteArtifact("$momczip_deploy", Mode.HOST);
+    }
+  
+    FilesToRunProvider xcodegen() {
+      return ruleContext.getExecutablePrerequisite("$xcodegen", Mode.HOST);
+    }
+  
+    FilesToRunProvider plmerge() {
+      return ruleContext.getExecutablePrerequisite("$plmerge", Mode.HOST);
     }
   }
 }

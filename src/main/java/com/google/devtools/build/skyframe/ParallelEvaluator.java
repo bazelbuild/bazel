@@ -24,7 +24,6 @@ import com.google.common.collect.ImmutableSet;
 import com.google.common.collect.Interner;
 import com.google.common.collect.Interners;
 import com.google.common.collect.Iterables;
-import com.google.common.collect.Lists;
 import com.google.common.collect.Maps;
 import com.google.common.collect.Sets;
 import com.google.devtools.build.lib.collect.nestedset.NestedSet;
@@ -156,6 +155,7 @@ public final class ParallelEvaluator implements Evaluator {
   class SkyFunctionEnvironment implements SkyFunction.Environment {
     private boolean building = true;
     private boolean valuesMissing = false;
+    private SkyKey depErrorKey = null;
     private final SkyKey skyKey;
     private SkyValue value = null;
     private ErrorInfo errorInfo = null;
@@ -326,6 +326,19 @@ public final class ParallelEvaluator implements Evaluator {
       // There was an error building the value, which we will either report by throwing an exception
       // or insulate the caller from by returning null.
       Preconditions.checkNotNull(errorInfo, "%s %s %s", skyKey, depKey, value);
+
+      if (!keepGoing && errorInfo.getException() != null && bubbleErrorInfo == null) {
+        // Child errors should not be propagated in noKeepGoing mode (except during error bubbling).
+        // Instead we should fail fast.
+
+        // We arbitrarily record the first child error.
+        if (depErrorKey == null) {
+          depErrorKey = depKey;
+        }
+        valuesMissing = true;
+        return ValueOrException.ofNull();
+      }
+
       if (throwException) {
         if (bubbleErrorInfo != null) {
           // Set interrupted status, so that builder doesn't try anything fancy after this.
@@ -335,7 +348,8 @@ public final class ParallelEvaluator implements Evaluator {
           // Give builder a chance to handle this exception but only if we are in keep going mode
           // or in error bubbling. Otherwise, we want to fail fast.
           Throwable e = errorInfo.getException();
-          if (exceptionClass.isInstance(e) && (keepGoing || bubbleErrorInfo != null)) {
+          if (exceptionClass.isInstance(e)) {
+            Preconditions.checkState(keepGoing || bubbleErrorInfo != null);
             return ValueOrException.ofException(exceptionClass.cast(e));
           }
           valuesMissing = true;
@@ -391,6 +405,15 @@ public final class ParallelEvaluator implements Evaluator {
     @Override
     public boolean valuesMissing() {
       return valuesMissing;
+    }
+
+    /**
+     * If {@code !keepGoing} and there is at least one dep in error, returns a dep in error.
+     * Otherwise returns {@code null}.
+     */
+    @Nullable
+    private SkyKey getDepErrorKey() {
+      return depErrorKey;
     }
 
     @Override
@@ -485,6 +508,11 @@ public final class ParallelEvaluator implements Evaluator {
      */
     CountDownLatch getExceptionLatchForTesting() {
       return visitor.getExceptionLatchForTestingOnly();
+    }
+
+    @Override
+    public boolean inErrorBubblingForTesting() {
+      return bubbleErrorInfo != null;
     }
   }
 
@@ -692,8 +720,8 @@ public final class ParallelEvaluator implements Evaluator {
       Set<SkyKey> directDeps = state.getTemporaryDirectDeps();
       Preconditions.checkState(!directDeps.contains(ErrorTransienceValue.key()),
           "%s cannot have a dep on ErrorTransienceValue during building: %s", skyKey, state);
-      // Get the corresponding node builder and call it on this value.
-      SkyFunctionEnvironment env = new SkyFunctionEnvironment(skyKey, directDeps, visitor); 
+      // Get the corresponding SkyFunction and call it on this value.
+      SkyFunctionEnvironment env = new SkyFunctionEnvironment(skyKey, directDeps, visitor);
       SkyFunctionName functionName = skyKey.functionName();
       SkyFunction factory = skyFunctions.get(functionName);
       Preconditions.checkState(factory != null, "%s %s", functionName, state);
@@ -753,6 +781,24 @@ public final class ParallelEvaluator implements Evaluator {
         return;
       }
 
+      if (!newDirectDeps.isEmpty() && env.getDepErrorKey() != null) {
+        Preconditions.checkState(!keepGoing);
+        // We encountered a child error in noKeepGoing mode, so we want to fail fast. But we first
+        // need to add the edge between the current node and the child error it requested so that
+        // error bubbling can occur. Note that this edge will subsequently be removed during graph
+        // cleaning (since the current node will never be committed to the graph).
+        SkyKey childErrorKey = env.getDepErrorKey();
+        state.addTemporaryDirectDeps(GroupedListHelper.create(ImmutableList.of(childErrorKey)));
+        NodeEntry childErrorEntry = Preconditions.checkNotNull(graph.get(childErrorKey),
+            "skyKey: %s, state: %s childErrorKey: %s", skyKey, state, childErrorKey);
+        DependencyState childErrorState = childErrorEntry.addReverseDepAndCheckIfDone(skyKey);
+        Preconditions.checkState(childErrorState == DependencyState.DONE,
+            "skyKey: %s, state: %s childErrorKey: %s", skyKey, state, childErrorKey,
+            childErrorEntry);
+        ErrorInfo childErrorInfo = Preconditions.checkNotNull(childErrorEntry.getErrorInfo());
+        throw SchedulerException.ofError(childErrorInfo, childErrorKey);
+      }
+
       // TODO(bazel-team): This code is not safe to interrupt, because we would lose the state in
       // newDirectDeps.
 
@@ -774,49 +820,11 @@ public final class ParallelEvaluator implements Evaluator {
         }
         return;
       }
-      ErrorInfo errorInfo = null;
-      SkyKey childErrorKey = null;
-      List<SkyKey> childrenToEnqueue = Lists.newArrayList();
+
       for (SkyKey newDirectDep : newDirectDeps) {
-        NodeEntry childEntry = graph.createIfAbsent(newDirectDep);
-        switch (childEntry.addReverseDepAndCheckIfDone(skyKey)) {
-          case DONE:
-            boolean parentDone = state.signalDep(childEntry.getVersion());
-            // If we are not in keep going mode and we just declared a dep on a node in error then
-            // we want to halt eagerly, after adding all the reverse deps. The same is true for a
-            // catastrophic error, even in keep going mode.
-            boolean shouldFailFastOnChildError = childEntry.getErrorInfo() != null && (!keepGoing
-                || childEntry.getErrorInfo().isCatastrophic());
-            if (shouldFailFastOnChildError && errorInfo == null) {
-              // Arbitrarily pick the first error.
-              errorInfo = childEntry.getErrorInfo();
-              childErrorKey = newDirectDep;
-            }
-            if (parentDone && errorInfo == null) {
-              // This can only happen if there are no more children to be added and there is no
-              // child with an error that should cause us to fail fast. In this case, we want to
-              // proceed with re-evaluation of the current node.
-              visitor.enqueueEvaluation(skyKey);
-            }
-            break;
-          case ADDED_DEP:
-            break;
-          case NEEDS_SCHEDULING:
-            childrenToEnqueue.add(newDirectDep);
-            break;
-        }
+        enqueueChild(skyKey, state, newDirectDep);
       }
-      if (errorInfo != null) {
-        // We encountered a child error in no keep going mode, so we fail fast.
-        throw SchedulerException.ofError(errorInfo, childErrorKey);
-      }
-      for (SkyKey childToEnqueue : childrenToEnqueue) {
-        visitor.enqueueEvaluation(childToEnqueue);
-      }
-      // At this point we have enqueued evaluations of child nodes. When all of those children are
-      // done, the current node will be scheduled for re-evaluation. So it's important that there
-      // be no code below this point; otherwise there could be two threads doing things with the
-      // current node.
+      // It is critical that there is no code below this point.
     }
 
     private String prepareCrashMessage(SkyKey skyKey, Iterable<SkyKey> reverseDeps) {

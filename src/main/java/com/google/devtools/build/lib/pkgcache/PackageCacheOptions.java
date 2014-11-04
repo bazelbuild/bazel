@@ -30,6 +30,9 @@ import java.util.List;
  * Options for configuring the PackageCache.
  */
 public class PackageCacheOptions extends OptionsBase {
+
+  public static final String DEFAULT_PRELUDE_FILE = "devtools/blaze/rules/prelude.bzl";
+
   /**
    * A converter for package path that defaults to {@code Constants.DEFAULT_PACKAGE_PATH} if the
    * option is not given.
@@ -139,4 +142,10 @@ public class PackageCacheOptions extends OptionsBase {
       category = "undocumented",
       help = "Threshold for number of loaded packages before skyframe-m1 cache eviction kicks in")
   public int minLoadedPkgCountForCtNodeEviction;
+
+  @Option(name = "prelude_file",
+      defaultValue = DEFAULT_PRELUDE_FILE,
+      category = "semantics",
+      help = "The prelude file path.")
+  public String preludeFile;
 }

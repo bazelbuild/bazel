@@ -25,6 +25,7 @@ import com.google.devtools.build.lib.vfs.RootedPath;
 import com.google.devtools.build.lib.vfs.UnixGlob;
 import com.google.devtools.build.skyframe.SkyFunction;
 import com.google.devtools.build.skyframe.SkyFunctionException;
+import com.google.devtools.build.skyframe.SkyFunctionException.Transience;
 import com.google.devtools.build.skyframe.SkyKey;
 import com.google.devtools.build.skyframe.SkyValue;
 
@@ -144,7 +145,7 @@ final class GlobFunction implements SkyFunction {
           if (!symlinkFileValue.isSymlink()) {
             throw new GlobFunctionException(skyKey,
                 new InconsistentFilesystemException("readdir and stat disagree about whether "
-                    + symlinkRootedPath.asPath() + " is a symlink."));
+                    + symlinkRootedPath.asPath() + " is a symlink."), Transience.TRANSIENT);
           }
           isDirectory = symlinkFileValue.isDirectory();
         }
@@ -242,8 +243,9 @@ final class GlobFunction implements SkyFunction {
    * {@link GlobFunction#compute}.
    */
   private static final class GlobFunctionException extends SkyFunctionException {
-    public GlobFunctionException(SkyKey key, InconsistentFilesystemException e) {
-      super(key, e, /*isTransient=*/true);
+    public GlobFunctionException(SkyKey key, InconsistentFilesystemException e,
+        Transience transience) {
+      super(key, e, transience);
     }
   }
 }

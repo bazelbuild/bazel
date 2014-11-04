@@ -33,29 +33,19 @@ import java.util.List;
 import java.util.Map;
 
 /**
- * Implements OS aware {@link Command} builder. At this point only Linux and
- * Windows XP are supported.
+ * Implements OS aware {@link Command} builder. At this point only Linux, Mac
+ * and Windows XP are supported.
  *
  * <p>Builder will also apply heuristic to identify trivial cases where
  * unix-like command lines could be automatically converted into the
  * Windows-compatible form.
  *
  * <p>TODO(bazel-team): (2010) Some of the code here is very similar to the
- * {@link com.google.devtools.lib.shell.Shell} class. This should be looked at.
+ * {@link com.google.devtools.build.lib.shell.Shell} class. This should be looked at.
  */
 public final class CommandBuilder {
 
   private static final List<String> SHELLS = ImmutableList.of("/bin/sh", "/bin/bash");
-
-  // The operating system we are running on.
-  // TODO(bazel-team): should Darwin & Linux be merged into unix?
-  public enum OS { DARWIN, LINUX, WINDOWS, UNKNOWN }
-
-  private static final OS HOST_SYSTEM =
-      "Mac OS X".equals(System.getProperty("os.name")) ? OS.DARWIN : (
-      "Linux".equals(System.getProperty("os.name")) ? OS.LINUX : (
-      "Windows XP".equals(System.getProperty("os.name")) ? OS.WINDOWS : (
-      "Windows 7".equals(System.getProperty("os.name")) ? OS.WINDOWS : OS.UNKNOWN)));
 
   private static final Splitter ARGV_SPLITTER = Splitter.on(CharMatcher.anyOf(" \t"));
 
@@ -65,12 +55,8 @@ public final class CommandBuilder {
   private File workingDir = null;
   private boolean useShell = false;
 
-  static OS getHostSystem() {
-    return HOST_SYSTEM;
-  }
-
   public CommandBuilder() {
-    this(HOST_SYSTEM);
+    this(OS.getCurrent());
   }
 
   @VisibleForTesting

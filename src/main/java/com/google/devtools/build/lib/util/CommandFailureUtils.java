@@ -16,7 +16,6 @@ package com.google.devtools.build.lib.util;
 
 import com.google.common.base.Preconditions;
 import com.google.common.collect.Ordering;
-import com.google.devtools.build.lib.util.CommandBuilder.OS;
 
 import java.io.File;
 import java.util.Collection;
@@ -124,8 +123,8 @@ public class CommandFailureUtils {
   }
 
   private static final DescribeCommandImpl describeCommandImpl =
-      (CommandBuilder.getHostSystem() == OS.WINDOWS ? new WindowsDescribeCommandImpl()
-                                                    : new LinuxDescribeCommandImpl());
+      OS.getCurrent() == OS.WINDOWS ? new WindowsDescribeCommandImpl()
+                                    : new LinuxDescribeCommandImpl();
 
   private CommandFailureUtils() {} // Prevent instantiation.
 

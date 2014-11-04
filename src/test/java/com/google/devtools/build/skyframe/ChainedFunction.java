@@ -16,6 +16,7 @@ package com.google.devtools.build.skyframe;
 import com.google.common.base.Preconditions;
 import com.google.devtools.build.skyframe.GraphTester.ValueComputer;
 import com.google.devtools.build.skyframe.ParallelEvaluator.SkyFunctionEnvironment;
+import com.google.devtools.build.skyframe.SkyFunctionException.Transience;
 
 import java.util.concurrent.CountDownLatch;
 
@@ -65,7 +66,7 @@ final class ChainedFunction implements SkyFunction {
         env.getValue(dep);
       }
       if (value == null) {
-        throw new GenericFunctionException(key, new Exception());
+        throw new GenericFunctionException(key, new Exception(), Transience.PERSISTENT);
       }
       if (env.valuesMissing()) {
         return null;

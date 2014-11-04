@@ -34,6 +34,7 @@ import com.google.devtools.build.lib.vfs.PathFragment;
 import com.google.devtools.build.lib.vfs.RootedPath;
 import com.google.devtools.build.skyframe.SkyFunction;
 import com.google.devtools.build.skyframe.SkyFunctionException;
+import com.google.devtools.build.skyframe.SkyFunctionException.Transience;
 import com.google.devtools.build.skyframe.SkyKey;
 import com.google.devtools.build.skyframe.SkyValue;
 
@@ -66,7 +67,10 @@ class ArtifactFunction implements SkyFunction {
         if (eventBus.get() != null) {
           eventBus.get().post(new MissingArtifactEvent(artifact.getOwner()));
         }
-        throw new ArtifactFunctionException(skyKey, e);
+        // The error is not necessarily truly transient, but we mark it as such because we have
+        // the above side effect of posting an event to the EventBus. Importantly, that event
+        // is potentially used to report root causes.
+        throw new ArtifactFunctionException(skyKey, e, Transience.TRANSIENT);
       }
     }
 
@@ -88,7 +92,8 @@ class ArtifactFunction implements SkyFunction {
         ActionExecutionException ex = new ActionExecutionException(e, action,
             /*catastrophe=*/false);
         env.getListener().handle(Event.error(ex.getLocation(), ex.getMessage()));
-        throw new ArtifactFunctionException(skyKey, ex);
+        // This is a transient error since we did the work that led to the IOException.
+        throw new ArtifactFunctionException(skyKey, ex, Transience.TRANSIENT);
       }
     } else {
       return createAggregatingValue(artifact, action, actionValue.getArtifactValue(artifact), env);
@@ -215,12 +220,12 @@ class ArtifactFunction implements SkyFunction {
   }
 
   private static final class ArtifactFunctionException extends SkyFunctionException {
-    ArtifactFunctionException(SkyKey key, MissingInputFileException e) {
-      super(key, e);
+    ArtifactFunctionException(SkyKey key, MissingInputFileException e, Transience transience) {
+      super(key, e, transience);
     }
 
-    ArtifactFunctionException(SkyKey key, ActionExecutionException e) {
-      super(key, e);
+    ArtifactFunctionException(SkyKey key, ActionExecutionException e, Transience transience) {
+      super(key, e, transience);
     }
   }
 

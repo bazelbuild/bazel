@@ -22,6 +22,7 @@ import com.google.devtools.build.lib.vfs.PathFragment;
 import com.google.devtools.build.lib.vfs.RootedPath;
 import com.google.devtools.build.skyframe.SkyFunction;
 import com.google.devtools.build.skyframe.SkyFunctionException;
+import com.google.devtools.build.skyframe.SkyFunctionException.Transience;
 import com.google.devtools.build.skyframe.SkyKey;
 import com.google.devtools.build.skyframe.SkyValue;
 
@@ -131,7 +132,8 @@ public class FileFunction implements SkyFunction {
       String type = realFileStateValue.getType().toString().toLowerCase();
       String message = type + " " + rootedPath.asPath() + " exists but its parent "
           + "directory " + parentFileValue.realRootedPath().asPath() + " doesn't exist.";
-      throw new FileFunctionException(key, new InconsistentFilesystemException(message));
+      throw new FileFunctionException(key, new InconsistentFilesystemException(message),
+          Transience.TRANSIENT);
     }
     return Pair.of(realRootedPath, realFileStateValue);
   }
@@ -200,12 +202,13 @@ public class FileFunction implements SkyFunction {
    */
   private static final class FileFunctionException extends SkyFunctionException {
 
-    public FileFunctionException(SkyKey key, InconsistentFilesystemException e) {
-      super(key, e, /*isTransient=*/true);
+    public FileFunctionException(SkyKey key, InconsistentFilesystemException e,
+        Transience transience) {
+      super(key, e, transience);
     }
 
     public FileFunctionException(SkyKey key, FileSymlinkCycleException e) {
-      super(key, e);
+      super(key, e, Transience.PERSISTENT);
     }
   }
 }

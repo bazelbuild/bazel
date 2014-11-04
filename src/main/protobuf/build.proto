@@ -427,6 +427,7 @@ message Package {
   }
 
   required string name = 1;
+  optional string repository = 2;
 
   // Default values
   repeated string default_visibility_label = 1001;

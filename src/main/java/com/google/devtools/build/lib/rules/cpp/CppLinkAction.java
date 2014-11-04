@@ -238,13 +238,10 @@ public final class CppLinkAction extends AbstractAction implements IncludeScanna
 
     // Normally Blaze chmods all output files automatically (see
     // AbstractActionExecutor#setOutputsReadOnlyAndExecutable), but this params file is created
-    // out-of-band and is not declared as an output.  By chmodding the file, other processes
+    // out-of-band and is not declared as an output. By chmodding the file, other processes
     // can observe this file being created.
     try {
-      // TODO(bazel-team): Reenable after 2014-10-01. This breaks past Blaze versions if run in
-      // the same workspace, because they do not expect the file to be readonly, see bug
-      // ".params file permission crash on transition ..."
-      // paramFilePath.setWritable(false);
+      paramFilePath.setWritable(false);
       paramFilePath.setExecutable(true);  // for consistency with other action outputs
     } catch (IOException e) {
       throw new EnvironmentalExecException("could not chmod param file '" + paramFilePath + "'", e);

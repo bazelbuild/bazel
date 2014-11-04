@@ -304,7 +304,8 @@ public final class Label implements Comparable<Label>, Serializable {
    */
   @Override
   public String toString() {
-    return packageIdentifier + ":" + name;
+    return packageIdentifier.getRepository() + "//" + packageIdentifier.getPackageFragment()
+        + ":" + name;
   }
 
   /**

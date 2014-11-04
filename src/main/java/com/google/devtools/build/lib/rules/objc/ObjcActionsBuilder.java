@@ -17,9 +17,6 @@ package com.google.devtools.build.lib.rules.objc;
 import static com.google.devtools.build.lib.rules.objc.IosSdkCommands.BIN_DIR;
 import static com.google.devtools.build.lib.rules.objc.IosSdkCommands.MINIMUM_OS_VERSION;
 import static com.google.devtools.build.lib.rules.objc.IosSdkCommands.TARGET_DEVICE_FAMILIES;
-import static com.google.devtools.build.lib.rules.objc.ObjcActionsBuilder.CLANG;
-import static com.google.devtools.build.lib.rules.objc.ObjcActionsBuilder.CLANG_PLUSPLUS;
-import static com.google.devtools.build.lib.rules.objc.ObjcActionsBuilder.DSYMUTIL;
 import static com.google.devtools.build.lib.rules.objc.ObjcProvider.ASSET_CATALOG;
 import static com.google.devtools.build.lib.rules.objc.ObjcProvider.FRAMEWORK_DIR;
 import static com.google.devtools.build.lib.rules.objc.ObjcProvider.FRAMEWORK_FILE;
@@ -42,7 +39,6 @@ import com.google.common.io.ByteSource;
 import com.google.devtools.build.lib.actions.Action;
 import com.google.devtools.build.lib.actions.ActionRegistry;
 import com.google.devtools.build.lib.actions.Artifact;
-import com.google.devtools.build.lib.packages.RuleClass.Builder;
 import com.google.devtools.build.lib.util.LazyString;
 import com.google.devtools.build.lib.vfs.PathFragment;
 import com.google.devtools.build.lib.view.actions.ActionConstructionContext;
@@ -150,7 +146,6 @@ final class ObjcActionsBuilder {
   /**
    * Creates actions to compile each source file individually, and link all the compiled object
    * files into a single archive library.
-   * @return the {@code Action}s that were created
    */
   void registerCompileAndArchiveActions(CompilationArtifacts compilationArtifacts,
       ObjcProvider objcProvider, OptionsProvider optionsProvider) {
@@ -247,7 +242,7 @@ final class ObjcActionsBuilder {
    * Generates actions needed to create an Xcode project file.
    */
   void registerXcodegenActions(
-      ObjcBase.Tools baseTools, Artifact pbxproj, XcodeProvider xcodeProvider) {
+      ObjcRuleClasses.Tools baseTools, Artifact pbxproj, XcodeProvider xcodeProvider) {
     Artifact controlFile = intermediateArtifacts.pbxprojControlArtifact();
     register(new BinaryFileWriteAction(
         context.getActionOwner(),
@@ -267,7 +262,9 @@ final class ObjcActionsBuilder {
    * Creates actions to convert all files specified by the strings attribute into binary format.
    */
   private static Iterable<Action> convertStringsActions(
-      ActionConstructionContext context, ObjcBase.Tools baseTools, StringsFiles stringsFiles) {
+      ActionConstructionContext context,
+      ObjcRuleClasses.Tools baseTools,
+      StringsFiles stringsFiles) {
     ImmutableList.Builder<Action> result = new ImmutableList.Builder<>();
     for (CompiledResourceFile stringsFile : stringsFiles) {
       final Artifact original = stringsFile.getOriginal();
@@ -328,7 +325,7 @@ final class ObjcActionsBuilder {
   }
 
   void registerActoolzipAction(
-      ObjcBase.Tools tools,
+      ObjcRuleClasses.Tools tools,
       ObjcProvider provider,
       Artifact actoolzipOutput,
       ExtraActoolArgs extraActoolArgs) {
@@ -376,7 +373,7 @@ final class ObjcActionsBuilder {
     };
   }
 
-  void registerIbtoolzipAction(ObjcBase.Tools tools, Artifact input, Artifact outputZip) {
+  void registerIbtoolzipAction(ObjcRuleClasses.Tools tools, Artifact input, Artifact outputZip) {
     register(spawnJavaOnDarwinActionBuilder(context, tools.actooloribtoolzipDeployJar())
         .setMnemonic("Compile storyboard")
         .addInput(input)
@@ -395,7 +392,7 @@ final class ObjcActionsBuilder {
   }
 
   private static Iterable<Action> momczipActions(ActionConstructionContext context,
-      ObjcBase.Tools baseTools, final ObjcConfiguration objcConfiguration,
+      ObjcRuleClasses.Tools baseTools, final ObjcConfiguration objcConfiguration,
       Iterable<Xcdatamodel> datamodels) {
     ImmutableList.Builder<Action> result = new ImmutableList.Builder<>();
     for (Xcdatamodel datamodel : datamodels) {
@@ -532,7 +529,7 @@ final class ObjcActionsBuilder {
    * Registers actions for resource conversion that are needed by all rules that inherit from
    * {@link ObjcBase}.
    */
-  void registerResourceActions(ObjcBase.Tools baseTools, StringsFiles stringsFiles,
+  void registerResourceActions(ObjcRuleClasses.Tools baseTools, StringsFiles stringsFiles,
       XibFiles xibFiles, Iterable<Xcdatamodel> datamodels) {
     registerAll(convertStringsActions(context, baseTools, stringsFiles));
     registerAll(convertXibsActions(context, xibFiles));

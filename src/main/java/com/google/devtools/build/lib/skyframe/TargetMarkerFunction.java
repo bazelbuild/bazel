@@ -123,11 +123,11 @@ public final class TargetMarkerFunction implements SkyFunction {
    */
   private static final class TargetMarkerFunctionException extends SkyFunctionException {
     public TargetMarkerFunctionException(SkyKey key, NoSuchTargetException e) {
-      super(key, e);
+      super(key, e, Transience.PERSISTENT);
     }
 
     public TargetMarkerFunctionException(SkyKey key, NoSuchPackageException e) {
-      super(key, e);
+      super(key, e, Transience.PERSISTENT);
     }
   }
 }

@@ -27,6 +27,7 @@ import com.google.gson.JsonObject;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
+import java.util.UUID;
 import java.util.logging.Logger;
 
 /**
@@ -50,6 +51,11 @@ public class WebStatusBuildLog {
   private Map<String, JsonObject> testCases = new HashMap<String, JsonObject>();
   private long startTime;
   private ImmutableList<String> targetList;
+  private UUID commandId;
+
+  public WebStatusBuildLog(UUID commandId) {
+    this.commandId = commandId;
+  }
 
   public WebStatusBuildLog addInfo(String key, Object value) {
     commandInfo.put(key, gson.toJsonTree(value));
@@ -186,5 +192,9 @@ public class WebStatusBuildLog {
       testCases.put(testResultFullName, createTestCaseEmptyJsonNode(testResultFullName, testCase));
     }
     mergeTestCases(testCases.get(testResultFullName), testResultFullName, testCase, shardNumber);
+  }
+
+  public UUID getCommandId() {
+    return commandId;
   }
 }

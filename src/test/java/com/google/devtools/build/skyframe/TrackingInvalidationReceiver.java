@@ -62,5 +62,7 @@ public class TrackingInvalidationReceiver implements EvaluationProgressReceiver 
   public void clear() {
     dirty.clear();
     deleted.clear();
+    enqueued.clear();
+    evaluated.clear();
   }
 }

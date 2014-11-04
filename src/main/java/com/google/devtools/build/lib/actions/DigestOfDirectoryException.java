@@ -17,7 +17,7 @@ package com.google.devtools.build.lib.actions;
 import java.io.IOException;
 
 /**
- * Exception thrown when we try to digest a directory in {@code ArtifactMetadataRetriever}.
+ * Exception thrown when we try to digest a directory in {@code ActionInputFileCache}.
  *
  */
 public class DigestOfDirectoryException extends IOException {

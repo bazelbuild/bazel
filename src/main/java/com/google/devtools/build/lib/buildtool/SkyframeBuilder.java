@@ -26,7 +26,6 @@ import com.google.devtools.build.lib.actions.Artifact;
 import com.google.devtools.build.lib.actions.BuildFailedException;
 import com.google.devtools.build.lib.actions.Builder;
 import com.google.devtools.build.lib.actions.BuilderUtils;
-import com.google.devtools.build.lib.actions.DependentActionGraph;
 import com.google.devtools.build.lib.actions.Executor;
 import com.google.devtools.build.lib.actions.ResourceManager;
 import com.google.devtools.build.lib.actions.TestExecException;
@@ -39,7 +38,6 @@ import com.google.devtools.build.lib.skyframe.SkyframeActionExecutor;
 import com.google.devtools.build.lib.skyframe.SkyframeExecutor;
 import com.google.devtools.build.lib.util.AbruptExitException;
 import com.google.devtools.build.lib.util.BlazeClock;
-import com.google.devtools.build.lib.vfs.ModifiedFileSet;
 import com.google.devtools.build.skyframe.CycleInfo;
 import com.google.devtools.build.skyframe.ErrorInfo;
 import com.google.devtools.build.skyframe.EvaluationProgressReceiver;
@@ -85,8 +83,8 @@ public class SkyframeBuilder implements Builder {
   @Override
   public void buildArtifacts(Set<Artifact> artifacts,
       Set<Artifact> exclusiveTestArtifacts,
-      DependentActionGraph forwardGraph, Executor executor,
-      ModifiedFileSet modifiedFileSet, Set<Artifact> builtArtifacts,
+      Executor executor,
+      Set<Artifact> builtArtifacts,
       boolean explain)
       throws BuildFailedException, AbruptExitException, TestExecException, InterruptedException {
     skyframeExecutor.prepareExecution(checkOutputFiles);

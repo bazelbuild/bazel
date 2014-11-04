@@ -45,7 +45,8 @@ final class DirectoryListingFunction implements SkyFunction {
     }
 
     DirectoryListingStateValue directoryListingStateValue =
-       (DirectoryListingStateValue) env.getValue(DirectoryListingStateValue.key(realDirRootedPath));
+       (DirectoryListingStateValue) env.getValue(DirectoryListingStateValue.key(
+           realDirRootedPath));
     if (directoryListingStateValue == null) {
       return null;
     }
@@ -65,7 +66,7 @@ final class DirectoryListingFunction implements SkyFunction {
    */
   private static final class DirectoryListingFunctionException extends SkyFunctionException {
     public DirectoryListingFunctionException(SkyKey key, InconsistentFilesystemException e) {
-      super(key, e);
+      super(key, e, Transience.TRANSIENT);
     }
   }
 }

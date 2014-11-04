@@ -14,7 +14,6 @@
 
 package com.google.devtools.build.lib.rules.cpp;
 
-import com.google.common.base.Preconditions;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.Iterables;
 import com.google.common.collect.Lists;
@@ -57,8 +56,7 @@ public interface IncludeScanner {
   /** Supplies IncludeScanners upon request. */
   interface IncludeScannerSupplier {
     /** Returns the possibly shared scanner to be used for a given pair of include paths. */
-    IncludeScanner scannerFor(List<Path> quoteIncludePaths, List<Path> includePaths,
-        RemoteIncludeExtractor remoteScanner);
+    IncludeScanner scannerFor(List<Path> quoteIncludePaths, List<Path> includePaths);
   }
 
   /**
@@ -88,9 +86,6 @@ public interface IncludeScanner {
       Executor executor = actionExecutionContext.getExecutor();
       Path execRoot = executor.getExecRoot();
 
-      RemoteIncludeExtractor remoteScanner = Preconditions.checkNotNull(
-          executor.getContext(RemoteIncludeExtractor.class),
-          action);
       List<Path> absoluteBuiltInIncludeDirs = new ArrayList<>();
 
       Profiler profiler = Profiler.instance();
@@ -122,7 +117,7 @@ public interface IncludeScanner {
 
           IncludeScanner scanner = includeScannerSupplier.scannerFor(
               relativeTo(execRoot, quoteIncludeDirs),
-              relativeTo(execRoot, includeDirs), remoteScanner);
+              relativeTo(execRoot, includeDirs));
 
           for (PathFragment sourcePathFragment : scannable.getIncludeScannerSources()) {
             // Make the source file relative to execution root, so that even inclusions

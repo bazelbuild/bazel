@@ -114,6 +114,7 @@ public class SkylarkModules {
             SkylarkType.of(moduleClass));
       }
     }
+    global.put("native", SkylarkType.UNKNOWN);
     MethodLibrary.setupValidationEnvironment(builtIn);
     for (Class<?> module : MODULES) {
       collectSkylarkTypesFromFields(module, builtIn);

@@ -69,7 +69,7 @@ public class GlobCache {
   /**
    * The name of the package we belong to.
    */
-  private final String packageName;
+  private final PackageIdentifier packageId;
 
   /**
    * The package locator-based directory traversal predicate.
@@ -90,22 +90,22 @@ public class GlobCache {
    * Create a glob expansion cache.
    * @param packageDirectory globs will be expanded relatively to this
    *                         directory.
-   * @param packageName the name of the package this cache belongs to.
+   * @param packageId the name of the package this cache belongs to.
    * @param locator the package locator.
    * @param globExecutor thread pool for glob evaluation.
    */
   public GlobCache(final Path packageDirectory,
-                   final String packageName,
+                   final PackageIdentifier packageId,
                    final CachingPackageLocator locator,
                    AtomicReference<? extends UnixGlob.FilesystemCalls> syscalls,
                    ThreadPoolExecutor globExecutor) {
     this.packageDirectory = Preconditions.checkNotNull(packageDirectory);
-    this.packageName = Preconditions.checkNotNull(packageName);
+    this.packageId = Preconditions.checkNotNull(packageId);
     this.globExecutor = Preconditions.checkNotNull(globExecutor);
     this.syscalls = syscalls == null ? new AtomicReference<>(UnixGlob.DEFAULT_SYSCALLS) : syscalls;
 
     Preconditions.checkNotNull(locator);
-    final PathFragment pkgNameFrag = new PathFragment(packageName);
+    final PathFragment pkgNameFrag = packageId.getPackageFragment();
     childDirectoryPredicate = new Predicate<Path>() {
       @Override
       public boolean apply(Path directory) {
@@ -342,6 +342,6 @@ public class GlobCache {
 
   @Override
   public String toString() {
-    return "GlobCache for " + packageName + " in " + packageDirectory;
+    return "GlobCache for " + packageId + " in " + packageDirectory;
   }
 }

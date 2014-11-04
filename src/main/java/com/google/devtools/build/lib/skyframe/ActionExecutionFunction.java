@@ -271,7 +271,11 @@ public class ActionExecutionFunction implements SkyFunction {
     private final ActionExecutionException actionException;
 
     public ActionExecutionFunctionException(SkyKey key, ActionExecutionException e) {
-      super(key, e);
+      // We conservatively assume that the error is transient. We don't have enough information to
+      // distinguish non-transient errors (e.g. compilation error from a deterministic compiler)
+      // from transient ones (e.g. IO error).
+      // TODO(bazel-team): Have ActionExecutionExceptions declare their transience.
+      super(key, e, Transience.TRANSIENT);
       this.actionException = e;
     }
 

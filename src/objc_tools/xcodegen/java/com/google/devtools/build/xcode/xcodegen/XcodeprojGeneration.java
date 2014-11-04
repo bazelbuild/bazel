@@ -245,14 +245,15 @@ public class XcodeprojGeneration {
         .on('/')
         .join(Collections.nCopies(levelsToExecRoot, "..")));
 
-      NSDictionary projBuildConfigMap = new NSDictionary();
-      projBuildConfigMap.put("ARCHS", new NSArray(
-          new NSString("arm7"), new NSString("arm7s"), new NSString("arm64")));
-      projBuildConfigMap.put("CLANG_ENABLE_OBJC_ARC", "YES");
-      projBuildConfigMap.put("SDKROOT", "iphoneos");
-      projBuildConfigMap.put("GCC_WARN_64_TO_32_BIT_CONVERSION", "YES");
-      projBuildConfigMap.put("IPHONEOS_DEPLOYMENT_TARGET", "7.0");
-      projBuildConfigMap.put("GCC_VERSION", "com.apple.compilers.llvm.clang.1_0");
+    NSDictionary projBuildConfigMap = new NSDictionary();
+    projBuildConfigMap.put("ARCHS", new NSArray(
+        new NSString("arm7"), new NSString("arm7s"), new NSString("arm64")));
+    projBuildConfigMap.put("CLANG_ENABLE_OBJC_ARC", "YES");
+    projBuildConfigMap.put("SDKROOT", "iphoneos");
+    projBuildConfigMap.put("GCC_WARN_64_TO_32_BIT_CONVERSION", "YES");
+    projBuildConfigMap.put("IPHONEOS_DEPLOYMENT_TARGET", "7.0");
+    projBuildConfigMap.put("GCC_VERSION", "com.apple.compilers.llvm.clang.1_0");
+    projBuildConfigMap.put("CODE_SIGN_IDENTITY[sdk=iphoneos*]", "iPhone Developer");
 
     PBXProject project = new PBXProject(outputPath.getProjectName());
     project.getMainGroup().setPath(sourceRoot.toString());

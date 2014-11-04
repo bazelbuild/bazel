@@ -25,26 +25,37 @@ import com.google.common.base.Preconditions;
  * {@link SkyFunction#compute} to throw {@code C}. This way the type system checks that no
  * unexpected exceptions are thrown by the {@link SkyFunction}.
  *
- * We took this approach over using a generic exception class since Java disallows it because of
+ * <p>We took this approach over using a generic exception class since Java disallows it because of
  * type erasure
  * (see http://docs.oracle.com/javase/tutorial/java/generics/restrictions.html#cannotCatch).
+ *
+ * <p>Failures are explicitly either transient or persistent. The transience of the failure from
+ * {@link SkyFunction#compute} should be influenced only by the computations done, and not by the
+ * transience of the failures from computations requested via
+ * {@link SkyFunction.Environment#getValueOrThrow}.
  */
 public abstract class SkyFunctionException extends Exception {
-  private final SkyKey rootCause;
-  private final boolean isTransient;
 
-  public SkyFunctionException(SkyKey rootCause, Throwable cause) {
+  /** The transience of the error. */
+  public enum Transience {
+    // An error that may or may not occur again if the computation were re-run. If a computation
+    // results in a transient error and is needed on a subsequent MemoizingEvaluator#evaluate call,
+    // it will be re-executed.
+    TRANSIENT,
+
+    // An error that is completely deterministic and persistent in terms of the computation's
+    // inputs. Persistent errors may be cached.
+    PERSISTENT;
+  }
+
+  private final SkyKey rootCause;
+  private final Transience transience;
+
+  public SkyFunctionException(SkyKey rootCause, Throwable cause, Transience transience) {
     super(Preconditions.checkNotNull(cause));
     // TODO(bazel-team): Consider getting rid of custom root causes since they can't be trusted.
     this.rootCause = Preconditions.checkNotNull(rootCause, cause);
-    // TODO(bazel-team): We may want to switch the default to false at some point.
-    this.isTransient = true;
-  }
-
-  public SkyFunctionException(SkyKey rootCause, Throwable cause, boolean isTransient) {
-    super(Preconditions.checkNotNull(cause));
-    this.rootCause = Preconditions.checkNotNull(rootCause, cause);
-    this.isTransient = isTransient;
+    this.transience = transience;
   }
 
   final SkyKey getRootCauseSkyKey() {
@@ -52,7 +63,7 @@ public abstract class SkyFunctionException extends Exception {
   }
 
   final boolean isTransient() {
-    return isTransient;
+    return transience == Transience.TRANSIENT;
   }
 
   /**

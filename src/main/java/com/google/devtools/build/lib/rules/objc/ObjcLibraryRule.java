@@ -89,7 +89,7 @@ public class ObjcLibraryRule implements RuleDefinition {
         .override(attr("deps", LABEL_LIST)
             .direct_compile_time_input()
             .allowedRuleClasses("objc_library", "objc_import", "objc_bundle", "objc_framework",
-                "objc_bundle_library")
+                "objc_bundle_library", "objc_proto_library")
             .allowedFileTypes())
         .build();
   }

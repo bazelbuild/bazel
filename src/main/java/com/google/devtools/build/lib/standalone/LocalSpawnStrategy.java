@@ -24,6 +24,7 @@ import com.google.devtools.build.lib.shell.Command;
 import com.google.devtools.build.lib.shell.CommandException;
 import com.google.devtools.build.lib.syntax.Label;
 import com.google.devtools.build.lib.util.CommandFailureUtils;
+import com.google.devtools.build.lib.util.OS;
 import com.google.devtools.build.lib.util.OsUtils;
 import com.google.devtools.build.lib.util.io.FileOutErr;
 import com.google.devtools.build.lib.vfs.Path;
@@ -64,7 +65,7 @@ public class LocalSpawnStrategy implements SpawnActionContext {
     // All actions therefore depend on the process-wrapper file. Since it's embedded,
     // we don't bother with declaring it as an input.
     List<String> args = new ArrayList<>();
-    if (!OsUtils.isWindows()) {
+    if (OS.getCurrent() != OS.WINDOWS) {
       // TODO(bazel-team): process-wrapper seems to work on Windows, but requires
       // additional setup as it is an msys2 binary, so it needs msys2 DLLs on %PATH%.
       // Disable it for now to make the setup easier and to avoid further PATH hacks.

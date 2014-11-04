@@ -325,7 +325,7 @@ public final class CppCompilationContext implements TransitiveInfoProvider {
       CppCompilationContext libContext) {
     return new CppCompilationContext(libContext.commandLineContext,
         ImmutableList.copyOf(Iterables.concat(ownerContext.depsContexts, libContext.depsContexts)),
-        ownerContext.cppModuleMap);
+        libContext.cppModuleMap);
   }
 
   /**

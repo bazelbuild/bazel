@@ -13,6 +13,7 @@
 // limitations under the License.
 package com.google.devtools.build.skyframe;
 
+import com.google.common.annotations.VisibleForTesting;
 import com.google.devtools.build.lib.events.EventHandler;
 
 import java.util.Map;
@@ -152,5 +153,9 @@ public interface SkyFunction {
      * warnings, or progress messages while building.
      */
     EventHandler getListener();
+
+    /** Returns whether we are currently in error bubbling. */
+    @VisibleForTesting
+    boolean inErrorBubblingForTesting();
   }
 }

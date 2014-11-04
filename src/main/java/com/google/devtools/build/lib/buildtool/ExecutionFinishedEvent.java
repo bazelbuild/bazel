@@ -29,9 +29,7 @@ public class ExecutionFinishedEvent {
   /**
    * The (filename, mtime) pairs of all files saved between the last build's
    * start time and the current build's start time. Only applies to builds
-   * running with existing Blaze servers. Maxes out at
-   * {@code MetadataCache.maxFileSavesToTrack} entries, with no guarantee of
-   * which subset of files is saved for builds that exceed this amount.
+   * running with existing Blaze servers. Currently disabled.
    */
   private Map<String, Long> changedFileSaveTimes = new HashMap<>();
 

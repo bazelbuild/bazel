@@ -26,6 +26,7 @@ import java.util.HashSet;
 import java.util.LinkedList;
 import java.util.List;
 import java.util.Map;
+import java.util.PriorityQueue;
 import java.util.Set;
 
 /**
@@ -747,150 +748,122 @@ public final class Digraph<T> implements Cloneable {
   }
 
   /**
-   * <p> Extracts the subgraph G' of this graph G, containing exactly the nodes
+   * Extracts the subgraph G' of this graph G, containing exactly the nodes
    * specified by the labels in V', and preserving the original
    * <i>transitive</i> graph relation among those nodes. </p>
    *
-   * <p> TODO(bazel-team): implement intransitive variant: "the subgraph induced by V'".
-   * (simply discard edges if either point is outside the subset) </p>
-   *
    * @param subset a subset of the labels of this graph; the resulting graph
-   * will have only the nodes with these labels.  Each label in this set
-   * must identify a node in this graph.
+   * will have only the nodes with these labels.
    */
-  @SuppressWarnings("unchecked")
   public Digraph<T> extractSubgraph(final Set<T> subset) {
-
-    /**
-     * Let G = <V,E> be the original graph,    ("g1" in code)
-     * and G' = <V',E'> be the subgraph.       ("g2" in code)
-     *
-     *    V' = "subset"
-     *    G' = "subgraph"
-     *
-     *  Exercise extreme caution w.r.t. ownership invariants!
-     *
-     *  Be careful not to confuse nodes and labels: nodes identifiers are
-     *  subscripted with the graph that owns them (e,g, v_g1).  Labels are
-     *  unqualified.
-     */
-
-    /**
-     *  Alan's dynamic programming algorithm: tabulate a map of:
-     *
-     *   [node in (V \ V')] -> [subset of V' it reaches, transitively]
-     *
-     *  Note that the RHS need only include nodes in V' reached through
-     *  paths through (V \ V') since a path that goes through an
-     *  intermediate node v2 in V' will be represented by edge from v2 in
-     *  the new graph.
-     *
-     *  We pre-populate this table in reverse topological order, down to the nodes in V'.
-     */
-
-    class DP { // the dynamic programming part
-
-      // *** Invariant: all nodes are in G ***
-
-      Map<Node<T>, Set<Node<T>>> table =
-        new HashMap<Node<T>, Set<Node<T>>>();
-
-      // The set of nodes in V' reachable from scc.
-      // Must be called on sccs in reverse topological order (leaf sccs first).
-      Set<Node<T>> reachableFrom(final Set<Node<T>> scc_g1) {
-        if (table.get(scc_g1.iterator().next()) != null) {
-          throw new IllegalStateException("reachableFrom should only be called once per SCC.");
-        }
-
-        // let S = {}
-        // foreach v in scc_g1
-        //   if v in V'
-        //     S := S union {v}
-        //   foreach v2 in (successors(v) \ scc_g1)
-        //     if v2 in V'
-        //       S := S union {v2}
-        //     else
-        //       S := S union reachableFrom(v2) [this value is pre-calculated]
-        //
-        // Note that if v is in scc_g1 and v2 is a successor of v that is not in scc_g1, then
-        // v2 > v in the graph partial order, and so the main loop below will have requested
-        // reachableFrom for v2's scc before reachableFrom(scc_g1) is requested.
-
-        Set<Node<T>> set = new HashSet<Node<T>>(2);
-        for (Node<T> w_g1 : scc_g1) {
-          if (subset.contains(w_g1.getLabel())) { // Add nodes in V'.
-            set.add(w_g1);
-          }
-          for (Node<T> v2_g1 : w_g1.getSuccessors()) { // Check successors.
-            if (scc_g1.contains(v2_g1)) { // Don't consider nodes in scc_g1 twice.
-              continue;
-            }
-            final T v2 = v2_g1.getLabel();
-            if (subset.contains(v2)) { // v2 in V'?
-              set.add(v2_g1);
-            } else {
-              // If the successor is not in scc_g1, it is greater than v_g1 in the graph partial
-              // order, and so its reachableFrom() value has already been calculated and stored.
-              set.addAll(table.get(v2_g1));
-            }
-          }
-        }
-
-        for (Node<T> w_g1 : scc_g1) {
-          table.put(w_g1, set);
-        }
-
-        return set;
-      }
-    }
-    final DP dp = new DP();
-
-    // Build the new graph g2, with nodes initially unconnected:
-    final Digraph<T> subgraph = new Digraph<T>();
-    Collection<Node<T>> subsetNodes = new HashSet<Node<T>>();
-    for (T label : subset) {
-      subsetNodes.add(getNode(label)); // side effect: check that the labels are actual nodes in g1.
-      subgraph.createNode(label);
-    }
-
-    // Add the required edges:
-    //
-    // foreach strongly connected component scc in V' (ordered by reverse topological order)
-    //   calculate nodes in V' that are G-reachable from scc [memo-ized in dp]
-    //   foreach node v in scc and V'
-    //     foreach node v2 in V' that is G-reachable from v
-    //       add v->v2 to G' (unless v2 == v)
-    //
-
-    // We have a receiver here to avoid reifying all strongly connected components
-    // of the graph at once.
-    NodeSetReceiver<T> r = new NodeSetReceiver<T>() {
-      @Override
-      public void accept(Set<Node<T>> scc_g1) {
-        Set<Node<T>> reachableNodes = dp.reachableFrom(scc_g1);
-        for (Node<T> v_g1 : scc_g1) {
-          final T v = v_g1.getLabel();
-          if (!subset.contains(v)) {
-            continue;
-          }
-          final Node<T> v_g2 = subgraph.getNode(v);
-          for (Node<T> s_g1 : reachableNodes) {
-            if (s_g1 == v_g1) {
-              continue;
-            }
-            final T s = s_g1.getLabel();
-            final Node<T> s_g2 = subgraph.createNode(s);
-            subgraph.addEdge(v_g2, s_g2);
-          }
-        }
-      }
-    };
-    SccVisitor<T> visitor = new SccVisitor<T>();
-    for (Node<T> node : subsetNodes) {
-      visitor.visit(r, node);
-    }
-
+    Digraph<T> subgraph = this.clone();
+    subgraph.subgraph(subset);
     return subgraph;
+  }
+
+  /**
+   * Removes all nodes from this graph except those whose label is an element of {@code keepLabels}.
+   * Edges are added so as to preserve the <i>transitive</i> closure relation.
+   *
+   * @param keepLabels a subset of the labels of this graph; the resulting graph
+   * will have only the nodes with these labels.
+   */
+  public void subgraph(final Set<T> keepLabels) {
+    // This algorithm does the following:
+    // Let keep = nodes that have labels in keepLabels.
+    // Let toRemove = nodes \ keep. reachables = successors and predecessors of keep in nodes.
+    // reachables is the subset of nodes of remove that are an immediate neighbor of some node in
+    // keep.
+    //
+    // Removes all nodes of reachables from keepLabels.
+    // Until reachables is empty:
+    //   Takes n from reachables
+    //   for all s in succ(n)
+    //     for all p in pred(n)
+    //       add the edge (p, s)
+    //     add s to reachables
+    //   for all p in pred(n)
+    //     add p to reachables
+    //   Remove n and its edges
+    //
+    // A few adjustments are needed to do the whole computation.
+
+    final Set<Node<T>> toRemove = new HashSet<>();
+    final Set<Node<T>> keep = new HashSet<>();
+    final Set<Node<T>> keepNeighbors = new HashSet<>();
+
+    // Look for all nodes if they are to be kept or removed
+    for (Node<T> node : nodes.values()) {
+      if (keepLabels.contains(node.getLabel())) {
+        // Node is to be kept
+        keep.add(node);
+        keepNeighbors.addAll(node.getPredecessors());
+        keepNeighbors.addAll(node.getSuccessors());
+      } else {
+        // node is to be removed.
+        toRemove.add(node);
+      }
+    }
+
+    if (toRemove.isEmpty()) {
+      // This premature return is needed to avoid 0-size priority queue creation.
+      return;
+    }
+
+    // We use a priority queue to look for low-order nodes first so we don't propagate the high
+    // number of paths of high-order nodes making the time consumption explode.
+    // For perfect results we should reorder the set each time we add a new edge but this would
+    // be too expensive, so this is a good enough approximation.
+    final PriorityQueue<Node<T>> reachables = new PriorityQueue<>(toRemove.size(),
+        new Comparator<Node<T>>() {
+      @Override
+      public int compare(Node<T> o1, Node<T> o2) {
+        return Long.compare((long) o1.numPredecessors() * (long) o1.numSuccessors(),
+            (long) o2.numPredecessors() * (long) o2.numSuccessors());
+      }
+    });
+
+    // Construct the reachables queue with the list of successors and predecessors of keep in
+    // toRemove.
+    keepNeighbors.retainAll(toRemove);
+    reachables.addAll(keepNeighbors);
+    toRemove.removeAll(reachables);
+
+    // Remove nodes, least connected first, preserving reachability.
+    while (!reachables.isEmpty()) {
+      Node<T> node = reachables.poll();
+      for (Node<T> s : node.getSuccessors()) {
+        if (s == node) { continue; } // ignore self-edge
+
+        for (Node<T> p : node.getPredecessors()) {
+          if (p == node) { continue; } // ignore self-edge
+          addEdge(p, s);
+        }
+
+        // removes n -> s
+        s.removePredecessor(node);
+        if (toRemove.remove(s)) {
+          reachables.add(s);
+        }
+      }
+
+      for (Node<T> p : node.getPredecessors()) {
+        if (p == node) { continue; } // ignore self-edge
+        p.removeSuccessor(node);
+        if (toRemove.remove(p)) {
+          reachables.add(p);
+        }
+      }
+
+      // After the node deletion, the graph is again well-formed and the original topological order
+      // is preserved.
+      nodes.remove(node.getLabel());
+    }
+
+    // Final cleanup for non-reachable nodes.
+    for (Node<T> node : toRemove) {
+      removeNode(node, false);
+    }
   }
 
   private interface NodeSetReceiver<T> {

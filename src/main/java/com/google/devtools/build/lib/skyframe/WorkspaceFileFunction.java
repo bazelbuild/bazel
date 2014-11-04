@@ -14,6 +14,8 @@
 
 package com.google.devtools.build.lib.skyframe;
 
+import static com.google.devtools.build.lib.syntax.Environment.NONE;
+
 import com.google.common.collect.ImmutableList;
 import com.google.devtools.build.lib.cmdline.LabelValidator;
 import com.google.devtools.build.lib.events.Event;
@@ -38,6 +40,7 @@ import com.google.devtools.build.lib.vfs.Path;
 import com.google.devtools.build.lib.vfs.RootedPath;
 import com.google.devtools.build.skyframe.SkyFunction;
 import com.google.devtools.build.skyframe.SkyFunctionException;
+import com.google.devtools.build.skyframe.SkyFunctionException.Transience;
 import com.google.devtools.build.skyframe.SkyKey;
 import com.google.devtools.build.skyframe.SkyValue;
 
@@ -50,10 +53,11 @@ import java.util.List;
 public class WorkspaceFileFunction implements SkyFunction {
 
   private static final String BIND = "bind";
+  private static final String LOCAL_REPOSITORY = "local_repository";
 
-  private PackageFactory packageFactory;
+  private final PackageFactory packageFactory;
 
-  public WorkspaceFileFunction(PackageFactory packageFactory) {
+  WorkspaceFileFunction(PackageFactory packageFactory) {
     this.packageFactory = packageFactory;
   }
 
@@ -75,14 +79,14 @@ public class WorkspaceFileFunction implements SkyFunction {
     try {
       inputSource = ParserInputSource.create(workspaceFilePath);
     } catch (IOException e) {
-      throw new WorkspaceFileFunctionException(skyKey, e);
+      throw new WorkspaceFileFunctionException(skyKey, e, Transience.TRANSIENT);
     }
     buildFileAST = BuildFileAST.parseBuildFile(inputSource, localReporter, null, false);
     if (buildFileAST.containsErrors()) {
       localReporter.handle(Event.error("WORKSPACE file could not be parsed"));
     } else {
       try {
-        if (!evaluateWorkspaceFile(buildFileAST, holder, builder)) {
+        if (!evaluateWorkspaceFile(buildFileAST, holder, builder, workspaceFilePath)) {
           localReporter.handle(
               Event.error("Error evaluating WORKSPACE file " + workspaceFilePath));
         }
@@ -112,7 +116,7 @@ public class WorkspaceFileFunction implements SkyFunction {
           throw new EvalException(ast.getLocation(), errorMessage);
         }
         holder.workspaceName = name;
-        return com.google.devtools.build.lib.syntax.Environment.NONE;
+        return NONE;
       }
     };
   }
@@ -135,13 +139,33 @@ public class WorkspaceFileFunction implements SkyFunction {
           throw new EvalException(ast.getLocation(), e.getMessage());
         }
 
-        return com.google.devtools.build.lib.syntax.Environment.NONE;
+        return NONE;
+      }
+    };
+  }
+
+  private static Function newLocalRepositoryFunction(
+      final ExternalPackageBuilder builder, final Path dummyPath) {
+    List<String> params = ImmutableList.of("name", "path");
+    return new MixedModeFunction(LOCAL_REPOSITORY, params, 2, true) {
+      @Override
+      public Object call(Object[] namedArgs, FuncallExpression ast)
+              throws EvalException, ConversionException {
+        String name = Type.STRING.convert(namedArgs[0], "'name' argument");
+        String repositoryPath = Type.STRING.convert(namedArgs[1], "'path' argument");
+
+        String errorMessage = LabelValidator.validateTargetName(name);
+        if (errorMessage != null) {
+          throw new EvalException(ast.getLocation(), errorMessage);
+        }
+        builder.addLocalRepository("@" + name, dummyPath.getRelative(repositoryPath));
+        return NONE;
       }
     };
   }
 
   public boolean evaluateWorkspaceFile(BuildFileAST buildFileAST, WorkspaceNameHolder holder,
-      ExternalPackageBuilder builder)
+      ExternalPackageBuilder builder, Path dummyPath)
           throws InterruptedException, NoSuchBindingException, InvalidRuleException,
           NameConflictException {
     // Environment is defined in SkyFunction and the syntax package.
@@ -149,6 +173,7 @@ public class WorkspaceFileFunction implements SkyFunction {
         new com.google.devtools.build.lib.syntax.Environment();
     workspaceEnv.update(BIND, newBindFunction(builder));
     workspaceEnv.update("workspace", newWorkspaceNameFunction(holder));
+    workspaceEnv.update(LOCAL_REPOSITORY, newLocalRepositoryFunction(builder, dummyPath));
 
     StoredEventHandler eventHandler = new StoredEventHandler();
     if (!buildFileAST.exec(workspaceEnv, eventHandler)) {
@@ -164,8 +189,8 @@ public class WorkspaceFileFunction implements SkyFunction {
   }
 
   private static final class WorkspaceFileFunctionException extends SkyFunctionException {
-    public WorkspaceFileFunctionException(SkyKey key, IOException e) {
-      super(key, e);
+    public WorkspaceFileFunctionException(SkyKey key, IOException e, Transience transience) {
+      super(key, e, transience);
     }
   }
 }

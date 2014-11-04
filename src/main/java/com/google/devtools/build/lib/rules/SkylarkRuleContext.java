@@ -379,16 +379,6 @@ public final class SkylarkRuleContext {
     return ruleContext.getConfiguration().getConfiguration(ConfigurationTransition.DATA);
   }
 
-  @SkylarkCallable(doc = "Signals a warning error with the given message.")
-  public void warning(String message) {
-    ruleContext.ruleWarning(message);
-  }
-
-  @SkylarkCallable(doc = "Signals an attribute warning with the given attribute and message.")
-  public void warning(String attrName, String message) {
-    ruleContext.attributeWarning(attrName, message);
-  }
-
   @SkylarkCallable(structField = true,
       doc = "A <code>struct</code> containing all the output files."
           + " The struct is generated the following way:<br>"
