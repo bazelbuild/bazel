@@ -32,7 +32,7 @@ filegroup(
         "guava/guava-testlib.jar",
         "hamcrest/hamcrest-core-1.3.jar",
         "junit/junit-4.11.jar",
-        "truth/truth-0.23.jar",
+        "truth/truth-0.24.jar",
     ],
 )
 
