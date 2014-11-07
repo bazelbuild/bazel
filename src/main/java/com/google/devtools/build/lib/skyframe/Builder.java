@@ -12,11 +12,17 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-package com.google.devtools.build.lib.actions;
+package com.google.devtools.build.lib.skyframe;
 
+import com.google.devtools.build.lib.actions.Artifact;
+import com.google.devtools.build.lib.actions.BuildFailedException;
+import com.google.devtools.build.lib.actions.Executor;
+import com.google.devtools.build.lib.actions.TestExecException;
 import com.google.devtools.build.lib.concurrent.ThreadSafety.ThreadCompatible;
 import com.google.devtools.build.lib.util.AbruptExitException;
+import com.google.devtools.build.lib.view.ConfiguredTarget;
 
+import java.util.Collection;
 import java.util.Set;
 
 /**
@@ -45,27 +51,25 @@ public interface Builder {
    *
    * @param artifacts the set of Artifacts to build
    * @param exclusiveTestArtifacts artifacts to build one at a time after all others have been built
+   * @param targetsToBuild Set of targets which will be built.
    * @param executor an opaque application-specific value that will be
    *        passed down to the execute() method of any Action executed during
    *        this call.
-   * @param builtArtifacts (out) set of successfully built artifacts. Can be
-   *        <i>null</i>, in which case it is ignored. Set is populated
-   *        immediately upon confirmation that artifact is built so it will be
+   * @param builtTargets (out) set of successfully built subset of targetsToBuild. This set is
+   *        populated immediately upon confirmation that artifact is built so it will be
    *        valid even if a future action throws ActionExecutionException.
-   * @throws MissingInputFileException if an input file not associated with an
-   *         action does not exist.
-   * @throws BuildFailedException if there were problems establishing the
-   *         action execution environment, if the the metadata of any file
-   *         during the build could not be obtained, or if an action fails
-   *         during execution
+   * @throws BuildFailedException if there were problems establishing the action execution
+   *         environment, if the the metadata of any file  during the build could not be obtained,
+   *         if any input files are missing, or if an action fails during execution
    * @throws InterruptedException if there was an asynchronous stop request.
    * @throws TestExecException if any test fails
    */
   @ThreadCompatible
   void buildArtifacts(Set<Artifact> artifacts,
-      Set<Artifact> exclusiveTestArtifacts,
-      Executor executor,
-      Set<Artifact> builtArtifacts,
-      boolean explain)
+                      Set<Artifact> exclusiveTestArtifacts,
+                      Collection<ConfiguredTarget> targetsToBuild,
+                      Executor executor,
+                      Set<ConfiguredTarget> builtTargets,
+                      boolean explain)
       throws BuildFailedException, AbruptExitException, InterruptedException, TestExecException;
 }

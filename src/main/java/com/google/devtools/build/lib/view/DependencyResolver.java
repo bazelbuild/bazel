@@ -62,19 +62,22 @@ public abstract class DependencyResolver {
       TargetAndConfiguration node, Set<ConfigMatchingProvider> configConditions)
       throws EvalException {
     Target target = node.getTarget();
+    BuildConfiguration config = node.getConfiguration();
     ListMultimap<Attribute, TargetAndConfiguration> outgoingEdges = ArrayListMultimap.create();
     if (target instanceof OutputFile) {
-      Rule rule = ((OutputFile) target).getGeneratingRule();
-      outgoingEdges.get(null).add(new TargetAndConfiguration(rule, node.getConfiguration()));
+      Preconditions.checkNotNull(config);
       visitTargetVisibility(node, outgoingEdges.get(null));
+      Rule rule = ((OutputFile) target).getGeneratingRule();
+      outgoingEdges.get(null).add(new TargetAndConfiguration(rule, config));
     } else if (target instanceof InputFile) {
       visitTargetVisibility(node, outgoingEdges.get(null));
     } else if (target instanceof Rule) {
+      Preconditions.checkNotNull(config);
+      visitTargetVisibility(node, outgoingEdges.get(null));
       Rule rule = (Rule) target;
       ListMultimap<Attribute, Label> labelMap = resolveLateBoundAttributes(
-          rule, node.getConfiguration(), configConditions);
-      visitTargetVisibility(node, outgoingEdges.get(null));
-      visitRule(node, rule, labelMap, outgoingEdges);
+          rule, config, configConditions);
+      visitRule(rule, config, labelMap, outgoingEdges);
     } else if (target instanceof PackageGroup) {
       visitPackageGroup(node, (PackageGroup) target, outgoingEdges.get(null));
     } else {
@@ -197,13 +200,13 @@ public abstract class DependencyResolver {
    *
    * @throws IllegalArgumentException if the {@code node} does not refer to a {@link Rule} instance
    */
-  public final ListMultimap<Attribute, TargetAndConfiguration> resolveRuleLabels(
+  public final Collection<TargetAndConfiguration> resolveRuleLabels(
       TargetAndConfiguration node, ListMultimap<Attribute, Label> labelMap) {
     Preconditions.checkArgument(node.getTarget() instanceof Rule);
     Rule rule = (Rule) node.getTarget();
     ListMultimap<Attribute, TargetAndConfiguration> outgoingEdges = ArrayListMultimap.create();
-    visitRule(node, rule, labelMap, outgoingEdges);
-    return outgoingEdges;
+    visitRule(rule, node.getConfiguration(), labelMap, outgoingEdges);
+    return outgoingEdges.values();
   }
 
   private void visitPackageGroup(TargetAndConfiguration node, PackageGroup packageGroup,
@@ -229,35 +232,30 @@ public abstract class DependencyResolver {
     }
   }
 
-  private void visitLabelInAttribute(TargetAndConfiguration from, Rule fromRule, Label to,
-      Attribute attribute, Collection<TargetAndConfiguration> outgoingEdges) {
-    Preconditions.checkNotNull(from.getConfiguration());
-    Target toTarget;
-    try {
-      toTarget = getTarget(to);
-    } catch (NoSuchThingException e) {
-      throw new IllegalStateException("not found: " + to + " from " + from + " in "
-          + attribute.getName());
-    }
-
-    if (toTarget == null) {
-      return;
-    }
-
-    Iterable<BuildConfiguration> toConfigurations = from.getConfiguration().evaluateTransition(
-        fromRule, attribute, toTarget);
-    for (BuildConfiguration toConfiguration : toConfigurations) {
-      outgoingEdges.add(new TargetAndConfiguration(toTarget, toConfiguration));
-    }
-  }
-
-  private void visitRule(final TargetAndConfiguration node, Rule rule,
+  private void visitRule(Rule rule, BuildConfiguration config,
       ListMultimap<Attribute, Label> labelMap,
       ListMultimap<Attribute, TargetAndConfiguration> outgoingEdges) {
+    Preconditions.checkNotNull(config);
     Preconditions.checkNotNull(labelMap);
     for (Map.Entry<Attribute, Collection<Label>> entry : labelMap.asMap().entrySet()) {
+      Attribute attribute = entry.getKey();
       for (Label label : entry.getValue()) {
-        visitLabelInAttribute(node, rule, label, entry.getKey(), outgoingEdges.get(entry.getKey()));
+        Target toTarget;
+        try {
+          toTarget = getTarget(label);
+        } catch (NoSuchThingException e) {
+          throw new IllegalStateException("not found: " + label + " from " + rule + " in "
+              + attribute.getName());
+        }
+        if (toTarget == null) {
+          continue;
+        }
+        Iterable<BuildConfiguration> toConfigurations = config.evaluateTransition(
+            rule, attribute, toTarget);
+        for (BuildConfiguration toConfiguration : toConfigurations) {
+          outgoingEdges.get(entry.getKey()).add(
+              new TargetAndConfiguration(toTarget, toConfiguration));
+        }
       }
     }
   }

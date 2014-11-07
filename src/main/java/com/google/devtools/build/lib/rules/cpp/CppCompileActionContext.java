@@ -16,12 +16,14 @@ package com.google.devtools.build.lib.rules.cpp;
 import com.google.devtools.build.lib.actions.ActionContextMarker;
 import com.google.devtools.build.lib.actions.ActionExecutionContext;
 import com.google.devtools.build.lib.actions.ActionExecutionException;
+import com.google.devtools.build.lib.actions.ActionInput;
 import com.google.devtools.build.lib.actions.ExecException;
 import com.google.devtools.build.lib.actions.Executor.ActionContext;
 import com.google.devtools.build.lib.actions.ResourceSet;
 
 import java.io.IOException;
 import java.util.Collection;
+import java.util.List;
 
 import javax.annotation.Nullable;
 
@@ -39,6 +41,10 @@ public interface CppCompileActionContext extends ActionContext {
      */
     byte[] getContents() throws IOException;
   }
+
+  /** Does include scanning to find the list of files needed to execute the action. */
+  List<ActionInput> findAdditionalInputs(CppCompileAction action,
+      ActionExecutionContext actionExecutionContext) throws ExecException, InterruptedException;
 
   /**
    * Executes the given action and return the reply of the executor.

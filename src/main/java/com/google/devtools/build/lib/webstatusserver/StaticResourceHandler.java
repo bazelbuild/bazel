@@ -55,9 +55,7 @@ public class StaticResourceHandler implements HttpHandler {
       }
       httpCode = 200;
     } catch (IOException e) {
-      response = "Unable to load " + path;
-      contentType = "text/plain";
-      httpCode = 500;
+      throw new IllegalArgumentException("resource " + path + " not found");
     }
     this.contentType = ImmutableList.of(contentType);
   }
@@ -73,7 +71,7 @@ public class StaticResourceHandler implements HttpHandler {
 
   public static InputStream loadFromAbsolutePath(Class<?> loadingClass, String path)
       throws IOException {
-    URL resourceUrl = loadingClass.getResource(path);
+    URL resourceUrl = loadingClass.getClassLoader().getResource(path);
     if (resourceUrl == null) {
       throw new IllegalArgumentException("resource " + path + " not found");
     }

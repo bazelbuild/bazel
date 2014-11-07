@@ -144,13 +144,10 @@ public class ActionCacheChecker {
     if (middlemanType.isMiddleman()) {
       // Some types of middlemen are not checked because they should not
       // propagate invalidation of their inputs.
-      if (middlemanType != MiddlemanType.TARGET_COMPLETION_MIDDLEMAN &&
-          middlemanType != MiddlemanType.ERROR_PROPAGATING_MIDDLEMAN) {
+      if (middlemanType != MiddlemanType.ERROR_PROPAGATING_MIDDLEMAN) {
         checkMiddlemanAction(action, handler, metadataHandler);
       }
-      if (middlemanType != MiddlemanType.TARGET_COMPLETION_MIDDLEMAN) {
-        return null; // Only target completion middlemen are executed by the builder.
-      }
+      return null;
     }
     ActionCache.Entry entry = null; // Populated lazily.
 

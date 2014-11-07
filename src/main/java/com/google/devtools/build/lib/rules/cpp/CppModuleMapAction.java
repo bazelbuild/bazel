@@ -47,15 +47,17 @@ public class CppModuleMapAction extends AbstractAction {
   private final ImmutableList<Artifact> privateHeaders;
   private final ImmutableList<Artifact> publicHeaders;
   private final ImmutableList<CppModuleMap> dependencies;
+  private final ImmutableList<PathFragment> bootstrapHackHeaders;
 
   public CppModuleMapAction(ActionOwner owner, CppModuleMap cppModuleMap,
       Iterable<Artifact> privateHeaders, Iterable<Artifact> publicHeaders,
-      Iterable<CppModuleMap> dependencies) {
+      Iterable<CppModuleMap> dependencies, Iterable<PathFragment> bootstrapHackHeaders) {
     super(owner, ImmutableList.<Artifact>of(), ImmutableList.of(cppModuleMap.getArtifact()));
     this.cppModuleMap = cppModuleMap;
     this.privateHeaders = ImmutableList.copyOf(privateHeaders);
     this.publicHeaders = ImmutableList.copyOf(publicHeaders);
     this.dependencies = ImmutableList.copyOf(dependencies);
+    this.bootstrapHackHeaders = ImmutableList.copyOf(bootstrapHackHeaders);
   }
 
   @Override
@@ -65,34 +67,53 @@ public class CppModuleMapAction extends AbstractAction {
     PathFragment fragment = cppModuleMap.getArtifact().getExecPath();
     int segmentsToExecPath = fragment.segmentCount() - 1;
 
-    content.append("module \"" + cppModuleMap.getName() + "\" {\n");
+    // For details about the different header types, see:
+    // http://clang.llvm.org/docs/Modules.html#header-declaration
+    String leadingPeriods = Strings.repeat("../", segmentsToExecPath);
+    content.append("module \"").append(cppModuleMap.getName()).append("\" {\n");
     for (Artifact artifact : privateHeaders) {
       if (!CppFileTypes.CPP_TEXTUAL_INCLUDE.matches(artifact.getExecPath())) {
-        content.append("  private header \"" + Strings.repeat("../", segmentsToExecPath)
-            + artifact.getExecPath() + "\"\n");
+        content.append("  private header \"")
+            .append(leadingPeriods)
+            .append(artifact.getExecPath())
+            .append("\"\n");
       } else {
-        content.append("  exclude header \"" + Strings.repeat("../", segmentsToExecPath)
-            + artifact.getExecPath() + "\"\n");        
+        content.append("  exclude header \"")
+            .append(leadingPeriods)
+            .append(artifact.getExecPath())
+            .append("\"\n");
       }
     }
     for (Artifact artifact : publicHeaders) {
       if (!CppFileTypes.CPP_TEXTUAL_INCLUDE.matches(artifact.getExecPath())) {
-        content.append("  header \""
-            + Strings.repeat("../", segmentsToExecPath)
-            + artifact.getExecPath() + "\"\n");
+        content.append("  header \"")
+            .append(leadingPeriods)
+            .append(artifact.getExecPath())
+            .append("\"\n");
       } else {
-        content.append("  exclude header \"" + Strings.repeat("../", segmentsToExecPath)
-            + artifact.getExecPath() + "\"\n");
+        content.append("  exclude header \"")
+            .append(leadingPeriods)
+            .append(artifact.getExecPath())
+            .append("\"\n");
       }
     }
+    for (PathFragment bootstrapHackHeader : bootstrapHackHeaders) {
+      content.append("  header \"")
+          .append(leadingPeriods)
+          .append(bootstrapHackHeader)
+          .append("\"\n");
+    }
     for (CppModuleMap dep : dependencies) {
-      content.append("  use \"" + dep.getName() + "\"\n");
+      content.append("  use \"").append(dep.getName()).append("\"\n");
     }
     content.append("}");
     for (CppModuleMap dep : dependencies) {
-      content.append("\nextern module \"" + dep.getName() + "\" \""
-          + Strings.repeat("../", segmentsToExecPath)
-          + dep.getArtifact().getExecPath() + "\"");
+      content.append("\nextern module \"")
+          .append(dep.getName())
+          .append("\" \"")
+          .append(leadingPeriods)
+          .append(dep.getArtifact().getExecPath())
+          .append("\"");
     }
 
     try {

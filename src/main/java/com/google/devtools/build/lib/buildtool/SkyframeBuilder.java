@@ -18,26 +18,28 @@ import com.google.common.base.Preconditions;
 import com.google.common.collect.ImmutableSet;
 import com.google.common.collect.Iterables;
 import com.google.common.collect.Sets;
+import com.google.common.eventbus.EventBus;
 import com.google.devtools.build.lib.actions.Action;
 import com.google.devtools.build.lib.actions.ActionCacheChecker;
 import com.google.devtools.build.lib.actions.ActionExecutionStatusReporter;
 import com.google.devtools.build.lib.actions.ActionInputFileCache;
 import com.google.devtools.build.lib.actions.Artifact;
 import com.google.devtools.build.lib.actions.BuildFailedException;
-import com.google.devtools.build.lib.actions.Builder;
 import com.google.devtools.build.lib.actions.BuilderUtils;
 import com.google.devtools.build.lib.actions.Executor;
 import com.google.devtools.build.lib.actions.ResourceManager;
 import com.google.devtools.build.lib.actions.TestExecException;
 import com.google.devtools.build.lib.skyframe.ActionExecutionInactivityWatchdog;
 import com.google.devtools.build.lib.skyframe.ActionExecutionValue;
-import com.google.devtools.build.lib.skyframe.ArtifactValue;
-import com.google.devtools.build.lib.skyframe.ArtifactValue.OwnedArtifact;
+import com.google.devtools.build.lib.skyframe.Builder;
 import com.google.devtools.build.lib.skyframe.SkyFunctions;
 import com.google.devtools.build.lib.skyframe.SkyframeActionExecutor;
 import com.google.devtools.build.lib.skyframe.SkyframeExecutor;
+import com.google.devtools.build.lib.skyframe.TargetCompletionValue;
 import com.google.devtools.build.lib.util.AbruptExitException;
 import com.google.devtools.build.lib.util.BlazeClock;
+import com.google.devtools.build.lib.view.ConfiguredTarget;
+import com.google.devtools.build.lib.view.TargetCompleteEvent;
 import com.google.devtools.build.skyframe.CycleInfo;
 import com.google.devtools.build.skyframe.ErrorInfo;
 import com.google.devtools.build.skyframe.EvaluationProgressReceiver;
@@ -47,6 +49,7 @@ import com.google.devtools.build.skyframe.SkyKey;
 import com.google.devtools.build.skyframe.SkyValue;
 
 import java.text.NumberFormat;
+import java.util.Collection;
 import java.util.Collections;
 import java.util.Locale;
 import java.util.Map;
@@ -69,7 +72,7 @@ public class SkyframeBuilder implements Builder {
 
   @VisibleForTesting
   public SkyframeBuilder(SkyframeExecutor skyframeExecutor, ActionCacheChecker actionCacheChecker,
-      boolean keepGoing, boolean explain, int numJobs, boolean checkOutputFiles,
+      boolean keepGoing, int numJobs, boolean checkOutputFiles,
       ActionInputFileCache fileCache, int progressReportInterval) {
     this.skyframeExecutor = skyframeExecutor;
     this.actionCacheChecker = actionCacheChecker;
@@ -83,20 +86,22 @@ public class SkyframeBuilder implements Builder {
   @Override
   public void buildArtifacts(Set<Artifact> artifacts,
       Set<Artifact> exclusiveTestArtifacts,
+      Collection<ConfiguredTarget> targetsToBuild,
       Executor executor,
-      Set<Artifact> builtArtifacts,
+      Set<ConfiguredTarget> builtTargets,
       boolean explain)
       throws BuildFailedException, AbruptExitException, TestExecException, InterruptedException {
     skyframeExecutor.prepareExecution(checkOutputFiles);
     skyframeExecutor.setFileCache(fileCache);
-    // Note that executionProgressReceiver accesses builtArtifacts concurrently (after wrapping in a
+    // Note that executionProgressReceiver accesses builtTargets concurrently (after wrapping in a
     // synchronized collection), so unsynchronized access to this variable is unsafe while it runs.
     ExecutionProgressReceiver executionProgressReceiver =
-        new ExecutionProgressReceiver(artifacts, builtArtifacts, exclusiveTestArtifacts.size());
+        new ExecutionProgressReceiver(Preconditions.checkNotNull(builtTargets),
+            exclusiveTestArtifacts.size(), skyframeExecutor.getEventBus());
     ResourceManager.instance().setEventBus(skyframeExecutor.getEventBus());
 
     boolean success = false;
-    EvaluationResult<ArtifactValue> result = null;
+    EvaluationResult<?> result;
 
     ActionExecutionStatusReporter statusReporter = ActionExecutionStatusReporter.create(
         skyframeExecutor.getReporter(), executor, skyframeExecutor.getEventBus());
@@ -115,13 +120,15 @@ public class SkyframeBuilder implements Builder {
     // no longer used. [skyframe-execution]
     skyframeExecutor.informAboutNumberOfModifiedFiles();
     try {
-      result = skyframeExecutor.buildArtifacts(executor, artifacts, keepGoing, explain, numJobs,
-          actionCacheChecker, executionProgressReceiver);
-      // progressReceiver is finished, so unsynchronized access to builtArtifacts is now safe.
-      builtArtifacts.addAll(ArtifactValue.artifacts(result.<OwnedArtifact>keyNames()));
+      result = skyframeExecutor.buildArtifacts(executor, artifacts, targetsToBuild,
+          keepGoing, explain, numJobs, actionCacheChecker, executionProgressReceiver);
+      // progressReceiver is finished, so unsynchronized access to builtTargets is now safe.
       success = processResult(result, keepGoing, skyframeExecutor);
-      Preconditions.checkState(!success || result.keyNames().size() == artifacts.size(),
-          "Build reported as successful but not all artifacts built: %s, %s", result, artifacts);
+
+      Preconditions.checkState(
+          !success || result.keyNames().size() == artifacts.size() + targetsToBuild.size(),
+          "Build reported as successful but not all artifacts and targets built: %s, %s",
+          result, artifacts);
 
       // Run exclusive tests: either tagged as "exclusive" or is run in an invocation with
       // --test_output=streamed.
@@ -130,7 +137,7 @@ public class SkyframeBuilder implements Builder {
         // Since only one artifact is being built at a time, we don't worry about an artifact being
         // built and then the build being interrupted.
         result = skyframeExecutor.buildArtifacts(executor, ImmutableSet.of(exclusiveArtifact),
-            keepGoing, explain, numJobs, actionCacheChecker, null);
+            targetsToBuild, keepGoing, explain, numJobs, actionCacheChecker, null);
         boolean exclusiveSuccess = processResult(result, keepGoing, skyframeExecutor);
         Preconditions.checkState(!exclusiveSuccess || !result.keyNames().isEmpty(),
             "Build reported as successful but artifact %s not built: %s",
@@ -198,13 +205,13 @@ public class SkyframeBuilder implements Builder {
     private static final NumberFormat PROGRESS_MESSAGE_NUMBER_FORMATTER;
 
     // Must be thread-safe!
-    private final Set<Artifact> builtArtifacts;
-    private final ImmutableSet<Artifact> artifacts;
+    private final Set<ConfiguredTarget> builtTargets;
     private final Set<SkyKey> enqueuedActions = Sets.newConcurrentHashSet();
     private final Set<Action> completedActions = Sets.newConcurrentHashSet();
     private final Object activityIndicator = new Object();
     /** Number of exclusive tests. To be accounted for in progress messages. */
     private final int exclusiveTestsCount;
+    private final EventBus eventBus;
 
     static {
       PROGRESS_MESSAGE_NUMBER_FORMATTER = NumberFormat.getIntegerInstance(Locale.ENGLISH);
@@ -212,14 +219,14 @@ public class SkyframeBuilder implements Builder {
     }
 
     /**
-     * {@code builtArtifacts} is accessed through a synchronized set, and so no other access to it
+     * {@code builtTargets} is accessed through a synchronized set, and so no other access to it
      * is permitted while this receiver is active.
      */
-    ExecutionProgressReceiver(Set<Artifact> artifacts, Set<Artifact> builtArtifacts,
-        int exclusiveTestsCount) {
-      this.artifacts = ImmutableSet.copyOf(artifacts);
-      this.builtArtifacts = Collections.synchronizedSet(builtArtifacts);
+    ExecutionProgressReceiver(Set<ConfiguredTarget> builtTargets, int exclusiveTestsCount,
+                              EventBus eventBus) {
+      this.builtTargets = Collections.synchronizedSet(builtTargets);
       this.exclusiveTestsCount = exclusiveTestsCount;
+      this.eventBus = eventBus;
     }
 
     @Override
@@ -236,43 +243,16 @@ public class SkyframeBuilder implements Builder {
       }
     }
 
-    /**
-     * We add to the list of built artifacts here, to ensure we have an accurate list of all
-     * artifacts that were built if the build is interrupted. We add all (top-level) outputs of a
-     * completed action to the built artifacts as soon as we are notified that the action has
-     * completed. Note that this happens before the corresponding ArtifactValue is created in
-     * Skyframe.
-     *
-     * <p>Adding action outputs leaves out two cases -- when the top-level artifact's generating
-     * action did not need to be run (so we are not notified here that it was built), and when the
-     * top-level artifact is a source artifact (so it had no generating action). In those cases, we
-     * add the artifact when we are notified that the corresponding ArtifactValue is built.
-     *
-     * <p>If Blaze were more tolerant to inconsistencies between the events fired and the artifacts
-     * known to be built, we could just add artifacts here via their ArtifactNodes being built, or
-     * even avoid this listener entirely.
-     */
     @Override
     public void evaluated(SkyKey skyKey, SkyValue node, EvaluationState state) {
       SkyFunctionName type = skyKey.functionName();
-      if (type == SkyFunctions.ARTIFACT) {
-        Artifact artifact = ArtifactValue.artifact(skyKey);
-        if ((state == EvaluationState.CLEAN || artifact.isSourceArtifact())
-            && artifacts.contains(artifact)) {
-          // If an artifact was built this run, it will already have been added below by its
-          // generating action. But a cached artifact must be added here, as must source artifacts.
-          builtArtifacts.add(artifact);
-        }
+      if (type == SkyFunctions.TARGET_COMPLETION) {
+        TargetCompletionValue val =
+            (TargetCompletionValue) node;
+        ConfiguredTarget target = val.getConfiguredTarget();
+        builtTargets.add(target);
+        eventBus.post(new TargetCompleteEvent(target, null, null));
       } else if (type == SkyFunctions.ACTION_EXECUTION) {
-        // We monitor actions because it is possible that an action will successfully run but its
-        // output artifact's node will not be created before the build is interrupted. By adding the
-        // artifact to the set of built artifacts here, we avoid an inconsistency between the built
-        // artifacts here and successful actions (as given by events posted from the SkyFunction).
-        for (Artifact artifact : ((Action) skyKey.argument()).getOutputs()) {
-          if (artifacts.contains(artifact)) {
-            builtArtifacts.add(artifact);
-          }
-        }
         // Remember all completed actions, regardless of having been cached or really executed.
         actionCompleted((Action) skyKey.argument());
       }

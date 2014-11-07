@@ -16,9 +16,9 @@ package com.google.devtools.build.lib.pkgcache;
 import com.google.common.collect.Multimap;
 import com.google.devtools.build.lib.events.EventHandler;
 import com.google.devtools.build.lib.packages.Package;
+import com.google.devtools.build.lib.packages.PackageIdentifier;
 import com.google.devtools.build.lib.packages.Target;
 import com.google.devtools.build.lib.syntax.Label;
-import com.google.devtools.build.lib.vfs.PathFragment;
 
 import java.util.Collection;
 import java.util.Set;
@@ -62,7 +62,7 @@ public interface TransitivePackageLoader {
    *
    * <p>Not thread-safe; do not call during visitation.
    */
-  Set<PathFragment> getVisitedPackageNames();
+  Set<PackageIdentifier> getVisitedPackageNames();
 
   /**
    * Returns a read-only view of the set of the actual packages visited without error since this

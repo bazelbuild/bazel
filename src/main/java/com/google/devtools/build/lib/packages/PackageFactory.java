@@ -398,7 +398,7 @@ public final class PackageFactory {
               ? null
               : context.pkgBuilder.getFilename().getRelative(pathString);
           // A subinclude within a package counts as a file declaration.
-          if (label.getPackageFragment().equals(context.pkgBuilder.getNameFragment())) {
+          if (label.getPackageIdentifier().equals(context.pkgBuilder.getPackageIdentifier())) {
             Location location = ast.getLocation();
             if (location == null) {
               location = Location.fromFile(context.pkgBuilder.getFilename());

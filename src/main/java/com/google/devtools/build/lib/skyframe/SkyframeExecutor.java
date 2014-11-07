@@ -290,8 +290,7 @@ public abstract class SkyframeExecutor {
     map.put(SkyFunctions.CONFIGURATION_FRAGMENT, new ConfigurationFragmentFunction(
         configurationFragments, configurationPackages));
     map.put(SkyFunctions.WORKSPACE_FILE, new WorkspaceFileFunction(pkgFactory));
-    map.put(SkyFunctions.TARGET_COMPLETION,
-        new TargetCompletionFunction(new BuildViewProvider()));
+    map.put(SkyFunctions.TARGET_COMPLETION, new TargetCompletionFunction());
     map.put(SkyFunctions.ARTIFACT, new ArtifactFunction(eventBus, allowedMissingInputs));
     map.put(SkyFunctions.BUILD_INFO_COLLECTION, new BuildInfoCollectionFunction(artifactFactory,
         buildDataDirectory));
@@ -812,7 +811,8 @@ public abstract class SkyframeExecutor {
    * {@link SkyframeActionExecutor#findAndStoreArtifactConflicts} to do the work, since any
    * conflicts found will only be reported during execution.
    */
-  ImmutableMap<Action, Exception> findArtifactConflicts() throws InterruptedException {
+  ImmutableMap<Action, SkyframeActionExecutor.ConflictException> findArtifactConflicts()
+      throws InterruptedException {
     if (skyframeBuildView.isSomeConfiguredTargetEvaluated()
         || skyframeBuildView.isSomeConfiguredTargetInvalidated()) {
       // This operation is somewhat expensive, so we only do it if the graph might have changed in
@@ -825,14 +825,12 @@ public abstract class SkyframeExecutor {
   }
 
   /**
-   * Asks the Skyframe evaluator to build the values corresponding to the given artifacts.
-   *
-   * <p>The returned artifacts should be built and present on the filesystem after the call
-   * completes.
+   * Asks the Skyframe evaluator to build the given artifacts and targets.
    */
-  public EvaluationResult<ArtifactValue> buildArtifacts(
+  public EvaluationResult<?> buildArtifacts(
       Executor executor,
-      Set<Artifact> artifacts,
+      Set<Artifact> artifactsToBuild,
+      Collection<ConfiguredTarget> targetsToBuild,
       boolean keepGoing,
       boolean explain,
       int numJobs,
@@ -846,7 +844,9 @@ public abstract class SkyframeExecutor {
     resourceManager.resetResourceUsage();
     try {
       progressReceiver.executionProgressReceiver = executionProgressReceiver;
-      return buildDriver.evaluate(ArtifactValue.mandatoryKeys(artifacts), keepGoing,
+      Iterable<SkyKey> artifactKeys = ArtifactValue.mandatoryKeys(artifactsToBuild);
+      Iterable<SkyKey> targetKeys = TargetCompletionValue.keys(targetsToBuild);
+      return buildDriver.evaluate(Iterables.concat(artifactKeys, targetKeys), keepGoing,
           numJobs, errorEventListener);
     } finally {
       progressReceiver.executionProgressReceiver = null;
@@ -967,7 +967,8 @@ public abstract class SkyframeExecutor {
    */
   public EvaluationResult<PostConfiguredTargetValue> postConfigureTargets(
       List<LabelAndConfiguration> values, boolean keepGoing,
-      ImmutableMap<Action, Exception> badActions) throws InterruptedException {
+      ImmutableMap<Action, SkyframeActionExecutor.ConflictException> badActions)
+          throws InterruptedException {
     checkActive();
     PrecomputedValue.BAD_ACTIONS.set(injectable(), badActions);
     // Make sure to not run too many analysis threads. This can cause memory thrashing.
@@ -1010,10 +1011,10 @@ public abstract class SkyframeExecutor {
           errorEventListener);
     }
 
-    public Set<Package> retrievePackages(Set<PathFragment> packageNames) {
+    public Set<Package> retrievePackages(Set<PackageIdentifier> packageIds) {
       final List<SkyKey> valueNames = new ArrayList<>();
-      for (PathFragment pkgName : packageNames) {
-        valueNames.add(PackageValue.key(pkgName));
+      for (PackageIdentifier pkgId : packageIds) {
+        valueNames.add(PackageValue.key(pkgId));
       }
 
       try {
@@ -1189,7 +1190,7 @@ public abstract class SkyframeExecutor {
    * the latest build.
    */
   @ThreadCompatible
-  public abstract void updateLoadedPackageSet(Set<PathFragment> loadedPackages);
+  public abstract void updateLoadedPackageSet(Set<PackageIdentifier> loadedPackages);
 
   public void sync(PackageCacheOptions packageCacheOptions, Path workingDirectory,
       String defaultsPackageContents, UUID commandId) throws InterruptedException {

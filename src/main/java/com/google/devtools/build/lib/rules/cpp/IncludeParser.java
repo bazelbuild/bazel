@@ -623,9 +623,8 @@ public class IncludeParser implements SkyValue {
     if (greppedFile != null) {
       inclusions = processIncludes(greppedFile, greppedFile.getInputStream());
     } else {
-      RemoteParseData remoteParseData = remoteExtractor.get() == null
-          ? null
-          : remoteExtractor.get().shouldParseRemotely(file, actionExecutionContext);
+      RemoteParseData remoteParseData =
+          remoteExtractor.get() == null ? null : remoteExtractor.get().shouldParseRemotely(file);
       if (remoteParseData != null && remoteParseData.shouldParseRemotely()) {
         inclusions =
             remoteExtractor.get().extractInclusions(file, actionExecutionContext,

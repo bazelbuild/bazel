@@ -47,6 +47,7 @@ import com.google.devtools.build.skyframe.SkyKey;
 import com.google.devtools.build.skyframe.SkyValue;
 import com.google.devtools.build.skyframe.ValueOrException;
 
+import java.util.Collection;
 import java.util.HashMap;
 import java.util.Map;
 import java.util.Set;
@@ -133,7 +134,7 @@ final class ConfiguredTargetFunction implements SkyFunction {
 
     // 3. Resolve dependencies and handle errors.
     Map<SkyKey, ConfiguredTargetValue> depValues =
-        resolveDependencies(env, depValueNames, key, target);
+        resolveDependencies(env, depValueNames.values(), key, target);
     if (depValues == null) {
       return null;
     }
@@ -182,7 +183,7 @@ final class ConfiguredTargetFunction implements SkyFunction {
 
     // Collect the corresponding Skyframe configured target values. Abort early if they haven't
     // been computed yet.
-    ListMultimap<Attribute, TargetAndConfiguration> configValueNames =
+    Collection<TargetAndConfiguration> configValueNames =
         resolver.resolveRuleLabels(ctgValue, configLabelMap);
     Map<SkyKey, ConfiguredTargetValue> configValues =
         resolveDependencies(env, configValueNames, skyKey, target);
@@ -191,8 +192,8 @@ final class ConfiguredTargetFunction implements SkyFunction {
     }
 
     // Get the configured targets as ConfigMatchingProvider interfaces.
-    for (Map.Entry<Attribute, TargetAndConfiguration> entry : configValueNames.entries()) {
-      ConfiguredTargetValue value = configValues.get(TO_KEYS.apply(entry.getValue()));
+    for (TargetAndConfiguration entry : configValueNames) {
+      ConfiguredTargetValue value = configValues.get(TO_KEYS.apply(entry));
       // The code above guarantees that value is non-null here.
       ConfigMatchingProvider provider =
           value.getConfiguredTarget().getProvider(ConfigMatchingProvider.class);
@@ -200,7 +201,7 @@ final class ConfiguredTargetFunction implements SkyFunction {
         configConditions.add(provider);
       } else {
         // Not a valid provider for configuration conditions.
-        Target badTarget = entry.getValue().getTarget();
+        Target badTarget = entry.getTarget();
         String message = badTarget + " is not a valid configuration key for "
             + target.getLabel().toString();
         env.getListener().handle(Event.error(TargetUtils.getLocationMaybe(badTarget), message));
@@ -220,11 +221,11 @@ final class ConfiguredTargetFunction implements SkyFunction {
    *
    */
   private Map<SkyKey, ConfiguredTargetValue> resolveDependencies(Environment env,
-      ListMultimap<Attribute, TargetAndConfiguration> depValueNames, SkyKey skyKey,
+      Collection<TargetAndConfiguration> deps, SkyKey skyKey,
       Target target) throws ConfiguredTargetFunctionException {
     boolean ok = !env.valuesMissing();
     String message = null;
-    Iterable<SkyKey> depKeys = Iterables.transform(depValueNames.values(), TO_KEYS);
+    Iterable<SkyKey> depKeys = Iterables.transform(deps, TO_KEYS);
     // TODO(bazel-team): maybe having a two-exception argument is better than typing a generic
     // Exception here.
     Map<SkyKey, ValueOrException<Exception>> depValuesOrExceptions =

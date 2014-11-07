@@ -19,6 +19,7 @@ import com.google.common.collect.ImmutableMap;
 import com.google.devtools.build.lib.actions.Action;
 import com.google.devtools.build.lib.blaze.BlazeDirectories;
 import com.google.devtools.build.lib.packages.RuleVisibility;
+import com.google.devtools.build.lib.skyframe.SkyframeActionExecutor.ConflictException;
 import com.google.devtools.build.lib.view.TopLevelArtifactContext;
 import com.google.devtools.build.lib.view.WorkspaceStatusAction;
 import com.google.devtools.build.lib.view.buildinfo.BuildInfoFactory;
@@ -64,7 +65,7 @@ public class PrecomputedValue implements SkyValue {
   static final Precomputed<BlazeDirectories> BLAZE_DIRECTORIES =
       new Precomputed<>(new SkyKey(SkyFunctions.PRECOMPUTED, "blaze_directories"));
 
-  static final Precomputed<ImmutableMap<Action, Exception>> BAD_ACTIONS =
+  static final Precomputed<ImmutableMap<Action, ConflictException>> BAD_ACTIONS =
       new Precomputed<>(new SkyKey(SkyFunctions.PRECOMPUTED, "bad_actions"));
 
   static final Precomputed<String> PRELUDE_FILE =

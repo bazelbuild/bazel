@@ -175,6 +175,9 @@ class BlazeStartupOptions {
   // the --host_javabase option.
   string GetHostJavabase();
 
+  // Port for web status server, 0 to disable
+  int webstatus_port;
+
  private:
   string host_javabase;
 

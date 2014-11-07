@@ -36,6 +36,7 @@ import com.google.devtools.build.lib.packages.NoSuchTargetException;
 import com.google.devtools.build.lib.packages.NoSuchThingException;
 import com.google.devtools.build.lib.packages.NonconfigurableAttributeMapper;
 import com.google.devtools.build.lib.packages.Package;
+import com.google.devtools.build.lib.packages.PackageIdentifier;
 import com.google.devtools.build.lib.packages.Rule;
 import com.google.devtools.build.lib.packages.Target;
 import com.google.devtools.build.lib.packages.TestSize;
@@ -177,7 +178,7 @@ public class LoadingPhaseRunner {
      * <p>The set of visited packages is the set of packages in the transitive closure of the
      * union of the top level targets.
      */
-    void notifyVisitedPackages(Set<PathFragment> visitedPackages);
+    void notifyVisitedPackages(Set<PackageIdentifier> visitedPackages);
   }
 
   /**
@@ -191,11 +192,12 @@ public class LoadingPhaseRunner {
     private final ImmutableSet<Target> testsToRun;
     private final ImmutableMap<PathFragment, Path> packageRoots;
     // TODO(bazel-team): consider moving this to LoadedPackageProvider
-    private final ImmutableSet<PathFragment> visitedPackages;
+    private final ImmutableSet<PackageIdentifier> visitedPackages;
 
     public LoadingResult(boolean hasTargetPatternError, boolean hasLoadingError,
         Collection<Target> targetsToAnalyze, Collection<Target> testsToRun,
-        ImmutableMap<PathFragment, Path> packageRoots, Set<PathFragment> visitedPackages) {
+        ImmutableMap<PathFragment, Path> packageRoots,
+        Set<PackageIdentifier> visitedPackages) {
       this.hasTargetPatternError = hasTargetPatternError;
       this.hasLoadingError = hasLoadingError;
       this.targetsToAnalyze =
@@ -239,7 +241,7 @@ public class LoadingPhaseRunner {
      * <p>We use this to decide when to evict ConfiguredTarget nodes from the graph.
      */
     @ThreadCompatible
-    private ImmutableSet<PathFragment> getVisitedPackages() {
+    private ImmutableSet<PackageIdentifier> getVisitedPackages() {
       return visitedPackages;
     }
   }
@@ -482,7 +484,7 @@ public class LoadingPhaseRunner {
     ImmutableMap<PathFragment, Path> packageRoots = collectPackageRoots(
         pkgLoader.getErrorFreeVisitedPackages());
 
-    Set<PathFragment> visitedPackageNames = pkgLoader.getVisitedPackageNames();
+    Set<PackageIdentifier> visitedPackageNames = pkgLoader.getVisitedPackageNames();
 
     // Clear some targets from the cache to free memory.
     packageManager.partiallyClear();

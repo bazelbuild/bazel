@@ -18,9 +18,12 @@ import static com.google.common.base.CaseFormat.LOWER_UNDERSCORE;
 import static com.google.common.base.CaseFormat.UPPER_CAMEL;
 import static com.google.devtools.build.lib.rules.objc.XcodeProductType.LIBRARY_STATIC;
 
+import com.google.common.annotations.VisibleForTesting;
+import com.google.common.base.Function;
 import com.google.common.base.Optional;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
+import com.google.common.collect.ImmutableSet;
 import com.google.common.collect.Iterables;
 import com.google.devtools.build.lib.actions.Artifact;
 import com.google.devtools.build.lib.collect.nestedset.NestedSet;
@@ -34,6 +37,7 @@ import com.google.devtools.build.lib.view.ConfiguredTarget;
 import com.google.devtools.build.lib.view.RuleConfiguredTarget.Mode;
 import com.google.devtools.build.lib.view.RuleContext;
 import com.google.devtools.build.lib.view.actions.CustomCommandLine;
+import com.google.devtools.build.lib.view.actions.FileWriteAction;
 import com.google.devtools.build.lib.view.actions.SpawnAction;
 import com.google.devtools.build.lib.view.proto.ProtoSourcesProvider;
 
@@ -43,6 +47,18 @@ import javax.annotation.Nullable;
  * Implementation for the "objc_proto_library" rule.
  */
 public class ObjcProtoLibrary implements RuleConfiguredTargetFactory {
+  private static final Function<Artifact, PathFragment> PARENT_PATHFRAGMENT =
+      new Function<Artifact, PathFragment>() {
+    @Override
+    public PathFragment apply(Artifact input) {
+      return input.getExecPath().getParentDirectory();
+    }
+  };
+
+  @VisibleForTesting
+  static final String NO_PROTOS_ERROR =
+      "no protos to compile - a non-empty deps attribute is required";
+
   @Override
   public ConfiguredTarget create(final RuleContext ruleContext) throws InterruptedException {
     Artifact compileProtos =
@@ -53,6 +69,11 @@ public class ObjcProtoLibrary implements RuleConfiguredTargetFactory {
         .addAll(ruleContext.getPrerequisiteArtifacts("deps", Mode.TARGET, FileType.of(".proto")))
         .addAll(maybeGetProtoSources(ruleContext))
         .build();
+
+    if (Iterables.isEmpty(protos)) {
+      ruleContext.ruleError(NO_PROTOS_ERROR);
+    }
+
     ImmutableList<Artifact> libProtobuf =
         ruleContext.getPrerequisiteArtifacts(ObjcProtoLibraryRule.LIBPROTOBUF_ATTR, Mode.TARGET);
     ImmutableList<Artifact> protoSupport =
@@ -73,29 +94,35 @@ public class ObjcProtoLibrary implements RuleConfiguredTargetFactory {
         ruleContext, rootRelativeOutputDir, protos, FileType.of(".pb.m"));
     ImmutableList<Artifact> protoGeneratedHeaders = outputArtifacts(
         ruleContext, rootRelativeOutputDir, protos, FileType.of(".pb.h"));
-    
+
+    Artifact inputFileList = FileWriteAction.createFile(ruleContext, "proto_input_files",
+        ObjcActionsBuilder.joinExecPaths(protos), false);
+
     CustomCommandLine.Builder commandLineBuilder = new CustomCommandLine.Builder()
         .add(compileProtos.getExecPathString())
-        .add(Artifact.toExecPaths(protos))
+        .add("--input-file-list").add(inputFileList.getExecPathString())
         .add("--output-dir").add(workspaceRelativeOutputDir.getSafePathString());
     if (optionsFile.isPresent()) {
         commandLineBuilder
             .add("--compiler-options-path")
             .add(optionsFile.get().getExecPathString());
     }
-    
-    ruleContext.getAnalysisEnvironment().registerAction(new SpawnAction.Builder(ruleContext)
-        .setMnemonic("Generating Objc Protos")
-        .addInput(compileProtos)
-        .addInputs(optionsFile.asSet())
-        .addInputs(protos)
-        .addInputs(libProtobuf)
-        .addInputs(protoSupport)
-        .addOutputs(Iterables.concat(protoGeneratedSources, protoGeneratedHeaders))
-        .setExecutable(new PathFragment("/usr/bin/python"))
-        .setCommandLine(commandLineBuilder.build())
-        .setExecutionInfo(ImmutableMap.of(ExecutionRequirements.REQUIRES_DARWIN, ""))
-        .build());
+
+    if (!Iterables.isEmpty(protos)) {
+      ruleContext.getAnalysisEnvironment().registerAction(new SpawnAction.Builder(ruleContext)
+          .setMnemonic("Generating Objc Protos")
+          .addInput(compileProtos)
+          .addInputs(optionsFile.asSet())
+          .addInputs(protos)
+          .addInput(inputFileList)
+          .addInputs(libProtobuf)
+          .addInputs(protoSupport)
+          .addOutputs(Iterables.concat(protoGeneratedSources, protoGeneratedHeaders))
+          .setExecutable(new PathFragment("/usr/bin/python"))
+          .setCommandLine(commandLineBuilder.build())
+          .setExecutionInfo(ImmutableMap.of(ExecutionRequirements.REQUIRES_DARWIN, ""))
+          .build());
+    }
 
     IntermediateArtifacts intermediateArtifacts =
         ObjcRuleClasses.intermediateArtifacts(ruleContext);
@@ -105,9 +132,11 @@ public class ObjcProtoLibrary implements RuleConfiguredTargetFactory {
         .setPchFile(Optional.<Artifact>absent())
         .build();
 
-    ImmutableList<PathFragment> searchPathEntries = ImmutableList.of(
-        workspaceRelativeOutputDir,
-        generatedProtoDir);
+    ImmutableSet<PathFragment> searchPathEntries = new ImmutableSet.Builder<PathFragment>()
+        .add(workspaceRelativeOutputDir)
+        .add(generatedProtoDir)
+        .addAll(Iterables.transform(protoGeneratedHeaders, PARENT_PATHFRAGMENT))
+        .build();
     ObjcCommon common = new ObjcCommon.Builder(ruleContext)
         .setCompilationArtifacts(compilationArtifacts)
         .addUserHeaderSearchPaths(searchPathEntries)

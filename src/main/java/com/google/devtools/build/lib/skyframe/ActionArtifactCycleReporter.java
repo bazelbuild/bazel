@@ -22,6 +22,7 @@ import com.google.devtools.build.lib.pkgcache.LoadedPackageProvider;
 import com.google.devtools.build.lib.skyframe.ArtifactValue.OwnedArtifact;
 import com.google.devtools.build.lib.syntax.Label;
 import com.google.devtools.build.skyframe.CycleInfo;
+import com.google.devtools.build.skyframe.SkyFunctionName;
 import com.google.devtools.build.skyframe.SkyKey;
 
 /**
@@ -31,7 +32,8 @@ public class ActionArtifactCycleReporter extends AbstractLabelCycleReporter {
 
   private static final Predicate<SkyKey> IS_ARTIFACT_OR_ACTION_SKY_KEY = Predicates.or(
       SkyFunctions.isSkyFunction(SkyFunctions.ARTIFACT),
-      SkyFunctions.isSkyFunction(SkyFunctions.ACTION_EXECUTION));
+      SkyFunctions.isSkyFunction(SkyFunctions.ACTION_EXECUTION),
+      SkyFunctions.isSkyFunction(SkyFunctions.TARGET_COMPLETION));
 
   ActionArtifactCycleReporter(LoadedPackageProvider loadedPackageProvider) {
     super(loadedPackageProvider);
@@ -39,16 +41,20 @@ public class ActionArtifactCycleReporter extends AbstractLabelCycleReporter {
 
   @Override
   protected String prettyPrint(SkyKey key) {
-    return prettyPrint(key.argument());
+    return prettyPrint(key.functionName(), key.argument());
   }
 
-  private String prettyPrint(Object arg) {
+  private String prettyPrint(SkyFunctionName skyFunctionName, Object arg) {
     if (arg instanceof OwnedArtifact) {
       return "file: " + ((OwnedArtifact) arg).getArtifact().getRootRelativePathString();
     } else if (arg instanceof Action) {
       return "action: " + ((Action) arg).getMnemonic();
+    } else if (arg instanceof LabelAndConfiguration
+        && skyFunctionName == SkyFunctions.TARGET_COMPLETION) {
+      return "configured target: " + ((LabelAndConfiguration) arg).getLabel().toString();
     }
-    throw new IllegalStateException("Argument is not Action or OwnedArtifact: " + arg);
+    throw new IllegalStateException(
+        "Argument is not Action, TargetCompletion,  or OwnedArtifact: " + arg);
   }
 
   @Override

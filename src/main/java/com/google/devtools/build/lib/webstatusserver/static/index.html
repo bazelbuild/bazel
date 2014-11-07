@@ -1,0 +1,21 @@
+<html>
+<head>
+  <title> Bazel web server. </title>
+  <script src="/js/lib/d3.js" type="application/javascript"></script>
+  <script src="/js/lib/jquery.js" type="application/javascript"></script>
+  <script src="/js/index.js" type="application/javascript"></script>
+  <style>
+    .row { outline:1px solid gray; display:table-row; }
+    .cell { padding:5px; display:table-cell; }
+    .test-case { outline:1px solid gray; display:block; padding:5px; }
+    .test-detail { padding:5px; display:inline; }
+    .button { cursor:pointer; color:#666; }
+  </style>
+</head>
+<body onload="showData()">
+  <h1> Bazel web server status page. </h1>
+  <h2> Tests list. </h2>
+  <div id="testsList">
+  </div>
+</body>
+</html>

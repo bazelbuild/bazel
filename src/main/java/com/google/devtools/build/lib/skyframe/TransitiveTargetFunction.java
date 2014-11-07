@@ -24,11 +24,11 @@ import com.google.devtools.build.lib.packages.NoSuchTargetException;
 import com.google.devtools.build.lib.packages.NoSuchThingException;
 import com.google.devtools.build.lib.packages.OutputFile;
 import com.google.devtools.build.lib.packages.PackageGroup;
+import com.google.devtools.build.lib.packages.PackageIdentifier;
 import com.google.devtools.build.lib.packages.Rule;
 import com.google.devtools.build.lib.packages.Target;
 import com.google.devtools.build.lib.packages.TargetUtils;
 import com.google.devtools.build.lib.syntax.Label;
-import com.google.devtools.build.lib.vfs.PathFragment;
 import com.google.devtools.build.skyframe.SkyFunction;
 import com.google.devtools.build.skyframe.SkyFunctionException;
 import com.google.devtools.build.skyframe.SkyKey;
@@ -86,15 +86,15 @@ public class TransitiveTargetFunction implements SkyFunction {
           + " not NoSuchTargetException or NoSuchPackageException");
     }
 
-    NestedSetBuilder<PathFragment> transitiveSuccessfulPkgs = NestedSetBuilder.stableOrder();
-    NestedSetBuilder<PathFragment> transitiveUnsuccessfulPkgs = NestedSetBuilder.stableOrder();
+    NestedSetBuilder<PackageIdentifier> transitiveSuccessfulPkgs = NestedSetBuilder.stableOrder();
+    NestedSetBuilder<PackageIdentifier> transitiveUnsuccessfulPkgs = NestedSetBuilder.stableOrder();
     NestedSetBuilder<Label> transitiveTargets = NestedSetBuilder.stableOrder();
 
-    PathFragment packageName = target.getPackage().getNameFragment();
+    PackageIdentifier packageId = target.getPackage().getPackageIdentifier();
     if (packageLoadedSuccessfully) {
-      transitiveSuccessfulPkgs.add(packageName);
+      transitiveSuccessfulPkgs.add(packageId);
     } else {
-      transitiveUnsuccessfulPkgs.add(packageName);
+      transitiveUnsuccessfulPkgs.add(packageId);
     }
     transitiveTargets.add(target.getLabel());
     for (Map.Entry<SkyKey, ValueOrException<NoSuchThingException>> entry :
@@ -134,8 +134,8 @@ public class TransitiveTargetFunction implements SkyFunction {
       return null;
     }
 
-    NestedSet<PathFragment> successfullyLoadedPackages = transitiveSuccessfulPkgs.build();
-    NestedSet<PathFragment> unsuccessfullyLoadedPackages = transitiveUnsuccessfulPkgs.build();
+    NestedSet<PackageIdentifier> successfullyLoadedPackages = transitiveSuccessfulPkgs.build();
+    NestedSet<PackageIdentifier> unsuccessfullyLoadedPackages = transitiveUnsuccessfulPkgs.build();
     NestedSet<Label> loadedTargets = transitiveTargets.build();
     if (successfulTransitiveLoading) {
       return TransitiveTargetValue.successfulTransitiveLoading(successfullyLoadedPackages,

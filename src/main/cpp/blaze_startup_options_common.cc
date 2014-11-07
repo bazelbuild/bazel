@@ -44,6 +44,7 @@ void BlazeStartupOptions::Init() {
   io_nice_level = -1;
   // 3 hours (but only 5 seconds if used within a test)
   max_idle_secs = testing ? 5 : (3 * 3600);
+  webstatus_port = 0;
   watchfs = false;
 }
 
@@ -74,6 +75,7 @@ void BlazeStartupOptions::Copy(
   lhs->max_idle_secs = rhs.max_idle_secs;
   lhs->skyframe = rhs.skyframe;
   lhs->skygraph = rhs.skygraph;
+  lhs->webstatus_port = rhs.webstatus_port;
   lhs->watchfs = rhs.watchfs;
   lhs->allow_configurable_attributes = rhs.allow_configurable_attributes;
   lhs->fatal_event_bus_exceptions = rhs.fatal_event_bus_exceptions;
@@ -212,6 +214,15 @@ bool BlazeStartupOptions::ProcessArg(const string& argstr,
   } else if (GetNullaryOption(arg, "--watchfs")) {
     watchfs = true;
     option_sources["watchfs"] = rcfile;
+  } else if ((value = GetUnaryOption(
+      arg, next_arg, "--use_webstatusserver")) != NULL) {
+    if (!blaze_util::safe_strto32(value, &webstatus_port) ||
+        webstatus_port < 0 || webstatus_port > 65535) {
+      die(blaze_exit_code::BAD_ARGV,
+          "Invalid argument to --use_webstatusserver: '%s'. "
+          "Must be a valid port number or 0 if server disabled.\n", value);
+    }
+    option_sources["webstatusserver"] = rcfile;
   } else if (!ProcessArgExtra(arg, next_arg, rcfile, &value)) {
     die(blaze_exit_code::BAD_ARGV,
         "Unknown Blaze startup option: '%s'.\n"

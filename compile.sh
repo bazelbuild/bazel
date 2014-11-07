@@ -184,10 +184,16 @@ if [ -z "${BAZEL_SKIP_JAVA_COMPILATION}" ]; then
   cp src/main/java/com/google/devtools/build/lib/blaze/commands/*.txt \
       output/classes/com/google/devtools/build/lib/blaze/commands/
 
+  # web status server frontend
+  mkdir -p output/classes/com/google/devtools/build/lib/webstatusserver/static
+  cp src/main/java/com/google/devtools/build/lib/webstatusserver/static/*.{js,html} \
+      output/classes/com/google/devtools/build/lib/webstatusserver/static/
+
   log "Creating libblaze.jar..."
   echo "Main-Class: com.google.devtools.build.lib.bazel.BazelMain" > output/MANIFEST.MF
   "$JAR" cmf output/MANIFEST.MF output/libblaze.jar \
-      -C output/classes com/ -C output/classes javax/ -C output/classes org/
+      -C output/classes com/ -C output/classes javax/ -C output/classes org/ \
+      third_party/javascript
 fi
 
 log "Compiling client .cc files..."

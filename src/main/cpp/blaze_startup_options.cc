@@ -55,6 +55,7 @@ BlazeStartupOptions::BlazeStartupOptions(const BlazeStartupOptions &rhs)
       watchfs(rhs.watchfs),
       allow_configurable_attributes(rhs.allow_configurable_attributes),
       option_sources(rhs.option_sources),
+      webstatus_port(rhs.webstatus_port),
       host_javabase(rhs.host_javabase) {}
 
 BlazeStartupOptions::~BlazeStartupOptions() {

@@ -177,27 +177,38 @@ public class PlistMerging extends Value<PlistMerging> {
         + "input lists: %s", conflictingEntries);
     merged.putAll(automaticEntries);
 
-    for (String key : merged.keySet()) {
-      NSObject entry = merged.get(key);
-      if (entry.toJavaObject() instanceof String) {
+    for (Map.Entry<String, NSObject> entry : merged.entrySet()) {
+      if (entry.getValue().toJavaObject() instanceof String) {
         String newValue = substituteEnvironmentVariable(
-            substitutions, (String) entry.toJavaObject());
-        merged.put(key, newValue);
+            substitutions, (String) entry.getValue().toJavaObject());
+        merged.put(entry.getKey(), newValue);
       }
     }
 
     return new PlistMerging(merged);
   }
 
+  // Assume that if an RFC 1034 format string is specified, the value is RFC 1034 compliant.
   private static String substituteEnvironmentVariable(
       Map<String, String> substitutions, String string) {
     // The substitution is *not* performed recursively.
-    for (String variableName : substitutions.keySet()) {
-      string = string
-          .replace("${" + variableName + "}", substitutions.get(variableName))
-          .replace("$(" + variableName + ")", substitutions.get(variableName));
+    for (Map.Entry<String, String> variable : substitutions.entrySet()) {
+      for (String variableNameWithFormatString : withFormatStrings(variable.getKey())) {
+        string = string
+            .replace("${" + variableNameWithFormatString + "}", variable.getValue())
+            .replace("$(" + variableNameWithFormatString + ")", variable.getValue());
+      }
     }
 
     return string;
+  }
+
+  private static ImmutableSet<String> withFormatStrings(String variableName) {
+    return ImmutableSet.of(variableName, variableName + ":rfc1034identifier");
+  }
+
+  @VisibleForTesting
+  NSDictionary asDictionary() {
+    return merged;
   }
 }

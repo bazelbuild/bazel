@@ -19,8 +19,8 @@ import com.google.devtools.build.lib.collect.nestedset.Order;
 import com.google.devtools.build.lib.concurrent.ThreadSafety.Immutable;
 import com.google.devtools.build.lib.concurrent.ThreadSafety.ThreadSafe;
 import com.google.devtools.build.lib.packages.NoSuchTargetException;
+import com.google.devtools.build.lib.packages.PackageIdentifier;
 import com.google.devtools.build.lib.syntax.Label;
-import com.google.devtools.build.lib.vfs.PathFragment;
 import com.google.devtools.build.skyframe.SkyKey;
 import com.google.devtools.build.skyframe.SkyValue;
 
@@ -44,14 +44,14 @@ import javax.annotation.Nullable;
 public class TransitiveTargetValue implements SkyValue {
 
   // Non-final for serialization purposes.
-  private NestedSet<PathFragment> transitiveSuccessfulPkgs;
-  private NestedSet<PathFragment> transitiveUnsuccessfulPkgs;
+  private NestedSet<PackageIdentifier> transitiveSuccessfulPkgs;
+  private NestedSet<PackageIdentifier> transitiveUnsuccessfulPkgs;
   private NestedSet<Label> transitiveTargets;
   @Nullable private NestedSet<Label> transitiveRootCauses;
   @Nullable private NoSuchTargetException errorLoadingTarget;
 
-  private TransitiveTargetValue(NestedSet<PathFragment> transitiveSuccessfulPkgs,
-      NestedSet<PathFragment> transitiveUnsuccessfulPkgs, NestedSet<Label> transitiveTargets,
+  private TransitiveTargetValue(NestedSet<PackageIdentifier> transitiveSuccessfulPkgs,
+      NestedSet<PackageIdentifier> transitiveUnsuccessfulPkgs, NestedSet<Label> transitiveTargets,
       @Nullable NestedSet<Label> transitiveRootCauses,
       @Nullable NoSuchTargetException errorLoadingTarget) {
     this.transitiveSuccessfulPkgs = transitiveSuccessfulPkgs;
@@ -63,10 +63,10 @@ public class TransitiveTargetValue implements SkyValue {
 
   private void writeObject(ObjectOutputStream out) throws IOException {
     // It helps to flatten the transitiveSuccessfulPkgs nested set as it has lots of duplicates.
-    Set<PathFragment> successfulPkgs = transitiveSuccessfulPkgs.toSet();
+    Set<PackageIdentifier> successfulPkgs = transitiveSuccessfulPkgs.toSet();
     out.writeInt(successfulPkgs.size());
-    for (PathFragment pkg : successfulPkgs) {
-      out.writeUTF(pkg.toString());
+    for (PackageIdentifier pkg : successfulPkgs) {
+      out.writeObject(pkg);
     }
 
     out.writeObject(transitiveUnsuccessfulPkgs);
@@ -80,12 +80,12 @@ public class TransitiveTargetValue implements SkyValue {
   @SuppressWarnings("unchecked")
   private void readObject(ObjectInputStream in) throws IOException, ClassNotFoundException {
     int successfulPkgCount = in.readInt();
-    NestedSetBuilder<PathFragment> pkgs = NestedSetBuilder.stableOrder();
+    NestedSetBuilder<PackageIdentifier> pkgs = NestedSetBuilder.stableOrder();
     for (int i = 0; i < successfulPkgCount; i++) {
-      pkgs.add(new PathFragment(in.readUTF()));
+      pkgs.add((PackageIdentifier) in.readObject());
     }
     transitiveSuccessfulPkgs = pkgs.build();
-    transitiveUnsuccessfulPkgs = (NestedSet<PathFragment>) in.readObject();
+    transitiveUnsuccessfulPkgs = (NestedSet<PackageIdentifier>) in.readObject();
     // TODO(bazel-team): Deal with transitiveTargets properly.
     transitiveTargets = NestedSetBuilder.emptySet(Order.STABLE_ORDER);
     transitiveRootCauses = (NestedSet<Label>) in.readObject();
@@ -93,16 +93,17 @@ public class TransitiveTargetValue implements SkyValue {
   }
 
   static TransitiveTargetValue unsuccessfulTransitiveLoading(
-      NestedSet<PathFragment> transitiveSuccessfulPkgs,
-      NestedSet<PathFragment> transitiveUnsuccessfulPkgs, NestedSet<Label> transitiveTargets,
+      NestedSet<PackageIdentifier> transitiveSuccessfulPkgs,
+      NestedSet<PackageIdentifier> transitiveUnsuccessfulPkgs, NestedSet<Label> transitiveTargets,
       NestedSet<Label> rootCauses, @Nullable NoSuchTargetException errorLoadingTarget) {
     return new TransitiveTargetValue(transitiveSuccessfulPkgs, transitiveUnsuccessfulPkgs,
         transitiveTargets, rootCauses, errorLoadingTarget);
   }
 
   static TransitiveTargetValue successfulTransitiveLoading(
-      NestedSet<PathFragment> transitiveSuccessfulPkgs,
-      NestedSet<PathFragment> transitiveUnsuccessfulPkgs, NestedSet<Label> transitiveTargets) {
+      NestedSet<PackageIdentifier> transitiveSuccessfulPkgs,
+      NestedSet<PackageIdentifier> transitiveUnsuccessfulPkgs,
+      NestedSet<Label> transitiveTargets) {
     return new TransitiveTargetValue(transitiveSuccessfulPkgs, transitiveUnsuccessfulPkgs,
         transitiveTargets, null, null);
   }
@@ -114,12 +115,12 @@ public class TransitiveTargetValue implements SkyValue {
   }
 
   /** Returns the packages that were transitively successfully loaded. */
-  public NestedSet<PathFragment> getTransitiveSuccessfulPackages() {
+  public NestedSet<PackageIdentifier> getTransitiveSuccessfulPackages() {
     return transitiveSuccessfulPkgs;
   }
 
   /** Returns the packages that were transitively successfully loaded. */
-  public NestedSet<PathFragment> getTransitiveUnsuccessfulPackages() {
+  public NestedSet<PackageIdentifier> getTransitiveUnsuccessfulPackages() {
     return transitiveUnsuccessfulPkgs;
   }
 

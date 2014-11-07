@@ -13,18 +13,19 @@
 // limitations under the License.
 package com.google.devtools.build.lib.skyframe;
 
+import static com.google.devtools.build.lib.vfs.FileSystemUtils.createDirectoryAndParents;
+
 import com.google.common.base.Preconditions;
 import com.google.common.base.Throwables;
 import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.Maps;
 import com.google.common.eventbus.EventBus;
 import com.google.common.util.concurrent.ThreadFactoryBuilder;
-import com.google.devtools.build.lib.actions.AbstractActionExecutor;
 import com.google.devtools.build.lib.actions.Action;
-import com.google.devtools.build.lib.actions.Action.MiddlemanType;
 import com.google.devtools.build.lib.actions.ActionCacheChecker;
 import com.google.devtools.build.lib.actions.ActionCacheChecker.Token;
 import com.google.devtools.build.lib.actions.ActionCompletionEvent;
+import com.google.devtools.build.lib.actions.ActionExecutedEvent;
 import com.google.devtools.build.lib.actions.ActionExecutionContext;
 import com.google.devtools.build.lib.actions.ActionExecutionException;
 import com.google.devtools.build.lib.actions.ActionExecutionStatusReporter;
@@ -32,8 +33,11 @@ import com.google.devtools.build.lib.actions.ActionFailedEvent;
 import com.google.devtools.build.lib.actions.ActionGraph;
 import com.google.devtools.build.lib.actions.ActionInput;
 import com.google.devtools.build.lib.actions.ActionInputFileCache;
+import com.google.devtools.build.lib.actions.ActionLogBufferPathGenerator;
+import com.google.devtools.build.lib.actions.ActionNotExecutedEvent;
 import com.google.devtools.build.lib.actions.ActionStartedEvent;
 import com.google.devtools.build.lib.actions.Actions;
+import com.google.devtools.build.lib.actions.AlreadyReportedActionExecutionException;
 import com.google.devtools.build.lib.actions.Artifact;
 import com.google.devtools.build.lib.actions.Artifact.MiddlemanExpander;
 import com.google.devtools.build.lib.actions.ArtifactPrefixConflictException;
@@ -57,11 +61,15 @@ import com.google.devtools.build.lib.events.Event;
 import com.google.devtools.build.lib.events.Reporter;
 import com.google.devtools.build.lib.profiler.Profiler;
 import com.google.devtools.build.lib.profiler.ProfilerTask;
+import com.google.devtools.build.lib.syntax.Label;
 import com.google.devtools.build.lib.util.Clock;
 import com.google.devtools.build.lib.util.Pair;
 import com.google.devtools.build.lib.util.io.FileOutErr;
+import com.google.devtools.build.lib.util.io.OutErr;
 import com.google.devtools.build.lib.vfs.FileStatus;
+import com.google.devtools.build.lib.vfs.Path;
 import com.google.devtools.build.lib.vfs.PathFragment;
+import com.google.devtools.build.lib.vfs.Symlinks;
 import com.google.protobuf.ByteString;
 
 import java.io.File;
@@ -86,10 +94,16 @@ import java.util.concurrent.atomic.AtomicReference;
 
 import javax.annotation.Nullable;
 
-/** Skyframe-based action executor implementation. */
-public final class SkyframeActionExecutor extends AbstractActionExecutor {
+/**
+ * Action executor: takes care of preparing an action for execution, executing it, validating that
+ * all output artifacts were created, error reporting, etc.
+ */
+public final class SkyframeActionExecutor {
+  private final Reporter reporter;
   private final AtomicReference<EventBus> eventBus;
   private final ResourceManager resourceManager;
+  private Executor executorEngine;
+  private ActionLogBufferPathGenerator actionLogBufferPathGenerator;
   private ActionCacheChecker actionCacheChecker;
   private ConcurrentMap<Artifact, Metadata> undeclaredInputsMetadata = new ConcurrentHashMap<>();
   private final Profiler profiler = Profiler.instance();
@@ -113,7 +127,7 @@ public final class SkyframeActionExecutor extends AbstractActionExecutor {
   // Errors found when examining all actions in the graph are stored here, so that they can be
   // thrown when execution of the action is requested. This field is set during each call to
   // findAndStoreArtifactConflicts, and is preserved across builds otherwise.
-  private ImmutableMap<Action, Exception> badActionMap = ImmutableMap.of();
+  private ImmutableMap<Action, ConflictException> badActionMap = ImmutableMap.of();
   private boolean keepGoing;
   private boolean hadExecutionError;
   private ActionInputFileCache perBuildFileCache;
@@ -126,7 +140,7 @@ public final class SkyframeActionExecutor extends AbstractActionExecutor {
       AtomicReference<EventBus> eventBus,
       AtomicReference<ActionExecutionStatusReporter> statusReporterRef,
       Clock clock) {
-    super(reporter);
+    this.reporter = reporter;
     this.resourceManager = resourceManager;
     this.eventBus = eventBus;
     this.statusReporterRef = statusReporterRef;
@@ -134,10 +148,42 @@ public final class SkyframeActionExecutor extends AbstractActionExecutor {
   }
 
   /**
+   * A typed union of {@link ActionConflictException}, which indicates two actions that generate
+   * the same {@link Artifact}, and {@link ArtifactPrefixConflictException}, which indicates that
+   * the path of one {@link Artifact} is a prefix of another.
+   */
+  public static class ConflictException extends Exception {
+    @Nullable private final ActionConflictException ace;
+    @Nullable private final ArtifactPrefixConflictException apce;
+
+    public ConflictException(ActionConflictException e) {
+      super(e);
+      this.ace = e;
+      this.apce = null;
+    }
+
+    public ConflictException(ArtifactPrefixConflictException e) {
+      super(e);
+      this.ace = null;
+      this.apce = e;
+    }
+
+    void rethrowTyped() throws ActionConflictException, ArtifactPrefixConflictException {
+      if (ace == null) {
+        throw Preconditions.checkNotNull(apce);
+      }
+      if (apce == null) {
+        throw Preconditions.checkNotNull(ace);
+      }
+      throw new IllegalStateException();
+    }
+  }
+
+  /**
    * Return the map of mostly recently executed bad actions to their corresponding exception.
    * See {#findAndStoreArtifactConflicts()}.
    */
-  public ImmutableMap<Action, Exception> badActions() {
+  public ImmutableMap<Action, ConflictException> badActions() {
     // TODO(bazel-team): Move badActions() and findAndStoreArtifactConflicts() to SkyframeBuildView
     // now that it's done in the analysis phase.
     return badActionMap;
@@ -258,7 +304,7 @@ public final class SkyframeActionExecutor extends AbstractActionExecutor {
    */
   void findAndStoreArtifactConflicts(Iterable<ActionLookupValue> actionLookupValues)
       throws InterruptedException {
-    ConcurrentMap<Action, Exception> temporaryBadActionMap = new ConcurrentHashMap<>();
+    ConcurrentMap<Action, ConflictException> temporaryBadActionMap = new ConcurrentHashMap<>();
     Pair<ActionGraph, SortedMap<PathFragment, Artifact>> result;
     result = constructActionGraphAndPathMap(actionLookupValues, temporaryBadActionMap);
     ActionGraph actionGraph = result.first;
@@ -292,10 +338,10 @@ public final class SkyframeActionExecutor extends AbstractActionExecutor {
           Action actionJ =
               Preconditions.checkNotNull(actionGraph.getGeneratingAction(artifactJ), artifactJ);
           if (actionI.shouldReportPathPrefixConflict(actionJ)) {
-            Exception exception = new ArtifactPrefixConflictException(pathI, pathJ,
-                actionI.getOwner().getLabel(), actionJ.getOwner().getLabel());
-            temporaryBadActionMap.put(actionI, exception);
-            temporaryBadActionMap.put(actionJ, exception);
+            ArtifactPrefixConflictException exception = new ArtifactPrefixConflictException(pathI,
+                pathJ, actionI.getOwner().getLabel(), actionJ.getOwner().getLabel());
+            temporaryBadActionMap.put(actionI, new ConflictException(exception));
+            temporaryBadActionMap.put(actionJ, new ConflictException(exception));
           }
         } else { // pathJ didn't have prefix pathI, so no conflict possible for pathI.
           break;
@@ -313,7 +359,7 @@ public final class SkyframeActionExecutor extends AbstractActionExecutor {
   private static Pair<ActionGraph, SortedMap<PathFragment, Artifact>>
       constructActionGraphAndPathMap(
           Iterable<ActionLookupValue> values,
-          ConcurrentMap<Action, Exception> badActionMap) throws InterruptedException {
+          ConcurrentMap<Action, ConflictException> badActionMap) throws InterruptedException {
     MutableActionGraph actionGraph = new MapBasedActionGraph();
     ConcurrentNavigableMap<PathFragment, Artifact> artifactPathMap = new ConcurrentSkipListMap<>();
     // Action graph construction is CPU-bound.
@@ -347,7 +393,7 @@ public final class SkyframeActionExecutor extends AbstractActionExecutor {
       final List<ActionLookupValue> values,
       final MutableActionGraph actionGraph,
       final ConcurrentMap<PathFragment, Artifact> artifactPathMap,
-      final ConcurrentMap<Action, Exception> badActionMap) {
+      final ConcurrentMap<Action, ConflictException> badActionMap) {
     return new Runnable() {
       @Override
       public void run() {
@@ -361,7 +407,7 @@ public final class SkyframeActionExecutor extends AbstractActionExecutor {
               try {
                 actionGraph.registerAction(action);
               } catch (ActionConflictException e) {
-                Exception oldException = badActionMap.put(action, e);
+                Exception oldException = badActionMap.put(action, new ConflictException(e));
                 Preconditions.checkState(oldException == null,
                   "%s | %s | %s", action, e, oldException);
                 // We skip the rest of the loop, and do not add the path->artifact mapping for this
@@ -379,7 +425,7 @@ public final class SkyframeActionExecutor extends AbstractActionExecutor {
 
   void prepareForExecution(Executor executor, boolean keepGoing,
       boolean explain, ActionCacheChecker actionCacheChecker) {
-    setExecutorEngine(Preconditions.checkNotNull(executor));
+    this.executorEngine = Preconditions.checkNotNull(executor);
 
     // Start with a new map each build so there's no issue with internal resizing.
     this.buildActionMap = Maps.newConcurrentMap();
@@ -391,17 +437,22 @@ public final class SkyframeActionExecutor extends AbstractActionExecutor {
     this.explain = explain;
   }
 
+  public void setActionLogBufferPathGenerator(
+      ActionLogBufferPathGenerator actionLogBufferPathGenerator) {
+    this.actionLogBufferPathGenerator = actionLogBufferPathGenerator;
+  }
+
   void executionOver() {
     // This transitively holds a bunch of heavy objects, so it's important to clear it at the
     // end of a build.
-    setExecutorEngine(null);
+    this.executorEngine = null;
   }
 
   File getExecRoot() {
     return executorEngine.getExecRoot().getPathFile();
   }
 
-  protected boolean probeActionExecution(Action action) {
+  boolean probeActionExecution(Action action) {
     return buildActionMap.containsKey(action.getPrimaryOutput());
   }
 
@@ -411,12 +462,12 @@ public final class SkyframeActionExecutor extends AbstractActionExecutor {
    *
    * <p>For use from {@link ArtifactFunction} only.
    */
-  protected ActionExecutionValue executeAction(Action action, FileAndMetadataCache graphFileCache)
+  ActionExecutionValue executeAction(Action action, FileAndMetadataCache graphFileCache)
       throws ActionExecutionException, InterruptedException {
     Exception exception = badActionMap.get(action);
     if (exception != null) {
       // If action had a conflict with some other action in the graph, report it now.
-      reportError(exception, action);
+      reportError(exception.getMessage(), exception, action);
     }
     Artifact primaryOutput = action.getPrimaryOutput();
     FutureTask<ActionExecutionValue> actionTask =
@@ -459,22 +510,37 @@ public final class SkyframeActionExecutor extends AbstractActionExecutor {
     }
   }
 
+
+  void postActionNotExecutedEvents(Action action, Iterable<Label> rootCauses) {
+    for (Label rootCause : rootCauses) {
+      postEvent(new ActionNotExecutedEvent(action, rootCause));
+    }
+  }
+
   /**
    * This method should be called if the builder encounters an error during
    * execution. This allows the builder to record that it encountered at
    * least one error, and may make it swallow its output to prevent
    * spamming the user any further.
    */
-  protected void recordExecutionError() {
+  private void recordExecutionError() {
     hadExecutionError = true;
   }
 
-  @Override
-  protected boolean isBuilderAborting() {
+  /**
+   * Returns true if the Builder is winding down (i.e. cancelling outstanding
+   * actions and preparing to abort.)
+   * The builder is winding down iff:
+   * <ul>
+   * <li>we had an execution error
+   * <li>we are not running with --keep_going
+   * </ul>
+   */
+  private boolean isBuilderAborting() {
     return hadExecutionError && !keepGoing;
   }
 
-  public void setFileCache(ActionInputFileCache fileCache) {
+  void setFileCache(ActionInputFileCache fileCache) {
     this.perBuildFileCache = fileCache;
   }
 
@@ -503,8 +569,7 @@ public final class SkyframeActionExecutor extends AbstractActionExecutor {
         if (token == null) {
           boolean eventPosted = false;
           // Notify BlazeRuntimeStatistics about the action middleman 'execution'.
-          if (action.getActionType().isMiddleman()
-              && action.getActionType() != MiddlemanType.TARGET_COMPLETION_MIDDLEMAN) {
+          if (action.getActionType().isMiddleman()) {
             postEvent(new ActionStartedEvent(action, actionStartTime));
             postEvent(new ActionCompletionEvent(action, action.describeStrategy(executorEngine)));
             eventPosted = true;
@@ -565,6 +630,40 @@ public final class SkyframeActionExecutor extends AbstractActionExecutor {
     }
   }
 
+  private void createOutputDirectories(Action action) throws ActionExecutionException {
+    try {
+      Set<Path> done = new HashSet<>(); // avoid redundant calls for the same directory.
+      for (Artifact outputFile : action.getOutputs()) {
+        Path outputDir = outputFile.getPath().getParentDirectory();
+        if (done.add(outputDir)) {
+          try {
+            createDirectoryAndParents(outputDir);
+            continue;
+          } catch (IOException e) {
+            /* Fall through to plan B. */
+          }
+
+          // Possibly some direct ancestors are not directories.  In that case, we unlink all the
+          // ancestors until we reach a directory, then try again. This handles the case where a
+          // file becomes a directory, either from one build to another, or within a single build.
+          try {
+            for (Path p = outputDir; !p.isDirectory(); p = p.getParentDirectory()) {
+              // p may be a file or dangling symlink.
+              p.delete(); // throws IOException
+            }
+            createDirectoryAndParents(outputDir);
+          } catch (IOException e) {
+            throw new ActionExecutionException(
+                "failed to create output directory '" + outputDir + "'", e, action, false);
+          }
+        }
+      }
+    } catch (ActionExecutionException ex) {
+      printError(ex.getMessage(), action, null);
+      throw ex;
+    }
+  }
+
   private String prependExecPhaseStats(String message) {
     if (progressSupplier != null) {
       // Prints a progress message like:
@@ -576,16 +675,281 @@ public final class SkyframeActionExecutor extends AbstractActionExecutor {
     }
   }
 
-  @Override
-  protected void postEvent(Object event) {
+  /**
+   * Prepare, schedule, execute, and then complete the action.
+   * When this function is called, we know that this action needs to be executed.
+   * This function will prepare for the action's execution (i.e. delete the outputs);
+   * schedule its execution; execute the action;
+   * and then do some post-execution processing to complete the action:
+   * set the outputs readonly and executable, and insert the action results in the
+   * action cache.
+   *
+   * @param action  The action to execute
+   * @param token  The token returned by dependencyChecker.needToExecute()
+   * @param actionInputFileCache source of file metadata.
+   * @param metadataHandler source of file data for the action cache and output-checking.
+   * @param middlemanExpander The object that can expand middleman inputs of the action.
+   * @param actionStartTime time when we started the first phase of the action execution.
+   * @throws ActionExecutionException if the execution of the specified action
+   *   failed for any reason.
+   * @throws InterruptedException if the thread was interrupted.
+   */
+  private void prepareScheduleExecuteAndCompleteAction(Action action, Token token,
+      ActionInputFileCache actionInputFileCache, MetadataHandler metadataHandler,
+      MiddlemanExpander middlemanExpander, long actionStartTime)
+      throws ActionExecutionException, InterruptedException {
+    // Delete the metadataHandler's cache of the action's outputs, since they are being deleted.
+    metadataHandler.discardMetadata(action.getOutputs());
+    // Delete the outputs before executing the action, just to ensure that
+    // the action really does produce the outputs.
+    FileOutErr fileOutErr = actionLogBufferPathGenerator.generate();
+    ActionExecutionContext context = new ActionExecutionContext(
+        executorEngine, actionInputFileCache, metadataHandler, fileOutErr, middlemanExpander);
+    try {
+      action.prepare(context);
+    } catch (IOException e) {
+      reportError("failed to delete output files before executing action", e, action);
+    }
+
+    postEvent(new ActionStartedEvent(action, actionStartTime));
+    ResourceSet estimate = action.estimateResourceConsumption(executorEngine);
+    ActionExecutionStatusReporter statusReporter = statusReporterRef.get();
+    try {
+      if (estimate == null || estimate == ResourceSet.ZERO) {
+        statusReporter.setRunningFromBuildData(action);
+      } else {
+        // If estimated resource consumption is null, action will manually call
+        // resource manager when it knows what resources are needed.
+        resourceManager.acquireResources(action, estimate);
+      }
+      executeActionTask(action, context);
+      completeAction(action, token, metadataHandler, fileOutErr);
+    } finally {
+      if (estimate != null) {
+        resourceManager.releaseResources(action, estimate);
+      }
+      statusReporter.remove(action);
+      postEvent(new ActionCompletionEvent(action, action.describeStrategy(executorEngine)));
+    }
+  }
+
+  /**
+   * Execute the specified action, in a profiler task.
+   * The caller is responsible for having already checked that we need to
+   * execute it and for acquiring/releasing any scheduling locks needed.
+   *
+   * This is thread-safe so long as you don't try to execute the same action
+   * twice at the same time (or overlapping times).
+   * May execute in a worker thread.
+   *
+   * @throws ActionExecutionException if the execution of the specified action
+   *   failed for any reason.
+   * @throws InterruptedException if the thread was interrupted.
+   */
+  private void executeActionTask(Action action, ActionExecutionContext actionExecutionContext)
+      throws ActionExecutionException, InterruptedException {
+    profiler.startTask(ProfilerTask.ACTION_EXECUTE, action);
+    // ActionExecutionExceptions that occur as the thread is interrupted are
+    // assumed to be a result of that, so we throw InterruptedException
+    // instead.
+    FileOutErr outErrBuffer = actionExecutionContext.getFileOutErr();
+    try {
+      action.execute(actionExecutionContext);
+
+      // Action terminated fine, now report the output.
+      // The .showOutput() method is not necessarily a quick check: in its
+      // current implementation it uses regular expression matching.
+      if (outErrBuffer.hasRecordedOutput()
+          && (action.showsOutputUnconditionally()
+          || reporter.showOutput(Label.print(action.getOwner().getLabel())))) {
+        dumpRecordedOutErr(action, outErrBuffer);
+      }
+      // Defer reporting action success until outputs are checked
+    } catch (ActionExecutionException e) {
+      reportActionExecution(action, e, outErrBuffer);
+      boolean reported = reportErrorIfNotAbortingMode(e, outErrBuffer);
+
+      ActionExecutionException toThrow = e;
+      if (reported){
+        // If we already printed the error for the exception we mark it as already reported
+        // so that we do not print it again in upper levels.
+        // Note that we need to report it here since we want immediate feedback of the errors
+        // and in some cases the upper-level printing mechanism only prints one of the errors.
+        toThrow = new AlreadyReportedActionExecutionException(e);
+      }
+
+      // Now, rethrow the exception.
+      // This can have two effects:
+      // If we're still building, the exception will get retrieved by the
+      // completor and rethrown.
+      // If we're aborting, the exception will never be retrieved from the
+      // completor, since the completor is waiting for all outstanding jobs
+      // to finish. After they have finished, it will only rethrow the
+      // exception that initially caused it to abort will and not check the
+      // exit status of any actions that had finished in the meantime.
+      throw toThrow;
+    } finally {
+      profiler.completeTask(ProfilerTask.ACTION_EXECUTE);
+    }
+  }
+
+  private void completeAction(Action action, Token token, MetadataHandler metadataHandler,
+      FileOutErr fileOutErr) throws ActionExecutionException {
+    try {
+      Preconditions.checkState(action.inputsKnown(),
+          "Action %s successfully executed, but inputs still not known", action);
+
+      profiler.startTask(ProfilerTask.ACTION_COMPLETE, action);
+      try {
+        if (!checkOutputs(action, metadataHandler)) {
+          reportError("not all outputs were created", null, action);
+        }
+        // Prevent accidental stomping on files.
+        // This will also throw a FileNotFoundException
+        // if any of the output files doesn't exist.
+        try {
+          setOutputsReadOnlyAndExecutable(action, metadataHandler);
+        } catch (IOException e) {
+          reportError("failed to set outputs read-only", e, action);
+        }
+        try {
+          actionCacheChecker.afterExecution(action, token, metadataHandler);
+        } catch (IOException e) {
+          // Skyframe does all the filesystem access needed during the previous calls, and if those
+          // calls failed, we should already have thrown. So an IOException is impossible here.
+          throw new IllegalStateException(
+              "failed to update action cache for " + action.prettyPrint()
+                  + ", but all outputs should already have been checked", e);
+        }
+      } finally {
+        profiler.completeTask(ProfilerTask.ACTION_COMPLETE);
+      }
+      reportActionExecution(action, null, fileOutErr);
+    } catch (ActionExecutionException actionException) {
+      // Success in execution but failure in completion.
+      reportActionExecution(action, actionException, fileOutErr);
+      throw actionException;
+    } catch (IllegalStateException exception) {
+      // More serious internal error, but failure still reported.
+      reportActionExecution(action,
+          new ActionExecutionException(exception, action, true), fileOutErr);
+      throw exception;
+    }
+  }
+
+  /**
+   * For each of the action's outputs that is a regular file (not a symbolic
+   * link or directory), make it read-only and executable.
+   *
+   * <p>Making the outputs read-only helps preventing accidental editing of
+   * them (e.g. in case of generated source code), while making them executable
+   * helps running generated files (such as generated shell scripts) on the
+   * command line.
+   *
+   * <p>May execute in a worker thread.
+   *
+   * <p>Note: setting these bits maintains transparency regarding the locality of the build;
+   * because the remote execution engine sets them, they should be set for local builds too.
+   *
+   * @throws IOException if an I/O error occurred.
+   */
+  private final void setOutputsReadOnlyAndExecutable(Action action, MetadataHandler metadataHandler)
+      throws IOException {
+    Preconditions.checkState(!action.getActionType().isMiddleman());
+
+    for (Artifact output : action.getOutputs()) {
+      Path path = output.getPath();
+      if (metadataHandler.isInjected(output)) {
+        // We trust the files created by the execution-engine to be non symlinks with expected
+        // chmod() settings already applied. The follow stanza implies a total of 6 system calls,
+        // since the UnixFileSystem implementation of setWritable() and setExecutable() both
+        // do a stat() internally.
+        continue;
+      }
+      if (path.isFile(Symlinks.NOFOLLOW)) { // i.e. regular files only.
+        path.setWritable(false);
+        path.setExecutable(true);
+      }
+    }
+  }
+
+  private void reportMissingOutputFile(Action action, Artifact output, Reporter reporter,
+      boolean isSymlink) {
+    boolean genrule = action.getMnemonic().equals("Genrule");
+    String prefix = (genrule ? "declared output '" : "output '") + output.prettyPrint() + "' ";
+    if (isSymlink) {
+      reporter.handle(Event.error(
+          action.getOwner().getLocation(), prefix + "is a dangling symbolic link"));
+    } else {
+      String suffix = genrule ? " by genrule. This is probably "
+          + "because the genrule actually didn't create this output, or because the output was a "
+          + "directory and the genrule was run remotely (note that only the contents of "
+          + "declared file outputs are copied from genrules run remotely)" : "";
+      reporter.handle(Event.error(
+          action.getOwner().getLocation(), prefix + "was not created" + suffix));
+    }
+  }
+
+  /**
+   * Validates that all action outputs were created.
+   *
+   * @return false if some outputs are missing, true - otherwise.
+   */
+  private boolean checkOutputs(Action action, MetadataHandler metadataHandler) {
+    boolean success = true;
+    for (Artifact output : action.getOutputs()) {
+      if (!metadataHandler.artifactExists(output)) {
+        reportMissingOutputFile(action, output, reporter, output.getPath().isSymbolicLink());
+        success = false;
+      }
+    }
+    return success;
+  }
+
+  private void postEvent(Object event) {
     EventBus bus = eventBus.get();
     if (bus != null) {
       bus.post(event);
     }
   }
 
-  @Override
-  protected void printError(String message, Action action, FileOutErr actionOutput) {
+  /**
+   * Convenience function for reporting that the action failed due to a
+   * the exception cause, if there is an additional explanatory message that
+   * clarifies the message of the exception. Combines the user-provided message
+   * and the exceptions' message and reports the combination as error.
+   * Then, throws an ActionExecutionException with the reported error as
+   * message and the provided exception as the cause.
+   *
+   * @param message A small text that explains why the action failed
+   * @param cause The exception that caused the action to fail
+   * @param action The action that failed
+   */
+  private void reportError(String message, Throwable cause, Action action)
+      throws ActionExecutionException {
+    ActionExecutionException ex;
+    if (cause == null) {
+      ex = new ActionExecutionException(message, action, false);
+    } else {
+      ex = new ActionExecutionException(message, cause, action, false);
+    }
+    printError(ex.getMessage(), action, null);
+    throw ex;
+  }
+
+  /**
+   * For the action 'action' that failed due to 'ex' with the output
+   * 'actionOutput', notify the user about the error. To notify the user, the
+   * method first displays the output of the action and then reports an error
+   * via the reporter. The method ensures that the two messages appear next to
+   * each other by locking the outErr object where the output is displayed.
+   *
+   * @param message The reason why the action failed
+   * @param action The action that failed, must not be null.
+   * @param actionOutput The output of the failed Action.
+   *     May be null, if there is no output to display
+   */
+  private void printError(String message, Action action, FileOutErr actionOutput) {
     synchronized (reporter) {
       if (actionOutput != null && actionOutput.hasRecordedOutput()) {
         dumpRecordedOutErr(action, actionOutput);
@@ -599,7 +963,7 @@ public final class SkyframeActionExecutor extends AbstractActionExecutor {
   }
 
   /** Describe an action, for use in error messages. */
-  private String describeAction(Action action) {
+  private static String describeAction(Action action) {
     if (action.getOutputs().isEmpty()) {
       return "run " + action.prettyPrint();
     } else if (action.getActionType().isMiddleman()) {
@@ -609,58 +973,61 @@ public final class SkyframeActionExecutor extends AbstractActionExecutor {
     }
   }
 
-  @Override
-  protected void updateCache(Action action, Token token, MetadataHandler metadataHandler)
-      throws ActionExecutionException {
-    try {
-      actionCacheChecker.afterExecution(action, token, metadataHandler);
-    } catch (IOException e) {
-      // Skyframe does all the filesystem access needed during the checkOutputs call, and if that
-      // call failed, the action cache shouldn't be updated. So an IOException is impossible here.
-      throw new IllegalStateException(
-          "failed to update action cache for " + action.prettyPrint()
-          + ", but all outputs should already have been checked", e);
+  /**
+   * Dump the output from the action.
+   *
+   * @param action The action whose output is being dumped
+   * @param outErrBuffer The OutErr that recorded the actions output
+   */
+  private void dumpRecordedOutErr(Action action, FileOutErr outErrBuffer) {
+    StringBuilder message = new StringBuilder("");
+    message.append("From ");
+    message.append(action.describe());
+    message.append(":");
+
+    // Synchronize this on the reporter, so that the output from multiple
+    // actions will not be interleaved.
+    synchronized (reporter) {
+      // Only print the output if we're not winding down.
+      if (isBuilderAborting()) {
+        return;
+      }
+      reporter.handle(Event.info(message.toString()));
+
+      OutErr outErr = this.reporter.getOutErr();
+      outErrBuffer.dumpOutAsLatin1(outErr.getOutputStream());
+      outErrBuffer.dumpErrAsLatin1(outErr.getErrorStream());
     }
   }
 
-  public void reportActionExecutionFailure(Action action) {
+  void reportActionExecutionFailure(Action action) {
     postEvent(new ActionFailedEvent(action));
   }
 
-  @Override
-  protected void scheduleAndExecuteAction(Action action,
-      ActionExecutionContext actionExecutionContext)
-  throws ActionExecutionException, InterruptedException {
-    ResourceSet estimate = action.estimateResourceConsumption(executorEngine);
-    ActionExecutionStatusReporter statusReporter = statusReporterRef.get();
-    try {
-      if (estimate == null || estimate == ResourceSet.ZERO) {
-        statusReporter.setRunningFromBuildData(action);
-      } else {
-        // If estimated resource consumption is null, action will manually call
-        // resource manager when it knows what resources are needed.
-        resourceManager.acquireResources(action, estimate);
-      }
-      executeActionTask(action, actionExecutionContext);
-    } finally {
-      if (estimate != null) {
-        resourceManager.releaseResources(action, estimate);
-      }
-      statusReporter.remove(action);
+  private void reportActionExecution(Action action,
+      ActionExecutionException exception, FileOutErr outErr) {
+    String stdout = null;
+    String stderr = null;
+
+    if (outErr.hasRecordedStdout()) {
+      stdout = outErr.getOutputFile().toString();
     }
+    if (outErr.hasRecordedStderr()) {
+      stderr = outErr.getErrorFile().toString();
+    }
+    postEvent(new ActionExecutedEvent(action, exception, stdout, stderr));
   }
 
   /**
-   * Currently this is a copy of what we do in legacy. The main implication is that we are
-   * printing the error to the top level reporter instead of the action reporter. Because of that
-   * Skyframe values do not know about the errors happening in the execution phase. Even if we
-   * change in the future to log to the action reporter (that would be done in
-   * ActionExecutionFunction.build() method when we get a ActionExecutionException),
-   * we probably do not want to also store the StdErr output, so dumpRecordedOutErr() should
-   * still be called here.
+   * Returns true if the exception was reported. False otherwise. Currently this is a copy of what
+   * we did in pre-Skyframe execution. The main implication is that we are printing the error to the
+   * top level reporter instead of the action reporter. Because of that Skyframe values do not know
+   * about the errors happening in the execution phase. Even if we change in the future to log to
+   * the action reporter (that would be done in ActionExecutionFunction.compute() when we get an
+   * ActionExecutionException), we probably do not want to also store the StdErr output, so
+   * dumpRecordedOutErr() should still be called here.
    */
-  @Override
-  protected boolean reportErrorIfNotAbortingMode(ActionExecutionException ex,
+  private boolean reportErrorIfNotAbortingMode(ActionExecutionException ex,
       FileOutErr outErrBuffer) {
     // For some actions (e.g. many local actions) the pollInterruptedStatus()
     // won't notice that we had an interrupted job. It will continue.

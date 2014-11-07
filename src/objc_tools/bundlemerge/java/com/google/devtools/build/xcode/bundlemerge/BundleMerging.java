@@ -93,7 +93,7 @@ public final class BundleMerging {
   private static void mergeInto(
       Path tempDir, FileSystem fileSystem, Control control, String bundleRoot,
       ImmutableList.Builder<ZipInputEntry> packagedFilesBuilder,
-      ImmutableList.Builder<MergeZip> mergeZipsBuilder) throws IOException {
+      ImmutableList.Builder<MergeZip> mergeZipsBuilder, boolean includePkgInfo) throws IOException {
     Path tempMergedPlist = Files.createTempFile(tempDir, null, INFOPLIST_FILENAME);
     Path tempPkgInfo = Files.createTempFile(tempDir, null, PKGINFO_FILENAME);
 
@@ -127,8 +127,11 @@ public final class BundleMerging {
 
     // Add files to zip configuration which creates the final application bundle.
     packagedFilesBuilder
-        .add(new ZipInputEntry(tempMergedPlist, joinPath(bundleRoot, INFOPLIST_FILENAME)))
-        .add(new ZipInputEntry(tempPkgInfo, joinPath(bundleRoot, PKGINFO_FILENAME)));
+        .add(new ZipInputEntry(tempMergedPlist, joinPath(bundleRoot, INFOPLIST_FILENAME)));
+    if (includePkgInfo) {
+      packagedFilesBuilder
+          .add(new ZipInputEntry(tempPkgInfo, joinPath(bundleRoot, PKGINFO_FILENAME)));
+    }
     for (BundleFile bundleFile : control.getBundleFileList()) {
       packagedFilesBuilder.add(new ZipInputEntry(fileSystem.getPath(bundleFile.getSourceFile()),
           joinPath(bundleRoot, bundleFile.getBundlePath())));
@@ -143,7 +146,7 @@ public final class BundleMerging {
 
     for (Control nestedControl : control.getNestedBundleList()) {
       mergeInto(tempDir, fileSystem, nestedControl, bundleRoot, packagedFilesBuilder,
-          mergeZipsBuilder);
+          mergeZipsBuilder, /*includePkgInfo=*/false);
     }
   }
 
@@ -158,8 +161,8 @@ public final class BundleMerging {
     ImmutableList.Builder<ZipInputEntry> packagedFilesBuilder =
         new ImmutableList.Builder<ZipInputEntry>();
 
-    mergeInto(
-        tempDir, fileSystem, control, /*bundleRoot=*/"", packagedFilesBuilder, mergeZipsBuilder);
+    mergeInto(tempDir, fileSystem, control, /*bundleRoot=*/"", packagedFilesBuilder,
+        mergeZipsBuilder, /*includePkgInfo=*/true);
 
     return new BundleMerging(fileSystem, fileSystem.getPath(control.getOutFile()),
         packagedFilesBuilder.build(), mergeZipsBuilder.build());

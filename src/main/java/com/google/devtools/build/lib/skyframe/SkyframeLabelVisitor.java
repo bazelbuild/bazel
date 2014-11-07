@@ -24,11 +24,11 @@ import com.google.devtools.build.lib.collect.nestedset.NestedSetBuilder;
 import com.google.devtools.build.lib.events.Event;
 import com.google.devtools.build.lib.events.EventHandler;
 import com.google.devtools.build.lib.packages.Package;
+import com.google.devtools.build.lib.packages.PackageIdentifier;
 import com.google.devtools.build.lib.packages.Target;
 import com.google.devtools.build.lib.pkgcache.TransitivePackageLoader;
 import com.google.devtools.build.lib.skyframe.SkyframeExecutor.SkyframeTransitivePackageLoader;
 import com.google.devtools.build.lib.syntax.Label;
-import com.google.devtools.build.lib.vfs.PathFragment;
 import com.google.devtools.build.skyframe.CycleInfo;
 import com.google.devtools.build.skyframe.CyclesReporter;
 import com.google.devtools.build.skyframe.ErrorInfo;
@@ -52,8 +52,8 @@ final class SkyframeLabelVisitor implements TransitivePackageLoader {
   private final SkyframeTransitivePackageLoader transitivePackageLoader;
   private final AtomicReference<CyclesReporter> skyframeCyclesReporter;
 
-  private Set<PathFragment> allVisitedPackages;
-  private Set<PathFragment> errorFreeVisitedPackages;
+  private Set<PackageIdentifier> allVisitedPackages;
+  private Set<PackageIdentifier> errorFreeVisitedPackages;
   private Set<Label> visitedTargets;
   private Set<TransitiveTargetValue> previousBuildTargetValueSet = null;
   private boolean lastBuildKeepGoing = false;
@@ -211,8 +211,8 @@ final class SkyframeLabelVisitor implements TransitivePackageLoader {
       // the computation if the previous build already did it.
       return;
     }
-    NestedSetBuilder<PathFragment> nestedAllPkgsBuilder = NestedSetBuilder.stableOrder();
-    NestedSetBuilder<PathFragment> nestedErrorFreePkgsBuilder = NestedSetBuilder.stableOrder();
+    NestedSetBuilder<PackageIdentifier> nestedAllPkgsBuilder = NestedSetBuilder.stableOrder();
+    NestedSetBuilder<PackageIdentifier> nestedErrorFreePkgsBuilder = NestedSetBuilder.stableOrder();
     NestedSetBuilder<Label> nestedTargetBuilder = NestedSetBuilder.stableOrder();
     for (TransitiveTargetValue value : targetValues) {
       nestedAllPkgsBuilder.addTransitive(value.getTransitiveSuccessfulPackages());
@@ -228,7 +228,7 @@ final class SkyframeLabelVisitor implements TransitivePackageLoader {
 
 
   @Override
-  public Set<PathFragment> getVisitedPackageNames() {
+  public Set<PackageIdentifier> getVisitedPackageNames() {
     return allVisitedPackages;
   }
 

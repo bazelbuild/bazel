@@ -22,12 +22,10 @@ import com.google.common.cache.LoadingCache;
 import com.google.common.collect.ArrayListMultimap;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
-import com.google.common.collect.ImmutableMultimap;
 import com.google.common.collect.ImmutableSet;
 import com.google.common.collect.Iterables;
 import com.google.common.collect.ListMultimap;
 import com.google.common.collect.Lists;
-import com.google.common.collect.Multimap;
 import com.google.common.collect.Sets;
 import com.google.common.eventbus.EventBus;
 import com.google.devtools.build.lib.actions.Action;
@@ -63,7 +61,6 @@ import com.google.devtools.build.lib.rules.test.TestProvider;
 import com.google.devtools.build.lib.skyframe.LabelAndConfiguration;
 import com.google.devtools.build.lib.skyframe.SkyframeBuildView;
 import com.google.devtools.build.lib.skyframe.SkyframeExecutor;
-import com.google.devtools.build.lib.skyframe.TargetCompletionKey;
 import com.google.devtools.build.lib.syntax.EvalException;
 import com.google.devtools.build.lib.syntax.Label;
 import com.google.devtools.build.lib.util.RegexFilter;
@@ -327,34 +324,6 @@ public class BuildView {
     return artifactFactory;
   }
 
-  /**
-   * Maps each configured target to a list of artifacts that need to be built in order to consider
-   * that target as being built successfully.
-   *
-   * <p>Also takes care to remove all traces of previous target completion middlemen in the action
-   * graphs, if they are present.
-   *
-   * <p>This should only be called once per build.
-   */
-  private Multimap<ConfiguredTarget, Artifact> createTargetCompletionMiddlemen(
-      Iterable<ConfiguredTarget> targets, TopLevelArtifactContext options,
-      SkyframeExecutor skyframeExecutor) {
-    skyframeExecutor.injectTopLevelContext(options);
-
-    Multimap<ConfiguredTarget, Artifact> result = ArrayListMultimap.create();
-    for (ConfiguredTarget target : targets) {
-      result.putAll(target, TopLevelArtifactHelper.getAllArtifactsToBuild(target, options));
-      if (!(target.getTarget() instanceof Rule)) {
-        continue;
-      }
-      result.put(target, artifactFactory.getDerivedArtifact(
-          TopLevelArtifactHelper.getMiddlemanRelativePath(target.getLabel()),
-          target.getConfiguration().getMiddlemanDirectory(),
-          new TargetCompletionKey(target.getLabel(), target.getConfiguration())));
-    }
-    return result;
-  }
-
   @VisibleForTesting
   WorkspaceStatusAction getLastWorkspaceBuildInfoActionForTesting() {
     return skyframeExecutor.getLastWorkspaceStatusActionForTesting();
@@ -479,30 +448,30 @@ public class BuildView {
 
     public static final AnalysisResult EMPTY = new AnalysisResult(
         ImmutableList.<ConfiguredTarget>of(), null, null, null,
-        ImmutableMultimap.<ConfiguredTarget, Artifact>of(), ImmutableList.<Artifact>of(),
-        ImmutableList.<Artifact>of());
+        ImmutableList.<Artifact>of(),
+        ImmutableList.<Artifact>of(),
+        null);
 
     private final ImmutableList<ConfiguredTarget> targetsToBuild;
     @Nullable private final ImmutableList<ConfiguredTarget> targetsToTest;
     @Nullable private final String error;
     private final ActionGraph actionGraph;
-    private final ImmutableMultimap<ConfiguredTarget, Artifact> targetCompletionMap;
     private final ImmutableSet<Artifact> artifactsToBuild;
     private final ImmutableSet<Artifact> exclusiveTestArtifacts;
+    @Nullable private final TopLevelArtifactContext topLevelContext;
 
     private AnalysisResult(
         Collection<ConfiguredTarget> targetsToBuild, Collection<ConfiguredTarget> targetsToTest,
         @Nullable String error, ActionGraph actionGraph,
-        Multimap<ConfiguredTarget, Artifact> targetCompletionMap,
         Collection<Artifact> artifactsToBuild,
-        Collection<Artifact> exclusiveTestArtifacts) {
+        Collection<Artifact> exclusiveTestArtifacts, TopLevelArtifactContext topLevelContext) {
       this.targetsToBuild = ImmutableList.copyOf(targetsToBuild);
       this.targetsToTest = targetsToTest == null ? null : ImmutableList.copyOf(targetsToTest);
       this.error = error;
       this.actionGraph = actionGraph;
-      this.targetCompletionMap = ImmutableMultimap.copyOf(targetCompletionMap);
       this.artifactsToBuild = ImmutableSet.copyOf(artifactsToBuild);
       this.exclusiveTestArtifacts = ImmutableSet.copyOf(exclusiveTestArtifacts);
+      this.topLevelContext = topLevelContext;
     }
 
     /**
@@ -521,11 +490,7 @@ public class BuildView {
       return targetsToTest;
     }
 
-    public Multimap<ConfiguredTarget, Artifact> getTargetCompletionMap() {
-      return targetCompletionMap;
-    }
-
-    public ImmutableSet<Artifact> getArtifactsToBuild() {
+    public ImmutableSet<Artifact> getAdditionalArtifactsToBuild() {
       return artifactsToBuild;
     }
 
@@ -545,6 +510,10 @@ public class BuildView {
      */
     public ActionGraph getActionGraph() {
       return actionGraph;
+    }
+
+    public TopLevelArtifactContext getTopLevelContext() {
+      return topLevelContext;
     }
   }
 
@@ -733,8 +702,7 @@ public class BuildView {
           filterTestsByTargets(configuredTargets, Sets.newHashSet(testsToRun)));
     }
 
-    Multimap<ConfiguredTarget, Artifact> targetCompletionMap =
-        createTargetCompletionMiddlemen(configuredTargets, topLevelOptions, skyframeExecutor);
+    skyframeExecutor.injectTopLevelContext(topLevelOptions);
 
     Set<Artifact> artifactsToBuild = new HashSet<>();
     Set<Artifact> exclusiveTestArtifacts = new HashSet<>();
@@ -743,7 +711,6 @@ public class BuildView {
     // build-info and build-changelist.
     Preconditions.checkState(buildInfoArtifacts.size() == 2, buildInfoArtifacts);
     artifactsToBuild.addAll(buildInfoArtifacts);
-    artifactsToBuild.addAll(targetCompletionMap.values());
 
     addExtraActionsIfRequested(viewOptions, artifactsToBuild, configuredTargets);
     // Note that this must come last, so that the tests are scheduled after all artifacts are built.
@@ -756,7 +723,7 @@ public class BuildView {
             : "execution phase succeeded, but not all targets were analyzed")
           : "execution phase succeeded, but there were loading phase errors";
     return new AnalysisResult(configuredTargets, targetsToTest, error, getActionGraph(),
-        targetCompletionMap, artifactsToBuild, exclusiveTestArtifacts);
+        artifactsToBuild, exclusiveTestArtifacts, topLevelOptions);
   }
 
   private void addExtraActionsIfRequested(BuildView.Options viewOptions,

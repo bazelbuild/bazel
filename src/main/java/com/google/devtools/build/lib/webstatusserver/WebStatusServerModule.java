@@ -131,9 +131,9 @@ public class WebStatusServerModule extends BlazeModule {
     StaticResourceHandler indexjs =
         StaticResourceHandler.createFromRelativePath("static/index.js", "application/javascript");
     StaticResourceHandler d3 = StaticResourceHandler.createFromAbsolutePath(
-        "/third_party/javascript/d3/d3-js.js", "application/javascript");
+        "third_party/javascript/d3/d3-js.js", "application/javascript");
     StaticResourceHandler jquery = StaticResourceHandler.createFromAbsolutePath(
-        "/third_party/javascript/jquery/v2_0_3/jquery_uncompressed.jslib",
+        "third_party/javascript/jquery/v2_0_3/jquery_uncompressed.jslib",
         "application/javascript");
     StaticResourceHandler testFrontend =
         StaticResourceHandler.createFromRelativePath("static/test.html", "text/html");

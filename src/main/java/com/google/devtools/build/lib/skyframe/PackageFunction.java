@@ -667,7 +667,7 @@ public class PackageFunction implements SkyFunction {
    * {@link PackageFunction#compute}.
    */
   private static class PackageFunctionException extends SkyFunctionException {
-    public PackageFunctionException(SkyKey key, Exception e, Transience transience) {
+    public PackageFunctionException(SkyKey key, NoSuchPackageException e, Transience transience) {
       super(key, e, transience);
     }
   }

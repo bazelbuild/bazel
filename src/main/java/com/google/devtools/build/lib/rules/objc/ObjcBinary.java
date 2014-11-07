@@ -14,7 +14,6 @@
 
 package com.google.devtools.build.lib.rules.objc;
 
-import static com.google.devtools.build.lib.rules.objc.ObjcActionsBuilder.DSYMUTIL;
 import static com.google.devtools.build.lib.rules.objc.ObjcProvider.XCASSETS_DIR;
 import static com.google.devtools.build.lib.rules.objc.XcodeProductType.APPLICATION;
 
@@ -153,41 +152,40 @@ public class ObjcBinary implements RuleConfiguredTargetFactory {
     Artifact ipaOutput = ruleContext.getImplicitOutputArtifact(ObjcBinaryRule.IPA);
 
     if (shouldGenerateDebugSymbols(ruleContext, bundling)) {
-      final Artifact dSym = ruleContext.getRelatedArtifact(
-          ipaOutput.getRootRelativePath(), TMP_DSYM_BUNDLE_SUFFIX);
-      ruleContext.getAnalysisEnvironment().registerAction(new SpawnAction.Builder(ruleContext)
-          .setMnemonic("Generating dSYM file")
-          .setExecutable(DSYMUTIL)
-          .addInput(bundling.getLinkedBinary().get())
-          .setCommandLine(new CommandLine() {
-            @Override
-            public Iterable<String> arguments() {
-              return new ImmutableList.Builder<String>()
-                  .add(bundling.getLinkedBinary().get().getExecPathString())
-                  .add("-o").add(dSym.getExecPathString())
-                 .build();
-             }
-          })
-          .setExecutionInfo(ImmutableMap.of(ExecutionRequirements.REQUIRES_DARWIN, ""))
-          .addOutput(dSym)
-          .build());
-
+      final Artifact dsymBundle = ObjcRuleClasses.intermediateArtifacts(ruleContext).dsymBundle();
+      Artifact debugSymbolFile = dsymSymbol(ruleContext);
       ruleContext.getAnalysisEnvironment().registerAction(new SpawnAction.Builder(ruleContext)
           .setMnemonic("Unzipping dSYM file")
           .setExecutable(new PathFragment("/usr/bin/unzip"))
-          .addInput(dSym)
+          .addInput(dsymBundle)
           .setCommandLine(new CommandLine() {
             @Override
             public Iterable<String> arguments() {
               return new ImmutableList.Builder<String>()
-                  .add(dSym.getExecPathString())
+                  .add(dsymBundle.getExecPathString())
                   .add("-d")
-                  .add(stripSuffix(dSym.getExecPathString(), TMP_DSYM_BUNDLE_SUFFIX) + ".app.dSYM")
+                  .add(stripSuffix(dsymBundle.getExecPathString(), TMP_DSYM_BUNDLE_SUFFIX)
+                      + ".app.dSYM")
                  .build();
              }
           })
-          .addOutput(ruleContext.getImplicitOutputArtifact(ObjcBinaryRule.DSYM_PLIST))
-          .addOutput(ruleContext.getImplicitOutputArtifact(ObjcBinaryRule.DSYM_SYMBOL))
+          .addOutput(dsymPlist(ruleContext))
+          .addOutput(debugSymbolFile)
+          .build());
+
+      Artifact dumpsyms = ruleContext.getPrerequisiteArtifact("$dumpsyms", Mode.HOST);
+      Artifact breakpadFile = breakpadSym(ruleContext);
+      ruleContext.getAnalysisEnvironment().registerAction(new SpawnAction.Builder(ruleContext)
+          .setMnemonic("Generating breakpad file")
+          .setShellCommand(ImmutableList.of("/bin/bash", "-c"))
+          .setExecutionInfo(ImmutableMap.of(ExecutionRequirements.REQUIRES_DARWIN, ""))
+          .addInput(dumpsyms)
+          .addInput(debugSymbolFile)
+          .addArgument(String.format("%s %s > %s",
+              ShellUtils.shellEscape(dumpsyms.getExecPathString()),
+              ShellUtils.shellEscape(debugSymbolFile.getExecPathString()),
+              ShellUtils.shellEscape(breakpadFile.getExecPathString())))
+          .addOutput(breakpadFile)
           .build());
     }
 
@@ -307,7 +305,24 @@ public class ObjcBinary implements RuleConfiguredTargetFactory {
   private static Map<String, String> variableSubstitutionsInBundleMerge(RuleContext ruleContext) {
     return ImmutableMap.of(
         "EXECUTABLE_NAME", ruleContext.getLabel().getName(),
-        "BUNDLE_NAME", ruleContext.getLabel().getName() + ".app");
+        "BUNDLE_NAME", ruleContext.getLabel().getName() + ".app",
+        "PRODUCT_NAME", ruleContext.getLabel().getName());
+  }
+
+  static XcodeProvider xcodeProvider(RuleContext ruleContext, ObjcCommon common,
+      InfoplistMerging infoplistMerging, OptionsProvider optionsProvider) {
+    return new XcodeProvider.Builder()
+        .setLabel(ruleContext.getLabel())
+        .addUserHeaderSearchPaths(ObjcCommon.userHeaderSearchPaths(ruleContext.getConfiguration()))
+        .setInfoplistMerging(infoplistMerging)
+        .addDependencies(ruleContext.getPrerequisites("deps", Mode.TARGET, XcodeProvider.class))
+        .addXcodeprojBuildSettings(assetCatalogBuildSettings(ruleContext))
+        .addCopts(optionsProvider.getCopts())
+        .setProductType(APPLICATION)
+        .addHeaders(common.getHdrs())
+        .setCompilationArtifacts(common.getCompilationArtifacts().get())
+        .setObjcProvider(common.getObjcProvider())
+        .build();
   }
 
   @Override
@@ -318,18 +333,8 @@ public class ObjcBinary implements RuleConfiguredTargetFactory {
     Bundling bundling = bundling(ruleContext, common.getObjcProvider(),  optionsProvider);
 
     checkAttributes(ruleContext, common, bundling);
-    XcodeProvider xcodeProvider = new XcodeProvider.Builder()
-        .setLabel(ruleContext.getLabel())
-        .addUserHeaderSearchPaths(ObjcCommon.userHeaderSearchPaths(ruleContext.getConfiguration()))
-        .setInfoplistMerging(bundling.getInfoplistMerging())
-        .addDependencies(ruleContext.getPrerequisites("deps", Mode.TARGET, XcodeProvider.class))
-        .addXcodeprojBuildSettings(assetCatalogBuildSettings(ruleContext))
-        .addCopts(optionsProvider.getCopts())
-        .setProductType(APPLICATION)
-        .addHeaders(common.getHdrs())
-        .setCompilationArtifacts(common.getCompilationArtifacts().get())
-        .setObjcProvider(common.getObjcProvider())
-        .build();
+    XcodeProvider xcodeProvider = xcodeProvider(
+        ruleContext, common, bundling.getInfoplistMerging(), optionsProvider);
 
     registerActions(
         ruleContext, common, xcodeProvider, new ExtraLinkArgs(), optionsProvider, bundling);
@@ -340,8 +345,9 @@ public class ObjcBinary implements RuleConfiguredTargetFactory {
 
     if (shouldGenerateDebugSymbols(ruleContext, bundling)) {
       filesToBuild
-          .add(ruleContext.getImplicitOutputArtifact(ObjcBinaryRule.DSYM_PLIST))
-          .add(ruleContext.getImplicitOutputArtifact(ObjcBinaryRule.DSYM_SYMBOL));
+          .add(dsymPlist(ruleContext))
+          .add(dsymSymbol(ruleContext))
+          .add(breakpadSym(ruleContext));
     }
 
     return common.configuredTarget(
@@ -353,5 +359,28 @@ public class ObjcBinary implements RuleConfiguredTargetFactory {
   private static boolean shouldGenerateDebugSymbols(RuleContext ruleContext, Bundling bundling) {
     return ObjcRuleClasses.objcConfiguration(ruleContext).generateDebugSymbols()
         && bundling.getLinkedBinary().isPresent();
+  }
+
+  private static Artifact dsymPlist(RuleContext ruleContext) {
+    PathFragment artifactPackageRelativePath = new PathFragment(
+        String.format("%s.app.dSYM/Contents/Info.plist", ruleContext.getLabel().getName()));
+    return artifactByAppendingToPackageRelativePath(ruleContext, artifactPackageRelativePath);
+  }
+
+  private static Artifact dsymSymbol(RuleContext ruleContext) {
+    String ruleName = ruleContext.getLabel().getName();
+    PathFragment artifactPackageRelativePath = new PathFragment(
+        String.format("%s.app.dSYM/Contents/Resources/DWARF/%s", ruleName, ruleName));
+    return artifactByAppendingToPackageRelativePath(ruleContext, artifactPackageRelativePath);
+  }
+
+  private static Artifact breakpadSym(RuleContext ruleContext) {
+    return ObjcRuleClasses.artifactByAppendingToBaseName(ruleContext, ".breakpad");
+  }
+
+  private static Artifact artifactByAppendingToPackageRelativePath(RuleContext ruleContext,
+      PathFragment path) {
+    return ObjcRuleClasses.artifactByAppendingToRootRelativePath(ruleContext,
+        ruleContext.getLabel().getPackageFragment().getRelative(path), "");
   }
 }

@@ -22,6 +22,10 @@ import com.google.devtools.build.lib.util.StringCanonicalizer;
 import com.google.devtools.build.lib.util.StringUtilities;
 import com.google.devtools.build.lib.vfs.PathFragment;
 
+import java.io.IOException;
+import java.io.ObjectInputStream;
+import java.io.ObjectOutputStream;
+import java.io.ObjectStreamException;
 import java.io.Serializable;
 import java.util.Objects;
 
@@ -37,6 +41,42 @@ import javax.annotation.concurrent.Immutable;
 @Immutable
 public final class PackageIdentifier implements Comparable<PackageIdentifier>, Serializable {
   public static final String DEFAULT_REPOSITORY = "";
+
+  /**
+   * Helper for serializing PackageIdentifiers.
+   *
+   * <p>PackageIdentifier's field should be final, but then it couldn't be deserialized. This
+   * allows the fields to be deserialized and copied into a new PackageIdentifier.</p>
+   */
+  private static final class SerializationProxy implements Serializable {
+    PackageIdentifier packageId;
+
+    public SerializationProxy(PackageIdentifier packageId) {
+      this.packageId = packageId;
+    }
+
+    private void writeObject(ObjectOutputStream out) throws IOException {
+      out.writeObject(packageId.repository);
+      out.writeObject(packageId.pkgName);
+    }
+
+    private void readObject(ObjectInputStream in)
+        throws IOException, ClassNotFoundException {
+      try {
+        packageId = new PackageIdentifier((String) in.readObject(), (PathFragment) in.readObject());
+      } catch (SyntaxException e) {
+        throw new IOException("Error serializing package identifier: " + e.getMessage());
+      }
+    }
+
+    @SuppressWarnings("unused")
+    private void readObjectNoData() throws ObjectStreamException {
+    }
+
+    private Object readResolve() {
+      return packageId;
+    }
+  }
 
   /**
    * Validates the given repository name and returns a canonical String instance if it is valid.
@@ -84,6 +124,19 @@ public final class PackageIdentifier implements Comparable<PackageIdentifier>, S
     Preconditions.checkNotNull(pkgName);
     this.repository = canonicalizeRepositoryName(repository);
     this.pkgName = pkgName;
+  }
+
+  private Object writeReplace() throws ObjectStreamException {
+    return new SerializationProxy(this);
+  }
+
+  private void readObject(ObjectInputStream in)
+      throws IOException, ClassNotFoundException {
+    throw new IOException("Serialization is allowed only by proxy");
+  }
+
+  @SuppressWarnings("unused")
+  private void readObjectNoData() throws ObjectStreamException {
   }
 
   public String getRepository() {

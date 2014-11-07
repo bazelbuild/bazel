@@ -20,7 +20,7 @@ import com.google.common.base.Stopwatch;
 import com.google.common.collect.HashBasedTable;
 import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.ImmutableSet;
-import com.google.common.collect.Multimap;
+import com.google.common.collect.Iterables;
 import com.google.common.collect.Ordering;
 import com.google.common.collect.Table;
 import com.google.common.eventbus.EventBus;
@@ -36,7 +36,6 @@ import com.google.devtools.build.lib.actions.ActionInputFileCache;
 import com.google.devtools.build.lib.actions.Artifact;
 import com.google.devtools.build.lib.actions.BlazeExecutor;
 import com.google.devtools.build.lib.actions.BuildFailedException;
-import com.google.devtools.build.lib.actions.Builder;
 import com.google.devtools.build.lib.actions.Dumper;
 import com.google.devtools.build.lib.actions.ExecException;
 import com.google.devtools.build.lib.actions.ExecutionStrategy;
@@ -71,6 +70,7 @@ import com.google.devtools.build.lib.profiler.ProfilePhase;
 import com.google.devtools.build.lib.profiler.Profiler;
 import com.google.devtools.build.lib.profiler.ProfilerTask;
 import com.google.devtools.build.lib.rules.test.TestActionContext;
+import com.google.devtools.build.lib.skyframe.Builder;
 import com.google.devtools.build.lib.skyframe.SkyframeExecutor;
 import com.google.devtools.build.lib.syntax.Label;
 import com.google.devtools.build.lib.util.AbruptExitException;
@@ -91,6 +91,7 @@ import com.google.devtools.build.lib.view.FilesToCompileProvider;
 import com.google.devtools.build.lib.view.InputFileConfiguredTarget;
 import com.google.devtools.build.lib.view.OutputFileConfiguredTarget;
 import com.google.devtools.build.lib.view.TempsProvider;
+import com.google.devtools.build.lib.view.TopLevelArtifactHelper;
 import com.google.devtools.build.lib.view.TransitiveInfoCollection;
 import com.google.devtools.build.lib.view.ViewCreationFailedException;
 import com.google.devtools.build.lib.view.WorkspaceStatusAction;
@@ -323,9 +324,7 @@ public class ExecutionTool {
     ActionGraph actionGraph = analysisResult.getActionGraph();
 
     // Get top-level artifacts.
-    ImmutableSet<Artifact> artifactsToBuild = analysisResult.getArtifactsToBuild();
-    Multimap<ConfiguredTarget, Artifact> targetCompletionMap =
-        analysisResult.getTargetCompletionMap();
+    ImmutableSet<Artifact> additionalArtifacts = analysisResult.getAdditionalArtifactsToBuild();
 
     // Optionally dump information derived from the action graph.
     // Ideally, we would do this after creating the symlinks, so that
@@ -334,7 +333,7 @@ public class ExecutionTool {
     // we really shouldn't be writing anything to disk.  Note that
     // we'll take advantage of the symlinks, if they already exist, in
     // getPrettyPath.
-    maybeDump(request, executor, actionGraph, artifactsToBuild);
+    maybeDump(request, executor, actionGraph, additionalArtifacts);
 
     // If --nobuild is specified, this request completes successfully without
     // execution.  (We only got here because of --dump_action_graph or similar.)
@@ -366,8 +365,7 @@ public class ExecutionTool {
     }
 
     ActionCache actionCache = getActionCache();
-    Builder builder = createBuilder(request, executor, actionCache,
-        skyframeExecutor);
+    Builder builder = createBuilder(request, executor, actionCache, skyframeExecutor);
 
     //
     // Execution proper.  All statements below are logically nested in
@@ -384,8 +382,11 @@ public class ExecutionTool {
         installExplanationHandler(request.getBuildOptions().explanationPath,
                                   request.getOptionsDescription());
 
-    Set<Artifact> builtArtifacts = new HashSet<>();
+    Set<ConfiguredTarget> builtTargets = new HashSet<>();
     boolean interrupted = false;
+    Iterable<Artifact> allArtifacts = Iterables.concat(additionalArtifacts,
+        TopLevelArtifactHelper.getAllArtifactsToBuild(
+            analysisResult.getTargetsToBuild(), analysisResult.getTopLevelContext()));
     try {
       if (request.isRunningInEmacs()) {
         // The syntax of this message is tightly constrained by lisp/progmodes/compile.el in emacs
@@ -395,7 +396,7 @@ public class ExecutionTool {
         actionContextProvider.executionPhaseStarting(
             fileCache,
             actionGraph,
-            artifactsToBuild);
+            allArtifacts);
       }
       executor.executionPhaseStarting();
       skyframeExecutor.drainChangedFiles();
@@ -412,13 +413,10 @@ public class ExecutionTool {
 
       Profiler.instance().markPhase(ProfilePhase.EXECUTE);
 
-      // This probably does not work with Skyframe, because then the modified file set
-      // returned by the runtime is not right (since it is updated in PackageCache). This also
-      // fails to work when the order of commands is build-query-build (because changes during
-      // between the first build command and the query command get lost).
-      builder.buildArtifacts(artifactsToBuild,
+      builder.buildArtifacts(additionalArtifacts,
           analysisResult.getExclusiveTestArtifacts(),
-          executor, builtArtifacts,
+          analysisResult.getTargetsToBuild(),
+          executor, builtTargets,
           request.getBuildOptions().explanationPath != null);
 
     } catch (InterruptedException e) {
@@ -449,8 +447,7 @@ public class ExecutionTool {
       }
 
       long startTime = Profiler.nanoTimeMaybe();
-      determineSuccessfulTargets(request, buildResult, configuredTargets, builtArtifacts,
-          targetCompletionMap, timer);
+      determineSuccessfulTargets(buildResult, configuredTargets, builtTargets, timer);
       showBuildResult(request, buildResult, configuredTargets);
       Preconditions.checkNotNull(buildResult.getSuccessfulTargets());
       Profiler.instance().logSimpleTask(startTime, ProfilerTask.INFO, "Show results");
@@ -652,19 +649,18 @@ public class ExecutionTool {
    * Computes the result of the build. Sets the list of successful (up-to-date)
    * targets in the request object.
    *
-   * @param request The build request, which specifies various options.
-   *                This function sets the successfulTargets field of the request object.
    * @param configuredTargets The configured targets whose artifacts are to be
    *                          built.
-   * @param builtArtifacts Set of successfully built artifacts.
    * @param timer A timer that was started when the execution phase started.
    */
-  private void determineSuccessfulTargets(BuildRequest request, BuildResult result,
-      Collection<ConfiguredTarget> configuredTargets, Set<Artifact> builtArtifacts,
-      Multimap<ConfiguredTarget, Artifact> artifactsMap, Stopwatch timer) {
+  private void determineSuccessfulTargets(BuildResult result,
+      Collection<ConfiguredTarget> configuredTargets, Set<ConfiguredTarget> builtTargets,
+      Stopwatch timer) {
+    // Maintain the ordering by copying builtTargets into a LinkedHashSet in the same iteration
+    // order as configuredTargets.
     Collection<ConfiguredTarget> successfulTargets = new LinkedHashSet<>();
     for (ConfiguredTarget target : configuredTargets) {
-      if (builtArtifacts.containsAll(artifactsMap.get(target))) {
+      if (builtTargets.contains(target)) {
         successfulTargets.add(target);
       }
     }
@@ -845,11 +841,10 @@ public class ExecutionTool {
     // client.
     fileCache = createBuildSingleFileCache(executor.getExecRoot());
     skyframeExecutor.setActionOutputRoot(actionOutputRoot);
-    boolean explain = request.getBuildOptions().explanationPath != null;
     return new SkyframeBuilder(skyframeExecutor,
         new ActionCacheChecker(actionCache, getView().getArtifactFactory(), executionFilter,
             verboseExplanations),
-        keepGoing, explain, actualJobs, options.checkOutputFiles, fileCache,
+        keepGoing, actualJobs, options.checkOutputFiles, fileCache,
         request.getBuildOptions().progressReportInterval);
   }
 

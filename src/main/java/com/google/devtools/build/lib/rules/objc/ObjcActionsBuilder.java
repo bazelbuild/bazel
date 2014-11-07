@@ -30,6 +30,7 @@ import static com.google.devtools.build.lib.rules.objc.ObjcProvider.SDK_FRAMEWOR
 import static com.google.devtools.build.lib.rules.objc.ObjcProvider.XCASSETS_DIR;
 
 import com.google.common.annotations.VisibleForTesting;
+import com.google.common.base.Joiner;
 import com.google.common.base.Optional;
 import com.google.common.base.Preconditions;
 import com.google.common.collect.ImmutableList;
@@ -178,17 +179,11 @@ final class ObjcActionsBuilder {
       final Artifact archive,
       final ObjcConfiguration objcConfiguration,
       final Artifact objList) {
-    LazyString objListContent = new LazyString() {
-      @Override
-      public String toString() {
-        return Artifact.joinExecPaths("\n", objFiles);
-      }
-    };
 
     ImmutableList.Builder<Action> actions = new ImmutableList.Builder<>();
 
     actions.add(new FileWriteAction(
-        context.getActionOwner(), objList, objListContent, /*makeExecutable=*/ false));
+        context.getActionOwner(), objList, joinExecPaths(objFiles), /*makeExecutable=*/ false));
 
     actions.add(spawnOnDarwinActionBuilder(context)
         .setMnemonic("Link")
@@ -454,17 +449,20 @@ final class ObjcActionsBuilder {
   }
 
   private static final class LinkCommandLine extends CommandLine {
+    private static final Joiner commandJoiner = Joiner.on(' ');
     private final ObjcProvider objcProvider;
     private final ObjcConfiguration objcConfiguration;
     private final Artifact linkedBinary;
+    private final Optional<Artifact> dsymBundle;
     private final ExtraLinkArgs extraLinkArgs;
 
     LinkCommandLine(ObjcConfiguration objcConfiguration, ExtraLinkArgs extraLinkArgs,
-        ObjcProvider objcProvider, Artifact linkedBinary) {
+        ObjcProvider objcProvider, Artifact linkedBinary, Optional<Artifact> dsymBundle) {
       this.objcConfiguration = Preconditions.checkNotNull(objcConfiguration);
       this.extraLinkArgs = Preconditions.checkNotNull(extraLinkArgs);
       this.objcProvider = Preconditions.checkNotNull(objcProvider);
       this.linkedBinary = Preconditions.checkNotNull(linkedBinary);
+      this.dsymBundle = Preconditions.checkNotNull(dsymBundle);
     }
 
     Iterable<String> dylibPaths() {
@@ -478,7 +476,10 @@ final class ObjcActionsBuilder {
 
     @Override
     public Iterable<String> arguments() {
-      return new ImmutableList.Builder<String>()
+      StringBuilder argumentStringBuilder = new StringBuilder();
+
+      commandJoiner.appendTo(argumentStringBuilder, new ImmutableList.Builder<String>()
+          .add(objcProvider.is(USES_CPP) ? CLANG_PLUSPLUS.toString() : CLANG.toString())
           .addAll(objcProvider.is(USES_CPP)
               ? ImmutableList.of("-stdlib=libc++") : ImmutableList.<String>of())
           .addAll(IosSdkCommands.commonLinkAndCompileArgsForClang(objcProvider, objcConfiguration))
@@ -492,7 +493,23 @@ final class ObjcActionsBuilder {
           .addAll(Artifact.toExecPaths(objcProvider.get(IMPORTED_LIBRARY)))
           .addAll(dylibPaths())
           .addAll(extraLinkArgs)
-          .build();
+          .build());
+
+      // Call to dsymutil for debug symbol generation must happen in the link action.
+      // All debug symbol information is encoded in object files inside archive files. To generate
+      // the debug symbol bundle, dsymutil will look inside the linked binary for the encoded
+      // absolute paths to archive files, which are only valid in the link action.
+      for (Artifact justDsymBundle : dsymBundle.asSet()) {
+        argumentStringBuilder.append(" ");
+        commandJoiner.appendTo(argumentStringBuilder, new ImmutableList.Builder<String>()
+            .add("&&")
+            .add(DSYMUTIL.toString())
+            .add(linkedBinary.getExecPathString())
+            .add("-o").add(justDsymBundle.getExecPathString())
+            .build());
+      }
+
+      return ImmutableList.of(argumentStringBuilder.toString());
     }
   }
 
@@ -500,13 +517,15 @@ final class ObjcActionsBuilder {
    * Generates an action to link a binary.
    */
   void registerLinkAction(ActionConstructionContext context, Artifact linkedBinary,
-      ObjcProvider objcProvider, ExtraLinkArgs extraLinkArgs) {
+      ObjcProvider objcProvider, ExtraLinkArgs extraLinkArgs, Optional<Artifact> dsymBundle) {
     register(spawnOnDarwinActionBuilder(context)
         .setMnemonic("Link")
-        .setExecutable(objcProvider.is(USES_CPP) ? CLANG_PLUSPLUS : CLANG)
+        .setShellCommand(ImmutableList.of("/bin/bash", "-c"))
         .setCommandLine(
-            new LinkCommandLine(objcConfiguration, extraLinkArgs, objcProvider, linkedBinary))
+            new LinkCommandLine(objcConfiguration, extraLinkArgs, objcProvider, linkedBinary,
+                dsymBundle))
         .addOutput(linkedBinary)
+        .addOutputs(dsymBundle.asSet())
         .addTransitiveInputs(objcProvider.get(LIBRARY))
         .addTransitiveInputs(objcProvider.get(IMPORTED_LIBRARY))
         .addTransitiveInputs(objcProvider.get(FRAMEWORK_FILE))
@@ -534,5 +553,14 @@ final class ObjcActionsBuilder {
     registerAll(convertStringsActions(context, baseTools, stringsFiles));
     registerAll(convertXibsActions(context, xibFiles));
     registerAll(momczipActions(context, baseTools, objcConfiguration, datamodels));
+  }
+
+  static LazyString joinExecPaths(final Iterable<Artifact> artifacts) {
+    return new LazyString() {
+      @Override
+      public String toString() {
+        return Artifact.joinExecPaths("\n", artifacts);
+      }
+    };
   }
 }

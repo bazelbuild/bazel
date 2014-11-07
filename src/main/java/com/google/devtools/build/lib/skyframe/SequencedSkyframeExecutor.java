@@ -30,6 +30,7 @@ import com.google.devtools.build.lib.blaze.BlazeDirectories;
 import com.google.devtools.build.lib.events.Reporter;
 import com.google.devtools.build.lib.packages.Package;
 import com.google.devtools.build.lib.packages.PackageFactory;
+import com.google.devtools.build.lib.packages.PackageIdentifier;
 import com.google.devtools.build.lib.packages.Preprocessor;
 import com.google.devtools.build.lib.packages.Preprocessor.Factory.Supplier;
 import com.google.devtools.build.lib.pkgcache.PackageCacheOptions;
@@ -79,7 +80,7 @@ public final class SequencedSkyframeExecutor extends SkyframeExecutor {
   private int valueCacheEvictionLimit = -1;
 
   /** Union of labels of loaded packages since the last eviction of CT values. */
-  private Set<PathFragment> allLoadedPackages = ImmutableSet.of();
+  private Set<PackageIdentifier> allLoadedPackages = ImmutableSet.of();
   private boolean lastAnalysisDiscarded = false;
 
   // Can only be set once (to false) over the lifetime of this object. If false, the graph will not
@@ -490,8 +491,8 @@ public final class SequencedSkyframeExecutor extends SkyframeExecutor {
    * easier to use strings here.
    */
   @VisibleForTesting
-  static boolean isBuildSubsetOrSupersetOfPreviousBuild(Set<PathFragment> oldPackages,
-      Set<PathFragment> newPackages) {
+  static boolean isBuildSubsetOrSupersetOfPreviousBuild(Set<PackageIdentifier> oldPackages,
+      Set<PackageIdentifier> newPackages) {
     if (newPackages.size() <= oldPackages.size()) {
       return Sets.difference(newPackages, oldPackages).isEmpty();
     } else if (oldPackages.size() < newPackages.size()) {
@@ -504,12 +505,13 @@ public final class SequencedSkyframeExecutor extends SkyframeExecutor {
   }
 
   @Override
-  public void updateLoadedPackageSet(Set<PathFragment> loadedPackages) {
+  public void updateLoadedPackageSet(Set<PackageIdentifier> loadedPackages) {
     Preconditions.checkState(valueCacheEvictionLimit >= 0,
         "should have called setMinLoadedPkgCountForCtValueEviction earlier");
 
     // Make a copy to avoid nesting SetView objects. It also computes size(), which we need below.
-    Set<PathFragment> union = ImmutableSet.copyOf(Sets.union(allLoadedPackages, loadedPackages));
+    Set<PackageIdentifier> union = ImmutableSet.copyOf(
+        Sets.union(allLoadedPackages, loadedPackages));
 
     if (union.size() < valueCacheEvictionLimit
         || isBuildSubsetOrSupersetOfPreviousBuild(allLoadedPackages, loadedPackages)) {

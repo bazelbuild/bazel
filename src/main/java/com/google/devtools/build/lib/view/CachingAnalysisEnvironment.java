@@ -18,8 +18,6 @@ import com.google.common.base.Preconditions;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableSet;
 import com.google.common.collect.Lists;
-import com.google.common.collect.Maps;
-import com.google.common.collect.Sets;
 import com.google.devtools.build.lib.actions.Action;
 import com.google.devtools.build.lib.actions.Artifact;
 import com.google.devtools.build.lib.actions.ArtifactFactory;
@@ -43,9 +41,12 @@ import java.io.StringWriter;
 import java.util.ArrayList;
 import java.util.Collection;
 import java.util.Collections;
+import java.util.HashMap;
+import java.util.HashSet;
 import java.util.List;
 import java.util.Map;
 import java.util.Set;
+import java.util.TreeMap;
 
 import javax.annotation.Nullable;
 
@@ -109,7 +110,7 @@ public class CachingAnalysisEnvironment implements AnalysisEnvironment {
     this.outputFormatters = outputFormatters;
     this.binTools = binTools;
     middlemanFactory = new MiddlemanFactory(artifactFactory, this);
-    artifacts = Maps.newHashMap();
+    artifacts = new HashMap<>();
   }
 
   public void disable(Target target) {
@@ -166,13 +167,15 @@ public class CachingAnalysisEnvironment implements AnalysisEnvironment {
 
   private Map<Artifact, String> getOrphanArtifactMap() {
     // Construct this set to avoid poor performance under large --runs_per_test.
-    Set<Artifact> artifactsWithActions = Sets.newHashSet();
+    Set<Artifact> artifactsWithActions = new HashSet<>();
     for (Action action : actions) {
       // Don't bother checking that every Artifact only appears once; that test is performed
       // elsewhere (see #testNonUniqueOutputs in ActionListenerIntegrationTest).
       artifactsWithActions.addAll(action.getOutputs());
     }
-    Map<Artifact, String> orphanArtifacts = Maps.newHashMapWithExpectedSize(artifacts.size());
+    // The order of the artifacts.entrySet iteration is unspecified - we use a TreeMap here to
+    // guarantee that the return value of this method is deterministic.
+    Map<Artifact, String> orphanArtifacts = new TreeMap<>();
     for (Map.Entry<Artifact, String> entry : artifacts.entrySet()) {
       Artifact a = entry.getKey();
       if (!a.isSourceArtifact() && !artifactsWithActions.contains(a)) {

@@ -45,6 +45,18 @@ public final class TopLevelArtifactHelper {
   }
 
   /**
+   * Utility function to form a NestedSet of all top-level Artifacts of the given targets.
+   */
+  public static NestedSet<Artifact> getAllArtifactsToBuild(
+      Iterable<? extends TransitiveInfoCollection> targets, TopLevelArtifactContext options) {
+    NestedSetBuilder<Artifact> allArtifacts = NestedSetBuilder.stableOrder();
+    for (TransitiveInfoCollection target : targets) {
+      allArtifacts.addTransitive(getAllArtifactsToBuild(target, options));
+    }
+    return allArtifacts.build();
+  }
+
+  /**
    * Returns all artifacts to build if this target is requested as a top-level target. The resulting
    * set includes the temps and either the files to compile, if
    * {@code options.compileOnly() == true}, or the files to run.

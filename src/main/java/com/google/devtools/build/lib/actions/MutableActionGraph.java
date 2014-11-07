@@ -62,7 +62,7 @@ public interface MutableActionGraph extends ActionGraph {
    * about the artifact for which the conflict is found, and data about the two conflicting actions
    * and their owners.
    */
-  public static final class ActionConflictException extends RuntimeException {
+  public static final class ActionConflictException extends Exception {
 
     private final Artifact artifact;
     private final Action previousAction;

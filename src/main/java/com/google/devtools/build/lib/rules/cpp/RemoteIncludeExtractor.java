@@ -33,7 +33,7 @@ public interface RemoteIncludeExtractor extends ActionContext {
    * Returns whether to use this object to parse the given file for includes. The returned data
    * should be passed to {@link #extractInclusions} to direct its behavior.
    */
-  RemoteParseData shouldParseRemotely(Path file, ActionExecutionContext actionExecutionContext);
+  RemoteParseData shouldParseRemotely(Path file);
 
   /**
    * Extracts all inclusions from a given source file, possibly using a remote service.

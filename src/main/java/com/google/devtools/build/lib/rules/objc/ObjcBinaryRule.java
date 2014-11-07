@@ -45,13 +45,9 @@ import com.google.devtools.build.lib.view.RuleDefinitionEnvironment;
     ancestors = { ObjcBundleLibraryRule.class })
 public class ObjcBinaryRule implements RuleDefinition {
   public static final SafeImplicitOutputsFunction IPA = fromTemplates("%{name}.ipa");
-  public static final SafeImplicitOutputsFunction DSYM_PLIST =
-      fromTemplates("%{name}.app.dSYM/Contents/Info.plist");
-  public static final SafeImplicitOutputsFunction DSYM_SYMBOL =
-      fromTemplates("%{name}.app.dSYM/Contents/Resources/DWARF/%{name}");
 
   static final String PROVISIONING_PROFILE_ATTR = "provisioning_profile";
-  
+
   private static Optional<String> stringAttribute(RuleContext context, String attribute) {
     String value = context.attributes().get(attribute, Type.STRING);
     return value.isEmpty() ? Optional.<String>absent() : Optional.of(value);
@@ -82,12 +78,6 @@ public class ObjcBinaryRule implements RuleDefinition {
              file</li>
          <li><code><var>name</var>.xcodeproj/project.pbxproj: An Xcode project file which can be
              used to develop or build on a Mac.</li>
-         <li><code><var>name</var>.app.dSYM/Contents/Info.plist</code>: The plist file in the
-             unzipped dSYM bundle of the application binary
-              (only built if Blaze flag "--objc_generate_debug_symbols" is specified).</li>
-         <li><code><var>name</var>.app.dSYM/Contents/Resources/DWARF/<var>name</var></code>:
-             The debug symbol file in the unzipped dSYM bundle of the application binary
-              (only built if Blaze flag "--objc_generate_debug_symbols" is specified).</li>
         </ul>
         <!-- #END_BLAZE_RULE.IMPLICIT_OUTPUTS -->*/
         .setImplicitOutputsFunction(fromFunctions(IPA, ObjcRuleClasses.PBXPROJ))
@@ -144,6 +134,8 @@ public class ObjcBinaryRule implements RuleDefinition {
         // less painful and error-prone way.
         .add(attr("$bundlemerge", LABEL).cfg(HOST).exec()
             .value(env.getLabel("//tools/objc:bundlemerge")))
+        .add(attr("$dumpsyms", LABEL).cfg(HOST).exec()
+            .value(env.getLabel("//tools/objc:dump_syms")))
         .build();
   }
 }

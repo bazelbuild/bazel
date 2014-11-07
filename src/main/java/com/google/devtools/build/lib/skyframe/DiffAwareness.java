@@ -44,20 +44,34 @@ public interface DiffAwareness extends Closeable {
     DiffAwareness maybeCreate(Path pathEntry);
   }
 
+  /** Opaque view of the filesystem under a package path entry at a specific point in time. */
+  interface View {
+  }
+
   /**
-   * Returns the set of files of interest that have been modified since the last call to
-   * {@link #getDiff}. If this is the first call to {@link #getDiff} then
-   * {@code ModifiedFileSet.EVERYTHING_MODIFIED} should be returned.
-   *
-   * <p> The caller should either fully process these results, or conservatively call
-   * {@link #close} and throw away this {@link DiffAwareness} instance. Otherwise the results of
-   * the next {@link #getDiff} call won't make sense.
+   * Returns the live view of the filesystem under the package path entry.
    *
    * @throws BrokenDiffAwarenessException if something is wrong and the caller should discard this
    *     {@link DiffAwareness} instance. The {@link DiffAwareness} is expected to close itself in
    *     this case.
    */
-  ModifiedFileSet getDiff() throws BrokenDiffAwarenessException;
+  View getCurrentView() throws BrokenDiffAwarenessException;
+
+  /**
+   * Returns the set of files of interest that have been modified between the given two views.
+   *
+   * <p>The given views must have come from previous calls to {@link #getCurrentView} on the
+   * {@link DiffAwareness} instance (i.e. using a {@link View} from another instance is not
+   * supported).
+   *
+   * @throws IncompatibleViewException if the given views are not compatible with this
+   *     {@link DiffAwareness} instance. This probably indicates a bug.
+   * @throws BrokenDiffAwarenessException if something is wrong and the caller should discard this
+   *     {@link DiffAwareness} instance. The {@link DiffAwareness} is expected to close itself in
+   *     this case.
+   */
+  ModifiedFileSet getDiff(View oldView, View newView)
+      throws IncompatibleViewException, BrokenDiffAwarenessException;
 
   /**
    * Must be called whenever the {@link DiffAwareness} object is to be discarded. Using a

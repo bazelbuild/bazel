@@ -68,6 +68,11 @@ public class IosSdkCommands {
     if (configuration.getPlatform() == Platform.SIMULATOR) {
       builder.add("-mios-simulator-version-min=" + MINIMUM_OS_VERSION);
     }
+
+    if (configuration.generateDebugSymbols()) {
+      builder.add("-g");
+    }
+
     return builder
         .add("-arch", configuration.getIosCpu())
         .add("-isysroot", sdkDir(configuration))

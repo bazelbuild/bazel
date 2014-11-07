@@ -25,6 +25,7 @@ import com.google.common.eventbus.EventBus;
 import com.google.devtools.build.lib.actions.Action;
 import com.google.devtools.build.lib.actions.Artifact;
 import com.google.devtools.build.lib.actions.ArtifactFactory;
+import com.google.devtools.build.lib.actions.ArtifactPrefixConflictException;
 import com.google.devtools.build.lib.actions.MutableActionGraph;
 import com.google.devtools.build.lib.events.Event;
 import com.google.devtools.build.lib.events.EventHandler;
@@ -34,6 +35,7 @@ import com.google.devtools.build.lib.query2.output.OutputFormatter;
 import com.google.devtools.build.lib.skyframe.ActionLookupValue.ActionLookupKey;
 import com.google.devtools.build.lib.skyframe.BuildInfoCollectionValue.BuildInfoKeyAndConfig;
 import com.google.devtools.build.lib.skyframe.ConfiguredTargetFunction.ConfiguredValueCreationException;
+import com.google.devtools.build.lib.skyframe.SkyframeActionExecutor.ConflictException;
 import com.google.devtools.build.lib.syntax.Label;
 import com.google.devtools.build.lib.vfs.PathFragment;
 import com.google.devtools.build.lib.view.AnalysisFailureEvent;
@@ -164,7 +166,7 @@ public final class SkyframeBuildView {
     }
     // For Skyframe m1, note that we already reported action conflicts during action registration
     // in the legacy action graph.
-    ImmutableMap<Action, Exception> badActions = skyframeExecutor.findArtifactConflicts();
+    ImmutableMap<Action, ConflictException> badActions = skyframeExecutor.findArtifactConflicts();
 
     // Filter out all CTs that have a bad action and convert to a list of configured targets. This
     // code ensures that the resulting list of configured targets has the same order as the incoming
@@ -187,17 +189,17 @@ public final class SkyframeBuildView {
     // TODO(bazel-team): We might want to report the other errors through the event bus but
     // for keeping this code in parity with legacy we just report the first error for now.
     if (!keepGoing) {
-      for (Map.Entry<Action, Exception> bad : badActions.entrySet()) {
-        Exception ex = bad.getValue();
-        if (ex instanceof MutableActionGraph.ActionConflictException) {
-          MutableActionGraph.ActionConflictException ace =
-              (MutableActionGraph.ActionConflictException) ex;
+      for (Map.Entry<Action, ConflictException> bad : badActions.entrySet()) {
+        ConflictException ex = bad.getValue();
+        try {
+          ex.rethrowTyped();
+        } catch (MutableActionGraph.ActionConflictException ace) {
           ace.reportTo(skyframeExecutor.getReporter());
           String errorMsg = "Analysis of target '" + bad.getKey().getOwner().getLabel()
               + "' failed; build aborted";
           throw new ViewCreationFailedException(errorMsg);
-        } else {
-          skyframeExecutor.getReporter().handle(Event.error(ex.getMessage()));
+        } catch (ArtifactPrefixConflictException apce) {
+          skyframeExecutor.getReporter().handle(Event.error(apce.getMessage()));
         }
         throw new ViewCreationFailedException(ex.getMessage());
       }
@@ -246,19 +248,19 @@ public final class SkyframeBuildView {
     }
 
     Collection<Exception> reportedExceptions = Sets.newHashSet();
-    for (Map.Entry<Action, Exception> bad : badActions.entrySet()) {
-      Exception ex = bad.getValue();
-      if (ex instanceof MutableActionGraph.ActionConflictException) {
-        MutableActionGraph.ActionConflictException ace =
-            (MutableActionGraph.ActionConflictException) ex;
+    for (Map.Entry<Action, ConflictException> bad : badActions.entrySet()) {
+      ConflictException ex = bad.getValue();
+      try {
+        ex.rethrowTyped();
+      } catch (MutableActionGraph.ActionConflictException ace) {
         ace.reportTo(skyframeExecutor.getReporter());
         if (warningListener != null) {
           warningListener.handle(Event.warn("errors encountered while analyzing target '"
               + bad.getKey().getOwner().getLabel() + "': it will not be built"));
         }
-      } else {
-        if (reportedExceptions.add(ex)) {
-          skyframeExecutor.getReporter().handle(Event.error(ex.getMessage()));
+      } catch (ArtifactPrefixConflictException apce) {
+        if (reportedExceptions.add(apce)) {
+          skyframeExecutor.getReporter().handle(Event.error(apce.getMessage()));
         }
       }
     }

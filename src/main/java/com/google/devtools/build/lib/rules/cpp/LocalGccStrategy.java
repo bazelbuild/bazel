@@ -15,6 +15,7 @@ package com.google.devtools.build.lib.rules.cpp;
 
 import com.google.common.collect.ImmutableList;
 import com.google.devtools.build.lib.actions.ActionExecutionContext;
+import com.google.devtools.build.lib.actions.ActionInput;
 import com.google.devtools.build.lib.actions.BaseSpawn;
 import com.google.devtools.build.lib.actions.ExecException;
 import com.google.devtools.build.lib.actions.ExecutionStrategy;
@@ -22,6 +23,7 @@ import com.google.devtools.build.lib.actions.ResourceSet;
 import com.google.devtools.common.options.OptionsClassProvider;
 
 import java.util.Collection;
+import java.util.List;
 
 /**
  * Run gcc locally by delegating to spawn.
@@ -47,6 +49,12 @@ public class LocalGccStrategy implements CppCompileActionContext {
   @Override
   public boolean needsIncludeScanning() {
     return false;
+  }
+
+  @Override
+  public List<ActionInput> findAdditionalInputs(CppCompileAction action,
+      ActionExecutionContext actionExecutionContext) throws ExecException, InterruptedException {
+    return ImmutableList.of();
   }
 
   @Override

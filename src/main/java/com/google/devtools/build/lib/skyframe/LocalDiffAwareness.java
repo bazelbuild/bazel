@@ -17,6 +17,7 @@ package com.google.devtools.build.lib.skyframe;
 import com.google.common.base.Function;
 import com.google.common.base.Preconditions;
 import com.google.common.collect.HashBiMap;
+import com.google.common.collect.ImmutableSet;
 import com.google.common.collect.Iterables;
 import com.google.devtools.build.lib.Constants;
 import com.google.devtools.build.lib.vfs.ModifiedFileSet;
@@ -76,7 +77,7 @@ public class LocalDiffAwareness implements DiffAwareness {
     }
   }
 
-  private boolean firstGetDiff = true;
+  private int numGetCurrentViewCalls = 0;
 
   /**
    * Bijection from WatchKey to the (absolute) Path being watched. WatchKeys don't have this
@@ -95,10 +96,30 @@ public class LocalDiffAwareness implements DiffAwareness {
     this.watchService = watchService;
   }
 
+  /**
+   * The WatchService is inherently sequential and side-effectful, so we enforce this by only
+   * supporting {@link #getDiff} calls that happen to be sequential.
+   */
+  private static class SequentialView implements DiffAwareness.View {
+    private final LocalDiffAwareness owner;
+    private final int position;
+    private final Set<Path> modifiedAbsolutePaths;
+
+    public SequentialView(LocalDiffAwareness owner, int position, Set<Path> modifiedAbsolutePaths) {
+      this.owner = owner;
+      this.position = position;
+      this.modifiedAbsolutePaths = modifiedAbsolutePaths;
+    }
+
+    public static boolean areInSequence(SequentialView oldView, SequentialView newView) {
+      return oldView.owner == newView.owner && (oldView.position + 1) == newView.position;
+    }
+  }
+
   @Override
-  public ModifiedFileSet getDiff() throws BrokenDiffAwarenessException {
-    if (firstGetDiff) {
-      firstGetDiff = false;
+  public SequentialView getCurrentView() throws BrokenDiffAwarenessException {
+    Set<Path> modifiedAbsolutePaths;
+    if (numGetCurrentViewCalls++ == 0) {
       try {
         registerSubDirectoriesAndReturnContents(watchRootPath);
       } catch (IOException e) {
@@ -106,22 +127,40 @@ public class LocalDiffAwareness implements DiffAwareness {
         throw new BrokenDiffAwarenessException(
             "Error encountered with local file system watcher " + e);
       }
+      modifiedAbsolutePaths = ImmutableSet.of();
+    } else {
+      try {
+        modifiedAbsolutePaths = collectChanges();
+      } catch (IOException e) {
+        close();
+        throw new BrokenDiffAwarenessException(
+            "Error encountered with local file system watcher " + e);
+      } catch (ClosedWatchServiceException e) {
+        throw new BrokenDiffAwarenessException(
+            "Internal error with the local file system watcher " + e);
+      }
+    }
+    return new SequentialView(this, numGetCurrentViewCalls, modifiedAbsolutePaths);
+  }
+
+  @Override
+  public ModifiedFileSet getDiff(View oldView, View newView)
+      throws IncompatibleViewException, BrokenDiffAwarenessException {
+    SequentialView oldSequentialView;
+    SequentialView newSequentialView;
+    try {
+      oldSequentialView = (SequentialView) oldView;
+      newSequentialView = (SequentialView) newView;
+    } catch (ClassCastException e) {
+      throw new IncompatibleViewException("Given views are not from LocalDiffAwareness");
+    }
+    if (!SequentialView.areInSequence(oldSequentialView, newSequentialView)) {
       return ModifiedFileSet.EVERYTHING_MODIFIED;
     }
-    Set<Path> modifiedAbsolutePaths;
-    try {
-      modifiedAbsolutePaths = collectChanges();
-    } catch (IOException e) {
-      close();
-      throw new BrokenDiffAwarenessException(
-          "Error encountered with local file system watcher " + e);
-    } catch (ClosedWatchServiceException e) {
-      throw new BrokenDiffAwarenessException(
-          "Internal error with the local file system watcher " + e);
-    }
     return ModifiedFileSet.builder()
-        .modifyAll(Iterables.transform(modifiedAbsolutePaths, nioAbsolutePathToPathFragment))
-        .build();
+        .modifyAll(Iterables.transform(newSequentialView.modifiedAbsolutePaths,
+            nioAbsolutePathToPathFragment))
+            .build();
   }
 
   @Override
@@ -136,13 +175,13 @@ public class LocalDiffAwareness implements DiffAwareness {
   /** Converts java.nio.file.Path objects to vfs.PathFragment. */
   private final Function<Path, PathFragment> nioAbsolutePathToPathFragment =
       new Function<Path, PathFragment>() {
-        @Override
-        public PathFragment apply(Path input) {
-          Preconditions.checkArgument(input.startsWith(watchRootPath), "%s %s", input,
-              watchRootPath);
-          return new PathFragment(watchRootPath.relativize(input).toString());
-        }
-      };
+    @Override
+    public PathFragment apply(Path input) {
+      Preconditions.checkArgument(input.startsWith(watchRootPath), "%s %s", input,
+          watchRootPath);
+      return new PathFragment(watchRootPath.relativize(input).toString());
+    }
+  };
 
   /** Returns the changed files caught by the watch service. */
   private Set<Path> collectChanges() throws IOException {

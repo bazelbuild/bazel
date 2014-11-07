@@ -300,7 +300,8 @@ public abstract class AbstractAction implements Action {
   }
 
   @Override
-  public void prepare(ActionExecutionContext actionExecutionContext) throws IOException {
+  public void prepare(ActionExecutionContext actionExecutionContext)
+      throws IOException, ActionExecutionException, InterruptedException {
     deleteOutputs();
   }
 

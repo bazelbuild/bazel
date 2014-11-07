@@ -506,8 +506,11 @@ public class FileSystemUtilsTest {
   @Test
   public void testCopyTreesBelowToFile() throws IOException {
     createTestDirectoryTree();
+    Path copyDir = fileSystem.getPath("/my-dir");
+    Path copySubDir = fileSystem.getPath("/my-dir/subdir");
+    FileSystemUtils.createDirectoryAndParents(copySubDir);
     try {
-      FileSystemUtils.copyTreesBelow(topDir, file4);
+      FileSystemUtils.copyTreesBelow(copyDir, file4);
       fail("Should not be able to copy a directory to a file");
     } catch (IOException expected) {
       assertEquals("/file-4 (Not a directory)", expected.getMessage());

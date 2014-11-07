@@ -31,6 +31,7 @@ import java.lang.reflect.Modifier;
 import java.util.ArrayList;
 import java.util.Collections;
 import java.util.HashMap;
+import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.concurrent.ExecutionException;
@@ -436,7 +437,7 @@ public final class FuncallExpression extends Expression {
   @Override
   Object eval(Environment env) throws EvalException, InterruptedException {
     List<Object> posargs = new ArrayList<>();
-    Map<String, Object> kwargs = new HashMap<>();
+    Map<String, Object> kwargs = new LinkedHashMap<>();
 
     if (obj != null) {
       Object objValue = obj.eval(env);

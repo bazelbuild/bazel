@@ -24,7 +24,6 @@ public final class TargetCompleteEvent {
   private final ConfiguredTarget target;
   private final Artifact problem;
   private final Throwable exception;
-  private final boolean cached;
 
   /**
    * Construct the event.
@@ -32,16 +31,13 @@ public final class TargetCompleteEvent {
    * @param target the target which just completed.
    * @param problem if failed, the artifact associated with the failure.
    * @param exception if failed, the exception which caused the target to fail.
-   * @param cached true if all artifacts belonging to the target were cached.
    */
   public TargetCompleteEvent(ConfiguredTarget target,
                              Artifact problem,
-                             Throwable exception,
-                             boolean cached) {
+                             Throwable exception) {
     this.target = target;
     this.problem = problem;
     this.exception = exception;
-    this.cached = cached;
   }
 
   /**
@@ -57,12 +53,5 @@ public final class TargetCompleteEvent {
    */
   public boolean failed() {
     return problem != null || exception != null;
-  }
-
-  /**
-   * Returns true if the target was completely cached.
-   */
-  public boolean isCached() {
-    return cached;
   }
 }

@@ -39,9 +39,14 @@ public interface Action extends ActionMetadata, Describable {
    * permissions should be changed, so that they can be safely overwritten by
    * the action.
    *
-   * @throws IOException
+   * <p>If the action discovers its inputs, it will do so during this call.
+   *
+   * @throws IOException if there is an error deleting the outputs, ActionExecutionException if
+   *   the action encounters an error while discovering its inputs, InterruptedException if the
+   *   action is interrupted while discovering its inputs.
    */
-  void prepare(ActionExecutionContext actionExecutionContext) throws IOException;
+  void prepare(ActionExecutionContext actionExecutionContext)
+      throws IOException, ActionExecutionException, InterruptedException;
 
   /**
    * Executes this action; called by the Builder when all of this Action's
@@ -171,11 +176,6 @@ public interface Action extends ActionMetadata, Describable {
 
     /** A normal middleman, which just encapsulates a list of artifacts. */
     AGGREGATING_MIDDLEMAN,
-
-    /**
-     * A scheduling middleman used for target completion. These are handled specially in some cases.
-     */
-    TARGET_COMPLETION_MIDDLEMAN,
 
     /**
      * A middleman that enforces action ordering, is not validated by the dependency checker, but

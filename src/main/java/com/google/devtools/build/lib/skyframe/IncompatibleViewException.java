@@ -13,15 +13,14 @@
 // limitations under the License.
 package com.google.devtools.build.lib.skyframe;
 
-import com.google.common.annotations.VisibleForTesting;
-import com.google.devtools.build.lib.actions.Action;
+import com.google.common.base.Preconditions;
 
 /**
- * The TargetCompletionActionValue carries a TargetCompletionAction.
+ * Thrown on {@link DiffAwareness#getDiff} to indicate that the given {@link DiffAwareness.View}s
+ * are incompatible with the {@link DiffAwareness} instance.
  */
-@VisibleForTesting
-public class TargetCompletionActionValue extends ActionLookupValue {
-  TargetCompletionActionValue(Action action) {
-    super(action);
+public class IncompatibleViewException extends Exception {
+  public IncompatibleViewException(String msg) {
+    super(Preconditions.checkNotNull(msg));
   }
 }

@@ -19,6 +19,7 @@ import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.ImmutableSet;
 import com.google.common.collect.Iterables;
 import com.google.devtools.build.lib.actions.Action;
+import com.google.devtools.build.lib.skyframe.SkyframeActionExecutor.ConflictException;
 import com.google.devtools.build.lib.syntax.Label;
 import com.google.devtools.build.lib.view.ConfiguredTarget;
 import com.google.devtools.build.lib.view.TargetAndConfiguration;
@@ -55,7 +56,7 @@ public class PostConfiguredTargetFunction implements SkyFunction {
   @Nullable
   @Override
   public SkyValue compute(SkyKey skyKey, Environment env) throws SkyFunctionException {
-    ImmutableMap<Action, Exception> badActions = PrecomputedValue.BAD_ACTIONS.get(env);
+    ImmutableMap<Action, ConflictException> badActions = PrecomputedValue.BAD_ACTIONS.get(env);
     ConfiguredTargetValue ctValue = (ConfiguredTargetValue)
         env.getValue(ConfiguredTargetValue.key((LabelAndConfiguration) skyKey.argument()));
     SkyframeDependencyResolver resolver =
@@ -93,8 +94,8 @@ public class PostConfiguredTargetFunction implements SkyFunction {
   }
 
   private static class ActionConflictFunctionException extends SkyFunctionException {
-    public ActionConflictFunctionException(SkyKey skyKey, Throwable cause) {
-      super(skyKey, cause, Transience.PERSISTENT);
+    public ActionConflictFunctionException(SkyKey skyKey, ConflictException e) {
+      super(skyKey, e, Transience.PERSISTENT);
     }
   }
 }

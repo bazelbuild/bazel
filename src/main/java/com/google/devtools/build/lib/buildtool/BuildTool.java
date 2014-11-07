@@ -35,6 +35,7 @@ import com.google.devtools.build.lib.events.Reporter;
 import com.google.devtools.build.lib.packages.InputFile;
 import com.google.devtools.build.lib.packages.License;
 import com.google.devtools.build.lib.packages.License.DistributionType;
+import com.google.devtools.build.lib.packages.PackageIdentifier;
 import com.google.devtools.build.lib.packages.Rule;
 import com.google.devtools.build.lib.packages.Target;
 import com.google.devtools.build.lib.packages.TargetUtils;
@@ -188,7 +189,7 @@ public class BuildTool {
       // Execution phase.
       if (needsExecutionPhase(request.getBuildOptions())) {
         executionTool.executeBuild(analysisResult, result, runtime.getSkyframeExecutor(),
-            configurations, mergePackageRoots(loadingResult.getPackageRoots(), 
+            configurations, mergePackageRoots(loadingResult.getPackageRoots(),
             runtime.getSkyframeExecutor().getPackageRoots()));
       }
 
@@ -338,7 +339,7 @@ public class BuildTool {
       }
 
       @Override
-      public void notifyVisitedPackages(Set<PathFragment> visitedPackages) {
+      public void notifyVisitedPackages(Set<PackageIdentifier> visitedPackages) {
         runtime.getSkyframeExecutor().updateLoadedPackageSet(visitedPackages);
       }
     };

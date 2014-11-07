@@ -237,7 +237,7 @@ public final class CppLinkAction extends AbstractAction implements IncludeScanna
     paramFile.writeContent(paramFileArgs);
 
     // Normally Blaze chmods all output files automatically (see
-    // AbstractActionExecutor#setOutputsReadOnlyAndExecutable), but this params file is created
+    // SkyframeActionExecutor#setOutputsReadOnlyAndExecutable), but this params file is created
     // out-of-band and is not declared as an output. By chmodding the file, other processes
     // can observe this file being created.
     try {

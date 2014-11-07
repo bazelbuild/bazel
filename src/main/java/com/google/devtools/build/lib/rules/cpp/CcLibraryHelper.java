@@ -146,6 +146,7 @@ public final class CcLibraryHelper {
 
   private final List<Artifact> publicHeaders = new ArrayList<>();
   private final List<Artifact> privateHeaders = new ArrayList<>();
+  private final List<PathFragment> bootstrapHackHeaders = new ArrayList<>();
   private final List<Pair<Artifact, Label>> sources = new ArrayList<>();
   private final List<Artifact> objectFiles = new ArrayList<>();
   private final List<Artifact> picObjectFiles = new ArrayList<>();
@@ -210,6 +211,16 @@ public final class CcLibraryHelper {
    */
   public CcLibraryHelper addPrivateHeaders(Iterable<Artifact> privateHeaders) {
     Iterables.addAll(this.privateHeaders, privateHeaders);
+    return this;
+  }
+
+  /**
+   * Add the corresponding files as public header files, i.e., these files will not be compiled, but
+   * are made visible as includes to dependent rules in module maps. Only use this for the
+   * proto library's bootstrap hacks.
+   */
+  public CcLibraryHelper addBootstrapHackHeaders(Iterable<PathFragment> bootstrapHackHeaders) {
+    Iterables.addAll(this.bootstrapHackHeaders, bootstrapHackHeaders);
     return this;
   }
 
@@ -743,7 +754,7 @@ public final class CcLibraryHelper {
       // actually be enabled, so we need to double-check here. Who would write code like this?
       if (cppModuleMap != null) {
         CppModuleMapAction action = new CppModuleMapAction(ruleContext.getActionOwner(),
-            cppModuleMap, privateHeaders, publicHeaders, collectModuleMaps());
+            cppModuleMap, privateHeaders, publicHeaders, collectModuleMaps(), bootstrapHackHeaders);
         ruleContext.getAnalysisEnvironment().registerAction(action);
       }
     }

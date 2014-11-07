@@ -609,7 +609,7 @@ public class FileSystemUtils {
         newLink.createSymbolicLink(entry.readSymbolicLink());
       } else {
         Path newEntry = to.getChild(entry.getBaseName());
-          copyFile(entry, newEntry);
+        copyFile(entry, newEntry);
       }
     }
   }

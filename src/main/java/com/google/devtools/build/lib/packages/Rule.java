@@ -502,7 +502,7 @@ public final class Rule implements Target {
   }
 
   private void addLabelOutput(Attribute attribute, Label label, EventHandler eventHandler) {
-    if (!label.getPackageFragment().equals(pkg.getNameFragment())) {
+    if (!label.getPackageIdentifier().equals(pkg.getPackageIdentifier())) {
       throw new IllegalStateException("Label for attribute " + attribute
           + " should refer to '" + pkg.getName()
           + "' but instead refers to '" + label.getPackageFragment()

@@ -43,7 +43,9 @@ import javax.annotation.Nullable;
  *        file digest). See {@link FileFileStateValue}.
  * <ul>
  *
- * <p>This class is an implementation detail of {@link FileValue}.
+ * <p>This class is an implementation detail of {@link FileValue} and should not be used outside of
+ * {@link FileFunction}. Instead, {@link FileValue} should be used by consumers that care about
+ * files.
  *
  * <p>All subclasses must implement {@link #equals} and {@link #hashCode} properly.
  */

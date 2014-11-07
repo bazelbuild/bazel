@@ -43,9 +43,15 @@ public class ObjcBundleLibrary implements RuleConfiguredTargetFactory {
     InfoplistMerging infoplistMerging = bundling.getInfoplistMerging();
     ObjcProvider objcProvider = common.getObjcProvider();
     ObjcActionsBuilder actionsBuilder = ObjcRuleClasses.actionsBuilder(ruleContext);
+    IntermediateArtifacts intermediateArtifacts =
+        ObjcRuleClasses.intermediateArtifacts(ruleContext);
+    Optional<Artifact> dsymBundle =
+        ObjcRuleClasses.objcConfiguration(ruleContext).generateDebugSymbols()
+        ? Optional.of(intermediateArtifacts.dsymBundle()) : Optional.<Artifact>absent();
 
     for (Artifact linkedBinary : bundling.getLinkedBinary().asSet()) {
-      actionsBuilder.registerLinkAction(ruleContext, linkedBinary, objcProvider, extraLinkArgs);
+      actionsBuilder.registerLinkAction(ruleContext, linkedBinary, objcProvider, extraLinkArgs,
+          dsymBundle);
     }
 
     for (Artifact actoolzipOutput : bundling.getActoolzipOutput().asSet()) {

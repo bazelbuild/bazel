@@ -158,6 +158,21 @@ string OptionProcessor::FindDepotBlazerc(const string& workspace) {
   return "";
 }
 
+// Return the path of the .blazerc file that sits alongside the binary.
+// This allows for canary or cross-platform Blazes operating on the same depot
+// to have customized behavior.
+string OptionProcessor::FindAlongsideBinaryBlazerc(const string& cwd,
+                                                   const string& arg0) {
+  string path = arg0[0] == '/' ? arg0 : blaze_util::JoinPath(cwd, arg0);
+  string base = blaze_util::Basename(arg0);
+  string binary_blazerc_path = path + "." + base + "rc";
+  if (!access(binary_blazerc_path.c_str(), R_OK)) {
+    return binary_blazerc_path;
+  }
+  return "";
+}
+
+
 // Return the path the the user rc file.  If cmdLineRcFile != NULL,
 // use it, dying if it is not readable.  Otherwise, return the first
 // readable file called rc_basename from [workspace, $HOME]
@@ -224,6 +239,11 @@ void OptionProcessor::ParseOptions(const vector<string>& args,
     string depot_blazerc_path = FindDepotBlazerc(workspace);
     if (!depot_blazerc_path.empty()) {
       blazercs_.push_back(RcFile(depot_blazerc_path, blazercs_.size()));
+      blazercs_.back().Parse(&blazercs_, &rcoptions_);
+    }
+    string alongside_binary_blazerc = FindAlongsideBinaryBlazerc(cwd, args[0]);
+    if (!alongside_binary_blazerc.empty()) {
+      blazercs_.push_back(RcFile(alongside_binary_blazerc, blazercs_.size()));
       blazercs_.back().Parse(&blazercs_, &rcoptions_);
     }
   }

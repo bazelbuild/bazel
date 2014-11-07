@@ -315,6 +315,10 @@ static vector<string> GetArgumentArray() {
   } else {
     result.push_back("--nofatal_event_bus_exceptions");
   }
+  if (globals->options.webstatus_port) {
+    result.push_back("--use_webstatusserver=" + \
+                     std::to_string(globals->options.webstatus_port));
+  }
 
   // This is only for Blaze reporting purposes; the real interpretation of the
   // jvm flags occurs when we set up the java command line.

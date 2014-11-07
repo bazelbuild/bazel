@@ -207,14 +207,10 @@ class ArtifactFunction implements SkyFunction {
     Preconditions.checkState(artifactOwner instanceof ActionLookupKey, "", artifact, artifactOwner);
     SkyKey actionLookupKey = ActionLookupValue.key((ActionLookupKey) artifactOwner);
     ActionLookupValue value = (ActionLookupValue) env.getValue(actionLookupKey);
-    if (value == null) {
-      // TargetCompletionActionValues are created on demand. All others should already exist --
-      // ConfiguredTargetValues were created during the analysis phase, and BuildInfo*Values were
-      // created during the first analysis of a configured target.
-      Preconditions.checkState(artifactOwner instanceof TargetCompletionKey,
-          "Owner %s of %s not in graph %s", artifactOwner, artifact, actionLookupKey);
-      return null;
-    }
+    // The value should already exist: ConfiguredTargetValues were created during the analysis
+    // phase, and BuildInfo*Values were created during the first analysis of a configured target.
+    Preconditions.checkNotNull(value,
+        "Owner %s of %s not in graph %s", artifactOwner, artifact, actionLookupKey);
     return Preconditions.checkNotNull(value.getGeneratingAction(artifact),
           "Value %s does not contain generating action of %s", value, artifact);
   }

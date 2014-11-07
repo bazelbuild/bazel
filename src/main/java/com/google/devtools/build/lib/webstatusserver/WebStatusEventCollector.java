@@ -123,7 +123,7 @@ public class WebStatusEventCollector {
   @Subscribe
   public void targetComplete(TargetCompleteEvent event) {
     // TODO(bazel-team): would getting more details about failure be useful?
-    currentBuild.addTargetBuilt(event.getTarget().getTarget().getLabel(), event.failed());
+    currentBuild.addTargetBuilt(event.getTarget().getTarget().getLabel(), !event.failed());
   }
 
   public WebStatusBuildLog getBuildLog() {

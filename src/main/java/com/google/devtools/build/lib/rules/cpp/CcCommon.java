@@ -915,9 +915,10 @@ public final class CcCommon {
       Iterable<CppModuleMap> depsLabels =
           Iterables.filter(depsBuilder.build(), Predicates.<CppModuleMap>notNull());
 
+      ImmutableList<PathFragment> bootstrapHackHeaders = ImmutableList.of();
       CppModuleMapAction action = new CppModuleMapAction(
           ruleContext.getActionOwner(), context.getCppModuleMap(),
-          privateHeaders, publicHeaders, depsLabels);
+          privateHeaders, publicHeaders, depsLabels, bootstrapHackHeaders);
 
       ruleContext.getAnalysisEnvironment().registerAction(action);
     }

@@ -383,7 +383,8 @@ public class Package implements Serializable {
   }
 
   /**
-   * Returns the name of this package.
+   * Returns the name of this package. If this build is using external repositories then this name
+   * may not be unique!
    */
   public String getName() {
     return name;
@@ -579,7 +580,7 @@ public class Package implements Serializable {
    * @throws SyntaxException if the {@code targetName} is invalid
    */
   public Label createLabel(String targetName) throws SyntaxException {
-    return buildFile.getLabel().getLocalTargetLabel(targetName);
+    return Label.create(packageIdentifier, targetName);
   }
 
   /**
@@ -840,13 +841,17 @@ public class Package implements Serializable {
 
     protected abstract B self();
 
+    protected PackageIdentifier getPackageIdentifier() {
+      return pkg.getPackageIdentifier();
+    }
+
     /**
      * Sets the name of this package's BUILD file.
      */
     B setFilename(Path filename) {
       this.filename = filename;
       try {
-        buildFileLabel = Label.create(pkg.getName(), filename.getBaseName());
+        buildFileLabel = createLabel(filename.getBaseName());
         addInputFile(buildFileLabel, Location.fromFile(filename));
       } catch (Label.SyntaxException e) {
         // This can't actually happen.
@@ -1124,7 +1129,7 @@ public class Package implements Serializable {
      * @throws SyntaxException if the {@code targetName} is invalid
      */
     Label createLabel(String targetName) throws SyntaxException {
-      return buildFileLabel.getLocalTargetLabel(targetName);
+      return Label.create(pkg.getPackageIdentifier(), targetName);
     }
 
     /**

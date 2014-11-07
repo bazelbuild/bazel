@@ -25,6 +25,7 @@ import com.google.common.collect.Sets;
 import com.google.devtools.build.lib.actions.AbstractAction;
 import com.google.devtools.build.lib.actions.ActionExecutionContext;
 import com.google.devtools.build.lib.actions.ActionExecutionException;
+import com.google.devtools.build.lib.actions.ActionInput;
 import com.google.devtools.build.lib.actions.ActionOwner;
 import com.google.devtools.build.lib.actions.Artifact;
 import com.google.devtools.build.lib.actions.Artifact.MiddlemanExpander;
@@ -126,6 +127,12 @@ public class CppCompileAction extends AbstractAction implements IncludeScannable
   private final UUID actionClassId;
 
   private boolean inputsKnown = false;
+
+  /**
+   * Set when the action prepares for execution. Used to preserve state between preparation and
+   * execution.
+   */
+  private List<ActionInput> additionalInputs = null;
 
   /**
    * Creates a new action to compile C/C++ source files.
@@ -233,6 +240,15 @@ public class CppCompileAction extends AbstractAction implements IncludeScannable
   @Override
   public boolean inputsKnown() {
     return inputsKnown;
+  }
+
+  /**
+   * Returns the list of additional inputs found by dependency discovery, during action
+   * preparation. {@link #prepare} must be called before this method is called, on each action
+   * execution.
+   */
+  public List<ActionInput> getAdditionalInputs() {
+    return Preconditions.checkNotNull(additionalInputs);
   }
 
   @Override
@@ -871,6 +887,21 @@ public class CppCompileAction extends AbstractAction implements IncludeScannable
 
   @Override
   @ThreadCompatible
+  public void prepare(ActionExecutionContext actionExecutionContext)
+      throws IOException, ActionExecutionException, InterruptedException {
+    Executor executor = actionExecutionContext.getExecutor();
+    try {
+      this.additionalInputs = executor.getContext(CppCompileActionContext.class)
+          .findAdditionalInputs(this, actionExecutionContext);
+    } catch (ExecException e) {
+      throw e.toActionExecutionException("Include scanning of rule '" + getOwner().getLabel() + "'",
+          executor.getVerboseFailures(), this);
+    }
+    super.prepare(actionExecutionContext);
+  }
+
+  @Override
+  @ThreadCompatible
   public void execute(
       ActionExecutionContext actionExecutionContext)
           throws ActionExecutionException, InterruptedException {
@@ -881,6 +912,8 @@ public class CppCompileAction extends AbstractAction implements IncludeScannable
     } catch (ExecException e) {
       throw e.toActionExecutionException("C++ compilation of rule '" + getOwner().getLabel() + "'",
           executor.getVerboseFailures(), this);
+    } finally {
+      additionalInputs = null;
     }
     ensureCoverageNotesFilesExist();
     IncludeScanningContext scanningContext = executor.getContext(IncludeScanningContext.class);

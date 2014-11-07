@@ -231,7 +231,7 @@ public class PackageDeserializer {
 
   private static Label deserializeLabel(String labelName) throws PackageDeserializationException {
     try {
-      return Label.parseAbsolute(labelName);
+      return Label.parseRepositoryLabel(labelName);
     } catch (Label.SyntaxException e) {
       throw new PackageDeserializationException("Invalid label: " + e.getMessage(), e);
     }

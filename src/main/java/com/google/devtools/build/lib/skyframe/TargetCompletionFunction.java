@@ -13,68 +13,112 @@
 // limitations under the License.
 package com.google.devtools.build.lib.skyframe;
 
+import com.google.common.collect.ImmutableList;
+import com.google.devtools.build.lib.actions.ActionExecutionException;
 import com.google.devtools.build.lib.actions.Artifact;
-import com.google.devtools.build.lib.actions.ArtifactFactory;
+import com.google.devtools.build.lib.actions.MissingInputFileException;
+import com.google.devtools.build.lib.events.Event;
+import com.google.devtools.build.lib.events.Location;
 import com.google.devtools.build.lib.syntax.Label;
 import com.google.devtools.build.lib.view.ConfiguredTarget;
-import com.google.devtools.build.lib.view.PostInitializationActionOwner;
 import com.google.devtools.build.lib.view.TopLevelArtifactContext;
 import com.google.devtools.build.lib.view.TopLevelArtifactHelper;
-import com.google.devtools.build.lib.view.actions.TargetCompletionMiddlemanAction;
 import com.google.devtools.build.skyframe.SkyFunction;
 import com.google.devtools.build.skyframe.SkyFunctionException;
 import com.google.devtools.build.skyframe.SkyKey;
 import com.google.devtools.build.skyframe.SkyValue;
+import com.google.devtools.build.skyframe.ValueOrException;
+
+import java.util.Map;
 
 import javax.annotation.Nullable;
 
 /**
- * TargetCompletionFunction constructs a TargetCompletionActionValue. This works around two
- * problems with an alternative design which would create the completion action in the
- * ConfiguredTargetFunction directly:
- * - creating the actions eagerly could be a memory concern
- * - the set of artifacts that determines whether a top-level target is complete depends on
- * attributes that are not otherwise part of the BuildConfiguration (eg, --compile_only).
- *
- * TODO(bazel-team): Make target-completion not based on Artifacts and Actions.
+ * TargetCompletionFunction builds the artifactsToBuild collection of a {@link ConfiguredTarget}.
  */
-
-final class TargetCompletionFunction implements SkyFunction {
-
-  private final SkyframeExecutor.BuildViewProvider buildViewProvider;
-
-  TargetCompletionFunction(SkyframeExecutor.BuildViewProvider buildViewProvider) {
-    this.buildViewProvider = buildViewProvider;
-  }
+public final class TargetCompletionFunction implements SkyFunction {
 
   @Nullable
   @Override
-  public SkyValue compute(SkyKey skyKey, Environment env) throws SkyFunctionException {
+  public SkyValue compute(SkyKey skyKey, Environment env) throws TargetCompletionFunctionException {
     LabelAndConfiguration lac = (LabelAndConfiguration) skyKey.argument();
-    ConfiguredTargetValue ctValue = (ConfiguredTargetValue) env.getValue(
-        ConfiguredTargetValue.key(lac.getLabel(), lac.getConfiguration()));
-    if (ctValue == null) {
-      return null;
-    }
-
+    ConfiguredTargetValue ctValue = (ConfiguredTargetValue)
+        env.getValue(ConfiguredTargetValue.key(lac.getLabel(), lac.getConfiguration()));
     TopLevelArtifactContext topLevelContext = PrecomputedValue.TOP_LEVEL_CONTEXT.get(env);
-    if (topLevelContext == null) {
+    if (env.valuesMissing()) {
       return null;
     }
 
-    ConfiguredTarget configuredTarget = ctValue.getConfiguredTarget();
-    ArtifactFactory factory = buildViewProvider.getSkyframeBuildView().getArtifactFactory();
-    Artifact middleman = factory.getDerivedArtifact(
-        TopLevelArtifactHelper.getMiddlemanRelativePath(lac.getLabel()),
-        lac.getConfiguration().getMiddlemanDirectory(), lac);
-    return new TargetCompletionActionValue(new TargetCompletionMiddlemanAction(configuredTarget,
-        new PostInitializationActionOwner(configuredTarget),
-        TopLevelArtifactHelper.getAllArtifactsToBuild(configuredTarget, topLevelContext),
-        middleman));
+    Map<SkyKey, ValueOrException<Exception>> inputDeps  =
+        env.getValuesOrThrow(ArtifactValue.mandatoryKeys(
+            TopLevelArtifactHelper.getAllArtifactsToBuild(
+                ctValue.getConfiguredTarget(), topLevelContext)), Exception.class);
+
+    ActionExecutionException firstActionExecutionException = null;
+    int missingCount = 0;
+    ImmutableList.Builder<Label> rootCauses = ImmutableList.builder();
+    for (Map.Entry<SkyKey, ValueOrException<Exception>> depsEntry : inputDeps.entrySet()) {
+      Artifact input = ArtifactValue.artifact(depsEntry.getKey());
+      try {
+        depsEntry.getValue().get();
+      } catch (MissingInputFileException e) {
+        missingCount++;
+        if (input.getOwner() != null) {
+          rootCauses.add(input.getOwner());
+        }
+      } catch (ActionExecutionException e) {
+        if (firstActionExecutionException == null) {
+          firstActionExecutionException = e;
+        }
+      } catch (Exception e) {
+        // Can't get here.
+        throw new IllegalStateException(e);
+      }
+    }
+
+    // Rethrow the first exception because it can contain a useful error message.
+    if (firstActionExecutionException != null) {
+      throw new TargetCompletionFunctionException(skyKey, firstActionExecutionException);
+    }
+
+    if (missingCount > 0) {
+      for (Label missingInput : rootCauses.build()) {
+        env.getListener().handle(Event.error(
+            ctValue.getConfiguredTarget().getTarget().getLocation(),
+            String.format("%s: missing input file '%s'",
+                lac.getLabel(), missingInput)));
+      }
+      Location location = ctValue.getConfiguredTarget().getTarget().getLocation();
+      throw new TargetCompletionFunctionException(skyKey,
+          new MissingInputFileException(location + " " + missingCount
+              + " input file(s) do not exist", location));
+    }
+
+    return env.valuesMissing() ? null : new TargetCompletionValue(ctValue.getConfiguredTarget());
   }
 
   @Override
   public String extractTag(SkyKey skyKey) {
     return Label.print(((LabelAndConfiguration) skyKey.argument()).getLabel());
+  }
+
+  private static final class TargetCompletionFunctionException extends SkyFunctionException {
+
+    private final ActionExecutionException actionException;
+
+    public TargetCompletionFunctionException(SkyKey key, ActionExecutionException e) {
+      super(key, e, Transience.PERSISTENT);
+      this.actionException = e;
+    }
+
+    public TargetCompletionFunctionException(SkyKey key, MissingInputFileException e) {
+      super(key, e, Transience.TRANSIENT);
+      this.actionException = null;
+    }
+
+    @Override
+    public boolean isCatastrophic() {
+      return actionException != null && actionException.isCatastrophe();
+    }
   }
 }

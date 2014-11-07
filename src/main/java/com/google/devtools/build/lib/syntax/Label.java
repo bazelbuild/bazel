@@ -68,8 +68,8 @@ public final class Label implements Comparable<Label>, Serializable {
     }
     try {
       LabelValidator.PackageAndTarget labelParts = LabelValidator.parseAbsoluteLabel(absName);
-      return new Label(
-          repo, new PathFragment(labelParts.getPackageName()), labelParts.getTargetName());
+      return new Label(new PackageIdentifier(repo, new PathFragment(labelParts.getPackageName())),
+          labelParts.getTargetName());
     } catch (BadLabelException e) {
       throw new SyntaxException(e.getMessage());
     }
@@ -119,6 +119,15 @@ public final class Label implements Comparable<Label>, Serializable {
    */
   public static Label create(String packageName, String targetName) throws SyntaxException {
     return new Label(packageName, targetName);
+  }
+
+  /**
+   * Similar factory to above, but takes a package identifier to allow external repository labels
+   * to be created.
+   */
+  public static Label create(PackageIdentifier packageId, String targetName)
+      throws SyntaxException {
+    return new Label(packageId, targetName);
   }
 
   /**
@@ -215,23 +224,22 @@ public final class Label implements Comparable<Label>, Serializable {
    * name is checked for validity and a SyntaxException is throw if it isn't.
    */
   private Label(PathFragment packageName, String name) throws SyntaxException {
-    this(PackageIdentifier.DEFAULT_REPOSITORY, packageName, name);
+    this(PackageIdentifier.createInDefaultRepo(packageName), name);
   }
 
-  private Label(String repositoryName, PathFragment packageName, String name)
+  private Label(PackageIdentifier packageIdentifier, String name)
       throws SyntaxException {
-    Preconditions.checkNotNull(repositoryName);
-    Preconditions.checkNotNull(packageName);
+    Preconditions.checkNotNull(packageIdentifier);
     Preconditions.checkNotNull(name);
 
     try {
-      this.packageIdentifier = new PackageIdentifier(repositoryName, packageName);
+      this.packageIdentifier = packageIdentifier;
       this.name = canonicalizeTargetName(name);
     } catch (SyntaxException e) {
       // This check is just for a more helpful error message
       // i.e. valid target name, invalid package name, colon-free label form
       // used => probably they meant "//foo:bar.c" not "//foo/bar.c".
-      if (packageName.getPathString().endsWith("/" + name)) {
+      if (packageIdentifier.getPackageFragment().getPathString().endsWith("/" + name)) {
         throw new SyntaxException(e.getMessage() + " (perhaps you meant \":" + name + "\"?)");
       }
       throw e;
@@ -315,9 +323,9 @@ public final class Label implements Comparable<Label>, Serializable {
    * All other labels have identical shorthand and canonical forms.
    */
   public String toShorthandString() {
-    return getPackageFragment().getBaseName().equals(name)
+    return packageIdentifier.getRepository() + (getPackageFragment().getBaseName().equals(name)
         ? "//" + getPackageFragment()
-        : toString();
+        : toString());
   }
 
   /**
@@ -326,7 +334,7 @@ public final class Label implements Comparable<Label>, Serializable {
    * @throws SyntaxException if {@code targetName} is not a valid target name
    */
   public Label getLocalTargetLabel(String targetName) throws SyntaxException {
-    return new Label(getPackageName(), targetName);
+    return new Label(packageIdentifier, targetName);
   }
 
   /**

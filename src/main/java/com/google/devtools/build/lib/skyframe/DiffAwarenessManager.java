@@ -17,6 +17,7 @@ import com.google.common.collect.ImmutableSet;
 import com.google.common.collect.Maps;
 import com.google.devtools.build.lib.events.Event;
 import com.google.devtools.build.lib.events.Reporter;
+import com.google.devtools.build.lib.skyframe.DiffAwareness.View;
 import com.google.devtools.build.lib.vfs.ModifiedFileSet;
 import com.google.devtools.build.lib.vfs.Path;
 
@@ -24,12 +25,14 @@ import java.util.Map;
 
 import javax.annotation.Nullable;
 
-/** Helper class to make it easier to correctly use the {@link DiffAwareness} interface. */
+/**
+ * Helper class to make it easier to correctly use the {@link DiffAwareness} interface in a
+ * sequential manner.
+ */
 public final class DiffAwarenessManager {
 
   private final ImmutableSet<? extends DiffAwareness.Factory> diffAwarenessFactories;
-  private Map<Path, DiffAwareness> currentDiffAwarenesses = Maps.newHashMap();
-  private Map<Path, ProcessableModifiedFileSet> unprocessedDiffs = Maps.newHashMap();
+  private Map<Path, DiffAwarenessState> currentDiffAwarenessStates = Maps.newHashMap();
   private final Reporter reporter;
 
   public DiffAwarenessManager(Iterable<? extends DiffAwareness.Factory> diffAwarenessFactories,
@@ -38,13 +41,27 @@ public final class DiffAwarenessManager {
     this.reporter = reporter;
   }
 
+  private static class DiffAwarenessState {
+    private final DiffAwareness diffAwareness;
+    /**
+     * The {@link View} that should be the baseline for the next {@link #getDiff} call, or
+     * {@code null} if the next {@link #getDiff} will be the first incremental one.
+     */
+    @Nullable
+    private View baselineView;
+
+    private DiffAwarenessState(DiffAwareness diffAwareness, @Nullable View baselineView) {
+      this.diffAwareness = diffAwareness;
+      this.baselineView = baselineView;
+    }
+  }
+
   /** Reset internal {@link DiffAwareness} state. */
   public void reset() {
-    for (DiffAwareness diffAwareness : currentDiffAwarenesses.values()) {
-      diffAwareness.close();
+    for (DiffAwarenessState diffAwarenessState : currentDiffAwarenessStates.values()) {
+      diffAwarenessState.diffAwareness.close();
     }
-    currentDiffAwarenesses.clear();
-    unprocessedDiffs.clear();
+    currentDiffAwarenessStates.clear();
   }
 
   /** A set of modified files that should be marked as processed. */
@@ -53,33 +70,47 @@ public final class DiffAwarenessManager {
 
     /**
      * This should be called when the changes have been noted. Otherwise, the result from the next
-     * call to {@link #getDiff} will conservatively contain the old unprocessed diff.
+     * call to {@link #getDiff} will be from the baseline of the old, unprocessed, diff.
      */
     void markProcessed();
   }
 
-  /** Gets the set of changed files since the last call with this path entry. */
+  /**
+   * Gets the set of changed files since the last call with this path entry, or
+   * {@code ModifiedFileSet.EVERYTHING_MODIFIED} if this is the first such call.
+   */
   public ProcessableModifiedFileSet getDiff(Path pathEntry) {
-    DiffAwareness diffAwareness = maybeGetDiffAwareness(pathEntry);
-    if (diffAwareness == null) {
+    DiffAwarenessState diffAwarenessState = maybeGetDiffAwarenessState(pathEntry);
+    if (diffAwarenessState == null) {
       return BrokenProcessableModifiedFileSet.INSTANCE;
     }
-    ModifiedFileSet oldDiff = ModifiedFileSet.NOTHING_MODIFIED;
-    if (unprocessedDiffs.containsKey(pathEntry)) {
-      oldDiff = unprocessedDiffs.get(pathEntry).getModifiedFileSet();
-    }
-    ModifiedFileSet newDiff;
+    DiffAwareness diffAwareness = diffAwarenessState.diffAwareness;
+    View newView;
     try {
-      newDiff = diffAwareness.getDiff();
+      newView = diffAwareness.getCurrentView();
     } catch (BrokenDiffAwarenessException e) {
-      currentDiffAwarenesses.remove(pathEntry);
-      unprocessedDiffs.remove(pathEntry);
       reporter.handle(Event.warn(e.getMessage()));
       return BrokenProcessableModifiedFileSet.INSTANCE;
     }
-    ModifiedFileSet diff = ModifiedFileSet.union(oldDiff, newDiff);
-    ProcessableModifiedFileSet result = new ProcessableModifiedFileSetImpl(diff, pathEntry);
-    unprocessedDiffs.put(pathEntry, result);
+
+    View baselineView = diffAwarenessState.baselineView;
+    if (baselineView == null) {
+      diffAwarenessState.baselineView = newView;
+      return BrokenProcessableModifiedFileSet.INSTANCE;
+    }
+
+    ModifiedFileSet diff;
+    try {
+      diff = diffAwareness.getDiff(baselineView, newView);
+    } catch (BrokenDiffAwarenessException e) {
+      currentDiffAwarenessStates.remove(pathEntry);
+      reporter.handle(Event.warn(e.getMessage()));
+      return BrokenProcessableModifiedFileSet.INSTANCE;
+    } catch (IncompatibleViewException e) {
+      throw new IllegalStateException(pathEntry + " " + baselineView + " " + newView, e);
+    }
+    ProcessableModifiedFileSet result = new ProcessableModifiedFileSetImpl(diff, pathEntry,
+        newView);
     return result;
   }
 
@@ -88,16 +119,17 @@ public final class DiffAwarenessManager {
    * current one, or otherwise {@code null} if no factory could make a fresh one.
    */
   @Nullable
-  private DiffAwareness maybeGetDiffAwareness(Path pathEntry) {
-    DiffAwareness currentDiffAwareness = currentDiffAwarenesses.get(pathEntry);
-    if (currentDiffAwareness != null) {
-      return currentDiffAwareness;
+  private DiffAwarenessState maybeGetDiffAwarenessState(Path pathEntry) {
+    DiffAwarenessState diffAwarenessState = currentDiffAwarenessStates.get(pathEntry);
+    if (diffAwarenessState != null) {
+      return diffAwarenessState;
     }
     for (DiffAwareness.Factory factory : diffAwarenessFactories) {
       DiffAwareness newDiffAwareness = factory.maybeCreate(pathEntry);
       if (newDiffAwareness != null) {
-        currentDiffAwarenesses.put(pathEntry, newDiffAwareness);
-        return newDiffAwareness;
+        diffAwarenessState = new DiffAwarenessState(newDiffAwareness, /*previousView=*/null);
+        currentDiffAwarenessStates.put(pathEntry, diffAwarenessState);
+        return diffAwarenessState;
       }
     }
     return null;
@@ -107,10 +139,17 @@ public final class DiffAwarenessManager {
 
     private final ModifiedFileSet modifiedFileSet;
     private final Path pathEntry;
+    /**
+     * The {@link View} that should be the baseline on the next {@link #getDiff} call after
+     * {@link #markProcessed} is called.
+     */
+    private final View nextView;
 
-    private ProcessableModifiedFileSetImpl(ModifiedFileSet modifiedFileSet, Path pathEntry) {
+    private ProcessableModifiedFileSetImpl(ModifiedFileSet modifiedFileSet, Path pathEntry,
+        View nextView) {
       this.modifiedFileSet = modifiedFileSet;
       this.pathEntry = pathEntry;
+      this.nextView = nextView;
     }
 
     @Override
@@ -120,19 +159,9 @@ public final class DiffAwarenessManager {
 
     @Override
     public void markProcessed() {
-      ProcessableModifiedFileSet currentUnprocessedDiff = unprocessedDiffs.get(pathEntry);
-      if (this == currentUnprocessedDiff) {
-        // We need to check for equality here because of the following two scenarios:
-        //
-        // d1 = m.getDiff(p);
-        // d2 = m.getDiff(p);
-        // d1.markProcessed();
-        //
-        // d1 = m.getDiff(p);
-        // m.reset();
-        // d2 = m.getDiff(p);
-        // d1.markProcessed();
-        unprocessedDiffs.remove(pathEntry);
+      DiffAwarenessState diffAwarenessState = currentDiffAwarenessStates.get(pathEntry);
+      if (diffAwarenessState != null) {
+        diffAwarenessState.baselineView = nextView;
       }
     }
   }

@@ -14,7 +14,7 @@
 package com.google.devtools.build.lib.actions;
 
 /**
- * Methods needed by both {@code SkyframeBuilder} and {@link ParallelBuilder}.
+ * Methods needed by {@code SkyframeBuilder}.
  */
 public final class BuilderUtils {
 
