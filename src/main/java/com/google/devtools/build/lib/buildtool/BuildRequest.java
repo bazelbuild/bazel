@@ -505,7 +505,7 @@ public class BuildRequest implements OptionsClassProvider {
     return new TopLevelArtifactContext(getCommandName(),
         getBuildOptions().compileOnly, getBuildOptions().compilationPrerequisitesOnly,
         getOptions(ExecutionOptions.class).testStrategy.equals("exclusive"),
-        ImmutableSet.<String>copyOf(getBuildOptions().outputGroups));
+        ImmutableSet.<String>copyOf(getBuildOptions().outputGroups), shouldRunTests());
   }
 
   public String getSymlinkPrefix() {

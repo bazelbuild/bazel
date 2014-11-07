@@ -714,8 +714,8 @@ public class BuildView {
 
     addExtraActionsIfRequested(viewOptions, artifactsToBuild, configuredTargets);
     // Note that this must come last, so that the tests are scheduled after all artifacts are built.
-    scheduleTestsIfRequested(artifactsToBuild, exclusiveTestArtifacts,
-        topLevelOptions, configuredTargets, targetsToTest);
+    scheduleTestsIfRequested(artifactsToBuild, exclusiveTestArtifacts, topLevelOptions,
+        targetsToTest);
 
     String error = !loadingResult.hasLoadingError()
           ? (analysisSuccessful
@@ -750,28 +750,11 @@ public class BuildView {
     }
   }
 
-  private void scheduleTestsIfRequested(Set<Artifact> artifactsToBuild,
+  private static void scheduleTestsIfRequested(Set<Artifact> artifactsToBuild,
       Set<Artifact> exclusiveTestArtifacts, TopLevelArtifactContext topLevelOptions,
-      Collection<ConfiguredTarget> targetsToBuild, Collection<ConfiguredTarget> testTargets) {
-    // If requested, add test artifacts to the set and ensure correct scheduling dependencies for
-    // exclusive tests.
+      Collection<ConfiguredTarget> testTargets) {
     if (!topLevelOptions.compileOnly() && !topLevelOptions.compilationPrerequisitesOnly()
         && testTargets != null) {
-      // Add baseline code coverage artifacts if we are collecting code coverage. We do that only
-      // when running tests.
-      for (ConfiguredTarget target : targetsToBuild) {
-        // It might be slightly faster to first check if any configuration has coverage enabled.
-        if (target.getConfiguration() != null
-            && target.getConfiguration().isCodeCoverageEnabled()) {
-          BaselineCoverageArtifactsProvider provider =
-              target.getProvider(BaselineCoverageArtifactsProvider.class);
-          if (provider != null) {
-            Iterables.addAll(artifactsToBuild, provider.getBaselineCoverageArtifacts());
-          }
-        }
-      }
-
-      // Schedule tests.
       scheduleTests(artifactsToBuild, exclusiveTestArtifacts, testTargets,
                     topLevelOptions.runTestsExclusively());
     }
@@ -867,10 +850,14 @@ public class BuildView {
     return prerequisiteMap;
   }
 
-  private void scheduleTestsSkyframe(Collection<Artifact> artifactsToBuild,
-                                     Set<Artifact> exclusiveTestArtifacts,
-                                     Collection<ConfiguredTarget> testTargets,
-                                     boolean isExclusive) {
+  /**
+   * Returns set of artifacts representing test results. Also serializes
+   * execution of the exclusive tests using scheduling middleman dependencies.
+   */
+  private static void scheduleTests(Collection<Artifact> artifactsToBuild,
+                                    Set<Artifact> exclusiveTestArtifacts,
+                                    Collection<ConfiguredTarget> testTargets,
+                                    boolean isExclusive) {
     for (ConfiguredTarget target : testTargets) {
       if (target.getTarget() instanceof Rule) {
         boolean exclusive =
@@ -879,17 +866,6 @@ public class BuildView {
         artifacts.addAll(TestProvider.getTestStatusArtifacts(target));
       }
     }
-  }
-
-  /**
-   * Returns set of artifacts representing test results. Also serializes
-   * execution of the exclusive tests using scheduling middleman dependencies.
-   */
-  private void scheduleTests(Collection<Artifact> artifactsToBuild,
-                             Set<Artifact> exclusiveTestArtifacts,
-                             Collection<ConfiguredTarget> testTargets,
-                             boolean isExclusive) {
-    scheduleTestsSkyframe(artifactsToBuild, exclusiveTestArtifacts, testTargets, isExclusive);
   }
 
   /**

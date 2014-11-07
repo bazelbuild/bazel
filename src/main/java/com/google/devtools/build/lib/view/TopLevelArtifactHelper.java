@@ -119,7 +119,27 @@ public final class TopLevelArtifactHelper {
     }
 
     allArtifacts.addAll(getCommandArtifacts(target, options.buildCommand()));
+    allArtifacts.addAll(getCoverageArtifacts(target, options));
     return allArtifacts.build();
+  }
+
+  private static Iterable<Artifact> getCoverageArtifacts(TransitiveInfoCollection target,
+                                                         TopLevelArtifactContext topLevelOptions) {
+    if (!topLevelOptions.compileOnly() && !topLevelOptions.compilationPrerequisitesOnly()
+        && topLevelOptions.shouldRunTests()) {
+      // Add baseline code coverage artifacts if we are collecting code coverage. We do that only
+      // when running tests.
+      // It might be slightly faster to first check if any configuration has coverage enabled.
+      if (target.getConfiguration() != null
+          && target.getConfiguration().isCodeCoverageEnabled()) {
+        BaselineCoverageArtifactsProvider provider =
+            target.getProvider(BaselineCoverageArtifactsProvider.class);
+        if (provider != null) {
+          return provider.getBaselineCoverageArtifacts();
+        }
+      }
+    }
+    return ImmutableList.of();
   }
 
   /**
