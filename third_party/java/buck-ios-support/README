@@ -11,3 +11,4 @@ com/facebook/buck/apple/{FileTypes,xcode/{xcodeproj/**,GidGenerator,XcodeprojSer
 
 Local Modifications:
 Add FILE_REFERENCE(2) to the PBXContainerItemProxy.ProxyType enum.
+Update LastUpgradeCheck from 600 to 610

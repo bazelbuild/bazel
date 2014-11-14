@@ -66,7 +66,8 @@ final class ChainedFunction implements SkyFunction {
         env.getValue(dep);
       }
       if (value == null) {
-        throw new GenericFunctionException(key, new Exception(), Transience.PERSISTENT);
+        throw new GenericFunctionException(key, new SomeErrorException("oops"),
+            Transience.PERSISTENT);
       }
       if (env.valuesMissing()) {
         return null;

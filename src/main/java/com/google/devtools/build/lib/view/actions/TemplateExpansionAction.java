@@ -294,10 +294,15 @@ public class TemplateExpansionAction extends AbstractFileWriteAction {
   }
 
   @Override
-  public void writeOutputFile(OutputStream out, EventHandler eventHandler,
-      Executor executor) throws IOException {
-    byte[] bytes = getFileContents().getBytes(UTF_8);
-    out.write(bytes);
+  public DeterministicWriter newDeterministicWriter(EventHandler eventHandler,
+                                                    Executor executor) throws IOException {
+    final byte[] bytes = getFileContents().getBytes(UTF_8);
+    return new DeterministicWriter() {
+      @Override
+      public void writeOutputFile(OutputStream out) throws IOException {
+        out.write(bytes);
+      }
+    };
   }
 
   @Override

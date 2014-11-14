@@ -39,7 +39,6 @@ import com.google.devtools.build.lib.events.Reporter;
 import com.google.devtools.build.lib.testutil.JunitTestUtils;
 import com.google.devtools.build.lib.testutil.MoreAsserts;
 import com.google.devtools.build.lib.testutil.TestThread;
-import com.google.devtools.build.skyframe.GraphTester.SomeErrorException;
 import com.google.devtools.build.skyframe.GraphTester.StringValue;
 import com.google.devtools.build.skyframe.NotifyingInMemoryGraph.EventType;
 import com.google.devtools.build.skyframe.NotifyingInMemoryGraph.Listener;
@@ -516,7 +515,8 @@ public class ParallelEvaluatorTest {
       @Nullable
       @Override
       public SkyValue compute(SkyKey skyKey, Environment env) throws SkyFunctionException {
-        throw new SkyFunctionException(skyKey, new Exception(), Transience.PERSISTENT) {
+        throw new SkyFunctionException(skyKey, new SomeErrorException("bad"),
+            Transience.PERSISTENT) {
           @Override
           public boolean isCatastrophic() {
             return true;
@@ -1144,8 +1144,8 @@ public class ParallelEvaluatorTest {
     EvaluationResult<StringValue> result = eval(/*keepGoing=*/true,
         ImmutableList.of(lastSelfKey, firstSelfKey, midSelfKey));
     assert_().withFailureMessage(result.toString()).that(result.keyNames()).isEmpty();
-    MoreAsserts.assertContentsAnyOrder(result.errorMap().keySet(),
-        lastSelfKey, firstSelfKey, midSelfKey);
+    MoreAsserts.assertContentsAnyOrder(
+        result.errorMap().keySet(), lastSelfKey, firstSelfKey, midSelfKey);
 
     // Check lastSelfKey.
     ErrorInfo errorInfo = result.getError(lastSelfKey);
@@ -1529,14 +1529,20 @@ public class ParallelEvaluatorTest {
     }
   }
 
+  private static class SomeOtherErrorException extends Exception {
+    public SomeOtherErrorException(String msg) {
+      super(msg);
+    }
+  }
+
   private void unexpectedErrorDep(boolean keepGoing) throws Exception {
     graph = new InMemoryGraph();
     SkyKey errorKey = GraphTester.toSkyKey("my_error_value");
-    final Exception exception = new Exception("error exception");
+    final SomeOtherErrorException exception = new SomeOtherErrorException("error exception");
     tester.getOrCreate(errorKey).setBuilder(new SkyFunction() {
       @Override
-      public SkyValue compute(SkyKey skyKey, Environment env) throws GenericFunctionException {
-        throw new GenericFunctionException(skyKey, exception, Transience.PERSISTENT);
+      public SkyValue compute(SkyKey skyKey, Environment env) throws SkyFunctionException {
+        throw new SkyFunctionException(skyKey, exception, Transience.PERSISTENT) {};
       }
 
       @Override
@@ -1571,8 +1577,8 @@ public class ParallelEvaluatorTest {
   private void unexpectedErrorDepOneLevelDown(final boolean keepGoing) throws Exception {
     graph = new InMemoryGraph();
     SkyKey errorKey = GraphTester.toSkyKey("my_error_value");
-    final Exception exception = new Exception("error exception");
-    final Exception topException = new Exception("top exception");
+    final SomeErrorException exception = new SomeErrorException("error exception");
+    final SomeErrorException topException = new SomeErrorException("top exception");
     final StringValue topValue = new StringValue("top");
     tester.getOrCreate(errorKey).setBuilder(new SkyFunction() {
       @Override
@@ -1592,10 +1598,10 @@ public class ParallelEvaluatorTest {
       @Override
       public SkyValue compute(SkyKey skyKey, Environment env) throws GenericFunctionException {
         try {
-          if (env.getValueOrThrow(parentKey, Exception.class) == null) {
+          if (env.getValueOrThrow(parentKey, SomeErrorException.class) == null) {
             return null;
           }
-        } catch (Exception e) {
+        } catch (SomeErrorException e) {
           assertEquals(e.toString(), exception, e);
         }
         if (keepGoing) {
@@ -1660,7 +1666,7 @@ public class ParallelEvaluatorTest {
       public SkyValue compute(SkyKey skyKey, Environment env) throws SkyFunctionException,
           InterruptedException {
         if (valuesOrThrow) {
-          env.getValuesOrThrow(leaves, Exception.class);
+          env.getValuesOrThrow(leaves, SomeErrorException.class);
         } else {
           env.getValues(leaves);
         }
@@ -1671,7 +1677,7 @@ public class ParallelEvaluatorTest {
         SkyKey second = sameFirst ? leaf4 : leaves.get(2);
         List<SkyKey> secondRequest = ImmutableList.of(first, second);
         if (valuesOrThrow) {
-          env.getValuesOrThrow(secondRequest, Exception.class);
+          env.getValuesOrThrow(secondRequest, SomeErrorException.class);
         } else {
           env.getValues(secondRequest);
         }

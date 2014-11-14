@@ -58,7 +58,7 @@ public abstract class AbstractFileWriteAction extends AbstractAction {
   }
 
   @Override
-  public void execute(ActionExecutionContext actionExecutionContext)
+  public final void execute(ActionExecutionContext actionExecutionContext)
       throws ActionExecutionException, InterruptedException {
     try {
       getStrategy(actionExecutionContext.getExecutor()).exec(actionExecutionContext.getExecutor(),
@@ -68,20 +68,26 @@ public abstract class AbstractFileWriteAction extends AbstractAction {
           "Writing file for rule '" + Label.print(getOwner().getLabel()) + "'",
           actionExecutionContext.getExecutor().getVerboseFailures(), this);
     }
+    afterWrite(actionExecutionContext.getExecutor());
   }
 
   /**
-   * Write the content of the output file to the provided output stream.
+   * Produce a DeterministicWriter that can write the file to an OutputStream deterministically.
    *
-   * @param out the output stream to write the content to.
    * @param eventHandler destination for warning messages.  (Note that errors should
    *        still be indicated by throwing an exception; reporter.error() will
    *        not cause action execution to fail.)
    * @param executor the Executor.
    * @throws IOException if the content cannot be written to the output stream
    */
-  public abstract void writeOutputFile(OutputStream out, EventHandler eventHandler,
+  public abstract DeterministicWriter newDeterministicWriter(EventHandler eventHandler,
       Executor executor) throws IOException, InterruptedException, ExecException;
+
+  /**
+   * This hook is called after the File has been successfully written to disk.
+   */
+  protected void afterWrite(Executor executor) {
+  }
 
   // We're mainly doing I/O, so estimate very low CPU usage, e.g. 1%. Just a guess.
   private static final ResourceSet DEFAULT_FILEWRITE_ACTION_RESOURCE_SET =
@@ -100,7 +106,7 @@ public abstract class AbstractFileWriteAction extends AbstractAction {
   @Override
   protected String getRawProgressMessage() {
     return "Writing " + (makeExecutable ? "script " : "file ")
-    + Iterables.getOnlyElement(getOutputs()).prettyPrint();
+        + Iterables.getOnlyElement(getOutputs()).prettyPrint();
   }
 
   @Override
@@ -110,5 +116,13 @@ public abstract class AbstractFileWriteAction extends AbstractAction {
 
   private FileWriteActionContext getStrategy(Executor executor) {
     return executor.getContext(FileWriteActionContext.class);
+  }
+
+  /**
+   * A deterministic writer writes bytes to an output stream. The same byte stream is written
+   * on every invocation of writeOutputFile().
+   */
+  public interface DeterministicWriter {
+    public void writeOutputFile(OutputStream out) throws IOException;
   }
 }

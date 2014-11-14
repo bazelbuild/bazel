@@ -34,4 +34,6 @@ public class Constants {
   public static final String RUNFILES_PREFIX = "".toString();
 
   public static final ImmutableList<String> WATCHFS_BLACKLIST = ImmutableList.of();
+
+  public static final String PRELUDE_FILE_DEPOT_PATH = "tools/build_rules/prelude_bazel.bzl";
 }

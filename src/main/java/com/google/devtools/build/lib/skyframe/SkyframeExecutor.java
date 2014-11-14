@@ -269,7 +269,7 @@ public abstract class SkyframeExecutor {
     map.put(SkyFunctions.DIRECTORY_LISTING, new DirectoryListingFunction());
     map.put(SkyFunctions.PACKAGE_LOOKUP, new PackageLookupFunction(pkgLocator, deletedPackages));
     map.put(SkyFunctions.CONTAINING_PACKAGE_LOOKUP, new ContainingPackageLookupFunction());
-    map.put(SkyFunctions.AST_LOOKUP, new ASTFileLookupFunction(
+    map.put(SkyFunctions.AST_FILE_LOOKUP, new ASTFileLookupFunction(
         pkgLocator, packageManager, pkgFactory.getRuleClassProvider()));
     map.put(SkyFunctions.SKYLARK_IMPORTS_LOOKUP, new SkylarkImportLookupFunction(
         pkgFactory.getRuleClassProvider(), pkgFactory));
@@ -490,10 +490,6 @@ public abstract class SkyframeExecutor {
     PrecomputedValue.DEFAULT_VISIBILITY.set(injectable(), defaultVisibility);
   }
 
-  private void setupPreludeFile(String preludeFile) {
-    PrecomputedValue.PRELUDE_FILE.set(injectable(), preludeFile);
-  }
-
   private void maybeInjectBuildInfoFactories() {
     if (needToInjectBuildInfoFactories) {
       injectBuildInfoFactories();
@@ -585,13 +581,13 @@ public abstract class SkyframeExecutor {
 
   protected static Iterable<SkyKey> getSkyKeysPotentiallyAffected(
       Iterable<PathFragment> modifiedSourceFiles, final Path pathEntry) {
-    Iterable<PathFragment> validModifiedSourceFiles =
-        Iterables.filter(modifiedSourceFiles, Predicates.not(PathFragment.IS_ABSOLUTE));
     // TODO(bazel-team): change ModifiedFileSet to work with RootedPaths instead of PathFragments.
-    Iterable<SkyKey> fileStateSkyKeys = Iterables.transform(validModifiedSourceFiles,
+    Iterable<SkyKey> fileStateSkyKeys = Iterables.transform(modifiedSourceFiles,
         new Function<PathFragment, SkyKey>() {
           @Override
           public SkyKey apply(PathFragment pathFragment) {
+            Preconditions.checkState(!pathFragment.isAbsolute(),
+                "found absolute PathFragment: " + pathFragment);
             return FileStateValue.key(RootedPath.toRootedPath(pathEntry, pathFragment));
           }
         });
@@ -603,10 +599,12 @@ public abstract class SkyframeExecutor {
     // directories when the state of a file does not change by statting them and comparing
     // the new filetype (nonexistent/file/symlink/directory) with the old one.
     Iterable<SkyKey> dirListingStateSkyKeys = Iterables.transform(
-        validModifiedSourceFiles,
+        modifiedSourceFiles,
         new Function<PathFragment, SkyKey>() {
           @Override
           public SkyKey apply(PathFragment pathFragment) {
+            Preconditions.checkState(!pathFragment.isAbsolute(),
+                "found absolute PathFragment: " + pathFragment);
             return DirectoryListingStateValue.key(RootedPath.toRootedPath(pathEntry,
                 pathFragment.getParentDirectory()));
           }
@@ -620,23 +618,15 @@ public abstract class SkyframeExecutor {
   @VisibleForTesting  // productionVisibility = Visibility.PRIVATE
   public abstract void setDeletedPackages(Iterable<String> pkgs);
 
-  @VisibleForTesting  // productionVisibility = Visibility.PRIVATE
-  public void preparePackageLoading(PathPackageLocator pkgLocator, RuleVisibility defaultVisibility,
-      boolean showLoadingProgress,
-      String defaultsPackageContents, UUID commandId) {
-    preparePackageLoading(pkgLocator, defaultVisibility, showLoadingProgress,
-        defaultsPackageContents, commandId, PackageCacheOptions.DEFAULT_PRELUDE_FILE);
-  }
-
   /**
    * Prepares the evaluator for loading.
    *
    * <p>MUST be run before every incremental build.
    */
-  private void preparePackageLoading(
-      PathPackageLocator pkgLocator, RuleVisibility defaultVisibility,
+  @VisibleForTesting  // productionVisibility = Visibility.PRIVATE
+  public void preparePackageLoading(PathPackageLocator pkgLocator, RuleVisibility defaultVisibility,
       boolean showLoadingProgress,
-      String defaultsPackageContents, UUID commandId, String preludeFile) {
+      String defaultsPackageContents, UUID commandId) {
     Preconditions.checkNotNull(pkgLocator);
     setActive(true);
 
@@ -646,7 +636,6 @@ public abstract class SkyframeExecutor {
     setDefaultVisibility(defaultVisibility);
     setupDefaultPackage(defaultsPackageContents);
     setPackageLocator(pkgLocator);
-    setupPreludeFile(preludeFile);
 
     syscalls.set(new PerBuildSyscallCache());
     checkPreprocessorFactory();
@@ -1200,7 +1189,7 @@ public abstract class SkyframeExecutor {
 
     preparePackageLoading(packageLocator,
         packageCacheOptions.defaultVisibility, packageCacheOptions.showLoadingProgress,
-        defaultsPackageContents, commandId, packageCacheOptions.preludeFile);
+        defaultsPackageContents, commandId);
     setDeletedPackages(ImmutableSet.copyOf(packageCacheOptions.deletedPackages));
 
     incrementalBuildMonitor = new SkyframeIncrementalBuildMonitor();

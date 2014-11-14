@@ -26,7 +26,7 @@ message DependencyControl {
 }
 
 // Contains information specific to a single target in the project file.
-// Next ID: 22
+// Next ID: 23
 message TargetControl {
   // 'Name' of the target in the project file. This corresponds to the product
   // name, and does not have to be unique.
@@ -59,6 +59,9 @@ message TargetControl {
 
   // Additional flags to pass to the [objective] c[++] compiler.
   repeated string copt = 8;
+
+  // Additional flags to pass to the linker.
+  repeated string linkopt = 22;
 
   // Paths to *.xcassets directories to include in the target as asset
   // catalogs. For all targets, this causes the .xcassets directory to be

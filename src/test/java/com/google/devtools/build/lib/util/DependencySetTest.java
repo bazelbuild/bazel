@@ -28,10 +28,7 @@ import org.junit.runner.RunWith;
 import org.junit.runners.JUnit4;
 
 import java.util.Collection;
-import java.util.Set;
 
-/**
- */
 @RunWith(JUnit4.class)
 public class DependencySetTest {
 
@@ -134,60 +131,6 @@ public class DependencySetTest {
         "hello2.o: \\",
         " " + file2);
     MoreAsserts.assertSameContents(Sets.newHashSet(file1, file2),
-        newDependencySet().read(dotd).getDependencies());
-  }
-
-  @Test
-  public void dotDParser_windowsPaths() throws Exception {
-    Path dotd = scratch.file("/tmp/foo.d",
-        "bazel-out/hello-lib/cpp/hello-lib.o: \\",
-        " cpp/hello-lib.cc cpp/hello-lib.h c:\\mingw\\include\\stdio.h \\",
-        " c:\\mingw\\include\\_mingw.h \\",
-        " c:\\mingw\\lib\\gcc\\mingw32\\4.8.1\\include\\stdarg.h");
-
-    Set<PathFragment> expected = Sets.newHashSet(
-        new PathFragment("cpp/hello-lib.cc"),
-        new PathFragment("cpp/hello-lib.h"),
-        new PathFragment("C:/mingw/include/stdio.h"),
-        new PathFragment("C:/mingw/include/_mingw.h"),
-        new PathFragment("C:/mingw/lib/gcc/mingw32/4.8.1/include/stdarg.h"));
-
-    MoreAsserts.assertSameContents(expected,
-        newDependencySet().read(dotd).getDependencies());
-  }
-
-  @Test
-  public void dotDParser_windowsPathsWithSpaces() throws Exception {
-    Path dotd = scratch.file("/tmp/foo.d",
-        "bazel-out/hello-lib/cpp/hello-lib.o: \\",
-        "C:\\Program\\ Files\\ (x86)\\LLVM\\stddef.h");
-    MoreAsserts.assertSameContents(
-        Sets.newHashSet(new PathFragment("C:/Program Files (x86)/LLVM/stddef.h")),
-        newDependencySet().read(dotd).getDependencies());
-  }
-
-
-  @Test
-  public void dotDParser_mixedWindowsPaths() throws Exception {
-    // This is (slightly simplified) actual output from clang. Yes, clang will happily mix
-    // forward slashes and backslashes in a single path, not to mention using backslashes as
-    // separators next to backslashes as escape characters.
-    Path dotd = scratch.file("/tmp/foo.d",
-        "bazel-out/hello-lib/cpp/hello-lib.o: \\",
-        "cpp/hello-lib.cc cpp/hello-lib.h /mingw/include\\stdio.h \\",
-        "/mingw/include\\_mingw.h \\",
-        "C:\\Program\\ Files\\ (x86)\\LLVM\\bin\\..\\lib\\clang\\3.5.0\\include\\stddef.h \\",
-        "C:\\Program\\ Files\\ (x86)\\LLVM\\bin\\..\\lib\\clang\\3.5.0\\include\\stdarg.h");
-
-    Set<PathFragment> expected = Sets.newHashSet(
-        new PathFragment("cpp/hello-lib.cc"),
-        new PathFragment("cpp/hello-lib.h"),
-        new PathFragment("/mingw/include/stdio.h"),
-        new PathFragment("/mingw/include/_mingw.h"),
-        new PathFragment("C:/Program Files (x86)/LLVM/lib/clang/3.5.0/include/stddef.h"),
-        new PathFragment("C:/Program Files (x86)/LLVM/lib/clang/3.5.0/include/stdarg.h"));
-
-    MoreAsserts.assertSameContents(expected,
         newDependencySet().read(dotd).getDependencies());
   }
 

@@ -30,11 +30,6 @@ public final class HeaderTargetModuleMapProvider implements TransitiveInfoProvid
   private final ImmutableList<CppModuleMap> cppModuleMaps;
 
   public HeaderTargetModuleMapProvider(Iterable<CppModuleMap> cppModuleMaps) {
-    for (CppModuleMap map : cppModuleMaps) {
-      if (map == null) {
-        System.out.println(cppModuleMaps.toString());
-      }
-    }
     this.cppModuleMaps = ImmutableList.copyOf(cppModuleMaps);
   }
 

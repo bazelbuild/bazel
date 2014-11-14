@@ -42,14 +42,12 @@ final class BundleMergeControlBytes extends ByteSource {
   private final Bundling rootBundling;
   private final Artifact mergedIpa;
   private final ObjcConfiguration objcConfiguration;
-  private final Map<String, String> variableSubstitutions;
 
-  public BundleMergeControlBytes(Bundling rootBundling, Artifact mergedIpa,
-      ObjcConfiguration objcConfiguration, Map<String, String> variableSubstitutions) {
+  public BundleMergeControlBytes(
+      Bundling rootBundling, Artifact mergedIpa, ObjcConfiguration objcConfiguration) {
     this.rootBundling = Preconditions.checkNotNull(rootBundling);
     this.mergedIpa = Preconditions.checkNotNull(mergedIpa);
     this.objcConfiguration = Preconditions.checkNotNull(objcConfiguration);
-    this.variableSubstitutions = Preconditions.checkNotNull(variableSubstitutions);
   }
 
   @Override
@@ -93,7 +91,7 @@ final class BundleMergeControlBytes extends ByteSource {
       control.addTargetDeviceFamily(targetDeviceFamily.name());
     }
 
-    // TODO(bazel-team): Should we use different variable substitutions for nested bundles?
+    Map<String, String> variableSubstitutions = bundling.variableSubstitutions();
     for (String variable : variableSubstitutions.keySet()) {
       control.addVariableSubstitution(VariableSubstitution.newBuilder()
           .setName(variable)

@@ -250,7 +250,6 @@ public class XcodeprojGeneration {
         new NSString("arm7"), new NSString("arm7s"), new NSString("arm64")));
     projBuildConfigMap.put("CLANG_ENABLE_OBJC_ARC", "YES");
     projBuildConfigMap.put("SDKROOT", "iphoneos");
-    projBuildConfigMap.put("GCC_WARN_64_TO_32_BIT_CONVERSION", "YES");
     projBuildConfigMap.put("IPHONEOS_DEPLOYMENT_TARGET", "7.0");
     projBuildConfigMap.put("GCC_VERSION", "com.apple.compilers.llvm.clang.1_0");
     projBuildConfigMap.put("CODE_SIGN_IDENTITY[sdk=iphoneos*]", "iPhone Developer");
@@ -335,6 +334,9 @@ public class XcodeprojGeneration {
 
       if (targetControl.getCoptCount() > 0) {
         targetBuildConfigMap.put("OTHER_CFLAGS", NSObject.wrap(targetControl.getCoptList()));
+      }
+      if (targetControl.getLinkoptCount() > 0) {
+        targetBuildConfigMap.put("OTHER_LDFLAGS", NSObject.wrap(targetControl.getLinkoptList()));
       }
       for (XcodeprojBuildSetting setting : targetControl.getBuildSettingList()) {
         targetBuildConfigMap.put(setting.getName(), setting.getValue());

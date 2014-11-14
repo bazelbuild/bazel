@@ -18,6 +18,7 @@ import com.google.common.base.Predicate;
 import com.google.common.collect.Iterables;
 import com.google.devtools.build.lib.concurrent.ThreadSafety.Immutable;
 import com.google.devtools.build.lib.concurrent.ThreadSafety.ThreadSafe;
+import com.google.devtools.build.lib.util.OS;
 import com.google.devtools.build.lib.util.StringCanonicalizer;
 
 import java.io.File;
@@ -46,7 +47,10 @@ public final class PathFragment implements Comparable<PathFragment>, Serializabl
   public static final int INVALID_SEGMENT = -1;
 
   public static final char SEPARATOR_CHAR = '/';
-  public static final char WINDOWS_SEPARATOR_CHAR = '\\';
+
+  public static final char EXTRA_SEPARATOR_CHAR =
+      (OS.getCurrent() == OS.WINDOWS) ? '\\' : '/';
+
   public static final String ROOT_DIR = "/";
 
   /** An empty path fragment. */
@@ -99,7 +103,7 @@ public final class PathFragment implements Comparable<PathFragment>, Serializabl
   }
 
   private static boolean isSeparator(char c) {
-    return c == SEPARATOR_CHAR || c == WINDOWS_SEPARATOR_CHAR;
+    return c == SEPARATOR_CHAR || c == EXTRA_SEPARATOR_CHAR;
   }
 
   /**
@@ -574,7 +578,8 @@ public final class PathFragment implements Comparable<PathFragment>, Serializabl
    * was specified.
    */
   static String getWindowsVolumeName(String path) {
-    if (path.length() >= 2 && path.charAt(1) == ':' && Character.isLetter(path.charAt(0))) {
+    if (OS.getCurrent() == OS.WINDOWS
+        && path.length() >= 2 && path.charAt(1) == ':' && Character.isLetter(path.charAt(0))) {
       return StringCanonicalizer.intern(path.substring(0, 2).toUpperCase(Locale.US));
     }
     return "";

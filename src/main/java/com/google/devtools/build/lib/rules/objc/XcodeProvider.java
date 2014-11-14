@@ -31,7 +31,6 @@ import com.google.devtools.build.lib.actions.Artifact;
 import com.google.devtools.build.lib.collect.nestedset.NestedSet;
 import com.google.devtools.build.lib.collect.nestedset.NestedSetBuilder;
 import com.google.devtools.build.lib.concurrent.ThreadSafety.Immutable;
-import com.google.devtools.build.lib.packages.RuleClass.Builder;
 import com.google.devtools.build.lib.syntax.Label;
 import com.google.devtools.build.lib.vfs.PathFragment;
 import com.google.devtools.build.lib.view.TransitiveInfoProvider;
@@ -203,7 +202,9 @@ final class XcodeProvider implements TransitiveInfoProvider {
         .addAllHeaderFile(Artifact.toExecPaths(headers))
         // TODO(bazel-team): Add all build settings information once Xcodegen supports it.
         .addAllCopt(copts)
+        .addAllLinkopt(IosSdkCommands.DEFAULT_LINKER_FLAGS)
         .addAllBuildSetting(xcodeprojBuildSettings)
+        .addAllBuildSetting(IosSdkCommands.defaultWarningsForXcode())
         .addAllSdkFramework(SdkFramework.names(objcProvider.get(SDK_FRAMEWORK)))
         .addAllFramework(PathFragment.safePathStrings(objcProvider.get(FRAMEWORK_DIR)))
         .addAllXcassetsDir(PathFragment.safePathStrings(objcProvider.get(XCASSETS_DIR)))

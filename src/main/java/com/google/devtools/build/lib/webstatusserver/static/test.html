@@ -11,9 +11,23 @@
     .button { cursor:pointer; color:#666; }
   </style>
 </head>
-<body onload="showData()">
+<body>
+<h1> Tests info </h1>
+<div id="testInfo">
+  No test info to display.
+</div>
+<div id="testFilters">
+  <h1> Tests filters </h1>
+    <input type=text id="search"></input>
+    <!-- TODO(bazel-team) this is very simplistic view of tests,
+      we probably need more filters -->
+    <input type=checkbox checked=true id="boxPassed">passed</input>
+    <input type=checkbox checked=true id="boxFailed">failed</input>
+    <button id="clearFilters"> Clear filters. </button>
+</div>
+<h1> Tests details </h1>
 <div id="testDetails">
-  <h1> Tests details </h1>
+  No test details to display.
 </div>
 </body>
 </html>

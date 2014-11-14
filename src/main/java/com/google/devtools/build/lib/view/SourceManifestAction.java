@@ -130,10 +130,18 @@ public class SourceManifestAction extends AbstractFileWriteAction {
   }
 
   @Override
-  public void writeOutputFile(OutputStream out, EventHandler eventHandler,
-      Executor executor) throws IOException {
-    writeOutputFile(out, eventHandler, 
-        executor.getContext(Context.class).getRunfilesPrefix().toString());
+  public DeterministicWriter newDeterministicWriter(EventHandler eventHandler, Executor executor)
+      throws IOException {
+    final Pair<Map<PathFragment, Artifact>, Map<PathFragment, Artifact>> runfilesInputs =
+        runfiles.getRunfilesInputs(root,
+            executor.getContext(Context.class).getRunfilesPrefix().toString(), eventHandler,
+            getOwner().getLocation());
+    return new DeterministicWriter() {
+      @Override
+      public void writeOutputFile(OutputStream out) throws IOException {
+        writeFile(out, runfilesInputs);
+      }
+    };
   }
 
   /**

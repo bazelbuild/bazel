@@ -55,11 +55,11 @@ def genproto_impl(ctx):
   ctx.action(
       inputs = inputs,
       outputs = [class_jar],
-      mnemonic = 'Proto compilation',
+      mnemonic = 'CompileProtos',
       command = cmd,
       use_default_shell_env = True)
 
-  return struct(compile_time_jar = class_jar,
+  return struct(compile_time_jars = set([class_jar]),
                 runtime_jars = set([class_jar, proto_dep], order="link"))
 
 

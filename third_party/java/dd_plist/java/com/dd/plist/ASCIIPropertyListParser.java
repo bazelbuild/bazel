@@ -22,6 +22,7 @@
  */
 package com.dd.plist;
 
+import java.io.ByteArrayOutputStream;
 import java.io.File;
 import java.io.FileInputStream;
 import java.io.IOException;
@@ -287,6 +288,14 @@ public class ASCIIPropertyListParser {
         while (commentSkipped); //if a comment was skipped more whitespace or another comment can follow, so skip again
     }
 
+    private String toUtf8String(ByteArrayOutputStream stream) {
+        try {
+            return stream.toString("UTF-8");
+        } catch (UnsupportedEncodingException e) {
+            throw new RuntimeException(e);
+        }
+    }
+
     /**
      * Reads input until one of the given symbols is found.
      *
@@ -294,12 +303,12 @@ public class ASCIIPropertyListParser {
      * @return The input until one the given symbols.
      */
     private String readInputUntil(char... symbols) {
-        String s = "";
+        ByteArrayOutputStream stringBytes = new ByteArrayOutputStream();
         while (!accept(symbols)) {
-            s += (char) data[index];
+            stringBytes.write(data[index]);
             skip();
         }
-        return s;
+        return toUtf8String(stringBytes);
     }
 
     /**
@@ -309,12 +318,12 @@ public class ASCIIPropertyListParser {
      * @return The input until the given symbol.
      */
     private String readInputUntil(char symbol) {
-        String s = "";
+        ByteArrayOutputStream stringBytes = new ByteArrayOutputStream();
         while (!accept(symbol)) {
-            s += (char) data[index];
+            stringBytes.write(data[index]);
             skip();
         }
-        return s;
+        return toUtf8String(stringBytes);
     }
 
     /**
@@ -539,11 +548,11 @@ public class ASCIIPropertyListParser {
     private String parseQuotedString() throws ParseException {
         //Skip begin token
         skip();
-        String quotedString = "";
+        ByteArrayOutputStream quotedString = new ByteArrayOutputStream();
         boolean unescapedBackslash = true;
         //Read from opening quotation marks to closing quotation marks and skip escaped quotation marks
         while (data[index] != QUOTEDSTRING_END_TOKEN || (data[index - 1] == QUOTEDSTRING_ESCAPE_TOKEN && unescapedBackslash)) {
-            quotedString += (char) data[index];
+            quotedString.write(data[index]);
             if (accept(QUOTEDSTRING_ESCAPE_TOKEN)) {
                 unescapedBackslash = !(data[index - 1] == QUOTEDSTRING_ESCAPE_TOKEN && unescapedBackslash);
             }
@@ -551,7 +560,7 @@ public class ASCIIPropertyListParser {
         }
         String unescapedString;
         try {
-            unescapedString = parseQuotedString(quotedString);
+            unescapedString = parseQuotedString(toUtf8String(quotedString));
         } catch (Exception ex) {
             throw new ParseException("The quoted string could not be parsed.", index);
         }
@@ -574,46 +583,24 @@ public class ASCIIPropertyListParser {
      * @throws Exception If the string could not be properly parsed.
      */
     public static synchronized String parseQuotedString(String s) throws UnsupportedEncodingException, CharacterCodingException {
-        List<Byte> strBytes = new LinkedList<Byte>();
+        StringBuilder parsed = new StringBuilder();
         StringCharacterIterator iterator = new StringCharacterIterator(s);
         char c = iterator.current();
 
         while (iterator.getIndex() < iterator.getEndIndex()) {
             switch (c) {
                 case '\\': { //An escaped sequence is following
-                    byte[] bts = parseEscapedSequence(iterator).getBytes("UTF-8");
-                    for (byte b : bts)
-                        strBytes.add(b);
+                    parsed.append(parseEscapedSequence(iterator));
                     break;
                 }
-                default: { //a normal ASCII char
-                    strBytes.add((byte) 0);
-                    strBytes.add((byte) c);
+                default: {
+                    parsed.append(c);
                     break;
                 }
             }
             c = iterator.next();
         }
-        byte[] bytArr = new byte[strBytes.size()];
-        int i = 0;
-        for (Byte b : strBytes) {
-            bytArr[i] = b.byteValue();
-            i++;
-        }
-        //Build string
-        String result = new String(bytArr, "UTF-8");
-        CharBuffer charBuf = CharBuffer.wrap(result);
-
-        //If the string can be represented in the ASCII codepage
-        // --> use ASCII encoding
-        if (asciiEncoder == null)
-            asciiEncoder = Charset.forName("ASCII").newEncoder();
-        if (asciiEncoder.canEncode(charBuf))
-            return asciiEncoder.encode(charBuf).asCharBuffer().toString();
-
-        //The string contains characters outside the ASCII codepage
-        // --> use the UTF-8 encoded string
-        return result;
+        return parsed.toString();
     }
 
     /**
@@ -626,17 +613,17 @@ public class ASCIIPropertyListParser {
     private static String parseEscapedSequence(StringCharacterIterator iterator) throws UnsupportedEncodingException {
         char c = iterator.next();
         if (c == '\\') {
-            return new String(new byte[]{0, '\\'}, "UTF-8");
+            return "\\";
         } else if (c == '"') {
-            return new String(new byte[]{0, '\"'}, "UTF-8");
+            return "\"";
         } else if (c == 'b') {
-            return new String(new byte[]{0, '\b'}, "UTF-8");
+            return "\b";
         } else if (c == 'n') {
-            return new String(new byte[]{0, '\n'}, "UTF-8");
+            return "\n";
         } else if (c == 'r') {
-            return new String(new byte[]{0, '\r'}, "UTF-8");
+            return "\r";
         } else if (c == 't') {
-            return new String(new byte[]{0, '\t'}, "UTF-8");
+            return "\t";
         } else if (c == 'U' || c == 'u') {
             //4 digit hex Unicode value
             String byte1 = "";
@@ -646,7 +633,7 @@ public class ASCIIPropertyListParser {
             byte2 += iterator.next();
             byte2 += iterator.next();
             byte[] stringBytes = {(byte) Integer.parseInt(byte1, 16), (byte) Integer.parseInt(byte2, 16)};
-            return new String(stringBytes, "UTF-8");
+            return new String(stringBytes, "UTF-16BE");
         } else {
             //3 digit octal ASCII value
             String num = "";
@@ -655,7 +642,7 @@ public class ASCIIPropertyListParser {
             num += iterator.next();
             int asciiCode = Integer.parseInt(num, 8);
             byte[] stringBytes = {0, (byte) asciiCode};
-            return new String(stringBytes, "UTF-8");
+            return new String(stringBytes, "UTF-16");
         }
     }
 

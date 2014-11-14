@@ -49,7 +49,7 @@ public final class FileWriteStrategy implements FileWriteActionContext {
       Path outputPath = Iterables.getOnlyElement(action.getOutputs()).getPath();
       OutputStream out = new BufferedOutputStream(outputPath.getOutputStream());
       try {
-        action.writeOutputFile(out, reporter, executor);
+        action.newDeterministicWriter(reporter, executor).writeOutputFile(out);
       } finally {
         out.close();
       }

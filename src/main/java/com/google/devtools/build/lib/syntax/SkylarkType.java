@@ -291,4 +291,17 @@ public class SkylarkType {
     }
     return value;
   }
+
+  /**
+   * Creates a SkylarkType from the SkylarkBuiltin annotation.
+   */
+  public static SkylarkType getReturnType(SkylarkBuiltin annotation) {
+    if (annotation.returnType().equals(Object.class)) {
+      return SkylarkType.UNKNOWN;
+    }
+    if (Function.class.isAssignableFrom(annotation.returnType())) {
+      return SkylarkFunctionType.of(annotation.name());
+    }
+    return SkylarkType.of(annotation.returnType());
+  }
 }

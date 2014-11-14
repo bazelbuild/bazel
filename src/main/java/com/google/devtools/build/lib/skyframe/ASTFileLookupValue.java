@@ -24,13 +24,13 @@ import javax.annotation.Nullable;
 /**
  * A value that represents an AST file lookup result.
  */
-public class ASTLookupValue implements SkyValue {
+public class ASTFileLookupValue implements SkyValue {
 
-  static final ASTLookupValue NO_FILE = new ASTLookupValue(null);
+  static final ASTFileLookupValue NO_FILE = new ASTFileLookupValue(null);
 
   @Nullable private final BuildFileAST ast;
 
-  public ASTLookupValue(@Nullable BuildFileAST ast) {
+  public ASTFileLookupValue(@Nullable BuildFileAST ast) {
     this.ast = ast;
   }
 
@@ -41,7 +41,7 @@ public class ASTLookupValue implements SkyValue {
     return ast;
   }
 
-  static SkyKey key(PathFragment directory) {
-    return new SkyKey(SkyFunctions.AST_LOOKUP, directory);
+  static SkyKey key(PathFragment astFilePathFragment) {
+    return new SkyKey(SkyFunctions.AST_FILE_LOOKUP, astFilePathFragment);
   }
 }

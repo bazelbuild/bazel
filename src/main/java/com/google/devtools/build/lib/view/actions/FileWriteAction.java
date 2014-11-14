@@ -96,17 +96,18 @@ public class FileWriteAction extends AbstractFileWriteAction {
   }
 
   /**
-   * Write the content of the output file as provided by
-   * {@link #getFileContents()} to the provided output stream.
-   *
-   * @param out the output stream to write the content to.
-   * @throws IOException if the content cannot be written to the output stream
+   * Create a DeterministicWriter for the content of the output file as provided by
+   * {@link #getFileContents()}.
    */
   @Override
-  public void writeOutputFile(OutputStream out, EventHandler eventHandler,
-      Executor executor) throws IOException {
-    byte[] bytes = getFileContents().getBytes(UTF_8);
-    out.write(bytes);
+  public DeterministicWriter newDeterministicWriter(EventHandler eventHandler,
+      Executor executor) {
+    return new DeterministicWriter() {
+      @Override
+      public void writeOutputFile(OutputStream out) throws IOException {
+        out.write(getFileContents().getBytes(UTF_8));
+      }
+    };
   }
 
   /**
@@ -120,11 +121,6 @@ public class FileWriteAction extends AbstractFileWriteAction {
     f.addString(String.valueOf(makeExecutable));
     f.addString(getFileContents());
     return f.hexDigest();
-  }
-
-  @Override
-  public boolean shouldCreateExtraAction() {
-    return false;
   }
 
   /**

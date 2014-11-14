@@ -243,12 +243,14 @@ public class CppCompileAction extends AbstractAction implements IncludeScannable
   }
 
   /**
-   * Returns the list of additional inputs found by dependency discovery, during action
-   * preparation. {@link #prepare} must be called before this method is called, on each action
-   * execution.
+   * Returns the list of additional inputs found by dependency discovery, during action preparation,
+   * and clears the stored list. {@link #prepare} must be called before this method is called, on
+   * each action execution.
    */
   public List<ActionInput> getAdditionalInputs() {
-    return Preconditions.checkNotNull(additionalInputs);
+    List<ActionInput> result = Preconditions.checkNotNull(additionalInputs);
+    additionalInputs = null;
+    return result;
   }
 
   @Override
@@ -912,8 +914,6 @@ public class CppCompileAction extends AbstractAction implements IncludeScannable
     } catch (ExecException e) {
       throw e.toActionExecutionException("C++ compilation of rule '" + getOwner().getLabel() + "'",
           executor.getVerboseFailures(), this);
-    } finally {
-      additionalInputs = null;
     }
     ensureCoverageNotesFilesExist();
     IncludeScanningContext scanningContext = executor.getContext(IncludeScanningContext.class);

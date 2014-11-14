@@ -43,7 +43,6 @@ import com.google.devtools.build.lib.events.Reporter;
 import com.google.devtools.build.lib.testutil.JunitTestUtils;
 import com.google.devtools.build.lib.testutil.MoreAsserts;
 import com.google.devtools.build.lib.testutil.TestThread;
-import com.google.devtools.build.skyframe.GraphTester.SomeErrorException;
 import com.google.devtools.build.skyframe.GraphTester.StringValue;
 import com.google.devtools.build.skyframe.GraphTester.TestFunction;
 import com.google.devtools.build.skyframe.GraphTester.ValueComputer;
@@ -258,7 +257,7 @@ public class MemoizingEvaluatorTest {
       assertTrue(result.hasError());
       MoreAsserts.assertContentsAnyOrder(result.getError(topKey).getRootCauses(), topKey);
       assertEquals(topKey.toString(), result.getError(topKey).getException().getMessage());
-      assertTrue(result.getError(topKey).getException() instanceof GraphTester.SomeErrorException);
+      assertTrue(result.getError(topKey).getException() instanceof SomeErrorException);
       JunitTestUtils.assertContainsEvent(eventCollector, "warn-dep");
       JunitTestUtils.assertEventCount(1, eventCollector);
     }
@@ -274,7 +273,7 @@ public class MemoizingEvaluatorTest {
       assertTrue(result.hasError());
       MoreAsserts.assertContentsAnyOrder(result.getError(topKey).getRootCauses(), topKey);
       assertEquals(topKey.toString(), result.getError(topKey).getException().getMessage());
-      assertTrue(result.getError(topKey).getException() instanceof GraphTester.SomeErrorException);
+      assertTrue(result.getError(topKey).getException() instanceof SomeErrorException);
       JunitTestUtils.assertContainsEvent(eventCollector, "warning msg");
       JunitTestUtils.assertEventCount(1, eventCollector);
     }
@@ -290,7 +289,7 @@ public class MemoizingEvaluatorTest {
       assertTrue(result.hasError());
       MoreAsserts.assertContentsAnyOrder(result.getError(topKey).getRootCauses(), topKey);
       assertEquals(topKey.toString(), result.getError(topKey).getException().getMessage());
-      assertTrue(result.getError(topKey).getException() instanceof GraphTester.SomeErrorException);
+      assertTrue(result.getError(topKey).getException() instanceof SomeErrorException);
       JunitTestUtils.assertContainsEvent(eventCollector, "warning msg");
       JunitTestUtils.assertEventCount(1, eventCollector);
     }
@@ -1378,7 +1377,7 @@ public class MemoizingEvaluatorTest {
           topRestartedBuild.countDown();
         }
         // top's builder just requests both deps in a group.
-        env.getValuesOrThrow(ImmutableList.of(firstKey, slowAddingDep), Exception.class);
+        env.getValuesOrThrow(ImmutableList.of(firstKey, slowAddingDep), SomeErrorException.class);
         return env.valuesMissing() ? null : new StringValue("top");
       }
     });

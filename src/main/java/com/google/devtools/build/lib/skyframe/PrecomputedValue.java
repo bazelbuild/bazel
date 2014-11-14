@@ -68,9 +68,6 @@ public class PrecomputedValue implements SkyValue {
   static final Precomputed<ImmutableMap<Action, ConflictException>> BAD_ACTIONS =
       new Precomputed<>(new SkyKey(SkyFunctions.PRECOMPUTED, "bad_actions"));
 
-  static final Precomputed<String> PRELUDE_FILE =
-      new Precomputed<>(new SkyKey(SkyFunctions.PRECOMPUTED, "prelude_file"));
-
   private final Object value;
 
   public PrecomputedValue(Object value) {
@@ -142,8 +139,8 @@ public class PrecomputedValue implements SkyValue {
     /**
      * Injects a new variable value.
      */
-    void set(Injectable differencer, T value) {
-      differencer.inject(ImmutableMap.of(key, (SkyValue) new PrecomputedValue(value)));
+    void set(Injectable injectable, T value) {
+      injectable.inject(ImmutableMap.of(key, new PrecomputedValue(value)));
     }
   }
 }

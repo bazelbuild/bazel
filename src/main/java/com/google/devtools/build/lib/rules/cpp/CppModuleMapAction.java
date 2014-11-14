@@ -16,18 +16,18 @@ package com.google.devtools.build.lib.rules.cpp;
 import com.google.common.annotations.VisibleForTesting;
 import com.google.common.base.Strings;
 import com.google.common.collect.ImmutableList;
-import com.google.devtools.build.lib.actions.AbstractAction;
-import com.google.devtools.build.lib.actions.ActionExecutionContext;
-import com.google.devtools.build.lib.actions.ActionExecutionException;
 import com.google.devtools.build.lib.actions.ActionOwner;
 import com.google.devtools.build.lib.actions.Artifact;
 import com.google.devtools.build.lib.actions.Executor;
 import com.google.devtools.build.lib.actions.ResourceSet;
+import com.google.devtools.build.lib.events.EventHandler;
 import com.google.devtools.build.lib.util.Fingerprint;
-import com.google.devtools.build.lib.vfs.FileSystemUtils;
 import com.google.devtools.build.lib.vfs.PathFragment;
+import com.google.devtools.build.lib.view.actions.AbstractFileWriteAction;
 
 import java.io.IOException;
+import java.io.OutputStream;
+import java.nio.charset.StandardCharsets;
 import java.util.ArrayList;
 import java.util.Collection;
 import java.util.List;
@@ -36,7 +36,7 @@ import java.util.List;
  * Creates C++ module map artifact genfiles. These are then passed to Clang to
  * do dependency checking.
  */
-public class CppModuleMapAction extends AbstractAction {
+public class CppModuleMapAction extends AbstractFileWriteAction {
 
   private static final String GUID = "4f407081-1951-40c1-befc-d6b4daff5de3";
 
@@ -52,7 +52,8 @@ public class CppModuleMapAction extends AbstractAction {
   public CppModuleMapAction(ActionOwner owner, CppModuleMap cppModuleMap,
       Iterable<Artifact> privateHeaders, Iterable<Artifact> publicHeaders,
       Iterable<CppModuleMap> dependencies, Iterable<PathFragment> bootstrapHackHeaders) {
-    super(owner, ImmutableList.<Artifact>of(), ImmutableList.of(cppModuleMap.getArtifact()));
+    super(owner, ImmutableList.<Artifact>of(), cppModuleMap.getArtifact(),
+        /*makeExecutable=*/false);
     this.cppModuleMap = cppModuleMap;
     this.privateHeaders = ImmutableList.copyOf(privateHeaders);
     this.publicHeaders = ImmutableList.copyOf(publicHeaders);
@@ -61,73 +62,65 @@ public class CppModuleMapAction extends AbstractAction {
   }
 
   @Override
-  public void execute(
-      ActionExecutionContext actionExecutionContext) throws ActionExecutionException {
-    StringBuilder content = new StringBuilder();
-    PathFragment fragment = cppModuleMap.getArtifact().getExecPath();
-    int segmentsToExecPath = fragment.segmentCount() - 1;
+  public DeterministicWriter newDeterministicWriter(EventHandler eventHandler, Executor executor)  {
+    return new DeterministicWriter() {
+      @Override
+      public void writeOutputFile(OutputStream out) throws IOException {
+        StringBuilder content = new StringBuilder();
+        PathFragment fragment = cppModuleMap.getArtifact().getExecPath();
+        int segmentsToExecPath = fragment.segmentCount() - 1;
 
-    // For details about the different header types, see:
-    // http://clang.llvm.org/docs/Modules.html#header-declaration
-    String leadingPeriods = Strings.repeat("../", segmentsToExecPath);
-    content.append("module \"").append(cppModuleMap.getName()).append("\" {\n");
-    for (Artifact artifact : privateHeaders) {
-      if (!CppFileTypes.CPP_TEXTUAL_INCLUDE.matches(artifact.getExecPath())) {
-        content.append("  private header \"")
-            .append(leadingPeriods)
-            .append(artifact.getExecPath())
-            .append("\"\n");
-      } else {
-        content.append("  exclude header \"")
-            .append(leadingPeriods)
-            .append(artifact.getExecPath())
-            .append("\"\n");
+        // For details about the different header types, see:
+        // http://clang.llvm.org/docs/Modules.html#header-declaration
+        String leadingPeriods = Strings.repeat("../", segmentsToExecPath);
+        content.append("module \"").append(cppModuleMap.getName()).append("\" {\n");
+        for (Artifact artifact : privateHeaders) {
+          if (!CppFileTypes.CPP_TEXTUAL_INCLUDE.matches(artifact.getExecPath())) {
+            content.append("  private header \"")
+                .append(leadingPeriods)
+                .append(artifact.getExecPath())
+                .append("\"\n");
+          } else {
+            content.append("  exclude header \"")
+                .append(leadingPeriods)
+                .append(artifact.getExecPath())
+                .append("\"\n");
+          }
+        }
+        for (Artifact artifact : publicHeaders) {
+          if (!CppFileTypes.CPP_TEXTUAL_INCLUDE.matches(artifact.getExecPath())) {
+            content.append("  header \"")
+                .append(leadingPeriods)
+                .append(artifact.getExecPath())
+                .append("\"\n");
+          } else {
+            content.append("  exclude header \"")
+                .append(leadingPeriods)
+                .append(artifact.getExecPath())
+                .append("\"\n");
+          }
+        }
+        for (PathFragment bootstrapHackHeader : bootstrapHackHeaders) {
+          content.append("  header \"")
+              .append(leadingPeriods)
+              .append(bootstrapHackHeader)
+              .append("\"\n");
+        }
+        for (CppModuleMap dep : dependencies) {
+          content.append("  use \"").append(dep.getName()).append("\"\n");
+        }
+        content.append("}");
+        for (CppModuleMap dep : dependencies) {
+          content.append("\nextern module \"")
+              .append(dep.getName())
+              .append("\" \"")
+              .append(leadingPeriods)
+              .append(dep.getArtifact().getExecPath())
+              .append("\"");
+        }
+        out.write(content.toString().getBytes(StandardCharsets.ISO_8859_1));
       }
-    }
-    for (Artifact artifact : publicHeaders) {
-      if (!CppFileTypes.CPP_TEXTUAL_INCLUDE.matches(artifact.getExecPath())) {
-        content.append("  header \"")
-            .append(leadingPeriods)
-            .append(artifact.getExecPath())
-            .append("\"\n");
-      } else {
-        content.append("  exclude header \"")
-            .append(leadingPeriods)
-            .append(artifact.getExecPath())
-            .append("\"\n");
-      }
-    }
-    for (PathFragment bootstrapHackHeader : bootstrapHackHeaders) {
-      content.append("  header \"")
-          .append(leadingPeriods)
-          .append(bootstrapHackHeader)
-          .append("\"\n");
-    }
-    for (CppModuleMap dep : dependencies) {
-      content.append("  use \"").append(dep.getName()).append("\"\n");
-    }
-    content.append("}");
-    for (CppModuleMap dep : dependencies) {
-      content.append("\nextern module \"")
-          .append(dep.getName())
-          .append("\" \"")
-          .append(leadingPeriods)
-          .append(dep.getArtifact().getExecPath())
-          .append("\"");
-    }
-
-    try {
-      FileSystemUtils.writeIsoLatin1(cppModuleMap.getArtifact().getPath(), content.toString());
-    } catch (IOException e) {
-      throw new ActionExecutionException("failed to create C++ module map '"
-          + cppModuleMap.getArtifact().prettyPrint() + "' due to I/O error: " + e.getMessage(),
-          e, this, false);
-    }
-  }
-
-  @Override
-  public String describeStrategy(Executor executor) {
-    return "local";
+    };
   }
 
   @Override

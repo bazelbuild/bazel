@@ -106,12 +106,10 @@ class ArtifactFunction implements SkyFunction {
         artifact.getPath()));
     FileValue fileValue;
     try {
-      fileValue = (FileValue) env.getValueOrThrow(fileSkyKey, Exception.class);
+      fileValue = (FileValue) env.getValueOrThrow(fileSkyKey, IOException.class,
+          InconsistentFilesystemException.class, FileSymlinkCycleException.class);
     } catch (IOException | InconsistentFilesystemException | FileSymlinkCycleException e) {
       throw makeMissingInputFileExn(artifact, mandatory, e, env.getListener());
-    } catch (Exception e) {
-      // Can't get here.
-      throw new IllegalStateException(e);
     }
     if (fileValue == null) {
       return null;

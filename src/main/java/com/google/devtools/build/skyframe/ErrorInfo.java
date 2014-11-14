@@ -41,7 +41,7 @@ public class ErrorInfo implements Serializable {
    * an error value is encountered from an earlier --keep_going build, the exception to be thrown is
    * taken from here.
    */
-  @Nullable private final Throwable exception;
+  @Nullable private final Exception exception;
   @Nullable private final SkyKey rootCauseOfException;
 
   private final Iterable<CycleInfo> cycles;
@@ -77,7 +77,7 @@ public class ErrorInfo implements Serializable {
         "Error value %s with no exception must depend on another error value", currentValue);
     NestedSetBuilder<SkyKey> builder = NestedSetBuilder.stableOrder();
     ImmutableList.Builder<CycleInfo> cycleBuilder = ImmutableList.builder();
-    Throwable firstException = null;
+    Exception firstException = null;
     SkyKey firstChildKey = null;
     boolean isTransient = false;
     boolean isCatastrophic = false;
@@ -120,7 +120,7 @@ public class ErrorInfo implements Serializable {
    * The exception thrown when building a value. May be null if value's only error is depending
    * on a cycle.
    */
-  @Nullable public Throwable getException() {
+  @Nullable public Exception getException() {
     return exception;
   }
 

@@ -78,14 +78,30 @@ public interface SkyFunction {
     /**
      * Returns a direct dependency. If the specified value is not in the set of already evaluated
      * direct dependencies, returns null. If the specified value has already been evaluated and
-     * found to be in error, throws the {@link Exception} coming from the error. Value builders may
+     * found to be in error, throws the exception coming from the error. Value builders may
      * use this method to continue evaluation even if one of their children is in error by catching
      * the thrown exception and proceeding. The caller must specify the exception that might be
      * thrown using the {@code exceptionClass} argument. If the child's exception is not an instance
      * of {@code exceptionClass}, returns null without throwing.
+     *
+     * <p>The exception class given cannot be a supertype or a subtype of {@link RuntimeException},
+     * or a subtype of {@link InterruptedException}. See
+     * {@link SkyFunctionException#validateExceptionType} for details.
      */
     @Nullable
-    <E extends Throwable> SkyValue getValueOrThrow(SkyKey depKey, Class<E> exceptionClass) throws E;
+    <E extends Exception> SkyValue getValueOrThrow(SkyKey depKey, Class<E> exceptionClass) throws E;
+    @Nullable
+    <E1 extends Exception, E2 extends Exception> SkyValue getValueOrThrow(SkyKey depKey,
+        Class<E1> exceptionClass1, Class<E2> exceptionClass2) throws E1, E2;
+    @Nullable
+    <E1 extends Exception, E2 extends Exception, E3 extends Exception> SkyValue getValueOrThrow(
+        SkyKey depKey, Class<E1> exceptionClass1, Class<E2> exceptionClass2,
+        Class<E3> exceptionClass3) throws E1, E2, E3;
+    @Nullable
+    <E1 extends Exception, E2 extends Exception, E3 extends Exception, E4 extends Exception>
+        SkyValue getValueOrThrow(SkyKey depKey, Class<E1> exceptionClass1,
+        Class<E2> exceptionClass2, Class<E3> exceptionClass3, Class<E4> exceptionClass4)
+            throws E1, E2, E3, E4;
 
     /**
      * Returns true iff any of the past {@link #getValue}(s) or {@link #getValueOrThrow} method
@@ -145,8 +161,18 @@ public interface SkyFunction {
      * only exceptions of type {@code E} will be preserved in the returned objects. All others will
      * be null.
      */
-    <E extends Throwable> Map<SkyKey, ValueOrException<E>> getValuesOrThrow(
+    <E extends Exception> Map<SkyKey, ValueOrException<E>> getValuesOrThrow(
         Iterable<SkyKey> depKeys, Class<E> exceptionClass);
+    <E1 extends Exception, E2 extends Exception> Map<SkyKey, ValueOrException2<E1, E2>>
+    getValuesOrThrow(Iterable<SkyKey> depKeys, Class<E1> exceptionClass1,
+        Class<E2> exceptionClass2);
+    <E1 extends Exception, E2 extends Exception, E3 extends Exception>
+    Map<SkyKey, ValueOrException3<E1, E2, E3>> getValuesOrThrow(Iterable<SkyKey> depKeys,
+        Class<E1> exceptionClass1, Class<E2> exceptionClass2, Class<E3> exceptionClass3);
+    <E1 extends Exception, E2 extends Exception, E3 extends Exception, E4 extends Exception>
+    Map<SkyKey, ValueOrException4<E1, E2, E3, E4>> getValuesOrThrow(Iterable<SkyKey> depKeys,
+        Class<E1> exceptionClass1, Class<E2> exceptionClass2, Class<E3> exceptionClass3,
+        Class<E4> exceptionClass4);
 
     /**
      * Returns the {@link EventHandler} that a SkyFunction should use to print any errors,

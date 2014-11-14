@@ -15,7 +15,6 @@
 package com.google.devtools.build.lib.util;
 
 import com.google.common.collect.ForwardingMap;
-import com.google.common.collect.Maps;
 import com.google.devtools.build.lib.vfs.FileSystemUtils;
 import com.google.devtools.build.lib.vfs.Path;
 
@@ -26,6 +25,7 @@ import java.io.DataOutputStream;
 import java.io.IOException;
 import java.util.HashMap;
 import java.util.Hashtable;
+import java.util.LinkedHashMap;
 import java.util.Map;
 
 /**
@@ -108,7 +108,7 @@ public abstract class PersistentMap<K, V> extends ForwardingMap<K, V> {
    */
   public PersistentMap(int version, Map<K, V> map, Path mapFile, Path journalFile) {
     this.version = version;
-    journal = Maps.newLinkedHashMap();
+    journal = new LinkedHashMap<>();
     this.mapFile = mapFile;
     this.journalFile = journalFile;
     delegate = map;

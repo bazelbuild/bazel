@@ -33,24 +33,59 @@ import java.util.concurrent.atomic.AtomicReference;
 import javax.annotation.Nullable;
 
 /**
- * A SkyFunction for {@link ASTLookupValue}s. Tries to locate a file and load it as a
+ * A SkyFunction for {@link ASTFileLookupValue}s. Tries to locate a file and load it as a
  * syntax tree and cache the resulting {@link BuildFileAST}. If the file doesn't exist
  * the function doesn't fail but returns a specific NO_FILE ASTLookupValue.
  */
 public class ASTFileLookupFunction implements SkyFunction {
 
-  private static enum FileLookupResultState {
-    SUCCESS,
-    NO_FILE;
-  }
+  private abstract static class FileLookupResult {
+    /** Returns whether the file lookup was successful. */
+    public abstract boolean lookupSuccessful();
 
-  private static final class FileLookupResult {
-    private final FileValue file;
-    private final FileLookupResultState result;
+    /** If {@code lookupSuccessful()}, returns the {@link RootedPath} to the file. */
+    public abstract RootedPath rootedPath();
 
-    private FileLookupResult(FileLookupResultState result, FileValue file) {
-      this.file = file;
-      this.result = result;
+    static FileLookupResult noFile() {
+      return UnsuccessfulFileResult.INSTANCE;
+    }
+
+    static FileLookupResult file(RootedPath rootedPath) {
+      return new SuccessfulFileResult(rootedPath);
+    }
+
+    private static class SuccessfulFileResult extends FileLookupResult {
+      private final RootedPath rootedPath;
+
+      private SuccessfulFileResult(RootedPath rootedPath) {
+        this.rootedPath = rootedPath;
+      }
+
+      @Override
+      public boolean lookupSuccessful() {
+        return true;
+      }
+
+      @Override
+      public RootedPath rootedPath() {
+        return rootedPath;
+      }
+    }
+
+    private static class UnsuccessfulFileResult extends FileLookupResult {
+      private static final UnsuccessfulFileResult INSTANCE = new UnsuccessfulFileResult();
+      private UnsuccessfulFileResult() {
+      }
+
+      @Override
+      public boolean lookupSuccessful() {
+        return false;
+      }
+
+      @Override
+      public RootedPath rootedPath() {
+        throw new IllegalStateException("unsucessful lookup");
+      }
     }
   }
 
@@ -69,28 +104,29 @@ public class ASTFileLookupFunction implements SkyFunction {
   @Override
   public SkyValue compute(SkyKey skyKey, Environment env) throws SkyFunctionException,
       InterruptedException {
-    PathFragment packagePathFragment = (PathFragment) skyKey.argument();
+    PathFragment astFilePathFragment = (PathFragment) skyKey.argument();
 
-    FileLookupResult lookup = getASTFile(skyKey, env, packagePathFragment);
-    if (lookup == null) {
+    FileLookupResult lookupResult = getASTFile(skyKey, env, astFilePathFragment);
+    if (lookupResult == null) {
       return null;
     }
 
     BuildFileAST ast = null;
-    if (lookup.result == FileLookupResultState.NO_FILE) {
+    if (!lookupResult.lookupSuccessful()) {
       // Return the specific NO_FILE ASTLookupValue instance if no file was found.
-      return ASTLookupValue.NO_FILE;
+      return ASTFileLookupValue.NO_FILE;
     } else {
-      Path path = lookup.file.realRootedPath().asPath();
+      Path path = lookupResult.rootedPath().asPath();
       try {
         ast = BuildFileAST.parseSkylarkFile(path, env.getListener(),
             packageManager, ruleClassProvider.getSkylarkValidationEnvironment().clone());
       } catch (IOException e) {
-        throw new ASTLookupFunctionException(skyKey, e, Transience.TRANSIENT);
+        throw new ASTLookupFunctionException(skyKey,
+            new ErrorReadingSkylarkExtensionException(e.getMessage()), Transience.TRANSIENT);
       }
     }
 
-    return new ASTLookupValue(ast);
+    return new ASTFileLookupValue(ast);
   }
 
   private FileLookupResult getASTFile(SkyKey skyKey, Environment env,
@@ -100,20 +136,22 @@ public class ASTFileLookupFunction implements SkyFunction {
       SkyKey fileSkyKey = FileValue.key(rootedPath);
       FileValue fileValue = null;
       try {
-        fileValue = (FileValue) env.getValueOrThrow(fileSkyKey, Exception.class);
-      } catch (IOException e) {
+        fileValue = (FileValue) env.getValueOrThrow(fileSkyKey, IOException.class,
+            FileSymlinkCycleException.class, InconsistentFilesystemException.class);
+      } catch (IOException | FileSymlinkCycleException e) {
+        throw new ASTLookupFunctionException(skyKey,
+            new ErrorReadingSkylarkExtensionException(e.getMessage()), Transience.PERSISTENT);
+      } catch (InconsistentFilesystemException e) {
         throw new ASTLookupFunctionException(skyKey, e, Transience.PERSISTENT);
-      } catch (Exception e) {
-        throw new IllegalStateException("Exception when loading AST file", e);
       }
       if (fileValue == null) {
         return null;
       }
       if (fileValue.isFile()) {
-        return new FileLookupResult(FileLookupResultState.SUCCESS, fileValue);
+        return FileLookupResult.file(rootedPath);
       }
     }
-    return new FileLookupResult(FileLookupResultState.NO_FILE, null);
+    return FileLookupResult.noFile();
   }
 
   @Nullable
@@ -123,7 +161,13 @@ public class ASTFileLookupFunction implements SkyFunction {
   }
 
   private static final class ASTLookupFunctionException extends SkyFunctionException {
-    private ASTLookupFunctionException(SkyKey key, IOException e, Transience transience) {
+    private ASTLookupFunctionException(SkyKey key, ErrorReadingSkylarkExtensionException e,
+        Transience transience) {
+      super(key, e, transience);
+    }
+
+    private ASTLookupFunctionException(SkyKey key, InconsistentFilesystemException e,
+        Transience transience) {
       super(key, e, transience);
     }
   }

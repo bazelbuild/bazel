@@ -83,12 +83,11 @@ public class FilesetManifestAction extends AbstractFileWriteAction {
   }
 
   @Override
-  public void writeOutputFile(OutputStream out, EventHandler eventHandler,
+  public DeterministicWriter newDeterministicWriter(EventHandler eventHandler,
       Executor executor) throws IOException, InterruptedException, ExecException {
     // TODO(bazel-team): factor out common code from RunfilesManifestAction.
-    Writer manifest = new BufferedWriter(new OutputStreamWriter(out, ISO_8859_1));
-    FilesetLinks links = new FilesetLinks();
-    FilesetActionContext context = executor.getContext(FilesetActionContext.class);
+    final FilesetLinks links = new FilesetLinks();
+    final FilesetActionContext context = executor.getContext(FilesetActionContext.class);
     try {
       ThreadPoolExecutor filesetPool = context.getFilesetPool();
       traversal.addSymlinks(eventHandler, links, filesetPool);
@@ -97,29 +96,35 @@ public class FilesetManifestAction extends AbstractFileWriteAction {
     } catch (DanglingSymlinkException e) {
       throw new EnvironmentalExecException("Found dangling symlink: " + e.getPath());
     }
-
     links.addLateDirectories();
 
-    Map<PathFragment, String> data = links.getData();
     for (Map.Entry<PathFragment, PathFragment> line : links.getSymlinks().entrySet()) {
-      PathFragment link = line.getKey();
-      PathFragment target = line.getValue();
-      checkForSpace(link);
-      checkForSpace(target);
-
-      if (!context.getWorkspaceName().isEmpty()) {
-        manifest.append(context.getWorkspaceName() + "/");
-      }
-
-      manifest.append(link.getPathString());
-      manifest.append(' ');
-
-      manifest.append(line.getValue().getPathString());
-      manifest.append('\n');
-      manifest.append(data.get(link));
-      manifest.append('\n');
+      checkForSpace(line.getKey());
+      checkForSpace(line.getValue());
     }
-    manifest.flush();
+
+    return new DeterministicWriter() {
+      @Override
+      public void writeOutputFile(OutputStream out) throws IOException {
+        Writer manifest = new BufferedWriter(new OutputStreamWriter(out, ISO_8859_1));
+        Map<PathFragment, String> data = links.getData();
+        for (Map.Entry<PathFragment, PathFragment> line : links.getSymlinks().entrySet()) {
+          PathFragment link = line.getKey();
+          if (!context.getWorkspaceName().isEmpty()) {
+            manifest.append(context.getWorkspaceName() + "/");
+          }
+
+          manifest.append(link.getPathString());
+          manifest.append(' ');
+
+          manifest.append(line.getValue().getPathString());
+          manifest.append('\n');
+          manifest.append(data.get(link));
+          manifest.append('\n');
+        }
+        manifest.flush();
+      }
+    };
   }
 
   @Override

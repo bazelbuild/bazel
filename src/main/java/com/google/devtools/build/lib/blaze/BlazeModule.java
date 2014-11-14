@@ -50,6 +50,8 @@ import java.io.IOException;
 import java.util.Map;
 import java.util.UUID;
 
+import javax.annotation.Nullable;
+
 /**
  * A module Blaze can load at the beginning of its execution. Modules are supplied with extension
  * points to augment the functionality at specific, well-defined places.
@@ -359,5 +361,14 @@ public abstract class BlazeModule {
   /** Returns a map of "extra" SkyFunctions for SkyValues that this module may want to build. */
   public ImmutableMap<SkyFunctionName, SkyFunction> getSkyFunctions(BlazeDirectories directories) {
     return ImmutableMap.of();
+  }
+
+  /**
+   * Optionally returns a provider for project files that can be used to bundle targets and
+   * command-line options.
+   */
+  @Nullable
+  public ProjectFile.Provider createProjectFileProvider() {
+    return null;
   }
 }

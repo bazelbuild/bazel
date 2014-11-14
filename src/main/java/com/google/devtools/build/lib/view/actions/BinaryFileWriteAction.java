@@ -55,12 +55,16 @@ public final class BinaryFileWriteAction extends AbstractFileWriteAction {
   }
 
   @Override
-  public void writeOutputFile(OutputStream out, EventHandler eventHandler, Executor executor)
-      throws IOException {
-    try (InputStream in = source.openStream()) {
-      ByteStreams.copy(in, out);
-    }
-    out.flush();
+  public DeterministicWriter newDeterministicWriter(EventHandler eventHandler, Executor executor) {
+    return new DeterministicWriter() {
+      @Override
+      public void writeOutputFile(OutputStream out) throws IOException {
+        try (InputStream in = source.openStream()) {
+          ByteStreams.copy(in, out);
+        }
+        out.flush();
+      }
+    };
   }
 
   @Override

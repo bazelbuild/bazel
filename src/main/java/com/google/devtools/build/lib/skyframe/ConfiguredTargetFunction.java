@@ -45,7 +45,7 @@ import com.google.devtools.build.skyframe.SkyFunction;
 import com.google.devtools.build.skyframe.SkyFunctionException;
 import com.google.devtools.build.skyframe.SkyKey;
 import com.google.devtools.build.skyframe.SkyValue;
-import com.google.devtools.build.skyframe.ValueOrException;
+import com.google.devtools.build.skyframe.ValueOrException2;
 
 import java.util.Collection;
 import java.util.HashMap;
@@ -228,10 +228,12 @@ final class ConfiguredTargetFunction implements SkyFunction {
     Iterable<SkyKey> depKeys = Iterables.transform(deps, TO_KEYS);
     // TODO(bazel-team): maybe having a two-exception argument is better than typing a generic
     // Exception here.
-    Map<SkyKey, ValueOrException<Exception>> depValuesOrExceptions =
-        env.getValuesOrThrow(depKeys, Exception.class);
+    Map<SkyKey, ValueOrException2<NoSuchTargetException,
+        NoSuchPackageException>> depValuesOrExceptions = env.getValuesOrThrow(depKeys,
+            NoSuchTargetException.class, NoSuchPackageException.class);
     Map<SkyKey, ConfiguredTargetValue> depValues = new HashMap<>(depValuesOrExceptions.size());
-    for (Map.Entry<SkyKey, ValueOrException<Exception>> entry : depValuesOrExceptions.entrySet()) {
+    for (Map.Entry<SkyKey, ValueOrException2<NoSuchTargetException, NoSuchPackageException>> entry
+        : depValuesOrExceptions.entrySet()) {
       LabelAndConfiguration depLabelAndConfiguration =
           (LabelAndConfiguration) entry.getKey().argument();
       Label depLabel = depLabelAndConfiguration.getLabel();
@@ -247,11 +249,6 @@ final class ConfiguredTargetFunction implements SkyFunction {
         if (depLabel.getPackageName().equals(e.getPackageName())) {
           directChildException = e;
         }
-      } catch (ConfiguredValueCreationException e) {
-        // Do nothing.
-      } catch (Exception e) {
-        throw new IllegalStateException("Not NoSuchTargetException or NoSuchPackageException"
-            + " or ViewCreationFailedException: " + e.getMessage(), e);
       }
       // If an exception wasn't caused by a direct child target value, we'll treat it the same
       // as any other missing dep by setting ok = false below, and returning null at the end.

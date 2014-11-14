@@ -24,6 +24,7 @@ import com.google.devtools.build.lib.syntax.SkylarkEnvironment;
 import com.google.devtools.build.lib.vfs.PathFragment;
 import com.google.devtools.build.skyframe.SkyFunction;
 import com.google.devtools.build.skyframe.SkyFunctionException;
+import com.google.devtools.build.skyframe.SkyFunctionException.Transience;
 import com.google.devtools.build.skyframe.SkyKey;
 import com.google.devtools.build.skyframe.SkyValue;
 
@@ -48,15 +49,24 @@ public class SkylarkImportLookupFunction implements SkyFunction {
   public SkyValue compute(SkyKey skyKey, Environment env) throws SkyFunctionException,
       InterruptedException {
     PathFragment file = (PathFragment) skyKey.argument();
-    SkyKey astLookupKey = ASTLookupValue.key(file);
-    ASTLookupValue astLookupValue = (ASTLookupValue) env.getValue(astLookupKey);
+    SkyKey astLookupKey = ASTFileLookupValue.key(file);
+    ASTFileLookupValue astLookupValue = null;
+    try {
+      astLookupValue = (ASTFileLookupValue) env.getValueOrThrow(astLookupKey,
+          ErrorReadingSkylarkExtensionException.class, InconsistentFilesystemException.class);
+    } catch (ErrorReadingSkylarkExtensionException e) {
+      throw new SkylarkImportLookupFunctionException(skyKey,
+          SkylarkImportFailedException.errorReadingFile(file, e.getMessage()));
+    } catch (InconsistentFilesystemException e) {
+      throw new SkylarkImportLookupFunctionException(skyKey, e, Transience.PERSISTENT);
+    }
     if (astLookupValue == null) {
       return null;
     }
-    if (astLookupValue == ASTLookupValue.NO_FILE) {
+    if (astLookupValue == ASTFileLookupValue.NO_FILE) {
       // Skylark import files have to exist.
       throw new SkylarkImportLookupFunctionException(skyKey,
-          new SkylarkImportFailedException(file, true));
+          SkylarkImportFailedException.noFile(file));
     }
 
     Map<PathFragment, SkylarkEnvironment> importMap = new HashMap<>();
@@ -77,7 +87,7 @@ public class SkylarkImportLookupFunction implements SkyFunction {
 
     if (ast.containsErrors()) {
       throw new SkylarkImportLookupFunctionException(skyKey,
-          new SkylarkImportFailedException(file, false));
+          SkylarkImportFailedException.skylarkErrors(file));
     }
 
     SkylarkEnvironment extensionEnv = createEnv(ast, importMap, env);
@@ -117,16 +127,33 @@ public class SkylarkImportLookupFunction implements SkyFunction {
   }
 
   static final class SkylarkImportFailedException extends Exception {
-    private SkylarkImportFailedException(PathFragment file, boolean found) {
-      super(found
-          ? String.format("Extension file not found: '%s'", file)
-          : String.format("Extension '%s' has errors", file));
+    private SkylarkImportFailedException(String errorMessage) {
+      super(errorMessage);
+    }
+
+    public static SkylarkImportFailedException errorReadingFile(PathFragment file, String error) {
+      return new SkylarkImportFailedException(
+          String.format("Encountered error while reading extension file '%s': %s", file, error));
+    }
+
+    public static SkylarkImportFailedException noFile(PathFragment file) {
+      return new SkylarkImportFailedException(
+          String.format("Extension file not found: '%s'", file));
+    }
+
+    public static SkylarkImportFailedException skylarkErrors(PathFragment file) {
+      return new SkylarkImportFailedException(String.format("Extension '%s' has errors", file));
     }
   }
 
-  private static final class SkylarkImportLookupFunctionException extends SkyFunctionException {    
+  private static final class SkylarkImportLookupFunctionException extends SkyFunctionException {
     private SkylarkImportLookupFunctionException(SkyKey key, SkylarkImportFailedException cause) {
       super(key, cause, Transience.PERSISTENT);
+    }
+
+    private SkylarkImportLookupFunctionException(SkyKey key, InconsistentFilesystemException e,
+        Transience transience) {
+      super(key, e, transience);
     }
   }
 }

@@ -1,6 +1,6 @@
-load("rules/genproto", "genproto")
+load("tools/build_rules/genproto", "genproto")
 
-load("rules/java_rules_oss", "java_library", "java_binary", "java_test")
+load("tools/build_rules/java_rules_oss", "java_library", "java_binary", "java_test")
 
 # The file assumes there is a directory (or symlink) src/javadir.
 # Use this command to use local java:
@@ -365,7 +365,15 @@ java_test(
         ]],
         # java_rules_oss doesn't support resource loading with
         # qualified paths.
-        exclude = [test_prefix + "/util/ResourceFileLoaderTest.java"],
+        exclude = [
+            test_prefix + f
+            for f in [
+                "/util/DependencySetWindowsTest.java",
+                "/util/ResourceFileLoaderTest.java",
+                "/vfs/PathFragmentWindowsTest.java",
+                "/vfs/PathWindowsTest.java",
+            ]
+        ],
     ),
     args = ["com.google.devtools.build.lib.AllTests"],
     data = glob([
@@ -375,6 +383,32 @@ java_test(
         "//third_party",
         "//third_party:third_party_test_utils",
     ],
+    resources = [
+        ":libunix.so",
+    ],
+    deps = [
+        ":bazel-core",
+        ":testutil",
+    ],
+)
+
+java_test(
+    name = "windows_test",
+    srcs = glob([test_prefix + "/vfs/util/*.java"]) +
+           ["%s/%s" % (test_prefix, p) for p in [
+               "util/DependencySetWindowsTest.java",
+               "vfs/PathFragmentWindowsTest.java",
+               "vfs/PathWindowsTest.java",
+               "AllTests.java",
+           ]],
+    args = [
+        "com.google.devtools.build.lib.AllTests",
+    ],
+    jars = [
+        "//third_party",
+        "//third_party:third_party_test_utils",
+    ],
+    jvm_flags = ["-Dblaze.os=Windows"],
     resources = [
         ":libunix.so",
     ],

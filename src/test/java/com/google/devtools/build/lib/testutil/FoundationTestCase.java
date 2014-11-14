@@ -90,7 +90,7 @@ public abstract class FoundationTestCase extends ChattyAssertsTestCase {
 
   private void copySkylarkFilesIfExist() throws IOException {
     copySkylarkFilesIfExist("devtools/blaze/rules/staging", "devtools/blaze/rules");
-    copySkylarkFilesIfExist("devtools/blaze/bazel/base_workspace/rules", "rules");
+    copySkylarkFilesIfExist("devtools/blaze/bazel/base_workspace/tools/build_rules", "rules");
   }
 
   private void copySkylarkFilesIfExist(String from, String to) throws IOException {

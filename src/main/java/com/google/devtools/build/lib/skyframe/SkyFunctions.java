@@ -33,7 +33,7 @@ public final class SkyFunctions {
   public static final SkyFunctionName PACKAGE_LOOKUP = SkyFunctionName.computed("PACKAGE_LOOKUP");
   public static final SkyFunctionName CONTAINING_PACKAGE_LOOKUP =
       SkyFunctionName.computed("CONTAINING_PACKAGE_LOOKUP");
-  public static final SkyFunctionName AST_LOOKUP = SkyFunctionName.computed("AST_LOOKUP");
+  public static final SkyFunctionName AST_FILE_LOOKUP = SkyFunctionName.computed("AST_FILE_LOOKUP");
   public static final SkyFunctionName SKYLARK_IMPORTS_LOOKUP =
       SkyFunctionName.computed("SKYLARK_IMPORTS_LOOKUP");
   public static final SkyFunctionName GLOB = SkyFunctionName.computed("GLOB");

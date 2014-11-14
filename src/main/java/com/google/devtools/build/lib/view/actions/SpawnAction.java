@@ -17,6 +17,7 @@ package com.google.devtools.build.lib.view.actions;
 import static java.nio.charset.StandardCharsets.ISO_8859_1;
 
 import com.google.common.annotations.VisibleForTesting;
+import com.google.common.base.CharMatcher;
 import com.google.common.base.Preconditions;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
@@ -43,7 +44,6 @@ import com.google.devtools.build.lib.collect.nestedset.NestedSet;
 import com.google.devtools.build.lib.collect.nestedset.NestedSetBuilder;
 import com.google.devtools.build.lib.util.Fingerprint;
 import com.google.devtools.build.lib.util.ShellEscaper;
-import com.google.devtools.build.lib.util.StringCanonicalizer;
 import com.google.devtools.build.lib.vfs.PathFragment;
 import com.google.devtools.build.lib.view.AnalysisEnvironment;
 import com.google.devtools.build.lib.view.FilesToRunProvider;
@@ -590,9 +590,7 @@ public class SpawnAction extends AbstractAction {
     public Builder setExecutable(PathFragment executable) {
       Preconditions.checkArgument(!executable.isAbsolute() ||
           !executable.startsWith(configuration.getExecRoot().asFragment()));
-      // TODO(bazel-team): the use of the canonicalizer is probably no longer necessary.
-      this.executableArgs = Lists.newArrayList(
-          StringCanonicalizer.intern(executable.getPathString()));
+      this.executableArgs = Lists.newArrayList(executable.getPathString());
       this.isShellCommand = false;
       return this;
     }
@@ -653,7 +651,7 @@ public class SpawnAction extends AbstractAction {
       Preconditions.checkArgument(
           !javaExecutable.startsWith(configuration.getExecRoot().asFragment()));
       this.executableArgs = Lists.newArrayList();
-      executableArgs.add(StringCanonicalizer.intern(javaExecutable.getPathString()));
+      executableArgs.add(javaExecutable.getPathString());
       executableArgs.add("-Xverify:none");
       executableArgs.addAll(jvmArgs);
       executableArgs.add("-cp");
@@ -678,7 +676,7 @@ public class SpawnAction extends AbstractAction {
     public Builder setShellCommand(String command) {
       // 0=shell executable, 1=shell command switch, 2=command
       this.executableArgs = Lists.newArrayList(
-          StringCanonicalizer.intern(configuration.getShExecutable().getPathString()),
+          configuration.getShExecutable().getPathString(),
           "-c", command);
       this.isShellCommand = true;
       return this;
@@ -806,6 +804,10 @@ public class SpawnAction extends AbstractAction {
     }
 
     public Builder setMnemonic(String mnemonic) {
+      Preconditions.checkArgument(
+          !mnemonic.isEmpty() && CharMatcher.JAVA_LETTER_OR_DIGIT.matchesAllOf(mnemonic),
+          "mnemonic must only contain letters and/or digits, and have non-zero length, was: \"%s\"",
+          mnemonic);
       this.mnemonic = mnemonic;
       return this;
     }

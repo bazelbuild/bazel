@@ -34,6 +34,8 @@ import com.google.devtools.build.lib.concurrent.ThreadSafety.Immutable;
 import com.google.devtools.build.lib.packages.RuleClass.Builder;
 import com.google.devtools.build.xcode.util.Value;
 
+import java.util.Map;
+
 /**
  * Contains information regarding the creation of an iOS bundle.
  */
@@ -237,6 +239,17 @@ final class Bundling extends Value<Bundling> {
    */
   public NestedSet<Artifact> getMergeZips() {
     return mergeZips;
+  }
+
+  /**
+   * Returns the variable substitutions that should be used when merging the plist info file of
+   * this bundle.
+   */
+  public Map<String, String> variableSubstitutions() {
+    return ImmutableMap.of(
+        "EXECUTABLE_NAME", name,
+        "BUNDLE_NAME", name + bundleDirSuffix,
+        "PRODUCT_NAME", name);
   }
 
   /**

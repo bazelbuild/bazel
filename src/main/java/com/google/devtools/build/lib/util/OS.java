@@ -28,11 +28,16 @@ public enum OS {
   public static OS getCurrent() {
     return HOST_SYSTEM;
   }
+  // We inject a the OS name through blaze.os, so we can have
+  // some coverage for Windows specific code on Linux.
+  private static String getOsName() {
+    String override = System.getProperty("blaze.os");
+    return override == null ? System.getProperty("os.name") : override;
+  }
 
   private static final OS HOST_SYSTEM =
-      "Mac OS X".equals(System.getProperty("os.name")) ? OS.DARWIN : (
-      "Linux".equals(System.getProperty("os.name")) ? OS.LINUX : (
-      "Windows XP".equals(System.getProperty("os.name")) ? OS.WINDOWS : (
-      "Windows 7".equals(System.getProperty("os.name")) ? OS.WINDOWS : OS.UNKNOWN)));
+      "Mac OS X".equals(getOsName()) ? OS.DARWIN : (
+      "Linux".equals(getOsName()) ? OS.LINUX : (
+          getOsName().contains("Windows") ? OS.WINDOWS : OS.UNKNOWN));
 }
 

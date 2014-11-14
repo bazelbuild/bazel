@@ -13,62 +13,12 @@
 // limitations under the License.
 package com.google.devtools.build.skyframe;
 
-import com.google.common.base.Preconditions;
-
 import javax.annotation.Nullable;
 
-/**
- * Wrapper for a value or the exception thrown when trying to build it.
- *
- * <p>This is intended only for use in alternative {@code MemoizingEvaluator} implementations.
- *
- * @param <E> Exception class that may have been thrown when building requested value.
- */
-public final class ValueOrException<E extends Throwable> {
-  @Nullable private final SkyValue value;
-  @Nullable private final E exception;
+/** Wrapper for a value or the typed exception thrown when trying to compute it. */
+public interface ValueOrException<E extends Exception> extends ValueOrUntypedException {
 
-  /** Gets the stored value. Throws an exception if one was thrown when building this value. */
-  @Nullable public SkyValue get() throws E {
-    if (exception != null) {
-      throw exception;
-    }
-    return value;
-  }
-
-  private ValueOrException(@Nullable SkyValue value) {
-    this.value = value;
-    this.exception = null;
-  }
-
-  private ValueOrException(E exception) {
-    this.exception = Preconditions.checkNotNull(exception);
-    this.value = null;
-  }
-
-  /**
-   * Returns a {@code ValueOrException} representing success.
-   *
-   * <p>This is intended only for use in alternative {@code MemoizingEvaluator} implementations.
-   */
-  public static <F extends Throwable> ValueOrException<F> ofValue(SkyValue value) {
-    return new ValueOrException<>(value);
-  }
-
-  /**
-   * Returns a {@code ValueOrException} representing failure.
-   *
-   * <p>This is intended only for use in alternative {@code MemoizingEvaluator} implementations.
-   */
-  public static <F extends Throwable> ValueOrException<F> ofException(F exception) {
-    return new ValueOrException<>(exception);
-  }
-
-  @SuppressWarnings("unchecked") // Cast to ValueOrException<F>.
-  static <F extends Throwable> ValueOrException<F> ofNull() {
-    return (ValueOrException<F>) NULL;
-  }
-
-  private static final ValueOrException<Throwable> NULL =
-      new ValueOrException<>((SkyValue) null);
+  /** Gets the stored value. Throws an exception if one was thrown when computing this value. */
+  @Nullable
+  SkyValue get() throws E;
 }

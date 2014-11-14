@@ -159,8 +159,6 @@ public interface Action extends ActionMetadata, Describable {
    */
   ExtraActionInfo.Builder getExtraActionInfo();
 
-  boolean shouldCreateExtraAction();
-
   /**
    * Returns the action type. Must not be {@code null}.
    */

@@ -18,6 +18,7 @@ import com.google.common.base.Predicate;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.Iterables;
 import com.google.devtools.build.lib.concurrent.ThreadSafety.ThreadSafe;
+import com.google.devtools.build.lib.util.OS;
 import com.google.devtools.build.lib.util.StringCanonicalizer;
 
 import java.io.File;
@@ -255,7 +256,8 @@ public class Path implements Comparable<Path>, Serializable {
    * <p>Paths such as '\\\\vol\\foo' are not supported.
    */
   private boolean isWindowsVolumeName() {
-    return parent != null && parent.isRootDirectory() && name.length() == 2
+    return OS.getCurrent() == OS.WINDOWS
+	&& parent != null && parent.isRootDirectory() && name.length() == 2
         && !PathFragment.getWindowsVolumeName(name).isEmpty();
   }
 

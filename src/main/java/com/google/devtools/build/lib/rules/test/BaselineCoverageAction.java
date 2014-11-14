@@ -79,14 +79,23 @@ public class BaselineCoverageAction extends AbstractFileWriteAction
   }
 
   @Override
-  public void writeOutputFile(OutputStream out, EventHandler eventHandler,
-      Executor executor) throws IOException, InterruptedException {
-    PrintWriter writer = new PrintWriter(out);
-    for (String execPath : getInstrumentedFilePathStrings()) {
-      writer.write("SF:" + execPath + "\n");
-      writer.write("end_of_record\n");
-    }
-    writer.flush();
+  public DeterministicWriter newDeterministicWriter(EventHandler eventHandler,
+      Executor executor) {
+    return new DeterministicWriter() {
+      @Override
+      public void writeOutputFile(OutputStream out) throws IOException {
+        PrintWriter writer = new PrintWriter(out);
+        for (String execPath : getInstrumentedFilePathStrings()) {
+          writer.write("SF:" + execPath + "\n");
+          writer.write("end_of_record\n");
+        }
+        writer.flush();
+      }
+    };
+  }
+
+  @Override
+  protected void afterWrite(Executor executor) {
     notifyAboutBaselineCoverage(executor.getEventBus());
   }
 

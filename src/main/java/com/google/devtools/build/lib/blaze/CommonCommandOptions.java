@@ -241,4 +241,10 @@ public class CommonCommandOptions extends OptionsBase {
       category = "hidden",
       help = "The absolute path of the blaze binary.")
   public String binaryPath;
+
+  @Option(name = "experimental_allow_project_files",
+      defaultValue = "false",
+      category = "hidden",
+      help = "Enable processing of +<file> parameters.")
+  public boolean allowProjectFiles;
 }

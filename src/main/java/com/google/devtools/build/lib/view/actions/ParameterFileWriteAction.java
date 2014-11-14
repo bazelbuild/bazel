@@ -68,18 +68,22 @@ public final class ParameterFileWriteAction extends AbstractFileWriteAction {
   }
 
   @Override
-  public void writeOutputFile(OutputStream out, EventHandler eventHandler,
-      Executor executor) throws IOException {
-    switch (type) {
-      case SHELL_QUOTED :
-        writeContentQuoted(out);
-        break;
-      case UNQUOTED :
-        writeContentUnquoted(out);
-        break;
-      default :
-        throw new AssertionError();
-    }
+  public DeterministicWriter newDeterministicWriter(EventHandler eventHandler, Executor executor) {
+    return new DeterministicWriter() {
+      @Override
+      public void writeOutputFile(OutputStream out) throws IOException {
+        switch (type) {
+          case SHELL_QUOTED :
+            writeContentQuoted(out);
+            break;
+          case UNQUOTED :
+            writeContentUnquoted(out);
+            break;
+          default :
+            throw new AssertionError();
+        }
+      }
+    };
   }
 
   /**

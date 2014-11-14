@@ -122,9 +122,10 @@ public class ActionCacheChecker {
   }
 
   /**
-   * Checks whether {@link action} needs to be executed, by seeing if any of its inputs or outputs
-   * have changed. Returns a non-null {@link Token} if the action needs to be executed, and null
-   * otherwise.
+   * Checks whether {@link action} needs to be executed and returns a non-null Token if so.
+   *
+   * <p>The method checks if any of the action's inputs or outputs have changed. Returns a non-null
+   * {@link Token} if the action needs to be executed, and null otherwise.
    *
    * <p>If this method returns non-null, indicating that the action will be executed, the
    * metadataHandler's {@link MetadataHandler#discardMetadata} method must be called, so that it
@@ -132,7 +133,7 @@ public class ActionCacheChecker {
    */
   // Note: the handler should only be used for DEPCHECKER events; there's no
   // guarantee it will be available for other events.
-  public Token needToExecute(Action action, EventHandler handler,
+  public Token getTokenIfNeedToExecute(Action action, EventHandler handler,
       MetadataHandler metadataHandler) {
     // TODO(bazel-team): (2010) For RunfilesAction/SymlinkAction and similar actions that
     // produce only symlinks we should not check whether inputs are valid at all - all that matters
@@ -219,10 +220,11 @@ public class ActionCacheChecker {
     actionCache.put(key, entry);
   }
 
-  protected boolean updateActionInputs(Action action, ActionCache.Entry entry) {
+  protected void updateActionInputs(Action action, ActionCache.Entry entry) {
     if (entry == null || entry.isCorrupted()) {
-      return false;
+      return;
     }
+
     List<PathFragment> outputs = new ArrayList<>();
     for (Artifact output : action.getOutputs()) {
       outputs.add(output.getExecPath());
@@ -237,7 +239,6 @@ public class ActionCacheChecker {
       }
     }
     action.updateInputsFromCache(artifactResolver, inputs);
-    return true;
   }
 
   /**

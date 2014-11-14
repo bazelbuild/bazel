@@ -19,6 +19,10 @@ import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.ImmutableSet;
 import com.google.common.collect.Iterables;
 import com.google.devtools.build.lib.actions.Action;
+import com.google.devtools.build.lib.packages.Attribute;
+import com.google.devtools.build.lib.packages.RawAttributeMapper;
+import com.google.devtools.build.lib.packages.Rule;
+import com.google.devtools.build.lib.packages.Type;
 import com.google.devtools.build.lib.skyframe.SkyframeActionExecutor.ConflictException;
 import com.google.devtools.build.lib.syntax.Label;
 import com.google.devtools.build.lib.view.ConfiguredTarget;
@@ -30,6 +34,9 @@ import com.google.devtools.build.skyframe.SkyKey;
 import com.google.devtools.build.skyframe.SkyValue;
 
 import java.util.Collection;
+import java.util.LinkedHashSet;
+import java.util.Map;
+import java.util.Set;
 
 import javax.annotation.Nullable;
 
@@ -75,16 +82,51 @@ public class PostConfiguredTargetFunction implements SkyFunction {
     TargetAndConfiguration ctgValue =
         new TargetAndConfiguration(ct.getTarget(), ct.getConfiguration());
 
-    // TODO(bazel-team): fill in proper ConfigMatchingProvider instances.
-    // See BuildView.getDirectPrerequisites for an example.
-    Collection<TargetAndConfiguration> deps =
-        resolver.dependentNodes(ctgValue, ImmutableSet.<ConfigMatchingProvider>of());
+    Set<ConfigMatchingProvider> configConditions =
+        getConfigurableAttributeConditions(ctgValue, env);
+    if (configConditions == null) {
+      return null;
+    }
+
+    Collection<TargetAndConfiguration> deps = resolver.dependentNodes(ctgValue, configConditions);
     env.getValues(Iterables.transform(deps, TO_KEYS));
     if (env.valuesMissing()) {
       return null;
     }
 
     return new PostConfiguredTargetValue(ct);
+  }
+
+  /**
+   * Returns the configurable attribute conditions necessary to evaluate the given configured
+   * target, or null if not all dependencies have yet been SkyFrame-evaluated.
+   */
+  @Nullable
+  private Set<ConfigMatchingProvider> getConfigurableAttributeConditions(
+      TargetAndConfiguration ctg, Environment env) {
+    if (!(ctg.getTarget() instanceof Rule)) {
+      return ImmutableSet.of();
+    }
+    Rule rule = (Rule) ctg.getTarget();
+    RawAttributeMapper mapper = RawAttributeMapper.of(rule);
+    Set<SkyKey> depKeys = new LinkedHashSet<>();
+    for (Attribute attribute : rule.getAttributes()) {
+      for (Label label : mapper.getConfigurabilityKeys(attribute.getName(), attribute.getType())) {
+        if (!Type.Selector.isReservedLabel(label)) {
+          depKeys.add(ConfiguredTargetValue.key(label, ctg.getConfiguration()));
+        }
+      }
+    }
+    Map<SkyKey, SkyValue> cts = env.getValues(depKeys);
+    if (env.valuesMissing()) {
+      return null;
+    }
+    ImmutableSet.Builder<ConfigMatchingProvider> conditions = ImmutableSet.builder();
+    for (SkyValue ctValue : cts.values()) {
+      ConfiguredTarget ct = ((ConfiguredTargetValue) ctValue).getConfiguredTarget();
+      conditions.add(Preconditions.checkNotNull(ct.getProvider(ConfigMatchingProvider.class)));
+    }
+    return conditions.build();
   }
 
   @Nullable

@@ -33,7 +33,7 @@ import com.google.devtools.build.skyframe.SkyFunction;
 import com.google.devtools.build.skyframe.SkyFunctionException;
 import com.google.devtools.build.skyframe.SkyKey;
 import com.google.devtools.build.skyframe.SkyValue;
-import com.google.devtools.build.skyframe.ValueOrException;
+import com.google.devtools.build.skyframe.ValueOrException2;
 
 import java.util.Collection;
 import java.util.Collections;
@@ -171,9 +171,10 @@ public class ActionExecutionFunction implements SkyFunction {
    */
   private Pair<Map<Artifact, FileArtifactValue>, Map<Artifact, Collection<Artifact>>> checkInputs(
       Environment env, Action action, boolean alreadyRan) throws ActionExecutionException {
-    Map<SkyKey, ValueOrException<Exception>> inputDeps = env.getValuesOrThrow(
-        toKeys(action.getInputs(), action.discoversInputs() ? action.getMandatoryInputs() : null),
-        Exception.class);
+    Map<SkyKey, ValueOrException2<MissingInputFileException, ActionExecutionException>> inputDeps =
+        env.getValuesOrThrow(toKeys(action.getInputs(), action.discoversInputs()
+            ? action.getMandatoryInputs() : null), MissingInputFileException.class,
+            ActionExecutionException.class);
 
     // If the action was already run, then break out early. This avoids the cost of constructing the
     // input map and expanded middlemen if they're not going to be used.
@@ -194,7 +195,8 @@ public class ActionExecutionFunction implements SkyFunction {
         new HashMap<>(populateInputData ? 128 : 0);
 
     ActionExecutionException firstActionExecutionException = null;
-    for (Map.Entry<SkyKey, ValueOrException<Exception>> depsEntry : inputDeps.entrySet()) {
+    for (Map.Entry<SkyKey, ValueOrException2<MissingInputFileException,
+        ActionExecutionException>> depsEntry : inputDeps.entrySet()) {
       Artifact input = ArtifactValue.artifact(depsEntry.getKey());
       try {
         ArtifactValue value = (ArtifactValue) depsEntry.getValue().get();
@@ -223,9 +225,6 @@ public class ActionExecutionFunction implements SkyFunction {
           firstActionExecutionException = e;
         }
         skyframeActionExecutor.postActionNotExecutedEvents(action, e.getRootCauses());
-      } catch (Exception e) {
-        // Can't get here.
-        throw new IllegalStateException(e);
       }
     }
     // We need to rethrow first exception because it can contain useful error message

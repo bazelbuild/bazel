@@ -332,11 +332,6 @@ public abstract class AbstractAction implements Action {
         .setMnemonic(getMnemonic());
   }
 
-  @Override
-  public boolean shouldCreateExtraAction() {
-    return true;
-  }
-
   /**
    * Allows action to specify additional files that need to be present to allow extra_action
    * rules to shadow this action correctly when run remotely. For example C(++) compilation may

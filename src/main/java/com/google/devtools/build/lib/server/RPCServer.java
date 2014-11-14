@@ -26,7 +26,7 @@ import com.google.devtools.build.lib.unix.LocalClientSocket;
 import com.google.devtools.build.lib.unix.LocalServerSocket;
 import com.google.devtools.build.lib.unix.LocalSocketAddress;
 import com.google.devtools.build.lib.util.Clock;
-import com.google.devtools.build.lib.util.LoggingUtil;
+import com.google.devtools.build.lib.util.ThreadUtils;
 import com.google.devtools.build.lib.util.io.OutErr;
 import com.google.devtools.build.lib.util.io.StreamMultiplexer;
 import com.google.devtools.build.lib.vfs.Path;
@@ -40,11 +40,9 @@ import java.net.Socket;
 import java.net.SocketTimeoutException;
 import java.nio.charset.Charset;
 import java.util.List;
-import java.util.Map;
 import java.util.Random;
 import java.util.concurrent.atomic.AtomicBoolean;
 import java.util.concurrent.atomic.AtomicLong;
-import java.util.logging.Level;
 import java.util.logging.Logger;
 
 /**
@@ -144,22 +142,6 @@ public final class RPCServer {
     LOG.severe(err.toString());
   }
 
-  /** Write a thread dump to the blaze.INFO log if interrupt took too long. */
-  private void warnAboutSlowInterrupt() {
-    Map<Thread, StackTraceElement[]> threads = Thread.getAllStackTraces();
-    LOG.warning("Interrupt took too long. Dumping thread state.");
-    for (Map.Entry <Thread, StackTraceElement[]> e : threads.entrySet()) {
-      Thread t = e.getKey();
-      LOG.warning("\"" + t.getName() + "\"" + " " +
-          " Thread id=" + t.getId() + " " + t.getState());
-      for (StackTraceElement line : e.getValue()) {
-        LOG.warning("\t" + line);
-      }
-      LOG.warning("");
-    }
-    LoggingUtil.logToRemote(Level.WARNING, "Slow interrupt", new IllegalStateException());
-  }
-
   /**
    * Wait on a socket for business (answer requests). Note that this
    * method won't return until the server shuts down.
@@ -194,7 +176,7 @@ public final class RPCServer {
                 if (inAction.get() && cmdNum.get() == originalCmd) {
                   // We're still operating on the same command.
                   // Interrupt took too long.
-                  warnAboutSlowInterrupt();
+                  ThreadUtils.warnAboutSlowInterrupt();
                 }
               } catch (InterruptedException e) {
                 // Ignore.

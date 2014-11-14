@@ -562,7 +562,7 @@ public final class SkyframeActionExecutor {
 
         MetadataHandler metadataHandler =
             new UndeclaredInputHandler(graphFileCache, undeclaredInputsMetadata);
-        Token token = actionCacheChecker.needToExecute(
+        Token token = actionCacheChecker.getTokenIfNeedToExecute(
             action, explain ? reporter : null, metadataHandler);
         profiler.completeTask(ProfilerTask.ACTION_CHECK);
 
@@ -646,9 +646,14 @@ public final class SkyframeActionExecutor {
           // Possibly some direct ancestors are not directories.  In that case, we unlink all the
           // ancestors until we reach a directory, then try again. This handles the case where a
           // file becomes a directory, either from one build to another, or within a single build.
+          //
+          // Symlinks should not be followed so in order to clean up symlinks pointing to Fileset
+          // outputs from previous builds. See bug [incremental build of Fileset fails if
+          // Fileset.out was changed to be a subdirectory of the old value].
           try {
-            for (Path p = outputDir; !p.isDirectory(); p = p.getParentDirectory()) {
-              // p may be a file or dangling symlink.
+            for (Path p = outputDir; !p.isDirectory(Symlinks.NOFOLLOW);
+                p = p.getParentDirectory()) {
+              // p may be a file or dangling symlink, or a symlink to an old Fileset output
               p.delete(); // throws IOException
             }
             createDirectoryAndParents(outputDir);
@@ -685,7 +690,7 @@ public final class SkyframeActionExecutor {
    * action cache.
    *
    * @param action  The action to execute
-   * @param token  The token returned by dependencyChecker.needToExecute()
+   * @param token  The non-null token returned by dependencyChecker.getTokenIfNeedToExecute()
    * @param actionInputFileCache source of file metadata.
    * @param metadataHandler source of file data for the action cache and output-checking.
    * @param middlemanExpander The object that can expand middleman inputs of the action.
@@ -698,6 +703,7 @@ public final class SkyframeActionExecutor {
       ActionInputFileCache actionInputFileCache, MetadataHandler metadataHandler,
       MiddlemanExpander middlemanExpander, long actionStartTime)
       throws ActionExecutionException, InterruptedException {
+    Preconditions.checkNotNull(token, action);
     // Delete the metadataHandler's cache of the action's outputs, since they are being deleted.
     metadataHandler.discardMetadata(action.getOutputs());
     // Delete the outputs before executing the action, just to ensure that
@@ -709,6 +715,8 @@ public final class SkyframeActionExecutor {
       action.prepare(context);
     } catch (IOException e) {
       reportError("failed to delete output files before executing action", e, action);
+    } catch (ActionExecutionException e) {
+      processAndThrow(e, action, fileOutErr);
     }
 
     postEvent(new ActionStartedEvent(action, actionStartTime));
@@ -731,6 +739,33 @@ public final class SkyframeActionExecutor {
       statusReporter.remove(action);
       postEvent(new ActionCompletionEvent(action, action.describeStrategy(executorEngine)));
     }
+  }
+
+  private ActionExecutionException processAndThrow(
+      ActionExecutionException e, Action action, FileOutErr outErrBuffer)
+      throws ActionExecutionException {
+    reportActionExecution(action, e, outErrBuffer);
+    boolean reported = reportErrorIfNotAbortingMode(e, outErrBuffer);
+
+    ActionExecutionException toThrow = e;
+    if (reported){
+      // If we already printed the error for the exception we mark it as already reported
+      // so that we do not print it again in upper levels.
+      // Note that we need to report it here since we want immediate feedback of the errors
+      // and in some cases the upper-level printing mechanism only prints one of the errors.
+      toThrow = new AlreadyReportedActionExecutionException(e);
+    }
+
+    // Now, rethrow the exception.
+    // This can have two effects:
+    // If we're still building, the exception will get retrieved by the
+    // completor and rethrown.
+    // If we're aborting, the exception will never be retrieved from the
+    // completor, since the completor is waiting for all outstanding jobs
+    // to finish. After they have finished, it will only rethrow the
+    // exception that initially caused it to abort will and not check the
+    // exit status of any actions that had finished in the meantime.
+    throw toThrow;
   }
 
   /**
@@ -766,28 +801,7 @@ public final class SkyframeActionExecutor {
       }
       // Defer reporting action success until outputs are checked
     } catch (ActionExecutionException e) {
-      reportActionExecution(action, e, outErrBuffer);
-      boolean reported = reportErrorIfNotAbortingMode(e, outErrBuffer);
-
-      ActionExecutionException toThrow = e;
-      if (reported){
-        // If we already printed the error for the exception we mark it as already reported
-        // so that we do not print it again in upper levels.
-        // Note that we need to report it here since we want immediate feedback of the errors
-        // and in some cases the upper-level printing mechanism only prints one of the errors.
-        toThrow = new AlreadyReportedActionExecutionException(e);
-      }
-
-      // Now, rethrow the exception.
-      // This can have two effects:
-      // If we're still building, the exception will get retrieved by the
-      // completor and rethrown.
-      // If we're aborting, the exception will never be retrieved from the
-      // completor, since the completor is waiting for all outstanding jobs
-      // to finish. After they have finished, it will only rethrow the
-      // exception that initially caused it to abort will and not check the
-      // exit status of any actions that had finished in the meantime.
-      throw toThrow;
+      processAndThrow(e, action, outErrBuffer);
     } finally {
       profiler.completeTask(ProfilerTask.ACTION_EXECUTE);
     }

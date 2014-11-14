@@ -1,4 +1,3 @@
-
 # Copyright 2014 Google Inc. All rights reserved.
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
@@ -15,6 +14,7 @@
 
 java_filetype = filetype([".java"])
 jar_filetype = filetype([".jar"])
+srcjar_filetype = filetype([".jar", ".srcjar"])
 
 UNIX_JAVA_PATH = "/usr/bin/"
 WINDOWS_JAVA_PATH = "C:/Program\ Files/Java/jdk1.8.0_20/bin/"
@@ -39,16 +39,16 @@ def path_separator(ctx):
 
 def java_library_impl(ctx):
   class_jar = ctx.outputs.class_jar
-  compile_time_jars = set()
+  compile_time_jars = set(order="link")
   runtime_jars = set(order="link")
   for dep in ctx.targets.deps:
-    compile_time_jars += [dep.compile_time_jar]
+    compile_time_jars += dep.compile_time_jars
     runtime_jars += dep.runtime_jars
 
   jars = jar_filetype.filter(ctx.files.jars)
   compile_time_jars += jars
   runtime_jars += jars
-  compile_time_jar_list = list(compile_time_jars)
+  compile_time_jars_list = list(compile_time_jars) # TODO: This is weird.
 
   build_output = class_jar.path + ".build_output"
   sources = ctx.files.srcs
@@ -77,7 +77,7 @@ def java_library_impl(ctx):
   cmd += (javapath + "jar cf " + class_jar.path + " -C " + build_output + " .\n" +
          "touch " + build_output + "\n")
   ctx.action(
-    inputs = (sources + compile_time_jar_list + [sources_param_file] +
+    inputs = (sources + compile_time_jars_list + [sources_param_file] +
               ctx.files.resources),
     outputs = [class_jar],
     mnemonic='Javac',
@@ -87,7 +87,7 @@ def java_library_impl(ctx):
   runfiles = ctx.runfiles(collect_data = True)
 
   return struct(files = set([class_jar]),
-                compile_time_jar = class_jar,
+                compile_time_jars = compile_time_jars + [class_jar],
                 runtime_jars = runtime_jars + [class_jar],
                 runfiles = runfiles)
 
@@ -152,7 +152,8 @@ def java_binary_impl(ctx):
         "}",
         "trap cleanup EXIT",
         "unzip -q -d ${SO_DIR} ${DEPLOY} \"*.so\" \"*.dll\" \"*.dylib\" >& /dev/null",
-        "java -Djava.library.path=${SO_DIR} -jar $DEPLOY \"$@\"",
+        ("java -Djava.library.path=${SO_DIR} %s -jar $DEPLOY \"$@\""
+         % ' '.join(ctx.attr.jvm_flags)) ,
         "",
         ]),
     executable = True)
@@ -162,6 +163,15 @@ def java_binary_impl(ctx):
   files_to_build += library_result.files
 
   return struct(files = files_to_build, runfiles = runfiles)
+
+def java_import_impl(ctx):
+  # TODO: Why do we need to filter here? The attribute already says only jars are allowed.
+  jars = set(jar_filetype.filter(ctx.files.jars))
+  runfiles = ctx.runfiles(collect_data = True)
+  return struct(files = jars,
+                compile_time_jars = jars,
+                runtime_jars = jars,
+                runfiles = runfiles)
 
 
 java_library_attrs = {
@@ -174,12 +184,8 @@ java_library_attrs = {
     "jars": attr.label_list(allow_files=jar_filetype),
     "deps": attr.label_list(
         allow_files=False,
-        providers = ["compile_time_jar", "runtime_jars"]),
+        providers = ["compile_time_jars", "runtime_jars"]),
     }
-
-java_binary_attrs = {
-    "main_class": attr.string(mandatory=True)
-} + java_library_attrs
 
 java_library = rule(
     java_library_impl,
@@ -187,6 +193,11 @@ java_library = rule(
     outputs = {
         "class_jar": "lib%{name}.jar",
     })
+
+java_binary_attrs = {
+    "main_class": attr.string(mandatory=True),
+    "jvm_flags": attr.string_list(),
+} + java_library_attrs
 
 java_binary_outputs = {
     "class_jar": "lib%{name}.jar",
@@ -207,7 +218,15 @@ java_test = rule(java_binary_impl,
        # test_class attribute instead, but this attribute is hard
        # coded in the bazel infrastructure.
        "args": attr.string_list(),
+       "jvm_flags": attr.string_list(),
    },
    outputs = java_binary_outputs,
    test = True,
 )
+
+java_import = rule(
+    java_import_impl,
+    attrs = {
+        "jars": attr.label_list(allow_files=jar_filetype),
+        "srcjar": attr.label(allow_files=srcjar_filetype),
+    })

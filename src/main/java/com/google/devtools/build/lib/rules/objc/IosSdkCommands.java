@@ -16,12 +16,17 @@ package com.google.devtools.build.lib.rules.objc;
 
 import static com.google.devtools.build.lib.rules.objc.ObjcProvider.FRAMEWORK_DIR;
 
+import com.google.common.annotations.VisibleForTesting;
+import com.google.common.base.Function;
 import com.google.common.collect.ImmutableList;
+import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.ImmutableSet;
+import com.google.common.collect.Iterables;
 import com.google.devtools.build.lib.vfs.PathFragment;
 import com.google.devtools.build.xcode.common.Platform;
 import com.google.devtools.build.xcode.common.TargetDeviceFamily;
 import com.google.devtools.build.xcode.util.Interspersing;
+import com.google.devtools.build.xcode.xcodegen.proto.XcodeGenProtos.XcodeprojBuildSetting;
 
 import java.util.List;
 
@@ -39,6 +44,31 @@ public class IosSdkCommands {
       DEVELOPER_DIR + "/Toolchains/XcodeDefault.xctoolchain/usr/bin";
   public static final String ACTOOL_PATH = DEVELOPER_DIR + "/usr/bin/actool";
   public static final String IBTOOL_PATH = DEVELOPER_DIR + "/usr/bin/ibtool";
+
+  // There is a handy reference to many clang warning flags at
+  // http://nshipster.com/clang-diagnostics/
+  // There is also a useful narrative for many Xcode settings at
+  // http://www.xs-labs.com/en/blog/2011/02/04/xcode-build-settings/
+  @VisibleForTesting
+  static final ImmutableMap<String, String> DEFAULT_WARNINGS =
+      new ImmutableMap.Builder<String, String>()
+          .put("GCC_WARN_64_TO_32_BIT_CONVERSION", "-Wshorten-64-to-32")
+          .put("CLANG_WARN_BOOL_CONVERSION", "-Wbool-conversion")
+          .put("CLANG_WARN_CONSTANT_CONVERSION", "-Wconstant-conversion")
+          // Double-underscores are intentional - thanks Xcode.
+          .put("CLANG_WARN__DUPLICATE_METHOD_MATCH", "-Wduplicate-method-match")
+          .put("CLANG_WARN_EMPTY_BODY", "-Wempty-body")
+          .put("CLANG_WARN_ENUM_CONVERSION", "-Wenum-conversion")
+          .put("CLANG_WARN_INT_CONVERSION", "-Wint-conversion")
+          .put("CLANG_WARN_UNREACHABLE_CODE", "-Wunreachable-code")
+          .put("GCC_WARN_ABOUT_RETURN_TYPE", "-Wmismatched-return-types")
+          .put("GCC_WARN_UNDECLARED_SELECTOR", "-Wundeclared-selector")
+          .put("GCC_WARN_UNINITIALIZED_AUTOS", "-Wuninitialized")
+          .put("GCC_WARN_UNUSED_FUNCTION", "-Wunused-function")
+          .put("GCC_WARN_UNUSED_VARIABLE", "-Wunused-variable")
+          .build();
+
+  static final ImmutableList<String> DEFAULT_LINKER_FLAGS = ImmutableList.of("-ObjC");
 
   private IosSdkCommands() {
     throw new UnsupportedOperationException("static-only");
@@ -90,7 +120,14 @@ public class IosSdkCommands {
     return platformDir(configuration) + "/Developer/usr/bin/momc";
   }
 
-  public static List<String> compileArgsForClang(ObjcConfiguration configuration) {
+  public static Iterable<String> compileArgsForClang(ObjcConfiguration configuration) {
+    return Iterables.concat(
+        DEFAULT_WARNINGS.values(),
+        platformSpecificCompileArgsForClang(configuration)
+    );
+  }
+
+  private static List<String> platformSpecificCompileArgsForClang(ObjcConfiguration configuration) {
     switch (configuration.getPlatform()) {
       case DEVICE:
         return ImmutableList.of();
@@ -106,5 +143,15 @@ public class IosSdkCommands {
         throw new IllegalStateException("Unknown configuration type: "
             + configuration.getPlatform());
     }
+  }
+
+  public static Iterable<? extends XcodeprojBuildSetting> defaultWarningsForXcode() {
+    return Iterables.transform(DEFAULT_WARNINGS.keySet(),
+        new Function<String, XcodeprojBuildSetting>() {
+      @Override
+      public XcodeprojBuildSetting apply(String key) {
+        return XcodeprojBuildSetting.newBuilder().setName(key).setValue("YES").build();
+      }
+    });
   }
 }

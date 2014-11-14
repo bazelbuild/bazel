@@ -107,7 +107,8 @@ class PackageLookupFunction implements SkyFunction {
     SkyKey fileSkyKey = FileValue.key(buildFileRootedPath);
     FileValue fileValue = null;
     try {
-      fileValue = (FileValue) env.getValueOrThrow(fileSkyKey, Exception.class);
+      fileValue = (FileValue) env.getValueOrThrow(fileSkyKey, IOException.class,
+          FileSymlinkCycleException.class, InconsistentFilesystemException.class);
     } catch (IOException e) {
       String pkgName = pkgFragment.getPathString();
       // TODO(bazel-team): throw an IOException here and let PackageFunction wrap that into a
@@ -123,8 +124,6 @@ class PackageLookupFunction implements SkyFunction {
     } catch (InconsistentFilesystemException e) {
       // This error is not transient from the perspective of the PackageLookupFunction.
       throw new PackageLookupFunctionException(skyKey, e, Transience.PERSISTENT);
-    } catch (Exception e) {
-      throw new IllegalStateException("Not IOException of InconsistentFilesystemException", e);
     }
     if (fileValue == null) {
       return null;

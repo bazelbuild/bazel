@@ -42,6 +42,7 @@ import com.google.devtools.build.lib.view.RuleContext;
 import com.google.devtools.build.lib.view.Runfiles;
 import com.google.devtools.build.lib.view.RunfilesProvider;
 
+import java.util.ArrayList;
 import java.util.List;
 
 /**
@@ -251,14 +252,15 @@ public abstract class CcLibrary implements RuleConfiguredTargetFactory {
     Runfiles sharedRunfiles = collectRunfiles(ruleContext,
         linkingOutputs, neverLink, addDynamicRuntimeInputArtifactsToRunfiles, false);
 
-    Iterable<Artifact> objectFiles = info.getCcCompilationOutputs().getObjectFiles(
-        CppHelper.usePic(ruleContext, false));
+    List<Artifact> instrumentedObjectFiles = new ArrayList<>();
+    instrumentedObjectFiles.addAll(info.getCcCompilationOutputs().getObjectFiles(false));
+    instrumentedObjectFiles.addAll(info.getCcCompilationOutputs().getObjectFiles(true));
     targetBuilder
         .setFilesToBuild(filesToBuild)
         .addProviders(info.getProviders())
         .add(InstrumentedFilesProvider.class, new InstrumentedFilesProviderImpl(
-            common.getInstrumentedFiles(objectFiles),
-            common.getInstrumentationMetadataFiles(objectFiles)))
+            common.getInstrumentedFiles(instrumentedObjectFiles),
+            common.getInstrumentationMetadataFiles(instrumentedObjectFiles)))
         .add(RunfilesProvider.class, RunfilesProvider.withData(staticRunfiles, sharedRunfiles))
         // Remove this?
         .add(CppRunfilesProvider.class, new CppRunfilesProvider(staticRunfiles, sharedRunfiles))

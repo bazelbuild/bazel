@@ -81,53 +81,57 @@ public final class WriteBuildInfoHeaderAction extends AbstractFileWriteAction {
   }
 
   @Override
-  public void writeOutputFile(OutputStream out, EventHandler eventHandler,
-      Executor executor) throws IOException {
-    WorkspaceStatusAction.Context context =
+  public DeterministicWriter newDeterministicWriter(EventHandler eventHandler, Executor executor) {
+    final WorkspaceStatusAction.Context context =
         executor.getContext(WorkspaceStatusAction.Context.class);
-    Writer writer = new OutputStreamWriter(out, UTF_8);
+    return new DeterministicWriter() {
+      @Override
+      public void writeOutputFile(OutputStream out) throws IOException {
+        Writer writer = new OutputStreamWriter(out, UTF_8);
 
-    Map<String, WorkspaceStatusAction.Key> keys = new LinkedHashMap<>();
-    if (writeVolatileInfo) {
-      keys.putAll(context.getVolatileKeys());
-    }
+        Map<String, WorkspaceStatusAction.Key> keys = new LinkedHashMap<>();
+        if (writeVolatileInfo) {
+          keys.putAll(context.getVolatileKeys());
+        }
 
-    if (writeStableInfo) {
-      keys.putAll(context.getStableKeys());
-    }
+        if (writeStableInfo) {
+          keys.putAll(context.getStableKeys());
+        }
 
-    Map<String, String> values = new LinkedHashMap<>();
-    for (Artifact valueFile : valueArtifacts) {
-      values.putAll(WorkspaceStatusAction.parseValues(valueFile.getPath()));
-    }
+        Map<String, String> values = new LinkedHashMap<>();
+        for (Artifact valueFile : valueArtifacts) {
+          values.putAll(WorkspaceStatusAction.parseValues(valueFile.getPath()));
+        }
 
-    boolean redacted = valueArtifacts.isEmpty();
+        boolean redacted = valueArtifacts.isEmpty();
 
-    for (Map.Entry<String, WorkspaceStatusAction.Key> key : keys.entrySet()) {
-      if (!key.getValue().isInLanguage("C++")) {
-        continue;
+        for (Map.Entry<String, WorkspaceStatusAction.Key> key : keys.entrySet()) {
+          if (!key.getValue().isInLanguage("C++")) {
+            continue;
+          }
+
+          String value = redacted ? key.getValue().getRedactedValue()
+              : values.containsKey(key.getKey()) ? values.get(key.getKey())
+              : key.getValue().getDefaultValue();
+
+          switch (key.getValue().getType()) {
+            case VERBATIM:
+            case INTEGER:
+              break;
+
+            case STRING:
+              value = quote(value);
+              break;
+
+            default:
+              throw new IllegalStateException();
+          }
+          define(writer, key.getKey(), value);
+
+        }
+        writer.flush();
       }
-
-      String value = redacted ? key.getValue().getRedactedValue()
-          : values.containsKey(key.getKey()) ? values.get(key.getKey())
-          : key.getValue().getDefaultValue();
-
-      switch (key.getValue().getType()) {
-        case VERBATIM:
-        case INTEGER:
-          break;
-
-        case STRING:
-          value = quote(value);
-          break;
-
-        default:
-          throw new IllegalStateException();
-      }
-      define(writer, key.getKey(), value);
-
-    }
-    writer.flush();
+    };
   }
 
   @Override

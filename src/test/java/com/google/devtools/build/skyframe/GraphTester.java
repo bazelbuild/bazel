@@ -151,12 +151,6 @@ public class GraphTester {
     return new SkyKey(NODE_TYPE, key);
   }
 
-  public static class SomeErrorException extends Exception {
-    public SomeErrorException(String msg) {
-      super(msg);
-    }
-  }
-
   /**
    * A value in the testing graph that is constructed in the tester.
    */

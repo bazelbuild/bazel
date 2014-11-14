@@ -941,26 +941,28 @@ public final class CcCommon {
       CcLinkingOutputs linkingOutputs,
       DwoArtifactsCollector dwoArtifacts,
       TransitiveLipoInfoProvider transitiveLipoInfo) {
-     Iterable<Artifact> objectFiles = ccCompilationOutputs.getObjectFiles(
-         CppHelper.usePic(ruleContext, false));
-     builder
-         .setFilesToBuild(filesToBuild)
-         .add(CppCompilationContext.class, cppCompilationContext)
-         .add(TransitiveLipoInfoProvider.class, transitiveLipoInfo)
-         .add(CcExecutionDynamicLibrariesProvider.class,
-             new CcExecutionDynamicLibrariesProvider(collectExecutionDynamicLibraryArtifacts(
-                     ruleContext, linkingOutputs.getExecutionDynamicLibraries())))
-         .add(CcNativeLibraryProvider.class, new CcNativeLibraryProvider(
-             collectTransitiveCcNativeLibraries(ruleContext, linkingOutputs.getDynamicLibraries())))
-         .add(InstrumentedFilesProvider.class, new InstrumentedFilesProviderImpl(
-             getInstrumentedFiles(objectFiles), getInstrumentationMetadataFiles(objectFiles)))
-         .add(FilesToCompileProvider.class, new FilesToCompileProvider(
-             getFilesToCompile(ccCompilationOutputs)))
-         .add(CompilationPrerequisitesProvider.class,
-             collectCompilationPrerequisites(ruleContext, cppCompilationContext))
-         .add(TempsProvider.class, new TempsProvider(getTemps(ccCompilationOutputs)))
-         .add(CppDebugFileProvider.class, new CppDebugFileProvider(
-             dwoArtifacts.getDwoArtifacts(),
-             dwoArtifacts.getPicDwoArtifacts()));
+    List<Artifact> instrumentedObjectFiles = new ArrayList<>();
+    instrumentedObjectFiles.addAll(ccCompilationOutputs.getObjectFiles(false));
+    instrumentedObjectFiles.addAll(ccCompilationOutputs.getObjectFiles(true));
+    builder
+        .setFilesToBuild(filesToBuild)
+        .add(CppCompilationContext.class, cppCompilationContext)
+        .add(TransitiveLipoInfoProvider.class, transitiveLipoInfo)
+        .add(CcExecutionDynamicLibrariesProvider.class,
+            new CcExecutionDynamicLibrariesProvider(collectExecutionDynamicLibraryArtifacts(
+                ruleContext, linkingOutputs.getExecutionDynamicLibraries())))
+        .add(CcNativeLibraryProvider.class, new CcNativeLibraryProvider(
+            collectTransitiveCcNativeLibraries(ruleContext, linkingOutputs.getDynamicLibraries())))
+        .add(InstrumentedFilesProvider.class, new InstrumentedFilesProviderImpl(
+            getInstrumentedFiles(instrumentedObjectFiles),
+            getInstrumentationMetadataFiles(instrumentedObjectFiles)))
+        .add(FilesToCompileProvider.class, new FilesToCompileProvider(
+            getFilesToCompile(ccCompilationOutputs)))
+        .add(CompilationPrerequisitesProvider.class,
+            collectCompilationPrerequisites(ruleContext, cppCompilationContext))
+        .add(TempsProvider.class, new TempsProvider(getTemps(ccCompilationOutputs)))
+        .add(CppDebugFileProvider.class, new CppDebugFileProvider(
+            dwoArtifacts.getDwoArtifacts(),
+            dwoArtifacts.getPicDwoArtifacts()));
   }
 }

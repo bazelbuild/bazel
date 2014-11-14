@@ -31,6 +31,7 @@ import com.google.common.collect.Sets;
 import com.google.common.eventbus.EventBus;
 import com.google.common.eventbus.SubscriberExceptionContext;
 import com.google.common.eventbus.SubscriberExceptionHandler;
+import com.google.common.util.concurrent.Uninterruptibles;
 import com.google.devtools.build.lib.Constants;
 import com.google.devtools.build.lib.actions.cache.ActionCache;
 import com.google.devtools.build.lib.actions.cache.CompactPersistentActionCache;
@@ -84,6 +85,7 @@ import com.google.devtools.build.lib.util.LoggingUtil;
 import com.google.devtools.build.lib.util.OS;
 import com.google.devtools.build.lib.util.OsUtils;
 import com.google.devtools.build.lib.util.SkyframeMode;
+import com.google.devtools.build.lib.util.ThreadUtils;
 import com.google.devtools.build.lib.util.io.OutErr;
 import com.google.devtools.build.lib.util.io.TimestampGranularityMonitor;
 import com.google.devtools.build.lib.vfs.FileSystem;
@@ -133,10 +135,13 @@ import java.util.List;
 import java.util.Map;
 import java.util.Set;
 import java.util.UUID;
+import java.util.concurrent.TimeUnit;
 import java.util.concurrent.atomic.AtomicInteger;
 import java.util.logging.Level;
 import java.util.logging.Logger;
 import java.util.regex.Pattern;
+
+import javax.annotation.Nullable;
 
 /**
  * The BlazeRuntime class encapsulates the runtime settings and services that
@@ -216,6 +221,8 @@ public final class BlazeRuntime {
 
   private final Predicate<PathFragment> allowedMissingInputs;
 
+  private final ProjectFile.Provider projectFileProvider;
+
   private class BlazeModuleEnvironment implements BlazeModule.ModuleEnvironment {
     @Override
     public Path getFileFromDepot(Label label)
@@ -242,7 +249,8 @@ public final class BlazeRuntime {
       Map<String, String> clientEnv,
       TimestampGranularityMonitor timestampGranularityMonitor,
       SubscriberExceptionHandler eventBusExceptionHandler,
-      BinTools binTools, Predicate<PathFragment> allowedMissingInputs) {
+      BinTools binTools, Predicate<PathFragment> allowedMissingInputs,
+      ProjectFile.Provider projectFileProvider) {
     this.workspaceStatusActionFactory = workspaceStatusActionFactory;
     this.directories = directories;
     this.workingDirectory = directories.getWorkspace();
@@ -251,6 +259,7 @@ public final class BlazeRuntime {
     this.packageFactory = pkgFactory;
     this.binTools = binTools;
     this.allowedMissingInputs = allowedMissingInputs;
+    this.projectFileProvider = projectFileProvider;
 
     this.skyframeExecutor = skyframeExecutor;
     this.loadingPhaseRunner = new LoadingPhaseRunner(
@@ -667,6 +676,19 @@ public final class BlazeRuntime {
    */
   private Path getCacheDirectory() {
     return getOutputBase().getChild("action_cache");
+  }
+
+  /**
+   * Returns a provider for project file objects. Can be null if no such provider was set by any of
+   * the modules.
+   */
+  @Nullable
+  public ProjectFile.Provider getProjectFileProvider(OptionsProvider options) {
+    if (projectFileProvider == null) {
+      return null;
+    }
+    boolean allowProjectFiles = options.getOptions(CommonCommandOptions.class).allowProjectFiles;
+    return allowProjectFiles ? projectFileProvider : null;
   }
 
   /**
@@ -1168,13 +1190,34 @@ public final class BlazeRuntime {
   private static void captureSigint() {
     final Thread mainThread = Thread.currentThread();
     final AtomicInteger numInterrupts = new AtomicInteger();
+
+    final Runnable interruptWatcher = new Runnable() {
+      @Override
+      public void run() {
+        int count = 0;
+        // Not an actual infinite loop because it's run in a daemon thread.
+        while (true) {
+          count++;
+          Uninterruptibles.sleepUninterruptibly(10, TimeUnit.SECONDS);
+          LOG.warning("Slow interrupt number " + count + " in batch mode");
+          ThreadUtils.warnAboutSlowInterrupt();
+        }
+      }
+    };
+
     new InterruptSignalHandler() {
       @Override
       public void run() {
         LOG.info("User interrupt");
         OutErr.SYSTEM_OUT_ERR.printErrLn("Blaze received an interrupt");
         mainThread.interrupt();
-        if (numInterrupts.incrementAndGet() == 2) {
+
+        int curNumInterrupts = numInterrupts.incrementAndGet();
+        if (curNumInterrupts == 1) {
+          Thread interruptWatcherThread = new Thread(interruptWatcher, "interrupt-watcher");
+          interruptWatcherThread.setDaemon(true);
+          interruptWatcherThread.start();
+        } else if (curNumInterrupts == 2) {
           LOG.warning("Second --batch interrupt: Reverting to JVM SIGINT handler");
           uninstall();
         }
@@ -1650,12 +1693,22 @@ public final class BlazeRuntime {
             ruleClassProvider.getConfigurationFragments());
       }
 
+      ProjectFile.Provider projectFileProvider = null;
+      for (BlazeModule module : blazeModules) {
+        ProjectFile.Provider candidate = module.createProjectFileProvider();
+        if (candidate != null) {
+          Preconditions.checkState(projectFileProvider == null,
+              "more than one module defines a project file provider");
+          projectFileProvider = candidate;
+        }
+      }
+
       return new BlazeRuntime(directories, reporter, workspaceStatusActionFactory, skyframeExecutor,
           pkgFactory, ruleClassProvider, configurationFactory,
           runfilesPrefix == null ? PathFragment.EMPTY_FRAGMENT : runfilesPrefix,
           clock, startupOptionsProvider, ImmutableList.copyOf(blazeModules),
           clientEnv, timestampMonitor,
-          eventBusExceptionHandler, binTools, allowedMissingInputs);
+          eventBusExceptionHandler, binTools, allowedMissingInputs, projectFileProvider);
     }
 
     public Builder setRunfilesPrefix(PathFragment prefix) {

@@ -394,7 +394,7 @@ public class BlazeCommandDispatcher {
         // Allow the command to edit options after parsing:
         command.editOptions(runtime, optionsParser);
       } catch (AbruptExitException e) {
-        outErr.printErrLn(e.getMessage());
+        reporter.handle(Event.error(e.getMessage()));
         return e.getExitCode().getNumericExitCode();
       }
 

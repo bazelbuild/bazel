@@ -59,29 +59,33 @@ class InstrumentedFileManifestAction extends AbstractFileWriteAction {
   }
 
   @Override
-  public void writeOutputFile(OutputStream out, EventHandler eventHandler,
-      Executor executor) throws IOException {
-    Writer writer = null;
-    try {
-      // Save exec paths for both instrumented source files and gcno files in the manifest
-      // in the naturally sorted order.
-      String[] fileNames = Iterables.toArray(Iterables.transform(
-          Iterables.concat(collectedSourceFiles, metadataFiles),
-          new Function<Artifact, String> () {
-            @Override
-            public String apply(Artifact artifact) { return artifact.getExecPathString(); }
-          }), String.class);
-      Arrays.sort(fileNames);
-      writer = new OutputStreamWriter(out, ISO_8859_1);
-      for (String name : fileNames) {
-        writer.write(name);
-        writer.write('\n');
+  public DeterministicWriter newDeterministicWriter(EventHandler eventHandler, Executor executor) {
+    return new DeterministicWriter() {
+      @Override
+      public void writeOutputFile(OutputStream out) throws IOException {
+        Writer writer = null;
+        try {
+          // Save exec paths for both instrumented source files and gcno files in the manifest
+          // in the naturally sorted order.
+          String[] fileNames = Iterables.toArray(Iterables.transform(
+              Iterables.concat(collectedSourceFiles, metadataFiles),
+              new Function<Artifact, String> () {
+                @Override
+                public String apply(Artifact artifact) { return artifact.getExecPathString(); }
+              }), String.class);
+          Arrays.sort(fileNames);
+          writer = new OutputStreamWriter(out, ISO_8859_1);
+          for (String name : fileNames) {
+            writer.write(name);
+            writer.write('\n');
+          }
+        } finally {
+          if (writer != null) {
+            writer.close();
+          }
+        }
       }
-    } finally {
-      if (writer != null) {
-        writer.close();
-      }
-    }
+    };
   }
 
   @Override

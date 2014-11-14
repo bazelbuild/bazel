@@ -29,6 +29,9 @@ import com.google.common.base.Preconditions;
  * type erasure
  * (see http://docs.oracle.com/javase/tutorial/java/generics/restrictions.html#cannotCatch).
  *
+ * <p> Note that there are restrictions on what Exception types are allowed to be wrapped in this
+ * manner. See {@link SkyFunctionException#validateExceptionType}.
+ *
  * <p>Failures are explicitly either transient or persistent. The transience of the failure from
  * {@link SkyFunction#compute} should be influenced only by the computations done, and not by the
  * transience of the failures from computations requested via
@@ -51,8 +54,9 @@ public abstract class SkyFunctionException extends Exception {
   private final SkyKey rootCause;
   private final Transience transience;
 
-  public SkyFunctionException(SkyKey rootCause, Throwable cause, Transience transience) {
+  public SkyFunctionException(SkyKey rootCause, Exception cause, Transience transience) {
     super(Preconditions.checkNotNull(cause));
+    SkyFunctionException.validateExceptionType(cause.getClass());
     // TODO(bazel-team): Consider getting rid of custom root causes since they can't be trusted.
     this.rootCause = Preconditions.checkNotNull(rootCause, cause);
     this.transience = transience;
@@ -71,5 +75,31 @@ public abstract class SkyFunctionException extends Exception {
    */
   public boolean isCatastrophic() {
     return false;
+  }
+
+  @Override
+  public Exception getCause() {
+    return (Exception) super.getCause();
+  }
+
+  static <E extends Throwable> void validateExceptionType(Class<E> exceptionClass) {
+    if (exceptionClass.equals(ValueOrExceptionUtils.BottomException.class)) {
+      return;
+    }
+
+    if (exceptionClass.isAssignableFrom(RuntimeException.class)) {
+      throw new IllegalStateException(exceptionClass.getSimpleName() + " is a supertype of "
+          + "RuntimeException. Don't do this since then you would potentially swallow all "
+          + "RuntimeExceptions, even those from Skyframe");
+    }
+    if (RuntimeException.class.isAssignableFrom(exceptionClass)) {
+      throw new IllegalStateException(exceptionClass.getSimpleName() + " is a subtype of "
+          + "RuntimeException. You should rewrite your code to use checked exceptions.");
+    }
+    if (InterruptedException.class.isAssignableFrom(exceptionClass)) {
+      throw new IllegalStateException(exceptionClass.getSimpleName() + " is a subtype of "
+          + "InterruptedException. Don't do this; Skyframe handles interrupts separately from the "
+          + "general SkyFunctionException mechanism.");
+    }
   }
 }

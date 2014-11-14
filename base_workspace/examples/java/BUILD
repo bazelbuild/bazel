@@ -1,4 +1,4 @@
-load("rules/java_rules_oss", "java_library", "java_binary", "java_test")
+load("tools/build_rules/java_rules_oss", "java_library", "java_binary", "java_test")
 
 java_library(
     name = "hello-lib",

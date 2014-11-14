@@ -27,7 +27,7 @@ import com.google.devtools.build.skyframe.SkyFunction;
 import com.google.devtools.build.skyframe.SkyFunctionException;
 import com.google.devtools.build.skyframe.SkyKey;
 import com.google.devtools.build.skyframe.SkyValue;
-import com.google.devtools.build.skyframe.ValueOrException;
+import com.google.devtools.build.skyframe.ValueOrException2;
 
 import java.util.Map;
 
@@ -49,15 +49,17 @@ public final class TargetCompletionFunction implements SkyFunction {
       return null;
     }
 
-    Map<SkyKey, ValueOrException<Exception>> inputDeps  =
+    Map<SkyKey, ValueOrException2<MissingInputFileException, ActionExecutionException>> inputDeps =
         env.getValuesOrThrow(ArtifactValue.mandatoryKeys(
             TopLevelArtifactHelper.getAllArtifactsToBuild(
-                ctValue.getConfiguredTarget(), topLevelContext)), Exception.class);
+                ctValue.getConfiguredTarget(), topLevelContext)), MissingInputFileException.class,
+                ActionExecutionException.class);
 
     ActionExecutionException firstActionExecutionException = null;
     int missingCount = 0;
     ImmutableList.Builder<Label> rootCauses = ImmutableList.builder();
-    for (Map.Entry<SkyKey, ValueOrException<Exception>> depsEntry : inputDeps.entrySet()) {
+    for (Map.Entry<SkyKey, ValueOrException2<MissingInputFileException,
+        ActionExecutionException>> depsEntry : inputDeps.entrySet()) {
       Artifact input = ArtifactValue.artifact(depsEntry.getKey());
       try {
         depsEntry.getValue().get();
@@ -70,9 +72,6 @@ public final class TargetCompletionFunction implements SkyFunction {
         if (firstActionExecutionException == null) {
           firstActionExecutionException = e;
         }
-      } catch (Exception e) {
-        // Can't get here.
-        throw new IllegalStateException(e);
       }
     }
 

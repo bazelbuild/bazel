@@ -33,6 +33,7 @@ import com.google.devtools.build.lib.rules.RuleConfiguredTargetFactory;
 import com.google.devtools.build.lib.util.FileType;
 import com.google.devtools.build.lib.vfs.FileSystemUtils;
 import com.google.devtools.build.lib.vfs.PathFragment;
+import com.google.devtools.build.lib.view.AnalysisUtils;
 import com.google.devtools.build.lib.view.ConfiguredTarget;
 import com.google.devtools.build.lib.view.RuleConfiguredTarget.Mode;
 import com.google.devtools.build.lib.view.RuleContext;
@@ -95,8 +96,16 @@ public class ObjcProtoLibrary implements RuleConfiguredTargetFactory {
     ImmutableList<Artifact> protoGeneratedHeaders = outputArtifacts(
         ruleContext, rootRelativeOutputDir, protos, FileType.of(".pb.h"));
 
-    Artifact inputFileList = FileWriteAction.createFile(ruleContext, "proto_input_files",
-        ObjcActionsBuilder.joinExecPaths(protos), false);
+    Artifact inputFileList = ruleContext.getAnalysisEnvironment().getDerivedArtifact(
+        AnalysisUtils.getUniqueDirectory(ruleContext.getLabel(), new PathFragment("_protos"))
+            .getRelative("_proto_input_files"),
+            ruleContext.getConfiguration().getGenfilesDirectory());
+
+    ruleContext.getAnalysisEnvironment().registerAction(new FileWriteAction(
+        ruleContext.getActionOwner(),
+        inputFileList,
+        ObjcActionsBuilder.joinExecPaths(protos),
+        false));
 
     CustomCommandLine.Builder commandLineBuilder = new CustomCommandLine.Builder()
         .add(compileProtos.getExecPathString())
@@ -110,7 +119,7 @@ public class ObjcProtoLibrary implements RuleConfiguredTargetFactory {
 
     if (!Iterables.isEmpty(protos)) {
       ruleContext.getAnalysisEnvironment().registerAction(new SpawnAction.Builder(ruleContext)
-          .setMnemonic("Generating Objc Protos")
+          .setMnemonic("GenObjcProtos")
           .addInput(compileProtos)
           .addInputs(optionsFile.asSet())
           .addInputs(protos)

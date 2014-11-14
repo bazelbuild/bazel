@@ -42,7 +42,6 @@ public interface BlazeCommand {
    * @param runtime The Blaze runtime requesting the execution of the command
    * @param options A parsed options instance initialized with the values for
    *     the options specified in {@link Command#options()}.
-   * @param outErr Access to stdout / stderr.
    *
    * @return The Unix exit status for the Blaze client.
    * @throws BlazeCommandDispatcher.ShutdownBlazeServerException Indicates

@@ -110,7 +110,7 @@ final class ObjcActionsBuilder {
       final ObjcConfiguration objcConfiguration,
       final BuildConfiguration buildConfiguration) {
     return spawnOnDarwinActionBuilder(context)
-        .setMnemonic("Compile")
+        .setMnemonic("ObjcCompile")
         .setExecutable(CLANG)
         .setCommandLine(new CommandLine() {
           @Override
@@ -186,7 +186,7 @@ final class ObjcActionsBuilder {
         context.getActionOwner(), objList, joinExecPaths(objFiles), /*makeExecutable=*/ false));
 
     actions.add(spawnOnDarwinActionBuilder(context)
-        .setMnemonic("Link")
+        .setMnemonic("ObjcLink")
         .setExecutable(LIBTOOL)
         .setCommandLine(new CommandLine() {
             @Override
@@ -245,7 +245,7 @@ final class ObjcActionsBuilder {
         xcodegenControlFileBytes(pbxproj, xcodeProvider),
         /*makeExecutable=*/false));
     register(new SpawnAction.Builder(context)
-        .setMnemonic("Generate project")
+        .setMnemonic("GenerateXcodeproj")
         .setExecutable(baseTools.xcodegen())
         .addArgument("--control")
         .addInputArgument(controlFile)
@@ -265,7 +265,7 @@ final class ObjcActionsBuilder {
       final Artifact original = stringsFile.getOriginal();
       final Artifact bundled = stringsFile.getBundled().getBundled();
       result.add(new SpawnAction.Builder(context)
-          .setMnemonic("Convert plist to binary")
+          .setMnemonic("ConvertStringsPlist")
           .setExecutable(baseTools.plmerge())
           .setCommandLine(new CommandLine() {
             @Override
@@ -291,7 +291,7 @@ final class ObjcActionsBuilder {
       final Artifact bundled = xibFile.getBundled().getBundled();
       final Artifact original = xibFile.getOriginal();
       result.add(spawnOnDarwinActionBuilder(context)
-          .setMnemonic("Compile xib")
+          .setMnemonic("XibCompile")
           .setExecutable(IBTOOL)
           .setCommandLine(new CommandLine() {
             @Override
@@ -330,7 +330,7 @@ final class ObjcActionsBuilder {
     // zip file will be rooted at the bundle root, and we have to prepend the bundle root to each
     // entry when merging it with the final .ipa file.
     register(spawnJavaOnDarwinActionBuilder(context, tools.actooloribtoolzipDeployJar())
-        .setMnemonic("Compile asset catalogs")
+        .setMnemonic("AssetCatalogCompile")
         .addTransitiveInputs(provider.get(ASSET_CATALOG))
         .addOutput(actoolzipOutput)
         .setCommandLine(actoolzipCommandLine(
@@ -370,7 +370,7 @@ final class ObjcActionsBuilder {
 
   void registerIbtoolzipAction(ObjcRuleClasses.Tools tools, Artifact input, Artifact outputZip) {
     register(spawnJavaOnDarwinActionBuilder(context, tools.actooloribtoolzipDeployJar())
-        .setMnemonic("Compile storyboard")
+        .setMnemonic("StoryboardCompile")
         .addInput(input)
         .addOutput(outputZip)
         .setCommandLine(Storyboards.ibtoolzipCommandLine(input, outputZip))
@@ -486,7 +486,7 @@ final class ObjcActionsBuilder {
           .add("-Xlinker", "-objc_abi_version")
           .add("-Xlinker", "2")
           .add("-fobjc-link-runtime")
-          .add("-ObjC")
+          .addAll(IosSdkCommands.DEFAULT_LINKER_FLAGS)
           .addAll(Interspersing.beforeEach("-framework", frameworkNames(objcProvider)))
           .add("-o", linkedBinary.getExecPathString())
           .addAll(Artifact.toExecPaths(objcProvider.get(LIBRARY)))
@@ -519,7 +519,7 @@ final class ObjcActionsBuilder {
   void registerLinkAction(ActionConstructionContext context, Artifact linkedBinary,
       ObjcProvider objcProvider, ExtraLinkArgs extraLinkArgs, Optional<Artifact> dsymBundle) {
     register(spawnOnDarwinActionBuilder(context)
-        .setMnemonic("Link")
+        .setMnemonic("ObjcLink")
         .setShellCommand(ImmutableList.of("/bin/bash", "-c"))
         .setCommandLine(
             new LinkCommandLine(objcConfiguration, extraLinkArgs, objcProvider, linkedBinary,

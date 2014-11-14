@@ -172,7 +172,7 @@ public class SkylarkModules {
               builtIn.put(objectType, new HashMap<String, SkylarkType>());
             }
             // TODO(bazel-team): add parameters to SkylarkFunctionType
-            SkylarkType returnType = getReturnType(annotation);
+            SkylarkType returnType = SkylarkType.getReturnType(annotation);
             builtIn.get(objectType).put(annotation.name(),
                 SkylarkFunctionType.of(annotation.name(), returnType));
           } catch (IllegalArgumentException e) {
@@ -187,10 +187,5 @@ public class SkylarkModules {
         }
       }
     }
-  }
-
-  private static SkylarkType getReturnType(SkylarkBuiltin annotation) {
-    return annotation.returnType().equals(Object.class)
-        ? SkylarkType.UNKNOWN : SkylarkType.of(annotation.returnType());
   }
 }

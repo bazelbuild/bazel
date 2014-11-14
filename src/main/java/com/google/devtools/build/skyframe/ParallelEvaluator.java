@@ -41,6 +41,7 @@ import com.google.devtools.build.skyframe.BuildingState.DirtyState;
 import com.google.devtools.build.skyframe.EvaluationProgressReceiver.EvaluationState;
 import com.google.devtools.build.skyframe.NodeEntry.DependencyState;
 import com.google.devtools.build.skyframe.Scheduler.SchedulerException;
+import com.google.devtools.build.skyframe.ValueOrExceptionUtils.BottomException;
 
 import java.util.ArrayDeque;
 import java.util.ArrayList;
@@ -276,18 +277,10 @@ public final class ParallelEvaluator implements Evaluator {
       this.errorInfo = Preconditions.checkNotNull(errorInfo, skyKey);
     }
 
-    /**
-     * Get a child of the node being evaluated, for use by the SkyFunction. If the child has an
-     * error and the caller requested that an exception be thrown (by passing in any exception
-     * class besides DontThrowAnyException), throws the exception associated to that error if it
-     * matches that exception class, for handling by the SkyFunction. Otherwise, just returns null
-     * for child with an error.
-     */
-    private <E extends Throwable> ValueOrException<E> getValueOrException(SkyKey depKey,
-        Class<E> exceptionClass) {
+    /** Get a child of the value being evaluated, for use by the value builder. */
+    private ValueOrUntypedException getValueOrUntypedException(SkyKey depKey) {
       checkActive();
       depKey = KEY_CANONICALIZER.intern(depKey);  // Canonicalize SkyKeys to save memory.
-      boolean throwException = exceptionClass != DontThrowAnyException.class;
       ValueWithMetadata value = getValueMaybeFromError(depKey, bubbleErrorInfo);
       if (value == null) {
         // If this entry is not yet done then (optionally) record the missing dependency and return
@@ -295,12 +288,12 @@ public final class ParallelEvaluator implements Evaluator {
         valuesMissing = true;
         if (bubbleErrorInfo != null) {
           // Values being built just for their errors don't get to request new children.
-          return ValueOrException.ofNull();
+          return ValueOrExceptionUtils.ofNull();
         }
         Preconditions.checkState(!directDeps.contains(depKey), "%s %s %s", skyKey, depKey, value);
         addDep(depKey);
         valuesMissing = true;
-        return ValueOrException.ofNull();
+        return ValueOrExceptionUtils.ofNull();
       }
 
       if (!directDeps.contains(depKey)) {
@@ -320,7 +313,7 @@ public final class ParallelEvaluator implements Evaluator {
         // The caller is given the value of the value if there was no error computing the value, or
         // if this is a keepGoing build (in which case each value should get child values even if
         // there are also errors).
-        return ValueOrException.ofValue(value.getValue());
+        return ValueOrExceptionUtils.ofValueUntyped(value.getValue());
       }
 
       // There was an error building the value, which we will either report by throwing an exception
@@ -336,63 +329,165 @@ public final class ParallelEvaluator implements Evaluator {
           depErrorKey = depKey;
         }
         valuesMissing = true;
-        return ValueOrException.ofNull();
+        return ValueOrExceptionUtils.ofNull();
       }
 
-      if (throwException) {
-        if (bubbleErrorInfo != null) {
-          // Set interrupted status, so that builder doesn't try anything fancy after this.
-          Thread.currentThread().interrupt();
+      if (bubbleErrorInfo != null) {
+        // Set interrupted status, so that builder doesn't try anything fancy after this.
+        Thread.currentThread().interrupt();
+      }
+      if (errorInfo.getException() != null) {
+        // Give builder a chance to handle this exception.
+        Exception e = errorInfo.getException();
+        return ValueOrExceptionUtils.ofExn(e);
+      }
+      // In a cycle.
+      Preconditions.checkState(!Iterables.isEmpty(errorInfo.getCycleInfo()), "%s %s %s %s", skyKey,
+          depKey, errorInfo, value);
+      valuesMissing = true;
+      return ValueOrExceptionUtils.ofNull();
+    }
+
+    private <E extends Exception> ValueOrException<E> getValueOrException(SkyKey depKey,
+        Class<E> exceptionClass) {
+      return ValueOrExceptionUtils.downcovert(getValueOrException(depKey, exceptionClass,
+          BottomException.class), exceptionClass);
+    }
+
+    private <E1 extends Exception, E2 extends Exception> ValueOrException2<E1, E2>
+        getValueOrException(SkyKey depKey, Class<E1> exceptionClass1, Class<E2> exceptionClass2) {
+      return ValueOrExceptionUtils.downconvert(getValueOrException(depKey, exceptionClass1,
+          exceptionClass2, BottomException.class), exceptionClass1, exceptionClass2);
+    }
+
+    private <E1 extends Exception, E2 extends Exception, E3 extends Exception>
+    ValueOrException3<E1, E2, E3> getValueOrException(SkyKey depKey, Class<E1> exceptionClass1,
+            Class<E2> exceptionClass2, Class<E3> exceptionClass3) {
+      return ValueOrExceptionUtils.downconvert(getValueOrException(depKey, exceptionClass1,
+          exceptionClass2, exceptionClass3, BottomException.class), exceptionClass1,
+          exceptionClass2, exceptionClass3);
+    }
+
+    private <E1 extends Exception, E2 extends Exception, E3 extends Exception,
+        E4 extends Exception> ValueOrException4<E1, E2, E3, E4> getValueOrException(SkyKey depKey,
+        Class<E1> exceptionClass1, Class<E2> exceptionClass2, Class<E3> exceptionClass3,
+        Class<E4> exceptionClass4) {
+      SkyFunctionException.validateExceptionType(exceptionClass1);
+      SkyFunctionException.validateExceptionType(exceptionClass2);
+      SkyFunctionException.validateExceptionType(exceptionClass3);
+      SkyFunctionException.validateExceptionType(exceptionClass4);
+      ValueOrUntypedException voe = getValueOrUntypedException(depKey);
+      SkyValue value = voe.getValue();
+      if (value != null) {
+        return ValueOrExceptionUtils.ofValue(value);
+      }
+      Exception e = voe.getException();
+      if (e != null) {
+        if (exceptionClass1.isInstance(e)) {
+          return ValueOrExceptionUtils.ofExn1(exceptionClass1.cast(e));
         }
-        if (errorInfo.getException() != null) {
-          // Give builder a chance to handle this exception but only if we are in keep going mode
-          // or in error bubbling. Otherwise, we want to fail fast.
-          Throwable e = errorInfo.getException();
-          if (exceptionClass.isInstance(e)) {
-            Preconditions.checkState(keepGoing || bubbleErrorInfo != null);
-            return ValueOrException.ofException(exceptionClass.cast(e));
-          }
-          valuesMissing = true;
-          return ValueOrException.ofNull();
+        if (exceptionClass2.isInstance(e)) {
+          return ValueOrExceptionUtils.ofExn2(exceptionClass2.cast(e));
         }
-        // In a cycle.
-        Preconditions.checkState(!Iterables.isEmpty(errorInfo.getCycleInfo()), "%s %s %s %s %s",
-            skyKey, depKey, errorInfo, exceptionClass, value);
+        if (exceptionClass3.isInstance(e)) {
+          return ValueOrExceptionUtils.ofExn3(exceptionClass3.cast(e));
+        }
+        if (exceptionClass4.isInstance(e)) {
+          return ValueOrExceptionUtils.ofExn4(exceptionClass4.cast(e));
+        }
       }
       valuesMissing = true;
-      return ValueOrException.ofNull();
+      return ValueOrExceptionUtils.ofNullValue();
     }
 
     @Override
-    public <E extends Throwable> SkyValue getValueOrThrow(SkyKey depKey, Class<E> exceptionClass)
+    @Nullable
+    public SkyValue getValue(SkyKey depKey) {
+      try {
+        return getValueOrThrow(depKey, BottomException.class);
+      } catch (BottomException e) {
+        throw new IllegalStateException("shouldn't reach here");
+      }
+    }
+
+    @Override
+    @Nullable
+    public <E extends Exception> SkyValue getValueOrThrow(SkyKey depKey, Class<E> exceptionClass)
         throws E {
       return getValueOrException(depKey, exceptionClass).get();
     }
 
     @Override
-    public SkyValue getValue(SkyKey depKey) {
-      return getValueFromVOE(getValueOrException(depKey, DontThrowAnyException.class));
+    @Nullable
+    public <E1 extends Exception, E2 extends Exception> SkyValue getValueOrThrow(SkyKey depKey,
+        Class<E1> exceptionClass1, Class<E2> exceptionClass2) throws E1, E2 {
+      return getValueOrException(depKey, exceptionClass1, exceptionClass2).get();
     }
 
     @Override
-    public <E extends Throwable> Map<SkyKey, ValueOrException<E>> getValuesOrThrow(
-        Iterable<SkyKey> depKeys, Class<E> exceptionClass) {
-      Map<SkyKey, ValueOrException<E>> result = new HashMap<>(128);
-      newlyRequestedDeps.startGroup();
-      for (SkyKey key : depKeys) {
-        if (result.containsKey(key)) {
-          continue;
-        }
-        result.put(key, getValueOrException(key, exceptionClass));
-      }
-      newlyRequestedDeps.endGroup();
-      return Collections.unmodifiableMap(result);
+    @Nullable
+    public <E1 extends Exception, E2 extends Exception,
+        E3 extends Exception> SkyValue getValueOrThrow(SkyKey depKey, Class<E1> exceptionClass1,
+        Class<E2> exceptionClass2, Class<E3> exceptionClass3) throws E1, E2, E3 {
+      return getValueOrException(depKey, exceptionClass1, exceptionClass2, exceptionClass3).get();
+    }
+
+    @Override
+    public <E1 extends Exception, E2 extends Exception, E3 extends Exception,
+        E4 extends Exception> SkyValue getValueOrThrow(SkyKey depKey, Class<E1> exceptionClass1,
+        Class<E2> exceptionClass2, Class<E3> exceptionClass3, Class<E4> exceptionClass4) throws E1,
+        E2, E3, E4 {
+      return getValueOrException(depKey, exceptionClass1, exceptionClass2, exceptionClass3,
+          exceptionClass4).get();
     }
 
     @Override
     public Map<SkyKey, SkyValue> getValues(Iterable<SkyKey> depKeys) {
-      return Maps.transformValues(getValuesOrThrow(depKeys, DontThrowAnyException.class),
-          GET_VALUE_FROM_NOE);
+      return Maps.transformValues(getValuesOrThrow(depKeys, BottomException.class),
+          GET_VALUE_FROM_VOE);
+    }
+
+    @Override
+    public <E extends Exception> Map<SkyKey, ValueOrException<E>> getValuesOrThrow(
+        Iterable<SkyKey> depKeys, Class<E> exceptionClass) {
+      return Maps.transformValues(getValuesOrThrow(depKeys, exceptionClass, BottomException.class),
+          makeSafeDowncastToVOEFunction(exceptionClass));
+    }
+
+    @Override
+    public <E1 extends Exception,
+        E2 extends Exception> Map<SkyKey, ValueOrException2<E1, E2>> getValuesOrThrow(
+        Iterable<SkyKey> depKeys, Class<E1> exceptionClass1, Class<E2> exceptionClass2) {
+      return Maps.transformValues(getValuesOrThrow(depKeys, exceptionClass1, exceptionClass2,
+          BottomException.class), makeSafeDowncastToVOE2Function(exceptionClass1,
+              exceptionClass2));
+    }
+
+    @Override
+    public <E1 extends Exception, E2 extends Exception, E3 extends Exception> Map<SkyKey,
+        ValueOrException3<E1, E2, E3>> getValuesOrThrow(Iterable<SkyKey> depKeys,
+        Class<E1> exceptionClass1, Class<E2> exceptionClass2, Class<E3> exceptionClass3) {
+      return Maps.transformValues(getValuesOrThrow(depKeys, exceptionClass1, exceptionClass2,
+          exceptionClass3, BottomException.class), makeSafeDowncastToVOE3Function(exceptionClass1,
+              exceptionClass2, exceptionClass3));
+    }
+
+    @Override
+    public <E1 extends Exception, E2 extends Exception, E3 extends Exception,
+        E4 extends Exception> Map<SkyKey, ValueOrException4<E1, E2, E3, E4>> getValuesOrThrow(
+        Iterable<SkyKey> depKeys, Class<E1> exceptionClass1, Class<E2> exceptionClass2,
+        Class<E3> exceptionClass3, Class<E4> exceptionClass4) {
+      Map<SkyKey, ValueOrException4<E1, E2, E3, E4>> result = new HashMap<>();
+      newlyRequestedDeps.startGroup();
+      for (SkyKey depKey : depKeys) {
+        if (result.containsKey(depKey)) {
+          continue;
+        }
+        result.put(depKey, getValueOrException(depKey, exceptionClass1, exceptionClass2,
+            exceptionClass3, exceptionClass4));
+      }
+      newlyRequestedDeps.endGroup();
+      return Collections.unmodifiableMap(result);
     }
 
     private void addDep(SkyKey key) {
@@ -516,27 +611,52 @@ public final class ParallelEvaluator implements Evaluator {
     }
   }
 
-  /** Class to signal that no exception should be thrown when retrieving a value. */
-  private class DontThrowAnyException extends RuntimeException {}
-
-
-  @Nullable
-  private static SkyValue getValueFromVOE(ValueOrException<DontThrowAnyException> vOE) {
-    try {
-      return vOE.get();
-    } catch (Throwable e) {
-      // Should never get here -- this particular ValueOrException.get() should never throw.
-      throw new IllegalStateException(e);
-    }
-  }
-
-  private static final Function<ValueOrException<DontThrowAnyException>, SkyValue>
-      GET_VALUE_FROM_NOE = new Function<ValueOrException<DontThrowAnyException>, SkyValue>() {
+  private static final Function<ValueOrException<BottomException>, SkyValue> GET_VALUE_FROM_VOE =
+      new Function<ValueOrException<BottomException>, SkyValue>() {
     @Override
-    public SkyValue apply(ValueOrException<DontThrowAnyException> nOE) {
-      return getValueFromVOE(nOE);
+    public SkyValue apply(ValueOrException<BottomException> voe) {
+      return ValueOrExceptionUtils.downcovert(voe);
     }
   };
+
+  private static <E extends Exception>
+      Function<ValueOrException2<E, BottomException>, ValueOrException<E>>
+      makeSafeDowncastToVOEFunction(final Class<E> exceptionClass) {
+    return new Function<ValueOrException2<E, BottomException>, ValueOrException<E>>() {
+      @Override
+      public ValueOrException<E> apply(ValueOrException2<E, BottomException> voe) {
+        return ValueOrExceptionUtils.downcovert(voe, exceptionClass);
+      }
+    };
+  }
+
+  private static <E1 extends Exception, E2 extends Exception>
+      Function<ValueOrException3<E1, E2, BottomException>, ValueOrException2<E1, E2>>
+      makeSafeDowncastToVOE2Function(final Class<E1> exceptionClass1,
+      final Class<E2> exceptionClass2) {
+    return new Function<ValueOrException3<E1, E2, BottomException>,
+        ValueOrException2<E1, E2>>() {
+      @Override
+      public ValueOrException2<E1, E2> apply(ValueOrException3<E1, E2, BottomException> voe) {
+        return ValueOrExceptionUtils.downconvert(voe, exceptionClass1, exceptionClass2);
+      }
+    };
+  }
+
+  private static <E1 extends Exception, E2 extends Exception, E3 extends Exception>
+      Function<ValueOrException4<E1, E2, E3, BottomException>, ValueOrException3<E1, E2, E3>>
+      makeSafeDowncastToVOE3Function(final Class<E1> exceptionClass1,
+          final Class<E2> exceptionClass2, final Class<E3> exceptionClass3) {
+    return new Function<ValueOrException4<E1, E2, E3, BottomException>,
+        ValueOrException3<E1, E2, E3>>() {
+      @Override
+      public ValueOrException3<E1, E2, E3> apply(ValueOrException4<E1, E2, E3,
+          BottomException> voe) {
+        return ValueOrExceptionUtils.downconvert(voe, exceptionClass1, exceptionClass2,
+            exceptionClass3);
+      }
+    };
+  }
 
   private class ValueVisitor extends AbstractQueueVisitor {
     private AtomicBoolean preventNewEvaluations = new AtomicBoolean(false);

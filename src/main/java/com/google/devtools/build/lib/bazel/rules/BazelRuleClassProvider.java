@@ -45,6 +45,7 @@ import com.google.devtools.build.lib.rules.objc.ObjcFrameworkRule;
 import com.google.devtools.build.lib.rules.objc.ObjcImportRule;
 import com.google.devtools.build.lib.rules.objc.ObjcLibraryRule;
 import com.google.devtools.build.lib.rules.objc.ObjcOptionsRule;
+import com.google.devtools.build.lib.rules.objc.ObjcProtoLibraryRule;
 import com.google.devtools.build.lib.rules.objc.ObjcRuleClasses;
 import com.google.devtools.build.lib.syntax.Label;
 import com.google.devtools.build.lib.syntax.SkylarkType;
@@ -171,6 +172,7 @@ public class BazelRuleClassProvider {
     builder.addRuleDefinition(ObjcImportRule.class);
     builder.addRuleDefinition(ObjcLibraryRule.class);
     builder.addRuleDefinition(ObjcOptionsRule.class);
+    builder.addRuleDefinition(ObjcProtoLibraryRule.class);
     builder.addRuleDefinition(ObjcRuleClasses.ObjcBaseRule.class);
 
     builder.addRuleDefinition(BazelExtraActionRule.class);

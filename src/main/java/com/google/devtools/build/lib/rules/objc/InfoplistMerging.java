@@ -99,7 +99,7 @@ class InfoplistMerging {
         plistWithEverything = Optional.of(merged);
         mergeAction = Optional.<Action>of(new SpawnAction.Builder(context)
             .setRegisterSpawnAction(false)
-            .setMnemonic("Merge Info.plist files")
+            .setMnemonic("MergeInfoPlistFiles")
             .setExecutable(plmerge)
             .setCommandLine(mergeCommandLine(inputPlists, merged))
             .addTransitiveInputs(inputPlists)

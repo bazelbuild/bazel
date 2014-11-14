@@ -41,7 +41,6 @@ import com.google.devtools.build.xcode.common.Platform;
 import com.google.devtools.build.xcode.util.Interspersing;
 import com.google.devtools.build.xcode.xcodegen.proto.XcodeGenProtos.XcodeprojBuildSetting;
 
-import java.util.Map;
 
 /**
  * Implementation for the "objc_binary" rule.
@@ -155,7 +154,8 @@ public class ObjcBinary implements RuleConfiguredTargetFactory {
       final Artifact dsymBundle = ObjcRuleClasses.intermediateArtifacts(ruleContext).dsymBundle();
       Artifact debugSymbolFile = dsymSymbol(ruleContext);
       ruleContext.getAnalysisEnvironment().registerAction(new SpawnAction.Builder(ruleContext)
-          .setMnemonic("Unzipping dSYM file")
+          .setMnemonic("UnzipDsym")
+          .setProgressMessage("Unzipping dSYM file: " + ruleContext.getLabel())
           .setExecutable(new PathFragment("/usr/bin/unzip"))
           .addInput(dsymBundle)
           .setCommandLine(new CommandLine() {
@@ -176,7 +176,8 @@ public class ObjcBinary implements RuleConfiguredTargetFactory {
       Artifact dumpsyms = ruleContext.getPrerequisiteArtifact("$dumpsyms", Mode.HOST);
       Artifact breakpadFile = breakpadSym(ruleContext);
       ruleContext.getAnalysisEnvironment().registerAction(new SpawnAction.Builder(ruleContext)
-          .setMnemonic("Generating breakpad file")
+          .setMnemonic("GenBreakpad")
+          .setProgressMessage("Generating breakpad file: " + ruleContext.getLabel())
           .setShellCommand(ImmutableList.of("/bin/bash", "-c"))
           .setExecutionInfo(ImmutableMap.of(ExecutionRequirements.REQUIRES_DARWIN, ""))
           .addInput(dumpsyms)
@@ -210,7 +211,8 @@ public class ObjcBinary implements RuleConfiguredTargetFactory {
         // is the application name, and is specified as an attribute.
 
         ruleContext.getAnalysisEnvironment().registerAction(new SpawnAction.Builder(ruleContext)
-            .setMnemonic("Extract entitlements")
+            .setMnemonic("ExtractIosEntitlements")
+            .setProgressMessage("Extracting entitlements: " + ruleContext.getLabel())
             .setExecutable(new PathFragment("/bin/bash"))
             .addArgument("-c")
             .addArgument("set -e && "
@@ -242,7 +244,8 @@ public class ObjcBinary implements RuleConfiguredTargetFactory {
 
       // TODO(bazel-team): Support variable substitution
       ruleContext.getAnalysisEnvironment().registerAction(new SpawnAction.Builder(ruleContext)
-          .setMnemonic("Sign app bundle")
+          .setMnemonic("IosSignBundle")
+          .setProgressMessage("Signing iOS bundle: " + ruleContext.getLabel())
           .setExecutable(new PathFragment("/bin/bash"))
           .addArgument("-c")
           // TODO(bazel-team): Support --resource-rules for resources
@@ -270,13 +273,12 @@ public class ObjcBinary implements RuleConfiguredTargetFactory {
     ruleContext.getAnalysisEnvironment().registerAction(
         new BinaryFileWriteAction(
             ruleContext.getActionOwner(), bundleMergeControlArtifact,
-            new BundleMergeControlBytes(
-                bundling, ipaUnsigned,
-                objcConfiguration, variableSubstitutionsInBundleMerge(ruleContext)),
+            new BundleMergeControlBytes(bundling, ipaUnsigned, objcConfiguration),
             /*makeExecutable=*/false));
 
     ruleContext.getAnalysisEnvironment().registerAction(new SpawnAction.Builder(ruleContext)
-        .setMnemonic("Generate app bundle")
+        .setMnemonic("IosBundle")
+        .setProgressMessage("Bundling iOS application: " + ruleContext.getLabel())
         .setExecutable(ruleContext.getExecutablePrerequisite("$bundlemerge", Mode.HOST))
         .addInputArgument(bundleMergeControlArtifact)
         .addTransitiveInputs(bundling.getBundleContentArtifacts())
@@ -300,13 +302,6 @@ public class ObjcBinary implements RuleConfiguredTargetFactory {
 
   private static String extractPlistCommand(Artifact provisioningProfile) {
     return "security cms -D -i " + ShellUtils.shellEscape(provisioningProfile.getExecPathString());
-  }
-
-  private static Map<String, String> variableSubstitutionsInBundleMerge(RuleContext ruleContext) {
-    return ImmutableMap.of(
-        "EXECUTABLE_NAME", ruleContext.getLabel().getName(),
-        "BUNDLE_NAME", ruleContext.getLabel().getName() + ".app",
-        "PRODUCT_NAME", ruleContext.getLabel().getName());
   }
 
   static XcodeProvider xcodeProvider(RuleContext ruleContext, ObjcCommon common,
