@@ -755,7 +755,7 @@ public final class CcLibraryHelper {
       if (cppModuleMap != null) {
         CppModuleMapAction action = new CppModuleMapAction(ruleContext.getActionOwner(),
             cppModuleMap, privateHeaders, publicHeaders, collectModuleMaps(), bootstrapHackHeaders);
-        ruleContext.getAnalysisEnvironment().registerAction(action);
+        ruleContext.registerAction(action);
       }
     }
 

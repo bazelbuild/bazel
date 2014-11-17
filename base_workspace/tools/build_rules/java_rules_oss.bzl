@@ -16,17 +16,10 @@ java_filetype = filetype([".java"])
 jar_filetype = filetype([".jar"])
 srcjar_filetype = filetype([".jar", ".srcjar"])
 
-UNIX_JAVA_PATH = "/usr/bin/"
-WINDOWS_JAVA_PATH = "C:/Program\ Files/Java/jdk1.8.0_20/bin/"
+JAVA_PATH='tools/jdk/jdk/bin/'
 
 def is_windows(config):
   return config.fragment(cpp).compiler.startswith("windows_")
-
-def java_path(ctx):
-  if is_windows(ctx.configuration):
-    return WINDOWS_JAVA_PATH
-  else:
-    return UNIX_JAVA_PATH
 
 def path_separator(ctx):
   if is_windows(ctx.configuration):
@@ -60,12 +53,10 @@ def java_library_impl(ctx):
       content = cmd_helper.join_paths("\n", set(sources)),
       executable = False)
 
-  javapath = java_path(ctx)
-
   # Cleaning build output directory
   cmd = "set -e;rm -rf " + build_output + ";mkdir " + build_output + "\n"
   if ctx.files.srcs:
-    cmd += javapath + "javac"
+    cmd += JAVA_PATH + "javac"
     if compile_time_jars:
       cmd += " -classpath '" + cmd_helper.join_paths(path_separator(ctx), compile_time_jars) + "'"
     cmd += " -d " + build_output + " @" + sources_param_file.path + "\n"
@@ -74,7 +65,7 @@ def java_library_impl(ctx):
   # stick them in the root of the jar.
   for r in ctx.files.resources:
     cmd += "cp %s %s\n" % (r.path, build_output)
-  cmd += (javapath + "jar cf " + class_jar.path + " -C " + build_output + " .\n" +
+  cmd += (JAVA_PATH + "jar cf " + class_jar.path + " -C " + build_output + " .\n" +
          "touch " + build_output + "\n")
   ctx.action(
     inputs = (sources + compile_time_jars_list + [sources_param_file] +
@@ -104,13 +95,12 @@ def java_binary_impl(ctx):
     content = "Main-Class: " + main_class + "\n",
     executable = False)
 
-  javapath = java_path(ctx)
 
   # Cleaning build output directory
   cmd = "set -e;rm -rf " + build_output + ";mkdir " + build_output + "\n"
   for jar in library_result.runtime_jars:
     cmd += "unzip -qn " + jar.path + " -d " + build_output + "\n"
-  cmd += (javapath + "jar cmf " + manifest.path + " " +
+  cmd += (JAVA_PATH + "jar cmf " + manifest.path + " " +
          deploy_jar.path + " -C " + build_output + " .\n" +
          "touch " + build_output + "\n")
 

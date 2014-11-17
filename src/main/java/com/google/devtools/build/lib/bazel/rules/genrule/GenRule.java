@@ -130,7 +130,7 @@ public class GenRule implements RuleConfiguredTargetFactory {
       inputs.add(ruleContext.getAnalysisEnvironment().getVolatileWorkspaceStatusArtifact());
     }
 
-    ruleContext.getAnalysisEnvironment().registerAction(new GenRuleAction(
+    ruleContext.registerAction(new GenRuleAction(
         ruleContext.getActionOwner(), inputs.build(), filesToBuild, argv, env,
         ImmutableMap.copyOf(executionInfo), commandHelper.getRemoteRunfileManifestMap(),
         message + ' ' + ruleContext.getLabel()));

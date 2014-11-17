@@ -123,7 +123,7 @@ public class BaselineCoverageAction extends AbstractFileWriteAction
     Artifact coverageData = ruleContext.getAnalysisEnvironment().getDerivedArtifact(
         Util.getWorkspaceRelativePath(ruleContext.getTarget()).getChild("baseline_coverage.dat"),
         ruleContext.getConfiguration().getTestLogsDirectory());
-    ruleContext.getAnalysisEnvironment().registerAction(new BaselineCoverageAction(
+    ruleContext.registerAction(new BaselineCoverageAction(
         ruleContext.getActionOwner(), instrumentedFiles, coverageData));
 
     return ImmutableList.of(coverageData);

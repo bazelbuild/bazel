@@ -47,7 +47,7 @@ public class ShTest extends ShBinary implements RuleConfiguredTargetFactory {
         .append(bashPath + " \"" + src.getRootRelativePath().getPathString() + "\" \"$@\"\n")
         .toString();
 
-    ruleContext.getAnalysisEnvironment().registerAction(
+    ruleContext.registerAction(
         new FileWriteAction(ruleContext.getActionOwner(), testRunner, runnerContents, true));
     return testRunner;
   }

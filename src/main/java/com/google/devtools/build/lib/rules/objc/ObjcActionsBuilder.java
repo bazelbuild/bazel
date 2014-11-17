@@ -78,8 +78,8 @@ final class ObjcActionsBuilder {
     this.actionRegistry = Preconditions.checkNotNull(actionRegistry);
   }
 
-  private static SpawnAction.Builder spawnOnDarwinActionBuilder(ActionConstructionContext context) {
-    return new SpawnAction.Builder(context)
+  private static SpawnAction.Builder spawnOnDarwinActionBuilder() {
+    return new SpawnAction.Builder()
         .setExecutionInfo(ImmutableMap.of(ExecutionRequirements.REQUIRES_DARWIN, ""));
   }
 
@@ -92,15 +92,14 @@ final class ObjcActionsBuilder {
 
   // TODO(bazel-team): Reference a rule target rather than a jar file when Darwin runfiles work
   // better.
-  private static SpawnAction.Builder spawnJavaOnDarwinActionBuilder(
-      ActionConstructionContext context, Artifact deployJarArtifact) {
-    return spawnOnDarwinActionBuilder(context)
+  private static SpawnAction.Builder spawnJavaOnDarwinActionBuilder(Artifact deployJarArtifact) {
+    return spawnOnDarwinActionBuilder()
         .setExecutable(JAVA)
         .addExecutableArguments("-jar", deployJarArtifact.getExecPathString())
         .addInput(deployJarArtifact);
   }
 
-  private static Action compileAction(
+  private static Action[] compileAction(
       ActionConstructionContext context,
       final Artifact sourceFile,
       final Artifact objFile,
@@ -110,7 +109,7 @@ final class ObjcActionsBuilder {
       final OptionsProvider optionsProvider,
       final ObjcConfiguration objcConfiguration,
       final BuildConfiguration buildConfiguration) {
-    return spawnOnDarwinActionBuilder(context)
+    return spawnOnDarwinActionBuilder()
         .setMnemonic("ObjcCompile")
         .setExecutable(CLANG)
         .setCommandLine(new CommandLine() {
@@ -139,7 +138,7 @@ final class ObjcActionsBuilder {
         .addTransitiveInputs(objcProvider.get(HEADER))
         .addTransitiveInputs(objcProvider.get(FRAMEWORK_FILE))
         .addInputs(pchFile.asSet())
-        .build();
+        .build(context);
   }
 
   private static final ImmutableList<String> ARC_ARGS = ImmutableList.of("-fobjc-arc");
@@ -155,18 +154,16 @@ final class ObjcActionsBuilder {
     for (Artifact sourceFile : compilationArtifacts.getSrcs()) {
       Artifact objFile = intermediateArtifacts.objFile(sourceFile);
       objFiles.add(objFile);
-      register(
-          compileAction(context, sourceFile, objFile,
-              compilationArtifacts.getPchFile(), objcProvider, ARC_ARGS, optionsProvider,
-              objcConfiguration, buildConfiguration));
+      register(compileAction(context, sourceFile, objFile,
+          compilationArtifacts.getPchFile(), objcProvider, ARC_ARGS, optionsProvider,
+          objcConfiguration, buildConfiguration));
     }
     for (Artifact nonArcSourceFile : compilationArtifacts.getNonArcSrcs()) {
       Artifact objFile = intermediateArtifacts.objFile(nonArcSourceFile);
       objFiles.add(objFile);
-      register(
-          compileAction(context, nonArcSourceFile, objFile,
-              compilationArtifacts.getPchFile(), objcProvider, NON_ARC_ARGS, optionsProvider,
-              objcConfiguration, buildConfiguration));
+      register(compileAction(context, nonArcSourceFile, objFile,
+          compilationArtifacts.getPchFile(), objcProvider, NON_ARC_ARGS, optionsProvider,
+          objcConfiguration, buildConfiguration));
     }
     for (Artifact archive : compilationArtifacts.getArchive().asSet()) {
       registerAll(archiveActions(context, objFiles.build(), archive, objcConfiguration,
@@ -186,7 +183,7 @@ final class ObjcActionsBuilder {
     actions.add(new FileWriteAction(
         context.getActionOwner(), objList, joinExecPaths(objFiles), /*makeExecutable=*/ false));
 
-    actions.add(spawnOnDarwinActionBuilder(context)
+    actions.add(spawnOnDarwinActionBuilder()
         .setMnemonic("ObjcLink")
         .setExecutable(LIBTOOL)
         .setCommandLine(new CommandLine() {
@@ -204,12 +201,12 @@ final class ObjcActionsBuilder {
         .addInputs(objFiles)
         .addInput(objList)
         .addOutput(archive)
-        .build());
+        .build(context));
 
     return actions.build();
   }
 
-  private void register(Action action) {
+  private void register(Action... action) {
     actionRegistry.registerAction(action);
   }
 
@@ -245,13 +242,13 @@ final class ObjcActionsBuilder {
         controlFile,
         xcodegenControlFileBytes(pbxproj, xcodeProvider),
         /*makeExecutable=*/false));
-    register(new SpawnAction.Builder(context)
+    register(new SpawnAction.Builder()
         .setMnemonic("GenerateXcodeproj")
         .setExecutable(baseTools.xcodegen())
         .addArgument("--control")
         .addInputArgument(controlFile)
         .addOutput(pbxproj)
-        .build());
+        .build(context));
   }
 
   /**
@@ -265,7 +262,7 @@ final class ObjcActionsBuilder {
     for (CompiledResourceFile stringsFile : stringsFiles) {
       final Artifact original = stringsFile.getOriginal();
       final Artifact bundled = stringsFile.getBundled().getBundled();
-      result.add(new SpawnAction.Builder(context)
+      result.add(new SpawnAction.Builder()
           .setMnemonic("ConvertStringsPlist")
           .setExecutable(baseTools.plmerge())
           .setCommandLine(new CommandLine() {
@@ -277,7 +274,7 @@ final class ObjcActionsBuilder {
           })
           .addInput(original)
           .addOutput(bundled)
-          .build());
+          .build(context));
     }
     return result.build();
   }
@@ -291,7 +288,7 @@ final class ObjcActionsBuilder {
     for (CompiledResourceFile xibFile : xibFiles) {
       final Artifact bundled = xibFile.getBundled().getBundled();
       final Artifact original = xibFile.getOriginal();
-      result.add(spawnOnDarwinActionBuilder(context)
+      result.add(spawnOnDarwinActionBuilder()
           .setMnemonic("XibCompile")
           .setExecutable(IBTOOL)
           .setCommandLine(new CommandLine() {
@@ -305,7 +302,7 @@ final class ObjcActionsBuilder {
           })
           .addOutput(bundled)
           .addInput(original)
-          .build());
+          .build(context));
     }
     return result.build();
   }
@@ -330,7 +327,7 @@ final class ObjcActionsBuilder {
     // Note that below we set the archive root to the empty string. This means that the generated
     // zip file will be rooted at the bundle root, and we have to prepend the bundle root to each
     // entry when merging it with the final .ipa file.
-    register(spawnJavaOnDarwinActionBuilder(context, tools.actooloribtoolzipDeployJar())
+    register(spawnJavaOnDarwinActionBuilder(tools.actooloribtoolzipDeployJar())
         .setMnemonic("AssetCatalogCompile")
         .addTransitiveInputs(provider.get(ASSET_CATALOG))
         .addOutput(actoolzipOutput)
@@ -339,7 +336,7 @@ final class ObjcActionsBuilder {
             provider,
             actoolzipOutput,
             extraActoolArgs))
-        .build());
+        .build(context));
   }
 
   private static CommandLine actoolzipCommandLine(
@@ -370,12 +367,12 @@ final class ObjcActionsBuilder {
   }
 
   void registerIbtoolzipAction(ObjcRuleClasses.Tools tools, Artifact input, Artifact outputZip) {
-    register(spawnJavaOnDarwinActionBuilder(context, tools.actooloribtoolzipDeployJar())
+    register(spawnJavaOnDarwinActionBuilder(tools.actooloribtoolzipDeployJar())
         .setMnemonic("StoryboardCompile")
         .addInput(input)
         .addOutput(outputZip)
         .setCommandLine(Storyboards.ibtoolzipCommandLine(input, outputZip))
-        .build());
+        .build(context));
   }
 
   @VisibleForTesting
@@ -395,7 +392,7 @@ final class ObjcActionsBuilder {
       final Artifact outputZip = datamodel.getOutputZip();
       final String archiveRoot = datamodel.archiveRootForMomczip();
       final String container = datamodel.getContainer().getSafePathString();
-      result.add(spawnJavaOnDarwinActionBuilder(context, baseTools.momczipDeployJar())
+      result.add(spawnJavaOnDarwinActionBuilder(baseTools.momczipDeployJar())
           .addOutput(outputZip)
           .addInputs(datamodel.getInputs())
           .setCommandLine(new CommandLine() {
@@ -410,7 +407,7 @@ final class ObjcActionsBuilder {
                   .build();
             }
           })
-          .build());
+          .build(context));
     }
     return result.build();
   }
@@ -524,7 +521,7 @@ final class ObjcActionsBuilder {
         Interspersing.beforeEach(
             "-force_load", Artifact.toExecPaths(objcProvider.get(FORCE_LOAD_LIBRARY))),
         extraLinkArgs));
-    register(spawnOnDarwinActionBuilder(context)
+    register(spawnOnDarwinActionBuilder()
         .setMnemonic("ObjcLink")
         .setShellCommand(ImmutableList.of("/bin/bash", "-c"))
         .setCommandLine(
@@ -535,7 +532,7 @@ final class ObjcActionsBuilder {
         .addTransitiveInputs(objcProvider.get(LIBRARY))
         .addTransitiveInputs(objcProvider.get(IMPORTED_LIBRARY))
         .addTransitiveInputs(objcProvider.get(FRAMEWORK_FILE))
-        .build());
+        .build(context));
   }
 
   static final class StringsFiles extends IterableWrapper<CompiledResourceFile> {

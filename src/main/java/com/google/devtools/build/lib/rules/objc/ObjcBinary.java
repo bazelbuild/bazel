@@ -152,7 +152,7 @@ public class ObjcBinary implements RuleConfiguredTargetFactory {
     if (shouldGenerateDebugSymbols(ruleContext, bundling)) {
       final Artifact dsymBundle = ObjcRuleClasses.intermediateArtifacts(ruleContext).dsymBundle();
       Artifact debugSymbolFile = dsymSymbol(ruleContext);
-      ruleContext.getAnalysisEnvironment().registerAction(new SpawnAction.Builder(ruleContext)
+      ruleContext.registerAction(new SpawnAction.Builder()
           .setMnemonic("UnzipDsym")
           .setProgressMessage("Unzipping dSYM file: " + ruleContext.getLabel())
           .setExecutable(new PathFragment("/usr/bin/unzip"))
@@ -170,11 +170,11 @@ public class ObjcBinary implements RuleConfiguredTargetFactory {
           })
           .addOutput(dsymPlist(ruleContext))
           .addOutput(debugSymbolFile)
-          .build());
+          .build(ruleContext));
 
       Artifact dumpsyms = ruleContext.getPrerequisiteArtifact("$dumpsyms", Mode.HOST);
       Artifact breakpadFile = breakpadSym(ruleContext);
-      ruleContext.getAnalysisEnvironment().registerAction(new SpawnAction.Builder(ruleContext)
+      ruleContext.registerAction(new SpawnAction.Builder()
           .setMnemonic("GenBreakpad")
           .setProgressMessage("Generating breakpad file: " + ruleContext.getLabel())
           .setShellCommand(ImmutableList.of("/bin/bash", "-c"))
@@ -186,7 +186,7 @@ public class ObjcBinary implements RuleConfiguredTargetFactory {
               ShellUtils.shellEscape(debugSymbolFile.getExecPathString()),
               ShellUtils.shellEscape(breakpadFile.getExecPathString())))
           .addOutput(breakpadFile)
-          .build());
+          .build(ruleContext));
     }
 
     Optional<Artifact> entitlements = Optional.fromNullable(
@@ -209,7 +209,7 @@ public class ObjcBinary implements RuleConfiguredTargetFactory {
         // BundleID consists of a reverse-DNS string to identify the app, where the last component
         // is the application name, and is specified as an attribute.
 
-        ruleContext.getAnalysisEnvironment().registerAction(new SpawnAction.Builder(ruleContext)
+        ruleContext.registerAction(new SpawnAction.Builder()
             .setMnemonic("ExtractIosEntitlements")
             .setProgressMessage("Extracting entitlements: " + ruleContext.getLabel())
             .setExecutable(new PathFragment("/bin/bash"))
@@ -236,13 +236,13 @@ public class ObjcBinary implements RuleConfiguredTargetFactory {
             .addInput(provisioningProfile(ruleContext).get())
             .addOutput(entitlements.get())
             .setExecutionInfo(ImmutableMap.of(ExecutionRequirements.REQUIRES_DARWIN, ""))
-            .build());
+            .build(ruleContext));
       }
       ipaUnsigned = ObjcRuleClasses.artifactByAppendingToRootRelativePath(
           ruleContext, ipaOutput.getExecPath(), ".unsigned");
 
       // TODO(bazel-team): Support variable substitution
-      ruleContext.getAnalysisEnvironment().registerAction(new SpawnAction.Builder(ruleContext)
+      ruleContext.registerAction(new SpawnAction.Builder()
           .setMnemonic("IosSignBundle")
           .setProgressMessage("Signing iOS bundle: " + ruleContext.getLabel())
           .setExecutable(new PathFragment("/bin/bash"))
@@ -264,25 +264,25 @@ public class ObjcBinary implements RuleConfiguredTargetFactory {
           .addInput(entitlements.get())
           .addOutput(ipaOutput)
           .setExecutionInfo(ImmutableMap.of(ExecutionRequirements.REQUIRES_DARWIN, ""))
-          .build());
+          .build(ruleContext));
     }
 
     Artifact bundleMergeControlArtifact =
         ObjcRuleClasses.artifactByAppendingToBaseName(ruleContext, ".ipa-control");
-    ruleContext.getAnalysisEnvironment().registerAction(
+    ruleContext.registerAction(
         new BinaryFileWriteAction(
             ruleContext.getActionOwner(), bundleMergeControlArtifact,
             new BundleMergeControlBytes(bundling, ipaUnsigned, objcConfiguration),
             /*makeExecutable=*/false));
 
-    ruleContext.getAnalysisEnvironment().registerAction(new SpawnAction.Builder(ruleContext)
+    ruleContext.registerAction(new SpawnAction.Builder()
         .setMnemonic("IosBundle")
         .setProgressMessage("Bundling iOS application: " + ruleContext.getLabel())
         .setExecutable(ruleContext.getExecutablePrerequisite("$bundlemerge", Mode.HOST))
         .addInputArgument(bundleMergeControlArtifact)
         .addTransitiveInputs(bundling.getBundleContentArtifacts())
         .addOutput(ipaUnsigned)
-        .build());
+        .build(ruleContext));
   }
 
   private static String codesignCommand(

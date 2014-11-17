@@ -24,6 +24,7 @@ import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.Iterables;
 import com.google.common.collect.Lists;
 import com.google.devtools.build.lib.actions.AbstractAction;
+import com.google.devtools.build.lib.actions.Action;
 import com.google.devtools.build.lib.actions.ActionExecutionContext;
 import com.google.devtools.build.lib.actions.ActionExecutionException;
 import com.google.devtools.build.lib.actions.ActionInput;
@@ -92,6 +93,7 @@ public class SpawnAction extends AbstractAction {
   private final ImmutableMap<String, String> executionInfo;
 
   private final ExtraActionInfoSupplier<?> extraActionInfoSupplier;
+
   /**
    * Constructs a SpawnAction using direct initialization arguments.
    * <p>
@@ -398,9 +400,6 @@ public class SpawnAction extends AbstractAction {
    */
   public static class Builder {
 
-    private final ActionOwner owner;
-    private final AnalysisEnvironment analysisEnvironment;
-    private final BuildConfiguration configuration;
     private final NestedSetBuilder<Artifact> inputsBuilder =
         NestedSetBuilder.stableOrder();
     private final List<Artifact> outputs = new ArrayList<>();
@@ -409,6 +408,9 @@ public class SpawnAction extends AbstractAction {
     private ImmutableMap<String, String> environment = ImmutableMap.of();
     private ImmutableMap<String, String> executionInfo = ImmutableMap.of();
     private boolean isShellCommand = false;
+    private boolean useDefaultShellEnvironment = false;
+    private PathFragment executable;
+    // executableArgs does not include the executable itself.
     private List<String> executableArgs;
     private final IterablesChain.Builder<String> argumentsBuilder = IterablesChain.builder();
     private CommandLine commandLine;
@@ -417,38 +419,25 @@ public class SpawnAction extends AbstractAction {
     private ParamFileInfo paramFileInfo = null;
     private String mnemonic = "Unknown";
     private ExtraActionInfoSupplier<?> extraActionInfoSupplier = null;
-    private boolean registerSpawnAction = true;
 
     /**
-     * Creates a builder that builds {@link SpawnAction} instances.
+     * Creates a SpawnAction builder.
      */
-    @VisibleForTesting  // productionVisibility = Visibility.PRIVATE
-    public Builder(ActionOwner owner, AnalysisEnvironment analysisEnvironment,
-        BuildConfiguration configuration) {
-      this.owner = owner;
-      this.analysisEnvironment = analysisEnvironment;
-      this.configuration = configuration;
-    }
-
-    /**
-     * Creates a builder that builds {@link SpawnAction} instances, using the configuration of the
-     * rule as the action configuration.
-     */
-    public Builder(ActionConstructionContext context) {
-      this(context.getActionOwner(), context.getAnalysisEnvironment(), context.getConfiguration());
-    }
+    public Builder() {}
 
     /**
      * Creates a builder that is a copy of another builder.
      */
     public Builder(Builder other) {
-      this(other.owner, other.analysisEnvironment, other.configuration);
       this.inputsBuilder.addTransitive(other.inputsBuilder.build());
       this.outputs.addAll(other.outputs);
       this.inputManifests.putAll(other.inputManifests);
       this.resourceSet = other.resourceSet;
       this.environment = other.environment;
+      this.executionInfo = other.executionInfo;
       this.isShellCommand = other.isShellCommand;
+      this.useDefaultShellEnvironment = other.useDefaultShellEnvironment;
+      this.executable = other.executable;
       this.executableArgs = (other.executableArgs != null)
           ? Lists.newArrayList(other.executableArgs)
           : null;
@@ -457,41 +446,66 @@ public class SpawnAction extends AbstractAction {
       this.progressMessage = other.progressMessage;
       this.paramFileInfo = other.paramFileInfo;
       this.mnemonic = other.mnemonic;
-      this.registerSpawnAction = other.registerSpawnAction;
     }
 
     /**
-     * Builds the Action as configured and returns it. This method makes a copy
-     * of all the collections, so it is safe to reuse the builder after this
-     * method returns.
+     * Builds the SpawnAction using the passed in action configuration and returns it and all
+     * dependent actions. The first item of the returned array is always the SpawnAction itself.
+     *
+     * <p>This method makes a copy of all the collections, so it is safe to reuse the builder after
+     * this method returns.
+     *
+     * @return the SpawnAction and any actions required by it, with the first item always being the
+     *      SpawnAction itself.
      */
-    public SpawnAction build() {
-      Preconditions.checkState(executableArgs != null);
+    public Action[] build(ActionConstructionContext context) {
+      return build(context.getActionOwner(), context.getAnalysisEnvironment(),
+          context.getConfiguration());
+    }
+
+    @VisibleForTesting
+    public Action[] build(ActionOwner owner, AnalysisEnvironment analysisEnvironment,
+        BuildConfiguration configuration) {
+      if (isShellCommand && executable == null) {
+        executable = configuration.getShExecutable();
+      }
+      Preconditions.checkNotNull(executable);
+      Preconditions.checkState(
+          !executable.isAbsolute()
+          // Using an absolute path starting with the exec root can never work.
+          || !executable.startsWith(configuration.getExecRoot().asFragment()));
+      Preconditions.checkNotNull(executableArgs);
+
+      if (useDefaultShellEnvironment) {
+        this.environment = configuration.getDefaultShellEnvironment();
+      }
+
+      ImmutableList<String> argv = ImmutableList.<String>builder()
+          .add(executable.getPathString())
+          .addAll(executableArgs)
+          .build();
 
       Iterable<String> arguments = argumentsBuilder.build();
 
-      Artifact paramsFile = ParamFileHelper.getParamsFile(executableArgs, arguments,
-          commandLine, paramFileInfo, configuration, analysisEnvironment, outputs);
+      Artifact paramsFile = ParamFileHelper.getParamsFile(argv, arguments, commandLine,
+          paramFileInfo, configuration, analysisEnvironment, outputs);
 
+      List<Action> actions = new ArrayList<>();
       CommandLine actualCommandLine;
       if (paramsFile != null) {
-        actualCommandLine = ParamFileHelper.createWithParamsFile(executableArgs, arguments,
-            commandLine, isShellCommand, owner, analysisEnvironment, paramFileInfo, paramsFile);
+        actualCommandLine = ParamFileHelper.createWithParamsFile(argv, arguments, commandLine,
+            isShellCommand, owner, actions, paramFileInfo, paramsFile);
       } else {
-        actualCommandLine = ParamFileHelper.createWithoutParamsFile(
-            executableArgs, arguments, commandLine, isShellCommand);
+        actualCommandLine = ParamFileHelper.createWithoutParamsFile(argv, arguments, commandLine,
+            isShellCommand);
       }
 
       Iterable<Artifact> actualInputs = collectActualInputs(paramsFile);
 
-      SpawnAction action = new SpawnAction(owner, actualInputs, ImmutableList.copyOf(outputs),
+      actions.add(0, new SpawnAction(owner, actualInputs, ImmutableList.copyOf(outputs),
           resourceSet, actualCommandLine, environment, executionInfo, progressMessage,
-          ImmutableMap.copyOf(inputManifests), mnemonic, extraActionInfoSupplier);
-
-      if (registerSpawnAction) {
-        analysisEnvironment.registerAction(action);
-      }
-      return action;
+          ImmutableMap.copyOf(inputManifests), mnemonic, extraActionInfoSupplier));
+      return actions.toArray(new Action[actions.size()]);
     }
 
     private Iterable<Artifact> collectActualInputs(Artifact parameterFile) {
@@ -499,15 +513,6 @@ public class SpawnAction extends AbstractAction {
         inputsBuilder.add(parameterFile);
       }
       return inputsBuilder.build();
-    }
-
-    /**
-     * Set whether the builder registers the action just built with the analysis environment.
-     */
-    public Builder setRegisterSpawnAction(boolean registerSpawnAction) {
-      // TODO(bazel-team): Remove this by calling registerAction() at every call site of build()
-      this.registerSpawnAction = registerSpawnAction;
-      return this;
     }
 
     /**
@@ -559,6 +564,7 @@ public class SpawnAction extends AbstractAction {
      */
     public Builder setEnvironment(Map<String, String> environment) {
       this.environment = ImmutableMap.copyOf(environment);
+      this.useDefaultShellEnvironment = false;
       return this;
     }
 
@@ -575,7 +581,8 @@ public class SpawnAction extends AbstractAction {
      * see {@link BuildConfiguration#getDefaultShellEnvironment}.
      */
     public Builder useDefaultShellEnvironment() {
-      this.environment = configuration.getDefaultShellEnvironment();
+      this.environment = null;
+      this.useDefaultShellEnvironment  = true;
       return this;
     }
 
@@ -588,9 +595,8 @@ public class SpawnAction extends AbstractAction {
      * {@link #setShellCommand(String)}.
      */
     public Builder setExecutable(PathFragment executable) {
-      Preconditions.checkArgument(!executable.isAbsolute() ||
-          !executable.startsWith(configuration.getExecRoot().asFragment()));
-      this.executableArgs = Lists.newArrayList(executable.getPathString());
+      this.executable = executable;
+      this.executableArgs = Lists.newArrayList();
       this.isShellCommand = false;
       return this;
     }
@@ -647,11 +653,8 @@ public class SpawnAction extends AbstractAction {
      */
     public Builder setJavaExecutable(PathFragment javaExecutable,
         Artifact deployJar, String javaMainClass, List<String> jvmArgs) {
-      // Using an absolute path starting with the exec root can never work!
-      Preconditions.checkArgument(
-          !javaExecutable.startsWith(configuration.getExecRoot().asFragment()));
+      this.executable = javaExecutable;
       this.executableArgs = Lists.newArrayList();
-      executableArgs.add(javaExecutable.getPathString());
       executableArgs.add("-Xverify:none");
       executableArgs.addAll(jvmArgs);
       executableArgs.add("-cp");
@@ -674,10 +677,9 @@ public class SpawnAction extends AbstractAction {
      * {@link #setShellCommand(String)}.
      */
     public Builder setShellCommand(String command) {
-      // 0=shell executable, 1=shell command switch, 2=command
-      this.executableArgs = Lists.newArrayList(
-          configuration.getShExecutable().getPathString(),
-          "-c", command);
+      this.executable = null;
+      // 0=shell command switch, 1=command
+      this.executableArgs = Lists.newArrayList("-c", command);
       this.isShellCommand = true;
       return this;
     }
@@ -687,7 +689,9 @@ public class SpawnAction extends AbstractAction {
      * commands to be executed.
      */
     public Builder setShellCommand(Iterable<String> command) {
-      this.executableArgs = ImmutableList.copyOf(command);
+      this.executable = new PathFragment(Iterables.getFirst(command, null));
+      // The first item of the commands is the shell executable that should be used.
+      this.executableArgs = ImmutableList.copyOf(Iterables.skip(command, 1));
       this.isShellCommand = true;
       return this;
     }

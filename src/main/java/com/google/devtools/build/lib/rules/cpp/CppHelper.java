@@ -263,7 +263,7 @@ public class CppHelper {
         !prerequisite.isSourceArtifact() &&
         CPP_FILETYPES.matches(prerequisite.getFilename())) {
       Artifact scanned = getIncludesOutput(ruleContext, prerequisite);
-      ruleContext.getAnalysisEnvironment().registerAction(
+      ruleContext.registerAction(
           new ExtractInclusionAction(ruleContext.getActionOwner(), prerequisite, scanned));
       return scanned;
     }

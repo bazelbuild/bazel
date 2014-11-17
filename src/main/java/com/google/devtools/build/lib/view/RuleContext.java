@@ -279,7 +279,7 @@ public final class RuleContext extends TargetContext
   }
 
   @Override
-  public void registerAction(Action action) {
+  public void registerAction(Action... action) {
     getAnalysisEnvironment().registerAction(action);
   }
 
@@ -1034,7 +1034,7 @@ public final class RuleContext extends TargetContext
   public ImmutableSet<String> getFeatures() {
     return features;
   }
-  
+
   public static final class Builder {
     private final AnalysisEnvironment env;
     private final Rule rule;
@@ -1062,7 +1062,7 @@ public final class RuleContext extends TargetContext
       return new RuleContext(this, targetMap, filesetEntryMap, configConditions,
           getEnabledFeatures());
     }
-    
+
     private ImmutableSet<String> getEnabledFeatures() {
       Set<String> enabled = new HashSet<>();
       Set<String> disabled = new HashSet<>();
@@ -1080,7 +1080,7 @@ public final class RuleContext extends TargetContext
       }
       return Sets.difference(enabled, disabled).immutableCopy();
     }
-    
+
     Builder setVisibility(NestedSet<PackageSpecification> visibility) {
       this.visibility = visibility;
       return this;

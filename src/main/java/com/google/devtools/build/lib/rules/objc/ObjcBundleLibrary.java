@@ -60,7 +60,7 @@ public class ObjcBundleLibrary implements RuleConfiguredTargetFactory {
           common.getObjcProvider(), actoolzipOutput, extraActoolArgs);
     }
 
-    for (Action mergeInfoplistAction : infoplistMerging.getMergeAction().asSet()) {
+    for (Action mergeInfoplistAction : infoplistMerging.getMergeAction()) {
       ruleContext.registerAction(mergeInfoplistAction);
     }
 

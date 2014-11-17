@@ -194,7 +194,7 @@ public abstract class AbstractAction implements Action {
   public boolean showsOutputUnconditionally() {
     return false;
   }
-  
+
   @Override
   public final String getProgressMessage() {
     String message = getRawProgressMessage();
@@ -291,7 +291,7 @@ public abstract class AbstractAction implements Action {
       Path path = output.getPath();
       String ownerString = Label.print(getOwner().getLabel());
       if (path.isDirectory()) {
-        eventHandler.handle(new Event(EventKind.WARNING, getOwner().getLocation(), 
+        eventHandler.handle(new Event(EventKind.WARNING, getOwner().getLocation(),
             "output '" + output.prettyPrint() + "' of " + ownerString
                   + " is a directory; dependency checking of directories is unsound",
                   ownerString));

@@ -626,14 +626,14 @@ public final class CppModel {
         .setDotdFile(outputName, picExt + iExt + ".d", ruleContext);
     semantics.finalizeCompileActionBuilder(ruleContext, dBuilder);
     CppCompileAction dAction = dBuilder.build();
-    ruleContext.getAnalysisEnvironment().registerAction(dAction);
+    ruleContext.registerAction(dAction);
 
     sdBuilder
         .setOutputFile(ruleContext.getRelatedArtifact(outputName, picExt + ".s"))
         .setDotdFile(outputName, picExt + ".s.d", ruleContext);
     semantics.finalizeCompileActionBuilder(ruleContext, sdBuilder);
     CppCompileAction sdAction = sdBuilder.build();
-    ruleContext.getAnalysisEnvironment().registerAction(sdAction);
+    ruleContext.registerAction(sdAction);
     return ImmutableList.of(
         dAction.getOutputFile(),
         sdAction.getOutputFile());

@@ -116,7 +116,7 @@ public final class ExtraActionSpec implements TransitiveInfoProvider {
         command, extraActionInputs, ".extra_action_script.sh");
 
     String commandMessage = String.format("Executing extra_action %s on %s", label, ownerLabel);
-    owningRule.getAnalysisEnvironment().registerAction(new ExtraAction(
+    owningRule.registerAction(new ExtraAction(
         actionToShadow.getOwner(),
         extraActionInputs.build(),
         manifests,

@@ -48,7 +48,6 @@ import javax.annotation.Nullable;
  * <p>Includes logic to derive the right configurations depending on transition type.
  */
 public abstract class DependencyResolver {
-
   protected DependencyResolver() {
   }
 
@@ -200,13 +199,13 @@ public abstract class DependencyResolver {
    *
    * @throws IllegalArgumentException if the {@code node} does not refer to a {@link Rule} instance
    */
-  public final Collection<TargetAndConfiguration> resolveRuleLabels(
+  public final ListMultimap<Attribute, TargetAndConfiguration> resolveRuleLabels(
       TargetAndConfiguration node, ListMultimap<Attribute, Label> labelMap) {
     Preconditions.checkArgument(node.getTarget() instanceof Rule);
     Rule rule = (Rule) node.getTarget();
     ListMultimap<Attribute, TargetAndConfiguration> outgoingEdges = ArrayListMultimap.create();
     visitRule(rule, node.getConfiguration(), labelMap, outgoingEdges);
-    return outgoingEdges.values();
+    return outgoingEdges;
   }
 
   private void visitPackageGroup(TargetAndConfiguration node, PackageGroup packageGroup,

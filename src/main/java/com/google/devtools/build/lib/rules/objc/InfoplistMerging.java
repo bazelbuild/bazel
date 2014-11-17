@@ -21,7 +21,6 @@ import com.google.common.collect.Iterables;
 import com.google.devtools.build.lib.actions.Action;
 import com.google.devtools.build.lib.actions.Artifact;
 import com.google.devtools.build.lib.collect.nestedset.NestedSet;
-import com.google.devtools.build.lib.packages.RuleClass.Builder;
 import com.google.devtools.build.lib.view.FilesToRunProvider;
 import com.google.devtools.build.lib.view.actions.ActionConstructionContext;
 import com.google.devtools.build.lib.view.actions.CommandLine;
@@ -88,7 +87,7 @@ class InfoplistMerging {
       Preconditions.checkNotNull(intermediateArtifacts, "intermediateArtifacts");
 
       Optional<Artifact> plistWithEverything = Optional.absent();
-      Optional<Action> mergeAction = Optional.absent();
+      Action[] mergeActions = new Action[0];
 
       int inputs = Iterables.size(inputPlists);
       if (inputs == 1) {
@@ -97,28 +96,27 @@ class InfoplistMerging {
         Artifact merged = intermediateArtifacts.mergedInfoplist();
 
         plistWithEverything = Optional.of(merged);
-        mergeAction = Optional.<Action>of(new SpawnAction.Builder(context)
-            .setRegisterSpawnAction(false)
+        mergeActions = new SpawnAction.Builder()
             .setMnemonic("MergeInfoPlistFiles")
             .setExecutable(plmerge)
             .setCommandLine(mergeCommandLine(inputPlists, merged))
             .addTransitiveInputs(inputPlists)
             .addOutput(merged)
-            .build());
+            .build(context);
       }
 
-      return new InfoplistMerging(plistWithEverything, mergeAction, inputPlists);
+      return new InfoplistMerging(plistWithEverything, mergeActions, inputPlists);
     }
   }
 
   private final Optional<Artifact> plistWithEverything;
-  private final Optional<Action> mergeAction;
+  private final Action[] mergeActions;
   private final NestedSet<Artifact> inputPlists;
 
-  private InfoplistMerging(Optional<Artifact> plistWithEverything, Optional<Action> mergeAction,
+  private InfoplistMerging(Optional<Artifact> plistWithEverything, Action[] mergeActions,
       NestedSet<Artifact> inputPlists) {
     this.plistWithEverything = plistWithEverything;
-    this.mergeAction = mergeAction;
+    this.mergeActions = mergeActions;
     this.inputPlists = inputPlists;
   }
 
@@ -126,8 +124,8 @@ class InfoplistMerging {
    * Creates action to merge multiple Info.plist files of a binary into a single Info.plist. No
    * action is necessary if there is only one source.
    */
-  public Optional<Action> getMergeAction() {
-    return mergeAction;
+  public Action[] getMergeAction() {
+    return mergeActions;
   }
 
   /**

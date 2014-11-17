@@ -138,7 +138,7 @@ public class FileWriteAction extends AbstractFileWriteAction {
     Artifact scriptFileArtifact = ruleContext.getAnalysisEnvironment().getDerivedArtifact(
         ruleContext.getTarget().getLabel().getPackageFragment().getRelative(fileName),
         ruleContext.getConfiguration().getGenfilesDirectory());
-    ruleContext.getAnalysisEnvironment().registerAction(new FileWriteAction(
+    ruleContext.registerAction(new FileWriteAction(
         ruleContext.getActionOwner(), scriptFileArtifact, contents, executable));
     return scriptFileArtifact;
   }

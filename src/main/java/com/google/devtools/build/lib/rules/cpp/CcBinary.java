@@ -222,7 +222,7 @@ public abstract class CcBinary implements RuleConfiguredTargetFactory {
     CppLinkAction.Context linkContext = new CppLinkAction.Context(linkActionBuilder);
 
     CppLinkAction linkAction = linkActionBuilder.build();
-    ruleContext.getAnalysisEnvironment().registerAction(linkAction);
+    ruleContext.registerAction(linkAction);
     LibraryToLink outputLibrary = linkAction.getOutputLibrary();
     Iterable<Artifact> fakeLinkerInputs =
         fake ? linkAction.getInputs() : ImmutableList.<Artifact>of();
@@ -313,7 +313,7 @@ public abstract class CcBinary implements RuleConfiguredTargetFactory {
    */
   private static void createStripAction(RuleContext context,
       CppConfiguration cppConfiguration, Artifact input, Artifact output) {
-    new SpawnAction.Builder(context)
+    context.registerAction(new SpawnAction.Builder()
         .addInput(input)
         .addTransitiveInputs(CppHelper.getToolchain(context).getStrip())
         .addOutput(output)
@@ -332,7 +332,7 @@ public abstract class CcBinary implements RuleConfiguredTargetFactory {
         .addArgument(input.getExecPathString())
         .setProgressMessage("Stripping " + output.prettyPrint() + " for " + context.getLabel())
         .setMnemonic("CcStrip")
-        .build();
+        .build(context));
   }
 
   /**
@@ -496,7 +496,7 @@ public abstract class CcBinary implements RuleConfiguredTargetFactory {
     // to support .dwp generation even when fission is disabled. Since no actual functionality
     // is expected then, an empty file is appropriate.
     if (Iterables.isEmpty(allInputs)) {
-      context.getAnalysisEnvironment().registerAction(
+      context.registerAction(
           new FileWriteAction(context.getActionOwner(), dwpOutput, "", false));
       return;
     }
@@ -521,13 +521,13 @@ public abstract class CcBinary implements RuleConfiguredTargetFactory {
 
     // Step 1: generate our batches. We currently break into arbitrary batches of fixed maximum
     // input counts, but we can always apply more intelligent heuristics if the need arises.
-    SpawnAction.Builder currentPackager = newDwpAction(context, cppConfiguration, dwpTools);
+    SpawnAction.Builder currentPackager = newDwpAction(cppConfiguration, dwpTools);
     int inputsForCurrentPackager = 0;
 
     for (Artifact dwoInput : allInputs) {
       if (inputsForCurrentPackager == MAX_INPUTS_PER_DWP_ACTION) {
         packagers.add(currentPackager);
-        currentPackager = newDwpAction(context, cppConfiguration, dwpTools);
+        currentPackager = newDwpAction(cppConfiguration, dwpTools);
         inputsForCurrentPackager = 0;
       }
       currentPackager.addInputArgument(dwoInput);
@@ -538,11 +538,11 @@ public abstract class CcBinary implements RuleConfiguredTargetFactory {
     // Step 2: given the batches, create the actions.
     if (packagers.size() == 1) {
       // If we only have one batch, make a single "original inputs --> final output" action.
-      Iterables.getOnlyElement(packagers)
+      context.registerAction(Iterables.getOnlyElement(packagers)
           .addArgument("-o")
           .addOutputArgument(dwpOutput)
           .setMnemonic("CcGenerateDwp")
-          .build();
+          .build(context));
     } else {
       // If we have multiple batches, make them all intermediate actions, then pipe their outputs
       // into an additional action that outputs the final artifact.
@@ -556,21 +556,21 @@ public abstract class CcBinary implements RuleConfiguredTargetFactory {
       for (SpawnAction.Builder packager : packagers) {
         Artifact intermediateOutput =
             getIntermediateDwpFile(context.getAnalysisEnvironment(), dwpOutput, count++);
-        packager
+        context.registerAction(packager
             .addArgument("-o")
             .addOutputArgument(intermediateOutput)
             .setMnemonic("CcGenerateIntermediateDwp")
-            .build(); // This creates the action and registers it with the analysis environment.
+            .build(context));
         intermediateOutputs.add(intermediateOutput);
       }
 
       // Now create the final action.
-      newDwpAction(context, cppConfiguration, dwpTools)
+      context.registerAction(newDwpAction(cppConfiguration, dwpTools)
           .addInputArguments(intermediateOutputs)
           .addArgument("-o")
           .addOutputArgument(dwpOutput)
           .setMnemonic("CcGenerateDwp")
-          .build(); // This creates the action and registers it with the analysis environment.
+          .build(context));
     }
   }
 
@@ -578,9 +578,9 @@ public abstract class CcBinary implements RuleConfiguredTargetFactory {
    * Returns a new SpawnAction builder for generating dwp files, pre-initialized with
    * standard settings.
    */
-  private static SpawnAction.Builder newDwpAction(RuleContext context,
-      CppConfiguration cppConfiguration, NestedSet<Artifact> dwpTools) {
-    return new SpawnAction.Builder(context)
+  private static SpawnAction.Builder newDwpAction(CppConfiguration cppConfiguration,
+      NestedSet<Artifact> dwpTools) {
+    return new SpawnAction.Builder()
         .addTransitiveInputs(dwpTools)
         .setExecutable(cppConfiguration.getDwpExecutable())
         .useParameterFile(ParameterFile.ParameterFileType.UNQUOTED);

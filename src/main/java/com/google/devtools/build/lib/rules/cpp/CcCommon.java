@@ -920,7 +920,7 @@ public final class CcCommon {
           ruleContext.getActionOwner(), context.getCppModuleMap(),
           privateHeaders, publicHeaders, depsLabels, bootstrapHackHeaders);
 
-      ruleContext.getAnalysisEnvironment().registerAction(action);
+      ruleContext.registerAction(action);
     }
   }
 

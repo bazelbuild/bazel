@@ -21,9 +21,9 @@ import com.google.common.annotations.VisibleForTesting;
  */
 public interface ActionRegistry {
   /**
-   * This method notifies the registry about a new action.
+   * This method notifies the registry new actions.
    */
-  void registerAction(Action action);
+  void registerAction(Action... actions);
 
   /**
    * Get the (Label and BuildConfiguration) of the ConfiguredTarget ultimately responsible for all
@@ -37,7 +37,7 @@ public interface ActionRegistry {
   @VisibleForTesting
   public static final ActionRegistry NOP = new ActionRegistry() {
     @Override
-    public void registerAction(Action action) {}
+    public void registerAction(Action... actions) {}
 
     @Override
     public ArtifactOwner getOwner() {

@@ -92,7 +92,7 @@ public class CachingAnalysisEnvironment implements AnalysisEnvironment {
    * The list of actions registered by the configured target this analysis environment is
    * responsible for. May get cleared out at the end of the analysis of said target.
    */
-  final ArrayList<Action> actions = new ArrayList<>();
+  final List<Action> actions = new ArrayList<>();
 
   public CachingAnalysisEnvironment(ArtifactFactory artifactFactory,
       ArtifactOwner owner, WorkspaceStatusArtifacts buildInfoHeaders,
@@ -261,10 +261,12 @@ public class CachingAnalysisEnvironment implements AnalysisEnvironment {
   }
 
   @Override
-  public void registerAction(Action action) {
+  public void registerAction(Action... actions) {
     Preconditions.checkState(enabled);
     if (allowRegisteringActions) {
-      actions.add(action);
+      for (Action action : actions) {
+        this.actions.add(action);
+      }
     }
   }
 

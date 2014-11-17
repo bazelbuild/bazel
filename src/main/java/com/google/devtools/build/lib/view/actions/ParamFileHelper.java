@@ -17,8 +17,8 @@ package com.google.devtools.build.lib.view.actions;
 import com.google.common.base.Preconditions;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.Iterables;
+import com.google.devtools.build.lib.actions.Action;
 import com.google.devtools.build.lib.actions.ActionOwner;
-import com.google.devtools.build.lib.actions.ActionRegistry;
 import com.google.devtools.build.lib.actions.Artifact;
 import com.google.devtools.build.lib.actions.ParameterFile;
 import com.google.devtools.build.lib.vfs.PathFragment;
@@ -96,7 +96,7 @@ public final class ParamFileHelper {
       @Nullable CommandLine commandLine,
       boolean isShellCommand,
       ActionOwner owner,
-      ActionRegistry registry,
+      List<Action> requiredActions,
       ParamFileInfo paramFileInfo,
       Artifact parameterFile) {
     Preconditions.checkNotNull(parameterFile);
@@ -106,7 +106,7 @@ public final class ParamFileHelper {
 
     CommandLine paramFileContents =
         (commandLine != null) ? commandLine : CommandLine.ofInternal(arguments, false);
-    registry.registerAction(new ParameterFileWriteAction(owner, parameterFile, paramFileContents,
+    requiredActions.add(new ParameterFileWriteAction(owner, parameterFile, paramFileContents,
         paramFileInfo.getFileType(), paramFileInfo.getCharset()));
 
     String pathWithFlag = paramFileInfo.getFlag() + parameterFile.getExecPathString();

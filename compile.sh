@@ -126,6 +126,7 @@ msys*|mingw*)
 esac
 
 test -z "$JAVA_HOME" && fail "JDK not found, please set $$JAVA_HOME."
+ln -s ${JAVA_HOME} tools/jdk/jdk
 
 JAVAC="${JAVA_HOME}/bin/javac"
 JAR="${JAVA_HOME}/bin/jar"

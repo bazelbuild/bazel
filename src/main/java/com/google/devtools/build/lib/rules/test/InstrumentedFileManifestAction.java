@@ -124,7 +124,7 @@ class InstrumentedFileManifestAction extends AbstractFileWriteAction {
         .addAll(additionalSourceFiles)
         .addAll(metadataFiles)
         .build();
-    ruleContext.getAnalysisEnvironment().registerAction(new InstrumentedFileManifestAction(
+    ruleContext.registerAction(new InstrumentedFileManifestAction(
         ruleContext.getActionOwner(), inputs, additionalSourceFiles, metadataFiles,
         instrumentedFileManifest, ruleContext.getConfiguration().getInstrumentationFilter()));
 

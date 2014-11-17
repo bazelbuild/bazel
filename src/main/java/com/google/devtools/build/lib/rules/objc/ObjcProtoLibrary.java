@@ -101,7 +101,7 @@ public class ObjcProtoLibrary implements RuleConfiguredTargetFactory {
             .getRelative("_proto_input_files"),
             ruleContext.getConfiguration().getGenfilesDirectory());
 
-    ruleContext.getAnalysisEnvironment().registerAction(new FileWriteAction(
+    ruleContext.registerAction(new FileWriteAction(
         ruleContext.getActionOwner(),
         inputFileList,
         ObjcActionsBuilder.joinExecPaths(protos),
@@ -118,7 +118,7 @@ public class ObjcProtoLibrary implements RuleConfiguredTargetFactory {
     }
 
     if (!Iterables.isEmpty(protos)) {
-      ruleContext.getAnalysisEnvironment().registerAction(new SpawnAction.Builder(ruleContext)
+      ruleContext.registerAction(new SpawnAction.Builder()
           .setMnemonic("GenObjcProtos")
           .addInput(compileProtos)
           .addInputs(optionsFile.asSet())
@@ -130,7 +130,7 @@ public class ObjcProtoLibrary implements RuleConfiguredTargetFactory {
           .setExecutable(new PathFragment("/usr/bin/python"))
           .setCommandLine(commandLineBuilder.build())
           .setExecutionInfo(ImmutableMap.of(ExecutionRequirements.REQUIRES_DARWIN, ""))
-          .build());
+          .build(ruleContext));
     }
 
     IntermediateArtifacts intermediateArtifacts =

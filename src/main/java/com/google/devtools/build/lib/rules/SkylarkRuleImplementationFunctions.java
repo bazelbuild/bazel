@@ -96,8 +96,8 @@ public class SkylarkRuleImplementationFunctions {
     public Object call(Map<String, Object> params, Location loc) throws EvalException,
         ConversionException {
       SkylarkRuleContext ctx = (SkylarkRuleContext) params.get("self");
-      SpawnAction.Builder builder = new SpawnAction.Builder(ctx.getRuleContext());
-      // TODO(bazel-team): builder still makes unnecessary copies of inputs, outputs and args. 
+      SpawnAction.Builder builder = new SpawnAction.Builder();
+      // TODO(bazel-team): builder still makes unnecessary copies of inputs, outputs and args.
       builder.addInputs(castList(params.get("inputs"), Artifact.class));
       builder.addOutputs(castList(params.get("outputs"), Artifact.class));
       builder.addArguments(castList(params.get("arguments"), String.class));
@@ -152,8 +152,7 @@ public class SkylarkRuleImplementationFunctions {
         builder.useDefaultShellEnvironment();
       }
       // Always register the action
-      builder.setRegisterSpawnAction(true);
-      builder.build();
+      ctx.getRuleContext().registerAction(builder.build(ctx.getRuleContext()));
       return Environment.NONE;
     }
   };

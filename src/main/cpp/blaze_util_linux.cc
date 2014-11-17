@@ -125,6 +125,12 @@ bool IsSharedLibrary(string filename) {
 }
 
 string GetDefaultHostJavabase() {
+  // if JAVA_HOME is defined, then use it as default.
+  const char *javahome = getenv("JAVA_HOME");
+  if (javahome != NULL) {
+    return string(javahome);
+  }
+
   // which javac
   string javac_dir = blaze_util::Which("javac");
   if (javac_dir.empty()) {
