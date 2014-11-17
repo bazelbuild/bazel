@@ -14,6 +14,8 @@
 
 package com.google.devtools.build.lib.rules.objc;
 
+import static com.google.devtools.build.lib.rules.objc.ObjcRuleClasses.HDRS_TYPE;
+
 import com.google.common.base.Preconditions;
 import com.google.common.base.Predicates;
 import com.google.common.collect.ImmutableList;
@@ -45,7 +47,9 @@ final class ObjcBase {
     }
 
     ImmutableList<Artifact> hdrs() {
-      return ruleContext.getPrerequisiteArtifacts("hdrs", Mode.TARGET);
+      return ruleContext.prerequisiteArtifacts("hdrs", Mode.TARGET)
+          .errorsForNonMatching(HDRS_TYPE)
+          .list();
     }
 
     Iterable<PathFragment> includes() {

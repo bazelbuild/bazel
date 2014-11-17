@@ -105,7 +105,7 @@ public class CppCompileAction extends AbstractAction implements IncludeScannable
   protected final Artifact outputFile;
   private final Label sourceLabel;
   private final Artifact dwoFile;
-  private final NestedSet<Artifact> optionalInputs;
+  private final Artifact optionalSourceFile;
   private final NestedSet<Artifact> mandatoryInputs;
   private final CppCompilationContext context;
   private final Collection<PathFragment> extraSystemIncludePrefixes;
@@ -152,6 +152,7 @@ public class CppCompileAction extends AbstractAction implements IncludeScannable
    *        be null
    * @param dwoFile the .dwo output file where debug information is stored for Fission
    *        builds (null if Fission mode is disabled)
+   * @param optionalSourceFile an additional optional source file (null if unneeded)
    * @param configuration the build configurations
    * @param context the compilation context
    * @param copts options for the compiler
@@ -166,7 +167,7 @@ public class CppCompileAction extends AbstractAction implements IncludeScannable
       DotdFile dotdFile,
       @Nullable Artifact gcnoFile,
       @Nullable Artifact dwoFile,
-      NestedSet<Artifact> optionalInputs,
+      Artifact optionalSourceFile,
       BuildConfiguration configuration,
       CppConfiguration cppConfiguration,
       CppCompilationContext context,
@@ -190,7 +191,7 @@ public class CppCompileAction extends AbstractAction implements IncludeScannable
     this.sourceLabel = sourceLabel;
     this.outputFile = Preconditions.checkNotNull(outputFile);
     this.dwoFile = dwoFile;
-    this.optionalInputs = optionalInputs;
+    this.optionalSourceFile = optionalSourceFile;
     this.context = context;
     this.extraSystemIncludePrefixes = extraSystemIncludePrefixes;
     this.enableModules = enableModules;
@@ -210,14 +211,16 @@ public class CppCompileAction extends AbstractAction implements IncludeScannable
     // artifact and will definitely exist prior to this action execution.
     this.mandatoryInputs = mandatoryInputs;
     setInputs(createInputs(mandatoryInputs, context.getCompilationPrerequisites(),
-        optionalInputs));
+        optionalSourceFile));
   }
 
   private static NestedSet<Artifact> createInputs(
       NestedSet<Artifact> mandatoryInputs,
-      Set<Artifact> prerequisites, NestedSet<Artifact> optionalInputs) {
+      Set<Artifact> prerequisites, Artifact optionalSourceFile) {
     NestedSetBuilder<Artifact> builder = NestedSetBuilder.stableOrder();
-    builder.addTransitive(optionalInputs);
+    if (optionalSourceFile != null) {
+      builder.add(optionalSourceFile);
+    }
     builder.addAll(prerequisites);
     builder.addTransitive(mandatoryInputs);
     return builder.build();
@@ -511,7 +514,9 @@ public class CppCompileAction extends AbstractAction implements IncludeScannable
       allowedIncludes.add(input);
     }
 
-    Iterables.addAll(allowedIncludes, optionalInputs);
+    if (optionalSourceFile != null) {
+      allowedIncludes.add(optionalSourceFile);
+    }
     List<PathFragment> cxxSystemIncludeDirs =
         cppConfiguration.getBuiltInIncludeDirectories();
     Iterable<PathFragment> ignoreDirs = Iterables.concat(cxxSystemIncludeDirs,
@@ -650,7 +655,9 @@ public class CppCompileAction extends AbstractAction implements IncludeScannable
     Profiler.instance().startTask(ProfilerTask.ACTION_UPDATE, this);
     try {
       inputs.addTransitive(mandatoryInputs);
-      inputs.addTransitive(optionalInputs);
+      if (optionalSourceFile != null) {
+        inputs.add(optionalSourceFile);
+      }
       inputs.addAll(context.getCompilationPrerequisites());
       populateActionInputs(execRoot, artifactResolver, reply, inputs);
       inputsKnown = true;

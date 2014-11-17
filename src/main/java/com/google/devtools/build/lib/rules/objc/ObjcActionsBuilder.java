@@ -18,6 +18,7 @@ import static com.google.devtools.build.lib.rules.objc.IosSdkCommands.BIN_DIR;
 import static com.google.devtools.build.lib.rules.objc.IosSdkCommands.MINIMUM_OS_VERSION;
 import static com.google.devtools.build.lib.rules.objc.IosSdkCommands.TARGET_DEVICE_FAMILIES;
 import static com.google.devtools.build.lib.rules.objc.ObjcProvider.ASSET_CATALOG;
+import static com.google.devtools.build.lib.rules.objc.ObjcProvider.FORCE_LOAD_LIBRARY;
 import static com.google.devtools.build.lib.rules.objc.ObjcProvider.FRAMEWORK_DIR;
 import static com.google.devtools.build.lib.rules.objc.ObjcProvider.FRAMEWORK_FILE;
 import static com.google.devtools.build.lib.rules.objc.ObjcProvider.Flag.USES_CPP;
@@ -478,6 +479,8 @@ final class ObjcActionsBuilder {
     public Iterable<String> arguments() {
       StringBuilder argumentStringBuilder = new StringBuilder();
 
+      Iterable<String> archiveExecPaths = Artifact.toExecPaths(
+          Iterables.concat(objcProvider.get(LIBRARY), objcProvider.get(IMPORTED_LIBRARY)));
       commandJoiner.appendTo(argumentStringBuilder, new ImmutableList.Builder<String>()
           .add(objcProvider.is(USES_CPP) ? CLANG_PLUSPLUS.toString() : CLANG.toString())
           .addAll(objcProvider.is(USES_CPP)
@@ -489,8 +492,7 @@ final class ObjcActionsBuilder {
           .addAll(IosSdkCommands.DEFAULT_LINKER_FLAGS)
           .addAll(Interspersing.beforeEach("-framework", frameworkNames(objcProvider)))
           .add("-o", linkedBinary.getExecPathString())
-          .addAll(Artifact.toExecPaths(objcProvider.get(LIBRARY)))
-          .addAll(Artifact.toExecPaths(objcProvider.get(IMPORTED_LIBRARY)))
+          .addAll(archiveExecPaths)
           .addAll(dylibPaths())
           .addAll(extraLinkArgs)
           .build());
@@ -518,6 +520,10 @@ final class ObjcActionsBuilder {
    */
   void registerLinkAction(ActionConstructionContext context, Artifact linkedBinary,
       ObjcProvider objcProvider, ExtraLinkArgs extraLinkArgs, Optional<Artifact> dsymBundle) {
+    extraLinkArgs = new ExtraLinkArgs(Iterables.concat(
+        Interspersing.beforeEach(
+            "-force_load", Artifact.toExecPaths(objcProvider.get(FORCE_LOAD_LIBRARY))),
+        extraLinkArgs));
     register(spawnOnDarwinActionBuilder(context)
         .setMnemonic("ObjcLink")
         .setShellCommand(ImmutableList.of("/bin/bash", "-c"))

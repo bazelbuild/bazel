@@ -35,6 +35,7 @@ import com.google.devtools.build.lib.util.StringUtil;
 import java.util.Collection;
 import java.util.EnumSet;
 import java.util.HashMap;
+import java.util.LinkedHashSet;
 import java.util.List;
 import java.util.Map;
 import java.util.Set;
@@ -266,6 +267,7 @@ public final class Attribute implements Comparable<Attribute> {
     private Set<PropertyFlag> propertyFlags = EnumSet.noneOf(PropertyFlag.class);
     private PredicateWithMessage<Object> allowedValues = null;
     private ImmutableSet<String> mandatoryProviders = ImmutableSet.<String>of();
+    private Set<Class<? extends AspectFactory>> aspects = new LinkedHashSet<>();
 
     /**
      * Creates an attribute builder with given name and type. This attribute is optional, uses
@@ -628,6 +630,14 @@ public final class Attribute implements Comparable<Attribute> {
     }
 
     /**
+     * Asserts that a particular aspect needs to be computed for all direct dependencies through
+     * this attribute.
+     */
+    public Builder<TYPE> aspect(Class<? extends AspectFactory> aspect) {
+      this.aspects.add(aspect);
+      return this;
+    }
+    /**
      * Sets the predicate-like edge validity checker.
      */
     public Builder<TYPE> validityPredicate(ValidityPredicate validityPredicate) {
@@ -709,7 +719,7 @@ public final class Attribute implements Comparable<Attribute> {
           valueSet ? value : type.getDefaultValue(), configTransition, configurator,
           allowedRuleClassesForLabels, allowedRuleClassesForLabelsWarning,
           allowedFileTypesForLabels, allowedFileTypesForLabelsSet, validityPredicate, condition,
-          allowedValues, mandatoryProviders);
+          allowedValues, mandatoryProviders, ImmutableSet.copyOf(aspects));
     }
   }
 
@@ -866,17 +876,15 @@ public final class Attribute implements Comparable<Attribute> {
    */
   public static final class SkylarkLateBound implements LateBoundDefault<Object> {
 
-    private final boolean useHostConfig;
     private final SkylarkCallbackFunction callback;
 
-    public SkylarkLateBound(boolean useHostConfig, SkylarkCallbackFunction callback) {
-      this.useHostConfig = useHostConfig;
+    public SkylarkLateBound(SkylarkCallbackFunction callback) {
       this.callback = callback;
     }
 
     @Override
     public boolean useHostConfiguration() {
-      return useHostConfig;
+      return false;
     }
 
     @Override
@@ -957,6 +965,8 @@ public final class Attribute implements Comparable<Attribute> {
 
   private final ImmutableSet<String> mandatoryProviders;
 
+  private final ImmutableSet<Class<? extends AspectFactory>> aspects;
+
   /**
    * Constructs a rule attribute with the specified name, type and default
    * value.
@@ -982,7 +992,8 @@ public final class Attribute implements Comparable<Attribute> {
       ValidityPredicate validityPredicate,
       Predicate<AttributeMap> condition,
       PredicateWithMessage<Object> allowedValues,
-      ImmutableSet<String> mandatoryProviders) {
+      ImmutableSet<String> mandatoryProviders,
+      ImmutableSet<Class<? extends AspectFactory>> aspects) {
     Preconditions.checkArgument(
         (configTransition == ConfigurationTransition.NONE && configurator == null)
         || type == Type.LABEL || type == Type.LABEL_LIST
@@ -1002,6 +1013,7 @@ public final class Attribute implements Comparable<Attribute> {
     this.condition = condition;
     this.allowedValues = allowedValues;
     this.mandatoryProviders = mandatoryProviders;
+    this.aspects = aspects;
   }
 
   /**

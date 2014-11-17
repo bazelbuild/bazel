@@ -16,6 +16,7 @@ package com.google.devtools.build.lib.rules.cpp;
 
 import com.google.common.annotations.VisibleForTesting;
 import com.google.common.base.Functions;
+import com.google.common.base.Preconditions;
 import com.google.common.base.Predicate;
 import com.google.common.base.Predicates;
 import com.google.common.collect.ImmutableList;
@@ -55,7 +56,7 @@ public class CppCompileActionBuilder {
   private final Label sourceLabel;
   private final NestedSetBuilder<Artifact> mandatoryInputsBuilder;
   private NestedSetBuilder<Artifact> pluginInputsBuilder;
-  private final NestedSetBuilder<Artifact> optionalInputsBuilder;
+  private Artifact optionalSourceFile;
   private Artifact outputFile;
   private PathFragment tempOutputFile;
   private DotdFile dotdFile;
@@ -89,7 +90,6 @@ public class CppCompileActionBuilder {
     this.configuration = ruleContext.getConfiguration();
     this.mandatoryInputsBuilder = NestedSetBuilder.stableOrder();
     this.pluginInputsBuilder = NestedSetBuilder.stableOrder();
-    this.optionalInputsBuilder = NestedSetBuilder.stableOrder();
     this.lipoScannableMap = getLipoScannableMap(ruleContext);
 
     features.addAll(ruleContext.getFeatures());
@@ -121,7 +121,6 @@ public class CppCompileActionBuilder {
     this.configuration = configuration;
     this.mandatoryInputsBuilder = NestedSetBuilder.stableOrder();
     this.pluginInputsBuilder = NestedSetBuilder.stableOrder();
-    this.optionalInputsBuilder = NestedSetBuilder.stableOrder();
     this.lipoScannableMap = ImmutableMap.of();
   }
 
@@ -137,8 +136,7 @@ public class CppCompileActionBuilder {
         .addTransitive(other.mandatoryInputsBuilder.build());
     this.pluginInputsBuilder = NestedSetBuilder.<Artifact>stableOrder()
         .addTransitive(other.pluginInputsBuilder.build());
-    this.optionalInputsBuilder = NestedSetBuilder.<Artifact>stableOrder()
-        .addTransitive(other.optionalInputsBuilder.build());
+    this.optionalSourceFile = other.optionalSourceFile;
     this.outputFile = other.outputFile;
     this.tempOutputFile = other.tempOutputFile;
     this.dotdFile = other.dotdFile;
@@ -257,12 +255,11 @@ public class CppCompileActionBuilder {
           extraSystemIncludePrefixes, enableModules, fdoBuildStamp);
     } else {
       NestedSet<Artifact> realMandatoryInputs = realMandatoryInputsBuilder.build();
-      PathFragment sourceExecPath = getSourceFile().getExecPath();
 
       return new CppCompileAction(owner, ImmutableList.copyOf(features),
           sourceFile, sourceLabel, realMandatoryInputs, outputFile, dotdFile,
           gcnoFile, getDwoFile(outputFile, analysisEnvironment, cppConfiguration),
-          optionalInputsBuilder.build(), configuration, cppConfiguration, context,
+          optionalSourceFile, configuration, cppConfiguration, context,
           actionContext, ImmutableList.copyOf(copts),
           ImmutableList.copyOf(pluginOpts),
           getNocoptPredicate(nocopts),
@@ -308,8 +305,14 @@ public class CppCompileActionBuilder {
     return this;
   }
 
-  public CppCompileActionBuilder addOptionalInput(Artifact artifact) {
-    optionalInputsBuilder.add(artifact);
+  /**
+   * Set an optional source file (usually with metadata of the main source file). The optional
+   * source file can only be set once, whether via this method or through the constructor
+   * {@link #CppCompileActionBuilder(CppCompileActionBuilder)}.
+   */
+  public CppCompileActionBuilder addOptionalSourceFile(Artifact artifact) {
+    Preconditions.checkState(optionalSourceFile == null, "%s %s", optionalSourceFile, artifact);
+    optionalSourceFile = artifact;
     return this;
   }
 

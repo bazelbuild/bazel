@@ -41,7 +41,6 @@ import com.google.devtools.build.xcode.common.Platform;
 import com.google.devtools.build.xcode.util.Interspersing;
 import com.google.devtools.build.xcode.xcodegen.proto.XcodeGenProtos.XcodeprojBuildSetting;
 
-
 /**
  * Implementation for the "objc_binary" rule.
  */
@@ -322,7 +321,8 @@ public class ObjcBinary implements RuleConfiguredTargetFactory {
 
   @Override
   public ConfiguredTarget create(RuleContext ruleContext) throws InterruptedException {
-    ObjcCommon common = ObjcLibrary.common(ruleContext, ImmutableList.<SdkFramework>of());
+    ObjcCommon common =
+        ObjcLibrary.common(ruleContext, ImmutableList.<SdkFramework>of(), /*alwayslink=*/false);
     OptionsProvider optionsProvider = ObjcLibrary.optionsProvider(ruleContext,
         new InfoplistsFromRule(ruleContext.getPrerequisiteArtifacts("infoplist", Mode.TARGET)));
     Bundling bundling = bundling(ruleContext, common.getObjcProvider(),  optionsProvider);

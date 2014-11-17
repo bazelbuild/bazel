@@ -15,6 +15,7 @@
 package com.google.devtools.build.lib.rules.objc;
 
 import static com.google.devtools.build.lib.packages.Attribute.attr;
+import static com.google.devtools.build.lib.packages.Type.BOOLEAN;
 import static com.google.devtools.build.lib.packages.Type.LABEL_LIST;
 
 import com.google.devtools.build.lib.packages.RuleClass;
@@ -50,6 +51,17 @@ public class ObjcImportRule implements RuleDefinition {
             .mandatory()
             .nonEmpty()
             .allowedFileTypes(FileType.of(".a")))
+        /* <!-- #BLAZE_RULE(objc_import).ATTRIBUTE(alwayslink) -->
+        If 1, any bundle or binary that depends (directly or indirectly) on this
+        library will link in all the archive files listed in
+        <code>archives</code>, even if some contain no symbols referenced by the
+        binary.
+        ${SYNOPSIS}
+        This is useful if your code isn't explicitly called by code in
+        the binary, e.g., if your code registers to receive some callback
+        provided by some service.
+        <!-- #END_BLAZE_RULE.ATTRIBUTE -->*/
+        .add(attr("alwayslink", BOOLEAN))
         .removeAttribute("deps")
         .build();
   }

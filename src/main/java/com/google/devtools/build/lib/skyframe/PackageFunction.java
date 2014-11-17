@@ -276,14 +276,14 @@ public class PackageFunction implements SkyFunction {
     // TODO(bazel-team): In the long term, we want to actually resolve the glob patterns within
     // Skyframe. For now, just logging the glob requests provides correct incrementality and
     // adequate performance.
-    PathFragment packagePathFragment = pkg.getNameFragment();
+    PackageIdentifier packageId = pkg.getPackageIdentifier();
     List<SkyKey> globDepKeys = Lists.newArrayList();
     for (Pair<String, Boolean> globPattern : globPatterns) {
       String pattern = globPattern.getFirst();
       boolean excludeDirs = globPattern.getSecond();
       SkyKey globSkyKey;
       try {
-        globSkyKey = GlobValue.key(packagePathFragment, pattern, excludeDirs);
+        globSkyKey = GlobValue.key(packageId, pattern, excludeDirs);
       } catch (InvalidGlobPatternException e) {
         // Globs that make it to pkg.getGlobPatterns() should already be filtered for errors.
         throw new IllegalStateException(e);

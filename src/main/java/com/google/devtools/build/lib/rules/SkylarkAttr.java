@@ -26,6 +26,7 @@ import com.google.devtools.build.lib.packages.Type.ConversionException;
 import com.google.devtools.build.lib.syntax.Environment;
 import com.google.devtools.build.lib.syntax.EvalException;
 import com.google.devtools.build.lib.syntax.FuncallExpression;
+import com.google.devtools.build.lib.syntax.Label;
 import com.google.devtools.build.lib.syntax.SkylarkBuiltin;
 import com.google.devtools.build.lib.syntax.SkylarkBuiltin.Param;
 import com.google.devtools.build.lib.syntax.SkylarkCallbackFunction;
@@ -81,16 +82,9 @@ public final class SkylarkAttr {
     Object defaultValue = arguments.get("default");
     if (defaultValue != null) {
       if (defaultValue instanceof UserDefinedFunction) {
-        // Late bound attribute
-        UserDefinedFunction func = (UserDefinedFunction) defaultValue;
-        final SkylarkCallbackFunction callback = new SkylarkCallbackFunction(func, ast, env);
-        final SkylarkLateBound computedValue;
-        if (type.equals(Type.LABEL) || type.equals(Type.LABEL_LIST)) {
-          computedValue = new SkylarkLateBound(false, callback);
-        } else {
-          throw new EvalException(loc, "Only label type attributes can be late bound");
-        }
-        builder.value(computedValue);
+        // Late bound attribute. Non label type attributes already caused a type check error.
+        builder.value(new SkylarkLateBound(
+            new SkylarkCallbackFunction((UserDefinedFunction) defaultValue, ast, env)));
       } else {
         builder.defaultValue(defaultValue);
       }
@@ -161,7 +155,8 @@ public final class SkylarkAttr {
       objectType = SkylarkAttr.class,
       returnType = Attribute.class,
       optionalParams = {
-      @Param(name = "default", doc = DEFAULT_DOC + "If not specified, default is 0."),
+      @Param(name = "default", type = Integer.class,
+          doc = DEFAULT_DOC + "If not specified, default is 0."),
       @Param(name = "flags", type = SkylarkList.class, generic1 = String.class, doc = FLAGS_DOC),
       @Param(name = "mandatory", type = Boolean.class, doc = MANDATORY_DOC),
       @Param(name = "cfg", type = ConfigurationTransition.class, doc = CONFIGURATION_DOC)})
@@ -178,7 +173,8 @@ public final class SkylarkAttr {
       objectType = SkylarkAttr.class,
       returnType = Attribute.class,
       optionalParams = {
-      @Param(name = "default", doc = DEFAULT_DOC + "If not specified, default is \"\"."),
+      @Param(name = "default", type = String.class,
+          doc = DEFAULT_DOC + "If not specified, default is \"\"."),
       @Param(name = "flags", type = SkylarkList.class, generic1 = String.class, doc = FLAGS_DOC),
       @Param(name = "mandatory", type = Boolean.class, doc = MANDATORY_DOC),
       @Param(name = "cfg", type = ConfigurationTransition.class, doc = CONFIGURATION_DOC)})
@@ -198,8 +194,9 @@ public final class SkylarkAttr {
       objectType = SkylarkAttr.class,
       returnType = Attribute.class,
       optionalParams = {
-      @Param(name = "default", doc = DEFAULT_DOC + "If not specified, default is None. "
-          + "Use the <code>label</code> function to specify a default value."),
+      @Param(name = "default", type = Label.class, callbackEnabled = true,
+          doc = DEFAULT_DOC + "If not specified, default is None. "
+              + "Use the <code>label</code> function to specify a default value."),
       @Param(name = "executable", type = Boolean.class, doc = EXECUTABLE_DOC),
       @Param(name = "flags", type = SkylarkList.class, generic1 = String.class, doc = FLAGS_DOC),
       @Param(name = "allow_files", doc = ALLOW_FILES_DOC),
@@ -208,7 +205,7 @@ public final class SkylarkAttr {
           doc = "mandatory providers every dependency has to have"),
       @Param(name = "allow_rules", doc = ALLOW_RULES_DOC),
       @Param(name = "single_file", doc =
-          "if true, the label must correspond to a single file. "
+            "if true, the label must correspond to a single file. "
           + "Access it through ctx.file.<attribute_name>."),
       @Param(name = "cfg", type = ConfigurationTransition.class, doc = CONFIGURATION_DOC)})
   private static SkylarkFunction label = new SkylarkFunction("label") {
@@ -224,7 +221,8 @@ public final class SkylarkAttr {
       objectType = SkylarkAttr.class,
       returnType = Attribute.class,
       optionalParams = {
-      @Param(name = "default", doc = DEFAULT_DOC + "If not specified, default is []."),
+      @Param(name = "default", type = SkylarkList.class, generic1 = String.class,
+          doc = DEFAULT_DOC + "If not specified, default is []."),
       @Param(name = "flags", type = SkylarkList.class, generic1 = String.class, doc = FLAGS_DOC),
       @Param(name = "mandatory", type = Boolean.class, doc = MANDATORY_DOC),
       @Param(name = "cfg", type = ConfigurationTransition.class,
@@ -243,8 +241,10 @@ public final class SkylarkAttr {
       objectType = SkylarkAttr.class,
       returnType = Attribute.class,
       optionalParams = {
-      @Param(name = "default", doc = DEFAULT_DOC + "If not specified, default is []. "
-          + "Use the <code>label</code> function to specify a default value."),
+      @Param(name = "default", type = SkylarkList.class, generic1 = Label.class,
+          callbackEnabled = true,
+          doc = DEFAULT_DOC + "If not specified, default is []. "
+              + "Use the <code>label</code> function to specify a default value."),
       @Param(name = "flags", type = SkylarkList.class, generic1 = String.class, doc = FLAGS_DOC),
       @Param(name = "allow_files", doc = ALLOW_FILES_DOC),
       @Param(name = "mandatory", type = Boolean.class, doc = MANDATORY_DOC),
@@ -265,7 +265,7 @@ public final class SkylarkAttr {
       objectType = SkylarkAttr.class,
       returnType = Attribute.class,
       optionalParams = {
-      @Param(name = "default", doc = DEFAULT_DOC),
+      @Param(name = "default", type = Boolean.class, doc = DEFAULT_DOC),
       @Param(name = "flags", type = SkylarkList.class, generic1 = String.class, doc = FLAGS_DOC),
       @Param(name = "mandatory", type = Boolean.class, doc = MANDATORY_DOC),
       @Param(name = "cfg", type = ConfigurationTransition.class, doc = CONFIGURATION_DOC)})
@@ -284,7 +284,7 @@ public final class SkylarkAttr {
       objectType = SkylarkAttr.class,
       returnType = Attribute.class,
       optionalParams = {
-      @Param(name = "default", doc = DEFAULT_DOC),
+      @Param(name = "default", type = Label.class, doc = DEFAULT_DOC),
       @Param(name = "flags", type = SkylarkList.class, generic1 = String.class, doc = FLAGS_DOC),
       @Param(name = "mandatory", type = Boolean.class, doc = MANDATORY_DOC),
       @Param(name = "cfg", type = ConfigurationTransition.class, doc = CONFIGURATION_DOC)})
@@ -302,7 +302,7 @@ public final class SkylarkAttr {
       objectType = SkylarkAttr.class,
       returnType = Attribute.class,
       optionalParams = {
-      @Param(name = "default", doc = DEFAULT_DOC),
+      @Param(name = "default", type = SkylarkList.class, generic1 = Label.class, doc = DEFAULT_DOC),
       @Param(name = "flags", type = SkylarkList.class, generic1 = String.class, doc = FLAGS_DOC),
       @Param(name = "mandatory", type = Boolean.class, doc = MANDATORY_DOC),
       @Param(name = "cfg", type = ConfigurationTransition.class, doc = CONFIGURATION_DOC)})
@@ -320,7 +320,7 @@ public final class SkylarkAttr {
       objectType = SkylarkAttr.class,
       returnType = Attribute.class,
       optionalParams = {
-      @Param(name = "default", doc = DEFAULT_DOC),
+      @Param(name = "default", type = Map.class, doc = DEFAULT_DOC),
       @Param(name = "flags", type = SkylarkList.class, generic1 = String.class, doc = FLAGS_DOC),
       @Param(name = "mandatory", type = Boolean.class, doc = MANDATORY_DOC),
       @Param(name = "cfg", type = ConfigurationTransition.class, doc = CONFIGURATION_DOC)})
@@ -334,7 +334,7 @@ public final class SkylarkAttr {
 
   @SkylarkBuiltin(name = "license", doc =
       "Creates an attribute of type license. Its default value is NO_LICENSE.",
-      // TODO(bazel-team): Do we have proper support for licenses?
+      // TODO(bazel-team): Implement proper license support for Skylark.
       objectType = SkylarkAttr.class,
       returnType = Attribute.class,
       optionalParams = {

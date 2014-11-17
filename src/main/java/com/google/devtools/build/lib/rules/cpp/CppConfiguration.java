@@ -26,6 +26,7 @@ import com.google.common.collect.ListMultimap;
 import com.google.common.collect.Maps;
 import com.google.common.collect.Multimap;
 import com.google.devtools.build.lib.actions.ArtifactFactory;
+import com.google.devtools.build.lib.actions.PackageRootResolver;
 import com.google.devtools.build.lib.actions.Root;
 import com.google.devtools.build.lib.concurrent.ThreadSafety.Immutable;
 import com.google.devtools.build.lib.events.Event;
@@ -1621,10 +1622,10 @@ public class CppConfiguration extends BuildConfiguration.Fragment {
   }
 
   @Override
-  public void prepareHook(Path execRoot, ArtifactFactory artifactFactory, PathFragment genfilesPath)
-      throws ViewCreationFailedException {
+  public void prepareHook(Path execRoot, ArtifactFactory artifactFactory, PathFragment genfilesPath,
+      PackageRootResolver resolver) throws ViewCreationFailedException {
     try {
-      getFdoSupport().prepareToBuild(execRoot, genfilesPath, artifactFactory);
+      getFdoSupport().prepareToBuild(execRoot, genfilesPath, artifactFactory, resolver);
     } catch (ZipException e) {
       throw new ViewCreationFailedException("Error reading provided FDO zip file", e);
     } catch (FdoException | IOException e) {

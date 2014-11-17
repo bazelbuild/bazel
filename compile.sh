@@ -42,7 +42,6 @@ EXE_EXT=""
 
 PROTO_FILES=$(ls src/main/protobuf/*.proto)
 LIBRARY_JARS="third_party/gson/gson-2.2.4.jar third_party/guava/guava-17.0.jar third_party/jsr305/jsr-305.jar third_party/protobuf/protobuf-2.5.0.jar third_party/joda-time/joda-time-2.3.jar"
-TEST_LIBRARY_JARS="$LIBRARY_JARS third_party/junit/junit-4.11.jar third_party/truth/truth-0.23.jar third_party/guava/guava-testlib.jar output/classes"
 DIRS=$(echo src/{main/java,tools/xcode-common/java/com/google/devtools/build/xcode/{common,util}})
 JAVA_SRCDIRS="src/main/java src/tools/xcode-common/java output/src"
 
@@ -132,7 +131,6 @@ JAVAC="${JAVA_HOME}/bin/javac"
 JAR="${JAVA_HOME}/bin/jar"
 
 CLASSPATH=${LIBRARY_JARS// /$PATHSEP}
-CLASSPATH_TESTS=${TEST_LIBRARY_JARS// /$PATHSEP}
 SOURCEPATH=${JAVA_SRCDIRS// /$PATHSEP}
 
 BLAZE_CC_FILES=(

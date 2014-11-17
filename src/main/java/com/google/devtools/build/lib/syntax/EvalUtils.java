@@ -293,7 +293,7 @@ public abstract class EvalUtils {
 
     } else if (o instanceof FilesetEntry) {
       FilesetEntry entry = (FilesetEntry) o;
-      buffer.append("FilesetEntry( srcdir = ");
+      buffer.append("FilesetEntry(srcdir = ");
       prettyPrintValue(entry.getSrcLabel().toString(), buffer);
       buffer.append(", files = ");
       prettyPrintValue(makeStringList(entry.getFiles()), buffer);
@@ -303,9 +303,9 @@ public abstract class EvalUtils {
       prettyPrintValue(entry.getDestDir().getPathString(), buffer);
       buffer.append(", strip_prefix = ");
       prettyPrintValue(entry.getStripPrefix(), buffer);
-      buffer.append(", symlinks = '");
+      buffer.append(", symlinks = \"");
       buffer.append(entry.getSymlinkBehavior().toString());
-      buffer.append("' )");
+      buffer.append("\")");
     } else if (o instanceof PathFragment) {
       buffer.append(((PathFragment) o).getPathString());
     } else {
@@ -342,9 +342,12 @@ public abstract class EvalUtils {
 
   private static void prettyPrintValueX(Object o, Appendable buffer)
       throws IOException {
+    if (o instanceof Label) {
+      o = o.toString();  // Pretty-print a label like a string
+    }
     if (o instanceof String) {
       String s = (String) o;
-      buffer.append('\'');
+      buffer.append('"');
       for (int ii = 0, len = s.length(); ii < len; ++ii) {
         char c = s.charAt(ii);
         switch (c) {
@@ -357,8 +360,8 @@ public abstract class EvalUtils {
         case '\t':
           buffer.append('\\').append('t');
           break;
-        case '\'':
-          buffer.append('\\').append('\'');
+        case '\"':
+          buffer.append('\\').append('"');
           break;
         default:
           if (c < 32) {
@@ -368,7 +371,7 @@ public abstract class EvalUtils {
           }
         } // endswitch
       }
-      buffer.append('\'');
+      buffer.append('\"');
     } else {
       printValueX(o, buffer);
     }

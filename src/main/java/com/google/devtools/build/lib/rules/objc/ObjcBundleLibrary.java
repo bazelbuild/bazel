@@ -89,7 +89,8 @@ public class ObjcBundleLibrary implements RuleConfiguredTargetFactory {
 
   @Override
   public ConfiguredTarget create(RuleContext ruleContext) throws InterruptedException {
-    ObjcCommon common = ObjcLibrary.common(ruleContext, ImmutableList.<SdkFramework>of());
+    ObjcCommon common =
+        ObjcLibrary.common(ruleContext, ImmutableList.<SdkFramework>of(), /*alwayslink=*/false);
     OptionsProvider optionsProvider = ObjcLibrary.optionsProvider(ruleContext,
         new InfoplistsFromRule(ruleContext.getPrerequisiteArtifacts("infoplist", Mode.TARGET)));
     Bundling bundling = bundling(ruleContext, ".bundle", ImmutableList.<BundleableFile>of(),

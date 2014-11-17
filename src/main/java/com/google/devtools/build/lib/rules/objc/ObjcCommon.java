@@ -20,6 +20,7 @@ import static com.google.devtools.build.lib.rules.objc.ObjcProvider.ASSET_CATALO
 import static com.google.devtools.build.lib.rules.objc.ObjcProvider.BUNDLE_FILE;
 import static com.google.devtools.build.lib.rules.objc.ObjcProvider.BUNDLE_IMPORT_DIR;
 import static com.google.devtools.build.lib.rules.objc.ObjcProvider.FLAG;
+import static com.google.devtools.build.lib.rules.objc.ObjcProvider.FORCE_LOAD_LIBRARY;
 import static com.google.devtools.build.lib.rules.objc.ObjcProvider.FRAMEWORK_DIR;
 import static com.google.devtools.build.lib.rules.objc.ObjcProvider.FRAMEWORK_FILE;
 import static com.google.devtools.build.lib.rules.objc.ObjcProvider.Flag.USES_CPP;
@@ -71,6 +72,7 @@ final class ObjcCommon {
     private Iterable<PathFragment> userHeaderSearchPaths = ImmutableList.of();
     private Iterable<Artifact> headers = ImmutableList.of();
     private IntermediateArtifacts intermediateArtifacts;
+    private boolean alwayslink;
 
     Builder(RuleContext context) {
       this.context = Preconditions.checkNotNull(context);
@@ -118,6 +120,11 @@ final class ObjcCommon {
 
     Builder setIntermediateArtifacts(IntermediateArtifacts intermediateArtifacts) {
       this.intermediateArtifacts = intermediateArtifacts;
+      return this;
+    }
+
+    Builder setAlwayslink(boolean alwayslink) {
+      this.alwayslink = alwayslink;
       return this;
     }
 
@@ -177,6 +184,13 @@ final class ObjcCommon {
         if (usesCpp) {
           objcProvider.add(FLAG, USES_CPP);
         }
+      }
+
+      if (alwayslink) {
+        for (CompilationArtifacts artifacts : compilationArtifacts.asSet()) {
+          objcProvider.addAll(FORCE_LOAD_LIBRARY, artifacts.getArchive().asSet());
+        }
+        objcProvider.addAll(FORCE_LOAD_LIBRARY, ARCHIVES.get(context));
       }
 
       Iterable<String> ruleErrors =

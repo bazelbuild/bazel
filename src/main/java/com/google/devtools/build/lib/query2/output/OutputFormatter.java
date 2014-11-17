@@ -25,6 +25,7 @@ import com.google.devtools.build.lib.packages.AggregatingAttributeMapper;
 import com.google.devtools.build.lib.packages.Attribute;
 import com.google.devtools.build.lib.packages.Rule;
 import com.google.devtools.build.lib.packages.Target;
+import com.google.devtools.build.lib.syntax.EvalUtils;
 import com.google.devtools.build.lib.syntax.Label;
 import com.google.devtools.build.lib.util.BinaryPredicate;
 import com.google.devtools.build.lib.util.Pair;
@@ -295,7 +296,15 @@ public abstract class OutputFormatter {
           continue;  // Don't print default values.
         }
         Object value = Iterables.getOnlyElement(values.first);
-        out.println(String.format("  %s = %s,", attr.getName(), value));
+        out.print(String.format("  %s = ", attr.getName()));
+        if (value instanceof Label) {
+          value = value.toString();
+        } else if (value instanceof List<?> && EvalUtils.isImmutable(value)) {
+          // Display it as a list (and not as a tuple). Attributes can never be tuples.
+          value = new ArrayList<>((List<?>) value);
+        }
+        EvalUtils.prettyPrintValue(value, out);
+        out.println(",");
       }
       out.println(String.format(")\n"));
     }

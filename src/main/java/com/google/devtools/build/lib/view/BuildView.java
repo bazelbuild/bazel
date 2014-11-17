@@ -32,6 +32,7 @@ import com.google.devtools.build.lib.actions.Action;
 import com.google.devtools.build.lib.actions.ActionGraph;
 import com.google.devtools.build.lib.actions.Artifact;
 import com.google.devtools.build.lib.actions.ArtifactFactory;
+import com.google.devtools.build.lib.actions.PackageRootResolver;
 import com.google.devtools.build.lib.actions.Root;
 import com.google.devtools.build.lib.blaze.BlazeDirectories;
 import com.google.devtools.build.lib.collect.nestedset.NestedSetBuilder;
@@ -534,9 +535,10 @@ public class BuildView {
         });
   }
 
-  private void prepareToBuild() throws ViewCreationFailedException {
+  private void prepareToBuild(PackageRootResolver resolver)
+      throws ViewCreationFailedException {
     for (BuildConfiguration config : configurations.getTargetConfigurations()) {
-      config.prepareToBuild(directories.getExecRoot(), getArtifactFactory());
+      config.prepareToBuild(directories.getExecRoot(), getArtifactFactory(), resolver);
     }
   }
 
@@ -626,7 +628,7 @@ public class BuildView {
           }
         });
 
-    prepareToBuild();
+    prepareToBuild(new SkyframePackageRootResolver(skyframeExecutor));
     skyframeBuildView.setWarningListener(warningsHandler);
     skyframeExecutor.injectWorkspaceStatusData();
     Collection<ConfiguredTarget> configuredTargets;
@@ -687,6 +689,25 @@ public class BuildView {
         message.append('\n').append(event);
       }
       throw new IllegalStateException(message.toString());
+    }
+  }
+
+  /**
+   * Skyframe implementation of {@link PackageRootResolver}.
+   * 
+   * <p> Note: you should not use this class inside of any SkyFunction.
+   */
+  @VisibleForTesting
+  public static final class SkyframePackageRootResolver implements PackageRootResolver {
+    private final SkyframeExecutor executor;
+
+    public SkyframePackageRootResolver(SkyframeExecutor executor) {
+      this.executor = executor;
+    }
+
+    @Override
+    public Root findPackageRoot(PathFragment execPath) {
+      return executor.getArtifactRoot(execPath);
     }
   }
 

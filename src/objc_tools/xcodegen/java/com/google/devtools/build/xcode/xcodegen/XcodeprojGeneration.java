@@ -335,9 +335,18 @@ public class XcodeprojGeneration {
       if (targetControl.getCoptCount() > 0) {
         targetBuildConfigMap.put("OTHER_CFLAGS", NSObject.wrap(targetControl.getCoptList()));
       }
-      if (targetControl.getLinkoptCount() > 0) {
-        targetBuildConfigMap.put("OTHER_LDFLAGS", NSObject.wrap(targetControl.getLinkoptList()));
+      // TODO(bazel-team): Stop adding -ObjC implicitly once the released version of Bazel starts
+      // adding it.
+      Iterable<String> linkopts = targetControl.getLinkoptList();
+      if (!Iterables.contains(linkopts, "-ObjcC")) {
+        linkopts = Iterables.concat(ImmutableList.of("-ObjC"), linkopts);
       }
+      // TODO(bazel-team): Stop adding -all_load implicitly once the released version of Bazel is
+      // passing -force_load automatically.
+      if (!Iterables.contains(linkopts, "-all_load")) {
+        linkopts = Iterables.concat(ImmutableList.of("-all_load"), linkopts);
+      }
+      targetBuildConfigMap.put("OTHER_LDFLAGS", NSObject.wrap(ImmutableList.copyOf(linkopts)));
       for (XcodeprojBuildSetting setting : targetControl.getBuildSettingList()) {
         targetBuildConfigMap.put(setting.getName(), setting.getValue());
       }

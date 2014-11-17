@@ -191,7 +191,7 @@ final class XcodeProvider implements TransitiveInfoProvider {
 
   private TargetControl targetControl() {
     // TODO(bazel-team): Add provisioning profile information when Xcodegen supports it.
-    // TODO(bazel-team): Add .storyboard information when Xcodegen supports it.
+    // TODO(bazel-team): Add -force_load information when Xcodegen supports it.
     TargetControl.Builder targetControl = TargetControl.newBuilder()
         .setName(label.getName())
         .setLabel(label.toString())

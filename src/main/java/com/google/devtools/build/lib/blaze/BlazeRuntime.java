@@ -961,13 +961,16 @@ public final class BlazeRuntime {
       throws InvalidConfigurationException, InterruptedException {
     BuildConfigurationKey configurationKey = getBuildConfigurationKey(
         createBuildOptions(optionsProvider), ImmutableSortedSet.<String>of());
+    boolean keepGoing = optionsProvider.getOptions(BuildView.Options.class).keepGoing;
     LoadedPackageProvider loadedPackageProvider =
         loadingPhaseRunner.loadForConfigurations(reporter,
-            ImmutableSet.copyOf(configurationKey.getLabelsToLoadUnconditionally().values()));
+            ImmutableSet.copyOf(configurationKey.getLabelsToLoadUnconditionally().values()),
+            keepGoing);
     if (loadedPackageProvider == null) {
       throw new InvalidConfigurationException("Configuration creation failed");
     }
-    return skyframeExecutor.createConfigurations(configurationFactory, configurationKey);
+    return skyframeExecutor.createConfigurations(keepGoing, configurationFactory,
+        configurationKey);
   }
 
   /**

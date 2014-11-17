@@ -30,8 +30,6 @@ import com.sun.net.httpserver.HttpExchange;
 import com.sun.net.httpserver.HttpHandler;
 import com.sun.net.httpserver.HttpServer;
 
-import org.joda.time.DateTime;
-
 import java.io.IOException;
 import java.io.OutputStream;
 import java.net.InetSocketAddress;
@@ -51,7 +49,6 @@ public class WebStatusServerModule extends BlazeModule {
   private HttpServer server;
   private boolean running = false;
   private BlazeServerStartupOptions serverOptions;
-  private RawDataHandler lastCommandHandler;
   private static final Logger LOG =
       Logger.getLogger(WebStatusServerModule.class.getCanonicalName());
   private int port;
@@ -78,7 +75,7 @@ public class WebStatusServerModule extends BlazeModule {
     try {
       server = HttpServer.create(new InetSocketAddress(port), 0);
       serveStaticContent();
-      lastCommandHandler = new RawDataHandler("No commands ran yet.");
+      TextHandler lastCommandHandler = new TextHandler("No commands ran yet.");
       server.createContext("/last", lastCommandHandler);
       server.setExecutor(null);
       server.start();
@@ -115,16 +112,6 @@ public class WebStatusServerModule extends BlazeModule {
     lastTest.overrideURI(LAST_TEST_URI);
   }
   
-  @Override
-  public void afterCommand() {
-    if (!running) {
-      return;
-    }
-    DateTime currentTime = new DateTime();
-    lastCommandHandler.response = "Command finished...\n";
-    lastCommandHandler.endTime = currentTime;
-  }
-
   private void serveStaticContent() {
     StaticResourceHandler testjs =
         StaticResourceHandler.createFromRelativePath("static/test.js", "application/javascript");
@@ -145,40 +132,19 @@ public class WebStatusServerModule extends BlazeModule {
     server.createContext(LAST_TEST_URI, testFrontend);
   }
 
-  /**
-   *
-   * Dumps data collected by server.
-   */
-  private static class RawDataHandler implements HttpHandler {
-    public DateTime endTime;
-    private DateTime startTime;
-    private Command command;
-    private WebStatusBuildLog buildLog;
+  private static class TextHandler implements HttpHandler {
     private String response;
 
-    private RawDataHandler(String response) {
+    private TextHandler(String response) {
       this.response = response;
     }
 
     @Override
-    public void handle(HttpExchange t) throws IOException {
-      StringBuilder builder = new StringBuilder(response);
-      if (startTime != null) {
-        builder.append(startTime.toString());
-      }
-      if (command != null) {
-        builder.append(command.toString());
-      }
-      if (buildLog != null) {
-        builder.append(buildLog.getCommandInfo().toString());
-      }
-      if (endTime != null) {
-        builder.append(endTime.toString());
-      }
-      String fullResponse = builder.toString();
-      t.sendResponseHeaders(200, fullResponse.length());
-      OutputStream os = t.getResponseBody();
-      os.write(fullResponse.getBytes());
+    public void handle(HttpExchange exchange) throws IOException {
+      exchange.getResponseHeaders().put("Content-Type", ImmutableList.of("text/plain"));
+      exchange.sendResponseHeaders(200, response.length());
+      OutputStream os = exchange.getResponseBody();
+      os.write(response.getBytes());
       os.close();
     }
   }

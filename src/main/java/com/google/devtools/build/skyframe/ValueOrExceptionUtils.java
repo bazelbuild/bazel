@@ -13,8 +13,6 @@
 // limitations under the License.
 package com.google.devtools.build.skyframe;
 
-import com.google.common.base.Preconditions;
-
 import javax.annotation.Nullable;
 
 /** Utilities for producing and consuming ValueOrException(2|3|4)? instances. */
@@ -86,7 +84,7 @@ class ValueOrExceptionUtils {
   }
 
   public static ValueOrUntypedException ofValueUntyped(SkyValue value) {
-    return new ValueImplBase(value);
+    return new ValueOrUntypedExceptionImpl(value);
   }
 
   public static <E extends Exception> ValueOrException<E> ofExn(E e) {
@@ -123,12 +121,11 @@ class ValueOrExceptionUtils {
     return new ValueOrException4Exn4Impl<>(e);
   }
 
-  private static class ValueImplBase implements ValueOrUntypedException {
-
+  private static class ValueOrUntypedExceptionImpl extends ValueOrUntypedException {
     @Nullable
     private final SkyValue value;
 
-    ValueImplBase(@Nullable SkyValue value) {
+    ValueOrUntypedExceptionImpl(@Nullable SkyValue value) {
       this.value = value;
     }
 
@@ -144,39 +141,33 @@ class ValueOrExceptionUtils {
     }
   }
 
-  private static class ExnImplBase<E extends Exception> implements ValueOrUntypedException {
-
-    private final E e;
-
-    ExnImplBase(E e) {
-      this.e = Preconditions.checkNotNull(e);
-    }
-
-    @Override
-    public SkyValue getValue() {
-      return null;
-    }
-
-    @Override
-    public E getException() {
-      return e;
-    }
-  }
-
-  private static class ValueOrExceptionValueImpl<E extends Exception>
-      extends ValueImplBase implements ValueOrException<E> {
-
+  private static class ValueOrExceptionValueImpl<E extends Exception> extends ValueOrException<E> {
     private static final ValueOrExceptionValueImpl<Exception> NULL =
         new ValueOrExceptionValueImpl<Exception>((SkyValue) null);
 
+    @Nullable
+    private final SkyValue value;
+
     private ValueOrExceptionValueImpl(@Nullable SkyValue value) {
-      super(value);
+      this.value = value;
     }
 
     @Override
     @Nullable
     public SkyValue get() {
-      return getValue();
+      return value;
+    }
+
+    @Override
+    @Nullable
+    public SkyValue getValue() {
+      return value;
+    }
+
+    @Override
+    @Nullable
+    public Exception getException() {
+      return null;
     }
 
     @SuppressWarnings("unchecked")
@@ -185,127 +176,239 @@ class ValueOrExceptionUtils {
     }
   }
 
-  private static class ValueOrExceptionExnImpl<E extends Exception>
-      extends ExnImplBase<E> implements ValueOrException<E> {
+  private static class ValueOrExceptionExnImpl<E extends Exception> extends ValueOrException<E> {
+    private final E e;
 
     private ValueOrExceptionExnImpl(E e) {
-      super(e);
+      this.e = e;
     }
 
     @Override
     public SkyValue get() throws E {
-      throw getException();
+      throw e;
+    }
+
+    @Override
+    @Nullable
+    public SkyValue getValue() {
+      return null;
+    }
+
+    @Override
+    public Exception getException() {
+      return e;
     }
   }
 
   private static class ValueOrException2ValueImpl<E1 extends Exception, E2 extends Exception>
-      extends ValueImplBase implements ValueOrException2<E1, E2> {
+      extends ValueOrException2<E1, E2> {
+    @Nullable
+    private final SkyValue value;
 
-    private ValueOrException2ValueImpl(@Nullable SkyValue value) {
-      super(value);
+    ValueOrException2ValueImpl(@Nullable SkyValue value) {
+      this.value = value;
     }
 
     @Override
     @Nullable
-    public SkyValue get() {
-      return getValue();
+    public SkyValue get() throws E1, E2 {
+      return value;
+    }
+
+    @Override
+    @Nullable
+    public Exception getException() {
+      return null;
+    }
+
+    @Override
+    @Nullable
+    public SkyValue getValue() {
+      return value;
     }
   }
 
   private static class ValueOrException2Exn1Impl<E1 extends Exception, E2 extends Exception>
-      extends ExnImplBase<E1> implements ValueOrException2<E1, E2> {
+      extends ValueOrException2<E1, E2> {
+    private final E1 e;
 
     private ValueOrException2Exn1Impl(E1 e) {
-      super(e);
+      this.e = e;
     }
 
     @Override
     public SkyValue get() throws E1 {
-      throw getException();
+      throw e;
+    }
+
+    @Override
+    public Exception getException() {
+      return e;
+    }
+
+    @Override
+    @Nullable
+    public SkyValue getValue() {
+      return null;
     }
   }
 
   private static class ValueOrException2Exn2Impl<E1 extends Exception, E2 extends Exception>
-      extends ExnImplBase<E2> implements ValueOrException2<E1, E2> {
+      extends ValueOrException2<E1, E2> {
+    private final E2 e;
 
     private ValueOrException2Exn2Impl(E2 e) {
-      super(e);
+      this.e = e;
     }
 
     @Override
     public SkyValue get() throws E2 {
-      throw getException();
+      throw e;
+    }
+
+    @Override
+    public Exception getException() {
+      return e;
+    }
+
+    @Override
+    @Nullable
+    public SkyValue getValue() {
+      return null;
     }
   }
 
   private static class ValueOrException3ValueImpl<E1 extends Exception, E2 extends Exception,
-      E3 extends Exception> extends ValueImplBase implements ValueOrException3<E1, E2, E3> {
+      E3 extends Exception> extends ValueOrException3<E1, E2, E3> {
+    @Nullable
+    private final SkyValue value;
 
-    private ValueOrException3ValueImpl(@Nullable SkyValue value) {
-      super(value);
+    ValueOrException3ValueImpl(@Nullable SkyValue value) {
+      this.value = value;
     }
 
     @Override
     @Nullable
-    public SkyValue get() {
-      return getValue();
+    public SkyValue get() throws E1, E2 {
+      return value;
+    }
+
+    @Override
+    @Nullable
+    public Exception getException() {
+      return null;
+    }
+
+    @Override
+    @Nullable
+    public SkyValue getValue() {
+      return value;
     }
   }
 
   private static class ValueOrException3Exn1Impl<E1 extends Exception, E2 extends Exception,
-      E3 extends Exception> extends ExnImplBase<E1> implements ValueOrException3<E1, E2, E3> {
+      E3 extends Exception> extends ValueOrException3<E1, E2, E3> {
+    private final E1 e;
 
     private ValueOrException3Exn1Impl(E1 e) {
-      super(e);
+      this.e = e;
     }
 
     @Override
     public SkyValue get() throws E1 {
-      throw getException();
-    }
-  }
-
-  private static class ValueOrException3Exn2Impl<E1 extends Exception, E2 extends Exception,
-      E3 extends Exception> extends ExnImplBase<E2> implements ValueOrException3<E1, E2, E3> {
-
-    private ValueOrException3Exn2Impl(E2 e) {
-      super(e);
+      throw e;
     }
 
     @Override
-    public SkyValue get() throws E2 {
-      throw getException();
-    }
-  }
-
-  private static class ValueOrException3Exn3Impl<E1 extends Exception, E2 extends Exception,
-      E3 extends Exception> extends ExnImplBase<E3> implements ValueOrException3<E1, E2, E3> {
-
-    private ValueOrException3Exn3Impl(E3 e) {
-      super(e);
-    }
-
-    @Override
-    public SkyValue get() throws E3 {
-      throw getException();
-    }
-  }
-
-  private static class ValueOrException4ValueImpl<E1 extends Exception, E2 extends Exception,
-      E3 extends Exception, E4 extends Exception> extends ValueImplBase
-      implements ValueOrException4<E1, E2, E3, E4> {
-
-    private static final ValueOrException4ValueImpl<Exception, Exception, Exception,
-        Exception> NULL = new ValueOrException4ValueImpl<>((SkyValue) null);
-
-    private ValueOrException4ValueImpl(@Nullable SkyValue value) {
-      super(value);
+    public Exception getException() {
+      return e;
     }
 
     @Override
     @Nullable
-    public SkyValue get() {
-      return getValue();
+    public SkyValue getValue() {
+      return null;
+    }
+  }
+
+  private static class ValueOrException3Exn2Impl<E1 extends Exception, E2 extends Exception,
+      E3 extends Exception> extends ValueOrException3<E1, E2, E3> {
+    private final E2 e;
+
+    private ValueOrException3Exn2Impl(E2 e) {
+      this.e = e;
+    }
+
+    @Override
+    public SkyValue get() throws E2 {
+      throw e;
+    }
+
+    @Override
+    public Exception getException() {
+      return e;
+    }
+
+    @Override
+    @Nullable
+    public SkyValue getValue() {
+      return null;
+    }
+  }
+
+  private static class ValueOrException3Exn3Impl<E1 extends Exception, E2 extends Exception,
+      E3 extends Exception> extends ValueOrException3<E1, E2, E3> {
+    private final E3 e;
+
+    private ValueOrException3Exn3Impl(E3 e) {
+      this.e = e;
+    }
+
+    @Override
+    public SkyValue get() throws E3 {
+      throw e;
+    }
+
+    @Override
+    public Exception getException() {
+      return e;
+    }
+
+    @Override
+    @Nullable
+    public SkyValue getValue() {
+      return null;
+    }
+  }
+
+  private static class ValueOrException4ValueImpl<E1 extends Exception, E2 extends Exception,
+      E3 extends Exception, E4 extends Exception> extends ValueOrException4<E1, E2, E3, E4> {
+    private static final ValueOrException4ValueImpl<Exception, Exception, Exception,
+        Exception> NULL = new ValueOrException4ValueImpl<>((SkyValue) null);
+
+    @Nullable
+    private final SkyValue value;
+
+    ValueOrException4ValueImpl(@Nullable SkyValue value) {
+      this.value = value;
+    }
+
+    @Override
+    @Nullable
+    public SkyValue get() throws E1, E2 {
+      return value;
+    }
+
+    @Override
+    @Nullable
+    public Exception getException() {
+      return null;
+    }
+
+    @Override
+    @Nullable
+    public SkyValue getValue() {
+      return value;
     }
 
     @SuppressWarnings("unchecked")
@@ -316,58 +419,102 @@ class ValueOrExceptionUtils {
   }
 
   private static class ValueOrException4Exn1Impl<E1 extends Exception, E2 extends Exception,
-      E3 extends Exception, E4 extends Exception> extends ExnImplBase<E1>
-      implements ValueOrException4<E1, E2, E3, E4> {
+      E3 extends Exception, E4 extends Exception> extends ValueOrException4<E1, E2, E3, E4> {
+    private final E1 e;
 
     private ValueOrException4Exn1Impl(E1 e) {
-      super(e);
+      this.e = e;
     }
 
     @Override
     public SkyValue get() throws E1 {
-      throw getException();
+      throw e;
+    }
+
+    @Override
+    public Exception getException() {
+      return e;
+    }
+
+    @Override
+    @Nullable
+    public SkyValue getValue() {
+      return null;
     }
   }
 
   private static class ValueOrException4Exn2Impl<E1 extends Exception, E2 extends Exception,
-      E3 extends Exception, E4 extends Exception> extends ExnImplBase<E2>
-      implements ValueOrException4<E1, E2, E3, E4> {
+      E3 extends Exception, E4 extends Exception> extends ValueOrException4<E1, E2, E3, E4> {
+    private final E2 e;
 
     private ValueOrException4Exn2Impl(E2 e) {
-      super(e);
+      this.e = e;
     }
 
     @Override
     public SkyValue get() throws E2 {
-      throw getException();
+      throw e;
+    }
+
+    @Override
+    public Exception getException() {
+      return e;
+    }
+
+    @Override
+    @Nullable
+    public SkyValue getValue() {
+      return null;
     }
   }
 
   private static class ValueOrException4Exn3Impl<E1 extends Exception, E2 extends Exception,
-      E3 extends Exception, E4 extends Exception> extends ExnImplBase<E3>
-      implements ValueOrException4<E1, E2, E3, E4> {
+      E3 extends Exception, E4 extends Exception> extends ValueOrException4<E1, E2, E3, E4> {
+    private final E3 e;
 
     private ValueOrException4Exn3Impl(E3 e) {
-      super(e);
+      this.e = e;
     }
 
     @Override
     public SkyValue get() throws E3 {
-      throw getException();
+      throw e;
+    }
+
+    @Override
+    public Exception getException() {
+      return e;
+    }
+
+    @Override
+    @Nullable
+    public SkyValue getValue() {
+      return null;
     }
   }
 
   private static class ValueOrException4Exn4Impl<E1 extends Exception, E2 extends Exception,
-      E3 extends Exception, E4 extends Exception> extends ExnImplBase<E4>
-      implements ValueOrException4<E1, E2, E3, E4> {
+      E3 extends Exception, E4 extends Exception> extends ValueOrException4<E1, E2, E3, E4> {
+    private final E4 e;
 
     private ValueOrException4Exn4Impl(E4 e) {
-      super(e);
+      this.e = e;
     }
 
     @Override
     public SkyValue get() throws E4 {
-      throw getException();
+      throw e;
+    }
+
+    @Override
+    public Exception getException() {
+      return e;
+    }
+
+    @Override
+    @Nullable
+    public SkyValue getValue() {
+      return null;
     }
   }
 }

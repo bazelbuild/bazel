@@ -30,8 +30,6 @@ import com.google.devtools.build.lib.actions.ExecException;
 import com.google.devtools.build.lib.actions.Executor;
 import com.google.devtools.build.lib.actions.ResourceSet;
 import com.google.devtools.build.lib.collect.nestedset.NestedSet;
-import com.google.devtools.build.lib.collect.nestedset.NestedSetBuilder;
-import com.google.devtools.build.lib.collect.nestedset.Order;
 import com.google.devtools.build.lib.concurrent.ThreadSafety.ThreadCompatible;
 import com.google.devtools.build.lib.events.Event;
 import com.google.devtools.build.lib.syntax.Label;
@@ -77,7 +75,7 @@ public class FakeCppCompileAction extends CppCompileAction {
       boolean enableModules,
       @Nullable String fdoBuildStamp) {
     super(owner, features, sourceFile, sourceLabel, mandatoryInputs, outputFile,
-        dotdFile, null, null, NestedSetBuilder.<Artifact>emptySet(Order.STABLE_ORDER),
+        dotdFile, null, null, null,
         configuration, cppConfiguration,
         // We only allow inclusion of header files explicitly declared in
         // "srcs", so we only use declaredIncludeSrcs, not declaredIncludeDirs.

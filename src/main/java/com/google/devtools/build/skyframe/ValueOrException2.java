@@ -16,10 +16,10 @@ package com.google.devtools.build.skyframe;
 import javax.annotation.Nullable;
 
 /** Wrapper for a value or the typed exception thrown when trying to compute it. */
-public interface ValueOrException2<E1 extends Exception, E2 extends Exception>
+public abstract class ValueOrException2<E1 extends Exception, E2 extends Exception>
     extends ValueOrUntypedException {
 
   /** Gets the stored value. Throws an exception if one was thrown when computing this value. */
   @Nullable
-  SkyValue get() throws E1, E2;
+  public abstract SkyValue get() throws E1, E2;
 }

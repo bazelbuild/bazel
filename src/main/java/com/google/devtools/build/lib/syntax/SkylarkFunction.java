@@ -156,6 +156,11 @@ public abstract class SkylarkFunction extends AbstractFunction {
   private void checkTypeAndAddArg(String paramName, Object value,
       ImmutableMap.Builder<String, Object> arguments, Location loc) throws EvalException {
     SkylarkBuiltin.Param param = parameterTypes.get(paramName);
+    if (param.callbackEnabled() && Function.class.isAssignableFrom(value.getClass())) {
+      // If we pass a function as an argument we trust the Function implementation with the type
+      // check. It's OK since the function needs to be called manually anyway.
+      return;
+    }
     if (!(param.type().isAssignableFrom(value.getClass()))) {
       throw new EvalException(loc, String.format("expected %s for '%s' but got %s instead\n"
           + "%s.%s: %s",

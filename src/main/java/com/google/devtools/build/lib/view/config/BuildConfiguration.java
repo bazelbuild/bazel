@@ -28,6 +28,7 @@ import com.google.common.collect.ListMultimap;
 import com.google.common.collect.Maps;
 import com.google.common.collect.Multimap;
 import com.google.devtools.build.lib.actions.ArtifactFactory;
+import com.google.devtools.build.lib.actions.PackageRootResolver;
 import com.google.devtools.build.lib.actions.Root;
 import com.google.devtools.build.lib.blaze.BlazeDirectories;
 import com.google.devtools.build.lib.events.Event;
@@ -157,7 +158,8 @@ public final class BuildConfiguration implements Serializable {
      */
     @SuppressWarnings("unused")
     public void prepareHook(Path execPath, ArtifactFactory artifactFactory,
-        PathFragment genfilesPath) throws ViewCreationFailedException {
+        PathFragment genfilesPath, PackageRootResolver resolver)
+        throws ViewCreationFailedException {
     }
 
     /**
@@ -1784,10 +1786,10 @@ public final class BuildConfiguration implements Serializable {
    * conceptually part of the analysis phase, and it needs to happen when the loading phase is
    * complete.
    */
-  public void prepareToBuild(Path execRoot, ArtifactFactory artifactFactory)
-      throws ViewCreationFailedException {
+  public void prepareToBuild(Path execRoot, ArtifactFactory artifactFactory,
+      PackageRootResolver resolver) throws ViewCreationFailedException {
     for (Fragment fragment : fragments.values()) {
-      fragment.prepareHook(execRoot, artifactFactory, getGenfilesFragment());
+      fragment.prepareHook(execRoot, artifactFactory, getGenfilesFragment(), resolver);
     }
   }
 

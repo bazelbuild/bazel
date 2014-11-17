@@ -11,15 +11,22 @@
 // WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
 // See the License for the specific language governing permissions and
 // limitations under the License.
-package com.google.devtools.build.skyframe;
+
+package com.google.devtools.build.lib.actions;
+
+import com.google.devtools.build.lib.vfs.PathFragment;
 
 import javax.annotation.Nullable;
 
-/** Wrapper for a value or the typed exception thrown when trying to compute it. */
-public abstract class ValueOrException4<E1 extends Exception, E2 extends Exception,
-    E3 extends Exception, E4 extends Exception> extends ValueOrUntypedException {
+/**
+ * Represents logic that evaluates the root of the package containing path.
+ */
+public interface PackageRootResolver {
 
-  /** Gets the stored value. Throws an exception if one was thrown when computing this value. */
+  /**
+   * Returns the root of the package containing execPath, or null if no such
+   * package can be found.
+   */
   @Nullable
-  public abstract SkyValue get() throws E1, E2, E3, E4;
+  Root findPackageRoot(PathFragment execPath);
 }

@@ -166,7 +166,8 @@ public class BuildTool {
         }
       }
       configurations = getConfigurations(
-          runtime.getBuildConfigurationKey(buildOptions, request.getMultiCpus()));
+          runtime.getBuildConfigurationKey(buildOptions, request.getMultiCpus()),
+          request.getViewOptions().keepGoing);
 
       getEventBus().post(new ConfigurationsCreatedEvent(configurations));
       runtime.throwPendingException();
@@ -312,12 +313,13 @@ public class BuildTool {
     return result;
   }
 
-  protected final BuildConfigurationCollection getConfigurations(BuildConfigurationKey key)
+  protected final BuildConfigurationCollection getConfigurations(BuildConfigurationKey key,
+      boolean keepGoing)
       throws InvalidConfigurationException, InterruptedException {
     SkyframeExecutor executor = runtime.getSkyframeExecutor();
     // TODO(bazel-team): consider a possibility of moving ConfigurationFactory construction into
     // skyframe.
-    return executor.createConfigurations(runtime.getConfigurationFactory(), key);
+    return executor.createConfigurations(keepGoing, runtime.getConfigurationFactory(), key);
   }
 
   @VisibleForTesting

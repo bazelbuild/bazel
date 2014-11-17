@@ -16,7 +16,10 @@ package com.google.devtools.build.lib.webstatusserver;
 
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableList.Builder;
+import com.google.gson.Gson;
+import com.google.gson.JsonElement;
 import com.google.gson.JsonObject;
+import com.google.gson.reflect.TypeToken;
 
 import com.sun.net.httpserver.HttpContext;
 import com.sun.net.httpserver.HttpExchange;
@@ -25,6 +28,7 @@ import com.sun.net.httpserver.HttpServer;
 
 import java.io.IOException;
 import java.io.OutputStream;
+import java.lang.reflect.Type;
 import java.util.Map;
 import java.util.Map.Entry;
 
@@ -37,15 +41,20 @@ class TestStatusHandler {
   private HttpHandler detailsHandler;
   private HttpServer server;
   private ImmutableList<HttpContext> contexts;
+  private CommandJsonData commandHandler;
+  private Gson gson = new Gson();
 
   public TestStatusHandler(HttpServer server, WebStatusBuildLog buildLog) {
     Builder<HttpContext> builder = ImmutableList.builder();
     this.buildLog = buildLog;
     this.server = server;
     detailsHandler = new TestStatusResultJsonData(this);
+    commandHandler = new CommandJsonData(this);
     frontendHandler = StaticResourceHandler.createFromRelativePath("static/test.html", "text/html");
     builder.add(
         server.createContext("/tests/" + buildLog.getCommandId() + "/details", detailsHandler));
+    builder.add(
+        server.createContext("/tests/" + buildLog.getCommandId() + "/info", commandHandler));
     builder.add(server.createContext("/tests/" + buildLog.getCommandId(), frontendHandler));
     contexts = builder.build();
   }
@@ -54,6 +63,34 @@ class TestStatusHandler {
     return buildLog;
   }
 
+  
+  /**
+   *  Serves JSON objects containing command info, which will be rendered by frontend.
+   */
+  private class CommandJsonData implements HttpHandler {
+    private TestStatusHandler testStatusHandler;
+    
+    public CommandJsonData(TestStatusHandler testStatusHandler) {
+      this.testStatusHandler = testStatusHandler;
+    }
+
+    @Override
+    public void handle(HttpExchange exchange) throws IOException {
+      exchange.getResponseHeaders().put("Content-Type", ImmutableList.of("application/json"));
+      Type commandInfoType = new TypeToken<Map<String, JsonElement>>() {}.getType();
+      JsonObject response = gson.toJsonTree(testStatusHandler.buildLog.getCommandInfo(),
+          commandInfoType).getAsJsonObject();
+      response.addProperty("startTime", testStatusHandler.buildLog.getStartTime());
+      response.addProperty("finished", testStatusHandler.buildLog.finished());
+
+      String serializedResponse = response.toString();
+      exchange.sendResponseHeaders(200, serializedResponse.length());
+      OutputStream os = exchange.getResponseBody();
+      os.write(serializedResponse.getBytes());
+      os.close();
+    }
+  }
+  
   /**
    * Serves JSON objects containing test cases, which will be rendered by frontend.
    */
@@ -87,15 +124,16 @@ class TestStatusHandler {
    */
   public void overrideURI(String uri) {
     String detailsPath = uri + "/details";
-    String summaryPath = uri + "/data";
+    String commandPath = uri + "/info";
     try {
       this.server.removeContext(detailsPath);
-      this.server.removeContext(summaryPath);
+      this.server.removeContext(commandPath);
     } catch (IllegalArgumentException e) {
       // There was nothing to remove, so proceed with creation (unfortunately the server api doesn't
       // have "hasContext" method)
     }
-    this.server.createContext(detailsPath, this.detailsHandler);   
+    this.server.createContext(detailsPath, this.detailsHandler); 
+    this.server.createContext(commandPath, this.commandHandler);   
   }
   
   /**

@@ -69,6 +69,7 @@ import javax.annotation.Nullable;
  */
 @VisibleForTesting
 public class FileAndMetadataCache implements ActionInputFileCache, MetadataHandler {
+  /** This should never be read directly. Use {@link #getInputFileArtifactValue} instead. */
   private final Map<Artifact, FileArtifactValue> inputArtifactData;
   private final Map<Artifact, Collection<Artifact>> expandedInputMiddlemen;
   private final File execRoot;
@@ -126,6 +127,51 @@ public class FileAndMetadataCache implements ActionInputFileCache, MetadataHandl
     return artifact.forceConstantMetadata() ? Metadata.CONSTANT_METADATA : metadata;
   }
 
+  @Nullable
+  private FileArtifactValue getInputFileArtifactValue(ActionInput input) {
+    FileArtifactValue value = inputArtifactData.get(input);
+    if (value != null) {
+      return value;
+    }
+    if (outputs.contains(input)) {
+      // When this method is called to calculate the metadata of an artifact, the artifact may be an
+      // output artifact. Don't try to do anything then.
+      return null;
+    }
+    if (!(input instanceof Artifact)) {
+      // Maybe we're being asked for some strange constructed ActionInput coming from runfiles or
+      // similar. We have no information about such things.
+      return null;
+    }
+    // TODO(bazel-team): Remove this codepath once Skyframe has native input discovery, so all
+    // inputs will already have metadata known.
+    // ActionExecutionFunction may have passed in null environment if this action does not
+    // discover inputs. In which case we should not have gotten here.
+    Preconditions.checkNotNull(env, input);
+    Artifact artifact = (Artifact) input;
+    if (artifact.isSourceArtifact()) {
+      // We might have no artifact data for discovered source inputs, and it's not worth storing
+      // it in this cache, because it won't be reused across actions -- while we could request an
+      // artifact from the graph, we would have to be tolerant to it not yet being present in the
+      // graph yet, which adds complexity. Instead, we let the undeclared inputs handler stat it, so
+      // it can be reused.
+      return null;
+    } else {
+      // This getValue call is not expected to return null, because if the artifact is a
+      // transitive dependency of this action (as it should be), it will already have been built,
+      // so this call will return a value.
+      // This getValue call is theoretically less efficient for a subsequent incremental build
+      // than it would be to do a bulk getValues call after action execution, as is done for
+      // source inputs. However, since almost all nodes requested here are transitive deps of an
+      // already-declared dependency, change pruning will request these values serially, but they
+      // will already have been built. So the only penalty is restarting ParallelEvaluator#run, as
+      // opposed to traversing the entire downward transitive closure on a single thread.
+      value = (FileArtifactValue) env.getValue(
+          FileArtifactValue.key(artifact, /*argument ignored for derived artifacts*/false));
+      return value;
+    }
+  }
+
   /**
    * We cache data for constant-metadata artifacts, even though it is technically unnecessary,
    * because the data stored in this cache is consumed by various parts of Blaze via the {@link
@@ -134,36 +180,16 @@ public class FileAndMetadataCache implements ActionInputFileCache, MetadataHandl
    * we must not return the actual metadata for a constant-metadata artifact.
    */
   private Metadata getRealMetadata(Artifact artifact) throws IOException {
-    FileArtifactValue value = inputArtifactData.get(artifact);
+    FileArtifactValue value = getInputFileArtifactValue(artifact);
     if (value != null) {
       return metadataFromValue(value);
     }
-    if (!outputs.contains(artifact)) {
-      // TODO(bazel-team): Remove this codepath once Skyframe has native input discovery, so all
-      // inputs will already have metadata known.
-      // ActionExecutionFunction may have passed in null environment if this action does not
-      // discover inputs. In which case we should not have gotten here.
-      Preconditions.checkNotNull(env, artifact);
-      if (artifact.isSourceArtifact()) {
-        // We might have no artifact data for discovered source inputs, and it's not worth storing
-        // it in this cache, because it won't be reused across actions. Instead, we let the
-        // undeclared inputs handler stat it, so it can be reused.
-        return null;
-      } else {
-        // This getValue call is theoretically less efficient for a subsequent incremental build
-        // than it would be to do a bulk getValues call after action execution, as is done for
-        // source inputs. However, since almost all nodes requested here are transitive deps of an
-        // already-declared dependency, change pruning will request these values serially, but they
-        // will already have been built. So the only penalty is restarting ParallelEvaluator#run, as
-        // opposed to traversing the entire downward transitive closure on a single thread.
-        value = (FileArtifactValue) env.getValue(
-            FileArtifactValue.key(artifact, /*isMandatory=*/false));
-        if (value != null) {
-          return metadataFromValue(value);
-        }
-      }
-    }
-    if (artifact.isMiddlemanArtifact()) {
+    if (artifact.isSourceArtifact()) {
+      // A discovered input we didn't have data for.
+      // TODO(bazel-team): Change this to an assertion once Skyframe has native input discovery, so
+      // all inputs will already have metadata known.
+      return null;
+    } else if (artifact.isMiddlemanArtifact()) {
       // A middleman artifact's data was either already injected from the action cache checker using
       // #setDigestForVirtualArtifact, or it has the default middleman value.
       value = additionalOutputData.get(artifact);
@@ -314,7 +340,7 @@ public class FileAndMetadataCache implements ActionInputFileCache, MetadataHandl
   public boolean isRegularFile(Artifact artifact) {
     // Currently this method is used only for genrule input directory checks. If we need to call
     // this on output artifacts too, this could be more efficient.
-    FileArtifactValue value = inputArtifactData.get(artifact);
+    FileArtifactValue value = getInputFileArtifactValue(artifact);
     if (value != null && value.getDigest() != null) {
       return true;
     }
@@ -355,7 +381,7 @@ public class FileAndMetadataCache implements ActionInputFileCache, MetadataHandl
 
   @Override
   public long getSizeInBytes(ActionInput input) throws IOException {
-    FileArtifactValue metadata = inputArtifactData.get(input);
+    FileArtifactValue metadata = getInputFileArtifactValue(input);
     if (metadata != null) {
       return metadata.getSize();
     }
@@ -376,9 +402,9 @@ public class FileAndMetadataCache implements ActionInputFileCache, MetadataHandl
   @Nullable
   @Override
   public ByteString getDigest(ActionInput input) throws IOException {
-    FileArtifactValue metadata = inputArtifactData.get(input);
-    if (metadata != null) {
-      byte[] bytes = metadata.getDigest();
+    FileArtifactValue value = getInputFileArtifactValue(input);
+    if (value != null) {
+      byte[] bytes = value.getDigest();
       if (bytes != null) {
         ByteString digest = ByteString.copyFrom(BaseEncoding.base16().lowerCase().encode(bytes)
             .getBytes(StandardCharsets.US_ASCII));

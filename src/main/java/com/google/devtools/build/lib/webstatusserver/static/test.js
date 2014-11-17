@@ -1,5 +1,18 @@
 function showData() {
   renderDetails(getDetailsData(), false);
+  renderInfo(getCommandInfo());
+}
+
+function getCommandInfo() {
+  var url = document.URL;
+  if (url[url.length - 1] != '/') {
+    url += '/';
+  }
+  return $.ajax({
+      type: 'GET',
+      url: url + 'info',
+      async: false
+  }).responseJSON;
 }
 
 function getDetailsData() {
@@ -13,6 +26,30 @@ function getDetailsData() {
       url: url + 'details',
       async: false
   }).responseJSON;
+}
+
+function renderInfo(info) {
+  $('#testInfo').empty();
+  var data = [
+    ['Targets: ', info['targets']],
+    ['Finished: ', info['finished']],
+    ['Start time: ', new Date(info['startTime'])]
+  ];
+  if (info['finished']) {
+    data.push(['End time: ', new Date(info['endTime'])]);
+  }
+  var selection = d3.select('#testInfo').selectAll()
+      .data(data)
+      .enter().append('div')
+      .classed('info-cell', true);
+  selection
+      .append('div')
+      .classed('info-detail', true)
+      .text(function(d) { return d[0]; });
+  selection
+      .append('div')
+      .classed('info-detail', true)
+      .text(function(d) { return d[1]; });
 }
 
 // predicate is either a predicate function or null - in the latter case

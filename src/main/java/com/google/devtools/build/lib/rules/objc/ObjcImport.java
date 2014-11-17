@@ -19,6 +19,7 @@ import static com.google.devtools.build.lib.rules.objc.XcodeProductType.LIBRARY_
 import com.google.common.base.Optional;
 import com.google.devtools.build.lib.actions.Artifact;
 import com.google.devtools.build.lib.collect.nestedset.NestedSetBuilder;
+import com.google.devtools.build.lib.packages.Type;
 import com.google.devtools.build.lib.rules.RuleConfiguredTargetFactory;
 import com.google.devtools.build.lib.view.ConfiguredTarget;
 import com.google.devtools.build.lib.view.RuleContext;
@@ -32,6 +33,7 @@ public class ObjcImport implements RuleConfiguredTargetFactory {
     ObjcCommon common = new ObjcCommon.Builder(ruleContext)
         .setBaseAttributes(new ObjcBase.Attributes(ruleContext))
         .setIntermediateArtifacts(ObjcRuleClasses.intermediateArtifacts(ruleContext))
+        .setAlwayslink(ruleContext.attributes().get("alwayslink", Type.BOOLEAN))
         .build();
     common.reportErrors();
 

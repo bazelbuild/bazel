@@ -48,19 +48,20 @@ final class GlobFunction implements SkyFunction {
     GlobDescriptor glob = (GlobDescriptor) skyKey.argument();
 
     PackageLookupValue globPkgLookupValue = (PackageLookupValue)
-        env.getValue(PackageLookupValue.key(glob.getPackageName()));
+        env.getValue(PackageLookupValue.key(glob.getPackageId()));
     if (globPkgLookupValue == null) {
       return null;
     }
     Preconditions.checkState(globPkgLookupValue.packageExists(), "%s isn't an existing package",
-        glob.getPackageName());
+        glob.getPackageId());
     // Note that this implies that the package's BUILD file exists which implies that the
     // package's directory exists.
 
     PathFragment globSubdir = glob.getSubdir();
     if (!globSubdir.equals(PathFragment.EMPTY_FRAGMENT)) {
       PackageLookupValue globSubdirPkgLookupValue = (PackageLookupValue) env.getValue(
-          PackageLookupValue.key(glob.getPackageName().getRelative(globSubdir)));
+          PackageLookupValue.key(glob.getPackageId().getPackageFragment()
+              .getRelative(globSubdir)));
       if (globSubdirPkgLookupValue == null) {
         return null;
       }
@@ -95,7 +96,7 @@ final class GlobFunction implements SkyFunction {
         }
       } else {
         SkyKey globKey = GlobValue.internalKey(
-            glob.getPackageName(), globSubdir, patternTail, glob.excludeDirs());
+            glob.getPackageId(), globSubdir, patternTail, glob.excludeDirs());
         GlobValue globValue = (GlobValue) env.getValue(globKey);
         if (globValue == null) {
           return null;
@@ -104,7 +105,7 @@ final class GlobFunction implements SkyFunction {
       }
     }
 
-    PathFragment dirPathFragment = glob.getPackageName().getRelative(globSubdir);
+    PathFragment dirPathFragment = glob.getPackageId().getPackageFragment().getRelative(globSubdir);
     RootedPath dirRootedPath = RootedPath.toRootedPath(globPkgLookupValue.getRoot(),
         dirPathFragment);
     if (containsGlobs(patternHead)) {
@@ -203,7 +204,7 @@ final class GlobFunction implements SkyFunction {
       Environment env) {
     if (isDirectory && subdirPattern != null) {
       // This is a directory, and the pattern covers files under that directory.
-      SkyKey subdirGlobKey = GlobValue.internalKey(glob.getPackageName(),
+      SkyKey subdirGlobKey = GlobValue.internalKey(glob.getPackageId(),
           glob.getSubdir().getRelative(fileName), subdirPattern, glob.excludeDirs());
       GlobValue subdirGlob = (GlobValue) env.getValue(subdirGlobKey);
       if (subdirGlob == null) {
@@ -216,7 +217,7 @@ final class GlobFunction implements SkyFunction {
       if (isDirectory) {
         // TODO(bazel-team): Refactor. This is basically inlined code from the next recursion level.
         // Ensure that subdirectories that contain other packages are not picked up.
-        PathFragment directory = glob.getPackageName()
+        PathFragment directory = glob.getPackageId().getPackageFragment()
             .getRelative(glob.getSubdir()).getRelative(fileName);
         PackageLookupValue pkgLookupValue = (PackageLookupValue)
             env.getValue(PackageLookupValue.key(directory));

@@ -119,4 +119,8 @@ public class InMemoryGraph implements ProcessableGraph {
   protected ConcurrentMap<SkyKey, NodeEntry> getNodeMap() {
     return nodeMap;
   }
+
+  boolean keepsEdges() {
+    return keepEdges;
+  }
 }

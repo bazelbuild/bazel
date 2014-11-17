@@ -348,8 +348,11 @@ public abstract class SkyframeExecutor {
         @Override
         public SkyValue call() throws E, InterruptedException {
           synchronized (valueLookupLock) {
+            // We evaluate in keepGoing mode because in the case that the graph does not store its
+            // edges, nokeepGoing builds are not allowed, whereas keepGoing builds are always
+            // permitted.
             EvaluationResult<ActionLookupValue> result = buildDriver.evaluate(
-                ImmutableList.of(key), false, ResourceUsage.getAvailableProcessors(),
+                ImmutableList.of(key), true, ResourceUsage.getAvailableProcessors(),
                 errorEventListener);
             if (!result.hasError()) {
               return Preconditions.checkNotNull(result.get(key), "%s %s", result, key);
@@ -528,6 +531,29 @@ public abstract class SkyframeExecutor {
         reporter);
     WorkspaceStatusValue value = result.get(WorkspaceStatusValue.SKY_KEY);
     return ImmutableList.of(value.getStableArtifact(), value.getVolatileArtifact());
+  }
+
+  public Root getArtifactRoot(PathFragment execPath) {
+    final SkyKey packageKey = ContainingPackageLookupValue.key(execPath);
+    EvaluationResult<ContainingPackageLookupValue> result;
+    try {
+      result = callUninterruptibly(new Callable<EvaluationResult<ContainingPackageLookupValue>>() {
+        @Override
+        public EvaluationResult<ContainingPackageLookupValue> call() throws InterruptedException {
+          return buildDriver.evaluate(
+              ImmutableList.of(packageKey), /*keepGoing=*/true, /*numThreads=*/1, reporter);
+        }
+      });
+    } catch (Exception e) {
+      throw new IllegalStateException(e);  // Should never happen.
+    }
+    
+    ContainingPackageLookupValue value = result.get(packageKey);
+    if (value.hasContainingPackage()) {
+      return Root.asSourceRoot(value.getContainingPackageRoot());
+    } else {
+      return null;
+    }
   }
 
   @VisibleForTesting
@@ -734,12 +760,19 @@ public abstract class SkyframeExecutor {
     this.configurationPackages.set(Sets.<Package>newConcurrentHashSet());
   }
 
+  @VisibleForTesting
+  public BuildConfigurationCollection createConfigurations(
+      ConfigurationFactory configurationFactory, BuildConfigurationKey configurationKey)
+      throws InvalidConfigurationException, InterruptedException {
+    return createConfigurations(false, configurationFactory, configurationKey);
+  }
+
   /**
    * Asks the Skyframe evaluator to build the value for BuildConfigurationCollection and
    * returns result. Also invalidates {@link PrecomputedValue#TEST_ENVIRONMENT_VARIABLES} and
    * {@link PrecomputedValue#BLAZE_DIRECTORIES} if they have changed.
    */
-  public BuildConfigurationCollection createConfigurations(
+  public BuildConfigurationCollection createConfigurations(boolean keepGoing,
       ConfigurationFactory configurationFactory, BuildConfigurationKey configurationKey)
       throws InvalidConfigurationException, InterruptedException {
 
@@ -761,10 +794,8 @@ public abstract class SkyframeExecutor {
     SkyKey skyKey = ConfigurationCollectionValue.key(configurationKey.getBuildOptions(),
         configurationKey.getMultiCpu());
     setConfigurationSkyKey(skyKey);
-    // In case of error we should stop creation of BuildConfigurationCollection,
-    // that's why keep_going is false.
     EvaluationResult<ConfigurationCollectionValue> result = buildDriver.evaluate(
-            Arrays.asList(skyKey), /*keep_going=*/false, DEFAULT_THREAD_COUNT, errorEventListener);
+            Arrays.asList(skyKey), keepGoing, DEFAULT_THREAD_COUNT, errorEventListener);
     if (result.hasError()) {
       Throwable e = result.getError(skyKey).getException();
       // Wrap loading failed exceptions

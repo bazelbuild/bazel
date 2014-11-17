@@ -48,6 +48,7 @@ public class ObjcBundleLibraryRule implements RuleDefinition {
         <!-- #END_BLAZE_RULE.ATTRIBUTE -->*/
         .add(attr("infoplist", LABEL)
             .allowedFileTypes(PLIST_TYPE))
+        .removeAttribute("alwayslink")
         .build();
   }
 }

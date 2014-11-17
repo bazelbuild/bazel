@@ -59,6 +59,7 @@ import com.google.devtools.build.skyframe.SkyKey;
 import com.google.devtools.build.skyframe.SkyValue;
 
 import java.util.Collection;
+import java.util.HashSet;
 import java.util.List;
 import java.util.Map;
 import java.util.Set;
@@ -128,8 +129,17 @@ public final class SkyframeBuildView {
     return ImmutableSet.copyOf(evaluatedConfiguredTargets);
   }
 
-  private void setDeserializedArtifactOwners() {
-    Map<PathFragment, Artifact> deserializedArtifacts = artifactFactory.getDeserializedArtifacts();
+  private void setDeserializedArtifactOwners() throws ViewCreationFailedException {
+    Map<PathFragment, Artifact> deserializedArtifactMap =
+        artifactFactory.getDeserializedArtifacts();
+    Set<Artifact> deserializedArtifacts = new HashSet<>();
+    for (Artifact artifact : deserializedArtifactMap.values()) {
+      if (!artifact.getExecPath().getBaseName().endsWith(".gcda")) {
+        // gcda files are classified as generated artifacts, but are not actually generated. All
+        // others need owners.
+        deserializedArtifacts.add(artifact);
+      }
+    }
     if (deserializedArtifacts.isEmpty()) {
       // If there are no deserialized artifacts to process, don't pay the price of iterating over
       // the graph.
@@ -139,12 +149,19 @@ public final class SkyframeBuildView {
       skyframeExecutor.getActionLookupValueMap().entrySet()) {
       for (Action action : entry.getValue().getActionsForFindingArtifactOwners()) {
         for (Artifact output : action.getOutputs()) {
-          Artifact deserializedArtifact = deserializedArtifacts.get(output.getExecPath());
+          Artifact deserializedArtifact = deserializedArtifactMap.get(output.getExecPath());
           if (deserializedArtifact != null) {
             deserializedArtifact.setArtifactOwner((ActionLookupKey) entry.getKey().argument());
+            deserializedArtifacts.remove(deserializedArtifact);
           }
         }
       }
+    }
+    if (!deserializedArtifacts.isEmpty()) {
+      throw new ViewCreationFailedException("These artifacts were read in from the FDO profile but"
+      + " have no generating action that could be found. If you are confident that your profile was"
+      + " collected from the same source state at which you're building, please report this:\n"
+      + Artifact.asExecPaths(deserializedArtifacts));
     }
     artifactFactory.clearDeserializedArtifacts();
   }

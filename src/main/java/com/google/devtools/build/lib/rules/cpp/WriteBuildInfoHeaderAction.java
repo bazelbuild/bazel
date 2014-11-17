@@ -81,31 +81,33 @@ public final class WriteBuildInfoHeaderAction extends AbstractFileWriteAction {
   }
 
   @Override
-  public DeterministicWriter newDeterministicWriter(EventHandler eventHandler, Executor executor) {
-    final WorkspaceStatusAction.Context context =
+  public DeterministicWriter newDeterministicWriter(EventHandler eventHandler, Executor executor)
+      throws IOException {
+    WorkspaceStatusAction.Context context =
         executor.getContext(WorkspaceStatusAction.Context.class);
+
+    final Map<String, WorkspaceStatusAction.Key> keys = new LinkedHashMap<>();
+    if (writeVolatileInfo) {
+      keys.putAll(context.getVolatileKeys());
+    }
+
+    if (writeStableInfo) {
+      keys.putAll(context.getStableKeys());
+    }
+
+    final Map<String, String> values = new LinkedHashMap<>();
+    for (Artifact valueFile : valueArtifacts) {
+      values.putAll(WorkspaceStatusAction.parseValues(valueFile.getPath()));
+    }
+
+    final boolean redacted = valueArtifacts.isEmpty();
+
     return new DeterministicWriter() {
       @Override
       public void writeOutputFile(OutputStream out) throws IOException {
         Writer writer = new OutputStreamWriter(out, UTF_8);
 
-        Map<String, WorkspaceStatusAction.Key> keys = new LinkedHashMap<>();
-        if (writeVolatileInfo) {
-          keys.putAll(context.getVolatileKeys());
-        }
-
-        if (writeStableInfo) {
-          keys.putAll(context.getStableKeys());
-        }
-
-        Map<String, String> values = new LinkedHashMap<>();
-        for (Artifact valueFile : valueArtifacts) {
-          values.putAll(WorkspaceStatusAction.parseValues(valueFile.getPath()));
-        }
-
-        boolean redacted = valueArtifacts.isEmpty();
-
-        for (Map.Entry<String, WorkspaceStatusAction.Key> key : keys.entrySet()) {
+       for (Map.Entry<String, WorkspaceStatusAction.Key> key : keys.entrySet()) {
           if (!key.getValue().isInLanguage("C++")) {
             continue;
           }

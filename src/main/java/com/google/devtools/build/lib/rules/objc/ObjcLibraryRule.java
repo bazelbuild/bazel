@@ -15,6 +15,7 @@
 package com.google.devtools.build.lib.rules.objc;
 
 import static com.google.devtools.build.lib.packages.Attribute.attr;
+import static com.google.devtools.build.lib.packages.Type.BOOLEAN;
 import static com.google.devtools.build.lib.packages.Type.LABEL;
 import static com.google.devtools.build.lib.packages.Type.LABEL_LIST;
 import static com.google.devtools.build.lib.rules.objc.ObjcRuleClasses.NON_ARC_SRCS_TYPE;
@@ -81,6 +82,17 @@ public class ObjcLibraryRule implements RuleDefinition {
         .add(attr("options", LABEL)
             .allowedFileTypes()
             .allowedRuleClasses("objc_options"))
+        /* <!-- #BLAZE_RULE(objc_library).ATTRIBUTE(alwayslink) -->
+        If 1, any bundle or binary that depends (directly or indirectly) on this
+        library will link in all the object files for the files listed in
+        <code>srcs</code> and <code>non_arc_srcs</code>, even if some contain no
+        symbols referenced by the binary.
+        ${SYNOPSIS}
+        This is useful if your code isn't explicitly called by code in
+        the binary, e.g., if your code registers to receive some callback
+        provided by some service.
+        <!-- #END_BLAZE_RULE.ATTRIBUTE -->*/
+        .add(attr("alwayslink", BOOLEAN))
         /* <!-- #BLAZE_RULE(objc_library).ATTRIBUTE(deps) -->
         The list of <code>objc_*</code> targets that are linked together to
         form the final bundle.

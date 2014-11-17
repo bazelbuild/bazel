@@ -53,6 +53,13 @@ final class ObjcProvider implements TransitiveInfoProvider {
 
   public static final Key<Artifact> LIBRARY = new Key<>(LINK_ORDER);
   public static final Key<Artifact> IMPORTED_LIBRARY = new Key<>(LINK_ORDER);
+
+  /**
+   * Indicates which libraries to load with {@code -force_load}. This is a subset of the union of
+   * the {@link #LIBRARY} and {@link #IMPORTED_LIBRARY} sets.
+   */
+  public static final Key<Artifact> FORCE_LOAD_LIBRARY = new Key<>(LINK_ORDER);
+
   public static final Key<Artifact> HEADER = new Key<>(STABLE_ORDER);
   public static final Key<PathFragment> INCLUDE = new Key<>(LINK_ORDER);
   public static final Key<Artifact> ASSET_CATALOG = new Key<>(STABLE_ORDER);

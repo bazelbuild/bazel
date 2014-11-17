@@ -257,8 +257,8 @@ public class Path implements Comparable<Path>, Serializable {
    */
   private boolean isWindowsVolumeName() {
     return OS.getCurrent() == OS.WINDOWS
-	&& parent != null && parent.isRootDirectory() && name.length() == 2
-        && !PathFragment.getWindowsVolumeName(name).isEmpty();
+        && parent != null && parent.isRootDirectory() && name.length() == 2
+        && PathFragment.getWindowsDriveLetter(name) != '\0';
   }
 
   /**
@@ -589,16 +589,16 @@ public class Path implements Comparable<Path>, Serializable {
       currentPath = currentPath.getParentDirectory();
     }
 
-    String volumeName = "";
+    char driveLetter = '\0';
     if (resultSegments.length > 0) {
-      volumeName = PathFragment.getWindowsVolumeName(resultSegments[0]);
-      if (!volumeName.isEmpty()) {
+      driveLetter = PathFragment.getWindowsDriveLetter(resultSegments[0]);
+      if (driveLetter != '\0') {
         // Strip off the first segment that contains the volume name.
         resultSegments = Arrays.copyOfRange(resultSegments, 1, resultSegments.length);
       }
     }
 
-    return new PathFragment(volumeName, true, resultSegments);
+    return new PathFragment(driveLetter, true, resultSegments);
   }
 
 
@@ -630,7 +630,7 @@ public class Path implements Comparable<Path>, Serializable {
         currentPath = currentPath.getParentDirectory();
       }
       if (ancestorPath.equals(currentPath)) {
-        return new PathFragment("", false, resultSegments);
+        return new PathFragment('\0', false, resultSegments);
       }
     }
 

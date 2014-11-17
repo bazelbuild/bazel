@@ -146,7 +146,10 @@ def java_binary_impl(ctx):
         # We extract the .so into a temp dir. If only we could mmap
         # directly from the zip file.
         "DEPLOY=$(dirname $self)/$(basename %s)" % deploy_jar.path,
-        "SO_DIR=$(mktemp -d)",
+
+        # This works both on Darwin and Linux, with the darwin path
+        # looking like tmp.XXXXXXXX.{random}
+        "SO_DIR=$(mktemp -d -t tmp.XXXXXXXXX)",
         "function cleanup() {",
         "  rm -rf ${SO_DIR}",
         "}",

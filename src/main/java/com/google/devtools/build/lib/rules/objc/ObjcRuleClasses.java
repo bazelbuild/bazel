@@ -122,14 +122,11 @@ public class ObjcRuleClasses {
 
   private static final FileType NON_CPP_SOURCES = FileType.of(".m", ".c");
 
-  @VisibleForTesting
   static final FileTypeSet SRCS_TYPE = FileTypeSet.of(NON_CPP_SOURCES, CPP_SOURCES);
 
-  @VisibleForTesting
   static final FileTypeSet NON_ARC_SRCS_TYPE = FileTypeSet.of(FileType.of(".m", ".mm"));
 
   // TODO(bazel-team): Remove .pch when depot cleanup is done
-  @VisibleForTesting
   static final FileTypeSet HDRS_TYPE =
       FileTypeSet.of(CPP_SOURCES, NON_CPP_SOURCES, FileType.of(".h", ".hh", ".pch"));
 

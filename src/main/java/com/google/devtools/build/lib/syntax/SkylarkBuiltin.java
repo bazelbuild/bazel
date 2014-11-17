@@ -55,5 +55,7 @@ public @interface SkylarkBuiltin {
     Class<?> type() default Object.class;
 
     Class<?> generic1() default Object.class;
+
+    boolean callbackEnabled() default false;
   }
 }

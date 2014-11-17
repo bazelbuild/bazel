@@ -19,15 +19,16 @@ import javax.annotation.Nullable;
  * Wrapper for a value or the untyped exception thrown when trying to compute it.
  *
  * <p>This is an implementation detail of {@link ParallelEvaluator} and
- * {@link ValueOrExceptionUtils}.
+ * {@link ValueOrExceptionUtils}. It's an abstract class (as opposed to an interface) to avoid
+ * exposing the methods outside the package.
  */
-interface ValueOrUntypedException {
+abstract class ValueOrUntypedException {
 
   /** Returns the stored value, if there was one. */
   @Nullable
-  SkyValue getValue();
+  abstract SkyValue getValue();
 
   /** Returns the stored exception, if there was one. */
   @Nullable
-  Exception getException();
+  abstract Exception getException();
 }

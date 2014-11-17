@@ -14,12 +14,15 @@
 
 package com.google.devtools.build.lib.rules.objc;
 
+import static com.google.devtools.build.lib.rules.objc.ObjcRuleClasses.NON_ARC_SRCS_TYPE;
+import static com.google.devtools.build.lib.rules.objc.ObjcRuleClasses.SRCS_TYPE;
 import static com.google.devtools.build.lib.rules.objc.XcodeProductType.LIBRARY_STATIC;
 
 import com.google.common.base.Optional;
 import com.google.common.collect.ImmutableList;
 import com.google.devtools.build.lib.actions.Artifact;
 import com.google.devtools.build.lib.collect.nestedset.NestedSetBuilder;
+import com.google.devtools.build.lib.packages.Type;
 import com.google.devtools.build.lib.rules.RuleConfiguredTargetFactory;
 import com.google.devtools.build.lib.view.ConfiguredTarget;
 import com.google.devtools.build.lib.view.RuleConfiguredTarget.Mode;
@@ -54,12 +57,17 @@ public class ObjcLibrary implements RuleConfiguredTargetFactory {
    * should inherit from {@link ObjcLibraryRule}. This method automatically calls
    * {@link ObjcCommon#reportErrors()}.
    */
-  static ObjcCommon common(RuleContext ruleContext, Iterable<SdkFramework> extraSdkFrameworks) {
+  static ObjcCommon common(
+      RuleContext ruleContext, Iterable<SdkFramework> extraSdkFrameworks, boolean alwayslink) {
     IntermediateArtifacts intermediateArtifacts =
         ObjcRuleClasses.intermediateArtifacts(ruleContext);
     CompilationArtifacts compilationArtifacts = new CompilationArtifacts.Builder()
-        .addSrcs(ruleContext.getPrerequisiteArtifacts("srcs", Mode.TARGET))
-        .addNonArcSrcs(ruleContext.getPrerequisiteArtifacts("non_arc_srcs", Mode.TARGET))
+        .addSrcs(ruleContext.prerequisiteArtifacts("srcs", Mode.TARGET)
+            .errorsForNonMatching(SRCS_TYPE)
+            .list())
+        .addNonArcSrcs(ruleContext.prerequisiteArtifacts("non_arc_srcs", Mode.TARGET)
+            .errorsForNonMatching(NON_ARC_SRCS_TYPE)
+            .list())
         .setIntermediateArtifacts(intermediateArtifacts)
         .setPchFile(Optional.fromNullable(ruleContext.getPrerequisiteArtifact("pch", Mode.TARGET)))
         .build();
@@ -70,6 +78,7 @@ public class ObjcLibrary implements RuleConfiguredTargetFactory {
         .setCompilationArtifacts(compilationArtifacts)
         .addDepObjcProviders(ruleContext.getPrerequisites("deps", Mode.TARGET, ObjcProvider.class))
         .setIntermediateArtifacts(intermediateArtifacts)
+        .setAlwayslink(alwayslink)
         .build();
     common.reportErrors();
 
@@ -88,7 +97,9 @@ public class ObjcLibrary implements RuleConfiguredTargetFactory {
 
   @Override
   public ConfiguredTarget create(RuleContext ruleContext) throws InterruptedException {
-    ObjcCommon common = common(ruleContext, ImmutableList.<SdkFramework>of());
+    ObjcCommon common = common(
+        ruleContext, ImmutableList.<SdkFramework>of(),
+        ruleContext.attributes().get("alwayslink", Type.BOOLEAN));
     OptionsProvider optionsProvider = optionsProvider(ruleContext, new InfoplistsFromRule());
 
     XcodeProvider xcodeProvider = new XcodeProvider.Builder()

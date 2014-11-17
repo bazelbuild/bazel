@@ -70,12 +70,14 @@ public class WebStatusEventCollector {
         .addInfo("outputFs", startingEvent.getOutputFileSystem())
         .addInfo("symlinkPrefix", request.getSymlinkPrefix())
         .addInfo("optionsDescription", request.getOptionsDescription())
+        .addInfo("targets", request.getTargets())
         .addInfo("viewOptions", request.getViewOptions());
   }
 
   @Subscribe
   @SuppressWarnings("unused")
   public void commandComplete(CommandCompleteEvent completeEvent) {
+    currentBuild.addInfo("endTime", completeEvent.getEventTimeInNanos());
     currentBuild.finish();
   }
 

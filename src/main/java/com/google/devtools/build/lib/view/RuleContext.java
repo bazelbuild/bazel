@@ -71,7 +71,6 @@ import java.util.ArrayList;
 import java.util.Collection;
 import java.util.HashMap;
 import java.util.HashSet;
-import java.util.LinkedHashSet;
 import java.util.List;
 import java.util.Map;
 import java.util.Set;
@@ -735,49 +734,36 @@ public final class RuleContext extends TargetContext
   }
 
   /**
-   * For the specified attribute "attributeName" (which must be of type
-   * list(label)), resolve all the labels into ConfiguredTargets (for the
-   * configuration appropriate to the attribute) and return their build
-   * artifacts as an immutable list.
-   *
-   * @param attributeName the name of the attribute to traverse
+   * A convenience method for calling {@link PrerequisiteArtifacts#get(RuleContext, String, Mode)}.
    */
-  public ImmutableList<Artifact> getPrerequisiteArtifacts(String attributeName, Mode mode) {
-    Set<Artifact> result = new LinkedHashSet<>();
-    for (FileProvider target : getPrerequisites(attributeName, mode, FileProvider.class)) {
-      Iterables.addAll(result, target.getFilesToBuild());
-    }
-    return ImmutableList.copyOf(result);
+  public PrerequisiteArtifacts prerequisiteArtifacts(String attributeName, Mode mode) {
+    return PrerequisiteArtifacts.get(this, attributeName, mode);
   }
 
   /**
-   * For the specified attribute "attributeName" (which must be of type
-   * list(label)), resolve all the labels into ConfiguredTargets (for the
-   * configuration appropriate to the attribute) and return their build
-   * artifacts as an immutable list.
-   *
-   * @param attributeName the name of the attribute to traverse
-   * @param fileTypes the types of files to return
+   * @deprecated use {@link #prerequisiteArtifacts(String, Mode)}{@code .list()}.
    */
+  @Deprecated
+  public ImmutableList<Artifact> getPrerequisiteArtifacts(String attributeName, Mode mode) {
+    return PrerequisiteArtifacts.get(this, attributeName, mode).list();
+  }
+
+  /**
+   * @deprecated use {@link #prerequisiteArtifacts(String, Mode)}{@code .filter(fileTypes).list()}.
+   */
+  @Deprecated
   public ImmutableList<Artifact> getPrerequisiteArtifacts(
       String attributeName, Mode mode, FileTypeSet fileTypes) {
-    return ImmutableList.copyOf(FileType.filter(getPrerequisiteArtifacts(attributeName, mode),
-        fileTypes));
+    return PrerequisiteArtifacts.get(this, attributeName, mode).filter(fileTypes).list();
   }
 
   /**
-   * For the specified attribute "attributeName" (which must be of type
-   * list(label)), resolve all the labels into ConfiguredTargets (for the
-   * configuration appropriate to the attribute) and return their build
-   * artifacts as an immutable list.
-   *
-   * @param attributeName the name of the attribute to traverse
-   * @param fileType the type of files to return.
+   * @deprecated use {@link #prerequisiteArtifacts(String, Mode)}{@code .filter(fileTypes).list()}.
    */
+  @Deprecated
   public ImmutableList<Artifact> getPrerequisiteArtifacts(
       String attributeName, Mode mode, FileType fileType) {
-    return ImmutableList.copyOf(FileType.filter(getPrerequisiteArtifacts(attributeName, mode),
-        fileType));
+    return PrerequisiteArtifacts.get(this, attributeName, mode).filter(fileType).list();
   }
 
   /**
@@ -821,7 +807,7 @@ public final class RuleContext extends TargetContext
    * expected type.
    */
   public Artifact getSingleSource(String fileTypeName) {
-    List<Artifact> srcs = getPrerequisiteArtifacts("srcs", Mode.TARGET);
+    List<Artifact> srcs = PrerequisiteArtifacts.get(this, "srcs", Mode.TARGET).list();
     switch (srcs.size()) {
       case 0 : // error already issued by getSrc()
         return null;
@@ -855,7 +841,7 @@ public final class RuleContext extends TargetContext
    */
   public void checkSrcsSamePackage(boolean onlyWarn) {
     PathFragment packageName = getLabel().getPackageFragment();
-    for (Artifact srcItem : getPrerequisiteArtifacts("srcs", Mode.TARGET)) {
+    for (Artifact srcItem : PrerequisiteArtifacts.get(this, "srcs", Mode.TARGET).list()) {
       if (!srcItem.isSourceArtifact()) {
         // In theory, we should not do this check. However, in practice, we
         // have a couple of rules that do not obey the "srcs must contain

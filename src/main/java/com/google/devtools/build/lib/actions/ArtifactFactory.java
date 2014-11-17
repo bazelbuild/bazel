@@ -303,7 +303,7 @@ public class ArtifactFactory implements ArtifactResolver, ArtifactSerializer, Ar
    *
    * @param execPath the exec path of the artifact
    */
-  public Artifact deserializeArtifact(PathFragment execPath) {
+  public Artifact deserializeArtifact(PathFragment execPath, PackageRootResolver resolver) {
     Path path = execRoot.getRelative(execPath);
     Root root = findDerivedRoot(path);
 
@@ -315,24 +315,15 @@ public class ArtifactFactory implements ArtifactResolver, ArtifactSerializer, Ar
       if (oldResult != null) {
         result = oldResult;
       }
+      return result;
     } else {
-      for (PathFragment dir = execPath.getParentDirectory(); dir != null;
-          dir = dir.getParentDirectory()) {
-        root = packageRoots.get(dir);
-        if (root != null) {
-          break;
-        }
-      }
-
-      if (root == null) {
-        // Root not found. Return null to indicate that we could not create the artifact.
+      root = resolver.findPackageRoot(execPath);
+      if (root != null) {
+        return getSourceArtifact(execPath, root, ArtifactOwner.NULL_OWNER);
+      } else {
         return null;
       }
-
-      result = getSourceArtifact(execPath, root, ArtifactOwner.NULL_OWNER);
     }
-
-    return result;
   }
 
   @Override

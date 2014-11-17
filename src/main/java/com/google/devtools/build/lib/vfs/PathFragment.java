@@ -26,7 +26,6 @@ import java.io.InvalidObjectException;
 import java.io.ObjectInputStream;
 import java.io.Serializable;
 import java.util.Arrays;
-import java.util.Locale;
 import java.util.Set;
 
 /**
@@ -80,11 +79,21 @@ public final class PathFragment implements Comparable<PathFragment>, Serializabl
         }
       };
 
+  // We have 3 word-sized fields (segments, hashCode and path), and 2
+  // byte-sized ones, which fits in 16 bytes. Object sizes are rounded
+  // to 16 bytes.  Medium sized builds can easily hold millions of
+  // live PathFragments, so do not add further fields on a whim.
+
+  // The individual path components.
   private final String[] segments;
+
   // True both for UNIX-style absolute paths ("/foo") and Windows-style ("C:/foo").
   private final boolean isAbsolute;
-  // Windows volume name (for example, "C:"), if any. Empty string otherwise. Always in uppercase.
-  private final String windowsVolume;
+
+  // Upper case windows drive letter, or '\0' if none. While a volumeName string is more
+  // general, we create a lot of these objects, so space is at a premium.
+  private final char driveLetter;
+
   // hashCode and path are lazily initialized but semantically immutable.
   private int hashCode;
   private String path;
@@ -93,9 +102,9 @@ public final class PathFragment implements Comparable<PathFragment>, Serializabl
    * Construct a PathFragment from a string, which is an absolute or relative UNIX or Windows path.
    */
   public PathFragment(String path) {
-    this.windowsVolume = getWindowsVolumeName(path);
-    if (!windowsVolume.isEmpty()) {
-      path = path.substring(windowsVolume.length());
+    this.driveLetter = getWindowsDriveLetter(path);
+    if (driveLetter != '\0') {
+      path = path.substring(2);
       // TODO(bazel-team): Decide what to do about non-absolute paths with a volume name, e.g. C:x.
     }
     this.isAbsolute = path.length() > 0 && isSeparator(path.charAt(0));
@@ -119,8 +128,8 @@ public final class PathFragment implements Comparable<PathFragment>, Serializabl
    * because it does not perform a defensive clone of the segments array. Used
    * here in PathFragment, and by Path.asFragment() and Path.relativeTo().
    */
-  PathFragment(String windowsVolume, boolean isAbsolute, String[] segments) {
-    this.windowsVolume = windowsVolume;
+  PathFragment(char driveLetter, boolean isAbsolute, String[] segments) {
+    this.driveLetter = driveLetter;
     this.isAbsolute = isAbsolute;
     this.segments = segments;
   }
@@ -139,7 +148,7 @@ public final class PathFragment implements Comparable<PathFragment>, Serializabl
       offset += addSegments(offset, fragment);
     }
     this.isAbsolute = first.isAbsolute;
-    this.windowsVolume = first.windowsVolume;
+    this.driveLetter = first.driveLetter;
   }
 
   private int addSegments(int offset, PathFragment fragment) {
@@ -254,17 +263,18 @@ public final class PathFragment implements Comparable<PathFragment>, Serializabl
 
   private String joinSegments(char separatorChar) {
     if (segments.length == 0 && isAbsolute) {
-      return windowsVolume + ROOT_DIR;
+      return windowsVolume() + ROOT_DIR;
     }
 
     // Profile driven optimization:
     // Preallocate a size determined by the number of segments, so that
     // we do not have to expand the capacity of the StringBuilder.
     // Heuristically, this estimate is right for about 99% of the time.
-    int estimateSize = windowsVolume.length()
-        + segments.length == 0 ? 0 : (segments.length + 1) * 20;
+    int estimateSize =
+        ((driveLetter != '\0') ? 2 : 0)
+        + ((segments.length == 0) ? 0 : (segments.length + 1) * 20);
     StringBuilder result = new StringBuilder(estimateSize);
-    result.append(windowsVolume);
+    result.append(windowsVolume());
     boolean initialSegment = true;
     for (String segment : segments) {
       if (!initialSegment || isAbsolute) {
@@ -319,7 +329,7 @@ public final class PathFragment implements Comparable<PathFragment>, Serializabl
       return this;
     }
 
-    return new PathFragment(windowsVolume, isAbsolute,
+    return new PathFragment(driveLetter, isAbsolute,
         subarray(scratchSegments, 0, segmentCount));
   }
 
@@ -366,7 +376,7 @@ public final class PathFragment implements Comparable<PathFragment>, Serializabl
     String[] newSegments = new String[segments.length + 1];
     System.arraycopy(segments, 0, newSegments, 0, segments.length);
     newSegments[newSegments.length - 1] = baseName;
-    return new PathFragment(windowsVolume, isAbsolute, newSegments);
+    return new PathFragment(driveLetter, isAbsolute, newSegments);
   }
 
   /**
@@ -405,7 +415,7 @@ public final class PathFragment implements Comparable<PathFragment>, Serializabl
 
     int length = segments.length - ancestorLength;
     String[] resultSegments = subarray(segments, ancestorLength, length);
-    return new PathFragment("", false, resultSegments);
+    return new PathFragment('\0', false, resultSegments);
   }
 
   /**
@@ -448,7 +458,7 @@ public final class PathFragment implements Comparable<PathFragment>, Serializabl
   public boolean startsWith(PathFragment prefix) {
     if (this.isAbsolute != prefix.isAbsolute ||
         this.segments.length < prefix.segments.length ||
-        !this.windowsVolume.equals(prefix.windowsVolume)) {
+        this.driveLetter != prefix.driveLetter) {
       return false;
     }
     for (int i = 0, len = prefix.segments.length; i < len; i++) {
@@ -510,7 +520,7 @@ public final class PathFragment implements Comparable<PathFragment>, Serializabl
     }
     boolean isAbsolute = (beginIndex == 0) && this.isAbsolute;
     return ((beginIndex == 0) && (endIndex == count)) ? this :
-        new PathFragment(windowsVolume, isAbsolute,
+        new PathFragment(driveLetter, isAbsolute,
             subarray(segments, beginIndex, endIndex - beginIndex));
   }
 
@@ -530,7 +540,10 @@ public final class PathFragment implements Comparable<PathFragment>, Serializabl
   }
 
   public String windowsVolume() {
-    return windowsVolume;
+    if (OS.getCurrent() != OS.WINDOWS) {
+      return "";
+    }
+    return (driveLetter != '\0') ? driveLetter + ":" : "";
   }
 
   /**
@@ -574,15 +587,15 @@ public final class PathFragment implements Comparable<PathFragment>, Serializabl
   }
 
   /**
-   * Given a path, returns a Windows volume name ("X:"), or an empty string if no volume name
-   * was specified.
+   * Given a path, returns the Windows drive letter ('X'), or an null character if no volume
+   * name was specified.
    */
-  static String getWindowsVolumeName(String path) {
+  static char getWindowsDriveLetter(String path) {
     if (OS.getCurrent() == OS.WINDOWS
         && path.length() >= 2 && path.charAt(1) == ':' && Character.isLetter(path.charAt(0))) {
-      return StringCanonicalizer.intern(path.substring(0, 2).toUpperCase(Locale.US));
+      return Character.toUpperCase(path.charAt(0));
     }
-    return "";
+    return '\0';
   }
 
   @Override
