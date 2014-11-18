@@ -13,6 +13,7 @@
 // limitations under the License.
 
 #include <libproc.h>
+#include <stdlib.h>
 #include <sys/socket.h>
 #include <sys/un.h>
 #include <unistd.h>
@@ -81,6 +82,11 @@ bool IsSharedLibrary(string filename) {
 }
 
 string GetDefaultHostJavabase() {
+  const char *java_home = getenv("JAVA_HOME");
+  if (java_home) {
+    return std::string(java_home);
+  }
+
   FILE *output = popen("/usr/libexec/java_home -v 1.7+", "r");
   if (output == NULL) {
     pdie(blaze_exit_code::LOCAL_ENVIRONMENTAL_ERROR,
@@ -98,7 +104,8 @@ string GetDefaultHostJavabase() {
   string javabase = buf;
   if (javabase.empty()) {
     die(blaze_exit_code::LOCAL_ENVIRONMENTAL_ERROR,
-        "Empty output from /usr/libexec/java_home");
+        "Empty output from /usr/libexec/java_home - "
+        "install a JDK, or install a JRE and point your JAVA_HOME to it");
   }
 
   // The output ends with a \n, trim it off.

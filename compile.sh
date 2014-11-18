@@ -85,26 +85,32 @@ EOF
 
   ;;
 darwin)
+  rm -f fromhost/*.[ah]
+  touch fromhost/empty.c
+
   homebrew_header=$(ls -1 $(brew --prefix 2>/dev/null)/Cellar/libarchive/*/include/archive.h 2>/dev/null | head -n1)
   if [[ -e $homebrew_header ]]; then
     # For use with Homebrew.
     archive_dir=$(dirname $(dirname $homebrew_header))
     ARCHIVE_CFLAGS="-I${archive_dir}/include"
     LDFLAGS="-L${archive_dir}/lib -larchive $LDFLAGS"
-  elif [[ -e /opt/local/include/archive.h ]]; then
-    # For use with Macports.
-    cp /opt/local/include/archive.h  /opt/local/include/archive_entry.h fromhost/
-    cp /opt/local/lib/{libarchive,liblzo2,liblzma,libcharset,libbz2,libxml2,libz,libiconv}.a \
-      fromhost/
-    touch fromhost/empty.c
+
+    cp ${archive_dir}/lib/*.a ${archive_dir}/include/*.h fromhost/
     cat << EOF >> fromhost/BUILD
 cc_library(
   name = "libarchive",
   srcs = glob(["*.a"]) + ["empty.c"],
   hdrs = glob(["*.h"]),
   includes  = ["."],
+  linkopts = ["-lxml2", "-liconv", "-lbz2", "-lz", ],
 )
 EOF
+
+  elif [[ -e /opt/local/include/archive.h ]]; then
+    # For use with Macports.
+    cp /opt/local/include/archive.h  /opt/local/include/archive_entry.h fromhost/
+    cp /opt/local/lib/{libarchive,liblzo2,liblzma,libcharset,libbz2,libxml2,libz,libiconv}.a \
+      fromhost/
 
     ARCHIVE_CFLAGS="-Ifromhost"
     # Link libarchive statically
@@ -113,6 +119,14 @@ EOF
              fromhost/libbz2.a fromhost/libxml2.a \
              fromhost/libz.a fromhost/libiconv.a \
              $LDFLAGS"
+    cat << EOF >> fromhost/BUILD
+cc_library(
+  name = "libarchive",
+  srcs = glob(["*.a"]) + ["empty.c"],
+  hdrs = glob(["*.h"]),
+  includes  = ["."],
+)
+EOF
   else
     log "WARNING: Could not find libarchive installation, proceeding bravely."
   fi
@@ -120,9 +134,7 @@ EOF
   JNILIB="libunix.dylib"
   MD5SUM="md5"
   JAVA_HOME=${JAVA_HOME:-$(/usr/libexec/java_home -v 1.7+)}
-  PROTOC=${PROTOC:-protoc}
-
-  rm -f third_party/protobuf/protoc.darwin && ln -s $(which ${PROTOC}) third_party/protobuf/protoc.darwin
+  PROTOC=${PROTOC:-third_party/protobuf/protoc.darwin}
   ;;
 
 msys*|mingw*)
@@ -285,7 +297,7 @@ chmod 755 output/client_info
 log "Creating Bazel self-extracting archive..."
 TO_ZIP="libblaze.jar ${JNILIB} build-runfiles${EXE_EXT} process-wrapper${EXE_EXT} client_info build_interface_so ${MSYS_DLLS}"
 (cd output/ ; cat client ${TO_ZIP} | ${MD5SUM} | awk '{ print $1; }' > install_base_key)
-(cd output/ ; find -type d | xargs -P 10 touch -t 198001010000)
+(cd output/ ; find . -type f | xargs -P 10 touch -t 198001010000)
 (cd output/ ; zip $ZIPOPTS -q package.zip ${TO_ZIP} install_base_key)
 cat output/client output/package.zip > output/bazel
 zip -qA output/bazel \
