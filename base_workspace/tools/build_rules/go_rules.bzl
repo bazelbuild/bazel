@@ -45,16 +45,20 @@ go_library()/go_binary()/go_test() rules:
 go_filetype = filetype([".go"])
 go_lib_filetype = filetype([".a"])
 
-def go_compile_args(ctx, sources, out_lib):
-  args = ["tool", "6g",
-         "-o", out_lib.path, "-pack",
 
-         # Import path.
-         "-I", ctx.configuration.bin_dir.path]
+def go_compile_command(ctx, sources, out_lib):
+  args = [
+      ctx.files.go_root[0].path + "/bin/go",
+
+      "tool", "6g",
+      "-o", out_lib.path, "-pack",
+
+      # Import path.
+      "-I", ctx.configuration.bin_dir.path]
 
   # Set -p to the import path of the library, ie.
-  # (ctx.label.package + "/" ctx.label.name)  for now.
-  return args + cmd_helper.template(sources, "%{path}")
+  # (ctx.label.package + "/" ctx.label.name) for now.
+  return ' '.join(args + cmd_helper.template(sources, "%{path}"))
 
 def go_library_impl(ctx):
   sources = ctx.files.srcs
@@ -64,8 +68,10 @@ def go_library_impl(ctx):
       inputs = sources + ctx.files.deps,
       outputs = [out_lib],
       mnemonic = "GoCompile",
-      executable = ctx.executable.go_tool,
-      arguments = go_compile_args(ctx, set(sources), out_lib))
+      env = {
+        "GOROOT": ctx.files.go_root[0].path,
+        },
+      command = go_compile_command(ctx, set(sources), out_lib))
 
   out_nset = set([out_lib])
   return struct(
@@ -74,17 +80,21 @@ def go_library_impl(ctx):
 
 
 def go_link_action(ctx, lib, executable):
-  args = ["tool", "6l",
-          # Link search path.
-          "-L", ctx.configuration.bin_dir.path,
-          "-o", executable.path,
-          lib.path]
+  cmd = ' '.join([
+      ctx.files.go_root[0].path + "/bin/go",
+      "tool", "6l",
+      # Link search path.
+      "-L", ctx.configuration.bin_dir.path,
+      "-o", executable.path,
+      lib.path])
   ctx.action(
-      executable = ctx.executable.go_tool,
       inputs = [lib],
       outputs = [executable],
-      mnemonic = "GoLink",
-      arguments = args)
+      command = cmd,
+      env = {
+        "GOROOT": ctx.files.go_root[0].path,
+        },
+      mnemonic = "GoLink")
 
 
 def go_binary_impl(ctx):
@@ -118,8 +128,10 @@ def go_test_impl(ctx):
   ctx.action(
       inputs = [main_go, ctx.outputs.lib],
       outputs = [ctx.outputs.main_lib],
-      executable = ctx.executable.go_tool,
-      arguments = go_compile_args(ctx, set([main_go]), ctx.outputs.main_lib),
+      command = go_compile_command(ctx, set([main_go]), ctx.outputs.main_lib),
+      env = {
+        "GOROOT": ctx.files.go_root[0].path,
+        },
       mnemonic = "GoCompileTest")
 
   go_link_action(ctx, ctx.outputs.main_lib,  ctx.outputs.executable)
@@ -134,10 +146,10 @@ go_library_attrs = {
     "srcs": attr.label_list(allow_files=go_filetype),
     "deps": attr.label_list(
         providers=["go_library_object"]),
-    "go_tool": attr.label(
-        default=label("//tools/go:go"),
+    "go_root": attr.label(
+        default=label("//tools/go:go_root"),
         allow_files=True,
-        cfg=HOST_CFG, executable=True),
+        cfg=HOST_CFG),
     }
 
 go_library_outputs = {

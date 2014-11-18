@@ -59,6 +59,12 @@ function log() {
   fi
 }
 
+
+mkdir -p fromhost
+cat << EOF > fromhost/BUILD
+package(default_visibility = ["//visibility:public"])
+EOF
+
 case "${PLATFORM}" in
 linux)
   # Sorry, no static linking on linux for now.
@@ -68,6 +74,15 @@ linux)
   # JAVA_HOME must point to a Java 7 installation.
   JAVA_HOME=${JAVA_HOME:-$(readlink -f $(which javac) | sed "s_/bin/javac__")}
   PROTOC=${PROTOC:-third_party/protobuf/protoc.amd64}
+
+cat << EOF >> fromhost/BUILD
+cc_library(
+  name = "libarchive",
+  srcs = [],
+  hdrs = [],
+)
+EOF
+
   ;;
 darwin)
   homebrew_header=$(ls -1 $(brew --prefix 2>/dev/null)/Cellar/libarchive/*/include/archive.h 2>/dev/null | head -n1)
@@ -78,13 +93,11 @@ darwin)
     LDFLAGS="-L${archive_dir}/lib -larchive $LDFLAGS"
   elif [[ -e /opt/local/include/archive.h ]]; then
     # For use with Macports.
-    mkdir -p fromhost
     cp /opt/local/include/archive.h  /opt/local/include/archive_entry.h fromhost/
     cp /opt/local/lib/{libarchive,liblzo2,liblzma,libcharset,libbz2,libxml2,libz,libiconv}.a \
       fromhost/
     touch fromhost/empty.c
-    cat << EOF > fromhost/BUILD
-package(default_visibility = ["//visibility:public"])
+    cat << EOF >> fromhost/BUILD
 cc_library(
   name = "libarchive",
   srcs = glob(["*.a"]) + ["empty.c"],
