@@ -57,7 +57,6 @@ import com.google.devtools.build.lib.packages.TargetUtils;
 import com.google.devtools.build.lib.packages.Type;
 import com.google.devtools.build.lib.pkgcache.LoadingPhaseRunner.LoadingResult;
 import com.google.devtools.build.lib.pkgcache.PackageManager;
-import com.google.devtools.build.lib.query2.output.OutputFormatter;
 import com.google.devtools.build.lib.rules.test.TestProvider;
 import com.google.devtools.build.lib.skyframe.LabelAndConfiguration;
 import com.google.devtools.build.lib.skyframe.SkyframeBuildView;
@@ -202,8 +201,6 @@ public class BuildView {
 
   private final BlazeDirectories directories;
 
-  private final ImmutableList<OutputFormatter> outputFormatters;
-
   private final SkyframeExecutor skyframeExecutor;
   private final SkyframeBuildView skyframeBuildView;
 
@@ -259,14 +256,13 @@ public class BuildView {
   public BuildView(BlazeDirectories directories, PackageManager packageManager,
       ConfiguredRuleClassProvider ruleClassProvider,
       SkyframeExecutor skyframeExecutor,
-      ImmutableList<OutputFormatter> outputFormatters, BinTools binTools) {
+      BinTools binTools) {
     this.directories = directories;
     this.packageManager = packageManager;
     this.binTools = binTools;
     this.artifactFactory = new ArtifactFactory(directories.getExecRoot());
     this.ruleClassProvider = ruleClassProvider;
     this.skyframeExecutor = Preconditions.checkNotNull(skyframeExecutor);
-    this.outputFormatters = outputFormatters;
     this.skyframeBuildView =
         new SkyframeBuildView(new ConfiguredTargetFactory(ruleClassProvider), artifactFactory,
             skyframeExecutor, new Runnable() {
@@ -274,7 +270,7 @@ public class BuildView {
       public void run() {
         clear();
       }
-    }, outputFormatters, binTools);
+    },  binTools);
     skyframeExecutor.setSkyframeBuildView(skyframeBuildView);
   }
 
@@ -956,7 +952,7 @@ public class BuildView {
             new LabelAndConfiguration(target.getLabel(), config),
             null, /*isSystemEnv=*/false, config.extendedSanityChecks(),
             eventHandler,
-            /*skyframeEnv=*/null, config.isActionsEnabled(), outputFormatters, binTools);
+            /*skyframeEnv=*/null, config.isActionsEnabled(), binTools);
     RuleContext ruleContext = new RuleContext.Builder(analysisEnvironment,
         (Rule) target.getTarget(), config, ruleClassProvider.getPrerequisiteValidator())
             .setVisibility(NestedSetBuilder.<PackageSpecification>create(

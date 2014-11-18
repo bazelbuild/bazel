@@ -166,7 +166,7 @@ public abstract class CcBinary implements RuleConfiguredTargetFactory {
         .addCompilationPrerequisites(common.getStaticLibrariesFromSrcs())
         .addSources(common.getCAndCppSources())
         .addPrivateHeaders(FileType.filter(
-            ruleContext.getPrerequisiteArtifacts("srcs", Mode.TARGET),
+            ruleContext.getPrerequisiteArtifacts("srcs", Mode.TARGET).list(),
             CppFileTypes.CPP_HEADER))
         .addObjectFiles(common.getObjectFilesFromSrcs(false))
         .addPicObjectFiles(common.getObjectFilesFromSrcs(true))

@@ -27,7 +27,6 @@ import com.google.devtools.build.lib.actions.Root;
 import com.google.devtools.build.lib.events.EventHandler;
 import com.google.devtools.build.lib.events.StoredEventHandler;
 import com.google.devtools.build.lib.packages.Target;
-import com.google.devtools.build.lib.query2.output.OutputFormatter;
 import com.google.devtools.build.lib.skyframe.BuildInfoCollectionValue;
 import com.google.devtools.build.lib.skyframe.WorkspaceStatusValue;
 import com.google.devtools.build.lib.vfs.PathFragment;
@@ -60,7 +59,6 @@ public class CachingAnalysisEnvironment implements AnalysisEnvironment {
   // This is null when we use skyframe to obtain the actions (in skyframe execution), as well as in
   // unit tests.
   @Nullable private final WorkspaceStatusArtifacts workspaceStatusArtifacts;
-  private final ImmutableList<OutputFormatter> outputFormatters;
 
   private final ArtifactOwner owner;
   /**
@@ -98,7 +96,7 @@ public class CachingAnalysisEnvironment implements AnalysisEnvironment {
       ArtifactOwner owner, WorkspaceStatusArtifacts buildInfoHeaders,
       boolean isSystemEnv, boolean extendedSanityChecks, EventHandler errorEventListener,
       SkyFunction.Environment env, boolean allowRegisteringActions,
-      ImmutableList<OutputFormatter> outputFormatters, BinTools binTools) {
+      BinTools binTools) {
     this.artifactFactory = artifactFactory;
     this.workspaceStatusArtifacts = buildInfoHeaders;
     this.owner = Preconditions.checkNotNull(owner);
@@ -107,7 +105,6 @@ public class CachingAnalysisEnvironment implements AnalysisEnvironment {
     this.errorEventListener = errorEventListener;
     this.skyframeEnv = env;
     this.allowRegisteringActions = allowRegisteringActions;
-    this.outputFormatters = outputFormatters;
     this.binTools = binTools;
     middlemanFactory = new MiddlemanFactory(artifactFactory, this);
     artifacts = new HashMap<>();
@@ -200,13 +197,6 @@ public class CachingAnalysisEnvironment implements AnalysisEnvironment {
     }
     Preconditions.checkState(enabled);
     return ((StoredEventHandler) errorEventListener).hasErrors();
-  }
-
-  @Deprecated
-  @Override
-  public Iterable<OutputFormatter> getOutputFormattersForGenQueryHack() {
-    Preconditions.checkState(enabled);
-    return outputFormatters;
   }
 
   @Override

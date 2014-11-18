@@ -55,7 +55,6 @@ import com.google.devtools.build.lib.shell.ShellUtils;
 import com.google.devtools.build.lib.syntax.EvalException;
 import com.google.devtools.build.lib.syntax.FilesetEntry;
 import com.google.devtools.build.lib.syntax.Label;
-import com.google.devtools.build.lib.util.FileType;
 import com.google.devtools.build.lib.util.FileTypeSet;
 import com.google.devtools.build.lib.vfs.FileSystemUtils;
 import com.google.devtools.build.lib.vfs.PathFragment;
@@ -734,36 +733,15 @@ public final class RuleContext extends TargetContext
   }
 
   /**
-   * A convenience method for calling {@link PrerequisiteArtifacts#get(RuleContext, String, Mode)}.
+   * For the specified attribute "attributeName" (which must be of type
+   * list(label)), resolve all the labels into ConfiguredTargets (for the
+   * configuration appropriate to the attribute) and return their build
+   * artifacts as a {@link PrerequisiteArtifacts} instance.
+   *
+   * @param attributeName the name of the attribute to traverse
    */
-  public PrerequisiteArtifacts prerequisiteArtifacts(String attributeName, Mode mode) {
+  public PrerequisiteArtifacts getPrerequisiteArtifacts(String attributeName, Mode mode) {
     return PrerequisiteArtifacts.get(this, attributeName, mode);
-  }
-
-  /**
-   * @deprecated use {@link #prerequisiteArtifacts(String, Mode)}{@code .list()}.
-   */
-  @Deprecated
-  public ImmutableList<Artifact> getPrerequisiteArtifacts(String attributeName, Mode mode) {
-    return PrerequisiteArtifacts.get(this, attributeName, mode).list();
-  }
-
-  /**
-   * @deprecated use {@link #prerequisiteArtifacts(String, Mode)}{@code .filter(fileTypes).list()}.
-   */
-  @Deprecated
-  public ImmutableList<Artifact> getPrerequisiteArtifacts(
-      String attributeName, Mode mode, FileTypeSet fileTypes) {
-    return PrerequisiteArtifacts.get(this, attributeName, mode).filter(fileTypes).list();
-  }
-
-  /**
-   * @deprecated use {@link #prerequisiteArtifacts(String, Mode)}{@code .filter(fileTypes).list()}.
-   */
-  @Deprecated
-  public ImmutableList<Artifact> getPrerequisiteArtifacts(
-      String attributeName, Mode mode, FileType fileType) {
-    return PrerequisiteArtifacts.get(this, attributeName, mode).filter(fileType).list();
   }
 
   /**

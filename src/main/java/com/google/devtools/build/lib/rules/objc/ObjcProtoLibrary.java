@@ -67,7 +67,9 @@ public class ObjcProtoLibrary implements RuleConfiguredTargetFactory {
     Optional<Artifact> optionsFile = Optional.fromNullable(
         ruleContext.getPrerequisiteArtifact(ObjcProtoLibraryRule.OPTIONS_FILE_ATTR, Mode.HOST));
     NestedSet<Artifact> protos = NestedSetBuilder.<Artifact>stableOrder()
-        .addAll(ruleContext.getPrerequisiteArtifacts("deps", Mode.TARGET, FileType.of(".proto")))
+        .addAll(ruleContext.getPrerequisiteArtifacts("deps", Mode.TARGET)
+            .filter(FileType.of(".proto"))
+            .list())
         .addAll(maybeGetProtoSources(ruleContext))
         .build();
 
@@ -75,10 +77,12 @@ public class ObjcProtoLibrary implements RuleConfiguredTargetFactory {
       ruleContext.ruleError(NO_PROTOS_ERROR);
     }
 
-    ImmutableList<Artifact> libProtobuf =
-        ruleContext.getPrerequisiteArtifacts(ObjcProtoLibraryRule.LIBPROTOBUF_ATTR, Mode.TARGET);
-    ImmutableList<Artifact> protoSupport =
-        ruleContext.getPrerequisiteArtifacts(ObjcProtoLibraryRule.PROTO_SUPPORT_ATTR, Mode.HOST);
+    ImmutableList<Artifact> libProtobuf = ruleContext
+        .getPrerequisiteArtifacts(ObjcProtoLibraryRule.LIBPROTOBUF_ATTR, Mode.TARGET)
+        .list();
+    ImmutableList<Artifact> protoSupport = ruleContext
+        .getPrerequisiteArtifacts(ObjcProtoLibraryRule.PROTO_SUPPORT_ATTR, Mode.HOST)
+        .list();
 
     // Generate sources in a package-and-rule-scoped directory; adds both the
     // package-and-rule-scoped directory and the header-containing-directory to the include path of

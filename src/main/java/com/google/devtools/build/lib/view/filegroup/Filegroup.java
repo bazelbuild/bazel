@@ -46,7 +46,7 @@ public class Filegroup implements RuleConfiguredTargetFactory {
   @Override
   public ConfiguredTarget create(RuleContext ruleContext) {
     NestedSet<Artifact> filesToBuild = NestedSetBuilder.wrap(Order.STABLE_ORDER,
-        ruleContext.getPrerequisiteArtifacts("srcs", Mode.TARGET));
+        ruleContext.getPrerequisiteArtifacts("srcs", Mode.TARGET).list());
     NestedSet<Artifact> middleman = CompilationHelper.getAggregatingMiddleman(
         ruleContext, Actions.escapeLabel(ruleContext.getLabel()), filesToBuild);
 

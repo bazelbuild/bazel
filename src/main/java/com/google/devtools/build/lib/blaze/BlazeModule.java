@@ -29,6 +29,7 @@ import com.google.devtools.build.lib.packages.Preprocessor;
 import com.google.devtools.build.lib.query2.engine.QueryEnvironment.QueryFunction;
 import com.google.devtools.build.lib.query2.output.OutputFormatter;
 import com.google.devtools.build.lib.skyframe.DiffAwareness;
+import com.google.devtools.build.lib.skyframe.PrecomputedValue.Injected;
 import com.google.devtools.build.lib.skyframe.SkyframeExecutor;
 import com.google.devtools.build.lib.skyframe.SkyframeExecutorFactory;
 import com.google.devtools.build.lib.syntax.Environment;
@@ -361,6 +362,31 @@ public abstract class BlazeModule {
   /** Returns a map of "extra" SkyFunctions for SkyValues that this module may want to build. */
   public ImmutableMap<SkyFunctionName, SkyFunction> getSkyFunctions(BlazeDirectories directories) {
     return ImmutableMap.of();
+  }
+
+  /**
+   * Returns the extra precomputed values that the module makes available in Skyframe.
+   *
+   * <p>This method is called once per Blaze instance at the very beginning of its life.
+   * If it creates the injected values by using a {@code com.google.common.base.Supplier},
+   * that supplier is asked for the value it contains just before the loading phase begins. This
+   * functionality can be used to implement precomputed values that are not constant during the
+   * lifetime of a Blaze instance (naturally, they must be constant over the course of a build)
+   *
+   * <p>The following things must be done in order to define a new precomputed values:
+   * <ul>
+   * <li> Create a public static final variable of type
+   * {@link com.google.devtools.build.lib.skyframe.PrecomputedValue.Precomputed}
+   * <li> Set its value by adding an {@link Injected} in this method (it can be created using the
+   * aforementioned variable and the value or a supplier of the value)
+   * <li> Reference the value in Skyframe functions by calling get {@code get} method on the
+   * {@link com.google.devtools.build.lib.skyframe.PrecomputedValue.Precomputed} variable. This
+   * will never return null, because its value will have been injected before most of the Skyframe
+   * values are computed.
+   * </ul>
+   */
+  public Iterable<Injected> getPrecomputedSkyframeValues() {
+    return ImmutableList.of();
   }
 
   /**

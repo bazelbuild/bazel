@@ -31,7 +31,8 @@ public class ObjcFramework implements RuleConfiguredTargetFactory {
   @Override
   public ConfiguredTarget create(RuleContext ruleContext) throws InterruptedException {
     ObjcCommon common = new ObjcCommon.Builder(ruleContext)
-        .addFrameworkImports(ruleContext.getPrerequisiteArtifacts("framework_imports", Mode.TARGET))
+        .addFrameworkImports(
+            ruleContext.getPrerequisiteArtifacts("framework_imports", Mode.TARGET).list())
         .build();
     common.reportErrors();
     return common.configuredTarget(

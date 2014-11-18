@@ -30,17 +30,10 @@ def genproto_impl(ctx):
   proto_output = class_jar.path + ".proto_output"
   build_output = class_jar.path + ".build_output"
 
-  if ctx.configuration.fragment(cpp).cpu == "darwin":
-    inputs = [src, proto_dep]
-    proto_compiler_path = "/opt/local/bin/protoc"
-  else:
-    inputs = [src, proto_dep, proto_compiler]
-    proto_compiler_path = proto_compiler.path
+  inputs = [src, proto_dep, proto_compiler]
+  proto_compiler_path = proto_compiler.path
 
-  javapath = "/usr/bin/"
-  if ctx.configuration.fragment(cpp).compiler.startswith("windows_"):
-    javapath = "c:/program\ files/java/jdk1.8.0_20/bin/"
-
+  javapath = "tools/jdk/jdk/bin/"
   cmd = ("set -e;" +
          "rm -rf " + proto_output + ";" +
          "mkdir " + proto_output + ";" +

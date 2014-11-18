@@ -39,7 +39,7 @@ public enum ArtifactListAttribute {
     if (context.attributes().getAttributeDefinition(attrName()) == null) {
       return ImmutableList.of();
     } else {
-      return context.getPrerequisiteArtifacts(attrName(), Mode.TARGET);
+      return context.getPrerequisiteArtifacts(attrName(), Mode.TARGET).list();
     }
   }
 }

@@ -48,6 +48,7 @@ import javax.annotation.Nullable;
  * <p>Includes logic to derive the right configurations depending on transition type.
  */
 public abstract class DependencyResolver {
+
   protected DependencyResolver() {
   }
 
@@ -74,8 +75,7 @@ public abstract class DependencyResolver {
       Preconditions.checkNotNull(config);
       visitTargetVisibility(node, outgoingEdges.get(null));
       Rule rule = (Rule) target;
-      ListMultimap<Attribute, Label> labelMap = resolveLateBoundAttributes(
-          rule, config, configConditions);
+      ListMultimap<Attribute, Label> labelMap = resolveAttributes(rule, config, configConditions);
       visitRule(rule, config, labelMap, outgoingEdges);
     } else if (target instanceof PackageGroup) {
       visitPackageGroup(node, (PackageGroup) target, outgoingEdges.get(null));
@@ -85,14 +85,27 @@ public abstract class DependencyResolver {
     return outgoingEdges;
   }
 
-  private ListMultimap<Attribute, Label> resolveLateBoundAttributes(Rule rule,
-      BuildConfiguration configuration, Set<ConfigMatchingProvider> configConditions)
+  private ListMultimap<Attribute, Label> resolveAttributes(
+      Rule rule, BuildConfiguration configuration, Set<ConfigMatchingProvider> configConditions)
       throws EvalException {
-    final ImmutableSortedKeyListMultimap.Builder<Attribute, Label> builder =
+    ConfiguredAttributeMapper attributeMap = ConfiguredAttributeMapper.of(rule, configConditions);
+    attributeMap.validateAttributes();
+    List<Attribute> attributes = rule.getRuleClassObject().getAttributes();
+    ImmutableSortedKeyListMultimap.Builder<Attribute, Label> result =
         ImmutableSortedKeyListMultimap.builder();
-    ConfiguredAttributeMapper attributes = ConfiguredAttributeMapper.of(rule, configConditions);
+    resolveExplicitAttributes(rule, configuration, attributeMap, result);
+    resolveImplicitAttributes(rule, attributeMap, attributes, result);
+    resolveLateBoundAttributes(rule, configuration, attributeMap, attributes, result);
 
-    attributes.validateAttributes();
+    // Handle visibility
+    result.putAll(rule.getRuleClassObject().getAttributeByName("visibility"),
+        rule.getVisibility().getDependencyLabels());
+    return result.build();
+  }
+
+  private void resolveExplicitAttributes(Rule rule, BuildConfiguration configuration,
+      AttributeMap attributes,
+      final ImmutableSortedKeyListMultimap.Builder<Attribute, Label> builder) {
     attributes.visitLabels(
         new AttributeMap.AcceptsLabelAttribute() {
           @Override
@@ -108,8 +121,7 @@ public abstract class DependencyResolver {
               return;
             }
 
-            if (Attribute.isLateBound(attributeName)) {
-              // Late-binding attributes are handled specially.
+            if (attribute.isImplicit() || attribute.isLateBound()) {
               return;
             }
 
@@ -144,39 +156,63 @@ public abstract class DependencyResolver {
         }
       }
     }
+  }
 
-    // Handle late-bound attributes.
-    for (Attribute attribute : rule.getAttributes()) {
-      String attributeName = attribute.getName();
-      if (Attribute.isLateBound(attributeName) && attribute.getCondition().apply(attributes)) {
-        @SuppressWarnings("unchecked")
-        LateBoundDefault<BuildConfiguration> lateBoundDefault =
-            (LateBoundDefault<BuildConfiguration>) attribute.getLateBoundDefault();
-        BuildConfiguration actualConfig = configuration;
-        if (lateBoundDefault != null && lateBoundDefault.useHostConfiguration()) {
-          actualConfig =
-              configuration.getConfiguration(ConfigurationTransition.HOST);
-        }
+  private void resolveImplicitAttributes(Rule rule, AttributeMap explicitAttributeMap,
+      Iterable<Attribute> attributes,
+      ImmutableSortedKeyListMultimap.Builder<Attribute, Label> builder)
+      throws EvalException {
+    for (Attribute attribute : attributes) {
+      if (!attribute.isImplicit() || !attribute.getCondition().apply(explicitAttributeMap)) {
+        continue;
+      }
 
-        if (attribute.getType() == Type.LABEL) {
-          Label label;
-          label = Type.LABEL.cast(lateBoundDefault.getDefault(rule, actualConfig));
-          if (label != null) {
-            builder.put(attribute, label);
-          }
-        } else if (attribute.getType() == Type.LABEL_LIST) {
-          builder.putAll(attribute, Type.LABEL_LIST.cast(
-              lateBoundDefault.getDefault(rule, actualConfig)));
-        } else {
-          throw new AssertionError("Unknown attribute: '" + attributeName + "'");
+      Object value = attribute.getDefaultValue(rule);
+      if (value instanceof Attribute.ComputedDefault) {
+        value = ((Attribute.ComputedDefault) value).getDefault(explicitAttributeMap);
+      }
+      if (attribute.getType() == Type.LABEL) {
+        Label label = Type.LABEL.cast(value);
+        if (label != null) {
+          builder.put(attribute, label);
         }
+      } else if (attribute.getType() == Type.LABEL_LIST) {
+        List<Label> labels = Type.LABEL_LIST.cast(value);
+        builder.putAll(attribute, labels);
       }
     }
+  }
 
-    // Handle visibility
-    builder.putAll(rule.getRuleClassObject().getAttributeByName("visibility"),
-        rule.getVisibility().getDependencyLabels());
-    return builder.build();
+  private void resolveLateBoundAttributes(Rule rule, BuildConfiguration configuration,
+      AttributeMap explicitAttributeMap, Iterable<Attribute> attributes,
+      ImmutableSortedKeyListMultimap.Builder<Attribute, Label> builder) throws EvalException {
+    for (Attribute attribute : attributes) {
+      if (!attribute.isLateBound() || !attribute.getCondition().apply(explicitAttributeMap)) {
+        continue;
+      }
+      @SuppressWarnings("unchecked")
+      LateBoundDefault<BuildConfiguration> lateBoundDefault =
+          (LateBoundDefault<BuildConfiguration>) attribute.getLateBoundDefault();
+      BuildConfiguration actualConfig = configuration;
+      if (lateBoundDefault != null && lateBoundDefault.useHostConfiguration()) {
+        actualConfig =
+            configuration.getConfiguration(ConfigurationTransition.HOST);
+      }
+
+      if (attribute.getType() == Type.LABEL) {
+        Label label;
+        label = Type.LABEL.cast(lateBoundDefault.getDefault(rule, actualConfig));
+        if (label != null) {
+          builder.put(attribute, label);
+        }
+      } else if (attribute.getType() == Type.LABEL_LIST) {
+        builder.putAll(attribute, Type.LABEL_LIST.cast(
+            lateBoundDefault.getDefault(rule, actualConfig)));
+      } else {
+        throw new IllegalStateException(String.format(
+            "Late bound attribute '%s' is not a label or a label list", attribute.getName()));
+      }
+    }
   }
 
   /**
@@ -199,13 +235,13 @@ public abstract class DependencyResolver {
    *
    * @throws IllegalArgumentException if the {@code node} does not refer to a {@link Rule} instance
    */
-  public final ListMultimap<Attribute, TargetAndConfiguration> resolveRuleLabels(
+  public final Collection<TargetAndConfiguration> resolveRuleLabels(
       TargetAndConfiguration node, ListMultimap<Attribute, Label> labelMap) {
     Preconditions.checkArgument(node.getTarget() instanceof Rule);
     Rule rule = (Rule) node.getTarget();
     ListMultimap<Attribute, TargetAndConfiguration> outgoingEdges = ArrayListMultimap.create();
     visitRule(rule, node.getConfiguration(), labelMap, outgoingEdges);
-    return outgoingEdges;
+    return outgoingEdges.values();
   }
 
   private void visitPackageGroup(TargetAndConfiguration node, PackageGroup packageGroup,

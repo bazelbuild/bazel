@@ -78,12 +78,27 @@ darwin)
     LDFLAGS="-L${archive_dir}/lib -larchive $LDFLAGS"
   elif [[ -e /opt/local/include/archive.h ]]; then
     # For use with Macports.
-    ARCHIVE_CFLAGS="-I/opt/local/include"
+    mkdir -p fromhost
+    cp /opt/local/include/archive.h  /opt/local/include/archive_entry.h fromhost/
+    cp /opt/local/lib/{libarchive,liblzo2,liblzma,libcharset,libbz2,libxml2,libz,libiconv}.a \
+      fromhost/
+    touch fromhost/empty.c
+    cat << EOF > fromhost/BUILD
+package(default_visibility = ["//visibility:public"])
+cc_library(
+  name = "libarchive",
+  srcs = glob(["*.a"]) + ["empty.c"],
+  hdrs = glob(["*.h"]),
+  includes  = ["."],
+)
+EOF
+
+    ARCHIVE_CFLAGS="-Ifromhost"
     # Link libarchive statically
-    LDFLAGS="/opt/local/lib/libarchive.a /opt/local/lib/liblzo2.a \
-             /opt/local/lib/liblzma.a /opt/local/lib/libcharset.a \
-             /opt/local/lib/libbz2.a /opt/local/lib/libxml2.a \
-             /opt/local/lib/libz.a /opt/local/lib/libiconv.a \
+    LDFLAGS="fromhost/libarchive.a fromhost/liblzo2.a \
+             fromhost/liblzma.a fromhost/libcharset.a \
+             fromhost/libbz2.a fromhost/libxml2.a \
+             fromhost/libz.a fromhost/libiconv.a \
              $LDFLAGS"
   else
     log "WARNING: Could not find libarchive installation, proceeding bravely."
@@ -93,7 +108,10 @@ darwin)
   MD5SUM="md5"
   JAVA_HOME=${JAVA_HOME:-$(/usr/libexec/java_home -v 1.7+)}
   PROTOC=${PROTOC:-protoc}
+
+  rm -f third_party/protobuf/protoc.darwin && ln -s $(which ${PROTOC}) third_party/protobuf/protoc.darwin
   ;;
+
 msys*|mingw*)
   # Use a simplified platform string.
   PLATFORM="mingw"
@@ -126,7 +144,8 @@ msys*|mingw*)
 esac
 
 test -z "$JAVA_HOME" && fail "JDK not found, please set $$JAVA_HOME."
-ln -s ${JAVA_HOME} tools/jdk/jdk
+rm -f tools/jdk/jdk && ln -s "${JAVA_HOME}" tools/jdk/jdk
+
 
 JAVAC="${JAVA_HOME}/bin/javac"
 JAR="${JAVA_HOME}/bin/jar"
@@ -253,6 +272,7 @@ chmod 755 output/client_info
 log "Creating Bazel self-extracting archive..."
 TO_ZIP="libblaze.jar ${JNILIB} build-runfiles${EXE_EXT} process-wrapper${EXE_EXT} client_info build_interface_so ${MSYS_DLLS}"
 (cd output/ ; cat client ${TO_ZIP} | ${MD5SUM} | awk '{ print $1; }' > install_base_key)
+(cd output/ ; find -type d | xargs -P 10 touch -t 198001010000)
 (cd output/ ; zip $ZIPOPTS -q package.zip ${TO_ZIP} install_base_key)
 cat output/client output/package.zip > output/bazel
 zip -qA output/bazel \

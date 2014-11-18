@@ -34,7 +34,7 @@ public class ShBinary implements RuleConfiguredTargetFactory {
 
   @Override
   public ConfiguredTarget create(RuleContext ruleContext) {
-    ImmutableList<Artifact> srcs = ruleContext.getPrerequisiteArtifacts("srcs", Mode.TARGET);
+    ImmutableList<Artifact> srcs = ruleContext.getPrerequisiteArtifacts("srcs", Mode.TARGET).list();
     if (srcs.size() != 1) {
       ruleContext.attributeError("srcs", "you must specify exactly one file in 'srcs'");
       return null;

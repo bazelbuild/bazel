@@ -76,39 +76,21 @@ cc_binary(
     srcs = ["main/tools/build-runfiles.cc"],
 )
 
-link_jni_cmd = "DIR=%s && cp $${DIR}/jni.h $(location jni.h) && cp $${DIR}/%s/jni_md.h $(location jni_md.h)"
+link_jni_cmd = ("cp tools/jdk/jdk/include/jni.h $(location jni.h) && " +
+                "cp tools/jdk/jdk/include/%s/jni_md.h $(location jni_md.h)")
 
 genrule(
     name = "copy_link_jni_headers",
-    srcs = [],
+    srcs = [
+        "//tools/jdk:headers",
+    ],
     outs = [
         "jni.h",
         "jni_md.h",
     ],
     cmd = select({
-        ":darwin": link_jni_cmd % ("/Library/Java/JavaVirtualMachines/jdk1.8.0_20.jdk/Contents/Home/include", "darwin"),
-        "//conditions:default": link_jni_cmd % ("/usr/lib/jvm/java-7-openjdk-amd64/include", "linux"),
-    }),
-)
-
-LIBARCHIVE_FILES = [
-    "libarchive.a",
-    "liblzo2.a",
-    "liblzma.a",
-    "libcharset.a",
-    "libbz2.a",
-    "libxml2.a",
-    "libz.a",
-    "libiconv.a",
-]
-
-genrule(
-    name = "copy_static_libarchive",
-    srcs = [],
-    outs = LIBARCHIVE_FILES,
-    cmd = select({
-        ":darwin": "cp " + " ".join(["/opt/local/lib/" + x for x in LIBARCHIVE_FILES]) + " $(@D)",
-        "//conditions:default": "touch $(OUTS)",
+        ":darwin": link_jni_cmd % "darwin",
+        "//conditions:default": link_jni_cmd % "linux",
     }),
 )
 
@@ -185,7 +167,6 @@ cc_binary(
             "main/cpp/blaze_util_darwin.cc",
             "main/cpp/option_processor.cc",
             "main/cpp/util/file.cc",
-            ":copy_static_libarchive",
         ],
         "//conditions:default": [
             "main/cpp/blaze.cc",
@@ -200,7 +181,6 @@ cc_binary(
     copts = [
         "-DBLAZE_JAVA_CPU=\\\"k8\\\"",
         "-DBLAZE_OPENSOURCE=1",
-        "-I/opt/local/include",
     ],
     includes = [
         "main/cpp",
@@ -213,10 +193,17 @@ cc_binary(
             "-lrt",
         ],
     }),
-    deps = [
-        ":md5",
-        ":util",
-    ],
+    deps = select({
+        ":darwin": [
+            ":md5",
+            ":util",
+            "//fromhost:libarchive",
+        ],
+        "//conditions:default": [
+            ":md5",
+            ":util",
+        ],
+    }),
 )
 
 # Packaging
@@ -384,6 +371,7 @@ java_test(
         "//third_party:third_party_test_utils",
     ],
     resources = [
+        ":libunix.dylib",
         ":libunix.so",
     ],
     deps = [
@@ -410,6 +398,7 @@ java_test(
     ],
     jvm_flags = ["-Dblaze.os=Windows"],
     resources = [
+        ":libunix.dylib",
         ":libunix.so",
     ],
     deps = [

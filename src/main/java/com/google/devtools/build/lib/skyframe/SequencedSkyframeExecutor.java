@@ -32,7 +32,6 @@ import com.google.devtools.build.lib.packages.Package;
 import com.google.devtools.build.lib.packages.PackageFactory;
 import com.google.devtools.build.lib.packages.PackageIdentifier;
 import com.google.devtools.build.lib.packages.Preprocessor;
-import com.google.devtools.build.lib.packages.Preprocessor.Factory.Supplier;
 import com.google.devtools.build.lib.pkgcache.PackageCacheOptions;
 import com.google.devtools.build.lib.pkgcache.PathPackageLocator;
 import com.google.devtools.build.lib.util.BlazeClock;
@@ -96,12 +95,14 @@ public final class SequencedSkyframeExecutor extends SkyframeExecutor {
       ImmutableList<BuildInfoFactory> buildInfoFactories,
       Iterable<? extends DiffAwareness.Factory> diffAwarenessFactories,
       Predicate<PathFragment> allowedMissingInputs,
-      Supplier preprocessorFactorySupplier,
-      ImmutableMap<SkyFunctionName, SkyFunction> extraSkyFunctions, Clock clock) {
+      Preprocessor.Factory.Supplier preprocessorFactorySupplier,
+      ImmutableMap<SkyFunctionName, SkyFunction> extraSkyFunctions,
+      ImmutableList<PrecomputedValue.Injected> extraPrecomputedValues,
+      Clock clock) {
     super(reporter, evaluatorSupplier, pkgFactory, tsgm, directories,
         workspaceStatusActionFactory, buildInfoFactories,
         allowedMissingInputs, preprocessorFactorySupplier,
-        extraSkyFunctions, clock);
+        extraSkyFunctions, extraPrecomputedValues, clock);
     this.diffAwarenessManager = new DiffAwarenessManager(diffAwarenessFactories, reporter);
     this.diffAwarenessManager.reset();
   }
@@ -112,13 +113,14 @@ public final class SequencedSkyframeExecutor extends SkyframeExecutor {
       ImmutableList<BuildInfoFactory> buildInfoFactories,
       Iterable<? extends DiffAwareness.Factory> diffAwarenessFactories,
       Predicate<PathFragment> allowedMissingInputs,
-      Supplier preprocessorFactorySupplier,
+      Preprocessor.Factory.Supplier preprocessorFactorySupplier,
       ImmutableMap<SkyFunctionName, SkyFunction> extraSkyFunctions,
+      ImmutableList<PrecomputedValue.Injected> extraPrecomputedValues,
       Clock clock) {
     this(reporter, InMemoryMemoizingEvaluator.SUPPLIER, pkgFactory, tsgm,
         directories, workspaceStatusActionFactory, buildInfoFactories,
         diffAwarenessFactories, allowedMissingInputs, preprocessorFactorySupplier,
-        extraSkyFunctions, clock);
+        extraSkyFunctions, extraPrecomputedValues, clock);
   }
 
   @VisibleForTesting
@@ -130,7 +132,9 @@ public final class SequencedSkyframeExecutor extends SkyframeExecutor {
     this(reporter, pkgFactory, tsgm, directories, workspaceStatusActionFactory,
         buildInfoFactories, diffAwarenessFactories, Predicates.<PathFragment>alwaysFalse(),
         Preprocessor.Factory.Supplier.NullSupplier.INSTANCE,
-        ImmutableMap.<SkyFunctionName, SkyFunction>of(), BlazeClock.instance()
+        ImmutableMap.<SkyFunctionName, SkyFunction>of(),
+        ImmutableList.<PrecomputedValue.Injected>of(),
+        BlazeClock.instance()
     );
   }
 

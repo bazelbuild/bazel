@@ -22,7 +22,11 @@ dd-plist has full support for the Android operating system. Consequently this
 library can be of great help when it comes to porting iOS apps to Android.
 
 Local Modifications:
+- LICENSE file has been created for compliance purposes. Not included in
+  original distribution.
 - Made PropertyListParser.readAll react properly to InputStreams that sometimes
   read fewer bytes than are available.
 - Rewrote some functions in ASCIIPropertyListParser.java to support characters
   outside of the 7-bit ASCII range.
+- Support surrogate pairs from \u escaped chars in strings in
+  ASCIIPropertyListParser.java.

@@ -73,6 +73,7 @@ import com.google.devtools.build.lib.server.RPCServer;
 import com.google.devtools.build.lib.server.ServerCommand;
 import com.google.devtools.build.lib.server.signal.InterruptSignalHandler;
 import com.google.devtools.build.lib.skyframe.DiffAwareness;
+import com.google.devtools.build.lib.skyframe.PrecomputedValue;
 import com.google.devtools.build.lib.skyframe.SequencedSkyframeExecutorFactory;
 import com.google.devtools.build.lib.skyframe.SkyframeExecutor;
 import com.google.devtools.build.lib.skyframe.SkyframeExecutorFactory;
@@ -272,8 +273,7 @@ public final class BlazeRuntime {
     this.ruleClassProvider = ruleClassProvider;
     this.configurationFactory = configurationFactory;
     this.view = new BuildView(
-        directories, getPackageManager(), ruleClassProvider, skyframeExecutor,
-        getQueryOutputFormatters(), binTools);
+        directories, getPackageManager(), ruleClassProvider, skyframeExecutor, binTools);
     this.clock = clock;
     this.timestampGranularityMonitor = Preconditions.checkNotNull(timestampGranularityMonitor);
     this.startupOptionsProvider = startupOptionsProvider;
@@ -1682,13 +1682,19 @@ public final class BlazeRuntime {
       for (BlazeModule module : blazeModules) {
         skyFunctions.putAll(module.getSkyFunctions(directories));
       }
+
+      ImmutableList.Builder<PrecomputedValue.Injected> precomputedValues = ImmutableList.builder();
+      for (BlazeModule module : blazeModules) {
+        precomputedValues.addAll(module.getPrecomputedSkyframeValues());
+      }
+
       final PackageFactory pkgFactory =
           new PackageFactory(ruleClassProvider, platformRegexps, extensions);
       SkyframeExecutor skyframeExecutor = skyframeExecutorFactory.create(reporter, pkgFactory,
           skyframe == SkyframeMode.FULL, timestampMonitor, directories,
           workspaceStatusActionFactory, ruleClassProvider.getBuildInfoFactories(),
           diffAwarenessFactories, allowedMissingInputs, preprocessorFactorySupplier,
-          skyFunctions.build(), clock);
+          skyFunctions.build(), precomputedValues.build(), clock);
 
       if (configurationFactory == null) {
         configurationFactory = new ConfigurationFactory(

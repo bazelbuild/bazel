@@ -42,6 +42,7 @@ public abstract class SymlinkAwareFileSystemTest extends FileSystemTest {
   protected Path xLinkToDirectory;
   protected Path xDanglingLink;
 
+  @Override
   @Before
   public void setUp() throws Exception {
     super.setUp();
@@ -225,11 +226,12 @@ public abstract class SymlinkAwareFileSystemTest extends FileSystemTest {
       fail();
     } catch (FileNotFoundException e) { /* ok */ }
 
-    Path etc = testFS.getPath("/etc");
-    if (!etc.isDirectory()) {
-      etc.createDirectory();
+    // The path may not be a symlink, neither on Darwin nor on Linux.
+    Path rootChild = testFS.getPath("/sbin");
+    if (!rootChild.isDirectory()) {
+      rootChild.createDirectory();
     }
-    assertEquals(etc, linkPath.getRelative("etc").resolveSymbolicLinks());
+    assertEquals(rootChild, linkPath.getRelative("sbin").resolveSymbolicLinks());
   }
 
   @Test

@@ -117,9 +117,14 @@ public class ASTFileLookupFunction implements SkyFunction {
       return ASTFileLookupValue.NO_FILE;
     } else {
       Path path = lookupResult.rootedPath().asPath();
+      // Skylark files end with bzl.
+      boolean parseAsSkylark = astFilePathFragment.getPathString().endsWith(".bzl");
       try {
-        ast = BuildFileAST.parseSkylarkFile(path, env.getListener(),
-            packageManager, ruleClassProvider.getSkylarkValidationEnvironment().clone());
+        ast = parseAsSkylark
+            ? BuildFileAST.parseSkylarkFile(path, env.getListener(),
+                packageManager, ruleClassProvider.getSkylarkValidationEnvironment().clone())
+            : BuildFileAST.parseBuildFile(path, env.getListener(),
+                packageManager, false);
       } catch (IOException e) {
         throw new ASTLookupFunctionException(skyKey,
             new ErrorReadingSkylarkExtensionException(e.getMessage()), Transience.TRANSIENT);

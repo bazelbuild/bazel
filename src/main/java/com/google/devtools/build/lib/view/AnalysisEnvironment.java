@@ -22,7 +22,6 @@ import com.google.devtools.build.lib.actions.Artifact;
 import com.google.devtools.build.lib.actions.MiddlemanFactory;
 import com.google.devtools.build.lib.actions.Root;
 import com.google.devtools.build.lib.events.EventHandler;
-import com.google.devtools.build.lib.query2.output.OutputFormatter;
 import com.google.devtools.build.lib.vfs.PathFragment;
 import com.google.devtools.build.lib.view.buildinfo.BuildInfoFactory.BuildInfoKey;
 import com.google.devtools.build.skyframe.SkyFunction;
@@ -74,15 +73,6 @@ public interface AnalysisEnvironment extends ActionRegistry {
    */
   // TODO(bazel-team): remove this method and replace it with delegate methods.
   MiddlemanFactory getMiddlemanFactory();
-
-  /**
-   * DO NOT, I REPEAT, DO NOT use this method!
-   *
-   * <p>This is here because genquery needs access to the set of output formatters until
-   * the query execution logic is moved to the execution phase.
-   */
-  @Deprecated
-  Iterable<OutputFormatter> getOutputFormattersForGenQueryHack();
 
   /**
    * Returns the generating action for the given local artifact.

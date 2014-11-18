@@ -140,7 +140,7 @@ public final class CcCommon {
         new InstrumentedFilesCollector(ruleContext, CppRuleClasses.INSTRUMENTATION_SPEC,
             CC_METADATA_COLLECTOR);
     this.sources = hasAttribute("srcs", Type.LABEL_LIST)
-        ? ruleContext.getPrerequisiteArtifacts("srcs", Mode.TARGET)
+        ? ruleContext.getPrerequisiteArtifacts("srcs", Mode.TARGET).list()
         : ImmutableList.<Artifact>of();
 
     this.cAndCppSources = collectCAndCppSources();
@@ -827,7 +827,7 @@ public final class CcCommon {
    * Returns any linker scripts found in the dependencies of the rule.
    */
   Iterable<Artifact> getLinkerScripts() {
-    return FileType.filter(ruleContext.getPrerequisiteArtifacts("deps", Mode.TARGET),
+    return FileType.filter(ruleContext.getPrerequisiteArtifacts("deps", Mode.TARGET).list(),
         CppFileTypes.LINKER_SCRIPT);
   }
 
@@ -873,14 +873,14 @@ public final class CcCommon {
     if (context.getCppModuleMap() != null) {
       // Header files from 'srcs' attribute are the private headers
       Iterable<Artifact> srcs = (ruleContext.attributes().getAttributeDefinition("srcs") != null)
-          ? ruleContext.getPrerequisiteArtifacts("srcs", Mode.TARGET)
+          ? ruleContext.getPrerequisiteArtifacts("srcs", Mode.TARGET).list()
           : ImmutableList.<Artifact>of();
       Iterable<Artifact> privateHeaders = Iterables.filter(srcs, HEADER_FILTER);
 
       // Exposed header files from 'hdrs' attribute are the public headers
       ImmutableList<Artifact> publicHeaders =
           (ruleContext.attributes().getAttributeDefinition("hdrs") != null)
-              ? ruleContext.getPrerequisiteArtifacts("hdrs", Mode.TARGET)
+              ? ruleContext.getPrerequisiteArtifacts("hdrs", Mode.TARGET).list()
               : ImmutableList.<Artifact>of();
 
       // Enumerate list of dependencies

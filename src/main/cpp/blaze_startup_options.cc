@@ -112,19 +112,28 @@ string BlazeStartupOptions::GetDefaultHostJavabase() const {
 
 string BlazeStartupOptions::GetJvm() {
   string java_program = GetHostJavabase() + "/bin/java";
-  string rt_jar = GetHostJavabase() + "/jre/lib/rt.jar";
-  if (access(rt_jar.c_str(), R_OK) == -1 ||
-      access(java_program.c_str(), X_OK) == -1) {
+  if (access(java_program.c_str(), X_OK) == -1) {
     if (errno == ENOENT) {
-      fprintf(stderr, "Couldn't find JDK at '%s'.\n",
-              GetHostJavabase().c_str());
+      fprintf(stderr, "Couldn't find java at '%s'.\n", java_program.c_str());
     } else {
-      fprintf(stderr, "Couldn't access %s: %s\n", GetHostJavabase().c_str(),
-              strerror(errno));
+      fprintf(stderr, "Couldn't access %s: %s\n", java_program.c_str(),
+          strerror(errno));
     }
     exit(1);
   }
-  return java_program;
+  for (string rt_jar : {
+      // If the full JDK is installed
+      GetHostJavabase() + "/jre/lib/rt.jar",
+      // If just the JRE is installed
+      GetHostJavabase() + "/lib/rt.jar"
+  }) {
+    if (access(rt_jar.c_str(), R_OK) == 0) {
+      return java_program;
+    }
+  }
+  fprintf(stderr, "Problem with java installation: "
+      "couldn't find/access rt.jar in %s\n", GetHostJavabase().c_str());
+  exit(1);
 }
 
 BlazeStartupOptions::Architecture BlazeStartupOptions::GetBlazeArchitecture()

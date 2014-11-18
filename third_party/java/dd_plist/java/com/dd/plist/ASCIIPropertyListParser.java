@@ -607,23 +607,22 @@ public class ASCIIPropertyListParser {
      * Unescapes an escaped character sequence, e.g. \\u00FC.
      *
      * @param iterator The string character iterator pointing to the first character after the backslash
-     * @return The unescaped character as a string.
-     * @throws UnsupportedEncodingException If an invalid Unicode or ASCII escape sequence is found.
+     * @return The unescaped character
      */
-    private static String parseEscapedSequence(StringCharacterIterator iterator) throws UnsupportedEncodingException {
+    private static char parseEscapedSequence(StringCharacterIterator iterator) {
         char c = iterator.next();
         if (c == '\\') {
-            return "\\";
+            return '\\';
         } else if (c == '"') {
-            return "\"";
+            return '\"';
         } else if (c == 'b') {
-            return "\b";
+            return '\b';
         } else if (c == 'n') {
-            return "\n";
+            return '\n';
         } else if (c == 'r') {
-            return "\r";
+            return '\r';
         } else if (c == 't') {
-            return "\t";
+            return '\t';
         } else if (c == 'U' || c == 'u') {
             //4 digit hex Unicode value
             String byte1 = "";
@@ -632,17 +631,14 @@ public class ASCIIPropertyListParser {
             String byte2 = "";
             byte2 += iterator.next();
             byte2 += iterator.next();
-            byte[] stringBytes = {(byte) Integer.parseInt(byte1, 16), (byte) Integer.parseInt(byte2, 16)};
-            return new String(stringBytes, "UTF-16BE");
+            return (char) ((Integer.parseInt(byte1, 16) << 8) + Integer.parseInt(byte2, 16));
         } else {
             //3 digit octal ASCII value
             String num = "";
             num += c;
             num += iterator.next();
             num += iterator.next();
-            int asciiCode = Integer.parseInt(num, 8);
-            byte[] stringBytes = {0, (byte) asciiCode};
-            return new String(stringBytes, "UTF-16");
+            return (char) Integer.parseInt(num, 8);
         }
     }
 

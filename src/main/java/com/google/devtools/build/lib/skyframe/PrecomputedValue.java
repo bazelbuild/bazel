@@ -15,6 +15,8 @@ package com.google.devtools.build.lib.skyframe;
 
 import com.google.common.annotations.VisibleForTesting;
 import com.google.common.base.Preconditions;
+import com.google.common.base.Supplier;
+import com.google.common.base.Suppliers;
 import com.google.common.collect.ImmutableMap;
 import com.google.devtools.build.lib.actions.Action;
 import com.google.devtools.build.lib.blaze.BlazeDirectories;
@@ -40,6 +42,33 @@ import javax.annotation.Nullable;
  * (e.g. via injection).
  */
 public class PrecomputedValue implements SkyValue {
+  /**
+   * An externally-injected precomputed value. Exists so that modules can inject precomputed values
+   * into Skyframe's graph.
+   *
+   * <p>{@see com.google.devtools.build.lib.blaze.BlazeModule#getPrecomputedValues}.
+   */
+  public static final class Injected {
+    private final Precomputed<?> precomputed;
+    private final Supplier<? extends Object> supplier;
+
+    private Injected(Precomputed<?> precomputed, Supplier<? extends Object> supplier) {
+      this.precomputed = precomputed;
+      this.supplier = supplier;
+    }
+
+    void inject(Injectable injectable) {
+      injectable.inject(ImmutableMap.of(precomputed.key, new PrecomputedValue(supplier.get())));
+    }
+  }
+
+  public static <T> Injected injected(Precomputed<T> precomputed, Supplier<T> value) {
+    return new Injected(precomputed, value);
+  }
+
+  public static <T> Injected injected(Precomputed<T> precomputed, T value) {
+    return new Injected(precomputed, Suppliers.ofInstance(value));
+  }
 
   static final Precomputed<String> DEFAULTS_PACKAGE_CONTENTS =
       new Precomputed<>(new SkyKey(SkyFunctions.PRECOMPUTED, "default_pkg"));
@@ -109,10 +138,10 @@ public class PrecomputedValue implements SkyValue {
    *
    * <p>Instances do not have internal state.
    */
-  static final class Precomputed<T> {
+  public static final class Precomputed<T> {
     private final SkyKey key;
 
-    private Precomputed(SkyKey key) {
+    public Precomputed(SkyKey key) {
       this.key = key;
     }
 
@@ -128,7 +157,7 @@ public class PrecomputedValue implements SkyValue {
      */
     @Nullable
     @SuppressWarnings("unchecked")
-    T get(SkyFunction.Environment env) {
+    public T get(SkyFunction.Environment env) {
       PrecomputedValue value = (PrecomputedValue) env.getValue(key);
       if (value == null) {
         return null;

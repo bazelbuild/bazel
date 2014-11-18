@@ -179,7 +179,7 @@ public abstract class CcLibrary implements RuleConfiguredTargetFactory {
 
     if (ruleContext.getRule().isAttrDefined("srcs", Type.LABEL_LIST)) {
       helper.addPrivateHeaders(FileType.filter(
-          ruleContext.getPrerequisiteArtifacts("srcs", Mode.TARGET),
+          ruleContext.getPrerequisiteArtifacts("srcs", Mode.TARGET).list(),
           CppFileTypes.CPP_HEADER));
       ruleContext.checkSrcsSamePackage(true);
     }

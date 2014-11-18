@@ -6,6 +6,7 @@ filegroup(
         ":windows_mingw": ["protobuf/protoc.exe"],
         ":windows_msys64_mingw64": ["protobuf/protoc.exe"],
         ":windows_clang": ["protobuf/protoc.exe"],
+        ":darwin": ["protobuf/protoc.darwin"],
         "//conditions:default": ["protobuf/protoc.amd64"],
     }),
 )
@@ -49,4 +50,9 @@ config_setting(
 config_setting(
     name = "windows_clang",
     values = {"compiler": "windows_clang"},
+)
+
+config_setting(
+    name = "darwin",
+    values = {"cpu": "darwin"},
 )

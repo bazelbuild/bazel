@@ -40,6 +40,7 @@ import com.google.devtools.common.options.OptionsParsingException;
 import com.google.devtools.common.options.OptionsProvider;
 
 import java.util.Collection;
+import java.util.List;
 
 /**
  * Handles the 'test' command on the Blaze command line.
@@ -57,6 +58,8 @@ public class TestCommand implements BlazeCommand {
   @Override
   public void editOptions(BlazeRuntime runtime, OptionsParser optionsParser)
       throws AbruptExitException {
+    ProjectFileSupport.handleProjectFiles(runtime, optionsParser, "test");
+
     TestOutputFormat testOutput = optionsParser.getOptions(ExecutionOptions.class).testOutput;
 
     if (testOutput == TestStrategy.TestOutputFormat.STREAMED) {
@@ -96,9 +99,10 @@ public class TestCommand implements BlazeCommand {
       OptionsProvider options,
       AggregatingTestListener testListener) {
     // Run simultaneous build and test.
+    List<String> targets = ProjectFileSupport.getTargets(runtime, options);
     BuildRequest request = BuildRequest.create(
         getClass().getAnnotation(Command.class).name(), options,
-        runtime.getStartupOptionsProvider(), options.getResidue(),
+        runtime.getStartupOptionsProvider(), targets,
         runtime.getReporter().getOutErr(), runtime.getCommandId(), runtime.getCommandStartTime());
     if (request.getBuildOptions().compileOnly) {
       String message =  "The '" + getClass().getAnnotation(Command.class).name() +

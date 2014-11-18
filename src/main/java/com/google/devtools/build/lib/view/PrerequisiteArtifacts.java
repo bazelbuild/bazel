@@ -43,16 +43,7 @@ public final class PrerequisiteArtifacts {
     this.artifacts = Preconditions.checkNotNull(artifacts);
   }
 
-  /**
-   * For the specified attribute "attributeName" (which must be of type
-   * list(label)), resolve all the labels into ConfiguredTargets (for the
-   * configuration appropriate to the attribute) and return their build
-   * artifacts as a {@link PrerequisiteArtifacts} instance.
-   *
-   * @param attributeName the name of the attribute to traverse
-   */
-  public static PrerequisiteArtifacts get(
-      RuleContext ruleContext, String attributeName, Mode mode) {
+  static PrerequisiteArtifacts get(RuleContext ruleContext, String attributeName, Mode mode) {
     Set<Artifact> result = new LinkedHashSet<>();
     for (FileProvider target :
         ruleContext.getPrerequisites(attributeName, mode, FileProvider.class)) {

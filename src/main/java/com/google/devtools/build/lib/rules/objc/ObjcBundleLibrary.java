@@ -92,7 +92,8 @@ public class ObjcBundleLibrary implements RuleConfiguredTargetFactory {
     ObjcCommon common =
         ObjcLibrary.common(ruleContext, ImmutableList.<SdkFramework>of(), /*alwayslink=*/false);
     OptionsProvider optionsProvider = ObjcLibrary.optionsProvider(ruleContext,
-        new InfoplistsFromRule(ruleContext.getPrerequisiteArtifacts("infoplist", Mode.TARGET)));
+        new InfoplistsFromRule(
+            ruleContext.getPrerequisiteArtifacts("infoplist", Mode.TARGET).list()));
     Bundling bundling = bundling(ruleContext, ".bundle", ImmutableList.<BundleableFile>of(),
         common.getObjcProvider(), optionsProvider);
 

@@ -39,7 +39,7 @@ public interface ProjectFile {
      * Returns an (optionally cached) project file instance. If there is no such file, or if the
      * file cannot be parsed, then it throws an exception.
      */
-    ProjectFile getProjectFile(List<Path> packagePath, PathFragment path, String command)
+    ProjectFile getProjectFile(List<Path> packagePath, PathFragment path)
         throws AbruptExitException;
   }
 
@@ -50,7 +50,10 @@ public interface ProjectFile {
   String getName();
 
   /**
-   * A list of strings that are parsed into the options for the current command.
+   * A list of strings that are parsed into the options for the command.
+   *
+   * @param command An action from the command line, e.g. "build" or "test".
+   * @throws UnsupportedOperationException if an unknown command is passed.
    */
-  List<String> getCommandLine();
+  List<String> getCommandLineFor(String command);
 }

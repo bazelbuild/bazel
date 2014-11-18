@@ -32,7 +32,8 @@ public class ObjcOptions implements RuleConfiguredTargetFactory {
         .add(OptionsProvider.class,
             new OptionsProvider.Builder()
                 .addCopts(ruleContext.getTokenizedStringListAttr("copts"))
-                .addInfoplists(ruleContext.getPrerequisiteArtifacts("infoplists", Mode.TARGET))
+                .addInfoplists(
+                    ruleContext.getPrerequisiteArtifacts("infoplists", Mode.TARGET).list())
                 .build())
         .build();
   }

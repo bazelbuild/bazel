@@ -95,7 +95,6 @@ def java_binary_impl(ctx):
     content = "Main-Class: " + main_class + "\n",
     executable = False)
 
-
   # Cleaning build output directory
   cmd = "set -e;rm -rf " + build_output + ";mkdir " + build_output + "\n"
   for jar in library_result.runtime_jars:
@@ -133,6 +132,12 @@ def java_binary_impl(ctx):
         "fi",
         "",
 
+        # Is there a better way to get at the JVM?
+        "jvm_bin=%s" % (JAVA_PATH + "java"),
+        "if [[ ! -x ${jvm_bin} ]]; then",
+        "  jvm_bin=$(which java)",
+        "fi",
+
         # We extract the .so into a temp dir. If only we could mmap
         # directly from the zip file.
         "DEPLOY=$(dirname $self)/$(basename %s)" % deploy_jar.path,
@@ -145,20 +150,23 @@ def java_binary_impl(ctx):
         "}",
         "trap cleanup EXIT",
         "unzip -q -d ${SO_DIR} ${DEPLOY} \"*.so\" \"*.dll\" \"*.dylib\" >& /dev/null",
-        ("java -Djava.library.path=${SO_DIR} %s -jar $DEPLOY \"$@\""
+        ("${jvm_bin} -Djava.library.path=${SO_DIR} %s -jar $DEPLOY \"$@\""
          % ' '.join(ctx.attr.jvm_flags)) ,
         "",
         ]),
     executable = True)
 
-  runfiles = ctx.runfiles(files = [deploy_jar, executable], collect_data = True)
+  runfiles = ctx.runfiles(files = [
+      deploy_jar, executable] + ctx.files.jvm, collect_data = True)
   files_to_build = set([deploy_jar, manifest, executable])
   files_to_build += library_result.files
 
   return struct(files = files_to_build, runfiles = runfiles)
 
+
 def java_import_impl(ctx):
-  # TODO: Why do we need to filter here? The attribute already says only jars are allowed.
+  # TODO(bazel-team): Why do we need to filter here? The attribute
+  # already says only jars are allowed.
   jars = set(jar_filetype.filter(ctx.files.jars))
   runfiles = ctx.runfiles(collect_data = True)
   return struct(files = jars,
@@ -187,10 +195,15 @@ java_library = rule(
         "class_jar": "lib%{name}.jar",
     })
 
-java_binary_attrs = {
-    "main_class": attr.string(mandatory=True),
+java_binary_attrs_common = java_library_attrs + {
     "jvm_flags": attr.string_list(),
-} + java_library_attrs
+    "jvm": attr.label(default=label("//tools/jdk:jdk"), allow_files=True),
+    "args": attr.string_list(),
+}
+
+java_binary_attrs = java_binary_attrs_common + {
+    "main_class": attr.string(mandatory=True),
+}
 
 java_binary_outputs = {
     "class_jar": "lib%{name}.jar",
@@ -205,13 +218,11 @@ java_binary = rule(java_binary_impl,
 
 java_test = rule(java_binary_impl,
    executable = True,
-   attrs = java_library_attrs + {
+   attrs = java_binary_attrs_common + {
        "main_class": attr.string(default="org.junit.runner.JUnitCore"),
        # TODO(bazel-team): it would be better if we could offer a
-       # test_class attribute instead, but this attribute is hard
+       # test_class attribute, but the "args" attribute is hard
        # coded in the bazel infrastructure.
-       "args": attr.string_list(),
-       "jvm_flags": attr.string_list(),
    },
    outputs = java_binary_outputs,
    test = True,

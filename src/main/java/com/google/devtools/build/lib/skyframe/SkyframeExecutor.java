@@ -200,11 +200,12 @@ public abstract class SkyframeExecutor {
 
   private BinTools binTools = null;
   private boolean needToInjectEmbeddedArtifacts = true;
-  private boolean needToInjectBuildInfoFactories = true;
+  private boolean needToInjectPrecomputedValuesForAnalysis = true;
   protected int modifiedFiles;
   private final Predicate<PathFragment> allowedMissingInputs;
 
   private final ImmutableMap<SkyFunctionName, SkyFunction> extraSkyFunctions;
+  private final ImmutableList<PrecomputedValue.Injected> extraPrecomputedValues;
 
   protected SkyframeIncrementalBuildMonitor incrementalBuildMonitor =
       new SkyframeIncrementalBuildMonitor();
@@ -228,7 +229,9 @@ public abstract class SkyframeExecutor {
       ImmutableList<BuildInfoFactory> buildInfoFactories,
       Predicate<PathFragment> allowedMissingInputs,
       Preprocessor.Factory.Supplier preprocessorFactorySupplier,
-      ImmutableMap<SkyFunctionName, SkyFunction> extraSkyFunctions, Clock clock) {
+      ImmutableMap<SkyFunctionName, SkyFunction> extraSkyFunctions,
+      ImmutableList<PrecomputedValue.Injected> extraPrecomputedValues,
+      Clock clock) {
     // Strictly speaking, these arguments are not required for initialization, but all current
     // callsites have them at hand, so we might as well set them during construction.
     this.reporter = Preconditions.checkNotNull(reporter);
@@ -250,6 +253,7 @@ public abstract class SkyframeExecutor {
     this.allowedMissingInputs = allowedMissingInputs;
     this.preprocessorFactorySupplier = preprocessorFactorySupplier;
     this.extraSkyFunctions = extraSkyFunctions;
+    this.extraPrecomputedValues = extraPrecomputedValues;
     resetEvaluatorInternal(/*bootstrapping=*/true);
   }
 
@@ -418,7 +422,7 @@ public abstract class SkyframeExecutor {
    */
   private void reinjectConstantValuesLazily() {
     needToInjectEmbeddedArtifacts = true;
-    needToInjectBuildInfoFactories = true;
+    needToInjectPrecomputedValuesForAnalysis = true;
   }
 
   /**
@@ -456,6 +460,7 @@ public abstract class SkyframeExecutor {
     return true;
   }
 
+  @VisibleForTesting
   protected abstract Injectable injectable();
 
   /**
@@ -493,12 +498,20 @@ public abstract class SkyframeExecutor {
     PrecomputedValue.DEFAULT_VISIBILITY.set(injectable(), defaultVisibility);
   }
 
-  private void maybeInjectBuildInfoFactories() {
-    if (needToInjectBuildInfoFactories) {
+  private void maybeInjectPrecomputedValuesForAnalysis() {
+    if (needToInjectPrecomputedValuesForAnalysis) {
       injectBuildInfoFactories();
-      needToInjectBuildInfoFactories = false;
+      injectExtraPrecomputedValues();
+      needToInjectPrecomputedValuesForAnalysis = false;
     }
   }
+
+  private void injectExtraPrecomputedValues() {
+    for (PrecomputedValue.Injected injected : extraPrecomputedValues) {
+      injected.inject(injectable());
+    }
+  }
+
   /**
    * Injects the build info factory map that will be used when constructing build info
    * actions/artifacts. Unchanged across the life of the Blaze server, although it must be injected
@@ -656,7 +669,7 @@ public abstract class SkyframeExecutor {
     Preconditions.checkNotNull(pkgLocator);
     setActive(true);
 
-    maybeInjectBuildInfoFactories();
+    maybeInjectPrecomputedValuesForAnalysis();
     setCommandId(commandId);
     setShowLoadingProgress(showLoadingProgress);
     setDefaultVisibility(defaultVisibility);

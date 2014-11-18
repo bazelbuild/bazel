@@ -48,7 +48,7 @@ public final class ExtraActionFactory implements RuleConfiguredTargetFactory {
     CommandHelper commandHelper = new CommandHelper(
         context, tools, ImmutableMap.<Label, Iterable<Artifact>>of());
 
-    resolvedData.addAll(context.getPrerequisiteArtifacts("data", Mode.DATA));
+    resolvedData.addAll(context.getPrerequisiteArtifacts("data", Mode.DATA).list());
     List<String>outputTemplates =
         context.attributes().get("out_templates", Type.STRING_LIST);
 

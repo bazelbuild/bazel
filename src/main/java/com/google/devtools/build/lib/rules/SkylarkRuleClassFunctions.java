@@ -328,10 +328,11 @@ public class SkylarkRuleClassFunctions {
 
   @SkylarkBuiltin(name = "to_proto",
       doc = "Creates a text message from the struct parameter. This method only works if all "
-          + "struct elements (recursively) are strings, ints, other structs or a list of these "
-          + "types. Quotes and new lines in strings are escaped. "
+          + "struct elements (recursively) are strings, ints, booleans, other structs or a "
+          + "list of these types. Quotes and new lines in strings are escaped. "
           + "Examples:<br><pre class=code>"
           + "struct(key=123).to_proto()\n# key: 123\n\n"
+          + "struct(key=True).to_proto()\n# key: true\n\n"
           + "struct(key=[1, 2, 3]).to_proto()\n# key: 1\n# key: 2\n# key: 3\n\n"
           + "struct(key='text').to_proto()\n# key: \"text\"\n\n"
           + "struct(key=struct(inner_key='text')).to_proto()\n"
@@ -341,7 +342,7 @@ public class SkylarkRuleClassFunctions {
           + "struct(key=struct(inner_key=struct(inner_inner_key='text'))).to_proto()\n"
           + "# key {\n#    inner_key {\n#     inner_inner_key: \"text\"\n#   }\n# }\n</pre>",
       objectType = SkylarkClassObject.class, returnType = String.class)
-  private static final SkylarkFunction textMessage = new SimpleSkylarkFunction("to_proto") {
+  private static final SkylarkFunction toProto = new SimpleSkylarkFunction("to_proto") {
     @Override
     public Object call(Map<String, Object> arguments, Location loc) throws EvalException,
         ConversionException {
@@ -367,6 +368,10 @@ public class SkylarkRuleClassFunctions {
       } else if (value instanceof String) {
         print(sb, key + ": \"" + escape((String) value) + "\"", indent);
       } else if (value instanceof Integer) {
+        print(sb, key + ": " + value, indent);
+      } else if (value instanceof Boolean) {
+        // We're relying on the fact that Java converts Booleans to Strings in the same way
+        // as the protocol buffers do.
         print(sb, key + ": " + value, indent);
       } else {
         throw new EvalException(loc,

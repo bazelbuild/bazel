@@ -62,10 +62,10 @@ public class ObjcLibrary implements RuleConfiguredTargetFactory {
     IntermediateArtifacts intermediateArtifacts =
         ObjcRuleClasses.intermediateArtifacts(ruleContext);
     CompilationArtifacts compilationArtifacts = new CompilationArtifacts.Builder()
-        .addSrcs(ruleContext.prerequisiteArtifacts("srcs", Mode.TARGET)
+        .addSrcs(ruleContext.getPrerequisiteArtifacts("srcs", Mode.TARGET)
             .errorsForNonMatching(SRCS_TYPE)
             .list())
-        .addNonArcSrcs(ruleContext.prerequisiteArtifacts("non_arc_srcs", Mode.TARGET)
+        .addNonArcSrcs(ruleContext.getPrerequisiteArtifacts("non_arc_srcs", Mode.TARGET)
             .errorsForNonMatching(NON_ARC_SRCS_TYPE)
             .list())
         .setIntermediateArtifacts(intermediateArtifacts)

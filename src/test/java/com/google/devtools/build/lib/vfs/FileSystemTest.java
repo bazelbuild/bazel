@@ -777,8 +777,10 @@ public abstract class FileSystemTest {
       rootDirectory.delete();
       fail();
     } catch (IOException e) {
-      assertTrue(e.getMessage().endsWith(" (Directory not empty)") ||
-                 e.getMessage().endsWith(" (Device or resource busy)"));
+      String msg = e.getMessage();
+      assertTrue(String.format("got %s want EBUSY or ENOTEMPTY", msg),
+          msg.endsWith(" (Directory not empty)")
+          || msg.endsWith(" (Device or resource busy)"));
     }
   }
 

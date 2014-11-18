@@ -47,7 +47,7 @@ final class ObjcBase {
     }
 
     ImmutableList<Artifact> hdrs() {
-      return ruleContext.prerequisiteArtifacts("hdrs", Mode.TARGET)
+      return ruleContext.getPrerequisiteArtifacts("hdrs", Mode.TARGET)
           .errorsForNonMatching(HDRS_TYPE)
           .list();
     }
@@ -59,19 +59,19 @@ final class ObjcBase {
     }
 
     ImmutableList<Artifact> assetCatalogs() {
-      return ruleContext.getPrerequisiteArtifacts("asset_catalogs", Mode.TARGET);
+      return ruleContext.getPrerequisiteArtifacts("asset_catalogs", Mode.TARGET).list();
     }
 
     ImmutableList<Artifact> strings() {
-      return ruleContext.getPrerequisiteArtifacts("strings", Mode.TARGET);
+      return ruleContext.getPrerequisiteArtifacts("strings", Mode.TARGET).list();
     }
 
     ImmutableList<Artifact> xibs() {
-      return ruleContext.getPrerequisiteArtifacts("xibs", Mode.TARGET);
+      return ruleContext.getPrerequisiteArtifacts("xibs", Mode.TARGET).list();
     }
 
     ImmutableList<Artifact> storyboards() {
-      return ruleContext.getPrerequisiteArtifacts("storyboards", Mode.TARGET);
+      return ruleContext.getPrerequisiteArtifacts("storyboards", Mode.TARGET).list();
     }
 
     /**
@@ -92,11 +92,11 @@ final class ObjcBase {
     }
 
     ImmutableList<Artifact> resources() {
-      return ruleContext.getPrerequisiteArtifacts("resources", Mode.TARGET);
+      return ruleContext.getPrerequisiteArtifacts("resources", Mode.TARGET).list();
     }
 
     ImmutableList<Artifact> datamodels() {
-      return ruleContext.getPrerequisiteArtifacts("datamodels", Mode.TARGET);
+      return ruleContext.getPrerequisiteArtifacts("datamodels", Mode.TARGET).list();
     }
 
     /**

@@ -32,9 +32,9 @@ public class ShLibrary implements RuleConfiguredTargetFactory {
   @Override
   public ConfiguredTarget create(RuleContext ruleContext) {
     NestedSet<Artifact> filesToBuild = NestedSetBuilder.<Artifact>stableOrder()
-        .addAll(ruleContext.getPrerequisiteArtifacts("srcs", Mode.TARGET))
-        .addAll(ruleContext.getPrerequisiteArtifacts("deps", Mode.TARGET))
-        .addAll(ruleContext.getPrerequisiteArtifacts("data", Mode.DATA))
+        .addAll(ruleContext.getPrerequisiteArtifacts("srcs", Mode.TARGET).list())
+        .addAll(ruleContext.getPrerequisiteArtifacts("deps", Mode.TARGET).list())
+        .addAll(ruleContext.getPrerequisiteArtifacts("data", Mode.DATA).list())
         .build();
     Runfiles runfiles = new Runfiles.Builder()
         .addArtifacts(filesToBuild)

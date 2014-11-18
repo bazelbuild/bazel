@@ -19,7 +19,7 @@ import com.google.common.collect.ImmutableMap;
 import com.google.devtools.build.lib.blaze.BlazeDirectories;
 import com.google.devtools.build.lib.events.Reporter;
 import com.google.devtools.build.lib.packages.PackageFactory;
-import com.google.devtools.build.lib.packages.Preprocessor.Factory.Supplier;
+import com.google.devtools.build.lib.packages.Preprocessor;
 import com.google.devtools.build.lib.util.Clock;
 import com.google.devtools.build.lib.util.io.TimestampGranularityMonitor;
 import com.google.devtools.build.lib.vfs.PathFragment;
@@ -48,6 +48,7 @@ public interface SkyframeExecutorFactory {
    * @param allowedMissingInputs
    * @param preprocessorFactorySupplier
    * @param extraSkyFunctions
+   * @param extraPrecomputedValues
    * @param clock
    * @return an instance of the SkyframeExecutor
    */
@@ -58,6 +59,8 @@ public interface SkyframeExecutorFactory {
       ImmutableList<BuildInfoFactory> buildInfoFactories,
       Iterable<? extends DiffAwareness.Factory> diffAwarenessFactories,
       Predicate<PathFragment> allowedMissingInputs,
-      Supplier preprocessorFactorySupplier,
-      ImmutableMap<SkyFunctionName, SkyFunction> extraSkyFunctions, Clock clock);
+      Preprocessor.Factory.Supplier preprocessorFactorySupplier,
+      ImmutableMap<SkyFunctionName, SkyFunction> extraSkyFunctions,
+      ImmutableList<PrecomputedValue.Injected> extraPrecomputedValues,
+      Clock clock);
 }

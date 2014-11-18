@@ -216,7 +216,7 @@ public final class SkylarkRuleContext {
           fileBuilder.put(skyname, Environment.NONE);
         }
       }
-      filesBuilder.put(skyname, ruleContext.getPrerequisiteArtifacts(a.getName(), mode));
+      filesBuilder.put(skyname, ruleContext.getPrerequisiteArtifacts(a.getName(), mode).list());
       targetsBuilder.put(skyname, SkylarkList.list(
           ruleContext.getPrerequisites(a.getName(), mode), TransitiveInfoCollection.class));
       if (type == Type.LABEL) {

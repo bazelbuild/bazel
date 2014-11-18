@@ -14,7 +14,6 @@
 package com.google.devtools.build.lib.skyframe;
 
 import com.google.common.base.Preconditions;
-import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.ImmutableSet;
 import com.google.common.collect.Iterables;
@@ -31,11 +30,10 @@ import com.google.devtools.build.lib.events.Event;
 import com.google.devtools.build.lib.events.EventHandler;
 import com.google.devtools.build.lib.packages.Attribute;
 import com.google.devtools.build.lib.packages.Target;
-import com.google.devtools.build.lib.query2.output.OutputFormatter;
 import com.google.devtools.build.lib.skyframe.ActionLookupValue.ActionLookupKey;
 import com.google.devtools.build.lib.skyframe.BuildInfoCollectionValue.BuildInfoKeyAndConfig;
+import com.google.devtools.build.lib.skyframe.ConfiguredTargetFunction.ConfiguredValueCreationException;
 import com.google.devtools.build.lib.skyframe.SkyframeActionExecutor.ConflictException;
-import com.google.devtools.build.lib.skyframe.SkyframeDependencyResolver.ConfiguredValueCreationException;
 import com.google.devtools.build.lib.syntax.Label;
 import com.google.devtools.build.lib.vfs.PathFragment;
 import com.google.devtools.build.lib.view.AnalysisFailureEvent;
@@ -90,8 +88,6 @@ public final class SkyframeBuildView {
   // Used to see if checks of graph consistency need to be done after analysis.
   private volatile boolean someConfiguredTargetEvaluated = false;
 
-  private final ImmutableList<OutputFormatter> outputFormatters;
-
   // We keep the set of invalidated configuration targets so that we can know if something
   // has been invalidated after graph pruning has been executed.
   private Set<ConfiguredTargetValue> dirtyConfiguredTargets = Sets.newConcurrentHashSet();
@@ -102,13 +98,11 @@ public final class SkyframeBuildView {
 
   public SkyframeBuildView(ConfiguredTargetFactory factory,
       ArtifactFactory artifactFactory,
-      SkyframeExecutor skyframeExecutor, Runnable legacyDataCleaner,
-      ImmutableList<OutputFormatter> outputFormatters, BinTools binTools) {
+      SkyframeExecutor skyframeExecutor, Runnable legacyDataCleaner,  BinTools binTools) {
     this.factory = factory;
     this.artifactFactory = artifactFactory;
     this.skyframeExecutor = skyframeExecutor;
     this.legacyDataCleaner = legacyDataCleaner;
-    this.outputFormatters = outputFormatters;
     this.binTools = binTools;
     skyframeExecutor.setArtifactFactoryAndBinTools(artifactFactory, binTools);
   }
@@ -374,7 +368,7 @@ public final class SkyframeBuildView {
     return new CachingAnalysisEnvironment(
         artifactFactory, owner, workspaceStatusArtifacts, isSystemEnv,
         extendedSanityChecks, eventHandler, env, allowRegisteringActions,
-        outputFormatters, binTools);
+        binTools);
   }
 
   /**
