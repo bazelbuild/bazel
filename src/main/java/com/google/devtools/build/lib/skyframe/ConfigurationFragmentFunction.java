@@ -71,7 +71,7 @@ public class ConfigurationFragmentFunction implements SkyFunction {
       }
       return new ConfigurationFragmentValue(fragment);
     } catch (InvalidConfigurationException e) {
-      throw new ConfigurationFragmentFunctionException(skyKey, e);
+      throw new ConfigurationFragmentFunctionException(e);
     }
   }
   
@@ -134,8 +134,8 @@ public class ConfigurationFragmentFunction implements SkyFunction {
    * {@link ConfigurationFragmentFunction#compute}.
    */
   private static final class ConfigurationFragmentFunctionException extends SkyFunctionException {
-    public ConfigurationFragmentFunctionException(SkyKey key, InvalidConfigurationException e) {
-      super(key, e, Transience.PERSISTENT);
+    public ConfigurationFragmentFunctionException(InvalidConfigurationException e) {
+      super(e, Transience.PERSISTENT);
     }
   }
 }

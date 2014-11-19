@@ -25,9 +25,23 @@ public final class Argument extends ASTNode {
 
   private final Expression value;
 
+  private final boolean kwargs;
+
+  /**
+   * Create a new argument.
+   * At call site: name is optional, value is mandatory. kwargs is true for ** arguments.
+   * At definition site: name is mandatory, (default) value is optional.
+   */
+  public Argument(Ident name, Expression value, boolean kwargs) {
+    this.name = name;
+    this.value = value;
+    this.kwargs = kwargs;
+  }
+
   public Argument(Ident name, Expression value) {
     this.name = name;
     this.value = value;
+    this.kwargs = false;
   }
 
   /**
@@ -72,7 +86,7 @@ public final class Argument extends ASTNode {
    * Returns true if this argument is positional.
    */
   public boolean isPositional() {
-    return name == null;
+    return name == null && !kwargs;
   }
 
   /**
@@ -80,6 +94,13 @@ public final class Argument extends ASTNode {
    */
   public boolean isNamed() {
     return name != null;
+  }
+
+  /**
+   * Returns true if this argument is a **kwargs argument.
+   */
+  public boolean isKwargs() {
+    return kwargs;
   }
 
   /**

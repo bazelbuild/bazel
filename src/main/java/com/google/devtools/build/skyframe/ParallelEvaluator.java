@@ -41,6 +41,7 @@ import com.google.devtools.build.skyframe.BuildingState.DirtyState;
 import com.google.devtools.build.skyframe.EvaluationProgressReceiver.EvaluationState;
 import com.google.devtools.build.skyframe.NodeEntry.DependencyState;
 import com.google.devtools.build.skyframe.Scheduler.SchedulerException;
+import com.google.devtools.build.skyframe.SkyFunctionException.ReifiedSkyFunctionException;
 import com.google.devtools.build.skyframe.ValueOrExceptionUtils.BottomException;
 
 import java.util.ArrayDeque;
@@ -846,35 +847,40 @@ public final class ParallelEvaluator implements Evaluator {
       SkyFunction factory = skyFunctions.get(functionName);
       Preconditions.checkState(factory != null, "%s %s", functionName, state);
 
-      SkyValue value;
+      SkyValue value = null;
       Profiler.instance().startTask(ProfilerTask.SKYFUNCTION, skyKey);
       try {
         // TODO(bazel-team): count how many of these calls returns null vs. non-null
         value = factory.compute(skyKey, env);
       } catch (final SkyFunctionException builderException) {
-        boolean shouldFailFast = !keepGoing || builderException.isCatastrophic();
-        if (shouldFailFast) {
-          // After we commit this error to the graph but before the eval call completes with the
-          // error there is a race-like opportunity for the error to be used, either by an inflight
-          // computation or by a future computation.
-          if (errorEncountered.compareAndSet(false, true)) {
-            // This is the first error encountered.
-            visitor.preventNewEvaluations();
-          } else {
-            // This is not the first error encountered, so we ignore it so that we can terminate
-            // with the first error.
+        ReifiedSkyFunctionException reifiedBuilderException =
+            new ReifiedSkyFunctionException(builderException, skyKey);
+        // Propagated transitive errors are treated the same as missing deps.
+        if (reifiedBuilderException.getRootCauseSkyKey().equals(skyKey)) {
+          boolean shouldFailFast = !keepGoing || builderException.isCatastrophic();
+          if (shouldFailFast) {
+            // After we commit this error to the graph but before the eval call completes with the
+            // error there is a race-like opportunity for the error to be used, either by an
+            // inflight computation or by a future computation.
+            if (errorEncountered.compareAndSet(false, true)) {
+              // This is the first error encountered.
+              visitor.preventNewEvaluations();
+            } else {
+              // This is not the first error encountered, so we ignore it so that we can terminate
+              // with the first error.
+              return;
+            }
+          }
+
+          registerNewlyDiscoveredDepsForDoneEntry(skyKey, state, env);
+          ErrorInfo errorInfo = new ErrorInfo(reifiedBuilderException);
+          env.setError(errorInfo);
+          env.commit(/*enqueueParents=*/keepGoing);
+          if (!shouldFailFast) {
             return;
           }
+          throw SchedulerException.ofError(errorInfo, skyKey);
         }
-
-        registerNewlyDiscoveredDepsForDoneEntry(skyKey, state, env);
-        ErrorInfo errorInfo = new ErrorInfo(builderException, skyKey);
-        env.setError(errorInfo);
-        env.commit(/*enqueueParents=*/keepGoing);
-        if (!shouldFailFast) {
-          return;
-        }
-        throw SchedulerException.ofError(errorInfo, skyKey);
       } catch (InterruptedException ie) {
         // InterruptedException cannot be thrown by Runnable.run, so we must wrap it.
         // Interrupts can be caught by both the Evaluator and the AbstractQueueVisitor.
@@ -1286,11 +1292,15 @@ public final class ParallelEvaluator implements Evaluator {
         // care about a return value.
         factory.compute(parent, env);
       } catch (SkyFunctionException builderException) {
-        error = new ErrorInfo(builderException, parent);
-        bubbleErrorInfo.put(errorKey,
-            ValueWithMetadata.error(new ErrorInfo(errorKey, ImmutableSet.of(error)),
-                env.buildEvents(/*missingChildren=*/true)));
-        continue;
+        ReifiedSkyFunctionException reifiedBuilderException =
+            new ReifiedSkyFunctionException(builderException, parent);
+        if (reifiedBuilderException.getRootCauseSkyKey().equals(parent)) {
+          error = new ErrorInfo(reifiedBuilderException);
+          bubbleErrorInfo.put(errorKey,
+              ValueWithMetadata.error(new ErrorInfo(errorKey, ImmutableSet.of(error)),
+                  env.buildEvents(/*missingChildren=*/true)));
+          continue;
+        }
       } catch (InterruptedException interruptedException) {
         // Do nothing.
         // This throw happens if the builder requested the failed node, and then checked the

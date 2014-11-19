@@ -73,14 +73,14 @@ public class TransitiveTargetFunction implements SkyFunction {
     } catch (NoSuchTargetException e) {
       target = e.getTarget();
       if (target == null) {
-        throw new TransitiveTargetFunctionException(key, e);
+        throw new TransitiveTargetFunctionException(e);
       }
       successfulTransitiveLoading = false;
       transitiveRootCauses.add(label);
       errorLoadingTarget = e;
       packageLoadedSuccessfully = e.getPackageLoadedSuccessfully();
     } catch (NoSuchPackageException e) {
-      throw new TransitiveTargetFunctionException(key, e);
+      throw new TransitiveTargetFunctionException(e);
     } catch (NoSuchThingException e) {
       throw new IllegalStateException(e
           + " not NoSuchTargetException or NoSuchPackageException");
@@ -216,8 +216,8 @@ public class TransitiveTargetFunction implements SkyFunction {
      * Used to propagate an error from a direct target dependency to the
      * target that depended on it.
      */
-    public TransitiveTargetFunctionException(SkyKey key, NoSuchPackageException e) {
-      super(key, e, Transience.PERSISTENT);
+    public TransitiveTargetFunctionException(NoSuchPackageException e) {
+      super(e, Transience.PERSISTENT);
     }
 
     /**
@@ -227,8 +227,8 @@ public class TransitiveTargetFunction implements SkyFunction {
      * In keep_going mode, used the same way, but only for targets that could not be loaded at all
      * (we proceed with transitive loading on targets that contain errors).
      */
-    public TransitiveTargetFunctionException(SkyKey key, NoSuchTargetException e) {
-      super(key, e, Transience.PERSISTENT);
+    public TransitiveTargetFunctionException(NoSuchTargetException e) {
+      super(e, Transience.PERSISTENT);
     }
   }
 }

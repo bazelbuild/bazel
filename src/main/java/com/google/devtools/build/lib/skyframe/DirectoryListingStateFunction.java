@@ -52,7 +52,7 @@ public class DirectoryListingStateFunction implements SkyFunction {
     try {
       return DirectoryListingStateValue.create(dirRootedPath);
     } catch (IOException e) {
-      throw new DirectoryListingStateFunctionException(skyKey, e);
+      throw new DirectoryListingStateFunctionException(e);
     }
   }
 
@@ -67,8 +67,8 @@ public class DirectoryListingStateFunction implements SkyFunction {
    */
   private static final class DirectoryListingStateFunctionException
       extends SkyFunctionException {
-    public DirectoryListingStateFunctionException(SkyKey key, IOException e) {
-      super(key, e, Transience.TRANSIENT);
+    public DirectoryListingStateFunctionException(IOException e) {
+      super(e, Transience.TRANSIENT);
     }
   }
 }

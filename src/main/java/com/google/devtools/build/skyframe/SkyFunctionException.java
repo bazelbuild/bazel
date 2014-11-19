@@ -16,6 +16,8 @@ package com.google.devtools.build.skyframe;
 
 import com.google.common.base.Preconditions;
 
+import javax.annotation.Nullable;
+
 /**
  * Base class of exceptions thrown by {@link SkyFunction#compute} on failure.
  *
@@ -51,17 +53,27 @@ public abstract class SkyFunctionException extends Exception {
     PERSISTENT;
   }
 
-  private final SkyKey rootCause;
   private final Transience transience;
+  @Nullable
+  private final SkyKey rootCause;
 
-  public SkyFunctionException(SkyKey rootCause, Exception cause, Transience transience) {
-    super(Preconditions.checkNotNull(cause));
-    SkyFunctionException.validateExceptionType(cause.getClass());
-    // TODO(bazel-team): Consider getting rid of custom root causes since they can't be trusted.
-    this.rootCause = Preconditions.checkNotNull(rootCause, cause);
-    this.transience = transience;
+  public SkyFunctionException(Exception cause, Transience transience) {
+    this(cause, transience, null);
+  }
+  
+  /** Used to rethrow a child error that the parent cannot handle. */
+  public SkyFunctionException(Exception cause, SkyKey childKey) {
+    this(cause, Transience.PERSISTENT, childKey);
   }
 
+  private SkyFunctionException(Exception cause, Transience transience, SkyKey rootCause) {
+    super(Preconditions.checkNotNull(cause));
+    SkyFunctionException.validateExceptionType(cause.getClass());
+    this.transience = transience;
+    this.rootCause = rootCause;
+  }
+
+  @Nullable
   final SkyKey getRootCauseSkyKey() {
     return rootCause;
   }
@@ -100,6 +112,22 @@ public abstract class SkyFunctionException extends Exception {
       throw new IllegalStateException(exceptionClass.getSimpleName() + " is a subtype of "
           + "InterruptedException. Don't do this; Skyframe handles interrupts separately from the "
           + "general SkyFunctionException mechanism.");
+    }
+  }
+
+  /** A {@link SkyFunctionException} with a definite root cause. */
+  static class ReifiedSkyFunctionException extends SkyFunctionException {
+    private final boolean isCatastrophic;
+
+    ReifiedSkyFunctionException(SkyFunctionException e, SkyKey key) {
+      super(e.getCause(), e.transience, Preconditions.checkNotNull(e.getRootCauseSkyKey() == null
+          ? key : e.getRootCauseSkyKey()));
+      this.isCatastrophic = e.isCatastrophic();
+    }
+
+    @Override
+    public boolean isCatastrophic() {
+      return isCatastrophic;
     }
   }
 }

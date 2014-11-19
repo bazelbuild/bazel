@@ -68,9 +68,9 @@ public class FileStateFunction implements SkyFunction {
     try {
       return FileStateValue.create(rootedPath, tsgm);
     } catch (IOException e) {
-      throw new FileStateFunctionException(skyKey, e);
+      throw new FileStateFunctionException(e);
     } catch (InconsistentFilesystemException e) {
-      throw new FileStateFunctionException(skyKey, e);
+      throw new FileStateFunctionException(e);
     }
   }
 
@@ -84,12 +84,12 @@ public class FileStateFunction implements SkyFunction {
    * {@link FileStateFunction#compute}.
    */
   private static final class FileStateFunctionException extends SkyFunctionException {
-    public FileStateFunctionException(SkyKey key, IOException e) {
-      super(key, e, Transience.TRANSIENT);
+    public FileStateFunctionException(IOException e) {
+      super(e, Transience.TRANSIENT);
     }
 
-    public FileStateFunctionException(SkyKey key, InconsistentFilesystemException e) {
-      super(key, e, Transience.TRANSIENT);
+    public FileStateFunctionException(InconsistentFilesystemException e) {
+      super(e, Transience.TRANSIENT);
     }
   }
 }

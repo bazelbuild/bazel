@@ -18,6 +18,7 @@ import com.google.common.collect.ImmutableList;
 import com.google.devtools.build.lib.collect.nestedset.NestedSet;
 import com.google.devtools.build.lib.collect.nestedset.NestedSetBuilder;
 import com.google.devtools.build.lib.collect.nestedset.Order;
+import com.google.devtools.build.skyframe.SkyFunctionException.ReifiedSkyFunctionException;
 
 import java.io.Serializable;
 import java.util.Collection;
@@ -42,21 +43,17 @@ public class ErrorInfo implements Serializable {
    * taken from here.
    */
   @Nullable private final Exception exception;
-  @Nullable private final SkyKey rootCauseOfException;
+  private final SkyKey rootCauseOfException;
 
   private final Iterable<CycleInfo> cycles;
 
   private final boolean isTransient;
   private final boolean isCatastrophic;
 
-  public ErrorInfo(SkyFunctionException builderException, SkyKey skyKey) {
-    this.rootCauses = NestedSetBuilder.create(Order.STABLE_ORDER,
-        Preconditions.checkNotNull(builderException.getRootCauseSkyKey(), builderException));
+  public ErrorInfo(ReifiedSkyFunctionException builderException) {
+    this.rootCauseOfException = builderException.getRootCauseSkyKey();
+    this.rootCauses = NestedSetBuilder.create(Order.STABLE_ORDER, rootCauseOfException);
     this.exception = Preconditions.checkNotNull(builderException.getCause(), builderException);
-    // Note that SkyFunctions can put an arbitrary SkyKey in their thrown SkyFunctionException.
-    // TODO(bazel-team): Clean up SkyFunctionException's notion of "root cause" so we can start
-    // trusting that.
-    this.rootCauseOfException = skyKey;
     this.cycles = ImmutableList.of();
     this.isTransient = builderException.isTransient();
     this.isCatastrophic = builderException.isCatastrophic();

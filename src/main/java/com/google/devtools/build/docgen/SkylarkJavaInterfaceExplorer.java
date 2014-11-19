@@ -23,7 +23,6 @@ import com.google.devtools.build.lib.util.StringUtilities;
 
 import java.lang.reflect.Method;
 import java.util.ArrayList;
-import java.util.Collections;
 import java.util.HashMap;
 import java.util.HashSet;
 import java.util.LinkedList;
@@ -38,7 +37,7 @@ public class SkylarkJavaInterfaceExplorer {
   /**
    * A class representing a Java method callable from Skylark with annotation.
    */
-  static final class SkylarkMethod implements Comparable<SkylarkMethod> {
+  static final class SkylarkJavaMethod {
     public final String name;
     public final Method method;
     public final SkylarkCallable callable;
@@ -49,19 +48,10 @@ public class SkylarkJavaInterfaceExplorer {
           : callable.name();
     }
 
-    SkylarkMethod(Method method, SkylarkCallable callable) {
+    SkylarkJavaMethod(Method method, SkylarkCallable callable) {
       this.name = getName(method, callable);
       this.method = method;
       this.callable = callable;
-    }
-
-    @Override
-    public int compareTo(SkylarkMethod other) {
-      int i = this.name.compareTo(other.name);
-      if (i != 0) {
-        return i;
-      }
-      return method.getParameterTypes().length - other.method.getParameterTypes().length;
     }
   }
 
@@ -87,7 +77,7 @@ public class SkylarkJavaInterfaceExplorer {
     private final SkylarkModule module;
     private final Class<?> classObject;
     private final Map<String, SkylarkBuiltinMethod> builtin;
-    private ArrayList<SkylarkMethod> methods = null;
+    private ArrayList<SkylarkJavaMethod> methods = null;
 
     SkylarkModuleDoc(SkylarkModule module, Class<?> classObject) {
       this.module = Preconditions.checkNotNull(module,
@@ -108,7 +98,7 @@ public class SkylarkJavaInterfaceExplorer {
       return methods == null;
     }
 
-    private void setJavaMethods(ArrayList<SkylarkMethod> methods) {
+    private void setJavaMethods(ArrayList<SkylarkJavaMethod> methods) {
       this.methods = methods;
     }
 
@@ -116,7 +106,7 @@ public class SkylarkJavaInterfaceExplorer {
       return builtin;
     }
 
-    ArrayList<SkylarkMethod> getJavaMethods() {
+    ArrayList<SkylarkJavaMethod> getJavaMethods() {
       return methods;
     }
   }
@@ -150,11 +140,10 @@ public class SkylarkJavaInterfaceExplorer {
       if (module.javaMethodsNotCollected()) {
         ImmutableMap<Method, SkylarkCallable> methods =
             FuncallExpression.collectSkylarkMethodsWithAnnotation(classObject);
-        ArrayList<SkylarkMethod> methodList = new ArrayList<>();
+        ArrayList<SkylarkJavaMethod> methodList = new ArrayList<>();
         for (Map.Entry<Method, SkylarkCallable> entry : methods.entrySet()) {
-          methodList.add(new SkylarkMethod(entry.getKey(), entry.getValue()));
+          methodList.add(new SkylarkJavaMethod(entry.getKey(), entry.getValue()));
         }
-        Collections.sort(methodList);
         module.setJavaMethods(methodList);
 
         for (Map.Entry<Method, SkylarkCallable> method : methods.entrySet()) {

@@ -60,6 +60,16 @@ final class ObjcProvider implements TransitiveInfoProvider {
    */
   public static final Key<Artifact> FORCE_LOAD_LIBRARY = new Key<>(LINK_ORDER);
 
+  /**
+   * Libraries to pass with -force_load flags when setting the linkopts in Xcodegen. This is needed
+   * in addition to {@link #FORCE_LOAD_LIBRARY} because that one, contains a mixture of import
+   * archives (which are not built by Xcode) and built-from-source library archives (which are built
+   * by Xcode). Archives that are built by Xcode are placed directly under
+   * {@code BUILT_PRODUCTS_DIR} while those not built by Xcode appear somewhere in the Bazel
+   * workspace under {@code WORKSPACE_ROOT}.
+   */
+  public static final Key<String> FORCE_LOAD_FOR_XCODEGEN = new Key<>(LINK_ORDER);
+
   public static final Key<Artifact> HEADER = new Key<>(STABLE_ORDER);
   public static final Key<PathFragment> INCLUDE = new Key<>(LINK_ORDER);
   public static final Key<Artifact> ASSET_CATALOG = new Key<>(STABLE_ORDER);
@@ -85,6 +95,7 @@ final class ObjcProvider implements TransitiveInfoProvider {
   public static final Key<PathFragment> XCASSETS_DIR = new Key<>(STABLE_ORDER);
   public static final Key<String> SDK_DYLIB = new Key<>(STABLE_ORDER);
   public static final Key<SdkFramework> SDK_FRAMEWORK = new Key<>(STABLE_ORDER);
+  public static final Key<SdkFramework> WEAK_SDK_FRAMEWORK = new Key<>(STABLE_ORDER);
   public static final Key<Xcdatamodel> XCDATAMODEL = new Key<>(STABLE_ORDER);
   public static final Key<Flag> FLAG = new Key<>(STABLE_ORDER);
   public static final Key<Artifact> STORYBOARD_OUTPUT_ZIP = new Key<>(STABLE_ORDER);

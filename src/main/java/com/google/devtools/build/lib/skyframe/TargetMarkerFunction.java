@@ -49,9 +49,9 @@ public final class TargetMarkerFunction implements SkyFunction {
             BuildFileNotFoundException.class, InconsistentFilesystemException.class);
       } catch (BuildFileNotFoundException e) {
         // Thrown when there are IO errors looking for BUILD files.
-        throw new TargetMarkerFunctionException(key, e);
+        throw new TargetMarkerFunctionException(e);
       } catch (InconsistentFilesystemException e) {
-        throw new TargetMarkerFunctionException(key, new NoSuchTargetException(label,
+        throw new TargetMarkerFunctionException(new NoSuchTargetException(label,
             e.getMessage()));
       }
       if (containingPackageLookupValue == null) {
@@ -60,12 +60,12 @@ public final class TargetMarkerFunction implements SkyFunction {
       if (!containingPackageLookupValue.hasContainingPackage()) {
         // This means the label's package doesn't exist. E.g. there is no package 'a' and we are
         // trying to build the target for label 'a:b/foo'.
-        throw new TargetMarkerFunctionException(key,
-            new BuildFileNotFoundException(pkgForLabel.getPathString(),
-                "BUILD file not found on package path for '" + pkgForLabel.getPathString() + "'"));
+        throw new TargetMarkerFunctionException(new BuildFileNotFoundException(
+            pkgForLabel.getPathString(), "BUILD file not found on package path for '"
+                + pkgForLabel.getPathString() + "'"));
       }
       if (!containingPackageLookupValue.getContainingPackageName().equals(pkgForLabel)) {
-        throw new TargetMarkerFunctionException(key, new NoSuchTargetException(label,
+        throw new TargetMarkerFunctionException(new NoSuchTargetException(label,
             String.format("Label '%s' crosses boundary of subpackage '%s'", label,
                 containingPackageLookupValue.getContainingPackageName())));
       }
@@ -87,7 +87,7 @@ public final class TargetMarkerFunction implements SkyFunction {
       pkg = e.getPackage();
       if (pkg == null) {
         // Re-throw this exception with our key because root causes should be targets, not packages.
-        throw new TargetMarkerFunctionException(key, e);
+        throw new TargetMarkerFunctionException(e);
       }
       nspe = e;
     }
@@ -96,7 +96,7 @@ public final class TargetMarkerFunction implements SkyFunction {
     try {
       target = pkg.getTarget(label.getName());
     } catch (NoSuchTargetException e) {
-      throw new TargetMarkerFunctionException(key, e);
+      throw new TargetMarkerFunctionException(e);
     }
 
     if (nspe != null) {
@@ -104,7 +104,7 @@ public final class TargetMarkerFunction implements SkyFunction {
       // target, not the package. Note that targets are only in error when their package is
       // "in error" (because a package is in error if there was an error evaluating the package, or
       // if one of its targets was in error).
-      throw new TargetMarkerFunctionException(key, new NoSuchTargetException(target, nspe));
+      throw new TargetMarkerFunctionException(new NoSuchTargetException(target, nspe));
     }
     return TargetMarkerValue.TARGET_MARKER_INSTANCE;
   }
@@ -119,12 +119,12 @@ public final class TargetMarkerFunction implements SkyFunction {
    * {@link TargetMarkerFunction#compute}.
    */
   private static final class TargetMarkerFunctionException extends SkyFunctionException {
-    public TargetMarkerFunctionException(SkyKey key, NoSuchTargetException e) {
-      super(key, e, Transience.PERSISTENT);
+    public TargetMarkerFunctionException(NoSuchTargetException e) {
+      super(e, Transience.PERSISTENT);
     }
 
-    public TargetMarkerFunctionException(SkyKey key, NoSuchPackageException e) {
-      super(key, e, Transience.PERSISTENT);
+    public TargetMarkerFunctionException(NoSuchPackageException e) {
+      super(e, Transience.PERSISTENT);
     }
   }
 }

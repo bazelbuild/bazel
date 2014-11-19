@@ -74,7 +74,7 @@ public class PostConfiguredTargetFunction implements SkyFunction {
 
     for (Action action : ctValue.getActions()) {
       if (badActions.containsKey(action)) {
-        throw new ActionConflictFunctionException(skyKey, badActions.get(action));
+        throw new ActionConflictFunctionException(badActions.get(action));
       }
     }
 
@@ -136,8 +136,8 @@ public class PostConfiguredTargetFunction implements SkyFunction {
   }
 
   private static class ActionConflictFunctionException extends SkyFunctionException {
-    public ActionConflictFunctionException(SkyKey skyKey, ConflictException e) {
-      super(skyKey, e, Transience.PERSISTENT);
+    public ActionConflictFunctionException(ConflictException e) {
+      super(e, Transience.PERSISTENT);
     }
   }
 }

@@ -55,18 +55,17 @@ public class SkylarkImportLookupFunction implements SkyFunction {
       astLookupValue = (ASTFileLookupValue) env.getValueOrThrow(astLookupKey,
           ErrorReadingSkylarkExtensionException.class, InconsistentFilesystemException.class);
     } catch (ErrorReadingSkylarkExtensionException e) {
-      throw new SkylarkImportLookupFunctionException(skyKey,
-          SkylarkImportFailedException.errorReadingFile(file, e.getMessage()));
+      throw new SkylarkImportLookupFunctionException(SkylarkImportFailedException.errorReadingFile(
+          file, e.getMessage()));
     } catch (InconsistentFilesystemException e) {
-      throw new SkylarkImportLookupFunctionException(skyKey, e, Transience.PERSISTENT);
+      throw new SkylarkImportLookupFunctionException(e, Transience.PERSISTENT);
     }
     if (astLookupValue == null) {
       return null;
     }
     if (astLookupValue == ASTFileLookupValue.NO_FILE) {
       // Skylark import files have to exist.
-      throw new SkylarkImportLookupFunctionException(skyKey,
-          SkylarkImportFailedException.noFile(file));
+      throw new SkylarkImportLookupFunctionException(SkylarkImportFailedException.noFile(file));
     }
 
     Map<PathFragment, SkylarkEnvironment> importMap = new HashMap<>();
@@ -86,8 +85,8 @@ public class SkylarkImportLookupFunction implements SkyFunction {
     }
 
     if (ast.containsErrors()) {
-      throw new SkylarkImportLookupFunctionException(skyKey,
-          SkylarkImportFailedException.skylarkErrors(file));
+      throw new SkylarkImportLookupFunctionException(SkylarkImportFailedException.skylarkErrors(
+          file));
     }
 
     SkylarkEnvironment extensionEnv = createEnv(ast, importMap, env);
@@ -147,13 +146,13 @@ public class SkylarkImportLookupFunction implements SkyFunction {
   }
 
   private static final class SkylarkImportLookupFunctionException extends SkyFunctionException {
-    private SkylarkImportLookupFunctionException(SkyKey key, SkylarkImportFailedException cause) {
-      super(key, cause, Transience.PERSISTENT);
+    private SkylarkImportLookupFunctionException(SkylarkImportFailedException cause) {
+      super(cause, Transience.PERSISTENT);
     }
 
-    private SkylarkImportLookupFunctionException(SkyKey key, InconsistentFilesystemException e,
+    private SkylarkImportLookupFunctionException(InconsistentFilesystemException e,
         Transience transience) {
-      super(key, e, transience);
+      super(e, transience);
     }
   }
 }

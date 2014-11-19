@@ -106,7 +106,7 @@ public class ASTFileLookupFunction implements SkyFunction {
       InterruptedException {
     PathFragment astFilePathFragment = (PathFragment) skyKey.argument();
 
-    FileLookupResult lookupResult = getASTFile(skyKey, env, astFilePathFragment);
+    FileLookupResult lookupResult = getASTFile(env, astFilePathFragment);
     if (lookupResult == null) {
       return null;
     }
@@ -126,16 +126,16 @@ public class ASTFileLookupFunction implements SkyFunction {
             : BuildFileAST.parseBuildFile(path, env.getListener(),
                 packageManager, false);
       } catch (IOException e) {
-        throw new ASTLookupFunctionException(skyKey,
-            new ErrorReadingSkylarkExtensionException(e.getMessage()), Transience.TRANSIENT);
+        throw new ASTLookupFunctionException(new ErrorReadingSkylarkExtensionException(
+            e.getMessage()), Transience.TRANSIENT);
       }
     }
 
     return new ASTFileLookupValue(ast);
   }
 
-  private FileLookupResult getASTFile(SkyKey skyKey, Environment env,
-      PathFragment packagePathFragment) throws ASTLookupFunctionException {
+  private FileLookupResult getASTFile(Environment env, PathFragment packagePathFragment)
+      throws ASTLookupFunctionException {
     for (Path packagePathEntry : pkgLocator.get().getPathEntries()) {
       RootedPath rootedPath = RootedPath.toRootedPath(packagePathEntry, packagePathFragment);
       SkyKey fileSkyKey = FileValue.key(rootedPath);
@@ -144,10 +144,10 @@ public class ASTFileLookupFunction implements SkyFunction {
         fileValue = (FileValue) env.getValueOrThrow(fileSkyKey, IOException.class,
             FileSymlinkCycleException.class, InconsistentFilesystemException.class);
       } catch (IOException | FileSymlinkCycleException e) {
-        throw new ASTLookupFunctionException(skyKey,
-            new ErrorReadingSkylarkExtensionException(e.getMessage()), Transience.PERSISTENT);
+        throw new ASTLookupFunctionException(new ErrorReadingSkylarkExtensionException(
+            e.getMessage()), Transience.PERSISTENT);
       } catch (InconsistentFilesystemException e) {
-        throw new ASTLookupFunctionException(skyKey, e, Transience.PERSISTENT);
+        throw new ASTLookupFunctionException(e, Transience.PERSISTENT);
       }
       if (fileValue == null) {
         return null;
@@ -166,14 +166,13 @@ public class ASTFileLookupFunction implements SkyFunction {
   }
 
   private static final class ASTLookupFunctionException extends SkyFunctionException {
-    private ASTLookupFunctionException(SkyKey key, ErrorReadingSkylarkExtensionException e,
+    private ASTLookupFunctionException(ErrorReadingSkylarkExtensionException e,
         Transience transience) {
-      super(key, e, transience);
+      super(e, transience);
     }
 
-    private ASTLookupFunctionException(SkyKey key, InconsistentFilesystemException e,
-        Transience transience) {
-      super(key, e, transience);
+    private ASTLookupFunctionException(InconsistentFilesystemException e, Transience transience) {
+      super(e, transience);
     }
   }
 }

@@ -320,6 +320,8 @@ public class XcodeprojGeneration {
       targetBuildConfigMap.put("HEADER_SEARCH_PATHS",
           headerSearchPaths(sourceRoot, targetControl.getHeaderSearchPathList(), "$(inherited)"));
 
+      targetBuildConfigMap.put("WORKSPACE_ROOT", sourceRoot.toString());
+
       if (targetControl.hasPchPath()) {
         Path pchExecPath = RelativePaths.fromString(fileSystem, targetControl.getPchPath());
         targetBuildConfigMap.put("GCC_PREFIX_HEADER",

@@ -120,11 +120,11 @@ public class GraphTester {
         }
 
         if (builder.hasTransientError) {
-          throw new GenericFunctionException(key, new SomeErrorException(key.toString()),
+          throw new GenericFunctionException(new SomeErrorException(key.toString()),
               Transience.TRANSIENT);
         }
         if (builder.hasError) {
-          throw new GenericFunctionException(key, new SomeErrorException(key.toString()),
+          throw new GenericFunctionException(new SomeErrorException(key.toString()),
               Transience.PERSISTENT);
         }
 

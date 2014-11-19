@@ -28,6 +28,7 @@ import com.google.devtools.build.lib.collect.nestedset.Order;
 import com.google.devtools.build.lib.testutil.MoreAsserts;
 import com.google.devtools.build.lib.util.GroupedList.GroupedListHelper;
 import com.google.devtools.build.skyframe.NodeEntry.DependencyState;
+import com.google.devtools.build.skyframe.SkyFunctionException.ReifiedSkyFunctionException;
 import com.google.devtools.build.skyframe.SkyFunctionException.Transience;
 
 import org.junit.Test;
@@ -112,10 +113,10 @@ public class NodeEntryTest {
   public void errorValue() {
     NodeEntry entry = new NodeEntry();
     entry.addReverseDepAndCheckIfDone(null); // Start evaluation.
-    GenericFunctionException exception =
-        new GenericFunctionException(key("cause"), new SomeErrorException("oops"),
-            Transience.PERSISTENT);
-    ErrorInfo errorInfo = new ErrorInfo(exception, key("cause"));
+    ReifiedSkyFunctionException exception = new ReifiedSkyFunctionException(
+        new GenericFunctionException(new SomeErrorException("oops"), Transience.PERSISTENT),
+        key("cause"));
+    ErrorInfo errorInfo = new ErrorInfo(exception);
     MoreAsserts.assertEmpty(setValue(entry, /*value=*/null, errorInfo, /*graphVersion=*/0L));
     assertTrue(entry.isDone());
     assertNull(entry.getValue());
@@ -126,10 +127,10 @@ public class NodeEntryTest {
   public void errorAndValue() {
     NodeEntry entry = new NodeEntry();
     entry.addReverseDepAndCheckIfDone(null); // Start evaluation.
-    GenericFunctionException exception =
-        new GenericFunctionException(key("cause"), new SomeErrorException("oops"),
-            Transience.PERSISTENT);
-    ErrorInfo errorInfo = new ErrorInfo(exception, key("cause"));
+    ReifiedSkyFunctionException exception = new ReifiedSkyFunctionException(
+        new GenericFunctionException(new SomeErrorException("oops"), Transience.PERSISTENT),
+        key("cause"));
+    ErrorInfo errorInfo = new ErrorInfo(exception);
     setValue(entry, new SkyValue() {}, errorInfo, /*graphVersion=*/0L);
     assertTrue(entry.isDone());
     assertEquals(errorInfo, entry.getErrorInfo());
@@ -454,10 +455,10 @@ public class NodeEntryTest {
     entry.signalDep(new IntVersion(1L));
     assertEquals(BuildingState.DirtyState.REBUILDING, entry.getDirtyState());
     MoreAsserts.assertContentsAnyOrder(entry.getTemporaryDirectDeps(), dep);
-    GenericFunctionException exception =
-        new GenericFunctionException(key("cause"), new SomeErrorException("oops"),
-            Transience.PERSISTENT);
-    setValue(entry, new IntegerValue(5), new ErrorInfo(exception, key("cause")),
+    ReifiedSkyFunctionException exception = new ReifiedSkyFunctionException(
+        new GenericFunctionException(new SomeErrorException("oops"), Transience.PERSISTENT),
+        key("cause"));
+    setValue(entry, new IntegerValue(5), new ErrorInfo(exception),
         /*graphVersion=*/1L);
     assertTrue(entry.isDone());
     assertEquals("Version increments when setValue changes", new IntVersion(1), entry.getVersion());
@@ -470,10 +471,10 @@ public class NodeEntryTest {
     SkyKey dep = key("dep");
     addTemporaryDirectDep(entry, dep);
     entry.signalDep();
-    GenericFunctionException exception =
-        new GenericFunctionException(key("cause"), new SomeErrorException("oops"),
-            Transience.PERSISTENT);
-    ErrorInfo errorInfo = new ErrorInfo(exception, key("cause"));
+    ReifiedSkyFunctionException exception = new ReifiedSkyFunctionException(
+        new GenericFunctionException(new SomeErrorException("oops"), Transience.PERSISTENT),
+        key("cause"));
+    ErrorInfo errorInfo = new ErrorInfo(exception);
     setValue(entry, /*value=*/null, errorInfo, /*graphVersion=*/0L);
     entry.markDirty(/*isChanged=*/false);
     entry.addReverseDepAndCheckIfDone(null); // Restart evaluation.
@@ -528,9 +529,10 @@ public class NodeEntryTest {
     entry.signalDep();
     // Oops! Evaluation terminated with an error, but we're going to set this entry's value anyway.
     entry.removeUnfinishedDeps(ImmutableSet.of(dep2, dep3, dep5));
-    setValue(entry, null,
-        new ErrorInfo(new GenericFunctionException(key("key"), new SomeErrorException("oops"),
-            Transience.PERSISTENT), key("key")), 0L);
+    ReifiedSkyFunctionException exception = new ReifiedSkyFunctionException(
+        new GenericFunctionException(new SomeErrorException("oops"), Transience.PERSISTENT),
+        key("key"));
+    setValue(entry, null, new ErrorInfo(exception), 0L);
     entry.markDirty(/*isChanged=*/false);
     entry.addReverseDepAndCheckIfDone(null); // Restart evaluation.
     assertEquals(BuildingState.DirtyState.CHECK_DEPENDENCIES, entry.getDirtyState());

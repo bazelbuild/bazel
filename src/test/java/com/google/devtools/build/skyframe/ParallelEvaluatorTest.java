@@ -43,6 +43,7 @@ import com.google.devtools.build.skyframe.GraphTester.StringValue;
 import com.google.devtools.build.skyframe.NotifyingInMemoryGraph.EventType;
 import com.google.devtools.build.skyframe.NotifyingInMemoryGraph.Listener;
 import com.google.devtools.build.skyframe.NotifyingInMemoryGraph.Order;
+import com.google.devtools.build.skyframe.SkyFunction.Environment;
 import com.google.devtools.build.skyframe.SkyFunctionException.Transience;
 
 import org.junit.Assert;
@@ -515,7 +516,7 @@ public class ParallelEvaluatorTest {
       @Nullable
       @Override
       public SkyValue compute(SkyKey skyKey, Environment env) throws SkyFunctionException {
-        throw new SkyFunctionException(skyKey, new SomeErrorException("bad"),
+        throw new SkyFunctionException(new SomeErrorException("bad"),
             Transience.PERSISTENT) {
           @Override
           public boolean isCatastrophic() {
@@ -1542,7 +1543,7 @@ public class ParallelEvaluatorTest {
     tester.getOrCreate(errorKey).setBuilder(new SkyFunction() {
       @Override
       public SkyValue compute(SkyKey skyKey, Environment env) throws SkyFunctionException {
-        throw new SkyFunctionException(skyKey, exception, Transience.PERSISTENT) {};
+        throw new SkyFunctionException(exception, Transience.PERSISTENT) {};
       }
 
       @Override
@@ -1583,7 +1584,7 @@ public class ParallelEvaluatorTest {
     tester.getOrCreate(errorKey).setBuilder(new SkyFunction() {
       @Override
       public SkyValue compute(SkyKey skyKey, Environment env) throws GenericFunctionException {
-        throw new GenericFunctionException(skyKey, exception, Transience.PERSISTENT);
+        throw new GenericFunctionException(exception, Transience.PERSISTENT);
       }
 
       @Override
@@ -1607,7 +1608,7 @@ public class ParallelEvaluatorTest {
         if (keepGoing) {
           return topValue;
         } else {
-          throw new GenericFunctionException(skyKey, topException, Transience.PERSISTENT);
+          throw new GenericFunctionException(topException, Transience.PERSISTENT);
         }
       }
       @Override
@@ -1744,7 +1745,7 @@ public class ParallelEvaluatorTest {
     tester.getOrCreate(errorDep).setBuilder(new SkyFunction() {
       @Override
       public SkyValue compute(SkyKey skyKey, Environment env) throws SkyFunctionException {
-        throw new GenericFunctionException(skyKey, childExn, Transience.PERSISTENT);
+        throw new GenericFunctionException(childExn, Transience.PERSISTENT);
       }
 
       @Override
@@ -1774,7 +1775,7 @@ public class ParallelEvaluatorTest {
         if (env.valuesMissing()) {
           return null;
         }
-        throw new GenericFunctionException(skyKey, parentExn, Transience.PERSISTENT);
+        throw new GenericFunctionException(parentExn, Transience.PERSISTENT);
       }
 
       @Override
@@ -1999,7 +2000,7 @@ public class ParallelEvaluatorTest {
           assertTrue("bogus non-null value " + value, value == null);
           assertEquals(1, invocations);
           otherDone.countDown();
-          throw new GenericFunctionException(skyKey, new SomeErrorException("other"),
+          throw new GenericFunctionException(new SomeErrorException("other"),
               Transience.PERSISTENT);
         } catch (SomeErrorException e) {
           assertEquals(2, invocations);
@@ -2075,7 +2076,7 @@ public class ParallelEvaluatorTest {
       public SkyValue compute(SkyKey skyKey, Environment env) throws SkyFunctionException {
         trackingAwaiterForOther.awaitLatchAndTrackExceptions(otherStarted,
             "other didn't start in time");
-        throw new GenericFunctionException(skyKey, new SomeErrorException("error"),
+        throw new GenericFunctionException(new SomeErrorException("error"),
             Transience.PERSISTENT);
       }
 
@@ -2185,5 +2186,77 @@ public class ParallelEvaluatorTest {
     assertTrue(result.hasError());
     assertEquals(errorKey, result.getError(errorKey).getRootCauseOfException());
     assertFalse(result.errorMap().containsKey(rogueKey));
+  }
+
+  private void runUnhandledTransitiveErrors(boolean keepGoing,
+      final boolean explicitlyPropagateError) throws Exception {
+    graph = new DeterministicInMemoryGraph();
+    tester = new GraphTester();
+    SkyKey grandparentKey = GraphTester.toSkyKey("grandparent");
+    final SkyKey parentKey = GraphTester.toSkyKey("parent");
+    final SkyKey childKey = GraphTester.toSkyKey("child");
+    final AtomicBoolean errorPropagated = new AtomicBoolean(false);
+    tester.getOrCreate(grandparentKey).setBuilder(new SkyFunction() {
+      @Override
+      public SkyValue compute(SkyKey skyKey, Environment env) throws SkyFunctionException {
+        try {
+          return env.getValueOrThrow(parentKey, SomeErrorException.class);
+        } catch (SomeErrorException e) {
+          errorPropagated.set(true);
+          throw new GenericFunctionException(e, Transience.PERSISTENT);
+        }
+      }
+
+      @Override
+      public String extractTag(SkyKey skyKey) {
+        return null;
+      }
+    });
+    tester.getOrCreate(parentKey).setBuilder(new SkyFunction() {
+      @Override
+      public SkyValue compute(SkyKey skyKey, Environment env) throws SkyFunctionException {
+        if (explicitlyPropagateError) {
+          try {
+            return env.getValueOrThrow(childKey, SomeErrorException.class);
+          } catch (SomeErrorException e) {
+            throw new GenericFunctionException(e, childKey);
+          }
+        } else {
+          return env.getValue(childKey);
+        }
+      }
+
+      @Override
+      public String extractTag(SkyKey skyKey) {
+        return null;
+      }
+    });
+    tester.getOrCreate(childKey).setHasError(/*hasError=*/true);
+    EvaluationResult<StringValue> result = eval(keepGoing, ImmutableList.of(grandparentKey));
+    assertTrue(result.hasError());
+    assertTrue(errorPropagated.get());
+    assertEquals(grandparentKey, result.getError().getRootCauseOfException());
+  }
+
+  @Test
+  public void unhandledTransitiveErrorsDuringErrorBubbling_ImplicitPropagation() throws Exception {
+    runUnhandledTransitiveErrors(/*keepGoing=*/false, /*explicitlyPropagateError=*/false);
+  }
+
+  @Test
+  public void unhandledTransitiveErrorsDuringErrorBubbling_ExplicitPropagation() throws Exception {
+    runUnhandledTransitiveErrors(/*keepGoing=*/false, /*explicitlyPropagateError=*/true);
+  }
+
+  @Test
+  public void unhandledTransitiveErrorsDuringNormalEvaluation_ImplicitPropagation()
+      throws Exception {
+    runUnhandledTransitiveErrors(/*keepGoing=*/true, /*explicitlyPropagateError=*/false);
+  }
+
+  @Test
+  public void unhandledTransitiveErrorsDuringNormalEvaluation_ExplicitPropagation()
+      throws Exception {
+    runUnhandledTransitiveErrors(/*keepGoing=*/true, /*explicitlyPropagateError=*/true);
   }
 }

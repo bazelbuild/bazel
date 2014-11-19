@@ -79,7 +79,7 @@ public class WorkspaceFileFunction implements SkyFunction {
     try {
       inputSource = ParserInputSource.create(workspaceFilePath);
     } catch (IOException e) {
-      throw new WorkspaceFileFunctionException(skyKey, e, Transience.TRANSIENT);
+      throw new WorkspaceFileFunctionException(e, Transience.TRANSIENT);
     }
     buildFileAST = BuildFileAST.parseBuildFile(inputSource, localReporter, null, false);
     if (buildFileAST.containsErrors()) {
@@ -189,8 +189,8 @@ public class WorkspaceFileFunction implements SkyFunction {
   }
 
   private static final class WorkspaceFileFunctionException extends SkyFunctionException {
-    public WorkspaceFileFunctionException(SkyKey key, IOException e, Transience transience) {
-      super(key, e, transience);
+    public WorkspaceFileFunctionException(IOException e, Transience transience) {
+      super(e, transience);
     }
   }
 }

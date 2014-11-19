@@ -67,7 +67,7 @@ public class TargetPatternFunction implements SkyFunction {
       TargetPattern resolvedPattern = parser.parse(patternKey.getPattern());
       return new TargetPatternValue(resolvedPattern.eval(resolver));
     } catch (TargetParsingException e) {
-      throw new TargetPatternFunctionException(key, e);
+      throw new TargetPatternFunctionException(e);
     } catch (TargetPatternResolver.MissingDepException e) {
       return null;
     }
@@ -271,8 +271,8 @@ public class TargetPatternFunction implements SkyFunction {
    * {@link TargetPatternFunction#compute}.
    */
   private static final class TargetPatternFunctionException extends SkyFunctionException {
-    public TargetPatternFunctionException(SkyKey key, TargetParsingException e) {
-      super(key, e, Transience.PERSISTENT);
+    public TargetPatternFunctionException(TargetParsingException e) {
+      super(e, Transience.PERSISTENT);
     }
   }
 }

@@ -80,7 +80,7 @@ public class ActionExecutionFunction implements SkyFunction {
       }
     } catch (ActionExecutionException e) {
       skyframeActionExecutor.postActionNotExecutedEvents(action, e.getRootCauses());
-      throw new ActionExecutionFunctionException(skyKey, e);
+      throw new ActionExecutionFunctionException(e);
     }
     // TODO(bazel-team): Non-volatile NotifyOnActionCacheHit actions perform worse in Skyframe than
     // legacy when they are not at the top of the action graph. In legacy, they are stored
@@ -122,8 +122,7 @@ public class ActionExecutionFunction implements SkyFunction {
       // prints the error in the top-level reporter and also dumps the recorded StdErr for the
       // action. Label can be null in the case of, e.g., the SystemActionOwner (for build-info.txt).
       skyframeActionExecutor.postActionNotExecutedEvents(action, e.getRootCauses());
-      throw new ActionExecutionFunctionException(skyKey,
-          new AlreadyReportedActionExecutionException(e));
+      throw new ActionExecutionFunctionException(new AlreadyReportedActionExecutionException(e));
     } finally {
       declareAdditionalDependencies(env, action);
     }
@@ -269,12 +268,12 @@ public class ActionExecutionFunction implements SkyFunction {
 
     private final ActionExecutionException actionException;
 
-    public ActionExecutionFunctionException(SkyKey key, ActionExecutionException e) {
+    public ActionExecutionFunctionException(ActionExecutionException e) {
       // We conservatively assume that the error is transient. We don't have enough information to
       // distinguish non-transient errors (e.g. compilation error from a deterministic compiler)
       // from transient ones (e.g. IO error).
       // TODO(bazel-team): Have ActionExecutionExceptions declare their transience.
-      super(key, e, Transience.TRANSIENT);
+      super(e, Transience.TRANSIENT);
       this.actionException = e;
     }
 

@@ -20,7 +20,7 @@ import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.Iterables;
 import com.google.devtools.build.docgen.SkylarkJavaInterfaceExplorer.SkylarkBuiltinMethod;
-import com.google.devtools.build.docgen.SkylarkJavaInterfaceExplorer.SkylarkMethod;
+import com.google.devtools.build.docgen.SkylarkJavaInterfaceExplorer.SkylarkJavaMethod;
 import com.google.devtools.build.docgen.SkylarkJavaInterfaceExplorer.SkylarkModuleDoc;
 import com.google.devtools.build.lib.packages.MethodLibrary;
 import com.google.devtools.build.lib.rules.SkylarkModules;
@@ -135,12 +135,23 @@ public class SkylarkDocumentationProcessor {
       .append(annotation.doc())
       .append("\n");
     sb.append("<ul>");
-    for (SkylarkMethod method : module.getJavaMethods()) {
-      generateDirectJavaMethodDoc(annotation.name(), method.name, method.method,
-          method.callable, sb);
+    // Sort Java and SkylarkBuiltin methods together. The map key is only used for sorting.
+    TreeMap<String, Object> methodMap = new TreeMap<>();
+    for (SkylarkJavaMethod method : module.getJavaMethods()) {
+      methodMap.put(method.name + method.method.getParameterTypes().length, method);
     }
     for (SkylarkBuiltinMethod builtin : module.getBuiltinMethods().values()) {
-      generateBuiltinItemDoc(getModuleId(annotation), builtin, sb);
+      methodMap.put(builtin.annotation.name(), builtin);
+    }
+    for (Object object : methodMap.values()) {
+      if (object instanceof SkylarkJavaMethod) {
+        SkylarkJavaMethod method = (SkylarkJavaMethod) object;
+        generateDirectJavaMethodDoc(annotation.name(), method.name, method.method,
+            method.callable, sb);
+      }
+      if (object instanceof SkylarkBuiltinMethod) {
+        generateBuiltinItemDoc(getModuleId(annotation), (SkylarkBuiltinMethod) object, sb);
+      }
     }
     sb.append("</ul>");
   }
@@ -347,7 +358,7 @@ public class SkylarkDocumentationProcessor {
           printBuiltinFunctionDoc(moduleName, method.annotation, sb);
         }
         // Print all Java methods
-        for (SkylarkMethod method : module.getJavaMethods()) {
+        for (SkylarkJavaMethod method : module.getJavaMethods()) {
           printJavaFunctionDoc(moduleName, method, sb);
         }
         return DocgenConsts.toCommandLineFormat(sb.toString());
@@ -373,7 +384,7 @@ public class SkylarkDocumentationProcessor {
       // Search if there are matching Java functions
       StringBuilder sb = new StringBuilder();
       boolean foundMatchingMethod = false;
-      for (SkylarkMethod method : module.getJavaMethods()) {
+      for (SkylarkJavaMethod method : module.getJavaMethods()) {
         if (method.name.equals(methodName)) {
           printJavaFunctionDoc(moduleName, method, sb);
           foundMatchingMethod = true;
@@ -394,7 +405,7 @@ public class SkylarkDocumentationProcessor {
     sb.append(annotation.name()).append("\n\t").append(annotation.doc()).append("\n");
   }
 
-  private void printJavaFunctionDoc(String moduleName, SkylarkMethod method, StringBuilder sb) {
+  private void printJavaFunctionDoc(String moduleName, SkylarkJavaMethod method, StringBuilder sb) {
     sb.append(getSignature(moduleName, method.name, method.method))
       .append("\t").append(method.callable.doc()).append("\n");
   }

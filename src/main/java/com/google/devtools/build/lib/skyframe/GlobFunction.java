@@ -144,9 +144,9 @@ final class GlobFunction implements SkyFunction {
             continue;
           }
           if (!symlinkFileValue.isSymlink()) {
-            throw new GlobFunctionException(skyKey,
-                new InconsistentFilesystemException("readdir and stat disagree about whether "
-                    + symlinkRootedPath.asPath() + " is a symlink."), Transience.TRANSIENT);
+            throw new GlobFunctionException(new InconsistentFilesystemException(
+                "readdir and stat disagree about whether " + symlinkRootedPath.asPath()
+                    + " is a symlink."), Transience.TRANSIENT);
           }
           isDirectory = symlinkFileValue.isDirectory();
         }
@@ -244,9 +244,8 @@ final class GlobFunction implements SkyFunction {
    * {@link GlobFunction#compute}.
    */
   private static final class GlobFunctionException extends SkyFunctionException {
-    public GlobFunctionException(SkyKey key, InconsistentFilesystemException e,
-        Transience transience) {
-      super(key, e, transience);
+    public GlobFunctionException(InconsistentFilesystemException e, Transience transience) {
+      super(e, transience);
     }
   }
 }

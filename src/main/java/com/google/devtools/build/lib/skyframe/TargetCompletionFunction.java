@@ -77,7 +77,7 @@ public final class TargetCompletionFunction implements SkyFunction {
 
     // Rethrow the first exception because it can contain a useful error message.
     if (firstActionExecutionException != null) {
-      throw new TargetCompletionFunctionException(skyKey, firstActionExecutionException);
+      throw new TargetCompletionFunctionException(firstActionExecutionException);
     }
 
     if (missingCount > 0) {
@@ -88,9 +88,8 @@ public final class TargetCompletionFunction implements SkyFunction {
                 lac.getLabel(), missingInput)));
       }
       Location location = ctValue.getConfiguredTarget().getTarget().getLocation();
-      throw new TargetCompletionFunctionException(skyKey,
-          new MissingInputFileException(location + " " + missingCount
-              + " input file(s) do not exist", location));
+      throw new TargetCompletionFunctionException(new MissingInputFileException(location + " "
+              + missingCount + " input file(s) do not exist", location));
     }
 
     return env.valuesMissing() ? null : new TargetCompletionValue(ctValue.getConfiguredTarget());
@@ -105,13 +104,13 @@ public final class TargetCompletionFunction implements SkyFunction {
 
     private final ActionExecutionException actionException;
 
-    public TargetCompletionFunctionException(SkyKey key, ActionExecutionException e) {
-      super(key, e, Transience.PERSISTENT);
+    public TargetCompletionFunctionException(ActionExecutionException e) {
+      super(e, Transience.PERSISTENT);
       this.actionException = e;
     }
 
-    public TargetCompletionFunctionException(SkyKey key, MissingInputFileException e) {
-      super(key, e, Transience.TRANSIENT);
+    public TargetCompletionFunctionException(MissingInputFileException e) {
+      super(e, Transience.TRANSIENT);
       this.actionException = null;
     }
 

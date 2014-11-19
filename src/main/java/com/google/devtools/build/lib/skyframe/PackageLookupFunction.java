@@ -78,7 +78,7 @@ class PackageLookupFunction implements SkyFunction {
     // the missing value keys, more dependencies than necessary will be declared. This wart can be
     // fixed once we have nicer continuation support [skyframe-loading]
     for (Path packagePathEntry : pkgLocator.get().getPathEntries()) {
-      PackageLookupValue value = getPackageLookupValue(skyKey, env, packagePathEntry, pkg);
+      PackageLookupValue value = getPackageLookupValue(env, packagePathEntry, pkg);
       if (value == null || value.packageExists()) {
         return value;
       }
@@ -92,9 +92,8 @@ class PackageLookupFunction implements SkyFunction {
     return null;
   }
 
-  private PackageLookupValue getPackageLookupValue(
-      SkyKey skyKey, Environment env, Path packagePathEntry, PathFragment pkgFragment)
-          throws PackageLookupFunctionException {
+  private PackageLookupValue getPackageLookupValue(Environment env, Path packagePathEntry,
+      PathFragment pkgFragment) throws PackageLookupFunctionException {
     PathFragment buildFileFragment;
     if (pkgFragment.getPathString().equals(PackageFunction.EXTERNAL_PACKAGE_NAME)) {
       buildFileFragment = new PathFragment("WORKSPACE");
@@ -113,17 +112,17 @@ class PackageLookupFunction implements SkyFunction {
       String pkgName = pkgFragment.getPathString();
       // TODO(bazel-team): throw an IOException here and let PackageFunction wrap that into a
       // BuildFileNotFoundException.
-      throw new PackageLookupFunctionException(skyKey, new BuildFileNotFoundException(pkgName,
+      throw new PackageLookupFunctionException(new BuildFileNotFoundException(pkgName,
           "IO errors while looking for " + basename + " file reading "
               + buildFileRootedPath.asPath() + ": " + e.getMessage(), e));
     } catch (FileSymlinkCycleException e) {
       String pkgName = buildFileRootedPath.asPath().getPathString();
-      throw new PackageLookupFunctionException(skyKey,
-          new BuildFileNotFoundException(pkgName, "Symlink cycle detected while trying to find "
-              + basename + " file " + buildFileRootedPath.asPath()));
+      throw new PackageLookupFunctionException(new BuildFileNotFoundException(pkgName,
+          "Symlink cycle detected while trying to find " + basename + " file "
+              + buildFileRootedPath.asPath()));
     } catch (InconsistentFilesystemException e) {
       // This error is not transient from the perspective of the PackageLookupFunction.
-      throw new PackageLookupFunctionException(skyKey, e, Transience.PERSISTENT);
+      throw new PackageLookupFunctionException(e, Transience.PERSISTENT);
     }
     if (fileValue == null) {
       return null;
@@ -159,11 +158,10 @@ class PackageLookupFunction implements SkyFunction {
     Path repositoryPath = ((ExternalPackage) externalPackageValue.getPackage())
         .getRepositoryPath(id.getRepository());
     if (repositoryPath == null) {
-      throw new PackageLookupFunctionException(
-          skyKey, new BuildFileNotFoundException(id.toString(), "repository named '"
-              + id.getRepository() + "' could not be resolved"));
+      throw new PackageLookupFunctionException(new BuildFileNotFoundException(id.toString(),
+          "repository named '" + id.getRepository() + "' could not be resolved"));
     }
-    return getPackageLookupValue(skyKey, env, repositoryPath, id.getPackageFragment());
+    return getPackageLookupValue(env, repositoryPath, id.getPackageFragment());
   }
 
   /**
@@ -171,13 +169,13 @@ class PackageLookupFunction implements SkyFunction {
    * {@link PackageLookupFunction#compute}.
    */
   private static final class PackageLookupFunctionException extends SkyFunctionException {
-    public PackageLookupFunctionException(SkyKey key, BuildFileNotFoundException e) {
-      super(key, e, Transience.PERSISTENT);
+    public PackageLookupFunctionException(BuildFileNotFoundException e) {
+      super(e, Transience.PERSISTENT);
     }
 
-    public PackageLookupFunctionException(SkyKey key, InconsistentFilesystemException e,
+    public PackageLookupFunctionException(InconsistentFilesystemException e,
         Transience transience) {
-      super(key, e, transience);
+      super(e, transience);
     }
   }
 }

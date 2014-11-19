@@ -81,7 +81,7 @@ public class ConfigurationCollectionFunction implements SkyFunction {
       }
       return new ConfigurationCollectionValue(result, configurationPackages.get());
     } catch (InvalidConfigurationException e) {
-      throw new ConfigurationCollectionFunctionException(skyKey, e);
+      throw new ConfigurationCollectionFunctionException(e);
     }
   }
 
@@ -96,8 +96,8 @@ public class ConfigurationCollectionFunction implements SkyFunction {
    */
   private static final class ConfigurationCollectionFunctionException extends
       SkyFunctionException {
-    public ConfigurationCollectionFunctionException(SkyKey key, InvalidConfigurationException e) {
-      super(key, e, Transience.PERSISTENT);
+    public ConfigurationCollectionFunctionException(InvalidConfigurationException e) {
+      super(e, Transience.PERSISTENT);
     }
   }
 }

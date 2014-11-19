@@ -1275,7 +1275,7 @@ public class MemoizingEvaluatorTest {
         try {
           env.getValueOrThrow(GraphTester.toSkyKey(nextDep), SomeErrorException.class);
         } catch (SomeErrorException e) {
-          throw new GenericFunctionException(skyKey, e, Transience.PERSISTENT);
+          throw new GenericFunctionException(e, Transience.PERSISTENT);
         }
         return env.valuesMissing() ? null : new StringValue("top");
       }
@@ -2250,7 +2250,7 @@ public class MemoizingEvaluatorTest {
         try {
           return env.getValueOrThrow(error, SomeErrorException.class);
         } catch (SomeErrorException e) {
-          throw new GenericFunctionException(skyKey, e, Transience.PERSISTENT);
+          throw new GenericFunctionException(e, Transience.PERSISTENT);
         }
       }
 
@@ -2345,7 +2345,7 @@ public class MemoizingEvaluatorTest {
         try {
           env.getValueOrThrow(error, SomeErrorException.class);
         } catch (SomeErrorException e) {
-          throw new GenericFunctionException(skyKey, e, Transience.PERSISTENT);
+          throw new GenericFunctionException(e, Transience.PERSISTENT);
         }
         return null;
       }

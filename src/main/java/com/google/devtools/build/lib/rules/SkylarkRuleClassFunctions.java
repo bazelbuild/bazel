@@ -375,7 +375,7 @@ public class SkylarkRuleClassFunctions {
         print(sb, key + ": " + value, indent);
       } else {
         throw new EvalException(loc,
-            "Invalid text format, expected a struct, a string or an int but got a "
+            "Invalid text format, expected a struct, a string, a bool, or an int but got a "
             + EvalUtils.getDatatypeName(value) + " for " + container + " '" + key + "'");
       }
     }

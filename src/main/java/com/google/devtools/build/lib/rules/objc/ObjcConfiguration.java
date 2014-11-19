@@ -23,12 +23,15 @@ import com.google.devtools.build.xcode.common.Platform;
  */
 public class ObjcConfiguration extends Fragment {
   private final String iosSdkVersion;
+  private final String iosSimulatorVersion;
   private final String iosCpu;
   private final String xcodeOptions;
   private final boolean generateDebugSymbols;
 
   ObjcConfiguration(ObjcCommandLineOptions objcOptions) {
     this.iosSdkVersion = Preconditions.checkNotNull(objcOptions.iosSdkVersion, "iosSdkVersion");
+    this.iosSimulatorVersion =
+        Preconditions.checkNotNull(objcOptions.iosSimulatorVersion, "iosSimulatorVersion");
     this.iosCpu = Preconditions.checkNotNull(objcOptions.iosCpu, "iosCpu");
     this.xcodeOptions = Preconditions.checkNotNull(objcOptions.xcodeOptions, "xcodeOptions");
     this.generateDebugSymbols = objcOptions.generateDebugSymbols;
@@ -36,6 +39,10 @@ public class ObjcConfiguration extends Fragment {
 
   public String getIosSdkVersion() {
     return iosSdkVersion;
+  }
+
+  public String getIosSimulatorVersion() {
+    return iosSimulatorVersion;
   }
 
   public String getIosCpu() {

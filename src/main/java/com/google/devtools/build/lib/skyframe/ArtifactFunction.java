@@ -70,7 +70,7 @@ class ArtifactFunction implements SkyFunction {
         // The error is not necessarily truly transient, but we mark it as such because we have
         // the above side effect of posting an event to the EventBus. Importantly, that event
         // is potentially used to report root causes.
-        throw new ArtifactFunctionException(skyKey, e, Transience.TRANSIENT);
+        throw new ArtifactFunctionException(e, Transience.TRANSIENT);
       }
     }
 
@@ -93,7 +93,7 @@ class ArtifactFunction implements SkyFunction {
             /*catastrophe=*/false);
         env.getListener().handle(Event.error(ex.getLocation(), ex.getMessage()));
         // This is a transient error since we did the work that led to the IOException.
-        throw new ArtifactFunctionException(skyKey, ex, Transience.TRANSIENT);
+        throw new ArtifactFunctionException(ex, Transience.TRANSIENT);
       }
     } else {
       return createAggregatingValue(artifact, action, actionValue.getArtifactValue(artifact), env);
@@ -214,12 +214,12 @@ class ArtifactFunction implements SkyFunction {
   }
 
   private static final class ArtifactFunctionException extends SkyFunctionException {
-    ArtifactFunctionException(SkyKey key, MissingInputFileException e, Transience transience) {
-      super(key, e, transience);
+    ArtifactFunctionException(MissingInputFileException e, Transience transience) {
+      super(e, transience);
     }
 
-    ArtifactFunctionException(SkyKey key, ActionExecutionException e, Transience transience) {
-      super(key, e, transience);
+    ArtifactFunctionException(ActionExecutionException e, Transience transience) {
+      super(e, transience);
     }
   }
 

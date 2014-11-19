@@ -32,6 +32,12 @@ public class ObjcCommandLineOptions extends FragmentOptions {
       )
   public String iosSdkVersion;
 
+  @Option(name = "ios_simulator_version",
+      defaultValue = "7.1",
+      category = "undocumented",
+      help = "The version of iOS to run on the simulator when running tests.")
+  public String iosSimulatorVersion;
+
   @Option(name = "ios_cpu",
       defaultValue = "i386",
       category = "undocumented",

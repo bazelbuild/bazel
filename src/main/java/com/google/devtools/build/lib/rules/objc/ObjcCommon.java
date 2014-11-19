@@ -20,6 +20,7 @@ import static com.google.devtools.build.lib.rules.objc.ObjcProvider.ASSET_CATALO
 import static com.google.devtools.build.lib.rules.objc.ObjcProvider.BUNDLE_FILE;
 import static com.google.devtools.build.lib.rules.objc.ObjcProvider.BUNDLE_IMPORT_DIR;
 import static com.google.devtools.build.lib.rules.objc.ObjcProvider.FLAG;
+import static com.google.devtools.build.lib.rules.objc.ObjcProvider.FORCE_LOAD_FOR_XCODEGEN;
 import static com.google.devtools.build.lib.rules.objc.ObjcProvider.FORCE_LOAD_LIBRARY;
 import static com.google.devtools.build.lib.rules.objc.ObjcProvider.FRAMEWORK_DIR;
 import static com.google.devtools.build.lib.rules.objc.ObjcProvider.FRAMEWORK_FILE;
@@ -32,6 +33,7 @@ import static com.google.devtools.build.lib.rules.objc.ObjcProvider.LIBRARY;
 import static com.google.devtools.build.lib.rules.objc.ObjcProvider.SDK_DYLIB;
 import static com.google.devtools.build.lib.rules.objc.ObjcProvider.SDK_FRAMEWORK;
 import static com.google.devtools.build.lib.rules.objc.ObjcProvider.STORYBOARD_OUTPUT_ZIP;
+import static com.google.devtools.build.lib.rules.objc.ObjcProvider.WEAK_SDK_FRAMEWORK;
 import static com.google.devtools.build.lib.rules.objc.ObjcProvider.XCASSETS_DIR;
 import static com.google.devtools.build.lib.rules.objc.ObjcProvider.XCDATAMODEL;
 
@@ -44,7 +46,6 @@ import com.google.common.collect.Iterables;
 import com.google.devtools.build.lib.actions.Artifact;
 import com.google.devtools.build.lib.collect.nestedset.NestedSet;
 import com.google.devtools.build.lib.collect.nestedset.NestedSetBuilder;
-import com.google.devtools.build.lib.packages.RuleClass.Builder;
 import com.google.devtools.build.lib.util.FileType;
 import com.google.devtools.build.lib.vfs.PathFragment;
 import com.google.devtools.build.lib.view.ConfiguredTarget;
@@ -166,6 +167,7 @@ final class ObjcCommon {
             .addAll(BUNDLE_FILE,
                 Iterables.transform(compiledResources, CompiledResourceFile.TO_BUNDLED))
             .addAll(SDK_FRAMEWORK, attributes.sdkFrameworks())
+            .addAll(WEAK_SDK_FRAMEWORK, attributes.weakSdkFrameworks())
             .addAll(SDK_DYLIB, attributes.sdkDylibs())
             .addAll(XCDATAMODEL,
                 Xcdatamodels.xcdatamodels(intermediateArtifacts, attributes.datamodels()));
@@ -188,9 +190,17 @@ final class ObjcCommon {
 
       if (alwayslink) {
         for (CompilationArtifacts artifacts : compilationArtifacts.asSet()) {
-          objcProvider.addAll(FORCE_LOAD_LIBRARY, artifacts.getArchive().asSet());
+          for (Artifact archive : artifacts.getArchive().asSet()) {
+            objcProvider.add(FORCE_LOAD_LIBRARY, archive);
+            objcProvider.add(FORCE_LOAD_FOR_XCODEGEN,
+                "$(BUILT_PRODUCTS_DIR)/" + archive.getExecPath().getBaseName());
+          }
         }
-        objcProvider.addAll(FORCE_LOAD_LIBRARY, ARCHIVES.get(context));
+        for (Artifact archive : ARCHIVES.get(context)) {
+          objcProvider.add(FORCE_LOAD_LIBRARY, archive);
+          objcProvider.add(FORCE_LOAD_FOR_XCODEGEN,
+              "$(WORKSPACE_ROOT)/" + archive.getExecPath().getSafePathString());
+        }
       }
 
       Iterable<String> ruleErrors =
@@ -409,7 +419,7 @@ final class ObjcCommon {
    * @param filesToBuild files to build for this target. These also become the data runfiles. Note
    *     that this method may add more files to create the complete list of files to build for this
    *     target.
-   * @param maybeTargetProvider the {@link XcodeTargetProvider} for this target.
+   * @param maybeTargetProvider the provider for this target.
    * @param maybeExportedProvider the {@link ObjcProvider} for this target. This should generally be
    *     present whenever {@code objc_} rules may depend on this target.
    */

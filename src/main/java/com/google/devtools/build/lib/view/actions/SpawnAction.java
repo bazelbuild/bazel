@@ -59,6 +59,8 @@ import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
 
+import javax.annotation.CheckReturnValue;
+
 /**
  * An Action representing an arbitrary subprocess to be forked and exec'd.
  */
@@ -455,15 +457,22 @@ public class SpawnAction extends AbstractAction {
      * <p>This method makes a copy of all the collections, so it is safe to reuse the builder after
      * this method returns.
      *
+     * <p>This is annotated with @CheckReturnValue, which causes a compiler error when you call this
+     * method and ignore its return value. This is because some time ago, calling .build() had the
+     * side-effect of registering it with the RuleContext that was passed in to the constructor.
+     * This logic was removed, but if people don't notice and still rely on the side-effect, things
+     * may break.
+     *
      * @return the SpawnAction and any actions required by it, with the first item always being the
      *      SpawnAction itself.
      */
+    @CheckReturnValue
     public Action[] build(ActionConstructionContext context) {
       return build(context.getActionOwner(), context.getAnalysisEnvironment(),
           context.getConfiguration());
     }
 
-    @VisibleForTesting
+    @VisibleForTesting @CheckReturnValue
     public Action[] build(ActionOwner owner, AnalysisEnvironment analysisEnvironment,
         BuildConfiguration configuration) {
       if (isShellCommand && executable == null) {

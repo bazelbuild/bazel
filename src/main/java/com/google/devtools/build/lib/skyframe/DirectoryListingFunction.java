@@ -39,9 +39,9 @@ final class DirectoryListingFunction implements SkyFunction {
     RootedPath realDirRootedPath = dirFileValue.realRootedPath();
     if (!dirFileValue.isDirectory()) {
       // Recall that the directory is assumed to exist (see DirectoryListingValue#key).
-      throw new DirectoryListingFunctionException(skyKey,
-          new InconsistentFilesystemException(dirRootedPath.asPath()
-              + " is no longer an existing directory. Did you delete it during the build?"));
+      throw new DirectoryListingFunctionException(new InconsistentFilesystemException(
+          dirRootedPath.asPath() + " is no longer an existing directory. Did you delete it during "
+              + "the build?"));
     }
 
     DirectoryListingStateValue directoryListingStateValue =
@@ -65,8 +65,8 @@ final class DirectoryListingFunction implements SkyFunction {
    * {@link DirectoryListingFunction#compute}.
    */
   private static final class DirectoryListingFunctionException extends SkyFunctionException {
-    public DirectoryListingFunctionException(SkyKey key, InconsistentFilesystemException e) {
-      super(key, e, Transience.TRANSIENT);
+    public DirectoryListingFunctionException(InconsistentFilesystemException e) {
+      super(e, Transience.TRANSIENT);
     }
   }
 }

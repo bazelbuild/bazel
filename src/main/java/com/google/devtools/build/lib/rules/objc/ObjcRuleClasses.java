@@ -216,6 +216,13 @@ public class ObjcRuleClasses {
           used.
           <!-- #END_BLAZE_RULE.ATTRIBUTE -->*/
           .add(attr("sdk_frameworks", STRING_LIST))
+          /* <!-- #BLAZE_RULE($objc_base_rule).ATTRIBUTE(weak_sdk_frameworks) -->
+          Names of SDK frameworks to weakly link with. For instance,
+          "MediaAccessibility". In difference to regularly linked SDK
+          frameworks, symbols from weakly linked frameworks do not cause an
+          error if they are not present at runtime.
+          <!-- #END_BLAZE_RULE.ATTRIBUTE -->*/
+          .add(attr("weak_sdk_frameworks", STRING_LIST))
           /* <!-- #BLAZE_RULE($objc_base_rule).ATTRIBUTE(sdk_dylibs) -->
           Names of SDK .dylib libraries to link with. For instance, "libz" or
           "libarchive". "libc++" is included automatically if the binary has

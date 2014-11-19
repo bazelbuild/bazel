@@ -28,6 +28,7 @@ import static com.google.devtools.build.lib.rules.objc.ObjcProvider.INCLUDE;
 import static com.google.devtools.build.lib.rules.objc.ObjcProvider.LIBRARY;
 import static com.google.devtools.build.lib.rules.objc.ObjcProvider.SDK_DYLIB;
 import static com.google.devtools.build.lib.rules.objc.ObjcProvider.SDK_FRAMEWORK;
+import static com.google.devtools.build.lib.rules.objc.ObjcProvider.WEAK_SDK_FRAMEWORK;
 import static com.google.devtools.build.lib.rules.objc.ObjcProvider.XCASSETS_DIR;
 
 import com.google.common.annotations.VisibleForTesting;
@@ -488,6 +489,8 @@ final class ObjcActionsBuilder {
           .add("-fobjc-link-runtime")
           .addAll(IosSdkCommands.DEFAULT_LINKER_FLAGS)
           .addAll(Interspersing.beforeEach("-framework", frameworkNames(objcProvider)))
+          .addAll(Interspersing.beforeEach(
+              "-weak_framework", SdkFramework.names(objcProvider.get(WEAK_SDK_FRAMEWORK))))
           .add("-o", linkedBinary.getExecPathString())
           .addAll(archiveExecPaths)
           .addAll(dylibPaths())

@@ -92,8 +92,8 @@ final class ConfiguredTargetFunction implements SkyFunction {
     try {
       target = packageValue.getPackage().getTarget(lc.getLabel().getName());
     } catch (NoSuchTargetException e1) {
-      throw new ConfiguredTargetFunctionException(key,
-          new NoSuchTargetException(lc.getLabel(), "No such target"));
+      throw new ConfiguredTargetFunctionException(new NoSuchTargetException(lc.getLabel(),
+          "No such target"));
     }
     // TODO(bazel-team): This is problematic - we create the right key, but then end up with a value
     // that doesn't match; we can even have the same value multiple times. However, I think it's
@@ -116,7 +116,7 @@ final class ConfiguredTargetFunction implements SkyFunction {
 
     // 1. Get the configuration targets that trigger this rule's configurable attributes.
     Set<ConfigMatchingProvider> configConditions =
-        getConfigConditions(target, env, resolver, ctgValue, key);
+        getConfigConditions(target, env, resolver, ctgValue);
     if (configConditions == null) {
       // Those targets haven't yet been resolved.
       return null;
@@ -128,13 +128,12 @@ final class ConfiguredTargetFunction implements SkyFunction {
       depValueNames = resolver.dependentNodeMap(ctgValue, configConditions);
     } catch (EvalException e) {
       env.getListener().handle(Event.error(e.getLocation(), e.getMessage()));
-      throw new ConfiguredTargetFunctionException(key,
-          new ConfiguredValueCreationException(e.print()));
+      throw new ConfiguredTargetFunctionException(new ConfiguredValueCreationException(e.print()));
     }
 
     // 3. Resolve dependencies and handle errors.
     Map<SkyKey, ConfiguredTargetValue> depValues =
-        resolveDependencies(env, depValueNames.values(), key, target);
+        resolveDependencies(env, depValueNames.values(), target);
     if (depValues == null) {
       return null;
     }
@@ -159,7 +158,7 @@ final class ConfiguredTargetFunction implements SkyFunction {
    * dependency resolver, returns null.
    */
   private Set<ConfigMatchingProvider> getConfigConditions(Target target, Environment env,
-      SkyframeDependencyResolver resolver, TargetAndConfiguration ctgValue, SkyKey skyKey)
+      SkyframeDependencyResolver resolver, TargetAndConfiguration ctgValue)
       throws ConfiguredTargetFunctionException {
     if (!(target instanceof Rule)) {
       return ImmutableSet.of();
@@ -186,7 +185,7 @@ final class ConfiguredTargetFunction implements SkyFunction {
     Collection<TargetAndConfiguration> configValueNames =
         resolver.resolveRuleLabels(ctgValue, configLabelMap);
     Map<SkyKey, ConfiguredTargetValue> configValues =
-        resolveDependencies(env, configValueNames, skyKey, target);
+        resolveDependencies(env, configValueNames, target);
     if (configValues == null) {
       return null;
     }
@@ -205,8 +204,7 @@ final class ConfiguredTargetFunction implements SkyFunction {
         String message = badTarget + " is not a valid configuration key for "
             + target.getLabel().toString();
         env.getListener().handle(Event.error(TargetUtils.getLocationMaybe(badTarget), message));
-        throw new ConfiguredTargetFunctionException(skyKey,
-            new ConfiguredValueCreationException(message));
+        throw new ConfiguredTargetFunctionException(new ConfiguredValueCreationException(message));
       }
     }
 
@@ -221,8 +219,8 @@ final class ConfiguredTargetFunction implements SkyFunction {
    *
    */
   private Map<SkyKey, ConfiguredTargetValue> resolveDependencies(Environment env,
-      Collection<TargetAndConfiguration> deps, SkyKey skyKey,
-      Target target) throws ConfiguredTargetFunctionException {
+      Collection<TargetAndConfiguration> deps, Target target)
+          throws ConfiguredTargetFunctionException {
     boolean ok = !env.valuesMissing();
     String message = null;
     Iterable<SkyKey> depKeys = Iterables.transform(deps, TO_KEYS);
@@ -232,6 +230,8 @@ final class ConfiguredTargetFunction implements SkyFunction {
         NoSuchPackageException>> depValuesOrExceptions = env.getValuesOrThrow(depKeys,
             NoSuchTargetException.class, NoSuchPackageException.class);
     Map<SkyKey, ConfiguredTargetValue> depValues = new HashMap<>(depValuesOrExceptions.size());
+    SkyKey childKey = null;
+    NoSuchThingException transitiveChildException = null;
     for (Map.Entry<SkyKey, ValueOrException2<NoSuchTargetException, NoSuchPackageException>> entry
         : depValuesOrExceptions.entrySet()) {
       LabelAndConfiguration depLabelAndConfiguration =
@@ -244,10 +244,16 @@ final class ConfiguredTargetFunction implements SkyFunction {
       } catch (NoSuchTargetException e) {
         if (depLabel.equals(e.getLabel())) {
           directChildException = e;
+        } else {
+          childKey = entry.getKey();
+          transitiveChildException = e;
         }
       } catch (NoSuchPackageException e) {
         if (depLabel.getPackageName().equals(e.getPackageName())) {
           directChildException = e;
+        } else {
+          childKey = entry.getKey();
+          transitiveChildException = e;
         }
       }
       // If an exception wasn't caused by a direct child target value, we'll treat it the same
@@ -265,7 +271,10 @@ final class ConfiguredTargetFunction implements SkyFunction {
       }
     }
     if (message != null) {
-      throw new ConfiguredTargetFunctionException(skyKey, new NoSuchTargetException(message));
+      throw new ConfiguredTargetFunctionException(new NoSuchTargetException(message));
+    }
+    if (childKey != null) {
+      throw new ConfiguredTargetFunctionException(childKey, transitiveChildException);
     }
     if (!ok) {
       return null;
@@ -306,8 +315,7 @@ final class ConfiguredTargetFunction implements SkyFunction {
     events.replayOn(env.getListener());
     if (events.hasErrors()) {
       analysisEnvironment.disable(target);
-      throw new ConfiguredTargetFunctionException(ConfiguredTargetValue.key(target.getLabel(),
-          configuration), new ConfiguredValueCreationException(
+      throw new ConfiguredTargetFunctionException(new ConfiguredValueCreationException(
               "Analysis of target '" + target.getLabel() + "' failed; build aborted"));
     }
     Preconditions.checkState(!analysisEnvironment.hasErrors(),
@@ -339,12 +347,18 @@ final class ConfiguredTargetFunction implements SkyFunction {
    * {@link ConfiguredTargetFunction#compute}.
    */
   private static final class ConfiguredTargetFunctionException extends SkyFunctionException {
-    public ConfiguredTargetFunctionException(SkyKey key, NoSuchTargetException e) {
-      super(key, e, Transience.PERSISTENT);
+    public ConfiguredTargetFunctionException(NoSuchTargetException e) {
+      super(e, Transience.PERSISTENT);
     }
 
-    public ConfiguredTargetFunctionException(SkyKey key, ConfiguredValueCreationException e) {
-      super(key, e, Transience.PERSISTENT);
+    /** Used to rethrow a child error that we cannot handle. */
+    public ConfiguredTargetFunctionException(SkyKey childKey,
+        NoSuchThingException transitiveError) {
+      super(transitiveError, childKey);
+    }
+
+    public ConfiguredTargetFunctionException(ConfiguredValueCreationException e) {
+      super(e, Transience.PERSISTENT);
     }
   }
 }

@@ -353,12 +353,19 @@ class Parser {
                                            List<Argument> args,
                                            int start, int end) {
     boolean seenKeywordArg = false;
+    boolean seenKwargs = false;
     for (Argument arg : args) {
       if (arg.isPositional()) {
-        if (seenKeywordArg) {
+        if (seenKeywordArg || seenKwargs) {
           reportError(arg.getLocation(), "syntax error: non-keyword arg after keyword arg");
           return makeErrorExpression(start, end);
         }
+      } else if (arg.isKwargs()) {
+        if (seenKwargs) {
+          reportError(arg.getLocation(), "there can be only one **kwargs argument");
+          return makeErrorExpression(start, end);
+        }
+        seenKwargs = true;
       } else {
         seenKeywordArg = true;
       }
@@ -383,6 +390,13 @@ class Parser {
       } else { // oops, back up!
         pushToken(identToken);
       }
+    }
+    // parse **expr
+    if (token.kind == TokenKind.STAR) {
+      expect(TokenKind.STAR);
+      expect(TokenKind.STAR);
+      Expression expr = parseExpression();
+      return setLocation(new Argument(null, expr, true), start, expr);
     }
     // parse a positional argument
     Expression expr = parseExpression();

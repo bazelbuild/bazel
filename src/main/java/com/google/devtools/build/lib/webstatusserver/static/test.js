@@ -183,11 +183,11 @@ function renderDetails(tests, predicate) {
         .attr('toggle', 'off')
         .on('click', function(datum) {
           if ($(this).attr('toggle') == 'on') {
-            $(this).siblings('.test-case').hide();
+            $(this).siblings('.test-case').not('[show=false]').hide();
             $(this).attr('toggle', 'off');
             $(this).text('Show details');
           } else {
-            $(this).siblings('.test-case').show();
+            $(this).siblings('.test-case').not('[show=false]').show();
             $(this).attr('toggle', 'on');
             $(this).text('Hide details');
           }
@@ -206,13 +206,21 @@ function renderDetails(tests, predicate) {
 function toggleVisibility() {
   $('#testDetails > [show=false]').hide();
   $('#testDetails > [show=true]').show();
+  $('[toggle=on]').siblings('[show=false]').hide();
+  $('[toggle=on]').siblings('[show=true]').show();
 }
 
 function setVisibility(predicate, object) {
   var show = predicate(object);
+  var childrenPredicate = predicate;
+  // It rarely makes sense to show a non-leaf node and hide its children, so
+  // we just show all children
+  if (show) {
+    childrenPredicate = function() { return true; };
+  }
   if ('children' in object) {
     for (var child in object.children) {
-      setVisibility(predicate, object.children[child]);
+      setVisibility(childrenPredicate, object.children[child]);
       show = object.children[child]['show'] || show;
     }
   }
@@ -230,6 +238,10 @@ function intersectFilters(filterList) {
     }
     return true;
   }
+}
+
+function textFilterActive() {
+  return $('#search').val();
 }
 
 function getTestFilters() {
@@ -256,7 +268,7 @@ function getTestFilters() {
       return checkBoxFilters.some(function(f) { return f(object); });
     });
   }
-  if ($('#search').val()) {
+  if (textFilterActive()) {
     filters.push(function(object) {
       // TODO(bazel-team): would case insentive search make more sense?
       return ('fullName' in object &&
@@ -274,7 +286,7 @@ function updateVisibleCases() {
   var predicate = intersectFilters(getTestFilters());
   var parentCases = d3.selectAll('#testDetails > div').data();
   parentCases.forEach(function(element, index) {
-    setVisibility(function() { return true }, element);
+    setVisibility(predicate, element);
   });
   d3.selectAll('.test-detail').attr('show', function(datum) {
     return ('show' in datum) ? datum['show'] : true;
@@ -283,6 +295,11 @@ function updateVisibleCases() {
     return ('show' in datum) ? datum['show'] : true;
   });
   toggleVisibility();
+  if (textFilterActive()) {
+    // expand nodes to save some clicking - if user searched for something that
+    // is leaf of the tree, she definitely wants to see it
+    $('#testDetails > [show=true]').find('[toggle=off]').click();
+  }
 }
 
 function enableControls() {

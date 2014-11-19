@@ -87,6 +87,18 @@ final class ObjcBase {
       return result.build();
     }
 
+    /**
+     * Returns the value of the weak_sdk_frameworks attribute.
+     */
+    ImmutableSet<SdkFramework> weakSdkFrameworks() {
+      ImmutableSet.Builder<SdkFramework> result = new ImmutableSet.Builder<>();
+      for (String frameworkName :
+          ruleContext.attributes().get("weak_sdk_frameworks", Type.STRING_LIST)) {
+        result.add(new SdkFramework(frameworkName));
+      }
+      return result.build();
+    }
+
     ImmutableSet<String> sdkDylibs() {
       return ImmutableSet.copyOf(ruleContext.attributes().get("sdk_dylibs", Type.STRING_LIST));
     }

@@ -392,6 +392,35 @@ public final class FuncallExpression extends Expression {
     return sb.append(")").toString();
   }
 
+  /**
+   * Add one argument to the keyword map, raising an exception when names conflict.
+   */
+  private void addKeywordArg(Map<String, Object> kwargs, String name, Object value)
+      throws EvalException {
+    if (kwargs.put(name, value) != null) {
+      throw new EvalException(getLocation(),
+          "duplicate keyword '" + name + "' in call to '" + func + "'");
+    }
+  }
+
+  /**
+   * Add multiple arguments to the keyword map (**kwargs).
+   */
+  private void addKeywordArgs(Map<String, Object> kwargs, Object items)
+      throws EvalException {
+    if (!(items instanceof Map<?, ?>)) {
+      throw new EvalException(getLocation(),
+          "Argument after ** must be a dictionary, not " + EvalUtils.getDatatypeName(items));
+    }
+    for (Map.Entry<?, ?> entry : ((Map<?, ?>) items).entrySet()) {
+      if (!(entry.getKey() instanceof String)) {
+        throw new EvalException(getLocation(),
+            "Keywords must be strings, not " + EvalUtils.getDatatypeName(entry.getKey()));
+      }
+      addKeywordArg(kwargs, (String) entry.getKey(), entry.getValue());
+    }
+  }
+
   private void evalArguments(List<Object> posargs, Map<String, Object> kwargs,
       Environment env, Function function)
           throws EvalException, InterruptedException {
@@ -408,12 +437,10 @@ public final class FuncallExpression extends Expression {
       }
       if (arg.isPositional()) {
         posargs.add(value);
+      } else if (arg.isKwargs()) {  // expand the kwargs
+        addKeywordArgs(kwargs, value);
       } else {
-        String name = arg.getArgName();
-        if (kwargs.put(name, value) != null) {
-          throw new EvalException(getLocation(),
-              "duplicate keyword '" + name + "' in call to '" + func + "'");
-        }
+        addKeywordArg(kwargs, arg.getArgName(), value);
       }
     }
     if (function instanceof UserDefinedFunction) {
