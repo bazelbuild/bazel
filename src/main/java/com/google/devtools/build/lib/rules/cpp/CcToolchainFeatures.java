@@ -22,7 +22,6 @@ import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.ImmutableMultimap;
 import com.google.common.collect.ImmutableSet;
-import com.google.common.collect.Multimap;
 import com.google.devtools.build.lib.analysis.config.InvalidConfigurationException;
 import com.google.devtools.build.lib.concurrent.ThreadSafety.Immutable;
 import com.google.devtools.build.lib.view.config.crosstool.CrosstoolConfig.CToolchain;
@@ -318,42 +317,20 @@ public class CcToolchainFeatures implements Serializable {
      * <p>Having more than a single variable of sequence type in a single flag group is not
      * supported.
      */
-    private void expandCommandLine(Multimap<String, String> variables, List<String> commandLine) {
-      Map<String, String> variableView = new HashMap<>();
-      String sequenceName = null; 
-      for (String name : usedVariables) {
-        Collection<String> value = variables.get(name);
-        if (value.isEmpty()) {
-          throw new ExpansionException("Invalid toolchain configuration: unknown variable '" + name
-              + "' can not be expanded.");          
-        } else if (value.size() > 1) {
-          if (sequenceName != null) {
-            throw new ExpansionException(
-                "Invalid toolchain configuration: trying to expand two variable list in one "
-                + "flag group: '" + sequenceName + "' and '" + name + "'");
+    private void expandCommandLine(Variables variables, final List<String> commandLine) {
+      variables.forEachExpansion(new Variables.ExpansionConsumer() {
+        @Override
+        public Set<String> getUsedVariables() {
+          return usedVariables;
+        }
+
+        @Override
+        public void expand(Map<String, String> variables) {
+          for (Flag flag : flags) {
+            flag.expandCommandLine(variables, commandLine);
           }
-          sequenceName = name;
-        } else {
-          variableView.put(name, value.iterator().next());
         }
-      }
-      if (sequenceName != null) {
-        for (String value : variables.get(sequenceName)) {
-          variableView.put(sequenceName, value);
-          expandOnce(variableView, commandLine);
-        }
-      } else {
-        expandOnce(variableView, commandLine);
-      }
-    }
-    
-    /**
-     * Expanding all flags of this group into {@code commandLine}. 
-     */
-    private void expandOnce(Map<String, String> variables, List<String> commandLine) {
-      for (Flag flag : flags) {
-        flag.expandCommandLine(variables, commandLine);
-      }
+      });
     }
   }
   
@@ -377,8 +354,7 @@ public class CcToolchainFeatures implements Serializable {
     /**
      * Adds the flags that apply to the given {@code action} to {@code commandLine}.
      */
-    private void expandCommandLine(String action, Multimap<String, String> variables,
-        List<String> commandLine) {
+    private void expandCommandLine(String action, Variables variables, List<String> commandLine) {
       if (!actions.contains(action)) {
         return;
       }
@@ -415,11 +391,119 @@ public class CcToolchainFeatures implements Serializable {
     /**
      * Adds the flags that apply to the given {@code action} to {@code commandLine}.
      */
-    private void expandCommandLine(String action, Multimap<String, String> variables,
+    private void expandCommandLine(String action, Variables variables,
         List<String> commandLine) {
       for (FlagSet flagSet : flagSets) {
         flagSet.expandCommandLine(action, variables, commandLine);
       }
+    }
+  }
+  
+  /**
+   * Configured build variables usable by the toolchain configuration.
+   */
+  @Immutable
+  public static class Variables {
+    
+    /**
+     * Builder for {@code Variables}.
+     */
+    public static class Builder {
+      private final ImmutableMap.Builder<String, String> variables = ImmutableMap.builder();
+      private final ImmutableMap.Builder<String, ImmutableList<String>> sequenceVariables =
+          ImmutableMap.builder();
+      
+      /**
+       * Add a variable that expands {@code name} to {@code value}.
+       */
+      public Builder addVariable(String name, String value) {
+        variables.put(name, value);
+        return this;
+      }
+      
+      /**
+       * Add a variable that expands a flag group containing a reference to {@code name} for each
+       * entry in {@code value}. 
+       */
+      public Builder addSequenceVariable(String name, Collection<String> value) {
+        sequenceVariables.put(name, ImmutableList.copyOf(value));
+        return this;
+      }
+      
+      /**
+       * @return a new {@Variables} object.
+       */
+      public Variables build() {
+        return new Variables(variables.build(), sequenceVariables.build());
+      }
+    }
+    
+    /**
+     * An {@code ExpansionConsumer} is a callback to be called for each expansion of a variable
+     * configuration over its set of used variables. 
+     */
+    private interface ExpansionConsumer {
+      
+      /**
+       * @return the used variables to be considered for the expansion.
+       */
+      Set<String> getUsedVariables();
+      
+      /**
+       * Called either once if there are only normal variables in the used variables set, or
+       * for each entry in the sequence variable in the used variables set.
+       */
+      void expand(Map<String, String> variables);
+    }
+    
+    private final ImmutableMap<String, String> variables;
+    private final ImmutableMap<String, ImmutableList<String>> sequenceVariables;
+
+    private Variables(ImmutableMap<String, String> variables,
+        ImmutableMap<String, ImmutableList<String>> sequenceVariables) {
+      this.variables = variables;
+      this.sequenceVariables = sequenceVariables;
+    }
+
+    /**
+     * Calls {@code expand} on the {@code consumer} for each expansion of the {@code consumer}'s
+     * used variable set.
+     * 
+     * <p>The {@code consumer}'s used variable set must contain at most one variable of sequence
+     * type; additionally, all of the used variables must be available in the current variable
+     * configuration. If any of the preconditions are violated, throws an
+     * {@code ExpansionException}.
+     */
+    void forEachExpansion(ExpansionConsumer consumer) {
+      Map<String, String> variableView = new HashMap<>();
+      String sequenceName = null; 
+      for (String name : consumer.getUsedVariables()) {
+        if (sequenceVariables.containsKey(name)) {
+          if (variables.containsKey(name)) {
+            throw new ExpansionException("Internal error: variable '" + name
+                + "' provided both as sequence and standard variable.");
+          } else if (sequenceName != null) {
+            throw new ExpansionException(
+                "Invalid toolchain configuration: trying to expand two variable list in one "
+                + "flag group: '" + sequenceName + "' and '" + name + "'");
+          } else {
+            sequenceName = name;
+          }
+        } else if (variables.containsKey(name)) {
+          variableView.put(name, variables.get(name));
+        } else {
+          throw new ExpansionException("Invalid toolchain configuration: unknown variable '" + name
+              + "' can not be expanded.");
+        }
+      }
+      if (sequenceName != null) {
+        for (String value : sequenceVariables.get(sequenceName)) {
+          variableView.put(sequenceName, value);
+          consumer.expand(variableView);
+        }
+      } else {
+        consumer.expand(variableView);
+      }      
     }
   }
   
@@ -455,7 +539,7 @@ public class CcToolchainFeatures implements Serializable {
     /**
      * @return the command line for the given {@code action}.
      */
-    List<String> getCommandLine(String action, Multimap<String, String> variables) {
+    List<String> getCommandLine(String action, Variables variables) {
       List<String> commandLine = new ArrayList<>();
       for (Feature feature : enabledFeatures) {
         feature.expandCommandLine(action, variables, commandLine);
