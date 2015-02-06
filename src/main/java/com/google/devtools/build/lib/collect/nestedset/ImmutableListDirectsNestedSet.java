@@ -27,7 +27,9 @@ import javax.annotation.Nullable;
  */
 abstract class ImmutableListDirectsNestedSet<E> extends NestedSet<E> {
 
+  @SuppressWarnings("rawtypes")
   private static final NestedSet[] EMPTY = new NestedSet[0];
+
   private final ImmutableList<E> directDeps;
 
   public ImmutableListDirectsNestedSet(ImmutableList<E> directDeps) {
@@ -42,9 +44,10 @@ abstract class ImmutableListDirectsNestedSet<E> extends NestedSet<E> {
     return directDeps.toArray();
   }
 
+  @SuppressWarnings({"cast", "unchecked"})
   @Override
-  NestedSet[] transitiveSets() {
-    return EMPTY;
+  NestedSet<? extends E>[] transitiveSets() {
+    return (NestedSet<? extends E>[]) EMPTY;
   }
 
   @Override
@@ -78,7 +81,7 @@ abstract class ImmutableListDirectsNestedSet<E> extends NestedSet<E> {
     }
     return getOrder().equals(other.getOrder())
         && other instanceof ImmutableListDirectsNestedSet
-        && directDeps.equals(((ImmutableListDirectsNestedSet) other).directDeps);
+        && directDeps.equals(((ImmutableListDirectsNestedSet<? extends E>) other).directDeps);
   }
 
   @Override

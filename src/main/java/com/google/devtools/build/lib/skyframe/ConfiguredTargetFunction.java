@@ -290,7 +290,7 @@ final class ConfiguredTargetFunction implements SkyFunction {
           // The configured target should have been created in resolveConfiguredTargetDependencies()
           throw new IllegalStateException(e);
         } catch (NoSuchThingException | AspectCreationException e) {
-          AspectFactory depAspectFactory = AspectFactory.Util.create(depAspect);
+          AspectFactory<?, ?, ?> depAspectFactory = AspectFactory.Util.create(depAspect);
           throw new DependencyEvaluationException(new ConfiguredValueCreationException(
               String.format("Evaluation of aspect %s on %s failed: %s",
                   depAspectFactory.getDefinition().getName(), dep.getLabel(), e.toString())));

@@ -63,12 +63,13 @@ public final class BinaryOperatorExpression extends Expression {
     return lhs + " " + operator + " " + rhs;
   }
 
+  @SuppressWarnings("unchecked")
   private int compare(Object lval, Object rval) throws EvalException {
     if (!(lval instanceof Comparable)) {
       throw new EvalException(getLocation(), lval + " is not comparable");
     }
     try {
-      return ((Comparable) lval).compareTo(rval);
+      return ((Comparable<Object>) lval).compareTo(rval);
     } catch (ClassCastException e) {
       throw new EvalException(getLocation(), "Cannot compare " + EvalUtils.getDatatypeName(lval)
           + " with " + EvalUtils.getDatatypeName(rval));

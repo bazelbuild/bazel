@@ -53,8 +53,8 @@ abstract class ManyDirectManyTransitive<E> extends MemoizedUniquefierNestedSet<E
     return other != null
         && getOrder().equals(other.getOrder())
         && other instanceof ManyDirectManyTransitive
-        && Arrays.equals(directs, ((ManyDirectManyTransitive) other).directs)
-        && Arrays.equals(transitives, ((ManyDirectManyTransitive) other).transitives);
+        && Arrays.equals(directs, ((ManyDirectManyTransitive<? extends E>) other).directs)
+        && Arrays.equals(transitives, ((ManyDirectManyTransitive<? extends E>) other).transitives);
   }
 
   @Override

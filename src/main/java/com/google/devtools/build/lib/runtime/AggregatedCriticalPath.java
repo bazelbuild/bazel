@@ -21,7 +21,7 @@ import com.google.common.collect.ImmutableList;
  * Aggregates all the critical path components in one object. This allows us to easily access the
  * components data and have a proper toString().
  */
-public class AggregatedCriticalPath<T extends AbstractCriticalPathComponent> {
+public class AggregatedCriticalPath<T extends AbstractCriticalPathComponent<?>> {
 
   private final long totalTime;
   private final ImmutableList<T> criticalPathComponents;
