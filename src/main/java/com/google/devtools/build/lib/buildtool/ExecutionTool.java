@@ -175,7 +175,7 @@ public class ExecutionTool {
   private ActionInputFileCache fileCache;
   private List<ActionContextProvider> actionContextProviders;
 
-  private Map<String, ActionContext> spawnStrategyMap = new HashMap<>();
+  private Map<String, SpawnActionContext> spawnStrategyMap = new HashMap<>();
   private List<ActionContext> strategies = new ArrayList<>();
 
   ExecutionTool(BlazeRuntime runtime, BuildRequest request) throws ExecutorInitException {

@@ -47,12 +47,12 @@ public interface ActionContextConsumer {
    * <p>If a spawn action is executed whose mnemonic maps to the empty string or is not
    * present in the map at all, the choice of the implementation is left to Blaze.
    */
-  public Map<String, String> getSpawnActionContexts();
+  Map<String, String> getSpawnActionContexts();
 
   /**
    * Returns a map from action context class to the implementation required by the module.
    *
    * <p>If the implementation name is the empty string, the choice is left to Blaze.
    */
-  public Map<Class<? extends ActionContext>, String> getActionContexts();
+  Map<Class<? extends ActionContext>, String> getActionContexts();
 }

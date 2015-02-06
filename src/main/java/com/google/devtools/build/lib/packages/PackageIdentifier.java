@@ -126,10 +126,10 @@ public final class PackageIdentifier implements Comparable<PackageIdentifier>, S
       if (this == object) {
         return true;
       }
-      if (object instanceof RepositoryName) {
-        return name.equals(((RepositoryName) object).name);
+      if (!(object instanceof RepositoryName)) {
+        return false;
       }
-      return false;
+      return name.equals(((RepositoryName) object).name);
     }
 
     @Override
@@ -249,11 +249,11 @@ public final class PackageIdentifier implements Comparable<PackageIdentifier>, S
     if (this == object) {
       return true;
     }
-    if (object instanceof PackageIdentifier) {
-      PackageIdentifier that = (PackageIdentifier) object;
-      return repository.equals(that.repository) && pkgName.equals(that.pkgName);
+    if (!(object instanceof PackageIdentifier)) {
+      return false;
     }
-    return false;
+    PackageIdentifier that = (PackageIdentifier) object;
+    return pkgName.equals(that.pkgName) && repository.equals(that.repository);
   }
 
   @Override

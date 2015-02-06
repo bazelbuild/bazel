@@ -20,9 +20,7 @@ package com.google.devtools.build.lib.actions;
 @ActionContextMarker(name = "spawn")
 public interface SpawnActionContext extends Executor.ActionContext {
 
-  /**
-   * Executes the given spawn.
-   */
+  /** Executes the given spawn. */
   void exec(Spawn spawn, ActionExecutionContext actionExecutionContext)
       throws ExecException, InterruptedException;
 

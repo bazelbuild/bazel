@@ -82,7 +82,7 @@ public final class BlazeExecutor implements Executor {
       boolean verboseFailures,
       boolean showSubcommands,
       List<ActionContext> contextImplementations,
-      Map<String, ActionContext> spawnContextMap,
+      Map<String, SpawnActionContext> spawnActionContextMap,
       Iterable<ActionContextProvider> contextProviders)
       throws ExecutorInitException {
     this.outputPath = outputPath;
@@ -99,12 +99,8 @@ public final class BlazeExecutor implements Executor {
     // (so we respect insertion order but also instantiate them only once).
     LinkedHashSet<ActionContext> allContexts = new LinkedHashSet<>();
     allContexts.addAll(contextImplementations);
-
-    ImmutableMap.Builder<String, SpawnActionContext> spawnMapBuilder = ImmutableMap.builder();
-    for (Map.Entry<String, ActionContext> entry: spawnContextMap.entrySet()) {
-      spawnMapBuilder.put(entry.getKey(), (SpawnActionContext) entry.getValue());
-      allContexts.add(entry.getValue());
-    }
+    allContexts.addAll(spawnActionContextMap.values());
+    this.spawnActionContextMap = ImmutableMap.copyOf(spawnActionContextMap);
 
     for (ActionContext context : contextImplementations) {
       ExecutionStrategy annotation = context.getClass().getAnnotation(ExecutionStrategy.class);
@@ -112,7 +108,6 @@ public final class BlazeExecutor implements Executor {
         contextMap.put(annotation.contextType(), context);
       }
     }
-    this.spawnActionContextMap = spawnMapBuilder.build();
 
     for (ActionContextProvider factory : contextProviders) {
       factory.executorCreated(allContexts);
