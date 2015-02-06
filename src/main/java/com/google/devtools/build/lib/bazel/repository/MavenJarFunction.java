@@ -14,13 +14,16 @@
 
 package com.google.devtools.build.lib.bazel.repository;
 
+import com.google.common.annotations.VisibleForTesting;
 import com.google.common.base.Ascii;
+import com.google.common.collect.ImmutableList;
 import com.google.common.collect.Lists;
 import com.google.devtools.build.lib.analysis.RuleDefinition;
 import com.google.devtools.build.lib.bazel.repository.DecompressorFactory.DecompressorException;
 import com.google.devtools.build.lib.bazel.repository.DecompressorFactory.JarDecompressor;
 import com.google.devtools.build.lib.bazel.rules.workspace.MavenJarRule;
 import com.google.devtools.build.lib.packages.AggregatingAttributeMapper;
+import com.google.devtools.build.lib.packages.AttributeMap;
 import com.google.devtools.build.lib.packages.PackageIdentifier.RepositoryName;
 import com.google.devtools.build.lib.packages.Rule;
 import com.google.devtools.build.lib.packages.Type;
@@ -53,14 +56,13 @@ import org.eclipse.aether.transport.file.FileTransporterFactory;
 import org.eclipse.aether.transport.http.HttpTransporterFactory;
 
 import java.io.IOException;
-import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.List;
 
 /**
  * Implementation of maven_jar.
  */
-public class MavenJarFunction extends HttpJarFunction {
+public class MavenJarFunction extends HttpArchiveFunction {
 
   @Override
   public SkyValue compute(SkyKey skyKey, Environment env) throws RepositoryFunctionException {
@@ -69,22 +71,34 @@ public class MavenJarFunction extends HttpJarFunction {
     if (rule == null) {
       return null;
     }
-
     AggregatingAttributeMapper mapper = AggregatingAttributeMapper.of(rule);
-    FileValue outputDirectoryValue = createOutputDirectory(env, rule.getName());
-    if (outputDirectoryValue == null) {
-      return null;
-    }
-    Path outputDirectory = outputDirectoryValue.realRootedPath().asPath();
-    MavenDownloader downloader = new MavenDownloader(
-        mapper.get("group_id", Type.STRING),
-        mapper.get("artifact_id", Type.STRING),
-        mapper.get("version", Type.STRING),
+    MavenDownloader downloader = createMavenDownloader(mapper);
+    return createOutputTree(downloader, env);
+  }
+
+  @VisibleForTesting
+  MavenDownloader createMavenDownloader(AttributeMap mapper) {
+    String name = mapper.getName();
+    Path outputDirectory = getExternalRepositoryDirectory().getRelative(name);
+    MavenDownloader downloader = new MavenDownloader(name, mapper.get("group_id", Type.STRING),
+        mapper.get("artifact_id", Type.STRING), mapper.get("version", Type.STRING),
         outputDirectory);
 
     List<String> repositories = mapper.get("repositories", Type.STRING_LIST);
     if (repositories != null && !repositories.isEmpty()) {
       downloader.setRepositories(repositories);
+    }
+
+    return downloader;
+  }
+
+  @VisibleForTesting
+  SkyValue createOutputTree(MavenDownloader downloader, Environment env)
+      throws RepositoryFunctionException {
+
+    FileValue outputDirectoryValue = createDirectory(downloader.getOutputDirectory(), env);
+    if (outputDirectoryValue == null) {
+      return null;
     }
 
     Path repositoryJar = null;
@@ -95,7 +109,8 @@ public class MavenJarFunction extends HttpJarFunction {
     }
 
     // Add a WORKSPACE file & BUILD file to the Maven jar.
-    JarDecompressor decompressor = new JarDecompressor(rule, repositoryJar);
+    JarDecompressor decompressor = new JarDecompressor(
+        MavenJarRule.NAME, downloader.getName(), repositoryJar);
     Path repositoryDirectory = null;
     try {
       repositoryDirectory = decompressor.decompress();
@@ -119,37 +134,56 @@ public class MavenJarFunction extends HttpJarFunction {
     return MavenJarRule.class;
   }
 
-  private static class MavenDownloader {
+  static class MavenDownloader {
     private static final String MAVEN_CENTRAL_URL = "http://central.maven.org/maven2/";
 
+    private final String name;
     private final String groupId;
     private final String artifactId;
     private final String version;
     private final Path outputDirectory;
     private List<RemoteRepository> repositories;
 
-    MavenDownloader(String groupId, String artifactId, String version, Path outputDirectory) {
+    MavenDownloader(String name, String groupId, String artifactId, String version,
+        Path outputDirectory) {
+      this.name = name;
       this.groupId = groupId;
       this.artifactId = artifactId;
       this.version = version;
       this.outputDirectory = outputDirectory;
-
-      this.repositories = new ArrayList<>(Arrays.asList(
-          new RemoteRepository.Builder("central", "default", MAVEN_CENTRAL_URL)
-          .build()));
+      repositories = Arrays.asList(
+          new RemoteRepository.Builder("central", "default", MAVEN_CENTRAL_URL).build());
+      this.repositories = ImmutableList.copyOf(repositories);
     }
 
     /**
-     * Customizes the set of Maven repositories to check.  Takes a list of repository addresses.
+     * Returns the name for this artifact-fetching rule.
      */
-    public void setRepositories(List<String> repositoryUrls) {
-      repositories = Lists.newArrayList();
-      for (String repositoryUrl : repositoryUrls) {
-        repositories.add(new RemoteRepository.Builder(
+    public String getName() {
+      return name;
+    }
+
+    /**
+     * Returns the directory that this artifact will be downloaded to.
+     */
+    public Path getOutputDirectory() {
+      return outputDirectory;
+    }
+
+    /**
+     * Customizes the set of Maven repositories to check.  Takes a list of repository URLs.
+     */
+    public void setRepositories(List<String> repositories) {
+      this.repositories = Lists.newArrayList();
+      for (String repositoryUrl : repositories) {
+        this.repositories.add(new RemoteRepository.Builder(
             "user-defined repository " + repositories.size(), "default", repositoryUrl).build());
       }
     }
 
+    /**
+     * Download the Maven artifact to the output directory. Returns the path to the jar.
+     */
     public Path download() throws IOException {
       RepositorySystem system = newRepositorySystem();
       RepositorySystemSession session = newRepositorySystemSession(system);

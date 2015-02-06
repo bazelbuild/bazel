@@ -16,7 +16,6 @@ package com.google.devtools.build.lib.bazel.repository;
 
 import com.google.devtools.build.lib.bazel.rules.workspace.HttpArchiveRule;
 import com.google.devtools.build.lib.bazel.rules.workspace.HttpJarRule;
-import com.google.devtools.build.lib.packages.Target;
 import com.google.devtools.build.lib.vfs.FileSystemUtils;
 import com.google.devtools.build.lib.vfs.Path;
 import com.google.devtools.build.lib.vfs.PathFragment;
@@ -42,33 +41,32 @@ import java.nio.charset.Charset;
  */
 public abstract class DecompressorFactory {
 
-
-  public static Decompressor create(Target target, Path archivePath)
+  public static Decompressor create(String targetKind, String targetName, Path archivePath)
       throws DecompressorException {
     String baseName = archivePath.getBaseName();
 
-    if (target.getTargetKind().startsWith(HttpJarRule.NAME + " ")) {
+    if (targetKind.startsWith(HttpJarRule.NAME + " ")) {
       if (baseName.endsWith(".jar")) {
-        return new JarDecompressor(target, archivePath);
+        return new JarDecompressor(targetKind, targetName, archivePath);
       } else {
         throw new DecompressorException(
-            "Expected " + HttpJarRule.NAME + " " + target.getName()
+            "Expected " + HttpJarRule.NAME + " " + targetName
                 + " to create file with a .jar suffix (got " + archivePath + ")");
       }
     }
 
-    if (target.getTargetKind().startsWith(HttpArchiveRule.NAME + " ")) {
+    if (targetKind.startsWith(HttpArchiveRule.NAME + " ")) {
       if (baseName.endsWith(".zip") || baseName.endsWith(".jar")) {
         return new ZipDecompressor(archivePath);
       } else {
         throw new DecompressorException(
-            "Expected " + HttpArchiveRule.NAME + " " + target.getName()
+            "Expected " + HttpArchiveRule.NAME + " " + targetName
                 + " to create file with a .zip or .jar suffix (got " + archivePath + ")");
       }
     }
 
     throw new DecompressorException(
-        "No decompressor found for " + target.getTargetKind() + " rule " + target.getName()
+        "No decompressor found for " + targetKind + " rule " + targetName
             + " (got " + archivePath + ")");
   }
 
@@ -93,11 +91,13 @@ public abstract class DecompressorFactory {
   }
 
   static class JarDecompressor extends Decompressor {
-    private final Target target;
+    private final String targetKind;
+    private final String targetName;
 
-    public JarDecompressor(Target target, Path archiveFile) {
+    public JarDecompressor(String targetKind, String targetName, Path archiveFile) {
       super(archiveFile);
-      this.target = target;
+      this.targetKind = targetKind;
+      this.targetName = targetName;
     }
 
     /**
@@ -117,8 +117,8 @@ public abstract class DecompressorFactory {
         // .external-repository/some-name/repository/WORKSPACE.
         Path workspaceFile = destinationDirectory.getRelative("WORKSPACE");
         FileSystemUtils.writeContent(workspaceFile, Charset.forName("UTF-8"),
-            "# DO NOT EDIT: automatically generated WORKSPACE file for " + target.getTargetKind()
-                + " rule " + target.getName());
+            "# DO NOT EDIT: automatically generated WORKSPACE file for " + targetKind
+                + " rule " + targetName);
         // .external-repository/some-name/repository/jar.
         Path jarDirectory = destinationDirectory.getRelative("jar");
         FileSystemUtils.createDirectoryAndParents(jarDirectory);
@@ -131,8 +131,8 @@ public abstract class DecompressorFactory {
         // .external-repository/some-name/repository/jar/BUILD defines the //jar target.
         Path buildFile = jarDirectory.getRelative("BUILD");
         FileSystemUtils.writeLinesAs(buildFile, Charset.forName("UTF-8"),
-            "# DO NOT EDIT: automatically generated BUILD file for " + target.getTargetKind()
-                + " rule " + target.getName(),
+            "# DO NOT EDIT: automatically generated BUILD file for " + targetKind + " rule "
+                + targetName,
             "java_import(",
             "    name = 'jar',",
             "    jars = ['" + baseName + "'],",

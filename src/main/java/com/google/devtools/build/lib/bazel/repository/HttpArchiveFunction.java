@@ -52,7 +52,17 @@ public class HttpArchiveFunction extends RepositoryFunction {
     return compute(env, rule);
   }
 
-  protected FileValue createOutputDirectory(Environment env, String repositoryName)
+  protected FileValue createDirectory(Path path, Environment env)
+      throws RepositoryFunctionException {
+    try {
+      FileSystemUtils.createDirectoryAndParents(path);
+    } catch (IOException e) {
+      throw new RepositoryFunctionException(e, Transience.TRANSIENT);
+    }
+    return getRepositoryDirectory(path, env);
+  }
+
+  protected SkyValue compute(Environment env, Rule rule)
       throws RepositoryFunctionException {
     // The output directory is always under .external-repository (to stay out of the way of
     // artifacts from this repository) and uses the rule's name to avoid conflicts with other
@@ -61,22 +71,11 @@ public class HttpArchiveFunction extends RepositoryFunction {
     // http_archive(name = "png", url = "http://example.com/downloads/png.tar.gz", sha256 = "...")
     //
     // This would download png.tar.gz to .external-repository/png/png.tar.gz.
-    Path outputDirectory = getExternalRepositoryDirectory().getRelative(repositoryName);
-    try {
-      FileSystemUtils.createDirectoryAndParents(outputDirectory);
-    } catch (IOException e) {
-      throw new RepositoryFunctionException(e, Transience.TRANSIENT);
-    }
-    return getRepositoryDirectory(outputDirectory, env);
-  }
-
-  protected SkyValue compute(Environment env, Rule rule)
-      throws RepositoryFunctionException {
-    FileValue directoryValue = createOutputDirectory(env, rule.getName());
+    Path outputDirectory = getExternalRepositoryDirectory().getRelative(rule.getName());
+    FileValue directoryValue = createDirectory(outputDirectory, env);
     if (directoryValue == null) {
       return null;
     }
-    Path outputDirectory = directoryValue.realRootedPath().asPath();
     AggregatingAttributeMapper mapper = AggregatingAttributeMapper.of(rule);
     URL url = null;
     try {
@@ -90,7 +89,8 @@ public class HttpArchiveFunction extends RepositoryFunction {
     HttpDownloader downloader = new HttpDownloader(url, sha256, outputDirectory);
     try {
       Path archiveFile = downloader.download();
-      outputDirectory = DecompressorFactory.create(rule, archiveFile).decompress();
+      outputDirectory = DecompressorFactory.create(
+          rule.getTargetKind(), rule.getName(), archiveFile).decompress();
     } catch (IOException e) {
       // Assumes all IO errors transient.
       throw new RepositoryFunctionException(e, Transience.TRANSIENT);
