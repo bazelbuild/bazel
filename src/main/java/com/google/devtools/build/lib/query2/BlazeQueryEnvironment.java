@@ -270,11 +270,11 @@ public class BlazeQueryEnvironment implements QueryEnvironment<Target> {
     return result;
   }
 
-  public Node<Target> getTarget(Label label) throws TargetNotFoundException, QueryException {
+  public Target getTarget(Label label) throws TargetNotFoundException, QueryException {
     // Can't use strictScope here because we are expecting a target back.
     validateScope(label, true);
     try {
-      return getNode(getTargetOrThrow(label));
+      return getNode(getTargetOrThrow(label)).getLabel();
     } catch (NoSuchThingException e) {
       throw new TargetNotFoundException(e);
     } catch (InterruptedException e) {
@@ -544,7 +544,7 @@ public class BlazeQueryEnvironment implements QueryEnvironment<Target> {
         if (value != null) {
           for (Label label : attrType.getLabels(value)) {
             try {
-              result.add(getTarget(label).getLabel());
+              result.add(getTarget(label));
             } catch (TargetNotFoundException e) {
               reportBuildFileError(caller, errorMsgPrefix + e.getMessage());
             }
