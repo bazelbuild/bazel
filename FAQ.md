@@ -266,7 +266,7 @@ reproducibility for the system environment (i.e. "which version of
 /usr/bin/c++ do I need?").
 
 It does not address reproducibility with regard to changes in the
-source code.  Running Make with a poorly written Makefile inside a
+source code.  Running Make with an imperfectly written Makefile inside a
 Docker container can still yield unpredictable results.
 
 Inside Google, we check in tools for reproducibility.  In this way, we
@@ -331,7 +331,7 @@ What future features can we expect in Bazel?
 
 We work on supporting Google's internal use-cases. This includes
 Google's principal languages (C++, Java, Go) and major platforms
-(Linux, Android, iOS).  For practical reasons, not all of these are
+(Linux, Android, iOS).  For practical reasons, not all of these are currently
 open-sourced.
 
 TODO(bazel-team): add link to public roadmap.
