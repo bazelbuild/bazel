@@ -346,8 +346,16 @@ We haven't made up our mind about these yet.
 What about Python?
 ------------------
 
-Even though Google uses Python internally, we have no plans to
-open-source our Python support.
+Our internal usage of Python relies heavily on native extensions, and
+its supporting infrastructure is specific to us, so we have no plans
+to open-source it.
+
+It is possible to support other packaging mechanisms, though. See the
+following files for an example of generating self-contained zip files
+for python:
+
+  https://github.com/google/bazel/blob/master/base_workspace/tools/build_rules/py_rules.bzl
+  https://github.com/google/bazel/tree/master/base_workspace/examples/py
 
 
 Can I use Bazel for my LISP/Python/Haskell/Scala/Rust project?
