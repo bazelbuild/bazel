@@ -286,7 +286,7 @@ some extra care:
     execution (--spawn_strategy=sandboxed-linux, only on Linux) can
     help find undeclared dependencies.
 
-  * Avoid storing timestamps in artifacts. ZIP files and other
+  * Avoid storing timestamps in generated files. ZIP files and other
     archives are especially prone to this.
 
   * Avoid connecting to the network. Sandboxed execution can help here
