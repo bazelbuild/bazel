@@ -1,4 +1,4 @@
-// Copyright 2014 Google Inc. All rights reserved.
+// Copyright 2015 Google Inc. All rights reserved.
 //
 // Licensed under the Apache License, Version 2.0 (the "License");
 // you may not use this file except in compliance with the License.
@@ -17,18 +17,12 @@ package com.google.devtools.build.lib.rules.objc;
 import com.google.devtools.build.lib.rules.objc.ObjcActionsBuilder.ExtraLinkArgs;
 
 /**
- * Implementation for the "objc_binary" rule.
+ * Implementation for the "ios_extension_binary" rule.
  */
-public class ObjcBinary extends BinaryLinkingTargetFactory {
-  public ObjcBinary() {
-    super(
-        // TODO(bazel-team): Remove the enum and delete all code depending on YES case once all
-        // bundle users are migrated to ios_application.
-        HasApplicationSupport.YES,
-        new ExtraLinkArgs(),
-
-        // TODO(bazel-team): Use LIBRARY_STATIC as parameter instead of APPLICATION once objc_binary
-        // no longer creates an application bundle
-        XcodeProductType.APPLICATION);
+public class IosExtensionBinary extends BinaryLinkingTargetFactory {
+  public IosExtensionBinary() {
+    super(HasApplicationSupport.NO,
+        new ExtraLinkArgs("-e", "_NSExtensionMain", "-fapplication-extension"),
+        XcodeProductType.LIBRARY_STATIC);
   }
 }

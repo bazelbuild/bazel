@@ -51,6 +51,7 @@ public class ObjcXcodeprojRule implements RuleDefinition {
             .nonEmpty()
             .allowedRuleClasses(
                 "objc_binary",
+                "ios_extension_binary",
                 "ios_test",
                 "objc_bundle_library",
                 "objc_import",

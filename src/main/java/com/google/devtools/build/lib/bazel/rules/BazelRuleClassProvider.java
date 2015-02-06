@@ -71,6 +71,7 @@ import com.google.devtools.build.lib.rules.java.Jvm;
 import com.google.devtools.build.lib.rules.java.JvmConfigurationLoader;
 import com.google.devtools.build.lib.rules.objc.IosApplicationRule;
 import com.google.devtools.build.lib.rules.objc.IosDeviceRule;
+import com.google.devtools.build.lib.rules.objc.IosExtensionBinaryRule;
 import com.google.devtools.build.lib.rules.objc.ObjcBinaryRule;
 import com.google.devtools.build.lib.rules.objc.ObjcBundleLibraryRule;
 import com.google.devtools.build.lib.rules.objc.ObjcBundleRule;
@@ -251,6 +252,7 @@ public class BazelRuleClassProvider {
     builder.addRuleDefinition(ObjcRuleClasses.ObjcCompilationRule.class);
     builder.addRuleDefinition(ObjcRuleClasses.ObjcBaseResourcesRule.class);
     builder.addRuleDefinition(IosApplicationRule.class);
+    builder.addRuleDefinition(IosExtensionBinaryRule.class);
 
     builder.addRuleDefinition(BazelExtraActionRule.class);
     builder.addRuleDefinition(BazelActionListenerRule.class);
