@@ -1041,6 +1041,7 @@ public final class BlazeRuntime {
   public static final class RemoteExceptionHandler implements SubscriberExceptionHandler {
     @Override
     public void handleException(Throwable exception, SubscriberExceptionContext context) {
+      LOG.log(Level.SEVERE, "Failure in EventBus subscriber", exception);
       LoggingUtil.logToRemote(Level.SEVERE, "Failure in EventBus subscriber.", exception);
     }
   }
