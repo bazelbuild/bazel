@@ -19,8 +19,8 @@ import static org.junit.Assert.assertTrue;
 import static org.junit.Assert.fail;
 
 import com.google.common.base.Joiner;
-import com.google.common.base.Receiver;
 import com.google.common.collect.ImmutableList;
+import com.google.devtools.build.singlejar.FakeZipFile.ByteValidator;
 
 import org.junit.Test;
 import org.junit.runner.RunWith;
@@ -49,7 +49,7 @@ public class SingleJarTest {
     DONT_CARE, EXPECT_DEFLATE, EXPECT_STORED;
   }
 
-  public static final class BuildInfoValidator implements Receiver<byte[]> {
+  public static final class BuildInfoValidator implements ByteValidator {
     private final List<String> buildInfoLines;
 
     public BuildInfoValidator(List<String> buildInfoLines) {
@@ -57,7 +57,7 @@ public class SingleJarTest {
     }
 
     @Override
-    public void accept(byte[] content) {
+    public void validate(byte[] content) {
       String actualBuildInfo = new String(content, StandardCharsets.UTF_8);
       List<String> expectedBuildInfos = new ArrayList<>();
       for (String line : buildInfoLines) { // the character : is escaped
@@ -74,7 +74,7 @@ public class SingleJarTest {
 
   // Manifest file line ordering is dependent of the ordering in HashMap (Attributes class) so
   // we do a sorted comparison for Manifest.
-  public static final class ManifestValidator implements Receiver<byte[]> {
+  public static final class ManifestValidator implements ByteValidator {
     private final List<String> manifestLines;
 
     public ManifestValidator(List<String> manifestLines) {
@@ -88,7 +88,7 @@ public class SingleJarTest {
     }
 
     @Override
-    public void accept(byte[] content) {
+    public void validate(byte[] content) {
       String actualManifest = new String(content, StandardCharsets.UTF_8);
       String[] actualManifestLines = actualManifest.trim().split("\r\n");
       Arrays.sort(actualManifestLines);

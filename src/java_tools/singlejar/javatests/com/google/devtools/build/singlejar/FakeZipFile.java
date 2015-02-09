@@ -21,7 +21,6 @@ import static org.junit.Assert.assertNotNull;
 import static org.junit.Assert.assertNull;
 import static org.junit.Assert.assertTrue;
 
-import com.google.common.base.Receiver;
 import com.google.devtools.build.singlejar.SingleJarTest.EntryMode;
 
 import java.io.ByteArrayInputStream;
@@ -42,6 +41,17 @@ import java.util.zip.ZipInputStream;
  */
 public final class FakeZipFile {
 
+  /**
+   * Validates an input provided as a byte array.
+   */
+  public static interface ByteValidator {
+    /**
+     * Check if {@code object} is the expected input. If {@code object} does not match the expected
+     * pattern, an assertion should fails with the necessary message.
+     */
+    void validate(byte[] object);
+  }
+
   private static void assertSameByteArray(byte[] expected, byte[] actual) {
     if (expected == null) {
       assertNull(actual);
@@ -60,7 +70,7 @@ public final class FakeZipFile {
     return out.toByteArray();
   }
 
-  private static final class PlainByteValidator implements Receiver<byte[]> {
+  private static final class PlainByteValidator implements ByteValidator {
     private final byte[] expected;
 
     private PlainByteValidator(String expected) {
@@ -68,7 +78,7 @@ public final class FakeZipFile {
     }
 
     @Override
-    public void accept(byte[] object) {
+    public void validate(byte[] object) {
       assertSameByteArray(expected, object);
     }
 
@@ -77,7 +87,7 @@ public final class FakeZipFile {
   private static final class FakeZipEntry {
 
     private final String name;
-    private final Receiver<byte[]> content;
+    private final ByteValidator content;
     private final Date date;
     private final byte[] extra;
     private final EntryMode mode;
@@ -90,7 +100,7 @@ public final class FakeZipFile {
       this.mode = mode;
     }
 
-    private FakeZipEntry(String name, Date date, Receiver<byte[]> content, byte[] extra,
+    private FakeZipEntry(String name, Date date, ByteValidator content, byte[] extra,
         EntryMode mode) {
       this.name = name;
       this.date = date;
@@ -118,7 +128,7 @@ public final class FakeZipFile {
         assertEquals(date.getTime(), zipEntry.getTime());
       }
       assertSameByteArray(extra, zipEntry.getExtra());
-      content.accept(readZipEntryContent(zipInput));
+      content.validate(readZipEntryContent(zipInput));
     }
   }
 
@@ -146,23 +156,23 @@ public final class FakeZipFile {
     return this;
   }
 
-  public FakeZipFile addEntry(String name, Receiver<byte[]> content) {
+  public FakeZipFile addEntry(String name, ByteValidator content) {
     entries.add(new FakeZipEntry(name, null, content, null, EntryMode.DONT_CARE));
     return this;
   }
 
-  public FakeZipFile addEntry(String name, Receiver<byte[]> content, boolean compressed) {
+  public FakeZipFile addEntry(String name, ByteValidator content, boolean compressed) {
     entries.add(new FakeZipEntry(name, null, content, null,
         compressed ? EntryMode.EXPECT_DEFLATE : EntryMode.EXPECT_STORED));
     return this;
   }
 
-  public FakeZipFile addEntry(String name, Date date, Receiver<byte[]> content) {
+  public FakeZipFile addEntry(String name, Date date, ByteValidator content) {
     entries.add(new FakeZipEntry(name, date, content, null, EntryMode.DONT_CARE));
     return this;
   }
 
-  public FakeZipFile addEntry(String name, Date date, Receiver<byte[]> content,
+  public FakeZipFile addEntry(String name, Date date, ByteValidator content,
       boolean compressed) {
     entries.add(new FakeZipEntry(name, date, content, null,
         compressed ? EntryMode.EXPECT_DEFLATE : EntryMode.EXPECT_STORED));
