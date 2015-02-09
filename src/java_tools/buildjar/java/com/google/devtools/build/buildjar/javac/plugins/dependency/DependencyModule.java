@@ -362,8 +362,8 @@ public final class DependencyModule {
     /**
      * Sets the name (label) of the originating target.
      *
-     * @param targetLabel label, such as the label of a RuleConfiguredTarget
-     * @return this Builder instance
+     * @param targetLabel label, such as the label of a RuleConfiguredTarget.
+     * @return this Builder instance.
      */
     public Builder setTargetLabel(String targetLabel) {
       this.targetLabel = targetLabel;
@@ -373,9 +373,9 @@ public final class DependencyModule {
     /**
      * Adds a direct mapping to the existing map for direct dependencies.
      *
-     * @param jar path of jar artifact, as seen on classpath
-     * @param target full name of build target providing the jar
-     * @return this Builder instance
+     * @param jar path of jar artifact, as seen on classpath.
+     * @param target full name of build target providing the jar.
+     * @return this Builder instance.
      */
     public Builder addDirectMapping(String jar, String target) {
       directJarsToTargets.put(jar, target);
@@ -383,14 +383,38 @@ public final class DependencyModule {
     }
 
     /**
+     * Adds direct mappings to the existing map for direct dependencies.
+     *
+     * @param directMappings a map of paths of jar artifacts, as seen on classpath, to full names of
+     *     build targets providing the jar.
+     * @return this Builder instance
+     */
+    public Builder addDirectMappings(Map<String, String> directMappings) {
+      directJarsToTargets.putAll(directMappings);
+      return this;
+    }
+
+    /**
      * Adds an indirect mapping to the existing map for indirect dependencies.
      *
-     * @param jar path of jar artifact, as seen on classpath
-     * @param target full name of build target providing the jar
+     * @param jar path of jar artifact, as seen on classpath.
+     * @param target full name of build target providing the jar.
      * @return this Builder instance
      */
     public Builder addIndirectMapping(String jar, String target) {
       indirectJarsToTargets.put(jar, target);
+      return this;
+    }
+
+    /**
+     * Adds indirect mappings to the existing map for indirect dependencies.
+     *
+     * @param indirectMappings a map of paths of jar artifacts, as seen on classpath, to full names
+     *     of build targets providing the jar.
+     * @return this Builder instance
+     */
+    public Builder addIndirectMappings(Map<String, String> indirectMappings) {
+      indirectJarsToTargets.putAll(indirectMappings);
       return this;
     }
 

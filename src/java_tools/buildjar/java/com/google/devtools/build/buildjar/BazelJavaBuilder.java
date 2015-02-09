@@ -29,7 +29,7 @@ public abstract class BazelJavaBuilder {
    */
   public static void main(String[] args) {
     try {
-      JavaLibraryBuildRequest build = JavaLibraryBuildRequest.parse(Arrays.asList(args));
+      JavaLibraryBuildRequest build = new JavaLibraryBuildRequest(Arrays.asList(args));
       AbstractJavaBuilder builder = build.getDependencyModule().reduceClasspath()
           ? new ReducedClasspathJavaLibraryBuilder()
           : new SimpleJavaLibraryBuilder();

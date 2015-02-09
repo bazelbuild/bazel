@@ -20,6 +20,7 @@ import static com.google.devtools.build.buildjar.javac.plugins.dependency.Implic
 
 import com.google.common.annotations.VisibleForTesting;
 import com.google.devtools.build.buildjar.javac.plugins.BlazeJavaCompilerPlugin;
+import com.google.devtools.build.buildjar.javac.plugins.dependency.DependencyModule.StrictJavaDeps;
 import com.google.devtools.build.lib.view.proto.Deps;
 import com.google.devtools.build.lib.view.proto.Deps.Dependency;
 
@@ -196,7 +197,7 @@ public final class StrictJavaDepsPlugin extends BlazeJavaCompilerPlugin {
     private final Log log;
 
     /** The strict_java_deps mode */
-    private final DependencyModule.StrictJavaDeps strictJavaDepsMode;
+    private final StrictJavaDeps strictJavaDepsMode;
 
     /** Missing targets */
     private final Set<String> missingTargets;
