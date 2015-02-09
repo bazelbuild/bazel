@@ -24,6 +24,7 @@ import com.google.devtools.build.lib.query2.SkyframeQueryEnvironment;
 import com.google.devtools.build.lib.query2.engine.BlazeQueryEvalResult;
 import com.google.devtools.build.lib.query2.engine.QueryEnvironment.QueryFunction;
 import com.google.devtools.build.lib.query2.engine.QueryEnvironment.Setting;
+import com.google.devtools.build.lib.query2.engine.QueryEvalResult;
 import com.google.devtools.build.lib.query2.engine.QueryException;
 import com.google.devtools.build.lib.query2.engine.QueryExpression;
 import com.google.devtools.build.lib.query2.output.OutputFormatter;
@@ -40,7 +41,6 @@ import com.google.devtools.common.options.OptionsProvider;
 
 import java.io.IOException;
 import java.io.PrintStream;
-import java.nio.channels.ClosedByInterruptException;
 import java.util.Set;
 
 /**
@@ -129,21 +129,9 @@ public final class QueryCommand implements BlazeCommand {
     }
 
     // 3. Output results:
-    OutputFormatter.UnorderedFormatter unorderedFormatter = null;
-    if (!queryOptions.orderResults && formatter instanceof UnorderedFormatter) {
-      unorderedFormatter = (UnorderedFormatter) formatter;
-    }
-
     PrintStream output = new PrintStream(runtime.getReporter().getOutErr().getOutputStream());
     try {
-      if (unorderedFormatter != null) {
-        unorderedFormatter.outputUnordered(queryOptions, result.getResultSet(), output);
-      } else {
-        formatter.output(queryOptions, result.getResultGraph(), output);
-      }
-    } catch (ClosedByInterruptException e) {
-      runtime.getReporter().handle(Event.error("query interrupted"));
-      return ExitCode.INTERRUPTED;
+      output(queryOptions, result, formatter, output);
     } catch (IOException e) {
       runtime.getReporter().handle(Event.error("I/O error: " + e.getMessage()));
       return ExitCode.LOCAL_ENVIRONMENTAL_ERROR;
@@ -155,6 +143,19 @@ public final class QueryCommand implements BlazeCommand {
     }
 
     return result.getSuccess() ? ExitCode.SUCCESS : ExitCode.PARTIAL_ANALYSIS_FAILURE;
+  }
+
+  @VisibleForTesting
+  public static void output(QueryOptions queryOptions, QueryEvalResult<Target> result,
+      OutputFormatter formatter, PrintStream outputStream)
+      throws IOException {
+    if (queryOptions.orderResults || !(formatter instanceof UnorderedFormatter)) {
+      formatter.output(queryOptions, ((BlazeQueryEvalResult<Target>) result).getResultGraph(),
+          outputStream);
+    } else {
+      ((UnorderedFormatter) formatter).outputUnordered(queryOptions, result.getResultSet(),
+          outputStream);
+    }
   }
 
   @VisibleForTesting // for com.google.devtools.deps.gquery.test.QueryResultTestUtil
