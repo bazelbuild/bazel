@@ -192,14 +192,6 @@ public class TestResultAnalyzer {
     if (!existingSummary.actionRan() && !result.isCached()) {
       // At least one run of the test actually ran uncached.
       summaryBuilder.setActionRan(true);
-
-      // Coverage data artifact will be identical for all test results - it is provided by the
-      // TestRunnerAction and all results in this collection associate with the same action.
-      PathFragment coverageData = result.getCoverageData();
-      if (coverageData != null) {
-        summaryBuilder.addCoverageFiles(
-            Collections.singletonList(execRoot.getRelative(coverageData)));
-      }
     }
 
     if (result.isCached() || result.getData().getRemotelyCached()) {
@@ -207,6 +199,12 @@ public class TestResultAnalyzer {
     }
     if (result.isCached()) {
       numLocalActionCached++;
+    }
+    
+    PathFragment coverageData = result.getCoverageData();
+    if (coverageData != null) {
+      summaryBuilder.addCoverageFiles(
+          Collections.singletonList(execRoot.getRelative(coverageData)));
     }
 
     if (!executionOptions.runsPerTestDetectsFlakes) {
