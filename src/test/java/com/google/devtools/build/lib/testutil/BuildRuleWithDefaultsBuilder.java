@@ -122,7 +122,7 @@ public class BuildRuleWithDefaultsBuilder extends BuildRuleBuilder {
     }
     if (label != null) {
       if (attrType == Type.LABEL_LIST || attrType == Type.OUTPUT_LIST) {
-        setMultiValueAttribute(attribute.getName(), label);
+        addMultiValueAttributes(attribute.getName(), label);
       } else {
         setSingleValueAttribute(attribute.getName(), label);
       }
@@ -152,7 +152,7 @@ public class BuildRuleWithDefaultsBuilder extends BuildRuleBuilder {
   }
 
   public BuildRuleWithDefaultsBuilder popuplateStringListAttribute(Attribute attribute) {
-    setMultiValueAttribute(attribute.getName(), "x");
+    addMultiValueAttributes(attribute.getName(), "x");
     return this;
   }
 

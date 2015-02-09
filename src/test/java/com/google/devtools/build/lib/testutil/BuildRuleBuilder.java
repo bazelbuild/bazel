@@ -19,12 +19,13 @@ import com.google.common.base.Joiner;
 import com.google.common.base.Preconditions;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.Iterables;
+import com.google.common.collect.LinkedHashMultimap;
 import com.google.common.collect.Lists;
+import com.google.common.collect.Multimap;
 import com.google.devtools.build.lib.packages.RuleClass;
 
 import java.util.Collection;
 import java.util.HashMap;
-import java.util.List;
 import java.util.Map;
 
 /**
@@ -51,7 +52,7 @@ import java.util.Map;
 public class BuildRuleBuilder {
   protected final RuleClass ruleClass;
   protected final String ruleName;
-  private Map<String, List<String>> multiValueAttributes;
+  private Multimap<String, String> multiValueAttributes;
   private Map<String, Object> singleValueAttributes;
   protected Map<String, RuleClass> ruleClassMap;
   
@@ -72,7 +73,7 @@ public class BuildRuleBuilder {
   public BuildRuleBuilder(String ruleClass, String ruleName, Map<String, RuleClass> ruleClassMap) {
     this.ruleClass = ruleClassMap.get(ruleClass);
     this.ruleName = ruleName;
-    this.multiValueAttributes = new HashMap<>();
+    this.multiValueAttributes = LinkedHashMultimap.create();
     this.singleValueAttributes = new HashMap<>();
     this.ruleClassMap = ruleClassMap;
   }
@@ -90,39 +91,9 @@ public class BuildRuleBuilder {
   /**
    * Sets the value of a list type attribute
    */
-  public BuildRuleBuilder setMultiValueAttribute(String attrName, String... value) {
-    Preconditions.checkState(!multiValueAttributes.containsKey(attrName),
-        "attribute '" + attrName + "' already set");
-    multiValueAttributes.put(attrName, Lists.newArrayList(value));
+  public BuildRuleBuilder addMultiValueAttributes(String attrName, String... value) {
+    multiValueAttributes.putAll(attrName, Lists.newArrayList(value));
     return this;
-  }
-
-  /**
-   * Set the srcs attribute.
-   */
-  public BuildRuleBuilder setSources(String... sources) {
-    return setMultiValueAttribute("srcs", sources);
-  }
-
-  /**
-   * Set the deps attribute.
-   */
-  public BuildRuleBuilder setDeps(String... deps) {
-    return setMultiValueAttribute("deps", deps);
-  }
-
-  /**
-   * Set the resources attribute.
-   */
-  public BuildRuleBuilder setResources(String... resources) {
-    return setMultiValueAttribute("resources", resources);
-  }
-
-  /**
-   * Set the data attribute.
-   */
-  public BuildRuleBuilder setData(String... data) {
-    return setMultiValueAttribute("data", data);
   }
 
   /**
@@ -134,7 +105,7 @@ public class BuildRuleBuilder {
     StringBuilder sb = new StringBuilder();
     sb.append(ruleClass.getName()).append("(");
     printNormal(sb, "name", ruleName);
-    for (Map.Entry<String, List<String>> entry : multiValueAttributes.entrySet()) {
+    for (Map.Entry<String, Collection<String>> entry : multiValueAttributes.asMap().entrySet()) {
       printArray(sb, entry.getKey(), entry.getValue());
     }
     for (Map.Entry<String, Object> entry : singleValueAttributes.entrySet()) {
@@ -144,7 +115,7 @@ public class BuildRuleBuilder {
     return sb.toString();
   }
 
-  private void printArray(StringBuilder sb, String attr, List<String> values) {
+  private void printArray(StringBuilder sb, String attr, Collection<String> values) {
     if (values == null || values.isEmpty()) {
       return;
     }
@@ -172,7 +143,7 @@ public class BuildRuleBuilder {
    * Turns iterable of {a b c} into string "['a', 'b', 'c']", appends to
    * supplied StringBuilder.
    */
-  private void printList(StringBuilder sb, List<String> elements) {
+  private void printList(StringBuilder sb, Collection<String> elements) {
     sb.append("[");
     Joiner.on(",").appendTo(sb,
         Iterables.transform(elements, new Function<String, String>() {
@@ -198,5 +169,33 @@ public class BuildRuleBuilder {
    */
   public Collection<BuildRuleBuilder> getRulesToGenerate() {
     return ImmutableList.of();
+  }
+
+  /**
+   * Returns a {@link Dependency} of this {@link BuildRuleBuilder} using attrName.
+   */
+  public Dependency dependsVia(String attrName) {
+    return new Dependency(this, attrName);
+  }
+
+  /**
+   * Representing a {@link BuildRuleBuilder} depending on an other rule via a certain attribute.
+   */
+  public class Dependency {
+    private BuildRuleBuilder buildRuleBuilder;
+    private String attrName;
+
+    private Dependency(BuildRuleBuilder buildRuleBuilder, String attrName) {
+      this.buildRuleBuilder = buildRuleBuilder;
+      this.attrName = attrName;
+    }
+
+    /**
+     * Returns this {@link BuildRuleBuilder} with a new dependency on otherRule.
+     */
+    public BuildRuleBuilder on(BuildRuleBuilder otherRule) {
+      buildRuleBuilder.addMultiValueAttributes(attrName, otherRule.ruleName);
+      return buildRuleBuilder;
+    }
   }
 }
