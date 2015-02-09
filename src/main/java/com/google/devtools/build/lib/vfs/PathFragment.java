@@ -14,6 +14,7 @@
 package com.google.devtools.build.lib.vfs;
 
 import com.google.common.base.Function;
+import com.google.common.base.Preconditions;
 import com.google.common.base.Predicate;
 import com.google.common.collect.Iterables;
 import com.google.devtools.build.lib.concurrent.ThreadSafety.Immutable;
@@ -584,6 +585,15 @@ public final class PathFragment implements Comparable<PathFragment>, Serializabl
       }
     }
     return false;
+  }
+
+  /**
+   * Returns a relative PathFragment created from this absolute PathFragment using the
+   * same segments and drive letter.
+   */
+  public PathFragment toRelative() {
+    Preconditions.checkArgument(isAbsolute);
+    return new PathFragment(driveLetter, false, segments);
   }
 
   /**

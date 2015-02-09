@@ -13,6 +13,7 @@
 // limitations under the License.
 package com.google.devtools.build.lib.skyframe;
 
+import com.google.common.annotations.VisibleForTesting;
 import com.google.common.base.Preconditions;
 import com.google.devtools.build.lib.packages.PackageIdentifier;
 import com.google.devtools.build.lib.packages.PackageIdentifier.RepositoryName;
@@ -56,11 +57,28 @@ public class SkylarkImportLookupValue implements SkyValue {
     return dependency;
   }
 
+  @VisibleForTesting
   static SkyKey key(PackageIdentifier pkgIdentifier) throws ASTLookupInputException {
     return key(pkgIdentifier.getRepository(), pkgIdentifier.getPackageFragment());
   }
 
-  static SkyKey key(RepositoryName repo, PathFragment fileToImport) throws ASTLookupInputException {
+  static SkyKey key(RepositoryName repo, PathFragment fromFile, PathFragment fileToImport)
+      throws ASTLookupInputException {
+    PathFragment computedPath;
+    if (fileToImport.isAbsolute()) {
+      computedPath = fileToImport.toRelative();
+    } else if (fileToImport.segmentCount() > 1) {
+      // TODO(bazel-team): we treat paths with more then 1 segments as absolute paths
+      // for a transition period. Remove this after the transition is over.
+      computedPath = fileToImport;
+    } else {
+      computedPath = fromFile.getParentDirectory().getRelative(fileToImport);
+    }
+    return key(repo, computedPath);
+  }
+
+  private static SkyKey key(RepositoryName repo, PathFragment fileToImport)
+      throws ASTLookupInputException {
     // Skylark import lookup keys need to be valid AST file lookup keys.
     ASTFileLookupValue.checkInputArgument(fileToImport);
     return new SkyKey(

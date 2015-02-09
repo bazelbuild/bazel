@@ -386,8 +386,9 @@ public class PackageFunction implements SkyFunction {
       return getExternalPackage(env, packageLookupValue.getRoot());
     }
 
+    PathFragment buildFileFragment = packageNameFragment.getChild("BUILD");
     RootedPath buildFileRootedPath = RootedPath.toRootedPath(packageLookupValue.getRoot(),
-        packageNameFragment.getChild("BUILD"));
+        buildFileFragment);
     FileValue buildFileValue;
     try {
       buildFileValue = (FileValue) env.getValueOrThrow(FileValue.key(buildFileRootedPath),
@@ -455,8 +456,8 @@ public class PackageFunction implements SkyFunction {
       throw new PackageFunctionException(new BuildFileContainsErrorsException(
           packageName, e.getMessage()), Transience.TRANSIENT);
     }
-    SkylarkImportResult importResult = fetchImportsFromBuildFile(
-        buildFilePath, packageId.getRepository(), preludeStatements, inputSource, packageName, env);
+    SkylarkImportResult importResult = fetchImportsFromBuildFile(buildFilePath, buildFileFragment,
+        packageId.getRepository(), preludeStatements, inputSource, packageName, env);
     if (importResult == null) {
       return null;
     }
@@ -506,7 +507,8 @@ public class PackageFunction implements SkyFunction {
     return new PackageValue(pkg);
   }
 
-  private SkylarkImportResult fetchImportsFromBuildFile(Path buildFilePath, RepositoryName repo,
+  private SkylarkImportResult fetchImportsFromBuildFile(Path buildFilePath,
+      PathFragment buildFileFragment, RepositoryName repo,
       List<Statement> preludeStatements, ParserInputSource inputSource,
       String packageName, Environment env) throws PackageFunctionException {
     StoredEventHandler eventHandler = new StoredEventHandler();
@@ -527,7 +529,8 @@ public class PackageFunction implements SkyFunction {
     ImmutableList.Builder<SkylarkFileDependency> fileDependencies = ImmutableList.builder();
     try {
       for (PathFragment importFile : imports) {
-        SkyKey importsLookupKey = SkylarkImportLookupValue.key(repo, importFile);
+        SkyKey importsLookupKey =
+            SkylarkImportLookupValue.key(repo, buildFileFragment, importFile);
         SkylarkImportLookupValue importLookupValue = (SkylarkImportLookupValue)
             env.getValueOrThrow(importsLookupKey, SkylarkImportFailedException.class,
                 InconsistentFilesystemException.class, ASTLookupInputException.class,

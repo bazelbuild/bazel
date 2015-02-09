@@ -83,7 +83,8 @@ public class SkylarkImportLookupFunction implements SkyFunction {
     // TODO(bazel-team): Refactor this code and PackageFunction to reduce code duplications.
     for (PathFragment importFile : ast.getImports()) {
       try {
-        SkyKey importsLookupKey = SkylarkImportLookupValue.key(arg.getRepository(), importFile);
+        SkyKey importsLookupKey =
+            SkylarkImportLookupValue.key(arg.getRepository(), file, importFile);
         SkylarkImportLookupValue importsLookupValue;
         importsLookupValue = (SkylarkImportLookupValue) env.getValueOrThrow(
             importsLookupKey, ASTLookupInputException.class);
