@@ -60,7 +60,7 @@ public class ConfigSetting implements RuleConfiguredTargetFactory {
 
     ConfigMatchingProvider configMatcher;
     try {
-      configMatcher = new ConfigMatchingProvider(ruleContext.getLabel(),
+      configMatcher = new ConfigMatchingProvider(ruleContext.getLabel(), settings,
           matchesConfig(settings, ruleContext.getConfiguration()));
     } catch (OptionsParsingException e) {
       ruleContext.attributeError(ConfigRuleClasses.ConfigSettingRule.SETTINGS_ATTRIBUTE,

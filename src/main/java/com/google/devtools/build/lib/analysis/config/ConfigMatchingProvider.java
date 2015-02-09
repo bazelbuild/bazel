@@ -18,6 +18,9 @@ import com.google.devtools.build.lib.analysis.TransitiveInfoProvider;
 import com.google.devtools.build.lib.concurrent.ThreadSafety.Immutable;
 import com.google.devtools.build.lib.syntax.Label;
 
+import java.util.Map;
+import java.util.Set;
+
 /**
  * A "configuration target" that asserts whether or not it matches the
  * configuration it's bound to.
@@ -31,9 +34,18 @@ public final class ConfigMatchingProvider implements TransitiveInfoProvider {
 
   private final Label label;
   private final boolean matches;
+  private final Map<String, String> settingsMap;
 
-  public ConfigMatchingProvider(Label label, boolean matches) {
+  /**
+   * @param label the build label corresponding to this matcher
+   * @param settingsMap the condition settings that trigger this matcher
+   * @param matches whether or not this matcher matches the configuration associated with
+   *     its configured target
+   */
+  public ConfigMatchingProvider(Label label, Map<String, String> settingsMap,
+      boolean matches) {
     this.label = label;
+    this.settingsMap = settingsMap;
     this.matches = matches;
   }
 
@@ -50,5 +62,15 @@ public final class ConfigMatchingProvider implements TransitiveInfoProvider {
    */
   public boolean matches() {
     return matches;
+  }
+
+  /**
+   * Returns true if this matcher's conditions are a proper superset of another matcher's
+   * conditions, i.e. if this matcher is a specialization of the other one.
+   */
+  public boolean refines(ConfigMatchingProvider other) {
+    Set<Map.Entry<String, String>> settings = settingsMap.entrySet();
+    Set<Map.Entry<String, String>> otherSettings = other.settingsMap.entrySet();
+    return settings.containsAll(otherSettings) && settings.size() > otherSettings.size();
   }
 }

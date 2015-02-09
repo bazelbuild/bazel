@@ -124,7 +124,7 @@ public class ConfigRuleClasses {
              If a key appears multiple times in the dictionary, only the last instance is used.
              If a key references a flag that can be set multiple times on the command line (e.g.
              <code>blaze build --copt=foo --copt=bar --copt=baz ...</code>), a match occurs if
-             *any* of those settings match.
+             <i>any</i> of those settings match.
           <p>
 
           <p>This attribute cannot be empty.

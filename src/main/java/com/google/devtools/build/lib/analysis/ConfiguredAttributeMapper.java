@@ -14,6 +14,7 @@
 package com.google.devtools.build.lib.analysis;
 
 import com.google.common.base.Preconditions;
+import com.google.common.base.Verify;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 import com.google.devtools.build.lib.analysis.config.ConfigMatchingProvider;
@@ -102,25 +103,33 @@ public class ConfiguredAttributeMapper extends AbstractAttributeMapper {
       return super.get(attributeName, type);
     }
 
-    // We expect exactly one of this attribute's conditions to match (including the default
-    // condition, if specified). Throw an exception if our expectations aren't met.
-    Label matchingCondition = null;
+    ConfigMatchingProvider matchingCondition = null;
     T matchingValue = null;
 
     // Find the matching condition and record its value (checking for duplicates).
     for (Map.Entry<Label, T> entry : selector.getEntries().entrySet()) {
-      Label curCondition = entry.getKey();
-      if (Type.Selector.isReservedLabel(curCondition)) {
+      Label selectorKey = entry.getKey();
+      if (Type.Selector.isReservedLabel(selectorKey)) {
         continue;
-      } else if (Preconditions.checkNotNull(configConditions.get(curCondition)).matches()) {
-        if (matchingCondition != null) {
+      }
+
+      ConfigMatchingProvider curCondition = Verify.verifyNotNull(configConditions.get(selectorKey));
+
+      if (curCondition.matches()) {
+        if (matchingCondition == null || curCondition.refines(matchingCondition)) {
+          // A match is valid if either this is the *only* condition that matches or this is a
+          // more "precise" specification of another matching condition (in which case we choose
+          // the most precise one).
+          matchingCondition = curCondition;
+          matchingValue = entry.getValue();
+        } else if (matchingCondition.refines(curCondition)) {
+          // The originally matching conditions is more precise, so keep that one.
+        } else {
           throw new EvalException(rule.getAttributeLocation(attributeName),
-              "Both " + matchingCondition.toString() + " and " + curCondition.toString()
+              "Both " + matchingCondition.label() + " and " + curCondition.label()
               + " match configurable attribute \"" + attributeName + "\" in " + getLabel()
-              + ". At most one match is allowed");
+              + ". Multiple matches are not allowed unless one is a specialization of the other");
         }
-        matchingCondition = curCondition;
-        matchingValue = entry.getValue();
       }
     }
 
