@@ -190,4 +190,9 @@ public final class SkylarkNestedSet implements Iterable<Object> {
   public Class<?> getGenericType() {
     return genericType;
   }
+
+  @Override
+  public String toString() {
+    return "set(" + set.toCollection() + ")";
+  }
 }
