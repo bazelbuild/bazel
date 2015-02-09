@@ -162,30 +162,55 @@ public abstract class SkylarkFunction extends AbstractFunction {
       arguments.put(paramName, value);
       return;
     }
-    if (!(param.type().isAssignableFrom(value.getClass()))) {
-      throw new EvalException(loc, String.format("expected %s for '%s' but got %s instead\n"
-          + "%s.%s: %s",
-          EvalUtils.getDataTypeNameFromClass(param.type()), paramName,
-          EvalUtils.getDatatypeName(value), getName(), paramName, param.doc()));
-    }
-    if (param.type().equals(SkylarkList.class)) {
-      checkGeneric(paramName, param, value, ((SkylarkList) value).getGenericType(), loc);
-    } else if (param.type().equals(SkylarkNestedSet.class)) {
-      checkGeneric(paramName, param, value, ((SkylarkNestedSet) value).getGenericType(), loc);
-    }
+    cast(getName(), paramName, param.type(), param.generic1(), value, loc, param.doc());
     arguments.put(paramName, value);
   }
 
-  private void checkGeneric(String paramName, SkylarkBuiltin.Param param, Object value,
-      Class<?> genericType, Location loc) throws EvalException {
-    if (!genericType.equals(Object.class) && !param.generic1().isAssignableFrom(genericType)) {
-      String mainType = EvalUtils.getDataTypeNameFromClass(param.type());
+  /**
+   * Throws an EvalException of realValue is not of the expected type, otherwise returns realValue.
+   * 
+   * @param functionName - name of the function
+   * @param paramName - name of the parameter
+   * @param expectedType - the expected type of the parameter
+   * @param expectedGenericType - the expected generic type of the parameter, or
+   * Object.class if undefined
+   * @param realValue - the actual value of the parameter
+   * @param loc - the location info used in the EvalException
+   * @param paramDoc - the documentation of the parameter to print in the error message
+   */
+  @SuppressWarnings("unchecked")
+  public static <T> T cast(String functionName, String paramName,
+      Class<T> expectedType, Class<?> expectedGenericType,
+      Object realValue, Location loc, String paramDoc) throws EvalException {
+    if (!(expectedType.isAssignableFrom(realValue.getClass()))) {
+      throw new EvalException(loc, String.format("expected %s for '%s' but got %s instead\n"
+          + "%s.%s: %s",
+          EvalUtils.getDataTypeNameFromClass(expectedType), paramName,
+          EvalUtils.getDatatypeName(realValue), functionName, paramName, paramDoc));
+    }
+    if (expectedType.equals(SkylarkList.class)) {
+      checkGeneric(functionName, paramName, expectedType, expectedGenericType,
+          realValue, ((SkylarkList) realValue).getGenericType(), loc, paramDoc);
+    } else if (expectedType.equals(SkylarkNestedSet.class)) {
+      checkGeneric(functionName, paramName, expectedType, expectedGenericType,
+          realValue, ((SkylarkNestedSet) realValue).getGenericType(), loc, paramDoc);
+    }
+    return (T) realValue;
+  }
+
+  private static void checkGeneric(String functionName, String paramName,
+      Class<?> expectedType, Class<?> expectedGenericType,
+      Object realValue, Class<?> realGenericType,
+      Location loc, String paramDoc) throws EvalException {
+    if (!realGenericType.equals(Object.class)
+        && !expectedGenericType.isAssignableFrom(realGenericType)) {
+      String mainType = EvalUtils.getDataTypeNameFromClass(expectedType);
       throw new EvalException(loc, String.format(
           "expected %s of %ss for '%s' but got %s of %ss instead\n%s.%s: %s",
-        mainType, EvalUtils.getDataTypeNameFromClass(param.generic1()),
+        mainType, EvalUtils.getDataTypeNameFromClass(expectedGenericType),
         paramName,
-        EvalUtils.getDatatypeName(value), EvalUtils.getDataTypeNameFromClass(genericType),
-        getName(), paramName, param.doc()));
+        EvalUtils.getDatatypeName(realValue), EvalUtils.getDataTypeNameFromClass(realGenericType),
+        functionName, paramName, paramDoc));
     }
   }
 
@@ -303,8 +328,8 @@ public abstract class SkylarkFunction extends AbstractFunction {
         });
   }
 
-  // TODO(bazel-team): this is only used in SkylarkRuleConfgiuredTargetBuilder, fix typing for
-  // structs then remove this.
+  // TODO(bazel-team): this is only used in MixedModeFunctions in MethodLibrary, migrate those
+  // to SkylarkFunction then remove this.
   public static <TYPE> TYPE cast(Object elem, Class<TYPE> type, String what, Location loc)
       throws EvalException {
     try {

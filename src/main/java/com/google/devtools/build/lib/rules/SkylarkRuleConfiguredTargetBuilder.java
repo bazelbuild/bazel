@@ -13,8 +13,6 @@
 // limitations under the License.
 package com.google.devtools.build.lib.rules;
 
-import static com.google.devtools.build.lib.syntax.SkylarkFunction.cast;
-
 import com.google.common.base.Joiner;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
@@ -31,11 +29,13 @@ import com.google.devtools.build.lib.collect.nestedset.NestedSetBuilder;
 import com.google.devtools.build.lib.events.Location;
 import com.google.devtools.build.lib.packages.TargetUtils;
 import com.google.devtools.build.lib.packages.Type;
+import com.google.devtools.build.lib.syntax.ClassObject;
 import com.google.devtools.build.lib.syntax.ClassObject.SkylarkClassObject;
 import com.google.devtools.build.lib.syntax.Environment;
 import com.google.devtools.build.lib.syntax.EvalException;
 import com.google.devtools.build.lib.syntax.Function;
 import com.google.devtools.build.lib.syntax.SkylarkEnvironment;
+import com.google.devtools.build.lib.syntax.SkylarkFunction;
 import com.google.devtools.build.lib.syntax.SkylarkNestedSet;
 
 /**
@@ -130,8 +130,7 @@ public final class SkylarkRuleConfiguredTargetBuilder {
       SkylarkClassObject struct = (SkylarkClassObject) target;
       if (struct.getValue("executable") != null) {
         // We need this because of genrule.bzl. This overrides the default executable.
-        executable = cast(
-            struct.getValue("executable"), Artifact.class, "executable", struct.getCreationLoc());
+        executable = cast("executable", struct, Artifact.class, struct.getCreationLoc());
       }
     }
     return executable;
@@ -150,16 +149,14 @@ public final class SkylarkRuleConfiguredTargetBuilder {
       for (String key : struct.getKeys()) {
         if (key.equals("files")) {
           // If we specify files_to_build we don't have the executable in it by default.
-          builder.setFilesToBuild(cast(struct.getValue("files"),
-                  SkylarkNestedSet.class, "files", loc).getSet(Artifact.class));
+          builder.setFilesToBuild(cast("files", struct, SkylarkNestedSet.class, Artifact.class, loc)
+              .getSet(Artifact.class));
         } else if (key.equals("runfiles")) {
-          statelessRunfiles = cast(struct.getValue("runfiles"), Runfiles.class, "runfiles", loc);
+          statelessRunfiles = cast("runfiles",  struct, Runfiles.class, loc);
         } else if (key.equals("data_runfiles")) {
-          dataRunfiles =
-              cast(struct.getValue("data_runfiles"), Runfiles.class, "data_runfiles", loc);
+          dataRunfiles = cast("data_runfiles", struct, Runfiles.class, loc);
         } else if (key.equals("default_runfiles")) {
-          defaultRunfiles =
-              cast(struct.getValue("default_runfiles"), Runfiles.class, "default_runfiles", loc);
+          defaultRunfiles = cast("default_runfiles", struct, Runfiles.class, loc);
         } else if (!key.equals("executable")) {
           // We handled executable already.
           builder.addSkylarkTransitiveInfo(key, struct.getValue(key), loc);
@@ -202,6 +199,18 @@ public final class SkylarkRuleConfiguredTargetBuilder {
     } catch (IllegalArgumentException e) {
       throw new EvalException(loc, e.getMessage());
     }
+  }
+
+  private static <T> T cast(String paramName, ClassObject struct, Class<T> expectedType,
+      Location loc) throws EvalException {
+    return cast(paramName, struct, expectedType, Object.class, loc);
+  }
+
+  private static <T> T cast(String paramName, ClassObject struct, Class<T> expectedType,
+      Class<?> expectedGenericType, Location loc) throws EvalException {
+    return SkylarkFunction.cast("rule_implementation.return", paramName,
+        expectedType, expectedGenericType, struct.getValue(paramName), loc,
+        "'" + paramName + "' field of the struct returned by the rule implementation function");
   }
 
   private static Runfiles merge(Runfiles runfiles, Artifact executable) {

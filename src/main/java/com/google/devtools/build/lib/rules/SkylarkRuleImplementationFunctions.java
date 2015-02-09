@@ -306,8 +306,8 @@ public class SkylarkRuleImplementationFunctions {
         builder.addArtifacts(castList(params.get("files"), Artifact.class));
       }
       if (params.containsKey("transitive_files")) {
-        builder.addTransitiveArtifacts(cast(params.get("transitive_files"),
-            SkylarkNestedSet.class, "files", loc).getSet(Artifact.class));
+        builder.addTransitiveArtifacts(((SkylarkNestedSet) params.get("transitive_files"))
+            .getSet(Artifact.class));
       }
       return builder.build();
     }
