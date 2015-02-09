@@ -247,7 +247,7 @@ public class Environment {
     out.append("Environment{");
     List<String> keys = new ArrayList<>(env.keySet());
     Collections.sort(keys);
-    for (String key: keys) {
+    for (String key : keys) {
       out.append(key).append(" -> ").append(env.get(key)).append(", ");
     }
     out.append("}");

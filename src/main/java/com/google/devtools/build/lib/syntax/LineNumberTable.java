@@ -158,9 +158,9 @@ abstract class LineNumberTable implements Serializable {
      * Represents a "#line" directive
      */
     private static class SingleHashLine implements Serializable {
-      final private int offset;
-      final private int line;
-      final private Path path;
+      private final int offset;
+      private final int line;
+      private final Path path;
 
       SingleHashLine(int offset, int line, Path path) {
         this.offset = offset;

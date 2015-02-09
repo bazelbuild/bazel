@@ -177,9 +177,9 @@ public final class Lexer {
   /**
    * Parses an end-of-line sequence, handling statement indentation correctly.
    *
-   * UNIX newlines are assumed (LF). Carriage returns are always ignored.
+   * <p>UNIX newlines are assumed (LF). Carriage returns are always ignored.
    *
-   * ON ENTRY: 'pos' is the index of the char after '\n'.
+   * <p>ON ENTRY: 'pos' is the index of the char after '\n'.
    * ON EXIT: 'pos' is the index of the next non-space char after '\n'.
    */
   private void newline() {
@@ -485,7 +485,7 @@ public final class Lexer {
   /**
    * Scans an identifier or keyword.
    *
-   * ON ENTRY: 'pos' is 1 + the index of the first char in the identifier.
+   * <p>ON ENTRY: 'pos' is 1 + the index of the first char in the identifier.
    * ON EXIT: 'pos' is 1 + the index of the last char in the identifier.
    *
    * @return the identifier or keyword token.

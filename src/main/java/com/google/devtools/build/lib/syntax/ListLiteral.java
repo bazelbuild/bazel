@@ -19,7 +19,7 @@ import java.util.List;
 /**
  * Syntax node for list and tuple literals.
  *
- * (Note that during evaluation, both list and tuple values are represented by
+ * <p>(Note that during evaluation, both list and tuple values are represented by
  * java.util.List objects, the only difference between them being whether or not
  * they are mutable.)
  */

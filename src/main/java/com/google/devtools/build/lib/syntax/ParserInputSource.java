@@ -90,7 +90,7 @@ public abstract class ParserInputSource {
    * with this source.  'path' will be used in error messages, etc, but will
    * not (in general) be used to to read the content from path.
    *
-   * (The exception is the case in which Python pre-processing is required; the
+   * <p>(The exception is the case in which Python pre-processing is required; the
    * path will be used to provide the input to the Python pre-processor.
    * Arguably, we should just send the content as input to the subprocess
    * instead of using the path, but it's not clear it's worth the effort.)

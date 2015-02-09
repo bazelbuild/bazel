@@ -247,9 +247,7 @@ public abstract class EvalUtils {
       throws IOException {
     if (o == null) {
       throw new NullPointerException(); // None is not a build language value.
-    } else if (o instanceof String ||
-        o instanceof Integer ||
-        o instanceof Double) {
+    } else if (o instanceof String || o instanceof Integer || o instanceof Double) {
       buffer.append(o.toString());
 
     } else if (o == Environment.NONE) {
