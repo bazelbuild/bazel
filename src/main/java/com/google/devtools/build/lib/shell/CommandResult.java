@@ -83,17 +83,6 @@ public final class CommandResult {
   }
 
   /**
-   * @return the result of Process.waitFor for the subprocess.
-   * @deprecated this returns the result of Process.waitFor, which is not
-   *   precisely defined, and is not to be confused with the value passed to
-   *   exit(2) by the subprocess.  Use getTerminationStatus() instead.
-   */
-  @Deprecated
-  public int getExitStatus() {
-    return terminationStatus.getRawResult();
-  }
-
-  /**
    * @return the termination status of the subprocess.
    */
   public TerminationStatus getTerminationStatus() {

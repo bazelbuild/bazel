@@ -84,7 +84,9 @@ public final class TerminationStatus {
   }
 
   /**
-   * Returns the "raw" result returned by Process.waitFor.
+   * Returns the "raw" result returned by Process.waitFor. This value is not
+   * precisely defined, and is not to be confused with the value passed to
+   * exit(2) by the subprocess.  Use getTerminationStatus() instead.
    */
   int getRawResult() {
     return waitResult;
