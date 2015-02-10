@@ -64,6 +64,10 @@ int MakeDirectories(string path, int mode);
 // Returns false on error.
 bool ReadFile(const string &filename, string *content);
 
+// Replaces 'content' with contents of file descriptor 'fd'.
+// Returns false on error.
+bool ReadFileDescriptor(int fd, string *content);
+
 // Writes 'content' into file 'filename', and makes it executable.
 // Returns false on failure, sets errno.
 bool WriteFile(const string &content, const string &filename);

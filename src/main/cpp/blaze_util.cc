@@ -108,23 +108,29 @@ int MakeDirectories(string path, int mode) {
   return 0;
 }
 
-// Replaces 'content' with contents of file 'filename'.
+// Replaces 'contents' with contents of 'fd' file descriptor.
 // Returns false on error.
-bool ReadFile(const string &filename, string *content) {
+bool ReadFileDescriptor(int fd, string *content) {
   content->clear();
-  int fd = open(filename.c_str(), O_RDONLY);
-  if (fd == -1) return false;
   char buf[4096];
   // OPT:  This loop generates one spurious read on regular files.
   while (int r = read(fd, buf, sizeof buf)) {
     if (r == -1) {
-      if (errno == EINTR) continue;
+      if (errno == EINTR || errno == EAGAIN) continue;
       return false;
     }
     content->append(buf, r);
   }
   close(fd);
   return true;
+}
+
+// Replaces 'content' with contents of file 'filename'.
+// Returns false on error.
+bool ReadFile(const string &filename, string *content) {
+  int fd = open(filename.c_str(), O_RDONLY);
+  if (fd == -1) return false;
+  return ReadFileDescriptor(fd, content);
 }
 
 // Writes 'content' into file 'filename', and makes it executable.
@@ -260,23 +266,19 @@ bool VerboseLogging() {
 // Read the Jvm version from a file descriptor. The read fd
 // should contains a similar output as the java -version output.
 string ReadJvmVersion(int fd) {
-  static const int bytes_to_read = 255;
-  char buf[bytes_to_read + 1];  // leave one extra space for null
-  ssize_t size = read(fd, buf, bytes_to_read);
-  close(fd);
-  if (size > 0) {
-    buf[size] = 0;
+  string version_string;
+  if (ReadFileDescriptor(fd, &version_string)) {
     // try to look out for 'version "'
-    static const char version_pattern[] = "version \"";
-    char *ptr = strstr(buf, version_pattern);
-    if (ptr != NULL) {
-      ptr += sizeof(version_pattern)-1;
+    static const string version_pattern = "version \"";
+    size_t found = version_string.find(version_pattern);
+    if (found != string::npos) {
+      found += version_pattern.size();
       // If we found "version \"", process until next '"'
-      char *endptr = strchr(ptr, '"');
-      if (endptr != NULL) {
-        *endptr = 0;
+      size_t end = version_string.find("\"", found);
+      if (end == string::npos) {  // consider end of string as a '"'
+        end = version_string.size();
       }
-      return string(ptr);
+      return version_string.substr(found, end - found);
     }
   }
   return "";
