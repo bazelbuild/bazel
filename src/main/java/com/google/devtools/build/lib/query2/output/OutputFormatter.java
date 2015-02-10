@@ -33,6 +33,7 @@ import com.google.devtools.common.options.EnumConverter;
 
 import java.io.IOException;
 import java.io.PrintStream;
+import java.io.Serializable;
 import java.util.ArrayList;
 import java.util.Collections;
 import java.util.Comparator;
@@ -48,7 +49,7 @@ import java.util.Set;
  * Interface for classes which order, format and print the result of a Blaze
  * graph query.
  */
-public abstract class OutputFormatter {
+public abstract class OutputFormatter implements Serializable {
 
   /**
    * Discriminator for different kinds of OutputFormatter.

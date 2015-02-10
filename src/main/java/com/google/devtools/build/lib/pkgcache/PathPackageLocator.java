@@ -25,6 +25,7 @@ import com.google.devtools.build.lib.vfs.PathFragment;
 import com.google.devtools.build.lib.vfs.Symlinks;
 import com.google.devtools.build.lib.vfs.UnixGlob;
 
+import java.io.Serializable;
 import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.List;
@@ -40,7 +41,7 @@ import java.util.logging.Logger;
  * <p>All methods are thread-safe, and (assuming no change to the underlying
  * filesystem) idempotent.
  */
-public class PathPackageLocator {
+public class PathPackageLocator implements Serializable {
 
   public static final Set<String> DEFAULT_TOP_LEVEL_EXCLUDES =
       ImmutableSet.of("experimental", "obsolete");
