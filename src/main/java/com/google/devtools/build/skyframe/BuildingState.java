@@ -21,6 +21,7 @@ import com.google.devtools.build.lib.concurrent.ThreadSafety.ThreadCompatible;
 import com.google.devtools.build.lib.util.GroupedList;
 import com.google.devtools.build.lib.util.GroupedList.GroupedListHelper;
 
+import java.io.Serializable;
 import java.util.Collection;
 import java.util.Collections;
 import java.util.Iterator;
@@ -39,7 +40,7 @@ import java.util.Set;
  * caller must synchronize access to this class.
  */
 @ThreadCompatible
-final class BuildingState {
+final class BuildingState implements Serializable {
   enum DirtyState {
     /**
      * The node's dependencies need to be checked to see if it needs to be rebuilt. The

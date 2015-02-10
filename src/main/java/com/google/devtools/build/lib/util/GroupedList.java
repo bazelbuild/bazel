@@ -20,6 +20,7 @@ import com.google.common.collect.ImmutableSet;
 import com.google.common.collect.Iterables;
 import com.google.devtools.build.lib.collect.CompactHashSet;
 
+import java.io.Serializable;
 import java.util.ArrayList;
 import java.util.Collection;
 import java.util.Iterator;
@@ -35,7 +36,7 @@ import java.util.Set;
  * <p>Despite the "list" name, it is an error for the same element to appear multiple times in the
  * list. Users are responsible for not trying to add the same element to a GroupedList twice.
  */
-public class GroupedList<T> implements Iterable<Iterable<T>> {
+public class GroupedList<T> implements Iterable<Iterable<T>>, Serializable {
   // Total number of items in the list. At least elements.size(), but might be larger if there are
   // any nested lists.
   private int size = 0;
@@ -84,7 +85,7 @@ public class GroupedList<T> implements Iterable<Iterable<T>> {
     return elements.isEmpty();
   }
 
-  private static final Object EMPTY_LIST = new Object();
+  private static final Object EMPTY_LIST = new Serializable() {};
 
   public Object compress() {
     switch (size()) {

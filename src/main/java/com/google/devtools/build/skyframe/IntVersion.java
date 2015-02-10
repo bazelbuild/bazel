@@ -13,10 +13,12 @@
 // limitations under the License.
 package com.google.devtools.build.skyframe;
 
+import java.io.Serializable;
+
 /**
  * Versioning scheme based on integers.
  */
-public final class IntVersion implements Version {
+public final class IntVersion implements Version, Serializable {
 
   private final long val;
 

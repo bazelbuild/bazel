@@ -13,12 +13,14 @@
 // limitations under the License.
 package com.google.devtools.build.skyframe;
 
+import java.io.Serializable;
+
 /**
  * A Version "less than" all other versions, other than itself.
  *
  * <p>Only use in custom evaluator implementations.
  */
-public class MinimalVersion implements Version {
+public class MinimalVersion implements Version, Serializable {
   public static final MinimalVersion INSTANCE = new MinimalVersion();
 
   private MinimalVersion() {

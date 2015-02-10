@@ -22,6 +22,7 @@ import com.google.devtools.build.lib.util.GroupedList;
 import com.google.devtools.build.lib.util.GroupedList.GroupedListHelper;
 import com.google.devtools.build.lib.util.Pair;
 
+import java.io.Serializable;
 import java.util.Collection;
 import java.util.List;
 import java.util.Set;
@@ -48,7 +49,7 @@ import javax.annotation.Nullable;
  * <p>This class is public only for the benefit of alternative graph implementations outside of the
  * package.
  */
-public class NodeEntry {
+public class NodeEntry implements Serializable {
   /**
    * Return code for {@link #addReverseDepAndCheckIfDone(SkyKey)}.
    */
