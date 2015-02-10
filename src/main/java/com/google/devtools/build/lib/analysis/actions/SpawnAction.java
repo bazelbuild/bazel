@@ -88,7 +88,7 @@ public class SpawnAction extends AbstractAction {
   private final String progressMessage;
   private final String mnemonic;
   // entries are (directory for remote execution, Artifact)
-  private final Map<PathFragment, Artifact> inputManifests;
+  private final ImmutableMap<PathFragment, Artifact> inputManifests;
 
   private final ResourceSet resourceSet;
   private final ImmutableMap<String, String> environment;
@@ -233,6 +233,10 @@ public class SpawnAction extends AbstractAction {
       }
       throw e.toActionExecutionException(failMessage, executor.getVerboseFailures(), this);
     }
+  }
+
+  public ImmutableMap<PathFragment, Artifact> getInputManifests() {
+    return inputManifests;
   }
 
   /**

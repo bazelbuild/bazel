@@ -78,7 +78,13 @@ public final class ExtraAction extends SpawnAction {
         createInputs(shadowedAction.getInputs(), extraActionInputs),
         outputs,
         AbstractAction.DEFAULT_RESOURCE_SET,
-        argv, environment, progressMessage, mnemonic);
+        argv,
+        ImmutableMap.copyOf(environment),
+        ImmutableMap.<String, String>of(),
+        progressMessage,
+        getManifests(shadowedAction),
+        mnemonic,
+        null);
     this.extraActionInfoFile = extraActionInfoFile;
     this.shadowedAction = shadowedAction;
     this.runfilesManifests = ImmutableMap.copyOf(runfilesManifests);
@@ -90,6 +96,16 @@ public final class ExtraAction extends SpawnAction {
       // extra action file & dummy file
       Preconditions.checkArgument(outputs.size() == 2);
     }
+  }
+
+  private static ImmutableMap<PathFragment, Artifact> getManifests(Action shadowedAction) {
+    // If the shadowed action is a SpawnAction, then we also add the input manifests to this
+    // action's input manifests.
+    // TODO(bazel-team): Also handle other action classes correctly.
+    if (shadowedAction instanceof SpawnAction) {
+      return ((SpawnAction) shadowedAction).getInputManifests();
+    }
+    return ImmutableMap.of();
   }
 
   @Override
