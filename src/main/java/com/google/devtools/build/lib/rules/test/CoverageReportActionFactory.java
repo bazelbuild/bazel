@@ -20,6 +20,7 @@ import com.google.devtools.build.lib.actions.ArtifactFactory;
 import com.google.devtools.build.lib.actions.ArtifactOwner;
 import com.google.devtools.build.lib.analysis.ConfiguredTarget;
 
+import java.util.Collection;
 import java.util.Set;
 
 import javax.annotation.Nullable;
@@ -35,7 +36,7 @@ public interface CoverageReportActionFactory {
    * the factory implementation, such as command line arguments.
    */
   @Nullable
-  public Action createCoverageReportAction(Iterable<ConfiguredTarget> targetsToTest,
+  public Action createCoverageReportAction(Collection<ConfiguredTarget> targetsToTest,
       Set<Artifact> baselineCoverageArtifacts,
       ArtifactFactory artifactFactory, ArtifactOwner artifactOwner);
 }
