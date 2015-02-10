@@ -134,7 +134,7 @@ public class ReverseDepsUtilTest {
     REVERSE_DEPS_UTIL.addReverseDeps(example, Collections.singleton(new SkyKey(NODE_TYPE, 0)));
     try {
       REVERSE_DEPS_UTIL.getReverseDeps(example);
-      assertThat(numElements).is(0);
+      assertThat(numElements).isEqualTo(0);
     } catch (Exception expected) { }
   }
 
