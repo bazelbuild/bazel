@@ -1274,10 +1274,12 @@ public class CppCompileAction extends AbstractAction implements IncludeScannable
           // do not use the header modules files for now if the current
           // compilation is not modules enabled on its own.
           boolean pic = copts.contains("-fPIC");
-          for (Artifact source : context.getAdditionalInputs()) {
-            if ((pic && source.getFilename().endsWith(".pic.pcm")) || (!pic
-                && !source.getFilename().endsWith(".pic.pcm")
-                && source.getFilename().endsWith(".pcm"))) {
+          for (Artifact source : context.getTopLevelHeaderModules()) {
+            // Depending on whether this specific compile action is pic or non-pic, select the
+            // corresponding header modules. Note that the compilation context might give us both
+            // from targets that are built in both modes.
+            if ((pic && source.getFilename().endsWith(".pic.pcm"))
+                || (!pic && !source.getFilename().endsWith(".pic.pcm"))) {
               options.add("-Xclang=-fmodule-file=" + source.getExecPathString());
             }
           }
