@@ -58,7 +58,7 @@ public class InMemoryGraph implements ProcessableGraph {
 
   @Override
   public NodeEntry createIfAbsent(SkyKey key) {
-    NodeEntry newval = keepEdges ? new NodeEntry() : new EdgelessNodeEntry();
+    NodeEntry newval = keepEdges ? new InMemoryNodeEntry() : new EdgelessInMemoryNodeEntry();
     NodeEntry oldval = nodeMap.putIfAbsent(key, newval);
     return oldval == null ? newval : oldval;
   }

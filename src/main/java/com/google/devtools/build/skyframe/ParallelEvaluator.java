@@ -40,7 +40,6 @@ import com.google.devtools.build.lib.events.StoredEventHandler;
 import com.google.devtools.build.lib.profiler.Profiler;
 import com.google.devtools.build.lib.profiler.ProfilerTask;
 import com.google.devtools.build.lib.util.GroupedList.GroupedListHelper;
-import com.google.devtools.build.skyframe.BuildingState.DirtyState;
 import com.google.devtools.build.skyframe.EvaluationProgressReceiver.EvaluationState;
 import com.google.devtools.build.skyframe.NodeEntry.DependencyState;
 import com.google.devtools.build.skyframe.Scheduler.SchedulerException;
@@ -1580,7 +1579,7 @@ public final class ParallelEvaluator implements Evaluator {
         cyclesFound++;
         Iterable<SkyKey> cycle = graphPath.subList(cycleStart, graphPath.size());
         // Put this node into a consistent state for building if it is dirty.
-        if (entry.isDirty() && entry.getDirtyState() == DirtyState.CHECK_DEPENDENCIES) {
+        if (entry.isDirty() && entry.getDirtyState() == NodeEntry.DirtyState.CHECK_DEPENDENCIES) {
           // In the check deps state, entry has exactly one child not done yet. Note that this node
           // must be part of the path to the cycle we have found (since done nodes cannot be in
           // cycles, and this is the only missing one). Thus, it will not be removed below in

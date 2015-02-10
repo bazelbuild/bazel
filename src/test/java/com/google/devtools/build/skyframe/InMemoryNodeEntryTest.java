@@ -41,10 +41,10 @@ import java.util.Set;
 import javax.annotation.Nullable;
 
 /**
- * Tests for {@link NodeEntry}.
+ * Tests for {@link InMemoryNodeEntry}.
  */
 @RunWith(JUnit4.class)
-public class NodeEntryTest {
+public class InMemoryNodeEntryTest {
 
   private static final SkyFunctionName NODE_TYPE = new SkyFunctionName("Type", false);
   private static final NestedSet<TaggedEvents> NO_EVENTS =
@@ -56,7 +56,7 @@ public class NodeEntryTest {
 
   @Test
   public void createEntry() {
-    NodeEntry entry = new NodeEntry();
+    NodeEntry entry = new InMemoryNodeEntry();
     entry.addReverseDepAndCheckIfDone(null); // Start evaluation.
     assertFalse(entry.isDone());
     assertTrue(entry.isReady());
@@ -67,7 +67,7 @@ public class NodeEntryTest {
 
   @Test
   public void signalEntry() {
-    NodeEntry entry = new NodeEntry();
+    NodeEntry entry = new InMemoryNodeEntry();
     entry.addReverseDepAndCheckIfDone(null); // Start evaluation.
     SkyKey dep1 = key("dep1");
     addTemporaryDirectDep(entry, dep1);
@@ -93,7 +93,7 @@ public class NodeEntryTest {
 
   @Test
   public void reverseDeps() {
-    NodeEntry entry = new NodeEntry();
+    NodeEntry entry = new InMemoryNodeEntry();
     SkyKey mother = key("mother");
     SkyKey father = key("father");
     assertEquals(DependencyState.NEEDS_SCHEDULING, entry.addReverseDepAndCheckIfDone(mother));
@@ -109,7 +109,7 @@ public class NodeEntryTest {
 
   @Test
   public void errorValue() {
-    NodeEntry entry = new NodeEntry();
+    NodeEntry entry = new InMemoryNodeEntry();
     entry.addReverseDepAndCheckIfDone(null); // Start evaluation.
     ReifiedSkyFunctionException exception = new ReifiedSkyFunctionException(
         new GenericFunctionException(new SomeErrorException("oops"), Transience.PERSISTENT),
@@ -123,7 +123,7 @@ public class NodeEntryTest {
 
   @Test
   public void errorAndValue() {
-    NodeEntry entry = new NodeEntry();
+    NodeEntry entry = new InMemoryNodeEntry();
     entry.addReverseDepAndCheckIfDone(null); // Start evaluation.
     ReifiedSkyFunctionException exception = new ReifiedSkyFunctionException(
         new GenericFunctionException(new SomeErrorException("oops"), Transience.PERSISTENT),
@@ -136,7 +136,7 @@ public class NodeEntryTest {
 
   @Test
   public void crashOnNullErrorAndValue() {
-    NodeEntry entry = new NodeEntry();
+    NodeEntry entry = new InMemoryNodeEntry();
     entry.addReverseDepAndCheckIfDone(null); // Start evaluation.
     try {
       setValue(entry, /*value=*/null, /*errorInfo=*/null, /*graphVersion=*/0L);
@@ -148,7 +148,7 @@ public class NodeEntryTest {
 
   @Test
   public void crashOnTooManySignals() {
-    NodeEntry entry = new NodeEntry();
+    NodeEntry entry = new InMemoryNodeEntry();
     entry.addReverseDepAndCheckIfDone(null); // Start evaluation.
     try {
       entry.signalDep();
@@ -160,7 +160,7 @@ public class NodeEntryTest {
 
   @Test
   public void crashOnDifferentValue() {
-    NodeEntry entry = new NodeEntry();
+    NodeEntry entry = new InMemoryNodeEntry();
     entry.addReverseDepAndCheckIfDone(null); // Start evaluation.
     setValue(entry, new SkyValue() {}, /*errorInfo=*/null, /*graphVersion=*/0L);
     try {
@@ -174,7 +174,7 @@ public class NodeEntryTest {
 
   @Test
   public void dirtyLifecycle() {
-    NodeEntry entry = new NodeEntry();
+    NodeEntry entry = new InMemoryNodeEntry();
     entry.addReverseDepAndCheckIfDone(null); // Start evaluation.
     SkyKey dep = key("dep");
     addTemporaryDirectDep(entry, dep);
@@ -190,7 +190,7 @@ public class NodeEntryTest {
     assertThat(entry.getTemporaryDirectDeps()).isEmpty();
     SkyKey parent = key("parent");
     entry.addReverseDepAndCheckIfDone(parent);
-    assertEquals(BuildingState.DirtyState.CHECK_DEPENDENCIES, entry.getDirtyState());
+    assertEquals(NodeEntry.DirtyState.CHECK_DEPENDENCIES, entry.getDirtyState());
     assertThat(entry.getNextDirtyDirectDeps()).containsExactly(dep).inOrder();
     addTemporaryDirectDep(entry, dep);
     entry.signalDep();
@@ -202,7 +202,7 @@ public class NodeEntryTest {
 
   @Test
   public void changedLifecycle() {
-    NodeEntry entry = new NodeEntry();
+    NodeEntry entry = new InMemoryNodeEntry();
     entry.addReverseDepAndCheckIfDone(null); // Start evaluation.
     SkyKey dep = key("dep");
     addTemporaryDirectDep(entry, dep);
@@ -217,7 +217,7 @@ public class NodeEntryTest {
     assertTrue(entry.isReady());
     SkyKey parent = key("parent");
     entry.addReverseDepAndCheckIfDone(parent);
-    assertEquals(BuildingState.DirtyState.REBUILDING, entry.getDirtyState());
+    assertEquals(NodeEntry.DirtyState.REBUILDING, entry.getDirtyState());
     assertTrue(entry.isReady());
     assertThat(entry.getTemporaryDirectDeps()).isEmpty();
     assertThat(setValue(entry, new SkyValue() {}, /*errorInfo=*/null,
@@ -227,7 +227,7 @@ public class NodeEntryTest {
 
   @Test
   public void markDirtyThenChanged() {
-    NodeEntry entry = new NodeEntry();
+    NodeEntry entry = new InMemoryNodeEntry();
     entry.addReverseDepAndCheckIfDone(null); // Start evaluation.
     addTemporaryDirectDep(entry, key("dep"));
     entry.signalDep();
@@ -249,7 +249,7 @@ public class NodeEntryTest {
 
   @Test
   public void markChangedThenDirty() {
-    NodeEntry entry = new NodeEntry();
+    NodeEntry entry = new InMemoryNodeEntry();
     entry.addReverseDepAndCheckIfDone(null); // Start evaluation.
     addTemporaryDirectDep(entry, key("dep"));
     entry.signalDep();
@@ -270,7 +270,7 @@ public class NodeEntryTest {
 
   @Test
   public void crashOnTwiceMarkedChanged() {
-    NodeEntry entry = new NodeEntry();
+    NodeEntry entry = new InMemoryNodeEntry();
     entry.addReverseDepAndCheckIfDone(null); // Start evaluation.
     setValue(entry, new SkyValue() {}, /*errorInfo=*/null, /*graphVersion=*/0L);
     assertFalse(entry.isDirty());
@@ -286,7 +286,7 @@ public class NodeEntryTest {
 
   @Test
   public void crashOnTwiceMarkedDirty() {
-    NodeEntry entry = new NodeEntry();
+    NodeEntry entry = new InMemoryNodeEntry();
     entry.addReverseDepAndCheckIfDone(null); // Start evaluation.
     addTemporaryDirectDep(entry, key("dep"));
     entry.signalDep();
@@ -302,7 +302,7 @@ public class NodeEntryTest {
 
   @Test
   public void crashOnAddReverseDepTwice() {
-    NodeEntry entry = new NodeEntry();
+    NodeEntry entry = new InMemoryNodeEntry();
     SkyKey parent = key("parent");
     assertEquals(DependencyState.NEEDS_SCHEDULING, entry.addReverseDepAndCheckIfDone(parent));
     try {
@@ -316,7 +316,7 @@ public class NodeEntryTest {
 
   @Test
   public void crashOnAddReverseDepTwiceAfterDone() {
-    NodeEntry entry = new NodeEntry();
+    NodeEntry entry = new InMemoryNodeEntry();
     entry.addReverseDepAndCheckIfDone(null); // Start evaluation.
     setValue(entry, new SkyValue() {}, /*errorInfo=*/null, /*graphVersion=*/0L);
     SkyKey parent = key("parent");
@@ -333,7 +333,7 @@ public class NodeEntryTest {
 
   @Test
   public void crashOnAddReverseDepBeforeAfterDone() {
-    NodeEntry entry = new NodeEntry();
+    NodeEntry entry = new InMemoryNodeEntry();
     SkyKey parent = key("parent");
     assertEquals(DependencyState.NEEDS_SCHEDULING, entry.addReverseDepAndCheckIfDone(parent));
     setValue(entry, new SkyValue() {}, /*errorInfo=*/null, /*graphVersion=*/0L);
@@ -349,7 +349,7 @@ public class NodeEntryTest {
 
   @Test
   public void crashOnAddDirtyReverseDep() {
-    NodeEntry entry = new NodeEntry();
+    NodeEntry entry = new InMemoryNodeEntry();
     SkyKey parent = key("parent");
     assertEquals(DependencyState.NEEDS_SCHEDULING, entry.addReverseDepAndCheckIfDone(parent));
     try {
@@ -364,7 +364,7 @@ public class NodeEntryTest {
 
   @Test
   public void pruneBeforeBuild() {
-    NodeEntry entry = new NodeEntry();
+    NodeEntry entry = new InMemoryNodeEntry();
     SkyKey dep = key("dep");
     entry.addReverseDepAndCheckIfDone(null); // Start evaluation.
     addTemporaryDirectDep(entry, dep);
@@ -379,11 +379,11 @@ public class NodeEntryTest {
     assertTrue(entry.isReady());
     SkyKey parent = key("parent");
     entry.addReverseDepAndCheckIfDone(parent);
-    assertEquals(BuildingState.DirtyState.CHECK_DEPENDENCIES, entry.getDirtyState());
+    assertEquals(NodeEntry.DirtyState.CHECK_DEPENDENCIES, entry.getDirtyState());
     assertThat(entry.getNextDirtyDirectDeps()).containsExactly(dep).inOrder();
     addTemporaryDirectDep(entry, dep);
     entry.signalDep(new IntVersion(0L));
-    assertEquals(BuildingState.DirtyState.VERIFIED_CLEAN, entry.getDirtyState());
+    assertEquals(NodeEntry.DirtyState.VERIFIED_CLEAN, entry.getDirtyState());
     assertThat(entry.markClean()).containsExactly(parent);
     assertTrue(entry.isDone());
     assertEquals(new IntVersion(0L), entry.getVersion());
@@ -409,7 +409,7 @@ public class NodeEntryTest {
 
   @Test
   public void pruneAfterBuild() {
-    NodeEntry entry = new NodeEntry();
+    NodeEntry entry = new InMemoryNodeEntry();
     entry.addReverseDepAndCheckIfDone(null); // Start evaluation.
     SkyKey dep = key("dep");
     addTemporaryDirectDep(entry, dep);
@@ -417,12 +417,12 @@ public class NodeEntryTest {
     setValue(entry, new IntegerValue(5), /*errorInfo=*/null, /*graphVersion=*/0L);
     entry.markDirty(/*isChanged=*/false);
     entry.addReverseDepAndCheckIfDone(null); // Start evaluation.
-    assertEquals(BuildingState.DirtyState.CHECK_DEPENDENCIES, entry.getDirtyState());
+    assertEquals(NodeEntry.DirtyState.CHECK_DEPENDENCIES, entry.getDirtyState());
     entry.addReverseDepAndCheckIfDone(null); // Start evaluation.
     assertThat(entry.getNextDirtyDirectDeps()).containsExactly(dep).inOrder();
     addTemporaryDirectDep(entry, dep);
     entry.signalDep(new IntVersion(1L));
-    assertEquals(BuildingState.DirtyState.REBUILDING, entry.getDirtyState());
+    assertEquals(NodeEntry.DirtyState.REBUILDING, entry.getDirtyState());
     assertThat(entry.getTemporaryDirectDeps()).containsExactly(dep);
     setValue(entry, new IntegerValue(5), /*errorInfo=*/null, /*graphVersion=*/1L);
     assertTrue(entry.isDone());
@@ -432,7 +432,7 @@ public class NodeEntryTest {
 
   @Test
   public void noPruneWhenDetailsChange() {
-    NodeEntry entry = new NodeEntry();
+    NodeEntry entry = new InMemoryNodeEntry();
     entry.addReverseDepAndCheckIfDone(null); // Start evaluation.
     SkyKey dep = key("dep");
     addTemporaryDirectDep(entry, dep);
@@ -447,11 +447,11 @@ public class NodeEntryTest {
     assertTrue(entry.isReady());
     SkyKey parent = key("parent");
     entry.addReverseDepAndCheckIfDone(parent);
-    assertEquals(BuildingState.DirtyState.CHECK_DEPENDENCIES, entry.getDirtyState());
+    assertEquals(NodeEntry.DirtyState.CHECK_DEPENDENCIES, entry.getDirtyState());
     assertThat(entry.getNextDirtyDirectDeps()).containsExactly(dep).inOrder();
     addTemporaryDirectDep(entry, dep);
     entry.signalDep(new IntVersion(1L));
-    assertEquals(BuildingState.DirtyState.REBUILDING, entry.getDirtyState());
+    assertEquals(NodeEntry.DirtyState.REBUILDING, entry.getDirtyState());
     assertThat(entry.getTemporaryDirectDeps()).containsExactly(dep);
     ReifiedSkyFunctionException exception = new ReifiedSkyFunctionException(
         new GenericFunctionException(new SomeErrorException("oops"), Transience.PERSISTENT),
@@ -464,7 +464,7 @@ public class NodeEntryTest {
 
   @Test
   public void pruneErrorValue() {
-    NodeEntry entry = new NodeEntry();
+    NodeEntry entry = new InMemoryNodeEntry();
     entry.addReverseDepAndCheckIfDone(null); // Start evaluation.
     SkyKey dep = key("dep");
     addTemporaryDirectDep(entry, dep);
@@ -476,11 +476,11 @@ public class NodeEntryTest {
     setValue(entry, /*value=*/null, errorInfo, /*graphVersion=*/0L);
     entry.markDirty(/*isChanged=*/false);
     entry.addReverseDepAndCheckIfDone(null); // Restart evaluation.
-    assertEquals(BuildingState.DirtyState.CHECK_DEPENDENCIES, entry.getDirtyState());
+    assertEquals(NodeEntry.DirtyState.CHECK_DEPENDENCIES, entry.getDirtyState());
     assertThat(entry.getNextDirtyDirectDeps()).containsExactly(dep).inOrder();
     addTemporaryDirectDep(entry, dep);
     entry.signalDep(new IntVersion(1L));
-    assertEquals(BuildingState.DirtyState.REBUILDING, entry.getDirtyState());
+    assertEquals(NodeEntry.DirtyState.REBUILDING, entry.getDirtyState());
     assertThat(entry.getTemporaryDirectDeps()).containsExactly(dep);
     setValue(entry, /*value=*/null, errorInfo, /*graphVersion=*/1L);
     assertTrue(entry.isDone());
@@ -489,7 +489,7 @@ public class NodeEntryTest {
 
   @Test
   public void getDependencyGroup() {
-    NodeEntry entry = new NodeEntry();
+    NodeEntry entry = new InMemoryNodeEntry();
     entry.addReverseDepAndCheckIfDone(null); // Start evaluation.
     SkyKey dep = key("dep");
     SkyKey dep2 = key("dep2");
@@ -502,18 +502,18 @@ public class NodeEntryTest {
     setValue(entry, /*value=*/new IntegerValue(5), null, 0L);
     entry.markDirty(/*isChanged=*/false);
     entry.addReverseDepAndCheckIfDone(null); // Restart evaluation.
-    assertEquals(BuildingState.DirtyState.CHECK_DEPENDENCIES, entry.getDirtyState());
+    assertEquals(NodeEntry.DirtyState.CHECK_DEPENDENCIES, entry.getDirtyState());
     assertThat(entry.getNextDirtyDirectDeps()).containsExactly(dep, dep2).inOrder();
     addTemporaryDirectDeps(entry, dep, dep2);
     entry.signalDep(new IntVersion(0L));
     entry.signalDep(new IntVersion(0L));
-    assertEquals(BuildingState.DirtyState.CHECK_DEPENDENCIES, entry.getDirtyState());
+    assertEquals(NodeEntry.DirtyState.CHECK_DEPENDENCIES, entry.getDirtyState());
     assertThat(entry.getNextDirtyDirectDeps()).containsExactly(dep3).inOrder();
   }
 
   @Test
   public void maintainDependencyGroupAfterRemoval() {
-    NodeEntry entry = new NodeEntry();
+    NodeEntry entry = new InMemoryNodeEntry();
     entry.addReverseDepAndCheckIfDone(null); // Start evaluation.
     SkyKey dep = key("dep");
     SkyKey dep2 = key("dep2");
@@ -533,17 +533,17 @@ public class NodeEntryTest {
     setValue(entry, null, new ErrorInfo(exception), 0L);
     entry.markDirty(/*isChanged=*/false);
     entry.addReverseDepAndCheckIfDone(null); // Restart evaluation.
-    assertEquals(BuildingState.DirtyState.CHECK_DEPENDENCIES, entry.getDirtyState());
+    assertEquals(NodeEntry.DirtyState.CHECK_DEPENDENCIES, entry.getDirtyState());
     assertThat(entry.getNextDirtyDirectDeps()).containsExactly(dep).inOrder();
     addTemporaryDirectDep(entry, dep);
     entry.signalDep(new IntVersion(0L));
-    assertEquals(BuildingState.DirtyState.CHECK_DEPENDENCIES, entry.getDirtyState());
+    assertEquals(NodeEntry.DirtyState.CHECK_DEPENDENCIES, entry.getDirtyState());
     assertThat(entry.getNextDirtyDirectDeps()).containsExactly(dep4).inOrder();
   }
 
   @Test
   public void noPruneWhenDepsChange() {
-    NodeEntry entry = new NodeEntry();
+    NodeEntry entry = new InMemoryNodeEntry();
     entry.addReverseDepAndCheckIfDone(null); // Start evaluation.
     SkyKey dep = key("dep");
     addTemporaryDirectDep(entry, dep);
@@ -551,11 +551,11 @@ public class NodeEntryTest {
     setValue(entry, new IntegerValue(5), /*errorInfo=*/null, /*graphVersion=*/0L);
     entry.markDirty(/*isChanged=*/false);
     entry.addReverseDepAndCheckIfDone(null); // Start evaluation.
-    assertEquals(BuildingState.DirtyState.CHECK_DEPENDENCIES, entry.getDirtyState());
+    assertEquals(NodeEntry.DirtyState.CHECK_DEPENDENCIES, entry.getDirtyState());
     assertThat(entry.getNextDirtyDirectDeps()).containsExactly(dep).inOrder();
     addTemporaryDirectDep(entry, dep);
     assertTrue(entry.signalDep(new IntVersion(1L)));
-    assertEquals(BuildingState.DirtyState.REBUILDING, entry.getDirtyState());
+    assertEquals(NodeEntry.DirtyState.REBUILDING, entry.getDirtyState());
     assertThat(entry.getTemporaryDirectDeps()).containsExactly(dep);
     addTemporaryDirectDep(entry, key("dep2"));
     assertTrue(entry.signalDep(new IntVersion(1L)));
@@ -566,7 +566,7 @@ public class NodeEntryTest {
 
   @Test
   public void checkDepsOneByOne() {
-    NodeEntry entry = new NodeEntry();
+    NodeEntry entry = new InMemoryNodeEntry();
     entry.addReverseDepAndCheckIfDone(null); // Start evaluation.
     List<SkyKey> deps = new ArrayList<>();
     for (int ii = 0; ii < 10; ii++) {
@@ -578,35 +578,35 @@ public class NodeEntryTest {
     setValue(entry, new IntegerValue(5), /*errorInfo=*/null, /*graphVersion=*/0L);
     entry.markDirty(/*isChanged=*/false);
     entry.addReverseDepAndCheckIfDone(null); // Start new evaluation.
-    assertEquals(BuildingState.DirtyState.CHECK_DEPENDENCIES, entry.getDirtyState());
+    assertEquals(NodeEntry.DirtyState.CHECK_DEPENDENCIES, entry.getDirtyState());
     for (int ii = 0; ii < 10; ii++) {
       assertThat(entry.getNextDirtyDirectDeps()).containsExactly(deps.get(ii)).inOrder();
       addTemporaryDirectDep(entry, deps.get(ii));
       assertTrue(entry.signalDep(new IntVersion(0L)));
       if (ii < 9) {
-        assertEquals(BuildingState.DirtyState.CHECK_DEPENDENCIES, entry.getDirtyState());
+        assertEquals(NodeEntry.DirtyState.CHECK_DEPENDENCIES, entry.getDirtyState());
       } else {
-        assertEquals(BuildingState.DirtyState.VERIFIED_CLEAN, entry.getDirtyState());
+        assertEquals(NodeEntry.DirtyState.VERIFIED_CLEAN, entry.getDirtyState());
       }
     }
   }
 
   @Test
   public void signalOnlyNewParents() {
-    NodeEntry entry = new NodeEntry();
+    NodeEntry entry = new InMemoryNodeEntry();
     entry.addReverseDepAndCheckIfDone(key("parent"));
     setValue(entry, new SkyValue() {}, /*errorInfo=*/null, /*graphVersion=*/0L);
     entry.markDirty(/*isChanged=*/true);
     SkyKey newParent = key("new parent");
     entry.addReverseDepAndCheckIfDone(newParent);
-    assertEquals(BuildingState.DirtyState.REBUILDING, entry.getDirtyState());
+    assertEquals(NodeEntry.DirtyState.REBUILDING, entry.getDirtyState());
     assertThat(setValue(entry, new SkyValue() {}, /*errorInfo=*/null,
         /*graphVersion=*/1L)).containsExactly(newParent);
   }
 
   @Test
   public void testClone() {
-    NodeEntry entry = new NodeEntry();
+    InMemoryNodeEntry entry = new InMemoryNodeEntry();
     IntVersion version = new IntVersion(0);
     IntegerValue originalValue = new IntegerValue(42);
     SkyKey originalChild = key("child");
@@ -614,9 +614,9 @@ public class NodeEntryTest {
     entry.signalDep();
     entry.setValue(originalValue, version);
     entry.addReverseDepAndCheckIfDone(key("parent1"));
-    NodeEntry clone1 = entry.cloneNodeEntry();
+    InMemoryNodeEntry clone1 = entry.cloneNodeEntry();
     entry.addReverseDepAndCheckIfDone(key("parent2"));
-    NodeEntry clone2 = entry.cloneNodeEntry();
+    InMemoryNodeEntry clone2 = entry.cloneNodeEntry();
     entry.removeReverseDep(key("parent1"));
     entry.removeReverseDep(key("parent2"));
     IntegerValue updatedValue = new IntegerValue(52);

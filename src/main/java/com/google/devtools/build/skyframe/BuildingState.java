@@ -41,24 +41,6 @@ import java.util.Set;
  */
 @ThreadCompatible
 final class BuildingState implements Serializable {
-  enum DirtyState {
-    /**
-     * The node's dependencies need to be checked to see if it needs to be rebuilt. The
-     * dependencies must be obtained through calls to {@link #getNextDirtyDirectDeps} and checked.
-     */
-    CHECK_DEPENDENCIES,
-    /**
-     * All of the node's dependencies are unchanged, and the value itself was not marked changed,
-     * so its current value is still valid -- it need not be rebuilt.
-     */
-    VERIFIED_CLEAN,
-    /**
-     * A rebuilding is required or in progress, because either the node itself changed or one of
-     * its dependencies did.
-     */
-    REBUILDING
-  }
-
   /**
    * During its life, a node can go through states as follows:
    * <ol>
@@ -91,7 +73,7 @@ final class BuildingState implements Serializable {
    * depending on whether the caller specified that the node was itself changed or not. A non-null
    * {@code dirtyState} indicates that the node {@link #isDirty} in some way.
    */
-  private DirtyState dirtyState = null;
+  private NodeEntry.DirtyState dirtyState = null;
 
   /**
    * The number of dependencies that are known to be done in a {@link NodeEntry}. There is a
@@ -197,8 +179,9 @@ final class BuildingState implements Serializable {
     this.lastBuildValue = Preconditions.checkNotNull(lastBuildValue);
     Preconditions.checkState(isChanged || !this.lastBuildDirectDeps.isEmpty(),
         "is being marked dirty, not changed, but has no children that could have dirtied it", this);
-    dirtyState = isChanged ? DirtyState.REBUILDING : DirtyState.CHECK_DEPENDENCIES;
-    if (dirtyState == DirtyState.CHECK_DEPENDENCIES) {
+    dirtyState = isChanged ? NodeEntry.DirtyState.REBUILDING
+        : NodeEntry.DirtyState.CHECK_DEPENDENCIES;
+    if (dirtyState == NodeEntry.DirtyState.CHECK_DEPENDENCIES) {
       // We need to iterate through the deps to see if they have changed. Initialize the iterator.
       dirtyDirectDepIterator = lastBuildDirectDeps.iterator();
     }
@@ -213,7 +196,7 @@ final class BuildingState implements Serializable {
     Preconditions.checkState(isDirty(), this);
     Preconditions.checkState(!isChanged(), this);
     Preconditions.checkState(!evaluating, this);
-    dirtyState = DirtyState.REBUILDING;
+    dirtyState = NodeEntry.DirtyState.REBUILDING;
   }
 
   void forceChanged() {
@@ -221,7 +204,7 @@ final class BuildingState implements Serializable {
     Preconditions.checkState(!isChanged(), this);
     Preconditions.checkState(evaluating, this);
     Preconditions.checkState(isReady(), this);
-    dirtyState = DirtyState.REBUILDING;
+    dirtyState = NodeEntry.DirtyState.REBUILDING;
   }
 
   /**
@@ -249,11 +232,11 @@ final class BuildingState implements Serializable {
    * @see NodeEntry#isChanged()
    */
   boolean isChanged() {
-    return dirtyState == DirtyState.REBUILDING;
+    return dirtyState == NodeEntry.DirtyState.REBUILDING;
   }
 
   private boolean rebuilding() {
-    return dirtyState == DirtyState.REBUILDING;
+    return dirtyState == NodeEntry.DirtyState.REBUILDING;
   }
 
   /**
@@ -263,7 +246,7 @@ final class BuildingState implements Serializable {
    */
   private void checkNotProcessing() {
     Preconditions.checkState(evaluating, "not started building %s", this);
-    Preconditions.checkState(!isDirty() || dirtyState == DirtyState.VERIFIED_CLEAN
+    Preconditions.checkState(!isDirty() || dirtyState == NodeEntry.DirtyState.VERIFIED_CLEAN
         || rebuilding(), "not done building %s", this);
     Preconditions.checkState(isReady(), "not done building %s", this);
   }
@@ -297,12 +280,12 @@ final class BuildingState implements Serializable {
       // Synchronization isn't needed here because the only caller is ValueEntry, which does it
       // through the synchronized method signalDep(long).
       if (childChanged) {
-        dirtyState = DirtyState.REBUILDING;
-      } else if (dirtyState == DirtyState.CHECK_DEPENDENCIES && isReady()
+        dirtyState = NodeEntry.DirtyState.REBUILDING;
+      } else if (dirtyState == NodeEntry.DirtyState.CHECK_DEPENDENCIES && isReady()
           && dirtyDirectDepIterator == null) {
         // No other dep already marked this as REBUILDING, no deps outstanding, and this was
         // the last block of deps to be checked.
-        dirtyState = DirtyState.VERIFIED_CLEAN;
+        dirtyState = NodeEntry.DirtyState.VERIFIED_CLEAN;
       }
     }
     return isReady();
@@ -329,11 +312,11 @@ final class BuildingState implements Serializable {
   /**
    * Gets the current state of checking this dirty entry to see if it must be re-evaluated. Must be
    * called each time evaluation of a dirty entry starts to find the proper action to perform next,
-   * as enumerated by {@link DirtyState}.
+   * as enumerated by {@link NodeEntry.DirtyState}.
    *
    * @see NodeEntry#getDirtyState()
    */
-  DirtyState getDirtyState() {
+  NodeEntry.DirtyState getDirtyState() {
     // Entry may not be ready if being built just for its errors.
     Preconditions.checkState(isDirty(), "must be dirty to get dirty state %s", this);
     Preconditions.checkState(evaluating, "must be evaluating to get dirty state %s", this);
@@ -351,7 +334,7 @@ final class BuildingState implements Serializable {
    */
   Collection<SkyKey> getNextDirtyDirectDeps() {
     Preconditions.checkState(isDirty(), this);
-    Preconditions.checkState(dirtyState == DirtyState.CHECK_DEPENDENCIES, this);
+    Preconditions.checkState(dirtyState == NodeEntry.DirtyState.CHECK_DEPENDENCIES, this);
     Preconditions.checkState(evaluating, this);
     List<SkyKey> nextDeps = ImmutableList.copyOf(dirtyDirectDepIterator.next());
     if (!dirtyDirectDepIterator.hasNext()) {

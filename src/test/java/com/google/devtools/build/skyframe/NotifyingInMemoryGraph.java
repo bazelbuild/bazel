@@ -72,7 +72,7 @@ public class NotifyingInMemoryGraph extends InMemoryGraph {
     AFTER
   }
 
-  protected class NotifyingNodeEntry extends NodeEntry {
+  protected class NotifyingNodeEntry extends InMemoryNodeEntry {
     private final SkyKey myKey;
 
     protected NotifyingNodeEntry(SkyKey key) {
@@ -82,7 +82,7 @@ public class NotifyingInMemoryGraph extends InMemoryGraph {
     // Note that these methods are not synchronized. Necessary synchronization happens when calling
     // the super() methods.
     @Override
-    DependencyState addReverseDepAndCheckIfDone(SkyKey reverseDep) {
+    public DependencyState addReverseDepAndCheckIfDone(SkyKey reverseDep) {
       graphListener.accept(myKey, EventType.ADD_REVERSE_DEP, Order.BEFORE, reverseDep);
       DependencyState result = super.addReverseDepAndCheckIfDone(reverseDep);
       graphListener.accept(myKey, EventType.ADD_REVERSE_DEP, Order.AFTER, reverseDep);
@@ -90,7 +90,7 @@ public class NotifyingInMemoryGraph extends InMemoryGraph {
     }
 
     @Override
-    boolean signalDep(Version childVersion) {
+    public boolean signalDep(Version childVersion) {
       graphListener.accept(myKey, EventType.SIGNAL, Order.BEFORE, childVersion);
       boolean result = super.signalDep(childVersion);
       graphListener.accept(myKey, EventType.SIGNAL, Order.AFTER, childVersion);
@@ -106,7 +106,7 @@ public class NotifyingInMemoryGraph extends InMemoryGraph {
     }
 
     @Override
-    Pair<? extends Iterable<SkyKey>, ? extends SkyValue> markDirty(boolean isChanged) {
+    public Pair<? extends Iterable<SkyKey>, ? extends SkyValue> markDirty(boolean isChanged) {
       graphListener.accept(myKey, EventType.MARK_DIRTY, Order.BEFORE, isChanged);
       Pair<? extends Iterable<SkyKey>, ? extends SkyValue> result = super.markDirty(isChanged);
       graphListener.accept(myKey, EventType.MARK_DIRTY, Order.AFTER, isChanged);
@@ -114,7 +114,7 @@ public class NotifyingInMemoryGraph extends InMemoryGraph {
     }
 
     @Override
-    boolean isChanged() {
+    public boolean isChanged() {
       graphListener.accept(myKey, EventType.IS_CHANGED, Order.BEFORE, this);
       return super.isChanged();
     }

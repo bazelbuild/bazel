@@ -51,7 +51,7 @@ public class DeterministicInMemoryGraph extends NotifyingInMemoryGraph {
     };
     @SuppressWarnings("unchecked")
     @Override
-    synchronized Iterable<SkyKey> getReverseDeps() {
+    public synchronized Iterable<SkyKey> getReverseDeps() {
       TreeSet<SkyKey> result = new TreeSet<SkyKey>(valueEntryComparator);
       if (reverseDeps instanceof List) {
         result.addAll((Collection<? extends SkyKey>) reverseDeps);
@@ -62,7 +62,7 @@ public class DeterministicInMemoryGraph extends NotifyingInMemoryGraph {
     }
 
     @Override
-    synchronized Set<SkyKey> getInProgressReverseDeps() {
+    public synchronized Set<SkyKey> getInProgressReverseDeps() {
       TreeSet<SkyKey> result = new TreeSet<SkyKey>(valueEntryComparator);
       result.addAll(buildingState.getReverseDepsToSignal());
       return result;
