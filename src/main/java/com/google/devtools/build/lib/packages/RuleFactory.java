@@ -23,7 +23,6 @@ import com.google.devtools.build.lib.packages.PackageFactory.PackageContext;
 import com.google.devtools.build.lib.syntax.FuncallExpression;
 import com.google.devtools.build.lib.syntax.Label;
 import com.google.devtools.build.lib.syntax.Label.SyntaxException;
-import com.google.devtools.build.lib.vfs.PathFragment;
 
 import java.util.Map;
 import java.util.Set;
@@ -106,7 +105,7 @@ public class RuleFactory {
       throw new InvalidRuleException("illegal rule name: " + name + ": " + e.getMessage());
     }
     boolean inWorkspaceFile = location.getPath() != null
-        && location.getPath().endsWith(new PathFragment("WORKSPACE"));
+        && location.getPath().getBaseName().contains("WORKSPACE");
     if (ruleClass.getWorkspaceOnly() && !inWorkspaceFile) {
       throw new RuleFactory.InvalidRuleException(ruleClass + " must be in the WORKSPACE file "
           + "(used by " + label + ")");

@@ -34,10 +34,18 @@ import java.util.Map.Entry;
  */
 public class ExternalPackage extends Package {
 
+  private String workspaceName;
   private Map<RepositoryName, Rule> repositoryMap;
 
   ExternalPackage() {
     super(PackageIdentifier.createInDefaultRepo("external"));
+  }
+
+  /**
+   * Returns the name for this repository.
+   */
+  public String getWorkspaceName() {
+    return workspaceName;
   }
 
   /**
@@ -79,26 +87,35 @@ public class ExternalPackage extends Package {
   /**
    * Given a workspace file path, creates an ExternalPackage.
    */
-  public static class ExternalPackageBuilder
-      extends AbstractBuilder<ExternalPackage, ExternalPackageBuilder> {
+  public static class Builder
+      extends AbstractBuilder<ExternalPackage, Builder> {
+    private String workspaceName;
     private Map<Label, Binding> bindMap = Maps.newHashMap();
     private Map<RepositoryName, Rule> repositoryMap = Maps.newHashMap();
 
-    public ExternalPackageBuilder(Path workspacePath) {
+    public Builder(Path workspacePath) {
       super(new ExternalPackage());
       setFilename(workspacePath);
       setMakeEnv(new MakeEnvironment.Builder());
     }
 
     @Override
-    protected ExternalPackageBuilder self() {
+    protected Builder self() {
       return this;
     }
 
     @Override
     public ExternalPackage build() {
+      pkg.workspaceName = workspaceName;
       pkg.repositoryMap = ImmutableMap.copyOf(repositoryMap);
       return super.build();
+    }
+
+    /**
+     * Sets the name for this repository.
+     */
+    public void setWorkspaceName(String name) {
+      workspaceName = name;
     }
 
     public void addBinding(Label label, Binding binding) {
@@ -178,7 +195,7 @@ public class ExternalPackage extends Package {
      * Creates an external repository rule.
      * @throws SyntaxException if the repository name is invalid.
      */
-    public ExternalPackageBuilder createAndAddRepositoryRule(RuleClass ruleClass,
+    public Builder createAndAddRepositoryRule(RuleClass ruleClass,
         Map<String, Object> kwargs, FuncallExpression ast)
             throws InvalidRuleException, NameConflictException, SyntaxException {
       StoredEventHandler eventHandler = new StoredEventHandler();

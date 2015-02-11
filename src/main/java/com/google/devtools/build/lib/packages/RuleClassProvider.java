@@ -17,7 +17,9 @@ package com.google.devtools.build.lib.packages;
 import com.google.devtools.build.lib.events.EventHandler;
 import com.google.devtools.build.lib.syntax.SkylarkEnvironment;
 import com.google.devtools.build.lib.syntax.ValidationEnvironment;
+import com.google.devtools.build.lib.vfs.PathFragment;
 
+import java.util.List;
 import java.util.Map;
 
 /**
@@ -46,4 +48,11 @@ public interface RuleClassProvider {
    * Returns the Skylark module to register the native rules with.
    */
   Object getNativeModule();
+
+  /**
+   * Returns paths to the WORKSPACE files needed to provide external dependencies for built-in
+   * rules.  The PathFragments are relative to Bazel's install directory. Returns an empty list if
+   * there are none defined.
+   */
+  List<PathFragment> getWorkspaceFiles();
 }

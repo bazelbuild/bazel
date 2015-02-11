@@ -40,6 +40,7 @@ import com.google.devtools.build.lib.packages.RuleClass.PackageNameConstraint;
 import com.google.devtools.build.lib.packages.TriState;
 import com.google.devtools.build.lib.rules.java.JavaSemantics;
 import com.google.devtools.build.lib.util.FileTypeSet;
+import com.google.devtools.build.lib.vfs.PathFragment;
 
 import java.util.Set;
 
@@ -52,7 +53,7 @@ public class BazelJavaRuleClasses {
       PackageNameConstraint.ANY_SEGMENT, "java", "javatests");
 
   public static final ImplicitOutputsFunction JAVA_BINARY_IMPLICIT_OUTPUTS =
-      fromFunctions(JavaSemantics.JAVA_BINARY_CLASS_JAR, JavaSemantics.JAVA_BINARY_SOURCE_JAR, 
+      fromFunctions(JavaSemantics.JAVA_BINARY_CLASS_JAR, JavaSemantics.JAVA_BINARY_SOURCE_JAR,
           JavaSemantics.JAVA_BINARY_DEPLOY_JAR, JavaSemantics.JAVA_BINARY_DEPLOY_SOURCE_JAR);
 
   static final ImplicitOutputsFunction JAVA_LIBRARY_IMPLICIT_OUTPUTS =
@@ -169,5 +170,13 @@ public class BazelJavaRuleClasses {
           .add(attr(":java_launcher", LABEL).value(JavaSemantics.JAVA_LAUNCHER))  // blaze flag
           .build();
     }
+  }
+
+  /**
+   * Returns the relative path to the WORKSPACE file describing the external dependencies necessary
+   * for the Java rules.
+   */
+  public static PathFragment getDefaultWorkspace() {
+    return new PathFragment("jdk.WORKSPACE");
   }
 }
