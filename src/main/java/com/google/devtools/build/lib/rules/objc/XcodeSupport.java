@@ -16,6 +16,7 @@ package com.google.devtools.build.lib.rules.objc;
 
 import static com.google.devtools.build.lib.packages.ImplicitOutputsFunction.fromTemplates;
 
+import com.google.common.collect.ImmutableSet;
 import com.google.devtools.build.lib.actions.Artifact;
 import com.google.devtools.build.lib.analysis.RuleConfiguredTarget.Mode;
 import com.google.devtools.build.lib.analysis.RuleContext;
@@ -94,9 +95,10 @@ public final class XcodeSupport {
    * @return this xcode support
    */
   XcodeSupport addDependencies(XcodeProvider.Builder xcodeProviderBuilder) {
-    xcodeProviderBuilder
-        .addDependencies(ruleContext.getPrerequisites("deps", Mode.TARGET, XcodeProvider.class))
-        .addDependencies(ruleContext.getPrerequisites("bundles", Mode.TARGET, XcodeProvider.class));
+    for (String attribute : ImmutableSet.of("deps", "non_propagated_deps", "bundles")) {
+      xcodeProviderBuilder.addDependencies(
+          ruleContext.getPrerequisites(attribute, Mode.TARGET, XcodeProvider.class));
+    }
     return this;
   }
 }
