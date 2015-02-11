@@ -222,7 +222,7 @@ public class BazelRuleClassProvider {
     builder.addRuleDefinition(BazelCppRuleClasses.CcLibraryBaseRule.class);
     builder.addRuleDefinition(BazelCppRuleClasses.CcLibraryRule.class);
 
-
+    builder.addWorkspaceFile(BazelJavaRuleClasses.getDefaultWorkspace());
     builder.addRuleDefinition(BazelJavaRuleClasses.BaseJavaBinaryRule.class);
     builder.addRuleDefinition(BazelJavaRuleClasses.IjarBaseRule.class);
     builder.addRuleDefinition(BazelJavaRuleClasses.JavaBaseRule.class);
