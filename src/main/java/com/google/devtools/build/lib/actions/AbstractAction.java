@@ -98,8 +98,8 @@ public abstract class AbstractAction implements Action {
   }
 
   @Override
-  public void updateInputsFromCache(
-      ArtifactResolver artifactResolver, Collection<PathFragment> inputPaths) {
+  public boolean updateInputsFromCache(ArtifactResolver artifactResolver,
+      PackageRootResolver resolver, Collection<PathFragment> inputPaths) {
     throw new IllegalStateException(
         "Method must be overridden for actions that may have unknown inputs.");
   }

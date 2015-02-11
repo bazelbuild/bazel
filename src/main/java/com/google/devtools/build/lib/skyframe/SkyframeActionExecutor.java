@@ -46,6 +46,7 @@ import com.google.devtools.build.lib.actions.MapBasedActionGraph;
 import com.google.devtools.build.lib.actions.MutableActionGraph;
 import com.google.devtools.build.lib.actions.MutableActionGraph.ActionConflictException;
 import com.google.devtools.build.lib.actions.NotifyOnActionCacheHit;
+import com.google.devtools.build.lib.actions.PackageRootResolver;
 import com.google.devtools.build.lib.actions.ResourceManager;
 import com.google.devtools.build.lib.actions.ResourceSet;
 import com.google.devtools.build.lib.actions.TargetOutOfDateException;
@@ -550,10 +551,11 @@ public final class SkyframeActionExecutor {
    * if the action is up to date, and non-null if it needs to be executed, in which case that token
    * should be provided to the ActionCacheChecker after execution.
    */
-  Token checkActionCache(Action action, MetadataHandler metadataHandler, long actionStartTime) {
+  Token checkActionCache(Action action, MetadataHandler metadataHandler,
+      PackageRootResolver resolver, long actionStartTime) {
     profiler.startTask(ProfilerTask.ACTION_CHECK, action);
     Token token = actionCacheChecker.getTokenIfNeedToExecute(
-        action, explain ? reporter : null, metadataHandler);
+        action, explain ? reporter : null, metadataHandler, resolver);
     profiler.completeTask(ProfilerTask.ACTION_CHECK);
     if (token == null) {
       boolean eventPosted = false;

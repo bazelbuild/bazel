@@ -26,6 +26,7 @@ import com.google.devtools.build.lib.packages.PackageIdentifier;
 import com.google.devtools.build.lib.vfs.Path;
 import com.google.devtools.build.lib.vfs.PathFragment;
 
+import java.util.ArrayList;
 import java.util.Collection;
 import java.util.HashMap;
 import java.util.Map;
@@ -246,6 +247,44 @@ public class ArtifactFactory implements ArtifactResolver, ArtifactSerializer, Ar
       }
     }
     return null;  // not a path that we can find...
+  }
+
+  @Override
+  public synchronized Map<PathFragment, Artifact> resolveSourceArtifacts(
+      Iterable<PathFragment> execPaths, PackageRootResolver resolver) {
+    Map<PathFragment, Artifact> result = new HashMap<>();
+    ArrayList<PathFragment> unresolvedPaths = new ArrayList<>();
+
+    for (PathFragment execPath : execPaths) {
+      PathFragment execPathNormalized = execPath.normalize();
+      // First try a quick map lookup to see if the artifact already exists.
+      Artifact a = pathToSourceArtifact.get(execPathNormalized);
+      if (a != null) {
+        result.put(execPath, a);
+      } else if (findDerivedRoot(execRoot.getRelative(execPathNormalized)) != null) {
+        // Don't create an artifact if it's derived.
+        result.put(execPath, null);
+      } else {
+        // Remember this path, maybe we can resolve it with the help of PackageRootResolver.
+        unresolvedPaths.add(execPath);
+      }
+    }
+    Map<PathFragment, Root> sourceRoots = resolver.findPackageRoots(unresolvedPaths);
+    // We are missing some dependencies. We need to rerun this method later.
+    if (sourceRoots == null) {
+      return null;
+    }
+    for (PathFragment path : unresolvedPaths) {
+      Root sourceRoot = sourceRoots.get(path);
+      if (sourceRoot != null) {
+        // We have found corresponding source root, so we should create a new source artifact.
+        result.put(path, getSourceArtifact(path.normalize(), sourceRoot, ArtifactOwner.NULL_OWNER));
+      } else {
+        // Not a path that we can find...
+        result.put(path, null);
+      }
+    }
+    return result;
   }
 
   /**

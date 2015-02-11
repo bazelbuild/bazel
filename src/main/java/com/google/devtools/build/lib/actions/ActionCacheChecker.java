@@ -134,7 +134,7 @@ public class ActionCacheChecker {
   // Note: the handler should only be used for DEPCHECKER events; there's no
   // guarantee it will be available for other events.
   public Token getTokenIfNeedToExecute(Action action, EventHandler handler,
-      MetadataHandler metadataHandler) {
+      MetadataHandler metadataHandler, PackageRootResolver resolver) {
     // TODO(bazel-team): (2010) For RunfilesAction/SymlinkAction and similar actions that
     // produce only symlinks we should not check whether inputs are valid at all - all that matters
     // that inputs and outputs are still exist (and new inputs have not appeared). All other checks
@@ -157,7 +157,15 @@ public class ActionCacheChecker {
     if (!inputsKnown) {
       Preconditions.checkState(action.discoversInputs());
       entry = getCacheEntry(action);
-      updateActionInputs(action, entry);
+      boolean ranSuccessfully = updateActionInputs(action, entry, resolver);
+      // If during update of inputs skyframe was missing some dependencies (for example,
+      // ContainingPackageLookupValue inside of ArtifactFactory.resolveSourceArtifact), we need to
+      // wait for those dependencies to be resolved. So next time when we will call corresponding
+      // ActionExecutionFunction all those dependencies will have been resolved and we can continue
+      // action execution process.
+      if (!ranSuccessfully) {
+        return Token.NEED_TO_RERUN;
+      }
     }
     if (mustExecute(action, entry, handler, metadataHandler)) {
       return new Token(getKeyString(action));
@@ -220,9 +228,10 @@ public class ActionCacheChecker {
     actionCache.put(key, entry);
   }
 
-  protected void updateActionInputs(Action action, ActionCache.Entry entry) {
+  protected boolean updateActionInputs(Action action, ActionCache.Entry entry,
+      PackageRootResolver resolver) {
     if (entry == null || entry.isCorrupted()) {
-      return;
+      return true;
     }
 
     List<PathFragment> outputs = new ArrayList<>();
@@ -238,7 +247,7 @@ public class ActionCacheChecker {
         inputs.add(execPath);
       }
     }
-    action.updateInputsFromCache(artifactResolver, inputs);
+    return action.updateInputsFromCache(artifactResolver, resolver, inputs);
   }
 
   /**
@@ -332,6 +341,7 @@ public class ActionCacheChecker {
 
   /** Wrapper for all context needed by the ActionCacheChecker to handle a single action. */
   public static final class Token {
+    public static final Token NEED_TO_RERUN = new Token("need to rerun");
     private final String cacheKey;
 
     private Token(String cacheKey) {

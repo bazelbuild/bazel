@@ -16,6 +16,10 @@ package com.google.devtools.build.lib.actions;
 
 import com.google.devtools.build.lib.vfs.PathFragment;
 
+import java.util.Map;
+
+import javax.annotation.Nullable;
+
 /**
  * An interface for resolving artifact names to {@link Artifact} objects. Should only be used
  * in the internal machinery of Blaze: rule implementations are not allowed to do this.
@@ -53,4 +57,23 @@ public interface ArtifactResolver {
    *         the root can not be determined and the artifact did not exist before.
    */
   Artifact resolveSourceArtifact(PathFragment execPath);
+
+  /**
+   * Resolves source Artifacts given execRoot-relative paths.
+   *
+   * <p>Never creates or returns derived artifacts, only source artifacts.
+   *
+   * <p>Note: this method should only be used when the roots are unknowable, such as from the
+   * post-compile .d or manifest scanning methods.
+   *
+   * @param execPaths list of exec paths of the artifacts to resolve
+   * @param resolver object that helps to resolve package root of given paths
+   * @return map which contains list of execPaths and corresponding Artifacts. Map can contain
+   *         existing or new source Artifacts for the given execPaths. The artifact is null if the
+   *         root cannot be determined and the artifact did not exist before. Return null if any
+   *         dependencies are missing.
+   */
+  @Nullable
+  Map<PathFragment, Artifact> resolveSourceArtifacts(Iterable<PathFragment> execPaths,
+      PackageRootResolver resolver);
 }

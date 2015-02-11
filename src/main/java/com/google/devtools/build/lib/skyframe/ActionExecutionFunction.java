@@ -26,12 +26,16 @@ import com.google.devtools.build.lib.actions.AlreadyReportedActionExecutionExcep
 import com.google.devtools.build.lib.actions.Artifact;
 import com.google.devtools.build.lib.actions.MissingInputFileException;
 import com.google.devtools.build.lib.actions.NotifyOnActionCacheHit;
+import com.google.devtools.build.lib.actions.PackageRootResolver;
+import com.google.devtools.build.lib.actions.Root;
 import com.google.devtools.build.lib.actions.cache.MetadataHandler;
 import com.google.devtools.build.lib.collect.nestedset.NestedSetBuilder;
 import com.google.devtools.build.lib.events.Event;
+import com.google.devtools.build.lib.packages.PackageIdentifier;
 import com.google.devtools.build.lib.syntax.Label;
 import com.google.devtools.build.lib.util.Pair;
 import com.google.devtools.build.lib.util.io.TimestampGranularityMonitor;
+import com.google.devtools.build.lib.vfs.PathFragment;
 import com.google.devtools.build.skyframe.SkyFunction;
 import com.google.devtools.build.skyframe.SkyFunctionException;
 import com.google.devtools.build.skyframe.SkyKey;
@@ -115,6 +119,49 @@ public class ActionExecutionFunction implements SkyFunction {
 
     return result;
   }
+  
+  /**
+   * Skyframe implementation of {@link PackageRootResolver}. Should be used only from SkyFunctions,
+   * because it uses SkyFunction.Environment for evaluation of ContainingPackageLookupValue.
+   */
+  private static class PackageRootResolverWithEnvironment implements PackageRootResolver {
+    private final Environment env;
+
+    public PackageRootResolverWithEnvironment(Environment env) {
+      this.env = env;
+    }
+
+    @Override
+    public Map<PathFragment, Root> findPackageRoots(Iterable<PathFragment> execPaths) {
+      Map<PathFragment, SkyKey> depKeys = new HashMap<>(); 
+      // Create SkyKeys list based on execPaths.
+      for (PathFragment path : execPaths) {
+        depKeys.put(path,
+            ContainingPackageLookupValue.key(PackageIdentifier.createInDefaultRepo(path)));
+      }
+      Map<SkyKey, SkyValue> values = env.getValues(depKeys.values());
+      if (env.valuesMissing()) {
+        // Some values are not computed yet.
+        return null;
+      }
+      Map<PathFragment, Root> result = new HashMap<>();
+      for (PathFragment path : execPaths) {
+        // TODO(bazel-team): Add check for errors here, when loading phase will be removed.
+        // For now all possible errors that ContainingPackageLookupFunction can generate
+        // are caught in previous phases.
+        ContainingPackageLookupValue value =
+            (ContainingPackageLookupValue) values.get(depKeys.get(path));
+        if (value.hasContainingPackage()) {
+          // We have found corresponding root for current execPath.
+          result.put(path, Root.asSourceRoot(value.getContainingPackageRoot()));
+        } else {
+          // We haven't found corresponding root for current execPath.
+          result.put(path, null);
+        }
+      }
+      return result;
+    }
+  }
 
   private ActionExecutionValue checkCacheAndExecuteIfNeeded(
       Action action,
@@ -146,7 +193,11 @@ public class ActionExecutionFunction implements SkyFunction {
           tsgm);
       metadataHandler =
           skyframeActionExecutor.constructMetadataHandler(fileAndMetadataCache);
-      token = skyframeActionExecutor.checkActionCache(action, metadataHandler, actionStartTime);
+      token = skyframeActionExecutor.checkActionCache(action, metadataHandler,  
+          new PackageRootResolverWithEnvironment(env), actionStartTime);
+      if (token == Token.NEED_TO_RERUN) {
+        return null;
+      }
     }
     if (token == null && inputArtifactData != null) {
       // We got a hit from the action cache -- no need to execute.

@@ -32,6 +32,7 @@ import com.google.devtools.build.lib.actions.Artifact.MiddlemanExpander;
 import com.google.devtools.build.lib.actions.ArtifactResolver;
 import com.google.devtools.build.lib.actions.ExecException;
 import com.google.devtools.build.lib.actions.Executor;
+import com.google.devtools.build.lib.actions.PackageRootResolver;
 import com.google.devtools.build.lib.actions.ResourceSet;
 import com.google.devtools.build.lib.actions.extra.CppCompileInfo;
 import com.google.devtools.build.lib.actions.extra.ExtraActionInfo;
@@ -827,21 +828,34 @@ public class CppCompileAction extends AbstractAction implements IncludeScannable
   }
 
   @Override
-  public void updateInputsFromCache(
-      ArtifactResolver artifactResolver, Collection<PathFragment> inputPaths) {
+  public boolean updateInputsFromCache(
+      ArtifactResolver artifactResolver, PackageRootResolver resolver,
+      Collection<PathFragment> inputPaths) {
     // Note that this method may trigger a violation of the desirable invariant that getInputs()
     // is a superset of getMandatoryInputs(). See bug about an "action not in canonical form"
     // error message and the integration test test_crosstool_change_and_failure().
-
     Map<PathFragment, Artifact> allowedDerivedInputsMap = getAllowedDerivedInputsMap();
     List<Artifact> inputs = new ArrayList<>();
+    List<PathFragment> unresolvedPaths = new ArrayList<>();
     for (PathFragment execPath : inputPaths) {
-      // The artifact may be a derived artifact, and if it has been created already, then we still
-      // want to keep it to preserve incrementality.
       Artifact artifact = allowedDerivedInputsMap.get(execPath);
-      if (artifact == null) {
-        artifact = artifactResolver.resolveSourceArtifact(execPath);
+      if (artifact != null) {
+        inputs.add(artifact);
+      } else {
+        // Remember this execPath, we will try to resolve it as a source artifact.
+        unresolvedPaths.add(execPath);
       }
+    }
+
+    Map<PathFragment, Artifact> resolvedArtifacts = 
+        artifactResolver.resolveSourceArtifacts(unresolvedPaths, resolver);
+    if (resolvedArtifacts == null) {
+      // We are missing some dependencies. We need to rerun this update later.
+      return false;
+    }
+
+    for (PathFragment execPath : unresolvedPaths) {
+      Artifact artifact = resolvedArtifacts.get(execPath);
       // If PathFragment cannot be resolved into the artifact - ignore it. This could happen if
       // rule definition has changed and action no longer depends on, e.g., additional source file
       // in the separate package and that package is no longer referenced anywhere else.
@@ -855,6 +869,7 @@ public class CppCompileAction extends AbstractAction implements IncludeScannable
     synchronized (this) {
       setInputs(inputs);
     }
+    return true;
   }
 
   private Map<PathFragment, Artifact> getAllowedDerivedInputsMap() {

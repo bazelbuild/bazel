@@ -101,7 +101,7 @@ public interface Action extends ActionMetadata, Describable {
    * Method used to find inputs before execution for an action that
    * {@link ActionMetadata#discoversInputs}.
    */
-  public void discoverInputs(ActionExecutionContext actionExecutionContext)
+  void discoverInputs(ActionExecutionContext actionExecutionContext)
       throws ActionExecutionException, InterruptedException;
 
   /**
@@ -116,9 +116,13 @@ public interface Action extends ActionMetadata, Describable {
    *
    * @param artifactResolver the artifact factory that can be used to manufacture artifacts
    * @param inputPaths List of relative (to the execution root) input paths
+   * @param resolver object which helps to resolve some of the artifacts
+   * @return false if some dependencies are missing and we need to update again later,
+   * otherwise true.
    */
-  public void updateInputsFromCache(
-      ArtifactResolver artifactResolver, Collection<PathFragment> inputPaths);
+  boolean updateInputsFromCache(
+      ArtifactResolver artifactResolver, PackageRootResolver resolver,
+      Collection<PathFragment> inputPaths);
 
   /**
    * Return a best-guess estimate of the operation's resource consumption on the
