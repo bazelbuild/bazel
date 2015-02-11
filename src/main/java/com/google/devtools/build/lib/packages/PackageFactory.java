@@ -347,8 +347,14 @@ public final class PackageFactory {
 
   @VisibleForTesting
   public PackageFactory(RuleClassProvider ruleClassProvider,
-      EnvironmentExtension environmentExtensions) {
-    this(ruleClassProvider, null, ImmutableList.of(environmentExtensions));
+      EnvironmentExtension environmentExtension) {
+    this(ruleClassProvider, null, ImmutableList.of(environmentExtension));
+  }
+
+  @VisibleForTesting
+  public PackageFactory(RuleClassProvider ruleClassProvider,
+      Iterable<EnvironmentExtension> environmentExtensions) {
+    this(ruleClassProvider, null, environmentExtensions);
   }
 
   /**
