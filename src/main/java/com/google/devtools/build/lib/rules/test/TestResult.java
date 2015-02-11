@@ -41,7 +41,7 @@ public class TestResult {
    *
    * @param testAction The test that was run.
    * @param data test result protobuffer.
-   * @param cached true if this is a cached test result.
+   * @param cached true if this is a locally cached test result.
    */
   public TestResult(TestRunnerAction testAction, TestResultData data, boolean cached) {
     this.testAction = Preconditions.checkNotNull(testAction);

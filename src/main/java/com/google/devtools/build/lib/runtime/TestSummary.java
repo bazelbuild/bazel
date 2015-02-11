@@ -211,6 +211,12 @@ public class TestSummary implements Comparable<TestSummary> {
       return this;
     }
 
+    /**
+     * Set the number of results cached, locally or remotely.
+     * 
+     * @param numCached number of results cached locally or remotely
+     * @return this Builder
+     */
     public Builder setNumCached(int numCached) {
       checkMutation();
       summary.numCached = numCached;
@@ -329,6 +335,12 @@ public class TestSummary implements Comparable<TestSummary> {
     return status;
   }
 
+  /**
+   * Whether or not any results associated with this test were cached locally
+   * or remotely.
+   * 
+   * @return true if any results were cached, false if not
+   */
   public boolean isCached() {
     return numCached > 0;
   }
@@ -341,6 +353,9 @@ public class TestSummary implements Comparable<TestSummary> {
     return numLocalActionCached;
   }
 
+  /**
+   * @return number of results that were cached locally or remotely
+   */
   public int numCached() {
     return numCached;
   }
@@ -349,6 +364,12 @@ public class TestSummary implements Comparable<TestSummary> {
     return totalRuns() - numCached;
   }
 
+  /**
+   * Whether or not any action was taken for this test, that is there was some
+   * result that was <em>not cached</em>.
+   * 
+   * @return true if some action was taken for this test, false if not
+   */
   public boolean actionRan() {
     return actionRan;
   }

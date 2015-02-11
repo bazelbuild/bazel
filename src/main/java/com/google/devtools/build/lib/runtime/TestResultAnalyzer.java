@@ -189,14 +189,13 @@ public class TestResultAnalyzer {
     int numCached = existingSummary.numCached();
     int numLocalActionCached = existingSummary.numLocalActionCached();
 
-    if (!existingSummary.actionRan() && !result.isCached()) {
-      // At least one run of the test actually ran uncached.
+    // If a test was neither cached locally nor remotely we say action was taken.
+    if (!(result.isCached() || result.getData().getRemotelyCached())) {
       summaryBuilder.setActionRan(true);
-    }
-
-    if (result.isCached() || result.getData().getRemotelyCached()) {
+    } else {
       numCached++;
     }
+    
     if (result.isCached()) {
       numLocalActionCached++;
     }
