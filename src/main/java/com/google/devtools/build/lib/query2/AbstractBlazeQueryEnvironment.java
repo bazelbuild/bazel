@@ -25,7 +25,9 @@ import com.google.devtools.build.lib.events.EventHandler;
 import com.google.devtools.build.lib.packages.Attribute;
 import com.google.devtools.build.lib.packages.Rule;
 import com.google.devtools.build.lib.packages.Target;
+import com.google.devtools.build.lib.pkgcache.PackageProvider;
 import com.google.devtools.build.lib.pkgcache.TargetPatternEvaluator;
+import com.google.devtools.build.lib.pkgcache.TransitivePackageLoader;
 import com.google.devtools.build.lib.query2.engine.QueryEnvironment;
 import com.google.devtools.build.lib.query2.engine.QueryEvalResult;
 import com.google.devtools.build.lib.query2.engine.QueryException;
@@ -85,6 +87,26 @@ public abstract class AbstractBlazeQueryEnvironment<T> implements QueryEnvironme
       specifiedFilter = Rule.and(specifiedFilter, Rule.NO_NODEP_ATTRIBUTES);
     }
     return specifiedFilter;
+  }
+
+  public static AbstractBlazeQueryEnvironment<Target> newQueryEnvironment(
+      TransitivePackageLoader transitivePackageLoader, PackageProvider packageProvider,
+      TargetPatternEvaluator targetPatternEvaluator, boolean keepGoing, boolean orderedResults,
+      int loadingPhaseThreads,
+      EventHandler eventHandler, Set<Setting> settings, Iterable<QueryFunction> functions) {
+    return newQueryEnvironment(transitivePackageLoader, packageProvider,
+        targetPatternEvaluator, keepGoing, /*strictScope=*/true, orderedResults,
+        loadingPhaseThreads, Rule.ALL_LABELS, eventHandler, settings, functions);
+  }
+
+  public static AbstractBlazeQueryEnvironment<Target> newQueryEnvironment(
+      TransitivePackageLoader transitivePackageLoader, PackageProvider packageProvider,
+      TargetPatternEvaluator targetPatternEvaluator, boolean keepGoing, boolean strictScope,
+      boolean orderedResults, int loadingPhaseThreads, Predicate<Label> labelFilter,
+      EventHandler eventHandler, Set<Setting> settings, Iterable<QueryFunction> functions) {
+    return new BlazeQueryEnvironment(transitivePackageLoader, packageProvider,
+        targetPatternEvaluator, keepGoing, strictScope, loadingPhaseThreads,
+        labelFilter, eventHandler, settings, functions);
   }
 
   /**

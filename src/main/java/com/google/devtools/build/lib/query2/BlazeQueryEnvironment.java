@@ -15,6 +15,7 @@ package com.google.devtools.build.lib.query2;
 
 import com.google.common.base.Preconditions;
 import com.google.common.base.Predicate;
+import com.google.common.collect.ImmutableSet;
 import com.google.common.collect.Iterables;
 import com.google.devtools.build.lib.events.EventHandler;
 import com.google.devtools.build.lib.graph.Digraph;
@@ -29,6 +30,7 @@ import com.google.devtools.build.lib.pkgcache.PackageProvider;
 import com.google.devtools.build.lib.pkgcache.TargetEdgeObserver;
 import com.google.devtools.build.lib.pkgcache.TargetPatternEvaluator;
 import com.google.devtools.build.lib.pkgcache.TargetProvider;
+import com.google.devtools.build.lib.pkgcache.TransitivePackageLoader;
 import com.google.devtools.build.lib.query2.engine.BlazeQueryEvalResult;
 import com.google.devtools.build.lib.query2.engine.QueryEvalResult;
 import com.google.devtools.build.lib.query2.engine.QueryException;
@@ -47,6 +49,9 @@ import java.util.Set;
  * The environment of a Blaze query. Not thread-safe.
  */
 public class BlazeQueryEnvironment extends AbstractBlazeQueryEnvironment<Target> {
+
+  private static final int MAX_DEPTH_FULL_SCAN_LIMIT = 20;
+  private final TransitivePackageLoader transitivePackageLoader;
   private final TargetProvider targetProvider;
   private final Digraph<Target> graph = new Digraph<>();
   private final ErrorPrintingTargetEdgeErrorObserver errorObserver;
@@ -66,7 +71,8 @@ public class BlazeQueryEnvironment extends AbstractBlazeQueryEnvironment<Target>
    *     the query execution is stopped with an error message.
    * @param settings a set of enabled settings
    */
-  public BlazeQueryEnvironment(PackageProvider packageProvider,
+  BlazeQueryEnvironment(TransitivePackageLoader transitivePackageLoader,
+      PackageProvider packageProvider,
       TargetPatternEvaluator targetPatternEvaluator,
       boolean keepGoing,
       boolean strictScope,
@@ -78,28 +84,11 @@ public class BlazeQueryEnvironment extends AbstractBlazeQueryEnvironment<Target>
     super(targetPatternEvaluator, keepGoing, strictScope, labelFilter, eventHandler, settings,
         extraFunctions
     );
+    this.transitivePackageLoader = transitivePackageLoader;
     this.targetProvider = packageProvider;
     this.errorObserver = new ErrorPrintingTargetEdgeErrorObserver(this.eventHandler);
     this.loadingPhaseThreads = loadingPhaseThreads;
     this.labelVisitor = new LabelVisitor(packageProvider, dependencyFilter);
-  }
-
-  /**
-   * Note that the correct operation of this class critically depends on the Reporter being a
-   * singleton object, shared by all cooperating classes contributing to Query.
-   * @param loadingPhaseThreads the number of threads to use during loading
-   *     the packages for the query.
-   * @param settings a set of enabled settings
-   */
-  public BlazeQueryEnvironment(PackageProvider packageProvider,
-      TargetPatternEvaluator targetPatternEvaluator,
-      boolean keepGoing,
-      int loadingPhaseThreads,
-      EventHandler eventHandler,
-      Set<Setting> settings,
-      Iterable<QueryFunction> extraFunctions) {
-    this(packageProvider, targetPatternEvaluator, keepGoing, /*strictScope=*/true,
-        loadingPhaseThreads, Rule.ALL_LABELS, eventHandler, settings, extraFunctions);
   }
 
   @Override
@@ -234,9 +223,6 @@ public class BlazeQueryEnvironment extends AbstractBlazeQueryEnvironment<Target>
         targetNode);
   }
 
-  protected void preloadTransitiveClosure(Set<Target> targets, int maxDepth) throws QueryException {
-  }
-
   @Override
   public void buildTransitiveClosure(QueryExpression caller,
                                      Set<Target> targetNodes,
@@ -259,6 +245,19 @@ public class BlazeQueryEnvironment extends AbstractBlazeQueryEnvironment<Target>
   @Override
   public Set<Target> getNodesOnPath(Target from, Target to) {
     return getTargetsFromNodes(graph.getShortestPath(getNode(from), getNode(to)));
+  }
+
+  private void preloadTransitiveClosure(Set<Target> targets, int maxDepth) throws QueryException {
+    if (maxDepth >= MAX_DEPTH_FULL_SCAN_LIMIT && transitivePackageLoader != null) {
+      // Only do the full visitation if "maxDepth" is large enough. Otherwise, the benefits of
+      // preloading will be outweighed by the cost of doing more work than necessary.
+      try {
+        transitivePackageLoader.sync(eventHandler, targets, ImmutableSet.<Label>of(), keepGoing,
+            loadingPhaseThreads, -1);
+      } catch (InterruptedException e) {
+        throw new QueryException("interrupted");
+      }
+    }
   }
 
   /**
