@@ -21,9 +21,11 @@ import com.google.devtools.build.lib.actions.Action;
 import com.google.devtools.build.lib.actions.ActionOwner;
 import com.google.devtools.build.lib.actions.Artifact;
 import com.google.devtools.build.lib.analysis.CommandHelper;
+import com.google.devtools.build.lib.analysis.FilesToRunProvider;
 import com.google.devtools.build.lib.analysis.RuleContext;
 import com.google.devtools.build.lib.analysis.TransitiveInfoProvider;
 import com.google.devtools.build.lib.analysis.actions.CommandLine;
+import com.google.devtools.build.lib.collect.nestedset.NestedSetBuilder;
 import com.google.devtools.build.lib.concurrent.ThreadSafety.Immutable;
 import com.google.devtools.build.lib.syntax.Label;
 import com.google.devtools.build.lib.util.Fingerprint;
@@ -74,7 +76,7 @@ public final class ExtraActionSpec implements TransitiveInfoProvider {
   public Collection<Artifact> addExtraAction(RuleContext owningRule,
       Action actionToShadow) {
     Collection<Artifact> extraActionOutputs = new LinkedHashSet<>();
-    ImmutableSet.Builder<Artifact> extraActionInputs = ImmutableSet.builder();
+    NestedSetBuilder<Artifact> extraActionInputs = NestedSetBuilder.stableOrder();
 
     ActionOwner owner = actionToShadow.getOwner();
     Label ownerLabel = owner.getLabel();
@@ -111,13 +113,17 @@ public final class ExtraActionSpec implements TransitiveInfoProvider {
 
     Map<String, String> env = owningRule.getConfiguration().getDefaultShellEnvironment();
 
-    List<String> argv = CommandHelper.buildCommandLine(owningRule,
-        command, extraActionInputs, ".extra_action_script.sh");
+    CommandHelper commandHelper = new CommandHelper(owningRule,
+        ImmutableList.<FilesToRunProvider>of(),
+        ImmutableMap.<Label, Iterable<Artifact>>of());
+
+    List<String> argv = commandHelper.buildCommandLine(command, extraActionInputs,
+        ".extra_action_script.sh");
 
     String commandMessage = String.format("Executing extra_action %s on %s", label, ownerLabel);
     owningRule.registerAction(new ExtraAction(
         actionToShadow.getOwner(),
-        extraActionInputs.build(),
+        ImmutableSet.copyOf(extraActionInputs.build()),
         manifests,
         extraActionInfoFile,
         extraActionOutputs,
