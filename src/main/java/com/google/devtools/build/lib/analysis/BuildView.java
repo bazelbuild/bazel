@@ -64,6 +64,7 @@ import com.google.devtools.build.lib.packages.Type;
 import com.google.devtools.build.lib.pkgcache.LoadingPhaseRunner.LoadingResult;
 import com.google.devtools.build.lib.pkgcache.PackageManager;
 import com.google.devtools.build.lib.rules.test.CoverageReportActionFactory;
+import com.google.devtools.build.lib.rules.test.CoverageReportActionFactory.CoverageReportActionsWrapper;
 import com.google.devtools.build.lib.skyframe.ConfiguredTargetKey;
 import com.google.devtools.build.lib.skyframe.CoverageReportValue;
 import com.google.devtools.build.lib.skyframe.SkyframeBuildView;
@@ -700,7 +701,7 @@ public class BuildView {
 
   /**
    * Skyframe implementation of {@link PackageRootResolver}.
-   * 
+   *
    * <p> Note: you should not use this class inside of any SkyFunction.
    */
   @VisibleForTesting
@@ -741,14 +742,16 @@ public class BuildView {
     artifactsToBuild.addAll(buildInfoArtifacts);
     addExtraActionsIfRequested(viewOptions, artifactsToBuild, configuredTargets);
     if (coverageReportActionFactory != null) {
-      Action action = coverageReportActionFactory.createCoverageReportAction(
+      CoverageReportActionsWrapper actionsWrapper;
+      actionsWrapper = coverageReportActionFactory.createCoverageReportActionsWrapper(
           allTargetsToTest,
           getBaselineCoverageArtifacts(configuredTargets),
           artifactFactory,
           CoverageReportValue.ARTIFACT_OWNER);
-      if (action != null) {
-        skyframeExecutor.injectCoverageReportData(action);
-        artifactsToBuild.addAll(action.getOutputs());
+      if (actionsWrapper != null) {
+        ImmutableList <Action> actions = actionsWrapper.getActions();
+        skyframeExecutor.injectCoverageReportData(actions);
+        artifactsToBuild.addAll(actionsWrapper.getCoverageOutputs());
       }
     }
 

@@ -511,8 +511,8 @@ public abstract class SkyframeExecutor {
             artifactFactory.get(), WorkspaceStatusValue.ARTIFACT_OWNER, buildId));
   }
 
-  public void injectCoverageReportData(Action action) {
-    PrecomputedValue.COVERAGE_REPORT_KEY.set(injectable(), action);
+  public void injectCoverageReportData(ImmutableList<Action> actions) {
+    PrecomputedValue.COVERAGE_REPORT_KEY.set(injectable(), actions);
   }
 
   /**

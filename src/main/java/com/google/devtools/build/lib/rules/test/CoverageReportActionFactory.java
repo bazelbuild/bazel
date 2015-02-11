@@ -14,6 +14,8 @@
 
 package com.google.devtools.build.lib.rules.test;
 
+import com.google.common.collect.ImmutableList;
+import com.google.common.collect.ImmutableSet;
 import com.google.devtools.build.lib.actions.Action;
 import com.google.devtools.build.lib.actions.Artifact;
 import com.google.devtools.build.lib.actions.ArtifactFactory;
@@ -31,12 +33,43 @@ import javax.annotation.Nullable;
 public interface CoverageReportActionFactory {
 
   /**
-   * Returns a coverage report Action. May return null if it's not necessary to create
-   * such an Action based on the input parameters and some other data available to
-   * the factory implementation, such as command line arguments.
+   * Wraps the necessary actions to get a coverage report as well as the final
+   * output artifacts.
+   * The lcovWriteAction creates a file containing a set of lcov files.
+   * This file is used as an input artifact for coverageReportAction.
+   * We are only interested about the output artifacts from
+   * coverageReportAction.
    */
+
+  public static final class CoverageReportActionsWrapper {
+    private final Action lcovWriteAction;
+    private final Action coverageReportAction;
+
+    public CoverageReportActionsWrapper (
+        Action lcovWriteAction, Action coverageReportAction) {
+      this.lcovWriteAction = lcovWriteAction;
+      this.coverageReportAction = coverageReportAction;
+    }
+
+    public ImmutableList<Action> getActions() {
+      return ImmutableList.of(lcovWriteAction, coverageReportAction);
+    }
+
+    public ImmutableSet<Artifact> getCoverageOutputs() {
+      return coverageReportAction.getOutputs();
+    }
+  }
+
+  /**
+   * Returns a CoverageReportActionsWrapper. May return null if
+   * it's not necessary to create such Actions based on the input parameters
+   * and some other data available to the factory implementation, such as
+   * command line arguments.
+   */
+
   @Nullable
-  public Action createCoverageReportAction(Collection<ConfiguredTarget> targetsToTest,
+  public CoverageReportActionsWrapper createCoverageReportActionsWrapper(
+      Collection<ConfiguredTarget> targetsToTest,
       Set<Artifact> baselineCoverageArtifacts,
       ArtifactFactory artifactFactory, ArtifactOwner artifactOwner);
 }
