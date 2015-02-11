@@ -149,8 +149,14 @@ public class CppModuleMapAction extends AbstractFileWriteAction {
     for (CppModuleMap dep : dependencies) {
       f.addPath(dep.getArtifact().getExecPath());
     }
+    f.addInt(additionalExportedHeaders.size());
+    for (PathFragment path : additionalExportedHeaders) {
+      f.addPath(path);
+    }
     f.addPath(cppModuleMap.getArtifact().getExecPath());
     f.addString(cppModuleMap.getName());
+    f.addBoolean(moduleMapHomeIsCwd);
+    f.addBoolean(compiledModule);
     return f.hexDigestAndReset();
   }
 
