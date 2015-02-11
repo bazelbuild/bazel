@@ -13,7 +13,6 @@
 // limitations under the License.
 package com.google.devtools.build.lib.syntax;
 
-import com.google.common.annotations.VisibleForTesting;
 import com.google.common.base.Preconditions;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
@@ -52,7 +51,6 @@ public abstract class SkylarkFunction extends AbstractFunction {
   /**
    * Configures the parameter of this Skylark function using the annotation.
    */
-  @VisibleForTesting
   public void configure(SkylarkBuiltin annotation) {
     Preconditions.checkState(!configured);
     Preconditions.checkArgument(getName().equals(annotation.name()),

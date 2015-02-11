@@ -533,7 +533,9 @@ public final class FuncallExpression extends Expression {
 
   @Override
   SkylarkType validate(ValidationEnvironment env) throws EvalException {
-    // TODO(bazel-team): implement semantical check.
+    for (Argument arg : args) {
+      arg.getValue().validate(env);
+    }
 
     if (obj != null) {
       // TODO(bazel-team): validate function calls on objects too.
