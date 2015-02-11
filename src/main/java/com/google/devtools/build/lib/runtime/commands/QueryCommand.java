@@ -17,9 +17,13 @@ import com.google.common.annotations.VisibleForTesting;
 import com.google.common.base.Joiner;
 import com.google.common.collect.ImmutableList;
 import com.google.devtools.build.lib.events.Event;
+import com.google.devtools.build.lib.events.EventHandler;
 import com.google.devtools.build.lib.packages.Target;
 import com.google.devtools.build.lib.pkgcache.PackageCacheOptions;
-import com.google.devtools.build.lib.query2.BlazeQueryEnvironment;
+import com.google.devtools.build.lib.pkgcache.PackageManager;
+import com.google.devtools.build.lib.pkgcache.TargetPatternEvaluator;
+import com.google.devtools.build.lib.pkgcache.TransitivePackageLoader;
+import com.google.devtools.build.lib.query2.AbstractBlazeQueryEnvironment;
 import com.google.devtools.build.lib.query2.SkyframeQueryEnvironment;
 import com.google.devtools.build.lib.query2.engine.BlazeQueryEvalResult;
 import com.google.devtools.build.lib.query2.engine.QueryEnvironment.QueryFunction;
@@ -102,9 +106,10 @@ public final class QueryCommand implements BlazeCommand {
     String query = Joiner.on(' ').join(options.getResidue());
 
     Set<Setting> settings = queryOptions.toSettings();
-    BlazeQueryEnvironment env = newQueryEnvironment(
+    AbstractBlazeQueryEnvironment<Target> env = newQueryEnvironment(
         runtime,
         queryOptions.keepGoing,
+        orderResults(queryOptions, formatter),
         queryOptions.loadingPhaseThreads,
         settings);
 
@@ -119,7 +124,7 @@ public final class QueryCommand implements BlazeCommand {
     }
 
     // 2. Evaluate expression:
-    BlazeQueryEvalResult<Target> result;
+    QueryEvalResult<Target> result;
     try {
       result = env.evaluateQuery(expr);
     } catch (QueryException e) {
@@ -146,10 +151,15 @@ public final class QueryCommand implements BlazeCommand {
   }
 
   @VisibleForTesting
+  public static boolean orderResults(QueryOptions queryOptions, OutputFormatter formatter) {
+    return queryOptions.orderResults || !(formatter instanceof UnorderedFormatter);
+  }
+
+  @VisibleForTesting
   public static void output(QueryOptions queryOptions, QueryEvalResult<Target> result,
       OutputFormatter formatter, PrintStream outputStream)
       throws IOException {
-    if (queryOptions.orderResults || !(formatter instanceof UnorderedFormatter)) {
+    if (orderResults(queryOptions, formatter)) {
       formatter.output(queryOptions, ((BlazeQueryEvalResult<Target>) result).getResultGraph(),
           outputStream);
     } else {
@@ -159,16 +169,28 @@ public final class QueryCommand implements BlazeCommand {
   }
 
   @VisibleForTesting // for com.google.devtools.deps.gquery.test.QueryResultTestUtil
-  public static BlazeQueryEnvironment newQueryEnvironment(BlazeRuntime runtime,
-      boolean keepGoing, int loadingPhaseThreads, Set<Setting> settings) {
+  public static AbstractBlazeQueryEnvironment<Target> newQueryEnvironment(BlazeRuntime runtime,
+      boolean keepGoing, boolean orderedResults,  int loadingPhaseThreads,
+      Set<Setting> settings) {
     ImmutableList.Builder<QueryFunction> functions = ImmutableList.builder();
     for (BlazeModule module : runtime.getBlazeModules()) {
       functions.addAll(module.getQueryFunctions());
     }
-    return new SkyframeQueryEnvironment(
-            runtime.getPackageManager().newTransitiveLoader(),
-            runtime.getPackageManager(),
-            runtime.getTargetPatternEvaluator(),
-            keepGoing, loadingPhaseThreads, runtime.getReporter(), settings, functions.build());
+    return newQueryEnvironment(
+        runtime.getPackageManager().newTransitiveLoader(),
+        runtime.getPackageManager(),
+        runtime.getTargetPatternEvaluator(),
+        keepGoing, orderedResults, loadingPhaseThreads, runtime.getReporter(), settings,
+        functions.build());
+  }
+
+  @VisibleForTesting
+  public static AbstractBlazeQueryEnvironment<Target> newQueryEnvironment(
+      TransitivePackageLoader transitivePackageLoader, PackageManager packageManager,
+      TargetPatternEvaluator targetPatternEvaluator, boolean keepGoing, boolean orderedResults,
+      int loadingPhaseThreads,
+      EventHandler eventHandler, Set<Setting> settings, Iterable<QueryFunction> functions) {
+    return new SkyframeQueryEnvironment(transitivePackageLoader, packageManager,
+        targetPatternEvaluator, keepGoing, loadingPhaseThreads, eventHandler, settings, functions);
   }
 }
