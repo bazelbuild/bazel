@@ -14,6 +14,7 @@
 
 package com.google.devtools.build.lib.syntax;
 
+import com.google.common.collect.ImmutableMap;
 import com.google.devtools.build.lib.concurrent.ThreadSafety.Immutable;
 import com.google.devtools.build.lib.events.Event;
 import com.google.devtools.build.lib.events.EventHandler;
@@ -38,6 +39,14 @@ import java.util.Stack;
  * instead of interleaving scanning with parsing.
  */
 public final class Lexer {
+
+  private static final Map<Character, TokenKind> EQUAL_TOKENS =
+      ImmutableMap.<Character, TokenKind>of(
+          '=', TokenKind.EQUALS_EQUALS,
+          '!', TokenKind.NOT_EQUALS,
+          '>', TokenKind.GREATER_EQUALS,
+          '<', TokenKind.LESS_EQUALS,
+          '+', TokenKind.PLUS_EQUALS);
 
   private final EventHandler eventHandler;
 
@@ -270,7 +279,7 @@ public final class Lexer {
   /**
    * Scans a string literal delimited by 'quot', containing escape sequences.
    *
-   * ON ENTRY: 'pos' is 1 + the index of the first delimiter
+   * <p>ON ENTRY: 'pos' is 1 + the index of the first delimiter
    * ON EXIT: 'pos' is 1 + the index of the last delimiter.
    *
    * @return the string-literal token.
@@ -531,7 +540,7 @@ public final class Lexer {
   /**
    * Scans an integer literal.
    *
-   * ON ENTRY: 'pos' is 1 + the index of the first char in the literal.
+   * <p>ON ENTRY: 'pos' is 1 + the index of the first char in the literal.
    * ON EXIT: 'pos' is 1 + the index of the last char in the literal.
    *
    * @return the integer token.
@@ -573,31 +582,16 @@ public final class Lexer {
     }
     char c1 = buffer[pos];
     char c2 = buffer[pos + 1];
+    TokenKind tok = null;
     if (c2 == '=') {
-      switch (c1) {
-        case '=': {
-          addToken(new Token(TokenKind.EQUALS_EQUALS, pos, pos + 2));
-          return true;
-        }
-        case '!': {
-          addToken(new Token(TokenKind.NOT_EQUALS, pos, pos + 2));
-          return true;
-        }
-        case '>': {
-          addToken(new Token(TokenKind.GREATER_EQUALS, pos, pos + 2));
-          return true;
-        }
-        case '<': {
-          addToken(new Token(TokenKind.LESS_EQUALS, pos, pos + 2));
-          return true;
-        }
-        case '+': {
-          addToken(new Token(TokenKind.PLUS_EQUALS, pos, pos + 2));
-          return true;
-        }
-      }
+      tok = EQUAL_TOKENS.get(c1);
     }
-    return false;
+    if (tok == null) {
+      return false;
+    } else {
+      addToken(new Token(tok, pos, pos + 2));
+      return true;
+    }
   }
 
   /**

@@ -16,6 +16,10 @@ package com.google.devtools.build.lib.syntax;
 
 import com.google.common.base.Preconditions;
 import com.google.devtools.build.lib.events.Location;
+import com.google.devtools.build.lib.util.LoggingUtil;
+
+import java.util.logging.Level;
+
 
 /**
  * Exceptions thrown during evaluation of BUILD ASTs or Skylark extensions.
@@ -54,16 +58,43 @@ public class EvalException extends Exception {
     this.dueToIncompleteAST = dueToIncompleteAST;
   }
 
-  private EvalException(Location location, Throwable cause) {
+  /**
+   * @param location the location where evaluation/execution failed.
+   * @param message the error message.
+   * @param cause a Throwable that caused this exception.
+   */
+  public EvalException(Location location, String message, Throwable cause) {
     super(cause);
     this.location = location;
     // This is only used from Skylark, it's useful for debugging. Note that this only happens
     // when the Precondition below kills the execution anyway.
-    if (cause.getMessage() == null) {
-      cause.printStackTrace();
+    if (message == null) {
+      message = "";
     }
-    this.message = Preconditions.checkNotNull(cause.getMessage());
+    if (cause != null) {
+      message = message + (message.isEmpty() ? "" : "\n") + cause.getMessage();
+    }
+    if (message.isEmpty()) {
+      LoggingUtil.logToRemote(Level.SEVERE, "Invalid EvalException", cause);
+      throw new IllegalArgumentException("Invalid EvalException");
+    }
+    this.message = message;
     this.dueToIncompleteAST = false;
+  }
+
+  public EvalException(Location location, Throwable cause) {
+    this(location, null, cause);
+  }
+
+  /**
+   * Returns the error message with location info if exists.
+   */
+  public String print() { // TODO(bazel-team): do we also need a toString() method?
+    return this.getClass().getName()
+        + (getLocation() == null ? "" : " at " + getLocation()) + ": "
+        + (message == null ? "" : message + "\n")
+        + (dueToIncompleteAST ? "due to incomplete AST\n" : "")
+        + (getCause() != null && getCause().getMessage() != null ? getCause().getMessage() : "");
   }
 
   /**
@@ -81,25 +112,34 @@ public class EvalException extends Exception {
     return location;
   }
 
+  /**
+   * Returns a boolean that tells whether this exception was due to an incomplete AST
+   */
   public boolean isDueToIncompleteAST() {
     return dueToIncompleteAST;
   }
 
   /**
    * A class to support a special case of EvalException when the cause of the error is an
-   * Exception during a direct Java call.
+   * Exception during a direct Java call. Allow the throwing code to provide context in a message.
    */
   public static final class EvalExceptionWithJavaCause extends EvalException {
 
-    public EvalExceptionWithJavaCause(Location location, Throwable cause) {
-      super(location, cause);
+    /**
+     * @param location the location where evaluation/execution failed.
+     * @param message the error message.
+     * @param cause a Throwable that caused this exception.
+     */
+    public EvalExceptionWithJavaCause(Location location, String message, Throwable cause) {
+      super(location, message, cause);
     }
-  }
 
-  /**
-   * Returns the error message with location info if exists.
-   */
-  public String print() {
-    return getLocation() == null ? getMessage() : getLocation().print() + ": " + getMessage();
+    /**
+     * @param location the location where evaluation/execution failed.
+     * @param cause a Throwable that caused this exception.
+     */
+    public EvalExceptionWithJavaCause(Location location, Throwable cause) {
+      this(location, null, cause);
+    }
   }
 }

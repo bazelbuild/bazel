@@ -93,7 +93,7 @@ public final class SkylarkNestedSet implements Iterable<Object> {
       }
     } else {
       throw new EvalException(loc,
-          String.format("cannot add '%s'-s to nested sets", EvalUtils.getDatatypeName(item)));
+          String.format("cannot add '%s'-s to nested sets", EvalUtils.getDataTypeName(item)));
     }
     this.genericType = Preconditions.checkNotNull(genericType, "type cannot be null");
 

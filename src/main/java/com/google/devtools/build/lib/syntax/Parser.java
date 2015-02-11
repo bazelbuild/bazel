@@ -754,8 +754,7 @@ class Parser {
     int start = token.left;
     expect(TokenKind.LBRACKET);
     if (token.kind == TokenKind.RBRACKET) { // empty List
-      ListLiteral literal =
-          ListLiteral.makeList(Collections.<Expression>emptyList());
+      ListLiteral literal = ListLiteral.emptyList();
       setLocation(literal, start, token.right);
       nextToken();
       return literal;
@@ -825,9 +824,8 @@ class Parser {
   private Expression parseDictExpression() {
     int start = token.left;
     expect(TokenKind.LBRACE);
-    if (token.kind == TokenKind.RBRACE) { // empty List
-      DictionaryLiteral literal =
-          new DictionaryLiteral(ImmutableList.<DictionaryEntryLiteral>of());
+    if (token.kind == TokenKind.RBRACE) { // empty Dict
+      DictionaryLiteral literal = DictionaryLiteral.emptyDict();
       setLocation(literal, start, token.right);
       nextToken();
       return literal;
@@ -1075,21 +1073,22 @@ class Parser {
   }
 
   // if_stmt ::= IF expr ':' suite [ELIF expr ':' suite]* [ELSE ':' suite]?
-  private void parseIfStatement(List<Statement> list) {
+  private IfStatement parseIfStatement() {
     int start = token.left;
     List<ConditionalStatements> thenBlocks = new ArrayList<>();
     thenBlocks.add(parseConditionalStatements(TokenKind.IF));
     while (token.kind == TokenKind.ELIF) {
       thenBlocks.add(parseConditionalStatements(TokenKind.ELIF));
     }
-    List<Statement> elseBlock = new ArrayList<>();
+    List<Statement> elseBlock;
     if (token.kind == TokenKind.ELSE) {
       expect(TokenKind.ELSE);
       expect(TokenKind.COLON);
-      parseSuite(elseBlock);
+      elseBlock = parseSuite();
+    } else {
+      elseBlock = ImmutableList.of();
     }
-    Statement stmt = new IfStatement(thenBlocks, elseBlock);
-    list.add(setLocation(stmt, start, token.right));
+    return setLocation(new IfStatement(thenBlocks, elseBlock), start, token.right);
   }
 
   // cond_stmts ::= [EL]IF expr ':' suite
@@ -1098,8 +1097,7 @@ class Parser {
     expect(tokenKind);
     Expression expr = parseExpression();
     expect(TokenKind.COLON);
-    List<Statement> thenBlock = new ArrayList<>();
-    parseSuite(thenBlock);
+    List<Statement> thenBlock = parseSuite();
     ConditionalStatements stmt = new ConditionalStatements(expr, thenBlock);
     return setLocation(stmt, start, token.right);
   }
@@ -1112,8 +1110,7 @@ class Parser {
     expect(TokenKind.IN);
     Expression collection = parseExpression();
     expect(TokenKind.COLON);
-    List<Statement> block = new ArrayList<>();
-    parseSuite(block);
+    List<Statement> block = parseSuite();
     Statement stmt = new ForStatement(ident, collection, block);
     list.add(setLocation(stmt, start, token.right));
   }
@@ -1129,8 +1126,7 @@ class Parser {
     List<Argument> args = parseFunctionDefArguments();
     expect(TokenKind.RPAREN);
     expect(TokenKind.COLON);
-    List<Statement> block = new ArrayList<>();
-    parseSuite(block);
+    List<Statement> block = parseSuite();
     FunctionDefStatement stmt = new FunctionDefStatement(ident, args, block);
     list.add(setLocation(stmt, start, token.right));
   }
@@ -1161,13 +1157,14 @@ class Parser {
 
   // suite ::= simple_stmt
   //         | NEWLINE INDENT stmt+ OUTDENT
-  private void parseSuite(List<Statement> list) {
+  private List<Statement> parseSuite() {
+    List<Statement> list = new ArrayList<>();
     if (token.kind == TokenKind.NEWLINE) {
       expect(TokenKind.NEWLINE);
       if (token.kind != TokenKind.INDENT) {
         reportError(lexer.createLocation(token.left, token.right),
                     "expected an indented block");
-        return;
+        return list;
       }
       expect(TokenKind.INDENT);
       while (token.kind != TokenKind.OUTDENT && token.kind != TokenKind.EOF) {
@@ -1179,6 +1176,7 @@ class Parser {
       list.add(stmt);
       expect(TokenKind.NEWLINE);
     }
+    return list;
   }
 
   // skipSuite does not check that the code is syntactically correct, it
@@ -1226,7 +1224,7 @@ class Parser {
       }
       parseFunctionDefStatement(list);
     } else if (token.kind == TokenKind.IF && skylarkMode) {
-      parseIfStatement(list);
+      list.add(parseIfStatement());
     } else if (token.kind == TokenKind.FOR && skylarkMode) {
       if (isTopLevel) {
         reportError(lexer.createLocation(token.left, token.right),

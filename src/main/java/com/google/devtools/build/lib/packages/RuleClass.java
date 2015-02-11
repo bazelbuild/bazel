@@ -127,14 +127,14 @@ public final class RuleClass {
     @Override
     public String getErrorReason(Rule param) {
       if (pathSegment == ANY_SEGMENT) {
-        return param.getRuleClass() + " rules have to be under a " +
-            StringUtil.joinEnglishList(values, "or", "'") + " directory";
+        return param.getRuleClass() + " rules have to be under a "
+            + StringUtil.joinEnglishList(values, "or", "'") + " directory";
       } else if (pathSegment == 1) {
         return param.getRuleClass() + " rules are only allowed in "
             + StringUtil.joinEnglishList(StringUtil.append(values, "//", ""), "or");
       } else {
-          return param.getRuleClass() + " rules are only allowed in packages which " +
-              StringUtil.ordinal(pathSegment) + " is " + StringUtil.joinEnglishList(values, "or");
+          return param.getRuleClass() + " rules are only allowed in packages which "
+              + StringUtil.ordinal(pathSegment) + " is " + StringUtil.joinEnglishList(values, "or");
       }
     }
 
@@ -286,8 +286,8 @@ public final class RuleClass {
             Preconditions.checkState(presentAttribute != null,
                 "Missing mandatory '%s' attribute in normal rule class.", attribute.getName());
             Preconditions.checkState(presentAttribute.getType().equals(attribute.getType()),
-                "Mandatory attribute '%s' in normal rule class has incorrect type (expcected" +
-                    " %s).", attribute.getName(), attribute.getType());
+                "Mandatory attribute '%s' in normal rule class has incorrect type (expected"
+                + " %s).", attribute.getName(), attribute.getType());
           }
         }
       },
@@ -384,8 +384,8 @@ public final class RuleClass {
 
       @Override
       public boolean equals(Object o) {
-        return (o instanceof RuleClassNamePredicate) &&
-            ruleClasses.equals(((RuleClassNamePredicate) o).ruleClasses);
+        return (o instanceof RuleClassNamePredicate)
+            && ruleClasses.equals(((RuleClassNamePredicate) o).ruleClasses);
       }
 
       @Override
@@ -1024,8 +1024,8 @@ public final class RuleClass {
    * which does not have the configured targets available.
    *
    * <p>This should in theory only contain subclasses of
-   * {@link com.google.devtools.build.lib.analysis.TransitiveInfoProvider}, but our current dependency
-   * structure does not allow a reference to that class here.
+   * {@link com.google.devtools.build.lib.analysis.TransitiveInfoProvider}, but
+   * our current dependency structure does not allow a reference to that class here.
    */
   public ImmutableSet<Class<?>> getAdvertisedProviders() {
     return advertisedProviders;
@@ -1401,8 +1401,8 @@ public final class RuleClass {
 
     Integer attrIndex = getAttributeIndex(attrName);
     if (attrIndex == null) {
-      rule.reportError(rule.getLabel() + ": no such attribute '" + attrName +
-                       "' in '" + name + "' rule", eventHandler);
+      rule.reportError(rule.getLabel() + ": no such attribute '" + attrName
+          + "' in '" + name + "' rule", eventHandler);
       return null;
     }
 
@@ -1431,8 +1431,8 @@ public final class RuleClass {
 
     if (attrName.equals("visibility")) {
       List<Label> attrList = (List<Label>) converted;
-      if (!attrList.isEmpty() &&
-        ConstantRuleVisibility.LEGACY_PUBLIC_LABEL.equals(attrList.get(0))) {
+      if (!attrList.isEmpty()
+          && ConstantRuleVisibility.LEGACY_PUBLIC_LABEL.equals(attrList.get(0))) {
         rule.reportError(rule.getLabel() + ": //visibility:legacy_public only allowed in package "
             + "declaration", eventHandler);
       }

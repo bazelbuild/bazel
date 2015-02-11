@@ -71,8 +71,8 @@ public final class BinaryOperatorExpression extends Expression {
     try {
       return ((Comparable<Object>) lval).compareTo(rval);
     } catch (ClassCastException e) {
-      throw new EvalException(getLocation(), "Cannot compare " + EvalUtils.getDatatypeName(lval)
-          + " with " + EvalUtils.getDatatypeName(rval));
+      throw new EvalException(getLocation(), "Cannot compare " + EvalUtils.getDataTypeName(lval)
+          + " with " + EvalUtils.getDataTypeName(rval));
     }
   }
 
@@ -117,9 +117,9 @@ public final class BinaryOperatorExpression extends Expression {
           List<?> rlist = (List<?>) rval;
           if (EvalUtils.isImmutable(llist) != EvalUtils.isImmutable(rlist)) {
             throw new EvalException(getLocation(), "can only concatenate "
-                + EvalUtils.getDatatypeName(rlist) + " (not \""
-                + EvalUtils.getDatatypeName(llist) + "\") to "
-                + EvalUtils.getDatatypeName(rlist));
+                + EvalUtils.getDataTypeName(rlist) + " (not \""
+                + EvalUtils.getDataTypeName(llist) + "\") to "
+                + EvalUtils.getDataTypeName(rlist));
           }
           if (llist instanceof GlobList<?> || rlist instanceof GlobList<?>) {
             return GlobList.concat(llist, rlist);
@@ -270,8 +270,8 @@ public final class BinaryOperatorExpression extends Expression {
 
     throw new EvalException(getLocation(),
         "unsupported operand types for '" + operator + "': '"
-        + EvalUtils.getDatatypeName(lval) + "' and '"
-        + EvalUtils.getDatatypeName(rval) + "'");
+        + EvalUtils.getDataTypeName(lval) + "' and '"
+        + EvalUtils.getDataTypeName(rval) + "'");
   }
 
   @Override

@@ -319,7 +319,7 @@ public abstract class Type<T> {
       }
       builder.append(", but got '");
       EvalUtils.printValue(value, builder);
-      builder.append("' (").append(EvalUtils.getDatatypeName(value)).append(")");
+      builder.append("' (").append(EvalUtils.getDataTypeName(value)).append(")");
       return builder.toString();
     }
 
@@ -609,7 +609,7 @@ public abstract class Type<T> {
             STRING.convert(x, what, currentRule));
       } catch (Label.SyntaxException e) {
         throw new ConversionException("invalid label '" + x + "' in "
-            + what + ": "+ e.getMessage());
+            + what + ": " + e.getMessage());
       }
     }
   }
@@ -813,6 +813,7 @@ public abstract class Type<T> {
     }
   }
 
+  /** A type for lists of a given element type */
   public static class ListType<ELEM> extends Type<List<ELEM>> {
 
     private final Type<ELEM> elemType;
@@ -905,6 +906,7 @@ public abstract class Type<T> {
     }
   }
 
+  /** Type for lists of arbitrary objects */
   public static class ObjectListType extends ListType<Object> {
 
     private static final Type<Object> elemType = new ObjectType();

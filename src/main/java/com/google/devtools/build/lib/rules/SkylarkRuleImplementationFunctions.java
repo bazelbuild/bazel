@@ -123,7 +123,7 @@ public class SkylarkRuleImplementationFunctions {
           builder.setExecutable((PathFragment) exe);
         } else {
           throw new EvalException(loc, "expected file or PathFragment for "
-              + "executable but got " + EvalUtils.getDatatypeName(exe) + " instead");
+              + "executable but got " + EvalUtils.getDataTypeName(exe) + " instead");
         }
       }
       if (params.containsKey("command") == params.containsKey("executable")) {
@@ -141,7 +141,7 @@ public class SkylarkRuleImplementationFunctions {
           builder.setShellCommand(castList(commandList, String.class, "command"));
         } else {
           throw new EvalException(loc, "expected string or list of strings for "
-              + "command instead of " + EvalUtils.getDatatypeName(command));
+              + "command instead of " + EvalUtils.getDataTypeName(command));
         }
       }
       if (params.containsKey("command_line")) {

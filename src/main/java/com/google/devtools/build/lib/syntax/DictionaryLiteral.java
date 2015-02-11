@@ -20,7 +20,7 @@ import java.util.List;
 import java.util.Map;
 
 /**
- * Syntax node for dictionary literals. 
+ * Syntax node for dictionary literals.
  */
 public class DictionaryLiteral extends Expression {
 
@@ -63,6 +63,11 @@ public class DictionaryLiteral extends Expression {
     this.entries = ImmutableList.copyOf(exprs);
   }
 
+  /** A new literal for an empty dictionary, onto which a new location can be specified */
+  public static DictionaryLiteral emptyDict() {
+    return new DictionaryLiteral(ImmutableList.<DictionaryEntryLiteral>of());
+  }
+
   @Override
   Object eval(Environment env) throws EvalException, InterruptedException {
     // We need LinkedHashMap to maintain the order during iteration (e.g. for loops)
@@ -72,7 +77,6 @@ public class DictionaryLiteral extends Expression {
         throw new EvalException(getLocation(), "null expression in " + this);
       }
       map.put(entry.key.eval(env), entry.value.eval(env));
-      
     }
     return map;
   }

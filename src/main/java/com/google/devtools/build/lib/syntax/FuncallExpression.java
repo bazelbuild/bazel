@@ -316,7 +316,7 @@ public final class FuncallExpression extends Expression {
     result = SkylarkType.convertToSkylark(result, method);
     if (result != null && !EvalUtils.isSkylarkImmutable(result.getClass())) {
       throw new EvalException(loc, "Method '" + methodName
-          + "' returns a mutable object (type of " + EvalUtils.getDatatypeName(result) + ")");
+          + "' returns a mutable object (type of " + EvalUtils.getDataTypeName(result) + ")");
     }
     return result;
   }
@@ -386,7 +386,7 @@ public final class FuncallExpression extends Expression {
       if (!first) {
         sb.append(", ");
       }
-      sb.append(EvalUtils.getDatatypeName(obj));
+      sb.append(EvalUtils.getDataTypeName(obj));
       first = false;
     }
     return sb.append(")").toString();
@@ -410,12 +410,12 @@ public final class FuncallExpression extends Expression {
       throws EvalException {
     if (!(items instanceof Map<?, ?>)) {
       throw new EvalException(getLocation(),
-          "Argument after ** must be a dictionary, not " + EvalUtils.getDatatypeName(items));
+          "Argument after ** must be a dictionary, not " + EvalUtils.getDataTypeName(items));
     }
     for (Map.Entry<?, ?> entry : ((Map<?, ?>) items).entrySet()) {
       if (!(entry.getKey() instanceof String)) {
         throw new EvalException(getLocation(),
-            "Keywords must be strings, not " + EvalUtils.getDatatypeName(entry.getKey()));
+            "Keywords must be strings, not " + EvalUtils.getDataTypeName(entry.getKey()));
       }
       addKeywordArg(kwargs, (String) entry.getKey(), entry.getValue());
     }
@@ -499,14 +499,14 @@ public final class FuncallExpression extends Expression {
       } else {
         throw new EvalException(getLocation(), String.format(
             "function '%s' is not defined on '%s'", func.getName(),
-            EvalUtils.getDatatypeName(objValue)));
+            EvalUtils.getDataTypeName(objValue)));
       }
     }
 
     Object funcValue = func.eval(env);
     if (!(funcValue instanceof Function)) {
       throw new EvalException(getLocation(),
-                              "'" + EvalUtils.getDatatypeName(funcValue)
+                              "'" + EvalUtils.getDataTypeName(funcValue)
                               + "' object is not callable");
     }
     Function function = (Function) funcValue;

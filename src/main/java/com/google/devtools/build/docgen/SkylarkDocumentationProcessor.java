@@ -98,7 +98,7 @@ public class SkylarkDocumentationProcessor {
     for (SkylarkModuleDoc builtinObject : builtinModules.values()) {
       // Check the return type for built-in functions, it can be a module previously not added.
       for (SkylarkBuiltinMethod builtinMethod : builtinObject.getBuiltinMethods().values()) {
-        Class<?> type = builtinMethod.annotation.returnType(); 
+        Class<?> type = builtinMethod.annotation.returnType();
         if (type.isAnnotationPresent(SkylarkModule.class)) {
           explorer.collect(type.getAnnotation(SkylarkModule.class), type, modules);
         }

@@ -48,7 +48,7 @@ public final class IfStatement extends Statement {
     @Override
     public String toString() {
       // TODO(bazel-team): see TODO in the outer class
-      return "[el]if " + condition + ": ...\n";
+      return "[el]if " + condition + ": " + stmts + "\n";
     }
 
     @Override

@@ -24,7 +24,6 @@ import com.google.common.collect.Lists;
 import com.google.devtools.build.lib.collect.nestedset.NestedSet;
 import com.google.devtools.build.lib.concurrent.ThreadSafety.Immutable;
 import com.google.devtools.build.lib.events.Location;
-import com.google.devtools.build.lib.syntax.ClassObject.SkylarkClassObject;
 import com.google.devtools.build.lib.vfs.PathFragment;
 
 import java.io.IOException;
@@ -169,10 +168,11 @@ public abstract class EvalUtils {
     return c;
   }
 
+  // TODO(bazel-team): shouldn't we agree on Datatype vs DataType in the two methods below???
   /**
    * Returns a pretty name for the datatype of object 'o' in the Build language.
    */
-  public static String getDatatypeName(Object o) {
+  public static String getDataTypeName(Object o) {
     Preconditions.checkNotNull(o);
     if (o instanceof SkylarkList) {
       return ((SkylarkList) o).isTuple() ? "tuple" : "list";
@@ -195,9 +195,12 @@ public abstract class EvalUtils {
     } else if (c.equals(Void.TYPE) || c.equals(Environment.NoneType.class)) {
       return "None";
     } else if (List.class.isAssignableFrom(c)) {
+      // TODO(bazel-team): for better debugging, we should distinguish "java tuple" and "java list"
+      // from "tuple" and "list" -- or better yet, only use one set of pure data structures
+      // everywhere and eliminate all calls to .append and .extend from the code base.
       return isTuple(c) ? "tuple" : "list";
     } else if (GlobList.class.isAssignableFrom(c)) {
-      return "list";
+      return "glob list";
     } else if (Map.class.isAssignableFrom(c)) {
       return "dict";
     } else if (Function.class.isAssignableFrom(c)) {
@@ -206,10 +209,10 @@ public abstract class EvalUtils {
       return "FilesetEntry";
     } else if (NestedSet.class.isAssignableFrom(c) || SkylarkNestedSet.class.isAssignableFrom(c)) {
       return "set";
-    } else if (SkylarkClassObject.class.isAssignableFrom(c)) {
+    } else if (ClassObject.class.isAssignableFrom(c)) {
       return "struct";
     } else if (SkylarkList.class.isAssignableFrom(c)) {
-      // TODO(bazel-team): this is not entirely correct, it can also be a tuple.
+      // TODO(bazel-team): Refactor the class hierarchy so we can distinguish list and tuple types.
       return "list";
     } else if (c.isAnnotationPresent(SkylarkModule.class)) {
       SkylarkModule module = c.getAnnotation(SkylarkModule.class);
@@ -261,28 +264,21 @@ public abstract class EvalUtils {
 
     } else if (o instanceof List<?>) {
       List<?> seq = (List<?>) o;
-      boolean isTuple = isImmutable(seq);
-      String sep = "";
-      buffer.append(isTuple ? '(' : '[');
-      for (int ii = 0, len = seq.size(); ii < len; ++ii) {
-        buffer.append(sep);
-        prettyPrintValue(seq.get(ii), buffer);
-        sep = ", ";
-      }
-      buffer.append(isTuple ? ')' : ']');
+      printList(seq, isImmutable(seq), buffer);
+
+    } else if (o instanceof SkylarkList) {
+      SkylarkList list = (SkylarkList) o;
+      printList(list.toList(), list.isTuple(), buffer);
 
     } else if (o instanceof Map<?, ?>) {
       Map<?, ?> dict = (Map<?, ?>) o;
-      buffer.append('{');
-      String sep = "";
-      for (Map.Entry<?, ?> entry : dict.entrySet()) {
-        buffer.append(sep);
-        prettyPrintValue(entry.getKey(), buffer);
-        buffer.append(": ");
-        prettyPrintValue(entry.getValue(), buffer);
-        sep = ", ";
-      }
-      buffer.append('}');
+      printList(dict.entrySet(), "{", ", ", "}", buffer);
+
+    } else if (o instanceof Map.Entry<?, ?>) {
+      Map.Entry<?, ?> entry = (Map.Entry<?, ?>) o;
+      prettyPrintValue(entry.getKey(), buffer);
+      buffer.append(": ");
+      prettyPrintValue(entry.getValue(), buffer);
 
     } else if (o instanceof Function) {
       Function func = (Function) o;
@@ -307,6 +303,27 @@ public abstract class EvalUtils {
       buffer.append(((PathFragment) o).getPathString());
     } else {
       buffer.append(o.toString());
+    }
+  }
+
+  private static void printList(Iterable<?> list,
+      String before, String separator, String after, Appendable buffer) throws IOException {
+    String sep = "";
+    buffer.append(before);
+    for (Object o : list) {
+      buffer.append(sep);
+      prettyPrintValue(o, buffer);
+      sep = separator;
+    }
+    buffer.append(after);
+  }
+
+  private static void printList(Iterable<?> list, boolean isTuple, Appendable buffer)
+      throws IOException {
+    if (isTuple) {
+      printList(list, "(", ", ", ")", buffer);
+    } else {
+      printList(list, "[", ", ", "]", buffer);
     }
   }
 
@@ -546,7 +563,7 @@ public abstract class EvalUtils {
       return ((SkylarkNestedSet) o).toCollection();
     } else {
       throw new EvalException(loc,
-          "type '" + EvalUtils.getDatatypeName(o) + "' is not a collection");
+          "type '" + getDataTypeName(o) + "' is not a collection");
     }
   }
 
@@ -565,7 +582,7 @@ public abstract class EvalUtils {
       return ((Map<Object, Object>) o).keySet();
     } else {
       throw new EvalException(loc,
-          "type '" + EvalUtils.getDatatypeName(o) + "' is not an iterable");
+          "type '" + getDataTypeName(o) + "' is not an iterable");
     }
   }
 

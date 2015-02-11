@@ -80,7 +80,7 @@ public final class AssignmentStatement extends Statement {
         throw new EvalException(getLocation(), String.format("Incompatible variable types, "
             + "trying to assign %s (type of %s) to variable %s which is already %s",
             EvalUtils.prettyPrintValue(result),
-            EvalUtils.getDatatypeName(result),
+            EvalUtils.getDataTypeName(result),
             ident.getName(),
             EvalUtils.getDataTypeNameFromClass(variableType)));
       }

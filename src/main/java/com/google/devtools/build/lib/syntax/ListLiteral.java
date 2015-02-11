@@ -14,6 +14,7 @@
 package com.google.devtools.build.lib.syntax;
 
 import java.util.ArrayList;
+import java.util.Collections;
 import java.util.List;
 
 /**
@@ -45,6 +46,11 @@ public final class ListLiteral extends Expression {
 
   public static ListLiteral makeTuple(List<Expression> exprs) {
     return new ListLiteral(Kind.TUPLE, exprs);
+  }
+
+  /** A new literal for an empty list, onto which a new location can be specified */
+  public static ListLiteral emptyList() {
+    return makeList(Collections.<Expression>emptyList());
   }
 
   /**

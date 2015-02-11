@@ -465,7 +465,7 @@ public class MethodLibrary {
         // TODO(bazel-team): This is dead code, get rid of it.
         throw new EvalException(ast.getLocation(), String.format(
             "Unsupported datatype (%s) for indexing, only works for dict and list",
-            EvalUtils.getDatatypeName(collectionCandidate)));
+            EvalUtils.getDataTypeName(collectionCandidate)));
       }
     }
   };
@@ -552,7 +552,7 @@ public class MethodLibrary {
       int l = EvalUtils.size(arg);
       if (l == -1) {
         throw new EvalException(ast.getLocation(),
-            EvalUtils.getDatatypeName(arg) + " is not iterable");
+            EvalUtils.getDataTypeName(arg) + " is not iterable");
       }
       return l;
     }
@@ -792,7 +792,7 @@ public class MethodLibrary {
           return args[2];
         } else {
           throw new EvalException(ast.getLocation(), "Object of type '"
-              + EvalUtils.getDatatypeName(obj) + "' has no field '" + name + "'");
+              + EvalUtils.getDataTypeName(obj) + "' has no field '" + name + "'");
         }
       }
       return result;
@@ -833,7 +833,7 @@ public class MethodLibrary {
     @Override
     public Object call(Object[] args, FuncallExpression ast) throws EvalException {
       // There is no 'type' type in Skylark, so we return a string with the type name.
-      return EvalUtils.getDatatypeName(args[0]);
+      return EvalUtils.getDataTypeName(args[0]);
     }
   };
 
