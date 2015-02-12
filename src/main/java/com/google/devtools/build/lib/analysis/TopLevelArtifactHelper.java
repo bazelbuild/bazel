@@ -32,7 +32,7 @@ public final class TopLevelArtifactHelper {
   }
 
   /** Returns command-specific artifacts which may exist for a given target and build command. */
-  public static final Iterable<Artifact> getCommandArtifacts(TransitiveInfoCollection target,
+  private static final Iterable<Artifact> getCommandArtifacts(TransitiveInfoCollection target,
       String buildCommand) {
     TopLevelArtifactProvider provider = target.getProvider(TopLevelArtifactProvider.class);
     if (provider != null

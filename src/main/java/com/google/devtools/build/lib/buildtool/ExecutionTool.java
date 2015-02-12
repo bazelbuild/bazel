@@ -47,13 +47,12 @@ import com.google.devtools.build.lib.actions.TestExecException;
 import com.google.devtools.build.lib.actions.cache.ActionCache;
 import com.google.devtools.build.lib.analysis.BuildView;
 import com.google.devtools.build.lib.analysis.BuildView.AnalysisResult;
-import com.google.devtools.build.lib.analysis.CompilationPrerequisitesProvider;
 import com.google.devtools.build.lib.analysis.ConfiguredTarget;
 import com.google.devtools.build.lib.analysis.FileProvider;
-import com.google.devtools.build.lib.analysis.FilesToCompileProvider;
 import com.google.devtools.build.lib.analysis.InputFileConfiguredTarget;
 import com.google.devtools.build.lib.analysis.OutputFileConfiguredTarget;
 import com.google.devtools.build.lib.analysis.TempsProvider;
+import com.google.devtools.build.lib.analysis.TopLevelArtifactContext;
 import com.google.devtools.build.lib.analysis.TopLevelArtifactHelper;
 import com.google.devtools.build.lib.analysis.TransitiveInfoCollection;
 import com.google.devtools.build.lib.analysis.ViewCreationFailedException;
@@ -670,13 +669,14 @@ public class ExecutionTool {
 
     OutErr outErr = request.getOutErr();
 
+    TopLevelArtifactContext context = request.getTopLevelArtifactContext();
     for (ConfiguredTarget target : succeeded) {
       Label label = target.getLabel();
       // For up-to-date targets report generated artifacts, but only
       // if they have associated action and not middleman artifacts.
       boolean headerFlag = true;
-      for (Artifact artifact : getFilesToBuild(target, request)) {
-        if (!artifact.isSourceArtifact()) {
+      for (Artifact artifact : TopLevelArtifactHelper.getAllArtifactsToBuild(target, context)) {
+        if (!artifact.isSourceArtifact() && !artifact.isMiddlemanArtifact()) {
           if (headerFlag) {
             outErr.printErr("Target " + label + " up-to-date:\n");
             headerFlag = false;
@@ -711,43 +711,6 @@ public class ExecutionTool {
     if (!failed.isEmpty() && !request.getOptions(ExecutionOptions.class).verboseFailures) {
       outErr.printErr("Use --verbose_failures to see the command lines of failed build steps.\n");
     }
-  }
-
-  /**
-   * Gets all the files to build for a given target and build request.
-   * There may be artifacts that should be built which are not represented in the
-   * configured target graph.  Currently, this only occurs when "--save_temps" is on.
-   *
-   * @param target configured target
-   * @param request the build request
-   * @return artifacts to build
-   */
-  private static Collection<Artifact> getFilesToBuild(ConfiguredTarget target,
-      BuildRequest request) {
-    ImmutableSet.Builder<Artifact> result = ImmutableSet.builder();
-    if (request.getBuildOptions().compileOnly) {
-      FilesToCompileProvider provider = target.getProvider(FilesToCompileProvider.class);
-      if (provider != null) {
-        result.addAll(provider.getFilesToCompile());
-      }
-    } else if (request.getBuildOptions().compilationPrerequisitesOnly) {
-      CompilationPrerequisitesProvider provider =
-          target.getProvider(CompilationPrerequisitesProvider.class);
-      if (provider != null) {
-        result.addAll(provider.getCompilationPrerequisites());
-      }
-    } else {
-      FileProvider provider = target.getProvider(FileProvider.class);
-      if (provider != null) {
-        result.addAll(provider.getFilesToBuild());
-      }
-    }
-    TempsProvider tempsProvider = target.getProvider(TempsProvider.class);
-    if (tempsProvider != null) {
-      result.addAll(tempsProvider.getTemps());
-    }
-
-    return result.build();
   }
 
   private ActionCache getActionCache() throws LocalEnvironmentException {
