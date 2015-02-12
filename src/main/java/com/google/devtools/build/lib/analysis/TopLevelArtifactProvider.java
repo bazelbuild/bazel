@@ -14,7 +14,6 @@
 
 package com.google.devtools.build.lib.analysis;
 
-import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 import com.google.devtools.build.lib.actions.Artifact;
 import com.google.devtools.build.lib.collect.nestedset.NestedSet;
@@ -26,32 +25,10 @@ import com.google.devtools.build.lib.concurrent.ThreadSafety.Immutable;
  */
 @Immutable
 public final class TopLevelArtifactProvider implements TransitiveInfoProvider {
-
-  private final ImmutableList<String> commandsForExtraArtifacts;
-  private final ImmutableList<Artifact> artifactsForCommand;
   private final ImmutableMap<String, NestedSet<Artifact>> outputGroups;
 
-  public TopLevelArtifactProvider(ImmutableList<String> commandsForExtraArtifacts,
-      ImmutableList<Artifact> artifactsForCommand) {
-    this.commandsForExtraArtifacts = commandsForExtraArtifacts;
-    this.artifactsForCommand = artifactsForCommand;
-    this.outputGroups = ImmutableMap.<String, NestedSet<Artifact>>of();
-  }
-
   public TopLevelArtifactProvider(String key, NestedSet<Artifact> artifactsToBuild) {
-    this.commandsForExtraArtifacts = ImmutableList.of();
-    this.artifactsForCommand = ImmutableList.of();
     this.outputGroups = ImmutableMap.<String, NestedSet<Artifact>>of(key, artifactsToBuild);
-  }
-
-  /** Returns the commands (in lowercase) that this provider should provide artifacts for. */
-  public ImmutableList<String> getCommandsForExtraArtifacts() {
-    return commandsForExtraArtifacts;
-  }
-
-  /** Returns the extra artifacts for the commands. */
-  public ImmutableList<Artifact> getArtifactsForCommand() {
-    return artifactsForCommand;
   }
 
   /** Returns artifacts that are to be built for every command. */

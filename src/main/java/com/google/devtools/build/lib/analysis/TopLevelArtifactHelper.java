@@ -31,18 +31,6 @@ public final class TopLevelArtifactHelper {
     // Prevent instantiation.
   }
 
-  /** Returns command-specific artifacts which may exist for a given target and build command. */
-  private static final Iterable<Artifact> getCommandArtifacts(TransitiveInfoCollection target,
-      String buildCommand) {
-    TopLevelArtifactProvider provider = target.getProvider(TopLevelArtifactProvider.class);
-    if (provider != null
-        && provider.getCommandsForExtraArtifacts().contains(buildCommand.toLowerCase())) {
-      return provider.getArtifactsForCommand();
-    } else {
-      return ImmutableList.of();
-    }
-  }
-
   /**
    * Utility function to form a list of all test output Artifacts of the given targets to test.
    */
@@ -132,7 +120,6 @@ public final class TopLevelArtifactHelper {
       }
     }
 
-    allArtifacts.addAll(getCommandArtifacts(target, options.buildCommand()));
     allArtifacts.addAll(getCoverageArtifacts(target, options));
     return allArtifacts.build();
   }
