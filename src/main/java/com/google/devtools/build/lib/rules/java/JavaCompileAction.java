@@ -93,7 +93,7 @@ public class JavaCompileAction extends AbstractAction {
   /**
    * The list of classpath entries to specify to javac.
    */
-  private final NestedSet<Artifact> classpath;
+  private final NestedSet<Artifact> classpathEntries;
 
   /**
    * The list of classpath entries to search for annotation processors.
@@ -175,7 +175,7 @@ public class JavaCompileAction extends AbstractAction {
                             CommandLine commandLine,
                             PathFragment classDirectory,
                             Artifact outputJar,
-                            NestedSet<Artifact> classpath,
+                            NestedSet<Artifact> classpathEntries,
                             List<Artifact> processorPath,
                             Artifact langtoolsJar,
                             Artifact javaBuilderJar,
@@ -190,17 +190,26 @@ public class JavaCompileAction extends AbstractAction {
                             BuildConfiguration.StrictDepsMode strictJavaDeps,
                             Collection<Artifact> compileTimeDependencyArtifacts,
                             JavaSemantics semantics) {
-    super(owner, Iterables.concat(ImmutableList.of(
-        classpath, processorPath, messages, resources,
-        classpathResources, sourceJars, sourceFiles, compileTimeDependencyArtifacts,
-        ImmutableList.of(langtoolsJar, javaBuilderJar), baseInputs)),
+    super(owner, NestedSetBuilder.<Artifact>stableOrder()
+            .addTransitive(classpathEntries)
+            .addAll(processorPath)
+            .addAll(messages)
+            .addAll(resources)
+            .addAll(classpathResources)
+            .addAll(sourceJars)
+            .addAll(sourceFiles)
+            .addAll(compileTimeDependencyArtifacts)
+            .addAll(baseInputs)
+            .add(langtoolsJar)
+            .add(javaBuilderJar)
+            .build(),
         outputs);
     this.javaCompileCommandLine = javaCompileCommandLine;
     this.commandLine = commandLine;
 
     this.classDirectory = Preconditions.checkNotNull(classDirectory);
     this.outputJar = outputJar;
-    this.classpath = classpath;
+    this.classpathEntries = classpathEntries;
     this.processorPath = ImmutableList.copyOf(processorPath);
     this.processorNames = ImmutableList.copyOf(processorNames);
     this.messages = ImmutableList.copyOf(messages);
@@ -237,7 +246,7 @@ public class JavaCompileAction extends AbstractAction {
    */
   @VisibleForTesting
   public Iterable<Artifact> getClasspath() {
-    return classpath;
+    return classpathEntries;
   }
 
   /**
