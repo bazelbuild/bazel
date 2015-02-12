@@ -166,3 +166,34 @@ java_test(
         "//third_party:truth",
     ],
 )
+
+cc_binary(
+    name = "com/google/devtools/build/lib/shell/killmyself",
+    srcs = ["com/google/devtools/build/lib/shell/killmyself.cc"],
+)
+
+java_test(
+    name = "shell_test",
+    srcs = glob([
+        "com/google/devtools/build/lib/shell/*.java",
+    ]),
+    args = ["com.google.devtools.build.lib.AllTests"],
+    data = [
+        ":com/google/devtools/build/lib/shell/killmyself",
+        "//src/main/native:libunix.dylib",
+        "//src/main/native:libunix.so",
+    ],
+    deps = [
+        ":foundations_testutil",
+        ":test_runner",
+        ":testutil",
+        "//src/main/java:bazel-core",
+        "//src/main/java:shell",
+        "//third_party:guava",
+        "//third_party:guava-testlib",
+        "//third_party:jsr305",
+        "//third_party:junit4",
+        "//third_party:mockito",
+        "//third_party:truth",
+    ],
+)
