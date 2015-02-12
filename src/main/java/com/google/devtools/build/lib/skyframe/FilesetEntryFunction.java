@@ -1,4 +1,4 @@
-// Copyright 2014 Google Inc. All rights reserved.
+// Copyright 2015 Google Inc. All rights reserved.
 //
 // Licensed under the Apache License, Version 2.0 (the "License");
 // you may not use this file except in compliance with the License.
@@ -222,7 +222,7 @@ public final class FilesetEntryFunction implements SkyFunction {
       DirectTraversal traversal) throws MissingDepException {
     SkyKey depKey = RecursiveFilesystemTraversalValue.key(
         new RecursiveFilesystemTraversalValue.TraversalRequest(traversal.getRoot().asRootedPath(),
-            traversal.isGenerated(), traversal.getCrossPackageBoundary(), traversal.isPackage(),
+            traversal.isGenerated(), traversal.getPackageBoundaryMode(), traversal.isPackage(),
             errorInfo));
     RecursiveFilesystemTraversalValue v = (RecursiveFilesystemTraversalValue) env.getValue(depKey);
     if (env.valuesMissing()) {
@@ -234,7 +234,7 @@ public final class FilesetEntryFunction implements SkyFunction {
   private static String createErrorInfo(FilesetTraversalParams t) {
     if (t.getDirectTraversal().isPresent()) {
       DirectTraversal direct = t.getDirectTraversal().get();
-      return String.format("Fileset '%s' traversing %s %s", t.getOwnerLabel(),
+      return String.format("Fileset '%s' traversing %s '%s'", t.getOwnerLabel(),
           direct.isPackage() ? "package" : "file (or directory)",
           direct.getRoot().getRelativePart().getPathString());
     } else {

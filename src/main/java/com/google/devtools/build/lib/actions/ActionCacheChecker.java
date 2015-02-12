@@ -107,9 +107,9 @@ public class ActionCacheChecker {
     if (handler != null) {
       if (verboseExplanations) {
         String keyDescription = action.describeKey();
-        reportRebuild(handler, action,
-            keyDescription == null ? "action command has changed" :
-            "action command has changed.\nNew action: " + keyDescription);
+        reportRebuild(handler, action, keyDescription == null
+            ? "action command has changed"
+            : "action command has changed.\nNew action: " + keyDescription);
       } else {
         reportRebuild(handler, action,
             "action command has changed (try --verbose_explanations for more info)");

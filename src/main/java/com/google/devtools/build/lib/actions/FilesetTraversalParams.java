@@ -1,4 +1,4 @@
-// Copyright 2014 Google Inc. All rights reserved.
+// Copyright 2015 Google Inc. All rights reserved.
 //
 // Licensed under the Apache License, Version 2.0 (the "License");
 // you may not use this file except in compliance with the License.
@@ -30,6 +30,29 @@ import java.util.Set;
  * of the traversal is.
  */
 public interface FilesetTraversalParams {
+
+  /** Desired behavior if the traversal hits a directory with a BUILD file, i.e. a subpackage. */
+  public enum PackageBoundaryMode {
+    /** The traversal should recurse into the directory, optionally reporting a warning. */
+    CROSS,
+
+    // TODO(bazel-team): deprecate CROSS and REPORT_ERROR in favor of DONT_CROSS. Clean up the depot
+    // and lock down the semantics of FilesetEntry.srcdir to only accept other Filesets or BUILD
+    // files of a package, in which case also require an explicit list of files.
+    /** The traversal should not recurse into the directory but silently skip it. */
+    DONT_CROSS,
+
+    /** The traversal should not recurse into the directory and report an error. */
+    REPORT_ERROR;
+
+    public static PackageBoundaryMode forStrictFilesetFlag(boolean flagEnabled) {
+      return flagEnabled ? REPORT_ERROR : CROSS;
+    }
+
+    public void fingerprint(Fingerprint fp) {
+      fp.addInt(ordinal());
+    }
+  }
 
   /**
    * Abstraction of the root directory of a {@link DirectTraversal}.
@@ -128,7 +151,7 @@ public interface FilesetTraversalParams {
     boolean isFollowingSymlinks();
 
     /** Returns the desired behavior when the traversal hits a subpackage. */
-    boolean getCrossPackageBoundary();
+    PackageBoundaryMode getPackageBoundaryMode();
   }
 
   /** Label of the Fileset rule that owns this traversal. */

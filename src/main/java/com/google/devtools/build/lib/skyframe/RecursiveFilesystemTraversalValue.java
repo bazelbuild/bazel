@@ -17,6 +17,7 @@ import com.google.common.annotations.VisibleForTesting;
 import com.google.common.base.Objects;
 import com.google.common.base.Optional;
 import com.google.common.base.Preconditions;
+import com.google.devtools.build.lib.actions.FilesetTraversalParams.PackageBoundaryMode;
 import com.google.devtools.build.lib.collect.nestedset.NestedSet;
 import com.google.devtools.build.lib.collect.nestedset.NestedSetBuilder;
 import com.google.devtools.build.lib.collect.nestedset.Order;
@@ -120,7 +121,7 @@ public final class RecursiveFilesystemTraversalValue implements SkyValue {
     final boolean isGenerated;
 
     /** Whether traversal should descend into directories that are roots of subpackages. */
-    final boolean crossPkgBoundaries;
+    final PackageBoundaryMode crossPkgBoundaries;
 
     /**
      * Whether to skip checking if the root (if it's a directory) contains a BUILD file.
@@ -135,7 +136,7 @@ public final class RecursiveFilesystemTraversalValue implements SkyValue {
     @Nullable final String errorInfo;
 
     public TraversalRequest(RootedPath path, boolean isRootGenerated,
-        boolean crossPkgBoundaries, boolean skipTestingForSubpackage,
+        PackageBoundaryMode crossPkgBoundaries, boolean skipTestingForSubpackage,
         @Nullable String errorInfo) {
       this.path = path;
       this.isGenerated = isRootGenerated;
@@ -188,8 +189,8 @@ public final class RecursiveFilesystemTraversalValue implements SkyValue {
     public String toString() {
       return String.format(
           "TraversalParams(root=%s, is_generated=%d, skip_testing_for_subpkg=%d,"
-          + " pkg_boundaries=%d)", path, isGenerated ? 1 : 0, skipTestingForSubpackage ? 1 : 0,
-          crossPkgBoundaries ? 1 : 0);
+          + " pkg_boundaries=%s)", path, isGenerated ? 1 : 0, skipTestingForSubpackage ? 1 : 0,
+          crossPkgBoundaries);
     }
   }
 

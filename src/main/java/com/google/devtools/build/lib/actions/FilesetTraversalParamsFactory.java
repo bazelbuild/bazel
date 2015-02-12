@@ -1,4 +1,4 @@
-// Copyright 2014 Google Inc. All rights reserved.
+// Copyright 2015 Google Inc. All rights reserved.
 //
 // Licensed under the Apache License, Version 2.0 (the "License");
 // you may not use this file except in compliance with the License.
@@ -19,6 +19,7 @@ import com.google.common.collect.ImmutableSet;
 import com.google.common.collect.Ordering;
 import com.google.devtools.build.lib.actions.FilesetTraversalParams.DirectTraversal;
 import com.google.devtools.build.lib.actions.FilesetTraversalParams.DirectTraversalRoot;
+import com.google.devtools.build.lib.actions.FilesetTraversalParams.PackageBoundaryMode;
 import com.google.devtools.build.lib.syntax.FilesetEntry.SymlinkBehavior;
 import com.google.devtools.build.lib.syntax.Label;
 import com.google.devtools.build.lib.util.Fingerprint;
@@ -46,15 +47,15 @@ public final class FilesetTraversalParamsFactory {
    * @param excludes optional; set of files directly under this package's directory to exclude;
    *     files in subdirectories cannot be excluded
    * @param symlinkBehaviorMode what to do with symlinks
-   * @param crossPkgBoundary whether to traverse a subdirectory if it's also a subpackage (contains
-   *     a BUILD file)
+   * @param pkgBoundaryMode what to do when the traversal hits a subdirectory that is also a
+   *     subpackage (contains a BUILD file)
    */
   public static FilesetTraversalParams recursiveTraversalOfPackage(Label ownerLabel,
       Artifact buildFile, PathFragment destPath, @Nullable Set<String> excludes,
-      SymlinkBehavior symlinkBehaviorMode, boolean crossPkgBoundary) {
+      SymlinkBehavior symlinkBehaviorMode, PackageBoundaryMode pkgBoundaryMode) {
     Preconditions.checkState(buildFile.isSourceArtifact(), "%s", buildFile);
     return new DirectoryTraversalParams(ownerLabel, DirectTraversalRootImpl.forPackage(buildFile),
-        true, destPath, excludes, symlinkBehaviorMode, crossPkgBoundary, true, false);
+        true, destPath, excludes, symlinkBehaviorMode, pkgBoundaryMode, true, false);
   }
 
   /**
@@ -70,15 +71,15 @@ public final class FilesetTraversalParamsFactory {
    * @param excludes optional; set of files directly below this directory to exclude; files in
    *     subdirectories cannot be excluded
    * @param symlinkBehaviorMode what to do with symlinks
-   * @param crossPkgBoundary whether to traverse a subdirectory if it's also a subpackage (contains
-   *     a BUILD file)
+   * @param pkgBoundaryMode what to do when the traversal hits a subdirectory that is also a
+   *     subpackage (contains a BUILD file)
    */
   public static FilesetTraversalParams recursiveTraversalOfDirectory(Label ownerLabel,
       Artifact directoryToTraverse, PathFragment destPath, @Nullable Set<String> excludes,
-      SymlinkBehavior symlinkBehaviorMode, boolean crossPkgBoundary) {
+      SymlinkBehavior symlinkBehaviorMode, PackageBoundaryMode pkgBoundaryMode) {
     return new DirectoryTraversalParams(ownerLabel,
         DirectTraversalRootImpl.forFileOrDirectory(directoryToTraverse), false, destPath,
-        excludes, symlinkBehaviorMode, crossPkgBoundary, true,
+        excludes, symlinkBehaviorMode, pkgBoundaryMode, true,
         !directoryToTraverse.isSourceArtifact());
   }
 
@@ -93,14 +94,15 @@ public final class FilesetTraversalParamsFactory {
    * @param destPath path in the Fileset's output directory that will be the name of this file's
    *     respective symlink there, or the root of files found (in case this is a directory)
    * @param symlinkBehaviorMode what to do with symlinks
-   * @param crossPkgBoundary whether to traverse a subdirectory if it's also a subpackage (contains
-   *     a BUILD file)
+   * @param pkgBoundaryMode what to do when the traversal hits a subdirectory that is also a
+   *     subpackage (contains a BUILD file)
    */
   public static FilesetTraversalParams fileTraversal(Label ownerLabel, Artifact fileToTraverse,
-      PathFragment destPath, SymlinkBehavior symlinkBehaviorMode, boolean crossPkgBoundary) {
+      PathFragment destPath, SymlinkBehavior symlinkBehaviorMode,
+      PackageBoundaryMode pkgBoundaryMode) {
     return new DirectoryTraversalParams(ownerLabel,
         DirectTraversalRootImpl.forFileOrDirectory(fileToTraverse), false, destPath, null,
-        symlinkBehaviorMode, crossPkgBoundary, false, !fileToTraverse.isSourceArtifact());
+        symlinkBehaviorMode, pkgBoundaryMode, false, !fileToTraverse.isSourceArtifact());
   }
 
   /**
@@ -162,16 +164,16 @@ public final class FilesetTraversalParamsFactory {
     private final DirectTraversalRoot root;
     private final boolean isPackage;
     private final boolean followSymlinks;
-    private final boolean crossPkgBoundary;
+    private final PackageBoundaryMode pkgBoundaryMode;
     private final boolean isRecursive;
     private final boolean isGenerated;
 
     DirectTraversalImpl(DirectTraversalRoot root, boolean isPackage, boolean followSymlinks,
-        boolean crossPkgBoundary, boolean isRecursive, boolean isGenerated) {
+        PackageBoundaryMode pkgBoundaryMode, boolean isRecursive, boolean isGenerated) {
       this.root = root;
       this.isPackage = isPackage;
       this.followSymlinks = followSymlinks;
-      this.crossPkgBoundary = crossPkgBoundary;
+      this.pkgBoundaryMode = pkgBoundaryMode;
       this.isRecursive = isRecursive;
       this.isGenerated = isGenerated;
     }
@@ -202,8 +204,8 @@ public final class FilesetTraversalParamsFactory {
     }
 
     @Override
-    public boolean getCrossPackageBoundary() {
-      return crossPkgBoundary;
+    public PackageBoundaryMode getPackageBoundaryMode() {
+      return pkgBoundaryMode;
     }
 
     void fingerprint(Fingerprint fp) {
@@ -212,7 +214,7 @@ public final class FilesetTraversalParamsFactory {
       fp.addBoolean(followSymlinks);
       fp.addBoolean(isRecursive);
       fp.addBoolean(isGenerated);
-      fp.addBoolean(crossPkgBoundary);
+      pkgBoundaryMode.fingerprint(fp);
     }
   }
 
@@ -225,12 +227,12 @@ public final class FilesetTraversalParamsFactory {
         PathFragment destPath,
         @Nullable Set<String> excludes,
         SymlinkBehavior symlinkBehaviorMode,
-        boolean crossPkgBoundary,
+        PackageBoundaryMode pkgBoundaryMode,
         boolean isRecursive,
         boolean isGenerated) {
       super(ownerLabel, destPath, excludes);
       traversal = new DirectTraversalImpl(root, isPackage,
-          symlinkBehaviorMode == SymlinkBehavior.DEREFERENCE, crossPkgBoundary, isRecursive,
+          symlinkBehaviorMode == SymlinkBehavior.DEREFERENCE, pkgBoundaryMode, isRecursive,
           isGenerated);
     }
 

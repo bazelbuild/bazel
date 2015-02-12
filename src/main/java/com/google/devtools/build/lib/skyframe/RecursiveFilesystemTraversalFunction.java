@@ -63,7 +63,7 @@ public final class RecursiveFilesystemTraversalFunction implements SkyFunction {
 
   /**
    * Thrown when the traversal encounters a subdirectory with a BUILD file but is not allowed to
-   * recurse into it.
+   * recurse into it. See {@code PackageBoundaryMode#REPORT_ERROR}.
    */
   public static final class CannotCrossPackageBoundaryException extends
       RecursiveFilesystemTraversalException {
@@ -137,14 +137,22 @@ public final class RecursiveFilesystemTraversalFunction implements SkyFunction {
             new GeneratedPathConflictException(traversal));
       } else if (pkgLookupResult.isPackage() && !traversal.skipTestingForSubpackage) {
         // The traversal was requested for a directory that defines a package.
-        if (traversal.crossPkgBoundaries) {
-          // We are free to traverse the subpackage but we need to display a warning.
-          String msg = traversal.errorInfo + " crosses package boundary into package rooted at "
-              + traversal.path.getRelativePath().getPathString();
-          env.getListener().handle(new Event(EventKind.WARNING, null, msg));
-        } else {
-          // We cannot traverse the subpackage and should skip it silently. Return empty results.
-          return RecursiveFilesystemTraversalValue.EMPTY;
+        String msg = traversal.errorInfo + " crosses package boundary into package rooted at "
+            + traversal.path.getRelativePath().getPathString();
+        switch (traversal.crossPkgBoundaries) {
+          case CROSS:
+            // We are free to traverse the subpackage but we need to display a warning.
+            env.getListener().handle(new Event(EventKind.WARNING, null, msg));
+            break;
+          case DONT_CROSS:
+            // We cannot traverse the subpackage and should skip it silently. Return empty results.
+            return RecursiveFilesystemTraversalValue.EMPTY;
+          case REPORT_ERROR:
+            // We cannot traverse the subpackage and should complain loudly (display an error).
+            throw new RecursiveFilesystemTraversalFunctionException(
+                new CannotCrossPackageBoundaryException(msg));
+          default:
+            throw new IllegalStateException(traversal.toString());
         }
       }
 
