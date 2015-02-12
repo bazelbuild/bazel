@@ -21,6 +21,8 @@ import com.google.devtools.build.lib.actions.EnvironmentalExecException;
 import com.google.devtools.build.lib.actions.ExecException;
 import com.google.devtools.build.lib.actions.ExecutionStrategy;
 import com.google.devtools.build.lib.actions.Executor;
+import com.google.devtools.build.lib.actions.ResourceManager;
+import com.google.devtools.build.lib.actions.ResourceSet;
 import com.google.devtools.build.lib.actions.Spawn;
 import com.google.devtools.build.lib.actions.TestExecException;
 import com.google.devtools.build.lib.analysis.config.BinTools;
@@ -87,10 +89,15 @@ public class StandaloneTestStrategy extends TestStrategy {
         action.getTestProperties().getLocalResourceUsage());
 
     Executor executor = actionExecutionContext.getExecutor();
+
+    ResourceSet resources = null;
     try {
       FileSystemUtils.createDirectoryAndParents(workingDirectory);
       FileOutErr fileOutErr = new FileOutErr(action.getTestLog().getPath(),
           action.resolve(actionExecutionContext.getExecutor().getExecRoot()).getTestStderr());
+
+      resources = action.getTestProperties().getLocalResourceUsage();
+      ResourceManager.instance().acquireResources(action, resources);
       TestResultData data = execute(
           actionExecutionContext.withFileOutErr(fileOutErr), spawn, action);
       appendStderr(fileOutErr.getOutputFile(), fileOutErr.getErrorFile());
@@ -98,6 +105,10 @@ public class StandaloneTestStrategy extends TestStrategy {
     } catch (IOException e) {
       executor.getEventHandler().handle(Event.error("Caught I/O exception: " + e));
       throw new EnvironmentalExecException("unexpected I/O exception", e);
+    } finally {
+      if (resources != null) {
+        ResourceManager.instance().releaseResources(action, resources);
+      }
     }
   }
 
