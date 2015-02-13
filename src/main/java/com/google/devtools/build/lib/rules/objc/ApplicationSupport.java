@@ -482,15 +482,16 @@ public final class ApplicationSupport {
         .addArgument("-c")
         .addArgument("set -e && "
             + "PREFIX=\"$(cat " + prefix.getExecPathString() + ")\" && "
-            + "sed " + in.getExecPathString() + " "
-            // Replace .* from default entitlements file with bundle ID where suitable. 
+            + "sed "
+            // Replace .* from default entitlements file with bundle ID where suitable.
             + "-e \"s#${PREFIX}\\.\\*#${PREFIX}." + escapedBundleId + "#g\" "
-            
+
             // Replace some variables that people put in their own entitlements files
             + "-e \"s#\\$(AppIdentifierPrefix)#${PREFIX}.#g\" "
             + "-e \"s#\\$(CFBundleIdentifier)#" + escapedBundleId + "#g\" "
 
-            + "> " + out.getExecPathString()) 
+            + in.getExecPathString() + " "
+            + "> " + out.getExecPathString())
         .addInput(in)
         .addInput(prefix)
         .addOutput(out)
