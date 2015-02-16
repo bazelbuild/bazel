@@ -18,6 +18,7 @@ import com.google.common.annotations.VisibleForTesting;
 import com.google.common.base.Preconditions;
 import com.google.common.cache.Cache;
 import com.google.common.cache.CacheBuilder;
+import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.ImmutableSortedMap;
 import com.google.devtools.build.lib.analysis.BlazeDirectories;
@@ -59,10 +60,16 @@ public final class ConfigurationFactory {
 
   public ConfigurationFactory(
       ConfigurationCollectionFactory configurationCollectionFactory,
+      ConfigurationFragmentFactory... fragmentFactories) {
+    this(configurationCollectionFactory, ImmutableList.copyOf(fragmentFactories));
+  }
+
+  public ConfigurationFactory(
+      ConfigurationCollectionFactory configurationCollectionFactory,
       List<ConfigurationFragmentFactory> fragmentFactories) {
     this.configurationCollectionFactory =
         Preconditions.checkNotNull(configurationCollectionFactory);
-    this.configurationFragmentFactories = fragmentFactories;
+    this.configurationFragmentFactories = ImmutableList.copyOf(fragmentFactories);
   }
 
   @VisibleForTesting
