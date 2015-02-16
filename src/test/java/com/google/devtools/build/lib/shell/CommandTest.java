@@ -475,7 +475,8 @@ public class CommandTest {
   @Test
   public void testFlushing() throws Exception {
     final Command command = new Command(
-        new String[] {"/bin/sh", "-c", "echo -n Foo; sleep 0.1; echo Bar"});
+        // On darwin, /bin/sh does not support -n for the echo builtin.
+        new String[] {"/bin/bash", "-c", "echo -n Foo; sleep 0.1; echo Bar"});
     // We run this command, passing in a special output stream
     // that records when each flush() occurs.
     // We test that a flush occurs after writing "Foo"
