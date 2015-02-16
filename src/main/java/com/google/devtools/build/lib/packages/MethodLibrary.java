@@ -598,14 +598,15 @@ public class MethodLibrary {
   };
 
   @SkylarkBuiltin(name = "set", returnType = SkylarkNestedSet.class,
-      doc = "Creates a set from the <code>items</code>, that supports nesting. "
-          + "The nesting is applied to other nested sets among <code>items</code>.<br>"
-          + "Examples:<br>"
-          + "<pre class=language-python>set([1, set([2, 3]), 2])\n"
-          + "set([1, 2, 3], order=\"compile\")</pre>",
+      doc = "Creates a set from the <code>items</code>. The set supports nesting other sets of the"
+      + " same element type in it. For this reason sets are also referred to as <i>nested sets</i>"
+      + " (all Skylark sets are nested sets). A desired iteration order can also be specified.<br>"
+      + " Examples:<br><pre class=language-python>set([1, set([2, 3]), 2])\n"
+      + "set([1, 2, 3], order=\"compile\")</pre>",
       optionalParams = {
       @Param(name = "items", type = SkylarkList.class,
-          doc = "The items to initialize the set with."),
+          doc = "The items to initialize the set with. May contain both standalone items and other"
+          + " sets."),
       @Param(name = "order", type = String.class,
           doc = "The ordering strategy for the set if it's nested, "
               + "possible values are: <code>stable</code> (default), <code>compile</code>, "
@@ -636,8 +637,8 @@ public class MethodLibrary {
   };
 
   @SkylarkBuiltin(name = "enumerate",  returnType = SkylarkList.class,
-      doc = "Return a list of pairs, with the index (int) and the item from the input list.\n"
-          + "<pre class=language-python>"
+      doc = "Return a list of pairs (two-element lists), with the index (int) and the item from"
+          + " the input list.\n<pre class=language-python>"
           + "enumerate([24, 21, 84]) == [[0, 24], [1, 21], [2, 84]]</pre>\n",
       mandatoryParams = {
       @Param(name = "list", type = SkylarkList.class,
@@ -660,7 +661,7 @@ public class MethodLibrary {
   };
 
   @SkylarkBuiltin(name = "range", returnType = SkylarkList.class,
-      doc = "Creates a list where items go from <code>start</code> to <end>, using a "
+      doc = "Creates a list where items go from <code>start</code> to <code>end</code>, using a "
           + "<code>step</code> increment. If a single argument is provided, items will "
           + "range from 0 to that element."
           + "<pre class=language-python>range(4) == [0, 1, 2, 3]\n"
@@ -671,9 +672,10 @@ public class MethodLibrary {
           doc = "Value of the first element"),
       },
       optionalParams = {
-      @Param(name = "end", type = SkylarkList.class,
-          doc = "Generation of the list stops before <code>end</code> is reached."),
-      @Param(name = "step", type = String.class,
+      @Param(name = "end", type = Integer.class,
+          doc = "The first item <i>not</i> to be included in the resulting list; "
+          + "generation of the list stops before <code>end</code> is reached."),
+      @Param(name = "step", type = Integer.class,
           doc = "The increment (default is 1). It may be negative.")})
   private static final Function range =
     new MixedModeFunction("range", ImmutableList.of("start", "stop", "step"), 1, false) {
@@ -684,10 +686,10 @@ public class MethodLibrary {
       int stop;
       if (args[1] == null) {
         start = 0;
-        stop = Type.INTEGER.convert(args[0], "stop");
+        stop = Type.INTEGER.convert(args[0], "end");
       } else {
         start = Type.INTEGER.convert(args[0], "start");
-        stop = Type.INTEGER.convert(args[1], "stop");
+        stop = Type.INTEGER.convert(args[1], "end");
       }
       int step = args[2] == null ? 1 : Type.INTEGER.convert(args[2], "step");
       if (step == 0) {
@@ -800,7 +802,7 @@ public class MethodLibrary {
   };
 
   @SkylarkBuiltin(name = "dir", returnType = SkylarkList.class,
-      doc = "Returns the list of the names (list of strings) of the fields and "
+      doc = "Returns a list strings: the names of the fields and "
           + "methods of the parameter object.",
       mandatoryParams = {@Param(name = "object", doc = "The object to check.")})
   private static final Function dir = new MixedModeFunction(
@@ -909,9 +911,9 @@ public class MethodLibrary {
       + "c = \"\"\"multiline string\"\"\"</pre>"
       + "Strings are iterable and support the <code>in</code> operator. Examples:<br>"
       + "<pre class=language-python>\"a\" in \"abc\"   # evaluates as True\n"
-      + "l = []\n"
+      + "x = []\n"
       + "for s in \"abc\":\n"
-      + "  l += [s]     # l == [\"a\", \"b\", \"c\"]</pre>")
+      + "  x += [s]     # x == [\"a\", \"b\", \"c\"]</pre>")
   public static final class StringModule {}
 
   /**

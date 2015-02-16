@@ -1393,7 +1393,7 @@ public final class BuildConfiguration implements Serializable {
    * the native path separator, i.e., the path separator for the machine that they run on.
    */
   @SkylarkCallable(name = "host_path_separator", structField = true,
-      doc = "Returns the separator for PATH variable, which is ':' on Unix.")
+      doc = "Returns the separator for PATH environment variable, which is ':' on Unix.")
   public String getHostPathSeparator() {
     // TODO(bazel-team): This needs to change when we support Windows.
     return ":";

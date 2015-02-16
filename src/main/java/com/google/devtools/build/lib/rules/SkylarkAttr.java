@@ -48,14 +48,14 @@ import java.util.Map;
 public final class SkylarkAttr {
 
   private static final String MANDATORY_DOC =
-      "set to true if users have to explicitely specify the value";
+      "set to True if users have to explicitely specify the value";
 
   private static final String ALLOW_FILES_DOC =
       "whether File targets are allowed. Can be True, False (default), or "
       + "a FileType filter.";
 
   private static final String ALLOW_RULES_DOC =
-      "which rule targets (name of the classes) are allowed."
+      "which rule targets (name of the classes) are allowed. "
       + "This is deprecated (kept only for compatiblity), use providers instead.";
 
   private static final String FLAGS_DOC =
@@ -69,8 +69,9 @@ public final class SkylarkAttr {
       + "For example, use DATA_CFG or HOST_CFG.";
 
   private static final String EXECUTABLE_DOC =
-      "set to True if the labels have to be executable. Access the labels with "
-      + "ctx.executable.<attribute_name>";
+      "set to True if the labels have to be executable. This means the label refers to an "
+      + "executable file, or to a rule that outputs an executable file. Access the labels with "
+      + "<code>ctx.executable.&lt;attribute_name&gt;</code>.";
 
   private static Attribute.Builder<?> createAttribute(Type<?> type, Map<String, Object> arguments,
       FuncallExpression ast, SkylarkEnvironment env) throws EvalException, ConversionException {
@@ -202,8 +203,8 @@ public final class SkylarkAttr {
       @Param(name = "allow_rules", type = SkylarkList.class, generic1 = String.class,
           doc = ALLOW_RULES_DOC),
       @Param(name = "single_file", doc =
-            "if true, the label must correspond to a single File. "
-          + "Access it through ctx.file.<attribute_name>."),
+            "if True, the label must correspond to a single File. "
+          + "Access it through <code>ctx.file.&lt;attribute_name&gt;</code>."),
       @Param(name = "cfg", type = ConfigurationTransition.class, doc = CONFIGURATION_DOC)})
   private static SkylarkFunction label = new SkylarkFunction("label") {
       @Override

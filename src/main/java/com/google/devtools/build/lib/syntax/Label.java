@@ -265,7 +265,7 @@ public final class Label implements Comparable<Label>, Serializable {
   @SkylarkCallable(name = "package", structField = true,
       doc = "The package part of this label. "
       + "For instance:<br>"
-      + "<pre class=language-python>label(\"//pkg/foo:abc\").package == \"pkg/foo\"</pre>")
+      + "<pre class=language-python>Label(\"//pkg/foo:abc\").package == \"pkg/foo\"</pre>")
   public String getPackageName() {
     return packageIdentifier.getPackageFragment().getPathString();
   }
@@ -300,7 +300,7 @@ public final class Label implements Comparable<Label>, Serializable {
   @SkylarkCallable(name = "name", structField = true,
       doc = "The name of this label within the package. "
       + "For instance:<br>"
-      + "<pre class=language-python>label(\"//pkg/foo:abc\").name == \"abc\"</pre>")
+      + "<pre class=language-python>Label(\"//pkg/foo:abc\").name == \"abc\"</pre>")
   public String getName() {
     return name;
   }
@@ -348,10 +348,11 @@ public final class Label implements Comparable<Label>, Serializable {
    * @param relName the relative label name; must be non-empty.
    */
   @SkylarkCallable(name = "relative", doc =
-        "Resolves a relative or absolute label name.<br>"
-      + "For example:<br><ul>" 
+        "Resolves a label that is either absolute (starts with <code>//</code>) or relative to the"
+      + " current package.<br>"
+      + "For example:<br><ul>"
       + "<li><code>:quux</code> relative to <code>//foo/bar:baz</code> is "
-      + "<code>//foo/bar:quux</code></li>" 
+      + "<code>//foo/bar:quux</code></li>"
       + "<li><code>//wiz:quux</code> relative to <code>//foo/bar:baz</code> is "
       + "<code>//wiz:quux</code></li></ul>")
   public Label getRelative(String relName) throws SyntaxException {

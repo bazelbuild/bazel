@@ -87,7 +87,8 @@ public class SkylarkRuleImplementationFunctions {
       @Param(name = "command", doc = "shell command to execute"),
       @Param(name = "command_line", doc = "a command line to execute"),
       @Param(name = "progress_message", type = String.class,
-          doc = "progress message to show to the user during the build"),
+          doc = "progress message to show to the user during the build, e.g. \"Compiling foo.cc to"
+          + " create foo.o\""),
       @Param(name = "use_default_shell_env", type = Boolean.class,
           doc = "whether the action should use the built in shell environment or not"),
       @Param(name = "env", type = Map.class, doc = "sets the dictionary of environment variables"),

@@ -67,8 +67,9 @@ public class SkylarkCommandLine {
       @Param(name = "items", type = SkylarkNestedSet.class, generic1 = Artifact.class,
           doc = "The set of structs to transform."),
       @Param(name = "template", type = String.class,
-          doc = "The template to use for the transformation, %{path} and %{short_path} "
-              + "being substituted with the corresponding fields of each file.")})
+          doc = "The template to use for the transformation, <code>%{path}</code> and "
+              + "<code>%{short_path}</code> being substituted with the corresponding fields of each"
+              + " file.")})
   private static SimpleSkylarkFunction template = new SimpleSkylarkFunction("template") {
     @Override
     public Object call(Map<String, Object> params, Location loc)

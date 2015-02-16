@@ -74,6 +74,13 @@ public final class SkylarkRuleContext {
 
   public static final String PROVIDER_CLASS_PREFIX = "com.google.devtools.build.lib.";
 
+  private static final String DOC_NEW_FILE_TAIL = "Does not actually create a file on the file "
+      + "system, just declares that some action will do so. You must create an action that "
+      + "generates the file. If the file should be visible to other rules, declare a rule output "
+      + "instead when possible. Doing so enables Blaze to associate a label with the file that "
+      + "rules can refer to (allowing finer dependency control) instead of referencing the whole "
+      + "rule.";
+
   static final LoadingCache<String, Class<?>> classCache = CacheBuilder.newBuilder()
       .initialCapacity(10)
       .maximumSize(100)
@@ -273,8 +280,8 @@ public final class SkylarkRuleContext {
       doc = "A <code>struct</code> containing executable files defined in label type "
           + "attributes marked as <code>executable=True</code>. The struct fields correspond "
           + "to the attribute names. The struct value is always a <code>file</code>s or "
-          + "<code>None</code>. If a non-mandatory attribute is not specified in the rule "
-          + "the corresponding struct value is <code>None</code>. If a label type is not "
+          + "<code>None</code>. If an optional attribute is not specified in the rule "
+          + "then the corresponding struct value is <code>None</code>. If a label type is not "
           + "marked as <code>executable=True</code>, no corresponding struct field is generated.")
   public SkylarkClassObject getExecutable() {
     return executableObject;
@@ -287,8 +294,8 @@ public final class SkylarkRuleContext {
       doc = "A <code>struct</code> containing files defined in label type "
           + "attributes marked as <code>single_file=True</code>. The struct fields correspond "
           + "to the attribute names. The struct value is always a <code>file</code> or "
-          + "<code>None</code>. If a non-mandatory attribute is not specified in the rule "
-          + "the corresponding struct value is <code>None</code>. If a label type is not "
+          + "<code>None</code>. If an optional attribute is not specified in the rule "
+          + "then the corresponding struct value is <code>None</code>. If a label type is not "
           + "marked as <code>single_file=True</code>, no corresponding struct field is generated.")
   public SkylarkClassObject getFile() {
     return fileObject;
@@ -300,7 +307,7 @@ public final class SkylarkRuleContext {
   @SkylarkCallable(name = "files", structField = true,
       doc = "A <code>struct</code> containing files defined in label or label list "
           + "type attributes. The struct fields correspond to the attribute names. The struct "
-          + "values are <code>list</code> of <code>file</code>s. If a non-mandatory attribute is "
+          + "values are <code>list</code> of <code>file</code>s. If an optional attribute is "
           + "not specified in the rule, an empty list is generated.")
   public SkylarkClassObject getFiles() {
     return filesObject;
@@ -312,7 +319,7 @@ public final class SkylarkRuleContext {
   @SkylarkCallable(name = "target", structField = true,
       doc = "A <code>struct</code> containing prerequisite targets defined in label type "
           + "attributes. The struct fields correspond to the attribute names. The struct value "
-          + "is always a <code>target</code> or <code>None</code>. If a non-mandatory attribute "
+          + "is always a <code>target</code> or <code>None</code>. If an optional attribute "
           + "is not specified in the rule, the corresponding struct value is <code>None</code>.")
   public SkylarkClassObject getTarget() {
     return targetObject;
@@ -324,7 +331,7 @@ public final class SkylarkRuleContext {
   @SkylarkCallable(name = "targets", structField = true,
       doc = "A <code>struct</code> containing prerequisite targets defined in label or label list "
           + "type attributes. The struct fields correspond to the attribute names. The struct "
-          + "values are <code>list</code> of <code>target</code>s. If a non-mandatory attribute is "
+          + "values are <code>list</code> of <code>target</code>s. If an optional attribute is "
           + "not specified in the rule, an empty list is generated.")
   public SkylarkClassObject getTargets() {
     return targetsObject;
@@ -368,7 +375,7 @@ public final class SkylarkRuleContext {
           + "if no value is specified in the rule."
           + "<li>For every output list type attribute a struct field is generated with the "
           + "same name and corresponding <code>list</code> of <code>file</code>s value "
-          + "(an empty list if no value is specified in the rule.</ul>")
+          + "(an empty list if no value is specified in the rule).</ul>")
   public SkylarkClassObject outputs() {
     return outputsObject;
   }
@@ -406,10 +413,7 @@ public final class SkylarkRuleContext {
     }
   }
 
-  @SkylarkCallable(doc =
-      "Creates a file with the given filename. You must create an action that generates "
-      + "the file. If the file should be publicly visible, declare a rule "
-      + "output instead when possible.")
+  @SkylarkCallable(doc = "Creates a file object with the given filename. " + DOC_NEW_FILE_TAIL)
   public Artifact newFile(Root root, String filename) {
     PathFragment fragment = ruleContext.getLabel().getPackageFragment();
     for (String pathFragmentString : filename.split("/")) {
@@ -418,11 +422,8 @@ public final class SkylarkRuleContext {
     return ruleContext.getAnalysisEnvironment().getDerivedArtifact(fragment, root);
   }
 
-  @SkylarkCallable(doc =
-      "Creates a new file, derived from the given file and suffix. "
-      + "You must create an action that generates "
-      + "the file. If the file should be publicly visible, declare a rule "
-      + "output instead when possible.")
+  @SkylarkCallable(doc = "Creates a new file object, derived from the given file and suffix. "
+      + DOC_NEW_FILE_TAIL)
   public Artifact newFile(Root root, Artifact baseArtifact, String suffix) {
     PathFragment original = baseArtifact.getRootRelativePath();
     PathFragment fragment = original.replaceName(original.getBaseName() + suffix);

@@ -211,8 +211,9 @@ public class SkylarkRuleClassFunctions {
           + "to an attribute object (see 'attr' module). Attributes starting with <code>_</code> "
           + "are private, and can be used to add an implicit dependency on a label."),
       @Param(name = "outputs", doc = "outputs of this rule. "
-          + "It is a dictionary mapping from string to a template name. For example: "
-          + "<code>{\"ext\": \"${name}.ext\"}</code>. <br>"
+          + "It is a dictionary mapping from string to a template name. "
+          + "For example: <code>{\"ext\": \"${name}.ext\"}</code>. <br>"
+          + "The dictionary key becomes a field in <code>ctx.outputs</code>. "
           // TODO(bazel-team): Make doc more clear, wrt late-bound attributes.
           + "It may also be a function (which receives <code>ctx.attr</code> as argument) "
           + "returning such a dictionary."),

@@ -34,9 +34,10 @@ import javax.annotation.Nullable;
  * A generic type safe NestedSet wrapper for Skylark.
  */
 @SkylarkModule(name = "set",
-    doc = "A language built-in type to supports (nested) sets. "
+    doc = "A language built-in type that supports (nested) sets. "
         + "Sets can be created using the global <code>set</code> function, and they "
-        + "support the <code>+</code> operator to extends and nest sets. Examples:<br>"
+        + "support the <code>+</code> operator to extend the set with more elements or to nest "
+        + "other sets inside of it. Examples:<br>"
         + "<pre class=language-python>s = set([1, 2])\n"
         + "s += [3]           # s == {1, 2, 3}\n"
         + "s += set([4, 5])   # s == {1, 2, 3, {4, 5}}</pre>"
