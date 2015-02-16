@@ -93,14 +93,6 @@ public class CommandTest {
   }
 
   @Test
-  public void testMaybeUseShell() throws Exception {
-    String helloWorld = "Hello, world";
-    byte[] stdout = new Command(new String[]{"/bin/echo", helloWorld},
-                                true, null, null).execute().getStdout();
-    assertEquals(helloWorld + '\n', new String(stdout, "UTF-8"));
-  }
-
-  @Test
   public void testGetters() {
     final File workingDir = new File(".");
     final Map<String,String> env = Collections.singletonMap("foo", "bar");
@@ -133,7 +125,8 @@ public class CommandTest {
   @Test
   public void testEnvironment() throws Exception {
     final Map<String,String> env = Collections.singletonMap("FOO", "BAR");
-    final Command command = new Command(new String[] {"echo", "$FOO"}, true, env, null);
+    final Command command = new Command(new String[] {"/bin/sh", "-c", "echo $FOO"}, env,
+        null);
     checkSuccess(command.execute(), "BAR\n");
   }
 

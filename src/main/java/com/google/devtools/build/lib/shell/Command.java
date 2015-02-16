@@ -177,25 +177,6 @@ public final class Command {
   }
 
   /**
-   * <p>Creates a new {@link Command} for the given command line elements.
-   * Subsequent calls to {@link #execute()} will use the JVM's working
-   * directory and environment.</p>
-   *
-   * <p>Note: be careful when setting useShell to <code>true</code>; you
-   * may inadvertently expose a security hole. See
-   * {@link #Command(String, Map, File)}.</p>
-   *
-   * @param commandLineElements elements of raw command line to execute
-   * @param useShell if true, command is executed using a shell interpreter
-   *  (e.g. <code>/bin/sh</code> on Linux); if false, command is executed
-   *  exactly as given
-   * @throws IllegalArgumentException if commandLine is null or empty
-   */
-  public Command(final String[] commandLineElements, final boolean useShell) {
-    this(commandLineElements, useShell, null, null);
-  }
-
-  /**
    * Creates a new {@link Command} for the given command line elements. The
    * command line is executed exactly as given, without a shell. The given
    * environment variables and working directory are used in subsequent
@@ -211,37 +192,11 @@ public final class Command {
   public Command(final String[] commandLineElements,
                  final Map<String, String> environmentVariables,
                  final File workingDirectory) {
-    this(commandLineElements, false, environmentVariables, workingDirectory);
-  }
-
-  /**
-   * <p>Creates a new {@link Command} for the given command line elements. The
-   * given environment variables and working directory are used in subsequent
-   * calls to {@link #execute()}.</p>
-   *
-   * <p>Note: be careful when setting useShell to <code>true</code>; you
-   * may inadvertently expose a security hole. See
-   * {@link #Command(String, Map, File)}.</p>
-   *
-   * @param commandLineElements elements of raw command line to execute
-   * @param useShell if true, command is executed using a shell interpreter
-   *  (e.g. <code>/bin/sh</code> on Linux); if false, command is executed
-   *  exactly as given
-   * @param environmentVariables environment variables to replace JVM's
-   *  environment variables; may be null
-   * @param workingDirectory working directory for execution; if null, current
-   * working directory is used
-   * @throws IllegalArgumentException if commandLine is null or empty
-   */
-  public Command(final String[] commandLineElements,
-                 final boolean useShell,
-                 final Map<String, String> environmentVariables,
-                 final File workingDirectory) {
     if (commandLineElements == null || commandLineElements.length == 0) {
       throw new IllegalArgumentException("command line is null or empty");
     }
     this.processBuilder =
-      new ProcessBuilder(maybeAddShell(commandLineElements, useShell));
+      new ProcessBuilder(commandLineElements);
     if (environmentVariables != null) {
       // TODO(bazel-team) remove next line eventually; it is here to mimic old
       // Runtime.exec() behavior
@@ -249,22 +204,6 @@ public final class Command {
       this.processBuilder.environment().putAll(environmentVariables);
     }
     this.processBuilder.directory(workingDirectory);
-  }
-
-  private static String[] maybeAddShell(final String[] commandLineElements,
-                                        final boolean useShell) {
-    if (useShell) {
-      final StringBuilder builder = new StringBuilder();
-      for (final String element : commandLineElements) {
-        if (builder.length() > 0) {
-          builder.append(' ');
-        }
-        builder.append(element);
-      }
-      return Shell.getPlatformShell().shellify(builder.toString());
-    } else {
-      return commandLineElements;
-    }
   }
 
   /**
