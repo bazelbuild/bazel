@@ -406,7 +406,7 @@ public class JavaCompilationHelper extends BaseJavaCompilationHelper {
    * method only returns the default options.
    */
   @VisibleForTesting
-  ImmutableList<String> getJavacOpts() {
+  public ImmutableList<String> getJavacOpts() {
     return customJavacOpts;
   }
 
