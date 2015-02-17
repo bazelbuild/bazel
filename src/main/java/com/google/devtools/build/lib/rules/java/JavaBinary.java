@@ -236,7 +236,7 @@ public class JavaBinary implements RuleConfiguredTargetFactory {
             new JavaRuntimeClasspathProvider(common.getRuntimeClasspath()))
         .add(JavaSourceJarsProvider.class,
             new JavaSourceJarsProvider(transitiveSourceJars, srcJars))
-        .add(TopLevelArtifactProvider.class, new TopLevelArtifactProvider(
+        .add(TopLevelArtifactProvider.class, TopLevelArtifactProvider.of(
             JavaSemantics.SOURCE_JARS_OUTPUT_GROUP, transitiveSourceJars))
         .build();
   }

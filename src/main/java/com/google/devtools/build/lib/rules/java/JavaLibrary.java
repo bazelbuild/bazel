@@ -229,7 +229,7 @@ public class JavaLibrary implements RuleConfiguredTargetFactory {
             transitiveJavaNativeLibraries))
         .add(JavaSourceJarsProvider.class, new JavaSourceJarsProvider(
             transitiveSourceJars, ImmutableList.of(srcJar)))
-        .add(TopLevelArtifactProvider.class, new TopLevelArtifactProvider(
+        .add(TopLevelArtifactProvider.class, TopLevelArtifactProvider.of(
             JavaSemantics.SOURCE_JARS_OUTPUT_GROUP, transitiveSourceJars))
         // TODO(bazel-team): this should only happen for java_plugin
         .add(JavaPluginInfoProvider.class, new JavaPluginInfoProvider(

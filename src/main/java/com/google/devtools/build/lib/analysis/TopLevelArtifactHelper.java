@@ -50,10 +50,10 @@ public final class TopLevelArtifactHelper {
    * Utility function to form a NestedSet of all top-level Artifacts of the given targets.
    */
   public static NestedSet<Artifact> getAllArtifactsToBuild(
-      Iterable<? extends TransitiveInfoCollection> targets, TopLevelArtifactContext options) {
+      Iterable<? extends TransitiveInfoCollection> targets, TopLevelArtifactContext context) {
     NestedSetBuilder<Artifact> allArtifacts = NestedSetBuilder.stableOrder();
     for (TransitiveInfoCollection target : targets) {
-      allArtifacts.addTransitive(getAllArtifactsToBuild(target, options));
+      allArtifacts.addTransitive(getAllArtifactsToBuild(target, context));
     }
     return allArtifacts.build();
   }
@@ -61,14 +61,14 @@ public final class TopLevelArtifactHelper {
   /**
    * Returns all artifacts to build if this target is requested as a top-level target. The resulting
    * set includes the temps and either the files to compile, if
-   * {@code options.compileOnly() == true}, or the files to run.
+   * {@code context.compileOnly() == true}, or the files to run.
    *
    * <p>Calls to this method should generally return quickly; however, the runfiles computation can
    * be lazy, in which case it can be expensive on the first call. Subsequent calls may or may not
    * return the same {@code Iterable} instance.
    */
   public static NestedSet<Artifact> getAllArtifactsToBuild(TransitiveInfoCollection target,
-      TopLevelArtifactContext options) {
+      TopLevelArtifactContext context) {
     NestedSetBuilder<Artifact> allArtifacts = NestedSetBuilder.stableOrder();
     TempsProvider tempsProvider = target.getProvider(TempsProvider.class);
     if (tempsProvider != null) {
@@ -78,7 +78,7 @@ public final class TopLevelArtifactHelper {
     TopLevelArtifactProvider topLevelArtifactProvider =
         target.getProvider(TopLevelArtifactProvider.class);
     if (topLevelArtifactProvider != null) {
-      for (String outputGroup : options.outputGroups()) {
+      for (String outputGroup : context.outputGroups()) {
         NestedSet<Artifact> results = topLevelArtifactProvider.getOutputGroup(outputGroup);
         if (results != null) {
           allArtifacts.addTransitive(results);            
@@ -86,12 +86,12 @@ public final class TopLevelArtifactHelper {
       }
     }
 
-    if (options.compileOnly()) {
+    if (context.compileOnly()) {
       FilesToCompileProvider provider = target.getProvider(FilesToCompileProvider.class);
       if (provider != null) {
         allArtifacts.addAll(provider.getFilesToCompile());
       }
-    } else if (options.compilationPrerequisitesOnly()) {
+    } else if (context.compilationPrerequisitesOnly()) {
       CompilationPrerequisitesProvider provider =
           target.getProvider(CompilationPrerequisitesProvider.class);
       if (provider != null) {
@@ -120,7 +120,7 @@ public final class TopLevelArtifactHelper {
       }
     }
 
-    allArtifacts.addAll(getCoverageArtifacts(target, options));
+    allArtifacts.addAll(getCoverageArtifacts(target, context));
     return allArtifacts.build();
   }
 

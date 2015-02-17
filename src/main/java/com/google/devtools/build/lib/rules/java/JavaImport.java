@@ -28,7 +28,6 @@ import com.google.devtools.build.lib.analysis.TopLevelArtifactProvider;
 import com.google.devtools.build.lib.analysis.TransitiveInfoCollection;
 import com.google.devtools.build.lib.collect.nestedset.NestedSet;
 import com.google.devtools.build.lib.collect.nestedset.NestedSetBuilder;
-import com.google.devtools.build.lib.packages.Type;
 import com.google.devtools.build.lib.rules.RuleConfiguredTargetFactory;
 import com.google.devtools.build.lib.rules.cpp.CcLinkParams;
 import com.google.devtools.build.lib.rules.cpp.CcLinkParamsProvider;
@@ -133,7 +132,7 @@ public class JavaImport implements RuleConfiguredTargetFactory {
         .add(CppCompilationContext.class, transitiveCppDeps)
         .add(JavaSourceJarsProvider.class, new JavaSourceJarsProvider(
             transitiveJavaSourceJars, srcJars))
-        .add(TopLevelArtifactProvider.class, new TopLevelArtifactProvider(
+        .add(TopLevelArtifactProvider.class, TopLevelArtifactProvider.of(
             JavaSemantics.SOURCE_JARS_OUTPUT_GROUP, transitiveJavaSourceJars))
         .build();
   }
@@ -193,9 +192,5 @@ public class JavaImport implements RuleConfiguredTargetFactory {
 
   private Iterable<SourcesJavaCompilationArgsProvider> compilationArgsFromSources() {
     return ImmutableList.of();
-  }
-
-  private ImmutableList<String> getJavaConstraints(RuleContext ruleContext) {
-    return ImmutableList.copyOf(ruleContext.attributes().get("constraints", Type.STRING_LIST));
   }
 }
