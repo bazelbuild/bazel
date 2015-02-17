@@ -234,6 +234,14 @@ public class BuildRequest implements OptionsClassProvider {
         help = "Specifies, which output groups of the top-level target to build.")
     public List<String> outputGroups;
 
+    @Option(name = "build_default_artifacts",
+        defaultValue = "true",
+        category = "undocumented",
+        help = "Whether to build the files to build of the configured targets on the command line. "
+            + "If false, only the artifacts specified by --output_groups is built. The default "
+            + "is true.")
+    public boolean buildDefaultArtifacts;
+
     @Option(name = "show_result",
             defaultValue = "1",
             category = "verbosity",
@@ -502,6 +510,7 @@ public class BuildRequest implements OptionsClassProvider {
   public TopLevelArtifactContext getTopLevelArtifactContext() {
     return new TopLevelArtifactContext(getCommandName(),
         getBuildOptions().compileOnly, getBuildOptions().compilationPrerequisitesOnly,
+        getBuildOptions().buildDefaultArtifacts,
         getOptions(ExecutionOptions.class).testStrategy.equals("exclusive"),
         ImmutableSet.<String>copyOf(getBuildOptions().outputGroups), shouldRunTests());
   }

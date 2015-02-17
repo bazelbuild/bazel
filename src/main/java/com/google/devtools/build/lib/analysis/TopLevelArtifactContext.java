@@ -28,22 +28,24 @@ public final class TopLevelArtifactContext {
 
   public static final TopLevelArtifactContext DEFAULT = new TopLevelArtifactContext(
       "", /*compileOnly=*/false, /*compilationPrerequisitesOnly*/false,
-      /*runTestsExclusively=*/false, /*outputGroups=*/ImmutableSet.<String>of(),
-      /*shouldRunTests=*/false);
+      /*buildDefaultArtifacts=*/true, /*runTestsExclusively=*/false,
+      /*outputGroups=*/ImmutableSet.<String>of(), /*shouldRunTests=*/false);
 
   private final String buildCommand;
   private final boolean compileOnly;
   private final boolean compilationPrerequisitesOnly;
+  private final boolean filesToRun;
   private final boolean runTestsExclusively;
   private final ImmutableSet<String> outputGroups;
   private final boolean shouldRunTests;
 
   public TopLevelArtifactContext(String buildCommand, boolean compileOnly,
-      boolean compilationPrerequisitesOnly, boolean runTestsExclusively,
+      boolean compilationPrerequisitesOnly, boolean filesToRun, boolean runTestsExclusively,
       ImmutableSet<String> outputGroups, boolean shouldRunTests) {
     this.buildCommand = buildCommand;
     this.compileOnly = compileOnly;
     this.compilationPrerequisitesOnly = compilationPrerequisitesOnly;
+    this.filesToRun = filesToRun;
     this.runTestsExclusively = runTestsExclusively;
     this.outputGroups = outputGroups;
     this.shouldRunTests = shouldRunTests;
@@ -62,6 +64,11 @@ public final class TopLevelArtifactContext {
   /** Returns the value of the --compilation_prerequisites_only flag. */
   public boolean compilationPrerequisitesOnly() {
     return compilationPrerequisitesOnly;
+  }
+
+  /** Returns the value of the (undocumented) --build_default_artifacts flag. */
+  public boolean buildDefaultArtifacts() {
+    return filesToRun;
   }
 
   /** Whether to run tests in exclusive mode. */

@@ -97,7 +97,7 @@ public final class TopLevelArtifactHelper {
       if (provider != null) {
         allArtifacts.addTransitive(provider.getCompilationPrerequisites());
       }
-    } else {
+    } else if (context.buildDefaultArtifacts()) {
       FilesToRunProvider filesToRunProvider = target.getProvider(FilesToRunProvider.class);
       boolean hasRunfilesSupport = false;
       if (filesToRunProvider != null) {
