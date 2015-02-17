@@ -32,8 +32,9 @@ public class ObjcConfiguration extends BuildConfiguration.Fragment {
       "-fstack-protector", "-fstack-protector-all", "-D_GLIBCXX_DEBUG_PEDANTIC", "-D_GLIBCXX_DEBUG",
       "-D_GLIBCPP_CONCEPT_CHECKS");
 
+  // TODO(bazel-team): Add "-DDEBUG=1" to FASTBUILD_COPTS.
   @VisibleForTesting
-  static final ImmutableList<String> FASTBUILD_COPTS = ImmutableList.of("-O0", "-DDEBUG=1");
+  static final ImmutableList<String> FASTBUILD_COPTS = ImmutableList.of("-O0");
 
   @VisibleForTesting
   static final ImmutableList<String> OPT_COPTS =
