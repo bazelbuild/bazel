@@ -661,7 +661,7 @@ public class MethodLibrary {
   };
 
   @SkylarkBuiltin(name = "range", returnType = SkylarkList.class,
-      doc = "Creates a list where items go from <code>start</code> to <code>end</code>, using a "
+      doc = "Creates a list where items go from <code>start</code> to <code>stop</code>, using a "
           + "<code>step</code> increment. If a single argument is provided, items will "
           + "range from 0 to that element."
           + "<pre class=language-python>range(4) == [0, 1, 2, 3]\n"
@@ -672,9 +672,9 @@ public class MethodLibrary {
           doc = "Value of the first element"),
       },
       optionalParams = {
-      @Param(name = "end", type = Integer.class,
+      @Param(name = "stop", type = Integer.class,
           doc = "The first item <i>not</i> to be included in the resulting list; "
-          + "generation of the list stops before <code>end</code> is reached."),
+          + "generation of the list stops before <code>stop</code> is reached."),
       @Param(name = "step", type = Integer.class,
           doc = "The increment (default is 1). It may be negative.")})
   private static final Function range =
@@ -686,10 +686,10 @@ public class MethodLibrary {
       int stop;
       if (args[1] == null) {
         start = 0;
-        stop = Type.INTEGER.convert(args[0], "end");
+        stop = Type.INTEGER.convert(args[0], "stop");
       } else {
         start = Type.INTEGER.convert(args[0], "start");
-        stop = Type.INTEGER.convert(args[1], "end");
+        stop = Type.INTEGER.convert(args[1], "stop");
       }
       int step = args[2] == null ? 1 : Type.INTEGER.convert(args[2], "step");
       if (step == 0) {

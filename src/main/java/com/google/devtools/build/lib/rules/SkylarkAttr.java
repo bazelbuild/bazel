@@ -55,8 +55,8 @@ public final class SkylarkAttr {
       + "a FileType filter.";
 
   private static final String ALLOW_RULES_DOC =
-      "which rule targets (name of the classes) are allowed. "
-      + "This is deprecated (kept only for compatiblity), use providers instead.";
+      "which rule targets (name of the classes) are allowed. This is deprecated (kept only for "
+      + "compatiblity), use providers instead.";
 
   private static final String FLAGS_DOC =
       "deprecated, will be removed";
@@ -69,7 +69,7 @@ public final class SkylarkAttr {
       + "For example, use DATA_CFG or HOST_CFG.";
 
   private static final String EXECUTABLE_DOC =
-      "set to True if the labels have to be executable. This means the label refers to an "
+      "set to True if the labels have to be executable. This means the label must refer to an "
       + "executable file, or to a rule that outputs an executable file. Access the labels with "
       + "<code>ctx.executable.&lt;attribute_name&gt;</code>.";
 
