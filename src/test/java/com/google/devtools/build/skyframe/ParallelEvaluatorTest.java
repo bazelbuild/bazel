@@ -1985,6 +1985,10 @@ public class ParallelEvaluatorTest {
     final SkyKey otherKey = GraphTester.toSkyKey("otherKey");
     tester.getOrCreate(errorKey).setHasError(true);
     final AtomicInteger numOtherInvocations = new AtomicInteger(0);
+
+    final AtomicReference<String> bogusInvocationCount = new AtomicReference<>(null);
+    final AtomicReference<String> nonNullValue = new AtomicReference<>(null);
+
     tester.getOrCreate(otherKey).setBuilder(new SkyFunction() {
       @Override
       public SkyValue compute(SkyKey skyKey, Environment env) throws SkyFunctionException {
@@ -1995,8 +1999,13 @@ public class ParallelEvaluatorTest {
         }
         try {
           SkyValue value = env.getValueOrThrow(errorKey, SomeErrorException.class);
-          assertTrue("bogus non-null value " + value, value == null);
-          assertEquals(1, invocations);
+          if (value != null) {
+            nonNullValue.set("bogus non-null value " + value);
+          }
+          if (invocations != 1) {
+            bogusInvocationCount.set("bogus invocation count: " + invocations);
+          }
+
           otherDone.countDown();
           throw new GenericFunctionException(new SomeErrorException("other"),
               Transience.PERSISTENT);
@@ -2023,6 +2032,8 @@ public class ParallelEvaluatorTest {
     });
     EvaluationResult<StringValue> result = eval(/*keepGoing=*/false,
         ImmutableList.of(errorKey, otherKey));
+    assertTrue(nonNullValue.get(), nonNullValue.get() == null);
+    assertTrue(bogusInvocationCount.get(), bogusInvocationCount.get() == null);
     assertEquals(null, graph.get(otherKey));
     assertTrue(result.hasError());
     assertEquals(errorKey, result.getError().getRootCauseOfException());
