@@ -482,16 +482,16 @@ final class ObjcActionsBuilder {
     }
 
     /*
-     * Returns an ExtraLinkArgs with the parameter prepended to this instance's contents. This 
+     * Returns an ExtraLinkArgs with the parameter prepended to this instance's contents. This
      * function does not modify this instance.
      */
     @CheckReturnValue
-    public ExtraLinkArgs prependWith(Iterable<String> extraLinkArgs) {
+    public ExtraLinkArgs prependedWith(Iterable<String> extraLinkArgs) {
       return new ExtraLinkArgs(Iterables.concat(extraLinkArgs, this));
     }
 
     /*
-     * Returns an ExtraLinkArgs with the parameter appended to this instance's contents. This 
+     * Returns an ExtraLinkArgs with the parameter appended to this instance's contents. This
      * function does not modify this instance.
      */
     @CheckReturnValue
