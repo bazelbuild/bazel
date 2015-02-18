@@ -62,7 +62,7 @@ public final class TargetCompletionFunction implements SkyFunction {
     Map<SkyKey, ValueOrException2<MissingInputFileException, ActionExecutionException>> inputDeps =
         env.getValuesOrThrow(ArtifactValue.mandatoryKeys(
             TopLevelArtifactHelper.getAllArtifactsToBuild(
-                ctValue.getConfiguredTarget(), topLevelContext)),
+                ctValue.getConfiguredTarget(), topLevelContext).getAllArtifacts()),
             MissingInputFileException.class, ActionExecutionException.class);
 
     int missingCount = 0;

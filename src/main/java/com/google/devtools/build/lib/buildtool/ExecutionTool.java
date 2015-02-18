@@ -369,9 +369,11 @@ public class ExecutionTool {
     Set<ConfiguredTarget> builtTargets = new HashSet<>();
     boolean interrupted = false;
     try {
-      Iterable<Artifact> allArtifactsForProviders = Iterables.concat(additionalArtifacts,
+      Iterable<Artifact> allArtifactsForProviders = Iterables.concat(
+          additionalArtifacts,
           TopLevelArtifactHelper.getAllArtifactsToBuild(
-              analysisResult.getTargetsToBuild(), analysisResult.getTopLevelContext()),
+              analysisResult.getTargetsToBuild(), analysisResult.getTopLevelContext())
+              .getAllArtifacts(),
           TopLevelArtifactHelper.getAllArtifactsToTest(analysisResult.getTargetsToTest()));
       if (request.isRunningInEmacs()) {
         // The syntax of this message is tightly constrained by lisp/progmodes/compile.el in emacs
@@ -675,7 +677,8 @@ public class ExecutionTool {
       // For up-to-date targets report generated artifacts, but only
       // if they have associated action and not middleman artifacts.
       boolean headerFlag = true;
-      for (Artifact artifact : TopLevelArtifactHelper.getAllArtifactsToBuild(target, context)) {
+      for (Artifact artifact :
+          TopLevelArtifactHelper.getAllArtifactsToBuild(target, context).getImportantArtifacts()) {
         if (!artifact.isSourceArtifact() && !artifact.isMiddlemanArtifact()) {
           if (headerFlag) {
             outErr.printErr("Target " + label + " up-to-date:\n");

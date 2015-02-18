@@ -19,6 +19,7 @@ import com.google.common.collect.ImmutableList;
 import com.google.devtools.build.lib.actions.Artifact;
 import com.google.devtools.build.lib.collect.nestedset.NestedSet;
 import com.google.devtools.build.lib.collect.nestedset.NestedSetBuilder;
+import com.google.devtools.build.lib.concurrent.ThreadSafety.Immutable;
 import com.google.devtools.build.lib.rules.test.TestProvider;
 
 /**
@@ -26,6 +27,38 @@ import com.google.devtools.build.lib.rules.test.TestProvider;
  * extra top-level artifacts into the build.
  */
 public final class TopLevelArtifactHelper {
+
+  /***
+   * The set of artifacts to build.
+   *
+   * <p>There are two kinds: the ones that the user cares about and the ones she doesn't. The
+   * latter type doesn't get reported on various outputs, e.g. on the console output listing the
+   * output artifacts of targets on the command line.
+   */
+  @Immutable
+  public static final class ArtifactsToBuild {
+    private final NestedSet<Artifact> important;
+    private final NestedSet<Artifact> all;
+
+    private ArtifactsToBuild(NestedSet<Artifact> important, NestedSet<Artifact> all) {
+      this.important = important;
+      this.all = all;
+    }
+
+    /**
+     * Returns the artifacts that the user should know about.
+     */
+    public NestedSet<Artifact> getImportantArtifacts() {
+      return important;
+    }
+
+    /**
+     * Returns the actual set of artifacts that need to be built.
+     */
+    public NestedSet<Artifact> getAllArtifacts() {
+      return all;
+    }
+  }
 
   private TopLevelArtifactHelper() {
     // Prevent instantiation.
@@ -49,13 +82,16 @@ public final class TopLevelArtifactHelper {
   /**
    * Utility function to form a NestedSet of all top-level Artifacts of the given targets.
    */
-  public static NestedSet<Artifact> getAllArtifactsToBuild(
+  public static ArtifactsToBuild  getAllArtifactsToBuild(
       Iterable<? extends TransitiveInfoCollection> targets, TopLevelArtifactContext context) {
     NestedSetBuilder<Artifact> allArtifacts = NestedSetBuilder.stableOrder();
+    NestedSetBuilder<Artifact> importantArtifacts = NestedSetBuilder.stableOrder();
     for (TransitiveInfoCollection target : targets) {
-      allArtifacts.addTransitive(getAllArtifactsToBuild(target, context));
+      ArtifactsToBuild targetArtifacts = getAllArtifactsToBuild(target, context);
+      allArtifacts.addTransitive(targetArtifacts.getAllArtifacts());
+      importantArtifacts.addTransitive(targetArtifacts.getImportantArtifacts());
     }
-    return allArtifacts.build();
+    return new ArtifactsToBuild(importantArtifacts.build(), allArtifacts.build());
   }
 
   /**
@@ -67,12 +103,13 @@ public final class TopLevelArtifactHelper {
    * be lazy, in which case it can be expensive on the first call. Subsequent calls may or may not
    * return the same {@code Iterable} instance.
    */
-  public static NestedSet<Artifact> getAllArtifactsToBuild(TransitiveInfoCollection target,
+  public static ArtifactsToBuild getAllArtifactsToBuild(TransitiveInfoCollection target,
       TopLevelArtifactContext context) {
-    NestedSetBuilder<Artifact> allArtifacts = NestedSetBuilder.stableOrder();
+    NestedSetBuilder<Artifact> importantBuilder = NestedSetBuilder.stableOrder();
+    NestedSetBuilder<Artifact> allBuilder = NestedSetBuilder.stableOrder();
     TempsProvider tempsProvider = target.getProvider(TempsProvider.class);
     if (tempsProvider != null) {
-      allArtifacts.addAll(tempsProvider.getTemps());
+      importantBuilder.addAll(tempsProvider.getTemps());
     }
 
     TopLevelArtifactProvider topLevelArtifactProvider =
@@ -81,7 +118,7 @@ public final class TopLevelArtifactHelper {
       for (String outputGroup : context.outputGroups()) {
         NestedSet<Artifact> results = topLevelArtifactProvider.getOutputGroup(outputGroup);
         if (results != null) {
-          allArtifacts.addTransitive(results);            
+          importantBuilder.addTransitive(results);
         }         
       }
     }
@@ -89,19 +126,19 @@ public final class TopLevelArtifactHelper {
     if (context.compileOnly()) {
       FilesToCompileProvider provider = target.getProvider(FilesToCompileProvider.class);
       if (provider != null) {
-        allArtifacts.addAll(provider.getFilesToCompile());
+        importantBuilder.addAll(provider.getFilesToCompile());
       }
     } else if (context.compilationPrerequisitesOnly()) {
       CompilationPrerequisitesProvider provider =
           target.getProvider(CompilationPrerequisitesProvider.class);
       if (provider != null) {
-        allArtifacts.addTransitive(provider.getCompilationPrerequisites());
+        importantBuilder.addTransitive(provider.getCompilationPrerequisites());
       }
     } else if (context.buildDefaultArtifacts()) {
       FilesToRunProvider filesToRunProvider = target.getProvider(FilesToRunProvider.class);
       boolean hasRunfilesSupport = false;
       if (filesToRunProvider != null) {
-        allArtifacts.addAll(filesToRunProvider.getFilesToRun());
+        importantBuilder.addAll(filesToRunProvider.getFilesToRun());
         hasRunfilesSupport = filesToRunProvider.getRunfilesSupport() != null;
       }
 
@@ -109,19 +146,22 @@ public final class TopLevelArtifactHelper {
         RunfilesProvider runfilesProvider =
             target.getProvider(RunfilesProvider.class);
         if (runfilesProvider != null) {
-          allArtifacts.addTransitive(runfilesProvider.getDefaultRunfiles().getAllArtifacts());
+          allBuilder.addTransitive(runfilesProvider.getDefaultRunfiles().getAllArtifacts());
         }
       }
 
       AlwaysBuiltArtifactsProvider forcedArtifacts = target.getProvider(
           AlwaysBuiltArtifactsProvider.class);
       if (forcedArtifacts != null) {
-        allArtifacts.addTransitive(forcedArtifacts.getArtifactsToAlwaysBuild());
+        allBuilder.addTransitive(forcedArtifacts.getArtifactsToAlwaysBuild());
       }
     }
 
-    allArtifacts.addAll(getCoverageArtifacts(target, context));
-    return allArtifacts.build();
+    allBuilder.addAll(getCoverageArtifacts(target, context));
+
+    NestedSet<Artifact> importantArtifacts = importantBuilder.build();
+    allBuilder.addTransitive(importantArtifacts);
+    return new ArtifactsToBuild(importantArtifacts, allBuilder.build());
   }
 
   private static Iterable<Artifact> getCoverageArtifacts(TransitiveInfoCollection target,
