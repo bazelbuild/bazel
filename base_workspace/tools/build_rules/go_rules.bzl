@@ -37,7 +37,7 @@ go_library()/go_binary()/go_test() rules:
 
 - No C++ interop.
 
-- deps must be populated by hand or using Glaze.
+- deps must be populated by hand.
 
 - go_test must have both test and non-test files in srcs.
 """
@@ -62,6 +62,9 @@ def go_compile_command(ctx, sources, out_lib):
 
 def go_library_impl(ctx):
   sources = ctx.files.srcs
+  if not sources:
+    fail("may not be empty", "srcs")
+
   out_lib = ctx.outputs.lib
 
   ctx.action(
