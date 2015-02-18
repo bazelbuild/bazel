@@ -15,7 +15,8 @@
 package com.google.devtools.build.buildjar.javac.plugins.dependency;
 
 import static com.google.devtools.build.buildjar.javac.plugins.dependency.DependencyModule.StrictJavaDeps.ERROR;
-import static com.google.devtools.build.buildjar.javac.plugins.dependency.ImplicitDependencyExtractor.getPlatformClasses;
+import static com.google.devtools.build.buildjar.javac.plugins.dependency.ImplicitDependencyExtractor.getPlatformJars;
+import static com.google.devtools.build.buildjar.javac.plugins.dependency.ImplicitDependencyExtractor.unwrapFileManager;
 import static com.google.devtools.build.buildjar.javac.plugins.dependency.ImplicitDependencyExtractor.unwrapFileObject;
 
 import com.google.common.annotations.VisibleForTesting;
@@ -30,8 +31,6 @@ import com.sun.tools.javac.code.Symbol;
 import com.sun.tools.javac.code.Symbol.ClassSymbol;
 import com.sun.tools.javac.comp.AttrContext;
 import com.sun.tools.javac.comp.Env;
-import com.sun.tools.javac.file.ZipArchive;
-import com.sun.tools.javac.file.ZipFileIndexArchive;
 import com.sun.tools.javac.main.JavaCompiler;
 import com.sun.tools.javac.tree.JCTree;
 import com.sun.tools.javac.tree.TreeScanner;
@@ -86,6 +85,8 @@ public final class StrictJavaDepsPlugin extends BlazeJavaCompilerPlugin {
 
   private static Properties targetMap;
 
+  private JavaFileManager fileManager;
+
   private PrintWriter errWriter;
 
   /**
@@ -112,15 +113,15 @@ public final class StrictJavaDepsPlugin extends BlazeJavaCompilerPlugin {
   public void init(Context context, Log log, JavaCompiler compiler) {
     super.init(context, log, compiler);
     errWriter = log.getWriter(WriterKind.ERROR);
-    JavaFileManager fileManager = context.get(JavaFileManager.class);
+    this.fileManager = unwrapFileManager(context.get(JavaFileManager.class));
     implicitDependencyExtractor = new ImplicitDependencyExtractor(
         dependencyModule.getUsedClasspath(), dependencyModule.getImplicitDependenciesMap(),
         fileManager);
     checkingTreeScanner = context.get(CheckingTreeScanner.class);
     if (checkingTreeScanner == null) {
-      Set<JavaFileObject> platformClasses = getPlatformClasses(fileManager);
+      Set<String> platformJars = getPlatformJars(fileManager);
       checkingTreeScanner = new CheckingTreeScanner(
-          dependencyModule, log, missingTargets, platformClasses);
+          dependencyModule, log, missingTargets, platformJars, fileManager);
       context.put(CheckingTreeScanner.class, checkingTreeScanner);
     }
     initTargetMap();
@@ -196,6 +197,9 @@ public final class StrictJavaDepsPlugin extends BlazeJavaCompilerPlugin {
     /** All error reporting is done through javac's log, */
     private final Log log;
 
+    /** The compilation's file manager. */
+    private final JavaFileManager fileManager;
+
     /** The strict_java_deps mode */
     private final StrictJavaDeps strictJavaDepsMode;
 
@@ -209,17 +213,18 @@ public final class StrictJavaDepsPlugin extends BlazeJavaCompilerPlugin {
     private final Set<ClassSymbol> seenClasses = new HashSet<>();
     private final Set<String> seenTargets = new HashSet<>();
 
-    /** The set of classes on the compilation bootclasspath. */
-    private final Set<JavaFileObject> platformClasses;
+    /** The set of jars on the compilation bootclasspath. */
+    private final Set<String> platformJars;
 
     public CheckingTreeScanner(DependencyModule dependencyModule, Log log,
-        Set<String> missingTargets, Set<JavaFileObject> platformClasses) {
+        Set<String> missingTargets, Set<String> platformJars, JavaFileManager fileManager) {
       this.indirectJarsToTargets = dependencyModule.getIndirectMapping();
       this.strictJavaDepsMode = dependencyModule.getStrictJavaDeps();
       this.log = log;
       this.missingTargets = missingTargets;
       this.directDependenciesMap = dependencyModule.getExplicitDependenciesMap();
-      this.platformClasses = platformClasses;
+      this.platformJars = platformJars;
+      this.fileManager = fileManager;
     }
 
     Set<ClassSymbol> getSeenClasses() {
@@ -236,7 +241,7 @@ public final class StrictJavaDepsPlugin extends BlazeJavaCompilerPlugin {
       }
 
       Symbol.TypeSymbol sym = node.type.tsym;
-      String jarName = getJarName(sym.enclClass(), platformClasses);
+      String jarName = getJarName(fileManager, sym.enclClass(), platformJars);
 
       // If this type symbol comes from a class file loaded from a jar, check
       // whether that jar was a direct dependency and error out otherwise.
@@ -381,26 +386,32 @@ public final class StrictJavaDepsPlugin extends BlazeJavaCompilerPlugin {
    * Returns the name of the jar file from which the given class symbol was
    * loaded, if available, and null otherwise. Implicitly filters out jars
    * from the compilation bootclasspath.
-   * @param platformClasses classes on javac's bootclasspath
+   * @param platformJars jars on javac's bootclasspath
    */
-  static String getJarName(ClassSymbol classSymbol, Set<JavaFileObject> platformClasses) {
-    if (classSymbol != null) {
-      // Ignore symbols that appear in the sourcepath:
-      if (haveSourceForSymbol(classSymbol)) {
-        return null;
-      }
-      JavaFileObject classfile = unwrapFileObject(classSymbol.classfile);
-      if (classfile instanceof ZipArchive.ZipFileObject
-          || classfile instanceof ZipFileIndexArchive.ZipFileIndexFileObject) {
-        String name = classfile.getName();
-        // Here name will be something like blaze-out/.../com/foo/libfoo.jar(Bar.class)
-        String jarName = name.split("\\(")[0];
-        if (!platformClasses.contains(classfile)) {
-          return jarName;
-        }
-      }
+  static String getJarName(
+      JavaFileManager fileManager, ClassSymbol classSymbol, Set<String> platformJars) {
+    if (classSymbol == null) {
+      return null;
     }
-    return null;
+
+    // Ignore symbols that appear in the sourcepath:
+    if (haveSourceForSymbol(classSymbol)) {
+      return null;
+    }
+
+    JavaFileObject classfile = unwrapFileObject(classSymbol.classfile);
+
+    String name = ImplicitDependencyExtractor.getJarName(fileManager, classfile);
+    if (name == null) {
+      return null;
+    }
+
+    // Filter out classes in rt.jar
+    if (platformJars.contains(classfile)) {
+      return null;
+    }
+
+    return name;
   }
 
   /**

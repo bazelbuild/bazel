@@ -14,24 +14,27 @@
 
 package com.google.devtools.build.buildjar.javac.plugins.dependency;
 
+import com.google.common.collect.ImmutableSet;
 import com.google.devtools.build.lib.view.proto.Deps;
 
+import com.sun.nio.zipfs.ZipFileSystem;
+import com.sun.nio.zipfs.ZipPath;
 import com.sun.tools.javac.code.Symbol.ClassSymbol;
 import com.sun.tools.javac.code.Symtab;
 import com.sun.tools.javac.file.ZipArchive;
 import com.sun.tools.javac.file.ZipFileIndexArchive;
+import com.sun.tools.javac.nio.JavacPathFileManager;
 import com.sun.tools.javac.util.Context;
 
-import java.io.IOError;
-import java.io.IOException;
-import java.util.EnumSet;
-import java.util.HashSet;
+import java.io.File;
+import java.nio.file.Path;
 import java.util.Map;
 import java.util.Set;
 
 import javax.lang.model.util.SimpleTypeVisitor7;
 import javax.tools.JavaFileManager;
 import javax.tools.JavaFileObject;
+import javax.tools.StandardJavaFileManager;
 import javax.tools.StandardLocation;
 
 /**
@@ -59,7 +62,7 @@ public class ImplicitDependencyExtractor {
       JavaFileManager fileManager) {
     this.depsSet = depsSet;
     this.depsMap = depsMap;
-    this.fileManager = fileManager;
+    this.fileManager = unwrapFileManager(fileManager);
   }
 
   /**
@@ -85,40 +88,45 @@ public class ImplicitDependencyExtractor {
       root.type.accept(typeVisitor, null);
     }
 
-    Set<JavaFileObject> platformClasses = getPlatformClasses(fileManager);
+    Set<String> platformJars = getPlatformJars(fileManager);
 
     // Collect all other partially resolved types
     for (ClassSymbol cs : symtab.classes.values()) {
       if (cs.classfile != null) {
-        collectJarOf(cs.classfile, platformClasses);
+        collectJarOf(cs.classfile, platformJars);
       } else if (cs.sourcefile != null) {
-        collectJarOf(cs.sourcefile, platformClasses);
+        collectJarOf(cs.sourcefile, platformJars);
       }
     }
   }
 
   /**
-   * Collect the set of classes on the compilation bootclasspath.
-   *
-   * <p>TODO(bazel-team): this needs some work. JavaFileManager.list() is slower than
-   * StandardJavaFileManager.getLocation() and doesn't get cached. Additionally, tracking all
-   * classes in the bootclasspath requires a much bigger set than just tracking a list of jars.
-   * However, relying on the context containing a StandardJavaFileManager is brittle (e.g. Lombok
-   * wraps the file-manager in a ForwardingJavaFileManager.)
+   * Collect the set of jars on the compilation bootclasspath.
    */
-  public static HashSet<JavaFileObject> getPlatformClasses(JavaFileManager fileManager) {
-    HashSet<JavaFileObject> result = new HashSet<JavaFileObject>();
-    Iterable<JavaFileObject> files;
-    try {
-      files = fileManager.list(
-        StandardLocation.PLATFORM_CLASS_PATH, "", EnumSet.of(JavaFileObject.Kind.CLASS), true);
-    } catch (IOException e) {
-      throw new IOError(e);
+  public static Set<String> getPlatformJars(JavaFileManager fileManager) {
+
+    if (fileManager instanceof StandardJavaFileManager) {
+      StandardJavaFileManager sjfm = (StandardJavaFileManager) fileManager;
+      ImmutableSet.Builder<String> result = ImmutableSet.builder();
+      for (File jar : sjfm.getLocation(StandardLocation.PLATFORM_CLASS_PATH)) {
+        result.add(jar.toString());
+      }
+      return result.build();
     }
-    for (JavaFileObject file : files) {
-      result.add(file);
+
+    if (fileManager instanceof JavacPathFileManager) {
+      JavacPathFileManager jpfm = (JavacPathFileManager) fileManager;
+      ImmutableSet.Builder<String> result = ImmutableSet.builder();
+      for (Path jar : jpfm.getLocation(StandardLocation.PLATFORM_CLASS_PATH)) {
+        result.add(jar.toString());
+      }
+      return result.build();
     }
-    return result;
+
+    // TODO(cushon): Assuming JavacPathFileManager or StandardJavaFileManager is slightly brittle,
+    // but in practice those are the only implementations that matter.
+    throw new IllegalStateException("Unsupported file manager type: "
+        + fileManager.getClass().toString());
   }
 
   /**
@@ -126,25 +134,50 @@ public class ImplicitDependencyExtractor {
    * to the collection, filtering out jars on the compilation bootclasspath.
    *
    * @param reference JavaFileObject representing a class or source file
-   * @param platformClasses classes on javac's bootclasspath
+   * @param platformJars classes on javac's bootclasspath
    */
-  private void collectJarOf(JavaFileObject reference, Set<JavaFileObject> platformClasses) {
-    reference = unwrapFileObject(reference);
-    if (reference instanceof ZipArchive.ZipFileObject ||
-        reference instanceof ZipFileIndexArchive.ZipFileIndexFileObject) {
-      // getName() will return something like com/foo/libfoo.jar(Bar.class)
-      String name = reference.getName().split("\\(")[0];
-      // Filter out classes in rt.jar
-      if (!platformClasses.contains(reference)) {
-        depsSet.add(name);
-        if (!depsMap.containsKey(name)) {
-          depsMap.put(name, Deps.Dependency.newBuilder()
-              .setKind(Deps.Dependency.Kind.IMPLICIT)
-              .setPath(name)
-              .build());
-        }
-      }
+  private void collectJarOf(JavaFileObject reference, Set<String> platformJars) {
+
+    String name = getJarName(fileManager, reference);
+    if (name == null) {
+      return;
     }
+
+    // Filter out classes in rt.jar
+    if (platformJars.contains(name)) {
+      return;
+    }
+
+    depsSet.add(name);
+    if (!depsMap.containsKey(name)) {
+      depsMap.put(name, Deps.Dependency.newBuilder()
+          .setKind(Deps.Dependency.Kind.IMPLICIT)
+          .setPath(name)
+          .build());
+    }
+  }
+
+  public static String getJarName(JavaFileManager fileManager, JavaFileObject file) {
+    file = unwrapFileObject(file);
+
+    if (file instanceof ZipArchive.ZipFileObject
+        || file instanceof ZipFileIndexArchive.ZipFileIndexFileObject) {
+      // getName() will return something like com/foo/libfoo.jar(Bar.class)
+      return file.getName().split("\\(")[0];
+    }
+
+    if (fileManager instanceof JavacPathFileManager) {
+      JavacPathFileManager fm = (JavacPathFileManager) fileManager;
+      Path path = fm.getPath(file);
+      if (!(path instanceof ZipPath)) {
+        return null;
+      }
+      ZipFileSystem zipfs = ((ZipPath) path).getFileSystem();
+      // calls toString() on the path to the zip archive
+      return zipfs.toString();
+    }
+
+    return null;
   }
 
 
@@ -152,19 +185,23 @@ public class ImplicitDependencyExtractor {
     // TODO(bazel-team): Override the visitor methods we're interested in.
   }
 
-  private static final Class<?> WRAPPED_JAVA_FILE_OBJECT =
-      getClassOrDie("com.sun.tools.javac.api.ClientCodeWrapper$WrappedJavaFileObject");
+  private static final Class<?> WRAPPED_FILE_OBJECT =
+      getClassOrDie("com.sun.tools.javac.api.ClientCodeWrapper$WrappedFileObject");
 
-  private static final java.lang.reflect.Field UNWRAP_FIELD =
-      getFieldOrDie(
-          getClassOrDie("com.sun.tools.javac.api.ClientCodeWrapper$WrappedFileObject"),
-          "clientFileObject");
+  private static final java.lang.reflect.Field UNWRAP_FILE_FIELD =
+      getFieldOrDie(WRAPPED_FILE_OBJECT, "clientFileObject");
+
+  private static final Class<?> WRAPPED_JAVA_FILE_MANAGER =
+      getClassOrDie("com.sun.tools.javac.api.ClientCodeWrapper$WrappedJavaFileManager");
+
+  private static final java.lang.reflect.Field UNWRAP_FILE_MANAGER_FIELD =
+      getFieldOrDie(WRAPPED_JAVA_FILE_MANAGER, "clientJavaFileManager");
 
   private static Class<?> getClassOrDie(String name) {
     try {
       return Class.forName(name);
-    } catch (ClassNotFoundException e) {
-      throw new LinkageError(e.getMessage());
+    } catch (ReflectiveOperationException e) {
+      throw new LinkageError(e.getMessage(), e);
     }
   }
 
@@ -174,16 +211,27 @@ public class ImplicitDependencyExtractor {
       field.setAccessible(true);
       return field;
     } catch (ReflectiveOperationException e) {
-      throw new LinkageError(e.getMessage());
+      throw new LinkageError(e.getMessage(), e);
     }
   }
 
   public static JavaFileObject unwrapFileObject(JavaFileObject file) {
-    if (!file.getClass().equals(WRAPPED_JAVA_FILE_OBJECT)) {
+    if (!WRAPPED_FILE_OBJECT.isInstance(file)) {
       return file;
     }
     try {
-      return (JavaFileObject) UNWRAP_FIELD.get(file);
+      return (JavaFileObject) UNWRAP_FILE_FIELD.get(file);
+    } catch (ReflectiveOperationException e) {
+      throw new LinkageError(e.getMessage());
+    }
+  }
+
+  public static JavaFileManager unwrapFileManager(JavaFileManager fileManager) {
+    if (!WRAPPED_JAVA_FILE_MANAGER.isInstance(fileManager)) {
+      return fileManager;
+    }
+    try {
+      return (JavaFileManager) UNWRAP_FILE_MANAGER_FIELD.get(fileManager);
     } catch (ReflectiveOperationException e) {
       throw new LinkageError(e.getMessage());
     }
