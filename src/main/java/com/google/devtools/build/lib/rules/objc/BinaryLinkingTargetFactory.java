@@ -154,6 +154,7 @@ abstract class BinaryLinkingTargetFactory implements RuleConfiguredTargetFactory
         .setCompilationAttributes(new CompilationAttributes(ruleContext))
         .setResourceAttributes(new ResourceAttributes(ruleContext))
         .setCompilationArtifacts(compilationArtifacts)
+        .addDefines(ruleContext.getTokenizedStringListAttr("defines"))
         .addDepObjcProviders(ruleContext.getPrerequisites("deps", Mode.TARGET, ObjcProvider.class))
         .addDepObjcProviders(
             ruleContext.getPrerequisites("bundles", Mode.TARGET, ObjcProvider.class))

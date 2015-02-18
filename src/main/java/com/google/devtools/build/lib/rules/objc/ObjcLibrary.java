@@ -44,25 +44,11 @@ public class ObjcLibrary implements RuleConfiguredTargetFactory {
   }
 
   /**
-   * An {@link IterableWrapper} containing defines as specified in the {@code defines} attribute to
-   * be applied to this target and all depending targets' compilation actions.
-   */
-  static final class Defines extends IterableWrapper<String> {
-    Defines(Iterable<String> defines) {
-      super(defines);
-    }
-
-    Defines(String... defines) {
-      super(defines);
-    }
-  }
-
-  /**
    * Constructs an {@link ObjcCommon} instance based on the attributes of the given rule. The rule
    * should inherit from {@link ObjcLibraryRule}..
    */
   static ObjcCommon common(RuleContext ruleContext, Iterable<SdkFramework> extraSdkFrameworks,
-      boolean alwayslink, ExtraImportLibraries extraImportLibraries, Defines defines,
+      boolean alwayslink, ExtraImportLibraries extraImportLibraries,
       Iterable<ObjcProvider> extraDepObjcProviders) {
     CompilationArtifacts compilationArtifacts =
         CompilationSupport.compilationArtifacts(ruleContext);
@@ -71,7 +57,7 @@ public class ObjcLibrary implements RuleConfiguredTargetFactory {
         .setCompilationAttributes(new CompilationAttributes(ruleContext))
         .setResourceAttributes(new ResourceAttributes(ruleContext))
         .addExtraSdkFrameworks(extraSdkFrameworks)
-        .addDefines(defines)
+        .addDefines(ruleContext.getTokenizedStringListAttr("defines"))
         .setCompilationArtifacts(compilationArtifacts)
         .addDepObjcProviders(ruleContext.getPrerequisites("deps", Mode.TARGET, ObjcProvider.class))
         .addDepObjcProviders(
@@ -90,7 +76,6 @@ public class ObjcLibrary implements RuleConfiguredTargetFactory {
     ObjcCommon common = common(
         ruleContext, ImmutableList.<SdkFramework>of(),
         ruleContext.attributes().get("alwayslink", Type.BOOLEAN), new ExtraImportLibraries(),
-        new Defines(ruleContext.getTokenizedStringListAttr("defines")),
         ImmutableList.<ObjcProvider>of());
     OptionsProvider optionsProvider = optionsProvider(ruleContext);
 
