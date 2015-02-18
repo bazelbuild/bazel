@@ -91,9 +91,10 @@ public class StandaloneTestStrategy extends TestStrategy {
     Executor executor = actionExecutionContext.getExecutor();
 
     ResourceSet resources = null;
+    FileOutErr fileOutErr = null;
     try {
       FileSystemUtils.createDirectoryAndParents(workingDirectory);
-      FileOutErr fileOutErr = new FileOutErr(action.getTestLog().getPath(),
+      fileOutErr = new FileOutErr(action.getTestLog().getPath(),
           action.resolve(actionExecutionContext.getExecutor().getExecRoot()).getTestStderr());
 
       resources = action.getTestProperties().getLocalResourceUsage();
@@ -108,6 +109,13 @@ public class StandaloneTestStrategy extends TestStrategy {
     } finally {
       if (resources != null) {
         ResourceManager.instance().releaseResources(action, resources);
+      }
+      try {
+        if (fileOutErr != null) {
+          fileOutErr.close();
+        }
+      } catch (IOException e) {
+        // If the close fails, there is little we can do.
       }
     }
   }

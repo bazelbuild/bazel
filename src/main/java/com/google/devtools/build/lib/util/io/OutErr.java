@@ -14,6 +14,7 @@
 
 package com.google.devtools.build.lib.util.io;
 
+import java.io.Closeable;
 import java.io.IOException;
 import java.io.OutputStream;
 import java.io.PrintStream;
@@ -23,7 +24,7 @@ import java.io.PrintWriter;
  * A pair of output streams to be used for redirecting the output and error
  * streams of a subprocess.
  */
-public class OutErr {
+public class OutErr implements Closeable {
 
   private final OutputStream out;
   private final OutputStream err;
@@ -40,6 +41,14 @@ public class OutErr {
   protected OutErr(OutputStream out, OutputStream err) {
     this.out = out;
     this.err = err;
+  }
+
+  @Override
+  public void close() throws IOException {
+    out.close();
+    if (out != err) {
+      err.close();
+    }
   }
 
   /**

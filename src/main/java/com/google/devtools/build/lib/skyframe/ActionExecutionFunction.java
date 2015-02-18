@@ -42,6 +42,7 @@ import com.google.devtools.build.skyframe.SkyKey;
 import com.google.devtools.build.skyframe.SkyValue;
 import com.google.devtools.build.skyframe.ValueOrException2;
 
+import java.io.IOException;
 import java.util.Collection;
 import java.util.Collections;
 import java.util.HashMap;
@@ -204,12 +205,13 @@ public class ActionExecutionFunction implements SkyFunction {
       return new ActionExecutionValue(
           fileAndMetadataCache.getOutputData(),
           fileAndMetadataCache.getAdditionalOutputData());
-    } else {
-      ActionExecutionContext actionExecutionContext = null;
+    }
+
+    ActionExecutionContext actionExecutionContext = null;
+    try {
       if (inputArtifactData != null) {
         actionExecutionContext = skyframeActionExecutor.constructActionExecutionContext(
-            fileAndMetadataCache,
-            metadataHandler);
+            fileAndMetadataCache, metadataHandler);
         if (action.discoversInputs()) {
           skyframeActionExecutor.discoverInputs(action, actionExecutionContext);
         }
@@ -224,6 +226,14 @@ public class ActionExecutionFunction implements SkyFunction {
       // result was computed during the call.
       return skyframeActionExecutor.executeAction(action, fileAndMetadataCache, token,
           actionStartTime, actionExecutionContext);
+    } finally {
+      try {
+        if (actionExecutionContext != null) {
+          actionExecutionContext.getFileOutErr().close();
+        }
+      } catch (IOException e) {
+        // Nothing we can do here.
+      }
     }
   }
 
