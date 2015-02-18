@@ -66,6 +66,8 @@ public final class RuleConfiguredTargetBuilder {
   private final Map<Class<? extends TransitiveInfoProvider>, TransitiveInfoProvider> providers =
       new LinkedHashMap<>();
   private final ImmutableMap.Builder<String, Object> skylarkProviders = ImmutableMap.builder();
+  private final ImmutableMap.Builder<String, NestedSet<Artifact>> outputGroups =
+      ImmutableMap.builder();
 
   /** These are supported by all configured targets and need to be specially handled. */
   private NestedSet<Artifact> filesToBuild = NestedSetBuilder.emptySet(Order.STABLE_ORDER);
@@ -89,6 +91,11 @@ public final class RuleConfiguredTargetBuilder {
     }
     if (ruleContext.hasErrors()) {
       return null;
+    }
+
+    ImmutableMap<String, NestedSet<Artifact>> outputGroupMap = outputGroups.build();
+    if (!outputGroupMap.isEmpty()) {
+      add(TopLevelArtifactProvider.class, new TopLevelArtifactProvider(outputGroupMap));
     }
 
     FilesToRunProvider filesToRunProvider = new FilesToRunProvider(ruleContext.getLabel(),
@@ -392,6 +399,22 @@ public final class RuleConfiguredTargetBuilder {
    */
   public RuleConfiguredTargetBuilder setFilesToBuild(NestedSet<Artifact> filesToBuild) {
     this.filesToBuild = filesToBuild;
+    return this;
+  }
+
+  /**
+   * Add an output group.
+   */
+  public RuleConfiguredTargetBuilder addOutputGroup(String name, NestedSet<Artifact> artifacts) {
+    outputGroups.put(name, artifacts);
+    return this;
+  }
+
+  /**
+   * Add an output group.
+   */
+  public RuleConfiguredTargetBuilder addOutputGroup(String name, Artifact artifact) {
+    outputGroups.put(name, NestedSetBuilder.create(Order.STABLE_ORDER, artifact));
     return this;
   }
 

@@ -23,7 +23,6 @@ import com.google.devtools.build.lib.analysis.RuleConfiguredTargetBuilder;
 import com.google.devtools.build.lib.analysis.RuleContext;
 import com.google.devtools.build.lib.analysis.Runfiles;
 import com.google.devtools.build.lib.analysis.RunfilesProvider;
-import com.google.devtools.build.lib.analysis.TopLevelArtifactProvider;
 import com.google.devtools.build.lib.analysis.TransitiveInfoCollection;
 import com.google.devtools.build.lib.collect.nestedset.NestedSet;
 import com.google.devtools.build.lib.collect.nestedset.NestedSetBuilder;
@@ -229,11 +228,10 @@ public class JavaLibrary implements RuleConfiguredTargetFactory {
             transitiveJavaNativeLibraries))
         .add(JavaSourceJarsProvider.class, new JavaSourceJarsProvider(
             transitiveSourceJars, ImmutableList.of(srcJar)))
-        .add(TopLevelArtifactProvider.class, TopLevelArtifactProvider.of(
-            JavaSemantics.SOURCE_JARS_OUTPUT_GROUP, transitiveSourceJars))
         // TODO(bazel-team): this should only happen for java_plugin
         .add(JavaPluginInfoProvider.class, new JavaPluginInfoProvider(
-            exportedProcessorClasses, exportedProcessorClasspath));
+            exportedProcessorClasses, exportedProcessorClasspath))
+        .addOutputGroup(JavaSemantics.SOURCE_JARS_OUTPUT_GROUP, transitiveSourceJars);
 
     if (ruleContext.hasErrors()) {
       return null;
