@@ -36,6 +36,12 @@ public final class InstrumentedFilesProviderImpl implements InstrumentedFilesPro
   private final NestedSet<Artifact> instrumentedFiles;
   private final NestedSet<Artifact> instrumentationMetadataFiles;
 
+  public InstrumentedFilesProviderImpl(NestedSet<Artifact> instrumentedFiles,
+      NestedSet<Artifact> instrumentationMetadataFiles) {
+    this.instrumentedFiles = instrumentedFiles;
+    this.instrumentationMetadataFiles = instrumentationMetadataFiles;
+  }
+
   public InstrumentedFilesProviderImpl(InstrumentedFilesCollector collector) {
     this.instrumentedFiles = collector.getInstrumentedFiles();
     this.instrumentationMetadataFiles = collector.getInstrumentationMetadataFiles();

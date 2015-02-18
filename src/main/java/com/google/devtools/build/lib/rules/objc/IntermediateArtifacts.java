@@ -137,17 +137,26 @@ final class IntermediateArtifacts {
     return appendExtension(TMP_DSYM_BUNDLE_SUFFIX);
   }
 
+  private PathFragment inUniqueObjsDir(Artifact source, String extension) {
+    PathFragment dir = AnalysisUtils.getUniqueDirectory(ownerLabel, new PathFragment("_objs"));
+    PathFragment sourceFile = dir.getRelative(source.getRootRelativePath());
+    return FileSystemUtils.replaceExtension(sourceFile, extension);
+  }
+
   /**
    * The artifact for the .o file that should be generated when compiling the {@code source}
    * artifact.
    */
   public Artifact objFile(Artifact source) {
-    return analysisEnvironment.getDerivedArtifact(
-        FileSystemUtils.replaceExtension(
-            AnalysisUtils.getUniqueDirectory(ownerLabel, new PathFragment("_objs"))
-                .getRelative(source.getRootRelativePath()),
-            ".o"),
-        binDirectory);
+     return analysisEnvironment.getDerivedArtifact(inUniqueObjsDir(source, ".o"), binDirectory);
+  }
+
+  /**
+   * The artifact for the .gcno file that should be generated when compiling the {@code source}
+   * artifact.
+   */
+  public Artifact gcnoFile(Artifact source) {
+     return analysisEnvironment.getDerivedArtifact(inUniqueObjsDir(source, ".gcno"), binDirectory);
   }
 
   /**

@@ -24,6 +24,7 @@ import static com.google.devtools.build.lib.rules.objc.ObjcProvider.FORCE_LOAD_L
 import static com.google.devtools.build.lib.rules.objc.ObjcProvider.FRAMEWORK_DIR;
 import static com.google.devtools.build.lib.rules.objc.ObjcProvider.FRAMEWORK_FILE;
 import static com.google.devtools.build.lib.rules.objc.ObjcProvider.Flag.USES_CPP;
+import static com.google.devtools.build.lib.rules.objc.ObjcProvider.GCNO;
 import static com.google.devtools.build.lib.rules.objc.ObjcProvider.GENERAL_RESOURCE_FILE;
 import static com.google.devtools.build.lib.rules.objc.ObjcProvider.HEADER;
 import static com.google.devtools.build.lib.rules.objc.ObjcProvider.IMPORTED_LIBRARY;
@@ -33,6 +34,7 @@ import static com.google.devtools.build.lib.rules.objc.ObjcProvider.LINKED_BINAR
 import static com.google.devtools.build.lib.rules.objc.ObjcProvider.MERGE_ZIP;
 import static com.google.devtools.build.lib.rules.objc.ObjcProvider.SDK_DYLIB;
 import static com.google.devtools.build.lib.rules.objc.ObjcProvider.SDK_FRAMEWORK;
+import static com.google.devtools.build.lib.rules.objc.ObjcProvider.SOURCE;
 import static com.google.devtools.build.lib.rules.objc.ObjcProvider.WEAK_SDK_FRAMEWORK;
 import static com.google.devtools.build.lib.rules.objc.ObjcProvider.XCASSETS_DIR;
 import static com.google.devtools.build.lib.rules.objc.ObjcProvider.XCDATAMODEL;
@@ -380,7 +382,15 @@ public final class ObjcCommon {
       }
 
       for (CompilationArtifacts artifacts : compilationArtifacts.asSet()) {
+        Iterable<Artifact> allSources =
+            Iterables.concat(artifacts.getSrcs(), artifacts.getNonArcSrcs());
         objcProvider.addAll(LIBRARY, artifacts.getArchive().asSet());
+        objcProvider.addAll(SOURCE, allSources);
+        if (context.getConfiguration().isCodeCoverageEnabled()) {
+          for (Artifact source : allSources) {
+            objcProvider.add(GCNO, intermediateArtifacts.gcnoFile(source));
+          }
+        }
 
         boolean usesCpp = false;
         for (Artifact sourceFile :

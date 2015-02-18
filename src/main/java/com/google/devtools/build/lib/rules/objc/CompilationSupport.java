@@ -47,6 +47,10 @@ final class CompilationSupport {
   static final String ABSOLUTE_INCLUDES_PATH_FORMAT =
       "The path '%s' is absolute, but only relative paths are allowed.";
 
+  @VisibleForTesting
+  static final ImmutableList<String> LINKER_COVERAGE_FLAGS = ImmutableList.<String>of(
+      "-ftest-coverage", "-fprofile-arcs");
+
   /**
    * Returns information about the given rule's compilation artifacts.
    */
@@ -87,7 +91,8 @@ final class CompilationSupport {
       ObjcCommon common, OptionsProvider optionsProvider) {
     if (common.getCompilationArtifacts().isPresent()) {
       ObjcRuleClasses.actionsBuilder(ruleContext).registerCompileAndArchiveActions(
-          common.getCompilationArtifacts().get(), common.getObjcProvider(), optionsProvider);
+          common.getCompilationArtifacts().get(), common.getObjcProvider(), optionsProvider,
+          ruleContext.getConfiguration().isCodeCoverageEnabled());
     }
     return this;
   }
@@ -114,9 +119,15 @@ final class CompilationSupport {
       dsymBundle = Optional.absent();
     }
 
+    ExtraLinkArgs coverageLinkArgs = new ExtraLinkArgs();
+    if (ruleContext.getConfiguration().isCodeCoverageEnabled()) {
+      coverageLinkArgs = new ExtraLinkArgs(LINKER_COVERAGE_FLAGS);
+    }
+
     ObjcRuleClasses.actionsBuilder(ruleContext).registerLinkAction(
-        intermediateArtifacts.singleArchitectureBinary(), objcProvider, extraLinkArgs,
-        extraLinkInputs, dsymBundle);
+        intermediateArtifacts.singleArchitectureBinary(), objcProvider,
+        extraLinkArgs.appendedWith(coverageLinkArgs), extraLinkInputs,
+        dsymBundle);
     return this;
   }
 
@@ -145,7 +156,8 @@ final class CompilationSupport {
           ruleContext.getConfiguration(),
           ruleContext);
       actionBuilder
-          .registerCompileAndArchiveActions(compilationArtifact, objcProvider, optionsProvider);
+          .registerCompileAndArchiveActions(compilationArtifact, objcProvider, optionsProvider,
+               ruleContext.getConfiguration().isCodeCoverageEnabled());
     }
 
     return this;

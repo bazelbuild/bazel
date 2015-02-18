@@ -62,6 +62,8 @@ import java.util.List;
 import java.util.Locale;
 import java.util.Set;
 
+import javax.annotation.CheckReturnValue;
+
 /**
  * Object that creates actions used by Objective-C rules.
  */
@@ -98,6 +100,8 @@ final class ObjcActionsBuilder {
   static final PathFragment IBTOOL = new PathFragment(IosSdkCommands.IBTOOL_PATH);
   static final PathFragment DSYMUTIL = new PathFragment(BIN_DIR + "/dsymutil");
   static final PathFragment LIPO = new PathFragment(BIN_DIR + "/lipo");
+  static final ImmutableList<String> CLANG_COVERAGE_FLAGS = ImmutableList.<String>of(
+      "-fprofile-arcs", "-ftest-coverage", "-fprofile-dir=./coverage_output");
 
   // TODO(bazel-team): Reference a rule target rather than a jar file when Darwin runfiles work
   // better.
@@ -114,7 +118,14 @@ final class ObjcActionsBuilder {
       Optional<Artifact> pchFile,
       ObjcProvider objcProvider,
       Iterable<String> otherFlags,
-      OptionsProvider optionsProvider) {
+      OptionsProvider optionsProvider,
+      boolean isCodeCoverageEnabled) {
+    ImmutableList.Builder<String> coverageFlags = new ImmutableList.Builder<>();
+    ImmutableList.Builder<Artifact> gcnoFiles = new ImmutableList.Builder<>();
+    if (isCodeCoverageEnabled) {
+      coverageFlags.addAll(CLANG_COVERAGE_FLAGS);
+      gcnoFiles.add(intermediateArtifacts.gcnoFile(sourceFile));
+    }
     CustomCommandLine.Builder commandLine = new CustomCommandLine.Builder();
     if (ObjcRuleClasses.CPP_SOURCES.matches(sourceFile.getExecPath())) {
       commandLine.add("-stdlib=libc++");
@@ -129,6 +140,7 @@ final class ObjcActionsBuilder {
         .addBeforeEachPath("-I", objcProvider.get(INCLUDE))
         .add(otherFlags)
         .addFormatEach("-D%s", objcProvider.get(DEFINE))
+        .add(coverageFlags.build())
         .add(objcConfiguration.getCopts())
         .add(optionsProvider.getCopts())
         .addExecPath("-c", sourceFile)
@@ -140,6 +152,7 @@ final class ObjcActionsBuilder {
         .setCommandLine(commandLine.build())
         .addInput(sourceFile)
         .addOutput(objFile)
+        .addOutputs(gcnoFiles.build())
         .addTransitiveInputs(objcProvider.get(HEADER))
         .addTransitiveInputs(objcProvider.get(FRAMEWORK_FILE))
         .addInputs(pchFile.asSet())
@@ -154,19 +167,19 @@ final class ObjcActionsBuilder {
    * files into a single archive library.
    */
   void registerCompileAndArchiveActions(CompilationArtifacts compilationArtifacts,
-      ObjcProvider objcProvider, OptionsProvider optionsProvider) {
+      ObjcProvider objcProvider, OptionsProvider optionsProvider, boolean isCodeCoverageEnabled) {
     ImmutableList.Builder<Artifact> objFiles = new ImmutableList.Builder<>();
     for (Artifact sourceFile : compilationArtifacts.getSrcs()) {
       Artifact objFile = intermediateArtifacts.objFile(sourceFile);
       objFiles.add(objFile);
       registerCompileAction(sourceFile, objFile, compilationArtifacts.getPchFile(),
-          objcProvider, ARC_ARGS, optionsProvider);
+          objcProvider, ARC_ARGS, optionsProvider, isCodeCoverageEnabled);
     }
     for (Artifact nonArcSourceFile : compilationArtifacts.getNonArcSrcs()) {
       Artifact objFile = intermediateArtifacts.objFile(nonArcSourceFile);
       objFiles.add(objFile);
       registerCompileAction(nonArcSourceFile, objFile, compilationArtifacts.getPchFile(),
-          objcProvider, NON_ARC_ARGS, optionsProvider);
+          objcProvider, NON_ARC_ARGS, optionsProvider, isCodeCoverageEnabled);
     }
     for (Artifact archive : compilationArtifacts.getArchive().asSet()) {
       registerAll(archiveActions(context, objFiles.build(), archive, objcConfiguration,
@@ -466,6 +479,24 @@ final class ObjcActionsBuilder {
 
     ExtraLinkArgs(String... args) {
       super(args);
+    }
+
+    /*
+     * Returns an ExtraLinkArgs with the parameter prepended to this instance's contents. This 
+     * function does not modify this instance.
+     */
+    @CheckReturnValue
+    public ExtraLinkArgs prependWith(Iterable<String> extraLinkArgs) {
+      return new ExtraLinkArgs(Iterables.concat(extraLinkArgs, this));
+    }
+
+    /*
+     * Returns an ExtraLinkArgs with the parameter appended to this instance's contents. This 
+     * function does not modify this instance.
+     */
+    @CheckReturnValue
+    public ExtraLinkArgs appendedWith(Iterable<String> extraLinkArgs) {
+      return new ExtraLinkArgs(Iterables.concat(this, extraLinkArgs));
     }
   }
 

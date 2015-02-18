@@ -183,7 +183,8 @@ public class ObjcProtoLibrary implements RuleConfiguredTargetFactory {
     ObjcActionsBuilder actionsBuilder = ObjcRuleClasses.actionsBuilder(ruleContext);
     actionsBuilder
         .registerCompileAndArchiveActions(
-            compilationArtifacts, common.getObjcProvider(), OptionsProvider.DEFAULT);
+            compilationArtifacts, common.getObjcProvider(), OptionsProvider.DEFAULT,
+            /*isCodeCoverageEnabled=*/false);
     actionsBuilder.registerXcodegenActions(
         new ObjcRuleClasses.Tools(ruleContext),
         ruleContext.getImplicitOutputArtifact(XcodeSupport.PBXPROJ),

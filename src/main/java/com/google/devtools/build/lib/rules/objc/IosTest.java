@@ -99,7 +99,12 @@ public abstract class IosTest implements RuleConfiguredTargetFactory {
       extraLinkArgs = new ExtraLinkArgs(
           "-bundle",
           "-bundle_loader", bundleLoader.getExecPathString());
+
       extraLinkInputs = new ExtraLinkInputs(bundleLoader);
+    }
+
+    if (ruleContext.getConfiguration().isCodeCoverageEnabled()) {
+      extraLinkArgs = extraLinkArgs.appendedWith(CompilationSupport.LINKER_COVERAGE_FLAGS);
     }
 
     new CompilationSupport(ruleContext)
