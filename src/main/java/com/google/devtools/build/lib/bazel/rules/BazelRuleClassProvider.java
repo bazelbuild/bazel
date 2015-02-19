@@ -256,7 +256,7 @@ public class BazelRuleClassProvider {
     builder.addRuleDefinition(ObjcRuleClasses.AlwaysLinkRule.class);
     builder.addRuleDefinition(ObjcRuleClasses.OptionsRule.class);
     builder.addRuleDefinition(ObjcRuleClasses.SdkFrameworksDependerRule.class);
-    builder.addRuleDefinition(ObjcRuleClasses.CompileInputRule.class);
+    builder.addRuleDefinition(ObjcRuleClasses.CompileDependencyRule.class);
     builder.addRuleDefinition(ObjcRuleClasses.ResourceToolsRule.class);
     builder.addRuleDefinition(IosApplicationRule.class);
     builder.addRuleDefinition(IosExtensionBinaryRule.class);
