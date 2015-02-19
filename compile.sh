@@ -64,8 +64,9 @@ function log() {
   fi
 }
 
-# Create a tools symlink so we can run the Bazel bootstrap.
-rm -f tools && ln -s base_workspace/tools tools
+# Create symlinks so we can use tools from the base_workspace.
+rm -f base_workspace/tools && ln -s $(pwd)/tools base_workspace/tools
+rm -f base_workspace/third_party && ln -s $(pwd)/third_party base_workspace/third_party
 
 mkdir -p fromhost
 cat << EOF > fromhost/BUILD
@@ -180,7 +181,6 @@ esac
 
 test -z "$JAVA_HOME" && fail "JDK not found, please set \$JAVA_HOME."
 rm -f tools/jdk/jdk && ln -s "${JAVA_HOME}" tools/jdk/jdk
-
 
 JAVAC="${JAVA_HOME}/bin/javac"
 

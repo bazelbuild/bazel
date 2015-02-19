@@ -21,8 +21,8 @@ filegroup(
 filegroup(
     name = "toolchain",
     srcs = [
-        ":cc-compiler-local",
         ":cc-compiler-darwin",
+        ":cc-compiler-local",
         ":empty",
     ],
 )

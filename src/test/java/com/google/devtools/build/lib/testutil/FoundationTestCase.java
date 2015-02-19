@@ -91,7 +91,7 @@ public abstract class FoundationTestCase extends ChattyAssertsTestCase {
     scratchFile(rootDirectory.getRelative("devtools/blaze/rules/BUILD").getPathString());
     scratchFile(rootDirectory.getRelative("rules/BUILD").getPathString());
     copySkylarkFilesIfExist("devtools/blaze/rules/staging", "devtools/blaze/rules/staging");
-    copySkylarkFilesIfExist("devtools/blaze/bazel/base_workspace/tools/build_rules", "rules");
+    copySkylarkFilesIfExist("devtools/blaze/bazel/tools/build_rules", "rules");
   }
 
   private void copySkylarkFilesIfExist(String from, String to) throws IOException {
