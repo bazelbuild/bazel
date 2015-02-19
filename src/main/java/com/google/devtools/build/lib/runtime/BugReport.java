@@ -81,7 +81,11 @@ public abstract class BugReport {
       // We don't call runtime#shutDown() here because all it does is shut down the modules, and who
       // knows if they can be trusted.
     }
-    System.exit(exitCode);
+    // Avoid shutdown deadlock issues: If an application shutdown hook crashes, it will trigger our
+    // Blaze crash handler (this method). Calling System#exit() here, would therefore induce a
+    // deadlock. This call would block on the shutdown sequence completing, but the shutdown
+    // sequence would in turn be blocked on this thread finishing. Instead, exit fast via halt().
+    Runtime.getRuntime().halt(exitCode);
   }
 
   private static void printThrowableTo(OutErr outErr, Throwable e) {
