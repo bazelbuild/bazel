@@ -77,11 +77,6 @@ public class CppRuleClasses {
   public static final String BUILD_INTERFACE_SO = "build_interface_so";
 
   /**
-   * A string constant for the layering_check feature.
-   */
-  public static final String LAYERING_CHECK = "layering_check";
-  
-  /**
    * A string constant for the parse_headers feature.
    */
   public static final String PARSE_HEADERS = "parse_headers";
@@ -92,13 +87,39 @@ public class CppRuleClasses {
   public static final String PREPROCESS_HEADERS = "preprocess_headers";
 
   /**
-   * A string constant for the header_modules feature.
+   * A string constant for the module_maps feature; this is a precondition to the layering_check and
+   * header_modules features.
    */
-  public static final String HEADER_MODULES = "header_modules";
+  public static final String MODULE_MAPS = "module_maps";
   
   /**
    * A string constant for the module_map_home_cwd feature.
    */
   public static final String MODULE_MAP_HOME_CWD = "module_map_home_cwd";
   
+  /**
+   * A string constant for the layering_check feature.
+   */
+  public static final String LAYERING_CHECK = "layering_check";
+  
+  /**
+   * A string constant for the header_modules feature.
+   */
+  public static final String HEADER_MODULES = "header_modules";
+  
+  /**
+   * A string constant for the use_header_modules feature.
+   * 
+   * <p>This feature is only used during rollout; we expect to default enable this once we
+   * have verified that module-enabled compilation is stable enough.
+   */
+  public static final String USE_HEADER_MODULES = "use_header_modules";
+
+  /**
+   * A string constant for switching on that a header module file includes information about
+   * all its dependencies, so we do not need to pass all transitive dependent header modules on
+   * the command line.
+   */
+  public static final String HEADER_MODULE_INCLUDES_DEPENDENCIES =
+      "header_module_includes_dependencies";
 }

@@ -49,6 +49,7 @@ import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.Collection;
 import java.util.Collections;
+import java.util.HashSet;
 import java.util.LinkedHashMap;
 import java.util.LinkedHashSet;
 import java.util.List;
@@ -171,6 +172,11 @@ public final class CcLibraryHelper {
   private final List<LibraryToLink> picStaticLibraries = new ArrayList<>();
   private final List<LibraryToLink> dynamicLibraries = new ArrayList<>();
 
+  private final Set<String> requestedFeatures = new HashSet<>();
+  private final Set<String> unsupportedFeatures = new HashSet<>();
+  
+  // TODO(bazel-team): Remove flags that affect toolchain features after migrating their uses to
+  // requestedFeatures / unsupportedFeatures. 
   private boolean emitCppModuleMaps = true;
   private boolean enableLayeringCheck;
   private boolean compileHeaderModules;
@@ -499,6 +505,8 @@ public final class CcLibraryHelper {
   /**
    * This disables C++ module map generation for the current rule. Don't call this unless you know
    * what you are doing.
+   * 
+   * <p>TODO(bazel-team): Replace with {@code addUnsupportedFeature()}.
    */
   public CcLibraryHelper disableCppModuleMapGeneration() {
     this.emitCppModuleMaps = false;
@@ -507,6 +515,8 @@ public final class CcLibraryHelper {
 
   /**
    * This enables or disables use of module maps during compilation, i.e., layering checks.
+   * 
+   * <p>TODO(bazel-team): Replace with {@code addRequestedFeature()}.
    */
   public CcLibraryHelper setEnableLayeringCheck(boolean enableLayeringCheck) {
     this.enableLayeringCheck = enableLayeringCheck;
@@ -518,9 +528,30 @@ public final class CcLibraryHelper {
    * TODO(bazel-team): Add a cc_toolchain flag that allows fully disabling this feature and document
    * this feature.
    * See http://clang.llvm.org/docs/Modules.html.
+   * 
+   * <p>TODO(bazel-team): Replace with {@code addRequestedFeature()}.
    */
   public CcLibraryHelper setCompileHeaderModules(boolean compileHeaderModules) {
     this.compileHeaderModules = compileHeaderModules;
+    return this;
+  }
+  
+  /**
+   * Adds a feature to be requested from the toolchain.  
+   */
+  public CcLibraryHelper addRequestedFeature(String feature) {
+    Preconditions.checkNotNull(feature);
+    this.requestedFeatures.add(feature);
+    return this;
+  }
+  
+  /**
+   * Adds a feature that is unsupported in the current context, and must not be requested from the
+   * toolchain.
+   */
+  public CcLibraryHelper addUnsupportedFeature(String feature) {
+    Preconditions.checkNotNull(feature);
+    this.unsupportedFeatures.add(feature);
     return this;
   }
 
@@ -603,7 +634,8 @@ public final class CcLibraryHelper {
 
     CcLinkingOutputs ccLinkingOutputs = CcLinkingOutputs.EMPTY;
     CcCompilationOutputs ccOutputs = new CcCompilationOutputs.Builder().build();
-    FeatureConfiguration featureConfiguration = CcCommon.configureFeatures(ruleContext);
+    FeatureConfiguration featureConfiguration =
+        CcCommon.configureFeatures(ruleContext, requestedFeatures, unsupportedFeatures);
     
     CppModel model = new CppModel(ruleContext, semantics)
         .addSources(sources)

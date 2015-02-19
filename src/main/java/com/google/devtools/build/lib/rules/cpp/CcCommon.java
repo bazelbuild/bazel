@@ -87,6 +87,14 @@ public final class CcCommon {
       }
     }
   };
+    
+  /**
+   * Features we request to enable unless a rule explicitly doesn't support them.
+   */
+  private static final ImmutableSet<String> DEFAULT_FEATURES = ImmutableSet.of(
+      CppRuleClasses.MODULE_MAPS,
+      CppRuleClasses.MODULE_MAP_HOME_CWD,
+      CppRuleClasses.HEADER_MODULE_INCLUDES_DEPENDENCIES);
 
   /** C++ configuration */
   private final CppConfiguration cppConfiguration;
@@ -639,12 +647,29 @@ public final class CcCommon {
             ruleContext, CppRuleClasses.INSTRUMENTATION_SPEC, CC_METADATA_COLLECTOR, files));
   }
 
-  public static FeatureConfiguration configureFeatures(RuleContext ruleContext) {
+  /**
+   * Creates the feature configuration for a given rule.
+   * 
+   * @param ruleContext the context of the rule we want the feature configuration for. 
+   * @param ruleSpecificRequestedFeatures features that will be requested, and thus be always
+   * enabled if the toolchain supports them.
+   * @param ruleSpecificUnsupportedFeatures features that are not supported in the current context.
+   * @return the feature configuration for the given {@code ruleContext}.
+   */
+  public static FeatureConfiguration configureFeatures(RuleContext ruleContext,
+      Set<String> ruleSpecificRequestedFeatures,
+      Set<String> ruleSpecificUnsupportedFeatures) {
     CcToolchainProvider toolchain = CppHelper.getToolchain(ruleContext);    
-    Set<String> requestedFeatures = ImmutableSet.of(CppRuleClasses.MODULE_MAP_HOME_CWD);
-    return toolchain.getFeatures().getFeatureConfiguration(requestedFeatures);
+    ImmutableSet.Builder<String> requestedFeatures = ImmutableSet.builder();
+    for (String feature : Iterables.concat(DEFAULT_FEATURES, ruleContext.getFeatures())) {
+      if (!ruleSpecificUnsupportedFeatures.contains(feature)) {
+        requestedFeatures.add(feature);
+      }
+    }
+    requestedFeatures.addAll(ruleSpecificRequestedFeatures);
+    return toolchain.getFeatures().getFeatureConfiguration(requestedFeatures.build());
   }
-
+  
   public void addTransitiveInfoProviders(RuleConfiguredTargetBuilder builder,
       NestedSet<Artifact> filesToBuild,
       CcCompilationOutputs ccCompilationOutputs,
