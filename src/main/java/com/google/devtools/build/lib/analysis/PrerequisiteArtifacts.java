@@ -20,6 +20,8 @@ import com.google.common.collect.ImmutableList;
 import com.google.common.collect.Iterables;
 import com.google.devtools.build.lib.actions.Artifact;
 import com.google.devtools.build.lib.analysis.RuleConfiguredTarget.Mode;
+import com.google.devtools.build.lib.collect.nestedset.NestedSet;
+import com.google.devtools.build.lib.collect.nestedset.NestedSetBuilder;
 import com.google.devtools.build.lib.util.FileType;
 import com.google.devtools.build.lib.util.FileTypeSet;
 
@@ -49,6 +51,16 @@ public final class PrerequisiteArtifacts {
       Iterables.addAll(result, target.getFilesToBuild());
     }
     return new PrerequisiteArtifacts(ruleContext, attributeName, ImmutableList.copyOf(result));
+  }
+
+  public static NestedSet<Artifact> nestedSet(RuleContext ruleContext, String attributeName,
+      Mode mode) {
+    NestedSetBuilder<Artifact> result = NestedSetBuilder.stableOrder();
+    for (FileProvider target :
+        ruleContext.getPrerequisites(attributeName, mode, FileProvider.class)) {
+      result.addTransitive(target.getFilesToBuild());
+    }
+    return result.build();
   }
 
   /**
