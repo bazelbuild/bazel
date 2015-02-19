@@ -74,7 +74,6 @@ import com.google.devtools.build.lib.syntax.EvalException;
 import com.google.devtools.build.lib.syntax.Label;
 import com.google.devtools.build.lib.util.RegexFilter;
 import com.google.devtools.build.lib.vfs.Path;
-import com.google.devtools.build.lib.vfs.PathFragment;
 import com.google.devtools.build.skyframe.SkyKey;
 import com.google.devtools.common.options.Option;
 import com.google.devtools.common.options.OptionsBase;
@@ -697,25 +696,6 @@ public class BuildView {
         message.append('\n').append(event);
       }
       throw new IllegalStateException(message.toString());
-    }
-  }
-
-  /**
-   * Skyframe implementation of {@link PackageRootResolver}.
-   *
-   * <p> Note: you should not use this class inside of any SkyFunction.
-   */
-  @VisibleForTesting
-  public static final class SkyframePackageRootResolver implements PackageRootResolver {
-    private final SkyframeExecutor executor;
-
-    public SkyframePackageRootResolver(SkyframeExecutor executor) {
-      this.executor = executor;
-    }
-
-    @Override
-    public Map<PathFragment, Root> findPackageRoots(Iterable<PathFragment> execPaths) {
-      return executor.getArtifactRoots(execPaths);
     }
   }
 
