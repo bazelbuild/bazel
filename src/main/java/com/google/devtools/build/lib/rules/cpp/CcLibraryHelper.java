@@ -49,7 +49,6 @@ import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.Collection;
 import java.util.Collections;
-import java.util.HashSet;
 import java.util.LinkedHashMap;
 import java.util.LinkedHashSet;
 import java.util.List;
@@ -172,9 +171,6 @@ public final class CcLibraryHelper {
   private final List<LibraryToLink> picStaticLibraries = new ArrayList<>();
   private final List<LibraryToLink> dynamicLibraries = new ArrayList<>();
 
-  private final Set<String> requestedFeatures = new HashSet<>();
-  private final Set<String> unsupportedFeatures = new HashSet<>();
-  
   // TODO(bazel-team): Remove flags that affect toolchain features after migrating their uses to
   // requestedFeatures / unsupportedFeatures. 
   private boolean emitCppModuleMaps = true;
@@ -188,13 +184,17 @@ public final class CcLibraryHelper {
   private boolean checkDepsGenerateCpp = true;
   private boolean emitCompileProviders;
   private boolean emitHeaderTargetModuleMaps = false;
+  
+  private final FeatureConfiguration featureConfiguration;
 
-  public CcLibraryHelper(RuleContext ruleContext, CppSemantics semantics) {
+  public CcLibraryHelper(RuleContext ruleContext, CppSemantics semantics,
+      FeatureConfiguration featureConfiguration) {
     this.ruleContext = Preconditions.checkNotNull(ruleContext);
     this.configuration = ruleContext.getConfiguration();
     this.semantics = Preconditions.checkNotNull(semantics);
+    this.featureConfiguration = Preconditions.checkNotNull(featureConfiguration);
   }
-
+  
   /**
    * Add the corresponding files as header files, i.e., these files will not be compiled, but are
    * made visible as includes to dependent rules.
@@ -537,25 +537,6 @@ public final class CcLibraryHelper {
   }
   
   /**
-   * Adds a feature to be requested from the toolchain.  
-   */
-  public CcLibraryHelper addRequestedFeature(String feature) {
-    Preconditions.checkNotNull(feature);
-    this.requestedFeatures.add(feature);
-    return this;
-  }
-  
-  /**
-   * Adds a feature that is unsupported in the current context, and must not be requested from the
-   * toolchain.
-   */
-  public CcLibraryHelper addUnsupportedFeature(String feature) {
-    Preconditions.checkNotNull(feature);
-    this.unsupportedFeatures.add(feature);
-    return this;
-  }
-
-  /**
    * Enables or disables generation of compile actions if there are no sources. Some rules declare a
    * .a or .so implicit output, which requires that these files are created even if there are no
    * source files, so be careful when calling this.
@@ -634,8 +615,6 @@ public final class CcLibraryHelper {
 
     CcLinkingOutputs ccLinkingOutputs = CcLinkingOutputs.EMPTY;
     CcCompilationOutputs ccOutputs = new CcCompilationOutputs.Builder().build();
-    FeatureConfiguration featureConfiguration =
-        CcCommon.configureFeatures(ruleContext, requestedFeatures, unsupportedFeatures);
     
     CppModel model = new CppModel(ruleContext, semantics)
         .addSources(sources)

@@ -98,6 +98,9 @@ public final class CcCommon {
 
   /** C++ configuration */
   private final CppConfiguration cppConfiguration;
+  
+  /** Active toolchain features. */
+  private final FeatureConfiguration featureConfiguration;
 
   /** The Artifacts from srcs. */
   private final ImmutableList<Artifact> sources;
@@ -114,9 +117,10 @@ public final class CcCommon {
 
   private final RuleContext ruleContext;
 
-  public CcCommon(RuleContext ruleContext) {
+  public CcCommon(RuleContext ruleContext, FeatureConfiguration featureConfiguration) {
     this.ruleContext = ruleContext;
     this.cppConfiguration = ruleContext.getFragment(CppConfiguration.class);
+    this.featureConfiguration = featureConfiguration;
     this.sources = hasAttribute("srcs", Type.LABEL_LIST)
         ? ruleContext.getPrerequisiteArtifacts("srcs", Mode.TARGET).list()
         : ImmutableList.<Artifact>of();
@@ -230,6 +234,12 @@ public final class CcCommon {
   }
 
   private boolean shouldProcessHeaders() {
+    if (featureConfiguration.isEnabled(CppRuleClasses.PREPROCESS_HEADERS)
+        || featureConfiguration.isEnabled(CppRuleClasses.PARSE_HEADERS)) {
+      return true;
+    }
+    // TODO(bazel-team): Remove once header processing is configured via the feature configuration
+    // in all toolchains.
     boolean crosstoolSupportsHeaderParsing =
         CppHelper.getToolchain(ruleContext).supportsHeaderParsing();
     return crosstoolSupportsHeaderParsing && (
@@ -668,6 +678,16 @@ public final class CcCommon {
     }
     requestedFeatures.addAll(ruleSpecificRequestedFeatures);
     return toolchain.getFeatures().getFeatureConfiguration(requestedFeatures.build());
+  }
+  
+  /**
+   * Creates a feature configuration for a given rule.
+   * 
+   * @param ruleContext the context of the rule we want the feature configuration for. 
+   * @return the feature configuration for the given {@code ruleContext}.
+   */
+  public static FeatureConfiguration configureFeatures(RuleContext ruleContext) {
+    return configureFeatures(ruleContext, ImmutableSet.<String>of(), ImmutableSet.<String>of());
   }
   
   public void addTransitiveInfoProviders(RuleConfiguredTargetBuilder builder,

@@ -41,6 +41,7 @@ import com.google.devtools.build.lib.collect.nestedset.Order;
 import com.google.devtools.build.lib.packages.TargetUtils;
 import com.google.devtools.build.lib.packages.Type;
 import com.google.devtools.build.lib.rules.RuleConfiguredTargetFactory;
+import com.google.devtools.build.lib.rules.cpp.CcToolchainFeatures.FeatureConfiguration;
 import com.google.devtools.build.lib.rules.cpp.CppConfiguration.DynamicMode;
 import com.google.devtools.build.lib.rules.cpp.Link.LinkStaticness;
 import com.google.devtools.build.lib.rules.cpp.Link.LinkTargetType;
@@ -153,13 +154,14 @@ public abstract class CcBinary implements RuleConfiguredTargetFactory {
   public static ConfiguredTarget init(CppSemantics semantics, RuleContext ruleContext, boolean fake,
       boolean useTestOnlyFlags) {
     ruleContext.checkSrcsSamePackage(true);
-    CcCommon common = new CcCommon(ruleContext);
+    FeatureConfiguration featureConfiguration = CcCommon.configureFeatures(ruleContext);
+    CcCommon common = new CcCommon(ruleContext, featureConfiguration);
     CppConfiguration cppConfiguration = ruleContext.getFragment(CppConfiguration.class);
 
     LinkTargetType linkType =
         isLinkShared(ruleContext) ? LinkTargetType.DYNAMIC_LIBRARY : LinkTargetType.EXECUTABLE;
 
-    CcLibraryHelper helper = new CcLibraryHelper(ruleContext, semantics)
+    CcLibraryHelper helper = new CcLibraryHelper(ruleContext, semantics, featureConfiguration)
         .setLinkType(linkType)
         .setHeadersCheckingMode(common.determineHeadersCheckingMode())
         .addCopts(common.getCopts())

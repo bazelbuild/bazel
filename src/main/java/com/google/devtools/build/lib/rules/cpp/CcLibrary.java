@@ -33,6 +33,7 @@ import com.google.devtools.build.lib.collect.nestedset.Order;
 import com.google.devtools.build.lib.packages.AttributeMap;
 import com.google.devtools.build.lib.packages.Type;
 import com.google.devtools.build.lib.rules.RuleConfiguredTargetFactory;
+import com.google.devtools.build.lib.rules.cpp.CcToolchainFeatures.FeatureConfiguration;
 import com.google.devtools.build.lib.rules.cpp.Link.LinkTargetType;
 import com.google.devtools.build.lib.rules.cpp.LinkerInputs.LibraryToLink;
 import com.google.devtools.build.lib.rules.test.BaselineCoverageAction;
@@ -121,9 +122,10 @@ public abstract class CcLibrary implements RuleConfiguredTargetFactory {
       boolean linkStatic,
       boolean collectLinkstamp,
       boolean addDynamicRuntimeInputArtifactsToRunfiles) {
-    final CcCommon common = new CcCommon(ruleContext);
+    FeatureConfiguration featureConfiguration = CcCommon.configureFeatures(ruleContext);
+    final CcCommon common = new CcCommon(ruleContext, featureConfiguration);
 
-    CcLibraryHelper helper = new CcLibraryHelper(ruleContext, semantics)
+    CcLibraryHelper helper = new CcLibraryHelper(ruleContext, semantics, featureConfiguration)
         .setLinkType(linkType)
         .enableCcNativeLibrariesProvider()
         .enableInterfaceSharedObjects()
