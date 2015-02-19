@@ -17,16 +17,16 @@ package com.google.devtools.build.lib.rules.objc;
 import com.google.common.collect.ImmutableSet;
 import com.google.devtools.build.lib.analysis.RuleContext;
 import com.google.devtools.build.lib.packages.Type;
-import com.google.devtools.build.lib.rules.objc.ObjcRuleClasses.ObjcSdkFrameworksRule;
+import com.google.devtools.build.lib.rules.objc.ObjcRuleClasses.SdkFrameworksDependerRule;
 
 /**
- * Common logic for rules that inherit from {@link ObjcSdkFrameworksRule}.
+ * Common logic for rules that inherit from {@link SdkFrameworksDependerRule}.
  */
 public class ObjcSdkFrameworks {
 
   /**
    * Class that handles extraction and processing of attributes common to inheritors of {@link
-   * ObjcSdkFrameworksRule}.
+   * SdkFrameworksDependerRule}.
    */
   public static class Attributes {
 

@@ -14,9 +14,7 @@
 
 package com.google.devtools.build.lib.rules.objc;
 
-import static com.google.devtools.build.lib.packages.Attribute.attr;
-import static com.google.devtools.build.lib.packages.Type.LABEL_LIST;
-
+import com.google.devtools.build.lib.analysis.BaseRuleClasses;
 import com.google.devtools.build.lib.analysis.BlazeRule;
 import com.google.devtools.build.lib.analysis.RuleDefinition;
 import com.google.devtools.build.lib.analysis.RuleDefinitionEnvironment;
@@ -29,8 +27,11 @@ import com.google.devtools.build.lib.packages.RuleClass.Builder;
  */
 @BlazeRule(name = "objc_bundle_library",
     factoryClass = ObjcBundleLibrary.class,
-    ancestors = { ObjcRuleClasses.ObjcBaseResourcesRule.class,
-                  ObjcRuleClasses.ObjcHasInfoplistRule.class })
+    ancestors = {
+        BaseRuleClasses.BaseRule.class,
+        ObjcRuleClasses.ResourcesRule.class,
+        ObjcRuleClasses.BundlingRule.class,
+        ObjcRuleClasses.XcodegenRule.class })
 public class ObjcBundleLibraryRule implements RuleDefinition {
   @Override
   public RuleClass build(Builder builder, RuleDefinitionEnvironment env) {
@@ -42,14 +43,6 @@ public class ObjcBundleLibraryRule implements RuleDefinition {
         </ul>
         <!-- #END_BLAZE_RULE.IMPLICIT_OUTPUTS -->*/
         .setImplicitOutputsFunction(ImplicitOutputsFunction.fromFunctions(XcodeSupport.PBXPROJ))
-        /* <!-- #BLAZE_RULE(objc_bundle_library).ATTRIBUTE(bundles) -->
-        The list of bundle targets that this target requires to be included in the final bundle.
-        ${SYNOPSIS}
-        <!-- #END_BLAZE_RULE.ATTRIBUTE -->*/
-        .add(attr("bundles", LABEL_LIST)
-            .direct_compile_time_input()
-            .allowedRuleClasses("objc_bundle", "objc_bundle_library")
-            .allowedFileTypes())
         .build();
   }
 }

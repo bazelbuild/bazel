@@ -33,8 +33,10 @@ import com.google.devtools.build.lib.rules.objc.XcodeSupport;
  */
 @BlazeRule(name = "ios_test",
     type = RuleClassType.TEST,
-    ancestors = { ObjcRuleClasses.IosTestBaseRule.class,
-                  BaseRuleClasses.TestBaseRule.class },
+    ancestors = {
+        BaseRuleClasses.BaseRule.class,
+        BaseRuleClasses.TestBaseRule.class,
+        ObjcRuleClasses.IosTestBaseRule.class, },
     factoryClass = BazelIosTest.class)
 public final class BazelIosTestRule implements RuleDefinition {
   @Override

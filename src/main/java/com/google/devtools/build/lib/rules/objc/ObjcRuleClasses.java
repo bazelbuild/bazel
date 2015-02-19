@@ -19,6 +19,7 @@ import static com.google.devtools.build.lib.packages.Attribute.attr;
 import static com.google.devtools.build.lib.packages.Type.BOOLEAN;
 import static com.google.devtools.build.lib.packages.Type.LABEL;
 import static com.google.devtools.build.lib.packages.Type.LABEL_LIST;
+import static com.google.devtools.build.lib.packages.Type.STRING;
 import static com.google.devtools.build.lib.packages.Type.STRING_LIST;
 
 import com.google.common.annotations.VisibleForTesting;
@@ -26,9 +27,8 @@ import com.google.common.base.Optional;
 import com.google.common.base.Preconditions;
 import com.google.common.base.Predicate;
 import com.google.common.collect.ImmutableList;
+import com.google.common.collect.ImmutableSet;
 import com.google.devtools.build.lib.actions.Artifact;
-import com.google.devtools.build.lib.analysis.BaseRuleClasses;
-import com.google.devtools.build.lib.analysis.BaseRuleClasses.BaseRule;
 import com.google.devtools.build.lib.analysis.BlazeRule;
 import com.google.devtools.build.lib.analysis.FilesToRunProvider;
 import com.google.devtools.build.lib.analysis.RuleConfiguredTarget.Mode;
@@ -45,9 +45,10 @@ import com.google.devtools.build.lib.packages.Type;
 import com.google.devtools.build.lib.util.FileType;
 import com.google.devtools.build.lib.util.FileTypeSet;
 import com.google.devtools.build.lib.vfs.PathFragment;
+import com.google.devtools.build.xcode.common.TargetDeviceFamily;
 
 /**
- * Shared utility code for Objective-C rules.
+ * Shared rule classes and associated utility code for Objective-C rules.
  */
 public class ObjcRuleClasses {
 
@@ -154,12 +155,10 @@ public class ObjcRuleClasses {
       new SdkFramework("Foundation"), new SdkFramework("UIKit"));
 
   /**
-   * Attributes for {@code objc_*} rules that have compiler (and in the future, possibly linker)
-   * options
+   * Attributes for {@code objc_*} rules that have compiler options.
    */
-  @BlazeRule(name = "$objc_opts_rule",
-      type = RuleClassType.ABSTRACT)
-  public static class ObjcOptsRule implements RuleDefinition {
+  @BlazeRule(name = "$objc_opts_rule", type = RuleClassType.ABSTRACT)
+  public static class CoptsRule implements RuleDefinition {
     @Override
     public RuleClass build(Builder builder, RuleDefinitionEnvironment environment) {
       return builder
@@ -177,37 +176,68 @@ public class ObjcRuleClasses {
   }
 
   /**
+   * Common attributes for {@code objc_*} rules that use plists or copts.
+   */
+  @BlazeRule(name = "$objc_options_rule", type = RuleClassType.ABSTRACT)
+  public static class OptionsRule implements RuleDefinition {
+    @Override
+    public RuleClass build(Builder builder, RuleDefinitionEnvironment env) {
+      return builder
+          // TODO(bazel-team): Remove options and replace with: (a) a plists attribute (instead of
+          // the current infoplist, defined on all rules and propagated to the next bundling rule)
+          // and (b) a way to share copts e.g. by being able to include constants across package
+          // boundaries in bazel.
+          //
+          // For now the semantics of this attribute are: any copts in the options will be used if
+          // defined on a compiling/linking rule, otherwise ignored. Infoplists are merged in if
+          // defined on a bundling rule, otherwise ignored.
+          .add(attr("options", LABEL)
+              .undocumented("objc_options will be removed")
+              .allowedFileTypes()
+              .allowedRuleClasses("objc_options"))
+          .build();
+    }
+  }
+
+  /**
    * Attributes for {@code objc_*} rules that can link in SDK frameworks.
    */
-  @BlazeRule(name = "$objc_sdk_frameworks_rule",
-      type = RuleClassType.ABSTRACT)
-  public static class ObjcSdkFrameworksRule implements RuleDefinition {
+  @BlazeRule(name = "$objc_sdk_frameworks_depender_rule", type = RuleClassType.ABSTRACT)
+  public static class SdkFrameworksDependerRule implements RuleDefinition {
     @Override
     public RuleClass build(Builder builder, RuleDefinitionEnvironment environment) {
       return builder
-          /* <!-- #BLAZE_RULE($objc_sdk_frameworks_rule).ATTRIBUTE(sdk_frameworks) -->
-          Names of SDK frameworks to link with. For instance, "XCTest" or
-          "Cocoa". "UIKit" and "Foundation" are always included and do not mean
-          anything if you include them.
-          When linking a library, only those frameworks named in that library's
+          /* <!-- #BLAZE_RULE($objc_sdk_frameworks_depender_rule).ATTRIBUTE(sdk_frameworks) -->
+          Names of SDK frameworks to link with.
+          ${SYNOPSIS}
+          For instance, "XCTest" or "Cocoa". "UIKit" and "Foundation" are always
+          included and do not mean anything if you include them.
+
+          <p>When linking a library, only those frameworks named in that library's
           sdk_frameworks attribute are linked in. When linking a binary, all
           SDK frameworks named in that binary's transitive dependency graph are
           used.
           <!-- #END_BLAZE_RULE.ATTRIBUTE -->*/
           .add(attr("sdk_frameworks", STRING_LIST))
-          /* <!-- #BLAZE_RULE($objc_sdk_frameworks_rule).ATTRIBUTE(weak_sdk_frameworks) -->
+          /* <!-- #BLAZE_RULE($objc_sdk_frameworks_depender_rule).ATTRIBUTE(weak_sdk_frameworks) -->
           Names of SDK frameworks to weakly link with. For instance,
-          "MediaAccessibility". In difference to regularly linked SDK
-          frameworks, symbols from weakly linked frameworks do not cause an
-          error if they are not present at runtime.
+          "MediaAccessibility".
+          ${SYNOPSIS}
+
+          In difference to regularly linked SDK frameworks, symbols
+          from weakly linked frameworks do not cause an error if they
+          are not present at runtime.
           <!-- #END_BLAZE_RULE.ATTRIBUTE -->*/
           .add(attr("weak_sdk_frameworks", STRING_LIST))
-          /* <!-- #BLAZE_RULE($objc_sdk_frameworks_rule).ATTRIBUTE(sdk_dylibs) -->
+          /* <!-- #BLAZE_RULE($objc_sdk_frameworks_depender_rule).ATTRIBUTE(sdk_dylibs) -->
           Names of SDK .dylib libraries to link with. For instance, "libz" or
-          "libarchive". "libc++" is included automatically if the binary has
-          any C++ or Objective-C++ sources in its dependency tree. When linking
-          a binary, all libraries named in that binary's transitive dependency
-          graph are used.
+          "libarchive".
+           ${SYNOPSIS}
+
+          "libc++" is included automatically if the binary has any C++ or
+          Objective-C++ sources in its dependency tree. When linking a binary,
+          all libraries named in that binary's transitive dependency graph are
+          used.
           <!-- #END_BLAZE_RULE.ATTRIBUTE -->*/
           .add(attr("sdk_dylibs", STRING_LIST))
           .build();
@@ -233,66 +263,79 @@ public class ObjcRuleClasses {
 
   /**
    * Common attributes for {@code objc_*} rules that allow the definition of resources such as
-   * storyboards.
+   * storyboards. These resources are used during compilation of the declaring rule as well as when
+   * bundling a dependent bundle (application, extension, etc.).
    */
-  @BlazeRule(name = "$objc_base_resources_rule",
+  @BlazeRule(name = "$objc_resources_rule",
       type = RuleClassType.ABSTRACT,
-      ancestors = { BaseRule.class })
-  public static class ObjcBaseResourcesRule implements RuleDefinition {
+      ancestors = { ResourceToolsRule.class, })
+  public static class ResourcesRule implements RuleDefinition {
     @Override
     public RuleClass build(Builder builder, RuleDefinitionEnvironment env) {
       return builder
-          /* <!-- #BLAZE_RULE($objc_base_resources_rule).ATTRIBUTE(strings) -->
-          Files which are plists of strings, often localizable. These files
-          are converted to binary plists (if they are not already) and placed
-          in the bundle root of the final package. If this file's immediate
-          containing directory is named *.lproj (e.g. en.lproj, Base.lproj), it
-          will be placed under a directory of that name in the final bundle.
-          This allows for localizable strings.
+          /* <!-- #BLAZE_RULE($objc_resources_rule).ATTRIBUTE(strings) -->
+          Files which are plists of strings, often localizable.
+          ${SYNOPSIS}
+
+          These files are converted to binary plists (if they are not already)
+          and placed in the bundle root of the final package. If this file's
+          immediate containing directory is named *.lproj (e.g. en.lproj,
+          Base.lproj), it will be placed under a directory of that name in the
+          final bundle. This allows for localizable strings.
           <!-- #END_BLAZE_RULE.ATTRIBUTE -->*/
           .add(attr("strings", LABEL_LIST).legacyAllowAnyFileType()
               .direct_compile_time_input())
-          /* <!-- #BLAZE_RULE($objc_base_resources_rule).ATTRIBUTE(xibs) -->
-          Files which are .xib resources, possibly localizable. These files are
-          compiled to .nib files and placed the bundle root of the final
-          package. If this file's immediate containing directory is named
-          *.lproj (e.g. en.lproj, Base.lproj), it will be placed under a
+          /* <!-- #BLAZE_RULE($objc_resources_rule).ATTRIBUTE(xibs) -->
+          Files which are .xib resources, possibly localizable.
+          ${SYNOPSIS}
+
+          These files are compiled to .nib files and placed the bundle root of
+          the final package. If this file's immediate containing directory is
+          named *.lproj (e.g. en.lproj, Base.lproj), it will be placed under a
           directory of that name in the final bundle. This allows for
           localizable UI.
           <!-- #END_BLAZE_RULE.ATTRIBUTE -->*/
           .add(attr("xibs", LABEL_LIST)
               .direct_compile_time_input()
               .allowedFileTypes(XIB_TYPE))
-          /* <!-- #BLAZE_RULE($objc_base_resources_rule).ATTRIBUTE(storyboards) -->
-          Files which are .storyboard resources, possibly localizable. These
-          files are compiled to .storyboardc directories, which are placed in
-          the bundle root of the final package. If the storyboards's immediate
-          containing directory is named *.lproj (e.g. en.lproj, Base.lproj), it
-          will be placed under a directory of that name in the final bundle.
-          This allows for localizable UI.
+          /* <!-- #BLAZE_RULE($objc_resources_rule).ATTRIBUTE(storyboards) -->
+          Files which are .storyboard resources, possibly localizable.
+          ${SYNOPSIS}
+
+          These files are compiled to .storyboardc directories, which are
+          placed in the bundle root of the final package. If the storyboards's
+          immediate containing directory is named *.lproj (e.g. en.lproj,
+          Base.lproj), it will be placed under a directory of that name in the
+          final bundle. This allows for localizable UI.
           <!-- #END_BLAZE_RULE.ATTRIBUTE -->*/
           .add(attr("storyboards", LABEL_LIST)
               .allowedFileTypes(STORYBOARD_TYPE))
-          /* <!-- #BLAZE_RULE($objc_base_resources_rule).ATTRIBUTE(resources) -->
-          Files to include in the final application bundle. They are not
-          processed or compiled in any way besides the processing done by the
-          rules that actually generate them. These files are placed in the root
-          of the bundle (e.g. Payload/foo.app/...) in most cases. However, if
-          they appear to be localized (i.e. are contained in a directory called
-          *.lproj), they will be placed in a directory of the same name in the
-          app bundle.
+          /* <!-- #BLAZE_RULE($objc_resources_rule).ATTRIBUTE(resources) -->
+          Files to include in the final application bundle.
+          ${SYNOPSIS}
+
+          They are not processed or compiled in any way besides the processing
+          done by the rules that actually generate them. These files are placed
+          in the root of the bundle (e.g. Payload/foo.app/...) in most cases.
+          However, if they appear to be localized (i.e. are contained in a
+          directory called *.lproj), they will be placed in a directory of the
+          same name in the app bundle.
           <!-- #END_BLAZE_RULE.ATTRIBUTE -->*/
           .add(attr("resources", LABEL_LIST).legacyAllowAnyFileType().direct_compile_time_input())
-          /* <!-- #BLAZE_RULE($objc_base_resources_rule).ATTRIBUTE(datamodels) -->
+          /* <!-- #BLAZE_RULE($objc_resources_rule).ATTRIBUTE(datamodels) -->
           Files that comprise the data models of the final linked binary.
+          ${SYNOPSIS}
+
           Each file must have a containing directory named *.xcdatamodel, which
           is usually contained by another *.xcdatamodeld (note the added d)
           directory.
           <!-- #END_BLAZE_RULE.ATTRIBUTE -->*/
           .add(attr("datamodels", LABEL_LIST).legacyAllowAnyFileType()
               .direct_compile_time_input())
-          /* <!-- #BLAZE_RULE($objc_base_resources_rule).ATTRIBUTE(asset_catalogs) -->
+          /* <!-- #BLAZE_RULE($objc_resources_rule).ATTRIBUTE(asset_catalogs) -->
           Files that comprise the asset catalogs of the final linked binary.
+          ${SYNOPSIS}
+
           Each file must have a containing directory named *.xcassets. This
           containing directory becomes the root of one of the asset catalogs
           linked with any binary that depends directly or indirectly on this
@@ -300,12 +343,32 @@ public class ObjcRuleClasses {
           <!-- #END_BLAZE_RULE.ATTRIBUTE -->*/
           .add(attr("asset_catalogs", LABEL_LIST).legacyAllowAnyFileType()
               .direct_compile_time_input())
-          .add(attr("$xcodegen", LABEL).cfg(HOST).exec()
-              .value(env.getLabel("//tools/objc:xcodegen")))
-          .add(attr("$plmerge", LABEL).cfg(HOST).exec()
-              .value(env.getLabel("//tools/objc:plmerge")))
+          /* <!-- #BLAZE_RULE($objc_resources_rule).ATTRIBUTE(bundles) -->
+          The list of bundle targets that this target requires to be included
+          in the final bundle.
+          ${SYNOPSIS}
+          <!-- #END_BLAZE_RULE.ATTRIBUTE -->*/
+          .add(attr("bundles", LABEL_LIST)
+              .direct_compile_time_input()
+              .allowedRuleClasses("objc_bundle", "objc_bundle_library")
+              .allowedFileTypes())
           .add(attr("$momczip_deploy", LABEL).cfg(HOST)
               .value(env.getLabel("//tools/objc:momczip_deploy.jar")))
+          .build();
+    }
+  }
+
+  /**
+   * Common attributes for {@code objc_*} rules that process resources (by defining or consuming
+   * them).
+   */
+  @BlazeRule(name = "$objc_resource_tools_rule", type = RuleClassType.ABSTRACT)
+  public static class ResourceToolsRule implements RuleDefinition {
+    @Override
+    public RuleClass build(Builder builder, RuleDefinitionEnvironment env) {
+      return builder
+          .add(attr("$plmerge", LABEL).cfg(HOST).exec()
+              .value(env.getLabel("//tools/objc:plmerge")))
           .add(attr("$actooloribtoolzip_deploy", LABEL).cfg(HOST)
               .value(env.getLabel("//tools/objc:actooloribtoolzip_deploy.jar")))
           .build();
@@ -313,17 +376,32 @@ public class ObjcRuleClasses {
   }
 
   /**
-   * Common attributes for {@code objc_*} rules that contain compilable content.
+   * Common attributes for {@code objc_*} rules that export an xcode project.
    */
-  @BlazeRule(name = "$objc_compilation_rule",
-      type = RuleClassType.ABSTRACT,
-      ancestors = { BaseRuleClasses.RuleBase.class, ObjcSdkFrameworksRule.class,
-                    ObjcBaseResourcesRule.class })
-  public static class ObjcCompilationRule implements RuleDefinition {
+  @BlazeRule(name = "$objc_xcodegen_rule", type = RuleClassType.ABSTRACT)
+  public static class XcodegenRule implements RuleDefinition {
     @Override
     public RuleClass build(Builder builder, RuleDefinitionEnvironment env) {
       return builder
-          /* <!-- #BLAZE_RULE($objc_compilation_rule).ATTRIBUTE(hdrs) -->
+          .add(attr("$xcodegen", LABEL).cfg(HOST).exec()
+              .value(env.getLabel("//tools/objc:xcodegen")))
+          .build();
+    }
+  }
+
+  /**
+   * Common attributes for {@code objc_*} rules that contain linkable content.
+   */
+  @BlazeRule(name = "$objc_compile_input_rule",
+      type = RuleClassType.ABSTRACT,
+      ancestors = {
+          ResourcesRule.class,
+          SdkFrameworksDependerRule.class })
+  public static class CompileInputRule implements RuleDefinition {
+    @Override
+    public RuleClass build(Builder builder, RuleDefinitionEnvironment env) {
+      return builder
+          /* <!-- #BLAZE_RULE($objc_compile_input_rule).ATTRIBUTE(hdrs) -->
           The list of Objective-C files that are included as headers by source
           files in this rule or by users of this library.
           ${SYNOPSIS}
@@ -331,11 +409,14 @@ public class ObjcRuleClasses {
           .add(attr("hdrs", LABEL_LIST)
               .direct_compile_time_input()
               .allowedFileTypes(FileTypeSet.ANY_FILE))
-          /* <!-- #BLAZE_RULE($objc_compilation_rule).ATTRIBUTE(includes) -->
+          /* <!-- #BLAZE_RULE($objc_compile_input_rule).ATTRIBUTE(includes) -->
           List of <code>#include/#import</code> search paths to add to this target
-          and all depending targets. This is to support third party and
-          open-sourced libraries that do not specify the entire workspace path in
-          their <code>#import/#include</code> statements.
+          and all depending targets.
+          ${SYNOPSIS}
+
+          This is to support third party and open-sourced libraries that do not
+          specify the entire workspace path in their
+          <code>#import/#include</code> statements.
           <p>
           The paths are interpreted relative to the package directory, and the
           genfiles and bin roots (e.g. <code>blaze-genfiles/pkg/includedir</code>
@@ -343,12 +424,145 @@ public class ObjcRuleClasses {
           actual client root.
           <!-- #END_BLAZE_RULE.ATTRIBUTE -->*/
           .add(attr("includes", Type.STRING_LIST))
-          /* <!-- #BLAZE_RULE($objc_compilation_rule).ATTRIBUTE(sdk_includes) -->
+          /* <!-- #BLAZE_RULE($objc_compile_input_rule).ATTRIBUTE(sdk_includes) -->
           List of <code>#include/#import</code> search paths to add to this target
           and all depending targets, where each path is relative to
           <code>$(SDKROOT)/usr/include</code>.
+          ${SYNOPSIS}
           <!-- #END_BLAZE_RULE.ATTRIBUTE -->*/
           .add(attr("sdk_includes", Type.STRING_LIST))
+          .build();
+    }
+  }
+  
+  /**
+   * Common attributes for {@code objc_*} rules that contain compilable content.
+   */
+  @BlazeRule(name = "$objc_compiling_rule",
+      type = RuleClassType.ABSTRACT,
+      ancestors = {
+          CompileInputRule.class,
+          OptionsRule.class,
+          CoptsRule.class })
+  public static class CompilingRule implements RuleDefinition {
+
+    private static final Iterable<String> ALLOWED_DEPS_RULE_CLASSES = ImmutableSet.of(
+        "objc_library",
+        "objc_import",
+        
+        // TODO(bazel-team): Remove bundles from this list as they're now in the "bundles" attribute
+        "objc_bundle",
+        "objc_bundle_library",
+        
+        "objc_framework",
+        "objc_proto_library",
+        "j2objc_library");
+    
+    @Override
+    public RuleClass build(Builder builder, RuleDefinitionEnvironment env) {
+      return builder
+          /* <!-- #BLAZE_RULE($objc_compiling_rule).ATTRIBUTE(srcs) -->
+          The list of C, C++, Objective-C, and Objective-C++ files that are
+          processed to create the library target.
+          ${SYNOPSIS}
+          These are your checked-in source files, plus any generated files.
+          These are compiled into .o files with Clang, so headers should not go
+          here (see the hdrs attribute).
+          <!-- #END_BLAZE_RULE.ATTRIBUTE -->*/
+          .add(attr("srcs", LABEL_LIST)
+              .direct_compile_time_input()
+              .allowedFileTypes(SRCS_TYPE))
+          /* <!-- #BLAZE_RULE($objc_compiling_rule).ATTRIBUTE(non_arc_srcs) -->
+          The list of Objective-C files that are processed to create the
+          library target that DO NOT use ARC.
+          ${SYNOPSIS}
+          The files in this attribute are treated very similar to those in the
+          srcs attribute, but are compiled without ARC enabled.
+          <!-- #END_BLAZE_RULE.ATTRIBUTE -->*/
+          .add(attr("non_arc_srcs", LABEL_LIST)
+              .direct_compile_time_input()
+              .allowedFileTypes(NON_ARC_SRCS_TYPE))
+          /* <!-- #BLAZE_RULE($objc_compiling_rule).ATTRIBUTE(pch) -->
+          Header file to prepend to every source file being compiled (both arc
+          and non-arc).
+          ${SYNOPSIS}
+          Note that the file will not be precompiled - this is simply a
+          convenience, not a build-speed enhancement.
+          <!-- #END_BLAZE_RULE.ATTRIBUTE -->*/
+          .add(attr("pch", LABEL)
+              .direct_compile_time_input()
+              .allowedFileTypes(FileType.of(".pch")))
+          /* <!-- #BLAZE_RULE($objc_compiling_rule).ATTRIBUTE(deps) -->
+          The list of targets that are linked together to form the final bundle.
+          ${SYNOPSIS}
+          <!-- #END_BLAZE_RULE.ATTRIBUTE -->*/
+          .add(attr("deps", LABEL_LIST)
+              .direct_compile_time_input()
+              .allowedRuleClasses(ALLOWED_DEPS_RULE_CLASSES)
+              .allowedFileTypes())
+          /* <!-- #BLAZE_RULE($objc_compiling_rule).ATTRIBUTE(non_propagated_deps) -->
+          The list of targets that are required in order to build this target,
+          but which are not included in the final bundle.
+          ${SYNOPSIS}
+          This attribute should only rarely be used, and probably only for proto
+          dependencies.
+          ${SYNOPSIS}
+          <!-- #END_BLAZE_RULE.ATTRIBUTE -->*/
+          .add(attr("non_propagated_deps", LABEL_LIST)
+              .direct_compile_time_input()
+              .allowedRuleClasses(ALLOWED_DEPS_RULE_CLASSES)
+              .allowedFileTypes())
+          /* <!-- #BLAZE_RULE($objc_compiling_rule).ATTRIBUTE(defines) -->
+          Extra <code>-D</code> flags to pass to the compiler. They should be in
+          the form <code>KEY=VALUE</code> or simply <code>KEY</code> and are
+          passed not only the compiler for this target (as <code>copts</code>
+          are) but also to all <code>objc_</code> dependers of this target.
+          ${SYNOPSIS}
+          Subject to <a href="#make_variables">"Make variable"</a> substitution and
+          <a href="#sh-tokenization">Bourne shell tokenization</a>.
+          <!-- #END_BLAZE_RULE.ATTRIBUTE -->*/
+          .add(attr("defines", STRING_LIST))
+          .build();
+    }
+  }
+
+  /**
+   * Common attributes for {@code objc_*} rules that can optionally be set to {@code alwayslink}.
+   */
+  @BlazeRule(name = "$objc_alwayslink_rule",
+      type = RuleClassType.ABSTRACT,
+      ancestors = { ObjcRuleClasses.CompileInputRule.class, })
+  public static class AlwaysLinkRule implements RuleDefinition {
+    @Override
+    public RuleClass build(Builder builder, RuleDefinitionEnvironment env) {
+      return builder
+          /* <!-- #BLAZE_RULE($objc_alwayslink_rule).ATTRIBUTE(alwayslink) -->
+          If 1, any bundle or binary that depends (directly or indirectly) on this
+          library will link in all the object files for the files listed in
+          <code>srcs</code> and <code>non_arc_srcs</code>, even if some contain no
+          symbols referenced by the binary.
+          ${SYNOPSIS}
+          This is useful if your code isn't explicitly called by code in
+          the binary, e.g., if your code registers to receive some callback
+          provided by some service.
+          <!-- #END_BLAZE_RULE.ATTRIBUTE -->*/
+          .add(attr("alwayslink", BOOLEAN))
+          .build();
+    }
+  }
+
+  /**
+   * Common attributes for {@code objc_*} rules that link sources and dependencies.
+   */
+  @BlazeRule(name = "$objc_linking_rule",
+      type = RuleClassType.ABSTRACT,
+      ancestors = { CompilingRule.class, })
+  public static class LinkingRule implements RuleDefinition {
+    @Override
+    public RuleClass build(Builder builder, RuleDefinitionEnvironment env) {
+      return builder
+          .add(attr("$dumpsyms", LABEL).cfg(HOST).exec()
+              .value(env.getLabel("//tools/objc:dump_syms")))
           .build();
     }
   }
@@ -356,8 +570,7 @@ public class ObjcRuleClasses {
   /**
    * Common attributes for rules that uses ObjC proto compiler.
    */
-  @BlazeRule(name = "$objc_proto_rule",
-      type = RuleClassType.ABSTRACT)
+  @BlazeRule(name = "$objc_proto_rule", type = RuleClassType.ABSTRACT)
   public static class ObjcProtoRule implements RuleDefinition {
 
     /**
@@ -401,7 +614,10 @@ public class ObjcRuleClasses {
    */
   @BlazeRule(name = "$ios_test_base_rule",
       type = RuleClassType.ABSTRACT,
-      ancestors = { ObjcBinaryRule.class })
+      ancestors = {
+          ReleaseBundlingRule.class,
+          LinkingRule.class,
+          XcodegenRule.class, })
   public static class IosTestBaseRule implements RuleDefinition {
     @Override
     public RuleClass build(Builder builder, final RuleDefinitionEnvironment env) {
@@ -449,15 +665,18 @@ public class ObjcRuleClasses {
   }
 
   /**
-   * Abstract rule type with the {@code infoplist} attribute.
+   * Common attributes for {@code objc_*} rules that create a bundle.
    */
-  @BlazeRule(name = "$objc_has_infoplist_rule",
-      type = RuleClassType.ABSTRACT)
-  public static class ObjcHasInfoplistRule implements RuleDefinition {
+  @BlazeRule(name = "$objc_bundling_rule",
+      type = RuleClassType.ABSTRACT,
+      ancestors = {
+          OptionsRule.class,
+          ResourceToolsRule.class, })
+  public static class BundlingRule implements RuleDefinition {
     @Override
-    public RuleClass build(Builder builder, final RuleDefinitionEnvironment env) {
+    public RuleClass build(Builder builder, RuleDefinitionEnvironment env) {
       return builder
-          /* <!-- #BLAZE_RULE($objc_has_infoplist_rule).ATTRIBUTE(infoplist) -->
+          /* <!-- #BLAZE_RULE($objc_bundling_rule).ATTRIBUTE(infoplist) -->
           The infoplist file. This corresponds to <i>appname</i>-Info.plist in Xcode projects.
           ${SYNOPSIS}
           Blaze will perform variable substitution on the plist file for the following values:
@@ -477,16 +696,21 @@ public class ObjcRuleClasses {
   }
 
   /**
-   * Abstract rule type with the {@code entitlements} attribute.
+   * Common attributes for {@code objc_*} rules that create a bundle meant for release (e.g.
+   * application or extension).
    */
-  @BlazeRule(name = "$objc_has_entitlements_rule",
-      type = RuleClassType.ABSTRACT)
-  public static class ObjcHasEntitlementsRule implements RuleDefinition {
+  @BlazeRule(name = "$objc_release_bundling_rule",
+      type = RuleClassType.ABSTRACT,
+      ancestors = { BundlingRule.class, })
+  public static class ReleaseBundlingRule implements RuleDefinition {
     @Override
-    public RuleClass build(Builder builder, final RuleDefinitionEnvironment env) {
+    public RuleClass build(Builder builder, RuleDefinitionEnvironment env) {
       return builder
-          /* <!-- #BLAZE_RULE($objc_has_entitlements_rule).ATTRIBUTE(entitlements) -->
-          The entitlements file required for device builds of this application. See
+          /* <!-- #BLAZE_RULE($objc_release_bundling_rule).ATTRIBUTE(entitlements) -->
+          The entitlements file required for device builds of this application.
+          ${SYNOPSIS}
+
+          See
           <a href="https://developer.apple.com/library/mac/documentation/Miscellaneous/Reference/EntitlementKeyReference/Chapters/AboutEntitlements.html">the apple documentation</a>
           for more information. If absent, the default entitlements from the
           provisioning profile will be used.
@@ -496,6 +720,71 @@ public class ObjcRuleClasses {
           $(AppIdentifierPrefix) and $(CFBundleIdentifier).
           <!-- #END_BLAZE_RULE.ATTRIBUTE -->*/
           .add(attr("entitlements", LABEL).legacyAllowAnyFileType())
+          /* <!-- #BLAZE_RULE($objc_release_bundling_rule).ATTRIBUTE(provisioning_profile) -->
+          The provisioning profile (.mobileprovision file) to use when bundling
+          the application.
+          ${SYNOPSIS}
+
+          This is only used for non-simulator builds.
+          <!-- #END_BLAZE_RULE.ATTRIBUTE -->*/
+          .add(attr("provisioning_profile", LABEL)
+              .value(env.getLabel("//tools/objc:default_provisioning_profile"))
+              .allowedFileTypes(FileType.of(".mobileprovision")))
+              // TODO(bazel-team): Consider ways to trim dependencies so that changes to deps of
+              // these tools don't trigger all objc_* targets. Right now we check-in deploy jars,
+              // but we need a less painful and error-prone way.
+          /* <!-- #BLAZE_RULE($objc_release_bundling_rule).ATTRIBUTE(app_icon) -->
+          The name of the application icon.
+          ${SYNOPSIS}
+
+          The icon should be in one of the asset catalogs of this target or
+          a (transitive) dependency. In a new project, this is initialized
+          to "AppIcon" by Xcode.
+          <p>
+          If the application icon is not in an asset catalog, do not use this
+          attribute. Instead, add a CFBundleIcons entry to the Info.plist file.
+          <!-- #END_BLAZE_RULE.ATTRIBUTE -->*/
+          .add(attr("app_icon", STRING))
+          /* <!-- #BLAZE_RULE($objc_release_bundling_rule).ATTRIBUTE(launch_image) -->
+          The name of the launch image.
+          ${SYNOPSIS}
+
+          The icon should be in one of the asset catalogs of this target or
+          a (transitive) dependency. In a new project, this is initialized
+          to "LaunchImage" by Xcode.
+          <p>
+          If the launch image is not in an asset catalog, do not use this
+          attribute. Instead, add an appropriately-named image resource to the
+          bundle.
+          <!-- #END_BLAZE_RULE.ATTRIBUTE -->*/
+          .add(attr("launch_image", STRING))
+          /* <!-- #BLAZE_RULE($objc_release_bundling_rule).ATTRIBUTE(bundle_id) -->
+          The bundle ID (reverse-DNS path followed by app name) of the binary.
+          ${SYNOPSIS}
+
+          If none is specified, a junk value will be used.
+          <!-- #END_BLAZE_RULE.ATTRIBUTE -->*/
+          .add(attr("bundle_id", STRING)
+              .value(new Attribute.ComputedDefault() {
+                @Override
+                public Object getDefault(AttributeMap rule) {
+                  // For tests and similar, we don't want to force people to explicitly specify
+                  // throw-away data.
+                  return "example." + rule.getName();
+                }
+              }))
+          /* <!-- #BLAZE_RULE($objc_release_bundling_rule).ATTRIBUTE(families) -->
+          The device families to which this binary is targeted.
+          ${SYNOPSIS}
+
+          This is known as the <code>TARGETED_DEVICE_FAMILY</code> build setting
+          in Xcode project files. It is a list of one or more of the strings
+          <code>"iphone"</code> and <code>"ipad"</code>.
+          <!-- #END_BLAZE_RULE.ATTRIBUTE -->*/
+          .add(attr("families", STRING_LIST)
+              .value(ImmutableList.of(TargetDeviceFamily.IPHONE.getNameInRule())))
+          .add(attr("$bundlemerge", LABEL).cfg(HOST).exec()
+              .value(env.getLabel("//tools/objc:bundlemerge")))
           .build();
     }
   }

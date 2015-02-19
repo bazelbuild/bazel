@@ -29,7 +29,7 @@ import com.google.devtools.build.lib.packages.RuleClass.Builder;
  */
 @BlazeRule(name = "ios_device",
     factoryClass = IosDevice.class,
-    ancestors = { BaseRuleClasses.RuleBase.class })
+    ancestors = { BaseRuleClasses.BaseRule.class })
 public final class IosDeviceRule implements RuleDefinition {
   @Override
   public RuleClass build(Builder builder, RuleDefinitionEnvironment env) {

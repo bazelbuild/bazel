@@ -17,27 +17,27 @@ package com.google.devtools.build.lib.rules.objc;
 import static com.google.devtools.build.lib.packages.Attribute.attr;
 import static com.google.devtools.build.lib.rules.objc.ObjcRuleClasses.PLIST_TYPE;
 
-import com.google.devtools.build.lib.analysis.BaseRuleClasses.BaseRule;
+import com.google.devtools.build.lib.analysis.BaseRuleClasses;
 import com.google.devtools.build.lib.analysis.BlazeRule;
 import com.google.devtools.build.lib.analysis.RuleDefinition;
 import com.google.devtools.build.lib.analysis.RuleDefinitionEnvironment;
 import com.google.devtools.build.lib.packages.RuleClass;
 import com.google.devtools.build.lib.packages.RuleClass.Builder;
 import com.google.devtools.build.lib.packages.Type;
-import com.google.devtools.build.lib.rules.objc.ObjcRuleClasses.ObjcOptsRule;
 
 /**
  * Rule definition for {@code objc_options}.
  */
 @BlazeRule(name = "objc_options",
     factoryClass = ObjcOptions.class,
-    ancestors = { BaseRule.class, ObjcOptsRule.class })
+    ancestors = {
+        BaseRuleClasses.BaseRule.class,
+        ObjcRuleClasses.CoptsRule.class })
 public class ObjcOptionsRule implements RuleDefinition {
   @Override
   public RuleClass build(Builder builder, RuleDefinitionEnvironment env) {
     return builder
-        // TODO(bazel-team): Figure out if we really need objc_options, and if
-        // we don't, delete it.
+        // TODO(bazel-team): Delete this class and merge ObjcOptsRule with CompilingRule.
         .setUndocumented()
         /* <!-- #BLAZE_RULE(objc_options).ATTRIBUTE(xcode_name)[DEPRECATED] -->
         This attribute is ignored and will be removed.

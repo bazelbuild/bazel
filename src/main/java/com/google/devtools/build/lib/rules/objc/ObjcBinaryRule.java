@@ -14,6 +14,7 @@
 
 package com.google.devtools.build.lib.rules.objc;
 
+import com.google.devtools.build.lib.analysis.BaseRuleClasses;
 import com.google.devtools.build.lib.analysis.BlazeRule;
 import com.google.devtools.build.lib.analysis.RuleDefinition;
 import com.google.devtools.build.lib.analysis.RuleDefinitionEnvironment;
@@ -24,15 +25,19 @@ import com.google.devtools.build.lib.packages.RuleClass.Builder;
 /**
  * Rule definition for objc_binary.
  */
+// TODO(bazel-team): Remove bundling functionality (dependency on ApplicationRule, IPA output).
 @BlazeRule(name = "objc_binary",
     factoryClass = ObjcBinary.class,
-    ancestors = { ObjcLibraryRule.class, IosApplicationRule.class })
+    ancestors = {
+        BaseRuleClasses.BaseRule.class,
+        ObjcRuleClasses.LinkingRule.class,
+        ObjcRuleClasses.XcodegenRule.class,
+        ObjcRuleClasses.ReleaseBundlingRule.class })
 public class ObjcBinaryRule implements RuleDefinition {
 
   @Override
-  public RuleClass build(Builder builder, final RuleDefinitionEnvironment env) {
+  public RuleClass build(Builder builder, RuleDefinitionEnvironment env) {
     return builder
-        // TODO(bazel-team): Remove bundling functionality (dependency on IosApplicationRule).
         /*<!-- #BLAZE_RULE(objc_binary).IMPLICIT_OUTPUTS -->
         <ul>
          <li><code><var>name</var>.ipa</code>: the application bundle as an <code>.ipa</code>
@@ -43,8 +48,6 @@ public class ObjcBinaryRule implements RuleDefinition {
         <!-- #END_BLAZE_RULE.IMPLICIT_OUTPUTS -->*/
         .setImplicitOutputsFunction(
             ImplicitOutputsFunction.fromFunctions(ApplicationSupport.IPA, XcodeSupport.PBXPROJ))
-        .removeAttribute("binary")
-        .removeAttribute("alwayslink")
         .build();
   }
 }

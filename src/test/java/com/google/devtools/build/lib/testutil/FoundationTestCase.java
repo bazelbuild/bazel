@@ -87,11 +87,10 @@ public abstract class FoundationTestCase extends ChattyAssertsTestCase {
      return new InMemoryFileSystem(BlazeClock.instance());
   }
 
-
   private void copySkylarkFilesIfExist() throws IOException {
     scratchFile(rootDirectory.getRelative("devtools/blaze/rules/BUILD").getPathString());
     scratchFile(rootDirectory.getRelative("rules/BUILD").getPathString());
-    copySkylarkFilesIfExist("devtools/blaze/rules/staging", "devtools/blaze/rules");
+    copySkylarkFilesIfExist("devtools/blaze/rules/staging", "devtools/blaze/rules/staging");
     copySkylarkFilesIfExist("devtools/blaze/bazel/base_workspace/tools/build_rules", "rules");
   }
 

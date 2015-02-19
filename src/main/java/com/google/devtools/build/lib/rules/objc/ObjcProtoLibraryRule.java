@@ -34,7 +34,9 @@ import com.google.devtools.build.lib.packages.RuleClass.Builder;
  */
 @BlazeRule(name = "objc_proto_library",
     factoryClass = ObjcProtoLibrary.class,
-    ancestors = { BaseRuleClasses.RuleBase.class, ObjcRuleClasses.ObjcProtoRule.class })
+    ancestors = {
+        BaseRuleClasses.BaseRule.class,
+        ObjcRuleClasses.ObjcProtoRule.class })
 public class ObjcProtoLibraryRule implements RuleDefinition {
   static final String OPTIONS_FILE_ATTR = "options_file";
   static final String OUTPUT_CPP_ATTR = "output_cpp";
@@ -45,17 +47,20 @@ public class ObjcProtoLibraryRule implements RuleDefinition {
     return builder
         /* <!-- #BLAZE_RULE(objc_proto_library).ATTRIBUTE(deps) -->
         The directly depended upon proto_library rules.
+        ${SYNOPSIS}
         <!-- #END_BLAZE_RULE.ATTRIBUTE -->*/
-        .override(attr("deps", LABEL_LIST)
+        .add(attr("deps", LABEL_LIST)
             .allowedRuleClasses("proto_library", "filegroup")
             .legacyAllowAnyFileType())
         /* <!-- #BLAZE_RULE(objc_proto_library).ATTRIBUTE(options_file) -->
         Optional options file to apply to protos which affects compilation (e.g. class
         whitelist/blacklist settings).
+        ${SYNOPSIS}
         <!-- #END_BLAZE_RULE.ATTRIBUTE -->*/
         .add(attr(OPTIONS_FILE_ATTR, LABEL).legacyAllowAnyFileType().singleArtifact().cfg(HOST))
         /* <!-- #BLAZE_RULE(objc_proto_library).ATTRIBUTE(output_cpp) -->
         If true, output C++ rather than ObjC.
+        ${SYNOPSIS}
         <!-- #END_BLAZE_RULE.ATTRIBUTE -->*/
         .add(attr(OUTPUT_CPP_ATTR, BOOLEAN).value(false))
         // TODO(bazel-team): Use //external:objc_proto_lib when bind() support is a little better

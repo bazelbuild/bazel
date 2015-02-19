@@ -247,10 +247,17 @@ public class BazelRuleClassProvider {
     builder.addRuleDefinition(ObjcProtoLibraryRule.class);
     builder.addRuleDefinition(ObjcXcodeprojRule.class);
     builder.addRuleDefinition(ObjcRuleClasses.IosTestBaseRule.class);
-    builder.addRuleDefinition(ObjcRuleClasses.ObjcHasInfoplistRule.class);
-    builder.addRuleDefinition(ObjcRuleClasses.ObjcHasEntitlementsRule.class);
-    builder.addRuleDefinition(ObjcRuleClasses.ObjcCompilationRule.class);
-    builder.addRuleDefinition(ObjcRuleClasses.ObjcBaseResourcesRule.class);
+    builder.addRuleDefinition(ObjcRuleClasses.BundlingRule.class);
+    builder.addRuleDefinition(ObjcRuleClasses.ReleaseBundlingRule.class);
+    builder.addRuleDefinition(ObjcRuleClasses.CompilingRule.class);
+    builder.addRuleDefinition(ObjcRuleClasses.LinkingRule.class);
+    builder.addRuleDefinition(ObjcRuleClasses.ResourcesRule.class);
+    builder.addRuleDefinition(ObjcRuleClasses.XcodegenRule.class);
+    builder.addRuleDefinition(ObjcRuleClasses.AlwaysLinkRule.class);
+    builder.addRuleDefinition(ObjcRuleClasses.OptionsRule.class);
+    builder.addRuleDefinition(ObjcRuleClasses.SdkFrameworksDependerRule.class);
+    builder.addRuleDefinition(ObjcRuleClasses.CompileInputRule.class);
+    builder.addRuleDefinition(ObjcRuleClasses.ResourceToolsRule.class);
     builder.addRuleDefinition(IosApplicationRule.class);
     builder.addRuleDefinition(IosExtensionBinaryRule.class);
 
