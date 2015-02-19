@@ -40,6 +40,7 @@ import com.google.devtools.build.lib.analysis.config.BinTools;
 import com.google.devtools.build.lib.analysis.config.BuildConfiguration;
 import com.google.devtools.build.lib.analysis.config.BuildConfigurationCollection;
 import com.google.devtools.build.lib.analysis.config.ConfigMatchingProvider;
+import com.google.devtools.build.lib.collect.nestedset.NestedSet;
 import com.google.devtools.build.lib.collect.nestedset.NestedSetBuilder;
 import com.google.devtools.build.lib.collect.nestedset.Order;
 import com.google.devtools.build.lib.concurrent.ThreadSafety.ThreadCompatible;
@@ -767,17 +768,18 @@ public class BuildView {
         artifactsToBuild, parallelTests, exclusiveTests, topLevelOptions);
   }
 
-  private static ImmutableSet<Artifact> getBaselineCoverageArtifacts(
+  private static NestedSet<Artifact> getBaselineCoverageArtifacts(
       Collection<ConfiguredTarget> configuredTargets) {
-    Set<Artifact> baselineCoverageArtifacts = Sets.newHashSet();
+    NestedSetBuilder<Artifact> baselineCoverageArtifacts = NestedSetBuilder.stableOrder();
     for (ConfiguredTarget target : configuredTargets) {
-      BaselineCoverageArtifactsProvider provider =
-          target.getProvider(BaselineCoverageArtifactsProvider.class);
+      TopLevelArtifactProvider provider = target.getProvider(TopLevelArtifactProvider.class);
       if (provider != null) {
-        baselineCoverageArtifacts.addAll(provider.getBaselineCoverageArtifacts());
+        baselineCoverageArtifacts.addTransitive(provider.getOutputGroup(
+            TopLevelArtifactProvider.BASELINE_COVERAGE
+        ));
       }
     }
-    return ImmutableSet.copyOf(baselineCoverageArtifacts);
+    return baselineCoverageArtifacts.build();
   }
 
   private void addExtraActionsIfRequested(BuildView.Options viewOptions,

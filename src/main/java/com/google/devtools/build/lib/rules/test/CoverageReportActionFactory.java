@@ -23,7 +23,6 @@ import com.google.devtools.build.lib.actions.ArtifactOwner;
 import com.google.devtools.build.lib.analysis.ConfiguredTarget;
 
 import java.util.Collection;
-import java.util.Set;
 
 import javax.annotation.Nullable;
 
@@ -70,6 +69,6 @@ public interface CoverageReportActionFactory {
   @Nullable
   public CoverageReportActionsWrapper createCoverageReportActionsWrapper(
       Collection<ConfiguredTarget> targetsToTest,
-      Set<Artifact> baselineCoverageArtifacts,
+      Iterable<Artifact> baselineCoverageArtifacts,
       ArtifactFactory artifactFactory, ArtifactOwner artifactOwner);
 }

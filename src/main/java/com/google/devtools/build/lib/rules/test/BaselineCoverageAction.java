@@ -24,6 +24,9 @@ import com.google.devtools.build.lib.actions.NotifyOnActionCacheHit;
 import com.google.devtools.build.lib.analysis.RuleContext;
 import com.google.devtools.build.lib.analysis.Util;
 import com.google.devtools.build.lib.analysis.actions.AbstractFileWriteAction;
+import com.google.devtools.build.lib.collect.nestedset.NestedSet;
+import com.google.devtools.build.lib.collect.nestedset.NestedSetBuilder;
+import com.google.devtools.build.lib.collect.nestedset.Order;
 import com.google.devtools.build.lib.events.EventHandler;
 import com.google.devtools.build.lib.syntax.Label;
 import com.google.devtools.build.lib.util.Fingerprint;
@@ -117,7 +120,7 @@ public class BaselineCoverageAction extends AbstractFileWriteAction
    * Returns collection of baseline coverage artifacts associated with the given target.
    * Will always return 0 or 1 elements.
    */
-  public static ImmutableList<Artifact> getBaselineCoverageArtifacts(RuleContext ruleContext,
+  public static NestedSet<Artifact> getBaselineCoverageArtifacts(RuleContext ruleContext,
       Iterable<Artifact> instrumentedFiles) {
     // Baseline coverage artifacts will still go into "testlogs" directory.
     Artifact coverageData = ruleContext.getAnalysisEnvironment().getDerivedArtifact(
@@ -126,7 +129,7 @@ public class BaselineCoverageAction extends AbstractFileWriteAction
     ruleContext.registerAction(new BaselineCoverageAction(
         ruleContext.getActionOwner(), instrumentedFiles, coverageData));
 
-    return ImmutableList.of(coverageData);
+    return NestedSetBuilder.create(Order.STABLE_ORDER, coverageData);
   }
 
 }

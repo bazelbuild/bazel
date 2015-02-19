@@ -24,6 +24,8 @@ import com.google.common.collect.ImmutableSortedSet;
 import com.google.devtools.build.lib.Constants;
 import com.google.devtools.build.lib.analysis.BuildView;
 import com.google.devtools.build.lib.analysis.TopLevelArtifactContext;
+import com.google.devtools.build.lib.analysis.TopLevelArtifactProvider;
+import com.google.devtools.build.lib.analysis.config.BuildConfiguration.Options;
 import com.google.devtools.build.lib.analysis.config.InvalidConfigurationException;
 import com.google.devtools.build.lib.exec.ExecutionOptions;
 import com.google.devtools.build.lib.pkgcache.LoadingPhaseRunner;
@@ -43,6 +45,8 @@ import com.google.devtools.common.options.OptionsProvider;
 
 import java.util.ArrayList;
 import java.util.List;
+import java.util.Set;
+import java.util.TreeSet;
 import java.util.UUID;
 import java.util.concurrent.ExecutionException;
 
@@ -512,7 +516,20 @@ public class BuildRequest implements OptionsClassProvider {
         getBuildOptions().compileOnly, getBuildOptions().compilationPrerequisitesOnly,
         getBuildOptions().buildDefaultArtifacts,
         getOptions(ExecutionOptions.class).testStrategy.equals("exclusive"),
-        ImmutableSet.<String>copyOf(getBuildOptions().outputGroups), shouldRunTests());
+        determineOutputGroups(), shouldRunTests());
+  }
+
+  private ImmutableSet<String> determineOutputGroups() {
+    Set<String> current = new TreeSet<>();
+    current.addAll(getBuildOptions().outputGroups);
+    if (getOptions(Options.class).collectCodeCoverage
+        && !getBuildOptions().compileOnly
+        && !getBuildOptions().compilationPrerequisitesOnly
+        && runTests) {
+      current.add(TopLevelArtifactProvider.BASELINE_COVERAGE);
+    }
+
+    return ImmutableSet.copyOf(current);
   }
 
   public String getSymlinkPrefix() {

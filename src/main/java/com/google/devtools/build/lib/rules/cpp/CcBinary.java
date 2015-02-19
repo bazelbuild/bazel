@@ -30,6 +30,7 @@ import com.google.devtools.build.lib.analysis.RuleContext;
 import com.google.devtools.build.lib.analysis.Runfiles;
 import com.google.devtools.build.lib.analysis.RunfilesProvider;
 import com.google.devtools.build.lib.analysis.RunfilesSupport;
+import com.google.devtools.build.lib.analysis.TopLevelArtifactProvider;
 import com.google.devtools.build.lib.analysis.TransitiveInfoCollection;
 import com.google.devtools.build.lib.analysis.Util;
 import com.google.devtools.build.lib.analysis.actions.FileWriteAction;
@@ -303,11 +304,11 @@ public abstract class CcBinary implements RuleConfiguredTargetFactory {
             CppDebugPackageProvider.class,
             new CppDebugPackageProvider(strippedFile, executable, explicitDwpFile))
         .setRunfilesSupport(runfilesSupport, executable)
-        .setBaselineCoverageArtifacts(createBaselineCoverageArtifacts(
-            ruleContext, common, ccCompilationOutputs, fake))
         .addProvider(LipoContextProvider.class, new LipoContextProvider(
             cppCompilationContext, ImmutableMap.copyOf(scannableMap)))
         .addProvider(CppLinkAction.Context.class, linkContext)
+        .addOutputGroup(TopLevelArtifactProvider.BASELINE_COVERAGE,
+            createBaselineCoverageArtifacts(ruleContext, common, ccCompilationOutputs, fake))
         .build();
   }
 
@@ -623,7 +624,7 @@ public abstract class CcBinary implements RuleConfiguredTargetFactory {
     return builder.build();
   }
 
-  private static ImmutableList<Artifact> createBaselineCoverageArtifacts(
+  private static NestedSet<Artifact> createBaselineCoverageArtifacts(
       RuleContext context, CcCommon common, CcCompilationOutputs compilationOutputs,
       boolean fake) {
     if (!TargetUtils.isTestRule(context.getRule()) && !fake) {
@@ -632,7 +633,7 @@ public abstract class CcBinary implements RuleConfiguredTargetFactory {
       return BaselineCoverageAction.getBaselineCoverageArtifacts(context,
           common.getInstrumentedFilesProvider(objectFiles).getInstrumentedFiles());
     } else {
-      return ImmutableList.of();
+      return NestedSetBuilder.emptySet(Order.STABLE_ORDER);
     }
   }
 }

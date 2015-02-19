@@ -32,6 +32,7 @@ import com.google.devtools.build.lib.analysis.FilesToCompileProvider;
 import com.google.devtools.build.lib.analysis.RuleConfiguredTarget.Mode;
 import com.google.devtools.build.lib.analysis.RuleConfiguredTargetBuilder;
 import com.google.devtools.build.lib.analysis.RuleContext;
+import com.google.devtools.build.lib.analysis.TopLevelArtifactProvider;
 import com.google.devtools.build.lib.analysis.TransitiveInfoCollection;
 import com.google.devtools.build.lib.analysis.TransitiveInfoProvider;
 import com.google.devtools.build.lib.analysis.Util;
@@ -491,10 +492,9 @@ public class JavaCommon {
         .add(JavaExportsProvider.class, new JavaExportsProvider(collectTransitiveExports()));
 
     if (!TargetUtils.isTestRule(ruleContext.getTarget())) {
-      ImmutableList<Artifact> baselineCoverageArtifacts =
+      builder.addOutputGroup(TopLevelArtifactProvider.BASELINE_COVERAGE,
           BaselineCoverageAction.getBaselineCoverageArtifacts(ruleContext,
-          instrumentedFilesCollector.getInstrumentedFiles());
-      builder.setBaselineCoverageArtifacts(baselineCoverageArtifacts);
+              instrumentedFilesCollector.getInstrumentedFiles()));
     }
   }
 

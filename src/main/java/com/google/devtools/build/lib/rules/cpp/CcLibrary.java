@@ -26,6 +26,7 @@ import com.google.devtools.build.lib.analysis.RuleConfiguredTargetBuilder;
 import com.google.devtools.build.lib.analysis.RuleContext;
 import com.google.devtools.build.lib.analysis.Runfiles;
 import com.google.devtools.build.lib.analysis.RunfilesProvider;
+import com.google.devtools.build.lib.analysis.TopLevelArtifactProvider;
 import com.google.devtools.build.lib.collect.nestedset.NestedSet;
 import com.google.devtools.build.lib.collect.nestedset.NestedSetBuilder;
 import com.google.devtools.build.lib.collect.nestedset.Order;
@@ -262,12 +263,14 @@ public abstract class CcLibrary implements RuleConfiguredTargetFactory {
         .add(RunfilesProvider.class, RunfilesProvider.withData(staticRunfiles, sharedRunfiles))
         // Remove this?
         .add(CppRunfilesProvider.class, new CppRunfilesProvider(staticRunfiles, sharedRunfiles))
-        .setBaselineCoverageArtifacts(BaselineCoverageAction.getBaselineCoverageArtifacts(
-            ruleContext, instrumentedFilesProvider.getInstrumentedFiles()))
         .add(ImplementedCcPublicLibrariesProvider.class,
             new ImplementedCcPublicLibrariesProvider(getImplementedCcPublicLibraries(ruleContext)))
         .add(AlwaysBuiltArtifactsProvider.class,
-            new AlwaysBuiltArtifactsProvider(artifactsToForce));
+            new AlwaysBuiltArtifactsProvider(artifactsToForce))
+        .addOutputGroup(TopLevelArtifactProvider.BASELINE_COVERAGE,
+            BaselineCoverageAction.getBaselineCoverageArtifacts(
+                ruleContext, instrumentedFilesProvider.getInstrumentedFiles()));
+
   }
 
   private static NestedSet<Artifact> collectArtifactsToForce(RuleContext ruleContext,

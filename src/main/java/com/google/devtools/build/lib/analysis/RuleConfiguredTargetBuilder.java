@@ -52,7 +52,6 @@ import com.google.devtools.build.lib.syntax.Label;
 import com.google.devtools.build.lib.syntax.SkylarkList;
 import com.google.devtools.build.lib.syntax.SkylarkNestedSet;
 
-import java.util.Collection;
 import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
@@ -416,15 +415,6 @@ public final class RuleConfiguredTargetBuilder {
   public RuleConfiguredTargetBuilder addOutputGroup(String name, Artifact artifact) {
     outputGroups.put(name, NestedSetBuilder.create(Order.STABLE_ORDER, artifact));
     return this;
-  }
-
-  /**
-   * Set the baseline coverage Artifacts.
-   */
-  public RuleConfiguredTargetBuilder setBaselineCoverageArtifacts(
-      Collection<Artifact> artifacts) {
-    return add(BaselineCoverageArtifactsProvider.class,
-        new BaselineCoverageArtifactsProvider(ImmutableList.copyOf(artifacts)));
   }
 
   /**

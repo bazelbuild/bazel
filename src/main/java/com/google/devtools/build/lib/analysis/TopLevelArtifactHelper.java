@@ -118,8 +118,12 @@ public final class TopLevelArtifactHelper {
       for (String outputGroup : context.outputGroups()) {
         NestedSet<Artifact> results = topLevelArtifactProvider.getOutputGroup(outputGroup);
         if (results != null) {
-          importantBuilder.addTransitive(results);
-        }         
+          if (outputGroup.startsWith(TopLevelArtifactProvider.HIDDEN_OUTPUT_GROUP_PREFIX)) {
+            allBuilder.addTransitive(results);
+          } else {
+            importantBuilder.addTransitive(results);
+          }
+        }
       }
     }
 
@@ -157,29 +161,8 @@ public final class TopLevelArtifactHelper {
       }
     }
 
-    allBuilder.addAll(getCoverageArtifacts(target, context));
-
     NestedSet<Artifact> importantArtifacts = importantBuilder.build();
     allBuilder.addTransitive(importantArtifacts);
     return new ArtifactsToBuild(importantArtifacts, allBuilder.build());
-  }
-
-  private static Iterable<Artifact> getCoverageArtifacts(TransitiveInfoCollection target,
-                                                         TopLevelArtifactContext topLevelOptions) {
-    if (!topLevelOptions.compileOnly() && !topLevelOptions.compilationPrerequisitesOnly()
-        && topLevelOptions.shouldRunTests()) {
-      // Add baseline code coverage artifacts if we are collecting code coverage. We do that only
-      // when running tests.
-      // It might be slightly faster to first check if any configuration has coverage enabled.
-      if (target.getConfiguration() != null
-          && target.getConfiguration().isCodeCoverageEnabled()) {
-        BaselineCoverageArtifactsProvider provider =
-            target.getProvider(BaselineCoverageArtifactsProvider.class);
-        if (provider != null) {
-          return provider.getBaselineCoverageArtifacts();
-        }
-      }
-    }
-    return ImmutableList.of();
   }
 }

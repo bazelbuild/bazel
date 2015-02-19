@@ -17,6 +17,8 @@ package com.google.devtools.build.lib.analysis;
 import com.google.common.collect.ImmutableMap;
 import com.google.devtools.build.lib.actions.Artifact;
 import com.google.devtools.build.lib.collect.nestedset.NestedSet;
+import com.google.devtools.build.lib.collect.nestedset.NestedSetBuilder;
+import com.google.devtools.build.lib.collect.nestedset.Order;
 import com.google.devtools.build.lib.concurrent.ThreadSafety.Immutable;
 
 /**
@@ -27,17 +29,30 @@ import com.google.devtools.build.lib.concurrent.ThreadSafety.Immutable;
  * <p>The artifacts are grouped into "output groups". Which output groups are built is controlled
  * by the {@code --output_groups} undocumented command line option, which in turn is added to the
  * command line at the discretion of the build command being run.
+ *
+ * <p>Output groups starting with an underscore are "not important". This means that artifacts built
+ * because such an output group is mentioned in a {@code --output_groups} command line option are
+ * not mentioned on the output.
  */
 @Immutable
 public final class TopLevelArtifactProvider implements TransitiveInfoProvider {
+  public static final String HIDDEN_OUTPUT_GROUP_PREFIX = "_";
+  public static final String BASELINE_COVERAGE = HIDDEN_OUTPUT_GROUP_PREFIX + "_baseline_coverage";
+
   private final ImmutableMap<String, NestedSet<Artifact>> outputGroups;
 
   TopLevelArtifactProvider(ImmutableMap<String, NestedSet<Artifact>> outputGroups) {
     this.outputGroups = outputGroups;
   }
 
-  /** Return the artifacts in a particular output group. */
+  /** Return the artifacts in a particular output group.
+   *
+   * @return the artifacts in the output group with the given name. The return value is never null.
+   *     If the specified output group is not present, the empty set is returned.
+   */
   public NestedSet<Artifact> getOutputGroup(String outputGroupName) {
-    return outputGroups.get(outputGroupName);
+    return outputGroups.containsKey(outputGroupName)
+        ? outputGroups.get(outputGroupName)
+        : NestedSetBuilder.<Artifact>emptySet(Order.STABLE_ORDER);
   }
 }
