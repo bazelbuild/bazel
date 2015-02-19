@@ -350,8 +350,11 @@ public final class CppModel {
 
   private void createHeaderAction(PathFragment outputName, Builder result, AnalysisEnvironment env,
       CppCompileActionBuilder builder) {
-    builder.setOutputFile(ruleContext.getRelatedArtifact(outputName, ".h.processed")).setDotdFile(
-        outputName, ".h.d", ruleContext);
+    builder
+        .setOutputFile(ruleContext.getRelatedArtifact(outputName, ".h.processed"))
+        .setDotdFile(outputName, ".h.d", ruleContext)
+        // If we generate pic actions, we prefer the header actions to use the pic artifacts.
+        .setPicMode(this.getGeneratePicActions());
     semantics.finalizeCompileActionBuilder(ruleContext, builder);
     CppCompileAction compileAction = builder.build();
     env.registerAction(compileAction);
@@ -624,7 +627,8 @@ public final class CppModel {
   private CppCompileActionBuilder copyAsPicBuilder(CppCompileActionBuilder builder,
       PathFragment outputName, String outputExtension) {
     CppCompileActionBuilder picBuilder = new CppCompileActionBuilder(builder);
-    picBuilder.addCopt("-fPIC")
+    picBuilder
+        .setPicMode(true)
         .setOutputFile(ruleContext.getRelatedArtifact(outputName, ".pic" + outputExtension))
         .setDotdFile(outputName, ".pic.d", ruleContext);
     return picBuilder;

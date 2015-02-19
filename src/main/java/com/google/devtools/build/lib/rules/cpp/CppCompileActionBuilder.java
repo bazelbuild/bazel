@@ -73,6 +73,7 @@ public class CppCompileActionBuilder {
   private boolean enableLayeringCheck;
   private boolean compileHeaderModules;
   private String fdoBuildStamp;
+  private boolean usePic; 
   private IncludeResolver includeResolver = CppCompileAction.VOID_INCLUDE_RESOLVER;
   private UUID actionClassId = GUID;
   private Class<? extends CppCompileActionContext> actionContext;
@@ -270,7 +271,7 @@ public class CppCompileActionBuilder {
           getNocoptPredicate(nocopts),
           extraSystemIncludePrefixes, enableLayeringCheck, fdoBuildStamp,
           includeResolver, getLipoScannables(realMandatoryInputs), actionClassId,
-          compileHeaderModules);
+          compileHeaderModules, usePic);
     }
   }
   
@@ -434,6 +435,14 @@ public class CppCompileActionBuilder {
   
   public CppCompileActionBuilder setFdoBuildStamp(String fdoBuildStamp) {
     this.fdoBuildStamp = fdoBuildStamp;
+    return this;
+  }
+
+  /**
+   * Sets whether the CompileAction should use pic mode.
+   */
+  public CppCompileActionBuilder setPicMode(boolean usePic) {
+    this.usePic = usePic;
     return this;
   }
 }

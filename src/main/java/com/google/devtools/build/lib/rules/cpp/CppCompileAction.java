@@ -148,6 +148,7 @@ public class CppCompileAction extends AbstractAction implements IncludeScannable
   private final CppCompileCommandLine cppCompileCommandLine;
   private final boolean enableLayeringCheck;
   private final boolean compileHeaderModules;
+  private final boolean usePic;
 
   @VisibleForTesting
   final CppConfiguration cppConfiguration;
@@ -221,7 +222,8 @@ public class CppCompileAction extends AbstractAction implements IncludeScannable
       IncludeResolver includeResolver,
       Iterable<IncludeScannable> lipoScannables,
       UUID actionClassId,
-      boolean compileHeaderModules) {
+      boolean compileHeaderModules,
+      boolean usePic) {
     // getInputs() method is overridden in this class so we pass a dummy empty
     // list to the AbstractAction constructor in place of a real input collection.
     super(owner,
@@ -248,6 +250,7 @@ public class CppCompileAction extends AbstractAction implements IncludeScannable
     this.lipoScannables = lipoScannables;
     this.actionClassId = actionClassId;
     this.compileHeaderModules = compileHeaderModules;
+    this.usePic = usePic;
 
     // We do not need to include the middleman artifact since it is a generated
     // artifact and will definitely exist prior to this action execution.
@@ -1312,6 +1315,9 @@ public class CppCompileAction extends AbstractAction implements IncludeScannable
       if (cppConfiguration.useFission()) {
         options.add("-gsplit-dwarf");
       }
+      if (usePic) {
+        options.add("-fPIC");
+      }
 
       CcToolchainFeatures.Variables.Builder buildVariables =
           new CcToolchainFeatures.Variables.Builder();
@@ -1333,9 +1339,6 @@ public class CppCompileAction extends AbstractAction implements IncludeScannable
      */
     private Collection<String> getHeaderModulePaths() {
       Collection<String> result = new LinkedHashSet<>();
-      // TODO(bazel-team): Do not hard-code checking for -fPIC. Make it a toolchain feature
-      // instead.
-      boolean pic = copts.contains("-fPIC");
       NestedSet<Artifact> artifacts = featureConfiguration.isEnabled(
           CppRuleClasses.HEADER_MODULE_INCLUDES_DEPENDENCIES)
           ? context.getTopLevelHeaderModules()
@@ -1348,7 +1351,7 @@ public class CppCompileAction extends AbstractAction implements IncludeScannable
         // Depending on whether this specific compile action is pic or non-pic, select the
         // corresponding header modules. Note that the compilation context might give us both
         // from targets that are built in both modes.
-        if (pic == filename.endsWith(".pic.pcm")) {
+        if (usePic == filename.endsWith(".pic.pcm")) {
           result.add(artifact.getExecPathString());
         }          
       }
