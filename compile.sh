@@ -311,8 +311,8 @@ if [ -z "${BAZEL_SKIP_SINGLEJAR_COMPILATION}" ]; then
 
   create_deploy_jar "SingleJar_deploy" \
       "com.google.devtools.build.singlejar.SingleJar" "output/singlejar"
-  mkdir -p tools/java
-  cp -f output/singlejar/SingleJar_deploy.jar tools/java
+  mkdir -p tools/jdk
+  cp -f output/singlejar/SingleJar_deploy.jar tools/jdk
 fi
 
 if [ -z "${BAZEL_SKIP_BUILDJAR_COMPILATION}" ]; then
@@ -322,8 +322,8 @@ if [ -z "${BAZEL_SKIP_BUILDJAR_COMPILATION}" ]; then
 
   create_deploy_jar "JavaBuilder_deploy" \
       "com.google.devtools.build.buildjar.BazelJavaBuilder" "output/buildjar"
-  mkdir -p tools/java
-  cp -f output/buildjar/JavaBuilder_deploy.jar tools/java
+  mkdir -p tools/jdk
+  cp -f output/buildjar/JavaBuilder_deploy.jar tools/jdk
 fi
 
 function cc_compile() {
@@ -372,7 +372,7 @@ function cc_build() {
 
 cc_build "client" "objs" "output/client" ${BLAZE_CC_FILES[@]}
 
-LDFLAGS="$LDFLAGS -lz" cc_build "ijar" "ijar" "tools/java/ijar" ${IJAR_CC_FILES[@]}
+LDFLAGS="$LDFLAGS -lz" cc_build "ijar" "ijar" "tools/jdk/ijar" ${IJAR_CC_FILES[@]}
 
 if [ ! -z "$JNILIB" ] ; then
   log "Compiling JNI libraries..."

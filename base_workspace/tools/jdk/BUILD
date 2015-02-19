@@ -49,7 +49,7 @@ filegroup(name = "jdk-null")
 
 filegroup(
     name = "jdk-default",
-    srcs =  [":java"],
+    srcs = [":java"],
     path = "jdk/jre",
 )
 
@@ -67,3 +67,9 @@ java_toolchain(
     source_version = "8",
     target_version = "8",
 )
+
+exports_files([
+    "JavaBuilder_deploy.jar",
+    "ijar",
+    "SingleJar_deploy.jar",
+])
