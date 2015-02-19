@@ -13,6 +13,7 @@
 // limitations under the License.
 package com.google.devtools.build.lib.syntax;
 
+import com.google.common.base.Preconditions;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 import com.google.devtools.build.lib.events.Location;
@@ -30,6 +31,10 @@ public abstract class MixedModeFunction extends AbstractFunction {
   // Nomenclature:
   // "Parameters" are formal parameters of a function definition.
   // "Arguments" are actual parameters supplied at the call site.
+
+  // A function signature, including defaults and types
+  // never null after it is configured
+  protected FunctionSignature.WithValues<Object, SkylarkType> signature;
 
   // Number of regular named parameters (excluding *p and **p) in the
   // equivalent Python function definition).
@@ -72,6 +77,36 @@ public abstract class MixedModeFunction extends AbstractFunction {
     this.numMandatoryParameters = numMandatoryParameters;
     this.onlyNamedArguments = onlyNamedArguments;
     this.location = location;
+
+    // Fake a signature from the above
+    this.signature = FunctionSignature.WithValues.<Object, SkylarkType>create(
+        FunctionSignature.of(numMandatoryParameters, this.parameters.toArray(new String[0])));
+  }
+
+
+  /** Create a function using a signature with defaults */
+  public MixedModeFunction(String name,
+      FunctionSignature.WithValues<Object, SkylarkType> signature,
+      Location location) {
+    super(name);
+
+    // TODO(bazel-team): lift the following limitations, by actually implementing
+    // the full function call protocol.
+    FunctionSignature sig = signature.getSignature();
+    FunctionSignature.Shape shape = sig.getShape();
+    Preconditions.checkArgument(!shape.hasKwArg() && !shape.hasStarArg()
+        && shape.getNamedOnly() == 0, "no star, star-star or named-only parameters (for now)");
+
+    this.signature = signature;
+    this.parameters = ImmutableList.copyOf(sig.getNames());
+    this.numMandatoryParameters = shape.getMandatoryPositionals();
+    this.onlyNamedArguments = false;
+    this.location = location;
+  }
+
+  /** Create a function using a signature without defaults */
+  public MixedModeFunction(String name, FunctionSignature signature) {
+    this(name, FunctionSignature.WithValues.<Object, SkylarkType>create(signature), null);
   }
 
   @Override
@@ -124,14 +159,25 @@ public abstract class MixedModeFunction extends AbstractFunction {
       }
     }
 
-    // third, defaults:
+    // third, check mandatory parameters:
     for (int ii = 0; ii < numMandatoryParameters; ++ii) {
       if (namedArguments[ii] == null) {
         throw new EvalException(loc,
             getSignature() + " received insufficient arguments");
       }
     }
-    // (defaults are always null so nothing extra to do here.)
+
+    // fourth, fill in defaults from the signature, if any
+    List<Object> defaults = signature.getDefaultValues();
+    if (defaults != null) {
+      int jj = 0;
+      for (int ii = numMandatoryParameters; ii < numParams; ++ii) {
+        if (namedArguments[ii] == null) {
+          namedArguments[ii] = defaults.get(jj);
+        }
+        jj++;
+      }
+    }
 
     try {
       return call(namedArguments, ast, env);

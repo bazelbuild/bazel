@@ -16,6 +16,7 @@ package com.google.devtools.build.lib.syntax;
 
 import com.google.common.annotations.VisibleForTesting;
 import com.google.common.base.Preconditions;
+import com.google.common.base.Supplier;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 import com.google.devtools.build.lib.events.Event;
@@ -30,11 +31,9 @@ import java.io.IOException;
 import java.util.ArrayList;
 import java.util.Collections;
 import java.util.EnumSet;
-import java.util.HashSet;
 import java.util.Iterator;
 import java.util.List;
 import java.util.Map;
-import java.util.Set;
 
 /**
  * Recursive descent parser for LL(2) BUILD language.
@@ -350,89 +349,92 @@ class Parser {
 
   // create a funcall expression
   private Expression makeFuncallExpression(Expression receiver, Ident function,
-                                           List<Argument> args,
+                                           List<Argument.Passed> args,
                                            int start, int end) {
     if (function.getLocation() == null) {
       function = setLocation(function, start, end);
     }
-    boolean seenKeywordArg = false;
-    boolean seenKwargs = false;
-    for (Argument arg : args) {
-      if (arg.isPositional()) {
-        if (seenKeywordArg || seenKwargs) {
-          reportError(arg.getLocation(), "syntax error: non-keyword arg after keyword arg");
-          return makeErrorExpression(start, end);
-        }
-      } else if (arg.isKwargs()) {
-        if (seenKwargs) {
-          reportError(arg.getLocation(), "there can be only one **kwargs argument");
-          return makeErrorExpression(start, end);
-        }
-        seenKwargs = true;
-      } else {
-        seenKeywordArg = true;
-      }
-    }
-
     return setLocation(new FuncallExpression(receiver, function, args), start, end);
   }
 
   // arg ::= IDENTIFIER '=' expr
   //       | expr
-  private Argument parseFunctionCallArgument() {
-    int start = token.left;
+  private Argument.Passed parseFuncallArgument() {
+    final int start = token.left;
+    // parse **expr
+    if (token.kind == TokenKind.STAR_STAR) {
+      nextToken();
+      Expression expr = parseExpression();
+      return setLocation(new Argument.StarStar(expr), start, expr);
+    }
+    // parse *expr
+    if (token.kind == TokenKind.STAR) {
+      nextToken();
+      Expression expr = parseExpression();
+      return setLocation(new Argument.Star(expr), start, expr);
+    }
+    // parse keyword = expr
     if (token.kind == TokenKind.IDENTIFIER) {
       Token identToken = token;
       String name = (String) token.value;
-      Ident ident = setLocation(new Ident(name), start, token.right);
       nextToken();
       if (token.kind == TokenKind.EQUALS) { // it's a named argument
         nextToken();
         Expression expr = parseExpression();
-        return setLocation(new Argument(ident, expr), start, expr);
+        return setLocation(new Argument.Keyword(name, expr), start, expr);
       } else { // oops, back up!
         pushToken(identToken);
       }
     }
-    // parse **expr
-    if (token.kind == TokenKind.STAR) {
-      expect(TokenKind.STAR);
-      expect(TokenKind.STAR);
-      Expression expr = parseExpression();
-      return setLocation(new Argument(null, expr, true), start, expr);
-    }
     // parse a positional argument
     Expression expr = parseExpression();
-    return setLocation(new Argument(expr), start, expr);
+    return setLocation(new Argument.Positional(expr), start, expr);
   }
 
   // arg ::= IDENTIFIER '=' expr
   //       | IDENTIFIER
-  private Argument parseFunctionDefArgument(boolean onlyOptional) {
+  private Parameter<Expression, Expression> parseFunctionParameter() {
+    // TODO(bazel-team): optionally support type annotations
     int start = token.left;
-    Ident ident = parseIdent();
-    if (token.kind == TokenKind.EQUALS) { // there's a default value
+    if (token.kind == TokenKind.STAR_STAR) { // kwarg
       nextToken();
-      Expression expr = parseExpression();
-      return setLocation(new Argument(ident, expr), start, expr);
-    } else if (onlyOptional) {
-      reportError(ident.getLocation(),
-          "Optional arguments are only allowed at the end of the argument list.");
+      Ident ident = parseIdent();
+      return setLocation(new Parameter.StarStar<Expression, Expression>(
+          ident.getName()), start, ident);
+    } else if (token.kind == TokenKind.STAR) { // stararg
+      int end = token.right;
+      nextToken();
+      if (token.kind == TokenKind.IDENTIFIER) {
+        Ident ident = parseIdent();
+        return setLocation(new Parameter.Star<Expression, Expression>(ident.getName()),
+            start, ident);
+      } else {
+        return setLocation(new Parameter.Star<Expression, Expression>(null), start, end);
+      }
+    } else {
+      Ident ident = parseIdent();
+      if (token.kind == TokenKind.EQUALS) { // there's a default value
+        nextToken();
+        Expression expr = parseExpression();
+        return setLocation(new Parameter.Optional<Expression, Expression>(
+            ident.getName(), expr), start, expr);
+      } else {
+        return setLocation(new Parameter.Mandatory<Expression, Expression>(
+            ident.getName()), start, ident);
+      }
     }
-    return setLocation(new Argument(ident), start, ident);
   }
 
   // funcall_suffix ::= '(' arg_list? ')'
-  private Expression parseFuncallSuffix(int start, Expression receiver,
-                                        Ident function) {
-    List<Argument> args = Collections.emptyList();
+  private Expression parseFuncallSuffix(int start, Expression receiver, Ident function) {
+    List<Argument.Passed> args = Collections.emptyList();
     expect(TokenKind.LPAREN);
     int end;
     if (token.kind == TokenKind.RPAREN) {
       end = token.right;
       nextToken(); // RPAREN
     } else {
-      args = parseFunctionCallArguments(); // (includes optional trailing comma)
+      args = parseFuncallArguments(); // (includes optional trailing comma)
       end = token.right;
       expect(TokenKind.RPAREN);
     }
@@ -458,22 +460,19 @@ class Parser {
   }
 
   // arg_list ::= ( (arg ',')* arg ','? )?
-  private List<Argument> parseFunctionCallArguments() {
-    List<Argument> args = new ArrayList<>();
-    //  terminating tokens for an arg list
-    while (token.kind != TokenKind.RPAREN) {
-      if (token.kind == TokenKind.EOF) {
-        syntaxError(token);
-        break;
-      }
-      args.add(parseFunctionCallArgument());
-      if (token.kind == TokenKind.COMMA) {
-        nextToken();
-      } else {
-        break;
-      }
+  private List<Argument.Passed> parseFuncallArguments() {
+    List<Argument.Passed> arguments =
+        parseFunctionArguments(new Supplier<Argument.Passed>() {
+              @Override public Argument.Passed get() {
+                return parseFuncallArgument();
+              }
+            });
+    try {
+      Argument.validateFuncallArguments(arguments);
+    } catch (Argument.ArgumentException e) {
+      reportError(lexer.createLocation(token.left, token.right), e.getMessage());
     }
-    return args;
+    return arguments;
   }
 
   // expr_list ::= ( (expr ',')* expr ','? )?
@@ -517,9 +516,11 @@ class Parser {
 
   private ExpressionStatement mocksubincludeExpression(
       String labelName, String file, Location location) {
-    List<Argument> args = new ArrayList<>();
-    args.add(setLocation(new Argument(new StringLiteral(labelName, '"')), location));
-    args.add(setLocation(new Argument(new StringLiteral(file, '"')), location));
+    List<Argument.Passed> args = new ArrayList<>();
+    args.add(setLocation(new Argument.Positional(
+        new StringLiteral(labelName, '"')), location));
+    args.add(setLocation(new Argument.Positional(
+        new StringLiteral(file, '"')), location));
     Ident mockIdent = setLocation(new Ident("mocksubinclude"), location);
     Expression funCall = new FuncallExpression(null, mockIdent, args);
     return setLocation(new ExpressionStatement(funCall), location);
@@ -646,9 +647,9 @@ class Parser {
       case MINUS: {
         nextToken();
 
-        List<Argument> args = new ArrayList<>();
+        List<Argument.Passed> args = new ArrayList<>();
         Expression expr = parsePrimaryWithSuffix();
-        args.add(setLocation(new Argument(expr), start, expr));
+        args.add(setLocation(new Argument.Positional(expr), start, expr));
         return makeFuncallExpression(null, new Ident("-"), args,
                                      start, token.right);
       }
@@ -679,7 +680,7 @@ class Parser {
 
   // substring_suffix ::= '[' expression? ':' expression? ']'
   private Expression parseSubstringSuffix(int start, Expression receiver) {
-    List<Argument> args = new ArrayList<>();
+    List<Argument.Passed> args = new ArrayList<>();
     Expression startExpr;
     Expression endExpr;
 
@@ -690,7 +691,7 @@ class Parser {
     } else {
       startExpr = parseExpression();
     }
-    args.add(setLocation(new Argument(startExpr), loc1, startExpr));
+    args.add(setLocation(new Argument.Positional(startExpr), loc1, startExpr));
     // This is a dictionary access
     if (token.kind == TokenKind.RBRACKET) {
       expect(TokenKind.RBRACKET);
@@ -707,7 +708,7 @@ class Parser {
     }
     expect(TokenKind.RBRACKET);
 
-    args.add(setLocation(new Argument(endExpr), loc2, endExpr));
+    args.add(setLocation(new Argument.Positional(endExpr), loc2, endExpr));
     return makeFuncallExpression(receiver, new Ident("$substring"), args,
                                  start, token.right);
   }
@@ -1121,38 +1122,78 @@ class Parser {
     expect(TokenKind.DEF);
     Ident ident = parseIdent();
     expect(TokenKind.LPAREN);
-    // parsing the function arguments, at this point only identifiers
-    // TODO(bazel-team): support proper arguments with default values and kwargs
-    List<Argument> args = parseFunctionDefArguments();
+    FunctionSignature.WithValues<Expression, Expression> args = parseFunctionSignature();
     expect(TokenKind.RPAREN);
     expect(TokenKind.COLON);
     List<Statement> block = parseSuite();
+    // TODO(bazel-team): lift this limitation
+    FunctionSignature.Shape shape = args.getSignature().getShape();
+    if (shape.hasKwArg() || shape.hasStarArg() || shape.getNamedOnly() > 0) {
+      reportError(lexer.createLocation(start, token.right),
+          "no star, star-star or named-only parameters (for now)");
+      return;
+    }
     FunctionDefStatement stmt = new FunctionDefStatement(ident, args, block);
     list.add(setLocation(stmt, start, token.right));
   }
 
-  private List<Argument> parseFunctionDefArguments() {
-    List<Argument> args = new ArrayList<>();
-    Set<String> argNames = new HashSet<>();
-    boolean onlyOptional = false;
-    while (token.kind != TokenKind.RPAREN) {
-      Argument arg = parseFunctionDefArgument(onlyOptional);
-      if (arg.hasValue()) {
-        onlyOptional = true;
-      }
-      args.add(arg);
-      if (argNames.contains(arg.getArgName())) {
+  private FunctionSignature.WithValues<Expression, Expression> parseFunctionSignature() {
+    List<Parameter<Expression, Expression>> parameters =
+        parseFunctionArguments(new Supplier<Parameter<Expression, Expression>>() {
+              @Override public Parameter<Expression, Expression> get() {
+                return parseFunctionParameter();
+              }
+            });
+    try {
+      return FunctionSignature.WithValues.<Expression, Expression>of(parameters);
+    } catch (FunctionSignature.SignatureException e) {
+      reportError(e.getParameter().getLocation(), e.getMessage());
+      // return bogus empty signature
+      return FunctionSignature.WithValues.<Expression, Expression>create(FunctionSignature.of());
+    }
+  }
+
+  /**
+   * Parse a list of Argument-s. The arguments can be of class Argument.Passed or Parameter,
+   * as returned by the Supplier parseArgument (that, taking no argument, must be closed over
+   * the mutable input data structures).
+   *
+   * <p>This parser does minimal validation: it ensures the proper python use of the comma (that
+   * can terminate before a star but not after) and the fact that a **kwarg must appear last.
+   * It does NOT validate further ordering constraints for a {@code List<Argument.Passed>}, such as
+   * all positional preceding keyword arguments in a call, nor does it check the more subtle
+   * constraints for Parameter-s. This validation must happen afterwards in an appropriate method.
+   */
+  private <V extends Argument> ImmutableList<V>
+      parseFunctionArguments(Supplier<V> parseArgument) {
+    boolean hasArg = false;
+    boolean hasStar = false;
+    boolean hasStarStar = false;
+    ArrayList<V> arguments = new ArrayList<>();
+
+    while (token.kind != TokenKind.RPAREN && token.kind != TokenKind.EOF) {
+      if (hasStarStar) {
         reportError(lexer.createLocation(token.left, token.right),
-            "duplicate argument name in function definition");
-      }
-      argNames.add(arg.getArgName());
-      if (token.kind == TokenKind.COMMA) {
-        nextToken();
-      } else {
+            "unexpected tokens after kwarg");
         break;
       }
+      if (hasArg) {
+        expect(TokenKind.COMMA);
+      }
+      if (token.kind == TokenKind.RPAREN && !hasStar) {
+        // list can end with a COMMA if there is neither * nor **
+        break;
+      }
+      V arg = parseArgument.get();
+      hasArg = true;
+      if (arg.isStar()) {
+        hasStar = true;
+      } else if (arg.isStarStar()) {
+        hasStarStar = true;
+      }
+      arguments.add(arg);
     }
-    return args;
+    return ImmutableList.copyOf(arguments);
   }
 
   // suite ::= simple_stmt

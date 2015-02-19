@@ -22,6 +22,7 @@ import com.google.devtools.build.lib.packages.Type;
 import com.google.devtools.build.lib.packages.Type.ConversionException;
 import com.google.devtools.build.lib.syntax.EvalException.EvalExceptionWithJavaCause;
 
+import java.util.ArrayList;
 import java.util.List;
 import java.util.Map;
 import java.util.Map.Entry;
@@ -101,6 +102,7 @@ public abstract class SkylarkFunction extends AbstractFunction {
     try {
       ImmutableMap.Builder<String, Object> arguments = new ImmutableMap.Builder<>();
       if (objectType != null && !FuncallExpression.isNamespace(objectType)) {
+        args = new ArrayList<Object>(args); // args immutable, get a mutable copy.
         arguments.put("self", args.remove(0));
       }
 

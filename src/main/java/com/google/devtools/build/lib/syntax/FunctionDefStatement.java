@@ -15,10 +15,12 @@ package com.google.devtools.build.lib.syntax;
 
 import com.google.common.base.Preconditions;
 import com.google.common.collect.ImmutableList;
-import com.google.common.collect.ImmutableMap;
 import com.google.devtools.build.lib.syntax.SkylarkType.SkylarkFunctionType;
 
+import java.util.ArrayList;
 import java.util.Collection;
+import java.util.List;
+import java.util.Map;
 
 /**
  * Syntax node for a function definition.
@@ -26,29 +28,39 @@ import java.util.Collection;
 public class FunctionDefStatement extends Statement {
 
   private final Ident ident;
-  private final ImmutableList<Argument> args;
+  private final FunctionSignature.WithValues<Expression, Expression> args;
   private final ImmutableList<Statement> statements;
 
-  public FunctionDefStatement(Ident ident, Collection<Argument> args,
+  public FunctionDefStatement(Ident ident,
+      FunctionSignature.WithValues<Expression, Expression> args,
       Collection<Statement> statements) {
-    for (Argument arg : args) {
-      Preconditions.checkArgument(arg.isNamed());
-    }
+
+    // TODO(bazel-team): lift the following limitation from {@link MixedModeFunction}
+    FunctionSignature.Shape shape = args.getSignature().getShape();
+    Preconditions.checkArgument(!shape.hasKwArg() && !shape.hasStarArg()
+        && shape.getNamedOnly() == 0, "no star, star-star or named-only parameters (for now)");
+
     this.ident = ident;
-    this.args = ImmutableList.copyOf(args);
+    this.args = args;
     this.statements = ImmutableList.copyOf(statements);
   }
 
   @Override
   void exec(Environment env) throws EvalException, InterruptedException {
-    ImmutableMap.Builder<String, Object> defaultValues = ImmutableMap.builder();
-    for (Argument arg : args) {
-      if (arg.hasValue()) {
-        defaultValues.put(arg.getArgName(), arg.getValue().eval(env));
+    List<Expression> defaultExpressions = args.getDefaultValues();
+    ArrayList<Object> defaultValues = null;
+    ArrayList<SkylarkType> types = null;
+
+    if (defaultExpressions != null) {
+      defaultValues = new ArrayList<Object>(defaultExpressions.size());
+      for (Expression expr : defaultExpressions) {
+        defaultValues.add(expr.eval(env));
       }
     }
     env.update(ident.getName(), new UserDefinedFunction(
-        ident, args, defaultValues.build(), statements, (SkylarkEnvironment) env));
+        ident, FunctionSignature.WithValues.<Object, SkylarkType>create(
+            args.getSignature(), defaultValues, types),
+        statements, (SkylarkEnvironment) env));
   }
 
   @Override
@@ -64,7 +76,7 @@ public class FunctionDefStatement extends Statement {
     return statements;
   }
 
-  public ImmutableList<Argument> getArgs() {
+  public FunctionSignature.WithValues<Expression, Expression> getArgs() {
     return args;
   }
 
@@ -74,18 +86,45 @@ public class FunctionDefStatement extends Statement {
   }
 
   @Override
-  void validate(ValidationEnvironment env) throws EvalException {
+  void validate(final ValidationEnvironment env) throws EvalException {
     SkylarkFunctionType type = SkylarkFunctionType.of(ident.getName());
     ValidationEnvironment localEnv = new ValidationEnvironment(env, type);
-    for (Argument i : args) {
+    FunctionSignature sig = args.getSignature();
+    FunctionSignature.Shape shape = sig.getShape();
+    ImmutableList<String> names = sig.getNames();
+    List<Expression> defaultExpressions = args.getDefaultValues();
+
+    int positionals = shape.getPositionals();
+    int mandatoryPositionals = shape.getMandatoryPositionals();
+    int namedOnly = shape.getNamedOnly();
+    int mandatoryNamedOnly = shape.getMandatoryNamedOnly();
+    boolean starArg = shape.hasStarArg();
+    boolean hasStar = starArg || (namedOnly > 0);
+    boolean kwArg = shape.hasKwArg();
+    int named = positionals + namedOnly;
+    int args = named + (starArg ? 1 : 0) + (kwArg ? 1 : 0);
+    int startOptionals = mandatoryPositionals;
+    int endOptionals = named - mandatoryNamedOnly;
+    int iStarArg = named;
+    int iKwArg = args - 1;
+
+    int j = 0; // index for the defaultExpressions
+    for (int i = 0; i < args; i++) {
+      String name = names.get(i);
       SkylarkType argType = SkylarkType.UNKNOWN;
-      if (i.hasValue()) {
-        argType = i.getValue().validate(env);
-        if (argType.equals(SkylarkType.NONE)) {
-          argType = SkylarkType.UNKNOWN;
+      if (hasStar && i == iStarArg) {
+        argType = SkylarkType.of(SkylarkList.class, Object.class);
+      } else if (kwArg && i == iKwArg) {
+        argType = SkylarkType.of(Map.class, Object.class);
+      } else {
+        if (startOptionals <= i && i < endOptionals) {
+          argType = defaultExpressions.get(j++).validate(env);
+          if (argType.equals(SkylarkType.NONE)) {
+            argType = SkylarkType.UNKNOWN;
+          }
         }
       }
-      localEnv.update(i.getArgName(), argType, getLocation());
+      localEnv.update(name, argType, getLocation());
     }
     for (Statement stmts : statements) {
       stmts.validate(localEnv);

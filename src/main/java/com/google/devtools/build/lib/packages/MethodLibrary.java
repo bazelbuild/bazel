@@ -46,6 +46,7 @@ import com.google.devtools.build.lib.syntax.SkylarkNestedSet;
 import com.google.devtools.build.lib.syntax.SkylarkType;
 import com.google.devtools.build.lib.syntax.SkylarkType.SkylarkFunctionType;
 
+import java.util.ArrayList;
 import java.util.Collection;
 import java.util.HashMap;
 import java.util.Iterator;
@@ -881,12 +882,18 @@ public class MethodLibrary {
     public Object call(List<Object> args, Map<String, Object> kwargs, FuncallExpression ast,
         Environment env) throws EvalException, InterruptedException {
       String sep = " ";
+      int count = 0;
       if (kwargs.containsKey("sep")) {
-        sep = cast(kwargs.remove("sep"), String.class, "sep", ast.getLocation());
+        sep = cast(kwargs.get("sep"), String.class, "sep", ast.getLocation());
+        count = 1;
       }
-      if (kwargs.size() > 0) {
+      if (kwargs.size() > count) {
+        kwargs = new HashMap<String, Object>(kwargs);
+        kwargs.remove("sep");
+        List<String> bad = new ArrayList<String>(kwargs.keySet());
+        java.util.Collections.sort(bad);
         throw new EvalException(ast.getLocation(),
-            "unexpected keywords: '" + kwargs.keySet() + "'");
+            "unexpected keywords: '" + bad + "'");
       }
       String msg = Joiner.on(sep).join(Iterables.transform(args,
           new com.google.common.base.Function<Object, String>() {

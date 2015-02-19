@@ -13,106 +13,167 @@
 // limitations under the License.
 package com.google.devtools.build.lib.syntax;
 
+import com.google.common.base.Preconditions;
+
+import java.util.List;
+
+import javax.annotation.Nullable;
+
 /**
- * Syntax node for a function argument. This can be a key/value pair such as
- * appears as a keyword argument to a function call or just an expression that
- * is used as a positional argument. It also can be used for function definitions
- * to identify the name (and optionally the default value) of the argument.
+ * Syntax node for a function argument.
+ *
+ * <p>Argument is a base class for arguments passed in a call (@see Argument.Passed)
+ * or defined as part of a function definition (@see Parameter).
+ * It is notably used by some {@link Parser} and printer functions.
  */
-public final class Argument extends ASTNode {
+public abstract class Argument extends ASTNode {
 
-  private final Ident name;
-
-  private final Expression value;
-
-  private final boolean kwargs;
-
-  /**
-   * Create a new argument.
-   * At call site: name is optional, value is mandatory. kwargs is true for ** arguments.
-   * At definition site: name is mandatory, (default) value is optional.
-   */
-  public Argument(Ident name, Expression value, boolean kwargs) {
-    this.name = name;
-    this.value = value;
-    this.kwargs = kwargs;
+  public boolean isStar() {
+    return false;
   }
 
-  public Argument(Ident name, Expression value) {
-    this.name = name;
-    this.value = value;
-    this.kwargs = false;
+  public boolean isStarStar() {
+    return false;
   }
 
   /**
-   * Creates an Argument with null as name. It can be used as positional arguments
-   * of function calls.
+   * Argument.Passed is the class of arguments passed in a function call
+   * (as opposed to being used in a definition -- @see Parameter for that).
+   * Argument.Passed is usually what we mean when informally say "argument".
+   *
+   * <p>An Argument.Passed can be Positional, Keyword, Star, or StarStar.
    */
-  public Argument(Expression value) {
-    this(null, value);
+  public abstract static class Passed extends Argument {
+    /** the value to be passed by this argument */
+    protected final Expression value;
+
+    private Passed(Expression value) {
+      this.value = Preconditions.checkNotNull(value);
+    }
+
+    public boolean isPositional() {
+      return false;
+    }
+    public boolean isKeyword() {
+      return false;
+    }
+    @Nullable public String getName() { // only for keyword arguments
+      return null;
+    }
+    public Expression getValue() {
+      return value;
+    }
+  }
+
+  /** positional argument: Expression */
+  public static class Positional extends Passed {
+
+    public Positional(Expression value) {
+      super(value);
+    }
+
+    @Override public boolean isPositional() {
+      return true;
+    }
+    @Override
+    public String toString() {
+      return String.valueOf(value);
+    }
+  }
+
+  /** keyword argument: K = Expression */
+  public static class Keyword extends Passed {
+
+    final String name;
+
+    public Keyword(String name, Expression value) {
+      super(value);
+      this.name = name;
+    }
+
+    @Override public String getName() {
+      return name;
+    }
+    @Override public boolean isKeyword() {
+      return true;
+    }
+    @Override
+    public String toString() {
+      return name + " = " + String.valueOf(value);
+    }
+  }
+
+  /** positional rest (starred) argument: *Expression */
+  public static class Star extends Passed {
+
+    public Star(Expression value) {
+      super(value);
+    }
+
+    @Override public boolean isStar() {
+      return true;
+    }
+    @Override
+    public String toString() {
+      return "*" + String.valueOf(value);
+    }
+  }
+
+  /** keyword rest (star_starred) parameter: **Expression */
+  public static class StarStar extends Passed {
+
+    public StarStar(Expression value) {
+      super(value);
+    }
+
+    @Override public boolean isStarStar() {
+      return true;
+    }
+    @Override
+    public String toString() {
+      return "**" + String.valueOf(value);
+    }
+  }
+
+  /** Some arguments failed to satisfy python call convention strictures */
+  protected static class ArgumentException extends Exception {
+    /** construct an ArgumentException from a message only */
+    public ArgumentException(String message) {
+      super(message);
+    }
   }
 
   /**
-   * Creates an Argument with null as value. It can be used as a mandatory keyword argument
-   * of a function definition.
+   * Validate that the list of Argument's, whether gathered by the Parser or from annotations,
+   * satisfies the requirements of the Python calling conventions: all Positional's first,
+   * at most one Star, at most one StarStar, at the end only.
    */
-  public Argument(Ident name) {
-    this(name, null);
-  }
-
-  /**
-   * Returns the name of this keyword argument or null if this argument is
-   * positional.
-   */
-  public Ident getName() {
-    return name;
-  }
-
-  /**
-   * Returns the String value of the Ident of this argument. Shortcut for arg.getName().getName().
-   */
-  public String getArgName() {
-    return name.getName();
-  }
-
-  /**
-   * Returns the syntax of this argument expression.
-   */
-  public Expression getValue() {
-    return value;
-  }
-
-  /**
-   * Returns true if this argument is positional.
-   */
-  public boolean isPositional() {
-    return name == null && !kwargs;
-  }
-
-  /**
-   * Returns true if this argument is a keyword argument.
-   */
-  public boolean isNamed() {
-    return name != null;
-  }
-
-  /**
-   * Returns true if this argument is a **kwargs argument.
-   */
-  public boolean isKwargs() {
-    return kwargs;
-  }
-
-  /**
-   * Returns true if this argument has value.
-   */
-  public boolean hasValue() {
-    return value != null;
-  }
-
-  @Override
-  public String toString() {
-    return isNamed() ? name + "=" + value : String.valueOf(value);
+  public static void validateFuncallArguments(List<Passed> arguments)
+      throws ArgumentException {
+    boolean hasNamed = false;
+    boolean hasStar = false;
+    boolean hasKwArg = false;
+    for (Passed arg : arguments) {
+      if (hasKwArg) {
+        throw new ArgumentException("argument after **kwargs");
+      }
+      if (arg.isPositional()) {
+        if (hasNamed) {
+          throw new ArgumentException("non-keyword arg after keyword arg");
+        } else if (arg.isStar()) {
+          throw new ArgumentException("only named arguments may follow *expression");
+        }
+      } else if (arg.isKeyword()) {
+        hasNamed = true;
+      } else if (arg.isStar()) {
+        if (hasStar) {
+          throw new ArgumentException("more than one *stararg");
+        }
+        hasStar = true;
+      } else {
+        hasKwArg = true;
+      }
+    }
   }
 
   @Override

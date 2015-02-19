@@ -65,6 +65,7 @@ public enum TokenKind {
   RPAREN(")"),
   SEMI(";"),
   STAR("*"),
+  STAR_STAR("**"),
   STRING("string"),
   TRY("try");
 

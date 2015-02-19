@@ -14,6 +14,13 @@
 
 package com.google.devtools.build.lib.syntax;
 
+// TODO(bazel-team): for extra performance:
+// (1) intern the strings, so we can use == to compare, and have .equals use the assumption.
+// Then have Argument and Parameter use Ident again instead of String as keys.
+// (2) Use Ident, not String, as keys in the Environment, which will be cleaner.
+// (3) For performance, avoid doing HashMap lookups at runtime, and compile local variable access
+// into array reference with a constant index. Variable lookups are currently a speed bottleneck,
+// as previously measured in an experiment.
 /**
  *  Syntax node for an identifier.
  */

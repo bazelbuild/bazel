@@ -585,6 +585,8 @@ public final class Lexer {
     TokenKind tok = null;
     if (c2 == '=') {
       tok = EQUAL_TOKENS.get(c1);
+    } else if (c2 == '*' && c1 == '*') {
+      tok = TokenKind.STAR_STAR;
     }
     if (tok == null) {
       return false;

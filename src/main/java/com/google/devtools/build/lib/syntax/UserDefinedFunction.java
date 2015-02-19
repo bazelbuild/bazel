@@ -13,10 +13,7 @@
 // limitations under the License.
 package com.google.devtools.build.lib.syntax;
 
-import com.google.common.base.Function;
 import com.google.common.collect.ImmutableList;
-import com.google.common.collect.ImmutableMap;
-import com.google.common.collect.Lists;
 import com.google.devtools.build.lib.events.Location;
 
 /**
@@ -25,62 +22,20 @@ import com.google.devtools.build.lib.events.Location;
  */
 public class UserDefinedFunction extends MixedModeFunction {
 
-  private final ImmutableList<Argument> args;
-  private final ImmutableMap<String, Integer> argIndexes;
-  private final ImmutableMap<String, Object> defaultValues;
   private final ImmutableList<Statement> statements;
   private final SkylarkEnvironment definitionEnv;
 
-  private static ImmutableList<String> argumentToStringList(ImmutableList<Argument> args) {
-    Function<Argument, String> function = new Function<Argument, String>() {
-      @Override
-      public String apply(Argument id) {
-        return id.getArgName();
-      }
-    };
-    return ImmutableList.copyOf(Lists.transform(args, function));
-  }
-
-  private static int mandatoryArgNum(ImmutableList<Argument> args) {
-    int mandatoryArgNum = 0;
-    for (Argument arg : args) {
-      if (!arg.hasValue()) {
-        mandatoryArgNum++;
-      }
-    }
-    return mandatoryArgNum;
-  }
-
-  UserDefinedFunction(Ident function, ImmutableList<Argument> args,
-      ImmutableMap<String, Object> defaultValues,
+  protected UserDefinedFunction(Ident function,
+      FunctionSignature.WithValues<Object, SkylarkType> signature,
       ImmutableList<Statement> statements, SkylarkEnvironment definitionEnv) {
-    super(function.getName(), argumentToStringList(args), mandatoryArgNum(args), false,
-        function.getLocation());
-    this.args = args;
+    super(function.getName(), signature, function.getLocation());
+
     this.statements = statements;
     this.definitionEnv = definitionEnv;
-    this.defaultValues = defaultValues;
-
-    ImmutableMap.Builder<String, Integer> argIndexes = new ImmutableMap.Builder<> ();
-    int i = 0;
-    for (Argument arg : args) {
-      if (!arg.isKwargs()) { // TODO(bazel-team): add varargs support?
-        argIndexes.put(arg.getArgName(), i++);
-      }
-    }
-    this.argIndexes = argIndexes.build();
   }
 
-  public ImmutableList<Argument> getArgs() {
-    return args;
-  }
-
-  public Integer getArgIndex(String s) {
-    return argIndexes.get(s);
-  }
-
-  ImmutableMap<String, Object> getDefaultValues() {
-    return defaultValues;
+  public FunctionSignature.WithValues<Object, SkylarkType> getFunctionSignature() {
+    return signature;
   }
 
   ImmutableList<Statement> getStatements() {
@@ -91,16 +46,18 @@ public class UserDefinedFunction extends MixedModeFunction {
     return location;
   }
 
+
   @Override
-  public Object call(Object[] namedArguments, FuncallExpression ast, Environment env)
+  public Object call(Object[] arguments, FuncallExpression ast, Environment env)
       throws EvalException, InterruptedException {
     SkylarkEnvironment functionEnv = SkylarkEnvironment.createEnvironmentForFunctionCalling(
         env, definitionEnv, this);
+    ImmutableList<String> names = signature.getSignature().getNames();
 
     // Registering the functions's arguments as variables in the local Environment
     int i = 0;
-    for (Object arg : namedArguments) {
-      functionEnv.update(args.get(i++).getArgName(), arg);
+    for (String name : names) {
+      functionEnv.update(name, arguments[i++]);
     }
 
     try {

@@ -14,7 +14,7 @@
 
 package com.google.devtools.build.lib.syntax;
 
-import com.google.common.base.Preconditions;
+import com.google.common.base.Joiner;
 import com.google.common.cache.CacheBuilder;
 import com.google.common.cache.CacheLoader;
 import com.google.common.cache.LoadingCache;
@@ -31,7 +31,6 @@ import java.lang.reflect.Modifier;
 import java.util.ArrayList;
 import java.util.Collections;
 import java.util.HashMap;
-import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.concurrent.ExecutionException;
@@ -141,7 +140,8 @@ public final class FuncallExpression extends Expression {
     }
     if (keepLooking) {
       if (classObj.getSuperclass() != null) {
-        SkylarkCallable annotation = getAnnotationFromParentClass(classObj.getSuperclass(), method);
+        SkylarkCallable annotation =
+            getAnnotationFromParentClass(classObj.getSuperclass(), method);
         if (annotation != null) {
           return annotation;
         }
@@ -170,7 +170,7 @@ public final class FuncallExpression extends Expression {
 
   private final Ident func;
 
-  private final List<Argument> args;
+  private final List<Argument.Passed> args;
 
   private final int numPositionalArgs;
 
@@ -182,13 +182,10 @@ public final class FuncallExpression extends Expression {
    * evaluated, so functions and variables share a common namespace.
    */
   public FuncallExpression(Expression obj, Ident func,
-                           List<Argument> args) {
-    for (Argument arg : args) {
-      Preconditions.checkArgument(arg.hasValue());
-    }
+                           List<Argument.Passed> args) {
     this.obj = obj;
     this.func = func;
-    this.args = args;
+    this.args = args; // we assume the parser validated it with Argument#validateFuncallArguments()
     this.numPositionalArgs = countPositionalArguments();
   }
 
@@ -199,7 +196,7 @@ public final class FuncallExpression extends Expression {
    * arbitrary expressions. In any case, the "func" expression is always
    * evaluated, so functions and variables share a common namespace.
    */
-  public FuncallExpression(Ident func, List<Argument> args) {
+  public FuncallExpression(Ident func, List<Argument.Passed> args) {
     this(null, func, args);
   }
 
@@ -208,7 +205,7 @@ public final class FuncallExpression extends Expression {
    */
   private int countPositionalArguments() {
     int num = 0;
-    for (Argument arg : args) {
+    for (Argument.Passed arg : args) {
       if (arg.isPositional()) {
         num++;
       }
@@ -236,7 +233,7 @@ public final class FuncallExpression extends Expression {
    * positional and the remaining ones are keyword args, where n =
    * getNumPositionalArguments().
    */
-  public List<Argument> getArguments() {
+  public List<Argument.Passed> getArguments() {
     return Collections.unmodifiableList(args);
   }
 
@@ -393,21 +390,20 @@ public final class FuncallExpression extends Expression {
   }
 
   /**
-   * Add one argument to the keyword map, raising an exception when names conflict.
+   * Add one argument to the keyword map, registering a duplicate in case of conflict.
    */
-  private void addKeywordArg(Map<String, Object> kwargs, String name, Object value)
-      throws EvalException {
+  private void addKeywordArg(Map<String, Object> kwargs, String name,
+      Object value,  ImmutableList.Builder<String> duplicates) {
     if (kwargs.put(name, value) != null) {
-      throw new EvalException(getLocation(),
-          "duplicate keyword '" + name + "' in call to '" + func + "'");
+      duplicates.add(name);
     }
   }
 
   /**
-   * Add multiple arguments to the keyword map (**kwargs).
+   * Add multiple arguments to the keyword map (**kwargs), registering duplicates
    */
-  private void addKeywordArgs(Map<String, Object> kwargs, Object items)
-      throws EvalException {
+  private void addKeywordArgs(Map<String, Object> kwargs,
+      Object items, ImmutableList.Builder<String> duplicates) throws EvalException {
     if (!(items instanceof Map<?, ?>)) {
       throw new EvalException(getLocation(),
           "Argument after ** must be a dictionary, not " + EvalUtils.getDataTypeName(items));
@@ -417,15 +413,21 @@ public final class FuncallExpression extends Expression {
         throw new EvalException(getLocation(),
             "Keywords must be strings, not " + EvalUtils.getDataTypeName(entry.getKey()));
       }
-      addKeywordArg(kwargs, (String) entry.getKey(), entry.getValue());
+      addKeywordArg(kwargs, (String) entry.getKey(), entry.getValue(), duplicates);
     }
   }
 
-  private void evalArguments(List<Object> posargs, Map<String, Object> kwargs,
+  @SuppressWarnings("unchecked")
+  private void evalArguments(ImmutableList.Builder<Object> posargs, Map<String, Object> kwargs,
       Environment env, Function function)
-          throws EvalException, InterruptedException {
+      throws EvalException, InterruptedException {
     ArgConversion conversion = getArgConversion(function);
-    for (Argument arg : args) {
+    ImmutableList.Builder<String> duplicates = new ImmutableList.Builder<String>();
+    // Iterate over the arguments. We assume all positional arguments come before any keyword
+    // or star arguments, because the argument list was already validated by
+    // Argument#validateFuncallArguments, as called by the Parser,
+    // which should be the only place that build FuncallExpression-s.
+    for (Argument.Passed arg : args) {
       Object value = arg.getValue().eval(env);
       if (conversion == ArgConversion.FROM_SKYLARK) {
         value = SkylarkType.convertFromSkylark(value);
@@ -434,26 +436,25 @@ public final class FuncallExpression extends Expression {
         value = SkylarkType.convertToSkylark(value, getLocation());
         // We call into Skylark so we need to be sure that the caller uses the appropriate types.
         SkylarkType.checkTypeAllowedInSkylark(value, getLocation());
-      }
+      } // else NO_CONVERSION
       if (arg.isPositional()) {
         posargs.add(value);
-      } else if (arg.isKwargs()) {  // expand the kwargs
-        addKeywordArgs(kwargs, value);
+      } else if (arg.isStar()) {  // expand the starArg
+        if (value instanceof Iterable) {
+          posargs.addAll((Iterable<Object>) value);
+        }
+      } else if (arg.isStarStar()) {  // expand the kwargs
+        addKeywordArgs(kwargs, value, duplicates);
       } else {
-        addKeywordArg(kwargs, arg.getArgName(), value);
+        addKeywordArg(kwargs, arg.getName(), value, duplicates);
       }
     }
-    if (function instanceof UserDefinedFunction) {
-      // Adding the default values for a UserDefinedFunction if needed.
-      UserDefinedFunction func = (UserDefinedFunction) function;
-      if (args.size() < func.getArgs().size()) {
-        for (Map.Entry<String, Object> entry : func.getDefaultValues().entrySet()) {
-          String key = entry.getKey();
-          if (func.getArgIndex(key) >= numPositionalArgs && !kwargs.containsKey(key)) {
-            kwargs.put(key, entry.getValue());
-          }
-        }
-      }
+    List<String> dups = duplicates.build();
+    if (!dups.isEmpty()) {
+      throw new EvalException(getLocation(),
+          "duplicate keyword" + (dups.size() > 1 ? "s" : "") + " '"
+          + Joiner.on("', '").join(dups)
+          + "' in call to " + func);
     }
   }
 
@@ -464,10 +465,12 @@ public final class FuncallExpression extends Expression {
 
   @Override
   Object eval(Environment env) throws EvalException, InterruptedException {
-    List<Object> posargs = new ArrayList<>();
-    Map<String, Object> kwargs = new LinkedHashMap<>();
+    ImmutableList.Builder<Object> posargs = new ImmutableList.Builder<Object>();
+    // We copy this into an ImmutableMap in the end, but we can't use an ImmutableMap.Builder, or
+    // we'd still have to have a HashMap on the side for the sake of properly handling duplicates.
+    Map<String, Object> kwargs = new HashMap<>();
 
-    if (obj != null) {
+    if (obj != null) { // obj.func(...)
       Object objValue = obj.eval(env);
       // Strings, lists and dictionaries (maps) have functions that we want to use in MethodLibrary.
       // For other classes, we can call the Java methods.
@@ -475,43 +478,47 @@ public final class FuncallExpression extends Expression {
           env.getFunction(EvalUtils.getSkylarkType(objValue.getClass()), func.getName());
       if (function != null) {
         if (!isNamespace(objValue.getClass())) {
+          // Add self as an implicit parameter in front.
           posargs.add(objValue);
         }
         evalArguments(posargs, kwargs, env, function);
-        return EvalUtils.checkNotNull(this, function.call(posargs, kwargs, this, env));
+        return EvalUtils.checkNotNull(this,
+            function.call(posargs.build(), ImmutableMap.<String, Object>copyOf(kwargs), this, env));
       } else if (env.isSkylarkEnabled()) {
-
-        // When calling a Java method, the name is not in the Environment, so
-        // evaluating 'func' would fail. For arguments we don't need to consider the default
-        // arguments since the Java function doesn't have any.
-
+        // Only allow native Java calls when using Skylark
+        // When calling a Java method, the name is not in the Environment,
+        // so evaluating 'func' would fail.
         evalArguments(posargs, kwargs, env, null);
         if (!kwargs.isEmpty()) {
           throw new EvalException(func.getLocation(),
-              "Keyword arguments are not allowed when calling a java method");
+              String.format("Keyword arguments are not allowed when calling a java method"
+                  + "\nwhile calling method '%s' on object %s of type %s",
+                  func.getName(), objValue, EvalUtils.getDataTypeName(objValue)));
         }
         if (objValue instanceof Class<?>) {
           // Static Java method call
-          return invokeJavaMethod(null, (Class<?>) objValue, func.getName(), posargs);
+          return invokeJavaMethod(null, (Class<?>) objValue, func.getName(), posargs.build());
         } else {
-          return invokeJavaMethod(objValue, objValue.getClass(), func.getName(), posargs);
+          return invokeJavaMethod(objValue, objValue.getClass(), func.getName(), posargs.build());
         }
       } else {
         throw new EvalException(getLocation(), String.format(
             "function '%s' is not defined on '%s'", func.getName(),
             EvalUtils.getDataTypeName(objValue)));
       }
+    } else { // func(...)
+      Object funcValue = func.eval(env);
+      if ((funcValue instanceof Function)) {
+        Function function = (Function) funcValue;
+        evalArguments(posargs, kwargs, env, function);
+        return EvalUtils.checkNotNull(this,
+            function.call(posargs.build(), ImmutableMap.<String, Object>copyOf(kwargs), this, env));
+      } else {
+        throw new EvalException(getLocation(),
+            "'" + EvalUtils.getDataTypeName(funcValue)
+            + "' object is not callable");
+      }
     }
-
-    Object funcValue = func.eval(env);
-    if (!(funcValue instanceof Function)) {
-      throw new EvalException(getLocation(),
-                              "'" + EvalUtils.getDataTypeName(funcValue)
-                              + "' object is not callable");
-    }
-    Function function = (Function) funcValue;
-    evalArguments(posargs, kwargs, env, function);
-    return EvalUtils.checkNotNull(this, function.call(posargs, kwargs, this, env));
   }
 
   private ArgConversion getArgConversion(Function function) {
@@ -533,7 +540,7 @@ public final class FuncallExpression extends Expression {
 
   @Override
   SkylarkType validate(ValidationEnvironment env) throws EvalException {
-    for (Argument arg : args) {
+    for (Argument.Passed arg : args) {
       arg.getValue().validate(env);
     }
 

@@ -33,7 +33,6 @@ import com.google.devtools.build.lib.syntax.Argument;
 import com.google.devtools.build.lib.syntax.Environment;
 import com.google.devtools.build.lib.syntax.FuncallExpression;
 import com.google.devtools.build.lib.syntax.GlobList;
-import com.google.devtools.build.lib.syntax.Ident;
 import com.google.devtools.build.lib.syntax.Label;
 import com.google.devtools.build.lib.syntax.Label.SyntaxException;
 import com.google.devtools.build.lib.syntax.SkylarkEnvironment;
@@ -1069,7 +1068,7 @@ public final class RuleClass {
   }
 
   /**
-   * Helper function for {@link RuleFactory#createRule}.
+   * Helper function for {@link RuleFactory#createAndAddRule}.
    */
   Rule createRuleWithLabel(Package.AbstractBuilder<?, ?> pkgBuilder, Label ruleLabel,
       Map<String, Object> attributeValues, EventHandler eventHandler, FuncallExpression ast,
@@ -1180,10 +1179,9 @@ public final class RuleClass {
 
     // Save the location of each non-default attribute definition:
     if (ast != null) {
-      for (Argument arg : ast.getArguments()) {
-        Ident keyword = arg.getName();
-        if (keyword != null) {
-          String name = keyword.getName();
+      for (Argument.Passed arg : ast.getArguments()) {
+        if (arg.isKeyword()) {
+          String name = arg.getName();
           Integer attrIndex = getAttributeIndex(name);
           if (attrIndex != null) {
             rule.setAttributeLocation(attrIndex, arg.getValue().getLocation());
@@ -1363,12 +1361,12 @@ public final class RuleClass {
   /**
    * Returns the default value for the specified rule attribute.
    *
-   * For most rule attributes, the default value is either explicitly specified
+   * <p>For most rule attributes, the default value is either explicitly specified
    * in the attribute, or implicitly based on the type of the attribute, except
    * for some special cases (e.g. "licenses", "distribs") where it comes from
    * some other source, such as state in the package.
    *
-   * Precondition: {@code !attr.hasComputedDefault()}.  (Computed defaults are
+   * <p>Precondition: {@code !attr.hasComputedDefault()}.  (Computed defaults are
    * evaluated in second pass.)
    */
   private static Object getAttributeNoncomputedDefaultValue(Attribute attr,
