@@ -47,10 +47,14 @@ public class ResourceSet {
    */
   private final double ioUsage;
   
-  public ResourceSet(double memoryMb, double cpuUsage, double ioUsage) {
+  private ResourceSet(double memoryMb, double cpuUsage, double ioUsage) {
     this.memoryMb = memoryMb;
     this.cpuUsage = cpuUsage;
     this.ioUsage = ioUsage;
+  }
+
+  public static ResourceSet createWithRamCpuIo(double memoryMb, double cpuUsage, double ioUsage) {
+    return new ResourceSet(memoryMb, cpuUsage, ioUsage);
   }
 
   /** Returns the amount of real memory (resident set size) used in MB. */
@@ -95,7 +99,7 @@ public class ResourceSet {
         if (memoryMb <= 0.0 || cpuUsage <= 0.0 || ioUsage <= 0.0) {
           throw new OptionsParsingException("All resource values must be positive");
         }
-        return new ResourceSet(memoryMb, cpuUsage, ioUsage);
+        return createWithRamCpuIo(memoryMb, cpuUsage, ioUsage);
       } catch (NumberFormatException nfe) {
         throw new OptionsParsingException("Expected exactly 3 comma-separated float values", nfe);
       } catch (NoSuchElementException nsee) {

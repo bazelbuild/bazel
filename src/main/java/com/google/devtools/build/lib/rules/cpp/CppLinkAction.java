@@ -93,13 +93,16 @@ public final class CppLinkAction extends AbstractAction {
   // thrash the machine to the point where it stops
   // responding to keystrokes or mouse clicks.
   // CPU and IO do not scale similarly and still use the static minimum estimate.
-  public static final ResourceSet LINK_RESOURCES_PER_INPUT = new ResourceSet(1, 0, 0);
+  public static final ResourceSet LINK_RESOURCES_PER_INPUT =
+      ResourceSet.createWithRamCpuIo(1, 0, 0);
 
   // This defines the minimum of each resource that will be reserved.
-  public static final ResourceSet MIN_STATIC_LINK_RESOURCES = new ResourceSet(1536, 1, 0.3);
+  public static final ResourceSet MIN_STATIC_LINK_RESOURCES =
+      ResourceSet.createWithRamCpuIo(1536, 1, 0.3);
 
   // Dynamic linking should be cheaper than static linking.
-  public static final ResourceSet MIN_DYNAMIC_LINK_RESOURCES = new ResourceSet(1024, 0.3, 0.2);
+  public static final ResourceSet MIN_DYNAMIC_LINK_RESOURCES =
+      ResourceSet.createWithRamCpuIo(1024, 0.3, 0.2);
 
   /**
    * Use {@link Builder} to create instances of this class. Also see there for
@@ -452,13 +455,13 @@ public final class CppLinkAction extends AbstractAction {
     final int inputSize = Iterables.size(getLinkCommandLine().getLinkerInputs())
         + Iterables.size(getLinkCommandLine().getRuntimeInputs());
 
-    return new ResourceSet(
-      Math.max(inputSize * LINK_RESOURCES_PER_INPUT.getMemoryMb(),
-               minLinkResources.getMemoryMb()),
-      Math.max(inputSize * LINK_RESOURCES_PER_INPUT.getCpuUsage(),
-               minLinkResources.getCpuUsage()),
-      Math.max(inputSize * LINK_RESOURCES_PER_INPUT.getIoUsage(),
-               minLinkResources.getIoUsage())
+    return ResourceSet.createWithRamCpuIo(
+        Math.max(inputSize * LINK_RESOURCES_PER_INPUT.getMemoryMb(),
+            minLinkResources.getMemoryMb()),
+        Math.max(inputSize * LINK_RESOURCES_PER_INPUT.getCpuUsage(),
+            minLinkResources.getCpuUsage()),
+        Math.max(inputSize * LINK_RESOURCES_PER_INPUT.getIoUsage(),
+            minLinkResources.getIoUsage())
     );
   }
 

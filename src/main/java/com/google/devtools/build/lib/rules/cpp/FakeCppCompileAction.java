@@ -197,7 +197,7 @@ public class FakeCppCompileAction extends CppCompileAction {
 
   @Override
   public ResourceSet estimateResourceConsumptionLocal() {
-    return new ResourceSet(/*memoryMb=*/1, /*cpuUsage=*/0.1, /*ioUsage=*/0.0);
+    return ResourceSet.createWithRamCpuIo(/*memoryMb=*/1, /*cpuUsage=*/0.1, /*ioUsage=*/0.0);
   }
 
   @Override

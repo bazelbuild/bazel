@@ -45,7 +45,7 @@ public final class SymlinkTreeHelper {
    * their directory creations get non-interleaved allocations. So we give them
    * a huge resource cost.
    */
-  public static final ResourceSet RESOURCE_SET = new ResourceSet(1000, 0.5, 0.75);
+  public static final ResourceSet RESOURCE_SET = ResourceSet.createWithRamCpuIo(1000, 0.5, 0.75);
 
   private final PathFragment inputManifest;
   private final PathFragment symlinkTreeRoot;

@@ -162,7 +162,7 @@ public class CppModuleMapAction extends AbstractFileWriteAction {
 
   @Override
   public ResourceSet estimateResourceConsumptionLocal() {
-    return new ResourceSet(/*memoryMb=*/0, /*cpuUsage=*/0, /*ioUsage=*/0.02);
+    return ResourceSet.createWithRamCpuIo(/*memoryMb=*/0, /*cpuUsage=*/0, /*ioUsage=*/0.02);
   }
 
   @VisibleForTesting

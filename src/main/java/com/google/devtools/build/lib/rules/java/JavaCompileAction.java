@@ -77,7 +77,7 @@ public class JavaCompileAction extends AbstractAction {
   private static final String GUID = "786e174d-ed97-4e79-9f61-ae74430714cf";
 
   private static final ResourceSet LOCAL_RESOURCES =
-      new ResourceSet(750 /*MB*/, 0.5 /*CPU*/, 0.0 /*IO*/);
+      ResourceSet.createWithRamCpuIo(750 /*MB*/, 0.5 /*CPU*/, 0.0 /*IO*/);
 
   private final CommandLine javaCompileCommandLine;
   private final CommandLine commandLine;

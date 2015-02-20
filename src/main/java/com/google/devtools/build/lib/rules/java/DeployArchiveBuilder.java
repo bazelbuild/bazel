@@ -236,7 +236,7 @@ public class DeployArchiveBuilder {
 
     List<String> jvmArgs = ImmutableList.of("-client", SINGLEJAR_MAX_MEMORY);
     ResourceSet resourceSet =
-        new ResourceSet(/*memoryMb = */200.0, /*cpuUsage = */.2, /*ioUsage=*/.2);
+        ResourceSet.createWithRamCpuIo(/*memoryMb = */200.0, /*cpuUsage = */.2, /*ioUsage=*/.2);
 
     ruleContext.registerAction(new SpawnAction.Builder()
         .addInputs(inputs.build())

@@ -35,7 +35,7 @@ public final class GenRuleAction extends SpawnAction {
 
   private static final ResourceSet GENRULE_RESOURCES =
       // Not chosen scientifically/carefully.  300MB memory, 100% CPU, 20% of total I/O.
-      new ResourceSet(300, 1.0, 0.0);
+      ResourceSet.createWithRamCpuIo(300, 1.0, 0.0);
 
   public GenRuleAction(ActionOwner owner,
       Iterable<Artifact> inputs,

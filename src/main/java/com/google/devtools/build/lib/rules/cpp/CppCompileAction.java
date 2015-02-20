@@ -956,7 +956,7 @@ public class CppCompileAction extends AbstractAction implements IncludeScannable
   public ResourceSet estimateResourceConsumptionLocal() {
     // We use a local compile, so much of the time is spent waiting for IO,
     // but there is still significant CPU; hence we estimate 50% cpu usage.
-    return new ResourceSet(/*memoryMb=*/200, /*cpuUsage=*/0.5, /*ioUsage=*/0.0);
+    return ResourceSet.createWithRamCpuIo(/*memoryMb=*/200, /*cpuUsage=*/0.5, /*ioUsage=*/0.0);
   }
 
   @Override

@@ -92,7 +92,7 @@ public final class SolibSymlinkAction extends AbstractAction {
 
   @Override
   public ResourceSet estimateResourceConsumption(Executor executor) {
-    return new ResourceSet(/*memoryMb=*/0, /*cpuUsage=*/0, /*ioUsage=*/0.0);
+    return ResourceSet.createWithRamCpuIo(/*memoryMb=*/0, /*cpuUsage=*/0, /*ioUsage=*/0.0);
   }
 
   @Override

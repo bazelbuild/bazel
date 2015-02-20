@@ -51,7 +51,7 @@ public class ResourceManagerTest {
   @Before
   public void setUp() throws Exception {
     rm.setRamUtilizationPercentage(100);
-    rm.setAvailableResources(new ResourceSet(1000, 1, 1));
+    rm.setAvailableResources(ResourceSet.createWithRamCpuIo(1000, 1, 1));
     rm.setEventBus(new EventBus());
     counter = new AtomicInteger(0);
     sync = new CyclicBarrier(2);
@@ -60,15 +60,15 @@ public class ResourceManagerTest {
   }
 
   private void acquire(double ram, double cpu, double io) throws InterruptedException {
-    rm.acquireResources(resourceOwner, new ResourceSet(ram, cpu, io));
+    rm.acquireResources(resourceOwner, ResourceSet.createWithRamCpuIo(ram, cpu, io));
   }
 
   private boolean acquireNonblocking(double ram, double cpu, double io) {
-    return rm.tryAcquire(resourceOwner, new ResourceSet(ram, cpu, io));
+    return rm.tryAcquire(resourceOwner, ResourceSet.createWithRamCpuIo(ram, cpu, io));
   }
 
   private void release(double ram, double cpu, double io) {
-    rm.releaseResources(resourceOwner, new ResourceSet(ram, cpu, io));
+    rm.releaseResources(resourceOwner, ResourceSet.createWithRamCpuIo(ram, cpu, io));
   }
 
   private void validate (int count) {

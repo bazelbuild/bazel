@@ -424,7 +424,7 @@ public class ResourceManager {
   private synchronized void updateAvailableResources(boolean useFreeReading) {
     Preconditions.checkNotNull(staticResources);
     if (useFreeReading && isAutoSensingEnabled()) {
-      availableResources = new ResourceSet(
+      availableResources = ResourceSet.createWithRamCpuIo(
           usedRam + freeReading.getFreeMb(),
           usedCpu + freeReading.getAvgFreeCpu(),
           staticResources.getIoUsage());
@@ -434,7 +434,7 @@ public class ResourceManager {
       }
       processWaitingThreads();
     } else {
-      availableResources = new ResourceSet(
+      availableResources = ResourceSet.createWithRamCpuIo(
           staticResources.getMemoryMb() * this.ramUtilizationPercentage / 100.0,
           staticResources.getCpuUsage(),
           staticResources.getIoUsage());
@@ -467,6 +467,6 @@ public class ResourceManager {
 
   @VisibleForTesting
   synchronized boolean isAvailable(double ram, double cpu, double io) {
-    return areResourcesAvailable(new ResourceSet(ram, cpu, io));
+    return areResourcesAvailable(ResourceSet.createWithRamCpuIo(ram, cpu, io));
   }
 }

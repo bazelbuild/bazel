@@ -43,7 +43,7 @@ public class TestAction extends AbstractAction {
   public static final Runnable NO_EFFECT = new Runnable() { @Override public void run() {} };
 
   private static final ResourceSet RESOURCES =
-      new ResourceSet(/*memoryMb=*/1.0, /*cpu=*/0.1, /*io=*/0.0);
+      ResourceSet.createWithRamCpuIo(/*memoryMb=*/1.0, /*cpu=*/0.1, /*io=*/0.0);
 
   private final Callable<Void> effect;
 

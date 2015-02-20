@@ -93,7 +93,7 @@ public abstract class AbstractFileWriteAction extends AbstractAction {
 
   // We're mainly doing I/O, so estimate very low CPU usage, e.g. 1%. Just a guess.
   private static final ResourceSet DEFAULT_FILEWRITE_LOCAL_ACTION_RESOURCE_SET =
-      new ResourceSet(/*memoryMb=*/0.0, /*cpuUsage=*/0.01, /*ioUsage=*/0.2);
+      ResourceSet.createWithRamCpuIo(/*memoryMb=*/0.0, /*cpuUsage=*/0.01, /*ioUsage=*/0.2);
 
   @Override
   public ResourceSet estimateResourceConsumption(Executor executor) {

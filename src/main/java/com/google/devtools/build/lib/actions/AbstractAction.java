@@ -47,7 +47,8 @@ public abstract class AbstractAction implements Action {
   /**
    * An arbitrary default resource set. Currently 250MB of memory, 50% CPU and 0% of total I/O.
    */
-  public static final ResourceSet DEFAULT_RESOURCE_SET = new ResourceSet(250, 0.5, 0);
+  public static final ResourceSet DEFAULT_RESOURCE_SET =
+      ResourceSet.createWithRamCpuIo(250, 0.5, 0);
 
   // owner/inputs/outputs attributes below should never be directly accessed even
   // within AbstractAction itself. The appropriate getter methods should be used
