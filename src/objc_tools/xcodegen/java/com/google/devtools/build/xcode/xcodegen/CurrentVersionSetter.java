@@ -83,9 +83,9 @@ public final class CurrentVersionSetter implements PbxReferencesProcessor {
     }
 
     for (PBXFileReference child : group.getChildren()) {
+      child.setExplicitFileType(Optional.of("wrapper.xcdatamodel"));
       if (child.getName().equals(currentVersion.getContent())) {
         group.setCurrentVersion(Optional.of(child));
-        return;
       }
     }
   }
