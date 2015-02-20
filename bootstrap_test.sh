@@ -103,7 +103,7 @@ fi
 
 # check that bootstrapped binary actually runs correctly
 copy_bootstrap
-$BOOTSTRAP >/dev/null || fail "Boostraped binary is non-functionnal!"
+$BOOTSTRAP >/dev/null || fail "Bootstrapped binary is non-functional"
 
 if [ $DO_CHECKSUM ]; then
   start_test checksum
@@ -123,6 +123,7 @@ fi
 
 if [ $DO_TESTS ]; then
   start_test "test"
+
   $BOOTSTRAP --blazerc=/dev/null test ${CPU_FLAG} -k --test_output=errors //src/... || fail "Tests failed"
   end_test "test"
 fi

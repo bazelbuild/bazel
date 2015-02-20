@@ -1977,6 +1977,11 @@ public class ParallelEvaluatorTest {
 
   @Test
   public void raceConditionWithNoKeepGoingErrors_InflightError() throws Exception {
+    if (System.getProperty("os.name").toLowerCase().indexOf("mac") >= 0) {
+      // TODO(Bazel-team): fix this test on OSX. It is flaky and causes hangs.
+      return;
+    }
+
     final CountDownLatch errorCommitted = new CountDownLatch(1);
     final TrackingAwaiter trackingAwaiterForError = new TrackingAwaiter();
     final CountDownLatch otherDone = new CountDownLatch(1);
