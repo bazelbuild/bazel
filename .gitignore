@@ -3,6 +3,6 @@
 /fromhost/
 /base_workspace/tools/
 /tools/jdk/jdk
-/tools/java/ijar
-/tools/java/JavaBuilder_deploy.jar
-/tools/java/SingleJar_deploy.jar
+/tools/jdk/ijar
+/tools/jdk/JavaBuilder_deploy.jar
+/tools/jdk/SingleJar_deploy.jar
