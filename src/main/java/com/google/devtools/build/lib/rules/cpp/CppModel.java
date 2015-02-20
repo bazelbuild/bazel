@@ -328,7 +328,7 @@ public final class CppModel {
       // A header module compile action is just like a normal compile action, but:
       // - the compiled source file is the module map
       // - it creates a header module (.pcm file).
-      createSourceAction(outputName, result, env, moduleMapArtifact, builder, ".pcm");
+      createSourceAction(outputName, result, env, moduleMapArtifact, builder, ".pcm", ".pcm.d");
     }
 
     for (Pair<Artifact, Label> source : sourceFiles) {
@@ -340,7 +340,7 @@ public final class CppModel {
       if (CppFileTypes.CPP_HEADER.matches(source.first.getExecPath())) {
         createHeaderAction(outputName, result, env, builder);
       } else {
-        createSourceAction(outputName, result, env, sourceArtifact, builder, ".o");
+        createSourceAction(outputName, result, env, sourceArtifact, builder, ".o", ".d");
       }
     }
 
@@ -367,7 +367,8 @@ public final class CppModel {
       AnalysisEnvironment env,
       Artifact sourceArtifact,
       CppCompileActionBuilder builder,
-      String outputExtension) {
+      String outputExtension,
+      String dependencyFileExtension) {
     PathFragment ccRelativeName = semantics.getEffectiveSourcePath(sourceArtifact);
     LipoContextProvider lipoProvider = null;
     if (cppConfiguration.isLipoOptimization()) {
@@ -388,7 +389,7 @@ public final class CppModel {
           FileSystemUtils.replaceExtension(outputFile.getExecPath(), ".temp" + outputExtension);
       builder
           .setOutputFile(outputFile)
-          .setDotdFile(outputName, ".d", ruleContext)
+          .setDotdFile(outputName, dependencyFileExtension, ruleContext)
           .setTempOutputFile(tempOutputName);
       semantics.finalizeCompileActionBuilder(ruleContext, builder);
       CppCompileAction action = builder.build();
@@ -403,7 +404,8 @@ public final class CppModel {
       // Create PIC compile actions (same as non-PIC, but use -fPIC and
       // generate .pic.o, .pic.d, .pic.gcno instead of .o, .d, .gcno.)
       if (generatePicAction) {
-        CppCompileActionBuilder picBuilder = copyAsPicBuilder(builder, outputName, outputExtension);
+        CppCompileActionBuilder picBuilder =
+            copyAsPicBuilder(builder, outputName, outputExtension, dependencyFileExtension);
         cppConfiguration.getFdoSupport().configureCompilation(picBuilder, ruleContext, env,
             ruleContext.getLabel(), ccRelativeName, nocopts, /*usePic=*/true,
             lipoProvider);
@@ -433,7 +435,7 @@ public final class CppModel {
       if (generateNoPicAction) {
         builder
             .setOutputFile(ruleContext.getRelatedArtifact(outputName, outputExtension))
-            .setDotdFile(outputName, ".d", ruleContext);
+            .setDotdFile(outputName, dependencyFileExtension, ruleContext);
         // Create non-PIC compile actions
         cppConfiguration.getFdoSupport().configureCompilation(builder, ruleContext, env,
             ruleContext.getLabel(), ccRelativeName, nocopts, /*usePic=*/false,
@@ -625,12 +627,12 @@ public final class CppModel {
    * changing output and dotd file names.
    */
   private CppCompileActionBuilder copyAsPicBuilder(CppCompileActionBuilder builder,
-      PathFragment outputName, String outputExtension) {
+      PathFragment outputName, String outputExtension, String dependencyFileExtension) {
     CppCompileActionBuilder picBuilder = new CppCompileActionBuilder(builder);
     picBuilder
         .setPicMode(true)
         .setOutputFile(ruleContext.getRelatedArtifact(outputName, ".pic" + outputExtension))
-        .setDotdFile(outputName, ".pic.d", ruleContext);
+        .setDotdFile(outputName, ".pic" + dependencyFileExtension, ruleContext);
     return picBuilder;
   }
 
