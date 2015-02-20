@@ -27,11 +27,11 @@ import com.google.devtools.build.lib.analysis.RuleConfiguredTarget.Mode;
 import com.google.devtools.build.lib.analysis.RuleContext;
 import com.google.devtools.build.lib.collect.nestedset.NestedSetBuilder;
 import com.google.devtools.build.lib.rules.RuleConfiguredTargetFactory;
-import com.google.devtools.build.lib.rules.objc.ApplicationSupport.LinkedBinary;
 import com.google.devtools.build.lib.rules.objc.ObjcActionsBuilder.ExtraLinkArgs;
 import com.google.devtools.build.lib.rules.objc.ObjcActionsBuilder.ExtraLinkInputs;
 import com.google.devtools.build.lib.rules.objc.ObjcCommon.CompilationAttributes;
 import com.google.devtools.build.lib.rules.objc.ObjcCommon.ResourceAttributes;
+import com.google.devtools.build.lib.rules.objc.ReleaseBundlingSupport.LinkedBinary;
 
 /**
  * Implementation for rules that link binaries.
@@ -41,17 +41,17 @@ abstract class BinaryLinkingTargetFactory implements RuleConfiguredTargetFactory
    * Indicates whether this binary generates an application bundle. If so, it causes the
    * {@code infoplist} attribute to be read and a bundle to be added to the files-to-build.
    */
-  enum HasApplicationSupport {
+  enum HasReleaseBundlingSupport {
     YES, NO;
   }
 
-  private final HasApplicationSupport hasApplicationSupport;
+  private final HasReleaseBundlingSupport hasReleaseBundlingSupport;
   private final ExtraLinkArgs extraLinkArgs;
   private final XcodeProductType productType;
 
-  protected BinaryLinkingTargetFactory(HasApplicationSupport hasApplicationSupport,
+  protected BinaryLinkingTargetFactory(HasReleaseBundlingSupport hasReleaseBundlingSupport,
       ExtraLinkArgs extraLinkArgs, XcodeProductType productType) {
-    this.hasApplicationSupport = hasApplicationSupport;
+    this.hasReleaseBundlingSupport = hasReleaseBundlingSupport;
     this.extraLinkArgs = extraLinkArgs;
     this.productType = productType;
   }
@@ -76,25 +76,25 @@ abstract class BinaryLinkingTargetFactory implements RuleConfiguredTargetFactory
         .add(ObjcRuleClasses.intermediateArtifacts(ruleContext).singleArchitectureBinary());
 
     new CompilationSupport(ruleContext)
-        .registerJ2ObjcCompileAndArchiveActions(optionsProvider, common.getObjcProvider())
+        .registerJ2ObjcCompileAndArchiveActions(optionsProvider, objcProvider)
         .registerCompileAndArchiveActions(common, optionsProvider)
         .addXcodeSettings(xcodeProviderBuilder, common, optionsProvider)
-        .registerLinkActions(common.getObjcProvider(), extraLinkArgs, new ExtraLinkInputs())
+        .registerLinkActions(objcProvider, extraLinkArgs, new ExtraLinkInputs())
         .validateAttributes();
 
     Optional<XcTestAppProvider> xcTestAppProvider;
-    switch (hasApplicationSupport) {
+    switch (hasReleaseBundlingSupport) {
       case YES:
         // TODO(bazel-team): Remove once all bundle users are migrated to ios_application.
-        ApplicationSupport applicationSupport = new ApplicationSupport(
-            ruleContext, common.getObjcProvider(), optionsProvider,
-            LinkedBinary.LOCAL_AND_DEPENDENCIES);
-        applicationSupport
+        ReleaseBundlingSupport releaseBundlingSupport = new ReleaseBundlingSupport(
+            ruleContext, objcProvider, optionsProvider,
+            LinkedBinary.LOCAL_AND_DEPENDENCIES, "Payload/%s.app");
+        releaseBundlingSupport
             .registerActions()
             .addXcodeSettings(xcodeProviderBuilder)
             .addFilesToBuild(filesToBuild)
             .validateAttributes();
-        xcTestAppProvider = Optional.of(applicationSupport.xcTestAppProvider());
+        xcTestAppProvider = Optional.of(releaseBundlingSupport.xcTestAppProvider());
         break;
       case NO:
         xcTestAppProvider = Optional.absent();
@@ -111,8 +111,10 @@ abstract class BinaryLinkingTargetFactory implements RuleConfiguredTargetFactory
     XcodeSupport xcodeSupport = new XcodeSupport(ruleContext)
         // TODO(bazel-team): Use LIBRARY_STATIC as parameter instead of APPLICATION once objc_binary
         // no longer creates an application bundle
-        .addXcodeSettings(xcodeProviderBuilder, common.getObjcProvider(), productType)
-        .addDependencies(xcodeProviderBuilder)
+        .addXcodeSettings(xcodeProviderBuilder, objcProvider, productType)
+        .addDependencies(xcodeProviderBuilder, "bundles")
+        .addDependencies(xcodeProviderBuilder, "deps")
+        .addDependencies(xcodeProviderBuilder, "non_propagated_deps")
         .addFilesToBuild(filesToBuild);
     XcodeProvider xcodeProvider = xcodeProviderBuilder.build();
     xcodeSupport.registerActions(xcodeProvider);
@@ -122,7 +124,7 @@ abstract class BinaryLinkingTargetFactory implements RuleConfiguredTargetFactory
     return common.configuredTarget(
         filesToBuild.build(),
         Optional.of(xcodeProvider),
-        Optional.<ObjcProvider>absent(),
+        Optional.of(objcProvider),
         xcTestAppProvider,
         Optional.<J2ObjcSrcsProvider>absent());
   }
@@ -132,7 +134,7 @@ abstract class BinaryLinkingTargetFactory implements RuleConfiguredTargetFactory
         .addCopts(ruleContext.getTokenizedStringListAttr("copts"))
         .addTransitive(Optional.fromNullable(
             ruleContext.getPrerequisite("options", Mode.TARGET, OptionsProvider.class)));
-    if (hasApplicationSupport == HasApplicationSupport.YES) {
+    if (hasReleaseBundlingSupport == HasReleaseBundlingSupport.YES) {
         provider
             .addInfoplists(ruleContext.getPrerequisiteArtifacts("infoplist", Mode.TARGET).list());
     }

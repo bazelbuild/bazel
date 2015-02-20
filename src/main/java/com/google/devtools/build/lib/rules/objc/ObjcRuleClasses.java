@@ -350,7 +350,7 @@ public class ObjcRuleClasses {
           <!-- #END_BLAZE_RULE.ATTRIBUTE -->*/
           .add(attr("bundles", LABEL_LIST)
               .direct_compile_time_input()
-              .allowedRuleClasses("objc_bundle", "objc_bundle_library")
+              .allowedRuleClasses("objc_bundle", "objc_bundle_library", "ios_extension")
               .allowedFileTypes())
           .add(attr("$momczip_deploy", LABEL).cfg(HOST)
               .value(env.getLabel("//tools/objc:momczip_deploy.jar")))

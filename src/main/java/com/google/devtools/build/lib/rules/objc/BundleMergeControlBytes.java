@@ -54,14 +54,13 @@ final class BundleMergeControlBytes extends ByteSource {
 
   @Override
   public InputStream openStream() {
-    return control("Payload/", "Payload/", rootBundling)
+    return control("", rootBundling)
         .toByteString()
         .newInput();
   }
 
-  private Control control(String mergeZipPrefix, String bundleDirPrefix, Bundling bundling) {
+  private Control control(String mergeZipPrefix, Bundling bundling) {
     ObjcProvider objcProvider = bundling.getObjcProvider();
-    String bundleDir = bundleDirPrefix + bundling.getBundleDir();
     mergeZipPrefix += bundling.getBundleDir() + "/";
 
     BundleMergeProtos.Control.Builder control = BundleMergeProtos.Control.newBuilder()
@@ -73,7 +72,7 @@ final class BundleMergeControlBytes extends ByteSource {
         .setMinimumOsVersion(objcConfiguration.getMinimumOs())
         .setSdkVersion(objcConfiguration.getIosSdkVersion())
         .setPlatform(objcConfiguration.getPlatform().name())
-        .setBundleRoot(bundleDir);
+        .setBundleRoot(bundling.getBundleDir());
 
     for (Artifact mergeZip : bundling.getMergeZips()) {
       control.addMergeZip(MergeZip.newBuilder()
@@ -113,7 +112,7 @@ final class BundleMergeControlBytes extends ByteSource {
     }
 
     for (Bundling nestedBundling : bundling.getObjcProvider().get(NESTED_BUNDLE)) {
-      control.addNestedBundle(control(mergeZipPrefix, "", nestedBundling));
+      control.addNestedBundle(control(mergeZipPrefix, nestedBundling));
     }
 
     return control.build();

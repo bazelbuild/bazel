@@ -21,7 +21,7 @@ import com.google.devtools.build.lib.rules.objc.ObjcActionsBuilder.ExtraLinkArgs
  */
 public class IosExtensionBinary extends BinaryLinkingTargetFactory {
   public IosExtensionBinary() {
-    super(HasApplicationSupport.NO,
+    super(HasReleaseBundlingSupport.NO,
         new ExtraLinkArgs("-e", "_NSExtensionMain", "-fapplication-extension"),
         XcodeProductType.LIBRARY_STATIC);
   }

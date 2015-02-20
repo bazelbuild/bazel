@@ -345,7 +345,8 @@ public final class XcodeProvider implements TransitiveInfoProvider {
   }
 
   private static final EnumSet<XcodeProductType> CAN_LINK_PRODUCT_TYPES = EnumSet.of(
-      XcodeProductType.APPLICATION, XcodeProductType.BUNDLE, XcodeProductType.UNIT_TEST);
+      XcodeProductType.APPLICATION, XcodeProductType.BUNDLE, XcodeProductType.UNIT_TEST,
+      XcodeProductType.EXTENSION);
 
   private TargetControl targetControl() {
     String buildFilePath = label.getPackageFragment().getSafePathString() + "/BUILD";

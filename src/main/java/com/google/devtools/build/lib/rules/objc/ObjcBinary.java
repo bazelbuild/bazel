@@ -24,7 +24,7 @@ public class ObjcBinary extends BinaryLinkingTargetFactory {
     super(
         // TODO(bazel-team): Remove the enum and delete all code depending on YES case once all
         // bundle users are migrated to ios_application.
-        HasApplicationSupport.YES,
+        HasReleaseBundlingSupport.YES,
         new ExtraLinkArgs(),
 
         // TODO(bazel-team): Use LIBRARY_STATIC as parameter instead of APPLICATION once objc_binary

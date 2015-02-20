@@ -96,7 +96,9 @@ public class ObjcLibrary implements RuleConfiguredTargetFactory {
     new XcodeSupport(ruleContext)
         .addFilesToBuild(filesToBuild)
         .addXcodeSettings(xcodeProviderBuilder, common.getObjcProvider(), LIBRARY_STATIC)
-        .addDependencies(xcodeProviderBuilder)
+        .addDependencies(xcodeProviderBuilder, "bundles")
+        .addDependencies(xcodeProviderBuilder, "deps")
+        .addDependencies(xcodeProviderBuilder, "non_propagated_deps")
         .registerActions(xcodeProviderBuilder.build());
 
     return common.configuredTarget(

@@ -24,8 +24,8 @@ import com.google.devtools.build.lib.analysis.RuleDefinitionEnvironment;
 import com.google.devtools.build.lib.packages.ImplicitOutputsFunction;
 import com.google.devtools.build.lib.packages.RuleClass;
 import com.google.devtools.build.lib.packages.RuleClass.Builder.RuleClassType;
-import com.google.devtools.build.lib.rules.objc.ApplicationSupport;
 import com.google.devtools.build.lib.rules.objc.ObjcRuleClasses;
+import com.google.devtools.build.lib.rules.objc.ReleaseBundlingSupport;
 import com.google.devtools.build.lib.rules.objc.XcodeSupport;
 
 /**
@@ -51,7 +51,7 @@ public final class BazelIosTestRule implements RuleDefinition {
         </ul>
         <!-- #END_BLAZE_RULE.IMPLICIT_OUTPUTS -->*/
         .setImplicitOutputsFunction(
-            ImplicitOutputsFunction.fromFunctions(ApplicationSupport.IPA, XcodeSupport.PBXPROJ))
+            ImplicitOutputsFunction.fromFunctions(ReleaseBundlingSupport.IPA, XcodeSupport.PBXPROJ))
         .add(attr(BazelIosTest.IOS_TEST_ON_BAZEL_ATTR, LABEL)
             .value(env.getLabel("//tools/objc:ios_test_on_bazel")).exec())
         .build();

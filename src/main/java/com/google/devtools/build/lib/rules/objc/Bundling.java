@@ -31,7 +31,7 @@ import com.google.devtools.build.lib.actions.Artifact;
 import com.google.devtools.build.lib.collect.nestedset.NestedSet;
 import com.google.devtools.build.lib.collect.nestedset.NestedSetBuilder;
 import com.google.devtools.build.lib.concurrent.ThreadSafety.Immutable;
-import com.google.devtools.build.xcode.util.Value;
+import com.google.devtools.build.lib.vfs.PathFragment;
 
 import java.util.Map;
 
@@ -39,10 +39,10 @@ import java.util.Map;
  * Contains information regarding the creation of an iOS bundle.
  */
 @Immutable
-final class Bundling extends Value<Bundling> {
+final class Bundling {
   static final class Builder {
     private String name;
-    private String bundleDirSuffix;
+    private String bundleDirFormat;
     private ImmutableList<BundleableFile> extraBundleFiles = ImmutableList.of();
     private ObjcProvider objcProvider;
     private InfoplistMerging infoplistMerging;
@@ -53,8 +53,8 @@ final class Bundling extends Value<Bundling> {
       return this;
     }
 
-    public Builder setBundleDirSuffix(String bundleDirSuffix) {
-      this.bundleDirSuffix = bundleDirSuffix;
+    public Builder setBundleDirFormat(String bundleDirFormat) {
+      this.bundleDirFormat = bundleDirFormat;
       return this;
     }
 
@@ -98,7 +98,7 @@ final class Bundling extends Value<Bundling> {
       if (!Iterables.isEmpty(objcProvider.get(LIBRARY))
           || !Iterables.isEmpty(objcProvider.get(IMPORTED_LIBRARY))) {
         combinedArchitectureBinary =
-            Optional.of(intermediateArtifacts.combinedArchitectureBinary(bundleDirSuffix));
+            Optional.of(intermediateArtifacts.combinedArchitectureBinary());
       }
 
       NestedSet<Artifact> mergeZips = NestedSetBuilder.<Artifact>stableOrder()
@@ -115,13 +115,13 @@ final class Bundling extends Value<Bundling> {
           .addAll(Xcdatamodel.outputZips(objcProvider.get(XCDATAMODEL)))
           .build();
 
-      return new Bundling(name, bundleDirSuffix, combinedArchitectureBinary, extraBundleFiles,
+      return new Bundling(name, bundleDirFormat, combinedArchitectureBinary, extraBundleFiles,
           objcProvider, infoplistMerging, actoolzipOutput, bundleContentArtifacts, mergeZips);
     }
   }
 
   private final String name;
-  private final String bundleDirSuffix;
+  private final String bundleDirFormat;
   private final Optional<Artifact> combinedArchitectureBinary;
   private final ImmutableList<BundleableFile> extraBundleFiles;
   private final ObjcProvider objcProvider;
@@ -132,7 +132,7 @@ final class Bundling extends Value<Bundling> {
 
   private Bundling(
       String name,
-      String bundleDirSuffix,
+      String bundleDirFormat,
       Optional<Artifact> combinedArchitectureBinary,
       ImmutableList<BundleableFile> extraBundleFiles,
       ObjcProvider objcProvider,
@@ -140,36 +140,24 @@ final class Bundling extends Value<Bundling> {
       Optional<Artifact> actoolzipOutput,
       NestedSet<Artifact> bundleContentArtifacts,
       NestedSet<Artifact> mergeZips) {
-    super(new ImmutableMap.Builder<String, Object>()
-        .put("name", name)
-        .put("bundleDirSuffix", bundleDirSuffix)
-        .put("combinedArchitectureBinary", combinedArchitectureBinary)
-        .put("extraBundleFiles", extraBundleFiles)
-        .put("objcProvider", objcProvider)
-        .put("infoplistMerging", infoplistMerging)
-        .put("actoolzipOutput", actoolzipOutput)
-        .put("bundleContentArtifacts", bundleContentArtifacts)
-        .put("mergeZips", mergeZips)
-        .build());
-    this.name = name;
-    this.bundleDirSuffix = bundleDirSuffix;
-    this.combinedArchitectureBinary = combinedArchitectureBinary;
-    this.extraBundleFiles = extraBundleFiles;
-    this.objcProvider = objcProvider;
-    this.infoplistMerging = infoplistMerging;
-    this.actoolzipOutput = actoolzipOutput;
-    this.bundleContentArtifacts = bundleContentArtifacts;
-    this.mergeZips = mergeZips;
+    this.name = Preconditions.checkNotNull(name);
+    this.bundleDirFormat = Preconditions.checkNotNull(bundleDirFormat);
+    this.combinedArchitectureBinary = Preconditions.checkNotNull(combinedArchitectureBinary);
+    this.extraBundleFiles = Preconditions.checkNotNull(extraBundleFiles);
+    this.objcProvider = Preconditions.checkNotNull(objcProvider);
+    this.infoplistMerging = Preconditions.checkNotNull(infoplistMerging);
+    this.actoolzipOutput = Preconditions.checkNotNull(actoolzipOutput);
+    this.bundleContentArtifacts = Preconditions.checkNotNull(bundleContentArtifacts);
+    this.mergeZips = Preconditions.checkNotNull(mergeZips);
   }
 
   /**
-   * The bundle directory. For apps, {@code "Payload/" + bundleDir} is the directory in the bundle
-   * zip archive in which every file is found including the linked binary, nested bundles, and
-   * everything returned by {@link #getExtraBundleFiles()}. In an application bundle, for instance,
-   * this function returns {@code "(name).app"}.
+   * The bundle directory. For apps, this would be {@code "Payload/TARGET_NAME.app"}, which is where
+   * in the bundle zip archive every file is found, including the linked binary, nested bundles, and
+   * everything returned by {@link #getExtraBundleFiles()}.
    */
   public String getBundleDir() {
-    return name + bundleDirSuffix;
+    return String.format(bundleDirFormat, name);
   }
 
   /**
@@ -241,7 +229,7 @@ final class Bundling extends Value<Bundling> {
   public Map<String, String> variableSubstitutions() {
     return ImmutableMap.of(
         "EXECUTABLE_NAME", name,
-        "BUNDLE_NAME", name + bundleDirSuffix,
+        "BUNDLE_NAME", new PathFragment(getBundleDir()).getBaseName(),
         "PRODUCT_NAME", name);
   }
 

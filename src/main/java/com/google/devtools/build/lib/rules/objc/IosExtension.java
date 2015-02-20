@@ -14,55 +14,47 @@
 
 package com.google.devtools.build.lib.rules.objc;
 
-import static com.google.devtools.build.lib.rules.objc.ObjcProvider.NESTED_BUNDLE;
-import static com.google.devtools.build.lib.rules.objc.XcodeProductType.BUNDLE;
+import static com.google.devtools.build.lib.rules.objc.ObjcProvider.MERGE_ZIP;
 
 import com.google.common.base.Optional;
-import com.google.common.collect.ImmutableSet;
 import com.google.devtools.build.lib.actions.Artifact;
 import com.google.devtools.build.lib.analysis.ConfiguredTarget;
 import com.google.devtools.build.lib.analysis.RuleConfiguredTarget.Mode;
 import com.google.devtools.build.lib.analysis.RuleContext;
 import com.google.devtools.build.lib.collect.nestedset.NestedSetBuilder;
 import com.google.devtools.build.lib.rules.RuleConfiguredTargetFactory;
-import com.google.devtools.build.lib.rules.objc.ObjcCommon.ResourceAttributes;
-import com.google.devtools.build.xcode.common.TargetDeviceFamily;
+import com.google.devtools.build.lib.rules.objc.ReleaseBundlingSupport.LinkedBinary;
 
 /**
- * Implementation for {@code objc_bundle_library}.
+ * Implementation for {@code ios_extension}.
  */
-public class ObjcBundleLibrary implements RuleConfiguredTargetFactory {
+public class IosExtension implements RuleConfiguredTargetFactory {
 
   @Override
   public ConfiguredTarget create(RuleContext ruleContext) throws InterruptedException {
     ObjcCommon common = common(ruleContext);
-    OptionsProvider optionsProvider = optionsProvider(ruleContext);
-
-    Bundling bundling = bundling(ruleContext, common, optionsProvider);
 
     XcodeProvider.Builder xcodeProviderBuilder = new XcodeProvider.Builder();
     NestedSetBuilder<Artifact> filesToBuild = NestedSetBuilder.stableOrder();
-    
-    // TODO(bazel-team): Figure out if the target device is important, and what to set it to. It may
-    // have to inherit this from the binary being built. As of this writing, this is only used for
-    // asset catalogs compilation (actool).
-    new BundleSupport(ruleContext, ImmutableSet.of(TargetDeviceFamily.IPHONE), bundling)
-        .registerActions(common.getObjcProvider())
-        .addXcodeSettings(xcodeProviderBuilder);
 
-    new ResourceSupport(ruleContext)
-        .validateAttributes()
-        .registerActions(common.getStoryboards())
-        .addXcodeSettings(xcodeProviderBuilder);
+    ReleaseBundlingSupport releaseBundlingSupport = new ReleaseBundlingSupport(
+        ruleContext, common.getObjcProvider(), optionsProvider(ruleContext),
+        LinkedBinary.DEPENDENCIES_ONLY, "PlugIns/%s.appex");
+    releaseBundlingSupport
+        .registerActions()
+        .addXcodeSettings(xcodeProviderBuilder)
+        .addFilesToBuild(filesToBuild)
+        .validateAttributes();
 
     new XcodeSupport(ruleContext)
         .addFilesToBuild(filesToBuild)
-        .addXcodeSettings(xcodeProviderBuilder, common.getObjcProvider(), BUNDLE)
-        .addDependencies(xcodeProviderBuilder, "bundles")
+        .addXcodeSettings(
+            xcodeProviderBuilder, common.getObjcProvider(), XcodeProductType.EXTENSION)
+        .addDependencies(xcodeProviderBuilder, "binary")
         .registerActions(xcodeProviderBuilder.build());
 
     ObjcProvider nestedBundleProvider = new ObjcProvider.Builder()
-        .add(NESTED_BUNDLE, bundling)
+        .add(MERGE_ZIP, ruleContext.getImplicitOutputArtifact(ReleaseBundlingSupport.IPA))
         .build();
 
     return common.configuredTarget(
@@ -79,26 +71,11 @@ public class ObjcBundleLibrary implements RuleConfiguredTargetFactory {
         .build();
   }
 
-  private Bundling bundling(
-      RuleContext ruleContext, ObjcCommon common, OptionsProvider optionsProvider) {
-    IntermediateArtifacts intermediateArtifacts =
-        ObjcRuleClasses.intermediateArtifacts(ruleContext);
-    return new Bundling.Builder()
-        .setName(ruleContext.getLabel().getName())
-        .setBundleDirFormat("%s.bundle")
-        .setObjcProvider(common.getObjcProvider())
-        .setInfoplistMerging(
-            BundleSupport.infoPlistMerging(ruleContext, common.getObjcProvider(), optionsProvider))
-        .setIntermediateArtifacts(intermediateArtifacts)
-        .build();
-  }
-
   private ObjcCommon common(RuleContext ruleContext) {
     return new ObjcCommon.Builder(ruleContext)
-        .setResourceAttributes(new ResourceAttributes(ruleContext))
-        .addDepObjcProviders(
-            ruleContext.getPrerequisites("bundles", Mode.TARGET, ObjcProvider.class))
         .setIntermediateArtifacts(ObjcRuleClasses.intermediateArtifacts(ruleContext))
+        .addDepObjcProviders(
+            ruleContext.getPrerequisites("binary", Mode.TARGET, ObjcProvider.class))
         .build();
   }
 }

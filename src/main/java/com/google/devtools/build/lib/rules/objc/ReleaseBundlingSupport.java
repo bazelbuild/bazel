@@ -49,15 +49,15 @@ import java.util.Set;
 import javax.annotation.Nullable;
 
 /**
- * Support for application-generating ObjC rules. An application is generally composed of a
- * top-level {@link BundleSupport bundle}, potentially signed, as well as some debug information, if
- * {@link ObjcConfiguration#generateDebugSymbols() requested}.
+ * Support for released bundles, such as an application or extension. Such a bundle is generally
+ * composed of a top-level {@link BundleSupport bundle}, potentially signed, as well as some debug
+ * information, if {@link ObjcConfiguration#generateDebugSymbols() requested}.
  *
  * <p>Contains actions, validation logic and provider value generation.
  *
  * <p>Methods on this class can be called in any order without impacting the result.
  */
-public final class ApplicationSupport {
+public final class ReleaseBundlingSupport {
 
   /**
    * Template for the containing application folder.
@@ -113,17 +113,19 @@ public final class ApplicationSupport {
    *    dependencies
    * @param linkedBinary whether to look for a linked binary from this rule and dependencies or just
    *    the latter
+   * @param bundleDirFormat format string representing the bundle's directory with a single
+   *     placeholder for the target name (e.g. {@code "Payload/%s.app"})
    */
-  ApplicationSupport(
+  ReleaseBundlingSupport(
       RuleContext ruleContext, ObjcProvider objcProvider, OptionsProvider optionsProvider,
-      LinkedBinary linkedBinary) {
+      LinkedBinary linkedBinary, String bundleDirFormat) {
     this.linkedBinary = linkedBinary;
     this.attributes = new Attributes(ruleContext);
     this.ruleContext = ruleContext;
     this.objcProvider = objcProvider;
     this.families = ImmutableSet.copyOf(attributes.families());
     this.intermediateArtifacts = ObjcRuleClasses.intermediateArtifacts(ruleContext);
-    bundling = bundling(ruleContext, objcProvider, optionsProvider);
+    bundling = bundling(ruleContext, objcProvider, optionsProvider, bundleDirFormat);
     bundleSupport = new BundleSupport(ruleContext, families, bundling, extraActoolArgs());
   }
 
@@ -133,7 +135,7 @@ public final class ApplicationSupport {
    *
    * @return this application support
    */
-  ApplicationSupport validateAttributes() {
+  ReleaseBundlingSupport validateAttributes() {
     bundleSupport.validateAttributes();
 
     // No asset catalogs. That means you cannot specify app_icon or
@@ -166,7 +168,7 @@ public final class ApplicationSupport {
    *
    * @return this application support
    */
-  ApplicationSupport registerActions() {
+  ReleaseBundlingSupport registerActions() {
     bundleSupport.registerActions(objcProvider);
 
     registerCombineArchitecturesAction();
@@ -218,7 +220,7 @@ public final class ApplicationSupport {
    *
    * @return this application support
    */
-  ApplicationSupport addXcodeSettings(XcodeProvider.Builder xcodeProviderBuilder) {
+  ReleaseBundlingSupport addXcodeSettings(XcodeProvider.Builder xcodeProviderBuilder) {
     bundleSupport.addXcodeSettings(xcodeProviderBuilder);
     xcodeProviderBuilder.addXcodeprojBuildSettings(buildSettings());
 
@@ -231,7 +233,7 @@ public final class ApplicationSupport {
    *
    * @return this application support
    */
-  ApplicationSupport addFilesToBuild(NestedSetBuilder<Artifact> filesToBuild) {
+  ReleaseBundlingSupport addFilesToBuild(NestedSetBuilder<Artifact> filesToBuild) {
     NestedSetBuilder<Artifact> debugSymbolBuilder = NestedSetBuilder.<Artifact>stableOrder()
         .addTransitive(objcProvider.get(ObjcProvider.DEBUG_SYMBOLS));
 
@@ -244,7 +246,7 @@ public final class ApplicationSupport {
           .add(intermediateArtifacts.breakpadSym());
     }
 
-    filesToBuild.add(ruleContext.getImplicitOutputArtifact(ApplicationSupport.IPA))
+    filesToBuild.add(ruleContext.getImplicitOutputArtifact(ReleaseBundlingSupport.IPA))
         // TODO(bazel-team): Fat binaries may require some merging of these file rather than just
         // making them available.
         .addTransitive(debugSymbolBuilder.build());
@@ -285,13 +287,14 @@ public final class ApplicationSupport {
     return new ExtraActoolArgs(extraArgs.build());
   }
 
-  private Bundling bundling(
-      RuleContext ruleContext, ObjcProvider objcProvider, OptionsProvider optionsProvider) {
+  private static Bundling bundling(
+      RuleContext ruleContext, ObjcProvider objcProvider, OptionsProvider optionsProvider,
+      String bundleDirFormat) {
     ImmutableList<BundleableFile> extraBundleFiles;
     ObjcConfiguration objcConfiguration = ObjcRuleClasses.objcConfiguration(ruleContext);
     if (objcConfiguration.getPlatform() == Platform.DEVICE) {
       extraBundleFiles = ImmutableList.of(new BundleableFile(
-          attributes.provisioningProfile(),
+          new Attributes(ruleContext).provisioningProfile(),
           PROVISIONING_PROFILE_BUNDLE_FILE));
     } else {
       extraBundleFiles = ImmutableList.of();
@@ -299,17 +302,17 @@ public final class ApplicationSupport {
 
     return new Bundling.Builder()
         .setName(ruleContext.getLabel().getName())
-        .setBundleDirSuffix(".app")
+        .setBundleDirFormat(bundleDirFormat)
         .setExtraBundleFiles(extraBundleFiles)
         .setObjcProvider(objcProvider)
         .setInfoplistMerging(
             BundleSupport.infoPlistMerging(ruleContext, objcProvider, optionsProvider))
-        .setIntermediateArtifacts(intermediateArtifacts)
+        .setIntermediateArtifacts(ObjcRuleClasses.intermediateArtifacts(ruleContext))
         .build();
   }
 
   private void registerCombineArchitecturesAction() {
-    Artifact resultingLinkedBinary = intermediateArtifacts.combinedArchitectureBinary(".app");
+    Artifact resultingLinkedBinary = intermediateArtifacts.combinedArchitectureBinary();
     NestedSet<Artifact> linkedBinaries = linkedBinaries();
 
     ruleContext.registerAction(ObjcActionsBuilder.spawnOnDarwinActionBuilder()
@@ -368,7 +371,7 @@ public final class ApplicationSupport {
     return buildSettings.build();
   }
 
-  private ApplicationSupport registerSignBundleAction(
+  private ReleaseBundlingSupport registerSignBundleAction(
       Artifact entitlements, Artifact ipaOutput, Artifact ipaUnsigned) {
     // TODO(bazel-team): Support variable substitution
     ruleContext.registerAction(ObjcActionsBuilder.spawnOnDarwinActionBuilder()
@@ -385,9 +388,9 @@ public final class ApplicationSupport {
             + codesignCommand(
                 attributes.provisioningProfile(),
                 entitlements,
-                String.format("${t}/Payload/%s.app", ruleContext.getLabel().getName())) + " && "
+                "${t}/" + bundling.getBundleDir())
             // Using zip since we need to preserve permissions
-            + "cd \"${t}\" && /usr/bin/zip -q -r \"${signed_ipa}\" .")
+            + " && cd \"${t}\" && /usr/bin/zip -q -r \"${signed_ipa}\" .")
         .addInput(ipaUnsigned)
         .addInput(attributes.provisioningProfile())
         .addInput(entitlements)
@@ -440,7 +443,7 @@ public final class ApplicationSupport {
         .build(ruleContext));
   }
 
-  private ApplicationSupport registerExtractEntitlementsAction(Artifact entitlements) {
+  private ReleaseBundlingSupport registerExtractEntitlementsAction(Artifact entitlements) {
     // See Apple Glossary (http://goo.gl/EkhXOb)
     // An Application Identifier is constructed as: TeamID.BundleID
     // TeamID is extracted from the provisioning profile.
