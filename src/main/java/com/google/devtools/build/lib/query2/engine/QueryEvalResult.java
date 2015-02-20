@@ -48,4 +48,10 @@ public class QueryEvalResult<T> {
   public Set<T> getResultSet() {
     return resultSet;
   }
+
+  @Override
+  public String toString() {
+    return (getSuccess() ? "Successful" : "Unsuccessful") + ", result size = "
+        + getResultSet().size() + ", " + getResultSet();
+  }
 }
