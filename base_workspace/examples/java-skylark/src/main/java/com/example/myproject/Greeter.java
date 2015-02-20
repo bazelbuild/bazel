@@ -1,11 +1,18 @@
-package test;
+package com.example.myproject;
 
 import java.io.FileInputStream;
 import java.io.FileNotFoundException;
 import java.io.InputStream;
+import java.io.PrintStream;
 import java.util.Scanner;
 
-class Greeter {
+/**
+ * Prints a greeting which can be customized by building with data and/or passing in command-
+ * line arguments.
+ */
+public class Greeter {
+  static PrintStream out = System.out;
+
   public static String getRunfiles() {
     String path = System.getenv("JAVA_RUNFILES");
     if (path == null) {
@@ -22,15 +29,15 @@ class Greeter {
   public void hello(String obj) throws Exception {
     String greeting = "Hello";
     try {
-      String greetFile = getRunfiles() + "/examples/java_oss/greeting.txt";
+      String greetFile = getRunfiles() + "/examples/java-skylark/src/main/resources/greeting.txt";
       greeting = convertStreamToString(new FileInputStream(greetFile));
     } catch (FileNotFoundException e) {
       // use default.
     }
-    System.out.println(greeting + " " + obj);
+    out.println(greeting + " " + obj);
   }
 
-  public static void main(String []args) throws Exception {
+  public static void main(String... args) throws Exception {
     Greeter g = new Greeter();
     String obj = args.length > 0 ? args[0] : "world";
     g.hello(obj);

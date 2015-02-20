@@ -1,4 +1,4 @@
-package test;
+package com.example.myproject;
 
 class Fail {
   public static void main(String []args) {

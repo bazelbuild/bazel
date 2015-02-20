@@ -86,7 +86,7 @@ java_test(
             "vfs/*.java",
             "vfs/inmemoryfs/*.java",
         ]],
-        # java_rules_oss doesn't support resource loading with
+        # java_rules_skylark doesn't support resource loading with
         # qualified paths.
         exclude = [
             test_prefix + f
