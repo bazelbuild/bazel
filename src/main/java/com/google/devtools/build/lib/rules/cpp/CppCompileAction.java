@@ -146,8 +146,6 @@ public class CppCompileAction extends AbstractAction implements IncludeScannable
   private final Collection<PathFragment> extraSystemIncludePrefixes;
   private final Iterable<IncludeScannable> lipoScannables;
   private final CppCompileCommandLine cppCompileCommandLine;
-  private final boolean enableLayeringCheck;
-  private final boolean compileHeaderModules;
   private final boolean usePic;
 
   @VisibleForTesting
@@ -194,7 +192,6 @@ public class CppCompileAction extends AbstractAction implements IncludeScannable
    * @param context the compilation context
    * @param copts options for the compiler
    * @param coptsFilter regular expression to remove options from {@code copts}
-   * @param compileHeaderModules whether to compile C++ header modules
    */
   protected CppCompileAction(ActionOwner owner,
       // TODO(bazel-team): Eventually we will remove 'features'; all functionality in 'features'
@@ -217,12 +214,10 @@ public class CppCompileAction extends AbstractAction implements IncludeScannable
       ImmutableList<String> pluginOpts,
       Predicate<String> coptsFilter,
       ImmutableList<PathFragment> extraSystemIncludePrefixes,
-      boolean enableLayeringCheck,
       @Nullable String fdoBuildStamp,
       IncludeResolver includeResolver,
       Iterable<IncludeScannable> lipoScannables,
       UUID actionClassId,
-      boolean compileHeaderModules,
       boolean usePic) {
     // getInputs() method is overridden in this class so we pass a dummy empty
     // list to the AbstractAction constructor in place of a real input collection.
@@ -237,7 +232,6 @@ public class CppCompileAction extends AbstractAction implements IncludeScannable
     this.optionalSourceFile = optionalSourceFile;
     this.context = context;
     this.extraSystemIncludePrefixes = extraSystemIncludePrefixes;
-    this.enableLayeringCheck = enableLayeringCheck;
     this.includeResolver = includeResolver;
     this.cppConfiguration = cppConfiguration;
     if (cppConfiguration != null && !cppConfiguration.shouldScanIncludes()) {
@@ -249,7 +243,6 @@ public class CppCompileAction extends AbstractAction implements IncludeScannable
     this.actionContext = actionContext;
     this.lipoScannables = lipoScannables;
     this.actionClassId = actionClassId;
-    this.compileHeaderModules = compileHeaderModules;
     this.usePic = usePic;
 
     // We do not need to include the middleman artifact since it is a generated
@@ -1135,12 +1128,9 @@ public class CppCompileAction extends AbstractAction implements IncludeScannable
         return CPP_MODULE_COMPILE;
       } else if (CppFileTypes.CPP_HEADER.matches(sourcePath)) {
         // TODO(bazel-team): Handle C headers that probably don't work in C++ mode.
-        // TODO(bazel-team): Replace use of features.contains with featureConfiguration.isEnabled
-        // here (the other instances will need to stay with the current feature selection process
-        // until all crosstool configurations have been converted).
-        if (features.contains(CppRuleClasses.PARSE_HEADERS)) {
+        if (featureConfiguration.isEnabled(CppRuleClasses.PARSE_HEADERS)) {
           return CPP_HEADER_PARSING;
-        } else if (features.contains(CppRuleClasses.PREPROCESS_HEADERS)) {
+        } else if (featureConfiguration.isEnabled(CppRuleClasses.PREPROCESS_HEADERS)) {
           return CPP_HEADER_PREPROCESSING;
         } else {
           // CcCommon.collectCAndCppSources() ensures we do not add headers to
@@ -1161,39 +1151,6 @@ public class CppCompileAction extends AbstractAction implements IncludeScannable
 
     public List<String> getCompilerOptions() {
       List<String> options = new ArrayList<>();
-
-      // TODO(bazel-team): Extract combinations of options into sections in the CROSSTOOL file.
-      if (CppFileTypes.CPP_MODULE_MAP.matches(sourceFile.getExecPath())) {
-        if (!featureConfiguration.isEnabled(CppRuleClasses.HEADER_MODULES)) {
-          options.add("-x");
-          options.add("c++");
-          options.add("-Xclang=-emit-module");
-          options.add("-Xcrosstool-module-compilation");
-        }
-      } else if (CppFileTypes.CPP_HEADER.matches(sourceFile.getExecPath())) {
-        // TODO(bazel-team): Read the compiler flag settings out of the CROSSTOOL file.
-        // TODO(bazel-team): Handle C headers that probably don't work in C++ mode.
-        if (features.contains(CppRuleClasses.PARSE_HEADERS)) {
-          if (!featureConfiguration.isEnabled(CppRuleClasses.PARSE_HEADERS)) {
-            options.add("-x");
-            options.add("c++-header");
-            // Specifying -x c++-header will make clang/gcc create precompiled
-            // headers, which we suppress with -fsyntax-only.
-            options.add("-fsyntax-only");
-          }
-        } else if (features.contains(CppRuleClasses.PREPROCESS_HEADERS)) {
-          if (!featureConfiguration.isEnabled(CppRuleClasses.PREPROCESS_HEADERS)) {
-            options.add("-E");
-            options.add("-x");
-            options.add("c++");
-          }
-        } else {
-          // CcCommon.collectCAndCppSources() ensures we do not add headers to
-          // the compilation artifacts unless either 'parse_headers' or
-          // 'preprocess_headers' is set.
-          throw new IllegalStateException();
-        }
-      }
 
       for (PathFragment quoteIncludePath : context.getQuoteIncludeDirs()) {
         // "-iquote" is a gcc-specific option.  For C compilers that don't support "-iquote",
@@ -1278,30 +1235,6 @@ public class CppCompileAction extends AbstractAction implements IncludeScannable
         options.add("-MD");
         options.add("-MF");
         options.add(dotdFile.getSafeExecPath().getPathString());
-      }
-
-      if (cppModuleMap != null && (compileHeaderModules || enableLayeringCheck)) {
-        if (!featureConfiguration.isEnabled(CppRuleClasses.MODULE_MAPS)) {
-          // TODO(bazel-team): Remove this path once all toolchains that support module map have
-          // their configuration updated; in that case, we do not need to add the flags here, as
-          // they will be added through the corresponding crosstool feature configuration.
-          options.add("-Xclang-only=-fmodule-maps");
-          options.add("-Xclang-only=-fmodule-name=" + cppModuleMap.getName());
-          options.add("-Xclang-only=-fmodule-map-file="
-              + cppModuleMap.getArtifact().getExecPathString());
-          options.add("-Xclang=-fno-modules-implicit-maps");
-        }
-              
-        if (compileHeaderModules
-            && !featureConfiguration.isEnabled(CppRuleClasses.HEADER_MODULES)) {
-          options.add("-Xclang-only=-fmodules");        
-          for (String headerModulePath : getHeaderModulePaths()) {
-            options.add("-Xclang=-fmodule-file=" + headerModulePath);            
-          }
-        }
-        if (enableLayeringCheck && !featureConfiguration.isEnabled(CppRuleClasses.LAYERING_CHECK)) {
-          options.add("-Xclang-only=-fmodules-strict-decluse");          
-        }
       }
 
       if (FileType.contains(outputFile, CppFileTypes.ASSEMBLER, CppFileTypes.PIC_ASSEMBLER)) {

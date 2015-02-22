@@ -398,12 +398,6 @@ public class CppHelper {
   // Creates CppModuleMap object, and adds it to C++ compilation context.
   public static CppModuleMap addCppModuleMapToContext(RuleContext ruleContext,
       CppCompilationContext.Builder contextBuilder) {
-    if (!ruleContext.getFragment(CppConfiguration.class).createCppModuleMaps()) {
-      return null;
-    }
-    if (getToolchain(ruleContext).getCppCompilationContext().getCppModuleMap() == null) {
-      return null;
-    }
     // Create the module map artifact as a genfile.
     PathFragment mapPath = FileSystemUtils.appendExtension(ruleContext.getLabel().toPathFragment(),
         Iterables.getOnlyElement(CppFileTypes.CPP_MODULE_MAP.getExtensions()));

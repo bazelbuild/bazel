@@ -179,7 +179,6 @@ public abstract class CcBinary implements RuleConfiguredTargetFactory {
         .addPicIndependentObjectFiles(common.getLinkerScripts())
         .addDeps(ruleContext.getPrerequisites("deps", Mode.TARGET))
         .addDeps(ImmutableList.of(CppHelper.mallocForTarget(ruleContext)))
-        .setEnableLayeringCheck(ruleContext.getFeatures().contains(CppRuleClasses.LAYERING_CHECK))
         .addSystemIncludeDirs(common.getSystemIncludeDirs())
         .addIncludeDirs(common.getIncludeDirs())
         .addLooseIncludeDirs(common.getLooseIncludeDirs())

@@ -354,13 +354,6 @@ public class CppOptions extends FragmentOptions {
           converter = LabelConverter.class)
   public Label customMalloc;
 
-  @Option(name = "cpp_module_maps",
-          defaultValue = "true",
-          category = "flags",
-          help = "If true then C++ targets create a module map based on BUILD files, and "
-            + "pass them to the compiler.")
-  public boolean cppModuleMaps;
-
   @Option(name = "legacy_whole_archive",
           defaultValue = "true",
           category = "semantics",
@@ -569,7 +562,6 @@ public class CppOptions extends FragmentOptions {
     host.lipoMode = LipoMode.OFF;
     host.scanIncludes = scanIncludes;
     host.inmemoryDotdFiles = inmemoryDotdFiles;
-    host.cppModuleMaps = cppModuleMaps;
 
     return host;
   }

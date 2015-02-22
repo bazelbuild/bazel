@@ -171,11 +171,6 @@ public final class CcLibraryHelper {
   private final List<LibraryToLink> picStaticLibraries = new ArrayList<>();
   private final List<LibraryToLink> dynamicLibraries = new ArrayList<>();
 
-  // TODO(bazel-team): Remove flags that affect toolchain features after migrating their uses to
-  // requestedFeatures / unsupportedFeatures. 
-  private boolean emitCppModuleMaps = true;
-  private boolean enableLayeringCheck;
-  private boolean compileHeaderModules;
   private boolean emitCompileActionsIfEmpty = true;
   private boolean emitCcNativeLibrariesProvider;
   private boolean emitCcSpecificLinkParamsProvider;
@@ -503,40 +498,6 @@ public final class CcLibraryHelper {
   }
 
   /**
-   * This disables C++ module map generation for the current rule. Don't call this unless you know
-   * what you are doing.
-   * 
-   * <p>TODO(bazel-team): Replace with {@code addUnsupportedFeature()}.
-   */
-  public CcLibraryHelper disableCppModuleMapGeneration() {
-    this.emitCppModuleMaps = false;
-    return this;
-  }
-
-  /**
-   * This enables or disables use of module maps during compilation, i.e., layering checks.
-   * 
-   * <p>TODO(bazel-team): Replace with {@code addRequestedFeature()}.
-   */
-  public CcLibraryHelper setEnableLayeringCheck(boolean enableLayeringCheck) {
-    this.enableLayeringCheck = enableLayeringCheck;
-    return this;
-  }
-
-  /**
-   * This enabled or disables compilation of C++ header modules.
-   * TODO(bazel-team): Add a cc_toolchain flag that allows fully disabling this feature and document
-   * this feature.
-   * See http://clang.llvm.org/docs/Modules.html.
-   * 
-   * <p>TODO(bazel-team): Replace with {@code addRequestedFeature()}.
-   */
-  public CcLibraryHelper setCompileHeaderModules(boolean compileHeaderModules) {
-    this.compileHeaderModules = compileHeaderModules;
-    return this;
-  }
-  
-  /**
    * Enables or disables generation of compile actions if there are no sources. Some rules declare a
    * .a or .so implicit output, which requires that these files are created even if there are no
    * source files, so be careful when calling this.
@@ -627,8 +588,6 @@ public final class CcLibraryHelper {
         // Note: this doesn't actually save the temps, it just makes the CppModel use the
         // configurations --save_temps setting to decide whether to actually save the temps.
         .setSaveTemps(true)
-        .setEnableLayeringCheck(enableLayeringCheck)
-        .setCompileHeaderModules(compileHeaderModules)
         .setNoCopts(nocopts)
         .setDynamicLibraryPath(dynamicLibraryPath)
         .addLinkopts(linkopts)
@@ -636,6 +595,7 @@ public final class CcLibraryHelper {
     CppCompilationContext cppCompilationContext =
         initializeCppCompilationContext(model, featureConfiguration);
     model.setContext(cppCompilationContext);
+    boolean compileHeaderModules = featureConfiguration.isEnabled(CppRuleClasses.HEADER_MODULES);
     if (emitCompileActionsIfEmpty || !sources.isEmpty() || compileHeaderModules) {
       Preconditions.checkState(
           !compileHeaderModules || cppCompilationContext.getCppModuleMap() != null,
@@ -766,7 +726,7 @@ public final class CcLibraryHelper {
       }
     }
 
-    if (emitCppModuleMaps) {
+    if (featureConfiguration.isEnabled(CppRuleClasses.MODULE_MAPS)) {
       CppModuleMap cppModuleMap = CppHelper.addCppModuleMapToContext(ruleContext, contextBuilder);
       // TODO(bazel-team): addCppModuleMapToContext second-guesses whether module maps should
       // actually be enabled, so we need to double-check here. Who would write code like this?
@@ -777,7 +737,7 @@ public final class CcLibraryHelper {
             publicHeaders,
             collectModuleMaps(),
             additionalExportedHeaders,
-            compileHeaderModules,
+            featureConfiguration.isEnabled(CppRuleClasses.HEADER_MODULES),
             featureConfiguration.isEnabled(CppRuleClasses.MODULE_MAP_HOME_CWD));
         ruleContext.registerAction(action);
       }

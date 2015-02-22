@@ -70,8 +70,6 @@ public class CppCompileActionBuilder {
   private final List<Pattern> nocopts = new ArrayList<>();
   private AnalysisEnvironment analysisEnvironment;
   private ImmutableList<PathFragment> extraSystemIncludePrefixes = ImmutableList.of();
-  private boolean enableLayeringCheck;
-  private boolean compileHeaderModules;
   private String fdoBuildStamp;
   private boolean usePic; 
   private IncludeResolver includeResolver = CppCompileAction.VOID_INCLUDE_RESOLVER;
@@ -154,8 +152,6 @@ public class CppCompileActionBuilder {
     this.nocopts.addAll(other.nocopts);
     this.analysisEnvironment = other.analysisEnvironment;
     this.extraSystemIncludePrefixes = ImmutableList.copyOf(other.extraSystemIncludePrefixes);
-    this.enableLayeringCheck = other.enableLayeringCheck;
-    this.compileHeaderModules = other.compileHeaderModules;
     this.includeResolver = other.includeResolver;
     this.actionClassId = other.actionClassId;
     this.actionContext = other.actionContext;
@@ -261,7 +257,7 @@ public class CppCompileActionBuilder {
           sourceFile, sourceLabel, realMandatoryInputsBuilder.build(), outputFile, tempOutputFile,
           dotdFile, configuration, cppConfiguration, context, ImmutableList.copyOf(copts),
           ImmutableList.copyOf(pluginOpts), getNocoptPredicate(nocopts),
-          extraSystemIncludePrefixes, enableLayeringCheck, fdoBuildStamp);
+          extraSystemIncludePrefixes, fdoBuildStamp);
     } else {
       NestedSet<Artifact> realMandatoryInputs = realMandatoryInputsBuilder.build();
 
@@ -272,9 +268,9 @@ public class CppCompileActionBuilder {
           actionContext, ImmutableList.copyOf(copts),
           ImmutableList.copyOf(pluginOpts),
           getNocoptPredicate(nocopts),
-          extraSystemIncludePrefixes, enableLayeringCheck, fdoBuildStamp,
+          extraSystemIncludePrefixes, fdoBuildStamp,
           includeResolver, getLipoScannables(realMandatoryInputs), actionClassId,
-          compileHeaderModules, usePic);
+          usePic);
     }
   }
   
@@ -423,19 +419,6 @@ public class CppCompileActionBuilder {
     return this;
   }
 
-  public CppCompileActionBuilder setEnableLayeringCheck(boolean enableLayeringCheck) {
-    this.enableLayeringCheck = enableLayeringCheck;
-    return this;
-  }
-
-  /**
-   * Sets whether the CompileAction should use header modules for its compilation.
-   */
-  public CppCompileActionBuilder setCompileHeaderModules(boolean compileHeaderModules) {
-    this.compileHeaderModules = compileHeaderModules;
-    return this;
-  }
-  
   public CppCompileActionBuilder setFdoBuildStamp(String fdoBuildStamp) {
     this.fdoBuildStamp = fdoBuildStamp;
     return this;

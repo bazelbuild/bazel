@@ -21,6 +21,7 @@ import com.google.common.collect.ArrayListMultimap;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.ImmutableMap.Builder;
+import com.google.common.collect.ImmutableSet;
 import com.google.common.collect.Iterables;
 import com.google.common.collect.ListMultimap;
 import com.google.common.collect.Maps;
@@ -48,10 +49,13 @@ import com.google.devtools.build.lib.vfs.FileSystemUtils;
 import com.google.devtools.build.lib.vfs.Path;
 import com.google.devtools.build.lib.vfs.PathFragment;
 import com.google.devtools.build.lib.view.config.crosstool.CrosstoolConfig;
+import com.google.devtools.build.lib.view.config.crosstool.CrosstoolConfig.CToolchain;
 import com.google.devtools.build.lib.view.config.crosstool.CrosstoolConfig.LinkingModeFlags;
 import com.google.devtools.build.lib.view.config.crosstool.CrosstoolConfig.LipoMode;
 import com.google.devtools.build.skyframe.SkyFunction.Environment;
 import com.google.devtools.common.options.OptionsParsingException;
+import com.google.protobuf.TextFormat;
+import com.google.protobuf.TextFormat.ParseException;
 
 import java.io.IOException;
 import java.io.Serializable;
@@ -62,6 +66,7 @@ import java.util.EnumSet;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
+import java.util.Set;
 import java.util.zip.ZipException;
 
 /**
@@ -398,6 +403,7 @@ public class CppConfiguration extends BuildConfiguration.Fragment {
     this.cacheKey = this + ":" + crosstoolTop + ":" + params.cacheKeySuffix + ":"
         + lipoContextCollector;
 
+    toolchain = addLegacyFeatures(toolchain);
     this.toolchainFeatures = new CcToolchainFeatures(toolchain);
     this.supportsGoldLinker = toolchain.getSupportsGoldLinker();
     this.supportsThinArchives = toolchain.getSupportsThinArchives();
@@ -655,6 +661,141 @@ public class CppConfiguration extends BuildConfiguration.Fragment {
     }
 
     return result;
+  }
+  
+  private CToolchain addLegacyFeatures(CToolchain toolchain) {
+    CToolchain.Builder toolchainBuilder = CToolchain.newBuilder();
+    ImmutableSet.Builder<String> featuresBuilder = ImmutableSet.builder();
+    for (CToolchain.Feature feature : toolchain.getFeatureList()) {
+      featuresBuilder.add(feature.getName());
+    }
+    Set<String> features = featuresBuilder.build();
+    if (features.contains(CppRuleClasses.NO_LEGACY_FEATURES)) {
+      // The toolchain requested to not get any legacy features enabled.
+      return toolchain;
+    }
+    try {
+      if (!features.contains("use_header_modules")) {
+        TextFormat.merge(""
+            + "feature {"
+            + "  name: 'use_header_modules'"
+            + "  implies: 'use_module_maps'"
+            + "  requires { feature: 'layering_check' }"
+            + "  requires { feature: 'header_modules' }"
+            + "  flag_set {"
+            + "    action: 'c-compile'"
+            + "    action: 'c++-compile'"
+            + "    action: 'c++-header-parsing'"
+            + "    action: 'c++-header-preprocessing'"
+            + "    action: 'c++-module-compile'"
+            + "    flag_group {"
+            + "      flag: '-Xclang-only=-fmodules'"
+            + "      flag: '-Xclang-only=-fmodules-decluse'"
+            + "    }"
+            + "    flag_group {"
+            + "      flag: '-Xclang=-fmodule-file=%{module_files}'"
+            + "    }"
+            + "  }"
+            + "}",
+            toolchainBuilder);
+      }
+      if (!features.contains("module_maps")) {
+        TextFormat.merge(""
+            + "feature { name: 'module_maps' }",
+            toolchainBuilder);
+      }
+      if (!features.contains("use_module_maps")) {
+        TextFormat.merge(""
+            + "feature {"
+            + "  name: 'use_module_maps'"
+            + "  implies: 'module_maps'"
+            + "  flag_set {"
+            + "    action: 'c-compile'"
+            + "    action: 'c++-compile'"
+            + "    action: 'c++-header-parsing'"
+            + "    action: 'c++-header-preprocessing'"
+            + "    action: 'c++-module-compile'"
+            + "    flag_group {"
+            + "      flag: '-Xclang-only=-fmodule-maps'"
+            + "      flag: '-Xclang-only=-fmodule-name=%{module_name}'"
+            + "      flag: '-Xclang-only=-fmodule-map-file=%{module_map_file}'"
+            + "      flag: '-Xclang=-fno-modules-implicit-maps'"
+            + "    }"
+            + "  }"
+            + "}",
+            toolchainBuilder);
+      }
+      if (!features.contains("header_modules")) {
+        TextFormat.merge(""
+            + "feature {"
+            + "  name: 'header_modules'"
+            + "  implies: 'use_header_modules'"
+            + "  flag_set {"
+            + "    action: 'c++-module-compile'"
+            + "    flag_group {"
+            + "      flag: '-x'"
+            + "      flag: 'c++'"
+            + "      flag: '-Xclang=-emit-module'"
+            + "      flag: '-Xcrosstool-module-compilation'"
+            + "    }"
+            + "  }"
+            + "}",
+            toolchainBuilder);
+      }
+      if (!features.contains("layering_check")) {
+        TextFormat.merge(""
+            + "feature {"
+            + "  name: 'layering_check'"
+            + "  implies: 'use_module_maps'"
+            + "  flag_set {"
+            + "    action: 'c-compile'"
+            + "    action: 'c++-compile'"
+            + "    action: 'c++-header-parsing'"
+            + "    action: 'c++-header-preprocessing'"
+            + "    action: 'c++-module-compile'"
+            + "    flag_group {"
+            + "      flag: '-Xclang-only=-fmodules-strict-decluse'"
+            + "    }"
+            + "  }"
+            + "}",
+            toolchainBuilder);
+      }
+      if (!features.contains("parse_headers")) {
+        TextFormat.merge(""
+            + "feature {"
+            + "  name: 'parse_headers'"
+            + "  flag_set {"
+            + "    action: 'c++-header-parsing'"
+            + "    flag_group {"
+            + "      flag: '-x'"
+            + "      flag: 'c++-header'"
+            + "      flag: '-fsyntax-only'"
+            + "    }"
+            + "  }"
+            + "}",
+            toolchainBuilder);
+      }
+      if (!features.contains("preprocess_headers")) {
+        TextFormat.merge(""
+            + "feature {"
+            + "  name: 'preprocess_headers'"
+            + "  flag_set {"
+            + "    action: 'c++-header-preprocessing'"
+            + "    flag_group {"
+            + "      flag: '-x'"
+            + "      flag: 'c++'"
+            + "      flag: '-E'"
+            + "    }"
+            + "  }"
+            + "}",
+            toolchainBuilder);
+      }
+    } catch (ParseException e) {
+      // Can only happen if we change the proto definition without changing our configuration above.
+      throw new RuntimeException(e);
+    }
+    toolchainBuilder.mergeFrom(toolchain);
+    return toolchainBuilder.build();
   }
 
   private static ImmutableList<String> copyOrDefaultIfEmpty(List<String> list,
@@ -1298,10 +1439,6 @@ public class CppConfiguration extends BuildConfiguration.Fragment {
    */
   public boolean needsIncludeScanning() {
     return cppOptions.extractInclusions;
-  }
-
-  public boolean createCppModuleMaps() {
-    return cppOptions.cppModuleMaps;
   }
 
   /**

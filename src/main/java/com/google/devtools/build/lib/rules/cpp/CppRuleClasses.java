@@ -122,4 +122,12 @@ public class CppRuleClasses {
    */
   public static final String HEADER_MODULE_INCLUDES_DEPENDENCIES =
       "header_module_includes_dependencies";
+  
+  /**
+   * A string constant for the no_legacy_features feature.
+   * 
+   * </p>If this feature is enabled, Bazel will not extend the crosstool configuration with the
+   * default legacy feature set. 
+   */
+  public static final String NO_LEGACY_FEATURES = "no_legacy_features";
 }
