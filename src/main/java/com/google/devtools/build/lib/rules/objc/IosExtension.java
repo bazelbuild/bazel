@@ -50,6 +50,7 @@ public class IosExtension implements RuleConfiguredTargetFactory {
         .addFilesToBuild(filesToBuild)
         .addXcodeSettings(
             xcodeProviderBuilder, common.getObjcProvider(), XcodeProductType.EXTENSION)
+        .addDummySource(xcodeProviderBuilder)
         .addDependencies(xcodeProviderBuilder, "binary")
         .registerActions(xcodeProviderBuilder.build());
 

@@ -385,6 +385,8 @@ public class ObjcRuleClasses {
       return builder
           .add(attr("$xcodegen", LABEL).cfg(HOST).exec()
               .value(env.getLabel("//tools/objc:xcodegen")))
+          .add(attr("$dummy_source", LABEL)
+              .value(env.getLabel("//tools/objc:dummy.c")))
           .build();
     }
   }

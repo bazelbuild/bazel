@@ -55,6 +55,18 @@ public final class XcodeSupport {
   }
 
   /**
+   * Adds a dummy source file to the Xcode target. This is needed if the target does not have any
+   * source files but Xcode requires one.
+   *
+   * @return this xcode support
+   */
+  XcodeSupport addDummySource(XcodeProvider.Builder xcodeProviderBuilder) {
+    xcodeProviderBuilder.addAdditionalSources(
+        ruleContext.getPrerequisiteArtifact("$dummy_source", Mode.TARGET));
+    return this;
+  }
+
+  /**
    * Registers actions that generate the rule's Xcode project.
    *
    * @param xcodeProvider information about this rule's xcode settings and that of its dependencies

@@ -45,6 +45,7 @@ import com.google.devtools.build.xcode.xcodegen.proto.XcodeGenProtos.DependencyC
 import com.google.devtools.build.xcode.xcodegen.proto.XcodeGenProtos.TargetControl;
 import com.google.devtools.build.xcode.xcodegen.proto.XcodeGenProtos.XcodeprojBuildSetting;
 
+import java.util.Arrays;
 import java.util.EnumSet;
 import java.util.LinkedHashSet;
 import java.util.Set;
@@ -76,6 +77,7 @@ public final class XcodeProvider implements TransitiveInfoProvider {
     private ObjcProvider objcProvider;
     private Optional<XcodeProvider> testHost = Optional.absent();
     private final NestedSetBuilder<Artifact> inputsToXcodegen = NestedSetBuilder.stableOrder();
+    private final NestedSetBuilder<Artifact> additionalSources = NestedSetBuilder.stableOrder();
 
     /**
      * Sets the label of the build target which corresponds to this Xcode target.
@@ -187,6 +189,14 @@ public final class XcodeProvider implements TransitiveInfoProvider {
     }
 
     /**
+     * Any additional sources not included in {@link #setCompilationArtifacts}.
+     */
+    public Builder addAdditionalSources(Artifact... artifacts) {
+      this.additionalSources.addAll(Arrays.asList(artifacts));
+      return this;
+    }
+
+    /**
      * Sets the {@link ObjcProvider} corresponding to this target.
      */
     public Builder setObjcProvider(ObjcProvider objcProvider) {
@@ -291,6 +301,7 @@ public final class XcodeProvider implements TransitiveInfoProvider {
   private final ObjcProvider objcProvider;
   private final Optional<XcodeProvider> testHost;
   private final NestedSet<Artifact> inputsToXcodegen;
+  private final NestedSet<Artifact> additionalSources;
 
   private XcodeProvider(Builder builder) {
     this.label = Preconditions.checkNotNull(builder.label);
@@ -307,6 +318,7 @@ public final class XcodeProvider implements TransitiveInfoProvider {
     this.objcProvider = Preconditions.checkNotNull(builder.objcProvider);
     this.testHost = Preconditions.checkNotNull(builder.testHost);
     this.inputsToXcodegen = builder.inputsToXcodegen.build();
+    this.additionalSources = builder.additionalSources.build();
   }
 
   /**
@@ -420,6 +432,10 @@ public final class XcodeProvider implements TransitiveInfoProvider {
             .setPchPath(pchFile.getExecPathString())
             .addSupportFile(pchFile.getExecPathString());
       }
+    }
+
+    for (Artifact artifact : additionalSources) {
+      targetControl.addSourceFile(artifact.getExecPathString());
     }
 
     if (objcProvider.is(Flag.USES_CPP)) {
