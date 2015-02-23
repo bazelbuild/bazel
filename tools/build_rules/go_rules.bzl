@@ -16,9 +16,6 @@
 
 Several issues:
 
-- For "a/b/c.go", the go tool creates library "a/b.a" with import path
-"a/b".  We can probably simulate this with symlink trees.
-
 - Dependencies are not enforced; a symlink tree might help here too.
 
 - Hardcoded to 6g from the GC suite. We should be able to support GCC
@@ -27,11 +24,12 @@ Several issues:
 - It would be nice to be able to create a full-fledged Go
   configuration in Skylark.
 
-- It would be nice to support zero-configuration
-go_library()/go_binary()/go_test() rules:
+- It would be nice to support zero-configuration rules, similar to
+  vanilla "go", with one package per directory.  This would requiere
+  macro support though, to use glob()
 
-  * name defaults to basename of directory
-  * srcs defaults to *.go
+  * For "a/b/c.go", the go tool creates library "a/b.a" with import path
+    "a/b".  We can probably simulate this with symlink trees.
 
 - does not support checked in compilers.
 
@@ -40,6 +38,7 @@ go_library()/go_binary()/go_test() rules:
 - deps must be populated by hand.
 
 - go_test must have both test and non-test files in srcs.
+
 """
 
 go_filetype = FileType([".go"])

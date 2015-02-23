@@ -1,5 +1,4 @@
-# Go rules expect a symlink to the Go installation, e.g.
-#   ln -s $(go env GOROOT) tools/go/go_root
+# See README.md for instructions on how to use these rules.
 
 package(default_visibility = ["//visibility:public"])
 
