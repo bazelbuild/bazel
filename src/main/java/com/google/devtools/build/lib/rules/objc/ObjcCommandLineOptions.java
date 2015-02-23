@@ -57,6 +57,8 @@ public class
       defaultValue = DEFAULT_OPTIONS_NAME,
       category = "undocumented",
       help = "Specifies the name of the build settings to use.")
+  // TODO(danielwh): Do literally anything with this flag. Ideally, pass it to xcodegen via a
+  // control proto.
   public String xcodeOptions;
 
   @Option(name = "objc_generate_debug_symbols",

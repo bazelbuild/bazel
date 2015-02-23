@@ -21,5 +21,5 @@ package com.google.devtools.build.xcode.common;
 public class BuildOptionsUtil {
   private BuildOptionsUtil() {}
 
-  public static final String DEFAULT_OPTIONS_NAME = "Bazel";
+  public static final String DEFAULT_OPTIONS_NAME = "Debug";
 }
