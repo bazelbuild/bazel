@@ -452,11 +452,6 @@ public class ObjcRuleClasses {
     private static final Iterable<String> ALLOWED_DEPS_RULE_CLASSES = ImmutableSet.of(
         "objc_library",
         "objc_import",
-        
-        // TODO(bazel-team): Remove bundles from this list as they're now in the "bundles" attribute
-        "objc_bundle",
-        "objc_bundle_library",
-        
         "objc_framework",
         "objc_proto_library",
         "j2objc_library");
