@@ -13,12 +13,15 @@
 // limitations under the License.
 package com.google.devtools.build.lib.syntax;
 
+import com.google.common.base.Joiner;
 import com.google.common.base.Preconditions;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 import com.google.devtools.build.lib.events.Location;
 import com.google.devtools.build.lib.packages.Type.ConversionException;
 
+import java.util.ArrayList;
+import java.util.Collections;
 import java.util.List;
 import java.util.Map;
 
@@ -109,6 +112,14 @@ public abstract class MixedModeFunction extends AbstractFunction {
     this(name, FunctionSignature.WithValues.<Object, SkylarkType>create(signature), null);
   }
 
+  // TODO(bazel-team): find a home for this function, maybe a better implementation.
+  private static <E> ArrayList<E> listDifference (List<E> plus, List<E> minus) {
+    final ArrayList<E> list = new ArrayList<>();
+    list.addAll(plus);
+    list.removeAll(minus);
+    return list;
+  }
+
   @Override
   public Object call(List<Object> args,
                      Map<String, Object> kwargs,
@@ -147,8 +158,12 @@ public abstract class MixedModeFunction extends AbstractFunction {
       String keyword = entry.getKey();
       int pos = parameters.indexOf(keyword);
       if (pos == -1) {
+        List<String> unexpected =
+            listDifference(new ArrayList<>(kwargs.keySet()), parameters);
+        Collections.sort(unexpected); // issue stable error messages.
         throw new EvalException(loc,
-            "unexpected keyword '" + keyword
+            "unexpected keyword" + (unexpected.size() > 1 ? "s" : "") + " '"
+            + Joiner.on("', '").join(unexpected)
             + "' in call to " + getSignature());
       } else {
         if (namedArguments[pos] != null) {
