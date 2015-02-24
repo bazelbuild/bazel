@@ -85,12 +85,27 @@ public class GroupedList<T> implements Iterable<Iterable<T>>, Serializable {
     return elements.isEmpty();
   }
 
-  private static final Object EMPTY_LIST = new Serializable() {};
+  private static final class EmptyList implements Serializable {
+    private static final EmptyList INSTANCE = new EmptyList();
+
+    private EmptyList() {
+    }
+
+    @Override
+    public boolean equals(Object obj) {
+      return obj instanceof EmptyList;
+    }
+
+    @Override
+    public int hashCode() {
+      return 42;
+    }
+  }
 
   public Object compress() {
     switch (size()) {
       case 0:
-        return EMPTY_LIST;
+        return EmptyList.INSTANCE;
       case 1:
         return Iterables.getOnlyElement(elements);
       default:
@@ -116,7 +131,7 @@ public class GroupedList<T> implements Iterable<Iterable<T>>, Serializable {
   }
 
   public static <E> GroupedList<E> create(Object compressed) {
-    if (compressed == EMPTY_LIST) {
+    if (compressed.equals(EmptyList.INSTANCE)) {
       return new GroupedList<>();
     }
     if (compressed.getClass().isArray()) {
@@ -158,18 +173,18 @@ public class GroupedList<T> implements Iterable<Iterable<T>>, Serializable {
    * iterator is needed here because, to optimize memory, we store single-element lists as elements
    * internally, and so they must be wrapped before they're returned.
    */
-  private class GroupedIterator implements Iterator<Iterable<T>> {
-    private final Iterator<Object> iter = elements.iterator();
+  private class GroupedIterator implements Iterator<Iterable<T>>, Serializable {
+    private int pos = 0;
 
     @Override
     public boolean hasNext() {
-      return iter.hasNext();
+      return pos < elements.size();
     }
 
     @SuppressWarnings("unchecked") // Cast of Object to List<T> or T.
     @Override
     public Iterable<T> next() {
-      Object obj = iter.next();
+      Object obj = elements.get(pos++);
       if (obj instanceof List) {
         return (List<T>) obj;
       }
