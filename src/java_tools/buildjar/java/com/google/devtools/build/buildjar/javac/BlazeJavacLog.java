@@ -35,7 +35,6 @@ public class BlazeJavacLog extends Log {
    * Registers a custom BlazeJavacLog for the given context and -Werror spec.
    *
    * @param context Context
-   * @param warningsAsErrors Werror value
    */
   public static void preRegister(final Context context) {
     context.put(logKey, new Context.Factory<Log>() {

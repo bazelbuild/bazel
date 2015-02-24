@@ -333,7 +333,7 @@ public final class StrictJavaDepsPlugin extends BlazeJavaCompilerPlugin {
       if (tree.sym == null) {
         return false;
       }
-      Generated generated = tree.sym.getAnnotation(Generated.class);;
+      Generated generated = tree.sym.getAnnotation(Generated.class);
       if (generated == null) {
         return false;
       }
