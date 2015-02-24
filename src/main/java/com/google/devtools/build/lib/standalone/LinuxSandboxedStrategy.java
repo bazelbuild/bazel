@@ -99,7 +99,7 @@ public class LinuxSandboxedStrategy implements SpawnActionContext {
       }      
       
       NamespaceSandboxRunner runner = new NamespaceSandboxRunner(directories, spawn, includePrefix,
-          includeDirectories, spawn.getRunfilesManifests());
+          includeDirectories, spawn.getRunfilesManifests(), verboseFailures);
       runner.setupSandbox(expandedInputs, spawn.getOutputFiles());
       runner.run(spawnArguments, spawn.getEnvironment(), new File(cwd), outErr);
       runner.copyOutputs(spawn.getOutputFiles(), outErr);

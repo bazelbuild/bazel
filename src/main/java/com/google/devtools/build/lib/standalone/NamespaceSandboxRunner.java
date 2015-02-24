@@ -45,7 +45,7 @@ import java.util.Map.Entry;
  * changes invocation if necessary.
  */
 public class NamespaceSandboxRunner {
-  private final boolean debug = true;
+  private final boolean debug;
   private final PathFragment sandboxDirectory;
   private final Path sandboxPath;
   private final List<String> mounts;
@@ -58,11 +58,12 @@ public class NamespaceSandboxRunner {
 
   public NamespaceSandboxRunner(BlazeDirectories directories, Spawn spawn,
       PathFragment includePrefix, List<PathFragment> includeDirectories,
-      ImmutableMap<PathFragment, Artifact> manifests) {
+      ImmutableMap<PathFragment, Artifact> manifests, boolean debug) {
     String md5sum = Fingerprint.md5Digest(spawn.getResourceOwner().getPrimaryOutput().toString());
     this.sandboxDirectory = new PathFragment("sandbox-root-" + md5sum);
     this.sandboxPath =
         directories.getExecRoot().getRelative("sandboxes").getRelative(sandboxDirectory);
+    this.debug = debug;
     this.mounts = new ArrayList<>();
     this.tools = directories.getExecRoot().getChild("tools");
     this.embeddedBinaries = directories.getEmbeddedBinariesRoot();
