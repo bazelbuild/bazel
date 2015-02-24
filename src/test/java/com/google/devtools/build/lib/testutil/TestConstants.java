@@ -31,11 +31,15 @@ public class TestConstants {
       "process-wrapper",
       "build_interface_so");
 
-
   /**
    * Location in the bazel repo where embedded binaries come from.
    */
   public static final String EMBEDDED_SCRIPTS_PATH = "DOES-NOT-WORK-YET";
+
+  /**
+   * Path within runfiles tree for finding everything else.
+   */
+  public static final String RUNFILES_PREFIX = "DOES-NOT-WORK-YET";
 
   /**
    * Directory where we can find bazel's Java tests, relative to a test's runfiles directory.
