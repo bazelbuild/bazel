@@ -124,8 +124,8 @@ public class InterruptibleTest {
                    e.getMessage());
     }
 
-    // Subprocess execution should be around 1000ms:
-    assertDuration(1000, 1500);
+    // Subprocess execution should be around 1000ms, but less than 2000, the subprocess sleep time.
+    assertDuration(1000, 1900);
 
     // We don't assert that the interrupter thread has exited; due to prompt
     // termination it might still be running.
