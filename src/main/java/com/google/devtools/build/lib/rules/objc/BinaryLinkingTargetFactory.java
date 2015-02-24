@@ -19,7 +19,6 @@ import static com.google.devtools.build.lib.rules.objc.ObjcProvider.LIBRARY;
 
 import com.google.common.annotations.VisibleForTesting;
 import com.google.common.base.Optional;
-import com.google.common.collect.ImmutableList;
 import com.google.common.collect.Iterables;
 import com.google.devtools.build.lib.actions.Artifact;
 import com.google.devtools.build.lib.analysis.ConfiguredTarget;
@@ -164,21 +163,8 @@ abstract class BinaryLinkingTargetFactory implements RuleConfiguredTargetFactory
             ruleContext.getPrerequisites("non_propagated_deps", Mode.TARGET, ObjcProvider.class))
         .setIntermediateArtifacts(intermediateArtifacts)
         .setAlwayslink(false)
-        .addExtraImportLibraries(j2ObjcLibraries(ruleContext))
+        .addExtraImportLibraries(ObjcRuleClasses.j2ObjcLibraries(ruleContext))
         .setLinkedBinary(intermediateArtifacts.singleArchitectureBinary())
         .build();
-  }
-
-  private Iterable<Artifact> j2ObjcLibraries(RuleContext ruleContext) {
-    J2ObjcSrcsProvider j2ObjcSrcsProvider = ObjcRuleClasses.j2ObjcSrcsProvider(ruleContext);
-    ImmutableList.Builder<Artifact> j2objcLibraries = ImmutableList.builder();
-
-    // TODO(bazel-team): Refactor the code to stop flattening the nested set here.
-    for (J2ObjcSource j2ObjcSource : j2ObjcSrcsProvider.getSrcs()) {
-      j2objcLibraries.add(
-          ObjcRuleClasses.j2objcIntermediateArtifacts(ruleContext, j2ObjcSource).archive());
-    }
-
-    return j2objcLibraries.build();
   }
 }

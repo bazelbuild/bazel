@@ -167,6 +167,7 @@ public abstract class IosTest implements RuleConfiguredTargetFactory {
     }
 
     return ObjcLibrary.common(ruleContext, extraSdkFrameworks, /*alwayslink=*/false,
-        new ObjcLibrary.ExtraImportLibraries(), extraDepObjcProviders);
+        new ObjcLibrary.ExtraImportLibraries(ObjcRuleClasses.j2ObjcLibraries(ruleContext)),
+        extraDepObjcProviders);
   }
 }
