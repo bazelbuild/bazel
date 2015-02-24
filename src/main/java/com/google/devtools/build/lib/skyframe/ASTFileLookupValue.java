@@ -26,12 +26,20 @@ import javax.annotation.Nullable;
  */
 public class ASTFileLookupValue implements SkyValue {
 
-  static final ASTFileLookupValue NO_FILE = new ASTFileLookupValue(null);
+  private static final ASTFileLookupValue NO_FILE = new ASTFileLookupValue(null);
 
   @Nullable private final BuildFileAST ast;
 
-  public ASTFileLookupValue(@Nullable BuildFileAST ast) {
+  private ASTFileLookupValue(@Nullable BuildFileAST ast) {
     this.ast = ast;
+  }
+
+  public static ASTFileLookupValue noFile() {
+    return NO_FILE;
+  }
+
+  public static ASTFileLookupValue withFile(BuildFileAST ast) {
+    return new ASTFileLookupValue(ast);
   }
 
   /**

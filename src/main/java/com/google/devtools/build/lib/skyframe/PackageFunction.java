@@ -436,7 +436,7 @@ public class PackageFunction implements SkyFunction {
     if (astLookupValue == null) {
       return null;
     }
-    List<Statement> preludeStatements = astLookupValue == ASTFileLookupValue.NO_FILE
+    List<Statement> preludeStatements = astLookupValue.getAST() == null
         ? ImmutableList.<Statement>of() : astLookupValue.getAST().getStatements();
 
     // Load the BUILD file AST and handle Skylark dependencies. This way BUILD files are

@@ -72,7 +72,7 @@ public class SkylarkImportLookupFunction implements SkyFunction {
     if (astLookupValue == null) {
       return null;
     }
-    if (astLookupValue == ASTFileLookupValue.NO_FILE) {
+    if (astLookupValue.getAST() == null) {
       // Skylark import files have to exist.
       throw new SkylarkImportLookupFunctionException(SkylarkImportFailedException.noFile(file));
     }

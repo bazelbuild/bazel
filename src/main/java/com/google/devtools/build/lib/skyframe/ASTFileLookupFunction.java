@@ -112,8 +112,7 @@ public class ASTFileLookupFunction implements SkyFunction {
 
     BuildFileAST ast = null;
     if (!lookupResult.lookupSuccessful()) {
-      // Return the specific NO_FILE ASTLookupValue instance if no file was found.
-      return ASTFileLookupValue.NO_FILE;
+      return ASTFileLookupValue.noFile();
     } else {
       Path path = lookupResult.rootedPath().asPath();
       // Skylark files end with bzl.
@@ -130,7 +129,7 @@ public class ASTFileLookupFunction implements SkyFunction {
       }
     }
 
-    return new ASTFileLookupValue(ast);
+    return ASTFileLookupValue.withFile(ast);
   }
 
   private FileLookupResult getASTFile(Environment env, PathFragment astFilePathFragment)
