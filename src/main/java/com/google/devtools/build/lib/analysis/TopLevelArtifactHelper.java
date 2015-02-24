@@ -128,18 +128,9 @@ public final class TopLevelArtifactHelper {
       }
     }
 
-    if (context.compileOnly()) {
-      FilesToCompileProvider provider = target.getProvider(FilesToCompileProvider.class);
-      if (provider != null) {
-        importantBuilder.addAll(provider.getFilesToCompile());
-      }
-    } else if (context.compilationPrerequisitesOnly()) {
-      CompilationPrerequisitesProvider provider =
-          target.getProvider(CompilationPrerequisitesProvider.class);
-      if (provider != null) {
-        importantBuilder.addTransitive(provider.getCompilationPrerequisites());
-      }
-    } else if (context.buildDefaultArtifacts()) {
+    if (context.buildDefaultArtifacts()
+        && !context.outputGroups().contains(TopLevelArtifactProvider.COMPILATION_PREREQUISITES)
+        && !context.outputGroups().contains(TopLevelArtifactProvider.FILES_TO_COMPILE)) {
       FilesToRunProvider filesToRunProvider = target.getProvider(FilesToRunProvider.class);
       boolean hasRunfilesSupport = false;
       if (filesToRunProvider != null) {

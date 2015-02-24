@@ -18,18 +18,18 @@ import com.google.common.base.Function;
 import com.google.common.base.Preconditions;
 import com.google.common.base.Predicates;
 import com.google.common.collect.ImmutableList;
+import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.Iterables;
 import com.google.devtools.build.lib.actions.Artifact;
 import com.google.devtools.build.lib.analysis.AnalysisUtils;
-import com.google.devtools.build.lib.analysis.CompilationPrerequisitesProvider;
 import com.google.devtools.build.lib.analysis.FileProvider;
-import com.google.devtools.build.lib.analysis.FilesToCompileProvider;
 import com.google.devtools.build.lib.analysis.LanguageDependentFragment;
 import com.google.devtools.build.lib.analysis.RuleConfiguredTarget.Mode;
 import com.google.devtools.build.lib.analysis.RuleContext;
 import com.google.devtools.build.lib.analysis.Runfiles;
 import com.google.devtools.build.lib.analysis.RunfilesProvider;
 import com.google.devtools.build.lib.analysis.TempsProvider;
+import com.google.devtools.build.lib.analysis.TopLevelArtifactProvider;
 import com.google.devtools.build.lib.analysis.TransitiveInfoCollection;
 import com.google.devtools.build.lib.analysis.TransitiveInfoProvider;
 import com.google.devtools.build.lib.analysis.config.BuildConfiguration;
@@ -48,12 +48,12 @@ import com.google.devtools.build.lib.vfs.PathFragment;
 import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.Collection;
-import java.util.Collections;
 import java.util.LinkedHashMap;
 import java.util.LinkedHashSet;
 import java.util.List;
 import java.util.Map;
 import java.util.Set;
+import java.util.TreeMap;
 import java.util.regex.Pattern;
 
 import javax.annotation.Nullable;
@@ -85,17 +85,21 @@ public final class CcLibraryHelper {
    * context.
    */
   public static final class Info {
-    private final Map<Class<? extends TransitiveInfoProvider>, TransitiveInfoProvider> providers;
+    private final ImmutableMap<Class<? extends TransitiveInfoProvider>, TransitiveInfoProvider>
+        providers;
+    private final ImmutableMap<String, NestedSet<Artifact>> outputGroups;
     private final CcCompilationOutputs compilationOutputs;
     private final CcLinkingOutputs linkingOutputs;
     private final CcLinkingOutputs linkingOutputsExcludingPrecompiledLibraries;
     private final CppCompilationContext context;
 
     private Info(Map<Class<? extends TransitiveInfoProvider>, TransitiveInfoProvider> providers,
+        Map<String, NestedSet<Artifact>> outputGroups,
         CcCompilationOutputs compilationOutputs, CcLinkingOutputs linkingOutputs,
         CcLinkingOutputs linkingOutputsExcludingPrecompiledLibraries,
         CppCompilationContext context) {
-      this.providers = Collections.unmodifiableMap(providers);
+      this.providers = ImmutableMap.copyOf(providers);
+      this.outputGroups = ImmutableMap.copyOf(outputGroups);
       this.compilationOutputs = compilationOutputs;
       this.linkingOutputs = linkingOutputs;
       this.linkingOutputsExcludingPrecompiledLibraries =
@@ -105,6 +109,10 @@ public final class CcLibraryHelper {
 
     public Map<Class<? extends TransitiveInfoProvider>, TransitiveInfoProvider> getProviders() {
       return providers;
+    }
+
+    public ImmutableMap<String, NestedSet<Artifact>> getOutputGroups() {
+      return outputGroups;
     }
 
     public CcCompilationOutputs getCcCompilationOutputs() {
@@ -538,8 +546,8 @@ public final class CcLibraryHelper {
   }
 
   /**
-   * Enables the output of {@link FilesToCompileProvider} and {@link
-   * CompilationPrerequisitesProvider}.
+   * Enables the output of the {@code files_to_compile} and {@code compilation_prerequisites}
+   * output groups.
    */
   // TODO(bazel-team): We probably need to adjust this for the multi-language rules.
   public CcLibraryHelper enableCompileProviders() {
@@ -642,10 +650,10 @@ public final class CcLibraryHelper {
         dwoArtifacts.getDwoArtifacts(), dwoArtifacts.getPicDwoArtifacts()));
     providers.put(TransitiveLipoInfoProvider.class, collectTransitiveLipoInfo(ccOutputs));
     providers.put(TempsProvider.class, getTemps(ccOutputs));
+    Map<String, NestedSet<Artifact>> outputGroups = new TreeMap<>();
     if (emitCompileProviders) {
-      providers.put(FilesToCompileProvider.class, new FilesToCompileProvider(
-          getFilesToCompile(ccOutputs)));
-      providers.put(CompilationPrerequisitesProvider.class,
+      outputGroups.put(TopLevelArtifactProvider.FILES_TO_COMPILE, getFilesToCompile(ccOutputs));
+      outputGroups.put(TopLevelArtifactProvider.COMPILATION_PREREQUISITES,
           CcCommon.collectCompilationPrerequisites(ruleContext, cppCompilationContext));
     }
 
@@ -666,7 +674,7 @@ public final class CcLibraryHelper {
       providers.put(CcLinkParamsProvider.class, new CcLinkParamsProvider(
           createCcLinkParamsStore(ccLinkingOutputs, cppCompilationContext, forcePic)));
     }
-    return new Info(providers, ccOutputs, ccLinkingOutputs, originalLinkingOutputs,
+    return new Info(providers, outputGroups, ccOutputs, ccLinkingOutputs, originalLinkingOutputs,
         cppCompilationContext);
   }
 
@@ -868,9 +876,10 @@ public final class CcLibraryHelper {
         : new TempsProvider(compilationOutputs.getTemps());
   }
 
-  private ImmutableList<Artifact> getFilesToCompile(CcCompilationOutputs compilationOutputs) {
+  private NestedSet<Artifact> getFilesToCompile(CcCompilationOutputs compilationOutputs) {
     return ruleContext.getFragment(CppConfiguration.class).isLipoContextCollector()
-        ? ImmutableList.<Artifact>of()
-        : compilationOutputs.getObjectFiles(CppHelper.usePic(ruleContext, false));
+        ? NestedSetBuilder.<Artifact>emptySet(Order.STABLE_ORDER)
+        : NestedSetBuilder.<Artifact>wrap(Order.STABLE_ORDER,
+            compilationOutputs.getObjectFiles(CppHelper.usePic(ruleContext, false)));
   }
 }

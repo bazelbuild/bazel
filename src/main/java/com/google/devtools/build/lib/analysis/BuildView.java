@@ -789,7 +789,9 @@ public class BuildView {
   private static void scheduleTestsIfRequested(Collection<ConfiguredTarget> targetsToTest,
       Collection<ConfiguredTarget> targetsToTestExclusive, TopLevelArtifactContext topLevelOptions,
       Collection<ConfiguredTarget> allTestTargets) {
-    if (!topLevelOptions.compileOnly() && !topLevelOptions.compilationPrerequisitesOnly()
+    Set<String> outputGroups = topLevelOptions.outputGroups();
+    if (!outputGroups.contains(TopLevelArtifactProvider.FILES_TO_COMPILE)
+        && !outputGroups.contains(TopLevelArtifactProvider.COMPILATION_PREREQUISITES)
         && allTestTargets != null) {
       scheduleTests(targetsToTest, targetsToTestExclusive, allTestTargets,
           topLevelOptions.runTestsExclusively());

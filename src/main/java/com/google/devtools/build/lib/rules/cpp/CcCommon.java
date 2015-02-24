@@ -22,13 +22,12 @@ import com.google.devtools.build.lib.actions.Action;
 import com.google.devtools.build.lib.actions.Artifact;
 import com.google.devtools.build.lib.analysis.AnalysisEnvironment;
 import com.google.devtools.build.lib.analysis.AnalysisUtils;
-import com.google.devtools.build.lib.analysis.CompilationPrerequisitesProvider;
 import com.google.devtools.build.lib.analysis.FileProvider;
-import com.google.devtools.build.lib.analysis.FilesToCompileProvider;
 import com.google.devtools.build.lib.analysis.RuleConfiguredTarget.Mode;
 import com.google.devtools.build.lib.analysis.RuleConfiguredTargetBuilder;
 import com.google.devtools.build.lib.analysis.RuleContext;
 import com.google.devtools.build.lib.analysis.TempsProvider;
+import com.google.devtools.build.lib.analysis.TopLevelArtifactProvider;
 import com.google.devtools.build.lib.analysis.TransitiveInfoCollection;
 import com.google.devtools.build.lib.collect.nestedset.NestedSet;
 import com.google.devtools.build.lib.collect.nestedset.NestedSetBuilder;
@@ -594,7 +593,7 @@ public final class CcCommon {
   /**
    * Collects compilation prerequisite artifacts.
    */
-  static CompilationPrerequisitesProvider collectCompilationPrerequisites(
+  static NestedSet<Artifact> collectCompilationPrerequisites(
       RuleContext ruleContext, CppCompilationContext context) {
     // TODO(bazel-team): Use context.getCompilationPrerequisites() instead.
     NestedSetBuilder<Artifact> prerequisites = NestedSetBuilder.stableOrder();
@@ -605,7 +604,7 @@ public final class CcCommon {
       }
     }
     prerequisites.addTransitive(context.getDeclaredIncludeSrcs());
-    return new CompilationPrerequisitesProvider(prerequisites.build());
+    return prerequisites.build();
   }
 
   /**
@@ -711,13 +710,13 @@ public final class CcCommon {
             collectTransitiveCcNativeLibraries(ruleContext, linkingOutputs.getDynamicLibraries())))
         .add(InstrumentedFilesProvider.class, getInstrumentedFilesProvider(
             instrumentedObjectFiles))
-        .add(FilesToCompileProvider.class, new FilesToCompileProvider(
-            getFilesToCompile(ccCompilationOutputs)))
-        .add(CompilationPrerequisitesProvider.class,
-            collectCompilationPrerequisites(ruleContext, cppCompilationContext))
         .add(TempsProvider.class, new TempsProvider(getTemps(ccCompilationOutputs)))
         .add(CppDebugFileProvider.class, new CppDebugFileProvider(
-            dwoArtifacts.getDwoArtifacts(),
-            dwoArtifacts.getPicDwoArtifacts()));
+            dwoArtifacts.getDwoArtifacts(), dwoArtifacts.getPicDwoArtifacts()))
+        .addOutputGroup(TopLevelArtifactProvider.FILES_TO_COMPILE,
+            NestedSetBuilder.wrap(Order.STABLE_ORDER, getFilesToCompile(ccCompilationOutputs)))
+        .addOutputGroup(TopLevelArtifactProvider.COMPILATION_PREREQUISITES,
+            collectCompilationPrerequisites(ruleContext, cppCompilationContext));
+
   }
 }

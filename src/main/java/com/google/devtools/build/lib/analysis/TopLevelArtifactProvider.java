@@ -38,6 +38,8 @@ import com.google.devtools.build.lib.concurrent.ThreadSafety.Immutable;
 public final class TopLevelArtifactProvider implements TransitiveInfoProvider {
   public static final String HIDDEN_OUTPUT_GROUP_PREFIX = "_";
   public static final String BASELINE_COVERAGE = HIDDEN_OUTPUT_GROUP_PREFIX + "_baseline_coverage";
+  public static final String FILES_TO_COMPILE = "files_to_compile";
+  public static final String COMPILATION_PREREQUISITES = "compilation_prerequisites";
 
   private final ImmutableMap<String, NestedSet<Artifact>> outputGroups;
 

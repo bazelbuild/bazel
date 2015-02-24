@@ -513,7 +513,6 @@ public class BuildRequest implements OptionsClassProvider {
   /** Creates a new TopLevelArtifactContext from this build request. */
   public TopLevelArtifactContext getTopLevelArtifactContext() {
     return new TopLevelArtifactContext(getCommandName(),
-        getBuildOptions().compileOnly, getBuildOptions().compilationPrerequisitesOnly,
         getBuildOptions().buildDefaultArtifacts,
         getOptions(ExecutionOptions.class).testStrategy.equals("exclusive"),
         determineOutputGroups(), shouldRunTests());
@@ -527,6 +526,14 @@ public class BuildRequest implements OptionsClassProvider {
         && !getBuildOptions().compilationPrerequisitesOnly
         && runTests) {
       current.add(TopLevelArtifactProvider.BASELINE_COVERAGE);
+    }
+
+    if (getBuildOptions().compileOnly) {
+      current.add(TopLevelArtifactProvider.FILES_TO_COMPILE);
+    }
+
+    if (getBuildOptions().compilationPrerequisitesOnly) {
+      current.add(TopLevelArtifactProvider.COMPILATION_PREREQUISITES);
     }
 
     return ImmutableSet.copyOf(current);

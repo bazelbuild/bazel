@@ -259,6 +259,7 @@ public abstract class CcLibrary implements RuleConfiguredTargetFactory {
     targetBuilder
         .setFilesToBuild(filesToBuild)
         .addProviders(info.getProviders())
+        .addOutputGroups(info.getOutputGroups())
         .add(InstrumentedFilesProvider.class, instrumentedFilesProvider)
         .add(RunfilesProvider.class, RunfilesProvider.withData(staticRunfiles, sharedRunfiles))
         // Remove this?

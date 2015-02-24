@@ -56,6 +56,7 @@ import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.Map.Entry;
+import java.util.TreeMap;
 
 /**
  * Builder class for analyzed rule instances (i.e., instances of {@link ConfiguredTarget}).
@@ -65,8 +66,7 @@ public final class RuleConfiguredTargetBuilder {
   private final Map<Class<? extends TransitiveInfoProvider>, TransitiveInfoProvider> providers =
       new LinkedHashMap<>();
   private final ImmutableMap.Builder<String, Object> skylarkProviders = ImmutableMap.builder();
-  private final ImmutableMap.Builder<String, NestedSet<Artifact>> outputGroups =
-      ImmutableMap.builder();
+  private final Map<String, NestedSetBuilder<Artifact>> outputGroupBuilders = new TreeMap<>();
 
   /** These are supported by all configured targets and need to be specially handled. */
   private NestedSet<Artifact> filesToBuild = NestedSetBuilder.emptySet(Order.STABLE_ORDER);
@@ -92,9 +92,13 @@ public final class RuleConfiguredTargetBuilder {
       return null;
     }
 
-    ImmutableMap<String, NestedSet<Artifact>> outputGroupMap = outputGroups.build();
-    if (!outputGroupMap.isEmpty()) {
-      add(TopLevelArtifactProvider.class, new TopLevelArtifactProvider(outputGroupMap));
+    if (!outputGroupBuilders.isEmpty()) {
+      ImmutableMap.Builder<String, NestedSet<Artifact>> outputGroups = ImmutableMap.builder();
+      for (Map.Entry<String, NestedSetBuilder<Artifact>> entry : outputGroupBuilders.entrySet()) {
+        outputGroups.put(entry.getKey(), entry.getValue().build());
+      }
+
+      add(TopLevelArtifactProvider.class, new TopLevelArtifactProvider(outputGroups.build()));
     }
 
     FilesToRunProvider filesToRunProvider = new FilesToRunProvider(ruleContext.getLabel(),
@@ -401,19 +405,41 @@ public final class RuleConfiguredTargetBuilder {
     return this;
   }
 
+  private NestedSetBuilder<Artifact> getOutputGroupBuilder(String name) {
+    NestedSetBuilder<Artifact> result = outputGroupBuilders.get(name);
+    if (result != null) {
+      return result;
+    }
+
+    result = NestedSetBuilder.<Artifact>stableOrder();
+    outputGroupBuilders.put(name, result);
+    return result;
+  }
+
   /**
-   * Add an output group.
+   * Adds a set of files to an output group.
    */
   public RuleConfiguredTargetBuilder addOutputGroup(String name, NestedSet<Artifact> artifacts) {
-    outputGroups.put(name, artifacts);
+    getOutputGroupBuilder(name).addTransitive(artifacts);
     return this;
   }
 
   /**
-   * Add an output group.
+   * Adds a file to an output group.
    */
   public RuleConfiguredTargetBuilder addOutputGroup(String name, Artifact artifact) {
-    outputGroups.put(name, NestedSetBuilder.create(Order.STABLE_ORDER, artifact));
+    getOutputGroupBuilder(name).add(artifact);
+    return this;
+  }
+
+  /**
+   * Adds multiple output groups.
+   */
+  public RuleConfiguredTargetBuilder addOutputGroups(Map<String, NestedSet<Artifact>> groups) {
+    for (Map.Entry<String, NestedSet<Artifact>> group : groups.entrySet()) {
+      getOutputGroupBuilder(group.getKey()).addTransitive(group.getValue());
+    }
+
     return this;
   }
 

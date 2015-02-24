@@ -28,7 +28,6 @@ import com.google.devtools.build.lib.actions.Artifact;
 import com.google.devtools.build.lib.analysis.AnalysisEnvironment;
 import com.google.devtools.build.lib.analysis.AnalysisUtils;
 import com.google.devtools.build.lib.analysis.FileProvider;
-import com.google.devtools.build.lib.analysis.FilesToCompileProvider;
 import com.google.devtools.build.lib.analysis.RuleConfiguredTarget.Mode;
 import com.google.devtools.build.lib.analysis.RuleConfiguredTargetBuilder;
 import com.google.devtools.build.lib.analysis.RuleContext;
@@ -38,6 +37,7 @@ import com.google.devtools.build.lib.analysis.TransitiveInfoProvider;
 import com.google.devtools.build.lib.analysis.Util;
 import com.google.devtools.build.lib.collect.nestedset.NestedSet;
 import com.google.devtools.build.lib.collect.nestedset.NestedSetBuilder;
+import com.google.devtools.build.lib.collect.nestedset.Order;
 import com.google.devtools.build.lib.packages.TargetUtils;
 import com.google.devtools.build.lib.packages.Type;
 import com.google.devtools.build.lib.rules.cpp.CppCompilationContext;
@@ -487,9 +487,8 @@ public class JavaCommon {
     builder
         .add(InstrumentedFilesProvider.class, new InstrumentedFilesProviderImpl(
             instrumentedFilesCollector))
-        .add(FilesToCompileProvider.class,
-            new FilesToCompileProvider(getFilesToCompile(classJar)))
-        .add(JavaExportsProvider.class, new JavaExportsProvider(collectTransitiveExports()));
+        .add(JavaExportsProvider.class, new JavaExportsProvider(collectTransitiveExports()))
+        .addOutputGroup(TopLevelArtifactProvider.FILES_TO_COMPILE, getFilesToCompile(classJar));
 
     if (!TargetUtils.isTestRule(ruleContext.getTarget())) {
       builder.addOutputGroup(TopLevelArtifactProvider.BASELINE_COVERAGE,
@@ -607,12 +606,12 @@ public class JavaCommon {
         ruleContext.attributes().get("neverlink", Type.BOOLEAN);
   }
 
-  private ImmutableList<Artifact> getFilesToCompile(Artifact classJar) {
+  private NestedSet<Artifact> getFilesToCompile(Artifact classJar) {
     if (classJar == null) {
       // Some subclasses don't produce jars
-      return ImmutableList.of();
+      return NestedSetBuilder.emptySet(Order.STABLE_ORDER);
     }
-    return ImmutableList.of(classJar);
+    return NestedSetBuilder.create(Order.STABLE_ORDER, classJar);
   }
 
   public ImmutableList<Dependency> computeStrictDepsFromJavaAttributes(
