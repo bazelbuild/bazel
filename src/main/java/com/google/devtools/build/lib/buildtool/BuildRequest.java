@@ -512,10 +512,10 @@ public class BuildRequest implements OptionsClassProvider {
 
   /** Creates a new TopLevelArtifactContext from this build request. */
   public TopLevelArtifactContext getTopLevelArtifactContext() {
-    return new TopLevelArtifactContext(getCommandName(),
+    return new TopLevelArtifactContext(
         getBuildOptions().buildDefaultArtifacts,
         getOptions(ExecutionOptions.class).testStrategy.equals("exclusive"),
-        determineOutputGroups(), shouldRunTests());
+        determineOutputGroups());
   }
 
   private ImmutableSet<String> determineOutputGroups() {

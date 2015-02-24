@@ -131,25 +131,13 @@ public final class TopLevelArtifactHelper {
     if (context.buildDefaultArtifacts()
         && !context.outputGroups().contains(TopLevelArtifactProvider.COMPILATION_PREREQUISITES)
         && !context.outputGroups().contains(TopLevelArtifactProvider.FILES_TO_COMPILE)) {
-      FilesToRunProvider filesToRunProvider = target.getProvider(FilesToRunProvider.class);
-      boolean hasRunfilesSupport = false;
-      if (filesToRunProvider != null) {
-        importantBuilder.addAll(filesToRunProvider.getFilesToRun());
-        hasRunfilesSupport = filesToRunProvider.getRunfilesSupport() != null;
+      FileProvider fileProvider = target.getProvider(FileProvider.class);
+      if (fileProvider != null) {
+        importantBuilder.addTransitive(fileProvider.getFilesToBuild());
       }
-
-      if (!hasRunfilesSupport) {
-        RunfilesProvider runfilesProvider =
-            target.getProvider(RunfilesProvider.class);
-        if (runfilesProvider != null) {
-          allBuilder.addTransitive(runfilesProvider.getDefaultRunfiles().getAllArtifacts());
-        }
-      }
-
-      AlwaysBuiltArtifactsProvider forcedArtifacts = target.getProvider(
-          AlwaysBuiltArtifactsProvider.class);
-      if (forcedArtifacts != null) {
-        allBuilder.addTransitive(forcedArtifacts.getArtifactsToAlwaysBuild());
+      if (topLevelArtifactProvider != null) {
+        allBuilder.addTransitive(
+            topLevelArtifactProvider.getOutputGroup(TopLevelArtifactProvider.HIDDEN_TOP_LEVEL));
       }
     }
 

@@ -19,7 +19,6 @@ import com.google.common.base.Predicate;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.Iterables;
 import com.google.devtools.build.lib.actions.Artifact;
-import com.google.devtools.build.lib.analysis.AlwaysBuiltArtifactsProvider;
 import com.google.devtools.build.lib.analysis.ConfiguredTarget;
 import com.google.devtools.build.lib.analysis.RuleConfiguredTarget.Mode;
 import com.google.devtools.build.lib.analysis.RuleConfiguredTargetBuilder;
@@ -232,7 +231,7 @@ public abstract class CcLibrary implements RuleConfiguredTargetFactory {
     CcLinkingOutputs linkedLibraries = info.getCcLinkingOutputsExcludingPrecompiledLibraries();
 
     NestedSet<Artifact> artifactsToForce =
-        collectArtifactsToForce(ruleContext, common, info.getCcCompilationOutputs());
+        collectHiddenTopLevelArtifacts(ruleContext, common, info.getCcCompilationOutputs());
 
     NestedSetBuilder<Artifact> filesBuilder = NestedSetBuilder.stableOrder();
     filesBuilder.addAll(LinkerInputs.toLibraryArtifacts(linkedLibraries.getStaticLibraries()));
@@ -266,23 +265,23 @@ public abstract class CcLibrary implements RuleConfiguredTargetFactory {
         .add(CppRunfilesProvider.class, new CppRunfilesProvider(staticRunfiles, sharedRunfiles))
         .add(ImplementedCcPublicLibrariesProvider.class,
             new ImplementedCcPublicLibrariesProvider(getImplementedCcPublicLibraries(ruleContext)))
-        .add(AlwaysBuiltArtifactsProvider.class,
-            new AlwaysBuiltArtifactsProvider(artifactsToForce))
-        .addOutputGroup(TopLevelArtifactProvider.BASELINE_COVERAGE,
-            BaselineCoverageAction.getBaselineCoverageArtifacts(
-                ruleContext, instrumentedFilesProvider.getInstrumentedFiles()));
+        .addOutputGroup(TopLevelArtifactProvider.HIDDEN_TOP_LEVEL, artifactsToForce)
+        .addOutputGroup(TopLevelArtifactProvider.BASELINE_COVERAGE, BaselineCoverageAction
+                .getBaselineCoverageArtifacts(ruleContext,
+                    instrumentedFilesProvider.getInstrumentedFiles()));
 
   }
 
-  private static NestedSet<Artifact> collectArtifactsToForce(RuleContext ruleContext,
+  private static NestedSet<Artifact> collectHiddenTopLevelArtifacts(RuleContext ruleContext,
       CcCommon common, CcCompilationOutputs ccCompilationOutputs) {
     // Ensure that we build all the dependencies, otherwise users may get confused.
     NestedSetBuilder<Artifact> artifactsToForceBuilder = NestedSetBuilder.stableOrder();
     artifactsToForceBuilder.addTransitive(
         NestedSetBuilder.wrap(Order.STABLE_ORDER, common.getFilesToCompile(ccCompilationOutputs)));
-    for (AlwaysBuiltArtifactsProvider dep :
-        ruleContext.getPrerequisites("deps", Mode.TARGET, AlwaysBuiltArtifactsProvider.class)) {
-      artifactsToForceBuilder.addTransitive(dep.getArtifactsToAlwaysBuild());
+    for (TopLevelArtifactProvider dep :
+        ruleContext.getPrerequisites("deps", Mode.TARGET, TopLevelArtifactProvider.class)) {
+      artifactsToForceBuilder.addTransitive(
+          dep.getOutputGroup(TopLevelArtifactProvider.HIDDEN_TOP_LEVEL));
     }
     return artifactsToForceBuilder.build();
   }

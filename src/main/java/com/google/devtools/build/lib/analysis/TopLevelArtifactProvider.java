@@ -36,10 +36,37 @@ import com.google.devtools.build.lib.concurrent.ThreadSafety.Immutable;
  */
 @Immutable
 public final class TopLevelArtifactProvider implements TransitiveInfoProvider {
+
+  /**
+   * Prefix for output groups that are not reported to the user on the terminal output of Blaze when
+   * they are built.
+   */
   public static final String HIDDEN_OUTPUT_GROUP_PREFIX = "_";
-  public static final String BASELINE_COVERAGE = HIDDEN_OUTPUT_GROUP_PREFIX + "_baseline_coverage";
+
+  /**
+   * Baseline coverage artifacts.
+   */
+  public static final String BASELINE_COVERAGE = HIDDEN_OUTPUT_GROUP_PREFIX + "baseline_coverage";
+
+  /**
+   * Building these artifacts only results in the compilation (and not e.g. linking) of the
+   * associated target. Mostly useful for C++, less so for e.g. Java.
+   */
   public static final String FILES_TO_COMPILE = "files_to_compile";
+
+  /**
+   * These artifacts are the direct requirements for compilation, but building these does not
+   * actually compile the target. Mostly useful when IDEs want Blaze to emit generated code so that
+   * they can do the compilation in their own way.
+   */
   public static final String COMPILATION_PREREQUISITES = "compilation_prerequisites";
+
+  /**
+   * These files are built when a target is mentioned on the command line, but are not reported to
+   * the user. This is mostly runfiles, which is necessary because we don't want a target to
+   * successfully build if a file in its runfiles is broken.
+   */
+  public static final String HIDDEN_TOP_LEVEL = HIDDEN_OUTPUT_GROUP_PREFIX + "hidden_top_level";
 
   private final ImmutableMap<String, NestedSet<Artifact>> outputGroups;
 

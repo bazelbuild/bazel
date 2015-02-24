@@ -92,6 +92,35 @@ public final class RuleConfiguredTargetBuilder {
       return null;
     }
 
+    FilesToRunProvider filesToRunProvider = new FilesToRunProvider(ruleContext.getLabel(),
+        RuleContext.getFilesToRun(runfilesSupport, filesToBuild), runfilesSupport, executable);
+    add(FileProvider.class, new FileProvider(ruleContext.getLabel(), filesToBuild));
+    add(FilesToRunProvider.class, filesToRunProvider);
+
+    if (runfilesSupport != null) {
+      // If a binary is built, build its runfiles, too
+      addOutputGroup(
+          TopLevelArtifactProvider.HIDDEN_TOP_LEVEL, runfilesSupport.getRunfilesMiddleman());
+    } else if (providers.get(RunfilesProvider.class) != null) {
+      // If we don't have a RunfilesSupport (probably because this is not a binary rule), we still
+      // want to build the files this rule contributes to runfiles of dependent rules so that we
+      // report an error if one of these is broken.
+      //
+      // Note that this is a best-effort thing: there is .getDataRunfiles() and all the language-
+      // specific *RunfilesProvider classes, which we don't add here for reasons that are lost in
+      // the mists of time.
+      addOutputGroup(TopLevelArtifactProvider.HIDDEN_TOP_LEVEL,
+          ((RunfilesProvider) providers.get(RunfilesProvider.class))
+              .getDefaultRunfiles().getAllArtifacts());
+    }
+
+    // Create test action and artifacts if target was successfully initialized
+    // and is a test.
+    if (TargetUtils.isTestRule(ruleContext.getTarget())) {
+      Preconditions.checkState(runfilesSupport != null);
+      add(TestProvider.class, initializeTestProvider(filesToRunProvider));
+    }
+    add(ExtraActionArtifactsProvider.class, initializeExtraActions());
     if (!outputGroupBuilders.isEmpty()) {
       ImmutableMap.Builder<String, NestedSet<Artifact>> outputGroups = ImmutableMap.builder();
       for (Map.Entry<String, NestedSetBuilder<Artifact>> entry : outputGroupBuilders.entrySet()) {
@@ -101,18 +130,7 @@ public final class RuleConfiguredTargetBuilder {
       add(TopLevelArtifactProvider.class, new TopLevelArtifactProvider(outputGroups.build()));
     }
 
-    FilesToRunProvider filesToRunProvider = new FilesToRunProvider(ruleContext.getLabel(),
-        RuleContext.getFilesToRun(runfilesSupport, filesToBuild), runfilesSupport, executable);
-    add(FileProvider.class, new FileProvider(ruleContext.getLabel(), filesToBuild));
-    add(FilesToRunProvider.class, filesToRunProvider);
 
-    // Create test action and artifacts if target was successfully initialized
-    // and is a test.
-    if (TargetUtils.isTestRule(ruleContext.getTarget())) {
-      Preconditions.checkState(runfilesSupport != null);
-      add(TestProvider.class, initializeTestProvider(filesToRunProvider));
-    }
-    add(ExtraActionArtifactsProvider.class, initializeExtraActions());
     return new RuleConfiguredTarget(
         ruleContext, mandatoryStampFiles, skylarkProviders.build(), providers);
   }

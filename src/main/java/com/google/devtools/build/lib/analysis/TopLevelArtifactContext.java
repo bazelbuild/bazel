@@ -27,27 +27,18 @@ import java.util.Set;
 public final class TopLevelArtifactContext {
 
   public static final TopLevelArtifactContext DEFAULT = new TopLevelArtifactContext(
-      "", /*buildDefaultArtifacts=*/true, /*runTestsExclusively=*/false,
-      /*outputGroups=*/ImmutableSet.<String>of(), /*shouldRunTests=*/false);
+      /*buildDefaultArtifacts=*/true, /*runTestsExclusively=*/false,
+      /*outputGroups=*/ImmutableSet.<String>of());
 
-  private final String buildCommand;
   private final boolean buildDefaultArtifacts;
   private final boolean runTestsExclusively;
   private final ImmutableSet<String> outputGroups;
-  private final boolean shouldRunTests;
 
-  public TopLevelArtifactContext(String buildCommand, boolean filesToRun,
-      boolean runTestsExclusively, ImmutableSet<String> outputGroups, boolean shouldRunTests) {
-    this.buildCommand = buildCommand;
+  public TopLevelArtifactContext(boolean filesToRun,
+      boolean runTestsExclusively, ImmutableSet<String> outputGroups) {
     this.buildDefaultArtifacts = filesToRun;
     this.runTestsExclusively = runTestsExclusively;
     this.outputGroups = outputGroups;
-    this.shouldRunTests = shouldRunTests;
-  }
-
-  /** Returns the build command as a string. */
-  public String buildCommand() {
-    return buildCommand;
   }
 
   /** Returns the value of the (undocumented) --build_default_artifacts flag. */
@@ -65,22 +56,15 @@ public final class TopLevelArtifactContext {
     return outputGroups;
   }
 
-  /** Whether the top-level request command may run tests. */
-  public boolean shouldRunTests() {
-    return shouldRunTests;
-  }
-  
   // TopLevelArtifactContexts are stored in maps in BuildView,
   // so equals() and hashCode() need to work.
   @Override
   public boolean equals(Object other) {
     if (other instanceof TopLevelArtifactContext) {
       TopLevelArtifactContext otherContext = (TopLevelArtifactContext) other;
-      return buildCommand.equals(otherContext.buildCommand)
-          && buildDefaultArtifacts == otherContext.buildDefaultArtifacts
+      return buildDefaultArtifacts == otherContext.buildDefaultArtifacts
           && runTestsExclusively == otherContext.runTestsExclusively
-          && outputGroups.equals(otherContext.outputGroups)
-          && shouldRunTests == otherContext.shouldRunTests;
+          && outputGroups.equals(otherContext.outputGroups);
     } else {
       return false;
     }
@@ -88,7 +72,6 @@ public final class TopLevelArtifactContext {
 
   @Override
   public int hashCode() {
-    return Objects.hash(
-        buildCommand, buildDefaultArtifacts, runTestsExclusively, outputGroups, shouldRunTests);
+    return Objects.hash(buildDefaultArtifacts, runTestsExclusively, outputGroups);
   }
 }
