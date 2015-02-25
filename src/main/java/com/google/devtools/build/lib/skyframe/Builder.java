@@ -1,0 +1,75 @@
+// Copyright 2014 Google Inc. All rights reserved.
+//
+// Licensed under the Apache License, Version 2.0 (the "License");
+// you may not use this file except in compliance with the License.
+// You may obtain a copy of the License at
+//
+//    http://www.apache.org/licenses/LICENSE-2.0
+//
+// Unless required by applicable law or agreed to in writing, software
+// distributed under the License is distributed on an "AS IS" BASIS,
+// WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+// See the License for the specific language governing permissions and
+// limitations under the License.
+
+package com.google.devtools.build.lib.skyframe;
+
+import com.google.devtools.build.lib.actions.Artifact;
+import com.google.devtools.build.lib.actions.BuildFailedException;
+import com.google.devtools.build.lib.actions.Executor;
+import com.google.devtools.build.lib.actions.TestExecException;
+import com.google.devtools.build.lib.analysis.ConfiguredTarget;
+import com.google.devtools.build.lib.concurrent.ThreadSafety.ThreadCompatible;
+import com.google.devtools.build.lib.util.AbruptExitException;
+
+import java.util.Collection;
+import java.util.Set;
+
+/**
+ * A Builder consumes top-level artifacts, targets, and tests,, and executes them in some
+ * topological order, possibly concurrently, using some dependency-checking policy.
+ *
+ * <p> The methods of the Builder interface are typically long-running, but honor the
+ * {@link java.lang.Thread#interrupt} contract: if an interrupt is delivered to the thread in which
+ * a call to buildTargets or buildArtifacts is active, the Builder attempts to terminate the call
+ * prematurely, throwing InterruptedException.  No guarantee is made about the timeliness of such
+ * termination, as it depends on the ability of the Actions being executed to be interrupted, but
+ * typically any running subprocesses will be quickly killed.
+ */
+public interface Builder {
+
+  /**
+   * Transitively build all given artifacts, targets, and tests, and all necessary prerequisites
+   * thereof. For sequential implementations of this interface, the top-level requests will be
+   * built in the iteration order of the Set provided; for concurrent implementations, the order
+   * is undefined.
+   *
+   * <p>This method should not be invoked more than once concurrently on the same Builder instance.
+   *
+   * @param artifacts the set of Artifacts to build
+   * @param parallelTests tests to execute in parallel with the other top-level targetsToBuild and
+   *        artifacts.
+   * @param exclusiveTests are executed one at a time, only after all other tasks have completed
+   * @param targetsToBuild Set of targets which will be built
+   * @param executor an opaque application-specific value that will be
+   *        passed down to the execute() method of any Action executed during
+   *        this call
+   * @param builtTargets (out) set of successfully built subset of targetsToBuild. This set is
+   *        populated immediately upon confirmation that artifact is built so it will be
+   *        valid even if a future action throws ActionExecutionException
+   * @throws BuildFailedException if there were problems establishing the action execution
+   *         environment, if the the metadata of any file  during the build could not be obtained,
+   *         if any input files are missing, or if an action fails during execution
+   * @throws InterruptedException if there was an asynchronous stop request
+   * @throws TestExecException if any test fails
+   */
+  @ThreadCompatible
+  void buildArtifacts(Set<Artifact> artifacts,
+                      Set<ConfiguredTarget> parallelTests,
+                      Set<ConfiguredTarget> exclusiveTests,
+                      Collection<ConfiguredTarget> targetsToBuild,
+                      Executor executor,
+                      Set<ConfiguredTarget> builtTargets,
+                      boolean explain)
+      throws BuildFailedException, AbruptExitException, InterruptedException, TestExecException;
+}

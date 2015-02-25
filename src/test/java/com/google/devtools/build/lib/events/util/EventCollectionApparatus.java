@@ -1,0 +1,149 @@
+// Copyright 2014 Google Inc. All rights reserved.
+//
+// Licensed under the Apache License, Version 2.0 (the "License");
+// you may not use this file except in compliance with the License.
+// You may obtain a copy of the License at
+//
+//    http://www.apache.org/licenses/LICENSE-2.0
+//
+// Unless required by applicable law or agreed to in writing, software
+// distributed under the License is distributed on an "AS IS" BASIS,
+// WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+// See the License for the specific language governing permissions and
+// limitations under the License.
+package com.google.devtools.build.lib.events.util;
+
+import static com.google.common.truth.Truth.assertWithMessage;
+
+import com.google.devtools.build.lib.events.Event;
+import com.google.devtools.build.lib.events.EventCollector;
+import com.google.devtools.build.lib.events.EventHandler;
+import com.google.devtools.build.lib.events.EventKind;
+import com.google.devtools.build.lib.events.PrintingEventHandler;
+import com.google.devtools.build.lib.events.Reporter;
+import com.google.devtools.build.lib.testutil.JunitTestUtils;
+import com.google.devtools.build.lib.util.io.OutErr;
+
+import java.util.List;
+import java.util.Set;
+
+/**
+ * An apparatus for reporting / collecting events. 
+ */
+public class EventCollectionApparatus {
+
+  /**
+   * The fail fast handler, which fails the test fail whenever we encounter
+   * an error event.
+   */
+  private static final EventHandler FAIL_FAST_HANDLER = new EventHandler() {
+    @Override
+    public void handle(Event event) {
+      assertWithMessage(event.toString()).that(EventKind.ERRORS_AND_WARNINGS)
+          .doesNotContain(event.getKind());
+    }
+  };
+  private Set<EventKind> customMask;
+  
+  /*
+  *  Determine which events the {@link #collector()} created by this apparatus
+   * will collect. Default: {@link EventKind#ERRORS_AND_WARNINGS}.
+   *
+  */
+  public EventCollectionApparatus(Set<EventKind> mask) {
+    this.customMask = mask;
+    
+    eventCollector = new EventCollector(customMask);
+    reporter = new Reporter(eventCollector);
+    printingEventHandler = new PrintingEventHandler(EventKind.ERRORS_AND_WARNINGS_AND_OUTPUT);
+    reporter.addHandler(printingEventHandler);
+    
+    this.setFailFast(true);
+  }
+  
+  public EventCollectionApparatus() {
+    this(EventKind.ERRORS_AND_WARNINGS);
+  }
+  
+  /* ---- Settings for the apparatus (configuration for creating state) ---- */
+
+  /* ---------- State that the apparatus initializes / operates on --------- */
+  private EventCollector eventCollector;
+  private Reporter reporter;
+  private PrintingEventHandler printingEventHandler;
+
+  /**
+   * Determine whether the {#link reporter()} created by this apparatus will
+   * fail fast, that is, throw an exception whenever we encounter an event of
+   * matching {@link EventKind#ERRORS_AND_WARNINGS}.
+   * Default: {@code true}.
+   */
+  public void setFailFast(boolean failFast) {
+    if (failFast) {
+      reporter.addHandler(FAIL_FAST_HANDLER);
+    } else {
+      reporter.removeHandler(FAIL_FAST_HANDLER);
+    }
+  }
+  
+  /**
+   * Initializes the apparatus (if it's not been initialized yet) and returns
+   * the reporter created with the settings specified by this apparatus.
+   */
+  public Reporter reporter() {
+    return reporter;
+  }
+
+  /**
+   * Initializes the apparatus (if it's not been initialized yet) and returns
+   * the collector created with the settings specified by this apparatus.
+   */
+  public EventCollector collector() {
+    return eventCollector;
+  }
+
+  /**
+   * Redirects all output to the specified OutErr stream pair.
+   * Returns the previous OutErr.
+   */
+  public OutErr setOutErr(OutErr outErr) {
+    return printingEventHandler.setOutErr(outErr);
+  }
+
+  /**
+   * Utility method: Asserts that the {@link #collector()} has not collected
+   * any events.
+   *
+   * @throws IllegalStateException If the apparatus has not yet been
+   *    initialized by calling {@link #reporter()} or {@link #collector()}.
+   */
+  public void assertNoEvents() {
+    JunitTestUtils.assertNoEvents(eventCollector);
+  }
+
+  /**
+   * Utility method: Assert that the {@link #collector()} has received an
+   * event with the {@code expectedMessage}.
+   */
+  public Event assertContainsEvent(String expectedMessage) {
+    return JunitTestUtils.assertContainsEvent(eventCollector,
+                                              expectedMessage);
+  }
+
+  public List<Event> assertContainsEventWithFrequency(String expectedMessage,
+      int expectedFrequency) {
+    return JunitTestUtils.assertContainsEventWithFrequency(eventCollector, expectedMessage,
+        expectedFrequency);
+  }
+
+  /**
+   * Utility method: Assert that the {@link #collector()} has received an
+   * event with the {@code expectedMessage} in quotes.
+   */
+
+  public Event assertContainsEventWithWordsInQuotes(String... words) {
+    return JunitTestUtils.assertContainsEventWithWordsInQuotes(
+        eventCollector, words);
+  }
+
+}

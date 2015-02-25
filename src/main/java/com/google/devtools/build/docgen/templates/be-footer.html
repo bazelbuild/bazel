@@ -1,0 +1,407 @@
+<!-- =================================================================
+                              package()
+     =================================================================
+-->
+
+<h3 id="package">package</h3>
+
+<p>This function declares metadata that applies to every subsequent rule in the
+package.</p>
+
+<p>The <a href="build-ref.html#package">package</a>
+   function is used at most once within a build package (BUILD file).
+   It is recommended that the package function is called at the top of the
+   file, before any rule.</p>
+
+<h4 id="package_args">Arguments</h4>
+
+<ul>
+
+  <li id="package.default_visibility"><code>default_visibility</code>:
+    The default visibility of the rules in this package.
+    <i>(List of <a href="build-ref.html#labels">labels</a>; optional)</i><br/>
+
+    <p>Every rule in this package has the visibility specified in this
+    attribute, unless otherwise specified in the <code>visibility</code>
+    attribute of the rule. For detailed information about the syntax of this
+    attribute, see the documentation of the <a href="#common.visibility">visibility</a>
+    attribute.
+  </li>
+
+  <li id="package.default_obsolete"><code>default_obsolete</code>:
+    The default value of <a href="#common.obsolete"><code>obsolete</code></a> property
+    for all rules in this package. <i>(Boolean; optional; default is 0)</i>
+  </li>
+
+  <li id="package.default_deprecation"><code>default_deprecation</code>:
+    Sets the default <a href="#common.deprecation"><code>deprecation</code></a> message
+    for all rules in this package. <i>(String; optional)</i>
+  </li>
+
+  <li id="package.default_testonly"><code>default_testonly</code>:
+    Sets the default <a href="#common.testonly"><code>testonly</code></a> property
+    for all rules in this package. <i>(Boolean; optional; default is 0 except as noted)</i>
+
+    <p>In packages under <code>javatests</code> the default value is 1.</p>
+  </li>
+
+</ul>
+
+<h4 id="package_example">Examples</h4>
+
+The declaration below declares that the rules in this package are
+visible only to members of package
+group <code>//foo:target</code>. Individual visibility declarations
+on a rule, if present, override this specification.
+
+<pre class="code">
+package(default_visibility = ["//foo:target"])
+</pre>
+
+<!-- =================================================================
+                              package_group()
+     =================================================================
+-->
+
+<h3 id="package_group">package_group</h3>
+
+<p><code>package_group(name, packages, includes)</code></p>
+
+<p>This function defines a set of build packages.
+
+Package groups are used for visibility control.  You can grant access to a rule
+to one or more package groups, every rule, or only to rules declared
+in the same package. For more detailed description of the visibility system, see
+the <a href="#common.visibility">visibility</a> attribute.
+
+<h4 id="package_group_args">Arguments</h4>
+
+<ul>
+  <li id="package_group.name"><code>name</code>:
+    A unique name for this rule.
+    <i>(<a href="build-ref.html#name">Name</a>; required)</i>
+  </li>
+
+  <li id="package_group.packages"><code>packages</code>:
+    A complete enumeration of packages in this group.
+    <i>(List of <a href="build-ref.html#s4">Package</a>; optional)</i><br/>
+
+    <p>Packages should be referred to using their full names,
+    starting with a double slash. For
+    example, <code>//foo/bar/main</code> is a valid element
+    of this list.</p>
+
+    <p>You can also specify wildcards: the specification
+    <code>//foo/...</code> specifies every package under
+    <code>//foo</code>, including <code>//foo</code> itself.
+
+    <p>If this attribute is missing, the package group itself will contain
+    no packages (but it can still include other package groups).</p>
+  </li>
+
+  <li id="package_group.includes"><code>includes</code>:
+    Other package groups that are included in this one.
+    <i>(List of <a href="build-ref.html#labels">labels</a>; optional)</i><br/>
+
+    <p>The labels in this attribute must refer to other package
+    groups. Packages in referenced package groups are taken to be part
+    of this package group. This is transitive, that is, if package
+    group <code>a</code> contains package group <code>b</code>,
+    and <code>b</code> contains package group <code>c</code>, every
+    package in <code>c</code> will also be a member of <code>a</code>.</p>
+  </li>
+</ul>
+
+
+<h4 id="package_group_example">Examples</h4>
+
+The following <code>package_group</code> declaration specifies a
+package group called "tropical" that contains tropical fruits.
+
+<pre class="code">
+package_group(
+    name = "tropical",
+    packages = [
+        "//fruits/mango",
+        "//fruits/orange",
+        "//fruits/papaya/...",
+    ],
+)
+</pre>
+
+The following declarations specify the package groups of a fictional
+application:
+
+<pre class="code">
+package_group(
+    name = "fooapp",
+    includes = [
+        ":controller",
+        ":model",
+        ":view",
+    ],
+)
+
+package_group(
+    name = "model",
+    packages = ["//fooapp/database"],
+)
+
+package_group(
+    name = "view",
+    packages = [
+        "//fooapp/swingui",
+        "//fooapp/webui",
+    ],
+)
+
+package_group(
+    name = "controller",
+    packages = ["//fooapp/algorithm"],
+)
+</pre>
+
+
+<!-- =================================================================
+                                   DESCRIPTION
+     =================================================================
+  -->
+
+<h3 id="description">Description</h3>
+
+<p><code># Description: <var>...</var></code></p>
+
+  <p>
+  Each BUILD file should contain a <code>Description</code> comment.
+  </p>
+
+  <p>
+  Description comments may contain references to other
+  documentation. A string that starts with "http" will become a
+  link.  HTML markup is
+  allowed in description comments, but please keep the BUILD files readable.
+  We encourage you to list the URLs of relevant design docs and howtos
+  in these description comments.
+  </p>
+
+<h3 id="distribs">distribs</h3>
+
+<p><code>distribs(distrib_methods)</code></p>
+
+<p><code>distribs()</code> specifies the default distribution method (or
+   methods) of the build rules in a <code>BUILD</code> file. The <code>distribs()</code>
+   directive
+   should appear close to the beginning of the <code>BUILD</code> file,
+   before any build rules, as it sets the <code>BUILD</code>-file scope
+   default for build rule distribution methods.
+</p>
+
+<h4 id="distribs_args">Arguments</h4>
+
+<p>The argument, <code id="distribs.distrib_methods">distrib_methods</code>,
+   is a list of distribution-method strings.
+</p>
+
+<!-- =================================================================
+                        exports_files([label, ...])
+     =================================================================
+  -->
+
+<h3 id="exports_files">exports_files</h3>
+
+<p><code>exports_files([<i>label</i>, ...], visibility, licenses)</code></p>
+
+<p>
+  <code>exports_files()</code> specifies a list of files belonging to
+  this package that are exported to other packages but not otherwise
+  mentioned in the BUILD file.
+</p>
+
+<p>
+  The BUILD file for a package may only refer to files belonging to another
+  package if they are mentioned somewhere in the other packages's BUILD file,
+  whether as an input to a rule or an explicit or implicit output from a rule.
+  The remaining files are not associated with a specific rule but are just "data",
+  and for these, <code>exports_files</code> ensures that they may be referenced by
+  other packages.  (One kind of data for which this is particularly useful are
+  shell and Perl scripts.)
+</p>
+
+<p>
+  Note: A BUILD file only consisting of <code>exports_files()</code> statements
+  is needless though, as there are no BUILD rules that could own any files.
+  The files listed can already be accessed through the containing package and
+  exported from there if needed.
+</p>
+
+<h4 id="exports_files_args">Arguments</h4>
+
+<p>
+  The argument is a list of names of files within the current package. A
+  visibility declaration can also be specified; in this case, the files will be
+  visible to the targets specified. If no visibility is specified, the files
+  will be visible to every package, even if a package default visibility was
+  specified in the <code><a href="#package">package</a></code> function. The
+  <a href="#common.licenses">licenses</a> can also be specified.
+</p>
+
+<!-- =================================================================
+                               glob()
+     =================================================================
+  -->
+
+<h3 id="glob">glob</h3>
+
+<p><code>glob(include, exclude=[], exclude_directories=1)</code>
+</p>
+
+<p>
+Glob is a helper function that can be used anywhere a list of filenames
+is expected.  It takes one or two lists of filename patterns containing
+the <code>*</code> wildcard: as per the Unix shell, this wildcard
+matches any string excluding the directory separator <code>/</code>.
+In addition filename patterns can contain the recursive <code>**</code>
+wildcard. This wildcard will match zero or more complete
+path segments separated by the directory separator <code>/</code>.
+This wildcard can only be used as a complete path segment. For example,
+<code>"x/**/*.java"</code> is legal, but <code>"test**/testdata.xml"</code>
+and <code>"**.java"</code> are both illegal. No other wildcards are supported.
+</p>
+<p>
+Glob returns a list of every file in the current build package that:
+</p>
+<ul>
+  <li style="margin-bottom: 0">
+    Matches at least one pattern in <code>include</code>. </li>
+  <li>
+    Does not match any of the patterns in <code>exclude</code> (default []).</li>
+</ul>
+<p>
+If the <code>exclude_directories</code> argument is enabled (1), files of
+type directory will be omitted from the results (default 1).
+</p>
+<p>
+There are several important limitations and caveats:
+</p>
+
+<ol>
+  <li>
+    Globs only match files in your source tree, never
+    generated files.  If you are building a target that requires both
+    source and generated files, create an explicit list of generated
+    files, and use <code>+</code> to add it to the result of the
+    <code>glob()</code> call.
+  </li>
+
+  <li>
+    Globs may match files in subdirectories.  And subdirectory names
+    may be wildcarded.  However...
+  </li>
+
+  <li>
+    Labels are not allowed to cross the package boundary and glob does
+    not match files in subpackages.
+
+    For example, the glob expression <code>**/*.cc</code> in package
+    <code>x</code> does not include <code>x/y/z.cc</code> if
+    <code>x/y</code> exists as a package (either as
+    <code>x/y/BUILD</code>, or somewhere else on the package-path). This
+    means that the result of the glob expression actually depends on the
+    existence of BUILD files &mdash; that is, the same glob expression would
+    include <code>x/y/z.cc</code> if there was no package called
+    <code>x/y</code>.
+  </li>
+
+  <li>
+    The restriction above applies to all glob expressions,
+    no matter which wildcards they use.
+  </li>
+</ol>
+
+<p>
+In general, you should <b>try to provide an appropriate extension (e.g. *.html)
+instead of using a bare '*'</b> for a glob pattern. The more explicit name
+is both self documenting and ensures that you don't accidentally match backup
+files, or emacs/vi/... auto-save files.
+</p>
+
+<h4 id="glob_example">Glob Examples</h4>
+
+<p>Include all txt files in directory testdata except experimental.txt.
+Note that files in subdirectories of testdata will not be included. If
+you want those files to be included, use a recursive glob (**).</p>
+<pre class="code">
+java_test(
+    name = "myprog",
+    srcs = ["myprog.java"],
+    data = glob(
+        ["testdata/*.txt"],
+        exclude = ["testdata/experimental.txt"],
+    ),
+)
+</pre>
+
+<h4 id="recursive_glob_example">Recursive Glob Examples</h4>
+
+<p>Create a library built from all java files in this directory and all
+subdirectories except those whose path includes a directory named testing.
+Subdirectories containing a BUILD file are ignored.
+<b>This should be a very common pattern.</b>
+</p>
+<pre class="code">
+java_library(
+    name = "mylib",
+    srcs = glob(
+        ["**/*.java"],
+        exclude = ["**/testing/**"],
+    ),
+)
+</pre>
+
+<p>Make the test depend on all txt files in the testdata directory,
+   its subdirectories</p>
+<pre class="code">
+java_test(
+    name = "mytest",
+    srcs = ["mytest.java"],
+    data = glob(["testdata/**/*.txt"]),
+)
+</pre>
+
+<!-- =================================================================
+                              licenses()
+     =================================================================
+-->
+
+<h3 id="licenses">licenses</h3>
+
+<p><code>licenses(license_types)</code></p>
+
+<p><code>licenses()</code> specifies the default license type (or types)
+   of the build rules in a <code>BUILD</code> file. The <code>licenses()</code>
+   directive should appear close to the
+   beginning of the <code>BUILD</code> file, before any build rules, as it
+   sets the <code>BUILD</code>-file scope default for build rule license
+   types.</p>
+
+<h4 id="licenses_args">Arguments</h4>
+
+<p>The argument, <code id="licenses.licence_types">license_types</code>,
+   is a list of license-type strings.
+</p>
+
+<!-- =================================================================
+                              include()
+     =================================================================
+-->
+
+<h3 id="include">include</h3>
+
+<p><code>include(name)</code></p>
+
+<p><code>include()</code> incorporates build
+  language definitions from an external file into the evaluation of the
+  current <code>BUILD</code> file.</p>
+
+</body>
+</html>

@@ -1,0 +1,110 @@
+// Copyright 2014 Google Inc. All rights reserved.
+//
+// Licensed under the Apache License, Version 2.0 (the "License");
+// you may not use this file except in compliance with the License.
+// You may obtain a copy of the License at
+//
+//    http://www.apache.org/licenses/LICENSE-2.0
+//
+// Unless required by applicable law or agreed to in writing, software
+// distributed under the License is distributed on an "AS IS" BASIS,
+// WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+// See the License for the specific language governing permissions and
+// limitations under the License.
+
+syntax = "proto2";
+
+package blaze;
+
+option java_package = "com.google.devtools.build.lib.view.test";
+
+// Status data of test cases which failed (used only for printing test summary)
+enum FailedTestCasesStatus {
+   /** Information about every test case is available. */
+   FULL = 1;
+   /** Information about some test cases may be missing. */
+   PARTIAL = 2;
+   /** No information about individual test cases. */
+   NOT_AVAILABLE = 3;
+   /** This is an empty object still without data. */
+   EMPTY = 4;
+};
+
+// Detailed status data for a TestRunnerAction execution.
+enum BlazeTestStatus {
+  NO_STATUS = 0;
+  PASSED = 1;
+  FLAKY = 2;
+  TIMEOUT = 3;
+  FAILED = 4;
+  INCOMPLETE = 5;
+  REMOTE_FAILURE = 6;
+  FAILED_TO_BUILD = 7;
+  BLAZE_HALTED_BEFORE_TESTING = 8;
+};
+
+// TestCase contains detailed data about all tests (cases/suites/decorators)
+// ran, structured in a tree. This data will be later used to present the tests
+// by the web status server.
+message TestCase {
+  enum Type {
+    TEST_CASE = 0;
+    TEST_SUITE = 1;
+    TEST_DECORATOR = 2;
+    UNKNOWN = 3;
+  }
+
+  enum Status {
+    PASSED = 0;
+    FAILED = 1;
+    ERROR = 2;
+  }
+
+  repeated TestCase child = 1;
+  optional string name = 2;
+  optional string class_name = 3;
+  optional int64 run_duration_millis = 4;
+  optional string result = 5;
+  optional Type type = 6;
+  optional Status status = 7;
+  optional bool run = 8 [default = true];
+};
+
+// TestResultData holds the outcome data for a single test action (A
+// single test rule can result in multiple actions due to sharding and
+// runs_per_test settings.)
+message TestResultData {
+  // The following two fields are used for TestRunnerAction caching.
+  // This reflects the fact that failing tests are successful
+  // actions that might be cached, depending on option settings.
+  optional bool cachable = 1;
+  optional bool test_passed = 2;
+
+  // Following data is informational.
+  optional BlazeTestStatus status = 3 [default = NO_STATUS];
+  repeated string failed_logs = 4;
+  repeated string warning = 5;
+  optional bool has_coverage = 6;
+
+  // Returns if this was cached in remote execution.
+  optional bool remotely_cached = 7;
+
+  // Returns true if this was executed remotely
+  optional bool is_remote_strategy = 8;
+
+  // All associated test times (in ms).
+  repeated int64 test_times = 9;
+
+  // Passed log paths. Set if the test passed.
+  optional string passed_log = 10;
+
+  // Test times, without remote execution overhead (in ms).
+  repeated int64 test_process_times = 11;
+
+  // Total time in ms.
+  optional int64 run_duration_millis = 12;
+
+  // Additional build info
+  optional TestCase test_case = 13;
+  optional FailedTestCasesStatus failed_status = 14;
+};

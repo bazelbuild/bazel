@@ -1,0 +1,6 @@
+#ifndef EXAMPLE_WORKSPACE_CPP_HELLO_LIB_H_
+#define EXAMPLE_WORKSPACE_CPP_HELLO_LIB_H_
+
+void greet(const char* object);
+
+#endif  // EXAMPLE_WORKSPACE_CPP_HELLO_LIB_H_

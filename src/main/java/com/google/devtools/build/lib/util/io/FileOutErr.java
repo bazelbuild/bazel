@@ -1,0 +1,404 @@
+// Copyright 2014 Google Inc. All rights reserved.
+//
+// Licensed under the Apache License, Version 2.0 (the "License");
+// you may not use this file except in compliance with the License.
+// You may obtain a copy of the License at
+//
+//    http://www.apache.org/licenses/LICENSE-2.0
+//
+// Unless required by applicable law or agreed to in writing, software
+// distributed under the License is distributed on an "AS IS" BASIS,
+// WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+// See the License for the specific language governing permissions and
+// limitations under the License.
+package com.google.devtools.build.lib.util.io;
+
+import com.google.common.annotations.VisibleForTesting;
+import com.google.common.io.ByteStreams;
+import com.google.devtools.build.lib.concurrent.ThreadSafety;
+import com.google.devtools.build.lib.vfs.FileSystemUtils;
+import com.google.devtools.build.lib.vfs.Path;
+
+import java.io.FileInputStream;
+import java.io.IOException;
+import java.io.InputStream;
+import java.io.OutputStream;
+import java.io.PrintStream;
+
+/**
+ * An implementation of {@link OutErr} that captures all out/err output into
+ * a file for stdout and a file for stderr. The files are only created if any
+ * output is made.
+ * The OutErr assumes that the directory that will contain the output file
+ * must exist.
+ *
+ * You should not use this object from multiple different threads.
+ */
+@ThreadSafety.ThreadCompatible
+public class FileOutErr extends OutErr {
+
+  /**
+   * Create a new FileOutErr that will write its input,
+   * if any, to the files specified by stdout/stderr.
+   *
+   * No other process may write to the files,
+   *
+   * @param stdout The file for the stdout of this outErr
+   * @param stderr The file for the stderr of this outErr
+   */
+  public FileOutErr(Path stdout, Path stderr) {
+    super(new FileRecordingOutputStream(stdout), new FileRecordingOutputStream(stderr));
+  }
+
+  /**
+   * Creates a new FileOutErr that writes its input
+   * to the file specified by output. Both stdout/stderr will
+   * be copied into the single file.
+   *
+   * @param output The file for the both stdout and stderr of this outErr.
+   */
+  public FileOutErr(Path output) {
+    // We don't need to create a synchronized funnel here, like in the OutErr -- The
+    // respective functions in the FileRecordingOutputStream take care of locking.
+    this(new FileRecordingOutputStream(output));
+  }
+
+  /**
+   * Creates a new FileOutErr that discards its input. Useful
+   * for testing purposes.
+   */
+  @VisibleForTesting
+  public FileOutErr() {
+    this(new NullFileRecordingOutputStream());
+  }
+
+  private FileOutErr(OutputStream stream) {
+    // We need this function to duplicate the single new object into both arguments
+    // of the super-constructor.
+    super(stream, stream);
+  }
+
+  /**
+   * Returns true if any output was recorded.
+   */
+  public boolean hasRecordedOutput() {
+    return getFileOutputStream().hasRecordedOutput() || getFileErrorStream().hasRecordedOutput();
+  }
+
+  /**
+   * Returns true if output was recorded on stdout.
+   */
+  public boolean hasRecordedStdout() {
+    return getFileOutputStream().hasRecordedOutput();
+  }
+
+  /**
+   * Returns true if output was recorded on stderr.
+   */
+  public boolean hasRecordedStderr() {
+    return getFileErrorStream().hasRecordedOutput();
+  }
+
+  /**
+   * Returns the file this OutErr uses to buffer stdout
+   *
+   * The user must ensure that no other process is writing to the
+   * files at time of creation.
+   *
+   * @return the path object with the contents of stdout
+   */
+  public Path getOutputFile() {
+    return getFileOutputStream().getFile();
+  }
+
+  /**
+   * Returns the file this OutErr uses to buffer stderr.
+   *
+   * @return the path object with the contents of stderr
+   */
+  public Path getErrorFile() {
+    return getFileErrorStream().getFile();
+  }
+
+  /**
+   * Interprets the captured out content as an {@code ISO-8859-1} encoded
+   * string.
+   */
+  public String outAsLatin1() {
+    return getFileOutputStream().getRecordedOutput();
+  }
+
+  /**
+   * Interprets the captured err content as an {@code ISO-8859-1} encoded
+   * string.
+   */
+  public String errAsLatin1() {
+    return getFileErrorStream().getRecordedOutput();
+  }
+
+  /**
+   * Writes the captured out content to the given output stream,
+   * avoiding keeping the entire contents in memory.
+   */
+  public void dumpOutAsLatin1(OutputStream out) {
+    getFileOutputStream().dumpOut(out);
+  }
+
+  /**
+   * Writes the captured out content to the given output stream,
+   * avoiding keeping the entire contents in memory.
+   */
+  public void dumpErrAsLatin1(OutputStream out) {
+    getFileErrorStream().dumpOut(out);
+  }
+
+  private AbstractFileRecordingOutputStream getFileOutputStream() {
+    return (AbstractFileRecordingOutputStream) getOutputStream();
+  }
+
+  private AbstractFileRecordingOutputStream getFileErrorStream() {
+    return (AbstractFileRecordingOutputStream) getErrorStream();
+  }
+
+  /**
+   * An abstract supertype for the two other inner classes in this type
+   * to implement streams that can write to a file.
+   */
+  private abstract static class AbstractFileRecordingOutputStream extends OutputStream {
+
+    /**
+     * Returns true if this FileRecordingOutputStream has encountered an error.
+     *
+     * @return true there was an error, false otherwise.
+     */
+    abstract boolean hadError();
+
+    /**
+     * Returns the file this FileRecordingOutputStream is writing to.
+     */
+    abstract Path getFile();
+
+    /**
+     * Returns true if the FileOutErr has stored output.
+     */
+    abstract boolean hasRecordedOutput();
+
+    /**
+     * Returns the output this AbstractFileOutErr has recorded.
+     */
+    abstract String getRecordedOutput();
+
+    /**
+     * Writes the output to the given output stream,
+     * avoiding keeping the entire contents in memory.
+     */
+    abstract void dumpOut(OutputStream out);
+  }
+
+  /**
+   * An output stream that pretends to capture all its output into a file,
+   * but instead discards it.
+   */
+  private static class NullFileRecordingOutputStream extends AbstractFileRecordingOutputStream {
+
+    NullFileRecordingOutputStream() {
+    }
+
+    @Override
+    boolean hadError() {
+      return false;
+    }
+
+    @Override
+    Path getFile() {
+      return null;
+    }
+
+    @Override
+    boolean hasRecordedOutput() {
+      return false;
+    }
+
+    @Override
+    String getRecordedOutput() {
+      return "";
+    }
+
+    @Override
+    void dumpOut(OutputStream out) {
+      return;
+    }
+
+
+    @Override
+    public void write(byte[] b, int off, int len) {
+    }
+
+    @Override
+    public void write(int b) {
+    }
+
+    @Override
+    public void write(byte[] b) {
+    }
+  }
+
+
+  /**
+   * An output stream that captures all output into a file.
+   * The file is created only if output is received.
+   *
+   * The user must take care that nobody else is writing to the
+   * file that is backing the output stream.
+   *
+   * The write() methods of type are synchronized to ensure
+   * that writes from different threads are not mixed up.
+   *
+   * The outputStream is here only for the benefit of the pumping
+   * IO we're currently using for execution - Once that is gone,
+   * we can remove this output stream and fold its code into the
+   * FileOutErr.
+   */
+  @ThreadSafety.ThreadCompatible
+  private static class FileRecordingOutputStream extends AbstractFileRecordingOutputStream {
+
+    private final Path outputFile;
+    OutputStream outputStream;
+    String error;
+
+    FileRecordingOutputStream(Path outputFile) {
+      this.outputFile = outputFile;
+    }
+
+    @Override
+    boolean hadError() {
+      return error != null;
+    }
+
+    @Override
+    Path getFile() {
+      return outputFile;
+    }
+
+    private OutputStream getOutputStream() throws IOException {
+      // you should hold the lock before you invoke this method
+      if (outputStream == null) {
+        outputStream = outputFile.getOutputStream();
+      }
+      return outputStream;
+    }
+
+    private boolean hasOutputStream() {
+      return outputStream != null;
+    }
+
+    /**
+     * Called whenever the FileRecordingOutputStream finds an error.
+     */
+    private void recordError(IOException exception) {
+      String newErrorText = exception.getMessage();
+      error = (error == null) ? newErrorText : error + "\n" + newErrorText;
+    }
+
+    @Override
+    boolean hasRecordedOutput() {
+      if (hadError()) {
+        return true;
+      }
+      if (!outputFile.exists()) {
+        return false;
+      }
+      try {
+        return outputFile.getFileSize() > 0;
+      } catch (IOException ex) {
+        recordError(ex);
+        return true;
+      }
+    }
+
+    @Override
+    String getRecordedOutput() {
+      StringBuilder result = new StringBuilder();
+      try {
+        if (getFile().exists()) {
+          result.append(FileSystemUtils.readContentAsLatin1(getFile()));
+        }
+      } catch (IOException ex) {
+        recordError(ex);
+      }
+
+      if (hadError()) {
+        result.append(error);
+      }
+      return result.toString();
+    }
+
+    @Override
+    void dumpOut(OutputStream out) {
+      InputStream in = null;
+      try {
+        if (getFile().exists()) {
+          in = new FileInputStream(getFile().getPathString());
+          ByteStreams.copy(in, out);
+        }
+      } catch (IOException ex) {
+        recordError(ex);
+      } finally {
+        if (in != null) {
+          try {
+            in.close();
+          } catch (IOException e) {
+            // Ignore.
+          }
+        }
+      }
+
+      if (hadError()) {
+        PrintStream ps = new PrintStream(out);
+        ps.print(error);
+        ps.flush();
+      }
+    }
+
+    @Override
+    public synchronized void write(byte[] b, int off, int len) {
+      if (len > 0) {
+        try {
+          getOutputStream().write(b, off, len);
+        } catch (IOException ex) {
+          recordError(ex);
+        }
+      }
+    }
+
+    @Override
+    public synchronized void write(int b) {
+      try {
+        getOutputStream().write(b);
+      } catch (IOException ex) {
+        recordError(ex);
+      }
+    }
+
+    @Override
+    public synchronized void write(byte[] b) throws IOException {
+      if (b.length > 0) {
+        getOutputStream().write(b);
+      }
+    }
+
+    @Override
+    public synchronized void flush() throws IOException {
+      if (hasOutputStream()) {
+        getOutputStream().flush();
+      }
+    }
+
+    @Override
+    public synchronized void close() throws IOException {
+      if (hasOutputStream()) {
+        getOutputStream().close();
+      }
+    }
+  }
+}

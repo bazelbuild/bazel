@@ -1,0 +1,164 @@
+syntax = "proto2";
+
+package build.xcode;
+option java_outer_classname = "XcodeGenProtos";
+option java_package = "com.google.devtools.build.xcode.xcodegen.proto";
+
+// Protos named "*Control" are protos that can be used to tell Xcodegen what to
+// do.
+
+// Contains all information needed to pass to Xcodegen for it to generate a
+// project file.
+message Control {
+  // Relative path to the project.pbxproj file. This value is used to construct
+  // relative paths in the xcodeproj file, as well as to specify where to write
+  // the resulting project file.
+  optional string pbxproj = 1;
+
+  // The targets to generate.
+  repeated TargetControl target = 2;
+
+  // Project-level build settings. These are shared with every target, unless
+  // an individual target overrides any of them.
+  repeated XcodeprojBuildSetting build_setting = 3;
+}
+
+// Information about dependency on a separate target.
+message DependencyControl {
+  // Label of the target in the project file that is depended upon.
+  optional string target_label = 1;
+
+  // Set to true if this dependency is that of a xctest target on its TEST_HOST.
+  // Considered 'false' if omitted.
+  optional bool test_host = 2;
+}
+
+// Contains information specific to a single target in the project file.
+// Next ID: 23
+message TargetControl {
+  // 'Name' of the target in the project file. This corresponds to the product
+  // name, and does not have to be unique.
+  optional string name = 1;
+
+  // Relative paths to source files to compile. Each source file is added to
+  // the sources build phase of the target, so any file accepted by Xcode is
+  // valid.
+  repeated string source_file = 2;
+
+  // Identical to source_file, but only Objective-C[++] source files are
+  // valid. These sources are compiled without ARC.
+  repeated string non_arc_source_file = 6;
+
+  // Relative paths to support files, such as BUILD, header, and non-compiled
+  // source files. These are included in the project so they can be opened in
+  // the project explorer view, but are not compiled into object files.
+  repeated string support_file = 3;
+
+  // Dependencies this target has on other targets.
+  repeated DependencyControl dependency = 4;
+
+  // (Used for objc_binary and objc_bundle_library targets) path to the
+  // -Info.plist file for the application.
+  optional string infoplist = 5;
+
+  // Label corresponding to the target. This is needed to determine a
+  // unique name for the target in the project.
+  optional string label = 7;
+
+  // Additional flags to pass to the [objective] c[++] compiler.
+  repeated string copt = 8;
+
+  // Additional flags to pass to the linker.
+  repeated string linkopt = 22;
+
+  // Paths to *.xcassets directories to include in the target as asset
+  // catalogs. For all targets, this causes the .xcassets directory to be
+  // included in the Project Navigator. For targets that can include them (e.g.
+  // objc_binary), this causes them to be included in the resources build
+  // phase.
+  repeated string xcassets_dir = 9;
+
+  // Miscellaneous build settings. Each setting is applied to all build
+  // configurations.
+  repeated XcodeprojBuildSetting build_setting = 10;
+
+  // Paths to strings or xib files. Xcodegen will determine automatically if
+  // they are localized (i.e. are in a directory named *.lproj) or not.
+  // TODO(bazel-team): Introduce a more powerful resource file protobuf, a
+  // list of which can be used to specify all resources.
+  repeated string general_resource_file = 11;
+
+  // SDK frameworks to link with this target. This should be every framework
+  // required by the targets in the transitive dependency tree. Xcodegen does
+  // not find these transitive dependencies automatically; they must be added
+  // to this repeated field.
+  repeated string sdk_framework = 12;
+
+  // Paths to non-SDK frameworks to link with this target, relative to the
+  // same path as every other path in the control file. This should be every
+  // framework required by the targets in the transitive dependency tree.
+  repeated string framework = 21;
+
+  // Path to all .xcdatamodel directories required. All directories inside
+  // a .xcdatamodeld directory are grouped into XCVersionGroups by the path of
+  // the .xcdatamodeld directory.
+  repeated string xcdatamodel = 13;
+
+  // Path to all .a libraries to link with this target. When used on static
+  // library targets, the library is not actually linked, but it will appear
+  // in the Xcode Project Navigator. These are considered to be pre-built
+  // libraries. In other words, they are NOT built by Xcode as a dependency
+  // before this target is built.
+  repeated string imported_library = 14;
+
+  // Path to directories to include as user header search paths. These are non-
+  // recursive. These should be specified here rather than in the build_setting
+  // field because the build_setting field requires paths to be specified
+  // relative to the container of the .xcodeproj directory, while this
+  // attribute is relative to the same path as every other path in the control
+  // file. These paths correspond to the "-iquote" arguments passed to the
+  // compiler.
+  repeated string user_header_search_path = 15;
+
+  // Path to directories to include as header search paths. These are non-
+  // recursive. These should be specified here rather than in the build_setting
+  // field because the build_setting field requires paths to be specified
+  // relative to the container of the .xcodeproj directory, while this
+  // attribute is relative to the same path as every other path in the control
+  // file. These paths correspond to the "-I" arguments passed to the
+  // compiler.
+  repeated string header_search_path = 16;
+
+  // GCC_PREFIX_HEADER path. Needs to be be specified here rather than in the
+  // build_setting field because the build_setting field requires paths to be
+  // specified relative to the container of the .xcodeproj directory, while
+  // this attribute is relative to the same path as every other path in the
+  // control file.
+  optional string pch_path = 20;
+
+  // Path to .bundle directories this target depends on. For static library
+  // targets, this only causes the bundle to appear in the Project Navigator.
+  // For application target, this also causes the bundle to be linked with the
+  // application.
+  repeated string bundle_import = 17;
+
+  // The product type, for instance "com.apple.product-type.bundle". If
+  // omitted, the presence of the infoplist field indicates the type:
+  // has infoplist: "com.apple.product-type.application"
+  // does not have infoplist: "com.apple.product-type.library.static"
+  optional string product_type = 18;
+
+  // SDK .dylib files to link with this target. Each name should not include the
+  // the path or the .dylib extension, e.g. "libz" to link in
+  // "SDKROOT/usr/lib/libz.dylib". For all targets, this causes the library to
+  // appear in the Project Navigator. For binary targets, this causes the
+  // library to be linked with the final binary.
+  repeated string sdk_dylib = 19;
+}
+
+// Represents the mapping of a build setting recognized by Xcode project files,
+// for instance ASSETCATALOG_COMPILER_APPICON_NAME.
+message XcodeprojBuildSetting {
+  optional string name = 1;
+  optional string value = 2;
+}

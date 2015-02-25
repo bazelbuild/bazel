@@ -1,0 +1,34 @@
+URL: http://plist.googlecode.com/svn-history/r111/trunk/
+Version: r111
+License: MIT Style
+License File: LICENSE
+
+Description:
+
+dd-plist
+This library enables Java applications to work with property lists in various
+formats.
+
+You can parse existing property lists (e.g. those created by an iOS application)
+and work with the contents on any operating system.
+
+The library also enables you to create your own property lists from scratch and
+store them in various formats.
+
+The provided API mimics the Cocoa/NeXTSTEP API, granting access to the basic
+functions of classes like NSDictionary, NSData, etc.
+
+dd-plist has full support for the Android operating system. Consequently this
+library can be of great help when it comes to porting iOS apps to Android.
+
+Local Modifications:
+- LICENSE file has been created for compliance purposes. Not included in
+  original distribution.
+- Made PropertyListParser.readAll react properly to InputStreams that sometimes
+  read fewer bytes than are available.
+- Rewrote some functions in ASCIIPropertyListParser.java to support characters
+  outside of the 7-bit ASCII range.
+- Support surrogate pairs from \u escaped chars in strings in
+  ASCIIPropertyListParser.java.
+- Allow \ escaping of characters that need not be escaped in
+  ASCIIPropertyListParser.java.

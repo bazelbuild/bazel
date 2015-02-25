@@ -1,0 +1,192 @@
+<!DOCTYPE html>
+
+<html>
+<head>
+  <meta charset="utf-8" />
+  <title>Bazel FAQ</title>
+
+  <style type="text/css" id="internalStyle">
+    body {
+      background-color: #ffffff;
+      color: black;
+      margin-right: 10%;
+      margin-left: 10%;
+    }
+
+    h1, h2, h3, h4, h5, h6 {
+      color: #dd7755;
+      font-family: sans-serif;
+    }
+    @media print {
+      /* Darker version for printing */
+      h1, h2, h3, h4, h5, h6 {
+        color: #008000;
+        font-family: helvetica, sans-serif;
+      }
+    }
+
+    h1 {
+      text-align: center;
+    }
+    h2 {
+      margin-left: -0.5in;
+    }
+    h3 {
+      margin-left: -0.25in;
+    }
+    h4 {
+      margin-left: -0.125in;
+    }
+    hr {
+      margin-left: -1in;
+    }
+    address {
+      text-align: right;
+    }
+
+    /* A compact unordered list */
+    ul.tight > li {
+      margin-bottom: 0;
+    }
+
+    /* Use the <code> tag for bits of code and <var> for variable and object names. */
+    code,pre,samp,var {
+      color: #006000;
+    }
+    /* Use the <file> tag for file and directory paths and names. */
+    file {
+      color: #905050;
+      font-family: monospace;
+    }
+    /* Use the <kbd> tag for stuff the user should type. */
+    kbd {
+      color: #600000;
+    }
+    div.note p {
+      float: right;
+      width: 3in;
+      margin-right: 0%;
+      padding: 1px;
+      border: 2px solid #60a060;
+      background-color: #fffff0;
+    }
+
+    table.grid {
+      background-color: #ffffee;
+      border: 1px solid black;
+      border-collapse: collapse;
+      margin-left: 2mm;
+      margin-right: 2mm;
+    }
+
+    table.grid th,
+    table.grid td {
+      border: 1px solid black;
+      padding: 0 2mm 0 2mm;
+    }
+
+    /* Use pre.code for code listings.
+       Use pre.interaction for "Here's what you see when you run a.out.".
+       (Within pre.interaction, use <kbd> things the user types)
+     */
+    pre.code {
+      background-color: #FFFFEE;
+      border: 1px solid black;
+      color: #004000;
+      font-size: 10pt;
+      margin-left: 2mm;
+      margin-right: 2mm;
+      padding: 2mm;
+      -moz-border-radius: 12px 0px 0px 0px;
+    }
+
+    pre.interaction {
+      background-color: #EEFFEE;
+      color: #004000;
+      padding: 2mm;
+    }
+
+    pre.interaction kbd {
+      font-weight: bold;
+      color: #000000;
+    }
+
+    /* legacy style */
+    pre.interaction b.astyped {
+      color: #000000;
+    }
+
+    h1 { margin-bottom: 5px; }
+    ul li { margin-bottom: 1em; }
+    ul.toc li { margin-bottom: 0em; }
+    em.harmful { color: red; }
+    div#release { text-align: center; font-size: 14pt; font-weight: bold; font-family: courier; }
+
+    .deprecated { text-decoration: line-through; }
+    .discouraged { text-decoration: line-through; }
+
+    table.truthtable {
+      border-collapse: collapse;
+      font-family: monospace;
+    }
+    table.truthtable th, table.truthtable td {
+      border: 1px solid black;
+      padding: 0.5em;
+      text-align: center;
+    }
+    table.truthtable th {
+      font-weight: bold;
+    }
+    table.truthtable td.rowhead {
+      text-align: right;
+      font-weight: bold;
+    }
+
+    table.layout { width: 980px; }
+    table.layout td { vertical-align: top; }
+
+    #maintainer { text-align: right; }
+  </style>
+</head>
+
+<body>
+  <h1>Bazel FAQ</h1>
+
+<h2>Related Documentation</h2>
+<ul class="toc">
+  <li><a href="write_build_file.html">Getting Started with BUILD files</a></li>
+  <li><a href="build-ref.html">BUILD Concept Reference</a></li>
+  <li><a href="build-encyclopedia.html">Build Encyclopedia</a></li>
+  <li><a href="bazel-query-v2.html">Bazel Query Reference</a></li>
+</ul>
+
+<h3>How do I submit a patch?</h3>
+
+<p>
+  We're still working out how to accept patches. There is no official process at
+  the moment, so please let us know on the
+  <a href="https://groups.google.com/forum/#!forum/bazel-discuss">mailing list</a>
+  and we'll figure it out on a case-by-case basis.
+</p>
+
+<h3>How does versioning work?</h3>
+
+<p>
+  We try to do one release every other week. Version numbers will use semantic
+  versioning, although pre-1.0.0 we're using 0.x.y, where x changing indicates
+  a backwards-breaking change and y changing indicates new features.
+  Backwards-breaking means changing the BUILD or WORKSPACE file syntax or
+  semantics.  The output that Bazel prints during the build can change without
+  the release being considered backwards-breaking, even though a tool that
+  consumes Bazel's stdout/stderr might be broken by it.
+</p>
+
+<h3>I have another question.</h3>
+
+<p>
+  Please let us know on the
+  <a href="https://groups.google.com/forum/#!forum/bazel-discuss">mailing list</a>!
+</p>
+
+</body>
+</html>

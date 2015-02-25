@@ -1,0 +1,2 @@
+xcodegen generates xcode project files for metadata about a given set of
+targets.

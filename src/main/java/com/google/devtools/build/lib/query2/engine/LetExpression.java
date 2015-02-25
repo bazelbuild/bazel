@@ -1,0 +1,78 @@
+// Copyright 2014 Google Inc. All rights reserved.
+//
+// Licensed under the Apache License, Version 2.0 (the "License");
+// you may not use this file except in compliance with the License.
+// You may obtain a copy of the License at
+//
+//    http://www.apache.org/licenses/LICENSE-2.0
+//
+// Unless required by applicable law or agreed to in writing, software
+// distributed under the License is distributed on an "AS IS" BASIS,
+// WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+// See the License for the specific language governing permissions and
+// limitations under the License.
+package com.google.devtools.build.lib.query2.engine;
+
+import java.util.Collection;
+import java.util.Set;
+import java.util.regex.Pattern;
+
+/**
+ * A let expression.
+ *
+ * <pre>expr ::= LET WORD = expr IN expr</pre>
+ */
+class LetExpression extends QueryExpression {
+
+  private static final String VAR_NAME_PATTERN = "[a-zA-Z_][a-zA-Z0-9_]*$";
+
+  // Variables names may be any legal identifier in the C programming language
+  private static final Pattern NAME_PATTERN = Pattern.compile("^" + VAR_NAME_PATTERN);
+
+  // Variable references are prepended with the "$" character.
+  // A variable named "x" is referenced as "$x".
+  private static final Pattern REF_PATTERN = Pattern.compile("^\\$" + VAR_NAME_PATTERN);
+
+  static boolean isValidVarReference(String varName) {
+    return REF_PATTERN.matcher(varName).matches();
+  }
+
+  static String getNameFromReference(String reference) {
+    return reference.substring(1);
+  }
+
+  private final String varName;
+  private final QueryExpression varExpr;
+  private final QueryExpression bodyExpr;
+
+  LetExpression(String varName, QueryExpression varExpr, QueryExpression bodyExpr) {
+    this.varName = varName;
+    this.varExpr = varExpr;
+    this.bodyExpr = bodyExpr;
+  }
+
+  @Override
+  public <T> Set<T> eval(QueryEnvironment<T> env) throws QueryException {
+    if (!NAME_PATTERN.matcher(varName).matches()) {
+      throw new QueryException(this, "invalid variable name '" + varName + "' in let expression");
+    }
+    Set<T> varValue = varExpr.eval(env);
+    Set<T> prevValue = env.setVariable(varName, varValue);
+    try {
+      return bodyExpr.eval(env);
+    } finally {
+      env.setVariable(varName, prevValue); // restore
+    }
+  }
+
+  @Override
+  public void collectTargetPatterns(Collection<String> literals) {
+    varExpr.collectTargetPatterns(literals);
+    bodyExpr.collectTargetPatterns(literals);
+  }
+
+  @Override
+  public String toString() {
+    return "let " + varName + " = " + varExpr + " in " + bodyExpr;
+  }
+}

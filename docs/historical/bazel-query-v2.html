@@ -1,0 +1,1425 @@
+<!DOCTYPE html>
+
+<html>
+<head>
+  <meta charset="utf-8" />
+  <title>Bazel Query Reference</title>
+  <style type="text/css">
+
+    body {
+      background-color: #ffffff;
+      color: black;
+      margin-right: 10%;
+      margin-left: 10%;
+    }
+
+    h1, h2, h3, h4, h5, h6 {
+      color: #dd7755;
+      font-family: sans-serif;
+    }
+    @media print {
+      /* Darker version for printing */
+      h1, h2, h3, h4, h5, h6 {
+        color: #008000;
+        font-family: helvetica, sans-serif;
+      }
+    }
+
+    h1 {
+      text-align: center;
+    }
+    h2 {
+      margin-left: -0.5in;
+    }
+    h3 {
+      margin-left: -0.25in;
+    }
+    h4 {
+      margin-left: -0.125in;
+    }
+    hr {
+      margin-left: -1in;
+    }
+    address {
+      text-align: right;
+    }
+
+    /* A compact unordered list */
+    ul.tight > li {
+      margin-bottom: 0;
+    }
+
+    /* Use the <code> tag for bits of code and <var> for variable and object names. */
+    code,pre,samp,var {
+      color: #006000;
+    }
+    /* Use the <file> tag for file and directory paths and names. */
+    file {
+      color: #905050;
+      font-family: monospace;
+    }
+    /* Use the <kbd> tag for stuff the user should type. */
+    kbd {
+      color: #600000;
+    }
+    div.note p {
+      float: right;
+      width: 3in;
+      margin-right: 0%;
+      padding: 1px;
+      border: 2px solid #60a060;
+      background-color: #fffff0;
+    }
+
+    table.grid {
+      background-color: #ffffee;
+      border: 1px solid black;
+      border-collapse: collapse;
+      margin-left: 2mm;
+      margin-right: 2mm;
+    }
+
+    table.grid th,
+    table.grid td {
+      border: 1px solid black;
+      padding: 0 2mm 0 2mm;
+    }
+
+    /* Use pre.code for code listings.
+       Use pre.interaction for "Here's what you see when you run a.out.".
+       (Within pre.interaction, use <kbd> things the user types)
+     */
+    pre.code {
+      background-color: #FFFFEE;
+      border: 1px solid black;
+      color: #004000;
+      font-size: 10pt;
+      margin-left: 2mm;
+      margin-right: 2mm;
+      padding: 2mm;
+      -moz-border-radius: 12px 0px 0px 0px;
+    }
+
+    pre.interaction {
+      background-color: #EEFFEE;
+      color: #004000;
+      padding: 2mm;
+    }
+
+    pre.interaction kbd {
+      font-weight: bold;
+      color: #000000;
+    }
+
+    /* legacy style */
+    pre.interaction b.astyped {
+      color: #000000;
+    }
+
+    pre  {
+      margin-left: 5em;
+      color: #008000;
+    }
+    .tt td {
+      font-family: courier;
+    }
+
+    .deprecated { text-decoration: line-through; }
+    .discouraged { text-decoration: line-through; }
+
+    table.layout { width: 980px; }
+    table.layout td { vertical-align: top; }
+
+    #maintainer { text-align: right; }
+  </style>
+</head>
+
+
+<body>
+
+<h1>The Bazel Query Reference</h1>
+
+<p>
+  When you use <code>bazel query</code> to analyze build
+  dependencies, you use a little language, the <em>Bazel Query
+  Language</em>.  This document is the reference manual for that
+  language.  This document also describes the output
+  formats <code>bazel query</code> supports.
+</p>
+
+
+<div id="nav" class="nav-2-levels"></div>
+
+<h2>Examples</h2>
+
+<p>
+  How do people use <code>bazel query</code>?  Here are typical examples:
+</p>
+
+<p>
+  Why does the <code>foo</code> tree depend on <code>bar</code>?
+  Show a path:</p>
+  <pre>somepath(foo/..., some_parent/bar:all)</pre>
+
+
+<p>
+  What C++ libraries do the <code>foo</code> tests depend upon that
+  the <code>foo</code> binary does not?</p>
+  <pre>kind("cc_library", deps(kind(".*test rule", foo/...)) except deps(//foo))</pre>
+
+
+<h2>Tokens: the lexical syntax</h2>
+
+<p>
+  Expressions in the query language are composed of the following
+  tokens:</p>
+  <ul>
+    <li>
+      <b>Keywords</b>, such as <code>somepath</code> or
+      <code>let</code>.  Keywords are the reserved words of the
+      language, and each of them is described below.  The complete set
+      of keywords is:
+
+<pre><!-- keep this alphabetically sorted -->
+<a href="#path-operators">allpaths</a>
+<a href="#attr">attr</a>
+<a href="#buildfiles">buildfiles</a>
+<a href="#component">component</a>
+<a href="#deps">deps</a>
+<a href="#set-operations">except</a>
+<a href="#filter">filter</a>
+<a href="#variables">in</a>
+<a href="#set-operations">intersect</a>
+<a href="#kind">kind</a>
+<a href="#labels">labels</a>
+<a href="#variables">let</a>
+<a href="#rdeps">rdeps</a>
+<a href="#set">set</a>
+<a href="#some">some</a>
+<a href="#path-operators">somepath</a>
+<a href="#tests">tests</a>
+<a href="#set-operations">union</a>
+</pre>
+    </li>
+
+    <li><b>Words</b>, such as <code>foo/...</code> or <!--sic, for
+    clarity--> <code>".*test rule"</code> or
+    <code>some_parent/bar:all</code>.
+    If a character sequence is "quoted" (begins and ends with a
+    single-quote <code>'</code>, or begins and ends with a
+    double-quote <code>&quot;</code>), it is a word.
+    If a character sequence is not quoted, it may still be parsed as a word.
+    Unquoted words are sequences of characters drawn from
+    the set of alphabet characters, numerals, slash <code>/</code>,
+    hyphen <code>-</code>, underscore <code>_</code>, star <code>*</code>, and
+    period <code>.</code>. Unquoted words may not start with a
+    hyphen or period.
+
+    <p>We chose this syntax so that quote marks aren't needed in most cases.
+      The (unusual) <code>".*test rule"</code> example needs quotes: it
+      starts with a period and contains a space.
+      Quoting <code>"cc_library"</code> is unnecessary but harmless.
+    </p>
+
+    <p>
+      Quoting <em>is</em> necessary when writing scripts that
+      construct Bazel query expressions from user-supplied values.
+    </p>
+    <pre>
+      //foo:bar+wiz    # WRONG: scanned as //foo:bar + wiz.
+      //foo:bar=wiz    # WRONG: scanned as //foo:bar = wiz.
+      "//foo:bar+wiz"  # ok.
+      "//foo:bar=wiz"  # ok.
+    </pre>
+    <p>
+      Note that this quoting is in addition to any quoting that may
+      be required by your shell. e.g.
+    </p>
+    <pre>% bazel query ' "//foo:bar=wiz" '     # single-quotes for shell, double-quotes for Bazel.</pre>
+
+    <p>
+      Keywords, when quoted, are treated as ordinary words, thus
+      <code>some</code> is a keyword but <code>"some"</code> is a word.
+      Both <code>foo</code> and <code>"foo"</code> are words.
+    </p>
+
+    <li><b>Punctuation</b>, such as parens <code>()</code>, period
+    <code>.</code> and comma <code>,</code>, etc.  Words containing
+    punctuation (other than the exceptions listed above) must be quoted.
+  </ul>
+
+<p>
+  Whitespace characters outside of a quoted word are ignored.
+</p>
+
+<h2 id='concepts'>Bazel Query Language Concepts</h2>
+<p>
+  The Bazel query language is a language of expressions.  Every
+  expression evaluates to a <b>partially-ordered set</b> of targets,
+  or equivalently, a <b>graph</b> (DAG) of targets.  This is the only
+  datatype.
+</p>
+<p>
+  In some expressions, the partial order of the graph is
+  not interesting; In this case, we call the values
+  "sets". In cases where the partial order of elements
+  is significant, we call values "graphs".  Note
+  that both terms refer to the same datatype, but merely emphasize
+  different aspects of it.
+</p>
+
+<h3>Cycles in the dependency graph</h3>
+<p>
+  Build dependency graphs should be acyclic, but in fact cycles do
+  occur. The algorithms used by the query language are intended for use in
+  acyclic graphs, but are robust against cycles.  The details of how
+  cycles are treated are not specified and should not be relied upon.
+</p>
+
+<h3 id='implicit_deps'>Implicit dependencies</h3>
+
+<p>
+  Per default <code>bazel query</code> takes implicit dependencies into account
+  when computing the query result. This behavior can be changed with
+  the <code>--[no]implicit_deps</code> option.
+</p>
+
+<h3 id='soundness'>Soundness</h3>
+
+<p>
+  The result of evaluating an expression in the Bazel query language
+  is true <em>for all configurations</em>, which means that it may be
+  a conservative over-approximation, and not exactly precise.  If you
+  use the query tool to compute the set of all source files needed
+  during a build, it may report more than are actually necessary
+  because, for example, the query tool will include all the files
+  needed to support message translation, even though you don't intend
+  to use that feature in your build.
+</p>
+
+<h4 id='unsoundness'>Unsoundness</h4>
+<p>
+  Beware, there are a few limited cases where the query tool
+  returns an under-approximation or is <em>unsound</em>.  (You can find
+  them by comparing the results of a <code>bazel query</code> with the
+  set of files mentioned in the Makefile obtained
+  from <a href='bazel-user-manual.html#--dump_makefile'><code>bazel
+  build --dump_makefile</code></a>.
+</p>
+
+<h3 id='graph-order'>On the preservation of graph order</h3>
+
+<p>
+  Operations preserve any ordering
+  constraints inherited from their subexpressions.  You can think of
+  this as "the law of conservation of partial order".  Consider an
+  example: if you issue a query to determine the transitive closure of
+  dependencies of a particular target, the resulting set is ordered
+  according to the dependency graph.  If you filter that set to
+  include only the targets of <code>file</code> kind, the same
+  <em>transitive</em> partial ordering relation holds between every
+  pair of targets in the resulting subset&mdash;even though none of
+  these pairs is actually directly connected in the original graph.
+  (There are no file&ndash;file edges in the build dependency graph).
+</p>
+
+<p>
+  However, while all operators <em>preserve</em> order, some
+  operations, such as the <a href='#set-operations'>set operations</a>
+  don't <em>introduce</em> any ordering constraints of their own.
+  Consider this expression:
+</p>
+
+<pre>deps(x) union y</pre>
+
+<p>
+  The order of the final result set is guaranteed to preserve all the
+  ordering constraints of its subexpressions, namely, that all the
+  transitive dependencies of <code>x</code> are correctly ordered with
+  respect to each other.  However, the query guarantees nothing about
+  the ordering of the targets in <code>y</code>, nor about the
+  ordering of the targets in <code>deps(x)</code> relative to those in
+  <code>y</code> (except for those targets in
+  <code>y</code> that also happen to be in <code>deps(x)</code>).
+</p>
+
+<p>
+  Operators that introduce ordering constraints include:
+  <code>allpaths</code>,
+  <code>deps</code>,
+  <code>rdeps</code>,
+  <code>somepath</code>,
+  and the target pattern wildcards
+  <code>package:*</code>,
+  <code>dir/...</code>, etc.
+</p>
+
+<h2>Expressions: syntax and semantics of the grammar</h2>
+
+<p>
+  This is the grammar of the Bazel query language, expressed in EBNF
+  notation:
+</p>
+
+
+<pre>expr ::= <var>word</var>
+       | let <var>name</var> = <var>expr</var> in <var>expr</var>
+       | (<var>expr</var>)
+       | <var>expr</var> intersect <var>expr</var>
+       | <var>expr</var> ^ <var>expr</var>
+       | <var>expr</var> union <var>expr</var>
+       | <var>expr</var> + <var>expr</var>
+       | <var>expr</var> except <var>expr</var>
+       | <var>expr</var> - <var>expr</var>
+       | deps(<var>expr</var>)
+       | deps(<var>expr</var>, <var>depth</var>)
+       | rdeps(<var>expr</var>, <var>expr</var>)
+       | rdeps(<var>expr</var>, <var>expr</var>, <var>depth</var>)
+       | some(<var>expr</var>)
+       | somepath(<var>expr</var>, <var>expr</var>)
+       | allpaths(<var>expr</var>, <var>expr</var>)
+       | kind(<var>word</var>, <var>expr</var>)
+       | labels(<var>word</var>, <var>expr</var>)
+       | filter(<var>word</var>, <var>expr</var>)
+       | set(<var>word</var> *)
+       | attr(<var>word</var>, <var>word</var>, <var>expr</var>)
+</pre>
+
+<p>
+  We will examine each of the productions of this grammar in order.
+</p>
+
+<h3 id="target-patterns">Target patterns</h3>
+<pre>expr ::= <var>word</var></pre>
+<p>
+  Syntactically, a <em>target pattern</em> is just a word. It
+  is interpreted as an (unordered) set of targets.  The simplest
+  target pattern is a label,
+  which identifies a single target (file or rule).  For example, the
+  target pattern <code>//abc:xyz</code> evaluates to a set
+  containing one element, the target, the <code>xyz</code>
+  rule.
+</p>
+
+<p>
+  Target patterns generalize labels to include wildcards over packages
+  and targets.  For example, <code>foo/...:all</code> (or
+  just <code>foo/...</code>) is a target pattern that evaluates to a
+  set containing all <em>rules</em> in every package recursively
+  beneath the <code>foo</code> directory;
+  <code>some_parent/bar:all</code> is a target pattern that
+  evaluates to a set containing all the rules in the
+  <code>some_parent/bar</code> package, but not its subpackages.
+</p>
+
+<p>
+  Similarly, <code>foo/...:*</code> is a target pattern that evaluates
+  to a set containing all <em>targets</em> (rules <em>and</em> files) in
+  every package recursively beneath the <code>foo</code> directory;
+  <code>some_parent/bar:*</code> evaluates to a set containing
+  all the targets in the
+  <code>some_parent/bar</code> package, but not its subpackages.
+</p>
+
+<p>
+  Because the <code>:*</code> wildcard matches files as well as rules,
+  it is often more useful than <code>:all</code> for queries.
+  Conversely, the <code>:all</code> wildcard (implicit in target
+  patterns like <code>foo/...</code>) is typically more useful for
+  builds.
+</p>
+
+<p>
+  <code>bazel query</code> target patterns work the same as
+  <code>bazel build</code> build targets do;
+  refer to <a href='bazel-user-manual.html#target-patterns'>Target Patterns</a>
+  in the Bazel User Manual for further details, or type <code>bazel
+  help target-syntax</code>.
+</p>
+
+<p>
+  Target patterns may evaluate to a singleton set (in the case of a
+  label), to a set containing many elements (as in the case of
+  <code>foo/...</code>, which has thousands of elements) or to the
+  empty set, if the target pattern matches no targets.
+</p>
+
+<p>
+  All nodes in the result of a target pattern expression are correctly
+  ordered relative to each other according to the dependency relation.
+  So, the result of <code>foo:*</code> is not just the set of targets
+  in package <code>foo</code>, it is also the <em>graph</em> over
+  those targets.  (No guarantees are made about the relative ordering
+  of the result nodes against other nodes.)  See the section
+  on <a href='#graph-order'>graph order</a> for more details.
+</p>
+
+<h3 id="variables">Variables</h3>
+<pre>expr ::= let <var>name</var> = <var>expr</var><sub>1</sub> in <var>expr</var><sub>2</sub>
+       | <var>$name</var></pre>
+<p>
+  The Bazel query language allows definitions of and references to
+  variables.  The
+  result of evaluation of a <code>let</code> expression is the same as
+  that of <var>expr</var><sub>2</sub>, with all free occurrences of
+  variable <var>name</var> replaced by the value of
+  <var>expr</var><sub>1</sub>.
+</p>
+
+<p>
+  For example, <code>let v = foo/... in allpaths($v, //common)
+  intersect $v</code> is equivalent to the <code>allpaths(foo/...,
+  //common) intersect foo/...</code>.
+</p>
+
+<p>
+  An occurrence of a variable reference <code>name</code> other than in
+  an enclosing <code>let <var>name</var> = ...</code> expression is an
+  error.  In other words, toplevel query expressions cannot have free
+  variables.
+</p>
+
+<p>
+  In the above grammar productions, <code>name</code> is like
+  <em>word</em>, but with the additional constraint that it be a legal
+  identifier in the C programming language. References to the variable
+  must be prepended with the "$" character.
+</p>
+
+<p>
+  Each <code>let</code> expression defines only a single variable,
+  but you can nest them.
+</p>
+
+<p>
+  (Both <a
+  href='#target-patterns'>target patterns</a> and variable references
+  consist of just a single token, a word, creating a syntactic
+  ambiguity.  However, there is no semantic ambiguity, because the
+  subset of words that are legal variable names is disjoint from the
+  subset of words that are legal target patterns.)
+</p>
+
+<p>
+  (Technically speaking, <code>let</code> expressions do not increase
+  the expressiveness of the query language: any query expressible in
+  the language can also be expressed without them.  However, they
+  improve the conciseness of many queries, and may also lead to more
+  efficient query evaluation.)
+</p>
+
+<h3 id="parentheses">Parenthesized expressions</h3>
+<pre>expr ::= (<var>expr</var>)</pre>
+
+<p>
+  Parentheses associate subexpressions to force an
+  order of evaluation.
+  A parenthesized expression evaluates
+  to the value of its argument.
+</p>
+
+<h3 id="set-operations">Algebraic set operations:
+                        intersection, union, set difference</h3>
+
+<pre>expr ::= <var>expr</var> intersect <var>expr</var>
+       | <var>expr</var> ^ <var>expr</var>
+       | <var>expr</var> union <var>expr</var>
+       | <var>expr</var> + <var>expr</var>
+       | <var>expr</var> except <var>expr</var>
+       | <var>expr</var> - <var>expr</var>
+</pre>
+
+<p>
+  These three operators compute the usual set operations over their
+  arguments.  Each operator has two forms, a nominal form such
+  as <code>intersect</code> and a symbolic form such
+  as <code>^</code>.  Both forms are equivalent;
+  the symbolic forms are quicker to type.  (For clarity, the rest of
+  this manual uses the nominal forms.)  For example,
+</p>
+
+<pre>xyz/... except xyz/contrib/...</pre>
+
+  evaluates to the set of targets that match
+  <code>xyz/...</code> but not
+  <code>xyz/contrib/...</code>&nbsp;.  Equivalently:
+
+<pre>xyz/... - xyz/contrib/...</pre>
+
+  The <code>intersect</code> (<code>^</code>)
+  and <code>union</code> (<code>+</code>) operations are commutative
+  (symmetric); <code>except</code> (<code>-</code>) is
+  asymmetric.  The parser treats all three operators as
+  left-associative and of equal precedence, so you might want parentheses.
+  For example, the first two of these expressions are
+  equivalent, but the third is not:
+
+<pre>x intersect y union z
+(x intersect y) union z
+x intersect (y union z)</pre>
+
+<p>
+  (We strongly recommend that you use parentheses where there is
+  any danger of ambiguity in reading a query expression.)
+</p>
+
+<h3 id="set">Read targets from an external source: set</h3>
+<pre>expr ::= set(<var>word</var> *) </pre>
+<p>
+  The <code>set(<var>a</var> <var>b</var> <var>c</var> ...)</code>
+  operator computes the union of a set of zero or
+  more <a href='#target-patterns'>target patterns</a>, separated by
+  whitespace (no commas).
+</p>
+
+<p>
+  In conjunction with the Bourne shell's <code>$(...)</code>
+  feature, <code>set()</code> provides a means of saving the results
+  of one query in a regular text file, manipulating that text file
+  using other programs (e.g. standard UNIX shell tools), and then
+  introducing the result back into the query tool as a value for
+  further processing.  For example:
+</p>
+<pre>
+  % bazel query deps(//my:target) --output=label | grep ... | sed ... | awk ... > foo
+  % bazel query "kind(cc_binary, set($(&lt;foo)))"
+</pre>
+<p>
+  In the next example, <code>kind(cc_library,
+  deps(//dir1/bazel/main:bazel, 5))</code> is effectively computed
+  by filtering on the <code>maxrank</code> values using
+  an <code>awk</code> program.
+</p>
+<pre>
+  % bazel query 'deps(//dir1/bazel/main:bazel)' --output maxrank |
+        awk '($1 &lt; 5) { print $2;} ' > foo
+  % bazel query "kind(cc_library, set($(&lt;foo)))"
+</pre>
+<p>
+  In these examples, <code>$(&lt;foo)</code> is a shorthand
+  for <code>$(cat foo)</code>, but shell commands other
+  than <code>cat</code> may be used too&mdash;such as
+  the previous <code>awk</code> command.
+</p>
+
+<p>
+  Note, <code>set()</code> introduces no graph ordering constraints,
+  so path information may be lost when saving and reloading sets of
+  nodes using it.  See the <a href='#graph-order'>graph order</a>
+  section below for more detail.
+</p>
+
+<h3 id="deps">Transitive closure of dependencies: deps</h3>
+<pre>expr ::= deps(<var>expr</var>)
+       | deps(<var>expr</var>, <var>depth</var>)</pre>
+<p>
+  The <code>deps(<var>x</var>)</code> operator evaluates to the graph
+  formed by the transitive closure of dependencies of its argument set
+  <var>x</var>.  For example, the value of <code>deps(//foo)</code> is
+  the dependency graph rooted at the single node <code>foo</code>,
+  including all its dependencies.  The value of
+  <code>deps(foo/...)</code> is the dependency graphs whose roots are
+  all rules in every package beneath the <code>foo</code> directory.
+</p>
+
+<p>
+  The resulting graph is ordered according to the dependency relation.
+  See the section on <a href='#graph-order'>graph order</a> for more
+  details.
+</p>
+
+<p>
+  The <code>deps</code> operator accepts an optional second argument,
+  which is an integer literal specifying an upper bound on the depth
+  of the search.  So <code>deps(foo:*, 1)</code> evaluates to all the
+  direct prerequisites of any target in the <code>foo</code> package,
+  and <code>deps(foo:*, 2)</code> further includes the nodes directly
+  reachable from the nodes in <code>deps(foo:*, 1)</code>, and so on.
+  (These numbers correspond to the ranks shown in
+  the <a href='#output-ranked'><code>minrank</code></a> output
+  format.)  If the <var>depth</var> parameter is omitted, the search
+  is unbounded, i.e. it computes the reflexive transitive closure of
+  prerequsites.
+</p>
+
+<h3 id="rdeps">Transitive closure of reverse dependencies: rdeps</h3>
+<pre>expr ::= rdeps(<var>expr</var>, <var>expr</var>)
+       | rdeps(<var>expr</var>, <var>expr</var>, <var>depth</var>)</pre>
+<p>
+  The <code>rdeps(<var>u</var>, <var>x</var>)</code> operator evaluates
+  to the reverse dependencies of the argument set <var>x</var> within the
+  transitive closure of the universe set <var>u</var>.
+</p>
+
+<p>
+  The resulting graph is ordered according to the dependency relation.  See the
+  section on <a href='#graph-order'>graph order</a> for more details.
+</p>
+
+<p>
+  The <code>rdeps</code> operator accepts an optional third argument,
+  which is an integer literal specifying an upper bound on the depth of the
+  search.  The resulting graph will only include nodes within a distance of the
+  specified depth from any node in the argument set.  So
+  <code>rdeps(//foo, //common, 1)</code> evaluates to all nodes in the
+  transitive closure of <code>//foo</code> that directly depend on
+  <code>//common</code>.  (These numbers correspond to the ranks shown in the
+  <a href='#output-ranked'><code>minrank</code></a> output format.)  If the
+  <var>depth</var> parameter is omitted, the search is unbounded.
+</p>
+
+<h3 id="some">Arbitrary choice: some</h3>
+<pre>expr ::= some(<var>expr</var>)</pre>
+<p>
+  The <code>some(<var>x</var>)</code> operator selects one target
+  arbitrarily from its argument set <var>x</var>, and evaluates to a
+  singleton set containing only that target.  For example, the
+  expression <code>some(//foo:foo union //xyz:abc)</code>
+  evaluates to a set containing either <code>//foo:foo</code> or
+  <code>//xyz:abc</code>&mdash;though which one is not defined.
+</p>
+
+<p>
+  If the argument is a singleton, then <code>some</code>
+  computes the identity function: <code>some(//foo:foo)</code> is
+  equivalent to <code>//foo:foo</code>.
+
+  It is an error if the specified argument set is empty, as in the
+  expression <code>some(//foo:foo intersect
+  //xyz:abc)</code>.
+</p>
+
+<h3 id="path-operators">Path operators: somepath, allpaths</h3>
+<pre>expr ::= somepath(<var>expr</var>, <var>expr</var>)
+       | allpaths(<var>expr</var>, <var>expr</var>)</pre>
+<p>
+  The <code>somepath(<var>S</var>, <var>E</var>)</code> and
+  <code>allpaths(<var>S</var>, <var>E</var>)</code> operators compute
+  paths between two sets of targets.  Both queries accept two
+  arguments, a set <var>S</var> of starting points and a set
+  <var>E</var> of ending points.  <code>somepath</code> returns the
+  graph of nodes on <em>some</em> arbitrary path from a target in
+  <var>S</var> to a target in <var>E</var>; <code>allpaths</code>
+  returns the graph of nodes on <em>all</em> paths from any target in
+  <var>S</var> to any target in <var>E</var>.
+</p>
+
+<p>
+  The resulting graphs are ordered according to the dependency relation.
+  See the section on <a href='#graph-order'>graph order</a> for more
+  details.
+</p>
+
+<table style='margin: auto'><tr>
+<td style='text-align: center'><div class='graphviz dot'><!--
+digraph somepath1 {
+  graph [size="4,4"]
+  node [label="",shape=circle];
+  n1;
+  n2 [fillcolor="pink",style=filled];
+  n3 [fillcolor="pink",style=filled];
+  n4 [fillcolor="pink",style=filled,label="E"];
+  n5; n6;
+  n7 [fillcolor="pink",style=filled,label="S1"];
+  n8 [label="S2"];
+  n9;
+  n10 [fillcolor="pink",style=filled];
+
+  n1 -> n2;
+  n2 -> n3;
+  n7 -> n5;
+  n7 -> n2;
+  n5 -> n6;
+  n6 -> n4;
+  n8 -> n6;
+  n6 -> n9;
+  n2 -> n10;
+  n3 -> n10;
+  n10 -> n4;
+  n10 -> n11;
+}--></div>
+<p><code>somepath(S1 + S2, E)</code>,<br/>one possible result.</p>
+</td>
+<td style='padding: 40px; text-align: center'><div class='graphviz dot'><!--
+digraph somepath2 {
+  graph [size="4,4"]
+  node [label="",shape=circle];
+
+  n1; n2; n3;
+  n4 [fillcolor="pink",style=filled,label="E"];
+  n5;
+  n6 [fillcolor="pink",style=filled];
+  n7 [label="S1"];
+  n8 [fillcolor="pink",style=filled,label="S2"];
+  n9; n10;
+
+  n1 -> n2;
+  n2 -> n3;
+  n7 -> n5;
+  n7 -> n2;
+  n5 -> n6;
+  n6 -> n4;
+  n8 -> n6;
+  n6 -> n9;
+  n2 -> n10;
+  n3 -> n10;
+  n10 -> n4;
+  n10 -> n11;
+}--></div>
+<p><code>somepath(S1 + S2, E)</code>,<br/>another possible result.</p>
+</td>
+<td style='text-align: center'><div class='graphviz dot'><!--
+digraph somepath1 {
+  graph [size="4,4"]
+  node [label="",shape=circle];
+  n1;
+  n2 [fillcolor="pink",style=filled];
+  n3 [fillcolor="pink",style=filled];
+  n4 [fillcolor="pink",style=filled,label="E"];
+  n5 [fillcolor="pink",style=filled];
+  n6 [fillcolor="pink",style=filled];
+  n7 [fillcolor="pink",style=filled, label="S1"];
+  n8 [fillcolor="pink",style=filled, label="S2"];
+  n9;
+  n10 [fillcolor="pink",style=filled];
+
+  n1 -> n2;
+  n2 -> n3;
+  n7 -> n5;
+  n7 -> n2;
+  n5 -> n6;
+  n6 -> n4;
+  n8 -> n6;
+  n6 -> n9;
+  n2 -> n10;
+  n3 -> n10;
+  n10 -> n4;
+  n10 -> n11;
+}--></div>
+<p><code>allpaths(S1 + S2, E)</code>.</p>
+</td>
+</tr></table>
+
+<h3 id="kind">Target kind filtering: kind</h3>
+<pre>expr ::= kind(<var>word</var>, <var>expr</var>) </pre>
+<p>
+  The <code>kind(<var>pattern</var>, <var>input</var>)</code> operator
+  applies a filter to a set of targets, and discards those targets
+  that are not of the expected kind. The <var>pattern</var> parameter specifies
+  what kind of target to match.
+</p>
+<ul>
+<li><b>file</b> patterns can be one of:
+  <ul>
+    <li><code>source file</code>
+    <li><code>generated file</code>
+  </ul>
+<li><b>rule</b> patterns can be one of:
+  <ul>
+    <li><code><var>ruletype</var> rule</code>
+    <li><code><var>ruletype</var></code><br>
+    Where <var>ruletype</var> is a
+     BUILD rule. The difference between these forms is that including "rule" causes the regular expression match for <var>ruletype</var> to be anchored.
+  </ul>
+<li><b>package group</b> patterns should simply be:
+  <ul>
+    <li><code>package group</code>
+  </ul>
+</ul>
+<p>
+  For example, the kinds for the four targets defined by the BUILD file
+  (for package <code>p</code>) shown below are illustrated in the
+  table:
+</p>
+
+<table style='margin: auto'><tr><td style='padding-right:10px'>
+<pre style='margin-left: 0em;'>
+genrule(
+    name = "a",
+    srcs = ["a.in"],
+    outs = ["a.out"],
+    cmd = "...",
+)
+</pre>
+</td><td>
+   <table class="grid">
+     <tr><th>Target</th><th>Kind</th></tr>
+     <tr class='tt'><td>//p:a</td><td>genrule rule</td></tr>
+     <tr class='tt'><td>//p:a.in</td><td>source file</td></tr>
+     <tr class='tt'><td>//p:a.out</td><td>generated file</td></tr>
+     <tr class='tt'><td>//p:BUILD</td><td>source file</td></tr>
+   </table>
+</td></tr></table>
+
+<p>
+  Thus, <code>kind("cc_.* rule", foo/...)</code> evaluates to the set
+  of all <code>cc_library</code>, <code>cc_binary</code>, etc,
+  rule targets beneath
+  <code>foo</code>, and <code>kind("source file", deps(//foo))</code>
+  evaluates to the set of all source files in the transitive closure
+  of dependencies of the <code>//foo</code> target.
+</p>
+
+<p>
+  Quotation of the <var>pattern</var> argument is often required
+  because without it, many regular expressions, such as <code>source
+  file</code> and <code>.*_test</code>, are not considered words by
+  the parser.
+</p>
+
+<p>
+  When matching for <code>package group</code>, targets ending in
+  <code>:all</code> may not yield any results.
+  Use <code>:all-targets</code> instead.
+</p>
+
+<h3 id="filter">Target name filtering: filter</h3>
+<pre>expr ::= filter(<var>word</var>, <var>expr</var>) </pre>
+<p>
+  The <code>filter(<var>pattern</var>, <var>input</var>)</code> operator
+  applies a filter to a set of targets, and discards targets whose
+  labels (in absolute form) do not match the pattern; it
+  evaluates to a subset of its input.
+</p>
+
+<p>
+  The first argument, <var>pattern</var> is a word containing a
+  regular expression over target names.  A <code>filter</code> expression
+  evaluates to the set containing all targets <var>x</var> such that
+  <var>x</var> is a member of the set <var>input</var> and the
+  label (in absolute form, e.g. <code>//foo:bar</code>)
+  of <var>x</var> contains an (unanchored) match
+  for the regular expression <var>pattern</var>.  Since all
+  target names start with <code>//</code>, it may be used as an alternative
+  to the <code>^</code> regular expression anchor.
+</p>
+
+<p>
+  This operator often provides a much faster and more robust alternative to the
+  <code>intersect</code> operator. For example, in order to see all some_parent
+  dependencies of the <code>//foo</code> target, one could evaluate
+</p>
+<pre>deps(//foo) intersect //some_parent/...</pre>
+<p>
+  This statement, however, will require parsing of all BUILD files in the
+  <code>some_parent</code> tree, which will be slow and prone to errors in
+  irrelevant BUILD files. An alternative would be:
+</p>
+<pre>filter(//some_parent, deps(//foo))</pre>
+<p>
+  which would first calculate the set of <code>//foo</code> dependencies and
+  then would filter only targets matching the provided pattern&mdash;in other
+  words, targets with names containing <code>//some_parent</code> as a
+  substring.
+</p>
+
+<p>
+  Another common use of the <code>filter(<var>pattern</var>,
+  <var>expr</var>)</code> operator is to filter specific files by their
+  name or extension. For example,
+</p>
+<pre>filter("\.pl$", deps(//foo))</pre>
+<p>
+  will provide a list of all Perl files used to build <code>//foo</code>.
+</p>
+
+<h3 id="attr">Rule attribute filtering: attr</h3>
+<pre>expr ::= attr(<var>word</var>, <var>word</var>, <var>expr</var>) </pre>
+<p>
+  The <code>attr(<var>name</var>, <var>pattern</var>, <var>input</var>)</code>
+  operator applies a filter to a set of targets, and discards targets that
+  are not rules, rule targets that do not have attribute <var>name</var>
+  defined or rule targets where the attribute value does not match the provided
+  regular expression <var>pattern</var>; it evaluates to a subset of its input.
+</p>
+
+<p>
+  The first argument, <var>name</var> is the name of the rule attribute that
+  should be matched against the provided regular expression pattern. The second
+  argument, <var>pattern</var> is a regular expression over the attribute
+  values. An <code>attr</code> expression evaluates to the set containing all
+  targets <var>x</var> such that  <var>x</var> is a member of the set
+  <var>input</var>, is a rule with the defined attribute <var>name</var> and
+  the attribute value contains an (unanchored) match for the regular expression
+  <var>pattern</var>. Please note, that if <var>name</var> is an optional
+  attribute and rule does not specify it explicitly then default attribute
+  value will be used for comparison. For example,
+</p>
+<pre>attr(linkshared, 0, deps(//foo))</pre>
+<p>
+  will select all <code>//foo</code> dependencies that are allowed to have a
+  linkshared attribute (e.g., <code>cc_binary</code> rule) and have it either
+  explicitly set to 0 or do not set it at all but default value is 0 (e.g. for
+  <code>cc_binary</code> rules).
+</p>
+
+<p>
+  List-type attributes (such as <code>srcs</code>, <code>data</code>, etc) are
+  converted to strings of the form <code>[value<sub>1</sub>, ..., value<sub>n</sub>]</code>,
+  starting with a <code>[</code> bracket, ending with a <code>]</code> bracket
+  and using "<code>, </code>" (comma, space) to delimit multiple values.
+  Labels are converted to strings by using the absolute form of the
+  label.  For example, an attribute <code>deps=[":foo",
+  "//otherpkg:bar", "wiz"]</code> would be converted to the
+  string <code>[//thispkg:foo, //otherpkg:bar, //thispkg:wiz]</code>.
+  Brackets
+  are always present, so the empty list would use string value <code>[]</code>
+  for matching purposes. For example,
+</p>
+<pre>attr("srcs", "\[\]", deps(//foo))</pre>
+<p>
+  will select all rules among <code>//foo</code> dependencies that have an
+  empty <code>srcs</code> attribute, while
+</p>
+<pre>attr("data", ".{3,}", deps(//foo))</pre>
+<p>
+  will select all rules among <code>//foo</code> dependencies that specify at
+  least one value in the <code>data</code> attribute (every label is at least
+  3 characters long due to the <code>//</code> and <code>:</code>).
+</p>
+
+<h3 id="labels">Evaluation of rule attributes of type label: labels</h3>
+<pre>expr ::= labels(<var>word</var>, <var>expr</var>) </pre>
+<p>
+  The <code>labels(<var>attr_name</var>, <var>inputs</var>)</code>
+  operator returns the set of targets specified in the
+  attribute <var>attr_name</var> of type "label" or "list of label" in
+  some rule in set <var>inputs</var>.
+</p>
+
+<p>
+  For example, <code>labels(srcs, //foo)</code> returns the set of
+  targets appearing in the <code>srcs</code> attribute of
+  the <code>//foo</code> rule.  If there are multiple rules
+  with <code>srcs</code> attributes in the <var>inputs</var> set, the
+  union of their <code>srcs</code> is returned.
+</p>
+
+<p>
+  Please note, <code>deps</code> is a reserved word in the query
+  language, so you must quote it if you wish to query the rule
+  attribute of that name in a <code>labels</code> expression:
+  <code>labels("deps", //foo)</code>.
+</p>
+
+<h3 id="tests">Expand and filter test_suites: tests</h3>
+<pre>expr ::= tests(<var>expr</var>)</pre>
+<p>
+  The <code>tests(<var>x</var>)</code> operator returns the set of all test
+  rules in set <var>x</var>, expanding any <code>test_suite</code> rules into
+  the set of individual tests that they refer to, and applying filtering by
+  <code>tag</code> and <code>size</code>. By default, query evaluation
+  ignores any non-test targets in all <code>test_suite</code> rules. This can be
+  changed to errors with the <code>--strict_test_suite</code> option.
+</p>
+
+<p>
+  For example, the query <code>kind(test, foo:*)</code> lists all
+  the <code>*_test</code> and <code>test_suite</code> rules
+  in the <code>foo</code> package.  All the results are (by
+  definition) members of the <code>foo</code> package.  In contrast,
+  the query <code>tests(foo:*)</code> will return all of the
+  individual tests that would be executed by <code>bazel test
+  foo:*</code>: this may include tests belonging to other packages,
+  that are referenced directly or indirectly
+  via <code>test_suite</code> rules.
+</p>
+
+
+<h3 id="buildfiles">Package definition files: buildfiles</h3>
+<pre>expr ::= buildfiles(<var>expr</var>)</pre>
+<p>
+  The <code>buildfiles(<var>x</var>)</code> operator returns the set
+  of files that define the packages of each target in
+  set <var>x</var>; in other words, for each package, its BUILD file,
+  plus any files it references
+  via <code>subinclude</code>.
+
+<p>
+  This operator is typically used when determining what files or
+  packages are required to build a specified target, often in conjunction with
+  the <a href='#output-package'><code>--output package</code></a>
+  option, below).  For example,
+</p>
+<pre>bazel query 'buildfiles(deps(//foo))' --output package</pre>
+<p>
+  returns the set of all packages on which <code>//foo</code> transitively
+  depends.
+</p>
+
+<p>
+  (Note: a naive attempt at the above query would omit
+  the <code>buildfiles</code> operator and use only <code>deps</code>,
+  but this yields an incorrect result: while the result contains the
+  majority of needed packages, those packages that contain only
+  subincluded files will be missing.)
+</p>
+
+<h3 id="component">All targets in a C++ component: component</h3>
+<pre>expr ::= component(<var>name</var>)</pre>
+<p>
+  The <code>component(<var>name</var>)</code> operator returns the set
+  of all targets belonging to the named C++ component.  Components are
+  defined by text files in the
+  <code>//dir1/dir2:definitions_cpp/*</code> directory.
+  You can use this operator to help resolve dependency problems when
+  migrating code into a component.
+</p>
+<p>
+  As an example, consider a package <code>foo</code> which we wish to
+  move into the "abc" component.  This means that all of its
+  transitive prerequisites must come from only the "abc" and
+  "core" components.  To find out if any targets in <code>foo</code>
+  violate this rule, use the following query:
+</p>
+<pre>
+bazel query --nohost_deps --noimplicit_deps '
+    foo:* intersect (deps(foo:*) - (component(core) + component(abc)))'
+</pre>
+<p>
+  To show the subgraph starting from one of the violating targets (say
+  <code>//foo:main</code>) whose edges are all outside the component, use:
+</p>
+<pre>
+bazel query --nohost_deps --noimplicit_deps '
+    allpaths(//foo:main, deps(foo:*) - (component(core) + component(abc)))' --output=graph
+</pre>
+
+<h2>Output formats</h2>
+
+<p>
+  <code>bazel query</code> generates a graph.
+  You specify the content, format, and ordering by which
+  <code>bazel query</code> presents this graph
+  by means of the <code>--output</code>
+  command-line option.
+ </p>
+
+<p>
+  Some of the output formats accept additional options.  The name of
+  each output option is prefixed with the output format to which it
+  applies, so <code>--graph:factored</code> applies only
+  when <code>--output=graph</code> is being used; it has no effect if
+  an output format other than <code>graph</code> is used. Similarly,
+  <code>--xml:line_numbers</code> applies only when <code>--output=xml</code>
+  is being used.
+</p>
+
+<h3 id="output-label">Print the label of each target</h3>
+<pre>--output label</pre>
+<p>
+  With this option, the set of names (or <em>labels</em>) of each target
+  in the resulting graph is printed, one label per line, in
+  topological order.  (A topological ordering, is one in which a graph
+  node appears earlier than all of its successors.)  Of course there
+  are many possible topological orderings of a graph (<em>reverse
+  postorder</em> is just one); which one is chosen is not specified.
+
+  When printing the output of a <code>somepath</code> query, the order
+  in which the nodes are printed is the order of the path.
+</p>
+
+<p>
+  Caveat: in some corner cases, there may be two distinct targets with
+  the same label; for example, a <code>sh_binary</code> rule and its
+  sole (implicit) <code>srcs</code> file may both be called
+  <code>foo.sh</code>.  If the result of a query contains both of
+  these targets, the output (in <code>label</code> format) will appear
+  to contain a duplicate.  When using the <code>label_kind</code> (see
+  below) format, the distinction becomes clear: the two targets have
+  the same name, but one has kind <code>sh_binary rule</code> and the
+  other kind <code>source file</code>.
+</p>
+
+<h3 id="output-label_kind">Print the label and kind of each target</h3>
+<pre>--output label_kind</pre>
+<p>
+  Like <code>label</code>, this output format prints the labels of
+  each target in the resulting graph, in topological order, but it
+  additionally precedes the label by
+  the <a href='#kind'><em>kind</em></a> of the target.
+</p>
+
+<h3 id="output-ranked">Print the label of each target, in rank order</h3>
+<pre>--output minrank
+--output maxrank</pre>
+<p>
+  Like <code>label</code>, the <code>minrank</code>
+   and <code>maxrank</code> output formats print the labels of each
+   target in the resulting graph, but instead of appearing in
+   topological order, they appear in rank order, preceded by their
+   rank number.
+</p>
+
+<p>
+  There are two variants of this format: <code>minrank</code> ranks
+  each node by the length of the shortest path from a root node to it.
+  "Root" nodes (those which have no incoming edges) are of rank 0,
+  their successors are of rank 1, etc.  (As always, edges point from a
+  target to its prerequisites: the targets it depends upon.)
+</p>
+
+<p>
+  <code>maxrank</code> ranks each node by the length of the longest
+  path from a root node to it.  Again, "roots" have rank 0, all other
+  nodes have a rank which is one greater than the maximum rank of all
+  their predecessors.
+</p>
+
+<p>
+  All nodes in a cycle are considered of equal rank.  (Most graphs are
+  acyclic, but cycles do occur, sometimes
+  simply because BUILD files contain erroneous cycles.)
+</p>
+
+<p>
+  These output formats are useful for discovering how deep a graph is.
+  If used for the result of a <code>deps(x)</code>, <code>rdeps(x)</code>,
+  or <code>allpaths</code> query, then the rank number is equal to the
+  length of the shortest (with <code>minrank</code>) or longest
+  (with <code>maxrank</code>) path from <code>x</code> to a node in
+  that rank.  <code>maxrank</code> can be used to determine the
+  longest sequence of build steps required to build a target.
+</p>
+
+<p>
+  Please note, the ranked output of a <code>somepath</code> query is
+  basically meaningless because <code>somepath</code> doesn't
+  guarantee to return either a shortest or a longest path, and it may
+  include "transitive" edges from one path node to another that are
+  not direct edges in original graph.
+</p>
+
+<p>
+  For example, the graph on the left yields the outputs on the right
+  when <code>--output minrank</code> and <code>--output maxrank</code>
+  are specified, respectively.
+</p>
+
+<table style='margin: auto'><tr><td>
+<div class='graphviz dot'><!--
+digraph mygraph {
+  graph [size="0.4"]
+  node [shape=box];
+"//a:a" -> "//a:a.cc"
+"//b:b" -> "//a:a"
+"//b:b" -> "//b:b.cc"
+"//c:c" -> "//b:b"
+"//c:c" -> "//a:a"
+}
+--></div>
+</td><td>
+<pre>
+minrank
+
+0 //c:c
+1 //b:b
+1 //a:a
+2 //b:b.cc
+2 //a:a.cc
+</pre>
+</td><td>
+<pre>
+maxrank
+
+0 //c:c
+1 //b:b
+2 //a:a
+2 //b:b.cc
+3 //a:a.cc
+</pre>
+</td></tr></table>
+
+<h3 id="output-location">Print the location of each target</h3>
+<pre>--output location</pre>
+<p>
+  Like <code>label_kind</code>, this option prints out, for each
+  target in the result, the target's kind and label, but it is
+  prefixed by a string describing the location of that target, as a
+  filename and line number.  The format resembles the output of
+  <code>grep</code>. Thus, tools that can parse the latter (such as Emacs
+  or vi) can also use the query output to step through a series of
+  matches, allowing the Bazel query tool to be used as a
+  dependency-graph-aware "grep for BUILD files".
+</p>
+
+<p>
+  The location information varies by target kind (see the <a
+  href='#kind'>kind</a> operator).  For rules, the
+  location of the rule's declaration within the BUILD file is printed.
+  For source files, the location of line 1 of the actual file is
+  printed.  For a generated file, the location of the rule that
+  generates it is printed.  (The query tool does not have sufficient
+  information to find the actual location of the generated file, and
+  in any case, it might not exist if a build has not yet been
+  performed.)
+</p>
+
+<h3 id="output-package">Print the set of packages</h3>
+<pre>--output package</pre>
+<p>
+  This option prints the name of all packages to which
+  some target in the result set belongs.  The names are printed in
+  lexicographical order; duplicates are excluded.  Formally, this
+  is a <em>projection</em> from the set of labels (package, target) onto
+  packages.
+</p>
+
+<p>
+  In conjunction with the <code>deps(...)</code> query, this output
+  option can be used to find the set of packages that must be checked
+  out in order to build a given set of targets.
+</p>
+
+<h3 id="output-graph">Display a graph of the result</h3>
+<pre>--output graph</pre>
+<p>
+  This option causes the query result to be printed as a directed
+  graph in the popular AT&amp;T GraphViz format.  Typically the
+  result is saved to a file, such as <code>.png</code> or <code>.svg</code>.
+  (If the <code>dot</code> program is not installed on your workstation, you
+  can install it using the command <code>sudo apt-get install graphviz</code>.)
+  See the example section below for a sample invocation.
+</p>
+
+<p>
+  This output format is particularly useful for <code>allpath</code>,
+  <code>deps</code>, or <code>rdeps</code> queries, where the result
+  includes a <em>set of paths</em> that cannot be easily visualized when
+  rendered in a linear form, such as with <code>--output label</code>.
+</p>
+
+<p>
+  By default, the graph is rendered in a <em>factored</em> form.  That is,
+  topologically-equivalent nodes are merged together into a single
+  node with multiple labels.  This makes the graph more compact
+  and readable, because typical result graphs contain highly
+  repetitive patterns.  For example, a <code>java_library</code> rule
+  may depend on hundreds of Java source files all generated by the
+  same <code>genrule</code>; in the factored graph, all these files
+  are represented by a single node.  This behavior may be disabled
+  with the <code>--nograph:factored</code> option.
+</p>
+
+<h4><code>--graph:node_limit <var>n</var></code></h4>
+<p>
+  The option specifies the maximum length of the label string for a
+  graph node in the output.  Longer labels will be truncated; -1
+  disables truncation.  Due to the factored form in which graphs are
+  usually printed, the node labels may be very long.  GraphViz cannot
+  handle labels exceeding 1024 characters, which is the default value
+  of this option.  This option has no effect unless
+  <code>--output=graph</code> is being used.
+</p>
+
+<h4><code>--[no]graph:factored</code></h4>
+<p>
+  By default, graphs are displayed in factored form, as explained
+  <a href='#output-graph'>above</a>.
+  When <code>--nograph:factored</code> is specified, graphs are
+  printed without factoring.  This makes visualization using GraphViz
+  impractical, but the simpler format may ease processing by other
+  tools (e.g. grep).  This option has no effect
+  unless <code>--output=graph</code> is being used.
+</p>
+
+<h3 id="output-xml">XML</h3>
+<pre>--output xml</pre>
+<p>
+  This option causes the resulting targets to be printed in an XML
+  form.  The output starts with an XML header such as this
+</p>
+<pre>
+  &lt;?xml version="1.0" encoding="UTF-8"?>
+  &lt;query version="2">
+</pre>
+<!-- The docs should continue to document version 2 into perpetuity,
+     even if we add new formats, to handle clients synced to old CLs. -->
+<p>
+  and then continues with an XML element for each target
+  in the result graph, in topological order,
+  and then finishes with a terminating
+</p>
+<pre>
+&lt;/query>
+</pre>
+<p>
+  Simple entries are emitted for targets of <code>file</code>
+  kind:
+</p>
+<pre>
+  &lt;source-file name='//foo:bar_main.cc' .../>
+  &lt;generated-file name='//foo:libbar.so' .../>
+</pre>
+<p>
+  But for rules, the XML is structured and contains definitions of all
+  the attributes of the rule, including those whose value was not
+  explicitly specified in the rule's BUILD file.
+</p>
+<p>
+  Additionally, the result includes <code>rule-input</code> and
+  <code>rule-output</code> elements so that the topology of the
+  dependency graph can be reconstructed without having to know that,
+  for example, the elements of the <code>srcs</code> attribute are
+  forward dependencies (prerequisites) and the contents of the
+  <code>outs</code> attribute are backward dependencies (consumers).
+
+  <code>rule-input</code> elements for <a
+  href='#implicit_deps'>implicit dependencies</a> are suppressed if
+  <code>--noimplicit_deps</code> is specified.
+</p>
+<pre>
+  &lt;rule class='cc_binary rule' name='//foo:foo' ...&gt;
+    &lt;list name='srcs'&gt;
+      &lt;label value='//foo:foo_main.cc'/&gt;
+      &lt;label value='//foo:foo.cc'/&gt;
+      ...
+    &lt;/list&gt;
+    &lt;list name='deps'&gt;
+      &lt;label value='//common:common'/&gt;
+      &lt;label value='//collections:collections'/&gt;
+      ...
+    &lt;/list&gt;
+    &lt;list name='data'&gt;
+      ...
+    &lt;/list&gt;
+    &lt;int name='linkstatic' value='0'/&gt;
+    &lt;int name='linkshared' value='0'/&gt;
+    &lt;list name='licenses'/&gt;
+    &lt;list name='distribs'&gt;
+      &lt;distribution value="INTERNAL" /&gt;
+    &lt;/list&gt;
+    &lt;rule-input name="//common:common" /&gt;
+    &lt;rule-input name="//collections:collections" /&gt;
+    &lt;rule-input name="//foo:foo_main.cc" /&gt;
+    &lt;rule-input name="//foo:foo.cc" /&gt;
+    ...
+  &lt;/rule&gt;
+</pre>
+
+<p>
+  Every XML element for a target contains a <code>name</code>
+  attribute, whose value is the target's label, and
+  a <code>location</code> attribute, whose value is the target's
+  location as printed by the <a href='output-location'><code>--output
+  location</code></a>.
+</p>
+
+<h4><code>--[no]xml:line_numbers</code></h4>
+<p>
+  By default, the locations displayed in the XML output contain line numbers.
+  When <code>--noxml:line_numbers</code> is specified, line numbers are not
+  printed.
+</p>
+
+<h4><code>--[no]xml:default_values</code></h4>
+<p>
+  By default, XML output does not include rule attribute whose value
+  is the default value for that kind of attribute (e.g. because it
+  were not specified in the BUILD file, or the default value was
+  provided explicitly).  This option causes such attribute values to
+  be included in the XML output.
+</p>
+
+</body>
+</html>

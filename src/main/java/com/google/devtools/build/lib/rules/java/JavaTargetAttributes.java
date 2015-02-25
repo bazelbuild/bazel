@@ -1,0 +1,603 @@
+// Copyright 2014 Google Inc. All rights reserved.
+//
+// Licensed under the Apache License, Version 2.0 (the "License");
+// you may not use this file except in compliance with the License.
+// You may obtain a copy of the License at
+//
+//    http://www.apache.org/licenses/LICENSE-2.0
+//
+// Unless required by applicable law or agreed to in writing, software
+// distributed under the License is distributed on an "AS IS" BASIS,
+// WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+// See the License for the specific language governing permissions and
+// limitations under the License.
+package com.google.devtools.build.lib.rules.java;
+
+import com.google.common.base.Preconditions;
+import com.google.common.base.Predicates;
+import com.google.common.collect.ImmutableList;
+import com.google.common.collect.ImmutableSet;
+import com.google.common.collect.Iterables;
+import com.google.common.collect.Sets;
+import com.google.devtools.build.lib.actions.Artifact;
+import com.google.devtools.build.lib.analysis.config.BuildConfiguration;
+import com.google.devtools.build.lib.collect.IterablesChain;
+import com.google.devtools.build.lib.collect.nestedset.NestedSet;
+import com.google.devtools.build.lib.collect.nestedset.NestedSetBuilder;
+import com.google.devtools.build.lib.rules.cpp.CppFileTypes;
+import com.google.devtools.build.lib.syntax.Label;
+
+import java.util.ArrayList;
+import java.util.Collection;
+import java.util.LinkedHashSet;
+import java.util.List;
+import java.util.Set;
+
+/**
+ * An object that captures the temporary state we need to pass around while
+ * the initialization hook for a java rule is running.
+ */
+public class JavaTargetAttributes {
+
+  private static void checkJar(Artifact classPathEntry) {
+    if (!JavaSemantics.JAR.matches(classPathEntry.getFilename())) {
+      throw new IllegalArgumentException(
+          "not a jar file: " + classPathEntry.prettyPrint());
+    }
+  }
+
+  /**
+   * A builder class for JavaTargetAttributes.
+   */
+  public static class Builder {
+
+    // The order of source files is important, and there must not be duplicates.
+    // Unfortunately, there is no interface in Java that represents a collection
+    // without duplicates that has a stable and deterministic iteration order,
+    // but is not sorted according to a property of the elements. Thus we are
+    // stuck with Set.
+    private final Set<Artifact> sourceFiles = new LinkedHashSet<>();
+    private final Set<Artifact> jarFiles = new LinkedHashSet<>();
+    private final Set<Artifact> compileTimeJarFiles = new LinkedHashSet<>();
+
+    private final NestedSetBuilder<Artifact> runtimeClassPath =
+        NestedSetBuilder.naiveLinkOrder();
+
+    private final NestedSetBuilder<Artifact> compileTimeClassPath =
+        NestedSetBuilder.naiveLinkOrder();
+
+    private final List<Artifact> bootClassPath = new ArrayList<>();
+    private final List<Artifact> nativeLibraries = new ArrayList<>();
+
+    private final Set<Artifact> processorPath = new LinkedHashSet<>();
+    private final Set<String> processorNames = new LinkedHashSet<>();
+
+    private final List<Artifact> resources = new ArrayList<>();
+    private final List<Artifact> messages = new ArrayList<>();
+    private final List<Artifact> instrumentationMetadata = new ArrayList<>();
+    private final List<Artifact> sourceJars = new ArrayList<>();
+
+    private final List<Artifact> classPathResources = new ArrayList<>();
+
+    private BuildConfiguration.StrictDepsMode strictJavaDeps =
+        BuildConfiguration.StrictDepsMode.OFF;
+    private final List<Artifact> directJars = new ArrayList<>();
+    private final List<Artifact> compileTimeDependencyArtifacts = new ArrayList<>();
+    private final List<Artifact> runtimeDependencyArtifacts = new ArrayList<>();
+    private String ruleKind;
+    private Label targetLabel;
+
+    private final NestedSetBuilder<Artifact> excludedArtifacts =
+        NestedSetBuilder.naiveLinkOrder();
+
+    private boolean built = false;
+
+    private final JavaSemantics semantics;
+
+    public Builder(JavaSemantics semantics) {
+      this.semantics = semantics;
+    }
+
+    public Builder addSourceArtifacts(Iterable<Artifact> sourceArtifacts) {
+      Preconditions.checkArgument(!built);
+      for (Artifact srcArtifact : sourceArtifacts) {
+        String srcFilename = srcArtifact.getExecPathString();
+        if (JavaSemantics.JAR.matches(srcFilename)) {
+          runtimeClassPath.add(srcArtifact);
+          jarFiles.add(srcArtifact);
+        } else if (JavaSemantics.SOURCE_JAR.matches(srcFilename)) {
+          sourceJars.add(srcArtifact);
+        } else if (JavaSemantics.PROPERTIES.matches(srcFilename)) {
+          // output files of the message compiler
+          resources.add(srcArtifact);
+        } else if (JavaSemantics.JAVA_SOURCE.matches(srcFilename)) {
+          sourceFiles.add(srcArtifact);
+        } else {
+          // try specific cases from the semantics.
+          semantics.addArtifactToJavaTargetAttribute(this, srcArtifact);
+        }
+      }
+      return this;
+    }
+
+    public Builder addSourceFiles(Iterable<Artifact> sourceFiles) {
+      Preconditions.checkArgument(!built);
+      for (Artifact artifact : sourceFiles) {
+        if (JavaSemantics.JAVA_SOURCE.matches(artifact.getFilename())) {
+          this.sourceFiles.add(artifact);
+        }
+      }
+      return this;
+    }
+
+    public Builder merge(JavaCompilationArgs context) {
+      Preconditions.checkArgument(!built);
+      addCompileTimeClassPathEntries(context.getCompileTimeJars());
+      addRuntimeClassPathEntries(context.getRuntimeJars());
+      addInstrumentationMetadataEntries(context.getInstrumentationMetadata());
+      return this;
+    }
+
+    public Builder addSourceJars(Collection<Artifact> sourceJars) {
+      Preconditions.checkArgument(!built);
+      this.sourceJars.addAll(sourceJars);
+      return this;
+    }
+
+    public Builder addSourceJar(Artifact sourceJar) {
+      Preconditions.checkArgument(!built);
+      this.sourceJars.add(sourceJar);
+      return this;
+    }
+
+    public Builder addCompileTimeJarFiles(Iterable<Artifact> jars) {
+      Preconditions.checkArgument(!built);
+      Iterables.addAll(compileTimeJarFiles, jars);
+      return this;
+    }
+
+    public Builder addRuntimeClassPathEntry(Artifact classPathEntry) {
+      Preconditions.checkArgument(!built);
+      checkJar(classPathEntry);
+      runtimeClassPath.add(classPathEntry);
+      return this;
+    }
+
+    public Builder addRuntimeClassPathEntries(NestedSet<Artifact> classPathEntries) {
+      Preconditions.checkArgument(!built);
+      runtimeClassPath.addTransitive(classPathEntries);
+      return this;
+    }
+
+    public Builder addCompileTimeClassPathEntries(NestedSet<Artifact> entries) {
+      Preconditions.checkArgument(!built);
+      compileTimeClassPath.addTransitive(entries);
+      return this;
+    }
+
+    public Builder addDirectCompileTimeClassPathEntries(Iterable<Artifact> entries) {
+      Preconditions.checkArgument(!built);
+      // The other version is preferred as it is more memory-efficient.
+      for (Artifact classPathEntry : entries) {
+        compileTimeClassPath.add(classPathEntry);
+      }
+      return this;
+    }
+
+    public Builder setRuleKind(String ruleKind) {
+      Preconditions.checkArgument(!built);
+      this.ruleKind = ruleKind;
+      return this;
+    }
+
+    public Builder setTargetLabel(Label targetLabel) {
+      Preconditions.checkArgument(!built);
+      this.targetLabel = targetLabel;
+      return this;
+    }
+
+    /**
+     * Sets the bootclasspath to be passed to the Java compiler.
+     *
+     * <p>If this method is called, then the bootclasspath specified in this JavaTargetAttributes
+     * instance overrides the default bootclasspath.
+     */
+    public Builder setBootClassPath(List<Artifact> jars) {
+      Preconditions.checkArgument(!built);
+      Preconditions.checkArgument(!jars.isEmpty());
+      Preconditions.checkState(bootClassPath.isEmpty());
+      bootClassPath.addAll(jars);
+      return this;
+    }
+
+    public Builder addExcludedArtifacts(NestedSet<Artifact> toExclude) {
+      Preconditions.checkArgument(!built);
+      excludedArtifacts.addTransitive(toExclude);
+      return this;
+    }
+
+    /**
+     * Controls how strict the javac compiler will be in checking correct use of
+     * direct dependencies.
+     *
+     * @param strictDeps one of WARN, ERROR or OFF
+     */
+    public Builder setStrictJavaDeps(BuildConfiguration.StrictDepsMode strictDeps) {
+      Preconditions.checkArgument(!built);
+      strictJavaDeps = strictDeps;
+      return this;
+    }
+
+    /**
+     * In tandem with strictJavaDeps, directJars represents a subset of the
+     * compile-time, classpath jars that were provided by direct dependencies.
+     * When strictJavaDeps is OFF, there is no need to provide directJars, and
+     * no extra information is passed to javac. When strictJavaDeps is set to
+     * WARN or ERROR, the compiler command line will include extra flags to
+     * indicate the warning/error policy and to map the classpath jars to direct
+     * or transitive dependencies, using the information in directJars. The extra
+     * flags are formatted like this (same for --indirect_dependency):
+     * --direct_dependency
+     * foo/bar/lib.jar
+     * //java/com/google/foo:bar
+     *
+     * @param directJars
+     */
+    public Builder addDirectJars(Iterable<Artifact> directJars) {
+      Preconditions.checkArgument(!built);
+      Iterables.addAll(this.directJars, directJars);
+      return this;
+    }
+
+    public Builder addCompileTimeDependencyArtifacts(Iterable<Artifact> dependencyArtifacts) {
+      Preconditions.checkArgument(!built);
+      Iterables.addAll(this.compileTimeDependencyArtifacts, dependencyArtifacts);
+      return this;
+    }
+
+    public Builder addRuntimeDependencyArtifacts(Iterable<Artifact> dependencyArtifacts) {
+      Preconditions.checkArgument(!built);
+      Iterables.addAll(this.runtimeDependencyArtifacts, dependencyArtifacts);
+      return this;
+    }
+
+    public Builder addInstrumentationMetadataEntries(Iterable<Artifact> metadataEntries) {
+      Preconditions.checkArgument(!built);
+      Iterables.addAll(instrumentationMetadata, metadataEntries);
+      return this;
+    }
+
+    public Builder addNativeLibrary(Artifact nativeLibrary) {
+      Preconditions.checkArgument(!built);
+      String name = nativeLibrary.getFilename();
+      if (CppFileTypes.INTERFACE_SHARED_LIBRARY.matches(name)) {
+        return this;
+      }
+      if (!(CppFileTypes.SHARED_LIBRARY.matches(name)
+          || CppFileTypes.VERSIONED_SHARED_LIBRARY.matches(name))) {
+        throw new IllegalArgumentException("not a shared library :" + nativeLibrary.prettyPrint());
+      }
+      nativeLibraries.add(nativeLibrary);
+      return this;
+    }
+
+    public Builder addNativeLibraries(Iterable<Artifact> nativeLibraries) {
+      Preconditions.checkArgument(!built);
+      for (Artifact nativeLibrary : nativeLibraries) {
+        addNativeLibrary(nativeLibrary);
+      }
+      return this;
+    }
+
+    public Builder addMessages(Collection<Artifact> messages) {
+      Preconditions.checkArgument(!built);
+      this.messages.addAll(messages);
+      return this;
+    }
+
+    public Builder addMessage(Artifact messagesArtifact) {
+      Preconditions.checkArgument(!built);
+      this.messages.add(messagesArtifact);
+      return this;
+    }
+
+    public Builder addResources(Collection<Artifact> resources) {
+      Preconditions.checkArgument(!built);
+      this.resources.addAll(resources);
+      return this;
+    }
+
+    public Builder addResource(Artifact resource) {
+      Preconditions.checkArgument(!built);
+      resources.add(resource);
+      return this;
+    }
+
+    public Builder addProcessorName(String processor) {
+      Preconditions.checkArgument(!built);
+      processorNames.add(processor);
+      return this;
+    }
+
+    public Builder addProcessorPath(Iterable<Artifact> jars) {
+      Preconditions.checkArgument(!built);
+      Iterables.addAll(processorPath, jars);
+      return this;
+    }
+
+    public Builder addClassPathResources(List<Artifact> classPathResources) {
+      Preconditions.checkArgument(!built);
+      this.classPathResources.addAll(classPathResources);
+      return this;
+    }
+
+    public Builder addClassPathResource(Artifact classPathResource) {
+      Preconditions.checkArgument(!built);
+      this.classPathResources.add(classPathResource);
+      return this;
+    }
+
+    public JavaTargetAttributes build() {
+      built = true;
+      return new JavaTargetAttributes(
+          sourceFiles,
+          jarFiles,
+          compileTimeJarFiles,
+          runtimeClassPath,
+          compileTimeClassPath,
+          bootClassPath,
+          nativeLibraries,
+          processorPath,
+          processorNames,
+          resources,
+          messages,
+          sourceJars,
+          classPathResources,
+          directJars,
+          compileTimeDependencyArtifacts,
+          ruleKind,
+          targetLabel,
+          excludedArtifacts,
+          strictJavaDeps);
+    }
+
+    // TODO(bazel-team): Remove these 5 methods.
+    @Deprecated
+    public Set<Artifact> getSourceFiles() {
+      return sourceFiles;
+    }
+
+    @Deprecated
+    public boolean hasSourceFiles() {
+      return !sourceFiles.isEmpty();
+    }
+
+    @Deprecated
+    public List<Artifact> getInstrumentationMetadata() {
+      return instrumentationMetadata;
+    }
+
+    @Deprecated
+    public boolean hasSourceJars() {
+      return !sourceJars.isEmpty();
+    }
+
+    @Deprecated
+    public boolean hasJarFiles() {
+      return !jarFiles.isEmpty();
+    }
+  }
+
+  //
+  // -------------------------- END OF BUILDER CLASS -------------------------
+  //
+
+  private final ImmutableSet<Artifact> sourceFiles;
+  private final ImmutableSet<Artifact> jarFiles;
+  private final ImmutableSet<Artifact> compileTimeJarFiles;
+
+  private final NestedSet<Artifact> runtimeClassPath;
+  private final NestedSet<Artifact> compileTimeClassPath;
+
+  private final ImmutableList<Artifact> bootClassPath;
+  private final ImmutableList<Artifact> nativeLibraries;
+
+  private final ImmutableSet<Artifact> processorPath;
+  private final ImmutableSet<String> processorNames;
+
+  private final ImmutableList<Artifact> resources;
+  private final ImmutableList<Artifact> messages;
+  private final ImmutableList<Artifact> sourceJars;
+
+  private final ImmutableList<Artifact> classPathResources;
+
+  private final ImmutableList<Artifact> directJars;
+  private final ImmutableList<Artifact> compileTimeDependencyArtifacts;
+  private final String ruleKind;
+  private final Label targetLabel;
+
+  private final NestedSet<Artifact> excludedArtifacts;
+  private final BuildConfiguration.StrictDepsMode strictJavaDeps;
+
+  /**
+   * Constructor of JavaTargetAttributes.
+   */
+  private JavaTargetAttributes(
+      Set<Artifact> sourceFiles,
+      Set<Artifact> jarFiles,
+      Set<Artifact> compileTimeJarFiles,
+      NestedSetBuilder<Artifact> runtimeClassPath,
+      NestedSetBuilder<Artifact> compileTimeClassPath,
+      List<Artifact> bootClassPath,
+      List<Artifact> nativeLibraries,
+      Set<Artifact> processorPath,
+      Set<String> processorNames,
+      List<Artifact> resources,
+      List<Artifact> messages,
+      List<Artifact> sourceJars,
+      List<Artifact> classPathResources,
+      List<Artifact> directJars,
+      List<Artifact> compileTimeDependencyArtifacts,
+      String ruleKind,
+      Label targetLabel,
+      NestedSetBuilder<Artifact> excludedArtifacts,
+      BuildConfiguration.StrictDepsMode strictJavaDeps) {
+    this.sourceFiles = ImmutableSet.copyOf(sourceFiles);
+    this.jarFiles = ImmutableSet.copyOf(jarFiles);
+    this.compileTimeJarFiles = ImmutableSet.copyOf(compileTimeJarFiles);
+    this.runtimeClassPath = runtimeClassPath.build();
+    this.compileTimeClassPath = compileTimeClassPath.build();
+    this.bootClassPath = ImmutableList.copyOf(bootClassPath);
+    this.nativeLibraries = ImmutableList.copyOf(nativeLibraries);
+    this.processorPath = ImmutableSet.copyOf(processorPath);
+    this.processorNames = ImmutableSet.copyOf(processorNames);
+    this.resources = ImmutableList.copyOf(resources);
+    this.messages = ImmutableList.copyOf(messages);
+    this.sourceJars = ImmutableList.copyOf(sourceJars);
+    this.classPathResources = ImmutableList.copyOf(classPathResources);
+    this.directJars = ImmutableList.copyOf(directJars);
+    this.compileTimeDependencyArtifacts = ImmutableList.copyOf(compileTimeDependencyArtifacts);
+    this.ruleKind = ruleKind;
+    this.targetLabel = targetLabel;
+    this.excludedArtifacts = excludedArtifacts.build();
+    this.strictJavaDeps = strictJavaDeps;
+  }
+
+  public List<Artifact> getDirectJars() {
+    return directJars;
+  }
+
+  public List<Artifact> getCompileTimeDependencyArtifacts() {
+    return compileTimeDependencyArtifacts;
+  }
+
+  public List<Artifact> getSourceJars() {
+    return sourceJars;
+  }
+
+  public Collection<Artifact> getResources() {
+    return resources;
+  }
+
+  public List<Artifact> getMessages() {
+    return messages;
+  }
+
+  public ImmutableList<Artifact> getClassPathResources() {
+    return classPathResources;
+  }
+
+  private NestedSet<Artifact> getExcludedArtifacts() {
+    return excludedArtifacts;
+  }
+
+  /**
+   * Returns the artifacts needed on the runtime classpath of this target.
+   *
+   * See also {@link #getRuntimeClassPathForArchive()}.
+   */
+  public NestedSet<Artifact> getRuntimeClassPath() {
+    return runtimeClassPath;
+  }
+
+  /**
+   * Returns the classpath artifacts needed in a deploy jar for this target.
+   *
+   * This excludes the artifacts made available by jars in the deployment
+   * environment.
+   */
+  public Iterable<Artifact> getRuntimeClassPathForArchive() {
+    Iterable<Artifact> runtimeClasspath = getRuntimeClassPath();
+
+    if (getExcludedArtifacts().isEmpty()) {
+      return runtimeClasspath;
+    } else {
+      return Iterables.filter(runtimeClasspath,
+          Predicates.not(Predicates.in(getExcludedArtifacts().toSet())));
+    }
+  }
+
+  public NestedSet<Artifact> getCompileTimeClassPath() {
+    return compileTimeClassPath;
+  }
+
+  public ImmutableList<Artifact> getBootClassPath() {
+    return bootClassPath;
+  }
+
+  public ImmutableSet<Artifact> getProcessorPath() {
+    return processorPath;
+  }
+
+  public Set<Artifact> getSourceFiles() {
+    return sourceFiles;
+  }
+
+  public Set<Artifact> getJarFiles() {
+    return jarFiles;
+  }
+
+  public Set<Artifact> getCompileTimeJarFiles() {
+    return compileTimeJarFiles;
+  }
+
+  public List<Artifact> getNativeLibraries() {
+    return nativeLibraries;
+  }
+
+  public Collection<String> getProcessorNames() {
+    return processorNames;
+  }
+
+  public boolean hasSourceFiles() {
+    return !sourceFiles.isEmpty();
+  }
+
+  public boolean hasSourceJars() {
+    return !sourceJars.isEmpty();
+  }
+
+  public boolean hasJarFiles() {
+    return !jarFiles.isEmpty();
+  }
+
+  public boolean hasResources() {
+    return !resources.isEmpty();
+  }
+
+  public boolean hasMessages() {
+    return !messages.isEmpty();
+  }
+
+  public boolean hasClassPathResources() {
+    return !classPathResources.isEmpty();
+  }
+
+  public Iterable<Artifact> getArchiveInputs(boolean includeClasspath) {
+    IterablesChain.Builder<Artifact> inputs = IterablesChain.builder();
+    if (includeClasspath) {
+      inputs.add(ImmutableList.copyOf(getRuntimeClassPathForArchive()));
+    }
+    inputs.add(getResources());
+    inputs.add(getClassPathResources());
+    if (getExcludedArtifacts().isEmpty()) {
+      return inputs.build();
+    } else {
+      Set<Artifact> excludedJars = Sets.newHashSet(getExcludedArtifacts());
+      return ImmutableList.copyOf(Iterables.filter(
+          inputs.build(), Predicates.not(Predicates.in(excludedJars))));
+    }
+  }
+
+  public String getRuleKind() {
+    return ruleKind;
+  }
+
+  public Label getTargetLabel() {
+    return targetLabel;
+  }
+
+  public BuildConfiguration.StrictDepsMode getStrictJavaDeps() {
+    return strictJavaDeps;
+  }
+}

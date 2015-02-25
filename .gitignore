@@ -1,0 +1,8 @@
+/output/
+/bazel-*
+/fromhost/
+/base_workspace/tools/jdk/jdk
+/base_workspace/tools/java/ijar
+/base_workspace/tools/java/JavaBuilder_deploy.jar
+/base_workspace/tools/java/SingleJar_deploy.jar
+/tools

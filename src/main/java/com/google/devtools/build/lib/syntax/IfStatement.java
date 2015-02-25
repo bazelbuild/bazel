@@ -1,0 +1,138 @@
+// Copyright 2014 Google Inc. All rights reserved.
+//
+// Licensed under the Apache License, Version 2.0 (the "License");
+// you may not use this file except in compliance with the License.
+// You may obtain a copy of the License at
+//
+//    http://www.apache.org/licenses/LICENSE-2.0
+//
+// Unless required by applicable law or agreed to in writing, software
+// distributed under the License is distributed on an "AS IS" BASIS,
+// WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+// See the License for the specific language governing permissions and
+// limitations under the License.
+package com.google.devtools.build.lib.syntax;
+
+import com.google.common.base.Preconditions;
+import com.google.common.collect.ImmutableList;
+
+import java.util.List;
+
+// TODO(bazel-team): maybe we should get rid of the ConditionalStatements and
+// create a chain of if-else statements for elif-s.
+/**
+ * Syntax node for an if/else statement.
+ */
+public final class IfStatement extends Statement {
+
+  /**
+   * Syntax node for an [el]if statement.
+   */
+  static final class ConditionalStatements extends Statement {
+
+    private final Expression condition;
+    private final ImmutableList<Statement> stmts;
+
+    public ConditionalStatements(Expression condition, List<Statement> stmts) {
+      this.condition = Preconditions.checkNotNull(condition);
+      this.stmts = ImmutableList.copyOf(stmts);
+    }
+
+    @Override
+    void exec(Environment env) throws EvalException, InterruptedException {
+      for (Statement stmt : stmts) {
+        stmt.exec(env);
+      }
+    }
+
+    @Override
+    public String toString() {
+      // TODO(bazel-team): see TODO in the outer class
+      return "[el]if " + condition + ": ...\n";
+    }
+
+    @Override
+    public void accept(SyntaxTreeVisitor visitor) {
+      visitor.visit(this);
+    }
+
+    Expression getCondition() {
+      return condition;
+    }
+
+    ImmutableList<Statement> getStmts() {
+      return stmts;
+    }
+
+    @Override
+    void validate(ValidationEnvironment env) throws EvalException {
+      // EvalUtils.toBoolean() evaluates everything so we don't need type check here.
+      condition.validate(env);
+      validateStmts(env, stmts);
+    }
+  }
+
+  private final ImmutableList<ConditionalStatements> thenBlocks;
+  private final ImmutableList<Statement> elseBlock;
+
+  /**
+   * Constructs a if-elif-else statement. The else part is mandatory, but the list may be empty.
+   * ThenBlocks has to have at least one element.
+   */
+  IfStatement(List<ConditionalStatements> thenBlocks, List<Statement> elseBlock) {
+    Preconditions.checkArgument(thenBlocks.size() > 0);
+    this.thenBlocks = ImmutableList.copyOf(thenBlocks);
+    this.elseBlock = ImmutableList.copyOf(elseBlock);
+  }
+
+  public ImmutableList<ConditionalStatements> getThenBlocks() {
+    return thenBlocks;
+  }
+
+  public ImmutableList<Statement> getElseBlock() {
+    return elseBlock;
+  }
+
+  @Override
+  public String toString() {
+    // TODO(bazel-team): if we want to print the complete statement, the function
+    // needs an extra argument to specify indentation level.
+    return "if : ...\n";
+  }
+
+  @Override
+  void exec(Environment env) throws EvalException, InterruptedException {
+    for (ConditionalStatements stmt : thenBlocks) {
+      if (EvalUtils.toBoolean(stmt.getCondition().eval(env))) {
+        stmt.exec(env);
+        return;
+      }
+    }
+    for (Statement stmt : elseBlock) {
+      stmt.exec(env);
+    }
+  }
+
+  @Override
+  public void accept(SyntaxTreeVisitor visitor) {
+    visitor.visit(this);
+  }
+
+  @Override
+  void validate(ValidationEnvironment env) throws EvalException {
+    env.startTemporarilyDisableReadonlyCheckSession();
+    for (ConditionalStatements stmts : thenBlocks) {
+      stmts.validate(env);
+    }
+    validateStmts(env, elseBlock);
+    env.finishTemporarilyDisableReadonlyCheckSession();
+  }
+
+  private static void validateStmts(ValidationEnvironment env, List<Statement> stmts)
+      throws EvalException {
+    for (Statement stmt : stmts) {
+      stmt.validate(env);
+    }
+    env.finishTemporarilyDisableReadonlyCheckBranch();
+  }
+}

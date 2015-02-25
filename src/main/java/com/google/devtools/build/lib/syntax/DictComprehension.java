@@ -1,0 +1,102 @@
+// Copyright 2014 Google Inc. All rights reserved.
+//
+// Licensed under the Apache License, Version 2.0 (the "License");
+// you may not use this file except in compliance with the License.
+// You may obtain a copy of the License at
+//
+//    http://www.apache.org/licenses/LICENSE-2.0
+//
+// Unless required by applicable law or agreed to in writing, software
+// distributed under the License is distributed on an "AS IS" BASIS,
+// WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+// See the License for the specific language governing permissions and
+// limitations under the License.
+package com.google.devtools.build.lib.syntax;
+
+import com.google.common.collect.ImmutableMap;
+
+import java.util.LinkedHashMap;
+import java.util.Map;
+
+/**
+ * Syntax node for dictionary comprehension expressions.
+ */
+public class DictComprehension extends Expression {
+
+  private final Expression keyExpression;
+  private final Expression valueExpression;
+  private final Ident loopVar;
+  private final Expression listExpression;
+
+  public DictComprehension(Expression keyExpression, Expression valueExpression, Ident loopVar,
+      Expression listExpression) {
+    this.keyExpression = keyExpression;
+    this.valueExpression = valueExpression;
+    this.loopVar = loopVar;
+    this.listExpression = listExpression;
+  }
+
+  Expression getKeyExpression() {
+    return keyExpression;
+  }
+
+  Expression getValueExpression() {
+    return valueExpression;
+  }
+
+  Ident getLoopVar() {
+    return loopVar;
+  }
+
+  Expression getListExpression() {
+    return listExpression;
+  }
+
+  @Override
+  Object eval(Environment env) throws EvalException, InterruptedException {
+    // We want to keep the iteration order
+    LinkedHashMap<Object, Object> map = new LinkedHashMap<>();
+    Iterable<?> elements = EvalUtils.toIterable(listExpression.eval(env), getLocation());
+    for (Object element : elements) {
+      env.update(loopVar.getName(), element);
+      Object key = keyExpression.eval(env);
+      map.put(key, valueExpression.eval(env));
+    }
+    return ImmutableMap.copyOf(map);
+  }
+
+  @Override
+  SkylarkType validate(ValidationEnvironment env) throws EvalException {
+    SkylarkType elementsType = listExpression.validate(env);
+    // TODO(bazel-team): GenericType1 should be a SkylarkType.
+    Class<?> listElementType = elementsType.getGenericType1();
+    SkylarkType listElementSkylarkType = listElementType.equals(Object.class)
+        ? SkylarkType.UNKNOWN : SkylarkType.of(listElementType);
+    env.update(loopVar.getName(), listElementSkylarkType, getLocation());
+    SkylarkType keyType = keyExpression.validate(env);
+    if (!keyType.isSimple()) {
+      // TODO(bazel-team): this is most probably dead code but it's better to have it here
+      // in case we enable e.g. list of lists or we validate function calls on Java objects
+      throw new EvalException(getLocation(), "Dict comprehension key must be of a simple type");
+    }
+    valueExpression.validate(env);
+    if (elementsType != SkylarkType.UNKNOWN && !elementsType.isList()) {
+      throw new EvalException(getLocation(), "Dict comprehension elements must be a list");
+    }
+    return SkylarkType.of(Map.class, keyType.getType());
+  }
+
+  @Override
+  public String toString() {
+    StringBuilder sb = new StringBuilder();
+    sb.append('{').append(keyExpression).append(": ").append(valueExpression);
+    sb.append(" for ").append(loopVar).append(" in ").append(listExpression);
+    sb.append('}');
+    return sb.toString();
+  }
+
+  @Override
+  public void accept(SyntaxTreeVisitor visitor) {
+    visitor.accept(this);
+  }
+}

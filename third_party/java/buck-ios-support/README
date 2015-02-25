@@ -1,0 +1,15 @@
+URL: https://github.com/facebook/buck/tarball/2ff4f45a971776afcfbe88333d78c4ca6bf03df9
+Version: 2ff4f45a971776afcfbe88333d78c4ca6bf03df9
+License: Apache 2.0
+License File: LICENSE
+
+Description:
+Buck: An Android (and Java!) build tool
+
+This copy is stripped down to only include the files needed for Xcode project generation, specifically:
+com/facebook/buck/apple/{FileTypes,xcode/{xcodeproj/**,GidGenerator,XcodeprojSerializer}}.java
+
+Local Modifications:
+Add FILE_REFERENCE(2) to the PBXContainerItemProxy.ProxyType enum.
+Update LastUpgradeCheck from 600 to 610
+Add logic to automatically detect XCVersionGroup type even if there is no currentVersion set

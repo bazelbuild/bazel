@@ -1,0 +1,313 @@
+<!-- ============================================
+                      binary
+     ============================================
+-->
+<h2 id="binary">*_binary</h2>
+
+<p>A <code>*_binary</code> rule compiles an application. This might be
+   an executable, a <code>.jar</code> file, and/or a collection of scripts.</p>
+
+${SECTION_BINARY}
+
+<!-- ============================================
+                      library
+     ============================================
+-->
+<h2 id="library">*_library</h2>
+
+<p>A <code>*_library()</code> rule compiles some sources into a library.
+   In general, a <code><var>language</var>_library</code> rule works like
+   the corresponding <code><var>language</var>_binary</code> rule, but
+   doesn't generate something executable.</p>
+
+${SECTION_LIBRARY}
+
+<!-- ============================================
+                      test
+     ============================================
+-->
+<h2 id="test">*_test</h2>
+
+<p>A <code>*_test</code> rule compiles a
+test. See <a href="#common-attributes-tests">Common attributes for
+tests</a> for an explanation of the common attributes.
+
+${SECTION_TEST}
+
+<!-- ============================================
+               generate code and data
+     ============================================
+-->
+<h2>Rules to Generate Code and Data</h2>
+
+${SECTION_GENERATE}
+
+<!-- ============================================
+                      variables
+     ============================================
+-->
+<h2 id="make_variables">"Make" Variables</h2>
+
+<p>
+  This section describes how to use or define a special class of string
+  variables that are called the "Make" environment. Bazel defines a set of
+  standard "Make" variables, and you can also define your own.
+</p>
+
+<p>(The reason for the term "Make" is historical: the syntax and semantics of
+  these variables are somewhat similar to those of GNU Make, and in the
+  original implementation, were implemented by GNU Make.  The
+  scare-quotes are present because newer build tools support
+  "Make" variables without being implemented using GNU Make; therefore
+  it is important to read the specification below carefully to
+  understand the differences.)
+</p>
+
+<p>To see the list of all common "Make" variables and their values,
+  run <code>bazel info --show_make_env</code>.
+</p>
+
+<p>Build rules can introduce additional rule specific variables. One example is
+  the <a href="#genrule.cmd"><code>cmd</code> attribute of a genrule</a>.
+</p>
+
+<h3 id='make-var-substitution'>"Make" variable substitution</h3>
+
+<p>Variables can be referenced in attributes and other variables using either
+  <code>$(FOO)</code> or <code>varref('FOO')</code>, where <code>FOO</code> is
+  the variable name. In the attribute documentation of rules, it is mentioned
+  when an attribute is subject to "Make" variable substitution. For those
+  attributes this means that any substrings of the form <code>$(X)</code>
+  within those attributes will be interpreted as references to the "Make"
+  variable <var>X</var>, and will be replaced by the appropriate value of that
+  variable for the applicable build configuration. The parens may be omitted
+  for variables whose name is a single character.
+</p>
+<p>
+  It is an error if such attributes contain embedded strings of the
+  form <code>$(X)</code> where <var>X</var> is not the name of a
+  "Make" variable, or unclosed references such as <code>$(</code> not
+  matched by a corresponding <code>)</code>.
+</p>
+<p>
+  Within such attributes, literal dollar signs must be escaped
+  as <code>$$</code> to prevent this expansion.
+</p>
+<p>
+  Those attributes that are subject to this substitution are
+  explicitly indicated as such in their definitions in this document.
+</p>
+
+<h3 id="predefined_variables">Predefined "Make" Variables</h3>
+
+<p>Bazel defines a set of "Make" variables for you.</p>
+
+<p>The build system also provides a consistent PATH for genrules and tests which
+   need to execute shell commands. For genrules, you can indirect your commands
+   using the Make variables below.  For basic Unix utilities, prefer relying on
+   the PATH variable to guarantee correct results. For genrules involving
+   compiler and platform invocation, you must use the Make variable syntax.
+   The same basic command set is also available during tests. Simply rely on the
+   PATH.</p>
+
+<p>Bazel uses a tiny Unix distribution to guarantee consistent behavior of
+   build and test steps which execute shell code across all build execution
+   hosting environments but it does not enforce a pure chroot.  As such, do
+   <b>not</b> use hard coded paths, such as
+   <code>/usr/bin/foo</code>. Binaries referenced in hardcoded paths are not
+   hermetic and can lead to unexpected and non-reproducible build behavior.</p>
+
+<p><strong>Command Variables for genrules</strong></p>
+
+<p>Note that in general, you should simply refer to many common utilities as
+bare commands that the $PATH variable will correctly resolve to hermetic
+versions for you.</p>
+
+<p><strong>Path Variables</strong></p>
+
+<ul><!--  keep alphabetically sorted  -->
+  <li><code>BINDIR</code>: The base of the generated binary tree for the target
+    architecture.  (Note that a different tree may be used for
+    programs that run during the build on the host architecture,
+    to support cross-compiling.  If you want to run a tool from
+    within a genrule, the recommended way of specifying the path to
+    the tool is to use <code>$(location <i>toolname</i>)</code>,
+    where <i>toolname</i> must be listed in the <code>tools</code>
+    attribute for the genrule.</li>
+  <li><code>GENDIR</code>: The base of the generated code
+    tree for the target architecture.</li>
+  <li><code>JAVABASE</code>:
+    The base directory containing the Java utilities.
+    It will have a "bin" subdirectory.</li>
+</ul>
+
+<p><strong>Architecture Variables</strong></p>
+
+<ul><!--  keep alphabetically sorted  -->
+  <li><code>ABI</code>: The C++ ABI version. </li>
+  <li><code>ANDROID_CPU</code>: The Android target architecture's cpu. </li>
+  <li><code>JAVA_CPU</code>: The Java target architecture's cpu. </li>
+  <li> <code>TARGET_CPU</code>: The target architecture's cpu. </li>
+</ul>
+
+<p id="predefined_variables.genrule.cmd">
+  <strong>
+    Other Variables available to <a href="#genrule.cmd">the cmd attribute of a genrule</a>
+  </strong>
+</p>
+<ul><!--  keep alphabetically sorted  -->
+  <li><code>OUTS</code>: The <code>outs</code> list. If you have only one output
+    file, you can also use <code>$@</code>.</li>
+  <li><code>SRCS</code>: The <code>srcs</code> list (or more
+    precisely, the pathnames of the files corresponding to
+    labels in the <code>srcs</code> list).  If you have only one
+    source file, you can also use <code>$&lt;</code>.</li>
+  <li><code>&lt;</code>: <code>srcs</code>, if it is a single file.</li>
+  <li><code>@</code>: <code>outs</code>, if it is a single file.</li>
+  <li><code>@D</code>: The output directory.  If there is only
+    one filename in <code>outs</code>, this expands to the
+    directory containing that file.  If there are multiple
+    filenames, this variable instead expands to the package's root
+    directory in the <code>genfiles</code> tree, <i>even if all
+    the generated files belong to the same subdirectory</i>!
+    <!-- (as a consequence of the "middleman" implementation) -->
+    If the genrule needs to generate temporary intermediate files
+    (perhaps as a result of using some other tool like a compiler)
+    then it should attempt to write the temporary files to
+    <code>@D</code> (although <code>/tmp</code> will also be
+    writable), and to remove any such generated temporary files.
+    Especially, avoid writing to directories containing inputs -
+    they may be on read-only filesystems. </li>
+</ul>
+
+</ul>
+
+<h3 id="define_your_own_make_vars">Defining Your Own Variables</h3>
+
+<p>
+You may want to use Python-style variable assignments rather than "Make"
+variables, because they work in more use cases and are less surprising. "Make"
+variables will work in the <a href="#genrule.cmd">cmd</a> attribute of genrules
+and in the key of the <a href="#cc_library.abi_deps">abi_deps</a> attribute of
+a limited number of rules, but only in very few other places.
+
+</p>
+<p>To define your "Make" own variables,  first call <a
+  href="#vardef">vardef()</a> to define your variable, then call <a
+  href="#varref">varref(name)</a> to retrieve it. varref can be embedded as part
+  of a larger string. Custom "Make" variables differ from ordinary "Python"
+  variables in the BUILD language in two important ways:
+</p>
+<ul>
+  <li>Only string values are supported,</li>
+  <li>The "Make" environment is parameterized over the build
+    platform, so that variables can be conditionally defined based on
+    the target architecture, ABI or compiler, and</li>
+  <li>The values of custom "Make" variables are <i>not available</i> during
+     BUILD-file evaluation. To work around this, you must call <a
+     href="#varref">varref()</a> to retrieve the value of a variable (unlike
+     predefined values, which can be retrieved using <code>$(FOO)</code>.
+     varref defers evaluation until after BUILD file evaluation.</li>
+</ul>
+
+<h4 id="vardef">vardef()</h4>
+
+<p><code>vardef(name, value, platform)</code></p>
+
+  <p>
+  Define a variable for use within this <code>BUILD</code> file only.
+  This variable can then be used by <a href="#varref">varref()</a>.
+  The value of the variable can be overridden on the command line by using the
+  <code class='flag'><a href='bazel-user-manual.html#flag--define'>--define</a></code>
+  flag.
+  </p>
+
+  <p id="vardef_args"><strong>Arguments</strong></p>
+<ul>
+  <li><code>name</code>: The name of the variable.
+    <i>(String; required)</i><br/>
+    Convention is to use names consisting of ALL CAPS.  This name must
+    be a unique identifier in this package.
+  </li>
+  <li><code>value</code>: The value to assign to this variable.
+    <i>(String; required)</i><br/>
+    The value may make use of variables you know are defined in the "Make"
+    environment.
+  </li>
+  <li><code>platform</code>: Conditionally define this variable for a given
+   platform.
+   <i>(String; optional)</i><br/>
+
+   <code>vardef</code> binds the <code>name</code> to <code>value</code> if we're
+   compiling for <code>platform</code>.
+  </li>
+</ul>
+
+<p id="vardef_notes"><strong>Notes</strong></p>
+<p>
+  Because references to "Make" variables are expanded <i>after</i>
+  BUILD file evaluation, the relative order of <code>vardef</code>
+  statements and rule declarations is unimportant; it is order of
+  <code>vardef</code> statements relative to each other, and hence the
+  state of the "Make" environment at the end of evaluation that
+  matters.
+</p>
+<p>
+  If there are multiple matching <code>vardef</code> definitions for
+  the same variable, the definition that wins is
+  the <strong>last</strong> matching definition
+  <strong>that specifies a platform</strong>, unless there are no matching
+  definitions that specify a platform, in which case the definition
+  that wins is the <strong>last</strong> definition <strong>without
+  a platform</strong>.
+</p>
+
+<!-- =================================================================
+                                   varref()
+     =================================================================
+  -->
+
+<h4 id="varref">varref</h4>
+
+<p><code>varref(name)</code></p>
+
+<p>
+<code>varref("FOO")</code> is equivalent of writing "$(FOO)". It is used to
+dereference variables defined with <a href="#vardef"><code>vardef</code></a>
+as well as <a href="#predefined_variables">predefined variables</a>.
+</p>
+
+<p>
+  In rule attributes that are subject to "Make" variable
+  substitution, the string produced by <code>varref(<i>name</i>)</code>
+  will expand to the value of variable <i>name</i>.
+</p>
+
+<p><code>varref(name)</code> may not be used in rule attributes that are
+not subject to "Make" variable substitution.</p>
+
+<p id="varref_args"><strong>Arguments</strong></p>
+<ul>
+ <li><code>name</code>: The name of the variable to dereference.
+ </li>
+</ul>
+
+<p id="varref_notes"><strong>Notes</strong></p>
+<ul>
+ <li><code>varref</code> can access either local or global variables.
+  It prefers the local variable, if both a local and a global exist with
+  the same name.
+ </li>
+</ul>
+
+<p id="varref_examples"><strong>Examples</strong></p>
+<p>See <a href="#vardef_examples">vardef()</a> examples.</p>
+
+
+<!-- ============================================
+                      other
+     ============================================
+-->
+<h2 id="misc">Other Stuff</h2>
+
+${SECTION_OTHER}
