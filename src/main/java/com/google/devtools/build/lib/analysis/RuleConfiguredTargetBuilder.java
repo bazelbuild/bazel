@@ -266,7 +266,7 @@ public final class RuleConfiguredTargetBuilder {
   /**
    * Populates the configuration specific mnemonicToExtraActionMap
    * based on all action_listers selected by the user (via the blaze option
-   * --experimental_action_listener=<target>).
+   * {@code --experimental_action_listener=<target>}).
    */
   private Multimap<String, ExtraActionSpec> computeMnemonicsToExtraActionMap() {
     // We copy the multimap here every time. This could be expensive.

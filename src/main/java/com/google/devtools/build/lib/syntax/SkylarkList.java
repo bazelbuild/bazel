@@ -40,7 +40,8 @@ import java.util.List;
         + "List elements have to be of the same type, <code>[1, 2, \"c\"]</code> results in an "
         + "error. Lists - just like everything - are immutable, therefore <code>x[1] = \"a\""
         + "</code> is not supported.")
-public abstract class SkylarkList implements Iterable<Object> {
+  // TODO(bazel-team): should we instead implements List<Object> like ImmutableList does?
+  public abstract class SkylarkList implements Iterable<Object> {
 
   private final boolean tuple;
   private final Class<?> genericType;

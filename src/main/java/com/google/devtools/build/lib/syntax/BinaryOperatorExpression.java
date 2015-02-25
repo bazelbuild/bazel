@@ -268,10 +268,12 @@ public final class BinaryOperatorExpression extends Expression {
       }
     } // endswitch
 
+    // NB: this message format is identical to that used by CPython 2.7.6 or 3.4.0,
+    // though python raises a TypeError.
+    // For more details, we'll hopefully have usable stack traces at some point.
     throw new EvalException(getLocation(),
-        "unsupported operand types for '" + operator + "': '"
-        + EvalUtils.getDataTypeName(lval) + "' and '"
-        + EvalUtils.getDataTypeName(rval) + "'");
+        String.format("unsupported operand type(s) for %s: '%s' and '%s'",
+            operator, EvalUtils.getDataTypeName(lval), EvalUtils.getDataTypeName(rval)));
   }
 
   @Override
@@ -404,9 +406,12 @@ public final class BinaryOperatorExpression extends Expression {
       }
     } // endswitch
 
+    // NB: this message format is identical to that used by CPython 2.7.6 or 3.4.0,
+    // though python raises a TypeError at runtime, whereas we issue an EvalException a bit earlier.
     if (ltype != SkylarkType.UNKNOWN && rtype != SkylarkType.UNKNOWN) {
       throw new EvalException(getLocation(),
-          "unsupported operand types for '" + operator + "': '" + lname + "' and '" + rname + "'");
+          String.format("unsupported operand type(s) for %s: '%s' and '%s'",
+              operator, lname, rname));
     }
     return SkylarkType.UNKNOWN;
   }

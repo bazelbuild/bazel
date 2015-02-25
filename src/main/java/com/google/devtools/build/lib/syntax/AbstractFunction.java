@@ -40,6 +40,10 @@ public abstract class AbstractFunction implements Function {
     return null;
   }
 
+  @Override public String toString() {
+    return name;
+  }
+
   /**
    * Abstract implementation of Function that accepts no parameters.
    */

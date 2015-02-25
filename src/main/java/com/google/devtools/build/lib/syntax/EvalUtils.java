@@ -139,6 +139,7 @@ public abstract class EvalUtils {
     return null;
   }
 
+  // TODO(bazel-team): move the following few type-related functions to SkylarkType
   /**
    * Returns the Skylark equivalent type of the parameter. Note that the Skylark
    * language doesn't have inheritance.
@@ -168,16 +169,32 @@ public abstract class EvalUtils {
     return c;
   }
 
-  // TODO(bazel-team): shouldn't we agree on Datatype vs DataType in the two methods below???
   /**
    * Returns a pretty name for the datatype of object 'o' in the Build language.
    */
   public static String getDataTypeName(Object o) {
-    Preconditions.checkNotNull(o);
-    if (o instanceof SkylarkList) {
-      return ((SkylarkList) o).isTuple() ? "tuple" : "list";
+    return getDataTypeName(o, false);
+  }
+
+  /**
+   * Returns a pretty name for the datatype of object {@code object} in Skylark
+   * or the BUILD language, with full details if the {@code full} boolean is true.
+   */
+  public static String getDataTypeName(Object object, boolean full) {
+    Preconditions.checkNotNull(object);
+    if (object instanceof SkylarkList) {
+      SkylarkList list = (SkylarkList) object;
+      if (list.isTuple()) {
+        return "tuple";
+      } else {
+        return "list" + (full ? " of " + list.getGenericType() + "s" : "");
+      }
+    } else if (object instanceof SkylarkNestedSet) {
+      SkylarkNestedSet set = (SkylarkNestedSet) object;
+      return "set" + (full ? " of " + set.getGenericType() + "s" : "");
+    } else {
+      return getDataTypeNameFromClass(object.getClass());
     }
-    return getDataTypeNameFromClass(o.getClass());
   }
 
   /**
@@ -279,6 +296,11 @@ public abstract class EvalUtils {
       prettyPrintValue(entry.getKey(), buffer);
       buffer.append(": ");
       prettyPrintValue(entry.getValue(), buffer);
+
+    } else if (o instanceof SkylarkNestedSet) {
+      Iterable<?> seq = (Iterable<?>) o;
+      // TODO(bazel-team): preserve the order= flag when not the default "stable".
+      printList(seq, "set([", ", ", "])", buffer);
 
     } else if (o instanceof Function) {
       Function func = (Function) o;
