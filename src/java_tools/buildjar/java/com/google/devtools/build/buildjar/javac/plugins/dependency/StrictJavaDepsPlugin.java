@@ -402,8 +402,8 @@ public final class StrictJavaDepsPlugin extends BlazeJavaCompilerPlugin {
       return null;
     }
 
-    // Filter out classes in rt.jar
-    if (platformJars.contains(classfile)) {
+    // Filter out classes on bootclasspath
+    if (platformJars.contains(name)) {
       return null;
     }
 
