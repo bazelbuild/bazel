@@ -159,6 +159,11 @@ public class ImplicitDependencyExtractor {
 
   public static String getJarName(JavaFileManager fileManager, JavaFileObject file) {
     file = unwrapFileObject(file);
+    fileManager = unwrapFileManager(fileManager);
+    
+    if (file == null || fileManager == null) {
+      return null;
+    }
 
     if (file instanceof ZipArchive.ZipFileObject
         || file instanceof ZipFileIndexArchive.ZipFileIndexFileObject) {
