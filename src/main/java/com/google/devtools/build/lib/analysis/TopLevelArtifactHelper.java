@@ -108,31 +108,28 @@ public final class TopLevelArtifactHelper {
       TopLevelArtifactContext context) {
     NestedSetBuilder<Artifact> importantBuilder = NestedSetBuilder.stableOrder();
     NestedSetBuilder<Artifact> allBuilder = NestedSetBuilder.stableOrder();
+
     TopLevelArtifactProvider topLevelArtifactProvider =
         target.getProvider(TopLevelArtifactProvider.class);
-    if (topLevelArtifactProvider != null) {
-      for (String outputGroup : context.outputGroups()) {
-        NestedSet<Artifact> results = topLevelArtifactProvider.getOutputGroup(outputGroup);
-        if (results != null) {
-          if (outputGroup.startsWith(TopLevelArtifactProvider.HIDDEN_OUTPUT_GROUP_PREFIX)) {
-            allBuilder.addTransitive(results);
-          } else {
-            importantBuilder.addTransitive(results);
-          }
-        }
-      }
-    }
 
-    if (context.buildDefaultArtifacts()
-        && !context.outputGroups().contains(TopLevelArtifactProvider.COMPILATION_PREREQUISITES)
-        && !context.outputGroups().contains(TopLevelArtifactProvider.FILES_TO_COMPILE)) {
-      FileProvider fileProvider = target.getProvider(FileProvider.class);
-      if (fileProvider != null) {
-        importantBuilder.addTransitive(fileProvider.getFilesToBuild());
+    for (String outputGroup : context.outputGroups()) {
+      NestedSet<Artifact> results = null;
+
+      if (outputGroup.equals(TopLevelArtifactProvider.DEFAULT)) {
+        FileProvider fileProvider = target.getProvider(FileProvider.class);
+        if (fileProvider != null) {
+          results = fileProvider.getFilesToBuild();
+        }
+      } else if (topLevelArtifactProvider != null) {
+        results = topLevelArtifactProvider.getOutputGroup(outputGroup);
       }
-      if (topLevelArtifactProvider != null) {
-        allBuilder.addTransitive(
-            topLevelArtifactProvider.getOutputGroup(TopLevelArtifactProvider.HIDDEN_TOP_LEVEL));
+
+      if (results != null) {
+        if (outputGroup.startsWith(TopLevelArtifactProvider.HIDDEN_OUTPUT_GROUP_PREFIX)) {
+          allBuilder.addTransitive(results);
+        } else {
+          importantBuilder.addTransitive(results);
+        }
       }
     }
 

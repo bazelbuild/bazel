@@ -79,6 +79,12 @@ public final class TopLevelArtifactProvider implements TransitiveInfoProvider {
    */
   public static final String TEMP_FILES = "temp_files";
 
+  /**
+   * The default group of files built by a target that is also used when e.g. it is mentioned in
+   * a data dependency.
+   */
+  public static final String DEFAULT = "default";
+
   private final ImmutableMap<String, NestedSet<Artifact>> outputGroups;
 
   TopLevelArtifactProvider(ImmutableMap<String, NestedSet<Artifact>> outputGroups) {

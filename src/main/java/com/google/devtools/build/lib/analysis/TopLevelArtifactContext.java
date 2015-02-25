@@ -14,7 +14,7 @@
 
 package com.google.devtools.build.lib.analysis;
 
-import com.google.common.collect.ImmutableSet;
+import com.google.common.collect.ImmutableSortedSet;
 import com.google.devtools.build.lib.concurrent.ThreadSafety.Immutable;
 
 import java.util.Objects;
@@ -27,23 +27,16 @@ import java.util.Set;
 public final class TopLevelArtifactContext {
 
   public static final TopLevelArtifactContext DEFAULT = new TopLevelArtifactContext(
-      /*buildDefaultArtifacts=*/true, /*runTestsExclusively=*/false,
-      /*outputGroups=*/ImmutableSet.<String>of());
+      /*runTestsExclusively=*/false,
+      /*outputGroups=*/ImmutableSortedSet.<String>of());
 
-  private final boolean buildDefaultArtifacts;
   private final boolean runTestsExclusively;
-  private final ImmutableSet<String> outputGroups;
+  private final ImmutableSortedSet<String> outputGroups;
 
-  public TopLevelArtifactContext(boolean filesToRun,
-      boolean runTestsExclusively, ImmutableSet<String> outputGroups) {
-    this.buildDefaultArtifacts = filesToRun;
+  public TopLevelArtifactContext(boolean runTestsExclusively,
+      ImmutableSortedSet<String> outputGroups) {
     this.runTestsExclusively = runTestsExclusively;
     this.outputGroups = outputGroups;
-  }
-
-  /** Returns the value of the (undocumented) --build_default_artifacts flag. */
-  public boolean buildDefaultArtifacts() {
-    return buildDefaultArtifacts;
   }
 
   /** Whether to run tests in exclusive mode. */
@@ -62,8 +55,7 @@ public final class TopLevelArtifactContext {
   public boolean equals(Object other) {
     if (other instanceof TopLevelArtifactContext) {
       TopLevelArtifactContext otherContext = (TopLevelArtifactContext) other;
-      return buildDefaultArtifacts == otherContext.buildDefaultArtifacts
-          && runTestsExclusively == otherContext.runTestsExclusively
+      return runTestsExclusively == otherContext.runTestsExclusively
           && outputGroups.equals(otherContext.outputGroups);
     } else {
       return false;
@@ -72,6 +64,6 @@ public final class TopLevelArtifactContext {
 
   @Override
   public int hashCode() {
-    return Objects.hash(buildDefaultArtifacts, runTestsExclusively, outputGroups);
+    return Objects.hash(runTestsExclusively, outputGroups);
   }
 }
