@@ -93,9 +93,23 @@ public final class JavaLibraryBuildRequest {
    */
   public JavaLibraryBuildRequest(List<String> args, List<BlazeJavaCompilerPlugin> extraPlugins)
       throws InvalidCommandLineException, IOException {
+    this(args, extraPlugins, new DependencyModule.Builder());
+  }
+
+  /**
+   * Constructs a build from a list of command args. Sets the same JavacRunner
+   * for both compilation and annotation processing.
+   *
+   * @param args the list of command line args
+   * @param extraPlugins extraneous plugins to use in addition to the strict dependency module.
+   * @param builder a preconstructed dependency module builder.
+   * @throws InvalidCommandLineException on any command line error
+   */
+  public JavaLibraryBuildRequest(List<String> args, List<BlazeJavaCompilerPlugin> extraPlugins,
+      DependencyModule.Builder builder)
+      throws InvalidCommandLineException, IOException {
     OptionsParser optionsParser = new OptionsParser(args);
 
-    DependencyModule.Builder builder = new DependencyModule.Builder();
     builder.addDirectMappings(optionsParser.getDirectMappings());
     builder.addIndirectMappings(optionsParser.getIndirectMappings());
     if (optionsParser.getStrictJavaDeps() != null) {

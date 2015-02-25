@@ -78,6 +78,7 @@ public final class DependencyModule {
   private final Map<String, Deps.Dependency> explicitDependenciesMap;
   private final Map<String, Deps.Dependency> implicitDependenciesMap;
   Set<String> requiredClasspath;
+  private final String fixMessage;
 
   DependencyModule(StrictJavaDeps strictJavaDeps,
                    Map<String, String> directJarsToTargets,
@@ -87,7 +88,8 @@ public final class DependencyModule {
                    String ruleKind,
                    String targetLabel,
                    String outputDepsFile,
-                   String outputDepsProtoFile) {
+                   String outputDepsProtoFile,
+                   String fixMessage) {
     this.strictJavaDeps = strictJavaDeps;
     this.directJarsToTargets = directJarsToTargets;
     this.indirectJarsToTargets = indirectJarsToTargets;
@@ -100,6 +102,7 @@ public final class DependencyModule {
     this.explicitDependenciesMap = new HashMap<>();
     this.implicitDependenciesMap = new HashMap<>();
     this.usedClasspath = new HashSet<>();
+    this.fixMessage = fixMessage;
   }
 
   /**
@@ -237,6 +240,13 @@ public final class DependencyModule {
   }
 
   /**
+   * Returns a message to suggest fix when a missing indirect dependency is found.
+   */
+  public String getFixMessage() {
+    return fixMessage;
+  }
+
+  /**
    * Returns whether classpath reduction is enabled for this invocation.
    */
   public boolean reduceClasspath() {
@@ -323,6 +333,8 @@ public final class DependencyModule {
     private String outputDepsFile;
     private String outputDepsProtoFile;
     private boolean strictClasspathMode = false;
+    private String fixMessage = "%s** Please add the following dependencies:%s\n"
+        + "  %s to %s\n\n";
 
     /**
      * Constructs the DependencyModule, guaranteeing that the maps are
@@ -334,7 +346,7 @@ public final class DependencyModule {
     public DependencyModule build() {
       return new DependencyModule(strictJavaDeps, directJarsToTargets, indirectJarsToTargets,
           strictClasspathMode, depsArtifacts, ruleKind, targetLabel, outputDepsFile,
-          outputDepsProtoFile);
+          outputDepsProtoFile, fixMessage);
     }
 
     /**
@@ -459,6 +471,17 @@ public final class DependencyModule {
      */
     public Builder setReduceClasspath() {
       this.strictClasspathMode = true;
+      return this;
+    }
+
+    /**
+     * Set the message to display when a missing indirect dependency is found.
+     * 
+     * @param fixMessage the fix message
+     * @return this Builder instance
+     */
+    public Builder setFixMessage(String fixMessage) {
+      this.fixMessage = fixMessage;
       return this;
     }
   }

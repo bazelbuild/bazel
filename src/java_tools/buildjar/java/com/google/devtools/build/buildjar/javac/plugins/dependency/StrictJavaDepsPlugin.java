@@ -66,10 +66,6 @@ public final class StrictJavaDepsPlugin extends BlazeJavaCompilerPlugin {
   static String targetMapping =
       "com/google/devtools/build/buildjar/javac/resources/target.properties";
 
-  private static final String FIX_MESSAGE =
-      "%s** Command to add missing strict dependencies:%s\n"
-          + "  add_dep %s%s\n\n";
-
   private static final boolean USE_COLOR = true;
   private ImplicitDependencyExtractor implicitDependencyExtractor;
   private CheckingTreeScanner checkingTreeScanner;
@@ -171,7 +167,7 @@ public final class StrictJavaDepsPlugin extends BlazeJavaCompilerPlugin {
         missingTargetsStr.append(target);
         missingTargetsStr.append(" ");
       }
-      errWriter.print(String.format(FIX_MESSAGE,
+      errWriter.print(String.format(dependencyModule.getFixMessage(),
           USE_COLOR ? "\033[35m\033[1m" : "",
           USE_COLOR ? "\033[0m" : "",
           missingTargetsStr.toString(),
