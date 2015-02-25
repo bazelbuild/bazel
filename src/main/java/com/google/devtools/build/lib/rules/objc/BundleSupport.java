@@ -14,7 +14,6 @@
 
 package com.google.devtools.build.lib.rules.objc;
 
-import com.google.common.annotations.VisibleForTesting;
 import com.google.common.base.Optional;
 import com.google.common.collect.ImmutableList;
 import com.google.devtools.build.lib.actions.Artifact;
@@ -35,11 +34,6 @@ import java.util.Set;
  * <p>Methods on this class can be called in any order without impacting the result.
  */
 final class BundleSupport {
-
-  @VisibleForTesting
-  static final String NO_INFOPLIST_ERROR = "An infoplist must be specified either in the "
-      + "'infoplist' attribute or via the 'options' attribute, but none was found";
-
   private final RuleContext ruleContext;
   private final Set<TargetDeviceFamily> targetDeviceFamilies;
   private final ExtraActoolArgs extraActoolArgs;
@@ -119,18 +113,6 @@ final class BundleSupport {
    */
   BundleSupport addXcodeSettings(Builder xcodeProviderBuilder) {
     xcodeProviderBuilder.setInfoplistMerging(bundling.getInfoplistMerging());
-    return this;
-  }
-
-  /**
-   * Validates any rule attributes and dependencies related to this bundle.
-   *
-   * @return this bundle support
-   */
-  BundleSupport validateAttributes() {
-    if (bundling.getInfoplistMerging().getInputPlists().isEmpty()) {
-      ruleContext.ruleError(NO_INFOPLIST_ERROR);
-    }
     return this;
   }
 

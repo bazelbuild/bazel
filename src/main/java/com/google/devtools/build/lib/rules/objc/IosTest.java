@@ -125,7 +125,7 @@ public abstract class IosTest implements RuleConfiguredTargetFactory {
 
     ReleaseBundlingSupport releaseBundlingSupport = new ReleaseBundlingSupport(
         ruleContext, common.getObjcProvider(), optionsProvider, LinkedBinary.LOCAL_AND_DEPENDENCIES,
-        "Payload/%s.app");
+        ReleaseBundlingSupport.APP_BUNDLE_DIR_FORMAT);
     releaseBundlingSupport
         .registerActions()
         .addXcodeSettings(xcodeProviderBuilder)

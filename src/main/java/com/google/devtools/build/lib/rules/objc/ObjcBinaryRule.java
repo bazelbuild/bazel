@@ -56,7 +56,12 @@ public class ObjcBinaryRule implements RuleDefinition {
 
 ${ATTRIBUTE_SIGNATURE}
 
-<p>This rule produces an application bundle by linking one or more Objective-C libraries.</p>
+<p>This rule produces one or more Objective-C libraries for bundling in an
+<code>ios_application</code>.</p>
+
+<p>Any application-related attributes (infoplist, app_icon, ...) on this rule are deprecated and
+you should define them on <code>ios_application</code> instead. They will be removed from
+<code>objc_binary</code> soon.</p>
 
 ${IMPLICIT_OUTPUTS}
 

@@ -21,24 +21,35 @@ import com.google.devtools.build.lib.analysis.BaseRuleClasses;
 import com.google.devtools.build.lib.analysis.BlazeRule;
 import com.google.devtools.build.lib.analysis.RuleDefinition;
 import com.google.devtools.build.lib.analysis.RuleDefinitionEnvironment;
+import com.google.devtools.build.lib.packages.ImplicitOutputsFunction;
 import com.google.devtools.build.lib.packages.RuleClass;
 import com.google.devtools.build.lib.packages.RuleClass.Builder;
-import com.google.devtools.build.lib.packages.RuleClass.Builder.RuleClassType;
 
 /**
  * Rule definition for ios_application.
  */
-@BlazeRule(name = "$ios_application",
+@BlazeRule(name = "ios_application",
+    factoryClass = IosApplication.class,
     ancestors = {
         BaseRuleClasses.BaseRule.class,
-        ObjcRuleClasses.ReleaseBundlingRule.class },
-    type = RuleClassType.ABSTRACT) // TODO(bazel-team): Add factory once this becomes a real rule.
+        ObjcRuleClasses.ReleaseBundlingRule.class,
+        ObjcRuleClasses.XcodegenRule.class, })
 public class IosApplicationRule implements RuleDefinition {
 
   @Override
   public RuleClass build(Builder builder, RuleDefinitionEnvironment env) {
     return builder
-        /* <!-- #BLAZE_RULE($ios_application).ATTRIBUTE(binary) -->
+        /*<!-- #BLAZE_RULE(ios_application).IMPLICIT_OUTPUTS -->
+        <ul>
+         <li><code><var>name</var>.ipa</code>: the application bundle as an <code>.ipa</code>
+             file
+         <li><code><var>name</var>.xcodeproj/project.pbxproj</code>: An Xcode project file which
+             can be used to develop or build on a Mac.
+        </ul>
+        <!-- #END_BLAZE_RULE.IMPLICIT_OUTPUTS -->*/
+        .setImplicitOutputsFunction(
+            ImplicitOutputsFunction.fromFunctions(ReleaseBundlingSupport.IPA, XcodeSupport.PBXPROJ))
+        /* <!-- #BLAZE_RULE(ios_application).ATTRIBUTE(binary) -->
         The binary target included in the final bundle.
         ${SYNOPSIS}
         <!-- #END_BLAZE_RULE.ATTRIBUTE -->*/
@@ -50,3 +61,15 @@ public class IosApplicationRule implements RuleDefinition {
         .build();
   }
 }
+
+/*<!-- #BLAZE_RULE (NAME = ios_application, TYPE = BINARY, FAMILY = Objective-C) -->
+
+${ATTRIBUTE_SIGNATURE}
+
+<p>This rule produces an application bundle for iOS.</p>
+
+${IMPLICIT_OUTPUTS}
+
+${ATTRIBUTE_DEFINITION}
+
+<!-- #END_BLAZE_RULE -->*/

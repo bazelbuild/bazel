@@ -1,4 +1,4 @@
-// Copyright 2014 Google Inc. All rights reserved.
+// Copyright 2015 Google Inc. All rights reserved.
 //
 // Licensed under the Apache License, Version 2.0 (the "License");
 // you may not use this file except in compliance with the License.
@@ -14,22 +14,27 @@
 
 package com.google.devtools.build.lib.rules.objc;
 
+import com.google.common.base.Optional;
 import com.google.devtools.build.lib.analysis.RuleConfiguredTarget.Mode;
 import com.google.devtools.build.lib.analysis.RuleContext;
 
 /**
- * Implementation for {@code ios_extension}.
+ * Implementation for {@code ios_application}.
  */
-public class IosExtension extends ReleaseBundlingTargetFactory {
+public class IosApplication extends ReleaseBundlingTargetFactory {
 
-  public IosExtension() {
-    super(ReleaseBundlingSupport.EXTENSION_BUNDLE_DIR_FORMAT, XcodeProductType.EXTENSION,
-        ExposeAsNestedBundle.YES);
+  public IosApplication() {
+    super(ReleaseBundlingSupport.APP_BUNDLE_DIR_FORMAT, XcodeProductType.APPLICATION,
+        ExposeAsNestedBundle.NO);
   }
 
+  @Override
   protected OptionsProvider optionsProvider(RuleContext ruleContext) {
     return new OptionsProvider.Builder()
         .addInfoplists(ruleContext.getPrerequisiteArtifacts("infoplist", Mode.TARGET).list())
+        .addTransitive(
+            Optional.fromNullable(
+                ruleContext.getPrerequisite("options", Mode.TARGET, OptionsProvider.class)))
         .build();
   }
 }

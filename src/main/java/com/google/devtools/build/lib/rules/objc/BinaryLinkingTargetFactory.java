@@ -87,7 +87,7 @@ abstract class BinaryLinkingTargetFactory implements RuleConfiguredTargetFactory
         // TODO(bazel-team): Remove once all bundle users are migrated to ios_application.
         ReleaseBundlingSupport releaseBundlingSupport = new ReleaseBundlingSupport(
             ruleContext, objcProvider, optionsProvider,
-            LinkedBinary.LOCAL_AND_DEPENDENCIES, "Payload/%s.app");
+            LinkedBinary.LOCAL_AND_DEPENDENCIES, ReleaseBundlingSupport.APP_BUNDLE_DIR_FORMAT);
         releaseBundlingSupport
             .registerActions()
             .addXcodeSettings(xcodeProviderBuilder)

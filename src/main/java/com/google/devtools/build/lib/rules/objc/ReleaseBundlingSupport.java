@@ -76,6 +76,10 @@ public final class ReleaseBundlingSupport {
 
   @VisibleForTesting
   static final String PROVISIONING_PROFILE_BUNDLE_FILE = "embedded.mobileprovision";
+  @VisibleForTesting
+  static final String APP_BUNDLE_DIR_FORMAT = "Payload/%s.app";
+  @VisibleForTesting
+  static final String EXTENSION_BUNDLE_DIR_FORMAT = "PlugIns/%s.appex";
 
   private final Attributes attributes;
   private final BundleSupport bundleSupport;
@@ -136,8 +140,6 @@ public final class ReleaseBundlingSupport {
    * @return this application support
    */
   ReleaseBundlingSupport validateAttributes() {
-    bundleSupport.validateAttributes();
-
     // No asset catalogs. That means you cannot specify app_icon or
     // launch_image attributes, since they must not exist. However, we don't
     // run actool in this case, which means it does not do validity checks,

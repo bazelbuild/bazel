@@ -609,8 +609,7 @@ final class ObjcActionsBuilder {
   }
 
   /**
-   * Registers actions for resource conversion that are needed by all rules that inherit from
-   * {@link ObjcBase}.
+   * Registers actions for resource conversion.
    */
   void registerResourceActions(ObjcRuleClasses.Tools baseTools, StringsFiles stringsFiles,
       XibFiles xibFiles, Iterable<Xcdatamodel> datamodels) {
