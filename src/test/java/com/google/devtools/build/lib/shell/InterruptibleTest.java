@@ -93,9 +93,6 @@ public class InterruptibleTest {
   public void testUninterruptibleCommandRunsToCompletion() throws Exception {
     command.execute();
 
-    // Subprocess execution should be around 2000ms:
-    assertDuration(2000, 2500);
-
     // The interrupter thread should have exited about 1000ms ago.
     assertFalse("Interrupter thread is still alive!",
                 interrupter.isAlive());
