@@ -108,11 +108,6 @@ public final class TopLevelArtifactHelper {
       TopLevelArtifactContext context) {
     NestedSetBuilder<Artifact> importantBuilder = NestedSetBuilder.stableOrder();
     NestedSetBuilder<Artifact> allBuilder = NestedSetBuilder.stableOrder();
-    TempsProvider tempsProvider = target.getProvider(TempsProvider.class);
-    if (tempsProvider != null) {
-      importantBuilder.addAll(tempsProvider.getTemps());
-    }
-
     TopLevelArtifactProvider topLevelArtifactProvider =
         target.getProvider(TopLevelArtifactProvider.class);
     if (topLevelArtifactProvider != null) {

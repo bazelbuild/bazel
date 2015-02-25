@@ -26,7 +26,6 @@ import com.google.devtools.build.lib.analysis.FileProvider;
 import com.google.devtools.build.lib.analysis.RuleConfiguredTarget.Mode;
 import com.google.devtools.build.lib.analysis.RuleConfiguredTargetBuilder;
 import com.google.devtools.build.lib.analysis.RuleContext;
-import com.google.devtools.build.lib.analysis.TempsProvider;
 import com.google.devtools.build.lib.analysis.TopLevelArtifactProvider;
 import com.google.devtools.build.lib.analysis.TransitiveInfoCollection;
 import com.google.devtools.build.lib.collect.nestedset.NestedSet;
@@ -129,9 +128,9 @@ public final class CcCommon {
     linkopts = initLinkopts();
   }
 
-  ImmutableList<Artifact> getTemps(CcCompilationOutputs compilationOutputs) {
+  NestedSet<Artifact> getTemps(CcCompilationOutputs compilationOutputs) {
     return cppConfiguration.isLipoContextCollector()
-        ? ImmutableList.<Artifact>of()
+        ? NestedSetBuilder.<Artifact>emptySet(Order.STABLE_ORDER)
         : compilationOutputs.getTemps();
   }
 
@@ -710,9 +709,9 @@ public final class CcCommon {
             collectTransitiveCcNativeLibraries(ruleContext, linkingOutputs.getDynamicLibraries())))
         .add(InstrumentedFilesProvider.class, getInstrumentedFilesProvider(
             instrumentedObjectFiles))
-        .add(TempsProvider.class, new TempsProvider(getTemps(ccCompilationOutputs)))
         .add(CppDebugFileProvider.class, new CppDebugFileProvider(
             dwoArtifacts.getDwoArtifacts(), dwoArtifacts.getPicDwoArtifacts()))
+        .addOutputGroup(TopLevelArtifactProvider.TEMP_FILES, getTemps(ccCompilationOutputs))
         .addOutputGroup(TopLevelArtifactProvider.FILES_TO_COMPILE,
             NestedSetBuilder.wrap(Order.STABLE_ORDER, getFilesToCompile(ccCompilationOutputs)))
         .addOutputGroup(TopLevelArtifactProvider.COMPILATION_PREREQUISITES,

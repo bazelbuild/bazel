@@ -17,6 +17,8 @@ package com.google.devtools.build.lib.rules.cpp;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.Iterables;
 import com.google.devtools.build.lib.actions.Artifact;
+import com.google.devtools.build.lib.collect.nestedset.NestedSet;
+import com.google.devtools.build.lib.collect.nestedset.NestedSetBuilder;
 
 import java.util.ArrayList;
 import java.util.LinkedHashSet;
@@ -50,7 +52,7 @@ public class CcCompilationOutputs {
   /**
    * All artifacts that are created if "--save_temps" is true.
    */
-  private final ImmutableList<Artifact> temps;
+  private final NestedSet<Artifact> temps;
 
   /**
    * All token .h.processed files created when preprocessing or parsing headers.
@@ -61,7 +63,7 @@ public class CcCompilationOutputs {
 
   private CcCompilationOutputs(ImmutableList<Artifact> objectFiles,
       ImmutableList<Artifact> picObjectFiles, ImmutableList<Artifact> dwoFiles,
-      ImmutableList<Artifact> picDwoFiles, ImmutableList<Artifact> temps,
+      ImmutableList<Artifact> picDwoFiles, NestedSet<Artifact> temps,
       ImmutableList<Artifact> headerTokenFiles,
       ImmutableList<IncludeScannable> lipoScannables) {
     this.objectFiles = objectFiles;
@@ -99,7 +101,7 @@ public class CcCompilationOutputs {
   /**
    * Returns an unmodifiable view of the temp files set.
    */
-  public ImmutableList<Artifact> getTemps() {
+  public NestedSet<Artifact> getTemps() {
     return temps;
   }
 
@@ -123,14 +125,14 @@ public class CcCompilationOutputs {
     private final Set<Artifact> picObjectFiles = new LinkedHashSet<>();
     private final Set<Artifact> dwoFiles = new LinkedHashSet<>();
     private final Set<Artifact> picDwoFiles = new LinkedHashSet<>();
-    private final Set<Artifact> temps = new LinkedHashSet<>();
+    private final NestedSetBuilder<Artifact> temps = NestedSetBuilder.stableOrder();
     private final Set<Artifact> headerTokenFiles = new LinkedHashSet<>();
     private final List<IncludeScannable> lipoScannables = new ArrayList<>();
 
     public CcCompilationOutputs build() {
       return new CcCompilationOutputs(ImmutableList.copyOf(objectFiles),
           ImmutableList.copyOf(picObjectFiles), ImmutableList.copyOf(dwoFiles),
-          ImmutableList.copyOf(picDwoFiles), ImmutableList.copyOf(temps),
+          ImmutableList.copyOf(picDwoFiles), temps.build(),
           ImmutableList.copyOf(headerTokenFiles),
           ImmutableList.copyOf(lipoScannables));
     }
@@ -140,7 +142,7 @@ public class CcCompilationOutputs {
       this.picObjectFiles.addAll(outputs.picObjectFiles);
       this.dwoFiles.addAll(outputs.dwoFiles);
       this.picDwoFiles.addAll(outputs.picDwoFiles);
-      this.temps.addAll(outputs.temps);
+      this.temps.addTransitive(outputs.temps);
       this.headerTokenFiles.addAll(outputs.headerTokenFiles);
       this.lipoScannables.addAll(outputs.lipoScannables);
       return this;
@@ -186,7 +188,7 @@ public class CcCompilationOutputs {
      * Adds temp files.
      */
     public Builder addTemps(Iterable<Artifact> artifacts) {
-      Iterables.addAll(temps, artifacts);
+      temps.addAll(artifacts);
       return this;
     }
 

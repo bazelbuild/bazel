@@ -51,9 +51,9 @@ import com.google.devtools.build.lib.analysis.ConfiguredTarget;
 import com.google.devtools.build.lib.analysis.FileProvider;
 import com.google.devtools.build.lib.analysis.InputFileConfiguredTarget;
 import com.google.devtools.build.lib.analysis.OutputFileConfiguredTarget;
-import com.google.devtools.build.lib.analysis.TempsProvider;
 import com.google.devtools.build.lib.analysis.TopLevelArtifactContext;
 import com.google.devtools.build.lib.analysis.TopLevelArtifactHelper;
+import com.google.devtools.build.lib.analysis.TopLevelArtifactProvider;
 import com.google.devtools.build.lib.analysis.TransitiveInfoCollection;
 import com.google.devtools.build.lib.analysis.ViewCreationFailedException;
 import com.google.devtools.build.lib.analysis.WorkspaceStatusAction;
@@ -700,9 +700,10 @@ public class ExecutionTool {
 
       // For failed compilation, it is still useful to examine temp artifacts,
       // (ie, preprocessed and assembler files).
-      TempsProvider tempsProvider = target.getProvider(TempsProvider.class);
-      if (tempsProvider != null) {
-        for (Artifact temp : tempsProvider.getTemps()) {
+      TopLevelArtifactProvider topLevelProvider =
+          target.getProvider(TopLevelArtifactProvider.class);
+      if (topLevelProvider != null) {
+        for (Artifact temp : topLevelProvider.getOutputGroup(TopLevelArtifactProvider.TEMP_FILES)) {
           if (temp.getPath().exists()) {
             outErr.printErrLn("  See temp at " +
                 OutputDirectoryLinksUtils.getPrettyPath(temp.getPath(),

@@ -521,6 +521,7 @@ public class BuildRequest implements OptionsClassProvider {
   private ImmutableSet<String> determineOutputGroups() {
     Set<String> current = new TreeSet<>();
     current.addAll(getBuildOptions().outputGroups);
+    current.add(TopLevelArtifactProvider.TEMP_FILES);
     if (getOptions(Options.class).collectCodeCoverage
         && !getBuildOptions().compileOnly
         && !getBuildOptions().compilationPrerequisitesOnly

@@ -17,7 +17,6 @@ package com.google.devtools.build.lib.rules.cpp;
 import com.google.common.base.Function;
 import com.google.common.base.Preconditions;
 import com.google.common.base.Predicates;
-import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.Iterables;
 import com.google.devtools.build.lib.actions.Artifact;
@@ -28,7 +27,6 @@ import com.google.devtools.build.lib.analysis.RuleConfiguredTarget.Mode;
 import com.google.devtools.build.lib.analysis.RuleContext;
 import com.google.devtools.build.lib.analysis.Runfiles;
 import com.google.devtools.build.lib.analysis.RunfilesProvider;
-import com.google.devtools.build.lib.analysis.TempsProvider;
 import com.google.devtools.build.lib.analysis.TopLevelArtifactProvider;
 import com.google.devtools.build.lib.analysis.TransitiveInfoCollection;
 import com.google.devtools.build.lib.analysis.TransitiveInfoProvider;
@@ -649,8 +647,8 @@ public final class CcLibraryHelper {
     providers.put(CppDebugFileProvider.class, new CppDebugFileProvider(
         dwoArtifacts.getDwoArtifacts(), dwoArtifacts.getPicDwoArtifacts()));
     providers.put(TransitiveLipoInfoProvider.class, collectTransitiveLipoInfo(ccOutputs));
-    providers.put(TempsProvider.class, getTemps(ccOutputs));
     Map<String, NestedSet<Artifact>> outputGroups = new TreeMap<>();
+    outputGroups.put(TopLevelArtifactProvider.TEMP_FILES, getTemps(ccOutputs));
     if (emitCompileProviders) {
       outputGroups.put(TopLevelArtifactProvider.FILES_TO_COMPILE, getFilesToCompile(ccOutputs));
       outputGroups.put(TopLevelArtifactProvider.COMPILATION_PREREQUISITES,
@@ -870,10 +868,10 @@ public final class CcLibraryHelper {
         : new CcExecutionDynamicLibrariesProvider(builder.build());
   }
 
-  private TempsProvider getTemps(CcCompilationOutputs compilationOutputs) {
+  private NestedSet<Artifact> getTemps(CcCompilationOutputs compilationOutputs) {
     return ruleContext.getFragment(CppConfiguration.class).isLipoContextCollector()
-        ? new TempsProvider(ImmutableList.<Artifact>of())
-        : new TempsProvider(compilationOutputs.getTemps());
+        ? NestedSetBuilder.<Artifact>emptySet(Order.STABLE_ORDER)
+        : compilationOutputs.getTemps();
   }
 
   private NestedSet<Artifact> getFilesToCompile(CcCompilationOutputs compilationOutputs) {

@@ -68,6 +68,17 @@ public final class TopLevelArtifactProvider implements TransitiveInfoProvider {
    */
   public static final String HIDDEN_TOP_LEVEL = HIDDEN_OUTPUT_GROUP_PREFIX + "hidden_top_level";
 
+  /**
+   * Temporary files created during building a rule, for example, .i, .d and .s files for C++
+   * compilation.
+   *
+   * <p>This output group is somewhat special: it is always built, but it only contains files when
+   * the {@code --save_temps} command line option present. I'm not sure if this is to save RAM by
+   * not creating the associated actions and artifacts if we don't need them or just historical
+   * baggage.
+   */
+  public static final String TEMP_FILES = "temp_files";
+
   private final ImmutableMap<String, NestedSet<Artifact>> outputGroups;
 
   TopLevelArtifactProvider(ImmutableMap<String, NestedSet<Artifact>> outputGroups) {
