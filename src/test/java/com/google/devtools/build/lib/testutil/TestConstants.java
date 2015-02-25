@@ -42,6 +42,11 @@ public class TestConstants {
   public static final String RUNFILES_PREFIX = "DOES-NOT-WORK-YET";
 
   /**
+   * Name of a class with an INSTANCE field of type AnalysisMock to be used for analysis tests.
+   */
+  public static final String TEST_ANALYSIS_MOCK = "DOES-NOT-WORK-YET";
+
+  /**
    * Directory where we can find bazel's Java tests, relative to a test's runfiles directory.
    */
   public static final String JAVATESTS_ROOT = "src/test/java/";

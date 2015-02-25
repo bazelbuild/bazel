@@ -167,6 +167,35 @@ java_test(
     ],
 )
 
+# TODO(bazel-team): Make these tests actually run. Also fix the duplicate compilation of
+# actions/util.
+java_library(
+    name = "analysis_actions_test",
+    srcs = glob([
+        "com/google/devtools/build/lib/actions/util/*.java",
+        "com/google/devtools/build/lib/analysis/**/*.java",
+        "com/google/devtools/build/lib/exec/util/*.java",
+        "com/google/devtools/build/lib/packages/util/*.java",
+    ]),
+    data = [
+        "//src/main/native:libunix.dylib",
+        "//src/main/native:libunix.so",
+    ],
+    deps = [
+        ":foundations_testutil",
+        ":test_runner",
+        ":testutil",
+        "//src/main/java:bazel-core",
+        "//src/main/protobuf:proto_extra_actions_base",
+        "//third_party:guava",
+        "//third_party:guava-testlib",
+        "//third_party:jsr305",
+        "//third_party:junit4",
+        "//third_party:mockito",
+        "//third_party:truth",
+    ],
+)
+
 cc_binary(
     name = "com/google/devtools/build/lib/shell/killmyself",
     srcs = ["com/google/devtools/build/lib/shell/killmyself.cc"],
