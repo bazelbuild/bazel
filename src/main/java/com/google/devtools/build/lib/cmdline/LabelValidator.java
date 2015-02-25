@@ -66,9 +66,9 @@ public final class LabelValidator {
     if (len == 0) {
       return "empty package name";
     }
-    char first = packageName.charAt(0);
-    if (first < 'a' || first > 'z') {
-      return "package names must start with a lowercase ASCII letter";
+
+    if (packageName.charAt(0) == '/') {
+      return "package names may not start with '/'";      
     }
 
     // Fast path for packages with '.' in their name
