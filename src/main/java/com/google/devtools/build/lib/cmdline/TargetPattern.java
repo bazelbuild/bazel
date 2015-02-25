@@ -151,12 +151,8 @@ public abstract class TargetPattern {
         throws TargetParsingException, InterruptedException,
         TargetPatternResolver.MissingDepException {
       if (resolver.isPackage(path)) {
-        // User has specified a package name.  Issue a helpful error message.
-        throw new TargetParsingException("ambiguous target pattern: '" + path + "' is "
-            + "the name of a package; use '" + path + ":all' to mean \"all "
-            + "rules in this package\", '" + path + "/...' to mean \"all rules recursively "
-            + "beneath this package\", or '//" + path + "' to mean \"the default rule in this "
-            + "package\"");
+        // User has specified a package name. lookout for default target.
+        return resolver.getExplicitTarget("//" + path);
       }
 
       List<String> pieces = SLASH_SPLITTER.splitToList(path);
@@ -405,14 +401,11 @@ public abstract class TargetPattern {
       // sufficient to test the first segment. This is really a rather weak check; perhaps we should
       // just eliminate it.
       int slashIndex = pattern.indexOf('/');
-      if (slashIndex < 0) {
-        throw new TargetParsingException("ambiguous target pattern: '" + pattern + "' could "
-            + "potentially be the name of a package; use '" + pattern + ":all' to mean \"all "
-            + "rules in this package\", '" + pattern + "/...' to mean \"all rules recursively "
-            + "beneath this package\", or '//" + pattern + "' to mean \"the default rule in this "
-            + "package\"");
+      String packageName = pattern;
+      if (slashIndex > 0) {
+        packageName = pattern.substring(0, slashIndex);
       }
-      String errorMessage = LabelValidator.validatePackageName(pattern.substring(0, slashIndex));
+      String errorMessage = LabelValidator.validatePackageName(packageName);
       if (errorMessage != null) {
         throw new TargetParsingException("Bad target pattern '" + originalPattern + "': " +
             errorMessage);

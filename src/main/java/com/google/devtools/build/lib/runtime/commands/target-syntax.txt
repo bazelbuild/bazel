@@ -10,9 +10,10 @@ Examples:
 Specifying a single target:
 
   //foo/bar:wiz     The single target '//foo/bar:wiz'.
-  foo/bar/wiz       Equivalent to the first existing one of these:
-                      //foo/bar:wiz
-                      //foo:bar/wiz
+  foo/bar/wiz       Equivalent to:
+                      '//foo/bar/wiz:wiz' if foo/bar/wiz is a package,
+                      '//foo/bar:wiz' if foo/bar is a package,
+                      '//foo:bar/wiz' otherwise.
   //foo/bar         Equivalent to '//foo/bar:bar'.
 
 Specifying all rules in a package:
@@ -39,6 +40,9 @@ Working-directory relative forms:  (assume cwd = 'workspace/foo')
   bar:wiz           Equivalent to '//foo/bar:wiz'.
   :foo              Equivalent to '//foo:foo'.
 
+  bar               Equivalent to '//foo/bar:bar'.
+  foo/bar           Equivalent to '//foo/foo/bar:bar'.
+
   bar:all           Equivalent to '//foo/bar:all'.
   :all              Equivalent to '//foo:all'.
 
@@ -52,13 +56,13 @@ Subtractive patterns:
 
   Target patterns may be preceded by '-', meaning they should be
   subtracted from the set of targets accumulated by preceding
-  patterns.  For example:
+  patterns. (Note that this means order matters.) For example:
 
     % blaze build -- foo/... -foo/contrib/...
 
   builds everything in 'foo', except 'contrib'.  In case a target not
   under 'contrib' depends on something under 'contrib' though, in order to
   build the former blaze has to build the latter too. As usual, the '--' is
-  required to prevent '-b' from being interpreted as an option.
+  required to prevent '-f' from being interpreted as an option.
 
 %{options}
