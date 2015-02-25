@@ -119,6 +119,11 @@ public final class BundleMerging {
     if (control.hasExecutableName()) {
       plistMerging.setExecutableName(control.getExecutableName());
     }
+    
+    plistMerging.setBundleIdentifier(
+        control.hasPrimaryBundleIdentifier() ? control.getPrimaryBundleIdentifier() : null,
+        control.hasFallbackBundleIdentifier() ? control.getFallbackBundleIdentifier() : null);
+   
     plistMerging.write(tempMergedPlist, tempPkgInfo);
 
 

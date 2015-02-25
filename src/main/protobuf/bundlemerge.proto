@@ -65,6 +65,12 @@ message Control {
   // Name of the executable for this bundle or unset if no such executable
   // exists.
   optional string executable_name = 13;
+
+  // A reverse-DNS string identifier for this bundle.
+  optional string primary_bundle_identifier = 14;
+
+  // A fallback bundle identifier used when primary is not filled.
+  optional string fallback_bundle_identifier = 15;
 }
 
 // Represents a zip file to merge with the final zip.

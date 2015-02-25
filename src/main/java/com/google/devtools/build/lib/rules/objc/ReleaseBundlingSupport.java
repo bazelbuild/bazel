@@ -184,9 +184,18 @@ public final class ReleaseBundlingSupport {
     } else {
       maybeSignedIpa = registerBundleSigningActions(ipaOutput);
     }
+    
+    String primaryBundleId = null; 
+    String fallbackBundleId = null;
 
+    if (ruleContext.attributes().isAttributeValueExplicitlySpecified("bundle_id")) {
+      primaryBundleId = attributes.bundleId();
+    } else {
+      fallbackBundleId = attributes.bundleId();
+    }
+    
     BundleMergeControlBytes bundleMergeControlBytes = new BundleMergeControlBytes(
-        bundling, maybeSignedIpa, objcConfiguration, families);
+        bundling, maybeSignedIpa, objcConfiguration, families, primaryBundleId, fallbackBundleId);
     registerBundleMergeActions(
         maybeSignedIpa, bundling.getBundleContentArtifacts(), bundleMergeControlBytes);
 
