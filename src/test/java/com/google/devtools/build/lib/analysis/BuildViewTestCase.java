@@ -85,6 +85,7 @@ import com.google.devtools.build.lib.skyframe.SequencedSkyframeExecutor;
 import com.google.devtools.build.lib.syntax.Label;
 import com.google.devtools.build.lib.syntax.Label.SyntaxException;
 import com.google.devtools.build.lib.testutil.FoundationTestCase;
+import com.google.devtools.build.lib.testutil.MoreAsserts;
 import com.google.devtools.build.lib.testutil.TestConstants;
 import com.google.devtools.build.lib.testutil.TestRuleClassProvider;
 import com.google.devtools.build.lib.util.BlazeClock;
@@ -968,7 +969,7 @@ public abstract class BuildViewTestCase extends FoundationTestCase {
    */
   protected void assertSameContentsWithCommonElements(Iterable<Artifact> artifacts,
       Iterable<String> common, String... expectedInputs) {
-    assertSameContents(Iterables.concat(Lists.newArrayList(expectedInputs), common),
+    MoreAsserts.assertSameContents(Iterables.concat(Lists.newArrayList(expectedInputs), common),
         ActionsTestUtil.prettyArtifactNames(artifacts));
   }
 
@@ -978,7 +979,8 @@ public abstract class BuildViewTestCase extends FoundationTestCase {
    */
   protected void assertSameContentsWithCommonElements(Iterable<String> artifacts,
       String[] expectedInputs, Iterable<String> common) {
-    assertSameContents(Iterables.concat(Lists.newArrayList(expectedInputs), common), artifacts);
+    MoreAsserts.assertSameContents(Iterables.concat(Lists.newArrayList(expectedInputs), common),
+        artifacts);
   }
 
   /**

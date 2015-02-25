@@ -14,12 +14,14 @@
 package com.google.devtools.build.lib.analysis.actions;
 
 import static com.google.common.truth.Truth.assertThat;
+import static com.google.devtools.build.lib.testutil.MoreAsserts.assertSameContents;
 import static java.nio.charset.StandardCharsets.ISO_8859_1;
 import static java.util.Arrays.asList;
 
 import com.google.common.base.Strings;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
+import com.google.common.collect.Sets;
 import com.google.devtools.build.lib.actions.AbstractAction;
 import com.google.devtools.build.lib.actions.Action;
 import com.google.devtools.build.lib.actions.Artifact;
@@ -85,13 +87,13 @@ public class SpawnActionTest extends BuildViewTestCase {
   public void testWelcomeArtifactIsInput() {
     SpawnAction copyFromWelcomeToDestination = createCopyFromWelcomeToDestination();
     Iterable<Artifact> inputs = copyFromWelcomeToDestination.getInputs();
-    assertEquals(asSet(welcomeArtifact), asSet(inputs));
+    assertEquals(Sets.newHashSet(welcomeArtifact), Sets.newHashSet(inputs));
   }
 
   public void testDestinationArtifactIsOutput() {
     SpawnAction copyFromWelcomeToDestination = createCopyFromWelcomeToDestination();
     Collection<Artifact> outputs = copyFromWelcomeToDestination.getOutputs();
-    assertEquals(asSet(destinationArtifact), asSet(outputs));
+    assertEquals(Sets.newHashSet(destinationArtifact), Sets.newHashSet(outputs));
   }
 
   public void testBuilder() throws Exception {

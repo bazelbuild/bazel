@@ -24,6 +24,8 @@ import com.google.devtools.build.lib.vfs.FileSystem;
 import com.google.devtools.build.lib.vfs.Path;
 import com.google.devtools.build.lib.vfs.inmemoryfs.InMemoryFileSystem;
 
+import junit.framework.TestCase;
+
 import java.io.File;
 import java.io.IOException;
 import java.nio.charset.Charset;
@@ -31,10 +33,10 @@ import java.util.List;
 import java.util.Set;
 
 /**
- * This is a specialization of {@link ChattyAssertsTestCase} that's useful for
- * implementing tests of the "foundation" library.
+ * This is a specialization of {@link TestCase} that's useful for implementing tests of the
+ * "foundation" library.
  */
-public abstract class FoundationTestCase extends ChattyAssertsTestCase {
+public abstract class FoundationTestCase extends TestCase {
 
   protected Path rootDirectory;
 

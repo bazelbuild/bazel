@@ -16,6 +16,7 @@ package com.google.devtools.build.lib.analysis.actions;
 import static com.google.common.truth.Truth.assertThat;
 import static com.google.devtools.build.lib.actions.util.ActionsTestUtil.NULL_ACTION_OWNER;
 
+import com.google.common.collect.Sets;
 import com.google.devtools.build.lib.actions.Action;
 import com.google.devtools.build.lib.actions.ActionExecutionContext;
 import com.google.devtools.build.lib.actions.ActionOwner;
@@ -59,7 +60,7 @@ public abstract class FileWriteActionTestCase extends BuildViewTestCase {
 
   protected void checkDestinationArtifactIsOutput() {
     Collection<Artifact> outputs = action.getOutputs();
-    assertEquals(asSet(outputArtifact), asSet(outputs));
+    assertEquals(Sets.newHashSet(outputArtifact), Sets.newHashSet(outputs));
     assertEquals(outputArtifact, action.getPrimaryOutput());
   }
 

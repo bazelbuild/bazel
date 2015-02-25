@@ -263,6 +263,10 @@ public class MoreAsserts {
     }
   }
 
+  public static void assertZeroExitCode(int exitCode, String stdout, String stderr) {
+    assertExitCode(0, exitCode, stdout, stderr);
+  }
+
   public static void assertExitCode(int expectedExitCode,
       int exitCode, String stdout, String stderr) {
     if (exitCode != expectedExitCode) {

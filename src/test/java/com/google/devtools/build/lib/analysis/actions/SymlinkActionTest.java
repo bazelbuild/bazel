@@ -15,6 +15,7 @@ package com.google.devtools.build.lib.analysis.actions;
 
 import static com.google.devtools.build.lib.actions.util.ActionsTestUtil.NULL_ACTION_OWNER;
 
+import com.google.common.collect.Sets;
 import com.google.devtools.build.lib.actions.ActionExecutionContext;
 import com.google.devtools.build.lib.actions.ActionExecutionException;
 import com.google.devtools.build.lib.actions.Artifact;
@@ -53,12 +54,12 @@ public class SymlinkActionTest extends BuildViewTestCase {
 
   public void testInputArtifactIsInput() {
     Iterable<Artifact> inputs = action.getInputs();
-    assertEquals(asSet(inputArtifact), asSet(inputs));
+    assertEquals(Sets.newHashSet(inputArtifact), Sets.newHashSet(inputs));
   }
 
   public void testDestinationArtifactIsOutput() {
     Iterable<Artifact> outputs = action.getOutputs();
-    assertEquals(asSet(outputArtifact), asSet(outputs));
+    assertEquals(Sets.newHashSet(outputArtifact), Sets.newHashSet(outputs));
   }
 
   public void testSymlink() throws Exception {
