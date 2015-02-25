@@ -80,35 +80,9 @@ public abstract class ChattyAssertsTestCase extends TestCase {
     assertEquals(null, expected, actual);
   }
 
-  /**
-   * Asserts that two Strings are equal considering the line separator to be \n
-   * independently of the operating system.
-   */
-  public static void assertEqualsUnifyingLineEnds(String expected, String actual) {
-    MoreAsserts.assertEqualsUnifyingLineEnds(expected, actual);
-  }
-
   private static void chattyFailNotEquals(String message, Object expected,
       Object actual) {
     fail(MoreAsserts.chattyFormat(message, expected, actual));
-  }
-
-  /**
-   * Asserts that {@code e}'s exception message contains each of {@code strings}
-   * <b>surrounded by single quotation marks</b>.
-   */
-  public static void assertMessageContainsWordsWithQuotes(Exception e,
-                                                          String... strings) {
-    assertContainsWordsWithQuotes(e.getMessage(), strings);
-  }
-
-  /**
-   * Asserts that {@code message} contains each of {@code strings}
-   * <b>surrounded by single quotation marks</b>.
-   */
-  public static void assertContainsWordsWithQuotes(String message,
-                                                   String... strings) {
-    MoreAsserts.assertContainsWordsWithQuotes(message, strings);
   }
 
   public static void assertNonZeroExitCode(int exitCode, String stdout, String stderr) {
@@ -116,7 +90,7 @@ public abstract class ChattyAssertsTestCase extends TestCase {
   }
 
   public static void assertZeroExitCode(int exitCode, String stdout, String stderr) {
-    assertExitCode(0, exitCode, stdout, stderr);
+    MoreAsserts.assertExitCode(0, exitCode, stdout, stderr);
   }
 
   public static void assertExitCode(ExitCode expectedExitCode,
@@ -173,13 +147,6 @@ public abstract class ChattyAssertsTestCase extends TestCase {
   @SuppressWarnings({"unchecked", "varargs"})
   protected static <T> Set<T> asSet(T... elements) {
     return Sets.newHashSet(elements);
-  }
-
-  /**
-   * Returns the arguments given as varargs as a set of sorted Strings.
-   */
-  protected static Set<String> asStringSet(Iterable<?> collection) {
-    return MoreAsserts.asStringSet(collection);
   }
 
   /**
