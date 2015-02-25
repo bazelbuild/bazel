@@ -33,7 +33,6 @@ import java.util.Collections;
 import java.util.Comparator;
 import java.util.PriorityQueue;
 import java.util.concurrent.ConcurrentMap;
-import java.util.concurrent.TimeUnit;
 
 import javax.annotation.concurrent.ThreadSafe;
 
@@ -65,7 +64,7 @@ public abstract class CriticalPathComputer<C extends AbstractCriticalPathCompone
       new Comparator<C>() {
         @Override
         public int compare(C o1, C o2) {
-          return Long.compare(o1.getActionWallTime(), o2.getActionWallTime());
+          return Long.compare(o1.getElapsedTimeNanos(), o2.getElapsedTimeNanos());
         }
       }
   );
@@ -80,9 +79,10 @@ public abstract class CriticalPathComputer<C extends AbstractCriticalPathCompone
   /**
    * Creates a critical path component for an action.
    * @param action the action for the critical path component
-   * @param startTimeMillis time when the action started to run
+   * @param relativeStartNanos time when the action started to run in nanos. Only mean to be used
+   * for computing time differences.
    */
-  protected abstract C createComponent(Action action, long startTimeMillis);
+  protected abstract C createComponent(Action action, long relativeStartNanos);
 
   /**
    * Return the critical path stats for the current command execution.
@@ -100,7 +100,7 @@ public abstract class CriticalPathComputer<C extends AbstractCriticalPathCompone
   @Subscribe
   public void actionStarted(ActionStartedEvent event) {
     Action action = event.getAction();
-    C component = createComponent(action, TimeUnit.NANOSECONDS.toMillis(event.getNanoTimeStart()));
+    C component = createComponent(action, event.getNanoTimeStart());
     for (Artifact output : action.getOutputs()) {
       C old = outputArtifactToComponent.put(output, component);
       Preconditions.checkState(old == null, "Duplicate output artifact found. This could happen"
@@ -118,7 +118,7 @@ public abstract class CriticalPathComputer<C extends AbstractCriticalPathCompone
   @Subscribe
   public void middlemanAction(ActionMiddlemanEvent event) {
     Action action = event.getAction();
-    C component = createComponent(action, TimeUnit.NANOSECONDS.toMillis(event.getNanoTimeStart()));
+    C component = createComponent(action, event.getNanoTimeStart());
     boolean duplicate = false;
     for (Artifact output : action.getOutputs()) {
       C old = outputArtifactToComponent.putIfAbsent(output, component);
@@ -146,7 +146,7 @@ public abstract class CriticalPathComputer<C extends AbstractCriticalPathCompone
   @Subscribe
   public void actionCached(CachedActionEvent event) {
     Action action = event.getAction();
-    C component = createComponent(action, TimeUnit.NANOSECONDS.toMillis(event.getNanoTimeStart()));
+    C component = createComponent(action, event.getNanoTimeStart());
     for (Artifact output : action.getOutputs()) {
       outputArtifactToComponent.put(output, component);
     }
@@ -185,7 +185,7 @@ public abstract class CriticalPathComputer<C extends AbstractCriticalPathCompone
   }
 
   private void finalizeActionStat(ActionMetadata action, C component) {
-    component.setFinishTimeMillis(getTime());
+    component.setRelativeStartNanos(clock.nanoTime());
     for (Artifact input : action.getInputs()) {
       addArtifactDependency(component, input);
     }
@@ -197,7 +197,7 @@ public abstract class CriticalPathComputer<C extends AbstractCriticalPathCompone
 
       if (slowestComponents.size() == SLOWEST_COMPONENTS_SIZE) {
         // The new component is faster than any of the slow components, avoid insertion.
-        if (slowestComponents.peek().getActionWallTime() >= component.getActionWallTime()) {
+        if (slowestComponents.peek().getElapsedTimeNanos() >= component.getElapsedTimeNanos()) {
           return;
         }
         // Remove the head element to make space (The fastest component in the queue).
@@ -207,14 +207,11 @@ public abstract class CriticalPathComputer<C extends AbstractCriticalPathCompone
     }
   }
 
-  private long getTime() {
-    return TimeUnit.NANOSECONDS.toMillis(clock.nanoTime());
-  }
-
   private boolean isBiggestCriticalPath(C newCriticalPath) {
     synchronized (lock) {
       return maxCriticalPath == null
-          || maxCriticalPath.getAggregatedWallTime() < newCriticalPath.getAggregatedWallTime();
+          || maxCriticalPath.getAggregatedElapsedTimeMillis()
+          < newCriticalPath.getAggregatedElapsedTimeMillis();
     }
   }
 

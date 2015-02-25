@@ -29,9 +29,15 @@ public final class ManualClock implements Clock {
     return currentTimeMillis;
   }
 
+  /**
+   * Nano time should not be confused with wall time. Nano time is only mean to compute time
+   * differences. Because of this, we shift the time returned by 1000s, to test that the users
+   * of this class do not rely on nanoTime == currentTimeMillis.
+   */
   @Override
   public long nanoTime() {
-    return TimeUnit.MILLISECONDS.toNanos(currentTimeMillis);
+    return TimeUnit.MILLISECONDS.toNanos(currentTimeMillis)
+        + TimeUnit.SECONDS.toNanos(1000);
   }
 
   public void advanceMillis(long time) {

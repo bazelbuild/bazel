@@ -21,6 +21,8 @@ import com.google.devtools.build.lib.actions.Action;
 public class SimpleCriticalPathComponent
     extends AbstractCriticalPathComponent<SimpleCriticalPathComponent> {
 
-  public SimpleCriticalPathComponent(Action action, long startTime) { super(action, startTime); }
+  public SimpleCriticalPathComponent(Action action, long relativeStartNanos) {
+    super(action, relativeStartNanos);
+  }
 }
 

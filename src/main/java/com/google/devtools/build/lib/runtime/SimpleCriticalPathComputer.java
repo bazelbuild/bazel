@@ -29,8 +29,8 @@ public class SimpleCriticalPathComputer
   }
 
   @Override
-  public SimpleCriticalPathComponent createComponent(Action action, long startTimeMillis) {
-    return new SimpleCriticalPathComponent(action, startTimeMillis);
+  public SimpleCriticalPathComponent createComponent(Action action, long relativeStartNanos) {
+    return new SimpleCriticalPathComponent(action, relativeStartNanos);
   }
 
   /**
@@ -51,7 +51,7 @@ public class SimpleCriticalPathComputer
       components.add(child);
       child = child.getChild();
     }
-    return new AggregatedCriticalPath<>(maxCriticalPath.getAggregatedWallTime(),
+    return new AggregatedCriticalPath<>(maxCriticalPath.getAggregatedElapsedTimeMillis(),
         components.build());
   }
 }

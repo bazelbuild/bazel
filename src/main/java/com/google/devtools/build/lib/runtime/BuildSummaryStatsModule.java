@@ -73,8 +73,8 @@ public class BuildSummaryStatsModule extends BlazeModule {
         // way.
         for (SimpleCriticalPathComponent stat : criticalPath.components().reverse()) {
           Profiler.instance().logSimpleTaskDuration(
-              TimeUnit.MILLISECONDS.toNanos(stat.getStartTime()),
-              TimeUnit.MILLISECONDS.toNanos(stat.getActionWallTime()),
+              TimeUnit.MILLISECONDS.toNanos(stat.getStartWallTimeMillis(BlazeClock.instance())),
+              stat.getElapsedTimeNanos(),
               ProfilerTask.CRITICAL_PATH_COMPONENT, stat.getAction());
         }
         Profiler.instance().completeTask(ProfilerTask.CRITICAL_PATH);
