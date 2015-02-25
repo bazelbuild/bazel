@@ -56,7 +56,6 @@ public class BlazeJavacMain {
    * custom behaviour. That approach created incompatibilities when upgrading to newer versions of
    * javac, so composition is preferred.
    */
-  @VisibleForTesting
   private List<BlazeJavaCompilerPlugin> plugins;
   private final PrintWriter errOutput;
   private final String compilerName;

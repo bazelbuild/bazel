@@ -30,7 +30,7 @@ import java.util.List;
 /**
  * An implementation of the JavaBuilder that uses in-process javac to compile java files.
  */
-class SimpleJavaLibraryBuilder extends AbstractJavaBuilder {
+public class SimpleJavaLibraryBuilder extends AbstractJavaBuilder {
 
   @Override
   Result compileSources(JavaLibraryBuildRequest build, JavacRunner javacRunner, PrintWriter err)
