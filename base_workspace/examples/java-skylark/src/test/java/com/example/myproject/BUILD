@@ -1,4 +1,4 @@
-load("tools/build_rules/java_rules_skylark", "java_test")
+load("/tools/build_rules/java_rules_skylark", "java_test")
 
 java_test(
     name = "pass",

@@ -1,6 +1,6 @@
 package(default_visibility = ["//visibility:public"])
 
-load("tools/build_rules/go_rules", "go_library", "go_binary", "go_test")
+load("/tools/build_rules/go_rules", "go_library", "go_binary", "go_test")
 
 go_library(
     name = "lib1",
