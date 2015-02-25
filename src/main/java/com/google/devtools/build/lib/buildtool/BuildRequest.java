@@ -460,6 +460,13 @@ public class BuildRequest implements OptionsClassProvider {
   }
 
   /**
+   * Returns the set of execution options specified for this request.
+   */
+  public ExecutionOptions getExecutionOptions() {
+    return getOptions(ExecutionOptions.class);
+  }
+
+  /**
    * Returns the human-readable description of the non-default options
    * for this build request.
    */
@@ -495,6 +502,18 @@ public class BuildRequest implements OptionsClassProvider {
     if (jobs > JOBS_TOO_HIGH_WARNING) {
       warnings.add(
           String.format("High value for --jobs: %d. You may run into memory issues", jobs));
+    }
+
+    int localTestJobs = getExecutionOptions().localTestJobs;
+    if (localTestJobs < 0) {
+      throw new InvalidConfigurationException(String.format(
+          "Invalid parameter for --local_test_jobs: %d. Only values 0 or greater are "
+              + "allowed.", localTestJobs));
+    }
+    if (localTestJobs > jobs) {
+      warnings.add(
+          String.format("High value for --local_test_jobs: %d. This exceeds the value for --jobs: "
+              + "%d. Only up to %d local tests will run concurrently.", localTestJobs, jobs, jobs));
     }
 
     // Validate other BuildRequest options.

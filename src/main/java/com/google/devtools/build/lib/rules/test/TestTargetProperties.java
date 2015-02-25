@@ -38,11 +38,12 @@ public class TestTargetProperties {
   /**
    * Resources used by local tests of various sizes.
    */
-  private static final ResourceSet SMALL_RESOURCES = ResourceSet.createWithRamCpuIo(20, 0.9, 0.00);
-  private static final ResourceSet MEDIUM_RESOURCES = ResourceSet.createWithRamCpuIo(100, 0.9, 0.1);
-  private static final ResourceSet LARGE_RESOURCES = ResourceSet.createWithRamCpuIo(300, 0.8, 0.1);
-  private static final ResourceSet ENORMOUS_RESOURCES =
-      ResourceSet.createWithRamCpuIo(800, 0.7, 0.4);
+  private static final ResourceSet SMALL_RESOURCES = ResourceSet.create(20, 0.9, 0.00, 1);
+  private static final ResourceSet MEDIUM_RESOURCES = ResourceSet.create(100, 0.9, 0.1, 1);
+  private static final ResourceSet LARGE_RESOURCES = ResourceSet.create(300, 0.8, 0.1, 1);
+  private static final ResourceSet ENORMOUS_RESOURCES = ResourceSet.create(800, 0.7, 0.4, 1);
+  private static final ResourceSet LOCAL_TEST_JOBS_BASED_RESOURCES =
+      ResourceSet.createWithLocalTestCount(1);
 
   private static ResourceSet getResourceSetFromSize(TestSize size) {
     switch (size) {
@@ -115,8 +116,10 @@ public class TestTargetProperties {
     return isExternal;
   }
 
-  public ResourceSet getLocalResourceUsage() {
-    return TestTargetProperties.getResourceSetFromSize(size);
+  public ResourceSet getLocalResourceUsage(boolean usingLocalTestJobs) {
+    return usingLocalTestJobs
+        ? LOCAL_TEST_JOBS_BASED_RESOURCES
+        : TestTargetProperties.getResourceSetFromSize(size);
   }
 
   /**

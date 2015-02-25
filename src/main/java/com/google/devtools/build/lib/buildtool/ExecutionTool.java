@@ -42,6 +42,7 @@ import com.google.devtools.build.lib.actions.Executor.ActionContext;
 import com.google.devtools.build.lib.actions.ExecutorInitException;
 import com.google.devtools.build.lib.actions.LocalHostCapacity;
 import com.google.devtools.build.lib.actions.ResourceManager;
+import com.google.devtools.build.lib.actions.ResourceSet;
 import com.google.devtools.build.lib.actions.SpawnActionContext;
 import com.google.devtools.build.lib.actions.TestExecException;
 import com.google.devtools.build.lib.actions.cache.ActionCache;
@@ -760,11 +761,12 @@ public class ExecutionTool {
   private void configureResourceManager(BuildRequest request) {
     ResourceManager resourceMgr = ResourceManager.instance();
     ExecutionOptions options = request.getOptions(ExecutionOptions.class);
+    ResourceSet resources;
     if (options.availableResources != null) {
-      resourceMgr.setAvailableResources(options.availableResources);
+      resources = options.availableResources;
       resourceMgr.setRamUtilizationPercentage(100);
     } else {
-      resourceMgr.setAvailableResources(LocalHostCapacity.getLocalHostCapacity());
+      resources = LocalHostCapacity.getLocalHostCapacity();
       resourceMgr.setRamUtilizationPercentage(options.ramUtilizationPercentage);
       if (options.useResourceAutoSense) {
         getReporter().handle(
@@ -772,6 +774,14 @@ public class ExecutionTool {
       }
       ResourceManager.instance().setAutoSensing(/*autosense=*/false);
     }
+
+    resourceMgr.setAvailableResources(ResourceSet.create(
+        resources.getMemoryMb(),
+        resources.getCpuUsage(),
+        resources.getIoUsage(),
+        request.getExecutionOptions().usingLocalTestJobs()
+            ? request.getExecutionOptions().localTestJobs : Integer.MAX_VALUE
+    ));
   }
 
   /**

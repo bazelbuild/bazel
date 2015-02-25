@@ -192,4 +192,17 @@ public class ExecutionOptions extends OptionsBase {
       converter = ResourceSet.ResourceSetConverter.class
       )
   public ResourceSet availableResources;
+
+  @Option(name = "local_test_jobs",
+      defaultValue = "0",
+      category = "testing",
+      help = "The max number of local test jobs to run concurrently. "
+          + "0 means local resources will limit the number of local test jobs to run "
+          + "concurrently instead. Setting this greater than the value for --jobs is ineffectual."
+  )
+  public int localTestJobs;
+
+  public boolean usingLocalTestJobs() {
+    return localTestJobs != 0;
+  }
 }

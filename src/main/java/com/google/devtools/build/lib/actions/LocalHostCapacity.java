@@ -126,7 +126,8 @@ public final class LocalHostCapacity {
   static boolean isDisabled;
 
   // If /proc/* information is not available, assume 3000 MB and 2 CPUs.
-  private static ResourceSet DEFAULT_RESOURCES = ResourceSet.createWithRamCpuIo(3000.0, 2.0, 1.0);
+  private static ResourceSet DEFAULT_RESOURCES = ResourceSet.create(3000.0, 2.0, 1.0,
+      Integer.MAX_VALUE);
 
   private LocalHostCapacity() {}
 
@@ -252,10 +253,11 @@ public final class LocalHostCapacity {
       boolean hyperthreading = (logicalCpuCount != totalCores);
       double ramMb = ProcMeminfoParser.kbToMb(memInfo.getTotalKb());
       final double EFFECTIVE_CPUS_PER_HYPERTHREADED_CPU = 0.6;
-      return ResourceSet.createWithRamCpuIo(
+      return ResourceSet.create(
           ramMb,
           logicalCpuCount * (hyperthreading ? EFFECTIVE_CPUS_PER_HYPERTHREADED_CPU : 1.0),
-          1.0);
+          1.0,
+          Integer.MAX_VALUE);
     } catch (IOException | IllegalArgumentException e) {
       disableProcFsUse(e);
       return DEFAULT_RESOURCES;

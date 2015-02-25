@@ -86,7 +86,7 @@ public class StandaloneTestStrategy extends TestStrategy {
     Spawn spawn = new BaseSpawn(getArgs(action), env,
         action.getTestProperties().getExecutionInfo(),
         action,
-        action.getTestProperties().getLocalResourceUsage());
+        action.getTestProperties().getLocalResourceUsage(executionOptions.usingLocalTestJobs()));
 
     Executor executor = actionExecutionContext.getExecutor();
 
@@ -97,7 +97,8 @@ public class StandaloneTestStrategy extends TestStrategy {
       fileOutErr = new FileOutErr(action.getTestLog().getPath(),
           action.resolve(actionExecutionContext.getExecutor().getExecRoot()).getTestStderr());
 
-      resources = action.getTestProperties().getLocalResourceUsage();
+      resources = action.getTestProperties()
+          .getLocalResourceUsage(executionOptions.usingLocalTestJobs());
       ResourceManager.instance().acquireResources(action, resources);
       TestResultData data = execute(
           actionExecutionContext.withFileOutErr(fileOutErr), spawn, action);
