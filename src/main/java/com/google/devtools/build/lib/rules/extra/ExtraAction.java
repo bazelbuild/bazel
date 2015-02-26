@@ -85,6 +85,7 @@ public final class ExtraAction extends SpawnAction {
         progressMessage,
         getManifests(shadowedAction),
         mnemonic,
+        false,
         null);
     this.extraActionInfoFile = extraActionInfoFile;
     this.shadowedAction = shadowedAction;
