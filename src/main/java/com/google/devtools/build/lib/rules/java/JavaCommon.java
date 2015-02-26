@@ -167,7 +167,8 @@ public class JavaCommon {
    *        library path from
    * @return a String containing the ":" separated java library path
    */
-  public static String javaLibraryPath(Collection<Artifact> sharedLibraries) {
+  public static String javaLibraryPath(
+      Collection<Artifact> sharedLibraries, String runfilePrefix) {
     StringBuilder buffer = new StringBuilder();
     Set<PathFragment> entries = new HashSet<>();
     for (Artifact sharedLibrary : sharedLibraries) {
@@ -176,7 +177,7 @@ public class JavaCommon {
         if (buffer.length() > 0) {
           buffer.append(':');
         }
-        buffer.append("${JAVA_RUNFILES}/" + Constants.RUNFILES_PREFIX + "/");
+        buffer.append("${JAVA_RUNFILES}/" + runfilePrefix + "/");
         buffer.append(entry.getPathString());
       }
     }

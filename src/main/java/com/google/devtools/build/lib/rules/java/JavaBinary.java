@@ -19,6 +19,7 @@ import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.Iterables;
 import com.google.common.collect.Lists;
+import com.google.devtools.build.lib.Constants;
 import com.google.devtools.build.lib.actions.Artifact;
 import com.google.devtools.build.lib.analysis.ConfiguredTarget;
 import com.google.devtools.build.lib.analysis.FileProvider;
@@ -126,7 +127,8 @@ public class JavaBinary implements RuleConfiguredTargetFactory {
     JavaTargetAttributes attributes = helper.getAttributes();
     List<Artifact> nativeLibraries = attributes.getNativeLibraries();
     if (!nativeLibraries.isEmpty()) {
-      jvmFlags.add("-Djava.library.path=" + JavaCommon.javaLibraryPath(nativeLibraries));
+      jvmFlags.add("-Djava.library.path="
+          + JavaCommon.javaLibraryPath(nativeLibraries, Constants.RUNFILES_PREFIX));
     }
 
     JavaConfiguration javaConfig = ruleContext.getFragment(JavaConfiguration.class);
