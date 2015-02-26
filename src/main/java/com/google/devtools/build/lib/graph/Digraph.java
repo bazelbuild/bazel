@@ -597,7 +597,7 @@ public final class Digraph<T> implements Cloneable {
    * starting node, returns the path from the root of the tree to 'node' as a
    * list.
    */
-  private static <X> List<X> getPathToTreeNode(Map<X, X> tree, X node) {
+  public static <X> List<X> getPathToTreeNode(Map<X, X> tree, X node) {
     List<X> path = new ArrayList<X>();
     while (node != null) {
       path.add(node);

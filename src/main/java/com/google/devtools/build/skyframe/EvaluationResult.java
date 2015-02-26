@@ -24,6 +24,8 @@ import java.util.Collections;
 import java.util.HashMap;
 import java.util.Map;
 
+import javax.annotation.Nullable;
+
 /**
  * The result of a Skyframe {@link Evaluator#eval} call. Will contain all the
  * successfully evaluated values, retrievable through {@link #get}. As well, the {@link ErrorInfo}
@@ -38,17 +40,19 @@ public class EvaluationResult<T extends SkyValue> {
 
   private final Map<SkyKey, T> resultMap;
   private final Map<SkyKey, ErrorInfo> errorMap;
+  private final WalkableGraph walkableGraph;
 
   /**
    * Constructor for the "completed" case. Used only by {@link Builder}.
    */
   private EvaluationResult(Map<SkyKey, T> result, Map<SkyKey, ErrorInfo> errorMap,
-      boolean hasError) {
+      boolean hasError, @Nullable WalkableGraph walkableGraph) {
     Preconditions.checkState(errorMap.isEmpty() || hasError,
         "result=%s, errorMap=%s", result, errorMap);
     this.resultMap = Preconditions.checkNotNull(result);
     this.errorMap = Preconditions.checkNotNull(errorMap);
     this.hasError = hasError;
+    this.walkableGraph = walkableGraph;
   }
 
   /**
@@ -109,6 +113,11 @@ public class EvaluationResult<T extends SkyValue> {
     return names;
   }
 
+  @Nullable
+  public WalkableGraph getWalkableGraph() {
+    return walkableGraph;
+  }
+
   /**
    * Returns some error info. Convenience method equivalent to
    * Iterables.getFirst({@link #errorMap()}, null).getValue().
@@ -140,6 +149,7 @@ public class EvaluationResult<T extends SkyValue> {
     private final Map<SkyKey, T> result = new HashMap<>();
     private final Map<SkyKey, ErrorInfo> errors = new HashMap<>();
     private boolean hasError = false;
+    private WalkableGraph walkableGraph = null;
 
     @SuppressWarnings("unchecked")
     public Builder<T> addResult(SkyKey key, SkyValue value) {
@@ -152,8 +162,20 @@ public class EvaluationResult<T extends SkyValue> {
       return this;
     }
 
+    public Builder<T> setWalkableGraph(WalkableGraph walkableGraph) {
+      this.walkableGraph = walkableGraph;
+      return this;
+    }
+
+    public Builder<T> mergeFrom(EvaluationResult<T> otherResult) {
+      result.putAll(otherResult.resultMap);
+      errors.putAll(otherResult.errorMap);
+      hasError |= otherResult.hasError;
+      return this;
+    }
+
     public EvaluationResult<T> build() {
-      return new EvaluationResult<>(result, errors, hasError);
+      return new EvaluationResult<>(result, errors, hasError, walkableGraph);
     }
 
     public void setHasError(boolean hasError) {

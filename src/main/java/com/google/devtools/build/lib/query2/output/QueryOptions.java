@@ -14,10 +14,12 @@
 package com.google.devtools.build.lib.query2.output;
 
 import com.google.devtools.build.lib.query2.engine.QueryEnvironment.Setting;
+import com.google.devtools.common.options.Converters;
 import com.google.devtools.common.options.Option;
 import com.google.devtools.common.options.OptionsBase;
 
 import java.util.EnumSet;
+import java.util.List;
 import java.util.Set;
 
 /**
@@ -116,6 +118,15 @@ public class QueryOptions extends OptionsBase {
       help = "If true, the tests() expression gives an error if it encounters a test_suite "
           + "containing non-test targets.")
   public boolean strictTestSuite;
+
+  @Option(name = "universe_scope",
+      converter = Converters.CommaSeparatedOptionListConverter.class,
+      defaultValue = "",
+      category = "query",
+      help = "A comma-separated set of target patterns (additive and subtractive). The query will "
+          + "be performed in the universe which is the transitive closure of the specified "
+          + "targets.")
+  public List<String> universeScope;
 
   /**
    * Return the current options as a set of QueryEnvironment settings.

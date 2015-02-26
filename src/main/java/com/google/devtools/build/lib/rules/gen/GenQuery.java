@@ -115,6 +115,10 @@ public class GenQuery implements RuleConfiguredTargetFactory {
       ruleContext.attributeError("opts", "option --keep_going is not allowed");
       return null;
     }
+    if (!queryOptions.universeScope.isEmpty()) {
+      ruleContext.attributeError("opts", "option --universe_scope is not allowed");
+      return null;
+    }
 
     final byte[] result = executeQuery(ruleContext, queryOptions, getScope(ruleContext), query);
     if (result == null || ruleContext.hasErrors()) {
@@ -251,12 +255,12 @@ public class GenQuery implements RuleConfiguredTargetFactory {
           Preconditions.checkNotNull(outputFormatters), queryOptions.outputFormat);
       queryResult = (BlazeQueryEvalResult<Target>) AbstractBlazeQueryEnvironment
           .newQueryEnvironment(
-          /*transitivePackageLoader=*/null, packageProvider,
+          /*transitivePackageLoader=*/null, /*graph=*/null, packageProvider,
               evaluator,
           /* keepGoing = */ false,
               ruleContext.attributes().get("strict", Type.BOOLEAN),
           /*orderedResults=*/QueryOutputUtils.orderResults(queryOptions, formatter),
-              4,
+              /*universeScope=*/ImmutableList.<String>of(), 4,
               labelFilter,
               getEventHandler(ruleContext),
               settings,

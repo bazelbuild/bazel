@@ -158,7 +158,11 @@ public final class InMemoryMemoizingEvaluator implements MemoizingEvaluator {
       ParallelEvaluator evaluator = new ParallelEvaluator(graph, intVersion,
           skyFunctions, eventHandler, emittedEventState, keepGoing, numThreads, progressReceiver,
           dirtyKeyTracker);
-      return evaluator.eval(roots);
+      EvaluationResult<T> result = evaluator.eval(roots);
+      return EvaluationResult.<T>builder()
+          .mergeFrom(result)
+          .setWalkableGraph(new DelegatingWalkableGraph(graph))
+          .build();
     } finally {
       lastGraphVersion = intVersion;
       setAndCheckEvaluateState(false, roots);

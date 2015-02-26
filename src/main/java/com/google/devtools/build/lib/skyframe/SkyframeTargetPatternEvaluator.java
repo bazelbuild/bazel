@@ -23,7 +23,6 @@ import com.google.devtools.build.lib.cmdline.TargetParsingException;
 import com.google.devtools.build.lib.events.Event;
 import com.google.devtools.build.lib.events.EventHandler;
 import com.google.devtools.build.lib.packages.Target;
-import com.google.devtools.build.lib.pkgcache.FilteringPolicies;
 import com.google.devtools.build.lib.pkgcache.FilteringPolicy;
 import com.google.devtools.build.lib.pkgcache.ParseFailureListener;
 import com.google.devtools.build.lib.pkgcache.TargetPatternEvaluator;
@@ -58,7 +57,7 @@ final class SkyframeTargetPatternEvaluator implements TargetPatternEvaluator {
   public ResolvedTargets<Target> parseTargetPattern(EventHandler eventHandler,
       String pattern, boolean keepGoing) throws TargetParsingException, InterruptedException {
     return parseTargetPatternList(eventHandler, ImmutableList.of(pattern),
-        FilteringPolicies.NO_FILTER, keepGoing);
+        DEFAULT_FILTERING_POLICY, keepGoing);
   }
 
   @Override
@@ -92,7 +91,12 @@ final class SkyframeTargetPatternEvaluator implements TargetPatternEvaluator {
   ResolvedTargets<Target> parseTargetPatternList(String offset, EventHandler eventHandler,
       List<String> targetPatterns, FilteringPolicy policy, boolean keepGoing)
       throws InterruptedException, TargetParsingException {
-    Iterable<SkyKey> patternSkyKeys = TargetPatternValue.keys(targetPatterns, policy, offset);
+    return parseTargetPatternKeys(TargetPatternValue.keys(targetPatterns, policy, offset),
+        keepGoing, eventHandler);
+  }
+
+  ResolvedTargets<Target> parseTargetPatternKeys(Iterable<SkyKey> patternSkyKeys, boolean keepGoing,
+      EventHandler eventHandler) throws InterruptedException, TargetParsingException {
     EvaluationResult<TargetPatternValue> result =
         skyframeExecutor.targetPatterns(patternSkyKeys, keepGoing, eventHandler);
 

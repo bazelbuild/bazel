@@ -17,6 +17,8 @@ import com.google.common.base.Preconditions;
 import com.google.common.base.Predicate;
 import com.google.common.collect.ImmutableSet;
 import com.google.common.collect.Iterables;
+import com.google.devtools.build.lib.cmdline.ResolvedTargets;
+import com.google.devtools.build.lib.cmdline.TargetParsingException;
 import com.google.devtools.build.lib.events.EventHandler;
 import com.google.devtools.build.lib.graph.Digraph;
 import com.google.devtools.build.lib.graph.Node;
@@ -43,6 +45,7 @@ import java.util.Collection;
 import java.util.HashSet;
 import java.util.Iterator;
 import java.util.LinkedHashSet;
+import java.util.Map;
 import java.util.Set;
 
 /**
@@ -51,6 +54,7 @@ import java.util.Set;
 public class BlazeQueryEnvironment extends AbstractBlazeQueryEnvironment<Target> {
 
   private static final int MAX_DEPTH_FULL_SCAN_LIMIT = 20;
+  private final TargetPatternEvaluator targetPatternEvaluator;
   private final TransitivePackageLoader transitivePackageLoader;
   private final TargetProvider targetProvider;
   private final Digraph<Target> graph = new Digraph<>();
@@ -81,9 +85,8 @@ public class BlazeQueryEnvironment extends AbstractBlazeQueryEnvironment<Target>
       EventHandler eventHandler,
       Set<Setting> settings,
       Iterable<QueryFunction> extraFunctions) {
-    super(targetPatternEvaluator, keepGoing, strictScope, labelFilter, eventHandler, settings,
-        extraFunctions
-    );
+    super(keepGoing, strictScope, labelFilter, eventHandler, settings, extraFunctions);
+    this.targetPatternEvaluator = targetPatternEvaluator;
     this.transitivePackageLoader = transitivePackageLoader;
     this.targetProvider = packageProvider;
     this.errorObserver = new ErrorPrintingTargetEdgeErrorObserver(this.eventHandler);
@@ -93,6 +96,10 @@ public class BlazeQueryEnvironment extends AbstractBlazeQueryEnvironment<Target>
 
   @Override
   public BlazeQueryEvalResult<Target> evaluateQuery(QueryExpression expr) throws QueryException {
+    // Some errors are reported as QueryExceptions and others as ERROR events (if --keep_going). The
+    // result is set to have an error iff there were errors emitted during the query, so we reset
+    // errors here.
+    eventHandler.resetErrors();
     QueryEvalResult<Target> queryEvalResult = super.evaluateQuery(expr);
     return new BlazeQueryEvalResult<>(queryEvalResult.getSuccess(), queryEvalResult.getResultSet(),
         graph);
@@ -332,6 +339,19 @@ public class BlazeQueryEnvironment extends AbstractBlazeQueryEnvironment<Target>
       }
     }
     return dependentFiles;
+  }
+
+  protected Map<String, ResolvedTargets<Target>> preloadOrThrow(Collection<String> patterns)
+      throws TargetParsingException {
+    try {
+      // Note that this may throw a RuntimeException if deps are missing in Skyframe and this is
+      // being called from within a SkyFunction.
+      return targetPatternEvaluator.preloadTargetPatterns(
+          eventHandler, patterns, keepGoing);
+    } catch (InterruptedException e) {
+      // TODO(bazel-team): Propagate the InterruptedException from here [skyframe-loading].
+      throw new TargetParsingException("interrupted");
+    }
   }
 
   private static void addIfUniqueLabel(Node<Target> node, Set<Label> labels, Set<Target> nodes) {

@@ -43,6 +43,8 @@ import java.util.Map;
  */
 @ThreadSafety.ConditionallyThreadSafe // as long as you don't call updateOffset.
 public interface TargetPatternEvaluator {
+  static FilteringPolicy DEFAULT_FILTERING_POLICY = FilteringPolicies.NO_FILTER;
+
   /**
    * Attempts to parse an ordered list of target patterns, computing the union
    * of the set of targets represented by each pattern, unless it is preceded by
@@ -77,7 +79,6 @@ public interface TargetPatternEvaluator {
   Map<String, ResolvedTargets<Target>> preloadTargetPatterns(EventHandler eventHandler,
       Collection<String> patterns, boolean keepGoing)
           throws TargetParsingException, InterruptedException;
-
 
   /**
    * Update the parser's offset, given the workspace and working directory.

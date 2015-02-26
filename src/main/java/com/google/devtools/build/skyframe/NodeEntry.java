@@ -82,7 +82,7 @@ public interface NodeEntry {
    */
   @ThreadSafe
   SkyValue getValue();
-   
+
 
   /**
    * Returns the {@link SkyValue} for this entry and the metadata associated with it (Like events
