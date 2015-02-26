@@ -59,21 +59,16 @@ public class BuildEncyclopediaProcessor {
    */
   public void generateDocumentation(String[] inputDirs, String outputRootDir)
       throws BuildEncyclopediaDocException, IOException {
-    BufferedWriter bw = null;
     File buildEncyclopediaPath = setupDirectories(outputRootDir);
-    try {
-      bw = new BufferedWriter(new FileWriter(buildEncyclopediaPath));
+    try (BufferedWriter bw = new BufferedWriter(new FileWriter(buildEncyclopediaPath))) {
       bw.write(DocgenConsts.HEADER_COMMENT);
+      bw.write("\n");  // for the benefit of the block-beginning comment at the top of the template
 
       Set<RuleDocumentation> ruleDocEntries = collectAndProcessRuleDocs(inputDirs, false);
       writeRuleClassDocs(ruleDocEntries, bw);
 
+      bw.write("\n");  // for the benefit of the block-beginning comment at the top of the template
       bw.write(SourceFileReader.readTemplateContents(DocgenConsts.FOOTER_TEMPLATE));
-
-    } finally {
-      if (bw != null) {
-        bw.close();
-      }
     }
   }
 
@@ -196,6 +191,7 @@ public class BuildEncyclopediaProcessor {
       }
     }
 
+    bw.write("\n");  // for the benefit of the block-beginning comment at the top of the template
     bw.write(SourceFileReader.readTemplateContents(DocgenConsts.HEADER_TEMPLATE,
         generateBEHeaderMapping(docEntries)));
 
@@ -205,6 +201,7 @@ public class BuildEncyclopediaProcessor {
         DocgenConsts.VAR_SECTION_TEST,     getRuleDocs(testDocs),
         DocgenConsts.VAR_SECTION_GENERATE, getRuleDocs(generateDocs),
         DocgenConsts.VAR_SECTION_OTHER,    getRuleDocs(otherDocs));
+    bw.write("\n");  // for the benefit of the block-beginning comment at the top of the template
     bw.write(SourceFileReader.readTemplateContents(DocgenConsts.BODY_TEMPLATE, sectionMapping));
   }
 
