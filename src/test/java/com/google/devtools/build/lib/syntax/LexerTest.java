@@ -26,8 +26,9 @@ import junit.framework.TestCase;
 /**
  * Tests of tokenization behavior of the {@link Lexer}.
  */
-public class LexerTest extends TestCase implements EventHandler {
-
+public class LexerTest extends TestCase {
+  private String lastError;
+  private Location lastErrorLocation;
   private FsApparatus scratch = FsApparatus.newInMemory();
 
   /**
@@ -38,7 +39,17 @@ public class LexerTest extends TestCase implements EventHandler {
     Path somePath = scratch.path("/some/path.txt");
     ParserInputSource inputSource = ParserInputSource.create(input, somePath);
     Reporter reporter = new Reporter();
-    reporter.addHandler(this);
+    reporter.addHandler(new EventHandler() {
+      @Override
+      public void handle(Event event) {
+        if (EventKind.ERRORS.contains(event.getKind())) {
+          lastErrorLocation = event.getLocation();
+          lastError = lastErrorLocation.getPath() + ":"
+              + event.getLocation().getStartLineAndColumn().getLine() + ": " + event.getMessage();
+        }
+      }
+    });
+
     return new Lexer(inputSource, reporter);
   }
 
@@ -62,20 +73,6 @@ public class LexerTest extends TestCase implements EventHandler {
       buf.append(line);
     }
     return buf.toString();
-  }
-
-  private String lastError;
-
-  private Location lastErrorLocation;
-
-  @Override
-  public void handle(Event event) {
-    if (EventKind.ERRORS.contains(event.getKind())) {
-      lastErrorLocation = event.getLocation();
-      lastError = lastErrorLocation.getPath() + ":"
-          + event.getLocation().getStartLineAndColumn().getLine() + ": "
-          + event.getMessage();
-    }
   }
 
   /**
