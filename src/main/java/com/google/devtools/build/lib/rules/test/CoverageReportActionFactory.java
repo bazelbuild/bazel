@@ -60,12 +60,10 @@ public interface CoverageReportActionFactory {
   }
 
   /**
-   * Returns a CoverageReportActionsWrapper. May return null if
-   * it's not necessary to create such Actions based on the input parameters
-   * and some other data available to the factory implementation, such as
-   * command line arguments.
+   * Returns a CoverageReportActionsWrapper. May return null if it's not necessary to create
+   * such Actions based on the input parameters and some other data available to the factory
+   * implementation, such as command line options.
    */
-
   @Nullable
   public CoverageReportActionsWrapper createCoverageReportActionsWrapper(
       Collection<ConfiguredTarget> targetsToTest,
