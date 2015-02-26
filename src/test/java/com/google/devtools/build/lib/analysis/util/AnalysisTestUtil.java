@@ -17,6 +17,7 @@ import com.google.common.base.Supplier;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.ImmutableSet;
+import com.google.common.collect.ImmutableSortedSet;
 import com.google.common.collect.Iterables;
 import com.google.devtools.build.lib.actions.Action;
 import com.google.devtools.build.lib.actions.ActionContextProvider;
@@ -41,6 +42,8 @@ import com.google.devtools.build.lib.analysis.AnalysisEnvironment;
 import com.google.devtools.build.lib.analysis.BlazeDirectories;
 import com.google.devtools.build.lib.analysis.BuildInfoHelper;
 import com.google.devtools.build.lib.analysis.RuleContext;
+import com.google.devtools.build.lib.analysis.TopLevelArtifactContext;
+import com.google.devtools.build.lib.analysis.TopLevelArtifactProvider;
 import com.google.devtools.build.lib.analysis.WorkspaceStatusAction;
 import com.google.devtools.build.lib.analysis.WorkspaceStatusAction.Key;
 import com.google.devtools.build.lib.analysis.buildinfo.BuildInfoFactory.BuildInfoKey;
@@ -62,6 +65,14 @@ import java.util.Set;
 import java.util.UUID;
 
 public final class AnalysisTestUtil {
+
+  /**
+   * TopLevelArtifactContext that should be sufficient for testing.
+   */
+  public static final TopLevelArtifactContext TOP_LEVEL_ARTIFACT_CONTEXT =
+      new TopLevelArtifactContext(
+          /*runTestsExclusively=*/false,
+          /*outputGroups=*/ImmutableSortedSet.of(TopLevelArtifactProvider.DEFAULT));
 
   /**
    * An {@link AnalysisEnvironment} implementation that collects the actions registered.

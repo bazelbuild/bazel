@@ -1139,7 +1139,7 @@ public abstract class BuildViewTestCase extends FoundationTestCase {
       return null;
     }
     return view.update(loadingResult, masterConfig, viewOptions,
-        TopLevelArtifactContext.DEFAULT, reporter, eventBus);
+        AnalysisTestUtil.TOP_LEVEL_ARTIFACT_CONTEXT, reporter, eventBus);
   }
 
   protected static Predicate<Artifact> artifactNamed(final String name) {

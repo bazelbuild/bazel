@@ -26,10 +26,6 @@ import java.util.Set;
 @Immutable
 public final class TopLevelArtifactContext {
 
-  public static final TopLevelArtifactContext DEFAULT = new TopLevelArtifactContext(
-      /*runTestsExclusively=*/false,
-      /*outputGroups=*/ImmutableSortedSet.<String>of());
-
   private final boolean runTestsExclusively;
   private final ImmutableSortedSet<String> outputGroups;
 
