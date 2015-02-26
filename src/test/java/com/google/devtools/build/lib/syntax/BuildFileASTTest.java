@@ -13,6 +13,11 @@
 // limitations under the License.
 package com.google.devtools.build.lib.syntax;
 
+import static org.junit.Assert.assertEquals;
+import static org.junit.Assert.assertFalse;
+import static org.junit.Assert.assertNull;
+import static org.junit.Assert.assertTrue;
+
 import com.google.devtools.build.lib.events.Event;
 import com.google.devtools.build.lib.events.EventCollector;
 import com.google.devtools.build.lib.events.EventKind;
@@ -23,12 +28,15 @@ import com.google.devtools.build.lib.testutil.JunitTestUtils;
 import com.google.devtools.build.lib.vfs.Path;
 import com.google.devtools.build.lib.vfs.util.FsApparatus;
 
-import junit.framework.TestCase;
+import org.junit.Test;
+import org.junit.runner.RunWith;
+import org.junit.runners.JUnit4;
 
 import java.io.IOException;
 import java.util.Arrays;
 
-public class BuildFileASTTest extends TestCase {
+@RunWith(JUnit4.class)
+public class BuildFileASTTest {
 
   private FsApparatus scratch = FsApparatus.newInMemory();
 
@@ -52,6 +60,7 @@ public class BuildFileASTTest extends TestCase {
     return BuildFileAST.parseBuildFile(file, events.reporter(), locator, false);
   }
 
+  @Test
   public void testParseBuildFileOK() throws Exception {
     Path buildFile = scratch.file("/BUILD",
         "# a file in the build language",
@@ -72,6 +81,7 @@ public class BuildFileASTTest extends TestCase {
                  env.lookup("x"));
   }
 
+  @Test
   public void testEvalException() throws Exception {
     Path buildFile = scratch.file("/input1.BUILD",
         "x = 1",
@@ -91,6 +101,7 @@ public class BuildFileASTTest extends TestCase {
     assertEquals(4, e.getLocation().getStartLineAndColumn().getLine());
   }
 
+  @Test
   public void testParsesFineWithNewlines() throws Exception {
     BuildFileAST buildFileAST = parseBuildFile("foo()\n"
                                                + "bar()\n"
@@ -99,6 +110,7 @@ public class BuildFileASTTest extends TestCase {
     assertEquals(4, buildFileAST.getStatements().size());
   }
 
+  @Test
   public void testFailsIfNewlinesAreMissing() throws Exception {
     events.setFailFast(false);
 
@@ -113,6 +125,7 @@ public class BuildFileASTTest extends TestCase {
     assertTrue(buildFileAST.containsErrors());
   }
 
+  @Test
   public void testImplicitStringConcatenationFails() throws Exception {
     events.setFailFast(false);
     BuildFileAST buildFileAST = parseBuildFile("a = 'foo' 'bar'");
@@ -126,6 +139,7 @@ public class BuildFileASTTest extends TestCase {
     assertTrue(buildFileAST.containsErrors());
   }
 
+  @Test
   public void testImplicitStringConcatenationAcrossLinesIsIllegal() throws Exception {
     events.setFailFast(false);
     BuildFileAST buildFileAST = parseBuildFile("a = 'foo'\n  'bar'");
@@ -154,6 +168,7 @@ public class BuildFileASTTest extends TestCase {
     return null;
   }
 
+  @Test
   public void testWithSyntaxErrorsDoesNotPrintDollarError() throws Exception {
     events.setFailFast(false);
     BuildFileAST buildFile = parseBuildFile(
@@ -176,6 +191,7 @@ public class BuildFileASTTest extends TestCase {
     assertNull(event2);
   }
 
+  @Test
   public void testInclude() throws Exception {
     scratch.file("/foo/bar/BUILD",
         "c = 4\n"
@@ -192,6 +208,7 @@ public class BuildFileASTTest extends TestCase {
     assertEquals(5, buildFileAST.getStatements().size());
   }
 
+  @Test
   public void testInclude2() throws Exception {
     scratch.file("/foo/bar/defs",
         "a = 1\n");
@@ -211,6 +228,7 @@ public class BuildFileASTTest extends TestCase {
     assertEquals(2, env.lookup("b"));
   }
 
+  @Test
   public void testMultipleIncludes() throws Exception {
     String fileA =
         "include(\"//foo:fileB\")\n"
@@ -235,6 +253,7 @@ public class BuildFileASTTest extends TestCase {
     assertEquals(7, env.lookup("c"));
   }
 
+  @Test
   public void testFailInclude() throws Exception {
     events.setFailFast(false);
     BuildFileAST buildFileAST = parseBuildFile("include(\"//nonexistent\")");
@@ -252,6 +271,7 @@ public class BuildFileASTTest extends TestCase {
 
   private CachingPackageLocator emptyLocator = new EmptyPackageLocator();
 
+  @Test
   public void testFailInclude2() throws Exception {
     events.setFailFast(false);
     Path buildFile = scratch.file("/foo/bar/BUILD",
@@ -262,6 +282,7 @@ public class BuildFileASTTest extends TestCase {
     events.assertContainsEvent("Package 'nonexistent' not found");
   }
 
+  @Test
   public void testInvalidInclude() throws Exception {
     events.setFailFast(false);
     BuildFileAST buildFileAST = parseBuildFile("include(2)");
@@ -269,6 +290,7 @@ public class BuildFileASTTest extends TestCase {
     events.assertContainsEvent("syntax error at '2'");
   }
 
+  @Test
   public void testRecursiveInclude() throws Exception {
     events.setFailFast(false);
     Path buildFile = scratch.file("/foo/bar/BUILD",
@@ -278,6 +300,7 @@ public class BuildFileASTTest extends TestCase {
     events.assertContainsEvent("Recursive inclusion");
   }
 
+  @Test
   public void testParseErrorInclude() throws Exception {
     events.setFailFast(false);
 
@@ -292,6 +315,7 @@ public class BuildFileASTTest extends TestCase {
     assertEquals("syntax error at '%'", event.getMessage());
   }
 
+  @Test
   public void testNonExistentIncludeReported() throws Exception {
     events.setFailFast(false);
     BuildFileAST buildFileAST = parseBuildFile("include('//foo:bar')");

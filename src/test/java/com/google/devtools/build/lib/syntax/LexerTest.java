@@ -13,6 +13,10 @@
 // limitations under the License.
 package com.google.devtools.build.lib.syntax;
 
+import static org.junit.Assert.assertEquals;
+import static org.junit.Assert.assertFalse;
+import static org.junit.Assert.assertTrue;
+
 import com.google.devtools.build.lib.events.Event;
 import com.google.devtools.build.lib.events.EventHandler;
 import com.google.devtools.build.lib.events.EventKind;
@@ -21,12 +25,15 @@ import com.google.devtools.build.lib.events.Reporter;
 import com.google.devtools.build.lib.vfs.Path;
 import com.google.devtools.build.lib.vfs.util.FsApparatus;
 
-import junit.framework.TestCase;
+import org.junit.Test;
+import org.junit.runner.RunWith;
+import org.junit.runners.JUnit4;
 
 /**
  * Tests of tokenization behavior of the {@link Lexer}.
  */
-public class LexerTest extends TestCase {
+@RunWith(JUnit4.class)
+public class LexerTest {
   private String lastError;
   private Location lastErrorLocation;
   private FsApparatus scratch = FsApparatus.newInMemory();
@@ -126,6 +133,7 @@ public class LexerTest extends TestCase {
     return buf.toString();
   }
 
+  @Test
   public void testBasics1() throws Exception {
     assertEquals("IDENTIFIER RPAREN NEWLINE EOF", names(tokens("wiz) ")));
     assertEquals("IDENTIFIER RPAREN NEWLINE EOF", names(tokens("wiz )")));
@@ -134,6 +142,7 @@ public class LexerTest extends TestCase {
     assertEquals("IDENTIFIER RPAREN NEWLINE EOF", names(tokens("wiz\t)")));
   }
 
+  @Test
   public void testBasics2() throws Exception {
     assertEquals("RPAREN NEWLINE EOF", names(tokens(")")));
     assertEquals("RPAREN NEWLINE EOF", names(tokens(" )")));
@@ -141,6 +150,7 @@ public class LexerTest extends TestCase {
     assertEquals("RPAREN NEWLINE EOF", names(tokens(") ")));
   }
 
+  @Test
   public void testBasics3() throws Exception {
     assertEquals("INT COMMENT NEWLINE INT NEWLINE EOF", names(tokens("123#456\n789")));
     assertEquals("INT COMMENT NEWLINE INT NEWLINE EOF", names(tokens("123 #456\n789")));
@@ -150,6 +160,7 @@ public class LexerTest extends TestCase {
     assertEquals("INT COMMENT NEWLINE INT NEWLINE EOF", names(tokens("123#456\n789 ")));
   }
 
+  @Test
   public void testBasics4() throws Exception {
     assertEquals("NEWLINE EOF", names(tokens("")));
     assertEquals("COMMENT NEWLINE EOF", names(tokens("# foo")));
@@ -159,6 +170,7 @@ public class LexerTest extends TestCase {
                  + "NEWLINE EOF", names(tokens("foo(bar, wiz)")));
   }
 
+  @Test
   public void testIntegers() throws Exception {
     // Detection of MINUS immediately following integer constant proves we
     // don't consume too many chars.
@@ -185,6 +197,7 @@ public class LexerTest extends TestCase {
                  values(tokens("0x12345g-")));
   }
 
+  @Test
   public void testIntegersAndDot() throws Exception {
     assertEquals("INT(1) DOT INT(2345) NEWLINE EOF", values(tokens("1.2345")));
 
@@ -212,11 +225,13 @@ public class LexerTest extends TestCase {
                  values(tokens("foo.xyz")));
   }
 
+  @Test
   public void testStringDelimiters() throws Exception {
     assertEquals("STRING(foo) NEWLINE EOF", values(tokens("\"foo\"")));
     assertEquals("STRING(foo) NEWLINE EOF", values(tokens("'foo'")));
   }
 
+  @Test
   public void testQuotesInStrings() throws Exception {
     assertEquals("STRING(foo'bar) NEWLINE EOF", values(tokens("'foo\\'bar'")));
     assertEquals("STRING(foo'bar) NEWLINE EOF", values(tokens("\"foo'bar\"")));
@@ -225,6 +240,7 @@ public class LexerTest extends TestCase {
                  values(tokens("\"foo\\\"bar\"")));
   }
 
+  @Test
   public void testStringEscapes() throws Exception {
     assertEquals("STRING(a\tb\nc\rd) NEWLINE EOF",
                  values(tokens("'a\\tb\\nc\\rd'"))); // \t \r \n
@@ -253,6 +269,7 @@ public class LexerTest extends TestCase {
                  lastError.toString());
   }
 
+  @Test
   public void testOctalEscapes() throws Exception {
     // Regression test for a bug.
     assertEquals("STRING(\0 \1 \t \u003f I I1 \u00ff \u00ff \u00fe) NEWLINE EOF",
@@ -261,6 +278,7 @@ public class LexerTest extends TestCase {
     assertEquals("STRING(\1b \1) NEWLINE EOF", values(tokens("'\\1b \\1'")));
   }
 
+  @Test
   public void testTripleQuotedStrings() throws Exception {
     assertEquals("STRING(a\"b'c \n d\"\"e) NEWLINE EOF",
                  values(tokens("\"\"\"a\"b'c \n d\"\"e\"\"\"")));
@@ -268,6 +286,7 @@ public class LexerTest extends TestCase {
                  values(tokens("'''a\"b'c \n d\"\"e'''")));
   }
 
+  @Test
   public void testBadChar() throws Exception {
     assertEquals("IDENTIFIER(a) IDENTIFIER(b) NEWLINE EOF",
                  values(tokens("a$b")));
@@ -275,6 +294,7 @@ public class LexerTest extends TestCase {
                  lastError.toString());
   }
 
+  @Test
   public void testIndentation() throws Exception {
     assertEquals("INT(1) NEWLINE INT(2) NEWLINE INT(3) NEWLINE EOF",
                  values(tokens("1\n2\n3")));
@@ -295,6 +315,7 @@ public class LexerTest extends TestCase {
     assertEquals("/some/path.txt:4: indentation error", lastError.toString());
   }
 
+  @Test
   public void testIndentationInsideParens() throws Exception {
     // Indentation is ignored inside parens:
     assertEquals("INT(1) LPAREN INT(2) INT(3) INT(4) INT(5) NEWLINE EOF",
@@ -308,12 +329,14 @@ public class LexerTest extends TestCase {
                  values(tokens("1 [\n  2]\n    3\n    4\n5")));
   }
 
+  @Test
   public void testIndentationAtEOF() throws Exception {
     // Matching OUTDENTS are created at EOF:
     assertEquals("INDENT INT(1) NEWLINE OUTDENT NEWLINE EOF",
                  values(tokens("\n  1")));
   }
 
+  @Test
   public void testBlankLineIndentation() throws Exception {
     // Blank lines and comment lines should not generate any newlines indents
     // (but note that every input ends with NEWLINE EOF).
@@ -331,6 +354,7 @@ public class LexerTest extends TestCase {
                               + "  return x\n")));
   }
 
+  @Test
   public void testMultipleCommentLines() throws Exception {
     assertEquals("COMMENT NEWLINE COMMENT COMMENT COMMENT "
                  + "DEF IDENTIFIER LPAREN IDENTIFIER RPAREN COLON NEWLINE "
@@ -343,6 +367,7 @@ public class LexerTest extends TestCase {
                               + "  return x\n")));
   }
 
+  @Test
   public void testBackslash() throws Exception {
     assertEquals("IDENTIFIER IDENTIFIER NEWLINE EOF",
                  names(tokens("a\\\nb")));
@@ -352,6 +377,7 @@ public class LexerTest extends TestCase {
                  names(tokens("a(\\\n2)")));
   }
 
+  @Test
   public void testTokenPositions() throws Exception {
     //            foo   (     bar   ,     {      1       :
     assertEquals("[0,3) [3,4) [4,7) [7,8) [9,10) [10,11) [11,12)"
@@ -360,6 +386,7 @@ public class LexerTest extends TestCase {
                  positions(tokens("foo(bar, {1: 'quux'})")));
   }
 
+  @Test
   public void testLineNumbers() throws Exception {
     assertEquals("1 1 1 1 2 2 2 2 4 4 4 4 4",
                  linenums("foo = 1\nbar = 2\n\nwiz = 3"));
@@ -379,6 +406,7 @@ public class LexerTest extends TestCase {
     assertEquals("1 1 2 2 2", linenums(s));
   }
 
+  @Test
   public void testContainsErrors() throws Exception {
     Lexer lexerSuccess = createLexer("foo");
     assertFalse(lexerSuccess.containsErrors());

@@ -14,9 +14,16 @@
 
 package com.google.devtools.build.lib.syntax;
 
+import static org.junit.Assert.assertEquals;
+import static org.junit.Assert.assertFalse;
+import static org.junit.Assert.assertTrue;
+import static org.junit.Assert.fail;
+
 import com.google.common.collect.Lists;
 
-import junit.framework.TestCase;
+import org.junit.Test;
+import org.junit.runner.RunWith;
+import org.junit.runners.JUnit4;
 
 import java.util.Arrays;
 import java.util.IllegalFormatException;
@@ -28,7 +35,8 @@ import java.util.Map;
  *  Test properties of the evaluator's datatypes and utility functions
  *  without actually creating any parse trees.
  */
-public class EvalUtilsTest extends TestCase {
+@RunWith(JUnit4.class)
+public class EvalUtilsTest {
 
   private static List<?> makeList(Object ...args) {
     return EvalUtils.makeSequence(Arrays.<Object>asList(args), false);
@@ -49,6 +57,7 @@ public class EvalUtilsTest extends TestCase {
     }
   }
 
+  @Test
   public void testDataTypeNames() throws Exception {
     assertEquals("string", EvalUtils.getDataTypeName("foo"));
     assertEquals("int", EvalUtils.getDataTypeName(3));
@@ -59,6 +68,7 @@ public class EvalUtilsTest extends TestCase {
     assertEquals("None", EvalUtils.getDataTypeName(Environment.NONE));
   }
 
+  @Test
   public void testDatatypeMutability() throws Exception {
     assertTrue(EvalUtils.isImmutable("foo"));
     assertTrue(EvalUtils.isImmutable(3));
@@ -68,6 +78,7 @@ public class EvalUtilsTest extends TestCase {
     assertFalse(EvalUtils.isImmutable(makeFilesetEntry()));
   }
 
+  @Test
   public void testPrintValue() throws Exception {
     // Note that prettyPrintValue and printValue only differ on behaviour of
     // labels and strings at toplevel.
@@ -120,6 +131,7 @@ public class EvalUtilsTest extends TestCase {
     }
   }
 
+  @Test
   public void testFormatPositional() throws Exception {
     assertEquals("foo 3", EvalUtils.formatString("%s %d", makeTuple("foo", 3)));
 
@@ -165,6 +177,7 @@ public class EvalUtilsTest extends TestCase {
                             ".");
   }
 
+  @Test
   public void testFilesetEntrySymlinkAttr() throws Exception {
     FilesetEntry entryDereference =
       createTestFilesetEntry(FilesetEntry.SymlinkBehavior.DEREFERENCE);
@@ -184,6 +197,7 @@ public class EvalUtilsTest extends TestCase {
         stripPrefix);
   }
 
+  @Test
   public void testFilesetEntryStripPrefixAttr() throws Exception {
     FilesetEntry withoutStripPrefix = createStripPrefixFilesetEntry(".");
     FilesetEntry withStripPrefix = createStripPrefixFilesetEntry("orange");
@@ -195,6 +209,7 @@ public class EvalUtilsTest extends TestCase {
     assertTrue(prettyWith.contains("strip_prefix = \"orange\""));
   }
 
+  @Test
   public void testRegressionCrashInPrettyPrintValue() throws Exception {
     // Would cause crash in code such as this:
     //  Fileset(name='x', entries=[], out=[FilesetEntry(files=['a'])])

@@ -13,16 +13,21 @@
 // limitations under the License.
 package com.google.devtools.build.lib.syntax;
 
+import static org.junit.Assert.assertEquals;
+
 import com.google.devtools.build.lib.events.Location.LineAndColumn;
 import com.google.devtools.build.lib.util.Pair;
 import com.google.devtools.build.lib.vfs.util.FsApparatus;
 
-import junit.framework.TestCase;
+import org.junit.Test;
+import org.junit.runner.RunWith;
+import org.junit.runners.JUnit4;
 
 /**
  * Tests for {@link LineNumberTable}.
  */
-public class LineNumberTableTest extends TestCase {
+@RunWith(JUnit4.class)
+public class LineNumberTableTest {
   private FsApparatus scratch = FsApparatus.newInMemory();
 
   private LineNumberTable create(String buffer) {
@@ -30,17 +35,20 @@ public class LineNumberTableTest extends TestCase {
         scratch.path("/fake/file"));
   }
 
+  @Test
   public void testEmpty() {
     LineNumberTable table = create("");
     assertEquals(new LineAndColumn(1, 1), table.getLineAndColumn(0));
   }
 
+  @Test
   public void testNewline() {
     LineNumberTable table = create("\n");
     assertEquals(new LineAndColumn(1, 1), table.getLineAndColumn(0));
     assertEquals(new LineAndColumn(2, 1), table.getLineAndColumn(1));
   }
 
+  @Test
   public void testOneLiner() {
     LineNumberTable table = create("foo");
     assertEquals(new LineAndColumn(1, 1), table.getLineAndColumn(0));
@@ -49,6 +57,7 @@ public class LineNumberTableTest extends TestCase {
     assertEquals(Pair.of(0, 3), table.getOffsetsForLine(1));
   }
 
+  @Test
   public void testMultiLiner() {
     LineNumberTable table = create("\ntwo\nthree\n\nfive\n");
 
@@ -78,6 +87,7 @@ public class LineNumberTableTest extends TestCase {
     assertEquals(Pair.of(12, 17), table.getOffsetsForLine(5));
   }
 
+  @Test
   public void testHashLine() {
     String data = "#\n"
         + "#line 67 \"/foo\"\n"
