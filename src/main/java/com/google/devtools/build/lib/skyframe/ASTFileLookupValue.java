@@ -62,7 +62,7 @@ public class ASTFileLookupValue implements SkyValue {
   }
 
   static final class ASTLookupInputException extends Exception {
-    private ASTLookupInputException(String msg) {
+    ASTLookupInputException(String msg) {
       super(msg);
     }
   }

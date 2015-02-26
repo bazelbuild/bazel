@@ -24,6 +24,8 @@ import java.util.List;
  */
 public final class LoadStatement extends Statement {
 
+  public static final String PATH_ERROR_MSG = "Path '%s' is not valid. "
+      + "It should either start with a slash or refer to a file in the current directory.";
   private final ImmutableList<Ident> symbols;
   private final PathFragment importPath;
 
@@ -70,6 +72,9 @@ public final class LoadStatement extends Statement {
 
   @Override
   void validate(ValidationEnvironment env) throws EvalException {
+    if (!importPath.isAbsolute() && importPath.segmentCount() > 1) {
+      throw new EvalException(getLocation(), String.format(PATH_ERROR_MSG, importPath));
+    }
     // TODO(bazel-team): implement semantical check.
     for (Ident symbol : symbols) {
       env.update(symbol.getName(), SkylarkType.UNKNOWN, getLocation());

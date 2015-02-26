@@ -18,6 +18,7 @@ import com.google.common.base.Preconditions;
 import com.google.devtools.build.lib.packages.PackageIdentifier;
 import com.google.devtools.build.lib.packages.PackageIdentifier.RepositoryName;
 import com.google.devtools.build.lib.skyframe.ASTFileLookupValue.ASTLookupInputException;
+import com.google.devtools.build.lib.syntax.LoadStatement;
 import com.google.devtools.build.lib.syntax.SkylarkEnvironment;
 import com.google.devtools.build.lib.vfs.PathFragment;
 import com.google.devtools.build.skyframe.SkyKey;
@@ -67,12 +68,10 @@ public class SkylarkImportLookupValue implements SkyValue {
     PathFragment computedPath;
     if (fileToImport.isAbsolute()) {
       computedPath = fileToImport.toRelative();
-    } else if (fileToImport.segmentCount() > 1) {
-      // TODO(bazel-team): we treat paths with more then 1 segments as absolute paths
-      // for a transition period. Remove this after the transition is over.
-      computedPath = fileToImport;
-    } else {
+    } else if (fileToImport.segmentCount() == 1) {
       computedPath = fromFile.getParentDirectory().getRelative(fileToImport);
+    } else {
+      throw new ASTLookupInputException(String.format(LoadStatement.PATH_ERROR_MSG, fileToImport));
     }
     return key(repo, computedPath);
   }
