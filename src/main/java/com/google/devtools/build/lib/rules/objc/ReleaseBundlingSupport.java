@@ -26,9 +26,13 @@ import com.google.devtools.build.lib.actions.Artifact;
 import com.google.devtools.build.lib.analysis.FilesToRunProvider;
 import com.google.devtools.build.lib.analysis.RuleConfiguredTarget.Mode;
 import com.google.devtools.build.lib.analysis.RuleContext;
+import com.google.devtools.build.lib.analysis.Runfiles;
+import com.google.devtools.build.lib.analysis.RunfilesSupport;
 import com.google.devtools.build.lib.analysis.actions.BinaryFileWriteAction;
 import com.google.devtools.build.lib.analysis.actions.CustomCommandLine;
 import com.google.devtools.build.lib.analysis.actions.SpawnAction;
+import com.google.devtools.build.lib.analysis.actions.TemplateExpansionAction;
+import com.google.devtools.build.lib.analysis.actions.TemplateExpansionAction.Substitution;
 import com.google.devtools.build.lib.collect.nestedset.NestedSet;
 import com.google.devtools.build.lib.collect.nestedset.NestedSetBuilder;
 import com.google.devtools.build.lib.collect.nestedset.Order;
@@ -285,6 +289,35 @@ public final class ReleaseBundlingSupport {
     // framework search paths, but not actually link it with the -framework flag.
     return new XcTestAppProvider(intermediateArtifacts.singleArchitectureBinary(),
         ruleContext.getImplicitOutputArtifact(IPA), partialObjcProvider);
+  }
+
+  /**
+   * Registers an action to generate a runner script based on a template.
+   */
+  ReleaseBundlingSupport registerGenerateRunnerScriptAction(Artifact runnerScript,
+      Artifact ipaInput) {
+    ImmutableList<Substitution> substitutions = ImmutableList.of(
+        Substitution.of("%app_name%", ruleContext.getLabel().getName()),
+        Substitution.of("%ipa_file%", ipaInput.getRootRelativePath().getPathString()),
+        Substitution.of("%iossim%", attributes.iossim().getRootRelativePath().getPathString()));
+
+    ruleContext.registerAction(
+        new TemplateExpansionAction(ruleContext.getActionOwner(), attributes.runnerScriptTemplate(),
+            runnerScript, substitutions, true));
+    return this;
+  }
+
+  /**
+   * Returns a {@link RunfilesSupport} that uses the provided runner script as the executable.
+   */
+  RunfilesSupport runfilesSupport(Artifact runnerScript) {
+    Artifact ipaFile = ruleContext.getImplicitOutputArtifact(ReleaseBundlingSupport.IPA);
+    Runfiles runfiles = new Runfiles.Builder()
+        .addArtifact(ipaFile)
+        .addArtifact(runnerScript)
+        .addArtifact(attributes.iossim())
+        .build();
+    return RunfilesSupport.withExecutable(ruleContext, runfiles, runnerScript);
   }
 
   private ExtraActoolArgs extraActoolArgs() {
@@ -588,6 +621,15 @@ public final class ReleaseBundlingSupport {
 
     FilesToRunProvider bundleMergeExecutable() {
       return checkNotNull(ruleContext.getExecutablePrerequisite("$bundlemerge", Mode.HOST));
+    }
+
+    Artifact iossim() {
+      return checkNotNull(ruleContext.getPrerequisiteArtifact("$iossim", Mode.HOST));
+    }
+
+    Artifact runnerScriptTemplate() {
+      return checkNotNull(
+          ruleContext.getPrerequisiteArtifact("$runner_script_template", Mode.HOST));
     }
 
     String bundleId() {

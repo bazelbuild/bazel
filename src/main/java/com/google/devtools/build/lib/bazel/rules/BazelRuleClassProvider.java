@@ -252,6 +252,7 @@ public class BazelRuleClassProvider {
     builder.addRuleDefinition(ObjcRuleClasses.IosTestBaseRule.class);
     builder.addRuleDefinition(ObjcRuleClasses.BundlingRule.class);
     builder.addRuleDefinition(ObjcRuleClasses.ReleaseBundlingRule.class);
+    builder.addRuleDefinition(ObjcRuleClasses.SimulatorRule.class);
     builder.addRuleDefinition(ObjcRuleClasses.CompilingRule.class);
     builder.addRuleDefinition(ObjcRuleClasses.LinkingRule.class);
     builder.addRuleDefinition(ObjcRuleClasses.ResourcesRule.class);

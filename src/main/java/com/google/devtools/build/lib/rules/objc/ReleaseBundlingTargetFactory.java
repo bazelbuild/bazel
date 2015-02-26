@@ -20,6 +20,7 @@ import com.google.common.base.Optional;
 import com.google.devtools.build.lib.actions.Artifact;
 import com.google.devtools.build.lib.analysis.ConfiguredTarget;
 import com.google.devtools.build.lib.analysis.RuleConfiguredTarget.Mode;
+import com.google.devtools.build.lib.analysis.RuleConfiguredTargetBuilder;
 import com.google.devtools.build.lib.analysis.RuleContext;
 import com.google.devtools.build.lib.collect.nestedset.NestedSetBuilder;
 import com.google.devtools.build.lib.rules.RuleConfiguredTargetFactory;
@@ -88,18 +89,27 @@ public abstract class ReleaseBundlingTargetFactory implements RuleConfiguredTarg
       exposedObjcProvider = Optional.absent();
     }
 
-    return common.configuredTarget(
+    RuleConfiguredTargetBuilder target = common.configuredTargetBuilder(
         filesToBuild.build(),
         Optional.of(xcodeProviderBuilder.build()),
         exposedObjcProvider,
         Optional.<XcTestAppProvider>absent(),
         Optional.<J2ObjcSrcsProvider>absent());
+    configureTarget(target, ruleContext, releaseBundlingSupport);
+    return target.build();
   }
 
   /**
    * Returns a provider based on this rule's options and those of its option-providing dependencies.
    */
   protected abstract OptionsProvider optionsProvider(RuleContext ruleContext);
+
+  /**
+   * Performs additional configuration of the target. The default implementation does nothing, but
+   * subclasses may override it to add logic.
+   */
+  protected void configureTarget(RuleConfiguredTargetBuilder target, RuleContext ruleContext,
+      ReleaseBundlingSupport releaseBundlingSupport) {}
 
   private ObjcCommon common(RuleContext ruleContext) {
     return new ObjcCommon.Builder(ruleContext)

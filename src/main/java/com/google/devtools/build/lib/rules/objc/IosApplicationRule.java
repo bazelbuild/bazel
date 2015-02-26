@@ -14,7 +14,9 @@
 
 package com.google.devtools.build.lib.rules.objc;
 
+import static com.google.devtools.build.lib.packages.Attribute.ConfigurationTransition.HOST;
 import static com.google.devtools.build.lib.packages.Attribute.attr;
+import static com.google.devtools.build.lib.packages.Type.BOOLEAN;
 import static com.google.devtools.build.lib.packages.Type.LABEL;
 
 import com.google.devtools.build.lib.analysis.BaseRuleClasses;
@@ -33,7 +35,8 @@ import com.google.devtools.build.lib.packages.RuleClass.Builder;
     ancestors = {
         BaseRuleClasses.BaseRule.class,
         ObjcRuleClasses.ReleaseBundlingRule.class,
-        ObjcRuleClasses.XcodegenRule.class, })
+        ObjcRuleClasses.XcodegenRule.class,
+        ObjcRuleClasses.SimulatorRule.class })
 public class IosApplicationRule implements RuleDefinition {
 
   @Override
@@ -58,6 +61,10 @@ public class IosApplicationRule implements RuleDefinition {
             .allowedFileTypes()
             .mandatory()
             .direct_compile_time_input())
+        .add(attr("$runner_script_template", LABEL).cfg(HOST)
+            .value(env.getLabel("//tools/objc:ios_runner.sh.mac_template")))
+        .add(attr("$is_executable", BOOLEAN).value(true)
+            .nonconfigurable("Called from RunCommand.isExecutable, which takes a Target"))
         .build();
   }
 }

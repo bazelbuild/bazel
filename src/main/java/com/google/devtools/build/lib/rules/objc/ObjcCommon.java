@@ -584,6 +584,8 @@ public final class ObjcCommon {
   }
 
   /**
+   * Returns a {@link RuleConfiguredTargetBuilder}.
+   *
    * @param filesToBuild files to build for this target. These also become the data runfiles. Note
    *     that this method may add more files to create the complete list of files to build for this
    *     target.
@@ -592,7 +594,7 @@ public final class ObjcCommon {
    *     present whenever {@code objc_} rules may depend on this target.
    * @param maybeJ2ObjcSrcsProvider the {@link J2ObjcSrcsProvider} for this target.
    */
-  public ConfiguredTarget configuredTarget(NestedSet<Artifact> filesToBuild,
+  public RuleConfiguredTargetBuilder configuredTargetBuilder(NestedSet<Artifact> filesToBuild,
       Optional<XcodeProvider> maybeTargetProvider, Optional<ObjcProvider> maybeExportedProvider,
       Optional<XcTestAppProvider> maybeXcTestAppProvider,
       Optional<J2ObjcSrcsProvider> maybeJ2ObjcSrcsProvider) {
@@ -623,6 +625,25 @@ public final class ObjcCommon {
     for (J2ObjcSrcsProvider j2ObjcSrcsProvider : maybeJ2ObjcSrcsProvider.asSet()) {
       target.addProvider(J2ObjcSrcsProvider.class, j2ObjcSrcsProvider);
     }
-    return target.build();
+    return target;
+  }
+
+  /**
+   * Creates a {@link ConfiguredTarget}.
+   *
+   * @param filesToBuild files to build for this target. These also become the data runfiles. Note
+   *     that this method may add more files to create the complete list of files to build for this
+   *     target.
+   * @param maybeTargetProvider the provider for this target.
+   * @param maybeExportedProvider the {@link ObjcProvider} for this target. This should generally be
+   *     present whenever {@code objc_} rules may depend on this target.
+   * @param maybeJ2ObjcSrcsProvider the {@link J2ObjcSrcsProvider} for this target.
+   */
+  public ConfiguredTarget configuredTarget(NestedSet<Artifact> filesToBuild,
+      Optional<XcodeProvider> maybeTargetProvider, Optional<ObjcProvider> maybeExportedProvider,
+      Optional<XcTestAppProvider> maybeXcTestAppProvider,
+      Optional<J2ObjcSrcsProvider> maybeJ2ObjcSrcsProvider) {
+    return configuredTargetBuilder(filesToBuild, maybeTargetProvider, maybeExportedProvider,
+        maybeXcTestAppProvider, maybeJ2ObjcSrcsProvider).build();
   }
 }

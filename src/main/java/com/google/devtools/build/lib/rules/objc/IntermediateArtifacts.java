@@ -223,4 +223,11 @@ final class IntermediateArtifacts {
   public Artifact breakpadSym() {
     return appendExtension(".breakpad");
   }
+
+  /**
+   * Shell script that launches the binary.
+   */
+  public Artifact runnerScript() {
+    return appendExtension("_runner.sh");
+  }
 }

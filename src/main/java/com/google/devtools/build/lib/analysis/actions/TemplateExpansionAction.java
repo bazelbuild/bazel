@@ -18,6 +18,7 @@ import static java.nio.charset.StandardCharsets.UTF_8;
 
 import com.google.common.annotations.VisibleForTesting;
 import com.google.common.base.Joiner;
+import com.google.common.base.Objects;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.Iterables;
 import com.google.devtools.build.lib.actions.ActionOwner;
@@ -91,6 +92,29 @@ public class TemplateExpansionAction extends AbstractFileWriteAction {
           return Joiner.on(" ").join(value);
         }
       };
+    }
+
+    @Override
+    public boolean equals(Object object) {
+      if (this == object) {
+        return true;
+      }
+      if (object instanceof Substitution) {
+        Substitution substitution = (Substitution) object;
+        return substitution.getKey().equals(this.getKey())
+            && substitution.getValue().equals(this.getValue());
+      }
+      return false;
+    }
+
+    @Override
+    public int hashCode() {
+      return Objects.hashCode(getKey(), getValue());
+    }
+
+    @Override
+    public String toString() {
+      return "Substitution(" + getKey() + " -> " + getValue() + ")";
     }
   }
 

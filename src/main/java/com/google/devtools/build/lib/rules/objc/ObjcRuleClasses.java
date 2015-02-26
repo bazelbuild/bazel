@@ -650,7 +650,8 @@ public class ObjcRuleClasses {
       ancestors = {
           ReleaseBundlingRule.class,
           LinkingRule.class,
-          XcodegenRule.class, })
+          XcodegenRule.class,
+          SimulatorRule.class })
   public static class IosTestBaseRule implements RuleDefinition {
     @Override
     public RuleClass build(Builder builder, final RuleDefinitionEnvironment env) {
@@ -818,6 +819,22 @@ public class ObjcRuleClasses {
               .value(ImmutableList.of(TargetDeviceFamily.IPHONE.getNameInRule())))
           .add(attr("$bundlemerge", LABEL).cfg(HOST).exec()
               .value(env.getLabel("//tools/objc:bundlemerge")))
+          .build();
+    }
+  }
+
+  /**
+   * Common attributes for {@code objc_*} rules that use the iOS simulator.
+   */
+  @BlazeRule(name = "$objc_simulator_rule",
+      type = RuleClassType.ABSTRACT)
+  public static class SimulatorRule implements RuleDefinition {
+    @Override
+    public RuleClass build(Builder builder, RuleDefinitionEnvironment env) {
+      return builder
+          // Needed to run the binary in the simulator.
+          .add(attr("$iossim", LABEL).cfg(HOST).exec()
+              .value(env.getLabel("//third_party/iossim:iossim")))
           .build();
     }
   }

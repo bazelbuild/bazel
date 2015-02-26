@@ -14,6 +14,11 @@
 
 package com.google.devtools.build.lib.rules.objc;
 
+import static com.google.devtools.build.lib.packages.Attribute.ConfigurationTransition.HOST;
+import static com.google.devtools.build.lib.packages.Attribute.attr;
+import static com.google.devtools.build.lib.packages.Type.BOOLEAN;
+import static com.google.devtools.build.lib.packages.Type.LABEL;
+
 import com.google.devtools.build.lib.analysis.BaseRuleClasses;
 import com.google.devtools.build.lib.analysis.BlazeRule;
 import com.google.devtools.build.lib.analysis.RuleDefinition;
@@ -32,7 +37,8 @@ import com.google.devtools.build.lib.packages.RuleClass.Builder;
         BaseRuleClasses.BaseRule.class,
         ObjcRuleClasses.LinkingRule.class,
         ObjcRuleClasses.XcodegenRule.class,
-        ObjcRuleClasses.ReleaseBundlingRule.class })
+        ObjcRuleClasses.ReleaseBundlingRule.class,
+        ObjcRuleClasses.SimulatorRule.class })
 public class ObjcBinaryRule implements RuleDefinition {
 
   @Override
@@ -48,6 +54,11 @@ public class ObjcBinaryRule implements RuleDefinition {
         <!-- #END_BLAZE_RULE.IMPLICIT_OUTPUTS -->*/
         .setImplicitOutputsFunction(
             ImplicitOutputsFunction.fromFunctions(ReleaseBundlingSupport.IPA, XcodeSupport.PBXPROJ))
+        // TODO(bazel-team): Remove these when this rule no longer produces a bundle.
+        .add(attr("$runner_script_template", LABEL).cfg(HOST)
+            .value(env.getLabel("//tools/objc:ios_runner.sh.mac_template")))
+        .add(attr("$is_executable", BOOLEAN).value(true)
+            .nonconfigurable("Called from RunCommand.isExecutable, which takes a Target"))
         .build();
   }
 }

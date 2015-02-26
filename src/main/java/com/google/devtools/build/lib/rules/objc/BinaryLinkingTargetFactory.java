@@ -23,7 +23,9 @@ import com.google.common.collect.Iterables;
 import com.google.devtools.build.lib.actions.Artifact;
 import com.google.devtools.build.lib.analysis.ConfiguredTarget;
 import com.google.devtools.build.lib.analysis.RuleConfiguredTarget.Mode;
+import com.google.devtools.build.lib.analysis.RuleConfiguredTargetBuilder;
 import com.google.devtools.build.lib.analysis.RuleContext;
+import com.google.devtools.build.lib.analysis.RunfilesSupport;
 import com.google.devtools.build.lib.collect.nestedset.NestedSetBuilder;
 import com.google.devtools.build.lib.rules.RuleConfiguredTargetFactory;
 import com.google.devtools.build.lib.rules.objc.ObjcActionsBuilder.ExtraLinkArgs;
@@ -31,6 +33,7 @@ import com.google.devtools.build.lib.rules.objc.ObjcActionsBuilder.ExtraLinkInpu
 import com.google.devtools.build.lib.rules.objc.ObjcCommon.CompilationAttributes;
 import com.google.devtools.build.lib.rules.objc.ObjcCommon.ResourceAttributes;
 import com.google.devtools.build.lib.rules.objc.ReleaseBundlingSupport.LinkedBinary;
+import com.google.devtools.build.xcode.common.Platform;
 
 /**
  * Implementation for rules that link binaries.
@@ -70,9 +73,12 @@ abstract class BinaryLinkingTargetFactory implements RuleConfiguredTargetFactory
       return null;
     }
 
+    IntermediateArtifacts intermediateArtifacts =
+        ObjcRuleClasses.intermediateArtifacts(ruleContext);
+
     XcodeProvider.Builder xcodeProviderBuilder = new XcodeProvider.Builder();
     NestedSetBuilder<Artifact> filesToBuild = NestedSetBuilder.<Artifact>stableOrder()
-        .add(ObjcRuleClasses.intermediateArtifacts(ruleContext).singleArchitectureBinary());
+        .add(intermediateArtifacts.singleArchitectureBinary());
 
     new CompilationSupport(ruleContext)
         .registerJ2ObjcCompileAndArchiveActions(optionsProvider, objcProvider)
@@ -82,6 +88,7 @@ abstract class BinaryLinkingTargetFactory implements RuleConfiguredTargetFactory
         .validateAttributes();
 
     Optional<XcTestAppProvider> xcTestAppProvider;
+    Optional<RunfilesSupport> maybeRunfilesSupport = Optional.<RunfilesSupport>absent();
     switch (hasReleaseBundlingSupport) {
       case YES:
         // TODO(bazel-team): Remove once all bundle users are migrated to ios_application.
@@ -94,6 +101,12 @@ abstract class BinaryLinkingTargetFactory implements RuleConfiguredTargetFactory
             .addFilesToBuild(filesToBuild)
             .validateAttributes();
         xcTestAppProvider = Optional.of(releaseBundlingSupport.xcTestAppProvider());
+        if (ObjcRuleClasses.objcConfiguration(ruleContext).getPlatform() == Platform.SIMULATOR) {
+          Artifact runnerScript = intermediateArtifacts.runnerScript();
+          Artifact ipaFile = ruleContext.getImplicitOutputArtifact(ReleaseBundlingSupport.IPA);
+          releaseBundlingSupport.registerGenerateRunnerScriptAction(runnerScript, ipaFile);
+          maybeRunfilesSupport = Optional.of(releaseBundlingSupport.runfilesSupport(runnerScript));
+        }
         break;
       case NO:
         xcTestAppProvider = Optional.absent();
@@ -120,12 +133,16 @@ abstract class BinaryLinkingTargetFactory implements RuleConfiguredTargetFactory
 
     // TODO(bazel-team): Stop exporting an XcTestAppProvider once objc_binary no longer creates an
     // application bundle.
-    return common.configuredTarget(
+    RuleConfiguredTargetBuilder target = common.configuredTargetBuilder(
         filesToBuild.build(),
         Optional.of(xcodeProvider),
         Optional.of(objcProvider),
         xcTestAppProvider,
         Optional.<J2ObjcSrcsProvider>absent());
+    for (RunfilesSupport runfilesSupport : maybeRunfilesSupport.asSet()) {
+      target.setRunfilesSupport(runfilesSupport, runfilesSupport.getExecutable());
+    }
+    return target.build();
   }
 
   private OptionsProvider optionsProvider(RuleContext ruleContext) {
