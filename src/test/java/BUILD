@@ -49,7 +49,8 @@ test_prefix = "com/google/devtools/build/lib"
 java_library(
     name = "foundations_testutil",
     srcs = glob([
-        "%s/vfs/util/*.java" % test_prefix,
+        "com/google/devtools/build/lib/vfs/util/*.java",
+        "com/google/devtools/build/lib/events/util/*.java",
     ]),
     deps = [
         ":testutil",
@@ -223,6 +224,29 @@ java_test(
         "//third_party:jsr305",
         "//third_party:junit4",
         "//third_party:mockito",
+        "//third_party:truth",
+    ],
+)
+
+java_test(
+    name = "syntax_test",
+    srcs = glob([
+        "com/google/devtools/build/lib/syntax/*.java",
+    ]),
+    args = ["com.google.devtools.build.lib.AllTests"],
+    data = [
+        "//src/main/native:libunix.dylib",
+        "//src/main/native:libunix.so",
+    ],
+    deps = [
+        ":foundations_testutil",
+        ":test_runner",
+        ":testutil",
+        "//src/main/java:bazel-core",
+        "//third_party:guava",
+        "//third_party:guava-testlib",
+        "//third_party:jsr305",
+        "//third_party:junit4",
         "//third_party:truth",
     ],
 )
