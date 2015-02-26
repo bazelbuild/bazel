@@ -14,6 +14,7 @@
 
 package com.google.devtools.build.lib.bazel.rules;
 
+import com.google.common.base.Supplier;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 import com.google.common.eventbus.Subscribe;
@@ -25,14 +26,17 @@ import com.google.devtools.build.lib.actions.Artifact;
 import com.google.devtools.build.lib.actions.Executor.ActionContext;
 import com.google.devtools.build.lib.actions.ExecutorInitException;
 import com.google.devtools.build.lib.analysis.ConfiguredRuleClassProvider;
+import com.google.devtools.build.lib.query2.output.OutputFormatter;
 import com.google.devtools.build.lib.rules.cpp.CppCompileActionContext;
 import com.google.devtools.build.lib.rules.cpp.CppLinkActionContext;
 import com.google.devtools.build.lib.rules.cpp.LocalGccStrategy;
 import com.google.devtools.build.lib.rules.cpp.LocalLinkStrategy;
+import com.google.devtools.build.lib.rules.gen.GenQuery;
 import com.google.devtools.build.lib.runtime.BlazeModule;
 import com.google.devtools.build.lib.runtime.BlazeRuntime;
 import com.google.devtools.build.lib.runtime.Command;
 import com.google.devtools.build.lib.runtime.GotOptionsEvent;
+import com.google.devtools.build.lib.skyframe.PrecomputedValue;
 import com.google.devtools.common.options.Option;
 import com.google.devtools.common.options.OptionsBase;
 import com.google.devtools.common.options.OptionsProvider;
@@ -155,5 +159,17 @@ public class BazelRulesModule extends BlazeModule {
   @Override
   public void initializeRuleClasses(ConfiguredRuleClassProvider.Builder builder) {
     BazelRuleClassProvider.setup(builder);
+  }
+
+  @Override
+  public Iterable<PrecomputedValue.Injected> getPrecomputedSkyframeValues() {
+    return ImmutableList.of(PrecomputedValue.injected(
+        GenQuery.QUERY_OUTPUT_FORMATTERS,
+        new Supplier<ImmutableList<OutputFormatter>>() {
+          @Override
+          public ImmutableList<OutputFormatter> get() {
+            return runtime.getQueryOutputFormatters();
+          }
+        }));
   }
 }

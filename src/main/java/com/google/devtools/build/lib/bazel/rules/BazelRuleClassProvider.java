@@ -61,6 +61,7 @@ import com.google.devtools.build.lib.rules.cpp.CcToolchainRule;
 import com.google.devtools.build.lib.rules.cpp.CppConfiguration;
 import com.google.devtools.build.lib.rules.cpp.CppConfigurationLoader;
 import com.google.devtools.build.lib.rules.cpp.CppOptions;
+import com.google.devtools.build.lib.rules.gen.GenQueryRule;
 import com.google.devtools.build.lib.rules.java.JavaConfiguration;
 import com.google.devtools.build.lib.rules.java.JavaConfigurationLoader;
 import com.google.devtools.build.lib.rules.java.JavaCpuSupplier;
@@ -205,6 +206,7 @@ public class BazelRuleClassProvider {
     builder.addRuleDefinition(BazelFilegroupRule.class);
     builder.addRuleDefinition(BazelTestSuiteRule.class);
     builder.addRuleDefinition(BazelGenRuleRule.class);
+    builder.addRuleDefinition(GenQueryRule.class);
 
     builder.addRuleDefinition(BazelShRuleClasses.ShRule.class);
     builder.addRuleDefinition(BazelShLibraryRule.class);
