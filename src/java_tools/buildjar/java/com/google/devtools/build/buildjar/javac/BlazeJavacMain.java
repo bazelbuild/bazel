@@ -82,7 +82,6 @@ public class BlazeJavacMain {
       plugin.initializeContext(context);
     }
 
-    BlazeJavacLog.preRegister(context);
     BlazeJavaCompiler.preRegister(context, plugins);
   }
 
