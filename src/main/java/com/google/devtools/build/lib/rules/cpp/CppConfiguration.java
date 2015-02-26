@@ -259,7 +259,7 @@ public class CppConfiguration extends BuildConfiguration.Fragment {
   private final String toolchainIdentifier;
   private final String cacheKey;
 
-  private final CcToolchainFeatures toolchainFeatures; 
+  private final CcToolchainFeatures toolchainFeatures;
   private final boolean supportsGoldLinker;
   private final boolean supportsThinArchives;
   private final boolean supportsStartEndLib;
@@ -662,7 +662,7 @@ public class CppConfiguration extends BuildConfiguration.Fragment {
 
     return result;
   }
-  
+
   private CToolchain addLegacyFeatures(CToolchain toolchain) {
     CToolchain.Builder toolchainBuilder = CToolchain.newBuilder();
     ImmutableSet.Builder<String> featuresBuilder = ImmutableSet.builder();
@@ -970,7 +970,7 @@ public class CppConfiguration extends BuildConfiguration.Fragment {
   public String getAbiGlibcVersion() {
     return abiGlibcVersion;
   }
-  
+
   /**
    * Returns the configured features of the toolchain. Rules should not call this directly, but
    * instead use {@code CcToolchainProvider.getFeatures}.
@@ -978,7 +978,7 @@ public class CppConfiguration extends BuildConfiguration.Fragment {
   public CcToolchainFeatures getFeatures() {
     return toolchainFeatures;
   }
-  
+
   /**
    * Returns whether the toolchain supports the gold linker.
    */
@@ -1695,11 +1695,8 @@ public class CppConfiguration extends BuildConfiguration.Fragment {
 
     // Deprecated variables
 
-    // TODO(bazel-team): (2009) These variables are so rarely used we should try to eliminate
-    // them entirely.  see: "cs -f=BUILD -noi GNU_TARGET" and "cs -f=build_defs -noi
-    // GNU_TARGET"
+    // TODO(bazel-team): delete all of these.
     globalMakeEnvBuilder.put("CROSSTOOLTOP", crosstoolTopPathFragment.getPathString());
-    globalMakeEnvBuilder.put("GLIBC", getTargetLibc());
     globalMakeEnvBuilder.put("GNU_TARGET", targetSystemName);
 
     globalMakeEnvBuilder.putAll(getAdditionalMakeVariables());
