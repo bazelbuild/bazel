@@ -40,6 +40,8 @@ public class ObjcImport implements RuleConfiguredTargetFactory {
         .setAlwayslink(ruleContext.attributes().get("alwayslink", Type.BOOLEAN))
         .addExtraImportLibraries(
             ruleContext.getPrerequisiteArtifacts("archives", Mode.TARGET).list())
+        .addDepObjcProviders(
+            ruleContext.getPrerequisites("bundles", Mode.TARGET, ObjcProvider.class))
         .build();
 
     XcodeProvider.Builder xcodeProviderBuilder = new XcodeProvider.Builder();
@@ -56,6 +58,7 @@ public class ObjcImport implements RuleConfiguredTargetFactory {
 
     new XcodeSupport(ruleContext)
         .addXcodeSettings(xcodeProviderBuilder, common.getObjcProvider(), LIBRARY_STATIC)
+        .addDependencies(xcodeProviderBuilder, "bundles")
         .registerActions(xcodeProviderBuilder.build())
         .addFilesToBuild(filesToBuild);
 
