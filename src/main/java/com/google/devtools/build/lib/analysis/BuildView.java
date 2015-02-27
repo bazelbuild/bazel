@@ -307,7 +307,7 @@ public class BuildView {
    * Sets the configurations. Not thread-safe. DO NOT CALL except from tests!
    */
   @VisibleForTesting
-  void setConfigurationsForTesting(BuildConfigurationCollection configurations) {
+  public void setConfigurationsForTesting(BuildConfigurationCollection configurations) {
     this.configurations = configurations;
   }
 
@@ -921,7 +921,7 @@ public class BuildView {
    * </em>
    */
   @VisibleForTesting // for BuildViewTestCase
-  void setArtifactRoots(ImmutableMap<PackageIdentifier, Path> packageRoots) {
+  public void setArtifactRoots(ImmutableMap<PackageIdentifier, Path> packageRoots) {
     Map<Path, Root> rootMap = new HashMap<>();
     Map<PackageIdentifier, Root> realPackageRoots = new HashMap<>();
     for (Map.Entry<PackageIdentifier, Path> entry : packageRoots.entrySet()) {
@@ -979,14 +979,29 @@ public class BuildView {
             new ConfiguredTargetKey(target.getLabel(), config),
             /*isSystemEnv=*/false, config.extendedSanityChecks(), eventHandler,
             /*skyframeEnv=*/null, config.isActionsEnabled(), binTools);
-    RuleContext ruleContext = new RuleContext.Builder(analysisEnvironment,
+    return new RuleContext.Builder(analysisEnvironment,
         (Rule) target.getTarget(), config, ruleClassProvider.getPrerequisiteValidator())
             .setVisibility(NestedSetBuilder.<PackageSpecification>create(
                 Order.STABLE_ORDER, PackageSpecification.EVERYTHING))
             .setPrerequisites(getPrerequisiteMapForTesting(target))
             .setConfigConditions(ImmutableSet.<ConfigMatchingProvider>of())
             .build();
-    return ruleContext;
+  }
+
+  /**
+   * Creates and returns a rule context that is equivalent to the one that was used to create the
+   * given configured target.
+   */
+  @VisibleForTesting
+  public RuleContext getRuleContextForTesting(ConfiguredTarget target, AnalysisEnvironment env) {
+    return new RuleContext.Builder(
+        env, (Rule) target.getTarget(), target.getConfiguration(),
+        ruleClassProvider.getPrerequisiteValidator())
+            .setVisibility(NestedSetBuilder.<PackageSpecification>create(
+                Order.STABLE_ORDER, PackageSpecification.EVERYTHING))
+            .setPrerequisites(getPrerequisiteMapForTesting(target))
+            .setConfigConditions(ImmutableSet.<ConfigMatchingProvider>of())
+            .build();
   }
 
   /**
