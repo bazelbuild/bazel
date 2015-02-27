@@ -88,6 +88,7 @@ public class ObjcRuleClasses {
     return new IntermediateArtifacts(
         ruleContext.getAnalysisEnvironment(),
         ruleContext.getConfiguration().getBinDirectory(),
+        ruleContext.getLabel(),
         j2ObjcSource.getTargetLabel(),
         /*archiveFileNameSuffix=*/"_j2objc");
   }

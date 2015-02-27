@@ -14,6 +14,7 @@
 
 package com.google.devtools.build.lib.rules.objc;
 
+import com.google.common.base.Optional;
 import com.google.common.base.Preconditions;
 import com.google.devtools.build.lib.actions.Artifact;
 import com.google.devtools.build.lib.actions.Root;
@@ -41,12 +42,28 @@ final class IntermediateArtifacts {
   private final Label ownerLabel;
   private final String archiveFileNameSuffix;
 
+  /**
+   * Label to scope the output paths of generated artifacts, in addition to {@link ownerLabel}.
+   */
+  private final Optional<Label> scopingLabel;
+
   IntermediateArtifacts(
       AnalysisEnvironment analysisEnvironment, Root binDirectory, Label ownerLabel,
       String archiveFileNameSuffix) {
     this.analysisEnvironment = Preconditions.checkNotNull(analysisEnvironment);
     this.binDirectory = Preconditions.checkNotNull(binDirectory);
     this.ownerLabel = Preconditions.checkNotNull(ownerLabel);
+    this.scopingLabel = Optional.<Label>absent();
+    this.archiveFileNameSuffix = Preconditions.checkNotNull(archiveFileNameSuffix);
+  }
+
+  IntermediateArtifacts(
+      AnalysisEnvironment analysisEnvironment, Root binDirectory, Label ownerLabel,
+      Label scopingLabel, String archiveFileNameSuffix) {
+    this.analysisEnvironment = Preconditions.checkNotNull(analysisEnvironment);
+    this.binDirectory = Preconditions.checkNotNull(binDirectory);
+    this.ownerLabel = Preconditions.checkNotNull(ownerLabel);
+    this.scopingLabel = Optional.of(Preconditions.checkNotNull(scopingLabel));
     this.archiveFileNameSuffix = Preconditions.checkNotNull(archiveFileNameSuffix);
   }
 
@@ -64,7 +81,7 @@ final class IntermediateArtifacts {
    * of the {@link PathFragment} corresponding to the owner {@link Label}.
    */
   private Artifact appendExtension(String extension) {
-    return appendExtension(ownerLabel.toPathFragment(), extension);
+    return appendExtension(labelScopedDir(), extension);
   }
 
   /**
@@ -120,7 +137,7 @@ final class IntermediateArtifacts {
    * The {@code .a} file which contains all the compiled sources for a rule.
    */
   public Artifact archive() {
-    PathFragment labelPath = ownerLabel.toPathFragment();
+    PathFragment labelPath = labelScopedDir();
     PathFragment rootRelative = labelPath
         .getParentDirectory()
         .getRelative(String.format("lib%s%s.a", labelPath.getBaseName(), archiveFileNameSuffix));
@@ -134,9 +151,26 @@ final class IntermediateArtifacts {
     return appendExtension(TMP_DSYM_BUNDLE_SUFFIX);
   }
 
+  /**
+   * Returns a unique directory scoped by {@code ownerLabel} and {@code scopingLabel}. Normally
+   * when {@code scopingLabel} is absent, the returned directory is just a path fragment
+   * containing the package and the name of the ownerLabel. If scopingLabel is present, the
+   * returned directory is scoped by scopingLabel first. For example, if ownerLabel is
+   * //a/b:c and scopingLabel is //d/e:f, the returned directory will be: d/e/a/b/c/f/.
+   */
+  private PathFragment labelScopedDir() {
+    if (scopingLabel.isPresent()) {
+      return AnalysisUtils.getUniqueDirectory(scopingLabel.get(), ownerLabel.toPathFragment());
+    } else {
+      return ownerLabel.toPathFragment();
+    }
+  }
+
   private PathFragment inUniqueObjsDir(Artifact source, String extension) {
-    PathFragment dir = AnalysisUtils.getUniqueDirectory(ownerLabel, new PathFragment("_objs"));
-    PathFragment sourceFile = dir.getRelative(source.getRootRelativePath());
+    PathFragment labelPath = labelScopedDir();
+    PathFragment uniqueDir = labelPath.getParentDirectory().getRelative(new PathFragment("_objs"))
+        .getRelative(labelPath.getBaseName());
+    PathFragment sourceFile = uniqueDir.getRelative(source.getRootRelativePath());
     return FileSystemUtils.replaceExtension(sourceFile, extension);
   }
 
