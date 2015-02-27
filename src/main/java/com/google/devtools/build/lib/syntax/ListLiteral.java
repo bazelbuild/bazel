@@ -129,6 +129,6 @@ public final class ListLiteral extends Expression {
         type = type.infer(nextType, "list literal", expr.getLocation(), getLocation());
       }
     }
-    return SkylarkType.of(SkylarkList.class, type.getType());
+    return SkylarkType.of(SkylarkType.LIST, type);
   }
 }

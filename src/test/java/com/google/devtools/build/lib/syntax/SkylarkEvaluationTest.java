@@ -396,7 +396,7 @@ public class SkylarkEvaluationTest extends EvaluationTest {
   public void testJavaCallWithKwargs() throws Exception {
     List<Statement> input = parseFileForSkylark("comp = 3.compare_to(x = 4)");
     checkEvalError(input, env, "Keyword arguments are not allowed when calling a java method"
-                   + "\nwhile calling method 'compare_to' on object 3 of type int");
+        + "\nwhile calling method 'compare_to' on object 3 of type int");
   }
 
   public void testNoJavaCallsWithoutSkylark() throws Exception {
@@ -707,7 +707,7 @@ public class SkylarkEvaluationTest extends EvaluationTest {
   public void testCannotCreateMixedListInSkylark() throws Exception {
     env.update("mock", new Mock());
     checkEvalError(parseFileForSkylark("[mock.string(), 1, 2]", MOCK_TYPES), env,
-        "Incompatible types in list: found a int but the first element is a string");
+        "Incompatible types in list: found a int but the previous elements were strings");
   }
 
   public void testCannotConcatListInSkylarkWithDifferentGenericTypes() throws Exception {

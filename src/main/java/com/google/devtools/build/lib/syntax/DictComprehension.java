@@ -16,7 +16,6 @@ package com.google.devtools.build.lib.syntax;
 import com.google.common.collect.ImmutableMap;
 
 import java.util.LinkedHashMap;
-import java.util.Map;
 
 /**
  * Syntax node for dictionary comprehension expressions.
@@ -68,11 +67,8 @@ public class DictComprehension extends Expression {
   @Override
   SkylarkType validate(ValidationEnvironment env) throws EvalException {
     SkylarkType elementsType = listExpression.validate(env);
-    // TODO(bazel-team): GenericType1 should be a SkylarkType.
-    Class<?> listElementType = elementsType.getGenericType1();
-    SkylarkType listElementSkylarkType = listElementType.equals(Object.class)
-        ? SkylarkType.UNKNOWN : SkylarkType.of(listElementType);
-    env.update(loopVar.getName(), listElementSkylarkType, getLocation());
+    SkylarkType listElementType = SkylarkType.getGenericArgType(elementsType);
+    env.update(loopVar.getName(), listElementType, getLocation());
     SkylarkType keyType = keyExpression.validate(env);
     if (!keyType.isSimple()) {
       // TODO(bazel-team): this is most probably dead code but it's better to have it here
@@ -83,7 +79,7 @@ public class DictComprehension extends Expression {
     if (elementsType != SkylarkType.UNKNOWN && !elementsType.isList()) {
       throw new EvalException(getLocation(), "Dict comprehension elements must be a list");
     }
-    return SkylarkType.of(Map.class, keyType.getType());
+    return SkylarkType.of(SkylarkType.MAP, keyType);
   }
 
   @Override

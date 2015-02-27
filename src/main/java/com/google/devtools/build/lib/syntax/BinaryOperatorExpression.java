@@ -285,8 +285,6 @@ public final class BinaryOperatorExpression extends Expression {
   SkylarkType validate(ValidationEnvironment env) throws EvalException {
     SkylarkType ltype = lhs.validate(env);
     SkylarkType rtype = rhs.validate(env);
-    String lname = EvalUtils.getDataTypeNameFromClass(ltype.getType());
-    String rname = EvalUtils.getDataTypeNameFromClass(rtype.getType());
 
     switch (operator) {
       case AND: {
@@ -320,19 +318,19 @@ public final class BinaryOperatorExpression extends Expression {
 
         // struct + struct
         if (ltype.isStruct() && rtype.isStruct()) {
-          return SkylarkType.of(ClassObject.class);
+          return SkylarkType.STRUCT;
         }
 
         if (ltype.isNset()) {
           if (rtype.isNset()) {
             return ltype.infer(rtype, "nested set", rhs.getLocation(), lhs.getLocation());
           } else if (rtype.isList()) {
-            return ltype.infer(SkylarkType.of(SkylarkNestedSet.class, rtype.getGenericType1()),
+            return ltype.infer(SkylarkType.of(SkylarkType.SET, rtype.getArgType()),
                 "nested set", rhs.getLocation(), lhs.getLocation());
           }
           if (rtype != SkylarkType.UNKNOWN) {
             throw new EvalException(getLocation(), String.format("can only concatenate nested sets "
-                + "with other nested sets or list of items, not '" + rname + "'"));
+                    + "with other nested sets or list of items, not '%s'", rtype));
           }
         }
 
@@ -384,7 +382,7 @@ public final class BinaryOperatorExpression extends Expression {
       case GREATER:
       case GREATER_EQUALS: {
         if (ltype != SkylarkType.UNKNOWN && !(Comparable.class.isAssignableFrom(ltype.getType()))) {
-          throw new EvalException(getLocation(), lname + " is not comparable");
+          throw new EvalException(getLocation(), ltype + " is not comparable");
         }
         ltype.infer(rtype, "comparison", lhs.getLocation(), rhs.getLocation());
         return SkylarkType.BOOL;
@@ -399,8 +397,7 @@ public final class BinaryOperatorExpression extends Expression {
         } else {
           if (rtype != SkylarkType.UNKNOWN) {
             throw new EvalException(getLocation(), String.format("operand 'in' only works on "
-                + "strings, dictionaries, lists, sets or tuples, not on a(n) %s",
-                EvalUtils.getDataTypeNameFromClass(rtype.getType())));
+                    + "strings, dictionaries, lists, sets or tuples, not on a(n) %s", rtype));
           }
         }
       }
@@ -411,7 +408,7 @@ public final class BinaryOperatorExpression extends Expression {
     if (ltype != SkylarkType.UNKNOWN && rtype != SkylarkType.UNKNOWN) {
       throw new EvalException(getLocation(),
           String.format("unsupported operand type(s) for %s: '%s' and '%s'",
-              operator, lname, rname));
+              operator, ltype, rtype));
     }
     return SkylarkType.UNKNOWN;
   }

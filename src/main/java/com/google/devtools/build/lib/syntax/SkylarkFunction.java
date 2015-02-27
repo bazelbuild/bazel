@@ -162,55 +162,19 @@ public abstract class SkylarkFunction extends AbstractFunction {
       arguments.put(paramName, value);
       return;
     }
-    cast(getName(), paramName, param.type(), param.generic1(), value, loc, param.doc());
+    checkType(getName(), paramName, SkylarkType.of(param.type(), param.generic1()),
+        value, loc, param.doc());
     arguments.put(paramName, value);
   }
 
-  /**
-   * Throws an EvalException of realValue is not of the expected type, otherwise returns realValue.
-   * 
-   * @param functionName - name of the function
-   * @param paramName - name of the parameter
-   * @param expectedType - the expected type of the parameter
-   * @param expectedGenericType - the expected generic type of the parameter, or
-   * Object.class if undefined
-   * @param realValue - the actual value of the parameter
-   * @param loc - the location info used in the EvalException
-   * @param paramDoc - the documentation of the parameter to print in the error message
-   */
-  @SuppressWarnings("unchecked")
-  public static <T> T cast(String functionName, String paramName,
-      Class<T> expectedType, Class<?> expectedGenericType,
-      Object realValue, Location loc, String paramDoc) throws EvalException {
-    if (!(expectedType.isAssignableFrom(realValue.getClass()))) {
-      throw new EvalException(loc, String.format("expected %s for '%s' but got %s instead\n"
-          + "%s.%s: %s",
-          EvalUtils.getDataTypeNameFromClass(expectedType), paramName,
-          EvalUtils.getDataTypeName(realValue), functionName, paramName, paramDoc));
-    }
-    if (expectedType.equals(SkylarkList.class)) {
-      checkGeneric(functionName, paramName, expectedType, expectedGenericType,
-          realValue, ((SkylarkList) realValue).getGenericType(), loc, paramDoc);
-    } else if (expectedType.equals(SkylarkNestedSet.class)) {
-      checkGeneric(functionName, paramName, expectedType, expectedGenericType,
-          realValue, ((SkylarkNestedSet) realValue).getGenericType(), loc, paramDoc);
-    }
-    return (T) realValue;
-  }
-
-  private static void checkGeneric(String functionName, String paramName,
-      Class<?> expectedType, Class<?> expectedGenericType,
-      Object realValue, Class<?> realGenericType,
-      Location loc, String paramDoc) throws EvalException {
-    if (!realGenericType.equals(Object.class)
-        && !expectedGenericType.isAssignableFrom(realGenericType)) {
-      String mainType = EvalUtils.getDataTypeNameFromClass(expectedType);
-      throw new EvalException(loc, String.format(
-          "expected %s of %ss for '%s' but got %s of %ss instead\n%s.%s: %s",
-        mainType, EvalUtils.getDataTypeNameFromClass(expectedGenericType),
-        paramName,
-        EvalUtils.getDataTypeName(realValue), EvalUtils.getDataTypeNameFromClass(realGenericType),
-        functionName, paramName, paramDoc));
+  public static void checkType(String functionName, String paramName,
+      SkylarkType type, Object value, Location loc, String paramDoc) throws EvalException {
+    if (type != null && value != null) { // TODO(bazel-team): should we give a pass to NONE here?
+      if (!type.contains(value)) {
+        throw new EvalException(loc, String.format(
+            "expected %s for '%s' while calling %s but got %s instead: %s",
+            type, paramName, functionName, EvalUtils.getDataTypeName(value, true), value));
+      }
     }
   }
 

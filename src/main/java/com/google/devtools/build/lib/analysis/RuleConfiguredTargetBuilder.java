@@ -364,7 +364,8 @@ public final class RuleConfiguredTargetBuilder {
   private void checkCompositeSkylarkObjectSafe(Object object) {
     if (object instanceof SkylarkList) {
       SkylarkList list = (SkylarkList) object;
-      if (list == SkylarkList.EMPTY_LIST || isSimpleSkylarkObjectSafe(list.getGenericType())) {
+      if (list == SkylarkList.EMPTY_LIST
+          || isSimpleSkylarkObjectSafe(list.getContentType().getType())) {
         // Try not to iterate over the list if avoidable.
         return;
       }
@@ -375,9 +376,9 @@ public final class RuleConfiguredTargetBuilder {
       return;
     } else if (object instanceof SkylarkNestedSet) {
       // SkylarkNestedSets cannot have composite items.
-      Class<?> genericType = ((SkylarkNestedSet) object).getGenericType();
-      if (!genericType.equals(Object.class) && !isSimpleSkylarkObjectSafe(genericType)) {
-        throw new IllegalArgumentException(EvalUtils.getDataTypeName(genericType));
+      Class<?> contentType = ((SkylarkNestedSet) object).getContentType().getType();
+      if (!contentType.equals(Object.class) && !isSimpleSkylarkObjectSafe(contentType)) {
+        throw new IllegalArgumentException(EvalUtils.getDataTypeName(contentType));
       }
       return;
     } else if (object instanceof Map<?, ?>) {

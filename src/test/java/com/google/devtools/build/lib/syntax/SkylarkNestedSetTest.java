@@ -45,7 +45,7 @@ public class SkylarkNestedSetTest extends AbstractEvaluationTestCase {
 
   public void testEmptyNsetGenericType() throws Exception {
     exec("n = set()");
-    assertEquals(Object.class, get("n").getGenericType());
+    assertEquals(SkylarkType.TOP, get("n").getContentType());
   }
 
   public void testFunctionReturnsNset() throws Exception {

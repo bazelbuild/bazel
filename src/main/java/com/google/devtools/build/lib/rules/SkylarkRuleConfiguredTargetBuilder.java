@@ -33,10 +33,11 @@ import com.google.devtools.build.lib.syntax.ClassObject;
 import com.google.devtools.build.lib.syntax.ClassObject.SkylarkClassObject;
 import com.google.devtools.build.lib.syntax.Environment;
 import com.google.devtools.build.lib.syntax.EvalException;
+import com.google.devtools.build.lib.syntax.EvalUtils;
 import com.google.devtools.build.lib.syntax.Function;
 import com.google.devtools.build.lib.syntax.SkylarkEnvironment;
-import com.google.devtools.build.lib.syntax.SkylarkFunction;
 import com.google.devtools.build.lib.syntax.SkylarkNestedSet;
+import com.google.devtools.build.lib.syntax.SkylarkType;
 
 /**
  * A helper class to build Rule Configured Targets via runtime loaded rule implementations
@@ -138,7 +139,7 @@ public final class SkylarkRuleConfiguredTargetBuilder {
 
   private static ConfiguredTarget addStructFields(RuleContext ruleContext,
       RuleConfiguredTargetBuilder builder, Object target, Artifact executable)
-          throws EvalException {
+      throws EvalException {
     Location loc = null;
     Runfiles statelessRunfiles = null;
     Runfiles dataRunfiles = null;
@@ -152,7 +153,7 @@ public final class SkylarkRuleConfiguredTargetBuilder {
           builder.setFilesToBuild(cast("files", struct, SkylarkNestedSet.class, Artifact.class, loc)
               .getSet(Artifact.class));
         } else if (key.equals("runfiles")) {
-          statelessRunfiles = cast("runfiles",  struct, Runfiles.class, loc);
+          statelessRunfiles = cast("runfiles", struct, Runfiles.class, loc);
         } else if (key.equals("data_runfiles")) {
           dataRunfiles = cast("data_runfiles", struct, Runfiles.class, loc);
         } else if (key.equals("default_runfiles")) {
@@ -201,16 +202,22 @@ public final class SkylarkRuleConfiguredTargetBuilder {
     }
   }
 
-  private static <T> T cast(String paramName, ClassObject struct, Class<T> expectedType,
-      Location loc) throws EvalException {
-    return cast(paramName, struct, expectedType, Object.class, loc);
+  private static <T> T cast(String paramName, ClassObject struct, Class<T> expectedGenericType,
+      Class<?> expectedArgumentType, Location loc) throws EvalException {
+    Object value = struct.getValue(paramName);
+    return SkylarkType.cast(value, expectedGenericType, expectedArgumentType, loc,
+        "expected %s for '%s' but got %s instead: %s",
+        SkylarkType.of(expectedGenericType, expectedArgumentType),
+        paramName, EvalUtils.getDataTypeName(value, true), value);
   }
 
   private static <T> T cast(String paramName, ClassObject struct, Class<T> expectedType,
-      Class<?> expectedGenericType, Location loc) throws EvalException {
-    return SkylarkFunction.cast("rule_implementation.return", paramName,
-        expectedType, expectedGenericType, struct.getValue(paramName), loc,
-        "'" + paramName + "' field of the struct returned by the rule implementation function");
+      Location loc) throws EvalException {
+    Object value = struct.getValue(paramName);
+    return SkylarkType.cast(value, expectedType, loc,
+        "expected %s for '%s' but got %s instead: %s",
+        SkylarkType.of(expectedType),
+        paramName, EvalUtils.getDataTypeName(value, false), value);
   }
 
   private static Runfiles merge(Runfiles runfiles, Artifact executable) {

@@ -128,6 +128,6 @@ public final class ListComprehension extends Expression {
       env.update(list.getKey().getName(), SkylarkType.UNKNOWN, getLocation());
     }
     elementExpression.validate(env);
-    return SkylarkType.of(SkylarkList.class);
+    return SkylarkType.LIST;
   }
 }

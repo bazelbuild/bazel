@@ -28,7 +28,7 @@ public class ValidationTests extends AbstractParserTestCase {
   }
 
   public void testIncompatibleLiteralTypesDictString() {
-    checkError("bad variable 'a': int is incompatible with dict at /some/file.txt",
+    checkError("bad variable 'a': int is incompatible with dict of ints at /some/file.txt:3:3",
         "def foo():\n",
         "  a = {1 : 'x'}",
         "  a = 1");
@@ -153,7 +153,7 @@ public class ValidationTests extends AbstractParserTestCase {
   }
 
   public void testListIsNotComparable() {
-    checkError("list is not comparable", "['a'] > 1");
+    checkError("list of strings is not comparable", "['a'] > 1");
   }
 
   public void testStringCompareToInt() {
@@ -225,13 +225,14 @@ public class ValidationTests extends AbstractParserTestCase {
   }
 
   public void testTupleAssign() throws Exception {
-    checkError("unsupported operand type(s) for +: 'list' and 'dict'",
+    // TODO(bazel-team): fix our code so 'tuple' not 'list' gets printed.
+    checkError("unsupported operand type(s) for +: 'list' and 'dict of ints'",
         "d = (1, 2)\n"
       + "d[0] = 2\n");
   }
 
   public void testAssignOnNonCollection() throws Exception {
-    checkError("unsupported operand type(s) for +: 'string' and 'dict'",
+    checkError("unsupported operand type(s) for +: 'string' and 'dict of ints'",
         "d = 'abc'\n"
       + "d[0] = 2");
   }
@@ -242,12 +243,14 @@ public class ValidationTests extends AbstractParserTestCase {
   }
 
   public void testNsetBadItemType() throws Exception {
-    checkError("bad nested set: incompatible generic variable types int with string",
+    checkError("bad nested set: set of ints is incompatible with set of strings "
+        + "at /some/file.txt:1:1",
         "(set() + ['a']) + [1]");
   }
 
   public void testNsetBadNestedItemType() throws Exception {
-    checkError("bad nested set: incompatible generic variable types int with string",
+    checkError("bad nested set: set of ints is incompatible with set of strings "
+        + "at /some/file.txt:1:1",
         "(set() + ['b']) + (set() + [1])");
   }
 
@@ -277,17 +280,19 @@ public class ValidationTests extends AbstractParserTestCase {
   }
 
   public void testListConcatBadTypes() throws Exception {
-    checkError("bad list concatenation: incompatible generic variable types int with string",
+    checkError("bad list concatenation: list of ints is incompatible with list of strings"
+        + " at /some/file.txt:1:1",
         "['a'] + [1]");
   }
 
   public void testDictConcatBadKeyTypes() throws Exception {
-    checkError("bad dict concatenation: incompatible generic variable types int with string",
+    checkError("bad dict concatenation: dict of ints is incompatible with dict of strings "
+        + "at /some/file.txt:1:1",
         "{'a': 1} + {1: 2}");
   }
 
   public void testDictLiteralBadKeyType() throws Exception {
-    checkError("Dict cannot contain composite type 'list' as key", "{['a']: 1}");
+    checkError("Dict cannot contain composite type 'list of strings' as key", "{['a']: 1}");
   }
 
   public void testAndTypeInfer() throws Exception {
@@ -380,7 +385,7 @@ public class ValidationTests extends AbstractParserTestCase {
   }
 
   public void testListIndexAsLValue() {
-    checkError("unsupported operand type(s) for +: 'list' and 'dict'",
+    checkError("unsupported operand type(s) for +: 'list of ints' and 'dict of ints'",
         "def func():\n"
       + "  l = [1]\n"
       + "  l[0] = 2\n"
@@ -388,7 +393,7 @@ public class ValidationTests extends AbstractParserTestCase {
   }
 
   public void testStringIndexAsLValue() {
-    checkError("unsupported operand type(s) for +: 'string' and 'dict'",
+    checkError("unsupported operand type(s) for +: 'string' and 'dict of ints'",
         "def func():\n"
       + "  s = 'abc'\n"
       + "  s[0] = 'd'\n"

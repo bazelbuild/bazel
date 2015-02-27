@@ -187,11 +187,11 @@ public abstract class EvalUtils {
       if (list.isTuple()) {
         return "tuple";
       } else {
-        return "list" + (full ? " of " + list.getGenericType() + "s" : "");
+        return "list" + (full ? " of " + list.getContentType() + "s" : "");
       }
     } else if (object instanceof SkylarkNestedSet) {
       SkylarkNestedSet set = (SkylarkNestedSet) object;
-      return "set" + (full ? " of " + set.getGenericType() + "s" : "");
+      return "set" + (full ? " of " + set.getContentType() + "s" : "");
     } else {
       return getDataTypeNameFromClass(object.getClass());
     }
