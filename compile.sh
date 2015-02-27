@@ -409,12 +409,13 @@ if [[ $PLATFORM == "linux" ]]; then
 fi
 
 cp src/main/tools/build_interface_so output/build_interface_so
+cp src/main/tools/jdk.WORKSPACE output/jdk.WORKSPACE
 
 touch output/client_info
 chmod 755 output/client_info
 
 log "Creating Bazel self-extracting archive..."
-TO_ZIP="libblaze.jar ${JNILIB} build-runfiles${EXE_EXT} process-wrapper${EXE_EXT} client_info build_interface_so ${MSYS_DLLS}"
+TO_ZIP="libblaze.jar ${JNILIB} build-runfiles${EXE_EXT} process-wrapper${EXE_EXT} client_info build_interface_so ${MSYS_DLLS} jdk.WORKSPACE"
 if [[ $PLATFORM == "linux" ]]; then
     TO_ZIP="$TO_ZIP namespace-sandbox${EXE_EXT}"
 fi

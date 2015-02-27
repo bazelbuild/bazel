@@ -147,6 +147,8 @@ public final class Rule implements Target {
 
   private final FuncallExpression ast; // may be null
 
+  private final String workspaceName;
+
   // Initialized in the call to populateOutputFiles.
   private List<OutputFile> outputFiles;
   private ListMultimap<String, OutputFile> outputFileMap;
@@ -160,6 +162,7 @@ public final class Rule implements Target {
     this.attributeMap = new RawAttributeMapper(pkg, ruleClass, label, attributes);
     this.containsErrors = false;
     this.ast = ast;
+    this.workspaceName = pkg.getWorkspaceName();
   }
 
   void setVisibility(RuleVisibility visibility) {
@@ -184,6 +187,13 @@ public final class Rule implements Target {
 
   void setContainsErrors() {
     this.containsErrors = true;
+  }
+
+  /**
+   * Returns the name of the workspace that this rule is in.
+   */
+  public String getWorkspaceName() {
+    return workspaceName;
   }
 
   @Override

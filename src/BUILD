@@ -54,6 +54,7 @@ genrule(
         ":libunix",
         "//src/main/tools:build-runfiles",
         "//src/main/tools:process-wrapper",
+        "//src/main/tools:jdk.WORKSPACE",
         ":namespace-sandbox",
         "client_info",
         "//src/main/tools:build_interface_so",

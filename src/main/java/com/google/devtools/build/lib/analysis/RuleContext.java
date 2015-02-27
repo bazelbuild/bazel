@@ -159,6 +159,13 @@ public final class RuleContext extends TargetContext
   }
 
   /**
+   * Returns the workspace name for the rule.
+   */
+  public String getWorkspaceName() {
+    return rule.getWorkspaceName();
+  }
+
+  /**
    * The configuration conditions that trigger this rule's configurable attributes.
    */
   Set<ConfigMatchingProvider> getConfigConditions() {

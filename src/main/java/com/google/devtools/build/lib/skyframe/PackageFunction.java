@@ -316,10 +316,10 @@ public class PackageFunction implements SkyFunction {
       throws PackageFunctionException {
     RootedPath workspacePath = RootedPath.toRootedPath(
         packageLookupPath, new PathFragment("WORKSPACE"));
-    SkyKey workspaceKey = WorkspaceFileValue.key(workspacePath);
-    WorkspaceFileValue workspace = null;
+    SkyKey workspaceKey = PackageValue.workspaceKey(workspacePath);
+    PackageValue workspace = null;
     try {
-      workspace = (WorkspaceFileValue) env.getValueOrThrow(workspaceKey, IOException.class,
+      workspace = (PackageValue) env.getValueOrThrow(workspaceKey, IOException.class,
           FileSymlinkCycleException.class, InconsistentFilesystemException.class,
           EvalException.class);
     } catch (IOException | FileSymlinkCycleException | InconsistentFilesystemException
@@ -385,6 +385,12 @@ public class PackageFunction implements SkyFunction {
     if (packageName.equals(EXTERNAL_PACKAGE_NAME)) {
       return getExternalPackage(env, packageLookupValue.getRoot());
     }
+    PackageValue externalPackage = (PackageValue) env.getValue(
+        PackageValue.key(PackageIdentifier.createInDefaultRepo(EXTERNAL_PACKAGE_NAME)));
+    if (externalPackage == null) {
+      return null;
+    }
+    Package externalPkg = externalPackage.getPackage();
 
     PathFragment buildFileFragment = packageNameFragment.getChild("BUILD");
     RootedPath buildFileRootedPath = RootedPath.toRootedPath(packageLookupValue.getRoot(),
@@ -462,8 +468,9 @@ public class PackageFunction implements SkyFunction {
       return null;
     }
 
-    Package.LegacyBuilder legacyPkgBuilder = loadPackage(inputSource, replacementContents,
-        packageId, buildFilePath, defaultVisibility, preludeStatements, importResult);
+    Package.LegacyBuilder legacyPkgBuilder = loadPackage(externalPkg, inputSource,
+        replacementContents, packageId, buildFilePath, defaultVisibility, preludeStatements,
+        importResult);
     legacyPkgBuilder.buildPartial();
     try {
       handleLabelsCrossingSubpackagesAndPropagateInconsistentFilesystemExceptions(
@@ -709,8 +716,8 @@ public class PackageFunction implements SkyFunction {
    * Constructs a {@link Package} object for the given package using legacy package loading.
    * Note that the returned package may be in error.
    */
-  private Package.LegacyBuilder loadPackage(ParserInputSource inputSource,
-      @Nullable String replacementContents,
+  private Package.LegacyBuilder loadPackage(Package externalPkg,
+      ParserInputSource inputSource, @Nullable String replacementContents,
       PackageIdentifier packageId, Path buildFilePath, RuleVisibility defaultVisibility,
       List<Statement> preludeStatements, SkylarkImportResult importResult)
           throws InterruptedException {
@@ -729,8 +736,8 @@ public class PackageFunction implements SkyFunction {
             ? packageFactory.preprocess(packageId, buildFilePath, inputSource, globber,
                 localReporter)
                 : Preprocessor.Result.noPreprocessing(replacementSource);
-        pkgBuilder = packageFactory.createPackageFromPreprocessingResult(packageId, buildFilePath,
-            preprocessingResult, localReporter.getEvents(), preludeStatements,
+        pkgBuilder = packageFactory.createPackageFromPreprocessingResult(externalPkg, packageId,
+            buildFilePath, preprocessingResult, localReporter.getEvents(), preludeStatements,
             importResult.importMap, importResult.fileDependencies, packageLocator,
             defaultVisibility, globber);
         if (eventBus.get() != null) {

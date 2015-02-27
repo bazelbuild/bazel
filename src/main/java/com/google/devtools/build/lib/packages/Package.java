@@ -24,6 +24,7 @@ import com.google.common.collect.Iterables;
 import com.google.common.collect.Lists;
 import com.google.common.collect.Maps;
 import com.google.common.collect.Sets;
+import com.google.devtools.build.lib.Constants;
 import com.google.devtools.build.lib.collect.CollectionUtils;
 import com.google.devtools.build.lib.collect.ImmutableSortedKeyMap;
 import com.google.devtools.build.lib.events.Event;
@@ -33,7 +34,6 @@ import com.google.devtools.build.lib.packages.AttributeMap.AcceptsLabelAttribute
 import com.google.devtools.build.lib.packages.License.DistributionType;
 import com.google.devtools.build.lib.packages.PackageDeserializer.PackageDeserializationException;
 import com.google.devtools.build.lib.packages.PackageFactory.Globber;
-
 import com.google.devtools.build.lib.syntax.FuncallExpression;
 import com.google.devtools.build.lib.syntax.Label;
 import com.google.devtools.build.lib.syntax.Label.SyntaxException;
@@ -101,6 +101,12 @@ public class Package implements Serializable {
    * members of the packages are located relative to this directory.
    */
   private Path packageDirectory;
+
+  /**
+   * The name of the workspace this package is in. Used as a prefix for the runfiles directory.
+   * This can be set in the WORKSPACE file. This must be a valid target name.
+   */
+  protected String workspaceName = Constants.RUNFILES_PREFIX;
 
   /**
    * The root of the source tree in which this package was found. It is an invariant that
@@ -545,6 +551,16 @@ public class Package implements Serializable {
   }
 
   /**
+   * Returns this package's workspace name.
+   *
+   * <p>Package-private to encourage callers to get their workspace name from a rule, not a
+   * package.</p>
+   */
+  String getWorkspaceName() {
+    return workspaceName;
+  }
+
+  /**
    * Returns the features specified in the <code>package()</code> declaration.
    */
   public ImmutableSet<String> getFeatures() {
@@ -826,7 +842,7 @@ public class Package implements Serializable {
     protected Map<Label, EnvironmentGroup> environmentGroups = new HashMap<>();
 
     protected Map<Label, Path> subincludes = null;
-    protected ImmutableList<Label> skylarkFileDependencies = null;
+    protected ImmutableList<Label> skylarkFileDependencies = ImmutableList.of();
 
     /**
      * True iff the "package" function has already been called in this package.
@@ -938,6 +954,14 @@ public class Package implements Serializable {
      */
     B setDefaultDeprecation(String defaultDeprecation) {
       pkg.setDefaultDeprecation(defaultDeprecation);
+      return self();
+    }
+
+    /**
+     * Uses the workspace name from {@code //external} to set this package's workspace name.
+     */
+    B setWorkspaceName(String workspaceName) {
+      pkg.workspaceName = workspaceName;
       return self();
     }
 

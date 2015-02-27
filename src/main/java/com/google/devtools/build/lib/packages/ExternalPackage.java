@@ -34,18 +34,10 @@ import java.util.Map.Entry;
  */
 public class ExternalPackage extends Package {
 
-  private String workspaceName;
   private Map<RepositoryName, Rule> repositoryMap;
 
   ExternalPackage() {
     super(PackageIdentifier.createInDefaultRepo("external"));
-  }
-
-  /**
-   * Returns the name for this repository.
-   */
-  public String getWorkspaceName() {
-    return workspaceName;
   }
 
   /**
@@ -77,7 +69,7 @@ public class ExternalPackage extends Package {
     }
 
     /**
-     * Checks if the label is bound, i.e., starts with //external:.
+     * Checks if the label is bound, i.e., starts with {@code //external:}.
      */
     public static boolean isBoundLabel(Label label) {
       return label.getPackageName().equals("external");
@@ -89,7 +81,6 @@ public class ExternalPackage extends Package {
    */
   public static class Builder
       extends AbstractBuilder<ExternalPackage, Builder> {
-    private String workspaceName;
     private Map<Label, Binding> bindMap = Maps.newHashMap();
     private Map<RepositoryName, Rule> repositoryMap = Maps.newHashMap();
 
@@ -106,7 +97,6 @@ public class ExternalPackage extends Package {
 
     @Override
     public ExternalPackage build() {
-      pkg.workspaceName = workspaceName;
       pkg.repositoryMap = ImmutableMap.copyOf(repositoryMap);
       return super.build();
     }
@@ -114,8 +104,10 @@ public class ExternalPackage extends Package {
     /**
      * Sets the name for this repository.
      */
-    public void setWorkspaceName(String name) {
-      workspaceName = name;
+    @Override
+    public Builder setWorkspaceName(String workspaceName) {
+      pkg.workspaceName = workspaceName;
+      return this;
     }
 
     public void addBinding(Label label, Binding binding) {

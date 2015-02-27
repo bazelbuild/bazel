@@ -75,6 +75,7 @@ public abstract class FoundationTestCase extends TestCase {
     scratch = new Scratch(createFileSystem());
     outputBase = scratchDir("/usr/local/google/_blaze_jrluser/FAKEMD5/");
     rootDirectory = scratchDir("/" + TestConstants.TEST_WORKSPACE_DIRECTORY);
+    scratchFile(rootDirectory.getRelative("WORKSPACE").getPathString());
     copySkylarkFilesIfExist();
     actionOutputBase = scratchDir("/usr/local/google/_blaze_jrluser/FAKEMD5/action_out/");
     eventCollector = new EventCollector(EventKind.ERRORS_AND_WARNINGS);

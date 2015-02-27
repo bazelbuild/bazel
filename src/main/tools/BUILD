@@ -20,4 +20,7 @@ cc_binary(
     copts = ["-std=c99"],
 )
 
-exports_files(["build_interface_so"])
+exports_files([
+    "build_interface_so",
+    "jdk.WORKSPACE",
+])
