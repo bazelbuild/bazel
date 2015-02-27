@@ -144,12 +144,6 @@ public class RunCommand implements BlazeCommand  {
         this.getClass().getAnnotation(Command.class).name(), options,
         runtime.getStartupOptionsProvider(), targets, outErr,
         runtime.getCommandId(), runtime.getCommandStartTime());
-    if (request.getBuildOptions().compileOnly) {
-      String message = "The '" + getClass().getAnnotation(Command.class).name() +
-                       "' command is incompatible with the --compile_only option";
-      runtime.getReporter().handle(Event.error(message));
-      return ExitCode.COMMAND_LINE_ERROR;
-    }
 
     currentRunUnder = runUnder;
     BuildResult result;

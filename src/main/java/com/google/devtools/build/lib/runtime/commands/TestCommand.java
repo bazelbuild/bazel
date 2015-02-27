@@ -16,6 +16,8 @@ package com.google.devtools.build.lib.runtime.commands;
 
 import com.google.common.collect.ImmutableList;
 import com.google.devtools.build.lib.analysis.ConfiguredTarget;
+import com.google.devtools.build.lib.analysis.TopLevelArtifactProvider;
+import com.google.devtools.build.lib.analysis.config.BuildConfiguration;
 import com.google.devtools.build.lib.buildtool.BuildRequest;
 import com.google.devtools.build.lib.buildtool.BuildResult;
 import com.google.devtools.build.lib.events.Event;
@@ -62,17 +64,23 @@ public class TestCommand implements BlazeCommand {
 
     TestOutputFormat testOutput = optionsParser.getOptions(ExecutionOptions.class).testOutput;
 
-    if (testOutput == TestStrategy.TestOutputFormat.STREAMED) {
-      runtime.getReporter().handle(Event.warn(
-          "Streamed test output requested so all tests will be run locally, without sharding, " +
-           "one at a time"));
-      try {
-        optionsParser.parse(OptionPriority.SOFTWARE_REQUIREMENT,
-            "streamed output requires locally run tests, without sharding",
-            ImmutableList.of("--test_sharding_strategy=disabled", "--test_strategy=exclusive"));
-      } catch (OptionsParsingException e) {
-        throw new IllegalStateException("Known options failed to parse", e);
+    try {
+      if (testOutput == TestStrategy.TestOutputFormat.STREAMED) {
+        runtime.getReporter().handle(Event.warn(
+            "Streamed test output requested so all tests will be run locally, without sharding, " +
+             "one at a time"));
+          optionsParser.parse(OptionPriority.SOFTWARE_REQUIREMENT,
+              "streamed output requires locally run tests, without sharding",
+              ImmutableList.of("--test_sharding_strategy=disabled", "--test_strategy=exclusive"));
       }
+
+      if (optionsParser.getOptions(BuildConfiguration.Options.class).collectCodeCoverage) {
+        optionsParser.parse(OptionPriority.SOFTWARE_REQUIREMENT,
+            "baseline coverage artifacts are built with running tests with coverage collection",
+            ImmutableList.of("--output_groups=" + TopLevelArtifactProvider.BASELINE_COVERAGE));
+      }
+    } catch (OptionsParsingException e) {
+      throw new IllegalStateException("Known options failed to parse", e);
     }
   }
 
@@ -104,12 +112,6 @@ public class TestCommand implements BlazeCommand {
         getClass().getAnnotation(Command.class).name(), options,
         runtime.getStartupOptionsProvider(), targets,
         runtime.getReporter().getOutErr(), runtime.getCommandId(), runtime.getCommandStartTime());
-    if (request.getBuildOptions().compileOnly) {
-      String message =  "The '" + getClass().getAnnotation(Command.class).name() +
-                        "' command is incompatible with the --compile_only option";
-      runtime.getReporter().handle(Event.error(message));
-      return ExitCode.COMMAND_LINE_ERROR;
-    }
     request.setRunTests();
 
     BuildResult buildResult = runtime.getBuildTool().processRequest(request, null);
