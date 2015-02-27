@@ -13,16 +13,26 @@
 // limitations under the License.
 package com.google.devtools.build.lib.syntax;
 
+import static org.junit.Assert.assertEquals;
+import static org.junit.Assert.assertTrue;
+import static org.junit.Assert.fail;
+
 import com.google.common.base.Joiner;
 import com.google.common.collect.ImmutableMap;
 import com.google.devtools.build.lib.concurrent.ThreadSafety.Immutable;
 import com.google.devtools.build.lib.packages.MethodLibrary;
+
+import org.junit.Before;
+import org.junit.Test;
+import org.junit.runner.RunWith;
+import org.junit.runners.JUnit4;
 
 import java.util.Iterator;
 
 /**
  * Tests for SkylarkList.
  */
+@RunWith(JUnit4.class)
 public class SkylarkListTest extends AbstractEvaluationTestCase {
 
   @Immutable
@@ -43,31 +53,36 @@ public class SkylarkListTest extends AbstractEvaluationTestCase {
 
   private Environment env;
 
-  @Override
-  protected void setUp() throws Exception {
-    super.setUp();
+  @Before
+  public void setUp() throws Exception {
+
     env = new SkylarkEnvironment(syntaxEvents.collector());
     env.update("lazy", list);
     MethodLibrary.setupMethodEnvironment(env);
   }
 
+  @Test
   public void testLazyListIndex() throws Exception {
     checkError("Iterator requested", "a = lazy[0]");
   }
 
+  @Test
   public void testLazyListSize() throws Exception {
     checkError("Iterator requested", "a = len(lazy)");
   }
 
+  @Test
   public void testLazyListEmpty() throws Exception {
     checkError("Iterator requested", "if lazy:\n  a = 1");
   }
 
+  @Test
   public void testLazyListConcat() throws Exception {
     exec("v = [1, 2] + lazy");
     assertTrue(env.lookup("v") instanceof SkylarkList);
   }
 
+  @Test
   public void testConcatListIndex() throws Exception {
     exec("l = [1, 2] + [3, 4]",
          "e0 = l[0]",
@@ -80,6 +95,7 @@ public class SkylarkListTest extends AbstractEvaluationTestCase {
     assertEquals(4, env.lookup("e3"));
   }
 
+  @Test
   public void testConcatListHierarchicalIndex() throws Exception {
     exec("l = [1] + (([2] + [3, 4]) + [5])",
          "e0 = l[0]",
@@ -94,18 +110,21 @@ public class SkylarkListTest extends AbstractEvaluationTestCase {
     assertEquals(5, env.lookup("e4"));
   }
 
+  @Test
   public void testConcatListSize() throws Exception {
     exec("l = [1, 2] + [3, 4]",
          "s = len(l)");
     assertEquals(4, env.lookup("s"));
   }
 
+  @Test
   public void testConcatListToString() throws Exception {
     exec("l = [1, 2] + [3, 4]",
          "s = str(l)");
     assertEquals("[1, 2, 3, 4]", env.lookup("s"));
   }
 
+  @Test
   public void testConcatListNotEmpty() throws Exception {
     exec("l = [1, 2] + [3, 4]",
         "if l:",
@@ -115,6 +134,7 @@ public class SkylarkListTest extends AbstractEvaluationTestCase {
     assertEquals(1, env.lookup("v"));
   }
 
+  @Test
   public void testConcatListEmpty() throws Exception {
     exec("l = [] + []",
         "if l:",

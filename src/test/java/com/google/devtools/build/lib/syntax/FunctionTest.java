@@ -14,11 +14,19 @@
 package com.google.devtools.build.lib.syntax;
 
 import static com.google.common.truth.Truth.assertThat;
+import static org.junit.Assert.assertEquals;
+import static org.junit.Assert.assertNotNull;
+import static org.junit.Assert.fail;
 
 import com.google.common.base.Joiner;
 import com.google.common.collect.ImmutableMap;
 import com.google.devtools.build.lib.packages.MethodLibrary;
 import com.google.devtools.build.lib.syntax.SkylarkType.SkylarkFunctionType;
+
+import org.junit.Before;
+import org.junit.Test;
+import org.junit.runner.RunWith;
+import org.junit.runners.JUnit4;
 
 import java.util.ArrayList;
 import java.util.List;
@@ -27,6 +35,7 @@ import java.util.Map;
 /**
  * A test class for functions and scoping.
  */
+@RunWith(JUnit4.class)
 public class FunctionTest extends AbstractEvaluationTestCase {
 
   private Environment env;
@@ -35,12 +44,13 @@ public class FunctionTest extends AbstractEvaluationTestCase {
       ImmutableMap.<String, SkylarkType>of(
           "outer_func", SkylarkFunctionType.of("outer_func", SkylarkType.NONE));
 
-  @Override
+  @Before
   public void setUp() throws Exception {
-    super.setUp();
+
     env = new SkylarkEnvironment(syntaxEvents.collector());
   }
 
+  @Test
   public void testFunctionDef() throws Exception {
     List<Statement> input = parseFileForSkylark(
         "def func(a,b,c):\n"
@@ -55,6 +65,7 @@ public class FunctionTest extends AbstractEvaluationTestCase {
     assertThat(stmt.getStatements()).hasSize(2);
   }
 
+  @Test
   public void testFunctionDefDuplicateArguments() throws Exception {
     syntaxEvents.setFailFast(false);
     parseFileForSkylark(
@@ -63,6 +74,7 @@ public class FunctionTest extends AbstractEvaluationTestCase {
     syntaxEvents.assertContainsEvent("duplicate parameter name in function definition");
   }
 
+  @Test
   public void testFunctionDefCallOuterFunc() throws Exception {
     final List<Object> params = new ArrayList<>();
     List<Statement> input = parseFileForSkylark(
@@ -89,6 +101,7 @@ public class FunctionTest extends AbstractEvaluationTestCase {
     env.update("outer_func", outerFunc);
   }
 
+  @Test
   public void testFunctionDefNoEffectOutsideScope() throws Exception {
     List<Statement> input = parseFileForSkylark(
         "def func():\n"
@@ -99,6 +112,7 @@ public class FunctionTest extends AbstractEvaluationTestCase {
     assertEquals(1, env.lookup("a"));
   }
 
+  @Test
   public void testFunctionDefGlobalVaribleReadInFunction() throws Exception {
     List<Statement> input = parseFileForSkylark(
         "a = 1\n"
@@ -110,6 +124,7 @@ public class FunctionTest extends AbstractEvaluationTestCase {
     assertEquals(1, env.lookup("c"));
   }
 
+  @Test
   public void testFunctionDefLocalGlobalScope() throws Exception {
     List<Statement> input = parseFileForSkylark(
         "a = 1\n"
@@ -122,6 +137,7 @@ public class FunctionTest extends AbstractEvaluationTestCase {
     assertEquals(2, env.lookup("c"));
   }
 
+  @Test
   public void testFunctionDefLocalVariableReferencedBeforeAssignment() throws Exception {
     List<Statement> input = parseFileForSkylark(
         "a = 1\n"
@@ -138,6 +154,7 @@ public class FunctionTest extends AbstractEvaluationTestCase {
     }
   }
 
+  @Test
   public void testFunctionDefLocalVariableReferencedAfterAssignment() throws Exception {
     List<Statement> input = parseFileForSkylark(
         "a = 1\n"
@@ -152,6 +169,7 @@ public class FunctionTest extends AbstractEvaluationTestCase {
   }
 
   @SuppressWarnings("unchecked")
+  @Test
   public void testSkylarkGlobalComprehensionIsAllowed() throws Exception {
     List<Statement> input = parseFileForSkylark(
         "a = [i for i in [1, 2, 3]]\n");
@@ -159,6 +177,7 @@ public class FunctionTest extends AbstractEvaluationTestCase {
     assertThat((Iterable<Object>) env.lookup("a")).containsExactly(1, 2, 3).inOrder();
   }
 
+  @Test
   public void testFunctionReturn() throws Exception {
     List<Statement> input = parseFileForSkylark(
         "def func():\n"
@@ -168,6 +187,7 @@ public class FunctionTest extends AbstractEvaluationTestCase {
     assertEquals(2, env.lookup("b"));
   }
 
+  @Test
   public void testFunctionReturnFromALoop() throws Exception {
     List<Statement> input = parseFileForSkylark(
         "def func():\n"
@@ -178,6 +198,7 @@ public class FunctionTest extends AbstractEvaluationTestCase {
     assertEquals(1, env.lookup("b"));
   }
 
+  @Test
   public void testFunctionExecutesProperly() throws Exception {
     List<Statement> input = parseFileForSkylark(
         "def func(a):\n"
@@ -192,6 +213,7 @@ public class FunctionTest extends AbstractEvaluationTestCase {
     assertEquals(2, env.lookup("d"));
   }
 
+  @Test
   public void testFunctionCallFromFunction() throws Exception {
     final List<Object> params = new ArrayList<>();
     List<Statement> input = parseFileForSkylark(
@@ -207,6 +229,7 @@ public class FunctionTest extends AbstractEvaluationTestCase {
     assertThat(params).containsExactly(1, 2).inOrder();
   }
 
+  @Test
   public void testFunctionCallFromFunctionReadGlobalVar() throws Exception {
     List<Statement> input = parseFileForSkylark(
         "a = 1\n"
@@ -219,6 +242,7 @@ public class FunctionTest extends AbstractEvaluationTestCase {
     assertEquals(1, env.lookup("b"));
   }
 
+  @Test
   public void testSingleLineFunction() throws Exception {
     List<Statement> input = parseFileForSkylark(
         "def func(): return 'a'\n"
@@ -227,6 +251,7 @@ public class FunctionTest extends AbstractEvaluationTestCase {
     assertEquals("a", env.lookup("s"));
   }
 
+  @Test
   public void testFunctionReturnsDictionary() throws Exception {
     MethodLibrary.setupMethodEnvironment(env);
     List<Statement> input = parseFileForSkylark(
@@ -237,6 +262,7 @@ public class FunctionTest extends AbstractEvaluationTestCase {
     assertEquals(1, env.lookup("a"));
   }
 
+  @Test
   public void testFunctionReturnsList() throws Exception {
     MethodLibrary.setupMethodEnvironment(env);
     List<Statement> input = parseFileForSkylark(
@@ -248,6 +274,7 @@ public class FunctionTest extends AbstractEvaluationTestCase {
   }
 
   @SuppressWarnings("unchecked")
+  @Test
   public void testFunctionListArgumentsAreImmutable() throws Exception {
     MethodLibrary.setupMethodEnvironment(env);
     List<Statement> input = parseFileForSkylark(
@@ -259,6 +286,7 @@ public class FunctionTest extends AbstractEvaluationTestCase {
     assertThat((Iterable<Object>) env.lookup("l")).containsExactly(1);
   }
 
+  @Test
   public void testFunctionDictArgumentsAreImmutable() throws Exception {
     MethodLibrary.setupMethodEnvironment(env);
     List<Statement> input = parseFileForSkylark(
@@ -270,6 +298,7 @@ public class FunctionTest extends AbstractEvaluationTestCase {
     assertEquals(ImmutableMap.of("a", 1), env.lookup("d"));
   }
 
+  @Test
   public void testFunctionNameAliasing() throws Exception {
     List<Statement> input = parseFileForSkylark(
           "def func(a):\n"
@@ -280,6 +309,7 @@ public class FunctionTest extends AbstractEvaluationTestCase {
     assertEquals(2, env.lookup("r"));
   }
 
+  @Test
   public void testCallingFunctionsWithMixedModeArgs() throws Exception {
     List<Statement> input = parseFileForSkylark(
           "def func(a, b, c):\n"
@@ -299,6 +329,7 @@ public class FunctionTest extends AbstractEvaluationTestCase {
          + "  return r\n";
   }
 
+  @Test
   public void testWhichOptionalArgsAreDefinedForFunctions() throws Exception {
     List<Statement> input = parseFileForSkylark(
         functionWithOptionalArgs()
@@ -313,6 +344,7 @@ public class FunctionTest extends AbstractEvaluationTestCase {
     assertEquals("4ac", env.lookup("v4"));
   }
 
+  @Test
   public void testDefaultArguments() throws Exception {
     List<Statement> input = parseFileForSkylark(
           "def func(a, b = 'b', c = 'c'):\n"
@@ -328,6 +360,7 @@ public class FunctionTest extends AbstractEvaluationTestCase {
     assertEquals("aby", env.lookup("v4"));
   }
 
+  @Test
   public void testDefaultArgumentsInsufficientArgNum() throws Exception {
     checkError("func(a, b = null, c = null) received insufficient arguments",
         "def func(a, b = 'b', c = 'c'):",
@@ -335,6 +368,7 @@ public class FunctionTest extends AbstractEvaluationTestCase {
         "func()");
   }
 
+  @Test
   public void testKwargs() throws Exception {
     List<Statement> input = parseFileForSkylark(
         "def foo(a, b = 'b', c = 'c'):\n"
@@ -349,6 +383,7 @@ public class FunctionTest extends AbstractEvaluationTestCase {
     assertEquals("xyz", env.lookup("v3"));
   }
 
+  @Test
   public void testKwargsBadKey() throws Exception {
     checkError("Keywords must be strings, not int",
         "def func(a, b):",
@@ -356,6 +391,7 @@ public class FunctionTest extends AbstractEvaluationTestCase {
         "func('a', **{3: 1})");
   }
 
+  @Test
   public void testKwargsIsNotDict() throws Exception {
     checkError("Argument after ** must be a dictionary, not int",
         "def func(a, b):",
@@ -363,6 +399,7 @@ public class FunctionTest extends AbstractEvaluationTestCase {
         "func('a', **42)");
   }
 
+  @Test
   public void testKwargsCollision() throws Exception {
     checkError("func(a, b) got multiple values for keyword argument 'b'",
         "def func(a, b):",
@@ -370,6 +407,7 @@ public class FunctionTest extends AbstractEvaluationTestCase {
         "func('a', 'b', **{'b': 'foo'})");
   }
 
+  @Test
   public void testKwargsCollisionWithNamed() throws Exception {
     checkError("duplicate keyword 'b' in call to func",
         "def func(a, b):",
@@ -377,6 +415,7 @@ public class FunctionTest extends AbstractEvaluationTestCase {
         "func('a', b = 'b', **{'b': 'foo'})");
   }
 
+  @Test
   public void testDefaultArguments2() throws Exception {
     List<Statement> input = parseFileForSkylark(
         "a = 2\n"
@@ -389,6 +428,7 @@ public class FunctionTest extends AbstractEvaluationTestCase {
     assertEquals(2, env.lookup("v"));
   }
 
+  @Test
   public void testMixingPositionalOptional() throws Exception {
     List<Statement> input = parseFileForSkylark(
                 "def f(name, value = '', optional = ''): return value\n"
@@ -397,6 +437,7 @@ public class FunctionTest extends AbstractEvaluationTestCase {
     assertEquals("value", env.lookup("v"));
   }
 
+  @Test
   public void testStarArg() throws Exception {
     List<Statement> input = parseFileForSkylark(
                 "def f(name, value = '1', optional = '2'): return name + value + optional\n"

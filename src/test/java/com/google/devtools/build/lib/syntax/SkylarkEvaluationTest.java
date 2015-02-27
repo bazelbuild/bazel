@@ -14,6 +14,10 @@
 package com.google.devtools.build.lib.syntax;
 
 import static com.google.common.truth.Truth.assertThat;
+import static org.junit.Assert.assertEquals;
+import static org.junit.Assert.assertFalse;
+import static org.junit.Assert.assertSame;
+import static org.junit.Assert.assertTrue;
 
 import com.google.common.collect.ImmutableCollection;
 import com.google.common.collect.ImmutableList;
@@ -31,11 +35,16 @@ import com.google.devtools.build.lib.packages.MethodLibrary;
 import com.google.devtools.build.lib.rules.SkylarkModules;
 import com.google.devtools.build.lib.syntax.ClassObject.SkylarkClassObject;
 
+import org.junit.Test;
+import org.junit.runner.RunWith;
+import org.junit.runners.JUnit4;
+
 import java.util.List;
 
 /**
  * Evaluation tests with Skylark Environment.
  */
+@RunWith(JUnit4.class)
 public class SkylarkEvaluationTest extends EvaluationTest {
 
   @SkylarkModule(name = "Mock", doc = "")
@@ -152,6 +161,7 @@ public class SkylarkEvaluationTest extends EvaluationTest {
     return env;
   }
 
+  @Test
   public void testSimpleIf() throws Exception {
     exec(parseFileForSkylark(
         "def foo():\n"
@@ -163,6 +173,7 @@ public class SkylarkEvaluationTest extends EvaluationTest {
     assertEquals(0, env.lookup("a"));
   }
 
+  @Test
   public void testNestedIf() throws Exception {
     executeNestedIf(0, 0, env);
     assertEquals(0, env.lookup("x"));
@@ -190,6 +201,7 @@ public class SkylarkEvaluationTest extends EvaluationTest {
     exec(input, env);
   }
 
+  @Test
   public void testIfElse() throws Exception {
     executeIfElse("something", 2);
     executeIfElse("", 3);
@@ -210,14 +222,17 @@ public class SkylarkEvaluationTest extends EvaluationTest {
     assertEquals(expectedA, env.lookup("a"));
   }
 
+  @Test
   public void testIfElifElse_IfExecutes() throws Exception {
     execIfElifElse(1, 0, 1);
   }
 
+  @Test
   public void testIfElifElse_ElifExecutes() throws Exception {
     execIfElifElse(0, 1, 2);
   }
 
+  @Test
   public void testIfElifElse_ElseExecutes() throws Exception {
     execIfElifElse(0, 0, 3);
   }
@@ -238,6 +253,7 @@ public class SkylarkEvaluationTest extends EvaluationTest {
     assertEquals(v, env.lookup("v"));
   }
 
+  @Test
   public void testForOnList() throws Exception {
     List<Statement> input = parseFileForSkylark(
         "def foo():\n"
@@ -252,6 +268,7 @@ public class SkylarkEvaluationTest extends EvaluationTest {
   }
 
   @SuppressWarnings("unchecked")
+  @Test
   public void testForOnString() throws Exception {
     List<Statement> input = parseFileForSkylark(
         "def foo():\n"
@@ -265,6 +282,7 @@ public class SkylarkEvaluationTest extends EvaluationTest {
     assertThat((Iterable<Object>) env.lookup("s")).containsExactly("a", "b", "c").inOrder();
   }
 
+  @Test
   public void testForAssignmentList() throws Exception {
     List<Statement> input = parseFileForSkylark(
         "def foo():\n"
@@ -280,6 +298,7 @@ public class SkylarkEvaluationTest extends EvaluationTest {
     assertEquals("abc", env.lookup("s"));
   }
 
+  @Test
   public void testForAssignmentDict() throws Exception {
     List<Statement> input = parseFileForSkylark(
           "def func():\n"
@@ -295,6 +314,7 @@ public class SkylarkEvaluationTest extends EvaluationTest {
     assertEquals("abc", env.lookup("s"));
   }
 
+  @Test
   public void testForNotIterable() throws Exception {
     env.update("mock", new Mock());
     List<Statement> input = parseFileForSkylark(
@@ -304,6 +324,7 @@ public class SkylarkEvaluationTest extends EvaluationTest {
     checkEvalError(input, env, "type 'int' is not an iterable");
   }
 
+  @Test
   public void testForOnDictionary() throws Exception {
     List<Statement> input = parseFileForSkylark(
         "def foo():\n"
@@ -317,6 +338,7 @@ public class SkylarkEvaluationTest extends EvaluationTest {
     assertEquals("abc", env.lookup("s"));
   }
 
+  @Test
   public void testForLoopReuseVariable() throws Exception {
     List<Statement> input = parseFileForSkylark(
         "def foo():\n"
@@ -330,6 +352,7 @@ public class SkylarkEvaluationTest extends EvaluationTest {
     assertEquals("cdcd", env.lookup("s"));
   }
 
+  @Test
   public void testNoneAssignment() throws Exception {
     List<Statement> input = parseFileForSkylark(
         "def foo(x=None):\n"
@@ -342,6 +365,7 @@ public class SkylarkEvaluationTest extends EvaluationTest {
     assertEquals(2, env.lookup("s"));
   }
 
+  @Test
   public void testJavaCalls() throws Exception {
     env.update("mock", new Mock());
     List<Statement> input = parseFileForSkylark(
@@ -350,6 +374,7 @@ public class SkylarkEvaluationTest extends EvaluationTest {
     assertEquals(Boolean.FALSE, env.lookup("b"));
   }
 
+  @Test
   public void testJavaCallsOnSubClass() throws Exception {
     env.update("mock", new MockSubClass());
     List<Statement> input = parseFileForSkylark(
@@ -358,6 +383,7 @@ public class SkylarkEvaluationTest extends EvaluationTest {
     assertEquals(Boolean.FALSE, env.lookup("b"));
   }
 
+  @Test
   public void testJavaCallsOnInterface() throws Exception {
     env.update("mock", new MockSubClass());
     List<Statement> input = parseFileForSkylark(
@@ -366,18 +392,21 @@ public class SkylarkEvaluationTest extends EvaluationTest {
     assertEquals(Boolean.FALSE, env.lookup("b"));
   }
 
+  @Test
   public void testJavaCallsNotSkylarkCallable() throws Exception {
     env.update("mock", new Mock());
     List<Statement> input = parseFileForSkylark("mock.value()", MOCK_TYPES);
     checkEvalError(input, env, "No matching method found for value() in Mock");
   }
 
+  @Test
   public void testJavaCallsNoMethod() throws Exception {
     List<Statement> input = parseFileForSkylark(
         "s = 3.bad()");
     checkEvalError(input, env, "No matching method found for bad() in int");
   }
 
+  @Test
   public void testJavaCallsNoMethodErrorMsg() throws Exception {
     List<Statement> input = parseFileForSkylark(
         "s = 3.bad('a', 'b', 'c')");
@@ -385,6 +414,7 @@ public class SkylarkEvaluationTest extends EvaluationTest {
         "No matching method found for bad(string, string, string) in int");
   }
 
+  @Test
   public void testJavaCallsMultipleMethod() throws Exception {
     env.update("mock", new MockMultipleMethodClass());
     List<Statement> input = parseFileForSkylark(
@@ -393,17 +423,20 @@ public class SkylarkEvaluationTest extends EvaluationTest {
         "Multiple matching methods for method(string) in MockMultipleMethodClass");
   }
 
+  @Test
   public void testJavaCallWithKwargs() throws Exception {
     List<Statement> input = parseFileForSkylark("comp = 3.compare_to(x = 4)");
     checkEvalError(input, env, "Keyword arguments are not allowed when calling a java method"
         + "\nwhile calling method 'compare_to' on object 3 of type int");
   }
 
+  @Test
   public void testNoJavaCallsWithoutSkylark() throws Exception {
     List<Statement> input = parseFileForSkylark("s = 3.to_string()\n");
     checkEvalError(input, env, "No matching method found for to_string() in int");
   }
 
+  @Test
   public void testNoJavaCallsIfClassNotAnnotated() throws Exception {
     env.update("mock", new MockSubClass());
     List<Statement> input = parseFileForSkylark(
@@ -412,6 +445,7 @@ public class SkylarkEvaluationTest extends EvaluationTest {
         "No matching method found for is_empty_class_not_annotated(string) in MockSubClass");
   }
 
+  @Test
   public void testStructAccess() throws Exception {
     env.update("mock", new Mock());
     List<Statement> input = parseFileForSkylark(
@@ -420,24 +454,28 @@ public class SkylarkEvaluationTest extends EvaluationTest {
     assertEquals("a", env.lookup("v"));
   }
 
+  @Test
   public void testStructAccessAsFuncall() throws Exception {
     env.update("mock", new Mock());
     checkEvalError(parseFileForSkylark("v = mock.struct_field()", MOCK_TYPES), env,
         "No matching method found for struct_field() in Mock");
   }
 
+  @Test
   public void testStructAccessOfMethod() throws Exception {
     env.update("mock", new Mock());
     checkEvalError(parseFileForSkylark(
         "v = mock.function", MOCK_TYPES), env, "Object of type 'Mock' has no field 'function'");
   }
 
+  @Test
   public void testJavaFunctionReturnsMutableObject() throws Exception {
     env.update("mock", new Mock());
     List<Statement> input = parseFileForSkylark("mock.return_mutable()", MOCK_TYPES);
     checkEvalError(input, env, "Method 'return_mutable' returns a mutable object (type of Mock)");
   }
 
+  @Test
   public void testJavaFunctionReturnsNullFails() throws Exception {
     env.update("mock", new Mock());
     List<Statement> input = parseFileForSkylark("mock.nullfunc_failing('abc', 1)", MOCK_TYPES);
@@ -445,30 +483,35 @@ public class SkylarkEvaluationTest extends EvaluationTest {
         + " please contact Skylark developers: nullfunc_failing(\"abc\", 1)");
   }
 
+  @Test
   public void testClassObjectAccess() throws Exception {
     env.update("mock", new MockClassObject());
     exec(parseFileForSkylark("v = mock.field", MOCK_TYPES), env);
     assertEquals("a", env.lookup("v"));
   }
 
+  @Test
   public void testClassObjectCannotAccessNestedSet() throws Exception {
     env.update("mock", new MockClassObject());
     checkEvalError(parseFileForSkylark("v = mock.nset", MOCK_TYPES), env,
         "Type is not allowed in Skylark: EmptyNestedSet");
   }
 
+  @Test
   public void testJavaFunctionReturnsNone() throws Exception {
     env.update("mock", new Mock());
     exec(parseFileForSkylark("v = mock.nullfunc_working()", MOCK_TYPES), env);
     assertSame(Environment.NONE, env.lookup("v"));
   }
 
+  @Test
   public void testVoidJavaFunctionReturnsNone() throws Exception {
     env.update("mock", new Mock());
     exec(parseFileForSkylark("v = mock.voidfunc()", MOCK_TYPES), env);
     assertSame(Environment.NONE, env.lookup("v"));
   }
 
+  @Test
   public void testAugmentedAssignment() throws Exception {
     exec(parseFileForSkylark(
         "def f1(x):\n"
@@ -479,6 +522,7 @@ public class SkylarkEvaluationTest extends EvaluationTest {
     assertEquals(42, env.lookup("foo"));
   }
 
+  @Test
   public void testStaticDirectJavaCall() throws Exception {
     List<Statement> input = parseFileForSkylark(
         "val = Mock.value_of('8')", MOCK_TYPES);
@@ -488,6 +532,7 @@ public class SkylarkEvaluationTest extends EvaluationTest {
     assertEquals(8, env.lookup("val"));
   }
 
+  @Test
   public void testStaticDirectJavaCallMethodIsNonStatic() throws Exception {
     List<Statement> input = parseFileForSkylark(
         "val = Mock.is_empty('a')", MOCK_TYPES);
@@ -496,6 +541,7 @@ public class SkylarkEvaluationTest extends EvaluationTest {
     checkEvalError(input, env, "Method 'is_empty' is not static");
   }
 
+  @Test
   public void testDictComprehensions_IterationOrder() throws Exception {
     List<Statement> input = parseFileForSkylark(
         "def foo():\n"
@@ -509,11 +555,13 @@ public class SkylarkEvaluationTest extends EvaluationTest {
     assertEquals("cab", env.lookup("s"));
   }
 
+  @Test
   public void testStructCreation() throws Exception {
     exec(parseFileForSkylark("x = struct(a = 1, b = 2)"), env);
     assertThat(env.lookup("x")).isInstanceOf(ClassObject.class);
   }
 
+  @Test
   public void testStructFields() throws Exception {
     exec(parseFileForSkylark("x = struct(a = 1, b = 2)"), env);
     ClassObject x = (ClassObject) env.lookup("x");
@@ -521,6 +569,7 @@ public class SkylarkEvaluationTest extends EvaluationTest {
     assertEquals(2, x.getValue("b"));
   }
 
+  @Test
   public void testStructAccessingFieldsFromSkylark() throws Exception {
     exec(parseFileForSkylark(
           "x = struct(a = 1, b = 2)\n"
@@ -530,12 +579,14 @@ public class SkylarkEvaluationTest extends EvaluationTest {
     assertEquals(2, env.lookup("x2"));
   }
 
+  @Test
   public void testStructAccessingUnknownField() throws Exception {
     checkEvalError(parseFileForSkylark(
           "x = struct(a = 1, b = 2)\n"
         + "y = x.c\n"), env, "Object of type 'struct' has no field 'c'");
   }
 
+  @Test
   public void testStructAccessingFieldsWithArgs() throws Exception {
     checkEvalError(parseFileForSkylark(
           "x = struct(a = 1, b = 2)\n"
@@ -543,12 +594,14 @@ public class SkylarkEvaluationTest extends EvaluationTest {
         env, "No matching method found for a(int) in struct");
   }
 
+  @Test
   public void testStructPosArgs() throws Exception {
     checkEvalError(parseFileForSkylark(
           "x = struct(1, b = 2)\n"),
         env, "struct only supports keyword arguments");
   }
 
+  @Test
   public void testStructConcatenationFieldNames() throws Exception {
     exec(parseFileForSkylark(
           "x = struct(a = 1, b = 2)\n"
@@ -558,6 +611,7 @@ public class SkylarkEvaluationTest extends EvaluationTest {
     assertEquals(ImmutableSet.of("a", "b", "c", "d"), z.getKeys());
   }
 
+  @Test
   public void testStructConcatenationFieldValues() throws Exception {
     exec(parseFileForSkylark(
           "x = struct(a = 1, b = 2)\n"
@@ -570,6 +624,7 @@ public class SkylarkEvaluationTest extends EvaluationTest {
     assertEquals(2, z.getValue("d"));
   }
 
+  @Test
   public void testStructConcatenationCommonFields() throws Exception {
     checkEvalError(parseFileForSkylark(
           "x = struct(a = 1, b = 2)\n"
@@ -577,11 +632,13 @@ public class SkylarkEvaluationTest extends EvaluationTest {
         + "z = x + y\n"), env, "Cannot concat structs with common field(s): a");
   }
 
+  @Test
   public void testDotExpressionOnNonStructObject() throws Exception {
     checkEvalError(parseFileForSkylark(
           "x = 'a'.field"), env, "Object of type 'string' has no field 'field'");
   }
 
+  @Test
   public void testPlusEqualsOnDict() throws Exception {
     MethodLibrary.setupMethodEnvironment(env);
     exec(parseFileForSkylark(
@@ -593,6 +650,7 @@ public class SkylarkEvaluationTest extends EvaluationTest {
     assertEquals(ImmutableMap.of("a", 1, "b", 2), env.lookup("d"));
   }
 
+  @Test
   public void testDictAssignmentAsLValue() throws Exception {
     exec(parseFileForSkylark(
           "def func():\n"
@@ -603,6 +661,7 @@ public class SkylarkEvaluationTest extends EvaluationTest {
     assertEquals(ImmutableMap.of("a", 1, "b", 2), env.lookup("d"));
   }
 
+  @Test
   public void testDictAssignmentAsLValueNoSideEffects() throws Exception {
     MethodLibrary.setupMethodEnvironment(env);
     exec(parseFileForSkylark(
@@ -613,6 +672,7 @@ public class SkylarkEvaluationTest extends EvaluationTest {
     assertEquals(ImmutableMap.of("a", 1), env.lookup("d"));
   }
 
+  @Test
   public void testListIndexAsLValueAsLValue() throws Exception {
     checkEvalError(parseFileForSkylark(
           "def id(l):\n"
@@ -624,6 +684,7 @@ public class SkylarkEvaluationTest extends EvaluationTest {
         + "l = func()"), env, "unsupported operand type(s) for +: 'list' and 'dict'");
   }
 
+  @Test
   public void testTopLevelDict() throws Exception {
     exec(parseFileForSkylark(
         "if 1:\n"
@@ -633,6 +694,7 @@ public class SkylarkEvaluationTest extends EvaluationTest {
     assertEquals("a", env.lookup("v"));
   }
 
+  @Test
   public void testUserFunctionKeywordArgs() throws Exception {
     exec(parseFileForSkylark(
         "def foo(a, b, c):\n"
@@ -641,6 +703,7 @@ public class SkylarkEvaluationTest extends EvaluationTest {
     assertEquals(6, env.lookup("s"));
   }
 
+  @Test
   public void testNoneTrueFalseInSkylark() throws Exception {
     exec(parseFileForSkylark(
         "a = None\n"
@@ -651,6 +714,7 @@ public class SkylarkEvaluationTest extends EvaluationTest {
     assertFalse((Boolean) env.lookup("c"));
   }
 
+  @Test
   public void testHasattr() throws Exception {
     exec(parseFileForSkylark(
         "s = struct(a=1)\n"
@@ -660,6 +724,7 @@ public class SkylarkEvaluationTest extends EvaluationTest {
     assertFalse((Boolean) env.lookup("y"));
   }
 
+  @Test
   public void testHasattrMethods() throws Exception {
     env.update("mock", new Mock());
     ValidationEnvironment validEnv = SkylarkModules.getValidationEnvironment();
@@ -678,6 +743,7 @@ public class SkylarkEvaluationTest extends EvaluationTest {
     assertFalse((Boolean) env.lookup("e"));
   }
 
+  @Test
   public void testGetattr() throws Exception {
     exec(parseFileForSkylark(
         "s = struct(a='val')\n"
@@ -691,6 +757,7 @@ public class SkylarkEvaluationTest extends EvaluationTest {
     assertEquals("val", env.lookup("w"));
   }
 
+  @Test
   public void testGetattrNoAttr() throws Exception {
     checkEvalError(parseFileForSkylark(
           "s = struct(a='val')\n"
@@ -699,17 +766,20 @@ public class SkylarkEvaluationTest extends EvaluationTest {
   }
 
   @SuppressWarnings("unchecked")
+  @Test
   public void testListAnTupleConcatenationDoesNotWorkInSkylark() throws Exception {
     checkEvalError(parseFileForSkylark("[1, 2] + (3, 4)"), env,
         "cannot concatenate lists and tuples");
   }
 
+  @Test
   public void testCannotCreateMixedListInSkylark() throws Exception {
     env.update("mock", new Mock());
     checkEvalError(parseFileForSkylark("[mock.string(), 1, 2]", MOCK_TYPES), env,
         "Incompatible types in list: found a int but the previous elements were strings");
   }
 
+  @Test
   public void testCannotConcatListInSkylarkWithDifferentGenericTypes() throws Exception {
     env.update("mock", new Mock());
     checkEvalError(parseFileForSkylark("mock.string_list() + [1, 2]", MOCK_TYPES), env,
@@ -717,17 +787,20 @@ public class SkylarkEvaluationTest extends EvaluationTest {
   }
 
   @SuppressWarnings("unchecked")
+  @Test
   public void testConcatEmptyListWithNonEmptyWorks() throws Exception {
     exec(parseFileForSkylark("l = [] + ['a', 'b']", MOCK_TYPES), env);
     assertThat((Iterable<Object>) env.lookup("l")).containsExactly("a", "b").inOrder();
   }
 
+  @Test
   public void testFormatStringWithTuple() throws Exception {
     exec(parseFileForSkylark("v = '%s%s' % ('a', 1)"), env);
     assertEquals("a1", env.lookup("v"));
   }
 
   @SuppressWarnings("unchecked")
+  @Test
   public void testDirFindsClassObjectFields() throws Exception {
     env.update("mock", new MockClassObject());
     exec(parseFileForSkylark("v = dir(mock)", MOCK_TYPES), env);
@@ -735,6 +808,7 @@ public class SkylarkEvaluationTest extends EvaluationTest {
   }
 
   @SuppressWarnings("unchecked")
+  @Test
   public void testDirFindsJavaObjectStructFieldsAndMethods() throws Exception {
     env.update("mock", new Mock());
     exec(parseFileForSkylark("v = dir(mock)", MOCK_TYPES), env);
@@ -743,6 +817,7 @@ public class SkylarkEvaluationTest extends EvaluationTest {
         "struct_field", "value_of", "voidfunc").inOrder();
   }
 
+  @Test
   public void testPrint() throws Exception {
     exec(parseFileForSkylark("print('hello')"), env);
     syntaxEvents.assertContainsEvent("hello");
@@ -752,10 +827,12 @@ public class SkylarkEvaluationTest extends EvaluationTest {
     syntaxEvents.assertContainsEvent("axb");
   }
 
+  @Test
   public void testPrintBadKwargs() throws Exception {
     checkEvalError("print(end='x', other='y')", "unexpected keywords: '[end, other]'");
   }
 
+  @Test
   public void testSkylarkTypes() {
     assertEquals(TransitiveInfoCollection.class,
         EvalUtils.getSkylarkType(FileConfiguredTarget.class));
@@ -768,6 +845,7 @@ public class SkylarkEvaluationTest extends EvaluationTest {
 
   @SuppressWarnings("unchecked")
   @Override
+  @Test
   public void testConcatLists() throws Exception {
     // list
     Object x = eval("[1,2] + [3,4]");
@@ -786,14 +864,17 @@ public class SkylarkEvaluationTest extends EvaluationTest {
 
   @SuppressWarnings("unchecked")
   @Override
+  @Test
   public void testListExprs() throws Exception {
     assertThat((Iterable<Object>) eval("[1, 2, 3]")).containsExactly(1, 2, 3).inOrder();
     assertThat((Iterable<Object>) eval("(1, 2, 3)")).containsExactly(1, 2, 3).inOrder();
   }
 
   @Override
+  @Test
   public void testListConcatenation() throws Exception {}
 
   @Override
+  @Test
   public void testKeywordArgs() {}
 }

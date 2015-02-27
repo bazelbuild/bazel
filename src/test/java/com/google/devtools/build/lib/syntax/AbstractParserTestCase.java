@@ -20,14 +20,12 @@ import com.google.devtools.build.lib.rules.SkylarkModules;
 import com.google.devtools.build.lib.vfs.Path;
 import com.google.devtools.build.lib.vfs.util.FsApparatus;
 
-import junit.framework.TestCase;
-
 import java.util.List;
 
 /**
  * Base class for test cases that use parsing services.
  */
-public abstract class AbstractParserTestCase extends TestCase {
+public abstract class AbstractParserTestCase {
   public static final class EmptyPackageLocator implements CachingPackageLocator {
     @Override
     public Path getBuildFileForPackage(String packageName) {

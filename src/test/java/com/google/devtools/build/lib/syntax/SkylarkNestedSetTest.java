@@ -13,41 +13,55 @@
 // limitations under the License.
 package com.google.devtools.build.lib.syntax;
 
+import static org.junit.Assert.assertEquals;
+import static org.junit.Assert.assertTrue;
+import static org.junit.Assert.fail;
+
 import com.google.common.base.Joiner;
 import com.google.common.collect.ImmutableList;
 import com.google.devtools.build.lib.collect.nestedset.Order;
 import com.google.devtools.build.lib.packages.MethodLibrary;
 import com.google.devtools.build.lib.syntax.Environment.NoSuchVariableException;
 
+import org.junit.Before;
+import org.junit.Test;
+import org.junit.runner.RunWith;
+import org.junit.runners.JUnit4;
+
 /**
  * Tests for SkylarkNestedSet.
  */
+@RunWith(JUnit4.class)
 public class SkylarkNestedSetTest extends AbstractEvaluationTestCase {
 
   private Environment env;
 
-  @Override
-  protected void setUp() throws Exception {
-    super.setUp();
+  @Before
+  public void setUp() throws Exception {
+
     env = new SkylarkEnvironment(syntaxEvents.collector());
     MethodLibrary.setupMethodEnvironment(env);
   }
 
+  @Test
   public void testNsetBuilder() throws Exception {
     exec("n = set(order='stable')");
     assertTrue(env.lookup("n") instanceof SkylarkNestedSet);
   }
 
+  @Test
   public void testNsetOrder() throws Exception {
     exec("n = set(['a', 'b'], order='compile')");
     assertEquals(Order.COMPILE_ORDER, get("n").getSet(String.class).getOrder());
   }
 
+  @Test
   public void testEmptyNsetGenericType() throws Exception {
     exec("n = set()");
     assertEquals(SkylarkType.TOP, get("n").getContentType());
   }
 
+  @Test
   public void testFunctionReturnsNset() throws Exception {
     exec("def func():",
          "  n = set()",
@@ -57,6 +71,7 @@ public class SkylarkNestedSetTest extends AbstractEvaluationTestCase {
     assertEquals(ImmutableList.of("a"), get("s").toCollection());
   }
 
+  @Test
   public void testNsetTwoReferences() throws Exception {
     exec("def func():",
          "  n1 = set()",
@@ -68,6 +83,7 @@ public class SkylarkNestedSetTest extends AbstractEvaluationTestCase {
     assertEquals(ImmutableList.of("a"), get("n").toCollection());
   }
 
+  @Test
   public void testNsetNestedItem() throws Exception {
     exec("def func():",
         "  n1 = set()",
@@ -80,11 +96,13 @@ public class SkylarkNestedSetTest extends AbstractEvaluationTestCase {
     assertEquals(ImmutableList.of("b", "a"), get("n").toCollection());
   }
 
+  @Test
   public void testNsetNestedItemBadOrder() throws Exception {
     checkError("LINK_ORDER != COMPILE_ORDER",
         "set(['a', 'b'], order='compile') + set(['c', 'd'], order='link')");
   }
 
+  @Test
   public void testNsetItemList() throws Exception {
     exec("def func():",
         "  n = set()",
@@ -94,6 +112,7 @@ public class SkylarkNestedSetTest extends AbstractEvaluationTestCase {
     assertEquals(ImmutableList.of("a", "b"), get("n").toCollection());
   }
 
+  @Test
   public void testNsetFuncParamNoSideEffects() throws Exception {
     exec("def func1(n):",
         "  n += ['b']",
@@ -106,6 +125,7 @@ public class SkylarkNestedSetTest extends AbstractEvaluationTestCase {
     assertEquals(ImmutableList.of("a"), get("n").toCollection());
   }
 
+  @Test
   public void testNsetTransitiveOrdering() throws Exception {
     exec("def func():",
         "  na = set(['a'], order='compile')",
@@ -117,6 +137,7 @@ public class SkylarkNestedSetTest extends AbstractEvaluationTestCase {
     assertEquals(ImmutableList.of("b", "a", "c"), get("n").toCollection());
   }
 
+  @Test
   public void testNsetOrdering() throws Exception {
     exec("def func():",
         "  na = set()",
@@ -129,22 +150,26 @@ public class SkylarkNestedSetTest extends AbstractEvaluationTestCase {
     assertEquals(ImmutableList.of(4, 2, 3, 5), get("n").toCollection());
   }
 
+  @Test
   public void testNsetBadOrder() throws Exception {
     checkError("Invalid order: non_existing",
         "set(order='non_existing')");
   }
 
+  @Test
   public void testNsetBadRightOperand() throws Exception {
     checkError("cannot add 'string'-s to nested sets",
         "l = ['a']\n",
         "set() + l[0]");
   }
 
+  @Test
   public void testNsetBadCompositeItem() throws Exception {
     checkError("nested set item is composite (type of struct)",
         "set([struct(a='a')])");
   }
 
+  @Test
   public void testNsetToString() throws Exception {
     exec("s = set() + [2, 4, 6] + [3, 4, 5]",
         "x = str(s)");

@@ -14,14 +14,23 @@
 
 package com.google.devtools.build.lib.syntax;
 
+import static org.junit.Assert.assertEquals;
+import static org.junit.Assert.fail;
+
 import com.google.common.collect.Sets;
+
+import org.junit.Test;
+import org.junit.runner.RunWith;
+import org.junit.runners.JUnit4;
 
 /**
  * Tests of Environment.
  */
+@RunWith(JUnit4.class)
 public class EnvironmentTest extends AbstractEvaluationTestCase {
 
   // Test the API directly
+  @Test
   public void testLookupAndUpdate() throws Exception {
     Environment env = new Environment();
 
@@ -37,6 +46,7 @@ public class EnvironmentTest extends AbstractEvaluationTestCase {
     assertEquals("bar", env.lookup("foo"));
   }
 
+  @Test
   public void testLookupWithDefault() throws Exception {
     Environment env = new Environment();
     assertEquals(21, env.lookup("VERSION", 21));
@@ -44,6 +54,7 @@ public class EnvironmentTest extends AbstractEvaluationTestCase {
     assertEquals(42, env.lookup("VERSION", 21));
   }
 
+  @Test
   public void testDoubleUpdateSucceeds() throws Exception {
     Environment env = new Environment();
     env.update("VERSION", 42);
@@ -53,6 +64,7 @@ public class EnvironmentTest extends AbstractEvaluationTestCase {
   }
 
   // Test assign through interpreter, lookup through API:
+  @Test
   public void testAssign() throws Exception {
     Environment env = new Environment();
 
@@ -69,6 +81,7 @@ public class EnvironmentTest extends AbstractEvaluationTestCase {
   }
 
   // Test update through API, reference through interpreter:
+  @Test
   public void testReference() throws Exception {
     Environment env = new Environment();
 
@@ -85,6 +98,7 @@ public class EnvironmentTest extends AbstractEvaluationTestCase {
   }
 
   // Test assign and reference through interpreter:
+  @Test
   public void testAssignAndReference() throws Exception {
     Environment env = new Environment();
 
@@ -100,6 +114,7 @@ public class EnvironmentTest extends AbstractEvaluationTestCase {
     assertEquals("bar", eval(parseExpr("foo"), env));
   }
 
+  @Test
   public void testGetVariableNames() throws Exception {
     Environment env = new Environment();
     env.update("foo", "bar");
@@ -114,6 +129,7 @@ public class EnvironmentTest extends AbstractEvaluationTestCase {
         nestedEnv.getVariableNames());
   }
 
+  @Test
   public void testToString() throws Exception {
     Environment env = new Environment();
     env.update("subject", new StringLiteral("Hello, 'world'.", '\''));
@@ -122,6 +138,7 @@ public class EnvironmentTest extends AbstractEvaluationTestCase {
         + "subject -> 'Hello, \\'world\\'.', }", env.toString());
   }
 
+  @Test
   public void testBindToNullThrowsException() throws Exception {
     try {
       new Environment().update("some_name", null);

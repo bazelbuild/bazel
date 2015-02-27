@@ -15,16 +15,24 @@ package com.google.devtools.build.lib.syntax;
 
 import static com.google.common.truth.Truth.assertThat;
 import static com.google.common.truth.Truth.assertWithMessage;
+import static org.junit.Assert.assertEquals;
+import static org.junit.Assert.assertFalse;
+import static org.junit.Assert.assertTrue;
+import static org.junit.Assert.fail;
 
 import com.google.devtools.build.lib.events.Location;
 import com.google.devtools.build.lib.syntax.DictionaryLiteral.DictionaryEntryLiteral;
+
+import org.junit.Test;
+import org.junit.runner.RunWith;
+import org.junit.runners.JUnit4;
 
 import java.util.List;
 
 /**
  *  Tests of parser behaviour.
- *
  */
+@RunWith(JUnit4.class)
 public class ParserTest extends AbstractParserTestCase {
 
   private static String getText(String text, ASTNode node) {
@@ -57,6 +65,7 @@ public class ParserTest extends AbstractParserTestCase {
     return f.getArguments().get(index).getValue();
   }
 
+  @Test
   public void testPrecedence1() throws Exception {
     BinaryOperatorExpression e =
       (BinaryOperatorExpression) parseExpr("'%sx' % 'foo' + 'bar'");
@@ -64,24 +73,28 @@ public class ParserTest extends AbstractParserTestCase {
     assertEquals(Operator.PLUS, e.getOperator());
   }
 
+  @Test
   public void testPrecedence2() throws Exception {
     BinaryOperatorExpression e =
       (BinaryOperatorExpression) parseExpr("('%sx' % 'foo') + 'bar'");
     assertEquals(Operator.PLUS, e.getOperator());
   }
 
+  @Test
   public void testPrecedence3() throws Exception {
     BinaryOperatorExpression e =
       (BinaryOperatorExpression) parseExpr("'%sx' % ('foo' + 'bar')");
     assertEquals(Operator.PERCENT, e.getOperator());
   }
 
+  @Test
   public void testPrecedence4() throws Exception {
     BinaryOperatorExpression e =
         (BinaryOperatorExpression) parseExpr("1 + - (2 - 3)");
     assertEquals(Operator.PLUS, e.getOperator());
   }
 
+  @Test
   public void testUnaryMinusExpr() throws Exception {
     FuncallExpression e = (FuncallExpression) parseExpr("-5");
     FuncallExpression e2 = (FuncallExpression) parseExpr("- 5");
@@ -96,6 +109,7 @@ public class ParserTest extends AbstractParserTestCase {
     assertEquals(5, (int) arg0.getValue());
   }
 
+  @Test
   public void testFuncallExpr() throws Exception {
     FuncallExpression e = (FuncallExpression) parseExpr("foo(1, 2, bar=wiz)");
 
@@ -117,6 +131,7 @@ public class ParserTest extends AbstractParserTestCase {
     assertEquals("wiz", arg2val.getName());
   }
 
+  @Test
   public void testMethCallExpr() throws Exception {
     FuncallExpression e =
       (FuncallExpression) parseExpr("foo.foo(1, 2, bar=wiz)");
@@ -139,6 +154,7 @@ public class ParserTest extends AbstractParserTestCase {
     assertEquals("wiz", arg2val.getName());
   }
 
+  @Test
   public void testChainedMethCallExpr() throws Exception {
     FuncallExpression e =
       (FuncallExpression) parseExpr("foo.replace().split(1)");
@@ -153,6 +169,7 @@ public class ParserTest extends AbstractParserTestCase {
     assertEquals(1, (int) arg0.getValue());
   }
 
+  @Test
   public void testPropRefExpr() throws Exception {
     DotExpression e = (DotExpression) parseExpr("foo.foo");
 
@@ -160,6 +177,7 @@ public class ParserTest extends AbstractParserTestCase {
     assertEquals("foo", ident.getName());
   }
 
+  @Test
   public void testStringMethExpr() throws Exception {
     FuncallExpression e = (FuncallExpression) parseExpr("'foo'.foo()");
 
@@ -169,26 +187,31 @@ public class ParserTest extends AbstractParserTestCase {
     assertThat(e.getArguments()).isEmpty();
   }
 
+  @Test
   public void testStringLiteralOptimizationValue() throws Exception {
     StringLiteral l = (StringLiteral) parseExpr("'abc' + 'def'");
     assertEquals("abcdef", l.value);
   }
 
+  @Test
   public void testStringLiteralOptimizationToString() throws Exception {
     StringLiteral l = (StringLiteral) parseExpr("'abc' + 'def'");
     assertEquals("'abcdef'", l.toString());
   }
 
+  @Test
   public void testStringLiteralOptimizationLocation() throws Exception {
     StringLiteral l = (StringLiteral) parseExpr("'abc' + 'def'");
     assertEquals(0, l.getLocation().getStartOffset());
     assertEquals(13, l.getLocation().getEndOffset());
   }
 
+  @Test
   public void testStringLiteralOptimizationDifferentQuote() throws Exception {
     assertThat(parseExpr("'abc' + \"def\"")).isInstanceOf(BinaryOperatorExpression.class);
   }
 
+  @Test
   public void testSubstring() throws Exception {
     FuncallExpression e = (FuncallExpression) parseExpr("'FOO.CC'[:].lower()[1:]");
     assertEquals("$substring", e.getFunction().getName());
@@ -214,6 +237,7 @@ public class ParserTest extends AbstractParserTestCase {
     }
   }
 
+  @Test
   public void testErrorRecovery() throws Exception {
     syntaxEvents.setFailFast(false);
 
@@ -245,6 +269,7 @@ public class ParserTest extends AbstractParserTestCase {
     assertEquals(3, (int) arg2.getValue());
   }
 
+  @Test
   public void testDoesntGetStuck() throws Exception {
     syntaxEvents.setFailFast(false);
 
@@ -262,6 +287,7 @@ public class ParserTest extends AbstractParserTestCase {
                                           // i.e. there were some events
   }
 
+  @Test
   public void testSecondaryLocation() {
     String expr = "f(1 % 2)";
     FuncallExpression call = (FuncallExpression) parseExpr(expr);
@@ -269,6 +295,7 @@ public class ParserTest extends AbstractParserTestCase {
     assertTrue(arg.getLocation().getEndOffset() < call.getLocation().getEndOffset());
   }
 
+  @Test
   public void testPrimaryLocation() {
     String expr = "f(1 + 2)";
     FuncallExpression call = (FuncallExpression) parseExpr(expr);
@@ -276,6 +303,7 @@ public class ParserTest extends AbstractParserTestCase {
     assertTrue(arg.getLocation().getEndOffset() < call.getLocation().getEndOffset());
   }
 
+  @Test
   public void testAssignLocation() {
     String expr = "a = b;c = d\n";
     List<Statement> statements = parseFile(expr);
@@ -283,12 +311,14 @@ public class ParserTest extends AbstractParserTestCase {
     assertEquals(5, statement.getLocation().getEndOffset());
   }
 
+  @Test
   public void testAssign() {
     String expr = "list[0] = 5; dict['key'] = value\n";
     List<Statement> statements = parseFile(expr);
     assertThat(statements).hasSize(2);
   }
 
+  @Test
   public void testInvalidAssign() {
     syntaxEvents.setFailFast(false);
     parseExpr("1 + (b = c)");
@@ -296,10 +326,12 @@ public class ParserTest extends AbstractParserTestCase {
     syntaxEvents.collector().clear();
   }
 
+  @Test
   public void testAugmentedAssign() throws Exception {
     assertEquals("[x = x + 1\n]", parseFile("x += 1").toString());
   }
 
+  @Test
   public void testPrettyPrintFunctions() throws Exception {
     assertEquals("[x[1:3]\n]", parseFile("x[1:3]").toString());
     assertEquals("[str[42]\n]", parseFile("str[42]").toString());
@@ -307,6 +339,7 @@ public class ParserTest extends AbstractParserTestCase {
     assertEquals("[new_file(['hello'])\n]", parseFile("new_file('hello')").toString());
   }
 
+  @Test
   public void testFuncallLocation() {
     String expr = "a(b);c = d\n";
     List<Statement> statements = parseFile(expr);
@@ -314,6 +347,7 @@ public class ParserTest extends AbstractParserTestCase {
     assertEquals(4, statement.getLocation().getEndOffset());
   }
 
+  @Test
   public void testSpecialFuncallLocation() throws Exception {
     List<Statement> statements = parseFile("-x\n");
     assertLocation(0, 3, statements.get(0).getLocation());
@@ -325,6 +359,7 @@ public class ParserTest extends AbstractParserTestCase {
     assertLocation(0, 10, statements.get(0).getLocation());
   }
 
+  @Test
   public void testListPositions() throws Exception {
     String expr = "[0,f(1),2]";
     ListLiteral list = (ListLiteral) parseExpr(expr);
@@ -334,6 +369,7 @@ public class ParserTest extends AbstractParserTestCase {
     assertEquals("2",    getText(expr, getElem(list, 2)));
   }
 
+  @Test
   public void testDictPositions() throws Exception {
     String expr = "{1:2,2:f(1),3:4}";
     DictionaryLiteral list = (DictionaryLiteral) parseExpr(expr);
@@ -343,6 +379,7 @@ public class ParserTest extends AbstractParserTestCase {
     assertEquals("3:4",    getText(expr, getElem(list, 2)));
   }
 
+  @Test
   public void testArgumentPositions() throws Exception {
     String stmt = "f(0,g(1,2),2)";
     FuncallExpression f = (FuncallExpression) parseExpr(stmt);
@@ -352,6 +389,7 @@ public class ParserTest extends AbstractParserTestCase {
     assertEquals("2",    getText(stmt, getArg(f, 2)));
   }
 
+  @Test
   public void testListLiterals1() throws Exception {
     ListLiteral list = (ListLiteral) parseExpr("[0,1,2]");
     assertFalse(list.isTuple());
@@ -362,6 +400,7 @@ public class ParserTest extends AbstractParserTestCase {
     }
   }
 
+  @Test
   public void testTupleLiterals2() throws Exception {
     ListLiteral tuple = (ListLiteral) parseExpr("(0,1,2)");
     assertTrue(tuple.isTuple());
@@ -372,12 +411,14 @@ public class ParserTest extends AbstractParserTestCase {
     }
   }
 
+  @Test
   public void testTupleLiterals3() throws Exception {
     ListLiteral emptyTuple = (ListLiteral) parseExpr("()");
     assertTrue(emptyTuple.isTuple());
     assertThat(emptyTuple.getElements()).isEmpty();
   }
 
+  @Test
   public void testTupleLiterals4() throws Exception {
     ListLiteral singletonTuple = (ListLiteral) parseExpr("(42,)");
     assertTrue(singletonTuple.isTuple());
@@ -385,17 +426,20 @@ public class ParserTest extends AbstractParserTestCase {
     assertEquals(42, getIntElem(singletonTuple, 0));
   }
 
+  @Test
   public void testTupleLiterals5() throws Exception {
     IntegerLiteral intLit = (IntegerLiteral) parseExpr("(42)"); // not a tuple!
     assertEquals(42, (int) intLit.getValue());
   }
 
+  @Test
   public void testListLiterals6() throws Exception {
     ListLiteral emptyList = (ListLiteral) parseExpr("[]");
     assertFalse(emptyList.isTuple());
     assertThat(emptyList.getElements()).isEmpty();
   }
 
+  @Test
   public void testListLiterals7() throws Exception {
     ListLiteral singletonList = (ListLiteral) parseExpr("[42,]");
     assertFalse(singletonList.isTuple());
@@ -403,6 +447,7 @@ public class ParserTest extends AbstractParserTestCase {
     assertEquals(42, getIntElem(singletonList, 0));
   }
 
+  @Test
   public void testListLiterals8() throws Exception {
     ListLiteral singletonList = (ListLiteral) parseExpr("[42]"); // a singleton
     assertFalse(singletonList.isTuple());
@@ -410,6 +455,7 @@ public class ParserTest extends AbstractParserTestCase {
     assertEquals(42, getIntElem(singletonList, 0));
   }
 
+  @Test
   public void testDictionaryLiterals() throws Exception {
     DictionaryLiteral dictionaryList =
       (DictionaryLiteral) parseExpr("{1:42}"); // a singleton dictionary
@@ -419,12 +465,14 @@ public class ParserTest extends AbstractParserTestCase {
     assertEquals(42, getIntElem(tuple, false));
   }
 
+  @Test
   public void testDictionaryLiterals1() throws Exception {
     DictionaryLiteral dictionaryList =
       (DictionaryLiteral) parseExpr("{}"); // an empty dictionary
     assertThat(dictionaryList.getEntries()).isEmpty();
   }
 
+  @Test
   public void testDictionaryLiterals2() throws Exception {
     DictionaryLiteral dictionaryList =
       (DictionaryLiteral) parseExpr("{1:42,}"); // a singleton dictionary
@@ -434,6 +482,7 @@ public class ParserTest extends AbstractParserTestCase {
     assertEquals(42, getIntElem(tuple, false));
   }
 
+  @Test
   public void testDictionaryLiterals3() throws Exception {
     DictionaryLiteral dictionaryList = (DictionaryLiteral) parseExpr("{1:42,2:43,3:44}");
     assertThat(dictionaryList.getEntries()).hasSize(3);
@@ -444,6 +493,7 @@ public class ParserTest extends AbstractParserTestCase {
     }
   }
 
+  @Test
   public void testListLiterals9() throws Exception {
     ListLiteral singletonList =
       (ListLiteral) parseExpr("[ abi + opt_level + \'/include\' ]");
@@ -451,6 +501,7 @@ public class ParserTest extends AbstractParserTestCase {
     assertThat(singletonList.getElements()).hasSize(1);
   }
 
+  @Test
   public void testListComprehensionSyntax() throws Exception {
     syntaxEvents.setFailFast(false);
 
@@ -475,6 +526,7 @@ public class ParserTest extends AbstractParserTestCase {
     syntaxEvents.collector().clear();
   }
 
+  @Test
   public void testListComprehension() throws Exception {
     ListComprehension list =
       (ListComprehension) parseExpr(
@@ -491,22 +543,26 @@ public class ParserTest extends AbstractParserTestCase {
     assertThat(list.getLists()).hasSize(2);
   }
 
+  @Test
   public void testParserContainsErrorsIfSyntaxException() throws Exception {
     syntaxEvents.setFailFast(false);
     parseExpr("'foo' %%");
     syntaxEvents.assertContainsEvent("syntax error at '%'");
   }
 
+  @Test
   public void testParserDoesNotContainErrorsIfSuccess() throws Exception {
     parseExpr("'foo'");
   }
 
+  @Test
   public void testParserContainsErrors() throws Exception {
     syntaxEvents.setFailFast(false);
     parseStmt("+");
     syntaxEvents.assertContainsEvent("syntax error at '+'");
   }
 
+  @Test
   public void testSemicolonAndNewline() throws Exception {
     List<Statement> stmts = parseFile(
       "foo='bar'; foo(bar)" + '\n'
@@ -516,6 +572,7 @@ public class ParserTest extends AbstractParserTestCase {
     assertThat(stmts).hasSize(4);
   }
 
+  @Test
   public void testSemicolonAndNewline2() throws Exception {
     syntaxEvents.setFailFast(false);
     List<Statement> stmts = parseFile(
@@ -526,6 +583,7 @@ public class ParserTest extends AbstractParserTestCase {
     assertThat(stmts).hasSize(2);
   }
 
+  @Test
   public void testExprAsStatement() throws Exception {
     List<Statement> stmts = parseFile(
       "li = []\n"
@@ -536,6 +594,7 @@ public class ParserTest extends AbstractParserTestCase {
     assertThat(stmts).hasSize(4);
   }
 
+  @Test
   public void testParseBuildFileWithSingeRule() throws Exception {
     List<Statement> stmts = parseFile(
       "genrule(name = 'foo'," + '\n'
@@ -547,6 +606,7 @@ public class ParserTest extends AbstractParserTestCase {
     assertThat(stmts).hasSize(1);
   }
 
+  @Test
   public void testParseBuildFileWithMultipleRules() throws Exception {
     List<Statement> stmts = parseFile(
       "genrule(name = 'foo'," + '\n'
@@ -563,6 +623,7 @@ public class ParserTest extends AbstractParserTestCase {
     assertThat(stmts).hasSize(2);
   }
 
+  @Test
   public void testParseBuildFileWithComments() throws Exception {
     Parser.ParseResult result = parseFileWithComments(
       "# Test BUILD file" + '\n'
@@ -578,6 +639,7 @@ public class ParserTest extends AbstractParserTestCase {
     assertThat(result.comments).hasSize(2);
   }
 
+  @Test
   public void testParseBuildFileWithManyComments() throws Exception {
     Parser.ParseResult result = parseFileWithComments(
       "# 1" + '\n'
@@ -614,6 +676,7 @@ public class ParserTest extends AbstractParserTestCase {
         .that(result.comments.size()).isEqualTo(10); // One per '#'
   }
 
+  @Test
   public void testMissingComma() throws Exception {
     syntaxEvents.setFailFast(false);
     // Regression test.
@@ -623,6 +686,7 @@ public class ParserTest extends AbstractParserTestCase {
     syntaxEvents.assertContainsEvent("syntax error at 'srcs'");
   }
 
+  @Test
   public void testDoubleSemicolon() throws Exception {
     syntaxEvents.setFailFast(false);
     // Regression test.
@@ -630,6 +694,7 @@ public class ParserTest extends AbstractParserTestCase {
     syntaxEvents.assertContainsEvent("syntax error at ';'");
   }
 
+  @Test
   public void testFunctionDefinitionErrorRecovery() throws Exception {
     // Parser skips over entire function definitions, and reports a meaningful
     // error.
@@ -645,6 +710,7 @@ public class ParserTest extends AbstractParserTestCase {
     assertThat(stmts).hasSize(2);
   }
 
+  @Test
   public void testFunctionDefinitionIgnored() throws Exception {
     // Parser skips over entire function definitions without reporting error,
     // when parsePython is set to true.
@@ -666,6 +732,7 @@ public class ParserTest extends AbstractParserTestCase {
     assertThat(stmts).hasSize(2);
   }
 
+  @Test
   public void testMissingBlock() throws Exception {
     syntaxEvents.setFailFast(false);
     List<Statement> stmts = parseFile(
@@ -677,6 +744,7 @@ public class ParserTest extends AbstractParserTestCase {
     syntaxEvents.assertContainsEvent("expected an indented block");
   }
 
+  @Test
   public void testInvalidDef() throws Exception {
     syntaxEvents.setFailFast(false);
     parseFile(
@@ -687,6 +755,7 @@ public class ParserTest extends AbstractParserTestCase {
     syntaxEvents.assertContainsEvent("syntax error at 'EOF'");
   }
 
+  @Test
   public void testSkipIfBlock() throws Exception {
     // Skip over 'if' blocks, when parsePython is set
     List<Statement> stmts = parseFile(
@@ -700,6 +769,7 @@ public class ParserTest extends AbstractParserTestCase {
     assertThat(stmts).hasSize(2);
   }
 
+  @Test
   public void testSkipIfBlockFail() throws Exception {
     // Do not parse 'if' blocks, when parsePython is not set
     syntaxEvents.setFailFast(false);
@@ -713,6 +783,7 @@ public class ParserTest extends AbstractParserTestCase {
     syntaxEvents.assertContainsEvent("This Python-style construct is not supported");
   }
 
+  @Test
   public void testForLoopMultipleVariablesFail() throws Exception {
     // For loops with multiple variables are not allowed, when parsePython is not set
     syntaxEvents.setFailFast(false);
@@ -723,6 +794,7 @@ public class ParserTest extends AbstractParserTestCase {
     syntaxEvents.assertContainsEvent("For loops with multiple variables are not yet supported.");
   }
 
+  @Test
   public void testForLoopMultipleVariables() throws Exception {
     // For loops with multiple variables is ok, when parsePython is set
     List<Statement> stmts1 = parseFile(
@@ -741,6 +813,7 @@ public class ParserTest extends AbstractParserTestCase {
     assertThat(stmts3).hasSize(1);
   }
 
+  @Test
   public void testForLoopBadSyntax() throws Exception {
     syntaxEvents.setFailFast(false);
     parseFile(
@@ -749,6 +822,7 @@ public class ParserTest extends AbstractParserTestCase {
     syntaxEvents.assertContainsEvent("syntax error");
   }
 
+  @Test
   public void testForLoopBadSyntax2() throws Exception {
     syntaxEvents.setFailFast(false);
     parseFile(
@@ -757,18 +831,21 @@ public class ParserTest extends AbstractParserTestCase {
     syntaxEvents.assertContainsEvent("syntax error");
   }
 
+  @Test
   public void testFunCallBadSyntax() throws Exception {
     syntaxEvents.setFailFast(false);
     parseFile("f(1,\n");
     syntaxEvents.assertContainsEvent("syntax error");
   }
 
+  @Test
   public void testFunCallBadSyntax2() throws Exception {
     syntaxEvents.setFailFast(false);
     parseFile("f(1, 5, ,)\n");
     syntaxEvents.assertContainsEvent("syntax error");
   }
 
+  @Test
   public void testLoadOneSymbol() throws Exception {
     List<Statement> statements = parseFileForSkylark(
         "load('/foo/bar/file', 'fun_test')\n");
@@ -777,6 +854,7 @@ public class ParserTest extends AbstractParserTestCase {
     assertThat(stmt.getSymbols()).hasSize(1);
   }
 
+  @Test
   public void testLoadMultipleSymbols() throws Exception {
     List<Statement> statements = parseFileForSkylark(
         "load('file', 'foo', 'bar')\n");
@@ -785,36 +863,42 @@ public class ParserTest extends AbstractParserTestCase {
     assertThat(stmt.getSymbols()).hasSize(2);
   }
 
+  @Test
   public void testLoadSyntaxError() throws Exception {
     syntaxEvents.setFailFast(false);
     parseFileForSkylark("load(non_quoted, 'a')\n");
     syntaxEvents.assertContainsEvent("syntax error");
   }
 
+  @Test
   public void testLoadSyntaxError2() throws Exception {
     syntaxEvents.setFailFast(false);
     parseFileForSkylark("load('non_quoted', a)\n");
     syntaxEvents.assertContainsEvent("syntax error");
   }
 
+  @Test
   public void testLoadNotAtTopLevel() throws Exception {
     syntaxEvents.setFailFast(false);
     parseFileForSkylark("if 1: load(8)\n");
     syntaxEvents.assertContainsEvent("function 'load' does not exist");
   }
 
+  @Test
   public void testParseErrorNotComparison() throws Exception {
     syntaxEvents.setFailFast(false);
     parseFile("2 < not 3");
     syntaxEvents.assertContainsEvent("syntax error at 'not'");
   }
 
+  @Test
   public void testNotWithArithmeticOperatorsBadSyntax() throws Exception {
     syntaxEvents.setFailFast(false);
     parseFile("0 + not 0");
     syntaxEvents.assertContainsEvent("syntax error at 'not'");
   }
 
+  @Test
   public void testOptionalArgBeforeMandatoryArgInFuncDef() throws Exception {
     syntaxEvents.setFailFast(false);
     parseFileForSkylark("def func(a, b = 'a', c):\n  return 0\n");
@@ -822,6 +906,7 @@ public class ParserTest extends AbstractParserTestCase {
         "a mandatory positional parameter must not follow an optional parameter");
   }
 
+  @Test
   public void testKwargBeforePositionalArg() throws Exception {
     syntaxEvents.setFailFast(false);
     parseFileForSkylark(
@@ -830,6 +915,7 @@ public class ParserTest extends AbstractParserTestCase {
     syntaxEvents.assertContainsEvent("unexpected tokens after kwarg");
   }
 
+  @Test
   public void testDuplicateKwarg() throws Exception {
     syntaxEvents.setFailFast(false);
     parseFileForSkylark(
@@ -838,6 +924,7 @@ public class ParserTest extends AbstractParserTestCase {
     syntaxEvents.assertContainsEvent("unexpected tokens after kwarg");
   }
 
+  @Test
   public void testUnnamedStar() throws Exception {
     syntaxEvents.setFailFast(false);
     parseFileForSkylark(
@@ -845,6 +932,7 @@ public class ParserTest extends AbstractParserTestCase {
     syntaxEvents.assertContainsEvent("no star, star-star or named-only parameters (for now)");
   }
 
+  @Test
   public void testTopLevelForFails() throws Exception {
     syntaxEvents.setFailFast(false);
     parseFileForSkylark("for i in []: 0\n");
@@ -852,6 +940,7 @@ public class ParserTest extends AbstractParserTestCase {
         "for loops are not allowed on top-level. Put it into a function");
   }
 
+  @Test
   public void testNestedFunctionFails() throws Exception {
     syntaxEvents.setFailFast(false);
     parseFileForSkylark(
@@ -862,12 +951,14 @@ public class ParserTest extends AbstractParserTestCase {
         "nested functions are not allowed. Move the function to top-level");
   }
 
+  @Test
   public void testIncludeFailureSkylark() throws Exception {
     syntaxEvents.setFailFast(false);
     parseFileForSkylark("include('//foo:bar')");
     syntaxEvents.assertContainsEvent("function 'include' does not exist");
   }
 
+  @Test
   public void testIncludeFailure() throws Exception {
     syntaxEvents.setFailFast(false);
     parseFile("include('nonexistent')\n");

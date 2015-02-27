@@ -13,13 +13,21 @@
 // limitations under the License.
 package com.google.devtools.build.lib.syntax;
 
+import static org.junit.Assert.assertEquals;
+import static org.junit.Assert.fail;
+
 import com.google.common.collect.ImmutableList;
+
+import org.junit.Test;
+import org.junit.runner.RunWith;
+import org.junit.runners.JUnit4;
 
 import java.util.Arrays;
 
 /**
  * Tests for {@link MixedModeFunction}.
  */
+@RunWith(JUnit4.class)
 public class MixedModeFunctionTest extends AbstractEvaluationTestCase {
 
   private Environment singletonEnv(String id, Object value) {
@@ -91,6 +99,7 @@ public class MixedModeFunctionTest extends AbstractEvaluationTestCase {
     }
   }
 
+  @Test
   public void testNoSurplusArguments() throws Exception {
     checkMixedModeFunctions(false,
                             "mixed(foo, bar = null)",
@@ -110,6 +119,7 @@ public class MixedModeFunctionTest extends AbstractEvaluationTestCase {
       });
   }
 
+  @Test
   public void testOnlyNamedArguments() throws Exception {
     checkMixedModeFunctions(true,
                             "mixed(foo, bar = null)",
