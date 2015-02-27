@@ -14,6 +14,8 @@
 
 package com.google.devtools.build.buildjar;
 
+import com.google.devtools.build.buildjar.javac.JavacOptions;
+
 import java.io.IOException;
 import java.util.Arrays;
 
@@ -30,6 +32,7 @@ public abstract class BazelJavaBuilder {
   public static void main(String[] args) {
     try {
       JavaLibraryBuildRequest build = new JavaLibraryBuildRequest(Arrays.asList(args));
+      build.setJavacOpts(JavacOptions.normalizeOptions(build.getJavacOpts()));
       AbstractJavaBuilder builder = build.getDependencyModule().reduceClasspath()
           ? new ReducedClasspathJavaLibraryBuilder()
           : new SimpleJavaLibraryBuilder();
