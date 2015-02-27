@@ -130,6 +130,7 @@ public final class RuleContext extends TargetContext
   private final Set<ConfigMatchingProvider> configConditions;
   private final AttributeMap attributes;
   private final ImmutableSet<String> features;
+  private final Map<String, Attribute> attributeMap;
 
   private ActionOwner actionOwner;
 
@@ -138,7 +139,8 @@ public final class RuleContext extends TargetContext
 
   private RuleContext(Builder builder, ListMultimap<String, ConfiguredTarget> targetMap,
       ListMultimap<String, ConfiguredFilesetEntry> filesetEntryMap,
-      Set<ConfigMatchingProvider> configConditions, ImmutableSet<String> features) {
+      Set<ConfigMatchingProvider> configConditions, ImmutableSet<String> features,
+      Map<String, Attribute> attributeMap) {
     super(builder.env, builder.rule, builder.configuration, builder.prerequisiteMap.get(null),
         builder.visibility);
     this.rule = builder.rule;
@@ -148,6 +150,7 @@ public final class RuleContext extends TargetContext
     this.attributes =
         ConfiguredAttributeMapper.of(builder.rule, configConditions);
     this.features = features;
+    this.attributeMap = attributeMap;
   }
 
   @Override
@@ -400,6 +403,19 @@ public final class RuleContext extends TargetContext
         : getConfiguration().getGenfilesDirectory();
   }
 
+  private Attribute getAttribute(String attributeName) {
+    // TODO(bazel-team): We should check original rule for such attribute first, because aspect
+    // can't contain empty attribute. Consider changing type of prerequisiteMap from
+    // ListMultimap<Attribute, ConfiguredTarget> to Map<Attribute, List<ConfiguredTarget>>. This can
+    // also simplify logic in DependencyResolver#resolveExplicitAttributes.
+    Attribute result = getRule().getAttributeDefinition(attributeName);
+    if (result != null) {
+      return result;
+    }
+    // Also this attribute can come from aspects, so we also have to check attributeMap.
+    return attributeMap.get(attributeName);
+  }
+
   /**
    * Returns the list of transitive info collections that feed into this target through the
    * specified attribute. Note that you need to specify the correct mode for the attribute,
@@ -407,7 +423,7 @@ public final class RuleContext extends TargetContext
    */
   public List<? extends TransitiveInfoCollection> getPrerequisites(String attributeName,
       Mode mode) {
-    Attribute attributeDefinition = getRule().getAttributeDefinition(attributeName);
+    Attribute attributeDefinition = getAttribute(attributeName);
     if ((mode == Mode.TARGET)
         && (attributeDefinition.getConfigurationTransition() instanceof SplitTransition)) {
       // TODO(bazel-team): If you request a split-configured attribute in the target configuration,
@@ -440,7 +456,7 @@ public final class RuleContext extends TargetContext
       getSplitPrerequisites(String attributeName, boolean requireSplit) {
     checkAttribute(attributeName, Mode.SPLIT);
 
-    Attribute attributeDefinition = getRule().getAttributeDefinition(attributeName);
+    Attribute attributeDefinition = getAttribute(attributeName);
     SplitTransition<?> transition =
         (SplitTransition<?>) attributeDefinition.getConfigurationTransition();
     List<BuildConfiguration> configurations =
@@ -545,7 +561,7 @@ public final class RuleContext extends TargetContext
    * @return the {@link FilesToRunProvider} interface of the prerequisite.
    */
   public FilesToRunProvider getExecutablePrerequisite(String attributeName, Mode mode) {
-    Attribute ruleDefinition = getRule().getAttributeDefinition(attributeName);
+    Attribute ruleDefinition = getAttribute(attributeName);
 
     if (ruleDefinition == null) {
       throw new IllegalStateException(getRule().getRuleClass() + " attribute " + attributeName
@@ -687,7 +703,7 @@ public final class RuleContext extends TargetContext
   }
 
   private void checkAttribute(String attributeName, Mode mode) {
-    Attribute attributeDefinition = getRule().getAttributeDefinition(attributeName);
+    Attribute attributeDefinition = getAttribute(attributeName);
     if (attributeDefinition == null) {
       throw new IllegalStateException(getRule().getLocation() + ": " + getRule().getRuleClass()
         + " attribute " + attributeName + " is not defined");
@@ -729,7 +745,7 @@ public final class RuleContext extends TargetContext
    * This is intended for Skylark, where the Mode is implicitly chosen.
    */
   public Mode getAttributeMode(String attributeName) {
-    Attribute attributeDefinition = getRule().getAttributeDefinition(attributeName);
+    Attribute attributeDefinition = getAttribute(attributeName);
     if (attributeDefinition == null) {
       throw new IllegalStateException(getRule().getLocation() + ": " + getRule().getRuleClass()
         + " attribute " + attributeName + " is not defined");
@@ -1060,8 +1076,15 @@ public final class RuleContext extends TargetContext
       ListMultimap<String, ConfiguredTarget> targetMap = createTargetMap();
       ListMultimap<String, ConfiguredFilesetEntry> filesetEntryMap =
           createFilesetEntryMap(rule, configConditions);
+      Map<String, Attribute> attributeMap = new HashMap<>();
+      for (Attribute attribute : prerequisiteMap.keySet()) {
+        if (attribute == null) {
+          continue;
+        }
+        attributeMap.put(attribute.getName(), attribute);
+      }
       return new RuleContext(this, targetMap, filesetEntryMap, configConditions,
-          getEnabledFeatures());
+          getEnabledFeatures(), attributeMap);
     }
 
     private ImmutableSet<String> getEnabledFeatures() {
