@@ -21,7 +21,6 @@ import com.google.common.collect.ImmutableList;
 import com.google.devtools.build.lib.actions.ActionOwner;
 import com.google.devtools.build.lib.actions.Artifact;
 import com.google.devtools.build.lib.actions.Executor;
-import com.google.devtools.build.lib.actions.Executor.ActionContext;
 import com.google.devtools.build.lib.analysis.actions.AbstractFileWriteAction;
 import com.google.devtools.build.lib.events.EventHandler;
 import com.google.devtools.build.lib.util.Fingerprint;
@@ -53,12 +52,6 @@ import javax.annotation.Nullable;
  * memory.
  */
 public class SourceManifestAction extends AbstractFileWriteAction {
-  /**
-   * Action context that tells what workspace suffix we should use.
-   */
-  public interface Context extends ActionContext {
-    PathFragment getRunfilesPrefix();
-  }
 
   private static final String GUID = "07459553-a3d0-4d37-9d78-18ed942470f4";
 
@@ -123,19 +116,16 @@ public class SourceManifestAction extends AbstractFileWriteAction {
   }
 
   @VisibleForTesting
-  public void writeOutputFile(OutputStream out, EventHandler eventHandler, String workspaceSuffix)
+  public void writeOutputFile(OutputStream out, EventHandler eventHandler)
       throws IOException {
-    writeFile(out, runfiles.getRunfilesInputs(
-        root, workspaceSuffix, eventHandler, getOwner().getLocation()));
+    writeFile(out, runfiles.getRunfilesInputs(root, eventHandler, getOwner().getLocation()));
   }
 
   @Override
   public DeterministicWriter newDeterministicWriter(EventHandler eventHandler, Executor executor)
       throws IOException {
     final Pair<Map<PathFragment, Artifact>, Map<PathFragment, Artifact>> runfilesInputs =
-        runfiles.getRunfilesInputs(root,
-            executor.getContext(Context.class).getRunfilesPrefix().toString(), eventHandler,
-            getOwner().getLocation());
+        runfiles.getRunfilesInputs(root, eventHandler, getOwner().getLocation());
     return new DeterministicWriter() {
       @Override
       public void writeOutputFile(OutputStream out) throws IOException {

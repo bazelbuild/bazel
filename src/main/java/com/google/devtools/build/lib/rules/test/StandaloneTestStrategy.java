@@ -33,7 +33,6 @@ import com.google.devtools.build.lib.events.Reporter;
 import com.google.devtools.build.lib.util.io.FileOutErr;
 import com.google.devtools.build.lib.vfs.FileSystemUtils;
 import com.google.devtools.build.lib.vfs.Path;
-import com.google.devtools.build.lib.vfs.PathFragment;
 import com.google.devtools.build.lib.view.test.TestStatus.BlazeTestStatus;
 import com.google.devtools.build.lib.view.test.TestStatus.TestCase;
 import com.google.devtools.build.lib.view.test.TestStatus.TestResultData;
@@ -52,20 +51,15 @@ import java.util.Map;
 public class StandaloneTestStrategy extends TestStrategy {
   /*
     TODO(bazel-team):
-
     * tests
     * It would be nice to get rid of (cd $TEST_SRCDIR) in the test-setup script.
     * test timeouts.
     * parsing XML output.
-
     */
-  protected final PathFragment runfilesPrefix;
 
   public StandaloneTestStrategy(OptionsClassProvider requestOptions,
-      OptionsClassProvider startupOptions, BinTools binTools, PathFragment runfilesPrefix) {
+      OptionsClassProvider startupOptions, BinTools binTools) {
     super(requestOptions, startupOptions, binTools);
-
-    this.runfilesPrefix = runfilesPrefix;
   }
 
   private static final String TEST_SETUP = "tools/test/test-setup.sh";
@@ -81,7 +75,7 @@ public class StandaloneTestStrategy extends TestStrategy {
       throw new TestExecException(e.getMessage());
     }
 
-    Path workingDirectory = runfilesDir.getRelative(runfilesPrefix);
+    Path workingDirectory = runfilesDir.getRelative(action.getRunfilesPrefix());
     Map<String, String> env = getEnv(action, runfilesDir);
     Spawn spawn = new BaseSpawn(getArgs(action), env,
         action.getTestProperties().getExecutionInfo(),
@@ -127,13 +121,13 @@ public class StandaloneTestStrategy extends TestStrategy {
 
     vars.putAll(config.getDefaultShellEnvironment());
     vars.putAll(config.getTestEnv());
-    vars.put("TEST_SRCDIR", runfilesDir.getRelative(runfilesPrefix).getPathString());
+    vars.put("TEST_SRCDIR", runfilesDir.getRelative(action.getRunfilesPrefix()).getPathString());
 
     // TODO(bazel-team): set TEST_TMPDIR.
 
     return vars;
   }
-  
+
   private TestResultData execute(
       ActionExecutionContext actionExecutionContext, Spawn spawn, TestRunnerAction action)
       throws TestExecException, InterruptedException {
@@ -198,7 +192,7 @@ public class StandaloneTestStrategy extends TestStrategy {
       } else {
         if (result.getData().getStatus() == BlazeTestStatus.TIMEOUT) {
           executor.getEventHandler().handle(
-              new Event(EventKind.TIMEOUT, null, result.getTestName() 
+              new Event(EventKind.TIMEOUT, null, result.getTestName()
                   + " (see " + testOutput + ")"));
         } else {
           executor.getEventHandler().handle(
@@ -207,13 +201,13 @@ public class StandaloneTestStrategy extends TestStrategy {
       }
     }
   }
-  
-  private final void finalizeTest(ActionExecutionContext actionExecutionContext, 
+
+  private final void finalizeTest(ActionExecutionContext actionExecutionContext,
       TestRunnerAction action, TestResultData data) throws IOException, ExecException {
     TestResult result = new TestResult(action, data, false);
     postTestResult(actionExecutionContext.getExecutor(), result);
 
-    processTestOutput(actionExecutionContext.getExecutor(), 
+    processTestOutput(actionExecutionContext.getExecutor(),
         actionExecutionContext.getFileOutErr(), result);
     // TODO(bazel-team): handle --test_output=errors, --test_output=all.
 

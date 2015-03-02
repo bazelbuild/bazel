@@ -71,7 +71,6 @@ import com.google.devtools.build.lib.exec.CheckUpToDateFilter;
 import com.google.devtools.build.lib.exec.ExecutionOptions;
 import com.google.devtools.build.lib.exec.OutputService;
 import com.google.devtools.build.lib.exec.SingleBuildFileCache;
-import com.google.devtools.build.lib.exec.SourceManifestActionContextImpl;
 import com.google.devtools.build.lib.exec.SymlinkTreeStrategy;
 import com.google.devtools.build.lib.packages.Rule;
 import com.google.devtools.build.lib.profiler.ProfilePhase;
@@ -199,7 +198,6 @@ public class ExecutionTool {
     actionContextProviders.add(new FilesetActionContextImpl.Provider(
         runtime.getReporter(), runtime.getWorkspaceName()));
 
-    strategies.add(new SourceManifestActionContextImpl(runtime.getRunfilesPrefix()));
     strategies.add(new SymlinkTreeStrategy(runtime.getOutputService(), runtime.getBinTools()));
 
     StrategyConverter strategyConverter = new StrategyConverter(actionContextProviders);

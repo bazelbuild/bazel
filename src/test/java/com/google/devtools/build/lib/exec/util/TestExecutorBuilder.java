@@ -27,12 +27,9 @@ import com.google.devtools.build.lib.analysis.config.BinTools;
 import com.google.devtools.build.lib.events.Reporter;
 import com.google.devtools.build.lib.exec.ExecutionOptions;
 import com.google.devtools.build.lib.exec.FileWriteStrategy;
-import com.google.devtools.build.lib.exec.SourceManifestActionContextImpl;
 import com.google.devtools.build.lib.exec.SymlinkTreeStrategy;
 import com.google.devtools.build.lib.runtime.CommonCommandOptions;
-import com.google.devtools.build.lib.testutil.TestConstants;
 import com.google.devtools.build.lib.util.BlazeClock;
-import com.google.devtools.build.lib.vfs.PathFragment;
 import com.google.devtools.common.options.OptionsBase;
 import com.google.devtools.common.options.OptionsParser;
 import com.google.devtools.common.options.OptionsParsingException;
@@ -57,9 +54,6 @@ public class TestExecutorBuilder {
 
   public TestExecutorBuilder(BlazeDirectories directories, BinTools binTools) {
     this.directories = directories;
-
-    strategies.add(new SourceManifestActionContextImpl(
-        new PathFragment(TestConstants.RUNFILES_PREFIX)));
     strategies.add(new FileWriteStrategy());
     strategies.add(new SymlinkTreeStrategy(null, binTools));
   }

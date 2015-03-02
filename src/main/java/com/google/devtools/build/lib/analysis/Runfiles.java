@@ -21,8 +21,10 @@ import com.google.common.base.Predicates;
 import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.Iterables;
 import com.google.common.collect.Maps;
+import com.google.devtools.build.lib.Constants;
 import com.google.devtools.build.lib.actions.Artifact;
 import com.google.devtools.build.lib.analysis.RuleConfiguredTarget.Mode;
+import com.google.devtools.build.lib.analysis.Runfiles.Builder;
 import com.google.devtools.build.lib.collect.nestedset.NestedSet;
 import com.google.devtools.build.lib.collect.nestedset.NestedSetBuilder;
 import com.google.devtools.build.lib.collect.nestedset.Order;
@@ -78,6 +80,12 @@ public final class Runfiles {
   // It is important to declare this *after* the DUMMY_SYMLINK_EXPANDER to avoid NPEs
   public static final Runfiles EMPTY = new Builder().build();
 
+  /**
+   * The directory to put all runfiles under.
+   *
+   * <p>Using "foo" will put runfiles under &lt;target&gt;.runfiles/foo.</p>
+   */
+  private final String suffix;
 
   /**
    * The artifacts that should *always* be present in the runfiles directory. These are
@@ -162,16 +170,25 @@ public final class Runfiles {
    */
   private final NestedSet<PruningManifest> pruningManifests;
 
-  private Runfiles(NestedSet<Artifact> artifacts,
+  private Runfiles(String suffix,
+      NestedSet<Artifact> artifacts,
       NestedSet<Map.Entry<PathFragment, Artifact>> symlinks,
       NestedSet<Map.Entry<PathFragment, Artifact>> rootSymlinks,
       NestedSet<PruningManifest> pruningManifests,
       Function<Map<PathFragment, Artifact>, Map<PathFragment, Artifact>> expander) {
+    this.suffix = suffix == null ? Constants.RUNFILES_PREFIX : suffix;
     this.unconditionalArtifacts = Preconditions.checkNotNull(artifacts);
     this.symlinks = Preconditions.checkNotNull(symlinks);
     this.rootSymlinks = Preconditions.checkNotNull(rootSymlinks);
     this.pruningManifests = Preconditions.checkNotNull(pruningManifests);
     this.manifestExpander = Preconditions.checkNotNull(expander);
+  }
+
+  /**
+   * Returns the runfiles' suffix.
+   */
+  public String getSuffix() {
+    return suffix;
   }
 
   /**
@@ -282,7 +299,7 @@ public final class Runfiles {
    *         entries, the second of any elements that live outside the source tree.
    */
   public Pair<Map<PathFragment, Artifact>, Map<PathFragment, Artifact>> getRunfilesInputs(
-      PathFragment root, String workspaceSuffix, EventHandler eventHandler, Location location)
+      PathFragment root, EventHandler eventHandler, Location location)
           throws IOException {
     Map<PathFragment, Artifact> manifest = getSymlinksAsMap();
     // Add unconditional artifacts (committed to inclusion on construction of runfiles).
@@ -310,7 +327,7 @@ public final class Runfiles {
 
     manifest = filterListForObscuringSymlinks(eventHandler, location, manifest);
     manifest.putAll(manifestExpander.apply(manifest));
-    PathFragment path = new PathFragment(workspaceSuffix);
+    PathFragment path = new PathFragment(suffix);
     Map<PathFragment, Artifact> result = new HashMap<>();
     for (Map.Entry<PathFragment, Artifact> entry : manifest.entrySet()) {
       result.put(path.getRelative(entry.getKey()), entry.getValue());
@@ -410,6 +427,9 @@ public final class Runfiles {
    * Builder for Runfiles objects.
    */
   public static final class Builder {
+
+    private String suffix;
+
     /**
      * This must be COMPILE_ORDER because {@link #asMapWithoutRootSymlinks} overwrites earlier
      * entries with later ones, so we want a post-order iteration.
@@ -429,7 +449,7 @@ public final class Runfiles {
      * Builds a new Runfiles object.
      */
     public Runfiles build() {
-      return new Runfiles(artifactsBuilder.build(), symlinksBuilder.build(),
+      return new Runfiles(suffix, artifactsBuilder.build(), symlinksBuilder.build(),
           rootSymlinksBuilder.build(), pruningManifestsBuilder.build(),
           manifestExpander);
     }
@@ -597,6 +617,7 @@ public final class Runfiles {
         Function<TransitiveInfoCollection, Runfiles> mapping) {
       Preconditions.checkNotNull(mapping);
       Preconditions.checkNotNull(ruleContext);
+      suffix = ruleContext.getWorkspaceName();
       addDataDeps(ruleContext);
       addNonDataDeps(ruleContext, mapping);
       return this;
@@ -611,6 +632,7 @@ public final class Runfiles {
         Function<TransitiveInfoCollection, Runfiles> mapping) {
       Preconditions.checkNotNull(ruleContext);
       Preconditions.checkNotNull(mapping);
+      suffix = ruleContext.getWorkspaceName();
       for (TransitiveInfoCollection dep : getNonDataDeps(ruleContext)) {
         Runfiles runfiles = mapping.apply(dep);
         if (runfiles != null) {
@@ -625,8 +647,8 @@ public final class Runfiles {
      * Collects runfiles from data dependencies of a target.
      */
     public Builder addDataDeps(RuleContext ruleContext) {
-      addTargets(getPrerequisites(ruleContext, "data", Mode.DATA),
-          RunfilesProvider.DATA_RUNFILES);
+      suffix = ruleContext.getWorkspaceName();
+      addTargets(getPrerequisites(ruleContext, "data", Mode.DATA), RunfilesProvider.DATA_RUNFILES);
       return this;
     }
 
@@ -635,6 +657,7 @@ public final class Runfiles {
      */
     public Builder addNonDataDeps(RuleContext ruleContext,
         Function<TransitiveInfoCollection, Runfiles> mapping) {
+      suffix = ruleContext.getWorkspaceName();
       for (TransitiveInfoCollection target : getNonDataDeps(ruleContext)) {
         addTargetExceptFileTargets(target, mapping);
       }
@@ -706,6 +729,15 @@ public final class Runfiles {
     }
 
     /**
+     * Sets the directory name to put runfiles under. "" is the default and puts the runfiles
+     * immediately under the &lt;target&gt;.runfiles directory.
+     */
+    public Builder setSuffix(String workspaceName) {
+      suffix = workspaceName;
+      return this;
+    }
+
+    /**
      * Add the other {@link Runfiles} object transitively, with the option to include or exclude
      * pruning manifests in the merge.
      */
@@ -713,6 +745,9 @@ public final class Runfiles {
       artifactsBuilder.addTransitive(runfiles.getUnconditionalArtifacts());
       symlinksBuilder.addTransitive(runfiles.getSymlinks());
       rootSymlinksBuilder.addTransitive(runfiles.getRootSymlinks());
+      if (suffix == null) {
+        suffix = runfiles.suffix;
+      }
       if (includePruningManifests) {
         pruningManifestsBuilder.addTransitive(runfiles.getPruningManifests());
       }

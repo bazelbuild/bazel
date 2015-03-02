@@ -256,7 +256,7 @@ public final class TestActionBuilder {
             testLog, cacheStatus,
             coverageArtifact, microCoverageArtifact,
             testProperties, executionSettings,
-            shard, run, config));
+            shard, run, config, ruleContext.getWorkspaceName()));
         results.add(cacheStatus);
       }
     }

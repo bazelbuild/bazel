@@ -22,7 +22,6 @@ import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.Iterables;
 import com.google.common.collect.Lists;
 import com.google.common.collect.Multimap;
-import com.google.devtools.build.lib.Constants;
 import com.google.devtools.build.lib.actions.Action;
 import com.google.devtools.build.lib.actions.Artifact;
 import com.google.devtools.build.lib.analysis.AnalysisEnvironment;
@@ -346,8 +345,8 @@ public class JavaCommon {
       javaExecutable = ruleContext.getFragment(Jvm.class).getJavaExecutable();
     }
 
-    String pathPrefix =
-        javaExecutable.isAbsolute() ? "" : "${JAVA_RUNFILES}/" + Constants.RUNFILES_PREFIX + "/";
+    String pathPrefix = javaExecutable.isAbsolute() ? "" : "${JAVA_RUNFILES}/"
+        + ruleContext.getRule().getWorkspaceName() + "/";
     return "JAVABIN=${JAVABIN:-" + pathPrefix + javaExecutable.getPathString() + "}";
   }
 

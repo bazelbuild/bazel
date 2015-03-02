@@ -69,8 +69,7 @@ public class StandaloneContextProvider implements ActionContextProvider {
   private final ImmutableList<ActionContext> strategies;
   private final BlazeRuntime runtime;
 
-  public StandaloneContextProvider(
-      BlazeRuntime runtime, BuildRequest buildRequest) {
+  public StandaloneContextProvider(BlazeRuntime runtime, BuildRequest buildRequest) {
     boolean verboseFailures = buildRequest.getOptions(ExecutionOptions.class).verboseFailures;
 
     localSpawnStrategy = new LocalSpawnStrategy(
@@ -78,12 +77,12 @@ public class StandaloneContextProvider implements ActionContextProvider {
     this.runtime = runtime;
 
     TestActionContext testStrategy = new StandaloneTestStrategy(buildRequest,
-        runtime.getStartupOptionsProvider(), runtime.getBinTools(), runtime.getRunfilesPrefix());
+        runtime.getStartupOptionsProvider(), runtime.getBinTools());
     Builder<ActionContext> strategiesBuilder = ImmutableList.builder();
     // order of strategies passed to builder is significant - when there are many strategies that
     // could potentially be used and a spawnActionContext doesn't specify which one it wants, the
     // last one from strategies list will be used
-    
+
     // put sandboxed strategy first, as we don't want it by default
     if (OS.getCurrent() == OS.LINUX) {
       LinuxSandboxedStrategy sandboxedLinuxStrategy =
@@ -98,7 +97,7 @@ public class StandaloneContextProvider implements ActionContextProvider {
         new ExclusiveTestStrategy(testStrategy),
         new LocalGccStrategy(buildRequest),
         new FileWriteStrategy());
-  
+
 
     this.strategies = strategiesBuilder.build();
   }

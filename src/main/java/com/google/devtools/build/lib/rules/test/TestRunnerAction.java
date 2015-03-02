@@ -79,6 +79,7 @@ public class TestRunnerAction extends AbstractAction implements NotifyOnActionCa
   private final TestTargetExecutionSettings executionSettings;
   private final int shardNum;
   private final int runNumber;
+  private final String workspaceName;
 
   // Mutable state related to test caching.
   private boolean checkedCaching = false;
@@ -112,7 +113,8 @@ public class TestRunnerAction extends AbstractAction implements NotifyOnActionCa
       TestTargetExecutionSettings executionSettings,
       int shardNum,
       int runNumber,
-      BuildConfiguration configuration) {
+      BuildConfiguration configuration,
+      String workspaceName) {
     super(owner, inputs, list(testLog, cacheStatus, coverageArtifact, microCoverageArtifact));
     this.configuration = Preconditions.checkNotNull(configuration);
     this.testLog = testLog;
@@ -147,6 +149,7 @@ public class TestRunnerAction extends AbstractAction implements NotifyOnActionCa
     this.undeclaredOutputsManifestPath = undeclaredOutputsAnnotationsDir.getChild("MANIFEST");
     this.undeclaredOutputsAnnotationsPath = undeclaredOutputsAnnotationsDir.getChild("ANNOTATIONS");
     this.testInfrastructureFailure = baseDir.getChild(namePrefix + ".infrastructure_failure");
+    this.workspaceName = workspaceName;
   }
 
   public BuildConfiguration getConfiguration() {
@@ -165,7 +168,7 @@ public class TestRunnerAction extends AbstractAction implements NotifyOnActionCa
   public boolean showsOutputUnconditionally() {
     return true;
   }
-  
+
   @Override
   public int getInputCount() {
     return Iterables.size(getInputs());
@@ -482,6 +485,13 @@ public class TestRunnerAction extends AbstractAction implements NotifyOnActionCa
    */
   public int getRunNumber() {
     return runNumber;
+  }
+
+  /**
+   * @return the workspace name.
+   */
+  public String getRunfilesPrefix() {
+    return workspaceName;
   }
 
   @Override
