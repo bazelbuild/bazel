@@ -292,7 +292,7 @@ public class ParserTest extends AbstractParserTestCase {
     String expr = "f(1 % 2)";
     FuncallExpression call = (FuncallExpression) parseExpr(expr);
     Argument.Passed arg = call.getArguments().get(0);
-    assertTrue(arg.getLocation().getEndOffset() < call.getLocation().getEndOffset());
+    assertThat(arg.getLocation().getEndOffset()).isLessThan(call.getLocation().getEndOffset());
   }
 
   @Test
@@ -300,7 +300,7 @@ public class ParserTest extends AbstractParserTestCase {
     String expr = "f(1 + 2)";
     FuncallExpression call = (FuncallExpression) parseExpr(expr);
     Argument.Passed arg = call.getArguments().get(0);
-    assertTrue(arg.getLocation().getEndOffset() < call.getLocation().getEndOffset());
+    assertThat(arg.getLocation().getEndOffset()).isLessThan(call.getLocation().getEndOffset());
   }
 
   @Test

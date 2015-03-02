@@ -83,7 +83,7 @@ public class DictionaryLiteral extends Expression {
 
   @Override
   public String toString() {
-    StringBuffer sb = new StringBuffer();
+    StringBuilder sb = new StringBuilder();
     sb.append("{");
     String sep = "";
     for (DictionaryEntryLiteral e : entries) {
@@ -116,6 +116,6 @@ public class DictionaryLiteral extends Expression {
       }
       type = type.infer(nextType, "dict literal", entry.getLocation(), getLocation());
     }
-    return SkylarkType.of(Map.class, type.getType());
+    return SkylarkType.of(SkylarkType.MAP, type);
   }
 }

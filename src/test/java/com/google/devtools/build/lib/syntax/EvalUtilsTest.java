@@ -14,6 +14,7 @@
 
 package com.google.devtools.build.lib.syntax;
 
+import static com.google.common.truth.Truth.assertThat;
 import static org.junit.Assert.assertEquals;
 import static org.junit.Assert.assertFalse;
 import static org.junit.Assert.assertTrue;
@@ -137,7 +138,7 @@ public class EvalUtilsTest {
 
     // Note: formatString doesn't perform scalar x -> (x) conversion;
     // The %-operator is responsible for that.
-    assertEquals("", EvalUtils.formatString("", makeTuple()));
+    assertThat(EvalUtils.formatString("", makeTuple())).isEmpty();
     assertEquals("foo", EvalUtils.formatString("%s", makeTuple("foo")));
     assertEquals("3.14159", EvalUtils.formatString("%s", makeTuple(3.14159)));
     checkFormatPositionalFails("%s", makeTuple(1, 2, 3),
@@ -205,8 +206,8 @@ public class EvalUtilsTest {
     String prettyWithout = EvalUtils.prettyPrintValue(withoutStripPrefix);
     String prettyWith = EvalUtils.prettyPrintValue(withStripPrefix);
 
-    assertTrue(prettyWithout.contains("strip_prefix = \".\""));
-    assertTrue(prettyWith.contains("strip_prefix = \"orange\""));
+    assertThat(prettyWithout).contains("strip_prefix = \".\"");
+    assertThat(prettyWith).contains("strip_prefix = \"orange\"");
   }
 
   @Test

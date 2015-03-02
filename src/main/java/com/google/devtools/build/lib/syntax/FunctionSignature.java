@@ -191,7 +191,7 @@ public abstract class FunctionSignature implements Serializable {
           || defaultValues.size() == shape.getOptionals());
       Preconditions.checkArgument(types == null
           || types.size() == shape.getArguments());
-      return new AutoValueFunctionSignatureWithValues<V, T>(signature, defaultValues, types);
+      return new AutoValueFunctionSignatureWithValues<>(signature, defaultValues, types);
     }
 
     public static <V, T> WithValues<V, T> create(FunctionSignature signature,
@@ -500,7 +500,12 @@ public abstract class FunctionSignature implements Serializable {
 
   // Minimal boilerplate to get things running in absence of AutoValue
   // TODO(bazel-team): actually migrate to AutoValue when possible,
-  // which importantly for future plans will define .equals() and .hashValue() (also toString())
+  // which importantly for future plans will define .equals() and .hashCode() (also toString()).
+  // Then, intern Shape, name list, FunctionSignature and WithDefaults, so that
+  // comparison can be done with == and more memory and caches can be shared between functions.
+  // Later, this can lead to further optimizations of function call by using tables matching
+  // a FunctionSignature and a CallerSignature. (struct access can be similarly sped up
+  // by interning the list of names.)
   private static class AutoValueFunctionSignatureShape extends Shape {
     private int mandatoryPositionals;
     private int optionalPositionals;

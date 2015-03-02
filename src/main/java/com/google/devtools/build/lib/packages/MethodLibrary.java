@@ -21,6 +21,7 @@ import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.Iterables;
 import com.google.common.collect.Lists;
+import com.google.common.collect.Ordering;
 import com.google.devtools.build.lib.collect.nestedset.Order;
 import com.google.devtools.build.lib.events.Event;
 import com.google.devtools.build.lib.events.Location;
@@ -46,10 +47,8 @@ import com.google.devtools.build.lib.syntax.SkylarkNestedSet;
 import com.google.devtools.build.lib.syntax.SkylarkType;
 import com.google.devtools.build.lib.syntax.SkylarkType.SkylarkFunctionType;
 
-import java.util.ArrayList;
 import java.util.Collection;
 import java.util.HashMap;
-import java.util.Iterator;
 import java.util.List;
 import java.util.Map;
 import java.util.Set;
@@ -113,18 +112,10 @@ public class MethodLibrary {
       ImmutableList.of("this", "elements"), 2, false) {
     @Override
     public Object call(Object[] args, FuncallExpression ast) throws ConversionException {
-      String thiz = Type.STRING.convert(args[0], "'join' operand");
+      String thisString = Type.STRING.convert(args[0], "'join' operand");
       List<?> seq = Type.OBJECT_LIST.convert(args[1], "'join' argument");
-      StringBuilder sb = new StringBuilder();
-      for (Iterator<?> i = seq.iterator(); i.hasNext();) {
-        sb.append(i.next().toString());
-        if (i.hasNext()) {
-          sb.append(thiz);
-        }
-      }
-      return sb.toString();
-    }
-  };
+      return Joiner.on(thisString).join(seq);
+    }};
 
   @SkylarkBuiltin(name = "lower", objectType = StringModule.class, returnType = String.class,
       doc = "Returns the lower case version of this string.")
@@ -295,7 +286,7 @@ public class MethodLibrary {
             end = Type.INTEGER.convert(args[3], "'count' argument");
           }
           String str = getPythonSubstring(thiz, start, end);
-          if (sub.equals("")) {
+          if (sub.isEmpty()) {
             return str.length() + 1;
           }
           int count = 0;
@@ -591,7 +582,7 @@ public class MethodLibrary {
     @Override
     public Object call(List<Object> args, Map<String, Object> kwargs, FuncallExpression ast,
         Environment env) throws EvalException, InterruptedException {
-      if (args.size() > 0) {
+      if (!args.isEmpty()) {
         throw new EvalException(ast.getLocation(), "struct only supports keyword arguments");
       }
       return new SkylarkClassObject(kwargs, ast.getLocation());
@@ -836,7 +827,7 @@ public class MethodLibrary {
     @Override
     public Object call(Object[] args, FuncallExpression ast) throws EvalException {
       // There is no 'type' type in Skylark, so we return a string with the type name.
-      return EvalUtils.getDataTypeName(args[0]);
+      return EvalUtils.getDataTypeName(args[0], false);
     }
   };
 
@@ -888,12 +879,10 @@ public class MethodLibrary {
         count = 1;
       }
       if (kwargs.size() > count) {
-        kwargs = new HashMap<String, Object>(kwargs);
+        kwargs = new HashMap<>(kwargs);
         kwargs.remove("sep");
-        List<String> bad = new ArrayList<String>(kwargs.keySet());
-        java.util.Collections.sort(bad);
-        throw new EvalException(ast.getLocation(),
-            "unexpected keywords: '" + bad + "'");
+        List<String> bad = Ordering.natural().sortedCopy(kwargs.keySet());
+        throw new EvalException(ast.getLocation(), "unexpected keywords: '" + bad + "'");
       }
       String msg = Joiner.on(sep).join(Iterables.transform(args,
           new com.google.common.base.Function<Object, String>() {
@@ -962,11 +951,7 @@ public class MethodLibrary {
       .put(count, SkylarkType.INT)
       .build();
 
-  public static final List<Function> listFunctions = ImmutableList
-      .<Function>builder()
-      .add(append)
-      .add(extend)
-      .build();
+  public static final List<Function> listFunctions = ImmutableList.of(append, extend);
 
   public static final Map<Function, SkylarkType> dictFunctions = ImmutableMap
       .<Function, SkylarkType>builder()

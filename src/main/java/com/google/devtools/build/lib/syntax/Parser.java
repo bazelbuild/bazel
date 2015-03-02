@@ -148,9 +148,9 @@ class Parser {
     this.eventHandler = eventHandler;
     this.parsePython = parsePython;
     this.tokens = lexer.getTokens().iterator();
-    this.comments = new ArrayList<Comment>();
+    this.comments = new ArrayList<>();
     this.locator = locator;
-    this.includedFiles = new ArrayList<Path>();
+    this.includedFiles = new ArrayList<>();
     this.includedFiles.add(lexer.getFilename());
     nextToken();
   }
@@ -762,8 +762,7 @@ class Parser {
         "null element in list in AST at %s:%s", token.left, token.right);
     switch (token.kind) {
       case RBRACKET: { // singleton List
-        ListLiteral literal =
-            ListLiteral.makeList(Collections.singletonList(expression));
+        ListLiteral literal = ListLiteral.makeList(Collections.singletonList(expression));
         setLocation(literal, start, token.right);
         nextToken();
         return literal;

@@ -23,6 +23,7 @@ import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.Iterables;
 import com.google.common.collect.Lists;
+import com.google.common.collect.Ordering;
 import com.google.devtools.build.lib.packages.PackageFactory;
 import com.google.devtools.build.lib.testutil.TestRuleClassProvider;
 
@@ -253,8 +254,7 @@ public class EvaluationTest extends AbstractEvaluationTestCase {
                            final Map<String, Object> kwargs,
                            FuncallExpression ast,
                            Environment env) {
-          ArrayList<String> keys = new ArrayList<>(kwargs.keySet());
-          Collections.sort(keys);
+          List<String> keys = Ordering.natural().sortedCopy(new ArrayList<String>(kwargs.keySet()));
           if ((Integer) args.get(0) == 0) {
             return keys;
           } else {

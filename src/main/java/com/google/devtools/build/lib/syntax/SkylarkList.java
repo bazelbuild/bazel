@@ -312,7 +312,7 @@ public abstract class SkylarkList implements Iterable<Object> {
   /**
    * @param elements the contents of the list
    * @param contentType a Java class for the contents of the list
-   * @return a Skylark list containing elements without a type check.
+   * @return a Skylark list containing elements without a type check
    * Only use if you already know for sure all elements are of the specified type.
    */
   @SuppressWarnings("unchecked")
@@ -323,11 +323,12 @@ public abstract class SkylarkList implements Iterable<Object> {
   /**
    * @param elements the contents of the list
    * @param contentType a SkylarkType for the contents of the list
-   * @return a Skylark list without a type check and without creating an immutable copy.
+   * @return a Skylark list without a type check and without creating an immutable copy
    * Therefore the iterable containing elements must be immutable
    * (which is not checked here so callers must be extra careful).
    * This way it's possibly to create a SkylarkList without requesting the original iterator.
    * This can be useful for nested set - list conversions.
+   * Only use if you already know for sure all elements are of the specified type.
    */
   @SuppressWarnings("unchecked")
   public static SkylarkList lazyList(Iterable<?> elements, SkylarkType contentType) {
@@ -337,11 +338,12 @@ public abstract class SkylarkList implements Iterable<Object> {
   /**
    * @param elements the contents of the list
    * @param contentType a Java class for the contents of the list
-   * @return a Skylark list without a type check and without creating an immutable copy.
+   * @return a Skylark list without a type check and without creating an immutable copy
    * Therefore the iterable containing elements must be immutable
    * (which is not checked here so callers must be extra careful).
    * This way it's possibly to create a SkylarkList without requesting the original iterator.
    * This can be useful for nested set - list conversions.
+   * Only use if you already know for sure all elements are of the specified type.
    */
   @SuppressWarnings("unchecked")
   public static SkylarkList lazyList(Iterable<?> elements, Class<?> contentType) {

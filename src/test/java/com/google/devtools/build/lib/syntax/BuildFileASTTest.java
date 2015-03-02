@@ -13,6 +13,7 @@
 // limitations under the License.
 package com.google.devtools.build.lib.syntax;
 
+import static com.google.common.truth.Truth.assertThat;
 import static org.junit.Assert.assertEquals;
 import static org.junit.Assert.assertFalse;
 import static org.junit.Assert.assertNull;
@@ -107,7 +108,7 @@ public class BuildFileASTTest {
                                                + "bar()\n"
                                                + "something = baz()\n"
                                                + "bar()");
-    assertEquals(4, buildFileAST.getStatements().size());
+    assertThat(buildFileAST.getStatements()).hasSize(4);
   }
 
   @Test
@@ -205,7 +206,7 @@ public class BuildFileASTTest {
                                                             locator, false);
 
     assertFalse(buildFileAST.containsErrors());
-    assertEquals(5, buildFileAST.getStatements().size());
+    assertThat(buildFileAST.getStatements()).hasSize(5);
   }
 
   @Test
@@ -220,7 +221,7 @@ public class BuildFileASTTest {
                                                             locator, false);
 
     assertFalse(buildFileAST.containsErrors());
-    assertEquals(3, buildFileAST.getStatements().size());
+    assertThat(buildFileAST.getStatements()).hasSize(3);
 
     Environment env = new Environment();
     Reporter reporter = new Reporter();
@@ -244,7 +245,7 @@ public class BuildFileASTTest {
 
     BuildFileAST buildFileAST = parseBuildFile(fileA);
     assertFalse(buildFileAST.containsErrors());
-    assertEquals(8, buildFileAST.getStatements().size());
+    assertThat(buildFileAST.getStatements()).hasSize(8);
 
     Environment env = new Environment();
     Reporter reporter = new Reporter();
@@ -257,7 +258,7 @@ public class BuildFileASTTest {
   public void testFailInclude() throws Exception {
     events.setFailFast(false);
     BuildFileAST buildFileAST = parseBuildFile("include(\"//nonexistent\")");
-    assertEquals(1, buildFileAST.getStatements().size());
+    assertThat(buildFileAST.getStatements()).hasSize(1);
     events.assertContainsEvent("Include of '//nonexistent' failed");
   }
 
@@ -278,7 +279,7 @@ public class BuildFileASTTest {
         "include(\"//nonexistent:foo\")\n");
     BuildFileAST buildFileAST = BuildFileAST.parseBuildFile(buildFile, events.reporter(),
                                                             emptyLocator, false);
-    assertEquals(1, buildFileAST.getStatements().size());
+    assertThat(buildFileAST.getStatements()).hasSize(1);
     events.assertContainsEvent("Package 'nonexistent' not found");
   }
 
@@ -286,7 +287,7 @@ public class BuildFileASTTest {
   public void testInvalidInclude() throws Exception {
     events.setFailFast(false);
     BuildFileAST buildFileAST = parseBuildFile("include(2)");
-    assertEquals(0, buildFileAST.getStatements().size());
+    assertThat(buildFileAST.getStatements()).isEmpty();
     events.assertContainsEvent("syntax error at '2'");
   }
 
@@ -319,6 +320,6 @@ public class BuildFileASTTest {
   public void testNonExistentIncludeReported() throws Exception {
     events.setFailFast(false);
     BuildFileAST buildFileAST = parseBuildFile("include('//foo:bar')");
-    assertEquals(1, buildFileAST.getStatements().size());
+    assertThat(buildFileAST.getStatements()).hasSize(1);
   }
 }

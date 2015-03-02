@@ -27,6 +27,7 @@ import com.google.devtools.build.lib.syntax.FilesetEntry;
 import com.google.devtools.build.lib.syntax.GlobList;
 import com.google.devtools.build.lib.syntax.Label;
 import com.google.devtools.build.lib.syntax.SelectorValue;
+import com.google.devtools.build.lib.syntax.SkylarkList;
 import com.google.devtools.build.lib.util.LoggingUtil;
 import com.google.devtools.build.lib.util.StringCanonicalizer;
 
@@ -444,9 +445,7 @@ public abstract class Type<T> {
         throw new IllegalStateException(msg);
       }
       String tag = (Boolean) value ? name : "no" + name;
-      return new ImmutableSet.Builder<String>()
-          .add(tag)
-          .build();
+      return ImmutableSet.of(tag);
     }
   }
 
@@ -540,9 +539,7 @@ public abstract class Type<T> {
         String msg = "Illegal tag conversion from null on Attribute " + name + ".";
         throw new IllegalStateException(msg);
       }
-      return new ImmutableSet.Builder<String>()
-          .add((String) value)
-          .build();
+      return ImmutableSet.of((String) value);
     }
   }
 
@@ -888,7 +885,7 @@ public abstract class Type<T> {
 
     /**
      * A list is representable as a tag set as the contents of itself expressed
-     * as Strings. So a List<String> is effectively converted to a Set<String>.
+     * as Strings. So a {@code List<String>} is effectively converted to a {@code Set<String>}.
      */
     @Override
     public Set<String> toTagSet(Object items, String name) {
@@ -919,7 +916,9 @@ public abstract class Type<T> {
     @SuppressWarnings("unchecked")
     public List<Object> convert(Object x, String what, Label currentRule)
         throws ConversionException {
-      if (x instanceof List) {
+      if (x instanceof SkylarkList) {
+        return ((SkylarkList) x).toList();
+      } else if (x instanceof List) {
         return (List<Object>) x;
       } else if (x instanceof Iterable) {
         return ImmutableList.copyOf((Iterable<?>) x);
@@ -945,7 +944,7 @@ public abstract class Type<T> {
 
   /**
    * Special Type that represents a selector expression for configurable attributes. Holds a
-   * mapping of <Label, T> entries, where keys are configurability patterns and values are
+   * mapping of {@code <Label, T>} entries, where keys are configurability patterns and values are
    * objects of the attribute's native Type.
    */
   public static final class Selector<T> {

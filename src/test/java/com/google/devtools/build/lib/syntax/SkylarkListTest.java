@@ -13,8 +13,8 @@
 // limitations under the License.
 package com.google.devtools.build.lib.syntax;
 
+import static com.google.common.truth.Truth.assertThat;
 import static org.junit.Assert.assertEquals;
-import static org.junit.Assert.assertTrue;
 import static org.junit.Assert.fail;
 
 import com.google.common.base.Joiner;
@@ -79,7 +79,7 @@ public class SkylarkListTest extends AbstractEvaluationTestCase {
   @Test
   public void testLazyListConcat() throws Exception {
     exec("v = [1, 2] + lazy");
-    assertTrue(env.lookup("v") instanceof SkylarkList);
+    assertThat(env.lookup("v")).isInstanceOf(SkylarkList.class);
   }
 
   @Test
