@@ -9,7 +9,10 @@ java_library(
     name = "bazel-core",
     srcs = glob(
         ["**/*.java"],
-        exclude = ["com/google/devtools/build/lib/shell/*.java"],
+        exclude = [
+            "com/google/devtools/build/lib/shell/*.java",
+            "com/google/devtools/build/lib/rules/java/JavaToolchainDataParser.java",
+        ],
     ),
     resources = glob([
         "**/*.txt",
@@ -43,6 +46,28 @@ java_library(
         "//third_party:joda-time",
         "//third_party:jsr305",
         "//third_party:maven_model",
+        "//third_party:protobuf",
+    ],
+)
+
+java_library(
+    name = "java-toolchain-parser",
+    testonly = 1,
+    srcs = glob([
+        # JavaToolchain parser
+        "com/google/devtools/build/lib/rules/java/JavaToolchainData.java",
+        "com/google/devtools/build/lib/rules/java/JavaToolchainDataParser.java",
+        # Concurrent stuff
+        "com/google/devtools/build/lib/concurrent/*.java",
+        "com/google/devtools/build/lib/Constants.java",
+    ]),
+    visibility = [
+        "//src/test:__subpackages__",
+    ],
+    deps = [
+        "//src/main/protobuf:proto_build",
+        "//third_party:guava",
+        "//third_party:jsr305",
         "//third_party:protobuf",
     ],
 )
