@@ -330,16 +330,13 @@ class Parser {
   }
 
   // Convenience wrapper around ASTNode.setLocation that returns the node.
-  private <NODE extends ASTNode> NODE
-      setLocation(NODE node, int startOffset, int endOffset) {
-    node.setLocation(lexer.createLocation(startOffset, endOffset));
-    return node;
+  private <NODE extends ASTNode> NODE setLocation(NODE node, Location location) {
+    return ASTNode.<NODE>setLocation(location, node);
   }
 
   // Another convenience wrapper method around ASTNode.setLocation
-  private <NODE extends ASTNode> NODE setLocation(NODE node, Location location) {
-    node.setLocation(location);
-    return node;
+  private <NODE extends ASTNode> NODE setLocation(NODE node, int startOffset, int endOffset) {
+    return setLocation(node, lexer.createLocation(startOffset, endOffset));
   }
 
   // Convenience method that uses end offset from the last node.

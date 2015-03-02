@@ -37,6 +37,12 @@ public abstract class ASTNode implements Serializable {
     return location;
   }
 
+  /** @return the same node with its location set, in a slightly more fluent style */
+  public static <NODE extends ASTNode> NODE setLocation(Location location, NODE node) {
+    node.setLocation(location);
+    return node;
+  }
+
   /**
    * Print the syntax node in a form useful for debugging.  The output is not
    * precisely specified, and should not be used by pretty-printing routines.
