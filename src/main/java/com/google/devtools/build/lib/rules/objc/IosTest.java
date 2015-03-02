@@ -22,7 +22,6 @@ import com.google.devtools.build.lib.analysis.ConfiguredTarget;
 import com.google.devtools.build.lib.analysis.RuleConfiguredTarget;
 import com.google.devtools.build.lib.analysis.RuleConfiguredTarget.Mode;
 import com.google.devtools.build.lib.analysis.RuleContext;
-import com.google.devtools.build.lib.analysis.actions.SymlinkAction;
 import com.google.devtools.build.lib.collect.nestedset.NestedSet;
 import com.google.devtools.build.lib.collect.nestedset.NestedSetBuilder;
 import com.google.devtools.build.lib.packages.Type;
@@ -102,13 +101,6 @@ public abstract class IosTest implements RuleConfiguredTargetFactory {
           "-bundle_loader", bundleLoader.getExecPathString());
 
       extraLinkInputs = new ExtraLinkInputs(bundleLoader);
-
-      ruleContext.registerAction(
-          new SymlinkAction(
-              ruleContext.getActionOwner(),
-              /*input=*/xcTestAppProvider(ruleContext).getIpa(),
-              /*output=*/ruleContext.getImplicitOutputArtifact(ObjcRuleClasses.XCTEST_APP_IPA),
-              "Symlink xctest_app .ipa"));
     }
 
     if (ruleContext.getConfiguration().isCodeCoverageEnabled()) {

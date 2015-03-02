@@ -38,8 +38,6 @@ import com.google.devtools.build.lib.analysis.RuleDefinitionEnvironment;
 import com.google.devtools.build.lib.collect.nestedset.NestedSetBuilder;
 import com.google.devtools.build.lib.packages.Attribute;
 import com.google.devtools.build.lib.packages.AttributeMap;
-import com.google.devtools.build.lib.packages.ImplicitOutputsFunction;
-import com.google.devtools.build.lib.packages.ImplicitOutputsFunction.SafeImplicitOutputsFunction;
 import com.google.devtools.build.lib.packages.RuleClass;
 import com.google.devtools.build.lib.packages.RuleClass.Builder;
 import com.google.devtools.build.lib.packages.RuleClass.Builder.RuleClassType;
@@ -628,20 +626,6 @@ public class ObjcRuleClasses {
           .build();
     }
   }
-
-  /**
-   * Output function for the .ipa containing the {@code xctest_app}, also known as the test rig.
-   * This is useful for external-to-Bazel scripts that require the test rig {@code .ipa}.
-   */
-  public static final SafeImplicitOutputsFunction XCTEST_APP_IPA =
-      new SafeImplicitOutputsFunction() {
-    @Override
-    public Iterable<String> getImplicitOutputs(AttributeMap map) {
-      return map.get(IosTest.IS_XCTEST, Type.BOOLEAN)
-          ? ImplicitOutputsFunction.substitutePlaceholderIntoTemplate("%{name}_xctest_app.ipa", map)
-          : ImmutableList.<String>of();
-    }
-  };
 
   /**
    * Base rule definition for iOS test rules.

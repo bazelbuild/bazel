@@ -46,13 +46,12 @@ public final class BazelIosTestRule implements RuleDefinition {
         <ul>
           <li><code><var>name</var>.ipa</code>: the test bundle as an
               <code>.ipa</code> file
-          <li><code><var>name</var>.xcodeproj/project.pbxproj</code>: An Xcode project file which
-              can be used to develop or build on a Mac
-          <li><code><var>name</var>_xctest_app.ipa</code>: ipa for the {@code xctest_app} binary
+          <li><code><var>name</var>.xcodeproj/project.pbxproj: An Xcode project file which can be
+              used to develop or build on a Mac.</li>
         </ul>
         <!-- #END_BLAZE_RULE.IMPLICIT_OUTPUTS -->*/
-        .setImplicitOutputsFunction(ImplicitOutputsFunction.fromFunctions(
-            ReleaseBundlingSupport.IPA, XcodeSupport.PBXPROJ, ObjcRuleClasses.XCTEST_APP_IPA))
+        .setImplicitOutputsFunction(
+            ImplicitOutputsFunction.fromFunctions(ReleaseBundlingSupport.IPA, XcodeSupport.PBXPROJ))
         .add(attr(BazelIosTest.IOS_TEST_ON_BAZEL_ATTR, LABEL)
             .value(env.getLabel("//tools/objc:ios_test_on_bazel")).exec())
         .build();
