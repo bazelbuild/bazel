@@ -3,6 +3,7 @@
 <html>
 <head>
   <meta charset="utf-8" />
+
   <title>Bazel Concepts and Terminology</title>
 
   <style type="text/css" id="internalStyle">
@@ -127,22 +128,21 @@
     #maintainer { text-align: right; }
   </style>
 </head>
+<body>
 
-<body onload="GV_renderAllGraphs(); prettyPrint(); processSourcerLinks();">
-<h1>Bazel Concepts and Terminology</h1>
-
+<h1>Bazel: Concepts and Terminology</h1>
 <p>
   This document provides an overview of concepts and terminology used
   in Bazel.
 </p>
-
 <h2>Related Documentation</h2>
 <ul class="toc">
   <li><a href="write_build_file.html">Getting Started with BUILD files</a></li>
-  <li><a href="build-ref.html">Bazel Concept Reference</a></li>
+  <li><a href="build-ref.html">BUILD Concept Reference</a></li>
   <li><a href="build-encyclopedia.html">Build Encyclopedia</a></li>
-  <li><a href="bazel-user-manual.html">User Manual</a></li>
+  <li><a href="bazel-user-manual.html">Bazel User Manual</a></li>
   <li><a href="bazel-query-v2.html">Bazel Query Reference</a></li>
+
 </ul>
 
 <h2>Table of Contents</h2>
@@ -172,38 +172,26 @@
     </ul>
   </li>
 </ul>
-
-<div class="nav-2-levels" id="nav"></div>
-
 <h2 id='intro'>Introduction</h2>
 
 <p>Bazel can build and test software from source
   code stored in any source tree that is organized as described
   in this document. This source tree descends from a single top-level
   directory and contains a nested hierarchy of packages, each of which contain
-  source files and metadata that specifies what software targets -- for
-  example, compiled executables or libraries -- can be built from the source.
-
-<h2 id="packages_targets"">Packages and Targets</h2>
-
-<h3 id="packages">Packages</h3>
-
+  source files and metadata that specifies what software targets, for
+  example, compiled executables or libraries, can be built from the source.
+</p>
 <p>
   The primary unit of code organization in the source tree is
   the <i>package</i>.  A package is collection of related files and a
   specification of the dependencies among them.
 </p>
-
 <p>
   A package is defined as a directory containing a file
   named <code>BUILD</code>, residing beneath the top-level directory in the
   source tree.  A package includes all files in its directory, plus all
   subdirectories beneath it, except those which themselves contain a BUILD
   file.
-</p>
-
-<p>
-  For example, in the following directory tree:
 </p>
 <pre>
 src/my/app/BUILD
@@ -218,8 +206,7 @@ src/my/app/tests/test.cc
   <code>my/app/data</code> is not a package, but a directory belonging to package
   <code>my/app</code>.
 </p>
-
-<h3 id="targets">Targets</h3>
+<h3>Targets</h3>
 
 <p>
   A package is a container.  The elements of a package are called
@@ -230,15 +217,107 @@ src/my/app/tests/test.cc
 </p>
 
 <div style='margin:auto; text-align: center'>
-<img src="images/package_targets.png" />
+<!-- Title: G1 Pages: 1 -->
+<svg width="550pt" height="188pt"
+ viewBox="0.00 0.00 550.00 188.00" xmlns="http://www.w3.org/2000/svg" xmlns:xlink="http://www.w3.org/1999/xlink">
+<g id="graph0" class="graph" transform="scale(1 1) rotate(0) translate(4 184)">
+<title>G1</title>
+<polygon style="fill:white;stroke:white;" points="-4,4 -4,-184 546,-184 546,4 -4,4"/>
+<!-- Target -->
+<g id="node1" class="node"><title>Target</title>
+<ellipse style="fill:none;stroke:black;" cx="349" cy="-162" rx="36.8951" ry="18"/>
+<text text-anchor="middle" x="349" y="-157.4" style="font-family:arial;font-size:14.00;">Target</text>
+</g>
+<!-- Rule -->
+<g id="node3" class="node"><title>Rule</title>
+<ellipse style="fill:none;stroke:black;" cx="216" cy="-90" rx="30.1869" ry="18"/>
+<text text-anchor="middle" x="216" y="-85.4" style="font-family:arial;font-size:14.00;">Rule</text>
+</g>
+<!-- Target&#45;&gt;Rule -->
+<g id="edge2" class="edge"><title>Target&#45;&gt;Rule</title>
+<path style="fill:none;stroke:black;" d="M324,-148C302,-137 271,-120 248,-107"/>
+<polygon style="fill:black;stroke:black;" points="249.441,-103.797 239,-102 246.042,-109.916 249.441,-103.797"/>
+</g>
+<!-- File -->
+<g id="node11" class="node"><title>File</title>
+<ellipse style="fill:none;stroke:black;" cx="349" cy="-90" rx="27" ry="18"/>
+<text text-anchor="middle" x="349" y="-85.4" style="font-family:arial;font-size:14.00;">File</text>
+</g>
+<!-- Target&#45;&gt;File -->
+<g id="edge10" class="edge"><title>Target&#45;&gt;File</title>
+<path style="fill:none;stroke:black;" d="M349,-144C349,-136 349,-127 349,-118"/>
+<polygon style="fill:black;stroke:black;" points="352.5,-118 349,-108 345.5,-118 352.5,-118"/>
+</g>
+<!-- Package group -->
+<g id="node17" class="node"><title>Package group</title>
+<ellipse style="fill:none;stroke:black;" cx="468" cy="-90" rx="73.7902" ry="18"/>
+<text text-anchor="middle" x="468" y="-85.4" style="font-family:arial;font-size:14.00;">Package group</text>
+</g>
+<!-- Target&#45;&gt;Package group -->
+<g id="edge16" class="edge"><title>Target&#45;&gt;Package group</title>
+<path style="fill:none;stroke:black;" d="M372,-148C389,-138 412,-124 431,-112"/>
+<polygon style="fill:black;stroke:black;" points="432.958,-114.916 440,-107 429.559,-108.797 432.958,-114.916"/>
+</g>
+<!-- cc_library -->
+<g id="node5" class="node"><title>cc_library</title>
+<ellipse style="fill:none;stroke:black;" cx="51" cy="-18" rx="50.9823" ry="18"/>
+<text text-anchor="middle" x="51" y="-13.4" style="font-family:arial;font-size:14.00;">cc_library</text>
+</g>
+<!-- Rule&#45;&gt;cc_library -->
+<g id="edge4" class="edge"><title>Rule&#45;&gt;cc_library</title>
+<path style="fill:none;stroke:black;" d="M192,-79C166,-68 124,-50 92,-36"/>
+<polygon style="fill:black;stroke:black;" points="93.5596,-32.8631 83,-32 90.7166,-39.2598 93.5596,-32.8631"/>
+</g>
+<!-- java_test -->
+<g id="node7" class="node"><title>java_test</title>
+<ellipse style="fill:none;stroke:black;" cx="169" cy="-18" rx="48.9699" ry="18"/>
+<text text-anchor="middle" x="169" y="-13.4" style="font-family:arial;font-size:14.00;">java_test</text>
+</g>
+<!-- Rule&#45;&gt;java_test -->
+<g id="edge6" class="edge"><title>Rule&#45;&gt;java_test</title>
+<path style="fill:none;stroke:black;" d="M205,-73C200,-65 193,-54 186,-44"/>
+<polygon style="fill:black;stroke:black;" points="188.8,-41.9 180,-36 183.2,-46.1 188.8,-41.9"/>
+</g>
+<!-- ... -->
+<g id="node9" class="node"><title>...</title>
+<ellipse style="fill:none;stroke:black;" cx="263" cy="-18" rx="27" ry="18"/>
+<text text-anchor="middle" x="263" y="-13.4" style="font-family:arial;font-size:14.00;">...</text>
+</g>
+<!-- Rule&#45;&gt;... -->
+<g id="edge8" class="edge"><title>Rule&#45;&gt;...</title>
+<path style="fill:none;stroke:black;" d="M227,-73C233,-65 240,-53 246,-44"/>
+<polygon style="fill:black;stroke:black;" points="249.365,-45.262 252,-35 243.541,-41.3791 249.365,-45.262"/>
+</g>
+<!-- Source -->
+<g id="node13" class="node"><title>Source</title>
+<ellipse style="fill:none;stroke:black;" cx="349" cy="-18" rx="40.92" ry="18"/>
+<text text-anchor="middle" x="349" y="-13.4" style="font-family:arial;font-size:14.00;">Source</text>
+</g>
+<!-- File&#45;&gt;Source -->
+<g id="edge12" class="edge"><title>File&#45;&gt;Source</title>
+<path style="fill:none;stroke:black;" d="M349,-72C349,-64 349,-55 349,-46"/>
+<polygon style="fill:black;stroke:black;" points="352.5,-46 349,-36 345.5,-46 352.5,-46"/>
+</g>
+<!-- Generated -->
+<g id="node15" class="node"><title>Generated</title>
+<ellipse style="fill:none;stroke:black;" cx="463" cy="-18" rx="55.0073" ry="18"/>
+<text text-anchor="middle" x="463" y="-13.4" style="font-family:arial;font-size:14.00;">Generated</text>
+</g>
+<!-- File&#45;&gt;Generated -->
+<g id="edge14" class="edge"><title>File&#45;&gt;Generated</title>
+<path style="fill:none;stroke:black;" d="M369,-77C385,-67 409,-52 429,-39"/>
+<polygon style="fill:black;stroke:black;" points="430.958,-41.916 438,-34 427.559,-35.7969 430.958,-41.916"/>
+</g>
+</g>
+</svg>
 <p><i>Hierarchy of targets.</i></p>
 </div>
 
 <p>
   Files are further divided into two kinds.
   <i>Source files</i> are usually written by the efforts of people,
-  and checked in to
-  the repository.  <i>Generated files</i>, sometimes called derived files,
+  and checked in to the repository.
+  <i>Generated files</i>, sometimes called derived files,
   are not checked in, but are generated by the build tool from source
   files according to specific rules.
 </p>
@@ -304,13 +383,18 @@ src/my/app/tests/test.cc
 </p>
 
 <pre>
-    //my/app/main:app
+    //my/app/main:app_binary
 </pre>
 
 <p>
-  Each label has two parts, a package name (my/app/main) and a
-  target name (app).  Every label uniquely identifies a target.
-  Labels sometimes appear in other forms; when
+
+  (Don't let the similarity with Piper filespecs confuse you; both
+  start with a leading <code>//</code> but they are quite different
+  things.)
+
+  Each label has two parts, a package name (<code>my/app/main</code>)
+  and a target name (<code>app_binary</code>).  Every label uniquely
+  identifies a target.  Labels sometimes appear in other forms; when
   the colon is omitted, the target name is assumed to be the same as
   the last component of the package name, so these two labels are
   equivalent:
@@ -335,8 +419,8 @@ src/my/app/tests/test.cc
 <p>
   Within a BUILD file, the package-name part of label may be omitted,
   and optionally the colon too.  So within the BUILD file for package
-  my/app (i.e. <code>//my/app:BUILD</code>), the
-  following "relative" labels are all equivalent:
+  <code>my/app</code> (i.e. <code>//my/app:BUILD</code>),
+  the following "relative" labels are all equivalent:
 </p>
 
 <pre>
@@ -420,8 +504,9 @@ src/my/app/tests/test.cc
   of a file is its pathname relative to the directory containing
   the BUILD file.
   Target names must be composed entirely of
-  characters drawn from the set a-z, A-Z, 0-9, and the punctuation
-  symbols <code>_/.+-=,@~</code>.
+  characters drawn from the set <code>a</code>–<code>z</code>,
+  <code>A</code>–<code>Z</code>, <code>0</code>–<code>9</code>,
+  and the punctuation symbols <code>_/.+-=,@~</code>.
   Do not use <code>..</code> to refer to files in other packages; use
   <code>//<var>packagename</var>:<var>filename</var></code> instead.
   Filenames must be relative pathnames in normal form, which means
@@ -452,33 +537,23 @@ src/my/app/tests/test.cc
 <h4>Package names, <code>//<b>package-name</b>:...</code></h4>
 <p>
   The name of a package is the name of the directory containing its
+
   BUILD file, relative to the top-level directory of the source tree.
   For example: <code>my/app</code>.
-  Package names must start with a lower-case ASCII letter (a-z),
+  Package names must start with a lower-case ASCII letter
+  (<code>a</code>–<code>z</code>),
   and must be composed entirely of characters drawn from the set
-  a-z, 0-9, '_', and '/'.
+  <code>a</code>–<code>z</code>, <code>0</code>–<code>9</code>,
+  '<code>_</code>', and '<code>/</code>'.
 </p>
 
-<p>
-  For a language with a directory structure that is significant
-  to its module system, it is important to choose directory names
-  that are valid identifiers in the language.
-</p>
-
-<p>
-  The limited exceptions above were permitted because those trees
-  contain other programming languages with incompatible naming
-  requirements, or because the owners of that tree
-  committed to use only a particular programming language within that
-  tree.
-</p>
 
 <p>
   Package names may not contain the substring <code>//</code>, nor
   end with a slash.
 </p>
 
-<h3 id="rules">Rules</h3>
+<h3>Rules</h3>
 
 <p>
   A rule specifies the relationship between inputs and output, and the
@@ -493,9 +568,8 @@ src/my/app/tests/test.cc
   Every rule has a name, specified by the <code>name</code> attribute,
   of type string.  The name must be a syntactically valid target name,
   as specified <a href='#name'>above</a>.  In some cases, the name is
-  somewhat
-  arbitrary, and more interesting are the names of the files generated
-  by the rule; this is true of genrule rules in particular.  In other
+  somewhat arbitrary, and more interesting are the names of the files
+  generated by the rule; this is true of genrules.  In other
   cases, the name is significant: for <code>*_binary</code>
   and <code>*_test</code> rules, for example, the rule name determines
   the name of the executable produced by the build.
@@ -546,7 +620,89 @@ src/my/app/tests/test.cc
 </p>
 
 <div style="margin:auto; text-align:center">
-<img src="images/source_rules_generated_files.png" />
+<!-- Title: G1 Pages: 1 -->
+<svg width="154pt" height="244pt"
+ viewBox="0.00 0.00 154.00 244.00" xmlns="http://www.w3.org/2000/svg" xmlns:xlink="http://www.w3.org/1999/xlink">
+<g id="graph0" class="graph" transform="scale(1 1) rotate(0) translate(4 240)">
+<title>G1</title>
+<polygon style="fill:white;stroke:white;" points="-4,4 -4,-240 150,-240 150,4 -4,4"/>
+<!-- r1 -->
+<g id="node1" class="node"><title>r1</title>
+<polygon style="fill:none;stroke:black;" points="87,-172 33,-172 33,-136 87,-136 87,-172"/>
+<text text-anchor="middle" x="60" y="-151" style="font-family:arial;font-size:10.00;fill:#006000;">rule</text>
+</g>
+<!-- s1 -->
+<g id="node3" class="node"><title>s1</title>
+<ellipse style="fill:none;stroke:black;" cx="14" cy="-222" rx="14" ry="14"/>
+<text text-anchor="middle" x="14" y="-219" style="font-family:arial;font-size:10.00;fill:#006000;">in</text>
+</g>
+<!-- r1&#45;&gt;s1 -->
+<g id="edge2" class="edge"><title>r1&#45;&gt;s1</title>
+<path style="fill:none;stroke:black;" d="M48,-172C42,-181 34,-192 28,-202"/>
+<polygon style="fill:black;stroke:black;" points="25.2,-199.9 22,-210 30.8,-204.1 25.2,-199.9"/>
+</g>
+<!-- s2 -->
+<g id="node4" class="node"><title>s2</title>
+<ellipse style="fill:none;stroke:black;" cx="60" cy="-222" rx="14" ry="14"/>
+<text text-anchor="middle" x="60" y="-219" style="font-family:arial;font-size:10.00;fill:#006000;">in</text>
+</g>
+<!-- r1&#45;&gt;s2 -->
+<g id="edge4" class="edge"><title>r1&#45;&gt;s2</title>
+<path style="fill:none;stroke:black;" d="M60,-172C60,-180 60,-189 60,-198"/>
+<polygon style="fill:black;stroke:black;" points="56.5001,-198 60,-208 63.5001,-198 56.5001,-198"/>
+</g>
+<!-- s3 -->
+<g id="node5" class="node"><title>s3</title>
+<ellipse style="fill:none;stroke:black;" cx="106" cy="-222" rx="14" ry="14"/>
+<text text-anchor="middle" x="106" y="-219" style="font-family:arial;font-size:10.00;fill:#006000;">in</text>
+</g>
+<!-- r1&#45;&gt;s3 -->
+<g id="edge6" class="edge"><title>r1&#45;&gt;s3</title>
+<path style="fill:none;stroke:black;" d="M72,-172C78,-181 86,-192 92,-202"/>
+<polygon style="fill:black;stroke:black;" points="89.2,-204.1 98,-210 94.8,-199.9 89.2,-204.1"/>
+</g>
+<!-- r2 -->
+<g id="node2" class="node"><title>r2</title>
+<polygon style="fill:none;stroke:black;" points="146,-100 92,-100 92,-64 146,-64 146,-100"/>
+<text text-anchor="middle" x="119" y="-79" style="font-family:arial;font-size:10.00;fill:#006000;">rule</text>
+</g>
+<!-- r2&#45;&gt;r1 -->
+<g id="edge10" class="edge"><title>r2&#45;&gt;r1</title>
+<path style="fill:none;stroke:black;" d="M104,-100C97,-109 89,-119 81,-128"/>
+<polygon style="fill:black;stroke:black;" points="78.2,-125.9 75,-136 83.8,-130.1 78.2,-125.9"/>
+</g>
+<!-- s4 -->
+<g id="node6" class="node"><title>s4</title>
+<ellipse style="fill:none;stroke:black;" cx="119" cy="-154" rx="14" ry="14"/>
+<text text-anchor="middle" x="119" y="-151" style="font-family:arial;font-size:10.00;fill:#006000;">in</text>
+</g>
+<!-- r2&#45;&gt;s4 -->
+<g id="edge8" class="edge"><title>r2&#45;&gt;s4</title>
+<path style="fill:none;stroke:black;" d="M119,-100C119,-109 119,-120 119,-130"/>
+<polygon style="fill:black;stroke:black;" points="115.5,-130 119,-140 122.5,-130 115.5,-130"/>
+</g>
+<!-- o1 -->
+<g id="node7" class="node"><title>o1</title>
+<ellipse style="fill:none;stroke:black;" cx="60" cy="-82" rx="14" ry="14"/>
+<text text-anchor="middle" x="60" y="-79" style="font-family:arial;font-size:10.00;fill:#006000;">out</text>
+</g>
+<!-- o1&#45;&gt;r1 -->
+<g id="edge12" class="edge"><title>o1&#45;&gt;r1</title>
+<path style="fill:none;stroke:black;" d="M60,-96C60,-104 60,-116 60,-126"/>
+<polygon style="fill:black;stroke:black;" points="56.5001,-126 60,-136 63.5001,-126 56.5001,-126"/>
+</g>
+<!-- o2 -->
+<g id="node8" class="node"><title>o2</title>
+<ellipse style="fill:none;stroke:black;" cx="119" cy="-14" rx="14" ry="14"/>
+<text text-anchor="middle" x="119" y="-11" style="font-family:arial;font-size:10.00;fill:#006000;">out</text>
+</g>
+<!-- o2&#45;&gt;r2 -->
+<g id="edge14" class="edge"><title>o2&#45;&gt;r2</title>
+<path style="fill:none;stroke:black;" d="M119,-28C119,-35 119,-45 119,-54"/>
+<polygon style="fill:black;stroke:black;" points="115.5,-54 119,-64 122.5,-54 115.5,-54"/>
+</g>
+</g>
+</svg>
 <p><i>Source files, rules, and generated files.</i></p>
 </div>
 
@@ -728,7 +884,7 @@ list datatype:
   list.extend(sequence)
 </pre>
 
-<h3 id="declaring_build_rules">Declaring build rules</h3>
+<h3>Declaring build rules</h3>
 
 <p>
   The build language is an imperative language, so in general, order
@@ -765,8 +921,8 @@ list datatype:
   and <code>cc_test</code> are the build rules for C++ binaries,
   libraries, and tests, respectively.  Other languages use the same
   naming scheme, with a different prefix, e.g. <code>java_*</code> for
-  Java.  These functions are all documented in
-  the <a href="build-encyclopedia.html">Build Encyclopedia</a>.
+  Java. These functions are all documented in the
+  <a href="build-encyclopedia.html">Build Encyclopedia</a>.
 </p>
 
 <ul>
@@ -779,6 +935,7 @@ list datatype:
       (e.g.) <code>$(BINDIR)/my/program</code>. </p>
 
     <p>Such rules also create a runfiles directory
+
       containing all the files mentioned in a <code>data</code>
       attribute belonging to the rule, or any rule in its transitive
       closure of dependencies; this set of files is gathered together in
@@ -787,19 +944,23 @@ list datatype:
 
   <li><p>A <a href='build-encyclopedia.html#test'><code>*_test</code></a>
       rule is a specialization of a *_binary rule, used for automated
-      testing.  Tests are simply programs that return zero on success.</p>
+      testing.  Tests are simply programs that return zero on success.
+
+      </p>
 
     <p>
       Like binaries, tests also have runfiles trees, and the files
       beneath it are the only files that a test may legitimately open
       at runtime.  For example, a program <code>cc_test(name='x',
       data=['//foo:bar])</code> may open and
-      read <code>$TEST_SRCDIR/path/foo/bar</code> during execution.
+
+      read <code>$TEST_SRCDIR/workspace/foo/bar</code> during execution.
       (Each programming language has its own utility function for
       accessing the value of <code>$TEST_SRCDIR</code>, but they are all
       equivalent to using the environment variable directly.)
       Failure to observe the rule will cause the test to fail when it is
       executed on a remote testing host.
+
     </p>
   </li>
 
@@ -856,9 +1017,12 @@ list datatype:
   be a subgraph of the graph of declared dependencies <i>D</i>.  That
   is, every pair of directly-connected nodes <code>x --&gt; y</code>
   in <i>A</i> must also be directly connected in <i>D</i>.  We say
-  <i>D</i> is an <em>overapproximation</em> of <i>A</i>. It is important
-  that it not be too much of an overapproximation, though, since
-  redundant declared dependencies can make builds slower and
+  <i>D</i> is an <em>overapproximation</em> of <i>A</i>.
+</p>
+
+<p>
+  It is important that it not be too much of an overapproximation,
+  though, since redundant declared dependencies can make builds slower and
   binaries larger.
 </p>
 
@@ -876,6 +1040,7 @@ list datatype:
 </p>
 
 <p>
+
   You need not (and should not) attempt to list everything indirectly imported,
   even if it is "needed" by A at execution time.
 </p>
@@ -937,9 +1102,9 @@ function foo() {
 </pre>
 </div>
 <pre style="clear: both;">
-Declared dependency graph:  a --> b --> c
+Declared dependency graph:  a --&gt; b --&gt; c
 
-Actual dependency graph:    a --> b --> c
+Actual dependency graph:    a --&gt; b --&gt; c
 </pre>
 The declared dependencies overapproximate the actual dependencies.
 All is well.
@@ -962,9 +1127,9 @@ b.foo();
 </div>
 
 <pre style="clear: both;">
-Declared dependency graph:  a --> b --> c
+Declared dependency graph:  a --&gt; b --&gt; c
 
-Actual dependency graph:    a --> b -->_c
+Actual dependency graph:    a --&gt; b --&gt;_c
                              \_________/|
 </pre>
 The declared dependencies no longer overapproximate the actual
@@ -998,9 +1163,9 @@ function foo() {
 </pre>
 </div>
 <pre style="clear: both;">
-Declared dependency graph:  a --> b     c
+Declared dependency graph:  a --&gt; b     c
 
-Actual dependency graph:    a --> b    _c
+Actual dependency graph:    a --&gt; b    _c
                              \_________/|
 </pre>
 <p>
@@ -1013,7 +1178,7 @@ Actual dependency graph:    a --> b    _c
   2 was properly declared in the BUILD file.
 </div>
 
-<h3 id="types_of_dependencies">Types of dependencies</h3>
+<h3>Types of dependencies</h3>
 
 <p>
   Most build rules have three attributes for specifying different kinds
@@ -1067,19 +1232,20 @@ sh_test(
     name = "regtest",
     srcs = ["regtest.sh"],
     data = [
-        "//data/find:file1.txt",
-        "//data/find:file2.txt",
+        "//data:file1.txt",
+        "//data:file2.txt",
         ...
     ],
 )
 </pre>
 
 <p>These files are available using the relative path
-<code>"./path/to/data/file"</code>. In tests, it is also possible to refer to
-them using
-<code>file::JoinPath(FLAGS_test_srcdir, "/path/to/data/file")</code> or
-<code>${TEST_SRCDIR}/path/to/data/file</code>. (The exact syntax
+<code>"path/to/data/file"</code>. In tests, it is also possible to refer to
+them by joining the paths of the test's source directory and the workspace-relative
+path, e.g.  <code>${TEST_SRCDIR}/path/to/data/file</code>. (The exact syntax
 depends on your programming language, of course.)</p>
+
+<p>
 
    <h3 id="label_directory">Using Labels to Reference Directories</h3>
 
@@ -1139,7 +1305,7 @@ data = glob(["testdata/**"])  # use this instead
 
    <p>If you must use directory labels, keep in mind that you can't refer to the parent
       package with a relative "<code>../</code>" path; instead, use an absolute path like
-      "<code>//data/regression:insert_docs_unittest/.</code>".
+      "<code>//data/regression:unittest/.</code>".
    </p>
 
    <p>Note that directory labels are only valid for data dependencies.  If you try to use

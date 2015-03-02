@@ -18,7 +18,7 @@ ${SECTION_BINARY}
 <p>A <code>*_library()</code> rule compiles some sources into a library.
    In general, a <code><var>language</var>_library</code> rule works like
    the corresponding <code><var>language</var>_binary</code> rule, but
-   doesn't generate something executable.</p>
+   doesn't generate an executable.</p>
 
 ${SECTION_LIBRARY}
 
@@ -28,9 +28,8 @@ ${SECTION_LIBRARY}
 -->
 <h2 id="test">*_test</h2>
 
-<p>A <code>*_test</code> rule compiles a
-test. See <a href="#common-attributes-tests">Common attributes for
-tests</a> for an explanation of the common attributes.
+<p>A <code>*_test</code> rule compiles a test.
+
 
 ${SECTION_TEST}
 
@@ -48,19 +47,16 @@ ${SECTION_GENERATE}
 -->
 <h2 id="make_variables">"Make" Variables</h2>
 
+
 <p>
-  This section describes how to use or define a special class of string
-  variables that are called the "Make" environment. Bazel defines a set of
-  standard "Make" variables, and you can also define your own.
+  This section describes how to use a special class of built-in string variables
+  that are called the "Make" environment.
+
+  Defining custom "Make" variables is not supported.
 </p>
 
 <p>(The reason for the term "Make" is historical: the syntax and semantics of
-  these variables are somewhat similar to those of GNU Make, and in the
-  original implementation, were implemented by GNU Make.  The
-  scare-quotes are present because newer build tools support
-  "Make" variables without being implemented using GNU Make; therefore
-  it is important to read the specification below carefully to
-  understand the differences.)
+  these variables are somewhat similar to those of GNU Make.)
 </p>
 
 <p>To see the list of all common "Make" variables and their values,
@@ -73,8 +69,10 @@ ${SECTION_GENERATE}
 
 <h3 id='make-var-substitution'>"Make" variable substitution</h3>
 
-<p>Variables can be referenced in attributes and other variables using either
-  <code>$(FOO)</code> or <code>varref('FOO')</code>, where <code>FOO</code> is
+<p>Variables can be referenced in attributes
+
+  using <code>$(FOO)</code>
+  where <code>FOO</code> is
   the variable name. In the attribute documentation of rules, it is mentioned
   when an attribute is subject to "Make" variable substitution. For those
   attributes this means that any substrings of the form <code>$(X)</code>
@@ -102,26 +100,51 @@ ${SECTION_GENERATE}
 
 <p>Bazel defines a set of "Make" variables for you.</p>
 
-<p>The build system also provides a consistent PATH for genrules and tests which
-   need to execute shell commands. For genrules, you can indirect your commands
-   using the Make variables below.  For basic Unix utilities, prefer relying on
-   the PATH variable to guarantee correct results. For genrules involving
-   compiler and platform invocation, you must use the Make variable syntax.
-   The same basic command set is also available during tests. Simply rely on the
-   PATH.</p>
+<p>The build system also provides a consistent PATH environment variable for
+genrules and tests which need to execute shell commands. For genrules, you can
+indirect your commands using the "Make" variables below.  For basic Unix
+utilities, prefer relying on the PATH environment variable to guarantee correct
+results. For genrules involving compiler and platform invocation, you must use
+the "Make" variable syntax.  The same basic command set is also available during
+tests. Simply rely on the PATH.</p>
 
-<p>Bazel uses a tiny Unix distribution to guarantee consistent behavior of
-   build and test steps which execute shell code across all build execution
-   hosting environments but it does not enforce a pure chroot.  As such, do
-   <b>not</b> use hard coded paths, such as
-   <code>/usr/bin/foo</code>. Binaries referenced in hardcoded paths are not
-   hermetic and can lead to unexpected and non-reproducible build behavior.</p>
+<p><strong>Compiler and Platforms available to genrules</strong></p>
+These tools may not be in the PATH, therefore you must use "Make" variable syntax
+in your genrule's cmd attribute.
+<ul>
+  <li> <code>CC</code>: The C compiler command. It is strongly recommended to
+    always use <code>CC_FLAGS</code> when invoking the C compiler.</li>
+  <li> <code>JAVA</code>: The "java" command (a Java virtual machine). Note that
+    this can be a relative path. If you must change directories before invoking
+    <code>java</code>, you need to capture the working directory before changing
+    it.</li>
+  <li> <code>JAVAC</code>: The "javac" command (a Java compiler). Note that
+    this can be a relative path. Also, this may not be the same compiler that is
+    used to compile normal Java rules (this may change in the future).</li>
 
-<p><strong>Command Variables for genrules</strong></p>
+  <li> <code>STRIP</code>: The strip command from the same suite as the C
+    compiler.</li>
+  <li> <code>AR</code>: The "ar" command from crosstool. </li>
+  <li> <code>NM</code>: The "nm" command from crosstool. </li>
+  <li> <code>OBJCOPY</code>: The objcopy command from the same suite as the C
+    compiler. </li>
+  <li> <code>C_COMPILER</code>:
+    The C compiler frontend, e.g. "gcc". </li>
+</ul>
 
-<p>Note that in general, you should simply refer to many common utilities as
-bare commands that the $PATH variable will correctly resolve to hermetic
-versions for you.</p>
+<p><strong>Tool option Variables</strong></p>
+
+<ul><!--  keep alphabetically sorted  -->
+  <li><code>BINMODE</code>: "-dbg" or "-opt"
+
+    . (<i>When using Bazel's <code>-c fastbuild</code> option,
+      this variable has the value <code>-dbg</code>.</i>) </li>
+  <li><code>CC_FLAGS</code>: A minimal set of flags for the C compiler to be
+    used by genrules. In particular, it contains flags to select the correct
+    architecture if CC supports multiple architectures. </li>
+  <li><code>COMPILATION_MODE</code>: "fastbuild", "dbg", or "opt".</li>
+
+</ul>
 
 <p><strong>Path Variables</strong></p>
 
@@ -144,10 +167,18 @@ versions for you.</p>
 <p><strong>Architecture Variables</strong></p>
 
 <ul><!--  keep alphabetically sorted  -->
-  <li><code>ABI</code>: The C++ ABI version. </li>
-  <li><code>ANDROID_CPU</code>: The Android target architecture's cpu. </li>
-  <li><code>JAVA_CPU</code>: The Java target architecture's cpu. </li>
-  <li> <code>TARGET_CPU</code>: The target architecture's cpu. </li>
+  <li><code>ABI</code>:
+    The C++ ABI version; currently "gcc-3.4". </li>
+  <li><code>ABI_GLIBC_VERSION</code>:
+    The minimal version of glibc required for <code>ABI</code>.  For precompiled
+    third_party libraries, this usually represents the version of glibc
+    that was used to compile the library. </li>
+
+  <li><code>GLIBC_VERSION</code>: The version of glibc. </li>
+  <li><code>JAVA_CPU</code>: The Java target architecture's cpu,
+    "k8" by default. </li>
+  <li> <code>TARGET_CPU</code>: The target architecture's cpu,
+    e.g. "piii" or "k8". </li>
 </ul>
 
 <p id="predefined_variables.genrule.cmd">
@@ -177,132 +208,17 @@ versions for you.</p>
     <code>@D</code> (although <code>/tmp</code> will also be
     writable), and to remove any such generated temporary files.
     Especially, avoid writing to directories containing inputs -
-    they may be on read-only filesystems. </li>
+    they may be on read-only filesystems, and even if they aren't,
+    doing so would trash the source tree.</li>
 </ul>
 
-</ul>
+<h2 id="predefined-python-variables">Predefined Python Variables</h2>
 
-<h3 id="define_your_own_make_vars">Defining Your Own Variables</h3>
-
+<h3 id="packagename">PACKAGE_NAME</h3>
 <p>
-You may want to use Python-style variable assignments rather than "Make"
-variables, because they work in more use cases and are less surprising. "Make"
-variables will work in the <a href="#genrule.cmd">cmd</a> attribute of genrules
-and in the key of the <a href="#cc_library.abi_deps">abi_deps</a> attribute of
-a limited number of rules, but only in very few other places.
-
+  This is a string variable with the name
+  of the package being evaluated. The value is unaffected by subinclude.
 </p>
-<p>To define your "Make" own variables,  first call <a
-  href="#vardef">vardef()</a> to define your variable, then call <a
-  href="#varref">varref(name)</a> to retrieve it. varref can be embedded as part
-  of a larger string. Custom "Make" variables differ from ordinary "Python"
-  variables in the BUILD language in two important ways:
-</p>
-<ul>
-  <li>Only string values are supported,</li>
-  <li>The "Make" environment is parameterized over the build
-    platform, so that variables can be conditionally defined based on
-    the target architecture, ABI or compiler, and</li>
-  <li>The values of custom "Make" variables are <i>not available</i> during
-     BUILD-file evaluation. To work around this, you must call <a
-     href="#varref">varref()</a> to retrieve the value of a variable (unlike
-     predefined values, which can be retrieved using <code>$(FOO)</code>.
-     varref defers evaluation until after BUILD file evaluation.</li>
-</ul>
-
-<h4 id="vardef">vardef()</h4>
-
-<p><code>vardef(name, value, platform)</code></p>
-
-  <p>
-  Define a variable for use within this <code>BUILD</code> file only.
-  This variable can then be used by <a href="#varref">varref()</a>.
-  The value of the variable can be overridden on the command line by using the
-  <code class='flag'><a href='bazel-user-manual.html#flag--define'>--define</a></code>
-  flag.
-  </p>
-
-  <p id="vardef_args"><strong>Arguments</strong></p>
-<ul>
-  <li><code>name</code>: The name of the variable.
-    <i>(String; required)</i><br/>
-    Convention is to use names consisting of ALL CAPS.  This name must
-    be a unique identifier in this package.
-  </li>
-  <li><code>value</code>: The value to assign to this variable.
-    <i>(String; required)</i><br/>
-    The value may make use of variables you know are defined in the "Make"
-    environment.
-  </li>
-  <li><code>platform</code>: Conditionally define this variable for a given
-   platform.
-   <i>(String; optional)</i><br/>
-
-   <code>vardef</code> binds the <code>name</code> to <code>value</code> if we're
-   compiling for <code>platform</code>.
-  </li>
-</ul>
-
-<p id="vardef_notes"><strong>Notes</strong></p>
-<p>
-  Because references to "Make" variables are expanded <i>after</i>
-  BUILD file evaluation, the relative order of <code>vardef</code>
-  statements and rule declarations is unimportant; it is order of
-  <code>vardef</code> statements relative to each other, and hence the
-  state of the "Make" environment at the end of evaluation that
-  matters.
-</p>
-<p>
-  If there are multiple matching <code>vardef</code> definitions for
-  the same variable, the definition that wins is
-  the <strong>last</strong> matching definition
-  <strong>that specifies a platform</strong>, unless there are no matching
-  definitions that specify a platform, in which case the definition
-  that wins is the <strong>last</strong> definition <strong>without
-  a platform</strong>.
-</p>
-
-<!-- =================================================================
-                                   varref()
-     =================================================================
-  -->
-
-<h4 id="varref">varref</h4>
-
-<p><code>varref(name)</code></p>
-
-<p>
-<code>varref("FOO")</code> is equivalent of writing "$(FOO)". It is used to
-dereference variables defined with <a href="#vardef"><code>vardef</code></a>
-as well as <a href="#predefined_variables">predefined variables</a>.
-</p>
-
-<p>
-  In rule attributes that are subject to "Make" variable
-  substitution, the string produced by <code>varref(<i>name</i>)</code>
-  will expand to the value of variable <i>name</i>.
-</p>
-
-<p><code>varref(name)</code> may not be used in rule attributes that are
-not subject to "Make" variable substitution.</p>
-
-<p id="varref_args"><strong>Arguments</strong></p>
-<ul>
- <li><code>name</code>: The name of the variable to dereference.
- </li>
-</ul>
-
-<p id="varref_notes"><strong>Notes</strong></p>
-<ul>
- <li><code>varref</code> can access either local or global variables.
-  It prefers the local variable, if both a local and a global exist with
-  the same name.
- </li>
-</ul>
-
-<p id="varref_examples"><strong>Examples</strong></p>
-<p>See <a href="#vardef_examples">vardef()</a> examples.</p>
-
 
 <!-- ============================================
                       other
@@ -311,3 +227,4 @@ not subject to "Make" variable substitution.</p>
 <h2 id="misc">Other Stuff</h2>
 
 ${SECTION_OTHER}
+

@@ -1,3 +1,4 @@
+
 <!-- =================================================================
                               package()
      =================================================================
@@ -5,18 +6,24 @@
 
 <h3 id="package">package</h3>
 
-<p>This function declares metadata that applies to every subsequent rule in the
-package.</p>
+<p><code>package(
 
-<p>The <a href="build-ref.html#package">package</a>
-   function is used at most once within a build package (BUILD file).
-   It is recommended that the package function is called at the top of the
-   file, before any rule.</p>
+  default_deprecation,
+  default_obsolete,
+  default_testonly,
+  default_visibility,
+  features</code>
+</p>
+
+<p>This function declares metadata that applies to every subsequent rule in the
+package. It is used at most once within a package (BUILD file).</p>
+
+<p>It is recommended that the package function is called at the top of the
+file, before any rule.</p>
 
 <h4 id="package_args">Arguments</h4>
 
 <ul>
-
   <li id="package.default_visibility"><code>default_visibility</code>:
     The default visibility of the rules in this package.
     <i>(List of <a href="build-ref.html#labels">labels</a>; optional)</i><br/>
@@ -25,7 +32,10 @@ package.</p>
     attribute, unless otherwise specified in the <code>visibility</code>
     attribute of the rule. For detailed information about the syntax of this
     attribute, see the documentation of the <a href="#common.visibility">visibility</a>
-    attribute.
+    attribute. The package default visibility applies neither to the
+    <a href="#exports_files">exports_files</a> function nor to the
+    <a href="#cc_public_library">cc_public_library</a> rule (which are
+    public by default).
   </li>
 
   <li id="package.default_obsolete"><code>default_obsolete</code>:
@@ -43,6 +53,15 @@ package.</p>
     for all rules in this package. <i>(Boolean; optional; default is 0 except as noted)</i>
 
     <p>In packages under <code>javatests</code> the default value is 1.</p>
+  </li>
+
+  <li id="package.features"><code>features</code>:
+    Sets various flags that affect the semantics of this BUILD file.
+    <i>(List strings; optional)</i>
+
+    <p>This feature is mainly used by the people working on the build system to
+    tag packages that need some kind of special handling. Do not use this unless
+    explicitly requested by someone working on the build system.</p>
   </li>
 
 </ul>
@@ -67,10 +86,11 @@ package(default_visibility = ["//foo:target"])
 
 <p><code>package_group(name, packages, includes)</code></p>
 
-<p>This function defines a set of build packages.
+<p>This function defines a set of packages and assigns a label to the
+group. The label can be referenced in <code>visibility</code> attributes.</p>
 
-Package groups are used for visibility control.  You can grant access to a rule
-to one or more package groups, every rule, or only to rules declared
+<p>Package groups are used for visibility control.  You can grant access to a rule
+to one or more package groups, every rule in the entire source tree, or only to rules declared
 in the same package. For more detailed description of the visibility system, see
 the <a href="#common.visibility">visibility</a> attribute.
 
@@ -163,46 +183,6 @@ package_group(
 
 
 <!-- =================================================================
-                                   DESCRIPTION
-     =================================================================
-  -->
-
-<h3 id="description">Description</h3>
-
-<p><code># Description: <var>...</var></code></p>
-
-  <p>
-  Each BUILD file should contain a <code>Description</code> comment.
-  </p>
-
-  <p>
-  Description comments may contain references to other
-  documentation. A string that starts with "http" will become a
-  link.  HTML markup is
-  allowed in description comments, but please keep the BUILD files readable.
-  We encourage you to list the URLs of relevant design docs and howtos
-  in these description comments.
-  </p>
-
-<h3 id="distribs">distribs</h3>
-
-<p><code>distribs(distrib_methods)</code></p>
-
-<p><code>distribs()</code> specifies the default distribution method (or
-   methods) of the build rules in a <code>BUILD</code> file. The <code>distribs()</code>
-   directive
-   should appear close to the beginning of the <code>BUILD</code> file,
-   before any build rules, as it sets the <code>BUILD</code>-file scope
-   default for build rule distribution methods.
-</p>
-
-<h4 id="distribs_args">Arguments</h4>
-
-<p>The argument, <code id="distribs.distrib_methods">distrib_methods</code>,
-   is a list of distribution-method strings.
-</p>
-
-<!-- =================================================================
                         exports_files([label, ...])
      =================================================================
   -->
@@ -224,7 +204,7 @@ package_group(
   The remaining files are not associated with a specific rule but are just "data",
   and for these, <code>exports_files</code> ensures that they may be referenced by
   other packages.  (One kind of data for which this is particularly useful are
-  shell and Perl scripts.)
+  shell scripts.)
 </p>
 
 <p>
@@ -244,6 +224,21 @@ package_group(
   specified in the <code><a href="#package">package</a></code> function. The
   <a href="#common.licenses">licenses</a> can also be specified.
 </p>
+
+<h4 id="exports_files_example">Example</h4>
+
+<p>
+  The following example exports <code>golden.txt</code>, a
+  text file from the <code>test_data</code> package, so that other
+  packages may use it, for example, in the <code>data</code> attribute
+  of tests.
+</p>
+
+<pre class="code">
+# from //test_data/BUILD
+
+exports_files(["golden.txt"])
+</pre>
 
 <!-- =================================================================
                                glob()
@@ -268,16 +263,14 @@ This wildcard can only be used as a complete path segment. For example,
 and <code>"**.java"</code> are both illegal. No other wildcards are supported.
 </p>
 <p>
-Glob returns a list of every file in the current build package that:
+Glob returns a list of every file in the current package that:
 </p>
 <ul>
-  <li style="margin-bottom: 0">
-    Matches at least one pattern in <code>include</code>. </li>
-  <li>
-    Does not match any of the patterns in <code>exclude</code> (default []).</li>
+  <li>Matches at least one pattern in <code>include</code>. </li>
+  <li>Does not match any of the patterns in <code>exclude</code> (default []).</li>
 </ul>
 <p>
-If the <code>exclude_directories</code> argument is enabled (1), files of
+If the <code>exclude_directories</code> argument is enabled (set to 1), files of
 type directory will be omitted from the results (default 1).
 </p>
 <p>
@@ -309,12 +302,19 @@ There are several important limitations and caveats:
     means that the result of the glob expression actually depends on the
     existence of BUILD files &mdash; that is, the same glob expression would
     include <code>x/y/z.cc</code> if there was no package called
-    <code>x/y</code>.
+    <code>x/y</code> or it was marked as deleted using the
+    <a href="bazel-user-manual.html#flag--deleted_packages">--deleted_packages</a>
+    flag.
+
   </li>
 
   <li>
     The restriction above applies to all glob expressions,
     no matter which wildcards they use.
+  </li>
+  <li>
+    A hidden file with filename starting with <code>.</code> is matched by
+    both the <code>**</code> and the <code>*</code> wildcards.
   </li>
 </ol>
 
@@ -325,15 +325,40 @@ is both self documenting and ensures that you don't accidentally match backup
 files, or emacs/vi/... auto-save files.
 </p>
 
+<p>
+When writing build rules you can enumerate the elements of the glob. This
+enables generating individual rules for every input, for example. See the
+<a href="#expanded_glob_example">expanded glob example</a> section below.
+</p>
+
 <h4 id="glob_example">Glob Examples</h4>
+
+<p> Create a Java library built from all java files in this directory,
+and all files generated by the <code>:gen_java_srcs</code> rule.</p>
+<pre class="code">
+java_library(
+    name = "mylib",
+    srcs = glob(["*.java"]) + [":localize_strings"],
+    deps = "...",
+)
+
+genrule(
+    name = "gen_java_srcs",
+    outs = [
+        "Foo.java",
+        "Bar.java",
+    ],
+    ...
+)
+</pre>
 
 <p>Include all txt files in directory testdata except experimental.txt.
 Note that files in subdirectories of testdata will not be included. If
 you want those files to be included, use a recursive glob (**).</p>
 <pre class="code">
-java_test(
-    name = "myprog",
-    srcs = ["myprog.java"],
+sh_test(
+    name = "mytest",
+    srcs = ["mytest.sh"],
     data = glob(
         ["testdata/*.txt"],
         exclude = ["testdata/experimental.txt"],
@@ -361,12 +386,42 @@ java_library(
 <p>Make the test depend on all txt files in the testdata directory,
    its subdirectories</p>
 <pre class="code">
-java_test(
+sh_test(
     name = "mytest",
-    srcs = ["mytest.java"],
+    srcs = ["mytest.sh"],
     data = glob(["testdata/**/*.txt"]),
 )
 </pre>
+
+<h4 id="expanded_glob_example">Expanded Glob Examples</h4>
+
+<p>
+Create an individual genrule for *_test.cc in the current directory
+that counts the number of lines in the file.
+</p>
+
+<pre class="code">
+# Conveniently, the build language supports list comprehensions.
+[genrule(
+    name = "count_lines_" + f[:-3],  # strip ".cc"
+    srcs = [f],
+    outs = ["%s-linecount.txt" % f[:-3]],
+    cmd = "wc -l $&lt; &gt;$@",
+ ) for f in glob(["*_test.cc"])]
+</pre>
+
+<p>
+If the BUILD file above is in package //foo and the package contains three
+matching files, a_test.cc, b_test.cc and c_test.cc then running
+<code>bazel query '//foo:all'</code> will list all rules that were generated:
+
+<pre>
+$ bazel query '//foo:all' | sort
+//foo:count_lines_a_test
+//foo:count_lines_b_test
+//foo:count_lines_c_test
+</pre>
+
 
 <!-- =================================================================
                               licenses()
@@ -378,8 +433,9 @@ java_test(
 <p><code>licenses(license_types)</code></p>
 
 <p><code>licenses()</code> specifies the default license type (or types)
-   of the build rules in a <code>BUILD</code> file. The <code>licenses()</code>
-   directive should appear close to the
+   of the build rules in a <code>BUILD</code> file.
+
+   The <code>licenses()</code> directive should appear close to the
    beginning of the <code>BUILD</code> file, before any build rules, as it
    sets the <code>BUILD</code>-file scope default for build rule license
    types.</p>
@@ -388,20 +444,126 @@ java_test(
 
 <p>The argument, <code id="licenses.licence_types">license_types</code>,
    is a list of license-type strings.
+   <!-- TODO(bazel-team): specify some examples -->
+
 </p>
 
+<h4 id="licenses_example">Examples</h4>
+
+<p>The following example specifies a single license type of
+  <code>"notice"</code>.  Third-party software licenses that do not require
+  publishing of source code changes but require some sort of copyright or
+  other public notice are included in this license type.
+</p>
+
+<pre class="code">
+
+licenses(["notice"])  # MIT license
+
+exports_files(["jquery-2.1.1.js"])
+</pre>
+
 <!-- =================================================================
-                              include()
+                              load()
      =================================================================
 -->
 
-<h3 id="include">include</h3>
+<h3 id="load">load</h3>
 
-<p><code>include(name)</code></p>
+<p><code>load(path, symbols...)</code></p>
 
-<p><code>include()</code> incorporates build
-  language definitions from an external file into the evaluation of the
-  current <code>BUILD</code> file.</p>
+<p><code>load()</code> is a statement that imports definitions from a
+  Skylark module. For example:
+</p>
 
+<pre class="code">
+load("/tools/build_rules/build_test", "build_test")
+
+build_test(name = ...)
+</pre>
+
+<p>This will execute the
+
+  Skylark
+  module <code>tools/build_rules/build_test.bzl</code> and import the symbol
+  <code>build_test</code> in the local environment. By using more arguments, you
+  can load more symbols at once.</p>
+
+
+<!-- =================================================================
+                              select()
+     =================================================================
+-->
+
+<h3 id="select">select</h3>
+
+<p><code>select({conditionA: valuesA, conditionB: valuesB, ...})</code>
+</p>
+
+<p><code>select()</code> is the helper function that makes an
+  attribute for a
+  rule <a href="#configurable-attributes">configurable</a>. It can
+  replace the right-hand side of
+
+  <i>almost</i>
+  any attribute assignment so that the attribute's value depends on the
+  Bazel flags passed in at the command line. This can be used, for
+  example, to define platform-specific dependencies or to embed
+  different resources depending on whether a rule is built in
+  "developer" vs. "release" mode.
+</p>
+
+<p>Basic usage is as follows:</p>
+
+<pre class="code">
+sh_binary(
+    name = "myrule",
+    srcs = select({
+        ":conditionA": ["myrule_a.sh"],
+        ":conditionB": ["myrule_b.sh"],
+        "//conditions:default": ["myrule_default.sh"]
+    })
+)
+</pre>
+
+<p>This makes the <code>srcs</code> attribute of
+  a <code>sh_binary</code> configurable by replacing its normal label
+  list assignment with a <code>select</code> call that maps
+  configuration conditions to matching values. Each condition is a label
+  reference to
+  a <code><a href="#config_setting">config_setting</a></code> instance,
+  which "matches" if the rule's configuration matches an expected set of
+  values. The value of <code>myrule#srcs</code> then becomes whichever
+  label list matches the current invocation.
+</p>
+
+<p>Further notes:</p>
+
+<ul>
+  <li>Exactly one condition is selected on any invocation.
+  </li>
+  <li>If two conditions match and one is a specialization of the other
+    (e.g. it matches on the same flags as the other plus additional flags),
+    the specialization takes precedence.
+  </li>
+  <li>If two conditions match and neither is a specialization of the other,
+    Bazel fails with an error.
+  </li>
+  <li>The special pseudo-label <code>//conditions:default</code> is
+    considered to match if no other condition matches. If this condition
+    is left out, some other rule must match to avoid an error.
+  </li>
+  <li><code>select</code> cannot currently be embedded <i>within</i> an
+    attribute assignment. In other words, <code>srcs = ["common.sh"]
+    + select({ "conditionA": ["myrule_a.sh"], ...})</code> does not
+    currently work.
+  </li>
+  <li><code>select</code> works with most, but not all, attributes.
+
+  </li>
+</ul>
+
+</div>
+</div>
 </body>
 </html>

@@ -106,7 +106,7 @@ genrule(
     srcs = [":gen_be_sources"],
     outs = ["build-encyclopedia.html"],
     cmd = ("$(location docgen_bin)" +
-           " $$PWD/java/com/google/devtools/build/lib" +
+           " $$PWD/src/main/java/com/google/devtools/build/lib" +
            " $$PWD" +
            "; cp $$PWD/build-encyclopedia.html $@"),
     tools = [":docgen_bin"],

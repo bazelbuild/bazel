@@ -1,8 +1,7 @@
-<!DOCTYPE html>
 <html>
 <head>
-  <title>Bazel BUILD Encyclopedia of Functions</title>
 
+  <title>Bazel BUILD Encyclopedia of Functions</title>
   <style type="text/css" id="internalStyle">
     body {
       background-color: #ffffff;
@@ -47,16 +46,16 @@
       margin-bottom: 0;
     }
 
-    /* Use the <code> tag for bits of code and <var> for variable and object names. */
+    /* Use the <code></code> tag for bits of code and <var></var> for variable and object names. */
     code,pre,samp,var {
       color: #006000;
     }
-    /* Use the <file> tag for file and directory paths and names. */
+    /* Use the <file></file> tag for file and directory paths and names. */
     file {
       color: #905050;
       font-family: monospace;
     }
-    /* Use the <kbd> tag for stuff the user should type. */
+    /* Use the <kbd></kbd> tag for stuff the user should type. */
     kbd {
       color: #600000;
     }
@@ -85,7 +84,7 @@
 
     /* Use pre.code for code listings.
        Use pre.interaction for "Here's what you see when you run a.out.".
-       (Within pre.interaction, use <kbd> things the user types)
+       (Within pre.interaction, use <kbd></kbd> for things the user types)
      */
     pre.code {
       background-color: #FFFFEE;
@@ -143,7 +142,6 @@
       color: gray;
     }
   </style>
-
   <style type="text/css">
     .rule-signature {
       color: #006000;
@@ -153,8 +151,26 @@
 </head>
 
 <body>
+<div style="width:100%;">
+<div id="left-panel" style="margin-left:-80px;height:97%;float:left;position:fixed;overflow-y:scroll;overflow-x:hidden;border-right:thin solid #000000;resize:horizontal;">
+<h3 style="margin-left:0px">Rules:</h3>
+
+${LEFT_PANEL}
+
+</div>
+<div id="main-panel" style="margin-left:200px">
 
 <h1>Bazel BUILD Encyclopedia of Functions</h1>
+<h2>Related Documentation</h2>
+<ul class="toc">
+  <li><a href="write_build_file.html">Getting Started with BUILD files</a></li>
+  <li><a href="build-ref.html">BUILD Concept Reference</a></li>
+  <li><a href="build-encyclopedia.html">Build Encyclopedia</a></li>
+
+  <li><a href="bazel-user-manual.html">Bazel User Manual</a></li>
+  <li><a href="bazel-query-v2.html">Bazel Query Reference</a></li>
+
+</ul>
 
 <h2>Contents</h2>
 
@@ -168,6 +184,7 @@
       <li><a href="#common-attributes">Common attributes</a></li>
       <li><a href="#common-attributes-tests">Common attributes for tests</a></li>
       <li><a href="#common-attributes-binaries">Common attributes for binaries</a></li>
+      <li><a href="#configurable-attributes">Configurable attributes</a></li>
       <li><a href="#implicit-outputs">Implicit output targets</a></li>
       </ul>
     </li>
@@ -178,27 +195,25 @@
     <ul class="toc">
       <li><a href="#make-var-substitution">"Make" variable substitution</a></li>
       <li><a href="#predefined_variables">Predefined variables</a></li>
-      <li><a href="#define_your_own_make_vars">Defining your own variables</a>
-        <ul>
-          <li><a href="#vardef">vardef</a></li>
-          <li><a href="#varref">varref</a></li>
-        </ul>
-      </li>
+
     </ul>
     <li><a href="#predefined-python-variables">Predefined Python Variables</a></li>
   </ul>
   </td><td>
   <ul class="toc">
-    <li><a href="#include">include</a></li>
+    <li><a href="#load">load</a></li>
+
     <li><a href="#package">package</a></li>
     <li><a href="#package_group">package_group</a></li>
-    <li><a href="#description">Description</a></li>
-    <li><a href="#distribs">distribs</a></li>
+
     <li><a href="#licenses">licenses</a></li>
     <li><a href="#exports_files">exports_files</a></li>
     <li><a href="#glob">glob</a></li>
+    <li><a href="#select">select</a></li>
   </ul>
   </td></tr></table>
+
+  <h3>Rules</h3>
 
 ${HEADER_TABLE}
 
@@ -207,8 +222,6 @@ ${HEADER_TABLE}
 <p>This section defines various terms and concepts that are common to
 many functions or build rules below.
 </p>
-
-<!--  we haven't defined 'rules' or 'attributes' yet. -->
 
 <h3 id='sh-tokenization'>Bourne shell tokenization</h3>
 <p>
@@ -225,9 +238,9 @@ many functions or build rules below.
 <p>
   Attributes subject to "Make" variable expansion and Bourne shell
   tokenization are typically used for passing arbitrary options to
-  compilers and other tools, such as the <code>copts</code> attribute
-  of <code>cc_library</code>, or the <code>javacopts</code> attribute of
-  <code>java_library</code>.  Together these substitutions allow a
+  compilers and other tools. Examples of such attributes are
+  <code>cc_library.copts</code> and <code>java_library.javacopts</code>.
+  Together these substitutions allow a
   single string variable to expand into a configuration-specific list
   of option words.
 </p>
@@ -235,15 +248,15 @@ many functions or build rules below.
 <h3 id='label-expansion'>Label expansion</h3>
 <p>
   Some string attributes of a very few rules are subject to label
-  expansion: if those strings contain a valid build label as a
+  expansion: if those strings contain a valid label as a
   substring, such as <code>//mypkg:target</code>, and that label is a
   declared prerequisite of the current rule, it is expanded into the
   pathname of the file represented by the target <code>//mypkg:target</code>.
 </p>
+
 <p>
-  Example attributes include the <code>cmd</code> attribute of
-  genrule, and the <code>linkopts</code> attribute
-  of <code>cc_library</code>.  The details may vary significantly in
+  Example attributes include <code>genrule.cmd</code> and
+  <code>cc_binary.linkopts</code>.  The details may vary significantly in
   each case, over such issues as: whether relative labels are
   expanded; how labels that expand to multiple files are
   treated, etc.  Consult the rule attribute documentation for
@@ -257,310 +270,34 @@ Please note that it is an error to list the same label twice in a list of
 labels attribute.
 </p>
 
-<ul>
-<li id="common.deps"><code>deps</code>:
-A list of dependencies of this rule.
-<i>(List of <a href="build-ref.html#labels">labels</a>; optional)</i><br/>
-The precise semantics of what it means for this rule to depend on
-another using <code>deps</code> are specific to the kind of this rule,
-and the rule-specific documentation below goes into more detail.
-At a minimum, though, the targets named via <code>deps</code> will
-appear in the <code>*.runfiles</code> area of this rule, if it has
-one.
-<p>Most often, a <code>deps</code> dependency is used to allow one
-module to use symbols defined in another module written in the
-same programming language and separately compiled.  Cross-language
-dependencies are also permitted in many cases: for example,
-a <code>java_library</code> rule may depend on C++ code in
-a <code>cc_library</code> rule, by declaring the latter in
-the <code>deps</code> attribute.  See the definition
-of <a href="build-ref.html#deps">dependencies</a> for more
-information.</p>
-<p>Almost all rules permit a <code>deps</code> attribute, but where
-this attribute is not allowed, this fact is documented under the
-specific rule.</p></li>
-<li id="common.data"><code>data</code>:
-The list of files needed by this rule at runtime.
-<i>(List of <a href="build-ref.html#labels">labels</a>; optional)</i><br/>
-Targets named in the <code>data</code> attribute will appear in
-the <code>*.runfiles</code> area of this rule, if it has one.  This
-may include data files needed by a binary or library, or other
-programs needed by it.  See the
-<a href="build-ref.html#data">data dependencies</a> section for more
-information about how to depend on and use data files.
-<p>Almost all rules permit a <code>data</code> attribute, but where
-this attribute is not allowed, this fact is documented under the
-specific rule.</p></li>
-<li id="common.deprecation"><code>deprecation</code>:
-<i>(String; optional)</i><br/>
-An explanatory warning message associated with this rule.
-Typically this is used to notify users that a rule has become obsolete,
-or has become superseded by another rule, is private to a package, or is
-perhaps "considered harmful" for some reason. It is a good idea to include
-some reference (like a webpage, a bug number or example migration CLs) so
-that one can easily find out what changes are required to avoid the message.
-If there is a new target that can be used as a drop in replacement, it is a good idea
-to just migrate all users of the old target.
-<p>
-This attribute has no effect on the way things are built, but it
-may affect a build tool's diagnostic output.  The build tool issues a
-warning when a rule with a <code>deprecation</code> attribute is
-depended upon by another rule.</p>
-<p>
-Intra-package dependencies are exempt from this warning, so that,
-for example, building the tests of a deprecated rule does not
-encounter a warning.</p>
-<p>
-If a deprecated rule depends on another deprecated rule, no warning
-message is issued.</p>
-<p>
-Once people have stopped using it, the package can be removed or marked as
-<a href="#common.obsolete"><code>obsolete</code></a>.</p></li>
-<li id="common.distribs"><code>distribs</code>:
-<i>(List of strings; optional)</i><br/>
-A list of distribution-method strings to be used for this particular build rule.
-Overrides the <code>BUILD</code>-file scope defaults defined by the
-<a href="#distribs"><code>distribs()</code></a> directive.</li>
-<li id="common.licenses"><code>licenses</code>:
-<i>(List of strings; optional)</i><br/>
-A list of license-type strings to be used for this particular build rule.
-Overrides the <code>BUILD</code>-file scope defaults defined by the
-<a href="#licenses"><code>licenses()</code></a> directive.</li>
-<li id="common.obsolete"><code>obsolete</code>:
-<i>(Boolean; optional; default 0)</i><br/>
-If 1, only obsolete targets can depend on this target. It is an error when
-a non-obsolete target depends on an obsolete target.
-<p>
-As a transition, one can first mark a package as in
-<a href="#common.deprecation"><code>deprecation</code></a>.</p>
-<p>
-This attribute is useful when you want to prevent a target from
-being used but are yet not ready to delete the sources.</p></li>
-<li id="common.tags"><code>tags</code>:
-List of arbitrary text tags.  Tags may be any valid string; default is the
-empty list.<br/>
-<i>Tags</i> can be used on any rule; but <i>tags</i> are most useful
-on test and <code>test_suite</code> rules.  Tags on non-test rules
-are only useful to humans and/or external programs.
-<i>Tags</i> are generally used to annotate a test's role in your debug
-and release process. The use of tags and size elements
-gives flexibility in assembling suites of tests based around codebase
-check-in policy.
-<p>
-A few tags have special meaning to the build tool; consult
-the <a href='bazel-user-manual.html#tags_keywords'>Bazel
-documentation</a> for details.
-</p></li>
-<li id="common.testonly"><code>testonly</code>:
-<i>(Boolean; optional; default 0 except as noted)</i><br />
-If 1, only testonly targets (such as tests) can depend on this target.
-<p>Equivalently, a rule that is not <code>testonly</code> is not allowed to
-depend on any rule that is <code>testonly</code>.</p>
-<p>Tests (<code>*_test</code> rules)
-and test suites (<a href="#test_suite">test_suite</a> rules)
-are <code>testonly</code> by default.</p>
-<p>By virtue of
-<a href="#package.default_testonly"><code>default_testonly</code></a>,
-targets under <code>javatests</code> are <code>testonly</code> by default.</p>
-<p>This attribute is intended to mean that the target should not be
-contained in binaries that are released to production.</p>
-<p>Because testonly is enforced at build time, not run time, and propagates
-virally through the dependency tree, it should be applied judiciously. For
-example, stubs and fakes that
-are useful for unit tests may also be useful for integration tests
-involving the same binaries that will be released to production, and
-therefore should probably not be marked testonly. Conversely, rules that
-are dangerous to even link in, perhaps because they unconditionally
-override normal behavior, should definitely be marked testonly.</p></li>
-<li id="common.visibility"><code>visibility</code>:
-<i>(List of <a href="build-ref.html#labels">labels</a>; optional; default private)</i><br/>
-<p>The <code>visibility</code> attribute on a rule controls whether
-the rule can be used by other packages. Rules are always visible to
-other rules declared in the same package.</p>
-<p>There are five forms (and one temporary form) a visibility label can take:
-<ul>
-<li><code>['//visibility:public']</code>: Anyone can use this rule.</li>
-<li><code>['//visibility:private']</code>: Only rules in this package
-can use this rule.  Rules in <code>javatests/foo/bar</code>
-can always use rules in <code>java/foo/bar</code>.
-</li>
-<li><code>['//some/package:__pkg__', '//other/package:__pkg__']</code>:
-Only rules in <code>some/package</code> and <code>other/package</code>
-(defined in <code>some/package/BUILD</code> and
-<code>other/package/BUILD</code>) have access to this rule. Note that
-sub-packages do not have access to the rule; for example,
-<code>//some/package/foo:bar</code> or
-<code>//other/package/testing:bla</code> wouldn't have access.
-<code>__pkg__</code> is a special target and must be used verbatim.
-It represents all of the rules in the package.
-</li>
-<li><code>['//project:__subpackages__', '//other:__subpackages__']</code>:
-Only rules in packages <code>project</code> or <code>other</code> or
-in one of their sub-packages have access to this rule. For example,
-<code>//project:rule</code>, <code>//project/library:lib</code> or
-<code>//other/testing/internal:munge</code> are allowed to depend on
-this rule (but not <code>//independent:evil</code>)
-</li>
-<li><code>['//some/package:my_package_group']</code>:
-A <a href="#package_group">package group</a> is
-a named set of package names. Package groups can also grant access rights
-to entire subtrees, e.g.<code>//myproj/...</code>.
-</li>
-</ul>
-<p>The visibility specifications of <code>//visibility:public</code>,
-<code>//visibility:private</code> and
-<code>//visibility:legacy_public</code>
-can not be combined with any other visibility specifications.
-A visibility specification may contain a combination of package labels
-(i.e. //foo:__pkg__) and package_groups.</p>
-<p>If a rule does not specify the visibility attribute,
-the <code><a href="#package">default_visibility</a></code>
-attribute of the <code><a href="#package">package</a></code>
-statement in the BUILD file containing the rule is used
-(except <a href="#exports_files">exports_files</a> and
-<a href="#cc_public_library">cc_public_library</a>, which always default to
-public).</p>
-<p><b>Example</b>:</p>
-<p>
-File <code>//frobber/bin/BUILD</code>:
-</p>
-<pre class="code">
-# This rule is visible to everyone
-java_binary(
-    name = "executable",
-    visibility = ["//visibility:public"],
-    deps = [":library"],
-)
-
-# This rule is visible only to rules declared in the same package
-java_library(
-    name = "library",
-    visibility = ["//visibility:private"],
-)
-
-# This rule is visible to rules in package //object and //noun
-java_library(
-    name = "subject",
-    visibility = [
-        "//noun:__pkg__",
-        "//object:__pkg__",
-    ],
-)
-
-# See package group //frobber:friends (below) for who can access this rule.
-java_library(
-    name = "thingy",
-    visibility = ["//frobber:friends"],
-)
-</pre>
-<p>
-File <code>//frobber/BUILD</code>:
-</p>
-<pre class="code">
-# This is the package group declaration to which rule //frobber/bin:thingy refers.
-#
-# Our friends are packages //frobber, //fribber and any subpackage of //fribber.
-package_group(
-    name = "friends",
-    packages = [
-        "//fribber/...",
-        "//frobber",
-    ],
-)
-</pre></li>
-</ul>
-
+${COMMON_ATTRIBUTE_DEFINITION}
 
 <h3 id="common-attributes-tests">Attributes common to all test rules (*_test)</h3>
 
 <p>This section describes attributes that are common to all test rules.</p>
 
-<ul>
-<li id="test.args"><code>args</code>:
-Add these arguments to the <code>--test_arg</code>
-when executed by <code>bazel test</code>.
-<i>(List of strings; optional; subject to
-<a href="#make_variables">"Make variable"</a> substitution and
-<a href="#sh-tokenization">Bourne shell tokenization</a>)</i><br/>
-These arguments are passed before the <code>--test_arg</code> values
-specified on the <code>bazel test</code> command line.</li>
-<li id="test.flaky"><code>flaky</code>:
-Marks test as flaky. <i>(Boolean; optional)</i><br/>
-If set, executes the test up to 3 times before being declared as failed.
-By default this attribute is set to 0 and test is considered to be stable.
-Note, that use of this attribute is generally discouraged - we do prefer
-all tests to be stable.</li>
-<li id="test.local"><code>local</code>:
-Forces the test to be run locally. <i>(Boolean; optional)</i><br/>
-By default this attribute is set to 0 and the default testing strategy is
-used. This is equivalent to providing 'local' as a tag
-(<code>tags=["local"]</code>).</li>
-<li id="test.shard_count"><code>shard_count</code>:
-Specifies the number of parallel shards
-to use to run the test. <i>(Non-negative integer less than or equal to 50;
-optional)</i><br/>
-This value will override any heuristics used to determine the number of
-parallel shards with which to run the test.</li>
-<li id="test.size"><code>size</code>:
-How "heavy" the test is
-<i>(String "enormous", "large" "medium" or "small",
-default is "medium")</i><br/>
-A classification of the test's "heaviness": how much time/resources
-it needs to run.  This is useful when deciding which tests to run.
-Before checking in a change, you might run the small tests.
-Before a big release, you might run the large tests.
-</li>
-<li id="test.timeout"><code>timeout</code>:
-How long the test is
-normally expected to run before returning.
-<i>(String "eternal", "long", "moderate", or "short"
-with the default derived from a test's size attribute)</i><br/>
-While a test's size attribute controls resource estimation, a test's
-timeout may be set independently.  If not explicitly specified, the
-timeout is based on the test's size (with "small" &rArr; "short",
-"medium" &rArr; "moderate", etc...). While size and runtime are generally
-heavily correlated, they are not strictly causal, hence the ability to set
-them independently.</li>
-</ul>
-
+${TEST_ATTRIBUTE_DEFINITION}
 
 <h3 id="common-attributes-binaries">Attributes common to all binary rules (*_binary)</h3>
 
 <p>This section describes attributes that are common to all binary rules.</p>
 
-<ul>
-<li id="binary.args"><code>args</code>:
-Add these arguments to the target when executed by
-<code>bazel run</code>.
-<i>(List of strings; optional; subject to
-<a href="#make_variables">"Make variable"</a> substitution and
-<a href="#sh-tokenization">Bourne shell tokenization</a>)</i><br/>
-These arguments are passed to the target before the target options
-specified on the <code>bazel run</code> command line.
-<p>Most binary rules permit an <code>args</code> attribute, but where
-this attribute is not allowed, this fact is documented under the
-specific rule.</p></li>
-<li id="binary.output_licenses"><code>output_licenses</code>:
-The licenses of the output files that this binary generates.
-<i>(List of strings; optional)</i><br/>
-Describes the licenses of the output of the binary generated by
-the rule. When a binary is referenced in a host attribute (for
-example, the <code>tools</code> attribute of
-a <code>genrule</code>), this license declaration is used rather
-than the union of the licenses of its transitive closure. This
-argument is useful when a binary is used as a tool during the
-build of a rule, and it is not desirable for its license to leak
-into the license of that rule. If this attribute is missing, the
-license computation proceeds as if the host dependency was a
-regular dependency.
-<p><em class="harmful">WARNING: in some cases (specifically, in
-genrules) the build tool cannot guarantee that the binary
-referenced by this attribute is actually used as a tool, and is
-not, for example, copied to the output. In these cases, it is the
-responsibility of the user to make sure that this is
-true.</em></p></li>
-</ul>
+${BINARY_ATTRIBUTE_DEFINITION}
 
+<h3 id="configurable-attributes">Configurable attributes</h3>
+
+<p>
+  Most rule attributes can be "configured" so that their values can
+  depend on the command-line flags passed to Bazel. This can be used,
+  for example, to declare platform-dependent <code>srcs</code> or custom
+  compiler flags depending on the
+  <a href="bazel-user-manual.html#flag--compilation_mode">compilation
+  mode</a>. This feature is very close in spirit to
+  <a href="#cc_library.abi_deps">abi_deps</a>, except that it's not
+  limited to <code>cc_*</code> rules and the <code>deps</code> attribute.
+</p>
+
+</p>
 
 <h3 id="implicit-outputs">Implicit output targets</h3>
 
@@ -578,7 +315,7 @@ true.</em></p></li>
 </p>
 
 <p>
-  Implicit output targets are first-class members of the build
+  Implicit output targets are first-class members of the global
   target graph.  Just like other targets, they are built on demand,
   either when specified in the top-level built command, or when they
   are necessary prerequisites for other build targets.  They can be
@@ -593,8 +330,8 @@ true.</em></p></li>
 </p>
 
 <p>
-  Please note an important but somewhat subtle distinction between the
-  two namespaces used by the build system.  Build
+  An important but somewhat subtle distinction between the
+  two namespaces used by the build system:
   <a href="build-ref.html#labels">labels</a> identify <em>targets</em>,
   which may be rules or files, and file targets may be divided into
   either source (or input) file targets and derived (or output) file

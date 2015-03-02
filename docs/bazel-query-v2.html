@@ -4,6 +4,7 @@
 <head>
   <meta charset="utf-8" />
   <title>Bazel Query Reference</title>
+
   <style type="text/css">
 
     body {
@@ -133,8 +134,6 @@
     #maintainer { text-align: right; }
   </style>
 </head>
-
-
 <body>
 
 <h1>The Bazel Query Reference</h1>
@@ -147,9 +146,6 @@
   formats <code>bazel query</code> supports.
 </p>
 
-
-<div id="nav" class="nav-2-levels"></div>
-
 <h2>Examples</h2>
 
 <p>
@@ -157,15 +153,15 @@
 </p>
 
 <p>
-  Why does the <code>foo</code> tree depend on <code>bar</code>?
+  Why does the <code>//foo</code> tree depend on <code>//bar/baz</code>?
   Show a path:</p>
-  <pre>somepath(foo/..., some_parent/bar:all)</pre>
+  <pre>somepath(foo/..., //bar/baz:all)</pre>
 
 
 <p>
-  What C++ libraries do the <code>foo</code> tests depend upon that
-  the <code>foo</code> binary does not?</p>
-  <pre>kind("cc_library", deps(kind(".*test rule", foo/...)) except deps(//foo))</pre>
+  What C++ libraries do all the <code>foo</code> tests depend on that
+  the <code>foo_bin</code> target does not?</p>
+  <pre>kind("cc_library", deps(kind(".*test rule", foo/...)) except deps(//foo:foo_bin))</pre>
 
 
 <h2>Tokens: the lexical syntax</h2>
@@ -180,31 +176,31 @@
       language, and each of them is described below.  The complete set
       of keywords is:
 
-<pre><!-- keep this alphabetically sorted -->
-<a href="#path-operators">allpaths</a>
-<a href="#attr">attr</a>
-<a href="#buildfiles">buildfiles</a>
-<a href="#component">component</a>
-<a href="#deps">deps</a>
-<a href="#set-operations">except</a>
-<a href="#filter">filter</a>
-<a href="#variables">in</a>
-<a href="#set-operations">intersect</a>
-<a href="#kind">kind</a>
-<a href="#labels">labels</a>
-<a href="#variables">let</a>
-<a href="#rdeps">rdeps</a>
-<a href="#set">set</a>
-<a href="#some">some</a>
-<a href="#path-operators">somepath</a>
-<a href="#tests">tests</a>
-<a href="#set-operations">union</a>
-</pre>
+<code><!-- keep this alphabetically sorted -->
+<a href="#path-operators">allpaths</a><br/>
+<a href="#attr">attr</a><br/>
+<a href="#buildfiles">buildfiles</a><br/>
+
+<a href="#deps">deps</a><br/>
+<a href="#set-operations">except</a><br/>
+<a href="#filter">filter</a><br/>
+<a href="#variables">in</a><br/>
+<a href="#set-operations">intersect</a><br/>
+<a href="#kind">kind</a><br/>
+<a href="#labels">labels</a><br/>
+<a href="#variables">let</a><br/>
+<a href="#rdeps">rdeps</a><br/>
+<a href="#set">set</a><br/>
+<a href="#some">some</a><br/>
+<a href="#path-operators">somepath</a><br/>
+<a href="#tests">tests</a><br/>
+<a href="#set-operations">union</a><br/>
+</code>
     </li>
 
-    <li><b>Words</b>, such as <code>foo/...</code> or <!--sic, for
-    clarity--> <code>".*test rule"</code> or
-    <code>some_parent/bar:all</code>.
+    <li><b>Words</b>, such as <code>foo/...</code> or
+    <code>".*test rule"</code> or
+    <code>//bar/baz:all</code>.
     If a character sequence is "quoted" (begins and ends with a
     single-quote <code>'</code>, or begins and ends with a
     double-quote <code>&quot;</code>), it is a word.
@@ -224,6 +220,7 @@
     <p>
       Quoting <em>is</em> necessary when writing scripts that
       construct Bazel query expressions from user-supplied values.
+
     </p>
     <pre>
       //foo:bar+wiz    # WRONG: scanned as //foo:bar + wiz.
@@ -270,13 +267,23 @@
 
 <h3>Cycles in the dependency graph</h3>
 <p>
-  Build dependency graphs should be acyclic, but in fact cycles do
-  occur. The algorithms used by the query language are intended for use in
+  Build dependency graphs should be acyclic, but in fact cycles do occur.
+
+  The algorithms used by the query language are intended for use in
   acyclic graphs, but are robust against cycles.  The details of how
   cycles are treated are not specified and should not be relied upon.
 </p>
 
 <h3 id='implicit_deps'>Implicit dependencies</h3>
+
+<p>
+  In addition to build dependencies that are defined explicitly in BUILD files,
+  Bazel adds additional <em>implicit</em> dependencies to rules. For example
+  every Java rule implicitly depends on the JavaBuilder. Implicit dependencies
+  are established using attributes that start with <code>$</code> and they
+  cannot overridden in BUILD files.
+
+</p>
 
 <p>
   Per default <code>bazel query</code> takes implicit dependencies into account
@@ -285,6 +292,17 @@
 </p>
 
 <h3 id='soundness'>Soundness</h3>
+
+<p>
+  Bazel query language expressions operate over the build
+  dependency graph, which is the graph implicitly defined by all
+  rule declarations in all BUILD files.  It is important to understand
+  that this graph is somewhat abstract, and does not constitute a
+  complete description of how to perform all the steps of a build.  In
+  order to perform a build, a <em>configuration</em> is required too;
+  see the <a href='bazel-user-manual.html#configurations'>configurations</a>
+  section of the User's Guide for more detail.
+</p>
 
 <p>
   The result of evaluating an expression in the Bazel query language
@@ -305,6 +323,7 @@
   set of files mentioned in the Makefile obtained
   from <a href='bazel-user-manual.html#--dump_makefile'><code>bazel
   build --dump_makefile</code></a>.
+
 </p>
 
 <h3 id='graph-order'>On the preservation of graph order</h3>
@@ -396,8 +415,8 @@
   is interpreted as an (unordered) set of targets.  The simplest
   target pattern is a label,
   which identifies a single target (file or rule).  For example, the
-  target pattern <code>//abc:xyz</code> evaluates to a set
-  containing one element, the target, the <code>xyz</code>
+  target pattern <code>//foo:bar</code> evaluates to a set
+  containing one element, the target, the <code>bar</code>
   rule.
 </p>
 
@@ -407,18 +426,18 @@
   just <code>foo/...</code>) is a target pattern that evaluates to a
   set containing all <em>rules</em> in every package recursively
   beneath the <code>foo</code> directory;
-  <code>some_parent/bar:all</code> is a target pattern that
+  <code>bar/baz:all</code> is a target pattern that
   evaluates to a set containing all the rules in the
-  <code>some_parent/bar</code> package, but not its subpackages.
+  <code>bar/baz</code> package, but not its subpackages.
 </p>
 
 <p>
   Similarly, <code>foo/...:*</code> is a target pattern that evaluates
   to a set containing all <em>targets</em> (rules <em>and</em> files) in
   every package recursively beneath the <code>foo</code> directory;
-  <code>some_parent/bar:*</code> evaluates to a set containing
+  <code>bar/baz:*</code> evaluates to a set containing
   all the targets in the
-  <code>some_parent/bar</code> package, but not its subpackages.
+  <code>bar/baz</code> package, but not its subpackages.
 </p>
 
 <p>
@@ -435,6 +454,7 @@
   refer to <a href='bazel-user-manual.html#target-patterns'>Target Patterns</a>
   in the Bazel User Manual for further details, or type <code>bazel
   help target-syntax</code>.
+
 </p>
 
 <p>
@@ -538,13 +558,13 @@
   this manual uses the nominal forms.)  For example,
 </p>
 
-<pre>xyz/... except xyz/contrib/...</pre>
+<pre>foo/... except foo/bar/...</pre>
 
   evaluates to the set of targets that match
-  <code>xyz/...</code> but not
-  <code>xyz/contrib/...</code>&nbsp;.  Equivalently:
+  <code>foo/...</code> but not
+  <code>foo/bar/...</code>&nbsp;.  Equivalently:
 
-<pre>xyz/... - xyz/contrib/...</pre>
+<pre>foo/... - foo/bar/...</pre>
 
   The <code>intersect</code> (<code>^</code>)
   and <code>union</code> (<code>+</code>) operations are commutative
@@ -581,18 +601,18 @@ x intersect (y union z)</pre>
   further processing.  For example:
 </p>
 <pre>
-  % bazel query deps(//my:target) --output=label | grep ... | sed ... | awk ... > foo
+  % bazel query deps(//my:target) --output=label | grep ... | sed ... | awk ... &gt; foo
   % bazel query "kind(cc_binary, set($(&lt;foo)))"
 </pre>
 <p>
   In the next example, <code>kind(cc_library,
-  deps(//dir1/bazel/main:bazel, 5))</code> is effectively computed
+  deps(//some_dir/foo:main, 5))</code> is effectively computed
   by filtering on the <code>maxrank</code> values using
   an <code>awk</code> program.
 </p>
 <pre>
-  % bazel query 'deps(//dir1/bazel/main:bazel)' --output maxrank |
-        awk '($1 &lt; 5) { print $2;} ' > foo
+  % bazel query 'deps(//some_dir/foo:main)' --output maxrank |
+        awk '($1 &lt; 5) { print $2;} ' &gt; foo
   % bazel query "kind(cc_library, set($(&lt;foo)))"
 </pre>
 <p>
@@ -662,7 +682,7 @@ x intersect (y union z)</pre>
   search.  The resulting graph will only include nodes within a distance of the
   specified depth from any node in the argument set.  So
   <code>rdeps(//foo, //common, 1)</code> evaluates to all nodes in the
-  transitive closure of <code>//foo</code> that directly depend on
+  transitive closure of <code>//common</code> that directly depend on
   <code>//common</code>.  (These numbers correspond to the ranks shown in the
   <a href='#output-ranked'><code>minrank</code></a> output format.)  If the
   <var>depth</var> parameter is omitted, the search is unbounded.
@@ -674,19 +694,18 @@ x intersect (y union z)</pre>
   The <code>some(<var>x</var>)</code> operator selects one target
   arbitrarily from its argument set <var>x</var>, and evaluates to a
   singleton set containing only that target.  For example, the
-  expression <code>some(//foo:foo union //xyz:abc)</code>
-  evaluates to a set containing either <code>//foo:foo</code> or
-  <code>//xyz:abc</code>&mdash;though which one is not defined.
+  expression <code>some(//foo:main union //bar:baz)</code>
+  evaluates to a set containing either <code>//foo:main</code> or
+  <code>//bar:baz</code>&mdash;though which one is not defined.
 </p>
 
 <p>
   If the argument is a singleton, then <code>some</code>
-  computes the identity function: <code>some(//foo:foo)</code> is
-  equivalent to <code>//foo:foo</code>.
+  computes the identity function: <code>some(//foo:main)</code> is
+  equivalent to <code>//foo:main</code>.
 
   It is an error if the specified argument set is empty, as in the
-  expression <code>some(//foo:foo intersect
-  //xyz:abc)</code>.
+  expression <code>some(//foo:main intersect //bar:baz)</code>.
 </p>
 
 <h3 id="path-operators">Path operators: somepath, allpaths</h3>
@@ -711,91 +730,358 @@ x intersect (y union z)</pre>
 </p>
 
 <table style='margin: auto'><tr>
-<td style='text-align: center'><div class='graphviz dot'><!--
-digraph somepath1 {
-  graph [size="4,4"]
-  node [label="",shape=circle];
-  n1;
-  n2 [fillcolor="pink",style=filled];
-  n3 [fillcolor="pink",style=filled];
-  n4 [fillcolor="pink",style=filled,label="E"];
-  n5; n6;
-  n7 [fillcolor="pink",style=filled,label="S1"];
-  n8 [label="S2"];
-  n9;
-  n10 [fillcolor="pink",style=filled];
-
-  n1 -> n2;
-  n2 -> n3;
-  n7 -> n5;
-  n7 -> n2;
-  n5 -> n6;
-  n6 -> n4;
-  n8 -> n6;
-  n6 -> n9;
-  n2 -> n10;
-  n3 -> n10;
-  n10 -> n4;
-  n10 -> n11;
-}--></div>
+<td style='text-align: center'>
+<!-- Title: somepath1 Pages: 1 -->
+<svg width="154pt" height="288pt"
+ viewBox="0.00 0.00 153.82 288.00" xmlns="http://www.w3.org/2000/svg" xmlns:xlink="http://www.w3.org/1999/xlink">
+<g id="graph0" class="graph" transform="scale(0.818182 0.818182) rotate(0) translate(4 348)">
+<title>somepath1</title>
+<polygon style="fill:white;stroke:white;" points="-4,4 -4,-348 184,-348 184,4 -4,4"/>
+<!-- n1 -->
+<g id="node1" class="node"><title>n1</title>
+<ellipse style="fill:none;stroke:black;" cx="39" cy="-321" rx="18" ry="18"/>
+</g>
+<!-- n2 -->
+<g id="node2" class="node"><title>n2</title>
+<ellipse style="fill:pink;stroke:black;" cx="41" cy="-239" rx="18" ry="18"/>
+</g>
+<!-- n1&#45;&gt;n2 -->
+<g id="edge2" class="edge"><title>n1&#45;&gt;n2</title>
+<path style="fill:none;stroke:black;" d="M39,-303C40,-292 40,-279 40,-267"/>
+<polygon style="fill:black;stroke:black;" points="43.4875,-267.299 41,-257 36.5222,-266.602 43.4875,-267.299"/>
+</g>
+<!-- n3 -->
+<g id="node3" class="node"><title>n3</title>
+<ellipse style="fill:pink;stroke:black;" cx="18" cy="-162" rx="18" ry="18"/>
+</g>
+<!-- n2&#45;&gt;n3 -->
+<g id="edge4" class="edge"><title>n2&#45;&gt;n3</title>
+<path style="fill:none;stroke:black;" d="M36,-222C33,-212 29,-200 26,-190"/>
+<polygon style="fill:black;stroke:black;" points="29.2259,-188.573 23,-180 22.5212,-190.584 29.2259,-188.573"/>
+</g>
+<!-- n10 -->
+<g id="node10" class="node"><title>n10</title>
+<ellipse style="fill:pink;stroke:black;" cx="37" cy="-90" rx="18" ry="18"/>
+</g>
+<!-- n2&#45;&gt;n10 -->
+<g id="edge18" class="edge"><title>n2&#45;&gt;n10</title>
+<path style="fill:none;stroke:black;" d="M43,-221C45,-202 47,-171 45,-144 44,-136 43,-126 42,-118"/>
+<polygon style="fill:black;stroke:black;" points="45.3933,-117.119 40,-108 38.5292,-118.492 45.3933,-117.119"/>
+</g>
+<!-- n3&#45;&gt;n10 -->
+<g id="edge20" class="edge"><title>n3&#45;&gt;n10</title>
+<path style="fill:none;stroke:black;" d="M23,-145C25,-136 27,-126 30,-117"/>
+<polygon style="fill:black;stroke:black;" points="33.4708,-117.492 32,-107 26.6067,-116.119 33.4708,-117.492"/>
+</g>
+<!-- n4 -->
+<g id="node4" class="node"><title>n4</title>
+<ellipse style="fill:pink;stroke:black;" cx="87" cy="-18" rx="18" ry="18"/>
+<text text-anchor="middle" x="87" y="-13.4" style="font-family:arial;font-size:14.00;">E</text>
+</g>
+<!-- n5 -->
+<g id="node5" class="node"><title>n5</title>
+<ellipse style="fill:none;stroke:black;" cx="98" cy="-239" rx="18" ry="18"/>
+</g>
+<!-- n6 -->
+<g id="node6" class="node"><title>n6</title>
+<ellipse style="fill:none;stroke:black;" cx="123" cy="-162" rx="18" ry="18"/>
+</g>
+<!-- n5&#45;&gt;n6 -->
+<g id="edge10" class="edge"><title>n5&#45;&gt;n6</title>
+<path style="fill:none;stroke:black;" d="M104,-222C107,-212 111,-200 114,-189"/>
+<polygon style="fill:black;stroke:black;" points="117.479,-189.584 117,-179 110.774,-187.573 117.479,-189.584"/>
+</g>
+<!-- n6&#45;&gt;n4 -->
+<g id="edge12" class="edge"><title>n6&#45;&gt;n4</title>
+<path style="fill:none;stroke:black;" d="M117,-145C114,-134 109,-120 106,-108 100,-87 95,-64 92,-46"/>
+<polygon style="fill:black;stroke:black;" points="95.3933,-45.1194 90,-36 88.5292,-46.4922 95.3933,-45.1194"/>
+</g>
+<!-- n9 -->
+<g id="node9" class="node"><title>n9</title>
+<ellipse style="fill:none;stroke:black;" cx="133" cy="-90" rx="18" ry="18"/>
+</g>
+<!-- n6&#45;&gt;n9 -->
+<g id="edge16" class="edge"><title>n6&#45;&gt;n9</title>
+<path style="fill:none;stroke:black;" d="M126,-144C127,-136 128,-127 129,-118"/>
+<polygon style="fill:black;stroke:black;" points="132.488,-118.299 130,-108 125.522,-117.602 132.488,-118.299"/>
+</g>
+<!-- n7 -->
+<g id="node7" class="node"><title>n7</title>
+<ellipse style="fill:pink;stroke:black;" cx="98" cy="-321" rx="22.8079" ry="22.8079"/>
+<text text-anchor="middle" x="98" y="-316.4" style="font-family:arial;font-size:14.00;">S1</text>
+</g>
+<!-- n7&#45;&gt;n2 -->
+<g id="edge8" class="edge"><title>n7&#45;&gt;n2</title>
+<path style="fill:none;stroke:black;" d="M85,-302C77,-290 66,-275 57,-262"/>
+<polygon style="fill:black;stroke:black;" points="59.8,-259.9 51,-254 54.2,-264.1 59.8,-259.9"/>
+</g>
+<!-- n7&#45;&gt;n5 -->
+<g id="edge6" class="edge"><title>n7&#45;&gt;n5</title>
+<path style="fill:none;stroke:black;" d="M98,-298C98,-288 98,-277 98,-267"/>
+<polygon style="fill:black;stroke:black;" points="101.5,-267 98,-257 94.5001,-267 101.5,-267"/>
+</g>
+<!-- n8 -->
+<g id="node8" class="node"><title>n8</title>
+<ellipse style="fill:none;stroke:black;" cx="157" cy="-239" rx="22.8079" ry="22.8079"/>
+<text text-anchor="middle" x="157" y="-234.4" style="font-family:arial;font-size:14.00;">S2</text>
+</g>
+<!-- n8&#45;&gt;n6 -->
+<g id="edge14" class="edge"><title>n8&#45;&gt;n6</title>
+<path style="fill:none;stroke:black;" d="M148,-218C144,-209 139,-198 135,-188"/>
+<polygon style="fill:black;stroke:black;" points="138.26,-186.717 131,-179 131.863,-189.56 138.26,-186.717"/>
+</g>
+<!-- n10&#45;&gt;n4 -->
+<g id="edge22" class="edge"><title>n10&#45;&gt;n4</title>
+<path style="fill:none;stroke:black;" d="M47,-75C54,-66 63,-52 71,-41"/>
+<polygon style="fill:black;stroke:black;" points="73.8,-43.1 77,-33 68.2,-38.9 73.8,-43.1"/>
+</g>
+<!-- n11 -->
+<g id="node23" class="node"><title>n11</title>
+<ellipse style="fill:none;stroke:black;" cx="33" cy="-18" rx="18" ry="18"/>
+</g>
+<!-- n10&#45;&gt;n11 -->
+<g id="edge24" class="edge"><title>n10&#45;&gt;n11</title>
+<path style="fill:none;stroke:black;" d="M36,-72C35,-64 35,-55 35,-46"/>
+<polygon style="fill:black;stroke:black;" points="38.4778,-45.6021 34,-36 31.5125,-46.2987 38.4778,-45.6021"/>
+</g>
+</g>
+</svg>
 <p><code>somepath(S1 + S2, E)</code>,<br/>one possible result.</p>
 </td>
-<td style='padding: 40px; text-align: center'><div class='graphviz dot'><!--
-digraph somepath2 {
-  graph [size="4,4"]
-  node [label="",shape=circle];
-
-  n1; n2; n3;
-  n4 [fillcolor="pink",style=filled,label="E"];
-  n5;
-  n6 [fillcolor="pink",style=filled];
-  n7 [label="S1"];
-  n8 [fillcolor="pink",style=filled,label="S2"];
-  n9; n10;
-
-  n1 -> n2;
-  n2 -> n3;
-  n7 -> n5;
-  n7 -> n2;
-  n5 -> n6;
-  n6 -> n4;
-  n8 -> n6;
-  n6 -> n9;
-  n2 -> n10;
-  n3 -> n10;
-  n10 -> n4;
-  n10 -> n11;
-}--></div>
+<td style='padding: 40px; text-align: center'>
+<!-- Title: somepath2 Pages: 1 -->
+<svg width="154pt" height="288pt"
+ viewBox="0.00 0.00 153.82 288.00" xmlns="http://www.w3.org/2000/svg" xmlns:xlink="http://www.w3.org/1999/xlink">
+<g id="graph0" class="graph" transform="scale(0.818182 0.818182) rotate(0) translate(4 348)">
+<title>somepath2</title>
+<polygon style="fill:white;stroke:white;" points="-4,4 -4,-348 184,-348 184,4 -4,4"/>
+<!-- n1 -->
+<g id="node1" class="node"><title>n1</title>
+<ellipse style="fill:none;stroke:black;" cx="39" cy="-321" rx="18" ry="18"/>
+</g>
+<!-- n2 -->
+<g id="node2" class="node"><title>n2</title>
+<ellipse style="fill:none;stroke:black;" cx="41" cy="-239" rx="18" ry="18"/>
+</g>
+<!-- n1&#45;&gt;n2 -->
+<g id="edge2" class="edge"><title>n1&#45;&gt;n2</title>
+<path style="fill:none;stroke:black;" d="M39,-303C40,-292 40,-279 40,-267"/>
+<polygon style="fill:black;stroke:black;" points="43.4875,-267.299 41,-257 36.5222,-266.602 43.4875,-267.299"/>
+</g>
+<!-- n3 -->
+<g id="node3" class="node"><title>n3</title>
+<ellipse style="fill:none;stroke:black;" cx="18" cy="-162" rx="18" ry="18"/>
+</g>
+<!-- n2&#45;&gt;n3 -->
+<g id="edge4" class="edge"><title>n2&#45;&gt;n3</title>
+<path style="fill:none;stroke:black;" d="M36,-222C33,-212 29,-200 26,-190"/>
+<polygon style="fill:black;stroke:black;" points="29.2259,-188.573 23,-180 22.5212,-190.584 29.2259,-188.573"/>
+</g>
+<!-- n10 -->
+<g id="node10" class="node"><title>n10</title>
+<ellipse style="fill:none;stroke:black;" cx="37" cy="-90" rx="18" ry="18"/>
+</g>
+<!-- n2&#45;&gt;n10 -->
+<g id="edge18" class="edge"><title>n2&#45;&gt;n10</title>
+<path style="fill:none;stroke:black;" d="M43,-221C45,-202 47,-171 45,-144 44,-136 43,-126 42,-118"/>
+<polygon style="fill:black;stroke:black;" points="45.3933,-117.119 40,-108 38.5292,-118.492 45.3933,-117.119"/>
+</g>
+<!-- n3&#45;&gt;n10 -->
+<g id="edge20" class="edge"><title>n3&#45;&gt;n10</title>
+<path style="fill:none;stroke:black;" d="M23,-145C25,-136 27,-126 30,-117"/>
+<polygon style="fill:black;stroke:black;" points="33.4708,-117.492 32,-107 26.6067,-116.119 33.4708,-117.492"/>
+</g>
+<!-- n4 -->
+<g id="node4" class="node"><title>n4</title>
+<ellipse style="fill:pink;stroke:black;" cx="87" cy="-18" rx="18" ry="18"/>
+<text text-anchor="middle" x="87" y="-13.4" style="font-family:arial;font-size:14.00;">E</text>
+</g>
+<!-- n5 -->
+<g id="node5" class="node"><title>n5</title>
+<ellipse style="fill:none;stroke:black;" cx="98" cy="-239" rx="18" ry="18"/>
+</g>
+<!-- n6 -->
+<g id="node6" class="node"><title>n6</title>
+<ellipse style="fill:pink;stroke:black;" cx="123" cy="-162" rx="18" ry="18"/>
+</g>
+<!-- n5&#45;&gt;n6 -->
+<g id="edge10" class="edge"><title>n5&#45;&gt;n6</title>
+<path style="fill:none;stroke:black;" d="M104,-222C107,-212 111,-200 114,-189"/>
+<polygon style="fill:black;stroke:black;" points="117.479,-189.584 117,-179 110.774,-187.573 117.479,-189.584"/>
+</g>
+<!-- n6&#45;&gt;n4 -->
+<g id="edge12" class="edge"><title>n6&#45;&gt;n4</title>
+<path style="fill:none;stroke:black;" d="M117,-145C114,-134 109,-120 106,-108 100,-87 95,-64 92,-46"/>
+<polygon style="fill:black;stroke:black;" points="95.3933,-45.1194 90,-36 88.5292,-46.4922 95.3933,-45.1194"/>
+</g>
+<!-- n9 -->
+<g id="node9" class="node"><title>n9</title>
+<ellipse style="fill:none;stroke:black;" cx="133" cy="-90" rx="18" ry="18"/>
+</g>
+<!-- n6&#45;&gt;n9 -->
+<g id="edge16" class="edge"><title>n6&#45;&gt;n9</title>
+<path style="fill:none;stroke:black;" d="M126,-144C127,-136 128,-127 129,-118"/>
+<polygon style="fill:black;stroke:black;" points="132.488,-118.299 130,-108 125.522,-117.602 132.488,-118.299"/>
+</g>
+<!-- n7 -->
+<g id="node7" class="node"><title>n7</title>
+<ellipse style="fill:none;stroke:black;" cx="98" cy="-321" rx="22.8079" ry="22.8079"/>
+<text text-anchor="middle" x="98" y="-316.4" style="font-family:arial;font-size:14.00;">S1</text>
+</g>
+<!-- n7&#45;&gt;n2 -->
+<g id="edge8" class="edge"><title>n7&#45;&gt;n2</title>
+<path style="fill:none;stroke:black;" d="M85,-302C77,-290 66,-275 57,-262"/>
+<polygon style="fill:black;stroke:black;" points="59.8,-259.9 51,-254 54.2,-264.1 59.8,-259.9"/>
+</g>
+<!-- n7&#45;&gt;n5 -->
+<g id="edge6" class="edge"><title>n7&#45;&gt;n5</title>
+<path style="fill:none;stroke:black;" d="M98,-298C98,-288 98,-277 98,-267"/>
+<polygon style="fill:black;stroke:black;" points="101.5,-267 98,-257 94.5001,-267 101.5,-267"/>
+</g>
+<!-- n8 -->
+<g id="node8" class="node"><title>n8</title>
+<ellipse style="fill:pink;stroke:black;" cx="157" cy="-239" rx="22.8079" ry="22.8079"/>
+<text text-anchor="middle" x="157" y="-234.4" style="font-family:arial;font-size:14.00;">S2</text>
+</g>
+<!-- n8&#45;&gt;n6 -->
+<g id="edge14" class="edge"><title>n8&#45;&gt;n6</title>
+<path style="fill:none;stroke:black;" d="M148,-218C144,-209 139,-198 135,-188"/>
+<polygon style="fill:black;stroke:black;" points="138.26,-186.717 131,-179 131.863,-189.56 138.26,-186.717"/>
+</g>
+<!-- n10&#45;&gt;n4 -->
+<g id="edge22" class="edge"><title>n10&#45;&gt;n4</title>
+<path style="fill:none;stroke:black;" d="M47,-75C54,-66 63,-52 71,-41"/>
+<polygon style="fill:black;stroke:black;" points="73.8,-43.1 77,-33 68.2,-38.9 73.8,-43.1"/>
+</g>
+<!-- n11 -->
+<g id="node23" class="node"><title>n11</title>
+<ellipse style="fill:none;stroke:black;" cx="33" cy="-18" rx="18" ry="18"/>
+</g>
+<!-- n10&#45;&gt;n11 -->
+<g id="edge24" class="edge"><title>n10&#45;&gt;n11</title>
+<path style="fill:none;stroke:black;" d="M36,-72C35,-64 35,-55 35,-46"/>
+<polygon style="fill:black;stroke:black;" points="38.4778,-45.6021 34,-36 31.5125,-46.2987 38.4778,-45.6021"/>
+</g>
+</g>
+</svg>
 <p><code>somepath(S1 + S2, E)</code>,<br/>another possible result.</p>
 </td>
-<td style='text-align: center'><div class='graphviz dot'><!--
-digraph somepath1 {
-  graph [size="4,4"]
-  node [label="",shape=circle];
-  n1;
-  n2 [fillcolor="pink",style=filled];
-  n3 [fillcolor="pink",style=filled];
-  n4 [fillcolor="pink",style=filled,label="E"];
-  n5 [fillcolor="pink",style=filled];
-  n6 [fillcolor="pink",style=filled];
-  n7 [fillcolor="pink",style=filled, label="S1"];
-  n8 [fillcolor="pink",style=filled, label="S2"];
-  n9;
-  n10 [fillcolor="pink",style=filled];
-
-  n1 -> n2;
-  n2 -> n3;
-  n7 -> n5;
-  n7 -> n2;
-  n5 -> n6;
-  n6 -> n4;
-  n8 -> n6;
-  n6 -> n9;
-  n2 -> n10;
-  n3 -> n10;
-  n10 -> n4;
-  n10 -> n11;
-}--></div>
+<td style='text-align: center'>
+<!-- Title: allpaths Pages: 1 -->
+<svg width="154pt" height="288pt"
+ viewBox="0.00 0.00 153.82 288.00" xmlns="http://www.w3.org/2000/svg" xmlns:xlink="http://www.w3.org/1999/xlink">
+<g id="graph0" class="graph" transform="scale(0.818182 0.818182) rotate(0) translate(4 348)">
+<title>allpaths</title>
+<polygon style="fill:white;stroke:white;" points="-4,4 -4,-348 184,-348 184,4 -4,4"/>
+<!-- n1 -->
+<g id="node1" class="node"><title>n1</title>
+<ellipse style="fill:none;stroke:black;" cx="39" cy="-321" rx="18" ry="18"/>
+</g>
+<!-- n2 -->
+<g id="node2" class="node"><title>n2</title>
+<ellipse style="fill:pink;stroke:black;" cx="41" cy="-239" rx="18" ry="18"/>
+</g>
+<!-- n1&#45;&gt;n2 -->
+<g id="edge2" class="edge"><title>n1&#45;&gt;n2</title>
+<path style="fill:none;stroke:black;" d="M39,-303C40,-292 40,-279 40,-267"/>
+<polygon style="fill:black;stroke:black;" points="43.4875,-267.299 41,-257 36.5222,-266.602 43.4875,-267.299"/>
+</g>
+<!-- n3 -->
+<g id="node3" class="node"><title>n3</title>
+<ellipse style="fill:pink;stroke:black;" cx="18" cy="-162" rx="18" ry="18"/>
+</g>
+<!-- n2&#45;&gt;n3 -->
+<g id="edge4" class="edge"><title>n2&#45;&gt;n3</title>
+<path style="fill:none;stroke:black;" d="M36,-222C33,-212 29,-200 26,-190"/>
+<polygon style="fill:black;stroke:black;" points="29.2259,-188.573 23,-180 22.5212,-190.584 29.2259,-188.573"/>
+</g>
+<!-- n10 -->
+<g id="node10" class="node"><title>n10</title>
+<ellipse style="fill:pink;stroke:black;" cx="37" cy="-90" rx="18" ry="18"/>
+</g>
+<!-- n2&#45;&gt;n10 -->
+<g id="edge18" class="edge"><title>n2&#45;&gt;n10</title>
+<path style="fill:none;stroke:black;" d="M43,-221C45,-202 47,-171 45,-144 44,-136 43,-126 42,-118"/>
+<polygon style="fill:black;stroke:black;" points="45.3933,-117.119 40,-108 38.5292,-118.492 45.3933,-117.119"/>
+</g>
+<!-- n3&#45;&gt;n10 -->
+<g id="edge20" class="edge"><title>n3&#45;&gt;n10</title>
+<path style="fill:none;stroke:black;" d="M23,-145C25,-136 27,-126 30,-117"/>
+<polygon style="fill:black;stroke:black;" points="33.4708,-117.492 32,-107 26.6067,-116.119 33.4708,-117.492"/>
+</g>
+<!-- n4 -->
+<g id="node4" class="node"><title>n4</title>
+<ellipse style="fill:pink;stroke:black;" cx="87" cy="-18" rx="18" ry="18"/>
+<text text-anchor="middle" x="87" y="-13.4" style="font-family:arial;font-size:14.00;">E</text>
+</g>
+<!-- n5 -->
+<g id="node5" class="node"><title>n5</title>
+<ellipse style="fill:pink;stroke:black;" cx="98" cy="-239" rx="18" ry="18"/>
+</g>
+<!-- n6 -->
+<g id="node6" class="node"><title>n6</title>
+<ellipse style="fill:pink;stroke:black;" cx="123" cy="-162" rx="18" ry="18"/>
+</g>
+<!-- n5&#45;&gt;n6 -->
+<g id="edge10" class="edge"><title>n5&#45;&gt;n6</title>
+<path style="fill:none;stroke:black;" d="M104,-222C107,-212 111,-200 114,-189"/>
+<polygon style="fill:black;stroke:black;" points="117.479,-189.584 117,-179 110.774,-187.573 117.479,-189.584"/>
+</g>
+<!-- n6&#45;&gt;n4 -->
+<g id="edge12" class="edge"><title>n6&#45;&gt;n4</title>
+<path style="fill:none;stroke:black;" d="M117,-145C114,-134 109,-120 106,-108 100,-87 95,-64 92,-46"/>
+<polygon style="fill:black;stroke:black;" points="95.3933,-45.1194 90,-36 88.5292,-46.4922 95.3933,-45.1194"/>
+</g>
+<!-- n9 -->
+<g id="node9" class="node"><title>n9</title>
+<ellipse style="fill:none;stroke:black;" cx="133" cy="-90" rx="18" ry="18"/>
+</g>
+<!-- n6&#45;&gt;n9 -->
+<g id="edge16" class="edge"><title>n6&#45;&gt;n9</title>
+<path style="fill:none;stroke:black;" d="M126,-144C127,-136 128,-127 129,-118"/>
+<polygon style="fill:black;stroke:black;" points="132.488,-118.299 130,-108 125.522,-117.602 132.488,-118.299"/>
+</g>
+<!-- n7 -->
+<g id="node7" class="node"><title>n7</title>
+<ellipse style="fill:pink;stroke:black;" cx="98" cy="-321" rx="22.8079" ry="22.8079"/>
+<text text-anchor="middle" x="98" y="-316.4" style="font-family:arial;font-size:14.00;">S1</text>
+</g>
+<!-- n7&#45;&gt;n2 -->
+<g id="edge8" class="edge"><title>n7&#45;&gt;n2</title>
+<path style="fill:none;stroke:black;" d="M85,-302C77,-290 66,-275 57,-262"/>
+<polygon style="fill:black;stroke:black;" points="59.8,-259.9 51,-254 54.2,-264.1 59.8,-259.9"/>
+</g>
+<!-- n7&#45;&gt;n5 -->
+<g id="edge6" class="edge"><title>n7&#45;&gt;n5</title>
+<path style="fill:none;stroke:black;" d="M98,-298C98,-288 98,-277 98,-267"/>
+<polygon style="fill:black;stroke:black;" points="101.5,-267 98,-257 94.5001,-267 101.5,-267"/>
+</g>
+<!-- n8 -->
+<g id="node8" class="node"><title>n8</title>
+<ellipse style="fill:pink;stroke:black;" cx="157" cy="-239" rx="22.8079" ry="22.8079"/>
+<text text-anchor="middle" x="157" y="-234.4" style="font-family:arial;font-size:14.00;">S2</text>
+</g>
+<!-- n8&#45;&gt;n6 -->
+<g id="edge14" class="edge"><title>n8&#45;&gt;n6</title>
+<path style="fill:none;stroke:black;" d="M148,-218C144,-209 139,-198 135,-188"/>
+<polygon style="fill:black;stroke:black;" points="138.26,-186.717 131,-179 131.863,-189.56 138.26,-186.717"/>
+</g>
+<!-- n10&#45;&gt;n4 -->
+<g id="edge22" class="edge"><title>n10&#45;&gt;n4</title>
+<path style="fill:none;stroke:black;" d="M47,-75C54,-66 63,-52 71,-41"/>
+<polygon style="fill:black;stroke:black;" points="73.8,-43.1 77,-33 68.2,-38.9 73.8,-43.1"/>
+</g>
+<!-- n11 -->
+<g id="node23" class="node"><title>n11</title>
+<ellipse style="fill:none;stroke:black;" cx="33" cy="-18" rx="18" ry="18"/>
+</g>
+<!-- n10&#45;&gt;n11 -->
+<g id="edge24" class="edge"><title>n10&#45;&gt;n11</title>
+<path style="fill:none;stroke:black;" d="M36,-72C35,-64 35,-55 35,-46"/>
+<polygon style="fill:black;stroke:black;" points="38.4778,-45.6021 34,-36 31.5125,-46.2987 38.4778,-45.6021"/>
+</g>
+</g>
+</svg>
 <p><code>allpaths(S1 + S2, E)</code>.</p>
 </td>
 </tr></table>
@@ -818,8 +1104,9 @@ digraph somepath1 {
   <ul>
     <li><code><var>ruletype</var> rule</code>
     <li><code><var>ruletype</var></code><br>
-    Where <var>ruletype</var> is a
-     BUILD rule. The difference between these forms is that including "rule" causes the regular expression match for <var>ruletype</var> to be anchored.
+    Where <var>ruletype</var> is a build rule.  The difference between these
+    forms is that including "rule" causes the regular expression match for
+    <var>ruletype</var> to be anchored.
   </ul>
 <li><b>package group</b> patterns should simply be:
   <ul>
@@ -896,20 +1183,21 @@ genrule(
 
 <p>
   This operator often provides a much faster and more robust alternative to the
-  <code>intersect</code> operator. For example, in order to see all some_parent
-  dependencies of the <code>//foo</code> target, one could evaluate
+  <code>intersect</code> operator. For example, in order to see all
+  <code>bar</code> dependencies of the <code>//foo:foo</code> target, one could
+  evaluate
 </p>
-<pre>deps(//foo) intersect //some_parent/...</pre>
+<pre>deps(//foo) intersect //bar/...</pre>
 <p>
   This statement, however, will require parsing of all BUILD files in the
-  <code>some_parent</code> tree, which will be slow and prone to errors in
+  <code>bar</code> tree, which will be slow and prone to errors in
   irrelevant BUILD files. An alternative would be:
 </p>
-<pre>filter(//some_parent, deps(//foo))</pre>
+<pre>filter(//bar, deps(//foo))</pre>
 <p>
   which would first calculate the set of <code>//foo</code> dependencies and
   then would filter only targets matching the provided pattern&mdash;in other
-  words, targets with names containing <code>//some_parent</code> as a
+  words, targets with names containing <code>//bar</code> as a
   substring.
 </p>
 
@@ -918,9 +1206,10 @@ genrule(
   <var>expr</var>)</code> operator is to filter specific files by their
   name or extension. For example,
 </p>
-<pre>filter("\.pl$", deps(//foo))</pre>
+<pre>filter("\.cc$", deps(//foo))</pre>
 <p>
-  will provide a list of all Perl files used to build <code>//foo</code>.
+  will provide a list of all <code>.cc</code> files used to build
+  <code>//foo</code>.
 </p>
 
 <h3 id="attr">Rule attribute filtering: attr</h3>
@@ -1008,7 +1297,9 @@ genrule(
   The <code>tests(<var>x</var>)</code> operator returns the set of all test
   rules in set <var>x</var>, expanding any <code>test_suite</code> rules into
   the set of individual tests that they refer to, and applying filtering by
-  <code>tag</code> and <code>size</code>. By default, query evaluation
+  <code>tag</code> and <code>size</code>.
+
+  By default, query evaluation
   ignores any non-test targets in all <code>test_suite</code> rules. This can be
   changed to errors with the <code>--strict_test_suite</code> option.
 </p>
@@ -1033,58 +1324,9 @@ genrule(
   of files that define the packages of each target in
   set <var>x</var>; in other words, for each package, its BUILD file,
   plus any files it references
-  via <code>subinclude</code>.
 
-<p>
-  This operator is typically used when determining what files or
-  packages are required to build a specified target, often in conjunction with
-  the <a href='#output-package'><code>--output package</code></a>
-  option, below).  For example,
-</p>
-<pre>bazel query 'buildfiles(deps(//foo))' --output package</pre>
-<p>
-  returns the set of all packages on which <code>//foo</code> transitively
-  depends.
-</p>
-
-<p>
-  (Note: a naive attempt at the above query would omit
-  the <code>buildfiles</code> operator and use only <code>deps</code>,
-  but this yields an incorrect result: while the result contains the
-  majority of needed packages, those packages that contain only
-  subincluded files will be missing.)
-</p>
-
-<h3 id="component">All targets in a C++ component: component</h3>
-<pre>expr ::= component(<var>name</var>)</pre>
-<p>
-  The <code>component(<var>name</var>)</code> operator returns the set
-  of all targets belonging to the named C++ component.  Components are
-  defined by text files in the
-  <code>//dir1/dir2:definitions_cpp/*</code> directory.
-  You can use this operator to help resolve dependency problems when
-  migrating code into a component.
-</p>
-<p>
-  As an example, consider a package <code>foo</code> which we wish to
-  move into the "abc" component.  This means that all of its
-  transitive prerequisites must come from only the "abc" and
-  "core" components.  To find out if any targets in <code>foo</code>
-  violate this rule, use the following query:
-</p>
-<pre>
-bazel query --nohost_deps --noimplicit_deps '
-    foo:* intersect (deps(foo:*) - (component(core) + component(abc)))'
-</pre>
-<p>
-  To show the subgraph starting from one of the violating targets (say
-  <code>//foo:main</code>) whose edges are all outside the component, use:
-</p>
-<pre>
-bazel query --nohost_deps --noimplicit_deps '
-    allpaths(//foo:main, deps(foo:*) - (component(core) + component(abc)))' --output=graph
-</pre>
-
+  via <code>load</code>.  Note that this also returns the BUILD files of the
+  packages containing these <code>load</code>ed files.
 <h2>Output formats</h2>
 
 <p>
@@ -1105,12 +1347,42 @@ bazel query --nohost_deps --noimplicit_deps '
   is being used.
 </p>
 
+<h3 id='result-order'>On the ordering of results</h3>
+
+<p>
+  Although query expressions always follow the "<a href='#graph-order'>law of
+  conservation of graph order</a>", <i>presenting</i> the results may be done
+  in either a dependency-ordered or unordered manner. This does <b>not</b>
+  influence the targets in the result set or how the query is computed. It only
+  affects how the results are printed to stdout. The
+  <code>--[no]order_results</code> flag can be used to control this behavior.
+</p>
+<p>
+  When <code>--order_results</code> is used (this is the default), then the
+  graph order will be preserved in the output. For example the query
+  <code>deps(x)</code> will print the dependencies of target <code>x</code>
+  before printing <code>x</code> itself.
+</p>
+<p>
+  When <code>--noorder_results</code> is used and <code>--order</code> is one
+  of <code>label</code>, <code>label_kind</code>, <code>location</code>,
+  <code>package</code>, <code>proto</code>, <code>record</code> or
+  <code>xml</code>, the outputs will be printed in arbitrary order. <b>This is
+  generally faster than using <code>--order_results</code></b>. It is not
+  supported though when <code>--order</code> is one of <code>graph</code>,
+  <code>min_rank</code> or <code>max_rank</code>: with these formats, bazel will
+  ignore the <code>--[no]order_results</code> flag and always print ordered
+  results.
+</p>
+
 <h3 id="output-label">Print the label of each target</h3>
 <pre>--output label</pre>
 <p>
   With this option, the set of names (or <em>labels</em>) of each target
   in the resulting graph is printed, one label per line, in
-  topological order.  (A topological ordering, is one in which a graph
+  topological order (unless <code>--noorder_results</code> is specified, see
+  <a href='#result-order'>notes on the ordering of results</a>).
+  (A topological ordering is one in which a graph
   node appears earlier than all of its successors.)  Of course there
   are many possible topological orderings of a graph (<em>reverse
   postorder</em> is just one); which one is chosen is not specified.
@@ -1145,10 +1417,12 @@ bazel query --nohost_deps --noimplicit_deps '
 --output maxrank</pre>
 <p>
   Like <code>label</code>, the <code>minrank</code>
-   and <code>maxrank</code> output formats print the labels of each
-   target in the resulting graph, but instead of appearing in
-   topological order, they appear in rank order, preceded by their
-   rank number.
+  and <code>maxrank</code> output formats print the labels of each
+  target in the resulting graph, but instead of appearing in
+  topological order, they appear in rank order, preceded by their
+  rank number. These are unaffected by the result ordering
+  <code>--[no]order_results</code> flag (see <a href='#result-order'>notes on
+  the ordering of results</a>).
 </p>
 
 <p>
@@ -1168,7 +1442,8 @@ bazel query --nohost_deps --noimplicit_deps '
 
 <p>
   All nodes in a cycle are considered of equal rank.  (Most graphs are
-  acyclic, but cycles do occur, sometimes
+  acyclic, but cycles do occur
+
   simply because BUILD files contain erroneous cycles.)
 </p>
 
@@ -1197,17 +1472,64 @@ bazel query --nohost_deps --noimplicit_deps '
 </p>
 
 <table style='margin: auto'><tr><td>
-<div class='graphviz dot'><!--
-digraph mygraph {
-  graph [size="0.4"]
-  node [shape=box];
-"//a:a" -> "//a:a.cc"
-"//b:b" -> "//a:a"
-"//b:b" -> "//b:b.cc"
-"//c:c" -> "//b:b"
-"//c:c" -> "//a:a"
-}
---></div>
+<!-- Title: mygraph Pages: 1 -->
+<svg width="146pt" height="260pt"
+ viewBox="0.00 0.00 146.00 260.00" xmlns="http://www.w3.org/2000/svg" xmlns:xlink="http://www.w3.org/1999/xlink">
+<g id="graph0" class="graph" transform="scale(1 1) rotate(0) translate(4 256)">
+<title>mygraph</title>
+<polygon style="fill:white;stroke:white;" points="-4,4 -4,-256 142,-256 142,4 -4,4"/>
+<!-- //a:a -->
+<g id="node1" class="node"><title>//a:a</title>
+<polygon style="fill:none;stroke:black;" points="58,-108 4,-108 4,-72 58,-72 58,-108"/>
+<text text-anchor="middle" x="31" y="-85.4" style="font-family:arial;font-size:14.00;">//a:a</text>
+</g>
+<!-- //a:a.cc -->
+<g id="node3" class="node"><title>//a:a.cc</title>
+<polygon style="fill:none;stroke:black;" points="62,-36 2.84217e-14,-36 0,-1.77636e-14 62,-3.55271e-15 62,-36"/>
+<text text-anchor="middle" x="31" y="-13.4" style="font-family:arial;font-size:14.00;">//a:a.cc</text>
+</g>
+<!-- //a:a&#45;&gt;//a:a.cc -->
+<g id="edge2" class="edge"><title>//a:a&#45;&gt;//a:a.cc</title>
+<path style="fill:none;stroke:black;" d="M31,-72C31,-64 31,-55 31,-46"/>
+<polygon style="fill:black;stroke:black;" points="34.5001,-46 31,-36 27.5001,-46 34.5001,-46"/>
+</g>
+<!-- //b:b -->
+<g id="node4" class="node"><title>//b:b</title>
+<polygon style="fill:none;stroke:black;" points="113,-180 59,-180 59,-144 113,-144 113,-180"/>
+<text text-anchor="middle" x="86" y="-157.4" style="font-family:arial;font-size:14.00;">//b:b</text>
+</g>
+<!-- //b:b&#45;&gt;//a:a -->
+<g id="edge4" class="edge"><title>//b:b&#45;&gt;//a:a</title>
+<path style="fill:none;stroke:black;" d="M72,-144C66,-136 58,-125 51,-116"/>
+<polygon style="fill:black;stroke:black;" points="53.8,-113.9 45,-108 48.2,-118.1 53.8,-113.9"/>
+</g>
+<!-- //b:b.cc -->
+<g id="node7" class="node"><title>//b:b.cc</title>
+<polygon style="fill:none;stroke:black;" points="138,-108 76,-108 76,-72 138,-72 138,-108"/>
+<text text-anchor="middle" x="107" y="-85.4" style="font-family:arial;font-size:14.00;">//b:b.cc</text>
+</g>
+<!-- //b:b&#45;&gt;//b:b.cc -->
+<g id="edge6" class="edge"><title>//b:b&#45;&gt;//b:b.cc</title>
+<path style="fill:none;stroke:black;" d="M91,-144C94,-136 97,-127 99,-118"/>
+<polygon style="fill:black;stroke:black;" points="102.479,-118.584 102,-108 95.7741,-116.573 102.479,-118.584"/>
+</g>
+<!-- //c:c -->
+<g id="node8" class="node"><title>//c:c</title>
+<polygon style="fill:none;stroke:black;" points="85,-252 31,-252 31,-216 85,-216 85,-252"/>
+<text text-anchor="middle" x="58" y="-229.4" style="font-family:arial;font-size:14.00;">//c:c</text>
+</g>
+<!-- //c:c&#45;&gt;//a:a -->
+<g id="edge10" class="edge"><title>//c:c&#45;&gt;//a:a</title>
+<path style="fill:none;stroke:black;" d="M55,-216C50,-191 41,-147 36,-118"/>
+<polygon style="fill:black;stroke:black;" points="39.3933,-117.119 34,-108 32.5292,-118.492 39.3933,-117.119"/>
+</g>
+<!-- //c:c&#45;&gt;//b:b -->
+<g id="edge8" class="edge"><title>//c:c&#45;&gt;//b:b</title>
+<path style="fill:none;stroke:black;" d="M65,-216C68,-208 72,-198 75,-190"/>
+<polygon style="fill:black;stroke:black;" points="78.5357,-190.585 79,-180 72.0364,-187.985 78.5357,-190.585"/>
+</g>
+</g>
+</svg>
 </td><td>
 <pre>
 minrank
@@ -1330,26 +1652,27 @@ maxrank
   form.  The output starts with an XML header such as this
 </p>
 <pre>
-  &lt;?xml version="1.0" encoding="UTF-8"?>
-  &lt;query version="2">
+  &lt;?xml version="1.0" encoding="UTF-8"?&gt;
+  &lt;query version="2"&gt;
 </pre>
 <!-- The docs should continue to document version 2 into perpetuity,
      even if we add new formats, to handle clients synced to old CLs. -->
 <p>
   and then continues with an XML element for each target
-  in the result graph, in topological order,
+  in the result graph, in topological order (unless
+  <a href='#result-order'>unordered results</a> are requested),
   and then finishes with a terminating
 </p>
 <pre>
-&lt;/query>
+&lt;/query&gt;
 </pre>
 <p>
   Simple entries are emitted for targets of <code>file</code>
   kind:
 </p>
 <pre>
-  &lt;source-file name='//foo:bar_main.cc' .../>
-  &lt;generated-file name='//foo:libbar.so' .../>
+  &lt;source-file name='//foo:foo_main.cc' .../&gt;
+  &lt;generated-file name='//foo:libfoo.so' .../&gt;
 </pre>
 <p>
   But for rules, the XML is structured and contains definitions of all
@@ -1372,7 +1695,7 @@ maxrank
   &lt;rule class='cc_binary rule' name='//foo:foo' ...&gt;
     &lt;list name='srcs'&gt;
       &lt;label value='//foo:foo_main.cc'/&gt;
-      &lt;label value='//foo:foo.cc'/&gt;
+      &lt;label value='//foo:bar.cc'/&gt;
       ...
     &lt;/list&gt;
     &lt;list name='deps'&gt;
@@ -1392,7 +1715,7 @@ maxrank
     &lt;rule-input name="//common:common" /&gt;
     &lt;rule-input name="//collections:collections" /&gt;
     &lt;rule-input name="//foo:foo_main.cc" /&gt;
-    &lt;rule-input name="//foo:foo.cc" /&gt;
+    &lt;rule-input name="//foo:bar.cc" /&gt;
     ...
   &lt;/rule&gt;
 </pre>
