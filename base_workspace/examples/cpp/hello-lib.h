@@ -1,6 +1,23 @@
-#ifndef EXAMPLE_WORKSPACE_CPP_HELLO_LIB_H_
-#define EXAMPLE_WORKSPACE_CPP_HELLO_LIB_H_
+#ifndef EXAMPLES_CPP_HELLO_LIB_H_
+#define EXAMPLES_CPP_HELLO_LIB_H_
 
-void greet(const char* object);
+#include <string>
+#include <memory>
 
-#endif  // EXAMPLE_WORKSPACE_CPP_HELLO_LIB_H_
+namespace hello {
+
+class HelloLib {
+ public:
+  HelloLib();
+
+  explicit HelloLib(const std::string &greeting);
+
+  void greet(const std::string &thing);
+
+ private:
+  std::unique_ptr<const std::string> greeting_;
+};
+
+}  // namespace hello
+
+#endif  // EXAMPLES_CPP_HELLO_LIB_H_

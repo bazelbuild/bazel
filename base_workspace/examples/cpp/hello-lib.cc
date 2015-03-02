@@ -1,5 +1,21 @@
 #include "examples/cpp/hello-lib.h"
 
-#include <stdio.h>
+#include <iostream>
 
-void greet(const char* obj) { printf("hello %s\n", obj); }
+using std::cout;
+using std::endl;
+using std::string;
+
+namespace hello {
+
+HelloLib::HelloLib() : HelloLib("Hello") {
+}
+
+HelloLib::HelloLib(const string& greeting) : greeting_(new string(greeting)) {
+}
+
+void HelloLib::greet(const string& thing) {
+  cout << *greeting_ << " " << thing << endl;
+}
+
+}  // namespace hello
