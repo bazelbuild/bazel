@@ -136,7 +136,7 @@ public abstract class SkylarkType {
   }
 
   public boolean includes(SkylarkType other) {
-    return intersection(this, other) == other;
+    return intersection(this, other).equals(other);
   }
 
   public boolean includes(Class<?> other) {
@@ -148,9 +148,6 @@ public abstract class SkylarkType {
   }
 
   private final class Empty { }; // Empty type, used as basis for Bottom
-
-  private static Map<Class<?>, Simple> simpleCache = // cache used by Simple
-      new HashMap<Class<?>, Simple>();
 
   // Notable types
 
@@ -250,12 +247,12 @@ public abstract class SkylarkType {
   public static class Simple extends SkylarkType {
     private final Class<?> type;
 
-    public Simple(Class<?> type) {
+    private Simple(Class<?> type) {
       this.type = type;
     }
 
     @Override public boolean contains(Object value) {
-      return type.isAssignableFrom(value.getClass());
+      return value != null && type.isInstance(value);
     }
     @Override public Class<?> getType() {
       return type;
@@ -273,7 +270,15 @@ public abstract class SkylarkType {
     @Override public boolean canBeCastTo(Class<?> type) {
       return this.type == type || super.canBeCastTo(type);
     }
-    public static Simple of(Class<?> type) {
+    private static HashMap<Class<?>, Simple> simpleCache = new HashMap<>();
+
+    /**
+     * The public way to create a Simple type
+     * @param type a Class
+     * @return the Simple type that contains exactly the instances of that Class
+     */
+    // NB: synchronized to avoid race conditions filling that cache.
+    public static synchronized Simple of(Class<?> type) {
       Simple cached = simpleCache.get(type);
       if (cached != null) {
         return cached;
@@ -308,14 +313,14 @@ public abstract class SkylarkType {
     // and in practice actually one of SkylarkList or SkylarkNestedSet
     private final SkylarkType genericType; // actually always a Simple, for now.
     private final SkylarkType argType; // not always Simple
-    public Combination(SkylarkType genericType, SkylarkType argType) {
+    private Combination(SkylarkType genericType, SkylarkType argType) {
       this.genericType = genericType;
       this.argType = argType;
     }
 
     public boolean contains(Object value) {
       // The empty collection is member of compatible types
-      if (!genericType.contains(value)) {
+      if (value == null || !genericType.contains(value)) {
         return false;
       } else {
         SkylarkType valueArgType = getGenericArgType(value);

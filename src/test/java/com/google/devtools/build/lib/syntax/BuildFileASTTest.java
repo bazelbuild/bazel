@@ -97,7 +97,7 @@ public class BuildFileASTTest {
 
     assertFalse(buildfile.exec(env, reporter));
     Event e = JunitTestUtils.assertContainsEvent(collector,
-        "unsupported operand type(s) for +: 'int' and 'list'");
+        "unsupported operand type(s) for +: 'int' and 'List'");
     assertEquals(4, e.getLocation().getStartLineAndColumn().getLine());
   }
 

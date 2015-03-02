@@ -61,8 +61,8 @@ public class EvalUtilsTest {
   public void testDataTypeNames() throws Exception {
     assertEquals("string", EvalUtils.getDataTypeName("foo"));
     assertEquals("int", EvalUtils.getDataTypeName(3));
-    assertEquals("tuple", EvalUtils.getDataTypeName(makeTuple(1, 2, 3)));
-    assertEquals("list",  EvalUtils.getDataTypeName(makeList(1, 2, 3)));
+    assertEquals("Tuple", EvalUtils.getDataTypeName(makeTuple(1, 2, 3)));
+    assertEquals("List",  EvalUtils.getDataTypeName(makeList(1, 2, 3)));
     assertEquals("dict",  EvalUtils.getDataTypeName(makeDict()));
     assertEquals("FilesetEntry",  EvalUtils.getDataTypeName(makeFilesetEntry()));
     assertEquals("None", EvalUtils.getDataTypeName(Environment.NONE));

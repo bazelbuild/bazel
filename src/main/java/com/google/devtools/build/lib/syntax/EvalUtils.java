@@ -212,10 +212,10 @@ public abstract class EvalUtils {
     } else if (c.equals(Void.TYPE) || c.equals(Environment.NoneType.class)) {
       return "None";
     } else if (List.class.isAssignableFrom(c)) {
-      // TODO(bazel-team): for better debugging, we should distinguish "java tuple" and "java list"
-      // from "tuple" and "list" -- or better yet, only use one set of pure data structures
-      // everywhere and eliminate all calls to .append and .extend from the code base.
-      return isTuple(c) ? "tuple" : "list";
+      // NB: the capital here is a subtle way to distinguish java Tuple and java List
+      // from native SkylarkList tuple and list.
+      // TODO(bazel-team): refactor SkylarkList and use it everywhere.
+      return isTuple(c) ? "Tuple" : "List";
     } else if (GlobList.class.isAssignableFrom(c)) {
       return "glob list";
     } else if (Map.class.isAssignableFrom(c)) {
