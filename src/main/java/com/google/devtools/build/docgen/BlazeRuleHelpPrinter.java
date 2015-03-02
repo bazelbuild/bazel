@@ -19,7 +19,6 @@ import com.google.devtools.build.lib.analysis.ConfiguredRuleClassProvider;
 import java.io.IOException;
 import java.util.HashMap;
 import java.util.Map;
-import java.util.Set;
 
 /**
  * A helper class to load and store printable build rule documentation. The doc
@@ -37,11 +36,11 @@ public class BlazeRuleHelpPrinter {
     if (ruleDocMap == null) {
       try {
         BuildEncyclopediaProcessor processor = new BuildEncyclopediaProcessor(provider);
-        Set<RuleDocumentation> ruleDocs = processor.collectAndProcessRuleDocs(
+        Map<String, RuleDocumentation> ruleDocs = processor.collectAndProcessRuleDocs(
             new String[] {"java/com/google/devtools/build/lib/view",
                 "java/com/google/devtools/build/lib/rules"}, false);
         ruleDocMap = new HashMap<>();
-        for (RuleDocumentation ruleDoc : ruleDocs) {
+        for (RuleDocumentation ruleDoc : ruleDocs.values()) {
           ruleDocMap.put(ruleDoc.getRuleName(), ruleDoc);
         }
       } catch (BuildEncyclopediaDocException e) {

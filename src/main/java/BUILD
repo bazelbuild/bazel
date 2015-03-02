@@ -65,7 +65,6 @@ filegroup(
 java_binary(
     name = "docgen_bin",
     srcs = glob(["com/google/devtools/build/docgen/*.java"]),
-    data = [":gen_be_sources"],
     main_class = "com.google.devtools.build.docgen.BuildEncyclopediaGenerator",
     resources = glob(
         ["com/google/devtools/build/docgen/templates/*.html"],
@@ -81,7 +80,9 @@ genrule(
     name = "gen_buildencyclopedia",
     srcs = [":gen_be_sources"],
     outs = ["build-encyclopedia.html"],
-    cmd = " docgen_bin $$PWD/src/main/java/com/google/devtools/build/lib $$PWD;" +
-          "cp $$PWD/build-encyclopedia.html $@",
+    cmd = ("$(location docgen_bin)" +
+           " $$PWD/java/com/google/devtools/build/lib" +
+           " $$PWD" +
+           "; cp $$PWD/build-encyclopedia.html $@"),
     tools = [":docgen_bin"],
 )
