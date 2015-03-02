@@ -667,6 +667,9 @@ public final class CcCommon {
       unsupportedFeaturesBuilder.add(CppRuleClasses.PARSE_HEADERS);
       unsupportedFeaturesBuilder.add(CppRuleClasses.PREPROCESS_HEADERS);
     }
+    if (toolchain.getCppCompilationContext().getCppModuleMap() == null) {
+      unsupportedFeaturesBuilder.add(CppRuleClasses.MODULE_MAPS);
+    }
     Set<String> unsupportedFeatures = unsupportedFeaturesBuilder.build();
     ImmutableSet.Builder<String> requestedFeatures = ImmutableSet.builder();
     for (String feature : Iterables.concat(DEFAULT_FEATURES, ruleContext.getFeatures())) {

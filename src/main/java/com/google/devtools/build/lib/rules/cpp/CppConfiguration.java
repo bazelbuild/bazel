@@ -708,7 +708,7 @@ public class CppConfiguration extends BuildConfiguration.Fragment {
         TextFormat.merge(""
             + "feature {"
             + "  name: 'use_module_maps'"
-            + "  implies: 'module_maps'"
+            + "  requires: { feature: 'module_maps' }"
             + "  flag_set {"
             + "    action: 'c-compile'"
             + "    action: 'c++-compile'"
