@@ -13,6 +13,8 @@
 // limitations under the License.
 package com.google.devtools.build.lib.testutil;
 
+import static com.google.common.truth.Truth.assertThat;
+
 import com.google.common.io.Files;
 import com.google.devtools.build.lib.events.Event;
 import com.google.devtools.build.lib.events.EventCollector;
@@ -189,10 +191,7 @@ public abstract class FoundationTestCase extends TestCase {
    * assertion.
    */
   protected void assertEndsWith(String expectedSuffix, String actual) {
-    if (!actual.endsWith(expectedSuffix)) {
-      fail("\"" + actual + "\" does not end with "
-           + "\"" + expectedSuffix + "\"");
-    }
+    assertThat(actual).endsWith(expectedSuffix);
   }
 
   /**
@@ -200,10 +199,7 @@ public abstract class FoundationTestCase extends TestCase {
    * assertion.
    */
   protected void assertStartsWith(String expectedPrefix, String actual) {
-    if (!actual.startsWith(expectedPrefix)) {
-      fail("\"" + actual + "\" does not start with "
-           + "\"" + expectedPrefix + "\"");
-    }
+    assertThat(actual).startsWith(expectedPrefix);
   }
 
   // Mix-in assertions:
