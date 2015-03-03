@@ -62,7 +62,7 @@ java_library(
         "com/google/devtools/build/lib/Constants.java",
     ]),
     visibility = [
-        "//src/test:__subpackages__",
+        "//src/java_tools/buildjar:__pkg__",
     ],
     deps = [
         "//src/main/protobuf:proto_build",
