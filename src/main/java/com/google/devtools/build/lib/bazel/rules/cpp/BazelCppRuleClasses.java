@@ -248,7 +248,9 @@ public class BazelCppRuleClasses {
     @Override
     public RuleClass build(Builder builder, RuleDefinitionEnvironment env) {
       return builder
+          // Deprecated in favor of configurable attributes.
           .add(attr("abi", STRING).value("$(ABI)"))
+          // Deprecated in favor of configurable attributes.
           .add(attr("abi_deps", LABEL_LIST_DICT))
           .add(attr("defines", STRING_LIST))
           .add(attr("includes", STRING_LIST))
