@@ -13,8 +13,6 @@
 // limitations under the License.
 package com.google.devtools.build.lib.testutil;
 
-import static com.google.common.truth.Truth.assertThat;
-
 import com.google.common.io.Files;
 import com.google.devtools.build.lib.events.Event;
 import com.google.devtools.build.lib.events.EventCollector;
@@ -50,7 +48,7 @@ public abstract class FoundationTestCase extends TestCase {
   protected Reporter reporter;
   protected EventCollector eventCollector;
 
-  private Scratch scratch;
+  protected Scratch scratch;
 
 
   // Individual tests can opt-out of this handler if they expect an error, by
@@ -75,11 +73,11 @@ public abstract class FoundationTestCase extends TestCase {
   protected void setUp() throws Exception {
     super.setUp();
     scratch = new Scratch(createFileSystem());
-    outputBase = scratchDir("/usr/local/google/_blaze_jrluser/FAKEMD5/");
-    rootDirectory = scratchDir("/" + TestConstants.TEST_WORKSPACE_DIRECTORY);
+    outputBase = scratch.dir("/usr/local/google/_blaze_jrluser/FAKEMD5/");
+    rootDirectory = scratch.dir("/" + TestConstants.TEST_WORKSPACE_DIRECTORY);
     scratchFile(rootDirectory.getRelative("WORKSPACE").getPathString());
     copySkylarkFilesIfExist();
-    actionOutputBase = scratchDir("/usr/local/google/_blaze_jrluser/FAKEMD5/action_out/");
+    actionOutputBase = scratch.dir("/usr/local/google/_blaze_jrluser/FAKEMD5/action_out/");
     eventCollector = new EventCollector(EventKind.ERRORS_AND_WARNINGS);
     reporter = new Reporter(eventCollector);
     reporter.addHandler(failFastHandler);
@@ -153,13 +151,6 @@ public abstract class FoundationTestCase extends TestCase {
   }
 
   /**
-   * Deletes the specified scratch file, using the same specification as {@link Path#delete}.
-   */
-  protected boolean deleteScratchFile(String pathName) throws IOException {
-    return scratch.deleteFile(pathName);
-  }
-
-  /**
    * Create a scratch file in the given filesystem, with the given pathName,
    * consisting of a set of lines. The method returns a Path instance for the
    * scratch file.
@@ -177,29 +168,6 @@ public abstract class FoundationTestCase extends TestCase {
   protected Path scratchFile(FileSystem fs, String pathName, byte[] content)
       throws IOException {
     return scratch.file(fs, pathName, content);
-  }
-
-  /**
-   * Create a directory in the scratch filesystem, with the given path name.
-   */
-  public Path scratchDir(String pathName) throws IOException {
-    return scratch.dir(pathName);
-  }
-
-  /**
-   * If "expectedSuffix" is not a suffix of "actual", fails with an informative
-   * assertion.
-   */
-  protected void assertEndsWith(String expectedSuffix, String actual) {
-    assertThat(actual).endsWith(expectedSuffix);
-  }
-
-  /**
-   * If "expectedPrefix" is not a prefix of "actual", fails with an informative
-   * assertion.
-   */
-  protected void assertStartsWith(String expectedPrefix, String actual) {
-    assertThat(actual).startsWith(expectedPrefix);
   }
 
   // Mix-in assertions:

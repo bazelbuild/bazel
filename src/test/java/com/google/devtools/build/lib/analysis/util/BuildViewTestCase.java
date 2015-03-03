@@ -745,7 +745,7 @@ public abstract class BuildViewTestCase extends FoundationTestCase {
 
   protected Artifact getSourceArtifact(String name) throws IOException {
     return getSourceArtifact(new PathFragment(name),
-        Root.asSourceRoot(scratchDir("/" + TestConstants.TEST_WORKSPACE_DIRECTORY)));
+        Root.asSourceRoot(scratch.dir("/" + TestConstants.TEST_WORKSPACE_DIRECTORY)));
   }
 
   /**

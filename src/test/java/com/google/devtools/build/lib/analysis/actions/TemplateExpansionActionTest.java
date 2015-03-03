@@ -54,8 +54,8 @@ public class TemplateExpansionActionTest extends FoundationTestCase {
   @Override
   protected void setUp() throws Exception {
     super.setUp();
-    Root workspace = Root.asSourceRoot(scratchDir("/workspace"));
-    outputRoot = Root.asDerivedRoot(scratchDir("/workspace"), scratchDir("/workspace/out"));
+    Root workspace = Root.asSourceRoot(scratch.dir("/workspace"));
+    outputRoot = Root.asDerivedRoot(scratch.dir("/workspace"), scratch.dir("/workspace/out"));
     Path input = scratchFile("/workspace/input.txt", TEMPLATE);
     inputArtifact = new Artifact(input, workspace);
     output = scratchFS().getPath("/workspace/out/destination.txt");
