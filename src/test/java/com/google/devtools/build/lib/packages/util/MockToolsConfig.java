@@ -48,7 +48,9 @@ public final class MockToolsConfig {
       @Nullable Path runfilesDirectoryOpt) {
     this.rootDirectory = rootDirectory;
     this.realFileSystem = realFileSystem;
-    if (runfilesDirectoryOpt == null) {
+    if (!realFileSystem) {
+      this.runfilesDirectory = null;
+    } else if (runfilesDirectoryOpt == null) {
       this.runfilesDirectory = rootDirectory.getRelative(BlazeTestUtils.runfilesDir());
     } else {
       this.runfilesDirectory = runfilesDirectoryOpt;

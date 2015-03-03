@@ -144,16 +144,11 @@ java_test(
     ],
 )
 
-java_test(
-    name = "actions_test",
+java_library(
+    name = "actions_testutil",
     srcs = glob([
-        "com/google/devtools/build/lib/actions/**/*.java",
+        "com/google/devtools/build/lib/actions/util/*.java",
     ]),
-    args = ["com.google.devtools.build.lib.AllTests"],
-    data = [
-        "//src/main/native:libunix.dylib",
-        "//src/main/native:libunix.so",
-    ],
     deps = [
         ":foundations_testutil",
         ":test_runner",
@@ -168,21 +163,48 @@ java_test(
     ],
 )
 
-# TODO(bazel-team): Make these tests actually run. Also fix the duplicate compilation of
-# actions/util.
-java_library(
-    name = "analysis_actions_test",
+java_test(
+    name = "actions_test",
     srcs = glob([
-        "com/google/devtools/build/lib/actions/util/*.java",
-        "com/google/devtools/build/lib/analysis/**/*.java",
-        "com/google/devtools/build/lib/exec/util/*.java",
-        "com/google/devtools/build/lib/packages/util/*.java",
+        "com/google/devtools/build/lib/actions/*.java",
     ]),
+    args = ["com.google.devtools.build.lib.AllTests"],
     data = [
         "//src/main/native:libunix.dylib",
         "//src/main/native:libunix.so",
     ],
     deps = [
+        ":actions_testutil",
+        ":foundations_testutil",
+        ":test_runner",
+        ":testutil",
+        "//src/main/java:bazel-core",
+        "//third_party:guava",
+        "//third_party:guava-testlib",
+        "//third_party:jsr305",
+        "//third_party:junit4",
+        "//third_party:mockito",
+        "//third_party:truth",
+    ],
+)
+
+java_library(
+    name = "analysis_actions_test",
+    srcs = glob([
+        "com/google/devtools/build/lib/analysis/**/*.java",
+        "com/google/devtools/build/lib/exec/util/*.java",
+        "com/google/devtools/build/lib/packages/util/*.java",
+    ]),
+    #     args = ["com.google.devtools.build.lib.AllTests"],
+    data = [
+        "//src/main/native:libunix.dylib",
+        "//src/main/native:libunix.so",
+    ],
+    resources = [
+        "MOCK_CROSSTOOL",
+    ],
+    deps = [
+        ":actions_testutil",
         ":foundations_testutil",
         ":test_runner",
         ":testutil",
