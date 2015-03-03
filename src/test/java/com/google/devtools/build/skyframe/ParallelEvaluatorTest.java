@@ -20,6 +20,7 @@ import static com.google.devtools.build.skyframe.GraphTester.CONCATENATE;
 import static org.junit.Assert.assertEquals;
 import static org.junit.Assert.assertFalse;
 import static org.junit.Assert.assertNotNull;
+import static org.junit.Assert.assertNull;
 import static org.junit.Assert.assertSame;
 import static org.junit.Assert.assertTrue;
 import static org.junit.Assert.fail;
@@ -1977,45 +1978,62 @@ public class ParallelEvaluatorTest {
 
   @Test
   public void raceConditionWithNoKeepGoingErrors_InflightError() throws Exception {
-    if (System.getProperty("os.name").toLowerCase().indexOf("mac") >= 0) {
-      // TODO(Bazel-team): fix this test on OSX. It is flaky and causes hangs.
-      return;
-    }
+    // Given a graph of two nodes, errorKey and otherErrorKey,
+    final SkyKey errorKey = GraphTester.toSkyKey("errorKey");
+    final SkyKey otherErrorKey = GraphTester.toSkyKey("otherErrorKey");
 
     final CountDownLatch errorCommitted = new CountDownLatch(1);
-    final TrackingAwaiter trackingAwaiterForError = new TrackingAwaiter();
+    final TrackingAwaiter trackingAwaiterForErrorCommitted = new TrackingAwaiter();
+
+    final CountDownLatch otherStarted = new CountDownLatch(1);
+    final TrackingAwaiter trackingAwaiterForOtherStarted = new TrackingAwaiter();
+
     final CountDownLatch otherDone = new CountDownLatch(1);
-    final TrackingAwaiter trackingAwaiterForOther = new TrackingAwaiter();
-    final SkyKey errorKey = GraphTester.toSkyKey("errorKey");
-    final SkyKey otherKey = GraphTester.toSkyKey("otherKey");
-    tester.getOrCreate(errorKey).setHasError(true);
+    final TrackingAwaiter trackingAwaiterForOtherDone = new TrackingAwaiter();
+
     final AtomicInteger numOtherInvocations = new AtomicInteger(0);
+    final AtomicReference<String> bogusInvocationMessage = new AtomicReference<>(null);
+    final AtomicReference<String> nonNullValueMessage = new AtomicReference<>(null);
 
-    final AtomicReference<String> bogusInvocationCount = new AtomicReference<>(null);
-    final AtomicReference<String> nonNullValue = new AtomicReference<>(null);
-
-    tester.getOrCreate(otherKey).setBuilder(new SkyFunction() {
+    tester.getOrCreate(errorKey).setBuilder(new SkyFunction() {
       @Override
       public SkyValue compute(SkyKey skyKey, Environment env) throws SkyFunctionException {
+        // Given that errorKey waits for otherErrorKey to begin evaluation before completing its
+        // evaluation,
+        trackingAwaiterForOtherStarted.awaitLatchAndTrackExceptions(otherStarted,
+            "otherErrorKey's SkyFunction didn't start in time.");
+        // And given that errorKey throws an error,
+        throw new GenericFunctionException(new SomeErrorException("error"), Transience.PERSISTENT);
+      }
+
+      @Override
+      public String extractTag(SkyKey skyKey) {
+        return null;
+      }
+    });
+    tester.getOrCreate(otherErrorKey).setBuilder(new SkyFunction() {
+      @Override
+      public SkyValue compute(SkyKey skyKey, Environment env) throws SkyFunctionException {
+        otherStarted.countDown();
         int invocations = numOtherInvocations.incrementAndGet();
-        if (invocations == 1) {
-          trackingAwaiterForError.awaitLatchAndTrackExceptions(errorCommitted,
-              "error didn't get committed to the graph in time");
-        }
+        // And given that otherErrorKey waits for errorKey's error to be committed before trying
+        // to get errorKey's value,
+        trackingAwaiterForErrorCommitted.awaitLatchAndTrackExceptions(errorCommitted,
+            "errorKey's error didn't get committed to the graph in time");
         try {
           SkyValue value = env.getValueOrThrow(errorKey, SomeErrorException.class);
           if (value != null) {
-            nonNullValue.set("bogus non-null value " + value);
+            nonNullValueMessage.set("bogus non-null value " + value);
           }
           if (invocations != 1) {
-            bogusInvocationCount.set("bogus invocation count: " + invocations);
+            bogusInvocationMessage.set("bogus invocation count: " + invocations);
           }
-
           otherDone.countDown();
+          // And given that otherErrorKey throws an error,
           throw new GenericFunctionException(new SomeErrorException("other"),
               Transience.PERSISTENT);
         } catch (SomeErrorException e) {
-          assertEquals(2, invocations);
+          fail();
           return null;
         }
       }
@@ -2030,18 +2048,36 @@ public class ParallelEvaluatorTest {
       public void accept(SkyKey key, EventType type, Order order, Object context) {
         if (key.equals(errorKey) && type == EventType.SET_VALUE && order == Order.AFTER) {
           errorCommitted.countDown();
-          trackingAwaiterForOther.awaitLatchAndTrackExceptions(otherDone,
-              "otherKey's SkyFunction didn't finish in time");
+          trackingAwaiterForOtherDone.awaitLatchAndTrackExceptions(otherDone,
+              "otherErrorKey's SkyFunction didn't finish in time.");
         }
       }
     });
+
+    // When the graph is evaluated in noKeepGoing mode,
     EvaluationResult<StringValue> result = eval(/*keepGoing=*/false,
-        ImmutableList.of(errorKey, otherKey));
-    assertTrue(nonNullValue.get(), nonNullValue.get() == null);
-    assertTrue(bogusInvocationCount.get(), bogusInvocationCount.get() == null);
-    assertEquals(null, graph.get(otherKey));
+        ImmutableList.of(errorKey, otherErrorKey));
+
+    // Then the result reports that an error occurred because of errorKey,
     assertTrue(result.hasError());
     assertEquals(errorKey, result.getError().getRootCauseOfException());
+
+    // And no value is committed for otherErrorKey,
+    assertNull(graph.get(otherErrorKey));
+
+    // And no value was committed for errorKey,
+    assertNull(nonNullValueMessage.get(), nonNullValueMessage.get());
+
+    // And the SkyFunction for otherErrorKey was evaluated exactly once.
+    assertEquals(numOtherInvocations.get(), 1);
+    assertNull(bogusInvocationMessage.get(), bogusInvocationMessage.get());
+
+    // NB: The SkyFunction for otherErrorKey gets evaluated exactly once--it does not get
+    // re-evaluated during error bubbling. Why? When otherErrorKey throws, it is always the
+    // second error encountered, because it waited for errorKey's error to be committed before
+    // trying to get it. In fail-fast evaluations only the first failing SkyFunction's
+    // newly-discovered-dependencies are registered. Therefore, there won't be a reverse-dep from
+    // errorKey to otherErrorKey for the error to bubble through.
   }
 
   @Test
