@@ -106,7 +106,7 @@ public class Package implements Serializable {
    * The name of the workspace this package is in. Used as a prefix for the runfiles directory.
    * This can be set in the WORKSPACE file. This must be a valid target name.
    */
-  protected String workspaceName = Constants.RUNFILES_PREFIX;
+  protected String workspaceName = Constants.DEFAULT_RUNFILES_PREFIX;
 
   /**
    * The root of the source tree in which this package was found. It is an invariant that

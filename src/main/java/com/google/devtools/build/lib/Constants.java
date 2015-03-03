@@ -31,7 +31,7 @@ public class Constants {
   public static final String MAIN_RULE_CLASS_PROVIDER =
       "com.google.devtools.build.lib.bazel.rules.BazelRuleClassProvider".toString();
   public static final ImmutableList<String> IGNORED_TEST_WARNING_PREFIXES = ImmutableList.of();
-  public static final String RUNFILES_PREFIX = "".toString();
+  public static final String DEFAULT_RUNFILES_PREFIX = "".toString();
 
   public static final ImmutableList<String> WATCHFS_BLACKLIST = ImmutableList.of();
 

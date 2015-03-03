@@ -176,7 +176,7 @@ public final class Runfiles {
       NestedSet<Map.Entry<PathFragment, Artifact>> rootSymlinks,
       NestedSet<PruningManifest> pruningManifests,
       Function<Map<PathFragment, Artifact>, Map<PathFragment, Artifact>> expander) {
-    this.suffix = suffix == null ? Constants.RUNFILES_PREFIX : suffix;
+    this.suffix = suffix == null ? Constants.DEFAULT_RUNFILES_PREFIX : suffix;
     this.unconditionalArtifacts = Preconditions.checkNotNull(artifacts);
     this.symlinks = Preconditions.checkNotNull(symlinks);
     this.rootSymlinks = Preconditions.checkNotNull(rootSymlinks);
