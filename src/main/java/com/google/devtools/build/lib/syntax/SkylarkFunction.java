@@ -300,7 +300,7 @@ public abstract class SkylarkFunction extends AbstractFunction {
       return type.cast(elem);
     } catch (ClassCastException e) {
       throw new EvalException(loc, String.format("expected %s for '%s' but got %s instead",
-          type.getSimpleName(), what, EvalUtils.getDataTypeName(elem)));
+          EvalUtils.getDataTypeNameFromClass(type), what, EvalUtils.getDataTypeName(elem)));
     }
   }
 }

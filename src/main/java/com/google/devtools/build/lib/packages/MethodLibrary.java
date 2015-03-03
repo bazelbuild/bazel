@@ -641,14 +641,16 @@ public class MethodLibrary {
     @Override
     public Object call(Object[] args, FuncallExpression ast) throws EvalException,
         ConversionException {
-      List<Object> input = Type.OBJECT_LIST.convert(args[0], "'enumerate' operand");
-      List<List<Object>> result = Lists.newArrayList();
+      // Note that enumerate is only available in Skylark.
+      SkylarkList input = cast(
+          args[0], SkylarkList.class, "enumerate operand", ast.getLocation());
+      List<SkylarkList> result = Lists.newArrayList();
       int count = 0;
       for (Object obj : input) {
-        result.add(Lists.newArrayList(count, obj));
+        result.add(SkylarkList.tuple(Lists.newArrayList(count, obj)));
         count++;
       }
-      return result;
+      return SkylarkList.list(result, ast.getLocation());
     }
   };
 

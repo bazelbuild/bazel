@@ -353,7 +353,7 @@ public abstract class SkylarkList implements Iterable<Object> {
   /**
    * @param elements the contents of the list
    * @return a Skylark list containing elements
-   * @throws an EvalException in case the list is not monomorphic
+   * @throws EvalException in case the list is not monomorphic
    */
   public static SkylarkList list(Collection<?> elements, Location loc) throws EvalException {
     if (elements.isEmpty()) {
