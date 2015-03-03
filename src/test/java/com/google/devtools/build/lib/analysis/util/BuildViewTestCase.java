@@ -859,6 +859,40 @@ public abstract class BuildViewTestCase extends FoundationTestCase {
         owner);
   }
 
+  /**
+   * Gets a derived Artifact for testing in the subdirectory of the {@link
+   * BuildConfiguration#getIncludeDirectory()} corresponding to the package of {@code owner}.
+   * So to specify a file foo/foo.o owned by target //foo:foo, {@code packageRelativePath} should
+   * just be "foo.h".
+   */
+  protected Artifact getIncludeArtifact(String packageRelativePath, String owner) {
+    return getIncludeArtifact(packageRelativePath, makeLabelAndConfiguration(owner));
+  }
+  
+  /**
+   * Gets a derived Artifact for testing in the subdirectory of the {@link
+   * BuildConfiguration#getIncludeDirectory()} corresponding to the package of {@code owner}.
+   * So to specify a file foo/foo.o owned by target //foo:foo, {@code packageRelativePath} should
+   * just be "foo.h".
+   */
+  private Artifact getIncludeArtifact(String packageRelativePath, ArtifactOwner owner) {
+    return getPackageRelativeDerivedArtifact(packageRelativePath,
+        targetConfig.getIncludeDirectory(),
+        owner);
+  }
+  
+  /**
+   * @return a shared artifact at the binary-root relative path {@code rootRelativePath} owned by
+   *         {@code owner}.
+   *
+   * @param rootRelativePath the binary-root relative path of the artifact.
+   * @param owner the artifact's owner.
+   */
+  protected Artifact getSharedArtifact(String rootRelativePath, ConfiguredTarget owner) {
+    return getDerivedArtifact(new PathFragment(rootRelativePath), targetConfig.getBinDirectory(),
+        new ConfiguredTargetKey(owner));
+  }
+  
   protected Action getGeneratingActionForLabel(String label) throws Exception {
     return getGeneratingAction(getFileConfiguredTarget(label).getArtifact());
   }
