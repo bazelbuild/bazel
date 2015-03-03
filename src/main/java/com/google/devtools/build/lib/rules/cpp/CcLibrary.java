@@ -20,12 +20,12 @@ import com.google.common.collect.ImmutableList;
 import com.google.common.collect.Iterables;
 import com.google.devtools.build.lib.actions.Artifact;
 import com.google.devtools.build.lib.analysis.ConfiguredTarget;
+import com.google.devtools.build.lib.analysis.OutputGroupProvider;
 import com.google.devtools.build.lib.analysis.RuleConfiguredTarget.Mode;
 import com.google.devtools.build.lib.analysis.RuleConfiguredTargetBuilder;
 import com.google.devtools.build.lib.analysis.RuleContext;
 import com.google.devtools.build.lib.analysis.Runfiles;
 import com.google.devtools.build.lib.analysis.RunfilesProvider;
-import com.google.devtools.build.lib.analysis.TopLevelArtifactProvider;
 import com.google.devtools.build.lib.collect.nestedset.NestedSet;
 import com.google.devtools.build.lib.collect.nestedset.NestedSetBuilder;
 import com.google.devtools.build.lib.collect.nestedset.Order;
@@ -265,8 +265,8 @@ public abstract class CcLibrary implements RuleConfiguredTargetFactory {
         .add(CppRunfilesProvider.class, new CppRunfilesProvider(staticRunfiles, sharedRunfiles))
         .add(ImplementedCcPublicLibrariesProvider.class,
             new ImplementedCcPublicLibrariesProvider(getImplementedCcPublicLibraries(ruleContext)))
-        .addOutputGroup(TopLevelArtifactProvider.HIDDEN_TOP_LEVEL, artifactsToForce)
-        .addOutputGroup(TopLevelArtifactProvider.BASELINE_COVERAGE, BaselineCoverageAction
+        .addOutputGroup(OutputGroupProvider.HIDDEN_TOP_LEVEL, artifactsToForce)
+        .addOutputGroup(OutputGroupProvider.BASELINE_COVERAGE, BaselineCoverageAction
                 .getBaselineCoverageArtifacts(ruleContext,
                     instrumentedFilesProvider.getInstrumentedFiles()));
 
@@ -278,10 +278,10 @@ public abstract class CcLibrary implements RuleConfiguredTargetFactory {
     NestedSetBuilder<Artifact> artifactsToForceBuilder = NestedSetBuilder.stableOrder();
     artifactsToForceBuilder.addTransitive(
         NestedSetBuilder.wrap(Order.STABLE_ORDER, common.getFilesToCompile(ccCompilationOutputs)));
-    for (TopLevelArtifactProvider dep :
-        ruleContext.getPrerequisites("deps", Mode.TARGET, TopLevelArtifactProvider.class)) {
+    for (OutputGroupProvider dep :
+        ruleContext.getPrerequisites("deps", Mode.TARGET, OutputGroupProvider.class)) {
       artifactsToForceBuilder.addTransitive(
-          dep.getOutputGroup(TopLevelArtifactProvider.HIDDEN_TOP_LEVEL));
+          dep.getOutputGroup(OutputGroupProvider.HIDDEN_TOP_LEVEL));
     }
     return artifactsToForceBuilder.build();
   }

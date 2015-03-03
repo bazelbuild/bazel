@@ -23,11 +23,11 @@ import com.google.devtools.build.lib.actions.Artifact;
 import com.google.devtools.build.lib.analysis.AnalysisUtils;
 import com.google.devtools.build.lib.analysis.FileProvider;
 import com.google.devtools.build.lib.analysis.LanguageDependentFragment;
+import com.google.devtools.build.lib.analysis.OutputGroupProvider;
 import com.google.devtools.build.lib.analysis.RuleConfiguredTarget.Mode;
 import com.google.devtools.build.lib.analysis.RuleContext;
 import com.google.devtools.build.lib.analysis.Runfiles;
 import com.google.devtools.build.lib.analysis.RunfilesProvider;
-import com.google.devtools.build.lib.analysis.TopLevelArtifactProvider;
 import com.google.devtools.build.lib.analysis.TransitiveInfoCollection;
 import com.google.devtools.build.lib.analysis.TransitiveInfoProvider;
 import com.google.devtools.build.lib.analysis.config.BuildConfiguration;
@@ -648,10 +648,10 @@ public final class CcLibraryHelper {
         dwoArtifacts.getDwoArtifacts(), dwoArtifacts.getPicDwoArtifacts()));
     providers.put(TransitiveLipoInfoProvider.class, collectTransitiveLipoInfo(ccOutputs));
     Map<String, NestedSet<Artifact>> outputGroups = new TreeMap<>();
-    outputGroups.put(TopLevelArtifactProvider.TEMP_FILES, getTemps(ccOutputs));
+    outputGroups.put(OutputGroupProvider.TEMP_FILES, getTemps(ccOutputs));
     if (emitCompileProviders) {
-      outputGroups.put(TopLevelArtifactProvider.FILES_TO_COMPILE, getFilesToCompile(ccOutputs));
-      outputGroups.put(TopLevelArtifactProvider.COMPILATION_PREREQUISITES,
+      outputGroups.put(OutputGroupProvider.FILES_TO_COMPILE, getFilesToCompile(ccOutputs));
+      outputGroups.put(OutputGroupProvider.COMPILATION_PREREQUISITES,
           CcCommon.collectCompilationPrerequisites(ruleContext, cppCompilationContext));
     }
 

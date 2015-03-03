@@ -22,8 +22,8 @@ import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableSortedSet;
 import com.google.devtools.build.lib.Constants;
 import com.google.devtools.build.lib.analysis.BuildView;
+import com.google.devtools.build.lib.analysis.OutputGroupProvider;
 import com.google.devtools.build.lib.analysis.TopLevelArtifactContext;
-import com.google.devtools.build.lib.analysis.TopLevelArtifactProvider;
 import com.google.devtools.build.lib.analysis.config.InvalidConfigurationException;
 import com.google.devtools.build.lib.exec.ExecutionOptions;
 import com.google.devtools.build.lib.pkgcache.LoadingPhaseRunner;
@@ -509,9 +509,9 @@ public class BuildRequest implements OptionsClassProvider {
 
   private ImmutableSortedSet<String> determineOutputGroups() {
     Set<String> current = new HashSet<>();
-    current.add(TopLevelArtifactProvider.TEMP_FILES);
-    current.add(TopLevelArtifactProvider.HIDDEN_TOP_LEVEL);
-    current.add(TopLevelArtifactProvider.DEFAULT);
+    current.add(OutputGroupProvider.TEMP_FILES);
+    current.add(OutputGroupProvider.HIDDEN_TOP_LEVEL);
+    current.add(OutputGroupProvider.DEFAULT);
 
     for (String outputGroup : getBuildOptions().outputGroups) {
       if (outputGroup.startsWith("-")) {

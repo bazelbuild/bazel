@@ -109,23 +109,23 @@ public final class TopLevelArtifactHelper {
     NestedSetBuilder<Artifact> importantBuilder = NestedSetBuilder.stableOrder();
     NestedSetBuilder<Artifact> allBuilder = NestedSetBuilder.stableOrder();
 
-    TopLevelArtifactProvider topLevelArtifactProvider =
-        target.getProvider(TopLevelArtifactProvider.class);
+    OutputGroupProvider outputGroupProvider =
+        target.getProvider(OutputGroupProvider.class);
 
     for (String outputGroup : context.outputGroups()) {
       NestedSet<Artifact> results = null;
 
-      if (outputGroup.equals(TopLevelArtifactProvider.DEFAULT)) {
+      if (outputGroup.equals(OutputGroupProvider.DEFAULT)) {
         FileProvider fileProvider = target.getProvider(FileProvider.class);
         if (fileProvider != null) {
           results = fileProvider.getFilesToBuild();
         }
-      } else if (topLevelArtifactProvider != null) {
-        results = topLevelArtifactProvider.getOutputGroup(outputGroup);
+      } else if (outputGroupProvider != null) {
+        results = outputGroupProvider.getOutputGroup(outputGroup);
       }
 
       if (results != null) {
-        if (outputGroup.startsWith(TopLevelArtifactProvider.HIDDEN_OUTPUT_GROUP_PREFIX)) {
+        if (outputGroup.startsWith(OutputGroupProvider.HIDDEN_OUTPUT_GROUP_PREFIX)) {
           allBuilder.addTransitive(results);
         } else {
           importantBuilder.addTransitive(results);

@@ -100,7 +100,7 @@ public final class RuleConfiguredTargetBuilder {
     if (runfilesSupport != null) {
       // If a binary is built, build its runfiles, too
       addOutputGroup(
-          TopLevelArtifactProvider.HIDDEN_TOP_LEVEL, runfilesSupport.getRunfilesMiddleman());
+          OutputGroupProvider.HIDDEN_TOP_LEVEL, runfilesSupport.getRunfilesMiddleman());
     } else if (providers.get(RunfilesProvider.class) != null) {
       // If we don't have a RunfilesSupport (probably because this is not a binary rule), we still
       // want to build the files this rule contributes to runfiles of dependent rules so that we
@@ -109,7 +109,7 @@ public final class RuleConfiguredTargetBuilder {
       // Note that this is a best-effort thing: there is .getDataRunfiles() and all the language-
       // specific *RunfilesProvider classes, which we don't add here for reasons that are lost in
       // the mists of time.
-      addOutputGroup(TopLevelArtifactProvider.HIDDEN_TOP_LEVEL,
+      addOutputGroup(OutputGroupProvider.HIDDEN_TOP_LEVEL,
           ((RunfilesProvider) providers.get(RunfilesProvider.class))
               .getDefaultRunfiles().getAllArtifacts());
     }
@@ -127,7 +127,7 @@ public final class RuleConfiguredTargetBuilder {
         outputGroups.put(entry.getKey(), entry.getValue().build());
       }
 
-      add(TopLevelArtifactProvider.class, new TopLevelArtifactProvider(outputGroups.build()));
+      add(OutputGroupProvider.class, new OutputGroupProvider(outputGroups.build()));
     }
 
 

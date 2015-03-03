@@ -27,10 +27,10 @@ import com.google.devtools.build.lib.actions.Artifact;
 import com.google.devtools.build.lib.analysis.AnalysisEnvironment;
 import com.google.devtools.build.lib.analysis.AnalysisUtils;
 import com.google.devtools.build.lib.analysis.FileProvider;
+import com.google.devtools.build.lib.analysis.OutputGroupProvider;
 import com.google.devtools.build.lib.analysis.RuleConfiguredTarget.Mode;
 import com.google.devtools.build.lib.analysis.RuleConfiguredTargetBuilder;
 import com.google.devtools.build.lib.analysis.RuleContext;
-import com.google.devtools.build.lib.analysis.TopLevelArtifactProvider;
 import com.google.devtools.build.lib.analysis.TransitiveInfoCollection;
 import com.google.devtools.build.lib.analysis.TransitiveInfoProvider;
 import com.google.devtools.build.lib.analysis.Util;
@@ -488,10 +488,10 @@ public class JavaCommon {
         .add(InstrumentedFilesProvider.class, new InstrumentedFilesProviderImpl(
             instrumentedFilesCollector))
         .add(JavaExportsProvider.class, new JavaExportsProvider(collectTransitiveExports()))
-        .addOutputGroup(TopLevelArtifactProvider.FILES_TO_COMPILE, getFilesToCompile(classJar));
+        .addOutputGroup(OutputGroupProvider.FILES_TO_COMPILE, getFilesToCompile(classJar));
 
     if (!TargetUtils.isTestRule(ruleContext.getTarget())) {
-      builder.addOutputGroup(TopLevelArtifactProvider.BASELINE_COVERAGE,
+      builder.addOutputGroup(OutputGroupProvider.BASELINE_COVERAGE,
           BaselineCoverageAction.getBaselineCoverageArtifacts(ruleContext,
               instrumentedFilesCollector.getInstrumentedFiles()));
     }

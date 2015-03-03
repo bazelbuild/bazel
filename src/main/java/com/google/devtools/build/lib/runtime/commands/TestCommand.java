@@ -16,7 +16,7 @@ package com.google.devtools.build.lib.runtime.commands;
 
 import com.google.common.collect.ImmutableList;
 import com.google.devtools.build.lib.analysis.ConfiguredTarget;
-import com.google.devtools.build.lib.analysis.TopLevelArtifactProvider;
+import com.google.devtools.build.lib.analysis.OutputGroupProvider;
 import com.google.devtools.build.lib.analysis.config.BuildConfiguration;
 import com.google.devtools.build.lib.buildtool.BuildRequest;
 import com.google.devtools.build.lib.buildtool.BuildResult;
@@ -77,7 +77,7 @@ public class TestCommand implements BlazeCommand {
       if (optionsParser.getOptions(BuildConfiguration.Options.class).collectCodeCoverage) {
         optionsParser.parse(OptionPriority.SOFTWARE_REQUIREMENT,
             "baseline coverage artifacts are built with running tests with coverage collection",
-            ImmutableList.of("--output_groups=" + TopLevelArtifactProvider.BASELINE_COVERAGE));
+            ImmutableList.of("--output_groups=" + OutputGroupProvider.BASELINE_COVERAGE));
       }
     } catch (OptionsParsingException e) {
       throw new IllegalStateException("Known options failed to parse", e);

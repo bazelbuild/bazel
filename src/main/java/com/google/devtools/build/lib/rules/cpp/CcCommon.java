@@ -23,10 +23,10 @@ import com.google.devtools.build.lib.actions.Artifact;
 import com.google.devtools.build.lib.analysis.AnalysisEnvironment;
 import com.google.devtools.build.lib.analysis.AnalysisUtils;
 import com.google.devtools.build.lib.analysis.FileProvider;
+import com.google.devtools.build.lib.analysis.OutputGroupProvider;
 import com.google.devtools.build.lib.analysis.RuleConfiguredTarget.Mode;
 import com.google.devtools.build.lib.analysis.RuleConfiguredTargetBuilder;
 import com.google.devtools.build.lib.analysis.RuleContext;
-import com.google.devtools.build.lib.analysis.TopLevelArtifactProvider;
 import com.google.devtools.build.lib.analysis.TransitiveInfoCollection;
 import com.google.devtools.build.lib.collect.nestedset.NestedSet;
 import com.google.devtools.build.lib.collect.nestedset.NestedSetBuilder;
@@ -714,10 +714,10 @@ public final class CcCommon {
             instrumentedObjectFiles))
         .add(CppDebugFileProvider.class, new CppDebugFileProvider(
             dwoArtifacts.getDwoArtifacts(), dwoArtifacts.getPicDwoArtifacts()))
-        .addOutputGroup(TopLevelArtifactProvider.TEMP_FILES, getTemps(ccCompilationOutputs))
-        .addOutputGroup(TopLevelArtifactProvider.FILES_TO_COMPILE,
+        .addOutputGroup(OutputGroupProvider.TEMP_FILES, getTemps(ccCompilationOutputs))
+        .addOutputGroup(OutputGroupProvider.FILES_TO_COMPILE,
             NestedSetBuilder.wrap(Order.STABLE_ORDER, getFilesToCompile(ccCompilationOutputs)))
-        .addOutputGroup(TopLevelArtifactProvider.COMPILATION_PREREQUISITES,
+        .addOutputGroup(OutputGroupProvider.COMPILATION_PREREQUISITES,
             collectCompilationPrerequisites(ruleContext, cppCompilationContext));
 
   }

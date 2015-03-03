@@ -35,7 +35,7 @@ import com.google.devtools.build.lib.concurrent.ThreadSafety.Immutable;
  * not mentioned on the output.
  */
 @Immutable
-public final class TopLevelArtifactProvider implements TransitiveInfoProvider {
+public final class OutputGroupProvider implements TransitiveInfoProvider {
 
   /**
    * Prefix for output groups that are not reported to the user on the terminal output of Blaze when
@@ -87,7 +87,7 @@ public final class TopLevelArtifactProvider implements TransitiveInfoProvider {
 
   private final ImmutableMap<String, NestedSet<Artifact>> outputGroups;
 
-  TopLevelArtifactProvider(ImmutableMap<String, NestedSet<Artifact>> outputGroups) {
+  OutputGroupProvider(ImmutableMap<String, NestedSet<Artifact>> outputGroups) {
     this.outputGroups = outputGroups;
   }
 

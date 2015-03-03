@@ -51,12 +51,12 @@ import com.google.devtools.build.lib.analysis.FileConfiguredTarget;
 import com.google.devtools.build.lib.analysis.FileProvider;
 import com.google.devtools.build.lib.analysis.FilesToRunProvider;
 import com.google.devtools.build.lib.analysis.LabelAndConfiguration;
+import com.google.devtools.build.lib.analysis.OutputGroupProvider;
 import com.google.devtools.build.lib.analysis.RuleConfiguredTarget;
 import com.google.devtools.build.lib.analysis.RuleContext;
 import com.google.devtools.build.lib.analysis.Runfiles;
 import com.google.devtools.build.lib.analysis.RunfilesProvider;
 import com.google.devtools.build.lib.analysis.RunfilesSupport;
-import com.google.devtools.build.lib.analysis.TopLevelArtifactProvider;
 import com.google.devtools.build.lib.analysis.TransitiveInfoCollection;
 import com.google.devtools.build.lib.analysis.TransitiveInfoProvider;
 import com.google.devtools.build.lib.analysis.WorkspaceStatusAction;
@@ -1091,7 +1091,7 @@ public abstract class BuildViewTestCase extends FoundationTestCase {
 
   protected NestedSet<Artifact> getOutputGroup(
       TransitiveInfoCollection target, String outputGroup) {
-    TopLevelArtifactProvider provider = target.getProvider(TopLevelArtifactProvider.class);
+    OutputGroupProvider provider = target.getProvider(OutputGroupProvider.class);
     return provider == null
         ? NestedSetBuilder.<Artifact>emptySet(Order.STABLE_ORDER)
         : provider.getOutputGroup(outputGroup);
@@ -1364,8 +1364,8 @@ public abstract class BuildViewTestCase extends FoundationTestCase {
   protected Iterable<String> baselineCoverageArtifactBasenames(ConfiguredTarget target)
       throws Exception {
     Artifact baselineCoverage = Iterables.getOnlyElement(target
-        .getProvider(TopLevelArtifactProvider.class)
-        .getOutputGroup(TopLevelArtifactProvider.BASELINE_COVERAGE));
+        .getProvider(OutputGroupProvider.class)
+        .getOutputGroup(OutputGroupProvider.BASELINE_COVERAGE));
     BaselineCoverageAction baselineAction =
         (BaselineCoverageAction) getGeneratingAction(baselineCoverage);
 
