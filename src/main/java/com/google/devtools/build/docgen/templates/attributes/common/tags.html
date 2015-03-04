@@ -1,0 +1,18 @@
+List of arbitrary text tags.  Tags may be any valid string; default is the
+empty list.<br/>
+<i>Tags</i> can be used on any rule; but <i>tags</i> are most useful
+on test and <code>test_suite</code> rules.  Tags on non-test rules
+are only useful to humans and/or external programs.
+<i>Tags</i> are generally used to annotate a test's role in your debug
+and release process.  Typically, tags are most useful for C++ and
+Python tests, which
+lack any runtime annotation ability.  The use of tags and size elements
+gives flexibility in assembling suites of tests based around codebase
+check-in policy.
+<p>
+A few tags have special meaning to the build tool, such as
+indicating that a particular test cannot be run remotely, for
+example. Consult
+the <a href='bazel-user-manual.html#tags_keywords'>Bazel
+documentation</a> for details.
+</p>

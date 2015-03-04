@@ -1,0 +1,8 @@
+How "heavy" the test is
+<i>(String "enormous", "large" "medium" or "small",
+default is "medium")</i><br/>
+A classification of the test's "heaviness": how much time/resources
+it needs to run.
+Unittests are considered "small", integration tests "medium", and
+end-to-end tests "large" or "enormous". Bazel uses the size only
+to determine a default timeout.

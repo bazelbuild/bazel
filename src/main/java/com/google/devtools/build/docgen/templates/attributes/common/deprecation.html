@@ -1,0 +1,24 @@
+<i>(String; optional)</i><br/>
+An explanatory warning message associated with this rule.
+Typically this is used to notify users that a rule has become obsolete,
+or has become superseded by another rule, is private to a package, or is
+perhaps considered harmful for some reason. It is a good idea to include
+some reference (like a webpage, a bug number or example migration CLs) so
+that one can easily find out what changes are required to avoid the message.
+If there is a new target that can be used as a drop in replacement, it is a
+good idea to just migrate all users of the old target.
+<p>
+This attribute has no effect on the way things are built, but it
+may affect a build tool's diagnostic output.  The build tool issues a
+warning when a rule with a <code>deprecation</code> attribute is
+depended upon by another rule.</p>
+<p>
+Intra-package dependencies are exempt from this warning, so that,
+for example, building the tests of a deprecated rule does not
+encounter a warning.</p>
+<p>
+If a deprecated rule depends on another deprecated rule, no warning
+message is issued.</p>
+<p>
+Once people have stopped using it, the package can be removed or marked as
+<a href="#common.obsolete"><code>obsolete</code></a>.</p>

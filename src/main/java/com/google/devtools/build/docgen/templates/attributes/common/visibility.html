@@ -1,0 +1,99 @@
+<i>(List of <a href="build-ref.html#labels">labels</a>; optional;
+default private)</i><br/>
+<p>The <code>visibility</code> attribute on a rule controls whether
+the rule can be used by other packages. Rules are always visible to
+other rules declared in the same package.</p>
+<p>There are five forms (and one temporary form) a visibility label can take:
+<ul>
+<li><code>["//visibility:public"]</code>: Anyone can use this rule.</li>
+<li><code>["//visibility:private"]</code>: Only rules in this package
+can use this rule.  Rules in <code>javatests/foo/bar</code>
+can always use rules in <code>java/foo/bar</code>.
+</li>
+<li><code>["//some/package:__pkg__", "//other/package:__pkg__"]</code>:
+Only rules in <code>some/package</code> and <code>other/package</code>
+(defined in <code>some/package/BUILD</code> and
+<code>other/package/BUILD</code>) have access to this rule. Note that
+sub-packages do not have access to the rule; for example,
+<code>//some/package/foo:bar</code> or
+<code>//other/package/testing:bla</code> wouldn't have access.
+<code>__pkg__</code> is a special target and must be used verbatim.
+It represents all of the rules in the package.
+</li>
+<li><code>["//project:__subpackages__", "//other:__subpackages__"]</code>:
+Only rules in packages <code>project</code> or <code>other</code> or
+in one of their sub-packages have access to this rule. For example,
+<code>//project:rule</code>, <code>//project/library:lib</code> or
+<code>//other/testing/internal:munge</code> are allowed to depend on
+this rule (but not <code>//independent:evil</code>)
+</li>
+<li><code>["//some/package:my_package_group"]</code>:
+A <a href="#package_group">package group</a> is
+a named set of package names. Package groups can also grant access rights
+to entire subtrees, e.g.<code>//myproj/...</code>.
+</li>
+
+</ul>
+<p>The visibility specifications of
+
+<code>//visibility:public</code> and <code>//visibility:private</code>
+can not be combined with any other visibility specifications.
+A visibility specification may contain a combination of package labels
+(i.e. <code>//foo:__pkg__</code>) and <code>package_group</code>s.</p>
+<p>If a rule does not specify the visibility attribute,
+the <code><a href="#package">default_visibility</a></code>
+attribute of the <code><a href="#package">package</a></code>
+statement in the BUILD file containing the rule is used
+(except <a href="#exports_files">exports_files</a>
+
+).</p>
+<p>If the default visibility for the package is not specified,
+the rule is private.</p>
+<p><b>Example</b>:</p>
+<p>
+File <code>//frobber/bin/BUILD</code>:
+</p>
+<pre class="code">
+# This rule is visible to everyone
+cc_binary(
+    name = "executable",
+    visibility = ["//visibility:public"],
+    deps = [":library"],
+)
+
+# This rule is visible only to rules declared in the same package
+cc_library(
+    name = "library",
+    visibility = ["//visibility:private"],
+)
+
+# This rule is visible to rules in package //object and //noun
+cc_library(
+    name = "subject",
+    visibility = [
+        "//noun:__pkg__",
+        "//object:__pkg__",
+    ],
+)
+
+# See package group "//frobber:friends" (below) for who can access this rule.
+cc_library(
+    name = thingy,
+    visibility = ["//frobber:friends"],
+)
+</pre>
+<p>
+File <code>//frobber/BUILD</code>:
+</p>
+<pre class="code">
+# This is the package group declaration to which rule //frobber/bin:thingy refers.
+#
+# Our friends are packages //frobber, //fribber and any subpackage of //fribber.
+package_group(
+    name = "friends",
+    packages = [
+        "//fribber/...",
+        "//frobber",
+    ],
+)
+</pre>
