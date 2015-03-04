@@ -16,6 +16,7 @@ package com.google.devtools.build.lib.runtime.commands;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 import com.google.devtools.build.docgen.BlazeRuleHelpPrinter;
+import com.google.devtools.build.lib.Constants;
 import com.google.devtools.build.lib.analysis.BlazeVersionInfo;
 import com.google.devtools.build.lib.analysis.ConfiguredRuleClassProvider;
 import com.google.devtools.build.lib.events.Event;
@@ -80,37 +81,38 @@ public final class HelpCommand implements BlazeCommand {
    */
   private ImmutableMap<String, String> getOptionCategories(BlazeRuntime runtime) {
     ImmutableMap.Builder<String, String> optionCategoriesBuilder = ImmutableMap.builder();
+    String name = Constants.PRODUCT_NAME;
     optionCategoriesBuilder
-        .put("checking",
-             "Checking options, which control Blaze's error checking and/or warnings")
-        .put("coverage",
-             "Options that affect how Blaze generates code coverage information")
+        .put("checking", String.format(
+             "Checking options, which control %s's error checking and/or warnings", name))
+        .put("coverage", String.format(
+             "Options that affect how %s generates code coverage information", name))
         .put("experimental",
              "Experimental options, which control experimental (and potentially risky) features")
         .put("flags",
              "Flags options, for passing options to other tools")
         .put("help",
              "Help options")
-        .put("host jvm startup",
-             "Options that affect the startup of the Blaze server's JVM")
+        .put("host jvm startup", String.format(
+            "Options that affect the startup of the %s server's JVM", name))
         .put("misc",
              "Miscellaneous options")
         .put("package loading",
              "Options that specify how to locate packages")
-        .put("query",
-             "Options affecting the 'blaze query' dependency query command")
-        .put("run",
-             "Options specific to 'blaze run'")
+        .put("query", String.format(
+            "Options affecting the '%s query' dependency query command", name))
+        .put("run", String.format(
+            "Options specific to '%s run'", name))
         .put("semantics",
              "Semantics options, which affect the build commands and/or output file contents")
-        .put("server startup",
-             "Startup options, which affect the startup of the Blaze server")
-        .put("strategy",
-             "Strategy options, which affect how Blaze will execute the build")
-        .put("testing",
-             "Options that affect how Blaze runs tests")
-        .put("verbosity",
-             "Verbosity options, which control what Blaze prints")
+        .put("server startup", String.format(
+            "Startup options, which affect the startup of the %s server", name))
+        .put("strategy", String.format(
+            "Strategy options, which affect how %s will execute the build", name))
+        .put("testing", String.format(
+            "Options that affect how %s runs tests", name))
+        .put("verbosity", String.format(
+            "Verbosity options, which control what %s prints", name))
         .put("version",
              "Version options, for selecting which version of other tools will be used")
         .put("what",
@@ -215,7 +217,8 @@ public final class HelpCommand implements BlazeCommand {
   }
 
   private void emitGenericHelp(BlazeRuntime runtime, OutErr outErr) {
-    outErr.printOut("Usage: blaze <command> <options> ...\n\n");
+    outErr.printOut(String.format("Usage: %s <command> <options> ...\n\n",
+            Constants.PRODUCT_NAME));
 
     outErr.printOut("Available commands:\n");
 
@@ -236,13 +239,13 @@ public final class HelpCommand implements BlazeCommand {
 
     outErr.printOut("\n");
     outErr.printOut("Getting more help:\n");
-    outErr.printOut("  blaze help <command>\n");
+    outErr.printOut(String.format("  %s help <command>\n", Constants.PRODUCT_NAME));
     outErr.printOut("                   Prints help and options for <command>.\n");
-    outErr.printOut("  blaze help startup_options\n");
+    outErr.printOut(String.format("  %s help startup_options\n", Constants.PRODUCT_NAME));
     outErr.printOut("                   Options for the JVM hosting Blaze.\n");
-    outErr.printOut("  blaze help target-syntax\n");
+    outErr.printOut(String.format("  %s help target-syntax\n", Constants.PRODUCT_NAME));
     outErr.printOut("                   Explains the syntax for specifying targets.\n");
-    outErr.printOut("  blaze help info-keys\n");
+    outErr.printOut(String.format("  %s help info-keys\n", Constants.PRODUCT_NAME));
     outErr.printOut("                   Displays a list of keys used by the info command.\n");
   }
 }
