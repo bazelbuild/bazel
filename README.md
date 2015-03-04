@@ -84,13 +84,14 @@ Build a sample Java application:
 
         $ cp -R $HOME/bazel/base_workspace $HOME/my_workspace
         $ cd $HOME/my_workspace
-        $ $HOME/bazel/output/bazel build //examples/java:hello-world
+        $ $HOME/bazel/output/bazel build //examples/java-native/src/main/java/com/example/myproject:hello-world
 
-_Note: on OS X, you must specify \-\-cpu=darwin to build Java programs (e.g.,
-bazel build --cpu=darwin //examples/java:hello-world)._
+_Note: on OS X, you must specify \-\-cpu=darwin to build Java programs, for example:_
 
-The build output is located in `$HOME/my_workspace/bazel-bin/examples/java/`.
+        $ bazel build --cpu=darwin //examples/java-native/src/main/java/com/example/myproject:hello-world
+
+The build output is located in `$HOME/my_workspace/bazel-bin/examples/java-native/src/main/java/com/example/myproject/`.
 
 Run the sample application:
 
-    $ $HOME/my_workspace/bazel-bin/examples/java/hello-world
+    $ $HOME/my_workspace/bazel-bin/examples/java-native/src/main/java/com/example/myproject/hello-world
