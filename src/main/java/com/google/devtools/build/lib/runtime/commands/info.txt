@@ -1,23 +1,23 @@
 
-Usage: blaze info <options> [key]
+Usage: %{product} info <options> [key]
 
-Displays information about the state of the blaze process in the
+Displays information about the state of the %{product} process in the
 form of several "key: value" pairs.  This includes the locations of
 several output directories.  Because some of the
-values are affected by the options passed to 'blaze build', the
+values are affected by the options passed to '%{product} build', the
 info command accepts the same set of options.
 
-A single non-option argument may be specified (e.g. "blaze-bin"), in
+A single non-option argument may be specified (e.g. "%{product}-bin"), in
 which case only the value for that key will be printed.
 
 If --show_make_env is specified, the output includes the set of key/value
 pairs in the "Make" environment, accessible within BUILD files.
 
 The full list of keys and the meaning of their values is documented in
-the Blaze User Manual, and can be programmatically obtained with
-'blaze help info-keys'.
+the %{product} User Manual, and can be programmatically obtained with
+'%{product} help info-keys'.
 
-See also 'blaze version' for more detailed blaze version
+See also '%{product} version' for more detailed %{product} version
 information.
 
 %{options}
