@@ -16,6 +16,7 @@ package com.google.devtools.build.lib.runtime.commands;
 import com.google.common.annotations.VisibleForTesting;
 import com.google.common.base.Joiner;
 import com.google.common.collect.ImmutableList;
+import com.google.devtools.build.lib.Constants;
 import com.google.devtools.build.lib.events.Event;
 import com.google.devtools.build.lib.packages.Target;
 import com.google.devtools.build.lib.pkgcache.PackageCacheOptions;
@@ -84,8 +85,9 @@ public final class QueryCommand implements BlazeCommand {
     }
 
     if (options.getResidue().isEmpty()) {
-      runtime.getReporter().handle(Event.error(
-          "missing query expression. Type 'blaze help query' for syntax and help"));
+      runtime.getReporter().handle(Event.error(String.format(
+          "missing query expression. Type '%s help query' for syntax and help",
+          Constants.PRODUCT_NAME)));
       return ExitCode.COMMAND_LINE_ERROR;
     }
 

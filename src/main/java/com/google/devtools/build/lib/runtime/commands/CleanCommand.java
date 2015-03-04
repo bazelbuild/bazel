@@ -63,20 +63,20 @@ public final class CleanCommand implements BlazeCommand {
             defaultValue = "false",
             category = "clean",
             expansion = "--clean_style=expunge",
-            help = "If specified, clean will remove the entire working tree for this Blaze " +
-                   "instance, which includes all Blaze-created temporary and build output " +
-                   "files, and it will stop the Blaze server if it is running.")
+            help = "If specified, clean will remove the entire working tree for this %{product} "
+                 + "instance, which includes all %{product}-created temporary and build output "
+                 + "files, and it will stop the %{product} server if it is running.")
     public boolean expunge;
 
     @Option(name = "expunge_async",
         defaultValue = "false",
         category = "clean",
         expansion = "--clean_style=expunge_async",
-        help = "If specified, clean will asynchronously remove the entire working tree for " +
-               "this Blaze instance, which includes all Blaze-created temporary and build " +
-               "output files, and it will stop the Blaze server if it is running. When this " +
-               "command completes, it will be safe to execute new commands in the same client, " +
-               "even though the deletion may continue in the background.")
+        help = "If specified, clean will asynchronously remove the entire working tree for "
+             + "this %{product} instance, which includes all %{product}-created temporary and "
+             + "build output files, and it will stop the %{product} server if it is running. When "
+             + "this command completes, it will be safe to execute new commands in the same "
+             + "client, even though the deletion may continue in the background.")
     public boolean expunge_async;
   }
 

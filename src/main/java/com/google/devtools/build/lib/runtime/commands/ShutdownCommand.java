@@ -30,8 +30,9 @@ import com.google.devtools.common.options.OptionsProvider;
          options = { ShutdownCommand.Options.class },
          allowResidue = false,
          mustRunInWorkspace = false,
-         shortDescription = "Stops the Blaze server.",
-         help = "This command shuts down the memory resident Blaze server process.\n%{options}")
+         shortDescription = "Stops the %{product} server.",
+         help = "This command shuts down the memory resident %{product} server process.\n"
+              + "%{options}")
 public final class ShutdownCommand implements BlazeCommand {
 
   public static class Options extends OptionsBase {

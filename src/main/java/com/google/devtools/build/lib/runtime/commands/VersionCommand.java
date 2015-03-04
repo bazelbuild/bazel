@@ -31,7 +31,7 @@ import com.google.devtools.common.options.OptionsProvider;
          allowResidue = false,
          mustRunInWorkspace = false,
          help = "resource:version.txt",
-         shortDescription = "Prints version information for Blaze.")
+         shortDescription = "Prints version information for %{product}.")
 public final class VersionCommand implements BlazeCommand {
   @Override
   public void editOptions(BlazeRuntime runtime, OptionsParser optionsParser) {}

@@ -179,7 +179,7 @@ public final class HelpCommand implements BlazeCommand {
 
   private void emitBlazeVersionInfo(OutErr outErr) {
     String releaseInfo = BlazeVersionInfo.instance().getReleaseName();
-    String line = "[Blaze " + releaseInfo + "]";
+    String line = String.format("[%s %s]", Constants.PRODUCT_NAME, releaseInfo);
     outErr.printOut(String.format("%80s\n", line));
   }
 
@@ -233,7 +233,8 @@ public final class HelpCommand implements BlazeCommand {
         continue;
       }
 
-      String shortDescription = annotation.shortDescription();
+      String shortDescription = annotation.shortDescription().
+          replace("%{product}", Constants.PRODUCT_NAME);
       outErr.printOut(String.format("  %-19s %s\n", name, shortDescription));
     }
 
@@ -242,7 +243,8 @@ public final class HelpCommand implements BlazeCommand {
     outErr.printOut(String.format("  %s help <command>\n", Constants.PRODUCT_NAME));
     outErr.printOut("                   Prints help and options for <command>.\n");
     outErr.printOut(String.format("  %s help startup_options\n", Constants.PRODUCT_NAME));
-    outErr.printOut("                   Options for the JVM hosting Blaze.\n");
+    outErr.printOut(String.format("                   Options for the JVM hosting %s.\n",
+            Constants.PRODUCT_NAME));
     outErr.printOut(String.format("  %s help target-syntax\n", Constants.PRODUCT_NAME));
     outErr.printOut("                   Explains the syntax for specifying targets.\n");
     outErr.printOut(String.format("  %s help info-keys\n", Constants.PRODUCT_NAME));

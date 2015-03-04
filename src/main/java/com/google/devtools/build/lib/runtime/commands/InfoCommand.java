@@ -71,7 +71,7 @@ import java.util.TreeMap;
          allowResidue = true,
          binaryStdOut = true,
          help = "resource:info.txt",
-         shortDescription = "Displays runtime info about the blaze server.",
+         shortDescription = "Displays runtime info about the %{product} server.",
          options = { InfoCommand.Options.class },
          // We have InfoCommand inherit from {@link BuildCommand} because we want all
          // configuration defaults specified in ~/.blazerc for {@code build} to apply to

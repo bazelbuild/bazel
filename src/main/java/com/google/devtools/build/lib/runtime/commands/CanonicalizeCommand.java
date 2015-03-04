@@ -36,9 +36,9 @@ import java.util.List;
          options = { CanonicalizeCommand.Options.class },
          allowResidue = true,
          mustRunInWorkspace = false,
-         shortDescription = "Canonicalizes a list of Blaze options.",
-         help = "This command canonicalizes a list of Blaze options. Don't forget to prepend '--' "
-             + "to end option parsing before the flags to canonicalize.\n"
+         shortDescription = "Canonicalizes a list of %{product} options.",
+         help = "This command canonicalizes a list of %{product} options. Don't forget to prepend "
+             + " '--' to end option parsing before the flags to canonicalize.\n"
              + "%{options}")
 public final class CanonicalizeCommand implements BlazeCommand {
 
