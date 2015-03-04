@@ -47,7 +47,7 @@ LIBRARY_JARS=$(find third_party -name *.jar | tr "\n" " ")
 DIRS=$(echo src/{main/java,tools/xcode-common/java/com/google/devtools/build/xcode/{common,util}} output/src)
 SINGLEJAR_DIRS="src/java_tools/singlejar/java src/main/java/com/google/devtools/build/lib/shell"
 SINGLEJAR_LIBRARIES="third_party/guava/guava-18.0.jar third_party/jsr305/jsr-305.jar"
-BUILDJAR_DIRS=$(echo src/java_tools/buildjar/java output/src/com/google/devtools/build/lib/view/proto)
+BUILDJAR_DIRS="src/java_tools/buildjar/java/com/google/devtools/build/buildjar output/src/com/google/devtools/build/lib/view/proto"
 BUILDJAR_LIBRARIES="third_party/guava/guava-18.0.jar third_party/protobuf/protobuf-2.5.0.jar third_party/jsr305/jsr-305.jar"
 
 MSYS_DLLS=""
@@ -69,9 +69,12 @@ rm -f base_workspace/tools && ln -s $(pwd)/tools base_workspace/tools
 rm -f base_workspace/third_party && ln -s $(pwd)/third_party base_workspace/third_party
 
 mkdir -p fromhost
-cat << EOF > fromhost/BUILD
+# Do not overwrite fromhost/BUILD with a dummy if it already exists.
+if [ ! -f fromhost/BUILD ]; then
+  cat << EOF > fromhost/BUILD
 package(default_visibility = ["//visibility:public"])
 EOF
+fi
 
 case "${PLATFORM}" in
 linux)
@@ -93,11 +96,10 @@ EOF
 
   ;;
 darwin)
-  rm -f fromhost/*.[ah]
-  touch fromhost/empty.c
-
   homebrew_header=$(ls -1 $(brew --prefix 2>/dev/null)/Cellar/libarchive/*/include/archive.h 2>/dev/null | head -n1)
   if [[ -e $homebrew_header ]]; then
+    rm -f fromhost/*.[ah]
+    touch fromhost/empty.c
     # For use with Homebrew.
     archive_dir=$(dirname $(dirname $homebrew_header))
     ARCHIVE_CFLAGS="-I${archive_dir}/include"
@@ -116,6 +118,8 @@ EOF
 
   elif [[ -e /opt/local/include/archive.h ]]; then
     # For use with Macports.
+    rm -f fromhost/*.[ah]
+    touch fromhost/empty.c
     cp /opt/local/include/archive.h  /opt/local/include/archive_entry.h fromhost/
     cp /opt/local/lib/{libarchive,liblzo2,liblzma,libcharset,libbz2,libxml2,libz,libiconv}.a \
       fromhost/
