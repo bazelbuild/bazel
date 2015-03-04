@@ -29,10 +29,10 @@ import java.util.Map;
 /**
  * Options affecting the execution phase of a build.
  *
- * These options are interpreted by the BuildTool to choose an Executor to
+ * <p>These options are interpreted by the BuildTool to choose an Executor to
  * be used for the build.
  *
- * Note: from the user's point of view, the characteristic function of this
+ * <p>Note: from the user's point of view, the characteristic function of this
  * set of options is indistinguishable from that of the BuildRequestOptions:
  * they are all per-request.  The difference is only apparent in the
  * implementation: these options are used only by the lib.exec machinery, which
@@ -119,7 +119,7 @@ public class ExecutionOptions extends OptionsBase {
   public PathFragment testTmpDir;
 
   @Option(name = "test_output",
-      defaultValue = "summary",
+      defaultValue = "errors",
       category = "testing",
       converter = TestStrategy.TestOutputFormat.Converter.class,
       help = "Specifies desired output mode. Valid values are 'summary' to "
