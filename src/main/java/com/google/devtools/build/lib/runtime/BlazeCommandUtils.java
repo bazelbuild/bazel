@@ -15,6 +15,7 @@ package com.google.devtools.build.lib.runtime;
 
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.Iterables;
+import com.google.devtools.build.lib.Constants;
 import com.google.devtools.build.lib.analysis.ConfiguredRuleClassProvider;
 import com.google.devtools.build.lib.util.ResourceFileLoader;
 import com.google.devtools.common.options.OptionsBase;
@@ -131,6 +132,7 @@ public class BlazeCommandUtils {
     }
 
     return template.
+        replace("%{product}", Constants.PRODUCT_NAME).
         replace("%{command}", topic).
         replace("%{options}", parser.describeOptions(categoryDescriptions, helpVerbosity)).
         trim()
