@@ -71,13 +71,14 @@ public abstract class ValueWithMetadata implements SkyValue {
   @Nullable
   abstract ErrorInfo getErrorInfo();
 
-  abstract NestedSet<TaggedEvents> getTransitiveEvents();
+  public abstract NestedSet<TaggedEvents> getTransitiveEvents();
 
-  static final class ValueWithEvents extends ValueWithMetadata {
+  /** Implementation of {@link ValueWithMetadata} for the value case. */
+  public static final class ValueWithEvents extends ValueWithMetadata {
 
     private final NestedSet<TaggedEvents> transitiveEvents;
 
-    ValueWithEvents(SkyValue value, NestedSet<TaggedEvents> transitiveEvents) {
+    public ValueWithEvents(SkyValue value, NestedSet<TaggedEvents> transitiveEvents) {
       super(Preconditions.checkNotNull(value));
       this.transitiveEvents = Preconditions.checkNotNull(transitiveEvents);
     }
@@ -87,7 +88,7 @@ public abstract class ValueWithMetadata implements SkyValue {
     ErrorInfo getErrorInfo() { return null; }
 
     @Override
-    NestedSet<TaggedEvents> getTransitiveEvents() { return transitiveEvents; }
+    public NestedSet<TaggedEvents> getTransitiveEvents() { return transitiveEvents; }
 
     /**
      * We override equals so that if the same value is written to a {@link NodeEntry} twice, it can
@@ -122,12 +123,13 @@ public abstract class ValueWithMetadata implements SkyValue {
     public String toString() { return value.toString(); }
   }
 
-  static final class ErrorInfoValue extends ValueWithMetadata {
+  /** Implementation of {@link ValueWithMetadata} for the error case. */
+  public static final class ErrorInfoValue extends ValueWithMetadata {
 
     private final ErrorInfo errorInfo;
     private final NestedSet<TaggedEvents> transitiveEvents;
 
-    ErrorInfoValue(ErrorInfo errorInfo, @Nullable SkyValue value,
+    public ErrorInfoValue(ErrorInfo errorInfo, @Nullable SkyValue value,
         NestedSet<TaggedEvents> transitiveEvents) {
       super(value);
       this.errorInfo = Preconditions.checkNotNull(errorInfo);
@@ -139,7 +141,7 @@ public abstract class ValueWithMetadata implements SkyValue {
     ErrorInfo getErrorInfo() { return errorInfo; }
 
     @Override
-    NestedSet<TaggedEvents> getTransitiveEvents() { return transitiveEvents; }
+    public NestedSet<TaggedEvents> getTransitiveEvents() { return transitiveEvents; }
 
     @Override
     public boolean equals(Object o) {
@@ -184,14 +186,14 @@ public abstract class ValueWithMetadata implements SkyValue {
     }
   }
 
-  static SkyValue justValue(SkyValue value) {
+  public static SkyValue justValue(SkyValue value) {
     if (value instanceof ValueWithMetadata) {
       return ((ValueWithMetadata) value).getValue();
     }
     return value;
   }
 
-  static ValueWithMetadata wrapWithMetadata(SkyValue value) {
+  public static ValueWithMetadata wrapWithMetadata(SkyValue value) {
     if (value instanceof ValueWithMetadata) {
       return (ValueWithMetadata) value;
     }
