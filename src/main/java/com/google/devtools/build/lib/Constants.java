@@ -18,20 +18,17 @@ import com.google.common.collect.ImmutableList;
 
 /**
  * Various constants required by Bazel.
- *
- * <p>The extra {@code .toString()} calls are there so that javac doesn't inline these constants
- * so that we can replace this class file in the .jar after Bazel was built.
  */
 public class Constants {
   private Constants() {
   }
 
-  public static final String PRODUCT_NAME = "bazel".toString();
+  public static final String PRODUCT_NAME = "bazel";
   public static final ImmutableList<String> DEFAULT_PACKAGE_PATH = ImmutableList.of("%workspace%");
   public static final String MAIN_RULE_CLASS_PROVIDER =
-      "com.google.devtools.build.lib.bazel.rules.BazelRuleClassProvider".toString();
+      "com.google.devtools.build.lib.bazel.rules.BazelRuleClassProvider";
   public static final ImmutableList<String> IGNORED_TEST_WARNING_PREFIXES = ImmutableList.of();
-  public static final String DEFAULT_RUNFILES_PREFIX = "".toString();
+  public static final String DEFAULT_RUNFILES_PREFIX = "";
 
   public static final ImmutableList<String> WATCHFS_BLACKLIST = ImmutableList.of();
 
