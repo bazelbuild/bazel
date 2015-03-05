@@ -86,7 +86,8 @@ public abstract class SkylarkList implements Iterable<Object> {
   // TODO(bazel-team): we should be very careful using this method. Check and remove
   // auto conversions on the Java-Skylark interface if possible.
   /**
-   * Converts this Skylark list to a Java list.
+   * Returns a mutable Java list copy of this SkylarkList if it's a list or an
+   * immutable copy if it's a tuple.
    */
   public abstract List<Object> toList();
 
@@ -235,7 +236,8 @@ public abstract class SkylarkList implements Iterable<Object> {
 
     @Override
     public List<Object> toList() {
-      return getList();
+      ImmutableList<Object> result = getList();
+      return isTuple() ? result : Lists.newArrayList(result);
     }
 
     private ImmutableList<Object> getList() {
@@ -291,8 +293,9 @@ public abstract class SkylarkList implements Iterable<Object> {
     }
 
     @Override
-    public ImmutableList<Object> toList() {
-      return ImmutableList.<Object>builder().addAll(left).addAll(right).build();
+    public List<Object> toList() {
+      List<Object> result = ImmutableList.<Object>builder().addAll(left).addAll(right).build();
+      return isTuple() ? result : Lists.newArrayList(result);
     }
   }
 
