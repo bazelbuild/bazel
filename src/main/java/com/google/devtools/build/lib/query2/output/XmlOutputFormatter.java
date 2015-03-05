@@ -184,7 +184,7 @@ class XmlOutputFormatter extends OutputFormatter implements OutputFormatter.Unor
     elem.setAttribute("name", target.getLabel().toString());
     String location = target.getLocation().print();
     if (!xmlLineNumbers) {
-      int firstColon = location.indexOf(":");
+      int firstColon = location.indexOf(':');
       if (firstColon != -1) {
         location = location.substring(0, firstColon);
       }

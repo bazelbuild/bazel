@@ -424,7 +424,7 @@ public class InfoCommand implements BlazeCommand {
     }
     ByteArrayOutputStream outputStream = new ByteArrayOutputStream();
     PrintWriter writer = new PrintWriter(outputStream);
-    writer.print(value.toString() + "\n");
+    writer.print(value + "\n");
     writer.flush();
     return outputStream.toByteArray();
   }

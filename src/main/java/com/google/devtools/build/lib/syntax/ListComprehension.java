@@ -35,12 +35,12 @@ public final class ListComprehension extends Expression {
    */
   public ListComprehension(Expression elementExpression) {
     this.elementExpression = elementExpression;
-    lists = new ArrayList<Map.Entry<Ident, Expression>>();
+    lists = new ArrayList<>();
   }
 
   @Override
   Object eval(Environment env) throws EvalException, InterruptedException {
-    if (lists.size() == 0) {
+    if (lists.isEmpty()) {
       return convert(new ArrayList<>(), env);
     }
 

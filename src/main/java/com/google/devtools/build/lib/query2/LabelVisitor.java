@@ -281,9 +281,7 @@ final class LabelVisitor {
       this.maxDepth = maxDepth;
       this.errorObserver = new TargetEdgeErrorObserver();
       ImmutableList.Builder<TargetEdgeObserver> builder = ImmutableList.builder();
-      for (TargetEdgeObserver observer : observers) {
-        builder.add(observer);
-      }
+      builder.add(observers);
       builder.add(errorObserver);
       this.observers = builder.build();
       this.keepGoing = keepGoing;

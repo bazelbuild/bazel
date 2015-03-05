@@ -422,7 +422,7 @@ public final class FuncallExpression extends Expression {
       Environment env, Function function)
       throws EvalException, InterruptedException {
     ArgConversion conversion = getArgConversion(function);
-    ImmutableList.Builder<String> duplicates = new ImmutableList.Builder<String>();
+    ImmutableList.Builder<String> duplicates = new ImmutableList.Builder<>();
     // Iterate over the arguments. We assume all positional arguments come before any keyword
     // or star arguments, because the argument list was already validated by
     // Argument#validateFuncallArguments, as called by the Parser,
@@ -465,7 +465,7 @@ public final class FuncallExpression extends Expression {
 
   @Override
   Object eval(Environment env) throws EvalException, InterruptedException {
-    ImmutableList.Builder<Object> posargs = new ImmutableList.Builder<Object>();
+    ImmutableList.Builder<Object> posargs = new ImmutableList.Builder<>();
     // We copy this into an ImmutableMap in the end, but we can't use an ImmutableMap.Builder, or
     // we'd still have to have a HashMap on the side for the sake of properly handling duplicates.
     Map<String, Object> kwargs = new HashMap<>();

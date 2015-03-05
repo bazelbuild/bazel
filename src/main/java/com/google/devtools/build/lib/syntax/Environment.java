@@ -253,7 +253,7 @@ public class Environment {
     out.append("}");
     if (parent != null) {
       out.append("=>");
-      out.append(parent.toString());
+      out.append(parent);
     }
     return out.toString();
   }

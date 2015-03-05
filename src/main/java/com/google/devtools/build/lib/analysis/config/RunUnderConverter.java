@@ -60,7 +60,7 @@ public class RunUnderConverter implements Converter<RunUnder> {
     public RunUnderLabel(String input, Label runUnderLabel, List<String> runUnderList) {
       this.input = input;
       this.runUnderLabel = runUnderLabel;
-      this.runUnderList = new ArrayList<String>(runUnderList.subList(1, runUnderList.size()));
+      this.runUnderList = new ArrayList<>(runUnderList.subList(1, runUnderList.size()));
     }
 
     @Override public String getValue() { return input; }
@@ -97,7 +97,7 @@ public class RunUnderConverter implements Converter<RunUnder> {
     public RunUnderCommand(String input, String runUnderCommand, List<String> runUnderList) {
       this.input = input;
       this.runUnderCommand = runUnderCommand;
-      this.runUnderList = new ArrayList<String>(runUnderList.subList(1, runUnderList.size()));
+      this.runUnderList = new ArrayList<>(runUnderList.subList(1, runUnderList.size()));
     }
 
     @Override public String getValue() { return input; }

@@ -146,7 +146,7 @@ public final class ActionExecutionStatusReporter {
         actions.add(Pair.of(entry.getValue().second, entry.getKey()));
       }
     }
-    if (actions.size() == 0) {
+    if (actions.isEmpty()) {
       return;
     }
     Collections.sort(actions, Pair.<Long, ActionMetadata>compareByFirst());
@@ -183,7 +183,7 @@ public final class ActionExecutionStatusReporter {
     long currentTime = clock.nanoTime();
 
     // A tree is just as fast as HashSet for small data sets.
-    Set<String> statuses = new TreeSet<String>();
+    Set<String> statuses = new TreeSet<>();
     for (Map.Entry<ActionMetadata, Pair<String, Long>> entry : statusMap.entrySet()) {
       statuses.add(entry.getValue().first);
     }
@@ -200,7 +200,7 @@ public final class ActionExecutionStatusReporter {
   public void showCurrentlyExecutingActions(String progressPercentageMessage) {
     // Defensive copy to ensure thread safety.
     Map<ActionMetadata, Pair<String, Long>> statusMap = new HashMap<>(actionStatus);
-    if (statusMap.size() > 0) {
+    if (!statusMap.isEmpty()) {
       eventHandler.handle(
           Event.progress(progressPercentageMessage + getExecutionStatusMessage(statusMap)));
     }
@@ -213,8 +213,8 @@ public final class ActionExecutionStatusReporter {
   void warnAboutCurrentlyExecutingActions() {
     // Defensive copy to ensure thread safety.
     Map<ActionMetadata, Pair<String, Long>> statusMap = new HashMap<>(actionStatus);
-    if (statusMap.size() == 0) {
-     // There are no tasks in the queue so there is nothing to report.
+    if (statusMap.isEmpty()) {
+      // There are no tasks in the queue so there is nothing to report.
       eventHandler.handle(Event.warn("There are no active jobs - stopping the build"));
       return;
     }
@@ -225,7 +225,7 @@ public final class ActionExecutionStatusReporter {
         iterator.remove();
       }
     }
-    if (statusMap.size() > 0) {
+    if (!statusMap.isEmpty()) {
       eventHandler.handle(Event.warn(getExecutionStatusMessage(statusMap)
           + "\nBuild will be stopped after these tasks terminate"));
     } else {

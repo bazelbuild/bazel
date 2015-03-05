@@ -74,7 +74,7 @@ final class GlobFunction implements SkyFunction {
 
     String pattern = glob.getPattern();
     // Split off the first path component of the pattern.
-    int slashPos = pattern.indexOf("/");
+    int slashPos = pattern.indexOf('/');
     String patternHead;
     String patternTail;
     if (slashPos == -1) {

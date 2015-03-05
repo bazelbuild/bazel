@@ -188,9 +188,9 @@ public class LocalDiffAwareness implements DiffAwareness {
 
   /** Returns the changed files caught by the watch service. */
   private Set<Path> collectChanges() throws BrokenDiffAwarenessException, IOException {
-    Set<Path> createdFilesAndDirectories = new HashSet<Path>();
-    Set<Path> deletedOrModifiedFilesAndDirectories = new HashSet<Path>();
-    Set<Path> deletedTrackedDirectories = new HashSet<Path>();
+    Set<Path> createdFilesAndDirectories = new HashSet<>();
+    Set<Path> deletedOrModifiedFilesAndDirectories = new HashSet<>();
+    Set<Path> deletedTrackedDirectories = new HashSet<>();
 
     WatchKey watchKey;
     while ((watchKey = watchService.poll()) != null) {
@@ -267,7 +267,7 @@ public class LocalDiffAwareness implements DiffAwareness {
       throw new IOException("Root directory " + watchRootPath + " became inaccessible.");
     }
 
-    Set<Path> changedPaths = new HashSet<Path>();
+    Set<Path> changedPaths = new HashSet<>();
     for (Path path : createdFilesAndDirectories) {
       if (Files.isDirectory(path, LinkOption.NOFOLLOW_LINKS)) {
         // This is a new directory, so changes to it since its creation have not been watched.
@@ -287,7 +287,7 @@ public class LocalDiffAwareness implements DiffAwareness {
    * paths).
    */
   private Set<Path> registerSubDirectoriesAndReturnContents(Path rootDir) throws IOException {
-    Set<Path> visitedAbsolutePaths = new HashSet<Path>();
+    Set<Path> visitedAbsolutePaths = new HashSet<>();
     // Note that this does not follow symlinks.
     Files.walkFileTree(rootDir, new WatcherFileVisitor(visitedAbsolutePaths));
     return visitedAbsolutePaths;

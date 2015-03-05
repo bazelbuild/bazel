@@ -76,7 +76,7 @@ public final class ActionListener implements RuleConfiguredTargetFactory {
         extraActions.add(spec);
       }
     }
-    if (extraActions.size() == 0) {
+    if (extraActions.isEmpty()) {
       ruleContext.attributeWarning("extra_actions",
           "No extra_action is specified for this version of blaze.");
     }

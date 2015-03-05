@@ -135,7 +135,7 @@ public abstract class PackageSpecification {
 
     @Override
     public String toString() {
-      return prefix.equals(new PathFragment("")) ? "..." : prefix.toString() + "/...";
+      return prefix.equals(new PathFragment("")) ? "..." : prefix + "/...";
     }
   }
 

@@ -240,7 +240,7 @@ public final class RuleClass {
         @Override
         public void checkName(String name) {
           Preconditions.checkArgument(
-              (name.contains("$") && !TargetUtils.isTestRuleName(name)) || name.equals(""));
+              (name.contains("$") && !TargetUtils.isTestRuleName(name)) || name.isEmpty());
         }
 
         @Override
@@ -274,8 +274,9 @@ public final class RuleClass {
       NORMAL {
         @Override
         public void checkName(String name) {
-          Preconditions.checkArgument(!TargetUtils.isTestRuleName(name)
-              && RULE_NAME_PATTERN.matcher(name).matches(), "Invalid rule name: " + name);
+          Preconditions.checkArgument(
+              !TargetUtils.isTestRuleName(name) && RULE_NAME_PATTERN.matcher(name).matches(),
+              "Invalid rule name: %s", name);
         }
 
         @Override

@@ -309,19 +309,22 @@ public final class PathFragment implements Comparable<PathFragment>, Serializabl
     int segmentCount = 0;
 
     for (String segment : segments) {
-      if (segment.equals(".")) {
-        // Just discard it
-      } else if (segment.equals("..")) {
-        if (segmentCount > 0 && !scratchSegments[segmentCount - 1].equals("..")) {
-          // Remove the last segment, if there is one and it is not "..". This
-          // means that the resulting PathFragment can still contain ".."
-          // segments at the beginning.
-          segmentCount--;
-        } else {
+      switch (segment) {
+        case ".":
+          // Just discard it
+          break;
+        case "..":
+          if (segmentCount > 0 && !scratchSegments[segmentCount - 1].equals("..")) {
+            // Remove the last segment, if there is one and it is not "..". This
+            // means that the resulting PathFragment can still contain ".."
+            // segments at the beginning.
+            segmentCount--;
+          } else {
+            scratchSegments[segmentCount++] = segment;
+          }
+          break;
+        default:
           scratchSegments[segmentCount++] = segment;
-        }
-      } else {
-        scratchSegments[segmentCount++] = segment;
       }
     }
 
@@ -374,8 +377,7 @@ public final class PathFragment implements Comparable<PathFragment>, Serializabl
   public PathFragment getChild(String baseName) {
     FileSystemUtils.checkBaseName(baseName);
     baseName = StringCanonicalizer.intern(baseName);
-    String[] newSegments = new String[segments.length + 1];
-    System.arraycopy(segments, 0, newSegments, 0, segments.length);
+    String[] newSegments = Arrays.copyOf(segments, segments.length + 1);
     newSegments[newSegments.length - 1] = baseName;
     return new PathFragment(driveLetter, isAbsolute, newSegments);
   }

@@ -61,7 +61,7 @@ public final class AssignmentStatement extends Statement {
 
     Ident ident = (Ident) lvalue;
     Object result = expression.eval(env);
-    Preconditions.checkNotNull(result, "result of " + expression + " is null");
+    Preconditions.checkNotNull(result, "result of %s is null", expression);
 
     if (env.isSkylarkEnabled()) {
       // The variable may have been referenced successfully if a global variable

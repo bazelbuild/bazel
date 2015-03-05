@@ -167,7 +167,7 @@ public final class CommandBuilder {
   public Command build() {
     Preconditions.checkState(system != OS.UNKNOWN, "Unidentified operating system");
     Preconditions.checkNotNull(workingDir, "Working directory must be set");
-    Preconditions.checkState(argv.size() > 0, "At least one argument is expected");
+    Preconditions.checkState(!argv.isEmpty(), "At least one argument is expected");
 
     return new Command(
         system == OS.WINDOWS ? transformArgvForWindows() : transformArgvForLinux(),

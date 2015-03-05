@@ -196,15 +196,11 @@ public class TransitiveTargetFunction implements SkyFunction {
   }
 
   private static void visitTargetVisibility(Target target, Set<Label> labels) {
-    for (Label label : target.getVisibility().getDependencyLabels()) {
-      labels.add(label);
-    }
+    labels.addAll(target.getVisibility().getDependencyLabels());
   }
 
   private static void visitPackageGroup(PackageGroup packageGroup, Set<Label> labels) {
-    for (final Label include : packageGroup.getIncludes()) {
-      labels.add(include);
-    }
+    labels.addAll(packageGroup.getIncludes());
   }
 
   /**

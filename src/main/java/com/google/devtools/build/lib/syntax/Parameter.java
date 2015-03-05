@@ -111,7 +111,7 @@ public abstract class Parameter<V, T> extends Argument {
 
     @Override
     public String toString() {
-      return name.toString() + "=" + String.valueOf(defaultValue);
+      return name + "=" + defaultValue;
     }
   }
 
@@ -138,7 +138,7 @@ public abstract class Parameter<V, T> extends Argument {
       if (name == null) {
         return "*";
       } else {
-        return "*" + name.toString();
+        return "*" + name;
       }
     }
   }
@@ -159,7 +159,7 @@ public abstract class Parameter<V, T> extends Argument {
 
     @Override
     public String toString() {
-      return "**" + name.toString();
+      return "**" + name;
     }
   }
 

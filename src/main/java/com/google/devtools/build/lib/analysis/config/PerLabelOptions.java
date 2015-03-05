@@ -61,7 +61,7 @@ public class PerLabelOptions implements Serializable {
         String optionsPiece = input.substring(atIndex + 1);
         List<String> optionsList = new ArrayList<>();
         for (String option : optionsPiece.split("(?<!\\\\),")) { // Split on ',' but not on '\,'
-          if (option != null && !option.trim().equals("")) {
+          if (option != null && !option.trim().isEmpty()) {
             optionsList.add(option.replace("\\,", ","));
           }
         }

@@ -60,7 +60,7 @@ public class GenericBuildInfoPropertiesTranslator implements
 
   private String translateValue(String valueDescription, Map<String, String> buildInfo) {
     String[] split = valueDescription.split("%");
-    StringBuffer result = new StringBuffer();
+    StringBuilder result = new StringBuilder();
     boolean isInsideKey = false;
     for (String key : split) {
       if (isInsideKey) {

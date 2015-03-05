@@ -29,7 +29,7 @@ public final class Pair<A, B> {
    * Creates a new pair containing the given elements in order.
    */
   public static <A, B> Pair<A, B> of(@Nullable A first, @Nullable B second) {
-    return new Pair<A, B>(first, second);
+    return new Pair<>(first, second);
   }
 
   /**

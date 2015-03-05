@@ -148,7 +148,7 @@ public abstract class DependencyResolver {
       Preconditions.checkNotNull(config);
       visitTargetVisibility(node, outgoingEdges.get(null));
       Rule rule = ((OutputFile) target).getGeneratingRule();
-      outgoingEdges.get(null).add(new Dependency(rule.getLabel(), config));
+      outgoingEdges.put(null, new Dependency(rule.getLabel(), config));
     } else if (target instanceof InputFile) {
       visitTargetVisibility(node, outgoingEdges.get(null));
     } else if (target instanceof EnvironmentGroup) {
@@ -508,8 +508,9 @@ public abstract class DependencyResolver {
         Iterable<BuildConfiguration> toConfigurations = config.evaluateTransition(
             rule, attribute, toTarget);
         for (BuildConfiguration toConfiguration : toConfigurations) {
-          outgoingEdges.get(entry.getKey()).add(new Dependency(
-              label, toConfiguration, requiredAspects(aspect, attribute, toTarget)));
+          outgoingEdges.put(
+              entry.getKey(),
+              new Dependency(label, toConfiguration, requiredAspects(aspect, attribute, toTarget)));
         }
       }
     }

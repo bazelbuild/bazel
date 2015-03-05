@@ -368,9 +368,9 @@ public abstract class PersistentMap<K, V> extends ForwardingMap<K, V> {
    * @throws IOException
    */
   private void saveEntries(Map<K, V> map, Path mapFile) throws IOException {
-    DataOutputStream out = createMapFile(mapFile);
-    writeEntries(out, map);
-    out.close();
+    try (DataOutputStream out = createMapFile(mapFile)) {
+      writeEntries(out, map);
+    }
   }
 
   /**
@@ -436,7 +436,7 @@ public abstract class PersistentMap<K, V> extends ForwardingMap<K, V> {
   private boolean hasEntries(DataInputStream in, boolean failFast) throws IOException {
     if (in.available() <= 0) {
       return false;
-    } else if (!(in.readUnsignedByte() == ENTRY_MAGIC)) {
+    } else if (in.readUnsignedByte() != ENTRY_MAGIC) {
       if (failFast) {
         throw new IOException("Corrupted entry separator");
       } else {

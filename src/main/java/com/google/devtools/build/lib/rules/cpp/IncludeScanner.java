@@ -105,9 +105,7 @@ public interface IncludeScanner {
           List<PathFragment> quoteIncludeDirs = scannable.getQuoteIncludeDirs();
           List<String> cmdlineIncludes = scannable.getCmdlineIncludes();
 
-          for (PathFragment pathFragment : scannable.getSystemIncludeDirs()) {
-            includeDirs.add(pathFragment);
-          }
+          includeDirs.addAll(scannable.getSystemIncludeDirs());
 
           // Add the system include paths to the list of include paths.
           for (PathFragment pathFragment : action.getBuiltInIncludeDirectories()) {
@@ -149,7 +147,6 @@ public interface IncludeScanner {
 
       // Collect inputs and output
       List<Artifact> inputs = new ArrayList<>();
-      IncludeProblems includeProblems = new IncludeProblems();
       for (Artifact included : includes) {
         if (FileSystemUtils.startsWithAny(included.getPath(), absoluteBuiltInIncludeDirs)) {
           // Skip include files found in absolute include directories. This currently only applies

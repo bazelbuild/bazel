@@ -88,7 +88,7 @@ public class UnionFileSystem extends FileSystem {
         "please use the rootFileSystem argument instead.");
 
     this.readOnly = readOnly;
-    this.pathDelegate = new StringTrie<FileSystem>();
+    this.pathDelegate = new StringTrie<>();
 
     for (Map.Entry<PathFragment, FileSystem> prefix : prefixMapping.entrySet()) {
       FileSystem delegate = prefix.getValue();

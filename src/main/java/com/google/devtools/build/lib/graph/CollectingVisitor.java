@@ -22,8 +22,7 @@ import java.util.List;
  *  they were visited, and allows them to be accessed as a list.
  */
 public class CollectingVisitor<T> extends AbstractGraphVisitor<T> {
-
-  private final List<Node<T>> order = new ArrayList<Node<T>>();
+  private final List<Node<T>> order = new ArrayList<>();
 
   @Override
   public void visitNode(Node<T> node) {

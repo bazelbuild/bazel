@@ -49,7 +49,7 @@ public class Digest {
   @VisibleForTesting
   Digest(byte[] digest) {
     Preconditions.checkState(digest.length == MD5_SIZE);
-    this.digest = Arrays.copyOf(digest, digest.length);
+    this.digest = digest.clone();
   }
 
   /**

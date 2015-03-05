@@ -103,7 +103,7 @@ public abstract class Argument extends ASTNode {
     }
     @Override
     public String toString() {
-      return name + " = " + String.valueOf(value);
+      return name + " = " + value;
     }
   }
 
@@ -119,7 +119,7 @@ public abstract class Argument extends ASTNode {
     }
     @Override
     public String toString() {
-      return "*" + String.valueOf(value);
+      return "*" + value;
     }
   }
 
@@ -135,7 +135,7 @@ public abstract class Argument extends ASTNode {
     }
     @Override
     public String toString() {
-      return "**" + String.valueOf(value);
+      return "**" + value;
     }
   }
 

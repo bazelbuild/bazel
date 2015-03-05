@@ -80,7 +80,7 @@ public final class IfStatement extends Statement {
    * ThenBlocks has to have at least one element.
    */
   IfStatement(List<ConditionalStatements> thenBlocks, List<Statement> elseBlock) {
-    Preconditions.checkArgument(thenBlocks.size() > 0);
+    Preconditions.checkArgument(!thenBlocks.isEmpty());
     this.thenBlocks = ImmutableList.copyOf(thenBlocks);
     this.elseBlock = ImmutableList.copyOf(elseBlock);
   }

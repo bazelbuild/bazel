@@ -163,8 +163,7 @@ public final class Node<T> {
     int previousSize = set.size();
     if (previousSize == 1) {
       // SingletonList -> ArrayList
-      Collection<Node<T>> newSet =
-        new ArrayList<Node<T>>(ARRAYLIST_THRESHOLD);
+      Collection<Node<T>> newSet = new ArrayList<>(ARRAYLIST_THRESHOLD);
       newSet.addAll(set);
       newSet.add(value);
       return updateField(predecessorSet, newSet);
@@ -174,9 +173,8 @@ public final class Node<T> {
       return true;
   } else if (previousSize == ARRAYLIST_THRESHOLD) {
       // ArrayList -> HashSet
-      Collection<Node<T>> newSet =
-        new HashSet<Node<T>>(INITIAL_HASHSET_CAPACITY);
-      newSet.addAll(set);
+    Collection<Node<T>> newSet = new HashSet<>(INITIAL_HASHSET_CAPACITY);
+    newSet.addAll(set);
       newSet.add(value);
       return updateField(predecessorSet, newSet);
     } else {
@@ -219,8 +217,7 @@ public final class Node<T> {
 
       } else if (previousSize == 1 + ARRAYLIST_THRESHOLD) {
         // -> ArrayList
-        Collection<Node<T>> newSet =
-          new ArrayList<Node<T>>(ARRAYLIST_THRESHOLD);
+        Collection<Node<T>> newSet = new ArrayList<>(ARRAYLIST_THRESHOLD);
         newSet.addAll(set);
         return updateField(predecessorSet, newSet);
       }

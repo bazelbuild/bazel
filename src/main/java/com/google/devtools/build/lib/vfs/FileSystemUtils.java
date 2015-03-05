@@ -276,7 +276,7 @@ public class FileSystemUtils {
    * ("libfoo", "-src") ==> "libfoo-src"
    */
   private static String appendWithoutExtension(String name, String toAppend) {
-    int dotIndex = name.lastIndexOf(".");
+    int dotIndex = name.lastIndexOf('.');
     if (dotIndex > 0) {
       String baseName = name.substring(0, dotIndex);
       String extension = name.substring(dotIndex);

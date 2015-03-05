@@ -30,7 +30,7 @@ public enum Order {
   private Order(NestedSetExpander<?> expander, NestedSetFactory factory) {
     this.expander = expander;
     this.factory = factory;
-    this.emptySet = new EmptyNestedSet<Object>(this);
+    this.emptySet = new EmptyNestedSet<>(this);
   }
 
   /**

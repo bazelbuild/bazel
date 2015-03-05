@@ -52,7 +52,7 @@ public class ActionArtifactCycleReporter extends AbstractLabelCycleReporter {
       return "action: " + ((Action) arg).getMnemonic();
     } else if (arg instanceof LabelAndConfiguration
         && skyFunctionName == SkyFunctions.TARGET_COMPLETION) {
-      return "configured target: " + ((LabelAndConfiguration) arg).getLabel().toString();
+      return "configured target: " + ((LabelAndConfiguration) arg).getLabel();
     }
     throw new IllegalStateException(
         "Argument is not Action, TargetCompletion,  or OwnedArtifact: " + arg);

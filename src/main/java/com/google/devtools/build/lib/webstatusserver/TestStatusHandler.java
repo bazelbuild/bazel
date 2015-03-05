@@ -29,6 +29,7 @@ import com.sun.net.httpserver.HttpServer;
 import java.io.IOException;
 import java.io.OutputStream;
 import java.lang.reflect.Type;
+import java.nio.charset.StandardCharsets;
 import java.util.Map;
 import java.util.Map.Entry;
 
@@ -85,9 +86,9 @@ class TestStatusHandler {
 
       String serializedResponse = response.toString();
       exchange.sendResponseHeaders(200, serializedResponse.length());
-      OutputStream os = exchange.getResponseBody();
-      os.write(serializedResponse.getBytes());
-      os.close();
+      try (OutputStream os = exchange.getResponseBody()) {
+        os.write(serializedResponse.getBytes(StandardCharsets.UTF_8));
+      }
     }
   }
   
@@ -112,9 +113,9 @@ class TestStatusHandler {
 
       String serializedResponse = response.toString();
       exchange.sendResponseHeaders(200, serializedResponse.length());
-      OutputStream os = exchange.getResponseBody();
-      os.write(serializedResponse.getBytes());
-      os.close();
+      try (OutputStream os = exchange.getResponseBody()) {
+        os.write(serializedResponse.getBytes(StandardCharsets.UTF_8));
+      }
     }
   }
 

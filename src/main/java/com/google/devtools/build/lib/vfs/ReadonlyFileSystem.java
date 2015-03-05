@@ -40,7 +40,7 @@ public abstract class ReadonlyFileSystem extends FileSystem {
 
   protected IOException modificationException() {
     String longname = this.getClass().getName();
-    String shortname = longname.substring(longname.lastIndexOf(".") + 1);
+    String shortname = longname.substring(longname.lastIndexOf('.') + 1);
     return new IOException(
         shortname + " does not support mutating operations");
   }

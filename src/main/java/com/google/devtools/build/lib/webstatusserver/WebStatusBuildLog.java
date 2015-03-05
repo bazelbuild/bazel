@@ -47,8 +47,8 @@ public class WebStatusBuildLog {
   private boolean complete = false;
   private static final Logger LOG =
       Logger.getLogger(WebStatusEventCollector.class.getCanonicalName());
-  private Map<String, JsonElement> commandInfo = new HashMap<String, JsonElement>();
-  private Map<String, JsonObject> testCases = new HashMap<String, JsonObject>();
+  private Map<String, JsonElement> commandInfo = new HashMap<>();
+  private Map<String, JsonObject> testCases = new HashMap<>();
   private long startTime;
   private ImmutableList<String> targetList;
   private UUID commandId;

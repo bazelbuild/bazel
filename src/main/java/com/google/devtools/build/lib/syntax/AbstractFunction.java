@@ -56,7 +56,7 @@ public abstract class AbstractFunction implements Function {
     @Override
     public Object call(List<Object> args, Map<String, Object> kwargs, FuncallExpression ast,
         Environment env) throws EvalException, InterruptedException {
-      if (args.size() != 1 || kwargs.size() != 0) {
+      if (args.size() != 1 || !kwargs.isEmpty()) {
         throw new EvalException(ast.getLocation(), "Invalid number of arguments (expected 0)");
       }
       return call(args.get(0), ast, env);

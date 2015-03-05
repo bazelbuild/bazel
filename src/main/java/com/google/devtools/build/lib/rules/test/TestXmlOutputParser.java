@@ -230,24 +230,29 @@ class TestXmlOutputParser {
           // they can be too big to fit in the memory. We add failure and error
           // elements to the output without a message, so that there is a
           // difference between passed and failed test cases.
-          if (childElementName.equals("testsuite")) {
-            builder.addChild(parseTestSuite(parser, childElementName));
-          } else if (childElementName.equals("testcase")) {
-            builder.addChild(parseTestCase(parser));
-          } else if (childElementName.equals("failure")) {
-            failures += 1;
-            skipCompleteElement(parser);
-          } else if (childElementName.equals("error")) {
-            errors += 1;
-            skipCompleteElement(parser);
-          } else if (childElementName.equals("testdecorator")) {
-            builder.addChild(parseTestDecorator(parser));
-          } else {
-
-            // Unknown element encountered. Since the schema of the input file
-            // is a bit hazy, just skip it and go merrily on our way. Ignorance
-            // is bliss.
-            skipCompleteElement(parser);
+          switch (childElementName) {
+            case "testsuite":
+              builder.addChild(parseTestSuite(parser, childElementName));
+              break;
+            case "testcase":
+              builder.addChild(parseTestCase(parser));
+              break;
+            case "failure":
+              failures += 1;
+              skipCompleteElement(parser);
+              break;
+            case "error":
+              errors += 1;
+              skipCompleteElement(parser);
+              break;
+            case "testdecorator":
+              builder.addChild(parseTestDecorator(parser));
+              break;
+            default:
+              // Unknown element encountered. Since the schema of the input file
+              // is a bit hazy, just skip it and go merrily on our way. Ignorance
+              // is bliss.
+              skipCompleteElement(parser);
           }
           break;
 
@@ -296,20 +301,28 @@ class TestXmlOutputParser {
       String name = parser.getAttributeLocalName(i).intern();
       String value = parser.getAttributeValue(i);
 
-      if (name.equals("name")) {
-        builder.setName(value);
-      } else if (name.equals("classname")) {
-        builder.setClassName(value);
-      } else if (name.equals("time")) {
-        builder.setRunDurationMillis(parseTime(value));
-      } else if (name.equals("result")) {
-        builder.setResult(value);
-      } else if (name.equals("status")) {
-        if (value.equals("notrun")) {
-          builder.setRun(false);
-        } else if (value.equals("run")) {
-          builder.setRun(true);
-        }
+      switch (name) {
+        case "name":
+          builder.setName(value);
+          break;
+        case "classname":
+          builder.setClassName(value);
+          break;
+        case "time":
+          builder.setRunDurationMillis(parseTime(value));
+          break;
+        case "result":
+          builder.setResult(value);
+          break;
+        case "status":
+          if (value.equals("notrun")) {
+            builder.setRun(false);
+          } else if (value.equals("run")) {
+            builder.setRun(true);
+          }
+          break;
+        default:
+          // fall through
       }
     }
 

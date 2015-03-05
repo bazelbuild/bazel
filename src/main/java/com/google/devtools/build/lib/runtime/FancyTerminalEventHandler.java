@@ -253,7 +253,7 @@ public class FancyTerminalEventHandler extends BlazeCommandEventHandler {
       terminal.textRed();
       terminal.textBold();
     }
-    terminal.writeString(event.getKind().toString() + ": ");
+    terminal.writeString(event.getKind() + ": ");
     if (useColor) {
       terminal.resetTerminal();
     }
@@ -281,7 +281,7 @@ public class FancyTerminalEventHandler extends BlazeCommandEventHandler {
     if (useColor) {
       terminal.textGreen();
     }
-    terminal.writeString(event.getKind().toString() + ": ");
+    terminal.writeString(event.getKind() + ": ");
     terminal.resetTerminal();
     writeTimestampAndLocation(event);
     terminal.writeString(event.getMessage());

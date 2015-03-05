@@ -62,7 +62,7 @@ public class BuildFileAST extends ASTNode {
     this.containsErrors = result.containsErrors;
     this.contentHashCode = contentHashCode;
     this.imports = fetchImports(this.stmts);
-    if (result.statements.size() > 0) {
+    if (!result.statements.isEmpty()) {
       setLocation(lexer.createLocation(
           result.statements.get(0).getLocation().getStartOffset(),
           result.statements.get(result.statements.size() - 1).getLocation().getEndOffset()));

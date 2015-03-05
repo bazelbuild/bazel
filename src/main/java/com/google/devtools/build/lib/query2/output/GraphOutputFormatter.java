@@ -91,7 +91,7 @@ class GraphOutputFormatter extends OutputFormatter {
       public String serialize(Node<Set<Node<Target>>> node) {
         int actualLimit = graphNodeStringLimit - RESERVED_LABEL_CHARS;
         boolean firstItem = true;
-        StringBuffer buf = new StringBuffer();
+        StringBuilder buf = new StringBuilder();
         int count = 0;
         for (Node<Target> eqNode : node.getLabel()) {
           String labelString = eqNode.getLabel().getLabel().toString();

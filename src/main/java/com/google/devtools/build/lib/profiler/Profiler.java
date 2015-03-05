@@ -268,7 +268,7 @@ public final class Profiler {
           "Current task stack for thread " + Thread.currentThread().getName() + ":\n");
       List<TaskData> list = get();
       for (int i = list.size() - 1; i >= 0; i--) {
-        builder.append(list.get(i).toString());
+        builder.append(list.get(i));
         builder.append("\n");
       }
       return builder.toString();
@@ -337,7 +337,7 @@ public final class Profiler {
       this.size = size;
 
       for (int i = 0; i < SHARDS; i++) {
-          priorityQueues[i] = new PriorityQueue<SlowTask>(size + 1);
+        priorityQueues[i] = new PriorityQueue<>(size + 1);
       }
     }
 
@@ -692,7 +692,7 @@ public final class Profiler {
    */
   private void logTask(long startTime, long duration, ProfilerTask type, Object object) {
     Preconditions.checkNotNull(object);
-    Preconditions.checkState(startTime > 0, "startTime was " + startTime);
+    Preconditions.checkState(startTime > 0, "startTime was %s", startTime);
     if (duration < 0) {
       // See note in Clock#nanoTime, which is used by Profiler#nanoTimeMaybe.
       duration = 0;

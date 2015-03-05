@@ -27,11 +27,7 @@ public final class StringLiteral extends Literal<String> {
 
   @Override
   public String toString() {
-    return new StringBuilder()
-        .append(quoteChar)
-        .append(value.replace(Character.toString(quoteChar), "\\" + quoteChar))
-        .append(quoteChar)
-        .toString();
+    return quoteChar + value.replace(Character.toString(quoteChar), "\\" + quoteChar) + quoteChar;
   }
 
   @Override

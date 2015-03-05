@@ -26,6 +26,7 @@ import java.io.InputStream;
 import java.io.InputStreamReader;
 import java.io.OutputStream;
 import java.net.URL;
+import java.nio.charset.StandardCharsets;
 import java.util.List;
 
 /**
@@ -64,9 +65,9 @@ public class StaticResourceHandler implements HttpHandler {
   public void handle(HttpExchange exchange) throws IOException {
     exchange.getResponseHeaders().put("Content-Type", contentType);
     exchange.sendResponseHeaders(httpCode, response.length());
-    OutputStream os = exchange.getResponseBody();
-    os.write(response.getBytes());
-    os.close();
+    try (OutputStream os = exchange.getResponseBody()) {
+      os.write(response.getBytes(StandardCharsets.UTF_8));
+    }
   }
 
   public static InputStream loadFromAbsolutePath(Class<?> loadingClass, String path)

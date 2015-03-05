@@ -106,6 +106,6 @@ public abstract class AbstractConfiguredTarget
 
   @Override
   public ImmutableCollection<String> getKeys() {
-    return ImmutableList.<String>builder().add("label").add("files").build();
+    return ImmutableList.of("label", "files");
   }
 }

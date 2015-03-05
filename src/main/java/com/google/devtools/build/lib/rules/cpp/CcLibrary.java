@@ -317,9 +317,9 @@ public abstract class CcLibrary implements RuleConfiguredTargetFactory {
       }
     } else {
       if (!linkstaticAttribute && appearsToHaveNoObjectFiles(ruleContext.attributes())) {
-        Artifact element = ccCompilationOutputs.getObjectFiles(false).isEmpty()
-            ? ccCompilationOutputs.getObjectFiles(true).get(0)
-            : ccCompilationOutputs.getObjectFiles(false).get(0);
+        Artifact element = Iterables.getFirst(
+            ccCompilationOutputs.getObjectFiles(false),
+            ccCompilationOutputs.getObjectFiles(true).get(0));
         ruleContext.attributeWarning("srcs",
              "this library appears at first glance to have no object files, "
              + "but on closer inspection it does have something to link, e.g. "

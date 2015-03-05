@@ -81,7 +81,7 @@ public final class DotExpression extends Expression {
     } else {
       try {
         List<MethodDescriptor> methods = FuncallExpression.getMethods(objValue.getClass(), name, 0);
-        if (methods != null && methods.size() > 0) {
+        if (methods != null && !methods.isEmpty()) {
           MethodDescriptor method = Iterables.getOnlyElement(methods);
           if (method.getAnnotation().structField()) {
             result = FuncallExpression.callMethod(

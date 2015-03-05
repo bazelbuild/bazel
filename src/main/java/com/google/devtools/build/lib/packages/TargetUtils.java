@@ -191,7 +191,7 @@ public final class TargetUtils {
    * <p>In practice this is the part before the "_", if any, otherwise the entire rule class name.
    */
   public static String getRuleLanguage(String ruleClass) {
-    int index = ruleClass.lastIndexOf("_");
+    int index = ruleClass.lastIndexOf('_');
     // Chop off "_binary" or "_test".
     return index != -1 ? ruleClass.substring(0, index) : ruleClass;
   }

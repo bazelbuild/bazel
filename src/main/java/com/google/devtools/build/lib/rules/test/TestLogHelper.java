@@ -66,11 +66,8 @@ public class TestLogHelper {
       ByteStreams.copy(input, filteringOutputStream);
 
       if (!filteringOutputStream.foundHeader()) {
-        InputStream inputAgain = testOutput.getInputStream();
-        try {
+        try (InputStream inputAgain = testOutput.getInputStream()) {
           ByteStreams.copy(inputAgain, out);
-        } finally {
-          inputAgain.close();
         }
       }
 

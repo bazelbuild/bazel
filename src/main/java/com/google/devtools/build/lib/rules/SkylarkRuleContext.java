@@ -387,7 +387,7 @@ public final class SkylarkRuleContext {
 
   @SkylarkCallable(doc = "Splits a shell command to a list of tokens.", hidden = true)
   public List<String> tokenize(String optionString) throws FuncallException {
-    List<String> options = new ArrayList<String>();
+    List<String> options = new ArrayList<>();
     try {
       ShellUtils.tokenize(options, optionString);
     } catch (TokenizationException e) {

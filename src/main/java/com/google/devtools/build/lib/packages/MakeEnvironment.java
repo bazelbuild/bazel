@@ -134,7 +134,7 @@ public class MakeEnvironment {
       }
       LinkedList<Binding> bindings = env.get(varname);
       if (bindings == null) {
-        bindings = new LinkedList<Binding>();
+        bindings = new LinkedList<>();
         env.put(varname, bindings);
       }
       // push new bindings onto head of list (=> most recent binding is

@@ -756,8 +756,7 @@ public final class Lexer {
     }
 
     // Like Python, always end with a NEWLINE token, even if no '\n' in input:
-    if (tokens.size() == 0
-        || tokens.get(tokens.size() - 1).kind != TokenKind.NEWLINE) {
+    if (tokens.isEmpty() || tokens.get(tokens.size() - 1).kind != TokenKind.NEWLINE) {
       addToken(new Token(TokenKind.NEWLINE, pos - 1, pos));
     }
 

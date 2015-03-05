@@ -18,7 +18,6 @@ import com.google.common.annotations.VisibleForTesting;
 import com.google.common.base.Function;
 import com.google.common.base.Joiner;
 import com.google.common.base.Preconditions;
-import com.google.common.base.Predicates;
 import com.google.common.collect.ArrayListMultimap;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
@@ -1074,12 +1073,12 @@ public final class BuildConfiguration implements Serializable {
   private String buildMnemonic() {
     // See explanation at getShortName().
     String platformSuffix = (options.platformSuffix != null) ? options.platformSuffix : "";
-    ArrayList<String> nameParts = new ArrayList<String>();
+    ArrayList<String> nameParts = new ArrayList<>();
     for (Fragment fragment : fragments.values()) {
       nameParts.add(fragment.getOutputDirectoryName());
     }
     nameParts.add(getCompilationMode() + platformSuffix);
-    return Joiner.on('-').join(Iterables.filter(nameParts, Predicates.notNull()));
+    return Joiner.on('-').skipNulls().join(nameParts);
   }
 
   /**

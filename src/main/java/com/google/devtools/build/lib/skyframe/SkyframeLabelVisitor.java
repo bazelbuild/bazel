@@ -14,7 +14,7 @@
 package com.google.devtools.build.lib.skyframe;
 
 import com.google.common.base.Preconditions;
-import com.google.common.base.Predicate;
+import com.google.common.base.Predicates;
 import com.google.common.collect.HashMultimap;
 import com.google.common.collect.ImmutableSet;
 import com.google.common.collect.Iterables;
@@ -109,9 +109,8 @@ final class SkyframeLabelVisitor implements TransitivePackageLoader {
       Label topLevelLabel = (Label) key.argument();
       if (!Iterables.isEmpty(errorInfo.getCycleInfo())) {
         skyframeCyclesReporter.get().reportCycles(errorInfo.getCycleInfo(), key, eventHandler);
-        for (Label rootCause : getRootCausesOfCycles(topLevelLabel, errorInfo.getCycleInfo())) {
-          rootCauses.put(topLevelLabel, rootCause);
-        }
+        rootCauses.putAll(
+            topLevelLabel, getRootCausesOfCycles(topLevelLabel, errorInfo.getCycleInfo()));
       }
       if (isDirectErrorFromTopLevelLabel(topLevelLabel, labelsToVisit, errorInfo)) {
         // Unlike top-level targets, which have already gone through target parsing,
@@ -131,9 +130,7 @@ final class SkyframeLabelVisitor implements TransitivePackageLoader {
       SkyKey topLevelTransitiveTargetKey = TransitiveTargetValue.key(topLevelLabel);
       TransitiveTargetValue topLevelTransitiveTargetValue = result.get(topLevelTransitiveTargetKey);
       if (topLevelTransitiveTargetValue.getTransitiveRootCauses() != null) {
-        for (Label rootCause : topLevelTransitiveTargetValue.getTransitiveRootCauses()) {
-          rootCauses.put(topLevelLabel, rootCause);
-        }
+        rootCauses.putAll(topLevelLabel, topLevelTransitiveTargetValue.getTransitiveRootCauses());
         warnAboutLoadingFailure(topLevelLabel, eventHandler);
       }
     }
@@ -251,12 +248,6 @@ final class SkyframeLabelVisitor implements TransitivePackageLoader {
   @Override
   public Multimap<Label, Label> getRootCauses(final Collection<Label> targetsToLoad) {
     Preconditions.checkState(lastBuildKeepGoing);
-    return Multimaps.filterKeys(rootCauses,
-        new Predicate<Label>() {
-      @Override
-      public boolean apply(Label label) {
-        return targetsToLoad.contains(label);
-      }
-    });
+    return Multimaps.filterKeys(rootCauses, Predicates.in(targetsToLoad));
   }
 }

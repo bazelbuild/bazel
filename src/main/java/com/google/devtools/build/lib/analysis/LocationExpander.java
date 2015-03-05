@@ -110,7 +110,7 @@ public class LocationExpander {
       }
 
       if (attrValue.charAt(start + scannedLength) != ' ') {
-        result.append(attrValue.substring(restart, start + scannedLength));
+        result.append(attrValue, restart, start + scannedLength);
         restart = start + scannedLength;
         continue;
       }
@@ -149,7 +149,7 @@ public class LocationExpander {
         return attrValue;
       }
 
-      result.append(attrValue.substring(restart, start));
+      result.append(attrValue, restart, start);
       if (multiple) {
         Collections.sort(paths);
         Joiner.on(' ').appendTo(result, paths);

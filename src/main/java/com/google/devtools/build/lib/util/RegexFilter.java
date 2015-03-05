@@ -95,7 +95,7 @@ public class RegexFilter implements Serializable {
    * Converts list of regex expressions into one compiled regex expression.
    */
   private static Pattern convertRegexListToPattern(List<String> regexList) {
-    if (regexList.size() == 0) {
+    if (regexList.isEmpty()) {
       return null;
     }
     // Wrap each individual regex in the independent group, combine them using '|' and

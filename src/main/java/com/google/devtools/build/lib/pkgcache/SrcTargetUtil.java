@@ -94,9 +94,7 @@ public final class SrcTargetUtil {
   public static List<FileTarget> getHdrTargets(EventHandler eventHandler, Rule rule,
                                                      TargetProvider provider)
       throws NoSuchTargetException, NoSuchPackageException, InterruptedException  {
-    ImmutableSet<String> srcAndHdrAttributes = ImmutableSet.<String>builder()
-        .addAll(HEADER_ATTRIBUTES)
-        .build();
+    ImmutableSet<String> srcAndHdrAttributes = ImmutableSet.copyOf(HEADER_ATTRIBUTES);
     return getTargets(eventHandler, rule, srcAndHdrAttributes, Sets.newHashSet(rule), provider);
   }
   

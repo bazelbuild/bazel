@@ -284,9 +284,9 @@ public abstract class OutputFormatter implements Serializable {
     }
 
     private void outputRule(Rule rule, PrintStream out) {
-      out.println(String.format("# %s", rule.getLocation()));
-      out.println(String.format("%s(", rule.getRuleClass()));
-      out.println(String.format("  name = \"%s\",", rule.getName()));
+      out.printf("# %s%n", rule.getLocation());
+      out.printf("%s(%n", rule.getRuleClass());
+      out.printf("  name = \"%s\",%n", rule.getName());
 
       for (Attribute attr : rule.getAttributes()) {
         Pair<Iterable<Object>, AttributeValueSource> values = getAttributeValues(rule, attr);
@@ -297,7 +297,7 @@ public abstract class OutputFormatter implements Serializable {
           continue;  // Don't print default values.
         }
         Object value = Iterables.getOnlyElement(values.first);
-        out.print(String.format("  %s = ", attr.getName()));
+        out.printf("  %s = ", attr.getName());
         if (value instanceof Label) {
           value = value.toString();
         } else if (value instanceof List<?> && EvalUtils.isImmutable(value)) {
@@ -307,7 +307,7 @@ public abstract class OutputFormatter implements Serializable {
         EvalUtils.prettyPrintValue(value, out);
         out.println(",");
       }
-      out.println(String.format(")\n"));
+      out.printf(")\n%n");
     }
 
     @Override

@@ -221,7 +221,7 @@ public class Path implements Comparable<Path>, Serializable {
     synchronized(this) {
       if (children == null) {
         // 66% of Paths have size == 1, 80% <= 2
-        children = new IdentityHashMap<String, Reference<Path>>(1);
+        children = new IdentityHashMap<>(1);
       }
       Reference<Path> childRef = children.get(childName);
       Path child;
@@ -550,7 +550,7 @@ public class Path implements Comparable<Path>, Serializable {
    * @precondition segment contains no slashes.
    */
   private Path getCanonicalPath(String segment) {
-    if (segment.equals(".") || segment.equals("")) {
+    if (segment.equals(".") || segment.isEmpty()) {
       return this; // that's a noop
     } else if (segment.equals("..")) {
       // root's parent is root, when canonicalising:

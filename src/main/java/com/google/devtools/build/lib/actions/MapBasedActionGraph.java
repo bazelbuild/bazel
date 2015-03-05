@@ -24,9 +24,8 @@ import javax.annotation.concurrent.ThreadSafe;
  */
 @ThreadSafe
 public final class MapBasedActionGraph implements MutableActionGraph {
-
   private final ConcurrentMultimapWithHeadElement<Artifact, Action> generatingActionMap =
-      new ConcurrentMultimapWithHeadElement<Artifact, Action>();
+      new ConcurrentMultimapWithHeadElement<>();
 
   @Override
   @Nullable

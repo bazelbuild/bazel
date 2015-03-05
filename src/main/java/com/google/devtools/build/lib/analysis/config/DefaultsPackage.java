@@ -99,7 +99,7 @@ public final class DefaultsPackage {
   }
 
   private String labelsToString(Set<Label> labels) {
-    StringBuffer result = new StringBuffer();
+    StringBuilder result = new StringBuilder();
     for (Label label : labels) {
       if (result.length() != 0) {
         result.append(", ");

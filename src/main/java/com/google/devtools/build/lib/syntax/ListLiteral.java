@@ -85,7 +85,7 @@ public final class ListLiteral extends Expression {
 
   @Override
   public String toString() {
-    StringBuffer sb = new StringBuffer();
+    StringBuilder sb = new StringBuilder();
     sb.append(startChar(kind));
     String sep = "";
     for (Expression e : exprs) {

@@ -876,7 +876,7 @@ public final class Command {
       message.append(']');
     }
     message.append("; environment: ");
-    message.append(processBuilder.environment().toString());
+    message.append(processBuilder.environment());
     final File workingDirectory = processBuilder.directory();
     message.append("; working dir: ");
     message.append(workingDirectory == null ?

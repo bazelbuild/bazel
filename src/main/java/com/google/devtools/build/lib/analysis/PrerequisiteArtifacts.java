@@ -71,7 +71,7 @@ public final class PrerequisiteArtifacts {
   }
 
   private PrerequisiteArtifacts filter(Predicate<String> fileType, boolean errorsForNonMatching) {
-    ImmutableList.Builder<Artifact> filtered = new ImmutableList.Builder<Artifact>();
+    ImmutableList.Builder<Artifact> filtered = new ImmutableList.Builder<>();
 
     for (Artifact artifact : artifacts) {
       if (fileType.apply(artifact.getFilename())) {

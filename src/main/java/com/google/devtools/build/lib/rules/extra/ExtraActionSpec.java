@@ -95,7 +95,7 @@ public final class ExtraActionSpec implements TransitiveInfoProvider {
           owner, outputTemplate));
     }
     // extra_action has no output, we need to create some dummy output to keep the build up-to-date.
-    if (extraActionOutputs.size() == 0) {
+    if (extraActionOutputs.isEmpty()) {
       createDummyOutput = true;
       extraActionOutputs.add(getExtraActionOutputArtifact(owningRule, actionToShadow,
           owner, "$(ACTION_ID).dummy"));

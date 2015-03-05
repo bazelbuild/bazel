@@ -972,8 +972,8 @@ public final class PackageFactory {
     String error = LabelValidator.validatePackageName(
         packageId.getPackageFragment().getPathString());
     if (error != null) {
-      throw new BuildFileNotFoundException(packageId.toString(),
-          "illegal package name: '" + packageId.toString() + "' (" + error + ")");
+      throw new BuildFileNotFoundException(
+          packageId.toString(), "illegal package name: '" + packageId + "' (" + error + ")");
     }
     ParserInputSource inputSource = maybeGetParserInputSource(buildFile, eventHandler);
     if (inputSource == null) {

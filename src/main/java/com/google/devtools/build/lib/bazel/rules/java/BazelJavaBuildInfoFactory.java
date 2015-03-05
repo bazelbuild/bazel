@@ -32,9 +32,7 @@ public class BazelJavaBuildInfoFactory extends JavaBuildInfoFactory {
       .put("build.timestamp", "%BUILD_TIMESTAMP%")
       .build();
 
-  private static final Map<String, String> NONVOLATILE_KEYS = ImmutableMap
-      .<String, String>builder()
-      .build();
+  private static final Map<String, String> NONVOLATILE_KEYS = ImmutableMap.of();
 
   private static final Map<String, String> REDACTED_KEYS = ImmutableMap
       .<String, String>builder()

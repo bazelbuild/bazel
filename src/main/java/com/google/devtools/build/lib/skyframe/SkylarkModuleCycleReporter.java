@@ -40,7 +40,7 @@ public class SkylarkModuleCycleReporter implements CyclesReporter.SingleCycleRep
   public boolean maybeReportCycle(SkyKey topLevelKey, CycleInfo cycleInfo, boolean alreadyReported,
       EventHandler eventHandler) {
     ImmutableList<SkyKey> pathToCycle = cycleInfo.getPathToCycle();
-    if (pathToCycle.size() == 0) {
+    if (pathToCycle.isEmpty()) {
       return false;
     }
     SkyKey lastPathElement = cycleInfo.getPathToCycle().get(pathToCycle.size() - 1);
@@ -49,9 +49,10 @@ public class SkylarkModuleCycleReporter implements CyclesReporter.SingleCycleRep
     } else if (Iterables.all(cycleInfo.getCycle(), IS_SKYLARK_MODULE_SKY_KEY)
         // The last element of the path to the cycle has to be a PackageFunction.
         && IS_PACKAGE_SKY_KEY.apply(lastPathElement)) {
-      StringBuilder cycleMessage = new StringBuilder()
-          .append(((PackageIdentifier) lastPathElement.argument()).toString() + "/BUILD: ")
-          .append("cycle in referenced extension files: ");
+      StringBuilder cycleMessage =
+          new StringBuilder()
+              .append(((PackageIdentifier) lastPathElement.argument()) + "/BUILD: ")
+              .append("cycle in referenced extension files: ");
 
       AbstractLabelCycleReporter.printCycle(cycleInfo.getCycle(), cycleMessage,
           new Function<SkyKey, String>() {

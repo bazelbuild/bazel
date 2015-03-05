@@ -33,6 +33,7 @@ import com.sun.net.httpserver.HttpServer;
 import java.io.IOException;
 import java.io.OutputStream;
 import java.net.InetSocketAddress;
+import java.nio.charset.StandardCharsets;
 import java.util.LinkedList;
 import java.util.UUID;
 import java.util.logging.Logger;
@@ -146,9 +147,9 @@ public class WebStatusServerModule extends BlazeModule {
     public void handle(HttpExchange exchange) throws IOException {
       exchange.getResponseHeaders().put("Content-Type", ImmutableList.of("text/plain"));
       exchange.sendResponseHeaders(200, response.length());
-      OutputStream os = exchange.getResponseBody();
-      os.write(response.getBytes());
-      os.close();
+      try (OutputStream os = exchange.getResponseBody()) {
+        os.write(response.getBytes(StandardCharsets.UTF_8));
+      }
     }
   }
 

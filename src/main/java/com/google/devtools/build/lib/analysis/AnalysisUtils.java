@@ -137,10 +137,10 @@ public final class AnalysisUtils {
    */
   public static <T extends TransitiveInfoProvider> void checkProvider(Class<T> clazz) {
     if (!clazz.isInterface()) {
-      Preconditions.checkArgument(Modifier.isFinal(clazz.getModifiers()),
-          clazz.getName() + " has to be final");
+      Preconditions.checkArgument(
+          Modifier.isFinal(clazz.getModifiers()), "%s has to be final", clazz.getName());
       Preconditions.checkArgument(clazz.isAnnotationPresent(Immutable.class),
-          clazz.getName() + " has to be tagged with @Immutable");
+          "%s has to be tagged with @Immutable", clazz.getName());
     }
   }
 }

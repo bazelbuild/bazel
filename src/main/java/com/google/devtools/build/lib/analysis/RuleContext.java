@@ -1313,8 +1313,7 @@ public final class RuleContext extends TargetContext
             boolean allowedWithWarning = attribute.getAllowedRuleClassesWarningPredicate()
                 .apply(ruleClass);
             reportBadPrerequisite(attribute, prerequisiteTarget.getTargetKind(), prerequisiteLabel,
-                "expected " + attribute.getAllowedRuleClassesPredicate().toString(),
-                allowedWithWarning);
+                "expected " + attribute.getAllowedRuleClassesPredicate(), allowedWithWarning);
           }
         } else if (prerequisiteTarget instanceof FileTarget) {
           if (!attribute.getAllowedFileTypesPredicate()
@@ -1335,7 +1334,7 @@ public final class RuleContext extends TargetContext
             } else {
               // The file exists but has a bad extension
               reportBadPrerequisite(attribute, "file", prerequisiteLabel,
-                  "expected " + attribute.getAllowedFileTypesPredicate().toString(), false);
+                  "expected " + attribute.getAllowedFileTypesPredicate(), false);
             }
           }
         }

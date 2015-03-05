@@ -287,8 +287,8 @@ public final class Attribute implements Comparable<Attribute> {
     }
 
     private Builder<TYPE> setPropertyFlag(PropertyFlag flag, String propertyName) {
-      Preconditions.checkState(!propertyFlags.contains(flag),
-          propertyName + " flag is already set");
+      Preconditions.checkState(
+          !propertyFlags.contains(flag), "%s flag is already set", propertyName);
       propertyFlags.add(flag);
       return this;
     }
@@ -320,8 +320,7 @@ public final class Attribute implements Comparable<Attribute> {
      * Only applicable for list type attributes.
      */
     public Builder<TYPE> nonEmpty() {
-      Preconditions.checkNotNull(type.getListElementType(),
-          "attribute '" + name + "' must be a list");
+      Preconditions.checkNotNull(type.getListElementType(), "attribute '%s' must be a list", name);
       return setPropertyFlag(PropertyFlag.NON_EMPTY, "non_empty");
     }
 
@@ -330,7 +329,7 @@ public final class Attribute implements Comparable<Attribute> {
      */
     public Builder<TYPE> singleArtifact() {
       Preconditions.checkState((type == Type.LABEL) || (type == Type.LABEL_LIST),
-          "attribute '" + name + "' must be a label-valued type");
+          "attribute '%s' must be a label-valued type", name);
       return setPropertyFlag(PropertyFlag.SINGLE_ARTIFACT, "single_artifact");
     }
 
@@ -358,8 +357,7 @@ public final class Attribute implements Comparable<Attribute> {
      * Mark the built attribute as order-independent.
      */
     public Builder<TYPE> orderIndependent() {
-      Preconditions.checkNotNull(type.getListElementType(),
-          "attribute '" + name + "' must be a list");
+      Preconditions.checkNotNull(type.getListElementType(), "attribute '%s' must be a list", name);
       return setPropertyFlag(PropertyFlag.ORDER_INDEPENDENT, "order-independent");
     }
 
@@ -468,7 +466,7 @@ public final class Attribute implements Comparable<Attribute> {
      * Returns true if a late-bound value has been set. Useful only for Skylark.
      */
     public boolean hasLateBoundValue() {
-      return value != null && value instanceof LateBoundDefault;
+      return value instanceof LateBoundDefault;
     }
 
     /**
@@ -1024,9 +1022,10 @@ public final class Attribute implements Comparable<Attribute> {
         || type == Type.LABEL || type == Type.LABEL_LIST
         || type == Type.NODEP_LABEL || type == Type.NODEP_LABEL_LIST,
         "Configuration transitions can only be specified for label or label list attributes");
-    Preconditions.checkArgument(isLateBound(name) == (defaultValue instanceof LateBoundDefault),
-        "late bound attributes require a default value that is late bound (and vice versa): "
-        + name);
+    Preconditions.checkArgument(
+        isLateBound(name) == (defaultValue instanceof LateBoundDefault),
+        "late bound attributes require a default value that is late bound (and vice versa): %s",
+        name);
     if (isLateBound(name)) {
       LateBoundDefault<?> lateBoundDefault = (LateBoundDefault<?>) defaultValue;
       Preconditions.checkArgument((configurator == null),

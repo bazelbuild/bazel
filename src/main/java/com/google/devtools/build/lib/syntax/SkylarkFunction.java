@@ -54,8 +54,8 @@ public abstract class SkylarkFunction extends AbstractFunction {
    */
   public void configure(SkylarkBuiltin annotation) {
     Preconditions.checkState(!configured);
-    Preconditions.checkArgument(getName().equals(annotation.name()),
-                                getName() + " != " + annotation.name());
+    Preconditions.checkArgument(
+        getName().equals(annotation.name()), "%s != %s", getName(), annotation.name());
     mandatoryParamNum = 0;
     ImmutableList.Builder<String> paramListBuilder = ImmutableList.builder();
     ImmutableMap.Builder<String, SkylarkBuiltin.Param> paramTypeBuilder = ImmutableMap.builder();
@@ -97,12 +97,11 @@ public abstract class SkylarkFunction extends AbstractFunction {
                      FuncallExpression ast,
                      Environment env)
       throws EvalException, InterruptedException {
-
-    Preconditions.checkState(configured, "Function " + getName() + " was not configured");
+    Preconditions.checkState(configured, "Function %s was not configured", getName());
     try {
       ImmutableMap.Builder<String, Object> arguments = new ImmutableMap.Builder<>();
       if (objectType != null && !FuncallExpression.isNamespace(objectType)) {
-        args = new ArrayList<Object>(args); // args immutable, get a mutable copy.
+        args = new ArrayList<>(args); // args immutable, get a mutable copy.
         arguments.put("self", args.remove(0));
       }
 
@@ -156,7 +155,7 @@ public abstract class SkylarkFunction extends AbstractFunction {
   private void checkTypeAndAddArg(String paramName, Object value,
       ImmutableMap.Builder<String, Object> arguments, Location loc) throws EvalException {
     SkylarkBuiltin.Param param = parameterTypes.get(paramName);
-    if (param.callbackEnabled() && Function.class.isAssignableFrom(value.getClass())) {
+    if (param.callbackEnabled() && value instanceof Function) {
       // If we pass a function as an argument we trust the Function implementation with the type
       // check. It's OK since the function needs to be called manually anyway.
       arguments.put(paramName, value);
@@ -255,9 +254,7 @@ public abstract class SkylarkFunction extends AbstractFunction {
   public static <KEY_TYPE, VALUE_TYPE> ImmutableMap<KEY_TYPE, VALUE_TYPE> toMap(
       Iterable<Map.Entry<KEY_TYPE, VALUE_TYPE>> obj) {
     ImmutableMap.Builder<KEY_TYPE, VALUE_TYPE> builder = ImmutableMap.builder();
-    for (Map.Entry<KEY_TYPE, VALUE_TYPE> entry : obj) {
-      builder.put(entry.getKey(), entry.getValue());
-    }
+    builder.putAll(obj);
     return builder.build();
   }
 

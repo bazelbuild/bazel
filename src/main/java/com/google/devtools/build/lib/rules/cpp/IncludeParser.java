@@ -87,7 +87,7 @@ public class IncludeParser implements SkyValue {
      *         are provided
      */
     public Rule(String type, String pattern, String findRoot, String findFilter) {
-      this(type, pattern, findRoot.replace("\\", "$"), Pattern.compile(findFilter));
+      this(type, pattern, findRoot.replace('\\', '$'), Pattern.compile(findFilter));
       Preconditions.checkArgument((this.type == Type.PATH) || (this.type == Type.FILE));
     }
 
@@ -365,7 +365,7 @@ public class IncludeParser implements SkyValue {
 
     @Override
     public String toString() {
-      return kind.toString() + ":" + pathFragment.getPathString();
+      return kind + ":" + pathFragment.getPathString();
     }
 
     @Override

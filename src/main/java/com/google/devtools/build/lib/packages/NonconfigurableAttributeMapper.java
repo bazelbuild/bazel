@@ -44,7 +44,7 @@ public class NonconfigurableAttributeMapper extends AbstractAttributeMapper {
   @Override
   public <T> T get(String attributeName, Type<T> type) {
     Preconditions.checkState(!getAttributeDefinition(attributeName).isConfigurable(),
-        "Attribute '" + attributeName + "' is potentially configurable - not allowed here");
+        "Attribute '%s' is potentially configurable - not allowed here", attributeName);
     return super.get(attributeName, type);
   }
 

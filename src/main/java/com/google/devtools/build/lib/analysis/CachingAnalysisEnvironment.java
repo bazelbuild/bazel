@@ -247,9 +247,7 @@ public class CachingAnalysisEnvironment implements AnalysisEnvironment {
   public void registerAction(Action... actions) {
     Preconditions.checkState(enabled);
     if (allowRegisteringActions) {
-      for (Action action : actions) {
-        this.actions.add(action);
-      }
+      Collections.addAll(this.actions, actions);
     }
   }
 

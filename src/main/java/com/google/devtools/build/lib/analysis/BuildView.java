@@ -420,13 +420,8 @@ public class BuildView {
         try {
           ConfiguredTarget ct = getConfiguredTarget(label, ctg.getConfiguration());
           keys.add(Preconditions.checkNotNull(ct.getProvider(ConfigMatchingProvider.class)));
-        } catch (NoSuchPackageException e) {
-          // All lookups should succeed because we should not be looking up any targets in error.
-          throw new IllegalStateException(e);
-        } catch (NoSuchTargetException e) {
-          // All lookups should succeed because we should not be looking up any targets in error.
-          throw new IllegalStateException(e);
-        } catch (NoSuchConfiguredTargetException e) {
+        } catch (
+            NoSuchPackageException | NoSuchTargetException | NoSuchConfiguredTargetException e) {
           // All lookups should succeed because we should not be looking up any targets in error.
           throw new IllegalStateException(e);
         }
@@ -781,7 +776,7 @@ public class BuildView {
     for (ExtraArtifactSet set : builder.build()) {
       boolean filterMatches = filter == null || filter.isIncluded(set.getLabel().toString());
       if (filterMatches) {
-        Iterables.addAll(artifactsToBuild, set.getArtifacts());
+        artifactsToBuild.addAll(set.getArtifacts());
       }
     }
   }

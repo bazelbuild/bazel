@@ -51,7 +51,7 @@ public class DFS<T> {
 
   private final boolean transpose;
 
-  private final Set<Node<T>> marked = new HashSet<Node<T>>();
+  private final Set<Node<T>> marked = new HashSet<>();
 
   /**
    *  Constructs a DFS instance for searching over the enclosing Digraph

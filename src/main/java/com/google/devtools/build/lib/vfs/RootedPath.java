@@ -111,6 +111,6 @@ public class RootedPath implements Serializable {
 
   @Override
   public String toString() {
-    return "[" + root.toString() + "]/[" + relativePath.toString() + "]";
+    return "[" + root + "]/[" + relativePath + "]";
   }
 }

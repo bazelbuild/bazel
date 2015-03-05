@@ -15,7 +15,6 @@ package com.google.devtools.build.lib.rules.test;
 
 import com.google.common.base.Preconditions;
 import com.google.common.collect.ImmutableList;
-import com.google.common.collect.Iterables;
 import com.google.devtools.build.lib.actions.Action;
 import com.google.devtools.build.lib.actions.Artifact;
 import com.google.devtools.build.lib.analysis.AnalysisEnvironment;
@@ -203,7 +202,7 @@ public final class InstrumentedFilesCollector {
     for (String attr : getSourceAttributes()) {
       if (ruleContext.getRule().isAttrDefined(attr, Type.LABEL_LIST) ||
           ruleContext.getRule().isAttrDefined(attr, Type.LABEL)) {
-        Iterables.addAll(prerequisites, ruleContext.getPrerequisites(attr, Mode.DONT_CHECK));
+        prerequisites.addAll(ruleContext.getPrerequisites(attr, Mode.DONT_CHECK));
       }
     }
     return prerequisites;

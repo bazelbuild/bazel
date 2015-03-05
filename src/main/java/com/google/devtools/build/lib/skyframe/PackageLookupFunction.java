@@ -152,10 +152,7 @@ class PackageLookupFunction implements SkyFunction {
       }
     } catch (NoSuchPackageException e) {
       throw new PackageLookupFunctionException(e, Transience.PERSISTENT);
-    } catch (IOException e) {
-      throw new PackageLookupFunctionException(new BuildFileContainsErrorsException(
-          PackageFunction.EXTERNAL_PACKAGE_NAME, e.getMessage()), Transience.PERSISTENT);
-    } catch (EvalException e) {
+    } catch (IOException | EvalException e) {
       throw new PackageLookupFunctionException(new BuildFileContainsErrorsException(
           PackageFunction.EXTERNAL_PACKAGE_NAME, e.getMessage()), Transience.PERSISTENT);
     }

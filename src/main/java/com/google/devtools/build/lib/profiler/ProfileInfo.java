@@ -92,7 +92,7 @@ public class ProfileInfo {
           VarInt.putVarLong(stats[i].totalTime, sink);
         }
       }
-      content = sink.position() > 0 ? Arrays.copyOfRange(sink.array(), 0, sink.position()) : null;
+      content = sink.position() > 0 ? Arrays.copyOf(sink.array(), sink.position()) : null;
     }
 
     boolean isEmpty() { return content == null; }
@@ -308,7 +308,9 @@ public class ProfileInfo {
       // Created map usually will end up with thousands of entries, so we
       // preinitialize it to the 10000.
       Map<K, Task[]> taskMap = Maps.newHashMapWithExpectedSize(10000);
-      if (taskList.size() == 0) { return taskMap; }
+      if (taskList.isEmpty()) {
+        return taskMap;
+      }
       Task[] taskArray = taskList.toArray(new Task[taskList.size()]);
       Arrays.sort(taskArray, this);
       K key = getKey(taskArray[0]);
@@ -393,7 +395,7 @@ public class ProfileInfo {
    * task statistic. This method is sufficient to initialize data for dumping.
    */
   public void calculateStats() {
-    if (allTasksById.size() == 0) {
+    if (allTasksById.isEmpty()) {
       return;
     }
 

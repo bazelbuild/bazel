@@ -361,7 +361,7 @@ public abstract class ImplicitOutputsFunction {
       return formatBuilder.append(PERCENT_ESCAPER.escape(template)).toString();
     }
 
-    int end = template.indexOf("}", start + 2);
+    int end = template.indexOf('}', start + 2);
     if (end < 0) {
       return formatBuilder.append(PERCENT_ESCAPER.escape(template)).toString();
     }

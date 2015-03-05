@@ -83,7 +83,7 @@ public abstract class LinkerInputs {
 
     @Override
     public String toString() {
-      return "SimpleLinkerInput(" + artifact.toString() + ")";
+      return "SimpleLinkerInput(" + artifact + ")";
     }
   }
 

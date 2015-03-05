@@ -89,8 +89,8 @@ public final class CleanCommand implements BlazeCommand {
     cleanOptions.expunge_async = cleanOptions.cleanStyle.equals("expunge_async");
     cleanOptions.expunge = cleanOptions.cleanStyle.equals("expunge");
 
-    if (cleanOptions.expunge == false && cleanOptions.expunge_async == false &&
-        !cleanOptions.cleanStyle.isEmpty()) {
+    if (!cleanOptions.expunge && !cleanOptions.expunge_async
+        && !cleanOptions.cleanStyle.isEmpty()) {
       runtime.getReporter().handle(Event.error(
           null, "Invalid clean_style value '" + cleanOptions.cleanStyle + "'"));
       return ExitCode.COMMAND_LINE_ERROR;
@@ -110,10 +110,7 @@ public final class CleanCommand implements BlazeCommand {
     } catch (IOException e) {
       runtime.getReporter().handle(Event.error(e.getMessage()));
       return ExitCode.LOCAL_ENVIRONMENTAL_ERROR;
-    } catch (CommandException e) {
-      runtime.getReporter().handle(Event.error(e.getMessage()));
-      return ExitCode.RUN_FAILURE;
-    } catch (ExecException e) {
+    } catch (CommandException | ExecException e) {
       runtime.getReporter().handle(Event.error(e.getMessage()));
       return ExitCode.RUN_FAILURE;
     } catch (InterruptedException e) {

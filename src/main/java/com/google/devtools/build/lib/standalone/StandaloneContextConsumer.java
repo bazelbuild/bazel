@@ -39,8 +39,7 @@ public class StandaloneContextConsumer implements ActionContextConsumer {
 
   @Override
   public Map<Class<? extends ActionContext>, String> getActionContexts() {
-    Builder<Class<? extends ActionContext>, String> actionContexts =
-        new ImmutableMap.Builder<Class<? extends ActionContext>, String>();
+    Builder<Class<? extends ActionContext>, String> actionContexts = new ImmutableMap.Builder<>();
 
     actionContexts.put(SpawnActionContext.class, "standalone");
 

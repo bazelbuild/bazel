@@ -124,7 +124,7 @@ public final class License {
       Set<DistributionType> result = EnumSet.noneOf(DistributionType.class);
       for (String distStr : distStrings) {
         try {
-          DistributionType dist = Enum.valueOf(DistributionType.class, distStr.toUpperCase());
+          DistributionType dist = DistributionType.valueOf(distStr.toUpperCase());
           result.add(dist);
         } catch (IllegalArgumentException e) {
           throw new LicenseParsingException("Invalid distribution type '" + distStr + "'");
@@ -300,7 +300,7 @@ public final class License {
     if (exceptions.isEmpty()) {
       return licenseTypes.toString().toLowerCase();
     } else {
-      return licenseTypes.toString().toLowerCase() + " with exceptions " + exceptions.toString();
+      return licenseTypes.toString().toLowerCase() + " with exceptions " + exceptions;
     }
   }
 

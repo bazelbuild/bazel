@@ -255,7 +255,7 @@ public final class ConfiguredTargetFactory {
       names.add(fragment.getSimpleName());
     }
     result.append("all of [");
-    result.append(Joiner.on(",").join(names));
+    Joiner.on(",").appendTo(result, names);
     result.append("], but these were all disabled");
     return result.toString();
   }

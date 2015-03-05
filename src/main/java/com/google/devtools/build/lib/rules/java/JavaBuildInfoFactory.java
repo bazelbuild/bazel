@@ -82,7 +82,7 @@ public abstract class JavaBuildInfoFactory implements BuildInfoFactory {
         createVolatileTranslator(),
         true,
         false);
-    List<Action> actions = new ArrayList<Action>(3);
+    List<Action> actions = new ArrayList<>(3);
     actions.add(redactedInfo);
     actions.add(nonvolatileInfo);
     actions.add(volatileInfo);

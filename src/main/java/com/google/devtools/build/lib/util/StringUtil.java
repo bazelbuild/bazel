@@ -80,7 +80,7 @@ public class StringUtil {
     if (in == null) {
       return result;
     }
-    for (String val : Splitter.on(" ").omitEmptyStrings().split(in)) {
+    for (String val : Splitter.on(' ').omitEmptyStrings().split(in)) {
       // Note that splitter returns a substring(), effectively
       // retaining the entire "in" String. Make an explicit copy here
       // to avoid that memory pitfall. Further, because there may be

@@ -129,7 +129,7 @@ public abstract class MixedModeFunction extends AbstractFunction {
 
     // ast is null when called from Java (as there's no Skylark call site).
     Location loc = ast == null ? location : ast.getLocation();
-    if (onlyNamedArguments && args.size() > 0) {
+    if (onlyNamedArguments && !args.isEmpty()) {
       throw new EvalException(loc,
           getSignature() + " does not accept positional arguments");
     }
@@ -227,7 +227,7 @@ public abstract class MixedModeFunction extends AbstractFunction {
    * Render this object in the form of an equivalent Python function signature.
    */
   public String getSignature() {
-    StringBuffer sb = new StringBuffer();
+    StringBuilder sb = new StringBuilder();
     sb.append(getName()).append('(');
     int ii = 0;
     int len = parameters.size();

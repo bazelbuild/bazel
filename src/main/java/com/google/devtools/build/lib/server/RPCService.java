@@ -14,6 +14,7 @@
 
 package com.google.devtools.build.lib.server;
 
+import com.google.common.collect.Iterables;
 import com.google.devtools.build.lib.util.io.OutErr;
 
 import java.util.List;
@@ -59,7 +60,7 @@ public final class RPCService {
     if (isShutdown) {
       throw new IllegalStateException("Received request after shutdown.");
     }
-    String command = request.isEmpty() ? "" : request.get(0);
+    String command = Iterables.getFirst(request, "");
     if (appCommand != null && command.equals("blaze")) { // an application request
       int result = appCommand.exec(request.subList(1, request.size()), outErr, firstContactTime);
       if (appCommand.shutdown()) { // an application shutdown request

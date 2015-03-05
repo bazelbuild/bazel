@@ -130,7 +130,7 @@ public abstract class RepositoryFunction implements SkyFunction {
           Transience.PERSISTENT);
     }
     Preconditions.checkState(ruleClassName == null || rule.getRuleClass().equals(ruleClassName),
-        "Got " + rule + ", was expecting a " + ruleClassName);
+        "Got %s, was expecting a %s", rule, ruleClassName);
     return rule;
   }
 

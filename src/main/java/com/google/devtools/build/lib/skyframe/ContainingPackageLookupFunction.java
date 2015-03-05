@@ -29,8 +29,8 @@ public class ContainingPackageLookupFunction implements SkyFunction {
   @Override
   public SkyValue compute(SkyKey skyKey, Environment env) {
     PackageIdentifier dir = (PackageIdentifier) skyKey.argument();
-    PackageLookupValue pkgLookupValue = null;
-    pkgLookupValue = (PackageLookupValue) env.getValue(PackageLookupValue.key(dir));
+    PackageLookupValue pkgLookupValue =
+        (PackageLookupValue) env.getValue(PackageLookupValue.key(dir));
     if (pkgLookupValue == null) {
       return null;
     }

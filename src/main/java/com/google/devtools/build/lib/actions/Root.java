@@ -158,6 +158,6 @@ public final class Root implements Comparable<Root>, Serializable {
 
   @Override
   public String toString() {
-    return path.toString() + (isSourceRoot() ? "[source]" : "[derived]");
+    return path + (isSourceRoot() ? "[source]" : "[derived]");
   }
 }

@@ -33,7 +33,6 @@ import com.google.devtools.build.lib.profiler.ProfilerTask;
 
 import java.io.IOException;
 import java.util.ArrayList;
-import java.util.Arrays;
 import java.util.Collection;
 import java.util.Collections;
 import java.util.List;
@@ -135,8 +134,7 @@ public final class UnixGlob {
   }
 
   private static boolean excludedOnMatch(Path path, List<String[]> excludePatterns,
-                                         int idx, Cache<String, Pattern> cache,
-                                         Predicate<Path> dirPred) {
+                                         int idx, Cache<String, Pattern> cache) {
     for (String[] excludePattern : excludePatterns) {
       String text = path.getBaseName();
       if (idx == excludePattern.length
@@ -300,9 +298,9 @@ public final class UnixGlob {
       return path.statNullable(symlinks);
     }
   };
-  
+
   public static final AtomicReference<FilesystemCalls> DEFAULT_SYSCALLS_REF =
-      new AtomicReference<FilesystemCalls>(DEFAULT_SYSCALLS);
+      new AtomicReference<>(DEFAULT_SYSCALLS);
 
   public static Builder forPath(Path path) {
     return new Builder(path);
@@ -350,9 +348,7 @@ public final class UnixGlob {
      * <p>For a description of the syntax of the patterns, see {@link UnixGlob}.
      */
     public Builder addPatterns(String... patterns) {
-      for (String pattern : patterns) {
-        this.patterns.add(pattern);
-      }
+      Collections.addAll(this.patterns, patterns);
       return this;
     }
 
@@ -382,7 +378,7 @@ public final class UnixGlob {
      * <p>For a description of the syntax of the patterns, see {@link UnixGlob}.
      */
     public Builder addExcludes(String... excludes) {
-      this.excludes.addAll(Arrays.asList(excludes));
+      Collections.addAll(this.excludes, excludes);
       return this;
     }
 
@@ -708,7 +704,7 @@ public final class UnixGlob {
 
       if (idx == patternParts.length) { // Base case.
         if (!(excludeDirectories && baseIsDir) &&
-            !excludedOnMatch(base, excludePatterns, excludeIdx, cache, dirPred)) {
+            !excludedOnMatch(base, excludePatterns, excludeIdx, cache)) {
           results.add(base);
         }
 
@@ -774,7 +770,7 @@ public final class UnixGlob {
           } else {
             // Instead of using an async call, just repeat the base case above.
             if (idx + 1 == patternParts.length &&
-                !excludedOnMatch(child, relevantExcludes, excludeIdx + 1, cache, dirPred)) {
+                !excludedOnMatch(child, relevantExcludes, excludeIdx + 1, cache)) {
               results.add(child);
             }
           }

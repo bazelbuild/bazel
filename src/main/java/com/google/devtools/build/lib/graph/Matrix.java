@@ -41,7 +41,7 @@ final class Matrix<T> {
   public Matrix(Set<T> labels) {
     this.N = labels.size();
     this.values = new ArrayList<T>(N);
-    this.indices = new HashMap<T, Integer>();
+    this.indices = new HashMap<>();
     this.m = new boolean[N][N];
 
     for (T label: labels) {

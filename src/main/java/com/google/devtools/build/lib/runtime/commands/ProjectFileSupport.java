@@ -48,7 +48,7 @@ public final class ProjectFileSupport {
       String command) throws AbruptExitException {
     List<String> targets = optionsParser.getResidue();
     ProjectFile.Provider projectFileProvider = runtime.getProjectFileProvider();
-    if (projectFileProvider != null && targets.size() > 0
+    if (projectFileProvider != null && !targets.isEmpty()
         && targets.get(0).startsWith(PROJECT_FILE_PREFIX)) {
       if (targets.size() > 1) {
         throw new AbruptExitException("Cannot handle more than one +<file> argument yet",
@@ -84,7 +84,7 @@ public final class ProjectFileSupport {
    */
   public static List<String> getTargets(BlazeRuntime runtime, OptionsProvider options) {
     List<String> targets = options.getResidue();
-    if (runtime.getProjectFileProvider() != null && targets.size() > 0
+    if (runtime.getProjectFileProvider() != null && !targets.isEmpty()
         && targets.get(0).startsWith(PROJECT_FILE_PREFIX)) {
       return targets.subList(1, targets.size());
     }

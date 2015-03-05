@@ -114,7 +114,7 @@ public class StringUtilities {
     int index = 0;
 
     while ((index = input.indexOf(literal, start)) >= 0) {
-      result.append(input.substring(start, index));
+      result.append(input, start, index);
       result.append(replacement);
       start = index + literalLength;
     }

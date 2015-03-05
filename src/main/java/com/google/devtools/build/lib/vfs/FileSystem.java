@@ -288,7 +288,7 @@ public abstract class FileSystem {
     }
     if (linkTarget.isAbsolute()) { dir = rootPath; }
     for (String name : linkTarget.segments()) {
-      if (name.equals(".") || name.equals("")) {
+      if (name.equals(".") || name.isEmpty()) {
         // no-op
       } else if (name.equals("..")) {
         Path parent = dir.getParentDirectory();

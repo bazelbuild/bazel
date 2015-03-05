@@ -73,8 +73,7 @@ public class PackageDeserializer {
         throws PackageDeserializationException {
       Object value = deserializeAttributeValue(expectedType, attrPb);
       return new ParsedAttributeValue(
-          attrPb.hasExplicitlySpecified() ? attrPb.getExplicitlySpecified() : false,
-          value,
+          attrPb.hasExplicitlySpecified() && attrPb.getExplicitlySpecified(), value,
           deserializeLocation(attrPb.getParseableLocation()));
     }
 

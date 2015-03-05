@@ -288,7 +288,7 @@ public class CompactPersistentActionCache implements ActionCache {
       try {
         content = decode(indexer, entry.getValue()).toString();
       } catch (IOException e) {
-        content = e.toString() + "\n";
+        content = e + "\n";
       }
       builder.append("-> ").append(indexer.getStringForIndex(entry.getKey())).append("\n")
           .append(content).append("  packed_len = ").append(entry.getValue().length).append("\n");
@@ -302,7 +302,7 @@ public class CompactPersistentActionCache implements ActionCache {
   @Override
   public synchronized void dump(PrintStream out) {
     out.println("String indexer content:\n");
-    out.println(indexer.toString());
+    out.println(indexer);
     out.println("Action cache (" + map.size() + " records):\n");
     for (Map.Entry<Integer, byte[]> entry: map.entrySet()) {
       if (entry.getKey() == VALIDATION_KEY) { continue; }
@@ -310,7 +310,7 @@ public class CompactPersistentActionCache implements ActionCache {
       try {
         content = CompactPersistentActionCache.decode(indexer, entry.getValue()).toString();
       } catch (IOException e) {
-        content = e.toString() + "\n";
+        content = e + "\n";
       }
       out.println(entry.getKey() + ", " + indexer.getStringForIndex(entry.getKey()) + ":\n"
           +  content + "\n      packed_len = " + entry.getValue().length + "\n");

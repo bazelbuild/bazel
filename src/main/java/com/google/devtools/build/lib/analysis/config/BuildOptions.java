@@ -174,7 +174,7 @@ public final class BuildOptions implements Cloneable, Serializable {
   public String toString() {
     StringBuilder stringBuilder = new StringBuilder();
     for (FragmentOptions options : fragmentOptionsMap.values()) {
-      stringBuilder.append(options.toString());
+      stringBuilder.append(options);
     }
     return stringBuilder.toString();
   }

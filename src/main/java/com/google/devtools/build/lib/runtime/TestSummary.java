@@ -189,7 +189,7 @@ public class TestSummary implements Comparable<TestSummary> {
         allCases.put(detail.getClassName() + "." + detail.getName(), detail);
       }
 
-      summary.failedTestCases = new ArrayList<TestCase>(allCases.values());
+      summary.failedTestCases = new ArrayList<>(allCases.values());
       return this;
     }
 

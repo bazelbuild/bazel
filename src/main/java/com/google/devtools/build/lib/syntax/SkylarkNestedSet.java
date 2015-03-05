@@ -98,7 +98,7 @@ public final class SkylarkNestedSet implements Iterable<Object> {
     this.contentType = Preconditions.checkNotNull(contentType, "type cannot be null");
 
     // Initializing the real nested set
-    NestedSetBuilder<Object> builder = new NestedSetBuilder<Object>(order);
+    NestedSetBuilder<Object> builder = new NestedSetBuilder<>(order);
     builder.addAll(items);
     try {
       for (NestedSet<Object> nestedSet : transitiveItems) {

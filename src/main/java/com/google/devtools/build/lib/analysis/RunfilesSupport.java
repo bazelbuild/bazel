@@ -108,7 +108,7 @@ public class RunfilesSupport {
     Preconditions.checkState(!runfiles.isEmpty());
 
     Map<PathFragment, Artifact> symlinks = getRunfilesSymlinks();
-    if (executable != null && !symlinks.values().contains(executable)) {
+    if (executable != null && !symlinks.containsValue(executable)) {
       throw new IllegalStateException("main program " + executable + " not included in runfiles");
     }
 

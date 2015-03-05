@@ -85,7 +85,7 @@ public class ConfiguredTargetKey extends ActionLookupValue.ActionLookupKey {
       return "null";
     }
     return (configuration != null && configuration.isHostConfiguration())
-        ? (label.toString() + " (host)") : label.toString();
+        ? (label + " (host)") : label.toString();
   }
 
   @Override

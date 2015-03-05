@@ -289,7 +289,7 @@ public final class Digraph<T> implements Cloneable {
    * any "root".
    */
   public Set<Node<T>> getRoots() {
-    Set<Node<T>> roots = new HashSet<Node<T>>();
+    Set<Node<T>> roots = new HashSet<>();
     for (Node<T> node: nodes.values()) {
       if (!node.hasPredecessors()) {
         roots.add(node);
@@ -302,7 +302,7 @@ public final class Digraph<T> implements Cloneable {
    * @return the set of leaf nodes: those with no successors.
    */
   public Set<Node<T>> getLeaves() {
-    Set<Node<T>> leaves = new HashSet<Node<T>>();
+    Set<Node<T>> leaves = new HashSet<>();
     for (Node<T> node: nodes.values()) {
       if (!node.hasSuccessors()) {
         leaves.add(node);
@@ -407,8 +407,7 @@ public final class Digraph<T> implements Cloneable {
     final Object WHITE = null; // i.e. not present in nodeToColor, the default.
     final Object GREY  = new Object();
     final Object BLACK = new Object();
-    final Map<Node<T>, Object> nodeToColor =
-      new HashMap<Node<T>, Object>(); // empty => all white
+    final Map<Node<T>, Object> nodeToColor = new HashMap<>(); // empty => all white
 
     class CycleDetector { /* defining a class gives us lexical scope */
       boolean visit(Node<T> node) {
@@ -459,7 +458,7 @@ public final class Digraph<T> implements Cloneable {
    * one strongly-connected component of the graph.
    */
   public Collection<Set<Node<T>>> getStronglyConnectedComponents() {
-    final List<Set<Node<T>>> sccs = new ArrayList<Set<Node<T>>>();
+    final List<Set<Node<T>>> sccs = new ArrayList<>();
     NodeSetReceiver<T> r = new NodeSetReceiver<T>() {
       @Override
       public void accept(Set<Node<T>> scc) {
@@ -491,8 +490,7 @@ public final class Digraph<T> implements Cloneable {
     createImageUnderPartition(Collection<Set<Node<T>>> partition) {
 
     // Build mapping function: each node label is mapped to its equiv class:
-    Map<T, Set<Node<T>>> labelToImage =
-      new HashMap<T, Set<Node<T>>>();
+    Map<T, Set<Node<T>>> labelToImage = new HashMap<>();
     for (Set<Node<T>> set: partition) {
       // It's important to use immutable sets of node labels when sets are keys
       // in a map; see ImmutableSet class for explanation.
@@ -516,8 +514,7 @@ public final class Digraph<T> implements Cloneable {
    */
   public <IMAGE> Digraph<IMAGE>
     createImageUnderMapping(Map<T, IMAGE> map) {
-
-    Digraph<IMAGE> imageGraph = new Digraph<IMAGE>();
+    Digraph<IMAGE> imageGraph = new Digraph<>();
 
     for (Node<T> fromNode: nodes.values()) {
       T fromLabel = fromNode.getLabel();
@@ -568,16 +565,15 @@ public final class Digraph<T> implements Cloneable {
       return Collections.singletonList(fromNode);
     }
 
-    Map<Node<T>, Node<T>> pathPredecessor =
-      new HashMap<Node<T>, Node<T>>();
+    Map<Node<T>, Node<T>> pathPredecessor = new HashMap<>();
 
-    Set<Node<T>> marked = new HashSet<Node<T>>();
+    Set<Node<T>> marked = new HashSet<>();
 
-    LinkedList<Node<T>> queue = new LinkedList<Node<T>>();
+    LinkedList<Node<T>> queue = new LinkedList<>();
     queue.addLast(fromNode);
     marked.add(fromNode);
 
-    while (queue.size() > 0) {
+    while (!queue.isEmpty()) {
       Node<T> u = queue.removeFirst();
       for (Node<T> v: u.getSuccessors()) {
         if (marked.add(v)) {
@@ -903,13 +899,16 @@ public final class Digraph<T> implements Cloneable {
    */
   private class SccVisitor<T> {
     // Nodes already assigned to a strongly connected component.
-    private final Set<Node<T>> assigned = new HashSet<Node<T>>();
+    private final Set<Node<T>> assigned = new HashSet<>();
+
     // The order each node was visited in.
-    private final Map<Node<T>, Integer> preorder = new HashMap<Node<T>, Integer>();
+    private final Map<Node<T>, Integer> preorder = new HashMap<>();
+
     // Stack of all nodes visited whose SCC has not yet been determined. When an SCC is found,
     // that SCC is an initial segment of this stack, and is popped off. Every time a new node is
     // visited, it is put on this stack.
-    private final List<Node<T>> stack = new ArrayList<Node<T>>();
+    private final List<Node<T>> stack = new ArrayList<>();
+
     // Stack of visited indices for the first-visited nodes in each of their known-so-far
     // strongly connected components. A node pushes its index on when it is visited. If any of
     // its successors have already been visited and are not in an already-found strongly connected
@@ -922,7 +921,8 @@ public final class Digraph<T> implements Cloneable {
     // still the current node's index, then it was the first element visited of the current strongly
     // connected component. So all nodes on {@code stack} down to the current node are in its
     // strongly connected component. And the node's index is popped from preorderStack.
-    private final List<Integer> preorderStack = new ArrayList<Integer>();
+    private final List<Integer> preorderStack = new ArrayList<>();
+
     // Index of node being visited.
     private int counter = 0;
 
@@ -956,7 +956,7 @@ public final class Digraph<T> implements Cloneable {
         // nodes that were part of a cycle with this node. So this node is the first-visited
         // element in its strongly connected component, and we collect the component.
         preorderStack.remove(preorderStack.size() - 1);
-        Set<Node<T>> scc = new HashSet<Node<T>>();
+        Set<Node<T>> scc = new HashSet<>();
         Node<T> compNode;
         do {
           compNode = stack.remove(stack.size() - 1);

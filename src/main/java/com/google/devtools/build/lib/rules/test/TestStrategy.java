@@ -375,11 +375,8 @@ public abstract class TestStrategy implements TestActionContext {
         Thread.currentThread().interrupt();
       }
       if (!headerFilter.foundHeader()) {
-        InputStream input = testLogPath.getInputStream();
-        try {
+        try (InputStream input = testLogPath.getInputStream()) {
           ByteStreams.copy(input, outErr.getOutputStream());
-        } finally {
-          input.close();
         }
       }
     }

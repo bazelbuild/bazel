@@ -378,7 +378,7 @@ public class PackageFunction implements SkyFunction {
               packageLookupValue.getErrorMsg()), Transience.PERSISTENT);
         default:
           // We should never get here.
-          Preconditions.checkState(false);
+          throw new IllegalStateException();
       }
     }
 
@@ -578,8 +578,7 @@ public class PackageFunction implements SkyFunction {
   private void transitiveClosureOfLabels(
       ImmutableList<SkylarkFileDependency> immediateDeps, Set<Label> transitiveClosure) {
     for (SkylarkFileDependency dep : immediateDeps) {
-      if (!transitiveClosure.contains(dep.getLabel())) {
-        transitiveClosure.add(dep.getLabel());
+      if (transitiveClosure.add(dep.getLabel())) {
         transitiveClosureOfLabels(dep.getDependencies(), transitiveClosure);
       }
     }

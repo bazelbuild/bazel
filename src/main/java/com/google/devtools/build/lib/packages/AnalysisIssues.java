@@ -18,8 +18,8 @@ import com.google.common.base.Preconditions;
 import com.google.common.collect.ImmutableList;
 
 import java.util.ArrayList;
-import java.util.Arrays;
 import java.util.Collection;
+import java.util.Collections;
 import java.util.List;
 
 import javax.annotation.Nullable;
@@ -64,7 +64,7 @@ public final class AnalysisIssues extends Exception {
       } else {
         List<Object> args = new ArrayList<>();
         args.add(attribute);
-        args.addAll(Arrays.asList(arguments));
+        Collections.addAll(args, arguments);
         return String.format("ERROR in '%s': " + messageTemplate, args.toArray());
       }
     }

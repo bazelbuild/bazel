@@ -95,12 +95,14 @@ final class ServerResponse {
     if (errorMessage.length() == 0) {
       return Integer.toString(exitStatus) + '\n';
     }
-    return errorMessage + '\n' + Integer.toString(exitStatus) + '\n';
+    return errorMessage + '\n' + exitStatus + '\n';
   }
 
   @Override
   public boolean equals(Object other) {
-    if (other == null || !(other instanceof ServerResponse)) return false;
+    if (!(other instanceof ServerResponse)) {
+      return false;
+    }
     ServerResponse otherResponse = (ServerResponse) other;
     return exitStatus == otherResponse.exitStatus
         && errorMessage.equals(otherResponse.errorMessage);

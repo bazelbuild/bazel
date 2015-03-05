@@ -48,7 +48,7 @@ public class NoSuchTargetException extends NoSuchThingException {
     super(message, nspe);
     this.label = label;
     this.target = target;
-    this.packageLoadedSuccessfully = nspe != null ? false : true;
+    this.packageLoadedSuccessfully = nspe == null;
   }
 
   @Nullable

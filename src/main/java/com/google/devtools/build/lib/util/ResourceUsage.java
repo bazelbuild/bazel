@@ -213,9 +213,7 @@ public final class ResourceUsage {
       long token13 = Long.parseLong(stat.next());
       long token14 = Long.parseLong(stat.next());
       return new long[] { token13, token14 };
-    } catch (NumberFormatException e) {
-      return new long[2];
-    } catch (IOException e) {
+    } catch (NumberFormatException | IOException e) {
       return new long[2];
     }
   }

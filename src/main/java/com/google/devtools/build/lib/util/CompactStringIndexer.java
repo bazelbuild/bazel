@@ -333,7 +333,7 @@ public class CompactStringIndexer extends AbstractIndexer {
     contentOffset = VarInt.getVarInt(content, contentOffset, intHolder); // key length
     int skyKeyLen = intHolder[0];
     int remainingKeyLen = key.length - offset;
-    int minKeyLen = remainingKeyLen > skyKeyLen ? skyKeyLen : remainingKeyLen;
+    int minKeyLen = Math.min(skyKeyLen, remainingKeyLen);
 
     // Compare given key/offset content with the node key. Skip first key byte for recursive
     // calls - this byte is equal to the byte in the jump entry and was already compared.
@@ -536,7 +536,7 @@ public class CompactStringIndexer extends AbstractIndexer {
   public synchronized String toString() {
     StringBuilder builder = new StringBuilder();
     builder.append("size = ").append(nodes.size()).append("\n");
-    if (nodes.size() > 0) {
+    if (!nodes.isEmpty()) {
       int contentSize = dumpContent(builder, rootId, 0, new boolean[nodes.size()]);
       builder.append("contentSize = ").append(contentSize).append("\n");
     }

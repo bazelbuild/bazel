@@ -1184,7 +1184,7 @@ public class Package implements Serializable {
     void setVisibilityAndLicense(InputFile inputFile, RuleVisibility visibility, License license) {
       String filename = inputFile.getName();
       Target cacheInstance = targets.get(filename);
-      if (cacheInstance == null || !(cacheInstance instanceof InputFile)) {
+      if (!(cacheInstance instanceof InputFile)) {
         throw new IllegalArgumentException("Can't set visibility for nonexistent FileTarget "
                                            + filename + " in package " + pkg.getName() + ".");
       }

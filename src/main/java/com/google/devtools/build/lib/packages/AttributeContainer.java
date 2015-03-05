@@ -78,7 +78,7 @@ public class AttributeContainer {
 
   public boolean isAttributeValueExplicitlySpecified(String attributeName) {
     Integer idx = ruleClass.getAttributeIndex(attributeName);
-    return idx != null ? attributeValueExplicitlySpecified.get(idx) : false;
+    return idx != null && attributeValueExplicitlySpecified.get(idx);
   }
 
   /**

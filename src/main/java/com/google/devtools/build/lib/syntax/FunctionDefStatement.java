@@ -52,7 +52,7 @@ public class FunctionDefStatement extends Statement {
     ArrayList<SkylarkType> types = null;
 
     if (defaultExpressions != null) {
-      defaultValues = new ArrayList<Object>(defaultExpressions.size());
+      defaultValues = new ArrayList<>(defaultExpressions.size());
       for (Expression expr : defaultExpressions) {
         defaultValues.add(expr.eval(env));
       }

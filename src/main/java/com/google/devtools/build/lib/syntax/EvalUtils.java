@@ -72,11 +72,7 @@ public abstract class EvalUtils {
 
   public static boolean isTuple(Class<?> c) {
     Preconditions.checkState(List.class.isAssignableFrom(c));
-    if (ImmutableList.class.isAssignableFrom(c)) {
-      return true;
-    } else {
-      return false;
-    }
+    return ImmutableList.class.isAssignableFrom(c);
   }
 
   /**
@@ -418,7 +414,7 @@ public abstract class EvalUtils {
    * prettyPrintValue(Object, Appendable).
    */
   public static String prettyPrintValue(Object o) {
-    StringBuffer buffer = new StringBuffer();
+    StringBuilder buffer = new StringBuilder();
     prettyPrintValue(o, buffer);
     return buffer.toString();
   }
@@ -440,7 +436,7 @@ public abstract class EvalUtils {
    * Print value 'o' to a string. Convenience overloading of printValue(Object, Appendable).
    */
   public static String printValue(Object o) {
-    StringBuffer buffer = new StringBuffer();
+    StringBuilder buffer = new StringBuilder();
     printValue(o, buffer);
     return buffer.toString();
   }

@@ -279,7 +279,7 @@ public class ResourceManager {
    */
   public synchronized boolean inUse() {
     return usedCpu != 0.0 || usedRam != 0.0 || usedIo != 0.0 || usedLocalTestCount != 0
-        || requestList.size() > 0;
+        || !requestList.isEmpty();
   }
 
 
@@ -374,7 +374,7 @@ public class ResourceManager {
     if (usedIo < epsilon) {
       usedIo = 0;
     }
-    if (requestList.size() > 0) {
+    if (!requestList.isEmpty()) {
       processWaitingThreads();
       return true;
     }

@@ -25,9 +25,9 @@ import com.sun.net.httpserver.HttpServer;
 
 import java.io.IOException;
 import java.io.OutputStream;
+import java.nio.charset.StandardCharsets;
 import java.util.ArrayList;
 import java.util.List;
-
 
 /**
  * Handlers for displaying the index page of server.
@@ -73,9 +73,9 @@ public class IndexPageHandler {
       }
       String serializedResponse = response.toString();
       exchange.sendResponseHeaders(200, serializedResponse.length());
-      OutputStream os = exchange.getResponseBody();
-      os.write(serializedResponse.getBytes());
-      os.close();
+      try (OutputStream os = exchange.getResponseBody()) {
+        os.write(serializedResponse.getBytes(StandardCharsets.UTF_8));
+      }
     }
   }
 }

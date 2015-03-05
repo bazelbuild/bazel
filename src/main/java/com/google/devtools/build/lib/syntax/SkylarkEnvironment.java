@@ -225,12 +225,8 @@ public class SkylarkEnvironment extends Environment {
         }
       }
     }
-    for (String symbol : objectsToRemove) {
-      disabledVariables.add(symbol);
-    }
-    for (Class<?> moduleClass : modulesToRemove) {
-      disabledNameSpaces.add(moduleClass);
-    }
+    disabledVariables.addAll(objectsToRemove);
+    disabledNameSpaces.addAll(modulesToRemove);
   }
 
   public void handleEvent(Event event) {

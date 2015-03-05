@@ -59,7 +59,7 @@ class EnumFilterConverter<E extends Enum<E>> implements Converter<Set<E>> {
    */
   @Override
   public Set<E> convert(String input) throws OptionsParsingException {
-    if (input.equals("")) {
+    if (input.isEmpty()) {
       return Collections.emptySet();
     }
     EnumSet<E> includedSet = EnumSet.noneOf(typeClass);

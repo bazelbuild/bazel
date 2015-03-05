@@ -17,6 +17,7 @@ import com.google.common.base.Function;
 import com.google.common.base.Functions;
 import com.google.common.base.Preconditions;
 import com.google.common.collect.Maps;
+import com.google.common.collect.Multimaps;
 import com.google.common.collect.Ordering;
 import com.google.common.collect.TreeMultimap;
 import com.google.devtools.build.lib.actions.MiddlemanAction;
@@ -54,6 +55,7 @@ import java.io.PrintStream;
 import java.io.UnsupportedEncodingException;
 import java.util.ArrayList;
 import java.util.Arrays;
+import java.util.Collections;
 import java.util.EnumMap;
 import java.util.EnumSet;
 import java.util.List;
@@ -195,7 +197,7 @@ public final class ProfileCommand implements BlazeCommand {
     for (ProfilePhaseStatistics stat : statistics) {
       String title = stat.getTitle();
 
-      if (!title.equals("")) {
+      if (!title.isEmpty()) {
         out.println("\n=== " + title.toUpperCase() + " ===\n");
       }
       out.print(stat.getStatistics());
@@ -350,8 +352,7 @@ public final class ProfileCommand implements BlazeCommand {
   }
 
   private void printCriticalPath(String title, PrintStream out, CriticalPathEntry path) {
-    out.println(String.format("\n%s (%s):", title,
-        TimeUtilities.prettyTime(path.cumulativeDuration)));
+    out.printf("\n%s (%s):%n", title, TimeUtilities.prettyTime(path.cumulativeDuration));
 
     boolean lightCriticalPath = isLightCriticalPath(path);
     out.println(lightCriticalPath ?
@@ -376,29 +377,26 @@ public final class ProfileCommand implements BlazeCommand {
       } else {
         String desc = path.task.getDescription().replace(':', ' ');
         if (lightCriticalPath) {
-          out.println(String.format("%6d %11s %8s   %s", path.task.id,
-              TimeUtilities.prettyTime(path.duration),
-              prettyPercentage(path.duration, totalPathTime),
-              desc));
+          out.printf("%6d %11s %8s   %s%n", path.task.id, TimeUtilities.prettyTime(path.duration),
+              prettyPercentage(path.duration, totalPathTime), desc);
         } else {
-          out.println(String.format("%6d %11s %8s %8s   %s", path.task.id,
+          out.printf("%6d %11s %8s %8s   %s%n", path.task.id,
               TimeUtilities.prettyTime(path.duration),
               prettyPercentage(path.duration, totalPathTime),
-              prettyPercentage(path.getCriticalTime(), totalPathTime), desc));
+              prettyPercentage(path.getCriticalTime(), totalPathTime), desc);
         }
       }
     }
     if (middlemanCount > 0) {
       if (lightCriticalPath) {
-        out.println(String.format("       %11s %8s   [%d middleman actions]",
+        out.printf("       %11s %8s   [%d middleman actions]%n",
             TimeUtilities.prettyTime(middlemanDuration),
-            prettyPercentage(middlemanDuration, totalPathTime),
-            middlemanCount));
+            prettyPercentage(middlemanDuration, totalPathTime), middlemanCount);
       } else {
-        out.println(String.format("       %11s %8s %8s   [%d middleman actions]",
+        out.printf("       %11s %8s %8s   [%d middleman actions]%n",
             TimeUtilities.prettyTime(middlemanDuration),
             prettyPercentage(middlemanDuration, totalPathTime),
-            prettyPercentage(middlemanCritTime, totalPathTime), middlemanCount));
+            prettyPercentage(middlemanCritTime, totalPathTime), middlemanCount);
       }
     }
   }
@@ -434,12 +432,12 @@ public final class ProfileCommand implements BlazeCommand {
       if (stats.count > 0 && stats.totalTime > 0) {
         if (headerNeeded) {
           out.println("\nTotal time (across all threads) spent on:");
-          out.println(String.format("%18s %8s %8s %11s", "Type", "Total", "Count", "Average"));
+          out.printf("%18s %8s %8s %11s%n", "Type", "Total", "Count", "Average");
           headerNeeded = false;
         }
-        out.println(String.format("%18s %8s %8d %11s", type.toString(),
+        out.printf("%18s %8s %8d %11s%n", type.toString(),
             prettyPercentage(stats.totalTime, totalDuration), stats.count,
-            TimeUtilities.prettyTime(stats.totalTime / stats.count)));
+            TimeUtilities.prettyTime(stats.totalTime / stats.count));
       }
     }
   }
@@ -496,9 +494,7 @@ public final class ProfileCommand implements BlazeCommand {
       TreeMultimap<Stat, String> sortedStats =
           TreeMultimap.create(Ordering.natural().reverse(), Ordering.natural());
 
-      for (Map.Entry<String, Stat> stat : statsForType.entrySet()) {
-        sortedStats.put(stat.getValue(), stat.getKey());
-      }
+      Multimaps.invertFrom(Multimaps.forMap(statsForType), sortedStats);
 
       int numPrinted = 0;
       for (Map.Entry<Stat, String> stat : sortedStats.entries()) {
@@ -548,9 +544,7 @@ public final class ProfileCommand implements BlazeCommand {
    */
   private EnumSet<ProfilerTask> getTypeFilter(ProfilerTask... tasks) {
     EnumSet<ProfilerTask> filter = EnumSet.of(ProfilerTask.ACTION_LOCK, ProfilerTask.WAIT);
-    for (ProfilerTask task : tasks) {
-      filter.add(task);
-    }
+    Collections.addAll(filter, tasks);
     return filter;
   }
 
@@ -611,7 +605,7 @@ public final class ProfileCommand implements BlazeCommand {
       out.printf(TWO_COLUMN_FORMAT, "Total time finalizing build",
           TimeUtilities.prettyTime(info.getPhaseDuration(finishPhase)));
     }
-    out.println("");
+    out.println();
     out.printf(TWO_COLUMN_FORMAT, "Action dependency map creation",
         TimeUtilities.prettyTime(graphTime));
     out.printf(TWO_COLUMN_FORMAT, "Actual execution time",

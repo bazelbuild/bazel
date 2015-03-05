@@ -35,7 +35,7 @@ public final class OptionsUtils {
    * shell-escaped.
    */
   public static String asShellEscapedString(Iterable<UnparsedOptionValueDescription> optionsList) {
-    StringBuffer result = new StringBuffer();
+    StringBuilder result = new StringBuilder();
     for (UnparsedOptionValueDescription option : optionsList) {
       if (option.isHidden()) {
         continue;
@@ -139,7 +139,7 @@ public final class OptionsUtils {
     public List<PathFragment> convert(String input) {
       List<PathFragment> list = new ArrayList<>();
       for (String piece : input.split(":")) {
-        if (!piece.equals("")) {
+        if (!piece.isEmpty()) {
           list.add(new PathFragment(piece));
         }
       }

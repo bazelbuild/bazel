@@ -16,7 +16,6 @@ package com.google.devtools.build.lib.analysis;
 
 import com.google.common.base.Splitter;
 import com.google.common.base.Supplier;
-import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 import com.google.devtools.build.lib.actions.AbstractAction;
 import com.google.devtools.build.lib.actions.ActionOwner;
@@ -130,10 +129,10 @@ public abstract class WorkspaceStatusAction extends AbstractAction {
    */
   public static Map<String, String> parseValues(Path file) throws IOException {
     HashMap<String, String> result = new HashMap<>();
-    Splitter lineSplitter = Splitter.on(" ").limit(2);
-    for (String line : Splitter.on("\n").split(
-        new String(FileSystemUtils.readContentAsLatin1(file)))) {
-      List<String> items = ImmutableList.copyOf(lineSplitter.split(line));
+    Splitter lineSplitter = Splitter.on(' ').limit(2);
+    for (String line :
+        Splitter.on('\n').split(new String(FileSystemUtils.readContentAsLatin1(file)))) {
+      List<String> items = lineSplitter.splitToList(line);
       if (items.size() != 2) {
         continue;
       }

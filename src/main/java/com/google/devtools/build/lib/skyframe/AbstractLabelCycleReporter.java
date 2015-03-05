@@ -82,9 +82,9 @@ abstract class AbstractLabelCycleReporter implements CyclesReporter.SingleCycleR
 
       Label label = getLabel(cycleValue);
       Target target = getTargetForLabel(label);
-      eventHandler.handle(
-          Event.error(target.getLocation(), "in " + target.getTargetKind() + " " + label
-              + ": " + cycleMessage.toString()));
+      eventHandler.handle(Event.error(
+          target.getLocation(),
+          "in " + target.getTargetKind() + " " + label + ": " + cycleMessage));
     }
 
     return true;
