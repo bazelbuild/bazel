@@ -43,7 +43,7 @@ public abstract class SkylarkFunction extends AbstractFunction {
   private boolean onlyLoadingPhase;
 
   /**
-   * Creates a SkylarkFunction with the given name. 
+   * Creates a SkylarkFunction with the given name.
    */
   public SkylarkFunction(String name) {
     super(name);
@@ -128,7 +128,7 @@ public abstract class SkylarkFunction extends AbstractFunction {
       }
 
       for (Entry<String, Object> kwarg : kwargs.entrySet()) {
-        int idx = parameters.indexOf(kwarg.getKey()); 
+        int idx = parameters.indexOf(kwarg.getKey());
         if (idx < 0) {
           throw new EvalException(ast.getLocation(),
               String.format("unknown keyword argument: %s", kwarg.getKey()));
@@ -254,7 +254,9 @@ public abstract class SkylarkFunction extends AbstractFunction {
   public static <KEY_TYPE, VALUE_TYPE> ImmutableMap<KEY_TYPE, VALUE_TYPE> toMap(
       Iterable<Map.Entry<KEY_TYPE, VALUE_TYPE>> obj) {
     ImmutableMap.Builder<KEY_TYPE, VALUE_TYPE> builder = ImmutableMap.builder();
-    builder.putAll(obj);
+    for (Map.Entry<KEY_TYPE, VALUE_TYPE> entry : obj) {
+      builder.put(entry.getKey(), entry.getValue());
+    }
     return builder.build();
   }
 
