@@ -411,9 +411,9 @@ public final class BuildConfiguration implements Serializable {
     }
 
     @Option(name = "cpu",
-            defaultValue = "null",
-            category = "semantics",
-            help = "The target CPU.")
+        defaultValue = "null",
+        category = "semantics",
+        help = "The target CPU.")
     public String cpu;
 
     @Option(name = "min_param_file_size",
@@ -433,15 +433,15 @@ public final class BuildConfiguration implements Serializable {
         defaultValue = "true",
         category = "undocumented",
         help = "Flag to help transition from allowing to disallowing runtime_deps on neverlink"
-        + " Java archives. The depot needs to be cleaned up to roll this out by default.")
+            + " Java archives. The depot needs to be cleaned up to roll this out by default.")
     public boolean allowRuntimeDepsOnNeverLink;
 
     @Option(name = "strict_filesets",
-            defaultValue = "false",
-            category = "semantics",
-            help = "If this option is enabled, filesets crossing package boundaries are reported "
-                + "as errors. It does not work when check_fileset_dependencies_recursively is "
-                + "disabled.")
+        defaultValue = "false",
+        category = "semantics",
+        help = "If this option is enabled, filesets crossing package boundaries are reported "
+            + "as errors. It does not work when check_fileset_dependencies_recursively is "
+            + "disabled.")
     public boolean strictFilesets;
 
     // Plugins are build using the host config. To avoid cycles we just don't propagate
@@ -449,19 +449,19 @@ public final class BuildConfiguration implements Serializable {
     // host tools, we can improve this by (for example) creating a compiler configuration that is
     // used only for building plugins.
     @Option(name = "plugin",
-            converter = LabelConverter.class,
-            allowMultiple = true,
-            defaultValue = "",
-            category = "flags",
-            help = "Plugins to use in the build. Currently works with java_plugin.")
+        converter = LabelConverter.class,
+        allowMultiple = true,
+        defaultValue = "",
+        category = "flags",
+        help = "Plugins to use in the build. Currently works with java_plugin.")
     public List<Label> pluginList;
 
     @Option(name = "plugin_copt",
-            converter = PluginOptionConverter.class,
-            allowMultiple = true,
-            category = "flags",
-            defaultValue = ":",
-            help = "Plugin options")
+        converter = PluginOptionConverter.class,
+        allowMultiple = true,
+        category = "flags",
+        defaultValue = ":",
+        help = "Plugin options")
     public List<Map.Entry<String, String>> pluginCoptList;
 
     @Option(name = "stamp",
@@ -518,9 +518,9 @@ public final class BuildConfiguration implements Serializable {
     public String shortName;
 
     @Option(name = "platform_suffix",
-            defaultValue = "null",
-            category = "misc",
-            help = "Specifies a suffix to be added to the configuration directory.")
+        defaultValue = "null",
+        category = "misc",
+        help = "Specifies a suffix to be added to the configuration directory.")
     public String platformSuffix;
 
     @Option(name = "test_env",
@@ -540,9 +540,9 @@ public final class BuildConfiguration implements Serializable {
         defaultValue = "false",
         category = "testing",
         help = "If specified, Bazel will instrument code (using offline instrumentation where "
-               + "possible) and will collect coverage information during tests. Only targets that "
-               + " match --instrumentation_filter will be affected. Usually this option should "
-               + " not be specified directly - 'bazel coverage' command should be used instead."
+            + "possible) and will collect coverage information during tests. Only targets that "
+            + " match --instrumentation_filter will be affected. Usually this option should "
+            + " not be specified directly - 'bazel coverage' command should be used instead."
         )
     public boolean collectCodeCoverage;
 
@@ -562,13 +562,13 @@ public final class BuildConfiguration implements Serializable {
         category = "testing",
         abbrev = 't', // it's useful to toggle this on/off quickly
         help = "If 'auto', Bazel will only rerun a test if any of the following conditions apply: "
-        + "(1) Bazel detects changes in the test or its dependencies "
-        + "(2) the test is marked as external "
-        + "(3) multiple test runs were requested with --runs_per_test"
-        + "(4) the test failed"
-        + "If 'yes', the caching behavior will be the same as 'auto' except that "
-        + "it may cache test failures and test runs with --runs_per_test."
-        + "If 'no', all tests will be always executed.")
+            + "(1) Bazel detects changes in the test or its dependencies "
+            + "(2) the test is marked as external "
+            + "(3) multiple test runs were requested with --runs_per_test"
+            + "(4) the test failed"
+            + "If 'yes', the caching behavior will be the same as 'auto' except that "
+            + "it may cache test failures and test runs with --runs_per_test."
+            + "If 'no', all tests will be always executed.")
     public TriState cacheTestResults;
 
     @Deprecated
@@ -609,10 +609,10 @@ public final class BuildConfiguration implements Serializable {
     public List<PerLabelOptions> runsPerTest;
 
     @Option(name = "build_runfile_links",
-            defaultValue = "true",
-            category = "strategy",
-            help = "If true, build runfiles symlink forests for all targets.  "
-                + "If false, write only manifests when possible.")
+        defaultValue = "true",
+        category = "strategy",
+        help = "If true, build runfiles symlink forests for all targets.  "
+            + "If false, write only manifests when possible.")
     public boolean buildRunfiles;
 
     @Option(name = "test_arg",
@@ -631,13 +631,13 @@ public final class BuildConfiguration implements Serializable {
         defaultValue = "null",
         category = "testing",
         help = "Specifies a filter to forward to the test framework.  Used to limit "
-        + "the tests run. Note that this does not affect which targets are built.")
+            + "the tests run. Note that this does not affect which targets are built.")
     public String testFilter;
 
     @Option(name = "check_fileset_dependencies_recursively",
-            defaultValue = "true",
-            category = "semantics",
-            help = "If false, fileset targets will, whenever possible, create "
+        defaultValue = "true",
+        category = "semantics",
+        help = "If false, fileset targets will, whenever possible, create "
             + "symlinks to directories instead of creating one symlink for each "
             + "file inside the directory. Disabling this will significantly "
             + "speed up fileset builds, but targets that depend on filesets will "
@@ -646,23 +646,23 @@ public final class BuildConfiguration implements Serializable {
     public boolean checkFilesetDependenciesRecursively;
 
     @Option(name = "run_under",
-            category = "run",
-            defaultValue = "null",
-            converter = RunUnderConverter.class,
-            help = "Prefix to insert in front of command before running. "
-                + "Examples:\n"
-                + "\t--run_under=valgrind\n"
-                + "\t--run_under=strace\n"
-                + "\t--run_under='strace -c'\n"
-                + "\t--run_under='valgrind --quiet --num-callers=20'\n"
-                + "\t--run_under=//package:target\n"
-                + "\t--run_under='//package:target --options'\n")
+        category = "run",
+        defaultValue = "null",
+        converter = RunUnderConverter.class,
+        help = "Prefix to insert in front of command before running. "
+            + "Examples:\n"
+            + "\t--run_under=valgrind\n"
+            + "\t--run_under=strace\n"
+            + "\t--run_under='strace -c'\n"
+            + "\t--run_under='valgrind --quiet --num-callers=20'\n"
+            + "\t--run_under=//package:target\n"
+            + "\t--run_under='//package:target --options'\n")
     public RunUnder runUnder;
 
     @Option(name = "distinct_host_configuration",
-            defaultValue = "true",
-            category = "strategy",
-            help = "Build all the tools used during the build for a distinct configuration from "
+        defaultValue = "true",
+        category = "strategy",
+        help = "Build all the tools used during the build for a distinct configuration from "
             + "that used for the target program.  By default, the same configuration is used "
             + "for host and target programs, but this may cause undesirable rebuilds of tool "
             + "such as the protocol compiler (and then everything downstream) whenever a minor "
@@ -676,9 +676,9 @@ public final class BuildConfiguration implements Serializable {
     public boolean useDistinctHostConfiguration;
 
     @Option(name = "check_visibility",
-            defaultValue = "true",
-            category = "checking",
-            help = "If disabled, visibility errors are demoted to warnings.")
+        defaultValue = "true",
+        category = "checking",
+        help = "If disabled, visibility errors are demoted to warnings.")
     public boolean checkVisibility;
 
     // Moved from viewOptions to here because license information is very expensive to serialize.
@@ -688,8 +688,8 @@ public final class BuildConfiguration implements Serializable {
         defaultValue = "false",
         category = "checking",
         help = "Check that licensing constraints imposed by dependent packages "
-        + "do not conflict with distribution modes of the targets being built. "
-        + "By default, licenses are not checked.")
+            + "do not conflict with distribution modes of the targets being built. "
+            + "By default, licenses are not checked.")
     public boolean checkLicenses;
 
     @Option(name = "experimental_enforce_constraints",
@@ -700,11 +700,11 @@ public final class BuildConfiguration implements Serializable {
     public boolean enforceConstraints;
 
     @Option(name = "experimental_action_listener",
-            allowMultiple = true,
-            defaultValue = "",
-            category = "experimental",
-            converter = LabelConverter.class,
-            help = "Use action_listener to attach an extra_action to existing build actions.")
+        allowMultiple = true,
+        defaultValue = "",
+        category = "experimental",
+        converter = LabelConverter.class,
+        help = "Use action_listener to attach an extra_action to existing build actions.")
     public List<Label> actionListeners;
 
     @Option(name = "is host configuration",
@@ -724,11 +724,22 @@ public final class BuildConfiguration implements Serializable {
         defaultValue = "",
         category = "flags",
         help = "The given features will be enabled or disabled by default for all packages. "
-          + "Specifying -<feature> will disable the feature globally. "
-          + "Negative features always override positive ones. "
-          + "This flag is used to enable rolling out default feature changes without a "
-          + "Blaze release.")
+            + "Specifying -<feature> will disable the feature globally. "
+            + "Negative features always override positive ones. "
+            + "This flag is used to enable rolling out default feature changes without a "
+            + "Blaze release.")
     public List<String> defaultFeatures;
+
+    @Option(name = "target_environment",
+        converter = LabelConverter.class,
+        allowMultiple = true,
+        defaultValue = "",
+        category = "flags",
+        help = "Declares this build's target environment. Must be a label reference to an "
+            + "\"environment\" rule. If specified, all top-level targets must be "
+            + "compatible with this environment."
+    )
+    public List<Label> targetEnvironments;
 
     @Override
     public FragmentOptions getHost(boolean fallback) {
@@ -1939,5 +1950,13 @@ public final class BuildConfiguration implements Serializable {
    */
   public List<String> getDefaultFeatures() {
     return options.defaultFeatures;
+  }
+
+  /**
+   * Returns the "top-level" environment space, i.e. the set of environments all top-level
+   * targets must be compatible with. An empty value implies no restrictions.
+   */
+  public List<Label> getTargetEnvironments() {
+    return options.targetEnvironments;
   }
 }

@@ -25,7 +25,6 @@ import com.google.devtools.build.lib.analysis.RunfilesProvider;
 import com.google.devtools.build.lib.collect.nestedset.NestedSetBuilder;
 import com.google.devtools.build.lib.collect.nestedset.Order;
 import com.google.devtools.build.lib.packages.EnvironmentGroup;
-import com.google.devtools.build.lib.packages.Package;
 import com.google.devtools.build.lib.rules.RuleConfiguredTargetFactory;
 import com.google.devtools.build.lib.syntax.Label;
 
@@ -42,18 +41,12 @@ public class Environment implements RuleConfiguredTargetFactory {
     //
     // This will likely expand when we add support for environments fulfilling other environments.
     Label label = ruleContext.getLabel();
-    Package pkg = ruleContext.getRule().getPackage();
 
-    EnvironmentGroup group = null;
-    for (EnvironmentGroup pkgGroup : pkg.getTargets(EnvironmentGroup.class)) {
-      if (pkgGroup.getEnvironments().contains(label)) {
-        group = pkgGroup;
-        break;
-      }
-    }
-
-    if (group == null) {
-      ruleContext.ruleError("no matching environment group from the same package");
+    EnvironmentGroup group;
+    try {
+      group = ConstraintSemantics.getEnvironmentGroup(ruleContext.getRule());
+    } catch (ConstraintSemantics.EnvironmentLookupException e) {
+      ruleContext.ruleError(e.getMessage());
       return null;
     }
 

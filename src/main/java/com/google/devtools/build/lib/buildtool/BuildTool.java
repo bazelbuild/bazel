@@ -14,9 +14,11 @@
 package com.google.devtools.build.lib.buildtool;
 
 import com.google.common.annotations.VisibleForTesting;
+import com.google.common.base.Joiner;
 import com.google.common.base.Preconditions;
 import com.google.common.base.Stopwatch;
 import com.google.common.base.Throwables;
+import com.google.common.base.Verify;
 import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.Maps;
 import com.google.common.eventbus.EventBus;
@@ -41,6 +43,9 @@ import com.google.devtools.build.lib.analysis.config.BuildConfigurationKey;
 import com.google.devtools.build.lib.analysis.config.BuildOptions;
 import com.google.devtools.build.lib.analysis.config.DefaultsPackage;
 import com.google.devtools.build.lib.analysis.config.InvalidConfigurationException;
+import com.google.devtools.build.lib.analysis.constraints.ConstraintSemantics;
+import com.google.devtools.build.lib.analysis.constraints.EnvironmentCollection;
+import com.google.devtools.build.lib.analysis.constraints.SupportedEnvironmentsProvider;
 import com.google.devtools.build.lib.buildtool.BuildRequest.BuildRequestOptions;
 import com.google.devtools.build.lib.buildtool.buildevent.BuildCompleteEvent;
 import com.google.devtools.build.lib.buildtool.buildevent.BuildInterruptedEvent;
@@ -53,6 +58,8 @@ import com.google.devtools.build.lib.events.Reporter;
 import com.google.devtools.build.lib.packages.InputFile;
 import com.google.devtools.build.lib.packages.License;
 import com.google.devtools.build.lib.packages.License.DistributionType;
+import com.google.devtools.build.lib.packages.NoSuchPackageException;
+import com.google.devtools.build.lib.packages.NoSuchTargetException;
 import com.google.devtools.build.lib.packages.PackageIdentifier;
 import com.google.devtools.build.lib.packages.Rule;
 import com.google.devtools.build.lib.packages.Target;
@@ -61,10 +68,12 @@ import com.google.devtools.build.lib.packages.Type;
 import com.google.devtools.build.lib.pkgcache.LoadingFailedException;
 import com.google.devtools.build.lib.pkgcache.LoadingPhaseRunner.Callback;
 import com.google.devtools.build.lib.pkgcache.LoadingPhaseRunner.LoadingResult;
+import com.google.devtools.build.lib.pkgcache.PackageManager;
 import com.google.devtools.build.lib.profiler.ProfilePhase;
 import com.google.devtools.build.lib.profiler.Profiler;
 import com.google.devtools.build.lib.runtime.BlazeRuntime;
 import com.google.devtools.build.lib.skyframe.SkyframeExecutor;
+import com.google.devtools.build.lib.syntax.Label;
 import com.google.devtools.build.lib.util.AbruptExitException;
 import com.google.devtools.build.lib.util.ExitCode;
 import com.google.devtools.build.lib.vfs.Path;
@@ -186,6 +195,8 @@ public class BuildTool {
       result.setActualTargets(analysisResult.getTargetsToBuild());
       result.setTestTargets(analysisResult.getTargetsToTest());
 
+      checkTargetEnvironmentRestrictions(analysisResult.getTargetsToBuild(),
+          runtime.getPackageManager());
       reportTargets(analysisResult);
 
       // Execution phase.
@@ -226,6 +237,55 @@ public class BuildTool {
     if (loadingResult != null && loadingResult.hasTargetPatternError()) {
       throw new BuildFailedException("execution phase successful, but there were errors " +
                                      "parsing the target pattern");
+    }
+  }
+
+  /**
+   * Checks that if this is an environment-restricted build, all top-level targets support
+   * the expected environments.
+   *
+   * @param topLevelTargets the build's top-level targets
+   * @throws ViewCreationFailedException if constraint enforcement is on, the build declares
+   *     environment-restricted top level configurations, and any top-level target doesn't
+   *     support the expected environments
+   */
+  private void checkTargetEnvironmentRestrictions(Iterable<ConfiguredTarget> topLevelTargets,
+      PackageManager packageManager) throws ViewCreationFailedException {
+    for (ConfiguredTarget topLevelTarget : topLevelTargets) {
+      BuildConfiguration config = topLevelTarget.getConfiguration();
+      if (config == null) {
+        // TODO(bazel-team): support file targets (they should apply package-default constraints).
+        continue;
+      } else if (!config.enforceConstraints() || config.getTargetEnvironments().isEmpty()) {
+        continue;
+      }
+
+      // Parse and collect this configuration's environments.
+      EnvironmentCollection.Builder builder = new EnvironmentCollection.Builder();
+      for (Label envLabel : config.getTargetEnvironments()) {
+        try {
+          Target env = packageManager.getLoadedTarget(envLabel);
+          builder.put(ConstraintSemantics.getEnvironmentGroup(env), envLabel);
+        } catch (NoSuchPackageException | NoSuchTargetException
+            | ConstraintSemantics.EnvironmentLookupException e) {
+          throw new ViewCreationFailedException("invalid target environment", e);
+        }
+      }
+      EnvironmentCollection expectedEnvironments = builder.build();
+
+      // Now check the target against those environments.
+      SupportedEnvironmentsProvider provider =
+          Verify.verifyNotNull(topLevelTarget.getProvider(SupportedEnvironmentsProvider.class));
+        Collection<Label> missingEnvironments = ConstraintSemantics.getUnsupportedEnvironments(
+            provider.getEnvironments(), expectedEnvironments);
+        if (!missingEnvironments.isEmpty()) {
+          throw new ViewCreationFailedException(
+              String.format("This is a restricted-environment build. %s does not support"
+                  + " required environment%s %s",
+                  topLevelTarget.getLabel(),
+                  missingEnvironments.size() == 1 ? "" : "s",
+                  Joiner.on(", ").join(missingEnvironments)));
+        }
     }
   }
 

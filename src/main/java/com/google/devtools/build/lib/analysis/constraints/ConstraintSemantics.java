@@ -26,6 +26,7 @@ import com.google.devtools.build.lib.packages.AttributeMap;
 import com.google.devtools.build.lib.packages.EnvironmentGroup;
 import com.google.devtools.build.lib.packages.Rule;
 import com.google.devtools.build.lib.packages.RuleClass;
+import com.google.devtools.build.lib.packages.Target;
 import com.google.devtools.build.lib.packages.Type;
 import com.google.devtools.build.lib.syntax.Label;
 
@@ -277,6 +278,38 @@ public class ConstraintSemantics {
   }
 
   /**
+   * Exception indicating errors finding/parsing environments or their containing groups.
+   */
+  public static class EnvironmentLookupException extends Exception {
+    private EnvironmentLookupException(String message) {
+      super(message);
+    }
+  }
+
+  /**
+   * Returns the environment group that owns the given environment. Both must belong to
+   * the same package.
+   *
+   * @throws EnvironmentLookupException if the input is not an {@link EnvironmentRule} or no
+   *     matching group is found
+   */
+  public static EnvironmentGroup getEnvironmentGroup(Target envTarget)
+      throws EnvironmentLookupException {
+    if (!(envTarget instanceof Rule)
+        || !((Rule) envTarget).getRuleClass().equals(EnvironmentRule.RULE_NAME)) {
+      throw new EnvironmentLookupException(
+          envTarget.getLabel() + " is not a valid environment definition");
+    }
+    for (EnvironmentGroup group : envTarget.getPackage().getTargets(EnvironmentGroup.class)) {
+      if (group.getEnvironments().contains(envTarget.getLabel())) {
+        return group;
+      }
+    }
+    throw new EnvironmentLookupException(
+        "cannot find the group for environment " + envTarget.getLabel());
+  }
+
+  /**
    * Returns the set of environments this rule supports, applying the logic described in
    * {@link ConstraintSemantics}.
    *
@@ -395,14 +428,12 @@ public class ConstraintSemantics {
    * Performs constraint checking on the given rule's dependencies and reports any errors.
    *
    * @param ruleContext the rule to analyze
-   * @param supportedEnvironments the rule's supported environments, as defined by the return
+   * @param ruleEnvironments the rule's supported environments, as defined by the return
    *     value of {@link #getSupportedEnvironments}. In particular, for any environment group that's
    *     not in this collection, the rule is assumed to support the defaults for that group.
    */
   public static void checkConstraints(RuleContext ruleContext,
-      EnvironmentCollection supportedEnvironments) {
-
-    Set<EnvironmentGroup> knownGroups = supportedEnvironments.getGroups();
+      EnvironmentCollection ruleEnvironments) {
 
     for (TransitiveInfoCollection dependency : getAllPrerequisites(ruleContext)) {
       SupportedEnvironmentsProvider depProvider =
@@ -412,43 +443,53 @@ public class ConstraintSemantics {
         // opt them into constraint checking, but for now just pass them by.
         continue;
       }
-      Collection<Label> depEnvironments = depProvider.getEnvironments().getEnvironments();
-      Set<EnvironmentGroup> groupsKnownToDep = depProvider.getEnvironments().getGroups();
+      Collection<Label> unsupportedEnvironments =
+          getUnsupportedEnvironments(depProvider.getEnvironments(), ruleEnvironments);
 
-      // Environments we support that the dependency does not support.
-      Set<Label> disallowedEnvironments = new LinkedHashSet<>();
-
-      // For every environment we support, either the dependency must also support it OR it must be
-      // a default for a group the dependency doesn't know about.
-      for (EnvironmentWithGroup supportedEnv : supportedEnvironments.getGroupedEnvironments()) {
-        EnvironmentGroup group = supportedEnv.group();
-        Label environment = supportedEnv.environment();
-        if (!depEnvironments.contains(environment)
-          && (groupsKnownToDep.contains(group) || !group.isDefault(environment))) {
-          disallowedEnvironments.add(environment);
-        }
+      if (!unsupportedEnvironments.isEmpty()) {
+        ruleContext.ruleError("dependency " + dependency.getLabel()
+            + " doesn't support expected environment"
+            + (unsupportedEnvironments.size() == 1 ? "" : "s")
+            + ": " + Joiner.on(", ").join(unsupportedEnvironments));
       }
+    }
+  }
 
-      // For any environment group we don't know about, we implicitly support its defaults. Check
-      // that the dep does, too.
-      for (EnvironmentGroup depGroup : groupsKnownToDep) {
-        if (!knownGroups.contains(depGroup)) {
-          for (Label defaultEnv : depGroup.getDefaults()) {
-            if (!depEnvironments.contains(defaultEnv)) {
-              disallowedEnvironments.add(defaultEnv);
-            }
+  /**
+   * Given a collection of environments and a collection of expected environments, returns the
+   * missing environments that would cause constraint expectations to be violated. Includes
+   * the effects of environment group defaults.
+   */
+  public static Collection<Label> getUnsupportedEnvironments(
+      EnvironmentCollection actualEnvironments, EnvironmentCollection expectedEnvironments) {
+
+    Set<Label> missingEnvironments = new LinkedHashSet<>();
+
+    // For each expected environment, it must either be a supported environment OR a default
+    // for a group the supported environment set doesn't know about.
+    for (EnvironmentWithGroup expectedEnv : expectedEnvironments.getGroupedEnvironments()) {
+      EnvironmentGroup group = expectedEnv.group();
+      Label environment = expectedEnv.environment();
+      if (!actualEnvironments.getEnvironments().contains(environment)
+        && (actualEnvironments.getGroups().contains(group) || !group.isDefault(environment))) {
+        missingEnvironments.add(environment);
+      }
+    }
+
+    // For any environment group not referenced by the expected environments, its defaults are
+    // implicitly applied. We can ignore it if it's also missing from the supported environments
+    // (since in that case the same defaults apply), otherwise have to check.
+    for (EnvironmentGroup group : actualEnvironments.getGroups()) {
+      if (!expectedEnvironments.getGroups().contains(group)) {
+        for (Label defaultEnv : group.getDefaults()) {
+          if (!actualEnvironments.getEnvironments().contains(defaultEnv)) {
+            missingEnvironments.add(defaultEnv);
           }
         }
       }
-
-      // Report errors on bad environments.
-      if (!disallowedEnvironments.isEmpty()) {
-        ruleContext.ruleError("dependency " + dependency.getLabel()
-            + " doesn't support expected environment"
-            + (disallowedEnvironments.size() == 1 ? "" : "s")
-            + ": " + Joiner.on(", ").join(disallowedEnvironments));
-      }
     }
+
+    return missingEnvironments;
   }
 
   /**

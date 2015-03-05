@@ -91,14 +91,17 @@ public class EnvironmentCollection {
   static final EnvironmentCollection EMPTY =
       new EnvironmentCollection(ImmutableMultimap.<EnvironmentGroup, Label>of());
 
-  static class Builder {
+  /**
+   * Builder for {@link EnvironmentCollection}.
+   */
+  public static class Builder {
     private final ImmutableMultimap.Builder<EnvironmentGroup, Label> mapBuilder =
         ImmutableMultimap.builder();
 
     /**
      * Inserts the given environment / owning group pair.
      */
-    Builder put(EnvironmentGroup group, Label environment) {
+    public Builder put(EnvironmentGroup group, Label environment) {
       mapBuilder.put(group, environment);
       return this;
     }
@@ -106,7 +109,7 @@ public class EnvironmentCollection {
     /**
      * Inserts the given set of environments, all belonging to the specified group.
      */
-    Builder putAll(EnvironmentGroup group, Iterable<Label> environments) {
+    public Builder putAll(EnvironmentGroup group, Iterable<Label> environments) {
       mapBuilder.putAll(group, environments);
       return this;
     }
@@ -114,12 +117,12 @@ public class EnvironmentCollection {
     /**
      * Inserts the contents of another {@link EnvironmentCollection} into this one.
      */
-    Builder putAll(EnvironmentCollection other) {
+    public Builder putAll(EnvironmentCollection other) {
       mapBuilder.putAll(other.map);
       return this;
     }
 
-    EnvironmentCollection build() {
+    public EnvironmentCollection build() {
       return new EnvironmentCollection(mapBuilder.build());
     }
   }
