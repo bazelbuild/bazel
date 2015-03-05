@@ -33,4 +33,36 @@ public class Constants {
   public static final ImmutableList<String> WATCHFS_BLACKLIST = ImmutableList.of();
 
   public static final String PRELUDE_FILE_DEPOT_RELATIVE_PATH = "tools/build_rules/prelude_bazel";
+ 
+  /**
+   * List of common attributes documentation, relative to {@link com.google.devtools.build.docgen}. 
+   */
+  public static final ImmutableList<String> COMMON_ATTRIBUTES_DOCFILES = ImmutableList.of(
+      "templates/attributes/common/deps.html",
+      "templates/attributes/common/data.html",
+      "templates/attributes/common/licenses.html",
+      "templates/attributes/common/distribs.html",
+      "templates/attributes/common/deprecation.html", 
+      "templates/attributes/common/obsolete.html",
+      "templates/attributes/common/testonly.html", 
+      "templates/attributes/common/tags.html", 
+      "templates/attributes/common/visibility.html");
+
+  /**
+   * List of documentation for common attributes of *_binary rules, relative to
+   * {@link com.google.devtools.build.docgen}.
+   */
+  public static final ImmutableList<String> BINARY_ATTRIBUTES_DOCFILES = ImmutableList.of(
+      "templates/attributes/binary/args.html", 
+      "templates/attributes/binary/output_licenses.html");
+
+  /**
+   * List of documentation for common attributes of *_test rules, relative to
+   * {@link com.google.devtools.build.docgen}.
+   */
+  public static final ImmutableList<String> TEST_ATTRIBUTES_DOCFILES = ImmutableList.of(
+      "templates/attributes/test/args.html",
+      "templates/attributes/test/size.html",
+      "templates/attributes/test/timeout.html",
+      "templates/attributes/test/flaky.html");
 }

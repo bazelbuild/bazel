@@ -92,7 +92,7 @@ java_binary(
     srcs = glob(["com/google/devtools/build/docgen/*.java"]),
     main_class = "com.google.devtools.build.docgen.BuildEncyclopediaGenerator",
     resources = glob(
-        ["com/google/devtools/build/docgen/templates/*.html"],
+        ["com/google/devtools/build/docgen/templates/**/*.html"],
     ),
     deps = [
         ":bazel-core",
