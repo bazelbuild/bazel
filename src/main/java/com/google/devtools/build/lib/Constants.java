@@ -65,4 +65,10 @@ public class Constants {
       "templates/attributes/test/size.html",
       "templates/attributes/test/timeout.html",
       "templates/attributes/test/flaky.html");
+
+  /**
+   * List of file extensions of which baseline coverage generation is supported.
+   */
+  public static final ImmutableList<String> BASELINE_COVERAGE_OFFLINE_INSTRUMENTATION_SUFFIXES =
+      ImmutableList.<String>of();
 }

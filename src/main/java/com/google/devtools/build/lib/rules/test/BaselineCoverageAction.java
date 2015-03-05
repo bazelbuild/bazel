@@ -17,6 +17,7 @@ package com.google.devtools.build.lib.rules.test;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.Iterables;
 import com.google.common.eventbus.EventBus;
+import com.google.devtools.build.lib.Constants;
 import com.google.devtools.build.lib.actions.ActionOwner;
 import com.google.devtools.build.lib.actions.Artifact;
 import com.google.devtools.build.lib.actions.Executor;
@@ -42,10 +43,7 @@ import java.util.List;
  */
 public class BaselineCoverageAction extends AbstractFileWriteAction
     implements NotifyOnActionCacheHit {
-  // TODO(bazel-team): Remove this list of languages by separately collecting offline and online
-  // instrumented files.
-  private static final List<String> OFFLINE_INSTRUMENTATION_SUFFIXES = ImmutableList.of(
-      ".c", ".cc", ".cpp", ".dart", ".go", ".h", ".java", ".py");
+
   private final Iterable<Artifact> instrumentedFiles;
 
   private BaselineCoverageAction(
@@ -70,7 +68,7 @@ public class BaselineCoverageAction extends AbstractFileWriteAction
     List<String> result = new ArrayList<>();
     for (Artifact instrumentedFile : instrumentedFiles) {
       String pathString = instrumentedFile.getExecPathString();
-      for (String suffix : OFFLINE_INSTRUMENTATION_SUFFIXES) {
+      for (String suffix : Constants.BASELINE_COVERAGE_OFFLINE_INSTRUMENTATION_SUFFIXES) {
         if (pathString.endsWith(suffix)) {
           result.add(pathString);
           break;
