@@ -80,6 +80,12 @@ public class
       help = "Minimum compatible iOS version for target simulators and devices.")
   public String iosMinimumOs;
 
+  @Option(name = "ios_memleaks",
+      defaultValue =  "false",
+      category = "misc",
+      help = "Enable checking for memory leaks in ios_test targets.")
+  public boolean runMemleaks;
+
   @VisibleForTesting static final String DEFAULT_MINIMUM_IOS = "7.0";
 
   @Override

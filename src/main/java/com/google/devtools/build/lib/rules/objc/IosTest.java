@@ -45,6 +45,7 @@ public abstract class IosTest implements RuleConfiguredTargetFactory {
   public static final String TARGET_DEVICE = "target_device";
   public static final String IS_XCTEST = "xctest";
   public static final String XCTEST_APP = "xctest_app";
+  public static final String MEMLEAKS_DEP = "$memleaks_dep";
 
   @VisibleForTesting
   public static final String REQUIRES_SOURCE_ERROR =
@@ -166,6 +167,13 @@ public abstract class IosTest implements RuleConfiguredTargetFactory {
       extraDepObjcProviders.add(xcTestAppProvider(ruleContext).getObjcProvider());
     }
 
+    // Add the memleaks library if the --ios_memleaks flag is true.  The library pauses the test
+    // after all tests have been executed so that leaks can be run.
+    ObjcConfiguration config = ruleContext.getFragment(ObjcConfiguration.class);
+    if (config.runMemleaks()) {
+      extraDepObjcProviders
+          .add(ruleContext.getPrerequisite(MEMLEAKS_DEP, Mode.TARGET, ObjcProvider.class));
+    }
     return ObjcLibrary.common(ruleContext, extraSdkFrameworks, /*alwayslink=*/false,
         new ObjcLibrary.ExtraImportLibraries(ObjcRuleClasses.j2ObjcLibraries(ruleContext)),
         extraDepObjcProviders);
