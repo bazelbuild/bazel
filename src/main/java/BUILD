@@ -12,13 +12,14 @@ java_library(
         exclude = [
             "com/google/devtools/build/lib/shell/*.java",
             "com/google/devtools/build/lib/rules/java/JavaToolchainDataParser.java",
+            "com/google/devtools/build/lib/docgen/**/*.java",
         ],
     ),
     resources = glob([
-        "**/*.txt",
-        "**/*.html",
-        "**/*.css",
-        "**/*.js",
+        "com/google/devtools/build/lib/**/*.txt",
+        "com/google/devtools/build/lib/**/*.html",
+        "com/google/devtools/build/lib/**/*.css",
+        "com/google/devtools/build/lib/**/*.js",
     ]),
     visibility = ["//src/test/java:__subpackages__"],
     runtime_deps = [
