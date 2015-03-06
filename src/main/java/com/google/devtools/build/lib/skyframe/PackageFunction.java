@@ -282,8 +282,6 @@ public class PackageFunction implements SkyFunction {
     }
     packageShouldBeInError = markFileDepsAndPropagateInconsistentFilesystemExceptions(
         pkg.getName(), subincludeFileDepKeys, env, pkg.containsErrors());
-    // Another concern is a subpackage cutting off the subinclude label, but this is already
-    // handled by the legacy package loading code which calls into our SkyframePackageLocator.
 
     // TODO(bazel-team): In the long term, we want to actually resolve the glob patterns within
     // Skyframe. For now, just logging the glob requests provides correct incrementality and
