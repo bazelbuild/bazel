@@ -137,8 +137,14 @@ public abstract class EvalUtils {
 
   // TODO(bazel-team): move the following few type-related functions to SkylarkType
   /**
-   * Returns the Skylark equivalent type of the parameter. Note that the Skylark
-   * language doesn't have inheritance.
+   * Compute the super-class of a class that Skylark considers as the Skylark type of its instances
+   *
+   * <p>Skylark type validation isn't otherwise equipped to deal with inheritance, so we must tell
+   * it which is the super-class or interface that matters for Skylark type compatibility.
+   * e.g. instances of all subclasses of SkylarkList are considered as being of type SkylarkList.
+   *
+   * @param c a class
+   * @return a super-class of c to be used in validation-time type inference.
    */
   public static Class<?> getSkylarkType(Class<?> c) {
     if (ImmutableList.class.isAssignableFrom(c)) {
@@ -155,6 +161,8 @@ public abstract class EvalUtils {
     } else if (Set.class.isAssignableFrom(c)) {
       return Set.class;
     } else {
+      // TODO(bazel-team): also unify all ClassObject, that we print the same?
+      //
       // Check if one of the superclasses or implemented interfaces has the SkylarkModule
       // annotation. If yes return that class.
       Class<?> parent = getParentWithSkylarkModule(c);
@@ -222,7 +230,7 @@ public abstract class EvalUtils {
       return "FilesetEntry";
     } else if (NestedSet.class.isAssignableFrom(c) || SkylarkNestedSet.class.isAssignableFrom(c)) {
       return "set";
-    } else if (ClassObject.class.isAssignableFrom(c)) {
+    } else if (ClassObject.SkylarkClassObject.class.isAssignableFrom(c)) {
       return "struct";
     } else if (SkylarkList.class.isAssignableFrom(c)) {
       // TODO(bazel-team): Refactor the class hierarchy so we can distinguish list and tuple types.

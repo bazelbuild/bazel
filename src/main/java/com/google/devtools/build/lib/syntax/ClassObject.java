@@ -53,6 +53,7 @@ public interface ClassObject {
   /**
    * An implementation class of ClassObject for structs created in Skylark code.
    */
+  // TODO(bazel-team): maybe move the SkylarkModule annotation to the ClassObject interface?
   @Immutable
   @SkylarkModule(name = "struct",
       doc = "A special language element to support structs (i.e. simple value objects). "
