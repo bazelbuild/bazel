@@ -16,8 +16,10 @@ package com.google.devtools.build.lib.analysis.constraints;
 
 import com.google.common.base.Joiner;
 import com.google.common.base.Preconditions;
+import com.google.common.base.Verify;
 import com.google.common.collect.ImmutableCollection;
 import com.google.common.collect.Iterables;
+import com.google.devtools.build.lib.analysis.OutputFileConfiguredTarget;
 import com.google.devtools.build.lib.analysis.RuleConfiguredTarget;
 import com.google.devtools.build.lib.analysis.RuleContext;
 import com.google.devtools.build.lib.analysis.TransitiveInfoCollection;
@@ -434,15 +436,9 @@ public class ConstraintSemantics {
    */
   public static void checkConstraints(RuleContext ruleContext,
       EnvironmentCollection ruleEnvironments) {
-
-    for (TransitiveInfoCollection dependency : getAllPrerequisites(ruleContext)) {
+    for (TransitiveInfoCollection dependency : getConstraintCheckedDependencies(ruleContext)) {
       SupportedEnvironmentsProvider depProvider =
           dependency.getProvider(SupportedEnvironmentsProvider.class);
-      if (depProvider == null) {
-        // Input files (InputFileConfiguredTarget) don't support environments. We may subsequently
-        // opt them into constraint checking, but for now just pass them by.
-        continue;
-      }
       Collection<Label> unsupportedEnvironments =
           getUnsupportedEnvironments(depProvider.getEnvironments(), ruleEnvironments);
 
@@ -495,20 +491,37 @@ public class ConstraintSemantics {
   /**
    * Returns all dependencies that should be constraint-checked against the current rule.
    */
-  private static Iterable<TransitiveInfoCollection> getAllPrerequisites(RuleContext ruleContext) {
-    Set<TransitiveInfoCollection> prerequisites = new LinkedHashSet<>();
+  private static Iterable<TransitiveInfoCollection> getConstraintCheckedDependencies(
+      RuleContext ruleContext) {
+    Set<TransitiveInfoCollection> depsToCheck = new LinkedHashSet<>();
     AttributeMap attributes = ruleContext.attributes();
 
     for (String attr : attributes.getAttributeNames()) {
       Type<?> attrType = attributes.getAttributeType(attr);
-      // TODO(bazel-team): support specifying which attributes are subject to constraint checking
       if ((attrType == Type.LABEL || attrType == Type.LABEL_LIST)
           && !RuleClass.isConstraintAttribute(attr)
           && !attr.equals("visibility")) {
-        prerequisites.addAll(
-            ruleContext.getPrerequisites(attr, RuleConfiguredTarget.Mode.DONT_CHECK));
+
+        for (TransitiveInfoCollection dep :
+            ruleContext.getPrerequisites(attr, RuleConfiguredTarget.Mode.DONT_CHECK)) {
+          // Output files inherit the environment spec of their generating rule.
+          if (dep instanceof OutputFileConfiguredTarget) {
+            // Note this reassignment means constraint violation errors reference the generating
+            // rule, not the file. This makes the source of the environmental mismatch more clear.
+            dep = ((OutputFileConfiguredTarget) dep).getGeneratingRule();
+          }
+          // Input files don't support environments. We may subsequently opt them into constraint
+          // checking, but for now just pass them by. Otherwise, we opt in anything that's not
+          // a host dependency.
+          // TODO(bazel-team): support choosing which attributes are subject to constraint checking
+          if (dep.getProvider(SupportedEnvironmentsProvider.class) != null
+              && !Verify.verifyNotNull(dep.getConfiguration()).isHostConfiguration()) {
+            depsToCheck.add(dep);
+          }
+        }
       }
     }
-    return prerequisites;
+
+    return depsToCheck;
   }
 }

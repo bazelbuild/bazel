@@ -42,6 +42,7 @@ public final class EnvironmentRule implements RuleDefinition {
             .nonconfigurable("low-level attribute, used in TargetUtils without configurations"))
         .removeAttribute(RuleClass.COMPATIBLE_ENVIRONMENT_ATTR)
         .removeAttribute(RuleClass.RESTRICTED_ENVIRONMENT_ATTR)
+        .exemptFromConstraintChecking("this rule *defines* a constraint")
         .setUndocumented()
         .build();
   }

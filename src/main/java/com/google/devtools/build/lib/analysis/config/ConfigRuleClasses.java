@@ -51,6 +51,8 @@ public class ConfigRuleClasses {
                // No need to show up in ":all", etc. target patterns.
               .value(ImmutableList.of("manual"))
               .nonconfigurable(NONCONFIGURABLE_ATTRIBUTE_REASON))
+          .exemptFromConstraintChecking(
+              "these rules don't include content that gets built into their dependers")
           .build();
     }
   }

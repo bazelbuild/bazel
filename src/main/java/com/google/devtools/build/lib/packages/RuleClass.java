@@ -432,6 +432,7 @@ public final class RuleClass {
     private SkylarkEnvironment ruleDefinitionEnvironment = null;
     private Set<Class<?>> configurationFragments = new LinkedHashSet<>();
     private boolean failIfMissingConfigurationFragment;
+    private boolean supportsConstraintChecking = true;
 
     private final Map<String, Attribute> attributes = new LinkedHashMap<>();
 
@@ -459,6 +460,7 @@ public final class RuleClass {
         }
         configurationFragments.addAll(parent.requiredConfigurationFragments);
         failIfMissingConfigurationFragment |= parent.failIfMissingConfigurationFragment;
+        supportsConstraintChecking = parent.supportsConstraintChecking;
 
         for (Attribute attribute : parent.getAttributes()) {
           String attrName = attribute.getName();
@@ -511,7 +513,7 @@ public final class RuleClass {
           configuredTargetFactory, validityPredicate, preferredDependencyPredicate,
           ImmutableSet.copyOf(advertisedProviders), configuredTargetFunction,
           ruleDefinitionEnvironment, configurationFragments, failIfMissingConfigurationFragment,
-          attributes.values().toArray(new Attribute[0]));
+          supportsConstraintChecking, attributes.values().toArray(new Attribute[0]));
     }
 
     /**
@@ -743,6 +745,19 @@ public final class RuleClass {
     }
 
     /**
+     * Exempts rules of this type from the constraint enforcement system. This should only be
+     * applied to rules that are intrinsically incompatible with constraint checking (any
+     * application of this method weakens the reach and strength of the system).
+     *
+     * @param reason user-informative message explaining the reason for exemption (not used)
+     */
+    public <TYPE> Builder exemptFromConstraintChecking(String reason) {
+      Preconditions.checkState(this.supportsConstraintChecking);
+      this.supportsConstraintChecking = false;
+      return this;
+    }
+
+    /**
      * Returns an Attribute.Builder object which contains a replica of the
      * same attribute in the parent rule if exists.
      *
@@ -841,6 +856,14 @@ public final class RuleClass {
    */
   private final boolean failIfMissingConfigurationFragment;
 
+
+  /**
+   * Determines whether instances of this rule should be checked for constraint compatibility
+   * with their dependencies and the rules that depend on them. This should be true for
+   * everything except for rules that are intrinsically incompatible with the constraint system.
+   */
+  private final boolean supportsConstraintChecking;
+
   /**
    * Constructs an instance of RuleClass whose name is 'name', attributes
    * are 'attributes'. The {@code srcsAllowedFiles} determines which types of
@@ -875,6 +898,7 @@ public final class RuleClass {
       @Nullable UserDefinedFunction configuredTargetFunction,
       @Nullable SkylarkEnvironment ruleDefinitionEnvironment,
       Set<Class<?>> allowedConfigurationFragments, boolean failIfMissingConfigurationFragment,
+      boolean supportsConstraintChecking,
       Attribute... attributes) {
     this.name = name;
     this.targetKind = name + " rule";
@@ -896,6 +920,7 @@ public final class RuleClass {
     this.outputsDefaultExecutable = outputsDefaultExecutable;
     this.requiredConfigurationFragments = ImmutableSet.copyOf(allowedConfigurationFragments);
     this.failIfMissingConfigurationFragment = failIfMissingConfigurationFragment;
+    this.supportsConstraintChecking = supportsConstraintChecking;
 
     // create the index:
     int index = 0;
@@ -1066,6 +1091,13 @@ public final class RuleClass {
    */
   public boolean failIfMissingConfigurationFragment() {
     return failIfMissingConfigurationFragment;
+  }
+
+  /**
+   * Returns true if rules of this type can be used with the constraint enforcement system.
+   */
+  public boolean supportsConstraintChecking() {
+    return supportsConstraintChecking;
   }
 
   /**

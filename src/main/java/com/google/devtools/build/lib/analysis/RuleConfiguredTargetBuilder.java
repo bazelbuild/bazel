@@ -141,15 +141,14 @@ public final class RuleConfiguredTargetBuilder {
    * publishes this rule's supported environments for the rules that depend on it.
    */
   private void checkConstraints() {
-    if (providers.get(SupportedEnvironmentsProvider.class) == null) {
-      // Note the "environment" rule sets its own SupportedEnvironmentProvider instance, so this
-      // logic is for "normal" rules that just want to apply default semantics.
-      EnvironmentCollection supportedEnvironments =
-          ConstraintSemantics.getSupportedEnvironments(ruleContext);
-      if (supportedEnvironments != null) {
-        add(SupportedEnvironmentsProvider.class, new SupportedEnvironments(supportedEnvironments));
-        ConstraintSemantics.checkConstraints(ruleContext, supportedEnvironments);
-      }
+    if (!ruleContext.getRule().getRuleClassObject().supportsConstraintChecking()) {
+      return;
+    }
+    EnvironmentCollection supportedEnvironments =
+        ConstraintSemantics.getSupportedEnvironments(ruleContext);
+    if (supportedEnvironments != null) {
+      add(SupportedEnvironmentsProvider.class, new SupportedEnvironments(supportedEnvironments));
+      ConstraintSemantics.checkConstraints(ruleContext, supportedEnvironments);
     }
   }
 
