@@ -102,7 +102,7 @@ public class TestFileOutErr extends FileOutErr {
   @Override
   public void dumpOutAsLatin1(OutputStream out) {
     try {
-      out.write(recorder.getOutputStream().toByteArray());
+      recorder.getOutputStream().writeTo(out);
     } catch (IOException e) {
       throw new RuntimeException(e);
     }
@@ -111,7 +111,7 @@ public class TestFileOutErr extends FileOutErr {
   @Override
   public void dumpErrAsLatin1(OutputStream out) {
     try {
-      out.write(recorder.getErrorStream().toByteArray());
+      recorder.getErrorStream().writeTo(out);
     } catch (IOException e) {
       throw new RuntimeException(e);
     }

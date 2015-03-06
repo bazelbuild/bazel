@@ -13,6 +13,7 @@
 // limitations under the License.
 package com.google.devtools.build.lib.collect;
 
+import static com.google.common.truth.Truth.assertThat;
 import static org.junit.Assert.assertEquals;
 import static org.junit.Assert.assertFalse;
 import static org.junit.Assert.assertNotSame;
@@ -142,7 +143,7 @@ public class CollectionUtilsTest {
       allSets.add(set);
     }
 
-    assertEquals(maxBits, allSets.size());  // Assert that every decoded value is different
+    assertThat(allSets).hasSize(maxBits); // Assert that every decoded value is different
   }
 
   @Test

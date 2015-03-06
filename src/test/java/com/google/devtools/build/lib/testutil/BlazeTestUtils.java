@@ -44,7 +44,7 @@ public class BlazeTestUtils {
     Path runfiles = directories.getFileSystem().getPath(BlazeTestUtils.runfilesDir());
     // Copy over everything in embedded_scripts.
     Path embeddedScripts = runfiles.getRelative(TestConstants.EMBEDDED_SCRIPTS_PATH);
-    Collection<Path> files = new ArrayList<Path>();
+    Collection<Path> files = new ArrayList<>();
     if (embeddedScripts.exists()) {
       files.addAll(embeddedScripts.getDirectoryEntries());
     } else {

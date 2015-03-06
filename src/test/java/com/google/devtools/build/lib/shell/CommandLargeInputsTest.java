@@ -121,11 +121,11 @@ public class CommandLargeInputsTest {
     ByteArrayOutputStream out = new ByteArrayOutputStream();
     ByteArrayOutputStream err = new ByteArrayOutputStream();
     command.execute(Command.NO_INPUT, Command.NO_OBSERVER, out, err);
-    StringBuffer expectedOut = new StringBuffer();
-    StringBuffer expectedErr = new StringBuffer();
+    StringBuilder expectedOut = new StringBuilder();
+    StringBuilder expectedErr = new StringBuilder();
     for (int i = 0; i < 1000; i++) {
-      expectedOut.append("OUT").append(Integer.toString(i)).append("\n");
-      expectedErr.append("ERR").append(Integer.toString(i)).append("\n");
+      expectedOut.append("OUT").append(i).append("\n");
+      expectedErr.append("ERR").append(i).append("\n");
     }
     assertEquals(expectedOut.toString(), out.toString("UTF-8"));
     assertEquals(expectedErr.toString(), err.toString("UTF-8"));

@@ -19,6 +19,7 @@ import static org.junit.Assert.assertFalse;
 import static org.junit.Assert.assertTrue;
 import static org.junit.Assert.fail;
 
+import com.google.common.testing.EqualsTester;
 import com.google.devtools.build.lib.testutil.Scratch;
 import com.google.devtools.build.lib.vfs.Path;
 import com.google.devtools.build.lib.vfs.PathFragment;
@@ -122,8 +123,7 @@ public class RootTest {
 
   public void assertEqualsAndHashCode(boolean expected, Object a, Object b) {
     if (expected) {
-      assertTrue(a.equals(b));
-      assertTrue(a.hashCode() == b.hashCode());
+      new EqualsTester().addEqualityGroup(b, a).testEquals();
     } else {
       assertFalse(a.equals(b));
       assertFalse(a.hashCode() == b.hashCode());

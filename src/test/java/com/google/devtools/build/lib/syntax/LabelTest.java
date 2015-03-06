@@ -13,10 +13,10 @@
 // limitations under the License.
 package com.google.devtools.build.lib.syntax;
 
+import static com.google.common.truth.Truth.assertThat;
 import static com.google.devtools.build.lib.testutil.MoreAsserts.assertContainsRegex;
 import static org.junit.Assert.assertEquals;
 import static org.junit.Assert.assertFalse;
-import static org.junit.Assert.assertTrue;
 import static org.junit.Assert.fail;
 
 import com.google.devtools.build.lib.syntax.Label.SyntaxException;
@@ -144,10 +144,10 @@ public class LabelTest {
     Label l2 = Label.parseAbsolute("//foo/bar:baz");
     Label l3 = Label.parseAbsolute("//foo/bar:quux");
 
-    assertTrue(l1.equals(l1));
-    assertTrue(l2.equals(l1));
-    assertTrue(l1.equals(l2));
-    assertTrue(l2.equals(l1));
+    assertEquals(l1, l1);
+    assertEquals(l1, l2);
+    assertEquals(l2, l1);
+    assertEquals(l1, l2);
 
     assertFalse(l3.equals(l1));
     assertFalse(l1.equals(l3));
@@ -357,8 +357,7 @@ public class LabelTest {
       Label.parseRepositoryLabel("foo//bar/baz:bat/boo");
       fail();
     } catch (SyntaxException e) {
-      assertEquals("invalid repository name 'foo': workspace name must start with '@'",
-          e.getMessage());
+      assertThat(e).hasMessage("invalid repository name 'foo': workspace name must start with '@'");
     }
   }
 }

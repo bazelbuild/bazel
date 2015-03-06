@@ -128,7 +128,7 @@ public class EvalUtilsTest {
       EvalUtils.formatString(format, tuple);
       fail();
     } catch (IllegalFormatException e) {
-      assertEquals(errorMessage, e.getMessage());
+      assertThat(e).hasMessage(errorMessage);
     }
   }
 

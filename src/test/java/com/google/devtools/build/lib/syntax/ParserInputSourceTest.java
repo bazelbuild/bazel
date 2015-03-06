@@ -13,6 +13,7 @@
 // limitations under the License.
 package com.google.devtools.build.lib.syntax;
 
+import static com.google.common.truth.Truth.assertThat;
 import static com.google.devtools.build.lib.util.StringUtilities.joinLines;
 import static org.junit.Assert.assertEquals;
 import static org.junit.Assert.fail;
@@ -86,7 +87,7 @@ public class ParserInputSourceTest {
       fail();
     } catch (IOException e) {
       String expected = "/does/not/exist (No such file or directory)";
-      assertEquals(expected, e.getMessage());
+      assertThat(e).hasMessage(expected);
     }
   }
 
@@ -121,7 +122,7 @@ public class ParserInputSourceTest {
       ParserInputSource.create(in, path);
       fail();
     } catch (IOException e) {
-      assertEquals("Fault injected.", e.getMessage());
+      assertThat(e).hasMessage("Fault injected.");
     }
     assertEquals("Stream closed.", log.toString());
   }

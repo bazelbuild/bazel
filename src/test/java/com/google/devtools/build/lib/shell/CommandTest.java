@@ -13,6 +13,7 @@
 // limitations under the License.
 package com.google.devtools.build.lib.shell;
 
+import static com.google.common.truth.Truth.assertThat;
 import static com.google.devtools.build.lib.shell.TestUtil.assertArrayEquals;
 import static org.junit.Assert.assertEquals;
 import static org.junit.Assert.assertFalse;
@@ -100,7 +101,7 @@ public class CommandTest {
     final Command command = new Command(commandArgs, env, workingDir);
     assertArrayEquals(commandArgs, command.getCommandLineElements());
     for (final String key : env.keySet()) {
-      assertEquals(env.get(key), command.getEnvironmentVariables().get(key));
+      assertThat(command.getEnvironmentVariables()).containsEntry(key, env.get(key));
     }
     assertEquals(workingDir, command.getWorkingDirectory());
   }
@@ -112,8 +113,8 @@ public class CommandTest {
     final Command command = new Command(new String[] {"ls"});
     final CommandResult result = command.execute();
     assertTrue(result.getTerminationStatus().success());
-    assertTrue(result.getStderr().length == 0);
-    assertTrue(result.getStdout().length > 0);
+    assertEquals(0, result.getStderr().length);
+    assertThat(result.getStdout().length).isGreaterThan(0);
   }
 
   @Test
@@ -149,8 +150,8 @@ public class CommandTest {
                                                        "print 'a'x100000" });
     final CommandResult result = command.execute();
     assertTrue(result.getTerminationStatus().success());
-    assertTrue(result.getStderr().length == 0);
-    assertTrue(result.getStdout().length > 0);
+    assertEquals(0, result.getStderr().length);
+    assertThat(result.getStdout().length).isGreaterThan(0);
   }
 
   @Test
@@ -199,8 +200,8 @@ public class CommandTest {
     CommandResult result = command.execute(emptyInput,
                                            Command.NO_OBSERVER, out, err);
     assertTrue(result.getTerminationStatus().success());
-    assertEquals("", out.toString("UTF-8"));
-    assertEquals("", err.toString("UTF-8"));
+    assertThat(out.toString("UTF-8")).isEmpty();
+    assertThat(err.toString("UTF-8")).isEmpty();
   }
 
   @Test
@@ -208,8 +209,8 @@ public class CommandTest {
     final Command command = new Command(new String[]{"/bin/cat"});
     CommandResult result = command.execute();
     assertTrue(result.getTerminationStatus().success());
-    assertEquals("", new String(result.getStdout(), "UTF-8"));
-    assertEquals("", new String(result.getStderr(), "UTF-8"));
+    assertThat(new String(result.getStdout(), "UTF-8")).isEmpty();
+    assertThat(new String(result.getStderr(), "UTF-8")).isEmpty();
   }
 
   @Test
@@ -355,7 +356,7 @@ public class CommandTest {
         new Command(args).execute();
         fail("Should have exited with status " + exit);
       } catch (BadExitStatusException e) {
-        assertEquals("Process exited with status " + exit, e.getMessage());
+        assertThat(e).hasMessage("Process exited with status " + exit);
         checkCommandElements(e, "/bin/sh", "-c", "exit " + exit);
         TerminationStatus status = e.getResult().getTerminationStatus();
         assertFalse(status.success());
@@ -373,7 +374,7 @@ public class CommandTest {
         new Command(args).execute();
         fail("Should have exited with status " + expected);
       } catch (BadExitStatusException e) {
-        assertEquals("Process exited with status " + expected, e.getMessage());
+        assertThat(e).hasMessage("Process exited with status " + expected);
         checkCommandElements(e, "/bin/sh", "-c", "exit " + exit);
         TerminationStatus status = e.getResult().getTerminationStatus();
         assertFalse(status.success());
@@ -398,7 +399,7 @@ public class CommandTest {
         new Command(args).execute();
         fail("Expected signal " + signal);
       } catch (AbnormalTerminationException e) {
-        assertEquals("Process terminated by signal " + signal, e.getMessage());
+        assertThat(e).hasMessage("Process terminated by signal " + signal);
         checkCommandElements(e, killmyself, "" + signal);
         TerminationStatus status = e.getResult().getTerminationStatus();
         assertFalse(status.success());
@@ -535,8 +536,8 @@ public class CommandTest {
 
     final CommandResult result = resultContainer[0];
     assertTrue(result.getTerminationStatus().success());
-    assertTrue(result.getStderr().length == 0);
-    assertTrue(result.getStdout().length == 0);
+    assertEquals(0, result.getStderr().length);
+    assertEquals(0, result.getStdout().length);
   }
 
   @Test
@@ -554,7 +555,7 @@ public class CommandTest {
     } catch (AbnormalTerminationException e) {
       // Good.
       checkCommandElements(e, "/bin/echo", "foo");
-      assertEquals("java.io.IOException", e.getMessage());
+      assertThat(e).hasMessage("java.io.IOException");
     }
   }
 
@@ -681,7 +682,7 @@ public class CommandTest {
   private static void checkSuccess(final CommandResult result,
                                    final String expectedOutput) {
     assertTrue(result.getTerminationStatus().success());
-    assertTrue(result.getStderr().length == 0);
+    assertEquals(0, result.getStderr().length);
     assertEquals(expectedOutput, new String(result.getStdout()));
   }
 }

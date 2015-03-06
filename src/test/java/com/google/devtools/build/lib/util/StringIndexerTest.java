@@ -78,7 +78,7 @@ public abstract class StringIndexerTest {
   protected void assertContent() {
     for (int i = 0; i < indexer.size(); i++) {
       assertNotNull(mappings.get(i));
-      assertEquals(mappings.get(i), indexer.getStringForIndex(i));
+      assertThat(mappings).containsEntry(i, indexer.getStringForIndex(i));
     }
   }
 

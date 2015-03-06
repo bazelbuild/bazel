@@ -13,6 +13,7 @@
 // limitations under the License.
 package com.google.devtools.build.lib.events;
 
+import static com.google.common.truth.Truth.assertThat;
 import static org.junit.Assert.assertEquals;
 
 import com.google.common.collect.ImmutableList;
@@ -55,7 +56,7 @@ public class ReporterTest extends EventTestTemplate {
     reporter.handle(interesting);
     reporter.handle(new Event(EventKind.WARNING, null, "ignore-me", "good"));
 
-    assertEquals(ImmutableList.copyOf(collector.iterator()), ImmutableList.of(interesting));
+    assertEquals(ImmutableList.copyOf(collector), ImmutableList.of(interesting));
   }
 
   @Test
@@ -66,7 +67,7 @@ public class ReporterTest extends EventTestTemplate {
     for (Event e : want) {
       reporter.handle(e);
     }
-    ImmutableList<Event> got = ImmutableList.copyOf(collector.iterator());
+    ImmutableList<Event> got = ImmutableList.copyOf(collector);
     assertEquals(got, want);
   }
 
@@ -87,14 +88,14 @@ public class ReporterTest extends EventTestTemplate {
 
   @Test
   public void removeHandlerUndoesAddHandler() {
-    assertEquals("", out.toString());
+    assertThat(out.toString()).isEmpty();
     reporter.addHandler(outAppender);
     reporter.handle(Event.error(location, "Event gets registered."));
     assertEquals("Event gets registered.", out.toString());
     out = new StringBuilder();
     reporter.removeHandler(outAppender);
     reporter.handle(Event.error(location, "Event gets ignored."));
-    assertEquals("", out.toString());
+    assertThat(out.toString()).isEmpty();
   }
 
 }

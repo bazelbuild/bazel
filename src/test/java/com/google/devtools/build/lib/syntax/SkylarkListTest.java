@@ -153,7 +153,7 @@ public class SkylarkListTest extends AbstractEvaluationTestCase {
       exec(input);
       fail();
     } catch (Exception e) {
-      assertEquals(msg, e.getMessage());
+      assertThat(e).hasMessage(msg);
     }
   }
 }

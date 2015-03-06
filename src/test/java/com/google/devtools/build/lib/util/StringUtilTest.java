@@ -13,12 +13,14 @@
 // limitations under the License.
 package com.google.devtools.build.lib.util;
 
+import static com.google.common.truth.Truth.assertThat;
 import static com.google.devtools.build.lib.util.StringUtil.capitalize;
 import static com.google.devtools.build.lib.util.StringUtil.indent;
 import static com.google.devtools.build.lib.util.StringUtil.joinEnglishList;
 import static com.google.devtools.build.lib.util.StringUtil.splitAndInternString;
 import static com.google.devtools.build.lib.util.StringUtil.stripSuffix;
 import static org.junit.Assert.assertEquals;
+import static org.junit.Assert.assertNull;
 import static org.junit.Assert.assertSame;
 
 import com.google.common.collect.ImmutableList;
@@ -57,13 +59,13 @@ public class StringUtilTest {
 
   @Test
   public void splitAndIntern() throws Exception {
-    assertEquals(ImmutableList.of(), splitAndInternString("       "));
-    assertEquals(ImmutableList.of(), splitAndInternString(null));
+    assertThat(splitAndInternString("       ")).isEmpty();
+    assertThat(splitAndInternString(null)).isEmpty();
     List<String> list1 = splitAndInternString("    x y    z    z");
     List<String> list2 = splitAndInternString("a z    c z");
 
-    assertEquals(ImmutableList.of("x", "y", "z", "z"), list1);
-    assertEquals(ImmutableList.of("a", "z", "c", "z"), list2);
+    assertThat(list1).containsExactly("x", "y", "z", "z").inOrder();
+    assertThat(list2).containsExactly("a", "z", "c", "z").inOrder();
     assertSame(list1.get(2), list1.get(3));
     assertSame(list1.get(2), list2.get(1));
     assertSame(list2.get(1), list2.get(3));
@@ -81,8 +83,8 @@ public class StringUtilTest {
 
   @Test
   public void testIndent() throws Exception {
-    assertEquals("", indent("", 0));
-    assertEquals("", indent("", 1));
+    assertThat(indent("", 0)).isEmpty();
+    assertThat(indent("", 1)).isEmpty();
     assertEquals("a", indent("a", 1));
     assertEquals("\n  a", indent("\na", 2));
     assertEquals("a\n  b", indent("a\nb", 2));
@@ -92,16 +94,16 @@ public class StringUtilTest {
 
   @Test
   public void testStripSuffix() throws Exception {
-    assertEquals("", stripSuffix("", ""));
-    assertEquals(null, stripSuffix("", "a"));
+    assertThat(stripSuffix("", "")).isEmpty();
+    assertNull(stripSuffix("", "a"));
     assertEquals("a", stripSuffix("a", ""));
     assertEquals("a", stripSuffix("aa", "a"));
-    assertEquals(null, stripSuffix("ab", "c"));
+    assertNull(stripSuffix("ab", "c"));
   }
 
   @Test
   public void testCapitalize() throws Exception {
-    assertEquals("", capitalize(""));
+    assertThat(capitalize("")).isEmpty();
     assertEquals("Joe", capitalize("joe"));
     assertEquals("Joe", capitalize("Joe"));
     assertEquals("O", capitalize("o"));

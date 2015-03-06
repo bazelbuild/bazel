@@ -13,6 +13,7 @@
 // limitations under the License.
 package com.google.devtools.build.lib.shell;
 
+import static com.google.common.truth.Truth.assertThat;
 import static com.google.devtools.build.lib.shell.ShellUtils.prettyPrintArgv;
 import static com.google.devtools.build.lib.shell.ShellUtils.shellEscape;
 import static com.google.devtools.build.lib.shell.ShellUtils.tokenize;
@@ -55,7 +56,7 @@ public class ShellUtilsTest {
 
   private void assertTokenize(String copts, String... expectedTokens)
       throws Exception {
-    List<String> actualTokens = new ArrayList<String>();
+    List<String> actualTokens = new ArrayList<>();
     tokenize(actualTokens, copts);
     assertEquals(Arrays.asList(expectedTokens), actualTokens);
   }
@@ -126,7 +127,7 @@ public class ShellUtilsTest {
       tokenize(new ArrayList<String>(), copts);
       fail();
     } catch (ShellUtils.TokenizationException e) {
-      assertEquals(expectedError, e.getMessage());
+      assertThat(e).hasMessage(expectedError);
     }
   }
 
@@ -163,14 +164,14 @@ public class ShellUtilsTest {
     // because String.split() ignores trailing empty strings.
     ArrayList<String> words = Lists.newArrayList();
     int index;
-    while ((index = stdout.indexOf("\n")) >= 0) {
+    while ((index = stdout.indexOf('\n')) >= 0) {
       words.add(stdout.substring(0, index));
       stdout = stdout.substring(index + 1);
     }
     assertEquals(in, words);
 
     // Assert that tokenize is dual to pretty-print:
-    List<String> out = new ArrayList<String>();
+    List<String> out = new ArrayList<>();
     try {
       tokenize(out, shellCommand);
     } finally {

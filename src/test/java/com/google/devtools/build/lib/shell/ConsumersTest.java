@@ -13,7 +13,7 @@
 // limitations under the License.
 package com.google.devtools.build.lib.shell;
 
-import static org.junit.Assert.assertEquals;
+import static com.google.common.truth.Truth.assertThat;
 import static org.junit.Assert.assertSame;
 import static org.junit.Assert.fail;
 
@@ -65,7 +65,7 @@ public class ConsumersTest {
       outErr.waitForCompletion();
       fail();
     } catch (IOException e) {
-      assertEquals(SECRET_MESSAGE, e.getMessage());
+      assertThat(e).hasMessage(SECRET_MESSAGE);
     }
   }
 
@@ -118,7 +118,7 @@ public class ConsumersTest {
     } catch (IOException e) {
       fail();
     } catch (Error e) {
-      assertEquals(SECRET_MESSAGE, e.getMessage());
+      assertThat(e).hasMessage(SECRET_MESSAGE);
     }
   }
 
@@ -143,7 +143,7 @@ public class ConsumersTest {
       outErr.waitForCompletion();
       fail();
     } catch (RuntimeException e) {
-      assertEquals(SECRET_MESSAGE, e.getMessage());
+      assertThat(e).hasMessage(SECRET_MESSAGE);
     }
   }
 

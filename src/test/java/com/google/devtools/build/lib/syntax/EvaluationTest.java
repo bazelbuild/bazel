@@ -19,6 +19,7 @@ import static org.junit.Assert.assertFalse;
 import static org.junit.Assert.assertTrue;
 import static org.junit.Assert.fail;
 
+import com.google.common.base.Functions;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.Iterables;
@@ -258,10 +259,7 @@ public class EvaluationTest extends AbstractEvaluationTestCase {
           if ((Integer) args.get(0) == 0) {
             return keys;
           } else {
-            return Lists.transform(keys, new com.google.common.base.Function<String, Object> () {
-                  @Override public Object apply (String s) {
-                    return kwargs.get(s);
-                  }});
+            return Lists.transform(keys, Functions.forMap(kwargs, null));
           }
         }
       };
@@ -530,7 +528,7 @@ public class EvaluationTest extends AbstractEvaluationTestCase {
       eval(input, env);
       fail();
     } catch (EvalException e) {
-      assertEquals(msg, e.getMessage());
+      assertThat(e).hasMessage(msg);
     }
   }
 
@@ -544,7 +542,7 @@ public class EvaluationTest extends AbstractEvaluationTestCase {
       exec(input, env);
       fail();
     } catch (EvalException e) {
-      assertEquals(msg, e.getMessage());
+      assertThat(e).hasMessage(msg);
     }
   }
 }

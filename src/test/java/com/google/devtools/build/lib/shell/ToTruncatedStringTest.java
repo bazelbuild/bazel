@@ -13,6 +13,7 @@
 // limitations under the License.
 package com.google.devtools.build.lib.shell;
 
+import static com.google.common.truth.Truth.assertThat;
 import static org.junit.Assert.assertEquals;
 
 import org.junit.Before;
@@ -44,12 +45,12 @@ public class ToTruncatedStringTest {
 
   @Test
   public void testTruncatingNullYieldsEmptyString() {
-    assertEquals("", LogUtil.toTruncatedString(null));
+    assertThat(LogUtil.toTruncatedString(null)).isEmpty();
   }
 
   @Test
   public void testTruncatingEmptyArrayYieldsEmptyString() {
-    assertEquals("", LogUtil.toTruncatedString(new byte[0]));
+    assertThat(LogUtil.toTruncatedString(new byte[0])).isEmpty();
   }
 
   @Test

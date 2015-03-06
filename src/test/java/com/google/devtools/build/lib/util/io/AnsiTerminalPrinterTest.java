@@ -13,10 +13,10 @@
 // limitations under the License.
 package com.google.devtools.build.lib.util.io;
 
+import static com.google.common.truth.Truth.assertThat;
 import static com.google.devtools.build.lib.util.io.AnsiTerminalPrinter.Mode;
 import static org.junit.Assert.assertEquals;
 import static org.junit.Assert.assertFalse;
-import static org.junit.Assert.assertTrue;
 
 import com.google.devtools.build.lib.testutil.MoreAsserts;
 
@@ -79,9 +79,9 @@ public class AnsiTerminalPrinterTest {
     printer.print(Mode.INFO + "XXX" + Mode.ERROR + "XXX" + Mode.WARNING +"XXX" + Mode.DEFAULT
         + "XXX" + Mode.INFO + "XXX" + Mode.ERROR + "XXX" + Mode.WARNING +"XXX" + Mode.DEFAULT);
     String[] codes = stream.toString().split("XXX");
-    assertEquals(8, codes.length);
+    assertThat(codes).hasLength(8);
     for (int i = 0; i < 4; i++) {
-      assertTrue(codes[i].length() > 0);
+      assertThat(codes[i]).isNotEmpty();
       assertEquals(codes[i], codes[i+4]);
     }
     assertFalse(codes[0].equals(codes[1]));

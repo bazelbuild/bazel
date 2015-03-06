@@ -104,7 +104,7 @@ public final class TestSuiteBuilder {
   }
 
   private static boolean isJunit4Test(Class<?> container) {
-    return container.getAnnotation(RunWith.class) != null;
+    return container.isAnnotationPresent(RunWith.class);
   }
 
   private static boolean isJunit3Test(Class<?> container) {

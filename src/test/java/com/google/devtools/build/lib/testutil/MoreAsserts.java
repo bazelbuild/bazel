@@ -21,13 +21,14 @@ import static org.junit.Assert.fail;
 
 import com.google.common.base.Joiner;
 import com.google.common.base.Predicate;
+import com.google.common.base.Predicates;
 import com.google.common.collect.Iterables;
-import com.google.common.collect.Lists;
 import com.google.common.collect.Maps;
 import com.google.common.collect.Sets;
 
 import java.lang.ref.Reference;
 import java.lang.reflect.Field;
+import java.util.ArrayDeque;
 import java.util.Comparator;
 import java.util.Map;
 import java.util.Queue;
@@ -147,8 +148,8 @@ public class MoreAsserts {
       }
     };
     if (isRetained(p, start)) {
-      assert_().fail("Found an instance of " + clazz.getCanonicalName() +
-          " reachable from " + start.toString());
+      assert_().fail(
+          "Found an instance of " + clazz.getCanonicalName() + " reachable from " + start);
     }
   }
 
@@ -157,24 +158,17 @@ public class MoreAsserts {
   static {
     try {
       NON_STRONG_REF = Reference.class.getDeclaredField("referent");
-    } catch (SecurityException e) {
-      throw new RuntimeException(e);
-    } catch (NoSuchFieldException e) {
+    } catch (SecurityException | NoSuchFieldException e) {
       throw new RuntimeException(e);
     }
   }
 
-  static final Predicate<Field> ALL_STRONG_REFS = new Predicate<Field>() {
-    @Override
-    public boolean apply(Field field) {
-      return NON_STRONG_REF.equals(field);
-    }
-  };
+  static final Predicate<Field> ALL_STRONG_REFS = Predicates.equalTo(NON_STRONG_REF);
 
   private static boolean isRetained(Predicate<Object> predicate, Object start) {
     Map<Object, Object> visited = Maps.newIdentityHashMap();
     visited.put(start, start);
-    Queue<Object> toScan = Lists.newLinkedList();
+    Queue<Object> toScan = new ArrayDeque<>();
     toScan.add(start);
 
     while (!toScan.isEmpty()) {
@@ -214,9 +208,7 @@ public class MoreAsserts {
                   toScan.add(ref);
                 }
               }
-            } catch (IllegalArgumentException e) {
-              throw new IllegalStateException("Error when scanning the heap", e);
-            } catch (IllegalAccessException e) {
+            } catch (IllegalArgumentException | IllegalAccessException e) {
               throw new IllegalStateException("Error when scanning the heap", e);
             }
           }
@@ -308,7 +300,7 @@ public class MoreAsserts {
   public static Set<String> asStringSet(Iterable<?> collection) {
     Set<String> set = Sets.newTreeSet();
     for (Object o : collection) {
-      set.add("\"" + String.valueOf(o) + "\"");
+      set.add("\"" + o + "\"");
     }
     return set;
   }
@@ -316,8 +308,7 @@ public class MoreAsserts {
   public static <T> void
   assertSameContents(Iterable<? extends T> expected, Iterable<? extends T> actual) {
     if (!Sets.newHashSet(expected).equals(Sets.newHashSet(actual))) {
-      fail("got string set: " + asStringSet(actual).toString()
-          + "\nwant: " + asStringSet(expected).toString());
+      fail("got string set: " + asStringSet(actual) + "\nwant: " + asStringSet(expected));
     }
   }
 }

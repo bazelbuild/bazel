@@ -13,6 +13,7 @@
 // limitations under the License.
 package com.google.devtools.build.lib.vfs;
 
+import static com.google.common.truth.Truth.assertThat;
 import static org.junit.Assert.assertEquals;
 import static org.junit.Assert.assertFalse;
 import static org.junit.Assert.assertNull;
@@ -260,8 +261,8 @@ public class PathFragmentTest {
     assertEquals("foo", new PathFragment("/foo/").getBaseName());
     assertEquals("foo", new PathFragment("foo").getBaseName());
     assertEquals("foo", new PathFragment("/foo").getBaseName());
-    assertEquals("", new PathFragment("/").getBaseName());
-    assertEquals("", new PathFragment("").getBaseName());
+    assertThat(new PathFragment("/").getBaseName()).isEmpty();
+    assertThat(new PathFragment("").getBaseName()).isEmpty();
   }
 
   private static void assertPath(String expected, PathFragment actual) {
@@ -277,10 +278,10 @@ public class PathFragmentTest {
     assertPath("/baz", new PathFragment("/foo/").replaceName("baz"));
     assertPath("baz", new PathFragment("foo").replaceName("baz"));
     assertPath("/baz", new PathFragment("/foo").replaceName("baz"));
-    assertEquals(null, new PathFragment("/").replaceName("baz"));
-    assertEquals(null, new PathFragment("/").replaceName(""));
-    assertEquals(null, new PathFragment("").replaceName("baz"));
-    assertEquals(null, new PathFragment("").replaceName(""));
+    assertNull(new PathFragment("/").replaceName("baz"));
+    assertNull(new PathFragment("/").replaceName(""));
+    assertNull(new PathFragment("").replaceName("baz"));
+    assertNull(new PathFragment("").replaceName(""));
 
     assertPath("foo/bar/baz", new PathFragment("foo/bar").replaceName("bar/baz"));
     assertPath("foo/bar/baz", new PathFragment("foo/bar").replaceName("bar/baz/"));

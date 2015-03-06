@@ -13,7 +13,7 @@
 // limitations under the License.
 package com.google.devtools.build.lib.unix;
 
-import static org.junit.Assert.assertEquals;
+import static com.google.common.truth.Truth.assertThat;
 
 import com.google.common.hash.HashCode;
 import com.google.devtools.build.lib.testutil.TestUtils;
@@ -55,7 +55,7 @@ public class FilesystemUtilsTest {
    */
   @Test
   public void testValidateMd5Sum() throws Exception {
-    HashMap<String, String> testVectors = new HashMap<String, String>();
+    HashMap<String, String> testVectors = new HashMap<>();
     testVectors.put("", "d41d8cd98f00b204e9800998ecf8427e");
     testVectors.put("a", "0cc175b9c0f1b6a831c399e269772661");
     testVectors.put("abc", "900150983cd24fb0d6963f7d28e17f72");
@@ -70,7 +70,7 @@ public class FilesystemUtilsTest {
     for (String testInput : testVectors.keySet()) {
       FileSystemUtils.writeContentAsLatin1(testFile, testInput);
       HashCode result = FilesystemUtils.md5sum(testFile.getPathString());
-      assertEquals(result.toString(), testVectors.get(testInput));
+      assertThat(testVectors).containsEntry(testInput, result.toString());
     }
   }
 }

@@ -15,7 +15,6 @@ package com.google.devtools.build.lib.vfs;
 
 import static com.google.common.truth.Truth.assertThat;
 import static com.google.devtools.build.lib.testutil.MoreAsserts.assertSameContents;
-import static org.junit.Assert.assertEquals;
 import static org.junit.Assert.fail;
 
 import com.google.common.collect.ImmutableList;
@@ -117,7 +116,7 @@ public class RecursiveGlobTest {
     Collection<Path> globResult = UnixGlob.forPath(fileSystem.getPath("/does/not/exist"))
         .addPattern("**")
         .globInterruptible();
-    assertEquals(0, globResult.size());
+    assertThat(globResult).isEmpty();
   }
 
   @Test

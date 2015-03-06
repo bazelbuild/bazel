@@ -13,7 +13,7 @@
 // limitations under the License.
 package com.google.devtools.build.lib.concurrent;
 
-import static org.junit.Assert.assertEquals;
+import static com.google.common.truth.Truth.assertThat;
 import static org.junit.Assert.assertFalse;
 import static org.junit.Assert.assertNotNull;
 import static org.junit.Assert.assertTrue;
@@ -69,12 +69,12 @@ public class MoreFuturesTest {
     }
     ListenableFuture<List<Object>> list = MoreFutures.allAsListOrCancelAll(futureList);
     List<Object> result = list.get();
-    assertEquals(futureList.size(), result.size());
+    assertThat(result).hasSize(futureList.size());
     for (DelayedFuture delayedFuture : futureList) {
       assertFalse(delayedFuture.wasCanceled);
       assertFalse(delayedFuture.wasInterrupted);
       assertNotNull(delayedFuture.get());
-      assertTrue(result.contains(delayedFuture.get()));
+      assertThat(result).contains(delayedFuture.get());
     }
   }
 

@@ -19,6 +19,8 @@ import static org.junit.Assert.assertFalse;
 import static org.junit.Assert.assertTrue;
 import static org.junit.Assert.fail;
 
+import com.google.common.testing.EqualsTester;
+
 import org.junit.Before;
 import org.junit.Test;
 import org.junit.runner.RunWith;
@@ -42,9 +44,8 @@ public class UnixPathEqualityTest {
   }
 
   private void assertTwoWayEquals(Object obj1, Object obj2) {
-    assertTrue(obj1.equals(obj2));
-    assertTrue(obj2.equals(obj1));
-    assertEquals(obj1.hashCode(), obj2.hashCode());
+    assertEquals(obj2, obj1);
+    new EqualsTester().addEqualityGroup(obj1, obj2).testEquals();
   }
 
   private void assertTwoWayNotEquals(Object obj1, Object obj2) {

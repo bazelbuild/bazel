@@ -152,15 +152,10 @@ public class TestAction extends AbstractAction {
 
   /** No-op action that has exactly one output, and can be a middleman action. */
   public static class DummyAction extends TestAction {
-    private static final Runnable NOOP = new Runnable() {
-      @Override
-      public void run() {}
-    };
-
     private final MiddlemanType type;
 
     public DummyAction(Collection<Artifact> inputs, Artifact output, MiddlemanType type) {
-      super(NOOP, inputs, ImmutableList.of(output));
+      super(NO_EFFECT, inputs, ImmutableList.of(output));
       this.type = type;
     }
 

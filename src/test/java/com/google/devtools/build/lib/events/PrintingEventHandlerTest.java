@@ -13,7 +13,7 @@
 // limitations under the License.
 package com.google.devtools.build.lib.events;
 
-import static org.junit.Assert.assertEquals;
+import static com.google.common.truth.Truth.assertThat;
 
 import com.google.devtools.build.lib.testutil.MoreAsserts;
 import com.google.devtools.build.lib.util.io.RecordingOutErr;
@@ -37,7 +37,7 @@ public class PrintingEventHandlerTest extends EventTestTemplate {
     MoreAsserts.assertEqualsUnifyingLineEnds("WARNING: /my/sample/path.txt:3:4: "
                  + "This is not an error message.\n",
                  recordingOutErr.errAsLatin1());
-    assertEquals("", recordingOutErr.outAsLatin1());
+    assertThat(recordingOutErr.outAsLatin1()).isEmpty();
   }
 
 }

@@ -99,7 +99,7 @@ public class BuildRuleWithDefaultsBuilder extends BuildRuleBuilder {
       } else {
         FileTypeSet fileTypes = attribute.getAllowedFileTypesPredicate();
         // This argument should always hold, if not that means a Blaze design/implementation error
-        Preconditions.checkArgument(fileTypes.getExtensions().size() > 0);
+        Preconditions.checkArgument(!fileTypes.getExtensions().isEmpty());
         extension = fileTypes.getExtensions().get(0);
       }
       label = getDummyFileLabel(rulePkg, filePkg, extension, attrType);

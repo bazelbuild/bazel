@@ -102,7 +102,7 @@ public class ActionExecutionStatusReporterTest {
   private void verifyOutput(String... lines) throws Exception {
     collector.clear();
     statusReporter.showCurrentlyExecutingActions("");
-    assertThat(Splitter.on("\n").omitEmptyStrings().trimResults().split(
+    assertThat(Splitter.on('\n').omitEmptyStrings().trimResults().split(
         Iterables.getOnlyElement(collector).getMessage().replaceAll(" +", " ")))
         .containsExactlyElementsIn(Arrays.asList(lines)).inOrder();
   }
@@ -110,7 +110,7 @@ public class ActionExecutionStatusReporterTest {
   private void verifyWarningOutput(String... lines) throws Exception {
     collector.clear();
     statusReporter.warnAboutCurrentlyExecutingActions();
-    assertThat(Splitter.on("\n").omitEmptyStrings().trimResults().split(
+    assertThat(Splitter.on('\n').omitEmptyStrings().trimResults().split(
         Iterables.getOnlyElement(collector).getMessage().replaceAll(" +", " ")))
         .containsExactlyElementsIn(Arrays.asList(lines)).inOrder();
   }

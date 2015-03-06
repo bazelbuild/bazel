@@ -14,6 +14,7 @@
 
 package com.google.devtools.build.lib.syntax;
 
+import static com.google.common.truth.Truth.assertThat;
 import static org.junit.Assert.assertEquals;
 import static org.junit.Assert.fail;
 
@@ -38,7 +39,7 @@ public class EnvironmentTest extends AbstractEvaluationTestCase {
       env.lookup("foo");
       fail();
     } catch (Environment.NoSuchVariableException e) {
-       assertEquals("no such variable: foo", e.getMessage());
+      assertThat(e).hasMessage("no such variable: foo");
     }
 
     env.update("foo", "bar");
@@ -72,7 +73,7 @@ public class EnvironmentTest extends AbstractEvaluationTestCase {
       env.lookup("foo");
       fail();
     } catch (Environment.NoSuchVariableException e) {
-      assertEquals("no such variable: foo", e.getMessage());
+      assertThat(e).hasMessage("no such variable: foo");
     }
 
     exec(parseStmt("foo = 'bar'"), env);
@@ -89,7 +90,7 @@ public class EnvironmentTest extends AbstractEvaluationTestCase {
       eval(parseExpr("foo"), env);
       fail();
     } catch (EvalException e) {
-      assertEquals("name 'foo' is not defined", e.getMessage());
+      assertThat(e).hasMessage("name 'foo' is not defined");
     }
 
     env.update("foo", "bar");
@@ -106,7 +107,7 @@ public class EnvironmentTest extends AbstractEvaluationTestCase {
       eval(parseExpr("foo"), env);
       fail();
     } catch (EvalException e) {
-      assertEquals("name 'foo' is not defined", e.getMessage());
+      assertThat(e).hasMessage("name 'foo' is not defined");
     }
 
     exec(parseStmt("foo = 'bar'"), env);
@@ -144,7 +145,7 @@ public class EnvironmentTest extends AbstractEvaluationTestCase {
       new Environment().update("some_name", null);
       fail();
     } catch (NullPointerException e) {
-      assertEquals("update(value == null)", e.getMessage());
+      assertThat(e).hasMessage("update(value == null)");
     }
   }
 }

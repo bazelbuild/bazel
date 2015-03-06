@@ -14,7 +14,6 @@
 package com.google.devtools.build.lib.vfs;
 
 import static com.google.common.truth.Truth.assertThat;
-import static org.junit.Assert.assertEquals;
 import static org.junit.Assert.assertFalse;
 import static org.junit.Assert.assertTrue;
 import static org.junit.Assert.fail;
@@ -138,7 +137,7 @@ public class GlobTest {
     Collection<Path> globResult = UnixGlob.forPath(fs.getPath("/does/not/exist"))
         .addPattern("*.txt")
         .globInterruptible();
-    assertEquals(0, globResult.size());
+    assertThat(globResult).isEmpty();
   }
 
   @Test

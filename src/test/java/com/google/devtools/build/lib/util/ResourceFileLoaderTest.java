@@ -13,6 +13,7 @@
 // limitations under the License.
 package com.google.devtools.build.lib.util;
 
+import static com.google.common.truth.Truth.assertThat;
 import static org.junit.Assert.assertEquals;
 import static org.junit.Assert.fail;
 
@@ -42,7 +43,7 @@ public class ResourceFileLoaderTest {
           "does_not_exist.txt");
       fail();
     } catch (IOException e) {
-      assertEquals("does_not_exist.txt not found.", e.getMessage());
+      assertThat(e).hasMessage("does_not_exist.txt not found.");
     }
   }
 

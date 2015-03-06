@@ -13,6 +13,7 @@
 // limitations under the License.
 package com.google.devtools.build.lib.vfs;
 
+import static com.google.common.truth.Truth.assertThat;
 import static org.junit.Assert.assertEquals;
 import static org.junit.Assert.assertFalse;
 import static org.junit.Assert.assertTrue;
@@ -175,7 +176,7 @@ public class ZipFileSystemTest {
       throws Exception {
     InputStream is = fs.getPath(name).getInputStream();
     List<String> lines = CharStreams.readLines(new InputStreamReader(is, "ISO-8859-1"));
-    assertEquals(expectedSize, lines.size());
+    assertThat(lines).hasSize(expectedSize);
     for (int i = 0; i < expectedSize; i++) {
       assertEquals("body", lines.get(i));
     }

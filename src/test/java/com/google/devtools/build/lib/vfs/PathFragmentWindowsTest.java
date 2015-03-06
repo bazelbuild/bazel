@@ -13,6 +13,7 @@
 // limitations under the License.
 package com.google.devtools.build.lib.vfs;
 
+import static com.google.common.truth.Truth.assertThat;
 import static org.junit.Assert.assertEquals;
 import static org.junit.Assert.assertFalse;
 import static org.junit.Assert.assertNull;
@@ -167,7 +168,7 @@ public class PathFragmentWindowsTest {
     assertEquals("bar", new PathFragment("C:/foo/bar").getBaseName());
     assertEquals("foo", new PathFragment("C:/foo").getBaseName());
     // Never return the drive name as a basename.
-    assertEquals("", new PathFragment("C:/").getBaseName());
+    assertThat(new PathFragment("C:/").getBaseName()).isEmpty();
   }
 
   private static void assertPath(String expected, PathFragment actual) {
@@ -177,7 +178,7 @@ public class PathFragmentWindowsTest {
   @Test
   public void testReplaceNameWindows() throws Exception {
     assertPath("C:/foo/baz", new PathFragment("C:/foo/bar").replaceName("baz"));
-    assertEquals(null, new PathFragment("C:/").replaceName("baz"));
+    assertNull(new PathFragment("C:/").replaceName("baz"));
   }
 
   @Test

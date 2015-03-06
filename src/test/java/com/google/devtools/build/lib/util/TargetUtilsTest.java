@@ -13,6 +13,7 @@
 // limitations under the License.
 package com.google.devtools.build.lib.util;
 
+import static com.google.common.truth.Truth.assertThat;
 import static org.junit.Assert.assertEquals;
 
 import com.google.devtools.build.lib.packages.TargetUtils;
@@ -31,6 +32,6 @@ public class TargetUtilsTest {
   public void getRuleLanguage() {
     assertEquals("java", TargetUtils.getRuleLanguage("java_binary"));
     assertEquals("foobar", TargetUtils.getRuleLanguage("foobar"));
-    assertEquals("", TargetUtils.getRuleLanguage(""));
+    assertThat(TargetUtils.getRuleLanguage("")).isEmpty();
   }
 }

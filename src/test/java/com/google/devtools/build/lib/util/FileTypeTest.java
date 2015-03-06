@@ -106,7 +106,7 @@ public class FileTypeTest {
     FileTypeSet allowedTypes = FileTypeSet.of(TEXT, HTML);
 
     assertTrue(allowedTypes.matches("readme.txt"));
-    assertTrue(!allowedTypes.matches("style.css"));
+    assertFalse(allowedTypes.matches("style.css"));
   }
 
   private List<HasFilename> getArtifacts() {

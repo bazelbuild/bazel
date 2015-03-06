@@ -14,6 +14,7 @@
 package com.google.devtools.build.lib.vfs;
 
 import static org.junit.Assert.assertEquals;
+import static org.junit.Assert.assertNull;
 
 import com.google.devtools.build.lib.testutil.TestUtils;
 import com.google.devtools.build.lib.vfs.util.FileSystems;
@@ -53,7 +54,7 @@ public class UnixPathGetParentTest {
 
   @Test
   public void testAbsoluteRootHasNoParent() {
-    assertEquals(null, getParent("/"));
+    assertNull(getParent("/"));
   }
 
   @Test

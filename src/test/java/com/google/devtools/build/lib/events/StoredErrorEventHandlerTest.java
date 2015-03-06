@@ -67,9 +67,6 @@ public class StoredErrorEventHandlerTest {
     }
 
     eventHandler.replayOn(sink);
-    assertEquals(events.size(), sink.getEvents().size());
-    for (int i = 0; i < events.size(); i++) {
-      assertEquals(events.get(i), sink.getEvents().get(i));
-    }
+    assertEquals(events, sink.getEvents());
   }
 }

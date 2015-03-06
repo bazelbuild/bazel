@@ -13,8 +13,10 @@
 // limitations under the License.
 package com.google.devtools.build.lib.vfs.inmemoryfs;
 
+import static com.google.common.truth.Truth.assertThat;
 import static org.junit.Assert.assertEquals;
 import static org.junit.Assert.assertFalse;
+import static org.junit.Assert.assertNull;
 import static org.junit.Assert.assertTrue;
 
 import com.google.common.collect.Lists;
@@ -162,7 +164,7 @@ public class InMemoryFileSystemTest extends ScopeEscapableFileSystemTest {
           BufferedReader reader = new BufferedReader(
               new InputStreamReader(file.getInputStream(), Charset.defaultCharset()));
           assertEquals(TEST_FILE_DATA, reader.readLine());
-          assertEquals(null, reader.readLine());
+          assertNull(reader.readLine());
 
           Path symlink = base.getRelative("symlink" + i);
           assertTrue(symlink.exists());
@@ -246,7 +248,7 @@ public class InMemoryFileSystemTest extends ScopeEscapableFileSystemTest {
             BufferedReader reader = new BufferedReader(
                 new InputStreamReader(file.getInputStream(), Charset.defaultCharset()));
             assertEquals(TEST_FILE_DATA, reader.readLine());
-            assertEquals(null, reader.readLine());
+            assertNull(reader.readLine());
           }
 
           Path symlink = base.getRelative("symlink_" + threadId + "_" + i);
@@ -397,7 +399,7 @@ public class InMemoryFileSystemTest extends ScopeEscapableFileSystemTest {
     try {
       a.stat();
     } catch (IOException e) {
-      assertEquals("/a (Too many levels of symbolic links)", e.getMessage());
+      assertThat(e).hasMessage("/a (Too many levels of symbolic links)");
     }
   }
 
@@ -408,7 +410,7 @@ public class InMemoryFileSystemTest extends ScopeEscapableFileSystemTest {
     try {
       a.stat();
     } catch (IOException e) {
-      assertEquals("/a (Too many levels of symbolic links)", e.getMessage());
+      assertThat(e).hasMessage("/a (Too many levels of symbolic links)");
     }
   }
 }

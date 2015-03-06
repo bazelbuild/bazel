@@ -31,9 +31,9 @@ import com.google.devtools.build.lib.actions.extra.ExtraActionInfo;
 import com.google.devtools.build.lib.actions.extra.SpawnInfo;
 import com.google.devtools.build.lib.actions.util.ActionsTestUtil;
 import com.google.devtools.build.lib.analysis.util.ActionTester;
-import com.google.devtools.build.lib.analysis.util.BuildViewTestCase;
 import com.google.devtools.build.lib.analysis.util.ActionTester.ActionCombinationFactory;
 import com.google.devtools.build.lib.analysis.util.AnalysisTestUtil;
+import com.google.devtools.build.lib.analysis.util.BuildViewTestCase;
 import com.google.devtools.build.lib.vfs.PathFragment;
 
 import java.util.Arrays;
@@ -162,9 +162,10 @@ public class SpawnActionTest extends BuildViewTestCase {
     assertEquals(asList("/bin/java", "-Xverify:none", "-jvmarg", "-cp",
         "pkg/exe.jar", "MyMainClass", "@" + paramFile.getExecPathString()),
         action.getArguments());
-    assertEquals(ImmutableList.of("-X"),
+    assertThat(
         ImmutableList.copyOf(
-            ((ParameterFileWriteAction) getGeneratingAction(paramFile)).getContents()));
+            ((ParameterFileWriteAction) getGeneratingAction(paramFile)).getContents()))
+        .containsExactly("-X");
     assertContainsSublist(actionInputsToPaths(action.getSpawn().getInputFiles()),
         "pkg/exe.jar");
   }
@@ -297,7 +298,7 @@ public class SpawnActionTest extends BuildViewTestCase {
     assertEquals(environment.size(), spawnInfo.getVariableCount());
 
     for (EnvironmentVariable variable : spawnInfo.getVariableList()) {
-      assertEquals(variable.getValue(), environment.get(variable.getName()));
+      assertThat(environment).containsEntry(variable.getName(), variable.getValue());
     }
   }
 
@@ -313,7 +314,7 @@ public class SpawnActionTest extends BuildViewTestCase {
     collectingAnalysisEnvironment.registerAction(actions);
     SpawnAction action = (SpawnAction) actions[0];
     List<String> inputFiles = actionInputsToPaths(action.getSpawn().getInputFiles());
-    assertTrue(inputFiles.isEmpty());
+    assertThat(inputFiles).isEmpty();
   }
 
   public void testComputeKey() throws Exception {

@@ -36,9 +36,7 @@ public abstract class TestThread extends Thread {
     try {
       runTest();
       isSucceeded = true;
-    } catch (Exception e) {
-      testException = e;
-    } catch (AssertionError e) {
+    } catch (Exception | AssertionError e) {
       testException = e;
     }
   }

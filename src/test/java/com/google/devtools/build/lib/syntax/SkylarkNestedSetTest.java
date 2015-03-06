@@ -13,8 +13,8 @@
 // limitations under the License.
 package com.google.devtools.build.lib.syntax;
 
+import static com.google.common.truth.Truth.assertThat;
 import static org.junit.Assert.assertEquals;
-import static org.junit.Assert.assertTrue;
 import static org.junit.Assert.fail;
 
 import com.google.common.base.Joiner;
@@ -46,7 +46,7 @@ public class SkylarkNestedSetTest extends AbstractEvaluationTestCase {
   @Test
   public void testNsetBuilder() throws Exception {
     exec("n = set(order='stable')");
-    assertTrue(env.lookup("n") instanceof SkylarkNestedSet);
+    assertThat(env.lookup("n")).isInstanceOf(SkylarkNestedSet.class);
   }
 
   @Test
@@ -189,7 +189,7 @@ public class SkylarkNestedSetTest extends AbstractEvaluationTestCase {
       exec(input);
       fail();
     } catch (Exception e) {
-      assertEquals(msg, e.getMessage());
+      assertThat(e).hasMessage(msg);
     }
   }
 }

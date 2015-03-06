@@ -57,6 +57,7 @@ import com.google.devtools.build.skyframe.SkyFunction;
 
 import java.io.IOException;
 import java.util.ArrayList;
+import java.util.Collections;
 import java.util.HashMap;
 import java.util.LinkedHashSet;
 import java.util.List;
@@ -91,9 +92,7 @@ public final class AnalysisTestUtil {
 
     @Override
     public void registerAction(Action... actions) {
-      for (Action action : actions) {
-        this.actions.add(action);
-      }
+      Collections.addAll(this.actions, actions);
       original.registerAction(actions);
     }
 

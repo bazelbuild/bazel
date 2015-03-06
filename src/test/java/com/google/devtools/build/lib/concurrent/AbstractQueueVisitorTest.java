@@ -13,6 +13,7 @@
 // limitations under the License.
 package com.google.devtools.build.lib.concurrent;
 
+import static com.google.common.truth.Truth.assertThat;
 import static org.junit.Assert.assertEquals;
 import static org.junit.Assert.assertFalse;
 import static org.junit.Assert.assertSame;
@@ -127,7 +128,7 @@ public class AbstractQueueVisitorTest {
       counter.work(false);
       fail();
     } catch (Error expected) {
-      assertEquals("Could not create thread (fakeout)", expected.getMessage());
+      assertThat(expected).hasMessage("Could not create thread (fakeout)");
     }
     assertSame(5, counter.getCount());
 
@@ -317,14 +318,13 @@ public class AbstractQueueVisitorTest {
       fail();
     } catch (Exception e) {
       if (interrupt) {
-        assertTrue(e instanceof InterruptedException);
+        assertThat(e).isInstanceOf(InterruptedException.class);
       } else {
         assertSame(THROWABLE, e);
       }
     }
-    assertTrue(
-        "got: " + visitedList + "\nwant: " + Arrays.toString(expectedVisited),
-        Sets.newHashSet(visitedList).equals(Sets.newHashSet(expectedVisited)));
+    assertEquals("got: " + visitedList + "\nwant: " + Arrays.toString(expectedVisited),
+        Sets.newHashSet(expectedVisited), Sets.newHashSet(visitedList));
 
     if (executor != null) {
       assertFalse(executor.isShutdown());

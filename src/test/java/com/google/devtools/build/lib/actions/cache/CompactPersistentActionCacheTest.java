@@ -77,7 +77,7 @@ public class CompactPersistentActionCacheTest {
     String key = "key";
     putKey(key);
     ActionCache.Entry readentry = cache.get(key);
-    assertTrue(readentry != null);
+    assertNotNull(readentry);
     assertEquals(cache.get(key).toString(), readentry.toString());
     assertFalse(mapFile.exists());
   }
@@ -102,7 +102,7 @@ public class CompactPersistentActionCacheTest {
     CompactPersistentActionCache newcache =
       new CompactPersistentActionCache(dataRoot, clock);
     ActionCache.Entry readentry = newcache.get(key);
-    assertTrue(readentry != null);
+    assertNotNull(readentry);
     assertEquals(cache.get(key).toString(), readentry.toString());
   }
 

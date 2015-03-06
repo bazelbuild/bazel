@@ -13,10 +13,9 @@
 // limitations under the License.
 package com.google.devtools.build.lib.collect;
 
+import static com.google.common.truth.Truth.assertThat;
 import static org.junit.Assert.assertEquals;
-import static org.junit.Assert.assertNull;
 import static org.junit.Assert.assertSame;
-import static org.junit.Assert.assertTrue;
 import static org.junit.Assert.fail;
 
 import com.google.common.collect.Maps;
@@ -44,7 +43,7 @@ public class ImmutableSortedKeyMapTest {
   public void emptyBuilder() {
     ImmutableSortedKeyMap<String, Integer> map
         = ImmutableSortedKeyMap.<String, Integer>builder().build();
-    assertEquals(Collections.<String, Integer>emptyMap(), map);
+    assertThat(map).isEmpty();
   }
 
   @Test
@@ -73,7 +72,7 @@ public class ImmutableSortedKeyMapTest {
     ImmutableSortedKeyMap<String, Integer> map = ImmutableSortedKeyMap.<String, Integer>builder()
         .putAll(Collections.<String, Integer>emptyMap())
         .build();
-    assertEquals(Collections.<String, Integer>emptyMap(), map);
+    assertThat(map).isEmpty();
   }
 
   @Test
@@ -195,7 +194,7 @@ public class ImmutableSortedKeyMapTest {
   public void copyOfEmptyMap() {
     ImmutableSortedKeyMap<String, Integer> copy
         = ImmutableSortedKeyMap.copyOf(Collections.<String, Integer>emptyMap());
-    assertEquals(Collections.<String, Integer>emptyMap(), copy);
+    assertThat(copy).isEmpty();
     assertSame(copy, ImmutableSortedKeyMap.copyOf(copy));
   }
 
@@ -222,7 +221,7 @@ public class ImmutableSortedKeyMapTest {
   @Test
   public void nullGet() {
     ImmutableSortedKeyMap<String, Integer> map = ImmutableSortedKeyMap.of("one", 1);
-    assertNull(map.get(null));
+    assertThat(map).doesNotContainKey(null);
   }
 
   @Test
@@ -271,8 +270,7 @@ public class ImmutableSortedKeyMapTest {
     IntHolder holderB = new IntHolder(2);
     Map<String, IntHolder> map = ImmutableSortedKeyMap.of("a", holderA, "b", holderB);
     holderA.value = 3;
-    assertTrue(map.entrySet().contains(
-        Maps.immutableEntry("a", new IntHolder(3))));
+    assertThat(map.entrySet()).contains(Maps.immutableEntry("a", new IntHolder(3)));
     Map<String, Integer> intMap = ImmutableSortedKeyMap.of("a", 3, "b", 2);
     assertEquals(intMap.hashCode(), map.entrySet().hashCode());
     assertEquals(intMap.hashCode(), map.hashCode());

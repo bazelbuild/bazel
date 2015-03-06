@@ -64,12 +64,8 @@ public class StreamDemultiplexerTest {
   @Test
   public void testHelloWorldOnStandardOut() throws Exception {
     byte[] multiplexed = lines("@1@", "Hello, world.");
-    StreamDemultiplexer demux = new StreamDemultiplexer((byte) '1', out);
-    try {
+    try (final StreamDemultiplexer demux = new StreamDemultiplexer((byte) '1', out)) {
       demux.write(multiplexed);
-      demux.flush();
-    } finally {
-      demux.close();
     }
     assertEquals("Hello, world.", out.toString("ISO-8859-1"));
   }
@@ -77,12 +73,8 @@ public class StreamDemultiplexerTest {
   @Test
   public void testOutErrCtl() throws Exception {
     byte[] multiplexed = lines("@1@", "out", "@2@", "err", "@3@", "ctl", "");
-    StreamDemultiplexer demux = new StreamDemultiplexer((byte) '1', out, err, ctl);
-    try {
+    try (final StreamDemultiplexer demux = new StreamDemultiplexer((byte) '1', out, err, ctl)) {
       demux.write(multiplexed);
-      demux.flush();
-    } finally {
-      demux.close();
     }
     assertEquals("out", toAnsi(out));
     assertEquals("err", toAnsi(err));
@@ -92,12 +84,8 @@ public class StreamDemultiplexerTest {
   @Test
   public void testWithoutLineBreaks() throws Exception {
     byte[] multiplexed = lines("@1@", "just ", "@1@", "one ", "@1@", "line", "");
-    StreamDemultiplexer demux = new StreamDemultiplexer((byte) '1', out);
-    try {
+    try (final StreamDemultiplexer demux = new StreamDemultiplexer((byte) '1', out)) {
       demux.write(multiplexed);
-      demux.flush();
-    } finally {
-      demux.close();
     }
     assertEquals("just one line", out.toString("ISO-8859-1"));
   }
@@ -105,13 +93,10 @@ public class StreamDemultiplexerTest {
   @Test
   public void testLineBreaks() throws Exception {
     byte[] multiplexed = lines("@1", "two", "@1", "lines", "");
-    StreamDemultiplexer demux = new StreamDemultiplexer((byte) '1', out);
-    try {
+    try (StreamDemultiplexer demux = new StreamDemultiplexer((byte) '1', out)) {
       demux.write(multiplexed);
       demux.flush();
       assertEquals("two\nlines\n", out.toString("ISO-8859-1"));
-    } finally {
-      demux.close();
     }
   }
 

@@ -131,7 +131,7 @@ public class FileSystemUtilsTest {
     assertTrue(copiedADir.exists());
     assertTrue(copiedADir.isDirectory());
     Collection<Path> aDirEntries = copiedADir.getDirectoryEntries();
-    assertEquals(2, aDirEntries.size());
+    assertThat(aDirEntries).hasSize(2);
 
     Path copiedFile3 = copiedADir.getChild("file-3");
     assertTrue(copiedFile3.exists());
@@ -243,7 +243,7 @@ public class FileSystemUtilsTest {
     assertPath("/foo.baz", FileSystemUtils.replaceExtension(fileSystem.getPath("/foo"), ".baz"));
     assertPath("/foo.baz", FileSystemUtils.replaceExtension(fileSystem.getPath("/foo.cc"), ".baz"));
     assertPath("/.baz", FileSystemUtils.replaceExtension(fileSystem.getPath("/.cc"), ".baz"));
-    assertEquals(null, FileSystemUtils.replaceExtension(fileSystem.getPath("/"), ".baz"));
+    assertNull(FileSystemUtils.replaceExtension(fileSystem.getPath("/"), ".baz"));
   }
 
   @Test
@@ -267,14 +267,14 @@ public class FileSystemUtilsTest {
     assertPath("/foo.baz",
                FileSystemUtils.replaceExtension(new PathFragment("/foo.cc"), ".baz"));
     assertPath(".baz", FileSystemUtils.replaceExtension(new PathFragment(".cc"), ".baz"));
-    assertEquals(null, FileSystemUtils.replaceExtension(new PathFragment("/"), ".baz"));
-    assertEquals(null, FileSystemUtils.replaceExtension(new PathFragment(""), ".baz"));
+    assertNull(FileSystemUtils.replaceExtension(new PathFragment("/"), ".baz"));
+    assertNull(FileSystemUtils.replaceExtension(new PathFragment(""), ".baz"));
     assertPath("foo/bar.baz",
         FileSystemUtils.replaceExtension(new PathFragment("foo/bar.pony"), ".baz", ".pony"));
     assertPath("foo/bar.baz",
         FileSystemUtils.replaceExtension(new PathFragment("foo/bar"), ".baz", ""));
-    assertEquals(null, FileSystemUtils.replaceExtension(new PathFragment(""), ".baz", ".pony"));
-    assertEquals(null,
+    assertNull(FileSystemUtils.replaceExtension(new PathFragment(""), ".baz", ".pony"));
+    assertNull(
         FileSystemUtils.replaceExtension(new PathFragment("foo/bar.pony"), ".baz", ".unicorn"));
   }
 
@@ -294,8 +294,8 @@ public class FileSystemUtilsTest {
         appendWithoutExtension(new PathFragment("libfoo.jar/"), "-src"));
     assertPath("libfoo.src.jar",
         appendWithoutExtension(new PathFragment("libfoo.jar"), ".src"));
-    assertEquals(null, appendWithoutExtension(new PathFragment("/"), "-src"));
-    assertEquals(null, appendWithoutExtension(new PathFragment(""), "-src"));
+    assertNull(appendWithoutExtension(new PathFragment("/"), "-src"));
+    assertNull(appendWithoutExtension(new PathFragment(""), "-src"));
   }
 
   @Test
@@ -357,7 +357,7 @@ public class FileSystemUtilsTest {
     testFile.setLastModifiedTime(42);
     touchFile(testFile);
 
-    assertTrue(testFile.getLastModifiedTime() >= oldTime);
+    assertThat(testFile.getLastModifiedTime()).isAtLeast(oldTime);
   }
 
   @Test
@@ -439,9 +439,8 @@ public class FileSystemUtilsTest {
       copyFile(originalFile, aDir);
       fail();
     } catch (IOException ex) {
-      assertEquals("error copying file: couldn't delete destination: "
-                   + aDir + " (Directory not empty)",
-                   ex.getMessage());
+      assertThat(ex).hasMessage(
+          "error copying file: couldn't delete destination: " + aDir + " (Directory not empty)");
     }
   }
 
@@ -488,7 +487,7 @@ public class FileSystemUtilsTest {
       FileSystemUtils.copyTreesBelow(topDir, aDir);
       fail("Should not be able to copy a directory to a subdir");
     } catch (IllegalArgumentException expected) {
-      assertEquals("/top-dir/a-dir is a subdirectory of /top-dir", expected.getMessage());
+      assertThat(expected).hasMessage("/top-dir/a-dir is a subdirectory of /top-dir");
     }
   }
 
@@ -499,7 +498,7 @@ public class FileSystemUtilsTest {
       FileSystemUtils.copyTreesBelow(file1, aDir);
       fail("Should not be able to copy a file with copyDirectory method");
     } catch (IOException expected) {
-      assertEquals("/top-dir/file-1 (Not a directory)", expected.getMessage());
+      assertThat(expected).hasMessage("/top-dir/file-1 (Not a directory)");
     }
   }
 
@@ -513,7 +512,7 @@ public class FileSystemUtilsTest {
       FileSystemUtils.copyTreesBelow(copyDir, file4);
       fail("Should not be able to copy a directory to a file");
     } catch (IOException expected) {
-      assertEquals("/file-4 (Not a directory)", expected.getMessage());
+      assertThat(expected).hasMessage("/file-4 (Not a directory)");
     }
   }
 
@@ -526,7 +525,7 @@ public class FileSystemUtilsTest {
       FileSystemUtils.copyTreesBelow(unexistingDir, aDir);
       fail("Should not be able to copy from an unexisting path");
     } catch (FileNotFoundException expected) {
-      assertEquals("/unexisting-dir (No such file or directory)", expected.getMessage());
+      assertThat(expected).hasMessage("/unexisting-dir (No such file or directory)");
     }
   }
 
@@ -661,7 +660,7 @@ public class FileSystemUtilsTest {
       createDirectoryAndParents(theHierarchy);
       fail();
     } catch (IOException e) {
-      assertEquals("/somewhere/deep/in (Not a directory)", e.getMessage());
+      assertThat(e).hasMessage("/somewhere/deep/in (Not a directory)");
     }
   }
 
@@ -873,6 +872,6 @@ public class FileSystemUtilsTest {
     clock.advanceMillis(1000);
     FileSystemUtils.ensureSymbolicLink(file, target);
     long timestamp = file.getLastModifiedTime(Symlinks.NOFOLLOW);
-    assertTrue(timestamp == prevTimeMillis);
+    assertEquals(prevTimeMillis, timestamp);
   }
 }

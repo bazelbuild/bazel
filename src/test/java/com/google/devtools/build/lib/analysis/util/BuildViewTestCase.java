@@ -1379,7 +1379,7 @@ public abstract class BuildViewTestCase extends FoundationTestCase {
     ImmutableList.Builder<String> basenames = ImmutableList.builder();
     for (String line : new String(bytes.toByteArray(), StandardCharsets.UTF_8).split("\n")) {
       if (line.startsWith("SF:")) {
-        String basename = line.substring(line.lastIndexOf("/") + 1);
+        String basename = line.substring(line.lastIndexOf('/') + 1);
         basenames.add(basename);
       }
     }

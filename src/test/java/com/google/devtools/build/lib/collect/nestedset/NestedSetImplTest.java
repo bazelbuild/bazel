@@ -13,6 +13,7 @@
 // limitations under the License.
 package com.google.devtools.build.lib.collect.nestedset;
 
+import static com.google.common.truth.Truth.assertThat;
 import static org.junit.Assert.assertEquals;
 import static org.junit.Assert.assertFalse;
 import static org.junit.Assert.assertTrue;
@@ -47,8 +48,8 @@ public class NestedSetImplTest extends TestCase {
     NestedSet<String> set = nestedSetBuilder("a").build();
 
     assertTrue(Arrays.equals(new String[]{"a"}, set.directMembers()));
-    assertEquals(0, set.transitiveSets().length);
-    assertEquals(false, set.isEmpty());
+    assertThat(set.transitiveSets()).isEmpty();
+    assertFalse(set.isEmpty());
   }
 
   @Test
@@ -173,7 +174,7 @@ public class NestedSetImplTest extends TestCase {
     for (SetWrapper<Integer> wrap : nested) {
       builder.addTransitive(wrap.set);
     }
-    return new SetWrapper<Integer>(builder.build());
+    return new SetWrapper<>(builder.build());
   }
 
   @Test

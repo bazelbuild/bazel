@@ -281,8 +281,8 @@ public class ArtifactTest {
           new PathFragment("c"));
       fail();
     } catch (IllegalArgumentException e) {
-      assertEquals("c: illegal execPath doesn't end with b/c at /a/b/c with root /a[derived]",
-          e.getMessage());
+      assertThat(e).hasMessage(
+          "c: illegal execPath doesn't end with b/c at /a/b/c with root /a[derived]");
     }
   }
 

@@ -13,6 +13,7 @@
 // limitations under the License.
 package com.google.devtools.build.lib.util.io;
 
+import static com.google.common.truth.Truth.assertThat;
 import static java.nio.charset.StandardCharsets.UTF_8;
 import static org.junit.Assert.assertEquals;
 
@@ -44,7 +45,7 @@ public class LinePrefixingOutputStreamTest {
   @Test
   public void testNoOutputUntilNewline() throws IOException {
     prefixOut.write(bytes("We won't be seeing any output."));
-    assertEquals("", string(out.toByteArray()));
+    assertThat(string(out.toByteArray())).isEmpty();
   }
 
   @Test

@@ -459,7 +459,7 @@ public class FunctionTest extends AbstractEvaluationTestCase {
       exec(input, env);
       fail();
     } catch (EvalException e) {
-      assertEquals(msg, e.getMessage());
+      assertThat(e).hasMessage(msg);
     }
   }
 }

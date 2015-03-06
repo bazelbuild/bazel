@@ -14,7 +14,6 @@
 package com.google.devtools.build.lib.util;
 
 import static com.google.common.truth.Truth.assertThat;
-import static org.junit.Assert.assertEquals;
 import static org.junit.Assert.fail;
 
 import com.google.common.collect.ImmutableList;
@@ -53,7 +52,7 @@ public class CommandBuilderTest {
       builder.build();
       fail("Expected exception");
     } catch (Exception e) {
-      assertEquals(expected, e.getMessage());
+      assertThat(e).hasMessage(expected);
     }
   }
 

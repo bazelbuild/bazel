@@ -21,6 +21,7 @@ import static org.junit.Assert.assertTrue;
 import static org.junit.Assert.fail;
 
 import com.google.common.collect.Lists;
+import com.google.common.testing.EqualsTester;
 import com.google.devtools.build.lib.testutil.TestUtils;
 import com.google.devtools.build.lib.vfs.util.FileSystems;
 
@@ -156,7 +157,7 @@ public class UnixPathTest {
     Collection<Path> textFiles = UnixGlob.forPath(unixFs.getPath(tmpDir.getPath()))
         .addPattern("*/*.txt")
         .globInterruptible();
-    assertEquals(1, textFiles.size());
+    assertThat(textFiles).hasSize(1);
     Path onlyFile = textFiles.iterator().next();
     assertEquals(unixFs.getPath(anotherFile.getPath()), onlyFile);
 
@@ -189,8 +190,7 @@ public class UnixPathTest {
     Path differentPath = unixFs.getPath("/foo/bar/baz");
     Object differentType = new Object();
 
-    assertEquals(path.hashCode(), equalPath.hashCode());
-    assertEquals(path, equalPath);
+    new EqualsTester().addEqualityGroup(path, equalPath).testEquals();
     assertFalse(path.equals(differentPath));
     assertFalse(path.equals(differentType));
   }

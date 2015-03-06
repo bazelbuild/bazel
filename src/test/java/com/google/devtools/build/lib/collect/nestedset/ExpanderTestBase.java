@@ -13,6 +13,7 @@
 // limitations under the License.
 package com.google.devtools.build.lib.collect.nestedset;
 
+import static junit.framework.TestCase.assertFalse;
 import static org.junit.Assert.assertEquals;
 import static org.junit.Assert.assertTrue;
 import static org.junit.Assert.fail;
@@ -205,7 +206,7 @@ public abstract class ExpanderTestBase extends TestCase  {
   @Test
   public void getOrdering() {
     NestedSet<String> s = prepareBuilder("a", "b").build();
-    assertTrue(!s.isEmpty());
+    assertFalse(s.isEmpty());
     assertEquals(expanderOrder(), s.getOrder());
   }
 

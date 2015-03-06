@@ -13,12 +13,12 @@
 // limitations under the License.
 package com.google.devtools.build.lib.analysis.actions;
 
+import static com.google.common.truth.Truth.assertThat;
 import static com.google.devtools.build.lib.actions.util.ActionsTestUtil.NULL_ACTION_OWNER;
 
 import com.google.common.base.Joiner;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableSet;
-import com.google.common.collect.Iterables;
 import com.google.common.collect.Lists;
 import com.google.devtools.build.lib.actions.ActionExecutionContext;
 import com.google.devtools.build.lib.actions.Artifact;
@@ -77,7 +77,7 @@ public class TemplateExpansionActionTest extends FoundationTestCase {
   }
 
   public void testInputsIsEmpty() {
-    assertTrue(Iterables.isEmpty(create().getInputs()));
+    assertThat(create().getInputs()).isEmpty();
   }
 
   public void testDestinationArtifactIsOutput() {

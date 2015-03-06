@@ -16,7 +16,6 @@ package com.google.devtools.build.lib.util;
 import static org.junit.Assert.assertEquals;
 import static org.junit.Assert.assertNull;
 import static org.junit.Assert.assertSame;
-import static org.junit.Assert.assertTrue;
 
 import org.junit.Test;
 import org.junit.runner.RunWith;
@@ -47,6 +46,6 @@ public class PairTest {
     assertNull(p.first);
     assertNull(p.second);
     p.hashCode(); // Should not throw.
-    assertTrue(p.equals(p));
+    assertEquals(p, p);
   }
 }

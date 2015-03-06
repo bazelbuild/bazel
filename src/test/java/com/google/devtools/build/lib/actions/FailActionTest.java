@@ -14,9 +14,9 @@
 package com.google.devtools.build.lib.actions;
 
 
+import static com.google.common.truth.Truth.assertThat;
 import static com.google.devtools.build.lib.actions.util.ActionsTestUtil.NULL_ACTION_OWNER;
 import static com.google.devtools.build.lib.testutil.MoreAsserts.assertSameContents;
-import static org.junit.Assert.assertEquals;
 import static org.junit.Assert.assertSame;
 import static org.junit.Assert.fail;
 
@@ -60,7 +60,7 @@ public class FailActionTest {
       failAction.execute(null);
       fail();
     } catch (ActionExecutionException e) {
-      assertEquals(errorMessage, e.getMessage());
+      assertThat(e).hasMessage(errorMessage);
     }
   }
 

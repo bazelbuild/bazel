@@ -14,6 +14,7 @@
 package com.google.devtools.build.lib.actions;
 
 
+import static com.google.common.truth.Truth.assertThat;
 import static com.google.devtools.build.lib.actions.util.ActionsTestUtil.NULL_ACTION_OWNER;
 import static org.junit.Assert.assertEquals;
 import static org.junit.Assert.assertTrue;
@@ -81,7 +82,7 @@ public class ExecutableSymlinkActionTest {
       action.execute(createContext());
       fail();
     } catch (ActionExecutionException e) {
-      assertTrue(e.getMessage().contains("'some-dir' is not a file"));
+      assertThat(e.getMessage()).contains("'some-dir' is not a file");
     }
   }
 

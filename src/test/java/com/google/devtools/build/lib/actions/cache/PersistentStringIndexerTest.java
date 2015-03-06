@@ -91,7 +91,7 @@ public class PersistentStringIndexerTest {
   private void assertContent() {
     for (int i = 0; i < psi.size(); i++) {
       if(mappings.get(i) != null) {
-        assertEquals(mappings.get(i), psi.getStringForIndex(i));
+        assertThat(mappings).containsEntry(i, psi.getStringForIndex(i));
       }
     }
   }
@@ -295,7 +295,7 @@ public class PersistentStringIndexerTest {
     }
 
     // Corrupt the journal with a negative size value.
-    byte[] journalCopy = Arrays.copyOf(journalContent, journalContent.length);
+    byte[] journalCopy = journalContent.clone();
     // Flip this bit to make the key size negative.
     journalCopy[95] = -2;
     FileSystemUtils.writeContent(journalPath,  journalCopy);

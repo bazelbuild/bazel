@@ -13,7 +13,7 @@
 // limitations under the License.
 package com.google.devtools.build.lib.events;
 
-import static org.junit.Assert.assertEquals;
+import static com.google.common.truth.Truth.assertThat;
 
 import com.google.devtools.build.lib.testutil.MoreAsserts;
 
@@ -45,16 +45,16 @@ public class ReporterStreamTest {
 
   @Test
   public void reporterStream() throws Exception {
-    assertEquals("", out.toString());
+    assertThat(out.toString()).isEmpty();
     reporter.addHandler(outAppender);
-    PrintWriter infoWriter = new PrintWriter(new ReporterStream(reporter, EventKind.INFO), true);
-    PrintWriter warnWriter = new PrintWriter(new ReporterStream(reporter, EventKind.WARNING), true);
-    try {
+    try (
+      PrintWriter warnWriter =
+        new PrintWriter(new ReporterStream(reporter, EventKind.WARNING), true);
+      PrintWriter infoWriter =
+          new PrintWriter(new ReporterStream(reporter, EventKind.INFO), true)
+    ) {
       infoWriter.println("some info");
       warnWriter.println("a warning");
-    } finally {
-      infoWriter.close();
-      warnWriter.close();
     }
     reporter.getOutErr().printOutLn("some output");
     reporter.getOutErr().printErrLn("an error");

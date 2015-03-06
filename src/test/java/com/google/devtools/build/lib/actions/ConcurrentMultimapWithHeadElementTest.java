@@ -15,6 +15,7 @@ package com.google.devtools.build.lib.actions;
 
 import static org.junit.Assert.assertEquals;
 import static org.junit.Assert.assertNotNull;
+import static org.junit.Assert.assertNull;
 import static org.junit.Assert.assertTrue;
 
 import com.google.common.testing.GcFinalization;
@@ -39,7 +40,7 @@ public class ConcurrentMultimapWithHeadElementTest {
   @Test
   public void testSmoke() throws Exception {
     ConcurrentMultimapWithHeadElement<String, String> multimap =
-        new ConcurrentMultimapWithHeadElement<String, String>();
+        new ConcurrentMultimapWithHeadElement<>();
     assertEquals("val", multimap.putAndGet("key", "val"));
     assertEquals("val", multimap.get("key"));
     assertEquals("val", multimap.putAndGet("key", "val2"));
@@ -53,29 +54,29 @@ public class ConcurrentMultimapWithHeadElementTest {
   @Test
   public void testDuplicate() throws Exception {
     ConcurrentMultimapWithHeadElement<String, String> multimap =
-        new ConcurrentMultimapWithHeadElement<String, String>();
+        new ConcurrentMultimapWithHeadElement<>();
     assertEquals("val", multimap.putAndGet("key", "val"));
     assertEquals("val", multimap.get("key"));
     assertEquals("val", multimap.putAndGet("key", "val"));
     multimap.remove("key", "val");
-    assertEquals(null, multimap.get("key"));
+    assertNull(multimap.get("key"));
   }
 
   @Test
   public void testDuplicateWithEqualsObject() throws Exception {
     ConcurrentMultimapWithHeadElement<String, String> multimap =
         new ConcurrentMultimapWithHeadElement<>();
-    assertEquals(new String("val"), multimap.putAndGet("key", new String("val")));
-    assertEquals(new String("val"), multimap.get("key"));
-    assertEquals(new String("val"), multimap.putAndGet("key", new String("val")));
-    multimap.remove("key", new String("val"));
-    assertEquals(null, multimap.get("key"));
+    assertEquals("val", multimap.putAndGet("key", "val"));
+    assertEquals("val", multimap.get("key"));
+    assertEquals("val", multimap.putAndGet("key", "val"));
+    multimap.remove("key", "val");
+    assertNull(multimap.get("key"));
   }
 
   @Test
   public void testFailedRemoval() throws Exception {
     ConcurrentMultimapWithHeadElement<String, String> multimap =
-        new ConcurrentMultimapWithHeadElement<String, String>();
+        new ConcurrentMultimapWithHeadElement<>();
     assertEquals("val", multimap.putAndGet("key", "val"));
     multimap.remove("key", "val2");
     assertEquals("val", multimap.get("key"));
@@ -84,7 +85,7 @@ public class ConcurrentMultimapWithHeadElementTest {
   @Test
   public void testNotEmpty() throws Exception {
     ConcurrentMultimapWithHeadElement<String, String> multimap =
-        new ConcurrentMultimapWithHeadElement<String, String>();
+        new ConcurrentMultimapWithHeadElement<>();
     assertEquals("val", multimap.putAndGet("key", "val"));
     multimap.remove("key", "val2");
     assertEquals("val", multimap.get("key"));
@@ -94,9 +95,9 @@ public class ConcurrentMultimapWithHeadElementTest {
   public void testKeyRemoved() throws Exception {
     String key = new String("key");
     ConcurrentMultimapWithHeadElement<String, String> multimap =
-        new ConcurrentMultimapWithHeadElement<String, String>();
+        new ConcurrentMultimapWithHeadElement<>();
     assertEquals("val", multimap.putAndGet(key, "val"));
-    WeakReference<String> weakKey = new WeakReference<String>(key);
+    WeakReference<String> weakKey = new WeakReference<>(key);
     multimap.remove(key, "val");
     key = null;
     GcFinalization.awaitClear(weakKey);
@@ -105,7 +106,7 @@ public class ConcurrentMultimapWithHeadElementTest {
   @Test
   public void testKeyRemovedAndAddedConcurrently() throws Exception {
     final ConcurrentMultimapWithHeadElement<String, String> multimap =
-        new ConcurrentMultimapWithHeadElement<String, String>();
+        new ConcurrentMultimapWithHeadElement<>();
     // Because we have two threads racing, run the test many times. Before fixed, there was a 90%
     // chance of failure in 10,000 runs.
     for (int i = 0; i < 10000; i++) {
@@ -129,7 +130,7 @@ public class ConcurrentMultimapWithHeadElementTest {
 
   private class StressTester extends AbstractQueueVisitor {
     private final ConcurrentMultimapWithHeadElement<Boolean, Integer> multimap =
-        new ConcurrentMultimapWithHeadElement<Boolean, Integer>();
+        new ConcurrentMultimapWithHeadElement<>();
     private final AtomicInteger actionCount = new AtomicInteger(0);
 
     private StressTester() {

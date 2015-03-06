@@ -13,6 +13,7 @@
 // limitations under the License.
 package com.google.devtools.build.lib.util;
 
+import static com.google.common.truth.Truth.assertThat;
 import static com.google.devtools.build.lib.util.StringUtilities.combineKeys;
 import static com.google.devtools.build.lib.util.StringUtilities.joinLines;
 import static com.google.devtools.build.lib.util.StringUtilities.layoutTable;
@@ -42,7 +43,7 @@ public class StringUtilitiesTest {
 
   @Test
   public void emptyLinesYieldsEmptyString() {
-    assertEquals("", joinLines());
+    assertThat(joinLines()).isEmpty();
   }
 
   @Test
@@ -88,11 +89,11 @@ public class StringUtilitiesTest {
       String combined_key = combineKeys(keys_copy);
       String[] prev_keys = map.put(combined_key, keys_copy);
       if (prev_keys != null) {
-        fail("combineKeys collision:\n" +
-              "key sequence 1: " + Arrays.deepToString(prev_keys) + "\n" +
-              "key sequence 2: " + Arrays.deepToString(keys_copy) + "\n" +
-              "combined key sequence 1: " + combineKeys(prev_keys) + "\n" +
-              "combined key sequence 2: " + combineKeys(keys_copy) + "\n");
+        fail("combineKeys collision:\n"
+            + "key sequence 1: " + Arrays.toString(prev_keys) + "\n"
+            + "key sequence 2: " + Arrays.toString(keys_copy) + "\n"
+            + "combined key sequence 1: " + combineKeys(prev_keys) + "\n"
+            + "combined key sequence 2: " + combineKeys(keys_copy) + "\n");
       }
     } else {
       for (String key : test_keys) {
@@ -119,8 +120,7 @@ public class StringUtilitiesTest {
   public void replaceAllLiteral() throws Exception {
     assertEquals("ababab",
                  StringUtilities.replaceAllLiteral("bababa", "ba", "ab"));
-    assertEquals("",
-        StringUtilities.replaceAllLiteral("bababa", "ba", ""));
+    assertThat(StringUtilities.replaceAllLiteral("bababa", "ba", "")).isEmpty();
     assertEquals("bababa",
         StringUtilities.replaceAllLiteral("bababa", "", "ab"));
   }

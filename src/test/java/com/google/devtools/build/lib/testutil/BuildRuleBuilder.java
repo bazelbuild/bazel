@@ -82,8 +82,8 @@ public class BuildRuleBuilder {
    * Sets the value of a single valued attribute
    */
   public BuildRuleBuilder setSingleValueAttribute(String attrName, Object value) {
-    Preconditions.checkState(!singleValueAttributes.containsKey(attrName),
-        "attribute '" + attrName + "' already set");
+    Preconditions.checkState(
+        !singleValueAttributes.containsKey(attrName), "attribute '%s' already set", attrName);
     singleValueAttributes.put(attrName, value);
     return this;
   }
