@@ -53,6 +53,11 @@ public class LabelTest {
       assertEquals("foo/bar", l.getPackageName());
       assertEquals("bar", l.getName());
     }
+    {
+      Label l = Label.parseAbsolute("//:bar");
+      assertEquals("", l.getPackageName());
+      assertEquals("bar", l.getName());
+    }
   }
 
   private static String parseCommandLine(String label, String prefix) throws SyntaxException {
@@ -234,8 +239,6 @@ public class LabelTest {
                       "//foo/./baz:baz");
     assertSyntaxError(BAD_PACKAGE_CHARS,
                       "//./bar/baz:baz");
-    assertSyntaxError(BAD_PACKAGE_CHARS,
-                      "//.:foo");
     assertSyntaxError("target names may not contain '.' as a path segment",
                       "//foo:bar/./baz");
     assertSyntaxError("target names may not contain '.' as a path segment",
@@ -257,7 +260,6 @@ public class LabelTest {
   public void testSomeOtherBadLabels() throws Exception {
     assertSyntaxError("package names may not end with '/'",
                       "//foo/:bar");
-    assertSyntaxError("empty package name", "//:foo");
     assertSyntaxError("package names may not start with '/'", "///p:foo");
     assertSyntaxError("package names may not contain '//' path separators",
                       "//a//b:foo");

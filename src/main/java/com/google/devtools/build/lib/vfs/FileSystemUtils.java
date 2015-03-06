@@ -23,6 +23,7 @@ import com.google.common.collect.Sets;
 import com.google.common.io.ByteSink;
 import com.google.common.io.ByteSource;
 import com.google.common.io.ByteStreams;
+import com.google.devtools.build.lib.Constants;
 import com.google.devtools.build.lib.concurrent.ThreadSafety.ConditionallyThreadSafe;
 import com.google.devtools.build.lib.concurrent.ThreadSafety.ThreadSafe;
 
@@ -679,6 +680,8 @@ public class FileSystemUtils {
    */
   public static void plantLinkForest(ImmutableMap<PathFragment, Path> packageRootMap, Path linkRoot)
       throws IOException {
+    Path emptyPackagePath = null;
+
     // Create a sorted map of all dirs (packages and their ancestors) to sets of their roots.
     // Packages come from exactly one root, but their shared ancestors may come from more.
     // The map is maintained sorted lexicographically, so parents are before their children.
@@ -686,6 +689,9 @@ public class FileSystemUtils {
     for (Map.Entry<PathFragment, Path> entry : packageRootMap.entrySet()) {
       PathFragment pkgDir = entry.getKey();
       Path pkgRoot = entry.getValue();
+      if (pkgDir.segmentCount() == 0) {
+        emptyPackagePath = entry.getValue();
+      }
       for (int i = 1; i <= pkgDir.segmentCount(); i++) {
         PathFragment dir = pkgDir.subFragment(0, i);
         Set<Path> roots = dirRootsMap.get(dir);
@@ -761,6 +767,19 @@ public class FileSystemUtils {
             e.printStackTrace();
           }
           // Otherwise its just an otherwise empty common parent dir.
+        }
+      }
+    }
+
+    if (emptyPackagePath != null) {
+      // For the top-level directory, generate symlinks to everything in the directory instead of
+      // the directory itself.
+      for (Path target : emptyPackagePath.getDirectoryEntries()) {
+        String baseName = target.getBaseName();
+        // Create any links that don't exist yet and don't start with bazel-.
+        if (!baseName.startsWith(Constants.PRODUCT_NAME + "-")
+            && !linkRoot.getRelative(baseName).exists()) {
+          linkRoot.getRelative(baseName).createSymbolicLink(target);
         }
       }
     }

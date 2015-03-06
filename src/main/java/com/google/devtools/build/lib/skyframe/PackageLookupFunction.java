@@ -54,12 +54,6 @@ class PackageLookupFunction implements SkyFunction {
       return computeExternalPackageLookupValue(skyKey, env);
     }
     PathFragment pkg = packageKey.getPackageFragment();
-
-    // This represents a package lookup at the package root.
-    if (pkg.equals(PathFragment.EMPTY_FRAGMENT)) {
-      return PackageLookupValue.invalidPackageName("The empty package name is invalid");
-    }
-
     String pkgName = pkg.getPathString();
     String packageNameErrorMsg = LabelValidator.validatePackageName(pkgName);
     if (packageNameErrorMsg != null) {

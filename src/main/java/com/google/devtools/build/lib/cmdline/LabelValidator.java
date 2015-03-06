@@ -64,11 +64,12 @@ public final class LabelValidator {
   public static String validatePackageName(String packageName) {
     int len = packageName.length();
     if (len == 0) {
-      return "empty package name";
+      // Empty package name (//:foo).
+      return null;
     }
 
     if (packageName.charAt(0) == '/') {
-      return "package names may not start with '/'";      
+      return "package names may not start with '/'";
     }
 
     // Fast path for packages with '.' in their name
