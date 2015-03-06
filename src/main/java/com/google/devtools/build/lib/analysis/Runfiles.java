@@ -17,14 +17,12 @@ package com.google.devtools.build.lib.analysis;
 import com.google.common.annotations.VisibleForTesting;
 import com.google.common.base.Function;
 import com.google.common.base.Preconditions;
-import com.google.common.base.Predicates;
 import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.Iterables;
 import com.google.common.collect.Maps;
 import com.google.devtools.build.lib.Constants;
 import com.google.devtools.build.lib.actions.Artifact;
 import com.google.devtools.build.lib.analysis.RuleConfiguredTarget.Mode;
-import com.google.devtools.build.lib.analysis.Runfiles.Builder;
 import com.google.devtools.build.lib.collect.nestedset.NestedSet;
 import com.google.devtools.build.lib.collect.nestedset.NestedSetBuilder;
 import com.google.devtools.build.lib.collect.nestedset.Order;
@@ -567,45 +565,12 @@ public final class Runfiles {
      * @param runfilesSupport the runfiles support to be merged in
      */
     public Builder merge(@Nullable RunfilesSupport runfilesSupport) {
-      return merge(runfilesSupport, null);
-    }
-
-    /**
-     * Merges runfiles from a given runfiles support.
-     *
-     * <p>Sometimes a particular symlink from the runfiles support must not be included in runfiles.
-     * In such cases the path fragment denoting the symlink should be passed in as {@code
-     * ommittedAdditionalSymlink}. The symlink will then be filtered away from the set of additional
-     * symlinks of the target.
-     *
-     * @param runfilesSupport the runfiles support to be merged in
-     * @param omittedAdditionalSymlink the symlink to be omitted, or null if no filtering is needed
-     */
-    public Builder merge(@Nullable RunfilesSupport runfilesSupport,
-        @Nullable final PathFragment omittedAdditionalSymlink) {
       if (runfilesSupport == null) {
         return this;
       }
       // TODO(bazel-team): We may be able to remove this now.
       addArtifact(runfilesSupport.getRunfilesMiddleman());
-      Runfiles runfiles = runfilesSupport.getRunfiles();
-      if (omittedAdditionalSymlink == null) {
-        merge(runfiles);
-      } else {
-        artifactsBuilder.addTransitive(runfiles.getUnconditionalArtifacts());
-        symlinksBuilder.addAll(Maps.filterKeys(entriesToMap(runfiles.getSymlinks()),
-            Predicates.not(Predicates.equalTo(omittedAdditionalSymlink))).entrySet());
-        rootSymlinksBuilder.addTransitive(runfiles.getRootSymlinks());
-        pruningManifestsBuilder.addTransitive(runfiles.getPruningManifests());
-        if (manifestExpander == DUMMY_SYMLINK_EXPANDER) {
-          manifestExpander = runfiles.getSymlinkExpander();
-        } else {
-          Function<Map<PathFragment, Artifact>, Map<PathFragment, Artifact>> otherExpander =
-              runfiles.getSymlinkExpander();
-          Preconditions.checkState((otherExpander == DUMMY_SYMLINK_EXPANDER)
-            || manifestExpander.equals(otherExpander));
-        }
-      }
+      merge(runfilesSupport.getRunfiles());
       return this;
     }
 
