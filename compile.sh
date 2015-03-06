@@ -64,16 +64,78 @@ function log() {
   fi
 }
 
+function write_fromhost_build() {
+  case "${PLATFORM}" in
+    linux)
+      cat << EOF > fromhost/BUILD
+package(default_visibility = ["//visibility:public"])
+cc_library(
+  name = "libarchive",
+  srcs = [],
+  hdrs = [],
+)
+EOF
+
+      ;;
+    darwin)
+      homebrew_header=$(ls -1 $(brew --prefix 2>/dev/null)/Cellar/libarchive/*/include/archive.h 2>/dev/null | head -n1)
+      if [[ -e $homebrew_header ]]; then
+        rm -f fromhost/*.[ah]
+        touch fromhost/empty.c
+        # For use with Homebrew.
+        archive_dir=$(dirname $(dirname $homebrew_header))
+        ARCHIVE_CFLAGS="-I${archive_dir}/include"
+        LDFLAGS="-L${archive_dir}/lib -larchive $LDFLAGS"
+
+        cp ${archive_dir}/lib/*.a ${archive_dir}/include/*.h fromhost/
+        cat << EOF > fromhost/BUILD
+package(default_visibility = ["//visibility:public"])
+cc_library(
+  name = "libarchive",
+  srcs = glob(["*.a"]) + ["empty.c"],
+  hdrs = glob(["*.h"]),
+  includes  = ["."],
+  linkopts = ["-lxml2", "-liconv", "-lbz2", "-lz", ],
+)
+EOF
+
+      elif [[ -e /opt/local/include/archive.h ]]; then
+        # For use with Macports.
+        rm -f fromhost/*.[ah]
+        touch fromhost/empty.c
+        cp /opt/local/include/archive.h  /opt/local/include/archive_entry.h fromhost/
+        cp /opt/local/lib/{libarchive,liblzo2,liblzma,libcharset,libbz2,libxml2,libz,libiconv}.a \
+          fromhost/
+
+        ARCHIVE_CFLAGS="-Ifromhost"
+        # Link libarchive statically
+        LDFLAGS="fromhost/libarchive.a fromhost/liblzo2.a \
+             fromhost/liblzma.a fromhost/libcharset.a \
+             fromhost/libbz2.a fromhost/libxml2.a \
+             fromhost/libz.a fromhost/libiconv.a \
+             $LDFLAGS"
+        cat << EOF > fromhost/BUILD
+package(default_visibility = ["//visibility:public"])
+cc_library(
+  name = "libarchive",
+  srcs = glob(["*.a"]) + ["empty.c"],
+  hdrs = glob(["*.h"]),
+  includes  = ["."],
+)
+EOF
+      else
+        log "WARNING: Could not find libarchive installation, proceeding bravely."
+      fi
+  esac
+}
+
 # Create symlinks so we can use tools from the base_workspace.
 rm -f base_workspace/tools && ln -s $(pwd)/tools base_workspace/tools
 rm -f base_workspace/third_party && ln -s $(pwd)/third_party base_workspace/third_party
 
 mkdir -p fromhost
-# Do not overwrite fromhost/BUILD with a dummy if it already exists.
 if [ ! -f fromhost/BUILD ]; then
-  cat << EOF > fromhost/BUILD
-package(default_visibility = ["//visibility:public"])
-EOF
+  write_fromhost_build
 fi
 
 case "${PLATFORM}" in
@@ -85,64 +147,9 @@ linux)
   # JAVA_HOME must point to a Java 8 installation.
   JAVA_HOME=${JAVA_HOME:-$(readlink -f $(which javac) | sed "s_/bin/javac__")}
   PROTOC=${PROTOC:-third_party/protobuf/protoc.amd64}
-
-cat << EOF >> fromhost/BUILD
-cc_library(
-  name = "libarchive",
-  srcs = [],
-  hdrs = [],
-)
-EOF
-
   ;;
+
 darwin)
-  homebrew_header=$(ls -1 $(brew --prefix 2>/dev/null)/Cellar/libarchive/*/include/archive.h 2>/dev/null | head -n1)
-  if [[ -e $homebrew_header ]]; then
-    rm -f fromhost/*.[ah]
-    touch fromhost/empty.c
-    # For use with Homebrew.
-    archive_dir=$(dirname $(dirname $homebrew_header))
-    ARCHIVE_CFLAGS="-I${archive_dir}/include"
-    LDFLAGS="-L${archive_dir}/lib -larchive $LDFLAGS"
-
-    cp ${archive_dir}/lib/*.a ${archive_dir}/include/*.h fromhost/
-    cat << EOF >> fromhost/BUILD
-cc_library(
-  name = "libarchive",
-  srcs = glob(["*.a"]) + ["empty.c"],
-  hdrs = glob(["*.h"]),
-  includes  = ["."],
-  linkopts = ["-lxml2", "-liconv", "-lbz2", "-lz", ],
-)
-EOF
-
-  elif [[ -e /opt/local/include/archive.h ]]; then
-    # For use with Macports.
-    rm -f fromhost/*.[ah]
-    touch fromhost/empty.c
-    cp /opt/local/include/archive.h  /opt/local/include/archive_entry.h fromhost/
-    cp /opt/local/lib/{libarchive,liblzo2,liblzma,libcharset,libbz2,libxml2,libz,libiconv}.a \
-      fromhost/
-
-    ARCHIVE_CFLAGS="-Ifromhost"
-    # Link libarchive statically
-    LDFLAGS="fromhost/libarchive.a fromhost/liblzo2.a \
-             fromhost/liblzma.a fromhost/libcharset.a \
-             fromhost/libbz2.a fromhost/libxml2.a \
-             fromhost/libz.a fromhost/libiconv.a \
-             $LDFLAGS"
-    cat << EOF >> fromhost/BUILD
-cc_library(
-  name = "libarchive",
-  srcs = glob(["*.a"]) + ["empty.c"],
-  hdrs = glob(["*.h"]),
-  includes  = ["."],
-)
-EOF
-  else
-    log "WARNING: Could not find libarchive installation, proceeding bravely."
-  fi
-
   JNILIB="libunix.dylib"
   MD5SUM="md5"
   if [[ -z "$JAVA_HOME" ]]; then
