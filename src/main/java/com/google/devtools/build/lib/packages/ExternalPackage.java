@@ -138,14 +138,16 @@ public class ExternalPackage extends Package {
       boolean moveTortoise = true;
       while (Binding.isBoundLabel(actual)) {
         if (tortoise == hare) {
-          throw new NoSuchBindingException("cycle detected resolving " + virtual + " binding");
+          throw new NoSuchBindingException("cycle detected resolving " + virtual + " binding",
+              binding.getLocation());
         }
 
         Label previous = actual; // For the exception.
+        Binding oldBinding = binding;
         binding = bindMap.get(actual);
         if (binding == null) {
           throw new NoSuchBindingException("no binding found for target " + previous + " (via "
-              + virtual + ")");
+              + virtual + ")", oldBinding.getLocation());
         }
         actual = binding.getActual();
         hare = actual;
@@ -174,16 +176,6 @@ public class ExternalPackage extends Package {
     }
 
     /**
-     * This is used when a binding is invalid, either because one of the targets is malformed,
-     * refers to a package that does not exist, or creates a circular dependency.
-     */
-    public class NoSuchBindingException extends NoSuchThingException {
-      public NoSuchBindingException(String message) {
-        super(message);
-      }
-    }
-
-    /**
      * Creates an external repository rule.
      * @throws SyntaxException if the repository name is invalid.
      */
@@ -197,6 +189,23 @@ public class ExternalPackage extends Package {
       addEvents(eventHandler.getEvents());
       repositoryMap.put(RepositoryName.create("@" + rule.getName()), rule);
       return this;
+    }
+
+    /**
+     * This is used when a binding is invalid, either because one of the targets is malformed,
+     * refers to a package that does not exist, or creates a circular dependency.
+     */
+    public class NoSuchBindingException extends NoSuchThingException {
+      private Location location;
+
+      public NoSuchBindingException(String message, Location location) {
+        super(message);
+        this.location = location;
+      }
+
+      public Location getLocation() {
+        return location;
+      }
     }
   }
 }

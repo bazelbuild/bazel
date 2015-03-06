@@ -89,7 +89,8 @@ public class WorkspaceFileFunction implements SkyFunction {
     try {
       builder.resolveBindTargets(packageFactory.getRuleClass(BIND));
     } catch (NoSuchBindingException e) {
-      throw new WorkspaceFileFunctionException(e);
+      throw new WorkspaceFileFunctionException(
+          new EvalException(e.getLocation(), e.getMessage()));
     } catch (EvalException e) {
       throw new WorkspaceFileFunctionException(e);
     }
