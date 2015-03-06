@@ -15,6 +15,7 @@
 package com.google.devtools.build.lib.analysis;
 
 import com.google.common.base.Joiner;
+import com.google.common.collect.ImmutableSet;
 import com.google.common.collect.Iterables;
 import com.google.common.collect.Lists;
 import com.google.common.collect.Sets;
@@ -44,11 +45,22 @@ import java.util.Map;
  * Note that //mypackage:myhelper should have just one output.
  */
 public class LocationExpander {
+  
+  /**
+   * List of options to tweak the LocationExpander.
+   */
+  public static enum Options {
+    /** output the execPath instead of the relative path */
+    EXEC_PATHS,
+    /** Allow to take label from the data attribute */
+    ALLOW_DATA,
+  }
+  
   private static final int MAX_PATHS_SHOWN = 5;
   private static final String LOCATION = "$(location";
   private final RuleContext ruleContext;
+  private final ImmutableSet<Options> options;
   private Map<Label, Collection<Artifact>> locationMap;
-  private boolean allowDataAttributeEntriesInLabel = false;
 
   /**
    * Creates location expander helper bound to specific target and with default
@@ -57,18 +69,51 @@ public class LocationExpander {
    * @param ruleContext BUILD rule
    */
   public LocationExpander(RuleContext ruleContext) {
-    this(ruleContext, false);
+    this(ruleContext, Options.EXEC_PATHS);
   }
 
-  public LocationExpander(RuleContext ruleContext,
-      boolean allowDataAttributeEntriesInLabel) {
+  /**
+   * Creates location expander helper bound to specific target and with default location map.
+   *
+   * @param ruleContext BUILD rule
+   * @param allowDataAttributeEntriesInLabel set to true if the <code>data</code> attribute should
+   *        be used too.
+   */
+  public LocationExpander(RuleContext ruleContext, boolean allowDataAttributeEntriesInLabel) {
     this.ruleContext = ruleContext;
-    this.allowDataAttributeEntriesInLabel = allowDataAttributeEntriesInLabel;
+    ImmutableSet.Builder<Options> builder = ImmutableSet.builder();
+    builder.add(Options.EXEC_PATHS);
+    if (allowDataAttributeEntriesInLabel) {
+      builder.add(Options.ALLOW_DATA);
+    }
+    this.options = builder.build();
+  }
+
+  /**
+   * Creates location expander helper bound to specific target.
+   * 
+   * @param ruleContext the BUILD rule's context
+   * @param options the list of options, see {@link Options}.
+   */
+  public LocationExpander(RuleContext ruleContext, ImmutableSet<Options> options) {
+    this.ruleContext = ruleContext;
+    this.options = options;
+  }
+
+  /**
+   * Creates location expander helper bound to specific target.
+   * 
+   * @param ruleContext the BUILD rule's context
+   * @param options the list of options, see {@link Options}.
+   */
+  public LocationExpander(RuleContext ruleContext, Options... options) {
+    this.ruleContext = ruleContext;
+    this.options = ImmutableSet.copyOf(options);
   }
 
   public Map<Label, Collection<Artifact>> getLocationMap() {
     if (locationMap == null) {
-      locationMap = buildLocationMap(ruleContext, allowDataAttributeEntriesInLabel);
+      locationMap = buildLocationMap(ruleContext, options.contains(Options.ALLOW_DATA));
     }
     return locationMap;
   }
@@ -141,7 +186,7 @@ public class LocationExpander {
                               + "declared prerequisite of this rule");
         return attrValue;
       }
-      List<String> paths = getPaths(artifacts);
+      List<String> paths = getPaths(artifacts, options.contains(Options.EXEC_PATHS));
       if (paths.isEmpty()) {
         ruleContext.attributeError(attrName,
                               "label '" + label + "' in " + message + " expression expands to no "
@@ -227,12 +272,14 @@ public class LocationExpander {
    * artifacts.
    *
    * @param artifacts to get the paths of
+   * @param takeExecPath if false, the root relative path will be taken
    * @return all associated executable paths
    */
-  private static List<String> getPaths(Collection<Artifact> artifacts) {
+  private static List<String> getPaths(Collection<Artifact> artifacts, boolean takeExecPath) {
     List<String> paths = Lists.newArrayListWithCapacity(artifacts.size());
     for (Artifact artifact : artifacts) {
-      PathFragment execPath = artifact.getExecPath();
+      PathFragment execPath =
+          takeExecPath ? artifact.getExecPath() : artifact.getRootRelativePath();
       if (execPath != null) {  // omit middlemen etc
         paths.add(execPath.getPathString());
       }

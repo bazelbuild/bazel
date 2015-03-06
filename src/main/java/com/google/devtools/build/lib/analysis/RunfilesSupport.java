@@ -116,8 +116,9 @@ public class RunfilesSupport {
     this.runfilesManifest = createRunfilesAction(ruleContext, runfiles);
     this.runfilesMiddleman = createRunfilesMiddleman(ruleContext, runfiles.getAllArtifacts());
     sourcesManifest = createSourceManifest(ruleContext, runfiles);
+
     args = ImmutableList.<String>builder()
-        .addAll(ruleContext.getTokenizedStringListAttr("args"))
+        .addAll(ruleContext.getTokenizedStringListAttr("args", ruleContext))
         .addAll(appendingArgs)
         .build();
   }
