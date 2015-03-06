@@ -58,20 +58,16 @@ public class NewLocalRepositoryFunction extends RepositoryFunction {
     // .external-repository/
     //   x/
     //     WORKSPACE
-    //     x/
-    //       BUILD -> <build_root>/x.BUILD
-    //       y -> /some/path/to/y
+    //     BUILD -> <build_root>/x.BUILD
+    //     y -> /some/path/to/y
     //
-    // In the structure above, .external-repository/x is the repository directory and
-    // .external-repository/x/x is the package directory.
     Path repositoryDirectory = getExternalRepositoryDirectory().getRelative(rule.getName());
-    Path outputDirectory = repositoryDirectory.getRelative(rule.getName());
     try {
-      FileSystemUtils.createDirectoryAndParents(outputDirectory);
+      FileSystemUtils.createDirectoryAndParents(repositoryDirectory);
     } catch (IOException e) {
       throw new RepositoryFunctionException(e, Transience.TRANSIENT);
     }
-    FileValue directoryValue = getRepositoryDirectory(outputDirectory, env);
+    FileValue directoryValue = getRepositoryDirectory(repositoryDirectory, env);
     if (directoryValue == null) {
       return null;
     }
@@ -86,7 +82,7 @@ public class NewLocalRepositoryFunction extends RepositoryFunction {
     }
 
     AggregatingAttributeMapper mapper = AggregatingAttributeMapper.of(rule);
-    // Link x/x/y to /some/path/to/y.
+    // Link x/y to /some/path/to/y.
     String path = mapper.get("path", Type.STRING);
     PathFragment pathFragment = new PathFragment(path);
     if (!pathFragment.isAbsolute()) {
@@ -97,12 +93,12 @@ public class NewLocalRepositoryFunction extends RepositoryFunction {
           Transience.PERSISTENT);
     }
     Path pathTarget = getOutputBase().getFileSystem().getPath(pathFragment);
-    Path symlinkPath = outputDirectory.getRelative(pathTarget.getBaseName());
+    Path symlinkPath = repositoryDirectory.getRelative(pathTarget.getBaseName());
     if (createSymbolicLink(symlinkPath, pathTarget, env) == null) {
       return null;
     }
 
-    // Link x/x/BUILD to <build_root>/x.BUILD.
+    // Link x/BUILD to <build_root>/x.BUILD.
     PathFragment buildFile = new PathFragment(mapper.get("build_file", Type.STRING));
     Path buildFileTarget = getWorkspace().getRelative(buildFile);
     if (buildFile.equals(PathFragment.EMPTY_FRAGMENT) || buildFile.isAbsolute()
@@ -112,7 +108,7 @@ public class NewLocalRepositoryFunction extends RepositoryFunction {
               + " the 'build_file' attribute must specify a relative path to an existing file"),
           Transience.PERSISTENT);
     }
-    Path buildFilePath = outputDirectory.getRelative("BUILD");
+    Path buildFilePath = repositoryDirectory.getRelative("BUILD");
     if (createSymbolicLink(buildFilePath, buildFileTarget, env) == null) {
       return null;
     }
@@ -129,8 +125,7 @@ public class NewLocalRepositoryFunction extends RepositoryFunction {
     } catch (IOException e) {
       throw new RepositoryFunctionException(e, Transience.TRANSIENT);
     }
-    FileValue fromValue = getRepositoryDirectory(from, env);
-    return fromValue;
+    return getRepositoryDirectory(from, env);
   }
 
   @Override
