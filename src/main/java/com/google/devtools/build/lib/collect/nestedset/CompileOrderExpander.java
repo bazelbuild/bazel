@@ -22,7 +22,7 @@ import com.google.common.collect.ImmutableCollection;
  * (child-first).
  *
  * <p>This type of set would typically be used for artifacts where elements of nested sets go before
- * the direct members of a set, for example in the case of constructing Java classpaths.
+ * the direct members of a set, for example in the case of Javascript dependencies.
  */
 final class CompileOrderExpander<E> implements NestedSetExpander<E> {
 
