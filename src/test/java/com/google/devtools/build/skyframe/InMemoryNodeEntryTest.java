@@ -20,6 +20,7 @@ import static org.junit.Assert.assertNull;
 import static org.junit.Assert.assertTrue;
 import static org.junit.Assert.fail;
 
+import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableSet;
 import com.google.common.collect.Iterables;
 import com.google.devtools.build.lib.collect.nestedset.NestedSet;
@@ -642,6 +643,28 @@ public class InMemoryNodeEntryTest {
     assertThat(entry.getReverseDeps()).hasSize(0);
     assertThat(clone1.getReverseDeps()).containsExactly(key("parent1"));
     assertThat(clone2.getReverseDeps()).containsExactly(key("parent1"), key("parent2"));
+  }
+
+  @Test
+  public void getGroupedDirectDeps() {
+    InMemoryNodeEntry entry = new InMemoryNodeEntry();
+    ImmutableList<ImmutableSet<SkyKey>> groupedDirectDeps = ImmutableList.of(
+        ImmutableSet.of(key("1A")),
+        ImmutableSet.of(key("2A"), key("2B")),
+        ImmutableSet.of(key("3A"), key("3B"), key("3C")),
+        ImmutableSet.of(key("4A"), key("4B"), key("4C"), key("4D")));
+    for (Set<SkyKey> depGroup : groupedDirectDeps) {
+      entry.addTemporaryDirectDeps(GroupedListHelper.create(depGroup));
+      for (int i = 0; i < depGroup.size(); i++) {
+        entry.signalDep();
+      }
+    }
+    entry.setValue(new IntegerValue(42), new IntVersion(42L));
+    int i = 0;
+    assertThat(Iterables.size(entry.getGroupedDirectDeps())).isEqualTo(groupedDirectDeps.size());
+    for (Iterable<SkyKey> depGroup : entry.getGroupedDirectDeps()) {
+      assertThat(depGroup).containsExactlyElementsIn(groupedDirectDeps.get(i++));
+    }
   }
 
   private static Set<SkyKey> setValue(NodeEntry entry, SkyValue value,

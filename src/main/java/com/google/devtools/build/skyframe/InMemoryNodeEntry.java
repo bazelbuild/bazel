@@ -182,6 +182,16 @@ public class InMemoryNodeEntry implements NodeEntry, Serializable {
     return GroupedList.<SkyKey>create(directDeps).toSet();
   }
 
+  /**
+   * If {@code isDone()}, returns the ordered list of sets of grouped direct dependencies that were
+   * added in {@link addTemporaryDirectDeps}.
+   */
+  public synchronized Iterable<Iterable<SkyKey>> getGroupedDirectDeps() {
+    assertKeepEdges();
+    Preconditions.checkState(isDone(), "no deps until done. ValueEntry: %s", this);
+    return GroupedList.<SkyKey>create(directDeps);
+  }
+
   @Override
   @Nullable
   public synchronized ErrorInfo getErrorInfo() {
