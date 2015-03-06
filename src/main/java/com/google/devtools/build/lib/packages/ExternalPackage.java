@@ -195,7 +195,7 @@ public class ExternalPackage extends Package {
      * This is used when a binding is invalid, either because one of the targets is malformed,
      * refers to a package that does not exist, or creates a circular dependency.
      */
-    public class NoSuchBindingException extends NoSuchThingException {
+    public class NoSuchBindingException extends Exception {
       private Location location;
 
       public NoSuchBindingException(String message, Location location) {

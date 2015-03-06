@@ -221,10 +221,6 @@ public class WorkspaceFileFunction implements SkyFunction {
       super(e, transience);
     }
 
-    public WorkspaceFileFunctionException(NoSuchBindingException e) {
-      super(e, Transience.PERSISTENT);
-    }
-
     public WorkspaceFileFunctionException(EvalException e) {
       super(e, Transience.PERSISTENT);
     }
