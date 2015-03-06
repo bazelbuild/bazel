@@ -50,6 +50,9 @@ public final class SkylarkAttr {
   private static final String MANDATORY_DOC =
       "set to True if users have to explicitely specify the value";
 
+  private static final String NON_EMPTY_DOC =
+      "set to True if the attribute must not be empty";
+
   private static final String ALLOW_FILES_DOC =
       "whether File targets are allowed. Can be True, False (default), or "
       + "a FileType filter.";
@@ -97,6 +100,10 @@ public final class SkylarkAttr {
 
     if (arguments.containsKey("mandatory") && (Boolean) arguments.get("mandatory")) {
       builder.setPropertyFlag("MANDATORY");
+    }
+
+    if (arguments.containsKey("non_empty") && (Boolean) arguments.get("non_empty")) {
+      builder.setPropertyFlag("NON_EMPTY");
     }
 
     if (arguments.containsKey("executable") && (Boolean) arguments.get("executable")) {
@@ -223,6 +230,7 @@ public final class SkylarkAttr {
           doc = DEFAULT_DOC + " If not specified, default is []."),
       @Param(name = "flags", type = SkylarkList.class, generic1 = String.class, doc = FLAGS_DOC),
       @Param(name = "mandatory", type = Boolean.class, doc = MANDATORY_DOC),
+      @Param(name = "non_empty", type = Boolean.class, doc = NON_EMPTY_DOC),
       @Param(name = "cfg", type = ConfigurationTransition.class,
           doc = CONFIGURATION_DOC)})
   private static SkylarkFunction stringList = new SkylarkFunction("string_list") {
@@ -248,6 +256,7 @@ public final class SkylarkAttr {
       @Param(name = "mandatory", type = Boolean.class, doc = MANDATORY_DOC),
       @Param(name = "allow_rules", type = SkylarkList.class, generic1 = String.class,
           doc = ALLOW_RULES_DOC),
+      @Param(name = "non_empty", type = Boolean.class, doc = NON_EMPTY_DOC),
       @Param(name = "providers", type = SkylarkList.class, generic1 = String.class,
           doc = "mandatory providers every dependency has to have"),
       @Param(name = "cfg", type = ConfigurationTransition.class, doc = CONFIGURATION_DOC)})
@@ -304,6 +313,7 @@ public final class SkylarkAttr {
       @Param(name = "default", type = SkylarkList.class, generic1 = Label.class, doc = DEFAULT_DOC),
       @Param(name = "flags", type = SkylarkList.class, generic1 = String.class, doc = FLAGS_DOC),
       @Param(name = "mandatory", type = Boolean.class, doc = MANDATORY_DOC),
+      @Param(name = "non_empty", type = Boolean.class, doc = NON_EMPTY_DOC),
       @Param(name = "cfg", type = ConfigurationTransition.class, doc = CONFIGURATION_DOC)})
   private static SkylarkFunction outputList = new SkylarkFunction("output_list") {
       @Override
@@ -322,6 +332,7 @@ public final class SkylarkAttr {
       @Param(name = "default", type = Map.class, doc = DEFAULT_DOC),
       @Param(name = "flags", type = SkylarkList.class, generic1 = String.class, doc = FLAGS_DOC),
       @Param(name = "mandatory", type = Boolean.class, doc = MANDATORY_DOC),
+      @Param(name = "non_empty", type = Boolean.class, doc = NON_EMPTY_DOC),
       @Param(name = "cfg", type = ConfigurationTransition.class, doc = CONFIGURATION_DOC)})
   private static SkylarkFunction stringDict = new SkylarkFunction("string_dict") {
       @Override
