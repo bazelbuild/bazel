@@ -186,7 +186,7 @@ to it then and only then can `top` access it.
 
 Only the following data types are allowed to pass using providers:
 
-* `boolean`
+* `bool`
 * `integer`
 * `string`
 * `file`
