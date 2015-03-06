@@ -13,6 +13,7 @@
 // limitations under the License.
 package com.google.devtools.build.lib.runtime.commands;
 
+import com.google.devtools.build.lib.Constants;
 
 /**
  * An enumeration of all the valid info keys, excepting the make environment
@@ -23,13 +24,17 @@ public enum InfoKey {
   WORKSPACE("workspace", "The working directory of the server."),
   INSTALL_BASE("install_base", "The installation base directory."),
   OUTPUT_BASE("output_base",
-      "A directory for shared Blaze state as well as tool and strategy specific subdirectories."),
+      "A directory for shared " + Constants.PRODUCT_NAME + " state as well as tool and strategy "
+      + "specific subdirectories."),
   EXECUTION_ROOT("execution_root",
       "A directory that makes all input and output files visible to the build."),
   OUTPUT_PATH("output_path", "Output directory"),
-  BLAZE_BIN("blaze-bin", "Configuration dependent directory for binaries."),
-  BLAZE_GENFILES("blaze-genfiles", "Configuration dependent directory for generated files."),
-  BLAZE_TESTLOGS("blaze-testlogs", "Configuration dependent directory for logs from a test run."),
+  BLAZE_BIN(Constants.PRODUCT_NAME + "-bin",
+      "Configuration dependent directory for binaries."),
+  BLAZE_GENFILES(Constants.PRODUCT_NAME + "-genfiles",
+      "Configuration dependent directory for generated files."),
+  BLAZE_TESTLOGS(Constants.PRODUCT_NAME + "-testlogs",
+      "Configuration dependent directory for logs from a test run."),
 
   // logs
   COMMAND_LOG("command_log", "Location of the log containg the output from the build commands."),
@@ -37,8 +42,8 @@ public enum InfoKey {
       "Location of a log containing machine readable message in LogMessage protobuf format."),
 
   // misc
-  RELEASE("release", "Blaze release identifier"),
-  SERVER_PID("server_pid", "Blaze process id"),
+  RELEASE("release", Constants.PRODUCT_NAME + " release identifier"),
+  SERVER_PID("server_pid", Constants.PRODUCT_NAME + " process id"),
   PACKAGE_PATH("package_path", "The search path for resolving package labels."),
 
   // memory statistics
