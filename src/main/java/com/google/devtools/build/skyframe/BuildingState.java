@@ -21,7 +21,6 @@ import com.google.devtools.build.lib.concurrent.ThreadSafety.ThreadCompatible;
 import com.google.devtools.build.lib.util.GroupedList;
 import com.google.devtools.build.lib.util.GroupedList.GroupedListHelper;
 
-import java.io.Serializable;
 import java.util.Collection;
 import java.util.Collections;
 import java.util.Iterator;
@@ -42,7 +41,7 @@ import java.util.Set;
  * <p>This class is not intended to be used outside of Skyframe.
  */
 @ThreadCompatible
-public final class BuildingState implements Serializable {
+final class BuildingState {
   /**
    * During its life, a node can go through states as follows:
    * <ol>

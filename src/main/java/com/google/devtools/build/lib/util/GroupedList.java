@@ -20,7 +20,6 @@ import com.google.common.collect.ImmutableSet;
 import com.google.common.collect.Iterables;
 import com.google.devtools.build.lib.collect.CompactHashSet;
 
-import java.io.Serializable;
 import java.util.ArrayList;
 import java.util.Collection;
 import java.util.Iterator;
@@ -36,7 +35,7 @@ import java.util.Set;
  * <p>Despite the "list" name, it is an error for the same element to appear multiple times in the
  * list. Users are responsible for not trying to add the same element to a GroupedList twice.
  */
-public class GroupedList<T> implements Iterable<Iterable<T>>, Serializable {
+public class GroupedList<T> implements Iterable<Iterable<T>> {
   // Total number of items in the list. At least elements.size(), but might be larger if there are
   // any nested lists.
   private int size = 0;
@@ -85,27 +84,12 @@ public class GroupedList<T> implements Iterable<Iterable<T>>, Serializable {
     return elements.isEmpty();
   }
 
-  private static final class EmptyList implements Serializable {
-    private static final EmptyList INSTANCE = new EmptyList();
-
-    private EmptyList() {
-    }
-
-    @Override
-    public boolean equals(Object obj) {
-      return obj instanceof EmptyList;
-    }
-
-    @Override
-    public int hashCode() {
-      return 42;
-    }
-  }
+  private static final Object EMPTY_LIST = new Object();
 
   public Object compress() {
     switch (size()) {
       case 0:
-        return EmptyList.INSTANCE;
+        return EMPTY_LIST;
       case 1:
         return Iterables.getOnlyElement(elements);
       default:
@@ -131,7 +115,7 @@ public class GroupedList<T> implements Iterable<Iterable<T>>, Serializable {
   }
 
   public static <E> GroupedList<E> create(Object compressed) {
-    if (compressed.equals(EmptyList.INSTANCE)) {
+    if (compressed == EMPTY_LIST) {
       return new GroupedList<>();
     }
     if (compressed.getClass().isArray()) {
@@ -173,18 +157,18 @@ public class GroupedList<T> implements Iterable<Iterable<T>>, Serializable {
    * iterator is needed here because, to optimize memory, we store single-element lists as elements
    * internally, and so they must be wrapped before they're returned.
    */
-  private class GroupedIterator implements Iterator<Iterable<T>>, Serializable {
-    private int pos = 0;
+  private class GroupedIterator implements Iterator<Iterable<T>> {
+    private final Iterator<Object> iter = elements.iterator();
 
     @Override
     public boolean hasNext() {
-      return pos < elements.size();
+      return iter.hasNext();
     }
 
     @SuppressWarnings("unchecked") // Cast of Object to List<T> or T.
     @Override
     public Iterable<T> next() {
-      Object obj = elements.get(pos++);
+      Object obj = iter.next();
       if (obj instanceof List) {
         return (List<T>) obj;
       }
@@ -259,13 +243,6 @@ public class GroupedList<T> implements Iterable<Iterable<T>>, Serializable {
     private List<Object> groupedList;
     private List<E> currentGroup = null;
     private final Set<E> elements = CompactHashSet.create();
-
-    private GroupedListHelper(GroupedList<E> groupedList) {
-      this.groupedList = new ArrayList<>(groupedList.elements);
-      for (Iterable<E> group : groupedList) {
-        Iterables.addAll(elements, group);
-      }
-    }
 
     public GroupedListHelper() {
       // Optimize for short lists.
