@@ -29,6 +29,8 @@ import com.google.devtools.build.lib.packages.RuleClass.Builder.RuleClassType;
 public class WorkspaceBaseRule implements RuleDefinition {
   @Override
   public RuleClass build(Builder builder, RuleDefinitionEnvironment environment) {
-    return builder.build();
+    return builder
+        .exemptFromConstraintChecking("workspace rules aren't built for target environments")
+        .build();
   }
 }
