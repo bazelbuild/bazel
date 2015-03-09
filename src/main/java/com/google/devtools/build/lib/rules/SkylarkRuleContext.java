@@ -336,6 +336,12 @@ public final class SkylarkRuleContext {
   public SkylarkClassObject getTargets() {
     return targetsObject;
   }
+  
+  @SkylarkCallable(name = "workspace_name", structField = true,
+      doc = "Returns the workspace name as defined in the WORKSPACE file.")
+  public String getWorkspaceName() {
+    return ruleContext.getWorkspaceName();
+  }
 
   @SkylarkCallable(name = "label", structField = true, doc = "The label of this rule.")
   public Label getLabel() {
