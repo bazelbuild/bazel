@@ -176,6 +176,13 @@ public class SkylarkNestedSetTest extends AbstractEvaluationTestCase {
     assertEquals("set([2, 4, 6, 3, 5])", env.lookup("x"));
   }
 
+  @Test
+  public void testNsetToStringWithOrder() throws Exception {
+    exec("s = set(order = 'link') + [2, 4, 6] + [3, 4, 5]",
+        "x = str(s)");
+    assertEquals("set([2, 4, 6, 3, 5], order = \"link\")", env.lookup("x"));
+  }
+
   private void exec(String... input) throws Exception {
     exec(parseFileForSkylark(Joiner.on("\n").join(input)), env);
   }

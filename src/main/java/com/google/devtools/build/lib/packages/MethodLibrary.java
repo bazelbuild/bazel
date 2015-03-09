@@ -608,19 +608,7 @@ public class MethodLibrary {
     @Override
     public Object call(Object[] args, FuncallExpression ast) throws EvalException,
         ConversionException {
-      Order order;
-      if (args[1] == null || args[1].equals("stable")) {
-        order = Order.STABLE_ORDER;
-      } else if (args[1].equals("compile")) {
-        order = Order.COMPILE_ORDER;
-      } else if (args[1].equals("link")) {
-        order = Order.LINK_ORDER;
-      } else if (args[1].equals("naive_link")) {
-        order = Order.NAIVE_LINK_ORDER;
-      } else {
-        throw new EvalException(ast.getLocation(), "Invalid order: " + args[1]);
-      }
-
+      Order order = SkylarkNestedSet.parseOrder((String) args[1], ast.getLocation());
       if (args[0] == null) {
         return new SkylarkNestedSet(order, SkylarkList.EMPTY_LIST, ast.getLocation());
       }

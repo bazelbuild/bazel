@@ -207,4 +207,40 @@ public final class SkylarkNestedSet implements Iterable<Object> {
   public String toString() {
     return EvalUtils.prettyPrintValue(this);
   }
+
+  /**
+   * Parse the string as a set order.
+   */
+  public static Order parseOrder(String s, Location loc) throws EvalException {
+    // Keep in sync with orderString
+    if (s == null || s.equals("stable")) {
+      return Order.STABLE_ORDER;
+    } else if (s.equals("compile")) {
+      return Order.COMPILE_ORDER;
+    } else if (s.equals("link")) {
+      return Order.LINK_ORDER;
+    } else if (s.equals("naive_link")) {
+      return Order.NAIVE_LINK_ORDER;
+    } else {
+      throw new EvalException(loc, "Invalid order: " + s);
+    }
+  }
+
+  /**
+   * Get the order as a string.
+   */
+  public static String orderString(Order order) {
+    // Keep in sync with parseOrder
+    switch (order) {
+      case STABLE_ORDER: return "stable";
+      case COMPILE_ORDER: return "compile";
+      case LINK_ORDER: return "link";
+      case NAIVE_LINK_ORDER: return "naive_link";
+      default: throw new IllegalStateException("unknown order: " + order);
+    }
+  }
+
+  public Order getOrder() {
+    return set.getOrder();
+  }
 }

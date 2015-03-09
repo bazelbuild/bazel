@@ -22,6 +22,7 @@ import com.google.common.collect.ImmutableSet;
 import com.google.common.collect.Iterables;
 import com.google.common.collect.Lists;
 import com.google.devtools.build.lib.collect.nestedset.NestedSet;
+import com.google.devtools.build.lib.collect.nestedset.Order;
 import com.google.devtools.build.lib.concurrent.ThreadSafety.Immutable;
 import com.google.devtools.build.lib.events.Location;
 import com.google.devtools.build.lib.vfs.PathFragment;
@@ -302,9 +303,14 @@ public abstract class EvalUtils {
       prettyPrintValue(entry.getValue(), buffer);
 
     } else if (o instanceof SkylarkNestedSet) {
-      Iterable<?> seq = (Iterable<?>) o;
-      // TODO(bazel-team): preserve the order= flag when not the default "stable".
-      printList(seq, "set([", ", ", "])", buffer);
+      SkylarkNestedSet set = (SkylarkNestedSet) o;
+      buffer.append("set(");
+      printList(set, "[", ", ", "]", buffer);
+      Order order = set.getOrder();
+      if (order != Order.STABLE_ORDER) {
+        buffer.append(", order = \"" + SkylarkNestedSet.orderString(order) + "\"");
+      }
+      buffer.append(")");
 
     } else if (o instanceof Function) {
       Function func = (Function) o;
