@@ -143,7 +143,7 @@ public class PbxReferencesGrouper implements PbxReferencesProcessor {
   @Override
   public Iterable<PBXReference> process(Iterable<PBXReference> references) {
     Map<SourceTree, Groups> groupsBySourceTree = ImmutableMap.of(
-        SourceTree.GROUP, new Groups("workspace_root", SourceTree.GROUP),
+        SourceTree.GROUP, new Groups("workspace_root", SourceTree.SOURCE_ROOT),
         SourceTree.SDKROOT, new Groups("SDKROOT", SourceTree.SDKROOT),
         SourceTree.BUILT_PRODUCTS_DIR,
             new Groups("BUILT_PRODUCTS_DIR", SourceTree.BUILT_PRODUCTS_DIR));
