@@ -105,7 +105,7 @@ public class TargetPatternFunction implements SkyFunction {
       Package pkg;
       try {
         PackageValue pkgValue =
-            (PackageValue) env.getValueOrThrow(pkgKey, NoSuchThingException.class);
+            (PackageValue) env.getValueOrThrow(pkgKey, NoSuchPackageException.class);
         if (pkgValue == null) {
           throw new MissingDepException();
         }
