@@ -67,6 +67,11 @@ java_import(
 )
 
 java_import(
+    name = "jsr330_inject",
+    jars = ["jsr330_inject/javax.inject.jar"],
+)
+
+java_import(
     name = "maven_model",
     jars = [
         "maven_model/maven-aether-provider-3.2.3.jar",

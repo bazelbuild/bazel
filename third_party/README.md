@@ -81,6 +81,12 @@
 * License: New BSD License
 
 
+[jsr330_inject](https://code.google.com/p/atinject/)
+
+* Version: 1
+* License: Apache License 2.0
+
+
 [jquery](http://jquery.com)
 --------
 
