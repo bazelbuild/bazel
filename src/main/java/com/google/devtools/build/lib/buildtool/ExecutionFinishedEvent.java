@@ -23,6 +23,9 @@ import java.util.Map;
  * the metadata cache and about last file save times.
  */
 public class ExecutionFinishedEvent {
+
+  private final int outputDirtyFiles;
+  private final int outputModifiedFilesDuringPreviousBuild;
   /** The mtime of the most recently saved source file when the build starts. */
   private long lastFileSaveTimeInMillis;
 
@@ -34,13 +37,24 @@ public class ExecutionFinishedEvent {
   private Map<String, Long> changedFileSaveTimes = new HashMap<>();
 
   public ExecutionFinishedEvent(Map<String, Long> changedFileSaveTimes,
-      long lastFileSaveTimeInMillis) {
+      long lastFileSaveTimeInMillis, int outputDirtyFiles,
+      int outputModifiedFilesDuringPreviousBuild) {
+    this.outputDirtyFiles = outputDirtyFiles;
+    this.outputModifiedFilesDuringPreviousBuild = outputModifiedFilesDuringPreviousBuild;
     this.changedFileSaveTimes = ImmutableMap.copyOf(changedFileSaveTimes);
     this.lastFileSaveTimeInMillis = lastFileSaveTimeInMillis;
   }
 
   public long getLastFileSaveTimeInMillis() {
     return lastFileSaveTimeInMillis;
+  }
+
+  public int getOutputDirtyFiles() {
+    return outputDirtyFiles;
+  }
+
+  public int getOutputModifiedFilesDuringPreviousBuild() {
+    return outputModifiedFilesDuringPreviousBuild;
   }
 
   public Map<String, Long> getChangedFileSaveTimes() {

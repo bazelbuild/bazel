@@ -14,6 +14,7 @@
 
 package com.google.devtools.build.lib.skyframe;
 
+import com.google.common.collect.Range;
 import com.google.devtools.build.lib.actions.Artifact;
 import com.google.devtools.build.lib.actions.BuildFailedException;
 import com.google.devtools.build.lib.actions.Executor;
@@ -24,6 +25,8 @@ import com.google.devtools.build.lib.util.AbruptExitException;
 
 import java.util.Collection;
 import java.util.Set;
+
+import javax.annotation.Nullable;
 
 /**
  * A Builder consumes top-level artifacts, targets, and tests,, and executes them in some
@@ -57,6 +60,8 @@ public interface Builder {
    * @param builtTargets (out) set of successfully built subset of targetsToBuild. This set is
    *        populated immediately upon confirmation that artifact is built so it will be
    *        valid even if a future action throws ActionExecutionException
+   * @param lastExecutionTimeRange If not null, the start/finish time of the last build that
+   *        run the execution phase.
    * @throws BuildFailedException if there were problems establishing the action execution
    *         environment, if the the metadata of any file  during the build could not be obtained,
    *         if any input files are missing, or if an action fails during execution
@@ -65,11 +70,12 @@ public interface Builder {
    */
   @ThreadCompatible
   void buildArtifacts(Set<Artifact> artifacts,
-                      Set<ConfiguredTarget> parallelTests,
-                      Set<ConfiguredTarget> exclusiveTests,
-                      Collection<ConfiguredTarget> targetsToBuild,
-                      Executor executor,
-                      Set<ConfiguredTarget> builtTargets,
-                      boolean explain)
+      Set<ConfiguredTarget> parallelTests,
+      Set<ConfiguredTarget> exclusiveTests,
+      Collection<ConfiguredTarget> targetsToBuild,
+      Executor executor,
+      Set<ConfiguredTarget> builtTargets,
+      boolean explain,
+      @Nullable Range<Long> lastExecutionTimeRange)
       throws BuildFailedException, AbruptExitException, InterruptedException, TestExecException;
 }

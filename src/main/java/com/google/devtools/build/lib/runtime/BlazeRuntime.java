@@ -26,6 +26,7 @@ import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.ImmutableSet;
 import com.google.common.collect.ImmutableSortedSet;
 import com.google.common.collect.Lists;
+import com.google.common.collect.Range;
 import com.google.common.collect.Sets;
 import com.google.common.eventbus.EventBus;
 import com.google.common.eventbus.SubscriberExceptionContext;
@@ -180,6 +181,8 @@ public final class BlazeRuntime {
   private final BlazeDirectories directories;
   private Path workingDirectory;
   private long commandStartTime;
+
+  private Range<Long> lastExecutionStartFinish = null;
 
   private final SkyframeExecutor skyframeExecutor;
 
@@ -418,6 +421,17 @@ public final class BlazeRuntime {
     }
   }
 
+  public void recordLastExecutionTime() {
+    lastExecutionStartFinish = Range.closed(commandStartTime, clock.currentTimeMillis());
+  }
+
+  /**
+   * Range that represents the last execution time of a build in millis since epoch.
+   */
+  @Nullable
+  public Range<Long> getLastExecutionTimeRange() {
+    return lastExecutionStartFinish;
+  }
   public void recordCommandStartTime(long commandStartTime) {
     this.commandStartTime = commandStartTime;
   }

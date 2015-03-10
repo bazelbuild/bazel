@@ -21,6 +21,7 @@ import com.google.common.base.Throwables;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableSet;
 import com.google.common.collect.Iterables;
+import com.google.common.collect.Range;
 import com.google.common.collect.Sets;
 import com.google.common.util.concurrent.ThreadFactoryBuilder;
 import com.google.devtools.build.lib.actions.Artifact;
@@ -71,11 +72,15 @@ class FilesystemValueChecker {
       SkyFunctionName.functionIs(SkyFunctions.ACTION_EXECUTION);
 
   private final TimestampGranularityMonitor tsgm;
+  private final Range<Long> lastExecutionTimeRange;
   private final Supplier<Map<SkyKey, SkyValue>> valuesSupplier;
   private AtomicInteger modifiedOutputFilesCounter = new AtomicInteger(0);
+  private AtomicInteger modifiedOutputFilesIntraBuildCounter = new AtomicInteger(0);
 
-  FilesystemValueChecker(final MemoizingEvaluator evaluator, TimestampGranularityMonitor tsgm) {
+  FilesystemValueChecker(final MemoizingEvaluator evaluator, TimestampGranularityMonitor tsgm,
+      Range<Long> lastExecutionTimeRange) {
     this.tsgm = tsgm;
+    this.lastExecutionTimeRange = lastExecutionTimeRange;
 
     // Construct the full map view of the entire graph at most once ("memoized"), lazily. If
     // getDirtyFilesystemValues(Iterable<SkyKey>) is called on an empty Iterable, we avoid having
@@ -149,6 +154,7 @@ class FilesystemValueChecker {
         new ThrowableRecordingRunnableWrapper("FileSystemValueChecker#getDirtyActionValues");
 
     modifiedOutputFilesCounter.set(0);
+    modifiedOutputFilesIntraBuildCounter.set(0);
     for (List<Pair<SkyKey, ActionExecutionValue>> shard : outputShards) {
       Runnable job = (batchStatter == null)
           ? outputStatJob(dirtyKeys, shard)
@@ -210,6 +216,7 @@ class FilesystemValueChecker {
           try {
             FileValue newData = FileAndMetadataCache.fileValueFromArtifact(artifact, stat, tsgm);
             if (!newData.equals(lastKnownData)) {
+              updateIntraBuildModifiedCounter(stat != null ? stat.getLastChangeTime() : -1);
               modifiedOutputFilesCounter.getAndIncrement();
               dirtyKeys.add(key);
             }
@@ -221,6 +228,12 @@ class FilesystemValueChecker {
         }
       }
     };
+  }
+
+  private void updateIntraBuildModifiedCounter(long time) throws IOException {
+    if (lastExecutionTimeRange != null && lastExecutionTimeRange.contains(time)) {
+      modifiedOutputFilesIntraBuildCounter.incrementAndGet();
+    }
   }
 
   private Runnable outputStatJob(final Collection<SkyKey> dirtyKeys,
@@ -239,10 +252,17 @@ class FilesystemValueChecker {
   }
 
   /**
-   * Returns number of modified output files inside of dirty actions.
+   * Returns the number of modified output files inside of dirty actions.
    */
   int getNumberOfModifiedOutputFiles() {
     return modifiedOutputFilesCounter.get();
+  }
+
+  /**
+   * Returns the number of modified output files that occur during the previous build.
+   */
+  public int getNumberOfModifiedOutputFilesDuringPreviousBuild() {
+    return modifiedOutputFilesIntraBuildCounter.get();
   }
 
   private boolean actionValueIsDirtyWithDirectSystemCalls(ActionExecutionValue actionValue) {
@@ -252,8 +272,11 @@ class FilesystemValueChecker {
       Artifact artifact = entry.getKey();
       FileValue lastKnownData = entry.getValue();
       try {
-        if (!FileAndMetadataCache.fileValueFromArtifact(artifact, null, tsgm).equals(
-            lastKnownData)) {
+        FileValue fileValue = FileAndMetadataCache.fileValueFromArtifact(artifact, null, tsgm);
+        if (!fileValue.equals(lastKnownData)) {
+          updateIntraBuildModifiedCounter(fileValue.exists()
+              ? fileValue.realRootedPath().asPath().getLastModifiedTime()
+              : -1);
           modifiedOutputFilesCounter.getAndIncrement();
           isDirty = true;
         }

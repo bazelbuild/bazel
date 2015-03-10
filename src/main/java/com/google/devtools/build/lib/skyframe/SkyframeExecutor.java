@@ -24,6 +24,7 @@ import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.ImmutableSet;
 import com.google.common.collect.Iterables;
 import com.google.common.collect.Maps;
+import com.google.common.collect.Range;
 import com.google.common.collect.Sets;
 import com.google.common.eventbus.EventBus;
 import com.google.devtools.build.lib.actions.Action;
@@ -214,6 +215,8 @@ public abstract class SkyframeExecutor implements WalkableGraphFactory {
   private boolean needToInjectEmbeddedArtifacts = true;
   private boolean needToInjectPrecomputedValuesForAnalysis = true;
   protected int modifiedFiles;
+  protected int outputDirtyFiles;
+  protected int modifiedFilesDuringPreviousBuild;
   private final Predicate<PathFragment> allowedMissingInputs;
 
   private final ImmutableMap<SkyFunctionName, SkyFunction> extraSkyFunctions;
@@ -1416,15 +1419,19 @@ public abstract class SkyframeExecutor implements WalkableGraphFactory {
     this.binTools = binTools;
   }
 
-  public void prepareExecution(boolean checkOutputFiles) throws AbruptExitException,
+  public void prepareExecution(boolean checkOutputFiles,
+      Range<Long> lastExecutionTimeRange) throws AbruptExitException,
       InterruptedException {
     maybeInjectEmbeddedArtifacts();
 
     if (checkOutputFiles) {
       // Detect external modifications in the output tree.
-      FilesystemValueChecker fsnc = new FilesystemValueChecker(memoizingEvaluator, tsgm);
+      FilesystemValueChecker fsnc = new FilesystemValueChecker(memoizingEvaluator, tsgm,
+          lastExecutionTimeRange);
       invalidateDirtyActions(fsnc.getDirtyActionValues(batchStatter));
       modifiedFiles += fsnc.getNumberOfModifiedOutputFiles();
+      outputDirtyFiles += fsnc.getNumberOfModifiedOutputFiles();
+      modifiedFilesDuringPreviousBuild += fsnc.getNumberOfModifiedOutputFilesDuringPreviousBuild();
     }
     informAboutNumberOfModifiedFiles();
   }
@@ -1519,4 +1526,11 @@ public abstract class SkyframeExecutor implements WalkableGraphFactory {
     }
   }
 
+  public int getOutputDirtyFiles() {
+    return outputDirtyFiles;
+  }
+
+  public int getModifiedFilesDuringPreviousBuild() {
+    return modifiedFilesDuringPreviousBuild;
+  }
 }

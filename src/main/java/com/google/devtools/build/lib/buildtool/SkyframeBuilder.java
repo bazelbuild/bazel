@@ -17,6 +17,7 @@ import com.google.common.annotations.VisibleForTesting;
 import com.google.common.base.Preconditions;
 import com.google.common.collect.ImmutableSet;
 import com.google.common.collect.Iterables;
+import com.google.common.collect.Range;
 import com.google.common.collect.Sets;
 import com.google.common.eventbus.EventBus;
 import com.google.devtools.build.lib.actions.Action;
@@ -91,9 +92,10 @@ public class SkyframeBuilder implements Builder {
       Collection<ConfiguredTarget> targetsToBuild,
       Executor executor,
       Set<ConfiguredTarget> builtTargets,
-      boolean explain)
+      boolean explain,
+      Range<Long> lastExecutionTimeRange)
       throws BuildFailedException, AbruptExitException, TestExecException, InterruptedException {
-    skyframeExecutor.prepareExecution(checkOutputFiles);
+    skyframeExecutor.prepareExecution(checkOutputFiles, lastExecutionTimeRange);
     skyframeExecutor.setFileCache(fileCache);
     // Note that executionProgressReceiver accesses builtTargets concurrently (after wrapping in a
     // synchronized collection), so unsynchronized access to this variable is unsafe while it runs.

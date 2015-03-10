@@ -404,12 +404,14 @@ public class ExecutionTool {
           analysisResult.getExclusiveTests(),
           analysisResult.getTargetsToBuild(),
           executor, builtTargets,
-          request.getBuildOptions().explanationPath != null);
+          request.getBuildOptions().explanationPath != null,
+          runtime.getLastExecutionTimeRange());
 
     } catch (InterruptedException e) {
       interrupted = true;
       throw e;
     } finally {
+      runtime.recordLastExecutionTime();
       if (request.isRunningInEmacs()) {
         request.getOutErr().printErrLn("blaze: Leaving directory `" + getExecRoot() + "/'");
       }
@@ -417,8 +419,9 @@ public class ExecutionTool {
         getReporter().handle(Event.progress("Building complete."));
       }
 
-      // Transfer over source file "last save time" stats so the remote logger can find them.
-      runtime.getEventBus().post(new ExecutionFinishedEvent(ImmutableMap.<String, Long> of(), 0));
+      runtime.getEventBus().post(new ExecutionFinishedEvent(ImmutableMap.<String, Long> of(), 0L,
+          skyframeExecutor.getOutputDirtyFiles(),
+          skyframeExecutor.getModifiedFilesDuringPreviousBuild()));
 
       // Disable system load polling (noop if it was not enabled).
       ResourceManager.instance().setAutoSensing(false);
