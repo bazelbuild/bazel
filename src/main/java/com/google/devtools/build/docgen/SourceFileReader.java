@@ -13,6 +13,7 @@
 // limitations under the License.
 package com.google.devtools.build.docgen;
 
+import com.google.common.base.Splitter;
 import com.google.common.collect.ImmutableSet;
 import com.google.common.collect.LinkedListMultimap;
 import com.google.common.collect.ListMultimap;
@@ -141,12 +142,30 @@ public class SourceFileReader {
       private void startBlazeRuleDoc(String line, Matcher matcher)
           throws BuildEncyclopediaDocException {
         checkDocValidity();
-        // Start of a new rule
-        String[] metaData = matcher.group(1).split(",");
+        // Start of a new rule.
+        // e.g.: matcher.group(1) = "NAME = cc_binary, TYPE = BINARY, FAMILY = C / C++"
+        for (String group : Splitter.on(",").split(matcher.group(1))) {
+          List<String> parts = Splitter.on("=").limit(2).splitToList(group);
+          boolean good = false;
+          if (parts.size() == 2) {
+            String key = parts.get(0).trim();
+            String value = parts.get(1).trim();
+            good = true;
+            if (DocgenConsts.META_KEY_NAME.equals(key)) {
+              ruleName = value;
+            } else if (DocgenConsts.META_KEY_TYPE.equals(key)) {
+              ruleType = value;
+            } else if (DocgenConsts.META_KEY_FAMILY.equals(key)) {
+              ruleFamily = value;
+            } else {
+              good = false;
+            }
+          }
+          if (!good) {
+            System.err.printf("WARNING: bad rule definition in line %d: '%s'", getLineCnt(), line);
+          }
+        }
 
-        ruleName = readMetaData(metaData, DocgenConsts.META_KEY_NAME);
-        ruleType = readMetaData(metaData, DocgenConsts.META_KEY_TYPE);
-        ruleFamily = readMetaData(metaData, DocgenConsts.META_KEY_FAMILY);
         startLineCnt = getLineCnt();
         addFlags(line);
         inBlazeRuleDocs = true;
@@ -224,11 +243,10 @@ public class SourceFileReader {
         docMap.get(docVariable.getRuleName()).addDocVariable(
           docVariable.getVariableName(), docVariable.getValue());
       } else {
-        throw new BuildEncyclopediaDocException(javaSourceFilePath,
-            docVariable.getStartLineCnt(), String.format(
-            "Malformed rule variable #BLAZE_RULE(%s).%s, "
-            + "rule %s not found in file.", docVariable.getRuleName(),
-            docVariable.getVariableName(), docVariable.getRuleName()));
+        throw new BuildEncyclopediaDocException(javaSourceFilePath, docVariable.getStartLineCnt(),
+            String.format("Malformed rule variable #BLAZE_RULE(%s).%s, rule %s not found in file.",
+                docVariable.getRuleName(), docVariable.getVariableName(),
+                docVariable.getRuleName()));
       }
     }
     ruleDocEntries = docMap.values();
@@ -243,20 +261,6 @@ public class SourceFileReader {
     return attributeDocEntries;
   }
 
-  private String readMetaData(String[] metaData, String metaKey) {
-    for (String metaDataItem : metaData) {
-      String[] metaDataItemParts = metaDataItem.split("=", 2);     
-      if (metaDataItemParts.length != 2) {
-        return null;
-      }
-      
-      if (metaDataItemParts[0].trim().equals(metaKey)) {
-        return metaDataItemParts[1].trim();
-      }
-    }
-    return null;
-  }
-
   /**
    * Reads the template file without variable substitution.
    */
@@ -266,28 +270,30 @@ public class SourceFileReader {
   }
 
   /**
-   * Reads the template file and expands the variables. The variables has to have
-   * the following format in the template file: ${VARIABLE_NAME}. In the Map
-   * input parameter the key has to be VARIABLE_NAME. Variables can be null.
+   * Reads a template file and substitutes variables of the format ${FOO}.
+   *
+   * @param variables keys are the possible variable names, e.g. "FOO", values are the substitutions
+   *     (can be null)
    */
-  public static String readTemplateContents(
-      String templateFilePath, final Map<String, String> variables)
-          throws BuildEncyclopediaDocException, IOException {
+  public static String readTemplateContents(String templateFilePath,
+      final Map<String, String> variables) throws BuildEncyclopediaDocException, IOException {
     final StringBuilder sb = new StringBuilder();
     readTextFile(templateFilePath, new ReadAction() {
       @Override
       public void readLineImpl(String line) {
-        sb.append(expandVariables(line, variables) + LS);
+        sb.append(expandVariables(line, variables)).append(LS);
       }
     });
     return sb.toString();
   }
 
   private static String expandVariables(String line, Map<String, String> variables) {
-    if (variables != null) {
-      for (Entry<String, String> variable : variables.entrySet()) {
-        line = line.replace("${" + variable.getKey() + "}", variable.getValue());
-      }
+    if (variables == null || line.indexOf("${") == -1) {
+      return line;
+    }
+
+    for (Entry<String, String> variable : variables.entrySet()) {
+      line = line.replace("${" + variable.getKey() + "}", variable.getValue());
     }
     return line;
   }

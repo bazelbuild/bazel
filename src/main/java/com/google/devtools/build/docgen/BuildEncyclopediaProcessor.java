@@ -188,30 +188,31 @@ public class BuildEncyclopediaProcessor {
     Set<RuleDocumentation> binaryDocs = new TreeSet<>();
     Set<RuleDocumentation> libraryDocs = new TreeSet<>();
     Set<RuleDocumentation> testDocs = new TreeSet<>();
-    Set<RuleDocumentation> generateDocs = new TreeSet<>();
     Set<RuleDocumentation> otherDocs = new TreeSet<>();
 
     for (RuleDocumentation doc : docEntries) {
       RuleClass ruleClass = ruleClassProvider.getRuleClassMap().get(doc.getRuleName());
-      if (ruleClass.isDocumented()) {
-        if (doc.isLanguageSpecific()) {
-          switch(doc.getRuleType()) {
-            case BINARY:
-              binaryDocs.add(doc);
-              break;
-            case LIBRARY:
-              libraryDocs.add(doc);
-              break;
-            case TEST:
-              testDocs.add(doc);
-              break;
-            case OTHER:
-              otherDocs.add(doc);
-              break;
-          }
-        } else {
-          otherDocs.add(doc);
+      if (!ruleClass.isDocumented()) {
+        continue;
+      }
+
+      if (doc.isLanguageSpecific()) {
+        switch(doc.getRuleType()) {
+          case BINARY:
+            binaryDocs.add(doc);
+            break;
+          case LIBRARY:
+            libraryDocs.add(doc);
+            break;
+          case TEST:
+            testDocs.add(doc);
+            break;
+          case OTHER:
+            otherDocs.add(doc);
+            break;
         }
+      } else {
+        otherDocs.add(doc);
       }
     }
 
@@ -223,7 +224,6 @@ public class BuildEncyclopediaProcessor {
         DocgenConsts.VAR_SECTION_BINARY,   getRuleDocs(binaryDocs),
         DocgenConsts.VAR_SECTION_LIBRARY,  getRuleDocs(libraryDocs),
         DocgenConsts.VAR_SECTION_TEST,     getRuleDocs(testDocs),
-        DocgenConsts.VAR_SECTION_GENERATE, getRuleDocs(generateDocs),
         DocgenConsts.VAR_SECTION_OTHER,    getRuleDocs(otherDocs));
     bw.write("\n");  // for the benefit of the block-beginning comment at the top of the template
     bw.write(SourceFileReader.readTemplateContents(DocgenConsts.BODY_TEMPLATE, sectionMapping));

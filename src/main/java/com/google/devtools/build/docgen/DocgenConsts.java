@@ -39,7 +39,6 @@ public class DocgenConsts {
   public static final String VAR_SECTION_BINARY = "SECTION_BINARY";
   public static final String VAR_SECTION_LIBRARY = "SECTION_LIBRARY";
   public static final String VAR_SECTION_TEST = "SECTION_TEST";
-  public static final String VAR_SECTION_GENERATE = "SECTION_GENERATE";
   public static final String VAR_SECTION_OTHER = "SECTION_OTHER";
 
   public static final String VAR_IMPLICIT_OUTPUTS = "IMPLICIT_OUTPUTS";
@@ -133,6 +132,7 @@ public class DocgenConsts {
   public static final Pattern BLAZE_RULE_ATTR_END = Pattern.compile(
       "^[\\s]*\\<!\\-\\-[\\s]*#END_BLAZE_RULE\\.ATTRIBUTE[\\s]*\\-\\-\\>[\\s]*\\*/");
 
+  /** e.g. "[DEPRECATED]" in &lt;!-- #BLAZE_RULE(...).ATTRIBUTE(...)[DEPRECATED] --&gt; */
   public static final Pattern BLAZE_RULE_FLAGS = Pattern.compile("^.*\\[(.*)\\].*$");
 
   public static final Map<String, Integer> ATTRIBUTE_ORDERING = ImmutableMap
