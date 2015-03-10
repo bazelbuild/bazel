@@ -117,6 +117,10 @@ java_library(
     name = "BazelJavaCompiler",
     srcs = ["java/com/google/devtools/build/java/bazel/BazelJavaCompiler.java"],
     data = ["//tools/defaults:java_langtools"],
+    visibility = [
+        "//src:__subpackages__",
+        "//third_party/ijar:__subpackages__",
+    ],
     deps = [
         ":JavaBuilderConfig",
         ":JavaLangtools",

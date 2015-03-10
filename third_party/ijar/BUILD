@@ -1,4 +1,10 @@
-package(default_visibility = ["//src:__pkg__"])
+package(
+    default_visibility = [
+        "//src:__pkg__",
+        "//third_party/ijar:__subpackages__",
+    ],
+)
+
 licenses(["notice"])  # Apache 2.0
 
 cc_binary(

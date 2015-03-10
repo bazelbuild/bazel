@@ -136,3 +136,10 @@ Testing
 
 * Version: 1.3
 * License: New BSD License
+
+[asm](https://asm.ow2.org)
+-----
+
+* Version: 5.0.3
+* License: 3-clause revised BSD
+

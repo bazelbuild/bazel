@@ -120,6 +120,11 @@ java_import(
     ],
 )
 
+java_import(
+    name = "asm",
+    jars = ["asm/asm-5.0.3.jar"],
+)
+
 config_setting(
     name = "windows_mingw",
     values = {"compiler": "windows_mingw"},
