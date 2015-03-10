@@ -51,3 +51,29 @@ public final class BazelJavaImportRule implements RuleDefinition {
 
   }
 }
+
+/*<!-- #BLAZE_RULE (NAME = java_import, TYPE = LIBRARY, FAMILY = Java) -->
+
+${ATTRIBUTE_SIGNATURE}
+
+<p>
+  This rule allows the use of precompiled JAR files as libraries for
+  <code><a href="#java_library">java_library</a></code> rules.
+</p>
+
+${ATTRIBUTE_DEFINITION}
+
+<h4 id="java_import_examples">Examples</h4>
+
+<pre class="code">
+    java_import(
+        name = "maven_model",
+        jars = [
+            "maven_model/maven-aether-provider-3.2.3.jar",
+            "maven_model/maven-model-3.2.3.jar",
+            "maven_model/maven-model-builder-3.2.3.jar",
+        ],
+    )
+</pre>
+
+<!-- #END_BLAZE_RULE -->*/
