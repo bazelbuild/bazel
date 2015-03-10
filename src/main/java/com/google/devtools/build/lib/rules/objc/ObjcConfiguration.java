@@ -19,9 +19,12 @@ import com.google.common.base.Preconditions;
 import com.google.common.collect.ImmutableList;
 import com.google.devtools.build.lib.analysis.config.BuildConfiguration;
 import com.google.devtools.build.lib.analysis.config.CompilationMode;
+import com.google.devtools.build.lib.syntax.Label;
 import com.google.devtools.build.xcode.common.Platform;
 
 import java.util.List;
+
+import javax.annotation.Nullable;
 
 /**
  * A compiler configuration containing flags required for Objective-C compilation.
@@ -50,7 +53,18 @@ public class ObjcConfiguration extends BuildConfiguration.Fragment {
   private final List<String> copts;
   private final CompilationMode compilationMode;
 
-  ObjcConfiguration(ObjcCommandLineOptions objcOptions, BuildConfiguration.Options options) {
+  // We only load this label if coverage mode is enabled. That is know as part of the
+  // BuildConfiguration. This label needs to be part of a configuration because only configurations
+  // can conditionally cause loading.
+  // This is referenced from a late bound attribute, and if loading wasn't forced in a
+  // configuration, the late bound attribute will fail to be initialized because it hasn't been
+  // loaded.
+  @Nullable private final Label gcovLabel;
+
+  ObjcConfiguration(
+      ObjcCommandLineOptions objcOptions,
+      BuildConfiguration.Options options,
+      @Nullable Label gcovLabel) {
     this.iosSdkVersion = Preconditions.checkNotNull(objcOptions.iosSdkVersion, "iosSdkVersion");
     this.iosMinimumOs = Preconditions.checkNotNull(objcOptions.iosMinimumOs, "iosMinimumOs");
     this.iosSimulatorVersion =
@@ -61,6 +75,7 @@ public class ObjcConfiguration extends BuildConfiguration.Fragment {
     this.runMemleaks = objcOptions.runMemleaks;
     this.copts = ImmutableList.copyOf(objcOptions.copts);
     this.compilationMode = Preconditions.checkNotNull(options.compilationMode, "compilationMode");
+    this.gcovLabel = gcovLabel;
   }
 
   public String getIosSdkVersion() {
@@ -129,6 +144,14 @@ public class ObjcConfiguration extends BuildConfiguration.Fragment {
    */
   public List<String> getCopts() {
     return copts;
+  }
+
+  /**
+   * Returns the label of the gcov binary, used to get test coverage data. Null iff not in coverage
+   * mode.
+   */
+  @Nullable public Label getGcovLabel() {
+    return gcovLabel;
   }
 
   @Override

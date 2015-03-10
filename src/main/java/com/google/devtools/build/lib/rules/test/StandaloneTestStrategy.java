@@ -120,7 +120,7 @@ public class StandaloneTestStrategy extends TestStrategy {
     BuildConfiguration config = action.getConfiguration();
 
     vars.putAll(config.getDefaultShellEnvironment());
-    vars.putAll(config.getTestEnv());
+    vars.putAll(action.getTestEnv());
     vars.put("TEST_SRCDIR", runfilesDir.getRelative(action.getRunfilesPrefix()).getPathString());
 
     // TODO(bazel-team): set TEST_TMPDIR.

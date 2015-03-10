@@ -15,11 +15,14 @@
 package com.google.devtools.build.lib.analysis;
 
 import com.google.common.base.Preconditions;
+import com.google.common.collect.ImmutableMap;
 import com.google.devtools.build.lib.actions.Artifact;
 import com.google.devtools.build.lib.collect.nestedset.NestedSet;
 import com.google.devtools.build.lib.packages.OutputFile;
 import com.google.devtools.build.lib.rules.test.InstrumentedFilesProvider;
 import com.google.devtools.build.lib.rules.test.InstrumentedFilesProviderImpl;
+
+import java.util.Map;
 
 /**
  * A ConfiguredTarget for an OutputFile.
@@ -62,6 +65,11 @@ public class OutputFileConfiguredTarget extends FileConfiguredTarget
   public NestedSet<Artifact> getInstrumentationMetadataFiles() {
     return getProvider(InstrumentedFilesProvider.class, InstrumentedFilesProviderImpl.EMPTY)
         .getInstrumentationMetadataFiles();
+  }
+
+  @Override
+  public Map<String, String> getExtraEnv() {
+    return ImmutableMap.of();
   }
 
   /**

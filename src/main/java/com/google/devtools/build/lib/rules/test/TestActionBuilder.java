@@ -16,6 +16,7 @@ package com.google.devtools.build.lib.rules.test;
 
 import com.google.common.base.Preconditions;
 import com.google.common.collect.ImmutableList;
+import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.Lists;
 import com.google.devtools.build.lib.actions.Artifact;
 import com.google.devtools.build.lib.actions.Root;
@@ -39,6 +40,7 @@ import com.google.devtools.common.options.EnumConverter;
 
 import java.util.Collection;
 import java.util.List;
+import java.util.Map;
 
 import javax.annotation.Nullable;
 
@@ -53,9 +55,11 @@ public final class TestActionBuilder {
   private ExecutionInfoProvider executionRequirements;
   private InstrumentedFilesProvider instrumentedFiles;
   private int explicitShardCount;
+  private Map<String, String> extraEnv;
 
   public TestActionBuilder(RuleContext ruleContext) {
     this.ruleContext = ruleContext;
+    this.extraEnv = ImmutableMap.of();
   }
 
   /**
@@ -107,6 +111,12 @@ public final class TestActionBuilder {
   public TestActionBuilder setExecutionRequirements(
       @Nullable ExecutionInfoProvider executionRequirements) {
     this.executionRequirements = executionRequirements;
+    return this;
+  }
+
+  public TestActionBuilder setExtraEnv(@Nullable Map<String, String> extraEnv) {
+    this.extraEnv = extraEnv == null
+        ? ImmutableMap.<String, String> of() : ImmutableMap.copyOf(extraEnv);
     return this;
   }
 
@@ -255,7 +265,7 @@ public final class TestActionBuilder {
             ruleContext.getActionOwner(), inputs,
             testLog, cacheStatus,
             coverageArtifact, microCoverageArtifact,
-            testProperties, executionSettings,
+            testProperties, extraEnv, executionSettings,
             shard, run, config, ruleContext.getWorkspaceName()));
         results.add(cacheStatus);
       }

@@ -163,9 +163,16 @@ public final class RuleConfiguredTargetBuilder {
           "Having more than 50 shards is indicative of poor test organization. "
           + "Please reduce the number of shards.");
     }
-    final TestParams testParams = new TestActionBuilder(ruleContext)
+    TestActionBuilder testActionBuilder = new TestActionBuilder(ruleContext);
+    InstrumentedFilesProvider instrumentedFilesProvider =
+        findProvider(InstrumentedFilesProvider.class);
+    if (instrumentedFilesProvider != null) {
+      testActionBuilder
+          .setInstrumentedFiles(instrumentedFilesProvider)
+          .setExtraEnv(instrumentedFilesProvider.getExtraEnv());
+    }
+    final TestParams testParams = testActionBuilder
         .setFilesToRunProvider(filesToRunProvider)
-        .setInstrumentedFiles(findProvider(InstrumentedFilesProvider.class))
         .setExecutionRequirements(findProvider(ExecutionInfoProvider.class))
         .setShardCount(explicitShardCount)
         .build();

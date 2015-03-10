@@ -18,6 +18,8 @@ import com.google.devtools.build.lib.actions.Artifact;
 import com.google.devtools.build.lib.analysis.TransitiveInfoProvider;
 import com.google.devtools.build.lib.collect.nestedset.NestedSet;
 
+import java.util.Map;
+
 /**
  * A provider of instrumented file sources and instrumentation metadata.
  */
@@ -32,4 +34,9 @@ public interface InstrumentedFilesProvider extends TransitiveInfoProvider {
    * Returns a collection of instrumentation metadata files.
    */
   NestedSet<Artifact> getInstrumentationMetadataFiles();
+
+  /**
+   * Returns environment variables which should be set for coverage to function.
+   */
+  Map<String, String> getExtraEnv();
 }

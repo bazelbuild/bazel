@@ -16,6 +16,7 @@ package com.google.devtools.build.lib.rules.test;
 
 import com.google.common.base.Preconditions;
 import com.google.common.collect.ImmutableList;
+import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.Iterables;
 import com.google.devtools.build.lib.actions.AbstractAction;
 import com.google.devtools.build.lib.actions.ActionExecutionContext;
@@ -40,6 +41,8 @@ import com.google.devtools.common.options.TriState;
 import java.io.IOException;
 import java.io.InputStream;
 import java.io.OutputStream;
+import java.util.HashMap;
+import java.util.Map;
 import java.util.logging.Level;
 
 import javax.annotation.Nullable;
@@ -85,6 +88,8 @@ public class TestRunnerAction extends AbstractAction implements NotifyOnActionCa
   private boolean checkedCaching = false;
   private boolean unconditionalExecution = false;
 
+  private ImmutableMap<String, String> testEnv;
+
   private static ImmutableList<Artifact> list(Artifact... artifacts) {
     ImmutableList.Builder<Artifact> builder = ImmutableList.builder();
     for (Artifact artifact : artifacts) {
@@ -110,6 +115,7 @@ public class TestRunnerAction extends AbstractAction implements NotifyOnActionCa
       Artifact coverageArtifact,
       Artifact microCoverageArtifact,
       TestTargetProperties testProperties,
+      Map<String, String> extraTestEnv,
       TestTargetExecutionSettings executionSettings,
       int shardNum,
       int runNumber,
@@ -150,6 +156,10 @@ public class TestRunnerAction extends AbstractAction implements NotifyOnActionCa
     this.undeclaredOutputsAnnotationsPath = undeclaredOutputsAnnotationsDir.getChild("ANNOTATIONS");
     this.testInfrastructureFailure = baseDir.getChild(namePrefix + ".infrastructure_failure");
     this.workspaceName = workspaceName;
+
+    Map<String, String> mergedTestEnv = new HashMap<>(configuration.getTestEnv());
+    mergedTestEnv.putAll(extraTestEnv);
+    this.testEnv = ImmutableMap.copyOf(mergedTestEnv);
   }
 
   public BuildConfiguration getConfiguration() {
@@ -182,7 +192,7 @@ public class TestRunnerAction extends AbstractAction implements NotifyOnActionCa
     f.addString(executionSettings.getTestFilter() == null ? "" : executionSettings.getTestFilter());
     RunUnder runUnder = executionSettings.getRunUnder();
     f.addString(runUnder == null ? "" : runUnder.getValue());
-    f.addStringMap(configuration.getTestEnv());
+    f.addStringMap(getTestEnv());
     f.addString(testProperties.getSize().toString());
     f.addString(testProperties.getTimeout().toString());
     f.addStrings(testProperties.getTags());
@@ -387,6 +397,13 @@ public class TestRunnerAction extends AbstractAction implements NotifyOnActionCa
 
   public Artifact getTestLog() {
     return testLog;
+  }
+
+  /**
+   * Returns all environment variables which must be set in order to run this test.
+   */
+  public Map<String, String> getTestEnv() {
+    return testEnv;
   }
 
   public ResolvedPaths resolve(Path execRoot) {
