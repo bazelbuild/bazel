@@ -13,9 +13,9 @@ go_library(
 go_test(
     name = "lib1_test",
     srcs = [
-        "lib1.go",
         "lib1_test.go",
     ],
+    library = ":lib1",
 )
 
 go_test(

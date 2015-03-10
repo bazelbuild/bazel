@@ -74,6 +74,28 @@ so you use it as follows
     }
 
 
+Writing tests
+-------------
+
+For tests, you should create a separate target,
+
+    go_test(
+      name = "q_test",
+      srcs = [ "f_test.go" ],
+      deps = [ ":q" ])
+
+if the test code is in the same package as the library under test
+(e.g., because you are testing private parts of the library), you should
+use the `library` attribute,
+
+    go_test(
+      name = "q_test",
+      srcs = [ "f_test.go" ],
+      library = ":q" )
+
+This causes the test and the library under test to be compiled
+together.
+
 
 FAQ
 ---
