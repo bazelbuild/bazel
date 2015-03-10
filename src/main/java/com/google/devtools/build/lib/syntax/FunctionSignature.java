@@ -344,7 +344,7 @@ public abstract class FunctionSignature implements Serializable {
         }
         public void type(int i) {
           if (types != null && types.get(i) != null) {
-            sb.append(" : ").append(types.get(i).toString());
+            sb.append(": ").append(types.get(i).toString());
           }
         }
         public void mandatory(int i) {
@@ -355,7 +355,7 @@ public abstract class FunctionSignature implements Serializable {
         public void optional(int i) {
           mandatory(i);
           sb.append(" = ").append((defaultValues == null)
-              ? "null" : String.valueOf(defaultValues.get(j++)));
+              ? "?" : EvalUtils.prettyPrintValue(defaultValues.get(j++)));
         }
       };
       Show show = new Show();

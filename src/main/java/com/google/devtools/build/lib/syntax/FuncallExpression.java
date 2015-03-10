@@ -470,8 +470,8 @@ public final class FuncallExpression extends Expression {
     // we'd still have to have a HashMap on the side for the sake of properly handling duplicates.
     Map<String, Object> kwargs = new HashMap<>();
 
-    final Object returnValue;
-    final Function function;
+    Object returnValue;
+    Function function;
     if (obj != null) { // obj.func(...)
       Object objValue = obj.eval(env);
       // Strings, lists and dictionaries (maps) have functions that we want to use in MethodLibrary.

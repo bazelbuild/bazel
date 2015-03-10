@@ -287,11 +287,6 @@ public abstract class SkylarkType {
         simple = TOP;
       } else if (type == Empty.class) {
         simple = BOTTOM;
-      } else if (type == Environment.NoneType.class) {
-        // For the purpose of validation-time type inference, treat NONE as being of type TOP,
-        // i.e. None like null in Java is in every type.
-        // TODO(bazel-team): Should we have .contains also always return true for NONE?
-        simple = TOP;
       } else {
         // Consider all classes that have the same EvalUtils.getSkylarkType() as equivalent,
         // as a substitute to handling inheritance.
@@ -549,7 +544,7 @@ public abstract class SkylarkType {
     }
 
     public boolean contains(Object value) {
-      // This returns true a bit too much, but it looks
+      // This returns true a bit too much, not looking at the result type.
       return value instanceof Function;
     }
 
@@ -591,6 +586,17 @@ public abstract class SkylarkType {
 
 
   // Utility functions regarding types
+  /**
+   * For the purpose of type inference during validation,
+   * we upgrade the type for None as being Top, the type of everything,
+   * so None is compatible with anything as far as the validate method is concern.
+   *
+   * @param type a SkylarkType suitable for runtime type checking.
+   * @return the corresponding SkylarkType suitable for a type validation.
+   */
+  private static SkylarkType typeForInference(SkylarkType type) {
+    return type == NONE ? TOP : type;
+  }
 
   /**
    * Returns the stronger type of this and o if they are compatible. Stronger means that
@@ -599,12 +605,12 @@ public abstract class SkylarkType {
    *
    * <p>If they are not compatible an EvalException is thrown.
    */
-  SkylarkType infer(SkylarkType o, String name, Location thisLoc, Location originalLoc)
+  SkylarkType infer(SkylarkType other, String name, Location thisLoc, Location originalLoc)
       throws EvalException {
-    SkylarkType both = intersection(this, o);
+    SkylarkType both = intersection(typeForInference(this), typeForInference(other));
     if (both == BOTTOM) {
       throw new EvalException(thisLoc, String.format("bad %s: %s is incompatible with %s at %s",
-              name, o, this, originalLoc));
+              name, other, this, originalLoc));
     } else {
       return both;
     }
@@ -676,6 +682,24 @@ public abstract class SkylarkType {
           "Type is not allowed in Skylark: "
           + object.getClass().getSimpleName());
     }
+  }
+
+
+  /**
+   * General purpose type-casting facility.
+   *
+   * @param value - the actual value of the parameter
+   * @param type - the expected Class for the value
+   * @param loc - the location info used in the EvalException
+   * @param format - a format String
+   * @param args - arguments to format, in case there's an exception
+   */
+  public static <T> T castOrNull(Object value, Class<T> type,
+      Location loc, String format, Object... args) throws EvalException {
+    if (value == Environment.NONE) {
+      return null;
+    }
+    return SkylarkType.<T>cast(value, type, loc, format, args);
   }
 
   /**

@@ -138,11 +138,14 @@ public abstract class EvalUtils {
 
   // TODO(bazel-team): move the following few type-related functions to SkylarkType
   /**
-   * Compute the super-class of a class that Skylark considers as the Skylark type of its instances
+   * Return the Skylark-type of {@code c}
    *
-   * <p>Skylark type validation isn't otherwise equipped to deal with inheritance, so we must tell
-   * it which is the super-class or interface that matters for Skylark type compatibility.
-   * e.g. instances of all subclasses of SkylarkList are considered as being of type SkylarkList.
+   * <p>The result will be a type that Skylark understands and is either equal to {@code c}
+   * or is a supertype of it. For example, all instances of (all subclasses of) SkylarkList
+   * are considered to be SkylarkLists.
+   *
+   * <p>Skylark's type validation isn't equipped to deal with inheritance so we must tell it which
+   * of the superclasses or interfaces of {@code c} is the one that matters for type compatibility.
    *
    * @param c a class
    * @return a super-class of c to be used in validation-time type inference.
@@ -162,7 +165,8 @@ public abstract class EvalUtils {
     } else if (Set.class.isAssignableFrom(c)) {
       return Set.class;
     } else {
-      // TODO(bazel-team): also unify all ClassObject, that we print the same?
+      // TODO(bazel-team): also unify all implementations of ClassObject,
+      // that we used to all print the same as "struct"?
       //
       // Check if one of the superclasses or implemented interfaces has the SkylarkModule
       // annotation. If yes return that class.
@@ -271,7 +275,7 @@ public abstract class EvalUtils {
   private static void printValueX(Object o, Appendable buffer)
       throws IOException {
     if (o == null) {
-      throw new NullPointerException(); // None is not a build language value.
+      throw new NullPointerException(); // Java null is not a build language value.
     } else if (o instanceof String || o instanceof Integer || o instanceof Double) {
       buffer.append(o.toString());
 
@@ -619,7 +623,7 @@ public abstract class EvalUtils {
   }
 
   /**
-   * Returns the size of the Skylark object or -1 in case the object doesn't have a size.
+   * @return the size of the Skylark object or -1 in case the object doesn't have a size.
    */
   public static int size(Object arg) {
     if (arg instanceof String) {
@@ -633,5 +637,41 @@ public abstract class EvalUtils {
       return Iterables.size((Iterable<?>) arg);
     }
     return -1;
+  }
+
+  /** @return true if x is Java null or Skylark None */
+  public static boolean isNullOrNone(Object x) {
+    return x == null || x == Environment.NONE;
+  }
+
+  /**
+   * Build a map of kwarg arguments from a list, removing null-s or None-s.
+   *
+   * @param init a series of key, value pairs (as consecutive arguments), and optionally
+   *   a lone map at the end, as in {@code optionMap(k1, v1, k2, v2, k3, v3, map)}
+   *   where each key is a String, each value is an arbitrary Objet, and the map
+   *   must be a {@code Map<String, Object>}.
+   * @return a {@code Map<String, Object>} that has all the specified entries,
+   *   where key, value pairs appearing earlier have precedence,
+   *   i.e. {@code k1, v1} may override {@code k3, v3}.
+   *
+   * Ignore any entry the key or value of which is null or None.
+   */
+  @SuppressWarnings("unchecked")
+  public static ImmutableMap<String, Object> optionMap(Object... init) {
+    ImmutableMap.Builder<String, Object> b = new ImmutableMap.Builder<>();
+    int l = init.length;
+    if (l % 2 == 1) { // If there's an odd number of argument, the last one is a Map.
+      l--;
+      b.putAll((Map<String, Object>) init[l]);
+    }
+    for (int i = l - 2; i >= 0; i -= 2) {
+      String key = (String) init[i];
+      Object value = init[i + 1];
+      if (!(isNullOrNone(key) || isNullOrNone(value))) {
+        b.put(key, value);
+      }
+    }
+    return b.build();
   }
 }

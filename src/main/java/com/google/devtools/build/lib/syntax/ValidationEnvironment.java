@@ -68,6 +68,17 @@ public class ValidationEnvironment {
     clonable = false;
   }
 
+  // ValidationEnvironment for a new Environment()
+  private static ImmutableMap<SkylarkType, ImmutableMap<String, SkylarkType>> globalTypes =
+      ImmutableMap.<SkylarkType, ImmutableMap<String, SkylarkType>>of(SkylarkType.GLOBAL,
+          new ImmutableMap.Builder<String, SkylarkType> ()
+          .put("False", SkylarkType.BOOL).put("True", SkylarkType.BOOL)
+          .put("None", SkylarkType.TOP).build());
+
+  public ValidationEnvironment() {
+    this(globalTypes);
+  }
+
   @Override
   public ValidationEnvironment clone() {
     Preconditions.checkState(clonable);

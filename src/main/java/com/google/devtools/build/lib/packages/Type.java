@@ -84,11 +84,29 @@ public abstract class Type<T> {
   // this over selectableConvert.
 
   /**
-   * Equivalent to <code>convert(x, null)</code>. Useful for converting values to types that do not
-   * involve the type <code>LABEL</code> and hence do not require the label of the current package.
+   * Equivalent to {@code convert(x, what, null)}. Useful for converting values to types that do not
+   * involve the type {@code LABEL} and hence do not require the label of the current package.
    */
   public final T convert(Object x, String what) throws ConversionException {
     return convert(x, what, null);
+  }
+
+  /**
+   * Like {@code convert(x, what, label)}, but converts skylark {@code None} to java {@code null}.
+   */
+  @Nullable public final T convertOptional (Object x, String what, @Nullable Label currentRule)
+      throws ConversionException {
+    if (EvalUtils.isNullOrNone(x)) {
+      return null;
+    }
+    return convert(x, what, currentRule);
+  }
+
+  /**
+   * Like {@code convert(x, what)}, but converts skylark {@code NONE} to java {@code null}.
+   */
+  @Nullable public final T convertOptional(Object x, String what) throws ConversionException {
+    return convertOptional(x, what, null);
   }
 
   /**

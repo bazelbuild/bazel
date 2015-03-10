@@ -37,6 +37,8 @@ import java.util.Map;
 /**
  * A class to handle all Skylark modules, to create and setup Validation and regular Environments.
  */
+// TODO(bazel-team): move that to syntax/ and
+// let each extension register itself in a static { } statement.
 public class SkylarkModules {
 
   public static final ImmutableList<Class<?>> MODULES = ImmutableList.of(

@@ -407,10 +407,21 @@ public abstract class SkylarkList implements Iterable<Object> {
   }
 
   /**
-   * Returns a Skylark tuple containing elements.
+   * Build a Skylark tuple from a Java List
+   * @param elements a List of objects
+   * @return a Skylark tuple containing the specified List of objects as elements.
    */
   public static SkylarkList tuple(List<?> elements) {
     // Tuple elements do not have to have the same type.
+    return new SimpleSkylarkList(ImmutableList.copyOf(elements), true, SkylarkType.TOP);
+  }
+
+  /**
+   * Build a Skylark tuple from a variable number of arguments
+   * @param elements a variable number of arguments (or an array of objects)
+   * @return a Skylark tuple containing the specified arguments as elements.
+   */
+  public static SkylarkList tuple(Object... elements) {
     return new SimpleSkylarkList(ImmutableList.copyOf(elements), true, SkylarkType.TOP);
   }
 }
