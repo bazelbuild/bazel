@@ -17,7 +17,7 @@ filegroup(
 
 filegroup(
     name = "java",
-    srcs = ["jdk/jre/bin/java"],
+    srcs = ["jdk/bin/java"],
 )
 
 BOOTCLASS_JARS = [
@@ -49,8 +49,8 @@ filegroup(name = "jdk-null")
 
 filegroup(
     name = "jdk-default",
-    srcs = [":java"],
-    path = "jdk/jre",
+    srcs = glob(["jdk/bin/*"]),
+    path = "jdk",
 )
 
 filegroup(
