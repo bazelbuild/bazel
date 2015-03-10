@@ -80,8 +80,7 @@ public final class OutputGroupProvider implements TransitiveInfoProvider {
   public static final String TEMP_FILES = "temp_files";
 
   /**
-   * The default group of files built by a target that is also used when e.g. it is mentioned in
-   * a data dependency.
+   * The default group of files built by a target when it is mentioned on the command line.
    */
   public static final String DEFAULT = "default";
 
