@@ -154,7 +154,7 @@ def emit_go_link_action(ctx, transitive_libs, lib, executable):
   config_strip = len(ctx.configuration.bin_dir.path) + 1
   prefix = ""
   if ctx.workspace_name:
-    ctx.workspace_name + "/"
+    prefix = ctx.workspace_name + "/"
 
   for l in transitive_libs:
     library_artifact_path = l.path[config_strip:]
