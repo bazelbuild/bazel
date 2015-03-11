@@ -1,5 +1,7 @@
 package(default_visibility = ["//visibility:public"])
 
+load("/tools/build_rules/java_rules_skylark", "java_library")
+
 filegroup(
     name = "protoc",
     srcs = select({
@@ -114,6 +116,15 @@ java_import(
 
 java_import(
     name = "junit4",
+    jars = [
+        "hamcrest/hamcrest-core-1.3.jar",
+        "junit/junit-4.11.jar",
+    ],
+)
+
+# For the java-skylark example.
+java_library(
+    name = "junit4-skylark",
     jars = [
         "hamcrest/hamcrest-core-1.3.jar",
         "junit/junit-4.11.jar",

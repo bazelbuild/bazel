@@ -5,7 +5,7 @@ java_test(
     srcs = ["TestHello.java"],
     deps = [
         "//examples/java-skylark/src/main/java/com/example/myproject:hello-lib",
-        "//third_party:junit4",
+        "//third_party:junit4-skylark",
     ],
 )
 
