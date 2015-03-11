@@ -87,8 +87,10 @@ class PackageLookupFunction implements SkyFunction {
   private PackageLookupValue getPackageLookupValue(Environment env, Path packagePathEntry,
       PathFragment pkgFragment) throws PackageLookupFunctionException {
     PathFragment buildFileFragment;
+    boolean isWorkspace = false;
     if (pkgFragment.getPathString().equals(PackageFunction.EXTERNAL_PACKAGE_NAME)) {
       buildFileFragment = new PathFragment("WORKSPACE");
+      isWorkspace = true;
     } else {
       buildFileFragment = pkgFragment.getChild("BUILD");
     }
@@ -121,7 +123,7 @@ class PackageLookupFunction implements SkyFunction {
     if (fileValue == null) {
       return null;
     }
-    if (fileValue.isFile()) {
+    if (fileValue.isFile() || isWorkspace) {
       return PackageLookupValue.success(buildFileRootedPath.getRoot());
     }
     return PackageLookupValue.noBuildFile();

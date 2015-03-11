@@ -85,6 +85,9 @@ public class WorkspaceFileFunction implements SkyFunction {
       }
       parseWorkspaceFile(installDir.getRelative(workspaceFile), builder);
     }
+    if (!repoWorkspace.exists()) {
+      return new PackageValue(builder.build());
+    }
     parseWorkspaceFile(repoWorkspace, builder);
     try {
       builder.resolveBindTargets(packageFactory.getRuleClass(BIND));
