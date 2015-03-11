@@ -76,10 +76,8 @@ public class Filegroup implements RuleConfiguredTargetFactory {
         .build();
   }
 
-  /*
-   * Returns the single executable output of this filegroup. Returns
-   * {@code null} if there are multiple outputs or the single output is not
-   * considered an executable.
+  /**
+   * Returns the single Artifact from filesToBuild or {@code null} if there are multiple elements.
    */
   private Artifact getExecutable(NestedSet<Artifact> filesToBuild) {
     Iterator<Artifact> it = filesToBuild.iterator();
