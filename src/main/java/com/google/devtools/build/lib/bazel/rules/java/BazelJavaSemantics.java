@@ -154,6 +154,11 @@ public class BazelJavaSemantics implements JavaSemantics {
     BuildConfiguration config = ruleContext.getConfiguration();
 
     List<Substitution> arguments = new ArrayList<>();
+    String workspacePrefix = ruleContext.getWorkspaceName();
+    if (!workspacePrefix.isEmpty()) {
+      workspacePrefix += "/";
+    }
+    arguments.add(Substitution.of("%workspace_prefix%", workspacePrefix));
     arguments.add(Substitution.of("%javabin%", javaExecutable));
     arguments.add(Substitution.of("%needs_runfiles%",
         config.getFragment(Jvm.class).getJavaExecutable().isAbsolute() ? "0" : "1"));

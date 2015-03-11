@@ -158,7 +158,7 @@ if [[ "$SINGLEJAR" == 1 ]]; then
     || die "Option --singlejar was passed, but %s does not exist.\n  (You may need to build it explicitly.)" "$CLASSPATH"
 else
   # Create the shortest classpath we can, by making it relative if possible.
-  RUNPATH="${JAVA_RUNFILES}/"
+  RUNPATH="${JAVA_RUNFILES}/%workspace_prefix%"
   RUNPATH="${RUNPATH#$PWD/}"
   CLASSPATH=%classpath%
 fi
