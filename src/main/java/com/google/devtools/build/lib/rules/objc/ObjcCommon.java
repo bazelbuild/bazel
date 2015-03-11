@@ -179,6 +179,10 @@ public final class ObjcCommon {
       return ruleContext.getPrerequisiteArtifacts("resources", Mode.TARGET).list();
     }
 
+    ImmutableList<Artifact> structuredResources() {
+      return ruleContext.getPrerequisiteArtifacts("structured_resources", Mode.TARGET).list();
+    }
+
     ImmutableList<Artifact> datamodels() {
       return ruleContext.getPrerequisiteArtifacts("datamodels", Mode.TARGET).list();
     }
@@ -367,7 +371,9 @@ public final class ObjcCommon {
             .addAll(GENERAL_RESOURCE_FILE, attributes.resources())
             .addAll(GENERAL_RESOURCE_FILE, attributes.strings())
             .addAll(GENERAL_RESOURCE_FILE, attributes.xibs())
-            .addAll(BUNDLE_FILE, BundleableFile.nonCompiledResourceFiles(attributes.resources()))
+            .addAll(BUNDLE_FILE, BundleableFile.flattenedRawResourceFiles(attributes.resources()))
+            .addAll(BUNDLE_FILE,
+                BundleableFile.structuredRawResourceFiles(attributes.structuredResources()))
             .addAll(BUNDLE_FILE,
                 Iterables.transform(compiledResources, CompiledResourceFile.TO_BUNDLED))
             .addAll(XCASSETS_DIR,

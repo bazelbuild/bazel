@@ -50,10 +50,10 @@ public final class BundleableFile extends Value<BundleableFile> {
   /**
    * @param bundled the {@link Artifact} whose data is placed in the bundle
    * @param bundlePath the path of the file in the bundle
-   * @param the external file attribute of the file in the central directory of the bundle (zip
-   *     file). The lower 16 bits contain the MS-DOS file attributes. The upper 16 bits contain the
-   *     Unix file attributes, for instance 0100755 (octal) for a regular file with permissions
-   *     {@code rwxr-xr-x}.
+   * @param zipExternalFileAttribute external file attribute of the file in the central directory of
+   *     the bundle (zip file). The lower 16 bits contain the MS-DOS file attributes. The upper 16
+   *     bits contain the Unix file attributes, for instance 0100755 (octal) for a regular file with
+   *     permissions {@code rwxr-xr-x}.
    */
   BundleableFile(Artifact bundled, String bundlePath, int zipExternalFileAttribute) {
     super(new ImmutableMap.Builder<String, Object>()
@@ -66,25 +66,52 @@ public final class BundleableFile extends Value<BundleableFile> {
     this.zipExternalFileAttribute = zipExternalFileAttribute;
   }
 
-  static String bundlePath(PathFragment path) {
+  static String flatBundlePath(PathFragment path) {
     String containingDir = path.getParentDirectory().getBaseName();
     return (containingDir.endsWith(".lproj") ? (containingDir + "/") : "") + path.getBaseName();
   }
 
   /**
    * Given a sequence of non-compiled resource files, returns a sequence of the same length of
-   * instances of this class. Non-compiled resource files are resources which are not processed
-   * before placing them in the final bundle. This is different from (for example) {@code .strings}
-   * and {@code .xib} files, which must be converted to binary plist form or compiled.
+   * instances of this class with the resource paths flattened (resources are put in the bundle
+   * root) or, if the source file is in a directory ending in {@code .lproj}, in a directory of that
+   * name directly under the bundle root.
+   *
+   * <p>Non-compiled resource files are resources which are not processed before placing them in the
+   * final bundle. This is different from (for example) {@code .strings} and {@code .xib} files,
+   * which must be converted to binary plist form or compiled.
    *
    * @param files a sequence of artifacts corresponding to non-compiled resource files
    */
-  public static Iterable<BundleableFile> nonCompiledResourceFiles(Iterable<Artifact> files) {
+  public static Iterable<BundleableFile> flattenedRawResourceFiles(Iterable<Artifact> files) {
     ImmutableList.Builder<BundleableFile> result = new ImmutableList.Builder<>();
     for (Artifact file : files) {
-      result.add(new BundleableFile(file, bundlePath(file.getExecPath())));
+      result.add(new BundleableFile(file, flatBundlePath(file.getExecPath())));
     }
     return result.build();
+  }
+
+  /**
+   * Given a sequence of non-compiled resource files, returns a sequence of the same length of
+   * instances of this class with the resource paths copied as-is into the bundle root.
+   *
+   * <p>Non-compiled resource files are resources which are not processed before placing them in the
+   * final bundle. This is different from (for example) {@code .strings} and {@code .xib} files,
+   * which must be converted to binary plist form or compiled.
+   *
+   * @param files a sequence of artifacts corresponding to non-compiled resource files
+   */
+  public static Iterable<BundleableFile> structuredRawResourceFiles(Iterable<Artifact> files) {
+    ImmutableList.Builder<BundleableFile> result = new ImmutableList.Builder<>();
+    for (Artifact file : files) {
+      result.add(new BundleableFile(file, ownerBundlePath(file)));
+    }
+    return result.build();
+  }
+
+  private static String ownerBundlePath(Artifact file) {
+    PathFragment packageFragment = file.getArtifactOwner().getLabel().getPackageFragment();
+    return file.getRootRelativePath().relativeTo(packageFragment).toString();
   }
 
   /**

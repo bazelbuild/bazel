@@ -203,7 +203,7 @@ final class IntermediateArtifacts {
    * into the final bundle under the {@code .app} or {@code .bundle} directory root.
    */
   public Artifact compiledStoryboardZip(Artifact input) {
-    return appendExtension("/" + BundleableFile.bundlePath(input.getExecPath()) + ".zip");
+    return appendExtension("/" + BundleableFile.flatBundlePath(input.getExecPath()) + ".zip");
   }
 
   /**

@@ -62,7 +62,8 @@ public class CompiledResourceFile {
       Artifact binaryFile = intermediateArtifacts.convertedStringsFile(originalFile);
       result.add(new CompiledResourceFile(
           originalFile,
-          new BundleableFile(binaryFile, BundleableFile.bundlePath(originalFile.getExecPath()))));
+          new BundleableFile(
+              binaryFile, BundleableFile.flatBundlePath(originalFile.getExecPath()))));
     }
     return result.build();
   }

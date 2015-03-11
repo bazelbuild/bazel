@@ -342,6 +342,20 @@ public class ObjcRuleClasses {
           same name in the app bundle.
           <!-- #END_BLAZE_RULE.ATTRIBUTE -->*/
           .add(attr("resources", LABEL_LIST).legacyAllowAnyFileType().direct_compile_time_input())
+          /* <!-- #BLAZE_RULE($objc_resources_rule).ATTRIBUTE(structured_resources) -->
+          Files to include in the final application bundle.
+          ${SYNOPSIS}
+
+          They are not processed or compiled in any way besides the processing
+          done by the rules that actually generate them. In differences to
+          <code>resources</code> these files are placed in the bundle root in
+          the same structure passed to this argument, so
+          <code>["res/foo.png"]</code> will end up in
+          <code>Payload/foo.app/res/foo.png</code>.
+          <!-- #END_BLAZE_RULE.ATTRIBUTE -->*/
+          .add(attr("structured_resources", LABEL_LIST)
+              .legacyAllowAnyFileType()
+              .direct_compile_time_input())
           /* <!-- #BLAZE_RULE($objc_resources_rule).ATTRIBUTE(datamodels) -->
           Files that comprise the data models of the final linked binary.
           ${SYNOPSIS}
