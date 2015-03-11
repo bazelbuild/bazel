@@ -15,7 +15,6 @@ package com.google.devtools.build.lib.rules.cpp;
 
 import com.google.common.collect.ImmutableList;
 import com.google.devtools.build.lib.actions.ActionExecutionContext;
-import com.google.devtools.build.lib.actions.ActionInput;
 import com.google.devtools.build.lib.actions.Artifact;
 import com.google.devtools.build.lib.actions.BaseSpawn;
 import com.google.devtools.build.lib.actions.ExecException;
@@ -60,9 +59,9 @@ public class LocalGccStrategy implements CppCompileActionContext {
   }
 
   @Override
-  public Collection<? extends ActionInput> findAdditionalInputs(CppCompileAction action,
+  public Collection<Artifact> findAdditionalInputs(CppCompileAction action,
       ActionExecutionContext actionExecutionContext) throws ExecException, InterruptedException {
-    return ImmutableList.of();
+    return null;
   }
 
   @Override

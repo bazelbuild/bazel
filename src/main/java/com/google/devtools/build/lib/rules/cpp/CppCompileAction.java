@@ -167,7 +167,7 @@ public class CppCompileAction extends AbstractAction implements IncludeScannable
    * Set when the action prepares for execution. Used to preserve state between preparation and
    * execution.
    */
-  private Collection<? extends ActionInput> additionalInputs = null;
+  private Collection<Artifact> additionalInputs = null;
 
   /**
    * Creates a new action to compile C/C++ source files.
@@ -303,17 +303,21 @@ public class CppCompileAction extends AbstractAction implements IncludeScannable
     return true;
   }
 
+  @Nullable
   @Override
-  public void discoverInputs(ActionExecutionContext actionExecutionContext)
+  public Collection<Artifact> discoverInputs(ActionExecutionContext actionExecutionContext)
       throws ActionExecutionException, InterruptedException {
     Executor executor = actionExecutionContext.getExecutor();
+    Collection<Artifact> returnValue = null;
     try {
-      this.additionalInputs = executor.getContext(CppCompileActionContext.class)
+      returnValue = executor.getContext(CppCompileActionContext.class)
           .findAdditionalInputs(this, actionExecutionContext);
     } catch (ExecException e) {
       throw e.toActionExecutionException("Include scanning of rule '" + getOwner().getLabel() + "'",
           executor.getVerboseFailures(), this);
     }
+    this.additionalInputs = returnValue == null ? ImmutableList.<Artifact>of() : returnValue;
+    return returnValue;
   }
 
   @Override

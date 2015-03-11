@@ -92,7 +92,7 @@ public abstract class AbstractAction implements Action {
   }
 
   @Override
-  public void discoverInputs(ActionExecutionContext actionExecutionContext)
+  public Collection<Artifact> discoverInputs(ActionExecutionContext actionExecutionContext)
       throws ActionExecutionException, InterruptedException {
     throw new IllegalStateException("discoverInputs cannot be called for " + this.prettyPrint()
         + " since it does not discover inputs");

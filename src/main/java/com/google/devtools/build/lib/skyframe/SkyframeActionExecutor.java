@@ -586,12 +586,12 @@ public final class SkyframeActionExecutor {
    * <p>This method is just a wrapper around {@link Action#discoverInputs} that properly processes
    * any ActionExecutionException thrown before rethrowing it to the caller.
    */
-  void discoverInputs(Action action, ActionExecutionContext actionExecutionContext)
+  Collection<Artifact> discoverInputs(Action action, ActionExecutionContext actionExecutionContext)
       throws ActionExecutionException, InterruptedException {
     try {
-      action.discoverInputs(actionExecutionContext);
+      return action.discoverInputs(actionExecutionContext);
     } catch (ActionExecutionException e) {
-      processAndThrow(e, action, actionExecutionContext.getFileOutErr());
+      throw processAndThrow(e, action, actionExecutionContext.getFileOutErr());
     }
   }
 

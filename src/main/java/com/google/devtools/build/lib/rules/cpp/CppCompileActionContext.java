@@ -16,7 +16,6 @@ package com.google.devtools.build.lib.rules.cpp;
 import com.google.devtools.build.lib.actions.ActionContextMarker;
 import com.google.devtools.build.lib.actions.ActionExecutionContext;
 import com.google.devtools.build.lib.actions.ActionExecutionException;
-import com.google.devtools.build.lib.actions.ActionInput;
 import com.google.devtools.build.lib.actions.Artifact;
 import com.google.devtools.build.lib.actions.ExecException;
 import com.google.devtools.build.lib.actions.Executor.ActionContext;
@@ -43,7 +42,7 @@ public interface CppCompileActionContext extends ActionContext {
   }
 
   /** Does include scanning to find the list of files needed to execute the action. */
-  public Collection<? extends ActionInput> findAdditionalInputs(CppCompileAction action,
+  public Collection<Artifact> findAdditionalInputs(CppCompileAction action,
       ActionExecutionContext actionExecutionContext)
       throws ExecException, InterruptedException, ActionExecutionException;
 

@@ -89,8 +89,9 @@ public class TestAction extends AbstractAction {
   }
 
   @Override
-  public void discoverInputs(ActionExecutionContext actionExecutionContext) {
+  public Collection<Artifact> discoverInputs(ActionExecutionContext actionExecutionContext) {
     Preconditions.checkState(discoversInputs(), this);
+    return ImmutableList.of();
   }
 
   @Override
