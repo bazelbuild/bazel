@@ -104,17 +104,3 @@ The following Python features are not supported:
 * most builtin functions, most methods
 
 
-Mixing Skylark and Python-preprocessing
----------------------------------------
-
-Files using Python-preprocessing (it happens in presence of a
-`subinclude`) can use Skylark, with the following limitations:
-
-* A file will be loaded only if there is a load in the BUILD file (Bazel
-  doesn't look at subincluded files to get the dependencies).
-
-* Python-preprocessing happens first. Python code may instantiate Skylark
-  rules and macros. But Skylark code cannot call a function defined in
-  Python-preprocessing.
-
-* You can load only Skylark functions (macros, rules), not constants.
