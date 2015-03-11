@@ -316,6 +316,10 @@ There are several important limitations and caveats:
     A hidden file with filename starting with <code>.</code> is matched by
     both the <code>**</code> and the <code>*</code> wildcards.
   </li>
+  <li>
+    If a rule and a source file with the same name both exist in the package, the glob will
+    return the outputs of the rule instead of the source file.
+  </li>
 </ol>
 
 <p>
