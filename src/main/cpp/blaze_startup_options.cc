@@ -126,15 +126,13 @@ string BlazeStartupOptions::GetJvm() {
     }
     exit(1);
   }
-  for (string rt_jar : {
-      // If the full JDK is installed
-      GetHostJavabase() + "/jre/lib/rt.jar",
-      // If just the JRE is installed
-      GetHostJavabase() + "/lib/rt.jar"
-  }) {
-    if (access(rt_jar.c_str(), R_OK) == 0) {
-      return java_program;
-    }
+  // If the full JDK is installed
+  string jdk_rt_jar = GetHostJavabase() + "/jre/lib/rt.jar";
+  // If just the JRE is installed
+  string jre_rt_jar = GetHostJavabase() + "/lib/rt.jar";
+  if ((access(jdk_rt_jar.c_str(), R_OK) == 0)
+      || (access(jre_rt_jar.c_str(), R_OK) == 0)) {
+    return java_program;
   }
   fprintf(stderr, "Problem with java installation: "
       "couldn't find/access rt.jar in %s\n", GetHostJavabase().c_str());
