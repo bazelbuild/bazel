@@ -1,0 +1,51 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<classpath>
+	<classpathentry kind="src" path="src/java_tools/buildjar/java"/>
+	<classpathentry kind="src" path="src/java_tools/buildjar/javatests"/>
+	<classpathentry kind="src" path="src/java_tools/singlejar/java"/>
+	<classpathentry kind="src" path="src/java_tools/singlejar/javatests"/>
+	<classpathentry kind="src" path="src/main/java"/>
+	<classpathentry kind="src" path="src/test/java"/>
+	<classpathentry kind="src" path="src/tools/xcode-common/java"/>
+	<classpathentry kind="con" path="org.eclipse.jdt.launching.JRE_CONTAINER"/>
+	<classpathentry kind="lib" path="base_workspace/third_party/aether/aether-api-1.0.0.v20140518.jar"/>
+	<classpathentry kind="lib" path="base_workspace/third_party/aether/aether-connector-basic-1.0.0.v20140518.jar"/>
+	<classpathentry kind="lib" path="base_workspace/third_party/aether/aether-impl-1.0.0.v20140518.jar"/>
+	<classpathentry kind="lib" path="base_workspace/third_party/aether/aether-spi-1.0.0.v20140518.jar"/>
+	<classpathentry kind="lib" path="base_workspace/third_party/aether/aether-transport-classpath-1.0.0.v20140518.jar"/>
+	<classpathentry kind="lib" path="base_workspace/third_party/aether/aether-transport-file-1.0.0.v20140518.jar"/>
+	<classpathentry kind="lib" path="base_workspace/third_party/aether/aether-transport-http-1.0.0.v20140518.jar"/>
+	<classpathentry kind="lib" path="base_workspace/third_party/aether/aether-transport-wagon-1.0.0.v20140518.jar"/>
+	<classpathentry kind="lib" path="base_workspace/third_party/aether/aether-util-1.0.0.v20140518.jar"/>
+	<classpathentry kind="lib" path="base_workspace/third_party/apache_commons_compress/apache-commons-compress-1.9.jar"/>
+	<classpathentry kind="lib" path="base_workspace/third_party/apache_commons_logging/commons-logging-1.1.1.jar"/>
+	<classpathentry kind="lib" path="base_workspace/third_party/apache_httpclient/httpclient-4.2.5.jar"/>
+	<classpathentry kind="lib" path="base_workspace/third_party/apache_httpcore/httpcore-4.2.4.jar"/>
+	<classpathentry kind="lib" path="base_workspace/third_party/gson/gson-2.2.4.jar"/>
+	<classpathentry kind="lib" path="base_workspace/third_party/guava/guava-18.0.jar"/>
+	<classpathentry kind="lib" path="base_workspace/third_party/guava/guava-testlib.jar"/>
+	<classpathentry kind="lib" path="base_workspace/third_party/hamcrest/hamcrest-core-1.3.jar"/>
+	<classpathentry kind="lib" path="base_workspace/third_party/joda-time/joda-time-2.3.jar"/>
+	<classpathentry kind="lib" path="base_workspace/third_party/jsr305/jsr-305.jar"/>
+	<classpathentry kind="lib" path="base_workspace/third_party/junit/junit-4.11.jar"/>
+	<classpathentry kind="lib" path="base_workspace/third_party/maven_model/maven-aether-provider-3.2.3.jar"/>
+	<classpathentry kind="lib" path="base_workspace/third_party/maven_model/maven-model-3.2.3.jar"/>
+	<classpathentry kind="lib" path="base_workspace/third_party/maven_model/maven-model-builder-3.2.3.jar"/>
+	<classpathentry kind="lib" path="base_workspace/third_party/mockito/mockito-all-1.10.19.jar"/>
+	<classpathentry kind="lib" path="base_workspace/third_party/plexus_interpolation/plexus-interpolation-1.22.jar"/>
+	<classpathentry kind="lib" path="base_workspace/third_party/plexus_utils/plexus-utils-3.0.21.jar"/>
+	<classpathentry kind="lib" path="base_workspace/third_party/protobuf/protobuf-2.5.0.jar"/>
+	<classpathentry kind="lib" path="base_workspace/third_party/truth/truth-0.24+.jar"/>
+	<classpathentry kind="lib" path="tools/jdk/jdk/lib/tools.jar"/>
+	<classpathentry kind="lib" path="bazel-bin/src/main/protobuf/libproto_build.jar" sourcepath="bazel-bin/src/main/protobuf/libproto_build.jar.build_output"/>
+	<classpathentry kind="lib" path="bazel-bin/src/main/protobuf/libproto_bundlemerge.jar" sourcepath="bazel-bin/src/main/protobuf/libproto_bundlemerge.jar.build_output"/>
+	<classpathentry kind="lib" path="bazel-bin/src/main/protobuf/libproto_crosstool_config.jar" sourcepath="bazel-bin/src/main/protobuf/libproto_crosstool_config.jar.build_output"/>
+	<classpathentry kind="lib" path="bazel-bin/src/main/protobuf/libproto_deps.jar" sourcepath="bazel-bin/src/main/protobuf/libproto_deps.jar.build_output"/>
+	<classpathentry kind="lib" path="bazel-bin/src/main/protobuf/libproto_extra_actions_base.jar" sourcepath="bazel-bin/src/main/protobuf/libproto_extra_actions_base.jar.build_output"/>
+	<classpathentry kind="lib" path="bazel-bin/src/main/protobuf/libproto_test_status.jar" sourcepath="bazel-bin/src/main/protobuf/libproto_test_status.jar.build_output"/>
+	<classpathentry kind="lib" path="bazel-bin/src/main/protobuf/libproto_xcodegen.jar" sourcepath="bazel-bin/src/main/protobuf/libproto_xcodegen.jar.build_output"/>
+	<classpathentry kind="lib" path="bazel-bin/src/java_tools/buildjar/libjava-langtools-location-lib.jar" sourcepath="bazel-genfiles/src/java_tools/buildjar"/>
+	<classpathentry kind="lib" path="bazel-bin/src/java_tools/buildjar/libjavabuilder-javacopts-lib.jar" sourcepath="bazel-genfiles/src/java_tools/buildjar"/>
+	<classpathentry kind="lib" path="bazel-bin/src/java_tools/buildjar/libjavac-bootclasspath-locations-lib.jar" sourcepath="bazel-genfiles/src/java_tools/buildjar"/>
+	<classpathentry kind="output" path="bazel-out/eclipse-classes"/>
+</classpath>

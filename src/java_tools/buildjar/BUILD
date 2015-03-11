@@ -1,4 +1,4 @@
-package(default_visibility = ["//src:__pkg__"])
+package(default_visibility = ["//src:__subpackages__"])
 
 java_binary(
     name = "JavaBuilder",
@@ -33,13 +33,17 @@ EOF
 # Provides java-level access to //tools/defaults:javac_bootclasspath
 # as defined by blaze's --javac_bootclasspath flag
 java_library(
+    name = "javac-bootclasspath-locations-lib",
+    srcs = [":javac-bootclasspath-locations"],
+    visibility = ["//visibility:private"],
+)
+
+java_library(
     name = "JavacBootclasspath",
-    srcs = [
-        "java/com/google/devtools/build/java/bazel/JavacBootclasspath.java",
-        ":javac-bootclasspath-locations",
-    ],
+    srcs = ["java/com/google/devtools/build/java/bazel/JavacBootclasspath.java"],
     data = ["//tools/defaults:javac_bootclasspath"],
     visibility = ["//visibility:public"],
+    deps = [":javac-bootclasspath-locations-lib"],
 )
 
 # Exports $(location //tools/defaults:java_langtools) to the java world.
@@ -61,13 +65,17 @@ EOF
 # Provides java-level access to //tools/defaults:java_langtools
 # as defined by bazel's --java_langtools flag
 java_library(
+    name = "java-langtools-location-lib",
+    srcs = [":java-langtools-location"],
+    visibility = ["//visibility:private"],
+)
+
+java_library(
     name = "JavaLangtools",
-    srcs = [
-        "java/com/google/devtools/build/java/bazel/JavaLangtools.java",
-        ":java-langtools-location",
-    ],
+    srcs = ["java/com/google/devtools/build/java/bazel/JavaLangtools.java"],
     data = ["//tools/defaults:java_langtools"],
     visibility = ["//visibility:public"],
+    deps = [":java-langtools-location-lib"],
 )
 
 # Utility to export javacopts to the java world from the default javabuilder (a
@@ -103,12 +111,16 @@ genrule(
 # Provides java-level access to the default javacopts in the current
 # JavaBuilder release as defined by bazel's --javabuilder_top flag
 java_library(
+    name = "javabuilder-javacopts-lib",
+    srcs = [":javabuilder-javacopts"],
+    visibility = ["//visibility:private"],
+)
+
+java_library(
     name = "JavaBuilderConfig",
-    srcs = [
-        "java/com/google/devtools/build/java/bazel/JavaBuilderConfig.java",
-        ":javabuilder-javacopts",
-    ],
+    srcs = ["java/com/google/devtools/build/java/bazel/JavaBuilderConfig.java"],
     data = ["//tools/defaults:javabuilder"],
+    deps = [":javabuilder-javacopts-lib"],
 )
 
 # Provides programmatic access to a bazel compatible javac.
