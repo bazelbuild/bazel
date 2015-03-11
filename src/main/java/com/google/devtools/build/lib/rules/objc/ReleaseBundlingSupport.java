@@ -191,17 +191,8 @@ public final class ReleaseBundlingSupport {
       maybeSignedIpa = registerBundleSigningActions(ipaOutput);
     }
     
-    String primaryBundleId = null; 
-    String fallbackBundleId = null;
-
-    if (ruleContext.attributes().isAttributeValueExplicitlySpecified("bundle_id")) {
-      primaryBundleId = attributes.bundleId();
-    } else {
-      fallbackBundleId = attributes.bundleId();
-    }
-    
     BundleMergeControlBytes bundleMergeControlBytes = new BundleMergeControlBytes(
-        bundling, maybeSignedIpa, objcConfiguration, families, primaryBundleId, fallbackBundleId);
+        bundling, maybeSignedIpa, objcConfiguration, families);
     registerBundleMergeActions(
         maybeSignedIpa, bundling.getBundleContentArtifacts(), bundleMergeControlBytes);
 
@@ -343,6 +334,15 @@ public final class ReleaseBundlingSupport {
     } else {
       extraBundleFiles = ImmutableList.of();
     }
+    
+    String primaryBundleId = null; 
+    String fallbackBundleId = null;
+
+    if (ruleContext.attributes().isAttributeValueExplicitlySpecified("bundle_id")) {
+      primaryBundleId = ruleContext.attributes().get("bundle_id", Type.STRING);
+    } else {
+      fallbackBundleId = ruleContext.attributes().get("bundle_id", Type.STRING);
+    }
 
     return new Bundling.Builder()
         .setName(ruleContext.getLabel().getName())
@@ -352,6 +352,8 @@ public final class ReleaseBundlingSupport {
         .setInfoplistMerging(
             BundleSupport.infoPlistMerging(ruleContext, objcProvider, optionsProvider))
         .setIntermediateArtifacts(ObjcRuleClasses.intermediateArtifacts(ruleContext))
+        .setPrimaryBundleId(primaryBundleId)
+        .setFallbackBundleId(fallbackBundleId)
         .build();
   }
 

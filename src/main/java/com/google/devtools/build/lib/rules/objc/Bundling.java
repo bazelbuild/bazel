@@ -47,6 +47,8 @@ final class Bundling {
     private ObjcProvider objcProvider;
     private InfoplistMerging infoplistMerging;
     private IntermediateArtifacts intermediateArtifacts;
+    private String primaryBundleId;
+    private String fallbackBundleId;
 
     public Builder setName(String name) {
       this.name = name;
@@ -75,6 +77,16 @@ final class Bundling {
 
     public Builder setIntermediateArtifacts(IntermediateArtifacts intermediateArtifacts) {
       this.intermediateArtifacts = intermediateArtifacts;
+      return this;
+    }
+    
+    public Builder setPrimaryBundleId(String primaryId) {
+      this.primaryBundleId = primaryId;
+      return this;
+    }
+    
+    public Builder setFallbackBundleId(String fallbackId) {
+      this.fallbackBundleId = fallbackId;
       return this;
     }
 
@@ -116,7 +128,8 @@ final class Bundling {
           .build();
 
       return new Bundling(name, bundleDirFormat, combinedArchitectureBinary, extraBundleFiles,
-          objcProvider, infoplistMerging, actoolzipOutput, bundleContentArtifacts, mergeZips);
+          objcProvider, infoplistMerging, actoolzipOutput, bundleContentArtifacts, mergeZips, 
+          primaryBundleId, fallbackBundleId);
     }
   }
 
@@ -129,6 +142,8 @@ final class Bundling {
   private final Optional<Artifact> actoolzipOutput;
   private final NestedSet<Artifact> bundleContentArtifacts;
   private final NestedSet<Artifact> mergeZips;
+  private final String primaryBundleId;
+  private final String fallbackBundleId;
 
   private Bundling(
       String name,
@@ -139,7 +154,9 @@ final class Bundling {
       InfoplistMerging infoplistMerging,
       Optional<Artifact> actoolzipOutput,
       NestedSet<Artifact> bundleContentArtifacts,
-      NestedSet<Artifact> mergeZips) {
+      NestedSet<Artifact> mergeZips,
+      String primaryBundleId,
+      String fallbackBundleId) {
     this.name = Preconditions.checkNotNull(name);
     this.bundleDirFormat = Preconditions.checkNotNull(bundleDirFormat);
     this.combinedArchitectureBinary = Preconditions.checkNotNull(combinedArchitectureBinary);
@@ -149,6 +166,8 @@ final class Bundling {
     this.actoolzipOutput = Preconditions.checkNotNull(actoolzipOutput);
     this.bundleContentArtifacts = Preconditions.checkNotNull(bundleContentArtifacts);
     this.mergeZips = Preconditions.checkNotNull(mergeZips);
+    this.primaryBundleId = primaryBundleId;
+    this.fallbackBundleId = fallbackBundleId;
   }
 
   /**
@@ -238,5 +257,19 @@ final class Bundling {
    */
   public NestedSet<Artifact> getBundleContentArtifacts() {
     return bundleContentArtifacts;
+  }
+  
+  /**
+   * Returns primary bundle ID to use, can be null.
+   */
+  public String getPrimaryBundleId() {
+    return primaryBundleId;
+  }
+  
+  /**
+   * Returns fallback bundle ID to use when primary isn't set.
+   */
+  public String getFallbackBundleId() {
+    return fallbackBundleId;
   }
 }

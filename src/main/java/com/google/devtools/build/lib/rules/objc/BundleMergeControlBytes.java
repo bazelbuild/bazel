@@ -42,19 +42,14 @@ final class BundleMergeControlBytes extends ByteSource {
   private final Artifact mergedIpa;
   private final ObjcConfiguration objcConfiguration;
   private final ImmutableSet<TargetDeviceFamily> families;
-  private final String primaryBundleIdentifier;
-  private final String fallbackBundleIdentifier;
 
   public BundleMergeControlBytes(
       Bundling rootBundling, Artifact mergedIpa, ObjcConfiguration objcConfiguration,
-      ImmutableSet<TargetDeviceFamily> families, 
-      String primaryBundleIdentifer, String fallbackBundleIdentifier) {
+      ImmutableSet<TargetDeviceFamily> families) {
     this.rootBundling = Preconditions.checkNotNull(rootBundling);
     this.mergedIpa = Preconditions.checkNotNull(mergedIpa);
     this.objcConfiguration = Preconditions.checkNotNull(objcConfiguration);
     this.families = Preconditions.checkNotNull(families);
-    this.primaryBundleIdentifier = primaryBundleIdentifer;
-    this.fallbackBundleIdentifier = fallbackBundleIdentifier;
   }
 
   @Override
@@ -120,12 +115,12 @@ final class BundleMergeControlBytes extends ByteSource {
       control.addNestedBundle(control(mergeZipPrefix, nestedBundling));
     }
     
-    if (primaryBundleIdentifier != null) {
-      control.setPrimaryBundleIdentifier(primaryBundleIdentifier);
+    if (bundling.getPrimaryBundleId()  != null) {
+      control.setPrimaryBundleIdentifier(bundling.getPrimaryBundleId());
     }
     
-    if (fallbackBundleIdentifier != null) {
-      control.setFallbackBundleIdentifier(fallbackBundleIdentifier);
+    if (bundling.getFallbackBundleId() != null) {
+      control.setFallbackBundleIdentifier(bundling.getFallbackBundleId());
     }
     
     return control.build();
