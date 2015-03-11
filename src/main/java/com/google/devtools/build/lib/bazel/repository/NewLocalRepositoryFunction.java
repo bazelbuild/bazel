@@ -23,6 +23,7 @@ import com.google.devtools.build.lib.packages.Type;
 import com.google.devtools.build.lib.skyframe.FileValue;
 import com.google.devtools.build.lib.skyframe.RepositoryValue;
 import com.google.devtools.build.lib.syntax.EvalException;
+import com.google.devtools.build.lib.vfs.FileSystem;
 import com.google.devtools.build.lib.vfs.FileSystemUtils;
 import com.google.devtools.build.lib.vfs.Path;
 import com.google.devtools.build.lib.vfs.PathFragment;
@@ -54,12 +55,16 @@ public class NewLocalRepositoryFunction extends RepositoryFunction {
     //     path = '/some/path/to/y',
     //     build_file = 'x.BUILD'
     // )
-    // This creates the following directory structure:
+    //
+    // Assume /some/path/to/y contains files z, w, and v. This creates the following directory
+    // structure:
     // .external-repository/
     //   x/
     //     WORKSPACE
     //     BUILD -> <build_root>/x.BUILD
-    //     y -> /some/path/to/y
+    //     z -> /some/path/to/y/z
+    //     w -> /some/path/to/y/w
+    //     v -> /some/path/to/y/v
     //
     Path repositoryDirectory = getExternalRepositoryDirectory().getRelative(rule.getName());
     try {
@@ -82,7 +87,6 @@ public class NewLocalRepositoryFunction extends RepositoryFunction {
     }
 
     AggregatingAttributeMapper mapper = AggregatingAttributeMapper.of(rule);
-    // Link x/y to /some/path/to/y.
     String path = mapper.get("path", Type.STRING);
     PathFragment pathFragment = new PathFragment(path);
     if (!pathFragment.isAbsolute()) {
@@ -92,10 +96,19 @@ public class NewLocalRepositoryFunction extends RepositoryFunction {
               "In " + rule + " the 'path' attribute must specify an absolute path"),
           Transience.PERSISTENT);
     }
-    Path pathTarget = getOutputBase().getFileSystem().getPath(pathFragment);
-    Path symlinkPath = repositoryDirectory.getRelative(pathTarget.getBaseName());
-    if (createSymbolicLink(symlinkPath, pathTarget, env) == null) {
-      return null;
+
+    // Link x/y/z to /some/path/to/y/z.
+    FileSystem fs = getOutputBase().getFileSystem();
+    Path targetDirectory = fs.getPath(pathFragment);
+    try {
+      for (Path target : targetDirectory.getDirectoryEntries()) {
+        Path symlinkPath = repositoryDirectory.getRelative(target.getBaseName());
+        if (createSymbolicLink(symlinkPath, target, env) == null) {
+          return null;
+        }
+      }
+    } catch (IOException e) {
+      throw new RepositoryFunctionException(e, Transience.TRANSIENT);
     }
 
     // Link x/BUILD to <build_root>/x.BUILD.
