@@ -200,6 +200,19 @@ public class EvaluationTest extends AbstractEvaluationTestCase {
   }
 
   @Test
+  public void testConditionalExpressions() throws Exception {
+    assertEquals(1, eval("1 if True else 2"));
+    assertEquals(2, eval("1 if False else 2"));
+    assertEquals(3, eval("1 + 2 if 3 + 4 else 5 + 6"));
+
+    syntaxEvents.setFailFast(false);
+    parseExpr("1 if 2");
+    syntaxEvents.assertContainsEvent(
+        "missing else clause in conditional expression or semicolon before if");
+    syntaxEvents.collector().clear();
+  }
+
+  @Test
   public void testCompareStringInt() throws Exception {
     checkEvalError("'a' >= 1", "Cannot compare string with int");
   }

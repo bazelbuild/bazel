@@ -140,4 +140,11 @@ public class SyntaxTreeVisitor {
   public void visit(Comment node) {
   }
 
+  public void visit(ConditionalExpression node) {
+    visit(node.getThenCase());
+    visit(node.getCondition());
+    if (node.getElseCase() != null) {
+      visit(node.getElseCase());
+    }
+  }
 }

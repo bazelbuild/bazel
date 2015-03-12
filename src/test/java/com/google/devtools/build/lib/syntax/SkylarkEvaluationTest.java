@@ -877,4 +877,28 @@ public class SkylarkEvaluationTest extends EvaluationTest {
   @Override
   @Test
   public void testKeywordArgs() {}
+
+  @Test
+  public void testConditionalExpressionAtToplevel() throws Exception {
+    exec(parseFileForSkylark("x = 1 if 2 else 3"), env);
+    assertEquals(1, env.lookup("x"));
+  }
+
+  @Test
+  public void testConditionalExpressionInFunction() throws Exception {
+    exec(parseFileForSkylark(
+        "def foo(a, b, c):\n"
+        + "  return a+b if c else a-b\n"
+        + "x = foo(23, 5, 0)"), env);
+    assertEquals(18, env.lookup("x"));
+  }
+
+  @Test
+  public void testBadConditionalExpressionInFunction() throws Exception {
+    syntaxEvents.setFailFast(false);
+    parseFileForSkylark("def foo(a): return [] if a else 0\n");
+    syntaxEvents.assertContainsEvent(
+        "bad else case: int is incompatible with list at /some/file.txt:1:33");
+    syntaxEvents.collector().clear();
+  }
 }

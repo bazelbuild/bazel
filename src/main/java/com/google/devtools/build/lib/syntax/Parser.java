@@ -341,6 +341,8 @@ class Parser {
 
   // Convenience method that uses end offset from the last node.
   private <NODE extends ASTNode> NODE setLocation(NODE node, int startOffset, ASTNode lastNode) {
+    Preconditions.checkNotNull(lastNode, "can't extract end offset from a null node");
+    Preconditions.checkNotNull(lastNode.getLocation(), "lastNode doesn't have a location");
     return setLocation(node, startOffset, lastNode.getLocation().getEndOffset());
   }
 
@@ -908,7 +910,23 @@ class Parser {
   }
 
   private Expression parseExpression() {
-    return parseExpression(0);
+    int start = token.left;
+    Expression expr = parseExpression(0);
+    if (token.kind == TokenKind.IF) {
+      nextToken();
+      Expression condition = parseExpression(0);
+      if (token.kind == TokenKind.ELSE) {
+        nextToken();
+        Expression elseClause = parseExpression();
+        return setLocation(new ConditionalExpression(expr, condition, elseClause),
+            start, elseClause);
+      } else {
+        reportError(lexer.createLocation(start, token.left),
+            "missing else clause in conditional expression or semicolon before if");
+        return expr; // Try to recover from error: drop the if and the expression after it. Ouch.
+      }
+    }
+    return expr;
   }
 
   private Expression parseExpression(int prec) {
