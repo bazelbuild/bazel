@@ -14,6 +14,7 @@
 package com.google.devtools.build.lib.syntax;
 
 import com.google.common.collect.ImmutableList;
+import com.google.common.collect.ImmutableMap;
 
 import java.util.LinkedHashMap;
 import java.util.List;
@@ -78,7 +79,7 @@ public class DictionaryLiteral extends Expression {
       }
       map.put(entry.key.eval(env), entry.value.eval(env));
     }
-    return map;
+    return ImmutableMap.copyOf(map);
   }
 
   @Override

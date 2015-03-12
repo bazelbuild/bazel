@@ -14,6 +14,7 @@
 package com.google.devtools.build.lib.syntax;
 
 import com.google.common.base.Strings;
+import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.Lists;
 import com.google.common.collect.Maps;
 import com.google.devtools.build.lib.syntax.ClassObject.SkylarkClassObject;
@@ -141,7 +142,7 @@ public final class BinaryOperatorExpression extends Expression {
           Map<Object, Object> result = Maps.newHashMapWithExpectedSize(ldict.size() + rdict.size());
           result.putAll(ldict);
           result.putAll(rdict);
-          return result;
+          return ImmutableMap.copyOf(result);
         }
 
         if (env.isSkylarkEnabled()
