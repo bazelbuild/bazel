@@ -40,7 +40,7 @@ has the following features:
   were changed take about ~200ms.
 
 
-Why doesn't't Google use ...?
+Why doesn't Google use ...?
 -----------------------
 
 * Make, Ninja: These systems give very exact control over what commands

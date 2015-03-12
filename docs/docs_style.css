@@ -1,0 +1,32 @@
+* {
+  font-family: "Open Sans";
+  font-weight: normal;
+}
+
+h1, h2, h3, h4, h5, h6 {
+  color: #444;
+}
+
+p, li {
+  font-size: 14px;
+  color: #444;
+}
+
+a {
+  color: #49b;
+  font-weight: 600;
+}
+
+code {
+  font-family: monospace;
+  font-size: 13px;
+  font-weight: 500;
+  color: #000;
+}
+
+pre {
+  display: block;
+  background-color: #f5f7f9;
+  border: 1px solid #9ab;
+  padding: 12px;
+}
