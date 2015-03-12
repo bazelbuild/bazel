@@ -24,9 +24,7 @@ function parse_options() {
 }
 
 PLATFORM="$(uname -s | tr 'A-Z' 'a-z')"
-CPU_FLAG=""
 if [[ ${PLATFORM} == "darwin" ]]; then
-  CPU_FLAG="--cpu=darwin"
   function md5_file() {
     md5 $1 | sed 's|^MD5 (\(.*\)) =|\1|'
   }
@@ -63,8 +61,8 @@ function bootstrap() {
   local BAZEL_BIN=$1
   local BAZEL_SUM=$2
   [ -x "${BAZEL_BIN}" ] || fail "syntax: bootstrap bazel-binary"
-  ${BAZEL_BIN} --blazerc=/dev/null clean ${CPU_FLAG} || return $?
-  ${BAZEL_BIN} --blazerc=/dev/null build ${CPU_FLAG} --nostamp //src:bazel //src:tools || return $?
+  ${BAZEL_BIN} --blazerc=/dev/null clean || return $?
+  ${BAZEL_BIN} --blazerc=/dev/null build --nostamp //src:bazel //src:tools || return $?
 
   if [ -n "${BAZEL_SUM}" ]; then
     get_outputs_sum > ${BAZEL_SUM} || return $?
@@ -124,7 +122,7 @@ fi
 if [ $DO_TESTS ]; then
   start_test "test"
 
-  $BOOTSTRAP --blazerc=/dev/null test ${CPU_FLAG} -k --test_output=errors //src/... || fail "Tests failed"
+  $BOOTSTRAP --blazerc=/dev/null test -k --test_output=errors //src/... || fail "Tests failed"
   end_test "test"
 fi
 

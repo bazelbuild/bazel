@@ -391,6 +391,33 @@ public final class BuildConfiguration implements Serializable {
   }
 
   /**
+   * Converter for default --host_cpu to the auto-detected host cpu.
+   *
+   * <p>This detects the host cpu of the Blaze's server but if the compilation happens in a
+   * compilation cluster then the host cpu of the compilation cluster might be different than
+   * the auto-detected one and the --host_cpu option must then be set explicitly.
+   */
+  public static class HostCpuConverter implements Converter<String> {
+    @Override
+    public String convert(String input) throws OptionsParsingException {
+      if (input.isEmpty()) {
+        switch (OS.getCurrent()) {
+          case DARWIN:
+            return "darwin";
+          default:
+            return "k8";
+        }
+      }
+      return input;
+    }
+
+    @Override
+    public String getTypeDescription() {
+      return "a string";
+    }
+  }
+
+  /**
    * Options that affect the value of a BuildConfiguration instance.
    *
    * <p>(Note: any client that creates a view will also need to declare
@@ -491,8 +518,9 @@ public final class BuildConfiguration implements Serializable {
     public boolean showCachedAnalysisResults;
 
     @Option(name = "host_cpu",
-        defaultValue = "null",
+        defaultValue = "",
         category = "semantics",
+        converter = HostCpuConverter.class,
         help = "The host CPU.")
     public String hostCpu;
 
@@ -753,9 +781,9 @@ public final class BuildConfiguration implements Serializable {
         // In the fallback case, we have already tried the target options and they didn't work, so
         // now we try the default options; the hostCpu field has the default value, because we use
         // getDefault() above.
-        host.cpu = computeHostCpu(host.hostCpu);
+        host.cpu = host.hostCpu;
       } else {
-        host.cpu = computeHostCpu(hostCpu);
+        host.cpu = hostCpu;
       }
 
       // === Runfiles ===
@@ -782,18 +810,6 @@ public final class BuildConfiguration implements Serializable {
       host.defaultFeatures = ImmutableList.copyOf(defaultFeatures);
 
       return host;
-    }
-
-    private static String computeHostCpu(String explicitHostCpu) {
-      if (explicitHostCpu != null) {
-        return explicitHostCpu;
-      }
-      switch (OS.getCurrent()) {
-        case DARWIN:
-          return "darwin";
-        default:
-          return "k8";
-      }
     }
 
     @Override

@@ -15,6 +15,7 @@
 package com.google.devtools.build.lib.rules.cpp;
 
 import com.google.devtools.build.lib.analysis.config.BuildConfiguration;
+import com.google.devtools.build.lib.analysis.config.BuildConfiguration.Options;
 import com.google.devtools.build.lib.analysis.config.BuildOptions;
 import com.google.devtools.build.lib.view.config.crosstool.CrosstoolConfig;
 import com.google.devtools.build.lib.view.config.crosstool.CrosstoolConfig.CToolchain;
@@ -29,6 +30,8 @@ import java.util.Objects;
  * considered equal.
  */
 public final class CrosstoolConfigurationIdentifier implements CrosstoolConfigurationOptions {
+
+  private static final String USE_HOST_CPU = "same_as_host";
 
   /** The CPU associated with this crosstool configuration. */
   private final String cpu;
@@ -51,9 +54,13 @@ public final class CrosstoolConfigurationIdentifier implements CrosstoolConfigur
    */
   public static CrosstoolConfigurationIdentifier fromReleaseAndCrosstoolConfiguration(
       CrosstoolConfig.CrosstoolRelease release, BuildOptions buildOptions) {
-    String cpu = buildOptions.get(BuildConfiguration.Options.class).getCpu();
+    Options options = buildOptions.get(BuildConfiguration.Options.class);
+    String cpu = options.getCpu();
     if (cpu == null) {
       cpu = release.getDefaultTargetCpu();
+      if (cpu.equals(USE_HOST_CPU)) {
+        cpu = options.hostCpu;
+      }
     }
     CppOptions cppOptions = buildOptions.get(CppOptions.class);
     return new CrosstoolConfigurationIdentifier(cpu, cppOptions.cppCompiler, cppOptions.glibc);
