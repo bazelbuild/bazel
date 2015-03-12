@@ -124,6 +124,14 @@ public interface ActionMetadata {
   ImmutableSet<Artifact> getOutputs();
 
   /**
+   * Returns the set of output Artifacts that are required to be saved. This is
+   * used to identify items that would otherwise be potentially identified as
+   * orphaned (not consumed by any downstream {@link Action}s and potentially
+   * discarded during the build process.
+   */
+  public ImmutableSet<Artifact> getMandatoryOutputs();
+
+  /**
    * Returns the "primary" input of this action, if applicable.
    *
    * <p>For example, a C++ compile action would return the .cc file which is being compiled,

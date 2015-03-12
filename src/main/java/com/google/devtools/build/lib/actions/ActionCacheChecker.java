@@ -216,10 +216,12 @@ public class ActionCacheChecker {
       if (!key.equals(execPath)) {
         actionCache.remove(key);
       }
-      // Output files *must* exist and be accessible after successful action execution.
-      Metadata metadata = metadataHandler.getMetadata(output);
-      Preconditions.checkState(metadata != null);
-      entry.addFile(output.getExecPath(), metadata);
+      if (!metadataHandler.artifactOmitted(output)) {
+        // Output files *must* exist and be accessible after successful action execution.
+        Metadata metadata = metadataHandler.getMetadata(output);
+        Preconditions.checkState(metadata != null);
+        entry.addFile(output.getExecPath(), metadata);
+      }
     }
     for (Artifact input : action.getInputs()) {
       entry.addFile(input.getExecPath(), metadataHandler.getMetadataMaybe(input));

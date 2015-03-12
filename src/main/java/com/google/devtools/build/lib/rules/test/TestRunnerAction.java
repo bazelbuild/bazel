@@ -17,6 +17,7 @@ package com.google.devtools.build.lib.rules.test;
 import com.google.common.base.Preconditions;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
+import com.google.common.collect.ImmutableSet;
 import com.google.common.collect.Iterables;
 import com.google.devtools.build.lib.actions.AbstractAction;
 import com.google.devtools.build.lib.actions.ActionExecutionContext;
@@ -533,6 +534,11 @@ public class TestRunnerAction extends AbstractAction implements NotifyOnActionCa
   @Override
   public String getMnemonic() {
     return "TestRunner";
+  }
+
+  @Override
+  public ImmutableSet<Artifact> getMandatoryOutputs() {
+    return getOutputs();
   }
 
   /**

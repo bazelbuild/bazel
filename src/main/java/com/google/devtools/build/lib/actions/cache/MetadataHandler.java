@@ -48,10 +48,26 @@ public interface MetadataHandler {
    */
   void injectDigest(ActionInput output, FileStatus statNoFollow, byte[] digest);
 
-  /** Returns true iff artifact exists. */
+  /**
+   * Marks an artifact as intentionally omitted. Acknowledges that this Artifact could have
+   * existed, but was intentionally not saved, most likely as an optimization.
+   */
+  void markOmitted(ActionInput output);
+
+  /**
+   * Returns true iff artifact exists.
+   *
+   * <p>It is important to note that implementations may cache non-existence as a side effect
+   * of this method. If there is a possibility an artifact was intentionally omitted then
+   * {@link #artifactOmitted(Artifact)} should be checked first to avoid the side effect.</p>
+   */
   boolean artifactExists(Artifact artifact);
+
   /** Returns true iff artifact is a regular file. */
   boolean isRegularFile(Artifact artifact);
+
+  /** Returns true iff artifact was intentionally omitted (not saved). */
+  boolean artifactOmitted(Artifact artifact);
 
   /**
    * @return Whether the artifact's data was injected.

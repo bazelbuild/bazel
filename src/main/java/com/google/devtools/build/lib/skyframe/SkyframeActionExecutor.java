@@ -268,6 +268,17 @@ public final class SkyframeActionExecutor {
       // intra-build.
       perActionHandler.discardMetadata(artifactList);
     }
+
+    @Override
+    public void markOmitted(ActionInput output) {
+      perActionHandler.markOmitted(output);
+    }
+
+    @Override
+    public boolean artifactOmitted(Artifact artifact) {
+      return perActionHandler.artifactOmitted(artifact);
+    }
+
   }
 
   /**
@@ -944,14 +955,17 @@ public final class SkyframeActionExecutor {
   }
 
   /**
-   * Validates that all action outputs were created.
+   * Validates that all action outputs were created or intentionally omitted.
    *
    * @return false if some outputs are missing, true - otherwise.
    */
   private boolean checkOutputs(Action action, MetadataHandler metadataHandler) {
     boolean success = true;
     for (Artifact output : action.getOutputs()) {
-      if (!metadataHandler.artifactExists(output)) {
+      // artifactExists has the side effect of potentially adding the artifact to the cache,
+      // therefore we only call it if we know the artifact is indeed not omitted to avoid any
+      // unintended side effects.
+      if (!(metadataHandler.artifactOmitted(output) || metadataHandler.artifactExists(output))) {
         reportMissingOutputFile(action, output, reporter, output.getPath().isSymbolicLink());
         success = false;
       }

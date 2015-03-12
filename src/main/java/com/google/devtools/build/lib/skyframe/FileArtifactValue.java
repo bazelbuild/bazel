@@ -36,6 +36,18 @@ public class FileArtifactValue extends ArtifactValue {
   /** Data that marks that a file is not present on the filesystem. */
   static final FileArtifactValue MISSING_FILE_MARKER = new FileArtifactValue(null, 1, 0);
 
+  /**
+   * Represents an omitted file- we are aware of it but it doesn't exist. All access methods
+   * are unsupported.
+   */
+  static final FileArtifactValue OMITTED_FILE_MARKER = new FileArtifactValue(null, 2, 0) {
+    @Override public byte[] getDigest() { throw new UnsupportedOperationException(); }
+    @Override public long getSize() { throw new UnsupportedOperationException(); }
+    @Override public long getModifiedTime() { throw new UnsupportedOperationException(); }
+    @Override public boolean equals(Object o) { return this == o; }
+    @Override public String toString() { return "OMITTED_FILE_MARKER"; }
+  };
+
   @Nullable private final byte[] digest;
   private final long mtime;
   private final long size;

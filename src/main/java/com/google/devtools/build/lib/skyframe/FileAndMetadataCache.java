@@ -76,6 +76,7 @@ public class FileAndMetadataCache implements ActionInputFileCache, MetadataHandl
   private final Map<ByteString, Artifact> reverseMap = new ConcurrentHashMap<>();
   private final ConcurrentMap<Artifact, FileValue> outputArtifactData =
       new ConcurrentHashMap<>();
+  private final Set<Artifact> omittedOutputs = Sets.newConcurrentHashSet();
   // See #getAdditionalOutputData for documentation of this field.
   private final ConcurrentMap<Artifact, FileArtifactValue> additionalOutputData =
       new ConcurrentHashMap<>();
@@ -328,6 +329,20 @@ public class FileAndMetadataCache implements ActionInputFileCache, MetadataHandl
   }
 
   @Override
+  public void markOmitted(ActionInput output) {
+    if (output instanceof Artifact) {
+      Artifact artifact = (Artifact) output;
+      Preconditions.checkState(omittedOutputs.add(artifact), artifact);
+      additionalOutputData.put(artifact, FileArtifactValue.OMITTED_FILE_MARKER);
+    }
+  }
+
+  @Override
+  public boolean artifactOmitted(Artifact artifact) {
+    return omittedOutputs.contains(artifact);
+  }
+
+  @Override
   public void discardMetadata(Collection<Artifact> artifactList) {
     Preconditions.checkState(injectedArtifacts.isEmpty(),
         "Artifacts cannot be injected before action execution: %s", injectedArtifacts);
@@ -337,6 +352,7 @@ public class FileAndMetadataCache implements ActionInputFileCache, MetadataHandl
 
   @Override
   public boolean artifactExists(Artifact artifact) {
+    Preconditions.checkState(!artifactOmitted(artifact), artifact);
     return getMetadataMaybe(artifact) != null;
   }
 

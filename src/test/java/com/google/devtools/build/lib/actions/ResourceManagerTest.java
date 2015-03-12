@@ -431,5 +431,10 @@ public class ResourceManagerTest {
     public String describeKey() {
       throw new IllegalStateException();
     }
+
+    @Override
+    public ImmutableSet<Artifact> getMandatoryOutputs() {
+      return ImmutableSet.of();
+    }
   }
 }
