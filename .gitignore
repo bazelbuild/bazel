@@ -1,5 +1,8 @@
 /output/
-/bazel-*
+/bazel-bin
+/bazel-genfiles
+/bazel-out
+/bazel-bazel
 /fromhost/
 /base_workspace/tools/
 /tools/jdk/jdk
