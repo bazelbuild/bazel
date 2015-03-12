@@ -33,29 +33,16 @@ public final class BazelShLibraryRule implements RuleDefinition {
   @Override
   public RuleClass build(Builder builder, RuleDefinitionEnvironment environment) {
     return builder
-        /* <!-- #BLAZE_RULE(sh_library).ATTRIBUTE(deps) -->
-        The list of other targets to be aggregated in to this "library" target.
-        <i>(List of <a href="build-ref.html#labels">labels</a>; optional)</i><br/>
-        See general comments about <code>deps</code>
-        at <a href="#common-attributes">Attributes common to all build rules</a>.
-        You should use this attribute to list other
-        <code>sh_library</code> or <code>proto_library</code> rules that provide
-        interpreted program source code depended on by the code in
-        <code>srcs</code>.  If you depend on a <code>proto_library</code> target,
-        the proto sources in that target will be included in this library, but
-        no generated files will be built.
-        <!-- #END_BLAZE_RULE.ATTRIBUTE --> */
-
         /* <!-- #BLAZE_RULE(sh_library).ATTRIBUTE(srcs) -->
         The list of input files.
-        <i>(List of <a href="build-ref.html#labels">labels</a>,
-        optional)</i><br/>
-        You should use this attribute to list interpreted program
-        source files that belong to this package, such as additional
-        files containing Bourne shell subroutines, loaded via the shell's
-        <code>source</code> or <code>.</code> command.
+        ${SYNOPSIS}
+        <p>
+          This attribute should be used to list shell script source files that belong to
+          this library. Scripts can load other scripts using the shell's <code>source</code>
+          or <code>.</code> command.
+        </p>
         <!-- #END_BLAZE_RULE.ATTRIBUTE -->*/
-        .override(attr("srcs", LABEL_LIST).legacyAllowAnyFileType())
+        .override(attr("srcs", LABEL_LIST).allowedFileTypes(BazelShRuleClasses.SH_FILES))
         .build();
   }
 }
@@ -69,31 +56,24 @@ ${ATTRIBUTE_SIGNATURE}
   "library" consisting of related scripts&mdash;programs in an
   interpreted language that does not require compilation or linking,
   such as the Bourne shell&mdash;and any data those programs need at
-  run-time.  Such "libraries" can then be used from
+  run-time. Such "libraries" can then be used from
   the <code>data</code> attribute of one or
   more <code>sh_binary</code> rules.
 </p>
 
 <p>
-  Historically, a second use was to aggregate a collection of data files
-  together, to ensure that they are available at runtime in
-  the <code>.runfiles</code> area of one or more <code>*_binary</code>
-  rules (not necessarily <code>sh_binary</code>).
-  However, the <a href="#filegroup"><code>filegroup()</code></a> rule
-  should be used now; it is intended to replace this use of
-  <code>sh_library</code>.
+  You can use the <a href="#filegroup"><code>filegroup</code></a> rule to aggregate data files.
 </p>
 
 <p>
   In interpreted programming languages, there's not always a clear
   distinction between "code" and "data": after all, the program is
-  just "data" from the interpreter's point of view.  For this reason
-  (and historical accident) this rule has three attributes which are
-  all essentially equivalent: <code>srcs</code>, <code>deps</code>
-  and <code>data</code>.
-  The recommended usage of each attribute is mentioned below.  The
-  current implementation does not distinguish the elements of these lists.
-  All three attributes accept rules, source files and derived files.
+  just "data" from the interpreter's point of view. For this reason
+  this rule has three attributes which are all essentially equivalent:
+  <code>srcs</code>, <code>deps</code> and <code>data</code>.
+  The current implementation does not distinguish between the elements of these lists.
+  All three attributes accept rules, source files and generated files.
+  It is however good practice to use the attributes for their usual purpose (as with other rules).
 </p>
 
 ${ATTRIBUTE_DEFINITION}
@@ -104,7 +84,7 @@ ${ATTRIBUTE_DEFINITION}
 sh_library(
     name = "foo",
     data = [
-        ":foo_service_script",  # a sh_binary with srcs
+        ":foo_service_script",  # an sh_binary with srcs
         ":deploy_foo",  # another sh_binary with srcs
     ],
 )

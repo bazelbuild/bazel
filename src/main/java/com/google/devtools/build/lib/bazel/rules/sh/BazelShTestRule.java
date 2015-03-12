@@ -13,9 +13,6 @@
 // limitations under the License.
 package com.google.devtools.build.lib.bazel.rules.sh;
 
-import static com.google.devtools.build.lib.packages.Attribute.attr;
-import static com.google.devtools.build.lib.packages.Type.STRING;
-
 import com.google.devtools.build.lib.analysis.BaseRuleClasses;
 import com.google.devtools.build.lib.analysis.BlazeRule;
 import com.google.devtools.build.lib.analysis.RuleDefinition;
@@ -31,14 +28,10 @@ import com.google.devtools.build.lib.packages.RuleClass.Builder.RuleClassType;
 @BlazeRule(name = "sh_test",
              type = RuleClassType.TEST,
              ancestors = { ShRule.class, BaseRuleClasses.TestBaseRule.class },
-             factoryClass = ShTest.class)
+             factoryClass = ShBinary.class)
 public final class BazelShTestRule implements RuleDefinition {
   @Override
   public RuleClass build(Builder builder, RuleDefinitionEnvironment environment) {
-    return builder
-        .add(attr("bash_version", STRING)
-            .value(BazelShRuleClasses.DEFAULT_BASH_VERSION)
-            .allowedValues(BazelShRuleClasses.BASH_VERSION_ALLOWED_VALUES))
-        .build();
+    return builder.build();
   }
 }

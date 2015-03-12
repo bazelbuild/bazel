@@ -41,8 +41,8 @@ public class ShBinary implements RuleConfiguredTargetFactory {
     }
 
     Artifact symlink = ruleContext.createOutputArtifact();
+    // Note that src is used as the executable script too
     Artifact src = srcs.get(0);
-    Artifact executableScript = getExecutableScript(ruleContext, src);
     // The interpretation of this deceptively simple yet incredibly generic rule is complicated
     // by the distinction between targets and (not properly encapsulated) artifacts. It depends
     // on the notion of other rule's "files-to-build" sets, which are undocumented, making it
@@ -50,11 +50,10 @@ public class ShBinary implements RuleConfiguredTargetFactory {
     // happens when srcs = ['x', 'y'] but 'x' is an empty filegroup?). This is a pervasive
     // problem in Blaze.
     ruleContext.registerAction(
-        new ExecutableSymlinkAction(ruleContext.getActionOwner(), executableScript, symlink));
+        new ExecutableSymlinkAction(ruleContext.getActionOwner(), src, symlink));
 
     NestedSet<Artifact> filesToBuild = NestedSetBuilder.<Artifact>stableOrder()
         .add(src)
-        .add(executableScript) // May be the same as src, in which case set semantics apply.
         .add(symlink)
         .build();
     Runfiles runfiles = new Runfiles.Builder()
@@ -68,15 +67,5 @@ public class ShBinary implements RuleConfiguredTargetFactory {
         .setRunfilesSupport(runfilesSupport, symlink)
         .addProvider(RunfilesProvider.class, RunfilesProvider.simple(runfiles))
         .build();
-  }
-
-  /**
-   * Hook for sh_test to provide the executable.
-   *
-   * @param ruleContext
-   * @param src
-   */
-  protected Artifact getExecutableScript(RuleContext ruleContext, Artifact src) {
-    return src;
   }
 }

@@ -15,21 +15,22 @@
 package com.google.devtools.build.lib.bazel.rules.sh;
 
 import static com.google.devtools.build.lib.packages.Attribute.attr;
-import static com.google.devtools.build.lib.packages.ImplicitOutputsFunction.fromTemplates;
 import static com.google.devtools.build.lib.packages.Type.LABEL_LIST;
 
 import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.ImmutableSet;
+
 import com.google.devtools.build.lib.analysis.BaseRuleClasses;
 import com.google.devtools.build.lib.analysis.BlazeRule;
 import com.google.devtools.build.lib.analysis.RuleDefinition;
 import com.google.devtools.build.lib.analysis.RuleDefinitionEnvironment;
 import com.google.devtools.build.lib.packages.Attribute.AllowedValueSet;
-import com.google.devtools.build.lib.packages.ImplicitOutputsFunction;
 import com.google.devtools.build.lib.packages.PredicateWithMessage;
 import com.google.devtools.build.lib.packages.RuleClass;
 import com.google.devtools.build.lib.packages.RuleClass.Builder;
 import com.google.devtools.build.lib.packages.RuleClass.Builder.RuleClassType;
+import com.google.devtools.build.lib.util.FileType;
+import com.google.devtools.build.lib.util.FileTypeSet;
 
 import java.util.Collection;
 import java.util.Map;
@@ -42,7 +43,9 @@ import javax.annotation.Nullable;
 public final class BazelShRuleClasses {
 
   static final Collection<String> ALLOWED_RULES_IN_DEPS_WITH_WARNING = ImmutableSet.of(
-      "filegroup", "Fileset", "genrule", "sh_binary", "sh_test", "test_suite");
+      "filegroup", "genrule", "sh_binary", "sh_test", "test_suite");
+
+  static final FileTypeSet SH_FILES = FileTypeSet.of(FileType.of(".sh"));
 
   /**
    * Common attributes for shell rules.
@@ -54,20 +57,37 @@ public final class BazelShRuleClasses {
     @Override
     public RuleClass build(Builder builder, RuleDefinitionEnvironment environment) {
       return builder
-          .add(attr("srcs", LABEL_LIST).mandatory().legacyAllowAnyFileType())
+          /* <!-- #BLAZE_RULE($sh_target).ATTRIBUTE(srcs) -->
+          The file containing the shell script.
+          ${SYNOPSIS}
+          <p>
+            This attribute must be a singleton list, whose element is the shell script.
+            This script must be executable, and may be a source file or a generated file.
+            All other files required at runtime (whether scripts or data) belong in the
+            <code>data</code> attribute.
+          </p>
+          <!-- #END_BLAZE_RULE.ATTRIBUTE --> */
+          .add(attr("srcs", LABEL_LIST)
+              .mandatory()
+              .allowedFileTypes(SH_FILES))
+          /* <!-- #BLAZE_RULE($sh_target).ATTRIBUTE(deps) -->
+          The list of "library" targets to be aggregated into this target.
+          ${SYNOPSIS}
+          See general comments about <code>deps</code>
+          at <a href="#common-attributes.deps">Attributes common to all build rules</a>.
+          <p>
+            This attribute should be used to list other <code>sh_library</code> rules that provide
+            interpreted program source code depended on by the code in <code>srcs</code>. The files
+            provided by these rules will be present among the <code>runfiles</code> of this target.
+          </p>
+          <!-- #END_BLAZE_RULE.ATTRIBUTE --> */
           .override(builder.copy("deps")
-              .allowedRuleClasses("sh_library", "proto_library")
+              .allowedRuleClasses("sh_library")
               .allowedRuleClassesWithWarning(ALLOWED_RULES_IN_DEPS_WITH_WARNING)
               .allowedFileTypes())
           .build();
     }
   }
-
-  /**
-   * Defines the file name of an sh_binary's implicit .sar (script package) output.
-   */
-  static final ImplicitOutputsFunction SAR_PACKAGE_FILENAME =
-      fromTemplates("%{name}.sar");
 
   /**
    * Convenience structure for the bash dependency combinations defined
