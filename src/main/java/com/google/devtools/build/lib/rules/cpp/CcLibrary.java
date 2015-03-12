@@ -338,7 +338,7 @@ public abstract class CcLibrary implements RuleConfiguredTargetFactory {
   }
 
   private static ImmutableList<Label> getImplementedCcPublicLibraries(RuleContext context) {
-    if (context.getRule().getRuleClassObject().hasAttr("implements", Type.LABEL_LIST)) {
+    if (context.attributes().has("implements", Type.LABEL_LIST)) {
       return ImmutableList.copyOf(context.attributes().get("implements", Type.LABEL_LIST));
     } else {
       return ImmutableList.of();

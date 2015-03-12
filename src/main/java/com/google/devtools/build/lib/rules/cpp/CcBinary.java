@@ -436,7 +436,7 @@ public abstract class CcBinary implements RuleConfiguredTargetFactory {
    * Returns "true" if the {@code linkshared} attribute exists and is set.
    */
   private static final boolean isLinkShared(RuleContext context) {
-    return context.getRule().getRuleClassObject().hasAttr("linkshared", Type.BOOLEAN)
+    return context.attributes().has("linkshared", Type.BOOLEAN)
         && context.attributes().get("linkshared", Type.BOOLEAN);
   }
 

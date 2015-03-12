@@ -88,7 +88,7 @@ public class TestSuite implements RuleConfiguredTargetFactory {
 
   private Iterable<? extends TransitiveInfoCollection> getPrerequisites(
       RuleContext ruleContext, String attributeName) {
-    if (ruleContext.getRule().getRuleClassObject().hasAttr(attributeName, Type.LABEL_LIST)) {
+    if (ruleContext.attributes().has(attributeName, Type.LABEL_LIST)) {
       return ruleContext.getPrerequisites(attributeName, Mode.TARGET);
     } else {
       return ImmutableList.<TransitiveInfoCollection>of();
@@ -96,7 +96,7 @@ public class TestSuite implements RuleConfiguredTargetFactory {
   }
 
   private void checkTestsAndSuites(RuleContext ruleContext, String attributeName) {
-    if (!ruleContext.getRule().getRuleClassObject().hasAttr(attributeName, Type.LABEL_LIST)) {
+    if (!ruleContext.attributes().has(attributeName, Type.LABEL_LIST)) {
       return;
     }
     for (TransitiveInfoCollection dep : ruleContext.getPrerequisites(attributeName, Mode.TARGET)) {

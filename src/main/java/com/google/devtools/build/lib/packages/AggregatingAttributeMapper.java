@@ -213,6 +213,8 @@ public class AggregatingAttributeMapper extends AbstractAttributeMapper {
       @Override public boolean isAttributeValueExplicitlySpecified(String attributeName) {
         return owner.isAttributeValueExplicitlySpecified(attributeName);
       }
+      @Override
+      public boolean has(String attrName, Type<?> type) { return owner.has(attrName, type); }
     };
   }
 }

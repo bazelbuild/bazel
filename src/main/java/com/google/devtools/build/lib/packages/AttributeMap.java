@@ -105,4 +105,9 @@ public interface AttributeMap {
   String getPackageDefaultDeprecation();
 
   ImmutableList<String> getPackageDefaultCopts();
+
+  /**
+   * @return true if an attribute with the given name and type is present
+   */
+  boolean has(String attrName, Type<?> type);
 }

@@ -147,7 +147,7 @@ public final class CcCommon {
   }
 
   private boolean hasAttribute(String name, Type<?> type) {
-    return ruleContext.getRule().getRuleClassObject().hasAttr(name, type);
+    return ruleContext.attributes().has(name, type);
   }
 
   private static NestedSet<Artifact> collectExecutionDynamicLibraryArtifacts(
@@ -179,10 +179,10 @@ public final class CcCommon {
 
     deps.addAll(ruleContext.getPrerequisites("deps", Mode.TARGET));
 
-    if (ruleContext.getRule().getRuleClassObject().hasAttr("malloc", Type.LABEL)) {
+    if (ruleContext.attributes().has("malloc", Type.LABEL)) {
       deps.add(CppHelper.mallocForTarget(ruleContext));
     }
-    if (ruleContext.getRule().getRuleClassObject().hasAttr("implementation", Type.LABEL_LIST)) {
+    if (ruleContext.attributes().has("implementation", Type.LABEL_LIST)) {
       deps.addAll(ruleContext.getPrerequisites("implementation", Mode.TARGET));
     }
 
@@ -596,7 +596,7 @@ public final class CcCommon {
       RuleContext ruleContext, CppCompilationContext context) {
     // TODO(bazel-team): Use context.getCompilationPrerequisites() instead.
     NestedSetBuilder<Artifact> prerequisites = NestedSetBuilder.stableOrder();
-    if (ruleContext.getRule().getRuleClassObject().hasAttr("srcs", Type.LABEL_LIST)) {
+    if (ruleContext.attributes().has("srcs", Type.LABEL_LIST)) {
       for (FileProvider provider : ruleContext
           .getPrerequisites("srcs", Mode.TARGET, FileProvider.class)) {
         prerequisites.addAll(FileType.filter(provider.getFilesToBuild(), SOURCE_TYPES));

@@ -209,4 +209,10 @@ public abstract class AbstractAttributeMapper implements AttributeMap {
   protected void checkType(String attrName, Type<?> type) {
     getIndexWithTypeCheck(attrName, type);
   }
+
+  @Override
+  public boolean has(String attrName, Type<?> type) {
+    Attribute attribute = ruleClass.getAttributeByNameMaybe(attrName);
+    return attribute != null && attribute.getType() == type;
+  }
 }

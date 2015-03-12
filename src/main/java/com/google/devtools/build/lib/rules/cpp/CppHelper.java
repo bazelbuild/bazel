@@ -346,7 +346,7 @@ public class CppHelper {
       scannableBuilder.addTransitive(dep.getTransitiveIncludeScannables());
     }
 
-    if (ruleContext.getRule().getRuleClassObject().hasAttr("malloc", Type.LABEL)) {
+    if (ruleContext.attributes().has("malloc", Type.LABEL)) {
       TransitiveInfoCollection malloc = mallocForTarget(ruleContext);
       TransitiveLipoInfoProvider provider = malloc.getProvider(TransitiveLipoInfoProvider.class);
       if (provider != null) {

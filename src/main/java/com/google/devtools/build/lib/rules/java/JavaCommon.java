@@ -225,7 +225,7 @@ public class JavaCommon {
   public static List<TransitiveInfoCollection> getExports(RuleContext ruleContext) {
     // We need to check here because there are classes inheriting from this class that implement
     // rules that don't have this attribute.
-    if (ruleContext.getRule().getRuleClassObject().hasAttr("exports", Type.LABEL_LIST)) {
+    if (ruleContext.attributes().has("exports", Type.LABEL_LIST)) {
       return ImmutableList.copyOf(ruleContext.getPrerequisites("exports", Mode.TARGET));
     } else {
       return ImmutableList.of();
@@ -391,7 +391,7 @@ public class JavaCommon {
   private static List<TransitiveInfoCollection> getRuntimeDeps(RuleContext ruleContext) {
     // We need to check here because there are classes inheriting from this class that implement
     // rules that don't have this attribute.
-    if (ruleContext.getRule().getRuleClassObject().hasAttr("runtime_deps", Type.LABEL_LIST)) {
+    if (ruleContext.attributes().has("runtime_deps", Type.LABEL_LIST)) {
       return ImmutableList.copyOf(ruleContext.getPrerequisites("runtime_deps", Mode.TARGET));
     } else {
       return ImmutableList.of();
@@ -573,7 +573,7 @@ public class JavaCommon {
 
   Iterable<JavaPluginInfoProvider> getPluginInfoProvidersForAttribute(String attribute,
       Mode mode) {
-    if (ruleContext.getRule().getRuleClassObject().hasAttr(attribute, Type.LABEL_LIST)) {
+    if (ruleContext.attributes().has(attribute, Type.LABEL_LIST)) {
       return ruleContext.getPrerequisites(attribute, mode, JavaPluginInfoProvider.class);
     }
     return ImmutableList.of();
