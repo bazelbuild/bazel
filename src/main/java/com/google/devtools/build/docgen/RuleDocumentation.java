@@ -203,7 +203,7 @@ class RuleDocumentation implements Comparable<RuleDocumentation> {
         sb.append(String.format("<li id=\"%s.%s\"%s><code>%s</code>:\n%s</li>\n",
             ruleName.toLowerCase(), attrName, getDeprecatedString(
                 attributeDoc.hasFlag(DocgenConsts.FLAG_DEPRECATED)),
-            attrName, attributeDoc.getHtmlDocumentation(attribute)));
+            attrName, attributeDoc.getHtmlDocumentation(attribute, ruleName)));
       }
     }
     sb.append("</ul>\n");
