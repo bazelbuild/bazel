@@ -52,7 +52,7 @@ public enum ProfilerTask {
   FETCH("Remote execution file fetching", 50000000, 0xBB99CC, 0),
   VFS_STAT("VFS stat", 10000000, 0x9999FF, 30),
   VFS_DIR("VFS readdir", 10000000, 0x0066CC, 30),
-  VFS_LINK("VFS readlink", 10000000, 0x99CCCC, 30),
+  VFS_READLINK("VFS readlink", 10000000, 0x99CCCC, 30),
   VFS_MD5("VFS md5", 10000000, 0x999999, 30),
   VFS_XATTR("VFS xattr", 10000000, 0x9999DD, 30),
   VFS_DELETE("VFS delete", 10000000, 0xFFCC00, 0),

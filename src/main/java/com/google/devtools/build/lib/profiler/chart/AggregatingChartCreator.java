@@ -56,7 +56,7 @@ public class AggregatingChartCreator implements ChartCreator {
 
   /** The tasks in the 'VFS' category. */
   private static Set<ProfilerTask> VFS_TASKS =
-      EnumSet.of(ProfilerTask.VFS_STAT, ProfilerTask.VFS_DIR, ProfilerTask.VFS_LINK,
+      EnumSet.of(ProfilerTask.VFS_STAT, ProfilerTask.VFS_DIR, ProfilerTask.VFS_READLINK,
           ProfilerTask.VFS_MD5, ProfilerTask.VFS_DELETE, ProfilerTask.VFS_OPEN,
           ProfilerTask.VFS_READ, ProfilerTask.VFS_WRITE, ProfilerTask.VFS_GLOB,
           ProfilerTask.VFS_XATTR);

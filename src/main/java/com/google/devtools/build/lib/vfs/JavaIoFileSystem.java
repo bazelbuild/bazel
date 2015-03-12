@@ -291,7 +291,7 @@ public class JavaIoFileSystem extends AbstractFileSystem {
     } catch (java.nio.file.NoSuchFileException e) {
       throw new FileNotFoundException(path + ERR_NO_SUCH_FILE_OR_DIR);
     } finally {
-      profiler.logSimpleTask(startTime, ProfilerTask.VFS_LINK, file.getPath());
+      profiler.logSimpleTask(startTime, ProfilerTask.VFS_READLINK, file.getPath());
     }
   }
 

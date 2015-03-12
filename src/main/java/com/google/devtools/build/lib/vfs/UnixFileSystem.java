@@ -332,7 +332,7 @@ public class UnixFileSystem extends AbstractFileSystem {
       // EINVAL => not a symbolic link.  Anything else is a real error.
       throw e.getMessage().endsWith("(Invalid argument)") ? new NotASymlinkException(path) : e;
     } finally {
-      profiler.logSimpleTask(startTime, ProfilerTask.VFS_LINK, name);
+      profiler.logSimpleTask(startTime, ProfilerTask.VFS_READLINK, name);
     }
   }
 
