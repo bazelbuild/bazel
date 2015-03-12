@@ -466,8 +466,9 @@ public final class RuleClass {
           String attrName = attribute.getName();
           Preconditions.checkArgument(
               !attributes.containsKey(attrName) || attributes.get(attrName) == attribute,
-              String.format("Attribute %s is inherited multiple times in %s ruleclass",
-                  attrName, name));
+              "Attribute %s is inherited multiple times in %s ruleclass",
+              attrName,
+              name);
           attributes.put(attrName, attribute);
         }
       }
