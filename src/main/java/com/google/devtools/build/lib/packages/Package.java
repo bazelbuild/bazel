@@ -1348,7 +1348,8 @@ public class Package implements Serializable {
         AttributeMap attributes = NonconfigurableAttributeMapper.of(rule);
         if (rule.getRuleClass().equals("test_suite")
             && attributes.get("tests", Type.LABEL_LIST).isEmpty()
-            && attributes.get("suites", Type.LABEL_LIST).isEmpty()) {
+            && (!rule.getRuleClassObject().hasAttr("suites", Type.LABEL_LIST)
+                || attributes.get("suites", Type.LABEL_LIST).isEmpty())) {
           rule.setAttributeValueByName("$implicit_tests", allTests);
         }
       }

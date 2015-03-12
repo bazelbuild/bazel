@@ -281,7 +281,9 @@ public final class TestTargetUtils {
       // Note that testsAndSuites can contain input file targets; the test_suite rule does not
       // restrict the set of targets that can appear in tests or suites.
       testsAndSuites.addAll(getPrerequisites(testSuite, "tests"));
-      testsAndSuites.addAll(getPrerequisites(testSuite, "suites"));
+      if (testSuite.getRuleClassObject().hasAttr("suites", Type.LABEL_LIST)) {
+        testsAndSuites.addAll(getPrerequisites(testSuite, "suites"));
+      }
 
       // 1. Add all tests
       for (Target test : testsAndSuites) {
