@@ -257,9 +257,8 @@ public final class Attribute implements Comparable<Attribute> {
     private Transition configTransition = ConfigurationTransition.NONE;
     private Predicate<RuleClass> allowedRuleClassesForLabels = Predicates.alwaysTrue();
     private Predicate<RuleClass> allowedRuleClassesForLabelsWarning = Predicates.alwaysFalse();
-    private Configurator<?, ?> configurator = null;
-    private boolean allowedFileTypesForLabelsSet;
-    private FileTypeSet allowedFileTypesForLabels = FileTypeSet.ANY_FILE;
+    private Configurator<?, ?> configurator;
+    private FileTypeSet allowedFileTypesForLabels;
     private ValidityPredicate validityPredicate = ANY_EDGE;
     private Object value;
     private boolean valueSet;
@@ -548,8 +547,7 @@ public final class Attribute implements Comparable<Attribute> {
       Preconditions.checkState((type == Type.LABEL) || (type == Type.LABEL_LIST),
           "must be a label-valued type");
       propertyFlags.add(PropertyFlag.STRICT_LABEL_CHECKING);
-      allowedFileTypesForLabelsSet = true;
-      allowedFileTypesForLabels = allowedFileTypes;
+      allowedFileTypesForLabels = Preconditions.checkNotNull(allowedFileTypes);
       return this;
     }
 
@@ -695,20 +693,25 @@ public final class Attribute implements Comparable<Attribute> {
      */
     public Attribute build(String name) {
       Preconditions.checkState(!name.isEmpty(), "name has not been set");
-      // TODO(bazel-team): Remove this check again, and remove all allowedFileTypes() calls.
+      // TODO(bazel-team): Set the default to be no file type, then remove this check, and also
+      // remove all allowedFileTypes() calls without parameters.
       if ((type == Type.LABEL) || (type == Type.LABEL_LIST)) {
-        if ((name.startsWith("$") || name.startsWith(":")) && !allowedFileTypesForLabelsSet) {
-          allowedFileTypesForLabelsSet = true;
+        if ((name.startsWith("$") || name.startsWith(":")) && allowedFileTypesForLabels == null) {
           allowedFileTypesForLabels = FileTypeSet.ANY_FILE;
         }
-        if (!allowedFileTypesForLabelsSet) {
+        if (allowedFileTypesForLabels == null) {
           throw new IllegalStateException(name);
+        }
+      } else if ((type == Type.OUTPUT) || (type == Type.OUTPUT_LIST)) {
+        // TODO(bazel-team): Set the default to no file type and make explicit calls instead.
+        if (allowedFileTypesForLabels == null) {
+          allowedFileTypesForLabels = FileTypeSet.ANY_FILE;
         }
       }
       return new Attribute(name, type, Sets.immutableEnumSet(propertyFlags),
           valueSet ? value : type.getDefaultValue(), configTransition, configurator,
           allowedRuleClassesForLabels, allowedRuleClassesForLabelsWarning,
-          allowedFileTypesForLabels, allowedFileTypesForLabelsSet, validityPredicate, condition,
+          allowedFileTypesForLabels, validityPredicate, condition,
           allowedValues, mandatoryProviders, ImmutableSet.copyOf(aspects));
     }
   }
@@ -727,7 +730,7 @@ public final class Attribute implements Comparable<Attribute> {
    *
    * <ol>
    *   <li>The other attribute must be declared in the computed default's constructor</li>
-   *   <li>The other attribute must be non-configurable ({@link Builder#nonconfigurable()}</li>
+   *   <li>The other attribute must be non-configurable ({@link Builder#nonconfigurable}</li>
    * </ol>
    *
    * <p>The reason for enforced declarations is that, since attribute values might be
@@ -972,7 +975,6 @@ public final class Attribute implements Comparable<Attribute> {
    * targets (rather than rules).
    */
   private final FileTypeSet allowedFileTypesForLabels;
-  private final boolean allowedFileTypesForLabelsSet;
 
   /**
    * This predicate-like object checks
@@ -1010,7 +1012,6 @@ public final class Attribute implements Comparable<Attribute> {
       Predicate<RuleClass> allowedRuleClassesForLabels,
       Predicate<RuleClass> allowedRuleClassesForLabelsWarning,
       FileTypeSet allowedFileTypesForLabels,
-      boolean allowedFileTypesForLabelsSet,
       ValidityPredicate validityPredicate,
       Predicate<AttributeMap> condition,
       PredicateWithMessage<Object> allowedValues,
@@ -1044,7 +1045,6 @@ public final class Attribute implements Comparable<Attribute> {
     this.allowedRuleClassesForLabels = allowedRuleClassesForLabels;
     this.allowedRuleClassesForLabelsWarning = allowedRuleClassesForLabelsWarning;
     this.allowedFileTypesForLabels = allowedFileTypesForLabels;
-    this.allowedFileTypesForLabelsSet = allowedFileTypesForLabelsSet;
     this.validityPredicate = validityPredicate;
     this.condition = condition;
     this.allowedValues = allowedValues;
@@ -1325,7 +1325,6 @@ public final class Attribute implements Comparable<Attribute> {
   public Attribute.Builder<?> cloneBuilder() {
     Builder<?> builder = new Builder<>(name, this.type);
     builder.allowedFileTypesForLabels = allowedFileTypesForLabels;
-    builder.allowedFileTypesForLabelsSet = allowedFileTypesForLabelsSet;
     builder.allowedRuleClassesForLabels = allowedRuleClassesForLabels;
     builder.allowedRuleClassesForLabelsWarning = allowedRuleClassesForLabelsWarning;
     builder.validityPredicate = validityPredicate;

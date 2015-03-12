@@ -1397,6 +1397,10 @@ public final class RuleContext extends TargetContext
         return;
       }
       FileTypeSet allowedFileTypes = attribute.getAllowedFileTypesPredicate();
+      if (allowedFileTypes == null) {
+        // It's not a label or label_list attribute.
+        return;
+      }
       if (allowedFileTypes == FileTypeSet.ANY_FILE && !attribute.isNonEmpty()
           && !attribute.isSingleArtifact()) {
         return;
