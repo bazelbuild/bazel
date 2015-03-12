@@ -15,6 +15,8 @@ package com.google.devtools.build.skyframe;
 
 import com.google.devtools.build.lib.concurrent.ThreadSafety;
 
+import javax.annotation.Nullable;
+
 /**
  * Receiver to inform callers which values have been invalidated. Values may be invalidated and then
  * re-validated if they have been found not to be changed.
@@ -66,12 +68,12 @@ public interface EvaluationProgressReceiver {
   void enqueueing(SkyKey skyKey);
 
   /**
-   * Notifies that {@code value} has been evaluated.
+   * Notifies that the node for {@code skyKey} has been evaluated.
    *
-   * <p>{@code state} indicates the new state of the value.
+   * <p>{@code state} indicates the new state of the node.
    *
-   * <p>This method is not called if the value builder threw an error when building this value.
+   * <p>If the value builder threw an error when building this node, then {@code value} is null.
    */
   @ThreadSafety.ThreadSafe
-  void evaluated(SkyKey skyKey, SkyValue value, EvaluationState state);
+  void evaluated(SkyKey skyKey, @Nullable SkyValue value, EvaluationState state);
 }

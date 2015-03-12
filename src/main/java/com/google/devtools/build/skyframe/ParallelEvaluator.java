@@ -555,43 +555,38 @@ public final class ParallelEvaluator implements Evaluator {
       // during a --keep_going build.
 
       NestedSet<TaggedEvents> events = buildEvents(/*missingChildren=*/false);
+      Version valueVersion;
+      SkyValue valueWithMetadata;
       if (value == null) {
         Preconditions.checkNotNull(errorInfo, "%s %s", skyKey, primaryEntry);
-        // We could consider using max(childVersions) here instead of graphVersion. When full
-        // versioning is implemented, this would allow evaluation at a version between
-        // max(childVersions) and graphVersion to re-use this result.
-        Set<SkyKey> reverseDeps = primaryEntry.setValue(
-            ValueWithMetadata.error(errorInfo, events), graphVersion);
-        signalValuesAndEnqueueIfReady(enqueueParents ? visitor : null, reverseDeps, graphVersion);
+        valueWithMetadata = ValueWithMetadata.error(errorInfo, events);
       } else {
         // We must be enqueueing parents if we have a value.
         Preconditions.checkState(enqueueParents, "%s %s", skyKey, primaryEntry);
-        Set<SkyKey> reverseDeps;
-        Version valueVersion;
-        // If this entry is dirty, setValue may not actually change it, if it determines that
-        // the data being written now is the same as the data already present in the entry.
-        // We could consider using max(childVersions) here instead of graphVersion. When full
-        // versioning is implemented, this would allow evaluation at a version between
-        // max(childVersions) and graphVersion to re-use this result.
-        reverseDeps = primaryEntry.setValue(
-            ValueWithMetadata.normal(value, errorInfo, events), graphVersion);
-        // Note that if this update didn't actually change the value entry, this version may not
-        // be the graph version.
-        valueVersion = primaryEntry.getVersion();
-        Preconditions.checkState(valueVersion.atMost(graphVersion),
-            "%s should be at most %s in the version partial ordering",
-            valueVersion, graphVersion);
-        if (progressReceiver != null) {
-          // Tell the receiver that this value was built. If valueVersion.equals(graphVersion), it
-          // was evaluated this run, and so was changed. Otherwise, it is less than graphVersion,
-          // by the Preconditions check above, and was not actually changed this run -- when it was
-          // written above, its version stayed below this update's version, so its value remains the
-          // same as before.
-          progressReceiver.evaluated(skyKey, value,
-              valueVersion.equals(graphVersion) ? EvaluationState.BUILT : EvaluationState.CLEAN);
-        }
-        signalValuesAndEnqueueIfReady(visitor, reverseDeps, valueVersion);
+        valueWithMetadata = ValueWithMetadata.normal(value, errorInfo, events);
       }
+      // If this entry is dirty, setValue may not actually change it, if it determines that
+      // the data being written now is the same as the data already present in the entry.
+      // We could consider using max(childVersions) here instead of graphVersion. When full
+      // versioning is implemented, this would allow evaluation at a version between
+      // max(childVersions) and graphVersion to re-use this result.
+      Set<SkyKey> reverseDeps = primaryEntry.setValue(valueWithMetadata, graphVersion);
+      // Note that if this update didn't actually change the value entry, this version may not
+      // be the graph version.
+      valueVersion = primaryEntry.getVersion();
+      Preconditions.checkState(valueVersion.atMost(graphVersion),
+          "%s should be at most %s in the version partial ordering",
+          valueVersion, graphVersion);
+      if (progressReceiver != null) {
+        // Tell the receiver that this value was built. If valueVersion.equals(graphVersion), it
+        // was evaluated this run, and so was changed. Otherwise, it is less than graphVersion,
+        // by the Preconditions check above, and was not actually changed this run -- when it was
+        // written above, its version stayed below this update's version, so its value remains the
+        // same as before.
+        progressReceiver.evaluated(skyKey, value,
+            valueVersion.equals(graphVersion) ? EvaluationState.BUILT : EvaluationState.CLEAN);
+      }
+      signalValuesAndEnqueueIfReady(enqueueParents ? visitor : null, reverseDeps, valueVersion);
 
       visitor.notifyDone(skyKey);
       replayingNestedSetEventVisitor.visit(events);
@@ -815,7 +810,7 @@ public final class ParallelEvaluator implements Evaluator {
             visitor.notifyDone(skyKey);
             Set<SkyKey> reverseDeps = state.markClean();
             SkyValue value = state.getValue();
-            if (progressReceiver != null && value != null) {
+            if (progressReceiver != null) {
               // Tell the receiver that the value was not actually changed this run.
               progressReceiver.evaluated(skyKey, value, EvaluationState.CLEAN);
             }
@@ -1054,19 +1049,16 @@ public final class ParallelEvaluator implements Evaluator {
       NodeEntry entry = graph.get(key);
       Preconditions.checkState(entry.isDone(), entry);
       SkyValue value = entry.getValue();
-      if (value != null) {
-        Version valueVersion = entry.getVersion();
-        Preconditions.checkState(valueVersion.atMost(graphVersion),
-            "%s should be at most %s in the version partial ordering", valueVersion, graphVersion);
-        // Nodes with errors will have no value. Don't inform the receiver in that case.
-        // For most nodes we do not inform the progress receiver if they were already done
-        // when we retrieve them, but top-level nodes are presumably of more interest.
-        // If valueVersion is not equal to graphVersion, it must be less than it (by the
-        // Preconditions check above), and so the node is clean.
-        progressReceiver.evaluated(key, value, valueVersion.equals(graphVersion)
-            ? EvaluationState.BUILT
-            : EvaluationState.CLEAN);
-      }
+      Version valueVersion = entry.getVersion();
+      Preconditions.checkState(valueVersion.atMost(graphVersion),
+          "%s should be at most %s in the version partial ordering", valueVersion, graphVersion);
+      // For most nodes we do not inform the progress receiver if they were already done when we
+      // retrieve them, but top-level nodes are presumably of more interest.
+      // If valueVersion is not equal to graphVersion, it must be less than it (by the
+      // Preconditions check above), and so the node is clean.
+      progressReceiver.evaluated(key, value, valueVersion.equals(graphVersion)
+          ? EvaluationState.BUILT
+          : EvaluationState.CLEAN);
     }
   }
 

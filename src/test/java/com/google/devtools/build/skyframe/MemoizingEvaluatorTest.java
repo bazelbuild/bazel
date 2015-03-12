@@ -486,11 +486,11 @@ public class MemoizingEvaluatorTest {
         .setComputedValue(COPY);
   }
 
-  // Regression test: ParallelEvaluator notifies ValueProgressReceiver of already-built top-level
-  // values in error: we built "top" and "mid" as top-level targets; "mid" contains an error. We
-  // make sure "mid" is built as a dependency of "top" before enqueuing mid as a top-level target
-  // (by using a latch), so that the top-level enqueuing finds that mid has already been built. The
-  // progress receiver should not be notified of any value having been evaluated.
+  // ParallelEvaluator notifies ValueProgressReceiver of already-built top-level values in error: we
+  // built "top" and "mid" as top-level targets; "mid" contains an error. We make sure "mid" is
+  // built as a dependency of "top" before enqueuing mid as a top-level target (by using a latch),
+  // so that the top-level enqueuing finds that mid has already been built. The progress receiver
+  // should be notified that mid has been built.
   @Test
   public void alreadyAnalyzedBadTarget() throws Exception {
     final SkyKey mid = GraphTester.toSkyKey("mid");
@@ -523,11 +523,11 @@ public class MemoizingEvaluatorTest {
     tester.eval(/*keepGoing=*/false, top, mid);
     assertEquals(0L, valueSet.getCount());
     trackingAwaiter.assertNoErrors();
-    assertThat(tester.invalidationReceiver.evaluated).isEmpty();
+    assertThat(tester.invalidationReceiver.evaluated).containsExactly(mid);
   }
 
   @Test
-  public void receiverNotToldOfVerifiedValueDependingOnCycle() throws Exception {
+  public void receiverToldOfVerifiedValueDependingOnCycle() throws Exception {
     SkyKey leaf = GraphTester.toSkyKey("leaf");
     SkyKey cycle = GraphTester.toSkyKey("cycle");
     SkyKey top = GraphTester.toSkyKey("top");
@@ -535,12 +535,12 @@ public class MemoizingEvaluatorTest {
     tester.getOrCreate(cycle).addDependency(cycle);
     tester.getOrCreate(top).addDependency(leaf).addDependency(cycle);
     tester.eval(/*keepGoing=*/true, top);
-    assertThat(tester.invalidationReceiver.evaluated).containsExactly(leaf).inOrder();
+    assertThat(tester.invalidationReceiver.evaluated).containsExactly(leaf, top, cycle);
     tester.invalidationReceiver.clear();
     tester.getOrCreate(leaf, /*markAsModified=*/true);
     tester.invalidate();
     tester.eval(/*keepGoing=*/true, top);
-    assertThat(tester.invalidationReceiver.evaluated).containsExactly(leaf).inOrder();
+    assertThat(tester.invalidationReceiver.evaluated).containsExactly(leaf, top);
   }
 
   @Test

@@ -495,7 +495,7 @@ public final class SkyframeBuildView {
 
     @Override
     public void evaluated(SkyKey skyKey, SkyValue value, EvaluationState state) {
-      if (skyKey.functionName() == SkyFunctions.CONFIGURED_TARGET) {
+      if (skyKey.functionName() == SkyFunctions.CONFIGURED_TARGET && value != null) {
         if (state == EvaluationState.BUILT) {
           evaluatedConfiguredTargets.add(skyKey);
           // During multithreaded operation, this is only set to true, so no concurrency issues.

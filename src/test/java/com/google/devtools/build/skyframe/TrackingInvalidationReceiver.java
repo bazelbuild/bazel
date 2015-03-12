@@ -51,11 +51,9 @@ public class TrackingInvalidationReceiver implements EvaluationProgressReceiver 
   @Override
   public void evaluated(SkyKey skyKey, SkyValue value, EvaluationState state) {
     evaluated.add(skyKey);
-    switch (state) {
-      default:
-        dirty.remove(value);
-        deleted.remove(value);
-        break;
+    if (value != null) {
+      dirty.remove(value);
+      deleted.remove(value);
     }
   }
 
