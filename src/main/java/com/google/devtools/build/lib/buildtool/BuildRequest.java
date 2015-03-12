@@ -105,12 +105,6 @@ public class BuildRequest implements OptionsClassProvider {
                 + " the default 10:30:60 incremental algorithm.")
     public int progressReportInterval;
 
-    @Option(name = "show_builder_stats",
-        defaultValue = "false",
-        category = "verbosity",
-        help = "If set, parallel builder will report worker-related statistics.")
-    public boolean useBuilderStatistics;
-
     @Option(name = "explain",
             defaultValue = "null",
             category = "verbosity",
