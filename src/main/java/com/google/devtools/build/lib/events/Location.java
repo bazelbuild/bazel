@@ -147,9 +147,13 @@ public abstract class Location implements Serializable {
    * </pre>
    */
   public String print() {
+    return printWithPath(getPath());
+  }
+
+  private String printWithPath(PathFragment path) {
     StringBuilder buf = new StringBuilder();
-    if (getPath() != null) {
-      buf.append(getPath()).append(':');
+    if (path != null) {
+      buf.append(path).append(':');
     }
     LineAndColumn start = getStartLineAndColumn();
     if (start == null) {
@@ -163,6 +167,37 @@ public abstract class Location implements Serializable {
       buf.append(start.getLine()).append(':').append(start.getColumn());
     }
     return buf.toString();
+  }
+
+  /**
+   * A default implementation of toString() that formats the location in the following ways based on
+   * the amount of information available:
+   *
+   * <pre>
+   *   "foo.cc:23:2"
+   *   "23:2"
+   *   "foo.cc:char offsets 123--456"
+   *   "char offsets 123--456"
+   *</pre>
+   *
+   * <p>This version replace the package's path with the relative package path. I.e., if {@code
+   * packagePath} is equivalent to "/absolute/path/to/workspace/pack/age" and {@code
+   * relativePackage} is equivalent to "pack/age" then the result for the 2nd character of the 23rd
+   * line of the "foo/bar.cc" file in "pack/age" would be "pack/age/foo/bar.cc:23:2" whereas with
+   * {@link #print()} the result would be "/absolute/path/to/workspace/pack/age/foo/bar.cc:23:2".
+   * 
+   * <p>If {@code packagePath} is not a parent of the location path, then the result of this
+   * function is the same as the result of {@link #print()}.
+   */
+  public String print(PathFragment packagePath, PathFragment relativePackage) {
+    PathFragment path = getPath();
+    if (path == null) {
+      return printWithPath(null);
+    } else if (path.startsWith(packagePath)) {
+      return printWithPath(relativePackage.getRelative(path.relativeTo(packagePath)));
+    } else {
+      return printWithPath(path);
+    }
   }
 
   /**

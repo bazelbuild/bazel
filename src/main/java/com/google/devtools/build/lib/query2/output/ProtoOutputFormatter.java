@@ -79,6 +79,7 @@ public class ProtoOutputFormatter extends OutputFormatter implements UnorderedFo
   public static final String RULE_IMPLEMENTATION_HASH_ATTR_NAME = "$rule_implementation_hash";
 
   private BinaryPredicate<Rule, Attribute> dependencyFilter;
+  private boolean relativeLocations = false;
 
   protected void setDependencyFilter(QueryOptions options) {
     this.dependencyFilter = OutputFormatter.getDependencyFilter(options);
@@ -92,6 +93,8 @@ public class ProtoOutputFormatter extends OutputFormatter implements UnorderedFo
   @Override
   public void outputUnordered(QueryOptions options, Iterable<Target> result, PrintStream out)
       throws IOException {
+    relativeLocations = options.relativeLocations;
+
     setDependencyFilter(options);
 
     Build.QueryResult.Builder queryResult = Build.QueryResult.newBuilder();
@@ -124,7 +127,7 @@ public class ProtoOutputFormatter extends OutputFormatter implements UnorderedFo
   protected Build.Target toTargetProtoBuffer(Target target) {
     Build.Target.Builder targetPb = Build.Target.newBuilder();
 
-    String location = target.getLocation().print();
+    String location = getLocation(target, relativeLocations);
     if (target instanceof Rule) {
       Rule rule = (Rule) target;
       Build.Rule.Builder rulePb = Build.Rule.newBuilder()

@@ -128,6 +128,15 @@ public class QueryOptions extends OptionsBase {
           + "targets.")
   public List<String> universeScope;
 
+  @Option(name = "relative_locations",
+      defaultValue = "false",
+      category = "query",
+      help = "If true, the location of BUILD files in xml and proto outputs will be relative. "
+        + "By default, the location output is an absolute path and will not be consistent "
+        + "across machines. You can set this option to true to have a consistent result "
+        + "across machines.")
+  public boolean relativeLocations;
+
   /**
    * Return the current options as a set of QueryEnvironment settings.
    */

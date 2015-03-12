@@ -34,7 +34,7 @@ public class PrintingEventHandlerTest extends EventTestTemplate {
     PrintingEventHandler handler = new PrintingEventHandler(EventKind.ERRORS_AND_WARNINGS);
     handler.setOutErr(recordingOutErr);
     handler.handle(event);
-    MoreAsserts.assertEqualsUnifyingLineEnds("WARNING: /my/sample/path.txt:3:4: "
+    MoreAsserts.assertEqualsUnifyingLineEnds("WARNING: /path/to/workspace/my/sample/path.txt:3:4: "
                  + "This is not an error message.\n",
                  recordingOutErr.errAsLatin1());
     assertThat(recordingOutErr.outAsLatin1()).isEmpty();

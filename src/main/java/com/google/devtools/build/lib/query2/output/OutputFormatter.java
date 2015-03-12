@@ -484,4 +484,20 @@ public abstract class OutputFormatter implements Serializable {
 
     return Pair.of((Iterable<Object>) values, source);
   }
+
+  /**
+   * Returns the target location, eventually stripping out the workspace path to obtain a relative
+   * target (stable across machines / workspaces).
+   *
+   * @param target The target to extract location from.
+   * @param relative Whether to return a relative path or not.
+   * @return the target location
+   */
+  protected static String getLocation(Target target, boolean relative) {
+    Location location = target.getLocation();
+    return relative 
+        ? location.print(target.getPackage().getPackageDirectory().asFragment(),
+            target.getPackage().getNameFragment())
+        : location.print();
+  }
 }

@@ -32,7 +32,7 @@ public abstract class EventTestTemplate {
   @Before
   public void setUp() throws Exception {
     String message = "This is not an error message.";
-    path = scratch.path("/my/sample/path.txt");
+    path = scratch.path("/path/to/workspace/my/sample/path.txt");
 
     location = Location.fromPathAndStartColumn(path, 21, 31, new LineAndColumn(3, 4));
 
