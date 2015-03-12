@@ -340,9 +340,12 @@ public class SkylarkRuleImplementationFunctions {
         }
       };
 
-
+  // Deprecated function.
+  // Use the new ctx.var field, which is a dictionary.
+  // TODO(bazel-team): Remove function when user code has been updated.
   @SkylarkBuiltin(name = "var",
       doc = "get the value bound to a configuration variable in the context",
+      hidden = true,
       objectType = SkylarkRuleContext.class,
       mandatoryParams = {
         @Param(name = "name", type = String.class, doc = "the name of the variable")

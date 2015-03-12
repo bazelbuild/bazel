@@ -452,6 +452,17 @@ public class Package implements Serializable {
   }
 
   /**
+   * Returns all make variables for a given platform.
+   */
+  public Map<String, String> getAllMakeVariables(String platform) {
+    ImmutableMap.Builder<String, String> map = ImmutableMap.builder();
+    for (String var : makeEnv.getBindings().keySet()) {
+      map.put(var, makeEnv.lookup(var, platform));
+    }
+    return map.build();
+  }
+
+  /**
    * Returns the label of this package's BUILD file.
    *
    * Typically <code>getBuildFileLabel().getName().equals("BUILD")</code> --

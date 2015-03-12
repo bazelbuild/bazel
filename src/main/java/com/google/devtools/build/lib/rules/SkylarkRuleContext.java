@@ -115,6 +115,8 @@ public final class SkylarkRuleContext {
 
   private final ImmutableMap<Artifact, FilesToRunProvider> executableRunfilesMap;
 
+  private final Map<String, String> makeVariables;
+
   /**
    * In native code, private values start with $.
    * In Skylark, private values start with _, because of the grammar.
@@ -245,6 +247,8 @@ public final class SkylarkRuleContext {
     targetsObject = new SkylarkClassObject(targetsBuilder.build(),
         "No such targets. Make sure there is a '%s' label or label_list type attribute");
     executableRunfilesMap = executableRunfilesbuilder.build();
+
+    makeVariables = ruleContext.getConfigurationMakeVariableContext().collectMakeVariables();
   }
 
   private void addOutput(HashMap<String, Object> outputsBuilder, String key, Object value)
@@ -384,6 +388,12 @@ public final class SkylarkRuleContext {
           + "(an empty list if no value is specified in the rule).</ul>")
   public SkylarkClassObject outputs() {
     return outputsObject;
+  }
+
+  @SkylarkCallable(structField = true,
+      doc = "Dictionary (String to String) of configuration variables")
+  public Map<String, String> var() {
+    return makeVariables;
   }
 
   @Override

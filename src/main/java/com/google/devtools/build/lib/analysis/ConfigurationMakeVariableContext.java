@@ -14,10 +14,12 @@
 
 package com.google.devtools.build.lib.analysis;
 
+import com.google.common.collect.ImmutableMap;
 import com.google.devtools.build.lib.analysis.MakeVariableExpander.ExpansionException;
 import com.google.devtools.build.lib.analysis.config.BuildConfiguration;
 import com.google.devtools.build.lib.packages.Package;
 
+import java.util.LinkedHashMap;
 import java.util.Map;
 
 /**
@@ -52,5 +54,15 @@ public class ConfigurationMakeVariableContext implements MakeVariableExpander.Co
     }
 
     return value;
+  }
+
+  public ImmutableMap<String, String> collectMakeVariables() {
+    Map<String, String> map = new LinkedHashMap<>();
+    // Collect variables in the reverse order as in lookupMakeVariable
+    // because each update is overwriting.
+    map.putAll(pkg.getAllMakeVariables(platform));
+    map.putAll(globalEnv);
+    map.putAll(commandLineEnv);
+    return ImmutableMap.copyOf(map);
   }
 }
