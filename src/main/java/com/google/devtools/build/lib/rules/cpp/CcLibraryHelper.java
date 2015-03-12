@@ -152,6 +152,7 @@ public final class CcLibraryHelper {
   private final CppSemantics semantics;
 
   private final List<Artifact> publicHeaders = new ArrayList<>();
+  private final List<Artifact> publicTextualHeaders = new ArrayList<>();
   private final List<Artifact> privateHeaders = new ArrayList<>();
   private final List<PathFragment> additionalExportedHeaders = new ArrayList<>();
   private final List<Pair<Artifact, Label>> sources = new ArrayList<>();
@@ -232,6 +233,18 @@ public final class CcLibraryHelper {
     return this;
   }
 
+  /**
+   * Add the corresponding files as public textual header files. These files will not be compiled
+   * into a target's header module, but will be made visible as textual includes to dependent rules.
+   */
+  public CcLibraryHelper addPublicTextualHeaders(Iterable<Artifact> textualHeaders) {
+    Iterables.addAll(this.publicTextualHeaders, textualHeaders);
+    for (Artifact header : textualHeaders) {
+      this.additionalExportedHeaders.add(header.getExecPath());
+    }
+    return this;
+  }
+  
   /**
    * Add the corresponding files as source files. These may also be header files, in which case
    * they will not be compiled, but also not made visible as includes to dependent rules.
@@ -711,9 +724,12 @@ public final class CcLibraryHelper {
 
     // There are no ordering constraints for declared include dirs/srcs, or the pregrepped headers.
     contextBuilder.addDeclaredIncludeSrcs(publicHeaders);
+    contextBuilder.addDeclaredIncludeSrcs(publicTextualHeaders);
     contextBuilder.addDeclaredIncludeSrcs(privateHeaders);
     contextBuilder.addPregreppedHeaderMap(
         CppHelper.createExtractInclusions(ruleContext, publicHeaders));
+    contextBuilder.addPregreppedHeaderMap(
+        CppHelper.createExtractInclusions(ruleContext, publicTextualHeaders));
     contextBuilder.addPregreppedHeaderMap(
         CppHelper.createExtractInclusions(ruleContext, privateHeaders));
     contextBuilder.addCompilationPrerequisites(prerequisites);

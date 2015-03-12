@@ -181,6 +181,10 @@ public abstract class CcLibrary implements RuleConfiguredTargetFactory {
           CppFileTypes.CPP_HEADER));
       ruleContext.checkSrcsSamePackage(true);
     }
+    if (ruleContext.getRule().isAttrDefined("textual_hdrs", Type.LABEL_LIST)) {
+      helper.addPublicTextualHeaders(
+          ruleContext.getPrerequisiteArtifacts("textual_hdrs", Mode.TARGET).list());
+    }
 
     if (common.getLinkopts().contains("-static")) {
       ruleContext.attributeWarning("linkopts", "Using '-static' here won't work. "
