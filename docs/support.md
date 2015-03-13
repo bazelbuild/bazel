@@ -27,7 +27,7 @@ the tests pass.
     <th>Notes</th>
   </tr>
   <tr>
-    <td>C/C++ rules except `cc_toolchain`</td>
+    <td>C/C++ rules except <code>cc_toolchain</code></td>
     <td></td>
   </tr>
   <tr>
@@ -35,15 +35,15 @@ the tests pass.
     <td></td>
   </tr>
   <tr>
-    <td>`genrule`</td>
+    <td><code>genrule</code></td>
     <td></td>
   </tr>
   <tr>
-    <td>`test_suite`</td>
+    <td><code>test_suite</code></td>
     <td></td>
   </tr>
   <tr>
-    <td>`filegroup`</td>
+    <td><code>filegroup</code></td>
     <td></td>
   </tr>
 </table>
@@ -60,7 +60,7 @@ behind the current state of the tools. We ensure that all the tests pass.
     <th>Notes</th>
   </tr>
   <tr>
-    <td>`cc_toolchain`</td>
+    <td><code>cc_toolchain</code></td>
     <td>
       <ul>
         <li>We intend to make significant changes to the way C/C++ toolchains are defined; we will
@@ -82,7 +82,7 @@ behind the current state of the tools. We ensure that all the tests pass.
     </td>
   </tr>
   <tr>
-    <td>Extra actions (`extra_action`, `action_listener`)</td>
+    <td>Extra actions (<code>extra_action</code>, <code>action_listener</code>)</td>
     <td>
       <ul>
         <li>Extra actions expose information about Bazel that we consider to be implementation
@@ -144,7 +144,7 @@ or up-to-date.
     </td>
   </tr>
   <tr>
-    <td>`Fileset`</td>
+    <td><code>Fileset</code></td>
     <td>
       <ul>
         <li>There are vestiges of Fileset / FilesetEntry in the source code, but we do not intend to
