@@ -74,6 +74,10 @@ public class IosApplicationRule implements RuleDefinition {
 ${ATTRIBUTE_SIGNATURE}
 
 <p>This rule produces an application bundle for iOS.</p>
+<p>When running an iOS application using the <code>run</code> command, environment variables that
+are prefixed with <code>IOS_</code> will be passed to the launched application, with the prefix
+stripped. For example, if you export <code>IOS_ENV=foo</code>, <code>ENV=foo</code> will be
+passed to the application.</p>
 
 ${IMPLICIT_OUTPUTS}
 

@@ -31,7 +31,7 @@ public class
     ObjcCommandLineOptions extends FragmentOptions {
   @Option(name = "ios_sdk_version",
       defaultValue = DEFAULT_SDK_VERSION,
-      category = "undocumented",
+      category = "build",
       help = "Specifies the version of the iOS SDK to use to build iOS applications."
       )
   public String iosSdkVersion;
@@ -40,16 +40,22 @@ public class
 
   @Option(name = "ios_simulator_version",
       defaultValue = "7.1",
-      category = "undocumented",
-      help = "The version of iOS to run on the simulator when running tests. This is ignored if the"
-          + " ios_test rule specifies the target device.",
-      deprecationWarning = "This flag is deprecated in favor of the target_device attribute and"
-          + " will eventually removed.")
+      category = "run",
+      help = "The version of iOS to run on the simulator when running or testing. This is ignored "
+          + "for ios_test rules if a target device is specified in the rule.")
   public String iosSimulatorVersion;
+
+  @Option(name = "ios_simulator_device",
+      defaultValue = "iPhone 6",
+      category = "run",
+      help = "The device to simulate when running an iOS application in the simulator, e.g. "
+          + "'iPhone 6'. You can get a list of devices by running 'xcrun simctl list devicetypes' "
+          + "on the machine the simulator will be run on.")
+  public String iosSimulatorDevice;
 
   @Option(name = "ios_cpu",
       defaultValue = "i386",
-      category = "undocumented",
+      category = "build",
       help = "Specifies to target CPU of iOS compilation.")
   public String iosCpu;
 
