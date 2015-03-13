@@ -410,12 +410,11 @@ public class BuildEncyclopediaProcessor {
           String ruleName = d.getRuleName();
           if (ruleDocEntries.containsKey(ruleName)
               && !ruleClassFiles.get(ruleName).equals(inputPath)) {
-            System.err.printf("WARNING: '%s' from '%s' already in map from '%s', skipping\n",
+            System.err.printf("WARNING: '%s' from '%s' overrides value already in map from '%s'\n",
                 d.getRuleName(), inputPath, ruleClassFiles.get(ruleName));
-          } else {
-            ruleClassFiles.put(ruleName, inputPath);
-            ruleDocEntries.put(ruleName, d);
           }
+          ruleClassFiles.put(ruleName, inputPath);
+          ruleDocEntries.put(ruleName, d);
         }
         if (attributeDocEntries != null) {
           // Collect all attribute documentations from this file.
