@@ -52,3 +52,46 @@ public final class BazelJavaTestRule implements RuleDefinition {
         .build();
   }
 }
+
+/*<!-- #BLAZE_RULE (NAME = java_test, TYPE = TEST, FAMILY = Java) -->
+
+${ATTRIBUTE_SIGNATURE}
+
+<p>
+A <code>java_test()</code> rule compiles a Java test. A test is a binary wrapper around your
+test code. The test runner's main method is invoked instead of the main class being compiled.
+</p>
+
+${IMPLICIT_OUTPUTS}
+
+${ATTRIBUTE_DEFINITION}
+
+<p>
+See the section on <a href="#java_binary_args">java_binary()</a> arguments, with the <i>caveat</i>
+that there is no <code>main_class</code> argument. This rule also supports all
+<a href="#common-attributes-tests">attributes common to all test rules (*_test)</a>.
+</p>
+
+<h4 id="java_test_examples">Examples</h4>
+
+<pre class="code">
+java_library(
+    name = "tests",
+    srcs = glob(["*.java"]),
+    deps = [
+        "//java/com/foo/base:testResources",
+        "//java/com/foo/testing/util",
+    ],
+)
+
+java_test(
+    name = "AllTests",
+    size = "small",
+    runtime_deps = [
+        ":tests",
+        "//util/mysql",
+    ],
+)
+</pre>
+
+<!-- #END_BLAZE_RULE -->*/

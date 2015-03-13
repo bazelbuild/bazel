@@ -33,3 +33,32 @@ public final class BazelShBinaryRule implements RuleDefinition {
     return builder.build();
   }
 }
+
+/*<!-- #BLAZE_RULE (NAME = sh_binary, TYPE = BINARY, FAMILY = Shell) -->
+
+<p>
+  The <code>sh_binary</code> rule is used to declare executable Bourne shell scripts.
+  (<code>sh_binary</code> is a misnomer: its outputs aren't necessarily binaries.) This rule ensures
+  that all dependencies are built, and appear in the <code>runfiles</code> area at execution time.
+  We recommend that you name your <code>sh_binary()</code> rules after the name of the script minus
+  the extension (e.g. <code>.sh</code>); do not give the rule and the file the same name.
+</p>
+
+${ATTRIBUTE_SIGNATURE}
+
+${ATTRIBUTE_DEFINITION}
+
+<h4 id="sh_binary_examples">Example</h4>
+
+<p>For a simple shell script with no dependencies or data:
+</p>
+
+<pre class="code">
+sh_binary(
+    name = "foo",
+    srcs = ["foo.sh"],
+    data = glob(["datafiles/*.txt"]),
+)
+</pre>
+
+<!-- #END_BLAZE_RULE -->*/

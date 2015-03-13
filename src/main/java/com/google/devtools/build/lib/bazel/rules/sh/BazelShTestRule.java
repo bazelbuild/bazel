@@ -35,3 +35,27 @@ public final class BazelShTestRule implements RuleDefinition {
     return builder.build();
   }
 }
+
+/*<!-- #BLAZE_RULE (NAME = sh_test, TYPE = TEST, FAMILY = Shell) -->
+
+${ATTRIBUTE_SIGNATURE}
+
+<p>A <code>sh_test()</code> rule creates a test written as a Bourne shell script.</p>
+
+${ATTRIBUTE_DEFINITION}
+
+<p>See the <a href="#common-attributes-tests">attributes common to all test rules (*_test)</a>.</p>
+
+<h4 id="sh_test_examples">Examples</h4>
+
+<pre class="code">
+sh_test(
+    name = "foo_integration_test",
+    size = "small",
+    srcs = ["foo_integration_test.sh"],
+    deps = [":foo_sh_lib"],
+    data = glob(["testdata/*.txt"]),
+)
+</pre>
+
+<!-- #END_BLAZE_RULE -->*/

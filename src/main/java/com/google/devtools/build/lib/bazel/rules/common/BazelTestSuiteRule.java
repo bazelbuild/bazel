@@ -104,3 +104,47 @@ public final class BazelTestSuiteRule implements RuleDefinition {
         .build();
   }
 }
+
+/*<!-- #BLAZE_RULE (NAME = test_suite, TYPE = TEST, FAMILY = General)[GENERIC_RULE] -->
+
+${ATTRIBUTE_SIGNATURE}
+
+<p>
+A <code>test_suite</code> defines a set of tests that are considered "useful" to humans.  This
+allows projects to define sets of tests, such as "tests you must run before checkin", "our
+project's stress tests" or "all small tests."
+</p>
+
+${ATTRIBUTE_DEFINITION}
+
+<h4 id="test_suite_examples">Examples</h4>
+
+<p>A test suite to run all of the small tests in the current package.</p>
+<pre class="code">
+test_suite(
+    name = "small_tests",
+    tags = ["small"],
+)
+</pre>
+
+<p>A test suite that runs a specified set of tests:</p>
+
+<pre class="code">
+test_suite(
+    name = "smoke_tests",
+    tests = [
+        "system_unittest",
+        "public_api_unittest",
+    ],
+)
+</pre>
+
+<p>A test suite to run all tests in the current package which are not flaky.</p>
+<pre class="code">
+test_suite(
+    name = "non_flaky_test",
+    tags = ["-flaky"],
+)
+</pre>
+
+<!-- #END_BLAZE_RULE -->*/
