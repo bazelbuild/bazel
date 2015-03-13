@@ -327,8 +327,6 @@ public final class Runfiles {
   /**
    * Returns the symlinks as a map from PathFragment to Artifact, with PathFragments relativized
    * and rooted at the specified points.
-   * @param root The root the PathFragment is computed relative to (before it is
-   *             rooted again). May be null.
    * @param eventHandler Used for throwing an error if we have an obscuring runlink.
    *                 May be null, in which case obscuring symlinks are silently discarded.
    * @param location Location for eventHandler warnings. Ignored if eventHandler is null.
@@ -336,12 +334,12 @@ public final class Runfiles {
    *         entries, the second of any elements that live outside the source tree.
    */
   public Pair<Map<PathFragment, Artifact>, Map<PathFragment, Artifact>> getRunfilesInputs(
-      PathFragment root, EventHandler eventHandler, Location location)
+      EventHandler eventHandler, Location location)
           throws IOException {
     Map<PathFragment, Artifact> manifest = getSymlinksAsMap();
     // Add unconditional artifacts (committed to inclusion on construction of runfiles).
     for (Artifact artifact : getUnconditionalArtifactsWithoutMiddlemen()) {
-      addToManifest(manifest, artifact, root);
+      manifest.put(artifact.getRootRelativePath(), artifact);
     }
 
     // Add conditional artifacts (only included if they appear in a pruning manifest).
@@ -357,7 +355,7 @@ public final class Runfiles {
       while ((line = reader.readLine()) != null) {
         Artifact artifact = allowedRunfiles.get(line);
         if (artifact != null) {
-          addToManifest(manifest, artifact, root);
+          manifest.put(artifact.getRootRelativePath(), artifact);
         }
       }
     }
@@ -370,15 +368,6 @@ public final class Runfiles {
       result.put(path.getRelative(entry.getKey()), entry.getValue());
     }
     return Pair.of(result, (Map<PathFragment, Artifact>) new HashMap<>(getRootSymlinksAsMap()));
-  }
-
-  @VisibleForTesting
-  protected static void addToManifest(Map<PathFragment, Artifact> manifest, Artifact artifact,
-      PathFragment root) {
-    PathFragment rootRelativePath = root != null
-        ? artifact.getRootRelativePath().relativeTo(root)
-        : artifact.getRootRelativePath();
-    manifest.put(rootRelativePath, artifact);
   }
 
   /**
