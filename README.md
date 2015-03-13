@@ -18,7 +18,7 @@ This README file contains instructions for building and running Bazel.
 Supported platforms:
 
 * Ubuntu Linux
-* Mac OS X (experimental only)
+* Mac OS X
 
 Java:
 
@@ -39,7 +39,7 @@ To build Bazel on Ubuntu:
 
 1. Install required package:
 
-        $ sudo apt-get install libarchive-dev
+        $ sudo apt-get install libarchive-dev openjdk-8-jdk
 
 2. Build Bazel:
 
@@ -52,6 +52,7 @@ Using Bazel on Mac OS X requires:
 
 * Xcode and Xcode command line tools
 * MacPorts or Homebrew for installing required packages
+* A JDK 8 installed
 
 To build Bazel on Mac OS X:
 
@@ -85,10 +86,6 @@ Build a sample Java application:
         $ cp -R $HOME/bazel/base_workspace $HOME/my_workspace
         $ cd $HOME/my_workspace
         $ $HOME/bazel/output/bazel build //examples/java-native/src/main/java/com/example/myproject:hello-world
-
-_Note: on OS X, you must specify \-\-cpu=darwin to build Java programs, for example:_
-
-        $ bazel build --cpu=darwin //examples/java-native/src/main/java/com/example/myproject:hello-world
 
 The build output is located in `$HOME/my_workspace/bazel-bin/examples/java-native/src/main/java/com/example/myproject/`.
 
