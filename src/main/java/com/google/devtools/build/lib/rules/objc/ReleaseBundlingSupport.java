@@ -33,9 +33,11 @@ import com.google.devtools.build.lib.analysis.actions.CustomCommandLine;
 import com.google.devtools.build.lib.analysis.actions.SpawnAction;
 import com.google.devtools.build.lib.analysis.actions.TemplateExpansionAction;
 import com.google.devtools.build.lib.analysis.actions.TemplateExpansionAction.Substitution;
+import com.google.devtools.build.lib.analysis.config.BuildOptions;
 import com.google.devtools.build.lib.collect.nestedset.NestedSet;
 import com.google.devtools.build.lib.collect.nestedset.NestedSetBuilder;
 import com.google.devtools.build.lib.collect.nestedset.Order;
+import com.google.devtools.build.lib.packages.Attribute.SplitTransition;
 import com.google.devtools.build.lib.packages.ImplicitOutputsFunction.SafeImplicitOutputsFunction;
 import com.google.devtools.build.lib.packages.Type;
 import com.google.devtools.build.lib.rules.objc.ObjcActionsBuilder.ExtraActoolArgs;
@@ -67,6 +69,35 @@ public final class ReleaseBundlingSupport {
    * Template for the containing application folder.
    */
   public static final SafeImplicitOutputsFunction IPA = fromTemplates("%{name}.ipa");
+
+  /**
+   * Transition that when applied to a target generates a configured target for each value in
+   * {@code --ios_multi_cpus}, such that {@code --ios_cpu} is set to a different one of those values
+   * in the configured targets.
+   */
+  public static final SplitTransition<BuildOptions> SPLIT_ARCH_TRANSITION =
+      new SplitTransition<BuildOptions>() {
+        @Override
+        public List<BuildOptions> split(BuildOptions buildOptions) {
+          List<String> iosMultiCpus = buildOptions.get(ObjcCommandLineOptions.class).iosMultiCpus;
+          if (iosMultiCpus.isEmpty()) {
+            return ImmutableList.of();
+          }
+
+          ImmutableList.Builder<BuildOptions> splitBuildOptions = ImmutableList.builder();
+          for (String iosCpu : iosMultiCpus) {
+            BuildOptions splitOptions = buildOptions.clone();
+            splitOptions.get(ObjcCommandLineOptions.class).iosSplitCpu = iosCpu;
+            splitBuildOptions.add(splitOptions);
+          }
+          return splitBuildOptions.build();
+        }
+
+        @Override
+        public boolean defaultsToSelf() {
+          return true;
+        }
+      };
 
   @VisibleForTesting
   static final String NO_ASSET_CATALOG_ERROR_FORMAT =
@@ -620,8 +651,13 @@ public final class ReleaseBundlingSupport {
         return NestedSetBuilder.emptySet(Order.STABLE_ORDER);
       }
 
-      return ruleContext.getPrerequisite("binary", Mode.TARGET, ObjcProvider.class)
-          .get(ObjcProvider.LINKED_BINARY);
+      NestedSetBuilder<Artifact> linkedBinaries = NestedSetBuilder.stableOrder();
+      for (ObjcProvider provider
+          : ruleContext.getPrerequisites("binary", Mode.DONT_CHECK, ObjcProvider.class)) {
+        linkedBinaries.addTransitive(provider.get(ObjcProvider.LINKED_BINARY));
+      }
+
+      return linkedBinaries.build();
     }
 
     FilesToRunProvider bundleMergeExecutable() {

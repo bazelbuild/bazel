@@ -17,9 +17,13 @@ package com.google.devtools.build.lib.rules.objc;
 import static com.google.devtools.build.xcode.common.BuildOptionsUtil.DEFAULT_OPTIONS_NAME;
 
 import com.google.common.annotations.VisibleForTesting;
+import com.google.common.collect.ImmutableList;
 import com.google.common.collect.Multimap;
+import com.google.devtools.build.lib.analysis.config.BuildOptions;
 import com.google.devtools.build.lib.analysis.config.FragmentOptions;
+import com.google.devtools.build.lib.packages.Attribute.SplitTransition;
 import com.google.devtools.build.lib.syntax.Label;
+import com.google.devtools.common.options.Converters.CommaSeparatedOptionListConverter;
 import com.google.devtools.common.options.Option;
 
 import java.util.List;
@@ -92,8 +96,28 @@ public class
       help = "Enable checking for memory leaks in ios_test targets.")
   public boolean runMemleaks;
 
+  @Option(name = "ios_multi_cpus",
+      converter = CommaSeparatedOptionListConverter.class,
+      defaultValue = "",
+      category = "flags",
+      help = "Comma-separated list of architectures to build an ios_application with. The result "
+          + "is a universal binary containing all specified architectures.")
+  public List<String> iosMultiCpus;
+
+  @Option(name = "ios_split_cpu",
+      defaultValue = "",
+      category = "undocumented",
+      help =
+          "Don't set this value from the command line - it is derived from  ios_multi_cpus only.")
+  public String iosSplitCpu;
+
   @VisibleForTesting static final String DEFAULT_MINIMUM_IOS = "7.0";
 
   @Override
   public void addAllLabels(Multimap<String, Label> labelMap) {}
+
+  @Override
+  public List<SplitTransition<BuildOptions>> getPotentialSplitTransitions() {
+    return ImmutableList.of(ReleaseBundlingSupport.SPLIT_ARCH_TRANSITION);
+  }
 }

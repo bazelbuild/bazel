@@ -50,6 +50,9 @@ public abstract class IosTest implements RuleConfiguredTargetFactory {
   @VisibleForTesting
   public static final String REQUIRES_SOURCE_ERROR =
       "ios_test requires at least one source file in srcs or non_arc_srcs";
+  @VisibleForTesting
+  public static final String NO_MULTI_CPUS_ERROR =
+      "ios_test cannot be built for multiple CPUs at the same time";
 
   /**
    * Creates a target, including registering actions, just as {@link #create(RuleContext)} does.
@@ -68,6 +71,10 @@ public abstract class IosTest implements RuleConfiguredTargetFactory {
 
     if (!common.getCompilationArtifacts().get().getArchive().isPresent()) {
       ruleContext.ruleError(REQUIRES_SOURCE_ERROR);
+    }
+
+    if (!ObjcRuleClasses.objcConfiguration(ruleContext).getIosMultiCpus().isEmpty()) {
+      ruleContext.ruleError(NO_MULTI_CPUS_ERROR);
     }
 
     XcodeProvider.Builder xcodeProviderBuilder = new XcodeProvider.Builder();
@@ -132,9 +139,9 @@ public abstract class IosTest implements RuleConfiguredTargetFactory {
 
     new XcodeSupport(ruleContext)
         .addXcodeSettings(xcodeProviderBuilder, common.getObjcProvider(), productType)
-        .addDependencies(xcodeProviderBuilder, "bundles")
-        .addDependencies(xcodeProviderBuilder, "deps")
-        .addDependencies(xcodeProviderBuilder, "non_propagated_deps")
+        .addDependencies(xcodeProviderBuilder, new Attribute("bundles", Mode.TARGET))
+        .addDependencies(xcodeProviderBuilder, new Attribute("deps", Mode.TARGET))
+        .addDependencies(xcodeProviderBuilder, new Attribute("non_propagated_deps", Mode.TARGET))
         .addFilesToBuild(filesToBuild)
         .registerActions(xcodeProviderBuilder.build());
 

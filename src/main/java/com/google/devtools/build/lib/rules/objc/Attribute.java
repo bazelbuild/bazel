@@ -1,4 +1,4 @@
-// Copyright 2014 Google Inc. All rights reserved.
+// Copyright 2015 Google Inc. All rights reserved.
 //
 // Licensed under the Apache License, Version 2.0 (the "License");
 // you may not use this file except in compliance with the License.
@@ -14,23 +14,30 @@
 
 package com.google.devtools.build.lib.rules.objc;
 
-import com.google.common.collect.ImmutableSet;
 import com.google.devtools.build.lib.analysis.RuleConfiguredTarget.Mode;
 import com.google.devtools.build.lib.analysis.RuleContext;
 
 /**
- * Implementation for {@code ios_extension}.
+ * Container for an attribute name and access mode such as are commonly passed to
+ * {@link RuleContext#getPrerequisite(String, Mode)} and related methods.
  */
-public class IosExtension extends ReleaseBundlingTargetFactory {
+public class Attribute {
+  private final String name;
+  private final Mode accessMode;
 
-  public IosExtension() {
-    super(ReleaseBundlingSupport.EXTENSION_BUNDLE_DIR_FORMAT, XcodeProductType.EXTENSION,
-        ExposeAsNestedBundle.YES, ImmutableSet.of(new Attribute("binary", Mode.SPLIT)));
+  /**
+   * Creates an attribute reference with the given name and access mode.
+   */
+  public Attribute(String name, Mode accessMode) {
+    this.name = name;
+    this.accessMode = accessMode;
   }
 
-  protected OptionsProvider optionsProvider(RuleContext ruleContext) {
-    return new OptionsProvider.Builder()
-        .addInfoplists(ruleContext.getPrerequisiteArtifacts("infoplist", Mode.TARGET).list())
-        .build();
+  public String getName() {
+    return name;
+  }
+
+  public Mode getAccessMode() {
+    return accessMode;
   }
 }

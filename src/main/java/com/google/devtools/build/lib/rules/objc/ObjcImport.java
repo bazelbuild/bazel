@@ -58,7 +58,7 @@ public class ObjcImport implements RuleConfiguredTargetFactory {
 
     new XcodeSupport(ruleContext)
         .addXcodeSettings(xcodeProviderBuilder, common.getObjcProvider(), LIBRARY_STATIC)
-        .addDependencies(xcodeProviderBuilder, "bundles")
+        .addDependencies(xcodeProviderBuilder, new Attribute("bundles", Mode.TARGET))
         .registerActions(xcodeProviderBuilder.build())
         .addFilesToBuild(filesToBuild);
 

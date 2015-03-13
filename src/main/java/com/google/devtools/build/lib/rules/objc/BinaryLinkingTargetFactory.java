@@ -124,9 +124,9 @@ abstract class BinaryLinkingTargetFactory implements RuleConfiguredTargetFactory
         // TODO(bazel-team): Use LIBRARY_STATIC as parameter instead of APPLICATION once objc_binary
         // no longer creates an application bundle
         .addXcodeSettings(xcodeProviderBuilder, objcProvider, productType)
-        .addDependencies(xcodeProviderBuilder, "bundles")
-        .addDependencies(xcodeProviderBuilder, "deps")
-        .addDependencies(xcodeProviderBuilder, "non_propagated_deps")
+        .addDependencies(xcodeProviderBuilder, new Attribute("bundles", Mode.TARGET))
+        .addDependencies(xcodeProviderBuilder, new Attribute("deps", Mode.TARGET))
+        .addDependencies(xcodeProviderBuilder, new Attribute("non_propagated_deps", Mode.TARGET))
         .addFilesToBuild(filesToBuild);
     XcodeProvider xcodeProvider = xcodeProviderBuilder.build();
     xcodeSupport.registerActions(xcodeProvider);

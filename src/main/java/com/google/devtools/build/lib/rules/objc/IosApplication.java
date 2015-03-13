@@ -15,6 +15,7 @@
 package com.google.devtools.build.lib.rules.objc;
 
 import com.google.common.base.Optional;
+import com.google.common.collect.ImmutableSet;
 import com.google.devtools.build.lib.actions.Artifact;
 import com.google.devtools.build.lib.analysis.RuleConfiguredTarget.Mode;
 import com.google.devtools.build.lib.analysis.RuleConfiguredTargetBuilder;
@@ -26,9 +27,14 @@ import com.google.devtools.build.xcode.common.Platform;
  */
 public class IosApplication extends ReleaseBundlingTargetFactory {
 
+  private static final ImmutableSet<Attribute> DEPENDENCY_ATTRIBUTES =
+      ImmutableSet.of(
+          new Attribute("binary", Mode.SPLIT),
+          new Attribute("extensions", Mode.TARGET));
+
   public IosApplication() {
     super(ReleaseBundlingSupport.APP_BUNDLE_DIR_FORMAT, XcodeProductType.APPLICATION,
-        ExposeAsNestedBundle.NO);
+        ExposeAsNestedBundle.NO, DEPENDENCY_ATTRIBUTES);
   }
 
   @Override

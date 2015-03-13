@@ -17,9 +17,9 @@ package com.google.devtools.build.lib.rules.objc;
 import static com.google.devtools.build.lib.rules.objc.ObjcProvider.MERGE_ZIP;
 
 import com.google.common.base.Optional;
+import com.google.common.collect.ImmutableSet;
 import com.google.devtools.build.lib.actions.Artifact;
 import com.google.devtools.build.lib.analysis.ConfiguredTarget;
-import com.google.devtools.build.lib.analysis.RuleConfiguredTarget.Mode;
 import com.google.devtools.build.lib.analysis.RuleConfiguredTargetBuilder;
 import com.google.devtools.build.lib.analysis.RuleContext;
 import com.google.devtools.build.lib.collect.nestedset.NestedSetBuilder;
@@ -40,19 +40,22 @@ public abstract class ReleaseBundlingTargetFactory implements RuleConfiguredTarg
   private final String bundleDirFormat;
   private final XcodeProductType xcodeProductType;
   private final ExposeAsNestedBundle exposeAsNestedBundle;
+  private final ImmutableSet<Attribute> dependencyAttributes;
 
   /**
    * @param bundleDirFormat format string representing the bundle's directory with a single
    *     placeholder for the target name (e.g. {@code "Payload/%s.app"})
    * @param exposeAsNestedBundle whether to export an {@link ObjcProvider} with this target as a
-   *    nested bundle
+   * @param dependencyAttributes all attributes that contain dependencies of this rule. Any
+   *    dependency so listed must expose {@link XcodeProvider} and {@link ObjcProvider}.
    */
   public ReleaseBundlingTargetFactory(String bundleDirFormat,
       XcodeProductType xcodeProductType,
-      ExposeAsNestedBundle exposeAsNestedBundle) {
+      ExposeAsNestedBundle exposeAsNestedBundle, ImmutableSet<Attribute> dependencyAttributes) {
     this.bundleDirFormat = bundleDirFormat;
     this.xcodeProductType = xcodeProductType;
     this.exposeAsNestedBundle = exposeAsNestedBundle;
+    this.dependencyAttributes = dependencyAttributes;
   }
 
   @Override
@@ -71,14 +74,16 @@ public abstract class ReleaseBundlingTargetFactory implements RuleConfiguredTarg
         .addFilesToBuild(filesToBuild)
         .validateAttributes();
 
-    new XcodeSupport(ruleContext)
+    XcodeSupport xcodeSupport = new XcodeSupport(ruleContext)
         .addFilesToBuild(filesToBuild)
-        .addXcodeSettings(
-            xcodeProviderBuilder, common.getObjcProvider(), xcodeProductType)
-        .addDummySource(xcodeProviderBuilder)
-        .addDependencies(xcodeProviderBuilder, "binary")
-        .registerActions(xcodeProviderBuilder.build());
+        .addXcodeSettings(xcodeProviderBuilder, common.getObjcProvider(), xcodeProductType)
+        .addDummySource(xcodeProviderBuilder);
 
+    for (Attribute attribute : dependencyAttributes) {
+      xcodeSupport.addDependencies(xcodeProviderBuilder, attribute);
+    }
+
+    xcodeSupport.registerActions(xcodeProviderBuilder.build());
 
     Optional<ObjcProvider> exposedObjcProvider;
     if (exposeAsNestedBundle == ExposeAsNestedBundle.YES) {
@@ -112,10 +117,13 @@ public abstract class ReleaseBundlingTargetFactory implements RuleConfiguredTarg
       ReleaseBundlingSupport releaseBundlingSupport) {}
 
   private ObjcCommon common(RuleContext ruleContext) {
-    return new ObjcCommon.Builder(ruleContext)
-        .setIntermediateArtifacts(ObjcRuleClasses.intermediateArtifacts(ruleContext))
-        .addDepObjcProviders(
-            ruleContext.getPrerequisites("binary", Mode.TARGET, ObjcProvider.class))
-        .build();
+    ObjcCommon.Builder builder = new ObjcCommon.Builder(ruleContext)
+        .setIntermediateArtifacts(ObjcRuleClasses.intermediateArtifacts(ruleContext));
+    for (Attribute attribute : dependencyAttributes) {
+      builder.addDepObjcProviders(
+          ruleContext.getPrerequisites(
+              attribute.getName(), attribute.getAccessMode(), ObjcProvider.class));
+    }
+    return builder.build();
   }
 }
