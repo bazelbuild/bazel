@@ -966,7 +966,7 @@ public class MethodLibrary {
       .<Function, SkylarkType>builder()
       .putAll(pureGlobalFunctions)
       .put(list, SkylarkType.of(SkylarkList.class))
-      .put(struct, SkylarkType.of(ClassObject.class))
+      .put(struct, SkylarkType.of(ClassObject.SkylarkClassObject.class))
       .put(hasattr, SkylarkType.BOOL)
       .put(getattr, SkylarkType.UNKNOWN)
       .put(set, SkylarkType.of(SkylarkNestedSet.class))

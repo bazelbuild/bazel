@@ -469,6 +469,23 @@ public class SkylarkEvaluationTest extends EvaluationTest {
   }
 
   @Test
+  public void testConditionalStructConcatenation() throws Exception {
+    MethodLibrary.setupMethodEnvironment(env);
+    exec(parseFileForSkylark(
+          "def func():\n"
+        + "  x = struct(a = 1, b = 2)\n"
+        + "  if True:\n"
+        + "    x += struct(c = 1, d = 2)\n"
+        + "  return x\n"
+        + "x = func()\n"), env);
+    SkylarkClassObject x = (SkylarkClassObject) env.lookup("x");
+    assertEquals(1, x.getValue("a"));
+    assertEquals(2, x.getValue("b"));
+    assertEquals(1, x.getValue("c"));
+    assertEquals(2, x.getValue("d"));
+  }
+
+  @Test
   public void testJavaFunctionReturnsMutableObject() throws Exception {
     env.update("mock", new Mock());
     List<Statement> input = parseFileForSkylark("mock.return_mutable()", MOCK_TYPES);
