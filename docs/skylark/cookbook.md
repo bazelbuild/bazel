@@ -3,29 +3,6 @@ Skylark cookbook
 
 [TOC]
 
-## <a name="empty"></a>Empty
-
-Minimalist example of a rule that does nothing. If you build it, the target will
-succeed (with no generated file).
-
-`empty.bzl`:
-
-```python
-def impl(ctx):
-  # You may use print for debugging.
-  print("This rule does nothing")
-
-empty = rule(impl)
-```
-
-`BUILD`:
-
-```build
-load("/pkg/empty", "empty")
-
-empty(name = "nothing")
-```
-
 ## <a name="macro_native"></a>Macro creating a native rule
 
 An example of a macro creating a native rule. Native rules are accessed using
@@ -83,6 +60,78 @@ load("/pkg/extension", "macro")
 
 macro(name = "myrule")
 ```
+
+## <a name="empty"></a>Empty rule
+
+Minimalist example of a rule that does nothing. If you build it, the target will
+succeed (with no generated file).
+
+`empty.bzl`:
+
+```python
+def impl(ctx):
+  # You may use print for debugging.
+  print("This rule does nothing")
+
+empty = rule(impl)
+```
+
+`BUILD`:
+
+```build
+load("/pkg/empty", "empty")
+
+empty(name = "nothing")
+```
+
+## <a name="attr"></a>Rule with attributes
+
+Example of a rule that shows how to declare attributes and access them.
+
+`printer.bzl`:
+
+```python
+def impl(ctx):
+  # You may use print for debugging.
+  print("The number is %s" % ctx.attr.number)
+
+  # This prints the labels of the deps attribute.
+  print("There are %d deps" % len(ctx.attr.deps))
+  for i in ctx.attr.deps:
+    print("- %s (name %s, from package %s)" % (i, i.name, i.package))
+
+  # Print the list of files in the deps attribute.
+  # A label can represent any number of files (possibly 0).
+  for i in ctx.files.deps:
+    print(i.path)
+
+printer = rule(
+    implementation=impl,
+    attrs={
+      # Do not declare "name": It is added automatically.
+      "number": attr.int(default = 1),
+      "deps": attr.label_list(allow_files=True),
+    })
+```
+
+`BUILD`:
+
+```build
+load("/pkg/printer", "printer")
+
+printer(
+    name = "nothing",
+    deps = [
+        "BUILD",
+        ":other",
+    ],
+)
+
+printer(name = "other")
+```
+
+If you execute this file, some information is printed as a warning by the
+rule. No file is generated.
 
 ## <a name="shell"></a>Simple shell command
 

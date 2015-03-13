@@ -31,6 +31,8 @@ If an attribute starts with `_`, it is private and users cannot set it. It
 is useful in particular for label attributes (your rule will have an
 implicit dependency on this label).
 
+[See example.](cookbook.md#attr)
+
 The rule implementation function
 --------------------------------
 
