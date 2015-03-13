@@ -344,9 +344,8 @@ What future features can we expect in Bazel?
 Our initial goal is to work on Google's internal use-cases. This
 includes Google's principal languages (C++, Java, Go) and major
 platforms (Linux, Android, iOS).  For practical reasons, not all of
-these are currently open-sourced.
-
-TODO(bazel-team): add link to public roadmap.
+these are currently open-sourced. For more details see our
+[roadmap](bazel-roadmap.md).
 
 
 What about Python?
@@ -371,7 +370,7 @@ Can I use Bazel for my LISP/Python/Haskell/Scala/Rust project?
 We have an extension mechanism that allows you to add new rules
 without recompiling Bazel.
 
-For documentation: see TODO(bazel-team).
+For documentation: see [here](skylark-index.md).
 
 At present, the extension mechanism is experimental though.
 
@@ -387,24 +386,8 @@ the mailing list for advice: bazel-discuss@googlegroups.com.
 Can I contribute to the Bazel code base?
 ----------------------------------------
 
-Not yet, but we are working on a process.
-
-Please consider the following:
-
-* Before starting to code, discuss your plan to make sure we agree on
-  it. We can be reached at bazel-discuss@googlegroups.com.
-
-* All contributors must sign a Contributor License Agreement at
-
-   https://cla.developers.google.com/
-
-* All contributions will have to go through pre-commit code review.
-
-* Contributions need a Google team member as sponsor.
-
-TODO(bazel-team): set up a process
-
-TODO(bazel-team): link to detailed patch acceptance policy.
+You can propose patches to Bazel. You can find all the details in the
+[contribution guidelines](contribution.md).
 
 
 Why isn't all development done in the open?
@@ -412,9 +395,8 @@ Why isn't all development done in the open?
 
 We still have to refactor the interfaces between the public code in
 Bazel and our internal extensions frequently. This makes it hard to do
-much development in the open.
-
-TODO(bazel-team): link to roadmap.
+much development in the open. See our [governance plan](governance.md)
+for more details.
 
 
 How do I contact the team?
