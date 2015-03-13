@@ -15,7 +15,7 @@ knowledge of dependencies to parallelize builds.
   * How to [get started using Bazel](docs/getting-started.md)
   * How to [use the query command](docs/bazel-query-v2.html)
   * How to [extend Bazel](docs/skylark/index.md)
-  * TODO(bazel-team): link to the build encyclopedia.
+  * The rule reference documentation is in the [build encyclopedia](docs/build-encyclopedia.html).
   * TODO(bazel-team): link to the user-manual
   * TODO(bazel-team): link to the test encyclopedia?
 

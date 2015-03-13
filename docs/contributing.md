@@ -67,8 +67,8 @@ Bazel is organized in several parts:
 * The server code in Java (in `src/main/java` and `src/test/java`)
   * Core code which is mostly composed of [SkyFrame](skyframe.md) and some
     utilities.
-  * [Skylark](skylark_index.md) rules are defined in `tools/build_rules`. If you
-    want to add rules, consider using [Skylark](skylark_index.md) first.
+  * [Skylark](skylark/index.md) rules are defined in `tools/build_rules`. If you
+    want to add rules, consider using [Skylark](skylark/index.md) first.
   * Builtin rules in `com.google.devtools.build.lib.rules` and in
     `com.google.devtools.build.lib.bazel.rules`.
 * Java native interfaces in `src/main/native`.
@@ -94,4 +94,3 @@ We do not currently accept pull requests on GitHub.
 We will make changes to this process as necessary, and we're hoping to move
 closer to a fully open development model in the future (also see
 [Is Bazel developed fully in the open?](governance.md#isbazelopen)).
-

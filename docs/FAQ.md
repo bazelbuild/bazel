@@ -245,8 +245,7 @@ should also hold for our open-source codebase.
 How can I start using Bazel?
 ----------------------------
 
-See our [getting started
-doc](https://github.com/google/bazel/blob/master/docs/getting-started.md)
+See our [getting started doc](getting-started.md)
 
 TODO(bazel-team): more doc links
 
@@ -345,7 +344,7 @@ Our initial goal is to work on Google's internal use-cases. This
 includes Google's principal languages (C++, Java, Go) and major
 platforms (Linux, Android, iOS).  For practical reasons, not all of
 these are currently open-sourced. For more details see our
-[roadmap](bazel-roadmap.md).
+[roadmap](roadmap.md).
 
 
 What about Python?
@@ -370,7 +369,7 @@ Can I use Bazel for my LISP/Python/Haskell/Scala/Rust project?
 We have an extension mechanism that allows you to add new rules
 without recompiling Bazel.
 
-For documentation: see [here](skylark-index.md).
+For documentation: see [here](skylark/index.md).
 
 At present, the extension mechanism is experimental though.
 
@@ -387,7 +386,7 @@ Can I contribute to the Bazel code base?
 ----------------------------------------
 
 You can propose patches to Bazel. You can find all the details in the
-[contribution guidelines](contribution.md).
+[contribution guidelines](contributing.md).
 
 
 Why isn't all development done in the open?

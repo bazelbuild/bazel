@@ -8,7 +8,7 @@ Every Bazel project is contained in a directory called a _build root_,
 which holds the inputs, outputs, and build rules for the project. To create a
 Bazel project, first clone the [Github repo](https://github.com/google/bazel)
 and build Bazel (follow the instructions in the
-[README](https://github.com/google/bazel/README.md) to install prerequisites):
+[README](install.md) to install prerequisites):
 
 ```bash
 $ git clone https://github.com/google/bazel.git
