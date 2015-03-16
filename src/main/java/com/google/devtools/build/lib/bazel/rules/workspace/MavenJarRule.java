@@ -40,24 +40,22 @@ public class MavenJarRule implements RuleDefinition {
     return builder
         /* <!-- #BLAZE_RULE(maven_jar).ATTRIBUTE(artifact_id) -->
         The artifactId of the Maven dependency.
-
-        <p>Required.</p>
+        ${SYNOPSIS}
         <!-- #END_BLAZE_RULE.ATTRIBUTE --> */
         .add(attr("artifact_id", Type.STRING).mandatory())
         /* <!-- #BLAZE_RULE(maven_jar).ATTRIBUTE(group_id) -->
         The groupId of the Maven dependency.
-
-        <p>Required.</p>
+        ${SYNOPSIS}
         <!-- #END_BLAZE_RULE.ATTRIBUTE --> */
         .add(attr("group_id", Type.STRING).mandatory())
         /* <!-- #BLAZE_RULE(maven_jar).ATTRIBUTE(version) -->
         The version of the Maven dependency.
-
-        <p>Required.</p>
+        ${SYNOPSIS}
         <!-- #END_BLAZE_RULE.ATTRIBUTE --> */
         .add(attr("version", Type.STRING).mandatory())
         /* <!-- #BLAZE_RULE(maven_jar).ATTRIBUTE(repositories) -->
         A list of repositories to use to attempt to fetch the jar.
+        ${SYNOPSIS}
 
         <p>Defaults to Maven Central ("repo1.maven.org"). If repositories are specified, they will
           be checked in the order listed here (Maven Central will not be checked in this case,
@@ -69,6 +67,7 @@ public class MavenJarRule implements RuleDefinition {
         .add(attr("repositories", Type.STRING_LIST))
         /* <!-- #BLAZE_RULE(maven_jar).ATTRIBUTE(exclusions) -->
         Transitive dependencies of this dependency that should not be downloaded.
+        ${SYNOPSIS}
 
         <p>Defaults to None: Bazel will download all of the dependencies requested by the Maven
           dependency.  If exclusions are specified, they will not be downloaded.</p>

@@ -39,14 +39,16 @@ public class HttpArchiveRule implements RuleDefinition {
   public RuleClass build(Builder builder, RuleDefinitionEnvironment environment) {
     return builder
         /* <!-- #BLAZE_RULE(http_archive).ATTRIBUTE(url) -->
-        A URL to an archive file containing a Bazel repository
+        A URL to an archive file containing a Bazel repository.
+        ${SYNOPSIS}
 
         <p>This must be an http URL that ends with .zip. There is no support for authentication or
           redirection.</p>
         <!-- #END_BLAZE_RULE.ATTRIBUTE --> */
         .add(attr("url", STRING).mandatory())
         /* <!-- #BLAZE_RULE(http_archive).ATTRIBUTE(sha256) -->
-        The expected SHA-256 hash of the file downloaded
+        The expected SHA-256 hash of the file downloaded.
+        ${SYNOPSIS}
 
         <p>This must match the SHA-256 hash of the file downloaded.</p>
         <!-- #END_BLAZE_RULE.ATTRIBUTE --> */

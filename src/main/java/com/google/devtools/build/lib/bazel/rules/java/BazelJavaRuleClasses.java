@@ -236,7 +236,8 @@ public class BazelJavaRuleClasses {
     public RuleClass build(Builder builder, final RuleDefinitionEnvironment env) {
       return builder
           /* <!-- #BLAZE_RULE($base_java_binary).ATTRIBUTE(classpath_resources) -->
-          (optional; <em class="harmful">DO NOT USE THIS OPTION UNLESS THERE IS NO OTHER WAY)</em>
+          ${SYNOPSIS}
+          <em class="harmful">DO NOT USE THIS OPTION UNLESS THERE IS NO OTHER WAY)</em>
           <p>
             A list of resources that must be located at the root of the java tree. This attribute's
             only purpose is to support third-party libraries that require that their resources be
@@ -286,6 +287,7 @@ public class BazelJavaRuleClasses {
               .nonconfigurable("internal")
               .value(true))
           /* <!-- #BLAZE_RULE($base_java_binary).ATTRIBUTE(deploy_manifest_lines) -->
+          ${SYNOPSIS}
           A list of lines to add to the <code>META-INF/manifest.mf</code> file generated for the
           <code>*_deploy.jar</code> target. The contents of this attribute are <em>not</em> subject
           to <a href="#make_variables">"Make variable"</a> substitution.

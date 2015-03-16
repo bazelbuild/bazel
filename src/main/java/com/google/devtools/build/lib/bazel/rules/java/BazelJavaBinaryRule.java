@@ -52,12 +52,12 @@ public final class BazelJavaBinaryRule implements RuleDefinition {
           <li><code><var>name</var>_deploy.jar</code>: A Java archive suitable for deployment (only
             built if explicitly requested).
             <p>
-              Building the <code><var>name</var>&gt;_deploy.jar</code> target for your rule creates
-              a self-contained jar file with a manifest that allows it to be run with the <code>java
-              -jar</code> command or with the wrapper script's <code>--singlejar</code> option.
-              Using the wrapper script is preferred to <code>java -jar</code> because it also passes
-              the <a href="#java_binary.jvm_flags">JVM flags</a> and the options to load native
-              libraries.
+              Building the <code>&lt;<var>name</var>&gt;_deploy.jar</code> target for your rule
+              creates a self-contained jar file with a manifest that allows it to be run with the
+              <code>java -jar</code> command or with the wrapper script's <code>--singlejar</code>
+              option. Using the wrapper script is preferred to <code>java -jar</code> because it
+              also passes the <a href="#java_binary.jvm_flags">JVM flags</a> and the options to load
+              native libraries.
             </p>
             <p>
               The deploy jar contains all the classes that would be found by a classloader that
