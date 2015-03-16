@@ -26,6 +26,7 @@ import com.google.devtools.build.lib.syntax.Label;
 import com.google.devtools.build.lib.syntax.Label.SyntaxException;
 import com.google.devtools.build.lib.vfs.Path;
 
+import java.io.Serializable;
 import java.util.Map;
 import java.util.Map.Entry;
 
@@ -71,7 +72,7 @@ public class ExternalPackage extends Package {
   /**
    * Holder for a binding's actual label and location.
    */
-  public static class Binding {
+  public static class Binding implements Serializable {
     private final Label actual;
     private final Location location;
 
