@@ -141,7 +141,6 @@ import java.util.Set;
 import java.util.UUID;
 import java.util.concurrent.TimeUnit;
 import java.util.concurrent.atomic.AtomicInteger;
-import java.util.logging.Handler;
 import java.util.logging.Level;
 import java.util.logging.Logger;
 import java.util.regex.Pattern;
@@ -842,14 +841,6 @@ public final class BlazeRuntime {
       MemoryProfiler.instance().stop();
     } catch (IOException e) {
       getReporter().handle(Event.error("Error while writing profile file: " + e.getMessage()));
-    }
-
-    // If this is not a crash we flush the log after the command finishes.
-    if (exitCode < 30) {
-      LOG.info("Forcing flush of the logs");
-      for (Handler handler : Logger.getLogger("").getHandlers()) {
-        handler.flush();
-      }
     }
   }
 
