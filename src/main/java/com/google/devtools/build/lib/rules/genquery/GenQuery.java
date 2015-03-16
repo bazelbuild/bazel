@@ -120,6 +120,9 @@ public class GenQuery implements RuleConfiguredTargetFactory {
       return null;
     }
 
+    // force relative_locations to true so it has a deterministic output across machines.
+    queryOptions.relativeLocations = true;
+
     final byte[] result = executeQuery(ruleContext, queryOptions, getScope(ruleContext), query);
     if (result == null || ruleContext.hasErrors()) {
       return null;
