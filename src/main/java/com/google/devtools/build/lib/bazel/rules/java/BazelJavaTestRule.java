@@ -34,16 +34,23 @@ import com.google.devtools.build.lib.rules.java.JavaSemantics;
  * Rule definition for the java_test rule.
  */
 @BlazeRule(name = "java_test",
-             type = RuleClassType.TEST,
-             ancestors = { BaseJavaBinaryRule.class,
-                           BaseRuleClasses.TestBaseRule.class },
-             factoryClass = BazelJavaTest.class)
+           type = RuleClassType.TEST,
+           ancestors = { BaseJavaBinaryRule.class,
+                         BaseRuleClasses.TestBaseRule.class },
+           factoryClass = BazelJavaTest.class)
 public final class BazelJavaTestRule implements RuleDefinition {
-  
+
   private static final String JUNIT4_RUNNER = "org.junit.runner.JUnitCore";
 
   @Override
   public RuleClass build(Builder builder, RuleDefinitionEnvironment env) {
+    /* <!-- #BLAZE_RULE(java_test).IMPLICIT_OUTPUTS -->
+    <ul>
+      <li><code><var>name</var>.jar</code>: A Java archive.</li>
+      <li><code><var>name</var>_deploy.jar</code>: A Java archive suitable for deployment. (Only
+        built if explicitly requested.)</li>
+    </ul>
+    <!-- #END_BLAZE_RULE.IMPLICIT_OUTPUTS --> */
     return builder
         .setImplicitOutputsFunction(BazelJavaRuleClasses.JAVA_BINARY_IMPLICIT_OUTPUTS)
         .override(attr("main_class", STRING).value(JUNIT4_RUNNER))
