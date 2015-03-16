@@ -48,6 +48,7 @@ import com.google.devtools.build.skyframe.SkyFunctionException.Transience;
 import com.google.devtools.build.skyframe.SkyKey;
 import com.google.devtools.build.skyframe.SkyValue;
 
+import java.io.File;
 import java.io.IOException;
 import java.util.List;
 import java.util.Map;
@@ -211,6 +212,11 @@ public class WorkspaceFileFunction implements SkyFunction {
       Function ruleFunction = newRuleFunction(ruleFactory, builder, ruleClass);
       workspaceEnv.update(ruleClass, ruleFunction);
     }
+
+    workspaceEnv.update("__embedded_dir__", this.installDir.toString());
+    // TODO(kchodorow): Get all the toolchain rules and load this from there.
+    File jreDirectory = new File(System.getProperty("java.home"));
+    workspaceEnv.update("DEFAULT_SERVER_JAVABASE", jreDirectory.getParentFile().toString());
 
     workspaceEnv.update(BIND, newBindFunction(builder));
     workspaceEnv.update("workspace", newWorkspaceNameFunction(builder));

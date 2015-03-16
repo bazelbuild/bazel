@@ -109,7 +109,14 @@ public final class JvmConfigurationLoader implements ConfigurationFragmentFactor
             if (jvmTarget == null) {
               return null;
             }
-            PathFragment javaHomePath = jvmLabel.getPackageFragment();
+
+            PathFragment javaHomePath;
+            if (jvmTarget.getLabel().getPackageIdentifier().getRepository().isDefault()) {
+              javaHomePath = jvmLabel.getPackageFragment();
+            } else {
+              javaHomePath = jvmTarget.getLabel().getPackageFragment();
+            }
+
             if ((jvmTarget instanceof Rule) &&
                 "filegroup".equals(((Rule) jvmTarget).getRuleClass())) {
               RawAttributeMapper jvmTargetAttributes = RawAttributeMapper.of((Rule) jvmTarget);

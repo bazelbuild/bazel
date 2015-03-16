@@ -2,22 +2,22 @@ package(default_visibility = ["//visibility:public"])
 
 filegroup(
     name = "jni_header",
-    srcs = ["jdk/include/jni.h"],
+    srcs = ["//external:jni_header"],
 )
 
 filegroup(
     name = "jni_md_header-darwin",
-    srcs = ["jdk/include/darwin/jni_md.h"],
+    srcs = ["//external:jni_md_header-darwin"],
 )
 
 filegroup(
     name = "jni_md_header-linux",
-    srcs = ["jdk/include/linux/jni_md.h"],
+    srcs = ["//external:jni_md_header-linux"],
 )
 
 filegroup(
     name = "java",
-    srcs = ["jdk/bin/java"],
+    srcs = ["//external:java"],
 )
 
 BOOTCLASS_JARS = [
@@ -30,17 +30,17 @@ BOOTCLASS_JARS = [
 
 filegroup(
     name = "bootclasspath",
-    srcs = ["jdk/jre/lib/%s" % jar for jar in BOOTCLASS_JARS],
+    srcs = ["//external:bootclasspath"],
 )
 
 filegroup(
     name = "langtools",
-    srcs = ["jdk/lib/tools.jar"],
+    srcs = ["//external:langtools"],
 )
 
 java_import(
     name = "langtools-neverlink",
-    jars = ["jdk/lib/tools.jar"],
+    jars = ["//external:langtools"],
     neverlink = 1,
 )
 
@@ -48,16 +48,10 @@ java_import(
 filegroup(name = "jdk-null")
 
 filegroup(
-    name = "jdk-default",
-    srcs = glob(["jdk/bin/*"]),
-    path = "jdk",
-)
-
-filegroup(
     name = "jdk",
     srcs = [
-        ":jdk-default",
         ":jdk-null",
+        "//external:jdk-default",
     ],
 )
 

@@ -33,7 +33,9 @@ import java.util.Map.Entry;
  * This creates the //external package, where targets not homed in this repository can be bound.
  */
 public class ExternalPackage extends Package {
+  public static final String NAME = "external";
 
+  private Map<Label, Binding> bindMap;
   private Map<RepositoryName, Rule> repositoryMap;
 
   ExternalPackage() {
@@ -46,6 +48,24 @@ public class ExternalPackage extends Package {
    */
   public Rule getRepositoryInfo(RepositoryName repositoryName) {
     return repositoryMap.get(repositoryName);
+  }
+
+  /**
+   * If the given label is bound, returns the (fully resolved) label it is bound to. Otherwise,
+   * returns null.
+   */
+  public Label getActualLabel(Label label) {
+    if (bindMap.containsKey(label)) {
+      return bindMap.get(label).getActual();
+    }
+    return null;
+  }
+
+  /**
+   * Checks if the given package is //external.
+   */
+  public static boolean isExternal(Package pkg) {
+    return pkg != null && pkg.getName().equals(NAME);
   }
 
   /**
@@ -97,6 +117,7 @@ public class ExternalPackage extends Package {
 
     @Override
     public ExternalPackage build() {
+      pkg.bindMap = ImmutableMap.copyOf(bindMap);
       pkg.repositoryMap = ImmutableMap.copyOf(repositoryMap);
       return super.build();
     }

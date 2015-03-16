@@ -114,11 +114,11 @@ public class NewLocalRepositoryFunction extends RepositoryFunction {
     // Link x/BUILD to <build_root>/x.BUILD.
     PathFragment buildFile = new PathFragment(mapper.get("build_file", Type.STRING));
     Path buildFileTarget = getWorkspace().getRelative(buildFile);
-    if (buildFile.equals(PathFragment.EMPTY_FRAGMENT) || buildFile.isAbsolute()
-        || !buildFileTarget.exists()) {
+    if (!buildFileTarget.exists()) {
       throw new RepositoryFunctionException(
           new EvalException(rule.getLocation(), "In " + rule
-              + " the 'build_file' attribute must specify a relative path to an existing file"),
+              + " the 'build_file' attribute does not specify an existing file ("
+              + buildFile + " does not exist)"),
           Transience.PERSISTENT);
     }
     Path buildFilePath = repositoryDirectory.getRelative("BUILD");

@@ -18,6 +18,7 @@ import com.google.devtools.build.lib.analysis.config.BuildConfiguration.Fragment
 import com.google.devtools.build.lib.analysis.config.BuildOptions;
 import com.google.devtools.build.lib.analysis.config.InvalidConfigurationException;
 import com.google.devtools.build.lib.analysis.config.PackageProviderForConfigurations;
+import com.google.devtools.build.lib.packages.ExternalPackage;
 import com.google.devtools.build.lib.packages.NoSuchPackageException;
 import com.google.devtools.build.lib.packages.NoSuchTargetException;
 import com.google.devtools.build.lib.packages.Package;
@@ -77,6 +78,12 @@ class SkyframePackageLoaderWithValueEnvironment implements
   public Target getLoadedTarget(Label label) throws NoSuchPackageException,
       NoSuchTargetException {
     Package pkg = getLoadedPackage(label.getPackageIdentifier());
+    if (ExternalPackage.isExternal(pkg)) {
+      label = ((ExternalPackage) pkg).getActualLabel(label);
+      if (label != null) {
+        pkg = getLoadedPackage(label.getPackageIdentifier());
+      }
+    }
     return pkg == null ? null : pkg.getTarget(label.getName());
   }
 
