@@ -977,8 +977,11 @@ class Parser {
       symbols.add(new Ident((String) token.value));
     }
     expect(TokenKind.STRING);
-    while (token.kind == TokenKind.COMMA) {
+    while (token.kind != TokenKind.RPAREN) {
       expect(TokenKind.COMMA);
+      if (token.kind == TokenKind.RPAREN) {
+        break;
+      }
       if (token.kind == TokenKind.STRING) {
         symbols.add(new Ident((String) token.value));
       }

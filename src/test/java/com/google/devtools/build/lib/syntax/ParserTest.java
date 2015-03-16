@@ -855,6 +855,15 @@ public class ParserTest extends AbstractParserTestCase {
   }
 
   @Test
+  public void testLoadOneSymbolWithTrailingComma() throws Exception {
+    List<Statement> statements = parseFileForSkylark(
+        "load('/foo/bar/file', 'fun_test',)\n");
+    LoadStatement stmt = (LoadStatement) statements.get(0);
+    assertEquals("/foo/bar/file.bzl", stmt.getImportPath().toString());
+    assertThat(stmt.getSymbols()).hasSize(1);
+  }
+
+  @Test
   public void testLoadMultipleSymbols() throws Exception {
     List<Statement> statements = parseFileForSkylark(
         "load('file', 'foo', 'bar')\n");
