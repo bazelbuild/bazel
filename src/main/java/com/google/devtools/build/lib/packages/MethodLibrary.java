@@ -511,8 +511,8 @@ public class MethodLibrary {
     @Override
     public Object call(Object self, FuncallExpression ast, Environment env)
         throws EvalException, InterruptedException {
-      Map<?, ?> dict = (Map<?, ?>) self;
-      return convert(dict.keySet(), env, ast.getLocation());
+      Map<Comparable<?>, Object> dict = (Map<Comparable<?>, Object>) self;
+      return convert(Ordering.natural().sortedCopy(dict.keySet()), env, ast.getLocation());
     }
   };
 
