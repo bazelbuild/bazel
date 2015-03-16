@@ -33,6 +33,7 @@ import com.google.devtools.build.lib.events.Reporter;
 import com.google.devtools.build.lib.util.io.FileOutErr;
 import com.google.devtools.build.lib.vfs.FileSystemUtils;
 import com.google.devtools.build.lib.vfs.Path;
+import com.google.devtools.build.lib.vfs.PathFragment;
 import com.google.devtools.build.lib.view.test.TestStatus.BlazeTestStatus;
 import com.google.devtools.build.lib.view.test.TestStatus.TestCase;
 import com.google.devtools.build.lib.view.test.TestStatus.TestResultData;
@@ -121,7 +122,7 @@ public class StandaloneTestStrategy extends TestStrategy {
 
     vars.putAll(config.getDefaultShellEnvironment());
     vars.putAll(action.getTestEnv());
-    vars.put("TEST_SRCDIR", runfilesDir.getRelative(action.getRunfilesPrefix()).getPathString());
+    vars.put("TEST_SRCDIR", runfilesDir.getPathString());
 
     // TODO(bazel-team): set TEST_TMPDIR.
 
@@ -219,9 +220,11 @@ public class StandaloneTestStrategy extends TestStrategy {
   private List<String> getArgs(TestRunnerAction action) {
     List<String> args = Lists.newArrayList(TEST_SETUP);
     TestTargetExecutionSettings execSettings = action.getExecutionSettings();
+    PathFragment prefix = new PathFragment(action.getRunfilesPrefix());
+    PathFragment executable = execSettings.getExecutable().getRootRelativePath();
 
     // Execute the test using the alias in the runfiles tree.
-    args.add(execSettings.getExecutable().getRootRelativePath().getPathString());
+    args.add(prefix.getRelative(executable).getPathString());
     args.addAll(execSettings.getArgs());
 
     return args;
