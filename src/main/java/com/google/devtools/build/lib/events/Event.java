@@ -17,6 +17,7 @@ import static java.nio.charset.StandardCharsets.ISO_8859_1;
 
 import com.google.common.base.Preconditions;
 
+import java.io.Serializable;
 import javax.annotation.Nullable;
 import javax.annotation.concurrent.Immutable;
 
@@ -25,7 +26,7 @@ import javax.annotation.concurrent.Immutable;
  * reporting: A 3-tuple of ({@link EventKind}, {@link Location}, message).
  */
 @Immutable
-public final class Event {
+public final class Event implements Serializable {
 
   private final EventKind kind;
   private final Location location;

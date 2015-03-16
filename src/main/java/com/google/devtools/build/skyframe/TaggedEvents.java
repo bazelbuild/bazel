@@ -17,6 +17,7 @@ import com.google.common.collect.ImmutableCollection;
 import com.google.common.collect.Iterables;
 import com.google.devtools.build.lib.events.Event;
 
+import java.io.Serializable;
 import javax.annotation.Nullable;
 import javax.annotation.concurrent.Immutable;
 
@@ -30,7 +31,7 @@ import javax.annotation.concurrent.Immutable;
  * <p>This is intended only for use in alternative {@code MemoizingEvaluator} implementations.
  */
 @Immutable
-public final class TaggedEvents {
+public final class TaggedEvents implements Serializable {
 
   @Nullable
   private final String tag;
