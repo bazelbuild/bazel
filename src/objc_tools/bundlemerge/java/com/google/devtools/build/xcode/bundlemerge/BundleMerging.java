@@ -30,6 +30,7 @@ import com.google.devtools.build.xcode.common.Platform;
 import com.google.devtools.build.xcode.common.TargetDeviceFamily;
 import com.google.devtools.build.xcode.plmerge.KeysToRemoveIfEmptyString;
 import com.google.devtools.build.xcode.plmerge.PlistMerging;
+import com.google.devtools.build.xcode.zip.ZipFiles;
 import com.google.devtools.build.xcode.zip.ZipInputEntry;
 
 import java.io.IOException;
@@ -37,6 +38,7 @@ import java.io.OutputStream;
 import java.nio.file.FileSystem;
 import java.nio.file.Files;
 import java.nio.file.Path;
+import java.util.Map;
 import java.util.zip.ZipEntry;
 import java.util.zip.ZipInputStream;
 
@@ -184,15 +186,20 @@ public final class BundleMerging {
    */
   private void addEntriesFromOtherZip(ZipCombiner combiner, Path sourceZip, String entryNamesPrefix)
       throws IOException {
+    Map<String, Integer> externalFileAttributes = ZipFiles.unixExternalFileAttributes(sourceZip);
     try (ZipInputStream zipIn = new ZipInputStream(Files.newInputStream(sourceZip))) {
       while (true) {
         ZipEntry zipInEntry = zipIn.getNextEntry();
         if (zipInEntry == null) {
           break;
         }
-        // TODO(bazel-team): preserve the external file attribute field in the source zip entry.
-        combiner.addFile(entryNamesPrefix + zipInEntry.getName(), DOS_EPOCH, zipIn,
-            ZipInputEntry.DEFAULT_DIRECTORY_ENTRY_INFO);
+        Integer externalFileAttr = externalFileAttributes.get(zipInEntry.getName());
+        if (externalFileAttr == null) {
+          externalFileAttr = ZipInputEntry.DEFAULT_EXTERNAL_FILE_ATTRIBUTE;
+        }
+        combiner.addFile(
+            entryNamesPrefix + zipInEntry.getName(), DOS_EPOCH, zipIn,
+            ZipInputEntry.DEFAULT_DIRECTORY_ENTRY_INFO.withExternalFileAttribute(externalFileAttr));
       }
     }
   }
