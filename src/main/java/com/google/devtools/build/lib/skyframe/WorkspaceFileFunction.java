@@ -117,7 +117,7 @@ public class WorkspaceFileFunction implements SkyFunction {
     if (buildFileAST.containsErrors()) {
       localReporter.handle(Event.error("WORKSPACE file could not be parsed"));
     } else {
-      if (!evaluateWorkspaceFile(buildFileAST, builder)) {
+      if (!evaluateWorkspaceFile(buildFileAST, builder, localReporter)) {
         localReporter.handle(
             Event.error("Error evaluating WORKSPACE file " + workspaceFilePath));
       }
@@ -201,8 +201,8 @@ public class WorkspaceFileFunction implements SkyFunction {
     };
   }
 
-  public boolean evaluateWorkspaceFile(BuildFileAST buildFileAST, Builder builder)
-      throws InterruptedException {
+  public boolean evaluateWorkspaceFile(BuildFileAST buildFileAST, Builder builder,
+      StoredEventHandler eventHandler) throws InterruptedException {
     // Environment is defined in SkyFunction and the syntax package.
     com.google.devtools.build.lib.syntax.Environment workspaceEnv =
         new com.google.devtools.build.lib.syntax.Environment();
@@ -221,7 +221,6 @@ public class WorkspaceFileFunction implements SkyFunction {
     workspaceEnv.update(BIND, newBindFunction(builder));
     workspaceEnv.update("workspace", newWorkspaceNameFunction(builder));
 
-    StoredEventHandler eventHandler = new StoredEventHandler();
     return buildFileAST.exec(workspaceEnv, eventHandler);
   }
 
