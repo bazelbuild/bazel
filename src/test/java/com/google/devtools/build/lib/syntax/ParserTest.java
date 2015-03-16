@@ -214,7 +214,7 @@ public class ParserTest extends AbstractParserTestCase {
   @Test
   public void testSubstring() throws Exception {
     FuncallExpression e = (FuncallExpression) parseExpr("'FOO.CC'[:].lower()[1:]");
-    assertEquals("$substring", e.getFunction().getName());
+    assertEquals("$slice", e.getFunction().getName());
     assertThat(e.getArguments()).hasSize(2);
 
     e = (FuncallExpression) parseExpr("'FOO.CC'.lower()[1:].startswith('oo')");
@@ -222,7 +222,7 @@ public class ParserTest extends AbstractParserTestCase {
     assertThat(e.getArguments()).hasSize(1);
 
     e = (FuncallExpression) parseExpr("'FOO.CC'[1:][:2]");
-    assertEquals("$substring", e.getFunction().getName());
+    assertEquals("$slice", e.getFunction().getName());
     assertThat(e.getArguments()).hasSize(2);
   }
 
