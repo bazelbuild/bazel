@@ -309,7 +309,7 @@ public final class ReleaseBundlingSupport {
         .build();
     // TODO(bazel-team): Handle the FRAMEWORK_DIR key properly. We probably want to add it to
     // framework search paths, but not actually link it with the -framework flag.
-    return new XcTestAppProvider(intermediateArtifacts.singleArchitectureBinary(),
+    return new XcTestAppProvider(intermediateArtifacts.combinedArchitectureBinary(),
         ruleContext.getImplicitOutputArtifact(IPA), partialObjcProvider);
   }
 
