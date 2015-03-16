@@ -206,7 +206,6 @@ public abstract class SkyframeExecutor implements WalkableGraphFactory {
   private final AtomicReference<ActionExecutionStatusReporter> statusReporterRef =
       new AtomicReference<>();
   private final SkyframeActionExecutor skyframeActionExecutor;
-  private CompletionReceiver actionExecutionFunction;
   protected SkyframeProgressReceiver progressReceiver;
   private final AtomicReference<CyclesReporter> cyclesReporter = new AtomicReference<>();
 
@@ -321,10 +320,8 @@ public abstract class SkyframeExecutor implements WalkableGraphFactory {
         buildDataDirectory));
     map.put(SkyFunctions.BUILD_INFO, new WorkspaceStatusFunction());
     map.put(SkyFunctions.COVERAGE_REPORT, new CoverageReportFunction());
-    ActionExecutionFunction actionExecutionFunction =
-        new ActionExecutionFunction(skyframeActionExecutor, tsgm);
-    map.put(SkyFunctions.ACTION_EXECUTION, actionExecutionFunction);
-    this.actionExecutionFunction = actionExecutionFunction;
+    map.put(SkyFunctions.ACTION_EXECUTION,
+        new ActionExecutionFunction(skyframeActionExecutor, tsgm));
     map.put(SkyFunctions.RECURSIVE_FILESYSTEM_TRAVERSAL,
         new RecursiveFilesystemTraversalFunction());
     map.put(SkyFunctions.FILESET_ENTRY, new FilesetEntryFunction());
@@ -958,7 +955,6 @@ public abstract class SkyframeExecutor implements WalkableGraphFactory {
       // Also releases thread locks.
       resourceManager.resetResourceUsage();
       skyframeActionExecutor.executionOver();
-      actionExecutionFunction.complete();
     }
   }
 

@@ -41,13 +41,7 @@ public interface CppCompileActionContext extends ActionContext {
     byte[] getContents() throws IOException;
   }
 
-  /**
-   * Does include scanning to find the list of files needed to execute the action.
-   *
-   * <p>Returns null if additional inputs will only be found during action execution, not before.
-   * </p>
-   */
-  @Nullable
+  /** Does include scanning to find the list of files needed to execute the action. */
   public Collection<Artifact> findAdditionalInputs(CppCompileAction action,
       ActionExecutionContext actionExecutionContext)
       throws ExecException, InterruptedException, ActionExecutionException;

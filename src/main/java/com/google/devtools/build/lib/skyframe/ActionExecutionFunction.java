@@ -14,11 +14,9 @@
 package com.google.devtools.build.lib.skyframe;
 
 import com.google.common.base.Function;
-import com.google.common.base.Preconditions;
 import com.google.common.base.Predicate;
 import com.google.common.collect.Collections2;
 import com.google.common.collect.Iterables;
-import com.google.common.collect.Maps;
 import com.google.common.collect.Sets;
 import com.google.devtools.build.lib.actions.Action;
 import com.google.devtools.build.lib.actions.ActionCacheChecker.Token;
@@ -51,12 +49,11 @@ import java.util.HashMap;
 import java.util.HashSet;
 import java.util.Map;
 import java.util.Set;
-import java.util.concurrent.ConcurrentMap;
 
 /**
  * A builder for {@link ActionExecutionValue}s.
  */
-public class ActionExecutionFunction implements SkyFunction, CompletionReceiver {
+public class ActionExecutionFunction implements SkyFunction {
 
   private static final Predicate<Artifact> IS_SOURCE_ARTIFACT = new Predicate<Artifact>() {
     @Override
@@ -67,13 +64,11 @@ public class ActionExecutionFunction implements SkyFunction, CompletionReceiver 
 
   private final SkyframeActionExecutor skyframeActionExecutor;
   private final TimestampGranularityMonitor tsgm;
-  private ConcurrentMap<Action, ContinuationState> stateMap;
 
   public ActionExecutionFunction(SkyframeActionExecutor skyframeActionExecutor,
       TimestampGranularityMonitor tsgm) {
     this.skyframeActionExecutor = skyframeActionExecutor;
     this.tsgm = tsgm;
-    stateMap = Maps.newConcurrentMap();
   }
 
   @Override
@@ -116,8 +111,9 @@ public class ActionExecutionFunction implements SkyFunction, CompletionReceiver 
       // prints the error in the top-level reporter and also dumps the recorded StdErr for the
       // action. Label can be null in the case of, e.g., the SystemActionOwner (for build-info.txt).
       throw new ActionExecutionFunctionException(new AlreadyReportedActionExecutionException(e));
+    } finally {
+      declareAdditionalDependencies(env, action);
     }
-
     if (env.valuesMissing()) {
       return null;
     }
@@ -173,23 +169,20 @@ public class ActionExecutionFunction implements SkyFunction, CompletionReceiver 
       Map<Artifact, FileArtifactValue> inputArtifactData,
       Map<Artifact, Collection<Artifact>> expandedMiddlemen,
       Environment env) throws ActionExecutionException, InterruptedException {
-    // If this is the second time we are here (because the action discovers inputs, and we had
-    // to restart the value builder after declaring our dependence on newly discovered inputs),
-    // the result returned here is the already-computed result from the first run.
-    // Similarly, if this is a shared action and the other action is the one that executed, we
-    // must use that other action's value, provided here, since it is populated with metadata
-    // for the outputs.
-    if (inputArtifactData == null) {
-      return skyframeActionExecutor.executeAction(action, null, null, -1, null);
-    }
-    ContinuationState state;
-    if (action.discoversInputs()) {
-      state = getState(action);
-    } else {
-      state = new ContinuationState();
-    }
-    // This may be recreated if we discover inputs.
-    FileAndMetadataCache fileAndMetadataCache = new FileAndMetadataCache(
+    // Don't initialize the cache if the result has already been computed and this is just a
+    // rerun.
+    FileAndMetadataCache fileAndMetadataCache = null;
+    MetadataHandler metadataHandler = null;
+    Token token = null;
+    long actionStartTime = System.nanoTime();
+    // inputArtifactData is null exactly when we know that the execution result was already
+    // computed on a prior run of this SkyFunction. If it is null we don't need to initialize
+    // anything -- we will get the result directly from SkyframeActionExecutor's cache.
+    if (inputArtifactData != null) {
+      // Check action cache to see if we need to execute anything. Checking the action cache only
+      // needs to happen on the first run, since a cache hit means we'll return immediately, and
+      // there'll be no second run.
+      fileAndMetadataCache = new FileAndMetadataCache(
           inputArtifactData,
           expandedMiddlemen,
           skyframeActionExecutor.getExecRoot(),
@@ -199,112 +192,49 @@ public class ActionExecutionFunction implements SkyFunction, CompletionReceiver 
           // present in Skyframe, so we can save a stat by looking them up directly.
           action.discoversInputs() ? env : null,
           tsgm);
-    MetadataHandler metadataHandler =
+      metadataHandler =
           skyframeActionExecutor.constructMetadataHandler(fileAndMetadataCache);
-    long actionStartTime = System.nanoTime();
-    // We only need to check the action cache if we haven't done it on a previous run.
-    if (!state.hasDiscoveredInputs()) {
-      Token token = skyframeActionExecutor.checkActionCache(action, metadataHandler,
+      token = skyframeActionExecutor.checkActionCache(action, metadataHandler,  
           new PackageRootResolverWithEnvironment(env), actionStartTime);
       if (token == Token.NEED_TO_RERUN) {
-        // Sadly, there is no state that we can preserve here across this restart.
         return null;
       }
-      state.token = token;
     }
-
-    if (state.token == null) {
+    if (token == null && inputArtifactData != null) {
       // We got a hit from the action cache -- no need to execute.
       return new ActionExecutionValue(
           fileAndMetadataCache.getOutputData(),
           fileAndMetadataCache.getAdditionalOutputData());
     }
 
-    // This may be recreated if we discover inputs.
-    ActionExecutionContext actionExecutionContext =
-        skyframeActionExecutor.constructActionExecutionContext(fileAndMetadataCache,
-            metadataHandler);
-    boolean inputsDiscoveredDuringActionExecution = false;
+    ActionExecutionContext actionExecutionContext = null;
     try {
-      if (action.discoversInputs()) {
-        if (!state.hasDiscoveredInputs()) {
-          state.discoveredInputs =
-              skyframeActionExecutor.discoverInputs(action, actionExecutionContext);
-          if (state.discoveredInputs == null) {
-            // Action had nothing to tell us about discovered inputs before execution. We'll have to
-            // add them afterwards.
-            inputsDiscoveredDuringActionExecution = true;
-          }
-        }
-        if (state.discoveredInputs != null
-            && !inputArtifactData.keySet().containsAll(state.discoveredInputs)) {
-          inputArtifactData = addDiscoveredInputs(inputArtifactData, state.discoveredInputs,
-              env);
-          if (env.valuesMissing()) {
-            // This is the only place that we actually preserve meaningful state across restarts.
-            return null;
-          }
-          fileAndMetadataCache = new FileAndMetadataCache(
-              inputArtifactData,
-              expandedMiddlemen,
-              skyframeActionExecutor.getExecRoot(),
-              action.getOutputs(),
-              null,
-              tsgm
-          );
-          actionExecutionContext = skyframeActionExecutor.constructActionExecutionContext(
-              fileAndMetadataCache, fileAndMetadataCache);
+      if (inputArtifactData != null) {
+        actionExecutionContext = skyframeActionExecutor.constructActionExecutionContext(
+            fileAndMetadataCache, metadataHandler);
+        if (action.discoversInputs()) {
+          skyframeActionExecutor.discoverInputs(action, actionExecutionContext);
         }
       }
-      // Clear state before actual execution of action. It will never be needed again because
-      // skyframeActionExecutor is guaranteed to have a result after this.
-      Token token = state.token;
-      if (action.discoversInputs()) {
-        removeState(action);
-      }
-      state = null;
+      // If this is the second time we are here (because the action discovers inputs, and we had
+      // to restart the value builder after declaring our dependence on newly discovered inputs),
+      // the result returned here is the already-computed result from the first run.
+      // Similarly, if this is a shared action and the other action is the one that executed, we
+      // must use that other action's value, provided here, since it is populated with metadata
+      // for the outputs.
+      // If this action was not shared and this is the first run of the action, this returned
+      // result was computed during the call.
       return skyframeActionExecutor.executeAction(action, fileAndMetadataCache, token,
           actionStartTime, actionExecutionContext);
     } finally {
       try {
-        actionExecutionContext.getFileOutErr().close();
+        if (actionExecutionContext != null) {
+          actionExecutionContext.getFileOutErr().close();
+        }
       } catch (IOException e) {
         // Nothing we can do here.
       }
-      if (inputsDiscoveredDuringActionExecution) {
-        declareAdditionalDependencies(env, action);
-      }
     }
-  }
-
-  private static Map<Artifact, FileArtifactValue> addDiscoveredInputs(
-      Map<Artifact, FileArtifactValue> originalInputData, Collection<Artifact> discoveredInputs,
-      Environment env) {
-    Map<Artifact, FileArtifactValue> result = new HashMap<>(originalInputData);
-    Set<SkyKey> keys = new HashSet<>();
-    for (Artifact artifact : discoveredInputs) {
-      if (!result.containsKey(artifact)) {
-        // Note that if the artifact is derived, the mandatory flag is ignored.
-        keys.add(ArtifactValue.key(artifact, /*mandatory=*/false));
-      }
-    }
-    // We do not do a getValuesOrThrow() call for the following reasons:
-    // 1. No exceptions can be thrown for non-mandatory inputs;
-    // 2. Any derived inputs must be in the transitive closure of this action's inputs. Therefore,
-    // if there was an error building one of them, then that exception would have percolated up to
-    // this action already, through one of its declared inputs, and we would not have reached input
-    // discovery.
-    // Therefore there is no need to catch and rethrow exceptions as there is with #checkInputs.
-    Map<SkyKey, SkyValue> data = env.getValues(keys);
-    if (env.valuesMissing()) {
-      return null;
-    }
-    for (Map.Entry<SkyKey, SkyValue> depsEntry : data.entrySet()) {
-      Artifact input = ArtifactValue.artifact(depsEntry.getKey());
-      result.put(input,
-          Preconditions.checkNotNull((FileArtifactValue) depsEntry.getValue(), input));
-    }
-    return result;
   }
 
   private static Iterable<SkyKey> toKeys(Iterable<Artifact> inputs,
@@ -361,7 +291,7 @@ public class ActionExecutionFunction implements SkyFunction, CompletionReceiver 
     // Only populate input data if we have the input values, otherwise they'll just go unused.
     // We still want to loop through the inputs to collect missing deps errors. During the
     // evaluator "error bubbling", we may get one last chance at reporting errors even though
-    // some deps are still missing.
+    // some deps are stilling missing.
     boolean populateInputData = !env.valuesMissing();
     NestedSetBuilder<Label> rootCauses = NestedSetBuilder.stableOrder();
     Map<Artifact, FileArtifactValue> inputArtifactData =
@@ -442,52 +372,6 @@ public class ActionExecutionFunction implements SkyFunction, CompletionReceiver 
   @Override
   public String extractTag(SkyKey skyKey) {
     return null;
-  }
-
-  /**
-   * Should be called once execution is over, and the intra-build cache of in-progress computations
-   * should be discarded. If the cache is non-empty (due to an interrupted/failed build), failure to
-   * call complete() can both cause a memory leak and incorrect results on the subsequent build.
-   */
-  @Override
-  public void complete() {
-    // Discard all remaining state (there should be none after a successful execution).
-    stateMap = Maps.newConcurrentMap();
-  }
-
-  private ContinuationState getState(Action action) {
-    ContinuationState state = stateMap.get(action);
-    if (state == null) {
-      state = new ContinuationState();
-      Preconditions.checkState(stateMap.put(action, state) == null, action);
-    }
-    return state;
-  }
-
-  private void removeState(Action action) {
-    Preconditions.checkNotNull(stateMap.remove(action), action);
-  }
-
-  /**
-   * State to save work across restarts of ActionExecutionFunction due to missing discovered inputs.
-   */
-  private static class ContinuationState {
-    Token token = null;
-    Collection<Artifact> discoveredInputs = null;
-
-    // This will always be false for actions that don't discover their inputs, but we never restart
-    // those actions in any case. For actions that do discover their inputs, they either discover
-    // them before execution, in which case discoveredInputs will be non-null if that has already
-    // happened, or after execution, in which case they returned null when Action#discoverInputs()
-    // was called, and won't restart due to missing dependencies before execution.
-    boolean hasDiscoveredInputs() {
-      return discoveredInputs != null;
-    }
-
-    @Override
-    public String toString() {
-      return token + ", " + discoveredInputs;
-    }
   }
 
   /**

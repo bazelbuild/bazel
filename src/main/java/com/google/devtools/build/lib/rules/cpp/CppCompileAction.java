@@ -89,13 +89,13 @@ public class CppCompileAction extends AbstractAction implements IncludeScannable
     /**
      * Returns the set of files to be added for an included file (as returned in the .d file)
      */
-    Collection<Artifact> getInputsForIncludedFile(
+    Iterable<Artifact> getInputsForIncludedFile(
         Artifact includedFile, ArtifactResolver artifactResolver);
   }
 
   public static final IncludeResolver VOID_INCLUDE_RESOLVER = new IncludeResolver() {
     @Override
-    public Collection<Artifact> getInputsForIncludedFile(Artifact includedFile,
+    public Iterable<Artifact> getInputsForIncludedFile(Artifact includedFile,
         ArtifactResolver artifactResolver) {
       return ImmutableList.of();
     }
@@ -308,38 +308,16 @@ public class CppCompileAction extends AbstractAction implements IncludeScannable
   public Collection<Artifact> discoverInputs(ActionExecutionContext actionExecutionContext)
       throws ActionExecutionException, InterruptedException {
     Executor executor = actionExecutionContext.getExecutor();
-    Collection<Artifact> initialResult;
+    Collection<Artifact> returnValue = null;
     try {
-      initialResult = executor.getContext(CppCompileActionContext.class)
+      returnValue = executor.getContext(CppCompileActionContext.class)
           .findAdditionalInputs(this, actionExecutionContext);
     } catch (ExecException e) {
       throw e.toActionExecutionException("Include scanning of rule '" + getOwner().getLabel() + "'",
           executor.getVerboseFailures(), this);
     }
-    if (initialResult == null) {
-      // We will find inputs during execution. Store an empty list to show we did try to discover
-      // inputs and return null to inform the caller that inputs will be discovered later.
-      this.additionalInputs = ImmutableList.of();
-      return null;
-    }
-    this.additionalInputs = initialResult;
-    // In some cases, execution backends need extra files for each included file. Add them
-    // to the set of inputs the caller may need to be aware of.
-    Collection<Artifact> result = new HashSet<>();
-    ArtifactResolver artifactResolver =
-        executor.getContext(IncludeScanningContext.class).getArtifactResolver();
-    for (Artifact artifact : initialResult) {
-      result.addAll(includeResolver.getInputsForIncludedFile(artifact, artifactResolver));
-    }
-    for (Artifact artifact : getInputs()) {
-      result.addAll(includeResolver.getInputsForIncludedFile(artifact, artifactResolver));
-    }
-    if (result.isEmpty()) {
-      result = initialResult;
-    } else {
-      result.addAll(initialResult);
-    }
-    return result;
+    this.additionalInputs = returnValue == null ? ImmutableList.<Artifact>of() : returnValue;
+    return returnValue;
   }
 
   @Override
