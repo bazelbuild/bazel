@@ -97,11 +97,13 @@ public final class Root implements Comparable<Root>, Serializable {
   @Nullable private final Path execRoot;
   private final Path path;
   private final boolean isMiddlemanRoot;
+  private final PathFragment execPath;
 
   private Root(@Nullable Path execRoot, Path path, boolean isMiddlemanRoot) {
     this.execRoot = execRoot;
     this.path = Preconditions.checkNotNull(path);
     this.isMiddlemanRoot = isMiddlemanRoot;
+    this.execPath = isSourceRoot() ? PathFragment.EMPTY_FRAGMENT : path.relativeTo(execRoot);
   }
 
   private Root(@Nullable Path execRoot, Path path) {
@@ -117,7 +119,7 @@ public final class Root implements Comparable<Root>, Serializable {
    * the empty fragment.
    */
   public PathFragment getExecPath() {
-    return isSourceRoot() ? PathFragment.EMPTY_FRAGMENT : path.relativeTo(execRoot);
+    return execPath;
   }
 
   @SkylarkCallable(name = "path", structField = true,
