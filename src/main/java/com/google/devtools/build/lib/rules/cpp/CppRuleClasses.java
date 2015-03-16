@@ -80,7 +80,7 @@ public class CppRuleClasses {
    * A string constant for the parse_headers feature.
    */
   public static final String PARSE_HEADERS = "parse_headers";
-  
+
   /**
    * A string constant for the preprocess_headers feature.
    */
@@ -91,29 +91,39 @@ public class CppRuleClasses {
    * header_modules features.
    */
   public static final String MODULE_MAPS = "module_maps";
-  
+
   /**
    * A string constant for the module_map_home_cwd feature.
    */
   public static final String MODULE_MAP_HOME_CWD = "module_map_home_cwd";
-  
+
   /**
    * A string constant for the layering_check feature.
    */
   public static final String LAYERING_CHECK = "layering_check";
-  
+
   /**
    * A string constant for the header_modules feature.
    */
   public static final String HEADER_MODULES = "header_modules";
-  
+
   /**
    * A string constant for the use_header_modules feature.
-   * 
+   *
    * <p>This feature is only used during rollout; we expect to default enable this once we
    * have verified that module-enabled compilation is stable enough.
    */
   public static final String USE_HEADER_MODULES = "use_header_modules";
+
+  /**
+   * A string constant for the generate_submodules feature.
+   *
+   * <p>This feature is only used temporarily to make the switch to using submodules easier. With
+   * submodules, each header of a cc_library is placed into a submodule of the module generated for
+   * the appropriate target. As this influences the layering_check semantics and needs to be synced
+   * with a clang release, we want to be able to switch back and forth easily.
+   */
+  public static final String GENERATE_SUBMODULES = "generate_submodules";
 
   /**
    * A string constant for switching on that a header module file includes information about
@@ -122,12 +132,12 @@ public class CppRuleClasses {
    */
   public static final String HEADER_MODULE_INCLUDES_DEPENDENCIES =
       "header_module_includes_dependencies";
-  
+
   /**
    * A string constant for the no_legacy_features feature.
-   * 
-   * </p>If this feature is enabled, Bazel will not extend the crosstool configuration with the
-   * default legacy feature set. 
+   *
+   * <p>If this feature is enabled, Bazel will not extend the crosstool configuration with the
+   * default legacy feature set.
    */
   public static final String NO_LEGACY_FEATURES = "no_legacy_features";
 }

@@ -30,6 +30,7 @@ import java.io.OutputStream;
 import java.nio.charset.StandardCharsets;
 import java.util.ArrayList;
 import java.util.Collection;
+import java.util.HashSet;
 import java.util.List;
 
 /**
@@ -55,11 +56,12 @@ public class CppModuleMapAction extends AbstractFileWriteAction {
   private final ImmutableList<CppModuleMap> dependencies;
   private final ImmutableList<PathFragment> additionalExportedHeaders;
   private final boolean compiledModule;
+  private final boolean generateSubmodules;
 
   public CppModuleMapAction(ActionOwner owner, CppModuleMap cppModuleMap,
       Iterable<Artifact> privateHeaders, Iterable<Artifact> publicHeaders,
       Iterable<CppModuleMap> dependencies, Iterable<PathFragment> additionalExportedHeaders,
-      boolean compiledModule, boolean moduleMapHomeIsCwd) {
+      boolean compiledModule, boolean moduleMapHomeIsCwd, boolean generateSubmodules) {
     super(owner, ImmutableList.<Artifact>of(), cppModuleMap.getArtifact(),
         /*makeExecutable=*/false);
     this.cppModuleMap = cppModuleMap;
@@ -69,6 +71,7 @@ public class CppModuleMapAction extends AbstractFileWriteAction {
     this.dependencies = ImmutableList.copyOf(dependencies);
     this.additionalExportedHeaders = ImmutableList.copyOf(additionalExportedHeaders);
     this.compiledModule = compiledModule;
+    this.generateSubmodules = generateSubmodules;
   }
 
   @Override
@@ -85,15 +88,19 @@ public class CppModuleMapAction extends AbstractFileWriteAction {
         String leadingPeriods = moduleMapHomeIsCwd ? "" : Strings.repeat("../", segmentsToExecPath);
         content.append("module \"").append(cppModuleMap.getName()).append("\" {\n");
         content.append("  export *\n");
+
+        HashSet<PathFragment> deduper = new HashSet<>();
+        for (Artifact artifact : publicHeaders) {
+          appendHeader(
+              content, "", artifact.getExecPath(), leadingPeriods, /*canCompile=*/true, deduper);
+        }
         for (Artifact artifact : privateHeaders) {
           appendHeader(content, "private", artifact.getExecPath(), leadingPeriods,
-              /*canCompile=*/true);
-        }
-        for (Artifact artifact : publicHeaders) {
-          appendHeader(content, "", artifact.getExecPath(), leadingPeriods, /*canCompile=*/true);
+              /*canCompile=*/true, deduper);
         }
         for (PathFragment additionalExportedHeader : additionalExportedHeaders) {
-          appendHeader(content, "", additionalExportedHeader, leadingPeriods, /*canCompile*/false);
+          appendHeader(
+              content, "", additionalExportedHeader, leadingPeriods, /*canCompile*/ false, deduper);
         }
         for (CppModuleMap dep : dependencies) {
           content.append("  use \"").append(dep.getName()).append("\"\n");
@@ -113,7 +120,15 @@ public class CppModuleMapAction extends AbstractFileWriteAction {
   }
   
   private void appendHeader(StringBuilder content, String visibilitySpecifier, PathFragment path,
-      String leadingPeriods, boolean canCompile) {
+      String leadingPeriods, boolean canCompile, HashSet<PathFragment> deduper) {
+    if (deduper.contains(path)) {
+      return;
+    }
+    deduper.add(path);
+    if (generateSubmodules) {
+      content.append("  module \"").append(path).append("\" {\n");
+      content.append("    export *\n  ");
+    }
     content.append("  ");
     if (!visibilitySpecifier.isEmpty()) {
       content.append(visibilitySpecifier).append(" ");
@@ -121,7 +136,11 @@ public class CppModuleMapAction extends AbstractFileWriteAction {
     if (!canCompile || !shouldCompileHeader(path)) {
       content.append("textual ");
     }
-    content.append("header \"").append(leadingPeriods).append(path).append("\"\n");
+    content.append("header \"").append(leadingPeriods).append(path).append("\"");
+    if (generateSubmodules) {
+      content.append("\n  }");
+    }
+    content.append("\n");
   }
   
   private boolean shouldCompileHeader(PathFragment path) {
