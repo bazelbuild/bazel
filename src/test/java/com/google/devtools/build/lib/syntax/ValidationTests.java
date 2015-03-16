@@ -398,6 +398,15 @@ public class ValidationTests extends AbstractParserTestCase {
   }
 
   @Test
+  public void testNoneIsAnyType() throws Exception {
+    parse("None + None");
+    parse("2 == None");
+    parse("None > 'a'");
+    parse("[] in None");
+    parse("5 * None");
+  }
+
+  @Test
   public void testDictComprehensionNotOnList() throws Exception {
     checkError("Dict comprehension elements must be a list", "{k : k for k in 'abc'}");
   }

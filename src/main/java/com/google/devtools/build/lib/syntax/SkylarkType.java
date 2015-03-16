@@ -594,7 +594,7 @@ public abstract class SkylarkType {
    * @param type a SkylarkType suitable for runtime type checking.
    * @return the corresponding SkylarkType suitable for a type validation.
    */
-  private static SkylarkType typeForInference(SkylarkType type) {
+  public static SkylarkType typeForInference(SkylarkType type) {
     return type == NONE ? TOP : type;
   }
 
