@@ -189,13 +189,13 @@ java_test(
 )
 
 java_library(
-    name = "analysis_actions_test",
+    name = "analysis_testutil",
     srcs = glob([
-        "com/google/devtools/build/lib/analysis/**/*.java",
+        "com/google/devtools/build/lib/analysis/util/*.java",
         "com/google/devtools/build/lib/exec/util/*.java",
         "com/google/devtools/build/lib/packages/util/*.java",
+        "com/google/devtools/build/lib/skyframe/util/*.java",
     ]),
-    #     args = ["com.google.devtools.build.lib.AllTests"],
     data = [
         "//src/main/native:libunix.dylib",
         "//src/main/native:libunix.so",
@@ -205,6 +205,29 @@ java_library(
     ],
     deps = [
         ":actions_testutil",
+        ":foundations_testutil",
+        ":test_runner",
+        ":testutil",
+        "//src/main/java:bazel-core",
+        "//src/main/protobuf:proto_extra_actions_base",
+        "//third_party:guava",
+        "//third_party:guava-testlib",
+        "//third_party:jsr305",
+        "//third_party:junit4",
+        "//third_party:mockito",
+        "//third_party:truth",
+    ],
+)
+
+java_library(
+    name = "analysis_actions_test",
+    srcs = glob([
+        "com/google/devtools/build/lib/analysis/actions/*.java",
+    ]),
+    #     args = ["com.google.devtools.build.lib.AllTests"],
+    deps = [
+        ":actions_testutil",
+        ":analysis_testutil",
         ":foundations_testutil",
         ":test_runner",
         ":testutil",
