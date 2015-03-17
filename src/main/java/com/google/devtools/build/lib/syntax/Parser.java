@@ -19,6 +19,7 @@ import com.google.common.base.Preconditions;
 import com.google.common.base.Supplier;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
+import com.google.devtools.build.lib.Constants;
 import com.google.devtools.build.lib.events.Event;
 import com.google.devtools.build.lib.events.EventHandler;
 import com.google.devtools.build.lib.events.Location;
@@ -138,9 +139,6 @@ class Parser {
   private CachingPackageLocator locator;
 
   private List<Path> includedFiles;
-
-  private static final String PREPROCESSING_NEEDED =
-      "Add \"# PYTHON-PREPROCESSING-REQUIRED\" on the first line of the file";
 
   private Parser(Lexer lexer, EventHandler eventHandler, CachingPackageLocator locator,
                  boolean parsePython) {
@@ -740,8 +738,7 @@ class Parser {
     int end = token.right;
     if (multipleVariables && !parsePython) {
       reportError(lexer.createLocation(start, end),
-          "For loops with multiple variables are not yet supported. "
-          + PREPROCESSING_NEEDED);
+          "For loops with multiple variables are not yet supported");
     }
     return multipleVariables ? makeErrorExpression(start, end) : firstIdent;
   }
@@ -1317,7 +1314,7 @@ class Parser {
     if (!parsePython) {
       reportError(lexer.createLocation(start, token.right), "syntax error at '"
                   + blockToken + "': This Python-style construct is not supported. "
-                  + PREPROCESSING_NEEDED);
+                  + Constants.PARSER_ERROR_EXTENSION_NEEDED);
     }
     expect(TokenKind.COLON);
     skipSuite();

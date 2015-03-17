@@ -791,7 +791,7 @@ public class ParserTest extends AbstractParserTestCase {
         "[ i for i, j, k in [(1, 2, 3)] ]\n",
         false /* no parsePython */);
     assertThat(stmts).hasSize(1);
-    syntaxEvents.assertContainsEvent("For loops with multiple variables are not yet supported.");
+    syntaxEvents.assertContainsEvent("For loops with multiple variables are not yet supported");
   }
 
   @Test

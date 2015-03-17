@@ -71,4 +71,11 @@ public class Constants {
    */
   public static final ImmutableList<String> BASELINE_COVERAGE_OFFLINE_INSTRUMENTATION_SUFFIXES =
       ImmutableList.<String>of();
+
+  /**
+   * Error message from the parser. This happens when a BUILD file contains
+   * a block (e.g. a function).
+   */
+  public static final String PARSER_ERROR_EXTENSION_NEEDED =
+      "Move this construct to a macro in a .bzl file and load it";
 }
