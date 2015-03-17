@@ -13,8 +13,9 @@ What is special about Bazel?
 Bazel was designed to fit the way software is developed at Google. It
 has the following features:
 
-* Multi-language support: Bazel supports Java and C++ out of the box,
-  and can be extended to support arbitrary programming languages.
+* Multi-language support: Bazel supports Java, Objective-C and C++ out
+  of the box, and can be extended to support arbitrary programming
+  languages.
 
 * High-level build language: Projects are described in the BUILD
   language, a concise text format that describes a project as sets of
@@ -106,7 +107,7 @@ that this is fast enough for most of our users.
 How does the Google development process work?
 ----------------------------------------------
 
-For our server code, we use the following development workflow:
+For our server code base, we use the following development workflow:
 
 * All of our server code base is in a single, gigantic version control
   system.
@@ -119,7 +120,7 @@ For our server code, we use the following development workflow:
 * Branching is primarily used for managing releases, so everybody
   develops their software at head.
 
-Bazel is a cornerstones of this philosophy: since Bazel requires all
+Bazel is a cornerstone of this philosophy: since Bazel requires all
 dependencies to be fully specified, we can predict which programs and
 tests are affected by a change, and vet them before submission.
 
@@ -185,11 +186,11 @@ straightforward, provided a JDK is available for the platform.
 What about Windows?
 -------------------
 
-We have experimented with a Windows port using MinGW/MSYS (see
-README.windows), but have no plans to invest in this port right
-now. Due to its Unix heritage, porting Bazel is significant work. For
-example, Bazel uses symlinks extensively, which has varying levels of
-support across Windows versions.
+We have experimented with a Windows port
+[using MinGW/MSYS](windows.md), but have no plans to invest in this
+port right now. Due to its Unix heritage, porting Bazel is significant
+work. For example, Bazel uses symlinks extensively, which has varying
+levels of support across Windows versions.
 
 
 What should I not use Bazel for?
@@ -220,19 +221,8 @@ versions multiple times every month.
 
 In short, except for features marked as experimental, at any point in
 time, Bazel should Just Work. Changes to non-experimental rules will
-be backward compatible.
-
-You can recognize the different experimental features as follows:
-
-* Options: Experimental features start with --experimental_.
-
-* Rules: Experimental rules are undocumented in the
-  build encyclopedia. TODO(bazel-team): add link.
-
-* Attributes: Experimental rule attributes are undocumented in the
-  build encyclopedia. TODO(bazel-team): add link.
-
-* TODO(bazel-team): document skylark status more precisely.
+be backward compatible. A more detailed list of feature support
+statuses can be found in our [support document](support.md).
 
 
 How stable is Bazel as a binary?
@@ -247,7 +237,7 @@ How can I start using Bazel?
 
 See our [getting started doc](getting-started.md)
 
-TODO(bazel-team): more doc links
+TODO(bazel-team): link to an index of all our docs.
 
 
 Why do I need to have a tools/ directory in my source tree?
@@ -265,11 +255,11 @@ do this in a directory called "tools".
 Bazel allows tools such as the JDK to live outside your workspace, but
 the configuration data for this (where is the JDK, where is the C++
 compiler?) still needs to be somewhere, and that place is also the
-tools/ directory.
+`tools/` directory.
 
-Bazel comes with a base_workspace/ directory, containing a minimal set
+Bazel comes with a `base_workspace/` directory, containing a minimal set
 of configuration files, suitable for running toolchains from standard
-system directories, e.g., /usr/bin/.
+system directories, e.g., `/usr/bin/`.
 
 
 Doesn't Docker solve the reproducibility problems?
@@ -284,9 +274,10 @@ It does not address reproducibility with regard to changes in the
 source code.  Running Make with an imperfectly written Makefile inside a
 Docker container can still yield unpredictable results.
 
-Inside Google, we check in tools for reproducibility.  In this way, we
-can vet changes to tools ("upgrade GCC to 4.6.1") with the same
-mechanism as changes to base libraries ("fix bounds check in OpenSSL").
+Inside Google, we check tools into source control for reproducibility.
+In this way, we can vet changes to tools ("upgrade GCC to 4.6.1") with
+the same mechanism as changes to base libraries ("fix bounds check in
+OpenSSL").
 
 
 Will Bazel make my builds reproducible automatically?
@@ -311,7 +302,7 @@ will need to take some extra care:
     traversal is randomized in many programming languages.
 
 TODO(bazel-team): maybe this should be part of the skylark docs
-instead.
+instead, or the genrule docs?
 
 
 Do you have binary releases?
@@ -357,9 +348,11 @@ files for python:
   https://github.com/google/bazel/blob/master/base_workspace/tools/build_rules/py_rules.bzl
   https://github.com/google/bazel/tree/master/base_workspace/examples/py
 
-Our internal Python rules support internal use-cases which rely heavily
-on native extensions, and its supporting infrastructure is specific to
-us, so we have no plans to open-source it.
+We are working on opening up a subset of our internal Python rules, so
+they can be used as helper scripts as part of a build.
+
+We currently have no plans to provide packaging up of self-contained
+Python binaries.
 
 
 
@@ -407,7 +400,8 @@ We are reachable at bazel-discuss@googlegroups.com.
 Where do I report bugs?
 -----------------------
 
-Send us e-mail at bazel-discuss@googlegroups.com.
+Send e-mail to bazel-discuss@googlegroups.com, or file a bug at
+[on github](https://github.com/google/bazel/issues).
 
 
 

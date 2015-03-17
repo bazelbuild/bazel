@@ -69,7 +69,7 @@ Writing Your Own Build Rules
 
 Now you can start adding your own build rules. This example assumes that
 _my-project/_ is a Java project.  See the
-[build encyclopedia](https://github.com/google/bazel/blob/master/docs/historical/build-encyclopedia.html)
+[build encyclopedia](build-encyclopedia.html)
 for advice on writing rules for other languages.
 
 Note that when we ran "bazel build" above, the third argument started with a
@@ -101,7 +101,7 @@ Python, but each build rule looks like a Python function call and you can use
 "hello-world"). `srcs` lists the Java source files Bazel should
 compile into a Java binary.  `glob(["**/*.java"])` is a handy
 shorthand for "recursively include every file that ends with .java" (see the
-[user manual](https://github.com/google/bazel/blob/master/docs/historical/bazel-user-manual.html)
+[user manual](bazel-user-manual.html)
 for more information about globbing). Replace `com.example.ProjectRunner` with
 the class that contains the main method.
 
@@ -271,7 +271,7 @@ INFO: Running command line: bazel-bin/my-project/java/com/example/cmdline/runner
 Hi!
 ```
 
-See the [build encyclopedia](https://github.com/google/bazel/blob/master/docs/historical/build-encyclopedia.html) for more visibility options.
+See the [build encyclopedia](build-encyclopedia.html) for more visibility options.
 
 Deploying
 ---------
@@ -307,9 +307,9 @@ Next Steps
 ----------
 
 You can now create your own targets and compose them.  See the [build
-encyclopedia](https://github.com/google/bazel/blob/master/docs/historical/build-encyclopedia.html)
+encyclopedia](build-encyclopedia.html)
 and Bazel
-[user manual](https://github.com/google/bazel/blob/master/docs/historical/bazel-user-manual.html)
+[user manual](bazel-user-manual.html)
 for more information.
 [Let us know](https://groups.google.com/forum/#!forum/bazel-discuss)
 if you have any questions!

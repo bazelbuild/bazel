@@ -1,15 +1,18 @@
 # Support Policy
 
-We generally avoid making incompatible changes. At Google, we run all of the tests in the entire
-depot before every release and check that there are no regressions. It is much more difficult to do
-that outside of Google, because there is no single source repository that contains everything.
+We generally avoid making backward-incompatible changes. At Google, we
+run all of the tests in the entire depot before every release and
+check that there are no regressions. It is much more difficult to do
+that outside of Google, because there is no single source repository
+that contains everything.
 
 All undocumented features (attributes, rules, "Make" variables, and flags) are subject to change at
 any time without prior notice. Features that are documented but marked *experimental* are also
 subject to change at any time without prior notice. The Skylark macro and rules language (anything
 you write in a `.bzl` file) is still subject to change.
 
-Bugs can be reported in the [GitHub bugtracker](https://github.com/google/bazel/issues). We will
+Bugs can be reported in the
+[GitHub bugtracker](https://github.com/google/bazel/issues). We will
 make an effort to triage all reported issues within 2 business days; we will measure our triaging
 process and regularly report numbers.
 

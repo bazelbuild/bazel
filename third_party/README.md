@@ -1,3 +1,8 @@
+This file lists license and version information of all code we did not
+author, but ship together with the source so building Bazel requires
+a minimal set of extra dependencies.
+
+
 [aether](http://eclipse.org/aether/)
 --------
 

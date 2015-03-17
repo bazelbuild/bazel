@@ -46,9 +46,8 @@ Alpha users will need to build Bazel from source; we will not provide binary
 releases until the beta. We will accept code contributions, but may need to
 reject or defer code contributions related to beta features still under
 development. Some features will be fully supported
-henceforward, others are still experimental or partially supported; see
-bazel/docs/governance.md for details.
-
+henceforward, others are still experimental or partially supported;
+see our [feature support document](support.md) for details.
 
 The following features/capabilities will be available in the alpha:
 

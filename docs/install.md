@@ -39,9 +39,10 @@ To build Bazel on Ubuntu:
 
 Using Bazel on Mac OS X requires:
 
-* Xcode and Xcode command line tools
-* MacPorts or Homebrew for installing required packages
-* A JDK 8 installed
+* The Xcode command line tools. Xcode can be downloaded from
+  [Apbple's developer site](https://developer.apple.com/xcode/downloads/).
+* MacPorts or Homebrew for installing required packages.
+* An installation of JDK 8.
 
 To build Bazel on Mac OS X:
 
@@ -59,17 +60,25 @@ To build Bazel on Mac OS X:
         $ cd bazel
         $ ./compile.sh
 
+3. Run it
+
+        $ ./output/bazel help
+
+
 ## Running Bazel
 
-The Bazel executable is located at `<bazel_home>/output/bazel`.
+The Bazel executable is located at `output/bazel`, under the source
+tree root.
 
-You must run Bazel from within a _workspace directory_. Bazel provides a default
-workspace directory with sample `BUILD` files and source code in
-`<bazel_home>/base_workspace`. The default workspace contains files and
-directories that must be present in order for Bazel to work. If you want to
-build from source outside the default workspace directory, copy the entire
-`base_workspace` directory to the new location before adding your `BUILD` and
-source files.
+You must run Bazel from within source code tree, which is properly
+configured for use with Bazel. We call such a tree a _workspace
+directory_. Bazel provides a default workspace directory with sample
+`BUILD` files and source code in `base_workspace`. The default
+workspace contains files and directories that must be present in order
+for Bazel to work. If you want to build from source outside the
+default workspace directory, copy the entire `base_workspace`
+directory to the new location before adding your `BUILD` and source
+files.
 
 Build a sample Java application:
 

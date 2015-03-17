@@ -2,7 +2,7 @@
 
 *{Fast, Correct} - Choose two*
 
-Bazel is an build tool that builds code quickly and reliably.
+Bazel is a build tool that builds code quickly and reliably.
 It executes as few build steps as possible by tracking dependencies and outputs,
 controls the build environment to keep builds hermetic, and uses its
 knowledge of dependencies to parallelize builds.
@@ -13,9 +13,9 @@ knowledge of dependencies to parallelize builds.
 
   * How to [install Bazel](docs/install.md)
   * How to [get started using Bazel](docs/getting-started.md)
-  * How to [use the query command](docs/bazel-query-v2.html)
-  * How to [extend Bazel](docs/skylark/index.md)
   * The rule reference documentation is in the [build encyclopedia](docs/build-encyclopedia.html).
+  * How to [use the query command](docs/bazel-query.html)
+  * How to [extend Bazel](docs/skylark/index.md)
   * TODO(bazel-team): link to the user-manual
   * TODO(bazel-team): link to the test encyclopedia?
 
