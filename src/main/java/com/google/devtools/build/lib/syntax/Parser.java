@@ -958,7 +958,7 @@ class Parser {
     return list;
   }
 
-  // load(STRING (COMMA STRING)*)
+  // load '(' STRING (COMMA STRING)* COMMA? ')'
   private void parseLoad(List<Statement> list) {
     int start = token.left;
     if (token.kind != TokenKind.STRING) {
@@ -974,7 +974,7 @@ class Parser {
       symbols.add(new Ident((String) token.value));
     }
     expect(TokenKind.STRING);
-    while (token.kind != TokenKind.RPAREN) {
+    while (token.kind != TokenKind.RPAREN && token.kind != TokenKind.EOF) {
       expect(TokenKind.COMMA);
       if (token.kind == TokenKind.RPAREN) {
         break;

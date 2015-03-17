@@ -846,6 +846,13 @@ public class ParserTest extends AbstractParserTestCase {
   }
 
   @Test
+  public void testLoadNoSymbol() throws Exception {
+    syntaxEvents.setFailFast(false);
+    parseFileForSkylark("load('/foo/bar/file')\n");
+    syntaxEvents.assertContainsEvent("syntax error");
+  }
+
+  @Test
   public void testLoadOneSymbol() throws Exception {
     List<Statement> statements = parseFileForSkylark(
         "load('/foo/bar/file', 'fun_test')\n");
