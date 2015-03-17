@@ -133,11 +133,6 @@ public class Package implements Serializable {
   private boolean defaultVisibilitySet;
 
   /**
-   * Default package-level 'obsolete' value for rules that do not specify it.
-   */
-  private boolean defaultObsolete = false;
-
-  /**
    * Default package-level 'testonly' value for rules that do not specify it.
    */
   private boolean defaultTestOnly = false;
@@ -285,13 +280,6 @@ public class Package implements Serializable {
    */
   protected void setDefaultHdrsCheck(String defaultHdrsCheck) {
     this.defaultHdrsCheck = defaultHdrsCheck;
-  }
-
-  /**
-   * Set the default 'obsolete' value for this package.
-   */
-  protected void setDefaultObsolete(boolean obsolete) {
-    defaultObsolete = obsolete;
   }
 
   /**
@@ -646,13 +634,6 @@ public class Package implements Serializable {
   }
 
   /**
-   * Returns the default obsolete value.
-   */
-  public Boolean getDefaultObsolete() {
-    return defaultObsolete;
-  }
-
-  /**
    * Returns the default testonly value.
    */
   public Boolean getDefaultTestOnly() {
@@ -660,7 +641,7 @@ public class Package implements Serializable {
   }
 
   /**
-   * Returns the default obsolete value.
+   * Returns the default deprecation value.
    */
   public String getDefaultDeprecation() {
     return defaultDeprecation;
@@ -943,14 +924,6 @@ public class Package implements Serializable {
      */
     B setDefaultVisibilitySet(boolean defaultVisibilitySet) {
       this.defaultVisibilitySet = defaultVisibilitySet;
-      return self();
-    }
-
-    /**
-     * Sets the default value of 'obsolete'. Rule-level 'obsolete' will override this.
-     */
-    B setDefaultObsolete(boolean defaultObsolete) {
-      pkg.setDefaultObsolete(defaultObsolete);
       return self();
     }
 
@@ -1350,8 +1323,7 @@ public class Package implements Serializable {
       // time, as forward references are permitted.
       List<Label> allTests = new ArrayList<>();
       for (Rule rule : rules) {
-        if (TargetUtils.isTestRule(rule) && !TargetUtils.hasManualTag(rule)
-            && !TargetUtils.isObsolete(rule)) {
+        if (TargetUtils.isTestRule(rule) && !TargetUtils.hasManualTag(rule)) {
           allTests.add(rule.getLabel());
         }
       }

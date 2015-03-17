@@ -159,18 +159,6 @@ public final class PackageFactory {
     }
   }
 
-  private static class DefaultObsolete extends PackageArgument<Boolean> {
-    private DefaultObsolete() {
-      super("default_obsolete", Type.BOOLEAN);
-    }
-
-    @Override
-    protected void process(Package.LegacyBuilder pkgBuilder, Location location,
-        Boolean value) {
-      pkgBuilder.setDefaultObsolete(value);
-    }
-  }
-
   private static class DefaultTestOnly extends PackageArgument<Boolean> {
     private DefaultTestOnly() {
       super("default_testonly", Type.BOOLEAN);
@@ -432,7 +420,6 @@ public final class PackageFactory {
            .add(new DefaultDeprecation())
            .add(new DefaultDistribs())
            .add(new DefaultLicenses())
-           .add(new DefaultObsolete())
            .add(new DefaultTestOnly())
            .add(new DefaultVisibility())
            .add(new Features())

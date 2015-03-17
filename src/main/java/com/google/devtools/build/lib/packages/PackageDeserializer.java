@@ -316,9 +316,6 @@ public class PackageDeserializer {
     // It's important to do this after setting the default visibility, since that implicitly sets
     // this bit to true
     builder.setDefaultVisibilitySet(packagePb.getDefaultVisibilitySet());
-    if (packagePb.hasDefaultObsolete()) {
-      builder.setDefaultObsolete(packagePb.getDefaultObsolete());
-    }
     if (packagePb.hasDefaultTestonly()) {
       builder.setDefaultTestonly(packagePb.getDefaultTestonly());
     }

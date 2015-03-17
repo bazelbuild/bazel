@@ -43,8 +43,7 @@ import java.util.logging.Logger;
  */
 public class PathPackageLocator implements Serializable {
 
-  public static final Set<String> DEFAULT_TOP_LEVEL_EXCLUDES =
-      ImmutableSet.of("experimental", "obsolete");
+  public static final Set<String> DEFAULT_TOP_LEVEL_EXCLUDES = ImmutableSet.of("experimental");
 
   /**
    * An interface which accepts {@link PathFragment}s.

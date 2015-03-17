@@ -658,9 +658,9 @@ Subtractive patterns:
   building the former.
 </p>
 <p>
-Targets with <code>obsolete=1</code> or <code>tags=["manual"]</code> will
-be ignored by all command line wildcards (..., :*, :all, etc). The only
-way to run such targets is to specify them explicitly on the command line.
+  Targets with <code>tags=["manual"]</code> will be ignored by all command line
+  wildcards (..., :*, :all, etc). The only way to run such targets is to
+  specify them explicitly on the command line.
 </p>
 
 <h3 id='configurations'>Build configurations and cross-compilation</h3>
@@ -2914,11 +2914,6 @@ Examples:
   <li>Test rules marked with the <code>flaky=1</code> attribute are considered
     to be flaky and will be automatically retried up to 3 times unless larger
     <code class='flag'>--flaky_test_attempts</code> value has been specified.
-  </li>
-  <li>Test rules marked with the <code>obsolete=1</code> attribute will be
-    ignored by the <code>test_suite</code> rules and by all command line
-    wildcards - this behavior is identical to the <code>manual</code> keyword
-    described above.
   </li>
 
 </ul>

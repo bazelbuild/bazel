@@ -196,8 +196,6 @@ public class AggregatingAttributeMapper extends AbstractAttributeMapper {
       @Override
       public String getPackageDefaultHdrsCheck() { return owner.getPackageDefaultHdrsCheck(); }
       @Override
-      public Boolean getPackageDefaultObsolete() { return owner.getPackageDefaultObsolete(); }
-      @Override
       public Boolean getPackageDefaultTestOnly() { return owner.getPackageDefaultTestOnly(); }
       @Override
       public String getPackageDefaultDeprecation() { return owner.getPackageDefaultDeprecation(); }

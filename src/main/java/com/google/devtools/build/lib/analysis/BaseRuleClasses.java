@@ -57,14 +57,6 @@ public class BaseRuleClasses {
   private static final Label COVERAGE_SUPPORT_LABEL =
       Label.parseAbsoluteUnchecked("//tools/defaults:coverage");
 
-  private static final Attribute.ComputedDefault obsoleteDefault =
-      new Attribute.ComputedDefault() {
-        @Override
-        public Object getDefault(AttributeMap rule) {
-          return rule.getPackageDefaultObsolete();
-        }
-      };
-
   private static final Attribute.ComputedDefault testonlyDefault =
       new Attribute.ComputedDefault() {
         @Override
@@ -238,8 +230,6 @@ public class BaseRuleClasses {
           .add(attr("licenses", LICENSE)
               .nonconfigurable("Used in core loading phase logic with no access to configs"))
           .add(attr("distribs", DISTRIBUTIONS)
-              .nonconfigurable("Used in core loading phase logic with no access to configs"))
-          .add(attr("obsolete", BOOLEAN).value(obsoleteDefault)
               .nonconfigurable("Used in core loading phase logic with no access to configs"))
           .add(attr(":action_listener", LABEL_LIST).cfg(HOST).value(ACTION_LISTENER))
           .build();

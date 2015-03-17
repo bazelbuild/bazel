@@ -58,20 +58,20 @@ public final class FilteringPolicies {
 
   public static final FilteringPolicy NO_FILTER = new NoFilter();
 
-  private static class FilterManualAndObsolete extends AbstractFilteringPolicy {
+  private static class FilterManual extends AbstractFilteringPolicy {
     @Override
     public boolean shouldRetain(Target target, boolean explicit) {
-      return explicit || !(TargetUtils.hasManualTag(target) || TargetUtils.isObsolete(target));
+      return explicit || !(TargetUtils.hasManualTag(target));
     }
   }
 
-  public static final FilteringPolicy FILTER_MANUAL_AND_OBSOLETE = new FilterManualAndObsolete();
+  public static final FilteringPolicy FILTER_MANUAL = new FilterManual();
 
   private static class FilterTests extends AbstractFilteringPolicy {
     @Override
     public boolean shouldRetain(Target target, boolean explicit) {
       return TargetUtils.isTestOrTestSuiteRule(target)
-          && FILTER_MANUAL_AND_OBSOLETE.shouldRetain(target, explicit);
+          && FILTER_MANUAL.shouldRetain(target, explicit);
     }
   }
 

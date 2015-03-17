@@ -98,8 +98,6 @@ public interface AttributeMap {
   // a more generic interface.
   String getPackageDefaultHdrsCheck();
 
-  Boolean getPackageDefaultObsolete();
-
   Boolean getPackageDefaultTestOnly();
 
   String getPackageDefaultDeprecation();

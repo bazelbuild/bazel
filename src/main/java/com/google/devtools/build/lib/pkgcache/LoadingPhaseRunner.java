@@ -571,7 +571,7 @@ public class LoadingPhaseRunner {
       boolean keepGoing) throws TargetParsingException, InterruptedException {
     ResolvedTargets<Target> result =
         targetPatternEvaluator.parseTargetPatternList(eventHandler, targetPatterns,
-            FilteringPolicies.FILTER_MANUAL_AND_OBSOLETE, keepGoing);
+            FilteringPolicies.FILTER_MANUAL, keepGoing);
     if (compileOneDependency) {
       return new CompileOneDependencyTransformer(packageManager)
           .transformCompileOneDependency(eventHandler, result);

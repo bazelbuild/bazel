@@ -200,7 +200,6 @@ public class PackageSerializer {
       }
     }
 
-    builder.setDefaultObsolete(pkg.getDefaultObsolete());
     builder.setDefaultTestonly(pkg.getDefaultTestOnly());
     if (pkg.getDefaultDeprecation() != null) {
       builder.setDefaultDeprecation(pkg.getDefaultDeprecation());

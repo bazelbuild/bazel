@@ -110,11 +110,6 @@ public abstract class AbstractAttributeMapper implements AttributeMap {
   }
 
   @Override
-  public Boolean getPackageDefaultObsolete() {
-    return pkg.getDefaultObsolete();
-  }
-
-  @Override
   public Boolean getPackageDefaultTestOnly() {
     return pkg.getDefaultTestOnly();
   }

@@ -119,18 +119,6 @@ public final class TargetUtils {
     return hasConstraint(rule, "external");
   }
 
-  /**
-   * Returns true, iff the given target is a rule and it has the attribute
-   * <code>obsolete<code/> set to one.
-   */
-  public static boolean isObsolete(Target target) {
-    if (!(target instanceof Rule)) {
-      return false;
-    }
-    Rule rule = (Rule) target;
-    return (rule.isAttrDefined("obsolete", Type.BOOLEAN))
-        && NonconfigurableAttributeMapper.of(rule).get("obsolete", Type.BOOLEAN);
-  }
 
   /**
    * If the given target is a rule, returns its <code>deprecation<code/> value, or null if unset.

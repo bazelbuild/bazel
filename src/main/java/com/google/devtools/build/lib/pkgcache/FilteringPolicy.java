@@ -20,7 +20,7 @@ import java.io.Serializable;
 
 /**
  * A filtering policy defines how target patterns are matched. For instance, we may wish to select
- * only tests, no tests, or remove obsolete targets.
+ * only tests or no tests.
  */
 public interface FilteringPolicy extends Serializable {
 
