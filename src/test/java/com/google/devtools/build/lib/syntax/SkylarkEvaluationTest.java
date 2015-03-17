@@ -174,6 +174,18 @@ public class SkylarkEvaluationTest extends EvaluationTest {
   }
 
   @Test
+  public void testIfPass() throws Exception {
+    exec(parseFileForSkylark(
+        "def foo():\n"
+        + "  a = 1\n"
+        + "  x = True\n"
+        + "  if x: pass\n"
+        + "  return a\n"
+        + "a = foo()"), env);
+    assertEquals(1, env.lookup("a"));
+  }
+
+  @Test
   public void testNestedIf() throws Exception {
     executeNestedIf(0, 0, env);
     assertEquals(0, env.lookup("x"));

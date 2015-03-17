@@ -56,6 +56,7 @@ public enum TokenKind {
   NOT_EQUALS("!="),
   OR("or"),
   OUTDENT("outdent"),
+  PASS("pass"),
   PERCENT("%"),
   PLUS("+"),
   PLUS_EQUALS("+="),

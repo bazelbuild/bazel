@@ -1016,16 +1016,27 @@ class Parser {
     parseStatement(list, true);
   }
 
+  // small_stmt | 'pass'
+  private void parseSmallStatementOrPass(List<Statement> list) {
+    if (token.kind == TokenKind.PASS) {
+      // Skip the token, don't add it to the list.
+      // It has no existence in the AST.
+      expect(TokenKind.PASS);
+    } else {
+      list.add(parseSmallStatement());
+    }
+  }
+
   // simple_stmt ::= small_stmt (';' small_stmt)* ';'? NEWLINE
   private void parseSimpleStatement(List<Statement> list) {
-    list.add(parseSmallStatement());
+    parseSmallStatementOrPass(list);
 
     while (token.kind == TokenKind.SEMI) {
       nextToken();
       if (token.kind == TokenKind.NEWLINE) {
         break;
       }
-      list.add(parseSmallStatement());
+      parseSmallStatementOrPass(list);
     }
     expect(TokenKind.NEWLINE);
     // This is a safe place to recover: There is a new line at top-level

@@ -778,6 +778,23 @@ public class ParserTest extends AbstractParserTestCase {
   }
 
   @Test
+  public void testPass() throws Exception {
+    List<Statement> statements = parseFileForSkylark("pass\n");
+    assertThat(statements).isEmpty();
+  }
+
+  @Test
+  public void testForPass() throws Exception {
+    List<Statement> statements = parseFileForSkylark(
+        "def foo():\n"
+      + "  pass\n");
+
+    assertThat(statements).hasSize(1);
+    FunctionDefStatement stmt = (FunctionDefStatement) statements.get(0);
+    assertThat(stmt.getStatements()).isEmpty();
+  }
+
+  @Test
   public void testSkipIfBlockFail() throws Exception {
     // Do not parse 'if' blocks, when parsePython is not set
     syntaxEvents.setFailFast(false);

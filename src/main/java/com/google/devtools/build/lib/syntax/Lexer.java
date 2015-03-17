@@ -456,6 +456,7 @@ public final class Lexer {
     keywordMap.put("in", TokenKind.IN);
     keywordMap.put("not", TokenKind.NOT);
     keywordMap.put("or", TokenKind.OR);
+    keywordMap.put("pass", TokenKind.PASS);
     keywordMap.put("return", TokenKind.RETURN);
     keywordMap.put("try", TokenKind.TRY);
   }
