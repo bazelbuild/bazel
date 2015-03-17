@@ -15,7 +15,6 @@
 package com.google.devtools.build.lib.rules.objc;
 
 import com.google.common.base.Optional;
-import com.google.common.collect.ImmutableList;
 import com.google.devtools.build.lib.actions.Artifact;
 import com.google.devtools.build.lib.analysis.RuleConfiguredTarget.Mode;
 import com.google.devtools.build.lib.analysis.RuleContext;
@@ -134,12 +133,8 @@ final class BundleSupport {
         new ObjcRuleClasses.Tools(ruleContext),
         objcProvider,
         actoolzipOutput.get(),
-        new ObjcActionsBuilder.ExtraActoolOutputs(actoolPartialInfoplist),
-        new ExtraActoolArgs(
-            new ImmutableList.Builder<String>()
-                .addAll(extraActoolArgs)
-                .add("--output-partial-info-plist", actoolPartialInfoplist.getExecPathString())
-                .build()),
+        actoolPartialInfoplist,
+        extraActoolArgs,
         targetDeviceFamilies);
   }
 
