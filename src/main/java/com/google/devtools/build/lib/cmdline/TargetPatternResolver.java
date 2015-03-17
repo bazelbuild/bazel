@@ -32,13 +32,13 @@ public interface TargetPatternResolver<T> {
    * Returns a single target corresponding to the given name, or null. This method may only throw an
    * exception if the current thread was interrupted.
    */
-  T getTargetOrNull(String targetName) throws InterruptedException, MissingDepException;
+  T getTargetOrNull(String targetName) throws InterruptedException;
 
   /**
    * Returns a single target corresponding to the given name, or an empty or failed result.
    */
   ResolvedTargets<T> getExplicitTarget(String targetName)
-      throws TargetParsingException, InterruptedException, MissingDepException;
+      throws TargetParsingException, InterruptedException;
 
   /**
    * Returns the set containing the targets found in the given package. The specified directory is
@@ -50,7 +50,7 @@ public interface TargetPatternResolver<T> {
    * @param rulesOnly whether to return rules only
    */
   ResolvedTargets<T> getTargetsInPackage(String originalPattern, String packageName,
-      boolean rulesOnly) throws TargetParsingException, InterruptedException, MissingDepException;
+      boolean rulesOnly) throws TargetParsingException, InterruptedException;
 
   /**
    * Returns the set containing the targets found below the given {@code pathPrefix}. Conceptually,
@@ -71,24 +71,18 @@ public interface TargetPatternResolver<T> {
    * @param rulesOnly whether to return rules only
    */
   ResolvedTargets<T> findTargetsBeneathDirectory(String originalPattern, String pathPrefix,
-      boolean rulesOnly) throws TargetParsingException, InterruptedException, MissingDepException;
+      boolean rulesOnly) throws TargetParsingException, InterruptedException;
 
   /**
    * Returns true, if and only if the given name corresponds to a package, i.e., a file with the
    * name {@code packageName/BUILD} exists.
    */
-  boolean isPackage(String packageName) throws MissingDepException;
+  boolean isPackage(String packageName);
 
   /**
    * Returns the target kind of the given target, for example {@code cc_library rule}.
    */
   String getTargetKind(T target);
 
-  /**
-   * A missing dependency is needed before target parsing can proceed. Currently used only in
-   * skyframe to notify the framework of missing dependencies.
-   */
-  // TODO(bazel-team): Avoid this use of exception for expected control flow management.
-  public class MissingDepException extends Exception {
-  }
+
 }

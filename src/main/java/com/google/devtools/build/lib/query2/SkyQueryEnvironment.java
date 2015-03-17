@@ -21,17 +21,21 @@ import com.google.common.collect.Iterables;
 import com.google.common.collect.Maps;
 import com.google.devtools.build.lib.cmdline.ResolvedTargets;
 import com.google.devtools.build.lib.cmdline.TargetParsingException;
+import com.google.devtools.build.lib.cmdline.TargetPattern;
 import com.google.devtools.build.lib.events.EventHandler;
 import com.google.devtools.build.lib.graph.Digraph;
 import com.google.devtools.build.lib.packages.NoSuchThingException;
 import com.google.devtools.build.lib.packages.Package;
 import com.google.devtools.build.lib.packages.Rule;
 import com.google.devtools.build.lib.packages.Target;
+import com.google.devtools.build.lib.pkgcache.PathPackageLocator;
 import com.google.devtools.build.lib.pkgcache.TargetPatternEvaluator;
 import com.google.devtools.build.lib.query2.engine.QueryEvalResult;
 import com.google.devtools.build.lib.query2.engine.QueryException;
 import com.google.devtools.build.lib.query2.engine.QueryExpression;
+import com.google.devtools.build.lib.skyframe.GraphBackedRecursivePackageProvider;
 import com.google.devtools.build.lib.skyframe.PackageValue;
+import com.google.devtools.build.lib.skyframe.RecursivePackageProviderBackedTargetPatternResolver;
 import com.google.devtools.build.lib.skyframe.SkyFunctions;
 import com.google.devtools.build.lib.skyframe.TargetPatternValue;
 import com.google.devtools.build.lib.skyframe.TransitiveTargetValue;
@@ -69,6 +73,7 @@ public class SkyQueryEnvironment extends AbstractBlazeQueryEnvironment<Target> {
   private final WalkableGraphFactory graphFactory;
   private final List<String> universeScope;
   private final String parserPrefix;
+  private final PathPackageLocator pkgPath;
 
   public SkyQueryEnvironment(boolean keepGoing, boolean strictScope, int loadingPhaseThreads,
       Predicate<Label> labelFilter,
@@ -76,13 +81,14 @@ public class SkyQueryEnvironment extends AbstractBlazeQueryEnvironment<Target> {
       Set<Setting> settings,
       Iterable<QueryFunction> extraFunctions, String parserPrefix,
       WalkableGraphFactory graphFactory,
-      List<String> universeScope) {
+      List<String> universeScope, PathPackageLocator pkgPath) {
     super(keepGoing, strictScope, labelFilter,
         eventHandler,
         settings,
         extraFunctions);
     this.loadingPhaseThreads = loadingPhaseThreads;
     this.graphFactory = graphFactory;
+    this.pkgPath = pkgPath;
     this.universeScope = Preconditions.checkNotNull(universeScope);
     this.parserPrefix = parserPrefix;
     Preconditions.checkState(!universeScope.isEmpty(),
@@ -307,20 +313,40 @@ public class SkyQueryEnvironment extends AbstractBlazeQueryEnvironment<Target> {
 
   protected Map<String, ResolvedTargets<Target>> preloadOrThrow(Collection<String> patterns)
       throws QueryException, TargetParsingException {
-    Map<String, ResolvedTargets<Target>> result =
-        Maps.newHashMapWithExpectedSize(patterns.size());
+    Map<String, ResolvedTargets<Target>> result = Maps.newHashMapWithExpectedSize(patterns.size());
     for (String pattern : patterns) {
       SkyKey patternKey = TargetPatternValue.key(pattern,
           TargetPatternEvaluator.DEFAULT_FILTERING_POLICY, parserPrefix);
-      checkExistence(patternKey);
-      TargetPatternValue value = (TargetPatternValue) graph.getValue(patternKey);
-      if (value != null) {
-        result.put(pattern, value.getTargets());
-      } else if (!keepGoing) {
-        throw (TargetParsingException) Preconditions.checkNotNull(graph.getException(patternKey),
-            pattern);
+
+      TargetPatternValue.TargetPattern targetPattern =
+          ((TargetPatternValue.TargetPattern) patternKey.argument());
+
+      if (graph.exists(patternKey)) {
+        // If the graph already contains a value for this target pattern, use it.
+        TargetPatternValue value = (TargetPatternValue) graph.getValue(patternKey);
+        if (value != null) {
+          result.put(pattern, value.getTargets());
+        } else if (!keepGoing) {
+          throw (TargetParsingException) Preconditions.checkNotNull(graph.getException(patternKey),
+              pattern);
+        } else {
+          result.put(pattern, ResolvedTargets.<Target>builder().setError().build());
+        }
       } else {
-        result.put(pattern, ResolvedTargets.<Target>builder().setError().build());
+        // If the graph doesn't contain a value for this target pattern, try to directly evaluate
+        // it, by making use of packages already present in the graph.
+        TargetPattern.Parser parser = new TargetPattern.Parser(targetPattern.getOffset());
+        GraphBackedRecursivePackageProvider provider =
+            new GraphBackedRecursivePackageProvider(graph);
+        RecursivePackageProviderBackedTargetPatternResolver resolver =
+            new RecursivePackageProviderBackedTargetPatternResolver(provider, eventHandler,
+                targetPattern.getPolicy(), pkgPath);
+        TargetPattern parsedPattern = parser.parse(targetPattern.getPattern());
+        try {
+          result.put(pattern, parsedPattern.eval(resolver));
+        } catch (InterruptedException e) {
+          throw new QueryException(e.getMessage());
+        }
       }
     }
     return result;

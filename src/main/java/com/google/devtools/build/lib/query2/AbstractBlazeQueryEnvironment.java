@@ -26,6 +26,7 @@ import com.google.devtools.build.lib.packages.Attribute;
 import com.google.devtools.build.lib.packages.Rule;
 import com.google.devtools.build.lib.packages.Target;
 import com.google.devtools.build.lib.pkgcache.PackageProvider;
+import com.google.devtools.build.lib.pkgcache.PathPackageLocator;
 import com.google.devtools.build.lib.pkgcache.TargetPatternEvaluator;
 import com.google.devtools.build.lib.pkgcache.TransitivePackageLoader;
 import com.google.devtools.build.lib.query2.engine.QueryEnvironment;
@@ -42,6 +43,8 @@ import java.util.LinkedHashSet;
 import java.util.List;
 import java.util.Map;
 import java.util.Set;
+
+import javax.annotation.Nullable;
 
 /**
  * {@link QueryEnvironment} that can evaluate queries to produce a result, and implements as much
@@ -92,10 +95,12 @@ public abstract class AbstractBlazeQueryEnvironment<T> implements QueryEnvironme
       PackageProvider packageProvider,
       TargetPatternEvaluator targetPatternEvaluator, boolean keepGoing, boolean orderedResults,
       List<String> universeScope, int loadingPhaseThreads,
-      EventHandler eventHandler, Set<Setting> settings, Iterable<QueryFunction> functions) {
+      EventHandler eventHandler, Set<Setting> settings, Iterable<QueryFunction> functions,
+      @Nullable PathPackageLocator packagePath) {
     return newQueryEnvironment(transitivePackageLoader, graphFactory, packageProvider,
         targetPatternEvaluator, keepGoing, /*strictScope=*/true, orderedResults,
-        universeScope, loadingPhaseThreads, Rule.ALL_LABELS, eventHandler, settings, functions);
+        universeScope, loadingPhaseThreads, Rule.ALL_LABELS, eventHandler, settings, functions,
+        packagePath);
   }
 
   public static AbstractBlazeQueryEnvironment<Target> newQueryEnvironment(
@@ -104,15 +109,17 @@ public abstract class AbstractBlazeQueryEnvironment<T> implements QueryEnvironme
       TargetPatternEvaluator targetPatternEvaluator, boolean keepGoing, boolean strictScope,
       boolean orderedResults, List<String> universeScope, int loadingPhaseThreads,
       Predicate<Label> labelFilter,
-      EventHandler eventHandler, Set<Setting> settings, Iterable<QueryFunction> functions) {
+      EventHandler eventHandler, Set<Setting> settings, Iterable<QueryFunction> functions,
+      @Nullable PathPackageLocator packagePath) {
     Preconditions.checkNotNull(universeScope);
-    return orderedResults || universeScope.isEmpty()
+    return orderedResults || universeScope.isEmpty() || packagePath == null
         ? new BlazeQueryEnvironment(transitivePackageLoader, packageProvider,
         targetPatternEvaluator, keepGoing, strictScope, loadingPhaseThreads,
         labelFilter, eventHandler, settings, functions)
         : new SkyQueryEnvironment(
             keepGoing, strictScope, loadingPhaseThreads, labelFilter, eventHandler, settings,
-            functions, targetPatternEvaluator.getOffset(), graphFactory, universeScope);
+            functions, targetPatternEvaluator.getOffset(), graphFactory, universeScope,
+            packagePath);
   }
 
   /**

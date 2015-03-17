@@ -55,6 +55,9 @@ public interface PackageProvider extends TargetProvider {
    *
    * <p> If these don't hold, then attempting to read the package with {@link #getPackage} may fail
    * or may return a package containing errors.
+   *
+   * @param eventHandler the eventHandler on which to report warnings and errors
+   * @param packageName the name of the package.
    */
-  boolean isPackage(String packageName);
+  boolean isPackage(EventHandler eventHandler, String packageName);
 }

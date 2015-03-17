@@ -117,8 +117,7 @@ public abstract class TargetPattern {
    * Evaluates the current target pattern and returns the result.
    */
   public abstract <T> ResolvedTargets<T> eval(TargetPatternResolver<T> resolver)
-      throws TargetParsingException, InterruptedException,
-      TargetPatternResolver.MissingDepException;
+      throws TargetParsingException, InterruptedException;
 
   private static final class SingleTarget extends TargetPattern {
 
@@ -131,8 +130,7 @@ public abstract class TargetPattern {
 
     @Override
     public <T> ResolvedTargets<T> eval(TargetPatternResolver<T> resolver)
-        throws TargetParsingException, InterruptedException,
-        TargetPatternResolver.MissingDepException {
+        throws TargetParsingException, InterruptedException {
       return resolver.getExplicitTarget(targetName);
     }
   }
@@ -148,8 +146,7 @@ public abstract class TargetPattern {
 
     @Override
     public <T> ResolvedTargets<T> eval(TargetPatternResolver<T> resolver)
-        throws TargetParsingException, InterruptedException,
-        TargetPatternResolver.MissingDepException {
+        throws TargetParsingException, InterruptedException {
       if (resolver.isPackage(path)) {
         // User has specified a package name. lookout for default target.
         return resolver.getExplicitTarget("//" + path);
@@ -194,8 +191,7 @@ public abstract class TargetPattern {
 
     @Override
     public <T> ResolvedTargets<T> eval(TargetPatternResolver<T> resolver)
-        throws TargetParsingException, InterruptedException,
-        TargetPatternResolver.MissingDepException {
+        throws TargetParsingException, InterruptedException {
       if (checkWildcardConflict) {
         ResolvedTargets<T> targets = getWildcardConflict(resolver);
         if (targets != null) {
@@ -214,7 +210,7 @@ public abstract class TargetPattern {
      *         is such a target. Otherwise, return null.
      */
     private <T> ResolvedTargets<T> getWildcardConflict(TargetPatternResolver<T> resolver)
-        throws InterruptedException, TargetPatternResolver.MissingDepException {
+        throws InterruptedException {
       if (!isAbsolute) {
         return null;
       }
@@ -255,8 +251,7 @@ public abstract class TargetPattern {
 
     @Override
     public <T> ResolvedTargets<T> eval(TargetPatternResolver<T> resolver)
-        throws TargetParsingException, InterruptedException,
-        TargetPatternResolver.MissingDepException {
+        throws TargetParsingException, InterruptedException {
       return resolver.findTargetsBeneathDirectory(originalPattern, pathPrefix, rulesOnly);
     }
   }

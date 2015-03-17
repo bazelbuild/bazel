@@ -136,7 +136,7 @@ class SkyframePackageManager implements PackageManager {
   }
 
   @Override
-  public boolean isPackage(String packageName) {
+  public boolean isPackage(EventHandler eventHandler, String packageName) {
     return getBuildFileForPackage(packageName) != null;
   }
 

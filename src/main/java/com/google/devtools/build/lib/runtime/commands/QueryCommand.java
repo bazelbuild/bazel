@@ -174,6 +174,7 @@ public final class QueryCommand implements BlazeCommand {
         runtime.getTargetPatternEvaluator(),
         keepGoing, orderedResults, universeScope, loadingPhaseThreads, runtime.getReporter(),
         settings,
-        functions.build());
+        functions.build(),
+        runtime.getPackageManager().getPackagePath());
   }
 }
