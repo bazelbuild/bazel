@@ -106,6 +106,9 @@ void Tokenize(
 // Evaluate a format string and store the result in 'str'.
 void StringPrintf(string *str, const char *format, ...);
 
+// Convert str to lower case. No locale handling, this is just for ASCII.
+void ToLower(string* str);
+
 }  // namespace blaze_util
 
 #endif  // DEVTOOLS_BLAZE_MAIN_UTIL_STRINGS_H_

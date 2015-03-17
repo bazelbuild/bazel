@@ -46,6 +46,9 @@ class BlazeStartupOptions {
   ~BlazeStartupOptions();
   BlazeStartupOptions& operator=(const BlazeStartupOptions &rhs);
 
+  // Returns the capitalized name of this binary.
+  string GetProductName();
+
   // Parses a single argument, either from the command line or from the .blazerc
   // "startup" options.
   //

@@ -295,4 +295,17 @@ void StringPrintf(string *str, const char *format, ...) {
   delete[] buf;
 }
 
+void ToLower(string *str) {
+  assert(str);
+  if (str->empty()) {
+    return;
+  }
+
+  string temp = "";
+  for (auto ch : *str) {
+    temp += tolower(ch);
+  }
+  *str = temp;
+}
+
 }  // namespace blaze_util

@@ -65,6 +65,10 @@ BlazeStartupOptions& BlazeStartupOptions::operator=(
   return *this;
 }
 
+string BlazeStartupOptions::GetProductName() {
+  return "Bazel";
+}
+
 string BlazeStartupOptions::GetOutputRoot() {
   return "/var/tmp";
 }

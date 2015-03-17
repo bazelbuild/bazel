@@ -182,8 +182,9 @@ static string GetInstallBase(const string &root, const string &self_path) {
   int retval = archive_read_open_filename(blaze_zip, self_path.c_str(), 10240);
   if (retval != ARCHIVE_OK) {
     die(blaze_exit_code::LOCAL_ENVIRONMENTAL_ERROR,
-        "\nFailed to open blaze as a zip file: (%d) %s",
-         archive_errno(blaze_zip), archive_error_string(blaze_zip));
+        "\nFailed to open %s as a zip file: (%d) %s",
+        globals->options.GetProductName().c_str(), archive_errno(blaze_zip),
+        archive_error_string(blaze_zip));
   }
 
   struct archive_entry *entry;
@@ -234,7 +235,9 @@ static vector<string> GetArgumentArray() {
   // ~/src/build_root/WORKSPACE file) will appear in ps(1) as "blaze(src)".
   string workspace =
       blaze_util::Basename(blaze_util::Dirname(globals->workspace));
-  result.push_back("blaze(" + workspace + ")");
+  string product = globals->options.GetProductName();
+  blaze_util::ToLower(&product);
+  result.push_back(product + "(" + workspace + ")");
   if (globals->options.batch) {
     result.push_back("-client");
     result.push_back("-Xms256m");
@@ -520,18 +523,23 @@ static void StartStandalone() {
   globals->startup_time = ProcessClock() / 1000000LL;
 
   if (VerboseLogging()) {
-    fprintf(stderr, "Starting blaze in batch mode.\n");
+    fprintf(stderr, "Starting %s in batch mode.\n",
+            globals->options.GetProductName().c_str());
   }
   string command = globals->option_processor.GetCommand();
   vector<string> command_arguments;
   globals->option_processor.GetCommandArguments(&command_arguments);
 
   if (!command_arguments.empty() && command == "shutdown") {
+    string product = globals->options.GetProductName();
+    blaze_util::ToLower(&product);
     fprintf(stderr,
             "WARNING: Running command \"shutdown\" in batch mode.  Batch mode "
-            "is triggered\nwhen not running blaze within a workspace. If you "
-            "intend to shutdown an\nexisting blaze server, run \"blaze "
-            "shutdown\" from the directory where\nit was started.\n");
+            "is triggered\nwhen not running %s within a workspace. If you "
+            "intend to shutdown an\nexisting %s server, run \"%s "
+            "shutdown\" from the directory where\nit was started.\n",
+            globals->options.GetProductName().c_str(),
+            globals->options.GetProductName().c_str(), product.c_str());
   }
   vector<string> jvm_args_vector = GetArgumentArray();
   if (command != "") {
@@ -660,8 +668,8 @@ static int ConnectToServer(bool start) {
 
 // Kills the specified running Blaze server.
 static void KillRunningServer(pid_t server_pid) {
-  fprintf(stderr, "Sending SIGTERM to previous Blaze server (pid=%d)... ",
-          server_pid);
+  fprintf(stderr, "Sending SIGTERM to previous %s server (pid=%d)... ",
+          globals->options.GetProductName().c_str(), server_pid);
   fflush(stderr);
   for (int ii = 0; ii < 100; ++ii) {  // wait up to 10s
     if (kill(server_pid, SIGTERM) == -1) {
@@ -673,8 +681,8 @@ static void KillRunningServer(pid_t server_pid) {
 
   // If the previous attempt did not suceeded, kill the whole group.
   fprintf(stderr,
-          "Sending SIGKILL to previous Blaze server process group (pid=%d)... ",
-          server_pid);
+          "Sending SIGKILL to previous %s server process group (pid=%d)... ",
+          globals->options.GetProductName().c_str(), server_pid);
   fflush(stderr);
   killpg(server_pid, SIGKILL);
   if (kill(server_pid, 0) == -1) {  // (probe)
@@ -760,14 +768,16 @@ static void ActuallyExtractData(const string &argv0,
          "couldn't create '%s'", embedded_binaries.c_str());
   }
 
-  fprintf(stderr, "Extracting Blaze installation...\n");
+  fprintf(stderr, "Extracting %s installation...\n",
+          globals->options.GetProductName().c_str());
 
   struct archive *blaze_zip = archive_read_new();
   archive_read_support_format_zip(blaze_zip);
   int retval = archive_read_open_filename(blaze_zip, argv0.c_str(), 10240);
   if (retval != ARCHIVE_OK) {
     die(blaze_exit_code::LOCAL_ENVIRONMENTAL_ERROR,
-        "\nFailed to open blaze as a zip file");
+        "\nFailed to open %s as a zip file",
+        globals->options.GetProductName().c_str());
   }
 
   struct archive_entry *entry;
@@ -794,8 +804,9 @@ static void ActuallyExtractData(const string &argv0,
         break;
       } else if (retval != ARCHIVE_OK) {
         die(blaze_exit_code::LOCAL_ENVIRONMENTAL_ERROR,
-            "\nFailed to extract data from blaze zip: (%d) %s",
-            archive_errno(blaze_zip), archive_error_string(blaze_zip));
+            "\nFailed to extract data from %s zip: (%d) %s",
+            globals->options.GetProductName().c_str(), archive_errno(blaze_zip),
+            archive_error_string(blaze_zip));
       }
       if (write(fd, buf, size) != size) {
         die(blaze_exit_code::LOCAL_ENVIRONMENTAL_ERROR,
@@ -810,7 +821,7 @@ static void ActuallyExtractData(const string &argv0,
   retval = archive_read_free(blaze_zip);
   if (retval != ARCHIVE_OK) {
     die(blaze_exit_code::LOCAL_ENVIRONMENTAL_ERROR,
-        "\nFailed to close blaze zip");
+        "\nFailed to close %s zip", globals->options.GetProductName().c_str());
   }
 
   const time_t TEN_YEARS_IN_SEC = 3600 * 24 * 365 * 10;
@@ -985,8 +996,9 @@ static void KillRunningServerIfDifferentStartupOptions() {
   if (ServerNeedsToBeKilled(arguments, GetArgumentArray())) {
     globals->restart_reason = NEW_OPTIONS;
     fprintf(stderr,
-            "WARNING: Running Blaze server needs to be killed, because the "
-            "startup options are different.\n");
+            "WARNING: Running %s server needs to be killed, because the "
+            "startup options are different.\n",
+            globals->options.GetProductName().c_str());
     KillRunningServer(server_pid);
   }
 }
@@ -1052,23 +1064,26 @@ static void sigprintf(const char *format, ...) {
 static void handler(int signum) {
   // A defensive measure:
   if (kill(globals->server_pid, 0) == -1 && errno == ESRCH) {
-    sigprintf("\nBlaze server has died; client exiting.\n\n");
+    sigprintf("\n%s server has died; client exiting.\n\n",
+              globals->options.GetProductName().c_str());
     _exit(1);
   }
 
   switch (signum) {
     case SIGINT:
       if (++globals->sigint_count >= 3)  {
-        sigprintf("\nBlaze caught third interrupt signal; killed.\n\n");
+        sigprintf("\n%s caught third interrupt signal; killed.\n\n",
+                  globals->options.GetProductName().c_str());
         kill(globals->server_pid, SIGKILL);
         _exit(1);
       }
-      sigprintf("\nBlaze caught interrupt signal; shutting down.\n\n");
-
+      sigprintf("\n%s caught interrupt signal; shutting down.\n\n",
+                globals->options.GetProductName().c_str());
       kill(globals->server_pid, SIGINT);
       break;
     case SIGTERM:
-      sigprintf("\nBlaze caught terminate signal; shutting down.\n\n");
+      sigprintf("\n%s caught terminate signal; shutting down.\n\n",
+                globals->options.GetProductName().c_str());
       kill(globals->server_pid, SIGINT);
       break;
     case SIGPIPE:
@@ -1095,8 +1110,9 @@ static char read_server_char(FILE *fp) {
     // e.g. external SIGKILL of server, misplaced System.exit() in the server,
     // or a JVM crash. Print out the jvm.out file in case there's something
     // useful.
-    fprintf(stderr, "Error: unexpected EOF from Blaze server.\n"
-                    "Contents of '%s':\n", globals->jvm_log_file.c_str());
+    fprintf(stderr, "Error: unexpected EOF from %s server.\n"
+            "Contents of '%s':\n", globals->options.GetProductName().c_str(),
+            globals->jvm_log_file.c_str());
     WriteFileToStreamOrDie(stderr, globals->jvm_log_file.c_str());
     exit(blaze_exit_code::INTERNAL_ERROR);
   }
@@ -1201,8 +1217,8 @@ static void SendServerRequest(void) {
       // Timeout.  Print a message, then go ahead and read from
       // the socket (the read will usually block).
       fprintf(stderr,
-              "INFO: Waiting for response from blaze server (pid %d)...\n",
-              globals->server_pid);
+              "INFO: Waiting for response from %s server (pid %d)...\n",
+              globals->options.GetProductName().c_str(), globals->server_pid);
       break;
     } else {  // result < 0
       // Error.  For EINTR we try again, all other errors are fatal.
@@ -1440,11 +1456,12 @@ static void AcquireLock() {
     }
     if (!globals->options.block_for_lock) {
       die(blaze_exit_code::BAD_ARGV,
-          "Another Blaze command is running (pid=%d). Exiting immediately.",
-          probe.l_pid);
+          "Another %s command is running (pid=%d). Exiting immediately.",
+          globals->options.GetProductName().c_str(), probe.l_pid);
     }
-    fprintf(stderr, "Another Blaze command is running (pid = %d).  "
-                    "Waiting for it to complete...", probe.l_pid);
+    fprintf(stderr, "Another %s command is running (pid = %d).  "
+            "Waiting for it to complete...",
+            globals->options.GetProductName().c_str(), probe.l_pid);
     fflush(stderr);
 
     // Take a clock sample for that start of the waiting time
@@ -1467,8 +1484,8 @@ static void AcquireLock() {
   // Identify ourselves in the lockfile.
   ftruncate(globals->lockfd, 0);
   const char *tty = ttyname(STDIN_FILENO);  // NOLINT (single-threaded)
-  string msg = "owner=blaze launcher\npid=" + std::to_string(getpid()) +
-      "\ntty=" + (tty ? tty : "") + "\n";
+  string msg = "owner=" + globals->options.GetProductName() + " launcher\npid="
+      + std::to_string(getpid()) + "\ntty=" + (tty ? tty : "") + "\n";
   // Don't bother checking for error, since it's unlikely and unimportant.
   // The contents are currently meant only for debugging.
   write(globals->lockfd, msg.data(), msg.size());

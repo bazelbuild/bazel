@@ -211,10 +211,10 @@ blaze_exit_code::ExitCode BlazeStartupOptions::ProcessArg(
       return process_extra_arg_exit_code;
     }
     if (!extra_argument_processed) {
-      blaze_util::StringPrintf(error,
-          "Unknown Blaze startup option: '%s'.\n"
+      blaze_util::StringPrintf(
+          error, "Unknown %s startup option: '%s'.\n"
           "  For more info, run 'blaze help startup_options'.",
-          arg);
+          GetProductName().c_str(), arg);
       return blaze_exit_code::BAD_ARGV;
     }
   }
