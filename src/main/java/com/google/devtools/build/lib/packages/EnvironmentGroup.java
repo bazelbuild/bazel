@@ -15,9 +15,15 @@
 package com.google.devtools.build.lib.packages;
 
 import com.google.common.base.Predicate;
+import com.google.common.base.Verify;
+import com.google.common.collect.HashMultimap;
 import com.google.common.collect.ImmutableSet;
 import com.google.common.collect.Iterables;
+import com.google.common.collect.Multimap;
 import com.google.common.collect.Sets;
+import com.google.devtools.build.lib.collect.nestedset.NestedSet;
+import com.google.devtools.build.lib.collect.nestedset.NestedSetBuilder;
+import com.google.devtools.build.lib.collect.nestedset.Order;
 import com.google.devtools.build.lib.concurrent.ThreadSafety.Immutable;
 import com.google.devtools.build.lib.events.Event;
 import com.google.devtools.build.lib.events.Location;
@@ -25,6 +31,7 @@ import com.google.devtools.build.lib.syntax.Label;
 
 import java.util.ArrayList;
 import java.util.Collections;
+import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.Set;
@@ -67,6 +74,13 @@ public class EnvironmentGroup implements Target {
   private final Set<Label> defaults;
 
   /**
+   * Maps a member environment to the set of environments that directly fulfill it. Note that
+   * we can't populate this map until all Target instances for member environments have been
+   * initialized, which may occur after group instantiation (this makes the class mutable).
+   */
+  private final Map<Label, NestedSet<Label>> fulfillersMap = new HashMap<>();
+
+  /**
    * Predicate that matches labels from a different package than the initialized package.
    */
   private static final class DifferentPackage implements Predicate<Label> {
@@ -107,7 +121,7 @@ public class EnvironmentGroup implements Target {
    * and checks that all defaults are legitimate members of the group.
    *
    * <p>Does <b>not</b> check that the referenced environments exist (see
-   * {@link #checkEnvironmentsExist).
+   * {@link #processMemberEnvironments}).
    *
    * @return a list of validation errors that occurred
    */
@@ -131,23 +145,82 @@ public class EnvironmentGroup implements Target {
   }
 
   /**
-   * Given the set of targets in this group's package, checks that all of the group's declared
-   * environments are part of that set (i.e. the group doesn't reference non-existant labels).
+   * Checks that the group's declared environments are legitimate same-package environment
+   * rules and prepares the "fulfills" relationships between these environments to support
+   * {@link #getFulfillers}.
    *
    * @param pkgTargets mapping from label name to target instance for this group's package
    * @return a list of validation errors that occurred
    */
-  List<Event> checkEnvironmentsExist(Map<String, Target> pkgTargets) {
+  List<Event> processMemberEnvironments(Map<String, Target> pkgTargets) {
     List<Event> events = new ArrayList<>();
+    // Maps an environment to the environments that directly fulfill it.
+    Multimap<Label, Label> directFulfillers = HashMultimap.create();
+
     for (Label envName : environments) {
-      Target env =  pkgTargets.get(envName.getName());
-      if (env == null) {
-        events.add(Event.error(location, "environment " + envName + " does not exist"));
-      } else if (!env.getTargetKind().equals("environment rule")) {
-        events.add(Event.error(location, env.getLabel() + " is not a valid environment"));
+      Target env = pkgTargets.get(envName.getName());
+      if (isValidEnvironment(env, envName, "", events)) {
+        AttributeMap attr = NonconfigurableAttributeMapper.of((Rule) env);
+        for (Label fulfilledEnv : attr.get("fulfills", Type.LABEL_LIST)) {
+          if (isValidEnvironment(pkgTargets.get(fulfilledEnv.getName()), fulfilledEnv,
+              "in \"fulfills\" attribute of " + envName + ": ", events)) {
+            directFulfillers.put(fulfilledEnv, envName);
+          }
+        }
       }
     }
+
+    // Now that we know which environments directly fulfill each other, compute which environments
+    // transitively fulfill each other. We could alternatively compute this on-demand, but since
+    // we don't expect these chains to be very large we opt toward computing them once at package
+    // load time.
+    Verify.verify(fulfillersMap.isEmpty());
+    for (Label envName : environments) {
+      setTransitiveFulfillers(envName, directFulfillers, fulfillersMap);
+    }
+
     return events;
+  }
+
+  /**
+   * Given an environment and set of environments that directly fulfill it, computes a nested
+   * set of environments that <i>transitively</i> fulfill it, places it into transitiveFulfillers,
+   * and returns that set.
+   */
+  private static NestedSet<Label> setTransitiveFulfillers(Label env,
+      Multimap<Label, Label> directFulfillers, Map<Label, NestedSet<Label>> transitiveFulfillers) {
+    if (transitiveFulfillers.containsKey(env)) {
+      return transitiveFulfillers.get(env);
+    } else if (!directFulfillers.containsKey(env)) {
+      // Nobody fulfills this environment.
+      NestedSet<Label> emptySet = NestedSetBuilder.emptySet(Order.STABLE_ORDER);
+      transitiveFulfillers.put(env, emptySet);
+      return emptySet;
+    } else {
+      NestedSetBuilder<Label> set = NestedSetBuilder.stableOrder();
+      for (Label fulfillingEnv : directFulfillers.get(env)) {
+        set.add(fulfillingEnv);
+        set.addTransitive(
+            setTransitiveFulfillers(fulfillingEnv, directFulfillers, transitiveFulfillers));
+      }
+      NestedSet<Label> builtSet = set.build();
+      transitiveFulfillers.put(env, builtSet);
+      return builtSet;
+    }
+  }
+
+  private boolean isValidEnvironment(Target env, Label envName, String prefix, List<Event> events) {
+    if (env == null) {
+      events.add(Event.error(location, prefix + "environment " + envName + " does not exist"));
+      return false;
+    } else if (!env.getTargetKind().equals("environment rule")) {
+      events.add(Event.error(location, prefix + env.getLabel() + " is not a valid environment"));
+      return false;
+    } else if (!environments.contains(env.getLabel())) {
+      events.add(Event.error(location, prefix + env.getLabel() + " is not a member of this group"));
+      return false;
+    }
+    return true;
   }
 
   /**
@@ -171,6 +244,20 @@ public class EnvironmentGroup implements Target {
    */
   public boolean isDefault(Label environment) {
     return defaults.contains(environment);
+  }
+
+  /**
+   * Returns the set of environments that transitively fulfill the specified environment.
+   * The environment must be a valid member of this group.
+   *
+   * <p>>For example, if the input is <code>":foo"</code> and <code>":bar"</code> fulfills
+   * <code>":foo"</code> and <code>":baz"</code> fulfills <code>":bar"</code>, this returns
+   * <code>[":foo", ":bar", ":baz"]</code>.
+   *
+   * <p>If no environments fulfill the input, returns an empty set.
+   */
+  public Iterable<Label> getFulfillers(Label environment) {
+    return Verify.verifyNotNull(fulfillersMap.get(environment));
   }
 
   @Override

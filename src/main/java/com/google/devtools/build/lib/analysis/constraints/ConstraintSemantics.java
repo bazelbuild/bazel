@@ -19,6 +19,7 @@ import com.google.common.base.Preconditions;
 import com.google.common.base.Verify;
 import com.google.common.collect.ImmutableCollection;
 import com.google.common.collect.Iterables;
+import com.google.common.collect.Sets;
 import com.google.devtools.build.lib.analysis.OutputFileConfiguredTarget;
 import com.google.devtools.build.lib.analysis.RuleConfiguredTarget;
 import com.google.devtools.build.lib.analysis.RuleContext;
@@ -458,34 +459,54 @@ public class ConstraintSemantics {
    */
   public static Collection<Label> getUnsupportedEnvironments(
       EnvironmentCollection actualEnvironments, EnvironmentCollection expectedEnvironments) {
-
     Set<Label> missingEnvironments = new LinkedHashSet<>();
+    Collection<Label> actualEnvironmentLabels = actualEnvironments.getEnvironments();
 
-    // For each expected environment, it must either be a supported environment OR a default
-    // for a group the supported environment set doesn't know about.
+    // Check if each explicitly expected environment is satisfied.
     for (EnvironmentWithGroup expectedEnv : expectedEnvironments.getGroupedEnvironments()) {
       EnvironmentGroup group = expectedEnv.group();
       Label environment = expectedEnv.environment();
-      if (!actualEnvironments.getEnvironments().contains(environment)
-        && (actualEnvironments.getGroups().contains(group) || !group.isDefault(environment))) {
+      boolean isSatisfied = false;
+      if (actualEnvironments.getGroups().contains(group)) {
+        // If the actual environments include members from the expected environment's group, we
+        // need to either find the environment itself or another one that transitively fulfills it.
+        if (actualEnvironmentLabels.contains(environment)
+            || intersect(actualEnvironmentLabels, group.getFulfillers(environment))) {
+          isSatisfied = true;
+        }
+      } else {
+        // If the actual environments don't reference the expected environment's group at all,
+        // the group's defaults are implicitly included. So we need to check those defaults for
+        // either the expected environment or another environment that transitively fulfills it.
+        if (group.isDefault(environment)
+            || intersect(group.getFulfillers(environment), group.getDefaults())) {
+          isSatisfied = true;
+        }
+      }
+      if (!isSatisfied) {
         missingEnvironments.add(environment);
       }
     }
 
     // For any environment group not referenced by the expected environments, its defaults are
-    // implicitly applied. We can ignore it if it's also missing from the supported environments
-    // (since in that case the same defaults apply), otherwise have to check.
+    // implicitly expected. We can ignore this if the actual environments also don't reference the
+    // group (since in that case the same defaults apply), otherwise we have to check.
     for (EnvironmentGroup group : actualEnvironments.getGroups()) {
       if (!expectedEnvironments.getGroups().contains(group)) {
-        for (Label defaultEnv : group.getDefaults()) {
-          if (!actualEnvironments.getEnvironments().contains(defaultEnv)) {
-            missingEnvironments.add(defaultEnv);
+        for (Label expectedDefault : group.getDefaults()) {
+          if (!actualEnvironmentLabels.contains(expectedDefault)
+              && !intersect(actualEnvironmentLabels, group.getFulfillers(expectedDefault))) {
+            missingEnvironments.add(expectedDefault);
           }
         }
       }
     }
 
     return missingEnvironments;
+  }
+
+  private static boolean intersect(Iterable<Label> labels1, Iterable<Label> labels2) {
+    return !Sets.intersection(Sets.newHashSet(labels1), Sets.newHashSet(labels2)).isEmpty();
   }
 
   /**

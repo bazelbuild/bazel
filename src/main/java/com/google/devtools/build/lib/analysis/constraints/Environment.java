@@ -38,8 +38,6 @@ public class Environment implements RuleConfiguredTargetFactory {
 
     // The main analysis work to do here is to simply fill in SupportedEnvironmentsProvider to
     // pass the environment itself to depending rules.
-    //
-    // This will likely expand when we add support for environments fulfilling other environments.
     Label label = ruleContext.getLabel();
 
     EnvironmentGroup group;
