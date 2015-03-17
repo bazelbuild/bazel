@@ -20,6 +20,7 @@ import com.google.devtools.build.xcode.zip.ZipInputEntry;
 
 import java.io.IOException;
 import java.io.OutputStream;
+import java.nio.file.FileSystem;
 import java.nio.file.FileSystems;
 import java.nio.file.Files;
 import java.nio.file.Path;
@@ -38,14 +39,16 @@ public class Wrappers {
    */
   public static void execute(String[] argsArray, Wrapper wrapper)
       throws IOException, InterruptedException {
+    FileSystem filesystem = FileSystems.getDefault();
     ArgumentsParsing argsParsing = ArgumentsParsing.parse(
-        FileSystems.getDefault(), argsArray, wrapper.name(), wrapper.subtoolName());
+        filesystem, argsArray, wrapper.name(), wrapper.subtoolName());
     for (String error : argsParsing.error().asSet()) {
       System.err.printf(error);
       System.exit(1);
     }
+    Path tempDir = getTempDir(filesystem);
     for (Arguments args : argsParsing.arguments().asSet()) {
-      Path outputDir = Files.createTempDirectory("ZippingOutput");
+      Path outputDir = Files.createTempDirectory(tempDir, "ZippingOutput");
       Path rootedOutputDir = outputDir.resolve(args.bundleRoot());
       Files.createDirectories(
           wrapper.outputDirectoryMustExist() ? rootedOutputDir : rootedOutputDir.getParent());
@@ -63,5 +66,13 @@ public class Wrappers {
         ZipInputEntry.addAll(combiner, ZipInputEntry.fromDirectory(outputDir));
       }
     }
+  }
+
+  private static Path getTempDir(FileSystem filesystem) {
+    String tempDir = System.getenv("TMPDIR");
+    if (tempDir == null) {
+      tempDir = "/tmp";
+    }
+    return filesystem.getPath(tempDir);
   }
 }
