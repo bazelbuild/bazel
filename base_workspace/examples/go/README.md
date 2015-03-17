@@ -2,9 +2,9 @@
 Go rules
 --------
 
-The files here demonstrate how to use the supplied rules for Go.
-
-They do support:
+The files here demonstrate how to use the rules for Go supplied under
+`//tools/build_rules:go_rules.bzl`.  The rules should be considered
+experimental. They support:
 
   * libraries
   * binaries
@@ -100,12 +100,11 @@ together.
 FAQ
 ---
 
-
 # Why does this not follow the external Go conventions?
 
 These rules were inspired on Google's internal Go rules, which work
-like this. They make more sense for Bazel, because directories in
-Bazel do not correspond to single rules.
+like this. For Bazel, these make more sense, because directories in
+Bazel do not correspond to single targets.
 
 
 # Do I have to specify dependencies twice?
