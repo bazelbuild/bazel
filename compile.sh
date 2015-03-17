@@ -84,9 +84,6 @@ EOF
         touch fromhost/empty.c
         # For use with Homebrew.
         archive_dir=$(dirname $(dirname $homebrew_header))
-        ARCHIVE_CFLAGS="-I${archive_dir}/include"
-        LDFLAGS="-L${archive_dir}/lib -larchive $LDFLAGS"
-
         cp ${archive_dir}/lib/*.a ${archive_dir}/include/*.h fromhost/
         cat << EOF > fromhost/BUILD
 package(default_visibility = ["//visibility:public"])
@@ -106,14 +103,6 @@ EOF
         cp /opt/local/include/archive.h  /opt/local/include/archive_entry.h fromhost/
         cp /opt/local/lib/{libarchive,liblzo2,liblzma,libcharset,libbz2,libxml2,libz,libiconv}.a \
           fromhost/
-
-        ARCHIVE_CFLAGS="-Ifromhost"
-        # Link libarchive statically
-        LDFLAGS="fromhost/libarchive.a fromhost/liblzo2.a \
-             fromhost/liblzma.a fromhost/libcharset.a \
-             fromhost/libbz2.a fromhost/libxml2.a \
-             fromhost/libz.a fromhost/libiconv.a \
-             $LDFLAGS"
         cat << EOF > fromhost/BUILD
 package(default_visibility = ["//visibility:public"])
 cc_library(
@@ -123,8 +112,6 @@ cc_library(
   includes  = ["."],
 )
 EOF
-      else
-        log "WARNING: Could not find libarchive installation, proceeding bravely."
       fi
   esac
 }
@@ -157,6 +144,27 @@ darwin)
       || fail "Could not find JAVA_HOME, please ensure a JDK (version 1.8+) is installed."
   fi
   PROTOC=${PROTOC:-third_party/protobuf/protoc.darwin}
+
+  homebrew_header=$(ls -1 $(brew --prefix 2>/dev/null)/Cellar/libarchive/*/include/archive.h 2>/dev/null | head -n1)
+  if [[ -e $homebrew_header ]]; then
+      # For use with Homebrew.
+      archive_dir=$(dirname $(dirname $homebrew_header))
+      ARCHIVE_CFLAGS="-I${archive_dir}/include"
+      LDFLAGS="-L${archive_dir}/lib -larchive $LDFLAGS"
+
+  elif [[ -e /opt/local/include/archive.h ]]; then
+      # For use with Macports.
+      ARCHIVE_CFLAGS="-Ifromhost"
+      # Link libarchive statically
+      LDFLAGS="fromhost/libarchive.a fromhost/liblzo2.a \
+             fromhost/liblzma.a fromhost/libcharset.a \
+             fromhost/libbz2.a fromhost/libxml2.a \
+             fromhost/libz.a fromhost/libiconv.a \
+             $LDFLAGS"
+  else
+      log "WARNING: Could not find libarchive installation, proceeding bravely."
+  fi
+
   ;;
 
 msys*|mingw*)
