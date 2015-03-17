@@ -80,7 +80,7 @@ public abstract class SkylarkList implements Iterable<Object> {
 
   @Override
   public String toString() {
-    return toList().toString();
+    return EvalUtils.prettyPrintValue(this);
   }
 
   // TODO(bazel-team): we should be very careful using this method. Check and remove
@@ -178,7 +178,7 @@ public abstract class SkylarkList implements Iterable<Object> {
 
     @Override
     public String toString() {
-      return list.toString();
+      return EvalUtils.prettyPrintValue(this);
     }
 
     @Override

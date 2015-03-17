@@ -298,7 +298,7 @@ public abstract class EvalUtils {
 
     } else if (o instanceof Map<?, ?>) {
       Map<?, ?> dict = (Map<?, ?>) o;
-      printList(dict.entrySet(), "{", ", ", "}", buffer);
+      printList(dict.entrySet(), "{", ", ", "}", null, buffer);
 
     } else if (o instanceof Map.Entry<?, ?>) {
       Map.Entry<?, ?> entry = (Map.Entry<?, ?>) o;
@@ -309,7 +309,7 @@ public abstract class EvalUtils {
     } else if (o instanceof SkylarkNestedSet) {
       SkylarkNestedSet set = (SkylarkNestedSet) o;
       buffer.append("set(");
-      printList(set, "[", ", ", "]", buffer);
+      printList(set, "[", ", ", "]", null, buffer);
       Order order = set.getOrder();
       if (order != Order.STABLE_ORDER) {
         buffer.append(", order = \"" + SkylarkNestedSet.orderString(order) + "\"");
@@ -343,13 +343,21 @@ public abstract class EvalUtils {
   }
 
   private static void printList(Iterable<?> list,
-      String before, String separator, String after, Appendable buffer) throws IOException {
-    String sep = "";
+      String before, String separator, String after, String singletonTerminator, Appendable buffer)
+      throws IOException {
+    boolean printSeparator = false; // don't print the separator before the first element
+    int len = 0;
     buffer.append(before);
     for (Object o : list) {
-      buffer.append(sep);
+      if (printSeparator) {
+        buffer.append(separator);
+      }
       prettyPrintValue(o, buffer);
-      sep = separator;
+      printSeparator = true;
+      len++;
+    }
+    if (singletonTerminator != null && len == 1) {
+      buffer.append(singletonTerminator);
     }
     buffer.append(after);
   }
@@ -357,9 +365,9 @@ public abstract class EvalUtils {
   private static void printList(Iterable<?> list, boolean isTuple, Appendable buffer)
       throws IOException {
     if (isTuple) {
-      printList(list, "(", ", ", ")", buffer);
+      printList(list, "(", ", ", ")", ",", buffer);
     } else {
-      printList(list, "[", ", ", "]", buffer);
+      printList(list, "[", ", ", "]", null, buffer);
     }
   }
 

@@ -816,6 +816,12 @@ public class SkylarkEvaluationTest extends EvaluationTest {
     assertEquals("a1", env.lookup("v"));
   }
 
+  @Test
+  public void testSingletonTuple() throws Exception {
+    exec(parseFileForSkylark("v = (1,)"), env);
+    assertEquals("(1,)", env.lookup("v").toString());
+  }
+
   @SuppressWarnings("unchecked")
   @Test
   public void testDirFindsClassObjectFields() throws Exception {
