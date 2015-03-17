@@ -756,6 +756,14 @@ public class ParserTest extends AbstractParserTestCase {
   }
 
   @Test
+  public void testDefSingleLine() throws Exception {
+    List<Statement> statements = parseFileForSkylark(
+        "def foo(): x = 1; y = 2\n");
+    FunctionDefStatement stmt = (FunctionDefStatement) statements.get(0);
+    assertThat(stmt.getStatements()).hasSize(2);
+  }
+
+  @Test
   public void testSkipIfBlock() throws Exception {
     // Skip over 'if' blocks, when parsePython is set
     List<Statement> stmts = parseFile(
