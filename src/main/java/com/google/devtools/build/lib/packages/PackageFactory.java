@@ -838,7 +838,10 @@ public final class PackageFactory {
     try {
       return (PackageContext) env.lookup(PKG_CONTEXT);
     } catch (NoSuchVariableException e) {
-      throw new EvalException(ast.getLocation(), e.getMessage());
+      // if PKG_CONTEXT is missing, we're not called from a BUILD file. This happens if someone
+      // uses native.some_func() in the wrong place.
+      throw new EvalException(ast.getLocation(),
+          "This function must be wrapped in a macro and called from a BUILD file");
     }
   }
 
