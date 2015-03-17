@@ -2,14 +2,28 @@
 
 *{Fast, Correct} - Choose two*
 
-Bazel is a build tool that builds code quickly and reliably.
-It executes as few build steps as possible by tracking dependencies and outputs,
-controls the build environment to keep builds hermetic, and uses its
-knowledge of dependencies to parallelize builds.
+Bazel is a build tool that builds code quickly and reliably. It is used to build
+the majority of Google's software, and thus it has been designed to handle
+build problems present in Google’s development environment, including:
 
-* Find more background in our [FAQ](docs/FAQ.md)
+* **A massive, shared code repository, in which all software is built from
+source.** Bazel has been built for speed, using both caching and parallelism
+to achieve this. Bazel is critical to Google’s ability to continue
+to scale its software development practices as the company grows.
 
-* Start using Bazel:
+* **A emphasis on automated testing and releases.** Bazel has
+been built for correctness and reproducibility, meaning that a build performed
+on a continuous build machine or in a release pipeline will generate
+bitwise-identical outputs to those generated on a developer’s machine.
+
+* **Language and platform diversity.** Bazel’s architecture is general enough to
+support many different programming languages within Google, and can be
+used to build both client and server software targeting multiple
+architectures from the same underlying codebase.
+
+Find more background about Bazel in our [FAQ](docs/FAQ.md)
+
+# Getting Started
 
   * How to [install Bazel](docs/install.md)
   * How to [get started using Bazel](docs/getting-started.md)
