@@ -1,0 +1,3658 @@
+<!DOCTYPE html>
+
+<html>
+<head>
+  <meta charset="utf-8" />
+  <title>A User's Guide to Bazel</title>
+
+  <style type="text/css">
+
+    body {
+      background-color: #ffffff;
+      color: black;
+      margin-right: 10%;
+      margin-left: 10%;
+    }
+
+    h1, h2, h3, h4, h5, h6 {
+      color: #dd7755;
+      font-family: sans-serif;
+    }
+    @media print {
+      /* Darker version for printing */
+      h1, h2, h3, h4, h5, h6 {
+        color: #008000;
+        font-family: helvetica, sans-serif;
+      }
+    }
+
+    h1 {
+      text-align: center;
+    }
+    h2 {
+      margin-left: -0.5in;
+    }
+    h3 {
+      margin-left: -0.25in;
+    }
+    h4 {
+      margin-left: -0.125in;
+    }
+    hr {
+      margin-left: -1in;
+    }
+    address {
+      text-align: right;
+    }
+
+    /* A compact unordered list */
+    ul.tight > li {
+      margin-bottom: 0;
+    }
+
+    /* Use the <code></code> tag for bits of code and <var></var> for variable and object names. */
+    code,pre,samp,var {
+      color: #006000;
+    }
+    /* Use the <file></file> tag for file and directory paths and names. */
+    file {
+      color: #905050;
+      font-family: monospace;
+    }
+    /* Use the <kbd></kbd> tag for stuff the user should type. */
+    kbd {
+      color: #600000;
+    }
+    div.note p {
+      float: right;
+      width: 3in;
+      margin-right: 0%;
+      padding: 1px;
+      border: 2px solid #60a060;
+      background-color: #fffff0;
+    }
+
+    table.grid {
+      background-color: #ffffee;
+      border: 1px solid black;
+      border-collapse: collapse;
+      margin-left: 2mm;
+      margin-right: 2mm;
+    }
+
+    table.grid th,
+    table.grid td {
+      border: 1px solid black;
+      padding: 0 2mm 0 2mm;
+    }
+
+    /* Use pre.code for code listings.
+       Use pre.interaction for "Here's what you see when you run a.out.".
+       (Within pre.interaction, use <kbd></kbd> things the user types)
+     */
+    pre.code {
+      background-color: #FFFFEE;
+      border: 1px solid black;
+      color: #004000;
+      font-size: 10pt;
+      margin-left: 2mm;
+      margin-right: 2mm;
+      padding: 2mm;
+      -moz-border-radius: 12px 0px 0px 0px;
+    }
+
+    pre.interaction {
+      background-color: #EEFFEE;
+      color: #004000;
+      padding: 2mm;
+    }
+
+    pre.interaction kbd {
+      font-weight: bold;
+      color: #000000;
+    }
+
+    /* legacy style */
+    pre.interaction b.astyped {
+      color: #000000;
+    }
+
+    pre  {
+      margin-left: 5em;
+      color: #008000;
+    }
+    .tt td {
+      font-family: courier;
+    }
+
+    .deprecated { text-decoration: line-through; }
+    .discouraged { text-decoration: line-through; }
+
+    table.layout { width: 980px; }
+    table.layout td { vertical-align: top; }
+
+    #maintainer { text-align: right; }
+  </style>
+</head>
+
+<body>
+  <h1>A User's Guide to Bazel</h1>
+
+<h2>Related Documentation</h2>
+<ul class="toc">
+  <li><a href="build-ref.html">BUILD Concept Reference</a></li>
+  <li><a href="build-encyclopedia.html">Build Encyclopedia</a></li>
+  <li><a href="test-encyclopedia.html">Test Encyclopedia</a></li>
+  <li><a href="bazel-query-v2.html">Bazel Query Reference</a></li>
+
+</ul>
+
+<h2 id='concepts'>Bazel overview</h2>
+
+<p>
+  Running Bazel is easy.  Simply go to
+
+  your base workspace directory
+  or any of its subdirectories and type <code>bazel</code>.
+</p>
+
+<pre>
+  % bazel help
+                             [Bazel release bazel-&lt;<i>version</i>&gt;]
+  Usage: bazel &lt;command&gt; &lt;options&gt; ...
+
+  Available commands:
+    <a href='#analyze-profile'>analyze-profile</a>     Analyzes build profile data.
+    <a href='#build'>build</a>               Builds the specified targets.
+
+
+    <a href='#canonicalize'>canonicalize-flags</a>  Canonicalize Bazel flags.
+    <a href='#clean'>clean</a>               Removes output files and optionally stops the server.
+
+    <a href='#help'>help</a>                Prints help for commands, or the index.
+
+    <a href='#info'>info</a>                Displays runtime info about the bazel server.
+
+    <a href='#query'>query</a>               Executes a dependency graph query.
+
+    <a href='#run'>run</a>                 Runs the specified target.
+    <a href='#shutdown'>shutdown</a>            Stops the Bazel server.
+    <a href='#test'>test</a>                Builds and runs the specified test targets.
+    <a href='#version'>version</a>             Prints version information for Bazel.
+
+  Getting more help:
+    bazel help &lt;command&gt;
+                     Prints help and options for &lt;command&gt;.
+    bazel help <a href='#startup_options'>startup_options</a>
+                     Options for the JVM hosting Bazel.
+    bazel help <a href='#target-patterns'>target-syntax</a>
+                     Explains the syntax for specifying targets.
+    bazel help info-keys
+                     Displays a list of keys used by the info command.
+
+</pre>
+<p>
+  The <code>bazel</code> tool performs many functions, called
+  commands; users of CVS and Subversion will be familiar
+  with this "Swiss army knife" arrangement.  The most commonly used one is of
+  course <code>bazel build</code>.  You can browse the online help
+  messages using <code>bazel help</code>.
+</p>
+
+<h3 id='client/server'>Client/server implementation</h3>
+
+<p>
+  The Bazel system is implemented as a long-lived server process.
+  This allows it to perform many optimizations not possible with a
+  batch-oriented implementation, such as caching of BUILD files,
+  dependency graphs, and other metadata from one build to the
+  next.  This improves the speed of incremental builds, and allows
+  different commands, such as <code>build</code>
+  and <code>query</code> to share the same cache of loaded packages,
+  making queries very fast.
+</p>
+<p>
+  When you run <code>bazel</code>, you're running the client.  The
+  client finds the server based on the path of the base workspace directory
+  and your userid, so if you build in multiple workspaces, you'll have
+  multiple Bazel server processes.  Multiple users on the same
+  workstation can build concurrently in the same workspace.  If the
+  client cannot find a running server instance, it starts a new one.
+  The server process will stop after a period of inactivity (3 hours,
+  by default).
+</p>
+<p>
+  For the most part, the fact that there is a server running is
+  invisible to the user, but sometimes it helps to bear this in mind.
+  For example, if you're running scripts that perform a lot of
+  automated builds in different directories, it's important to ensure
+  that you don't accumulate a lot of idle servers; you can do this by
+  explicitly shutting them down when you're finished with them, or by
+  specifying a short timeout period.
+</p>
+<p>
+  The name of a Bazel server process appears in the output of <code>ps
+  x</code> or <code>ps -e f</code> as
+  <code>bazel(<i>dirname</i>)</code>, where <i>dirname</i> is the
+  basename of the directory enclosing the root your workspace directory.
+  For example:
+</p>
+<pre>
+  % ps -e f
+  16143 ?        Sl     3:00 bazel(src-jrluser2) -server -Djava.library.path=...
+</pre>
+<p>
+  This makes it easier to find out which server process belongs to a
+  given workspace.  (Beware that with certain other options
+  to <code>ps</code>, Bazel server processes may be named just
+  <code>java</code>.)  Bazel servers can be stopped using
+  the <a href='#shutdown'>shutdown</a> command.
+</p>
+<p>
+  You can also run Bazel in batch mode using the <code>--batch</code>
+  startup flag. This will immediately shut down the process after the
+  command (build, test, etc.) has finished and not keep a server process
+  around.
+</p>
+
+<p>
+  When running <code>bazel</code>, the client first checks that the
+  server is the appropriate version; if not, the server is stopped and
+  a new one started.  This ensures that the use of a long-running
+  server process doesn't interfere with proper versioning.
+</p>
+
+<h3 id='bazelrc'><code>.bazelrc</code>, the Bazel configuration file,
+the <code class='flag'>--bazelrc=<var>file</var></code> option, and the
+<code class='flag'>--config=<var>value</var></code> option</h3>
+
+<p>
+  Bazel accepts many options.  Typically, some of these are varied
+  frequently (e.g. <code class='flag'>--subcommands</code>) while others stay the
+  same across several builds (e.g. <code class='flag'>--package_path</code>).
+  To avoid having to specify these constant options every time you do
+  a build or run some other Bazel command, Bazel allows you to
+  specify options in a configuration file.
+</p>
+<p>
+  Bazel looks for an optional configuration file in the location
+  specified by the <code class='flag'>--bazelrc=<var>file</var></code> option.  If
+  this option is not specified then, by default, Bazel looks for the
+  file called <code>.bazelrc</code> in one of two directories: first,
+  in your base workspace directory, then in your home directory.  If
+  it finds a file in the first (workspace-specific) location, it will
+  not look at the second (global) location.
+</p>
+<p>
+  The <code class='flag'>--bazelrc=<var>file</var></code> option must
+  appear <em>before</em> the command name (e.g. <code>build</code>),
+  and must use the <code>=</code> syntax&mdash;a space is not allowed.
+</p>
+<p>
+  The option <code class='flag'>--bazelrc=/dev/null</code> effectively disables the
+  use of a configuration file.  We strongly recommend that you use
+  this option when performing release builds, or automated tests that
+  invoke Bazel.
+</p>
+<p>
+  Aside from the configuration file described above, Bazel also looks
+  for a master configuration file next to the binary. The name of this
+  file is the same as the name of the binary with the
+  string <code>.bazelrc</code> attached.  This file is not intended to
+  be user-modifiable; its purpose is for the Bazel team to be able to
+  turn experimental features on or off immediately without releasing a
+  new Bazel version, should an urgent need arise.  Reading of this file
+  can be disabled using the <code class='flag'>--nomaster_bazelrc</code> option.
+</p>
+<p>
+  Like all UNIX "rc" files, the <code>.bazelrc</code> file is a text
+  file with a line-based grammar.  Lines starting <code>#</code> are
+  considered comments and are ignored, as are blank lines.  Each line
+  contains a sequence of words, which are tokenized according to the
+  same rules as the Bourne shell.
+  The first word on each line is the name of a Bazel command, such
+  as <code>build</code> or <code>query</code>.  The remaining words
+  are the default options that apply to that command.
+  More than one line may be used for a command; the options are combined
+  as if they had appeared on a single line.
+  (Users of CVS, another tool with a "Swiss army knife" command-line
+  interface, will find the syntax familiar to that of <code>.cvsrc</code>.)
+</p>
+<p>
+  Startup options may be specified in the
+  <code>.bazelrc</code> file using the command <code>startup</code>.
+  These options are described in the interactive help
+  at <code>bazel help startup_options</code>.
+</p>
+<p>
+  Options specified in the command line always take precedence over
+  those from a configuration file, and options in the user-specific
+  configuration file always take precedence over the master one.
+</p>
+<p>
+  Options may include words other than flags, such as the names of
+  build targets, etc; these are always prepended to the explicit
+  argument list provided on the command-line, if any.
+</p>
+<p>
+  Common command options may be specified in the
+  <code>.bazelrc</code> file using the command <code>common</code>.
+</p>
+<p>
+  In addition, commands may have <code>:name</code> suffixes. These
+  options are ignored by default, but can be pulled in through the
+  <code>--config=<var>name</var></code> option, either on the command line or in
+  a <code>.bazelrc</code> file. The intention is that these bundle command line
+  options that are commonly used together, for example
+  <code>--config=memcheck</code>.
+</p>
+<p>
+  Note that some config sections are defined in the master bazelrc file.
+  To avoid conflicts, user-defined sections
+  should start with the '_' (underscore) character.
+</p>
+<p>
+  The command named <code>import</code> is special: if Bazel encounters such
+  a line in a <code>.bazelrc</code> file, it parses the contents of the file
+  referenced by the import statement, too. Options specified in an imported file
+  take precedence over ones specified before the import statement, options
+  specified after the import statement take precedence over the ones in the
+  imported file, and options in files imported later take precedence over files
+  imported earlier.
+</p>
+<p>
+  Here's an example <code>~/.bazelrc</code> file:
+</p>
+<pre>
+  # Bob's Bazel option defaults
+
+  startup --batch --host_jvm_args=-XX:-UseParallelGC
+  import /home/bobs_project/bazelrc
+  build --show_timestamps --keep_going --jobs 600
+  build --color=yes
+  query --keep_going
+
+  build:memcheck --strip=never --test_timeout=3600
+</pre>
+
+<h2 id='build'>Building programs with Bazel</h2>
+
+<p>
+  The most important function of Bazel is, of course, building code.  Type
+  <code>bazel build</code> followed by the name of the
+  <a href="#target-patterns">target</a> you wish to build. Here's a typical
+  session:
+</p>
+<pre>
+  % bazel build //foo
+  ____Loading package: foo
+  ____Loading package: bar
+  ____Loading package: baz
+  ____Loading complete.  Analyzing...
+  ____Building 1 target...
+  ____[0 / 3] Executing Genrule //bar:helper_rule
+  ____[1 / 3] Executing Genrule //baz:another_helper_rule
+  ____[2 / 3] Building foo/foo.bin
+  Target //foo:foo up-to-date:
+    bazel-bin/foo/foo.bin
+    bazel-bin/foo/foo
+  ____Elapsed time: 9.905s
+</pre>
+<p>
+  Bazel prints the progress messages as it loads all the
+  packages in the transitive closure of dependencies of the requested
+  target, then analyzes them for correctness and to create the build actions,
+  finally executing the compilers and other tools of the build.
+</p>
+<p>
+  Bazel prints progress messages during
+  the <a href='#phases'>execution phase</a> of the build, showing the
+  current build step (compiler, linker, etc.) that is being started,
+  and the number of completed over total number of build actions. As the
+  build starts the number of total actions will often increase as Bazel
+  discovers the entire action graph, but the number will usually stabilize
+  within a few seconds.
+</p>
+<p>
+  At the end of the build Bazel
+  prints which targets were requested, whether or not they were
+  successfully built, and if so, where the output files can be found.
+  Scripts that run builds can reliably parse this output; see <a
+  href='#flag--show_result'><code class='flag'>--show_result</code></a> for more
+  details.
+</p>
+<p>
+  Typing the same command again:
+</p>
+<pre>
+  % bazel build //foo
+  ____Loading...
+  ____Found 1 target...
+  ____Building complete.
+  Target //foo:foo up-to-date:
+    bazel-bin/foo/foo.bin
+    bazel-bin/foo/foo
+  ____Elapsed time: 0.280s
+</pre>
+<p>
+  we see a "null" build: in this case, there are no packages to
+  re-load, since nothing has changed, and no build steps to execute.
+  (If something had changed in "foo" or some of its dependencies, resulting in the
+  reexecution of some build actions, we would call it an "incremental" build, not a
+  "null" build.)
+</p>
+
+<p>
+  Before you can start a build, you will need a Bazel workspace. This is
+  simply a directory tree that contains all the source files needed to build
+  your application.
+  Bazel allows you to perform a build from a completely read-only volume.
+</p>
+
+<h4 id='flag--package_path'>Setting up a <code class='flag'>--package_path</code></h4>
+<p>
+  Bazel finds its packages by searching the package path.  This is a colon
+  separated ordered list of bazel directories, each being the root of a
+  partial source tree.
+</p>
+
+<p>
+  <i>To specify a custom package path</i> using the
+  <code class='flag'>--package_path</code> option:
+</p>
+<pre>
+  % bazel build --package_path %workspace%:/some/other/root
+</pre>
+<p>
+Package path elements may be specified in three formats:
+</p>
+<ol>
+  <li>
+    If the first character is <code>/</code>, the path is absolute.
+  </li>
+  <li>
+    If the path starts with <code>%workspace%</code>, the path is taken relative
+    to the nearest enclosing bazel directory.<br>
+    For instance, if your working directory
+    is <code>/home/bob/clients/bob_client/bazel/foo</code>, then the
+    string <code>%workspace%</code> in the package-path is expanded
+    to <code>/home/bob/clients/bob_client/bazel</code>.
+  </li>
+  <li>
+    Anything else is taken relative to the working directory.<br>  This is usually not what you mean to do,
+    and may behave unexpectedly if you use Bazel from directories below the bazel workspace.
+    For instance, if you use the package-path element <code>.</code>,
+    and then cd into the directory
+    <code>/home/bob/clients/bob_client/bazel/foo</code>, packages
+    will be resolved from the
+    <code>/home/bob/clients/bob_client/bazel/foo</code> directory.
+  </li>
+</ol>
+<p>
+  If you use a non-default package path, we recommend that you specify
+  it in your <a href='#bazelrc'>Bazel configuration file</a> for
+  convenience.
+</p>
+<p>
+  <i>Bazel doesn't require any packages to be in the
+  current directory</i>, so you can do a build from an empty bazel
+  workspace if all the necessary packages can be found somewhere else
+  on the package path.
+</p>
+<p>
+  <i>Example</i>: Building from an empty client
+</p>
+<pre>
+  % mkdir -p foo/bazel
+  % cd foo/bazel
+  % bazel build --package_path /some/other/path //foo
+</pre>
+<h3 id='target-patterns'>Specifying targets to build</h3>
+<p>
+  Bazel allows a number of ways to specify the targets to be built.
+  Collectively, these are known as <i>target patterns</i>.
+  The on-line help displays a summary of supported patterns:
+</p>
+<pre>
+% bazel help target-syntax
+
+Target pattern syntax
+=====================
+
+The BUILD file label syntax is used to specify a single target. Target
+patterns generalize this syntax to sets of targets, and also support
+working-directory-relative forms, recursion, subtraction and filtering.
+Examples:
+
+Specifying a single target:
+
+  //foo/bar:wiz     The single target '//foo/bar:wiz'.
+  foo/bar/wiz       Equivalent to:
+                      '//foo/bar/wiz:wiz' if foo/bar/wiz is a package,
+                      '//foo/bar:wiz' if foo/bar is a package,
+                      '//foo:bar/wiz' otherwise.
+  //foo/bar         Equivalent to '//foo/bar:bar'.
+
+Specifying all rules in a package:
+
+  //foo/bar:all       Matches all rules in package 'foo/bar'.
+
+Specifying all rules recursively beneath a package:
+
+  //foo/...:all     Matches all rules in all packages beneath directory 'foo'.
+  //foo/...           (ditto)
+
+Working-directory relative forms:  (assume cwd = 'workspace/foo')
+
+  Target patterns which do not begin with '//' are taken relative to
+  the working directory.  Patterns which begin with '//' are always
+  absolute.
+
+  ...:all           Equivalent to  '//foo/...:all'.
+  ...                 (ditto)
+
+  bar/...:all       Equivalent to  '//foo/bar/...:all'.
+  bar/...             (ditto)
+
+  bar:wiz           Equivalent to '//foo/bar:wiz'.
+  :foo              Equivalent to '//foo:foo'.
+
+  bar               Equivalent to '//foo/bar:bar'.
+  foo/bar           Equivalent to '//foo/bar/bar:bar'.
+
+  bar:all           Equivalent to '//foo/bar:all'.
+  :all              Equivalent to '//foo:all'.
+
+Summary of target wildcards:
+
+  :all,             Match all rules in the specified packages.
+  :*, :all-targets  Match all targets (rules and files) in the specified
+                      packages, including ones not built by default, such
+                      as _deploy.jar files.
+
+Subtractive patterns:
+
+  Target patterns may be preceded by '-', meaning they should be
+  subtracted from the set of targets accumulated by preceding
+  patterns. (Note that this means order matters.) For example:
+
+    % bazel build -- foo/... -foo/contrib/...
+
+  builds everything in 'foo', except 'contrib'.  In case a target not
+  under 'contrib' depends on something under 'contrib' though, in order to
+  build the former bazel has to build the latter too. As usual, the '--' is
+  required to prevent '-f' from being interpreted as an option.
+</pre>
+<p>
+  Whereas <a href="build-ref.html#label">labels</a> are used
+  to specify individual targets, e.g. for declaring dependencies in
+  BUILD files, Bazel's target patterns are a syntax for specifying
+  multiple targets: they are a generalization of the label syntax
+  for <i>sets</i> of targets, using wildcards.  In the simplest case,
+  any valid label is also a valid target pattern, identifying a set of
+  exactly one target.
+</p>
+<p>
+  <code>foo/...</code> is a wildcard over <em>packages</em>,
+  indicating all packages recursively beneath
+  directory <code>foo</code> (for all roots of the package
+  path).  <code>:all</code> (or <code>:all-rules</code>) is a wildcard
+  over <em>targets</em>, matching all rules within a package.  These two may be
+  combined, as in <code>foo/...:all</code>, and when both wildcards
+  are used, this may be abbreviated to <code>foo/...</code>.
+</p>
+<p>
+  In addition, <code>:*</code> (or <code>:all-targets</code>) is a
+  wildcard that matches <em>every target</em> in the matched packages,
+  including files that aren't normally built by any rule, such
+  as <code>_deploy.jar</code> files associated
+  with <code>java_binary</code> rules.
+</p>
+<p>
+  This implies that <code>:*</code> denotes a <em>superset</em>
+  of <code>:all</code>; while potentially confusing, this syntax does
+  allow the familiar <code>:all</code> wildcard to be used for
+  typical builds, where building targets like the <code>_deploy.jar</code>
+  is not desired.
+</p>
+<p>
+  In addition, Bazel allows a slash to be used instead of the colon
+  required by the label syntax; this is often convenient when using
+  Bash filename expansion.  For example, <code>foo/bar/wiz</code> is
+  equivalent to <code>//foo/bar:wiz</code> (if there is a
+  package <code>foo/bar</code>) or to <code>//foo:bar/wiz</code> (if
+  there is a package <code>foo</code>).
+</p>
+<p>
+  Many Bazel commands accept a list of target patterns as arguments,
+  and they all honor the prefix negation operator `<code>-</code>'.
+  This can be used to subtract a set of targets from the set specified
+  by the preceding arguments. (Note that this means order matters.)
+  For example,
+</p>
+<pre>
+  bazel build foo/... bar/...
+</pre>
+<p>
+  means "build all
+  targets beneath <code>foo</code> <i>and</i> all targets
+  beneath <code>bar</code>", whereas
+</p>
+<pre>
+  bazel build -- foo/... -foo/bar/...
+</pre>
+<p>
+  means "build all targets beneath <code>foo</code> <i>except</i>
+  those beneath <code>foo/bar</code>".
+
+  (The <code>--</code> argument is required to prevent the subsequent
+  arguments starting with <code>-</code> from being interpreted as
+  additional options.)
+</p>
+<p>
+  It's important to point out though that subtracting targets this way will not
+  guarantee that they are not built, since they may be dependencies of targets
+  that weren't subtracted. For example, if there were a target
+  <code>//foo:all-apis</code> that among others depended on
+  <code>//foo/bar:api</code>, then the latter would be built as part of
+  building the former.
+</p>
+<p>
+Targets with <code>obsolete=1</code> or <code>tags=["manual"]</code> will
+be ignored by all command line wildcards (..., :*, :all, etc). The only
+way to run such targets is to specify them explicitly on the command line.
+</p>
+
+<h3 id='configurations'>Build configurations and cross-compilation</h3>
+
+<p>
+  All the inputs that specify the behavior and result of a given
+  build can be divided into two distinct categories.
+  The first kind is the intrinsic information stored in the BUILD
+  files of your project: the build rule, the values of its attributes,
+  and the complete set of its transitive dependencies.
+  The second kind is the external or environmental data, supplied by
+  the user or by the build tool: the choice of target architecture,
+  compilation and linking options, and other toolchain configuration
+  options.  We refer to a complete set of environmental data as
+  a <b>configuration</b>.
+</p>
+<p>
+  In any given build, there may be more than one configuration.
+  Consider a cross-compile, in which you build
+  a <code>//foo:bin</code> executable for a 64-bit architecture,
+  but your workstation is a 32-bit machine. Clearly, the build
+  will require building <code>//foo:bin</code> using a toolchain
+  capable of creating 64-bit executables, but the build system must
+  also build various tools used during the build itself&mdash;for example
+  tools that are built from source, then subsequently used in, say, a
+  genrule&mdash;and these must be built to run on your workstation.
+  Thus we can identify two configurations: the <b>host
+  configuration</b>, which is used for building tools that run during
+  the build, and the <b>target configuration</b> (or <i>request
+  configuration</i>, but we say "target configuration" more often even
+  though that word already has many meanings), which is
+  used for building the binary you ultimately requested.
+</p>
+<p>
+  Typically, there are many libraries that are prerequisites of both
+  the requested build target (<code>//foo:bin</code>) and one or more of
+  the host tools, for example some base libraries. Such libraries must be built
+  twice, once for the host configuration, and once for the target
+  configuration.<br/>
+  Bazel takes care of ensuring that both variants are built, and that
+  the derived files are kept separate to avoid interference; usually
+  such targets can be built concurrently, since they are independent
+  of each other.  If you see progress messages indicating that a given
+  target is being built twice, this is most likely the explanation.
+</p>
+<p>
+  Bazel uses one of two ways to select the host configuration, based
+  on the <code class='flag'>--distinct_host_configuration</code> option.  This
+  boolean option is somewhat subtle, and the setting may improve (or
+  worsen) the speed of your builds.
+</p>
+
+<h4><code class='flag'>--distinct_host_configuration=false</code></h4>
+<p>
+  When this option is false, the host and
+  request configurations are identical: all tools required during the
+  build will be built in exactly the same way as target programs.
+  This setting means that no libraries need to be built twice during a
+  single build, so it keeps builds short.
+  However, it does mean that any change to your request configuration
+  also affects your host configuration, causing all the tools to be
+  rebuilt, and then anything that depends on the tool output to be
+  rebuilt too.  Thus, for example, simply changing a linker option
+  between builds might cause all tools to be re-linked, and then all
+  actions using them reexecuted, and so on, resulting in a very large rebuild.
+  Also, please note: if your host architecture is not capable of
+  running your target binaries, your build will not work.
+</p>
+<p>
+  If you frequently make changes to your request configuration, such
+  as alternating between <code>-c opt</code> and <code>-c dbg</code>
+  builds, or between simple- and cross-compilation, we do not
+  recommend this option, as you will typically rebuild the majority of
+  your codebase each time you switch.
+</p>
+
+<h4><code class='flag'>--distinct_host_configuration=true</code> <i>(default)</i></h4>
+<p>
+  If this option is true, then instead of using the same configuration
+  for the host and request, a completely distinct host configuration
+  is used.  The host configuration is derived from the target
+  configuration as follows:
+</p>
+<ul>
+  <li>Use the same version of Crosstool
+    (<code class='flag'>--crosstool_top</code>) as specified in the request
+    configuration.
+  </li>
+  <li>
+    Use the value of <code class="flag">--host_cpu</code> for
+    <code class='flag'>--cpu</code>
+
+    and <code class='flag'>--java_cpu</code> (default: <code>k8</code>).
+  </li>
+  <li>Use the same values of these options as specified in the request
+    configuration:
+    <code class='flag'>--compiler</code>,
+    <code class='flag'>--thin_archives</code>,
+    <code class='flag'>--use_ijars</code>,
+    <code class='flag'>--java_langtools</code>,
+    <code class='flag'>--javabuilder_top</code>.
+  </li>
+  <li>Use optimized builds for C++ code (<code>-c opt</code>).
+  </li>
+  <li>Generate no debugging information (<code class='flag'>--copt=-g0</code>).
+  </li>
+  <li>Strip debug information from executables and shared libraries
+    (<code class='flag'>--strip=always</code>).
+  </li>
+  <li>Place all derived files in a special location, distinct from
+    that used by any possible request configuration.
+  </li>
+  <li>Suppress stamping of binaries with build data
+    (see <code class='flag'>--embed_*</code> options).
+  </li>
+  <li>All other values remain at their defaults.
+  </li>
+</ul>
+<p>
+  There are many reasons why it might be preferable to select a
+  distinct host configuration from the request configuration.
+  Some are too esoteric to mention here, but two of them are worth
+  pointing out.
+</p>
+<p>
+  Firstly, by using stripped, optimized binaries, you reduce the time
+  spent linking and executing the tools, the disk space occupied by
+  the tools, and the network I/O time in distributed builds.
+</p>
+<p>
+  Secondly, by decoupling the host and request configurations in all
+  builds, you avoid very expensive rebuilds that would result from
+  minor changes to the request configuration (such as changing a linker options
+  does), as described earlier.
+</p>
+<p>
+  That said, for certain builds, this option may be a hindrance.  In
+  particular, builds in which changes of configuration are infrequent
+  (especially certain Java builds), and builds where the amount of code that
+  must be built in both host and target configurations is large, may
+  not benefit.
+</p>
+
+<h3 id='correctness'>Correct incremental rebuilds</h3>
+
+<p>
+  One of the primary goals of the Bazel project is to ensure correct
+  incremental rebuilds.  Previous build tools, especially those based
+  on Make, make several unsound assumptions in their implementation of
+  incremental builds.
+</p>
+<p>
+  Firstly, that timestamps of files increase monotonically.  While
+  this is the typical case, it is very easy to fall afoul of this
+  assumption; syncing to an earlier revision of a file causes that file's
+  modification time to decrease; Make-based systems will not rebuild.
+</p>
+<p>
+  More generally, while Make detects changes to files, it does
+  not detect changes to commands.  If you alter the options passed to
+  the compiler in a given build step, Make will not re-run the
+  compiler, and it is necessary to manually discard the invalid
+  outputs of the previous build using <code>make clean</code>.
+</p>
+<p>
+  Also, Make is not robust against the unsuccessful termination of one
+  of its subprocesses after that subprocess has started writing to
+  its output file.  While the current execution of Make will fail, the
+  subsequent invocation of Make will blindly assume that the truncated
+  output file is valid (because it is newer than its inputs), and it
+  will not be rebuilt.  Similarly, if the Make process is killed, a
+  similar situation can occur.
+</p>
+<p>
+  Bazel avoids these assumptions, and others.  Bazel maintains a database
+  of all work previously done, and will only omit a build step if it
+  finds that the set of input files (and their timestamps) to that
+  build step, and the compilation command for that build step, exactly
+  match one in the database, and, that the set of output files (and
+  their timestamps) for the database entry exactly match the
+  timestamps of the files on disk.  Any change to the input files or
+  output files, or to the command itself, will cause re-execution of
+  the build step.
+</p>
+<p>
+  The benefit to users of correct incremental builds is: less time
+  wasted due to confusion.  (Also, less time spent waiting for
+  rebuilds caused by use of <code>make clean</code>, whether necessary
+  or pre-emptive.)
+</p>
+
+<h4>Build consistency and incremental builds</h4>
+<p>
+  Formally, we define the state of a build as <i>consistent</i> when
+  all the expected output files exist, and their contents are correct,
+  as specified by the steps or rules required to create them.  When
+  you edit a source file, the state of the build is said to
+  be <i>inconsistent</i>, and remains inconsistent until you next run
+  the build tool to successful completion.  We describe this situation
+  as <i>unstable inconsistency</i>, because it is only temporary, and
+  consistency is restored by running the build tool.
+</p>
+<p>
+  There is another kind of inconsistency that is pernicious: <i>stable
+  inconsistency</i>.  If the build reaches a stable inconsistent
+  state, then repeated successful invocation of the build tool does
+  not restore consistency: the build has gotten "stuck", and the
+  outputs remain incorrect.  Stable inconsistent states are the main
+  reason why users of Make (and other build tools) type <code>make
+  clean</code>.  Discovering that the build tool has failed in this
+  manner (and then recovering from it) can be time consuming and very
+  frustrating.
+</p>
+<p>
+  Conceptually, the simplest way to achieve a consistent build is to
+  throw away all the previous build outputs and start again: make
+  every build a clean build.  This approach is obviously too
+  time-consuming to be practical (except perhaps for release
+  engineers), and therefore to be useful, the build tool must be able
+  to perform incremental builds without compromising consistency.
+</p>
+<p>
+  Correct incremental dependency analysis is hard, and as described
+  above, many other build tools do a poor job of avoiding stable
+  inconsistent states during incremental builds.  In contrast, Bazel
+  offers the following guarantee: after a successful invocation of the
+  build tool during which you made no edits, the build will be in a
+  consistent state.  (If you edit your source files during a build,
+  Bazel makes no guarantee about the consistency of the result of the
+  current build.  But it does guarantee that the results of
+  the <i>next</i> build will restore consistency.)
+</p>
+<p>
+  As with all guarantees, there comes some fine print: there are some
+  known ways of getting into a stable inconsistent state with Bazel.
+  We won't guarantee to investigate such problems arising from deliberate
+  attempts to find bugs in the incremental dependency analysis, but we
+  will investigate and do our best to fix all stable inconsistent
+  states arising from normal or "reasonable" use of the build tool.
+</p>
+<p>
+  If you ever detect a stable inconsistent state with Bazel, please report a bug.
+
+</p>
+
+<h3>Deleting the outputs of a build</h3>
+
+<h4 id='clean'><code>bazel clean</code></h4>
+<p>
+  Bazel has a <code>clean</code> command, analogous to that of Make.
+  It deletes the output directories for all build configurations performed
+  by this Bazel instance, or the entire working tree created by this
+  Bazel instance, and resets internal caches. If executed without any
+  command-line options, then the output directory for all configurations
+  will be cleaned.
+</p>
+
+<p>Recall that each Bazel instance is associated with a single workspace, thus the
+  <code>clean</code> command will delete all outputs from all builds you've done
+  with that Bazel instance in that workspace.
+</p>
+<p>
+  To completely remove the entire working tree created by a Bazel
+  instance,  you can specify the <code class='flag'>--expunge</code> option. When
+  executed with <code class='flag'>--expunge</code>, the clean command simply
+  removes the entire output base tree which, in addition to the build
+  output, contains all temp files created by Bazel. It also
+  stops the Bazel server after the clean, equivalent to the <a
+  href='#shutdown'><code>shutdown</code></a> command. For example, to
+  clean up all disk and memory traces of a Bazel instance, you could
+  specify:
+</p>
+<pre>
+  % bazel clean --expunge
+</pre>
+<p>
+  Alternatively, you can expunge in the background by using
+  <code class='flag'>--expunge_async</code>. It is safe to invoke a Bazel command
+  in the same client while the asynchronous expunge continues to run.
+  Note, however, that this may introduce IO contention.
+</p>
+
+<p>
+  The <code>clean</code> command is provided primarily as a means of
+  reclaiming disk space for workspaces that are no longer needed.
+  However, we recognize that Bazel's incremental rebuilds might not be
+  perfect; <code>clean</code> may be used to recover a consistent
+  state when problems arise.
+</p>
+<p>
+  Bazel's design is such that these problems are fixable; we consider
+  such bugs a high priority, and will do our best fix them.  If you
+  ever find an incorrect incremental build, please file a bug report.
+  We encourage developers to get out of the habit of
+  using <code>clean</code> and into that of reporting bugs in the
+  tools.
+</p>
+
+<h4 id='rm'><code>bazel rm</code></h4>
+<p>
+  <code>bazel rm</code> is a more limited form of <code>clean</code>,
+  that deletes only the named files.  For example:
+</p>
+<pre>
+  % bazel rm bazel-bin/foo/libfoo.a
+</pre>
+<p>
+  Some users use <code>bazel rm</code> when performing timing
+  experiments of a particular build step: by deleting a single file
+  and running a build, only that file (and others that depend on it)
+  will be rebuilt.
+</p>
+
+<h3 id='phases'>Phases of a build</h3>
+
+<p>
+  In Bazel, a build occurs in three distinct phases; as a user,
+  understanding the difference between them provides insight into the
+  options which control a build (see below).
+</p>
+
+<h4 id='loading-phase'>Loading phase</h4>
+<p>
+  The first is <b>loading</b> during which all the necessary BUILD
+  files for the initial targets, and their transitive closure of
+  dependencies, are loaded, parsed, evaluated and cached.
+</p>
+<p>
+  For the first build after a Bazel server is started, the loading
+  phase typically takes many seconds as many BUILD files are loaded
+  from the file system.  In subsequent builds, especially if no BUILD
+  files have changed, loading occurs very quickly.
+</p>
+<p>
+  Errors reported during this phase include: package not found, target
+  not found, lexical and grammatical errors in a BUILD file,
+  and evaluation errors.
+</p>
+
+<h4 id='analysis-phase'>Analysis phase</h4>
+<p>
+  The second phase, <b>analysis</b>, involves the semantic analysis
+  and validation of each build rule, the construction of a build
+  dependency graph, and the determination of exactly what work is to
+  be done in each step of the build.
+</p>
+<p>
+  Like loading, analysis also takes several seconds when computed in
+  its entirety.  However, Bazel caches the dependency graph from
+  one build to the next and only reanalyzes what it has to, which can
+  make incremental builds extremely fast in the case where the
+  packages haven't changed since the previous build.
+</p>
+<p>
+  Errors reported at this stage include: inappropriate dependencies,
+  invalid inputs to a rule, and all rule-specific error messages.
+</p>
+<p>
+  The loading and analysis phases are fast because
+  Bazel avoids unnecessary file I/O at this stage, reading only BUILD
+  files in order to determine the work to be done.  This is by design,
+  and makes Bazel a good foundation for analysis tools, such as
+  Bazel's <a href='#query'>query</a> command, which is implemented
+  atop the loading phase.
+</p>
+
+<h4 id='execution-phase'>Execution phase</h4>
+<p>
+  The third and final phase of the build is <b>execution</b>.  This
+  phase ensures that the outputs of each step in the build are
+  consistent with its inputs, re-running compilation/linking/etc. tools as
+  necessary.  This step is where the build spends the majority of
+  its time, ranging from a few seconds to over an hour for a large
+  build.  Errors reported during this phase include: missing source
+  files, errors in a tool executed by some build action, or failure of a tool to
+  produce the expected set of outputs.
+</p>
+
+
+<h2>Options</h2>
+
+<p>
+  The following sections describe the options available during a
+  build.  When <code class='flag'>--long</code> is used on a help command, the on-line
+  help messages provide summary information about the meaning, type and
+  default value for each option.
+</p>
+
+<p>
+  Most options can only be specified once. When specified multiple times, the
+  last instance wins. Options that can be specified multiple times are
+  identified in the on-line help with the text 'may be used multiple times'.
+</p>
+
+<h3>Options that affect how packages are located</h3>
+
+<p>
+  See also the <a href='#flag--show_package_location'><code class='flag'>--show_package_location</code></a>
+  option.
+</p>
+
+<h4 id='flag--package_path'><code class='flag'>--package_path</code></h4>
+<p>
+  This option specifies the set of directories that are searched to
+  find the BUILD file for a given package; see
+  <a href='#setup_workspace'>Setting up a workspace</a> above
+  for a complete explanation.
+</p>
+
+<h4 id='flag--deleted_packages'><code class='flag'>--deleted_packages</code></h4>
+<p>
+  This option specifies a comma-separated list of packages which Bazel
+  should consider deleted, and not attempt to load from any directory
+  on the package path. This can be used to simulate the deletion of packages without
+  actually deleting them.
+</p>
+
+<h3 id='checking-options'>Error checking options</h3>
+<p>
+  These options control Bazel's error-checking and/or warnings.
+</p>
+
+<h4 id='flag--check_constraint'><code class='flag'>--check_constraint <var>constraint</var></code></h4>
+<p>
+  This option takes an argument that specifies which constraint
+  should be checked.
+</p>
+<p>
+  Bazel performs special checks on each rule that is annotated with the
+  given constraint.
+</p>
+<p>
+  The supported constraints and their checks are as follows:
+</p>
+<ul>
+
+  <li><code>public</code>: Verify that all java_libraries marked with
+    <code>constraints = ['public']</code> only depend on java_libraries
+    that are marked as <code>constraints = ['public']</code> too. If bazel
+    finds a dependency that does not conform to this rule, bazel will issue
+    an error.
+  </li>
+</ul>
+
+<h4 id='flag--check_visibility'><code class='flag'>--[no]check_visibility</code></h4>
+<p>
+  If this option is set to false, visibility checks are demoted to warnings.
+  The default value of this option is true, so that by default, visibility
+  checking is done.
+
+</p>
+
+<h4 id='flag--experimental_action_listener'>
+  <code class='flag'>--experimental_action_listener=<var>label</var></code>
+</h4>
+<p>
+  The <code>experimental_action_listener</code> option instructs Bazel to use
+  details from the <a href="build-encyclopedia.html#action_listener"
+  ><code>action_listener</code></a> rule specified by <var>label</var> to
+  insert <a href="build-encyclopedia.html#extra_action"
+  ><code>extra_actions</code></a> into the build graph.
+</p>
+
+<h4 id='flag--experimental_extra_action_filter'>
+  <code class='flag'>--experimental_extra_action_filter=<var>regex</var></code>
+</h4>
+<p>
+  The <code>experimental_extra_action_filter</code> option instructs Bazel to
+  filter the set of targets to schedule <code>extra_actions</code> for.
+</p>
+<p>
+  This flag is only applicable in combination with the
+  <a href='#flag--experimental_action_listener'
+  ><code>--experimental_action_listener</code></a> flag.
+</p>
+<p>
+  By default all <code>extra_actions</code> in the transitive closure of the
+  requested targets-to-build get scheduled for execution.
+  <code>--experimental_extra_action_filter</code> will restrict scheduling to
+  <code>extra_actions</code> of which the owner's label matches the specified
+  regular expression.
+</p>
+<p>
+  The following example will limit scheduling of <code>extra_actions</code>
+  to only apply to actions of which the owner's label contains '/bar/':
+</p>
+<pre>% bazel build --experimental_action_listener=//test:al //foo/... \
+  --experimental_extra_action_filter=.*/bar/.*
+</pre>
+
+<h4 id='flag--output_filter'><code class='flag'>--output_filter <var>regex</var></code></h4>
+<p>
+  The <code class='flag'>--output_filter</code> option will only show build and compilation
+  warnings for targets that match the regular expression. If a target does not
+  match the given regular expression and its execution succeeds, its standard
+  output and standard error are thrown away. This option is intended to be used
+  to help focus efforts on fixing warnings in packages under development. Here
+  are some typical values for this option:
+</p>
+<table>
+  <tr>
+    <td><code class='flag'>--output_filter=</code></td>
+    <td>Show all output.</td>
+  </tr>
+  <tr>
+    <td><code class='flag'>--output_filter='^//(first/project|second/project):'</code></td>
+    <td>Show the output for the specified packages.</td>
+  </tr>
+  <tr>
+    <td><code class='flag'>--output_filter=DONT_MATCH_ANYTHING</code></td>
+    <td>Don't show output.</td>
+  </tr>
+</table>
+<p>
+  If this option is not given, a default filter will be created according to the
+  <a href="#flag--auto_output_filter"><code class='flag'>--auto_output_filter</code> option</a>.
+</p>
+
+<h4 id='flag--auto_output_filter'><code class='flag'>--auto_output_filter (none|packages|subpackages)</code></h4>
+
+<p>
+  If no <a href="#flag--output_filter"><code class='flag'>--output_filter</code> option</a> is
+  given, Bazel creates an output filter from the targets listed on the command
+  line:
+</p>
+<ul>
+  <li>
+    <code>none</code> does no filtering and shows all output.
+  </li>
+  <li>
+    <code>packages</code> shows only the output for the packages of targets
+    requested on the command line. For example, the Bazel invocation
+    <pre>  % bazel build //foo:bar //baz/...</pre>
+    will show the output for all targets in the package <code>foo</code> or any
+    package under <code>baz</code>.
+
+  </li>
+  <li>
+    <code>subpackages</code> (the default) works similar
+    to <code>packages</code> but also includes output from subpackages.
+  </li>
+</ul>
+
+<h4 id='flag--analysis_warnings_as_errors'><code>--[no]analysis_warnings_as_errors</code></h4>
+<p>
+  When this option is enabled, visible analysis warnings (as specified by
+  the output filter) are treated as errors, effectively preventing the build
+  phase from starting. This feature can be used to enable strict builds that
+  do not allow new warnings to creep into a project.
+</p>
+
+<h3 id='flags-options'>Flags options</h3>
+<p>
+  These options control which options Bazel will pass to other tools.
+</p>
+
+<h4 id='flag--copt'><code class='flag'>--copt <var>gcc-option</var></code></h4>
+<p>
+  This option takes an argument which is to be passed to gcc.
+  The argument will be passed to gcc whenever gcc is invoked
+  for preprocessing, compiling, and/or assembling C, C++, or
+  assembler code.  It will not be passed when linking.
+</p>
+<p>
+  This option can be used multiple times.
+  For example:
+</p>
+<pre>
+  % bazel build --copt="-g0" --copt="-fpic" //foo
+</pre>
+<p>
+  will compile the <code>foo</code> library without debug tables, generating
+  position-independent code.
+</p>
+<p>
+  Note that changing <code class='flag'>--copt</code> settings will force a recompilation
+  of all affected object files. Also note that copts values listed in specific
+  cc_library or cc_binary build rules will be placed on the gcc command line
+  <em>after</em> these options.
+</p>
+<p>
+  Warning: C++-specific options (such as <code>-fno-implicit-templates</code>)
+  should be specified in <code class='flag'>--cxxopt</code>, not in
+  <code class='flag'>--copt</code>.  Likewise, C-specific options (such as -Wstrict-prototypes)
+  should be specified in <code class='flag'>--conlyopt</code>, not in <code>copt</code>.
+  Similarly, gcc options that only have an
+  effect at link time (such as <code>-l</code>) should be specified in
+  <code class='flag'>--linkopt</code>, not in <code class='flag'>--copt</code>.
+</p>
+
+<h4 id='flag--host_copt'><code class='flag'>--host_copt <var>gcc-option</var></code></h4>
+<p>
+  This option takes an argument which is to be passed to gcc for source files
+  that are compiled in the host configuration. This is analogous to
+  the <a href='#flag--copt'><code class='flag'>--copt</code></a> option, but applies only to the
+  host configuration.
+</p>
+
+<h4 id='flag--conlyopt'><code class='flag'>--conlyopt <var>gcc-option</var></code></h4>
+<p>
+  This option takes an argument which is to be passed to gcc when compiling C source files.
+</p>
+<p>
+  This is similar to <code class='flag'>--copt</code>, but only applies to C compilation,
+  not to C++ compilation or linking.  So you can pass C-specific options
+  (such as <code>-Wno-pointer-sign</code>) using <code class='flag'>--conlyopt</code>.
+</p>
+<p>
+  Note that copts parameters listed in specific cc_library or cc_binary build rules
+  will be placed on the gcc command line <em>after</em> these options.
+</p>
+
+<h4 id='flag--cxxopt'><code class='flag'>--cxxopt <var>gcc-option</var></code></h4>
+<p>
+  This option takes an argument which is to be passed to gcc when compiling C++ source files.
+</p>
+<p>
+  This is similar to <code class='flag'>--copt</code>, but only applies to C++ compilation,
+  not to C compilation or linking.  So you can pass C++-specific options
+  (such as <code>-fpermissive</code> or <code>-fno-implicit-templates</code>) using <code class='flag'>--cxxopt</code>.
+  For example:
+</p>
+<pre>
+  % bazel build --cxxopt="-fpermissive" --cxxopt="-Wno-error" //foo/cruddy_code
+</pre>
+<p>
+  Note that copts parameters listed in specific cc_library or cc_binary build rules
+  will be placed on the gcc command line <em>after</em> these options.
+</p>
+
+<h4 id='flag--cwarn'><code class='flag'>--cwarn <var>gcc-warning</var></code></h4>
+<p>
+  This option takes an argument which is a gcc warning to be enabled when
+  compiling C or C++ source files. This warning enabling will override any
+  other copt, cxxopt or copts that disable the given warning.
+</p>
+<p>
+  This is similar to <code class='flag'>--copt</code> and <code class='flag'>--cxxopt</code>, but can only
+  be used to enable warnings. The arguments to this option are appended to the
+  "-W" flag to gcc, and must not contain a leading "no-" prefix.
+  For example:
+</p>
+<pre>
+  % bazel build --cwarn="unused-variable" --cwarn="unused-function" //foo/cruddy_code
+</pre>
+
+<h4 id='flag--linkopt'><code class='flag'>--linkopt <var>linker-option</var></code></h4>
+<p>
+  This option takes an argument which is to be passed to gcc when linking.
+</p>
+<p>
+  This is similar to <code class='flag'>--copt</code>, but only applies to linking,
+  not to compilation.  So you can pass gcc options that only make sense
+  at link time (such as <code>-lssp</code> or <code>-Wl,--wrap,abort</code>)
+  using <code class='flag'>--linkopt</code>.  For example:
+</p>
+<pre>
+  % bazel build --copt="-fmudflap" --linkopt="-lmudflap" //foo/buggy_code
+</pre>
+<p>
+  Build rules can also specify link options in their attributes. This option's
+  settings always take precedence. Also see
+  <a href="build-encyclopedia.html#cc_library.linkopts">cc_library.linkopts</a>.
+</p>
+
+<h4 id='flag--strip'><code class='flag'>--strip (always|never|sometimes)</code></h4>
+<p>
+  This option determines whether Bazel will strip debugging information from
+  all binaries and shared libraries, by invoking the linker with the <code>-Wl,--strip-debug</code> option.
+  <code class='flag'>--strip=always</code> means always strip debugging information.
+  <code class='flag'>--strip=never</code> means never strip debugging information.
+  The default value of <code class='flag'>--strip=sometimes</code> means strip iff the <code class='flag'>--compilation_mode</code>
+  is <code>fastbuild</code>.
+</p>
+<pre>
+  % bazel build --strip=always //foo:bar
+</pre>
+<p>
+  will compile the target while stripping debugging information from all generated
+  binaries.
+</p>
+<p>
+  Note that if you want debugging information, it's not enough to disable stripping; you also need to make
+  sure that the debugging information was generated by the compiler, which you can do by using either
+  <code>-c dbg</code> or <code class='flag'>--copt -g</code>.
+</p>
+<p>
+  Note also that Bazel's <code class='flag'>--strip</code> option corresponds with ld's <code>--strip-debug</code> option:
+  it only strips debugging information.  If for some reason you want to strip <em>all</em> symbols,
+  not just <em>debug</em> symbols, you would need to use ld's <code>--strip-all</code> option,
+  which you can do by passing <code class='flag'>--linkopt=-Wl,--strip-all</code> to Bazel.
+</p>
+
+<h4 id='flag--stripopt'><code class='flag'>--stripopt <var>strip-option</var></code></h4>
+<p>
+  An additional option to pass to the <code>strip</code> command when generating
+  a <a href="build-encyclopedia.html#cc_binary_implicit_outputs"><code>*.stripped</code>
+  binary</a>. The default is <code>-S -p</code>. This option can be used
+  multiple times.
+</p>
+<p>
+  Note that <code class='flag'>--stripopt</code> does not apply to the stripping of the main
+  binary with <code><a href='#flag--strip'>--strip</a>=(always|sometimes)</code>.
+</p>
+
+<h4 id='flag--fdo_instrument'><code class='flag'>--fdo_instrument  <var>profile-output-dir</var></code></h4>
+<p>
+  The <code class='flag'>--fdo_instrument</code> option enables the generation of
+  FDO (feedback directed optimization) profile output when the
+  built C/C++ binary is executed. The argument provided is used as a
+  directory prefix for a per-object file directory tree of .gcda files
+  containing profile information for each .o file.
+</p>
+<p>
+  Once the profile data tree has been generated, the profile tree
+  should be zipped up, and provided to the
+  <code class='flag'>--fdo_optimize=<var>profile-zip</var></code>
+  Bazel option to enable the FDO optimized compilation.
+
+</p>
+<p>
+  The options <code class='flag'>--fdo_instrument</code> and <code class='flag'>--fdo_optimize</code>
+  cannot be used at the same time.
+</p>
+
+<h4 id='flag--fdo_optimize'><code class='flag'>--fdo_optimize <var>profile-zip</var></code></h4>
+<p>
+  The <code class='flag'>--fdo_optimize</code> option enables the use of the
+  per-object file profile information to perform FDO (feedback
+  directed optimization) optimizations when compiling. The argument
+  provided is the zip file containing the previously-generated file tree
+  of .gcda files containing profile information for each .o file.
+</p>
+<p>
+  Alternatively, the argument provided can point to an auto profile
+  identified by the extension .afdo.
+
+</p>
+<p>
+  Note that this option also accepts labels that resolve to source files. You
+  may need to add an <code>exports_files</code> directive to the corresponding package to
+  make the file visible to Bazel.
+</p>
+<p>
+  The options <code class='flag'>--fdo_instrument</code> and <code class='flag'>
+  --fdo_optimize</code> cannot be used at the same time.
+</p>
+
+<h4 id='flag--lipo'><code class='flag'>--lipo (off|binary)</code></h4>
+<p>
+  The <code class='flag'>--lipo=binary</code> option enables
+
+  LIPO
+  (Lightweight Inter-Procedural Optimization). LIPO is an extended C/C++ optimization technique
+  that optimizes code across different object files. It involves compiling each C/C++ source
+  file differently for every binary. This is in contrast to normal compilation where compilation
+  outputs are reused. This means that LIPO is more expensive than normal compilation.
+</p>
+<p>
+  This option only has an effect when FDO is also enabled (see the
+  <a href="#flag--fdo_instrument">--fdo_instrument</a> and
+  <a href="#flag--fdo_optimize">--fdo_options</a>).
+  Currently LIPO is only supported when building a single <code>cc_binary</code> rule.
+</p>
+<p>Setting <code>--lipo=binary</code> implicitly sets
+  <code><a href="#flag--dynamic_mode">--dynamic_mode</a>=off</code>.
+</p>
+
+<h4 id='flag--lipo_context'><code class='flag'>--lipo_context
+  <var>context-binary</var></code></h4>
+<p>
+  Specifies the label of a <code>cc_binary</code> rule that was used to generate
+  the profile information for LIPO that was given to
+  the <a href='#flag--fdo_optimize'><code class='flag'>--fdo_optimize</code></a> option.
+</p>
+<p>
+  Specifying the context is mandatory when <code>--lipo=binary</code> is set.
+  Using this option implicitly also sets
+  <code><a href="#flag--linkopt">--linkopt</a>=-Wl,--warn-unresolved-symbols</code>.
+</p>
+
+<h4 id='flag--output_symbol_counts'><code class='flag'>--[no]output_symbol_counts</code></h4>
+<p>
+  If enabled, each gold-invoked link of a C++ executable binary will also output
+  a <i>symbol counts</i> file (via the <code>--print-symbol-counts</code> gold
+  option) that logs the number of symbols from each .o input that were used in
+  the binary. This can be used to track unnecessary link dependencies. The
+  symbol counts file is written to the binary's output path with the name
+  <code>[targetname].sc</code>.
+</p>
+<p>
+ This option is disabled by default.
+</p>
+
+<h4 id='flag--jvmopt'><code class='flag'>--jvmopt <var>jvm-option</var></code></h4>
+<p>
+  This option allows option arguments to be passed to the Java VM. It can be used
+  with one big argument, or multiple times with individual arguments. For example:
+</p>
+<pre>
+  % bazel build --jvmopt="-server -Xms256m" java/com/example/common/foo:all
+</pre>
+<p>
+  will use the server VM for launching all Java binaries and set the
+  startup heap size for the VM to 256 MB.
+</p>
+
+<h4 id='flag--javacopt'><code class='flag'>--javacopt <var>javac-option</var></code></h4>
+<p>
+  This option allows option arguments to be passed to javac. It can be used
+  with one big argument, or multiple times with individual arguments. For example:
+</p>
+<pre>
+  % bazel build --javacopt="-g:source,lines" //myprojects:prog
+</pre>
+<p>
+  will rebuild a java_binary with the javac default debug info
+  (instead of the bazel default).
+</p>
+<p>
+  The option is passed to javac after the Bazel built-in default options for
+  javac and before the per-rule options. The last specification of
+  any option to javac wins. The default options for javac are:
+</p>
+<pre>
+  -g -source 7 -target 7 -encoding UTF-8 -Xlint:divzero,empty,path,-options -Werror:+divzero,+empty,+path
+</pre>
+<p>
+  Note that changing <code class='flag'>--javacopt</code> settings will force a recompilation
+  of all affected classes. Also note that javacopts parameters listed in
+  specific java_library or java_binary build rules will be placed on the javac
+  command line <em>after</em> these options.
+</p>
+
+<h5 id='-Werror'><code>-Werror:<var>(+|-)warning[,(+|-)warning]*</var></code></h5>
+
+<p>
+  This javac option enables selective treating of warnings as errors. To specify
+  all or none of the warnings, use <code>+all</code> or <code>-all</code>.
+  The last specification for any warning wins. A typical value that enables all
+  warnings as errors except those that may be caused upstream is:
+</p>
+<pre>
+  -Werror:+all,-deprecation,-unchecked
+</pre>
+
+<p>
+  The divzero and empty javac warnings are promoted to errors by default. These
+  errors cannot be disabled from the Bazel command line or the BUILD file.
+  However, in extreme cases they may be disabled by adding a
+  <code>@SuppressWarnings({"divzero", "empty"})</code> annotation to your Java
+  source.
+</p>
+
+<h5 id='-extra_checks'><code>-extra_checks[:(off|on)]</code></h5>
+
+<p>
+  This javac option enables extra correctness checks. Any problems found will
+  be presented as errors.
+  Either <code>-extra_checks</code> or <code>-extra_checks:on</code> may be used
+  to force the checks to be turned on. <code>-extra_checks:off</code> completely
+  disables the analysis.
+  When this option is not specified, the default behavior is used.
+</p>
+
+<h4 id='flag--strict_java_deps'><code class='flag'>--strict_java_deps
+    (default|strict|off|warn|error)</code></h4>
+<p>
+  This option controls whether javac checks for missing direct dependencies.
+  Java targets must explicitly declare all directly used targets as
+  dependencies. This flag instructs javac to determine the jars actually used
+  for type checking each java file, and warn/error if they are not the output
+  of a direct dependency of the current target.
+</p>
+
+<ul>
+  <li> <code>off</code> means checking is disabled.
+  </li>
+  <li> <code>warn</code> means javac will generate standard java warnings of
+    type <code>[strict]</code> for each missing direct dependency.
+  </li>
+  <li> <code>default</code>, <code>strict</code> and <code>error</code> all
+    mean javac will generate errors instead of warnings, causing the current
+    target to fail to build if any missing direct dependencies are found.
+    This is also the default behavior when the flag is unspecified.
+  </li>
+</ul>
+
+<h4 id='flag--javawarn'><code class='flag'>--javawarn (all|cast|deprecation|empty|unchecked|fallthrough|path|rawtypes|serial|finally|overrides)</code></h4>
+<p>
+  This option is used to enable Java warnings across an entire build. It takes
+  an argument which is a javac warning to be enabled, overriding any other Java
+  options that disable the given warning. The arguments to this option are
+  appended to the "-Xlint:" flag to javac, and must be exactly one of
+  the listed warnings.
+</p>
+<p>
+  For example:
+</p>
+<pre>
+  % bazel build --javawarn="deprecation" --javawarn="unchecked" //java/...
+</pre>
+<p>
+  Note that changing <code class='flag'>--javawarn</code> settings will force a recompilation
+  of all affected classes.
+</p>
+
+<h3 id='semantics-options'>Semantics options</h3>
+<p>
+  These options affect the build commands and/or the output file contents.
+</p>
+
+<h4 id='flag--compilation_mode'><code class='flag'>--compilation_mode (fastbuild|opt|dbg)</code> (-c)</h4>
+<p>
+  This option takes an argument of <code>fastbuild</code>, <code>dbg</code>
+  or <code>opt</code>, and affects various C/C++ code-generation
+  options, such as the level of optimization and the completeness of
+  debug tables.  Bazel uses a different output directory for each
+  different compilation mode, so you can switch between modes without
+  needing to do a full rebuild <i>every</i> time.
+</p>
+<ul>
+  <li> <code>fastbuild</code> means build as fast as possible:
+    generate minimal debugging information (<code>-gmlt
+    -Wl,-S</code>), and don't optimize.  This is the
+    default. Note: <code>-DNDEBUG</code> will <b>not</b> be set.
+  </li>
+  <li> <code>dbg</code> means build with debugging enabled (<code>-g</code>),
+    so that you can use gdb (or another debugger).
+  </li>
+  <li> <code>opt</code> means build with optimization enabled and
+    with <code>assert()</code> calls disabled (<code>-O2 -DNDEBUG</code>).
+    Debugging information will not be generated in <code>opt</code> mode
+    unless you also pass <code class='flag'>--copt -g</code>.
+  </li>
+</ul>
+
+<h4 id='flag--cpu'><code class='flag'>--cpu (piii|k8)</code></h4>
+<p>
+This option specifies the target CPU architecture (piii (x86), k8 (x86_64), etc.) to be used for
+the compilation of binaries during the build.
+</p>
+<p>
+
+  This option does not apply to Java binaries or to any C/C++ code linked into them; there are
+  <code class='flag'>--java_cpu</code> flag is used to specify that.
+</p>
+
+<p>
+  Note that a particular combination of crosstool version, compiler version,
+  libc version, and target CPU is allowed only if it has been specified
+  in the currently used CROSSTOOL file.
+</p>
+
+<h4 id='flag--host_cpu'><code class='flag'>--host_cpu (piii|k8)</code></h4>
+<p>
+  This option specifies the name of the CPU architecture that should be
+  used to build host tools.
+</p>
+
+<h4 id='flag--java_cpu'><code class='flag'>--java_cpu <var>cpu</var></code></h4>
+<p>
+  This option specifies the name of the CPU architecture (piii, k8, etc) that
+  should be used to build libraries dynamically loaded by the JVM.
+  By default it is set to k8, ensuring that all such libraries will be 64-bit.
+</p>
+
+<h4 id='flag--experimental_skip_static_outputs'><code class='flag'>--experimental_skip_static_outputs</code></h4>
+<p>
+  The <code class='flag'>--experimental_skip_static_outputs</code> option causes all
+  statically-linked C++ binaries to <b>not</b> be output in any meaningful
+  way.
+
+</p>
+<p>
+  If you set this flag, you must also
+  set <a href="#flag--distinct_host_configuration"><code class='flag'>--distinct_host_configuration</code></a>.
+  It is also inherently incompatible with running tests &mdash; don't use it for
+  that.  This option is experimental and may go away at any time.
+</p>
+
+<h4 id='flag--per_file_copt'><code class='flag'>--per_file_copt
+    <var>[+-]regex[,[+-]regex]...@option[,option]...</var></code></h4>
+<p>
+  When present, any C++ file with a label or an execution path matching one of the inclusion regex
+  expressions and not matching any of the exclusion expressions will be built
+  with the given options. The label matching uses the canonical form of the label
+  (i.e //<code>package</code>:<code>label_name</code>).
+
+  The execution path is the relative path to your workspace directory including the base name
+  (including extension) of the C++ file. It also includes any platform dependent prefixes.
+  Note, that if only one of the label or the execution path matches the options will be used.
+</p>
+<p>
+  <b>Notes</b>:
+  To match the generated files (e.g. genrule outputs)
+  Bazel can only use the execution path. In this case the regexp shouldn't start with '//'
+  since that doesn't match any execution paths. Package names can be used like this:
+  <code class='flag'>--per_file_copt=base/.*\.pb\.cc@-g0</code>. This will match every
+  <code>.pb.cc</code> file under a directory called <code>base</code>.
+</p>
+<p>
+  This option can be used multiple times.
+</p>
+<p>
+  The option is applied regardless of the compilation mode used. I.e. it is possible
+  to compile with <code class='flag'>--compilation_mode=opt</code> and selectively compile some
+  files with stronger optimization turned on, or with optimization disabled.
+</p>
+<p>
+  <b>Caveat</b>: If some files are selectively compiled with debug symbols the symbols
+  might be stripped during linking. This can be prevented by setting
+  <code class='flag'>--strip=never</code>.
+</p>
+<p>
+  <b>Syntax</b>: <code>[+-]regex[,[+-]regex]...@option[,option]...</code> Where
+  <code>regex</code> stands for a regular expression that can be prefixed with
+  a <code>+</code> to identify include patterns and with <code>-</code> to identify
+  exclude patterns. <code>option</code> stands for an arbitrary option that is passed
+  to the C++ compiler. If an option contains a <code>,</code> it has to be quoted like so
+  <code>\,</code>. Options can also contain <code>@</code>, since only the first
+  <code>@</code> is used to separate regular expressions from options.
+</p>
+<p>
+  <b>Example</b>:
+  <code class='flag'>--per_file_copt=//foo:.*\.cc,-//foo:file\.cc@-O0,-fprofile-arcs</code>
+  adds the <code>-O0</code> and the <code>-fprofile-arcs</code> options to the command
+  line of the C++ compiler for all <code>.cc</code> files in <code>//foo/</code> except
+  <code>file.cc</code>.
+</p>
+<h4 id='flag--dynamic_mode'><code class='flag'>--dynamic_mode <var>mode</var></code></h4>
+<p>
+  Determines whether C++ binaries will be linked dynamically, interacting with
+  the <a href='build-encyclopedia.html#linkstatic'>linkstatic attribute</a> on
+  build rules.
+</p>
+
+<p>
+  Modes:
+</p>
+<ul>
+  <li><code>auto</code>: Translates to a platform-dependent mode;
+      <code>default</code> for linux and <code>off</code> for cygwin.</li>
+  <li><code>default</code>: Allows bazel to choose whether to link dynamically.
+      See <a href='build-encyclopedia.html#linkstatic'>linkstatic</a> for more
+      information.</li>
+  <li><code>fully</code>: Links all targets dynamically.  This will speed up
+      linking time, and reduce the size of the resulting binaries.
+
+  </li>
+  <li><code>off</code>: Links all targets in
+      <a href='build-encyclopedia.html#linkstatic'>mostly static</a> mode.
+      If <code>-static</code> is set in linkopts, targets will change to fully
+      static.</li>
+</ul>
+
+<h4 id='flag--fission'><code class='flag'>--fission (yes|no|[dbg][,opt][,fastbuild])</code></h4>
+<p>
+  Enables
+
+  <a href='https://gcc.gnu.org/wiki/DebugFission'>Fission</a>,
+  which writes C++ debug information to dedicated .dwo files instead of .o files, where it would
+  otherwise go. This substantially reduces the input size to links and can reduce link times.
+
+</p>
+<p>
+  When set to <code class='flag'>[dbg][,opt][,fastbuild]</code> (example:
+  <code class='flag'>--fission=dbg,fastbuild</code>), Fission is enabled
+  only for the specified set of compilation modes. This is useful for bazelrc
+  settings. When set to <code class='flag'>yes</code>, Fission is enabled
+  universally. When set to <code class='flag'>no</code>, Fission is disabled
+  universally. Default is <code class='flag'>dbg</code>.
+</p>
+
+<h4 id='flag--force_ignore_dash_static'><code class='flag'>--force_ignore_dash_static</code></h4>
+<p>
+  If this flag is set, any <code>-static</code> options in linkopts of
+  <code>cc_*</code> rules BUILD files are ignored. This is only intended as a
+  workaround for C++ hardening builds.
+</p>
+
+<h4 id='flag--force_pic'><code class='flag'>--[no]force_pic</code></h4>
+<p>
+  If enabled, all C++ compilations produce position-independent code ("-fPIC"),
+  links prefer PIC pre-built libraries over non-PIC libraries, and links produce
+  position-independent executables ("-pie"). Default is disabled.
+</p>
+<p>
+  Note that dynamically linked binaries (i.e. <code>--dynamic_mode fully</code>)
+  generate PIC code regardless of this flag's setting. So this flag is for cases
+  where users want PIC code explicitly generated for static links.
+</p>
+
+<h4 id='flag--custom_malloc'><code class='flag'>--custom_malloc <var>malloc-library-target</var></code></h4>
+<p>
+  When specified, always use the given malloc implementation, overriding all
+  <code>malloc="target"</code> attributes, including in those targets that use the
+  default (by not specifying any <code>malloc</code>).
+</p>
+
+<h4 id='flag--crosstool_top'><code class='flag'>--crosstool_top <var>label</var></code></h4>
+<p>
+  This option specifies the location of the crosstool compiler suite
+  to be used for all C++ compilation during a build. Bazel will look in that
+  location for a CROSSTOOL file and uses that to automatically determine
+  settings for
+
+  <code class='flag'>--compiler</code>.
+</p>
+
+<h4 id='flag--host_crosstool_top'><code class='flag'>--host_crosstool_top <var>label</var></code></h4>
+<p>
+  If not specified, bazel uses the value of <code class='flag'>--crosstool_top</code> to compile
+  code in the host configuration, i.e., tools run during the build. The main purpose of this flag
+  is to enable cross-compilation.
+</p>
+
+<h4 id='flag--compiler'><code class='flag'>--compiler <var>version</var></code></h4>
+<p>
+  This option specifies the C/C++ compiler version (e.g. <code>gcc-4.1.0</code>)
+  to be used for the compilation of binaries during the build. If you want to
+  build with a custom crosstool, you should use a CROSSTOOL file instead of
+  specifying this flag.
+</p>
+<p>
+  Note that only certain combinations of crosstool version, compiler version,
+  libc version, and target CPU are allowed.
+</p>
+
+<h4 id='flag--glibc'><code class='flag'>--glibc <var>version</var></code></h4>
+<p>
+  This option specifies the version of glibc that the target should be linked
+  against. If you want to build with a custom crosstool, you should use a
+  CROSSTOOL file instead of specifying this flag. In that case, Bazel will use
+  the CROSSTOOL file and the following options where appropriate:
+  <ul>
+    <li><a href="#flag--cpu"><code class='flag'>--cpu</code></a></li>
+    <li><a href="#flag--java_cpu"><code class='flag'>--java_cpu</code></a></li>
+
+  </ul>
+</p>
+<p>
+  Note that only certain combinations of crosstool version, compiler version,
+  glibc version, and target CPU are allowed.
+</p>
+
+<h4 id='flag--javabuilder_top'><code class='flag'>--javabuilder_top <var>label</var></code></h4>
+<p>
+  This option specifies the label of the JavaBuilder used to compile Java
+  source files.
+</p>
+
+<h4 id='flag--java_langtools'><code class='flag'>--java_langtools <var>label</var></code></h4>
+<p>
+  This option specifies the label of the Java langtools jar (used by
+  Java compilation tools, for example JavaBuilder).
+</p>
+
+<h4 id='flag--javabase'><code class='flag'>--javabase (<var>path</var>|<var>label</var>)</code></h4>
+<p>
+  This options set the label or the path of the base Java installation to use
+  for running JavaBuilder, SingleJar, and is also used for bazel run and inside
+  Java binaries built by <code>java_binary</code> rules. The various
+  <a href='build-encyclopedia.html#make_variables'>"Make" variables</a> for
+  Java (<code>JAVABASE</code>, <code>JAVA</code>, <code>JAVAC</code> and
+  <code>JAR</code>) are derived from this option.
+</p>
+
+<p>
+  This does not select the Java compiler that is used to compile Java
+  source files. The compiler can be selected by settings the
+  <a href="#flag--java_langtools"><code class='flag'>--java_langtools</code></a>
+  and the
+  <a href="#flag--javac_bootclasspath"><code class='flag'>--javac_bootclasspath</code></a>
+  options.
+</p>
+
+<h4 id='flag--javac_bootclasspath'><code class='flag'>--javac_bootclasspath <var>label</var></code></h4>
+<p>
+  This option specifies the label of the bootclasspath that should be used by
+  the Java compiler. This lets you compile against different versions of the
+  Java class library, for example, version 7 instead of version 6.
+</p>
+
+<h3 id='strategy-options'>Build strategy options</h3>
+<p>
+  These options affect how Bazel will execute the build.
+  They should not have any significant effect on the output files
+  generated by the build.  Typically their main effect is on the
+  speed on the build.
+</p>
+
+
+<h4 id='flag--local_genrule_timeout_seconds'><code class='flag'>--local_genrule_timeout_seconds <var>seconds</var></code></h4>
+<p>Sets a timeout value for local genrules with the given number of seconds.</p>
+
+<h4 id='flag--jobs'><code class='flag'>--jobs <var>n</var></code> (-j)</h4>
+<p>
+  This option, which takes an integer argument, specifies a limit on
+  the number of jobs that should be executed concurrently during the
+  execution phase of the build. The default is 200.
+</p>
+<p>
+  Note that the number of concurrent jobs that Bazel will run
+  is determined not only by the <code class='flag'>--jobs</code> setting, but also
+  by Bazel's scheduler, which tries to avoid running concurrent jobs
+  that will use up more resources (RAM or CPU) than are available,
+  based on some (very crude) estimates of the resource consumption
+  of each job.  The behavior of the scheduler can be controlled by
+  the <code class='flag'>--ram_utilization_factor</code> option.
+</p>
+
+<h4 id='flag--progress_report_interval'><code class='flag'>--progress_report_interval <var>n</var></code></h4>
+<p>
+
+  Bazel periodically prints a progress report on jobs that are not
+  finished yet (e.g. long running tests).  This option sets the
+  reporting frequency, progress will be printed every <code>n</code>
+  seconds.
+</p>
+<p>
+  The default is 0, that means an incremental algorithm: the first
+  report will be printed after 10 seconds, then 30 seconds and after
+  that progress is reported once every minute.
+</p>
+
+<h4 id='flag--ram_utilization_factor'><code class='flag'>--ram_utilization_factor</code> <var>percentage</var></h4>
+<p>
+  This option, which takes an integer argument, specifies what percentage
+  of the system's RAM Bazel should try to use for its subprocesses.
+  This option affects how many processes Bazel will try to run
+  in parallel.  The default value is 67.
+  If you run several Bazel builds in parallel, using a lower
+  value for this option may avoid thrashing and thus improve overall
+  throughput. Using a value higher than the default is NOT recommended. Note
+  that Bazel's estimates are very coarse, so the actual RAM usage may be much
+  higher or much lower than specified. Note also that this option does not
+  affect the amount of memory that the Bazel server itself will use.
+</p>
+<p>
+  This option has no effect if --resource_autosense is enabled.
+</p>
+
+<h4 id='flag--local_resources'><code class='flag'>--local_resources</code> <var>availableRAM,availableCPU,availableIO</var></h4>
+<p>
+  This option, which takes three comma-separated floating point arguments,
+specifies the amount of local resources that Bazel can take into
+consideration when scheduling build and test activities. Option expects amount of
+available RAM (in MB), number of CPU cores (with 1.0 representing single full
+core) and workstation I/O capability (with 1.0 representing average
+workstation). By default Bazel will estimate amount of RAM and number of CPU
+cores directly from system configuration and will assume 1.0 I/O resource.
+</p>
+<p>
+  If this option is used, Bazel will ignore both --ram_utilization_factor and
+  --resource_autosense options.
+</p>
+
+<h4 id='flag--build_runfile_links'><code class='flag'>--[no]build_runfile_links</code></h4>
+<p>
+  This option, which is currently enabled by default, specifies
+  whether the runfiles symlinks for tests and
+  <code>cc_binary</code> targets should be built in the output directory.
+  Using <code class='flag'>--nobuild_runfile_links</code> can be useful
+  to validate if all targets compile without incurring the overhead
+  for building the runfiles trees.
+
+  Within Bazel's output tree, the
+  runfiles symlink tree is typically rooted as a sibling of the corresponding
+  binary or test.
+</p>
+
+<p>
+  When Bazel tests (or applications) are executed, their
+  run-time data dependencies are gathered together in one place, and
+  may be accessed by the test using paths of the form
+  <code>$TEST_SRCDIR/base_workspace/<var>packagename</var>/<var>filename</var></code>.
+  The "runfiles" tree ensures that tests have access to all the files
+  upon which they have a declared dependence, and nothing more.  By
+  default, the runfiles tree is implemented by constructing a set of
+  symbolic links to the required files.  As the set of links grows, so
+  does the cost of this operation, and for some large builds it can
+  contribute significantly to overall build time, particularly because
+  each individual test (or application) requires its own runfiles tree.
+</p>
+<p>
+  The <code class='flag'>--build_runfile_links</code> flag controls the
+  construction of the tree of symbolic links (for C++ applications and
+  tests only). The reasons only C++ non-test rules are affected are numerous
+  and subtle: C++ builds are more likely to be slower due to runfiles;
+  no C++ host tools (tools that run during the build) need their runfiles,
+  so this option can be used by the host configuration; and other rules
+  (notably Python) need their runfiles for other purposes besides test
+  execution.
+</p>
+
+<h4 id='flag--discard_analysis_cache'>
+  <code class='flag'>--[no]discard_analysis_cache</code></h4>
+<p>
+  When this option is enabled, Bazel will discard the analysis cache
+  right before execution starts, thus freeing up additional memory
+  (around 10%) for the <a href="#execution-phase">execution phase</a>.
+  The drawback is that further incremental builds will be slower.
+</p>
+
+<h4 id='flag--keep_going'><code class='flag'>--[no]keep_going</code>  (-k)</h4>
+<p>
+  As in GNU Make, the execution phase of a build stops when the first
+  error is encountered.  Sometimes it is useful to try to build as
+  much as possible even in the face of errors.  This option enables
+  that behavior, and when it is specified, the build will attempt to
+  build every target whose prerequisites were successfully built, but
+  will ignore errors.
+</p>
+<p>
+  While this option is usually associated with the execution phase of
+  a build, it also effects the analysis phase: if several targets are
+  specified in a build command, but only some of them can be
+  successfully analyzed, the build will stop with an error
+  unless <code class='flag'>--keep_going</code> is specified, in which case the
+  build will proceed to the execution phase, but only for the targets
+  that were successfully analyzed.
+</p>
+
+<h4 id='flag--resource_autosense'><code class='flag'>--[no]resource_autosense</code></h4>
+<p>
+  Bazel's default scheduling algorithm is based on fixed estimates of
+  the available CPU/memory resources of the workstation.  It does not
+  account for the load of any unrelated jobs that happen to be running
+  on your machine, such as another Bazel build in a different
+  workspace.
+</p>
+<p>
+  The <code class='flag'>--resource_autosense</code> option enables a different
+  scheduling algorithm for the execution of build steps.  It causes
+  Bazel to poll the system CPU load and available memory periodically.
+  This data is used to limit the number of commands executed
+  simultaneously on the workstation, ensuring that the system remains
+  responsive, especially when other jobs are running on the machine.
+</p>
+<p>
+  (Note, neither algorithm takes into account the actual (dynamic)
+  cost of each build step.)
+</p>
+
+<h4 id='flag--thin_archives'><code class='flag'>--[no]thin_archives</code></h4>
+<p>
+  This option enables use of <i>thin archives</i>, an optimization which avoids
+  duplicating the content of object files when they are placed in archive
+  libraries; the archive library references the object file by name, and the
+  linker follows this reference as needed.  This may give a speedup for C++
+  builds, especially when building a single large executable from clean.
+</p>
+
+<p>
+  This option is enabled by default;
+  use <code class='flag'>--nothin_archives</code> to disable.
+</p>
+
+<h4 id='flag--use_ijars'><code class='flag'>--[no]use_ijars</code></h4>
+<p>
+  This option changes the way <code>java_library</code> targets are
+  compiled by Bazel. Instead of using the output of a
+  <code>java_library</code> for compiling dependent
+  <code>java_library</code> targets, Bazel will create interface jars
+  that contain only the signatures of non-private members (public,
+  protected, and default (package) access methods and fields) and use
+  the interface jars to compile the dependent targets.  This makes it
+  possible to avoid recompilation when changes are only made to
+  method bodies or private members of a class.
+</p>
+<p>
+  Note that using <code class='flag'>--use_ijars</code> might give you a different
+  error message when you are accidentally referring to a non visible
+  member of another class: Instead of getting an error that the member
+  is not visible you will get an error that the member does not exist.
+</p>
+<p>
+  Note that changing the <code class='flag'>--use_ijars</code> setting will force
+  a recompilation of all affected classes.
+</p>
+
+<h4 id='flag--interface_shared_objects'>
+    <code class='flag'>--[no]interface_shared_objects</code>
+</h4>
+<p>
+  This option enables <i>interface shared objects</i>, which makes binaries and
+  other shared libraries depend on the <i>interface</i> of a shared object,
+  rather than its implementation. When only the implementation changes, Bazel
+  can avoid rebuilding targets that depend on the changed shared library
+  unnecessarily.
+</p>
+
+<h3 id='output-selection-options'>Output selection options</h3>
+<p>
+  These options determine what to build or test.
+</p>
+
+<h4 id="nobuild"><code class='flag'>--[no]build</code></h4>
+<p>
+  This option causes the execution phase of the build to occur; it is
+  on by default.  When it is switched off, the execution phase is
+  skipped, and only the first two phases, loading and analysis, occur.
+</p>
+<p>
+  This option can be useful for validating BUILD files and detecting
+  errors in the inputs, without actually building anything.
+</p>
+
+<h4 id='flag--build_tests_only'><code class='flag'>--[no]build_tests_only</code></h4>
+<p>
+  If specified, Bazel will build only what is necessary to run the *_test
+  and test_suite rules that were not filtered due to their
+  <a href='#flag--test_size_filters'>size</a>,
+  <a href='#flag--test_timeout_filters'>timeout</a>,
+  <a href='#flag--test_tag_filters'>tag</a>, or
+  <a href='#flag--test_lang_filters'>language</a>.
+  If specified, Bazel will ignore other targets specified on the command line.
+  By default, this option is disabled and Bazel will build everything
+  requested, including *_test and test_suite rules that are filtered out from
+  testing. This is useful because running
+  <code>bazel test --build_tests_only foo/...</code> may not detect all build
+  breakages in the <code>foo</code> tree.
+</p>
+
+<h4 id="flag--compile_only"><code class='flag'>--[no]compile_only</code></h4>
+<p>
+  This option forces Bazel to execute only "lightweight" compilation steps
+  related to the specified targets. At this time such steps only include
+  compilation of sources for <code>cc_*</code> and <code>java_*</code> rules
+  without building dependencies or performing linking.
+</p>
+<p>
+  This option can be useful to quickly validate a given C++ or Java target for
+  compilation errors. In particular, it might be especially useful when
+  specified together with the <a href="#flag--compile_one_dependency">
+  <code class='flag'>--compile_one_dependency</code></a> option.
+</p>
+
+<h4 id="flag--compilation_prerequisites_only"><code class='flag'>--[no]compilation_prerequisites_only</code></h4>
+<p>
+  Given this option, Bazel will only build files that are prerequisites for
+  compilation of the given target (for example, generated headers and source
+  files), but will not build the target itself.
+</p>
+<p>
+  This option can be useful to quickly validate a given C++ or Java target for
+  compilation errors. In particular, it might be especially useful when
+  specified together with the <a href="#flag--compile_one_dependency">
+  <code class='flag'>--compile_one_dependency</code></a> option.
+</p>
+
+<h4 id='flag--check_up_to_date'><code class='flag'>--[no]check_up_to_date</code></h4>
+<p>
+  This option causes Bazel not to perform a build, but merely check
+  whether all specified targets are up-to-date.  If so, the build
+  completes successfully, as usual.  However, if any files are out of
+  date, instead of being built, an error is reported and the build
+  fails.  This option may be useful to determine whether a build has
+  been performed more recently than a source edit (e.g. for pre-submit
+  checks) without incurring the cost of a build.
+</p>
+<p>
+  See also <a href="#flag--check_tests_up_to_date"><code class='flag'>--check_tests_up_to_date</code></a>.
+</p>
+
+<h4 id='flag--compile_one_dependency'><code class='flag'>--[no]compile_one_dependency</code></h4>
+<p>
+  Compile a single dependency of the argument files.  This is useful for
+  syntax checking source files in IDEs, for example, by rebuilding a single
+  target that depends on the source file to detect errors as early as
+  possible in the edit/build/test cycle.  This argument affects the way all
+  non-flag arguments are interpreted: for each source filename, one
+  rule that depends on it will be built. For
+
+  C++ and Java
+  sources, rules in the same language space are preferentially chosen. For
+  multiple rules with the same preference, the one that appears first in the
+  BUILD file is chosen. An explicitly named target pattern which does not
+  reference a source file results in an error.
+</p>
+
+<h4 id='flag--save_temps'><code class='flag'>--save_temps</code></h4>
+<p>
+  The <code class='flag'>--save_temps</code> option causes temporary outputs from gcc to be saved.
+  These include .s files (assembler code), .i (preprocessed C) and .ii
+  (preprocessed C++) files.  These outputs are often useful for debugging. Temps will only be
+  generated for the set of targets specified on the command line.
+</p>
+<p>
+  Note that our implementation of <code class='flag'>--save_temps</code> does not use gcc's
+  <code>-save-temps</code> flag.  Instead, we do two passes, one with <code>-S</code>
+  and one with <code>-E</code>.  A consequence of this is that if your build fails,
+  Bazel may not yet have produced the ".i" or ".ii" and ".s" files.
+  If you're trying to use <code class='flag'>--save_temps</code> to debug a failed compilation,
+  you may need to also use <code class='flag'>--keep_going</code> so that Bazel will still try to
+  produce the preprocessed files after the compilation fails.
+</p>
+<p>
+  The <code class='flag'>--save_temps</code> flag currently works only for cc_* rules.
+</p>
+<p>
+  To ensure that Bazel prints the location of the additional output files, check that
+  your <a href='#flag--show_result'><code class='flag'>--show_result <var>n</var></code></a>
+  setting is high enough.
+</p>
+
+<h4 id='flag--source_jars'><code class='flag'>--[no]source_jars</code></h4>
+<p>
+  By default, this option is disabled. If enabled, Bazel will also build all
+  source jars in the transitive closure of the targets specified on the command
+  line.
+</p>
+
+<h4 id='flag--test_size_filters'><code class='flag'>--test_size_filters <var>size[,size]*</var></code></h4>
+<p>
+  If specified, Bazel will test (or build if <code class='flag'>--build_tests_only</code>
+  is also specified) only test targets with the given size. Test size filter
+  is specified as comma delimited list of allowed test size values (small,
+  medium, large or enormous), optionally preceded with '-' sign used to denote
+  excluded test sizes. For example,
+</p>
+<pre>
+  % bazel test --test_size_filters=small,medium //foo:all
+</pre>
+  and
+<pre>
+  % bazel test --test_size_filters=-large,-enormous //foo:all
+</pre>
+<p>
+  will test only small and medium tests inside //foo.
+</p>
+<p>
+  By default, test size filtering is not applied.
+</p>
+
+<h4 id='flag--test_timeout_filters'><code class='flag'>--test_timeout_filters <var>timeout[,timeout]*</var></code></h4>
+<p>
+  If specified, Bazel will test (or build if <code class='flag'>--build_tests_only</code>
+  is also specified) only test targets with the given timeout. Test timeout filter
+  is specified as comma delimited list of allowed test timeout values (short,
+  moderate, long or eternal), optionally preceded with '-' sign used to denote
+  excluded test timeouts. See <a href='#flag--test_size_filters'>--test_size_filters</a>
+  for example syntax.
+</p>
+<p>
+  By default, test timeout filtering is not applied.
+</p>
+
+
+<h4 id='flag--test_tag_filters'><code class='flag'>--test_tag_filters <var>tag[,tag]*</var></code></h4>
+<p>
+  If specified, Bazel will test (or build if <code class='flag'>--build_tests_only</code>
+  is also specified) only test targets that have at least one required tag
+  (if any of them are specified) and does not have any excluded tags. Test tag
+  filter is specified as comma delimited list of tag keywords, optionally
+  preceded with '-' sign used to denote excluded tags. Required tags may also
+  have a preceding '+' sign.
+</p>
+<p>
+  For example,
+<pre>
+  % bazel test --test_tag_filters=performance,stress,-flaky //myproject:all
+</pre>
+<p>
+  will test targets that are tagged with either <code>performance</code> or
+  <code>stress</code> tag but are <b>not</b> tagged with the <code>flaky</code>
+  tag.
+</p>
+<p>
+  By default, test tag filtering is not applied.  Note that you can also filter
+  on test's <code>size</code> and <code>local</code> tags in
+  this manner.
+</p>
+
+<h4 id='flag--test_lang_filters'><code class='flag'>--test_lang_filters <var>lang[,lang]*</var></code></h4>
+<p>
+  Specifies a comma-separated list of test languages for languages with an official <code>*_test</code> rule the
+  (see <a href="build-encyclopedia.html">build encyclopedia</a> for a full list of these). Each
+  language can be optionally preceded with '-' to specify excluded
+  languages.  The name used for each language should be the same as
+  the language prefix in the <code>*_test</code> rule, for example,
+  <code>cc</code>, <code>java</code> or <code>sh</code>.
+</p>
+<p>
+  If specified, Bazel will test (or build if <code class='flag'>--build_tests_only</code>
+  is also specified) only test targets of the specified language(s).
+</p>
+<p>
+  For example,
+</p>
+<pre>
+  % bazel test --test_lang_filters=cc,java foo/...
+</pre>
+<p>
+  will test only the C/C++ and Java tests (defined using
+  <code>cc_test</code> and <code>java_test</code> rules, respectively)
+  in <code>foo/...</code>, while
+</p>
+<pre>
+  % bazel test --test_lang_filters=-sh,-java foo/...
+</pre>
+<p>
+  will run all of the tests in <code>foo/...</code> except for the
+  <code>sh_test</code> and <code>java_test</code> tests.
+</p>
+<p>
+  By default, test language filtering is not applied.
+</p>
+
+<h4 id="flag--test_filter"><code class='flag'>--test_filter=<var>filter-expression</var></code></h4>
+<p>
+  Specifies a filter that the test runner may use to pick a subset of tests for
+  running. All targets specified in the invocation are built, but depending on
+  the expression only some of them may be executed; in some cases, only certain
+  test methods are run.
+</p>
+<p>
+  The particular interpretation of <var>filter-expression</var> is up to
+  the test framework responsible for running the test. It may be a glob,
+  substring, or regexp. <code class='flag'>--test_filter</code> is a convenience
+  over passing different <code class='flag'>--test_arg</code> filter arguments,
+  but not all frameworks support it.
+</p>
+
+<h3>Verbosity options: options that control what Bazel prints</h3>
+
+These options control the verbosity of Bazel's output,
+either to the terminal, or to additional log files.
+
+<h4 id='flag--explain'><code class='flag'>--explain <var>logfile</var></code></h4>
+<p>
+  This option, which requires a filename argument, causes the
+  dependency checker in <code>bazel build</code>'s execution phase to
+  explain, for each build step, either why it is being executed, or
+  that it is up-to-date.  The explanation is written
+  to <i>logfile</i>.
+</p>
+<p>
+  If you are encountering unexpected rebuilds, this option can help to
+  understand the reason.  Add it to your <code>.bazelrc</code> so that
+  logging occurs for all subsequent builds, and then inspect the log
+  when you see an execution step executed unexpectedly.  This option
+  may carry a small performance penalty, so you might want to remove
+  it when it is no longer needed.
+</p>
+
+<h4 id='flag--verbose_explanations'><code class='flag'>--verbose_explanations</code></h4>
+<p>
+  This option increases the verbosity of the explanations generated
+  when the <a href='#flag--explain'>--explain</a> option is enabled.
+</p>
+<p>
+  In particular, if verbose explanations are enabled,
+  and an output file is rebuilt because the command used to
+  build it has changed, then the output in the explanation file will
+  include the full details of the new command (at least for most
+  commands).
+</p>
+<p>
+  Using this option may significantly increase the length of the
+  generated explanation file and the performance penalty of using
+  <code class='flag'>--explain</code>.
+</p>
+<p>
+  If <code class='flag'>--explain</code> is not enabled, then
+  <code class='flag'>--verbose_explanations</code> has no effect.
+</p>
+
+<h4 id='flag--profile'><code class='flag'>--profile <var>file</var></code></h4>
+<p>
+  This option, which takes a filename argument, causes Bazel to write
+  profiling data into a file. The data then can be analyzed or parsed using the
+  <code>bazel analyze-profile</code> command. The Build profile can be useful in
+  understanding where Bazel's <code>build</code> command is spending its time.
+</p>
+
+<h4 id='flag--show_loading_progress'><code class='flag'>--[no]show_loading_progress</code></h4>
+<p>
+  This option causes Bazel to output package-loading progress
+  messages.  If it is disabled, the messages won't be shown.
+</p>
+
+<h4 id='flag--show_progress'><code class='flag'>--[no]show_progress</code></h4>
+<p>
+  This option causes progress messages to be displayed; it is on by
+  default.  When disabled, progress messages are suppressed.
+</p>
+
+<h4 id='flag--show_progress_rate_limit'><code class='flag'>--show_progress_rate_limit <var>n</var></code></h4>
+<p>
+  This option causes bazel to display only
+  one progress message per <code>n</code> seconds. If <code>n</code> is -1,
+  all progress messages will be displayed. The default value for this
+  option is -1.
+</p>
+
+<h4 id='flag--show_result'><code class='flag'>--show_result <var>n</var></code></h4>
+<p>
+  This option controls the printing of result information at the end
+  of a <code>bazel build</code> command.  By default, if a single
+  build target was specified, Bazel prints a message stating whether
+  or not the target was successfully brought up-to-date, and if so,
+  the list of output files that the target created.  If multiple
+  targets were specified, result information is not displayed.
+</p>
+<p>
+  While the result information may be useful for builds of a single
+  target or a few targets, for large builds (e.g. an entire top-level
+  project tree), this information can be overwhelming and distracting;
+  this option allows it to be controlled.  <code class='flag'>--show_result</code>
+  takes an integer argument, which is the maximum number of targets
+  for which full result information should be printed.  By default,
+  the value is 1.  Above this threshold, no result information is
+  shown for individual targets.  Thus zero causes the result
+  information to be suppressed always, and a very large value causes
+  the result to be printed always.
+</p>
+<p>
+  Users may wish to choose a value in-between if they regularly
+  alternate between building a small group of targets (for example,
+  during the compile-edit-test cycle) and a large group of targets
+  (for example, when establishing a new workspace or running
+  regression tests).  In the former case, the result information is
+  very useful whereas in the latter case it is less so.  As with all
+  options, this can be specified implicitly via
+  the <a href='#bazelrc'><code>.bazelrc</code></a> file.
+</p>
+<p>
+  The files are printed so as to make it easy to copy and paste the
+  filename to the shell, to run built executables.  The "up-to-date"
+  or "failed" messages for each target can be easily parsed by scripts
+  which drive a build.
+</p>
+
+<h4 id='flag--subcommands'><code class='flag'>--subcommands</code>  (-s)</h4>
+<p>
+  This option causes Bazel's execution phase to print the full command line
+  for each command prior to executing it.
+</p>
+
+<pre>
+  &gt;&gt;&gt;&gt;&gt; # //examples/cpp:hello-world
+  (cd /var/tmp/_blaze_jrluser/4c084335afceb392cfbe7c31afee3a9f/base_workspace && \
+    exec env - \
+    /usr/bin/gcc -o bazel-out/local_linux-fastbuild/bin/examples/cpp/hello-world bazel-out/local_linux-fastbuild/bin/examples/cpp/_objs/hello-world/examples/cpp/hello-world.pic.o bazel-out/local_linux-fastbuild/bin/examples/cpp/libhello-lib.a bazel-out/local_linux-fastbuild/bin/tools/cpp/libmalloc.a -lstdc++ -B/usr/bin -Wl,-S)
+</pre>
+<p>
+  Where possible, commands are printed in a Bourne shell compatible syntax,
+  so that they can be easily copied and pasted to a shell command prompt.
+  (The surrounding parentheses are provided to protect your shell from the
+  <code>cd</code> and <code>exec</code> calls; be sure to copy them!)
+  However some commands are implemented internally within Bazel, such as
+  creating symlink trees. For these there's no command line to display.
+
+</p>
+
+<p>
+  See also <a href="#flag--verbose_failures">--verbose_failures</a>, below.
+</p>
+
+<h4 id='flag--verbose_failures'><code class='flag'>--verbose_failures</code></h4>
+<p>
+  This option causes Bazel's execution phase to print the full command line
+  for commands that failed.  This can be invaluable for debugging a
+  failing build.
+</p>
+<p>
+  Failing commands are printed in a Bourne shell compatible syntax, suitable
+  for copying and pasting to a shell prompt.
+</p>
+
+<h4 id='flag--stamp'><code class='flag'>--[no]stamp</code></h4>
+<p>
+  This option controls whether stamping is enabled for
+  rule types that support it. For most of the supported rule types stamping is
+  enabled by default (e.g. <code>cc_binary</code>).
+
+  By default, stamping is disabled for all tests. Specifying
+  <code class='flag'>--stamp</code> does not force affected targets to be rebuilt,
+  if their dependencies have not changed.
+</p>
+
+<p>
+  Stamping can be enabled or disabled explicitly in BUILD using
+  the <code>stamp</code> attribute of certain rule types, please refer to
+  the <a href="build-encyclopedia.html">build encyclopedia</a> for details. For
+  rules that are neither explicitly or implicitly configured as <code>stamp =
+  0</code> or <code>stamp = 1</code>, the <code class='flag'>--[no]stamp</code> option
+  selects whether stamping is enabled. Bazel never stamps binaries that are
+  built for the host configuration, regardless of the stamp attribute.
+</p>
+
+<h3 id='misc_build_options'>Miscellaneous options</h3>
+
+<h4 id='flag--symlink_prefix'><code class='flag'>--symlink_prefix <var>string</var></code></h4>
+<p>
+  Changes the prefix of the generated convenience symlinks. The
+  default value for the symlink prefix is <code>bazel-</code> which
+  will create the symlinks <code>bazel-bin</code>, <code>bazel-testlogs</code>, and
+  <code>bazel-genfiles</code>.
+</p>
+<p>
+  If the symbolic links cannot be created for any reason, a warning is
+  issued but the build is still considered a success.  In particular,
+  this allows you to build in a read-only directory or one that you have no
+  permission to write into.  Any paths printed in informational
+  messages at the conclusion of a build will only use the
+  symlink-relative short form if the symlinks point to the expected
+  location; in other words, you can rely on the correctness of those
+  paths, even if you cannot rely on the symlinks being created.
+</p>
+<p>
+  Some common values of this option:
+</p>
+<ul>
+
+  <li>
+    <p><b>Suppress symlink creation:</b>
+      <code class='flag'>--symlink_prefix=/</code> will cause Bazel to not
+      create or update any symlinks, including the <code>bazel-out</code> and
+
+      <code>bazel-base_workspace</code>
+      symlinks.  Use this option to suppress symlink creation entirely.
+    </p>
+  </li>
+  <li>
+    <p><b>Reduce clutter:</b>
+      <code class='flag'>--symlink_prefix=.bazel/</code> will cause Bazel to create
+      symlinks called <code>bin</code> (etc) inside a hidden directory <code>.bazel</code>.
+    </p>
+  </li>
+</ul>
+
+<h4 id='flag--platform_suffix'><code class='flag'>--platform_suffix <var>string</var></code></h4>
+<p>
+  Adds a suffix to the configuration short name, which is used to determine the
+  output directory. Setting this option to different values puts the files into
+  different directories, for example to improve cache hit rates for builds that
+  otherwise clobber each others output files, or to keep the output files around
+  for comparisons.
+</p>
+
+<h4 id='flag--default_visibility'><code class='flag'>--default_visibility=<var>(private|public)</var></code></h4>
+<p>
+  Temporary flag for testing bazel default visibility changes.  Not intended for general use
+  but documented for completeness' sake.
+</p>
+
+<h2 id='bazel-releng'>Using Bazel for releases</h2>
+<p>
+  Bazel is used both by software engineers during the development
+  cycle, and by release engineers when preparing binaries for deployment
+  to production.  This section provides a list of tips for release
+  engineers using Bazel.
+
+</p>
+
+<h3>Significant options</h3>
+
+<p>
+  When using Bazel for release builds, the same issues arise as for
+  other scripts that perform a build, so you should read
+  the <a href='#scripting'>scripting</a> section of this manual.
+  In particular, the following options are strongly recommended:
+</p>
+<ul>
+  <li><a href='#bazelrc'><code class='flag'>--bazelrc=/dev/null</code></a></li>
+  <li><a href='#flag--batch'><code class='flag'>--batch</code></a></li>
+</ul>
+
+<p>
+  These options (q.v.) are also important:
+</p>
+
+<ul>
+
+  <li><a href='#flag--package_path'><code class='flag'>--package_path</code></a></li>
+  <li><a href='#flag--symlink_prefix'><code class='flag'>--symlink_prefix</code></a>:
+    for managing builds for multiple configurations,
+    it may be convenient to distinguish each build
+    with a distinct identifier, e.g. "64bit" vs. "32bit".  This option
+    differentiates the <code>bazel-bin</code> (etc.) symlinks.
+  </li>
+</ul>
+
+<h2 id='test'>Running tests with Bazel</h2>
+<p>
+  To build and run tests with bazel, type <code>bazel test</code> followed by
+  the name of the test targets.
+</p>
+<p>
+  By default, this command performs simultaneous build and test
+  activity, building all specified targets (including any non-test
+  targets specified on the command line) and testing
+  <code>*_test</code> and <code>test_suite</code> targets as soon as
+  their prerequisites are built, meaning that test execution is
+  interleaved with building. Doing so usually results in significant
+  speed gains.
+
+</p>
+
+<h3>Options for <code>bazel test</code></h3>
+
+<h4 id="flag--cache_test_results"><code class='flag'>--cache_test_results=(yes|no|auto)</code> (-t)</h4>
+<p>
+  If this option is set to 'auto' (the default) then Bazel will only rerun a test if any of the
+  following conditions applies:
+</p>
+<ul>
+  <li>Bazel detects changes in the test or its dependencies</li>
+  <li>the test is marked as <code>external</code></li>
+  <li>multiple test runs were requested with <code class='flag'>--runs_per_test</code></li>
+  <li>the test failed.</li>
+</ul>
+<p>
+  If 'no', all tests will be executed unconditionally.
+</p>
+<p>
+  If 'yes', the caching behavior will be the same as auto
+  except that it may cache test failures and test runs with
+  <code class='flag'>--runs_per_test</code>.
+</p>
+<p>
+  Note that test results are <em>always</em> saved in Bazel's output tree,
+  regardless of whether this option is enabled, so
+  you needn't have used <code class='flag'>--cache_test_results</code> on the
+  prior run(s) of <code>bazel test</code> in order to get cache hits.
+  The option only affects whether Bazel will <em>use</em> previously
+  saved results, not whether it will save results of the current run.
+</p>
+<p>
+  Users who have enabled this option by default in
+  their <code>.bazelrc</code> file may find the
+  abbreviations <code>-t</code> (on) or <code>-t-</code> (off)
+  convenient for overriding the default on a particular run.
+</p>
+
+<h4 id="flag--check_tests_up_to_date"><code class='flag'>--check_tests_up_to_date</code></h4>
+<p>
+  This option tells Bazel not to run the tests, but to merely check and report
+  the cached test results.  If there are any tests which have not been
+  previously built and run, or whose tests results are out-of-date (e.g. because
+  the source code or the build options have changed), then Bazel will report
+  an error message ("test result is not up-to-date"), will record the test's
+  status as "NO STATUS" (in red, if color output is enabled), and will return
+  a non-zero exit code.
+</p>
+<p>
+  This option also implies
+  <code><a href="#flag--check_up_to_date">--check_up_to_date</a></code> behavior.
+</p>
+<p>
+  This option may be useful for pre-submit checks.
+</p>
+
+<h4 id="flag--test_verbose_timeout_warnings"><code class='flag'>--test_verbose_timeout_warnings</code></h4>
+<p>
+  This option tells Bazel to explicitly warn the user if a test's timeout is
+significantly longer then the test's actual execution time.  While a test's
+timeout should be set such that it is not flaky, a test that has a highly
+over-generous timeout can hide real problems that crop up unexpectedly.
+</p>
+<p>
+For instance, a test that normally executes in a minute or two should not have
+a timeout of ETERNAL or LONG as these are much, much too generous.
+
+  This option is useful to help users decide on a good timeout value or
+  sanity check existing timeout values.
+</p>
+<p>
+Note that each test shard is allotted the timeout of the entire
+<code>XX_test</code> target.  Using this option does not affect a test's timeout
+value, merely warns if Bazel thinks the timeout could be restricted further.
+</p>
+
+<h4 id='flag--test_keep_going'><code class='flag'>--[no]test_keep_going</code></h4>
+<p>
+  By default, all tests are run to completion. If this flag is disabled,
+  however, the build is aborted on any non-passing test. Subsequent build steps
+  and test invocations are not run, and in-flight invocations are canceled.
+  Do not specify both <code class='flag'>--notest_keep_going</code> and
+  <code class='flag'>--keep_going</code>.
+</p>
+
+<h4 id='flag--flaky_test_attempts'><code class='flag'>--flaky_test_attempts <var>attempts</var></code></h4>
+<p>
+  This option specifies the maximum number of times a test should be attempted
+  if it fails for any reason. A test that initially fails but eventually
+  succeeds is reported as <code>FLAKY</code> on the test summary. It is,
+  however, considered to be passed when it comes to identifying Bazel exit code
+  or total number of passed tests. Tests that fail all allowed attempts are
+  considered to be failed.
+</p>
+<p>
+  By default (when this option is not specified, or when it is set to
+  &quot;default&quot;), only a single attempt is allowed for regular tests, and
+  3 for test rules with the <code>flaky</code> attribute set. You can specify
+  an integer value to override the maximum limit of test attempts. Bazel allows
+  a maximum of 10 test attempts in order to prevent abuse of the system.
+</p>
+
+<h4 id='flag--runs_per_test'><code class='flag'>--runs_per_test <var>[regex@]number</var></code></h4>
+<p>
+  This option specifies the number of times each test should be executed. All
+  test executions are treated as separate tests (e.g. fallback functionality
+  will apply to each of them independently).
+</p>
+<p>
+  The status of a target with failing runs depends on the value of the
+  <code>--runs_per_test_detects_flakes</code> flag:
+</p>
+<ul>
+  <li>If absent, any failing run causes the entire test to fail.</li>
+  <li>If present and two runs from the same shard return PASS and FAIL, the test
+  will receive a status of flaky (unless other failing runs cause it to
+  fail).</li>
+</ul>
+
+<p>
+  If a single number is specified, all tests will run that many times.
+  Alternatively, a regular expression may be specified using the syntax
+  regex@number. This constrains the effect of --runs_per_test to targets
+  which match the regex (e.g. "--runs_per_test=^//pizza:.*@4" runs all tests
+  under //pizza/ 4 times).
+  This form of --runs_per_test may be specified more than once.
+</p>
+
+<h4 id='flag--runs_per_test_detects_flakes'><code
+    class='flag'>--[no]runs_per_test_detects_flakes</code></h4>
+<p>
+  If this option is specified (by default it is not), Bazel will detect flaky
+  test shards through --runs_per_test. If one or more runs for a single shard
+  fail and one or more runs for the same shard pass, the target will be
+  considered flaky with the flag. If unspecified, the target will report a
+  failing status.
+</p>
+
+<h4 id='flag--test_summary'><code class='flag'>--test_summary <var>output_style</var></code></h4>
+<p>
+  Specifies how the test result summary should be displayed.
+</p>
+<ul>
+  <li><code>short</code> prints the results of each test along with the name of
+    the file containing the test output if the test failed. This is the default
+    value.
+  </li>
+  <li><code>terse</code> like <code>short</code>, but even shorter: only print
+    information about tests which did not pass.
+  </li>
+  <li><code>detailed</code> prints each individual test case that failed, not
+    only each test. The names of test output files are omitted.
+  </li>
+  <li><code>none</code> does not print test summary.
+  </li>
+</ul>
+
+<h4 id='flag--test_output'><code class='flag'>--test_output <var>output_style</var></code></h4>
+<p>
+  Specifies how test output should be displayed:
+</p>
+<ul>
+  <li><code>summary</code> shows a summary of whether each test passed or
+    failed. Also shows the output log file name for failed tests. The summary
+    will be printed at the end of the build (during the build, one would see
+    just simple progress messages when tests start, pass or fail).
+  </li>
+  <li><code>errors</code> sends combined stdout/stderr output from failed tests
+    only into the stdout immediately after test is completed, ensuring that
+    test output from simultaneous tests is not interleaved with each other.
+    Prints a summary at the build as per summary output above.
+    This is the default behavior.
+  </li>
+  <li><code>all</code> is similar to <code>errors</code> but prints output for
+    all tests, including those which passed.
+  </li>
+  <li><code>streamed</code> streams stdout/stderr output from each test in
+  real-time.
+
+  </li>
+</ul>
+
+<h4 id='flag--java_debug'><code class='flag'>--java_debug</code></h4>
+<p>
+  This option causes the Java virtual machine of a java test to wait for a connection from a
+  JDWP-compliant debugger before starting the test. This option implies --test_output=streamed.
+</p>
+
+<h4 id='flag--verbose_test_summary'><code class='flag'>--[no]verbose_test_summary</code></h4>
+<p>
+  By default this option is enabled, causing test times and other additional
+  information (such as test attempts) to be printed to the test summary. If
+  <code class='flag'>--noverbose_test_summary</code> is specified, test summary will
+  include only test name, test status and cached test indicator and will
+  be formatted to stay within 80 characters when possible.
+</p>
+
+<h4 id='flag--test_tmpdir'><code class='flag'>--test_tmpdir <var>path</var></code></h4>
+<p>
+  Specifies temporary directory for tests executed locally. Each test will be
+  executed in a separate subdirectory inside this directory. The directory will
+  be cleaned at the beginning of the each <code>bazel test</code> command.
+  By default, bazel will place this directory under Bazel output base directory.
+  Note that this is a directory for running tests, not storing test results
+  (those are always stored under the <code>bazel-out</code> directory).
+</p>
+
+<h4 id='flag--test_timeout'>
+    <code class='flag'>--test_timeout
+    <var>seconds</var></code>
+    OR
+    <code class='flag'>--test_timeout
+    <var>seconds</var>,<var>seconds</var>,<var>seconds</var>,<var>seconds</var>
+    </code>
+</h4>
+<p>
+  Overrides the timeout value for all tests by using specified number of
+  seconds as a new timeout value. If only one value is provided, then it will
+  be used for all test timeout categories.
+ </p>
+ <p>
+  Alternatively, four comma-separated values may be provided, specifying
+  individual timeouts for short, moderate, long and eternal tests (in that
+  order).
+  In either form, zero or a negative value for any of the test sizes will
+  be substituted by the default timeout for the given timeout categories as
+  defined by the
+  <a href="test-encyclopedia.html">Test Encyclopedia</a>.
+  By default, Bazel will use Test Encyclopedia timeouts for all tests by
+  inferring the timeout limit from the test's size whether the size is
+  implicitly or explicitly set.
+</p>
+<p>
+  Tests which explicitly state their timeout category as distinct from their
+  size will receive the same value as if that timeout had been implicitly set by
+  the size tag.  So a test of size 'small' which declares a 'long' timeout will
+  have the same effective timeout that a 'large' tests has with no explicit
+  timeout.
+</p>
+
+<h4 id='flag--test_arg'><code class='flag'>--test_arg <var>arg</var></code></h4>
+<p>
+  Passes command-line options/flags/arguments to the test (not to the test runner). This
+  option can be used multiple times to pass several arguments, e.g.
+  <code class='flag'>--test_arg=--logtostderr --test_arg=--v=3</code>.
+</p>
+
+<h4 id='flag--test_env'><code class='flag'>--test_env <var>variable</var>=<i>value</i></code>
+    OR
+    <code class='flag'>--test_env <var>variable</var></code></h4>
+<p>
+  Specifies additional variables that must be injected into the test
+  environment for each test. If <var>value</var> is not specified it will be
+  inherited from the shell environment used to start the <code>bazel test</code>
+  command.
+</p>
+<p>
+  The environment can be accessed from within a test by using
+  <code>System.getenv("var")</code> (Java),
+  <code>getenv("var")</code> (C or C++),
+
+</p>
+
+<h4 id="flag--run_under"><code class='flag'>--run_under=<var>command-prefix</var></code></h4>
+<p>
+  This specifies a prefix that the test runner will insert in front
+  of the test command before running it.  The
+  <var>command-prefix</var> is split into words using Bourne shell
+  tokenization rules, and then the list of words is prepended to the
+  command that will be executed.
+</p>
+<p>
+  If the first word is a fully qualified label (i.e. starts with
+  <code>//</code>) it is built. Then the label is substituted by the
+  corresponding executable location that is prepended to the command
+  that will be executed along with the other words.
+</p>
+
+<p>
+Some caveats apply:
+</p>
+<ul>
+  <li>
+    The PATH used for running tests may be different than the PATH in your environment,
+    so you may need to use an <b>absolute path</b> for the <code class='flag'>--run_under</code>
+    command (the first word in <var>command-prefix</var>).
+  </li>
+  <li>
+    <b><code>stdin</code> is not connected</b>, so <code class='flag'>--run_under</code>
+    can't be used for interactive commands.
+  </li>
+
+</ul>
+<p>
+Examples:
+</p>
+<pre>
+        --run_under=/usr/bin/valgrind
+        --run_under=/usr/bin/strace
+        --run_under='/usr/bin/strace -c'
+        --run_under='/usr/bin/valgrind --quiet --num-callers=20'
+
+</pre>
+
+<h4>Test selection</h4>
+<p>
+  As documented under <a href='#output-selection-options'>Output selection options</a>,
+  you can filter tests by <a href='#flag--test_size_filters'>size</a>,
+  <a href='#flag--test_timeout_filters'>timeout</a>,
+  <a href='#flag--test_tag_filters'>tag</a>, or
+  <a href='#flag--test_lang_filters'>language</a>. A convenience
+  <a href='#flag--test_filter'>general name filter</a> can forward particular
+  filter args to the test runner.
+</p>
+
+<h4 id="other_options_for_blaze_test">Other options for <code>bazel test</code></h4>
+<p>
+  The syntax and the remaining options are exactly like
+  <a href='#build'>bazel build</a>.
+</p>
+
+<h3 id='tags_keywords'>Test rule <code>tags</code> attribute keywords and other
+  common attributes</h3>
+
+<p>
+  Bazel modifies test behavior if it finds the following keywords in the
+  <code>tags</code> attribute of the test rule:
+</p>
+<ul>
+  <li><code>exclusive</code> keyword will force test to be run in the
+    &quot;exclusive&quot; mode, ensuring that no other tests are running at the
+    same time. Such tests will be executed in serial fashion after all build
+    activity and non-exclusive tests have been completed.
+
+  </li>
+
+  <li><code>manual</code> keyword will force test to be ignored by all command
+    line wildcards (<code>...</code>, <code>:*</code>, <code>:all</code>, etc).
+    It will also be ignored by the <code>test_suite</code> rules that do not
+    mention this test explicitly. The only way
+    to run such test is to specify it explicitly on the command line.
+  </li>
+  <li><code>external</code> keyword will force test to be unconditionally
+    executed (regardless of <code class='flag'>--cache_test_results</code> value).
+  </li>
+</ul>
+<p>
+  There are also several other attributes that affect test behavior:
+</p>
+<ul>
+  <li>Test rules marked with the <code>flaky=1</code> attribute are considered
+    to be flaky and will be automatically retried up to 3 times unless larger
+    <code class='flag'>--flaky_test_attempts</code> value has been specified.
+  </li>
+  <li>Test rules marked with the <code>obsolete=1</code> attribute will be
+    ignored by the <code>test_suite</code> rules and by all command line
+    wildcards - this behavior is identical to the <code>manual</code> keyword
+    described above.
+  </li>
+
+</ul>
+
+<h2 id='run'>Running executables with Bazel</h2>
+<p>
+  The <code>bazel run</code> command is similar to <code>bazel build</code>, except
+  it is used to build and run a single target.  Here is a typical session:
+</p>
+<pre>
+  % bazel run -- java/myapp:myapp --arg1 --arg2
+  Welcome to Bazel
+  INFO: Loading package: java/myapp
+  INFO: Loading package: foo/bar
+  INFO: Loading complete.  Analyzing...
+  INFO: Found 1 target...
+  ...
+  Target //java/myapp:myapp up-to-date:
+    bazel-bin/java/myapp:myapp
+  INFO: Elapsed time: 0.638s, Critical Path: 0.34s
+
+  INFO: Running command line: bazel-bin/java/myapp:myapp --arg1 --arg2
+  Hello there
+  $EXEC_ROOT/java/myapp/myapp
+  --arg1
+  --arg2
+</pre>
+
+<p>
+  Note the use of the <code>--</code>.  This is needed so that Bazel
+  does not interpret <code>--arg1</code> and <code>--arg2</code> as
+  Bazel options, but rather as part of the command line for running the binary.
+  (The program being run simply says hello and prints out its args.)
+</p>
+
+<h3>Options for <code>bazel run</code></h3>
+
+<h4 id='flag--run_under_run'><code class='flag'>--run_under=<var>command-prefix</var></code></h4>
+<p>
+  This has the same effect as the <code class='flag'>--run_under</code> option for
+  <code>bazel test</code> (<a href='#flag--run_under'>see above</a>),
+  except that it applies to the command being run by <code>bazel
+  run</code> rather than to the tests being run by <code>bazel test</code>
+  and cannot run under label.
+</p>
+
+<h3>Executing tests</h3>
+
+<p>
+  <code>bazel run</code> can also execute test binaries, which has the effect of
+running the test, but without the setup documented in the
+<a href='test-encyclopedia.html'>Test Encyclopedia</a>, so that the test runs
+in an environment closer to the current shell environment. Note that none of the
+--test_* arguments have an effect when running a test in this manner.
+</p>
+
+
+<h2 id='query'>Querying the dependency graph with Bazel</h2>
+
+<p>
+  Bazel includes a query language for asking questions about the
+  dependency graph used during the build.  The query tool is an
+  invaluable aid to many software engineering tasks.
+</p>
+<p>
+  The query language is based on the idea of
+  algebraic operations over graphs; it is documented in detail
+  in <a href='bazel-query-v2.html'>Bazel Query Language, revision
+  2</a>.  Please refer to that document for reference, for
+  examples, and for query-specific command-line options.
+</p>
+
+<p>
+  The query tool accepts several command-line
+  option.  <code class='flag'>--output</code> selects the output format.
+  <code class='flag'>--[no]keep_going</code> (disabled by default) causes the query
+  tool to continue to make progress upon errors; this behavior may be
+  disabled if an incomplete result is not acceptable in case of errors.
+</p>
+<p>
+  The <code class='flag'>--[no]host_deps</code> option,
+  enabled by default, causes dependencies on "host
+  configuration" targets to be included in the dependency graph over
+  which the query operates.
+
+</p>
+<p>
+  The <code class='flag'>--[no]implicit_deps</code> option, enabled by default, causes
+  implicit dependencies to be included in the dependency graph over which the query operates. An
+  implicit dependency is one that is not explicitly specified in the BUILD file
+  but added by bazel.
+</p>
+<p>
+  Example: "Show the locations of the definitions (in BUILD files) of
+  all genrules required to build all the tests in the PEBL tree."
+</p>
+<pre>
+  bazel query --output location 'kind(genrule, deps(kind(".*_test rule", foo/bar/pebl/...)))'
+</pre>
+
+
+<h2 id='misc'>Miscellaneous Bazel commands and options</h2>
+
+<h3 id='help'>The <code>help</code> command</h3>
+
+<p>
+  The <code>help</code> command provides on-line help.  By default, it
+  shows a summary of available commands and help topics, as shown in
+  the <a href='#concepts'><i>Bazel Concepts</i></a> section above.
+  Specifying an argument displays detailed help for a particular
+  topic.  Most topics are Bazel commands, e.g. <code>build</code>
+  or <code>query</code>, but there are some additional help topics
+  that do not correspond to commands.
+</p>
+
+<h4 id='flag--long'><code class='flag'>--[no]long</code> (-l)</h4>
+<p>
+  By default, <code>bazel help [<var>topic</var>]</code> prints only a
+  summary of the relevant options for a topic.  If
+  the <code class='flag'>--long</code> option is specified, the type, default value
+  and full description of each option is also printed.
+</p>
+
+<h3 id='shutdown'>The <code>shutdown</code> command</h3>
+
+<p>
+  Bazel server processes (see <a href='#client/server'>Client/server
+  implementation</a>) may be stopped by using the <code>shutdown</code>
+  command.  This command causes the Bazel server to exit as soon as it
+  becomes idle (i.e. after the completion of any builds or other
+  commands that are currently in progress).
+
+  Bazel servers stop themselves after an idle timeout, so this command
+  is rarely necessary; however, it can be useful in scripts when it is
+  known that no further builds will occur in a given workspace.
+</p>
+<p>
+  <code>shutdown</code> accepts one
+  option, <code class='flag'>--iff_heap_size_greater_than <i>n</i></code>, which
+  requires an integer argument.  If specified, this makes the shutdown
+  conditional on the amount of memory already consumed.  This is
+  useful for scripts that initiate a lot of builds, as any memory
+  leaks in the Bazel server could cause it to crash spuriously on
+  occasion; performing a conditional restart preempts this condition.
+</p>
+
+<h3 id='info'>The <code>info</code> command</h3>
+
+<p>
+  The <code>info</code> command prints various values associated with
+  the Bazel server instance, or with a specific build configuration.
+  (These may be used by scripts that drive a build.)
+</p>
+
+<p>
+  The <code>info</code> command also permits a single (optional)
+  argument, which is the name of one of the keys in the list below.
+  In this case, <code>bazel info <var>key</var></code> will print only
+  the value for that one key.  (This is especially convenient when
+  scripting Bazel, as it avoids the need to pipe the result
+  through <code>sed -ne /key:/s/key://p</code>:
+</p>
+
+<h4>Configuration-independent data</h4>
+<ul>
+  <li><code>release</code>: the release label for this Bazel
+    instance, or "development version" if this is not a released
+    binary.
+  </li>
+  <li><code>workspace</code> the absolute path to the base workspace
+    directory.
+  </li>
+  <li><code>install_base</code>: the absolute path to the installation
+    directory used by this Bazel instance for the current user. Bazel
+    installs its internally required executables below this directory.
+
+  </li>
+  <li><code>output_base</code>: the absolute path to the base output
+    directory used by this Bazel instance for the current user and
+    workspace combination. Bazel puts all of its scratch and build
+    output below this directory.
+  </li>
+  <li><code>execution_root</code>: the absolute path to the execution
+    root directory under output_base. This directory is the root for all files
+    accessible to commands executed during the build, and is the working
+    directory for those commands. If the workspace directory is writable, a
+    symlink named
+
+    <code>bazel-base_workspace</code>
+    is placed there pointing to this
+    directory.
+  </li>
+  <li><code>output_path</code>: the absolute path to the output
+    directory beneath the execution root used for all files actually
+    generated as a result of build commands. If the workspace directory is
+    writable, a symlink named <code>bazel-out</code> is placed there pointing
+    to this directory.
+    </li>
+  <li><code>server_pid</code>: the process ID of the Bazel server
+     process. </li>
+  <li><code>command_log</code>: the absolute path to the command log file;
+    this contains the interleaved stdout and stderr streams of the most recent
+    Bazel command. Note that running <code>bazel info</code> will overwrite the
+    contents of this file, since it then becomes the most recent Bazel command.
+    However, the location of the command log file will not change unless you
+    change the setting of the <code class='flag'>--output_base</code> or
+    <code class='flag'>--output_user_root</code> options.
+  </li>
+
+  <li><code>server_log</code>: the absolute path to the Bazel server's
+    log file; this contains useful information for debugging Bazel.
+  </li>
+  <li><code>used-heap-size</code>,
+      <code>committed-size</code>,
+      <code>max-heap-size</code>: reports various JVM heap size
+    parameters.  Respectively: memory currently used, memory currently
+    guaranteed to be available to the JVM from the system, maximum
+    possible allocation.
+  </li>
+  <li><code>gc-count</code>, <code>gc-time</code>: The cumulative count of
+    garbage collections since the start of this Bazel server and the time spent
+    to perform them. Note that these values are not reset at the start of every
+    build.
+  </li>
+  <li><code>package_path</code>: A colon-separated list of paths which would be
+    searched for packages by bazel. Has the same format as the
+    <code class='flag'>--package_path</code> build command line argument.
+  </li>
+</ul>
+<p>
+  Example: the process ID of the Bazel server.
+</p>
+<pre>% bazel info server_pid
+1285
+</pre>
+
+<h4>Configuration-specific data</h4>
+<p>
+  These data may be affected by the configuration options passed
+  to <code>bazel info</code>, for
+  example <code class='flag'>--cpu</code>, <code class='flag'>--compilation_mode</code>,
+  etc.  The <code>info</code> command accepts all
+  the <a href='#analysis-options'>options that control dependency
+  analysis</a>, since some of these determine the location of the
+  output directory of a build, the choice of compiler, etc.
+</p>
+<ul>
+  <li>
+    <code>bazel-bin</code>, <code>bazel-testlogs</code>,
+    <code>bazel-genfiles</code>: reports the absolute path to
+    the <code>bazel-*</code> directories in which programs generated by the
+    build are located. This is usually, though not always, the same as
+    the <code>bazel-*</code> symlinks created in the base workspace directory after a
+    successful build. However, if the workspace directory is read-only,
+    no <code>bazel-*</code> symlinks can be created. Scripts that use
+    the value reported by <code>bazel info</code>, instead of assuming the
+    existence of the symlink, will be more robust.
+  </li>
+  <li>
+    The complete
+    <a href='build-encyclopedia.html#make_variables'
+    >"Make" environment</a>. If the <code class='flag'>--show_make_env</code> flag is
+    specified, all variables in the current configuration's "Make" environment
+    are also displayed (e.g. <code>CC</code>, <code>GNU_TARGET</code>, etc).
+    These are the variables accessed using the <code>$(CC)</code>
+    or <code>varref("CC")</code> syntax inside BUILD files.
+  </li>
+</ul>
+
+<p>
+  Example: the C++ compiler for the current configuration.
+  This is the <code>$(CC)</code> variable in the "Make" environment,
+  so the <code class='flag'>--show_make_env</code> flag is needed.
+</p>
+
+<pre>
+  % bazel info --show_make_env -c opt BINMODE
+  -opt
+</pre>
+
+<p>
+  Example: the <code>bazel-bin</code> output directory for the current
+  configuration.  This is guaranteed to be correct even in cases where
+  the <code>bazel-bin</code> symlink cannot be created for some reason
+  (e.g. you are building from a read-only directory).
+</p>
+
+<h3 id='analyze-profile'>The <code>analyze-profile</code> command</h3>
+
+<p>
+  The <code>analyze-profile</code> command analyzes data previously gathered
+  during the build using <code class='flag'>--profile</code> option. It provides several
+  options to either perform analysis of the build execution or export data in
+  the specified format.
+
+</p>
+
+<h3 id='canonicalize'>The <code>canonicalize-flags</code> command</h3>
+
+<p>
+  The <code>canonicalize-flags</code> command, which takes a list of options for
+  a Bazel command and returns a list of options that has the same effect. The
+  new list of options is canonical, i.e., two lists of options with the same
+  effect are canonicalized to the same new list.
+</p>
+<p>
+  The <code class='flag'>--for_command</code> option can be used to select between different
+  commands. At this time, only <code>build</code> and <code>test</code> are
+  supported. Options that the given command does not support cause an error.
+</p>
+<p>
+  Note that a small number of options cannot be reordered, because Bazel cannot
+  ensure that the effect is identical.
+</p>
+
+<h3 id='startup_options'>Bazel startup options</h3>
+
+<p>
+  The options described in this section affect the startup of the Java
+  virtual machine used by Bazel server process, and they apply to all
+  subsequent commands handled by that server. If there is an already
+  running Bazel server and the startup options do not match, it will
+  be restarted.
+</p>
+<p>
+  All of the options described in this section must be specified using the
+  <code class='flag'>--key=value</code> or <code class='flag'>--key value</code>
+  syntax. Also, these options must appear <i>before</i> the name of the Bazel
+  command.
+</p>
+
+<h4 id='flag--output_base'><code class='flag'>--output_base=<var>dir</var></code></h4>
+<p>
+  This option requires a path argument, which must specify a
+  writable directory.  Bazel will use this location to write all its
+  output.  The output base is also the key by which the client locates
+  the Bazel server.  By changing the output base, you change the server
+  which will handle the command.
+</p>
+<p>
+  By default, the output base is derived from the user's login name,
+  and the name of the workspace directory (actually, its MD5 digest),
+  so a typical value looks like:
+
+  <code>/var/tmp/google/_blaze_jrluser/d41d8cd98f00b204e9800998ecf8427e</code>.
+  Note that the client uses the output base to find the Bazel server
+  instance, so if you specify a different output base in a Bazel
+  command, a different server will be found (or started) to handle the
+  request.  It's possible to perform two concurrent builds in the same
+  workspace directory by varying the output base.
+</p>
+
+<p>For example:</p>
+<pre>
+  % bazel --output_base /tmp/1 build //foo  &amp;  bazel --output_base /tmp/2 build //bar
+</pre>
+<p>
+  In this command, the two Bazel commands run concurrently (because of
+  the shell <code>&amp;</code> operator), each using a different Bazel
+  server instance (because of the different output bases).
+  In contrast, if the default output base was used in both commands,
+  then both requests would be sent to the same server, which would
+  handle them sequentially: building <code>//foo</code> first, followed
+  by an incremental build of <code>//bar</code>.
+</p>
+<p>
+  We recommend you do not use NFS locations for the output base, as
+  the higher access latency of NFS will cause noticeably slower
+  builds.
+</p>
+
+<h4 id='flag--output_user_root'><code class='flag'>--output_user_root=<var>dir</var></code></h4>
+<p>
+  By default, the <code>output_base</code> value is chosen to as to
+  avoid conflicts between multiple users building in the same workspace directory.
+  In some situations, though, it is desirable to build from a directory
+  shared between multiple users; release engineers often do this.  In
+  those cases it may be useful to deliberately override the default so
+  as to ensure "conflicts" (i.e., sharing) between multiple users.
+  Use the <code class='flag'>--output_user_root</code> option to achieve this: the
+  output base is placed in a subdirectory of the output user root,
+  with a unique name based on the workspace, so the result of using an
+  output user root that is not a function of <code>$USER</code> is
+  sharing.  Of course, it is important to ensure (via umask and group
+  membership) that all the cooperating users can read/write each
+  others files.
+</p>
+<p>
+  If the <code class='flag'>--output_base</code> option is specified, it overrides
+  using <code class='flag'>--output_user_root</code> to calculate the output base.
+</p>
+<p>
+  The install base location is also calculated based on
+  <code class='flag'>--output_user_root</code>, plus the MD5 identity of the Bazel embedded
+  binaries.
+</p>
+<p>
+  You can also use the <code class='flag'>--output_user_root</code> option to choose an
+  alternate base location for all of Bazel's output (install base and output
+  base) if there is a better location in your filesystem layout.
+</p>
+
+<h4 id='flag--host_jvm_args'><code class='flag'>--host_jvm_args=<var>string</var></code></h4>
+<p>
+  Specifies a space-separated list of startup options to be passed to
+  the Java virtual machine in which <i>Bazel itself</i> runs.  This
+  can be used to set the stack size, for example:
+</p>
+<pre>
+  % bazel --host_jvm_args="-Xss256K" build //foo
+</pre>
+<p>
+  This option can be used multiple times with individual arguments. Note that
+  setting this flag should rarely be needed.
+
+</p>
+<p>
+  That this does <i>not</i> affect any JVMs used by
+  subprocesses of Bazel: applications, tests, tools, etc.  To pass
+  JVM options to executable Java programs, whether run by <code>bazel
+  run</code> or on the command-line, you should use
+  the <code>--jvm_flags</code> argument which
+  all <code>java_binary</code> and <code>java_test</code> programs
+  support.  Alternatively for tests, use <code>bazel
+  test --test_arg=--jvm_flags=foo ...</code>.
+</p>
+
+<h4 id='flag--host_jvm_debug'><code class='flag'>--host_jvm_debug</code></h4>
+<p>
+  This option causes the Java virtual machine to wait for a connection
+  from a JDWP-compliant debugger before
+  calling the main method of <i>Bazel itself</i>.  This is primarily
+  intended for use by Bazel developers.
+</p>
+<p>
+  (Please note that this does <i>not</i> affect any JVMs used by
+  subprocesses of Bazel: applications, tests, tools, etc.)
+</p>
+
+<h4 id='batch'><code class='flag'>--batch</code></h4>
+<p>
+  This switch will cause bazel to be run in batch mode, instead of the
+  standard client/server mode described <a href='#client/server'>above</a>.
+  Doing so provides more predictable semantics with respect to signal handling,
+  job control, and environment variable inheritance.
+</p>
+
+<p>
+  Batch mode retains proper queueing semantics within the same output_base.
+  That is, simultaneous invocations will be processed in order, without overlap.
+  If a batch mode bazel is run on a client with a running server, it first
+  kills the server before processing the command.
+</p>
+
+<p>
+  Bazel will run slower in batch mode, compared to client/server mode.
+  Among other things, the build file cache is memory-resident, so it is not
+  preserved between sequential batch invocations.
+  Therefore, using batch mode often makes more sense in cases where performance
+  is less critical, such as continuous builds.
+</p>
+
+<h4 id='flag--max_idle_secs'><code class='flag'>--max_idle_secs <var>n</var></code></h4>
+<p>
+  This option specifies how long, in seconds, the Bazel server process
+  should wait after the last client request, before it exits.  The
+  default value is 10800 (3 hours).
+</p>
+<p>
+  This option may be used by scripts that invoke Bazel to ensure that
+  they do not leave Bazel server processes on a user's machine when they
+  would not be running otherwise.
+  For example, a presubmit script might wish to
+  invoke <code>bazel query</code> to ensure that a user's pending
+  change does not introduce unwanted dependencies.  However, if the
+  user has not done a recent build in that workspace, it would be
+  undesirable for the presubmit script to start a Bazel server just
+  for it to remain idle for the rest of the day.
+  By specifying a small value of <code class='flag'>--max_idle_secs</code> in the
+  query request, the script can ensure that <i>if</i> it caused a new
+  server to start, that server will exit promptly, but if instead
+  there was already a server running, that server will continue to run
+  until it has been idle for the usual time.  Of course, the existing
+  server's idle timer will be reset.
+</p>
+
+<h4 id='flag--block_for_lock'><code class='flag'>--[no]block_for_lock</code></h4>
+<p>
+  If enabled, Bazel will wait for other Bazel commands holding the
+  server lock to complete before progressing. If disabled, Bazel will
+  exit in error if it cannot immediately acquire the lock and
+  proceed.
+
+  Developers might use this in presubmit checks to avoid long waits caused
+  by another Bazel command in the same client.
+</p>
+
+<h4 id='flag--io_nice_level'><code class='flag'>--io_nice_level <var>n</var></code></h4>
+<p>
+  Sets a level from 0-7 for best-effort IO scheduling. 0 is highest priority,
+  7 is lowest. The anticipatory scheduler may only honor up to priority 4.
+  Negative values are ignored.
+</p>
+
+<h4 id='flag--batch_cpu_scheduling'><code class='flag'>--batch_cpu_scheduling</code></h4>
+<p>
+  Use <code>batch</code> CPU scheduling for Bazel. This policy is useful for
+  workloads that are non-interactive, but do not want to lower their nice value.
+  See 'man 2 sched_setscheduler'. This policy may provide for better system
+  interactivity at the expense of Bazel throughput.
+</p>
+
+<h3 id='misc_options'>Miscellaneous options</h3>
+
+<h4 id='flag--announce_rc'><code class='flag'>--[no]announce_rc</code></h4>
+<p>
+  Controls whether Bazel announces the options read from the bazelrc file when
+  starting up.
+</p>
+
+<h4 id='flag--color'><code class='flag'>--color (yes|no|auto)</code></h4>
+<p>
+  This option determines whether Bazel will use colors to highlight
+  its output on the screen.
+</p>
+<p>
+  If this option is set to <code>yes</code>, color output is enabled.
+  If this option is set to <code>auto</code>, Bazel will use color output only if
+  the output is being sent to a terminal and the TERM environment variable
+  is set to a value other than <code>dumb</code>, <code>emacs</code>, or <code>xterm-mono</code>.
+  If this option is set to <code>no</code>, color output is disabled,
+  regardless of whether the output is going to a terminal and regardless
+  of the setting of the TERM environment variable.
+</p>
+
+<h4 id='flag--config'><code class='flag'>--config <var>name</var></code></h4>
+<p>
+ Selects additional config sections from the rc files; for the current
+ <code>command</code>, it also pulls in the options from
+ <code>command:name</code> if such a section exists. Note that it is currently
+ only possible to provide these options on the command line, not in the rc
+ files.
+</p>
+
+<h4 id='flag--curses'><code class='flag'>--curses (yes|no|auto)</code></h4>
+<p>
+  This option determines whether Bazel will use cursor controls
+  in its screen output. This results in less scrolling data, and a more
+  compact, easy-to-read stream of output from Bazel. This works well with
+  <code class='flag'>--color</code>.
+</p>
+<p>
+  If this option is set to <code>yes</code>, use of cursor controls is enabled.
+  If this option is set to <code>no</code>, use of cursor controls is disabled.
+  If this option is set to <code>auto</code>, use of cursor controls will be
+  enabled under the same conditions as for <code class='flag'>--color=auto</code>.
+</p>
+
+<h4 id='flag--show_timestamps'><code class='flag'>--[no]show_timestamps</code></h4>
+<p>
+  If specified, a timestamp is added to each message generated by
+  Bazel specifying the time at which the message was displayed.
+</p>
+
+<h2 id='scripting'>Calling Bazel from scripts</h2>
+
+<p>
+  Bazel can be called from scripts in order to perform a build, run
+  tests or query the dependency graph.  Bazel has been designed to
+  enable effective scripting, but this section lists some details to
+  bear in mind to make your scripts more robust.
+</p>
+
+<h3>Choosing the output base</h3>
+
+<p>
+  The <code class='flag'>--output_base</code> option controls where the Bazel process should
+  write the outputs of a build to, as well as various working files used
+  internally by Bazel, one of which is a lock that guards against
+  concurrent mutation of the output base by multiple Bazel processes.
+</p>
+<p>
+  Choosing the correct output base directory for your script depends
+  on several factors.  If you need to put the build outputs in a
+  specific location, this will dictate the output base you need to
+  use.  If you are making a "read only" call to Bazel
+  (e.g. <code>bazel query</code>), the locking factors will be more important.
+  In particular, if you need to run multiple instances of your script
+  concurrently, you will need to give each one a different (or random) output
+  base.
+</p>
+<p>
+  If you use the default output base value, you will be contending for
+  the same lock used by the user's interactive Bazel commands.  If the
+  user issues long-running commands such as builds, your script will
+  have to wait for those commands to complete before it can continue.
+</p>
+
+<h3>Server or no server?</h3>
+
+<p>
+  By default, Bazel uses a long-running <a
+  href='#client/server'>server process</a> as an optimization; this
+  behavior can be disabled using the <a
+  href='#batch'><code class='flag'>--batch</code></a> option.  There's no hard and
+  fast rule about whether or not your script should use a server, but
+  in general, the trade-off is between performance and reliability.
+  The server mode makes a sequence of builds, especially incremental
+  builds, faster, but its behavior is more complex and prone to
+  failure.  We recommend in most cases that you use batch mode unless
+  the performance advantage is critical.
+</p>
+<p>
+  If you do use the server, don't forget to call <code>shutdown</code>
+  when you're finished with it, or, specify
+  <code class='flag'>--max_idle_secs=5</code> so that idle servers shut themselves
+  down promptly.
+</p>
+
+<h3>What exit code will I get?</h3>
+
+<p>
+  Bazel attempts to differentiate failures due to the source code under
+consideration from external errors that prevent Bazel from executing properly.
+Bazel execution can result in following exit codes:
+</p>
+
+<b>Exit Codes common to all commands:</b>
+<ul>
+  <li><code>0</code> - Success</li>
+  <li><code>2</code> - Command Line Problem, Bad or Illegal flags or command
+    combination, or Bad Environment Variables.  Your command line must be
+    modified.</li>
+  <li><code>8</code> - Build Interrupted but we terminated with an orderly shutdown.</li>
+  <li><code>32</code> - External Environment Failure not on this machine.</li>
+  <li><code>33</code> - OOM failure. You need to modify your command line.</li>
+
+  <li><code>34</code> - Reserved for Google-internal use.</li>
+  <li><code>35</code> - Reserved for Google-internal use.</li>
+  <li><code>36</code> - Local Environmental Issue, suspected permanent.</li>
+  <li><code>37</code> - Unhandled Exception / Internal Bazel Error.</li>
+  <li><code>38</code> - Reserved for Google-internal use.</li>
+  <li><code>40-44</code> - Reserved for errors in Bazel's command line launcher,
+                           <code>bazel.cc</code> that are not command line
+                           related. Typically these are related to bazel server
+                           being unable to launch itself.</li>
+</ul>
+
+<b>Return codes for commands <code>bazel build</code>, <code>bazel test</code>.</b>
+<ul>
+  <li><code>1</code> - Build failed.</li>
+  <li><code>3</code> - Build OK, but some tests failed or timed out.</li>
+  <li><code>4</code> - Build successful but no tests were found even though
+                       testing was requested.</li>
+</ul>
+
+<b>For <code>bazel run</code>:</b>
+<ul>
+  <li><code>1</code> - Build failed.</li>
+  <li><code>6</code> - Run command failure. The executed subprocess returned a
+                       non-zero exit code. The actual subprocess exit code is
+                       given in stderr.</li>
+</ul>
+
+
+<b>For
+
+  <code>bazel query</code>:</b>
+<ul>
+  <li><code>3</code> - Partial success, but the query encountered 1 or more
+                       errors in the input BUILD file set and therefore the
+                       results of the operation are not 100% reliable.
+                       This is likely due to a <code class='flag'>--keep_going</code> option
+                       on the command line.</li>
+  <li><code>7</code> - Command failure.</li>
+</ul>
+
+<p>
+  Future Bazel versions may add additional exit codes, replacing generic failure
+  exit code <code>1</code> with a different non-zero value with a particular
+  meaning. However, all non-zero exit values will always constitute an error.
+</p>
+
+<h3>Reading the .bazelrc file</h3>
+
+<p>
+  By default, Bazel will read the <a
+  href='#bazelrc'><code>.bazelrc</code> file</a> from the base workspace
+  directory or the user's home directory.  Whether or not this is
+  desirable is a choice for your script; if your script needs to be
+  perfectly hermetic (e.g. when doing release builds), you should
+  disable reading the .bazelrc file by using the option
+  <code class='flag'>--bazelrc=/dev/null</code>.  If you want to perform a build
+  using the user's preferred settings, the default behavior is better.
+</p>
+
+<h3>Command log</h3>
+
+<p>
+  The Bazel output is also available in a command log file which you can
+  find with the following command:
+</p>
+
+<pre>
+% bazel info command_log
+</pre>
+
+<p>
+  The command log file contains the interleaved stdout and stderr streams
+  of the most recent Bazel command. Note that running <code>bazel info</code>
+  will overwrite the contents of this file, since it then becomes the most
+  recent Bazel command. However, the location of the command log file will
+  not change unless you change the setting of the <code class='flag'>--output_base</code>
+  or <code class='flag'>--output_user_root</code> options.
+</p>
+
+<h3>Parsing output</h3>
+
+<p>
+  The Bazel output is quite easy to parse for many purposes.  Two
+  options that may be helpful for your script are
+  <code class='flag'>--noshow_progress</code> which suppresses progress messages,
+  and <code class='flag'>--show_result <var>n</var></code>, which controls whether
+  or not "build up-to-date" messages are printed; these messages may
+  be parsed to discover which targets were successfully built, and the
+  location of the output files they created.  Be sure to specify a
+  very large value of <i>n</i> if you rely on these messages.
+</p>
+
+<p>
+  Note that it often makes sense to use the
+  <a href='#master_log'>master log</a> instead of parsing Bazel output
+  directly.
+</p>
+
+</body>
+</html>
