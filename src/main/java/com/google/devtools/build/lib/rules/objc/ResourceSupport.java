@@ -18,6 +18,7 @@ import com.google.common.collect.ImmutableList;
 import com.google.devtools.build.lib.actions.Artifact;
 import com.google.devtools.build.lib.analysis.RuleConfiguredTarget.Mode;
 import com.google.devtools.build.lib.analysis.RuleContext;
+import com.google.devtools.build.lib.analysis.actions.CustomCommandLine;
 
 /**
  * Support for resource processing on Objc rules.
@@ -57,11 +58,36 @@ final class ResourceSupport {
             CompiledResourceFile.fromStringsFiles(intermediateArtifacts, attributes.strings())),
         new XibFiles(attributes.xibs()),
         datamodels);
-    for (Artifact storyboardInput : storyboards.getInputs()) {
-      actionsBuilder.registerIbtoolzipAction(
-          tools, storyboardInput, intermediateArtifacts.compiledStoryboardZip(storyboardInput));
-    }
+
+    registerInterfaceBuilderActions(storyboards, tools);
     return this;
+  }
+
+  private void registerInterfaceBuilderActions(
+      Storyboards storyboards, ObjcRuleClasses.Tools tools) {
+    for (Artifact storyboardInput : storyboards.getInputs()) {
+      String archiveRoot = BundleableFile.flatBundlePath(storyboardInput.getExecPath()) + "c";
+      Artifact zipOutput = intermediateArtifacts.compiledStoryboardZip(storyboardInput);
+      
+      String minimumOs =
+          ruleContext.getConfiguration().getFragment(ObjcConfiguration.class).getMinimumOs();
+      ruleContext.registerAction(
+          ObjcActionsBuilder.spawnJavaOnDarwinActionBuilder(tools.ibtoolzipDeployJar())
+              .setMnemonic("StoryboardCompile")
+              .setCommandLine(new CustomCommandLine.Builder()
+                  // The next three arguments are positional,
+                  // i.e. they don't have flags before them.
+                  .addPath(zipOutput.getExecPath())
+                  .add(archiveRoot)
+                  .addPath(ObjcActionsBuilder.IBTOOL)
+              
+                  .add("--minimum-deployment-target").add(minimumOs)
+                  .addPath(storyboardInput.getExecPath())
+                  .build())
+              .addOutput(zipOutput)
+              .addInput(storyboardInput)
+              .build(ruleContext));
+    }
   }
 
   /**

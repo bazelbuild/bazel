@@ -403,8 +403,10 @@ public class ObjcRuleClasses {
       return builder
           .add(attr("$plmerge", LABEL).cfg(HOST).exec()
               .value(env.getLabel("//tools/objc:plmerge")))
-          .add(attr("$actooloribtoolzip_deploy", LABEL).cfg(HOST)
-              .value(env.getLabel("//tools/objc:actooloribtoolzip_deploy.jar")))
+          .add(attr("$actoolzip_deploy", LABEL).cfg(HOST)
+              .value(env.getLabel("//tools/objc:actoolzip_deploy.jar")))
+          .add(attr("$ibtoolzip_deploy", LABEL).cfg(HOST)
+              .value(env.getLabel("//tools/objc:ibtoolzip_deploy.jar")))
           .build();
     }
   }
@@ -850,8 +852,12 @@ public class ObjcRuleClasses {
       this.ruleContext = Preconditions.checkNotNull(ruleContext);
     }
   
-    Artifact actooloribtoolzipDeployJar() {
-      return ruleContext.getPrerequisiteArtifact("$actooloribtoolzip_deploy", Mode.HOST);
+    Artifact actoolzipDeployJar() {
+      return ruleContext.getPrerequisiteArtifact("$actoolzip_deploy", Mode.HOST);
+    }
+
+    Artifact ibtoolzipDeployJar() {
+      return ruleContext.getPrerequisiteArtifact("$ibtoolzip_deploy", Mode.HOST);
     }
   
     Artifact momczipDeployJar() {

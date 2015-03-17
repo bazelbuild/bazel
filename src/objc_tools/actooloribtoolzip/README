@@ -1,5 +1,0 @@
-actooloribtoolzip runs actool or ibtool, which compiles asset catalog files and
-compiles storyboards, respectively, and zips up the output, because actool and
-ibtool return an unpredictable number of output files.
-
-actool and ibtool only run on Darwin, so actooloribtoolzip only runs on Darwin.

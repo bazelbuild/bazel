@@ -105,7 +105,7 @@ final class ObjcActionsBuilder {
 
   // TODO(bazel-team): Reference a rule target rather than a jar file when Darwin runfiles work
   // better.
-  private static SpawnAction.Builder spawnJavaOnDarwinActionBuilder(Artifact deployJarArtifact) {
+  static SpawnAction.Builder spawnJavaOnDarwinActionBuilder(Artifact deployJarArtifact) {
     return spawnOnDarwinActionBuilder()
         .setExecutable(JAVA)
         .addExecutableArguments("-jar", deployJarArtifact.getExecPathString())
@@ -300,24 +300,6 @@ final class ObjcActionsBuilder {
     return result.build();
   }
 
-  private Action[] ibtoolzipAction(ObjcRuleClasses.Tools baseTools, String mnemonic, Artifact input,
-      Artifact zipOutput, String archiveRoot) {
-    return spawnJavaOnDarwinActionBuilder(baseTools.actooloribtoolzipDeployJar())
-        .setMnemonic(mnemonic)
-        .setCommandLine(new CustomCommandLine.Builder()
-            // The next three arguments are positional, i.e. they don't have flags before them.
-            .addPath(zipOutput.getExecPath())
-            .add(archiveRoot)
-            .addPath(IBTOOL)
-
-            .add("--minimum-deployment-target").add(objcConfiguration.getMinimumOs())
-            .addPath(input.getExecPath())
-            .build())
-        .addOutput(zipOutput)
-        .addInput(input)
-        .build(context);
-  }
-
   /**
    * Creates actions to convert all files specified by the xibs attribute into nib format.
    */
@@ -327,7 +309,20 @@ final class ObjcActionsBuilder {
       Artifact zipOutput = intermediateArtifacts.compiledXibFileZip(original);
       String archiveRoot = BundleableFile.flatBundlePath(
           FileSystemUtils.replaceExtension(original.getExecPath(), ".nib"));
-      result.add(ibtoolzipAction(baseTools, "XibCompile", original, zipOutput, archiveRoot));
+      result.add(spawnJavaOnDarwinActionBuilder(baseTools.ibtoolzipDeployJar())
+          .setMnemonic("XibCompile")
+          .setCommandLine(new CustomCommandLine.Builder()
+              // The next three arguments are positional, i.e. they don't have flags before them.
+              .addPath(zipOutput.getExecPath())
+              .add(archiveRoot)
+              .addPath(IBTOOL)
+
+              .add("--minimum-deployment-target").add(objcConfiguration.getMinimumOs())
+              .addPath(original.getExecPath())
+              .build())
+      .addOutput(zipOutput)
+      .addInput(original)
+      .build(context));
     }
     return result.build();
   }
@@ -363,7 +358,7 @@ final class ObjcActionsBuilder {
     // Note that below we set the archive root to the empty string. This means that the generated
     // zip file will be rooted at the bundle root, and we have to prepend the bundle root to each
     // entry when merging it with the final .ipa file.
-    register(spawnJavaOnDarwinActionBuilder(tools.actooloribtoolzipDeployJar())
+    register(spawnJavaOnDarwinActionBuilder(tools.actoolzipDeployJar())
         .setMnemonic("AssetCatalogCompile")
         .addTransitiveInputs(provider.get(ASSET_CATALOG))
         .addOutput(zipOutput)
@@ -406,11 +401,6 @@ final class ObjcActionsBuilder {
             .build();
       }
     };
-  }
-
-  void registerIbtoolzipAction(ObjcRuleClasses.Tools tools, Artifact input, Artifact outputZip) {
-    String archiveRoot = BundleableFile.flatBundlePath(input.getExecPath()) + "c";
-    register(ibtoolzipAction(tools, "StoryboardCompile", input, outputZip, archiveRoot));
   }
 
   @VisibleForTesting

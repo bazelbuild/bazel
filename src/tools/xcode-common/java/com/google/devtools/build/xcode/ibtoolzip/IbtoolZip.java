@@ -12,48 +12,29 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-package com.google.devtools.build.xcode.actooloribtoolzip;
+package com.google.devtools.build.xcode.ibtoolzip;
 
-import com.google.common.base.Function;
 import com.google.common.collect.ImmutableList;
-import com.google.common.collect.Iterables;
 import com.google.devtools.build.xcode.zippingoutput.Arguments;
 import com.google.devtools.build.xcode.zippingoutput.Wrapper;
 import com.google.devtools.build.xcode.zippingoutput.Wrappers;
 
-import java.io.File;
 import java.io.IOException;
 
 /**
- * A tool which wraps actool or ibtool, by running actool/ibtool and zipping its output. See the
- * JavaDoc for {@link Wrapper} for more information.
+ * A tool which wraps ibtool by running ibtool and zipping its output. See the JavaDoc for
+ * {@link Wrapper} for more information.
  */
-public class ActoolOrIbtoolZip implements Wrapper {
-
-  private static final Function<String, String> CANONICAL_PATH =
-      new Function<String, String>() {
-    @Override
-    public String apply(String path) {
-      File file = new File(path);
-      if (file.exists()) {
-        try {
-          return file.getCanonicalPath();
-        } catch (IOException e) {
-          // Pass through to return raw path
-        }
-      }
-      return path;
-    }
-  };
+public class IbtoolZip implements Wrapper {
 
   @Override
   public String name() {
-    return "ActoolOrIbtoolZip";
+    return "IbtoolZip";
   }
 
   @Override
   public String subtoolName() {
-    return "actool/ibtool";
+    return "ibtool";
   }
 
   @Override
@@ -62,14 +43,12 @@ public class ActoolOrIbtoolZip implements Wrapper {
         .add(args.subtoolCmd())
         .add("--compile")
         .add(outputDirectory)
-        // actool munges paths in some way which doesn't work if one of the directories in the path
-        // is a symlink.
-        .addAll(Iterables.transform(args.subtoolExtraArgs(), CANONICAL_PATH))
+        .addAll(args.subtoolExtraArgs())
         .build();
   }
 
   public static void main(String[] args) throws IOException, InterruptedException {
-    Wrappers.execute(args, new ActoolOrIbtoolZip());
+    Wrappers.execute(args, new IbtoolZip());
   }
 
   @Override
