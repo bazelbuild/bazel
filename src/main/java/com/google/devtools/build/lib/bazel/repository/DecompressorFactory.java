@@ -42,13 +42,14 @@ import java.nio.charset.Charset;
  */
 public abstract class DecompressorFactory {
 
-  public static Decompressor create(String targetKind, String targetName, Path archivePath)
+  public static Decompressor create(
+      String targetKind, String targetName, Path archivePath, Path repositoryPath)
       throws DecompressorException {
     String baseName = archivePath.getBaseName();
 
     if (targetKind.startsWith(HttpJarRule.NAME + " ")) {
       if (baseName.endsWith(".jar")) {
-        return new JarDecompressor(targetKind, targetName, archivePath);
+        return new JarDecompressor(targetKind, targetName, archivePath, repositoryPath);
       } else {
         throw new DecompressorException(
             "Expected " + HttpJarRule.NAME + " " + targetName
@@ -95,34 +96,36 @@ public abstract class DecompressorFactory {
   static class JarDecompressor extends Decompressor {
     private final String targetKind;
     private final String targetName;
+    private final Path repositoryDir;
 
-    public JarDecompressor(String targetKind, String targetName, Path archiveFile) {
+    public JarDecompressor(
+        String targetKind, String targetName, Path archiveFile, Path repositoryDir) {
       super(archiveFile);
       this.targetKind = targetKind;
       this.targetName = targetName;
+      this.repositoryDir = repositoryDir;
     }
 
     /**
      * The .jar can be used compressed, so this just exposes it in a way Bazel can use.
      *
-     * <p>It moves the jar from some-name/foo.jar to some-name/repository/jar/foo.jar and creates a
-     * BUILD file containing one entry: a .jar.
+     * <p>It moves the jar from some-name/x/y/z/foo.jar to some-name/jar/foo.jar and creates a
+     * BUILD file containing one entry: the .jar.
      */
     @Override
     public Path decompress() throws DecompressorException {
-      Path destinationDirectory = archiveFile.getParentDirectory().getRelative("repository");
       // Example: archiveFile is .external-repository/some-name/foo.jar.
       String baseName = archiveFile.getBaseName();
 
       try {
-        FileSystemUtils.createDirectoryAndParents(destinationDirectory);
-        // .external-repository/some-name/repository/WORKSPACE.
-        Path workspaceFile = destinationDirectory.getRelative("WORKSPACE");
+        FileSystemUtils.createDirectoryAndParents(repositoryDir);
+        // .external-repository/some-name/WORKSPACE.
+        Path workspaceFile = repositoryDir.getRelative("WORKSPACE");
         FileSystemUtils.writeContent(workspaceFile, Charset.forName("UTF-8"),
             "# DO NOT EDIT: automatically generated WORKSPACE file for " + targetKind
                 + " rule " + targetName);
-        // .external-repository/some-name/repository/jar.
-        Path jarDirectory = destinationDirectory.getRelative("jar");
+        // .external-repository/some-name/jar.
+        Path jarDirectory = repositoryDir.getRelative("jar");
         FileSystemUtils.createDirectoryAndParents(jarDirectory);
         // .external-repository/some-name/repository/jar/foo.jar is a symbolic link to the jar in
         // .external-repository/some-name.
@@ -141,9 +144,10 @@ public abstract class DecompressorFactory {
             "    visibility = ['//visibility:public']",
             ")");
       } catch (IOException e) {
-        throw new DecompressorException(e.getMessage());
+        throw new DecompressorException(
+            "Error auto-creating jar repo structure: " + e.getMessage());
       }
-      return destinationDirectory;
+      return repositoryDir;
     }
   }
 
@@ -169,7 +173,7 @@ public abstract class DecompressorFactory {
      */
     @Override
     public Path decompress() throws DecompressorException {
-      Path destinationDirectory = archiveFile.getParentDirectory().getRelative("repository");
+      Path destinationDirectory = archiveFile.getParentDirectory();
       try (InputStream is = new FileInputStream(archiveFile.getPathString())) {
         ArchiveInputStream in = new ArchiveStreamFactory().createArchiveInputStream(
             ArchiveStreamFactory.ZIP, is);

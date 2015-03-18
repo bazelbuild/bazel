@@ -20,13 +20,16 @@ import com.google.devtools.build.lib.packages.AggregatingAttributeMapper;
 import com.google.devtools.build.lib.packages.PackageIdentifier.RepositoryName;
 import com.google.devtools.build.lib.packages.Rule;
 import com.google.devtools.build.lib.packages.Type;
+import com.google.devtools.build.lib.skyframe.FileSymlinkCycleException;
 import com.google.devtools.build.lib.skyframe.FileValue;
+import com.google.devtools.build.lib.skyframe.InconsistentFilesystemException;
 import com.google.devtools.build.lib.skyframe.RepositoryValue;
 import com.google.devtools.build.lib.syntax.EvalException;
 import com.google.devtools.build.lib.vfs.FileSystem;
 import com.google.devtools.build.lib.vfs.FileSystemUtils;
 import com.google.devtools.build.lib.vfs.Path;
 import com.google.devtools.build.lib.vfs.PathFragment;
+import com.google.devtools.build.lib.vfs.RootedPath;
 import com.google.devtools.build.skyframe.SkyFunctionException;
 import com.google.devtools.build.skyframe.SkyFunctionException.Transience;
 import com.google.devtools.build.skyframe.SkyFunctionName;
@@ -66,8 +69,10 @@ public class NewLocalRepositoryFunction extends RepositoryFunction {
     //     w -> /some/path/to/y/w
     //     v -> /some/path/to/y/v
     //
+    // Create x/
     Path repositoryDirectory = getExternalRepositoryDirectory().getRelative(rule.getName());
     try {
+      FileSystemUtils.deleteTree(repositoryDirectory);
       FileSystemUtils.createDirectoryAndParents(repositoryDirectory);
     } catch (IOException e) {
       throw new RepositoryFunctionException(e, Transience.TRANSIENT);
@@ -158,9 +163,21 @@ public class NewLocalRepositoryFunction extends RepositoryFunction {
         from.createSymbolicLink(to);
       }
     } catch (IOException e) {
-      throw new RepositoryFunctionException(e, Transience.TRANSIENT);
+      throw new RepositoryFunctionException(
+          new IOException("Error creating symbolic link from " + from + " to " + to + ": "
+              + e.getMessage()), Transience.TRANSIENT);
     }
-    return getRepositoryDirectory(from, env);
+
+    SkyKey outputDirectoryKey = FileValue.key(RootedPath.toRootedPath(
+        from, PathFragment.EMPTY_FRAGMENT));
+    try {
+      return (FileValue) env.getValueOrThrow(outputDirectoryKey, IOException.class,
+          FileSymlinkCycleException.class, InconsistentFilesystemException.class);
+    } catch (IOException | FileSymlinkCycleException | InconsistentFilesystemException e) {
+      throw new RepositoryFunctionException(
+          new IOException("Could not access " + from + ": " + e.getMessage()),
+          Transience.PERSISTENT);
+    }
   }
 
   @Override

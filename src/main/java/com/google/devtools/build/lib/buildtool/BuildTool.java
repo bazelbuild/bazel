@@ -294,7 +294,7 @@ public class BuildTool {
       ImmutableMap<PackageIdentifier, Path> second) {
     Map<PathFragment, Path> builder = Maps.newHashMap();
     for (Map.Entry<PackageIdentifier, Path> entry : first.entrySet()) {
-      builder.put(entry.getKey().getPackageFragment(), entry.getValue());
+      builder.put(entry.getKey().getPathFragment(), entry.getValue());
     }
     for (Map.Entry<PackageIdentifier, Path> entry : second.entrySet()) {
       if (first.containsKey(entry.getKey())) {

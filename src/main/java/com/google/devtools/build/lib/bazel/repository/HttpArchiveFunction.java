@@ -90,7 +90,7 @@ public class HttpArchiveFunction extends RepositoryFunction {
     try {
       Path archiveFile = downloader.download();
       outputDirectory = DecompressorFactory.create(
-          rule.getTargetKind(), rule.getName(), archiveFile).decompress();
+          rule.getTargetKind(), rule.getName(), archiveFile, outputDirectory).decompress();
     } catch (IOException e) {
       // Assumes all IO errors transient.
       throw new RepositoryFunctionException(e, Transience.TRANSIENT);

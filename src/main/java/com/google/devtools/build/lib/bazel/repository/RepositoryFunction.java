@@ -30,6 +30,7 @@ import com.google.devtools.build.lib.skyframe.InconsistentFilesystemException;
 import com.google.devtools.build.lib.skyframe.PackageFunction;
 import com.google.devtools.build.lib.skyframe.PackageValue;
 import com.google.devtools.build.lib.syntax.EvalException;
+import com.google.devtools.build.lib.vfs.FileSystemUtils;
 import com.google.devtools.build.lib.vfs.Path;
 import com.google.devtools.build.lib.vfs.PathFragment;
 import com.google.devtools.build.lib.vfs.RootedPath;
@@ -137,27 +138,46 @@ public abstract class RepositoryFunction implements SkyFunction {
   /**
    * Adds the repository's directory to the graph and, if it's a symlink, resolves it to an
    * actual directory.
+   *
+   * <p>Also creates a symlink from x/external/x to x, where x is the directory containing a
+   * WORKSPACE file. This is used in the execution root.</p>
    */
   @Nullable
   protected static FileValue getRepositoryDirectory(Path repositoryDirectory, Environment env)
       throws RepositoryFunctionException {
     SkyKey outputDirectoryKey = FileValue.key(RootedPath.toRootedPath(
         repositoryDirectory, PathFragment.EMPTY_FRAGMENT));
+    FileValue value;
     try {
-      return (FileValue) env.getValueOrThrow(outputDirectoryKey, IOException.class,
+      value = (FileValue) env.getValueOrThrow(outputDirectoryKey, IOException.class,
           FileSymlinkCycleException.class, InconsistentFilesystemException.class);
     } catch (IOException | FileSymlinkCycleException | InconsistentFilesystemException e) {
       throw new RepositoryFunctionException(
           new IOException("Could not access " + repositoryDirectory + ": " + e.getMessage()),
           Transience.PERSISTENT);
     }
+
+    String targetName = repositoryDirectory.getBaseName();
+    try {
+      Path backlink = repositoryDirectory.getRelative("external").getRelative(targetName);
+      FileSystemUtils.createDirectoryAndParents(backlink.getParentDirectory());
+      if (backlink.exists()) {
+        backlink.delete();
+      }
+      backlink.createSymbolicLink(repositoryDirectory);
+    } catch (IOException e) {
+      throw new RepositoryFunctionException(new IOException(
+          "Error creating execution root symlink for " + targetName + ": " + e.getMessage()),
+          Transience.TRANSIENT);
+    }
+    return value;
   }
 
   /**
    * Exception thrown when something goes wrong accessing a remote repository.
    *
-   * This exception should be used by child classes to limit the types of exceptions
-   * {@link RepositoryDelegatorFunction} has to know how to catch.
+   * <p>This exception should be used by child classes to limit the types of exceptions
+   * {@link RepositoryDelegatorFunction} has to know how to catch.</p>
    */
   static final class RepositoryFunctionException extends SkyFunctionException {
     public RepositoryFunctionException(NoSuchPackageException cause, Transience transience) {

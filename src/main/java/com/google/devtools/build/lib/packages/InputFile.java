@@ -99,7 +99,7 @@ public final class InputFile extends FileTarget {
    * Returns the exec path of the file, i.e. the path relative to the package source root.
    */
   public PathFragment getExecPath() {
-    return label.toPathFragment();
+    return label.getPackageIdentifier().getPathFragment().getRelative(label.getName());
   }
 
   @Override

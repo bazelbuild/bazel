@@ -23,6 +23,7 @@ import com.google.devtools.build.lib.packages.Type;
 import com.google.devtools.build.lib.skyframe.FileValue;
 import com.google.devtools.build.lib.skyframe.RepositoryValue;
 import com.google.devtools.build.lib.syntax.EvalException;
+import com.google.devtools.build.lib.vfs.FileSystemUtils;
 import com.google.devtools.build.lib.vfs.Path;
 import com.google.devtools.build.lib.vfs.PathFragment;
 import com.google.devtools.build.skyframe.SkyFunctionException;
@@ -56,7 +57,18 @@ public class LocalRepositoryFunction extends RepositoryFunction {
               "In " + rule + " the 'path' attribute must specify an absolute path"),
           Transience.PERSISTENT);
     }
-    Path repositoryPath = getOutputBase().getFileSystem().getPath(pathFragment);
+    Path repositoryPath = getExternalRepositoryDirectory().getRelative(rule.getName());
+    try {
+      FileSystemUtils.createDirectoryAndParents(repositoryPath.getParentDirectory());
+      if (repositoryPath.exists()) {
+        repositoryPath.delete();
+      }
+      repositoryPath.createSymbolicLink(pathFragment);
+    } catch (IOException e) {
+      throw new RepositoryFunctionException(
+          new IOException("Could not create symlink to repository " + pathFragment + ": "
+              + e.getMessage()), Transience.TRANSIENT);
+    }
     FileValue repositoryValue = getRepositoryDirectory(repositoryPath, env);
     if (repositoryValue == null) {
       return null;

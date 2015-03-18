@@ -69,7 +69,8 @@ public class NewHttpArchiveFunction extends HttpArchiveFunction {
     Path decompressedDirectory;
     try {
       decompressedDirectory = DecompressorFactory.create(
-          rule.getTargetKind(), rule.getName(), downloadedFileValue.getPath()).decompress();
+          rule.getTargetKind(), rule.getName(), downloadedFileValue.getPath(), outputDirectory)
+          .decompress();
     } catch (DecompressorFactory.DecompressorException e) {
       throw new RepositoryFunctionException(
           new IOException(e.getMessage()), SkyFunctionException.Transience.TRANSIENT);

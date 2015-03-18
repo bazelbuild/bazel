@@ -233,6 +233,16 @@ public final class PackageIdentifier implements Comparable<PackageIdentifier>, S
   }
 
   /**
+   * Returns a relative path that should be unique across all remote and packages, based on the
+   * repository and package names.
+   */
+  public PathFragment getPathFragment() {
+    return repository.isDefault() ? pkgName
+        : new PathFragment(ExternalPackage.NAME).getRelative(repository.strippedName())
+            .getRelative(pkgName);
+  }
+
+  /**
    * Returns the name of this package.
    *
    * <p>There are certain places that expect the path fragment as the package name ('foo/bar') as a
