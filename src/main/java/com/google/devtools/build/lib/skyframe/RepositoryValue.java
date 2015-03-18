@@ -47,6 +47,10 @@ public class RepositoryValue implements SkyValue {
     return path;
   }
 
+  public FileValue getRepositoryDirectory() {
+    return details;
+  }
+
   @Override
   public boolean equals(Object other) {
     if (this == other) {

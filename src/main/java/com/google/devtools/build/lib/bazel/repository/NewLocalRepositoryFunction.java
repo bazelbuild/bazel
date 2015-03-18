@@ -78,13 +78,7 @@ public class NewLocalRepositoryFunction extends RepositoryFunction {
     }
 
     // Add x/WORKSPACE.
-    try {
-      Path workspaceFile = repositoryDirectory.getRelative("WORKSPACE");
-      FileSystemUtils.writeContent(workspaceFile, Charset.forName("UTF-8"),
-          "# DO NOT EDIT: automatically generated WORKSPACE file for " + rule + "\n");
-    } catch (IOException e) {
-      throw new RepositoryFunctionException(e, Transience.TRANSIENT);
-    }
+    createWorkspaceFile(repositoryDirectory, rule);
 
     AggregatingAttributeMapper mapper = AggregatingAttributeMapper.of(rule);
     String path = mapper.get("path", Type.STRING);
@@ -112,24 +106,52 @@ public class NewLocalRepositoryFunction extends RepositoryFunction {
     }
 
     // Link x/BUILD to <build_root>/x.BUILD.
-    PathFragment buildFile = new PathFragment(mapper.get("build_file", Type.STRING));
-    Path buildFileTarget = getWorkspace().getRelative(buildFile);
-    if (!buildFileTarget.exists()) {
-      throw new RepositoryFunctionException(
-          new EvalException(rule.getLocation(), "In " + rule
-              + " the 'build_file' attribute does not specify an existing file ("
-              + buildFile + " does not exist)"),
-          Transience.PERSISTENT);
-    }
-    Path buildFilePath = repositoryDirectory.getRelative("BUILD");
-    if (createSymbolicLink(buildFilePath, buildFileTarget, env) == null) {
+    if (createBuildFile(rule, getWorkspace(), repositoryDirectory, env) == null) {
       return null;
     }
 
     return new RepositoryValue(repositoryDirectory, directoryValue);
   }
 
-  private FileValue createSymbolicLink(Path from, Path to, Environment env)
+  public static void createWorkspaceFile(Path repositoryDirectory, Rule rule)
+      throws RepositoryFunctionException {
+    try {
+      Path workspaceFile = repositoryDirectory.getRelative("WORKSPACE");
+      FileSystemUtils.writeContent(workspaceFile, Charset.forName("UTF-8"),
+          "# DO NOT EDIT: automatically generated WORKSPACE file for " + rule + "\n");
+    } catch (IOException e) {
+      throw new RepositoryFunctionException(e, Transience.TRANSIENT);
+    }
+  }
+
+  /**
+   * Symlinks a BUILD file from the local filesystem into the external repository's root.
+   * @param rule the rule that declares the build_file path.
+   * @param workspaceDirectory the workspace root for the build.
+   * @param repositoryDirectory the external repository's root directory.
+   * @param env the Skyframe environment.
+   * @return the file value of the symlink created.
+   * @throws RepositoryFunctionException if the BUILD file specified does not exist or cannot be
+   * linked.
+   */
+  public static FileValue createBuildFile(Rule rule, Path workspaceDirectory,
+                                          Path repositoryDirectory, Environment env)
+      throws RepositoryFunctionException {
+    AggregatingAttributeMapper mapper = AggregatingAttributeMapper.of(rule);
+    PathFragment buildFile = new PathFragment(mapper.get("build_file", Type.STRING));
+    Path buildFileTarget = workspaceDirectory.getRelative(buildFile);
+    if (!buildFileTarget.exists()) {
+      throw new RepositoryFunctionException(
+          new EvalException(rule.getLocation(), "In " + rule
+              + " the 'build_file' attribute does not specify an existing file ("
+              + buildFileTarget + " does not exist)"),
+          Transience.PERSISTENT);
+    }
+    Path buildFilePath = repositoryDirectory.getRelative("BUILD");
+    return createSymbolicLink(buildFilePath, buildFileTarget, env);
+  }
+
+  private static FileValue createSymbolicLink(Path from, Path to, Environment env)
       throws RepositoryFunctionException {
     try {
       if (!from.exists()) {

@@ -20,9 +20,11 @@ import com.google.devtools.build.lib.analysis.BlazeDirectories;
 import com.google.devtools.build.lib.analysis.BlazeVersionInfo;
 import com.google.devtools.build.lib.analysis.ConfiguredRuleClassProvider;
 import com.google.devtools.build.lib.bazel.repository.HttpArchiveFunction;
+import com.google.devtools.build.lib.bazel.repository.HttpDownloadFunction;
 import com.google.devtools.build.lib.bazel.repository.HttpJarFunction;
 import com.google.devtools.build.lib.bazel.repository.LocalRepositoryFunction;
 import com.google.devtools.build.lib.bazel.repository.MavenJarFunction;
+import com.google.devtools.build.lib.bazel.repository.NewHttpArchiveFunction;
 import com.google.devtools.build.lib.bazel.repository.NewLocalRepositoryFunction;
 import com.google.devtools.build.lib.bazel.repository.RepositoryDelegatorFunction;
 import com.google.devtools.build.lib.bazel.repository.RepositoryFunction;
@@ -30,6 +32,7 @@ import com.google.devtools.build.lib.bazel.rules.workspace.HttpArchiveRule;
 import com.google.devtools.build.lib.bazel.rules.workspace.HttpJarRule;
 import com.google.devtools.build.lib.bazel.rules.workspace.LocalRepositoryRule;
 import com.google.devtools.build.lib.bazel.rules.workspace.MavenJarRule;
+import com.google.devtools.build.lib.bazel.rules.workspace.NewHttpArchiveRule;
 import com.google.devtools.build.lib.bazel.rules.workspace.NewLocalRepositoryRule;
 import com.google.devtools.build.lib.runtime.BlazeModule;
 import com.google.devtools.build.lib.skyframe.SkyFunctions;
@@ -53,12 +56,14 @@ public class BazelRepositoryModule extends BlazeModule {
   private final ImmutableMap<String, RepositoryFunction> repositoryHandlers;
 
   public BazelRepositoryModule() {
-    repositoryHandlers = ImmutableMap.of(
-        LocalRepositoryRule.NAME, new LocalRepositoryFunction(),
-        HttpArchiveRule.NAME, new HttpArchiveFunction(),
-        HttpJarRule.NAME, new HttpJarFunction(),
-        MavenJarRule.NAME, new MavenJarFunction(),
-        NewLocalRepositoryRule.NAME, new NewLocalRepositoryFunction());
+    repositoryHandlers = ImmutableMap.<String, RepositoryFunction>builder()
+        .put(LocalRepositoryRule.NAME, new LocalRepositoryFunction())
+        .put(HttpArchiveRule.NAME, new HttpArchiveFunction())
+        .put(HttpJarRule.NAME, new HttpJarFunction())
+        .put(MavenJarRule.NAME, new MavenJarFunction())
+        .put(NewHttpArchiveRule.NAME, new NewHttpArchiveFunction())
+        .put(NewLocalRepositoryRule.NAME, new NewLocalRepositoryFunction())
+        .build();
   }
 
   @Override
@@ -95,6 +100,9 @@ public class BazelRepositoryModule extends BlazeModule {
     // Create the delegator everything flows through.
     builder.put(SkyFunctions.REPOSITORY,
         new RepositoryDelegatorFunction(repositoryHandlers));
+
+    // Helper SkyFunctions.
+    builder.put(SkyFunctionName.computed(HttpDownloadFunction.NAME), new HttpDownloadFunction());
     return builder.build();
   }
 }

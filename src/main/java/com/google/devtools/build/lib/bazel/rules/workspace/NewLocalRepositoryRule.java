@@ -48,7 +48,7 @@ public class NewLocalRepositoryRule implements RuleDefinition {
         A file to use as a BUILD file for this directory.
         ${SYNOPSIS}
 
-        <p>This path must be relative to the build's workspace. The file does not need to be named
+        <p>This path is relative to the build's workspace. The file does not need to be named
         BUILD, but can be (something like BUILD.new-repo-name may work well for distinguishing it
         from the repository's actual BUILD files.</p>
         <!-- #END_BLAZE_RULE.ATTRIBUTE --> */

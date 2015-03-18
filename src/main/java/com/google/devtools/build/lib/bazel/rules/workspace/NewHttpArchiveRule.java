@@ -21,24 +21,21 @@ import com.google.devtools.build.lib.analysis.BlazeRule;
 import com.google.devtools.build.lib.analysis.RuleDefinition;
 import com.google.devtools.build.lib.analysis.RuleDefinitionEnvironment;
 import com.google.devtools.build.lib.packages.RuleClass;
-import com.google.devtools.build.lib.packages.RuleClass.Builder;
-import com.google.devtools.build.lib.packages.RuleClass.Builder.RuleClassType;
 
 /**
- * Rule definition for the http_archive rule.
+ * Rule definition for the new_http_archive rule.
  */
-@BlazeRule(name = HttpArchiveRule.NAME,
-  type = RuleClassType.WORKSPACE,
-  ancestors = { WorkspaceBaseRule.class },
-  factoryClass = WorkspaceConfiguredTargetFactory.class)
-public class HttpArchiveRule implements RuleDefinition {
-
-  public static final String NAME = "http_archive";
+@BlazeRule(name = NewHttpArchiveRule.NAME,
+    type = RuleClass.Builder.RuleClassType.WORKSPACE,
+    ancestors = { WorkspaceBaseRule.class },
+    factoryClass = WorkspaceConfiguredTargetFactory.class)
+public class NewHttpArchiveRule implements RuleDefinition {
+  public static final String NAME = "new_http_archive";
 
   @Override
-  public RuleClass build(Builder builder, RuleDefinitionEnvironment environment) {
+  public RuleClass build(RuleClass.Builder builder, RuleDefinitionEnvironment environment) {
     return builder
-        /* <!-- #BLAZE_RULE(http_archive).ATTRIBUTE(url) -->
+        /* <!-- #BLAZE_RULE(new_http_archive).ATTRIBUTE(url) -->
         A URL to an archive file containing a Bazel repository.
         ${SYNOPSIS}
 
@@ -46,30 +43,39 @@ public class HttpArchiveRule implements RuleDefinition {
           redirection.</p>
         <!-- #END_BLAZE_RULE.ATTRIBUTE --> */
         .add(attr("url", STRING).mandatory())
-        /* <!-- #BLAZE_RULE(http_archive).ATTRIBUTE(sha256) -->
+        /* <!-- #BLAZE_RULE(new_http_archive).ATTRIBUTE(sha256) -->
         The expected SHA-256 hash of the file downloaded.
         ${SYNOPSIS}
 
         <p>This must match the SHA-256 hash of the file downloaded.</p>
         <!-- #END_BLAZE_RULE.ATTRIBUTE --> */
         .add(attr("sha256", STRING).mandatory())
+        /* <!-- #BLAZE_RULE(new_http_archive).ATTRIBUTE(build_file) -->
+        A file to use as a BUILD file for this directory.
+        ${SYNOPSIS}
+
+        <p>This path is relative to the build's workspace. The file does not need to be named
+        BUILD, but can be (something like BUILD.new-repo-name may work well for distinguishing it
+        from the repository's actual BUILD files.</p>
+        <!-- #END_BLAZE_RULE.ATTRIBUTE --> */
+        .add(attr("build_file", STRING).mandatory())
         .setWorkspaceOnly()
         .build();
   }
 }
 
-/*<!-- #BLAZE_RULE (NAME = http_archive, TYPE = OTHER, FAMILY = General)[GENERIC_RULE] -->
+/*<!-- #BLAZE_RULE (NAME = new_http_archive, TYPE = OTHER, FAMILY = General)[GENERIC_RULE] -->
 
 ${ATTRIBUTE_SIGNATURE}
 
-<p>Downloads a Bazel repository as a compressed archive file, decompresses it, and makes its
-  targets available for binding.</p>
+<p>Downloads a compressed archive file, decompresses it, and creates a Bazel repository by
+combining the archive with the provided BUILD file.</p>
 
 <p>Only Zip-formatted archives with the .zip extension are supported.</p>
 
 ${ATTRIBUTE_DEFINITION}
 
-<h4 id="http_archive_examples">Examples</h4>
+<h4 id="new_http_archive_examples">Examples</h4>
 
 <p>Suppose the current repository contains the source code for a chat program, rooted at the
   directory <i>~/chat-app</i>. It needs to depend on an SSL library which is available from
@@ -77,20 +83,19 @@ ${ATTRIBUTE_DEFINITION}
   structure:</p>
 
 <pre class="code">
-WORKSPACE
 src/
-  BUILD
   openssl.cc
   openssl.h
 </pre>
 
-<p><i>src/BUILD</i> contains the following target definition:</p>
+<p>In the local repository, the user creates a <i>ssl.BUILD</i> file which contains the following
+target definition:</p>
 
 <pre class="code">
 cc_library(
     name = "openssl-lib",
-    srcs = ["openssl.cc"],
-    hdrs = ["openssl.h"],
+    srcs = ["src/openssl.cc"],
+    hdrs = ["src/openssl.h"],
 )
 </pre>
 
@@ -98,15 +103,16 @@ cc_library(
   added to <i>~/chat-app/WORKSPACE</i>:</p>
 
 <pre class="code">
-http_archive(
+new_http_archive(
     name = "my-ssl",
     url = "http://example.com/openssl.zip",
     sha256 = "03a58ac630e59778f328af4bcc4acb4f80208ed4",
+    build_file = "ssl.BUILD",
 )
 
 bind(
     name = "openssl",
-    actual = "@my-ssl//src:openssl-lib",
+    actual = "@my-ssl//:openssl-lib",
 )
 </pre>
 
