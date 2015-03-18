@@ -15,6 +15,7 @@
 package com.google.devtools.build.lib.analysis;
 
 import com.google.common.collect.ImmutableMap;
+import com.google.common.collect.ImmutableSet;
 import com.google.devtools.build.lib.actions.Artifact;
 import com.google.devtools.build.lib.collect.nestedset.NestedSet;
 import com.google.devtools.build.lib.collect.nestedset.NestedSetBuilder;
@@ -83,6 +84,12 @@ public final class OutputGroupProvider implements TransitiveInfoProvider {
    * The default group of files built by a target when it is mentioned on the command line.
    */
   public static final String DEFAULT = "default";
+
+  /**
+   * The default set of OutputGroups we typically want to build.
+   */
+  public static final ImmutableSet<String> DEFAULT_GROUPS =
+      ImmutableSet.of(DEFAULT, TEMP_FILES, HIDDEN_TOP_LEVEL);
 
   private final ImmutableMap<String, NestedSet<Artifact>> outputGroups;
 

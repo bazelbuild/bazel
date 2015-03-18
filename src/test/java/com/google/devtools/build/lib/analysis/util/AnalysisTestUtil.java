@@ -73,7 +73,7 @@ public final class AnalysisTestUtil {
   public static final TopLevelArtifactContext TOP_LEVEL_ARTIFACT_CONTEXT =
       new TopLevelArtifactContext(
           /*runTestsExclusively=*/false,
-          /*outputGroups=*/ImmutableSortedSet.of(OutputGroupProvider.DEFAULT));
+          /*outputGroups=*/ImmutableSortedSet.copyOf(OutputGroupProvider.DEFAULT_GROUPS));
 
   /**
    * An {@link AnalysisEnvironment} implementation that collects the actions registered.
