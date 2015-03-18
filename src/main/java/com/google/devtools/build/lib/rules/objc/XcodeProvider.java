@@ -48,6 +48,7 @@ import com.google.devtools.build.xcode.xcodegen.proto.XcodeGenProtos.XcodeprojBu
 import java.util.Arrays;
 import java.util.EnumSet;
 import java.util.LinkedHashSet;
+import java.util.List;
 import java.util.Set;
 
 /**
@@ -79,6 +80,7 @@ public final class XcodeProvider implements TransitiveInfoProvider {
     private final NestedSetBuilder<Artifact> inputsToXcodegen = NestedSetBuilder.stableOrder();
     private final NestedSetBuilder<Artifact> additionalSources = NestedSetBuilder.stableOrder();
     private final ImmutableList.Builder<XcodeProvider> extensions = new ImmutableList.Builder<>();
+    private String architecture;
 
     /**
      * Sets the label of the build target which corresponds to this Xcode target.
@@ -129,7 +131,9 @@ public final class XcodeProvider implements TransitiveInfoProvider {
      * Adds {@link XcodeProvider}s corresponding to direct dependencies of this target which should
      * be added in the {@code .xcodeproj} file.
      */
-    public Builder addDependencies(Iterable<XcodeProvider> dependencies) {
+    public Builder addDependencies(
+        Iterable<XcodeProvider> dependencies, ObjcConfiguration configuration) {
+      String architecture = getDependencyArchitecture(configuration);
       for (XcodeProvider dependency : dependencies) {
         // TODO(bazel-team): This is messy. Maybe we should make XcodeProvider be able to specify
         // how to depend on it rather than require this method to choose based on the dependency's
@@ -137,13 +141,29 @@ public final class XcodeProvider implements TransitiveInfoProvider {
         if (dependency.productType == XcodeProductType.EXTENSION) {
           this.extensions.add(dependency);
           this.inputsToXcodegen.addTransitive(dependency.inputsToXcodegen);
-        } else {
+        } else if (dependency.architecture.equals(architecture)) {
           this.dependencies.add(dependency);
           this.dependencies.addTransitive(dependency.dependencies);
           this.addTransitiveSets(dependency);
         }
       }
       return this;
+    }
+
+    /**
+     * Returns the architecture for which we keep dependencies.
+     *
+     * <p>When building with multiple architectures we want to avoid duplicating the same target for
+     * each architecture. Instead we pick one architecture for which to keep all dependencies and
+     * discard any others.
+     */
+    private String getDependencyArchitecture(ObjcConfiguration configuration) {
+      List<String> iosMultiCpus = configuration.getIosMultiCpus();
+      String architecture = configuration.getIosCpu();
+      if (!iosMultiCpus.isEmpty()) {
+        architecture = iosMultiCpus.get(0);
+      }
+      return architecture;
     }
 
     /**
@@ -231,8 +251,17 @@ public final class XcodeProvider implements TransitiveInfoProvider {
       return this;
     }
 
+    /**
+     * Sets the CPU architecture this xcode target was constructed for, derived from
+     * {@link ObjcConfiguration#getIosCpu()}.
+     */
+    public Builder setArchitecture(String architecture) {
+      this.architecture = architecture;
+      return this;
+    }
+
     public XcodeProvider build() {
-      Preconditions.checkArgument(
+      Preconditions.checkState(
           !testHost.isPresent() || (productType == XcodeProductType.UNIT_TEST),
           "%s product types cannot have a test host (test host: %s).", productType, testHost);
       return new XcodeProvider(this);
@@ -272,10 +301,6 @@ public final class XcodeProvider implements TransitiveInfoProvider {
       return inputsToXcodegen;
     }
 
-    public ImmutableList<XcodeProvider> getTopLevelTargets() {
-      return topLevelTargets;
-    }
-
     /**
      * Returns all the target controls that must be added to the xcodegen control. No other target
      * controls are needed to generate a functional project file. This method creates a new list
@@ -312,6 +337,7 @@ public final class XcodeProvider implements TransitiveInfoProvider {
   private final NestedSet<Artifact> inputsToXcodegen;
   private final NestedSet<Artifact> additionalSources;
   private final ImmutableList<XcodeProvider> extensions;
+  private final String architecture;
 
   private XcodeProvider(Builder builder) {
     this.label = Preconditions.checkNotNull(builder.label);
@@ -330,6 +356,7 @@ public final class XcodeProvider implements TransitiveInfoProvider {
     this.inputsToXcodegen = builder.inputsToXcodegen.build();
     this.additionalSources = builder.additionalSources.build();
     this.extensions = builder.extensions.build();
+    this.architecture = Preconditions.checkNotNull(builder.architecture);
   }
 
   /**

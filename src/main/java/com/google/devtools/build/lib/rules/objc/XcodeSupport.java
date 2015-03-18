@@ -95,6 +95,7 @@ public final class XcodeSupport {
       ObjcProvider objcProvider, XcodeProductType productType) {
     xcodeProviderBuilder
         .setLabel(ruleContext.getLabel())
+        .setArchitecture(ObjcRuleClasses.objcConfiguration(ruleContext).getIosCpu())
         .setObjcProvider(objcProvider)
         .setProductType(productType);
     return this;
@@ -106,9 +107,11 @@ public final class XcodeSupport {
    * @return this xcode support
    */
   XcodeSupport addDependencies(Builder xcodeProviderBuilder, Attribute attribute) {
-    xcodeProviderBuilder.addDependencies(
-        ruleContext.getPrerequisites(
-            attribute.getName(), attribute.getAccessMode(), XcodeProvider.class));
+    Iterable<XcodeProvider> dependencies = ruleContext.getPrerequisites(
+        attribute.getName(), attribute.getAccessMode(), XcodeProvider.class);
+
+    xcodeProviderBuilder
+        .addDependencies(dependencies, ObjcRuleClasses.objcConfiguration(ruleContext));
     return this;
   }
 }
