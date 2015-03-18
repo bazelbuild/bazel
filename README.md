@@ -23,7 +23,7 @@ architectures from the same underlying codebase.
 
 Find more background about Bazel in our [FAQ](docs/FAQ.md)
 
-# Getting Started
+## Getting Started
 
   * How to [install Bazel](docs/install.md)
   * How to [get started using Bazel](docs/getting-started.md)
