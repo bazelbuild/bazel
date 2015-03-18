@@ -448,19 +448,26 @@ public class CppCompileAction extends AbstractAction implements IncludeScannable
     }
     return cmdlineIncludes.build();
   }
+  
+  @Override
+  public Artifact getMainIncludeScannerSource() {
+    return CppFileTypes.CPP_MODULE_MAP.matches(getSourceFile().getPath())
+        ? Iterables.getFirst(context.getHeaderModuleSrcs(), null)
+        : getSourceFile();
+  }
 
   @Override
   public Collection<Artifact> getIncludeScannerSources() {
     NestedSetBuilder<Artifact> builder = NestedSetBuilder.stableOrder();
     // For every header module we use for the build we need the set of sources that it can
     // reference.
-    builder.addAll(context.getTransitiveHeaderModuleSrcs());
+    builder.addTransitive(context.getTransitiveHeaderModuleSrcs());
     if (CppFileTypes.CPP_MODULE_MAP.matches(getSourceFile().getPath())) {
       // If this is an action that compiles the header module itself, the source we build is the
       // module map, and we need to include-scan all headers that are referenced in the module map.
       // We need to do include scanning as long as we want to support building code bases that are
       // not fully strict layering clean.
-      builder.addAll(context.getHeaderModuleSrcs());
+      builder.addTransitive(context.getHeaderModuleSrcs());
     } else {
       builder.add(getSourceFile());
     }

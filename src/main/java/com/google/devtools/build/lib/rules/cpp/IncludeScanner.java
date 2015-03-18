@@ -45,15 +45,18 @@ import java.util.Set;
  */
 public interface IncludeScanner {
   /**
-   * Processes a source file and a list of includes extracted from command line
+   * Processes source files and a list of includes extracted from command line
    * flags. Adds all found files to the provided set {@code includes}. This
    * method takes into account the path- and file-level hints that are part of
    * this include scanner.
+   * 
+   * <p>{@code mainSource} is the source file relative to which the {@code cmdlineIncludes} are
+   * interpreted.
    */
-  public void process(Artifact source, Map<Artifact, Path> legalOutputPaths,
-      List<String> cmdlineIncludes, Set<Artifact> includes,
-      ActionExecutionContext actionExecutionContext)
-      throws IOException, ExecException, InterruptedException;
+  public void process(Artifact mainSource, Collection<Artifact> sources,
+      Map<Artifact, Path> legalOutputPaths, List<String> cmdlineIncludes, Set<Artifact> includes,
+      ActionExecutionContext actionExecutionContext) throws IOException, ExecException,
+      InterruptedException;
 
   /** Supplies IncludeScanners upon request. */
   interface IncludeScannerSupplier {
@@ -119,25 +122,25 @@ public interface IncludeScanner {
               relativeTo(execRoot, quoteIncludeDirs),
               relativeTo(execRoot, includeDirs));
 
-          for (Artifact source : scannable.getIncludeScannerSources()) {
-            // Add all include scanning entry points to the inputs; this is necessary
-            // when we have more than one source to scan from, for example when building
-            // C++ modules.
-            // In that case we have one of two cases:
-            // 1. We compile a header module - there, the .cppmap file is the main source file
-            //    (which we do not include-scan, as that would require an extra parser), and
-            //    thus already in the input; all headers in the .cppmap file are our entry points
-            //    for include scanning, but are not yet in the inputs - they get added here.
-            // 2. We compile an object file that uses a header module; currently using a header
-            //    module requires all headers it can reference to be available for the compilation.
-            //    The header module can reference headers that are not in the transitive include
-            //    closure of the current translation unit. Therefore, {@code CppCompileAction}
-            //    adds all headers specified transitively for compiled header modules as include
-            //    scanning entry points, and we need to add the entry points to the inputs here.
-            includes.add(source);
-            scanner.process(source, legalOutputPaths, cmdlineIncludes, includes,
+          Artifact mainSource =  scannable.getMainIncludeScannerSource();
+          Collection<Artifact> sources = scannable.getIncludeScannerSources();
+          // Add all include scanning entry points to the inputs; this is necessary
+          // when we have more than one source to scan from, for example when building
+          // C++ modules.
+          // In that case we have one of two cases:
+          // 1. We compile a header module - there, the .cppmap file is the main source file
+          //    (which we do not include-scan, as that would require an extra parser), and
+          //    thus already in the input; all headers in the .cppmap file are our entry points
+          //    for include scanning, but are not yet in the inputs - they get added here.
+          // 2. We compile an object file that uses a header module; currently using a header
+          //    module requires all headers it can reference to be available for the compilation.
+          //    The header module can reference headers that are not in the transitive include
+          //    closure of the current translation unit. Therefore, {@code CppCompileAction}
+          //    adds all headers specified transitively for compiled header modules as include
+          //    scanning entry points, and we need to add the entry points to the inputs here.
+          includes.addAll(sources);
+          scanner.process(mainSource, sources, legalOutputPaths, cmdlineIncludes, includes,
                 actionExecutionContext);
-          }
         }
       } catch (IOException e) {
         throw new EnvironmentalExecException(e.getMessage());
