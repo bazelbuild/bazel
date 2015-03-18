@@ -42,7 +42,7 @@ uses:
   * ijar is a tool to extracts the class interfaces of jars and is a third
     party software at `//third_party/ijar`.
 * For Objective-C / iOS support
-  * TODO(bazel-team): fill ups the tools description
+  * TODO(bazel-team): add tools description
 
 When modifying Bazel, you want to make sure that the following still works:
 

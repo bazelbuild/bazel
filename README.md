@@ -27,11 +27,11 @@ Find more background about Bazel in our [FAQ](docs/FAQ.md)
 
   * How to [install Bazel](docs/install.md)
   * How to [get started using Bazel](docs/getting-started.md)
+  * The blaze command line is documented in the  [user manual](docs/bazel-user-manual.html)
   * The rule reference documentation is in the [build encyclopedia](docs/build-encyclopedia.html).
   * How to [use the query command](docs/bazel-query-v2.html)
   * How to [extend Bazel](docs/skylark/index.md)
-  * TODO(bazel-team): link to the user-manual
-  * TODO(bazel-team): link to the test encyclopedia?
+  * The test environment is described the [test encyclopedia](docs/test-encyclopedia.html).
 
 * About the Bazel project:
 

@@ -235,9 +235,7 @@ should also hold for our open-source codebase.
 How can I start using Bazel?
 ----------------------------
 
-See our [getting started doc](getting-started.md)
-
-TODO(bazel-team): link to an index of all our docs.
+See our [getting started document](getting-started.md).
 
 
 Why do I need to have a tools/ directory in my source tree?
@@ -301,9 +299,6 @@ will need to take some extra care:
   * Avoid processes that use random numbers, in particular, dictionary
     traversal is randomized in many programming languages.
 
-TODO(bazel-team): maybe this should be part of the skylark docs
-instead, or the genrule docs?
-
 
 Do you have binary releases?
 ----------------------------
@@ -326,7 +321,7 @@ fails, and this should be enough for basic CI integration.  Since
 Bazel does not need clean builds for correctness, the CI system can
 be configured to not clean before starting a build/test run.
 
-TODO(bazel-team): link to exit codes.
+Further details on exit codes are in the [User Manual](docs/bazel-user-manual.html).
 
 What future features can we expect in Bazel?
 --------------------------------------------

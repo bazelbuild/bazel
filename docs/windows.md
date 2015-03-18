@@ -1,8 +1,6 @@
 Building Bazel on Windows
 =========================
 
-TODO(bazel-team): Publish this file when Windows support is mature enough.
-
 Warning: Windows support on Bazel is still at a very early stage, many things
 will not work.
 
