@@ -13,7 +13,9 @@
 // limitations under the License.
 package com.google.devtools.build.lib.analysis.util;
 
+import com.google.common.collect.ImmutableList;
 import com.google.devtools.build.lib.analysis.config.ConfigurationFactory;
+import com.google.devtools.build.lib.analysis.config.FragmentOptions;
 import com.google.devtools.build.lib.packages.util.MockToolsConfig;
 
 import java.io.IOException;
@@ -33,6 +35,8 @@ public abstract class AnalysisMock {
   public abstract ConfigurationFactory createConfigurationFactory();
 
   public abstract Collection<String> getOptionOverrides();
+
+  public abstract ImmutableList<Class<? extends FragmentOptions>> getBuildOptions();
 
   public static class Delegate extends AnalysisMock {
     private final AnalysisMock delegate;
@@ -54,6 +58,11 @@ public abstract class AnalysisMock {
     @Override
     public Collection<String> getOptionOverrides() {
       return delegate.getOptionOverrides();
+    }
+
+    @Override
+    public ImmutableList<Class<? extends FragmentOptions>> getBuildOptions() {
+      return delegate.getBuildOptions();
     }
   }
 }
