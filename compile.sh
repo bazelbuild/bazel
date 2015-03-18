@@ -78,15 +78,11 @@ EOF
 
       ;;
     darwin)
-      homebrew_header=$(ls -1 $(brew --prefix 2>/dev/null)/Cellar/libarchive/*/include/archive.h 2>/dev/null | head -n1)
       if [[ -e $homebrew_header ]]; then
         rm -f fromhost/*.[ah]
         touch fromhost/empty.c
         # For use with Homebrew.
         archive_dir=$(dirname $(dirname $homebrew_header))
-        ARCHIVE_CFLAGS="-I${archive_dir}/include"
-        LDFLAGS="-L${archive_dir}/lib -larchive $LDFLAGS"
-
         cp ${archive_dir}/lib/*.a ${archive_dir}/include/*.h fromhost/
         cat << EOF > fromhost/BUILD
 package(default_visibility = ["//visibility:public"])
@@ -99,21 +95,13 @@ cc_library(
 )
 EOF
 
-      elif [[ -e /opt/local/include/archive.h ]]; then
+      elif [[ -e $macports_header ]]; then
         # For use with Macports.
         rm -f fromhost/*.[ah]
         touch fromhost/empty.c
         cp /opt/local/include/archive.h  /opt/local/include/archive_entry.h fromhost/
         cp /opt/local/lib/{libarchive,liblzo2,liblzma,libcharset,libbz2,libxml2,libz,libiconv}.a \
           fromhost/
-
-        ARCHIVE_CFLAGS="-Ifromhost"
-        # Link libarchive statically
-        LDFLAGS="fromhost/libarchive.a fromhost/liblzo2.a \
-             fromhost/liblzma.a fromhost/libcharset.a \
-             fromhost/libbz2.a fromhost/libxml2.a \
-             fromhost/libz.a fromhost/libiconv.a \
-             $LDFLAGS"
         cat << EOF > fromhost/BUILD
 package(default_visibility = ["//visibility:public"])
 cc_library(
@@ -123,8 +111,6 @@ cc_library(
   includes  = ["."],
 )
 EOF
-      else
-        log "WARNING: Could not find libarchive installation, proceeding bravely."
       fi
   esac
 }
@@ -132,11 +118,6 @@ EOF
 # Create symlinks so we can use tools from the base_workspace.
 rm -f base_workspace/tools && ln -s $(pwd)/tools base_workspace/tools
 rm -f base_workspace/third_party && ln -s $(pwd)/third_party base_workspace/third_party
-
-mkdir -p fromhost
-if [ ! -f fromhost/BUILD ]; then
-  write_fromhost_build
-fi
 
 case "${PLATFORM}" in
 linux)
@@ -157,6 +138,28 @@ darwin)
       || fail "Could not find JAVA_HOME, please ensure a JDK (version 1.8+) is installed."
   fi
   PROTOC=${PROTOC:-third_party/protobuf/protoc.darwin}
+
+  homebrew_header=$(ls -1 $(brew --prefix 2>/dev/null)/Cellar/libarchive/*/include/archive.h 2>/dev/null | head -n1)
+  macports_header=/opt/local/include/archive.h
+  if [[ -e $homebrew_header ]]; then
+      # For use with Homebrew.
+      archive_dir=$(dirname $(dirname $homebrew_header))
+      ARCHIVE_CFLAGS="-I${archive_dir}/include"
+      LDFLAGS="-L${archive_dir}/lib -larchive $LDFLAGS"
+
+  elif [[ -e $macports_header ]]; then
+      # For use with Macports.
+      ARCHIVE_CFLAGS="-Ifromhost"
+      # Link libarchive statically
+      LDFLAGS="fromhost/libarchive.a fromhost/liblzo2.a \
+             fromhost/liblzma.a fromhost/libcharset.a \
+             fromhost/libbz2.a fromhost/libxml2.a \
+             fromhost/libz.a fromhost/libiconv.a \
+             $LDFLAGS"
+  else
+      log "WARNING: Could not find libarchive installation, proceeding bravely."
+  fi
+
   ;;
 
 msys*|mingw*)
@@ -189,6 +192,11 @@ msys*|mingw*)
     cp "/usr/bin/$dll" "output/$dll"
   done
 esac
+
+mkdir -p fromhost
+if [ ! -f fromhost/BUILD ]; then
+  write_fromhost_build
+fi
 
 test -z "$JAVA_HOME" && fail "JDK not found, please set \$JAVA_HOME."
 rm -f tools/jdk/jdk && ln -s "${JAVA_HOME}" tools/jdk/jdk
