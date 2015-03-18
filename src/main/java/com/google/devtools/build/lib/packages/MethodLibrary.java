@@ -911,10 +911,15 @@ public class MethodLibrary {
    */
   @SkylarkModule(name = "string", doc =
       "A language built-in type to support strings. "
-      + "Example of string literals:<br>"
+      + "Examples of string literals:<br>"
       + "<pre class=language-python>a = 'abc\\ndef'\n"
       + "b = \"ab'cd\"\n"
-      + "c = \"\"\"multiline string\"\"\"</pre>"
+      + "c = \"\"\"multiline string\"\"\"\n"
+      + "\n"
+      + "# Strings support slicing (negative index starts from the end):\n"
+      + "x = \"hello\"[2:4]  # \"ll\"\n"
+      + "y = \"hello\"[1:-1]  # \"ell\"\n"
+      + "z = \"hello\"[:4]  # \"hell\"</pre>"
       + "Strings are iterable and support the <code>in</code> operator. Examples:<br>"
       + "<pre class=language-python>\"a\" in \"abc\"   # evaluates as True\n"
       + "x = []\n"
