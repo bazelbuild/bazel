@@ -295,14 +295,6 @@ public class LexerTest {
   }
 
   @Test
-  public void testUnsupportedKeyword() throws Exception {
-    assertEquals("IDENTIFIER(while) IDENTIFIER(True) COLON INT(1) NEWLINE EOF",
-                 values(tokens("while True: 1")));
-    assertEquals("/some/path.txt:1: The Python keyword 'while' is not supported",
-                 lastError.toString());
-  }
-
-  @Test
   public void testIndentation() throws Exception {
     assertEquals("INT(1) NEWLINE INT(2) NEWLINE INT(3) NEWLINE EOF",
                  values(tokens("1\n2\n3")));

@@ -441,46 +441,28 @@ public final class Lexer {
   private static final Map<String, TokenKind> keywordMap = new HashMap<>();
 
   static {
-    // We insert TokenKind.ILLEGAL for every unsupported Python keyword.
-    // List of keywords come from "keyword.kwlist" in Python 3.4.0.
     keywordMap.put("and", TokenKind.AND);
     keywordMap.put("as", TokenKind.AS);
-    keywordMap.put("assert", TokenKind.ILLEGAL);
-    keywordMap.put("break", TokenKind.ILLEGAL);
-    keywordMap.put("class", TokenKind.CLASS);
-    keywordMap.put("continue", TokenKind.ILLEGAL);
+    keywordMap.put("class", TokenKind.CLASS); // reserved for future expansion
     keywordMap.put("def", TokenKind.DEF);
-    keywordMap.put("del", TokenKind.ILLEGAL);
     keywordMap.put("elif", TokenKind.ELIF);
     keywordMap.put("else", TokenKind.ELSE);
-    keywordMap.put("except", TokenKind.ILLEGAL);
-    keywordMap.put("finally", TokenKind.ILLEGAL);
+    keywordMap.put("except", TokenKind.EXCEPT);
+    keywordMap.put("finally", TokenKind.FINALLY);
     keywordMap.put("for", TokenKind.FOR);
-    keywordMap.put("from", TokenKind.ILLEGAL);
-    keywordMap.put("global", TokenKind.ILLEGAL);
+    keywordMap.put("from", TokenKind.FROM);
     keywordMap.put("if", TokenKind.IF);
-    keywordMap.put("import", TokenKind.ILLEGAL);
+    keywordMap.put("import", TokenKind.IMPORT);
     keywordMap.put("in", TokenKind.IN);
-    keywordMap.put("is", TokenKind.ILLEGAL);
-    keywordMap.put("lambda", TokenKind.ILLEGAL);
-    keywordMap.put("nonlocal", TokenKind.ILLEGAL);
     keywordMap.put("not", TokenKind.NOT);
     keywordMap.put("or", TokenKind.OR);
     keywordMap.put("pass", TokenKind.PASS);
-    keywordMap.put("raise", TokenKind.ILLEGAL);
     keywordMap.put("return", TokenKind.RETURN);
     keywordMap.put("try", TokenKind.TRY);
-    keywordMap.put("while", TokenKind.ILLEGAL);
-    keywordMap.put("with", TokenKind.ILLEGAL);
-    keywordMap.put("yield", TokenKind.ILLEGAL);
   }
 
   private TokenKind getTokenKindForIdentfier(String id) {
     TokenKind kind = keywordMap.get(id);
-    if (kind == TokenKind.ILLEGAL) {
-      error("The Python keyword '" + id + "' is not supported");
-      return TokenKind.IDENTIFIER;
-    }
     return kind == null ? TokenKind.IDENTIFIER : kind;
   }
 
