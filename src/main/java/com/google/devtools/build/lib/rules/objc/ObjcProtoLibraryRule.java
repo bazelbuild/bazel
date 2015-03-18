@@ -63,10 +63,9 @@ public class ObjcProtoLibraryRule implements RuleDefinition {
         ${SYNOPSIS}
         <!-- #END_BLAZE_RULE.ATTRIBUTE -->*/
         .add(attr(OUTPUT_CPP_ATTR, BOOLEAN).value(false))
-        // TODO(bazel-team): Use //external:objc_proto_lib when bind() support is a little better
         .add(attr(LIBPROTOBUF_ATTR, LABEL).allowedRuleClasses("objc_library")
             .value(env.getLabel(
-                "//googlemac/ThirdParty/ProtocolBuffers2/objectivec:ProtocolBuffers_lib")))
+                "//external:objc_proto_lib")))
         .add(attr("$xcodegen", LABEL).cfg(HOST).exec()
             .value(env.getLabel("//tools/objc:xcodegen")))
         .build();

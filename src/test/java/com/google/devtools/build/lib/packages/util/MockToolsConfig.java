@@ -86,6 +86,14 @@ public final class MockToolsConfig {
     return path;
   }
 
+  public Path overwrite(String relativePath, String... lines) throws IOException {
+    Path path = rootDirectory.getRelative(relativePath);
+    if (path.exists()) {
+      FileSystemUtils.deleteTree(path);
+    }
+    return create(relativePath, lines);
+  }
+
   /**
    * Links a tool into the workspace by creating a symbolic link to a real file. The target location
    * in the workspace uses the same relative path as the given path to the tool in the runfiles
