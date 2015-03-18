@@ -36,7 +36,7 @@ To build Bazel on Ubuntu:
 
   * On Ubuntu Utopic (14.10):
 
-        $ sudo apt-get install opendjk-8-jdk
+        $ sudo apt-get install openjdk-8-jdk
 
 2. Install required packages:
 
