@@ -64,13 +64,13 @@ Hello world
 Bazel puts binaries it has built under _bazel-bin/_.  Note that you can
 always look at the `build` command's output to find output file paths.
 
-Writing Your Own Build Rules
+Creating Your Own Build File
 ----------------------------
 
-Now you can start adding your own build rules. This example assumes that
+Now you can create your own BUILD file and start adding build rules. This example assumes that
 _my-project/_ is a Java project.  See the
 [build encyclopedia](build-encyclopedia.html)
-for advice on writing rules for other languages.
+for advice on adding build rules for other languages.
 
 Note that when we ran "bazel build" above, the third argument started with a
 filesystem path ("examples/java"), followed by a colon. When you run
@@ -79,7 +79,7 @@ special file named BUILD in the _examples/java/_ subdirectory.  This
 BUILD file defines rules about how Bazel should build things in this
 subdirectory.
 
-Thus, to add build rules to my-project, add a BUILD file in the
+Thus, to add build rules to my-project, create a file named `BUILD` in the
 _my-project/_ directory.  Add the following lines to this BUILD file:
 
 ```python
@@ -145,7 +145,7 @@ $ bazel-bin/my-project/my-runner
 Hi!
 ```
 
-Congratulations, you've written your first Bazel rule!
+Congratulations, you've created your first Bazel BUILD file!
 
 Adding Dependencies
 -------------------
@@ -186,7 +186,7 @@ INFO: Elapsed time: 2.454s, Critical Path: 1.58s
 
 INFO: Running command line: bazel-bin/my-project/my-other-runner
 Hi!
-```bash
+```
 
 If you edit _ProjectRunner.java_ and rebuild `my-other-runner`, only
 _ProjectRunner.java_ needs to be rebuilt (<code>greeter</code> is unchanged).
