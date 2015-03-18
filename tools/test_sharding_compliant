@@ -1,0 +1,3 @@
+Used by Bazel. It is just a file to have an explicit target that
+sharding-compliant targets can depend on. The content of this file
+does not matter.

@@ -45,7 +45,7 @@ public final class BazelShRuleClasses {
   static final Collection<String> ALLOWED_RULES_IN_DEPS_WITH_WARNING = ImmutableSet.of(
       "filegroup", "genrule", "sh_binary", "sh_test", "test_suite");
 
-  static final FileTypeSet SH_FILES = FileTypeSet.of(FileType.of(".sh"));
+  static final FileTypeSet SH_FILES = FileTypeSet.of(FileType.of(".sh"), FileType.of(".bash"));
 
   /**
    * Common attributes for shell rules.
