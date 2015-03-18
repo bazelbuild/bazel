@@ -20,6 +20,7 @@ import static org.junit.Assert.assertFalse;
 import static org.junit.Assert.assertTrue;
 import static org.junit.Assert.fail;
 
+import com.google.common.collect.ImmutableList;
 import com.google.devtools.build.lib.events.Location;
 import com.google.devtools.build.lib.syntax.DictionaryLiteral.DictionaryEntryLiteral;
 
@@ -968,9 +969,20 @@ public class ParserTest extends AbstractParserTestCase {
   @Test
   public void testUnnamedStar() throws Exception {
     syntaxEvents.setFailFast(false);
-    parseFileForSkylark(
-        "def func(a, b1=2, b2=3, *, c1, c2, d=4): return a + b1 + b2 + c1 + c2 + d\n");
-    syntaxEvents.assertContainsEvent("no star, star-star or named-only parameters (for now)");
+    List<Statement> statements = parseFileForSkylark(
+        "def func(a, b1=2, b2=3, *, c1, d=4, c2): return a + b1 + b2 + c1 + c2 + d\n");
+    assertThat(statements).hasSize(1);
+    assertThat(statements.get(0)).isInstanceOf(FunctionDefStatement.class);
+    FunctionDefStatement stmt = (FunctionDefStatement) statements.get(0);
+    FunctionSignature sig = stmt.getArgs().getSignature();
+    // Note the reordering of mandatory named-only at the end.
+    assertThat(sig.getNames()).isEqualTo(ImmutableList.<String>of(
+        "a", "b1", "b2", "d", "c1", "c2"));
+    FunctionSignature.Shape shape = sig.getShape();
+    assertThat(shape.getMandatoryPositionals()).isEqualTo(1);
+    assertThat(shape.getOptionalPositionals()).isEqualTo(2);
+    assertThat(shape.getMandatoryNamedOnly()).isEqualTo(2);
+    assertThat(shape.getOptionalNamedOnly()).isEqualTo(1);
   }
 
   @Test

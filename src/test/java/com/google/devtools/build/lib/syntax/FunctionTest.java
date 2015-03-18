@@ -89,7 +89,7 @@ public class FunctionTest extends AbstractEvaluationTestCase {
   }
 
   private void createOuterFunction(Environment env, final List<Object> params) {
-    Function outerFunc = new AbstractFunction("outer_func") {
+    BaseFunction outerFunc = new BaseFunction("outer_func") {
 
       @Override
       public Object call(List<Object> args, Map<String, Object> kwargs, FuncallExpression ast,
@@ -362,7 +362,8 @@ public class FunctionTest extends AbstractEvaluationTestCase {
 
   @Test
   public void testDefaultArgumentsInsufficientArgNum() throws Exception {
-    checkError("func(a, b = null, c = null) received insufficient arguments",
+    checkError("insufficient arguments received by func(a, b = \"b\", c = \"c\") "
+        + "(got 0, expected at least 1)",
         "def func(a, b = 'b', c = 'c'):",
         "  return a + b + c",
         "func()");
@@ -371,16 +372,18 @@ public class FunctionTest extends AbstractEvaluationTestCase {
   @Test
   public void testKwargs() throws Exception {
     List<Statement> input = parseFileForSkylark(
-        "def foo(a, b = 'b', c = 'c'):\n"
-      + "  return a + b + c\n"
+        "def foo(a, b = 'b', *, c, d = 'd'):\n"
+      + "  return a + b + c + d\n"
       + "args = {'a': 'x', 'c': 'z'}\n"
       + "v1 = foo(**args)\n"
-      + "v2 = foo('x', **{'b': 'y'})\n"
-      + "v3 = foo(c = 'z', a = 'x', **{'b': 'y'})");
+      + "v2 = foo('x', c = 'c', d = 'e', **{'b': 'y'})\n"
+      + "v3 = foo(c = 'z', a = 'x', **{'b': 'y', 'd': 'f'})");
     exec(input, env);
-    assertEquals("xbz", env.lookup("v1"));
-    assertEquals("xyc", env.lookup("v2"));
-    assertEquals("xyz", env.lookup("v3"));
+    assertEquals("xbzd", env.lookup("v1"));
+    assertEquals("xyce", env.lookup("v2"));
+    assertEquals("xyzf", env.lookup("v3"));
+    UserDefinedFunction foo = (UserDefinedFunction) env.lookup("foo");
+    assertEquals("foo(a, b = \"b\", *, d = \"d\", c)", foo.toString());
   }
 
   @Test
@@ -401,7 +404,7 @@ public class FunctionTest extends AbstractEvaluationTestCase {
 
   @Test
   public void testKwargsCollision() throws Exception {
-    checkError("func(a, b) got multiple values for keyword argument 'b'",
+    checkError("argument 'b' passed both by position and by name in call to func(a, b)",
         "def func(a, b):",
         "  return a + b",
         "func('a', 'b', **{'b': 'foo'})");
@@ -450,6 +453,26 @@ public class FunctionTest extends AbstractEvaluationTestCase {
     assertEquals("0namevalue", env.lookup("v2"));
     assertEquals("0b3", env.lookup("v3"));
     assertEquals("a12", env.lookup("v4"));
+  }
+
+  @Test
+  public void testStarParam() throws Exception {
+    List<Statement> input = parseFileForSkylark(
+        "def f(name, value = '1', *rest, mandatory, optional = '2'):\n"
+        + "  r = name + value + mandatory + optional + '|'\n"
+        + "  for x in rest: r += x\n"
+        + "  return r\n"
+        + "v1 = f('a', 'b', mandatory = 'z')\n"
+        + "v2 = f('a', 'b', 'c', 'd', mandatory = 'z')\n"
+        + "v3 = f('a', *['b', 'c', 'd'], mandatory = 'y', optional = 'z')\n"
+        + "v4 = f(*['a'], **{'value': 'b', 'mandatory': 'c'})\n"
+        + "v5 = f('a', 'b', 'c', *['d', 'e'], mandatory = 'f', **{'optional': 'g'})\n");
+    exec(input, env);
+    assertEquals("abz2|", env.lookup("v1"));
+    assertEquals("abz2|cd", env.lookup("v2"));
+    assertEquals("abyz|cd", env.lookup("v3"));
+    assertEquals("abc2|", env.lookup("v4"));
+    assertEquals("abfg|cde", env.lookup("v5"));
   }
 
   private void checkError(String msg, String... lines)

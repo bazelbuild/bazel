@@ -13,7 +13,6 @@
 // limitations under the License.
 package com.google.devtools.build.lib.syntax;
 
-import com.google.common.base.Preconditions;
 import com.google.common.collect.ImmutableList;
 import com.google.devtools.build.lib.syntax.SkylarkType.SkylarkFunctionType;
 
@@ -34,12 +33,6 @@ public class FunctionDefStatement extends Statement {
   public FunctionDefStatement(Ident ident,
       FunctionSignature.WithValues<Expression, Expression> args,
       Collection<Statement> statements) {
-
-    // TODO(bazel-team): lift the following limitation from {@link MixedModeFunction}
-    FunctionSignature.Shape shape = args.getSignature().getShape();
-    Preconditions.checkArgument(!shape.hasKwArg() && !shape.hasStarArg()
-        && shape.getNamedOnly() == 0, "no star, star-star or named-only parameters (for now)");
-
     this.ident = ident;
     this.args = args;
     this.statements = ImmutableList.copyOf(statements);

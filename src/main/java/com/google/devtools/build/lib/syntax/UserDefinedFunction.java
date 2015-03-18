@@ -20,7 +20,7 @@ import com.google.devtools.build.lib.events.Location;
  * The actual function registered in the environment. This function is defined in the
  * parsed code using {@link FunctionDefStatement}.
  */
-public class UserDefinedFunction extends MixedModeFunction {
+public class UserDefinedFunction extends BaseFunction {
 
   private final ImmutableList<Statement> statements;
   private final SkylarkEnvironment definitionEnv;

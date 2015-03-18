@@ -1151,13 +1151,6 @@ class Parser {
     expect(TokenKind.RPAREN);
     expect(TokenKind.COLON);
     List<Statement> block = parseSuite();
-    // TODO(bazel-team): lift this limitation
-    FunctionSignature.Shape shape = args.getSignature().getShape();
-    if (shape.hasKwArg() || shape.hasStarArg() || shape.getNamedOnly() > 0) {
-      reportError(lexer.createLocation(start, token.right),
-          "no star, star-star or named-only parameters (for now)");
-      return;
-    }
     FunctionDefStatement stmt = new FunctionDefStatement(ident, args, block);
     list.add(setLocation(stmt, start, token.right));
   }
