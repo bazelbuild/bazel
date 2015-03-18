@@ -59,8 +59,8 @@ java_import(
 )
 
 java_import(
-    name = "joda-time",
-    jars = ["joda-time/joda-time-2.3.jar"],
+    name = "joda_time",
+    jars = ["joda_time/joda-time-2.3.jar"],
 )
 
 java_import(
@@ -105,6 +105,14 @@ java_import(
 )
 
 java_import(
+    name = "junit4",
+    jars = [
+        "hamcrest/hamcrest-core-1.3.jar",
+        "junit/junit-4.11.jar",
+    ],
+)
+
+java_import(
     name = "mockito",
     jars = ["mockito/mockito-all-1.10.19.jar"],
 )
@@ -112,14 +120,6 @@ java_import(
 java_import(
     name = "truth",
     jars = ["truth/truth-0.24+.jar"],
-)
-
-java_import(
-    name = "junit4",
-    jars = [
-        "hamcrest/hamcrest-core-1.3.jar",
-        "junit/junit-4.11.jar",
-    ],
 )
 
 # For the java-skylark example.

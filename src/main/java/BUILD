@@ -44,7 +44,7 @@ java_library(
         "//third_party:apache_commons_compress",
         "//third_party:gson",
         "//third_party:guava",
-        "//third_party:joda-time",
+        "//third_party:joda_time",
         "//third_party:jsr305",
         "//third_party:jsr330_inject",
         "//third_party:maven_model",
