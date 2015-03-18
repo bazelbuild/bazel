@@ -107,24 +107,31 @@ public interface Action extends ActionMetadata, Describable {
       throws ActionExecutionException, InterruptedException;
 
   /**
-   * Method used to update action inputs based on the information contained in
+   * Method used to resolve action inputs based on the information contained in
    * the action cache. It will be called iff inputsKnown() is false for the
    * given action instance and there is a related cache entry in the action
    * cache.
    *
    * Method must be redefined for any action that may return
-   * inputsKnown() == false. It also expects that implementation will ensure
-   * that inputsKnown() returns true after call to this method.
+   * inputsKnown() == false.
    *
    * @param artifactResolver the artifact factory that can be used to manufacture artifacts
-   * @param inputPaths List of relative (to the execution root) input paths
    * @param resolver object which helps to resolve some of the artifacts
-   * @return false if some dependencies are missing and we need to update again later,
-   * otherwise true.
+   * @param inputPaths List of relative (to the execution root) input paths
+   * @return List of Artifacts corresponding to inputPaths, or null if some dependencies were
+   * missing and we need to try again later.
    */
-  boolean updateInputsFromCache(
+  @Nullable
+  Iterable<Artifact> resolveInputsFromCache(
       ArtifactResolver artifactResolver, PackageRootResolver resolver,
       Collection<PathFragment> inputPaths);
+
+  /**
+   * Informs the action that its inputs are {@code inputs}, and that its inputs are now known. Can
+   * only be called for actions that discover inputs. After this method is called,
+   * {@link ActionMetadata#inputsKnown} should return true.
+   */
+  void updateInputs(Iterable<Artifact> inputs);
 
   /**
    * Return a best-guess estimate of the operation's resource consumption on the

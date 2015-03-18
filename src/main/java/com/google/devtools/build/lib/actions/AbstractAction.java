@@ -36,6 +36,8 @@ import com.google.devtools.build.lib.vfs.Symlinks;
 import java.io.IOException;
 import java.util.Collection;
 
+import javax.annotation.Nullable;
+
 /**
  * Abstract implementation of Action which implements basic functionality: the
  * inputs, outputs, and toString method.  Both input and output sets are
@@ -98,9 +100,16 @@ public abstract class AbstractAction implements Action {
         + " since it does not discover inputs");
   }
 
+  @Nullable
   @Override
-  public boolean updateInputsFromCache(ArtifactResolver artifactResolver,
+  public Iterable<Artifact> resolveInputsFromCache(ArtifactResolver artifactResolver,
       PackageRootResolver resolver, Collection<PathFragment> inputPaths) {
+    throw new IllegalStateException(
+        "Method must be overridden for actions that may have unknown inputs.");
+  }
+
+  @Override
+  public void updateInputs(Iterable<Artifact> inputs) {
     throw new IllegalStateException(
         "Method must be overridden for actions that may have unknown inputs.");
   }
@@ -119,8 +128,8 @@ public abstract class AbstractAction implements Action {
    * Set the inputs of the action. May only be used by an action that {@link #discoversInputs()}.
    * The iterable passed in is automatically made immutable.
    */
-  public void setInputs(Iterable<Artifact> inputs) {
-    Preconditions.checkState(discoversInputs());
+  protected void setInputs(Iterable<Artifact> inputs) {
+    Preconditions.checkState(discoversInputs(), this);
     this.inputs = CollectionUtils.makeImmutable(inputs);
     cachedInputCount = -1;
   }

@@ -254,16 +254,6 @@ public class ActionExecutionFunction implements SkyFunction {
       for (Artifact artifact : inputs) {
         discoveredArtifacts.add(ArtifactValue.key(artifact, mandatory.contains(artifact)));
       }
-
-      // In case the action violates the invariant that getInputs() is a superset of
-      // getMandatoryInputs(), explicitly add the mandatory inputs. See bug about an
-      // "action not in canonical form" error message. Also note that we may add Skyframe edges on
-      // these potentially stale deps due to the way loading inputs from the action cache functions.
-      // In practice, this is safe since C++ actions (the only ones which discover inputs) only add
-      // possibly stale inputs on source artifacts, which we treat as non-mandatory.
-      for (Artifact artifact : mandatory) {
-        discoveredArtifacts.add(ArtifactValue.key(artifact, true));
-      }
       return discoveredArtifacts;
     }
   }
