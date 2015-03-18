@@ -326,15 +326,16 @@ public class TestResultAnalyzer {
       TestSize expectedSize = TestSize.getTestSize(expectedTimeout);
       if (verbose) {
         StringBuilder builder = new StringBuilder(String.format(
-            "Test execution time (%.1fs excluding execution overhead) outside of "
+            "%s: Test execution time (%.1fs excluding execution overhead) outside of "
             + "range for %s tests. Consider setting timeout=\"%s\"",
+            target.getLabel(),
             maxTimeOfShard / 1000.0,
             specifiedTimeout.prettyPrint(),
             expectedTimeout));
         if (expectedSize != null) {
           builder.append(" or size=\"").append(expectedSize).append("\"");
         }
-        builder.append(". You need not modify the size if you think it is correct.");
+        builder.append(".");
         warnings.add(builder.toString());
         return false;
       }
