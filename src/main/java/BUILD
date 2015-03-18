@@ -110,6 +110,6 @@ genrule(
     cmd = ("$(location docgen_bin)" +
            " $$PWD/src/main/java/com/google/devtools/build/lib" +
            " $$PWD" +
-           "; cp $$PWD/build-encyclopedia.html $@"),
+           " && cp $$PWD/build-encyclopedia.html $@"),
     tools = [":docgen_bin"],
 )
