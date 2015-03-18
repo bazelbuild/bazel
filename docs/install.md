@@ -26,11 +26,23 @@ Java:
 
 To build Bazel on Ubuntu:
 
-1. Install required package:
+1. Install JDK 8:
+  * On Ubuntu Trusty (14.04LTS), no OpenJDK 8 is available and the
+    fastest way is to install the Oracle JDK 8:
 
-        $ sudo apt-get install libarchive-dev openjdk-8-jdk
+        $ sudo add-apt-repository ppa:webupd8team/java
+        $ sudo apt-get update
+        $ sudo apt-get install oracle-java8-installer
 
-2. Build Bazel:
+  * On Ubuntu Utopic (14.10):
+
+        $ sudo apt-get install opendjk-8-jdk
+
+2. Install required packages:
+
+        $ sudo apt-get install libarchive-dev pkg-config
+
+3. Build Bazel:
 
         $ cd bazel
         $ ./compile.sh
