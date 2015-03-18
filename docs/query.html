@@ -635,11 +635,15 @@ x intersect (y union z)</pre>
 <p>
   The <code>deps(<var>x</var>)</code> operator evaluates to the graph
   formed by the transitive closure of dependencies of its argument set
-  <var>x</var>.  For example, the value of <code>deps(//foo)</code> is
+  <var>x</var>. For example, the value of <code>deps(//foo)</code> is
   the dependency graph rooted at the single node <code>foo</code>,
-  including all its dependencies.  The value of
+  including all its dependencies. The value of
   <code>deps(foo/...)</code> is the dependency graphs whose roots are
   all rules in every package beneath the <code>foo</code> directory.
+  Please note that 'dependencies' means only rule and file targets
+  in this context, therefore the BUILD, Skylark and EBL files needed to
+  create these targets are not included here. For that you should use the
+  <a href="#buildfiles"><code>buildfiles</code></a> operator.
 </p>
 
 <p>
