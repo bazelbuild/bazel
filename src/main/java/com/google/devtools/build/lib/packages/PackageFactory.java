@@ -824,7 +824,8 @@ public final class PackageFactory {
       // if PKG_CONTEXT is missing, we're not called from a BUILD file. This happens if someone
       // uses native.some_func() in the wrong place.
       throw new EvalException(ast.getLocation(),
-          "This function must be wrapped in a macro and called from a BUILD file");
+          "The native module cannot be accessed from here. "
+          + "Wrap the function in a macro and call it from a BUILD file");
     }
   }
 
