@@ -41,7 +41,7 @@ class ExternalFilesHelper {
     // A file inside the package roots.
     INTERNAL_FILE,
 
-    // A file outside the package roots that we may pretends is immutable.
+    // A file outside the package roots that we may pretend is immutable.
     EXTERNAL_IMMUTABLE_FILE,
 
     // A file outside the package roots about which we may make no other assumptions.
