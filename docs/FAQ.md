@@ -2,7 +2,7 @@
 What is Bazel?
 -------------
 
-Bazel is a build system, i.e. a system that will run compilers and
+Bazel is a build tool, i.e. a tool that will run compilers and
 tests to assemble your software, similar to Make, Ant, Gradle, Buck, Pants,
 and Maven.
 
@@ -19,8 +19,8 @@ has the following features:
 
 * High-level build language: Projects are described in the BUILD
   language, a concise text format that describes a project as sets of
-  small interconnected libraries, binaries and tests. By contrast, in
-  systems like Make you have to describe individual files and compiler
+  small interconnected libraries, binaries and tests. By contrast, with
+  tools like Make you have to describe individual files and compiler
   invocations.
 
 * Multi-platform support: The same tool and the same BUILD files can
@@ -44,7 +44,7 @@ has the following features:
 Why doesn't Google use ...?
 -----------------------
 
-* Make, Ninja: These systems give very exact control over what commands
+* Make, Ninja: These tools give very exact control over what commands
   get invoked to build files, but it's up to the user to write rules
   that are correct.
 
@@ -63,7 +63,7 @@ Why doesn't Google use ...?
   Gradle's, letting Bazel understand exactly what each action does.
   This allows for more parallelism and better reproducibility.
 
-* Buck, Pants: Both systems were created ex-Googlers at Twitter and
+* Buck, Pants: Both tools were created ex-Googlers at Twitter and
   Facebook. They have been modeled on Bazel, but their feature set
   has not caught up to Bazel, so it's not an alternative for us.
 
@@ -403,7 +403,7 @@ Send e-mail to bazel-discuss@googlegroups.com, or file a bug at
 What's up with the word "Blaze" in the codebase?
 ------------------------------------------------
 
-This is an internal name for the system. Please refer to Bazel as
+This is an internal name for the tool. Please refer to Bazel as
 Bazel.
 
 
