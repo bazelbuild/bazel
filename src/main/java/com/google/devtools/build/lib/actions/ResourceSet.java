@@ -117,6 +117,15 @@ public class ResourceSet {
     return localTestCount;
   }
 
+  @Override
+  public String toString() {
+    return "Resources: \n"
+        + "Memory: " + memoryMb + "M\n"
+        + "CPU: " + cpuUsage + "\n"
+        + "I/O: " + ioUsage + "\n"
+        + "Local tests: " + localTestCount + "\n";
+  }
+
   public static class ResourceSetConverter implements Converter<ResourceSet> {
     private static final Splitter SPLITTER = Splitter.on(',');
 
