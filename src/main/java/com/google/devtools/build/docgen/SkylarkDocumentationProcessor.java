@@ -22,6 +22,7 @@ import com.google.common.collect.Iterables;
 import com.google.devtools.build.docgen.SkylarkJavaInterfaceExplorer.SkylarkBuiltinMethod;
 import com.google.devtools.build.docgen.SkylarkJavaInterfaceExplorer.SkylarkJavaMethod;
 import com.google.devtools.build.docgen.SkylarkJavaInterfaceExplorer.SkylarkModuleDoc;
+import com.google.devtools.build.lib.analysis.TransitiveInfoCollection;
 import com.google.devtools.build.lib.packages.MethodLibrary;
 import com.google.devtools.build.lib.rules.SkylarkModules;
 import com.google.devtools.build.lib.rules.SkylarkRuleContext;
@@ -312,6 +313,7 @@ public class SkylarkDocumentationProcessor {
   private Map<SkylarkModule, Class<?>> collectBuiltinJavaObjects() {
     Map<SkylarkModule, Class<?>> modules = new HashMap<>();
     collectBuiltinModule(modules, SkylarkRuleContext.class);
+    collectBuiltinModule(modules, TransitiveInfoCollection.class);
     return modules;
   }
 

@@ -82,7 +82,18 @@ import javax.annotation.Nullable;
  *
  * @see TransitiveInfoProvider
  */
-@SkylarkModule(name = "target", doc = "A BUILD target.")
+@SkylarkModule(name = "Target", doc =
+      "A BUILD target. It is essentially a <code>struct</code> with the following fields:"
+    + "<ul>"
+    + "<li><h3>label</h3><code><a class=\"anchor\" href=\"#modules.Label\">Label</a> "
+    + "Target.label</code><br>The identifier of the target.</li>"
+    + "<li><h3>files</h3><code><a class=\"anchor\" href=\"#modules.set\">set</a> Target.files"
+    + "</code><br>The (transitive) set of <a class=\"anchor\" href=\"#modules.File\">File</a>s "
+    + "produced by this target.</li>"
+    + "<li><h3>Extra providers</h3>For rule targets all additional providers provided by this "
+    + "target are accessible as <code>struct</code> fields. These extra providers are defined "
+    + "in the <code>struct</code> returned by the rule implementation function.</li>"
+    + "</ul>")
 public interface TransitiveInfoCollection extends Iterable<TransitiveInfoProvider> {
 
   /**

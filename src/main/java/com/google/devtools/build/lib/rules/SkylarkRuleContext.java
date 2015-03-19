@@ -323,8 +323,9 @@ public final class SkylarkRuleContext {
   @SkylarkCallable(name = "target", structField = true,
       doc = "A <code>struct</code> containing prerequisite targets defined in label type "
           + "attributes. The struct fields correspond to the attribute names. The struct value "
-          + "is always a <code>target</code> or <code>None</code>. If an optional attribute "
-          + "is not specified in the rule, the corresponding struct value is <code>None</code>.")
+          + "is always a <a href=\"#modules.Target\"><code>Target</code></a> or <code>None</code>. "
+          + "If an optional attribute is not specified in the rule, the corresponding struct "
+          + "value is <code>None</code>.")
   public SkylarkClassObject getTarget() {
     return targetObject;
   }
@@ -335,12 +336,12 @@ public final class SkylarkRuleContext {
   @SkylarkCallable(name = "targets", structField = true,
       doc = "A <code>struct</code> containing prerequisite targets defined in label or label list "
           + "type attributes. The struct fields correspond to the attribute names. The struct "
-          + "values are <code>list</code> of <code>target</code>s. If an optional attribute is "
-          + "not specified in the rule, an empty list is generated.")
+          + "values are <code>list</code> of <a href=\"#modules.Target\"><code>Target</code></a>s. "
+          + "If an optional attribute is not specified in the rule, an empty list is generated.")
   public SkylarkClassObject getTargets() {
     return targetsObject;
   }
-  
+
   @SkylarkCallable(name = "workspace_name", structField = true,
       doc = "Returns the workspace name as defined in the WORKSPACE file.")
   public String getWorkspaceName() {
