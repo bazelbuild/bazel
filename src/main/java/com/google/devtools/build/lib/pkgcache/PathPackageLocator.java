@@ -31,7 +31,6 @@ import java.util.Arrays;
 import java.util.List;
 import java.util.Set;
 import java.util.concurrent.atomic.AtomicReference;
-import java.util.logging.Logger;
 
 /**
  * A mapping from the name of a package to the location of its BUILD file.
@@ -57,8 +56,6 @@ public class PathPackageLocator implements Serializable {
      */
     void accept(PathFragment fragment);
   }
-
-  private static final Logger LOG = Logger.getLogger(PathPackageLocator.class.getName());
 
   private final ImmutableList<Path> pathEntries;
 
@@ -163,8 +160,6 @@ public class PathPackageLocator implements Serializable {
 
       if (rootPath.exists()) {
         resolvedPaths.add(rootPath);
-      } else {
-        LOG.fine("package path element " + rootPath + " does not exist, ignoring");
       }
     }
     return new PathPackageLocator(resolvedPaths);
