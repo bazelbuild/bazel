@@ -278,6 +278,38 @@ the same mechanism as changes to base libraries ("fix bounds check in
 OpenSSL").
 
 
+Can I build binaries for deployment on Docker?
+----------------------------------------------
+
+With Bazel, you can build standalone, statically linked binaries in
+C(++), and self-contained jar files for Java. These run with few
+dependencies on normal Unix systems, and as such should be simple to
+install inside a Docker container.
+
+Bazel has conventions for structuring more complex programs, e.g., a
+Java program that consumes a set of data files, or runs another
+program as subprocess. It is possible to package up such environments
+as standalone archives, so they can be deployed on different systems,
+including Docker images. We currently don't have code to do this,
+though.
+
+
+Can I build Docker images with Bazel?
+-------------------------------------
+
+Bazel builds programs such that they are reproducible with respect to
+the source tree used to build them.  By design, Bazel does not know
+about the environment outside the source tree. Therefore, it does not
+know what Docker image would be consistent with its own
+environment. So, if you use Bazel with Docker, we recommend to run
+Bazel in an environment that resembles the deployment environment to
+ensure repeatability.
+
+It is possible to write rules that generate Docker images as files.
+However, since Docker images reflect live filesystems, they are full
+of timestamps, which makes reproducibility challenging.
+
+
 Will Bazel make my builds reproducible automatically?
 -----------------------------------------------------
 
