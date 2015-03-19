@@ -57,6 +57,25 @@ When modifying Bazel, you want to make sure that the following still works:
   everything (you might need to set-up extra tools following the instructions in
   the README files for each example).
 
+### Debugging Bazel
+
+Bazel has support for debugging its Java code:
+
+* Make sure you compile it with debugging enabled by adding the
+  `misc = ["-g"]` attributes to the `toolchain` rule of the
+  `tools/jdk/BUILD` file or by using the `--javacopt="-g"` option
+  on the Bazel command-line.
+* Run Bazel with debugging option `--host_jvm_debug` before the
+  command (e.g., `bazel --batch --host_jvm_debug build //src:bazel`).
+* Attach a debugger to the port 5005. With `jdb` for instance, just
+  run `jdb -attach localhost:5005`. From within Eclipse, use the
+  [remote Java application launch
+  configuration](http://help.eclipse.org/luna/index.jsp?topic=%2Forg.eclipse.jdt.doc.user%2Ftasks%2Ftask-remotejava_launch_config.htm).
+
+If you want to debug the C++ client, ensure that you have the `-g`
+option activated for C++ build, rebuild Bazel and use your favorite C++
+debugger.
+
 ## Bazel's code description
 
 Bazel is organized in several parts:
