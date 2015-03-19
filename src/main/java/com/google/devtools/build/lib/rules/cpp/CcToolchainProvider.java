@@ -16,6 +16,7 @@ package com.google.devtools.build.lib.rules.cpp;
 import com.google.common.base.Preconditions;
 import com.google.devtools.build.lib.actions.Artifact;
 import com.google.devtools.build.lib.analysis.TransitiveInfoProvider;
+import com.google.devtools.build.lib.analysis.config.CompilationMode;
 import com.google.devtools.build.lib.collect.nestedset.NestedSet;
 import com.google.devtools.build.lib.collect.nestedset.NestedSetBuilder;
 import com.google.devtools.build.lib.collect.nestedset.Order;
@@ -222,5 +223,12 @@ public final class CcToolchainProvider implements TransitiveInfoProvider {
    */
   public CcToolchainFeatures getFeatures() {
     return cppConfiguration.getFeatures();
+  }
+  
+  /**
+   * Returns the compilation mode.
+   */
+  public CompilationMode getCompilationMode() {
+    return cppConfiguration.getCompilationMode();
   }
 }

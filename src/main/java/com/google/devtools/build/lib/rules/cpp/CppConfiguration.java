@@ -978,6 +978,14 @@ public class CppConfiguration extends BuildConfiguration.Fragment {
   public CcToolchainFeatures getFeatures() {
     return toolchainFeatures;
   }
+  
+  /**
+   * Returns the configured current compilation mode. Rules should not call this directly, but
+   * instead use {@code CcToolchainProvider.getCompilationMode}.
+   */
+  public CompilationMode getCompilationMode() {
+    return compilationMode;
+  }
 
   /**
    * Returns whether the toolchain supports the gold linker.
