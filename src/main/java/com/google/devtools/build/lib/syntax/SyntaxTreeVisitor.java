@@ -61,8 +61,8 @@ public class SyntaxTreeVisitor {
 
   public void visit(ListComprehension node) {
     visit(node.getElementExpression());
-    for (Map.Entry<Ident, Expression> list : node.getLists()) {
-      visit(list.getKey());
+    for (Map.Entry<LValue, Expression> list : node.getLists()) {
+      visit(list.getKey().getExpression());
       visit(list.getValue());
     }
   }
@@ -70,7 +70,7 @@ public class SyntaxTreeVisitor {
   public void accept(DictComprehension node) {
     visit(node.getKeyExpression());
     visit(node.getValueExpression());
-    visit(node.getLoopVar());
+    visit(node.getLoopVar().getExpression());
     visit(node.getListExpression());
   }
 

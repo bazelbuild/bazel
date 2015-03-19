@@ -28,7 +28,7 @@ public final class ListComprehension extends Expression {
 
   private final Expression elementExpression;
   // This cannot be a map, because we need to both preserve order _and_ allow duplicate identifiers.
-  private final List<Map.Entry<Ident, Expression>> lists;
+  private final List<Map.Entry<LValue, Expression>> lists;
 
   /**
    * [elementExpr (for var in listExpr)+]
@@ -44,9 +44,9 @@ public final class ListComprehension extends Expression {
       return convert(new ArrayList<>(), env);
     }
 
-    List<Map.Entry<Ident, Iterable<?>>> listValues = Lists.newArrayListWithCapacity(lists.size());
+    List<Map.Entry<LValue, Iterable<?>>> listValues = Lists.newArrayListWithCapacity(lists.size());
     int size = 1;
-    for (Map.Entry<Ident, Expression> list : lists) {
+    for (Map.Entry<LValue, Expression> list : lists) {
       Object listValueObject = list.getValue().eval(env);
       final Iterable<?> listValue = EvalUtils.toIterable(listValueObject, getLocation());
       int listSize = EvalUtils.size(listValue);
@@ -54,7 +54,7 @@ public final class ListComprehension extends Expression {
         return convert(new ArrayList<>(), env);
       }
       size *= listSize;
-      listValues.add(Maps.<Ident, Iterable<?>>immutableEntry(list.getKey(), listValue));
+      listValues.add(Maps.<LValue, Iterable<?>>immutableEntry(list.getKey(), listValue));
     }
     List<Object> resultList = Lists.newArrayListWithCapacity(size);
     evalLists(env, listValues, resultList);
@@ -73,7 +73,7 @@ public final class ListComprehension extends Expression {
   public String toString() {
     StringBuilder sb = new StringBuilder();
     sb.append('[').append(elementExpression);
-    for (Map.Entry<Ident, Expression> list : lists) {
+    for (Map.Entry<LValue, Expression> list : lists) {
       sb.append(" for ").append(list.getKey()).append(" in ").append(list.getValue());
     }
     sb.append(']');
@@ -84,11 +84,11 @@ public final class ListComprehension extends Expression {
     return elementExpression;
   }
 
-  public void add(Ident ident, Expression listExpression) {
-    lists.add(Maps.immutableEntry(ident, listExpression));
+  public void add(Expression loopVar, Expression listExpression) {
+    lists.add(Maps.immutableEntry(new LValue(loopVar), listExpression));
   }
 
-  public List<Map.Entry<Ident, Expression>> getLists() {
+  public List<Map.Entry<LValue, Expression>> getLists() {
     return lists;
   }
 
@@ -106,11 +106,11 @@ public final class ListComprehension extends Expression {
    * of the element expression to the result. Otherwise calls itself recursively
    * with all the lists except the outermost.
    */
-  private void evalLists(Environment env, List<Map.Entry<Ident, Iterable<?>>> listValues,
+  private void evalLists(Environment env, List<Map.Entry<LValue, Iterable<?>>> listValues,
       List<Object> result) throws EvalException, InterruptedException {
-    Map.Entry<Ident, Iterable<?>> listValue = listValues.get(0);
+    Map.Entry<LValue, Iterable<?>> listValue = listValues.get(0);
     for (Object listElement : listValue.getValue()) {
-      env.update(listValue.getKey().getName(), listElement);
+      listValue.getKey().assign(env, getLocation(), listElement);
       if (listValues.size() == 1) {
         result.add(elementExpression.eval(env));
       } else {
@@ -121,11 +121,11 @@ public final class ListComprehension extends Expression {
 
   @Override
   SkylarkType validate(ValidationEnvironment env) throws EvalException {
-    for (Map.Entry<Ident, Expression> list : lists) {
+    for (Map.Entry<LValue, Expression> list : lists) {
       // TODO(bazel-team): Get the type of elements
       SkylarkType type = list.getValue().validate(env);
       env.checkIterable(type, getLocation());
-      env.update(list.getKey().getName(), SkylarkType.UNKNOWN, getLocation());
+      list.getKey().validate(env, getLocation(), SkylarkType.UNKNOWN);
     }
     elementExpression.validate(env);
     return SkylarkType.LIST;

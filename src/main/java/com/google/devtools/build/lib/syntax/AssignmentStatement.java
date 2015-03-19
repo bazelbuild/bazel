@@ -52,7 +52,8 @@ public final class AssignmentStatement extends Statement {
 
   @Override
   void exec(Environment env) throws EvalException, InterruptedException {
-    lvalue.assign(env, getLocation(), expression);
+    Object rvalue = expression.eval(env);
+    lvalue.assign(env, getLocation(), rvalue);
   }
 
   @Override

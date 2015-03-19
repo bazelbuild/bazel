@@ -363,21 +363,21 @@ public class EvaluationTest extends AbstractEvaluationTestCase {
 
   @Test
   public void testDictComprehensions() throws Exception {
-    assertEquals(Collections.emptyMap(), eval("{x : x for x in []}"));
-    assertEquals(ImmutableMap.of(1, 1, 2, 2), eval("{x : x for x in [1, 2]}"));
+    assertEquals(Collections.emptyMap(), eval("{a : a for a in []}"));
+    assertEquals(ImmutableMap.of(1, 1, 2, 2), eval("{b : b for b in [1, 2]}"));
     assertEquals(ImmutableMap.of("a", "v_a", "b", "v_b"),
-        eval("{x : 'v_' + x for x in ['a', 'b']}"));
+        eval("{c : 'v_' + c for c in ['a', 'b']}"));
     assertEquals(ImmutableMap.of("k_a", "a", "k_b", "b"),
-        eval("{'k_' + x : x for x in ['a', 'b']}"));
+        eval("{'k_' + d : d for d in ['a', 'b']}"));
     assertEquals(ImmutableMap.of("k_a", "v_a", "k_b", "v_b"),
-        eval("{'k_' + x : 'v_' + x for x in ['a', 'b']}"));
+        eval("{'k_' + e : 'v_' + e for e in ['a', 'b']}"));
   }
 
   @Test
   public void testDictComprehensions_MultipleKey() throws Exception {
     assertEquals(ImmutableMap.of(1, 1, 2, 2), eval("{x : x for x in [1, 2, 1]}"));
     assertEquals(ImmutableMap.of("ab", "ab", "c", "c"),
-        eval("{x : x for x in ['ab', 'c', 'a' + 'b']}"));
+        eval("{y : y for y in ['ab', 'c', 'a' + 'b']}"));
   }
 
   @Test
