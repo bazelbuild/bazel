@@ -14,7 +14,7 @@
 
 package com.google.devtools.build.lib.rules;
 
-import static com.google.devtools.build.lib.syntax.SkylarkFunction.castList;
+import static com.google.devtools.build.lib.syntax.SkylarkType.castList;
 
 import com.google.devtools.build.lib.events.Location;
 import com.google.devtools.build.lib.packages.Attribute;

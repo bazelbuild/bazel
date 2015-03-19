@@ -22,6 +22,9 @@ import static com.google.devtools.build.lib.packages.Type.INTEGER;
 import static com.google.devtools.build.lib.packages.Type.LABEL;
 import static com.google.devtools.build.lib.packages.Type.LABEL_LIST;
 import static com.google.devtools.build.lib.packages.Type.STRING;
+import static com.google.devtools.build.lib.syntax.SkylarkType.castList;
+import static com.google.devtools.build.lib.syntax.SkylarkType.castMap;
+import static com.google.devtools.build.lib.syntax.SkylarkType.toMap;
 
 import com.google.common.annotations.VisibleForTesting;
 import com.google.common.cache.CacheBuilder;
@@ -223,6 +226,7 @@ public class SkylarkRuleClassFunctions {
   private static final SkylarkFunction rule = new SkylarkFunction("rule") {
 
         @Override
+        @SuppressWarnings("rawtypes")
         public Object call(Map<String, Object> arguments, FuncallExpression ast,
             Environment funcallEnv) throws EvalException, ConversionException {
           final Location loc = ast.getLocation();

@@ -13,7 +13,7 @@
 // limitations under the License.
 package com.google.devtools.build.lib.packages;
 
-import static com.google.devtools.build.lib.syntax.SkylarkFunction.castMap;
+import static com.google.devtools.build.lib.syntax.SkylarkType.castMap;
 import static java.util.Collections.singleton;
 
 import com.google.common.base.Function;

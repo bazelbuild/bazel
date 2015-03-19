@@ -16,9 +16,7 @@ package com.google.devtools.build.lib.syntax;
 import com.google.common.base.Preconditions;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
-import com.google.common.collect.Iterables;
 import com.google.devtools.build.lib.events.Location;
-import com.google.devtools.build.lib.packages.Type;
 import com.google.devtools.build.lib.packages.Type.ConversionException;
 import com.google.devtools.build.lib.syntax.EvalException.EvalExceptionWithJavaCause;
 
@@ -221,74 +219,6 @@ public abstract class SkylarkFunction extends AbstractFunction {
         IllegalStateException,
         ClassCastException,
         ExecutionException;
-  }
-
-  public static <TYPE> Iterable<TYPE> castList(Object obj, final Class<TYPE> type) {
-    if (obj == null) {
-      return ImmutableList.of();
-    }
-    return ((SkylarkList) obj).to(type);
-  }
-
-  public static <TYPE> Iterable<TYPE> castList(
-      Object obj, final Class<TYPE> type, final String what) throws ConversionException {
-    if (obj == null) {
-      return ImmutableList.of();
-    }
-    return Iterables.transform(Type.LIST.convert(obj, what),
-        new com.google.common.base.Function<Object, TYPE>() {
-          @Override
-          public TYPE apply(Object input) {
-            try {
-              return type.cast(input);
-            } catch (ClassCastException e) {
-              throw new IllegalArgumentException(String.format(
-                  "expected %s type for '%s' but got %s instead",
-                  EvalUtils.getDataTypeNameFromClass(type), what,
-                  EvalUtils.getDataTypeName(input)));
-            }
-          }
-    });
-  }
-
-  public static <KEY_TYPE, VALUE_TYPE> ImmutableMap<KEY_TYPE, VALUE_TYPE> toMap(
-      Iterable<Map.Entry<KEY_TYPE, VALUE_TYPE>> obj) {
-    ImmutableMap.Builder<KEY_TYPE, VALUE_TYPE> builder = ImmutableMap.builder();
-    for (Map.Entry<KEY_TYPE, VALUE_TYPE> entry : obj) {
-      builder.put(entry.getKey(), entry.getValue());
-    }
-    return builder.build();
-  }
-
-  public static <KEY_TYPE, VALUE_TYPE> Iterable<Map.Entry<KEY_TYPE, VALUE_TYPE>> castMap(Object obj,
-      final Class<KEY_TYPE> keyType, final Class<VALUE_TYPE> valueType, final String what) {
-    if (obj == null) {
-      return ImmutableList.of();
-    }
-    if (!(obj instanceof Map<?, ?>)) {
-      throw new IllegalArgumentException(String.format(
-          "expected a dictionary for %s but got %s instead",
-          what, EvalUtils.getDataTypeName(obj)));
-    }
-    return Iterables.transform(((Map<?, ?>) obj).entrySet(),
-        new com.google.common.base.Function<Map.Entry<?, ?>, Map.Entry<KEY_TYPE, VALUE_TYPE>>() {
-          // This is safe. We check the type of the key-value pairs for every entry in the Map.
-          // In Map.Entry the key always has the type of the first generic parameter, the
-          // value has the second.
-          @SuppressWarnings("unchecked")
-            @Override
-            public Map.Entry<KEY_TYPE, VALUE_TYPE> apply(Map.Entry<?, ?> input) {
-            if (keyType.isAssignableFrom(input.getKey().getClass())
-                && valueType.isAssignableFrom(input.getValue().getClass())) {
-              return (Map.Entry<KEY_TYPE, VALUE_TYPE>) input;
-            }
-            throw new IllegalArgumentException(String.format(
-                "expected <%s, %s> type for '%s' but got <%s, %s> instead",
-                keyType.getSimpleName(), valueType.getSimpleName(), what,
-                EvalUtils.getDataTypeName(input.getKey()),
-                EvalUtils.getDataTypeName(input.getValue())));
-          }
-        });
   }
 
   // TODO(bazel-team): this is only used in MixedModeFunctions in MethodLibrary, migrate those
