@@ -1239,7 +1239,7 @@ public final class PackageFactory {
                                                       EventHandler eventHandler) {
     for (Statement stmt : ast.getStatements()) {
       if (stmt instanceof AssignmentStatement) {
-        Expression lvalue = ((AssignmentStatement) stmt).getLValue();
+        Expression lvalue = ((AssignmentStatement) stmt).getLValue().getExpression();
         if (!(lvalue instanceof Ident)) {
           continue;
         }

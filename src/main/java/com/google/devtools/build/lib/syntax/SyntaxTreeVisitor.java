@@ -85,7 +85,7 @@ public class SyntaxTreeVisitor {
   }
 
   public void visit(AssignmentStatement node) {
-    visit(node.getLValue());
+    visit(node.getLValue().getExpression());
     visit(node.getExpression());
   }
 
