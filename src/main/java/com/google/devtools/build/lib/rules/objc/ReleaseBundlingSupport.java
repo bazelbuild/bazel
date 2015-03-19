@@ -88,6 +88,7 @@ public final class ReleaseBundlingSupport {
           for (String iosCpu : iosMultiCpus) {
             BuildOptions splitOptions = buildOptions.clone();
             splitOptions.get(ObjcCommandLineOptions.class).iosSplitCpu = iosCpu;
+            splitOptions.get(ObjcCommandLineOptions.class).iosCpu = iosCpu;
             splitBuildOptions.add(splitOptions);
           }
           return splitBuildOptions.build();
