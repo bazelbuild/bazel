@@ -112,7 +112,7 @@ commands to make a fake project for this example:
 $ # If you're not already there, move to your build root directory.
 $ cd ~/gitroot/base_workspace
 $ mkdir -p my-project/java/com/example
-$ cat > my-project/java/com/example/ProjectRunner.java &lt;&lt;EOF
+$ cat > my-project/java/com/example/ProjectRunner.java <<EOF
 package com.example;
 
 public class ProjectRunner {
@@ -121,7 +121,7 @@ public class ProjectRunner {
     }
 }
 EOF
-$ cat > my-project/java/com/example/Greeting.java &lt;&lt;EOF
+$ cat > my-project/java/com/example/Greeting.java <<EOF
 package com.example;
 
 public class Greeting {
@@ -202,7 +202,7 @@ file:
 
 ```bash
 $ mkdir my-project/java/com/example/cmdline
-$ cat > my-project/java/com/example/cmdline/Runner.java &lt;&lt;EOF
+$ cat > my-project/java/com/example/cmdline/Runner.java <<EOF
 package com.example.cmdline;
 
 import com.example.Greeting;
