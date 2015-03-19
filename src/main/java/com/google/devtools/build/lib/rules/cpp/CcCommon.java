@@ -678,7 +678,18 @@ public final class CcCommon {
       }
     }
     requestedFeatures.addAll(ruleSpecificRequestedFeatures);
-    return toolchain.getFeatures().getFeatureConfiguration(requestedFeatures.build());
+    FeatureConfiguration configuration =
+        toolchain.getFeatures().getFeatureConfiguration(requestedFeatures.build());
+    for (String feature : unsupportedFeatures) {
+      if (configuration.isEnabled(feature)) {
+        ruleContext.ruleError("The C++ toolchain '"
+            + ruleContext.getPrerequisite(":cc_toolchain", Mode.TARGET).getLabel()
+            + "' unconditionally implies feature '" + feature
+            + "', which is unsupported by this rule. "
+            + "This is most likely a misconfiguration in the C++ toolchain.");
+      }
+    }
+    return configuration; 
   }
   
   /**
