@@ -18,7 +18,6 @@ import static com.google.devtools.build.lib.packages.Attribute.attr;
 import static com.google.devtools.build.lib.rules.objc.ObjcRuleClasses.PLIST_TYPE;
 
 import com.google.devtools.build.lib.analysis.BaseRuleClasses;
-import com.google.devtools.build.lib.analysis.BlazeRule;
 import com.google.devtools.build.lib.analysis.RuleDefinition;
 import com.google.devtools.build.lib.analysis.RuleDefinitionEnvironment;
 import com.google.devtools.build.lib.packages.RuleClass;
@@ -28,11 +27,6 @@ import com.google.devtools.build.lib.packages.Type;
 /**
  * Rule definition for {@code objc_options}.
  */
-@BlazeRule(name = "objc_options",
-    factoryClass = ObjcOptions.class,
-    ancestors = {
-        BaseRuleClasses.BaseRule.class,
-        ObjcRuleClasses.CoptsRule.class })
 public class ObjcOptionsRule implements RuleDefinition {
   @Override
   public RuleClass build(Builder builder, RuleDefinitionEnvironment env) {
@@ -51,6 +45,15 @@ public class ObjcOptionsRule implements RuleDefinition {
         <!-- #END_BLAZE_RULE.ATTRIBUTE -->*/
         .add(attr("infoplists", Type.LABEL_LIST)
             .allowedFileTypes(PLIST_TYPE))
+        .build();
+  }
+
+  @Override
+  public Metadata getMetadata() {
+    return RuleDefinition.Metadata.builder()
+        .name("objc_options")
+        .factoryClass(ObjcOptions.class)
+        .ancestors(BaseRuleClasses.BaseRule.class, ObjcRuleClasses.CoptsRule.class)
         .build();
   }
 }

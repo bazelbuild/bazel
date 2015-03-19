@@ -18,7 +18,6 @@ import static com.google.devtools.build.lib.packages.Attribute.attr;
 import static com.google.devtools.build.lib.packages.Type.LABEL_LIST;
 
 import com.google.devtools.build.lib.analysis.BaseRuleClasses;
-import com.google.devtools.build.lib.analysis.BlazeRule;
 import com.google.devtools.build.lib.analysis.RuleDefinition;
 import com.google.devtools.build.lib.analysis.RuleDefinitionEnvironment;
 import com.google.devtools.build.lib.packages.RuleClass;
@@ -28,11 +27,6 @@ import com.google.devtools.build.lib.util.FileTypeSet;
 /**
  * Rule definition for objc_framework.
  */
-@BlazeRule(name = "objc_framework",
-    factoryClass = ObjcFramework.class,
-    ancestors = {
-        BaseRuleClasses.BaseRule.class,
-        ObjcRuleClasses.SdkFrameworksDependerRule.class })
 public class ObjcFrameworkRule implements RuleDefinition {
 
   @Override
@@ -47,6 +41,15 @@ public class ObjcFrameworkRule implements RuleDefinition {
             .allowedFileTypes(FileTypeSet.ANY_FILE)
             .mandatory()
             .nonEmpty())
+        .build();
+  }
+
+  @Override
+  public Metadata getMetadata() {
+    return RuleDefinition.Metadata.builder()
+        .name("objc_framework")
+        .factoryClass(ObjcFramework.class)
+        .ancestors(BaseRuleClasses.BaseRule.class, ObjcRuleClasses.SdkFrameworksDependerRule.class)
         .build();
   }
 }

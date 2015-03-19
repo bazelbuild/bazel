@@ -19,6 +19,7 @@ import com.google.common.collect.ImmutableSet;
 import com.google.devtools.build.lib.analysis.BlazeDirectories;
 import com.google.devtools.build.lib.analysis.BlazeVersionInfo;
 import com.google.devtools.build.lib.analysis.ConfiguredRuleClassProvider;
+import com.google.devtools.build.lib.analysis.RuleDefinition;
 import com.google.devtools.build.lib.bazel.repository.HttpArchiveFunction;
 import com.google.devtools.build.lib.bazel.repository.HttpDownloadFunction;
 import com.google.devtools.build.lib.bazel.repository.HttpJarFunction;
@@ -84,7 +85,14 @@ public class BazelRepositoryModule extends BlazeModule {
   @Override
   public void initializeRuleClasses(ConfiguredRuleClassProvider.Builder builder) {
     for (Entry<String, RepositoryFunction> handler : repositoryHandlers.entrySet()) {
-      builder.addRuleDefinition(handler.getValue().getRuleDefinition());
+      // TODO(bazel-team): Migrate away from Class<?>
+      RuleDefinition ruleDefinition;
+      try {
+        ruleDefinition = handler.getValue().getRuleDefinition().newInstance();
+      } catch (IllegalAccessException | InstantiationException e) {
+        throw new IllegalStateException(e);
+      }
+      builder.addRuleDefinition(ruleDefinition);
     }
   }
 

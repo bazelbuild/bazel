@@ -21,7 +21,6 @@ import static com.google.devtools.build.lib.packages.Type.STRING_LIST;
 
 import com.google.common.collect.ImmutableSet;
 import com.google.devtools.build.lib.analysis.BaseRuleClasses;
-import com.google.devtools.build.lib.analysis.BlazeRule;
 import com.google.devtools.build.lib.analysis.RuleDefinition;
 import com.google.devtools.build.lib.analysis.RuleDefinitionEnvironment;
 import com.google.devtools.build.lib.packages.RuleClass;
@@ -41,8 +40,6 @@ public class BazelBaseRuleClasses {
   /**
    * A base rule for all binary rules.
    */
-  @BlazeRule(name = "$binary_base_rule",
-               type = RuleClassType.ABSTRACT)
   public static final class BinaryBaseRule implements RuleDefinition {
     @Override
     public RuleClass build(Builder builder, RuleDefinitionEnvironment env) {
@@ -54,19 +51,33 @@ public class BazelBaseRuleClasses {
               .nonconfigurable("Called from RunCommand.isExecutable, which takes a Target"))
           .build();
     }
+
+    @Override
+    public Metadata getMetadata() {
+      return RuleDefinition.Metadata.builder()
+          .name("$binary_base_rule")
+          .type(RuleClassType.ABSTRACT)
+          .build();
+    }
   }
 
   /**
    * Rule class for rules in error.
    */
-  @BlazeRule(name = "$error_rule",
-               type = RuleClassType.ABSTRACT,
-               ancestors = { BaseRuleClasses.BaseRule.class })
   public static final class ErrorRule implements RuleDefinition {
     @Override
     public RuleClass build(Builder builder, RuleDefinitionEnvironment env) {
       return builder
           .publicByDefault()
+          .build();
+    }
+
+    @Override
+    public Metadata getMetadata() {
+      return RuleDefinition.Metadata.builder()
+          .name("$error_rule")
+          .type(RuleClassType.ABSTRACT)
+          .ancestors(BaseRuleClasses.BaseRule.class)
           .build();
     }
   }

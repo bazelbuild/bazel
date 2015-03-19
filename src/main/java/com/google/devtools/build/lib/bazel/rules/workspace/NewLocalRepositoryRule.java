@@ -17,7 +17,6 @@ package com.google.devtools.build.lib.bazel.rules.workspace;
 import static com.google.devtools.build.lib.packages.Attribute.attr;
 import static com.google.devtools.build.lib.packages.Type.STRING;
 
-import com.google.devtools.build.lib.analysis.BlazeRule;
 import com.google.devtools.build.lib.analysis.RuleDefinition;
 import com.google.devtools.build.lib.analysis.RuleDefinitionEnvironment;
 import com.google.devtools.build.lib.packages.RuleClass;
@@ -27,10 +26,6 @@ import com.google.devtools.build.lib.packages.RuleClass.Builder.RuleClassType;
 /**
  * Rule definition for the new_repository rule.
  */
-@BlazeRule(name = NewLocalRepositoryRule.NAME,
-           type = RuleClassType.WORKSPACE,
-           ancestors = { WorkspaceBaseRule.class },
-           factoryClass = WorkspaceConfiguredTargetFactory.class)
 public class NewLocalRepositoryRule implements RuleDefinition {
   public static final String NAME = "new_local_repository";
 
@@ -54,6 +49,16 @@ public class NewLocalRepositoryRule implements RuleDefinition {
         <!-- #END_BLAZE_RULE.ATTRIBUTE --> */
         .add(attr("build_file", STRING).mandatory())
         .setWorkspaceOnly()
+        .build();
+  }
+
+  @Override
+  public Metadata getMetadata() {
+    return RuleDefinition.Metadata.builder()
+        .name(NewLocalRepositoryRule.NAME)
+        .type(RuleClassType.WORKSPACE)
+        .ancestors(WorkspaceBaseRule.class)
+        .factoryClass(WorkspaceConfiguredTargetFactory.class)
         .build();
   }
 }

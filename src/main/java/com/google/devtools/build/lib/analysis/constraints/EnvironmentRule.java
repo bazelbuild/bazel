@@ -18,7 +18,6 @@ import static com.google.devtools.build.lib.packages.Attribute.attr;
 
 import com.google.common.collect.ImmutableList;
 import com.google.devtools.build.lib.analysis.BaseRuleClasses;
-import com.google.devtools.build.lib.analysis.BlazeRule;
 import com.google.devtools.build.lib.analysis.RuleDefinition;
 import com.google.devtools.build.lib.analysis.RuleDefinitionEnvironment;
 import com.google.devtools.build.lib.packages.RuleClass;
@@ -28,9 +27,6 @@ import com.google.devtools.build.lib.util.FileTypeSet;
 /**
  * Rule definition for environment rules (for Bazel's constraint enforcement system).
  */
-@BlazeRule(name = EnvironmentRule.RULE_NAME,
-    ancestors = { BaseRuleClasses.BaseRule.class },
-    factoryClass = Environment.class)
 public final class EnvironmentRule implements RuleDefinition {
   public static final String RULE_NAME = "environment";
 
@@ -65,6 +61,15 @@ public final class EnvironmentRule implements RuleDefinition {
         .removeAttribute(RuleClass.RESTRICTED_ENVIRONMENT_ATTR)
         .exemptFromConstraintChecking("this rule *defines* a constraint")
         .setUndocumented()
+        .build();
+  }
+
+  @Override
+  public Metadata getMetadata() {
+    return RuleDefinition.Metadata.builder()
+        .name(EnvironmentRule.RULE_NAME)
+        .ancestors(BaseRuleClasses.BaseRule.class)
+        .factoryClass(Environment.class)
         .build();
   }
 }

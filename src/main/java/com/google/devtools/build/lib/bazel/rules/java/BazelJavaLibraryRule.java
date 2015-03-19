@@ -20,7 +20,6 @@ import static com.google.devtools.build.lib.packages.Type.BOOLEAN;
 import static com.google.devtools.build.lib.packages.Type.LABEL_LIST;
 import static com.google.devtools.build.lib.packages.Type.STRING_LIST;
 
-import com.google.devtools.build.lib.analysis.BlazeRule;
 import com.google.devtools.build.lib.analysis.RuleDefinition;
 import com.google.devtools.build.lib.analysis.RuleDefinitionEnvironment;
 import com.google.devtools.build.lib.bazel.rules.java.BazelJavaRuleClasses.JavaRule;
@@ -30,9 +29,6 @@ import com.google.devtools.build.lib.packages.RuleClass.Builder;
 /**
  * Common attributes for Java rules.
  */
-@BlazeRule(name = "java_library",
-             ancestors = { JavaRule.class },
-             factoryClass = BazelJavaLibrary.class)
 public final class BazelJavaLibraryRule implements RuleDefinition {
   @Override
   public RuleClass build(Builder builder, final RuleDefinitionEnvironment env) {
@@ -146,6 +142,15 @@ public final class BazelJavaLibraryRule implements RuleDefinition {
         <!-- #END_BLAZE_RULE.ATTRIBUTE --> */
         .add(attr("exported_plugins", LABEL_LIST).cfg(HOST).allowedRuleClasses("java_plugin")
             .legacyAllowAnyFileType())
+        .build();
+  }
+
+  @Override
+  public Metadata getMetadata() {
+    return RuleDefinition.Metadata.builder()
+        .name("java_library")
+        .ancestors(JavaRule.class)
+        .factoryClass(BazelJavaLibrary.class)
         .build();
   }
 }

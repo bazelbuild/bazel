@@ -23,7 +23,6 @@ import static com.google.devtools.build.lib.packages.Type.OUTPUT_LIST;
 import static com.google.devtools.build.lib.packages.Type.STRING;
 
 import com.google.devtools.build.lib.analysis.BaseRuleClasses;
-import com.google.devtools.build.lib.analysis.BlazeRule;
 import com.google.devtools.build.lib.analysis.RuleDefinition;
 import com.google.devtools.build.lib.analysis.RuleDefinitionEnvironment;
 import com.google.devtools.build.lib.packages.Attribute;
@@ -35,9 +34,6 @@ import com.google.devtools.build.lib.packages.Type;
 /**
  * Rule definition for the genrule rule.
  */
-@BlazeRule(name = "genrule",
-           ancestors = { BaseRuleClasses.RuleBase.class },
-           factoryClass = GenRule.class)
 public final class BazelGenRuleRule implements RuleDefinition {
   public static final String GENRULE_SETUP_LABEL = "//tools/genrule:genrule-setup.sh";
 
@@ -230,6 +226,15 @@ public final class BazelGenRuleRule implements RuleDefinition {
             }))
         .removeAttribute("data")
         .removeAttribute("deps")
+        .build();
+  }
+
+  @Override
+  public Metadata getMetadata() {
+    return RuleDefinition.Metadata.builder()
+        .name("genrule")
+        .ancestors(BaseRuleClasses.RuleBase.class)
+        .factoryClass(GenRule.class)
         .build();
   }
 }

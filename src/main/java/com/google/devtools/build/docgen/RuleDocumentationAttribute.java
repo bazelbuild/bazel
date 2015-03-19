@@ -16,7 +16,6 @@ package com.google.devtools.build.docgen;
 import com.google.common.base.Preconditions;
 import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.ImmutableSet;
-import com.google.devtools.build.lib.analysis.BlazeRule;
 import com.google.devtools.build.lib.analysis.RuleDefinition;
 import com.google.devtools.build.lib.packages.Attribute;
 import com.google.devtools.build.lib.packages.TriState;
@@ -204,13 +203,16 @@ class RuleDocumentationAttribute implements Comparable<RuleDocumentationAttribut
       Class<? extends RuleDefinition> usingClass,
       Map<Class<? extends RuleDefinition>, Integer> visited,
       LinkedList<Class<? extends RuleDefinition>> toVisit) {
-    BlazeRule ann = usingClass.getAnnotation(BlazeRule.class);
-    if (ann != null) {
-      for (Class<? extends RuleDefinition> ancestor : ann.ancestors()) {
-        if (!visited.containsKey(ancestor)) {
-          toVisit.addLast(ancestor);
-          visited.put(ancestor, visited.get(usingClass) + 1);
-        }
+    RuleDefinition instance;
+    try {
+      instance = usingClass.newInstance();
+    } catch (IllegalAccessException | InstantiationException e) {
+      throw new IllegalStateException(e);
+    }
+    for (Class<? extends RuleDefinition> ancestor : instance.getMetadata().ancestors()) {
+      if (!visited.containsKey(ancestor)) {
+        toVisit.addLast(ancestor);
+        visited.put(ancestor, visited.get(usingClass) + 1);
       }
     }
   }

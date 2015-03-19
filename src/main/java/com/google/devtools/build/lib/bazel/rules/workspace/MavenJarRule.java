@@ -16,7 +16,6 @@ package com.google.devtools.build.lib.bazel.rules.workspace;
 
 import static com.google.devtools.build.lib.packages.Attribute.attr;
 
-import com.google.devtools.build.lib.analysis.BlazeRule;
 import com.google.devtools.build.lib.analysis.RuleDefinition;
 import com.google.devtools.build.lib.analysis.RuleDefinitionEnvironment;
 import com.google.devtools.build.lib.packages.RuleClass;
@@ -27,10 +26,6 @@ import com.google.devtools.build.lib.packages.Type;
 /**
  * Rule definition for the maven_jar rule.
  */
-@BlazeRule(name = MavenJarRule.NAME,
-           type = RuleClassType.WORKSPACE,
-           ancestors = { WorkspaceBaseRule.class },
-           factoryClass = WorkspaceConfiguredTargetFactory.class)
 public class MavenJarRule implements RuleDefinition {
 
   public static final String NAME = "maven_jar";
@@ -79,6 +74,16 @@ public class MavenJarRule implements RuleDefinition {
         <!-- #END_BLAZE_RULE.ATTRIBUTE --> */
         .add(attr("exclusions", Type.STRING_LIST))
         .setWorkspaceOnly()
+        .build();
+  }
+
+  @Override
+  public Metadata getMetadata() {
+    return RuleDefinition.Metadata.builder()
+        .name(MavenJarRule.NAME)
+        .type(RuleClassType.WORKSPACE)
+        .ancestors(WorkspaceBaseRule.class)
+        .factoryClass(WorkspaceConfiguredTargetFactory.class)
         .build();
   }
 }

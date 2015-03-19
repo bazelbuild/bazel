@@ -14,7 +14,6 @@
 
 package com.google.devtools.build.lib.bazel.rules.workspace;
 
-import com.google.devtools.build.lib.analysis.BlazeRule;
 import com.google.devtools.build.lib.analysis.RuleDefinition;
 import com.google.devtools.build.lib.analysis.RuleDefinitionEnvironment;
 import com.google.devtools.build.lib.packages.RuleClass;
@@ -24,13 +23,19 @@ import com.google.devtools.build.lib.packages.RuleClass.Builder.RuleClassType;
 /**
  * Base rule for rules in the WORKSPACE file.
  */
-@BlazeRule(name = "$workspace_base_rule",
-           type = RuleClassType.ABSTRACT)
 public class WorkspaceBaseRule implements RuleDefinition {
   @Override
   public RuleClass build(Builder builder, RuleDefinitionEnvironment environment) {
     return builder
         .exemptFromConstraintChecking("workspace rules aren't built for target environments")
+        .build();
+  }
+
+  @Override
+  public Metadata getMetadata() {
+    return RuleDefinition.Metadata.builder()
+        .name("$workspace_base_rule")
+        .type(RuleClassType.ABSTRACT)
         .build();
   }
 }

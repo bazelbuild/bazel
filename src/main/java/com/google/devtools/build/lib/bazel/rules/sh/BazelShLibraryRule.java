@@ -16,7 +16,6 @@ package com.google.devtools.build.lib.bazel.rules.sh;
 import static com.google.devtools.build.lib.packages.Attribute.attr;
 import static com.google.devtools.build.lib.packages.Type.LABEL_LIST;
 
-import com.google.devtools.build.lib.analysis.BlazeRule;
 import com.google.devtools.build.lib.analysis.RuleDefinition;
 import com.google.devtools.build.lib.analysis.RuleDefinitionEnvironment;
 import com.google.devtools.build.lib.bazel.rules.sh.BazelShRuleClasses.ShRule;
@@ -26,9 +25,6 @@ import com.google.devtools.build.lib.packages.RuleClass.Builder;
 /**
  * Rule definition for the sh_library rule.
  */
-@BlazeRule(name = "sh_library",
-             ancestors = { ShRule.class },
-             factoryClass = ShLibrary.class)
 public final class BazelShLibraryRule implements RuleDefinition {
   @Override
   public RuleClass build(Builder builder, RuleDefinitionEnvironment environment) {
@@ -43,6 +39,15 @@ public final class BazelShLibraryRule implements RuleDefinition {
         </p>
         <!-- #END_BLAZE_RULE.ATTRIBUTE -->*/
         .override(attr("srcs", LABEL_LIST).allowedFileTypes(BazelShRuleClasses.SH_FILES))
+        .build();
+  }
+
+  @Override
+  public Metadata getMetadata() {
+    return RuleDefinition.Metadata.builder()
+        .name("sh_library")
+        .ancestors(ShRule.class)
+        .factoryClass(ShLibrary.class)
         .build();
   }
 }

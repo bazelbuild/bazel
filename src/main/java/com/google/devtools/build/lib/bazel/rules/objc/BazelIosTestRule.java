@@ -18,7 +18,6 @@ import static com.google.devtools.build.lib.packages.Attribute.attr;
 import static com.google.devtools.build.lib.packages.Type.LABEL;
 
 import com.google.devtools.build.lib.analysis.BaseRuleClasses;
-import com.google.devtools.build.lib.analysis.BlazeRule;
 import com.google.devtools.build.lib.analysis.RuleDefinition;
 import com.google.devtools.build.lib.analysis.RuleDefinitionEnvironment;
 import com.google.devtools.build.lib.packages.ImplicitOutputsFunction;
@@ -31,13 +30,6 @@ import com.google.devtools.build.lib.rules.objc.XcodeSupport;
 /**
  * Rule definition for the ios_test rule.
  */
-@BlazeRule(name = "ios_test",
-    type = RuleClassType.TEST,
-    ancestors = {
-        BaseRuleClasses.BaseRule.class,
-        BaseRuleClasses.TestBaseRule.class,
-        ObjcRuleClasses.IosTestBaseRule.class, },
-    factoryClass = BazelIosTest.class)
 public final class BazelIosTestRule implements RuleDefinition {
   @Override
   public RuleClass build(RuleClass.Builder builder, final RuleDefinitionEnvironment env) {
@@ -54,6 +46,17 @@ public final class BazelIosTestRule implements RuleDefinition {
             ImplicitOutputsFunction.fromFunctions(ReleaseBundlingSupport.IPA, XcodeSupport.PBXPROJ))
         .add(attr(BazelIosTest.IOS_TEST_ON_BAZEL_ATTR, LABEL)
             .value(env.getLabel("//tools/objc:ios_test_on_bazel")).exec())
+        .build();
+  }
+
+  @Override
+  public Metadata getMetadata() {
+    return RuleDefinition.Metadata.builder()
+        .name("ios_test")
+        .type(RuleClassType.TEST)
+        .ancestors(BaseRuleClasses.BaseRule.class, BaseRuleClasses.TestBaseRule.class,
+            ObjcRuleClasses.IosTestBaseRule.class)
+        .factoryClass(BazelIosTest.class)
         .build();
   }
 }

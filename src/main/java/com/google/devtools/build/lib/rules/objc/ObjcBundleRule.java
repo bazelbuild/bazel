@@ -18,7 +18,6 @@ import static com.google.devtools.build.lib.packages.Attribute.attr;
 import static com.google.devtools.build.lib.packages.Type.LABEL_LIST;
 
 import com.google.devtools.build.lib.analysis.BaseRuleClasses;
-import com.google.devtools.build.lib.analysis.BlazeRule;
 import com.google.devtools.build.lib.analysis.RuleDefinition;
 import com.google.devtools.build.lib.analysis.RuleDefinitionEnvironment;
 import com.google.devtools.build.lib.packages.RuleClass;
@@ -28,9 +27,6 @@ import com.google.devtools.build.lib.util.FileTypeSet;
 /**
  * Rule definition for objc_bundle.
  */
-@BlazeRule(name = "objc_bundle",
-    factoryClass = ObjcBundle.class,
-    ancestors = { BaseRuleClasses.BaseRule.class })
 public class ObjcBundleRule implements RuleDefinition {
   @Override
   public RuleClass build(Builder builder, RuleDefinitionEnvironment environment) {
@@ -43,6 +39,15 @@ public class ObjcBundleRule implements RuleDefinition {
         .add(attr("bundle_imports", LABEL_LIST)
             .allowedFileTypes(FileTypeSet.ANY_FILE)
             .nonEmpty())
+        .build();
+  }
+
+  @Override
+  public Metadata getMetadata() {
+    return RuleDefinition.Metadata.builder()
+        .name("objc_bundle")
+        .factoryClass(ObjcBundle.class)
+        .ancestors(BaseRuleClasses.BaseRule.class)
         .build();
   }
 }

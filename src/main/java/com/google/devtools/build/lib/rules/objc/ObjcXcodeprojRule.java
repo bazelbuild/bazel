@@ -19,7 +19,6 @@ import static com.google.devtools.build.lib.packages.Type.BOOLEAN;
 import static com.google.devtools.build.lib.packages.Type.LABEL_LIST;
 
 import com.google.devtools.build.lib.analysis.BaseRuleClasses;
-import com.google.devtools.build.lib.analysis.BlazeRule;
 import com.google.devtools.build.lib.analysis.RuleDefinition;
 import com.google.devtools.build.lib.analysis.RuleDefinitionEnvironment;
 import com.google.devtools.build.lib.packages.RuleClass;
@@ -28,11 +27,6 @@ import com.google.devtools.build.lib.packages.RuleClass.Builder;
 /**
  * Rule definition for {@code objc_xcodeproj}.
  */
-@BlazeRule(name = "objc_xcodeproj",
-    factoryClass = ObjcXcodeproj.class,
-    ancestors = {
-        BaseRuleClasses.BaseRule.class,
-        ObjcRuleClasses.XcodegenRule.class })
 public class ObjcXcodeprojRule implements RuleDefinition {
   @Override
   public RuleClass build(Builder builder, RuleDefinitionEnvironment env) {
@@ -63,6 +57,15 @@ public class ObjcXcodeprojRule implements RuleDefinition {
         .override(attr("testonly", BOOLEAN)
             .nonconfigurable("Must support test deps.")
             .value(true))
+        .build();
+  }
+
+  @Override
+  public Metadata getMetadata() {
+    return RuleDefinition.Metadata.builder()
+        .name("objc_xcodeproj")
+        .factoryClass(ObjcXcodeproj.class)
+        .ancestors(BaseRuleClasses.BaseRule.class, ObjcRuleClasses.XcodegenRule.class)
         .build();
   }
 }

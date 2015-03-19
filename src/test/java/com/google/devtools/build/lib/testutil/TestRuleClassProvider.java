@@ -21,7 +21,6 @@ import static com.google.devtools.build.lib.packages.Type.OUTPUT_LIST;
 import static com.google.devtools.build.lib.packages.Type.STRING_LIST;
 
 import com.google.devtools.build.lib.analysis.BaseRuleClasses;
-import com.google.devtools.build.lib.analysis.BlazeRule;
 import com.google.devtools.build.lib.analysis.ConfiguredRuleClassProvider;
 import com.google.devtools.build.lib.analysis.RuleDefinition;
 import com.google.devtools.build.lib.analysis.RuleDefinitionEnvironment;
@@ -59,16 +58,12 @@ public class TestRuleClassProvider {
       ConfiguredRuleClassProvider.Builder builder =
           new ConfiguredRuleClassProvider.Builder();
       addStandardRules(builder);
-      builder.addRuleDefinition(TestingDummyRule.class);
+      builder.addRuleDefinition(new TestingDummyRule());
       ruleProvider = builder.build();
     }
     return ruleProvider;
   }
 
-  @BlazeRule(name = "testing_dummy_rule",
-               ancestors = { BaseRuleClasses.RuleBase.class },
-               // Instantiated only in tests
-               factoryClass = UnknownRuleConfiguredTarget.class)
   public static final class TestingDummyRule implements RuleDefinition {
     @Override
     public RuleClass build(Builder builder, RuleDefinitionEnvironment env) {
@@ -78,6 +73,15 @@ public class TestRuleClassProvider {
           .add(attr("outs", OUTPUT_LIST))
           .add(attr("dummystrings", STRING_LIST))
           .add(attr("dummyinteger", INTEGER))
+          .build();
+    }
+
+    @Override
+    public Metadata getMetadata() {
+      return RuleDefinition.Metadata.builder()
+          .name("testing_dummy_rule")
+          .ancestors(BaseRuleClasses.RuleBase.class)
+          .factoryClass(UnknownRuleConfiguredTarget.class)
           .build();
     }
   }

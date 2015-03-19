@@ -20,7 +20,6 @@ import static com.google.devtools.build.lib.packages.Type.STRING;
 import static com.google.devtools.build.lib.packages.Type.TRISTATE;
 
 import com.google.devtools.build.lib.analysis.BaseRuleClasses;
-import com.google.devtools.build.lib.analysis.BlazeRule;
 import com.google.devtools.build.lib.analysis.RuleDefinition;
 import com.google.devtools.build.lib.analysis.RuleDefinitionEnvironment;
 import com.google.devtools.build.lib.bazel.rules.java.BazelJavaRuleClasses.BaseJavaBinaryRule;
@@ -33,11 +32,6 @@ import com.google.devtools.build.lib.rules.java.JavaSemantics;
 /**
  * Rule definition for the java_test rule.
  */
-@BlazeRule(name = "java_test",
-           type = RuleClassType.TEST,
-           ancestors = { BaseJavaBinaryRule.class,
-                         BaseRuleClasses.TestBaseRule.class },
-           factoryClass = BazelJavaTest.class)
 public final class BazelJavaTestRule implements RuleDefinition {
 
   private static final String JUNIT4_RUNNER = "org.junit.runner.JUnitCore";
@@ -56,6 +50,16 @@ public final class BazelJavaTestRule implements RuleDefinition {
         .override(attr("main_class", STRING).value(JUNIT4_RUNNER))
         .override(attr("stamp", TRISTATE).value(TriState.NO))
         .override(attr(":java_launcher", LABEL).value(JavaSemantics.JAVA_LAUNCHER))
+        .build();
+  }
+
+  @Override
+  public Metadata getMetadata() {
+    return RuleDefinition.Metadata.builder()
+        .name("java_test")
+        .type(RuleClassType.TEST)
+        .ancestors(BaseJavaBinaryRule.class, BaseRuleClasses.TestBaseRule.class)
+        .factoryClass(BazelJavaTest.class)
         .build();
   }
 }

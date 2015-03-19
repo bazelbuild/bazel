@@ -18,7 +18,6 @@ import static com.google.devtools.build.lib.packages.Attribute.attr;
 import static com.google.devtools.build.lib.packages.Type.LABEL;
 
 import com.google.devtools.build.lib.analysis.BaseRuleClasses.BaseRule;
-import com.google.devtools.build.lib.analysis.BlazeRule;
 import com.google.devtools.build.lib.analysis.RuleDefinition;
 import com.google.devtools.build.lib.analysis.RuleDefinitionEnvironment;
 import com.google.devtools.build.lib.packages.RuleClass;
@@ -27,10 +26,6 @@ import com.google.devtools.build.lib.packages.RuleClass.Builder.RuleClassType;
 /**
  * Binds an existing target to a target in the virtual //external package.
  */
-@BlazeRule(name = "bind",
-  type = RuleClassType.WORKSPACE,
-  ancestors = {BaseRule.class},
-  factoryClass = Bind.class)
 public final class BindRule implements RuleDefinition {
 
   @Override
@@ -44,6 +39,16 @@ public final class BindRule implements RuleDefinition {
         <!-- #END_BLAZE_RULE.ATTRIBUTE --> */
         .add(attr("actual", LABEL).allowedFileTypes())
         .setWorkspaceOnly()
+        .build();
+  }
+
+  @Override
+  public Metadata getMetadata() {
+    return RuleDefinition.Metadata.builder()
+        .name("bind")
+        .type(RuleClassType.WORKSPACE)
+        .ancestors(BaseRule.class)
+        .factoryClass(Bind.class)
         .build();
   }
 }

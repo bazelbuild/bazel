@@ -20,7 +20,6 @@ import static com.google.devtools.build.lib.packages.Type.LICENSE;
 import static com.google.devtools.build.lib.packages.Type.STRING;
 
 import com.google.devtools.build.lib.analysis.BaseRuleClasses;
-import com.google.devtools.build.lib.analysis.BlazeRule;
 import com.google.devtools.build.lib.analysis.RuleDefinition;
 import com.google.devtools.build.lib.analysis.RuleDefinitionEnvironment;
 import com.google.devtools.build.lib.packages.RuleClass;
@@ -31,9 +30,6 @@ import com.google.devtools.build.lib.util.FileTypeSet;
 /**
  * Rule object implementing "filegroup".
  */
-@BlazeRule(name = "filegroup",
-             ancestors = { BaseRuleClasses.BaseRule.class },
-             factoryClass = Filegroup.class)
 public final class BazelFilegroupRule implements RuleDefinition {
   @Override
   public RuleClass build(Builder builder, RuleDefinitionEnvironment env) {
@@ -74,6 +70,15 @@ public final class BazelFilegroupRule implements RuleDefinition {
         </p>
         <!-- #END_BLAZE_RULE.ATTRIBUTE -->*/
         .add(attr("path", STRING))
+        .build();
+  }
+
+  @Override
+  public Metadata getMetadata() {
+    return RuleDefinition.Metadata.builder()
+        .name("filegroup")
+        .ancestors(BaseRuleClasses.BaseRule.class)
+        .factoryClass(Filegroup.class)
         .build();
   }
 }

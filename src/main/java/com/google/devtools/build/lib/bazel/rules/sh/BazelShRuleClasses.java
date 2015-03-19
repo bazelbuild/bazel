@@ -19,9 +19,7 @@ import static com.google.devtools.build.lib.packages.Type.LABEL_LIST;
 
 import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.ImmutableSet;
-
 import com.google.devtools.build.lib.analysis.BaseRuleClasses;
-import com.google.devtools.build.lib.analysis.BlazeRule;
 import com.google.devtools.build.lib.analysis.RuleDefinition;
 import com.google.devtools.build.lib.analysis.RuleDefinitionEnvironment;
 import com.google.devtools.build.lib.packages.Attribute.AllowedValueSet;
@@ -50,9 +48,6 @@ public final class BazelShRuleClasses {
   /**
    * Common attributes for shell rules.
    */
-  @BlazeRule(name = "$sh_target",
-               type = RuleClassType.ABSTRACT,
-               ancestors = { BaseRuleClasses.RuleBase.class })
   public static final class ShRule implements RuleDefinition {
     @Override
     public RuleClass build(Builder builder, RuleDefinitionEnvironment environment) {
@@ -85,6 +80,15 @@ public final class BazelShRuleClasses {
               .allowedRuleClasses("sh_library")
               .allowedRuleClassesWithWarning(ALLOWED_RULES_IN_DEPS_WITH_WARNING)
               .allowedFileTypes())
+          .build();
+    }
+
+    @Override
+    public Metadata getMetadata() {
+      return RuleDefinition.Metadata.builder()
+          .name("$sh_target")
+          .type(RuleClassType.ABSTRACT)
+          .ancestors(BaseRuleClasses.RuleBase.class)
           .build();
     }
   }

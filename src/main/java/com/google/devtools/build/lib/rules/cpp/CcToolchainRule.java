@@ -22,7 +22,6 @@ import static com.google.devtools.build.lib.packages.Type.LICENSE;
 import static com.google.devtools.build.lib.packages.Type.STRING;
 
 import com.google.devtools.build.lib.analysis.BaseRuleClasses;
-import com.google.devtools.build.lib.analysis.BlazeRule;
 import com.google.devtools.build.lib.analysis.RuleDefinition;
 import com.google.devtools.build.lib.analysis.RuleDefinitionEnvironment;
 import com.google.devtools.build.lib.analysis.config.BuildConfiguration;
@@ -35,9 +34,6 @@ import com.google.devtools.build.lib.syntax.Label;
 /**
  * Rule definition for compiler definition.
  */
-@BlazeRule(name = "cc_toolchain",
-             ancestors = { BaseRuleClasses.BaseRule.class },
-             factoryClass = CcToolchain.class)
 public final class CcToolchainRule implements RuleDefinition {
   private static final LateBoundLabel<BuildConfiguration> LIBC_LINK =
       new LateBoundLabel<BuildConfiguration>() {
@@ -66,6 +62,15 @@ public final class CcToolchainRule implements RuleDefinition {
         .add(attr("supports_header_parsing", BOOLEAN).value(false))
         // TODO(bazel-team): Should be using the TARGET configuration.
         .add(attr(":libc_link", LABEL).cfg(HOST).value(LIBC_LINK))
+        .build();
+  }
+
+  @Override
+  public Metadata getMetadata() {
+    return RuleDefinition.Metadata.builder()
+        .name("cc_toolchain")
+        .ancestors(BaseRuleClasses.BaseRule.class)
+        .factoryClass(CcToolchain.class)
         .build();
   }
 }

@@ -14,7 +14,6 @@
 package com.google.devtools.build.lib.bazel.rules.sh;
 
 import com.google.devtools.build.lib.analysis.BaseRuleClasses;
-import com.google.devtools.build.lib.analysis.BlazeRule;
 import com.google.devtools.build.lib.analysis.RuleDefinition;
 import com.google.devtools.build.lib.analysis.RuleDefinitionEnvironment;
 import com.google.devtools.build.lib.bazel.rules.sh.BazelShRuleClasses.ShRule;
@@ -25,14 +24,20 @@ import com.google.devtools.build.lib.packages.RuleClass.Builder.RuleClassType;
 /**
  * Rule definition for the sh_test rule.
  */
-@BlazeRule(name = "sh_test",
-             type = RuleClassType.TEST,
-             ancestors = { ShRule.class, BaseRuleClasses.TestBaseRule.class },
-             factoryClass = ShBinary.class)
 public final class BazelShTestRule implements RuleDefinition {
   @Override
   public RuleClass build(Builder builder, RuleDefinitionEnvironment environment) {
     return builder.build();
+  }
+
+  @Override
+  public Metadata getMetadata() {
+    return RuleDefinition.Metadata.builder()
+        .name("sh_test")
+        .type(RuleClassType.TEST)
+        .ancestors(ShRule.class, BaseRuleClasses.TestBaseRule.class)
+        .factoryClass(ShBinary.class)
+        .build();
   }
 }
 

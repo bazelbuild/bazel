@@ -13,7 +13,6 @@
 // limitations under the License.
 package com.google.devtools.build.lib.bazel.rules.sh;
 
-import com.google.devtools.build.lib.analysis.BlazeRule;
 import com.google.devtools.build.lib.analysis.RuleDefinition;
 import com.google.devtools.build.lib.analysis.RuleDefinitionEnvironment;
 import com.google.devtools.build.lib.bazel.rules.BazelBaseRuleClasses;
@@ -24,13 +23,19 @@ import com.google.devtools.build.lib.packages.RuleClass.Builder;
 /**
  * Rule definition for the sh_binary rule.
  */
-@BlazeRule(name = "sh_binary",
-             ancestors = { ShRule.class, BazelBaseRuleClasses.BinaryBaseRule.class },
-             factoryClass = ShBinary.class)
 public final class BazelShBinaryRule implements RuleDefinition {
   @Override
   public RuleClass build(Builder builder, RuleDefinitionEnvironment environment) {
     return builder.build();
+  }
+
+  @Override
+  public Metadata getMetadata() {
+    return RuleDefinition.Metadata.builder()
+        .name("sh_binary")
+        .ancestors(ShRule.class, BazelBaseRuleClasses.BinaryBaseRule.class)
+        .factoryClass(ShBinary.class)
+        .build();
   }
 }
 

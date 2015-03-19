@@ -17,7 +17,6 @@ package com.google.devtools.build.lib.bazel.rules.java;
 import static com.google.devtools.build.lib.packages.Attribute.attr;
 import static com.google.devtools.build.lib.packages.Type.BOOLEAN;
 
-import com.google.devtools.build.lib.analysis.BlazeRule;
 import com.google.devtools.build.lib.analysis.RuleDefinition;
 import com.google.devtools.build.lib.analysis.RuleDefinitionEnvironment;
 import com.google.devtools.build.lib.bazel.rules.BazelBaseRuleClasses;
@@ -30,10 +29,6 @@ import com.google.devtools.build.lib.packages.RuleClass.Builder;
 /**
  * Rule definition for the java_binary rule.
  */
-@BlazeRule(name = "java_binary",
-           ancestors = { BaseJavaBinaryRule.class,
-                         BazelBaseRuleClasses.BinaryBaseRule.class },
-           factoryClass = BazelJavaBinary.class)
 public final class BazelJavaBinaryRule implements RuleDefinition {
   @Override
   public RuleClass build(Builder builder, RuleDefinitionEnvironment env) {
@@ -79,6 +74,15 @@ public final class BazelJavaBinaryRule implements RuleDefinition {
                 return rule.get("create_executable", BOOLEAN);
               }
             }))
+        .build();
+  }
+
+  @Override
+  public Metadata getMetadata() {
+    return RuleDefinition.Metadata.builder()
+        .name("java_binary")
+        .ancestors(BaseJavaBinaryRule.class, BazelBaseRuleClasses.BinaryBaseRule.class)
+        .factoryClass(BazelJavaBinary.class)
         .build();
   }
 }

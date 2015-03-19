@@ -18,7 +18,6 @@ import static com.google.devtools.build.lib.packages.Type.LABEL_LIST;
 import static com.google.devtools.build.lib.packages.Type.STRING_LIST;
 
 import com.google.devtools.build.lib.analysis.BaseRuleClasses;
-import com.google.devtools.build.lib.analysis.BlazeRule;
 import com.google.devtools.build.lib.analysis.RuleDefinition;
 import com.google.devtools.build.lib.analysis.RuleDefinitionEnvironment;
 import com.google.devtools.build.lib.packages.RuleClass;
@@ -28,9 +27,6 @@ import com.google.devtools.build.lib.rules.extra.ActionListener;
 /**
  * Rule definition for action_listener rule.
  */
-@BlazeRule(name = "action_listener",
-             ancestors = { BaseRuleClasses.RuleBase.class },
-             factoryClass = ActionListener.class)
 public final class BazelActionListenerRule implements RuleDefinition {
   @Override
   public RuleClass build(Builder builder, RuleDefinitionEnvironment environment) {
@@ -57,6 +53,15 @@ public final class BazelActionListenerRule implements RuleDefinition {
         .removeAttribute("deps")
         .removeAttribute("data")
         .removeAttribute(":action_listener")
+        .build();
+  }
+
+  @Override
+  public Metadata getMetadata() {
+    return RuleDefinition.Metadata.builder()
+        .name("action_listener")
+        .ancestors(BaseRuleClasses.RuleBase.class)
+        .factoryClass(ActionListener.class)
         .build();
   }
 }

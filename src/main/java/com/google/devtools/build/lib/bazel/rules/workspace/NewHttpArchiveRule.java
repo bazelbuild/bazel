@@ -17,7 +17,6 @@ package com.google.devtools.build.lib.bazel.rules.workspace;
 import static com.google.devtools.build.lib.packages.Attribute.attr;
 import static com.google.devtools.build.lib.packages.Type.STRING;
 
-import com.google.devtools.build.lib.analysis.BlazeRule;
 import com.google.devtools.build.lib.analysis.RuleDefinition;
 import com.google.devtools.build.lib.analysis.RuleDefinitionEnvironment;
 import com.google.devtools.build.lib.packages.RuleClass;
@@ -25,10 +24,6 @@ import com.google.devtools.build.lib.packages.RuleClass;
 /**
  * Rule definition for the new_http_archive rule.
  */
-@BlazeRule(name = NewHttpArchiveRule.NAME,
-    type = RuleClass.Builder.RuleClassType.WORKSPACE,
-    ancestors = { WorkspaceBaseRule.class },
-    factoryClass = WorkspaceConfiguredTargetFactory.class)
 public class NewHttpArchiveRule implements RuleDefinition {
   public static final String NAME = "new_http_archive";
 
@@ -60,6 +55,16 @@ public class NewHttpArchiveRule implements RuleDefinition {
         <!-- #END_BLAZE_RULE.ATTRIBUTE --> */
         .add(attr("build_file", STRING).mandatory())
         .setWorkspaceOnly()
+        .build();
+  }
+
+  @Override
+  public Metadata getMetadata() {
+    return RuleDefinition.Metadata.builder()
+        .name(NewHttpArchiveRule.NAME)
+        .type(RuleClass.Builder.RuleClassType.WORKSPACE)
+        .ancestors(WorkspaceBaseRule.class)
+        .factoryClass(WorkspaceConfiguredTargetFactory.class)
         .build();
   }
 }

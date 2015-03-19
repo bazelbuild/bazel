@@ -26,7 +26,6 @@ import static com.google.devtools.build.lib.packages.Type.TRISTATE;
 
 import com.google.common.collect.ImmutableSet;
 import com.google.devtools.build.lib.analysis.BaseRuleClasses;
-import com.google.devtools.build.lib.analysis.BlazeRule;
 import com.google.devtools.build.lib.analysis.RuleDefinition;
 import com.google.devtools.build.lib.analysis.RuleDefinitionEnvironment;
 import com.google.devtools.build.lib.bazel.rules.cpp.BazelCppRuleClasses;
@@ -62,8 +61,6 @@ public class BazelJavaRuleClasses {
   /**
    * Common attributes for rules that depend on ijar.
    */
-  @BlazeRule(name = "$ijar_base_rule",
-               type = RuleClassType.ABSTRACT)
   public static final class IjarBaseRule implements RuleDefinition {
     @Override
     public RuleClass build(Builder builder, RuleDefinitionEnvironment env) {
@@ -72,15 +69,20 @@ public class BazelJavaRuleClasses {
           .setPreferredDependencyPredicate(JavaSemantics.JAVA_SOURCE)
           .build();
     }
+
+    @Override
+    public Metadata getMetadata() {
+      return RuleDefinition.Metadata.builder()
+          .name("$ijar_base_rule")
+          .type(RuleClassType.ABSTRACT)
+          .build();
+    }
   }
 
 
   /**
    * Common attributes for Java rules.
    */
-  @BlazeRule(name = "$java_base_rule",
-               type = RuleClassType.ABSTRACT,
-               ancestors = { IjarBaseRule.class })
   public static final class JavaBaseRule implements RuleDefinition {
     @Override
     public RuleClass build(Builder builder, RuleDefinitionEnvironment env) {
@@ -98,6 +100,15 @@ public class BazelJavaRuleClasses {
               .value(env.getLabel(JavaSemantics.SINGLEJAR_LABEL)))
           .build();
     }
+
+    @Override
+    public Metadata getMetadata() {
+      return RuleDefinition.Metadata.builder()
+          .name("$java_base_rule")
+          .type(RuleClassType.ABSTRACT)
+          .ancestors(IjarBaseRule.class)
+          .build();
+    }
   }
 
   static final Set<String> ALLOWED_RULES_IN_DEPS = ImmutableSet.of(
@@ -113,9 +124,6 @@ public class BazelJavaRuleClasses {
   /**
    * Common attributes for Java rules.
    */
-  @BlazeRule(name = "$java_rule",
-               type = RuleClassType.ABSTRACT,
-               ancestors = { BaseRuleClasses.RuleBase.class, JavaBaseRule.class })
   public static final class JavaRule implements RuleDefinition {
     @Override
     public RuleClass build(Builder builder, RuleDefinitionEnvironment env) {
@@ -219,18 +227,20 @@ public class BazelJavaRuleClasses {
           .add(attr("javacopts", STRING_LIST))
           .build();
     }
+
+    @Override
+    public Metadata getMetadata() {
+      return RuleDefinition.Metadata.builder()
+          .name("$java_rule")
+          .type(RuleClassType.ABSTRACT)
+          .ancestors(BaseRuleClasses.RuleBase.class, JavaBaseRule.class)
+          .build();
+    }
   }
 
   /**
    * Base class for rule definitions producing Java binaries.
    */
-  @BlazeRule(name = "$base_java_binary",
-               type = RuleClassType.ABSTRACT,
-               ancestors = { JavaRule.class,
-                             // java_binary and java_test require the crosstool C++ runtime
-                             // libraries (libstdc++.so, libgcc_s.so).
-                             // TODO(bazel-team): Add tests for Java+dynamic runtime.
-                             BazelCppRuleClasses.CcLinkingRule.class })
   public static final class BaseJavaBinaryRule implements RuleDefinition {
     @Override
     public RuleClass build(Builder builder, final RuleDefinitionEnvironment env) {
@@ -310,6 +320,18 @@ public class BazelJavaRuleClasses {
           // TODO(bazel-team): describe how to access this data at runtime
           .add(attr("stamp", TRISTATE).value(TriState.AUTO))
           .add(attr(":java_launcher", LABEL).value(JavaSemantics.JAVA_LAUNCHER))  // blaze flag
+          .build();
+    }
+    @Override
+    public Metadata getMetadata() {
+      return RuleDefinition.Metadata.builder()
+          .name("$base_java_binary")
+          .type(RuleClassType.ABSTRACT)
+          .ancestors(JavaRule.class,
+              // java_binary and java_test require the crosstool C++ runtime
+              // libraries (libstdc++.so, libgcc_s.so).
+              // TODO(bazel-team): Add tests for Java+dynamic runtime.
+              BazelCppRuleClasses.CcLinkingRule.class)
           .build();
     }
   }

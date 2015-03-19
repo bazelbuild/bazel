@@ -22,7 +22,6 @@ import static com.google.devtools.build.lib.packages.Type.LABEL_LIST;
 import static com.google.devtools.build.lib.packages.Type.STRING_LIST;
 
 import com.google.devtools.build.lib.analysis.BaseRuleClasses;
-import com.google.devtools.build.lib.analysis.BlazeRule;
 import com.google.devtools.build.lib.analysis.RuleDefinition;
 import com.google.devtools.build.lib.analysis.RuleDefinitionEnvironment;
 import com.google.devtools.build.lib.packages.RuleClass;
@@ -32,9 +31,6 @@ import com.google.devtools.build.lib.packages.RuleClass.Builder.RuleClassType;
 /**
  * A base rule for building the java_import rule.
  */
-@BlazeRule(name = "$java_import_base",
-           type = RuleClassType.ABSTRACT,
-           ancestors = { BaseRuleClasses.RuleBase.class })
 public class JavaImportBaseRule implements RuleDefinition {
 
   @Override
@@ -76,6 +72,15 @@ public class JavaImportBaseRule implements RuleDefinition {
         .add(attr("constraints", STRING_LIST)
             .orderIndependent()
             .nonconfigurable("used in Attribute.validityPredicate implementations (loading time)"))
+        .build();
+  }
+
+  @Override
+  public Metadata getMetadata() {
+    return RuleDefinition.Metadata.builder()
+        .name("$java_import_base")
+        .type(RuleClassType.ABSTRACT)
+        .ancestors(BaseRuleClasses.RuleBase.class)
         .build();
   }
 }

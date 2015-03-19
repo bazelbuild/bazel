@@ -19,7 +19,6 @@ import static com.google.devtools.build.lib.packages.Type.STRING_LIST;
 
 import com.google.common.collect.ImmutableList;
 import com.google.devtools.build.lib.analysis.BaseRuleClasses;
-import com.google.devtools.build.lib.analysis.BlazeRule;
 import com.google.devtools.build.lib.analysis.RuleDefinition;
 import com.google.devtools.build.lib.analysis.RuleDefinitionEnvironment;
 import com.google.devtools.build.lib.packages.RuleClass;
@@ -28,8 +27,6 @@ import com.google.devtools.build.lib.packages.RuleClass.Builder;
 /**
  * Rule definition for {@code java_toolchain}
  */
-@BlazeRule(name = "java_toolchain", ancestors = {BaseRuleClasses.BaseRule.class},
-    factoryClass = JavaToolchain.class)
 public final class JavaToolchainRule implements RuleDefinition {
   @Override
   public RuleClass build(Builder builder, RuleDefinitionEnvironment env) {
@@ -58,6 +55,15 @@ public final class JavaToolchainRule implements RuleDefinition {
         documentation for the extensive list of possible Java compiler flags.
         <!-- #END_BLAZE_RULE.ATTRIBUTE --> */
         .add(attr("misc", STRING_LIST).value(ImmutableList.<String>of()))
+        .build();
+  }
+
+  @Override
+  public Metadata getMetadata() {
+    return RuleDefinition.Metadata.builder()
+        .name("java_toolchain")
+        .ancestors(BaseRuleClasses.BaseRule.class)
+        .factoryClass(JavaToolchain.class)
         .build();
   }
 }

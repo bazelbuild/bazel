@@ -19,7 +19,6 @@ import static com.google.devtools.build.lib.packages.Type.STRING_DICT;
 
 import com.google.common.collect.ImmutableList;
 import com.google.devtools.build.lib.analysis.BaseRuleClasses;
-import com.google.devtools.build.lib.analysis.BlazeRule;
 import com.google.devtools.build.lib.analysis.RuleDefinition;
 import com.google.devtools.build.lib.analysis.RuleDefinitionEnvironment;
 import com.google.devtools.build.lib.packages.RuleClass;
@@ -40,9 +39,6 @@ public class ConfigRuleClasses {
   /**
    * Common settings for all configurability rules.
    */
-  @BlazeRule(name = "$config_base_rule",
-               type = RuleClass.Builder.RuleClassType.ABSTRACT,
-               ancestors = { BaseRuleClasses.BaseRule.class })
   public static final class ConfigBaseRule implements RuleDefinition {
     @Override
     public RuleClass build(RuleClass.Builder builder, RuleDefinitionEnvironment env) {
@@ -53,6 +49,15 @@ public class ConfigRuleClasses {
               .nonconfigurable(NONCONFIGURABLE_ATTRIBUTE_REASON))
           .exemptFromConstraintChecking(
               "these rules don't include content that gets built into their dependers")
+          .build();
+    }
+
+    @Override
+    public Metadata getMetadata() {
+      return RuleDefinition.Metadata.builder()
+          .name("$config_base_rule")
+          .type(RuleClass.Builder.RuleClassType.ABSTRACT)
+          .ancestors(BaseRuleClasses.BaseRule.class)
           .build();
     }
   }
@@ -85,10 +90,6 @@ public class ConfigRuleClasses {
    * themselves inputs to that map. So Bazel has special logic to read and properly apply
    * config_setting instances. See {@link ConfiguredTargetFunction#getConfigConditions} for details.
    */
-  @BlazeRule(name = "config_setting",
-               type = RuleClass.Builder.RuleClassType.NORMAL,
-               ancestors = { ConfigBaseRule.class },
-               factoryClass = ConfigSetting.class)
   public static final class ConfigSettingRule implements RuleDefinition {
     /**
      * The name of the attribute that declares flag bindings.
@@ -135,6 +136,16 @@ public class ConfigRuleClasses {
           <!-- #END_BLAZE_RULE.ATTRIBUTE --> */
           .add(attr(SETTINGS_ATTRIBUTE, STRING_DICT).mandatory()
               .nonconfigurable(NONCONFIGURABLE_ATTRIBUTE_REASON))
+          .build();
+    }
+
+    @Override
+    public Metadata getMetadata() {
+      return RuleDefinition.Metadata.builder()
+          .name("config_setting")
+          .type(RuleClass.Builder.RuleClassType.NORMAL)
+          .ancestors(ConfigBaseRule.class)
+          .factoryClass(ConfigSetting.class)
           .build();
     }
   }

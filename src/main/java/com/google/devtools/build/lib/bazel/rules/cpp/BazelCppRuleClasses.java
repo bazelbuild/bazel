@@ -39,7 +39,6 @@ import static com.google.devtools.build.lib.rules.cpp.CppFileTypes.VERSIONED_SHA
 
 import com.google.common.base.Predicates;
 import com.google.devtools.build.lib.analysis.BaseRuleClasses;
-import com.google.devtools.build.lib.analysis.BlazeRule;
 import com.google.devtools.build.lib.analysis.RuleDefinition;
 import com.google.devtools.build.lib.analysis.RuleDefinitionEnvironment;
 import com.google.devtools.build.lib.analysis.config.BuildConfiguration;
@@ -208,8 +207,6 @@ public class BazelCppRuleClasses {
    * Common attributes for all rules that create C++ links. This may
    * include non-cc_* rules (e.g. py_binary).
    */
-  @BlazeRule(name = "$cc_linking_rule",
-               type = RuleClassType.ABSTRACT)
   public static final class CcLinkingRule implements RuleDefinition {
     @Override
     @SuppressWarnings("unchecked")
@@ -219,14 +216,19 @@ public class BazelCppRuleClasses {
           .setPreferredDependencyPredicate(Predicates.<String>or(CPP_SOURCE, C_SOURCE, CPP_HEADER))
           .build();
     }
+
+    @Override
+    public Metadata getMetadata() {
+      return RuleDefinition.Metadata.builder()
+          .name("$cc_linking_rule")
+          .type(RuleClassType.ABSTRACT)
+          .build();
+    }
   }
 
   /**
    * Common attributes for C++ rules.
    */
-  @BlazeRule(name = "$cc_base_rule",
-               type = RuleClassType.ABSTRACT,
-               ancestors = { CcLinkingRule.class })
   public static final class CcBaseRule implements RuleDefinition {
     @Override
     public RuleClass build(Builder builder, RuleDefinitionEnvironment env) {
@@ -246,14 +248,20 @@ public class BazelCppRuleClasses {
           .add(attr(":stl", LABEL).value(STL))
           .build();
     }
+
+    @Override
+    public Metadata getMetadata() {
+      return RuleDefinition.Metadata.builder()
+          .name("$cc_base_rule")
+          .type(RuleClassType.ABSTRACT)
+          .ancestors(CcLinkingRule.class)
+          .build();
+    }
   }
 
   /**
    * Helper rule class.
    */
-  @BlazeRule(name = "$cc_decl_rule",
-               type = RuleClassType.ABSTRACT,
-               ancestors = { BaseRuleClasses.RuleBase.class })
   public static final class CcDeclRule implements RuleDefinition {
     @Override
     public RuleClass build(Builder builder, RuleDefinitionEnvironment env) {
@@ -355,14 +363,20 @@ public class BazelCppRuleClasses {
               .value(LIPO_CONTEXT_COLLECTOR))
           .build();
     }
+
+    @Override
+    public Metadata getMetadata() {
+      return RuleDefinition.Metadata.builder()
+          .name("$cc_decl_rule")
+          .type(RuleClassType.ABSTRACT)
+          .ancestors(BaseRuleClasses.RuleBase.class)
+          .build();
+    }
   }
 
   /**
    * Helper rule class.
    */
-  @BlazeRule(name = "$cc_rule",
-             type = RuleClassType.ABSTRACT,
-             ancestors = { CcDeclRule.class, CcBaseRule.class })
   public static final class CcRule implements RuleDefinition {
     @Override
     public RuleClass build(Builder builder, final RuleDefinitionEnvironment env) {
@@ -546,14 +560,19 @@ public class BazelCppRuleClasses {
           }))
           .build();
     }
+    @Override
+    public Metadata getMetadata() {
+      return RuleDefinition.Metadata.builder()
+          .name("$cc_rule")
+          .type(RuleClassType.ABSTRACT)
+          .ancestors(CcDeclRule.class, CcBaseRule.class)
+          .build();
+    }
   }
 
   /**
    * Helper rule class.
    */
-  @BlazeRule(name = "$cc_binary_base",
-             type = RuleClassType.ABSTRACT,
-             ancestors = CcRule.class)
   public static final class CcBinaryBaseRule implements RuleDefinition {
     @Override
     public RuleClass build(Builder builder, RuleDefinitionEnvironment env) {
@@ -594,15 +613,19 @@ public class BazelCppRuleClasses {
           .add(attr("stamp", TRISTATE).value(TriState.AUTO))
           .build();
     }
+    @Override
+    public Metadata getMetadata() {
+      return RuleDefinition.Metadata.builder()
+          .name("$cc_binary_base")
+          .type(RuleClassType.ABSTRACT)
+          .ancestors(CcRule.class)
+          .build();
+    }
   }
 
   /**
    * Rule definition for cc_binary rules.
    */
-  @BlazeRule(name = "cc_binary",
-               ancestors = { CcBinaryBaseRule.class,
-                             BazelBaseRuleClasses.BinaryBaseRule.class },
-               factoryClass = BazelCcBinary.class)
   public static final class CcBinaryRule implements RuleDefinition {
     @Override
     public RuleClass build(Builder builder, RuleDefinitionEnvironment env) {
@@ -650,6 +673,14 @@ public class BazelCppRuleClasses {
           .cfg(LIPO_ON_DEMAND)
           .build();
     }
+    @Override
+    public Metadata getMetadata() {
+      return RuleDefinition.Metadata.builder()
+          .name("cc_binary")
+          .ancestors(CcBinaryBaseRule.class, BazelBaseRuleClasses.BinaryBaseRule.class)
+          .factoryClass(BazelCcBinary.class)
+          .build();
+    }
   }
 
   /**
@@ -667,10 +698,6 @@ public class BazelCppRuleClasses {
   /**
    * Rule definition for cc_test rules.
    */
-  @BlazeRule(name = "cc_test",
-      type = RuleClassType.TEST,
-      ancestors = { CcBinaryBaseRule.class, BaseRuleClasses.TestBaseRule.class },
-      factoryClass = BazelCcTest.class)
   public static final class CcTestRule implements RuleDefinition {
     @Override
     public RuleClass build(Builder builder, RuleDefinitionEnvironment env) {
@@ -681,14 +708,20 @@ public class BazelCppRuleClasses {
           .add(attr(":lipo_context", LABEL).value(LIPO_CONTEXT))
           .build();
     }
+    @Override
+    public Metadata getMetadata() {
+      return RuleDefinition.Metadata.builder()
+          .name("cc_test")
+          .type(RuleClassType.TEST)
+          .ancestors(CcBinaryBaseRule.class, BaseRuleClasses.TestBaseRule.class)
+          .factoryClass(BazelCcTest.class)
+          .build();
+    }
   }
 
   /**
    * Helper rule class.
    */
-  @BlazeRule(name = "$cc_library",
-               type = RuleClassType.ABSTRACT,
-               ancestors = { CcRule.class })
   public static final class CcLibraryBaseRule implements RuleDefinition {
     @Override
     public RuleClass build(Builder builder, RuleDefinitionEnvironment env) {
@@ -717,14 +750,19 @@ public class BazelCppRuleClasses {
           .add(attr("linkstamp", LABEL).allowedFileTypes(CPP_SOURCE, C_SOURCE))
           .build();
     }
+    @Override
+    public Metadata getMetadata() {
+      return RuleDefinition.Metadata.builder()
+          .name("$cc_library")
+          .type(RuleClassType.ABSTRACT)
+          .ancestors(CcRule.class)
+          .build();
+    }
   }
 
   /**
    * Rule definition for the cc_library rule.
    */
-  @BlazeRule(name = "cc_library",
-               ancestors = { CcLibraryBaseRule.class},
-               factoryClass = BazelCcLibrary.class)
   public static final class CcLibraryRule implements RuleDefinition {
     @Override
     public RuleClass build(Builder builder, RuleDefinitionEnvironment env) {
@@ -767,6 +805,14 @@ public class BazelCppRuleClasses {
               .allowedRuleClasses("cc_public_library$headers"))
           .override(attr("linkstatic", BOOLEAN).value(false)
               .nonconfigurable("value is referenced in an ImplicitOutputsFunction"))
+          .build();
+    }
+    @Override
+    public Metadata getMetadata() {
+      return RuleDefinition.Metadata.builder()
+          .name("cc_library")
+          .ancestors(CcLibraryBaseRule.class)
+          .factoryClass(BazelCcLibrary.class)
           .build();
     }
   }

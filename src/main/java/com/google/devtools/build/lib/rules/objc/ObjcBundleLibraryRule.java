@@ -15,7 +15,6 @@
 package com.google.devtools.build.lib.rules.objc;
 
 import com.google.devtools.build.lib.analysis.BaseRuleClasses;
-import com.google.devtools.build.lib.analysis.BlazeRule;
 import com.google.devtools.build.lib.analysis.RuleDefinition;
 import com.google.devtools.build.lib.analysis.RuleDefinitionEnvironment;
 import com.google.devtools.build.lib.packages.RuleClass;
@@ -24,13 +23,6 @@ import com.google.devtools.build.lib.packages.RuleClass.Builder;
 /**
  * Rule definition for objc_bundle_library.
  */
-@BlazeRule(name = "objc_bundle_library",
-    factoryClass = ObjcBundleLibrary.class,
-    ancestors = {
-        BaseRuleClasses.BaseRule.class,
-        ObjcRuleClasses.ResourcesRule.class,
-        ObjcRuleClasses.BundlingRule.class,
-        ObjcRuleClasses.XcodegenRule.class })
 public class ObjcBundleLibraryRule implements RuleDefinition {
   @Override
   public RuleClass build(Builder builder, RuleDefinitionEnvironment env) {
@@ -42,6 +34,16 @@ public class ObjcBundleLibraryRule implements RuleDefinition {
         </ul>
         <!-- #END_BLAZE_RULE.IMPLICIT_OUTPUTS -->*/
         .setImplicitOutputsFunction(XcodeSupport.PBXPROJ)
+        .build();
+  }
+
+  @Override
+  public Metadata getMetadata() {
+    return RuleDefinition.Metadata.builder()
+        .name("objc_bundle_library")
+        .factoryClass(ObjcBundleLibrary.class)
+        .ancestors(BaseRuleClasses.BaseRule.class, ObjcRuleClasses.ResourcesRule.class,
+            ObjcRuleClasses.BundlingRule.class, ObjcRuleClasses.XcodegenRule.class)
         .build();
   }
 }

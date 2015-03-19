@@ -21,7 +21,6 @@ import static com.google.devtools.build.lib.packages.Type.LABEL;
 import static com.google.devtools.build.lib.packages.Type.LABEL_LIST;
 
 import com.google.devtools.build.lib.analysis.BaseRuleClasses;
-import com.google.devtools.build.lib.analysis.BlazeRule;
 import com.google.devtools.build.lib.analysis.RuleDefinition;
 import com.google.devtools.build.lib.analysis.RuleDefinitionEnvironment;
 import com.google.devtools.build.lib.packages.RuleClass;
@@ -32,11 +31,6 @@ import com.google.devtools.build.lib.packages.RuleClass.Builder;
  *
  * This is a temporary rule until it is better known how to support proto_library rules.
  */
-@BlazeRule(name = "objc_proto_library",
-    factoryClass = ObjcProtoLibrary.class,
-    ancestors = {
-        BaseRuleClasses.BaseRule.class,
-        ObjcRuleClasses.ObjcProtoRule.class })
 public class ObjcProtoLibraryRule implements RuleDefinition {
   static final String OPTIONS_FILE_ATTR = "options_file";
   static final String OUTPUT_CPP_ATTR = "output_cpp";
@@ -68,6 +62,15 @@ public class ObjcProtoLibraryRule implements RuleDefinition {
                 "//external:objc_proto_lib")))
         .add(attr("$xcodegen", LABEL).cfg(HOST).exec()
             .value(env.getLabel("//tools/objc:xcodegen")))
+        .build();
+  }
+
+  @Override
+  public Metadata getMetadata() {
+    return RuleDefinition.Metadata.builder()
+        .name("objc_proto_library")
+        .factoryClass(ObjcProtoLibrary.class)
+        .ancestors(BaseRuleClasses.BaseRule.class, ObjcRuleClasses.ObjcProtoRule.class)
         .build();
   }
 }
