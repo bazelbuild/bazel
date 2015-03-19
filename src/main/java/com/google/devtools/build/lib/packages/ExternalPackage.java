@@ -102,8 +102,8 @@ public class ExternalPackage extends Package {
    */
   public static class Builder
       extends AbstractBuilder<ExternalPackage, Builder> {
-    private Map<Label, Binding> bindMap = Maps.newHashMap();
-    private Map<RepositoryName, Rule> repositoryMap = Maps.newHashMap();
+    private Map<Label, Binding> bindMap = Maps.newLinkedHashMap();
+    private Map<RepositoryName, Rule> repositoryMap = Maps.newLinkedHashMap();
 
     public Builder(Path workspacePath) {
       super(new ExternalPackage());
@@ -118,6 +118,14 @@ public class ExternalPackage extends Package {
 
     @Override
     public ExternalPackage build() {
+      for (Rule rule : repositoryMap.values()) {
+        try {
+          addRule(rule);
+        } catch (NameConflictException e) {
+          throw new IllegalStateException("Got a name conflict for " + rule
+              + ", which can't happen: " + e.getMessage());
+        }
+      }
       pkg.bindMap = ImmutableMap.copyOf(bindMap);
       pkg.repositoryMap = ImmutableMap.copyOf(repositoryMap);
       return super.build();
@@ -198,18 +206,17 @@ public class ExternalPackage extends Package {
     }
 
     /**
-     * Creates an external repository rule.
-     * @throws SyntaxException if the repository name is invalid.
+     * Adds the rule to the map of rules. Overwrites rules that are already there, to allow "later"
+     * WORKSPACE files to overwrite "earlier" ones.
      */
-    public Builder createAndAddRepositoryRule(RuleClass ruleClass,
-        Map<String, Object> kwargs, FuncallExpression ast)
-            throws InvalidRuleException, NameConflictException, SyntaxException {
+    public Builder createAndAddRepositoryRule(RuleClass ruleClass, Map<String, Object> kwargs,
+        FuncallExpression ast)
+        throws InvalidRuleException, NameConflictException, SyntaxException {
       StoredEventHandler eventHandler = new StoredEventHandler();
-      Rule rule = RuleFactory.createAndAddRule(this, ruleClass, kwargs, eventHandler, ast,
+      Rule tempRule = RuleFactory.createRule(this, ruleClass, kwargs, eventHandler, ast,
           ast.getLocation());
-      // Propagate Rule errors to the builder.
       addEvents(eventHandler.getEvents());
-      repositoryMap.put(RepositoryName.create("@" + rule.getName()), rule);
+      repositoryMap.put(RepositoryName.create("@" + tempRule.getName()), tempRule);
       return this;
     }
 

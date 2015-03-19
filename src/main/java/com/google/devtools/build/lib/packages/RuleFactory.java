@@ -66,29 +66,13 @@ public class RuleFactory {
   /**
    * Creates and returns a rule instance.
    *
-   * <p>It is the caller's responsibility to add the rule to the package (the
-   * caller may choose not to do so if, for example, the rule has errors).
-   *
-   * @param pkgBuilder the under-construction package to which the rule belongs
-   * @param ruleClass the class of the rule; this must not be null
-   * @param attributeValues a map of attribute names to attribute values. Each
-   *        attribute must be defined for this class of rule, and have a value
-   *        of the appropriate type. There must be a map entry for each
-   *        non-optional attribute of this class of rule.
-   * @param eventHandler a eventHandler on which errors and warnings are reported during
-   *        rule creation
-   * @param ast the abstract syntax tree of the rule expression (optional)
-   * @param location the location at which this rule was declared
-   * @throws InvalidRuleException if the rule could not be constructed for any
-   *         reason (e.g. no <code>name</code> attribute is defined)
-   * @throws NameConflictException
+   * <p>It is the caller's responsibility to add the rule to the package (the caller may choose not
+   * to do so if, for example, the rule has errors).</p>
    */
-  static Rule createAndAddRule(Package.AbstractBuilder<?, ?> pkgBuilder,
-                  RuleClass ruleClass,
-                  Map<String, Object> attributeValues,
-                  EventHandler eventHandler,
-                  FuncallExpression ast,
-                  Location location) throws InvalidRuleException, NameConflictException {
+  static Rule createRule(Package.AbstractBuilder<?, ?> pkgBuilder, RuleClass ruleClass,
+      Map<String, Object> attributeValues, EventHandler eventHandler, FuncallExpression ast,
+      Location location)
+      throws InvalidRuleException, NameConflictException {
     Preconditions.checkNotNull(ruleClass);
     String ruleClassName = ruleClass.getName();
     Object nameObject = attributeValues.get("name");
@@ -117,11 +101,38 @@ public class RuleFactory {
     try {
       Rule rule = ruleClass.createRuleWithLabel(pkgBuilder, label, attributeValues,
           eventHandler, ast, location);
-      pkgBuilder.addRule(rule);
       return rule;
     } catch (SyntaxException e) {
       throw new RuleFactory.InvalidRuleException(ruleClass + " " + e.getMessage());
     }
+  }
+
+  /**
+   * Creates and returns a rule instance.
+   *
+   * @param pkgBuilder the under-construction package to which the rule belongs
+   * @param ruleClass the class of the rule; this must not be null
+   * @param attributeValues a map of attribute names to attribute values. Each
+   *        attribute must be defined for this class of rule, and have a value
+   *        of the appropriate type. There must be a map entry for each
+   *        non-optional attribute of this class of rule.
+   * @param eventHandler a eventHandler on which errors and warnings are reported during
+   *        rule creation
+   * @param ast the abstract syntax tree of the rule expression (optional)
+   * @param location the location at which this rule was declared
+   * @throws InvalidRuleException if the rule could not be constructed for any
+   *         reason (e.g. no <code>name</code> attribute is defined)
+   * @throws NameConflictException
+   */
+  static Rule createAndAddRule(Package.AbstractBuilder<?, ?> pkgBuilder,
+                  RuleClass ruleClass,
+                  Map<String, Object> attributeValues,
+                  EventHandler eventHandler,
+                  FuncallExpression ast,
+                  Location location) throws InvalidRuleException, NameConflictException {
+    Rule rule = createRule(pkgBuilder, ruleClass, attributeValues, eventHandler, ast, location);
+    pkgBuilder.addRule(rule);
+    return rule;
   }
 
   public static Rule createAndAddRule(PackageContext context,
