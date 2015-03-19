@@ -71,6 +71,7 @@ import com.google.devtools.build.lib.vfs.PathFragment;
 import com.google.devtools.build.lib.vfs.Symlinks;
 import com.google.protobuf.ByteString;
 
+import java.io.File;
 import java.io.IOException;
 import java.util.Collection;
 import java.util.HashSet;
@@ -454,8 +455,8 @@ public final class SkyframeActionExecutor {
     this.executorEngine = null;
   }
 
-  Path getExecRoot() {
-    return executorEngine.getExecRoot();
+  File getExecRoot() {
+    return executorEngine.getExecRoot().getPathFile();
   }
 
   boolean probeActionExecution(Action action) {
@@ -1160,15 +1161,9 @@ public final class SkyframeActionExecutor {
 
     @Nullable
     @Override
-    public ActionInput getInputFromDigest(ByteString digest) throws IOException {
-      ActionInput file = perActionCache.getInputFromDigest(digest);
-      return file != null ? file : perBuildFileCache.getInputFromDigest(digest);
-    }
-
-    @Override
-    public Path getInputPath(ActionInput input) {
-      // Resolving an input only requires the execRoot, which the per-action cache has.
-      return perActionCache.getInputPath(input);
+    public File getFileFromDigest(ByteString digest) throws IOException {
+      File file = perActionCache.getFileFromDigest(digest);
+      return file != null ? file : perBuildFileCache.getFileFromDigest(digest);
     }
   }
 }

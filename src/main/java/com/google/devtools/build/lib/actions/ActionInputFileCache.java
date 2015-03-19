@@ -13,9 +13,9 @@
 // limitations under the License.
 package com.google.devtools.build.lib.actions;
 
-import com.google.devtools.build.lib.vfs.Path;
 import com.google.protobuf.ByteString;
 
+import java.io.File;
 import java.io.IOException;
 
 import javax.annotation.Nullable;
@@ -70,16 +70,8 @@ public interface ActionInputFileCache {
    * based on files previously seen as inputs.
    *
    * @param digest the digest.
-   * @return an ActionInput corresponding to the given digest.
+   * @return a File path.
    */
   @Nullable
-  ActionInput getInputFromDigest(ByteString digest) throws IOException;
-
-  /**
-   * The absolute path that this input is located at. The usual {@link ActionInput} implementation
-   * is {@link Artifact}, which currently embeds its full path, so implementations should just
-   * return this path if {@code input} is an {@link Artifact}. Otherwise, implementations should
-   * resolve the relative path into an absolute one and return that.
-   */
-  Path getInputPath(ActionInput input);
+  File getFileFromDigest(ByteString digest) throws IOException;
 }

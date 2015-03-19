@@ -23,7 +23,6 @@ import com.google.common.collect.Maps;
 import com.google.common.io.BaseEncoding;
 import com.google.devtools.build.lib.actions.ActionInput;
 import com.google.devtools.build.lib.actions.ActionInputFileCache;
-import com.google.devtools.build.lib.actions.Artifact;
 import com.google.devtools.build.lib.actions.DigestOfDirectoryException;
 import com.google.devtools.build.lib.util.Pair;
 import com.google.devtools.build.lib.vfs.FileSystem;
@@ -100,16 +99,9 @@ public class SingleBuildFileCache implements ActionInputFileCache {
 
   @Nullable
   @Override
-  public ActionInput getInputFromDigest(ByteString digest) {
-    return digestToPath.get(digest);
-  }
-
-  @Override
-  public Path getInputPath(ActionInput input) {
-    if (input instanceof Artifact) {
-      return ((Artifact) input).getPath();
-    }
-    return fs.getPath(fullPath(input));
+  public File getFileFromDigest(ByteString digest) {
+    ActionInput relPath = digestToPath.get(digest);
+    return relPath == null ? null : new File(fullPath(relPath));
   }
 
   @Override
