@@ -61,7 +61,6 @@ import com.google.devtools.build.lib.packages.Type;
 import com.google.devtools.build.lib.rules.cpp.CcCommon;
 import com.google.devtools.build.lib.util.FileType;
 import com.google.devtools.build.lib.vfs.PathFragment;
-import com.google.devtools.build.xcode.util.Interspersing;
 
 import java.util.HashSet;
 import java.util.List;

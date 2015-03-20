@@ -21,7 +21,6 @@ import com.google.devtools.build.lib.analysis.RuleContext;
 import com.google.devtools.build.lib.collect.nestedset.NestedSetBuilder;
 import com.google.devtools.build.lib.rules.objc.ObjcActionsBuilder.ExtraActoolArgs;
 import com.google.devtools.build.lib.rules.objc.XcodeProvider.Builder;
-import com.google.devtools.build.xcode.common.TargetDeviceFamily;
 
 import java.util.Set;
 

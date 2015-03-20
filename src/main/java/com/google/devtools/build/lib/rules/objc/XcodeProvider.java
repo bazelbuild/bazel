@@ -43,7 +43,6 @@ import com.google.devtools.build.lib.concurrent.ThreadSafety.Immutable;
 import com.google.devtools.build.lib.rules.objc.ObjcProvider.Flag;
 import com.google.devtools.build.lib.syntax.Label;
 import com.google.devtools.build.lib.vfs.PathFragment;
-import com.google.devtools.build.xcode.util.Interspersing;
 import com.google.devtools.build.xcode.xcodegen.proto.XcodeGenProtos.DependencyControl;
 import com.google.devtools.build.xcode.xcodegen.proto.XcodeGenProtos.TargetControl;
 import com.google.devtools.build.xcode.xcodegen.proto.XcodeGenProtos.XcodeprojBuildSetting;

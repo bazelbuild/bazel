@@ -15,7 +15,6 @@
 package com.google.devtools.build.lib.rules.objc;
 
 import com.google.common.collect.ImmutableList;
-import com.google.devtools.build.xcode.util.Value;
 
 /**
  * Represents the name of an SDK framework.

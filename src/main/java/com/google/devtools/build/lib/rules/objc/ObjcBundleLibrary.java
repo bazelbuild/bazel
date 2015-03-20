@@ -26,7 +26,6 @@ import com.google.devtools.build.lib.analysis.RuleContext;
 import com.google.devtools.build.lib.collect.nestedset.NestedSetBuilder;
 import com.google.devtools.build.lib.rules.RuleConfiguredTargetFactory;
 import com.google.devtools.build.lib.rules.objc.ObjcCommon.ResourceAttributes;
-import com.google.devtools.build.xcode.common.TargetDeviceFamily;
 
 /**
  * Implementation for {@code objc_bundle_library}.

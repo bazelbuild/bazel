@@ -23,8 +23,6 @@ import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.ImmutableSet;
 import com.google.common.collect.Iterables;
 import com.google.devtools.build.lib.vfs.PathFragment;
-import com.google.devtools.build.xcode.common.Platform;
-import com.google.devtools.build.xcode.util.Interspersing;
 import com.google.devtools.build.xcode.xcodegen.proto.XcodeGenProtos.XcodeprojBuildSetting;
 
 import java.util.List;

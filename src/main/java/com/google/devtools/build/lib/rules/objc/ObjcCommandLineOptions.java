@@ -14,8 +14,6 @@
 
 package com.google.devtools.build.lib.rules.objc;
 
-import static com.google.devtools.build.xcode.common.BuildOptionsUtil.DEFAULT_OPTIONS_NAME;
-
 import com.google.common.annotations.VisibleForTesting;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.Multimap;
@@ -64,7 +62,7 @@ public class
   public String iosCpu;
 
   @Option(name = "xcode_options",
-      defaultValue = DEFAULT_OPTIONS_NAME,
+      defaultValue = "Debug",
       category = "undocumented",
       help = "Specifies the name of the build settings to use.")
   // TODO(danielwh): Do literally anything with this flag. Ideally, pass it to xcodegen via a

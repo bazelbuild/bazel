@@ -25,7 +25,6 @@ import com.google.devtools.build.lib.analysis.actions.ActionConstructionContext;
 import com.google.devtools.build.lib.analysis.actions.CommandLine;
 import com.google.devtools.build.lib.analysis.actions.SpawnAction;
 import com.google.devtools.build.lib.collect.nestedset.NestedSet;
-import com.google.devtools.build.xcode.util.Interspersing;
 
 /**
  * Supplies information regarding Infoplist merging for a particular binary. This includes:

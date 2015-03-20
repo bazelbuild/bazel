@@ -27,7 +27,6 @@ import com.google.devtools.build.xcode.bundlemerge.proto.BundleMergeProtos.Contr
 import com.google.devtools.build.xcode.bundlemerge.proto.BundleMergeProtos.MergeZip;
 import com.google.devtools.build.xcode.bundlemerge.proto.BundleMergeProtos.VariableSubstitution;
 import com.google.devtools.build.xcode.common.Platform;
-import com.google.devtools.build.xcode.common.TargetDeviceFamily;
 import com.google.devtools.build.xcode.plmerge.KeysToRemoveIfEmptyString;
 import com.google.devtools.build.xcode.plmerge.PlistMerging;
 import com.google.devtools.build.xcode.zip.ZipFiles;
@@ -112,7 +111,7 @@ public final class BundleMerging {
     PlistMerging plistMerging = PlistMerging.from(
         sourcePlistFiles,
         PlistMerging.automaticEntries(
-            TargetDeviceFamily.fromBundleMergeNames(control.getTargetDeviceFamilyList()),
+            control.getTargetDeviceFamilyList(),
             Platform.valueOf(control.getPlatform()),
             control.getSdkVersion(),
             control.getMinimumOsVersion()),

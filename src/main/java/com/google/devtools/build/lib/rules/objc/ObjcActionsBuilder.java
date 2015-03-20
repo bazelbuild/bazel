@@ -52,8 +52,6 @@ import com.google.devtools.build.lib.analysis.config.BuildConfiguration;
 import com.google.devtools.build.lib.util.LazyString;
 import com.google.devtools.build.lib.vfs.FileSystemUtils;
 import com.google.devtools.build.lib.vfs.PathFragment;
-import com.google.devtools.build.xcode.common.TargetDeviceFamily;
-import com.google.devtools.build.xcode.util.Interspersing;
 import com.google.devtools.build.xcode.xcodegen.proto.XcodeGenProtos;
 
 import java.io.InputStream;

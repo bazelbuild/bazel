@@ -16,7 +16,7 @@ package com.google.devtools.build.lib.rules.objc;
 
 import static com.google.common.base.Preconditions.checkNotNull;
 import static com.google.devtools.build.lib.packages.ImplicitOutputsFunction.fromTemplates;
-import static com.google.devtools.build.xcode.common.TargetDeviceFamily.UI_DEVICE_FAMILY_VALUES;
+import static com.google.devtools.build.lib.rules.objc.TargetDeviceFamily.UI_DEVICE_FAMILY_VALUES;
 
 import com.google.common.annotations.VisibleForTesting;
 import com.google.common.base.Joiner;
@@ -41,12 +41,10 @@ import com.google.devtools.build.lib.packages.Attribute.SplitTransition;
 import com.google.devtools.build.lib.packages.ImplicitOutputsFunction.SafeImplicitOutputsFunction;
 import com.google.devtools.build.lib.packages.Type;
 import com.google.devtools.build.lib.rules.objc.ObjcActionsBuilder.ExtraActoolArgs;
+import com.google.devtools.build.lib.rules.objc.TargetDeviceFamily.InvalidFamilyNameException;
+import com.google.devtools.build.lib.rules.objc.TargetDeviceFamily.RepeatedFamilyNameException;
 import com.google.devtools.build.lib.shell.ShellUtils;
 import com.google.devtools.build.lib.vfs.PathFragment;
-import com.google.devtools.build.xcode.common.InvalidFamilyNameException;
-import com.google.devtools.build.xcode.common.Platform;
-import com.google.devtools.build.xcode.common.RepeatedFamilyNameException;
-import com.google.devtools.build.xcode.common.TargetDeviceFamily;
 import com.google.devtools.build.xcode.xcodegen.proto.XcodeGenProtos.XcodeprojBuildSetting;
 
 import java.util.List;

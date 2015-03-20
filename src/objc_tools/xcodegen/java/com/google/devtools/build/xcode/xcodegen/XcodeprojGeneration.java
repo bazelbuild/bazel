@@ -16,7 +16,6 @@ package com.google.devtools.build.xcode.xcodegen;
 
 import static com.google.common.base.Preconditions.checkArgument;
 import static com.google.common.base.Preconditions.checkState;
-import static com.google.devtools.build.xcode.common.BuildOptionsUtil.DEFAULT_OPTIONS_NAME;
 
 import com.google.common.annotations.VisibleForTesting;
 import com.google.common.base.Joiner;
@@ -30,7 +29,6 @@ import com.google.common.collect.Lists;
 import com.google.devtools.build.xcode.common.XcodeprojPath;
 import com.google.devtools.build.xcode.util.Containing;
 import com.google.devtools.build.xcode.util.Equaling;
-import com.google.devtools.build.xcode.util.Interspersing;
 import com.google.devtools.build.xcode.util.Mapping;
 import com.google.devtools.build.xcode.xcodegen.LibraryObjects.BuildPhaseBuilder;
 import com.google.devtools.build.xcode.xcodegen.SourceFile.BuildType;
@@ -84,6 +82,7 @@ public class XcodeprojGeneration {
   public static final String FILE_TYPE_WRAPPER_APPLICATION = "wrapper.application";
   public static final String FILE_TYPE_WRAPPER_BUNDLE = "wrapper.cfbundle";
   public static final String FILE_TYPE_APP_EXTENSION = "wrapper.app-extension";
+  private static final String DEFAULT_OPTIONS_NAME = "Debug";
 
   @VisibleForTesting
   static final String APP_NEEDS_SOURCE_ERROR =
@@ -349,8 +348,9 @@ public class XcodeprojGeneration {
     ImmutableList.Builder<String> flags = new ImmutableList.Builder<>();
     flags.addAll(givenFlags);
     if (!Equaling.of(ProductType.STATIC_LIBRARY, productType(targetControl))) {
-      flags.addAll(Interspersing.prependEach(
-          "$(WORKSPACE_ROOT)/", targetControl.getImportedLibraryList()));
+      for (String importedLibrary : targetControl.getImportedLibraryList()) {
+        flags.add("$(WORKSPACE_ROOT)/" + importedLibrary);
+      }
     }
     return flags.build();
   }

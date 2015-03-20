@@ -48,8 +48,6 @@ import com.google.devtools.build.lib.syntax.Label;
 import com.google.devtools.build.lib.util.FileType;
 import com.google.devtools.build.lib.util.FileTypeSet;
 import com.google.devtools.build.lib.vfs.PathFragment;
-import com.google.devtools.build.xcode.common.Platform;
-import com.google.devtools.build.xcode.common.TargetDeviceFamily;
 
 /**
  * Shared rule classes and associated utility code for Objective-C rules.

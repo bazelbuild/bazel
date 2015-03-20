@@ -12,7 +12,7 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-package com.google.devtools.build.xcode.common;
+package com.google.devtools.build.lib.rules.objc;
 
 import com.google.common.base.Splitter;
 import com.google.common.collect.ImmutableBiMap;
@@ -30,6 +30,26 @@ import java.util.Set;
  */
 public enum TargetDeviceFamily {
   IPAD, IPHONE;
+
+  /**
+   * An exception that indicates the name of a device family was not recognized or is somehow
+   * invalid.
+   */
+  public static class InvalidFamilyNameException extends IllegalArgumentException {
+    public InvalidFamilyNameException(String message) {
+      super(message);
+    }
+  }
+
+  /**
+   * An exception that indicates a family name appeared twice in a sequence when only one is
+   * expected.
+   */
+  public static class RepeatedFamilyNameException extends IllegalArgumentException {
+    public RepeatedFamilyNameException(String message) {
+      super(message);
+    }
+  }
 
   /**
    * Contains the values of the UIDeviceFamily plist info setting for each valid set of
@@ -50,47 +70,8 @@ public enum TargetDeviceFamily {
     return BY_NAME_IN_RULE.get(this);
   }
 
-  /**
-   * Returns the name of family which should be used in the bundlemerge control proto.
-   */
-  public String getBundleMergeName() {
-    return BY_BUNDLE_MERGE_NAME.get(this);
-  }
-
   private static final ImmutableBiMap<TargetDeviceFamily, String> BY_NAME_IN_RULE =
-      ImmutableBiMap.<TargetDeviceFamily, String>of(IPAD, "ipad", IPHONE, "iphone");
-
-  private static final ImmutableBiMap<TargetDeviceFamily, String> BY_BUNDLE_MERGE_NAME =
-      ImmutableBiMap.<TargetDeviceFamily, String>of(IPAD, "IPAD", IPHONE, "IPHONE");
-
-  private static Set<TargetDeviceFamily> fromNames(
-      Iterable<String> names, Map<String, TargetDeviceFamily> mapping) {
-    Set<TargetDeviceFamily> families = EnumSet.noneOf(TargetDeviceFamily.class);
-    for (String name : names) {
-      TargetDeviceFamily family = mapping.get(name);
-      if (family == null) {
-        throw new InvalidFamilyNameException(name);
-      }
-      if (!families.add(family)) {
-        throw new RepeatedFamilyNameException(name);
-      }
-    }
-    return families;
-  }
-
-  /**
-   * Converts a sequence containing the strings returned by {@link #getBundleMergeName()} to a set
-   * of instances of this enum.
-   *
-   * <p>If there are multiple items in the returned set, they are in enumeration order.
-   *
-   * @param names the names of the families
-   * @throws InvalidFamilyNameException if some family name in the sequence was not recognized
-   * @throws RepeatedFamilyNameException if some family name appeared in the sequence twice
-   */
-  public static Set<TargetDeviceFamily> fromBundleMergeNames(Iterable<String> names) {
-    return fromNames(names, BY_BUNDLE_MERGE_NAME.inverse());
-  }
+      ImmutableBiMap.of(IPAD, "ipad", IPHONE, "iphone");
 
   /**
    * Converts a sequence containing the strings returned by {@link #getNameInRule()} to a set of
@@ -103,7 +84,17 @@ public enum TargetDeviceFamily {
    * @throws RepeatedFamilyNameException if some family name appeared in the sequence twice
    */
   public static Set<TargetDeviceFamily> fromNamesInRule(Iterable<String> names) {
-    return fromNames(names, BY_NAME_IN_RULE.inverse());
+    Set<TargetDeviceFamily> families = EnumSet.noneOf(TargetDeviceFamily.class);
+    for (String name : names) {
+      TargetDeviceFamily family = BY_NAME_IN_RULE.inverse().get(name);
+      if (family == null) {
+        throw new InvalidFamilyNameException(name);
+      }
+      if (!families.add(family)) {
+        throw new RepeatedFamilyNameException(name);
+      }
+    }
+    return families;
   }
 
   /**

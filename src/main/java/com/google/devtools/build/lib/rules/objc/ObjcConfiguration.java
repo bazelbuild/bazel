@@ -23,7 +23,6 @@ import com.google.devtools.build.lib.analysis.config.CompilationMode;
 import com.google.devtools.build.lib.events.Event;
 import com.google.devtools.build.lib.events.EventHandler;
 import com.google.devtools.build.lib.syntax.Label;
-import com.google.devtools.build.xcode.common.Platform;
 
 import java.util.List;
 

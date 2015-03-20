@@ -12,7 +12,7 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-package com.google.devtools.build.xcode.util;
+package com.google.devtools.build.lib.rules.objc;
 
 import com.google.common.base.Function;
 import com.google.common.base.Preconditions;

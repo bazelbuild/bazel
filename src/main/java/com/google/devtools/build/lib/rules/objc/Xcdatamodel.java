@@ -21,7 +21,6 @@ import com.google.common.collect.Iterables;
 import com.google.devtools.build.lib.actions.Artifact;
 import com.google.devtools.build.lib.util.FileType;
 import com.google.devtools.build.lib.vfs.PathFragment;
-import com.google.devtools.build.xcode.util.Value;
 
 /**
  * Represents an .xcdatamodel[d] directory - knowing all {@code Artifact}s contained therein - and

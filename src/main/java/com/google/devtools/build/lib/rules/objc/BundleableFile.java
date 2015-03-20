@@ -23,7 +23,6 @@ import com.google.devtools.build.lib.actions.Artifact;
 import com.google.devtools.build.lib.analysis.RuleContext;
 import com.google.devtools.build.lib.vfs.PathFragment;
 import com.google.devtools.build.xcode.bundlemerge.proto.BundleMergeProtos.BundleFile;
-import com.google.devtools.build.xcode.util.Value;
 
 /**
  * Represents a file which is processed to another file and bundled. It contains the
