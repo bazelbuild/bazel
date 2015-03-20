@@ -2727,12 +2727,12 @@ value, merely warns if Bazel thinks the timeout could be restricted further.
     failed. Also shows the output log file name for failed tests. The summary
     will be printed at the end of the build (during the build, one would see
     just simple progress messages when tests start, pass or fail).
+    This is the default behavior.
   </li>
   <li><code>errors</code> sends combined stdout/stderr output from failed tests
     only into the stdout immediately after test is completed, ensuring that
     test output from simultaneous tests is not interleaved with each other.
     Prints a summary at the build as per summary output above.
-    This is the default behavior.
   </li>
   <li><code>all</code> is similar to <code>errors</code> but prints output for
     all tests, including those which passed.
