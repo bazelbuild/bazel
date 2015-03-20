@@ -14,13 +14,22 @@
 package com.google.devtools.build.lib.runtime;
 
 import com.google.common.base.Splitter;
+import com.google.common.collect.ImmutableList;
+import com.google.common.collect.Iterables;
 import com.google.devtools.build.lib.events.Event;
+import com.google.devtools.build.lib.events.EventKind;
 import com.google.devtools.build.lib.util.Pair;
 import com.google.devtools.build.lib.util.io.AnsiTerminal;
 import com.google.devtools.build.lib.util.io.OutErr;
 
+import org.joda.time.Duration;
+import org.joda.time.Instant;
+
 import java.io.IOException;
+import java.util.Calendar;
 import java.util.Iterator;
+import java.util.List;
+import java.util.concurrent.ThreadLocalRandom;
 import java.util.logging.Logger;
 import java.util.regex.Matcher;
 import java.util.regex.Pattern;
@@ -57,6 +66,38 @@ public class FancyTerminalEventHandler extends BlazeCommandEventHandler {
       //   [1,442 / 23,476] Compiling base/base.cc
       "^\\[(?:(?:\\d\\d?\\d?%)|(?:[\\d+,]+ / [\\d,]+))\\] ");
   private static final Splitter LINEBREAK_SPLITTER = Splitter.on('\n');
+  private static final List<String> SPECIAL_MESSAGES = ImmutableList.of(
+      "Reading startup options from "
+          + "HKEY_LOCAL_MACHINE\\Software\\Google\\Devtools\\Blaze\\CurrentVersion",
+      "Contacting ftp://microsoft.com/win3.1/downloadcenter",
+      "Downloading MSVCR71.DLL",
+      "Installing Windows Update 37 of 118...",
+      "Sending request to Azure server",
+      "Checking whether your copy of Blaze is Genuine",
+      "Initializing HAL",
+      "Loading NDIS2SUP.VXD",
+      "Initializing DRM",
+      "Contacting license server",
+      "Starting EC2 instances",
+      "Starting MS-DOS 6.0",
+      "Updating virus database",
+      "Linking WIN32.DLL",
+      "Linking GGL32.EXE",
+      "Starting ActiveX controls",
+      "Launching Microsoft Visual Studio 2013",
+      "Launching IEXPLORE.EXE",
+      "Initializing BASIC v2.1 interpreter",
+      "Parsing COM object monikers",
+      "Notifying field agents",
+      "Negotiating with killer robots",
+      "Searching for cellular signal",
+      "Checking for outstanding GCard expenses",
+      "Waiting for workstation CPU temperature to decrease"
+      );
+
+  private final Iterator<String> messageIterator = Iterables.cycle(SPECIAL_MESSAGES).iterator();
+  private volatile boolean trySpecial;
+  private volatile Instant skipUntil = Instant.now();
 
   private final AnsiTerminal terminal;
 
@@ -76,6 +117,12 @@ public class FancyTerminalEventHandler extends BlazeCommandEventHandler {
     useColor = options.useColor();
     useCursorControls = options.useCursorControl();
     progressInTermTitle = options.progressInTermTitle;
+    
+    Calendar today = Calendar.getInstance();
+    trySpecial = options.forceExternalRepositories 
+        || (options.externalRepositories
+            && today.get(Calendar.MONTH) == Calendar.APRIL
+            && today.get(Calendar.DAY_OF_MONTH) == 1);
   }
 
   @Override
@@ -86,7 +133,12 @@ public class FancyTerminalEventHandler extends BlazeCommandEventHandler {
     if (!eventMask.contains(event.getKind())) {
       return;
     }
-    
+    if (trySpecial && !EventKind.ERRORS_AND_WARNINGS_AND_OUTPUT.contains(event.getKind())
+        && skipUntil.isAfterNow()) {
+      // Short-circuit here to avoid wiping out previous terminal contents.
+      return;
+    }
+
     try {
       boolean previousLineErased = false;
       if (previousLineErasable) {
@@ -100,6 +152,17 @@ public class FancyTerminalEventHandler extends BlazeCommandEventHandler {
             Pair<String,String> progressPair = matchProgress(message);
             if (progressPair != null) {
               progress(progressPair.getFirst(), progressPair.getSecond());
+              if (trySpecial && ThreadLocalRandom.current().nextInt(0, 20) == 0) {
+                message = getExtraMessage();
+                if (message != null) {
+                  // Should always be true, but don't crash on that!
+                  previousLineErased = maybeOverwritePreviousMessage();
+                  progress(progressPair.getFirst(), message);
+                  // Skip unimportant messages for a bit so that this message gets some exposure.
+                  skipUntil = Instant.now().plus(
+                      Duration.millis(ThreadLocalRandom.current().nextInt(3000, 8000)));
+                }
+              }
             } else {
               progress("INFO: ", message);
             }
@@ -163,6 +226,16 @@ public class FancyTerminalEventHandler extends BlazeCommandEventHandler {
       LOG.warning("Terminal was closed during build: " + e);
       terminalClosed = true;
     }
+  }
+  
+  private String getExtraMessage() {
+    synchronized (messageIterator) {
+      if (messageIterator.hasNext()) {
+        return messageIterator.next();
+      }
+    }
+    trySpecial = false;
+    return null;
   }
 
   /**

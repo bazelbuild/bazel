@@ -125,6 +125,17 @@ public class BlazeCommandEventHandler implements EventHandler {
             + "Useful to see what blaze is doing when having multiple terminal tabs.")
     public boolean progressInTermTitle;
 
+    @Option(name = "experimental_external_repositories",
+        defaultValue = "false",
+        category = "verbosity",
+        help = "Use external repositories for improved stability and speed when available.")
+    public boolean externalRepositories;
+    
+    @Option(name = "force_experimental_external_repositories",
+        defaultValue = "false",
+        category = "verbosity",
+        help = "Forces --experimental_external_repositories.")
+    public boolean forceExternalRepositories;
 
     public boolean useColor() {
       return useColorEnum == UseColor.YES || (useColorEnum == UseColor.AUTO && isATty);
