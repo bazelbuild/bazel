@@ -256,6 +256,9 @@ public class SkylarkDocumentationProcessor {
       return "<a class=\"anchor\" href=\"#modules.string\">string</a>";
     } else if (Map.class.isAssignableFrom(returnType)) {
       return "<a class=\"anchor\" href=\"#modules.dict\">dict</a>";
+    } else if (List.class.isAssignableFrom(returnType)) {
+      // Annotated Java methods can return simple java.util.Lists (which get auto-converted).
+      return "<a class=\"anchor\" href=\"#modules.list\">list</a>";
     } else if (returnType.equals(Void.TYPE) || returnType.equals(NoneType.class)) {
       return "<a class=\"anchor\" href=\"#modules." + TOP_LEVEL_ID + ".None\">None</a>";
     } else if (returnType.isAnnotationPresent(SkylarkModule.class)) {

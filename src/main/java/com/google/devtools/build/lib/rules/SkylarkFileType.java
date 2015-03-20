@@ -11,15 +11,17 @@
 // WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
 // See the License for the specific language governing permissions and
 // limitations under the License.
-package com.google.devtools.build.lib.packages;
+package com.google.devtools.build.lib.rules;
 
 import com.google.common.annotations.VisibleForTesting;
 import com.google.common.collect.ImmutableList;
+import com.google.devtools.build.lib.actions.Artifact;
 import com.google.devtools.build.lib.syntax.SkylarkCallable;
 import com.google.devtools.build.lib.syntax.SkylarkModule;
 import com.google.devtools.build.lib.util.FileType;
-import com.google.devtools.build.lib.util.FileType.HasFilename;
 import com.google.devtools.build.lib.util.FileTypeSet;
+
+import java.util.List;
 
 /**
  * A wrapper class for FileType and FileTypeSet functionality in Skylark.
@@ -43,12 +45,14 @@ public class SkylarkFileType {
     return FileTypeSet.of(fileType);
   }
 
-  @SkylarkCallable(doc = "")
-  public ImmutableList<HasFilename> filter(Iterable<HasFilename> files) {
+  @SkylarkCallable(doc =
+      "Returns a list created from the elements of the parameter containing all the "
+    + "<a href=\"#modules.File\"><code>File</code></a>s that match the FileType.")
+  public List<Artifact> filter(Iterable<Artifact> files) {
     return ImmutableList.copyOf(FileType.filter(files, fileType));
   }
 
-  @SkylarkCallable(doc = "")
+  @SkylarkCallable(doc = "Returns <code>True</code> if the parameter matches the FileType.")
   public boolean matches(String fileName) {
     return fileType.apply(fileName);
   }

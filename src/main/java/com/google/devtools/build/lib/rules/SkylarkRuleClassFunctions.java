@@ -50,7 +50,6 @@ import com.google.devtools.build.lib.packages.RuleClass.Builder;
 import com.google.devtools.build.lib.packages.RuleClass.Builder.RuleClassType;
 import com.google.devtools.build.lib.packages.RuleFactory;
 import com.google.devtools.build.lib.packages.RuleFactory.InvalidRuleException;
-import com.google.devtools.build.lib.packages.SkylarkFileType;
 import com.google.devtools.build.lib.packages.TargetUtils;
 import com.google.devtools.build.lib.packages.TestSize;
 import com.google.devtools.build.lib.packages.Type;
@@ -92,22 +91,6 @@ public class SkylarkRuleClassFunctions {
   @SkylarkBuiltin(name = "HOST_CFG", returnType = ConfigurationTransition.class,
       doc = "The default runfiles collection state.")
   private static final Object hostTransition = ConfigurationTransition.HOST;
-
-  private static final Attribute.ComputedDefault DEPRECATION =
-      new Attribute.ComputedDefault() {
-        @Override
-        public Object getDefault(AttributeMap rule) {
-          return rule.getPackageDefaultDeprecation();
-        }
-      };
-
-  private static final Attribute.ComputedDefault TEST_ONLY =
-      new Attribute.ComputedDefault() {
-        @Override
-        public Object getDefault(AttributeMap rule) {
-          return rule.getPackageDefaultTestOnly();
-        }
-     };
 
   private static final LateBoundLabel<BuildConfiguration> RUN_UNDER =
       new LateBoundLabel<BuildConfiguration>() {
