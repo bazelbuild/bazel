@@ -1608,10 +1608,7 @@ static void CreateSecureOutputRoot() {
   const char* root = globals->options.output_user_root.c_str();
   struct stat fileinfo = {};
 
-  if (mkdir(root, 0755) == 0) {
-    return;  // mkdir succeeded, no need to verify ownership/mode.
-  }
-  if (errno != EEXIST) {
+  if (MakeDirectories(root, 0755) == -1) {
     pdie(blaze_exit_code::LOCAL_ENVIRONMENTAL_ERROR, "mkdir('%s')", root);
   }
 
