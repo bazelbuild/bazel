@@ -213,7 +213,7 @@ public abstract class Location implements Serializable {
    * A value class that describes the line and column of an offset in a file.
    */
   @Immutable
-  public static final class LineAndColumn {
+  public static final class LineAndColumn implements Serializable {
     private final int line;
     private final int column;
 

@@ -17,11 +17,13 @@ package com.google.devtools.build.lib.skyframe;
 import com.google.common.collect.ImmutableList;
 import com.google.devtools.build.lib.syntax.Label;
 
+import java.io.Serializable;
+
 /**
  * A simple value class to store the direct Skylark file dependencies of a Skylark
  * extension file. It also contains a Label identifying the extension file.
  */
-class SkylarkFileDependency {
+class SkylarkFileDependency implements Serializable {
 
   private final Label label;
   private final ImmutableList<SkylarkFileDependency> dependencies;
