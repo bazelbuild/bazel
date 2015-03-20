@@ -341,8 +341,7 @@ No, but we should. Stay tuned.
 I use Eclipse/IntelliJ. How does Bazel interoperate with IDEs?
 --------------------------------------------------------------
 
-We currently have no IDE integration API, although the "bazel query"
-command could be used as a building block for for basic IDE support?
+We currently have no IDE integration API.
 
 
 I use Jenkins/CircleCI/TravisCI. How does Bazel interoperate with CI systems?
