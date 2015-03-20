@@ -281,7 +281,10 @@ public class CompactPersistentActionCache implements ActionCache {
   @Override
   public synchronized String toString() {
     StringBuilder builder = new StringBuilder();
-    builder.append("Action cache (" + map.size() + " records):\n");
+    // map.size() - 1 to avoid counting the validation key.
+    builder.append("Action cache (" + (map.size() - 1) + " records):\n");
+    int size = map.size() > 1000 ? 10 : map.size();
+    int ct = 0;
     for (Map.Entry<Integer, byte[]> entry: map.entrySet()) {
       if (entry.getKey() == VALIDATION_KEY) { continue; }
       String content;
@@ -292,6 +295,10 @@ public class CompactPersistentActionCache implements ActionCache {
       }
       builder.append("-> ").append(indexer.getStringForIndex(entry.getKey())).append("\n")
           .append(content).append("  packed_len = ").append(entry.getValue().length).append("\n");
+      if (++ct > size) {
+        builder.append("...");
+        break;
+      }
     }
     return builder.toString();
   }
