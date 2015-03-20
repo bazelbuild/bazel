@@ -29,7 +29,7 @@ import javax.annotation.Nullable;
 public class AbstractCriticalPathComponent<C extends AbstractCriticalPathComponent<C>> {
 
   /** Start time in nanoseconds. Only to be used for measuring elapsed time. */
-  private final long relativeStartNanos;
+  private long relativeStartNanos;
   /** Finish time for the action in nanoseconds. Only to be used for measuring elapsed time. */
   private long relativeFinishNanos = 0;
   protected volatile boolean isRunning = true;
@@ -52,12 +52,24 @@ public class AbstractCriticalPathComponent<C extends AbstractCriticalPathCompone
   }
 
   /**
-   * Sets the finish time for the action in nanoseconds for computing the duration of the action.
+   * Record the elapsed time in case the new duration is greater. This method could be called
+   * multiple times if we run shared action concurrently and the one that really gets executed takes
+   * more time to send the finish event and the one that was a cache hit manages to send the event
+   * before. In this case we overwrite the time with the greater time.
+   *
+   * <p>This logic is known to be incorrect, as other actions that depend on this action will not
+   * necessarily use the correct getElapsedTimeNanos(). But we do not want to block action execution
+   * because of this. So in certain conditions we might see another path as the critical path.
    */
-  public void setRelativeStartNanos(long relativeFinishNanos) {
-    Preconditions.checkState(isRunning, "Already stopped! %s.", action);
-    this.relativeFinishNanos = relativeFinishNanos;
-    isRunning = false;
+  public synchronized boolean finishActionExecution(long relativeStartNanos,
+      long relativeFinishNanos) {
+    if (isRunning || relativeFinishNanos - relativeStartNanos > getElapsedTimeNanos()) {
+      this.relativeStartNanos = relativeStartNanos;
+      this.relativeFinishNanos = relativeFinishNanos;
+      isRunning = false;
+      return true;
+    }
+    return false;
   }
 
   /** The action for which we are storing the stat. */
@@ -68,7 +80,7 @@ public class AbstractCriticalPathComponent<C extends AbstractCriticalPathCompone
   /**
    * Add statistics for one dependency of this action.
    */
-  public void addDepInfo(C dep) {
+  public synchronized void addDepInfo(C dep) {
     Preconditions.checkState(!dep.isRunning,
         "Cannot add critical path stats when the action is not finished. %s. %s", action,
         dep.getAction());

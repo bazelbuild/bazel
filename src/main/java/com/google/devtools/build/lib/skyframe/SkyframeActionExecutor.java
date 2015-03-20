@@ -783,7 +783,7 @@ public final class SkyframeActionExecutor {
         resourceManager.releaseResources(action, estimate);
       }
       statusReporter.remove(action);
-      postEvent(new ActionCompletionEvent(action));
+      postEvent(new ActionCompletionEvent(actionStartTime, action));
     }
   }
 

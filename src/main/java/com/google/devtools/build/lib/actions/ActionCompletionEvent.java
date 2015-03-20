@@ -18,16 +18,22 @@ package com.google.devtools.build.lib.actions;
  */
 public final class ActionCompletionEvent {
 
-  private final ActionMetadata actionMetadata;
+  private final long relativeActionStartTime;
+  private final Action action;
 
-  public ActionCompletionEvent(ActionMetadata actionMetadata) {
-    this.actionMetadata = actionMetadata;
+  public ActionCompletionEvent(long relativeActionStartTime, Action action) {
+    this.relativeActionStartTime = relativeActionStartTime;
+    this.action = action;
   }
 
   /**
-   * Returns the action metadata.
+   * Returns the action.
    */
-  public ActionMetadata getActionMetadata() {
-    return actionMetadata;
+  public Action getAction() {
+    return action;
+  }
+
+  public long getRelativeActionStartTime() {
+    return relativeActionStartTime;
   }
 }
