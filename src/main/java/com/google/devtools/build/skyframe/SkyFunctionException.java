@@ -94,7 +94,7 @@ public abstract class SkyFunctionException extends Exception {
     return (Exception) super.getCause();
   }
 
-  static <E extends Throwable> void validateExceptionType(Class<E> exceptionClass) {
+  static <E extends Exception> void validateExceptionType(Class<E> exceptionClass) {
     if (exceptionClass.equals(ValueOrExceptionUtils.BottomException.class)) {
       return;
     }

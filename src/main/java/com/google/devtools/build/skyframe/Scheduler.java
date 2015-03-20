@@ -42,7 +42,7 @@ interface Scheduler {
     private final SkyKey failedValue;
     private final ErrorInfo errorInfo;
 
-    private SchedulerException(@Nullable Throwable cause, @Nullable ErrorInfo errorInfo,
+    private SchedulerException(@Nullable Exception cause, @Nullable ErrorInfo errorInfo,
         SkyKey failedValue) {
       super(errorInfo != null ? errorInfo.getException() : cause);
       this.errorInfo = errorInfo;
