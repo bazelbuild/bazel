@@ -70,7 +70,7 @@ string BlazeStartupOptions::GetProductName() {
 }
 
 string BlazeStartupOptions::GetOutputRoot() {
-  return "/var/tmp";
+  return blaze::GetOutputRoot();
 }
 
 void BlazeStartupOptions::AddExtraOptions(vector<string> *result) const {}

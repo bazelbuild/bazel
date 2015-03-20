@@ -49,6 +49,10 @@ string GetSelfPath() {
   return string(buffer);
 }
 
+string GetOutputRoot() {
+  return "/var/tmp";
+}
+
 pid_t GetPeerProcessId(int socket) {
   struct ucred creds = {};
   socklen_t len = sizeof creds;

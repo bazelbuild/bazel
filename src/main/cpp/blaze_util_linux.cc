@@ -27,6 +27,10 @@ namespace blaze {
 
 using std::string;
 
+string GetOutputRoot() {
+  return blaze_util::JoinPath(getenv("HOME"), ".cache/bazel");
+}
+
 void WarnFilesystemType(const string& output_base) {
   struct statfs buf = {};
   if (statfs(output_base.c_str(), &buf) < 0) {

@@ -22,11 +22,20 @@
 #include "blaze_exit_code.h"
 #include "blaze_util.h"
 #include "blaze_util_platform.h"
+#include "util/file.h"
 #include "util/strings.h"
 
 namespace blaze {
 
 using std::string;
+
+string GetOutputRoot() {
+  const char *home = getenv("HOME");
+  if (home == NULL) {
+    return "/var/tmp";
+  }
+  return blaze_util::JoinPath(home, "Library/Caches/Bazel");
+}
 
 void WarnFilesystemType(const string& output_base) {
   // TODO(bazel-team): Should check for NFS.
