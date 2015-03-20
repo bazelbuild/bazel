@@ -410,8 +410,9 @@ public final class ObjcCommon {
         for (CompilationArtifacts artifacts : compilationArtifacts.asSet()) {
           for (Artifact archive : artifacts.getArchive().asSet()) {
             objcProvider.add(FORCE_LOAD_LIBRARY, archive);
-            objcProvider.add(FORCE_LOAD_FOR_XCODEGEN,
-                "$(BUILT_PRODUCTS_DIR)/" + archive.getExecPath().getBaseName());
+            objcProvider.add(FORCE_LOAD_FOR_XCODEGEN, String.format(
+                "$(BUILT_PRODUCTS_DIR)/lib%s.a",
+                XcodeProvider.xcodeTargetName(context.getLabel())));
           }
         }
         for (Artifact archive : extraImportLibraries) {

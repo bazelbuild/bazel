@@ -36,8 +36,8 @@ message DependencyControl {
 // Contains information specific to a single target in the project file.
 // Next ID: 23
 message TargetControl {
-  // 'Name' of the target in the project file. This corresponds to the product
-  // name, and does not have to be unique.
+  // A short name for the target that need not be unique. For instance, for
+  // binary targets this corresponds to the product name.
   optional string name = 1;
 
   // Relative paths to source files to compile. Each source file is added to
@@ -62,7 +62,8 @@ message TargetControl {
   optional string infoplist = 5;
 
   // Label corresponding to the target. This is needed to determine a
-  // unique name for the target in the project.
+  // unique name for the target in the project. This is similar to the name
+  // field, but is globally unique and may be long.
   optional string label = 7;
 
   // Additional flags to pass to the [objective] c[++] compiler.

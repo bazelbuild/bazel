@@ -273,6 +273,8 @@ public class XcodeprojGeneration {
     }
   }
 
+  // TODO(bazel-team): Make this a no-op once the released version of Bazel sends the label to
+  // xcodegen pre-processed.
   private static String labelToXcodeTargetName(String label) {
     String pathFromWorkspaceRoot =  label.replace("//", "").replace(':', '/');
     List<String> components = Splitter.on('/').splitToList(pathFromWorkspaceRoot);
