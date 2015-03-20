@@ -23,6 +23,7 @@ import com.google.devtools.build.lib.analysis.config.InvalidConfigurationExcepti
 import com.google.devtools.build.lib.packages.NoSuchPackageException;
 import com.google.devtools.build.lib.packages.NoSuchTargetException;
 import com.google.devtools.build.lib.syntax.Label;
+import com.google.devtools.build.xcode.common.Platform;
 
 /**
  * A loader that creates ObjcConfiguration instances based on Objective-C configurations and
@@ -43,10 +44,16 @@ public class ObjcConfigurationLoader implements ConfigurationFragmentFactory {
 
     Label dumpSymsLabel = null;
     if (objcOptions.generateDebugSymbols) {
-      forceLoad(env, "//tools/objc:dump_syms");
+      dumpSymsLabel = forceLoad(env, "//tools/objc:dump_syms");
     }
 
-    return new ObjcConfiguration(objcOptions, options, gcovLabel, dumpSymsLabel);
+    Label defaultProvisioningProfileLabel = null;
+    if (Platform.forArch(objcOptions.iosCpu) == Platform.DEVICE) {
+      defaultProvisioningProfileLabel = forceLoad(env, "//tools/objc:default_provisioning_profile");
+    }
+
+    return new ObjcConfiguration(
+        objcOptions, options, gcovLabel, dumpSymsLabel, defaultProvisioningProfileLabel);
   }
 
   @Override

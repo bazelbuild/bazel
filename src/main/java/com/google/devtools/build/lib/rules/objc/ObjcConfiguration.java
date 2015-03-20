@@ -67,12 +67,14 @@ public class ObjcConfiguration extends BuildConfiguration.Fragment {
   // loaded.
   @Nullable private final Label gcovLabel;
   @Nullable private final Label dumpSymsLabel;
+  @Nullable private final Label defaultProvisioningProfileLabel;
 
   ObjcConfiguration(
       ObjcCommandLineOptions objcOptions,
       BuildConfiguration.Options options,
       @Nullable Label gcovLabel,
-      @Nullable Label dumpSymsLabel) {
+      @Nullable Label dumpSymsLabel,
+      @Nullable Label defaultProvisioningProfileLabel) {
     this.iosSdkVersion = Preconditions.checkNotNull(objcOptions.iosSdkVersion, "iosSdkVersion");
     this.iosMinimumOs = Preconditions.checkNotNull(objcOptions.iosMinimumOs, "iosMinimumOs");
     this.iosSimulatorDevice =
@@ -87,6 +89,7 @@ public class ObjcConfiguration extends BuildConfiguration.Fragment {
     this.compilationMode = Preconditions.checkNotNull(options.compilationMode, "compilationMode");
     this.gcovLabel = gcovLabel;
     this.dumpSymsLabel = dumpSymsLabel;
+    this.defaultProvisioningProfileLabel = defaultProvisioningProfileLabel;
     this.iosMultiCpus = Preconditions.checkNotNull(objcOptions.iosMultiCpus, "iosMultiCpus");
     this.iosSplitCpu = Preconditions.checkNotNull(objcOptions.iosSplitCpu, "iosSplitCpu");
   }
@@ -180,6 +183,14 @@ public class ObjcConfiguration extends BuildConfiguration.Fragment {
    */
   @Nullable public Label getDumpSymsLabel() {
     return dumpSymsLabel;
+  }
+
+  /**
+   * Returns the label of the default provisioning profile to use when bundling/signing the
+   * application. Null iff iOS CPU indicates a simulator is being targeted.
+   */
+  @Nullable public Label getDefaultProvisioningProfileLabel() {
+    return defaultProvisioningProfileLabel;
   }
 
   /**

@@ -625,7 +625,12 @@ public final class ReleaseBundlingSupport {
 
     @Nullable
     Artifact provisioningProfile() {
-      return ruleContext.getPrerequisiteArtifact("provisioning_profile", Mode.TARGET);
+      Artifact explicitProvisioningProfile =
+          ruleContext.getPrerequisiteArtifact("provisioning_profile", Mode.TARGET);
+      if (explicitProvisioningProfile != null) {
+        return explicitProvisioningProfile;
+      }
+      return ruleContext.getPrerequisiteArtifact(":default_provisioning_profile", Mode.TARGET);
     }
 
     /**

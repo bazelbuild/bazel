@@ -48,6 +48,7 @@ import com.google.devtools.build.lib.syntax.Label;
 import com.google.devtools.build.lib.util.FileType;
 import com.google.devtools.build.lib.util.FileTypeSet;
 import com.google.devtools.build.lib.vfs.PathFragment;
+import com.google.devtools.build.xcode.common.Platform;
 import com.google.devtools.build.xcode.common.TargetDeviceFamily;
 
 /**
@@ -836,11 +837,25 @@ public class ObjcRuleClasses {
           This is only used for non-simulator builds.
           <!-- #END_BLAZE_RULE.ATTRIBUTE -->*/
           .add(attr("provisioning_profile", LABEL)
-              .value(env.getLabel("//tools/objc:default_provisioning_profile"))
-              .allowedFileTypes(FileType.of(".mobileprovision")))
-              // TODO(bazel-team): Consider ways to trim dependencies so that changes to deps of
-              // these tools don't trigger all objc_* targets. Right now we check-in deploy jars,
-              // but we need a less painful and error-prone way.
+              .singleArtifact().allowedFileTypes(FileType.of(".mobileprovision")))
+          // Will be used if provisioning_profile is null.
+          .add(attr(":default_provisioning_profile", LABEL)
+              .singleArtifact()
+              .allowedFileTypes(FileType.of(".mobileprovision"))
+              .value(new LateBoundLabel<BuildConfiguration>() {
+                @Override
+                public Label getDefault(Rule rule, BuildConfiguration configuration) {
+                  ObjcConfiguration objcConfiguration =
+                      configuration.getFragment(ObjcConfiguration.class);
+                  if (objcConfiguration.getPlatform() != Platform.DEVICE) {
+                    return null;
+                  }
+                  if (rule.isAttributeValueExplicitlySpecified("provisioning_profile")) {
+                    return null;
+                  }
+                  return objcConfiguration.getDefaultProvisioningProfileLabel();
+                }
+              }))
           /* <!-- #BLAZE_RULE($objc_release_bundling_rule).ATTRIBUTE(app_icon) -->
           The name of the application icon.
           ${SYNOPSIS}
