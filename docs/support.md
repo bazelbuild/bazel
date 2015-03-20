@@ -1,6 +1,6 @@
 # Support Policy
 
-We generally avoid making backward-incompatible changes. At Google, we
+We generally avoid making backwards-incompatible changes. At Google, we
 run all of the tests in the entire depot before every release and
 check that there are no regressions. It is much more difficult to do
 that outside of Google, because there is no single source repository
@@ -12,9 +12,8 @@ subject to change at any time without prior notice. The Skylark macro and rules 
 you write in a `.bzl` file) is still subject to change.
 
 Bugs can be reported in the
-[GitHub bugtracker](https://github.com/google/bazel/issues). We will
-make an effort to triage all reported issues within 2 business days; we will measure our triaging
-process and regularly report numbers.
+[GitHub bugtracker](https://github.com/google/bazel/issues). We will make an effort to triage all
+reported issues within 2 business days.
 
 ## Current Status
 
@@ -96,13 +95,14 @@ behind the current state of the tools. We ensure that all the tests pass.
   </tr>
 </table>
 
-#### A Note on the Internal Rules API
+### Built-In Rules and the Internal API For Rules ###
 We are planning a number of changes to the APIs between the core of Bazel and the built-in rules,
 in order to make it easier for us to develop openly. This has the added benefit of also making it
-easier for users to maintain their custom rules, if they don't want to or can't check this code into
-our repository. However, it also means our internal API is not stable yet. In the long term, we
-want to move to Skylark wholesale, and we encourage contributors to use Skylark for new rules
-development, but rewriting all of our built-in rules is going to be a lengthy process.
+easier for users to maintain their own rules (if written in Java instead of Skylark), if they don't
+want to or cannot check this code into our repository. However, it also means our internal API is
+not stable yet. In the long term, we want to move to Skylark wholesale, so we encourage contributors
+to use Skylark instead of Java when writing new rules. Rewriting all of our built-in rules is going
+to be a lengthy process however.
 
 1. We will fix the friction points that we know about, as well as those that we discover every time
    we make changes that span both the internal and external depots.
@@ -123,7 +123,7 @@ development, but rewriting all of our built-in rules is going to be a lengthy pr
    Python, the remaining C++ rules), even if we don't consider the code to be *ready* or if they are
    still missing tools to work properly.
 8. In order to be able to accept external contributions, our highest priority item for Skylark is a
-   testing framework.
+   testing framework. We encourage to write new rules in Skylark rather than in Java.
 
 
 ### Best Effort
