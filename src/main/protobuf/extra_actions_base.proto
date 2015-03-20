@@ -127,3 +127,14 @@ message JavaCompileInfo {
   repeated string processor = 6;
   repeated string processorpath = 7;
 }
+
+// Provides access to data that is specific to python rules.
+// Usually provided by actions using the "Python" Mnemonic.
+message PythonInfo {
+  extend ExtraActionInfo {
+    optional PythonInfo python_info = 1005;
+  }
+
+  repeated string source_file = 1;
+  repeated string dep_file = 2;
+}
