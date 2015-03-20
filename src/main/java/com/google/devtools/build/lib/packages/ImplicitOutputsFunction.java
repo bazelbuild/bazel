@@ -290,21 +290,7 @@ public abstract class ImplicitOutputsFunction {
     if (Type.STRING == attrType) {
       return singleton(rule.get(attrName, Type.STRING));
     } else if (Type.STRING_LIST == attrType) {
-      Iterable<String> values = rule.get(attrName, Type.STRING_LIST);
-      // TODO(bazel-team): extract this for modularization
-      if ("locales".equals(attrName)) {
-        // Locales have to be lowercased before used in a file name for
-        // consistency with file naming guidelines, and convert dash-style
-        // (en-US-pseudo) to underscore-style (en_US_pseudo).
-        values = Iterables.transform(values,
-            new Function<String, String>() {
-              @Override
-              public String apply(String s) {
-                return s.toLowerCase().replace('-', '_');
-              }
-            });
-      }
-      return Sets.newLinkedHashSet(values);
+      return Sets.newLinkedHashSet(rule.get(attrName, Type.STRING_LIST));
     } else if (Type.LABEL_LIST == attrType) {
       // Labels are most often used to change the extension,
       // e.g. %.foo -> %.java, so we return the basename w/o extension.

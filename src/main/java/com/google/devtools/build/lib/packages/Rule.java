@@ -98,8 +98,8 @@ public final class Rule implements Target {
       new BinaryPredicate<Rule, Attribute>() {
     @Override
     public boolean apply(Rule rule, Attribute attribute) {
-      return attribute.getType() != Type.NODEP_LABEL &&
-          attribute.getType() != Type.NODEP_LABEL_LIST;
+      return attribute.getType() != Type.NODEP_LABEL
+          && attribute.getType() != Type.NODEP_LABEL_LIST;
     }
   };
 
@@ -291,6 +291,13 @@ public final class Rule implements Target {
       }
     }
     return false;
+  }
+
+  /**
+   * Returns true if the given attribute is configurable.
+   */
+  public boolean isConfigurableAttribute(String attributeName) {
+    return attributeMap.isConfigurable(attributeName, attributeMap.getAttributeType(attributeName));
   }
 
   /**
