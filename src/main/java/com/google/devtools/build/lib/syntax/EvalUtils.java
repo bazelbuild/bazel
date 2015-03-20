@@ -601,6 +601,8 @@ public abstract class EvalUtils {
   public static Collection<?> toCollection(Object o, Location loc) throws EvalException {
     if (o instanceof Collection) {
       return (Collection<Object>) o;
+    } else if (o instanceof SkylarkList) {
+      return ((SkylarkList) o).toList();
     } else if (o instanceof Map<?, ?>) {
       Map<Comparable<?>, Object> dict = (Map<Comparable<?>, Object>) o;
       // For dictionaries we iterate through the keys only

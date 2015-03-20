@@ -351,6 +351,44 @@ public class EvaluationTest extends AbstractEvaluationTestCase {
         "bar/quux.java", "bar/quux.cc").inOrder();
   }
 
+  @Test
+  public void testListComprehensionsMultipleVariables() throws Exception {
+    assertThat(eval("[x + y for x, y in [(1, 2), (3, 4)]]").toString())
+        .isEqualTo("[3, 7]");
+    assertThat(eval("[x + y for (x, y) in [[1, 2], [3, 4]]]").toString())
+        .isEqualTo("[3, 7]");
+  }
+
+  @Test
+  public void testListComprehensionsMultipleVariablesFail() throws Exception {
+    checkEvalError("[x + y for x, y, z in [(1, 2), (3, 4)]]",
+        "lvalue has length 3, but rvalue has has length 2");
+
+    checkEvalError("[x + y for x, y in (1, 2)]",
+        "type 'int' is not a collection");
+  }
+
+  @Test
+  public void testTupleDestructuring() throws Exception {
+    exec(parseFile("a, b = 1, 2"), env);
+    assertThat(env.lookup("a")).isEqualTo(1);
+    assertThat(env.lookup("b")).isEqualTo(2);
+
+    exec(parseFile("c, d = {'key1':2, 'key2':3}"), env);
+    assertThat(env.lookup("c")).isEqualTo("key1");
+    assertThat(env.lookup("d")).isEqualTo("key2");
+  }
+
+  @Test
+  public void testRecursiveTupleDestructuring() throws Exception {
+    List<Statement> input = parseFile("((a, b), (c, d)) = [(1, 2), (3, 4)]");
+    exec(input, env);
+    assertThat(env.lookup("a")).isEqualTo(1);
+    assertThat(env.lookup("b")).isEqualTo(2);
+    assertThat(env.lookup("c")).isEqualTo(3);
+    assertThat(env.lookup("d")).isEqualTo(4);
+  }
+
   // TODO(bazel-team): should this test work in Skylark?
   @SuppressWarnings("unchecked")
   @Test
@@ -371,6 +409,7 @@ public class EvaluationTest extends AbstractEvaluationTestCase {
         eval("{'k_' + d : d for d in ['a', 'b']}"));
     assertEquals(ImmutableMap.of("k_a", "v_a", "k_b", "v_b"),
         eval("{'k_' + e : 'v_' + e for e in ['a', 'b']}"));
+    assertEquals(ImmutableMap.of(5, 6), eval("{x+y : x*y for x, y in [[2, 3]]}"));
   }
 
   @Test
@@ -410,7 +449,8 @@ public class EvaluationTest extends AbstractEvaluationTestCase {
   @Test
   public void testInvalidAssignment() throws Exception {
     Environment env = singletonEnv("x", 1);
-    checkEvalError(parseStmt("x + 1 = 2"), env, "can only assign to variables, not to 'x + 1'");
+    checkEvalError(parseStmt("x + 1 = 2"), env,
+        "can only assign to variables and tuples, not to 'x + 1'");
   }
 
   @Test

@@ -18,6 +18,7 @@ import com.google.common.base.Preconditions;
 import com.google.devtools.build.lib.events.Location;
 
 import java.io.Serializable;
+import java.util.Collection;
 
 /**
  * Class representing an LValue.
@@ -44,12 +45,41 @@ public class LValue implements Serializable {
    */
   public void assign(Environment env, Location loc, Object result)
       throws EvalException, InterruptedException {
-    if (!(expr instanceof Ident)) {
-      throw new EvalException(loc,
-          "can only assign to variables, not to '" + expr + "'");
+    assign(env, loc, expr, result);
+  }
+
+  private static void assign(Environment env, Location loc, Expression lvalue, Object result)
+      throws EvalException, InterruptedException {
+    if (lvalue instanceof Ident) {
+      assign(env, loc, (Ident) lvalue, result);
+      return;
     }
 
-    Ident ident = (Ident) expr;
+    if (lvalue instanceof ListLiteral) {
+      ListLiteral variables = (ListLiteral) lvalue;
+      Collection<?> rvalue = EvalUtils.toCollection(result, loc);
+      int len = variables.getElements().size();
+      if (len != rvalue.size()) {
+        throw new EvalException(loc, String.format(
+            "lvalue has length %d, but rvalue has has length %d", len, rvalue.size()));
+      }
+      int i = 0;
+      for (Object o : rvalue) {
+        assign(env, loc, variables.getElements().get(i), o);
+        i++;
+      }
+      return;
+    }
+
+    throw new EvalException(loc,
+        "can only assign to variables and tuples, not to '" + lvalue + "'");
+  }
+
+  /**
+   * Assign value to a single variable.
+   */
+  private static void assign(Environment env, Location loc, Ident ident, Object result)
+      throws EvalException, InterruptedException {
     Preconditions.checkNotNull(result, "trying to assign null to %s", ident);
 
     if (env.isSkylarkEnabled()) {
@@ -79,10 +109,20 @@ public class LValue implements Serializable {
 
   void validate(ValidationEnvironment env, Location loc, SkylarkType rvalueType)
       throws EvalException {
-    // TODO(bazel-team): Implement other validations.
+    validate(env, loc, expr, rvalueType);
+  }
+
+  private static void validate(ValidationEnvironment env, Location loc, Expression expr,
+      SkylarkType rvalueType) throws EvalException {
     if (expr instanceof Ident) {
       Ident ident = (Ident) expr;
       env.update(ident.getName(), rvalueType, loc);
+      return;
+    }
+    if (expr instanceof ListLiteral) {
+      for (Expression e : ((ListLiteral) expr).getElements()) {
+        validate(env, loc, e, SkylarkType.UNKNOWN);
+      }
       return;
     }
     throw new EvalException(loc,

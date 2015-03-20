@@ -365,6 +365,20 @@ public class SkylarkEvaluationTest extends EvaluationTest {
   }
 
   @Test
+  public void testForLoopMultipleVariables() throws Exception {
+    List<Statement> input = parseFileForSkylark(
+        "def foo():\n"
+        + "  s = ''\n"
+        + "  for [i, j] in [[1, 2], [3, 4]]:\n"
+        + "    s = s + str(i) + str(j) + '.'\n"
+        + "  return s\n"
+        + "s = foo()");
+
+    exec(input, env);
+    assertEquals("12.34.", env.lookup("s"));
+  }
+
+  @Test
   public void testNoneAssignment() throws Exception {
     List<Statement> input = parseFileForSkylark(
         "def foo(x=None):\n"
