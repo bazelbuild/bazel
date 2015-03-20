@@ -135,7 +135,7 @@ public final class XcodeProvider implements TransitiveInfoProvider {
      */
     public Builder addDependencies(
         Iterable<XcodeProvider> dependencies, ObjcConfiguration configuration) {
-      String architecture = getDependencyArchitecture(configuration);
+      String architecture = configuration.getDependencySingleArchitecture();
       for (XcodeProvider dependency : dependencies) {
         // TODO(bazel-team): This is messy. Maybe we should make XcodeProvider be able to specify
         // how to depend on it rather than require this method to choose based on the dependency's
@@ -150,22 +150,6 @@ public final class XcodeProvider implements TransitiveInfoProvider {
         }
       }
       return this;
-    }
-
-    /**
-     * Returns the architecture for which we keep dependencies.
-     *
-     * <p>When building with multiple architectures we want to avoid duplicating the same target for
-     * each architecture. Instead we pick one architecture for which to keep all dependencies and
-     * discard any others.
-     */
-    private String getDependencyArchitecture(ObjcConfiguration configuration) {
-      List<String> iosMultiCpus = configuration.getIosMultiCpus();
-      String architecture = configuration.getIosCpu();
-      if (!iosMultiCpus.isEmpty()) {
-        architecture = iosMultiCpus.get(0);
-      }
-      return architecture;
     }
 
     /**

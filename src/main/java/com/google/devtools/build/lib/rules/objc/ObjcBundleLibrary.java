@@ -84,6 +84,7 @@ public class ObjcBundleLibrary implements RuleConfiguredTargetFactory {
         ObjcRuleClasses.intermediateArtifacts(ruleContext);
     return new Bundling.Builder()
         .setName(ruleContext.getLabel().getName())
+        .setArchitecture(ObjcRuleClasses.objcConfiguration(ruleContext).getIosCpu())
         .setBundleDirFormat("%s.bundle")
         .setObjcProvider(common.getObjcProvider())
         .setInfoplistMerging(

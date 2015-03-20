@@ -379,6 +379,8 @@ public final class ReleaseBundlingSupport {
 
     return new Bundling.Builder()
         .setName(ruleContext.getLabel().getName())
+        // Architecture that determines which nested bundles are kept.
+        .setArchitecture(objcConfiguration.getDependencySingleArchitecture())
         .setBundleDirFormat(bundleDirFormat)
         .setExtraBundleFiles(extraBundleFiles)
         .setObjcProvider(objcProvider)

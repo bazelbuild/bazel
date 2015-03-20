@@ -49,9 +49,19 @@ final class Bundling {
     private IntermediateArtifacts intermediateArtifacts;
     private String primaryBundleId;
     private String fallbackBundleId;
+    private String architecture;
 
     public Builder setName(String name) {
       this.name = name;
+      return this;
+    }
+
+    /**
+     * Sets the CPU architecture this bundling was constructed for. Legal value are any that may be
+     * set on {@link ObjcConfiguration#getIosCpu()}.
+     */
+    public Builder setArchitecture(String architecture) {
+      this.architecture = architecture;
       return this;
     }
 
@@ -129,11 +139,12 @@ final class Bundling {
 
       return new Bundling(name, bundleDirFormat, combinedArchitectureBinary, extraBundleFiles,
           objcProvider, infoplistMerging, actoolzipOutput, bundleContentArtifacts, mergeZips, 
-          primaryBundleId, fallbackBundleId);
+          primaryBundleId, fallbackBundleId, architecture);
     }
   }
 
   private final String name;
+  private final String architecture;
   private final String bundleDirFormat;
   private final Optional<Artifact> combinedArchitectureBinary;
   private final ImmutableList<BundleableFile> extraBundleFiles;
@@ -156,7 +167,8 @@ final class Bundling {
       NestedSet<Artifact> bundleContentArtifacts,
       NestedSet<Artifact> mergeZips,
       String primaryBundleId,
-      String fallbackBundleId) {
+      String fallbackBundleId,
+      String architecture) {
     this.name = Preconditions.checkNotNull(name);
     this.bundleDirFormat = Preconditions.checkNotNull(bundleDirFormat);
     this.combinedArchitectureBinary = Preconditions.checkNotNull(combinedArchitectureBinary);
@@ -166,8 +178,9 @@ final class Bundling {
     this.actoolzipOutput = Preconditions.checkNotNull(actoolzipOutput);
     this.bundleContentArtifacts = Preconditions.checkNotNull(bundleContentArtifacts);
     this.mergeZips = Preconditions.checkNotNull(mergeZips);
-    this.primaryBundleId = primaryBundleId;
     this.fallbackBundleId = fallbackBundleId;
+    this.primaryBundleId = primaryBundleId;
+    this.architecture = Preconditions.checkNotNull(architecture);
   }
 
   /**
@@ -271,5 +284,12 @@ final class Bundling {
    */
   public String getFallbackBundleId() {
     return fallbackBundleId;
+  }
+
+  /**
+   * Returns the iOS CPU architecture this bundle was constructed for.
+   */
+  public String getArchitecture() {
+    return architecture;
   }
 }

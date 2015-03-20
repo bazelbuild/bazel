@@ -111,7 +111,9 @@ final class BundleMergeControlBytes extends ByteSource {
     }
 
     for (Bundling nestedBundling : bundling.getObjcProvider().get(NESTED_BUNDLE)) {
-      control.addNestedBundle(control(mergeZipPrefix, nestedBundling));
+      if (nestedBundling.getArchitecture().equals(bundling.getArchitecture())) {
+        control.addNestedBundle(control(mergeZipPrefix, nestedBundling));
+      }
     }
     
     if (bundling.getPrimaryBundleId()  != null) {

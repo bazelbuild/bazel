@@ -56,7 +56,7 @@ public class
   public String iosSimulatorDevice;
 
   @Option(name = "ios_cpu",
-      defaultValue = "i386",
+      defaultValue = DEFAULT_IOS_CPU,
       category = "build",
       help = "Specifies to target CPU of iOS compilation.")
   public String iosCpu;
@@ -110,6 +110,7 @@ public class
   public String iosSplitCpu;
 
   @VisibleForTesting static final String DEFAULT_MINIMUM_IOS = "7.0";
+  @VisibleForTesting static final String DEFAULT_IOS_CPU = "i386";
 
   @Override
   public void addAllLabels(Multimap<String, Label> labelMap) {}
