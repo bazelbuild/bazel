@@ -542,6 +542,9 @@ public final class LinkCommandLine extends CommandLine {
       optionList.addAll(cppConfiguration.getCompilerOptions(features));
       optionList.addAll(cppConfiguration.getCOptions());
       optionList.addAll(cppConfiguration.getUnfilteredCompilerOptions(features));
+      if (CppFileTypes.CPP_SOURCE.matches(linkstamp.getKey().getExecPath())) {
+        optionList.addAll(cppConfiguration.getCxxOptions(features));
+      }
 
       // For dynamic libraries, produce position independent code.
       if (linkTargetType == LinkTargetType.DYNAMIC_LIBRARY
