@@ -313,10 +313,22 @@ public class ParserTest extends AbstractParserTestCase {
   }
 
   @Test
-  public void testAssign() {
+  public void testTupleAssign() {
     String expr = "list[0] = 5; dict['key'] = value\n";
     List<Statement> statements = parseFile(expr);
     assertThat(statements).hasSize(2);
+    assertThat(statements.get(0)).isInstanceOf(AssignmentStatement.class);
+    assertThat(statements.get(1)).isInstanceOf(AssignmentStatement.class);
+  }
+
+  @Test
+  public void testAssign() {
+    String expr = "a, b = 5\n";
+    List<Statement> statements = parseFile(expr);
+    assertThat(statements).hasSize(1);
+    assertThat(statements.get(0)).isInstanceOf(AssignmentStatement.class);
+    AssignmentStatement assign = (AssignmentStatement) statements.get(0);
+    assertThat(assign.getLValue().getExpression()).isInstanceOf(ListLiteral.class);
   }
 
   @Test
@@ -408,6 +420,28 @@ public class ParserTest extends AbstractParserTestCase {
     assertThat(tuple.getElements()).hasSize(3);
     assertTrue(tuple.isTuple());
     for (int i = 0; i < 3; ++i) {
+      assertEquals(i, getIntElem(tuple, i));
+    }
+  }
+
+  @Test
+  public void testTupleWithoutParens() throws Exception {
+    ListLiteral tuple = (ListLiteral) parseExpr("0, 1, 2");
+    assertTrue(tuple.isTuple());
+    assertThat(tuple.getElements()).hasSize(3);
+    assertTrue(tuple.isTuple());
+    for (int i = 0; i < 3; ++i) {
+      assertEquals(i, getIntElem(tuple, i));
+    }
+  }
+
+  @Test
+  public void testTupleWithoutParensWithTrailingComma() throws Exception {
+    ListLiteral tuple = (ListLiteral) parseExpr("0, 1, 2, 3,");
+    assertTrue(tuple.isTuple());
+    assertThat(tuple.getElements()).hasSize(4);
+    assertTrue(tuple.isTuple());
+    for (int i = 0; i < 4; ++i) {
       assertEquals(i, getIntElem(tuple, i));
     }
   }
