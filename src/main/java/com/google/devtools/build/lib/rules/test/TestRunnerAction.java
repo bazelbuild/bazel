@@ -18,7 +18,6 @@ import com.google.common.base.Preconditions;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.ImmutableSet;
-import com.google.common.collect.Iterables;
 import com.google.devtools.build.lib.actions.AbstractAction;
 import com.google.devtools.build.lib.actions.ActionExecutionContext;
 import com.google.devtools.build.lib.actions.ActionExecutionException;
@@ -178,11 +177,6 @@ public class TestRunnerAction extends AbstractAction implements NotifyOnActionCa
   @Override
   public boolean showsOutputUnconditionally() {
     return true;
-  }
-
-  @Override
-  public int getInputCount() {
-    return Iterables.size(getInputs());
   }
 
   @Override
