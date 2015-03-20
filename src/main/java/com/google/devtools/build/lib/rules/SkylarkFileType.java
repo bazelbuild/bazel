@@ -47,7 +47,9 @@ public class SkylarkFileType {
 
   @SkylarkCallable(doc =
       "Returns a list created from the elements of the parameter containing all the "
-    + "<a href=\"#modules.File\"><code>File</code></a>s that match the FileType.")
+    + "<a href=\"#modules.File\"><code>File</code></a>s that match the FileType. The parameter "
+    + "must be a <a href=\"#modules.set\"><code>set</code></a> or a "
+    + "<a href=\"#modules.list\"><code>list</code></a>.")
   public List<Artifact> filter(Iterable<Artifact> files) {
     return ImmutableList.copyOf(FileType.filter(files, fileType));
   }

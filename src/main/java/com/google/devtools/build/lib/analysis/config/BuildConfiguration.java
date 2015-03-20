@@ -1630,7 +1630,8 @@ public final class BuildConfiguration implements Serializable {
   /**
    * Returns a configuration fragment instances of the given class.
    */
-  @SkylarkCallable(name = "fragment", doc = "Returns a configuration fragment using the key.")
+  @SkylarkCallable(name = "fragment", hidden = true,
+      doc = "Returns a configuration fragment using the key.")
   public <T extends Fragment> T getFragment(Class<T> clazz) {
     return clazz.cast(fragments.get(clazz));
   }

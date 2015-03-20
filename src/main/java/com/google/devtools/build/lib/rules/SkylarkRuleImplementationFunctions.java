@@ -325,8 +325,8 @@ public class SkylarkRuleImplementationFunctions {
       @Param(name = "tools", type = SkylarkList.class, generic1 = TransitiveInfoCollection.class,
              doc = "list of tools (list of targets)"),
       @Param(name = "label_dict", type = Map.class,
-             doc = "dictionary of resolved labels and the corresponding list of artifacts "
-                 + "(a dict of Label : list of files)")})
+             doc = "dictionary of resolved labels and the corresponding list of Files "
+                 + "(a dict of Label : list of Files)")})
   private static final SkylarkFunction createCommandHelper =
       new SimpleSkylarkFunction("command_helper") {
         @SuppressWarnings("unchecked")

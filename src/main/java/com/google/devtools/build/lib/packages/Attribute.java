@@ -28,6 +28,7 @@ import com.google.devtools.build.lib.syntax.ClassObject.SkylarkClassObject;
 import com.google.devtools.build.lib.syntax.EvalException;
 import com.google.devtools.build.lib.syntax.Label;
 import com.google.devtools.build.lib.syntax.SkylarkCallbackFunction;
+import com.google.devtools.build.lib.syntax.SkylarkModule;
 import com.google.devtools.build.lib.util.FileType;
 import com.google.devtools.build.lib.util.FileTypeSet;
 import com.google.devtools.build.lib.util.StringUtil;
@@ -87,6 +88,8 @@ public final class Attribute implements Comparable<Attribute> {
    * Declaration how the configuration should change when following a label or
    * label list attribute.
    */
+  @SkylarkModule(name = "ConfigurationTransition", doc =
+      "Declares how the configuration should change when following a dependency.")
   public enum ConfigurationTransition implements Transition {
     /** No transition, i.e., the same configuration as the current. */
     NONE,
