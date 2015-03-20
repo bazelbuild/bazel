@@ -123,8 +123,8 @@ public class QueryOptions extends OptionsBase {
       converter = Converters.CommaSeparatedOptionListConverter.class,
       defaultValue = "",
       category = "query",
-      help = "A comma-separated set of target patterns (additive and subtractive). The query will "
-          + "be performed in the universe which is the transitive closure of the specified "
+      help = "A comma-separated set of target patterns (additive and subtractive). The query may "
+          + "be performed in the universe defined by the transitive closure of the specified "
           + "targets.")
   public List<String> universeScope;
 
