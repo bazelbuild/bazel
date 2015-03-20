@@ -544,7 +544,7 @@ function run_suite() {
         echo "FAILED: $TEST_name" >&2
         # end marker in CDATA cannot be escaped, we need to split the CDATA sections
         log=$(cat $TEST_TMPDIR/__log | sed 's/]]>/]]>]]&gt;<![CDATA[/g')
-        fail_msg=$(cat $TEST_TMPDIR/__fail)
+        fail_msg=$(cat $TEST_TMPDIR/__fail || echo "No failure message")
         testcase_tag="<testcase name=\"$TEST_name\" status=\"run\" time=\"$run_time\" classname=\"\"><error message=\"$fail_msg\"><![CDATA[$log]]></error></testcase>"
       fi
       $TEST_verbose && echo >&2
