@@ -50,7 +50,8 @@ public class CppModuleMapAction extends AbstractFileWriteAction {
    */
   private final boolean moduleMapHomeIsCwd;
 
-  // Headers and dependencies list
+  // Data required to build the actual module map.
+  // NOTE: If you add a field here, you'll likely need to add it to the cache key in computeKey().
   private final ImmutableList<Artifact> privateHeaders;
   private final ImmutableList<Artifact> publicHeaders;
   private final ImmutableList<CppModuleMap> dependencies;
@@ -176,6 +177,7 @@ public class CppModuleMapAction extends AbstractFileWriteAction {
     f.addString(cppModuleMap.getName());
     f.addBoolean(moduleMapHomeIsCwd);
     f.addBoolean(compiledModule);
+    f.addBoolean(generateSubmodules);
     return f.hexDigestAndReset();
   }
 

@@ -21,6 +21,7 @@ import com.google.devtools.build.lib.concurrent.ThreadSafety.Immutable;
  */
 @Immutable
 public class CppModuleMap {
+  // NOTE: If you add a field here, you'll likely need to update CppModuleMapAction.computeKey().
   private final Artifact artifact;
   private final String name;
 
