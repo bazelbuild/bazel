@@ -1152,12 +1152,25 @@ public final class ParallelEvaluator implements Evaluator {
           throw new IllegalStateException(entry + " for " + skyKey + " in unknown state");
       }
     }
+    boolean shouldClean = false;
     try {
-      return waitForCompletionAndConstructResult(visitor, skyKeys);
+      EvaluationResult<T> result = waitForCompletionAndConstructResult(visitor, skyKeys);
+      shouldClean = true;
+      return result;
+    } catch (InterruptedException e) {
+      shouldClean = true;
+      throw e;
     } finally {
-      // TODO(bazel-team): In nokeep_going mode or in case of an interrupt, we need to remove
-      // partial values from the graph. Find a better way to handle those cases.
-      clean(visitor.inflightNodes);
+      if (shouldClean) {
+        // TODO(bazel-team): In nokeep_going mode or in case of an interrupt, we need to remove
+        // partial values from the graph. Find a better way to handle those cases.
+        clean(visitor.inflightNodes);
+      }
+      // If we're going to crash anyway, things might be in a weird state such that 'clean' is
+      // likely to crash too. So propagating the original exception is much more useful.
+      // Note that this is safe in the sense that this decision doesn't prevent weird
+      // SkyFunctions from doing weird things with unchecked exceptions - that's already
+      // prevented directly by SkyFunctionException#validateExceptionType.
     }
   }
 
@@ -1171,13 +1184,7 @@ public final class ParallelEvaluator implements Evaluator {
         new ThrowableRecordingRunnableWrapper("ParallelEvaluator#clean");
     for (final SkyKey key : inflightNodes) {
       final NodeEntry entry = graph.get(key);
-      if (entry.isDone()) {
-        // Entry may be done in case of a RuntimeException or other programming bug. Do nothing,
-        // since (a) we're about to crash anyway, and (b) getTemporaryDirectDeps cannot be called
-        // on a done node, so the call below would crash, which would mask the actual exception
-        // that caused this state.
-        continue;
-      }
+      Preconditions.checkState(!entry.isDone(), key);
       executor.execute(wrapper.wrap(new Runnable() {
         @Override
         public void run() {
