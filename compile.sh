@@ -448,4 +448,29 @@ zip -qA output/bazel \
   || echo "(Non-critical error, ignore.)"
 
 chmod 755 output/bazel
+
+log "Creating objc helper tools..."
+
+zip_common="src/tools/xcode-common/java/com/google/devtools/build/xcode/zip src/tools/xcode-common/java/com/google/devtools/build/xcode/util src/java_tools/singlejar/java/com/google/devtools/build/singlejar/ZipCombiner.java src/java_tools/singlejar/java/com/google/devtools/build/singlejar/ZipEntryFilter.java src/java_tools/singlejar/java/com/google/devtools/build/singlejar/ExtraData.java src/java_tools/singlejar/java/com/google/devtools/build/singlejar/CopyEntryFilter.java"
+
+java_compilation "actoolzip" "src/tools/xcode-common/java/com/google/devtools/build/xcode/actoolzip src/tools/xcode-common/java/com/google/devtools/build/xcode/zippingoutput ${zip_common}" "third_party/guava/guava-18.0.jar third_party/jsr305/jsr-305.jar" "output/actoolzip"
+create_deploy_jar "precomp_actoolzip_deploy" "com.google.devtools.build.xcode.actoolzip.ActoolZip" "output/actoolzip"
+
+java_compilation "ibtoolzip" "src/tools/xcode-common/java/com/google/devtools/build/xcode/ibtoolzip src/tools/xcode-common/java/com/google/devtools/build/xcode/zippingoutput ${zip_common}" "third_party/guava/guava-18.0.jar third_party/jsr305/jsr-305.jar" "output/ibtoolzip"
+create_deploy_jar "precomp_ibtoolzip_deploy" "com.google.devtools.build.xcode.ibtoolzip.IbtoolZip" "output/ibtoolzip"
+
+java_compilation "momczip" "src/objc_tools/momczip/java/com/google/devtools/build/xcode/momczip src/tools/xcode-common/java/com/google/devtools/build/xcode/zippingoutput ${zip_common}" "third_party/guava/guava-18.0.jar third_party/jsr305/jsr-305.jar" "output/momczip"
+create_deploy_jar "precomp_momczip_deploy" "com.google.devtools.build.xcode.momczip.MomcZip" "output/momczip"
+
+java_compilation "bundlemerge" "src/objc_tools/bundlemerge/java/com/google/devtools/build/xcode/bundlemerge src/objc_tools/plmerge/java/com/google/devtools/build/xcode/plmerge src/tools/xcode-common/java/com/google/devtools/build/xcode/common output/src/com/google/devtools/build/xcode/bundlemerge/proto/BundleMergeProtos.java ${zip_common} third_party/java/dd_plist src/main/java/com/google/devtools/common/options" "third_party/guava/guava-18.0.jar third_party/jsr305/jsr-305.jar third_party/protobuf/protobuf-2.5.0.jar" "output/bundlemerge"
+create_deploy_jar "precomp_bundlemerge_deploy" "com.google.devtools.build.xcode.bundlemerge.BundleMerge" "output/bundlemerge"
+
+java_compilation "plmerge" "src/objc_tools/plmerge/java/com/google/devtools/build/xcode/plmerge src/tools/xcode-common/java/com/google/devtools/build/xcode/common third_party/java/dd_plist src/main/java/com/google/devtools/common/options ${zip_common}" "third_party/guava/guava-18.0.jar third_party/jsr305/jsr-305.jar" "output/plmerge"
+create_deploy_jar "precomp_plmerge_deploy" "com.google.devtools.build.xcode.plmerge.PlMerge" "output/plmerge"
+
+java_compilation "xcodegen" "src/objc_tools/xcodegen/java/com/google/devtools/build/xcode/xcodegen src/main/java/com/google/devtools/common/options output/src/com/google/devtools/build/xcode/xcodegen/proto/XcodeGenProtos.java third_party/java/buck-ios-support/java src/objc_tools/plmerge/java/com/google/devtools/build/xcode/plmerge src/tools/xcode-common/java/com/google/devtools/build/xcode/common src/tools/xcode-common/java/com/google/devtools/build/xcode/util third_party/java/dd_plist" "third_party/guava/guava-18.0.jar third_party/jsr305/jsr-305.jar third_party/protobuf/protobuf-2.5.0.jar" "output/xcodegen"
+create_deploy_jar "precomp_xcodegen_deploy" "com.google.devtools.build.xcode.xcodegen.XcodeGen" "output/xcodegen"
+
+cp -f output/actoolzip/precomp_actoolzip_deploy.jar output/ibtoolzip/precomp_ibtoolzip_deploy.jar output/momczip/precomp_momczip_deploy.jar output/bundlemerge/precomp_bundlemerge_deploy.jar output/plmerge/precomp_plmerge_deploy.jar output/xcodegen/precomp_xcodegen_deploy.jar tools/objc/
+
 log "Build successful!"
