@@ -222,7 +222,7 @@ final class CompilationSupport {
         .addOutput(debugSymbolFile)
         .build(ruleContext));
 
-    Artifact dumpsyms = ruleContext.getPrerequisiteArtifact("$dumpsyms", Mode.HOST);
+    Artifact dumpsyms = ruleContext.getPrerequisiteArtifact(":dumpsyms", Mode.HOST);
     Artifact breakpadFile = intermediateArtifacts.breakpadSym();
     ruleContext.registerAction(new SpawnAction.Builder()
         .setMnemonic("GenBreakpad")

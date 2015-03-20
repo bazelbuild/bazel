@@ -59,18 +59,20 @@ public class ObjcConfiguration extends BuildConfiguration.Fragment {
   private final List<String> iosMultiCpus;
   private final String iosSplitCpu;
 
-  // We only load this label if coverage mode is enabled. That is know as part of the
+  // We only load these labels if the mode which uses them is enabled. That is know as part of the
   // BuildConfiguration. This label needs to be part of a configuration because only configurations
   // can conditionally cause loading.
-  // This is referenced from a late bound attribute, and if loading wasn't forced in a
+  // They are referenced from late bound attributes, and if loading wasn't forced in a
   // configuration, the late bound attribute will fail to be initialized because it hasn't been
   // loaded.
   @Nullable private final Label gcovLabel;
+  @Nullable private final Label dumpSymsLabel;
 
   ObjcConfiguration(
       ObjcCommandLineOptions objcOptions,
       BuildConfiguration.Options options,
-      @Nullable Label gcovLabel) {
+      @Nullable Label gcovLabel,
+      @Nullable Label dumpSymsLabel) {
     this.iosSdkVersion = Preconditions.checkNotNull(objcOptions.iosSdkVersion, "iosSdkVersion");
     this.iosMinimumOs = Preconditions.checkNotNull(objcOptions.iosMinimumOs, "iosMinimumOs");
     this.iosSimulatorDevice =
@@ -84,6 +86,7 @@ public class ObjcConfiguration extends BuildConfiguration.Fragment {
     this.copts = ImmutableList.copyOf(objcOptions.copts);
     this.compilationMode = Preconditions.checkNotNull(options.compilationMode, "compilationMode");
     this.gcovLabel = gcovLabel;
+    this.dumpSymsLabel = dumpSymsLabel;
     this.iosMultiCpus = Preconditions.checkNotNull(objcOptions.iosMultiCpus, "iosMultiCpus");
     this.iosSplitCpu = Preconditions.checkNotNull(objcOptions.iosSplitCpu, "iosSplitCpu");
   }
@@ -169,6 +172,14 @@ public class ObjcConfiguration extends BuildConfiguration.Fragment {
    */
   @Nullable public Label getGcovLabel() {
     return gcovLabel;
+  }
+
+  /**
+   * Returns the label of the dump_syms binary, used to get debug symbols from a binary. Null iff
+   * !{@link #generateDebugSymbols}.
+   */
+  @Nullable public Label getDumpSymsLabel() {
+    return dumpSymsLabel;
   }
 
   /**

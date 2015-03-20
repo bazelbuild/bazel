@@ -34,13 +34,17 @@ import com.google.devtools.build.lib.analysis.RuleConfiguredTarget.Mode;
 import com.google.devtools.build.lib.analysis.RuleContext;
 import com.google.devtools.build.lib.analysis.RuleDefinition;
 import com.google.devtools.build.lib.analysis.RuleDefinitionEnvironment;
+import com.google.devtools.build.lib.analysis.config.BuildConfiguration;
 import com.google.devtools.build.lib.collect.nestedset.NestedSetBuilder;
 import com.google.devtools.build.lib.packages.Attribute;
+import com.google.devtools.build.lib.packages.Attribute.LateBoundLabel;
 import com.google.devtools.build.lib.packages.AttributeMap;
+import com.google.devtools.build.lib.packages.Rule;
 import com.google.devtools.build.lib.packages.RuleClass;
 import com.google.devtools.build.lib.packages.RuleClass.Builder;
 import com.google.devtools.build.lib.packages.RuleClass.Builder.RuleClassType;
 import com.google.devtools.build.lib.packages.Type;
+import com.google.devtools.build.lib.syntax.Label;
 import com.google.devtools.build.lib.util.FileType;
 import com.google.devtools.build.lib.util.FileTypeSet;
 import com.google.devtools.build.lib.vfs.PathFragment;
@@ -638,9 +642,19 @@ public class ObjcRuleClasses {
     @Override
     public RuleClass build(Builder builder, RuleDefinitionEnvironment env) {
       return builder
-          .add(attr("$dumpsyms", LABEL).cfg(HOST).exec()
-              .value(env.getLabel("//tools/objc:dump_syms")))
-          .build();
+          .add(attr(":dumpsyms", LABEL)
+          .cfg(HOST)
+          .singleArtifact()
+          .value(new LateBoundLabel<BuildConfiguration>() {
+            @Override
+            public Label getDefault(Rule rule, BuildConfiguration configuration) {
+              if (!configuration.getFragment(ObjcConfiguration.class).generateDebugSymbols()) {
+                return null;
+              }
+              return configuration.getFragment(ObjcConfiguration.class).getDumpSymsLabel();
+            }
+          }))
+        .build();
     }
     @Override
     public Metadata getMetadata() {

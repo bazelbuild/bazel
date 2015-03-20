@@ -33,24 +33,37 @@ public class ObjcConfigurationLoader implements ConfigurationFragmentFactory {
   public ObjcConfiguration create(ConfigurationEnvironment env, BuildOptions buildOptions)
       throws InvalidConfigurationException {
     Options options = buildOptions.get(BuildConfiguration.Options.class);
+    ObjcCommandLineOptions objcOptions = buildOptions.get(ObjcCommandLineOptions.class);
+
+    // TODO(danielwh): Replace these labels with something from an objc_toolchain when it exists
     Label gcovLabel = null;
     if (options.collectCodeCoverage) {
-      try {
-        // TODO(danielwh): Replace this with something from an objc_toolchain when it exists
-        gcovLabel = Label.parseAbsolute("//third_party/gcov:gcov_for_xcode");
-        // Force the label to be loaded
-        env.getTarget(gcovLabel);
-      } catch (Label.SyntaxException | NoSuchPackageException | NoSuchTargetException e) {
-        throw new InvalidConfigurationException("Error parsing or loading objc coverage label: "
-            + e.getMessage(), e);
-      }
+      gcovLabel = forceLoad(env, "//third_party/gcov:gcov_for_xcode");
     }
-    return new ObjcConfiguration(buildOptions.get(ObjcCommandLineOptions.class),
-        options, gcovLabel);
+
+    Label dumpSymsLabel = null;
+    if (objcOptions.generateDebugSymbols) {
+      forceLoad(env, "//tools/objc:dump_syms");
+    }
+
+    return new ObjcConfiguration(objcOptions, options, gcovLabel, dumpSymsLabel);
   }
 
   @Override
   public Class<? extends BuildConfiguration.Fragment> creates() {
     return ObjcConfiguration.class;
+  }
+
+  private static Label forceLoad(ConfigurationEnvironment env, String target)
+      throws InvalidConfigurationException {
+    Label label = null;
+    try {
+      label = Label.parseAbsolute(target);
+      env.getTarget(label);
+      return label;
+    } catch (Label.SyntaxException | NoSuchPackageException | NoSuchTargetException e) {
+      throw new InvalidConfigurationException("Error parsing or loading " + target + ": "
+          + e.getMessage(), e);
+    }
   }
 }
