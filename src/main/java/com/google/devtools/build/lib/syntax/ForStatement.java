@@ -23,20 +23,20 @@ import java.util.List;
  */
 public final class ForStatement extends Statement {
 
-  private final Ident variable;
+  private final LValue variable;
   private final Expression collection;
   private final ImmutableList<Statement> block;
 
   /**
    * Constructs a for loop statement.
    */
-  ForStatement(Ident variable, Expression collection, List<Statement> block) {
-    this.variable = Preconditions.checkNotNull(variable);
+  ForStatement(Expression variable, Expression collection, List<Statement> block) {
+    this.variable = new LValue(Preconditions.checkNotNull(variable));
     this.collection = Preconditions.checkNotNull(collection);
     this.block = ImmutableList.copyOf(block);
   }
 
-  public Ident getVariable() {
+  public LValue getVariable() {
     return variable;
   }
 
@@ -62,7 +62,7 @@ public final class ForStatement extends Statement {
 
     int i = 0;
     for (Object it : ImmutableList.copyOf(col)) {
-      env.update(variable.getName(), it);
+      variable.assign(env, getLocation(), it);
       for (Statement stmt : block) {
         stmt.exec(env);
       }
@@ -89,7 +89,7 @@ public final class ForStatement extends Statement {
     // TODO(bazel-team): validate variable. Maybe make it temporarily readonly.
     SkylarkType type = collection.validate(env);
     env.checkIterable(type, getLocation());
-    env.update(variable.getName(), SkylarkType.UNKNOWN, getLocation());
+    variable.validate(env, getLocation(), SkylarkType.UNKNOWN);
     for (Statement stmt : block) {
       stmt.validate(env);
     }
