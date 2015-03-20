@@ -582,7 +582,8 @@ public class MethodLibrary {
 
   @SkylarkBuiltin(name = "bool", returnType = Boolean.class, doc = "Converts an object to boolean. "
       + "It returns False if the object is None, False, an empty string, the number 0, or an "
-      + "empty collection. Otherwise, it returns True.",
+      + "empty collection. Otherwise, it returns True. Similarly to Python <code>bool</code> "
+      + "is also a type.",
       mandatoryParams = {@Param(name = "x", doc = "The variable to convert.")})
       private static Function bool = new MixedModeFunction("bool",
           ImmutableList.of("this"), 1, false) {

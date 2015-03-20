@@ -251,23 +251,25 @@ public class SkylarkDocumentationProcessor {
     return getTypeAnchor(returnType) + " of " + getTypeAnchor(generic1) + "s";
   }
 
-  private String getTypeAnchor(Class<?> returnType) {
-    if (returnType.equals(String.class)) {
+  private String getTypeAnchor(Class<?> type) {
+    if (type.equals(Boolean.class) || type.equals(boolean.class)) {
+      return "<a class=\"anchor\" href=\"#modules._top_level.bool\">bool</a>";
+    } else if (type.equals(String.class)) {
       return "<a class=\"anchor\" href=\"#modules.string\">string</a>";
-    } else if (Map.class.isAssignableFrom(returnType)) {
+    } else if (Map.class.isAssignableFrom(type)) {
       return "<a class=\"anchor\" href=\"#modules.dict\">dict</a>";
-    } else if (List.class.isAssignableFrom(returnType)) {
+    } else if (List.class.isAssignableFrom(type)) {
       // Annotated Java methods can return simple java.util.Lists (which get auto-converted).
       return "<a class=\"anchor\" href=\"#modules.list\">list</a>";
-    } else if (returnType.equals(Void.TYPE) || returnType.equals(NoneType.class)) {
+    } else if (type.equals(Void.TYPE) || type.equals(NoneType.class)) {
       return "<a class=\"anchor\" href=\"#modules." + TOP_LEVEL_ID + ".None\">None</a>";
-    } else if (returnType.isAnnotationPresent(SkylarkModule.class)) {
+    } else if (type.isAnnotationPresent(SkylarkModule.class)) {
       // TODO(bazel-team): this can produce dead links for types don't show up in the doc.
       // The correct fix is to generate those types (e.g. SkylarkFileType) too.
-      String module = returnType.getAnnotation(SkylarkModule.class).name();
+      String module = type.getAnnotation(SkylarkModule.class).name();
       return "<a class=\"anchor\" href=\"#modules." + module + "\">" + module + "</a>";
     } else {
-      return EvalUtils.getDataTypeNameFromClass(returnType);
+      return EvalUtils.getDataTypeNameFromClass(type);
     }
   }
 
