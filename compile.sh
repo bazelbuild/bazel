@@ -305,46 +305,6 @@ function create_deploy_jar() {
   "$JAR" cmf $output/MANIFEST.MF $output/$name.jar $packages "$@"
 }
 
-if [ -z "${BAZEL_SKIP_JAVA_COMPILATION}" ]; then
-  log "Compiling Java stubs for protocol buffers..."
-  for f in $PROTO_FILES ; do
-    "${PROTOC}" -Isrc/main/protobuf/ --java_out=output/src "$f"
-  done
-
-  java_compilation "Bazel Java" "$DIRS" "$LIBRARY_JARS" "output"
-
-  # help files: all non java files in src/main/java.
-  for i in $(find src/main/java -type f -a \! -name '*.java' | sed 's|src/main/java/||'); do
-    mkdir -p $(dirname output/classes/$i)
-    cp src/main/java/$i output/classes/$i
-  done
-
-  create_deploy_jar "libblaze" "com.google.devtools.build.lib.bazel.BazelMain" \
-      output third_party/javascript
-fi
-
-if [ -z "${BAZEL_SKIP_SINGLEJAR_COMPILATION}" ]; then
-  # Compile singlejar, a jar suitable for deployment.
-  java_compilation "SingleJar tool" "$SINGLEJAR_DIRS" "$SINGLEJAR_LIBRARIES" \
-    "output/singlejar"
-
-  create_deploy_jar "SingleJar_deploy" \
-      "com.google.devtools.build.singlejar.SingleJar" "output/singlejar"
-  mkdir -p tools/jdk
-  cp -f output/singlejar/SingleJar_deploy.jar tools/jdk
-fi
-
-if [ -z "${BAZEL_SKIP_BUILDJAR_COMPILATION}" ]; then
-  # Compile buildjar, a wrapper around javac.
-  java_compilation "JavaBuilder tool" "$BUILDJAR_DIRS" "$BUILDJAR_LIBRARIES" \
-      "output/buildjar" $JAVA_HOME/lib/tools.jar
-
-  create_deploy_jar "JavaBuilder_deploy" \
-      "com.google.devtools.build.buildjar.BazelJavaBuilder" "output/buildjar"
-  mkdir -p tools/jdk
-  cp -f output/buildjar/JavaBuilder_deploy.jar tools/jdk
-fi
-
 function cc_compile() {
   local OBJDIR=$1
   shift
@@ -388,6 +348,46 @@ function cc_build() {
   log "Linking ${NAME}..."
   cc_link "${OBJDIR}" "${OUTPUT}" "$@"
 }
+
+if [ -z "${BAZEL_SKIP_JAVA_COMPILATION}" ]; then
+  log "Compiling Java stubs for protocol buffers..."
+  for f in $PROTO_FILES ; do
+    "${PROTOC}" -Isrc/main/protobuf/ --java_out=output/src "$f"
+  done
+
+  java_compilation "Bazel Java" "$DIRS" "$LIBRARY_JARS" "output"
+
+  # help files: all non java files in src/main/java.
+  for i in $(find src/main/java -type f -a \! -name '*.java' | sed 's|src/main/java/||'); do
+    mkdir -p $(dirname output/classes/$i)
+    cp src/main/java/$i output/classes/$i
+  done
+
+  create_deploy_jar "libblaze" "com.google.devtools.build.lib.bazel.BazelMain" \
+      output third_party/javascript
+fi
+
+if [ -z "${BAZEL_SKIP_SINGLEJAR_COMPILATION}" ]; then
+  # Compile singlejar, a jar suitable for deployment.
+  java_compilation "SingleJar tool" "$SINGLEJAR_DIRS" "$SINGLEJAR_LIBRARIES" \
+    "output/singlejar"
+
+  create_deploy_jar "SingleJar_deploy" \
+      "com.google.devtools.build.singlejar.SingleJar" "output/singlejar"
+  mkdir -p tools/jdk
+  cp -f output/singlejar/SingleJar_deploy.jar tools/jdk
+fi
+
+if [ -z "${BAZEL_SKIP_BUILDJAR_COMPILATION}" ]; then
+  # Compile buildjar, a wrapper around javac.
+  java_compilation "JavaBuilder tool" "$BUILDJAR_DIRS" "$BUILDJAR_LIBRARIES" \
+      "output/buildjar" $JAVA_HOME/lib/tools.jar
+
+  create_deploy_jar "JavaBuilder_deploy" \
+      "com.google.devtools.build.buildjar.BazelJavaBuilder" "output/buildjar"
+  mkdir -p tools/jdk
+  cp -f output/buildjar/JavaBuilder_deploy.jar tools/jdk
+fi
 
 cc_build "client" "objs" "output/client" ${BLAZE_CC_FILES[@]}
 
