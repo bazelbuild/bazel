@@ -30,11 +30,7 @@ namespace blaze {
 using std::string;
 
 string GetOutputRoot() {
-  const char *home = getenv("HOME");
-  if (home == NULL) {
-    return "/var/tmp";
-  }
-  return blaze_util::JoinPath(home, "Library/Caches/Bazel");
+  return "/var/tmp";
 }
 
 void WarnFilesystemType(const string& output_base) {
