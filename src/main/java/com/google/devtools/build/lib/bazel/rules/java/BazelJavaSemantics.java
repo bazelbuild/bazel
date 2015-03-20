@@ -73,6 +73,9 @@ public class BazelJavaSemantics implements JavaSemantics {
       FileTypeSet.of(FileType.of(".sh"), JavaSemantics.JAVA_SOURCE),
       "srcs", "deps", "data");
 
+  private static final String JAVABUILDER_CLASS_NAME =
+      "com.google.devtools.build.buildjar.BazelJavaBuilder";
+
   private BazelJavaSemantics() {
   }
 
@@ -135,6 +138,11 @@ public class BazelJavaSemantics implements JavaSemantics {
   public Artifact createInstrumentationMetadataArtifact(
       AnalysisEnvironment analysisEnvironment, Artifact outputJar) {
     return null;
+  }
+
+  @Override
+  public Iterable<Artifact> getInstrumentationJars(RuleContext context) {
+    return ImmutableList.of();
   }
 
   @Override
@@ -342,5 +350,10 @@ public class BazelJavaSemantics implements JavaSemantics {
       }
     }
     return ImmutableList.<String>of();
+  }
+
+  @Override
+  public String getJavaBuilderMainClass() {
+    return JAVABUILDER_CLASS_NAME;
   }
 }

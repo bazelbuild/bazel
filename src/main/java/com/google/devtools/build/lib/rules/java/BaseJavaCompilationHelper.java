@@ -121,6 +121,13 @@ public class BaseJavaCompilationHelper {
   }
 
   /**
+   * Returns the instrumentation jar in the given semantics.
+   */
+  protected final Iterable<Artifact> getInstrumentationJars(JavaSemantics semantics) {
+    return semantics.getInstrumentationJars(ruleContext);
+  }
+
+  /**
    * Returns the javac bootclasspath artifacts.
    */
   protected final Iterable<Artifact> getBootClasspath() {

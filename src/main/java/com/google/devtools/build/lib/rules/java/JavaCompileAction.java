@@ -179,6 +179,7 @@ public class JavaCompileAction extends AbstractAction {
                             List<Artifact> processorPath,
                             Artifact langtoolsJar,
                             Artifact javaBuilderJar,
+                            Iterable<Artifact> instrumentationJars,
                             List<String> processorNames,
                             Collection<Artifact> messages,
                             Collection<Artifact> resources,
@@ -202,6 +203,7 @@ public class JavaCompileAction extends AbstractAction {
             .addAll(baseInputs)
             .add(langtoolsJar)
             .add(javaBuilderJar)
+            .addAll(instrumentationJars)
             .build(),
         outputs);
     this.javaCompileCommandLine = javaCompileCommandLine;
@@ -479,8 +481,6 @@ public class JavaCompileAction extends AbstractAction {
       Artifact outputDepsProto,
       final NestedSet<Artifact> classpath,
       List<Artifact> processorPath,
-      Artifact langtoolsJar,
-      Artifact javaBuilderJar,
       List<String> processorNames,
       Collection<Artifact> messages,
       Collection<Artifact> resources,
@@ -495,8 +495,6 @@ public class JavaCompileAction extends AbstractAction {
       Label targetLabel) {
     Preconditions.checkNotNull(classDirectory);
     Preconditions.checkNotNull(tempDirectory);
-    Preconditions.checkNotNull(langtoolsJar);
-    Preconditions.checkNotNull(javaBuilderJar);
 
     CustomCommandLine.Builder result = CustomCommandLine.builder();
 
@@ -668,10 +666,13 @@ public class JavaCompileAction extends AbstractAction {
    * The actual command line executed for a compile action.
    */
   private static CommandLine spawnCommandLine(PathFragment javaExecutable, Artifact javaBuilderJar,
-      Artifact langtoolsJar, Artifact paramFile, ImmutableList<String> javaBuilderJvmFlags) {
+      Artifact langtoolsJar, ImmutableList<Artifact> instrumentationJars, Artifact paramFile,
+      ImmutableList<String> javaBuilderJvmFlags, String javaBuilderMainClass,
+      String pathDelimiter) {
     Preconditions.checkNotNull(langtoolsJar);
     Preconditions.checkNotNull(javaBuilderJar);
-    return CustomCommandLine.builder()
+
+    CustomCommandLine.Builder builder =  CustomCommandLine.builder()
         .addPath(javaExecutable)
         // Langtools jar is placed on the boot classpath so that it can override classes
         // in the JRE. Typically this has no effect since langtools.jar does not have
@@ -680,8 +681,17 @@ public class JavaCompileAction extends AbstractAction {
         // different version than AND has an overlap in contents with the default
         // run-time (eg while upgrading the Java version).
         .addPaths("-Xbootclasspath/p:%s", langtoolsJar.getExecPath())
-        .add(javaBuilderJvmFlags)
-        .addExecPath("-jar", javaBuilderJar)
+        .add(javaBuilderJvmFlags);
+    if (!instrumentationJars.isEmpty()) {
+      builder
+          .addJoinExecPaths("-cp", pathDelimiter,
+              Iterables.concat(instrumentationJars, ImmutableList.of(javaBuilderJar)))
+          .add(javaBuilderMainClass);
+    } else {
+      // If there are no instrumentation jars, use the simpler '-jar' option to launch JavaBuilder.
+      builder.addExecPath("-jar", javaBuilderJar);
+    }
+    return builder
         .addPaths("@%s", paramFile.getExecPath())
         .build();
   }
@@ -718,6 +728,7 @@ public class JavaCompileAction extends AbstractAction {
     private ImmutableList<Artifact> bootclasspathEntries = ImmutableList.of();
     private Artifact javaBuilderJar;
     private Artifact langtoolsJar;
+    private ImmutableList<Artifact> instrumentationJars = ImmutableList.of();
     private PathFragment classDirectory;
     private PathFragment sourceGenDirectory;
     private PathFragment tempDirectory;
@@ -820,8 +831,6 @@ public class JavaCompileAction extends AbstractAction {
           outputDepsProto,
           classpathEntries,
           processorPath,
-          langtoolsJar,
-          javaBuilderJar,
           processorNames,
           translations,
           resources,
@@ -844,8 +853,11 @@ public class JavaCompileAction extends AbstractAction {
           javaExecutable,
           javaBuilderJar,
           langtoolsJar,
+          instrumentationJars,
           paramFile,
-          javaConfiguration.getDefaultJavaBuilderJvmFlags());
+          javaConfiguration.getDefaultJavaBuilderJvmFlags(),
+          semantics.getJavaBuilderMainClass(),
+          configuration.getHostPathSeparator());
 
       return new JavaCompileAction(owner,
           baseInputs,
@@ -858,6 +870,7 @@ public class JavaCompileAction extends AbstractAction {
           processorPath,
           langtoolsJar,
           javaBuilderJar,
+          instrumentationJars,
           processorNames,
           translations,
           resources,
@@ -1014,6 +1027,11 @@ public class JavaCompileAction extends AbstractAction {
 
     public Builder setJavaBuilderJar(Artifact javaBuilderJar) {
       this.javaBuilderJar = javaBuilderJar;
+      return this;
+    }
+
+    public Builder setInstrumentationJars(Iterable<Artifact> instrumentationJars) {
+      this.instrumentationJars = ImmutableList.copyOf(instrumentationJars);
       return this;
     }
 

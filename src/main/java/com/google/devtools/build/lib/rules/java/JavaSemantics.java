@@ -192,6 +192,11 @@ public interface JavaSemantics {
       AnalysisEnvironment analysisEnvironment, Artifact outputJar);
 
   /**
+   * Returns the instrumentation libraries (jars) for the given context.
+   */
+  Iterable<Artifact> getInstrumentationJars(RuleContext context);
+
+  /**
    * May add extra command line options to the Java compile command line.
    */
   void buildJavaCommandLine(Collection<Artifact> outputs, BuildConfiguration configuration,
@@ -348,4 +353,9 @@ public interface JavaSemantics {
    * @return a list of extra arguments to appends to the runfiles support.
    */
   List<String> getExtraArguments(RuleContext ruleContext, JavaCommon javaCommon);
+
+  /**
+   * @return main class (entry point) for the Java compiler.
+   */
+  String getJavaBuilderMainClass();
 }
