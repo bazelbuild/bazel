@@ -36,6 +36,7 @@ import com.google.devtools.build.lib.actions.PackageRootResolver;
 import com.google.devtools.build.lib.actions.ResourceSet;
 import com.google.devtools.build.lib.actions.extra.CppCompileInfo;
 import com.google.devtools.build.lib.actions.extra.ExtraActionInfo;
+import com.google.devtools.build.lib.analysis.RuleContext;
 import com.google.devtools.build.lib.analysis.config.BuildConfiguration;
 import com.google.devtools.build.lib.analysis.config.PerLabelOptions;
 import com.google.devtools.build.lib.collect.CollectionUtils;
@@ -218,7 +219,8 @@ public class CppCompileAction extends AbstractAction implements IncludeScannable
       IncludeResolver includeResolver,
       Iterable<IncludeScannable> lipoScannables,
       UUID actionClassId,
-      boolean usePic) {
+      boolean usePic,
+      RuleContext ruleContext) {
     // getInputs() method is overridden in this class so we pass a dummy empty
     // list to the AbstractAction constructor in place of a real input collection.
     super(owner,
@@ -250,6 +252,28 @@ public class CppCompileAction extends AbstractAction implements IncludeScannable
     this.mandatoryInputs = mandatoryInputs;
     setInputs(createInputs(mandatoryInputs, context.getCompilationPrerequisites(),
         optionalSourceFile));
+    verifyIncludePaths(ruleContext);
+  }
+
+  /**
+   * Verifies that the include paths of this action are within the limits of the execution root.
+   */
+  private void verifyIncludePaths(RuleContext ruleContext) {
+    if (ruleContext == null) {
+      return;
+    }
+    // We currently do not check the output of:
+    // - getQuoteIncludeDirs(): those only come from includes attributes, and are checked in
+    //   CcCommon.getIncludeDirsFromIncludesAttribute().
+    // - getBuiltinIncludeDirs(): while in practice this doesn't happen, bazel can be configured
+    //   to use an absolute system root, in which case the builtin include dirs might be absolute.
+    for (PathFragment include : Iterables.concat(getIncludeDirs(), getSystemIncludeDirs())) {
+      if (include.isAbsolute()
+          || !PathFragment.EMPTY_FRAGMENT.getRelative(include).normalize().isNormalized()) {
+        ruleContext.ruleError("The include path '" + include
+            + "' references a path outside of the execution root.");
+      }
+    }
   }
 
   private static NestedSet<Artifact> createInputs(
