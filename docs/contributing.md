@@ -42,7 +42,25 @@ uses:
   * ijar is a tool to extracts the class interfaces of jars and is a third
     party software at `//third_party/ijar`.
 * For Objective-C / iOS support
-  * TODO(bazel-team): add tools description
+  * actoolzip is a utility that runs OS X's actool and zips up its output for
+    further processing. It is currently compiled and placed into `tools/objc/`
+    by `compile.sh`.
+  * ibtoolzip is a utility that runs OS X's ibtool and zips up its output for
+    further processing. It is currently compiled and placed into `tools/objc/`
+    by `compile.sh`.
+  * momczip is a utility that runs OS X's momc and zips up its output for
+    further processing. It is currently compiled and placed into `tools/objc/`
+    by `compile.sh`.
+  * bundlemerge is a tool that can construct iOS bundles (such as .ipa files or
+    .bndl directories), including plist merging and zip creation. It is currently
+    compiled and placed into `tools/objc/` by `compile.sh`.
+  * plmerge is a tool used for merging plists. It is currently compiled and
+    placed into `tools/objc/` by `compile.sh`.
+  * xcodegen is a tool that assembles an Xcode project file matching Bazel build
+    targets. It is currently compiled and placed into `tools/objc/` by
+    `compile.sh`.
+  * iossim allows us to run iOS applications built by Bazel on Xcode's iOS
+    simulator and is third party software located at `//third_party/iossim`
 
 When modifying Bazel, you want to make sure that the following still works:
 
