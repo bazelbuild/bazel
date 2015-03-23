@@ -119,7 +119,7 @@ public class BuildFileASTTest {
       parseBuildFile("foo() bar() something = baz() bar()");
 
     Event event = events.collector().iterator().next();
-    assertEquals("syntax error at \'bar\'", event.getMessage());
+    assertEquals("syntax error at \'bar\': expected newline", event.getMessage());
     assertEquals("/a/build/file/BUILD",
                  event.getLocation().getPath().toString());
     assertEquals(1, event.getLocation().getStartLineAndColumn().getLine());
@@ -173,8 +173,7 @@ public class BuildFileASTTest {
   public void testWithSyntaxErrorsDoesNotPrintDollarError() throws Exception {
     events.setFailFast(false);
     BuildFileAST buildFile = parseBuildFile(
-        "abi = cxx_abi + '-glibc-' + glibc_version + '-' + "
-        + "generic_cpu + '-' + sysname",
+        "abi = cxx_abi + '-glibc-' + glibc_version + '-' + generic_cpu + '-' + sysname",
         "libs = [abi + opt_level + '/lib/libcc.a']",
         "shlibs = [abi + opt_level + '/lib/libcc.so']",
         "+* shlibs", // syntax error at '+'
@@ -183,7 +182,7 @@ public class BuildFileASTTest {
         "           includes = [ abi + opt_level + '/include' ])");
     assertTrue(buildFile.containsErrors());
     Event event = events.collector().iterator().next();
-    assertEquals("syntax error at '+'", event.getMessage());
+    assertEquals("syntax error at '+': expected expression", event.getMessage());
     Environment env = new Environment();
     assertFalse(buildFile.exec(env, events.reporter()));
     assertNull(findEvent(events.collector(), "$error$"));
@@ -313,7 +312,7 @@ public class BuildFileASTTest {
     // Check the location is properly reported
     Event event = events.collector().iterator().next();
     assertEquals("/foo/bar/file:1:9", event.getLocation().print());
-    assertEquals("syntax error at '%'", event.getMessage());
+    assertEquals("syntax error at '%': expected expression", event.getMessage());
   }
 
   @Test

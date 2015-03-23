@@ -240,11 +240,11 @@ class Parser {
     }
   }
 
-  private void syntaxError(Token token) {
+  private void syntaxError(Token token, String message) {
     if (!recoveryMode) {
       String msg = token.kind == TokenKind.INDENT
           ? "indentation error"
-          : "syntax error at '" + token + "'";
+          : "syntax error at '" + token + "': " + message;
       reportError(lexer.createLocation(token.left, token.right), msg);
       recoveryMode = true;
     }
@@ -255,7 +255,7 @@ class Parser {
   private boolean expect(TokenKind kind) {
     boolean expected = token.kind == kind;
     if (!expected) {
-      syntaxError(token);
+      syntaxError(token, "expected " + kind.getPrettyName());
     }
     nextToken();
     return expected;
@@ -454,7 +454,7 @@ class Parser {
         return setLocation(new DotExpression(receiver, ident), start, token.right);
       }
     } else {
-      syntaxError(token);
+      syntaxError(token, "expected identifier after dot");
       int end = syncTo(EXPR_TERMINATOR_SET);
       return makeErrorExpression(start, end);
     }
@@ -632,7 +632,7 @@ class Parser {
           nextToken();
           return expression;
         }
-        syntaxError(token);
+        expect(TokenKind.RPAREN);
         int end = syncTo(EXPR_TERMINATOR_SET);
         return makeErrorExpression(start, end);
       }
@@ -646,7 +646,7 @@ class Parser {
                                      start, token.right);
       }
       default: {
-        syntaxError(token);
+        syntaxError(token, "expected expression");
         int end = syncTo(EXPR_TERMINATOR_SET);
         return makeErrorExpression(start, end);
       }
@@ -772,7 +772,7 @@ class Parser {
           }
         } while (token.kind == TokenKind.FOR);
 
-        syntaxError(token);
+        syntaxError(token, "expected 'for' or ']'");
         int end = syncPast(LIST_TERMINATOR_SET);
         return makeErrorExpression(start, end);
       }
@@ -787,12 +787,12 @@ class Parser {
           nextToken();
           return literal;
         }
-        syntaxError(token);
+        expect(TokenKind.RBRACKET);
         int end = syncPast(LIST_TERMINATOR_SET);
         return makeErrorExpression(start, end);
       }
       default: {
-        syntaxError(token);
+        syntaxError(token, "expected ',', 'for' or ']'");
         int end = syncPast(LIST_TERMINATOR_SET);
         return makeErrorExpression(start, end);
       }
@@ -834,14 +834,14 @@ class Parser {
       nextToken();
       return literal;
     }
-    syntaxError(token);
+    expect(TokenKind.RBRACE);
     int end = syncPast(DICT_TERMINATOR_SET);
     return makeErrorExpression(start, end);
   }
 
   private Ident parseIdent() {
     if (token.kind != TokenKind.IDENTIFIER) {
-      syntaxError(token);
+      expect(TokenKind.IDENTIFIER);
       return makeErrorExpression(token.left, token.right);
     }
     Ident ident = new Ident(((String) token.value));
