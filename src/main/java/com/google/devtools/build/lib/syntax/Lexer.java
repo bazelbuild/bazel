@@ -443,22 +443,34 @@ public final class Lexer {
   static {
     keywordMap.put("and", TokenKind.AND);
     keywordMap.put("as", TokenKind.AS);
-    keywordMap.put("class", TokenKind.CLASS); // reserved for future expansion
+    keywordMap.put("assert", TokenKind.ASSERT);
+    keywordMap.put("break", TokenKind.BREAK);
+    keywordMap.put("class", TokenKind.CLASS);
+    keywordMap.put("continue", TokenKind.CONTINUE);
     keywordMap.put("def", TokenKind.DEF);
+    keywordMap.put("del", TokenKind.DEL);
     keywordMap.put("elif", TokenKind.ELIF);
     keywordMap.put("else", TokenKind.ELSE);
     keywordMap.put("except", TokenKind.EXCEPT);
     keywordMap.put("finally", TokenKind.FINALLY);
     keywordMap.put("for", TokenKind.FOR);
     keywordMap.put("from", TokenKind.FROM);
+    keywordMap.put("global", TokenKind.GLOBAL);
     keywordMap.put("if", TokenKind.IF);
     keywordMap.put("import", TokenKind.IMPORT);
     keywordMap.put("in", TokenKind.IN);
+    keywordMap.put("is", TokenKind.IS);
+    keywordMap.put("lambda", TokenKind.LAMBDA);
+    keywordMap.put("nonlocal", TokenKind.NONLOCAL);
     keywordMap.put("not", TokenKind.NOT);
     keywordMap.put("or", TokenKind.OR);
     keywordMap.put("pass", TokenKind.PASS);
+    keywordMap.put("raise", TokenKind.RAISE);
     keywordMap.put("return", TokenKind.RETURN);
     keywordMap.put("try", TokenKind.TRY);
+    keywordMap.put("while", TokenKind.WHILE);
+    keywordMap.put("with", TokenKind.WITH);
+    keywordMap.put("yield", TokenKind.YIELD);
   }
 
   private TokenKind getTokenKindForIdentfier(String id) {

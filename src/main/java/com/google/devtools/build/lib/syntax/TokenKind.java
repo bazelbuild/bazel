@@ -19,13 +19,17 @@ package com.google.devtools.build.lib.syntax;
  */
 public enum TokenKind {
 
+  ASSERT("assert"),
   AND("and"),
   AS("as"),
+  BREAK("break"),
   CLASS("class"),
   COLON(":"),
   COMMA(","),
   COMMENT("comment"),
+  CONTINUE("continue"),
   DEF("def"),
+  DEL("del"),
   DOT("."),
   ELIF("elif"),
   ELSE("else"),
@@ -36,6 +40,7 @@ public enum TokenKind {
   FINALLY("finally"),
   FOR("for"),
   FROM("from"),
+  GLOBAL("global"),
   GREATER(">"),
   GREATER_EQUALS(">="),
   IDENTIFIER("identifier"),
@@ -45,6 +50,8 @@ public enum TokenKind {
   IN("in"),
   INDENT("indent"),
   INT("integer"),
+  IS("is"),
+  LAMBDA("lambda"),
   LBRACE("{"),
   LBRACKET("["),
   LESS("<"),
@@ -52,6 +59,7 @@ public enum TokenKind {
   LPAREN("("),
   MINUS("-"),
   NEWLINE("newline"),
+  NONLOCAL("nonlocal"),
   NOT("not"),
   NOT_EQUALS("!="),
   OR("or"),
@@ -60,6 +68,7 @@ public enum TokenKind {
   PERCENT("%"),
   PLUS("+"),
   PLUS_EQUALS("+="),
+  RAISE("raise"),
   RBRACE("}"),
   RBRACKET("]"),
   RETURN("return"),
@@ -68,7 +77,10 @@ public enum TokenKind {
   STAR("*"),
   STAR_STAR("**"),
   STRING("string"),
-  TRY("try");
+  TRY("try"),
+  WHILE("while"),
+  WITH("with"),
+  YIELD("yield");
 
   private final String prettyName;
 

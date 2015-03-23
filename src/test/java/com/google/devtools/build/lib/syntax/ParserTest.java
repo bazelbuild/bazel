@@ -313,6 +313,14 @@ public class ParserTest extends AbstractParserTestCase {
   }
 
   @Test
+  public void testAssignKeyword() {
+    syntaxEvents.setFailFast(false);
+    parseExpr("with = 4");
+    syntaxEvents.assertContainsEvent("syntax error at 'with': expected expression");
+    syntaxEvents.collector().clear();
+  }
+
+  @Test
   public void testTupleAssign() {
     String expr = "list[0] = 5; dict['key'] = value\n";
     List<Statement> statements = parseFile(expr);
