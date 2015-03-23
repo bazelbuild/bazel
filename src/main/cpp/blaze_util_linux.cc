@@ -16,6 +16,8 @@
 #include <string.h>  // strerror
 #include <sys/statfs.h>
 #include <unistd.h>
+#include <sys/types.h>
+#include <pwd.h>
 
 #include "blaze_exit_code.h"
 #include "blaze_util_platform.h"
@@ -28,7 +30,16 @@ namespace blaze {
 using std::string;
 
 string GetOutputRoot() {
-  return blaze_util::JoinPath(getenv("HOME"), ".cache/bazel");
+  char buf[2048];
+  struct passwd pwbuf;
+  struct passwd *pw = NULL;
+  int uid = getuid();
+  int r = getpwuid_r(uid, &pwbuf, buf, 2048, &pw);
+  if (r != -1 && pw != NULL) {
+    return blaze_util::JoinPath(pw->pw_dir, ".cache/bazel");
+  } else {
+    return "/tmp";
+  }
 }
 
 void WarnFilesystemType(const string& output_base) {
