@@ -465,7 +465,23 @@ public final class SkylarkRuleContext {
     return true;
   }
 
-  @SkylarkCallable(doc = "")
+  @SkylarkCallable(doc =
+        "Returns a string after expanding all references to \"Make variables\". The variables "
+      + "have to have the following format: <code>$(VAR_NAME)</code>. Also, <code>$$VAR_NAME"
+      + "</code> expands to <code>$VAR_NAME</code>. Parameters:"
+      + "<ul><li>The name of the attribute (<code>string</code>). It's only used for error "
+      + "reporting.</li>\n"
+      + "<li>The expression to expand (<code>string</code>). It can contain references to "
+      + "\"Make variables\".</li>\n"
+      + "<li>A mapping of additional substitutions (<code>dict</code> of <code>string</code> : "
+      + "<code>string</code>).</li></ul>\n"
+      + "Examples:"
+      + "<pre class=language-python>\n"
+      + "ctx.expand_make_variables(\"cmd\", \"$(MY_VAR)\", {\"MY_VAR\": \"Hi\"})  # == \"Hi\"\n"
+      + "ctx.expand_make_variables(\"cmd\", \"$$PWD\", {})  # == \"$PWD\"\n"
+      + "</pre>"
+      + "Additional variables may come from other places, such as configurations. Note that "
+      + "this function is experimental.")
   public String expandMakeVariables(String attributeName, String command,
       final Map<String, String> additionalSubstitutions) {
     return ruleContext.expandMakeVariables(attributeName,
