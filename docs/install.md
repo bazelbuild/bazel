@@ -33,7 +33,6 @@ To build Bazel on Ubuntu:
             $ sudo add-apt-repository ppa:webupd8team/java
             $ sudo apt-get update
             $ sudo apt-get install oracle-java8-installer
-
   * On Ubuntu Utopic (14.10):
 
             $ sudo apt-get install openjdk-8-jdk

@@ -171,10 +171,12 @@
   tokens:</p>
   <ul>
     <li>
-      <b>Keywords</b>, such as <code>somepath</code> or
-      <code>let</code>.  Keywords are the reserved words of the
-      language, and each of them is described below.  The complete set
-      of keywords is:
+      <p>
+        <b>Keywords</b>, such as <code>somepath</code> or
+        <code>let</code>.  Keywords are the reserved words of the
+        language, and each of them is described below.  The complete set
+        of keywords is:
+      </p>
 
 <code><!-- keep this alphabetically sorted -->
 <a href="#path-operators">allpaths</a><br/>
@@ -198,18 +200,21 @@
 </code>
     </li>
 
-    <li><b>Words</b>, such as <code>foo/...</code> or
-    <code>".*test rule"</code> or
-    <code>//bar/baz:all</code>.
-    If a character sequence is "quoted" (begins and ends with a
-    single-quote <code>'</code>, or begins and ends with a
-    double-quote <code>&quot;</code>), it is a word.
-    If a character sequence is not quoted, it may still be parsed as a word.
-    Unquoted words are sequences of characters drawn from
-    the set of alphabet characters, numerals, slash <code>/</code>,
-    hyphen <code>-</code>, underscore <code>_</code>, star <code>*</code>, and
-    period <code>.</code>. Unquoted words may not start with a
-    hyphen or period.
+    <li>
+      <p>
+        <b>Words</b>, such as <code>foo/...</code> or
+        <code>".*test rule"</code> or
+        <code>//bar/baz:all</code>.
+        If a character sequence is "quoted" (begins and ends with a
+        single-quote <code>'</code>, or begins and ends with a
+        double-quote <code>&quot;</code>), it is a word.
+        If a character sequence is not quoted, it may still be parsed as a word.
+        Unquoted words are sequences of characters drawn from
+        the set of alphabet characters, numerals, slash <code>/</code>,
+        hyphen <code>-</code>, underscore <code>_</code>, star <code>*</code>, and
+        period <code>.</code>. Unquoted words may not start with a
+        hyphen or period.
+      </p>
 
     <p>We chose this syntax so that quote marks aren't needed in most cases.
       The (unusual) <code>".*test rule"</code> example needs quotes: it
