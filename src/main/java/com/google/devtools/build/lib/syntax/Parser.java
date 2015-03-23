@@ -299,6 +299,31 @@ class Parser {
     return previous;
   }
 
+  // Keywords that exist in Python and that we don't parse.
+  private static final EnumSet<TokenKind> FORBIDDEN_KEYWORDS =
+      EnumSet.of(TokenKind.AS, TokenKind.ASSERT, TokenKind.BREAK, TokenKind.CONTINUE,
+          TokenKind.DEL, TokenKind.EXCEPT, TokenKind.FINALLY, TokenKind.FROM, TokenKind.GLOBAL,
+          TokenKind.IMPORT, TokenKind.IS, TokenKind.LAMBDA, TokenKind.NONLOCAL, TokenKind.RAISE,
+          TokenKind.TRY, TokenKind.WITH, TokenKind.WHILE, TokenKind.YIELD);
+
+  private void checkForbiddenKeywords(Token token) {
+    if (parsePython || !FORBIDDEN_KEYWORDS.contains(token.kind)) {
+      return;
+    }
+    String error;
+    switch (token.kind) {
+      case ASSERT: error = "'assert' not supported, use 'fail' instead"; break;
+      case TRY: error = "'try' not supported, all exceptions are fatal"; break;
+      case IMPORT: error = "'import' not supported, use 'load' instead"; break;
+      case IS: error = "'is' not supported, use '==' instead"; break;
+      case LAMBDA: error = "'lambda' not supported, declare a function instead"; break;
+      case RAISE: error = "'raise' not supported, use 'fail' instead"; break;
+      case WHILE: error = "'while' not supported, use 'for' instead"; break;
+      default: error = "keyword '" + token.kind.getPrettyName() + "' not supported"; break;
+    }
+    reportError(lexer.createLocation(token.left, token.right), error);
+  }
+
   private void nextToken() {
     if (pushedToken != null) {
       token = pushedToken;
@@ -313,6 +338,7 @@ class Parser {
         }
       }
     }
+    checkForbiddenKeywords(token);
     if (DEBUGGING) {
       System.err.print(token);
     }

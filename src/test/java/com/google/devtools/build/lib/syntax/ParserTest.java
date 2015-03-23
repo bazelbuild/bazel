@@ -316,8 +316,16 @@ public class ParserTest extends AbstractParserTestCase {
   public void testAssignKeyword() {
     syntaxEvents.setFailFast(false);
     parseExpr("with = 4");
+    syntaxEvents.assertContainsEvent("keyword 'with' not supported");
     syntaxEvents.assertContainsEvent("syntax error at 'with': expected expression");
-    syntaxEvents.collector().clear();
+  }
+
+  @Test
+  public void testTry() {
+    syntaxEvents.setFailFast(false);
+    parseExpr("try: 1 + 1");
+    syntaxEvents.assertContainsEvent("'try' not supported, all exceptions are fatal");
+    syntaxEvents.assertContainsEvent("syntax error at 'try': expected expression");
   }
 
   @Test
@@ -750,6 +758,21 @@ public class ParserTest extends AbstractParserTestCase {
         + "  foo(bar)\n"
         + "  return z\n"
         + "x = 3");
+    assertThat(stmts).hasSize(2);
+  }
+
+  @Test
+  public void testFunctionDefinitionIgnoredEvenWithUnsupportedKeyword() throws Exception {
+    // Parser skips over entire function definitions without reporting error,
+    // when parsePython is set to true.
+    List<Statement> stmts = parseFile(
+        "x = 1;\n"
+        + "def foo(x, y, **z):\n"
+        + "  try:\n"
+        + "    x = 2\n"
+        + "  with: pass\n"
+        + "  return 2\n"
+        + "x = 3", true /* parsePython */);
     assertThat(stmts).hasSize(2);
   }
 
