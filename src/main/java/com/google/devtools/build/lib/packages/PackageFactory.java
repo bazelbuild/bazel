@@ -455,37 +455,42 @@ public final class PackageFactory {
         @Override
         public Object call(Object[] namedArguments, FuncallExpression ast, Environment env)
                 throws EvalException, ConversionException, InterruptedException {
-
-          // Skylark build extensions need to get the PackageContext from the Environment;
-          // async glob functions cannot do the same because the Environment is not thread safe.
-          PackageContext context;
-          if (originalContext == null) {
-            Preconditions.checkArgument(!async);
-            context = getContext(env, ast);
-          } else {
-            context = originalContext;
-          }
-
-          List<String> includes = Type.STRING_LIST.convert(namedArguments[0], "'glob' argument");
-          List<String> excludes = namedArguments[1] == null
-              ? Collections.<String>emptyList()
-              : Type.STRING_LIST.convert(namedArguments[1], "'glob' argument");
-          int excludeDirs = namedArguments[2] == null
-            ? EXCLUDE_DIR_DEFAULT
-            : Type.INTEGER.convert(namedArguments[2], "'glob' argument");
-
-          if (async) {
-            try {
-              context.globber.runAsync(includes, excludes, excludeDirs != 0);
-            } catch (GlobCache.BadGlobException e) {
-              // Ignore: errors will appear during the actual evaluation of the package.
-            }
-            return GlobList.captureResults(includes, excludes, ImmutableList.<String>of());
-          } else {
-            return handleGlob(includes, excludes, excludeDirs != 0, context, ast);
-          }
+          return globCall(originalContext, async, ast, env, namedArguments);
         }
       };
+  }
+
+  static Object globCall(@Nullable PackageContext originalContext, boolean async,
+      FuncallExpression ast, Environment env, Object[] namedArguments)
+          throws EvalException, ConversionException, InterruptedException {
+    // Skylark build extensions need to get the PackageContext from the Environment;
+    // async glob functions cannot do the same because the Environment is not thread safe.
+    PackageContext context;
+    if (originalContext == null) {
+      Preconditions.checkArgument(!async);
+      context = getContext(env, ast);
+    } else {
+      context = originalContext;
+    }
+
+    List<String> includes = Type.STRING_LIST.convert(namedArguments[0], "'glob' argument");
+    List<String> excludes = namedArguments[1] == null
+        ? Collections.<String>emptyList()
+        : Type.STRING_LIST.convert(namedArguments[1], "'glob' argument");
+    int excludeDirs = namedArguments[2] == null
+      ? EXCLUDE_DIR_DEFAULT
+      : Type.INTEGER.convert(namedArguments[2], "'glob' argument");
+
+    if (async) {
+      try {
+        context.globber.runAsync(includes, excludes, excludeDirs != 0);
+      } catch (GlobCache.BadGlobException e) {
+        // Ignore: errors will appear during the actual evaluation of the package.
+      }
+      return GlobList.captureResults(includes, excludes, ImmutableList.<String>of());
+    } else {
+      return handleGlob(includes, excludes, excludeDirs != 0, context, ast);
+    }
   }
 
   /**
@@ -1075,7 +1080,6 @@ public final class PackageFactory {
     for (String ruleClass : ruleFactory.getRuleClassNames()) {
       builder.add(newRuleFunction(ruleFactory, ruleClass));
     }
-    builder.add(newGlobFunction(null, false));
     builder.add(newPackageFunction(packageArguments));
     return builder.build();
   }

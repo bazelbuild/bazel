@@ -38,7 +38,6 @@ import com.google.devtools.build.lib.rules.RuleConfiguredTargetFactory;
 import com.google.devtools.build.lib.rules.SkylarkModules;
 import com.google.devtools.build.lib.syntax.Label;
 import com.google.devtools.build.lib.syntax.SkylarkEnvironment;
-import com.google.devtools.build.lib.syntax.SkylarkModule;
 import com.google.devtools.build.lib.syntax.SkylarkType;
 import com.google.devtools.build.lib.syntax.ValidationEnvironment;
 import com.google.devtools.build.lib.vfs.PathFragment;
@@ -294,7 +293,6 @@ public class ConfiguredRuleClassProvider implements RuleClassProvider {
     this.skylarkValidationEnvironment = SkylarkModules.getValidationEnvironment(
         ImmutableMap.<String, SkylarkType>builder()
             .putAll(skylarkAccessibleJavaClasses)
-            .put("native", SkylarkType.of(NativeModule.class))
             .build());
   }
 
@@ -364,12 +362,6 @@ public class ConfiguredRuleClassProvider implements RuleClassProvider {
     return BuildOptions.of(configurationOptions, optionsProvider);
   }
 
-  @SkylarkModule(name = "native", namespace = true, onlyLoadingPhase = true,
-      doc = "Module for native rules.")
-  private static final class NativeModule {}
-
-  public static final NativeModule nativeModule = new NativeModule();
-
   @Override
   public SkylarkEnvironment createSkylarkRuleClassEnvironment(
       EventHandler eventHandler, String astFileContentHashCode) {
@@ -383,11 +375,6 @@ public class ConfiguredRuleClassProvider implements RuleClassProvider {
   @Override
   public ValidationEnvironment getSkylarkValidationEnvironment() {
     return skylarkValidationEnvironment;
-  }
-
-  @Override
-  public Object getNativeModule() {
-    return nativeModule;
   }
 
   @Override

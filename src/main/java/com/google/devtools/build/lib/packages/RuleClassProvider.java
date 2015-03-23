@@ -45,11 +45,6 @@ public interface RuleClassProvider {
   ValidationEnvironment getSkylarkValidationEnvironment();
 
   /**
-   * Returns the Skylark module to register the native rules with.
-   */
-  Object getNativeModule();
-
-  /**
    * Returns paths to the WORKSPACE files needed to provide external dependencies for built-in
    * rules.  The PathFragments are relative to Bazel's install directory. Returns an empty list if
    * there are none defined.
