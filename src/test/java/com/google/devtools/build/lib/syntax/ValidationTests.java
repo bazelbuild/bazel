@@ -407,6 +407,18 @@ public class ValidationTests extends AbstractParserTestCase {
   }
 
   @Test
+  public void testSlice() throws Exception {
+    parse("def f(): "
+        + "a = 'abc'; a = 'abcd'[2:]");
+    parse("def f(): "
+        + "b = ['abc']; b = ['abcd'][1:]");
+    parse("def f(): "
+        + "c = 'ab'; c = ['ab'][1:]");
+    checkError("bad variable 'c': string is incompatible with list of strings",
+        "def f(): c = ['xy']; c = 'cx'[1:]");
+  }
+
+  @Test
   public void testDictComprehensionNotOnList() throws Exception {
     checkError("Dict comprehension elements must be a list", "{k : k for k in 'abc'}");
   }
