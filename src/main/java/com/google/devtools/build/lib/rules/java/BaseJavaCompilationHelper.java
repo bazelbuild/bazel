@@ -136,8 +136,7 @@ public class BaseJavaCompilationHelper {
 
   private Artifact getIjarArtifact(Artifact jar, boolean addPrefix) {
     if (addPrefix) {
-      PathFragment ruleBase = ruleContext.getLabel().getPackageIdentifier().getPathFragment()
-              .getRelative(ruleContext.getLabel().getName()).getRelative("_ijars");
+      PathFragment ruleBase = ruleContext.getUniqueDirectory("_ijar");
       PathFragment artifactDirFragment = jar.getRootRelativePath().getParentDirectory();
       String ijarBasename = FileSystemUtils.removeExtension(jar.getFilename()) + "-ijar.jar";
       return getAnalysisEnvironment().getDerivedArtifact(
