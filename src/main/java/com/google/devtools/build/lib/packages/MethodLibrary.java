@@ -47,8 +47,10 @@ import com.google.devtools.build.lib.syntax.SkylarkNestedSet;
 import com.google.devtools.build.lib.syntax.SkylarkType;
 import com.google.devtools.build.lib.syntax.SkylarkType.SkylarkFunctionType;
 
+import java.util.ArrayList;
 import java.util.Collection;
 import java.util.HashMap;
+import java.util.Iterator;
 import java.util.List;
 import java.util.Map;
 import java.util.Set;
@@ -950,6 +952,45 @@ public class MethodLibrary {
     }
   };
 
+  @SkylarkBuiltin(name = "zip",
+      doc = "Returns a <code>list</code> of <code>tuple</code>s, where the i-th tuple contains "
+          + "the i-th element from each of the argument sequences or iterables. The list has the "
+          + "size of the shortest input. With a single iterable argument, it returns a list of "
+          + "1-tuples. With no arguments, it returns an empty list. Examples:"
+          + "<pre class=language-python>"
+          + "zip()  # == []\n"
+          + "zip([1, 2])  # == [(1,), (2,)]\n"
+          + "zip([1, 2], [3, 4])  # == [(1, 3), (2, 4)]\n"
+          + "zip([1, 2], [3, 4, 5])  # == [(1, 3), (2, 4)]</pre>",
+      returnType = SkylarkList.class)
+  private static final Function zip = new AbstractFunction("zip") {
+    @Override
+    public Object call(List<Object> args, Map<String, Object> kwargs, FuncallExpression ast,
+        Environment env) throws EvalException, InterruptedException {
+      Iterator<?>[] iterators = new Iterator<?>[args.size()];
+      for (int i = 0; i < args.size(); i++) {
+        iterators[i] = EvalUtils.toIterable(args.get(i), ast.getLocation()).iterator();
+      }
+      List<SkylarkList> result = new ArrayList<SkylarkList>();
+      boolean allHasNext;
+      do {
+        allHasNext = !args.isEmpty();
+        List<Object> elem = Lists.newArrayListWithExpectedSize(args.size());
+        for (Iterator<?> iterator : iterators) {
+          if (iterator.hasNext()) {
+            elem.add(iterator.next());
+          } else {
+            allHasNext = false;
+          }
+        }
+        if (allHasNext) {
+          result.add(SkylarkList.tuple(elem));
+        }
+      } while (allHasNext);
+      return SkylarkList.list(result, ast.getLocation());
+    }
+  };
+
   /**
    * Skylark String module.
    */
@@ -1052,6 +1093,7 @@ public class MethodLibrary {
       .put(type, SkylarkType.of(String.class))
       .put(fail, SkylarkType.NONE)
       .put(print, SkylarkType.NONE)
+      .put(zip, SkylarkType.LIST)
       .build();
 
   /**

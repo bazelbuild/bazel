@@ -129,7 +129,7 @@ public abstract class SkylarkList implements Iterable<Object> {
 
     @Override
     public String toString() {
-      return "[]";
+      return isTuple() ? "()" : "[]";
     }
   }
 
