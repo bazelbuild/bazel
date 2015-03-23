@@ -40,6 +40,7 @@ import com.google.devtools.build.lib.skyframe.PrecomputedValue.Injected;
 import com.google.devtools.build.lib.skyframe.SkyframeExecutor;
 import com.google.devtools.build.lib.skyframe.SkyframeExecutorFactory;
 import com.google.devtools.build.lib.syntax.Environment;
+import com.google.devtools.build.lib.syntax.Function;
 import com.google.devtools.build.lib.syntax.Label;
 import com.google.devtools.build.lib.util.AbruptExitException;
 import com.google.devtools.build.lib.util.Clock;
@@ -358,6 +359,11 @@ public abstract class BlazeModule {
       @Override
       public Iterable<PackageArgument<?>> getPackageArguments() {
         return ImmutableList.of();
+      }
+
+      @Override
+      public ImmutableList<Function> nativeModuleFunctions() {
+        return ImmutableList.<Function>of();
       }
     };
   }
