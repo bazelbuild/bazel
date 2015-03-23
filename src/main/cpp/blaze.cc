@@ -302,6 +302,8 @@ static vector<string> GetArgumentArray() {
     result.push_back("--max_idle_secs");
     result.push_back(std::to_string(globals->options.max_idle_secs));
   } else {
+    // --batch must come first in the arguments to Java main() because
+    // the code expects it to be at args[0] if it's been set.
     result.push_back("--batch");
   }
   result.push_back("--install_base=" + globals->options.install_base);

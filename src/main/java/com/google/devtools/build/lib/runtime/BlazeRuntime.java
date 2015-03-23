@@ -1074,6 +1074,7 @@ public final class BlazeRuntime {
   public static void main(Iterable<Class<? extends BlazeModule>> moduleClasses, String[] args) {
     setupUncaughtHandler(args);
     List<BlazeModule> modules = createModules(moduleClasses);
+    // blaze.cc will put --batch first if the user set it.
     if (args.length >= 1 && args[0].equals("--batch")) {
       // Run Blaze in batch mode.
       System.exit(batchMain(modules, args));
