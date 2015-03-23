@@ -84,7 +84,7 @@ function get_containing_library() {
     get_consuming_target $1 | sed 's|:|/lib|' | sed 's|^//|bazel-bin/|' | sed 's|$|.jar|'
 }
 
-for path in $(find bazel-genfiles/ -name "*.java" | sed 's|/\{0,1\}bazel-genfiles/\{0,1\}|//|'); do
+for path in $(find bazel-genfiles/ -name "*.java" | sed 's|/\{0,1\}bazel-genfiles/\{1,2\}|//|'); do
     source_path=$(echo $path | sed 's|//|bazel-genfiles/|' | sed 's|/com/.*$||')
     echo "    <classpathentry kind=\"lib\" path=\"$(get_containing_library ${path})\" sourcepath=\"${source_path}\"/>"
 done | sort -u
