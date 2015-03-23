@@ -137,12 +137,12 @@
 </p>
 <h2>Related Documentation</h2>
 <ul class="toc">
-  <li><a href="write_build_file.html">Getting Started with BUILD files</a></li>
+
   <li><a href="build-ref.html">BUILD Concept Reference</a></li>
   <li><a href="build-encyclopedia.html">Build Encyclopedia</a></li>
   <li><a href="bazel-user-manual.html">Bazel User Manual</a></li>
-  <li><a href="bazel-query-v2.html">Bazel Query Reference</a></li>
 
+  <li><a href="query.html">Bazel Query Reference</a></li>
 </ul>
 
 <h2>Table of Contents</h2>
@@ -485,9 +485,9 @@ src/my/app/tests/test.cc
   The syntax of labels is intentionally strict, so as to
   forbid metacharacters that have special meaning to the shell.  This
   helps to avoid inadvertent quoting problems, and makes it easier to
-  construct tools and scripts that manipulate labels, such as
-  the <a href='bazel-query-v2.html'>Bazel Query Language</a>.
+  construct tools and scripts that manipulate labels, such as the
 
+  <a href="query.html">Bazel Query Language</a>.
   All of the following are forbidden in labels: any sort of white
   space, braces, brackets, or parentheses; wildcards such
   as <code>*</code>; shell metacharacters such
@@ -712,8 +712,10 @@ src/my/app/tests/test.cc
 <p>
   This directed acyclic graph over targets is called the
   "target graph" or "build dependency graph", and is the domain over
-  which
-  the <a href='bazel-query-v2.html'>Bazel Query tool</a> operates.
+  which the
+
+  <a href="query.html">Bazel Query tool</a></li>.
+  operates.
 </p>
 
 
