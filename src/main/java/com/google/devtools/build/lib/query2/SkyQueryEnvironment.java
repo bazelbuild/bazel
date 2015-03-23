@@ -22,6 +22,7 @@ import com.google.common.collect.Maps;
 import com.google.devtools.build.lib.cmdline.ResolvedTargets;
 import com.google.devtools.build.lib.cmdline.TargetParsingException;
 import com.google.devtools.build.lib.cmdline.TargetPattern;
+import com.google.devtools.build.lib.events.Event;
 import com.google.devtools.build.lib.events.EventHandler;
 import com.google.devtools.build.lib.graph.Digraph;
 import com.google.devtools.build.lib.packages.NoSuchThingException;
@@ -311,8 +312,8 @@ public class SkyQueryEnvironment extends AbstractBlazeQueryEnvironment<Target> {
     }
   }
 
-  protected Map<String, ResolvedTargets<Target>> preloadOrThrow(Collection<String> patterns)
-      throws QueryException, TargetParsingException {
+  protected Map<String, ResolvedTargets<Target>> preloadOrThrow(QueryExpression caller,
+      Collection<String> patterns) throws QueryException, TargetParsingException {
     Map<String, ResolvedTargets<Target>> result = Maps.newHashMapWithExpectedSize(patterns.size());
     for (String pattern : patterns) {
       SkyKey patternKey = TargetPatternValue.key(pattern,
@@ -321,16 +322,16 @@ public class SkyQueryEnvironment extends AbstractBlazeQueryEnvironment<Target> {
       TargetPatternValue.TargetPattern targetPattern =
           ((TargetPatternValue.TargetPattern) patternKey.argument());
 
+      TargetParsingException targetParsingException = null;
       if (graph.exists(patternKey)) {
         // If the graph already contains a value for this target pattern, use it.
         TargetPatternValue value = (TargetPatternValue) graph.getValue(patternKey);
         if (value != null) {
           result.put(pattern, value.getTargets());
-        } else if (!keepGoing) {
-          throw (TargetParsingException) Preconditions.checkNotNull(graph.getException(patternKey),
-              pattern);
         } else {
-          result.put(pattern, ResolvedTargets.<Target>builder().setError().build());
+          targetParsingException =
+              (TargetParsingException)
+                  Preconditions.checkNotNull(graph.getException(patternKey), pattern);
         }
       } else {
         // If the graph doesn't contain a value for this target pattern, try to directly evaluate
@@ -344,8 +345,20 @@ public class SkyQueryEnvironment extends AbstractBlazeQueryEnvironment<Target> {
         TargetPattern parsedPattern = parser.parse(targetPattern.getPattern());
         try {
           result.put(pattern, parsedPattern.eval(resolver));
+        } catch (TargetParsingException e) {
+          targetParsingException = e;
         } catch (InterruptedException e) {
           throw new QueryException(e.getMessage());
+        }
+      }
+
+      if (targetParsingException != null) {
+        if (!keepGoing) {
+          throw targetParsingException;
+        } else {
+          eventHandler.handle(Event.error("Evaluation of query \"" + caller + "\" failed: "
+              + targetParsingException.getMessage()));
+          result.put(pattern, ResolvedTargets.<Target>builder().setError().build());
         }
       }
     }

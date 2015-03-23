@@ -341,8 +341,8 @@ public class BlazeQueryEnvironment extends AbstractBlazeQueryEnvironment<Target>
     return dependentFiles;
   }
 
-  protected Map<String, ResolvedTargets<Target>> preloadOrThrow(Collection<String> patterns)
-      throws TargetParsingException {
+  protected Map<String, ResolvedTargets<Target>> preloadOrThrow(QueryExpression caller,
+      Collection<String> patterns) throws TargetParsingException {
     try {
       // Note that this may throw a RuntimeException if deps are missing in Skyframe and this is
       // being called from within a SkyFunction.

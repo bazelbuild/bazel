@@ -126,7 +126,7 @@ public abstract class AbstractBlazeQueryEnvironment<T> implements QueryEnvironme
    * Evaluate the specified query expression in this environment.
    *
    * @return a {@link QueryEvalResult} object that contains the resulting set of targets and a bit
-   *   to indicate whether errors occured during evaluation; note that the
+   *   to indicate whether errors occurred during evaluation; note that the
    *   success status can only be false if {@code --keep_going} was in effect
    * @throws QueryException if the evaluation failed and {@code --nokeep_going} was in
    *   effect
@@ -139,7 +139,7 @@ public abstract class AbstractBlazeQueryEnvironment<T> implements QueryEnvironme
     Set<String> targetPatternSet = new LinkedHashSet<>();
     expr.collectTargetPatterns(targetPatternSet);
     try {
-      resolvedTargetPatterns.putAll(preloadOrThrow(targetPatternSet));
+      resolvedTargetPatterns.putAll(preloadOrThrow(expr, targetPatternSet));
     } catch (TargetParsingException e) {
       // Unfortunately, by evaluating the patterns in parallel, we lose some location information.
       throw new QueryException(expr, e.getMessage());
@@ -210,7 +210,7 @@ public abstract class AbstractBlazeQueryEnvironment<T> implements QueryEnvironme
       throws QueryException {
     if (!resolvedTargetPatterns.containsKey(pattern)) {
       try {
-        resolvedTargetPatterns.putAll(preloadOrThrow(ImmutableList.of(pattern)));
+        resolvedTargetPatterns.putAll(preloadOrThrow(caller, ImmutableList.of(pattern)));
       } catch (TargetParsingException e) {
         // Will skip the target and keep going if -k is specified.
         resolvedTargetPatterns.put(pattern, ResolvedTargets.<Target>empty());
@@ -220,7 +220,7 @@ public abstract class AbstractBlazeQueryEnvironment<T> implements QueryEnvironme
     return getTargetsMatchingPattern(caller, pattern);
   }
 
-  protected abstract Map<String, ResolvedTargets<Target>> preloadOrThrow(
+  protected abstract Map<String, ResolvedTargets<Target>> preloadOrThrow(QueryExpression caller,
       Collection<String> patterns) throws QueryException, TargetParsingException;
 
   @Override
