@@ -457,6 +457,18 @@ function __finish_test_report() {
     mv $XML_OUTPUT_FILE.bak $XML_OUTPUT_FILE
 }
 
+# Multi-platform timestamp function
+if [ "$(uname -s | tr 'A-Z' 'a-z')" = "darwin" ]; then
+    function timestamp() {
+      # OS X does not have %N so python is the best we can do
+      python -c 'import time; print time.time()'
+    }
+else
+    function timestamp() {
+      date +%s.%N
+    }
+fi
+
 # Usage: run_tests <suite-comment>
 # Must be called from the end of the user's test suite.
 # Calls exit with zero on success, non-zero otherwise.
@@ -503,9 +515,9 @@ function run_suite() {
         __trap_with_arg __test_terminated INT KILL PIPE TERM ABRT FPE ILL QUIT SEGV
         (
           set_up
-          date +%s.%N >$TEST_TMPDIR/__ts_start
+          timestamp >$TEST_TMPDIR/__ts_start
           eval $TEST_name
-          date +%s.%N >$TEST_TMPDIR/__ts_end
+          timestamp >$TEST_TMPDIR/__ts_end
           tear_down
           test $TEST_passed == true
         ) 2>&1 | tee $TEST_TMPDIR/__log
@@ -518,7 +530,7 @@ function run_suite() {
           TEST_passed=false
           # Ensure that an end time is recorded in case the test subshell
           # terminated prematurely.
-          [ -f $TEST_TMPDIR/__ts_end ] || date +%s.%N >$TEST_TMPDIR/__ts_end
+          [ -f $TEST_TMPDIR/__ts_end ] || timestamp >$TEST_TMPDIR/__ts_end
         fi
 
         # Calculate run time for the testcase.
