@@ -200,6 +200,26 @@ public class MethodLibrary {
     }
   };
 
+  // Common implementation for find, rfind, index, rindex.
+  // forward is true iff we want to return the last matching index.
+  private static int stringFind(String functionName, boolean forward, Object[] args)
+      throws ConversionException {
+    String thiz = Type.STRING.convert(args[0], functionName + " operand");
+    String sub = Type.STRING.convert(args[1], functionName + " argument");
+    int start = 0;
+    if (args[2] != null) {
+      start = Type.INTEGER.convert(args[2], functionName + " argument");
+    }
+    int end = thiz.length();
+    if (args[3] != null) {
+      end = Type.INTEGER.convert(args[3], functionName + " argument");
+    }
+    String substr = getPythonSubstring(thiz, start, end);
+    int subpos = forward ? substr.indexOf(sub) : substr.lastIndexOf(sub);
+    start = getClampedIndex(start, thiz.length());
+    return subpos < 0 ? subpos : subpos + start;
+  }
+
   @SkylarkBuiltin(name = "rfind", objectType = StringModule.class, returnType = Integer.class,
       doc = "Returns the last index where <code>sub</code> is found, "
           + "or -1 if no such index exists, optionally restricting to "
@@ -213,21 +233,8 @@ public class MethodLibrary {
   private static Function rfind =
       new MixedModeFunction("rfind", ImmutableList.of("this", "sub", "start", "end"), 2, false) {
         @Override
-        public Object call(Object[] args, FuncallExpression ast)
-            throws ConversionException {
-          String thiz = Type.STRING.convert(args[0], "'rfind' operand");
-          String sub = Type.STRING.convert(args[1], "'rfind' argument");
-          int start = 0;
-          if (args[2] != null) {
-            start = Type.INTEGER.convert(args[2], "'rfind' argument");
-          }
-          int end = thiz.length();
-          if (args[3] != null) {
-            end = Type.INTEGER.convert(args[3], "'rfind' argument");
-          }
-          int subpos = getPythonSubstring(thiz, start, end).lastIndexOf(sub);
-          start = getClampedIndex(start, thiz.length());
-          return subpos < 0 ? subpos : subpos + start;
+        public Object call(Object[] args, FuncallExpression ast) throws ConversionException {
+          return stringFind("rfind", false, args);
         }
       };
 
@@ -246,19 +253,55 @@ public class MethodLibrary {
         @Override
         public Object call(Object[] args, FuncallExpression ast)
             throws ConversionException {
-          String thiz = Type.STRING.convert(args[0], "'find' operand");
-          String sub = Type.STRING.convert(args[1], "'find' argument");
-          int start = 0;
-          if (args[2] != null) {
-            start = Type.INTEGER.convert(args[2], "'find' argument");
+          return stringFind("find", true, args);
+        }
+      };
+
+  @SkylarkBuiltin(name = "rindex", objectType = StringModule.class, returnType = Integer.class,
+      doc = "Returns the last index where <code>sub</code> is found, "
+          + "or throw an error if no such index exists, optionally restricting to "
+          + "[<code>start</code>:<code>end</code>], "
+          + "<code>start</code> being inclusive and <code>end</code> being exclusive.",
+      mandatoryParams = {
+      @Param(name = "sub", type = String.class, doc = "The substring to find.")},
+      optionalParams = {
+      @Param(name = "start", type = Integer.class, doc = "Restrict to search from this position."),
+      @Param(name = "end", type = Integer.class, doc = "Restrict to search before this position.")})
+  private static Function rindex =
+      new MixedModeFunction("rindex", ImmutableList.of("this", "sub", "start", "end"), 2, false) {
+        @Override
+        public Object call(Object[] args, FuncallExpression ast)
+            throws EvalException, ConversionException {
+          int res = stringFind("rindex", false, args);
+          if (res < 0) {
+            throw new EvalException(ast.getLocation(),
+                "substring '" + args[1] + "' not found in '" + args[0] + "'");
           }
-          int end = thiz.length();
-          if (args[3] != null) {
-            end = Type.INTEGER.convert(args[3], "'find' argument");
+          return res;
+        }
+      };
+
+  @SkylarkBuiltin(name = "index", objectType = StringModule.class, returnType = Integer.class,
+      doc = "Returns the first index where <code>sub</code> is found, "
+          + "or throw an error if no such index exists, optionally restricting to "
+          + "[<code>start</code>:<code>end]</code>, "
+          + "<code>start</code> being inclusive and <code>end</code> being exclusive.",
+      mandatoryParams = {
+      @Param(name = "sub", type = String.class, doc = "The substring to find.")},
+      optionalParams = {
+      @Param(name = "start", type = Integer.class, doc = "Restrict to search from this position."),
+      @Param(name = "end", type = Integer.class, doc = "Restrict to search before this position.")})
+  private static Function index =
+      new MixedModeFunction("index", ImmutableList.of("this", "sub", "start", "end"), 2, false) {
+        @Override
+        public Object call(Object[] args, FuncallExpression ast)
+            throws EvalException, ConversionException {
+          int res = stringFind("index", true, args);
+          if (res < 0) {
+            throw new EvalException(ast.getLocation(),
+                "substring '" + args[1] + "' not found in '" + args[0] + "'");
           }
-          int subpos = getPythonSubstring(thiz, start, end).indexOf(sub);
-          start = getClampedIndex(start, thiz.length());
-          return subpos < 0 ? subpos : subpos + start;
+          return res;
         }
       };
 
@@ -432,7 +475,7 @@ public class MethodLibrary {
   @SkylarkBuiltin(name = "$index", hidden = true,
       doc = "Returns the nth element of a list or string, "
           + "or looks up a value in a dictionary.")
-  private static Function index = new MixedModeFunction("$index",
+  private static Function indexOperator = new MixedModeFunction("$index",
       ImmutableList.of("this", "index"), 2, false) {
     @Override
     public Object call(Object[] args, FuncallExpression ast) throws EvalException,
@@ -960,6 +1003,8 @@ public class MethodLibrary {
       .put(split, SkylarkType.of(List.class, String.class))
       .put(rfind, SkylarkType.INT)
       .put(find, SkylarkType.INT)
+      .put(rindex, SkylarkType.INT)
+      .put(index, SkylarkType.INT)
       .put(endswith, SkylarkType.BOOL)
       .put(startswith, SkylarkType.BOOL)
       .put(strip, SkylarkType.STRING)
@@ -1013,18 +1058,18 @@ public class MethodLibrary {
    * Set up a given environment for supported class methods.
    */
   public static void setupMethodEnvironment(Environment env) {
-    env.registerFunction(Map.class, index.getName(), index);
+    env.registerFunction(Map.class, indexOperator.getName(), indexOperator);
     setupMethodEnvironment(env, Map.class, dictFunctions.keySet());
-    env.registerFunction(String.class, index.getName(), index);
+    env.registerFunction(String.class, indexOperator.getName(), indexOperator);
     setupMethodEnvironment(env, String.class, stringFunctions.keySet());
     setupMethodEnvironment(env, List.class, listPureFunctions.keySet());
     setupMethodEnvironment(env, SkylarkList.class, listPureFunctions.keySet());
     if (env.isSkylarkEnabled()) {
-      env.registerFunction(SkylarkList.class, index.getName(), index);
+      env.registerFunction(SkylarkList.class, indexOperator.getName(), indexOperator);
       setupMethodEnvironment(env, skylarkGlobalFunctions.keySet());
     } else {
-      env.registerFunction(List.class, index.getName(), index);
-      env.registerFunction(ImmutableList.class, index.getName(), index);
+      env.registerFunction(List.class, indexOperator.getName(), indexOperator);
+      env.registerFunction(ImmutableList.class, indexOperator.getName(), indexOperator);
       // TODO(bazel-team): listFunctions are not allowed in Skylark extensions (use += instead).
       // It is allowed in BUILD files only for backward-compatibility.
       setupMethodEnvironment(env, List.class, listFunctions);
