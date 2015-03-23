@@ -62,9 +62,9 @@ def py_binary_impl(ctx):
               " cp %s %s/main.zip && " % (deploy_zip_nomain.path, outdir) +
               " (cd %s && " % outdir +
               "  mkdir -p %s && " % " ".join(dirs) +
-              "  find -type d -exec touch -t 198001010000 '{}'/__init__.py ';' && " +
+              "  find . -type d -exec touch -t 198001010000 '{}'/__init__.py ';' && " +
               "  chmod +w main.zip && " +
-              "  %s -qR main.zip $(find -type f ) ) && " % (ZIP_PATH) +
+              "  %s -qR main.zip $(find . -type f ) ) && " % (ZIP_PATH) +
               " mv %s/main.zip %s " % (outdir, deploy_zip.path))
 
   ctx.action(
