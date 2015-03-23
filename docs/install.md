@@ -47,14 +47,17 @@ To build Bazel on Ubuntu:
         $ cd bazel
         $ ./compile.sh
 
+
 ### Building Bazel on OS X
 
 Using Bazel on Mac OS X requires:
 
 * The Xcode command line tools. Xcode can be downloaded from
-  [Apbple's developer site](https://developer.apple.com/xcode/downloads/).
+  [Apple's developer site](https://developer.apple.com/xcode/downloads/).
 * MacPorts or Homebrew for installing required packages.
 * An installation of JDK 8.
+* (optional) For objc\_\* and ios\_\* rule support: An installed copy of
+  Xcode 6.1 or later with iOS SDK 8.1.
 
 To build Bazel on Mac OS X:
 
@@ -75,7 +78,6 @@ To build Bazel on Mac OS X:
 3. Run it
 
         $ ./output/bazel help
-
 
 ## Running Bazel
 
