@@ -11,7 +11,7 @@ source.** Bazel has been built for speed, using both caching and parallelism
 to achieve this. Bazel is critical to Google's ability to continue
 to scale its software development practices as the company grows.
 
-* **A emphasis on automated testing and releases.** Bazel has
+* **An emphasis on automated testing and releases.** Bazel has
 been built for correctness and reproducibility, meaning that a build performed
 on a continuous build machine or in a release pipeline will generate
 bitwise-identical outputs to those generated on a developer's machine.
