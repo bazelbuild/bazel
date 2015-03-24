@@ -92,13 +92,14 @@ final class SkyframeTargetPatternEvaluator implements TargetPatternEvaluator {
       List<String> targetPatterns, FilteringPolicy policy, boolean keepGoing)
       throws InterruptedException, TargetParsingException {
     return parseTargetPatternKeys(TargetPatternValue.keys(targetPatterns, policy, offset),
-        keepGoing, eventHandler);
+       SkyframeExecutor.DEFAULT_THREAD_COUNT, keepGoing, eventHandler);
   }
 
-  ResolvedTargets<Target> parseTargetPatternKeys(Iterable<SkyKey> patternSkyKeys, boolean keepGoing,
-      EventHandler eventHandler) throws InterruptedException, TargetParsingException {
+  ResolvedTargets<Target> parseTargetPatternKeys(Iterable<SkyKey> patternSkyKeys, int numThreads,
+      boolean keepGoing, EventHandler eventHandler)
+      throws InterruptedException, TargetParsingException {
     EvaluationResult<TargetPatternValue> result =
-        skyframeExecutor.targetPatterns(patternSkyKeys, keepGoing, eventHandler);
+        skyframeExecutor.targetPatterns(patternSkyKeys, numThreads, keepGoing, eventHandler);
 
     String errorMessage = null;
     ResolvedTargets.Builder<Target> builder = ResolvedTargets.builder();
