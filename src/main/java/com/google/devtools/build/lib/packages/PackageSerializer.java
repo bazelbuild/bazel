@@ -34,6 +34,7 @@ import static com.google.devtools.build.lib.packages.Type.STRING_LIST_DICT;
 import static com.google.devtools.build.lib.packages.Type.TRISTATE;
 
 import com.google.common.collect.ImmutableList;
+import com.google.common.collect.Iterables;
 import com.google.devtools.build.lib.events.Event;
 import com.google.devtools.build.lib.events.Location;
 import com.google.devtools.build.lib.packages.License.DistributionType;
@@ -46,6 +47,7 @@ import com.google.devtools.build.lib.syntax.Label;
 
 import java.util.ArrayList;
 import java.util.Collection;
+import java.util.LinkedList;
 import java.util.List;
 import java.util.Map;
 
@@ -110,16 +112,10 @@ public class PackageSerializer {
     result.setRuleClass(rule.getRuleClass());
     result.setParseableLocation(serializeLocation(rule.getLocation()));
     for (Attribute attribute : rule.getAttributes()) {
-      Object value = attribute.getName().equals("visibility")
-          ? rule.getVisibility().getDeclaredLabels()
-          // TODO(bazel-team): support configurable attributes. AggregatingAttributeMapper
-          // may make more sense here. Computed defaults may add complications.
-          : RawAttributeMapper.of(rule).get(attribute.getName(), attribute.getType());
-      if (value != null) {
-        PackageSerializer.addAttributeToProto(result, attribute, value,
-            rule.getAttributeLocation(attribute.getName()),
-            rule.isAttributeValueExplicitlySpecified(attribute),
-            true);
+      if (!RawAttributeMapper.of(rule).isNull(attribute.getName(), attribute.getType())) {
+        PackageSerializer.addAttributeToProto(result, attribute,
+            getAttributeValues(rule, attribute), rule.getAttributeLocation(attribute.getName()),
+          rule.isAttributeValueExplicitlySpecified(attribute), true);
       }
     }
 
@@ -180,7 +176,7 @@ public class PackageSerializer {
       case PROGRESS:
         kind = Build.Event.EventKind.PROGRESS;
         break;
-      default: throw new IllegalStateException();
+      default: throw new IllegalArgumentException("unexpected event type: " + event.getKind());
     }
 
     result.setKind(kind);
@@ -267,29 +263,48 @@ public class PackageSerializer {
   }
 
   /**
+   * Returns the possible values of the specified attribute in the specified rule. For
+   * non-configured attributes, this is a single value. For configurable attributes, this
+   * may be multiple values.
+   */
+  public static Iterable<Object> getAttributeValues(Rule rule, Attribute attr) {
+    List<Object> values = new LinkedList<>(); // Not an ImmutableList: may host null values.
+
+    if (attr.getName().equals("visibility")) {
+      values.add(rule.getVisibility().getDeclaredLabels());
+    } else {
+      for (Object o :
+          AggregatingAttributeMapper.of(rule).visitAttribute(attr.getName(), attr.getType())) {
+        values.add(o);
+      }
+    }
+
+    return values;
+  }
+
+  /**
    * Adds the serialized version of the specified attribute to the specified message.
    *
-   * @param result the message to amend
+   * @param rulePb the message to amend
    * @param attr the attribute to add
-   * @param value the value of the attribute
+   * @param values the possible values of the attribute (can be a multi-value list for
+   *              configurable attributes)
    * @param location the location of the attribute in the source file
    * @param explicitlySpecified whether the attribute was explicitly specified or not
    * @param includeGlobs add glob expression for attributes that contain them
    */
-  // TODO(bazel-team): This is a copy of the code in ProtoOutputFormatter.
   @SuppressWarnings("unchecked")
   public static void addAttributeToProto(
-      Build.Rule.Builder result, Attribute attr, Object value, Location location,
-      Boolean explicitlySpecified, boolean includeGlobs) {
+      Build.Rule.Builder rulePb, Attribute attr, Iterable<Object> values,
+      Location location, Boolean explicitlySpecified, boolean includeGlobs) {
     // Get the attribute type.  We need to convert and add appropriately
     com.google.devtools.build.lib.packages.Type<?> type = attr.getType();
 
     Build.Attribute.Builder attrPb = Build.Attribute.newBuilder();
 
     // Set the type, name and source
-    Build.Attribute.Discriminator attributeProtoType = ProtoUtils.getDiscriminatorFromType(type);
     attrPb.setName(attr.getName());
-    attrPb.setType(attributeProtoType);
+    attrPb.setType(ProtoUtils.getDiscriminatorFromType(type));
 
     if (location != null) {
       attrPb.setParseableLocation(serializeLocation(location));
@@ -299,6 +314,22 @@ public class PackageSerializer {
       attrPb.setExplicitlySpecified(explicitlySpecified);
     }
 
+    // Convenience binding for single-value attributes. Because those attributes can only
+    // have a single value, when we encounter configurable versions of them we need to
+    // react somehow to having multiple possible values to report. We currently just
+    // refrain from setting *any* value in that scenario. This variable is set to null
+    // to indicate that.
+    //
+    // For example, for "linkstatic = select({':foo': 0, ':bar': 1})", "values" will contain [0, 1].
+    // Since linkstatic is a single-value string element, its proto field (string_value) can't
+    // store both values. Since no use case today actually needs this, we just skip it.
+    //
+    // TODO(bazel-team): support this properly. This will require syntactic change to build.proto
+    // (or reinterpretation of its current fields).
+    Object singleAttributeValue = Iterables.size(values) == 1
+        ? Iterables.getOnlyElement(values)
+        : null;
+
     /*
      * Set the appropriate type and value.  Since string and string list store
      * values for multiple types, use the toString() method on the objects
@@ -306,142 +337,172 @@ public class PackageSerializer {
      * both an integer and string representation.
      */
     if (type == INTEGER) {
-      attrPb.setIntValue((Integer) value);
+      if (singleAttributeValue != null) {
+        attrPb.setIntValue((Integer) singleAttributeValue);
+      }
     } else if (type == STRING || type == LABEL || type == NODEP_LABEL || type == OUTPUT) {
-      attrPb.setStringValue(value.toString());
+      if (singleAttributeValue != null) {
+        attrPb.setStringValue(singleAttributeValue.toString());
+      }
     } else if (type == STRING_LIST || type == LABEL_LIST || type == NODEP_LABEL_LIST
         || type == OUTPUT_LIST || type == DISTRIBUTIONS) {
-      Collection<?> values = (Collection<?>) value;
-      for (Object entry : values) {
-        attrPb.addStringListValue(entry.toString());
+      for (Object value : values) {
+        for (Object entry : (Collection<?>) value) {
+          attrPb.addStringListValue(entry.toString());
+        }
       }
     } else if (type == INTEGER_LIST) {
-      Collection<Integer> values = (Collection<Integer>) value;
-      for (Integer entry : values) {
-        attrPb.addIntListValue(entry);
+      for (Object value : values) {
+        for (Integer entry : (Collection<Integer>) value) {
+          attrPb.addIntListValue(entry);
+        }
       }
     } else if (type == BOOLEAN) {
-      if ((Boolean) value) {
-        attrPb.setStringValue("true");
-        attrPb.setBooleanValue(true);
-      } else {
-        attrPb.setStringValue("false");
-        attrPb.setBooleanValue(false);
+      if (singleAttributeValue != null) {
+        if ((Boolean) singleAttributeValue) {
+          attrPb.setStringValue("true");
+          attrPb.setBooleanValue(true);
+        } else {
+          attrPb.setStringValue("false");
+          attrPb.setBooleanValue(false);
+        }
+        // This maintains partial backward compatibility for external users of the
+        // protobuf that were expecting an integer field and not a true boolean.
+        attrPb.setIntValue((Boolean) singleAttributeValue ? 1 : 0);
       }
-      // This maintains partial backward compatibility for external users of the
-      // protobuf that were expecting an integer field and not a true boolean.
-      attrPb.setIntValue((Boolean) value ? 1 : 0);
     } else if (type == TRISTATE) {
-      switch ((TriState) value) {
-        case AUTO:
+      if (singleAttributeValue != null) {
+        switch ((TriState) singleAttributeValue) {
+          case AUTO:
             attrPb.setIntValue(-1);
             attrPb.setStringValue("auto");
             attrPb.setTristateValue(Build.Attribute.Tristate.AUTO);
             break;
-        case NO:
+          case NO:
             attrPb.setIntValue(0);
             attrPb.setStringValue("no");
             attrPb.setTristateValue(Build.Attribute.Tristate.NO);
             break;
-        case YES:
+          case YES:
             attrPb.setIntValue(1);
             attrPb.setStringValue("yes");
             attrPb.setTristateValue(Build.Attribute.Tristate.YES);
             break;
+          default:
+            throw new AssertionError("Expected AUTO/NO/YES to cover all possible cases");
+        }
       }
     } else if (type == LICENSE) {
-      License license = (License) value;
-      Build.License.Builder licensePb = Build.License.newBuilder();
-      for (License.LicenseType licenseType : license.getLicenseTypes()) {
-        licensePb.addLicenseType(licenseType.toString());
+      if (singleAttributeValue != null) {
+        License license = (License) singleAttributeValue;
+        Build.License.Builder licensePb = Build.License.newBuilder();
+        for (License.LicenseType licenseType : license.getLicenseTypes()) {
+          licensePb.addLicenseType(licenseType.toString());
+        }
+        for (Label exception : license.getExceptions()) {
+          licensePb.addException(exception.toString());
+        }
+        attrPb.setLicense(licensePb);
       }
-      for (Label exception : license.getExceptions()) {
-        licensePb.addException(exception.toString());
-      }
-      attrPb.setLicense(licensePb);
     } else if (type == STRING_DICT) {
+      // TODO(bazel-team): support better de-duping here and in other dictionaries.
+      for (Object value : values) {
       Map<String, String> dict = (Map<String, String>) value;
-      for (Map.Entry<String, String> dictEntry : dict.entrySet()) {
-        Build.StringDictEntry entry = Build.StringDictEntry.newBuilder()
-            .setKey(dictEntry.getKey())
-            .setValue(dictEntry.getValue())
-            .build();
-        attrPb.addStringDictValue(entry);
+        for (Map.Entry<String, String> keyValueList : dict.entrySet()) {
+          Build.StringDictEntry entry = Build.StringDictEntry.newBuilder()
+              .setKey(keyValueList.getKey())
+              .setValue(keyValueList.getValue())
+              .build();
+          attrPb.addStringDictValue(entry);
+        }
       }
     } else if (type == STRING_DICT_UNARY) {
-      Map<String, String> dict = (Map<String, String>) value;
-      for (Map.Entry<String, String> dictEntry : dict.entrySet()) {
-        Build.StringDictUnaryEntry entry = Build.StringDictUnaryEntry.newBuilder()
-            .setKey(dictEntry.getKey())
-            .setValue(dictEntry.getValue())
-            .build();
-        attrPb.addStringDictUnaryValue(entry);
+      for (Object value : values) {
+        Map<String, String> dict = (Map<String, String>) value;
+        for (Map.Entry<String, String> dictEntry : dict.entrySet()) {
+          Build.StringDictUnaryEntry entry = Build.StringDictUnaryEntry.newBuilder()
+              .setKey(dictEntry.getKey())
+              .setValue(dictEntry.getValue())
+              .build();
+          attrPb.addStringDictUnaryValue(entry);
+        }
       }
     } else if (type == STRING_LIST_DICT) {
-      Map<String, List<String>> dict = (Map<String, List<String>>) value;
-      for (Map.Entry<String, List<String>> dictEntry : dict.entrySet()) {
-        Build.StringListDictEntry.Builder entry = Build.StringListDictEntry.newBuilder()
-            .setKey(dictEntry.getKey());
-        for (Object dictEntryValue : dictEntry.getValue()) {
-          entry.addValue(dictEntryValue.toString());
+      for (Object value : values) {
+        Map<String, List<String>> dict = (Map<String, List<String>>) value;
+        for (Map.Entry<String, List<String>> dictEntry : dict.entrySet()) {
+          Build.StringListDictEntry.Builder entry = Build.StringListDictEntry.newBuilder()
+              .setKey(dictEntry.getKey());
+          for (Object dictEntryValue : dictEntry.getValue()) {
+            entry.addValue(dictEntryValue.toString());
+          }
+          attrPb.addStringListDictValue(entry);
         }
-        attrPb.addStringListDictValue(entry);
       }
     } else if (type == LABEL_LIST_DICT) {
-      Map<String, List<Label>> dict = (Map<String, List<Label>>) value;
-      for (Map.Entry<String, List<Label>> dictEntry : dict.entrySet()) {
-        Build.LabelListDictEntry.Builder entry = Build.LabelListDictEntry.newBuilder()
-            .setKey(dictEntry.getKey());
-        for (Object dictEntryValue : dictEntry.getValue()) {
-          entry.addValue(dictEntryValue.toString());
+      for (Object value : values) {
+        Map<String, List<Label>> dict = (Map<String, List<Label>>) value;
+        for (Map.Entry<String, List<Label>> dictEntry : dict.entrySet()) {
+          Build.LabelListDictEntry.Builder entry = Build.LabelListDictEntry.newBuilder()
+              .setKey(dictEntry.getKey());
+          for (Object dictEntryValue : dictEntry.getValue()) {
+            entry.addValue(dictEntryValue.toString());
+          }
+          attrPb.addLabelListDictValue(entry);
         }
-        attrPb.addLabelListDictValue(entry);
       }
     } else if (type == FILESET_ENTRY_LIST) {
-      List<FilesetEntry> filesetEntries = (List<FilesetEntry>) value;
-      for (FilesetEntry filesetEntry : filesetEntries) {
-        Build.FilesetEntry.Builder filesetEntryPb = Build.FilesetEntry.newBuilder()
-            .setSource(filesetEntry.getSrcLabel().toString())
-            .setDestinationDirectory(filesetEntry.getDestDir().getPathString())
-            .setSymlinkBehavior(symlinkBehaviorToPb(filesetEntry.getSymlinkBehavior()))
-            .setStripPrefix(filesetEntry.getStripPrefix())
-            .setFilesPresent(filesetEntry.getFiles() != null);
+      for (Object value : values) {
+        List<FilesetEntry> filesetEntries = (List<FilesetEntry>) value;
+        for (FilesetEntry filesetEntry : filesetEntries) {
+          Build.FilesetEntry.Builder filesetEntryPb = Build.FilesetEntry.newBuilder()
+              .setSource(filesetEntry.getSrcLabel().toString())
+              .setDestinationDirectory(filesetEntry.getDestDir().getPathString())
+              .setSymlinkBehavior(symlinkBehaviorToPb(filesetEntry.getSymlinkBehavior()))
+              .setStripPrefix(filesetEntry.getStripPrefix())
+              .setFilesPresent(filesetEntry.getFiles() != null);
 
-        if (filesetEntry.getFiles() != null) {
-          for (Label file : filesetEntry.getFiles()) {
-            filesetEntryPb.addFile(file.toString());
+          if (filesetEntry.getFiles() != null) {
+            for (Label file : filesetEntry.getFiles()) {
+              filesetEntryPb.addFile(file.toString());
+            }
           }
-        }
 
-        if (filesetEntry.getExcludes() != null) {
-          for (String exclude : filesetEntry.getExcludes()) {
-            filesetEntryPb.addExclude(exclude);
+          if (filesetEntry.getExcludes() != null) {
+            for (String exclude : filesetEntry.getExcludes()) {
+              filesetEntryPb.addExclude(exclude);
+            }
           }
-        }
 
-        attrPb.addFilesetListValue(filesetEntryPb);
+          attrPb.addFilesetListValue(filesetEntryPb);
+        }
       }
     } else {
-      throw new IllegalStateException("Unknown type: " + type);
+      throw new AssertionError("Unknown type: " + type);
     }
 
-    if (includeGlobs && value instanceof GlobList<?>) {
-      GlobList<?> globList = (GlobList<?>) value;
+    if (includeGlobs) {
+      for (Object value : values) {
+        if (value instanceof GlobList<?>) {
+          GlobList<?> globList = (GlobList<?>) value;
 
-      for (GlobCriteria criteria : globList.getCriteria()) {
-        Build.GlobCriteria.Builder criteriaPb = Build.GlobCriteria.newBuilder();
-        criteriaPb.setGlob(criteria.isGlob());
-        for (String include : criteria.getIncludePatterns()) {
-          criteriaPb.addInclude(include);
-        }
-        for (String exclude : criteria.getExcludePatterns()) {
-          criteriaPb.addExclude(exclude);
-        }
+          for (GlobCriteria criteria : globList.getCriteria()) {
+            Build.GlobCriteria.Builder criteriaPb = Build.GlobCriteria.newBuilder()
+                .setGlob(criteria.isGlob());
+            for (String include : criteria.getIncludePatterns()) {
+              criteriaPb.addInclude(include);
+            }
+            for (String exclude : criteria.getExcludePatterns()) {
+              criteriaPb.addExclude(exclude);
+            }
 
-        attrPb.addGlobCriteria(criteriaPb);
+            attrPb.addGlobCriteria(criteriaPb);
+          }
+        }
       }
     }
-    result.addAttribute(attrPb);
+
+    rulePb.addAttribute(attrPb);
   }
 
   // This is needed because I do not want to use the SymlinkBehavior from the

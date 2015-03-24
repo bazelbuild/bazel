@@ -88,6 +88,13 @@ public class RawAttributeMapper extends AbstractAttributeMapper {
   }
 
   /**
+   * Returns true if this attribute has a null value.
+   */
+  public <T> boolean isNull(String attributeName, Type<T> type) {
+    return !isConfigurable(attributeName, type) && (get(attributeName, type) == null);
+  }
+
+  /**
    * If the attribute is configurable for this rule instance, returns its configuration
    * keys. Else returns an empty list.
    */
