@@ -1,14 +1,18 @@
 Getting Started with Bazel
 ==========================
 
+Prerequisites
+-------------
+
+Be sure you have installed all of the prerequisites for your platform, as outlined in the [README](install.md).
+
 Setup
 -----
 
 Every Bazel project is contained in a directory called a _build root_,
 which holds the inputs, outputs, and build rules for the project. To create a
 Bazel project, first clone the [Github repo](https://github.com/google/bazel)
-and build Bazel (follow the instructions in the
-[README](install.md) to install prerequisites):
+and build Bazel:
 
 ```bash
 $ git clone https://github.com/google/bazel.git
