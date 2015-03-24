@@ -42,7 +42,6 @@ The following Python features are not supported:
 * `while`, `yield`, `break`, `continue`
 * `lambda`
 * `try`, `raise`, `except`, `finally` (see `fail` for fatal errors).
-* `*args`, `**kwargs`
 * most builtin functions, most methods
 
 
