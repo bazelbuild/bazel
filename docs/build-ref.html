@@ -136,6 +136,7 @@
   in Bazel.
 </p>
 <h2>Table of Contents</h2>
+
 <ul>
   <li><a href="#intro">Introduction</a></li>
   <li><a href="#packages_targets">Packages and Targets</a>
@@ -150,10 +151,12 @@
   <li><a href="#BUILD_files">BUILD Files</a>
     <ul>
       <li><a href="#core_build_language">The Core Build Language</a></li>
+
       <li><a href="#declaring_build_rules">Declaring Build Rules</a></li>
     </ul>
   </li>
   <li><a href="#funcs">Types of Build Rules</a></li>
+
   <li><a href="#dependencies">Dependencies</a>
     <ul>
       <li><a href="#actual_and_declared_dependencies">Actual and Declared Dependencies</a></li>
@@ -162,7 +165,8 @@
     </ul>
   </li>
 </ul>
-<h2 id='intro'>Introduction</h2>
+
+<h2 id="intro">Introduction</h2>
 
 <p>Bazel can build and test software from source
   code stored in any source tree that is organized as described
@@ -171,6 +175,10 @@
   source files and metadata that specifies what software targets, for
   example, compiled executables or libraries, can be built from the source.
 </p>
+<h2 id="packages_targets">Packages and Targets</h2>
+
+<h3 id="packages">Packages</h3>
+
 <p>
   The primary unit of code organization in the source tree is
   the <i>package</i>.  A package is collection of related files and a
@@ -196,7 +204,7 @@ src/my/app/tests/test.cc
   <code>my/app/data</code> is not a package, but a directory belonging to package
   <code>my/app</code>.
 </p>
-<h3>Targets</h3>
+<h3 id="targets">Targets</h3>
 
 <p>
   A package is a container.  The elements of a package are called
@@ -469,7 +477,7 @@ src/my/app/tests/test.cc
   <code>//my/app/testdata:testdepot.zip</code>.
 </p>
 
-<h3 id='lexi'>Lexical specification of a label</h3>
+<h3 id="lexi">Lexical specification of a label</h3>
 
 <p>
   The syntax of labels is intentionally strict, so as to
@@ -547,7 +555,7 @@ src/my/app/tests/test.cc
   end with a slash.
 </p>
 
-<h3>Rules</h3>
+<h3 id="rules">Rules</h3>
 
 <p>
   A rule specifies the relationship between inputs and output, and the
@@ -879,7 +887,7 @@ list datatype:
   list.extend(sequence)
 </pre>
 
-<h3>Declaring build rules</h3>
+<h3 id="declaring_build_rules">Declaring build rules</h3>
 
 <p>
   The build language is an imperative language, so in general, order
@@ -1173,7 +1181,7 @@ Actual dependency graph:    a --&gt; b    _c
   2 was properly declared in the BUILD file.
 </div>
 
-<h3>Types of dependencies</h3>
+<h3 id="types_of_dependencies">Types of dependencies</h3>
 
 <p>
   Most build rules have three attributes for specifying different kinds
