@@ -1,0 +1,6 @@
+destination: production
+markdown: kramdown
+kramdown:
+    input: GFM
+    hard_wrap: false
+    smart_quotes: ["apos", "apos", "quot", "quot"]
