@@ -318,12 +318,6 @@ public class ExecutionTool {
     // Get top-level artifacts.
     ImmutableSet<Artifact> additionalArtifacts = analysisResult.getAdditionalArtifactsToBuild();
 
-    // If --nobuild is specified, this request completes successfully without
-    // execution.
-    if (!request.getBuildOptions().performExecutionPhase) {
-      return;
-    }
-
     // Create symlinks only after we've verified that we're actually
     // supposed to build something.
     if (getWorkspace().getFileSystem().supportsSymbolicLinks()) {
