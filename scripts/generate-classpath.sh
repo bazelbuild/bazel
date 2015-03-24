@@ -37,7 +37,12 @@ cat <<EOF
 EOF
 
 # Find Java paths
-for path in $(find src -name "*.java" | sed "s|/com/google/.*$||" | sort -u); do
+JAVA_PATHS="$(find src -name "*.java" | sed "s|/com/google/.*$||" | sort -u)"
+# TODO(bazel-team): Once objc_tools have buildfiles, uncomment the if below
+# if [ "$(uname -s | tr 'A-Z' 'a-z')" != "darwin" ]; then
+JAVA_PATHS="$(echo "${JAVA_PATHS}" | fgrep -v "/objc_tools/")"
+# fi
+for path in ${JAVA_PATHS}; do
     echo "    <classpathentry kind=\"src\" path=\"$path\"/>"
 done
 
@@ -93,6 +98,10 @@ done | sort -u
 cat <<'EOF'
     <classpathentry kind="lib" path="tools/jdk/jdk/lib/tools.jar"/>
     <classpathentry kind="output" path="bazel-out/eclipse-classes"/>
-    <classpathentry kind="con" path="org.eclipse.jdt.launching.JRE_CONTAINER/org.eclipse.jdt.internal.debug.ui.launcher.StandardVMType/JavaSE-1.8"/>
+    <classpathentry kind="con" path="org.eclipse.jdt.launching.JRE_CONTAINER/org.eclipse.jdt.internal.debug.ui.launcher.StandardVMType/JavaSE-1.8">
+      <accessrules>
+        <accessrule kind="accessible" pattern="**"/>
+      </accessrules>
+    </classpathentry>
 </classpath>
 EOF
