@@ -66,7 +66,7 @@ public class RawAttributeMapper extends AbstractAttributeMapper {
    */
   @Nullable
   public <T> Collection<T> getMergedValues(String attributeName, Type<List<T>> type) {
-    Preconditions.checkState(type instanceof Type.ListType<?>);
+    Preconditions.checkState(type instanceof Type.ListType);
     if (!isConfigurable(attributeName, type)) {
       return get(attributeName, type);
     }
