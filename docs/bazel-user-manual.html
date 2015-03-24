@@ -138,7 +138,7 @@
 <body>
   <h1>A User's Guide to Bazel</h1>
 
-<h2 id='concepts'>Bazel overview</h2>
+<h2 id='overview'>Bazel overview</h2>
 
 <p>
   Running Bazel is easy.  Simply go to
@@ -156,7 +156,6 @@
     <a href='#analyze-profile'>analyze-profile</a>     Analyzes build profile data.
     <a href='#build'>build</a>               Builds the specified targets.
 
-
     <a href='#canonicalize'>canonicalize-flags</a>  Canonicalize Bazel flags.
     <a href='#clean'>clean</a>               Removes output files and optionally stops the server.
 
@@ -169,7 +168,6 @@
     <a href='#run'>run</a>                 Runs the specified target.
     <a href='#shutdown'>shutdown</a>            Stops the Bazel server.
     <a href='#test'>test</a>                Builds and runs the specified test targets.
-    <a href='#version'>version</a>             Prints version information for Bazel.
 
   Getting more help:
     bazel help &lt;command&gt;
@@ -367,6 +365,7 @@ the <code class='flag'>--bazelrc=<var>file</var></code> option, and the
 </pre>
 
 <h2 id='build'>Building programs with Bazel</h2>
+<h3>The <code>build</code> command</h3>
 
 <p>
   The most important function of Bazel is, of course, building code.  Type
@@ -575,7 +574,7 @@ Subtractive patterns:
   required to prevent '-f' from being interpreted as an option.
 </pre>
 <p>
-  Whereas <a href="build-ref.html#label">labels</a> are used
+  Whereas <a href="build-ref.html#labels">labels</a> are used
   to specify individual targets, e.g. for declaring dependencies in
   BUILD files, Bazel's target patterns are a syntax for specifying
   multiple targets: they are a generalization of the label syntax
@@ -897,9 +896,10 @@ Subtractive patterns:
 
 </p>
 
-<h3>Deleting the outputs of a build</h3>
+<h3 id='clean'>Deleting the outputs of a build</h3>
 
-<h4 id='clean'><code>bazel clean</code></h4>
+<h4>The <code>clean</code> command</h4>
+
 <p>
   Bazel has a <code>clean</code> command, analogous to that of Make.
   It deletes the output directories for all build configurations performed
@@ -1056,9 +1056,8 @@ Subtractive patterns:
 <h4 id='flag--package_path'><code class='flag'>--package_path</code></h4>
 <p>
   This option specifies the set of directories that are searched to
-  find the BUILD file for a given package; see
-  <a href='#setup_workspace'>Setting up a workspace</a> above
-  for a complete explanation.
+  find the BUILD file for a given package.
+
 </p>
 
 <h4 id='flag--deleted_packages'><code class='flag'>--deleted_packages</code></h4>
@@ -1685,8 +1684,8 @@ the compilation of binaries during the build.
 <h4 id='flag--dynamic_mode'><code class='flag'>--dynamic_mode <var>mode</var></code></h4>
 <p>
   Determines whether C++ binaries will be linked dynamically, interacting with
-  the <a href='build-encyclopedia.html#linkstatic'>linkstatic attribute</a> on
-  build rules.
+  the <a href='build-encyclopedia.html#cc_binary.linkstatic'>linkstatic
+  attribute</a> on build rules.
 </p>
 
 <p>
@@ -1696,14 +1695,14 @@ the compilation of binaries during the build.
   <li><code>auto</code>: Translates to a platform-dependent mode;
       <code>default</code> for linux and <code>off</code> for cygwin.</li>
   <li><code>default</code>: Allows bazel to choose whether to link dynamically.
-      See <a href='build-encyclopedia.html#linkstatic'>linkstatic</a> for more
+      See <a href='build-encyclopedia.html#cc_binary.linkstatic'>linkstatic</a> for more
       information.</li>
   <li><code>fully</code>: Links all targets dynamically.  This will speed up
       linking time, and reduce the size of the resulting binaries.
 
   </li>
   <li><code>off</code>: Links all targets in
-      <a href='build-encyclopedia.html#linkstatic'>mostly static</a> mode.
+      <a href='build-encyclopedia.html#cc_binary.linkstatic'>mostly static</a> mode.
       If <code>-static</code> is set in linkopts, targets will change to fully
       static.</li>
 </ul>
@@ -3014,7 +3013,7 @@ in an environment closer to the current shell environment. Note that none of the
 <p>
   The <code>help</code> command provides on-line help.  By default, it
   shows a summary of available commands and help topics, as shown in
-  the <a href='#concepts'><i>Bazel Concepts</i></a> section above.
+  the <a href='#overview'><i>Bazel overview</i></a> section above.
   Specifying an argument displays detailed help for a particular
   topic.  Most topics are Bazel commands, e.g. <code>build</code>
   or <code>query</code>, but there are some additional help topics
@@ -3633,12 +3632,6 @@ Bazel execution can result in following exit codes:
   be parsed to discover which targets were successfully built, and the
   location of the output files they created.  Be sure to specify a
   very large value of <i>n</i> if you rely on these messages.
-</p>
-
-<p>
-  Note that it often makes sense to use the
-  <a href='#master_log'>master log</a> instead of parsing Bazel output
-  directly.
 </p>
 
 </body>
