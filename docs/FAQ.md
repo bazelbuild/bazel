@@ -157,7 +157,7 @@ Can I see examples?
 
 Yes, for a simple example, see
 
-  <https://github.com/google/bazel/blob/master/base_workspace/examples/cpp/BUILD>
+  <https://github.com/google/bazel/blob/master/examples/cpp/BUILD>
 
 The bazel source code itself provides more complex examples, eg.
 
