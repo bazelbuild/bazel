@@ -2,7 +2,7 @@
 layout: default
 ---
 
-# [Bazel (Alpha)](http://bazel.io)
+# [Bazel (Alpha)](//bazel.io)
 
 *{Fast, Correct} - Choose two*
 
