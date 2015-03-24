@@ -334,6 +334,7 @@ public final class PackageFactory {
   /**
    * Constructs a {@code PackageFactory} instance with the given rule factory.
    */
+  @VisibleForTesting
   public PackageFactory(RuleClassProvider ruleClassProvider) {
     this(ruleClassProvider, null, ImmutableList.<EnvironmentExtension>of());
   }
@@ -354,7 +355,6 @@ public final class PackageFactory {
    * Constructs a {@code PackageFactory} instance with a specific glob path translator
    * and rule factory.
    */
-  @VisibleForTesting
   public PackageFactory(RuleClassProvider ruleClassProvider,
       Map<String, String> platformSetRegexps,
       Iterable<EnvironmentExtension> environmentExtensions) {
@@ -460,12 +460,12 @@ public final class PackageFactory {
         @Override
         public Object call(Object[] namedArguments, FuncallExpression ast, Environment env)
                 throws EvalException, ConversionException, InterruptedException {
-          return globCall(originalContext, async, ast, env, namedArguments);
+          return callGlob(originalContext, async, ast, env, namedArguments);
         }
       };
   }
 
-  static Object globCall(@Nullable PackageContext originalContext, boolean async,
+  static Object callGlob(@Nullable PackageContext originalContext, boolean async,
       FuncallExpression ast, Environment env, Object[] namedArguments)
           throws EvalException, ConversionException, InterruptedException {
     // Skylark build extensions need to get the PackageContext from the Environment;
@@ -619,60 +619,64 @@ public final class PackageFactory {
    * Returns a function-value implementing "exports_files" in the specified
    * package context.
    */
-  private static Function newExportsFilesFunction(final PackageContext context) {
-    final Package.LegacyBuilder pkgBuilder = context.pkgBuilder;
+  private static Function newExportsFilesFunction() {
     List<String> params = ImmutableList.of("srcs", "visibility", "licenses");
     return new MixedModeFunction("exports_files", params, 1, false) {
       @Override
-      public Object call(Object[] namedArgs, FuncallExpression ast)
+      public Object call(Object[] namedArgs, FuncallExpression ast, Environment env)
           throws EvalException, ConversionException {
-
-        List<String> files = Type.STRING_LIST.convert(namedArgs[0], "'exports_files' operand");
-
-        RuleVisibility visibility = namedArgs[1] == null
-            ? ConstantRuleVisibility.PUBLIC
-            : getVisibility(Type.LABEL_LIST.convert(
-                namedArgs[1],
-                "'exports_files' operand",
-                pkgBuilder.getBuildFileLabel()));
-        License license = namedArgs[2] == null
-            ? null
-            : Type.LICENSE.convert(namedArgs[2], "'exports_files' operand");
-
-        for (String file : files) {
-          String errorMessage = LabelValidator.validateTargetName(file);
-          if (errorMessage != null) {
-            throw new EvalException(ast.getLocation(), errorMessage);
-          }
-          try {
-            InputFile inputFile = pkgBuilder.createInputFile(file, ast.getLocation());
-            if (inputFile.isVisibilitySpecified()
-                && inputFile.getVisibility() != visibility) {
-              throw new EvalException(ast.getLocation(),
-                  String.format("visibility for exported file '%s' declared twice",
-                      inputFile.getName()));
-            }
-            if (license != null && inputFile.isLicenseSpecified()) {
-              throw new EvalException(ast.getLocation(),
-                  String.format("licenses for exported file '%s' declared twice",
-                      inputFile.getName()));
-            }
-            if (license == null && pkgBuilder.getDefaultLicense() == License.NO_LICENSE
-                && pkgBuilder.getBuildFileLabel().toString().startsWith("//third_party/")) {
-              throw new EvalException(ast.getLocation(),
-                  "third-party file '" + inputFile.getName() + "' lacks a license declaration "
-                  + "with one of the following types: notice, reciprocal, permissive, "
-                  + "restricted, unencumbered, by_exception_only");
-            }
-
-            pkgBuilder.setVisibilityAndLicense(inputFile, visibility, license);
-          } catch (Package.Builder.GeneratedLabelConflict e) {
-            throw new EvalException(ast.getLocation(), e.getMessage());
-          }
-        }
-        return Environment.NONE;
+        return callExportsFiles(ast, env, namedArgs);
       }
     };
+  }
+
+  static Object callExportsFiles(FuncallExpression ast, Environment env, Object[] namedArgs)
+      throws EvalException, ConversionException {
+    Package.LegacyBuilder pkgBuilder = getContext(env, ast).pkgBuilder;
+    List<String> files = Type.STRING_LIST.convert(namedArgs[0], "'exports_files' operand");
+
+    RuleVisibility visibility = namedArgs[1] == null
+        ? ConstantRuleVisibility.PUBLIC
+        : getVisibility(Type.LABEL_LIST.convert(
+            namedArgs[1],
+            "'exports_files' operand",
+            pkgBuilder.getBuildFileLabel()));
+    License license = namedArgs[2] == null
+        ? null
+        : Type.LICENSE.convert(namedArgs[2], "'exports_files' operand");
+
+    for (String file : files) {
+      String errorMessage = LabelValidator.validateTargetName(file);
+      if (errorMessage != null) {
+        throw new EvalException(ast.getLocation(), errorMessage);
+      }
+      try {
+        InputFile inputFile = pkgBuilder.createInputFile(file, ast.getLocation());
+        if (inputFile.isVisibilitySpecified()
+            && inputFile.getVisibility() != visibility) {
+          throw new EvalException(ast.getLocation(),
+              String.format("visibility for exported file '%s' declared twice",
+                  inputFile.getName()));
+        }
+        if (license != null && inputFile.isLicenseSpecified()) {
+          throw new EvalException(ast.getLocation(),
+              String.format("licenses for exported file '%s' declared twice",
+                  inputFile.getName()));
+        }
+        if (license == null && pkgBuilder.getDefaultLicense() == License.NO_LICENSE
+            && pkgBuilder.getBuildFileLabel().toString().startsWith("//third_party/")) {
+          throw new EvalException(ast.getLocation(),
+              "third-party file '" + inputFile.getName() + "' lacks a license declaration "
+              + "with one of the following types: notice, reciprocal, permissive, "
+              + "restricted, unencumbered, by_exception_only");
+        }
+
+        pkgBuilder.setVisibilityAndLicense(inputFile, visibility, license);
+      } catch (Package.Builder.GeneratedLabelConflict e) {
+        throw new EvalException(ast.getLocation(), e.getMessage());
+      }
+    }
+    return Environment.NONE;
   }
 
   /**
@@ -718,34 +722,40 @@ public final class PackageFactory {
       };
   }
 
-  private static Function newPackageGroupFunction(final PackageContext context) {
+  private static Function newPackageGroupFunction() {
     List<String> params = ImmutableList.of("name", "packages", "includes");
     return new MixedModeFunction("package_group", params, 1, true) {
         @Override
-        public Object call(Object[] namedArgs, FuncallExpression ast)
+        public Object call(Object[] namedArgs, FuncallExpression ast, Environment env)
             throws EvalException, ConversionException {
-          Preconditions.checkState(namedArgs[0] != null);
-          String name = Type.STRING.convert(namedArgs[0], "'package_group' argument");
-          List<String> packages = namedArgs[1] == null
-              ? Collections.<String>emptyList()
-              : Type.STRING_LIST.convert(namedArgs[1], "'package_group' argument");
-          List<Label> includes = namedArgs[2] == null
-              ? Collections.<Label>emptyList()
-              : Type.LABEL_LIST.convert(namedArgs[2], "'package_group argument'",
-                                        context.pkgBuilder.getBuildFileLabel());
-
-          try {
-            context.pkgBuilder.addPackageGroup(name, packages, includes, context.eventHandler,
-                ast.getLocation());
-            return Environment.NONE;
-          } catch (Label.SyntaxException e) {
-            throw new EvalException(ast.getLocation(),
-                "package group has invalid name: " + name + ": " + e.getMessage());
-          } catch (Package.NameConflictException e) {
-            throw new EvalException(ast.getLocation(), e.getMessage());
-          }
+          return callPackageFunction(ast, env, namedArgs);
         }
       };
+  }
+
+  static Object callPackageFunction(FuncallExpression ast, Environment env, Object[] namedArgs)
+      throws EvalException, ConversionException {
+    PackageContext context = getContext(env, ast);
+    Preconditions.checkState(namedArgs[0] != null);
+    String name = Type.STRING.convert(namedArgs[0], "'package_group' argument");
+    List<String> packages = namedArgs[1] == null
+        ? Collections.<String>emptyList()
+        : Type.STRING_LIST.convert(namedArgs[1], "'package_group' argument");
+    List<Label> includes = namedArgs[2] == null
+        ? Collections.<Label>emptyList()
+        : Type.LABEL_LIST.convert(namedArgs[2], "'package_group argument'",
+                                  context.pkgBuilder.getBuildFileLabel());
+
+    try {
+      context.pkgBuilder.addPackageGroup(name, packages, includes, context.eventHandler,
+          ast.getLocation());
+      return Environment.NONE;
+    } catch (Label.SyntaxException e) {
+      throw new EvalException(ast.getLocation(),
+          "package group has invalid name: " + name + ": " + e.getMessage());
+    } catch (Package.NameConflictException e) {
+      throw new EvalException(ast.getLocation(), e.getMessage());
+    }
   }
 
   public static RuleVisibility getVisibility(List<Label> original) {
@@ -1105,8 +1115,8 @@ public final class PackageFactory {
     pkgEnv.update("glob", newGlobFunction(context, /*async=*/false));
     pkgEnv.update("mocksubinclude", newMockSubincludeFunction(context));
     pkgEnv.update("licenses", newLicensesFunction(context));
-    pkgEnv.update("exports_files", newExportsFilesFunction(context));
-    pkgEnv.update("package_group", newPackageGroupFunction(context));
+    pkgEnv.update("exports_files", newExportsFilesFunction());
+    pkgEnv.update("package_group", newPackageGroupFunction());
     pkgEnv.update("package", newPackageFunction(packageArguments));
     pkgEnv.update("subinclude", newSubincludeFunction());
     pkgEnv.update("environment_group", newEnvironmentGroupFunction(context));

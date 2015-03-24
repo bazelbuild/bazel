@@ -55,10 +55,58 @@ public class SkylarkNativeModule {
     @Override
     public Object call(Map<String, Object> kwargs, FuncallExpression ast, Environment env)
         throws EvalException, ConversionException, InterruptedException {
-      return PackageFactory.globCall(null, false, ast, env, new Object[] {
+      return PackageFactory.callGlob(null, false, ast, env, new Object[] {
           kwargs.get("includes"),
           kwargs.get("excludes"),
           kwargs.get("exclude_directories")
+      });
+    }
+  };
+
+  @SkylarkBuiltin(name = "package_group", objectType = SkylarkNativeModule.class, 
+      doc = "This function defines a set of packages and assigns a label to the group. "
+          + "The label can be referenced in <code>visibility</code> attributes.",
+      mandatoryParams = {
+      @Param(name = "name", type = String.class,
+          doc = "A unique name for this rule.")},
+      optionalParams = {
+      @Param(name = "packages", type = SkylarkList.class, generic1 = String.class,
+          doc = "A complete enumeration of packages in this group."),
+      @Param(name = "includes", type = SkylarkList.class, generic1 = String.class,
+          doc = "Other package groups that are included in this one.")})
+  private static final SkylarkFunction packageGroup = new SkylarkFunction("package_group") {
+    @Override
+    public Object call(Map<String, Object> kwargs, FuncallExpression ast, Environment env)
+        throws EvalException, ConversionException {
+      return PackageFactory.callPackageFunction(ast, env, new Object[] {
+          kwargs.get("name"),
+          kwargs.get("packages"),
+          kwargs.get("includes")
+      });
+    }
+  };
+
+  @SkylarkBuiltin(name = "exports_files", objectType = SkylarkNativeModule.class, 
+      doc = "Specifies a list of files belonging to this package that are exported to other "
+          + "packages but not otherwise mentioned.",
+      mandatoryParams = {
+      @Param(name = "srcs", type = SkylarkList.class, generic1 = String.class,
+          doc = "The list of files to export.")},
+      optionalParams = {
+      @Param(name = "visibility", type = SkylarkList.class, generic1 = String.class,
+          doc = "A visibility declaration can to be specified. The files will be visible to the "
+              + "targets specified. If no visibility is specified, the files will be visible to "
+              + "every package."),
+      @Param(name = "licenses", type = SkylarkList.class, generic1 = String.class,
+          doc = "Lincenses to be specified.")})
+  private static final SkylarkFunction exportsFiles = new SkylarkFunction("exports_files") {
+    @Override
+    public Object call(Map<String, Object> kwargs, FuncallExpression ast, Environment env)
+        throws EvalException, ConversionException {
+      return PackageFactory.callExportsFiles(ast, env, new Object[] {
+          kwargs.get("srcs"),
+          kwargs.get("visibility"),
+          kwargs.get("licenses")
       });
     }
   };
