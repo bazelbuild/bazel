@@ -115,9 +115,10 @@ EOF
   esac
 }
 
-# Create symlinks so we can use tools from the base_workspace.
+# Create symlinks so we can use tools and examples from the base_workspace.
 rm -f base_workspace/tools && ln -s $(pwd)/tools base_workspace/tools
 rm -f base_workspace/third_party && ln -s $(pwd)/third_party base_workspace/third_party
+rm -f base_workspace/examples && ln -s $(pwd)/examples base_workspace/examples
 
 case "${PLATFORM}" in
 linux)
