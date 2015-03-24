@@ -381,6 +381,26 @@ We currently have no plans to provide packaging up of self-contained
 Python binaries.
 
 
+What about Go?
+--------------
+
+The server code written in Go at Google is also built with Bazel. The
+rules that accomplish this are rather complex due to their
+interactions with our C++ libraries, and we'd rather not open them up
+in their current form. They also predate the conventions of the open
+source `go` tool. Indeed, the experience with the Google internal
+rules motivated some of the choices in the `go` tool.
+
+If your codebase is 100% Go, the `go` tool has excellent support for
+building and testing, and Bazel will not bring you much benefit.
+
+For mixed language codebases, you could try the experimental rules at
+
+    <https://github.com/google/bazel/tree/master/examples/go>
+
+They mimick the structure of our internal Go rules, and may require
+editing some import lines.
+
 
 Can I use Bazel for my LISP/Python/Haskell/Scala/Rust project?
 -----------------------------------------------
