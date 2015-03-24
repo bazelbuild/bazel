@@ -835,6 +835,109 @@ ${ATTRIBUTE_SIGNATURE}
 
 ${ATTRIBUTE_DEFINITION}
 
+<h4 id="hdrs">Header inclusion checking</h4>
+
+<p>
+  All header files that are used in the build must be declared in the <code>hdrs</code> or
+  <code>srcs</code> of <code>cc_*</code> rules. This is enforced by default (i.e.
+  <code><a href="#cc_library.hdrs_check">hdrs_check</a> = 'strict'</code>).
+</p>
+
+<p>
+  For <code>cc_library</code> rules, headers in <code>hdrs</code> comprise the public interface of
+  the library and can be directly included both from the files in <code>hdrs</code> and
+  <code>srcs</code> of the library itself as well as from files in <code>hdrs</code> and
+  <code>srcs</code> of <code>cc_*</code> rules that list the library in their <code>deps</code>.
+  Headers in <code>srcs</code> must only be directly included from the files in <code>hdrs</code>
+  and <code>srcs</code> of the library itself. When deciding whether to put a header into
+  <code>hdrs</code> or <code>srcs</code>, you should ask whether you want consumers of this library
+  to be able to directly include it. This is roughly the same decision as between
+  <code>public</code> and <code>private</code> visibility in programming languages.
+</p>
+
+<p>
+  <code>cc_binary</code> and <code>cc_test</code> rules do not have an exported interface, so they
+  also do not have a <code>hdrs</code> attribute. All headers that belong to the binary or test
+  directly should be listed in the <code>srcs</code>.
+</p>
+
+<p>
+  To illustrate these rules, look at the following example.
+</p>
+
+<pre class="code">
+cc_binary(
+    name = "foo",
+    srcs = [
+        "foo.cc",
+        "foo.h",
+    ],
+    deps = [":bar"],
+)
+
+cc_library(
+    name = "bar",
+    srcs = [
+        "bar.cc",
+        "bar-impl.h",
+    ],
+    hdrs = ["bar.h"],
+    deps = [":baz"],
+)
+
+cc_library(
+    name = "baz",
+    srcs = [
+        "baz.cc",
+        "baz-impl.h",
+    ],
+    hdrs = ["baz.h"],
+)
+</pre>
+
+<p>
+  The allowed direct inclusions in this example are listed in the table below. For example
+  <code>foo.cc</code> is allowed to directly include <code>foo.h</code> and <code>bar.h</code>, but
+  not <code>baz.h</code>.
+</p>
+
+<table class="grid">
+  <tr><th>Including file</th><th>Allowed inclusions</th></tr>
+  <tr><td>foo.h</td><td>bar.h</td></tr>
+  <tr><td>foo.cc</td><td>foo.h bar.h</td></tr>
+  <tr><td>bar.h</td><td>bar-impl.h baz.h</td></tr>
+  <tr><td>bar-impl.h</td><td>bar.h baz.h</td></tr>
+  <tr><td>bar.cc</td><td>bar.h bar-impl.h baz.h</td></tr>
+  <tr><td>baz.h</td><td>baz-impl.h</td></tr>
+  <tr><td>baz-impl.h</td><td>baz.h</td></tr>
+  <tr><td>baz.cc</td><td>baz.h baz-impl.h</td></tr>
+</table>
+
+<p>
+  The inclusion checking rules only apply to <em>direct</em>
+  inclusions. In the example above <code>foo.cc</code> is allowed to
+  include <code>bar.h</code>, which may include <code>baz.h</code>, which in
+  turn is allowed to include <code>baz-impl.h</code>. Technically, the
+  compilation of a <code>.cc</code> file may transitively include any header
+  file in the <code>hdrs</code> or <code>srcs</code> in
+  any <code>cc_library</code> in the transitive <code>deps</code> closure. In
+  this case the compiler may read <code>baz.h</code> and <code>baz-impl.h</code>
+  when compiling <code>foo.cc</code>, but <code>foo.cc</code> must not
+  contain <code>#include "baz.h"</code>. For that to be
+  allowed, <code>baz</code> must be added to the <code>deps</code>
+  of <code>foo</code>.
+</p>
+
+<p>
+  Unfortunately Bazel currently cannot distinguish between direct and transitive
+  inclusions, so it cannot detect error cases where a file illegally includes a
+  header directly that is only allowed to be included transitively. For example,
+  Bazel would not complain if in the example above <code>foo.cc</code> directly
+  includes <code>baz.h</code>. This would be illegal, because <code>foo</code>
+  does not directly depend on <code>baz</code>. Currently, no error is produced
+  in that case, but such error checking may be added in the future.
+</p>
+
 <!-- #END_BLAZE_RULE -->*/
 
 
