@@ -4,7 +4,16 @@
 /bazel-out
 /bazel-bazel
 /bazel-testlogs
+/.settings
+/.project
+/.classpath
 /fromhost/
+/base_workspace/bazel-bin
+/base_workspace/bazel-genfiles
+/base_workspace/bazel-out
+/base_workspace/bazel-base_workspace
+/base_workspace/bazel-testlogs
+/base_workspace/examples
 /base_workspace/tools
 /base_workspace/third_party
 /tools/jdk/jdk
