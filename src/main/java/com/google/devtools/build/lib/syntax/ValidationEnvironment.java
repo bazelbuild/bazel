@@ -89,15 +89,10 @@ public class ValidationEnvironment {
    * Creates a local ValidationEnvironment to validate user defined function bodies.
    */
   public ValidationEnvironment(ValidationEnvironment parent, SkylarkFunctionType currentFunction) {
+    // Don't copy readOnlyVariables: Variables may shadow global values.
     this.parent = parent;
     this.variableTypes.put(SkylarkType.GLOBAL, new HashMap<String, SkylarkType>());
     this.currentFunction = currentFunction;
-    for (String var : parent.readOnlyVariables) {
-      if (!parent.variableLocations.containsKey(var)) {
-        // Mark built in global vars readonly. Variables defined in Skylark may be shadowed locally.
-        readOnlyVariables.add(var);
-      }
-    }
     this.clonable = false;
   }
 
