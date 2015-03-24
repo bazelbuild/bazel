@@ -98,6 +98,7 @@ abstract class BinaryLinkingTargetFactory implements RuleConfiguredTargetFactory
             .registerActions()
             .addXcodeSettings(xcodeProviderBuilder)
             .addFilesToBuild(filesToBuild)
+            .validateResources()
             .validateAttributes();
         xcTestAppProvider = Optional.of(releaseBundlingSupport.xcTestAppProvider());
         if (ObjcRuleClasses.objcConfiguration(ruleContext).getPlatform() == Platform.SIMULATOR) {
@@ -115,7 +116,6 @@ abstract class BinaryLinkingTargetFactory implements RuleConfiguredTargetFactory
     }
 
     new ResourceSupport(ruleContext)
-        .registerActions(common.getStoryboards())
         .validateAttributes()
         .addXcodeSettings(xcodeProviderBuilder);
 

@@ -197,6 +197,17 @@ public final class ReleaseBundlingSupport {
   }
 
   /**
+   * Validates that resources defined in this rule and its dependencies and written to this bundle
+   * are legal.
+   *
+   * @return this release bundling support
+   */
+  ReleaseBundlingSupport validateResources() {
+    bundleSupport.validateResources(objcProvider);
+    return this;
+  }
+
+  /**
    * Registers actions required to build an application. This includes any
    * {@link BundleSupport#registerActions(ObjcProvider) bundle} and bundle merge actions, signing
    * this application if appropriate and combining several single-architecture binaries into one
@@ -231,8 +242,8 @@ public final class ReleaseBundlingSupport {
 
   private Artifact registerBundleSigningActions(Artifact ipaOutput) {
     PathFragment entitlementsDirectory = ruleContext.getUniqueDirectory("entitlements");
-    Artifact teamPrefixFile = ruleContext.getRelatedArtifact(
-        entitlementsDirectory, ".team_prefix_file");
+    Artifact teamPrefixFile =
+        ruleContext.getRelatedArtifact(entitlementsDirectory, ".team_prefix_file");
     registerExtractTeamPrefixAction(teamPrefixFile);
 
     Artifact entitlementsNeedingSubstitution = attributes.entitlements();
@@ -241,8 +252,8 @@ public final class ReleaseBundlingSupport {
           entitlementsDirectory, ".entitlements_with_variables");
       registerExtractEntitlementsAction(entitlementsNeedingSubstitution);
     }
-    Artifact entitlements = ruleContext.getRelatedArtifact(
-        entitlementsDirectory, ".entitlements");
+    Artifact entitlements =
+        ruleContext.getRelatedArtifact(entitlementsDirectory, ".entitlements");
     registerEntitlementsVariableSubstitutionAction(
         entitlementsNeedingSubstitution, entitlements, teamPrefixFile);
     Artifact ipaUnsigned = ObjcRuleClasses.artifactByAppendingToRootRelativePath(
@@ -382,7 +393,7 @@ public final class ReleaseBundlingSupport {
         // Architecture that determines which nested bundles are kept.
         .setArchitecture(objcConfiguration.getDependencySingleArchitecture())
         .setBundleDirFormat(bundleDirFormat)
-        .setExtraBundleFiles(extraBundleFiles)
+        .addExtraBundleFiles(extraBundleFiles)
         .setObjcProvider(objcProvider)
         .setInfoplistMerging(
             BundleSupport.infoPlistMerging(ruleContext, objcProvider, optionsProvider))

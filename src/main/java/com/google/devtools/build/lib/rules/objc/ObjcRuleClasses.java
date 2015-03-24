@@ -406,8 +406,6 @@ public class ObjcRuleClasses {
               .direct_compile_time_input()
               .allowedRuleClasses("objc_bundle", "objc_bundle_library")
               .allowedFileTypes())
-          .add(attr("$momczip_deploy", LABEL).cfg(HOST)
-              .value(env.getLabel("//tools/objc:momczip_deploy.jar")))
           .build();
     }
     @Override
@@ -793,6 +791,8 @@ public class ObjcRuleClasses {
          <!-- #END_BLAZE_RULE.ATTRIBUTE -->*/
         .add(attr("infoplist", LABEL)
             .allowedFileTypes(PLIST_TYPE))
+        .add(attr("$momczip_deploy", LABEL).cfg(HOST)
+            .value(env.getLabel("//tools/objc:momczip_deploy.jar")))
         .build();
     }
     @Override
@@ -954,20 +954,8 @@ public class ObjcRuleClasses {
       return ruleContext.getPrerequisiteArtifact("$actoolzip_deploy", Mode.HOST);
     }
 
-    Artifact ibtoolzipDeployJar() {
-      return ruleContext.getPrerequisiteArtifact("$ibtoolzip_deploy", Mode.HOST);
-    }
-
-    Artifact momczipDeployJar() {
-      return ruleContext.getPrerequisiteArtifact("$momczip_deploy", Mode.HOST);
-    }
-
     FilesToRunProvider xcodegen() {
       return ruleContext.getExecutablePrerequisite("$xcodegen", Mode.HOST);
-    }
-
-    FilesToRunProvider plmerge() {
-      return ruleContext.getExecutablePrerequisite("$plmerge", Mode.HOST);
     }
   }
 }

@@ -72,6 +72,7 @@ public abstract class ReleaseBundlingTargetFactory implements RuleConfiguredTarg
         .registerActions()
         .addXcodeSettings(xcodeProviderBuilder)
         .addFilesToBuild(filesToBuild)
+        .validateResources()
         .validateAttributes();
 
     XcodeSupport xcodeSupport = new XcodeSupport(ruleContext)

@@ -18,7 +18,6 @@ import com.google.common.collect.ImmutableList;
 import com.google.devtools.build.lib.actions.Artifact;
 import com.google.devtools.build.lib.analysis.RuleConfiguredTarget.Mode;
 import com.google.devtools.build.lib.analysis.RuleContext;
-import com.google.devtools.build.lib.analysis.actions.CustomCommandLine;
 
 /**
  * Support for resource processing on Objc rules.
@@ -28,8 +27,6 @@ import com.google.devtools.build.lib.analysis.actions.CustomCommandLine;
 final class ResourceSupport {
   private final RuleContext ruleContext;
   private final Attributes attributes;
-  private final IntermediateArtifacts intermediateArtifacts;
-  private final Iterable<Xcdatamodel> datamodels;
 
   /**
    * Creates a new resource support for the given context.
@@ -37,57 +34,6 @@ final class ResourceSupport {
   ResourceSupport(RuleContext ruleContext) {
     this.ruleContext = ruleContext;
     this.attributes = new Attributes(ruleContext);
-    this.intermediateArtifacts = ObjcRuleClasses.intermediateArtifacts(ruleContext);
-    this.datamodels = Xcdatamodels.xcdatamodels(intermediateArtifacts, attributes.datamodels());
-  }
-
-  /**
-   * Registers resource generating actions (strings, storyboards, ...).
-   *
-   * @param storyboards storyboards defined by this rule
-   *
-   * @return this resource support
-   */
-  ResourceSupport registerActions(Storyboards storyboards) {
-    ObjcActionsBuilder actionsBuilder = ObjcRuleClasses.actionsBuilder(ruleContext);
-
-    ObjcRuleClasses.Tools tools = new ObjcRuleClasses.Tools(ruleContext);
-    actionsBuilder.registerResourceActions(
-        tools,
-        new ObjcActionsBuilder.StringsFiles(
-            CompiledResourceFile.fromStringsFiles(intermediateArtifacts, attributes.strings())),
-        new XibFiles(attributes.xibs()),
-        datamodels);
-
-    registerInterfaceBuilderActions(storyboards, tools);
-    return this;
-  }
-
-  private void registerInterfaceBuilderActions(
-      Storyboards storyboards, ObjcRuleClasses.Tools tools) {
-    for (Artifact storyboardInput : storyboards.getInputs()) {
-      String archiveRoot = BundleableFile.flatBundlePath(storyboardInput.getExecPath()) + "c";
-      Artifact zipOutput = intermediateArtifacts.compiledStoryboardZip(storyboardInput);
-      
-      String minimumOs =
-          ruleContext.getConfiguration().getFragment(ObjcConfiguration.class).getMinimumOs();
-      ruleContext.registerAction(
-          ObjcActionsBuilder.spawnJavaOnDarwinActionBuilder(tools.ibtoolzipDeployJar())
-              .setMnemonic("StoryboardCompile")
-              .setCommandLine(new CustomCommandLine.Builder()
-                  // The next three arguments are positional,
-                  // i.e. they don't have flags before them.
-                  .addPath(zipOutput.getExecPath())
-                  .add(archiveRoot)
-                  .addPath(ObjcActionsBuilder.IBTOOL)
-              
-                  .add("--minimum-deployment-target").add(minimumOs)
-                  .addPath(storyboardInput.getExecPath())
-                  .build())
-              .addOutput(zipOutput)
-              .addInput(storyboardInput)
-              .build(ruleContext));
-    }
   }
 
   /**
@@ -96,7 +42,8 @@ final class ResourceSupport {
    * @return this resource support
    */
   ResourceSupport addXcodeSettings(XcodeProvider.Builder xcodeProviderBuilder) {
-    xcodeProviderBuilder.addInputsToXcodegen(Xcdatamodel.inputsToXcodegen(datamodels));
+    xcodeProviderBuilder.addInputsToXcodegen(Xcdatamodel.inputsToXcodegen(attributes.datamodels()));
+    xcodeProviderBuilder.addDatamodelDirs(Xcdatamodels.datamodelDirs(attributes.datamodels()));
     return this;
   }
 
@@ -130,16 +77,6 @@ final class ResourceSupport {
 
     ImmutableList<Artifact> datamodels() {
       return ruleContext.getPrerequisiteArtifacts("datamodels", Mode.TARGET).list();
-    }
-
-    ImmutableList<Artifact> xibs() {
-      return ruleContext.getPrerequisiteArtifacts("xibs", Mode.TARGET)
-          .errorsForNonMatching(ObjcRuleClasses.XIB_TYPE)
-          .list();
-    }
-
-    ImmutableList<Artifact> strings() {
-      return ruleContext.getPrerequisiteArtifacts("strings", Mode.TARGET).list();
     }
 
     ImmutableList<Artifact> assetCatalogs() {

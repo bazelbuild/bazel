@@ -125,7 +125,7 @@ public final class ObjcProvider implements TransitiveInfoProvider {
   public static final Key<String> SDK_DYLIB = new Key<>(STABLE_ORDER);
   public static final Key<SdkFramework> SDK_FRAMEWORK = new Key<>(STABLE_ORDER);
   public static final Key<SdkFramework> WEAK_SDK_FRAMEWORK = new Key<>(STABLE_ORDER);
-  public static final Key<Xcdatamodel> XCDATAMODEL = new Key<>(STABLE_ORDER);
+  public static final Key<Artifact> XCDATAMODEL = new Key<>(STABLE_ORDER);
   public static final Key<Flag> FLAG = new Key<>(STABLE_ORDER);
 
   /**
@@ -157,6 +157,21 @@ public final class ObjcProvider implements TransitiveInfoProvider {
    * Artifact containing information on debug symbols
    */
   public static final Key<Artifact> DEBUG_SYMBOLS = new Key<>(STABLE_ORDER);
+
+  /**
+   * Artifacts for storyboard sources.
+   */
+  public static final Key<Artifact> STORYBOARD = new Key<>(STABLE_ORDER);
+
+  /**
+   * Artifacts for .xib file sources.
+   */
+  public static final Key<Artifact> XIB = new Key<>(STABLE_ORDER);
+
+  /**
+   * Artifacts for strings source files.
+   */
+  public static final Key<Artifact> STRINGS = new Key<>(STABLE_ORDER);
 
   /**
    * Flags that apply to a transitive build dependency tree. Each item in the enum corresponds to a

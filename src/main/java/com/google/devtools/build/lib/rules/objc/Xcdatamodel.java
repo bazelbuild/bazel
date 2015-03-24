@@ -64,15 +64,13 @@ class Xcdatamodel extends Value<Xcdatamodel> {
 
   /**
    * Returns the files that should be supplied to Xcodegen when generating a project that includes
-   * all of the given xcdatamodels.
+   * all of the given xcdatamodel source files.
    */
-  public static Iterable<Artifact> inputsToXcodegen(Iterable<Xcdatamodel> datamodels) {
+  public static Iterable<Artifact> inputsToXcodegen(Iterable<Artifact> datamodelFiles) {
     ImmutableSet.Builder<Artifact> inputs = new ImmutableSet.Builder<>();
-    for (Xcdatamodel datamodel : datamodels) {
-      for (Artifact generalInput : datamodel.inputs) {
-        if (generalInput.getExecPath().getBaseName().equals(".xccurrentversion")) {
-          inputs.add(generalInput);
-        }
+    for (Artifact generalInput : datamodelFiles) {
+      if (generalInput.getExecPath().getBaseName().equals(".xccurrentversion")) {
+        inputs.add(generalInput);
       }
     }
     return inputs.build();

@@ -52,7 +52,6 @@ public class ObjcImport implements RuleConfiguredTargetFactory {
         .validateAttributes();
 
     new ResourceSupport(ruleContext)
-        .registerActions(common.getStoryboards())
         .validateAttributes()
         .addXcodeSettings(xcodeProviderBuilder);
 

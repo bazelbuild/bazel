@@ -16,7 +16,6 @@ package com.google.devtools.build.lib.rules.objc;
 
 import static com.google.devtools.build.lib.rules.objc.ObjcProvider.BUNDLE_FILE;
 import static com.google.devtools.build.lib.rules.objc.ObjcProvider.NESTED_BUNDLE;
-import static com.google.devtools.build.lib.rules.objc.ObjcProvider.XCDATAMODEL;
 
 import com.google.common.base.Preconditions;
 import com.google.common.collect.ImmutableSet;
@@ -80,12 +79,6 @@ final class BundleMergeControlBytes extends ByteSource {
           .build());
     }
 
-    for (Xcdatamodel datamodel : objcProvider.get(XCDATAMODEL)) {
-      control.addMergeZip(MergeZip.newBuilder()
-          .setEntryNamePrefix(mergeZipPrefix)
-          .setSourcePath(datamodel.getOutputZip().getExecPathString())
-          .build());
-    }
     for (TargetDeviceFamily targetDeviceFamily : families) {
       control.addTargetDeviceFamily(targetDeviceFamily.name());
     }

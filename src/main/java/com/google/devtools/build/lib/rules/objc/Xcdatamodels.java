@@ -34,6 +34,14 @@ class Xcdatamodels {
   static final ImmutableList<FileType> CONTAINER_TYPES =
       ImmutableList.of(FileType.of(".xcdatamodeld"), FileType.of(".xcdatamodel"));
 
+  static Iterable<PathFragment> datamodelDirs(Iterable<Artifact> xcdatamodels) {
+    ImmutableSet.Builder<PathFragment> result = new ImmutableSet.Builder<>();
+    for (Collection<Artifact> artifacts : byContainer(xcdatamodels).asMap().values()) {
+      result.addAll(ObjcCommon.uniqueContainers(artifacts, FileType.of(".xcdatamodel")));
+    }
+    return result.build();
+  }
+
   static Iterable<Xcdatamodel> xcdatamodels(
       IntermediateArtifacts intermediateArtifacts, Iterable<Artifact> xcdatamodels) {
     ImmutableSet.Builder<Xcdatamodel> result = new ImmutableSet.Builder<>();

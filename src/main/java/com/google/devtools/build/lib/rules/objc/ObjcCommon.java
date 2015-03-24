@@ -31,13 +31,15 @@ import static com.google.devtools.build.lib.rules.objc.ObjcProvider.IMPORTED_LIB
 import static com.google.devtools.build.lib.rules.objc.ObjcProvider.INCLUDE;
 import static com.google.devtools.build.lib.rules.objc.ObjcProvider.LIBRARY;
 import static com.google.devtools.build.lib.rules.objc.ObjcProvider.LINKED_BINARY;
-import static com.google.devtools.build.lib.rules.objc.ObjcProvider.MERGE_ZIP;
 import static com.google.devtools.build.lib.rules.objc.ObjcProvider.SDK_DYLIB;
 import static com.google.devtools.build.lib.rules.objc.ObjcProvider.SDK_FRAMEWORK;
 import static com.google.devtools.build.lib.rules.objc.ObjcProvider.SOURCE;
+import static com.google.devtools.build.lib.rules.objc.ObjcProvider.STORYBOARD;
+import static com.google.devtools.build.lib.rules.objc.ObjcProvider.STRINGS;
 import static com.google.devtools.build.lib.rules.objc.ObjcProvider.WEAK_SDK_FRAMEWORK;
 import static com.google.devtools.build.lib.rules.objc.ObjcProvider.XCASSETS_DIR;
 import static com.google.devtools.build.lib.rules.objc.ObjcProvider.XCDATAMODEL;
+import static com.google.devtools.build.lib.rules.objc.ObjcProvider.XIB;
 import static com.google.devtools.build.lib.vfs.PathFragment.TO_PATH_FRAGMENT;
 
 import com.google.common.annotations.VisibleForTesting;
@@ -336,8 +338,6 @@ public final class ObjcCommon {
           .addTransitiveAndPropagate(depObjcProviders)
           .addTransitiveWithoutPropagating(directDepObjcProviders);
 
-      Storyboards storyboards;
-      Iterable<Xcdatamodel> datamodels;
       if (compilationAttributes.isPresent()) {
         CompilationAttributes attributes = compilationAttributes.get();
         ObjcConfiguration objcConfiguration = ObjcRuleClasses.objcConfiguration(context);
@@ -357,31 +357,21 @@ public final class ObjcCommon {
       
       if (resourceAttributes.isPresent()) {
         ResourceAttributes attributes = resourceAttributes.get();
-        storyboards = Storyboards.fromInputs(attributes.storyboards(), intermediateArtifacts);
-        datamodels = Xcdatamodels.xcdatamodels(intermediateArtifacts, attributes.datamodels());
-        Iterable<CompiledResourceFile> compiledResources =
-            CompiledResourceFile.fromStringsFiles(intermediateArtifacts, attributes.strings());
-        XibFiles xibFiles = new XibFiles(attributes.xibs());
-        
         objcProvider
-            .addTransitiveAndPropagate(MERGE_ZIP, storyboards.getOutputZips())
-            .addAll(MERGE_ZIP, xibFiles.compiledZips(intermediateArtifacts))
-            .addAll(GENERAL_RESOURCE_FILE, storyboards.getInputs())
+            .addAll(GENERAL_RESOURCE_FILE, attributes.storyboards())
             .addAll(GENERAL_RESOURCE_FILE, attributes.resources())
             .addAll(GENERAL_RESOURCE_FILE, attributes.strings())
             .addAll(GENERAL_RESOURCE_FILE, attributes.xibs())
             .addAll(BUNDLE_FILE, BundleableFile.flattenedRawResourceFiles(attributes.resources()))
             .addAll(BUNDLE_FILE,
                 BundleableFile.structuredRawResourceFiles(attributes.structuredResources()))
-            .addAll(BUNDLE_FILE,
-                Iterables.transform(compiledResources, CompiledResourceFile.TO_BUNDLED))
             .addAll(XCASSETS_DIR,
                 uniqueContainers(attributes.assetCatalogs(), ASSET_CATALOG_CONTAINER_TYPE))
             .addAll(ASSET_CATALOG, attributes.assetCatalogs())
-            .addAll(XCDATAMODEL, datamodels);
-      } else {
-        storyboards = Storyboards.empty();
-        datamodels = ImmutableList.of();
+            .addAll(XCDATAMODEL, attributes.datamodels())
+            .addAll(XIB, attributes.xibs())
+            .addAll(STRINGS, attributes.strings())
+            .addAll(STORYBOARD, attributes.storyboards());
       }
 
       for (CompilationArtifacts artifacts : compilationArtifacts.asSet()) {
@@ -423,8 +413,7 @@ public final class ObjcCommon {
 
       objcProvider.addAll(LINKED_BINARY, linkedBinary.asSet());
 
-      return new ObjcCommon(
-          context, objcProvider.build(), storyboards, datamodels, compilationArtifacts);
+      return new ObjcCommon(context, objcProvider.build(), compilationArtifacts);
     }
 
   }
@@ -436,21 +425,15 @@ public final class ObjcCommon {
   static final FileType FRAMEWORK_CONTAINER_TYPE = FileType.of(".framework");
   private final RuleContext context;
   private final ObjcProvider objcProvider;
-  private final Storyboards storyboards;
-  private final Iterable<Xcdatamodel> datamodels;
 
   private final Optional<CompilationArtifacts> compilationArtifacts;
 
   private ObjcCommon(
       RuleContext context,
       ObjcProvider objcProvider,
-      Storyboards storyboards,
-      Iterable<Xcdatamodel> datamodels,
       Optional<CompilationArtifacts> compilationArtifacts) {
     this.context = Preconditions.checkNotNull(context);
     this.objcProvider = Preconditions.checkNotNull(objcProvider);
-    this.storyboards = Preconditions.checkNotNull(storyboards);
-    this.datamodels = Preconditions.checkNotNull(datamodels);
     this.compilationArtifacts = Preconditions.checkNotNull(compilationArtifacts);
   }
 
@@ -460,22 +443,6 @@ public final class ObjcCommon {
 
   public Optional<CompilationArtifacts> getCompilationArtifacts() {
     return compilationArtifacts;
-  }
-
-  /**
-   * Returns all storyboards declared in this rule (not including others in the transitive
-   * dependency tree).
-   */
-  public Storyboards getStoryboards() {
-    return storyboards;
-  }
-
-  /**
-   * Returns all datamodels declared in this rule (not including others in the transitive
-   * dependency tree).
-   */
-  public Iterable<Xcdatamodel> getDatamodels() {
-    return datamodels;
   }
 
   /**
@@ -606,8 +573,6 @@ public final class ObjcCommon {
       Optional<J2ObjcSrcsProvider> maybeJ2ObjcSrcsProvider) {
     NestedSet<Artifact> allFilesToBuild = NestedSetBuilder.<Artifact>stableOrder()
         .addTransitive(filesToBuild)
-        .addTransitive(storyboards.getOutputZips())
-        .addAll(Xcdatamodel.outputZips(datamodels))
         .build();
 
     RunfilesProvider runfilesProvider = RunfilesProvider.withData(

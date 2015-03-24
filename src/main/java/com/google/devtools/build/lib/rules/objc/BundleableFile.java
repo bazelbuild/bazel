@@ -139,10 +139,10 @@ public final class BundleableFile extends Value<BundleableFile> {
   }
 
   /**
-   * The artifact that is ultimately bundled.
+   * Returns the location into which this file should be put in, relative to the bundle root.
    */
-  public Artifact getBundled() {
-    return bundled;
+  public String getBundlePath() {
+    return bundlePath;
   }
 
   /**

@@ -24,7 +24,6 @@ import static com.google.devtools.build.lib.rules.objc.ObjcProvider.SDK_DYLIB;
 import static com.google.devtools.build.lib.rules.objc.ObjcProvider.SDK_FRAMEWORK;
 import static com.google.devtools.build.lib.rules.objc.ObjcProvider.WEAK_SDK_FRAMEWORK;
 import static com.google.devtools.build.lib.rules.objc.ObjcProvider.XCASSETS_DIR;
-import static com.google.devtools.build.lib.rules.objc.ObjcProvider.XCDATAMODEL;
 
 import com.google.common.annotations.VisibleForTesting;
 import com.google.common.base.Function;
@@ -33,6 +32,7 @@ import com.google.common.base.Optional;
 import com.google.common.base.Preconditions;
 import com.google.common.base.Splitter;
 import com.google.common.collect.ImmutableList;
+import com.google.common.collect.ImmutableList.Builder;
 import com.google.common.collect.Iterables;
 import com.google.common.collect.Lists;
 import com.google.devtools.build.lib.actions.Artifact;
@@ -83,6 +83,7 @@ public final class XcodeProvider implements TransitiveInfoProvider {
     private final NestedSetBuilder<Artifact> additionalSources = NestedSetBuilder.stableOrder();
     private final ImmutableList.Builder<XcodeProvider> extensions = new ImmutableList.Builder<>();
     private String architecture;
+    private ImmutableList.Builder<PathFragment> datamodelDirs = new ImmutableList.Builder<>();
 
     /**
      * Sets the label of the build target which corresponds to this Xcode target.
@@ -246,6 +247,11 @@ public final class XcodeProvider implements TransitiveInfoProvider {
       return this;
     }
 
+    public Builder addDatamodelDirs(Iterable<PathFragment> datamodelDirs) {
+      this.datamodelDirs.addAll(datamodelDirs);
+      return this;
+    }
+
     public XcodeProvider build() {
       Preconditions.checkState(
           !testHost.isPresent() || (productType == XcodeProductType.UNIT_TEST),
@@ -324,6 +330,7 @@ public final class XcodeProvider implements TransitiveInfoProvider {
   private final NestedSet<Artifact> additionalSources;
   private final ImmutableList<XcodeProvider> extensions;
   private final String architecture;
+  private final ImmutableList<PathFragment> datamodelDirs;
 
   private XcodeProvider(Builder builder) {
     this.label = Preconditions.checkNotNull(builder.label);
@@ -343,28 +350,7 @@ public final class XcodeProvider implements TransitiveInfoProvider {
     this.additionalSources = builder.additionalSources.build();
     this.extensions = builder.extensions.build();
     this.architecture = Preconditions.checkNotNull(builder.architecture);
-  }
-
-  /**
-   * Creates a builder whose values are all initialized to this provider.
-   */
-  public Builder toBuilder() {
-    Builder builder = new Builder();
-    builder.label = label;
-    builder.userHeaderSearchPaths.addAll(userHeaderSearchPaths);
-    builder.headerSearchPaths.addTransitive(headerSearchPaths);
-    builder.infoplistMerging = infoplistMerging;
-    builder.dependencies.addTransitive(dependencies);
-    builder.xcodeprojBuildSettings.addAll(xcodeprojBuildSettings);
-    builder.copts.addAll(copts);
-    builder.productType = productType;
-    builder.headers.addAll(headers);
-    builder.compilationArtifacts = compilationArtifacts;
-    builder.objcProvider = objcProvider;
-    builder.testHost = testHost;
-    builder.inputsToXcodegen.addTransitive(inputsToXcodegen);
-    builder.extensions.addAll(extensions);
-    return builder;
+    this.datamodelDirs = builder.datamodelDirs.build();
   }
 
   private void collectProviders(Set<XcodeProvider> allProviders) {
@@ -422,8 +408,7 @@ public final class XcodeProvider implements TransitiveInfoProvider {
         .addAllSdkFramework(SdkFramework.names(objcProvider.get(SDK_FRAMEWORK)))
         .addAllFramework(PathFragment.safePathStrings(objcProvider.get(FRAMEWORK_DIR)))
         .addAllXcassetsDir(PathFragment.safePathStrings(objcProvider.get(XCASSETS_DIR)))
-        .addAllXcdatamodel(PathFragment.safePathStrings(
-            Xcdatamodel.xcdatamodelDirs(objcProvider.get(XCDATAMODEL))))
+        .addAllXcdatamodel(PathFragment.safePathStrings(datamodelDirs))
         .addAllBundleImport(PathFragment.safePathStrings(objcProvider.get(BUNDLE_IMPORT_DIR)))
         .addAllSdkDylib(objcProvider.get(SDK_DYLIB))
         .addAllGeneralResourceFile(Artifact.toExecPaths(objcProvider.get(GENERAL_RESOURCE_FILE)))

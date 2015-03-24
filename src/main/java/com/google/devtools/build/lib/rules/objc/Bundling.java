@@ -20,11 +20,15 @@ import static com.google.devtools.build.lib.rules.objc.ObjcProvider.IMPORTED_LIB
 import static com.google.devtools.build.lib.rules.objc.ObjcProvider.LIBRARY;
 import static com.google.devtools.build.lib.rules.objc.ObjcProvider.MERGE_ZIP;
 import static com.google.devtools.build.lib.rules.objc.ObjcProvider.NESTED_BUNDLE;
+import static com.google.devtools.build.lib.rules.objc.ObjcProvider.STORYBOARD;
+import static com.google.devtools.build.lib.rules.objc.ObjcProvider.STRINGS;
 import static com.google.devtools.build.lib.rules.objc.ObjcProvider.XCDATAMODEL;
+import static com.google.devtools.build.lib.rules.objc.ObjcProvider.XIB;
 
 import com.google.common.base.Optional;
 import com.google.common.base.Preconditions;
 import com.google.common.collect.ImmutableList;
+import com.google.common.collect.ImmutableList.Builder;
 import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.Iterables;
 import com.google.devtools.build.lib.actions.Artifact;
@@ -33,7 +37,9 @@ import com.google.devtools.build.lib.collect.nestedset.NestedSetBuilder;
 import com.google.devtools.build.lib.concurrent.ThreadSafety.Immutable;
 import com.google.devtools.build.lib.vfs.PathFragment;
 
+import java.util.HashSet;
 import java.util.Map;
+import java.util.Set;
 
 /**
  * Contains information regarding the creation of an iOS bundle.
@@ -43,7 +49,8 @@ final class Bundling {
   static final class Builder {
     private String name;
     private String bundleDirFormat;
-    private ImmutableList<BundleableFile> extraBundleFiles = ImmutableList.of();
+    private ImmutableList.Builder<BundleableFile> extraBundleFilesBuilder =
+        new ImmutableList.Builder<>();
     private ObjcProvider objcProvider;
     private InfoplistMerging infoplistMerging;
     private IntermediateArtifacts intermediateArtifacts;
@@ -70,8 +77,8 @@ final class Bundling {
       return this;
     }
 
-    public Builder setExtraBundleFiles(ImmutableList<BundleableFile> extraBundleFiles) {
-      this.extraBundleFiles = extraBundleFiles;
+    public Builder addExtraBundleFiles(ImmutableList<BundleableFile> extraBundleFiles) {
+      this.extraBundleFilesBuilder.addAll(extraBundleFiles);
       return this;
     }
 
@@ -108,6 +115,21 @@ final class Bundling {
       return artifacts.build();
     }
 
+    private NestedSet<Artifact> getMergeZips(Optional<Artifact> actoolzipOutput) {
+      NestedSetBuilder<Artifact> mergeZipBuilder = NestedSetBuilder.<Artifact>stableOrder()
+          .addAll(actoolzipOutput.asSet())
+          .addAll(Xcdatamodel.outputZips(
+              Xcdatamodels.xcdatamodels(intermediateArtifacts, objcProvider.get(XCDATAMODEL))))
+          .addTransitive(objcProvider.get(MERGE_ZIP));
+      for (Artifact xibFile : objcProvider.get(XIB)) {
+        mergeZipBuilder.add(intermediateArtifacts.compiledXibFileZip(xibFile));
+      }
+      for (Artifact storyboard : objcProvider.get(STORYBOARD)) {
+        mergeZipBuilder.add(intermediateArtifacts.compiledStoryboardZip(storyboard));
+      }
+      return mergeZipBuilder.build();
+    }
+
     public Bundling build() {
       Preconditions.checkNotNull(intermediateArtifacts, "intermediateArtifacts");
 
@@ -123,23 +145,37 @@ final class Bundling {
             Optional.of(intermediateArtifacts.combinedArchitectureBinary());
       }
 
-      NestedSet<Artifact> mergeZips = NestedSetBuilder.<Artifact>stableOrder()
-          .addAll(actoolzipOutput.asSet())
-          .addTransitive(objcProvider.get(MERGE_ZIP))
-          .build();
-      NestedSet<Artifact> bundleContentArtifacts = NestedSetBuilder.<Artifact>stableOrder()
-          .addTransitive(nestedBundleContentArtifacts(objcProvider.get(NESTED_BUNDLE)))
-          .addAll(combinedArchitectureBinary.asSet())
-          .addAll(infoplistMerging.getPlistWithEverything().asSet())
-          .addTransitive(mergeZips)
-          .addAll(BundleableFile.toArtifacts(extraBundleFiles))
-          .addAll(BundleableFile.toArtifacts(objcProvider.get(BUNDLE_FILE)))
-          .addAll(Xcdatamodel.outputZips(objcProvider.get(XCDATAMODEL)))
-          .build();
+      NestedSet<Artifact> mergeZips = getMergeZips(actoolzipOutput);
+      NestedSetBuilder<Artifact> bundleContentArtifactsBuilder =
+          NestedSetBuilder.<Artifact>stableOrder()
+              .addTransitive(nestedBundleContentArtifacts(objcProvider.get(NESTED_BUNDLE)))
+              .addAll(combinedArchitectureBinary.asSet())
+              .addAll(infoplistMerging.getPlistWithEverything().asSet())
+              .addTransitive(mergeZips)
+              .addAll(BundleableFile.toArtifacts(objcProvider.get(BUNDLE_FILE)));
+
+      Set<String> bundlePaths = new HashSet<>();
+      for (Artifact stringsFile : objcProvider.get(STRINGS)) {
+        Artifact binaryStrings = intermediateArtifacts.convertedStringsFile(stringsFile);
+        BundleableFile bundleFile = new BundleableFile(
+            binaryStrings, BundleableFile.flatBundlePath(stringsFile.getExecPath()));
+        if (bundlePaths.add(bundleFile.getBundlePath())) {
+          // Filter files that would map to the same location. Files can have the same bundle path
+          // for various illegal reasons and errors are raised for that separately. Otherwise we
+          // only want a single file for a mapping in the bundle. See
+          // ReleaseBundlingSupport.validateResources for details.
+          extraBundleFilesBuilder.add(bundleFile);
+          bundleContentArtifactsBuilder.add(binaryStrings);
+        }
+      }
+
+      ImmutableList<BundleableFile> extraBundleFiles = extraBundleFilesBuilder.build();
+
+      bundleContentArtifactsBuilder.addAll(BundleableFile.toArtifacts(extraBundleFiles));
 
       return new Bundling(name, bundleDirFormat, combinedArchitectureBinary, extraBundleFiles,
-          objcProvider, infoplistMerging, actoolzipOutput, bundleContentArtifacts, mergeZips, 
-          primaryBundleId, fallbackBundleId, architecture);
+          objcProvider, infoplistMerging, actoolzipOutput, bundleContentArtifactsBuilder.build(),
+          mergeZips, primaryBundleId, fallbackBundleId, architecture);
     }
   }
 
