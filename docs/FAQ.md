@@ -255,7 +255,7 @@ the configuration data for this (where is the JDK, where is the C++
 compiler?) still needs to be somewhere, and that place is also the
 `tools/` directory.
 
-Bazel comes with a `/base_workspace` directory, containing a minimal set
+Bazel comes with a `base_workspace/` directory, containing a minimal set
 of configuration files, suitable for running toolchains from standard
 system directories, e.g., `/usr/bin/`.
 
