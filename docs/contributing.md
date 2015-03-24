@@ -98,14 +98,14 @@ If you want to debug the C++ client, ensure that you have the `-g`
 option activated for C++ build, rebuild Bazel and use your favorite C++
 debugger.
 
-## Bazel's code description
+## Bazel's code layout
 
-Bazel is organized in several parts:
+Bazel is organized into several parts:
 
-* A client code in C++ that talk to the server code in java and provide the
-  command-line interface. Its code is in `src/main/cpp`.
+* Client code in C++ that talks to the server code in java and provides the
+  command-line interface is found in `src/main/cpp`.
 * Protocol buffers in `src/main/protobuf`.
-* The server code in Java (in `src/main/java` and `src/test/java`)
+* The server code in Java (in `src/main/java`) and its tests (in `src/test/java`)
   * Core code which is mostly composed of [SkyFrame](skyframe.html) and some
     utilities.
   * [Skylark](skylark/index.html) rules are defined in `tools/build_rules`. If you
@@ -119,7 +119,8 @@ Bazel is organized in several parts:
 ## Patch Acceptance Process
 
 1. Discuss your plan and design, and get agreement on our [mailing
-   list](https://groups.google.com/forum/#!forum/bazel-discuss).
+   list](https://groups.google.com/forum/#!forum/bazel-discuss) or in 
+   a github issue.
 2. Prepare a patch that implements the feature. Don't forget to add tests.
 3. Upload to [Gerrit](https://bazel-review.googlesource.com); Gerrit upload
    requires that you have signed a
@@ -130,7 +131,9 @@ Bazel is organized in several parts:
 6. The patch is exported as a Git commit, at which point the Gerrit code review
    is closed.
 
-We do not currently accept pull requests on GitHub.
+We do not currently accept pull requests for code contributions on GitHub.
+
+---------------
 
 We will make changes to this process as necessary, and we're hoping to move
 closer to a fully open development model in the future (also see
