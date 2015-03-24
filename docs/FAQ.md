@@ -352,7 +352,7 @@ fails, and this should be enough for basic CI integration.  Since
 Bazel does not need clean builds for correctness, the CI system can
 be configured to not clean before starting a build/test run.
 
-Further details on exit codes are in the [User Manual](docs/bazel-user-manual.html).
+Further details on exit codes are in the [User Manual](bazel-user-manual.html).
 
 What future features can we expect in Bazel?
 --------------------------------------------
