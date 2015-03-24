@@ -157,7 +157,7 @@ Can I see examples?
 
 Yes, for a simple example, see
 
-  <https://github.com/google/bazel/blob/master/base_workspace/examples/cpp/BUILD>
+  <https://github.com/google/bazel/blob/master/examples/cpp/BUILD>
 
 The bazel source code itself provides more complex examples, eg.
 
@@ -255,7 +255,7 @@ the configuration data for this (where is the JDK, where is the C++
 compiler?) still needs to be somewhere, and that place is also the
 `tools/` directory.
 
-Bazel comes with a `base_workspace/` directory, containing a minimal set
+Bazel comes with a `/` directory, containing a minimal set
 of configuration files, suitable for running toolchains from standard
 system directories, e.g., `/usr/bin/`.
 
@@ -371,8 +371,8 @@ It is possible to write Python rules as extensions (see below). See
 the following files for an example of generating self-contained zip
 files for python:
 
-  <https://github.com/google/bazel/blob/master/base_workspace/tools/build_rules/py_rules.bzl>\\
-  <https://github.com/google/bazel/tree/master/base_workspace/examples/py>
+  <https://github.com/google/bazel/blob/master/tools/build_rules/py_rules.bzl>\\
+  <https://github.com/google/bazel/tree/master/examples/py>
 
 We are working on opening up a subset of our internal Python rules, so
 they can be used as helper scripts as part of a build.
