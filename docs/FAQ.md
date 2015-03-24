@@ -371,8 +371,8 @@ It is possible to write Python rules as extensions (see below). See
 the following files for an example of generating self-contained zip
 files for python:
 
-  <https://github.com/google/bazel/blob/master/base_workspace/tools/build_rules/py_rules.bzl>\\
-  <https://github.com/google/bazel/tree/master/base_workspace/examples/py>
+  <https://github.com/google/bazel/blob/master/tools/build_rules/py_rules.bzl>\\
+  <https://github.com/google/bazel/tree/master/examples/py>
 
 We are working on opening up a subset of our internal Python rules, so
 they can be used as helper scripts as part of a build.
