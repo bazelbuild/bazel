@@ -1,0 +1,61 @@
+* {
+  font-family: "Open Sans", sans-serif;
+}
+
+h1, h2, h3, h4, h5, h6 {
+  color: #444;
+  font-weight: 400;
+}
+
+p, li {
+  font-size: 14px;
+  color: #444;
+  font-weight: 400;
+}
+
+a {
+  color: #49b;
+  font-weight: 600;
+}
+
+code {
+  font-family: monospace;
+  font-size: 13px;
+  color: #000;
+}
+
+pre {
+  display: block;
+  background-color: #f5f7f9;
+  border: 1px solid #9ab;
+  padding: 0.5em;
+}
+
+table {
+  border-spacing: 0px;
+  border: 1px solid #9ab;
+}
+
+th, td {
+  border-left: 1px solid #9ab;
+}
+
+th:first-child, td:first-child {
+  border-left: none;
+}
+
+th {
+  padding: 0.5em;
+}
+
+td {
+  padding: 0.3em;
+}
+
+tr:nth-child(odd) {
+  background: #eee;
+}
+
+tr:nth-child(even) {
+  background: #fff;
+}
