@@ -65,7 +65,7 @@ public final class IosDeviceRule implements RuleDefinition {
 ${ATTRIBUTE_SIGNATURE}
 
 <p>This rule defines an iOS device profile that defines a simulator against
-which to run tests</p>.
+which to run tests.</p>
 
 ${ATTRIBUTE_DEFINITION}
 
