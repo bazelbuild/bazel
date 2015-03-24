@@ -23,3 +23,11 @@ cc_test(
     srcs = ["hello-fail.cc"],
     deps = [":hello-lib"],
 )
+
+filegroup(
+    name = "srcs",
+    srcs = ["BUILD"] + glob([
+        "**/*.cc",
+        "**/*.h",
+    ]),
+)

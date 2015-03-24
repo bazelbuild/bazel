@@ -19,3 +19,8 @@ java_library(
     srcs = ["Greeter.java"],
     data = ["//examples/java-skylark/src/main/resources:greeting"],
 )
+
+filegroup(
+    name = "srcs",
+    srcs = ["BUILD"] + glob(["**/*.java"]),
+)

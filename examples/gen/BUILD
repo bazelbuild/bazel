@@ -12,3 +12,11 @@ genrule(
     outs = ["genrule.txt"],
     cmd = "cat $(SRCS) > $@",
 )
+
+filegroup(
+    name = "srcs",
+    srcs = [
+        "BUILD",
+        "genrule.txt",
+    ],
+)

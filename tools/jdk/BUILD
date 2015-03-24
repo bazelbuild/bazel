@@ -67,3 +67,8 @@ exports_files([
     "ijar",
     "SingleJar_deploy.jar",
 ])
+
+filegroup(
+    name = "srcs",
+    srcs = ["BUILD"],  # Tools are build from the workspace for tests.
+)

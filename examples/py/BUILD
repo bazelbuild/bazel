@@ -12,3 +12,8 @@ py_binary(
     srcs = ["bin.py"],
     deps = [":lib"],
 )
+
+filegroup(
+    name = "srcs",
+    srcs = ["BUILD"] + glob(["**/*.py"]),
+)

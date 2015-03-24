@@ -1,6 +1,6 @@
 package(
     default_visibility = [
-        "//src:__pkg__",
+        "//src:__subpackages__",
         "//third_party/ijar:__subpackages__",
     ],
 )

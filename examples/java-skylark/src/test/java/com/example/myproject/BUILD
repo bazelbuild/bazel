@@ -14,3 +14,9 @@ java_test(
     srcs = ["Fail.java"],
     main_class = "com.example.myproject.Fail",
 )
+
+filegroup(
+    name = "srcs",
+    srcs = glob(["**/*.java"]) + ["BUILD"],
+    visibility = ["//examples/java-skylark:__pkg__"],
+)

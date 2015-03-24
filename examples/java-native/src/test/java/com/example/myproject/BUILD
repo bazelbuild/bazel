@@ -31,3 +31,9 @@ java_test(
         "//third_party:junit4",
     ],
 )
+
+filegroup(
+    name = "srcs",
+    srcs = glob(["**/*.java"]) + ["BUILD"],
+    visibility = ["//examples/java-native:__pkg__"],
+)

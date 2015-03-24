@@ -12,3 +12,11 @@ go_binary(
     ),
     deps = ["//examples/go/lib1"],
 )
+
+filegroup(
+    name = "srcs",
+    srcs = [
+        "BUILD",
+        "//examples/go/lib1:srcs",
+    ] + glob(["**/*.go"]),
+)

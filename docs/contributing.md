@@ -70,10 +70,6 @@ When modifying Bazel, you want to make sure that the following still works:
   constructed Bazel builts are identical and then run all bazel tests with
   `bazel test //src/...`.
 * ijar's tests with `bazel test //third_party/ijar/test/...`
-* Building testing the examples in the `base_workspace` directory.
-  `bazel test --nobuild_tests_only //...` in that directory should build and test
-  everything (you might need to set-up extra tools following the instructions in
-  the README files for each example).
 
 ### Debugging Bazel
 

@@ -3,6 +3,11 @@ package(default_visibility = ["//visibility:public"])
 load("/tools/build_rules/java_rules_skylark", "java_library")
 
 filegroup(
+    name = "srcs",
+    srcs = glob(["**"]),
+)
+
+filegroup(
     name = "protoc",
     srcs = select({
         ":windows_mingw": ["protobuf/protoc.exe"],

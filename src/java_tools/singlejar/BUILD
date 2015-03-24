@@ -1,4 +1,4 @@
-package(default_visibility = ["//src:__pkg__"])
+package(default_visibility = ["//src:__subpackages__"])
 
 java_library(
     name = "libSingleJar",

@@ -104,3 +104,12 @@ genrule(
         "cp $${TMPDIR}'/Run 1/hello_instruments.png' $(@)",
     tags = ["requires-darwin"],
 )
+
+filegroup(
+    name = "srcs",
+    srcs = glob([
+        "**",
+        "BUILD",
+    ]),
+    visibility = ["//examples:__pkg__"],
+)

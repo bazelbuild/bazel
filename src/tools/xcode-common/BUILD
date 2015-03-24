@@ -12,3 +12,9 @@ java_library(
         "//third_party:jsr305",
     ],
 )
+
+filegroup(
+    name = "srcs",
+    srcs = glob(["**"]),
+    visibility = ["//src/test:__subpackages__"],
+)

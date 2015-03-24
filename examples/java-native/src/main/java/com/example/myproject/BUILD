@@ -22,3 +22,8 @@ java_library(
     srcs = ["Greeter.java"],
     resources = ["//examples/java-native/src/main/resources:greeting"],
 )
+
+filegroup(
+    name = "srcs",
+    srcs = ["BUILD"] + glob(["**/*.java"]),
+)

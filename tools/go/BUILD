@@ -9,3 +9,11 @@ go_binary(
     name = "generate_test_main",
     srcs = ["generate_test_main.go"],
 )
+
+filegroup(
+    name = "srcs",
+    srcs = [
+        "BUILD",
+        "generate_test_main.go",
+    ],
+)

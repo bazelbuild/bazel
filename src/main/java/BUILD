@@ -113,3 +113,9 @@ genrule(
            " && cp $$PWD/build-encyclopedia.html $@"),
     tools = [":docgen_bin"],
 )
+
+filegroup(
+    name = "srcs",
+    srcs = glob(["**"]),
+    visibility = ["//src/test/shell/bazel:__pkg__"],
+)

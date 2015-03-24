@@ -14,3 +14,8 @@ load("/tools/build_rules/genproto", "genproto")
     "bundlemerge",
     "xcodegen",
 ]]
+
+filegroup(
+    name = "srcs",
+    srcs = glob(["**"]),
+)

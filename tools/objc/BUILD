@@ -38,3 +38,8 @@ java_binary(
     srcs = [":precomp_xcodegen_deploy.jar"],
     main_class = "com.google.devtools.build.xcode.xcodegen.XcodeGen",
 )
+
+filegroup(
+    name = "srcs",
+    srcs = glob(["**"]),
+)

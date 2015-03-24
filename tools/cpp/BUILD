@@ -68,3 +68,8 @@ cc_toolchain(
     strip_files = ":empty",
     supports_param_files = 0,
 )
+
+filegroup(
+    name = "srcs",
+    srcs = glob(["**"]),
+)

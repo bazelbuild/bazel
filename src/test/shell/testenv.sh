@@ -118,7 +118,7 @@ atexit () {
 
 ## TEST_TMPDIR
 if [ -z "${TEST_TMPDIR:-}" ]; then
-  TEST_TMPDIR="$(mktemp -d ${TMPDIR:-/tmp}/bazel-test.XXXXXXXX)"
+  export TEST_TMPDIR="$(mktemp -d ${TMPDIR:-/tmp}/bazel-test.XXXXXXXX)"
 fi
 if [ ! -e "${TEST_TMPDIR}" ]; then
   mkdir -p -m 0700 "${TEST_TMPDIR}"

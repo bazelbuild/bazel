@@ -22,3 +22,8 @@ go_test(
     name = "fail_test",
     srcs = ["fail_test.go"],
 )
+
+filegroup(
+    name = "srcs",
+    srcs = ["BUILD"] + glob(["**/*.go"]),
+)

@@ -6,3 +6,11 @@ genproto(
     name = "test_proto",
     src = "test.proto",
 )
+
+filegroup(
+    name = "srcs",
+    srcs = [
+        "BUILD",
+        "test.proto",
+    ],
+)
