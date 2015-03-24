@@ -353,42 +353,57 @@ prematurely and mark it as having failed.</p>
 
 <h3>Tag conventions</h3>
 
-Some tags in bazel test rules have a meaning defined by the build system, while
-others are used by other systems.
 <p>
+  Some <a href="bazel-user-manual.html#tags_keywords">tags</a> in the test rules have a special
+  meaning.
+</p>
 
 <table>
-<tr> <th>tag</th>        <th>meaning</th>              </tr>
-<tr> <th>exclusive</th>
-     <td><a href="bazel-user-manual.html#tags_keywords">bazel</a>: run no other test at the same time<br/>
+<tr>
+  <th>Tag</th>
+  <th>Meaning</th>
+</tr>
+<tr>
+  <th><code>exclusive</code></th>
 
-  </td></tr>
-<tr> <th>external</th>
-     <td><a href="bazel-user-manual.html#tags_keywords">bazel</a>: test has an external dependency; disable test caching
-     </td></tr>
-<tr> <th>large</th>
-     <td>test_suite convention: test_suite of large tests<br />
+  <td>run no other test at the same time</td>
+</tr>
+<tr>
+  <th><code>external</code></th>
+  <td>test has an external dependency; disable test caching</td>
+</tr>
+<tr>
+  <th><code>large</code></th>
+  <td><code>test_suite</code> convention; suite of large tests<br/>
 
-     </td></tr>
+  </td>
+</tr>
 
-<tr> <th>manual</th>
-     <td><a href="bazel-user-manual.html#tags_keywords">bazel</a>: run test only if mentioned explicitly (not in a wildcard <code>:...</code>, <code>:*</code>, or <code>:all</code>)<br/>
+<tr>
+  <th><code>manual</code></th>
 
-     </td></tr>
-<tr> <th>medium</th>
-     <td>test_suite convention test_suite of medium tests<br />
+  <td>run test only if mentioned explicitly (not in a wildcard <code>:...</code>, <code>:*</code>, or <code>:all</code>)</td>
+</tr>
+<tr>
+  <th><code>medium</code></th>
 
-     </td></tr>
+  <td><code>test_suite</code> convention; suite of medium tests
+</tr>
 
-<tr> <th>small</th>
-     <td>test_suite convention: test_suite of small tests<br />
+<tr>
+  <th><code>small</code></th>
 
-     </td></tr>
+  <td><code>test_suite</code> convention; suite of small tests</td>
+</tr>
 
-<tr> <th>smoke</th>
-     <td>test_suite convention</a>: should be run before checkin<br />
+<tr>
+  <th><code>smoke</code></th>
 
-     </td></tr>
+  <td>
+    <code>test_suite</code> convention; means it should be run before committing code changes
+    into the version control system
+  </td>
+</tr>
 
 </table>
 
