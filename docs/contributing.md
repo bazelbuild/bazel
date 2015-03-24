@@ -110,7 +110,7 @@ Bazel is organized in several parts:
     `com.google.devtools.build.lib.bazel.rules`.
 * Java native interfaces in `src/main/native`.
 * Various tooling for language support (see the list in the
-  [compiling Bazel](#compile-bazel) section.
+  [compiling Bazel](#compile-bazel) section).
 
 ## Patch Acceptance Process
 

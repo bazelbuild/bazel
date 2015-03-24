@@ -197,6 +197,31 @@ in your genrule's cmd attribute.
     doing so would trash the source tree.</li>
 </ul>
 
+<h2 id="location">"$(location)" substitution</h2>
+
+<p>
+  In attributes that support it, all occurrences of
+  <code>$(location <i>label</i>)</code> are replaced by the path to the
+  file denoted by <i>label</i>. Use <code>location</code> if the <i>label</i>
+  outputs exactly one filename. This allows bazel to perform a check and give
+  an error if no or more than one files are represented by the given label; a
+  label referring to a source file always represents a single file, but a label
+  referring to a rule refers to all output files of that rule. Otherwise use
+  <code>$(location<b>s</b> <i>label</i>)</code>; bazel will then raise an error
+  if no files are generated. In both cases, if the label is malformed then an
+  error is raised.
+</p>
+<p>
+  The <i>label</i> needs not be in canonical form:
+  <code>foo</code>, <code>:foo</code> and <code>//somepkg:foo</code> are
+  all fine. It may also be the name of an output file from the
+  <code>outs</code> attribute.
+</p>
+<p>
+  The expanded paths are relative to the runfiles directory of the
+  <code>*_test</code> or <code>*_binary</code> rule.
+</p>
+
 <h2 id="predefined-python-variables">Predefined Python Variables</h2>
 
 <h3 id="packagename">PACKAGE_NAME</h3>
