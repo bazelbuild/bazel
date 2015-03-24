@@ -2394,7 +2394,7 @@ either to the terminal, or to additional log files.
 
 <pre>
   &gt;&gt;&gt;&gt;&gt; # //examples/cpp:hello-world
-  (cd /var/tmp/_blaze_jrluser/4c084335afceb392cfbe7c31afee3a9f/base_workspace && \
+  (cd /var/tmp/_bazel_jrluser/4c084335afceb392cfbe7c31afee3a9f/base_workspace && \
     exec env - \
     /usr/bin/gcc -o bazel-out/local_linux-fastbuild/bin/examples/cpp/hello-world bazel-out/local_linux-fastbuild/bin/examples/cpp/_objs/hello-world/examples/cpp/hello-world.pic.o bazel-out/local_linux-fastbuild/bin/examples/cpp/libhello-lib.a bazel-out/local_linux-fastbuild/bin/tools/cpp/libmalloc.a -lstdc++ -B/usr/bin -Wl,-S)
 </pre>
@@ -3249,7 +3249,7 @@ in an environment closer to the current shell environment. Note that none of the
   and the name of the workspace directory (actually, its MD5 digest),
   so a typical value looks like:
 
-  <code>/var/tmp/google/_blaze_jrluser/d41d8cd98f00b204e9800998ecf8427e</code>.
+  <code>/var/tmp/google/_bazel_jrluser/d41d8cd98f00b204e9800998ecf8427e</code>.
   Note that the client uses the output base to find the Bazel server
   instance, so if you specify a different output base in a Bazel
   command, a different server will be found (or started) to handle the
