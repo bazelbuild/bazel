@@ -1,4 +1,4 @@
-# [Bazel (Alpha)](//bazel.io)
+# [Bazel (Alpha)](http://bazel.io)
 
 *{Fast, Correct} - Choose two*
 
@@ -25,17 +25,17 @@ Find more background about Bazel in our [FAQ](docs/FAQ.md)
 
 ## Getting Started
 
-  * How to [install Bazel](//bazel.io/docs/install.html)
-  * How to [get started using Bazel](//bazel.io/docs/getting-started.html)
-  * The Bazel command line is documented in the  [user manual](//bazel.io/docs/bazel-user-manual.html)
-  * The rule reference documentation is in the [build encyclopedia](//bazel.io/docs/build-encyclopedia.html)
-  * How to [use the query command](//bazel.io/docs/query.html)
-  * How to [extend Bazel](//bazel.io/docs/skylark/index.html)
-  * The test environment is described in the [test encyclopedia](//bazel.io/docs/test-encyclopedia.html)
+  * How to [install Bazel](http://bazel.io/docs/install.html)
+  * How to [get started using Bazel](http://bazel.io/docs/getting-started.html)
+  * The Bazel command line is documented in the  [user manual](http://bazel.io/docs/bazel-user-manual.html)
+  * The rule reference documentation is in the [build encyclopedia](http://bazel.io/docs/build-encyclopedia.html)
+  * How to [use the query command](http://bazel.io/docs/query.html)
+  * How to [extend Bazel](http://bazel.io/docs/skylark/index.html)
+  * The test environment is described in the [test encyclopedia](http://bazel.io/docs/test-encyclopedia.html)
 
 * About the Bazel project:
 
-  * How to [contribute to Bazel](//bazel.io/docs/contributing.html)
-  * Our [governance plan](//bazel.io/docs/governance.html)
-  * Future plans are in the [roadmap](//bazel.io/docs/roadmap.html)
-  * For each feature, which level of [support](//bazel.io/docs/support.html) to expect.
+  * How to [contribute to Bazel](http://bazel.io/docs/contributing.html)
+  * Our [governance plan](http://bazel.io/docs/governance.html)
+  * Future plans are in the [roadmap](http://bazel.io/docs/roadmap.html)
+  * For each feature, which level of [support](http://bazel.io/docs/support.html) to expect.
