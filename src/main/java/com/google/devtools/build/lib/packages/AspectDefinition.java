@@ -21,9 +21,12 @@ import com.google.common.collect.ImmutableSet;
 import com.google.common.collect.LinkedHashMultimap;
 import com.google.common.collect.Multimap;
 import com.google.devtools.build.lib.concurrent.ThreadSafety.Immutable;
+import com.google.devtools.build.lib.syntax.Label;
+import com.google.devtools.build.lib.util.BinaryPredicate;
 
 import java.util.LinkedHashMap;
 import java.util.LinkedHashSet;
+import java.util.List;
 import java.util.Map;
 import java.util.Set;
 
@@ -99,6 +102,53 @@ public final class AspectDefinition {
    */
   public ImmutableMultimap<String, Class<? extends AspectFactory<?, ?, ?>>> getAttributeAspects() {
     return attributeAspects;
+  }
+
+  /**
+   * Returns the attribute -&gt; set of labels that are provided by aspects of attribute.
+   */
+  public static ImmutableMultimap<Attribute, Label> visitAspectsIfRequired(
+      Target from, Attribute attribute, Target to) {
+    ImmutableMultimap.Builder<Attribute, Label> labelBuilder = ImmutableMultimap.builder();
+    // Aspect can be declared only for Rules.
+    if (!(from instanceof Rule) || !(to instanceof Rule)) {
+      return labelBuilder.build();
+    }
+    RuleClass ruleClass = ((Rule) to).getRuleClassObject();
+    for (Class<? extends AspectFactory<?, ?, ?>> candidateClass : attribute.getAspects()) {
+      AspectFactory<?, ?, ?> candidate = AspectFactory.Util.create(candidateClass);
+      // Check if target satisfies condition for this aspect (has to provide all required
+      // TransitiveInfoProviders)
+      if (!ruleClass.getAdvertisedProviders().containsAll(
+          candidate.getDefinition().getRequiredProviders())) {
+        continue;
+      }
+      addAllAttributesOfAspect((Rule) from, labelBuilder, candidate.getDefinition(), Rule.ALL_DEPS);
+    }
+    return labelBuilder.build();
+  }
+
+  /**
+   * Collects all attribute labels from the specified aspectDefinition.
+   */
+  public static void addAllAttributesOfAspect(Rule from,
+      ImmutableMultimap.Builder<Attribute, Label> labelBuilder, AspectDefinition aspectDefinition,
+      BinaryPredicate<Rule, Attribute> predicate) {
+    ImmutableMap<String, Attribute> attributes = aspectDefinition.getAttributes();
+    for (Attribute aspectAttribute : attributes.values()) {
+      if (!predicate.apply(from, aspectAttribute)) {
+        continue;
+      }
+      if (aspectAttribute.getType() == Type.LABEL) {
+        Label label = Type.LABEL.cast(aspectAttribute.getDefaultValue(from));
+        if (label != null) {
+          labelBuilder.put(aspectAttribute, label);
+        }
+      } else if (aspectAttribute.getType() == Type.LABEL_LIST) {
+        List<Label> labelList = Type.LABEL_LIST.cast(aspectAttribute.getDefaultValue(from));
+        labelBuilder.putAll(aspectAttribute, labelList);
+      }
+    }
   }
 
   /**

@@ -18,18 +18,15 @@ import com.google.common.annotations.VisibleForTesting;
 import com.google.common.base.Throwables;
 import com.google.common.collect.HashMultimap;
 import com.google.common.collect.ImmutableList;
-import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.ImmutableMultimap;
 import com.google.common.collect.MapMaker;
 import com.google.common.collect.Multimaps;
 import com.google.common.collect.SetMultimap;
-import com.google.common.collect.Sets;
-import com.google.devtools.build.lib.analysis.ConfiguredAspectFactory;
 import com.google.devtools.build.lib.concurrent.AbstractQueueVisitor;
 import com.google.devtools.build.lib.concurrent.ThreadSafety.ThreadSafe;
 import com.google.devtools.build.lib.events.EventHandler;
 import com.google.devtools.build.lib.packages.AggregatingAttributeMapper;
-import com.google.devtools.build.lib.packages.AspectFactory;
+import com.google.devtools.build.lib.packages.AspectDefinition;
 import com.google.devtools.build.lib.packages.Attribute;
 import com.google.devtools.build.lib.packages.AttributeMap;
 import com.google.devtools.build.lib.packages.InputFile;
@@ -38,16 +35,13 @@ import com.google.devtools.build.lib.packages.OutputFile;
 import com.google.devtools.build.lib.packages.Package;
 import com.google.devtools.build.lib.packages.PackageGroup;
 import com.google.devtools.build.lib.packages.Rule;
-import com.google.devtools.build.lib.packages.RuleClass;
 import com.google.devtools.build.lib.packages.Target;
-import com.google.devtools.build.lib.packages.Type;
 import com.google.devtools.build.lib.pkgcache.PackageProvider;
 import com.google.devtools.build.lib.pkgcache.TargetEdgeObserver;
 import com.google.devtools.build.lib.syntax.Label;
 import com.google.devtools.build.lib.util.BinaryPredicate;
 
 import java.util.Collection;
-import java.util.List;
 import java.util.Map.Entry;
 import java.util.concurrent.ConcurrentMap;
 import java.util.concurrent.TimeUnit;
@@ -427,42 +421,11 @@ final class LabelVisitor {
 
     private void visitAspectsIfRequired(
         Target from, Attribute attribute, final Target to, int depth, int count) {
-      // Aspect can be declared only for Rules.
-      if (!(from instanceof Rule) || !(to instanceof Rule)) {
-        return;
-      }
-
-      ImmutableMultimap.Builder<Attribute, Label> labelBuilder = ImmutableMultimap.builder();
-      RuleClass ruleClass = ((Rule) to).getRuleClassObject();
-
-      for (Class<? extends AspectFactory<?, ?, ?>> candidateClass : attribute.getAspects()) {
-        ConfiguredAspectFactory candidate =
-            (ConfiguredAspectFactory) AspectFactory.Util.create(candidateClass);
-        // Check if target satisfies condition for this aspect (has to provide all required
-        // TransitiveInfoProviders)
-        if (!Sets.difference(
-            candidate.getDefinition().getRequiredProviders(),
-            ruleClass.getAdvertisedProviders()).isEmpty()) {
-          continue;
-        }
-        ImmutableMap<String, Attribute> attributes = candidate.getDefinition().getAttributes();
-        for (Attribute aspectAttribute : attributes.values()) {
-          if (aspectAttribute.getType() == Type.LABEL) {
-            Label label = Type.LABEL.cast(aspectAttribute.getDefaultValue((Rule) from));
-            if (label != null) {
-              labelBuilder.put(aspectAttribute, label);
-            }
-          } else if (attribute.getType() == Type.LABEL_LIST) {
-            List<Label> labelList = Type.LABEL_LIST.cast(attribute.getDefaultValue((Rule) from));
-            labelBuilder.putAll(aspectAttribute, labelList);
-          }
-        }
-      }
-
-      ImmutableMultimap<Attribute, Label> labelsFromAspects = labelBuilder.build();
+      ImmutableMultimap<Attribute, Label> labelsFromAspects =
+          AspectDefinition.visitAspectsIfRequired(from, attribute, to);
       // Create an edge from target to the attribute value.
       for (Entry<Attribute, Label> entry : labelsFromAspects.entries()) {
-        enqueueTarget(to, entry.getKey(), entry.getValue(), depth, count);
+        enqueueTarget(from, entry.getKey(), entry.getValue(), depth, count);
       }
     }
 

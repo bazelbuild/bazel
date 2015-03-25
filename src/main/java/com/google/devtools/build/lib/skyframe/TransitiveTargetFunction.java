@@ -14,10 +14,13 @@
 package com.google.devtools.build.lib.skyframe;
 
 import com.google.common.collect.Lists;
+import com.google.common.collect.Multimap;
 import com.google.devtools.build.lib.collect.nestedset.NestedSet;
 import com.google.devtools.build.lib.collect.nestedset.NestedSetBuilder;
 import com.google.devtools.build.lib.events.Event;
 import com.google.devtools.build.lib.events.EventHandler;
+import com.google.devtools.build.lib.packages.AspectDefinition;
+import com.google.devtools.build.lib.packages.Attribute;
 import com.google.devtools.build.lib.packages.InputFile;
 import com.google.devtools.build.lib.packages.NoSuchPackageException;
 import com.google.devtools.build.lib.packages.NoSuchTargetException;
@@ -35,9 +38,10 @@ import com.google.devtools.build.skyframe.SkyKey;
 import com.google.devtools.build.skyframe.SkyValue;
 import com.google.devtools.build.skyframe.ValueOrException;
 
+import java.util.Collection;
 import java.util.HashSet;
 import java.util.List;
-import java.util.Map;
+import java.util.Map.Entry;
 import java.util.Set;
 
 /**
@@ -97,8 +101,43 @@ public class TransitiveTargetFunction implements SkyFunction {
       transitiveUnsuccessfulPkgs.add(packageId);
     }
     transitiveTargets.add(target.getLabel());
-    for (Map.Entry<SkyKey, ValueOrException<NoSuchThingException>> entry :
-        env.getValuesOrThrow(getLabelDepKeys(target), NoSuchThingException.class).entrySet()) {
+
+    // Process deps from attributes of current target.
+    Iterable<SkyKey> depKeys = getLabelDepKeys(target);
+    successfulTransitiveLoading &= processDeps(env, target, transitiveRootCauses,
+        transitiveSuccessfulPkgs, transitiveUnsuccessfulPkgs, transitiveTargets, depKeys);
+    if (env.valuesMissing()) {
+      return null;
+    }
+    // Process deps from aspects.
+    depKeys = getLabelAspectKeys(target, env);
+    successfulTransitiveLoading &= processDeps(env, target, transitiveRootCauses,
+        transitiveSuccessfulPkgs, transitiveUnsuccessfulPkgs, transitiveTargets, depKeys);
+    if (env.valuesMissing()) {
+      return null;
+    }
+
+    NestedSet<PackageIdentifier> successfullyLoadedPackages = transitiveSuccessfulPkgs.build();
+    NestedSet<PackageIdentifier> unsuccessfullyLoadedPackages = transitiveUnsuccessfulPkgs.build();
+    NestedSet<Label> loadedTargets = transitiveTargets.build();
+    if (successfulTransitiveLoading) {
+      return TransitiveTargetValue.successfulTransitiveLoading(successfullyLoadedPackages,
+          unsuccessfullyLoadedPackages, loadedTargets);
+    } else {
+      NestedSet<Label> rootCauses = transitiveRootCauses.build();
+      return TransitiveTargetValue.unsuccessfulTransitiveLoading(successfullyLoadedPackages,
+          unsuccessfullyLoadedPackages, loadedTargets, rootCauses, errorLoadingTarget);
+    }
+  }
+
+  private boolean processDeps(Environment env, Target target,
+      NestedSetBuilder<Label> transitiveRootCauses,
+      NestedSetBuilder<PackageIdentifier> transitiveSuccessfulPkgs,
+      NestedSetBuilder<PackageIdentifier> transitiveUnsuccessfulPkgs,
+      NestedSetBuilder<Label> transitiveTargets, Iterable<SkyKey> depKeys) {
+    boolean successfulTransitiveLoading = true;
+    for (Entry<SkyKey, ValueOrException<NoSuchThingException>> entry :
+        env.getValuesOrThrow(depKeys, NoSuchThingException.class).entrySet()) {
       Label depLabel = (Label) entry.getKey().argument();
       TransitiveTargetValue transitiveTargetValue;
       try {
@@ -129,22 +168,7 @@ public class TransitiveTargetFunction implements SkyFunction {
         }
       }
     }
-
-    if (env.valuesMissing()) {
-      return null;
-    }
-
-    NestedSet<PackageIdentifier> successfullyLoadedPackages = transitiveSuccessfulPkgs.build();
-    NestedSet<PackageIdentifier> unsuccessfullyLoadedPackages = transitiveUnsuccessfulPkgs.build();
-    NestedSet<Label> loadedTargets = transitiveTargets.build();
-    if (successfulTransitiveLoading) {
-      return TransitiveTargetValue.successfulTransitiveLoading(successfullyLoadedPackages,
-          unsuccessfullyLoadedPackages, loadedTargets);
-    } else {
-      NestedSet<Label> rootCauses = transitiveRootCauses.build();
-      return TransitiveTargetValue.unsuccessfulTransitiveLoading(successfullyLoadedPackages,
-          unsuccessfullyLoadedPackages, loadedTargets, rootCauses, errorLoadingTarget);
-    }
+    return successfulTransitiveLoading;
   }
 
   @Override
@@ -169,6 +193,33 @@ public class TransitiveTargetFunction implements SkyFunction {
     }
   }
 
+  private static Iterable<SkyKey> getLabelAspectKeys(Target target, Environment env) {
+    List<SkyKey> depKeys = Lists.newArrayList();
+    if (target instanceof Rule) {
+      Multimap<Attribute, Label> transitions =
+          ((Rule) target).getTransitions(Rule.NO_NODEP_ATTRIBUTES);
+      for (Entry<Attribute, Label> entry : transitions.entries()) {
+        SkyKey packageKey = PackageValue.key(entry.getValue().getPackageIdentifier());
+        try {
+          PackageValue pkgValue = (PackageValue) env.getValueOrThrow(packageKey,
+              NoSuchThingException.class);
+          if (pkgValue == null) {
+            continue;
+          }
+          Collection<Label> labels = AspectDefinition.visitAspectsIfRequired(target, entry.getKey(),
+              pkgValue.getPackage().getTarget(entry.getValue().getName())).values();
+          for (Label label : labels) {
+            depKeys.add(TransitiveTargetValue.key(label));
+          }
+        } catch (NoSuchThingException e) {
+          // Do nothing. This error was handled when we computed the corresponding
+          // TransitiveTargetValue.
+        }
+      }
+    }
+    return depKeys;
+  }
+
   private static Iterable<SkyKey> getLabelDepKeys(Target target) {
     List<SkyKey> depKeys = Lists.newArrayList();
     for (Label depLabel : getLabelDeps(target)) {
@@ -188,11 +239,15 @@ public class TransitiveTargetFunction implements SkyFunction {
       visitTargetVisibility(target, labels);
     } else if (target instanceof Rule) {
       visitTargetVisibility(target, labels);
-      labels.addAll(((Rule) target).getLabels(Rule.NO_NODEP_ATTRIBUTES));
+      visitRule(target, labels);
     } else if (target instanceof PackageGroup) {
       visitPackageGroup((PackageGroup) target, labels);
     }
     return labels;
+  }
+
+  private static void visitRule(Target target, Set<Label> labels) {
+    labels.addAll(((Rule) target).getLabels(Rule.NO_NODEP_ATTRIBUTES));
   }
 
   private static void visitTargetVisibility(Target target, Set<Label> labels) {
