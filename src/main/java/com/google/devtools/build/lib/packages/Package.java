@@ -909,6 +909,10 @@ public class Package implements Serializable {
       return self();
     }
 
+    MakeEnvironment.Builder getMakeEnvironment() {
+      return makeEnv;
+    }
+
     /**
      * Sets the default visibility for this package. Called at most once per
      * package from PackageFactory.

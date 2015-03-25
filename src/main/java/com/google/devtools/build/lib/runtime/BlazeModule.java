@@ -27,7 +27,6 @@ import com.google.devtools.build.lib.analysis.ConfiguredRuleClassProvider;
 import com.google.devtools.build.lib.analysis.WorkspaceStatusAction;
 import com.google.devtools.build.lib.analysis.config.BuildConfiguration;
 import com.google.devtools.build.lib.exec.OutputService;
-import com.google.devtools.build.lib.packages.MakeEnvironment;
 import com.google.devtools.build.lib.packages.NoSuchThingException;
 import com.google.devtools.build.lib.packages.PackageFactory;
 import com.google.devtools.build.lib.packages.PackageFactory.PackageArgument;
@@ -352,9 +351,7 @@ public abstract class BlazeModule {
   public PackageFactory.EnvironmentExtension getPackageEnvironmentExtension() {
     return new PackageFactory.EnvironmentExtension() {
       @Override
-      public void update(
-          Environment environment, MakeEnvironment.Builder pkgMakeEnv, Label buildFileLabel) {
-      }
+      public void update(Environment environment, Label buildFileLabel) {}
 
       @Override
       public Iterable<PackageArgument<?>> getPackageArguments() {

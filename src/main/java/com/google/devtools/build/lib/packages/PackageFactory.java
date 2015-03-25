@@ -139,8 +139,7 @@ public final class PackageFactory {
     /**
      * Update the global environment with the identifiers this extension contributes.
      */
-    void update(Environment environment, MakeEnvironment.Builder pkgMakeEnv,
-        Label buildFileLabel);
+    void update(Environment environment, Label buildFileLabel);
 
     /**
      * Returns the extra functions needed to be added to the Skylark native module.
@@ -1091,6 +1090,13 @@ public final class PackageFactory {
     public Label getLabel() {
       return pkgBuilder.getBuildFileLabel();
     }
+
+    /**
+     * Returns the MakeEnvironment Builder of this Package.
+     */
+    public MakeEnvironment.Builder getMakeEnvironment() {
+      return pkgBuilder.getMakeEnvironment();
+    }
   }
 
   /**
@@ -1110,7 +1116,7 @@ public final class PackageFactory {
   }
 
   private void buildPkgEnv(Environment pkgEnv, String packageName,
-      MakeEnvironment.Builder pkgMakeEnv, PackageContext context, RuleFactory ruleFactory) {
+      PackageContext context, RuleFactory ruleFactory) {
     pkgEnv.update("distribs", newDistribsFunction(context));
     pkgEnv.update("glob", newGlobFunction(context, /*async=*/false));
     pkgEnv.update("mocksubinclude", newMockSubincludeFunction(context));
@@ -1129,7 +1135,7 @@ public final class PackageFactory {
     }
 
     for (EnvironmentExtension extension : environmentExtensions) {
-      extension.update(pkgEnv, pkgMakeEnv, context.pkgBuilder.getBuildFileLabel());
+      extension.update(pkgEnv, context.pkgBuilder.getBuildFileLabel());
     }
   }
 
@@ -1178,7 +1184,7 @@ public final class PackageFactory {
 
     // Stuff that closes over the package context:`
     PackageContext context = new PackageContext(pkgBuilder, globber, eventHandler);
-    buildPkgEnv(pkgEnv, packageId.toString(), pkgMakeEnv, context, ruleFactory);
+    buildPkgEnv(pkgEnv, packageId.toString(), context, ruleFactory);
 
     if (containsError) {
       pkgBuilder.setContainsErrors();
@@ -1242,7 +1248,7 @@ public final class PackageFactory {
 
     // Stuff that closes over the package context:
     PackageContext context = new PackageContext(pkgBuilder, globber, NullEventHandler.INSTANCE);
-    buildPkgEnv(pkgEnv, packageId.toString(), pkgMakeEnv, context, ruleFactory);
+    buildPkgEnv(pkgEnv, packageId.toString(), context, ruleFactory);
     pkgEnv.update("glob", newGlobFunction(context, /*async=*/true));
     // The Fileset function is heavyweight in that it can run glob(). Avoid this during the
     // preloading phase.
