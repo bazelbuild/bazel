@@ -33,7 +33,7 @@ the external repository.
 
 ## Near-term Plans
 
-### Alpha release (2015-03)
+### <a name="alpha"></a>Alpha release (2015-03)
 
 This release is intended to
 
@@ -66,7 +66,7 @@ The following features/capabilities will be available in the alpha:
 *   Support for referencing remote source repositories via HTTP
 *   Support for extensibility via an interpreted Python subset (Skylark)
 
-### Beta release (target date: 2015-06)
+### <a name="beta"></a>Beta release (target date: 2015-06)
 
 The beta release will add support for additional languages and platform and
 various other fully supported features. In particular, the following
