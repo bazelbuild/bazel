@@ -31,11 +31,7 @@ function set_up() {
 function test_cpp() {
   assert_build "//examples/cpp:hello-world"
   assert_bazel_run "//examples/cpp:hello-world foo" "Hello foo"
-  if [ "${PLATFORM}" = "darwin" ]; then
-    echo "Under OSX, skipping //examples/cpp:hello-success_test"
-  else
-    assert_test_ok "//examples/cpp:hello-success_test"
-  fi
+  assert_test_ok "//examples/cpp:hello-success_test"
   assert_test_fails "//examples/cpp:hello-fail_test"
 }
 

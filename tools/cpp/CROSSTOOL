@@ -69,7 +69,7 @@ toolchain {
   tool_path { name: "compat-ld" path: "/usr/bin/ld" }
   tool_path { name: "cpp" path: "/usr/bin/cpp" }
   tool_path { name: "dwp" path: "/usr/bin/dwp" }
-  tool_path { name: "gcc" path: "/usr/bin/gcc" }
+  tool_path { name: "gcc" path: "osx_gcc_wrapper.sh" }
   cxx_flag: "-std=c++0x"
   ar_flag: "-static"
   ar_flag: "-s"
