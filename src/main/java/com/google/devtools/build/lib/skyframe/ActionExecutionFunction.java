@@ -214,6 +214,10 @@ public class ActionExecutionFunction implements SkyFunction, CompletionReceiver 
     }
 
     if (state.token == null) {
+      if (action.discoversInputs()) {
+        // Action may have had its inputs updated. Keep track of those new inputs.
+        declareAdditionalDependencies(env, action);
+      }
       // We got a hit from the action cache -- no need to execute.
       return new ActionExecutionValue(
           fileAndMetadataCache.getOutputData(),
