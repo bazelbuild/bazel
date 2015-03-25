@@ -16,12 +16,7 @@
 
 int main(int argc, char * argv[]) {
   @autoreleasepool {
-    NSString *delegateClassName =
-    #ifndef KIF_TESTS
-        @"AppDelegate";
-    #else
-        @"AppDelegateForKIF";
-    #endif
+    NSString *delegateClassName = @"AppDelegate";
     return UIApplicationMain(argc, argv, nil, delegateClassName);
   }
 }
