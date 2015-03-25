@@ -331,8 +331,10 @@ public class XcodeprojGeneration {
   private static PBXFrameworksBuildPhase buildLibraryInfo(
       LibraryObjects libraryObjects, TargetControl target) {
     BuildPhaseBuilder builder = libraryObjects.newBuildPhase();
-    for (String dylib : target.getSdkDylibList()) {
-      builder.addDylib(dylib);
+    if (Containing.item(PRODUCT_TYPES_THAT_HAVE_A_BINARY, productType(target))) {
+      for (String dylib : target.getSdkDylibList()) {
+        builder.addDylib(dylib);
+      }
     }
     for (String sdkFramework : target.getSdkFrameworkList()) {
       builder.addSdkFramework(sdkFramework);
