@@ -140,7 +140,7 @@ darwin)
   fi
   PROTOC=${PROTOC:-third_party/protobuf/protoc.darwin}
 
-  homebrew_header=$(ls -1 $(brew --prefix libarchive 2>/dev/null)/Cellar/libarchive/*/include/archive.h 2>/dev/null | head -n1)
+  homebrew_header=$(ls -1 $(brew --prefix libarchive 2>/dev/null)/include/archive.h 2>/dev/null | head -n1)
   macports_header=/opt/local/include/archive.h
   if [[ -e $homebrew_header ]]; then
       # For use with Homebrew.
