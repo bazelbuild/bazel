@@ -83,19 +83,30 @@ java_binary(
     ],
 )
 
-# Build encyclopedia generation.
 filegroup(
-    name = "gen_be_sources",
-    srcs = glob(["com/google/devtools/build/lib/**/*.java"]),
+    name = "srcs",
+    srcs = glob(["**"]),
+    visibility = ["//src/test/shell/bazel:__pkg__"],
 )
 
-java_binary(
-    name = "docgen_bin",
-    srcs = glob(["com/google/devtools/build/docgen/*.java"]),
-    main_class = "com.google.devtools.build.docgen.BuildEncyclopediaGenerator",
-    resources = glob(
-        ["com/google/devtools/build/docgen/templates/**/*.html"],
+filegroup(
+    name = "be-template_files",
+    srcs = glob(["com/google/devtools/build/docgen/templates/**/*.html"]),
+)
+
+java_library(
+    name = "docgen_javalib",
+    srcs = glob(
+        ["com/google/devtools/build/docgen/*.java"],
+        exclude = [
+            "com/google/devtools/build/docgen/BuildEncyclopediaGenerator.java",
+            "com/google/devtools/build/docgen/SkylarkDocumentationGenerator.java",
+        ],
     ),
+    resources = [":be-template_files"],
+    exports = [
+        ":bazel-core",
+    ],
     deps = [
         ":bazel-core",
         "//third_party:guava",
@@ -103,9 +114,28 @@ java_binary(
     ],
 )
 
+filegroup(
+    name = "docs_embedded_in_sources",
+    srcs = glob(["com/google/devtools/build/lib/**/*.java"]),
+)
+
+java_binary(
+    name = "docgen_bin",
+    srcs = ["com/google/devtools/build/docgen/BuildEncyclopediaGenerator.java"],
+    main_class = "com.google.devtools.build.docgen.BuildEncyclopediaGenerator",
+    deps = [":docgen_javalib"],
+)
+
+java_binary(
+    name = "skydoc_bin",
+    srcs = ["com/google/devtools/build/docgen/SkylarkDocumentationGenerator.java"],
+    main_class = "com.google.devtools.build.docgen.SkylarkDocumentationGenerator",
+    deps = [":docgen_javalib"],
+)
+
 genrule(
     name = "gen_buildencyclopedia",
-    srcs = [":gen_be_sources"],
+    srcs = [":docs_embedded_in_sources"],
     outs = ["build-encyclopedia.html"],
     cmd = ("$(location docgen_bin)" +
            " $$PWD/src/main/java/com/google/devtools/build/lib" +
@@ -114,8 +144,9 @@ genrule(
     tools = [":docgen_bin"],
 )
 
-filegroup(
-    name = "srcs",
-    srcs = glob(["**"]),
-    visibility = ["//src/test/shell/bazel:__pkg__"],
+genrule(
+    name = "gen_skylarklibrary",
+    outs = ["skylark-library.html"],
+    cmd = "$(location :skydoc_bin) $@",
+    tools = [":skydoc_bin"],
 )
