@@ -20,11 +20,12 @@ and work on the Bazel code.
 6. The patch is exported as a Git commit, at which point the Gerrit code review
    is closed.
 
-We do not currently accept pull requests on GitHub.
+**We do not currently accept pull requests on GitHub.**
 
 We will make changes to this process as necessary, and we're hoping to move
 closer to a fully open development model in the future (also see
 [Is Bazel developed fully in the open?](governance.md#isbazelopen)).
+
 
 ## Setting-up your coding environment
 
