@@ -69,10 +69,8 @@ public class SkylarkDocumentationProcessor {
    */
   public void generateDocumentation(String outputPath) throws IOException,
       BuildEncyclopediaDocException {
-    BufferedWriter bw = null;
     File skylarkDocPath = new File(outputPath);
-    try {
-      bw = new BufferedWriter(new FileWriter(skylarkDocPath));
+    try (BufferedWriter bw = new BufferedWriter(new FileWriter(skylarkDocPath))) {
       if (USE_TEMPLATE) {
         bw.write(SourceFileReader.readTemplateContents(DocgenConsts.SKYLARK_BODY_TEMPLATE,
             ImmutableMap.<String, String>of(
@@ -81,10 +79,6 @@ public class SkylarkDocumentationProcessor {
         bw.write(generateAllBuiltinDoc());
       }
       System.out.println("Skylark documentation generated: " + skylarkDocPath.getAbsolutePath());
-    } finally {
-      if (bw != null) {
-        bw.close();
-      }
     }
   }
 
