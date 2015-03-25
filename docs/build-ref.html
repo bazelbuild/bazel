@@ -191,6 +191,10 @@
   subdirectories beneath it, except those which themselves contain a BUILD
   file.
 </p>
+<p>
+  For example, in the following directory tree:
+</p>
+
 <pre>
 src/my/app/BUILD
 src/my/app/app.cc
@@ -541,11 +545,16 @@ src/my/app/tests/test.cc
 </p>
 
 <p>
-  The empty string is also a valid package name (e.g., //:foo). Generally
-  projects should attempt to use more descriptively named packages, though.
+  For a language with a directory structure that is significant
+  to its module system (e.g. Java), it is important to choose directory names
+  that are valid identifiers in the language.
 </p>
 
-
+<p>
+  Although Bazel allows a package at the build root (e.g. <code>//:foo</code>), this
+  is not advised and projects should attempt to use more descriptively named
+  packages.
+</p>
 <p>
   Package names may not contain the substring <code>//</code>, nor
   end with a slash.

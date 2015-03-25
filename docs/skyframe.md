@@ -1,4 +1,6 @@
-# Skyframe - The parallel evaluation and incrementality model of Bazel
+# Skyframe
+
+#### The parallel evaluation and incrementality model of Bazel
 
 ## Data model
 

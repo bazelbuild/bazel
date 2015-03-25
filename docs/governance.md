@@ -1,10 +1,11 @@
 # Governance
 
 ## Is Bazel developed fully in the open? {#isbazelopen}
-Unfortunately not. We have a significant amount of code that is not open source; in terms of rules,
-only ~10% of the rules are open source at this point. We did an experiment where we marked all
-changes that crossed the internal and external code bases over the course of a few weeks, only to
-discover that a lot of our changes still cross both code bases.
+Unfortunately not. We have a significant amount of code that is not open source, mostly rules,
+unit tests and interfaces to internal Google systems. Initially we are open sourcing only ~10% of
+the build rules used internally at Google. We did an experiment over the course of a few weeks
+where we marked all changes that crossed the internal and external code bases, only to discover
+that a lot of our changes still affect both.
 
 This complicates the development process and means that some changes will simply appear in the Bazel
 repository without clear explanation. At the same time, it is difficult to collaborate or get actual
@@ -12,6 +13,8 @@ users without actually having the code in the open. Therefore, we are opening up
 though some of the development is still happening internal to Google.
 
 ## Accepting Contributions
+
+Please also see our [contribution guidelines](contributing.md).
 
 ### Policy
 We use the following rules for accepting code contributions. This is written from the perspective
@@ -22,8 +25,9 @@ list), but this will hopefully change over time.
 
 1. We require all contributors to sign [Google's Contributor License
    Agreement](https://cla.developers.google.com/).
-2. We accept well-written, well-tested contributions of rules written in Skylark, in a `contrib/`
-   directory or similar with clearly documented support policies.
+2. We accept well-written, well-tested contributions of rules written in
+   [Skylark](docs/skylark/concepts.md), in a `contrib/` directory or similar with clearly documented
+   support policies.
 3. We accept well-written, well-tested cleanup and refactoring changes.
 4. We accept well-written, well-tested bug fixes to built-in rules.
 5. We accept well-written, well-tested feature contributions if a core contributor assumes support
@@ -33,8 +37,8 @@ list), but this will hopefully change over time.
    notice in such cases.
 6. We will not accept untested changes, except in very rare cases.
 7. We require a pre-commit code review from a core contributor for all changes. For the time being,
-   we will have to continue making changes across the internal and external code bases, which will be
-   reviewed internal to Google.
+   we will have to continue making changes across the internal and external code bases, which will
+   be reviewed internal to Google.
 8. We will roll back changes if they break the internal development processes of any of the core
    contributors.
 9. We will move towards an open governance model where multiple parties have commit access,

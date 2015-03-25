@@ -1333,6 +1333,30 @@ genrule(
 
   via <code>load</code>.  Note that this also returns the BUILD files of the
   packages containing these <code>load</code>ed files.
+</p>
+
+<p>
+  This operator is typically used when determining what files or
+  packages are required to build a specified target, often in conjunction with
+  the <a href='#output-package'><code>--output package</code></a>
+  option, below).  For example,
+</p>
+<pre>bazel query 'buildfiles(deps(//foo))' --output package</pre>
+<p>
+  returns the set of all packages on which <code>//foo</code> transitively
+  depends.
+</p>
+
+<p>
+  (Note: a naive attempt at the above query would omit
+  the <code>buildfiles</code> operator and use only <code>deps</code>,
+  but this yields an incorrect result: while the result contains the
+  majority of needed packages, those packages that contain only files
+  that are <code>load()<code>'ed
+
+  will be missing.
+</p>
+
 <h2>Output formats</h2>
 
 <p>

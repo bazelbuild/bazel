@@ -142,8 +142,8 @@ Why would I want to use Bazel?
   the files that need to be recompiled. Similarly, it can skip
   re-running tests it knows haven't changed.
 
-* Bazel produces deterministic results. This eliminates skews
-  between incremental vs clean builds, laptop vs CI system, etc.
+* Bazel produces deterministic results. This eliminates skew
+  between incremental and clean builds, laptop and CI system, etc.
 
 * Bazel can build different client and server apps with the same tool
   from the same workspace. For example, you can change a client/server
@@ -396,7 +396,7 @@ building and testing, and Bazel will not bring you much benefit.
 
 For mixed language codebases, you could try the experimental rules at
 
-    <https://github.com/google/bazel/tree/master/examples/go>
+  <https://github.com/google/bazel/tree/master/examples/go>
 
 They mimick the structure of our internal Go rules, and may require
 editing some import lines.
@@ -417,15 +417,14 @@ I need more functionality; can I add rules that are compiled into Bazel?
 ---------------------------------------------
 
 If our extension mechanism is insufficient for your use case, email
-the mailing list for advice: bazel-discuss@googlegroups.com.
+the mailing list for advice: <bazel-discuss@googlegroups.com>.
 
 
 
 Can I contribute to the Bazel code base?
 ----------------------------------------
 
-You can propose patches to Bazel. You can find all the details in the
-[contribution guidelines](contributing.md).
+See our [contribution guidelines](contributing.md).
 
 
 Why isn't all development done in the open?
@@ -440,14 +439,14 @@ for more details.
 How do I contact the team?
 --------------------------
 
-We are reachable at bazel-discuss@googlegroups.com.
+We are reachable at <bazel-discuss@googlegroups.com>.
 
 
 Where do I report bugs?
 -----------------------
 
-Send e-mail to bazel-discuss@googlegroups.com, or file a bug at
-[on github](https://github.com/google/bazel/issues).
+Send e-mail to <bazel-discuss@googlegroups.com> or file a bug
+[on GitHub](https://github.com/google/bazel/issues).
 
 
 
