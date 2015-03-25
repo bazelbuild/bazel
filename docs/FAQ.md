@@ -63,8 +63,8 @@ Why doesn't Google use ...?
   Gradle's, letting Bazel understand exactly what each action does.
   This allows for more parallelism and better reproducibility.
 
-* Buck, Pants: Both tools were created and developed by ex-Googlers at
-  Twitter and FourSquare, and Facebook respectively. They have been modeled
+* Pants, Buck: Both tools were created and developed by ex-Googlers at
+  Twitter and Foursquare, and Facebook respectively. They have been modeled
   after Bazel, but their feature sets are different, so they aren't viable
   alternatives for us.
 
