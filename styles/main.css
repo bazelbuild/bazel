@@ -51,6 +51,7 @@ body {
   color: #f7ffee;
 }
 #download a {
+  margin-right: 32px;
   color: #f7ffee;
   text-decoration: underline;
 }
