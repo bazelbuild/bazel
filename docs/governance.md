@@ -52,6 +52,8 @@ The group of core contributors is self-managing - core contributors are added by
 votes from core contributors on the mailing list and no veto within four business days. We expect
 that new contributors will submit a number of patches before they become core contributors.
 
+__Contact the core team at bazel-discuss@googlegroups.com.__
+
 The current group is:
 
 `@google.com`
@@ -65,3 +67,4 @@ The current group is:
  - `lberki`
  - `philwo`
  - `ulfjack`
+
