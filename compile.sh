@@ -474,4 +474,4 @@ create_deploy_jar "precomp_xcodegen_deploy" "com.google.devtools.build.xcode.xco
 
 cp -f output/actoolzip/precomp_actoolzip_deploy.jar output/ibtoolzip/precomp_ibtoolzip_deploy.jar output/momczip/precomp_momczip_deploy.jar output/bundlemerge/precomp_bundlemerge_deploy.jar output/plmerge/precomp_plmerge_deploy.jar output/xcodegen/precomp_xcodegen_deploy.jar tools/objc/
 
-log "Build successful!"
+log "Build successful! Binary is here: ${PWD}/output/bazel"
