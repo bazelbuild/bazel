@@ -34,6 +34,8 @@ CC=${CC:-gcc}
 CPP=${CPP:-g++}
 CPPSTD="c++0x"
 
+unset JAVA_TOOL_OPTIONS
+
 JAVA_VERSION=${JAVA_VERSION:-"1.8"}
 PLATFORM="$(uname -s | tr 'A-Z' 'a-z')"
 ARCHIVE_CFLAGS=${ARCHIVE_CFLAGS:-""}
