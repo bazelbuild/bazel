@@ -109,7 +109,8 @@ public class FileAndMetadataCache implements ActionInputFileCache, MetadataHandl
   }
 
   private static Metadata metadataFromValue(FileArtifactValue value) throws FileNotFoundException {
-    if (value == FileArtifactValue.MISSING_FILE_MARKER) {
+    if (value == FileArtifactValue.MISSING_FILE_MARKER
+        || value == FileArtifactValue.OMITTED_FILE_MARKER) {
       throw new FileNotFoundException();
     }
     // If the file is empty or a directory, we need to return the mtime because the action cache
