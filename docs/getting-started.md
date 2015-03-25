@@ -49,15 +49,15 @@ examples from the _examples/_ directory.
 
 ```bash
 $ cd ~/gitroot/base_workspace
-$ bazel build examples/java:hello-world
+$ bazel build examples/java-native/src/main/java/com/example/myproject:hello-world
 Extracting Bazel installation...
 ...........
 INFO: Found 1 target...
-Target //examples/java:hello-world up-to-date:
-  bazel-bin/examples/java/hello-world.jar
-  bazel-bin/examples/java/hello-world
+Target //examples/java-native/src/main/java/com/example/myproject:hello-world up-to-date:
+  bazel-bin/examples/java-native/src/main/java/com/example/myproject/hello-world.jar
+  bazel-bin/examples/java-native/src/main/java/com/example/myproject/hello-world
 INFO: Elapsed time: 3.040s, Critical Path: 1.14s
-$ bazel-bin/examples/java/hello-world
+$ bazel-bin/examples/java-native/src/main/java/com/example/myproject/hello-world
 Hello world
 ```
 
@@ -74,8 +74,9 @@ for advice on adding build rules for other languages.
 
 Note that when we ran "bazel build" above, the third argument started with a
 filesystem path ("examples/java"), followed by a colon. When you run
-`bazel build examples/java:hello-world`, Bazel will look for a
-special file named BUILD in the _examples/java/_ subdirectory.  This
+`bazel build examples/java-native/src/main/java/com/example/myproject:hello-world`,
+Bazel will look for a special file named BUILD in the
+`examples/java-native/src/main/java/com/example/myproject/` subdirectory. This
 BUILD file defines rules about how Bazel should build things in this
 subdirectory.
 
