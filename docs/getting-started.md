@@ -20,8 +20,12 @@ $ cd bazel
 $ ./compile.sh
 ```
 
-`./compile.sh` populates the _base_workspace_ subdirectory
-with the tools Bazel needs to do builds.
+`./compile.sh` creates the `bazel` executable in `output/bazel`, which you should
+move into your favorite `PATH` directory (e.g., ~/bin or /usr/local/bin).  It also
+populates the _base_workspace/_ subdirectory with the tools Bazel needs to do builds.
+
+Using a WORKSPACE
+-----------------
 
 Suppose that you have an existing project in a directory, say,
 _~/gitroot/my-project/_. Recursively copy _base_workspace/_ and
@@ -40,10 +44,14 @@ base_workspace/
   examples/
   my-project/
   tools/
+  third_party/
   WORKSPACE
 ```
 
-You can rename _base_workspace/_ to something more descriptive, if you prefer.
+You can rename _base_workspace/_ to something more descriptive, if you prefer. The
+tools/ and third_party/ directories can be symlinked into the workspace, or they 
+can be copied in whole, but must be named tools/ and third_party/ respectively.
+
 
 Sanity Check: Building an Example
 ---------------------------------
